@@ -1,0 +1,53 @@
+// Expense Model (no base44)
+
+export const ExpenseSchema = {
+  name: "Expense",
+
+  fields: {
+    amount: 0,
+
+    category: "other", // food | transport | housing | utilities | entertainment | shopping | health | education | personal | other
+
+    wallet_id: "",
+
+    date: "", // YYYY-MM-DD
+
+    notes: "",
+
+    need_type: "need", // need | want | savings
+  },
+
+  categories: [
+    "food",
+    "transport",
+    "housing",
+    "utilities",
+    "entertainment",
+    "shopping",
+    "health",
+    "education",
+    "personal",
+    "other",
+  ],
+
+  needTypes: ["need", "want", "savings"],
+};
+
+// Helper
+export function createExpense(data) {
+  return {
+    amount: data.amount ?? 0,
+
+    category: data.category || "other",
+
+    wallet_id: data.wallet_id || "",
+
+    date: data.date || "",
+
+    notes: data.notes || "",
+
+    need_type: data.need_type || "need",
+
+    created_at: new Date().toISOString(),
+  };
+}

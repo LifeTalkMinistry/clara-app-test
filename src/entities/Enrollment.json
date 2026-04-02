@@ -1,0 +1,55 @@
+// Enrollment Model (no base44)
+
+export const EnrollmentSchema = {
+  name: "Enrollment",
+
+  fields: {
+    plan: "basic", // standard | premium | basic | transformation | elite | student
+
+    payment_method: "gcash", // gcash | bank
+
+    proof_url: "",
+
+    status: "pending", // pending | under_review | approved | rejected
+
+    admin_notes: "",
+
+    amount_paid: 0,
+
+    referral_code: "",
+  },
+
+  planTypes: [
+    "standard",
+    "premium",
+    "basic",
+    "transformation",
+    "elite",
+    "student",
+  ],
+
+  paymentMethods: ["gcash", "bank"],
+
+  statusTypes: ["pending", "under_review", "approved", "rejected"],
+};
+
+// Helper
+export function createEnrollment(data) {
+  return {
+    plan: data.plan || "basic",
+
+    payment_method: data.payment_method || "gcash",
+
+    proof_url: data.proof_url || "",
+
+    status: data.status || "pending",
+
+    admin_notes: data.admin_notes || "",
+
+    amount_paid: data.amount_paid ?? 0,
+
+    referral_code: data.referral_code || "",
+
+    created_at: new Date().toISOString(),
+  };
+}

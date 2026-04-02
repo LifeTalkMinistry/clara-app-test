@@ -1,0 +1,32 @@
+// ModuleProgress Model (no base44)
+
+export const ModuleProgressSchema = {
+  name: "ModuleProgress",
+
+  fields: {
+    module_id: "",
+    user_email: "",
+
+    status: "in_progress", // in_progress | completed
+
+    started_at: "",
+    completed_at: "",
+  },
+
+  statusTypes: ["in_progress", "completed"],
+};
+
+// Helper
+export function createModuleProgress(data) {
+  return {
+    module_id: data.module_id || "",
+    user_email: data.user_email || "",
+
+    status: data.status || "in_progress",
+
+    started_at: data.started_at || new Date().toISOString(),
+    completed_at: data.completed_at || "",
+
+    created_at: new Date().toISOString(),
+  };
+}

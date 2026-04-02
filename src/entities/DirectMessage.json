@@ -1,0 +1,38 @@
+// DirectMessage Model (no base44)
+
+export const DirectMessageSchema = {
+  name: "DirectMessage",
+
+  fields: {
+    sender_email: "",
+    sender_name: "",
+
+    recipient_email: "",
+    recipient_name: "",
+
+    content: "",
+
+    is_read: false,
+
+    conversation_id: "",
+  },
+};
+
+// Helper
+export function createDirectMessage(data) {
+  return {
+    sender_email: data.sender_email || "",
+    sender_name: data.sender_name || "",
+
+    recipient_email: data.recipient_email || "",
+    recipient_name: data.recipient_name || "",
+
+    content: data.content || "",
+
+    is_read: data.is_read ?? false,
+
+    conversation_id: data.conversation_id || "",
+
+    created_at: new Date().toISOString(),
+  };
+}

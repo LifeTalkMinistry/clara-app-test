@@ -1,0 +1,25 @@
+// Budget Model (no base44)
+
+export const BudgetSchema = {
+  name: "Budget",
+
+  fields: {
+    month: "", // YYYY-MM
+    total_budget: 0,
+    needs_pct: 50,
+    wants_pct: 30,
+    savings_pct: 20,
+  },
+};
+
+// Helper
+export function createBudget(data) {
+  return {
+    month: data.month || "",
+    total_budget: data.total_budget || 0,
+    needs_pct: data.needs_pct ?? 50,
+    wants_pct: data.wants_pct ?? 30,
+    savings_pct: data.savings_pct ?? 20,
+    created_at: new Date().toISOString(),
+  };
+}

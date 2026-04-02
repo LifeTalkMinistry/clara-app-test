@@ -1,0 +1,40 @@
+// CommunityPost Model (no base44)
+
+export const CommunityPostSchema = {
+  name: "CommunityPost",
+
+  fields: {
+    content: "",
+    author_name: "",
+
+    likes: 0,
+    liked_by: [],
+
+    comments: [], // { author, author_name, content, date }
+  },
+};
+
+// Helper
+export function createCommunityPost(data) {
+  return {
+    content: data.content || "",
+    author_name: data.author_name || "",
+
+    likes: data.likes ?? 0,
+    liked_by: data.liked_by || [],
+
+    comments: data.comments || [],
+
+    created_at: new Date().toISOString(),
+  };
+}
+
+// Helper for adding comment
+export function createComment(data) {
+  return {
+    author: data.author || "",
+    author_name: data.author_name || "",
+    content: data.content || "",
+    date: new Date().toISOString(),
+  };
+}

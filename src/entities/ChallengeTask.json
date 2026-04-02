@@ -1,0 +1,100 @@
+// ChallengeTask Model (no base44)
+
+export const ChallengeTaskSchema = {
+  name: "ChallengeTask",
+
+  fields: {
+    title: "",
+    week: 1,
+    day: 1,
+
+    is_active: true,
+    difficulty_mode_enabled: false,
+
+    // MAIN (single mode)
+    main_action_instruction: "",
+    main_why_it_matters: "",
+    main_optional_guidance: "",
+    main_points: 0,
+
+    // EASY
+    easy_action_instruction: "",
+    easy_why_it_matters: "",
+    easy_optional_guidance: "",
+    easy_points: 5,
+
+    // MEDIUM
+    medium_action_instruction: "",
+    medium_why_it_matters: "",
+    medium_optional_guidance: "",
+    medium_points: 10,
+
+    // HARD
+    hard_action_instruction: "",
+    hard_why_it_matters: "",
+    hard_optional_guidance: "",
+    hard_points: 20,
+
+    // PROOF
+    proof_required: "none", // none | text_answer | amount_input | screenshot_upload
+    require_detailed_answer: false,
+
+    // EXTRA FLAGS
+    interview_candidate_task: false,
+
+    // LEGACY
+    points: 0,
+    description: "",
+    type: "",
+  },
+
+  proofTypes: [
+    "none",
+    "text_answer",
+    "amount_input",
+    "screenshot_upload",
+  ],
+};
+
+// Helper
+export function createChallengeTask(data) {
+  return {
+    title: data.title || "",
+    week: data.week || 1,
+    day: data.day || 1,
+
+    is_active: data.is_active ?? true,
+    difficulty_mode_enabled: data.difficulty_mode_enabled ?? false,
+
+    main_action_instruction: data.main_action_instruction || "",
+    main_why_it_matters: data.main_why_it_matters || "",
+    main_optional_guidance: data.main_optional_guidance || "",
+    main_points: data.main_points ?? 0,
+
+    easy_action_instruction: data.easy_action_instruction || "",
+    easy_why_it_matters: data.easy_why_it_matters || "",
+    easy_optional_guidance: data.easy_optional_guidance || "",
+    easy_points: data.easy_points ?? 5,
+
+    medium_action_instruction: data.medium_action_instruction || "",
+    medium_why_it_matters: data.medium_why_it_matters || "",
+    medium_optional_guidance: data.medium_optional_guidance || "",
+    medium_points: data.medium_points ?? 10,
+
+    hard_action_instruction: data.hard_action_instruction || "",
+    hard_why_it_matters: data.hard_why_it_matters || "",
+    hard_optional_guidance: data.hard_optional_guidance || "",
+    hard_points: data.hard_points ?? 20,
+
+    proof_required: data.proof_required || "none",
+    require_detailed_answer: data.require_detailed_answer ?? false,
+
+    interview_candidate_task: data.interview_candidate_task ?? false,
+
+    points: data.points ?? 0,
+    description: data.description || "",
+    type: data.type || "",
+
+    created_at: new Date().toISOString(),
+  };
+}

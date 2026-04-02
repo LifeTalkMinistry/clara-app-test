@@ -1,0 +1,48 @@
+// Plan Model (no base44)
+
+export const PlanSchema = {
+  name: "Plan",
+
+  fields: {
+    name: "",
+    plan_key: "free", // free | basic | transformation | elite | student
+
+    price: 0,
+
+    description: "",
+
+    features: [],
+
+    cta_label: "",
+
+    is_active: true,
+    is_popular: false,
+
+    sort_order: 0,
+  },
+
+  planKeys: ["free", "basic", "transformation", "elite", "student"],
+};
+
+// Helper
+export function createPlan(data) {
+  return {
+    name: data.name || "",
+    plan_key: data.plan_key || "free",
+
+    price: data.price ?? 0,
+
+    description: data.description || "",
+
+    features: data.features || [],
+
+    cta_label: data.cta_label || "",
+
+    is_active: data.is_active ?? true,
+    is_popular: data.is_popular ?? false,
+
+    sort_order: data.sort_order ?? 0,
+
+    created_at: new Date().toISOString(),
+  };
+}

@@ -1,0 +1,21 @@
+export default function App() {
+  return (
+    <div style={{
+      minHeight: "100vh",
+      background: "#081018",
+      color: "white",
+      display: "flex",
+      alignItems: "center",
+      justifyContent: "center",
+      flexDirection: "column"
+    }}>
+      <h1 style={{ color: "#facc15", fontSize: "32px" }}>
+        CLARA App 🚀
+      </h1>
+
+      <p style={{ marginTop: "10px", color: "#cbd5e1" }}>
+        Your app is now working.
+      </p>
+    </div>
+  );
+}

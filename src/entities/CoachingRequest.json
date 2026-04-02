@@ -1,0 +1,34 @@
+// CoachingRequest Model (no base44)
+
+export const CoachingRequestSchema = {
+  name: "CoachingRequest",
+
+  fields: {
+    user_name: "",
+    date: "", // YYYY-MM-DD
+    time: "",
+    topic: "",
+    notes: "",
+
+    status: "pending", // pending | approved | rejected | completed
+    admin_notes: "",
+  },
+
+  statusTypes: ["pending", "approved", "rejected", "completed"],
+};
+
+// Helper
+export function createCoachingRequest(data) {
+  return {
+    user_name: data.user_name || "",
+    date: data.date || "",
+    time: data.time || "",
+    topic: data.topic || "",
+    notes: data.notes || "",
+
+    status: data.status || "pending",
+    admin_notes: data.admin_notes || "",
+
+    created_at: new Date().toISOString(),
+  };
+}

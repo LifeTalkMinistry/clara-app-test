@@ -1,0 +1,106 @@
+{
+  "name": "TaskSubmission",
+  "type": "object",
+  "properties": {
+    "id": {
+      "type": "string",
+      "description": "Unique submission ID"
+    },
+    "user_id": {
+      "type": "string",
+      "description": "ID of the student who submitted this task"
+    },
+    "task_id": {
+      "type": "string",
+      "description": "Reference to the assigned task"
+    },
+    "task_title": {
+      "type": "string",
+      "description": "Denormalized task title for display"
+    },
+    "student_name": {
+      "type": "string",
+      "description": "Student full name for quick display"
+    },
+    "student_email": {
+      "type": "string",
+      "description": "Student email for quick display"
+    },
+    "difficulty_selected": {
+      "type": "string",
+      "enum": ["easy", "medium", "hard"],
+      "description": "Difficulty chosen by the student"
+    },
+    "content": {
+      "type": "string",
+      "description": "Student written submission or reflection"
+    },
+    "file_url": {
+      "type": "string",
+      "description": "Uploaded proof file URL"
+    },
+    "file_name": {
+      "type": "string",
+      "description": "Original filename of uploaded proof"
+    },
+    "file_type": {
+      "type": "string",
+      "description": "MIME type of uploaded proof"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "submitted",
+        "under_review",
+        "approved",
+        "rejected",
+        "needs_revision"
+      ],
+      "description": "Current review status"
+    },
+    "admin_notes": {
+      "type": "string",
+      "description": "Admin feedback for the student"
+    },
+    "points_earned": {
+      "type": "number",
+      "description": "Points awarded for this submission"
+    },
+    "submitted_at": {
+      "type": "string",
+      "format": "date-time",
+      "description": "When the student submitted the task"
+    },
+    "reviewed_at": {
+      "type": "string",
+      "format": "date-time",
+      "description": "When the admin reviewed the submission"
+    },
+    "reviewed_by": {
+      "type": "string",
+      "description": "Admin user ID who reviewed the submission"
+    },
+    "created_at": {
+      "type": "string",
+      "format": "date-time",
+      "description": "Record creation timestamp"
+    },
+    "updated_at": {
+      "type": "string",
+      "format": "date-time",
+      "description": "Last update timestamp"
+    }
+  },
+  "required": [
+    "user_id",
+    "task_id",
+    "task_title",
+    "student_name",
+    "student_email",
+    "content",
+    "status",
+    "submitted_at",
+    "created_at",
+    "updated_at"
+  ]
+}
