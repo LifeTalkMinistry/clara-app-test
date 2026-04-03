@@ -1,4 +1,4 @@
-import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
+import { Routes, Route } from "react-router-dom";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "sonner";
 
@@ -37,37 +37,35 @@ import PageNotFound from "./lib/PageNotFound";
 function App() {
   return (
     <QueryClientProvider client={queryClientInstance}>
-      <Router>
-        <Routes>
-          <Route element={<Layout />}>
-            <Route path="/" element={<Dashboard />} />
-            <Route path="/dashboard" element={<Dashboard />} />
-            <Route path="/tier-select" element={<TierSelect />} />
-            <Route path="/enroll" element={<Enroll />} />
-            <Route path="/expenses" element={<Expenses />} />
-            <Route path="/add-funds" element={<AddFunds />} />
-            <Route path="/wallets" element={<Wallets />} />
-            <Route path="/budgets" element={<Budgets />} />
-            <Route path="/analytics" element={<Analytics />} />
-            <Route path="/savings-goals" element={<SavingsGoals />} />
-            <Route path="/tasks" element={<Tasks />} />
-            <Route path="/modules" element={<Modules />} />
-            <Route path="/community" element={<Community />} />
-            <Route path="/messages" element={<Messages />} />
-            <Route path="/coaching" element={<Coaching />} />
-            <Route path="/news" element={<News />} />
-            <Route path="/referrals" element={<Referrals />} />
+      <Routes>
+        <Route element={<Layout />}>
+          <Route path="/" element={<Dashboard />} />
+          <Route path="/dashboard" element={<Dashboard />} />
+          <Route path="/tier-select" element={<TierSelect />} />
+          <Route path="/enroll" element={<Enroll />} />
+          <Route path="/expenses" element={<Expenses />} />
+          <Route path="/add-funds" element={<AddFunds />} />
+          <Route path="/wallets" element={<Wallets />} />
+          <Route path="/budgets" element={<Budgets />} />
+          <Route path="/analytics" element={<Analytics />} />
+          <Route path="/savings-goals" element={<SavingsGoals />} />
+          <Route path="/tasks" element={<Tasks />} />
+          <Route path="/modules" element={<Modules />} />
+          <Route path="/community" element={<Community />} />
+          <Route path="/messages" element={<Messages />} />
+          <Route path="/coaching" element={<Coaching />} />
+          <Route path="/news" element={<News />} />
+          <Route path="/referrals" element={<Referrals />} />
 
-            {/* Admin */}
-            <Route path="/admin" element={<AdminPanel />} />
-            <Route path="/admin/student/:userId" element={<StudentProfile />} />
-            <Route path="/admin/referral-materials" element={<AdminReferralMaterials />} />
-            <Route path="/admin/daily-tips" element={<AdminDailyTips />} />
-          </Route>
+          {/* Admin */}
+          <Route path="/admin" element={<AdminPanel />} />
+          <Route path="/admin/student/:userId" element={<StudentProfile />} />
+          <Route path="/admin/referral-materials" element={<AdminReferralMaterials />} />
+          <Route path="/admin/daily-tips" element={<AdminDailyTips />} />
+        </Route>
 
-          <Route path="*" element={<PageNotFound />} />
-        </Routes>
-      </Router>
+        <Route path="*" element={<PageNotFound />} />
+      </Routes>
 
       <Toaster />
     </QueryClientProvider>

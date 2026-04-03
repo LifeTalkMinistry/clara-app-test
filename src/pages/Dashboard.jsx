@@ -1,31 +1,34 @@
-import { useState } from "react";
-import { TrendingDown, PiggyBank, ListChecks, Newspaper } from "lucide-react";
+import {
+  TrendingDown,
+  PiggyBank,
+  ListChecks,
+  Newspaper,
+  Shield,
+  Pencil,
+  Lightbulb,
+} from "lucide-react";
 import { Link } from "react-router-dom";
 
-import EmergencyFundCard from "../components/EmergencyFundCard";
-import StatCard from "../components/StatCard";
-import DailyTipCard from "../components/DailyTipCard";
-
-// TEMP MOCK DATA
-const useUserRole = () => ({
-  user: { full_name: "Max" },
-  isPaid: true,
-  isFree: false,
-  isPending: false,
-});
-
-const useFinancialData = () => ({
-  loading: false,
-  totalRetained: 12000,
-  thisMonthSpent: 8000,
-  thisMonthIncome: 20000,
-});
-
 export default function Dashboard() {
-  const { user, isFree, isPending } = useUserRole();
-  const data = useFinancialData();
+  const user = { full_name: "Max" };
 
-  const [survivalExpense, setSurvivalExpense] = useState(5000);
+  const data = {
+    monthlyCost: 8000,
+    available: 0,
+    targetMonths: 3,
+    thisMonthSpent: 0,
+    thisMonthIncome: 0,
+    pendingTasks: 4,
+    currentTaskTitle: "Sample",
+    currentTaskWeek: 1,
+    currentTaskDay: 15,
+    tip: "Flip for today's tip",
+    retentionRate: 0,
+  };
+
+  const targetAmount = data.monthlyCost * data.targetMonths;
+  const progress =
+    targetAmount > 0 ? Math.min((data.available / targetAmount) * 100, 100) : 0;
 
   const fmt = (n) =>
     new Intl.NumberFormat("en-PH", {
@@ -34,79 +37,179 @@ export default function Dashboard() {
       minimumFractionDigits: 0,
     }).format(n);
 
-  if (data.loading) {
-    return (
-      <div className="flex items-center justify-center h-64 text-white">
-        Loading...
-      </div>
-    );
-  }
-
   return (
-    <div className="min-h-full">
-      <div className="grad-green px-4 md:px-6 pt-8 pb-6">
-        <div className="max-w-4xl mx-auto flex justify-between">
+    <div className="min-h-full bg-[#061018]">
+      <div className="px-4 md:px-6 pt-8 pb-6 bg-gradient-to-r from-[#0b3d1f] via-[#11844a] to-[#1a9dcc]">
+        <div className="max-w-5xl mx-auto flex items-start justify-between gap-4">
           <div>
-            <p className="text-white/50 text-sm">Welcome back,</p>
-            <h1 className="text-3xl font-bold text-white">
+            <p className="text-white/70 text-sm">Welcome back,</p>
+            <h1 className="text-3xl md:text-4xl font-bold text-white leading-tight">
               {user?.full_name || "Financial Champion"}
             </h1>
           </div>
 
-          <Link to="/news">
-            <button className="flex items-center gap-2 px-3 py-2 rounded-xl bg-white/20 text-white text-xs font-semibold">
-              <Newspaper className="w-4 h-4" /> News
-            </button>
+          <Link
+            to="/news"
+            className="inline-flex items-center gap-2 rounded-2xl bg-white/15 px-4 py-2 text-sm font-semibold text-white border border-white/10 hover:bg-white/20 transition"
+          >
+            <Newspaper className="w-4 h-4" />
+            News
           </Link>
         </div>
       </div>
 
-      <div className="px-4 md:px-6 mt-2 max-w-4xl mx-auto pb-8">
-        {!isFree && !isPending && (
-          <EmergencyFundCard
-            moneyLeft={data.totalRetained}
-            survivalExpense={survivalExpense}
-            retentionRate={
-              data.thisMonthIncome > 0
-                ? Math.round((data.totalRetained / data.thisMonthIncome) * 100)
-                : 0
-            }
-            onSurvivalSaved={(val) => setSurvivalExpense(val)}
-          />
-        )}
-
-        <div className="grid grid-cols-2 gap-3 mb-4 auto-rows-fr">
-          <DailyTipCard />
-
-          <StatCard
-            label="Money Left"
-            value={fmt(data.totalRetained)}
-            sub="Retained amount"
-            icon={PiggyBank}
-            variant="yellow"
-          />
-
-          <StatCard
-            label="This Month Spent"
-            value={fmt(data.thisMonthSpent)}
-            sub={`vs ${fmt(data.thisMonthIncome)} income`}
-            icon={TrendingDown}
-            variant="blue"
-          />
-
-          <Link to="/tasks" className="block h-full">
-            <div className="rounded-2xl p-4 bg-[#0F172A] border border-white/10 h-full flex flex-col justify-between">
-              <div className="flex justify-between mb-2">
-                <span className="text-xs text-white/60">TASKS</span>
-                <ListChecks className="w-4 h-4 text-white/60" />
+      <div className="px-4 md:px-6 mt-4 max-w-5xl mx-auto pb-10">
+        <div className="rounded-[28px] border border-[#8b5cf6]/20 bg-gradient-to-br from-[#1a0f27] via-[#160d22] to-[#1b1022] p-5 md:p-6 mb-4 shadow-[0_10px_40px_rgba(0,0,0,0.25)]">
+          <div className="flex items-start justify-between gap-4 mb-5">
+            <div>
+              <div className="flex items-center gap-2 text-white mb-4">
+                <Shield className="w-4 h-4 text-[#30e38c]" />
+                <span className="text-sm font-semibold">Emergency Fund Progress</span>
               </div>
 
-              <div>
-                <p className="text-sm font-semibold text-white">
-                  Complete your Day 1 task
-                </p>
-                <p className="text-xs text-white/60">Week 1 • Day 1</p>
+              <div className="flex items-center gap-3 flex-wrap mb-5">
+                <span className="text-white/70 text-sm font-medium">Goal:</span>
+
+                <button className="w-8 h-8 rounded-full bg-white/10 border border-white/10 text-white/70 flex items-center justify-center">
+                  −
+                </button>
+
+                <span className="text-[#30e38c] text-3xl font-bold leading-none">
+                  {data.targetMonths}
+                </span>
+
+                <span className="text-[#30e38c] text-2xl font-bold leading-none">
+                  Months
+                </span>
+
+                <button className="w-8 h-8 rounded-full bg-white/10 border border-white/10 text-white/70 flex items-center justify-center">
+                  +
+                </button>
+
+                <span className="text-white/50 text-sm">Basic Safety</span>
               </div>
+
+              <h2 className="text-3xl md:text-5xl font-bold text-white mb-4 leading-tight">
+                Start building your fund
+              </h2>
+            </div>
+
+            <div className="flex items-center gap-3 shrink-0">
+              <span className="px-3 py-1 rounded-full bg-[#5b2330] text-[#ff8ea1] text-sm font-semibold">
+                At Risk
+              </span>
+              <button className="text-white/50 hover:text-white transition">
+                <Pencil className="w-4 h-4" />
+              </button>
+            </div>
+          </div>
+
+          <div className="mb-2 flex items-center justify-between gap-4">
+            <p className="text-white/70 text-sm">Progress to 3-month target</p>
+            <p className="text-white/70 text-sm font-semibold">
+              {Math.round(progress)}%
+            </p>
+          </div>
+
+          <div className="w-full h-3 rounded-full bg-white/10 overflow-hidden mb-3">
+            <div
+              className="h-full rounded-full bg-gradient-to-r from-[#25d366] to-[#34d399] transition-all duration-500"
+              style={{ width: `${progress}%` }}
+            />
+          </div>
+
+          <p className="text-sm italic text-white/50 mb-5">
+            Start with 3 months of protection.
+          </p>
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mb-3">
+            <div className="rounded-2xl border border-white/10 bg-white/[0.03] px-4 py-4 text-center">
+              <p className="text-xs text-white/50 mb-1">Monthly Cost</p>
+              <p className="text-2xl font-bold text-white">{fmt(data.monthlyCost)}</p>
+            </div>
+
+            <div className="rounded-2xl border border-white/10 bg-white/[0.03] px-4 py-4 text-center">
+              <p className="text-xs text-white/50 mb-1">Available</p>
+              <p className="text-2xl font-bold text-white">{fmt(data.available)}</p>
+            </div>
+
+            <div className="rounded-2xl border border-white/10 bg-white/[0.03] px-4 py-4 text-center">
+              <p className="text-xs text-white/50 mb-1">Target</p>
+              <p className="text-2xl font-bold text-white">{fmt(targetAmount)}</p>
+            </div>
+          </div>
+
+          <p className="text-sm text-white/60">
+            Retention Rate: <span className="text-white">{data.retentionRate}%</span>
+          </p>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="rounded-[24px] p-5 bg-gradient-to-br from-[#03271f] to-[#06352c] border border-[#0f7a60] min-h-[180px]">
+            <div className="flex items-start justify-between mb-10">
+              <span className="text-sm font-semibold tracking-wide text-white/70 uppercase">
+                Daily Money Tip
+              </span>
+              <div className="w-10 h-10 rounded-2xl bg-[#0f7a60]/30 flex items-center justify-center">
+                <Lightbulb className="w-5 h-5 text-[#59f0c0]" />
+              </div>
+            </div>
+
+            <p className="text-2xl font-semibold text-white leading-snug">
+              {data.tip}
+            </p>
+          </div>
+
+          <div className="rounded-[24px] p-5 bg-gradient-to-br from-[#5a4500] to-[#6d5607] border border-[#8f7416] min-h-[180px]">
+            <div className="flex items-start justify-between mb-8">
+              <span className="text-sm font-semibold tracking-wide text-white/70 uppercase">
+                Money Left
+              </span>
+              <div className="w-10 h-10 rounded-2xl bg-white/10 flex items-center justify-center">
+                <PiggyBank className="w-5 h-5 text-[#ffe082]" />
+              </div>
+            </div>
+
+            <p className="text-4xl font-bold text-white">{fmt(data.available)}</p>
+            <p className="text-white/80 mt-2 text-lg">Retained amount</p>
+          </div>
+
+          <div className="rounded-[24px] p-5 bg-gradient-to-br from-[#0d2b6b] to-[#12285a] border border-[#274690] min-h-[180px]">
+            <div className="flex items-start justify-between mb-8">
+              <span className="text-sm font-semibold tracking-wide text-white/70 uppercase">
+                This Month Spent
+              </span>
+              <div className="w-10 h-10 rounded-2xl bg-white/10 flex items-center justify-center">
+                <TrendingDown className="w-5 h-5 text-[#d6e4ff]" />
+              </div>
+            </div>
+
+            <p className="text-4xl font-bold text-white">{fmt(data.thisMonthSpent)}</p>
+            <p className="text-white/70 mt-2 text-lg">
+              vs {fmt(data.thisMonthIncome)} income
+            </p>
+          </div>
+
+          <Link to="/tasks" className="block">
+            <div className="rounded-[24px] p-5 bg-gradient-to-br from-[#182742] to-[#0f1e36] border border-white/10 min-h-[180px] hover:border-white/20 transition">
+              <div className="flex items-start justify-between mb-10">
+                <span className="text-sm font-semibold tracking-wide text-white/70 uppercase">
+                  Tasks
+                </span>
+                <div className="w-10 h-10 rounded-2xl bg-white/10 flex items-center justify-center">
+                  <ListChecks className="w-5 h-5 text-white/80" />
+                </div>
+              </div>
+
+              <p className="text-2xl font-semibold text-white">
+                {data.currentTaskTitle}
+              </p>
+              <p className="text-white/60 mt-1 text-lg">
+                Week {data.currentTaskWeek} • Day {data.currentTaskDay}
+              </p>
+              <p className="text-[#ffd84d] mt-3 font-semibold">
+                {data.pendingTasks} pending
+              </p>
             </div>
           </Link>
         </div>
