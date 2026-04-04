@@ -5,6 +5,9 @@ import path from "path";
 export default defineConfig({
   plugins: [react()],
   base: "/clara-app-test/",
+  build: {
+    outDir: "docs",
+  },
   resolve: {
     alias: {
       "@": path.resolve(__dirname, "./src"),
