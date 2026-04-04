@@ -19,24 +19,50 @@ function getStatus(months, targetMonths) {
   if (months >= targetMonths) {
     return {
       label: "Secure",
-      badge: "bg-emerald-500/15 text-emerald-300 border border-emerald-400/20",
-      bar: "bg-gradient-to-r from-emerald-400 to-green-400",
+      text: "text-emerald-300",
+      badge: "bg-emerald-500/15 text-emerald-300 border border-emerald-400/25",
+      bar: "bg-emerald-400",
     };
   }
 
-  if (months >= targetMonths * 0.5) {
+  if (months >= targetMonths * 0.66) {
+    return {
+      label: "Stable",
+      text: "text-emerald-300",
+      badge: "bg-emerald-500/15 text-emerald-300 border border-emerald-400/25",
+      bar: "bg-emerald-400",
+    };
+  }
+
+  if (months >= targetMonths * 0.33) {
     return {
       label: "Building",
-      badge: "bg-amber-500/15 text-amber-300 border border-amber-400/20",
-      bar: "bg-gradient-to-r from-amber-400 to-yellow-400",
+      text: "text-amber-300",
+      badge: "bg-amber-500/15 text-amber-300 border border-amber-400/25",
+      bar: "bg-amber-400",
     };
   }
 
   return {
     label: "At Risk",
-    badge: "bg-[#6b2534] text-[#ff9daf] border border-[#ff9daf]/10",
-    bar: "bg-gradient-to-r from-pink-400 to-red-400",
+    text: "text-red-300",
+    badge: "bg-red-500/15 text-red-300 border border-red-400/25",
+    bar: "bg-red-400",
   };
+}
+
+function getProgression(months, targetMonths) {
+  if (months >= targetMonths && targetMonths === 3) {
+    return "Great job! Increase your safety to 6 months?";
+  }
+  if (months >= targetMonths && targetMonths === 6) {
+    return "You're building strong security. Aim for 12 months!";
+  }
+  if (months >= targetMonths) {
+    return "Outstanding! You have maximum financial protection.";
+  }
+
+  return `Start with ${targetMonths} month${targetMonths > 1 ? "s" : ""} of protection.`;
 }
 
 export default function EmergencyFundCard({
@@ -45,8 +71,8 @@ export default function EmergencyFundCard({
   retentionRate,
   onSurvivalSaved,
 }) {
-  const [targetMonths, setTargetMonths] = useState(3);
   const [editing, setEditing] = useState(false);
+  const [targetMonths, setTargetMonths] = useState(3);
   const [showModal, setShowModal] = useState(false);
 
   useEffect(() => {
@@ -57,15 +83,15 @@ export default function EmergencyFundCard({
     }
   }, [survivalExpense]);
 
-  const target = (survivalExpense || 0) * targetMonths;
-  const months = survivalExpense > 0 ? moneyLeft / survivalExpense : 0;
-  const pct = target > 0 ? Math.min((moneyLeft / target) * 100, 100) : 0;
+  const safeMoneyLeft = Number(moneyLeft) || 0;
+  const safeSurvivalExpense = Number(survivalExpense) || 0;
 
+  const target = safeSurvivalExpense * targetMonths;
+  const months = safeSurvivalExpense > 0 ? safeMoneyLeft / safeSurvivalExpense : 0;
+  const pct = target > 0 ? Math.min((safeMoneyLeft / target) * 100, 100) : 0;
   const status = getStatus(months, targetMonths);
+  const progressionMsg = getProgression(months, targetMonths);
   const milestone = MILESTONES.find((m) => m.months === targetMonths);
-
-  const decrease = () => setTargetMonths((p) => Math.max(3, p - 3));
-  const increase = () => setTargetMonths((p) => Math.min(12, p + 3));
 
   const handleSaved = (val) => {
     setEditing(false);
@@ -77,108 +103,125 @@ export default function EmergencyFundCard({
     <>
       <SurvivalExpenseModal open={showModal || editing} onSaved={handleSaved} />
 
-      {/* CARD */}
-      <div className="mb-6 rounded-[28px] border border-white/10 
-      bg-[linear-gradient(135deg,#1a0f24,#140a1d)] 
-      p-6 text-white shadow-[0_25px_60px_rgba(0,0,0,0.5)]">
+      <div
+        className="
+          rounded-2xl p-4 mb-4 w-full overflow-hidden
+          border border-white/10
+          bg-[linear-gradient(135deg,rgba(20,14,26,0.98)_0%,rgba(33,20,38,0.96)_50%,rgba(22,15,28,0.98)_100%)]
+          shadow-[0_12px_30px_rgba(0,0,0,0.35)]
+        "
+      >
+        <div className="flex items-start gap-2 mb-3">
+          <Shield className="w-4 h-4 text-emerald-400 flex-shrink-0 mt-0.5" />
 
-        {/* HEADER */}
-        <div className="flex items-start justify-between mb-5">
-          <div>
-            <div className="flex items-center gap-2 mb-3">
-              <Shield className="h-4 w-4 text-emerald-400" />
-              <span className="text-sm font-semibold text-white/90">
-                Emergency Fund Progress
-              </span>
-            </div>
+          <p className="font-heading font-bold text-sm text-white flex-1 min-w-0 leading-snug">
+            Emergency Fund Progress
+          </p>
 
-            <div className="flex items-center gap-3">
-              <span className="text-sm text-white/60">Goal:</span>
+          <span
+            className={`text-xs font-semibold px-2.5 py-1 rounded-full whitespace-nowrap flex-shrink-0 ${status.badge}`}
+          >
+            {status.label}
+          </span>
 
-              <button onClick={decrease}
-                className="h-8 w-8 rounded-full border border-white/10 bg-white/5 flex items-center justify-center">
-                <Minus size={14} />
-              </button>
-
-              <span className="text-2xl font-bold text-emerald-400">
-                {targetMonths} Months
-              </span>
-
-              <button onClick={increase}
-                className="h-8 w-8 rounded-full border border-white/10 bg-white/5 flex items-center justify-center">
-                <Plus size={14} />
-              </button>
-
-              <span className="text-sm text-white/40">
-                {milestone?.label}
-              </span>
-            </div>
-          </div>
-
-          <div className="flex items-center gap-3">
-            <span className={`px-3 py-1 text-sm rounded-full ${status.badge}`}>
-              {status.label}
-            </span>
-
-            <button onClick={() => setEditing(true)}>
-              <Edit2 className="h-4 w-4 text-white/50 hover:text-white" />
-            </button>
-          </div>
+          <button
+            type="button"
+            onClick={() => setEditing(true)}
+            className="text-white/45 hover:text-white/80 transition-colors"
+          >
+            <Edit2 className="w-3.5 h-3.5" />
+          </button>
         </div>
 
-        {/* TITLE */}
-        <h2 className="text-[36px] md:text-[42px] font-bold leading-tight mb-4">
-          {moneyLeft <= 0
-            ? "Start building your fund"
-            : `Survive ${months.toFixed(1)} months`}
-        </h2>
+        <div className="flex items-center gap-2 mb-4 flex-wrap">
+          <span className="text-xs text-white/60 font-semibold">Goal:</span>
 
-        {/* PROGRESS */}
-        <div className="mb-5">
-          <div className="flex justify-between text-sm mb-2">
-            <span className="text-white/70">Progress to target</span>
-            <span className="text-white font-semibold">
-              {pct.toFixed(0)}%
+          <button
+            type="button"
+            onClick={() => setTargetMonths((m) => Math.max(3, m - 1))}
+            className="w-7 h-7 rounded-full bg-white/10 border border-white/10 text-white flex items-center justify-center hover:bg-white/15 transition-colors"
+          >
+            <Minus className="w-3 h-3" />
+          </button>
+
+          <span className="font-heading font-bold text-base text-emerald-400 min-w-[88px] text-center">
+            {targetMonths} Months
+          </span>
+
+          <button
+            type="button"
+            onClick={() => setTargetMonths((m) => Math.min(12, m + 1))}
+            className="w-7 h-7 rounded-full bg-white/10 border border-white/10 text-white flex items-center justify-center hover:bg-white/15 transition-colors"
+          >
+            <Plus className="w-3 h-3" />
+          </button>
+
+          {milestone && (
+            <span className="text-[11px] text-white/45">
+              {milestone.label}
             </span>
+          )}
+        </div>
+
+        <div className="mb-4">
+          {safeMoneyLeft <= 0 ? (
+            <p className="font-bold text-[clamp(1.6rem,4vw,2rem)] text-white/80 leading-tight">
+              Start building your fund
+            </p>
+          ) : (
+            <p
+              className={`font-bold text-[clamp(1.7rem,4vw,2.1rem)] leading-tight ${status.text}`}
+            >
+              Survive {months.toFixed(1)} months
+            </p>
+          )}
+        </div>
+
+        <div className="mb-4">
+          <div className="flex justify-between text-xs text-white/65 mb-1.5">
+            <span>Progress to {targetMonths}-month target</span>
+            <span>{pct.toFixed(0)}%</span>
           </div>
 
-          <div className="h-2 bg-white/10 rounded-full overflow-hidden">
+          <div className="h-2.5 bg-white/10 rounded-full overflow-hidden">
             <div
-              className={`${status.bar} h-full rounded-full`}
+              className={`h-full rounded-full transition-all duration-500 ${status.bar}`}
               style={{ width: `${pct}%` }}
             />
           </div>
 
-          <p className="text-sm text-white/40 italic mt-2">
-            Start with 3 months of protection.
+          <p className="text-[12px] text-white/55 mt-2 italic leading-relaxed">
+            {progressionMsg}
           </p>
         </div>
 
-        {/* STATS */}
-        <div className="grid grid-cols-3 gap-3">
-          <Stat label="Monthly Cost" value={fmt(survivalExpense)} />
-          <Stat label="Available" value={fmt(moneyLeft)} />
-          <Stat label="Target" value={fmt(target)} />
+        <div className="grid grid-cols-3 gap-2 text-center">
+          <div className="bg-white/5 border border-white/10 rounded-xl p-2.5 backdrop-blur-sm">
+            <p className="text-[11px] text-white/55">Monthly Cost</p>
+            <p className="font-bold text-sm text-white mt-1">
+              {fmt(safeSurvivalExpense)}
+            </p>
+          </div>
+
+          <div className="bg-white/5 border border-white/10 rounded-xl p-2.5 backdrop-blur-sm">
+            <p className="text-[11px] text-white/55">Available</p>
+            <p className="font-bold text-sm text-white mt-1">
+              {fmt(safeMoneyLeft)}
+            </p>
+          </div>
+
+          <div className="bg-white/5 border border-white/10 rounded-xl p-2.5 backdrop-blur-sm">
+            <p className="text-[11px] text-white/55">Target</p>
+            <p className="font-bold text-sm text-white mt-1">{fmt(target)}</p>
+          </div>
         </div>
 
-        {retentionRate !== undefined && (
-          <p className="mt-4 text-sm text-white/60">
-            Retention Rate:{" "}
-            <span className="text-white font-semibold">
-              {retentionRate}%
-            </span>
+        {retentionRate !== undefined && retentionRate !== null && (
+          <p className="text-xs text-white/55 mt-3">
+            Retention Rate: {retentionRate}%
           </p>
         )}
       </div>
     </>
-  );
-}
-
-function Stat({ label, value }) {
-  return (
-    <div className="rounded-xl border border-white/10 bg-white/[0.04] p-4 text-center">
-      <p className="text-xs text-white/50 mb-1">{label}</p>
-      <p className="text-lg font-bold">{value}</p>
-    </div>
   );
 }

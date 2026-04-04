@@ -1,26 +1,29 @@
 export default function EmptyState({
   icon: Icon,
   title = "Nothing here yet",
-  description = "There’s no content available right now.",
+  description = "",
   action = null,
+  className = "",
 }) {
   return (
-    <div className="rounded-2xl border border-white/10 bg-[#0F172A] p-8 text-center text-white">
-      {Icon ? (
-        <div className="w-14 h-14 mx-auto rounded-2xl bg-emerald-500/10 flex items-center justify-center mb-4">
-          <Icon className="w-7 h-7 text-emerald-400" />
+    <div
+      className={`flex flex-col items-center justify-center py-12 px-4 text-center ${className}`}
+    >
+      {Icon && (
+        <div className="w-16 h-16 rounded-2xl bg-muted flex items-center justify-center mb-4">
+          <Icon className="w-8 h-8 text-muted-foreground" />
         </div>
+      )}
+
+      <h3 className="font-heading font-semibold text-lg mb-1">{title}</h3>
+
+      {description ? (
+        <p className="text-sm text-muted-foreground max-w-sm mb-4">
+          {description}
+        </p>
       ) : null}
 
-      <h3 className="text-lg font-semibold text-white mb-2">
-        {title}
-      </h3>
-
-      <p className="text-sm text-white/60 max-w-md mx-auto mb-5">
-        {description}
-      </p>
-
-      {action}
+      {action ? <div>{action}</div> : null}
     </div>
   );
 }

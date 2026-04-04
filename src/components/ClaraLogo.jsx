@@ -1,5 +1,12 @@
 import logo from "@/assets/clara-logo.png";
 
+/**
+ * ClaraLogo – reusable brand logo component
+ * variant="full"    → logo icon + "CLARA" wordmark
+ * variant="icon"    → logo icon only
+ * theme="dark"      → white text
+ * theme="light"     → dark text
+ */
 export default function ClaraLogo({
   variant = "full",
   theme = "dark",
@@ -8,21 +15,20 @@ export default function ClaraLogo({
   const textColor = theme === "dark" ? "text-white" : "text-[#182028]";
 
   return (
-    <div className={`flex items-center gap-3 ${className}`}>
-      <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-[#071018] p-[3px] shadow-[inset_0_1px_2px_rgba(255,255,255,0.08),0_8px_18px_rgba(0,0,0,0.35)]">
-        <img
-          src={logo}
-          alt="CLARA Logo"
-          className="h-full w-full rounded-[14px] object-cover"
-        />
-      </div>
+    <div className={`flex items-center gap-2.5 ${className}`}>
+      <img
+        src={logo}
+        alt="CLARA Logo"
+        className="w-10 h-10 rounded-xl object-contain bg-[#071018] flex-shrink-0"
+        style={{ padding: "2px" }}
+      />
 
       {variant === "full" && (
-        <div className="leading-none">
-          <p className={`text-[29px] font-bold tracking-tight ${textColor}`}>
-            CLARA
-          </p>
-        </div>
+        <p
+          className={`font-heading font-bold text-lg leading-tight tracking-wide ${textColor}`}
+        >
+          CLARA
+        </p>
       )}
     </div>
   );
