@@ -146,7 +146,7 @@ function ProofSection({ task, form, setForm, onSubmit, submitting }) {
       )}
 
       <Button
-        className="w-full bg-[#22c55e] text-white hover:bg-[#16a34a] shadow-[0_10px_30px_rgba(34,197,94,0.25)]"
+        className="w-full bg-[#22c55e] text-white shadow-[0_10px_30px_rgba(34,197,94,0.25)] hover:bg-[#16a34a]"
         disabled={!canSubmit() || submitting}
         onClick={onSubmit}
       >
@@ -261,14 +261,14 @@ export default function ChallengeModal({ task, onClose, onSubmitted, user }) {
 
   return (
     <Dialog open={!!task} onOpenChange={() => onClose?.()}>
-      <DialogContent className="max-w-lg overflow-hidden border border-white/10 bg-[#071018]/95 p-0 text-white shadow-[0_20px_70px_rgba(0,0,0,0.65)] backdrop-blur-xl">
+      <DialogContent className="max-w-lg overflow-hidden rounded-[28px] border border-white/10 bg-[#071018]/95 p-0 text-white shadow-[0_20px_70px_rgba(0,0,0,0.65)] backdrop-blur-xl">
         <div className="bg-[linear-gradient(135deg,#15803d_0%,#0f766e_55%,#0ea5e9_100%)] px-6 pb-5 pt-6">
           <p className="mb-1 text-xs font-semibold uppercase tracking-wider text-white/70">
             Week {task.week}
             {task.day ? ` · Day ${task.day}` : ""}
           </p>
 
-          <h2 className="font-heading break-words text-xl font-bold leading-tight text-white">
+          <h2 className="break-words text-xl font-bold leading-tight text-white">
             {task.title}
           </h2>
 
@@ -307,9 +307,7 @@ export default function ChallengeModal({ task, onClose, onSubmitted, user }) {
 
           {diffMode && !started && (
             <div className="space-y-3">
-              <p className="font-heading text-sm font-semibold text-white">
-                Choose Your Difficulty
-              </p>
+              <p className="text-sm font-semibold text-white">Choose Your Difficulty</p>
 
               {DIFFICULTY_CONFIG.map((d) => (
                 <button
@@ -321,9 +319,7 @@ export default function ChallengeModal({ task, onClose, onSubmitted, user }) {
                   )}
                 >
                   <div className="mb-2 flex items-center justify-between gap-3">
-                    <span className="font-heading text-sm font-bold text-white">
-                      {d.label}
-                    </span>
+                    <span className="text-sm font-bold text-white">{d.label}</span>
                     <span className={cn("rounded-full px-2 py-0.5 text-xs font-bold", d.badge)}>
                       {task[`${d.key}_points`] || d.defaultPts} pts
                     </span>
@@ -378,7 +374,7 @@ export default function ChallengeModal({ task, onClose, onSubmitted, user }) {
               </div>
 
               <Button
-                className="w-full bg-[#22c55e] text-white hover:bg-[#16a34a] shadow-[0_10px_30px_rgba(34,197,94,0.25)]"
+                className="w-full bg-[#22c55e] text-white shadow-[0_10px_30px_rgba(34,197,94,0.25)] hover:bg-[#16a34a]"
                 size="lg"
                 onClick={() => setStarted(true)}
               >
@@ -397,9 +393,7 @@ export default function ChallengeModal({ task, onClose, onSubmitted, user }) {
               </div>
 
               <div className="rounded-2xl border border-white/10 bg-white/[0.04] p-4 shadow-[0_8px_24px_rgba(0,0,0,0.18)]">
-                <p className="mb-3 font-heading text-sm font-semibold text-white">
-                  Complete Challenge
-                </p>
+                <p className="mb-3 text-sm font-semibold text-white">Complete Challenge</p>
                 <ProofSection
                   task={task}
                   form={form}
