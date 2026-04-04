@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Shield, ChevronDown, ChevronUp } from "lucide-react";
+import { Shield, ChevronDown, ChevronUp, X } from "lucide-react";
 
 export default function SurvivalExpenseModal({ open, onSaved }) {
   const [amount, setAmount] = useState("");
@@ -34,16 +34,13 @@ export default function SurvivalExpenseModal({ open, onSaved }) {
     setShowEstimator(false);
   };
 
-  // 🔥 replaced base44 → localStorage (temporary)
   const handleSave = async () => {
     const val = parseFloat(amount);
     if (!val || val <= 0) return;
 
     try {
       setSaving(true);
-
-      localStorage.setItem("monthly_survival_expense", val);
-
+      localStorage.setItem("monthly_survival_expense", String(val));
       onSaved?.(val);
     } catch (error) {
       console.error("Save failed:", error);
@@ -55,52 +52,60 @@ export default function SurvivalExpenseModal({ open, onSaved }) {
   if (!open) return null;
 
   return (
-    <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50">
-      <div className="bg-white text-black p-4 rounded-lg w-[320px]">
-        {/* HEADER */}
-        <div className="flex items-center gap-2 mb-2">
-          <Shield className="w-5 h-5 text-green-600" />
-          <h2 className="font-bold text-lg">Set Survival Number</h2>
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 px-4">
+      <div className="w-full max-w-md rounded-[28px] border border-white/10 bg-[#071018] p-5 text-white shadow-[0_30px_80px_rgba(0,0,0,0.55)]">
+        <div className="mb-3 flex items-start justify-between gap-4">
+          <div className="flex items-center gap-2">
+            <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-emerald-500/10">
+              <Shield className="h-5 w-5 text-emerald-400" />
+            </div>
+            <div>
+              <h2 className="text-lg font-bold">Set Survival Number</h2>
+              <p className="text-xs text-white/55">Emergency fund base</p>
+            </div>
+          </div>
+
+          <button
+            onClick={() => onSaved?.(null)}
+            className="rounded-xl border border-white/10 bg-white/5 p-2 text-white/60 hover:text-white"
+          >
+            <X className="h-4 w-4" />
+          </button>
         </div>
 
-        <p className="text-sm mb-3">
-          Hindi income ang basehan.
-          <br />
-          Kundi kung magkano kailangan mo para mabuhay buwan-buwan.
+        <p className="mb-4 text-sm leading-6 text-white/72">
+          Hindi income ang basehan. Kundi kung magkano kailangan mo para mabuhay buwan-buwan.
         </p>
 
-        {/* INPUT */}
-        <div className="mb-3">
-          <p className="text-sm font-semibold">Monthly Expenses (₱)</p>
+        <div className="mb-4">
+          <p className="mb-1.5 text-sm font-semibold text-white">Monthly Expenses (₱)</p>
           <input
             type="number"
             placeholder="e.g. 8000"
             value={amount}
             onChange={(e) => setAmount(e.target.value)}
-            className="w-full border p-2 mt-1"
+            className="w-full rounded-2xl border border-white/10 bg-[#020617] px-4 py-3 text-white outline-none placeholder:text-white/35"
           />
         </div>
 
-        {/* ESTIMATOR TOGGLE */}
         <button
           onClick={() => setShowEstimator((v) => !v)}
-          className="text-xs flex items-center gap-1 mb-2"
+          className="mb-3 flex items-center gap-1 text-xs text-emerald-300"
         >
           {showEstimator ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
           Help me estimate
         </button>
 
-        {/* ESTIMATOR */}
         {showEstimator && (
-          <div className="bg-gray-100 p-2 rounded mb-2">
+          <div className="mb-4 rounded-2xl border border-white/10 bg-white/[0.04] p-3">
             {[
               { key: "rent", label: "Rent" },
               { key: "food", label: "Food" },
               { key: "utilities", label: "Bills" },
               { key: "transport", label: "Transport" },
             ].map(({ key, label }) => (
-              <div key={key} className="flex gap-2 mb-1">
-                <span className="text-xs w-24">{label}</span>
+              <div key={key} className="mb-2 flex items-center gap-2 last:mb-0">
+                <span className="w-24 text-xs text-white/65">{label}</span>
                 <input
                   type="number"
                   placeholder="0"
@@ -111,32 +116,35 @@ export default function SurvivalExpenseModal({ open, onSaved }) {
                       [key]: e.target.value,
                     }))
                   }
-                  className="flex-1 border p-1 text-sm"
+                  className="flex-1 rounded-xl border border-white/10 bg-[#020617] px-3 py-2 text-sm text-white outline-none placeholder:text-white/30"
                 />
               </div>
             ))}
 
-            <div className="flex justify-between mt-2 text-xs">
+            <div className="mt-3 flex items-center justify-between text-xs text-white/70">
               <span>Total: ₱{estTotal.toLocaleString()}</span>
-              <button onClick={useEstimate} disabled={estTotal <= 0}>
+              <button
+                onClick={useEstimate}
+                disabled={estTotal <= 0}
+                className="rounded-lg bg-emerald-500 px-3 py-1 font-medium text-white disabled:opacity-40"
+              >
                 Use
               </button>
             </div>
           </div>
         )}
 
-        {/* ACTION */}
         <button
           onClick={handleSave}
           disabled={saving || !amount}
-          className="w-full bg-green-600 text-white p-2 rounded"
+          className="w-full rounded-2xl bg-[linear-gradient(135deg,#22c55e,#0ea5a0)] px-4 py-3 font-semibold text-white shadow-[0_14px_30px_rgba(34,197,94,0.22)] disabled:opacity-50"
         >
           {saving ? "Saving..." : "Save & Continue"}
         </button>
 
         <button
           onClick={() => onSaved?.(null)}
-          className="w-full mt-2 text-sm"
+          className="mt-3 w-full text-sm text-white/50"
         >
           Cancel
         </button>
