@@ -13,7 +13,6 @@ import {
   GraduationCap,
   Settings,
   Menu,
-  X,
   LogOut,
   TrendingUp,
   PiggyBank,
@@ -42,17 +41,12 @@ const allNavItems = [
   { path: "/referrals", label: "Referrals", icon: Share2 },
 ];
 
-function SidebarContent({ currentPath, onClose, planLabel, isAdmin }) {
+function SidebarContent({ currentPath, planLabel, isAdmin }) {
   return (
     <div className="flex flex-col h-full bg-[#03121c] text-white">
-      
-      {/* 🔥 TOP BRAND */}
+
       <div className="px-4 pt-6 pb-5 bg-gradient-to-br from-[#061018] via-[#0E7A39] to-[#1A9DCC] border-b border-white/10">
-        <Link
-          to="/dashboard"
-          onClick={onClose}
-          className="text-xl font-bold tracking-wide"
-        >
+        <Link to="/dashboard" className="text-xl font-bold tracking-wide">
           CLARA
         </Link>
 
@@ -61,7 +55,6 @@ function SidebarContent({ currentPath, onClose, planLabel, isAdmin }) {
         </div>
       </div>
 
-      {/* 🔥 NAV */}
       <nav className="flex-1 overflow-y-auto px-3 py-3 space-y-1.5">
         {allNavItems.map((item) => {
           const isActive =
@@ -71,8 +64,7 @@ function SidebarContent({ currentPath, onClose, planLabel, isAdmin }) {
             <Link
               key={item.path}
               to={item.path}
-              onClick={onClose}
-              className={`flex items-center gap-3 px-3 py-3 rounded-2xl text-sm transition ${
+              className={`flex items-center gap-3 px-3 py-2 rounded-xl text-sm transition ${
                 isActive
                   ? "bg-[#0DBA72] text-white font-semibold"
                   : "text-white/70 hover:bg-white/10 hover:text-white"
@@ -92,8 +84,7 @@ function SidebarContent({ currentPath, onClose, planLabel, isAdmin }) {
 
             <Link
               to="/admin"
-              onClick={onClose}
-              className={`flex items-center gap-3 px-3 py-3 rounded-2xl text-sm ${
+              className={`flex items-center gap-3 px-3 py-2 rounded-xl text-sm ${
                 currentPath.startsWith("/admin")
                   ? "bg-white/10 text-white font-semibold"
                   : "text-white/70 hover:bg-white/10"
@@ -106,9 +97,8 @@ function SidebarContent({ currentPath, onClose, planLabel, isAdmin }) {
         )}
       </nav>
 
-      {/* 🔥 LOGOUT */}
       <div className="p-3 border-t border-white/10">
-        <button className="flex items-center gap-3 px-3 py-3 rounded-2xl text-sm text-white/60 hover:bg-white/10 w-full">
+        <button className="flex items-center gap-3 px-3 py-2 rounded-xl text-sm text-white/60 hover:bg-white/10 w-full">
           <LogOut className="w-4 h-4" />
           Log Out
         </button>
@@ -131,62 +121,22 @@ export default function Layout() {
   }
 
   return (
-    <div className="min-h-screen bg-[#020817] text-white">
-      <div className="flex">
+    <div className="flex min-h-screen bg-[#020817] text-white">
 
-        {/* DESKTOP SIDEBAR */}
-        <aside className="hidden lg:flex w-64 border-r border-white/10">
-          <SidebarContent
-            currentPath={location.pathname}
-            onClose={() => {}}
-            planLabel={planLabel}
-            isAdmin={isAdmin}
-          />
-        </aside>
+      {/* SIDEBAR */}
+      <aside className="w-64 border-r border-white/10">
+        <SidebarContent
+          currentPath={location.pathname}
+          planLabel={planLabel}
+          isAdmin={isAdmin}
+        />
+      </aside>
 
-        {/* MOBILE SIDEBAR */}
-        {sidebarOpen && (
-          <div className="lg:hidden fixed inset-0 z-50 flex">
-            <div className="w-[80%] max-w-[300px]">
-              <SidebarContent
-                currentPath={location.pathname}
-                onClose={() => setSidebarOpen(false)}
-                planLabel={planLabel}
-                isAdmin={isAdmin}
-              />
-            </div>
+      {/* MAIN */}
+      <main className="flex-1 px-6 py-6">
+        <Outlet />
+      </main>
 
-            <button
-              className="flex-1 bg-black/60"
-              onClick={() => setSidebarOpen(false)}
-            />
-          </div>
-        )}
-
-        {/* MAIN AREA */}
-        <div className="flex-1 flex flex-col min-w-0">
-
-          {/* MOBILE HEADER */}
-          <header className="lg:hidden flex items-center justify-between px-4 py-3 border-b border-white/10 bg-[#071018]">
-            <div className="font-bold">CLARA</div>
-
-            <button
-              onClick={() => setSidebarOpen(true)}
-              className="w-10 h-10 rounded-xl bg-white/10 flex items-center justify-center"
-            >
-              <Menu className="w-5 h-5" />
-            </button>
-          </header>
-
-          {/* 🔥 KEY FIX HERE */}
-          <main className="flex-1 w-full">
-            <div className="max-w-6xl mx-auto w-full">
-              <Outlet />
-            </div>
-          </main>
-
-        </div>
-      </div>
     </div>
   );
 }

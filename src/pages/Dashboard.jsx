@@ -38,21 +38,21 @@ export default function Dashboard() {
     }).format(n);
 
   return (
-    <div className="min-h-full bg-[#061018]">
+    <div className="bg-[#061018]">
 
-      {/* HEADER */}
-      <div className="px-4 md:px-8 pt-10 pb-8 bg-gradient-to-r from-[#0b3d1f] via-[#11844a] to-[#1a9dcc]">
-        <div className="max-w-7xl mx-auto flex items-start justify-between gap-4">
+      {/* HEADER — FULL WIDTH */}
+      <div className="w-full px-6 pt-6 pb-6 bg-gradient-to-r from-[#0b3d1f] via-[#11844a] to-[#1a9dcc]">
+        <div className="flex items-start justify-between">
           <div>
             <p className="text-white/70 text-sm">Welcome back,</p>
-            <h1 className="text-4xl md:text-5xl font-bold text-white leading-tight">
+            <h1 className="text-5xl font-bold text-white leading-tight">
               {user?.full_name || "Financial Champion"}
             </h1>
           </div>
 
           <Link
             to="/news"
-            className="inline-flex items-center gap-2 rounded-2xl bg-white/15 px-5 py-2.5 text-sm font-semibold text-white border border-white/10 hover:bg-white/20 transition"
+            className="inline-flex items-center gap-2 rounded-2xl bg-white/15 px-5 py-2 text-sm font-semibold text-white border border-white/10 hover:bg-white/20 transition"
           >
             <Newspaper className="w-4 h-4" />
             News
@@ -60,11 +60,11 @@ export default function Dashboard() {
         </div>
       </div>
 
-      {/* CONTENT */}
-      <div className="px-4 md:px-8 mt-6 max-w-7xl mx-auto pb-14">
+      {/* CONTENT — NO CENTER LIMIT */}
+      <div className="px-6 mt-6 pb-12">
 
         {/* EMERGENCY FUND */}
-        <div className="rounded-[32px] border border-[#8b5cf6]/20 bg-gradient-to-br from-[#1a0f27] via-[#160d22] to-[#1b1022] p-7 md:p-8 mb-6 shadow-[0_20px_60px_rgba(0,0,0,0.35)]">
+        <div className="rounded-[32px] border border-[#8b5cf6]/20 bg-gradient-to-br from-[#1a0f27] via-[#160d22] to-[#1b1022] p-8 mb-6 shadow-[0_20px_60px_rgba(0,0,0,0.35)]">
 
           <div className="flex items-start justify-between gap-4 mb-6">
             <div>
@@ -95,7 +95,7 @@ export default function Dashboard() {
                 <span className="text-white/50 text-sm">Basic Safety</span>
               </div>
 
-              <h2 className="text-4xl md:text-5xl font-bold text-white mb-4">
+              <h2 className="text-5xl font-bold text-white mb-4">
                 Start building your fund
               </h2>
             </div>
@@ -150,10 +150,9 @@ export default function Dashboard() {
           </p>
         </div>
 
-        {/* GRID SECTION */}
+        {/* GRID */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
 
-          {/* DAILY TIP (BIG) */}
           <div className="md:col-span-2 rounded-[28px] p-6 bg-gradient-to-br from-[#03271f] to-[#06352c] border border-[#0f7a60] min-h-[200px]">
             <div className="flex items-start justify-between mb-10">
               <span className="text-sm font-semibold text-white/70 uppercase">
@@ -169,7 +168,6 @@ export default function Dashboard() {
             </p>
           </div>
 
-          {/* MONEY LEFT */}
           <div className="rounded-[28px] p-6 bg-gradient-to-br from-[#5a4500] to-[#6d5607] border border-[#8f7416] min-h-[200px]">
             <div className="flex items-start justify-between mb-8">
               <span className="text-sm font-semibold text-white/70 uppercase">
@@ -184,7 +182,6 @@ export default function Dashboard() {
             <p className="text-white/80 mt-2 text-lg">Retained amount</p>
           </div>
 
-          {/* THIS MONTH */}
           <div className="rounded-[28px] p-6 bg-gradient-to-br from-[#0d2b6b] to-[#12285a] border border-[#274690] min-h-[200px]">
             <div className="flex items-start justify-between mb-8">
               <span className="text-sm font-semibold text-white/70 uppercase">
@@ -201,7 +198,6 @@ export default function Dashboard() {
             </p>
           </div>
 
-          {/* TASKS (BIG) */}
           <Link to="/tasks" className="block md:col-span-2">
             <div className="rounded-[28px] p-6 bg-gradient-to-br from-[#182742] to-[#0f1e36] border border-white/10 min-h-[200px] hover:border-white/20 transition">
               <div className="flex items-start justify-between mb-10">
