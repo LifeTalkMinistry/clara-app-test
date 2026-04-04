@@ -19,36 +19,21 @@ function getStatus(months, targetMonths) {
   if (months >= targetMonths) {
     return {
       label: "Secure",
-      text: "text-white",
-      badge:
-        "bg-emerald-500/15 text-emerald-300 border border-emerald-400/20",
+      badge: "bg-emerald-500/15 text-emerald-300 border border-emerald-400/20",
       bar: "bg-gradient-to-r from-emerald-400 to-green-400",
     };
   }
 
-  if (months >= targetMonths * 0.66) {
-    return {
-      label: "Stable",
-      text: "text-white",
-      badge:
-        "bg-emerald-500/15 text-emerald-300 border border-emerald-400/20",
-      bar: "bg-gradient-to-r from-emerald-400 to-green-400",
-    };
-  }
-
-  if (months >= targetMonths * 0.33) {
+  if (months >= targetMonths * 0.5) {
     return {
       label: "Building",
-      text: "text-white",
-      badge:
-        "bg-amber-500/15 text-amber-300 border border-amber-400/20",
+      badge: "bg-amber-500/15 text-amber-300 border border-amber-400/20",
       bar: "bg-gradient-to-r from-amber-400 to-yellow-400",
     };
   }
 
   return {
     label: "At Risk",
-    text: "text-white",
     badge: "bg-[#6b2534] text-[#ff9daf] border border-[#ff9daf]/10",
     bar: "bg-gradient-to-r from-pink-400 to-red-400",
   };
@@ -79,8 +64,8 @@ export default function EmergencyFundCard({
   const status = getStatus(months, targetMonths);
   const milestone = MILESTONES.find((m) => m.months === targetMonths);
 
-  const decrease = () => setTargetMonths((prev) => Math.max(3, prev - 3));
-  const increase = () => setTargetMonths((prev) => Math.min(12, prev + 3));
+  const decrease = () => setTargetMonths((p) => Math.max(3, p - 3));
+  const increase = () => setTargetMonths((p) => Math.min(12, p + 3));
 
   const handleSaved = (val) => {
     setEditing(false);
@@ -90,13 +75,12 @@ export default function EmergencyFundCard({
 
   return (
     <>
-      <SurvivalExpenseModal
-        open={showModal || editing}
-        onSaved={handleSaved}
-      />
+      <SurvivalExpenseModal open={showModal || editing} onSaved={handleSaved} />
 
       {/* CARD */}
-      <div className="mb-6 rounded-3xl border border-[#5a3a5d]/40 bg-gradient-to-br from-[#1b0d26] to-[#14091f] p-6 text-white shadow-[0_20px_60px_rgba(0,0,0,0.45)]">
+      <div className="mb-6 rounded-[28px] border border-white/10 
+      bg-[linear-gradient(135deg,#1a0f24,#140a1d)] 
+      p-6 text-white shadow-[0_25px_60px_rgba(0,0,0,0.5)]">
 
         {/* HEADER */}
         <div className="flex items-start justify-between mb-5">
@@ -111,10 +95,8 @@ export default function EmergencyFundCard({
             <div className="flex items-center gap-3">
               <span className="text-sm text-white/60">Goal:</span>
 
-              <button
-                onClick={decrease}
-                className="h-8 w-8 rounded-full border border-white/10 bg-white/5 flex items-center justify-center hover:bg-white/10"
-              >
+              <button onClick={decrease}
+                className="h-8 w-8 rounded-full border border-white/10 bg-white/5 flex items-center justify-center">
                 <Minus size={14} />
               </button>
 
@@ -122,18 +104,14 @@ export default function EmergencyFundCard({
                 {targetMonths} Months
               </span>
 
-              <button
-                onClick={increase}
-                className="h-8 w-8 rounded-full border border-white/10 bg-white/5 flex items-center justify-center hover:bg-white/10"
-              >
+              <button onClick={increase}
+                className="h-8 w-8 rounded-full border border-white/10 bg-white/5 flex items-center justify-center">
                 <Plus size={14} />
               </button>
 
-              {milestone && (
-                <span className="text-sm text-white/40">
-                  {milestone.label}
-                </span>
-              )}
+              <span className="text-sm text-white/40">
+                {milestone?.label}
+              </span>
             </div>
           </div>
 
@@ -149,7 +127,7 @@ export default function EmergencyFundCard({
         </div>
 
         {/* TITLE */}
-        <h2 className="text-[42px] font-bold leading-tight mb-4">
+        <h2 className="text-[36px] md:text-[42px] font-bold leading-tight mb-4">
           {moneyLeft <= 0
             ? "Start building your fund"
             : `Survive ${months.toFixed(1)} months`}
@@ -159,14 +137,14 @@ export default function EmergencyFundCard({
         <div className="mb-5">
           <div className="flex justify-between text-sm mb-2">
             <span className="text-white/70">Progress to target</span>
-            <span className="text-white/90 font-semibold">
+            <span className="text-white font-semibold">
               {pct.toFixed(0)}%
             </span>
           </div>
 
-          <div className="h-2.5 bg-white/10 rounded-full overflow-hidden">
+          <div className="h-2 bg-white/10 rounded-full overflow-hidden">
             <div
-              className={`${status.bar} h-full rounded-full transition-all`}
+              className={`${status.bar} h-full rounded-full`}
               style={{ width: `${pct}%` }}
             />
           </div>
@@ -177,21 +155,10 @@ export default function EmergencyFundCard({
         </div>
 
         {/* STATS */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <div className="bg-white/[0.04] border border-white/10 rounded-xl p-4 text-center">
-            <p className="text-xs text-white/50 mb-1">Monthly Cost</p>
-            <p className="text-lg font-bold">{fmt(survivalExpense)}</p>
-          </div>
-
-          <div className="bg-white/[0.04] border border-white/10 rounded-xl p-4 text-center">
-            <p className="text-xs text-white/50 mb-1">Available</p>
-            <p className="text-lg font-bold">{fmt(moneyLeft)}</p>
-          </div>
-
-          <div className="bg-white/[0.04] border border-white/10 rounded-xl p-4 text-center">
-            <p className="text-xs text-white/50 mb-1">Target</p>
-            <p className="text-lg font-bold">{fmt(target)}</p>
-          </div>
+        <div className="grid grid-cols-3 gap-3">
+          <Stat label="Monthly Cost" value={fmt(survivalExpense)} />
+          <Stat label="Available" value={fmt(moneyLeft)} />
+          <Stat label="Target" value={fmt(target)} />
         </div>
 
         {retentionRate !== undefined && (
@@ -204,5 +171,14 @@ export default function EmergencyFundCard({
         )}
       </div>
     </>
+  );
+}
+
+function Stat({ label, value }) {
+  return (
+    <div className="rounded-xl border border-white/10 bg-white/[0.04] p-4 text-center">
+      <p className="text-xs text-white/50 mb-1">{label}</p>
+      <p className="text-lg font-bold">{value}</p>
+    </div>
   );
 }

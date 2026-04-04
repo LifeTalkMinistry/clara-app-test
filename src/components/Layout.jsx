@@ -59,7 +59,7 @@ function SidebarContent({ currentPath, planLabel, isAdmin, onNavigate }) {
         </div>
       </div>
 
-      <nav className="flex-1 overflow-y-auto px-3 py-4 space-y-1.5">
+      <nav className="flex-1 space-y-1.5 overflow-y-auto px-3 py-4">
         {allNavItems.map((item) => {
           const isActive =
             currentPath === item.path || currentPath.startsWith(item.path + "/");
@@ -123,15 +123,15 @@ export default function Layout() {
   if (loading) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-[#020817] text-white">
-        <div className="h-10 w-10 rounded-full border-4 border-white/10 border-t-emerald-400 animate-spin" />
+        <div className="h-10 w-10 animate-spin rounded-full border-4 border-white/10 border-t-emerald-400" />
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen text-white bg-[radial-gradient(circle_at_top,#134e3a_0%,transparent_22%),radial-gradient(circle_at_bottom_right,#0b1735_0%,transparent_28%),linear-gradient(180deg,#020817_0%,#04111a_100%)]">
+    <div className="min-h-screen bg-[radial-gradient(circle_at_top,#134e3a_0%,transparent_22%),radial-gradient(circle_at_bottom_right,#0b1735_0%,transparent_28%),linear-gradient(180deg,#020817_0%,#04111a_100%)] text-white">
       <div className="flex min-h-screen">
-        <aside className="hidden lg:flex w-64 shrink-0 border-r border-white/10 shadow-[20px_0_60px_rgba(0,0,0,0.35)]">
+        <aside className="hidden w-64 shrink-0 border-r border-white/10 shadow-[20px_0_60px_rgba(0,0,0,0.35)] lg:flex">
           <SidebarContent
             currentPath={location.pathname}
             planLabel={planLabel}
@@ -154,9 +154,7 @@ export default function Layout() {
             </button>
           </header>
 
-          <main className="flex-1 px-0 py-0 md:px-0 md:py-0 pb-24 lg:pb-6">
-  <Outlet />
-</main>
+          <main className="flex-1 px-0 py-0 pb-24 md:px-0 md:py-0 lg:pb-6">
             <Outlet />
           </main>
         </div>
