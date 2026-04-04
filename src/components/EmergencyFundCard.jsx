@@ -21,7 +21,7 @@ function getStatus(months, targetMonths) {
       label: "Secure",
       text: "text-emerald-300",
       badge:
-        "bg-emerald-500/15 text-emerald-300 border border-emerald-400/25",
+        "bg-emerald-500/15 text-emerald-300 border border-emerald-400/20",
       bar: "bg-[linear-gradient(90deg,#25d366,#34d399)]",
     };
   }
@@ -31,7 +31,7 @@ function getStatus(months, targetMonths) {
       label: "Stable",
       text: "text-emerald-300",
       badge:
-        "bg-emerald-500/15 text-emerald-300 border border-emerald-400/25",
+        "bg-emerald-500/15 text-emerald-300 border border-emerald-400/20",
       bar: "bg-[linear-gradient(90deg,#25d366,#34d399)]",
     };
   }
@@ -41,15 +41,15 @@ function getStatus(months, targetMonths) {
       label: "Building",
       text: "text-amber-300",
       badge:
-        "bg-amber-500/15 text-amber-300 border border-amber-400/25",
+        "bg-amber-500/15 text-amber-300 border border-amber-400/20",
       bar: "bg-[linear-gradient(90deg,#f59e0b,#fbbf24)]",
     };
   }
 
   return {
     label: "At Risk",
-    text: "text-[#ff96aa]",
-    badge: "bg-[#5b2330] text-[#ff96aa] border border-[#ff96aa]/15",
+    text: "text-[#f7e6d2]",
+    badge: "bg-[#6b2534] text-[#ff9daf] border border-[#ff9daf]/10",
     bar: "bg-[linear-gradient(90deg,#ff6b8a,#ff96aa)]",
   };
 }
@@ -110,104 +110,130 @@ export default function EmergencyFundCard({
         onSaved={handleSaved}
       />
 
-      <div className="mb-6 rounded-[32px] border border-white/10 bg-[linear-gradient(145deg,#1a0f27,#120a1a)] p-7 text-white shadow-[0_30px_80px_rgba(0,0,0,0.55)] backdrop-blur-xl md:p-8">
-        <div className="mb-6 flex items-start justify-between gap-4">
+      <div className="mb-5 rounded-[28px] border border-[#6d456f]/40 bg-[linear-gradient(180deg,#1d0d29_0%,#180a23_100%)] px-5 py-5 text-white shadow-[0_16px_40px_rgba(0,0,0,0.35)] md:px-6 md:py-6">
+        <div className="flex flex-col gap-4">
+          <div className="flex items-start justify-between gap-4">
+            <div className="min-w-0">
+              <div className="mb-4 flex items-center gap-2">
+                <Shield className="h-4 w-4 text-[#30e38c]" />
+                <span className="text-[15px] font-semibold text-white">
+                  Emergency Fund Progress
+                </span>
+              </div>
+
+              <div className="flex flex-wrap items-center gap-2 md:gap-3">
+                <span className="text-sm font-medium text-white/65">Goal:</span>
+
+                <button
+                  onClick={decrease}
+                  className="flex h-8 w-8 items-center justify-center rounded-full border border-white/10 bg-white/8 text-white/75 transition hover:bg-white/12 hover:text-white"
+                >
+                  <Minus className="h-4 w-4" />
+                </button>
+
+                <span className="text-[20px] font-bold leading-none text-[#2ef08d] md:text-[22px]">
+                  {targetMonths} Months
+                </span>
+
+                <button
+                  onClick={increase}
+                  className="flex h-8 w-8 items-center justify-center rounded-full border border-white/10 bg-white/8 text-white/75 transition hover:bg-white/12 hover:text-white"
+                >
+                  <Plus className="h-4 w-4" />
+                </button>
+
+                {milestone && (
+                  <span className="text-sm text-white/45">
+                    {milestone.label}
+                  </span>
+                )}
+              </div>
+            </div>
+
+            <div className="flex items-center gap-3">
+              <span
+                className={`rounded-full px-3 py-1 text-sm font-semibold ${status.badge}`}
+              >
+                {status.label}
+              </span>
+
+              <button
+                onClick={() => setEditing(true)}
+                className="text-white/45 transition hover:text-white/80"
+              >
+                <Edit2 className="h-4 w-4" />
+              </button>
+            </div>
+          </div>
+
           <div>
-            <div className="mb-4 flex items-center gap-2">
-              <Shield className="h-4 w-4 text-[#30e38c]" />
-              <span className="text-sm font-semibold">
-                Emergency Fund Progress
+            <h2 className={`text-[34px] font-bold leading-tight md:text-[40px] ${status.text}`}>
+              {moneyLeft <= 0
+                ? "Start building your fund"
+                : `Survive ${months.toFixed(1)} months`}
+            </h2>
+          </div>
+
+          <div>
+            <div className="mb-2 flex items-center justify-between text-sm">
+              <span className="text-white/72">
+                Progress to {targetMonths}-month target
+              </span>
+              <span className="font-semibold text-white/85">
+                {pct.toFixed(0)}%
               </span>
             </div>
 
-            <div className="flex flex-wrap items-center gap-3">
-              <span className="text-sm text-white/65">Goal:</span>
+            <div className="h-2.5 overflow-hidden rounded-full bg-white/10">
+              <div
+                className={`h-full rounded-full transition-all duration-500 ${status.bar}`}
+                style={{ width: `${pct}%` }}
+              />
+            </div>
 
-              <button
-                onClick={decrease}
-                className="flex h-9 w-9 items-center justify-center rounded-full border border-white/10 bg-white/8 transition hover:bg-white/12"
-              >
-                <Minus className="h-4 w-4" />
-              </button>
+            <p className="mt-2.5 text-sm italic text-white/45">
+              {progressionMsg}
+            </p>
+          </div>
 
-              <span className="text-3xl font-bold text-[#30e38c]">
-                {targetMonths}
-              </span>
-              <span className="text-xl font-bold text-[#30e38c]">Months</span>
+          <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
+            <div className="rounded-[18px] border border-white/10 bg-white/[0.04] px-4 py-3 text-center">
+              <p className="mb-1 text-xs font-medium text-white/45">
+                Monthly Cost
+              </p>
+              <p className="text-[18px] font-bold text-white md:text-[19px]">
+                {fmt(survivalExpense)}
+              </p>
+            </div>
 
-              <button
-                onClick={increase}
-                className="flex h-9 w-9 items-center justify-center rounded-full border border-white/10 bg-white/8 transition hover:bg-white/12"
-              >
-                <Plus className="h-4 w-4" />
-              </button>
+            <div className="rounded-[18px] border border-white/10 bg-white/[0.04] px-4 py-3 text-center">
+              <p className="mb-1 text-xs font-medium text-white/45">
+                Available
+              </p>
+              <p className="text-[18px] font-bold text-white md:text-[19px]">
+                {fmt(moneyLeft)}
+              </p>
+            </div>
 
-              {milestone && (
-                <span className="text-sm text-white/45">{milestone.label}</span>
-              )}
+            <div className="rounded-[18px] border border-white/10 bg-white/[0.04] px-4 py-3 text-center">
+              <p className="mb-1 text-xs font-medium text-white/45">
+                Target
+              </p>
+              <p className="text-[18px] font-bold text-white md:text-[19px]">
+                {fmt(target)}
+              </p>
             </div>
           </div>
 
-          <div className="flex items-center gap-3">
-            <span
-              className={`rounded-full px-3 py-1 text-sm font-semibold ${status.badge}`}
-            >
-              {status.label}
-            </span>
-
-            <button
-              onClick={() => setEditing(true)}
-              className="transition hover:text-white/80"
-            >
-              <Edit2 className="h-4 w-4 text-white/45" />
-            </button>
-          </div>
+          {retentionRate !== undefined && (
+            <div className="pt-1 text-sm text-white/58">
+              Retention Rate:{" "}
+              <span className="font-semibold text-white">
+                {retentionRate}%
+              </span>
+            </div>
+          )}
         </div>
-
-        <h2 className={`mb-4 text-3xl font-bold md:text-5xl ${status.text}`}>
-          {moneyLeft <= 0
-            ? "Start building your fund"
-            : `Survive ${months.toFixed(1)} months`}
-        </h2>
-
-        <div className="mb-2 flex items-center justify-between text-sm">
-          <span className="text-white/70">
-            Progress to {targetMonths}-month target
-          </span>
-          <span className="font-semibold text-white/78">{pct.toFixed(0)}%</span>
-        </div>
-
-        <div className="mb-4 h-2.5 rounded-full bg-white/8 overflow-hidden">
-          <div
-            className={`h-full rounded-full transition-all duration-500 ${status.bar}`}
-            style={{ width: `${pct}%` }}
-          />
-        </div>
-
-        <p className="mb-6 text-sm italic text-white/45">{progressionMsg}</p>
-
-        <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
-          <div className="rounded-2xl border border-white/10 bg-white/[0.035] p-5 text-center">
-            <p className="mb-1 text-xs text-white/45">Monthly Cost</p>
-            <p className="text-2xl font-bold">{fmt(survivalExpense)}</p>
-          </div>
-
-          <div className="rounded-2xl border border-white/10 bg-white/[0.035] p-5 text-center">
-            <p className="mb-1 text-xs text-white/45">Available</p>
-            <p className="text-2xl font-bold">{fmt(moneyLeft)}</p>
-          </div>
-
-          <div className="rounded-2xl border border-white/10 bg-white/[0.035] p-5 text-center">
-            <p className="mb-1 text-xs text-white/45">Target</p>
-            <p className="text-2xl font-bold">{fmt(target)}</p>
-          </div>
-        </div>
-
-        {retentionRate !== undefined && (
-          <p className="mt-4 text-sm text-white/55">
-            Retention Rate: <span className="text-white">{retentionRate}%</span>
-          </p>
-        )}
       </div>
     </>
   );
