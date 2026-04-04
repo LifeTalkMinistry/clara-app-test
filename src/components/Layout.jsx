@@ -17,7 +17,12 @@ import {
   TrendingUp,
   PiggyBank,
   Share2,
+  ChevronRight,
 } from "lucide-react";
+
+import BottomNav from "./BottomNav";
+import QuickAddModal from "./QuickAddModal";
+import ClaraLogo from "./ClaraLogo";
 
 const useUserRole = () => ({
   planLabel: "Admin",
@@ -41,21 +46,20 @@ const allNavItems = [
   { path: "/referrals", label: "Referrals", icon: Share2 },
 ];
 
-function SidebarContent({ currentPath, planLabel, isAdmin }) {
+function SidebarContent({ currentPath, planLabel, isAdmin, onNavigate }) {
   return (
-    <div className="flex flex-col h-full bg-[#03121c] text-white">
-
-      <div className="px-4 pt-6 pb-5 bg-gradient-to-br from-[#061018] via-[#0E7A39] to-[#1A9DCC] border-b border-white/10">
-        <Link to="/dashboard" className="text-xl font-bold tracking-wide">
-          CLARA
+    <div className="flex h-full flex-col bg-[#04111a] text-white">
+      <div className="border-b border-white/10 bg-[linear-gradient(135deg,#0b1c16_0%,#11803b_58%,#1696c6_100%)] px-4 pb-5 pt-7">
+        <Link to="/dashboard" onClick={onNavigate} className="flex items-center gap-3">
+          <ClaraLogo variant="full" theme="dark" />
         </Link>
 
-        <div className="mt-4 rounded-full bg-[#C7F000] text-[#071018] text-xs font-bold py-2 text-center">
+        <div className="mt-5 rounded-full bg-[#c9ef1d] px-4 py-2 text-center text-xs font-bold text-[#071018] shadow-[0_8px_20px_rgba(0,0,0,0.18)]">
           {planLabel}
         </div>
       </div>
 
-      <nav className="flex-1 overflow-y-auto px-3 py-3 space-y-1.5">
+      <nav className="flex-1 overflow-y-auto px-3 py-4 space-y-1.5">
         {allNavItems.map((item) => {
           const isActive =
             currentPath === item.path || currentPath.startsWith(item.path + "/");
@@ -64,43 +68,46 @@ function SidebarContent({ currentPath, planLabel, isAdmin }) {
             <Link
               key={item.path}
               to={item.path}
-              className={`flex items-center gap-3 px-3 py-2 rounded-xl text-sm transition ${
+              onClick={onNavigate}
+              className={`group flex items-center gap-3 rounded-2xl px-3 py-3 text-sm transition-all ${
                 isActive
-                  ? "bg-[#0DBA72] text-white font-semibold"
-                  : "text-white/70 hover:bg-white/10 hover:text-white"
+                  ? "bg-[linear-gradient(90deg,#0ca86a,#13c07a)] text-white shadow-[0_10px_24px_rgba(12,168,106,0.25)]"
+                  : "text-white/72 hover:bg-white/6 hover:text-white"
               }`}
             >
-              <item.icon className="w-4 h-4" />
-              {item.label}
+              <item.icon className={`h-4 w-4 flex-shrink-0 ${isActive ? "text-white" : "text-white/65"}`} />
+              <span className="flex-1">{item.label}</span>
+              {isActive && <ChevronRight className="h-4 w-4 text-white/85" />}
             </Link>
           );
         })}
 
         {isAdmin && (
-          <div className="pt-4">
-            <div className="px-3 pb-2 text-[11px] uppercase text-white/40">
+          <div className="pt-5">
+            <div className="px-3 pb-2 text-[11px] font-semibold uppercase tracking-[0.16em] text-white/35">
               Admin
             </div>
 
             <Link
               to="/admin"
-              className={`flex items-center gap-3 px-3 py-2 rounded-xl text-sm ${
+              onClick={onNavigate}
+              className={`flex items-center gap-3 rounded-2xl px-3 py-3 text-sm transition-all ${
                 currentPath.startsWith("/admin")
-                  ? "bg-white/10 text-white font-semibold"
-                  : "text-white/70 hover:bg-white/10"
+                  ? "bg-white/10 text-white"
+                  : "text-white/70 hover:bg-white/6 hover:text-white"
               }`}
             >
-              <Settings className="w-4 h-4" />
-              Admin Panel
+              <Settings className="h-4 w-4" />
+              <span>Admin Panel</span>
             </Link>
           </div>
         )}
       </nav>
 
-      <div className="p-3 border-t border-white/10">
-        <button className="flex items-center gap-3 px-3 py-2 rounded-xl text-sm text-white/60 hover:bg-white/10 w-full">
-          <LogOut className="w-4 h-4" />
-          Log Out
+      <div className="border-t border-white/10 p-3">
+        <button className="flex w-full items-center gap-3 rounded-2xl px-3 py-3 text-sm text-white/60 transition hover:bg-white/6 hover:text-white">
+          <LogOut className="h-4 w-4" />
+          <span>Log Out</span>
         </button>
       </div>
     </div>
@@ -110,33 +117,68 @@ function SidebarContent({ currentPath, planLabel, isAdmin }) {
 export default function Layout() {
   const location = useLocation();
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [quickAddOpen, setQuickAddOpen] = useState(false);
   const { planLabel, isAdmin, loading } = useUserRole();
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center min-h-screen bg-[#020817] text-white">
-        Loading...
+      <div className="flex min-h-screen items-center justify-center bg-[#020817] text-white">
+        <div className="h-10 w-10 rounded-full border-4 border-white/10 border-t-emerald-400 animate-spin" />
       </div>
     );
   }
 
   return (
-    <div className="flex min-h-screen bg-[#020817] text-white">
+    <div className="min-h-screen text-white bg-[radial-gradient(circle_at_top,#134e3a_0%,transparent_22%),radial-gradient(circle_at_bottom_right,#0b1735_0%,transparent_28%),linear-gradient(180deg,#020817_0%,#04111a_100%)]">
+      <div className="flex min-h-screen">
+        <aside className="hidden lg:flex w-64 shrink-0 border-r border-white/10 shadow-[20px_0_60px_rgba(0,0,0,0.35)]">
+          <SidebarContent
+            currentPath={location.pathname}
+            planLabel={planLabel}
+            isAdmin={isAdmin}
+            onNavigate={() => {}}
+          />
+        </aside>
 
-      {/* SIDEBAR */}
-      <aside className="w-64 border-r border-white/10">
-        <SidebarContent
-          currentPath={location.pathname}
-          planLabel={planLabel}
-          isAdmin={isAdmin}
-        />
-      </aside>
+        <div className="flex min-w-0 flex-1 flex-col">
+          <header className="sticky top-0 z-30 flex items-center justify-between border-b border-white/10 bg-[#071018]/80 px-4 py-3 backdrop-blur-xl lg:hidden">
+            <Link to="/dashboard">
+              <ClaraLogo variant="full" theme="dark" />
+            </Link>
 
-      {/* MAIN */}
-      <main className="flex-1 px-6 py-6">
-        <Outlet />
-      </main>
+            <button
+              onClick={() => setSidebarOpen(true)}
+              className="rounded-xl border border-white/10 bg-white/5 p-2 text-white"
+            >
+              <Menu className="h-5 w-5" />
+            </button>
+          </header>
 
+          <main className="flex-1 px-4 py-4 md:px-6 md:py-6 pb-24 lg:pb-6">
+            <Outlet />
+          </main>
+        </div>
+      </div>
+
+      {sidebarOpen && (
+        <div className="fixed inset-0 z-50 flex lg:hidden">
+          <button
+            className="flex-1 bg-black/60"
+            onClick={() => setSidebarOpen(false)}
+          />
+          <div className="h-full w-[290px] border-l border-white/10 shadow-2xl">
+            <SidebarContent
+              currentPath={location.pathname}
+              planLabel={planLabel}
+              isAdmin={isAdmin}
+              onNavigate={() => setSidebarOpen(false)}
+            />
+          </div>
+        </div>
+      )}
+
+      <BottomNav onQuickAdd={() => setQuickAddOpen(true)} />
+      <QuickAddModal open={quickAddOpen} onClose={() => setQuickAddOpen(false)} />
     </div>
   );
 }
