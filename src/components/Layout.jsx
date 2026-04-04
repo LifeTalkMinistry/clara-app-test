@@ -141,7 +141,7 @@ export default function Layout() {
         </aside>
 
         <div className="flex min-w-0 flex-1 flex-col">
-          <header className="sticky top-0 z-30 flex items-center justify-between border-b border-white/10 bg-[#071018]/80 px-4 py-3 backdrop-blur-xl lg:hidden">
+          <header className="sticky top-0 z-30 flex items-center justify-between border-b border-white/10 bg-transparent px-4 py-3 backdrop-blur-xl lg:hidden">
             <Link to="/dashboard">
               <ClaraLogo variant="full" theme="dark" />
             </Link>
@@ -154,7 +154,9 @@ export default function Layout() {
             </button>
           </header>
 
-          <main className="flex-1 px-4 py-4 md:px-6 md:py-6 pb-24 lg:pb-6">
+          <main className="flex-1 px-0 py-0 md:px-0 md:py-0 pb-24 lg:pb-6">
+  <Outlet />
+</main>
             <Outlet />
           </main>
         </div>
