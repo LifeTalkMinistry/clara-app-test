@@ -1,11 +1,40 @@
 import { useState, useEffect } from "react";
-import { MessageCircle, Heart, Send, Users, Pencil, Trash2, X, Check } from "lucide-react";
+import {
+  MessageCircle,
+  Heart,
+  Send,
+  Users,
+  Pencil,
+  Trash2,
+  X,
+  Check,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
 import PageHeader from "../components/PageHeader";
 import EmptyState from "../components/EmptyState";
 import useUserRole from "../hooks/useUserRole";
+
+const STORAGE_KEYS = {
+  communityPosts: "clara_community_posts",
+};
+
+const getStoredData = (key) => {
+  try {
+    const raw = localStorage.getItem(key);
+    return raw ? JSON.parse(raw) : [];
+  } catch {
+    return [];
+  }
+};
+
+const setStoredData = (key, value) => {
+  localStorage.setItem(key, JSON.stringify(value));
+};
+
+const generateId = () =>
+  `${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
 
 export default function Community() {
   const { user, isPaid, isAdmin } = useUserRole();
@@ -17,104 +46,115 @@ export default function Community() {
   const [editContent, setEditContent] = useState("");
 
   useEffect(() => {
-    fetch("/api/community")
-      .then(res => res.json())
-      .then(data => {
-        setPosts(data || []);
-        setLoading(false);
-      })
-      .catch(() => setLoading(false));
+    const allPosts = getStoredData(STORAGE_KEYS.communityPosts);
+
+    const sortedPosts = [...allPosts].sort((a, b) => {
+      const aDate = new Date(a.created_date || a.created_at || 0).getTime();
+      const bDate = new Date(b.created_date || b.created_at || 0).getTime();
+      return bDate - aDate;
+    });
+
+    setPosts(sortedPosts);
+    setLoading(false);
   }, []);
+
+  const savePosts = (updatedPosts) => {
+    setStoredData(STORAGE_KEYS.communityPosts, updatedPosts);
+    setPosts(updatedPosts);
+  };
 
   const handlePost = async () => {
     if (!newPost.trim() || !isPaid) return;
 
-    const res = await fetch("/api/community", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        content: newPost.trim(),
-        author_name: user?.full_name || "Anonymous",
-        created_by: user?.email,
-        likes: 0,
-        liked_by: [],
-        comments: [],
-      }),
-    });
+    const newCommunityPost = {
+      id: generateId(),
+      created_by: user?.email || "",
+      author_name: user?.full_name || "Anonymous",
+      content: newPost.trim(),
+      likes: 0,
+      liked_by: [],
+      comments: [],
+      created_date: new Date().toISOString(),
+      created_at: new Date().toISOString(),
+    };
 
-    const post = await res.json();
-    setPosts([post, ...posts]);
+    const updatedPosts = [newCommunityPost, ...posts];
+    savePosts(updatedPosts);
     setNewPost("");
   };
 
   const handleLike = async (post) => {
-    if (!isPaid) return;
+    if (!isPaid || !user?.email) return;
 
     const likedBy = post.liked_by || [];
-    const alreadyLiked = likedBy.includes(user?.email);
+    const alreadyLiked = likedBy.includes(user.email);
+
     const newLikedBy = alreadyLiked
-      ? likedBy.filter(e => e !== user.email)
+      ? likedBy.filter((email) => email !== user.email)
       : [...likedBy, user.email];
 
-    const res = await fetch(`/api/community/${post.id}/like`, {
-      method: "PUT",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ liked_by: newLikedBy }),
-    });
+    const updatedPosts = posts.map((p) =>
+      p.id === post.id
+        ? {
+            ...p,
+            liked_by: newLikedBy,
+            likes: newLikedBy.length,
+          }
+        : p
+    );
 
-    const updated = await res.json();
-
-    setPosts(posts.map(p => (p.id === post.id ? updated : p)));
+    savePosts(updatedPosts);
   };
 
   const handleDelete = async (postId) => {
-    await fetch(`/api/community/${postId}`, { method: "DELETE" });
-    setPosts(posts.filter(p => p.id !== postId));
+    const updatedPosts = posts.filter((p) => p.id !== postId);
+    savePosts(updatedPosts);
   };
 
   const handleEditSave = async (postId) => {
     if (!editContent.trim()) return;
 
-    const res = await fetch(`/api/community/${postId}`, {
-      method: "PUT",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ content: editContent.trim() }),
-    });
+    const updatedPosts = posts.map((p) =>
+      p.id === postId
+        ? {
+            ...p,
+            content: editContent.trim(),
+            updated_at: new Date().toISOString(),
+          }
+        : p
+    );
 
-    const updated = await res.json();
-
-    setPosts(posts.map(p => (p.id === postId ? updated : p)));
+    savePosts(updatedPosts);
     setEditingPostId(null);
     setEditContent("");
   };
 
   const handleComment = async (postId) => {
     const text = commentTexts[postId];
-    if (!text?.trim() || !isPaid) return;
+    if (!text?.trim() || !isPaid || !user?.email) return;
 
-    const post = posts.find(p => p.id === postId);
+    const updatedPosts = posts.map((post) => {
+      if (post.id !== postId) return post;
 
-    const newComments = [
-      ...(post.comments || []),
-      {
-        author: user.email,
-        author_name: user?.full_name || "Anonymous",
-        content: text.trim(),
-        date: new Date().toISOString(),
-      },
-    ];
+      const newComments = [
+        ...(post.comments || []),
+        {
+          id: generateId(),
+          author: user.email,
+          author_name: user?.full_name || "Anonymous",
+          content: text.trim(),
+          date: new Date().toISOString(),
+        },
+      ];
 
-    const res = await fetch(`/api/community/${postId}/comment`, {
-      method: "PUT",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ comments: newComments }),
+      return {
+        ...post,
+        comments: newComments,
+        updated_at: new Date().toISOString(),
+      };
     });
 
-    const updated = await res.json();
-
-    setPosts(posts.map(p => (p.id === postId ? updated : p)));
+    savePosts(updatedPosts);
     setCommentTexts({ ...commentTexts, [postId]: "" });
   };
 
@@ -128,31 +168,41 @@ export default function Community() {
 
   return (
     <div className="p-4 md:p-6 max-w-2xl mx-auto">
-      <PageHeader title="Community" subtitle={isPaid ? "Share your journey" : "Read-only for free members"} />
+      <PageHeader
+        title="Community"
+        subtitle={isPaid ? "Share your journey" : "Read-only for free members"}
+      />
 
       {isPaid && (
         <div className="bg-card rounded-xl border border-border p-4 mb-6">
           <Textarea
             placeholder="Share something with the community..."
             value={newPost}
-            onChange={e => setNewPost(e.target.value)}
+            onChange={(e) => setNewPost(e.target.value)}
             rows={3}
           />
           <div className="flex justify-end mt-2">
             <Button size="sm" onClick={handlePost} disabled={!newPost.trim()}>
-              <Send className="w-3.5 h-3.5 mr-1" /> Post
+              <Send className="w-3.5 h-3.5 mr-1" />
+              Post
             </Button>
           </div>
         </div>
       )}
 
       {posts.length === 0 ? (
-        <EmptyState icon={Users} title="No posts yet" description="Be the first to share your financial journey!" />
+        <EmptyState
+          icon={Users}
+          title="No posts yet"
+          description="Be the first to share your financial journey!"
+        />
       ) : (
         <div className="space-y-4">
-          {posts.map(post => (
-            <div key={post.id} className="bg-card rounded-xl border border-border p-4">
-
+          {posts.map((post) => (
+            <div
+              key={post.id}
+              className="bg-card rounded-xl border border-border p-4"
+            >
               <div className="flex items-center gap-2 mb-3">
                 <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center">
                   <span className="text-primary font-bold text-xs">
@@ -163,23 +213,35 @@ export default function Community() {
                 <div className="flex-1">
                   <p className="text-sm font-medium">{post.author_name}</p>
                   <p className="text-[10px] text-muted-foreground">
-                    {new Date(post.created_date).toLocaleDateString()}
+                    {new Date(
+                      post.created_date || post.created_at
+                    ).toLocaleDateString()}
                   </p>
                 </div>
 
                 {(post.created_by === user?.email || isAdmin) && (
                   <div className="flex items-center gap-1">
-                    {post.created_by === user?.email && editingPostId !== post.id && (
-                      <Button size="sm" variant="ghost" className="h-7 w-7 p-0"
-                        onClick={() => {
-                          setEditingPostId(post.id);
-                          setEditContent(post.content);
-                        }}>
-                        <Pencil className="w-3 h-3" />
-                      </Button>
-                    )}
-                    <Button size="sm" variant="ghost" className="h-7 w-7 p-0 text-destructive"
-                      onClick={() => handleDelete(post.id)}>
+                    {post.created_by === user?.email &&
+                      editingPostId !== post.id && (
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          className="h-7 w-7 p-0"
+                          onClick={() => {
+                            setEditingPostId(post.id);
+                            setEditContent(post.content);
+                          }}
+                        >
+                          <Pencil className="w-3 h-3" />
+                        </Button>
+                      )}
+
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      className="h-7 w-7 p-0 text-destructive hover:text-destructive"
+                      onClick={() => handleDelete(post.id)}
+                    >
                       <Trash2 className="w-3 h-3" />
                     </Button>
                   </div>
@@ -188,18 +250,34 @@ export default function Community() {
 
               {editingPostId === post.id ? (
                 <div className="mb-3">
-                  <Textarea value={editContent} onChange={e => setEditContent(e.target.value)} rows={3} className="mb-2" />
+                  <Textarea
+                    value={editContent}
+                    onChange={(e) => setEditContent(e.target.value)}
+                    rows={3}
+                    className="mb-2"
+                  />
                   <div className="flex gap-2">
                     <Button size="sm" onClick={() => handleEditSave(post.id)}>
-                      <Check className="w-3 h-3 mr-1" /> Save
+                      <Check className="w-3 h-3 mr-1" />
+                      Save
                     </Button>
-                    <Button size="sm" variant="outline" onClick={() => setEditingPostId(null)}>
-                      <X className="w-3 h-3 mr-1" /> Cancel
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => {
+                        setEditingPostId(null);
+                        setEditContent("");
+                      }}
+                    >
+                      <X className="w-3 h-3 mr-1" />
+                      Cancel
                     </Button>
                   </div>
                 </div>
               ) : (
-                <p className="text-sm mb-3 whitespace-pre-wrap">{post.content}</p>
+                <p className="text-sm mb-3 whitespace-pre-wrap">
+                  {post.content}
+                </p>
               )}
 
               <div className="flex items-center gap-4 mb-3">
@@ -210,23 +288,32 @@ export default function Community() {
                     post.liked_by?.includes(user?.email)
                       ? "text-destructive"
                       : "text-muted-foreground"
-                  }`}
+                  } ${
+                    isPaid ? "hover:text-destructive" : "cursor-default"
+                  } transition-colors`}
                 >
-                  <Heart className={`w-4 h-4 ${post.liked_by?.includes(user?.email) ? "fill-current" : ""}`} />
+                  <Heart
+                    className={`w-4 h-4 ${
+                      post.liked_by?.includes(user?.email) ? "fill-current" : ""
+                    }`}
+                  />
                   {post.likes || 0}
                 </button>
 
                 <span className="flex items-center gap-1 text-xs text-muted-foreground">
-                  <MessageCircle className="w-4 h-4" /> {post.comments?.length || 0}
+                  <MessageCircle className="w-4 h-4" />
+                  {post.comments?.length || 0}
                 </span>
               </div>
 
               {post.comments?.length > 0 && (
                 <div className="space-y-2 mb-3 pl-4 border-l-2 border-border">
                   {post.comments.map((c, i) => (
-                    <div key={i} className="text-xs">
+                    <div key={c.id || i} className="text-xs">
                       <span className="font-medium">{c.author_name}</span>
-                      <span className="text-muted-foreground ml-2">{c.content}</span>
+                      <span className="text-muted-foreground ml-2">
+                        {c.content}
+                      </span>
                     </div>
                   ))}
                 </div>
@@ -238,16 +325,26 @@ export default function Community() {
                     placeholder="Add a comment..."
                     className="text-sm h-8"
                     value={commentTexts[post.id] || ""}
-                    onChange={e => setCommentTexts({ ...commentTexts, [post.id]: e.target.value })}
-                    onKeyDown={e => e.key === "Enter" && handleComment(post.id)}
+                    onChange={(e) =>
+                      setCommentTexts({
+                        ...commentTexts,
+                        [post.id]: e.target.value,
+                      })
+                    }
+                    onKeyDown={(e) =>
+                      e.key === "Enter" && handleComment(post.id)
+                    }
                   />
-                  <Button size="sm" variant="ghost" className="h-8"
-                    onClick={() => handleComment(post.id)}>
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    className="h-8"
+                    onClick={() => handleComment(post.id)}
+                  >
                     <Send className="w-3 h-3" />
                   </Button>
                 </div>
               )}
-
             </div>
           ))}
         </div>

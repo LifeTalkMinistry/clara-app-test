@@ -1,9 +1,38 @@
 import { useState, useEffect } from "react";
-import { Share2, Copy, Award, Users, FileText, ArrowRight, Lock } from "lucide-react";
+import {
+  Share2,
+  Copy,
+  Award,
+  Users,
+  FileText,
+  ArrowRight,
+  Lock,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import PageHeader from "../components/PageHeader";
 import EmptyState from "../components/EmptyState";
 import useUserRole from "../hooks/useUserRole";
+import { toast } from "sonner";
+
+const REFERRALS_KEY = "clara_referrals";
+const MATERIALS_KEY = "clara_referral_materials";
+
+const safeRead = (key) => {
+  try {
+    return JSON.parse(localStorage.getItem(key) || "[]");
+  } catch {
+    return [];
+  }
+};
+
+const ACHIEVEMENTS = [
+  { id: "first", label: "First Referral", icon: "🎯", requirement: (s) => s.total_referrals >= 1 },
+  { id: "three", label: "3 Approved Referrals", icon: "⭐", requirement: (s) => s.approved_referrals >= 3 },
+  { id: "five", label: "5 Referrals", icon: "🚀", requirement: (s) => s.total_referrals >= 5 },
+  { id: "ten", label: "10 Referrals", icon: "👑", requirement: (s) => s.total_referrals >= 10 },
+  { id: "commission", label: "First Paid Commission", icon: "💰", requirement: (s) => s.total_paid > 0 },
+  { id: "ambassador", label: "CLARA Ambassador Active", icon: "🌟", requirement: (s) => s.approved_referrals >= 3 && s.total_paid > 0 },
+];
 
 const fmt = (n) =>
   new Intl.NumberFormat("en-PH", {
@@ -12,9 +41,18 @@ const fmt = (n) =>
     minimumFractionDigits: 0,
   }).format(n || 0);
 
+function StatCard({ label, value, sub, color = "text-primary" }) {
+  return (
+    <div className="bg-white rounded-xl border border-border p-4">
+      <p className="text-xs text-muted-foreground font-semibold mb-1">{label}</p>
+      <p className={`font-heading font-bold text-2xl ${color}`}>{value}</p>
+      {sub && <p className="text-xs text-muted-foreground mt-1">{sub}</p>}
+    </div>
+  );
+}
+
 export default function Referrals() {
   const { user } = useUserRole();
-
   const [referrals, setReferrals] = useState([]);
   const [materials, setMaterials] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -22,16 +60,13 @@ export default function Referrals() {
   useEffect(() => {
     if (!user?.email) return;
 
-    Promise.all([
-      fetch(`/api/referrals?email=${user.email}`).then(r => r.json()),
-      fetch(`/api/referral-materials`).then(r => r.json()),
-    ])
-      .then(([refs, mats]) => {
-        setReferrals(refs || []);
-        setMaterials(mats || []);
-        setLoading(false);
-      })
-      .catch(() => setLoading(false));
+    const allRefs = safeRead(REFERRALS_KEY);
+    const allMaterials = safeRead(MATERIALS_KEY);
+
+    setReferrals(allRefs.filter(r => r.referrer_email === user.email));
+    setMaterials(allMaterials.filter(m => m.is_active));
+
+    setLoading(false);
   }, [user?.email]);
 
   if (loading) {
@@ -42,109 +77,125 @@ export default function Referrals() {
     );
   }
 
-  // LOCKED
   if (!user?.referral_enabled) {
     return (
-      <div className="p-6 max-w-4xl mx-auto text-center">
-        <Lock className="w-12 h-12 mx-auto mb-3 text-muted-foreground" />
-        <p className="text-sm text-muted-foreground">
-          Referral access is locked
-        </p>
+      <div className="p-4 md:p-6 max-w-4xl mx-auto">
+        <div className="rounded-2xl border-2 border-muted bg-muted/30 p-8 text-center">
+          <Lock className="w-14 h-14 text-muted-foreground mx-auto mb-4" />
+          <h2 className="font-heading text-xl font-bold mb-2">Referral Access</h2>
+          <p className="text-muted-foreground text-sm">
+            Referral access is only available to selected CLARA students.
+          </p>
+        </div>
       </div>
     );
   }
 
   const stats = {
-    total: referrals.length,
-    approved: referrals.filter(r => r.status === "approved").length,
-    pending: referrals.filter(r => r.status === "pending").length,
-    earned: referrals.reduce((s, r) => s + (r.commission_amount || 0), 0),
+    total_referrals: referrals.length,
+    approved_referrals: referrals.filter(r => r.status === "approved").length,
+    pending_referrals: referrals.filter(r => r.status === "pending").length,
+    total_earned: referrals.filter(r => ["approved","paid"].includes(r.status))
+      .reduce((s, r) => s + (r.commission_amount || 0), 0),
+    total_paid: referrals.filter(r => r.status === "paid")
+      .reduce((s, r) => s + (r.commission_amount || 0), 0),
+    unpaid_balance: referrals.filter(r => r.status === "approved")
+      .reduce((s, r) => s + (r.commission_amount || 0), 0),
   };
 
+  const unlockedAchievements = ACHIEVEMENTS.filter(a => a.requirement(stats));
+
   return (
-    <div className="p-4 md:p-6 max-w-4xl mx-auto">
+    <div className="p-4 md:p-6 max-w-4xl mx-auto pb-8">
+      <PageHeader
+        title="Referral Program"
+        subtitle="Earn commissions by sharing CLARA"
+      />
 
-      <PageHeader title="Referrals" />
-
-      {/* STATS */}
-      <div className="grid grid-cols-2 gap-3 mb-6">
-        <div className="p-3 border rounded">Total: {stats.total}</div>
-        <div className="p-3 border rounded">Approved: {stats.approved}</div>
-        <div className="p-3 border rounded">Pending: {stats.pending}</div>
-        <div className="p-3 border rounded">Earned: {fmt(stats.earned)}</div>
+      {/* Stats */}
+      <div className="grid grid-cols-2 md:grid-cols-3 gap-3 mb-6">
+        <StatCard label="Total Referrals" value={stats.total_referrals} />
+        <StatCard label="Approved" value={stats.approved_referrals} />
+        <StatCard label="Pending" value={stats.pending_referrals} color="text-orange-500" />
+        <StatCard label="Total Earned" value={fmt(stats.total_earned)} />
+        <StatCard label="Paid Out" value={fmt(stats.total_paid)} />
+        <StatCard label="Unpaid" value={fmt(stats.unpaid_balance)} color="text-orange-500" />
       </div>
 
-      {/* CODE */}
-      <div className="p-4 border rounded mb-6">
-        <p className="font-bold mb-2">Referral Code</p>
-
-        <div className="flex gap-2 items-center">
-          <code className="text-lg">{user?.referral_code}</code>
-
-          <Button
-            size="sm"
-            onClick={() => navigator.clipboard.writeText(user?.referral_code)}
-          >
+      {/* Referral Code */}
+      <div className="bg-white rounded-2xl border p-6 mb-6">
+        <h3 className="font-bold mb-3">Your Referral Code</h3>
+        <div className="flex gap-2">
+          <code className="flex-1 text-xl font-bold text-primary">
+            {user?.referral_code || "N/A"}
+          </code>
+          <Button size="sm" onClick={() => {
+            navigator.clipboard.writeText(user?.referral_code);
+            toast.success("Copied!");
+          }}>
             <Copy className="w-4 h-4" />
           </Button>
-
-          <Button
-            size="sm"
-            variant="outline"
-            onClick={() =>
-              navigator.clipboard.writeText(
-                `Join CLARA: ${user?.referral_code}`
-              )
-            }
-          >
+          <Button size="sm" variant="outline" onClick={() => {
+            navigator.clipboard.writeText(`Join CLARA: ${user?.referral_code}`);
+            toast.success("Ready to share!");
+          }}>
             <Share2 className="w-4 h-4" />
           </Button>
         </div>
       </div>
 
-      {/* REFERRALS */}
-      <div className="mb-6">
-        <h3 className="font-bold mb-2">My Referrals</h3>
-
-        {referrals.length === 0 ? (
-          <EmptyState icon={Users} title="No referrals yet" />
+      {/* Achievements */}
+      <div className="bg-white rounded-2xl border p-6 mb-6">
+        <h3 className="font-bold mb-3">Achievements</h3>
+        {unlockedAchievements.length === 0 ? (
+          <EmptyState icon={Award} title="No achievements yet" />
         ) : (
-          <div className="space-y-2">
-            {referrals.map(r => (
-              <div key={r.id} className="p-3 border rounded flex justify-between">
-                <div>
-                  <p>{r.new_user_name || r.new_user_email}</p>
-                  <p className="text-xs text-muted-foreground">
-                    {r.status}
-                  </p>
-                </div>
-
-                <p className="font-bold">
-                  {fmt(r.commission_amount)}
-                </p>
+          <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+            {unlockedAchievements.map(a => (
+              <div key={a.id} className="p-3 text-center border rounded-xl">
+                <span className="text-2xl">{a.icon}</span>
+                <p className="text-sm font-semibold">{a.label}</p>
               </div>
             ))}
           </div>
         )}
       </div>
 
-      {/* MATERIALS */}
-      <div>
-        <h3 className="font-bold mb-2">Materials</h3>
-
-        {materials.length === 0 ? (
-          <EmptyState icon={FileText} title="No materials" />
+      {/* Referrals */}
+      <div className="bg-white rounded-2xl border p-6 mb-6">
+        <h3 className="font-bold mb-3">My Referrals</h3>
+        {referrals.length === 0 ? (
+          <EmptyState icon={Users} title="No referrals yet" />
         ) : (
           <div className="space-y-2">
-            {materials.map(m => (
-              <div key={m.id} className="p-3 border rounded">
-                <p className="font-medium">{m.title}</p>
+            {referrals.map(ref => (
+              <div key={ref.id} className="p-3 border rounded-xl flex justify-between">
+                <div>
+                  <p className="font-medium">{ref.new_user_name || ref.new_user_email}</p>
+                  <p className="text-xs text-muted-foreground">{ref.plan}</p>
+                </div>
+                <span className="text-xs font-bold">{ref.status}</span>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
 
-                {m.file_url && (
-                  <a href={m.file_url} target="_blank">
-                    <Button size="sm" variant="outline">
-                      <ArrowRight className="w-4 h-4 mr-1" />
-                      Open
+      {/* Materials */}
+      <div className="bg-white rounded-2xl border p-6">
+        <h3 className="font-bold mb-3">Materials</h3>
+        {materials.length === 0 ? (
+          <EmptyState icon={FileText} title="No materials yet" />
+        ) : (
+          <div className="space-y-3">
+            {materials.map(mat => (
+              <div key={mat.id} className="p-3 border rounded-xl">
+                <p className="font-semibold text-sm">{mat.title}</p>
+                <p className="text-xs text-muted-foreground">{mat.description}</p>
+                {mat.file_url && (
+                  <a href={mat.file_url} target="_blank">
+                    <Button size="sm" className="mt-2">
+                      <ArrowRight className="w-3 h-3 mr-1" /> Open
                     </Button>
                   </a>
                 )}
@@ -153,7 +204,6 @@ export default function Referrals() {
           </div>
         )}
       </div>
-
     </div>
   );
 }

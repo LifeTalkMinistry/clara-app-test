@@ -1,21 +1,100 @@
-export default function App() {
-  return (
-    <div style={{
-      minHeight: "100vh",
-      background: "#081018",
-      color: "white",
-      display: "flex",
-      alignItems: "center",
-      justifyContent: "center",
-      flexDirection: "column"
-    }}>
-      <h1 style={{ color: "#facc15", fontSize: "32px" }}>
-        CLARA App 🚀
-      </h1>
+import { Toaster } from "@/components/ui/toaster";
+import { QueryClientProvider } from "@tanstack/react-query";
+import { queryClientInstance } from "@/lib/query-client";
+import { HashRouter as Router, Route, Routes } from "react-router-dom"; // ✅ FIX for GitHub Pages
 
-      <p style={{ marginTop: "10px", color: "#cbd5e1" }}>
-        Your app is now working.
-      </p>
-    </div>
+import PageNotFound from "./lib/PageNotFound";
+import { AuthProvider, useAuth } from "@/lib/AuthContext";
+
+// PAGES
+import Dashboard from "./pages/Dashboard";
+import Expenses from "./pages/Expenses";
+import AddFunds from "./pages/AddFunds";
+import Wallets from "./pages/Wallets";
+import Budgets from "./pages/Budgets";
+import Analytics from "./pages/Analytics";
+import Tasks from "./pages/Tasks";
+import Modules from "./pages/Modules";
+import Community from "./pages/Community";
+import Messages from "./pages/Messages";
+import Coaching from "./pages/Coaching";
+import Enroll from "./pages/Enroll";
+import TierSelect from "./pages/TierSelect";
+import News from "./pages/News";
+import Referrals from "./pages/Referrals";
+import SavingsGoals from "./pages/SavingsGoals";
+
+// ADMIN
+import AdminPanel from "./pages/admin/AdminPanel";
+import StudentProfile from "./pages/admin/StudentProfile";
+import AdminReferralMaterials from "./pages/admin/AdminReferralMaterials";
+import AdminDailyTips from "./pages/admin/AdminDailyTips";
+
+// COMPONENTS
+import Layout from "./components/Layout";
+
+const AuthenticatedApp = () => {
+  const { isLoadingAuth, isLoadingPublicSettings } = useAuth();
+
+  // ✅ SIMPLE LOADER (no external image)
+  if (isLoadingPublicSettings || isLoadingAuth) {
+    return (
+      <div className="fixed inset-0 flex items-center justify-center bg-[#061018]">
+        <div className="flex flex-col items-center gap-3">
+          <div className="w-10 h-10 border-4 border-white/20 border-t-white rounded-full animate-spin" />
+          <p className="text-white/60 text-sm">Loading CLARA...</p>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <Routes>
+      <Route element={<Layout />}>
+        <Route path="/" element={<Dashboard />} />
+        <Route path="/dashboard" element={<Dashboard />} />
+
+        <Route path="/tier-select" element={<TierSelect />} />
+        <Route path="/enroll" element={<Enroll />} />
+
+        <Route path="/expenses" element={<Expenses />} />
+        <Route path="/add-funds" element={<AddFunds />} />
+        <Route path="/wallets" element={<Wallets />} />
+        <Route path="/budgets" element={<Budgets />} />
+        <Route path="/analytics" element={<Analytics />} />
+        <Route path="/savings-goals" element={<SavingsGoals />} />
+
+        <Route path="/tasks" element={<Tasks />} />
+        <Route path="/modules" element={<Modules />} />
+        <Route path="/community" element={<Community />} />
+        <Route path="/messages" element={<Messages />} />
+        <Route path="/coaching" element={<Coaching />} />
+        <Route path="/news" element={<News />} />
+        <Route path="/referrals" element={<Referrals />} />
+
+        {/* ADMIN */}
+        <Route path="/admin" element={<AdminPanel />} />
+        <Route path="/admin/student/:userId" element={<StudentProfile />} />
+        <Route path="/admin/referral-materials" element={<AdminReferralMaterials />} />
+        <Route path="/admin/daily-tips" element={<AdminDailyTips />} />
+      </Route>
+
+      <Route path="*" element={<PageNotFound />} />
+    </Routes>
+  );
+};
+
+function App() {
+  return (
+    <AuthProvider>
+      <QueryClientProvider client={queryClientInstance}>
+        <Router>
+          <AuthenticatedApp />
+        </Router>
+        <Toaster />
+      </QueryClientProvider>
+    </AuthProvider>
   );
 }
+
+export default App;

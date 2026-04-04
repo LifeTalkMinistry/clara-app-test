@@ -1,102 +1,164 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=Space+Grotesk:wght@400;500;600;700;800&display=swap');
+/* ✅ Google Fonts (safe) */
+@import url("https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=Space+Grotesk:wght@400;500;600;700;800&display=swap");
 
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
+/* ================= BASE ================= */
 @layer base {
   :root {
-    --background: 222 47% 7%;
-    --foreground: 210 40% 98%;
+    --font-heading: "Space Grotesk", sans-serif;
+    --font-body: "Inter", sans-serif;
 
-    --card: 222 47% 11%;
-    --card-foreground: 210 40% 98%;
+    /* CLARA THEME */
+    --background: 222 84% 5%;
+    --foreground: 0 0% 100%;
 
-    --popover: 222 47% 11%;
-    --popover-foreground: 210 40% 98%;
+    --card: 220 39% 11%;
+    --card-foreground: 0 0% 100%;
 
-    --primary: 151 83% 44%;
-    --primary-foreground: 222 47% 7%;
+    --popover: 220 39% 11%;
+    --popover-foreground: 0 0% 100%;
 
-    --secondary: 215 28% 17%;
-    --secondary-foreground: 210 40% 98%;
+    --primary: 142 71% 45%;
+    --primary-foreground: 0 0% 100%;
+
+    --secondary: 48 96% 53%;
+    --secondary-foreground: 220 30% 10%;
 
     --muted: 217 33% 17%;
-    --muted-foreground: 215 20% 70%;
+    --muted-foreground: 215 20% 65%;
 
-    --accent: 154 84% 37%;
-    --accent-foreground: 210 40% 98%;
+    --accent: 199 89% 48%;
+    --accent-foreground: 0 0% 100%;
 
-    --destructive: 0 72% 51%;
-    --destructive-foreground: 210 40% 98%;
+    --destructive: 0 84% 58%;
+    --destructive-foreground: 0 0% 98%;
 
-    --border: 217 33% 20%;
-    --input: 217 33% 20%;
-    --ring: 151 83% 44%;
+    --border: 217 33% 22%;
+    --input: 217 33% 18%;
+    --ring: 142 71% 45%;
 
-    --radius: 1rem;
+    --radius: 0.875rem;
 
-    --font-heading: 'Space Grotesk', sans-serif;
-    --font-body: 'Inter', sans-serif;
+    --yellow: 48 96% 53%;
+    --navy: 222 84% 5%;
   }
 
   * {
-    @apply border-border;
+    @apply border-border outline-ring/50;
   }
 
-  html {
-    scroll-behavior: smooth;
+  html, body {
+    height: 100%;
   }
 
   body {
-    @apply bg-background text-foreground font-sans;
+    @apply bg-background text-foreground;
     font-family: var(--font-body);
-    margin: 0;
-    min-width: 320px;
-    min-height: 100vh;
+
+    /* ✅ CLEAN GRADIENT (no weird black artifacts) */
     background:
-      radial-gradient(circle at top left, rgba(22, 163, 74, 0.14), transparent 30%),
-      radial-gradient(circle at top right, rgba(14, 165, 233, 0.12), transparent 28%),
-      linear-gradient(180deg, #020617 0%, #071018 100%);
-  }
-
-  a {
-    @apply no-underline text-inherit;
-  }
-
-  button {
-    font-family: inherit;
-  }
-
-  #root {
+      radial-gradient(circle at top, rgba(34, 197, 94, 0.12), transparent 30%),
+      linear-gradient(135deg, #020617 0%, #03111f 45%, #020617 100%);
+    
     min-height: 100vh;
-  }
-
-  h1, h2, h3, h4, h5, h6 {
-    font-family: var(--font-heading);
+    overflow-x: hidden; /* ✅ prevent side scroll bug */
   }
 }
 
-@layer components {
-  .grad-green {
-    background: linear-gradient(90deg, #052a23 0%, #15803d 52%, #0ea5e9 100%);
-  }
+/* ================= SCROLLBAR ================= */
+::-webkit-scrollbar {
+  width: 4px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: hsl(145 60% 36% / 0.25);
+  border-radius: 4px;
+}
 
-  .card-glow-green {
-    box-shadow:
-      0 0 0 1px rgba(34, 197, 94, 0.08),
-      0 10px 30px rgba(0, 0, 0, 0.28);
-  }
+/* ================= CARD GLOW ================= */
+.card-glow-green {
+  box-shadow: 0 4px 24px hsl(142 71% 45% / 0.18),
+              0 1px 4px hsl(142 71% 45% / 0.1);
+}
 
-  .card-glow-yellow {
-    box-shadow:
-      0 0 0 1px rgba(250, 204, 21, 0.08),
-      0 10px 30px rgba(0, 0, 0, 0.28);
-  }
+.card-glow-yellow {
+  box-shadow: 0 4px 24px hsl(48 96% 53% / 0.22),
+              0 1px 4px hsl(48 96% 53% / 0.12);
+}
 
-  .card-glow-blue {
-    box-shadow:
-      0 0 0 1px rgba(59, 130, 246, 0.08),
-      0 10px 30px rgba(0, 0, 0, 0.28);
-  }
+.card-glow-blue {
+  box-shadow: 0 4px 24px hsl(199 89% 48% / 0.18),
+              0 1px 4px hsl(199 89% 48% / 0.1);
+}
+
+/* ================= GRADIENTS ================= */
+.grad-green {
+  background: linear-gradient(135deg, #020617 0%, #15803d 55%, #0ea5e9 100%);
+}
+
+.grad-yellow {
+  background: linear-gradient(135deg, #facc15 0%, #d9f99d 100%);
+}
+
+.grad-lime {
+  background: linear-gradient(135deg, #d9f99d 0%, #22c55e 100%);
+}
+
+.grad-blue {
+  background: linear-gradient(135deg, #0ea5e9 0%, #2563eb 100%);
+}
+
+.grad-green-blue {
+  background: linear-gradient(135deg, #15803d 0%, #0ea5e9 100%);
+}
+
+/* ================= CARD SURFACES ================= */
+.grad-card {
+  background: linear-gradient(
+    180deg,
+    rgba(15, 23, 42, 0.92) 0%,
+    rgba(10, 15, 28, 0.98) 100%
+  );
+  border: 1px solid hsl(217 33% 22%);
+  color: white;
+}
+
+.clara-card {
+  background: linear-gradient(
+    180deg,
+    rgba(15, 23, 42, 0.9) 0%,
+    rgba(2, 6, 23, 0.96) 100%
+  );
+  border: 1px solid rgba(34, 197, 94, 0.14);
+  backdrop-filter: blur(10px);
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.28);
+  color: white;
+}
+
+.clara-card-soft {
+  background: rgba(15, 23, 42, 0.72);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  backdrop-filter: blur(8px);
+  color: white;
+}
+
+/* ================= INPUT ================= */
+.clara-input {
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid hsl(217 33% 22%);
+  color: white;
+}
+
+.clara-input::placeholder {
+  color: rgba(255, 255, 255, 0.45);
+}
+
+/* ================= PROGRESS ================= */
+.progress-bar {
+  transition: width 0.6s cubic-bezier(0.4, 0, 0.2, 1);
 }

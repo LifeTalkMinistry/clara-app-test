@@ -10,8 +10,27 @@ export const TIER_LABELS = {
 
 export const PAID_TIERS = ["basic", "transformation", "elite", "student"];
 
+const STORAGE_KEYS = {
+  sessionUser: "clara_user",
+  users: "clara_users",
+  enrollments: "clara_enrollments",
+};
+
+const getStoredData = (key, fallback = null) => {
+  try {
+    const raw = localStorage.getItem(key);
+    return raw ? JSON.parse(raw) : fallback;
+  } catch {
+    return fallback;
+  }
+};
+
+const setStoredData = (key, value) => {
+  localStorage.setItem(key, JSON.stringify(value));
+};
+
 export default function useUserRole() {
-  const [user, setUser] = useState(null);
+  const [user, setUserState] = useState(null);
   const [loading, setLoading] = useState(true);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [enrollment, setEnrollment] = useState(null);
@@ -20,23 +39,46 @@ export default function useUserRole() {
     try {
       setLoading(true);
 
-      const storedUser = JSON.parse(localStorage.getItem("user") || "null");
-      const storedEnrollment = JSON.parse(localStorage.getItem("enrollment") || "null");
+      const sessionUser = getStoredData(STORAGE_KEYS.sessionUser, null);
+      const storedUsers = getStoredData(STORAGE_KEYS.users, []);
+      const storedEnrollments = getStoredData(STORAGE_KEYS.enrollments, []);
 
-      const authed = !!storedUser;
+      const authed = !!sessionUser?.email;
       setIsAuthenticated(authed);
 
       if (!authed) {
-        setUser(null);
+        setUserState(null);
         setEnrollment(null);
         return;
       }
 
-      setUser(storedUser);
-      setEnrollment(storedEnrollment);
+      const matchedUser =
+        storedUsers.find((item) => item.email === sessionUser.email) ||
+        sessionUser;
+
+      setUserState(matchedUser || null);
+
+      if (matchedUser?.email) {
+        const latestEnrollment =
+          storedEnrollments
+            .filter((item) => item.created_by === matchedUser.email)
+            .sort((a, b) => {
+              const aDate = new Date(
+                a.created_date || a.created_at || 0
+              ).getTime();
+              const bDate = new Date(
+                b.created_date || b.created_at || 0
+              ).getTime();
+              return bDate - aDate;
+            })[0] || null;
+
+        setEnrollment(latestEnrollment);
+      } else {
+        setEnrollment(null);
+      }
     } catch (err) {
-      console.error("Failed to load user:", err);
-      setUser(null);
+      console.error(err);
+      setUserState(null);
       setEnrollment(null);
       setIsAuthenticated(false);
     } finally {
@@ -47,6 +89,30 @@ export default function useUserRole() {
   useEffect(() => {
     loadUser();
   }, [loadUser]);
+
+  const setUser = useCallback((nextUser) => {
+    setUserState(nextUser);
+
+    if (!nextUser) {
+      localStorage.removeItem(STORAGE_KEYS.sessionUser);
+      setIsAuthenticated(false);
+      return;
+    }
+
+    setStoredData(STORAGE_KEYS.sessionUser, nextUser);
+    setIsAuthenticated(true);
+
+    const storedUsers = getStoredData(STORAGE_KEYS.users, []);
+    const exists = storedUsers.some((item) => item.email === nextUser.email);
+
+    const updatedUsers = exists
+      ? storedUsers.map((item) =>
+          item.email === nextUser.email ? { ...item, ...nextUser } : item
+        )
+      : [...storedUsers, nextUser];
+
+    setStoredData(STORAGE_KEYS.users, updatedUsers);
+  }, []);
 
   const role = (user?.role || "free_user").toLowerCase();
   const rawPlan = user?.plan || "free";
@@ -59,9 +125,7 @@ export default function useUserRole() {
 
   const isAdmin = role === "admin";
   const isPaid =
-    PAID_TIERS.includes(plan) ||
-    role === "paid_user" ||
-    role === "admin";
+    PAID_TIERS.includes(plan) || role === "paid_user" || role === "admin";
   const isFree = !isPaid && !isAdmin;
 
   const isPending =

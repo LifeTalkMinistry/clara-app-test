@@ -1,12 +1,23 @@
 import { useState, useEffect } from "react";
 import { Trash2, Copy } from "lucide-react";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
-import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@/components/ui/select";
+import {
+  Select,
+  SelectTrigger,
+  SelectValue,
+  SelectContent,
+  SelectItem,
+} from "@/components/ui/select";
 import { cn } from "@/lib/utils";
 
 const BLANK = {
@@ -15,22 +26,27 @@ const BLANK = {
   day: 1,
   is_active: true,
   difficulty_mode_enabled: false,
+
   main_action_instruction: "",
   main_why_it_matters: "",
   main_optional_guidance: "",
   main_points: 10,
+
   easy_action_instruction: "",
   easy_why_it_matters: "",
   easy_optional_guidance: "",
   easy_points: 5,
+
   medium_action_instruction: "",
   medium_why_it_matters: "",
   medium_optional_guidance: "",
   medium_points: 10,
+
   hard_action_instruction: "",
   hard_why_it_matters: "",
   hard_optional_guidance: "",
   hard_points: 20,
+
   proof_required: "none",
   require_detailed_answer: false,
   interview_candidate_task: false,
@@ -94,7 +110,12 @@ function DifficultyBlock({ label, form, setForm, defaultPoints }) {
         <p className="font-heading font-bold text-xs uppercase tracking-[0.14em] text-white">
           {label}
         </p>
-        <span className={cn("text-[11px] px-2.5 py-1 rounded-full font-semibold", styles[label]?.badge)}>
+        <span
+          className={cn(
+            "text-[11px] px-2.5 py-1 rounded-full font-semibold",
+            styles[label]?.badge
+          )}
+        >
           {form[`${prefix}_points`] || defaultPoints} pts
         </span>
       </div>
@@ -166,7 +187,14 @@ function DifficultyBlock({ label, form, setForm, defaultPoints }) {
   );
 }
 
-export default function TaskFormModal({ open, onClose, editId, initialForm, onSave, onDelete }) {
+export default function TaskFormModal({
+  open,
+  onClose,
+  editId,
+  initialForm,
+  onSave,
+  onDelete,
+}) {
   const [form, setForm] = useState({ ...BLANK, ...(initialForm || {}) });
   const [errors, setErrors] = useState({});
 
@@ -224,8 +252,8 @@ export default function TaskFormModal({ open, onClose, editId, initialForm, onSa
   return (
     <Dialog
       open={open}
-      onOpenChange={(v) => {
-        if (!v) onClose();
+      onOpenChange={(value) => {
+        if (!value) onClose();
       }}
     >
       <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto border border-white/10 bg-[#071018]/95 text-white backdrop-blur-xl shadow-[0_20px_70px_rgba(0,0,0,0.65)] rounded-3xl">
@@ -297,8 +325,8 @@ export default function TaskFormModal({ open, onClose, editId, initialForm, onSa
             <div className="flex items-center gap-3 rounded-xl border border-white/10 bg-white/[0.03] p-3">
               <Switch
                 checked={!!form.is_active}
-                onCheckedChange={(v) =>
-                  setForm((prev) => ({ ...prev, is_active: v }))
+                onCheckedChange={(value) =>
+                  setForm((prev) => ({ ...prev, is_active: value }))
                 }
               />
               <div>
@@ -318,8 +346,11 @@ export default function TaskFormModal({ open, onClose, editId, initialForm, onSa
             <div className="flex items-center gap-3 p-3 rounded-xl border border-white/10 bg-white/[0.03]">
               <Switch
                 checked={!!form.difficulty_mode_enabled}
-                onCheckedChange={(v) =>
-                  setForm((prev) => ({ ...prev, difficulty_mode_enabled: v }))
+                onCheckedChange={(value) =>
+                  setForm((prev) => ({
+                    ...prev,
+                    difficulty_mode_enabled: value,
+                  }))
                 }
               />
               <div>
@@ -388,7 +419,6 @@ export default function TaskFormModal({ open, onClose, editId, initialForm, onSa
                   <Input
                     type="number"
                     min={0}
-                    className="w-28 border-white/10 bg-white/5 text-white placeholder:text-white/35 focus-visible:ring-1 focus-visible:ring-[#22c55e]"
                     value={form.main_points ?? 10}
                     onChange={(e) =>
                       setForm((prev) => ({
@@ -396,14 +426,15 @@ export default function TaskFormModal({ open, onClose, editId, initialForm, onSa
                         main_points: e.target.value,
                       }))
                     }
+                    className="w-28 border-white/10 bg-white/5 text-white placeholder:text-white/35 focus-visible:ring-1 focus-visible:ring-[#22c55e]"
                   />
                 </div>
               </div>
             ) : (
               <div className="space-y-3">
                 <p className="text-xs text-white/75 bg-[#facc15]/10 border border-[#facc15]/20 rounded-xl px-3 py-2.5">
-                  Students choose <strong>one difficulty</strong> per day. These are not separate
-                  days — they are options within the same task.
+                  Students choose <strong>one difficulty</strong> per day. These are not
+                  separate days — they are options within the same task.
                 </p>
 
                 <DifficultyBlock
@@ -442,8 +473,8 @@ export default function TaskFormModal({ open, onClose, editId, initialForm, onSa
               <FieldLabel>Proof Required</FieldLabel>
               <Select
                 value={form.proof_required || "none"}
-                onValueChange={(v) =>
-                  setForm((prev) => ({ ...prev, proof_required: v }))
+                onValueChange={(value) =>
+                  setForm((prev) => ({ ...prev, proof_required: value }))
                 }
               >
                 <SelectTrigger className="border-white/10 bg-white/5 text-white focus:ring-1 focus:ring-[#22c55e]">
@@ -461,8 +492,11 @@ export default function TaskFormModal({ open, onClose, editId, initialForm, onSa
             <div className="flex items-center gap-3 p-3 rounded-xl border border-white/10 bg-white/[0.03]">
               <Switch
                 checked={!!form.require_detailed_answer}
-                onCheckedChange={(v) =>
-                  setForm((prev) => ({ ...prev, require_detailed_answer: v }))
+                onCheckedChange={(value) =>
+                  setForm((prev) => ({
+                    ...prev,
+                    require_detailed_answer: value,
+                  }))
                 }
               />
               <div>
@@ -476,15 +510,18 @@ export default function TaskFormModal({ open, onClose, editId, initialForm, onSa
             <div className="flex items-center gap-3 p-3 rounded-xl border border-white/10 bg-white/[0.03]">
               <Switch
                 checked={!!form.interview_candidate_task}
-                onCheckedChange={(v) =>
-                  setForm((prev) => ({ ...prev, interview_candidate_task: v }))
+                onCheckedChange={(value) =>
+                  setForm((prev) => ({
+                    ...prev,
+                    interview_candidate_task: value,
+                  }))
                 }
               />
               <div>
                 <FieldLabel className="text-white">Interview Candidate Task</FieldLabel>
                 <p className="text-[10px] text-white/50">
-                  This task may be selected for random accountability interviews during weekly
-                  sessions or coaching. Supports CLARA&apos;s Integrity Mode.
+                  This task may be selected for random accountability interviews during
+                  weekly sessions or coaching. Supports CLARA&apos;s Integrity Mode.
                 </p>
               </div>
             </div>
@@ -519,8 +556,8 @@ export default function TaskFormModal({ open, onClose, editId, initialForm, onSa
             {editId && (
               <Button
                 variant="outline"
-                className="border-red-400/30 bg-red-500/5 text-red-300 hover:bg-red-500/10 hover:text-red-200"
                 onClick={() => onDelete(editId)}
+                className="border-red-400/30 bg-red-500/5 text-red-300 hover:bg-red-500/10 hover:text-red-200"
               >
                 <Trash2 className="w-3.5 h-3.5 mr-1" /> Delete
               </Button>

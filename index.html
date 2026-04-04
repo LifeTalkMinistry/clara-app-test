@@ -2,11 +2,27 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
+
+    <!-- ✅ Local favicon (recommended) -->
+    <link rel="icon" type="image/png" href="/favicon.png" />
+
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>CLARA App</title>
+
+    <!-- ✅ PWA (optional, safe) -->
+    <link rel="manifest" href="/manifest.json" />
+
+    <!-- ✅ SEO / Branding -->
+    <title>CLARA</title>
+    <meta name="description" content="CLARA Financial Program - Take control of your money." />
+
+    <!-- ✅ Theme color (mobile browser UI) -->
+    <meta name="theme-color" content="#020617" />
   </head>
+
   <body>
     <div id="root"></div>
+
+    <!-- ✅ Vite entry -->
     <script type="module" src="/src/main.jsx"></script>
   </body>
 </html>

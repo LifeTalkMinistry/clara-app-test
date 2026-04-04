@@ -3,22 +3,25 @@ import { CheckCircle } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 
+const STORAGE_KEY = "clara_plans";
+
+const safeRead = () => {
+  try {
+    return JSON.parse(localStorage.getItem(STORAGE_KEY) || "[]");
+  } catch {
+    return [];
+  }
+};
+
 export default function TierSelect() {
   const [plans, setPlans] = useState([]);
   const [loading, setLoading] = useState(true);
   const navigate = useNavigate();
 
   useEffect(() => {
-    fetch("/api/plans")
-      .then(r => r.json())
-      .then(p => {
-        setPlans(p?.length ? p : DEFAULT_PLANS);
-        setLoading(false);
-      })
-      .catch(() => {
-        setPlans(DEFAULT_PLANS);
-        setLoading(false);
-      });
+    const stored = safeRead();
+    setPlans(stored.length > 0 ? stored : DEFAULT_PLANS);
+    setLoading(false);
   }, []);
 
   const handleFree = () => navigate("/dashboard");
@@ -37,83 +40,92 @@ export default function TierSelect() {
 
   return (
     <div className="min-h-screen bg-slate-50 flex flex-col">
-
       {/* HEADER */}
       <div className="grad-green px-4 py-10 text-center">
-        <h1 className="text-3xl font-bold text-white">
+        <div className="w-16 h-16 rounded-2xl bg-white/20 flex items-center justify-center mx-auto mb-4">
+          <span className="text-white font-heading font-bold text-4xl">C</span>
+        </div>
+
+        <h1 className="font-heading text-3xl font-bold text-white">
           Choose Your Path
         </h1>
         <p className="text-green-100 text-sm mt-2">
-          Select your plan
+          Select the tier that fits your journey
         </p>
       </div>
 
       <div className="flex-1 px-4 py-8 max-w-2xl mx-auto w-full">
-
-        <div className="grid gap-6">
+        <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
 
           {/* FREE */}
           <div>
             <button
               onClick={handleFree}
-              className="w-full p-6 rounded-2xl border bg-white"
+              className="w-full p-6 rounded-3xl border-2 bg-white hover:shadow-lg transition-all"
             >
-              <p className="font-bold text-lg">Free</p>
-              <p className="text-2xl font-bold text-primary">₱0</p>
+              <div className="flex justify-between mb-4">
+                <p className="font-bold text-lg">Free</p>
+                <span className="text-3xl font-bold text-primary">₱0</span>
+              </div>
 
-              <div className="mt-4 space-y-2">
-                {freePlan.features?.map((f, i) => (
-                  <p key={i} className="text-sm flex gap-2">
+              <div className="space-y-2 mb-4">
+                {freePlan.features?.slice(0, 3).map((f, i) => (
+                  <p key={i} className="text-xs flex gap-2">
                     <CheckCircle className="w-4 h-4 text-primary" />
                     {f}
                   </p>
                 ))}
               </div>
 
-              <Button className="w-full mt-4">
+              <button className="w-full py-2 border rounded-full text-primary">
                 Continue Free
-              </Button>
+              </button>
             </button>
           </div>
 
           {/* PAID */}
-          {paidPlans.map(plan => (
-            <div key={plan.plan_key}>
-              <button
-                onClick={handlePaid}
-                className="w-full p-6 rounded-2xl border bg-white"
-              >
-                <p className="font-bold text-lg">{plan.name}</p>
-                <p className="text-2xl font-bold text-primary">
-                  ₱{plan.price}
-                </p>
+          {paidPlans.map((plan, i) => {
+            const isPremium = plan.is_popular;
 
-                <div className="mt-4 space-y-2">
-                  {plan.features?.map((f, i) => (
-                    <p key={i} className="text-sm flex gap-2">
-                      <CheckCircle className="w-4 h-4 text-primary" />
-                      {f}
-                    </p>
-                  ))}
-                </div>
+            return (
+              <div key={i}>
+                <button
+                  onClick={handlePaid}
+                  className={`w-full p-6 rounded-3xl border-2 transition-all ${
+                    isPremium
+                      ? "border-primary shadow-xl"
+                      : "border-gray-200"
+                  }`}
+                >
+                  <p className="font-bold text-lg">{plan.name}</p>
 
-                <Button className="w-full mt-4">
-                  {plan.cta_label || "Enroll"}
-                </Button>
-              </button>
-            </div>
-          ))}
+                  <p className="text-3xl font-bold text-primary mt-2">
+                    ₱{plan.price}
+                  </p>
 
+                  <div className="space-y-2 mt-4">
+                    {plan.features?.slice(0, 3).map((f, j) => (
+                      <p key={j} className="text-xs flex gap-2">
+                        <CheckCircle className="w-4 h-4 text-primary" />
+                        {f}
+                      </p>
+                    ))}
+                  </div>
+
+                  <button className="w-full mt-4 py-2 bg-primary text-white rounded-full">
+                    {plan.cta_label || "Enroll"}
+                  </button>
+                </button>
+              </div>
+            );
+          })}
         </div>
 
         <div className="flex justify-center mt-6">
           <Link to="/dashboard">
-            <Button variant="ghost">
-              Skip
-            </Button>
+            <Button variant="ghost">Skip for now</Button>
           </Link>
         </div>
-
       </div>
     </div>
   );
@@ -130,12 +142,13 @@ const DEFAULT_PLANS = [
     plan_key: "basic",
     name: "Basic",
     price: 499,
-    features: ["Tasks", "Modules"],
+    features: ["Daily tasks", "Modules", "Tracking"],
+    is_popular: true,
   },
   {
     plan_key: "transformation",
     name: "Transformation",
     price: 999,
-    features: ["Coaching", "Priority support"],
+    features: ["Everything in Basic", "Coaching", "Priority support"],
   },
 ];

@@ -1,29 +1,81 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 
-/* -----------------------------
-   CLARA LOGIC (KEEP SAME)
-------------------------------*/
+// CLARA Retention Logic (consistent across Dashboard + Analytics)
+// < 15% = warning/overspending
+// 15–20% = safe/on-track
+// > 20% = praise/excellent
 export function getRetentionStatus(rate) {
   const r = parseFloat(rate);
-  if (r < 0) return { status: "Overspending", color: "text-destructive", level: "danger" };
-  if (r < 15) return { status: "Warning", color: "text-orange-500", level: "warning" };
-  if (r <= 20) return { status: "On Track", color: "text-primary", level: "safe" };
-  return { status: "Excellent", color: "text-primary", level: "praise" };
+
+  if (r < 0) {
+    return {
+      status: "Overspending",
+      color: "text-destructive",
+      level: "danger",
+    };
+  }
+
+  if (r < 15) {
+    return {
+      status: "Warning",
+      color: "text-orange-500",
+      level: "warning",
+    };
+  }
+
+  if (r <= 20) {
+    return {
+      status: "On Track",
+      color: "text-primary",
+      level: "safe",
+    };
+  }
+
+  return {
+    status: "Excellent",
+    color: "text-primary",
+    level: "praise",
+  };
 }
 
 export function getCoachInsight(rate, totalIncome) {
-  if (!totalIncome) return "Start tracking your finances.";
+  if (!totalIncome || totalIncome === 0) {
+    return "Start logging your income and expenses to get personalized insights!";
+  }
+
   const r = parseFloat(rate);
 
-  if (r < 0) return "⚠️ You're overspending.";
-  if (r < 15) return "⚠️ Below 15%. Cut wants.";
-  if (r <= 20) return "✅ Safe zone.";
-  return "🎉 Excellent retention!";
+  if (r < 0) {
+    return "⚠️ You've spent more than you earned. Review your expenses immediately and pause all non-essential spending.";
+  }
+
+  if (r < 15) {
+    return "⚠️ Your leftover rate is below 15%. CLARA recommends keeping at least 15% of your income. Cut wants spending now.";
+  }
+
+  if (r <= 20) {
+    return "✅ You're in the safe zone! You're keeping 15–20% of your income. Keep this up and look for ways to push past 20%.";
+  }
+
+  return "🎉 Excellent! You're retaining over 20% of your income. You're ahead of target — consider directing the extra toward a savings goal!";
 }
 
-/* -----------------------------
-   MAIN HOOK (NO BASE44)
-------------------------------*/
+const STORAGE_KEYS = {
+  expenses: "clara_expenses",
+  incomes: "clara_incomes",
+  wallets: "clara_wallets",
+  budgets: "clara_budgets",
+};
+
+const getStoredData = (key) => {
+  try {
+    const raw = localStorage.getItem(key);
+    return raw ? JSON.parse(raw) : [];
+  } catch {
+    return [];
+  }
+};
+
 export default function useFinancialData(userEmail) {
   const [expenses, setExpenses] = useState([]);
   const [incomes, setIncomes] = useState([]);
@@ -31,76 +83,180 @@ export default function useFinancialData(userEmail) {
   const [budgets, setBudgets] = useState([]);
   const [loading, setLoading] = useState(true);
 
-  // ✅ LOAD FROM LOCAL STORAGE
-  const load = () => {
-    const exp = JSON.parse(localStorage.getItem("expenses") || "[]");
-    const inc = JSON.parse(localStorage.getItem("incomes") || "[]");
-    const wal = JSON.parse(localStorage.getItem("wallets") || "[]");
-    const bud = JSON.parse(localStorage.getItem("budgets") || "[]");
+  const load = useCallback(async () => {
+    if (!userEmail) {
+      setExpenses([]);
+      setIncomes([]);
+      setWallets([]);
+      setBudgets([]);
+      setLoading(false);
+      return;
+    }
 
-    setExpenses(exp);
-    setIncomes(inc);
-    setWallets(wal);
-    setBudgets(bud);
+    setLoading(true);
+
+    const allExpenses = getStoredData(STORAGE_KEYS.expenses);
+    const allIncomes = getStoredData(STORAGE_KEYS.incomes);
+    const allWallets = getStoredData(STORAGE_KEYS.wallets);
+    const allBudgets = getStoredData(STORAGE_KEYS.budgets);
+
+    const userExpenses = allExpenses
+      .filter((item) => item.created_by === userEmail)
+      .sort((a, b) => new Date(b.date || 0) - new Date(a.date || 0))
+      .slice(0, 500);
+
+    const userIncomes = allIncomes
+      .filter((item) => item.created_by === userEmail)
+      .sort((a, b) => new Date(b.date || 0) - new Date(a.date || 0))
+      .slice(0, 500);
+
+    const userWallets = allWallets.filter((item) => item.created_by === userEmail);
+
+    const userBudgets = allBudgets.filter((item) => item.created_by === userEmail);
+
+    setExpenses(userExpenses);
+    setIncomes(userIncomes);
+    setWallets(userWallets);
+    setBudgets(userBudgets);
     setLoading(false);
-  };
+  }, [userEmail]);
 
   useEffect(() => {
     load();
-  }, [userEmail]);
+  }, [load]);
 
   const now = new Date();
-  const currentMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+  const currentMonth = `${now.getFullYear()}-${String(
+    now.getMonth() + 1
+  ).padStart(2, "0")}`;
 
-  const totalIncome = incomes.reduce((s, i) => s + (i.amount || 0), 0);
-  const totalExpenses = expenses.reduce((s, e) => s + (e.amount || 0), 0);
+  const currentBudget = budgets.find((b) => b.month === currentMonth);
 
+  const thisMonthExpenses = expenses.filter((e) => {
+    if (!e.date?.startsWith(currentMonth)) return false;
+    if (!currentBudget?.tracking_start_date) return true;
+    return new Date(e.date) >= new Date(currentBudget.tracking_start_date);
+  });
+
+  const filteredExpenses = thisMonthExpenses;
+
+  const totalIncome = incomes.reduce((sum, item) => sum + (item.amount || 0), 0);
+  const totalExpenses = expenses.reduce((sum, item) => sum + (item.amount || 0), 0);
   const totalRetained = totalIncome - totalExpenses;
+
   const retentionRate =
     totalIncome > 0 ? ((totalRetained / totalIncome) * 100).toFixed(1) : "0.0";
 
-  const { status, color: statusColor, level: statusLevel } =
-    getRetentionStatus(retentionRate);
+  const {
+    status,
+    color: statusColor,
+    level: statusLevel,
+  } = getRetentionStatus(retentionRate);
 
   const coachInsight = getCoachInsight(retentionRate, totalIncome);
 
-  const thisMonthExpenses = expenses.filter(e =>
-    e.date?.startsWith(currentMonth)
+  const needsSpent = filteredExpenses
+    .filter((e) => e.need_type === "need")
+    .reduce((sum, item) => sum + (item.amount || 0), 0);
+
+  const wantsSpent = filteredExpenses
+    .filter((e) => e.need_type === "want")
+    .reduce((sum, item) => sum + (item.amount || 0), 0);
+
+  const savingsSpent = filteredExpenses
+    .filter((e) => e.need_type === "savings")
+    .reduce((sum, item) => sum + (item.amount || 0), 0);
+
+  const filteredTotalExpenses = filteredExpenses.reduce(
+    (sum, item) => sum + (item.amount || 0),
+    0
   );
 
-  const needsSpent = thisMonthExpenses
-    .filter(e => e.need_type === "need")
-    .reduce((s, e) => s + (e.amount || 0), 0);
+  const needsPct =
+    filteredTotalExpenses > 0
+      ? ((needsSpent / filteredTotalExpenses) * 100).toFixed(1)
+      : "0.0";
 
-  const wantsSpent = thisMonthExpenses
-    .filter(e => e.need_type === "want")
-    .reduce((s, e) => s + (e.amount || 0), 0);
+  const wantsPct =
+    filteredTotalExpenses > 0
+      ? ((wantsSpent / filteredTotalExpenses) * 100).toFixed(1)
+      : "0.0";
 
-  const savingsSpent = thisMonthExpenses
-    .filter(e => e.need_type === "savings")
-    .reduce((s, e) => s + (e.amount || 0), 0);
+  const savingsPct =
+    filteredTotalExpenses > 0
+      ? ((savingsSpent / filteredTotalExpenses) * 100).toFixed(1)
+      : "0.0";
 
-  const thisMonthSpent = thisMonthExpenses.reduce((s, e) => s + e.amount, 0);
+  const thisMonthSpent = thisMonthExpenses.reduce(
+    (sum, item) => sum + (item.amount || 0),
+    0
+  );
 
   const thisMonthIncome = incomes
-    .filter(i => i.date?.startsWith(currentMonth))
-    .reduce((s, i) => s + i.amount, 0);
+    .filter((i) => i.date?.startsWith(currentMonth))
+    .reduce((sum, item) => sum + (item.amount || 0), 0);
 
-  const walletBalances = wallets.map(w => {
+  const walletBalances = wallets.map((wallet) => {
     const walletIncome = incomes
-      .filter(i => i.wallet_id === w.id)
-      .reduce((s, i) => s + i.amount, 0);
+      .filter((i) => i.wallet_id === wallet.id)
+      .reduce((sum, item) => sum + (item.amount || 0), 0);
 
     const walletExpense = expenses
-      .filter(e => e.wallet_id === w.id)
-      .reduce((s, e) => s + e.amount, 0);
+      .filter((e) => e.wallet_id === wallet.id)
+      .reduce((sum, item) => sum + (item.amount || 0), 0);
 
     return {
-      ...w,
+      ...wallet,
       currentBalance:
-        (w.starting_balance || 0) + walletIncome - walletExpense,
+        (wallet.starting_balance || 0) + walletIncome - walletExpense,
+      totalSpent: walletExpense,
+      totalReceived: walletIncome,
     };
   });
+
+  const monthlyData = {};
+
+  incomes.forEach((income) => {
+    const month = income.date?.substring(0, 7);
+    if (!month) return;
+
+    if (!monthlyData[month]) {
+      monthlyData[month] = { month, income: 0, expenses: 0 };
+    }
+
+    monthlyData[month].income += income.amount || 0;
+  });
+
+  expenses.forEach((expense) => {
+    const month = expense.date?.substring(0, 7);
+    if (!month) return;
+
+    if (!monthlyData[month]) {
+      monthlyData[month] = { month, income: 0, expenses: 0 };
+    }
+
+    monthlyData[month].expenses += expense.amount || 0;
+  });
+
+  const monthlyBreakdown = Object.values(monthlyData).sort((a, b) =>
+    a.month.localeCompare(b.month)
+  );
+
+  const categoryData = {};
+
+  expenses.forEach((expense) => {
+    const category = expense.category || "Uncategorized";
+    if (!categoryData[category]) categoryData[category] = 0;
+    categoryData[category] += expense.amount || 0;
+  });
+
+  const categoryBreakdown = Object.entries(categoryData)
+    .map(([name, value]) => ({
+      name,
+      value,
+      pct: totalExpenses > 0 ? ((value / totalExpenses) * 100).toFixed(1) : 0,
+    }))
+    .sort((a, b) => b.value - a.value);
 
   return {
     expenses,
@@ -115,6 +271,9 @@ export default function useFinancialData(userEmail) {
     needsSpent,
     wantsSpent,
     savingsSpent,
+    needsPct,
+    wantsPct,
+    savingsPct,
     thisMonthSpent,
     thisMonthIncome,
     currentMonth,
@@ -123,6 +282,8 @@ export default function useFinancialData(userEmail) {
     statusLevel,
     coachInsight,
     walletBalances,
+    monthlyBreakdown,
+    categoryBreakdown,
     refresh: load,
   };
 }

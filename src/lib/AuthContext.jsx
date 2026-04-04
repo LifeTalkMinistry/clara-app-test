@@ -1,12 +1,44 @@
-import React, { createContext, useState, useContext, useEffect } from 'react';
-import axios from 'axios';
+import React, {
+  createContext,
+  useState,
+  useContext,
+  useEffect,
+  useCallback,
+} from "react";
+import { appParams } from "@/lib/app-params";
 
-const AuthContext = createContext();
+const AuthContext = createContext(null);
 
-const API = axios.create({
-  baseURL: '/api',
-  withCredentials: true,
-});
+async function fetchJson(url, options = {}) {
+  const response = await fetch(url, {
+    credentials: "include",
+    headers: {
+      "Content-Type": "application/json",
+      ...(appParams.token
+        ? { Authorization: `Bearer ${appParams.token}` }
+        : {}),
+      ...(options.headers || {}),
+    },
+    ...options,
+  });
+
+  let data = null;
+
+  try {
+    data = await response.json();
+  } catch {
+    data = null;
+  }
+
+  if (!response.ok) {
+    const error = new Error(data?.message || `Request failed: ${url}`);
+    error.status = response.status;
+    error.data = data;
+    throw error;
+  }
+
+  return data;
+}
 
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
@@ -16,94 +48,142 @@ export const AuthProvider = ({ children }) => {
   const [authError, setAuthError] = useState(null);
   const [appPublicSettings, setAppPublicSettings] = useState(null);
 
-  useEffect(() => {
-    checkAppState();
-  }, []);
-
-  const checkAppState = async () => {
-    try {
-      setIsLoadingPublicSettings(true);
-      setAuthError(null);
-
-      // PUBLIC SETTINGS
-      const res = await API.get('/public-settings');
-      setAppPublicSettings(res.data);
-
-      // CHECK USER
-      await checkUserAuth();
-
-    } catch (err) {
-      setAuthError({
-        type: 'unknown',
-        message: err.response?.data?.message || 'Failed to load app'
-      });
-    } finally {
-      setIsLoadingPublicSettings(false);
-    }
-  };
-
-  const checkUserAuth = async () => {
+  const checkUserAuth = useCallback(async () => {
     try {
       setIsLoadingAuth(true);
 
-      const res = await API.get('/auth/me');
-      setUser(res.data);
-      setIsAuthenticated(true);
+      const result = await fetchJson("/api/auth/me");
+      const currentUser = result?.user || null;
 
-    } catch (err) {
+      setUser(currentUser);
+      setIsAuthenticated(!!currentUser);
+
+      if (!currentUser) {
+        setAuthError({
+          type: "auth_required",
+          message: "Authentication required",
+        });
+      }
+    } catch (error) {
+      console.error("User auth check failed:", error);
       setUser(null);
       setIsAuthenticated(false);
 
-      if (err.response?.status === 401) {
+      if (error.status === 401 || error.status === 403) {
         setAuthError({
-          type: 'auth_required',
-          message: 'Authentication required'
+          type: "auth_required",
+          message: "Authentication required",
+        });
+      } else {
+        setAuthError({
+          type: "unknown",
+          message: error.message || "Failed to verify user",
         });
       }
     } finally {
       setIsLoadingAuth(false);
     }
-  };
+  }, []);
 
-  const login = async (credentials) => {
+  const checkAppState = useCallback(async () => {
     try {
-      const res = await API.post('/auth/login', credentials);
-      setUser(res.data);
-      setIsAuthenticated(true);
+      setIsLoadingPublicSettings(true);
       setAuthError(null);
-    } catch (err) {
-      setAuthError({
-        type: 'login_failed',
-        message: err.response?.data?.message || 'Login failed'
+
+      const publicSettings = await fetchJson("/api/public-settings");
+      setAppPublicSettings(publicSettings);
+
+      if (appParams.token) {
+        await checkUserAuth();
+      } else {
+        setUser(null);
+        setIsAuthenticated(false);
+        setIsLoadingAuth(false);
+      }
+    } catch (error) {
+      console.error("App state check failed:", error);
+
+      if (error.status === 403 && error.data?.extra_data?.reason) {
+        const reason = error.data.extra_data.reason;
+
+        if (reason === "auth_required") {
+          setAuthError({
+            type: "auth_required",
+            message: "Authentication required",
+          });
+        } else if (reason === "user_not_registered") {
+          setAuthError({
+            type: "user_not_registered",
+            message: "User not registered for this app",
+          });
+        } else {
+          setAuthError({
+            type: reason,
+            message: error.message || "Failed to load app",
+          });
+        }
+      } else {
+        setAuthError({
+          type: "unknown",
+          message: error.message || "Failed to load app",
+        });
+      }
+
+      setUser(null);
+      setIsAuthenticated(false);
+      setIsLoadingAuth(false);
+    } finally {
+      setIsLoadingPublicSettings(false);
+    }
+  }, [checkUserAuth]);
+
+  useEffect(() => {
+    checkAppState();
+  }, [checkAppState]);
+
+  const logout = async (shouldRedirect = true) => {
+    try {
+      await fetch("/api/auth/logout", {
+        method: "POST",
+        credentials: "include",
+        headers: {
+          "Content-Type": "application/json",
+        },
       });
+    } catch (error) {
+      console.error("Logout failed:", error);
+    }
+
+    localStorage.removeItem("clara_access_token");
+    localStorage.removeItem("token");
+
+    setUser(null);
+    setIsAuthenticated(false);
+    setAuthError(null);
+
+    if (shouldRedirect) {
+      window.location.href = "/";
     }
   };
 
-  const logout = async () => {
-    try {
-      await API.post('/auth/logout');
-    } catch {}
-    setUser(null);
-    setIsAuthenticated(false);
-  };
-
   const navigateToLogin = () => {
-    window.location.href = '/login';
+    const currentUrl = encodeURIComponent(window.location.href);
+    window.location.href = `/login?redirect=${currentUrl}`;
   };
 
   return (
     <AuthContext.Provider
       value={{
         user,
+        setUser,
         isAuthenticated,
         isLoadingAuth,
         isLoadingPublicSettings,
         authError,
         appPublicSettings,
-        login,
         logout,
         navigateToLogin,
-        checkAppState
+        checkAppState,
       }}
     >
       {children}
@@ -113,6 +193,10 @@ export const AuthProvider = ({ children }) => {
 
 export const useAuth = () => {
   const context = useContext(AuthContext);
-  if (!context) throw new Error('useAuth must be used within AuthProvider');
+
+  if (!context) {
+    throw new Error("useAuth must be used within an AuthProvider");
+  }
+
   return context;
 };

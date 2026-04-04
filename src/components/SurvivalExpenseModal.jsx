@@ -1,7 +1,41 @@
 import { useEffect, useState } from "react";
-import { Shield, ChevronDown, ChevronUp, X } from "lucide-react";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Shield, ChevronDown, ChevronUp } from "lucide-react";
 
-export default function SurvivalExpenseModal({ open, onSaved }) {
+function saveSurvivalExpense(value) {
+  try {
+    const currentUser =
+      JSON.parse(localStorage.getItem("clara_user") || "null") || {};
+
+    const updatedUser = {
+      ...currentUser,
+      monthly_survival_expense: value,
+    };
+
+    localStorage.setItem("clara_user", JSON.stringify(updatedUser));
+    localStorage.setItem("monthly_survival_expense", String(value));
+
+    return updatedUser;
+  } catch (error) {
+    console.error("Failed to save monthly_survival_expense locally:", error);
+    localStorage.setItem("monthly_survival_expense", String(value));
+    return { monthly_survival_expense: value };
+  }
+}
+
+export default function SurvivalExpenseModal({
+  open,
+  onSaved,
+  onSaveSurvivalExpense,
+}) {
   const [amount, setAmount] = useState("");
   const [showEstimator, setShowEstimator] = useState(false);
   const [est, setEst] = useState({
@@ -22,7 +56,23 @@ export default function SurvivalExpenseModal({ open, onSaved }) {
         utilities: "",
         transport: "",
       });
+      return;
     }
+
+    const savedValue =
+      localStorage.getItem("monthly_survival_expense") ||
+      (() => {
+        try {
+          const user = JSON.parse(localStorage.getItem("clara_user") || "null");
+          return user?.monthly_survival_expense
+            ? String(user.monthly_survival_expense)
+            : "";
+        } catch {
+          return "";
+        }
+      })();
+
+    setAmount(savedValue || "");
   }, [open]);
 
   const estTotal = Object.values(est).reduce((sum, value) => {
@@ -40,115 +90,126 @@ export default function SurvivalExpenseModal({ open, onSaved }) {
 
     try {
       setSaving(true);
-      localStorage.setItem("monthly_survival_expense", String(val));
+
+      if (typeof onSaveSurvivalExpense === "function") {
+        await onSaveSurvivalExpense(val);
+      } else {
+        saveSurvivalExpense(val);
+      }
+
       onSaved?.(val);
     } catch (error) {
-      console.error("Save failed:", error);
+      console.error("Failed to save monthly_survival_expense:", error);
     } finally {
       setSaving(false);
     }
   };
 
-  if (!open) return null;
-
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 px-4">
-      <div className="w-full max-w-md rounded-[28px] border border-white/10 bg-[#071018] p-5 text-white shadow-[0_30px_80px_rgba(0,0,0,0.55)]">
-        <div className="mb-3 flex items-start justify-between gap-4">
-          <div className="flex items-center gap-2">
-            <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-emerald-500/10">
-              <Shield className="h-5 w-5 text-emerald-400" />
+    <Dialog open={open}>
+      <DialogContent
+        className="max-w-sm"
+        onPointerDownOutside={(e) => e.preventDefault()}
+      >
+        <DialogHeader>
+          <div className="flex items-center gap-2 mb-1">
+            <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center">
+              <Shield className="w-4 h-4 text-primary" />
             </div>
-            <div>
-              <h2 className="text-lg font-bold">Set Survival Number</h2>
-              <p className="text-xs text-white/55">Emergency fund base</p>
-            </div>
+            <DialogTitle className="font-heading text-lg">
+              Set Your Survival Number
+            </DialogTitle>
+          </div>
+        </DialogHeader>
+
+        <p className="text-sm text-muted-foreground mb-4 leading-relaxed">
+          Hindi income ang basehan ng financial security.
+          <br />
+          Kundi kung <strong>magkano kailangan mo para mabuhay</strong> bawat buwan.
+        </p>
+
+        <div className="space-y-3">
+          <div>
+            <Label className="text-sm font-semibold">
+              Monthly Essential Expenses (₱)
+            </Label>
+            <Input
+              type="number"
+              placeholder="e.g. 8000"
+              value={amount}
+              onChange={(e) => setAmount(e.target.value)}
+              className="mt-1.5 text-base"
+              min={1}
+            />
+            <p className="text-xs text-muted-foreground mt-1">
+              Include: Rent, Food, Bills, Transportation
+            </p>
           </div>
 
           <button
-            onClick={() => onSaved?.(null)}
-            className="rounded-xl border border-white/10 bg-white/5 p-2 text-white/60 hover:text-white"
+            type="button"
+            onClick={() => setShowEstimator((v) => !v)}
+            className="flex items-center gap-1.5 text-xs text-primary font-semibold"
           >
-            <X className="h-4 w-4" />
+            {showEstimator ? (
+              <ChevronUp className="w-3.5 h-3.5" />
+            ) : (
+              <ChevronDown className="w-3.5 h-3.5" />
+            )}
+            Help me estimate
           </button>
-        </div>
 
-        <p className="mb-4 text-sm leading-6 text-white/72">
-          Hindi income ang basehan. Kundi kung magkano kailangan mo para mabuhay buwan-buwan.
-        </p>
+          {showEstimator && (
+            <div className="bg-muted/50 rounded-xl p-3 space-y-2">
+              {[
+                { key: "rent", label: "Rent / Housing" },
+                { key: "food", label: "Food" },
+                { key: "utilities", label: "Utilities / Bills" },
+                { key: "transport", label: "Transportation" },
+              ].map(({ key, label }) => (
+                <div key={key} className="flex items-center gap-2">
+                  <Label className="text-xs w-28 flex-shrink-0">{label}</Label>
+                  <Input
+                    type="number"
+                    placeholder="₱0"
+                    value={est[key]}
+                    onChange={(e) =>
+                      setEst((prev) => ({
+                        ...prev,
+                        [key]: e.target.value,
+                      }))
+                    }
+                    className="h-8 text-sm"
+                  />
+                </div>
+              ))}
 
-        <div className="mb-4">
-          <p className="mb-1.5 text-sm font-semibold text-white">Monthly Expenses (₱)</p>
-          <input
-            type="number"
-            placeholder="e.g. 8000"
-            value={amount}
-            onChange={(e) => setAmount(e.target.value)}
-            className="w-full rounded-2xl border border-white/10 bg-[#020617] px-4 py-3 text-white outline-none placeholder:text-white/35"
-          />
-        </div>
-
-        <button
-          onClick={() => setShowEstimator((v) => !v)}
-          className="mb-3 flex items-center gap-1 text-xs text-emerald-300"
-        >
-          {showEstimator ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
-          Help me estimate
-        </button>
-
-        {showEstimator && (
-          <div className="mb-4 rounded-2xl border border-white/10 bg-white/[0.04] p-3">
-            {[
-              { key: "rent", label: "Rent" },
-              { key: "food", label: "Food" },
-              { key: "utilities", label: "Bills" },
-              { key: "transport", label: "Transport" },
-            ].map(({ key, label }) => (
-              <div key={key} className="mb-2 flex items-center gap-2 last:mb-0">
-                <span className="w-24 text-xs text-white/65">{label}</span>
-                <input
-                  type="number"
-                  placeholder="0"
-                  value={est[key]}
-                  onChange={(e) =>
-                    setEst((prev) => ({
-                      ...prev,
-                      [key]: e.target.value,
-                    }))
-                  }
-                  className="flex-1 rounded-xl border border-white/10 bg-[#020617] px-3 py-2 text-sm text-white outline-none placeholder:text-white/30"
-                />
+              <div className="flex items-center justify-between pt-1">
+                <span className="text-xs font-bold text-foreground">
+                  Total: ₱{estTotal.toLocaleString()}
+                </span>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="h-7 text-xs"
+                  onClick={useEstimate}
+                  disabled={estTotal <= 0}
+                >
+                  Use This
+                </Button>
               </div>
-            ))}
-
-            <div className="mt-3 flex items-center justify-between text-xs text-white/70">
-              <span>Total: ₱{estTotal.toLocaleString()}</span>
-              <button
-                onClick={useEstimate}
-                disabled={estTotal <= 0}
-                className="rounded-lg bg-emerald-500 px-3 py-1 font-medium text-white disabled:opacity-40"
-              >
-                Use
-              </button>
             </div>
-          </div>
-        )}
+          )}
+        </div>
 
-        <button
+        <Button
+          className="w-full mt-2"
           onClick={handleSave}
-          disabled={saving || !amount}
-          className="w-full rounded-2xl bg-[linear-gradient(135deg,#22c55e,#0ea5a0)] px-4 py-3 font-semibold text-white shadow-[0_14px_30px_rgba(34,197,94,0.22)] disabled:opacity-50"
+          disabled={saving || !amount || parseFloat(amount) <= 0}
         >
           {saving ? "Saving..." : "Save & Continue"}
-        </button>
-
-        <button
-          onClick={() => onSaved?.(null)}
-          className="mt-3 w-full text-sm text-white/50"
-        >
-          Cancel
-        </button>
-      </div>
-    </div>
+        </Button>
+      </DialogContent>
+    </Dialog>
   );
 }
