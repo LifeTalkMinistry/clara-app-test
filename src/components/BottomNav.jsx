@@ -16,7 +16,7 @@ import {
   Users,
   MessageSquare,
   GraduationCap,
-  LogOut
+  LogOut,
 } from "lucide-react";
 
 const moreItems = [
@@ -40,36 +40,27 @@ export default function BottomNav({ onQuickAdd }) {
 
   return (
     <>
-      {/* NAV */}
-      <nav className="lg:hidden fixed bottom-0 left-0 right-0 z-40 
-        bg-[#071018]/95 backdrop-blur-xl border-t border-white/10">
-
-        <div className="relative flex items-end justify-around h-16 px-3">
-
+      <nav className="fixed bottom-0 left-0 right-0 z-40 border-t border-white/10 bg-[#071018]/90 backdrop-blur-xl lg:hidden">
+        <div className="relative flex h-16 items-end justify-around px-3 pb-2">
           <NavItem to="/dashboard" active={isActive("/dashboard")}>
-            <LayoutDashboard className="w-5 h-5" />
+            <LayoutDashboard className="h-5 w-5" />
             Home
           </NavItem>
 
           <NavItem to="/expenses" active={isActive("/expenses")}>
-            <Receipt className="w-5 h-5" />
+            <Receipt className="h-5 w-5" />
             Expenses
           </NavItem>
 
-          {/* FAB */}
           <button
             onClick={onQuickAdd}
-            className="absolute -top-6 left-1/2 -translate-x-1/2 
-            w-14 h-14 rounded-full 
-            bg-gradient-to-br from-green-400 to-emerald-600 
-            flex items-center justify-center 
-            shadow-[0_10px_25px_rgba(0,0,0,0.6)]"
+            className="absolute -top-6 left-1/2 flex h-14 w-14 -translate-x-1/2 items-center justify-center rounded-full bg-[linear-gradient(135deg,#28d76d,#0ea56d)] shadow-[0_15px_30px_rgba(0,0,0,0.45)]"
           >
-            <Plus className="w-6 h-6 text-white" />
+            <Plus className="h-6 w-6 text-white" />
           </button>
 
           <NavItem to="/analytics" active={isActive("/analytics")}>
-            <BarChart2 className="w-5 h-5" />
+            <BarChart2 className="h-5 w-5" />
             Analytics
           </NavItem>
 
@@ -77,46 +68,43 @@ export default function BottomNav({ onQuickAdd }) {
             onClick={() => setMoreOpen(true)}
             className="flex flex-col items-center text-xs text-white/50"
           >
-            <MoreHorizontal className="w-5 h-5" />
+            <MoreHorizontal className="h-5 w-5" />
             More
           </button>
-
         </div>
       </nav>
 
-      {/* MORE */}
       {moreOpen && (
-        <div className="fixed inset-0 z-50 bg-black/70 flex flex-col justify-end">
-
-          <div className="bg-[#071018] rounded-t-3xl p-4 max-h-[85vh] overflow-y-auto">
-
-            <div className="flex justify-between items-center mb-4">
-              <h3 className="text-white font-semibold">More</h3>
-              <button onClick={() => setMoreOpen(false)}>
-                <X className="text-white" />
+        <div className="fixed inset-0 z-50 flex flex-col justify-end bg-black/70 lg:hidden">
+          <div className="max-h-[85vh] overflow-y-auto rounded-t-[30px] border-t border-white/10 bg-[#071018] p-4 shadow-2xl">
+            <div className="mb-4 flex items-center justify-between">
+              <h3 className="text-base font-semibold text-white">More</h3>
+              <button
+                onClick={() => setMoreOpen(false)}
+                className="rounded-xl border border-white/10 bg-white/5 p-2 text-white"
+              >
+                <X className="h-5 w-5" />
               </button>
             </div>
 
             <div className="grid grid-cols-3 gap-3">
-              {moreItems.map(item => (
+              {moreItems.map((item) => (
                 <Link
                   key={item.path}
                   to={item.path}
                   onClick={() => setMoreOpen(false)}
-                  className="flex flex-col items-center gap-1 p-3 
-                  bg-[#020617] rounded-xl text-white/80 hover:bg-white/10"
+                  className="flex flex-col items-center gap-2 rounded-2xl border border-white/8 bg-[#020617] p-3 text-white/80 transition hover:bg-white/8 hover:text-white"
                 >
-                  <item.icon className="w-5 h-5" />
-                  <span className="text-[10px] text-center">{item.label}</span>
+                  <item.icon className="h-5 w-5" />
+                  <span className="text-[10px] text-center leading-tight">{item.label}</span>
                 </Link>
               ))}
             </div>
 
-            <button className="w-full mt-4 p-3 bg-red-500 rounded-xl text-white flex items-center justify-center gap-2">
-              <LogOut className="w-4 h-4" />
+            <button className="mt-4 flex w-full items-center justify-center gap-2 rounded-2xl bg-red-500 px-4 py-3 text-sm font-medium text-white">
+              <LogOut className="h-4 w-4" />
               Log Out
             </button>
-
           </div>
         </div>
       )}
@@ -129,7 +117,7 @@ function NavItem({ to, active, children }) {
     <Link
       to={to}
       className={`flex flex-col items-center text-xs transition ${
-        active ? "text-green-400" : "text-white/50"
+        active ? "text-emerald-400" : "text-white/50"
       }`}
     >
       {children}

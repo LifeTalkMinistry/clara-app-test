@@ -8,19 +8,21 @@ export default function ClaraLogo({
   const textColor = theme === "dark" ? "text-white" : "text-[#182028]";
 
   return (
-    <div className={`flex items-center gap-2.5 ${className}`}>
-      <div className="w-10 h-10 rounded-xl bg-[#071018] p-[2px] shadow-inner">
+    <div className={`flex items-center gap-3 ${className}`}>
+      <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-[#071018] p-[3px] shadow-[inset_0_1px_2px_rgba(255,255,255,0.08),0_8px_18px_rgba(0,0,0,0.35)]">
         <img
           src={logo}
           alt="CLARA Logo"
-          className="w-full h-full object-cover rounded-lg"
+          className="h-full w-full rounded-[14px] object-cover"
         />
       </div>
 
       {variant === "full" && (
-        <p className={`font-bold text-lg tracking-wide ${textColor}`}>
-          CLARA
-        </p>
+        <div className="leading-none">
+          <p className={`text-[29px] font-bold tracking-tight ${textColor}`}>
+            CLARA
+          </p>
+        </div>
       )}
     </div>
   );
