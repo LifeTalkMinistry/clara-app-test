@@ -21,6 +21,7 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
+import { supabase } from "@/lib/supabaseClient";
 import BottomNav from "./BottomNav";
 import QuickAddModal from "./QuickAddModal";
 import useUserRole from "../hooks/useUserRole";
@@ -183,13 +184,8 @@ export default function Layout() {
     loading = false,
   } = useUserRole() || {};
 
-  const handleLogout = () => {
-    localStorage.removeItem("token");
-    localStorage.removeItem("authToken");
-    localStorage.removeItem("user");
-    localStorage.removeItem("clara_user");
-    localStorage.removeItem("clara_session");
-
+  const handleLogout = async () => {
+    await supabase.auth.signOut();
     setSidebarOpen(false);
     navigate("/login");
   };

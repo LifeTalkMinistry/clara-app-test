@@ -1,0 +1,9 @@
+{
+  "name": "CLARA",
+  "short_name": "CLARA",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#0E7A39",
+  "theme_color": "#0E7A39",
+  "icons": []
+}
