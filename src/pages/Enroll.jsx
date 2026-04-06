@@ -1,670 +1,627 @@
-import { useState, useEffect } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   Upload,
   CheckCircle,
-  Clock,
-  XCircle,
-  ArrowLeft,
+  Sparkles,
+  CreditCard,
+  Building2,
+  Check,
   ArrowRight,
-  LayoutDashboard,
 } from "lucide-react";
-import { useNavigate } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { cn } from "@/lib/utils";
 import useUserRole from "../hooks/useUserRole";
+import { supabase } from "@/lib/supabaseClient";
 
-const STEPS = ["Select Plan", "Payment", "Upload Proof", "Done"];
-
-const STORAGE_KEYS = {
-  plans: "clara_plans",
-  appSettings: "clara_app_settings",
-  enrollments: "clara_enrollments",
+const TIER_CONFIG = {
+  diy: {
+    keyAliases: ["diy", "basic"],
+    shortName: "DIY",
+    subtitle: "Do-It-Yourself",
+    badge: "Self-Paced",
+    badgeClass:
+      "bg-emerald-500/10 text-emerald-700 border border-emerald-200",
+    cardClass:
+      "bg-white/95 border border-emerald-100 shadow-[0_20px_45px_rgba(15,23,42,0.08)]",
+    buttonClass:
+      "bg-emerald-600 hover:bg-emerald-700 text-white shadow-[0_12px_25px_rgba(5,150,105,0.28)]",
+    priceClass: "text-emerald-600",
+    description:
+      "Fully self-paced program with no personal coaching. Best for users who want structure, tools, and progress tracking while managing the journey on their own.",
+    features: [
+      "Full access to modules",
+      "Daily tasks",
+      "Money tracking tools",
+      "Progress dashboard",
+      "Certification path",
+      "Onboarding via video",
+      "Structured completion flow",
+    ],
+    notIncluded: [
+      "No 1:1 coaching",
+      "No scheduled calls",
+      "No direct personal support",
+    ],
+    supportLine: "App-driven accountability • Fully self-managed",
+    priceFallback: 299,
+    sort: 1,
+  },
+  diwm: {
+    keyAliases: ["diwm", "transformation"],
+    shortName: "DIWM",
+    subtitle: "Do-It-With-Me",
+    badge: "Best Value",
+    badgeClass: "bg-amber-400/15 text-amber-700 border border-amber-300",
+    cardClass:
+      "bg-[linear-gradient(180deg,rgba(255,255,255,1)_0%,rgba(254,252,232,1)_100%)] border-2 border-amber-400 shadow-[0_25px_60px_rgba(245,158,11,0.22)] xl:-translate-y-2",
+    buttonClass:
+      "bg-amber-500 hover:bg-amber-600 text-slate-950 shadow-[0_14px_30px_rgba(245,158,11,0.28)]",
+    priceClass: "text-amber-600",
+    description:
+      "Guided program with limited but meaningful personal interaction at key milestones. Best for users who want structure plus human guidance without full intensive coaching.",
+    features: [
+      "Everything in DIY",
+      "Onboarding session (Day 1–3)",
+      "Final session (Day 27–30)",
+      "Orientation & alignment",
+      "Goal setting",
+      "Accountability agreement",
+      "Phone-based accountability as agreed",
+    ],
+    notIncluded: [
+      "No continuous coaching",
+      "No daily 1:1 support",
+      "No frequent sessions beyond the two milestones",
+    ],
+    supportLine: "Hybrid accountability • System + human support",
+    priceFallback: 499,
+    highlight: true,
+    sort: 2,
+  },
+  ldit: {
+    keyAliases: ["ldit", "elite"],
+    shortName: "LDIT",
+    subtitle: "Led / Intensive Tier",
+    badge: "Highest Support",
+    badgeClass: "bg-cyan-500/10 text-cyan-700 border border-cyan-200",
+    cardClass:
+      "bg-white/95 border border-cyan-100 shadow-[0_20px_45px_rgba(15,23,42,0.08)]",
+    buttonClass:
+      "bg-cyan-600 hover:bg-cyan-700 text-white shadow-[0_12px_25px_rgba(8,145,178,0.28)]",
+    priceClass: "text-cyan-600",
+    description:
+      "High-touch, closely guided coaching with continuous accountability. Best for users who want intensive support, closer monitoring, and stronger follow-through.",
+    features: [
+      "Everything in DIWM",
+      "Weekly 1:1 coaching sessions",
+      "Higher level of monitoring and reminders",
+      "Stronger accountability enforcement",
+      "Frequent follow-ups",
+      "Missed tasks addressed quickly",
+      "Continuous guidance throughout the 30 days",
+    ],
+    notIncluded: [],
+    supportLine: "Active monitoring • Continuous guidance",
+    priceFallback: 999,
+    sort: 3,
+  },
 };
 
-const getStoredData = (key) => {
-  try {
-    const raw = localStorage.getItem(key);
-    return raw ? JSON.parse(raw) : [];
-  } catch {
-    return [];
+function classifyPlan(plan) {
+  const key = String(plan?.plan_key || "").toLowerCase();
+  const name = String(plan?.name || "").toLowerCase();
+
+  if (TIER_CONFIG.diy.keyAliases.some((alias) => key.includes(alias) || name.includes(alias))) {
+    return "diy";
   }
-};
 
-const setStoredData = (key, value) => {
-  localStorage.setItem(key, JSON.stringify(value));
-};
+  if (TIER_CONFIG.diwm.keyAliases.some((alias) => key.includes(alias) || name.includes(alias))) {
+    return "diwm";
+  }
 
-const generateId = () =>
-  `${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
+  if (TIER_CONFIG.ldit.keyAliases.some((alias) => key.includes(alias) || name.includes(alias))) {
+    return "ldit";
+  }
+
+  return null;
+}
+
+function normalizePrice(value, fallback) {
+  if (value === null || value === undefined || value === "") return fallback;
+  const numeric = Number(String(value).replace(/[^\d.]/g, ""));
+  if (Number.isNaN(numeric)) return fallback;
+  return numeric;
+}
 
 export default function Enroll() {
   const { user } = useUserRole();
   const navigate = useNavigate();
+  const location = useLocation();
 
   const [plans, setPlans] = useState([]);
-  const [enrollment, setEnrollment] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [step, setStep] = useState(0);
   const [selectedPlan, setSelectedPlan] = useState(null);
-  const [paymentMethod, setPaymentMethod] = useState("gcash");
-  const [proofUrl, setProofUrl] = useState("");
-  const [uploading, setUploading] = useState(false);
+  const [selectedPlanData, setSelectedPlanData] = useState(null);
+  const [proofFile, setProofFile] = useState(null);
   const [submitting, setSubmitting] = useState(false);
-  const [paymentSettings, setPaymentSettings] = useState(null);
-  const [referralCode, setReferralCode] = useState("");
 
   useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
-    const code = params.get("ref");
-    if (code) setReferralCode(code);
+    const params = new URLSearchParams(location.search);
+    const planKey = params.get("plan");
+    setSelectedPlan(planKey || null);
+  }, [location.search]);
+
+  useEffect(() => {
+    const loadPlans = async () => {
+      try {
+        setLoading(true);
+
+        const { data, error } = await supabase
+          .from("plans")
+          .select("*")
+          .eq("is_active", true)
+          .order("sort_order", { ascending: true });
+
+        if (error) {
+          console.error("Failed to load plans:", error);
+          setPlans([]);
+          return;
+        }
+
+        const matchedPlans = (data || [])
+          .filter((plan) => classifyPlan(plan))
+          .map((plan) => {
+            const tierType = classifyPlan(plan);
+            const tierUi = TIER_CONFIG[tierType];
+            return {
+              ...plan,
+              tierType,
+              ui: tierUi,
+              normalizedPrice: normalizePrice(plan.price, tierUi.priceFallback),
+            };
+          })
+          .sort((a, b) => a.ui.sort - b.ui.sort);
+
+        setPlans(matchedPlans);
+      } catch (error) {
+        console.error("Unexpected error loading plans:", error);
+        setPlans([]);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadPlans();
   }, []);
 
   useEffect(() => {
-    if (!user?.email) return;
-
-    const allPlans = getStoredData(STORAGE_KEYS.plans);
-    const allSettings = getStoredData(STORAGE_KEYS.appSettings);
-    const allEnrollments = getStoredData(STORAGE_KEYS.enrollments);
-
-    const activePlans = allPlans
-      .filter((plan) => plan.is_active)
-      .sort((a, b) => (a.sort_order || 0) - (b.sort_order || 0));
-
-    const paidPlans = activePlans.filter((plan) => plan.plan_key !== "free");
-    setPlans(paidPlans);
-
-    const settingsMap = {};
-    allSettings.forEach((s) => {
-      if (s?.key) settingsMap[s.key] = s.value;
-    });
-    setPaymentSettings(settingsMap);
-
-    const latestEnrollment = allEnrollments
-      .filter((e) => e.created_by === user.email)
-      .sort((a, b) => {
-        const aDate = new Date(a.created_date || a.created_at || 0).getTime();
-        const bDate = new Date(b.created_date || b.created_at || 0).getTime();
-        return bDate - aDate;
-      })[0];
-
-    if (latestEnrollment) setEnrollment(latestEnrollment);
-
-    setLoading(false);
-  }, [user?.email]);
-
-  const handleFileUpload = async (e) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-
-    setUploading(true);
-
-    try {
-      const reader = new FileReader();
-
-      reader.onloadend = () => {
-        setProofUrl(reader.result);
-        setUploading(false);
-      };
-
-      reader.onerror = () => {
-        setUploading(false);
-      };
-
-      reader.readAsDataURL(file);
-    } catch {
-      setUploading(false);
+    if (!selectedPlan || plans.length === 0) {
+      setSelectedPlanData(null);
+      return;
     }
+
+    const foundPlan = plans.find((plan) => plan.plan_key === selectedPlan) || null;
+    setSelectedPlanData(foundPlan);
+  }, [selectedPlan, plans]);
+
+  const isPaidUser = useMemo(() => {
+    return (
+      ["basic", "transformation", "elite", "student", "diy", "diwm", "ldit"].includes(user?.plan) ||
+      user?.role === "paid_user"
+    );
+  }, [user]);
+
+  useEffect(() => {
+    if (isPaidUser) {
+      navigate("/dashboard", { replace: true });
+    }
+  }, [isPaidUser, navigate]);
+
+  const handlePlanSelect = (planKey) => {
+    setProofFile(null);
+    navigate(`/enroll?plan=${planKey}`);
+  };
+
+  const handleBackToPlans = () => {
+    setProofFile(null);
+    navigate("/enroll");
+  };
+
+  const handleSkip = () => {
+    navigate("/dashboard");
+  };
+
+  const handleFileChange = (e) => {
+    const file = e.target.files?.[0] || null;
+    setProofFile(file);
   };
 
   const handleSubmit = async () => {
-    if (!proofUrl || !selectedPlan || !user?.email) return;
+    if (!user?.id) {
+      alert("User not found. Please log in again.");
+      return;
+    }
+
+    if (!selectedPlanData) {
+      alert("Please choose a plan first.");
+      return;
+    }
 
     setSubmitting(true);
 
-    const allEnrollments = getStoredData(STORAGE_KEYS.enrollments);
+    try {
+      let proofUrl = null;
 
-    const newEnrollment = {
-      id: generateId(),
-      created_by: user.email,
-      created_date: new Date().toISOString(),
-      created_at: new Date().toISOString(),
-      plan: selectedPlan.plan_key,
-      payment_method: paymentMethod,
-      proof_url: proofUrl,
-      status: "pending",
-      amount_paid: selectedPlan.price,
-      referral_code: referralCode || null,
-      admin_notes: "",
-    };
+      if (proofFile) {
+        const fileExt = proofFile.name.split(".").pop();
+        const safeExt = fileExt ? `.${fileExt}` : "";
+        const fileName = `${user.id}_${Date.now()}${safeExt}`;
+        const filePath = `payment_proofs/${fileName}`;
 
-    const updatedEnrollments = [newEnrollment, ...allEnrollments];
-    setStoredData(STORAGE_KEYS.enrollments, updatedEnrollments);
+        const { error: uploadError } = await supabase.storage
+          .from("payment-proofs")
+          .upload(filePath, proofFile, { upsert: false });
 
-    setEnrollment(newEnrollment);
-    setSubmitting(false);
-    setStep(3);
+        if (uploadError) {
+          console.error("Upload error:", uploadError);
+          alert(
+            "Your enrollment record can’t be completed because the payment proof upload failed. Check that your Supabase storage bucket exists and is named payment-proofs."
+          );
+          setSubmitting(false);
+          return;
+        }
+
+        const { data: publicUrlData } = supabase.storage
+          .from("payment-proofs")
+          .getPublicUrl(filePath);
+
+        proofUrl = publicUrlData?.publicUrl || null;
+      }
+
+      const { error: insertError } = await supabase.from("enrollments").insert([
+        {
+          user_id: user.id,
+          plan_key: selectedPlanData.plan_key,
+          plan_name: selectedPlanData.name,
+          amount_paid: selectedPlanData.normalizedPrice,
+          payment_proof_url: proofUrl,
+          status: "pending",
+        },
+      ]);
+
+      if (insertError) {
+        console.error("Enrollment insert error:", insertError);
+        alert("Something went wrong while submitting your enrollment.");
+        setSubmitting(false);
+        return;
+      }
+
+      alert("Enrollment submitted successfully. Please wait for admin approval.");
+      navigate("/dashboard");
+    } catch (error) {
+      console.error("Unexpected submit error:", error);
+      alert("Something went wrong while submitting your enrollment.");
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center h-64">
+      <div className="flex items-center justify-center h-screen bg-slate-50">
         <div className="w-6 h-6 border-2 border-primary/20 border-t-primary rounded-full animate-spin" />
       </div>
     );
   }
 
-  const isPaidUser =
-    ["basic", "transformation", "elite", "student"].includes(user?.plan) ||
-    user?.role === "paid_user";
+  return (
+    <div className="min-h-screen bg-[linear-gradient(180deg,#eef7f4_0%,#f8fafc_28%,#f8fafc_100%)]">
+      <div className="w-full">
+        <div className="relative overflow-hidden rounded-none xl:rounded-bl-[36px] bg-[radial-gradient(circle_at_top,rgba(255,255,255,0.16),transparent_35%),linear-gradient(135deg,#0b3b24_0%,#0e7a46_52%,#10b5c9_100%)] text-white shadow-[0_18px_50px_rgba(15,23,42,0.14)]">
+          <div className="absolute inset-0 bg-black/10" />
+          <div className="absolute inset-0 opacity-20 bg-[linear-gradient(to_right,transparent,rgba(255,255,255,0.08),transparent)]" />
 
-  if (isPaidUser && user?.challenge_start_date) {
-    navigate("/dashboard", { replace: true });
-    return null;
-  }
-
-  if (enrollment && step !== 3) {
-    const statusMap = {
-      pending: {
-        icon: Clock,
-        color: "text-secondary-foreground",
-        label: "Pending Review",
-        bg: "bg-secondary/20 border-secondary/40",
-      },
-      under_review: {
-        icon: Clock,
-        color: "text-accent",
-        label: "Under Review",
-        bg: "bg-accent/10 border-accent/30",
-      },
-      approved: {
-        icon: CheckCircle,
-        color: "text-primary",
-        label: "Approved! 🎉",
-        bg: "bg-primary/10 border-primary/30",
-      },
-      rejected: {
-        icon: XCircle,
-        color: "text-destructive",
-        label: "Rejected",
-        bg: "bg-destructive/10 border-destructive/30",
-      },
-    };
-
-    const s = statusMap[enrollment.status] || statusMap.pending;
-
-    return (
-      <div className="p-4 md:p-6 max-w-lg mx-auto">
-        <div className={`rounded-2xl p-6 border-2 text-center ${s.bg}`}>
-          <s.icon className={`w-14 h-14 mx-auto mb-3 ${s.color}`} />
-          <p className={`font-heading text-2xl font-bold ${s.color}`}>
-            {s.label}
-          </p>
-          <p className="text-sm text-muted-foreground mt-2">
-            Plan: <strong>{enrollment.plan}</strong> • ₱
-            {enrollment.amount_paid} via {enrollment.payment_method}
-          </p>
-
-          {enrollment.admin_notes && (
-            <div className="mt-4 p-3 rounded-xl bg-white text-left text-sm">
-              <p className="font-medium mb-1">Admin Message:</p>
-              <p className="text-muted-foreground">{enrollment.admin_notes}</p>
+          <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-12 pb-16 md:pt-14 md:pb-20 text-center">
+            <div className="inline-flex items-center gap-2 rounded-full bg-white/12 backdrop-blur-md border border-white/15 px-4 py-1.5 text-sm font-medium mb-5">
+              <Sparkles className="w-4 h-4" />
+              CLARA Program
             </div>
-          )}
 
-          {enrollment.status === "approved" && (
-            <Button
-              className="mt-5 w-full"
-              onClick={() => navigate("/dashboard")}
-            >
-              <LayoutDashboard className="w-4 h-4 mr-2" />
-              Go to Dashboard
-            </Button>
-          )}
+            <h1 className="text-4xl sm:text-5xl md:text-6xl font-extrabold tracking-tight leading-tight">
+              {selectedPlan ? "Complete Your Enrollment" : "Choose Your Plan"}
+            </h1>
 
-          {enrollment.status === "rejected" && (
-            <Button
-              className="mt-5 w-full"
-              onClick={() => {
-                setEnrollment(null);
-                setStep(0);
-                setProofUrl("");
-              }}
-            >
-              Try Again
-            </Button>
-          )}
-
-          {(enrollment.status === "pending" ||
-            enrollment.status === "under_review") && (
-            <Button
-              variant="outline"
-              className="mt-5 w-full"
-              onClick={() => navigate("/dashboard")}
-            >
-              <ArrowLeft className="w-4 h-4 mr-2" />
-              Back to Dashboard
-            </Button>
-          )}
+            <p className="mt-4 text-sm sm:text-base md:text-lg text-white/90 max-w-3xl mx-auto">
+              {selectedPlan
+                ? "Review your selected tier, send your payment, and upload your proof in one seamless flow."
+                : "Choose the level of coaching, accountability, and guidance that matches the support you want for your 30-day CLARA journey."}
+            </p>
+          </div>
         </div>
       </div>
-    );
-  }
 
-  return (
-    <div className="p-4 md:p-6 max-w-2xl mx-auto min-h-screen bg-gradient-to-br from-background via-background to-primary/5">
-      <button
-        onClick={() => navigate(-1)}
-        className="flex items-center gap-2 text-sm text-muted-foreground mb-4 hover:text-foreground transition-colors"
-      >
-        <ArrowLeft className="w-4 h-4" />
-        Back
-      </button>
+      {!selectedPlan ? (
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pb-10 md:pb-12 -mt-8 md:-mt-10 relative z-20">
+          <div className="grid gap-5 xl:grid-cols-3">
+            {plans.map((plan) => {
+              const ui = plan.ui;
 
-      <div className="flex items-center gap-1.5 mb-6">
-        {STEPS.map((s, i) => (
-          <div key={i} className="flex items-center gap-1.5 flex-1">
-            <div
-              className={`flex-1 h-1.5 rounded-full transition-all ${
-                i <= step ? "bg-primary" : "bg-muted"
-              }`}
-            />
-          </div>
-        ))}
-      </div>
-
-      <p className="text-xs text-muted-foreground mb-1">
-        Step {step + 1} of {STEPS.length}
-      </p>
-      <h2 className="font-heading text-2xl font-bold mb-5">{STEPS[step]}</h2>
-
-      {step === 0 && (
-        <div
-          className="-mx-6 -my-6 px-6 py-12 rounded-2xl"
-          style={{
-            background: "linear-gradient(135deg, #0F172A 0%, #064E3B 100%)",
-          }}
-        >
-          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
-            {plans.length === 0 ? (
-              <div className="text-center py-12 text-muted-foreground text-sm col-span-full">
-                No plans available. Contact admin.
-              </div>
-            ) : (
-              plans.map((plan, idx) => {
-                const isRecommended = plan.is_popular || idx === 1;
-
-                const borderColors = {
-                  basic: "border-primary",
-                  transformation: "border-yellow-400",
-                  elite: "border-blue-400",
-                  student: "border-primary",
-                };
-
-                const priceColors = {
-                  basic: "text-primary",
-                  transformation: "text-yellow-600",
-                  elite: "text-blue-600",
-                  student: "text-primary",
-                };
-
-                const border = borderColors[plan.plan_key] || "border-primary";
-                const priceColor =
-                  priceColors[plan.plan_key] || "text-primary";
-
-                return (
-                  <button
-                    key={plan.id}
-                    onClick={() => setSelectedPlan(plan)}
-                    className={`text-left p-8 rounded-[20px] border-2 transition-all relative flex flex-col h-full bg-white ${
-                      isRecommended && selectedPlan?.id === plan.id
-                        ? "border-yellow-400 shadow-2xl hover:shadow-2xl hover:-translate-y-2 scale-100 lg:scale-[1.08] ring-2 ring-yellow-300/50"
-                        : selectedPlan?.id === plan.id
-                        ? border +
-                          " shadow-xl hover:shadow-2xl hover:-translate-y-2"
-                        : border + " shadow-lg hover:shadow-xl hover:-translate-y-1"
-                    }`}
-                    style={
-                      isRecommended && selectedPlan?.id === plan.id
-                        ? { boxShadow: "0 20px 40px rgba(234, 179, 8, 0.3)" }
-                        : {}
-                    }
-                  >
-                    {isRecommended && selectedPlan?.id !== plan.id && (
-                      <div className="absolute -top-3 left-1/2 -translate-x-1/2">
-                        <span className="inline-block px-3 py-1 rounded-full text-xs font-bold text-white grad-green shadow-md">
-                          RECOMMENDED
-                        </span>
-                      </div>
-                    )}
-
-                    {isRecommended && selectedPlan?.id === plan.id && (
-                      <div className="absolute -top-3 left-1/2 -translate-x-1/2">
-                        <span className="inline-block px-3 py-1 rounded-full text-xs font-bold text-white grad-green shadow-md">
-                          SELECTED
-                        </span>
-                      </div>
-                    )}
-
-                    <div className="pb-6">
-                      <p
-                        className={cn(
-                          "font-heading font-bold mb-2 text-slate-900",
-                          isRecommended ? "text-2xl" : "text-xl"
-                        )}
-                      >
-                        {plan.name}
-                      </p>
-
-                      <div className="mb-6">
-                        <p
-                          className={cn(
-                            "font-heading font-bold leading-tight mb-3",
-                            isRecommended ? "text-5xl" : "text-4xl",
-                            priceColor
-                          )}
-                        >
-                          ₱{plan.price}
-                        </p>
-                        {plan.description && (
-                          <p className="text-sm text-slate-700 leading-relaxed font-medium">
-                            {plan.description}
-                          </p>
-                        )}
+              return (
+                <div
+                  key={plan.id}
+                  className={`relative rounded-[28px] p-5 md:p-6 backdrop-blur-sm transition-all duration-300 hover:-translate-y-1 ${ui.cardClass}`}
+                >
+                  {ui.highlight && (
+                    <div className="absolute -top-3 left-1/2 -translate-x-1/2">
+                      <div className="rounded-full bg-amber-500 text-slate-950 text-xs font-extrabold px-4 py-1.5 shadow-lg">
+                        BEST VALUE
                       </div>
                     </div>
+                  )}
 
-                    {Array.isArray(plan.features) && plan.features.length > 0 && (
-                      <ul className="space-y-4 mb-8 flex-1">
-                        {plan.features.map((f, i) => (
+                  <div className="flex items-start justify-between gap-4 mb-5">
+                    <div>
+                      <h2 className="text-[2rem] leading-none font-extrabold text-slate-900">
+                        {ui.shortName}
+                      </h2>
+                      <p className="text-sm font-medium text-slate-500 mt-2">
+                        {ui.subtitle}
+                      </p>
+                    </div>
+
+                    <div
+                      className={`shrink-0 rounded-full px-3 py-1 text-xs font-semibold ${ui.badgeClass}`}
+                    >
+                      {ui.badge}
+                    </div>
+                  </div>
+
+                  <p className="text-slate-600 leading-8 min-h-[110px] text-[15px]">
+                    {ui.description}
+                  </p>
+
+                  <div className="mt-6 mb-6">
+                    <div className={`text-5xl md:text-6xl font-extrabold ${ui.priceClass}`}>
+                      ₱{plan.normalizedPrice}
+                    </div>
+                    <p className="text-sm text-slate-500 mt-2">30-day access</p>
+                  </div>
+
+                  <div className="rounded-2xl bg-slate-50/95 border border-slate-200 p-4 mb-4">
+                    <div className="text-sm font-semibold text-slate-800 mb-3">
+                      What’s included
+                    </div>
+                    <ul className="space-y-2.5">
+                      {ui.features.map((feature) => (
+                        <li
+                          key={feature}
+                          className="flex items-start gap-2.5 text-sm text-slate-600"
+                        >
+                          <Check className="w-4 h-4 mt-0.5 shrink-0 text-emerald-600" />
+                          <span>{feature}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+
+                  {ui.notIncluded?.length > 0 && (
+                    <div className="rounded-2xl bg-white border border-slate-200 p-4 mb-4">
+                      <div className="text-sm font-semibold text-slate-800 mb-3">
+                        Not included
+                      </div>
+                      <ul className="space-y-2.5">
+                        {ui.notIncluded.map((item) => (
                           <li
-                            key={i}
-                            className="text-sm text-slate-800 flex items-start gap-3 font-medium"
+                            key={item}
+                            className="flex items-start gap-2.5 text-sm text-slate-500"
                           >
-                            <CheckCircle
-                              className="w-5 h-5 flex-shrink-0 mt-0.5"
-                              style={{
-                                color: priceColor.includes("yellow")
-                                  ? "#EAB308"
-                                  : priceColor.includes("blue")
-                                  ? "#2563EB"
-                                  : "#22C55E",
-                              }}
-                            />
-                            <span>{f}</span>
+                            <span className="mt-1.5 h-1.5 w-1.5 rounded-full bg-slate-400 shrink-0" />
+                            <span>{item}</span>
                           </li>
                         ))}
                       </ul>
-                    )}
-
-                    <button
-                      className={cn(
-                        "w-full py-3 px-6 rounded-full font-bold text-sm transition-all duration-300",
-                        selectedPlan?.id === plan.id
-                          ? isRecommended
-                            ? "text-white shadow-lg hover:shadow-xl hover:-translate-y-0.5"
-                            : "text-white shadow-md hover:shadow-lg"
-                          : "border-2 bg-white hover:bg-opacity-90"
-                      )}
-                      style={
-                        selectedPlan?.id === plan.id
-                          ? isRecommended
-                            ? {
-                                background:
-                                  "linear-gradient(135deg, #EAB308 0%, #FACC15 100%)",
-                              }
-                            : plan.plan_key === "transformation"
-                            ? {
-                                background:
-                                  "linear-gradient(135deg, #CA8A04 0%, #EAB308 100%)",
-                              }
-                            : plan.plan_key === "elite"
-                            ? {
-                                background:
-                                  "linear-gradient(135deg, #2563EB 0%, #3B82F6 100%)",
-                              }
-                            : {
-                                background:
-                                  "linear-gradient(135deg, #16A34A 0%, #22C55E 100%)",
-                              }
-                          : {
-                              borderColor: priceColor.includes("yellow")
-                                ? "#EAB308"
-                                : priceColor.includes("blue")
-                                ? "#2563EB"
-                                : "#22C55E",
-                              color: priceColor.includes("yellow")
-                                ? "#CA8A04"
-                                : priceColor.includes("blue")
-                                ? "#2563EB"
-                                : "#16A34A",
-                            }
-                      }
-                    >
-                      {selectedPlan?.id === plan.id ? "Selected" : "Select Plan"}
-                    </button>
-                  </button>
-                );
-              })
-            )}
-          </div>
-        </div>
-      )}
-
-      {step === 0 && (
-        <div className="mt-8 flex justify-center">
-          <Button
-            disabled={!selectedPlan}
-            onClick={() => setStep(1)}
-            size="lg"
-            className="px-8"
-          >
-            Continue
-            <ArrowRight className="w-4 h-4 ml-2" />
-          </Button>
-        </div>
-      )}
-
-      {step === 1 && (
-        <div className="space-y-4">
-          <div>
-            <Label>Payment Method</Label>
-            <div className="grid grid-cols-2 gap-3 mt-2">
-              {["gcash", "bank"].map((m) => (
-                <button
-                  key={m}
-                  onClick={() => setPaymentMethod(m)}
-                  className={cn(
-                    "p-3 rounded-xl border-2 text-sm font-semibold capitalize transition-all",
-                    paymentMethod === m
-                      ? "border-primary bg-primary/5 text-primary"
-                      : "border-border bg-card"
+                    </div>
                   )}
-                >
-                  {m === "gcash" ? "📱 GCash" : "🏦 Bank Transfer"}
-                </button>
-              ))}
+
+                  <div className="mb-6 rounded-2xl bg-slate-900 text-white px-4 py-3">
+                    <div className="text-[11px] uppercase tracking-[0.14em] text-white/60 mb-1">
+                      Accountability Model
+                    </div>
+                    <div className="text-sm font-medium">{ui.supportLine}</div>
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={() => handlePlanSelect(plan.plan_key)}
+                    className={`w-full rounded-2xl font-bold py-3.5 px-4 transition flex items-center justify-center gap-2 cursor-pointer ${ui.buttonClass}`}
+                  >
+                    Choose {ui.shortName}
+                    <ArrowRight className="w-4 h-4" />
+                  </button>
+                </div>
+              );
+            })}
+          </div>
+
+          <div className="mt-10 rounded-[28px] border border-slate-200 bg-white/90 shadow-[0_18px_45px_rgba(15,23,42,0.06)] p-5 md:p-6">
+            <h3 className="text-lg md:text-xl font-bold text-slate-900 mb-3">
+              Tier Comparison
+            </h3>
+            <div className="grid gap-3 md:grid-cols-3 text-sm">
+              <div className="rounded-2xl border border-emerald-100 bg-emerald-50/60 p-4 text-slate-700">
+                <span className="font-bold text-emerald-700">DIY</span> → Self-paced, no coach
+              </div>
+              <div className="rounded-2xl border border-amber-200 bg-amber-50/70 p-4 text-slate-700">
+                <span className="font-bold text-amber-700">DIWM</span> → Minimal coaching + structured accountability
+              </div>
+              <div className="rounded-2xl border border-cyan-100 bg-cyan-50/70 p-4 text-slate-700">
+                <span className="font-bold text-cyan-700">LDIT</span> → Frequent coaching + high-touch accountability
+              </div>
             </div>
           </div>
 
-          <div className="bg-card rounded-2xl border border-border p-4">
-            <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground mb-3">
-              Payment Details
-            </p>
-
-            {paymentMethod === "gcash" ? (
-              <div className="space-y-2 text-sm">
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">Number:</span>
-                  <span className="font-semibold">
-                    {paymentSettings?.gcash_number || "09858410403"}
-                  </span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">Name:</span>
-                  <span className="font-semibold">
-                    {paymentSettings?.gcash_name || "Jerome Mirabuenos"}
-                  </span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">Amount:</span>
-                  <span className="font-bold text-primary">
-                    ₱{selectedPlan?.price}
-                  </span>
-                </div>
-                {paymentSettings?.gcash_qr_url && (
-                  <img
-                    src={paymentSettings.gcash_qr_url}
-                    alt="GCash QR"
-                    className="mt-3 max-h-48 mx-auto rounded-xl"
-                  />
-                )}
-              </div>
-            ) : (
-              <div className="space-y-2 text-sm">
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">Bank:</span>
-                  <span className="font-semibold">
-                    {paymentSettings?.bank_name || "Security Bank"}
-                  </span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">Account:</span>
-                  <span className="font-semibold">
-                    {paymentSettings?.bank_account || "000-006-704-2019"}
-                  </span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">Name:</span>
-                  <span className="font-semibold">
-                    {paymentSettings?.bank_holder || "CLARA Financial Program"}
-                  </span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">Amount:</span>
-                  <span className="font-bold text-primary">
-                    ₱{selectedPlan?.price}
-                  </span>
-                </div>
-                {paymentSettings?.bank_qr_url && (
-                  <img
-                    src={paymentSettings.bank_qr_url}
-                    alt="Bank QR"
-                    className="mt-3 max-h-48 mx-auto rounded-xl"
-                  />
-                )}
-              </div>
-            )}
-          </div>
-
-          <div className="flex gap-3">
-            <Button
-              variant="outline"
-              className="flex-1"
-              onClick={() => setStep(0)}
-            >
-              <ArrowLeft className="w-4 h-4 mr-1" />
-              Back
-            </Button>
-            <Button className="flex-1" onClick={() => setStep(2)}>
-              I've Paid
-              <ArrowRight className="w-4 h-4 ml-1" />
+          <div className="text-center mt-8 pb-6">
+            <Button variant="ghost" onClick={handleSkip}>
+              Skip for now
             </Button>
           </div>
         </div>
-      )}
+      ) : (
+        <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8 md:py-10 -mt-8 md:-mt-10 relative z-20">
+          <div className="grid xl:grid-cols-[1.05fr_0.95fr] gap-6">
+            <div className="space-y-6">
+              <div className="rounded-[28px] border border-slate-200 bg-white shadow-[0_18px_45px_rgba(15,23,42,0.06)] p-5 md:p-7">
+                <div className="flex items-center justify-between gap-4 mb-5 flex-wrap">
+                  <div>
+                    <p className="text-sm text-slate-500 mb-2">Selected Plan</p>
+                    <h2 className="text-3xl font-extrabold text-slate-900">
+                      {selectedPlanData?.ui?.shortName}
+                    </h2>
+                    <p className="text-sm font-medium text-slate-500 mt-1">
+                      {selectedPlanData?.ui?.subtitle}
+                    </p>
+                  </div>
 
-      {step === 2 && (
-        <div className="space-y-4">
-          <div className="border-2 border-dashed border-border rounded-2xl p-6 text-center">
-            {proofUrl ? (
-              <div>
-                <CheckCircle className="w-10 h-10 text-primary mx-auto mb-2" />
-                <p className="text-sm text-primary font-semibold mb-2">
-                  Proof uploaded!
+                  <div
+                    className={`shrink-0 rounded-full px-3 py-1 text-xs font-semibold ${selectedPlanData?.ui?.badgeClass}`}
+                  >
+                    {selectedPlanData?.ui?.badge}
+                  </div>
+                </div>
+
+                <p className="text-slate-600 leading-7">
+                  {selectedPlanData?.ui?.description}
                 </p>
-                <img
-                  src={proofUrl}
-                  alt="Payment proof"
-                  className="max-h-48 mx-auto rounded-xl mb-3"
-                />
-                <button
-                  onClick={() => setProofUrl("")}
-                  className="text-xs text-muted-foreground underline"
+
+                <div className="mt-6 flex items-end justify-between gap-4 flex-wrap">
+                  <div>
+                    <p className={`text-5xl font-extrabold ${selectedPlanData?.ui?.priceClass}`}>
+                      ₱{selectedPlanData?.normalizedPrice ?? "0"}
+                    </p>
+                    <p className="text-sm text-slate-500 mt-1">One-time payment</p>
+                  </div>
+
+                  <Button variant="ghost" onClick={handleBackToPlans}>
+                    Choose another plan
+                  </Button>
+                </div>
+              </div>
+
+              <div className="rounded-[28px] border border-slate-200 bg-white shadow-[0_18px_45px_rgba(15,23,42,0.06)] p-5 md:p-7">
+                <h3 className="text-xl font-bold text-slate-900 mb-5">
+                  Payment Details
+                </h3>
+
+                <div className="grid md:grid-cols-2 gap-4">
+                  <div className="rounded-2xl border border-emerald-100 bg-emerald-50/60 p-5">
+                    <div className="flex items-center gap-2 mb-3">
+                      <CreditCard className="w-4 h-4 text-emerald-600" />
+                      <p className="font-semibold text-slate-900">GCash</p>
+                    </div>
+
+                    <p className="text-xs uppercase tracking-wide text-slate-500">Number</p>
+                    <p className="font-semibold text-slate-900 mt-1">09858410403</p>
+
+                    <p className="text-xs uppercase tracking-wide text-slate-500 mt-4">
+                      Account Name
+                    </p>
+                    <p className="font-semibold text-slate-900 mt-1">Jerome Mirabuenos</p>
+                  </div>
+
+                  <div className="rounded-2xl border border-cyan-100 bg-cyan-50/60 p-5">
+                    <div className="flex items-center gap-2 mb-3">
+                      <Building2 className="w-4 h-4 text-cyan-600" />
+                      <p className="font-semibold text-slate-900">Bank Transfer</p>
+                    </div>
+
+                    <p className="text-xs uppercase tracking-wide text-slate-500">Bank</p>
+                    <p className="font-semibold text-slate-900 mt-1">Security Bank</p>
+
+                    <p className="text-xs uppercase tracking-wide text-slate-500 mt-4">
+                      Account Number
+                    </p>
+                    <p className="font-semibold text-slate-900 mt-1">000-006-704-2019</p>
+
+                    <p className="text-xs uppercase tracking-wide text-slate-500 mt-4">
+                      Account Name
+                    </p>
+                    <p className="font-semibold text-slate-900 mt-1">
+                      CLARA Financial Program
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div className="space-y-6">
+              <div className="rounded-[28px] border border-slate-200 bg-white shadow-[0_18px_45px_rgba(15,23,42,0.06)] p-5 md:p-7">
+                <h3 className="text-xl font-bold text-slate-900 mb-4">
+                  Upload Payment Proof
+                </h3>
+
+                <div className="rounded-2xl border-2 border-dashed border-slate-300 bg-slate-50 p-5">
+                  <div className="flex items-center gap-2 mb-2">
+                    <Upload className="w-4 h-4 text-primary" />
+                    <p className="font-medium text-slate-900">
+                      Receipt Screenshot or PDF
+                    </p>
+                  </div>
+
+                  <p className="text-sm text-slate-500 mb-4">
+                    Upload a screenshot or clear photo of your payment receipt.
+                  </p>
+
+                  <input
+                    type="file"
+                    accept="image/*,.pdf"
+                    onChange={handleFileChange}
+                    className="block w-full text-sm text-slate-600 file:mr-4 file:rounded-xl file:border-0 file:bg-slate-900 file:px-4 file:py-2 file:text-sm file:font-semibold file:text-white hover:file:bg-slate-800"
+                  />
+
+                  {proofFile && (
+                    <div className="mt-4 flex items-center gap-2 text-sm text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-xl px-3 py-2">
+                      <CheckCircle className="w-4 h-4" />
+                      <span>{proofFile.name}</span>
+                    </div>
+                  )}
+                </div>
+
+                <Button
+                  type="button"
+                  className="w-full mt-6 rounded-2xl h-12 text-base font-bold"
+                  onClick={handleSubmit}
+                  disabled={submitting}
                 >
-                  Remove & re-upload
-                </button>
+                  {submitting ? "Submitting..." : "Submit Enrollment"}
+                </Button>
               </div>
-            ) : (
-              <>
-                <Upload className="w-10 h-10 text-muted-foreground mx-auto mb-2" />
-                <p className="text-sm text-muted-foreground mb-1">
-                  Upload payment screenshot or photo
-                </p>
-                <p className="text-xs text-muted-foreground">
-                  JPG, PNG supported
-                </p>
-              </>
-            )}
 
-            {!proofUrl && (
-              <Input
-                type="file"
-                accept="image/*"
-                onChange={handleFileUpload}
-                className="mt-3"
-                disabled={uploading}
-              />
-            )}
+              <div className="rounded-[28px] border border-slate-200 bg-slate-900 text-white shadow-[0_18px_45px_rgba(15,23,42,0.18)] p-5 md:p-7">
+                <div className="text-[11px] uppercase tracking-[0.16em] text-white/60 mb-2">
+                  What happens next
+                </div>
+                <ul className="space-y-3 text-sm text-white/90">
+                  <li className="flex gap-2">
+                    <Check className="w-4 h-4 mt-0.5 shrink-0 text-emerald-400" />
+                    <span>Your enrollment is submitted for admin review.</span>
+                  </li>
+                  <li className="flex gap-2">
+                    <Check className="w-4 h-4 mt-0.5 shrink-0 text-emerald-400" />
+                    <span>Once verified, your program access will be activated.</span>
+                  </li>
+                  <li className="flex gap-2">
+                    <Check className="w-4 h-4 mt-0.5 shrink-0 text-emerald-400" />
+                    <span>You’ll continue into the CLARA experience from there.</span>
+                  </li>
+                </ul>
+              </div>
 
-            {uploading && (
-              <p className="text-xs text-muted-foreground mt-2">Uploading...</p>
-            )}
-          </div>
-
-          <div className="flex gap-3">
-            <Button
-              variant="outline"
-              className="flex-1"
-              onClick={() => setStep(1)}
-            >
-              <ArrowLeft className="w-4 h-4 mr-1" />
-              Back
-            </Button>
-            <Button
-              className="flex-1"
-              disabled={!proofUrl || submitting}
-              onClick={handleSubmit}
-            >
-              {submitting ? "Submitting..." : "Submit"}
-              {!submitting && <ArrowRight className="w-4 h-4 ml-1" />}
-            </Button>
-          </div>
-        </div>
-      )}
-
-      {step === 3 && (
-        <div className="text-center">
-          <CheckCircle className="w-16 h-16 text-primary mx-auto mb-4" />
-          <h3 className="font-heading text-2xl font-bold mb-2">Submitted!</h3>
-          <p className="text-muted-foreground text-sm mb-2">
-            Your enrollment is under review. We'll notify you once approved.
-          </p>
-          <p className="text-xs text-muted-foreground mb-6">
-            Plan: <strong>{selectedPlan?.name}</strong> • ₱
-            {selectedPlan?.price}
-          </p>
-          {referralCode && (
-            <p className="text-xs text-muted-foreground mb-4">
-              Referred by: <strong>{referralCode}</strong>
-            </p>
-          )}
-          <div className="space-y-3">
-            <Button className="w-full" onClick={() => navigate("/dashboard")}>
-              <LayoutDashboard className="w-4 h-4 mr-2" />
-              Go to Dashboard
-            </Button>
+              <div className="text-center">
+                <Button variant="ghost" onClick={handleSkip}>
+                  Skip for now
+                </Button>
+              </div>
+            </div>
           </div>
         </div>
       )}

@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { supabase } from "@/lib/supabaseClient";
 
 export const TIER_LABELS = {
@@ -15,40 +15,58 @@ export default function useUserRole() {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
 
-  const fetchUser = async () => {
+  const fetchUser = useCallback(async () => {
     try {
       setLoading(true);
 
       const {
         data: { user: authUser },
+        error: authError,
       } = await supabase.auth.getUser();
+
+      if (authError) {
+        console.error("getUser error:", authError);
+        setUser(null);
+        return;
+      }
 
       if (!authUser) {
         setUser(null);
         return;
       }
 
-      let { data: profile } = await supabase
+      let { data: profile, error: profileError } = await supabase
         .from("profiles")
         .select("*")
         .eq("id", authUser.id)
-        .single();
+        .maybeSingle();
 
-      // auto create profile
+      if (profileError) {
+        console.error("fetch profile error:", profileError);
+      }
+
+      // auto create profile if missing
       if (!profile) {
-        const { data: newProfile } = await supabase
+        const { data: newProfile, error: insertError } = await supabase
           .from("profiles")
           .insert([
             {
               id: authUser.id,
               email: authUser.email,
-              full_name: "",
+              full_name: authUser.user_metadata?.full_name || "",
               plan: "free",
               role: "user",
+              monthly_survival_expense: 0,
             },
           ])
           .select()
           .single();
+
+        if (insertError) {
+          console.error("create profile error:", insertError);
+          setUser(null);
+          return;
+        }
 
         profile = newProfile;
       }
@@ -60,7 +78,7 @@ export default function useUserRole() {
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
   useEffect(() => {
     fetchUser();
@@ -74,14 +92,20 @@ export default function useUserRole() {
     return () => {
       subscription.unsubscribe();
     };
-  }, []);
+  }, [fetchUser]);
+
+  const refreshUser = useCallback(async () => {
+    await fetchUser();
+  }, [fetchUser]);
 
   const role = (user?.role || "user").toLowerCase();
   const plan = (user?.plan || "free").toLowerCase();
+  const enrollmentStatus = (user?.enrollment_status || "").toLowerCase();
 
   const isAdmin = role === "admin";
   const isPaid = PAID_TIERS.includes(plan) || isAdmin;
-  const isFree = !isPaid;
+  const isPending = enrollmentStatus === "pending" || plan === "pending";
+  const isFree = !isPaid && !isPending;
 
   const planLabel = isAdmin ? "Admin" : TIER_LABELS[plan] || "Free";
 
@@ -93,6 +117,8 @@ export default function useUserRole() {
     isAdmin,
     isPaid,
     isFree,
+    isPending,
     planLabel,
+    refreshUser,
   };
 }

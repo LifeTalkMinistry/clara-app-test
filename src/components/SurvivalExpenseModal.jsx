@@ -9,8 +9,9 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Shield, ChevronDown, ChevronUp } from "lucide-react";
+import { supabase } from "@/lib/supabaseClient";
 
-function saveSurvivalExpense(value) {
+function saveSurvivalExpenseLocally(value) {
   try {
     const currentUser =
       JSON.parse(localStorage.getItem("clara_user") || "null") || {};
@@ -31,10 +32,32 @@ function saveSurvivalExpense(value) {
   }
 }
 
+function getSavedSurvivalExpense() {
+  try {
+    const fromDirectKey = localStorage.getItem("monthly_survival_expense");
+    if (fromDirectKey && Number(fromDirectKey) > 0) {
+      return String(fromDirectKey);
+    }
+
+    const user = JSON.parse(localStorage.getItem("clara_user") || "null");
+    if (
+      user?.monthly_survival_expense &&
+      Number(user.monthly_survival_expense) > 0
+    ) {
+      return String(user.monthly_survival_expense);
+    }
+
+    return "";
+  } catch {
+    return "";
+  }
+}
+
 export default function SurvivalExpenseModal({
   open,
   onSaved,
   onSaveSurvivalExpense,
+  onOpenChange,
 }) {
   const [amount, setAmount] = useState("");
   const [showEstimator, setShowEstimator] = useState(false);
@@ -47,32 +70,22 @@ export default function SurvivalExpenseModal({
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
-    if (!open) {
-      setAmount("");
-      setShowEstimator(false);
-      setEst({
-        rent: "",
-        food: "",
-        utilities: "",
-        transport: "",
-      });
-      return;
-    }
+    if (!open) return;
 
-    const savedValue =
-      localStorage.getItem("monthly_survival_expense") ||
-      (() => {
-        try {
-          const user = JSON.parse(localStorage.getItem("clara_user") || "null");
-          return user?.monthly_survival_expense
-            ? String(user.monthly_survival_expense)
-            : "";
-        } catch {
-          return "";
-        }
-      })();
+    const savedValue = getSavedSurvivalExpense();
+    setAmount(savedValue);
+  }, [open]);
 
-    setAmount(savedValue || "");
+  useEffect(() => {
+    if (open) return;
+
+    setShowEstimator(false);
+    setEst({
+      rent: "",
+      food: "",
+      utilities: "",
+      transport: "",
+    });
   }, [open]);
 
   const estTotal = Object.values(est).reduce((sum, value) => {
@@ -80,12 +93,34 @@ export default function SurvivalExpenseModal({
   }, 0);
 
   const useEstimate = () => {
-    if (estTotal > 0) setAmount(String(estTotal));
+    if (estTotal > 0) {
+      setAmount(String(estTotal));
+    }
     setShowEstimator(false);
+  };
+
+  const saveToSupabase = async (value) => {
+    const {
+      data: { user: authUser },
+      error: authError,
+    } = await supabase.auth.getUser();
+
+    if (authError) throw authError;
+    if (!authUser) throw new Error("No authenticated user found.");
+
+    const { error } = await supabase
+      .from("profiles")
+      .update({ monthly_survival_expense: value })
+      .eq("id", authUser.id);
+
+    if (error) throw error;
+
+    saveSurvivalExpenseLocally(value);
   };
 
   const handleSave = async () => {
     const val = parseFloat(amount);
+
     if (!val || val <= 0) return;
 
     try {
@@ -94,10 +129,11 @@ export default function SurvivalExpenseModal({
       if (typeof onSaveSurvivalExpense === "function") {
         await onSaveSurvivalExpense(val);
       } else {
-        saveSurvivalExpense(val);
+        await saveToSupabase(val);
       }
 
       onSaved?.(val);
+      onOpenChange?.(false);
     } catch (error) {
       console.error("Failed to save monthly_survival_expense:", error);
     } finally {
@@ -106,7 +142,7 @@ export default function SurvivalExpenseModal({
   };
 
   return (
-    <Dialog open={open}>
+    <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent
         className="max-w-sm"
         onPointerDownOutside={(e) => e.preventDefault()}
@@ -125,7 +161,8 @@ export default function SurvivalExpenseModal({
         <p className="text-sm text-muted-foreground mb-4 leading-relaxed">
           Hindi income ang basehan ng financial security.
           <br />
-          Kundi kung <strong>magkano kailangan mo para mabuhay</strong> bawat buwan.
+          Kundi kung <strong>magkano kailangan mo para mabuhay</strong> bawat
+          buwan.
         </p>
 
         <div className="space-y-3">

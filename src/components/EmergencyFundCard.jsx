@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Shield, Edit2, Minus, Plus } from "lucide-react";
 import SurvivalExpenseModal from "./SurvivalExpenseModal";
 
@@ -75,11 +75,23 @@ export default function EmergencyFundCard({
   const [targetMonths, setTargetMonths] = useState(3);
   const [showModal, setShowModal] = useState(false);
 
+  // only allow auto-open once per mount cycle
+  const hasAutoPromptedRef = useRef(false);
+
   useEffect(() => {
-    if (!survivalExpense || Number(survivalExpense) <= 0) {
-      setShowModal(true);
-    } else {
+    const safeSurvivalExpense = Number(survivalExpense) || 0;
+
+    // if value exists, never auto-open
+    if (safeSurvivalExpense > 0) {
       setShowModal(false);
+      hasAutoPromptedRef.current = true;
+      return;
+    }
+
+    // auto-open only once when truly no value yet
+    if (!hasAutoPromptedRef.current) {
+      setShowModal(true);
+      hasAutoPromptedRef.current = true;
     }
   }, [survivalExpense]);
 
@@ -87,7 +99,8 @@ export default function EmergencyFundCard({
   const safeSurvivalExpense = Number(survivalExpense) || 0;
 
   const target = safeSurvivalExpense * targetMonths;
-  const months = safeSurvivalExpense > 0 ? safeMoneyLeft / safeSurvivalExpense : 0;
+  const months =
+    safeSurvivalExpense > 0 ? safeMoneyLeft / safeSurvivalExpense : 0;
   const pct = target > 0 ? Math.min((safeMoneyLeft / target) * 100, 100) : 0;
   const status = getStatus(months, targetMonths);
   const progressionMsg = getProgression(months, targetMonths);
@@ -96,12 +109,28 @@ export default function EmergencyFundCard({
   const handleSaved = (val) => {
     setEditing(false);
     setShowModal(false);
-    onSurvivalSaved?.(val);
+    hasAutoPromptedRef.current = true;
+    onSurvivalSaved?.(Number(val) || 0);
   };
+
+  const handleEdit = () => {
+    setEditing(true);
+  };
+
+  const isModalOpen = showModal || editing;
 
   return (
     <>
-      <SurvivalExpenseModal open={showModal || editing} onSaved={handleSaved} />
+      <SurvivalExpenseModal
+        open={isModalOpen}
+        onSaved={handleSaved}
+        onOpenChange={(open) => {
+          if (!open) {
+            setEditing(false);
+            setShowModal(false);
+          }
+        }}
+      />
 
       <div
         className="
@@ -126,7 +155,7 @@ export default function EmergencyFundCard({
 
           <button
             type="button"
-            onClick={() => setEditing(true)}
+            onClick={handleEdit}
             className="text-white/45 hover:text-white/80 transition-colors"
           >
             <Edit2 className="w-3.5 h-3.5" />
