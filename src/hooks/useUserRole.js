@@ -103,8 +103,13 @@ export default function useUserRole() {
   const enrollmentStatus = (user?.enrollment_status || "").toLowerCase();
 
   const isAdmin = role === "admin";
-  const isPaid = PAID_TIERS.includes(plan) || isAdmin;
-  const isPending = enrollmentStatus === "pending" || plan === "pending";
+
+  // 🔥 FIX: require BOTH plan + active enrollment
+  const isPaid =
+    isAdmin ||
+    (PAID_TIERS.includes(plan) && enrollmentStatus === "active");
+
+  const isPending = enrollmentStatus === "pending";
   const isFree = !isPaid && !isPending;
 
   const planLabel = isAdmin ? "Admin" : TIER_LABELS[plan] || "Free";

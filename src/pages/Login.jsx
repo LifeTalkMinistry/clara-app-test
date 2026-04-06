@@ -4,7 +4,7 @@ import { useAuth } from "../context/AuthContext";
 
 export default function Login() {
   const navigate = useNavigate();
-  const { signIn, signUp, refreshProfile } = useAuth();
+  const { signIn, signUp, refreshProfile, ensureBasicProfile } = useAuth();
 
   const [mode, setMode] = useState("signup");
   const [fullName, setFullName] = useState("");
@@ -33,14 +33,31 @@ export default function Login() {
     return error?.message || "Something went wrong.";
   };
 
-  const goNext = async (authUser) => {
-    const profile = await refreshProfile(authUser?.id);
+  const hasFinishedOnboarding = (profile) => {
+    if (!profile) return true;
+    return Boolean(
+      profile.has_completed_onboarding ??
+        profile.onboarding_completed ??
+        true
+    );
+  };
 
-    if (!profile || !profile.has_completed_onboarding) {
-      navigate("/onboarding", { replace: true });
-    } else {
-      navigate("/dashboard", { replace: true });
+  const goNext = async (authUser, providedFullName = "") => {
+    if (!authUser?.id) {
+      navigate("/", { replace: true });
+      return;
     }
+
+    await ensureBasicProfile(authUser, providedFullName);
+
+    const profile = await refreshProfile(authUser.id);
+
+    if (profile && !hasFinishedOnboarding(profile)) {
+      navigate("/onboarding", { replace: true });
+      return;
+    }
+
+    navigate("/dashboard", { replace: true });
   };
 
   const handleSubmit = async (e) => {
@@ -65,14 +82,16 @@ export default function Login() {
         }
 
         if (!data?.session) {
-          setMessage("Account created. Please check your email to confirm your account before logging in.");
+          setMessage(
+            "Account created. Please check your email to confirm your account before logging in."
+          );
           setMode("login");
           setPassword("");
           setLoading(false);
           return;
         }
 
-        await goNext(authUser);
+        await goNext(authUser, fullName);
       } else {
         const data = await signIn({
           email,
@@ -130,7 +149,11 @@ export default function Login() {
             disabled={loading}
             className="w-full rounded-xl bg-green-700 hover:bg-green-600 disabled:opacity-60 px-4 py-3 font-semibold"
           >
-            {loading ? "Please wait..." : mode === "signup" ? "Create account" : "Login"}
+            {loading
+              ? "Please wait..."
+              : mode === "signup"
+              ? "Create account"
+              : "Login"}
           </button>
         </form>
 

@@ -1,169 +1,389 @@
-import { useState, useEffect } from "react";
-import { Eye } from "lucide-react";
+import { useEffect, useState } from "react";
+import { supabase } from "@/lib/supabaseClient";
+import { Eye, CheckCircle2, XCircle, RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Textarea } from "@/components/ui/textarea";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@/components/ui/select";
-import { Label } from "@/components/ui/label";
-import axios from "axios";
-
-const API = axios.create({
-  baseURL: "/api",
-  withCredentials: true,
-});
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 
 export default function AdminEnrollments() {
   const [enrollments, setEnrollments] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [selected, setSelected] = useState(null);
-  const [notes, setNotes] = useState("");
-  const [newStatus, setNewStatus] = useState("approved");
+  const [selectedEnrollment, setSelectedEnrollment] = useState(null);
+  const [reviewOpen, setReviewOpen] = useState(false);
+  const [actionLoading, setActionLoading] = useState(false);
+  const [errorMessage, setErrorMessage] = useState("");
 
-  useEffect(() => {
-    fetchEnrollments();
-  }, []);
-
-  const fetchEnrollments = async () => {
+  async function loadEnrollments() {
     try {
-      const res = await API.get("/enrollments");
-      setEnrollments(res.data);
-    } catch (err) {
-      console.error(err);
+      setLoading(true);
+      setErrorMessage("");
+
+      const { data: enrollmentData, error: enrollmentError } = await supabase
+        .from("enrollments")
+        .select("*")
+        .order("created_at", { ascending: false });
+
+      if (enrollmentError) throw enrollmentError;
+
+      const safeEnrollments = enrollmentData || [];
+
+      if (safeEnrollments.length === 0) {
+        setEnrollments([]);
+        return;
+      }
+
+      const userIds = [
+        ...new Set(safeEnrollments.map((item) => item.user_id).filter(Boolean)),
+      ];
+
+      let profilesMap = {};
+
+      if (userIds.length > 0) {
+        const { data: profileData, error: profileError } = await supabase
+          .from("profiles")
+          .select("id, email, full_name")
+          .in("id", userIds);
+
+        if (profileError) {
+          console.error("Failed to load profiles:", profileError);
+          setErrorMessage(profileError.message || "Failed to load profiles.");
+        } else {
+          profilesMap = (profileData || []).reduce((acc, profile) => {
+            acc[profile.id] = profile;
+            return acc;
+          }, {});
+        }
+      }
+
+      const merged = safeEnrollments.map((item) => ({
+        ...item,
+        profile: profilesMap[item.user_id] || null,
+      }));
+
+      setEnrollments(merged);
+    } catch (error) {
+      console.error("Failed to load enrollments:", error);
+      setErrorMessage(error.message || "Failed to load enrollments.");
+      setEnrollments([]);
     } finally {
       setLoading(false);
     }
-  };
+  }
 
-  const handleUpdate = async () => {
-    if (!selected) return;
+  useEffect(() => {
+    loadEnrollments();
+  }, []);
 
+  async function updateEnrollmentStatus(enrollmentId, newStatus) {
     try {
-      const res = await API.put(`/enrollments/${selected.id}`, {
-        status: newStatus,
-        admin_notes: notes,
-      });
+      setActionLoading(true);
+      setErrorMessage("");
 
-      // If approved → update user
-      if (newStatus === "approved") {
-        await API.patch("/users/update-role", {
-          email: selected.created_by,
-          role: "paid_user",
-          plan: selected.plan,
-          enrollment_date: new Date().toISOString().split("T")[0],
-          challenge_start_date: new Date().toISOString().split("T")[0],
-        });
+      const { data: enrollment, error: fetchError } = await supabase
+        .from("enrollments")
+        .select("*")
+        .eq("id", enrollmentId)
+        .single();
+
+      if (fetchError) throw fetchError;
+
+      const { error } = await supabase
+        .from("enrollments")
+        .update({ status: newStatus })
+        .eq("id", enrollmentId);
+
+      if (error) throw error;
+
+      if (newStatus === "approved" && enrollment?.user_id) {
+        await supabase
+          .from("profiles")
+          .update({
+            role: "paid_user",
+            plan: enrollment.plan || "basic",
+            enrollment_status: "active",
+          })
+          .eq("id", enrollment.user_id);
       }
 
       setEnrollments((prev) =>
-        prev.map((e) => (e.id === selected.id ? res.data : e))
+        prev.map((item) =>
+          item.id === enrollmentId ? { ...item, status: newStatus } : item
+        )
       );
 
-      setSelected(null);
-      setNotes("");
-    } catch (err) {
-      console.error(err);
+      setSelectedEnrollment((prev) =>
+        prev && prev.id === enrollmentId
+          ? { ...prev, status: newStatus }
+          : prev
+      );
+
+      setReviewOpen(false);
+      await loadEnrollments();
+    } catch (error) {
+      console.error("Failed to update enrollment:", error);
+      setErrorMessage(error.message || "Failed to update enrollment status.");
+      alert(error.message || "Failed to update enrollment status.");
+    } finally {
+      setActionLoading(false);
     }
-  };
+  }
 
-  const statusColors = {
-    pending: "bg-secondary/20 text-secondary-foreground",
-    under_review: "bg-accent/20 text-accent-foreground",
-    approved: "bg-primary/20 text-primary",
-    rejected: "bg-destructive/20 text-destructive",
-  };
+  function getStatusClasses(status) {
+    switch ((status || "").toLowerCase()) {
+      case "approved":
+        return "bg-emerald-500/15 text-emerald-400 border border-emerald-400/20";
+      case "rejected":
+        return "bg-red-500/15 text-red-400 border border-red-400/20";
+      default:
+        return "bg-yellow-500/15 text-yellow-400 border border-yellow-400/20";
+    }
+  }
 
-  if (loading)
+  function getPlanLabel(enrollment) {
     return (
-      <div className="flex items-center justify-center h-32">
-        <div className="w-6 h-6 border-2 border-primary/20 border-t-primary rounded-full animate-spin" />
-      </div>
+      enrollment.plan ||
+      enrollment.plan_name ||
+      enrollment.plan_key ||
+      "No Plan"
     );
+  }
+
+  function getPaymentProof(enrollment) {
+    return (
+      enrollment.proof_url ||
+      enrollment.payment_proof_url ||
+      enrollment.receipt_url ||
+      enrollment.proof ||
+      null
+    );
+  }
+
+  function getDisplayName(enrollment) {
+    return (
+      enrollment.profile?.full_name ||
+      enrollment.full_name ||
+      enrollment.email ||
+      "Unknown User"
+    );
+  }
+
+  function getDisplayEmail(enrollment) {
+    return (
+      enrollment.profile?.email ||
+      enrollment.email ||
+      enrollment.user_email ||
+      "No email found"
+    );
+  }
 
   return (
-    <div className="space-y-2">
-      <p className="text-sm text-muted-foreground mb-4">
-        {enrollments.length} enrollments
-      </p>
+    <div className="space-y-5">
+      <div className="flex items-center justify-between">
+        <div>
+          <p className="text-sm text-white/70">
+            {loading
+              ? "Loading enrollments..."
+              : `${enrollments.length} enrollment${enrollments.length !== 1 ? "s" : ""}`}
+          </p>
 
-      {enrollments.map((en) => (
-        <div
-          key={en.id}
-          className="flex flex-col sm:flex-row sm:items-center gap-3 p-4 bg-card rounded-xl border"
-        >
-          <div className="flex-1">
-            <p className="font-medium text-sm">{en.created_by}</p>
-            <p className="text-xs text-muted-foreground">
-              {en.plan} • {en.payment_method} • ₱{en.amount_paid}
+          {errorMessage ? (
+            <p className="mt-1 text-sm text-red-400 break-words">
+              {errorMessage}
             </p>
-          </div>
-
-          <div className="flex items-center gap-2">
-            <span
-              className={`text-xs px-2 py-0.5 rounded-full capitalize ${statusColors[en.status]}`}
-            >
-              {en.status}
-            </span>
-
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => {
-                setSelected(en);
-                setNewStatus(en.status);
-                setNotes(en.admin_notes || "");
-              }}
-            >
-              <Eye className="w-3 h-3 mr-1" /> Review
-            </Button>
-          </div>
+          ) : null}
         </div>
-      ))}
 
-      <Dialog open={!!selected} onOpenChange={() => setSelected(null)}>
-        <DialogContent>
+        <Button
+          onClick={loadEnrollments}
+          variant="outline"
+          className="border-white/10 bg-white/5 text-white hover:bg-white/10"
+        >
+          <RefreshCw className="w-4 h-4 mr-2" />
+          Refresh
+        </Button>
+      </div>
+
+      {loading ? (
+        <div className="rounded-2xl border border-white/10 bg-white/5 p-6 text-white/70">
+          Loading...
+        </div>
+      ) : enrollments.length === 0 ? (
+        <div className="rounded-2xl border border-white/10 bg-white/5 p-6 text-white/70">
+          No enrollments found.
+        </div>
+      ) : (
+        <div className="space-y-4">
+          {enrollments.map((enrollment) => {
+            const displayName = getDisplayName(enrollment);
+            const displayEmail = getDisplayEmail(enrollment);
+
+            return (
+              <div
+                key={enrollment.id}
+                className="rounded-2xl border border-white/10 bg-[#081225]/90 px-5 py-4"
+              >
+                <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+                  <div className="min-w-0">
+                    <p className="text-base font-semibold text-white break-words">
+                      {displayName}
+                    </p>
+
+                    <p className="text-sm text-white/60 break-words">
+                      {displayEmail}
+                    </p>
+
+                    <p className="mt-1 text-sm text-white/70">
+                      {getPlanLabel(enrollment)} • ₱{enrollment.amount_paid || 0}
+                    </p>
+                  </div>
+
+                  <div className="flex items-center gap-3">
+                    <span
+                      className={`inline-flex rounded-full px-3 py-1 text-xs font-medium capitalize ${getStatusClasses(
+                        enrollment.status
+                      )}`}
+                    >
+                      {enrollment.status || "pending"}
+                    </span>
+
+                    <Button
+                      onClick={() => {
+                        setSelectedEnrollment(enrollment);
+                        setReviewOpen(true);
+                      }}
+                      className="bg-white/5 text-white border border-white/10 hover:bg-white/10"
+                    >
+                      <Eye className="w-4 h-4 mr-2" />
+                      Review
+                    </Button>
+                  </div>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      <Dialog
+        open={reviewOpen}
+        onOpenChange={(open) => {
+          setReviewOpen(open);
+          if (!open) setSelectedEnrollment(null);
+        }}
+      >
+        <DialogContent className="max-w-3xl border-white/10 bg-[#07101f] text-white">
           <DialogHeader>
-            <DialogTitle>Review Enrollment</DialogTitle>
+            <DialogTitle className="text-xl font-semibold">
+              Enrollment Review
+            </DialogTitle>
           </DialogHeader>
 
-          {selected && (
-            <div className="space-y-4">
-              <div className="text-sm space-y-1">
-                <p>User: {selected.created_by}</p>
-                <p>Plan: {selected.plan}</p>
-                <p>Method: {selected.payment_method}</p>
-                <p>Amount: ₱{selected.amount_paid}</p>
+          {selectedEnrollment ? (
+            <div className="space-y-6">
+              <div className="rounded-xl border border-white/10 bg-white/5 p-4 space-y-3">
+                <div>
+                  <p className="text-xs uppercase tracking-wide text-white/50">
+                    Name
+                  </p>
+                  <p className="text-sm text-white">
+                    {getDisplayName(selectedEnrollment)}
+                  </p>
+                </div>
+
+                <div>
+                  <p className="text-xs uppercase tracking-wide text-white/50">
+                    Email
+                  </p>
+                  <p className="text-sm text-white break-all">
+                    {getDisplayEmail(selectedEnrollment)}
+                  </p>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div>
+                    <p className="text-xs uppercase tracking-wide text-white/50">
+                      Plan
+                    </p>
+                    <p className="text-sm text-white">
+                      {getPlanLabel(selectedEnrollment)}
+                    </p>
+                  </div>
+
+                  <div>
+                    <p className="text-xs uppercase tracking-wide text-white/50">
+                      Amount
+                    </p>
+                    <p className="text-sm text-white">
+                      ₱{selectedEnrollment.amount_paid || 0}
+                    </p>
+                  </div>
+
+                  <div>
+                    <p className="text-xs uppercase tracking-wide text-white/50">
+                      Status
+                    </p>
+                    <p className="text-sm text-white capitalize">
+                      {selectedEnrollment.status || "pending"}
+                    </p>
+                  </div>
+                </div>
               </div>
 
-              {selected.proof_url && (
-                <img
-                  src={selected.proof_url}
-                  alt="Proof"
-                  className="rounded-lg max-h-60 w-full object-contain"
-                />
+              {getPaymentProof(selectedEnrollment) ? (
+                <div className="rounded-xl border border-white/10 bg-white/5 p-4">
+                  <p className="mb-3 text-sm font-medium text-white/80">
+                    Payment Proof
+                  </p>
+
+                  <img
+                    src={getPaymentProof(selectedEnrollment)}
+                    alt="Payment Proof"
+                    className="w-full max-h-[420px] rounded-xl border border-white/10 object-contain bg-black/20"
+                  />
+                </div>
+              ) : (
+                <div className="rounded-xl border border-yellow-500/20 bg-yellow-500/10 p-4 text-sm text-yellow-300">
+                  No payment proof uploaded.
+                </div>
               )}
 
-              <Select value={newStatus} onValueChange={setNewStatus}>
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="pending">Pending</SelectItem>
-                  <SelectItem value="under_review">Under Review</SelectItem>
-                  <SelectItem value="approved">Approved</SelectItem>
-                  <SelectItem value="rejected">Rejected</SelectItem>
-                </SelectContent>
-              </Select>
+              <div className="flex justify-end gap-3">
+                <Button
+                  onClick={() => setReviewOpen(false)}
+                  disabled={actionLoading}
+                >
+                  Close
+                </Button>
 
-              <Textarea
-                value={notes}
-                onChange={(e) => setNotes(e.target.value)}
-                placeholder="Notes..."
-              />
+                <Button
+                  onClick={() =>
+                    updateEnrollmentStatus(selectedEnrollment.id, "rejected")
+                  }
+                  disabled={actionLoading}
+                  className="bg-red-600 hover:bg-red-700 disabled:opacity-60"
+                >
+                  <XCircle className="w-4 h-4 mr-2" />
+                  {actionLoading ? "Processing..." : "Reject"}
+                </Button>
 
-              <Button onClick={handleUpdate} className="w-full">
-                Update
-              </Button>
+                <Button
+                  onClick={() =>
+                    updateEnrollmentStatus(selectedEnrollment.id, "approved")
+                  }
+                  disabled={actionLoading}
+                  className="bg-emerald-600 hover:bg-emerald-700 disabled:opacity-60"
+                >
+                  <CheckCircle2 className="w-4 h-4 mr-2" />
+                  {actionLoading ? "Processing..." : "Approve"}
+                </Button>
+              </div>
             </div>
+          ) : (
+            <div className="text-sm text-white/60">No enrollment selected.</div>
           )}
         </DialogContent>
       </Dialog>

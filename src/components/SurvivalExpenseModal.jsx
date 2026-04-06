@@ -1,14 +1,8 @@
 import { useEffect, useState } from "react";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Shield, ChevronDown, ChevronUp } from "lucide-react";
+import { Shield, ChevronDown, ChevronUp, X } from "lucide-react";
 import { supabase } from "@/lib/supabaseClient";
 
 function saveSurvivalExpenseLocally(value) {
@@ -18,34 +12,35 @@ function saveSurvivalExpenseLocally(value) {
 
     const updatedUser = {
       ...currentUser,
-      monthly_survival_expense: value,
+      monthly_survival_expense: Number(value),
+      survival_setup_done: true,
     };
 
     localStorage.setItem("clara_user", JSON.stringify(updatedUser));
     localStorage.setItem("monthly_survival_expense", String(value));
+    localStorage.setItem("clara_survival_expense", String(value));
+    localStorage.setItem("survival_setup_done", "true");
 
     return updatedUser;
-  } catch (error) {
-    console.error("Failed to save monthly_survival_expense locally:", error);
+  } catch {
     localStorage.setItem("monthly_survival_expense", String(value));
-    return { monthly_survival_expense: value };
+    localStorage.setItem("clara_survival_expense", String(value));
+    localStorage.setItem("survival_setup_done", "true");
+    return { monthly_survival_expense: Number(value) };
   }
 }
 
 function getSavedSurvivalExpense() {
   try {
-    const fromDirectKey = localStorage.getItem("monthly_survival_expense");
-    if (fromDirectKey && Number(fromDirectKey) > 0) {
-      return String(fromDirectKey);
-    }
+    const direct = localStorage.getItem("monthly_survival_expense");
+    if (direct && Number(direct) > 0) return String(direct);
+
+    const clara = localStorage.getItem("clara_survival_expense");
+    if (clara && Number(clara) > 0) return String(clara);
 
     const user = JSON.parse(localStorage.getItem("clara_user") || "null");
-    if (
-      user?.monthly_survival_expense &&
-      Number(user.monthly_survival_expense) > 0
-    ) {
+    if (user?.monthly_survival_expense > 0)
       return String(user.monthly_survival_expense);
-    }
 
     return "";
   } catch {
@@ -61,154 +56,131 @@ export default function SurvivalExpenseModal({
 }) {
   const [amount, setAmount] = useState("");
   const [showEstimator, setShowEstimator] = useState(false);
+  const [saving, setSaving] = useState(false);
   const [est, setEst] = useState({
     rent: "",
     food: "",
     utilities: "",
     transport: "",
   });
-  const [saving, setSaving] = useState(false);
 
   useEffect(() => {
-    if (!open) return;
-
-    const savedValue = getSavedSurvivalExpense();
-    setAmount(savedValue);
-  }, [open]);
-
-  useEffect(() => {
-    if (open) return;
-
-    setShowEstimator(false);
-    setEst({
-      rent: "",
-      food: "",
-      utilities: "",
-      transport: "",
-    });
-  }, [open]);
-
-  const estTotal = Object.values(est).reduce((sum, value) => {
-    return sum + (parseFloat(value) || 0);
-  }, 0);
-
-  const useEstimate = () => {
-    if (estTotal > 0) {
-      setAmount(String(estTotal));
+    if (open) {
+      setAmount(getSavedSurvivalExpense());
+    } else {
+      setShowEstimator(false);
+      setEst({
+        rent: "",
+        food: "",
+        utilities: "",
+        transport: "",
+      });
+      setSaving(false);
     }
-    setShowEstimator(false);
-  };
+  }, [open]);
 
-  const saveToSupabase = async (value) => {
-    const {
-      data: { user: authUser },
-      error: authError,
-    } = await supabase.auth.getUser();
-
-    if (authError) throw authError;
-    if (!authUser) throw new Error("No authenticated user found.");
-
-    const { error } = await supabase
-      .from("profiles")
-      .update({ monthly_survival_expense: value })
-      .eq("id", authUser.id);
-
-    if (error) throw error;
-
-    saveSurvivalExpenseLocally(value);
-  };
+  const estTotal = Object.values(est).reduce(
+    (sum, v) => sum + (parseFloat(v) || 0),
+    0
+  );
 
   const handleSave = async () => {
     const val = parseFloat(amount);
-
     if (!val || val <= 0) return;
 
     try {
       setSaving(true);
 
-      if (typeof onSaveSurvivalExpense === "function") {
+      if (onSaveSurvivalExpense) {
         await onSaveSurvivalExpense(val);
       } else {
-        await saveToSupabase(val);
+        const {
+          data: { user },
+        } = await supabase.auth.getUser();
+
+        if (user) {
+          await supabase
+            .from("profiles")
+            .update({ monthly_survival_expense: val })
+            .eq("id", user.id);
+        }
       }
 
+      saveSurvivalExpenseLocally(val);
       onSaved?.(val);
       onOpenChange?.(false);
-    } catch (error) {
-      console.error("Failed to save monthly_survival_expense:", error);
+    } catch (err) {
+      console.error(err);
     } finally {
       setSaving(false);
     }
   };
 
+  if (!open) return null;
+
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent
-        className="max-w-sm"
-        onPointerDownOutside={(e) => e.preventDefault()}
-      >
-        <DialogHeader>
-          <div className="flex items-center gap-2 mb-1">
-            <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center">
-              <Shield className="w-4 h-4 text-primary" />
-            </div>
-            <DialogTitle className="font-heading text-lg">
-              Set Your Survival Number
-            </DialogTitle>
-          </div>
-        </DialogHeader>
+    <div className="fixed inset-0 z-[99999]">
+      {/* BACKDROP */}
+      <div
+        className="absolute inset-0 bg-black/70"
+        onClick={() => onOpenChange?.(false)}
+      />
 
-        <p className="text-sm text-muted-foreground mb-4 leading-relaxed">
-          Hindi income ang basehan ng financial security.
-          <br />
-          Kundi kung <strong>magkano kailangan mo para mabuhay</strong> bawat
-          buwan.
-        </p>
-
-        <div className="space-y-3">
-          <div>
-            <Label className="text-sm font-semibold">
-              Monthly Essential Expenses (₱)
-            </Label>
-            <Input
-              type="number"
-              placeholder="e.g. 8000"
-              value={amount}
-              onChange={(e) => setAmount(e.target.value)}
-              className="mt-1.5 text-base"
-              min={1}
-            />
-            <p className="text-xs text-muted-foreground mt-1">
-              Include: Rent, Food, Bills, Transportation
-            </p>
-          </div>
-
+      {/* MODAL */}
+      <div className="absolute inset-0 flex items-center justify-center p-4">
+        <div
+          className="w-full max-w-sm bg-[#0b1220] text-white rounded-2xl p-5 shadow-2xl"
+          onClick={(e) => e.stopPropagation()}
+        >
+          {/* CLOSE */}
           <button
-            type="button"
-            onClick={() => setShowEstimator((v) => !v)}
-            className="flex items-center gap-1.5 text-xs text-primary font-semibold"
+            onClick={() => onOpenChange?.(false)}
+            className="absolute right-4 top-4"
           >
-            {showEstimator ? (
-              <ChevronUp className="w-3.5 h-3.5" />
-            ) : (
-              <ChevronDown className="w-3.5 h-3.5" />
-            )}
-            Help me estimate
+            <X className="w-4 h-4 text-white/60" />
           </button>
 
-          {showEstimator && (
-            <div className="bg-muted/50 rounded-xl p-3 space-y-2">
-              {[
-                { key: "rent", label: "Rent / Housing" },
-                { key: "food", label: "Food" },
-                { key: "utilities", label: "Utilities / Bills" },
-                { key: "transport", label: "Transportation" },
-              ].map(({ key, label }) => (
-                <div key={key} className="flex items-center gap-2">
-                  <Label className="text-xs w-28 flex-shrink-0">{label}</Label>
+          {/* HEADER */}
+          <div className="flex items-center gap-2 mb-4">
+            <Shield className="w-5 h-5 text-emerald-400" />
+            <h2 className="text-lg font-bold">
+              Set Your Survival Number
+            </h2>
+          </div>
+
+          {/* TEXT */}
+          <p className="text-sm text-white/70 mb-4">
+            Hindi income ang basehan ng financial security.
+          </p>
+
+          {/* INPUT */}
+          <div className="space-y-3">
+            <div>
+              <Label>Monthly Essential Expenses (₱)</Label>
+              <Input
+                type="number"
+                value={amount}
+                onChange={(e) => setAmount(e.target.value)}
+              />
+            </div>
+
+            {/* ESTIMATOR */}
+            <button
+              type="button"
+              onClick={() => setShowEstimator(!showEstimator)}
+              className="text-xs text-emerald-400 flex items-center gap-1"
+            >
+              {showEstimator ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
+              Help me estimate
+            </button>
+
+            {showEstimator && (
+              <div className="space-y-2 bg-white/5 p-3 rounded-xl">
+                {["rent", "food", "utilities", "transport"].map((key) => (
                   <Input
+                    key={key}
+                    placeholder={key}
                     type="number"
-                    placeholder="₱0"
                     value={est[key]}
                     onChange={(e) =>
                       setEst((prev) => ({
@@ -216,37 +188,32 @@ export default function SurvivalExpenseModal({
                         [key]: e.target.value,
                       }))
                     }
-                    className="h-8 text-sm"
                   />
-                </div>
-              ))}
+                ))}
 
-              <div className="flex items-center justify-between pt-1">
-                <span className="text-xs font-bold text-foreground">
-                  Total: ₱{estTotal.toLocaleString()}
-                </span>
                 <Button
-                  size="sm"
-                  variant="outline"
-                  className="h-7 text-xs"
-                  onClick={useEstimate}
-                  disabled={estTotal <= 0}
+                  type="button"
+                  onClick={() => {
+                    if (estTotal > 0) setAmount(String(estTotal));
+                    setShowEstimator(false);
+                  }}
                 >
-                  Use This
+                  Use ₱{estTotal}
                 </Button>
               </div>
-            </div>
-          )}
-        </div>
+            )}
+          </div>
 
-        <Button
-          className="w-full mt-2"
-          onClick={handleSave}
-          disabled={saving || !amount || parseFloat(amount) <= 0}
-        >
-          {saving ? "Saving..." : "Save & Continue"}
-        </Button>
-      </DialogContent>
-    </Dialog>
+          {/* BUTTON */}
+          <Button
+            className="w-full mt-4"
+            onClick={handleSave}
+            disabled={saving}
+          >
+            {saving ? "Saving..." : "Save & Continue"}
+          </Button>
+        </div>
+      </div>
+    </div>
   );
 }

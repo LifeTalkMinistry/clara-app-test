@@ -14,8 +14,8 @@ const withTimeout = (promise, ms = 8000) => {
   return Promise.race([
     promise,
     new Promise((_, reject) =>
-      setTimeout(() => reject(new Error("Auth request timed out.")), ms)
-    ),
+      setTimeout(() => reject(new Error("Auth request timed out."))
+    )),
   ]);
 };
 
@@ -23,6 +23,33 @@ export function AuthProvider({ children }) {
   const [user, setUser] = useState(null);
   const [session, setSession] = useState(null);
   const [loading, setLoading] = useState(true);
+
+  const ensureBasicProfile = useCallback(async (authUser, fallbackName = "") => {
+    if (!authUser?.id) return null;
+
+    const payload = {
+      id: authUser.id,
+      email: authUser.email || null,
+      full_name:
+        fallbackName?.trim() ||
+        authUser.user_metadata?.full_name ||
+        authUser.user_metadata?.name ||
+        null,
+    };
+
+    try {
+      const { error } = await withTimeout(
+        supabase.from("profiles").upsert(payload, { onConflict: "id" }),
+        8000
+      );
+
+      if (error) {
+        console.error("ensureBasicProfile error:", error);
+      }
+    } catch (error) {
+      console.error("ensureBasicProfile timeout/error:", error);
+    }
+  }, []);
 
   useEffect(() => {
     let mounted = true;
@@ -40,8 +67,15 @@ export function AuthProvider({ children }) {
           console.error("getSession error:", error);
         }
 
-        setSession(data?.session ?? null);
-        setUser(data?.session?.user ?? null);
+        const currentSession = data?.session ?? null;
+        const currentUser = currentSession?.user ?? null;
+
+        setSession(currentSession);
+        setUser(currentUser);
+
+        if (currentUser?.id) {
+          ensureBasicProfile(currentUser);
+        }
       } catch (error) {
         console.error("loadSession error:", error);
         if (!mounted) return;
@@ -60,8 +94,16 @@ export function AuthProvider({ children }) {
       data: { subscription },
     } = supabase.auth.onAuthStateChange((_event, nextSession) => {
       if (!mounted) return;
+
+      const nextUser = nextSession?.user ?? null;
+
       setSession(nextSession ?? null);
-      setUser(nextSession?.user ?? null);
+      setUser(nextUser);
+
+      if (nextUser?.id) {
+        ensureBasicProfile(nextUser);
+      }
+
       setLoading(false);
     });
 
@@ -69,16 +111,23 @@ export function AuthProvider({ children }) {
       mounted = false;
       subscription.unsubscribe();
     };
-  }, []);
+  }, [ensureBasicProfile]);
 
   const signUp = async ({ email, password, fullName }) => {
+    const cleanedEmail = email?.trim();
+    const cleanedName = fullName?.trim();
+
+    if (!cleanedEmail) throw new Error("Email is required.");
+    if (!password) throw new Error("Password is required.");
+    if (!cleanedName) throw new Error("Full name is required.");
+
     const { data, error } = await withTimeout(
       supabase.auth.signUp({
-        email,
+        email: cleanedEmail,
         password,
         options: {
           data: {
-            full_name: fullName || "",
+            full_name: cleanedName,
           },
         },
       }),
@@ -86,19 +135,31 @@ export function AuthProvider({ children }) {
     );
 
     if (error) throw error;
+
+    if (data?.user?.id) {
+      ensureBasicProfile(data.user, cleanedName);
+    }
+
     return data;
   };
 
   const signIn = async ({ email, password }) => {
+    const cleanedEmail = email?.trim();
+
     const { data, error } = await withTimeout(
       supabase.auth.signInWithPassword({
-        email,
+        email: cleanedEmail,
         password,
       }),
       8000
     );
 
     if (error) throw error;
+
+    if (data?.user?.id) {
+      ensureBasicProfile(data.user);
+    }
+
     return data;
   };
 
@@ -110,7 +171,6 @@ export function AuthProvider({ children }) {
   const refreshProfile = useCallback(
     async (targetUserId) => {
       const profileId = targetUserId || user?.id;
-
       if (!profileId) return null;
 
       try {
@@ -124,7 +184,7 @@ export function AuthProvider({ children }) {
           return null;
         }
 
-        return data;
+        return data || null;
       } catch (error) {
         console.error("refreshProfile timeout/error:", error);
         return null;
@@ -143,8 +203,9 @@ export function AuthProvider({ children }) {
       signIn,
       signOut,
       refreshProfile,
+      ensureBasicProfile,
     }),
-    [user, session, loading, refreshProfile]
+    [user, session, loading, refreshProfile, ensureBasicProfile]
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

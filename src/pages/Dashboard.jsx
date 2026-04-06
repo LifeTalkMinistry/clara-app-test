@@ -7,6 +7,7 @@ import {
   Clock,
 } from "lucide-react";
 import { Link } from "react-router-dom";
+import { supabase } from "@/lib/supabaseClient";
 import EmergencyFundCard from "../components/EmergencyFundCard";
 import VideoPlayer from "../components/VideoPlayer";
 import { Button } from "@/components/ui/button";
@@ -30,6 +31,28 @@ const getStoredData = (key) => {
   }
 };
 
+const getLocalSurvivalExpense = () => {
+  try {
+    const monthly = localStorage.getItem("monthly_survival_expense");
+    if (monthly && Number(monthly) > 0) return Number(monthly);
+
+    const clara = localStorage.getItem("clara_survival_expense");
+    if (clara && Number(clara) > 0) return Number(clara);
+
+    const user = JSON.parse(localStorage.getItem("clara_user") || "null");
+    if (
+      user?.monthly_survival_expense &&
+      Number(user.monthly_survival_expense) > 0
+    ) {
+      return Number(user.monthly_survival_expense);
+    }
+
+    return 0;
+  } catch {
+    return 0;
+  }
+};
+
 export default function Dashboard() {
   const { user, isPaid, isFree, isPending, refreshUser } = useUserRole();
   const data = useFinancialData(user?.email);
@@ -40,12 +63,51 @@ export default function Dashboard() {
   const [survivalExpense, setSurvivalExpense] = useState(0);
 
   useEffect(() => {
-    if (user?.monthly_survival_expense) {
-      setSurvivalExpense(user.monthly_survival_expense);
-    } else {
-      setSurvivalExpense(0);
-    }
-  }, [user]);
+    const syncSurvivalExpense = async () => {
+      const fromUser = Number(user?.monthly_survival_expense) || 0;
+      const fromLocal = getLocalSurvivalExpense();
+
+      const finalValue = fromUser || fromLocal || 0;
+      setSurvivalExpense(finalValue);
+
+      // auto-sync local -> supabase if db is still empty
+      if (user?.id && fromLocal > 0 && fromUser === 0) {
+        try {
+          const { error } = await supabase
+            .from("profiles")
+            .update({ monthly_survival_expense: fromLocal })
+            .eq("id", user.id);
+
+          if (error) {
+            console.error("Auto-sync failed:", error);
+            return;
+          }
+
+          refreshUser?.();
+        } catch (err) {
+          console.error("Auto-sync failed:", err);
+        }
+      }
+    };
+
+    syncSurvivalExpense();
+  }, [user, refreshUser]);
+
+  useEffect(() => {
+    const syncFromLocal = () => {
+      const fromLocal = getLocalSurvivalExpense();
+      if (fromLocal > 0) {
+        setSurvivalExpense(fromLocal);
+      }
+    };
+
+    syncFromLocal();
+    window.addEventListener("focus", syncFromLocal);
+
+    return () => {
+      window.removeEventListener("focus", syncFromLocal);
+    };
+  }, []);
 
   useEffect(() => {
     if (!user?.email) return;
@@ -97,8 +159,8 @@ export default function Dashboard() {
   const activeTask = tasks.length > 0 ? tasks[0] : null;
 
   return (
-    <div className="min-h-full">
-      <div className="grad-green px-4 md:px-6 pt-8 pb-6">
+    <div className="min-h-full relative z-0 isolate">
+      <div className="grad-green px-4 md:px-6 pt-8 pb-6 relative z-0">
         <div className="max-w-4xl mx-auto flex justify-between">
           <div>
             <p className="text-white/50 text-sm">Welcome back,</p>
@@ -115,7 +177,7 @@ export default function Dashboard() {
         </div>
       </div>
 
-      <div className="px-4 md:px-6 mt-2 max-w-4xl mx-auto pb-8">
+      <div className="px-4 md:px-6 mt-2 max-w-4xl mx-auto pb-8 relative z-0">
         {isPending && (
           <div className="mb-3 p-3 rounded-2xl bg-secondary/20 border flex items-center gap-3">
             <Clock className="w-5 h-5" />
@@ -126,7 +188,7 @@ export default function Dashboard() {
           </div>
         )}
 
-        {!isFree && !isPending && (
+        {!!user && (
           <EmergencyFundCard
             moneyLeft={data.totalRetained}
             survivalExpense={survivalExpense}
@@ -136,7 +198,7 @@ export default function Dashboard() {
                 : 0
             }
             onSurvivalSaved={(val) => {
-              setSurvivalExpense(val);
+              setSurvivalExpense(Number(val) || 0);
               refreshUser?.();
             }}
           />
@@ -168,16 +230,7 @@ export default function Dashboard() {
 
           {activeTask ? (
             <Link to="/tasks" className="block h-full">
-              <div
-                className="
-                rounded-2xl p-4
-                bg-gradient-to-br from-[#1E293B] to-[#0F172A]
-                border border-white/10
-                shadow-lg
-                h-full
-                flex flex-col justify-between
-              "
-              >
+              <div className="rounded-2xl p-4 bg-gradient-to-br from-[#1E293B] to-[#0F172A] border border-white/10 shadow-lg h-full flex flex-col justify-between">
                 <div className="flex justify-between mb-2">
                   <span className="text-xs text-white/60">TASKS</span>
                   <ListChecks className="w-4 h-4 text-white/60" />

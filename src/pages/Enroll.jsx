@@ -111,15 +111,27 @@ function classifyPlan(plan) {
   const key = String(plan?.plan_key || "").toLowerCase();
   const name = String(plan?.name || "").toLowerCase();
 
-  if (TIER_CONFIG.diy.keyAliases.some((alias) => key.includes(alias) || name.includes(alias))) {
+  if (
+    TIER_CONFIG.diy.keyAliases.some(
+      (alias) => key.includes(alias) || name.includes(alias)
+    )
+  ) {
     return "diy";
   }
 
-  if (TIER_CONFIG.diwm.keyAliases.some((alias) => key.includes(alias) || name.includes(alias))) {
+  if (
+    TIER_CONFIG.diwm.keyAliases.some(
+      (alias) => key.includes(alias) || name.includes(alias)
+    )
+  ) {
     return "diwm";
   }
 
-  if (TIER_CONFIG.ldit.keyAliases.some((alias) => key.includes(alias) || name.includes(alias))) {
+  if (
+    TIER_CONFIG.ldit.keyAliases.some(
+      (alias) => key.includes(alias) || name.includes(alias)
+    )
+  ) {
     return "ldit";
   }
 
@@ -131,6 +143,28 @@ function normalizePrice(value, fallback) {
   const numeric = Number(String(value).replace(/[^\d.]/g, ""));
   if (Number.isNaN(numeric)) return fallback;
   return numeric;
+}
+
+function normalizeArray(value, fallback = []) {
+  if (Array.isArray(value)) {
+    return value.filter(Boolean);
+  }
+
+  if (typeof value === "string") {
+    try {
+      const parsed = JSON.parse(value);
+      if (Array.isArray(parsed)) {
+        return parsed.filter(Boolean);
+      }
+    } catch {
+      return value
+        .split("\n")
+        .map((item) => item.trim())
+        .filter(Boolean);
+    }
+  }
+
+  return fallback;
 }
 
 export default function Enroll() {
@@ -173,10 +207,23 @@ export default function Enroll() {
           .map((plan) => {
             const tierType = classifyPlan(plan);
             const tierUi = TIER_CONFIG[tierType];
+
             return {
               ...plan,
               tierType,
-              ui: tierUi,
+              ui: {
+                ...tierUi,
+                shortName: plan.short_name || tierUi.shortName,
+                subtitle: plan.subtitle || tierUi.subtitle,
+                badge: plan.badge || tierUi.badge,
+                description: plan.description || tierUi.description,
+                features: normalizeArray(plan.features, tierUi.features),
+                notIncluded: normalizeArray(
+                  plan.not_included,
+                  tierUi.notIncluded
+                ),
+                supportLine: plan.support_line || tierUi.supportLine,
+              },
               normalizedPrice: normalizePrice(plan.price, tierUi.priceFallback),
             };
           })
@@ -200,14 +247,22 @@ export default function Enroll() {
       return;
     }
 
-    const foundPlan = plans.find((plan) => plan.plan_key === selectedPlan) || null;
+    const foundPlan =
+      plans.find((plan) => plan.plan_key === selectedPlan) || null;
     setSelectedPlanData(foundPlan);
   }, [selectedPlan, plans]);
 
   const isPaidUser = useMemo(() => {
     return (
-      ["basic", "transformation", "elite", "student", "diy", "diwm", "ldit"].includes(user?.plan) ||
-      user?.role === "paid_user"
+      [
+        "basic",
+        "transformation",
+        "elite",
+        "student",
+        "diy",
+        "diwm",
+        "ldit",
+      ].includes(user?.plan) || user?.role === "paid_user"
     );
   }, [user]);
 
@@ -278,16 +333,40 @@ export default function Enroll() {
         proofUrl = publicUrlData?.publicUrl || null;
       }
 
-      const { error: insertError } = await supabase.from("enrollments").insert([
-        {
-          user_id: user.id,
-          plan_key: selectedPlanData.plan_key,
-          plan_name: selectedPlanData.name,
-          amount_paid: selectedPlanData.normalizedPrice,
-          payment_proof_url: proofUrl,
-          status: "pending",
-        },
-      ]);
+      const { data: profileData, error: profileError } = await supabase
+        .from("profiles")
+        .select("full_name, email")
+        .eq("id", user.id)
+        .maybeSingle();
+
+      if (profileError) {
+        console.error("Profile fetch error:", profileError);
+      }
+
+      const resolvedUserName =
+        profileData?.full_name ||
+        user?.user_metadata?.full_name ||
+        user?.user_metadata?.name ||
+        null;
+
+      const resolvedUserEmail =
+        profileData?.email || user?.email || null;
+
+      const { error: insertError } = await supabase
+        .from("enrollments")
+        .insert([
+          {
+            user_id: user.id,
+            user_email: resolvedUserEmail,
+            user_name: resolvedUserName,
+            plan_key: selectedPlanData.plan_key,
+            plan_name:
+              selectedPlanData.name || selectedPlanData.ui?.shortName || null,
+            amount_paid: selectedPlanData.normalizedPrice,
+            payment_proof_url: proofUrl,
+            status: "pending",
+          },
+        ]);
 
       if (insertError) {
         console.error("Enrollment insert error:", insertError);
@@ -381,7 +460,9 @@ export default function Enroll() {
                   </p>
 
                   <div className="mt-6 mb-6">
-                    <div className={`text-5xl md:text-6xl font-extrabold ${ui.priceClass}`}>
+                    <div
+                      className={`text-5xl md:text-6xl font-extrabold ${ui.priceClass}`}
+                    >
                       ₱{plan.normalizedPrice}
                     </div>
                     <p className="text-sm text-slate-500 mt-2">30-day access</p>
@@ -495,7 +576,9 @@ export default function Enroll() {
 
                 <div className="mt-6 flex items-end justify-between gap-4 flex-wrap">
                   <div>
-                    <p className={`text-5xl font-extrabold ${selectedPlanData?.ui?.priceClass}`}>
+                    <p
+                      className={`text-5xl font-extrabold ${selectedPlanData?.ui?.priceClass}`}
+                    >
                       ₱{selectedPlanData?.normalizedPrice ?? "0"}
                     </p>
                     <p className="text-sm text-slate-500 mt-1">One-time payment</p>
@@ -519,28 +602,42 @@ export default function Enroll() {
                       <p className="font-semibold text-slate-900">GCash</p>
                     </div>
 
-                    <p className="text-xs uppercase tracking-wide text-slate-500">Number</p>
-                    <p className="font-semibold text-slate-900 mt-1">09858410403</p>
+                    <p className="text-xs uppercase tracking-wide text-slate-500">
+                      Number
+                    </p>
+                    <p className="font-semibold text-slate-900 mt-1">
+                      09858410403
+                    </p>
 
                     <p className="text-xs uppercase tracking-wide text-slate-500 mt-4">
                       Account Name
                     </p>
-                    <p className="font-semibold text-slate-900 mt-1">Jerome Mirabuenos</p>
+                    <p className="font-semibold text-slate-900 mt-1">
+                      Jerome Mirabuenos
+                    </p>
                   </div>
 
                   <div className="rounded-2xl border border-cyan-100 bg-cyan-50/60 p-5">
                     <div className="flex items-center gap-2 mb-3">
                       <Building2 className="w-4 h-4 text-cyan-600" />
-                      <p className="font-semibold text-slate-900">Bank Transfer</p>
+                      <p className="font-semibold text-slate-900">
+                        Bank Transfer
+                      </p>
                     </div>
 
-                    <p className="text-xs uppercase tracking-wide text-slate-500">Bank</p>
-                    <p className="font-semibold text-slate-900 mt-1">Security Bank</p>
+                    <p className="text-xs uppercase tracking-wide text-slate-500">
+                      Bank
+                    </p>
+                    <p className="font-semibold text-slate-900 mt-1">
+                      Security Bank
+                    </p>
 
                     <p className="text-xs uppercase tracking-wide text-slate-500 mt-4">
                       Account Number
                     </p>
-                    <p className="font-semibold text-slate-900 mt-1">000-006-704-2019</p>
+                    <p className="font-semibold text-slate-900 mt-1">
+                      000-006-704-2019
+                    </p>
 
                     <p className="text-xs uppercase tracking-wide text-slate-500 mt-4">
                       Account Name

@@ -14,7 +14,6 @@ import {
   Settings,
   Menu,
   LogOut,
-  TrendingUp,
   PiggyBank,
   Star,
   Share2,
@@ -30,7 +29,9 @@ import ClaraLogo from "./ClaraLogo";
 const allNavItems = [
   { path: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
   { path: "/expenses", label: "Expenses", icon: Receipt },
-  { path: "/add-funds", label: "Add Funds", icon: TrendingUp },
+
+  // ✅ ADD FUNDS REMOVED
+
   { path: "/wallets", label: "Wallets", icon: Wallet },
   { path: "/budgets", label: "Budgets", icon: Target },
   { path: "/savings-goals", label: "Savings Goals", icon: PiggyBank },

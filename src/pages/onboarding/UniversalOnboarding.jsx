@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "../../lib/supabaseClient";
 import { useAuth } from "../../context/AuthContext";
@@ -14,12 +14,81 @@ const withTimeout = (promise, ms = 8000) => {
 
 export default function UniversalOnboarding() {
   const navigate = useNavigate();
-  const { user } = useAuth();
+  const { user, refreshProfile } = useAuth();
 
   const [step, setStep] = useState(1);
   const [saving, setSaving] = useState(false);
+  const [loadingProfile, setLoadingProfile] = useState(true);
+  const [profile, setProfile] = useState(null);
+  const [fullName, setFullName] = useState("");
+  const [nameError, setNameError] = useState("");
 
-  const next = () => setStep((prev) => Math.min(prev + 1, 4));
+  const invalidStoredNames = ["Recovered User", "No name"];
+
+  const needsNameFix = useMemo(() => {
+    const storedName = profile?.full_name?.trim();
+    return !storedName || invalidStoredNames.includes(storedName);
+  }, [profile]);
+
+  useEffect(() => {
+    let alive = true;
+
+    const loadProfile = async () => {
+      if (!user?.id) {
+        if (alive) setLoadingProfile(false);
+        return;
+      }
+
+      try {
+        const existingProfile = await refreshProfile(user.id);
+
+        if (!alive) return;
+
+        setProfile(existingProfile || null);
+
+        const safeName =
+          existingProfile?.full_name &&
+          !invalidStoredNames.includes(existingProfile.full_name.trim())
+            ? existingProfile.full_name
+            : "";
+
+        setFullName(safeName);
+      } catch (error) {
+        console.error("Failed to load onboarding profile:", error);
+      } finally {
+        if (alive) setLoadingProfile(false);
+      }
+    };
+
+    loadProfile();
+
+    return () => {
+      alive = false;
+    };
+  }, [user?.id, refreshProfile]);
+
+  const next = () => {
+    if (step === 1) {
+      setStep(2);
+      return;
+    }
+
+    if (step === 2) {
+      setStep(3);
+      return;
+    }
+
+    if (step === 3) {
+      if (needsNameFix && !fullName.trim()) {
+        setNameError("Please enter your real name before continuing.");
+        return;
+      }
+
+      setNameError("");
+      setStep(4);
+    }
+  };
+
   const back = () => setStep((prev) => Math.max(prev - 1, 1));
 
   const updateProfile = async (updates) => {
@@ -29,6 +98,7 @@ export default function UniversalOnboarding() {
 
     const payload = {
       id: user.id,
+      email: user.email || profile?.email || null,
       ...updates,
     };
 
@@ -45,22 +115,59 @@ export default function UniversalOnboarding() {
     return true;
   };
 
+  const saveNameIfNeeded = async () => {
+    const cleanedName = fullName.trim();
+
+    if (needsNameFix) {
+      if (!cleanedName) {
+        throw new Error("Please enter your real name.");
+      }
+
+      await updateProfile({
+        full_name: cleanedName,
+      });
+
+      const { error: authUpdateError } = await withTimeout(
+        supabase.auth.updateUser({
+          data: {
+            full_name: cleanedName,
+          },
+        }),
+        8000
+      );
+
+      if (authUpdateError) {
+        console.error("Auth metadata update error:", authUpdateError);
+      }
+
+      setProfile((prev) => ({
+        ...(prev || {}),
+        full_name: cleanedName,
+        email: user?.email || prev?.email || null,
+      }));
+    }
+  };
+
   const continueFree = async () => {
     if (saving) return;
 
     try {
       setSaving(true);
+      setNameError("");
+
+      await saveNameIfNeeded();
 
       await updateProfile({
         onboarding_completed: true,
         onboarding_step: 4,
+        has_completed_onboarding: true,
         enrollment_status: "none",
       });
 
       navigate("/dashboard", { replace: true });
     } catch (error) {
       console.error("Continue Free error:", error);
-      alert(error?.message || "Failed to continue.");
+      setNameError(error?.message || "Failed to continue.");
     } finally {
       setSaving(false);
     }
@@ -71,21 +178,33 @@ export default function UniversalOnboarding() {
 
     try {
       setSaving(true);
+      setNameError("");
+
+      await saveNameIfNeeded();
 
       await updateProfile({
         onboarding_completed: true,
         onboarding_step: 4,
+        has_completed_onboarding: true,
         enrollment_status: "pending",
       });
 
       navigate("/tier-select", { replace: true });
     } catch (error) {
       console.error("Enroll error:", error);
-      alert(error?.message || "Failed to continue.");
+      setNameError(error?.message || "Failed to continue.");
     } finally {
       setSaving(false);
     }
   };
+
+  if (loadingProfile) {
+    return (
+      <div className="min-h-screen bg-[#061018] text-white px-6 py-10 flex items-center justify-center">
+        Loading onboarding...
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-[#061018] text-white px-6 py-10 flex items-center justify-center">
@@ -160,6 +279,38 @@ export default function UniversalOnboarding() {
               <li>• Complete missed tasks</li>
             </ul>
 
+            <div className="rounded-2xl border border-white/10 bg-white/5 p-4 space-y-3">
+              <p className="text-sm font-semibold text-white">
+                {needsNameFix ? "Complete your profile" : "Your profile name"}
+              </p>
+
+              <input
+                type="text"
+                placeholder="Enter your real name"
+                value={fullName}
+                onChange={(e) => {
+                  setFullName(e.target.value);
+                  if (nameError) setNameError("");
+                }}
+                className="w-full rounded-xl bg-black/40 border border-white/10 px-4 py-3 outline-none"
+              />
+
+              {needsNameFix ? (
+                <p className="text-sm text-yellow-300">
+                  Please enter the real name you want CLARA to use in your
+                  profile and admin records.
+                </p>
+              ) : (
+                <p className="text-sm text-white/60">
+                  You can keep this name or change it before continuing.
+                </p>
+              )}
+
+              {nameError && (
+                <p className="text-sm text-red-400">{nameError}</p>
+              )}
+            </div>
+
             <div className="flex gap-3">
               <button onClick={back} className="px-4 py-2 border rounded">
                 Back
@@ -176,20 +327,30 @@ export default function UniversalOnboarding() {
             <h2 className="text-2xl font-bold">Choose your path</h2>
 
             <div className="grid gap-4 sm:grid-cols-2">
-              <div className="border p-4 rounded">
-                <h3>Free Version</h3>
-                <button onClick={continueFree} disabled={saving}>
+              <div className="border p-4 rounded space-y-3">
+                <h3 className="text-lg font-semibold">Free Version</h3>
+                <button
+                  onClick={continueFree}
+                  disabled={saving}
+                  className="px-4 py-2 bg-white text-black rounded disabled:opacity-60"
+                >
                   {saving ? "Saving..." : "Continue Free"}
                 </button>
               </div>
 
-              <div className="border p-4 rounded">
-                <h3>Enroll in CLARA</h3>
-                <button onClick={goEnroll} disabled={saving}>
+              <div className="border p-4 rounded space-y-3">
+                <h3 className="text-lg font-semibold">Enroll in CLARA</h3>
+                <button
+                  onClick={goEnroll}
+                  disabled={saving}
+                  className="px-4 py-2 bg-green-600 rounded disabled:opacity-60"
+                >
                   {saving ? "Saving..." : "Enroll Now"}
                 </button>
               </div>
             </div>
+
+            {nameError && <p className="text-sm text-red-400">{nameError}</p>}
 
             <button onClick={back} className="px-4 py-2 border rounded">
               Back
