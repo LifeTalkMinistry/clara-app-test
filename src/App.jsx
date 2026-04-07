@@ -243,7 +243,10 @@ function App() {
           <Route path="/referrals" element={<Referrals />} />
           <Route path="/savings-goals" element={<SavingsGoals />} />
           <Route path="/admin" element={<AdminPanel />} />
-          <Route path="/admin/students/:id" element={<StudentProfile />} />
+
+          {/* ✅ FIXED ROUTE */}
+          <Route path="/admin/student/:id" element={<StudentProfile />} />
+
           <Route
             path="/admin/referral-materials"
             element={<AdminReferralMaterials />}

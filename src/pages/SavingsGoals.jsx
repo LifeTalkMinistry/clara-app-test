@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import {
   Plus,
   Target,
@@ -85,8 +85,7 @@ const EMPTY_FORM = {
 
 const inputDarkClass =
   "bg-[#0b1a2f] border-white/10 text-white placeholder:text-white/40 focus-visible:ring-1 focus-visible:ring-green-500/60";
-const selectDarkTriggerClass =
-  "bg-[#0b1a2f] border-white/10 text-white";
+const selectDarkTriggerClass = "bg-[#0b1a2f] border-white/10 text-white";
 const labelDarkClass =
   "text-[11px] font-semibold uppercase tracking-[0.08em] text-white/70 mb-1.5 block";
 
@@ -148,24 +147,33 @@ const isOwnedByUser = (item, user) => {
 const getWalletBalance = (wallet, allTransactions, allTransfers) => {
   const walletId = String(wallet.id);
 
-  const deposits = allTransactions
-    .filter((t) => String(t.wallet_id) === walletId)
-    .reduce((sum, t) => sum + Number(t.amount || 0), 0);
+  const walletTransactions = allTransactions.filter(
+    (t) => String(t.wallet_id) === walletId
+  );
+
+  const transactionTotal = walletTransactions.reduce(
+    (sum, t) => sum + Number(t.amount || 0),
+    0
+  );
 
   const transfersIn = allTransfers
     .filter(
-      (t) => String(t.wallet_id) === walletId && t.type === "transfer_in"
+      (t) => String(t.wallet_id) === walletId && String(t.type) === "transfer_in"
     )
     .reduce((sum, t) => sum + Number(t.amount || 0), 0);
 
   const transfersOut = allTransfers
     .filter(
-      (t) => String(t.wallet_id) === walletId && t.type === "transfer_out"
+      (t) =>
+        String(t.wallet_id) === walletId && String(t.type) === "transfer_out"
     )
     .reduce((sum, t) => sum + Number(t.amount || 0), 0);
 
   return (
-    Number(wallet.starting_balance || 0) + deposits + transfersIn - transfersOut
+    Number(wallet.starting_balance || 0) +
+    transactionTotal +
+    transfersIn -
+    transfersOut
   );
 };
 
@@ -175,6 +183,8 @@ export default function SavingsGoals() {
 
   const [goals, setGoals] = useState([]);
   const [wallets, setWallets] = useState([]);
+  const [walletTransactions, setWalletTransactions] = useState([]);
+  const [walletTransfers, setWalletTransfers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [open, setOpen] = useState(false);
@@ -184,18 +194,22 @@ export default function SavingsGoals() {
 
   useEffect(() => {
     const loadData = () => {
-      const allGoals = getStoredGoals();
-      const filteredGoals = user?.email
-        ? allGoals.filter((g) => g.created_by === user.email)
-        : [];
+      if (!user?.email && !user?.id) {
+        setGoals([]);
+        setWallets([]);
+        setWalletTransactions([]);
+        setWalletTransfers([]);
+        setLoading(false);
+        return;
+      }
 
-      setGoals(
-        filteredGoals.sort(
-          (a, b) => new Date(b.created_date) - new Date(a.created_date)
-        )
-      );
+      const allGoals = getStoredGoals();
+      const filteredGoals = allGoals.filter((g) => isOwnedByUser(g, user));
 
       const allWallets = safeRead(WALLET_KEY);
+      const allTransactions = safeRead(TXN_KEY);
+      const allTransfers = safeRead(TRANSFER_KEY);
+
       const userWallets = allWallets
         .filter((wallet) => isOwnedByUser(wallet, user))
         .map((wallet) => ({
@@ -203,7 +217,49 @@ export default function SavingsGoals() {
           id: String(wallet.id),
         }));
 
+      const userWalletIds = new Set(userWallets.map((wallet) => String(wallet.id)));
+
+      const userTransactions = allTransactions
+        .filter(
+          (txn) => isOwnedByUser(txn, user) || userWalletIds.has(String(txn.wallet_id))
+        )
+        .map((txn) => ({
+          ...txn,
+          id: String(txn.id),
+          wallet_id: String(txn.wallet_id),
+        }));
+
+      const userTransfers = allTransfers
+        .filter(
+          (transfer) =>
+            isOwnedByUser(transfer, user) ||
+            userWalletIds.has(String(transfer.wallet_id)) ||
+            userWalletIds.has(String(transfer.linked_wallet_id))
+        )
+        .map((transfer) => ({
+          ...transfer,
+          id: String(transfer.id),
+          wallet_id: String(transfer.wallet_id),
+          linked_wallet_id:
+            transfer.linked_wallet_id != null
+              ? String(transfer.linked_wallet_id)
+              : "",
+        }));
+
+      const sortedGoals = filteredGoals.sort(
+        (a, b) => new Date(b.created_date) - new Date(a.created_date)
+      );
+
+      setGoals(sortedGoals);
       setWallets(userWallets);
+      setWalletTransactions(userTransactions);
+      setWalletTransfers(userTransfers);
+
+      if (detailGoal?.id) {
+        const freshGoal = sortedGoals.find((g) => g.id === detailGoal.id) || null;
+        setDetailGoal(freshGoal);
+      }
+
       setLoading(false);
     };
 
@@ -220,18 +276,37 @@ export default function SavingsGoals() {
       window.removeEventListener("clara-wallets-updated", handleReload);
       window.removeEventListener("clara-expenses-updated", handleReload);
     };
-  }, [user?.email, user?.id]);
+  }, [user?.email, user?.id, detailGoal?.id]);
+
+  const walletBalances = useMemo(() => {
+    const map = {};
+    wallets.forEach((wallet) => {
+      map[String(wallet.id)] = getWalletBalance(
+        wallet,
+        walletTransactions,
+        walletTransfers
+      );
+    });
+    return map;
+  }, [wallets, walletTransactions, walletTransfers]);
 
   const syncGoals = (updatedUserGoals) => {
     const allGoals = getStoredGoals();
-    const otherUsersGoals = allGoals.filter((g) => g.created_by !== user?.email);
+    const otherUsersGoals = allGoals.filter((g) => !isOwnedByUser(g, user));
     const merged = [...otherUsersGoals, ...updatedUserGoals];
+
     setStoredGoals(merged);
-    setGoals(
-      updatedUserGoals.sort(
-        (a, b) => new Date(b.created_date) - new Date(a.created_date)
-      )
+
+    const sortedGoals = [...updatedUserGoals].sort(
+      (a, b) => new Date(b.created_date) - new Date(a.created_date)
     );
+
+    setGoals(sortedGoals);
+
+    if (detailGoal?.id) {
+      const freshGoal = sortedGoals.find((g) => g.id === detailGoal.id) || null;
+      setDetailGoal(freshGoal);
+    }
   };
 
   const totalSaved = goals.reduce(
@@ -275,7 +350,7 @@ export default function SavingsGoals() {
       flexibility: goal.flexibility || "flexible",
       priority: goal.priority || "medium",
       notes: goal.notes || "",
-      wallet_id: goal.wallet_id || "",
+      wallet_id: goal.wallet_id ? String(goal.wallet_id) : "",
     });
     setEditId(goal.id);
     setOpen(true);
@@ -307,7 +382,7 @@ export default function SavingsGoals() {
         category: form.category || "",
         subcategory: form.subcategory || "",
         target_amount: parseFloat(form.target_amount) || 0,
-        saved_amount: parseFloat(form.saved_amount) || 0,
+        saved_amount: Math.max(0, parseFloat(form.saved_amount) || 0),
         planned_use_date: form.planned_use_date || "",
         reasons: Array.isArray(form.reasons) ? form.reasons : ["", "", ""],
         emotional_value: form.emotional_value || "joy",
@@ -369,10 +444,13 @@ export default function SavingsGoals() {
   const handleAddSavings = async (goal, amount) => {
     try {
       const safeAmount = parseFloat(amount);
-      if (!safeAmount || safeAmount <= 0) return;
+      if (!safeAmount || safeAmount <= 0) {
+        alert("Please enter a valid amount.");
+        return;
+      }
 
       if (!goal.wallet_id) {
-        alert("Please assign a source wallet to this goal first.");
+        alert("Please assign a wallet to this goal first.");
         return;
       }
 
@@ -419,7 +497,7 @@ export default function SavingsGoals() {
         source_type: "savings_goal",
         source_details: goal.title || "Savings Goal",
         tag: "transfer",
-        notes: `Added to savings goal: ${goal.title}`,
+        notes: `Moved to savings goal: ${goal.title}`,
         created_at: new Date().toISOString(),
         created_by: user?.email || goal.created_by || "",
         user_id: user?.id || goal.user_id || "",
@@ -445,6 +523,7 @@ export default function SavingsGoals() {
       const updatedGoal = updatedGoals.find((g) => g.id === goal.id) || null;
       setDetailGoal(updatedGoal);
 
+      setWalletTransactions((prev) => [newTransaction, ...prev]);
       emitWalletSync();
     } catch (error) {
       console.error("Failed to add savings:", error);
@@ -557,7 +636,7 @@ export default function SavingsGoals() {
                     {assignedWallet ? (
                       <p className="text-[11px] text-muted-foreground mt-1 flex items-center gap-1">
                         <Wallet className="w-3 h-3" />
-                        {assignedWallet.name}
+                        {assignedWallet.name} • {fmt(walletBalances[String(assignedWallet.id)] || 0)}
                       </p>
                     ) : null}
                   </div>
@@ -716,7 +795,7 @@ export default function SavingsGoals() {
                     wallets.map((wallet) => (
                       <SelectItem key={wallet.id} value={String(wallet.id)}>
                         {wallet.icon ? `${wallet.icon} ` : ""}
-                        {wallet.name}
+                        {wallet.name} • {fmt(walletBalances[String(wallet.id)] || 0)}
                       </SelectItem>
                     ))
                   )}
@@ -852,6 +931,7 @@ export default function SavingsGoals() {
         <GoalDetail
           goal={detailGoal}
           wallets={wallets}
+          walletBalances={walletBalances}
           onClose={() => setDetailGoal(null)}
           onEdit={openEdit}
           onDelete={handleDelete}
@@ -867,6 +947,7 @@ export default function SavingsGoals() {
 function GoalDetail({
   goal,
   wallets,
+  walletBalances,
   onClose,
   onEdit,
   onDelete,
@@ -882,9 +963,7 @@ function GoalDetail({
   const remaining = Math.max(target - saved, 0);
 
   const now = new Date();
-  const plannedDate = goal.planned_use_date
-    ? new Date(goal.planned_use_date)
-    : null;
+  const plannedDate = goal.planned_use_date ? new Date(goal.planned_use_date) : null;
 
   const weeksLeft =
     plannedDate && !Number.isNaN(plannedDate.getTime())
@@ -912,6 +991,12 @@ function GoalDetail({
   const assignedWallet = wallets.find(
     (wallet) => String(wallet.id) === String(goal.wallet_id)
   );
+
+  const walletBalance = assignedWallet
+    ? Number(walletBalances[String(assignedWallet.id)] || 0)
+    : 0;
+
+  const quickAmounts = [500, 1000, 2000];
 
   return (
     <Dialog open={true} onOpenChange={onClose}>
@@ -957,11 +1042,16 @@ function GoalDetail({
               <p className="text-xs font-bold uppercase tracking-wide text-white/55 mb-2">
                 Source Wallet
               </p>
-              <div className="flex items-center gap-2 text-white/90">
-                <Wallet className="w-4 h-4 text-green-400" />
-                <span className="font-medium">
-                  {assignedWallet.icon ? `${assignedWallet.icon} ` : ""}
-                  {assignedWallet.name}
+              <div className="flex items-center justify-between gap-3">
+                <div className="flex items-center gap-2 text-white/90">
+                  <Wallet className="w-4 h-4 text-green-400" />
+                  <span className="font-medium">
+                    {assignedWallet.icon ? `${assignedWallet.icon} ` : ""}
+                    {assignedWallet.name}
+                  </span>
+                </div>
+                <span className="text-sm font-bold text-green-400">
+                  {fmt(walletBalance)}
                 </span>
               </div>
             </div>
@@ -991,31 +1081,53 @@ function GoalDetail({
           </div>
 
           {remaining > 0 && (
-            <div className="flex gap-2 mb-4">
-              <Input
-                type="number"
-                placeholder={
-                  assignedWallet
-                    ? "Add savings amount"
-                    : "Assign a wallet first"
-                }
-                value={addAmount}
-                onChange={(e) => setAddAmount(e.target.value)}
-                className="flex-1 bg-[#081427] border-white/10 text-white placeholder:text-white/35 focus-visible:ring-1 focus-visible:ring-green-500/60"
-                disabled={!assignedWallet}
-              />
-              <Button
-                type="button"
-                className="bg-green-500 hover:bg-green-600 text-white px-5 disabled:opacity-50"
-                onClick={() => {
-                  if (!addAmount) return;
-                  onAddSavings(goal, parseFloat(addAmount));
-                  setAddAmount("");
-                }}
-                disabled={!addAmount || !assignedWallet}
-              >
-                Add
-              </Button>
+            <div className="mb-4 space-y-2">
+              <div className="flex gap-2">
+                <Input
+                  type="number"
+                  placeholder={
+                    assignedWallet
+                      ? "Add savings amount"
+                      : "Assign a wallet first"
+                  }
+                  value={addAmount}
+                  onChange={(e) => setAddAmount(e.target.value)}
+                  className="flex-1 bg-[#081427] border-white/10 text-white placeholder:text-white/35 focus-visible:ring-1 focus-visible:ring-green-500/60"
+                  disabled={!assignedWallet}
+                />
+                <Button
+                  type="button"
+                  className="bg-green-500 hover:bg-green-600 text-white px-5 disabled:opacity-50"
+                  onClick={() => {
+                    if (!addAmount) return;
+                    onAddSavings(goal, parseFloat(addAmount));
+                    setAddAmount("");
+                  }}
+                  disabled={
+                    !addAmount ||
+                    !assignedWallet ||
+                    Number(addAmount) <= 0 ||
+                    Number(addAmount) > walletBalance
+                  }
+                >
+                  Add
+                </Button>
+              </div>
+
+              {assignedWallet && (
+                <div className="flex flex-wrap gap-2">
+                  {quickAmounts.map((amount) => (
+                    <button
+                      key={amount}
+                      type="button"
+                      onClick={() => setAddAmount(String(amount))}
+                      className="px-3 py-1.5 rounded-full text-xs border border-white/10 bg-white/5 hover:bg-white/10 transition"
+                    >
+                      {fmt(amount)}
+                    </button>
+                  ))}
+                </div>
+              )}
             </div>
           )}
 

@@ -77,17 +77,59 @@ function getDateRange(timeframe, customStart, customEnd) {
   }
 }
 
-function filterByRange(items, dateField, start, end) {
-  return items.filter((item) => {
-    const value = item?.[dateField];
-    if (!value) return false;
+function safeDate(value) {
+  if (!value) return null;
 
-    try {
-      return isWithinInterval(parseISO(value), { start, end });
-    } catch {
-      return false;
-    }
+  try {
+    const parsed = typeof value === "string" ? parseISO(value) : new Date(value);
+    if (Number.isNaN(parsed.getTime())) return null;
+    return parsed;
+  } catch {
+    return null;
+  }
+}
+
+function filterByRange(items, start, end, customDateGetter) {
+  return items.filter((item) => {
+    const rawValue = customDateGetter ? customDateGetter(item) : item?.date;
+    const parsed = safeDate(rawValue);
+    if (!parsed) return false;
+
+    return isWithinInterval(parsed, { start, end });
   });
+}
+
+function toNumber(value) {
+  const num = Number(value);
+  return Number.isFinite(num) ? num : 0;
+}
+
+function normalizeText(value) {
+  return String(value || "").trim().toLowerCase();
+}
+
+function getExpenseNeedType(expense) {
+  return normalizeText(
+    expense?.need_type ||
+      expense?.needType ||
+      expense?.type ||
+      expense?.classification ||
+      expense?.bucket
+  );
+}
+
+function getExpenseCategory(expense) {
+  return (
+    expense?.category ||
+    expense?.budgetCategory ||
+    expense?.classification ||
+    expense?.type ||
+    "Uncategorized"
+  );
+}
+
+function getWalletKey(item) {
+  return String(item?.wallet_id || item?.walletId || item?.wallet || "");
 }
 
 export default function Analytics() {
@@ -123,53 +165,73 @@ export default function Analytics() {
   );
 
   const filteredExpenses = useMemo(
-    () => filterByRange(data.expenses || [], "date", start, end),
+    () => filterByRange(data.expenses || [], start, end, (item) => item?.date),
     [data.expenses, start, end]
   );
 
   const filteredIncomes = useMemo(
-    () => filterByRange(data.incomes || [], "date", start, end),
+    () => filterByRange(data.incomes || [], start, end, (item) => item?.date),
     [data.incomes, start, end]
   );
 
-  const totalIncome = filteredIncomes.reduce((sum, item) => sum + (item.amount || 0), 0);
-  const totalExpenses = filteredExpenses.reduce((sum, item) => sum + (item.amount || 0), 0);
+  const filteredWalletTransactions = useMemo(
+    () =>
+      filterByRange(
+        data.walletTransactions || [],
+        start,
+        end,
+        (item) => item?.date
+      ),
+    [data.walletTransactions, start, end]
+  );
+
+  const totalIncome = filteredIncomes.reduce(
+    (sum, item) => sum + toNumber(item.amount),
+    0
+  );
+
+  const totalExpenses = filteredExpenses.reduce(
+    (sum, item) => sum + toNumber(item.amount),
+    0
+  );
 
   const needsSpent = filteredExpenses
-    .filter((e) => e.need_type === "need")
-    .reduce((sum, e) => sum + (e.amount || 0), 0);
+    .filter((e) => getExpenseNeedType(e) === "need")
+    .reduce((sum, e) => sum + toNumber(e.amount), 0);
 
   const wantsSpent = filteredExpenses
-    .filter((e) => e.need_type === "want")
-    .reduce((sum, e) => sum + (e.amount || 0), 0);
+    .filter((e) => getExpenseNeedType(e) === "want")
+    .reduce((sum, e) => sum + toNumber(e.amount), 0);
 
   const savingsSpent = filteredExpenses
-    .filter((e) => e.need_type === "savings")
-    .reduce((sum, e) => sum + (e.amount || 0), 0);
+    .filter((e) => getExpenseNeedType(e) === "savings")
+    .reduce((sum, e) => sum + toNumber(e.amount), 0);
 
   const monthlyData = useMemo(() => {
     const map = {};
 
     filteredIncomes.forEach((item) => {
-      const month = item.date?.substring(0, 7);
-      if (!month) return;
+      const date = safeDate(item?.date);
+      if (!date) return;
 
+      const month = format(date, "yyyy-MM");
       if (!map[month]) {
         map[month] = { month, income: 0, expenses: 0 };
       }
 
-      map[month].income += item.amount || 0;
+      map[month].income += toNumber(item.amount);
     });
 
     filteredExpenses.forEach((item) => {
-      const month = item.date?.substring(0, 7);
-      if (!month) return;
+      const date = safeDate(item?.date);
+      if (!date) return;
 
+      const month = format(date, "yyyy-MM");
       if (!map[month]) {
         map[month] = { month, income: 0, expenses: 0 };
       }
 
-      map[month].expenses += item.amount || 0;
+      map[month].expenses += toNumber(item.amount);
     });
 
     return Object.values(map).sort((a, b) => a.month.localeCompare(b.month));
@@ -179,9 +241,9 @@ export default function Analytics() {
     const map = {};
 
     filteredExpenses.forEach((item) => {
-      const key = item.category || "Uncategorized";
+      const key = getExpenseCategory(item);
       if (!map[key]) map[key] = 0;
-      map[key] += item.amount || 0;
+      map[key] += toNumber(item.amount);
     });
 
     return Object.entries(map)
@@ -198,18 +260,64 @@ export default function Analytics() {
   let largestExpense = null;
 
   filteredExpenses.forEach((item) => {
-    const category = item.category || "Uncategorized";
+    const category = getExpenseCategory(item);
 
-    categoryTotals[category] = (categoryTotals[category] || 0) + (item.amount || 0);
+    categoryTotals[category] =
+      (categoryTotals[category] || 0) + toNumber(item.amount);
     categoryCount[category] = (categoryCount[category] || 0) + 1;
 
-    if (!largestExpense || (item.amount || 0) > (largestExpense.amount || 0)) {
+    if (
+      !largestExpense ||
+      toNumber(item.amount) > toNumber(largestExpense.amount)
+    ) {
       largestExpense = item;
     }
   });
 
   const topCategory = Object.entries(categoryTotals).sort((a, b) => b[1] - a[1])[0];
   const mostFrequent = Object.entries(categoryCount).sort((a, b) => b[1] - a[1])[0];
+
+  const walletAnalytics = useMemo(() => {
+    return (data.wallets || []).map((wallet) => {
+      const walletId = String(wallet?.id || "");
+      const walletIncome = filteredIncomes
+        .filter((item) => getWalletKey(item) === walletId)
+        .reduce((sum, item) => sum + toNumber(item.amount), 0);
+
+      const walletExpense = filteredExpenses
+        .filter((item) => getWalletKey(item) === walletId)
+        .reduce((sum, item) => sum + toNumber(item.amount), 0);
+
+      const walletSavingsTransferOut = filteredWalletTransactions
+        .filter(
+          (item) => String(item?.wallet_id || "") === walletId && item?.type === "savings_transfer"
+        )
+        .reduce((sum, item) => sum + toNumber(item.amount), 0);
+
+      const walletTransfers = filteredWalletTransactions.filter(
+        (item) =>
+          String(item?.wallet_id || "") === walletId && item?.type === "transfer"
+      );
+
+      const txCount =
+        filteredExpenses.filter((item) => getWalletKey(item) === walletId).length +
+        filteredIncomes.filter((item) => getWalletKey(item) === walletId).length +
+        walletTransfers.length +
+        filteredWalletTransactions.filter(
+          (item) =>
+            String(item?.wallet_id || "") === walletId &&
+            item?.type === "savings_transfer"
+        ).length;
+
+      return {
+        ...wallet,
+        received: walletIncome,
+        spent: walletExpense,
+        savingsMoved: walletSavingsTransferOut,
+        txCount,
+      };
+    });
+  }, [data.wallets, filteredExpenses, filteredIncomes, filteredWalletTransactions]);
 
   if (data.loading) {
     return (
@@ -326,7 +434,7 @@ export default function Analytics() {
               <div className="flex items-center justify-between p-2.5 rounded-xl bg-muted/50">
                 <span className="text-sm text-muted-foreground">Largest Single Expense</span>
                 <span className="font-bold text-sm capitalize text-white">
-                  {largestExpense.category} · {fmt(largestExpense.amount)}
+                  {getExpenseCategory(largestExpense)} · {fmt(largestExpense.amount)}
                 </span>
               </div>
             )}
@@ -554,44 +662,40 @@ export default function Analytics() {
         </TabsContent>
 
         <TabsContent value="wallets">
-          {data.wallets.length === 0 ? (
+          {walletAnalytics.length === 0 ? (
             <p className="text-center text-muted-foreground py-8 text-sm">No wallets found</p>
           ) : (
             <div className="space-y-3">
-              {data.wallets.map((wallet, i) => {
-                const inc = filteredIncomes
-                  .filter((item) => item.wallet_id === wallet.id)
-                  .reduce((sum, item) => sum + (item.amount || 0), 0);
-
-                const exp = filteredExpenses
-                  .filter((item) => item.wallet_id === wallet.id)
-                  .reduce((sum, item) => sum + (item.amount || 0), 0);
-
-                const txCount =
-                  filteredExpenses.filter((item) => item.wallet_id === wallet.id).length +
-                  filteredIncomes.filter((item) => item.wallet_id === wallet.id).length;
-
-                return (
-                  <div key={i} className="grad-card rounded-2xl p-4">
-                    <div className="flex justify-between mb-3">
+              {walletAnalytics.map((wallet, i) => (
+                <div key={wallet?.id || i} className="grad-card rounded-2xl p-4">
+                  <div className="flex justify-between mb-3">
+                    <div>
                       <p className="font-medium text-white">{wallet.name}</p>
-                      <p className="text-xs text-muted-foreground">{txCount} transactions</p>
+                      <p className="text-xs text-muted-foreground mt-1">
+                        Current Balance: {fmt(wallet.balance)}
+                      </p>
+                    </div>
+                    <p className="text-xs text-muted-foreground">{wallet.txCount} transactions</p>
+                  </div>
+
+                  <div className="grid grid-cols-3 gap-3">
+                    <div className="bg-primary/10 rounded-xl p-2.5 text-center border border-primary/15">
+                      <p className="text-[10px] text-muted-foreground">Received</p>
+                      <p className="text-sm font-bold text-primary">{fmt(wallet.received)}</p>
                     </div>
 
-                    <div className="grid grid-cols-2 gap-3">
-                      <div className="bg-primary/10 rounded-xl p-2.5 text-center border border-primary/15">
-                        <p className="text-[10px] text-muted-foreground">Received</p>
-                        <p className="text-sm font-bold text-primary">{fmt(inc)}</p>
-                      </div>
+                    <div className="bg-secondary/10 rounded-xl p-2.5 text-center border border-secondary/20">
+                      <p className="text-[10px] text-muted-foreground">Spent</p>
+                      <p className="text-sm font-bold text-secondary">{fmt(wallet.spent)}</p>
+                    </div>
 
-                      <div className="bg-secondary/10 rounded-xl p-2.5 text-center border border-secondary/20">
-                        <p className="text-[10px] text-muted-foreground">Spent</p>
-                        <p className="text-sm font-bold text-secondary">{fmt(exp)}</p>
-                      </div>
+                    <div className="bg-accent/10 rounded-xl p-2.5 text-center border border-accent/20">
+                      <p className="text-[10px] text-muted-foreground">To Savings</p>
+                      <p className="text-sm font-bold text-accent">{fmt(wallet.savingsMoved)}</p>
                     </div>
                   </div>
-                );
-              })}
+                </div>
+              ))}
             </div>
           )}
         </TabsContent>

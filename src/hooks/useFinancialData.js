@@ -5,6 +5,8 @@ const STORAGE_KEYS = {
   incomes: "clara_incomes",
   wallets: "clara_wallets",
   budgets: "clara_budgets",
+  walletTransactions: "clara_wallet_transactions",
+  transfers: "clara_transfers",
 };
 
 const getStoredData = (key) => {
@@ -35,6 +37,14 @@ const isSameUser = (itemEmail, userEmail) => {
 };
 
 const toNumber = (value) => {
+  if (typeof value === "number") return Number.isFinite(value) ? value : 0;
+
+  if (typeof value === "string") {
+    const cleaned = value.replace(/[₱,\s]/g, "");
+    const num = Number(cleaned);
+    return Number.isFinite(num) ? num : 0;
+  }
+
   const num = Number(value);
   return Number.isFinite(num) ? num : 0;
 };
@@ -95,33 +105,102 @@ const getBudgetResetDate = (budget) => {
   );
 };
 
+const getItemOwnerEmail = (item) =>
+  item?.userEmail ||
+  item?.email ||
+  item?.created_by ||
+  item?.user_email ||
+  item?.owner_email ||
+  "";
+
+const getWalletDate = (item) => {
+  return (
+    item?.date ||
+    item?.created_at ||
+    item?.timestamp ||
+    item?.updated_at ||
+    new Date().toISOString()
+  );
+};
+
+const getWalletBaseBalance = (wallet) => {
+  return toNumber(
+    wallet?.starting_balance ??
+      wallet?.startingBalance ??
+      wallet?.balance ??
+      wallet?.current_balance ??
+      0
+  );
+};
+
+const getWalletTransactionAmount = (txn) => {
+  return Math.abs(
+    toNumber(txn?.amount ?? txn?.value ?? txn?.total ?? txn?.money ?? 0)
+  );
+};
+
+const normalizeWalletIncomeSource = (txn) => {
+  return (
+    txn?.source_details ||
+    txn?.source_type ||
+    txn?.tag ||
+    txn?.notes ||
+    "Wallet Income"
+  );
+};
+
 export default function useFinancialData(userEmail) {
   const [expenses, setExpenses] = useState([]);
   const [incomes, setIncomes] = useState([]);
   const [wallets, setWallets] = useState([]);
   const [budgets, setBudgets] = useState([]);
+  const [walletTransactions, setWalletTransactions] = useState([]);
+  const [transfers, setTransfers] = useState([]);
+  const [loading, setLoading] = useState(true);
 
   const loadAll = useCallback(() => {
+    setLoading(true);
+
     const allExpenses = getStoredData(STORAGE_KEYS.expenses).filter((item) =>
-      isSameUser(item?.userEmail || item?.email || item?.created_by, userEmail)
+      isSameUser(getItemOwnerEmail(item), userEmail)
     );
 
     const allIncomes = getStoredData(STORAGE_KEYS.incomes).filter((item) =>
-      isSameUser(item?.userEmail || item?.email || item?.created_by, userEmail)
+      isSameUser(getItemOwnerEmail(item), userEmail)
     );
 
     const allWallets = getStoredData(STORAGE_KEYS.wallets).filter((item) =>
-      isSameUser(item?.userEmail || item?.email || item?.created_by, userEmail)
+      isSameUser(getItemOwnerEmail(item), userEmail)
     );
 
     const allBudgets = getStoredData(STORAGE_KEYS.budgets).filter((item) =>
-      isSameUser(item?.userEmail || item?.email || item?.created_by, userEmail)
+      isSameUser(getItemOwnerEmail(item), userEmail)
+    );
+
+    const userWalletIds = new Set(allWallets.map((wallet) => String(wallet?.id)));
+
+    const allWalletTransactions = getStoredData(
+      STORAGE_KEYS.walletTransactions
+    ).filter(
+      (item) =>
+        isSameUser(getItemOwnerEmail(item), userEmail) ||
+        userWalletIds.has(String(item?.wallet_id))
+    );
+
+    const allTransfers = getStoredData(STORAGE_KEYS.transfers).filter(
+      (item) =>
+        isSameUser(getItemOwnerEmail(item), userEmail) ||
+        userWalletIds.has(String(item?.wallet_id)) ||
+        userWalletIds.has(String(item?.linked_wallet_id))
     );
 
     setExpenses(allExpenses);
     setIncomes(allIncomes);
     setWallets(allWallets);
     setBudgets(allBudgets);
+    setWalletTransactions(allWalletTransactions);
+    setTransfers(allTransfers);
+    setLoading(false);
   }, [userEmail]);
 
   useEffect(() => {
@@ -132,10 +211,14 @@ export default function useFinancialData(userEmail) {
     const handleStorage = () => loadAll();
     window.addEventListener("storage", handleStorage);
     window.addEventListener("clara-finance-updated", handleStorage);
+    window.addEventListener("clara-wallets-updated", handleStorage);
+    window.addEventListener("clara-expenses-updated", handleStorage);
 
     return () => {
       window.removeEventListener("storage", handleStorage);
       window.removeEventListener("clara-finance-updated", handleStorage);
+      window.removeEventListener("clara-wallets-updated", handleStorage);
+      window.removeEventListener("clara-expenses-updated", handleStorage);
     };
   }, [loadAll]);
 
@@ -143,6 +226,126 @@ export default function useFinancialData(userEmail) {
     loadAll();
     window.dispatchEvent(new Event("clara-finance-updated"));
   }, [loadAll]);
+
+  const normalizedWallets = useMemo(() => {
+    return wallets.map((wallet) => {
+      const walletId = String(wallet?.id);
+
+      const deposits = walletTransactions
+        .filter((txn) => String(txn?.wallet_id) === walletId)
+        .reduce((sum, txn) => sum + getWalletTransactionAmount(txn), 0);
+
+      const transfersIn = transfers
+        .filter(
+          (transfer) =>
+            String(transfer?.wallet_id) === walletId &&
+            String(transfer?.type) === "transfer_in"
+        )
+        .reduce((sum, transfer) => sum + toNumber(transfer?.amount), 0);
+
+      const transfersOut = transfers
+        .filter(
+          (transfer) =>
+            String(transfer?.wallet_id) === walletId &&
+            String(transfer?.type) === "transfer_out"
+        )
+        .reduce((sum, transfer) => sum + toNumber(transfer?.amount), 0);
+
+      const computedBalance =
+        getWalletBaseBalance(wallet) + deposits + transfersIn - transfersOut;
+
+      return {
+        ...wallet,
+        balance: computedBalance,
+      };
+    });
+  }, [wallets, walletTransactions, transfers]);
+
+  const walletIncomeEntries = useMemo(() => {
+    const depositEntries = walletTransactions.map((txn) => ({
+      id: `wallet-txn-${txn.id}`,
+      amount: getWalletTransactionAmount(txn),
+      date: getWalletDate(txn),
+      wallet_id: txn?.wallet_id ? String(txn.wallet_id) : "",
+      source: normalizeWalletIncomeSource(txn),
+      category: "Wallet Income",
+      note: txn?.notes || "",
+      sourceType: "wallet_transaction",
+      userEmail: getItemOwnerEmail(txn) || userEmail || "",
+    }));
+
+    return depositEntries;
+  }, [walletTransactions, userEmail]);
+
+  const combinedIncomeEntries = useMemo(() => {
+    const directIncomes = (incomes || []).map((item) => ({
+      ...item,
+      amount: Math.abs(toNumber(item?.amount)),
+      date: getWalletDate(item),
+      sourceType: "income",
+    }));
+
+    const merged = [...directIncomes];
+    const seen = new Set(
+      directIncomes.map((item) =>
+        [
+          Math.abs(toNumber(item?.amount)),
+          item?.date,
+          normalizeText(item?.wallet_id),
+          normalizeText(item?.source || item?.category || item?.note),
+        ].join("|")
+      )
+    );
+
+    walletIncomeEntries.forEach((item) => {
+      const key = [
+        Math.abs(toNumber(item?.amount)),
+        item?.date,
+        normalizeText(item?.wallet_id),
+        normalizeText(item?.source || item?.category || item?.note),
+      ].join("|");
+
+      if (seen.has(key)) return;
+      seen.add(key);
+      merged.push(item);
+    });
+
+    return merged.sort(
+      (a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()
+    );
+  }, [incomes, walletIncomeEntries]);
+
+  const normalizedWalletActivity = useMemo(() => {
+    const txns = walletTransactions.map((txn) => ({
+      id: `txn-${txn.id}`,
+      wallet_id: txn?.wallet_id ? String(txn.wallet_id) : "",
+      wallet_name:
+        normalizedWallets.find((w) => String(w.id) === String(txn.wallet_id))
+          ?.name || "Wallet",
+      amount: getWalletTransactionAmount(txn),
+      type: "income",
+      date: getWalletDate(txn),
+      source: normalizeWalletIncomeSource(txn),
+      note: txn?.notes || "",
+    }));
+
+    const xfers = transfers.map((transfer) => ({
+      id: `transfer-${transfer.id}`,
+      wallet_id: transfer?.wallet_id ? String(transfer.wallet_id) : "",
+      wallet_name:
+        normalizedWallets.find((w) => String(w.id) === String(transfer.wallet_id))
+          ?.name || "Wallet",
+      amount: toNumber(transfer?.amount),
+      type: transfer?.type || "transfer",
+      date: getWalletDate(transfer),
+      source: transfer?.note || "",
+      note: transfer?.note || "",
+    }));
+
+    return [...txns, ...xfers].sort(
+      (a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()
+    );
+  }, [walletTransactions, transfers, normalizedWallets]);
 
   const computedBudgets = useMemo(() => {
     return budgets.map((budget) => {
@@ -163,7 +366,8 @@ export default function useFinancialData(userEmail) {
 
       const remaining = Math.max(budgetAmount - spent, 0);
       const overspent = Math.max(spent - budgetAmount, 0);
-      const progress = budgetAmount > 0 ? Math.min((spent / budgetAmount) * 100, 100) : 0;
+      const progress =
+        budgetAmount > 0 ? Math.min((spent / budgetAmount) * 100, 100) : 0;
 
       return {
         ...budget,
@@ -182,10 +386,9 @@ export default function useFinancialData(userEmail) {
   const updateStorageCollection = useCallback(
     (key, updater) => {
       const allItems = getStoredData(key);
-
       const nextItems = updater(allItems);
-      setStoredData(key, nextItems);
 
+      setStoredData(key, nextItems);
       loadAll();
       window.dispatchEvent(new Event("clara-finance-updated"));
 
@@ -198,10 +401,7 @@ export default function useFinancialData(userEmail) {
     (budgetId) => {
       updateStorageCollection(STORAGE_KEYS.budgets, (allBudgets) =>
         allBudgets.map((budget) => {
-          const ownerMatches = isSameUser(
-            budget?.userEmail || budget?.email || budget?.created_by,
-            userEmail
-          );
+          const ownerMatches = isSameUser(getItemOwnerEmail(budget), userEmail);
 
           if (!ownerMatches) return budget;
           if (String(budget?.id) !== String(budgetId)) return budget;
@@ -220,7 +420,9 @@ export default function useFinancialData(userEmail) {
     (expense) => {
       updateStorageCollection(STORAGE_KEYS.expenses, (allExpenses) => [
         {
-          id: expense?.id || `exp_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`,
+          id:
+            expense?.id ||
+            `exp_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`,
           ...expense,
           amount: toNumber(expense?.amount),
           userEmail: expense?.userEmail || userEmail || "",
@@ -236,10 +438,7 @@ export default function useFinancialData(userEmail) {
     (expenseId, updates) => {
       updateStorageCollection(STORAGE_KEYS.expenses, (allExpenses) =>
         allExpenses.map((expense) => {
-          const ownerMatches = isSameUser(
-            expense?.userEmail || expense?.email || expense?.created_by,
-            userEmail
-          );
+          const ownerMatches = isSameUser(getItemOwnerEmail(expense), userEmail);
 
           if (!ownerMatches) return expense;
           if (String(expense?.id) !== String(expenseId)) return expense;
@@ -262,10 +461,7 @@ export default function useFinancialData(userEmail) {
     (expenseId) => {
       updateStorageCollection(STORAGE_KEYS.expenses, (allExpenses) =>
         allExpenses.filter((expense) => {
-          const ownerMatches = isSameUser(
-            expense?.userEmail || expense?.email || expense?.created_by,
-            userEmail
-          );
+          const ownerMatches = isSameUser(getItemOwnerEmail(expense), userEmail);
 
           if (!ownerMatches) return true;
           return String(expense?.id) !== String(expenseId);
@@ -281,19 +477,25 @@ export default function useFinancialData(userEmail) {
   );
 
   const totalIncome = useMemo(
-    () => incomes.reduce((sum, item) => sum + toNumber(item?.amount), 0),
-    [incomes]
+    () =>
+      combinedIncomeEntries.reduce((sum, item) => sum + toNumber(item?.amount), 0),
+    [combinedIncomeEntries]
   );
 
   const totalWalletBalance = useMemo(
-    () => wallets.reduce((sum, item) => sum + toNumber(item?.balance), 0),
-    [wallets]
+    () => normalizedWallets.reduce((sum, item) => sum + toNumber(item?.balance), 0),
+    [normalizedWallets]
   );
 
   return {
+    loading,
     expenses,
-    incomes,
-    wallets,
+    incomes: combinedIncomeEntries,
+    rawIncomes: incomes,
+    wallets: normalizedWallets,
+    walletTransactions,
+    transfers,
+    walletActivity: normalizedWalletActivity,
     budgets: computedBudgets,
 
     totalExpenses,
