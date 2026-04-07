@@ -1,25 +1,24 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import {
   TrendingDown,
   PiggyBank,
-  ListChecks,
   Newspaper,
   Clock,
 } from "lucide-react";
 import { Link } from "react-router-dom";
 import { supabase } from "@/lib/supabaseClient";
 import EmergencyFundCard from "../components/EmergencyFundCard";
-import VideoPlayer from "../components/VideoPlayer";
 import { Button } from "@/components/ui/button";
 import StatCard from "../components/StatCard";
 import DailyTipCard from "../components/DailyTipCard";
 import useUserRole from "../hooks/useUserRole";
-import useFinancialData from "../hooks/useFinancialData";
+import { getTotalBalance } from "@/utils/financialEngine";
 
 const STORAGE_KEYS = {
   challengeTasks: "clara_challenge_tasks",
   taskSubmissions: "clara_task_submissions",
   billboards: "clara_billboards",
+  expenses: "clara_expenses",
 };
 
 const getStoredData = (key) => {
@@ -29,6 +28,28 @@ const getStoredData = (key) => {
   } catch {
     return [];
   }
+};
+
+const normalizeString = (value) => String(value ?? "").trim();
+
+const isOwnedByUser = (item, user) => {
+  if (!user) return false;
+
+  const itemEmail = normalizeString(
+    item?.created_by ?? item?.user_email ?? item?.owner_email ?? item?.email
+  ).toLowerCase();
+
+  const userEmail = normalizeString(user?.email).toLowerCase();
+
+  const itemUserId = normalizeString(
+    item?.user_id ?? item?.owner_id ?? item?.profile_id
+  );
+  const currentUserId = normalizeString(user?.id);
+
+  if (itemEmail && userEmail && itemEmail === userEmail) return true;
+  if (itemUserId && currentUserId && itemUserId === currentUserId) return true;
+
+  return false;
 };
 
 const getLocalSurvivalExpense = () => {
@@ -55,12 +76,30 @@ const getLocalSurvivalExpense = () => {
 
 export default function Dashboard() {
   const { user, isPaid, isFree, isPending, refreshUser } = useUserRole();
-  const data = useFinancialData(user?.email);
 
   const [tasks, setTasks] = useState([]);
   const [submissions, setSubmissions] = useState([]);
   const [billboards, setBillboards] = useState([]);
   const [survivalExpense, setSurvivalExpense] = useState(0);
+  const [walletMoney, setWalletMoney] = useState(0);
+  const [expenses, setExpenses] = useState([]);
+
+  useEffect(() => {
+    const update = () => {
+      setWalletMoney(getTotalBalance());
+    };
+
+    update();
+    window.addEventListener("storage", update);
+    window.addEventListener("clara-wallets-updated", update);
+    window.addEventListener("clara-expenses-updated", update);
+
+    return () => {
+      window.removeEventListener("storage", update);
+      window.removeEventListener("clara-wallets-updated", update);
+      window.removeEventListener("clara-expenses-updated", update);
+    };
+  }, []);
 
   useEffect(() => {
     const syncSurvivalExpense = async () => {
@@ -70,7 +109,6 @@ export default function Dashboard() {
       const finalValue = fromUser || fromLocal || 0;
       setSurvivalExpense(finalValue);
 
-      // auto-sync local -> supabase if db is still empty
       if (user?.id && fromLocal > 0 && fromUser === 0) {
         try {
           const { error } = await supabase
@@ -78,15 +116,8 @@ export default function Dashboard() {
             .update({ monthly_survival_expense: fromLocal })
             .eq("id", user.id);
 
-          if (error) {
-            console.error("Auto-sync failed:", error);
-            return;
-          }
-
-          refreshUser?.();
-        } catch (err) {
-          console.error("Auto-sync failed:", err);
-        }
+          if (!error) refreshUser?.();
+        } catch {}
       }
     };
 
@@ -94,49 +125,78 @@ export default function Dashboard() {
   }, [user, refreshUser]);
 
   useEffect(() => {
-    const syncFromLocal = () => {
-      const fromLocal = getLocalSurvivalExpense();
-      if (fromLocal > 0) {
-        setSurvivalExpense(fromLocal);
-      }
+    if (!user?.email && !user?.id) {
+      setTasks([]);
+      setSubmissions([]);
+      setBillboards([]);
+      setExpenses([]);
+      return;
+    }
+
+    const loadDashboardData = () => {
+      const allTasks = getStoredData(STORAGE_KEYS.challengeTasks);
+      const allSubmissions = getStoredData(STORAGE_KEYS.taskSubmissions);
+      const allBillboards = getStoredData(STORAGE_KEYS.billboards);
+      const allExpenses = getStoredData(STORAGE_KEYS.expenses);
+
+      const activeTasks = allTasks
+        .filter((item) => item.is_active)
+        .sort((a, b) => {
+          const weekDiff = (a.week || 0) - (b.week || 0);
+          if (weekDiff !== 0) return weekDiff;
+          return (a.day || 0) - (b.day || 0);
+        });
+
+      const userSubmissions = allSubmissions.filter(
+        (item) => item.created_by === user.email
+      );
+
+      const activeBillboards = allBillboards
+        .filter((item) => item.is_active)
+        .slice(0, 5);
+
+      const userExpenses = allExpenses
+        .filter((expense) => isOwnedByUser(expense, user))
+        .map((expense) => ({
+          ...expense,
+          amount: Number(expense.amount) || 0,
+          date: expense.date || expense.created_at || "",
+        }));
+
+      setTasks(activeTasks || []);
+      setSubmissions(userSubmissions || []);
+      setBillboards(activeBillboards || []);
+      setExpenses(userExpenses || []);
     };
 
-    syncFromLocal();
-    window.addEventListener("focus", syncFromLocal);
+    loadDashboardData();
+
+    window.addEventListener("storage", loadDashboardData);
+    window.addEventListener("clara-expenses-updated", loadDashboardData);
+    window.addEventListener("clara-wallets-updated", loadDashboardData);
 
     return () => {
-      window.removeEventListener("focus", syncFromLocal);
+      window.removeEventListener("storage", loadDashboardData);
+      window.removeEventListener("clara-expenses-updated", loadDashboardData);
+      window.removeEventListener("clara-wallets-updated", loadDashboardData);
     };
-  }, []);
+  }, [user?.email, user?.id]);
 
-  useEffect(() => {
-    if (!user?.email) return;
+  const thisMonthSpent = useMemo(() => {
+    const now = new Date();
+    const currentYear = now.getFullYear();
+    const currentMonth = now.getMonth();
 
-    const allTasks = getStoredData(STORAGE_KEYS.challengeTasks);
-    const allSubmissions = getStoredData(STORAGE_KEYS.taskSubmissions);
-    const allBillboards = getStoredData(STORAGE_KEYS.billboards);
+    return expenses.reduce((sum, expense) => {
+      const expenseDate = new Date(expense.date);
+      if (Number.isNaN(expenseDate.getTime())) return sum;
 
-    const activeTasks = allTasks
-      .filter((item) => item.is_active)
-      .sort((a, b) => {
-        const weekDiff = (a.week || 0) - (b.week || 0);
-        if (weekDiff !== 0) return weekDiff;
-        return (a.day || 0) - (b.day || 0);
-      });
+      const sameYear = expenseDate.getFullYear() === currentYear;
+      const sameMonth = expenseDate.getMonth() === currentMonth;
 
-    const userSubmissions = allSubmissions.filter(
-      (item) => item.created_by === user.email
-    );
-
-    const activeBillboards = allBillboards
-      .filter((item) => item.is_active)
-      .sort((a, b) => (a.sort_order || 0) - (b.sort_order || 0))
-      .slice(0, 5);
-
-    setTasks(activeTasks || []);
-    setSubmissions(userSubmissions || []);
-    setBillboards(activeBillboards || []);
-  }, [user?.email]);
+      return sameYear && sameMonth ? sum + Number(expense.amount || 0) : sum;
+    }, 0);
+  }, [expenses]);
 
   const fmt = (n) =>
     new Intl.NumberFormat("en-PH", {
@@ -145,14 +205,6 @@ export default function Dashboard() {
       minimumFractionDigits: 0,
     }).format(n || 0);
 
-  if (data.loading) {
-    return (
-      <div className="flex items-center justify-center h-64">
-        <div className="w-6 h-6 border-2 border-primary/20 border-t-primary rounded-full animate-spin" />
-      </div>
-    );
-  }
-
   const submittedIds = new Set(submissions.map((s) => s.task_id));
   const pendingTasks = tasks.filter((t) => !submittedIds.has(t.id));
   const pendingCount = pendingTasks.length;
@@ -160,7 +212,7 @@ export default function Dashboard() {
 
   return (
     <div className="min-h-full relative z-0 isolate">
-      <div className="grad-green px-4 md:px-6 pt-8 pb-6 relative z-0">
+      <div className="grad-green px-4 md:px-6 pt-8 pb-6">
         <div className="max-w-4xl mx-auto flex justify-between">
           <div>
             <p className="text-white/50 text-sm">Welcome back,</p>
@@ -177,7 +229,7 @@ export default function Dashboard() {
         </div>
       </div>
 
-      <div className="px-4 md:px-6 mt-2 max-w-4xl mx-auto pb-8 relative z-0">
+      <div className="px-4 md:px-6 mt-2 max-w-4xl mx-auto pb-8">
         {isPending && (
           <div className="mb-3 p-3 rounded-2xl bg-secondary/20 border flex items-center gap-3">
             <Clock className="w-5 h-5" />
@@ -190,13 +242,9 @@ export default function Dashboard() {
 
         {!!user && (
           <EmergencyFundCard
-            moneyLeft={data.totalRetained}
+            moneyLeft={walletMoney}
             survivalExpense={survivalExpense}
-            retentionRate={
-              data.totalIncome > 0
-                ? Math.round((data.totalRetained / data.totalIncome) * 100)
-                : 0
-            }
+            retentionRate={0}
             onSurvivalSaved={(val) => {
               setSurvivalExpense(Number(val) || 0);
               refreshUser?.();
@@ -204,7 +252,7 @@ export default function Dashboard() {
           />
         )}
 
-        <div className="grid grid-cols-2 gap-3 mb-4 auto-rows-fr">
+        <div className="grid grid-cols-2 gap-3 mb-4">
           <DailyTipCard
             isPaid={isPaid}
             isPending={isPending}
@@ -214,69 +262,47 @@ export default function Dashboard() {
 
           <StatCard
             label="Money Left"
-            value={fmt(data.totalRetained)}
-            sub="Retained amount"
+            value={fmt(walletMoney)}
+            sub="Available money"
             icon={PiggyBank}
             variant="yellow"
           />
 
           <StatCard
             label="This Month Spent"
-            value={fmt(data.thisMonthSpent)}
-            sub={`vs ${fmt(data.thisMonthIncome)} income`}
+            value={fmt(thisMonthSpent)}
+            sub={
+              thisMonthSpent > 0
+                ? "Synced with current month expenses"
+                : "No expenses recorded this month"
+            }
             icon={TrendingDown}
             variant="blue"
           />
 
           {activeTask ? (
             <Link to="/tasks" className="block h-full">
-              <div className="rounded-2xl p-4 bg-gradient-to-br from-[#1E293B] to-[#0F172A] border border-white/10 shadow-lg h-full flex flex-col justify-between">
-                <div className="flex justify-between mb-2">
-                  <span className="text-xs text-white/60">TASKS</span>
-                  <ListChecks className="w-4 h-4 text-white/60" />
-                </div>
+              <div className="rounded-2xl p-4 bg-[#0F172A] border border-white/10 h-full">
+                <p className="text-sm font-semibold text-white">
+                  {activeTask.title}
+                </p>
+                <p className="text-xs text-white/60">
+                  Week {activeTask.week} • Day {activeTask.day}
+                </p>
 
-                <div>
-                  <p className="text-sm font-semibold text-white line-clamp-2">
-                    {activeTask.title}
+                {pendingCount > 0 && (
+                  <p className="text-xs text-amber-400 mt-1">
+                    {pendingCount} pending
                   </p>
-
-                  <p className="text-xs text-white/60">
-                    Week {activeTask.week} • Day {activeTask.day}
-                  </p>
-
-                  {pendingCount > 0 && (
-                    <p className="text-xs text-amber-400 mt-1">
-                      {pendingCount} pending
-                    </p>
-                  )}
-                </div>
+                )}
               </div>
             </Link>
           ) : (
-            <div className="rounded-2xl p-4 bg-[#0F172A] border border-white/10 h-full flex items-center justify-center text-xs text-white/60">
+            <div className="rounded-2xl p-4 bg-[#0F172A] border border-white/10 text-xs text-white/60">
               No active tasks
             </div>
           )}
         </div>
-
-        {billboards.length > 0 && (
-          <div className="space-y-3">
-            {billboards.slice(0, 2).map((bb) => (
-              <div
-                key={bb.id}
-                className="bg-white rounded-2xl border overflow-hidden"
-              >
-                {bb.media_url && (
-                  <VideoPlayer url={bb.media_url} label={bb.title} />
-                )}
-                <div className="p-4">
-                  <p className="font-bold text-sm">{bb.title}</p>
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
       </div>
     </div>
   );

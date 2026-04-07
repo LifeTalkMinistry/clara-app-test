@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo, useCallback } from "react";
 import { Plus, Target, Lock, RotateCcw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -8,15 +8,16 @@ import {
   DialogHeader,
   DialogTitle,
   DialogTrigger,
+  DialogDescription,
 } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import PageHeader from "../components/PageHeader";
 import EmptyState from "../components/EmptyState";
 import useUserRole from "../hooks/useUserRole";
-import useFinancialData from "../hooks/useFinancialData";
 
 const STORAGE_KEYS = {
   budgets: "clara_budgets",
+  expenses: "clara_expenses",
 };
 
 const getStoredData = (key) => {
@@ -35,16 +36,90 @@ const setStoredData = (key, value) => {
 const generateId = () =>
   `${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
 
+const toNumber = (value) => {
+  const n = Number(value);
+  return Number.isFinite(n) ? n : 0;
+};
+
+const normalizeText = (value) => String(value || "").trim().toLowerCase();
+
+const isOwnedByUser = (item, user) => {
+  if (!item || !user) return false;
+
+  const userEmail = normalizeText(user.email);
+  const userId = normalizeText(user.id);
+
+  const values = [
+    item?.created_by,
+    item?.email,
+    item?.user_email,
+    item?.userEmail,
+    item?.owner_email,
+    item?.user_id,
+    item?.userId,
+    item?.created_by_id,
+    item?.owner_id,
+  ]
+    .filter(Boolean)
+    .map(normalizeText);
+
+  return values.includes(userEmail) || values.includes(userId);
+};
+
+const getItemDate = (item) => {
+  const raw =
+    item?.date ||
+    item?.expense_date ||
+    item?.created_at ||
+    item?.timestamp ||
+    item?.transaction_date ||
+    item?.datetime;
+
+  const d = raw ? new Date(raw) : null;
+  return d && !Number.isNaN(d.getTime()) ? d : null;
+};
+
+const getExpenseAmount = (item) => {
+  return Math.abs(
+    toNumber(
+      item?.amount ??
+        item?.value ??
+        item?.spent ??
+        item?.expense_amount ??
+        item?.transaction_amount ??
+        item?.total ??
+        0
+    )
+  );
+};
+
+const getExpenseType = (item) => {
+  return normalizeText(
+    item?.type ||
+      item?.category ||
+      item?.category_type ||
+      item?.classification ||
+      item?.expense_type ||
+      item?.bucket ||
+      item?.budget_type ||
+      item?.label
+  );
+};
+
+const getMonthKey = (date) => {
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`;
+};
+
 export default function Budgets() {
   const { user, isFree } = useUserRole();
-  const data = useFinancialData(user?.email);
+
   const [open, setOpen] = useState(false);
   const [budgets, setBudgets] = useState([]);
+  const [expenses, setExpenses] = useState([]);
+  const [resetting, setResetting] = useState(false);
 
   const now = new Date();
-  const currentMonth = `${now.getFullYear()}-${String(
-    now.getMonth() + 1
-  ).padStart(2, "0")}`;
+  const currentMonth = getMonthKey(now);
 
   const [form, setForm] = useState({
     month: currentMonth,
@@ -54,18 +129,56 @@ export default function Budgets() {
     savings_pct: "20",
   });
 
-  useEffect(() => {
-    if (!user?.email) return;
+  const refreshPageData = useCallback(() => {
+    if (!user) {
+      setBudgets([]);
+      setExpenses([]);
+      return;
+    }
 
     const allBudgets = getStoredData(STORAGE_KEYS.budgets);
-    const userBudgets = allBudgets.filter(
-      (item) => item.created_by === user.email
-    );
+    const allExpenses = getStoredData(STORAGE_KEYS.expenses);
+
+    const userBudgets = allBudgets.filter((item) => isOwnedByUser(item, user));
+    const userExpenses = allExpenses.filter((item) => isOwnedByUser(item, user));
 
     setBudgets(userBudgets);
-  }, [user?.email]);
+    setExpenses(userExpenses);
+  }, [user]);
 
-  const currentBudget = budgets.find((b) => b.month === currentMonth);
+  useEffect(() => {
+    refreshPageData();
+  }, [refreshPageData]);
+
+  useEffect(() => {
+    const onRefresh = () => refreshPageData();
+
+    const onVisibility = () => {
+      if (document.visibilityState === "visible") {
+        refreshPageData();
+      }
+    };
+
+    window.addEventListener("storage", onRefresh);
+    window.addEventListener("focus", onRefresh);
+    window.addEventListener("clara-expenses-updated", onRefresh);
+    window.addEventListener("clara-budgets-updated", onRefresh);
+    window.addEventListener("clara-finance-updated", onRefresh);
+    document.addEventListener("visibilitychange", onVisibility);
+
+    return () => {
+      window.removeEventListener("storage", onRefresh);
+      window.removeEventListener("focus", onRefresh);
+      window.removeEventListener("clara-expenses-updated", onRefresh);
+      window.removeEventListener("clara-budgets-updated", onRefresh);
+      window.removeEventListener("clara-finance-updated", onRefresh);
+      document.removeEventListener("visibilitychange", onVisibility);
+    };
+  }, [refreshPageData]);
+
+  const currentBudget = useMemo(() => {
+    return budgets.find((b) => b.month === currentMonth) || null;
+  }, [budgets, currentMonth]);
 
   useEffect(() => {
     if (currentBudget) {
@@ -87,71 +200,140 @@ export default function Budgets() {
     }
   }, [currentBudget, currentMonth]);
 
-  const handleSubmit = async () => {
+  const financials = useMemo(() => {
+    const result = {
+      totalSpent: 0,
+      needsSpent: 0,
+      wantsSpent: 0,
+      savingsSpent: 0,
+    };
+
+    const trackingStart = currentBudget?.tracking_start_date
+      ? new Date(currentBudget.tracking_start_date)
+      : null;
+
+    expenses.forEach((item) => {
+      const d = getItemDate(item);
+      if (!d) return;
+
+      if (getMonthKey(d) !== currentMonth) return;
+
+      if (trackingStart && !Number.isNaN(trackingStart.getTime()) && d < trackingStart) {
+        return;
+      }
+
+      const amount = getExpenseAmount(item);
+      const type = getExpenseType(item);
+
+      result.totalSpent += amount;
+
+      if (type === "needs" || type === "need") {
+        result.needsSpent += amount;
+      } else if (type === "wants" || type === "want") {
+        result.wantsSpent += amount;
+      } else if (type === "savings" || type === "saving") {
+        result.savingsSpent += amount;
+      }
+    });
+
+    return result;
+  }, [expenses, currentBudget, currentMonth]);
+
+  const handleSubmit = () => {
     if (!form.total_budget || isFree || !user?.email) return;
 
+    const totalBudget = toNumber(form.total_budget);
+    const needsPct = toNumber(form.needs_pct);
+    const wantsPct = toNumber(form.wants_pct);
+    const savingsPct = toNumber(form.savings_pct);
+
+    if (totalBudget <= 0) {
+      alert("Please enter a valid total budget.");
+      return;
+    }
+
+    if (needsPct + wantsPct + savingsPct !== 100) {
+      alert("Needs, Wants, and Savings must total exactly 100%.");
+      return;
+    }
+
     const allBudgets = getStoredData(STORAGE_KEYS.budgets);
-    const existing = budgets.find((b) => b.month === form.month);
+    const existing = allBudgets.find(
+      (b) => isOwnedByUser(b, user) && b.month === form.month
+    );
 
     if (existing) {
       const updatedBudget = {
         ...existing,
-        total_budget: parseFloat(form.total_budget),
-        needs_pct: parseFloat(form.needs_pct),
-        wants_pct: parseFloat(form.wants_pct),
-        savings_pct: parseFloat(form.savings_pct),
+        total_budget: totalBudget,
+        needs_pct: needsPct,
+        wants_pct: wantsPct,
+        savings_pct: savingsPct,
         updated_at: new Date().toISOString(),
       };
 
-      const updatedAllBudgets = allBudgets.map((item) =>
-        item.id === existing.id ? updatedBudget : item
+      setStoredData(
+        STORAGE_KEYS.budgets,
+        allBudgets.map((item) => (item.id === existing.id ? updatedBudget : item))
       );
-
-      setStoredData(STORAGE_KEYS.budgets, updatedAllBudgets);
-      setBudgets(updatedAllBudgets.filter((item) => item.created_by === user.email));
     } else {
       const newBudget = {
         id: generateId(),
         created_by: user.email,
+        email: user.email,
+        user_email: user.email,
+        userEmail: user.email,
+        user_id: user.id ?? "",
+        userId: user.id ?? "",
         month: form.month,
-        total_budget: parseFloat(form.total_budget),
-        needs_pct: parseFloat(form.needs_pct),
-        wants_pct: parseFloat(form.wants_pct),
-        savings_pct: parseFloat(form.savings_pct),
+        total_budget: totalBudget,
+        needs_pct: needsPct,
+        wants_pct: wantsPct,
+        savings_pct: savingsPct,
         tracking_start_date: new Date().toISOString(),
         created_at: new Date().toISOString(),
       };
 
-      const updatedAllBudgets = [...allBudgets, newBudget];
-      setStoredData(STORAGE_KEYS.budgets, updatedAllBudgets);
-      setBudgets(updatedAllBudgets.filter((item) => item.created_by === user.email));
+      setStoredData(STORAGE_KEYS.budgets, [...allBudgets, newBudget]);
     }
 
+    refreshPageData();
+    window.dispatchEvent(new Event("clara-budgets-updated"));
+    window.dispatchEvent(new Event("clara-finance-updated"));
     setOpen(false);
   };
 
-  const handleReset = async () => {
-    if (!currentBudget || !user?.email) return;
+  const handleReset = () => {
+    if (!currentBudget || !user?.email || resetting) return;
 
     const confirmReset = window.confirm(
-      "Reset tracking? Old expenses will not be counted."
+      "Reset tracking? Old expenses before today will no longer count for this month."
     );
     if (!confirmReset) return;
 
-    const allBudgets = getStoredData(STORAGE_KEYS.budgets);
+    try {
+      setResetting(true);
 
-    const updatedBudget = {
-      ...currentBudget,
-      tracking_start_date: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
-    };
+      const allBudgets = getStoredData(STORAGE_KEYS.budgets);
 
-    const updatedAllBudgets = allBudgets.map((item) =>
-      item.id === currentBudget.id ? updatedBudget : item
-    );
+      const updatedBudget = {
+        ...currentBudget,
+        tracking_start_date: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      };
 
-    setStoredData(STORAGE_KEYS.budgets, updatedAllBudgets);
-    setBudgets(updatedAllBudgets.filter((item) => item.created_by === user.email));
+      setStoredData(
+        STORAGE_KEYS.budgets,
+        allBudgets.map((item) => (item.id === currentBudget.id ? updatedBudget : item))
+      );
+
+      refreshPageData();
+      window.dispatchEvent(new Event("clara-budgets-updated"));
+      window.dispatchEvent(new Event("clara-expenses-updated"));
+      window.dispatchEvent(new Event("clara-finance-updated"));
+    } finally {
+      setTimeout(() => setResetting(false), 150);
+    }
   };
 
   const fmt = (n) =>
@@ -159,27 +341,23 @@ export default function Budgets() {
       style: "currency",
       currency: "PHP",
       minimumFractionDigits: 0,
-    }).format(n || 0);
+    }).format(toNumber(n));
 
-  if (data.loading) {
-    return (
-      <div className="flex items-center justify-center h-64">
-        <div className="w-6 h-6 border-2 border-primary/20 border-t-primary rounded-full animate-spin" />
-      </div>
-    );
-  }
-
+  const totalBudget = toNumber(currentBudget?.total_budget);
   const needsBudget = currentBudget
-    ? (currentBudget.total_budget * (currentBudget.needs_pct || 50)) / 100
+    ? (totalBudget * toNumber(currentBudget.needs_pct || 50)) / 100
     : 0;
-
   const wantsBudget = currentBudget
-    ? (currentBudget.total_budget * (currentBudget.wants_pct || 30)) / 100
+    ? (totalBudget * toNumber(currentBudget.wants_pct || 30)) / 100
+    : 0;
+  const savingsBudget = currentBudget
+    ? (totalBudget * toNumber(currentBudget.savings_pct || 20)) / 100
     : 0;
 
-  const savingsBudget = currentBudget
-    ? (currentBudget.total_budget * (currentBudget.savings_pct || 20)) / 100
-    : 0;
+  const totalSpent = toNumber(financials.totalSpent);
+  const needsSpent = toNumber(financials.needsSpent);
+  const wantsSpent = toNumber(financials.wantsSpent);
+  const savingsSpent = toNumber(financials.savingsSpent);
 
   return (
     <div className="p-4 md:p-6 max-w-4xl mx-auto">
@@ -206,6 +384,9 @@ export default function Budgets() {
                     <DialogTitle>
                       {currentBudget ? "Edit" : "Set"} Monthly Budget
                     </DialogTitle>
+                    <DialogDescription>
+                      Set your total monthly budget and category split.
+                    </DialogDescription>
                   </DialogHeader>
 
                   <div className="space-y-4">
@@ -269,6 +450,10 @@ export default function Budgets() {
                           />
                         </div>
                       </div>
+
+                      <p className="text-[11px] text-muted-foreground mt-3">
+                        Total must equal 100%
+                      </p>
                     </div>
 
                     <Button
@@ -283,9 +468,16 @@ export default function Budgets() {
               </Dialog>
 
               {currentBudget && (
-                <Button size="sm" variant="outline" onClick={handleReset}>
-                  <RotateCcw className="w-4 h-4 mr-1" />
-                  Reset
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={handleReset}
+                  disabled={resetting}
+                >
+                  <RotateCcw
+                    className={`w-4 h-4 mr-1 ${resetting ? "animate-spin" : ""}`}
+                  />
+                  {resetting ? "Resetting..." : "Reset"}
                 </Button>
               )}
             </div>
@@ -308,14 +500,14 @@ export default function Budgets() {
               <div>
                 <p className="text-xs text-muted-foreground">MONTHLY BUDGET</p>
                 <p className="font-heading text-2xl font-bold">
-                  {fmt(currentBudget.total_budget)}
+                  {fmt(totalBudget)}
                 </p>
               </div>
 
               <div className="text-right">
                 <p className="text-xs text-muted-foreground">SPENT</p>
                 <p className="font-heading text-2xl font-bold text-destructive">
-                  {fmt(data.thisMonthSpent)}
+                  {fmt(totalSpent)}
                 </p>
               </div>
             </div>
@@ -323,13 +515,11 @@ export default function Budgets() {
             <div className="h-3 bg-muted rounded-full overflow-hidden">
               <div
                 className={`h-full rounded-full ${
-                  data.thisMonthSpent > currentBudget.total_budget
-                    ? "bg-destructive"
-                    : "bg-primary"
+                  totalSpent > totalBudget ? "bg-destructive" : "bg-primary"
                 }`}
                 style={{
                   width: `${Math.min(
-                    (data.thisMonthSpent / currentBudget.total_budget) * 100,
+                    totalBudget > 0 ? (totalSpent / totalBudget) * 100 : 0,
                     100
                   )}%`,
                 }}
@@ -337,8 +527,7 @@ export default function Budgets() {
             </div>
 
             <p className="text-xs text-muted-foreground mt-2">
-              {fmt(Math.max(0, currentBudget.total_budget - data.thisMonthSpent))}{" "}
-              remaining
+              {fmt(Math.max(0, totalBudget - totalSpent))} remaining
             </p>
           </div>
 
@@ -346,19 +535,19 @@ export default function Budgets() {
             {
               label: "Needs",
               budget: needsBudget,
-              spent: data.needsSpent,
+              spent: needsSpent,
               color: "bg-primary",
             },
             {
               label: "Wants",
               budget: wantsBudget,
-              spent: data.wantsSpent,
+              spent: wantsSpent,
               color: "bg-secondary",
             },
             {
               label: "Savings",
               budget: savingsBudget,
-              spent: data.savingsSpent,
+              spent: savingsSpent,
               color: "bg-accent",
             },
           ].map((item) => (
@@ -375,9 +564,9 @@ export default function Budgets() {
 
               <div className="h-2 bg-muted rounded-full overflow-hidden">
                 <div
-                  className={`h-full ${
+                  className={`h-full rounded-full ${
                     item.spent > item.budget ? "bg-destructive" : item.color
-                  } rounded-full`}
+                  }`}
                   style={{
                     width: `${
                       item.budget > 0

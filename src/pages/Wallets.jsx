@@ -30,6 +30,7 @@ import {
 } from "@/components/ui/dialog";
 import PageHeader from "../components/PageHeader";
 import EmptyState from "../components/EmptyState";
+import useUserRole from "../hooks/useUserRole";
 
 const WALLET_KEY = "clara_wallets";
 const TRANSFER_KEY = "clara_transfers";
@@ -37,7 +38,9 @@ const TXN_KEY = "clara_wallet_transactions";
 
 const safeRead = (key) => {
   try {
-    return JSON.parse(localStorage.getItem(key) || "[]");
+    const raw = localStorage.getItem(key);
+    const parsed = JSON.parse(raw || "[]");
+    return Array.isArray(parsed) ? parsed : [];
   } catch {
     return [];
   }
@@ -47,7 +50,14 @@ const safeWrite = (key, data) => {
   localStorage.setItem(key, JSON.stringify(data));
 };
 
+const emitWalletSync = () => {
+  window.dispatchEvent(new Event("storage"));
+  window.dispatchEvent(new Event("clara-wallets-updated"));
+  window.dispatchEvent(new Event("clara-expenses-updated"));
+};
+
 const walletTypes = ["cash", "gcash", "bank", "maya", "credit_card", "other"];
+
 const walletIcons = {
   cash: "💵",
   gcash: "📱",
@@ -77,7 +87,42 @@ const getTodayInputValue = () => {
   return `${year}-${month}-${day}`;
 };
 
+const generateId = () => {
+  if (typeof crypto !== "undefined" && crypto.randomUUID) {
+    return crypto.randomUUID();
+  }
+  return `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+};
+
+const normalizeString = (value) => String(value ?? "").trim();
+
+const isOwnedByUser = (item, user) => {
+  if (!user) return false;
+
+  const itemEmail = normalizeString(
+    item?.created_by ?? item?.user_email ?? item?.owner_email ?? item?.email
+  ).toLowerCase();
+
+  const userEmail = normalizeString(user?.email).toLowerCase();
+
+  const itemUserId = normalizeString(
+    item?.user_id ?? item?.owner_id ?? item?.profile_id
+  );
+
+  const currentUserId = normalizeString(user?.id);
+
+  if (itemEmail && userEmail && itemEmail === userEmail) return true;
+  if (itemUserId && currentUserId && itemUserId === currentUserId) return true;
+
+  return false;
+};
+
+const toLabel = (value = "") =>
+  value.replaceAll("_", " ").replace(/\b\w/g, (c) => c.toUpperCase());
+
 export default function Wallets() {
+  const { user } = useUserRole();
+
   const [wallets, setWallets] = useState([]);
   const [transfers, setTransfers] = useState([]);
   const [transactions, setTransactions] = useState([]);
@@ -85,6 +130,7 @@ export default function Wallets() {
   const [addOpen, setAddOpen] = useState(false);
   const [fundOpen, setFundOpen] = useState(false);
   const [historyOpen, setHistoryOpen] = useState(false);
+  const [transferOpen, setTransferOpen] = useState(false);
 
   const [selectedWallet, setSelectedWallet] = useState(null);
 
@@ -103,6 +149,13 @@ export default function Wallets() {
     date: getTodayInputValue(),
   });
 
+  const [transferForm, setTransferForm] = useState({
+    to_wallet_id: "",
+    amount: "",
+    note: "",
+    date: getTodayInputValue(),
+  });
+
   const [editingItemId, setEditingItemId] = useState(null);
   const [editForm, setEditForm] = useState({
     amount: "",
@@ -113,25 +166,109 @@ export default function Wallets() {
     date: getTodayInputValue(),
   });
 
+  const loadData = () => {
+    if (!user?.email && !user?.id) {
+      setWallets([]);
+      setTransfers([]);
+      setTransactions([]);
+      return;
+    }
+
+    const allWallets = safeRead(WALLET_KEY);
+    const allTransfers = safeRead(TRANSFER_KEY);
+    const allTransactions = safeRead(TXN_KEY);
+
+    const userWallets = allWallets
+      .filter((wallet) => isOwnedByUser(wallet, user))
+      .map((wallet) => ({
+        ...wallet,
+        id: String(wallet.id),
+        icon: wallet.icon || walletIcons[wallet.type] || "💰",
+      }));
+
+    const userWalletIds = new Set(userWallets.map((w) => String(w.id)));
+
+    const userTransactions = allTransactions
+      .filter(
+        (txn) =>
+          isOwnedByUser(txn, user) || userWalletIds.has(String(txn.wallet_id))
+      )
+      .map((txn) => ({
+        ...txn,
+        id: String(txn.id),
+        wallet_id: String(txn.wallet_id),
+      }));
+
+    const userTransfers = allTransfers
+      .filter(
+        (transfer) =>
+          isOwnedByUser(transfer, user) ||
+          userWalletIds.has(String(transfer.wallet_id)) ||
+          userWalletIds.has(String(transfer.linked_wallet_id))
+      )
+      .map((transfer) => ({
+        ...transfer,
+        id: String(transfer.id),
+        wallet_id: String(transfer.wallet_id),
+        linked_wallet_id:
+          transfer.linked_wallet_id != null
+            ? String(transfer.linked_wallet_id)
+            : "",
+      }));
+
+    setWallets(userWallets);
+    setTransactions(userTransactions);
+    setTransfers(userTransfers);
+  };
+
   useEffect(() => {
-    setWallets(safeRead(WALLET_KEY));
-    setTransfers(safeRead(TRANSFER_KEY));
-    setTransactions(safeRead(TXN_KEY));
-  }, []);
+    loadData();
+
+    const handleReload = () => loadData();
+
+    window.addEventListener("storage", handleReload);
+    window.addEventListener("clara-wallets-updated", handleReload);
+    window.addEventListener("clara-expenses-updated", handleReload);
+
+    return () => {
+      window.removeEventListener("storage", handleReload);
+      window.removeEventListener("clara-wallets-updated", handleReload);
+      window.removeEventListener("clara-expenses-updated", handleReload);
+    };
+  }, [user?.email, user?.id]);
 
   const saveWallets = (data) => {
+    const allWallets = safeRead(WALLET_KEY);
+    const otherUsersWallets = allWallets.filter((wallet) => !isOwnedByUser(wallet, user));
+    const merged = [...otherUsersWallets, ...data];
+
     setWallets(data);
-    safeWrite(WALLET_KEY, data);
+    safeWrite(WALLET_KEY, merged);
+    emitWalletSync();
   };
 
   const saveTransfers = (data) => {
+    const allTransfers = safeRead(TRANSFER_KEY);
+    const otherUsersTransfers = allTransfers.filter(
+      (transfer) => !isOwnedByUser(transfer, user)
+    );
+    const merged = [...otherUsersTransfers, ...data];
+
     setTransfers(data);
-    safeWrite(TRANSFER_KEY, data);
+    safeWrite(TRANSFER_KEY, merged);
+    emitWalletSync();
   };
 
   const saveTransactions = (data) => {
+    const allTransactions = safeRead(TXN_KEY);
+    const otherUsersTransactions = allTransactions.filter(
+      (txn) => !isOwnedByUser(txn, user)
+    );
+    const merged = [...otherUsersTransactions, ...data];
+
     setTransactions(data);
-    safeWrite(TXN_KEY, data);
+    safeWrite(TXN_KEY, merged);
+    emitWalletSync();
   };
 
   const resetFundForm = () => {
@@ -145,34 +282,69 @@ export default function Wallets() {
     });
   };
 
+  const resetTransferForm = () => {
+    setTransferForm({
+      to_wallet_id: "",
+      amount: "",
+      note: "",
+      date: getTodayInputValue(),
+    });
+  };
+
   const handleAddWallet = () => {
     if (!form.name.trim()) return;
+    if (!user?.email && !user?.id) return;
 
     const newWallet = {
-      ...form,
-      id: Date.now(),
+      id: generateId(),
+      name: form.name.trim(),
+      type: form.type,
       starting_balance: parseFloat(form.starting_balance) || 0,
-      icon: walletIcons[form.type],
+      icon: walletIcons[form.type] || "💰",
+      created_by: user?.email || "",
+      user_id: user?.id || "",
+      created_at: new Date().toISOString(),
     };
 
-    saveWallets([...wallets, newWallet]);
+    saveWallets([newWallet, ...wallets]);
     setAddOpen(false);
     setForm({ name: "", type: "cash", starting_balance: "" });
   };
 
   const handleDeleteWallet = (id) => {
-    saveWallets(wallets.filter((w) => w.id !== id));
+    const walletId = String(id);
+    const updatedWallets = wallets.filter((w) => String(w.id) !== walletId);
+    const updatedTransactions = transactions.filter(
+      (t) => String(t.wallet_id) !== walletId
+    );
+    const updatedTransfers = transfers.filter(
+      (t) =>
+        String(t.wallet_id) !== walletId &&
+        String(t.linked_wallet_id) !== walletId
+    );
+
+    saveWallets(updatedWallets);
+    saveTransactions(updatedTransactions);
+    saveTransfers(updatedTransfers);
+
+    if (selectedWallet && String(selectedWallet.id) === walletId) {
+      setSelectedWallet(null);
+      setHistoryOpen(false);
+      setFundOpen(false);
+      setTransferOpen(false);
+    }
   };
 
   const handleAddFunds = () => {
     if (!selectedWallet) return;
+    if (!user?.email && !user?.id) return;
 
     const amount = parseFloat(fundForm.amount);
     if (Number.isNaN(amount) || amount <= 0) return;
 
     const newTxn = {
-      id: Date.now(),
-      wallet_id: selectedWallet.id,
+      id: generateId(),
+      wallet_id: String(selectedWallet.id),
       amount,
       type: "deposit",
       source_type: fundForm.source_type || "salary",
@@ -182,6 +354,8 @@ export default function Wallets() {
       created_at: fundForm.date
         ? new Date(`${fundForm.date}T12:00:00`).toISOString()
         : new Date().toISOString(),
+      created_by: user?.email || "",
+      user_id: user?.id || "",
     };
 
     saveTransactions([newTxn, ...transactions]);
@@ -190,21 +364,80 @@ export default function Wallets() {
   };
 
   const getBalance = (wallet) => {
+    const walletId = String(wallet.id);
+
     const deposits = transactions
-      .filter((t) => t.wallet_id === wallet.id)
+      .filter((t) => String(t.wallet_id) === walletId)
       .reduce((s, t) => s + Number(t.amount || 0), 0);
 
     const transfersIn = transfers
-      .filter((t) => t.wallet_id === wallet.id && t.type === "transfer_in")
+      .filter(
+        (t) => String(t.wallet_id) === walletId && t.type === "transfer_in"
+      )
       .reduce((s, t) => s + Number(t.amount || 0), 0);
 
     const transfersOut = transfers
-      .filter((t) => t.wallet_id === wallet.id && t.type === "transfer_out")
+      .filter(
+        (t) => String(t.wallet_id) === walletId && t.type === "transfer_out"
+      )
       .reduce((s, t) => s + Number(t.amount || 0), 0);
 
     return (
       Number(wallet.starting_balance || 0) + deposits + transfersIn - transfersOut
     );
+  };
+
+  const handleTransfer = () => {
+    if (!selectedWallet) return;
+    if (!user?.email && !user?.id) return;
+
+    const amount = parseFloat(transferForm.amount);
+    if (Number.isNaN(amount) || amount <= 0) return;
+    if (!transferForm.to_wallet_id) return;
+
+    const fromWalletId = String(selectedWallet.id);
+    const toWalletId = String(transferForm.to_wallet_id);
+
+    if (fromWalletId === toWalletId) return;
+
+    const fromBalance = getBalance(selectedWallet);
+    if (amount > fromBalance) return;
+
+    const createdAt = transferForm.date
+      ? new Date(`${transferForm.date}T12:00:00`).toISOString()
+      : new Date().toISOString();
+
+    const linkId = generateId();
+
+    const outTransfer = {
+      id: generateId(),
+      link_id: linkId,
+      wallet_id: fromWalletId,
+      linked_wallet_id: toWalletId,
+      amount,
+      type: "transfer_out",
+      note: transferForm.note || "",
+      created_at: createdAt,
+      created_by: user?.email || "",
+      user_id: user?.id || "",
+    };
+
+    const inTransfer = {
+      id: generateId(),
+      link_id: linkId,
+      wallet_id: toWalletId,
+      linked_wallet_id: fromWalletId,
+      amount,
+      type: "transfer_in",
+      note: transferForm.note || "",
+      created_at: createdAt,
+      created_by: user?.email || "",
+      user_id: user?.id || "",
+    };
+
+    saveTransfers([outTransfer, inTransfer, ...transfers]);
+    setTransferOpen(false);
+    resetTransferForm();
   };
 
   const fmt = (n) =>
@@ -240,22 +473,24 @@ export default function Wallets() {
     }
   };
 
-  const toLabel = (value = "") =>
-    value
-      .replaceAll("_", " ")
-      .replace(/\b\w/g, (c) => c.toUpperCase());
+  const getWalletNameById = (id) => {
+    const found = wallets.find((w) => String(w.id) === String(id));
+    return found ? found.name : "Unknown Wallet";
+  };
 
   const getLastActivity = (wallet) => {
+    const walletId = String(wallet.id);
+
     const history = [
       ...transactions
-        .filter((t) => t.wallet_id === wallet.id)
+        .filter((t) => String(t.wallet_id) === walletId)
         .map((t) => ({
           ...t,
           activity_date: t.created_at || new Date().toISOString(),
           label: `Added ${fmt(t.amount)} • ${toLabel(t.source_type || "deposit")}`,
         })),
       ...transfers
-        .filter((t) => t.wallet_id === wallet.id)
+        .filter((t) => String(t.wallet_id) === walletId)
         .map((t) => ({
           ...t,
           activity_date: t.created_at || new Date().toISOString(),
@@ -275,11 +510,13 @@ export default function Wallets() {
   const selectedWalletHistory = useMemo(() => {
     if (!selectedWallet) return [];
 
+    const walletId = String(selectedWallet.id);
+
     const depositHistory = transactions
-      .filter((t) => t.wallet_id === selectedWallet.id)
+      .filter((t) => String(t.wallet_id) === walletId)
       .map((t) => ({
         id: `txn-${t.id}`,
-        rawId: t.id,
+        rawId: String(t.id),
         sourceType: "transaction",
         type: "deposit",
         amount: Number(t.amount || 0),
@@ -293,16 +530,20 @@ export default function Wallets() {
       }));
 
     const transferHistory = transfers
-      .filter((t) => t.wallet_id === selectedWallet.id)
+      .filter((t) => String(t.wallet_id) === walletId)
       .map((t) => ({
         id: `tr-${t.id}`,
-        rawId: t.id,
+        rawId: String(t.id),
+        rawLinkId: t.link_id || null,
         sourceType: "transfer",
         type: t.type,
         amount: Number(t.amount || 0),
         created_at: t.created_at || new Date().toISOString(),
         title: t.type === "transfer_in" ? "Transfer In" : "Transfer Out",
-        subtitle: t.type === "transfer_in" ? "Incoming transfer" : "Outgoing transfer",
+        subtitle:
+          t.type === "transfer_in"
+            ? `From ${getWalletNameById(t.linked_wallet_id)}`
+            : `To ${getWalletNameById(t.linked_wallet_id)}`,
         source_type: t.type === "transfer_in" ? "transfer_in" : "transfer_out",
         source_details: t.note || "",
         tag: "regular_income",
@@ -312,7 +553,7 @@ export default function Wallets() {
     return [...depositHistory, ...transferHistory].sort(
       (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
     );
-  }, [selectedWallet, transactions, transfers]);
+  }, [selectedWallet, transactions, transfers, wallets]);
 
   const totalBalance = wallets.reduce((sum, w) => sum + getBalance(w), 0);
 
@@ -346,7 +587,7 @@ export default function Wallets() {
 
     if (item.sourceType === "transaction") {
       const updatedTransactions = transactions.map((t) =>
-        t.id === item.rawId
+        String(t.id) === String(item.rawId)
           ? {
               ...t,
               amount: parsed,
@@ -365,7 +606,18 @@ export default function Wallets() {
 
     if (item.sourceType === "transfer") {
       const updatedTransfers = transfers.map((t) =>
-        t.id === item.rawId
+        item.rawLinkId
+          ? t.link_id === item.rawLinkId
+            ? {
+                ...t,
+                amount: parsed,
+                note: editForm.notes,
+                created_at: editForm.date
+                  ? new Date(`${editForm.date}T12:00:00`).toISOString()
+                  : t.created_at,
+              }
+            : t
+          : String(t.id) === String(item.rawId)
           ? {
               ...t,
               amount: parsed,
@@ -384,12 +636,17 @@ export default function Wallets() {
 
   const handleDeleteHistoryItem = (item) => {
     if (item.sourceType === "transaction") {
-      const updatedTransactions = transactions.filter((t) => t.id !== item.rawId);
+      const updatedTransactions = transactions.filter(
+        (t) => String(t.id) !== String(item.rawId)
+      );
       saveTransactions(updatedTransactions);
     }
 
     if (item.sourceType === "transfer") {
-      const updatedTransfers = transfers.filter((t) => t.id !== item.rawId);
+      const updatedTransfers = item.rawLinkId
+        ? transfers.filter((t) => t.link_id !== item.rawLinkId)
+        : transfers.filter((t) => String(t.id) !== String(item.rawId));
+
       saveTransfers(updatedTransfers);
     }
 
@@ -403,6 +660,15 @@ export default function Wallets() {
   const fundAmountNumber = Number(fundForm.amount || 0);
   const projectedBalance =
     selectedWalletBalance + (Number.isNaN(fundAmountNumber) ? 0 : fundAmountNumber);
+
+  const availableTransferTargets = selectedWallet
+    ? wallets.filter((w) => String(w.id) !== String(selectedWallet.id))
+    : [];
+
+  const transferAmountNumber = Number(transferForm.amount || 0);
+  const projectedAfterTransfer =
+    selectedWalletBalance -
+    (Number.isNaN(transferAmountNumber) ? 0 : transferAmountNumber);
 
   return (
     <div className="p-4 md:p-6 max-w-5xl mx-auto">
@@ -626,6 +892,113 @@ export default function Wallets() {
 
             <Button className="w-full" onClick={handleAddFunds}>
               Save
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog
+        open={transferOpen}
+        onOpenChange={(open) => {
+          setTransferOpen(open);
+          if (!open) resetTransferForm();
+        }}
+      >
+        <DialogContent className="sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle>
+              Transfer Funds {selectedWallet ? `• ${selectedWallet.name}` : ""}
+            </DialogTitle>
+          </DialogHeader>
+
+          <div className="space-y-4">
+            {selectedWallet && (
+              <div className="rounded-xl border border-white/10 bg-white/5 p-4">
+                <div className="flex items-center justify-between gap-3">
+                  <div>
+                    <p className="text-sm text-white/60">From Wallet</p>
+                    <p className="font-semibold">
+                      {selectedWallet.icon} {selectedWallet.name}
+                    </p>
+                  </div>
+                  <div className="text-right">
+                    <p className="text-sm text-white/60">Available</p>
+                    <p className="font-semibold">{fmt(selectedWalletBalance)}</p>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Transfer To</label>
+              <Select
+                value={transferForm.to_wallet_id}
+                onValueChange={(value) =>
+                  setTransferForm((prev) => ({ ...prev, to_wallet_id: value }))
+                }
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Select destination wallet" />
+                </SelectTrigger>
+                <SelectContent>
+                  {availableTransferTargets.map((wallet) => (
+                    <SelectItem key={wallet.id} value={String(wallet.id)}>
+                      {wallet.icon} {wallet.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Amount</label>
+              <Input
+                type="number"
+                placeholder="0.00"
+                value={transferForm.amount}
+                onChange={(e) =>
+                  setTransferForm((prev) => ({ ...prev, amount: e.target.value }))
+                }
+              />
+            </div>
+
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Date</label>
+              <Input
+                type="date"
+                value={transferForm.date}
+                onChange={(e) =>
+                  setTransferForm((prev) => ({ ...prev, date: e.target.value }))
+                }
+              />
+            </div>
+
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Note</label>
+              <Input
+                placeholder="Optional note"
+                value={transferForm.note}
+                onChange={(e) =>
+                  setTransferForm((prev) => ({ ...prev, note: e.target.value }))
+                }
+              />
+            </div>
+
+            {selectedWallet && (
+              <div className="rounded-xl border border-yellow-500/20 bg-yellow-500/10 p-4">
+                <p className="text-sm text-white/70">Projected Balance</p>
+                <p className="text-lg font-bold mt-1">
+                  {fmt(selectedWalletBalance)} → {fmt(projectedAfterTransfer)}
+                </p>
+              </div>
+            )}
+
+            <Button
+              className="w-full"
+              onClick={handleTransfer}
+              disabled={!availableTransferTargets.length}
+            >
+              Transfer
             </Button>
           </div>
         </DialogContent>
@@ -916,6 +1289,7 @@ export default function Wallets() {
                       size="icon"
                       onClick={() => {
                         setSelectedWallet(w);
+                        setTransferOpen(true);
                       }}
                     >
                       <ArrowLeftRight className="w-4 h-4" />

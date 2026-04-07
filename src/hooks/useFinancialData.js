@@ -1,64 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
-
-// CLARA Retention Logic (consistent across Dashboard + Analytics)
-// < 15% = warning/overspending
-// 15–20% = safe/on-track
-// > 20% = praise/excellent
-export function getRetentionStatus(rate) {
-  const r = parseFloat(rate);
-
-  if (r < 0) {
-    return {
-      status: "Overspending",
-      color: "text-destructive",
-      level: "danger",
-    };
-  }
-
-  if (r < 15) {
-    return {
-      status: "Warning",
-      color: "text-orange-500",
-      level: "warning",
-    };
-  }
-
-  if (r <= 20) {
-    return {
-      status: "On Track",
-      color: "text-primary",
-      level: "safe",
-    };
-  }
-
-  return {
-    status: "Excellent",
-    color: "text-primary",
-    level: "praise",
-  };
-}
-
-export function getCoachInsight(rate, totalIncome) {
-  if (!totalIncome || totalIncome === 0) {
-    return "Start logging your income and expenses to get personalized insights!";
-  }
-
-  const r = parseFloat(rate);
-
-  if (r < 0) {
-    return "⚠️ You've spent more than you earned. Review your expenses immediately and pause all non-essential spending.";
-  }
-
-  if (r < 15) {
-    return "⚠️ Your leftover rate is below 15%. CLARA recommends keeping at least 15% of your income. Cut wants spending now.";
-  }
-
-  if (r <= 20) {
-    return "✅ You're in the safe zone! You're keeping 15–20% of your income. Keep this up and look for ways to push past 20%.";
-  }
-
-  return "🎉 Excellent! You're retaining over 20% of your income. You're ahead of target — consider directing the extra toward a savings goal!";
-}
+import { useState, useEffect, useCallback, useMemo } from "react";
 
 const STORAGE_KEYS = {
   expenses: "clara_expenses",
@@ -76,214 +16,295 @@ const getStoredData = (key) => {
   }
 };
 
+const setStoredData = (key, value) => {
+  localStorage.setItem(key, JSON.stringify(value));
+};
+
+const normalizeText = (value) => String(value || "").trim().toLowerCase();
+
+const startOfDay = (value) => {
+  const d = new Date(value);
+  if (Number.isNaN(d.getTime())) return null;
+  d.setHours(0, 0, 0, 0);
+  return d;
+};
+
+const isSameUser = (itemEmail, userEmail) => {
+  if (!userEmail) return true;
+  return normalizeText(itemEmail) === normalizeText(userEmail);
+};
+
+const toNumber = (value) => {
+  const num = Number(value);
+  return Number.isFinite(num) ? num : 0;
+};
+
+const getExpenseDate = (expense) => {
+  return (
+    expense?.date ||
+    expense?.expense_date ||
+    expense?.created_at ||
+    expense?.timestamp ||
+    new Date().toISOString()
+  );
+};
+
+const getBudgetAmount = (budget) => {
+  return toNumber(
+    budget?.amount ??
+      budget?.limit ??
+      budget?.budget ??
+      budget?.value ??
+      budget?.monthlyBudget
+  );
+};
+
+const getBudgetCategory = (budget) => {
+  return normalizeText(
+    budget?.category ?? budget?.name ?? budget?.title ?? budget?.label
+  );
+};
+
+const getExpenseCategory = (expense) => {
+  return normalizeText(
+    expense?.category ??
+      expense?.budgetCategory ??
+      expense?.type ??
+      expense?.classification ??
+      expense?.label
+  );
+};
+
+const shouldCountExpenseForBudget = (expense, budget) => {
+  const budgetCategory = getBudgetCategory(budget);
+  const expenseCategory = getExpenseCategory(expense);
+
+  if (!budgetCategory) return false;
+  if (!expenseCategory) return false;
+
+  return budgetCategory === expenseCategory;
+};
+
+const getBudgetResetDate = (budget) => {
+  return (
+    budget?.lastResetAt ||
+    budget?.resetAt ||
+    budget?.resetDate ||
+    budget?.periodStart ||
+    null
+  );
+};
+
 export default function useFinancialData(userEmail) {
   const [expenses, setExpenses] = useState([]);
   const [incomes, setIncomes] = useState([]);
   const [wallets, setWallets] = useState([]);
   const [budgets, setBudgets] = useState([]);
-  const [loading, setLoading] = useState(true);
 
-  const load = useCallback(async () => {
-    if (!userEmail) {
-      setExpenses([]);
-      setIncomes([]);
-      setWallets([]);
-      setBudgets([]);
-      setLoading(false);
-      return;
-    }
+  const loadAll = useCallback(() => {
+    const allExpenses = getStoredData(STORAGE_KEYS.expenses).filter((item) =>
+      isSameUser(item?.userEmail || item?.email || item?.created_by, userEmail)
+    );
 
-    setLoading(true);
+    const allIncomes = getStoredData(STORAGE_KEYS.incomes).filter((item) =>
+      isSameUser(item?.userEmail || item?.email || item?.created_by, userEmail)
+    );
 
-    const allExpenses = getStoredData(STORAGE_KEYS.expenses);
-    const allIncomes = getStoredData(STORAGE_KEYS.incomes);
-    const allWallets = getStoredData(STORAGE_KEYS.wallets);
-    const allBudgets = getStoredData(STORAGE_KEYS.budgets);
+    const allWallets = getStoredData(STORAGE_KEYS.wallets).filter((item) =>
+      isSameUser(item?.userEmail || item?.email || item?.created_by, userEmail)
+    );
 
-    const userExpenses = allExpenses
-      .filter((item) => item.created_by === userEmail)
-      .sort((a, b) => new Date(b.date || 0) - new Date(a.date || 0))
-      .slice(0, 500);
+    const allBudgets = getStoredData(STORAGE_KEYS.budgets).filter((item) =>
+      isSameUser(item?.userEmail || item?.email || item?.created_by, userEmail)
+    );
 
-    const userIncomes = allIncomes
-      .filter((item) => item.created_by === userEmail)
-      .sort((a, b) => new Date(b.date || 0) - new Date(a.date || 0))
-      .slice(0, 500);
-
-    const userWallets = allWallets.filter((item) => item.created_by === userEmail);
-
-    const userBudgets = allBudgets.filter((item) => item.created_by === userEmail);
-
-    setExpenses(userExpenses);
-    setIncomes(userIncomes);
-    setWallets(userWallets);
-    setBudgets(userBudgets);
-    setLoading(false);
+    setExpenses(allExpenses);
+    setIncomes(allIncomes);
+    setWallets(allWallets);
+    setBudgets(allBudgets);
   }, [userEmail]);
 
   useEffect(() => {
-    load();
-  }, [load]);
+    loadAll();
+  }, [loadAll]);
 
-  const now = new Date();
-  const currentMonth = `${now.getFullYear()}-${String(
-    now.getMonth() + 1
-  ).padStart(2, "0")}`;
+  useEffect(() => {
+    const handleStorage = () => loadAll();
+    window.addEventListener("storage", handleStorage);
+    window.addEventListener("clara-finance-updated", handleStorage);
 
-  const currentBudget = budgets.find((b) => b.month === currentMonth);
-
-  const thisMonthExpenses = expenses.filter((e) => {
-    if (!e.date?.startsWith(currentMonth)) return false;
-    if (!currentBudget?.tracking_start_date) return true;
-    return new Date(e.date) >= new Date(currentBudget.tracking_start_date);
-  });
-
-  const filteredExpenses = thisMonthExpenses;
-
-  const totalIncome = incomes.reduce((sum, item) => sum + (item.amount || 0), 0);
-  const totalExpenses = expenses.reduce((sum, item) => sum + (item.amount || 0), 0);
-  const totalRetained = totalIncome - totalExpenses;
-
-  const retentionRate =
-    totalIncome > 0 ? ((totalRetained / totalIncome) * 100).toFixed(1) : "0.0";
-
-  const {
-    status,
-    color: statusColor,
-    level: statusLevel,
-  } = getRetentionStatus(retentionRate);
-
-  const coachInsight = getCoachInsight(retentionRate, totalIncome);
-
-  const needsSpent = filteredExpenses
-    .filter((e) => e.need_type === "need")
-    .reduce((sum, item) => sum + (item.amount || 0), 0);
-
-  const wantsSpent = filteredExpenses
-    .filter((e) => e.need_type === "want")
-    .reduce((sum, item) => sum + (item.amount || 0), 0);
-
-  const savingsSpent = filteredExpenses
-    .filter((e) => e.need_type === "savings")
-    .reduce((sum, item) => sum + (item.amount || 0), 0);
-
-  const filteredTotalExpenses = filteredExpenses.reduce(
-    (sum, item) => sum + (item.amount || 0),
-    0
-  );
-
-  const needsPct =
-    filteredTotalExpenses > 0
-      ? ((needsSpent / filteredTotalExpenses) * 100).toFixed(1)
-      : "0.0";
-
-  const wantsPct =
-    filteredTotalExpenses > 0
-      ? ((wantsSpent / filteredTotalExpenses) * 100).toFixed(1)
-      : "0.0";
-
-  const savingsPct =
-    filteredTotalExpenses > 0
-      ? ((savingsSpent / filteredTotalExpenses) * 100).toFixed(1)
-      : "0.0";
-
-  const thisMonthSpent = thisMonthExpenses.reduce(
-    (sum, item) => sum + (item.amount || 0),
-    0
-  );
-
-  const thisMonthIncome = incomes
-    .filter((i) => i.date?.startsWith(currentMonth))
-    .reduce((sum, item) => sum + (item.amount || 0), 0);
-
-  const walletBalances = wallets.map((wallet) => {
-    const walletIncome = incomes
-      .filter((i) => i.wallet_id === wallet.id)
-      .reduce((sum, item) => sum + (item.amount || 0), 0);
-
-    const walletExpense = expenses
-      .filter((e) => e.wallet_id === wallet.id)
-      .reduce((sum, item) => sum + (item.amount || 0), 0);
-
-    return {
-      ...wallet,
-      currentBalance:
-        (wallet.starting_balance || 0) + walletIncome - walletExpense,
-      totalSpent: walletExpense,
-      totalReceived: walletIncome,
+    return () => {
+      window.removeEventListener("storage", handleStorage);
+      window.removeEventListener("clara-finance-updated", handleStorage);
     };
-  });
+  }, [loadAll]);
 
-  const monthlyData = {};
+  const refreshData = useCallback(() => {
+    loadAll();
+    window.dispatchEvent(new Event("clara-finance-updated"));
+  }, [loadAll]);
 
-  incomes.forEach((income) => {
-    const month = income.date?.substring(0, 7);
-    if (!month) return;
+  const computedBudgets = useMemo(() => {
+    return budgets.map((budget) => {
+      const budgetAmount = getBudgetAmount(budget);
+      const resetDateRaw = getBudgetResetDate(budget);
+      const resetDate = resetDateRaw ? startOfDay(resetDateRaw) : null;
 
-    if (!monthlyData[month]) {
-      monthlyData[month] = { month, income: 0, expenses: 0 };
-    }
+      const spent = expenses.reduce((total, expense) => {
+        if (!shouldCountExpenseForBudget(expense, budget)) return total;
 
-    monthlyData[month].income += income.amount || 0;
-  });
+        const expenseDate = startOfDay(getExpenseDate(expense));
+        if (!expenseDate) return total;
 
-  expenses.forEach((expense) => {
-    const month = expense.date?.substring(0, 7);
-    if (!month) return;
+        if (resetDate && expenseDate < resetDate) return total;
 
-    if (!monthlyData[month]) {
-      monthlyData[month] = { month, income: 0, expenses: 0 };
-    }
+        return total + toNumber(expense?.amount);
+      }, 0);
 
-    monthlyData[month].expenses += expense.amount || 0;
-  });
+      const remaining = Math.max(budgetAmount - spent, 0);
+      const overspent = Math.max(spent - budgetAmount, 0);
+      const progress = budgetAmount > 0 ? Math.min((spent / budgetAmount) * 100, 100) : 0;
 
-  const monthlyBreakdown = Object.values(monthlyData).sort((a, b) =>
-    a.month.localeCompare(b.month)
+      return {
+        ...budget,
+        amount: budgetAmount,
+        spent,
+        remaining,
+        overspent,
+        progress,
+        isOverBudget: spent > budgetAmount,
+        resetAt: resetDateRaw || null,
+        lastResetAt: resetDateRaw || null,
+      };
+    });
+  }, [budgets, expenses]);
+
+  const updateStorageCollection = useCallback(
+    (key, updater) => {
+      const allItems = getStoredData(key);
+
+      const nextItems = updater(allItems);
+      setStoredData(key, nextItems);
+
+      loadAll();
+      window.dispatchEvent(new Event("clara-finance-updated"));
+
+      return nextItems;
+    },
+    [loadAll]
   );
 
-  const categoryData = {};
+  const resetBudget = useCallback(
+    (budgetId) => {
+      updateStorageCollection(STORAGE_KEYS.budgets, (allBudgets) =>
+        allBudgets.map((budget) => {
+          const ownerMatches = isSameUser(
+            budget?.userEmail || budget?.email || budget?.created_by,
+            userEmail
+          );
 
-  expenses.forEach((expense) => {
-    const category = expense.category || "Uncategorized";
-    if (!categoryData[category]) categoryData[category] = 0;
-    categoryData[category] += expense.amount || 0;
-  });
+          if (!ownerMatches) return budget;
+          if (String(budget?.id) !== String(budgetId)) return budget;
 
-  const categoryBreakdown = Object.entries(categoryData)
-    .map(([name, value]) => ({
-      name,
-      value,
-      pct: totalExpenses > 0 ? ((value / totalExpenses) * 100).toFixed(1) : 0,
-    }))
-    .sort((a, b) => b.value - a.value);
+          return {
+            ...budget,
+            lastResetAt: new Date().toISOString(),
+          };
+        })
+      );
+    },
+    [updateStorageCollection, userEmail]
+  );
+
+  const addExpense = useCallback(
+    (expense) => {
+      updateStorageCollection(STORAGE_KEYS.expenses, (allExpenses) => [
+        {
+          id: expense?.id || `exp_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`,
+          ...expense,
+          amount: toNumber(expense?.amount),
+          userEmail: expense?.userEmail || userEmail || "",
+          date: expense?.date || new Date().toISOString(),
+        },
+        ...allExpenses,
+      ]);
+    },
+    [updateStorageCollection, userEmail]
+  );
+
+  const updateExpense = useCallback(
+    (expenseId, updates) => {
+      updateStorageCollection(STORAGE_KEYS.expenses, (allExpenses) =>
+        allExpenses.map((expense) => {
+          const ownerMatches = isSameUser(
+            expense?.userEmail || expense?.email || expense?.created_by,
+            userEmail
+          );
+
+          if (!ownerMatches) return expense;
+          if (String(expense?.id) !== String(expenseId)) return expense;
+
+          return {
+            ...expense,
+            ...updates,
+            amount:
+              updates?.amount !== undefined
+                ? toNumber(updates.amount)
+                : toNumber(expense?.amount),
+          };
+        })
+      );
+    },
+    [updateStorageCollection, userEmail]
+  );
+
+  const deleteExpense = useCallback(
+    (expenseId) => {
+      updateStorageCollection(STORAGE_KEYS.expenses, (allExpenses) =>
+        allExpenses.filter((expense) => {
+          const ownerMatches = isSameUser(
+            expense?.userEmail || expense?.email || expense?.created_by,
+            userEmail
+          );
+
+          if (!ownerMatches) return true;
+          return String(expense?.id) !== String(expenseId);
+        })
+      );
+    },
+    [updateStorageCollection, userEmail]
+  );
+
+  const totalExpenses = useMemo(
+    () => expenses.reduce((sum, item) => sum + toNumber(item?.amount), 0),
+    [expenses]
+  );
+
+  const totalIncome = useMemo(
+    () => incomes.reduce((sum, item) => sum + toNumber(item?.amount), 0),
+    [incomes]
+  );
+
+  const totalWalletBalance = useMemo(
+    () => wallets.reduce((sum, item) => sum + toNumber(item?.balance), 0),
+    [wallets]
+  );
 
   return {
     expenses,
     incomes,
     wallets,
-    budgets,
-    loading,
-    totalIncome,
+    budgets: computedBudgets,
+
     totalExpenses,
-    totalRetained,
-    retentionRate,
-    needsSpent,
-    wantsSpent,
-    savingsSpent,
-    needsPct,
-    wantsPct,
-    savingsPct,
-    thisMonthSpent,
-    thisMonthIncome,
-    currentMonth,
-    status,
-    statusColor,
-    statusLevel,
-    coachInsight,
-    walletBalances,
-    monthlyBreakdown,
-    categoryBreakdown,
-    refresh: load,
+    totalIncome,
+    totalWalletBalance,
+
+    refreshData,
+    resetBudget,
+
+    addExpense,
+    updateExpense,
+    deleteExpense,
   };
 }
