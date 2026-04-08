@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useCallback } from "react";
 import {
   TrendingDown,
   PiggyBank,
@@ -12,23 +12,6 @@ import { Button } from "@/components/ui/button";
 import StatCard from "../components/StatCard";
 import DailyTipCard from "../components/DailyTipCard";
 import useUserRole from "../hooks/useUserRole";
-import { getTotalBalance } from "@/utils/financialEngine";
-
-const STORAGE_KEYS = {
-  challengeTasks: "clara_challenge_tasks",
-  taskSubmissions: "clara_task_submissions",
-  billboards: "clara_billboards",
-  expenses: "clara_expenses",
-};
-
-const getStoredData = (key) => {
-  try {
-    const raw = localStorage.getItem(key);
-    return raw ? JSON.parse(raw) : [];
-  } catch {
-    return [];
-  }
-};
 
 const normalizeString = (value) => String(value ?? "").trim();
 
@@ -52,26 +35,12 @@ const isOwnedByUser = (item, user) => {
   return false;
 };
 
-const getLocalSurvivalExpense = () => {
-  try {
-    const monthly = localStorage.getItem("monthly_survival_expense");
-    if (monthly && Number(monthly) > 0) return Number(monthly);
-
-    const clara = localStorage.getItem("clara_survival_expense");
-    if (clara && Number(clara) > 0) return Number(clara);
-
-    const user = JSON.parse(localStorage.getItem("clara_user") || "null");
-    if (
-      user?.monthly_survival_expense &&
-      Number(user.monthly_survival_expense) > 0
-    ) {
-      return Number(user.monthly_survival_expense);
-    }
-
-    return 0;
-  } catch {
-    return 0;
+const toNumber = (...values) => {
+  for (const value of values) {
+    const num = Number(value);
+    if (!Number.isNaN(num) && num !== 0) return num;
   }
+  return 0;
 };
 
 export default function Dashboard() {
@@ -83,79 +52,121 @@ export default function Dashboard() {
   const [survivalExpense, setSurvivalExpense] = useState(0);
   const [walletMoney, setWalletMoney] = useState(0);
   const [expenses, setExpenses] = useState([]);
+  const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    const update = () => {
-      setWalletMoney(getTotalBalance());
-    };
+  const [wallpaper, setWallpaper] = useState("");
+  const [wallpaperOpacity, setWallpaperOpacity] = useState(0.3);
 
-    update();
-    window.addEventListener("storage", update);
-    window.addEventListener("clara-wallets-updated", update);
-    window.addEventListener("clara-expenses-updated", update);
+  const loadWalletBalance = useCallback(async () => {
+    if (!user?.id && !user?.email) {
+      setWalletMoney(0);
+      return;
+    }
 
-    return () => {
-      window.removeEventListener("storage", update);
-      window.removeEventListener("clara-wallets-updated", update);
-      window.removeEventListener("clara-expenses-updated", update);
-    };
-  }, []);
+    let query = supabase.from("wallets").select("*");
 
-  useEffect(() => {
-    const syncSurvivalExpense = async () => {
-      const fromUser = Number(user?.monthly_survival_expense) || 0;
-      const fromLocal = getLocalSurvivalExpense();
+    if (user?.id) {
+      query = query.or(
+        `user_id.eq.${user.id},owner_id.eq.${user.id},profile_id.eq.${user.id}`
+      );
+    } else if (user?.email) {
+      query = query.or(
+        `created_by.eq.${user.email},user_email.eq.${user.email},owner_email.eq.${user.email},email.eq.${user.email}`
+      );
+    }
 
-      const finalValue = fromUser || fromLocal || 0;
-      setSurvivalExpense(finalValue);
+    const { data, error } = await query;
 
-      if (user?.id && fromLocal > 0 && fromUser === 0) {
-        try {
-          const { error } = await supabase
-            .from("profiles")
-            .update({ monthly_survival_expense: fromLocal })
-            .eq("id", user.id);
+    if (error) {
+      console.error("Failed to load wallets:", error);
+      setWalletMoney(0);
+      return;
+    }
 
-          if (!error) refreshUser?.();
-        } catch {}
-      }
-    };
+    const total = (data || []).reduce((sum, wallet) => {
+      return (
+        sum +
+        toNumber(
+          wallet?.current_balance,
+          wallet?.balance,
+          wallet?.amount,
+          wallet?.wallet_balance,
+          wallet?.available_balance
+        )
+      );
+    }, 0);
 
-    syncSurvivalExpense();
-  }, [user, refreshUser]);
+    setWalletMoney(total);
+  }, [user?.id, user?.email]);
 
-  useEffect(() => {
+  const loadDashboardData = useCallback(async () => {
     if (!user?.email && !user?.id) {
       setTasks([]);
       setSubmissions([]);
       setBillboards([]);
       setExpenses([]);
+      setWalletMoney(0);
+      setSurvivalExpense(0);
+      setLoading(false);
       return;
     }
 
-    const loadDashboardData = () => {
-      const allTasks = getStoredData(STORAGE_KEYS.challengeTasks);
-      const allSubmissions = getStoredData(STORAGE_KEYS.taskSubmissions);
-      const allBillboards = getStoredData(STORAGE_KEYS.billboards);
-      const allExpenses = getStoredData(STORAGE_KEYS.expenses);
+    setLoading(true);
 
-      const activeTasks = allTasks
-        .filter((item) => item.is_active)
-        .sort((a, b) => {
-          const weekDiff = (a.week || 0) - (b.week || 0);
-          if (weekDiff !== 0) return weekDiff;
-          return (a.day || 0) - (b.day || 0);
-        });
+    try {
+      const [
+        tasksRes,
+        submissionsRes,
+        billboardsRes,
+        expensesRes,
+        profileRes,
+      ] = await Promise.all([
+        supabase
+          .from("challenge_tasks")
+          .select("*")
+          .eq("is_active", true)
+          .order("week", { ascending: true })
+          .order("day", { ascending: true }),
 
-      const userSubmissions = allSubmissions.filter(
-        (item) => item.created_by === user.email
+        supabase.from("task_submissions").select("*"),
+
+        supabase
+          .from("billboards")
+          .select("*")
+          .eq("is_active", true)
+          .order("created_at", { ascending: false })
+          .limit(5),
+
+        supabase.from("expenses").select("*"),
+
+        user?.id
+          ? supabase
+              .from("profiles")
+              .select("monthly_survival_expense")
+              .eq("id", user.id)
+              .single()
+          : Promise.resolve({ data: null, error: null }),
+      ]);
+
+      if (tasksRes.error) console.error("Failed to load tasks:", tasksRes.error);
+      if (submissionsRes.error) {
+        console.error("Failed to load submissions:", submissionsRes.error);
+      }
+      if (billboardsRes.error) {
+        console.error("Failed to load billboards:", billboardsRes.error);
+      }
+      if (expensesRes.error) {
+        console.error("Failed to load expenses:", expensesRes.error);
+      }
+      if (profileRes?.error) {
+        console.error("Failed to load profile:", profileRes.error);
+      }
+
+      const userSubmissions = (submissionsRes.data || []).filter((item) =>
+        isOwnedByUser(item, user)
       );
 
-      const activeBillboards = allBillboards
-        .filter((item) => item.is_active)
-        .slice(0, 5);
-
-      const userExpenses = allExpenses
+      const userExpenses = (expensesRes.data || [])
         .filter((expense) => isOwnedByUser(expense, user))
         .map((expense) => ({
           ...expense,
@@ -163,24 +174,109 @@ export default function Dashboard() {
           date: expense.date || expense.created_at || "",
         }));
 
-      setTasks(activeTasks || []);
+      setTasks(tasksRes.data || []);
       setSubmissions(userSubmissions || []);
-      setBillboards(activeBillboards || []);
+      setBillboards(billboardsRes.data || []);
       setExpenses(userExpenses || []);
-    };
+      setSurvivalExpense(
+        Number(profileRes?.data?.monthly_survival_expense) || 0
+      );
 
+      await loadWalletBalance();
+    } catch (error) {
+      console.error("Dashboard load error:", error);
+    } finally {
+      setLoading(false);
+    }
+  }, [user, loadWalletBalance]);
+
+  useEffect(() => {
     loadDashboardData();
+  }, [loadDashboardData]);
 
-    window.addEventListener("storage", loadDashboardData);
-    window.addEventListener("clara-expenses-updated", loadDashboardData);
-    window.addEventListener("clara-wallets-updated", loadDashboardData);
+  useEffect(() => {
+    const savedWallpaper = localStorage.getItem("clara_wallpaper");
+    const savedOpacity = localStorage.getItem("clara_wallpaper_opacity");
+
+    if (savedWallpaper) setWallpaper(savedWallpaper);
+
+    if (savedOpacity) {
+      const num = Number(savedOpacity);
+      if (!Number.isNaN(num)) {
+        setWallpaperOpacity(Math.max(0, Math.min(num, 0.5)));
+      }
+    }
+  }, []);
+
+  useEffect(() => {
+    if (!user?.id && !user?.email) return;
+
+    const channel = supabase
+      .channel(`dashboard-live-${user?.id || user?.email}`)
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "challenge_tasks" },
+        () => loadDashboardData()
+      )
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "task_submissions" },
+        () => loadDashboardData()
+      )
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "billboards" },
+        () => loadDashboardData()
+      )
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "expenses" },
+        () => loadDashboardData()
+      )
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "wallets" },
+        () => loadDashboardData()
+      )
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "profiles" },
+        () => loadDashboardData()
+      )
+      .subscribe();
 
     return () => {
-      window.removeEventListener("storage", loadDashboardData);
-      window.removeEventListener("clara-expenses-updated", loadDashboardData);
-      window.removeEventListener("clara-wallets-updated", loadDashboardData);
+      supabase.removeChannel(channel);
     };
-  }, [user?.email, user?.id]);
+  }, [user?.id, user?.email, loadDashboardData]);
+
+  const handleWallpaperUpload = (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = () => {
+      const result = reader.result;
+      if (typeof result === "string") {
+        setWallpaper(result);
+        localStorage.setItem("clara_wallpaper", result);
+      }
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const handleOpacityChange = (value) => {
+    const num = Math.max(0, Math.min(Number(value) || 0.3, 0.5));
+    setWallpaperOpacity(num);
+    localStorage.setItem("clara_wallpaper_opacity", String(num));
+  };
+
+  const fmt = (n) =>
+    new Intl.NumberFormat("en-PH", {
+      style: "currency",
+      currency: "PHP",
+      minimumFractionDigits: 0,
+    }).format(n || 0);
 
   const thisMonthSpent = useMemo(() => {
     const now = new Date();
@@ -197,13 +293,6 @@ export default function Dashboard() {
       return sameYear && sameMonth ? sum + Number(expense.amount || 0) : sum;
     }, 0);
   }, [expenses]);
-
-  const fmt = (n) =>
-    new Intl.NumberFormat("en-PH", {
-      style: "currency",
-      currency: "PHP",
-      minimumFractionDigits: 0,
-    }).format(n || 0);
 
   const submittedIds = new Set(submissions.map((s) => s.task_id));
   const pendingTasks = tasks.filter((t) => !submittedIds.has(t.id));
@@ -241,15 +330,61 @@ export default function Dashboard() {
         )}
 
         {!!user && (
-          <EmergencyFundCard
-            moneyLeft={walletMoney}
-            survivalExpense={survivalExpense}
-            retentionRate={0}
-            onSurvivalSaved={(val) => {
-              setSurvivalExpense(Number(val) || 0);
-              refreshUser?.();
-            }}
-          />
+          <>
+            <div className="mb-3 rounded-2xl border border-white/10 bg-[#0F172A] p-3">
+              <p className="text-xs font-semibold text-white mb-2">
+                Emergency Fund Background
+              </p>
+
+              <input
+                type="file"
+                accept="image/*"
+                onChange={handleWallpaperUpload}
+                className="block w-full text-xs text-white/80 mb-3"
+              />
+
+              <div>
+                <p className="text-[11px] text-white/60 mb-1">
+                  Background Opacity
+                </p>
+                <input
+                  type="range"
+                  min="0"
+                  max="0.5"
+                  step="0.05"
+                  value={wallpaperOpacity}
+                  onChange={(e) => handleOpacityChange(e.target.value)}
+                  className="w-full"
+                />
+              </div>
+            </div>
+
+            <EmergencyFundCard
+              moneyLeft={walletMoney}
+              survivalExpense={survivalExpense}
+              retentionRate={0}
+              wallpaperUrl={wallpaper}
+              wallpaperOpacity={wallpaperOpacity}
+              onSurvivalSaved={async (val) => {
+                const nextValue = Number(val) || 0;
+                setSurvivalExpense(nextValue);
+
+                if (user?.id) {
+                  const { error } = await supabase
+                    .from("profiles")
+                    .update({ monthly_survival_expense: nextValue })
+                    .eq("id", user.id);
+
+                  if (error) {
+                    console.error("Failed to save survival expense:", error);
+                  } else {
+                    refreshUser?.();
+                    loadDashboardData();
+                  }
+                }
+              }}
+            />
+          </>
         )}
 
         <div className="grid grid-cols-2 gap-3 mb-4">
@@ -295,11 +430,15 @@ export default function Dashboard() {
                     {pendingCount} pending
                   </p>
                 )}
+
+                {loading && (
+                  <p className="text-[11px] text-white/40 mt-2">Refreshing…</p>
+                )}
               </div>
             </Link>
           ) : (
             <div className="rounded-2xl p-4 bg-[#0F172A] border border-white/10 text-xs text-white/60">
-              No active tasks
+              {loading ? "Loading tasks..." : "No active tasks"}
             </div>
           )}
         </div>

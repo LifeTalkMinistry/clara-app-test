@@ -1,155 +1,73 @@
 import { useState, useEffect, useCallback, useMemo } from "react";
-
-const STORAGE_KEYS = {
-  expenses: "clara_expenses",
-  incomes: "clara_incomes",
-  wallets: "clara_wallets",
-  budgets: "clara_budgets",
-  walletTransactions: "clara_wallet_transactions",
-  transfers: "clara_transfers",
-};
-
-const getStoredData = (key) => {
-  try {
-    const raw = localStorage.getItem(key);
-    return raw ? JSON.parse(raw) : [];
-  } catch {
-    return [];
-  }
-};
-
-const setStoredData = (key, value) => {
-  localStorage.setItem(key, JSON.stringify(value));
-};
-
-const normalizeText = (value) => String(value || "").trim().toLowerCase();
-
-const startOfDay = (value) => {
-  const d = new Date(value);
-  if (Number.isNaN(d.getTime())) return null;
-  d.setHours(0, 0, 0, 0);
-  return d;
-};
-
-const isSameUser = (itemEmail, userEmail) => {
-  if (!userEmail) return true;
-  return normalizeText(itemEmail) === normalizeText(userEmail);
-};
+import { supabase } from "@/lib/supabaseClient";
 
 const toNumber = (value) => {
   if (typeof value === "number") return Number.isFinite(value) ? value : 0;
-
   if (typeof value === "string") {
     const cleaned = value.replace(/[₱,\s]/g, "");
     const num = Number(cleaned);
     return Number.isFinite(num) ? num : 0;
   }
-
   const num = Number(value);
   return Number.isFinite(num) ? num : 0;
 };
 
-const getExpenseDate = (expense) => {
-  return (
-    expense?.date ||
-    expense?.expense_date ||
-    expense?.created_at ||
-    expense?.timestamp ||
-    new Date().toISOString()
-  );
+const getSafeDate = (value) => {
+  const d = new Date(value);
+  if (Number.isNaN(d.getTime())) return new Date().toISOString();
+  return d.toISOString();
 };
 
-const getBudgetAmount = (budget) => {
-  return toNumber(
-    budget?.amount ??
-      budget?.limit ??
-      budget?.budget ??
-      budget?.value ??
-      budget?.monthlyBudget
-  );
+// ✅ SAFE TABLE LOADER WITH FALLBACK FILTERS
+const safeSelect = async (table, user) => {
+  if (!user?.id && !user?.email) return [];
+
+  let data = [];
+  let error = null;
+
+  // 1) Try user_id first
+  if (user?.id) {
+    const res = await supabase.from(table).select("*").eq("user_id", user.id);
+    if (!res.error && Array.isArray(res.data) && res.data.length > 0) {
+      return res.data;
+    }
+    if (res.error) error = res.error;
+  }
+
+  // 2) Try user_email
+  if (user?.email) {
+    const res = await supabase
+      .from(table)
+      .select("*")
+      .eq("user_email", user.email);
+
+    if (!res.error && Array.isArray(res.data) && res.data.length > 0) {
+      return res.data;
+    }
+    if (res.error) error = res.error;
+  }
+
+  // 3) Try created_by
+  if (user?.email) {
+    const res = await supabase
+      .from(table)
+      .select("*")
+      .eq("created_by", user.email);
+
+    if (!res.error && Array.isArray(res.data)) {
+      return res.data;
+    }
+    if (res.error) error = res.error;
+  }
+
+  if (error) {
+    console.warn(`❌ Failed loading ${table}`, error);
+  }
+
+  return data;
 };
 
-const getBudgetCategory = (budget) => {
-  return normalizeText(
-    budget?.category ?? budget?.name ?? budget?.title ?? budget?.label
-  );
-};
-
-const getExpenseCategory = (expense) => {
-  return normalizeText(
-    expense?.category ??
-      expense?.budgetCategory ??
-      expense?.type ??
-      expense?.classification ??
-      expense?.label
-  );
-};
-
-const shouldCountExpenseForBudget = (expense, budget) => {
-  const budgetCategory = getBudgetCategory(budget);
-  const expenseCategory = getExpenseCategory(expense);
-
-  if (!budgetCategory) return false;
-  if (!expenseCategory) return false;
-
-  return budgetCategory === expenseCategory;
-};
-
-const getBudgetResetDate = (budget) => {
-  return (
-    budget?.lastResetAt ||
-    budget?.resetAt ||
-    budget?.resetDate ||
-    budget?.periodStart ||
-    null
-  );
-};
-
-const getItemOwnerEmail = (item) =>
-  item?.userEmail ||
-  item?.email ||
-  item?.created_by ||
-  item?.user_email ||
-  item?.owner_email ||
-  "";
-
-const getWalletDate = (item) => {
-  return (
-    item?.date ||
-    item?.created_at ||
-    item?.timestamp ||
-    item?.updated_at ||
-    new Date().toISOString()
-  );
-};
-
-const getWalletBaseBalance = (wallet) => {
-  return toNumber(
-    wallet?.starting_balance ??
-      wallet?.startingBalance ??
-      wallet?.balance ??
-      wallet?.current_balance ??
-      0
-  );
-};
-
-const getWalletTransactionAmount = (txn) => {
-  return Math.abs(
-    toNumber(txn?.amount ?? txn?.value ?? txn?.total ?? txn?.money ?? 0)
-  );
-};
-
-const normalizeWalletIncomeSource = (txn) => {
-  return (
-    txn?.source_details ||
-    txn?.source_type ||
-    txn?.tag ||
-    txn?.notes ||
-    "Wallet Income"
-  );
-};
-
-export default function useFinancialData(userEmail) {
+export default function useFinancialData(user) {
   const [expenses, setExpenses] = useState([]);
   const [incomes, setIncomes] = useState([]);
   const [wallets, setWallets] = useState([]);
@@ -158,355 +76,296 @@ export default function useFinancialData(userEmail) {
   const [transfers, setTransfers] = useState([]);
   const [loading, setLoading] = useState(true);
 
-  const loadAll = useCallback(() => {
+  const loadAll = useCallback(async () => {
+    if (!user?.id && !user?.email) {
+      setExpenses([]);
+      setIncomes([]);
+      setWallets([]);
+      setBudgets([]);
+      setWalletTransactions([]);
+      setTransfers([]);
+      setLoading(false);
+      return;
+    }
+
     setLoading(true);
 
-    const allExpenses = getStoredData(STORAGE_KEYS.expenses).filter((item) =>
-      isSameUser(getItemOwnerEmail(item), userEmail)
-    );
+    try {
+      const [e, i, w, b, wt, t] = await Promise.all([
+        safeSelect("expenses", user),
+        safeSelect("incomes", user),
+        safeSelect("wallets", user),
+        safeSelect("budgets", user),
+        safeSelect("wallet_transactions", user),
+        safeSelect("transfers", user),
+      ]);
 
-    const allIncomes = getStoredData(STORAGE_KEYS.incomes).filter((item) =>
-      isSameUser(getItemOwnerEmail(item), userEmail)
-    );
-
-    const allWallets = getStoredData(STORAGE_KEYS.wallets).filter((item) =>
-      isSameUser(getItemOwnerEmail(item), userEmail)
-    );
-
-    const allBudgets = getStoredData(STORAGE_KEYS.budgets).filter((item) =>
-      isSameUser(getItemOwnerEmail(item), userEmail)
-    );
-
-    const userWalletIds = new Set(allWallets.map((wallet) => String(wallet?.id)));
-
-    const allWalletTransactions = getStoredData(
-      STORAGE_KEYS.walletTransactions
-    ).filter(
-      (item) =>
-        isSameUser(getItemOwnerEmail(item), userEmail) ||
-        userWalletIds.has(String(item?.wallet_id))
-    );
-
-    const allTransfers = getStoredData(STORAGE_KEYS.transfers).filter(
-      (item) =>
-        isSameUser(getItemOwnerEmail(item), userEmail) ||
-        userWalletIds.has(String(item?.wallet_id)) ||
-        userWalletIds.has(String(item?.linked_wallet_id))
-    );
-
-    setExpenses(allExpenses);
-    setIncomes(allIncomes);
-    setWallets(allWallets);
-    setBudgets(allBudgets);
-    setWalletTransactions(allWalletTransactions);
-    setTransfers(allTransfers);
-    setLoading(false);
-  }, [userEmail]);
+      setExpenses(e || []);
+      setIncomes(i || []);
+      setWallets(w || []);
+      setBudgets(b || []);
+      setWalletTransactions(wt || []);
+      setTransfers(t || []);
+    } catch (err) {
+      console.error("❌ loadAll error:", err);
+    } finally {
+      setLoading(false);
+    }
+  }, [user]);
 
   useEffect(() => {
     loadAll();
   }, [loadAll]);
 
   useEffect(() => {
-    const handleStorage = () => loadAll();
-    window.addEventListener("storage", handleStorage);
-    window.addEventListener("clara-finance-updated", handleStorage);
-    window.addEventListener("clara-wallets-updated", handleStorage);
-    window.addEventListener("clara-expenses-updated", handleStorage);
+    if (!user?.id && !user?.email) return;
+
+    const channel = supabase
+      .channel(`finance-${user?.id || user?.email}`)
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "expenses" },
+        () => loadAll()
+      )
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "wallets" },
+        () => loadAll()
+      )
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "wallet_transactions" },
+        () => loadAll()
+      )
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "transfers" },
+        () => loadAll()
+      )
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "budgets" },
+        () => loadAll()
+      )
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "incomes" },
+        () => loadAll()
+      )
+      .subscribe();
 
     return () => {
-      window.removeEventListener("storage", handleStorage);
-      window.removeEventListener("clara-finance-updated", handleStorage);
-      window.removeEventListener("clara-wallets-updated", handleStorage);
-      window.removeEventListener("clara-expenses-updated", handleStorage);
+      supabase.removeChannel(channel);
     };
-  }, [loadAll]);
+  }, [user, loadAll]);
 
-  const refreshData = useCallback(() => {
-    loadAll();
-    window.dispatchEvent(new Event("clara-finance-updated"));
-  }, [loadAll]);
+  const refreshData = useCallback(() => loadAll(), [loadAll]);
 
-  const normalizedWallets = useMemo(() => {
-    return wallets.map((wallet) => {
-      const walletId = String(wallet?.id);
+  const updateWalletBalance = async (walletId, amountChange) => {
+    const wallet = wallets.find((w) => String(w.id) === String(walletId));
+    if (!wallet) return;
 
-      const deposits = walletTransactions
-        .filter((txn) => String(txn?.wallet_id) === walletId)
-        .reduce((sum, txn) => sum + getWalletTransactionAmount(txn), 0);
+    const current =
+      wallet.balance ??
+      wallet.current_balance ??
+      wallet.wallet_balance ??
+      wallet.starting_balance ??
+      0;
 
-      const transfersIn = transfers
-        .filter(
-          (transfer) =>
-            String(transfer?.wallet_id) === walletId &&
-            String(transfer?.type) === "transfer_in"
-        )
-        .reduce((sum, transfer) => sum + toNumber(transfer?.amount), 0);
+    const updated = toNumber(current) + toNumber(amountChange);
 
-      const transfersOut = transfers
-        .filter(
-          (transfer) =>
-            String(transfer?.wallet_id) === walletId &&
-            String(transfer?.type) === "transfer_out"
-        )
-        .reduce((sum, transfer) => sum + toNumber(transfer?.amount), 0);
+    const { error } = await supabase
+      .from("wallets")
+      .update({ balance: updated })
+      .eq("id", walletId);
 
-      const computedBalance =
-        getWalletBaseBalance(wallet) + deposits + transfersIn - transfersOut;
+    if (error) throw error;
+  };
 
-      return {
+  const addExpense = async (expense) => {
+    const amount = toNumber(expense.amount);
+
+    const payload = {
+      ...expense,
+      user_id: user?.id || null,
+      user_email: user?.email || null,
+      created_by: user?.email || null,
+      amount,
+      date: getSafeDate(expense.date),
+    };
+
+    const { error } = await supabase.from("expenses").insert([payload]);
+    if (error) throw error;
+
+    if (expense.wallet_id) {
+      await updateWalletBalance(expense.wallet_id, -amount);
+    }
+
+    await loadAll();
+  };
+
+  const updateExpense = async (id, updates) => {
+    const oldExpense = expenses.find((e) => String(e.id) === String(id));
+
+    const normalizedUpdates = { ...updates };
+
+    if (updates.amount !== undefined) {
+      normalizedUpdates.amount = toNumber(updates.amount);
+    }
+
+    if (updates.date !== undefined) {
+      normalizedUpdates.date = getSafeDate(updates.date);
+    }
+
+    const { error } = await supabase
+      .from("expenses")
+      .update(normalizedUpdates)
+      .eq("id", id);
+
+    if (error) throw error;
+
+    if (oldExpense?.wallet_id) {
+      await updateWalletBalance(oldExpense.wallet_id, toNumber(oldExpense.amount));
+    }
+
+    const nextWalletId = normalizedUpdates.wallet_id ?? oldExpense?.wallet_id;
+    const nextAmount =
+      normalizedUpdates.amount !== undefined
+        ? toNumber(normalizedUpdates.amount)
+        : toNumber(oldExpense?.amount);
+
+    if (nextWalletId) {
+      await updateWalletBalance(nextWalletId, -nextAmount);
+    }
+
+    await loadAll();
+  };
+
+  const deleteExpense = async (id) => {
+    const expense = expenses.find((e) => String(e.id) === String(id));
+
+    const { error } = await supabase.from("expenses").delete().eq("id", id);
+    if (error) throw error;
+
+    if (expense?.wallet_id) {
+      await updateWalletBalance(expense.wallet_id, toNumber(expense.amount));
+    }
+
+    await loadAll();
+  };
+
+  const addWallet = async (wallet) => {
+    const starting = toNumber(wallet.balance ?? wallet.starting_balance ?? 0);
+
+    const { error } = await supabase.from("wallets").insert([
+      {
         ...wallet,
-        balance: computedBalance,
-      };
-    });
-  }, [wallets, walletTransactions, transfers]);
+        balance: starting,
+        starting_balance: starting,
+        user_id: user?.id || null,
+        user_email: user?.email || null,
+        created_by: user?.email || null,
+      },
+    ]);
 
-  const walletIncomeEntries = useMemo(() => {
-    const depositEntries = walletTransactions.map((txn) => ({
-      id: `wallet-txn-${txn.id}`,
-      amount: getWalletTransactionAmount(txn),
-      date: getWalletDate(txn),
-      wallet_id: txn?.wallet_id ? String(txn.wallet_id) : "",
-      source: normalizeWalletIncomeSource(txn),
-      category: "Wallet Income",
-      note: txn?.notes || "",
-      sourceType: "wallet_transaction",
-      userEmail: getItemOwnerEmail(txn) || userEmail || "",
-    }));
+    if (error) throw error;
+    await loadAll();
+  };
 
-    return depositEntries;
-  }, [walletTransactions, userEmail]);
+  const updateWallet = async (id, updates) => {
+    const normalizedUpdates = { ...updates };
 
-  const combinedIncomeEntries = useMemo(() => {
-    const directIncomes = (incomes || []).map((item) => ({
-      ...item,
-      amount: Math.abs(toNumber(item?.amount)),
-      date: getWalletDate(item),
-      sourceType: "income",
-    }));
+    if (updates.balance !== undefined) {
+      normalizedUpdates.balance = toNumber(updates.balance);
+    }
 
-    const merged = [...directIncomes];
-    const seen = new Set(
-      directIncomes.map((item) =>
-        [
-          Math.abs(toNumber(item?.amount)),
-          item?.date,
-          normalizeText(item?.wallet_id),
-          normalizeText(item?.source || item?.category || item?.note),
-        ].join("|")
-      )
-    );
+    if (updates.starting_balance !== undefined) {
+      normalizedUpdates.starting_balance = toNumber(updates.starting_balance);
+    }
 
-    walletIncomeEntries.forEach((item) => {
-      const key = [
-        Math.abs(toNumber(item?.amount)),
-        item?.date,
-        normalizeText(item?.wallet_id),
-        normalizeText(item?.source || item?.category || item?.note),
-      ].join("|");
+    const { error } = await supabase
+      .from("wallets")
+      .update(normalizedUpdates)
+      .eq("id", id);
 
-      if (seen.has(key)) return;
-      seen.add(key);
-      merged.push(item);
-    });
+    if (error) throw error;
 
-    return merged.sort(
-      (a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()
-    );
-  }, [incomes, walletIncomeEntries]);
+    await loadAll();
+  };
 
-  const normalizedWalletActivity = useMemo(() => {
-    const txns = walletTransactions.map((txn) => ({
-      id: `txn-${txn.id}`,
-      wallet_id: txn?.wallet_id ? String(txn.wallet_id) : "",
-      wallet_name:
-        normalizedWallets.find((w) => String(w.id) === String(txn.wallet_id))
-          ?.name || "Wallet",
-      amount: getWalletTransactionAmount(txn),
-      type: "income",
-      date: getWalletDate(txn),
-      source: normalizeWalletIncomeSource(txn),
-      note: txn?.notes || "",
-    }));
+  const deleteWallet = async (id) => {
+    const { error } = await supabase.from("wallets").delete().eq("id", id);
+    if (error) throw error;
 
-    const xfers = transfers.map((transfer) => ({
-      id: `transfer-${transfer.id}`,
-      wallet_id: transfer?.wallet_id ? String(transfer.wallet_id) : "",
-      wallet_name:
-        normalizedWallets.find((w) => String(w.id) === String(transfer.wallet_id))
-          ?.name || "Wallet",
-      amount: toNumber(transfer?.amount),
-      type: transfer?.type || "transfer",
-      date: getWalletDate(transfer),
-      source: transfer?.note || "",
-      note: transfer?.note || "",
-    }));
+    await loadAll();
+  };
 
-    return [...txns, ...xfers].sort(
-      (a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()
-    );
-  }, [walletTransactions, transfers, normalizedWallets]);
+  const addIncome = async (income) => {
+    const amount = toNumber(income.amount);
 
-  const computedBudgets = useMemo(() => {
-    return budgets.map((budget) => {
-      const budgetAmount = getBudgetAmount(budget);
-      const resetDateRaw = getBudgetResetDate(budget);
-      const resetDate = resetDateRaw ? startOfDay(resetDateRaw) : null;
+    const { error } = await supabase.from("incomes").insert([
+      {
+        ...income,
+        amount,
+        date: getSafeDate(income.date),
+        user_id: user?.id || null,
+        user_email: user?.email || null,
+        created_by: user?.email || null,
+      },
+    ]);
 
-      const spent = expenses.reduce((total, expense) => {
-        if (!shouldCountExpenseForBudget(expense, budget)) return total;
+    if (error) throw error;
 
-        const expenseDate = startOfDay(getExpenseDate(expense));
-        if (!expenseDate) return total;
+    if (income.wallet_id) {
+      await updateWalletBalance(income.wallet_id, amount);
+    }
 
-        if (resetDate && expenseDate < resetDate) return total;
-
-        return total + toNumber(expense?.amount);
-      }, 0);
-
-      const remaining = Math.max(budgetAmount - spent, 0);
-      const overspent = Math.max(spent - budgetAmount, 0);
-      const progress =
-        budgetAmount > 0 ? Math.min((spent / budgetAmount) * 100, 100) : 0;
-
-      return {
-        ...budget,
-        amount: budgetAmount,
-        spent,
-        remaining,
-        overspent,
-        progress,
-        isOverBudget: spent > budgetAmount,
-        resetAt: resetDateRaw || null,
-        lastResetAt: resetDateRaw || null,
-      };
-    });
-  }, [budgets, expenses]);
-
-  const updateStorageCollection = useCallback(
-    (key, updater) => {
-      const allItems = getStoredData(key);
-      const nextItems = updater(allItems);
-
-      setStoredData(key, nextItems);
-      loadAll();
-      window.dispatchEvent(new Event("clara-finance-updated"));
-
-      return nextItems;
-    },
-    [loadAll]
-  );
-
-  const resetBudget = useCallback(
-    (budgetId) => {
-      updateStorageCollection(STORAGE_KEYS.budgets, (allBudgets) =>
-        allBudgets.map((budget) => {
-          const ownerMatches = isSameUser(getItemOwnerEmail(budget), userEmail);
-
-          if (!ownerMatches) return budget;
-          if (String(budget?.id) !== String(budgetId)) return budget;
-
-          return {
-            ...budget,
-            lastResetAt: new Date().toISOString(),
-          };
-        })
-      );
-    },
-    [updateStorageCollection, userEmail]
-  );
-
-  const addExpense = useCallback(
-    (expense) => {
-      updateStorageCollection(STORAGE_KEYS.expenses, (allExpenses) => [
-        {
-          id:
-            expense?.id ||
-            `exp_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`,
-          ...expense,
-          amount: toNumber(expense?.amount),
-          userEmail: expense?.userEmail || userEmail || "",
-          date: expense?.date || new Date().toISOString(),
-        },
-        ...allExpenses,
-      ]);
-    },
-    [updateStorageCollection, userEmail]
-  );
-
-  const updateExpense = useCallback(
-    (expenseId, updates) => {
-      updateStorageCollection(STORAGE_KEYS.expenses, (allExpenses) =>
-        allExpenses.map((expense) => {
-          const ownerMatches = isSameUser(getItemOwnerEmail(expense), userEmail);
-
-          if (!ownerMatches) return expense;
-          if (String(expense?.id) !== String(expenseId)) return expense;
-
-          return {
-            ...expense,
-            ...updates,
-            amount:
-              updates?.amount !== undefined
-                ? toNumber(updates.amount)
-                : toNumber(expense?.amount),
-          };
-        })
-      );
-    },
-    [updateStorageCollection, userEmail]
-  );
-
-  const deleteExpense = useCallback(
-    (expenseId) => {
-      updateStorageCollection(STORAGE_KEYS.expenses, (allExpenses) =>
-        allExpenses.filter((expense) => {
-          const ownerMatches = isSameUser(getItemOwnerEmail(expense), userEmail);
-
-          if (!ownerMatches) return true;
-          return String(expense?.id) !== String(expenseId);
-        })
-      );
-    },
-    [updateStorageCollection, userEmail]
-  );
+    await loadAll();
+  };
 
   const totalExpenses = useMemo(
-    () => expenses.reduce((sum, item) => sum + toNumber(item?.amount), 0),
+    () => expenses.reduce((sum, e) => sum + toNumber(e.amount), 0),
     [expenses]
   );
 
   const totalIncome = useMemo(
-    () =>
-      combinedIncomeEntries.reduce((sum, item) => sum + toNumber(item?.amount), 0),
-    [combinedIncomeEntries]
+    () => incomes.reduce((sum, i) => sum + toNumber(i.amount), 0),
+    [incomes]
   );
 
   const totalWalletBalance = useMemo(
-    () => normalizedWallets.reduce((sum, item) => sum + toNumber(item?.balance), 0),
-    [normalizedWallets]
+    () =>
+      wallets.reduce((sum, w) => {
+        const value =
+          w.balance ??
+          w.current_balance ??
+          w.wallet_balance ??
+          w.starting_balance ??
+          0;
+
+        return sum + toNumber(value);
+      }, 0),
+    [wallets]
   );
 
   return {
     loading,
     expenses,
-    incomes: combinedIncomeEntries,
-    rawIncomes: incomes,
-    wallets: normalizedWallets,
+    incomes,
+    wallets,
+    budgets,
     walletTransactions,
     transfers,
-    walletActivity: normalizedWalletActivity,
-    budgets: computedBudgets,
-
     totalExpenses,
     totalIncome,
     totalWalletBalance,
-
     refreshData,
-    resetBudget,
-
     addExpense,
     updateExpense,
     deleteExpense,
+    addWallet,
+    updateWallet,
+    deleteWallet,
+    addIncome,
   };
 }

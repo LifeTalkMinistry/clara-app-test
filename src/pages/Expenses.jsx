@@ -1,5 +1,6 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useCallback } from "react";
 import { Plus, Receipt, Trash2, Edit, ChevronDown, ChevronUp } from "lucide-react";
+import { supabase } from "@/lib/supabaseClient";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -46,27 +47,12 @@ const EMPTY_FORM = {
   need_type: "need",
 };
 
-const EXPENSES_KEY = "clara_expenses";
-const WALLETS_KEY = "clara_wallets";
-const TXN_KEY = "clara_wallet_transactions";
-const TRANSFER_KEY = "clara_transfers";
-
-const safeRead = (key) => {
-  try {
-    const raw = localStorage.getItem(key);
-    const parsed = JSON.parse(raw || "[]");
-    return Array.isArray(parsed) ? parsed : [];
-  } catch {
-    return [];
-  }
-};
-
-const safeWrite = (key, value) => {
-  localStorage.setItem(key, JSON.stringify(value));
-};
+const EXPENSES_TABLE = "expenses";
+const WALLETS_TABLE = "wallets";
+const TXN_TABLE = "wallet_transactions";
+const TRANSFER_TABLE = "transfers";
 
 const emitSync = () => {
-  window.dispatchEvent(new Event("storage"));
   window.dispatchEvent(new Event("clara-wallets-updated"));
   window.dispatchEvent(new Event("clara-expenses-updated"));
   window.dispatchEvent(new Event("clara-budgets-updated"));
@@ -84,19 +70,28 @@ const normalizeString = (value) => String(value ?? "").trim();
 const isOwnedByUser = (item, user) => {
   if (!user) return false;
 
-  const itemEmail = normalizeString(
-    item?.created_by ?? item?.user_email ?? item?.owner_email ?? item?.email
-  ).toLowerCase();
-
   const userEmail = normalizeString(user?.email).toLowerCase();
-
-  const itemUserId = normalizeString(
-    item?.user_id ?? item?.owner_id ?? item?.profile_id
-  );
   const currentUserId = normalizeString(user?.id);
 
-  if (itemEmail && userEmail && itemEmail === userEmail) return true;
-  if (itemUserId && currentUserId && itemUserId === currentUserId) return true;
+  const possibleEmails = [
+    item?.created_by,
+    item?.user_email,
+    item?.owner_email,
+    item?.email,
+  ]
+    .map((v) => normalizeString(v).toLowerCase())
+    .filter(Boolean);
+
+  const possibleUserIds = [
+    item?.user_id,
+    item?.owner_id,
+    item?.profile_id,
+  ]
+    .map((v) => normalizeString(v))
+    .filter(Boolean);
+
+  if (userEmail && possibleEmails.includes(userEmail)) return true;
+  if (currentUserId && possibleUserIds.includes(currentUserId)) return true;
 
   return false;
 };
@@ -110,13 +105,20 @@ const normalizeWallet = (wallet, user, allTransactions = [], allTransfers = []) 
       `wallet-${Math.random().toString(36).slice(2)}`
   );
 
-  const startingBalance = Number(
-    wallet?.starting_balance ??
-      wallet?.initial_balance ??
-      wallet?.balance ??
+  const baseBalance = Number(
+    wallet?.balance ??
       wallet?.current_balance ??
+      wallet?.wallet_balance ??
+      wallet?.starting_balance ??
+      wallet?.initial_balance ??
       0
   );
+
+  const hasComputedActivity =
+    Array.isArray(allTransactions) &&
+    allTransactions.some((t) => String(t.wallet_id) === id) ||
+    Array.isArray(allTransfers) &&
+    allTransfers.some((t) => String(t.wallet_id) === id);
 
   const deposits = allTransactions
     .filter((t) => String(t.wallet_id) === id && t.type === "deposit")
@@ -134,6 +136,12 @@ const normalizeWallet = (wallet, user, allTransactions = [], allTransfers = []) 
     .filter((t) => String(t.wallet_id) === id && t.type === "transfer_out")
     .reduce((sum, t) => sum + Number(t.amount || 0), 0);
 
+  const computedBalance = Number(
+    wallet?.starting_balance ??
+      wallet?.initial_balance ??
+      0
+  ) + deposits + transfersIn - transfersOut - expenses;
+
   return {
     ...wallet,
     id,
@@ -145,8 +153,13 @@ const normalizeWallet = (wallet, user, allTransactions = [], allTransfers = []) 
       wallet?.email ??
       user?.email ??
       "",
-    user_id: wallet?.user_id ?? wallet?.owner_id ?? wallet?.profile_id ?? user?.id ?? "",
-    balance: startingBalance + deposits + transfersIn - transfersOut - expenses,
+    user_id:
+      wallet?.user_id ??
+      wallet?.owner_id ??
+      wallet?.profile_id ??
+      user?.id ??
+      "",
+    balance: hasComputedActivity ? computedBalance : baseBalance,
   };
 };
 
@@ -188,7 +201,7 @@ const getStartOfWeek = (date) => {
 const getExpenseDateObject = (expense) => {
   const raw =
     expense?.created_at ||
-    (expense?.date ? `${expense.date}T12:00:00` : null) ||
+    (expense?.date ? `${String(expense.date).slice(0, 10)}T12:00:00` : null) ||
     expense?.updated_at;
 
   const d = new Date(raw);
@@ -215,6 +228,74 @@ const getExpenseGroupLabel = (dateValue) => {
   return "Older";
 };
 
+const fetchOwnedRows = async (table, user, orderColumn = "created_at", ascending = false) => {
+  if (!user?.id && !user?.email) return [];
+
+  let allRows = [];
+  let lastError = null;
+
+  if (user?.id) {
+    const query = supabase.from(table).select("*").eq("user_id", user.id);
+    const ordered = orderColumn ? query.order(orderColumn, { ascending }) : query;
+    const { data, error } = await ordered;
+    if (error) {
+      lastError = error;
+    } else if (Array.isArray(data) && data.length > 0) {
+      allRows = [...allRows, ...data];
+    }
+  }
+
+  if (user?.email) {
+    const emailColumns = ["user_email", "created_by", "owner_email", "email"];
+
+    for (const column of emailColumns) {
+      const query = supabase.from(table).select("*").eq(column, user.email);
+      const ordered = orderColumn ? query.order(orderColumn, { ascending }) : query;
+      const { data, error } = await ordered;
+
+      if (error) {
+        lastError = error;
+        continue;
+      }
+
+      if (Array.isArray(data) && data.length > 0) {
+        allRows = [...allRows, ...data];
+      }
+    }
+  }
+
+  if (allRows.length === 0 && lastError) {
+    throw lastError;
+  }
+
+  const uniqueMap = new Map();
+
+  allRows.forEach((row) => {
+    const key = String(
+      row?.id ??
+        row?.wallet_id ??
+        row?.uuid ??
+        row?._id ??
+        `${table}-${Math.random().toString(36).slice(2)}`
+    );
+    if (!uniqueMap.has(key)) {
+      uniqueMap.set(key, row);
+    }
+  });
+
+  const deduped = Array.from(uniqueMap.values());
+
+  if (orderColumn) {
+    deduped.sort((a, b) => {
+      const aTime = new Date(a?.[orderColumn] || a?.date || 0).getTime();
+      const bTime = new Date(b?.[orderColumn] || b?.date || 0).getTime();
+      return ascending ? aTime - bTime : bTime - aTime;
+    });
+  }
+
+  return deduped;
+};
+
 export default function Expenses() {
   const { user } = useUserRole();
 
@@ -232,7 +313,7 @@ export default function Expenses() {
   const [customStartDate, setCustomStartDate] = useState("");
   const [customEndDate, setCustomEndDate] = useState("");
 
-  const loadData = () => {
+  const loadData = useCallback(async () => {
     if (!user?.email && !user?.id) {
       setExpenses([]);
       setWallets([]);
@@ -240,48 +321,75 @@ export default function Expenses() {
       return;
     }
 
-    const allExpenses = safeRead(EXPENSES_KEY);
-    const allWallets = safeRead(WALLETS_KEY);
-    const allTransactions = safeRead(TXN_KEY);
-    const allTransfers = safeRead(TRANSFER_KEY);
+    try {
+      setLoading(true);
 
-    const userWallets = allWallets
-      .filter((wallet) => isOwnedByUser(wallet, user))
-      .map((wallet) => normalizeWallet(wallet, user, allTransactions, allTransfers));
+      const [allExpenses, allWallets, allTransactions, allTransfers] = await Promise.all([
+        fetchOwnedRows(EXPENSES_TABLE, user, "created_at", false),
+        fetchOwnedRows(WALLETS_TABLE, user, "created_at", false),
+        fetchOwnedRows(TXN_TABLE, user, "created_at", false),
+        fetchOwnedRows(TRANSFER_TABLE, user, "created_at", false),
+      ]);
 
-    const userExpenses = allExpenses
-      .filter((expense) => isOwnedByUser(expense, user))
-      .map((expense) => ({
-        ...expense,
-        id: String(expense.id),
-        wallet_id: expense.wallet_id ? String(expense.wallet_id) : "",
-        amount: Number(expense.amount) || 0,
-      }))
-      .sort(sortByDateDesc);
+      const userWallets = allWallets
+        .filter((wallet) => isOwnedByUser(wallet, user))
+        .map((wallet) => normalizeWallet(wallet, user, allTransactions, allTransfers))
+        .sort(sortByDateDesc);
 
-    setWallets(userWallets);
-    setExpenses(userExpenses);
-    setLoading(false);
-  };
+      const userExpenses = allExpenses
+        .filter((expense) => isOwnedByUser(expense, user))
+        .map((expense) => ({
+          ...expense,
+          id: String(expense.id),
+          wallet_id: expense.wallet_id ? String(expense.wallet_id) : "",
+          amount: Number(expense.amount) || 0,
+          date: expense?.date ? String(expense.date).slice(0, 10) : getToday(),
+        }))
+        .sort(sortByDateDesc);
+
+      setWallets(userWallets);
+      setExpenses(userExpenses);
+    } catch (err) {
+      console.error("Failed to load expenses data:", err);
+      setExpenses([]);
+      setWallets([]);
+    } finally {
+      setLoading(false);
+    }
+  }, [user]);
 
   useEffect(() => {
-    setLoading(true);
     loadData();
 
     const handleReload = () => loadData();
 
-    window.addEventListener("storage", handleReload);
     window.addEventListener("clara-wallets-updated", handleReload);
     window.addEventListener("clara-expenses-updated", handleReload);
     window.addEventListener("clara-budgets-updated", handleReload);
 
+    if (!user?.id && !user?.email) {
+      return () => {
+        window.removeEventListener("clara-wallets-updated", handleReload);
+        window.removeEventListener("clara-expenses-updated", handleReload);
+        window.removeEventListener("clara-budgets-updated", handleReload);
+      };
+    }
+
+    const channel = supabase
+      .channel(`expenses-realtime-${user?.id || user?.email || "guest"}`)
+      .on("postgres_changes", { event: "*", schema: "public", table: EXPENSES_TABLE }, handleReload)
+      .on("postgres_changes", { event: "*", schema: "public", table: WALLETS_TABLE }, handleReload)
+      .on("postgres_changes", { event: "*", schema: "public", table: TXN_TABLE }, handleReload)
+      .on("postgres_changes", { event: "*", schema: "public", table: TRANSFER_TABLE }, handleReload)
+      .subscribe();
+
     return () => {
-      window.removeEventListener("storage", handleReload);
       window.removeEventListener("clara-wallets-updated", handleReload);
       window.removeEventListener("clara-expenses-updated", handleReload);
       window.removeEventListener("clara-budgets-updated", handleReload);
+      supabase.removeChannel(channel);
     };
-  }, [user?.email, user?.id]);
+  }, [loadData, user?.id, user?.email]);
 
   const walletMap = useMemo(() => {
     const map = new Map();
@@ -299,9 +407,7 @@ export default function Expenses() {
     const now = new Date();
     const list = [...expenses];
 
-    if (filter === "recent") {
-      return showAllRecent ? list : list.slice(0, 5);
-    }
+    if (filter === "recent") return showAllRecent ? list : list.slice(0, 5);
 
     if (filter === "this_month") {
       const start = new Date(now.getFullYear(), now.getMonth(), 1);
@@ -359,7 +465,6 @@ export default function Expenses() {
       return list.filter((expense) => {
         const expenseDate = getExpenseDateObject(expense);
         if (!expenseDate) return false;
-
         if (start && end) return expenseDate >= start && expenseDate <= end;
         if (start) return expenseDate >= start;
         if (end) return expenseDate <= end;
@@ -417,9 +522,7 @@ export default function Expenses() {
 
   const handleFilterChange = (value) => {
     setFilter(value);
-    if (value !== "recent") {
-      setShowAllRecent(true);
-    }
+    if (value !== "recent") setShowAllRecent(true);
   };
 
   const openAdd = () => {
@@ -427,7 +530,7 @@ export default function Expenses() {
     setError("");
     setForm({
       ...EMPTY_FORM,
-      wallet_id: wallets[0]?.id || "",
+      wallet_id: wallets[0]?.id ? String(wallets[0].id) : "",
       date: getToday(),
     });
     setOpen(true);
@@ -440,7 +543,7 @@ export default function Expenses() {
       amount: String(exp.amount ?? ""),
       category: exp.category || "food",
       wallet_id: exp.wallet_id ? String(exp.wallet_id) : "",
-      date: exp.date || getToday(),
+      date: exp.date ? String(exp.date).slice(0, 10) : getToday(),
       notes: exp.notes || "",
       need_type: exp.need_type || "need",
     });
@@ -475,7 +578,7 @@ export default function Expenses() {
     });
   };
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     setError("");
 
     if (!user?.email && !user?.id) {
@@ -495,86 +598,102 @@ export default function Expenses() {
       return;
     }
 
-    const allExpenses = safeRead(EXPENSES_KEY);
-    const allTransactions = safeRead(TXN_KEY);
+    try {
+      const [expensesRes, txnsRes] = await Promise.all([
+        fetchOwnedRows(EXPENSES_TABLE, user, "created_at", false),
+        fetchOwnedRows(TXN_TABLE, user, "created_at", false),
+      ]);
 
-    const targetWallet = walletMap.get(String(form.wallet_id));
-    if (!targetWallet) {
-      setError("Selected wallet not found.");
-      return;
-    }
+      const allExpenses = expensesRes;
+      const allTransactions = txnsRes;
 
-    let availableBalance = Number(targetWallet.balance || 0);
-
-    if (editId) {
-      const oldExpense = allExpenses.find((e) => String(e.id) === String(editId));
-      if (!oldExpense) {
-        setError("Expense not found.");
+      const targetWallet = walletMap.get(String(form.wallet_id));
+      if (!targetWallet) {
+        setError("Selected wallet not found.");
         return;
       }
 
-      if (String(oldExpense.wallet_id) === String(form.wallet_id)) {
-        availableBalance += Number(oldExpense.amount || 0);
+      let availableBalance = Number(targetWallet.balance || 0);
+
+      if (editId) {
+        const oldExpense = allExpenses.find((e) => String(e.id) === String(editId));
+        if (!oldExpense) {
+          setError("Expense not found.");
+          return;
+        }
+
+        if (String(oldExpense.wallet_id) === String(form.wallet_id)) {
+          availableBalance += Number(oldExpense.amount || 0);
+        }
       }
-    }
 
-    if (parsedAmount > availableBalance) {
-      setError("Not enough wallet balance for this expense.");
-      return;
-    }
-
-    if (editId) {
-      const oldExpense = allExpenses.find((e) => String(e.id) === String(editId));
-      if (!oldExpense) {
-        setError("Expense not found.");
+      if (parsedAmount > availableBalance) {
+        setError("Not enough wallet balance for this expense.");
         return;
       }
 
-      const originalCreatedAt =
-        oldExpense.created_at ||
-        (oldExpense.date ? new Date(`${oldExpense.date}T12:00:00`).toISOString() : new Date().toISOString());
+      if (editId) {
+        const oldExpense = allExpenses.find((e) => String(e.id) === String(editId));
+        if (!oldExpense) {
+          setError("Expense not found.");
+          return;
+        }
 
-      const updatedExpense = {
-        ...oldExpense,
-        ...form,
-        id: oldExpense.id,
-        amount: parsedAmount,
-        wallet_id: String(form.wallet_id),
-        created_by: oldExpense.created_by ?? user.email ?? "",
-        user_id: oldExpense.user_id ?? user.id ?? "",
-        created_at: originalCreatedAt,
-        updated_at: new Date().toISOString(),
-      };
+        const originalCreatedAt =
+          oldExpense.created_at ||
+          (oldExpense.date
+            ? new Date(`${String(oldExpense.date).slice(0, 10)}T12:00:00`).toISOString()
+            : new Date().toISOString());
 
-      const updatedExpenses = allExpenses.map((e) =>
-        String(e.id) === String(editId) ? updatedExpense : e
-      );
+        const updatedExpense = {
+          ...oldExpense,
+          amount: parsedAmount,
+          category: form.category,
+          wallet_id: String(form.wallet_id),
+          date: form.date || getToday(),
+          notes: form.notes || "",
+          need_type: form.need_type,
+          created_by: oldExpense.created_by ?? user.email ?? "",
+          user_email: oldExpense.user_email ?? user.email ?? "",
+          user_id: oldExpense.user_id ?? user.id ?? "",
+          created_at: originalCreatedAt,
+          updated_at: new Date().toISOString(),
+        };
 
-      const oldTxn = findMatchingExpenseTxn(oldExpense, allTransactions);
+        const { error: expenseUpdateError } = await supabase
+          .from(EXPENSES_TABLE)
+          .update(updatedExpense)
+          .eq("id", oldExpense.id);
 
-      let updatedTransactions = allTransactions;
-      if (oldTxn) {
-        updatedTransactions = allTransactions.map((t) =>
-          String(t.id) === String(oldTxn.id)
-            ? {
-                ...t,
-                wallet_id: String(form.wallet_id),
-                amount: parsedAmount,
-                category: form.category,
-                need_type: form.need_type,
-                notes: form.notes || "",
-                created_at: form.date
-                  ? new Date(`${form.date}T12:00:00`).toISOString()
-                  : t.created_at,
-                created_by: t.created_by ?? user.email ?? "",
-                user_id: t.user_id ?? user.id ?? "",
-                updated_at: new Date().toISOString(),
-              }
-            : t
-        );
-      } else {
-        updatedTransactions = [
-          {
+        if (expenseUpdateError) throw expenseUpdateError;
+
+        const oldTxn = findMatchingExpenseTxn(oldExpense, allTransactions);
+
+        if (oldTxn) {
+          const updatedTxn = {
+            ...oldTxn,
+            wallet_id: String(form.wallet_id),
+            amount: parsedAmount,
+            category: form.category,
+            need_type: form.need_type,
+            notes: form.notes || "",
+            created_at: form.date
+              ? new Date(`${form.date}T12:00:00`).toISOString()
+              : oldTxn.created_at,
+            updated_at: new Date().toISOString(),
+            created_by: oldTxn.created_by ?? user.email ?? "",
+            user_email: oldTxn.user_email ?? user.email ?? "",
+            user_id: oldTxn.user_id ?? user.id ?? "",
+          };
+
+          const { error: txnUpdateError } = await supabase
+            .from(TXN_TABLE)
+            .update(updatedTxn)
+            .eq("id", oldTxn.id);
+
+          if (txnUpdateError) throw txnUpdateError;
+        } else {
+          const newTxn = {
             id: generateId(),
             wallet_id: String(form.wallet_id),
             amount: parsedAmount,
@@ -587,72 +706,101 @@ export default function Expenses() {
               : new Date().toISOString(),
             updated_at: new Date().toISOString(),
             created_by: user.email ?? "",
+            user_email: user.email ?? "",
             user_id: user.id ?? "",
-          },
-          ...allTransactions,
-        ];
+          };
+
+          const { error: txnInsertError } = await supabase.from(TXN_TABLE).insert([newTxn]);
+          if (txnInsertError) throw txnInsertError;
+        }
+      } else {
+        const createdAt = form.date
+          ? new Date(`${form.date}T12:00:00`).toISOString()
+          : new Date().toISOString();
+
+        const newExpense = {
+          id: generateId(),
+          amount: parsedAmount,
+          category: form.category,
+          wallet_id: String(form.wallet_id),
+          date: form.date || getToday(),
+          notes: form.notes || "",
+          need_type: form.need_type,
+          created_by: user.email ?? "",
+          user_email: user.email ?? "",
+          user_id: user.id ?? "",
+          created_at: createdAt,
+          updated_at: createdAt,
+        };
+
+        const newTxn = {
+          id: generateId(),
+          wallet_id: String(form.wallet_id),
+          amount: parsedAmount,
+          type: "expense",
+          category: form.category,
+          need_type: form.need_type,
+          notes: form.notes || "",
+          created_at: createdAt,
+          updated_at: createdAt,
+          created_by: user.email ?? "",
+          user_email: user.email ?? "",
+          user_id: user.id ?? "",
+        };
+
+        const { error: expenseInsertError } = await supabase.from(EXPENSES_TABLE).insert([newExpense]);
+        if (expenseInsertError) throw expenseInsertError;
+
+        const { error: txnInsertError } = await supabase.from(TXN_TABLE).insert([newTxn]);
+        if (txnInsertError) throw txnInsertError;
       }
 
-      safeWrite(EXPENSES_KEY, updatedExpenses);
-      safeWrite(TXN_KEY, updatedTransactions);
-    } else {
-      const createdAt = form.date
-        ? new Date(`${form.date}T12:00:00`).toISOString()
-        : new Date().toISOString();
-
-      const newExpense = {
-        id: generateId(),
-        ...form,
-        amount: parsedAmount,
-        wallet_id: String(form.wallet_id),
-        created_by: user.email ?? "",
-        user_id: user.id ?? "",
-        created_at: createdAt,
-        updated_at: createdAt,
-      };
-
-      const newTxn = {
-        id: generateId(),
-        wallet_id: String(form.wallet_id),
-        amount: parsedAmount,
-        type: "expense",
-        category: form.category,
-        need_type: form.need_type,
-        notes: form.notes || "",
-        created_at: createdAt,
-        updated_at: createdAt,
-        created_by: user.email ?? "",
-        user_id: user.id ?? "",
-      };
-
-      safeWrite(EXPENSES_KEY, [newExpense, ...allExpenses]);
-      safeWrite(TXN_KEY, [newTxn, ...allTransactions]);
+      emitSync();
+      closeModal();
+      await loadData();
+    } catch (err) {
+      console.error("Failed to save expense:", err);
+      setError(err?.message || "Failed to save expense.");
     }
-
-    emitSync();
-    closeModal();
-    loadData();
   };
 
-  const handleDelete = (id) => {
-    const allExpenses = safeRead(EXPENSES_KEY);
-    const allTransactions = safeRead(TXN_KEY);
+  const handleDelete = async (id) => {
+    try {
+      const [expensesRes, txnsRes] = await Promise.all([
+        fetchOwnedRows(EXPENSES_TABLE, user, "created_at", false),
+        fetchOwnedRows(TXN_TABLE, user, "created_at", false),
+      ]);
 
-    const expenseToDelete = allExpenses.find((e) => String(e.id) === String(id));
-    if (!expenseToDelete) return;
+      const allExpenses = expensesRes;
+      const allTransactions = txnsRes;
 
-    const updatedExpenses = allExpenses.filter((e) => String(e.id) !== String(id));
-    const matchingTxn = findMatchingExpenseTxn(expenseToDelete, allTransactions);
+      const expenseToDelete = allExpenses.find((e) => String(e.id) === String(id));
+      if (!expenseToDelete) return;
 
-    const updatedTransactions = matchingTxn
-      ? allTransactions.filter((t) => String(t.id) !== String(matchingTxn.id))
-      : allTransactions;
+      const matchingTxn = findMatchingExpenseTxn(expenseToDelete, allTransactions);
 
-    safeWrite(EXPENSES_KEY, updatedExpenses);
-    safeWrite(TXN_KEY, updatedTransactions);
+      const { error: expenseDeleteError } = await supabase
+        .from(EXPENSES_TABLE)
+        .delete()
+        .eq("id", expenseToDelete.id);
 
-    emitSync();
-    loadData();
+      if (expenseDeleteError) throw expenseDeleteError;
+
+      if (matchingTxn) {
+        const { error: txnDeleteError } = await supabase
+          .from(TXN_TABLE)
+          .delete()
+          .eq("id", matchingTxn.id);
+
+        if (txnDeleteError) throw txnDeleteError;
+      }
+
+      emitSync();
+      await loadData();
+    } catch (err) {
+      console.error("Failed to delete expense:", err);
+      setError(err?.message || "Failed to delete expense.");
+    }
   };
 
   const fmt = (n) =>
@@ -773,9 +921,7 @@ export default function Expenses() {
               </Select>
 
               {wallets.length === 0 && (
-                <p className="text-xs text-destructive mt-1">
-                  Create a wallet first
-                </p>
+                <p className="text-xs text-destructive mt-1">Create a wallet first</p>
               )}
 
               {!!selectedWallet && (
@@ -821,11 +967,7 @@ export default function Expenses() {
       </Dialog>
 
       {expenses.length > 0 && (
-        <div
-          className="mb-5 rounded-3xl border border-border/50
-          bg-gradient-to-br from-card to-card/60
-          backdrop-blur-md p-4 md:p-5 space-y-4 shadow-sm"
-        >
+        <div className="mb-5 rounded-3xl border border-border/50 bg-gradient-to-br from-card to-card/60 backdrop-blur-md p-4 md:p-5 space-y-4 shadow-sm">
           <div className="flex flex-col md:flex-row md:items-end gap-3">
             <div className="flex-1">
               <Label className="mb-2 block">Timeframe</Label>
@@ -872,11 +1014,7 @@ export default function Expenses() {
 
           <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-2 text-sm">
             <div className="text-muted-foreground">
-              Showing{" "}
-              <span className="font-semibold text-foreground">
-                {filteredExpenses.length}
-              </span>{" "}
-              • {filterLabel}
+              Showing <span className="font-semibold text-foreground">{filteredExpenses.length}</span> • {filterLabel}
             </div>
 
             <div className="font-bold text-lg">
@@ -939,9 +1077,7 @@ export default function Expenses() {
                   <div
                     key={exp.id}
                     className={`group flex items-center gap-4 px-4 py-4 transition-all duration-200 hover:bg-muted/20 ${
-                      index !== group.items.length - 1
-                        ? "border-b border-border/40"
-                        : ""
+                      index !== group.items.length - 1 ? "border-b border-border/40" : ""
                     }`}
                   >
                     <div className="w-11 h-11 rounded-2xl bg-destructive/10 flex items-center justify-center flex-shrink-0">

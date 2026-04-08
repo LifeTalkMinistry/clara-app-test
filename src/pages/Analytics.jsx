@@ -90,7 +90,7 @@ function safeDate(value) {
 }
 
 function filterByRange(items, start, end, customDateGetter) {
-  return items.filter((item) => {
+  return (items || []).filter((item) => {
     const rawValue = customDateGetter ? customDateGetter(item) : item?.date;
     const parsed = safeDate(rawValue);
     if (!parsed) return false;
@@ -100,6 +100,12 @@ function filterByRange(items, start, end, customDateGetter) {
 }
 
 function toNumber(value) {
+  if (typeof value === "number") return Number.isFinite(value) ? value : 0;
+  if (typeof value === "string") {
+    const cleaned = value.replace(/[₱,\s]/g, "");
+    const num = Number(cleaned);
+    return Number.isFinite(num) ? num : 0;
+  }
   const num = Number(value);
   return Number.isFinite(num) ? num : 0;
 }
@@ -130,6 +136,14 @@ function getExpenseCategory(expense) {
 
 function getWalletKey(item) {
   return String(item?.wallet_id || item?.walletId || item?.wallet || "");
+}
+
+function getItemDate(item) {
+  return item?.date || item?.created_at || item?.timestamp || null;
+}
+
+function getWalletTransactionType(item) {
+  return normalizeText(item?.type || item?.transaction_type || item?.kind);
 }
 
 export default function Analytics() {
@@ -165,12 +179,12 @@ export default function Analytics() {
   );
 
   const filteredExpenses = useMemo(
-    () => filterByRange(data.expenses || [], start, end, (item) => item?.date),
+    () => filterByRange(data.expenses || [], start, end, (item) => getItemDate(item)),
     [data.expenses, start, end]
   );
 
   const filteredIncomes = useMemo(
-    () => filterByRange(data.incomes || [], start, end, (item) => item?.date),
+    () => filterByRange(data.incomes || [], start, end, (item) => getItemDate(item)),
     [data.incomes, start, end]
   );
 
@@ -180,38 +194,63 @@ export default function Analytics() {
         data.walletTransactions || [],
         start,
         end,
-        (item) => item?.date
+        (item) => getItemDate(item)
       ),
     [data.walletTransactions, start, end]
   );
 
-  const totalIncome = filteredIncomes.reduce(
-    (sum, item) => sum + toNumber(item.amount),
-    0
+  const filteredTransfers = useMemo(
+    () =>
+      filterByRange(
+        data.transfers || [],
+        start,
+        end,
+        (item) => getItemDate(item)
+      ),
+    [data.transfers, start, end]
   );
 
-  const totalExpenses = filteredExpenses.reduce(
-    (sum, item) => sum + toNumber(item.amount),
-    0
+  const totalIncome = useMemo(
+    () =>
+      filteredIncomes.reduce((sum, item) => sum + toNumber(item?.amount), 0),
+    [filteredIncomes]
   );
 
-  const needsSpent = filteredExpenses
-    .filter((e) => getExpenseNeedType(e) === "need")
-    .reduce((sum, e) => sum + toNumber(e.amount), 0);
+  const totalExpenses = useMemo(
+    () =>
+      filteredExpenses.reduce((sum, item) => sum + toNumber(item?.amount), 0),
+    [filteredExpenses]
+  );
 
-  const wantsSpent = filteredExpenses
-    .filter((e) => getExpenseNeedType(e) === "want")
-    .reduce((sum, e) => sum + toNumber(e.amount), 0);
+  const needsSpent = useMemo(
+    () =>
+      filteredExpenses
+        .filter((e) => getExpenseNeedType(e) === "need")
+        .reduce((sum, e) => sum + toNumber(e?.amount), 0),
+    [filteredExpenses]
+  );
 
-  const savingsSpent = filteredExpenses
-    .filter((e) => getExpenseNeedType(e) === "savings")
-    .reduce((sum, e) => sum + toNumber(e.amount), 0);
+  const wantsSpent = useMemo(
+    () =>
+      filteredExpenses
+        .filter((e) => getExpenseNeedType(e) === "want")
+        .reduce((sum, e) => sum + toNumber(e?.amount), 0),
+    [filteredExpenses]
+  );
+
+  const savingsSpent = useMemo(
+    () =>
+      filteredExpenses
+        .filter((e) => getExpenseNeedType(e) === "savings")
+        .reduce((sum, e) => sum + toNumber(e?.amount), 0),
+    [filteredExpenses]
+  );
 
   const monthlyData = useMemo(() => {
     const map = {};
 
     filteredIncomes.forEach((item) => {
-      const date = safeDate(item?.date);
+      const date = safeDate(getItemDate(item));
       if (!date) return;
 
       const month = format(date, "yyyy-MM");
@@ -219,11 +258,11 @@ export default function Analytics() {
         map[month] = { month, income: 0, expenses: 0 };
       }
 
-      map[month].income += toNumber(item.amount);
+      map[month].income += toNumber(item?.amount);
     });
 
     filteredExpenses.forEach((item) => {
-      const date = safeDate(item?.date);
+      const date = safeDate(getItemDate(item));
       if (!date) return;
 
       const month = format(date, "yyyy-MM");
@@ -231,7 +270,7 @@ export default function Analytics() {
         map[month] = { month, income: 0, expenses: 0 };
       }
 
-      map[month].expenses += toNumber(item.amount);
+      map[month].expenses += toNumber(item?.amount);
     });
 
     return Object.values(map).sort((a, b) => a.month.localeCompare(b.month));
@@ -243,7 +282,7 @@ export default function Analytics() {
     filteredExpenses.forEach((item) => {
       const key = getExpenseCategory(item);
       if (!map[key]) map[key] = 0;
-      map[key] += toNumber(item.amount);
+      map[key] += toNumber(item?.amount);
     });
 
     return Object.entries(map)
@@ -263,12 +302,12 @@ export default function Analytics() {
     const category = getExpenseCategory(item);
 
     categoryTotals[category] =
-      (categoryTotals[category] || 0) + toNumber(item.amount);
+      (categoryTotals[category] || 0) + toNumber(item?.amount);
     categoryCount[category] = (categoryCount[category] || 0) + 1;
 
     if (
       !largestExpense ||
-      toNumber(item.amount) > toNumber(largestExpense.amount)
+      toNumber(item?.amount) > toNumber(largestExpense?.amount)
     ) {
       largestExpense = item;
     }
@@ -280,44 +319,66 @@ export default function Analytics() {
   const walletAnalytics = useMemo(() => {
     return (data.wallets || []).map((wallet) => {
       const walletId = String(wallet?.id || "");
+
       const walletIncome = filteredIncomes
         .filter((item) => getWalletKey(item) === walletId)
-        .reduce((sum, item) => sum + toNumber(item.amount), 0);
+        .reduce((sum, item) => sum + toNumber(item?.amount), 0);
 
       const walletExpense = filteredExpenses
         .filter((item) => getWalletKey(item) === walletId)
-        .reduce((sum, item) => sum + toNumber(item.amount), 0);
+        .reduce((sum, item) => sum + toNumber(item?.amount), 0);
 
       const walletSavingsTransferOut = filteredWalletTransactions
-        .filter(
-          (item) => String(item?.wallet_id || "") === walletId && item?.type === "savings_transfer"
-        )
-        .reduce((sum, item) => sum + toNumber(item.amount), 0);
+        .filter((item) => {
+          const type = getWalletTransactionType(item);
+          return (
+            String(item?.wallet_id || "") === walletId &&
+            (type === "savings_transfer" || type === "savings")
+          );
+        })
+        .reduce((sum, item) => sum + toNumber(item?.amount), 0);
 
-      const walletTransfers = filteredWalletTransactions.filter(
-        (item) =>
-          String(item?.wallet_id || "") === walletId && item?.type === "transfer"
-      );
+      const walletTransferOut = filteredTransfers
+        .filter(
+          (item) =>
+            String(item?.wallet_id || "") === walletId &&
+            normalizeText(item?.type) === "transfer_out"
+        )
+        .reduce((sum, item) => sum + toNumber(item?.amount), 0);
+
+      const walletTransferIn = filteredTransfers
+        .filter(
+          (item) =>
+            String(item?.wallet_id || "") === walletId &&
+            normalizeText(item?.type) === "transfer_in"
+        )
+        .reduce((sum, item) => sum + toNumber(item?.amount), 0);
 
       const txCount =
         filteredExpenses.filter((item) => getWalletKey(item) === walletId).length +
         filteredIncomes.filter((item) => getWalletKey(item) === walletId).length +
-        walletTransfers.length +
         filteredWalletTransactions.filter(
-          (item) =>
-            String(item?.wallet_id || "") === walletId &&
-            item?.type === "savings_transfer"
+          (item) => String(item?.wallet_id || "") === walletId
+        ).length +
+        filteredTransfers.filter(
+          (item) => String(item?.wallet_id || "") === walletId
         ).length;
 
       return {
         ...wallet,
-        received: walletIncome,
-        spent: walletExpense,
+        received: walletIncome + walletTransferIn,
+        spent: walletExpense + walletTransferOut,
         savingsMoved: walletSavingsTransferOut,
         txCount,
       };
     });
-  }, [data.wallets, filteredExpenses, filteredIncomes, filteredWalletTransactions]);
+  }, [
+    data.wallets,
+    filteredExpenses,
+    filteredIncomes,
+    filteredWalletTransactions,
+    filteredTransfers,
+  ]);
 
   if (data.loading) {
     return (

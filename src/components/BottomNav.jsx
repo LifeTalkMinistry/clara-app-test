@@ -20,6 +20,7 @@ import {
   Plus,
 } from "lucide-react";
 import { Sheet, SheetContent } from "@/components/ui/sheet";
+import { supabase } from "@/lib/supabaseClient"; // ✅ ADD THIS
 
 const moreItems = [
   { path: "/wallets", label: "Wallets", icon: Wallet, tier: "free" },
@@ -49,17 +50,14 @@ export default function BottomNav({
     location.pathname
   );
 
-  const handleLogout = () => {
+  const handleLogout = async () => {
     if (typeof onLogout === "function") {
       onLogout();
       return;
     }
 
-    // fallback logout for non-Base44 setup
-    localStorage.removeItem("token");
-    localStorage.removeItem("authToken");
-    localStorage.removeItem("user");
-    localStorage.removeItem("clara_user");
+    // ✅ Supabase logout
+    await supabase.auth.signOut();
 
     window.location.href = "/login";
   };
