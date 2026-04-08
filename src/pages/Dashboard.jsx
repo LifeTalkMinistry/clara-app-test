@@ -54,9 +54,6 @@ export default function Dashboard() {
   const [expenses, setExpenses] = useState([]);
   const [loading, setLoading] = useState(true);
 
-  const [wallpaper, setWallpaper] = useState("");
-  const [wallpaperOpacity, setWallpaperOpacity] = useState(0.3);
-
   const loadWalletBalance = useCallback(async () => {
     if (!user?.id && !user?.email) {
       setWalletMoney(0);
@@ -195,20 +192,6 @@ export default function Dashboard() {
   }, [loadDashboardData]);
 
   useEffect(() => {
-    const savedWallpaper = localStorage.getItem("clara_wallpaper");
-    const savedOpacity = localStorage.getItem("clara_wallpaper_opacity");
-
-    if (savedWallpaper) setWallpaper(savedWallpaper);
-
-    if (savedOpacity) {
-      const num = Number(savedOpacity);
-      if (!Number.isNaN(num)) {
-        setWallpaperOpacity(Math.max(0, Math.min(num, 0.5)));
-      }
-    }
-  }, []);
-
-  useEffect(() => {
     if (!user?.id && !user?.email) return;
 
     const channel = supabase
@@ -249,27 +232,6 @@ export default function Dashboard() {
       supabase.removeChannel(channel);
     };
   }, [user?.id, user?.email, loadDashboardData]);
-
-  const handleWallpaperUpload = (e) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-
-    const reader = new FileReader();
-    reader.onload = () => {
-      const result = reader.result;
-      if (typeof result === "string") {
-        setWallpaper(result);
-        localStorage.setItem("clara_wallpaper", result);
-      }
-    };
-    reader.readAsDataURL(file);
-  };
-
-  const handleOpacityChange = (value) => {
-    const num = Math.max(0, Math.min(Number(value) || 0.3, 0.5));
-    setWallpaperOpacity(num);
-    localStorage.setItem("clara_wallpaper_opacity", String(num));
-  };
 
   const fmt = (n) =>
     new Intl.NumberFormat("en-PH", {
@@ -330,61 +292,29 @@ export default function Dashboard() {
         )}
 
         {!!user && (
-          <>
-            <div className="mb-3 rounded-2xl border border-white/10 bg-[#0F172A] p-3">
-              <p className="text-xs font-semibold text-white mb-2">
-                Emergency Fund Background
-              </p>
+          <EmergencyFundCard
+            moneyLeft={walletMoney}
+            survivalExpense={survivalExpense}
+            retentionRate={0}
+            onSurvivalSaved={async (val) => {
+              const nextValue = Number(val) || 0;
+              setSurvivalExpense(nextValue);
 
-              <input
-                type="file"
-                accept="image/*"
-                onChange={handleWallpaperUpload}
-                className="block w-full text-xs text-white/80 mb-3"
-              />
+              if (user?.id) {
+                const { error } = await supabase
+                  .from("profiles")
+                  .update({ monthly_survival_expense: nextValue })
+                  .eq("id", user.id);
 
-              <div>
-                <p className="text-[11px] text-white/60 mb-1">
-                  Background Opacity
-                </p>
-                <input
-                  type="range"
-                  min="0"
-                  max="0.5"
-                  step="0.05"
-                  value={wallpaperOpacity}
-                  onChange={(e) => handleOpacityChange(e.target.value)}
-                  className="w-full"
-                />
-              </div>
-            </div>
-
-            <EmergencyFundCard
-              moneyLeft={walletMoney}
-              survivalExpense={survivalExpense}
-              retentionRate={0}
-              wallpaperUrl={wallpaper}
-              wallpaperOpacity={wallpaperOpacity}
-              onSurvivalSaved={async (val) => {
-                const nextValue = Number(val) || 0;
-                setSurvivalExpense(nextValue);
-
-                if (user?.id) {
-                  const { error } = await supabase
-                    .from("profiles")
-                    .update({ monthly_survival_expense: nextValue })
-                    .eq("id", user.id);
-
-                  if (error) {
-                    console.error("Failed to save survival expense:", error);
-                  } else {
-                    refreshUser?.();
-                    loadDashboardData();
-                  }
+                if (error) {
+                  console.error("Failed to save survival expense:", error);
+                } else {
+                  refreshUser?.();
+                  loadDashboardData();
                 }
-              }}
-            />
-          </>
+              }
+            }}
+          />
         )}
 
         <div className="grid grid-cols-2 gap-3 mb-4">
