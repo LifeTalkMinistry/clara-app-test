@@ -20,6 +20,7 @@ import { Label } from "@/components/ui/label";
 import PageHeader from "../components/PageHeader";
 import EmptyState from "../components/EmptyState";
 import useUserRole from "../hooks/useUserRole";
+import useFinancialData from "../hooks/useFinancialData";
 
 const categories = [
   "food",
@@ -48,9 +49,7 @@ const EMPTY_FORM = {
 };
 
 const EXPENSES_TABLE = "expenses";
-const WALLETS_TABLE = "wallets";
 const TXN_TABLE = "wallet_transactions";
-const TRANSFER_TABLE = "transfers";
 
 const emitSync = () => {
   window.dispatchEvent(new Event("clara-wallets-updated"));
@@ -94,73 +93,6 @@ const isOwnedByUser = (item, user) => {
   if (currentUserId && possibleUserIds.includes(currentUserId)) return true;
 
   return false;
-};
-
-const normalizeWallet = (wallet, user, allTransactions = [], allTransfers = []) => {
-  const id = String(
-    wallet?.id ??
-      wallet?.wallet_id ??
-      wallet?.uuid ??
-      wallet?._id ??
-      `wallet-${Math.random().toString(36).slice(2)}`
-  );
-
-  const baseBalance = Number(
-    wallet?.balance ??
-      wallet?.current_balance ??
-      wallet?.wallet_balance ??
-      wallet?.starting_balance ??
-      wallet?.initial_balance ??
-      0
-  );
-
-  const hasComputedActivity =
-    Array.isArray(allTransactions) &&
-    allTransactions.some((t) => String(t.wallet_id) === id) ||
-    Array.isArray(allTransfers) &&
-    allTransfers.some((t) => String(t.wallet_id) === id);
-
-  const deposits = allTransactions
-    .filter((t) => String(t.wallet_id) === id && t.type === "deposit")
-    .reduce((sum, t) => sum + Number(t.amount || 0), 0);
-
-  const expenses = allTransactions
-    .filter((t) => String(t.wallet_id) === id && t.type === "expense")
-    .reduce((sum, t) => sum + Number(t.amount || 0), 0);
-
-  const transfersIn = allTransfers
-    .filter((t) => String(t.wallet_id) === id && t.type === "transfer_in")
-    .reduce((sum, t) => sum + Number(t.amount || 0), 0);
-
-  const transfersOut = allTransfers
-    .filter((t) => String(t.wallet_id) === id && t.type === "transfer_out")
-    .reduce((sum, t) => sum + Number(t.amount || 0), 0);
-
-  const computedBalance = Number(
-    wallet?.starting_balance ??
-      wallet?.initial_balance ??
-      0
-  ) + deposits + transfersIn - transfersOut - expenses;
-
-  return {
-    ...wallet,
-    id,
-    name: String(wallet?.name ?? wallet?.wallet_name ?? "Untitled Wallet"),
-    created_by:
-      wallet?.created_by ??
-      wallet?.user_email ??
-      wallet?.owner_email ??
-      wallet?.email ??
-      user?.email ??
-      "",
-    user_id:
-      wallet?.user_id ??
-      wallet?.owner_id ??
-      wallet?.profile_id ??
-      user?.id ??
-      "",
-    balance: hasComputedActivity ? computedBalance : baseBalance,
-  };
 };
 
 const sortByDateDesc = (a, b) => {
@@ -231,77 +163,67 @@ const getExpenseGroupLabel = (dateValue) => {
 const fetchOwnedRows = async (table, user, orderColumn = "created_at", ascending = false) => {
   if (!user?.id && !user?.email) return [];
 
-  let allRows = [];
-  let lastError = null;
+  let rows = [];
 
   if (user?.id) {
-    const query = supabase.from(table).select("*").eq("user_id", user.id);
-    const ordered = orderColumn ? query.order(orderColumn, { ascending }) : query;
-    const { data, error } = await ordered;
-    if (error) {
-      lastError = error;
-    } else if (Array.isArray(data) && data.length > 0) {
-      allRows = [...allRows, ...data];
-    }
+    const { data } = await supabase
+      .from(table)
+      .select("*")
+      .eq("user_id", user.id)
+      .order(orderColumn, { ascending });
+
+    if (Array.isArray(data) && data.length) rows = [...rows, ...data];
   }
 
   if (user?.email) {
     const emailColumns = ["user_email", "created_by", "owner_email", "email"];
 
     for (const column of emailColumns) {
-      const query = supabase.from(table).select("*").eq(column, user.email);
-      const ordered = orderColumn ? query.order(orderColumn, { ascending }) : query;
-      const { data, error } = await ordered;
+      const { data } = await supabase
+        .from(table)
+        .select("*")
+        .eq(column, user.email)
+        .order(orderColumn, { ascending });
 
-      if (error) {
-        lastError = error;
-        continue;
-      }
-
-      if (Array.isArray(data) && data.length > 0) {
-        allRows = [...allRows, ...data];
-      }
+      if (Array.isArray(data) && data.length) rows = [...rows, ...data];
     }
   }
 
-  if (allRows.length === 0 && lastError) {
-    throw lastError;
-  }
-
-  const uniqueMap = new Map();
-
-  allRows.forEach((row) => {
-    const key = String(
-      row?.id ??
-        row?.wallet_id ??
-        row?.uuid ??
-        row?._id ??
-        `${table}-${Math.random().toString(36).slice(2)}`
-    );
-    if (!uniqueMap.has(key)) {
-      uniqueMap.set(key, row);
-    }
+  const dedupedMap = new Map();
+  rows.forEach((row) => {
+    const key = String(row?.id ?? `${table}-${Math.random().toString(36).slice(2)}`);
+    if (!dedupedMap.has(key)) dedupedMap.set(key, row);
   });
 
-  const deduped = Array.from(uniqueMap.values());
+  return Array.from(dedupedMap.values()).sort(sortByDateDesc);
+};
 
-  if (orderColumn) {
-    deduped.sort((a, b) => {
-      const aTime = new Date(a?.[orderColumn] || a?.date || 0).getTime();
-      const bTime = new Date(b?.[orderColumn] || b?.date || 0).getTime();
-      return ascending ? aTime - bTime : bTime - aTime;
-    });
-  }
-
-  return deduped;
+const normalizeWallets = (wallets) => {
+  return (wallets || []).map((wallet) => ({
+    ...wallet,
+    id: String(wallet.id),
+    balance: Number(
+      wallet?.balance ??
+        wallet?.current_balance ??
+        wallet?.wallet_balance ??
+        wallet?.starting_balance ??
+        0
+    ),
+    name: wallet?.name || wallet?.wallet_name || "Untitled Wallet",
+  }));
 };
 
 export default function Expenses() {
   const { user } = useUserRole();
+  const {
+    wallets: hookWallets,
+    refreshData,
+    loading: financeLoading,
+  } = useFinancialData(user);
 
   const [expenses, setExpenses] = useState([]);
-  const [wallets, setWallets] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [liveWallets, setLiveWallets] = useState([]);
 
   const [open, setOpen] = useState(false);
   const [editId, setEditId] = useState(null);
@@ -313,10 +235,30 @@ export default function Expenses() {
   const [customStartDate, setCustomStartDate] = useState("");
   const [customEndDate, setCustomEndDate] = useState("");
 
-  const loadData = useCallback(async () => {
+  const wallets = useMemo(() => {
+    if (liveWallets.length > 0) return liveWallets;
+    return normalizeWallets(hookWallets);
+  }, [hookWallets, liveWallets]);
+
+  useEffect(() => {
+    setLiveWallets(normalizeWallets(hookWallets));
+  }, [hookWallets]);
+
+  const loadWalletsNow = useCallback(async () => {
+    await refreshData?.();
+
+    const freshWalletRows = await fetchOwnedRows("wallets", user, "created_at", false);
+    const normalized = normalizeWallets(
+      freshWalletRows.filter((wallet) => isOwnedByUser(wallet, user))
+    );
+
+    setLiveWallets(normalized);
+    return normalized;
+  }, [refreshData, user]);
+
+  const loadExpenses = useCallback(async () => {
     if (!user?.email && !user?.id) {
       setExpenses([]);
-      setWallets([]);
       setLoading(false);
       return;
     }
@@ -324,17 +266,7 @@ export default function Expenses() {
     try {
       setLoading(true);
 
-      const [allExpenses, allWallets, allTransactions, allTransfers] = await Promise.all([
-        fetchOwnedRows(EXPENSES_TABLE, user, "created_at", false),
-        fetchOwnedRows(WALLETS_TABLE, user, "created_at", false),
-        fetchOwnedRows(TXN_TABLE, user, "created_at", false),
-        fetchOwnedRows(TRANSFER_TABLE, user, "created_at", false),
-      ]);
-
-      const userWallets = allWallets
-        .filter((wallet) => isOwnedByUser(wallet, user))
-        .map((wallet) => normalizeWallet(wallet, user, allTransactions, allTransfers))
-        .sort(sortByDateDesc);
+      const allExpenses = await fetchOwnedRows(EXPENSES_TABLE, user, "created_at", false);
 
       const userExpenses = allExpenses
         .filter((expense) => isOwnedByUser(expense, user))
@@ -347,21 +279,22 @@ export default function Expenses() {
         }))
         .sort(sortByDateDesc);
 
-      setWallets(userWallets);
       setExpenses(userExpenses);
     } catch (err) {
       console.error("Failed to load expenses data:", err);
       setExpenses([]);
-      setWallets([]);
     } finally {
       setLoading(false);
     }
   }, [user]);
 
   useEffect(() => {
-    loadData();
+    loadExpenses();
 
-    const handleReload = () => loadData();
+    const handleReload = async () => {
+      await loadExpenses();
+      await loadWalletsNow();
+    };
 
     window.addEventListener("clara-wallets-updated", handleReload);
     window.addEventListener("clara-expenses-updated", handleReload);
@@ -378,9 +311,8 @@ export default function Expenses() {
     const channel = supabase
       .channel(`expenses-realtime-${user?.id || user?.email || "guest"}`)
       .on("postgres_changes", { event: "*", schema: "public", table: EXPENSES_TABLE }, handleReload)
-      .on("postgres_changes", { event: "*", schema: "public", table: WALLETS_TABLE }, handleReload)
+      .on("postgres_changes", { event: "*", schema: "public", table: "wallets" }, handleReload)
       .on("postgres_changes", { event: "*", schema: "public", table: TXN_TABLE }, handleReload)
-      .on("postgres_changes", { event: "*", schema: "public", table: TRANSFER_TABLE }, handleReload)
       .subscribe();
 
     return () => {
@@ -389,7 +321,7 @@ export default function Expenses() {
       window.removeEventListener("clara-budgets-updated", handleReload);
       supabase.removeChannel(channel);
     };
-  }, [loadData, user?.id, user?.email]);
+  }, [loadExpenses, loadWalletsNow, user?.id, user?.email]);
 
   const walletMap = useMemo(() => {
     const map = new Map();
@@ -525,20 +457,26 @@ export default function Expenses() {
     if (value !== "recent") setShowAllRecent(true);
   };
 
-  const openAdd = () => {
+  const openAdd = async () => {
     setEditId(null);
     setError("");
+
+    const latestWallets = await loadWalletsNow();
+
     setForm({
       ...EMPTY_FORM,
-      wallet_id: wallets[0]?.id ? String(wallets[0].id) : "",
+      wallet_id: latestWallets[0]?.id ? String(latestWallets[0].id) : "",
       date: getToday(),
     });
+
     setOpen(true);
   };
 
-  const openEdit = (exp) => {
-    setEditId(String(exp.id));
+  const openEdit = async (exp) => {
     setError("");
+    await loadWalletsNow();
+
+    setEditId(String(exp.id));
     setForm({
       amount: String(exp.amount ?? ""),
       category: exp.category || "food",
@@ -599,15 +537,15 @@ export default function Expenses() {
     }
 
     try {
-      const [expensesRes, txnsRes] = await Promise.all([
+      const [allExpenses, allTransactions] = await Promise.all([
         fetchOwnedRows(EXPENSES_TABLE, user, "created_at", false),
         fetchOwnedRows(TXN_TABLE, user, "created_at", false),
       ]);
 
-      const allExpenses = expensesRes;
-      const allTransactions = txnsRes;
+      const latestWallets = await loadWalletsNow();
+      const latestWalletMap = new Map(latestWallets.map((wallet) => [String(wallet.id), wallet]));
 
-      const targetWallet = walletMap.get(String(form.wallet_id));
+      const targetWallet = latestWalletMap.get(String(form.wallet_id));
       if (!targetWallet) {
         setError("Selected wallet not found.");
         return;
@@ -757,7 +695,8 @@ export default function Expenses() {
 
       emitSync();
       closeModal();
-      await loadData();
+      await loadExpenses();
+      await loadWalletsNow();
     } catch (err) {
       console.error("Failed to save expense:", err);
       setError(err?.message || "Failed to save expense.");
@@ -766,13 +705,10 @@ export default function Expenses() {
 
   const handleDelete = async (id) => {
     try {
-      const [expensesRes, txnsRes] = await Promise.all([
+      const [allExpenses, allTransactions] = await Promise.all([
         fetchOwnedRows(EXPENSES_TABLE, user, "created_at", false),
         fetchOwnedRows(TXN_TABLE, user, "created_at", false),
       ]);
-
-      const allExpenses = expensesRes;
-      const allTransactions = txnsRes;
 
       const expenseToDelete = allExpenses.find((e) => String(e.id) === String(id));
       if (!expenseToDelete) return;
@@ -796,7 +732,8 @@ export default function Expenses() {
       }
 
       emitSync();
-      await loadData();
+      await loadExpenses();
+      await loadWalletsNow();
     } catch (err) {
       console.error("Failed to delete expense:", err);
       setError(err?.message || "Failed to delete expense.");
@@ -818,7 +755,7 @@ export default function Expenses() {
     savings: "bg-accent/10 text-accent border border-accent/20",
   };
 
-  if (loading) {
+  if (loading || financeLoading) {
     return (
       <div className="flex items-center justify-center h-64">
         <div className="w-6 h-6 border-2 border-primary/20 border-t-primary rounded-full animate-spin" />
@@ -909,7 +846,7 @@ export default function Expenses() {
                 }}
               >
                 <SelectTrigger>
-                  <SelectValue placeholder="Select wallet" />
+                  <SelectValue placeholder={wallets.length > 0 ? "Select wallet" : "No wallets found"} />
                 </SelectTrigger>
                 <SelectContent>
                   {wallets.map((w) => (
