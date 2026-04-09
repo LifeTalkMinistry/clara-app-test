@@ -40,7 +40,175 @@ const EXPENSES_TABLE = "expenses";
 const WALLETS_TABLE = "wallets";
 const TXN_TABLE = "wallet_transactions";
 
-const getToday = () => new Date().toISOString().split("T")[0];
+const PH_TIME_ZONE = "Asia/Manila";
+const PH_OFFSET_MINUTES = 8 * 60;
+
+const pad = (n) => String(n).padStart(2, "0");
+
+const parseSupabaseDate = (value) => {
+  if (!value) return null;
+  if (value instanceof Date) {
+    return Number.isNaN(value.getTime()) ? null : value;
+  }
+
+  const raw = String(value).trim();
+  if (!raw) return null;
+
+  const hasTimezone = /(?:Z|[+-]\d{2}:\d{2})$/i.test(raw);
+  const normalized = hasTimezone ? raw : `${raw}Z`;
+
+  const parsed = new Date(normalized);
+  if (!Number.isNaN(parsed.getTime())) return parsed;
+
+  const fallback = new Date(raw);
+  return Number.isNaN(fallback.getTime()) ? null : fallback;
+};
+
+const getPHParts = (value = new Date()) => {
+  const date = parseSupabaseDate(value) || new Date();
+
+  const formatter = new Intl.DateTimeFormat("en-CA", {
+    timeZone: PH_TIME_ZONE,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+    hourCycle: "h23",
+  });
+
+  const parts = formatter.formatToParts(date);
+  const map = {};
+
+  for (const part of parts) {
+    if (part.type !== "literal") {
+      map[part.type] = part.value;
+    }
+  }
+
+  return {
+    year: Number(map.year),
+    month: Number(map.month),
+    day: Number(map.day),
+    hour: Number(map.hour),
+    minute: Number(map.minute),
+    second: Number(map.second),
+  };
+};
+
+const getPHDateString = (value = new Date()) => {
+  const { year, month, day } = getPHParts(value);
+  return `${year}-${pad(month)}-${pad(day)}`;
+};
+
+const phLocalPartsToUtcDate = ({
+  year,
+  month,
+  day,
+  hour = 0,
+  minute = 0,
+  second = 0,
+  millisecond = 0,
+}) => {
+  const utcMillis =
+    Date.UTC(year, month - 1, day, hour, minute, second, millisecond) -
+    PH_OFFSET_MINUTES * 60 * 1000;
+
+  return new Date(utcMillis);
+};
+
+const parsePHDateOnlyToUtcDate = (dateValue, endOfDay = false) => {
+  if (!dateValue) return null;
+
+  const [year, month, day] = String(dateValue).split("-").map(Number);
+  if (!year || !month || !day) return null;
+
+  return phLocalPartsToUtcDate({
+    year,
+    month,
+    day,
+    hour: endOfDay ? 23 : 0,
+    minute: endOfDay ? 59 : 0,
+    second: endOfDay ? 59 : 0,
+    millisecond: endOfDay ? 999 : 0,
+  });
+};
+
+const getToday = () => getPHDateString();
+
+const toDateOnly = (value) => {
+  if (!value) return "";
+  const d = parseSupabaseDate(value);
+  if (!d) return "";
+  return getPHDateString(d);
+};
+
+const toDateInputValue = (value) => {
+  if (!value) return getToday();
+
+  const d = parseSupabaseDate(value);
+  if (d) {
+    return getPHDateString(d);
+  }
+
+  const raw = String(value).slice(0, 10);
+  return raw || getToday();
+};
+
+const formatLocalDateTime = (value) => {
+  const d = parseSupabaseDate(value);
+  if (!d) return "";
+
+  return new Intl.DateTimeFormat("en-PH", {
+    timeZone: PH_TIME_ZONE,
+    year: "numeric",
+    month: "numeric",
+    day: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+    hour12: true,
+  }).format(d);
+};
+
+const buildCreatedAtFromDate = (dateValue, baseTimeValue = null) => {
+  const baseParts = baseTimeValue ? getPHParts(baseTimeValue) : getPHParts(new Date());
+
+  if (!dateValue) {
+    return phLocalPartsToUtcDate({
+      year: baseParts.year,
+      month: baseParts.month,
+      day: baseParts.day,
+      hour: baseParts.hour,
+      minute: baseParts.minute,
+      second: baseParts.second,
+      millisecond: 0,
+    }).toISOString();
+  }
+
+  const [year, month, day] = String(dateValue).split("-").map(Number);
+  if (!year || !month || !day) {
+    return phLocalPartsToUtcDate({
+      year: baseParts.year,
+      month: baseParts.month,
+      day: baseParts.day,
+      hour: baseParts.hour,
+      minute: baseParts.minute,
+      second: baseParts.second,
+      millisecond: 0,
+    }).toISOString();
+  }
+
+  return phLocalPartsToUtcDate({
+    year,
+    month,
+    day,
+    hour: baseParts.hour,
+    minute: baseParts.minute,
+    second: baseParts.second,
+    millisecond: 0,
+  }).toISOString();
+};
 
 const EMPTY_FORM = {
   amount: "",
@@ -101,67 +269,78 @@ const isOwnedByUser = (item, user) => {
 };
 
 const sortByDateDesc = (a, b) => {
-  const aTime = new Date(a?.created_at || a?.date || 0).getTime();
-  const bTime = new Date(b?.created_at || b?.date || 0).getTime();
+  const aTime = parseSupabaseDate(a?.created_at || a?.date || 0)?.getTime() ?? 0;
+  const bTime = parseSupabaseDate(b?.created_at || b?.date || 0)?.getTime() ?? 0;
   return bTime - aTime;
 };
 
-const startOfDay = (date) => {
-  const d = new Date(date);
-  d.setHours(0, 0, 0, 0);
-  return d;
-};
-
-const endOfDay = (date) => {
-  const d = new Date(date);
-  d.setHours(23, 59, 59, 999);
-  return d;
-};
-
-const isSameDay = (a, b) => {
-  return (
-    a.getFullYear() === b.getFullYear() &&
-    a.getMonth() === b.getMonth() &&
-    a.getDate() === b.getDate()
-  );
-};
-
-const getStartOfWeek = (date) => {
-  const d = new Date(date);
-  const day = d.getDay();
-  const diff = day === 0 ? -6 : 1 - day;
-  d.setDate(d.getDate() + diff);
-  d.setHours(0, 0, 0, 0);
-  return d;
-};
-
 const getExpenseDateObject = (expense) => {
-  const raw =
+  const exactRaw =
     expense?.created_at ||
-    (expense?.date ? `${String(expense.date).slice(0, 10)}T12:00:00` : null) ||
+    expense?.timestamp ||
+    expense?.datetime ||
     expense?.updated_at;
 
-  const d = new Date(raw);
-  return Number.isNaN(d.getTime()) ? null : d;
+  if (exactRaw) {
+    const exactDate = parseSupabaseDate(exactRaw);
+    if (exactDate) return exactDate;
+  }
+
+  if (expense?.date && /^\d{4}-\d{2}-\d{2}$/.test(String(expense.date))) {
+    return parsePHDateOnlyToUtcDate(String(expense.date), false);
+  }
+
+  return null;
 };
 
-const getExpenseGroupLabel = (dateValue) => {
-  const expenseDate = startOfDay(dateValue);
-  const now = new Date();
-  const today = startOfDay(now);
+const getExpensePHDateKey = (expense) => {
+  const d = getExpenseDateObject(expense);
+  if (!d) return "";
+  return getPHDateString(d);
+};
 
-  const yesterday = new Date(today);
-  yesterday.setDate(today.getDate() - 1);
+const getPHStartOfWeekDateString = (value = new Date()) => {
+  const parts = getPHParts(value);
+  const phTodayUtc = phLocalPartsToUtcDate({
+    year: parts.year,
+    month: parts.month,
+    day: parts.day,
+  });
 
-  const startOfWeek = getStartOfWeek(today);
+  const pseudoLocal = new Date(
+    phTodayUtc.getUTCFullYear(),
+    phTodayUtc.getUTCMonth(),
+    phTodayUtc.getUTCDate()
+  );
 
-  const startOfMonth = new Date(today.getFullYear(), today.getMonth(), 1);
-  startOfMonth.setHours(0, 0, 0, 0);
+  const day = pseudoLocal.getDay();
+  const diff = day === 0 ? -6 : 1 - day;
+  pseudoLocal.setDate(pseudoLocal.getDate() + diff);
 
-  if (isSameDay(expenseDate, today)) return "Today";
-  if (isSameDay(expenseDate, yesterday)) return "Yesterday";
-  if (expenseDate >= startOfWeek) return "This Week";
-  if (expenseDate >= startOfMonth) return "Earlier This Month";
+  return `${pseudoLocal.getFullYear()}-${pad(pseudoLocal.getMonth() + 1)}-${pad(
+    pseudoLocal.getDate()
+  )}`;
+};
+
+const getExpenseGroupLabel = (expense) => {
+  const expenseKey = getExpensePHDateKey(expense);
+  if (!expenseKey) return "Older";
+
+  const todayKey = getPHDateString();
+  const yesterdayDate = parsePHDateOnlyToUtcDate(todayKey, false);
+  const yesterday = new Date(yesterdayDate);
+  yesterday.setUTCDate(yesterday.getUTCDate() - 1);
+  const yesterdayKey = getPHDateString(yesterday);
+
+  const startOfWeekKey = getPHStartOfWeekDateString(new Date());
+
+  const nowParts = getPHParts(new Date());
+  const startOfMonthKey = `${nowParts.year}-${pad(nowParts.month)}-01`;
+
+  if (expenseKey === todayKey) return "Today";
+  if (expenseKey === yesterdayKey) return "Yesterday";
+  if (expenseKey >= startOfWeekKey) return "This Week";
+  if (expenseKey >= startOfMonthKey) return "Earlier This Month";
   return "Older";
 };
 
@@ -209,11 +388,7 @@ const fetchRowsForUser = async (table, user, orderColumn = "created_at", ascendi
         .eq(column, user.email)
         .order(orderColumn, { ascending });
 
-      if (error) {
-        // ignore columns that do not exist or do not match
-        continue;
-      }
-
+      if (error) continue;
       if (Array.isArray(data)) {
         allRows.push(...data);
       }
@@ -290,7 +465,7 @@ export default function Expenses() {
           id: String(expense.id),
           wallet_id: expense.wallet_id ? String(expense.wallet_id) : "",
           amount: normalizeNumber(expense.amount),
-          date: expense?.date ? String(expense.date).slice(0, 10) : getToday(),
+          date: toDateInputValue(expense?.date || expense?.created_at),
         }))
         .sort(sortByDateDesc);
 
@@ -347,20 +522,17 @@ export default function Expenses() {
     };
   }, [loadData, user?.id, user?.email]);
 
-  const updateWalletBalance = useCallback(
-    async (walletId, nextBalance) => {
-      const { error: walletError } = await supabase
-        .from(WALLETS_TABLE)
-        .update({
-          balance: normalizeNumber(nextBalance),
-          updated_at: new Date().toISOString(),
-        })
-        .eq("id", walletId);
+  const updateWalletBalance = useCallback(async (walletId, nextBalance) => {
+    const { error: walletError } = await supabase
+      .from(WALLETS_TABLE)
+      .update({
+        balance: normalizeNumber(nextBalance),
+        updated_at: new Date().toISOString(),
+      })
+      .eq("id", walletId);
 
-      if (walletError) throw walletError;
-    },
-    []
-  );
+    if (walletError) throw walletError;
+  }, []);
 
   const findMatchingExpenseTxn = useCallback(
     (expense) => {
@@ -369,10 +541,10 @@ export default function Expenses() {
         if (String(t.wallet_id) !== String(expense.wallet_id)) return false;
         if (normalizeNumber(t.amount) !== normalizeNumber(expense.amount)) return false;
 
-        const txnDate = String(t.created_at || "").slice(0, 10);
-        const expenseDate = String(expense.date || "").slice(0, 10);
-        if (txnDate !== expenseDate) return false;
+        const txnTime = parseSupabaseDate(t.created_at || 0)?.getTime() ?? 0;
+        const expenseTime = parseSupabaseDate(expense.created_at || expense.date || 0)?.getTime() ?? 0;
 
+        if (Math.abs(txnTime - expenseTime) > 60 * 1000) return false;
         if ((t.notes || "") !== (expense.notes || "")) return false;
         if ((t.category || "") !== (expense.category || "")) return false;
         if ((t.need_type || "") !== (expense.need_type || "")) return false;
@@ -406,7 +578,7 @@ export default function Expenses() {
       amount: String(exp.amount ?? ""),
       category: exp.category || "food",
       wallet_id: exp.wallet_id ? String(exp.wallet_id) : "",
-      date: exp.date ? String(exp.date).slice(0, 10) : getToday(),
+      date: toDateInputValue(exp.date || exp.created_at),
       notes: exp.notes || "",
       need_type: exp.need_type || "need",
     });
@@ -478,13 +650,19 @@ export default function Expenses() {
           return;
         }
 
+        const updatedCreatedAt = buildCreatedAtFromDate(
+          form.date,
+          oldExpense.created_at || new Date()
+        );
+
         const updatedExpense = {
           amount: parsedAmount,
           category: form.category,
           wallet_id: String(form.wallet_id),
-          date: form.date || getToday(),
+          date: form.date || toDateOnly(updatedCreatedAt),
           notes: form.notes || "",
           need_type: form.need_type,
+          created_at: updatedCreatedAt,
           updated_at: new Date().toISOString(),
         };
 
@@ -519,9 +697,7 @@ export default function Expenses() {
             category: form.category,
             need_type: form.need_type,
             notes: form.notes || "",
-            created_at: form.date
-              ? new Date(`${form.date}T12:00:00`).toISOString()
-              : oldTxn.created_at,
+            created_at: updatedCreatedAt,
             updated_at: new Date().toISOString(),
           };
 
@@ -540,9 +716,7 @@ export default function Expenses() {
             category: form.category,
             need_type: form.need_type,
             notes: form.notes || "",
-            created_at: form.date
-              ? new Date(`${form.date}T12:00:00`).toISOString()
-              : new Date().toISOString(),
+            created_at: updatedCreatedAt,
             updated_at: new Date().toISOString(),
             created_by: user.email ?? "",
             user_email: user.email ?? "",
@@ -561,16 +735,14 @@ export default function Expenses() {
           return;
         }
 
-        const createdAt = form.date
-          ? new Date(`${form.date}T12:00:00`).toISOString()
-          : new Date().toISOString();
+        const createdAt = buildCreatedAtFromDate(form.date);
 
         const newExpense = {
           id: generateId(),
           amount: parsedAmount,
           category: form.category,
           wallet_id: String(form.wallet_id),
-          date: form.date || getToday(),
+          date: form.date || toDateOnly(createdAt),
           notes: form.notes || "",
           need_type: form.need_type,
           created_by: user.email ?? "",
@@ -610,6 +782,9 @@ export default function Expenses() {
         const nextBalance = normalizeNumber(targetWallet.balance) - parsedAmount;
         await updateWalletBalance(targetWallet.id, nextBalance);
       }
+
+      window.dispatchEvent(new Event("clara-expenses-updated"));
+      window.dispatchEvent(new Event("clara-finance-updated"));
 
       await loadData();
       closeModal();
@@ -658,6 +833,10 @@ export default function Expenses() {
         normalizeNumber(wallet.balance) + normalizeNumber(expenseToDelete.amount);
 
       await updateWalletBalance(wallet.id, nextBalance);
+
+      window.dispatchEvent(new Event("clara-expenses-updated"));
+      window.dispatchEvent(new Event("clara-finance-updated"));
+
       await loadData();
     } catch (err) {
       console.error("Failed to delete expense:", err);
@@ -674,8 +853,17 @@ export default function Expenses() {
     if (filter === "recent") return showAllRecent ? list : list.slice(0, 5);
 
     if (filter === "this_month") {
-      const start = new Date(now.getFullYear(), now.getMonth(), 1);
-      const end = endOfDay(now);
+      const nowParts = getPHParts(now);
+      const start = phLocalPartsToUtcDate({
+        year: nowParts.year,
+        month: nowParts.month,
+        day: 1,
+        hour: 0,
+        minute: 0,
+        second: 0,
+      });
+      const end = now;
+
       return list.filter((expense) => {
         const expenseDate = getExpenseDateObject(expense);
         return expenseDate && expenseDate >= start && expenseDate <= end;
@@ -683,9 +871,28 @@ export default function Expenses() {
     }
 
     if (filter === "last_month") {
-      const start = new Date(now.getFullYear(), now.getMonth() - 1, 1);
-      const end = new Date(now.getFullYear(), now.getMonth(), 0);
-      end.setHours(23, 59, 59, 999);
+      const nowParts = getPHParts(now);
+      const lastMonth = nowParts.month === 1 ? 12 : nowParts.month - 1;
+      const lastMonthYear = nowParts.month === 1 ? nowParts.year - 1 : nowParts.year;
+      const start = phLocalPartsToUtcDate({
+        year: lastMonthYear,
+        month: lastMonth,
+        day: 1,
+        hour: 0,
+        minute: 0,
+        second: 0,
+      });
+
+      const currentMonthStart = phLocalPartsToUtcDate({
+        year: nowParts.year,
+        month: nowParts.month,
+        day: 1,
+        hour: 0,
+        minute: 0,
+        second: 0,
+      });
+
+      const end = new Date(currentMonthStart.getTime() - 1);
 
       return list.filter((expense) => {
         const expenseDate = getExpenseDateObject(expense);
@@ -694,8 +901,17 @@ export default function Expenses() {
     }
 
     if (filter === "3_months") {
-      const start = new Date(now.getFullYear(), now.getMonth() - 2, 1);
-      const end = endOfDay(now);
+      const nowParts = getPHParts(now);
+      const start = phLocalPartsToUtcDate({
+        year: nowParts.year,
+        month: nowParts.month - 2,
+        day: 1,
+        hour: 0,
+        minute: 0,
+        second: 0,
+      });
+      const end = now;
+
       return list.filter((expense) => {
         const expenseDate = getExpenseDateObject(expense);
         return expenseDate && expenseDate >= start && expenseDate <= end;
@@ -703,8 +919,17 @@ export default function Expenses() {
     }
 
     if (filter === "6_months") {
-      const start = new Date(now.getFullYear(), now.getMonth() - 5, 1);
-      const end = endOfDay(now);
+      const nowParts = getPHParts(now);
+      const start = phLocalPartsToUtcDate({
+        year: nowParts.year,
+        month: nowParts.month - 5,
+        day: 1,
+        hour: 0,
+        minute: 0,
+        second: 0,
+      });
+      const end = now;
+
       return list.filter((expense) => {
         const expenseDate = getExpenseDateObject(expense);
         return expenseDate && expenseDate >= start && expenseDate <= end;
@@ -712,8 +937,17 @@ export default function Expenses() {
     }
 
     if (filter === "this_year") {
-      const start = new Date(now.getFullYear(), 0, 1);
-      const end = endOfDay(now);
+      const nowParts = getPHParts(now);
+      const start = phLocalPartsToUtcDate({
+        year: nowParts.year,
+        month: 1,
+        day: 1,
+        hour: 0,
+        minute: 0,
+        second: 0,
+      });
+      const end = now;
+
       return list.filter((expense) => {
         const expenseDate = getExpenseDateObject(expense);
         return expenseDate && expenseDate >= start && expenseDate <= end;
@@ -723,8 +957,8 @@ export default function Expenses() {
     if (filter === "custom") {
       if (!customStartDate && !customEndDate) return list;
 
-      const start = customStartDate ? startOfDay(customStartDate) : null;
-      const end = customEndDate ? endOfDay(customEndDate) : null;
+      const start = customStartDate ? parsePHDateOnlyToUtcDate(customStartDate, false) : null;
+      const end = customEndDate ? parsePHDateOnlyToUtcDate(customEndDate, true) : null;
 
       return list.filter((expense) => {
         const expenseDate = getExpenseDateObject(expense);
@@ -769,8 +1003,7 @@ export default function Expenses() {
     const groups = {};
 
     filteredExpenses.forEach((expense) => {
-      const expenseDate = getExpenseDateObject(expense) || new Date();
-      const label = getExpenseGroupLabel(expenseDate);
+      const label = getExpenseGroupLabel(expense);
       if (!groups[label]) groups[label] = [];
       groups[label].push(expense);
     });
@@ -1075,7 +1308,9 @@ export default function Expenses() {
                           <div className="flex items-center gap-2 text-xs text-muted-foreground mt-1 flex-wrap">
                             <span>{walletName(exp.wallet_id)}</span>
                             <span>•</span>
-                            <span>{exp.date}</span>
+                            <span>
+                              {formatLocalDateTime(exp.created_at || exp.date || Date.now())}
+                            </span>
                             <span
                               className={`px-2 py-0.5 rounded-full text-[10px] font-semibold ${
                                 needTypeColors[exp.need_type] || ""

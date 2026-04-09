@@ -16,12 +16,150 @@ import EmptyState from "../components/EmptyState";
 import useUserRole from "../hooks/useUserRole";
 import { supabase } from "../lib/supabaseClient";
 
+const PH_TIME_ZONE = "Asia/Manila";
+const PH_OFFSET_MINUTES = 8 * 60;
+
 const toNumber = (value) => {
   const n = Number(value);
   return Number.isFinite(n) ? n : 0;
 };
 
 const normalizeText = (value) => String(value || "").trim().toLowerCase();
+
+const pad = (n) => String(n).padStart(2, "0");
+
+const getPHParts = (value = new Date()) => {
+  const date = value instanceof Date ? value : new Date(value);
+
+  const formatter = new Intl.DateTimeFormat("en-CA", {
+    timeZone: PH_TIME_ZONE,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+    hourCycle: "h23",
+  });
+
+  const parts = formatter.formatToParts(date);
+  const map = {};
+
+  for (const part of parts) {
+    if (part.type !== "literal") {
+      map[part.type] = part.value;
+    }
+  }
+
+  return {
+    year: Number(map.year),
+    month: Number(map.month),
+    day: Number(map.day),
+    hour: Number(map.hour),
+    minute: Number(map.minute),
+    second: Number(map.second),
+  };
+};
+
+const getPHMonthKey = (value = new Date()) => {
+  const { year, month } = getPHParts(value);
+  return `${year}-${pad(month)}`;
+};
+
+const phLocalPartsToUtcDate = ({
+  year,
+  month,
+  day,
+  hour = 0,
+  minute = 0,
+  second = 0,
+  millisecond = 0,
+}) => {
+  const utcMillis =
+    Date.UTC(year, month - 1, day, hour, minute, second, millisecond) -
+    PH_OFFSET_MINUTES * 60 * 1000;
+
+  return new Date(utcMillis);
+};
+
+const parsePHDateOnlyToUtcDate = (dateValue, endOfDay = false) => {
+  if (!dateValue) return null;
+
+  const [year, month, day] = String(dateValue).split("-").map(Number);
+  if (!year || !month || !day) return null;
+
+  return phLocalPartsToUtcDate({
+    year,
+    month,
+    day,
+    hour: endOfDay ? 23 : 0,
+    minute: endOfDay ? 59 : 0,
+    second: endOfDay ? 59 : 0,
+    millisecond: endOfDay ? 999 : 0,
+  });
+};
+
+const parsePHDateTimeLocalValue = (value) => {
+  if (!value) return null;
+
+  const [datePart, timePart = "00:00"] = String(value).split("T");
+  const [year, month, day] = String(datePart).split("-").map(Number);
+  const [hour = 0, minute = 0] = String(timePart).split(":").map(Number);
+
+  if (!year || !month || !day) return null;
+
+  const date = phLocalPartsToUtcDate({
+    year,
+    month,
+    day,
+    hour,
+    minute,
+    second: 0,
+    millisecond: 0,
+  });
+
+  return Number.isNaN(date.getTime()) ? null : date;
+};
+
+const toPHDateTimeLocalValue = (value) => {
+  if (!value) return "";
+
+  const d = value instanceof Date ? value : new Date(value);
+  if (Number.isNaN(d.getTime())) return "";
+
+  const { year, month, day, hour, minute } = getPHParts(d);
+  return `${year}-${pad(month)}-${pad(day)}T${pad(hour)}:${pad(minute)}`;
+};
+
+const monthKeyToRange = (monthKey) => {
+  const safeMonthKey = monthKey && monthKey.includes("-") ? monthKey : getPHMonthKey();
+  const [year, month] = safeMonthKey.split("-").map(Number);
+
+  const start = phLocalPartsToUtcDate({
+    year,
+    month,
+    day: 1,
+    hour: 0,
+    minute: 0,
+    second: 0,
+    millisecond: 0,
+  });
+
+  const end = phLocalPartsToUtcDate({
+    year,
+    month: month + 1,
+    day: 1,
+    hour: 0,
+    minute: 0,
+    second: 0,
+    millisecond: 0,
+  });
+
+  return {
+    start: start.toISOString(),
+    end: new Date(end.getTime() - 1).toISOString(),
+  };
+};
 
 const isOwnedByUser = (item, user) => {
   if (!item || !user) return false;
@@ -47,16 +185,30 @@ const isOwnedByUser = (item, user) => {
 };
 
 const getItemDate = (item) => {
-  const raw =
-    item?.date ||
-    item?.expense_date ||
+  const exactRaw =
     item?.created_at ||
     item?.timestamp ||
+    item?.datetime ||
     item?.transaction_date ||
-    item?.datetime;
+    item?.expense_date;
 
-  const d = raw ? new Date(raw) : null;
-  return d && !Number.isNaN(d.getTime()) ? d : null;
+  if (exactRaw) {
+    const exactDate = new Date(exactRaw);
+    if (!Number.isNaN(exactDate.getTime())) return exactDate;
+  }
+
+  const plainDate = item?.date;
+  if (plainDate && /^\d{4}-\d{2}-\d{2}$/.test(String(plainDate))) {
+    return parsePHDateOnlyToUtcDate(String(plainDate), false);
+  }
+
+  const fallbackRaw = item?.range_start || item?.range_end;
+  if (fallbackRaw) {
+    const fallbackDate = new Date(fallbackRaw);
+    if (!Number.isNaN(fallbackDate.getTime())) return fallbackDate;
+  }
+
+  return null;
 };
 
 const getExpenseAmount = (item) => {
@@ -82,60 +234,9 @@ const getExpenseType = (item) => {
       item?.expense_type ||
       item?.bucket ||
       item?.budget_type ||
-      item?.label
+      item?.label ||
+      item?.need_type
   );
-};
-
-const getMonthKey = (date) => {
-  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`;
-};
-
-const pad = (n) => String(n).padStart(2, "0");
-
-const toDateTimeLocalValue = (value) => {
-  const d = value ? new Date(value) : null;
-  if (!d || Number.isNaN(d.getTime())) return "";
-
-  const year = d.getFullYear();
-  const month = pad(d.getMonth() + 1);
-  const day = pad(d.getDate());
-  const hours = pad(d.getHours());
-  const minutes = pad(d.getMinutes());
-
-  return `${year}-${month}-${day}T${hours}:${minutes}`;
-};
-
-const startOfMonthLocal = (date) => {
-  const d = new Date(date);
-  d.setDate(1);
-  d.setHours(0, 0, 0, 0);
-  return d;
-};
-
-const endOfMonthLocal = (date) => {
-  const d = new Date(date);
-  d.setMonth(d.getMonth() + 1, 0);
-  d.setHours(23, 59, 59, 999);
-  return d;
-};
-
-const monthKeyToRange = (monthKey) => {
-  if (!monthKey || !monthKey.includes("-")) {
-    const now = new Date();
-    return {
-      start: startOfMonthLocal(now).toISOString(),
-      end: endOfMonthLocal(now).toISOString(),
-    };
-  }
-
-  const [year, month] = monthKey.split("-").map(Number);
-  const start = new Date(year, month - 1, 1, 0, 0, 0, 0);
-  const end = new Date(year, month, 0, 23, 59, 59, 999);
-
-  return {
-    start: start.toISOString(),
-    end: end.toISOString(),
-  };
 };
 
 const formatRangeText = (start, end) => {
@@ -151,7 +252,16 @@ const formatRangeText = (start, end) => {
     return "No range selected";
   }
 
-  return `${startDate.toLocaleString("en-PH")} → ${endDate.toLocaleString("en-PH")}`;
+  const formatter = new Intl.DateTimeFormat("en-PH", {
+    timeZone: PH_TIME_ZONE,
+    year: "numeric",
+    month: "numeric",
+    day: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+  });
+
+  return `${formatter.format(startDate)} → ${formatter.format(endDate)} (PH)`;
 };
 
 const getBudgetStart = (budget, fallback) =>
@@ -196,8 +306,7 @@ export default function Budgets() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
 
-  const now = new Date();
-  const currentMonth = getMonthKey(now);
+  const currentMonth = getPHMonthKey(new Date());
   const defaultRange = monthKeyToRange(currentMonth);
 
   const [form, setForm] = useState({
@@ -206,8 +315,8 @@ export default function Budgets() {
     needs_pct: "50",
     wants_pct: "30",
     savings_pct: "20",
-    range_start: toDateTimeLocalValue(defaultRange.start),
-    range_end: toDateTimeLocalValue(defaultRange.end),
+    range_start: toPHDateTimeLocalValue(defaultRange.start),
+    range_end: toPHDateTimeLocalValue(defaultRange.end),
   });
 
   const refreshPageData = useCallback(async () => {
@@ -324,12 +433,8 @@ export default function Budgets() {
         needs_pct: String(currentBudget.needs_pct ?? currentBudget.needs_percent ?? 50),
         wants_pct: String(currentBudget.wants_pct ?? currentBudget.wants_percent ?? 30),
         savings_pct: String(currentBudget.savings_pct ?? currentBudget.savings_percent ?? 20),
-        range_start: toDateTimeLocalValue(
-          getBudgetStart(currentBudget, fallbackRange.start)
-        ),
-        range_end: toDateTimeLocalValue(
-          getBudgetEnd(currentBudget, fallbackRange.end)
-        ),
+        range_start: toPHDateTimeLocalValue(getBudgetStart(currentBudget, fallbackRange.start)),
+        range_end: toPHDateTimeLocalValue(getBudgetEnd(currentBudget, fallbackRange.end)),
       });
     } else {
       const freshRange = monthKeyToRange(currentMonth);
@@ -340,8 +445,8 @@ export default function Budgets() {
         needs_pct: "50",
         wants_pct: "30",
         savings_pct: "20",
-        range_start: toDateTimeLocalValue(freshRange.start),
-        range_end: toDateTimeLocalValue(freshRange.end),
+        range_start: toPHDateTimeLocalValue(freshRange.start),
+        range_end: toPHDateTimeLocalValue(freshRange.end),
       });
     }
   }, [currentBudget, currentMonth]);
@@ -398,8 +503,8 @@ export default function Budgets() {
     setForm((prev) => ({
       ...prev,
       month: monthValue,
-      range_start: toDateTimeLocalValue(nextRange.start),
-      range_end: toDateTimeLocalValue(nextRange.end),
+      range_start: toPHDateTimeLocalValue(nextRange.start),
+      range_end: toPHDateTimeLocalValue(nextRange.end),
     }));
   };
 
@@ -411,8 +516,8 @@ export default function Budgets() {
     const wantsPct = toNumber(form.wants_pct);
     const savingsPct = toNumber(form.savings_pct);
 
-    const rangeStart = form.range_start ? new Date(form.range_start) : null;
-    const rangeEnd = form.range_end ? new Date(form.range_end) : null;
+    const rangeStart = parsePHDateTimeLocalValue(form.range_start);
+    const rangeEnd = parsePHDateTimeLocalValue(form.range_end);
 
     if (totalBudget <= 0) {
       alert("Please enter a valid total budget.");
@@ -580,25 +685,14 @@ export default function Budgets() {
 
   const totalBudget = toNumber(currentBudget?.total_budget);
   const needsBudget = currentBudget
-    ? (totalBudget *
-        toNumber(
-          currentBudget.needs_pct ?? currentBudget.needs_percent ?? 50
-        )) /
-      100
+    ? (totalBudget * toNumber(currentBudget.needs_pct ?? currentBudget.needs_percent ?? 50)) / 100
     : 0;
   const wantsBudget = currentBudget
-    ? (totalBudget *
-        toNumber(
-          currentBudget.wants_pct ?? currentBudget.wants_percent ?? 30
-        )) /
-      100
+    ? (totalBudget * toNumber(currentBudget.wants_pct ?? currentBudget.wants_percent ?? 30)) / 100
     : 0;
   const savingsBudget = currentBudget
     ? (totalBudget *
-        toNumber(
-          currentBudget.savings_pct ?? currentBudget.savings_percent ?? 20
-        )) /
-      100
+        toNumber(currentBudget.savings_pct ?? currentBudget.savings_percent ?? 20)) / 100
     : 0;
 
   const totalSpent = toNumber(financials.totalSpent);
@@ -610,7 +704,7 @@ export default function Budgets() {
     <div className="p-4 md:p-6 max-w-4xl mx-auto">
       <PageHeader
         title="Budgets"
-        subtitle="Set your spending limits with a manual date and time range"
+        subtitle="Set your spending limits using Philippine Standard Time"
         action={
           isFree ? (
             <div className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-muted text-muted-foreground text-xs font-medium">
@@ -628,11 +722,10 @@ export default function Budgets() {
 
                 <DialogContent>
                   <DialogHeader>
-                    <DialogTitle>
-                      {currentBudget ? "Edit" : "Set"} Budget
-                    </DialogTitle>
+                    <DialogTitle>{currentBudget ? "Edit" : "Set"} Budget</DialogTitle>
                     <DialogDescription>
-                      Set your total budget, category split, and exact clickable date/time range.
+                      Set your total budget, category split, and exact clickable date/time range in
+                      Philippine time.
                     </DialogDescription>
                   </DialogHeader>
 
@@ -738,9 +831,7 @@ export default function Budgets() {
                         </div>
                       </div>
 
-                      <p className="text-[11px] text-muted-foreground mt-3">
-                        Total must equal 100%
-                      </p>
+                      <p className="text-[11px] text-muted-foreground mt-3">Total must equal 100%</p>
                     </div>
 
                     <Button
@@ -786,9 +877,7 @@ export default function Budgets() {
             <div className="flex items-start justify-between gap-4 mb-4">
               <div>
                 <p className="text-xs text-muted-foreground">BUDGET</p>
-                <p className="font-heading text-2xl font-bold">
-                  {fmt(totalBudget)}
-                </p>
+                <p className="font-heading text-2xl font-bold">{fmt(totalBudget)}</p>
               </div>
 
               <div className="text-right">

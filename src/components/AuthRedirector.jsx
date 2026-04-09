@@ -1,26 +1,26 @@
-import React, { useEffect } from "react";
+import React, { useEffect, useMemo, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 
 export default function AuthRedirector() {
   const { loading, authReady, isAuthenticated, profile } = useAuth();
   const navigate = useNavigate();
+  const hasNavigatedRef = useRef(false);
+
+  const targetRoute = useMemo(() => {
+    if (!authReady || loading) return null;
+    if (!isAuthenticated) return "/login";
+    if (!profile?.has_completed_onboarding) return "/onboarding";
+    return "/dashboard";
+  }, [authReady, loading, isAuthenticated, profile?.has_completed_onboarding]);
 
   useEffect(() => {
-    if (!authReady || loading) return;
+    if (!targetRoute) return;
+    if (hasNavigatedRef.current) return;
 
-    if (!isAuthenticated) {
-      navigate("/login", { replace: true });
-      return;
-    }
-
-    if (!profile?.has_completed_onboarding) {
-      navigate("/onboarding", { replace: true });
-      return;
-    }
-
-    navigate("/dashboard", { replace: true });
-  }, [authReady, loading, isAuthenticated, profile, navigate]);
+    hasNavigatedRef.current = true;
+    navigate(targetRoute, { replace: true });
+  }, [targetRoute, navigate]);
 
   return (
     <div className="min-h-screen grid place-items-center bg-black text-white">

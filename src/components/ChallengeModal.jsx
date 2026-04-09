@@ -4,10 +4,10 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { MicVocal, Zap } from "lucide-react";
+import { MicVocal, Zap, RotateCcw } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
-import { apiFetch } from "@/lib/api";
+import { supabase } from "@/lib/supabaseClient";
 
 const DIFFICULTY_CONFIG = [
   {
@@ -36,7 +36,7 @@ const DIFFICULTY_CONFIG = [
   },
 ];
 
-function ProofSection({ task, form, setForm, onSubmit, submitting }) {
+function ProofSection({ task, form, setForm, onSubmit, submitting, submitLabel }) {
   const proof = task.proof_required || "none";
   const detailed = task.require_detailed_answer;
 
@@ -44,7 +44,9 @@ function ProofSection({ task, form, setForm, onSubmit, submitting }) {
     if (proof === "none") return true;
     if (proof === "text_answer") return form.content?.trim().length > 0;
     if (proof === "amount_input") return form.amount !== "" && form.amount != null;
-    if (proof === "screenshot_upload") return !!form.file_url;
+    if (proof === "screenshot_upload") {
+      return !!form.file || !!form.existing_file_url;
+    }
     return false;
   };
 
@@ -117,21 +119,46 @@ function ProofSection({ task, form, setForm, onSubmit, submitting }) {
               type="file"
               accept="image/*"
               onChange={(e) => {
-                const file = e.target.files?.[0];
-                if (!file) return;
+                const selectedFile = e.target.files?.[0];
+                if (!selectedFile) return;
 
-                setForm((f) => ({
-                  ...f,
-                  file_url: URL.createObjectURL(file),
-                  file_name: file.name,
-                  file_type: file.type,
-                }));
+                const previewUrl = URL.createObjectURL(selectedFile);
 
-                toast.success(`Selected: ${file.name}`);
+                setForm((f) => {
+                  if (f.preview_url && f.preview_url.startsWith("blob:")) {
+                    URL.revokeObjectURL(f.preview_url);
+                  }
+
+                  return {
+                    ...f,
+                    file: selectedFile,
+                    preview_url: previewUrl,
+                  };
+                });
+
+                toast.success(`Selected: ${selectedFile.name}`);
               }}
             />
-            {form.file_url && <p className="mt-1 text-xs text-[#86efac]">✓ File ready</p>}
+
+            {form.file && <p className="mt-1 text-xs text-[#86efac]">✓ New file ready</p>}
+            {!form.file && form.existing_file_url && (
+              <p className="mt-1 text-xs text-white/60">
+                Using your current uploaded proof unless you replace it.
+              </p>
+            )}
           </div>
+
+          {(form.preview_url || form.existing_file_url) && (
+            <div className="space-y-2">
+              <Label className={subtleLabel}>Preview</Label>
+              <img
+                src={form.preview_url || form.existing_file_url}
+                alt="proof preview"
+                className="w-full max-h-56 rounded-xl border border-white/10 object-contain bg-black/20"
+              />
+            </div>
+          )}
+
           <div className="space-y-2">
             <Label className={subtleLabel}>Additional notes (optional)</Label>
             <Textarea
@@ -150,40 +177,82 @@ function ProofSection({ task, form, setForm, onSubmit, submitting }) {
         disabled={!canSubmit() || submitting}
         onClick={onSubmit}
       >
-        {submitting ? "Submitting…" : proof === "none" ? "✅ Mark as Completed" : "Complete Challenge"}
+        {submitting ? "Submitting…" : submitLabel}
       </Button>
     </div>
   );
 }
 
-export default function ChallengeModal({ task, onClose, onSubmitted, user }) {
+export default function ChallengeModal({
+  task,
+  onClose,
+  onSubmitted,
+  user,
+  existingSubmission = null,
+}) {
   const [difficulty, setDifficulty] = useState(null);
   const [started, setStarted] = useState(false);
   const [form, setForm] = useState({
     content: "",
-    file_url: "",
-    file_name: "",
-    file_type: "",
     amount: "",
+    file: null,
+    preview_url: "",
+    existing_file_url: "",
   });
   const [submitting, setSubmitting] = useState(false);
 
+  const submissionStatus = existingSubmission?.status || null;
+  const isNeedsRevision = submissionStatus === "needs_revision";
+  const isApproved = submissionStatus === "approved";
+  const isSubmitted = submissionStatus === "submitted" || submissionStatus === "pending";
+
   useEffect(() => {
+    let initialAmount = "";
+    let initialContent = existingSubmission?.content || "";
+
+    if (existingSubmission?.content?.startsWith("Amount: ₱")) {
+      const match = existingSubmission.content.match(/^Amount:\s*₱([0-9.,]+)(?:\n([\s\S]*))?$/);
+      if (match) {
+        initialAmount = match[1] || "";
+        initialContent = match[2] || "";
+      }
+    }
+
     setDifficulty(null);
-    setStarted(false);
-    setForm({
-      content: "",
-      file_url: "",
-      file_name: "",
-      file_type: "",
-      amount: "",
+    setStarted(isNeedsRevision);
+
+    setForm((prev) => {
+      if (prev.preview_url && prev.preview_url.startsWith("blob:")) {
+        URL.revokeObjectURL(prev.preview_url);
+      }
+
+      return {
+        content: initialContent,
+        amount: initialAmount,
+        file: null,
+        preview_url: "",
+        existing_file_url:
+          existingSubmission?.file_url ||
+          existingSubmission?.proof_url ||
+          existingSubmission?.image_url ||
+          "",
+      };
     });
+
     setSubmitting(false);
-  }, [task?.id]);
+  }, [task?.id, existingSubmission, isNeedsRevision]);
+
+  useEffect(() => {
+    return () => {
+      if (form.preview_url && form.preview_url.startsWith("blob:")) {
+        URL.revokeObjectURL(form.preview_url);
+      }
+    };
+  }, [form.preview_url]);
 
   if (!task) return null;
 
-  const diffMode = task.difficulty_mode_enabled;
+  const diffMode = !!task.difficulty_mode_enabled;
 
   const resolveContent = () => {
     if (!diffMode) {
@@ -191,7 +260,7 @@ export default function ChallengeModal({ task, onClose, onSubmitted, user }) {
         action: task.main_action_instruction,
         why: task.main_why_it_matters,
         guidance: task.main_optional_guidance,
-        points: task.main_points || task.points || 0,
+        points: Number(task.main_points || task.points || 0),
       };
     }
 
@@ -201,51 +270,95 @@ export default function ChallengeModal({ task, onClose, onSubmitted, user }) {
       action: task[`${difficulty}_action_instruction`],
       why: task[`${difficulty}_why_it_matters`],
       guidance: task[`${difficulty}_optional_guidance`],
-      points:
+      points: Number(
         task[`${difficulty}_points`] ||
-        DIFFICULTY_CONFIG.find((d) => d.key === difficulty)?.defaultPts ||
-        0,
+          DIFFICULTY_CONFIG.find((d) => d.key === difficulty)?.defaultPts ||
+          0
+      ),
     };
   };
 
   const content = resolveContent();
   const readyToStart = !diffMode || !!difficulty;
 
-  const handleSubmit = async () => {
-    setSubmitting(true);
+  const uploadProofFile = async () => {
+    if (!form.file) return form.existing_file_url || null;
 
-    const submissionContent = form.amount
-      ? `Amount: ₱${form.amount}${form.content ? `\n${form.content}` : ""}`
-      : form.content || "Completed (honor system)";
+    const safeEmail = (user?.email || "user").replace(/[^a-zA-Z0-9._-]/g, "_");
+    const safeName = (form.file?.name || "proof").replace(/[^a-zA-Z0-9._-]/g, "_");
+    const filePath = `task-proofs/${safeEmail}/${task.id}-${Date.now()}-${safeName}`;
 
-    try {
-      const response = await apiFetch("/api/task-submission", {
-        method: "POST",
-        body: JSON.stringify({
-          user_id: user?.id || user?.email || "guest-user",
-          task_id: task.id,
-          task_title: task.title,
-          student_name: user?.full_name?.trim() || user?.name || user?.email || "",
-          student_email: user?.email || "",
-          difficulty_selected: difficulty || null,
-          content: submissionContent,
-          file_url: form.file_url || null,
-          file_name: form.file_name || null,
-          file_type: form.file_type || null,
-          status: "submitted",
-          points_earned: content?.points || 0,
-          submitted_at: new Date().toISOString(),
-          created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString(),
-        }),
+    const { error: uploadError } = await supabase.storage
+      .from("task-proofs")
+      .upload(filePath, form.file, {
+        cacheControl: "3600",
+        upsert: false,
+        contentType: form.file.type || "application/octet-stream",
       });
 
-      onSubmitted?.(response.submission || response);
-      toast.success("Challenge submitted!");
+    if (uploadError) throw uploadError;
+
+    const { data: publicData } = supabase.storage
+      .from("task-proofs")
+      .getPublicUrl(filePath);
+
+    return publicData?.publicUrl || null;
+  };
+
+  const handleSubmit = async () => {
+    try {
+      setSubmitting(true);
+
+      let uploadedFileUrl = null;
+
+      if ((task.proof_required || "none") === "screenshot_upload") {
+        uploadedFileUrl = await uploadProofFile();
+      }
+
+      const submissionContent = form.amount
+        ? `Amount: ₱${form.amount}${form.content ? `\n${form.content}` : ""}`
+        : form.content || "Completed (honor system)";
+
+      const payload = {
+        task_id: task.id,
+        created_by: user?.email || null,
+        student_name: user?.full_name?.trim() || user?.name || user?.email || "Student",
+        content: submissionContent,
+        file_url: uploadedFileUrl,
+        status: "submitted",
+        points_earned: Number(content?.points || 0),
+        admin_notes: null,
+      };
+
+      let result;
+
+      if (existingSubmission?.id) {
+        const { data, error } = await supabase
+          .from("task_submissions")
+          .update(payload)
+          .eq("id", existingSubmission.id)
+          .select()
+          .single();
+
+        if (error) throw error;
+        result = data;
+      } else {
+        const { data, error } = await supabase
+          .from("task_submissions")
+          .insert([payload])
+          .select()
+          .single();
+
+        if (error) throw error;
+        result = data;
+      }
+
+      onSubmitted?.(result);
+      toast.success(isNeedsRevision ? "Revision resubmitted!" : "Challenge submitted!");
       onClose?.();
     } catch (err) {
       console.error("Submission failed:", err);
-      toast.error("Submission failed. Please try again.");
+      toast.error(err.message || "Submission failed. Please try again.");
     } finally {
       setSubmitting(false);
     }
@@ -258,6 +371,12 @@ export default function ChallengeModal({ task, onClose, onSubmitted, user }) {
       amount_input: "Amount Input (₱)",
       screenshot_upload: "Screenshot Upload",
     }[task.proof_required || "none"];
+
+  const submitLabel = isNeedsRevision
+    ? "🔁 Resubmit Challenge"
+    : task.proof_required === "none"
+    ? "✅ Mark as Completed"
+    : "Complete Challenge";
 
   return (
     <Dialog open={!!task} onOpenChange={() => onClose?.()}>
@@ -284,13 +403,31 @@ export default function ChallengeModal({ task, onClose, onSubmitted, user }) {
               </>
             ) : (
               <span className="rounded-full border border-white/15 bg-white/15 px-2.5 py-1 text-xs font-semibold text-white">
-                {content?.points || 0} pts
+                {content?.points || Number(task.main_points || task.points || 0)} pts
               </span>
             )}
 
             {task.interview_candidate_task && (
               <span className="flex items-center gap-1 rounded-full border border-white/15 bg-white/15 px-2.5 py-1 text-xs text-white">
                 <MicVocal className="h-3 w-3" /> Integrity Mode
+              </span>
+            )}
+
+            {isApproved && (
+              <span className="rounded-full border border-emerald-300/25 bg-emerald-400/15 px-2.5 py-1 text-xs font-semibold text-emerald-100">
+                Approved
+              </span>
+            )}
+
+            {isSubmitted && (
+              <span className="rounded-full border border-yellow-300/25 bg-yellow-400/15 px-2.5 py-1 text-xs font-semibold text-yellow-100">
+                Awaiting Review
+              </span>
+            )}
+
+            {isNeedsRevision && (
+              <span className="rounded-full border border-orange-300/25 bg-orange-400/15 px-2.5 py-1 text-xs font-semibold text-orange-100">
+                Needs Revision
               </span>
             )}
           </div>
@@ -305,7 +442,31 @@ export default function ChallengeModal({ task, onClose, onSubmitted, user }) {
             </div>
           )}
 
-          {diffMode && !started && (
+          {isNeedsRevision && (
+            <div className="rounded-2xl border border-orange-400/20 bg-orange-400/10 px-4 py-3 text-sm text-orange-50">
+              <div className="mb-2 flex items-center gap-2 font-semibold">
+                <RotateCcw className="h-4 w-4" />
+                Please revise and submit again
+              </div>
+              <p className="whitespace-pre-wrap text-orange-50/90">
+                {existingSubmission?.admin_notes || "Your coach requested a revision for this task."}
+              </p>
+            </div>
+          )}
+
+          {isApproved && (
+            <div className="rounded-2xl border border-emerald-400/20 bg-emerald-400/10 px-4 py-3 text-sm text-emerald-50">
+              This task has already been approved.
+            </div>
+          )}
+
+          {isSubmitted && !isNeedsRevision && (
+            <div className="rounded-2xl border border-yellow-400/20 bg-yellow-400/10 px-4 py-3 text-sm text-yellow-50">
+              Your submission is already under review.
+            </div>
+          )}
+
+          {diffMode && !started && !isApproved && !isSubmitted && (
             <div className="space-y-3">
               <p className="text-sm font-semibold text-white">Choose Your Difficulty</p>
 
@@ -333,7 +494,7 @@ export default function ChallengeModal({ task, onClose, onSubmitted, user }) {
             </div>
           )}
 
-          {readyToStart && !started && content && (
+          {readyToStart && !started && content && !isApproved && !isSubmitted && (
             <div className="space-y-4">
               <div className="space-y-4 rounded-2xl border border-white/10 bg-white/[0.04] p-4 shadow-[0_8px_24px_rgba(0,0,0,0.18)]">
                 <div className="space-y-2">
@@ -378,12 +539,13 @@ export default function ChallengeModal({ task, onClose, onSubmitted, user }) {
                 size="lg"
                 onClick={() => setStarted(true)}
               >
-                <Zap className="mr-2 h-4 w-4" /> Start Now
+                <Zap className="mr-2 h-4 w-4" />
+                {isNeedsRevision ? "Revise Now" : "Start Now"}
               </Button>
             </div>
           )}
 
-          {started && content && (
+          {started && content && !isApproved && !isSubmitted && (
             <div className="space-y-4">
               <div className="rounded-2xl border border-white/10 bg-white/[0.04] p-4 shadow-[0_8px_24px_rgba(0,0,0,0.18)]">
                 <p className="mb-2 text-xs font-semibold text-[#86efac]">Your Challenge</p>
@@ -393,13 +555,16 @@ export default function ChallengeModal({ task, onClose, onSubmitted, user }) {
               </div>
 
               <div className="rounded-2xl border border-white/10 bg-white/[0.04] p-4 shadow-[0_8px_24px_rgba(0,0,0,0.18)]">
-                <p className="mb-3 text-sm font-semibold text-white">Complete Challenge</p>
+                <p className="mb-3 text-sm font-semibold text-white">
+                  {isNeedsRevision ? "Revise & Resubmit" : "Complete Challenge"}
+                </p>
                 <ProofSection
                   task={task}
                   form={form}
                   setForm={setForm}
                   onSubmit={handleSubmit}
                   submitting={submitting}
+                  submitLabel={submitLabel}
                 />
               </div>
             </div>

@@ -10,6 +10,7 @@ import {
   Power,
   PowerOff,
   RefreshCw,
+  FileText,
 } from "lucide-react";
 
 import { supabase } from "@/lib/supabaseClient";
@@ -19,6 +20,13 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import TaskFormModal, { TASK_BLANK } from "../../components/TaskFormModal";
+
+const IMAGE_EXTENSIONS = [".jpg", ".jpeg", ".png", ".gif", ".webp", ".bmp", ".svg", ".avif"];
+
+function isImageUrl(url = "") {
+  const lower = String(url).toLowerCase();
+  return IMAGE_EXTENSIONS.some((ext) => lower.includes(ext)) || lower.includes("image/");
+}
 
 export default function AdminTasks() {
   const [tasks, setTasks] = useState([]);
@@ -40,6 +48,10 @@ export default function AdminTasks() {
   useEffect(() => {
     loadData();
   }, []);
+
+  useEffect(() => {
+    setReviewNotes(subDialog?.admin_notes || "");
+  }, [subDialog]);
 
   const sortTasks = (items = []) => {
     return [...items].sort((a, b) => {
@@ -340,12 +352,14 @@ export default function AdminTasks() {
       setReviewLoading(true);
 
       const task = tasks.find((t) => t.id === sub.task_id);
-      const points = status === "approved" ? Number(task?.points || task?.main_points || 0) : 0;
+      const approvedPoints = Number(
+        sub?.points_earned || task?.points || task?.main_points || 0
+      );
 
       await updateSubmission(sub.id, {
         status,
-        admin_notes: reviewNotes,
-        points_earned: points,
+        admin_notes: reviewNotes?.trim() || null,
+        points_earned: status === "approved" ? approvedPoints : 0,
       });
 
       setSubDialog(null);
@@ -361,7 +375,9 @@ export default function AdminTasks() {
   const stats = useMemo(() => {
     const activeTasks = tasks.filter((t) => t.is_active).length;
     const inactiveTasks = tasks.length - activeTasks;
-    const pendingSubs = submissions.filter((s) => !s.status || s.status === "pending").length;
+    const pendingSubs = submissions.filter(
+      (s) => !s.status || s.status === "pending" || s.status === "submitted"
+    ).length;
 
     return {
       activeTasks,
@@ -369,6 +385,9 @@ export default function AdminTasks() {
       pendingSubs,
     };
   }, [tasks, submissions]);
+
+  const selectedFileUrl =
+    subDialog?.file_url || subDialog?.proof_url || subDialog?.image_url || "";
 
   if (loading) {
     return (
@@ -536,7 +555,7 @@ export default function AdminTasks() {
 
                         {s.status ? (
                           <Badge variant="outline" className="capitalize">
-                            {s.status}
+                            {String(s.status).replaceAll("_", " ")}
                           </Badge>
                         ) : (
                           <Badge variant="outline">Pending</Badge>
@@ -576,7 +595,7 @@ export default function AdminTasks() {
               }
             }}
           >
-            <DialogContent className="max-w-lg">
+            <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
               <DialogHeader>
                 <DialogTitle>Review Submission</DialogTitle>
               </DialogHeader>
@@ -591,24 +610,44 @@ export default function AdminTasks() {
                   </div>
 
                   <div className="rounded-xl border p-3">
+                    <div className="text-xs text-muted-foreground mb-1">Status</div>
+                    <div className="text-sm font-medium capitalize">
+                      {String(subDialog.status || "pending").replaceAll("_", " ")}
+                    </div>
+                  </div>
+
+                  <div className="rounded-xl border p-3">
                     <div className="text-xs text-muted-foreground mb-1">Submission</div>
                     <p className="text-sm whitespace-pre-wrap">
                       {subDialog.content || subDialog.answer || subDialog.reflection || "No content"}
                     </p>
                   </div>
 
-                  {(subDialog.file_url || subDialog.proof_url || subDialog.image_url) && (
-                    <a
-                      href={subDialog.file_url || subDialog.proof_url || subDialog.image_url}
-                      target="_blank"
-                      rel="noreferrer"
-                    >
-                      <Button variant="outline" className="w-full">
-                        <ExternalLink className="w-3 h-3 mr-1" />
-                        Open File
-                      </Button>
-                    </a>
-                  )}
+                  {selectedFileUrl ? (
+                    <div className="rounded-xl border p-3 space-y-3">
+                      <div className="text-xs text-muted-foreground">Uploaded Proof</div>
+
+                      {isImageUrl(selectedFileUrl) ? (
+                        <img
+                          src={selectedFileUrl}
+                          alt="submission proof"
+                          className="w-full max-h-[420px] rounded-xl border object-contain bg-black/5"
+                        />
+                      ) : (
+                        <div className="flex items-center gap-2 rounded-xl border border-dashed p-4 text-sm text-muted-foreground">
+                          <FileText className="w-4 h-4" />
+                          File preview not available. Open the file below.
+                        </div>
+                      )}
+
+                      <a href={selectedFileUrl} target="_blank" rel="noreferrer">
+                        <Button variant="outline" className="w-full">
+                          <ExternalLink className="w-3 h-3 mr-1" />
+                          Open File
+                        </Button>
+                      </a>
+                    </div>
+                  ) : null}
 
                   <Textarea
                     value={reviewNotes}

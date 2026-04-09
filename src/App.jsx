@@ -1,3 +1,4 @@
+import Settings from "./pages/Settings";
 import { useEffect, useMemo, useState } from "react";
 import { Routes, Route, Navigate } from "react-router-dom";
 import { QueryClientProvider } from "@tanstack/react-query";
@@ -242,6 +243,7 @@ function App() {
           <Route path="/news" element={<News />} />
           <Route path="/referrals" element={<Referrals />} />
           <Route path="/savings-goals" element={<SavingsGoals />} />
+          <Route path="/settings" element={<Settings />} />
           <Route path="/admin" element={<AdminPanel />} />
 
           {/* ✅ FIXED ROUTE */}

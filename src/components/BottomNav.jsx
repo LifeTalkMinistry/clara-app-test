@@ -1,5 +1,5 @@
 import { Link, useLocation } from "react-router-dom";
-import { useState } from "react";
+import { useState, useCallback, useMemo } from "react";
 import {
   LayoutDashboard,
   Receipt,
@@ -20,7 +20,7 @@ import {
   Plus,
 } from "lucide-react";
 import { Sheet, SheetContent } from "@/components/ui/sheet";
-import { supabase } from "@/lib/supabaseClient"; // ✅ ADD THIS
+import { supabase } from "@/lib/supabaseClient";
 
 const moreItems = [
   { path: "/wallets", label: "Wallets", icon: Wallet, tier: "free" },
@@ -43,24 +43,46 @@ export default function BottomNav({
   const location = useLocation();
   const [moreOpen, setMoreOpen] = useState(false);
 
-  const isActive = (path) =>
-    location.pathname === path || location.pathname.startsWith(path + "/");
-
-  const isMoreActive = !["/dashboard", "/expenses", "/analytics"].includes(
-    location.pathname
+  // ✅ Memoized helpers
+  const isActive = useCallback(
+    (path) =>
+      location.pathname === path ||
+      location.pathname.startsWith(path + "/"),
+    [location.pathname]
   );
 
-  const handleLogout = async () => {
+  const isMoreActive = useMemo(
+    () =>
+      !["/dashboard", "/expenses", "/analytics"].includes(
+        location.pathname
+      ),
+    [location.pathname]
+  );
+
+  // ✅ Stable handlers
+  const openMore = useCallback(() => setMoreOpen(true), []);
+  const closeMore = useCallback(() => setMoreOpen(false), []);
+
+  const handleLogout = useCallback(async () => {
     if (typeof onLogout === "function") {
       onLogout();
       return;
     }
 
-    // ✅ Supabase logout
     await supabase.auth.signOut();
-
     window.location.href = "/login";
-  };
+  }, [onLogout]);
+
+  const handleItemClick = useCallback(
+    (locked, e) => {
+      if (locked) {
+        e.preventDefault();
+        return;
+      }
+      setMoreOpen(false);
+    },
+    []
+  );
 
   return (
     <>
@@ -107,7 +129,7 @@ export default function BottomNav({
           </Link>
 
           <button
-            onClick={() => setMoreOpen(true)}
+            onClick={openMore}
             className={`flex flex-col items-center gap-1 pb-2 pt-2 px-4 min-w-[52px] ${
               isMoreActive ? "text-primary" : "text-muted-foreground"
             }`}
@@ -127,11 +149,7 @@ export default function BottomNav({
         >
           <div className="flex items-center justify-between mb-5">
             <h3 className="font-heading font-bold text-lg">More</h3>
-            <button
-              onClick={() => setMoreOpen(false)}
-              className="p-1"
-              type="button"
-            >
+            <button onClick={closeMore} className="p-1" type="button">
               <X className="w-5 h-5 text-muted-foreground" />
             </button>
           </div>
@@ -144,11 +162,7 @@ export default function BottomNav({
                 <Link
                   key={item.path}
                   to={locked ? "#" : item.path}
-                  onClick={
-                    locked
-                      ? (e) => e.preventDefault()
-                      : () => setMoreOpen(false)
-                  }
+                  onClick={(e) => handleItemClick(locked, e)}
                   className={`flex flex-col items-center gap-2 p-3 rounded-2xl border transition-all ${
                     isActive(item.path)
                       ? "bg-primary text-white border-primary"
@@ -174,7 +188,7 @@ export default function BottomNav({
           {isAdmin && (
             <Link
               to="/admin"
-              onClick={() => setMoreOpen(false)}
+              onClick={closeMore}
               className="flex items-center gap-3 p-3 rounded-xl bg-muted text-sm font-medium mb-3 w-full"
             >
               <Settings className="w-4 h-4" />
