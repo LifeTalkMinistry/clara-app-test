@@ -110,15 +110,7 @@ export default function Wallets() {
     notes: "",
   });
 
-  const getBalance = (wallet) => {
-    return toNumber(
-      wallet?.balance ??
-        wallet?.current_balance ??
-        wallet?.wallet_balance ??
-        wallet?.starting_balance ??
-        0
-    );
-  };
+  const getBalance = (wallet) => Number(wallet?.balance || 0);
 
   const totalBalance = useMemo(() => {
     return wallets.reduce((sum, w) => sum + getBalance(w), 0);
@@ -189,14 +181,14 @@ export default function Wallets() {
     switch (type) {
       case "add":
         return "Added Money";
+      case "income":
+        return "Income";
       case "transfer_in":
         return "Transfer In";
       case "transfer_out":
         return "Transfer Out";
       case "expense":
         return "Expense";
-      case "income":
-        return "Income";
       case "reset":
         return "Reset";
       default:
@@ -234,7 +226,6 @@ export default function Wallets() {
           name: form.name.trim(),
           type: form.type,
           balance: starting,
-          starting_balance: starting,
           icon: walletIcons[form.type],
           user_id: user?.id || null,
           user_email: user?.email || null,
@@ -305,16 +296,14 @@ export default function Wallets() {
 
       const { error: walletError } = await supabase
         .from("wallets")
-        .update({
-          balance: newBalance,
-        })
+        .update({ balance: newBalance })
         .eq("id", String(selectedWallet.id));
 
       if (walletError) throw walletError;
 
       const historyPayload = {
         wallet_id: selectedWallet.id,
-        type: "add",
+        type: "income",
         amount,
         notes: addMoneyForm.notes || null,
         user_id: user?.id || null,
@@ -549,15 +538,12 @@ export default function Wallets() {
                   <div>
                     <p className="text-sm text-white/60 mb-1">Wallet</p>
                     <p className="text-[17px] font-semibold">
-                      {selectedWallet?.icon || "💰"}{" "}
-                      {selectedWallet?.name || "—"}
+                      {selectedWallet?.icon || "💰"} {selectedWallet?.name || "—"}
                     </p>
                   </div>
 
                   <div className="text-right">
-                    <p className="text-sm text-white/60 mb-1">
-                      Current Balance
-                    </p>
+                    <p className="text-sm text-white/60 mb-1">Current Balance</p>
                     <p className="text-[17px] font-semibold">
                       {fmt(getBalance(selectedWallet))}
                     </p>
@@ -600,9 +586,7 @@ export default function Wallets() {
               </div>
 
               <div>
-                <p className="text-sm font-medium text-white mb-2">
-                  Source Type
-                </p>
+                <p className="text-sm font-medium text-white mb-2">Source Type</p>
                 <Select
                   value={addMoneyForm.source_type}
                   onValueChange={(v) =>
@@ -738,8 +722,7 @@ export default function Wallets() {
                 <SelectContent className="border-white/10 bg-[#08152f] text-white">
                   {wallets.map((wallet) => (
                     <SelectItem key={wallet.id} value={String(wallet.id)}>
-                      {(wallet.icon || "💰") + " " + wallet.name} (
-                      {fmt(getBalance(wallet))})
+                      {(wallet.icon || "💰") + " " + wallet.name} ({fmt(getBalance(wallet))})
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -761,13 +744,11 @@ export default function Wallets() {
                   {wallets
                     .filter(
                       (wallet) =>
-                        String(wallet.id) !==
-                        String(transferForm.from_wallet_id)
+                        String(wallet.id) !== String(transferForm.from_wallet_id)
                     )
                     .map((wallet) => (
                       <SelectItem key={wallet.id} value={String(wallet.id)}>
-                        {(wallet.icon || "💰") + " " + wallet.name} (
-                        {fmt(getBalance(wallet))})
+                        {(wallet.icon || "💰") + " " + wallet.name} ({fmt(getBalance(wallet))})
                       </SelectItem>
                     ))}
                 </SelectContent>
@@ -845,9 +826,7 @@ export default function Wallets() {
 
             {historyItems.length === 0 ? (
               <div className="rounded-2xl border border-white/10 bg-white/[0.03] px-4 py-10 text-center">
-                <p className="text-white/55 text-sm">
-                  No transaction history yet
-                </p>
+                <p className="text-white/55 text-sm">No transaction history yet</p>
               </div>
             ) : (
               <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-3 max-h-[420px] overflow-y-auto space-y-3">

@@ -16,29 +16,38 @@ import useUserRole from "../hooks/useUserRole";
 const normalizeString = (value) => String(value ?? "").trim();
 
 const isOwnedByUser = (item, user) => {
-  if (!user) return false;
+  if (!user || !item) return false;
 
-  const itemEmail = normalizeString(
-    item?.created_by ?? item?.user_email ?? item?.owner_email ?? item?.email
-  ).toLowerCase();
-
+  const userId = normalizeString(user?.id);
   const userEmail = normalizeString(user?.email).toLowerCase();
 
-  const itemUserId = normalizeString(
-    item?.user_id ?? item?.owner_id ?? item?.profile_id
-  );
-  const currentUserId = normalizeString(user?.id);
+  const possibleIds = [
+    item?.user_id,
+    item?.owner_id,
+    item?.profile_id,
+  ]
+    .map(normalizeString)
+    .filter(Boolean);
 
-  if (itemEmail && userEmail && itemEmail === userEmail) return true;
-  if (itemUserId && currentUserId && itemUserId === currentUserId) return true;
+  const possibleEmails = [
+    item?.created_by,
+    item?.user_email,
+    item?.owner_email,
+    item?.email,
+  ]
+    .map((value) => normalizeString(value).toLowerCase())
+    .filter(Boolean);
+
+  if (userId && possibleIds.includes(userId)) return true;
+  if (userEmail && possibleEmails.includes(userEmail)) return true;
 
   return false;
 };
 
-const toNumber = (...values) => {
+const firstValidNumber = (...values) => {
   for (const value of values) {
     const num = Number(value);
-    if (!Number.isNaN(num) && num !== 0) return num;
+    if (Number.isFinite(num)) return num;
   }
   return 0;
 };
@@ -54,47 +63,48 @@ export default function Dashboard() {
   const [expenses, setExpenses] = useState([]);
   const [loading, setLoading] = useState(true);
 
+  const fmt = useCallback((n) => {
+    return new Intl.NumberFormat("en-PH", {
+      style: "currency",
+      currency: "PHP",
+      minimumFractionDigits: 0,
+    }).format(Number(n || 0));
+  }, []);
+
   const loadWalletBalance = useCallback(async () => {
     if (!user?.id && !user?.email) {
       setWalletMoney(0);
       return;
     }
 
-    let query = supabase.from("wallets").select("*");
+    try {
+      const { data, error } = await supabase.from("wallets").select("*");
 
-    if (user?.id) {
-      query = query.or(
-        `user_id.eq.${user.id},owner_id.eq.${user.id},profile_id.eq.${user.id}`
+      if (error) throw error;
+
+      const ownedWallets = (data || []).filter((wallet) =>
+        isOwnedByUser(wallet, user)
       );
-    } else if (user?.email) {
-      query = query.or(
-        `created_by.eq.${user.email},user_email.eq.${user.email},owner_email.eq.${user.email},email.eq.${user.email}`
-      );
-    }
 
-    const { data, error } = await query;
+      const total = ownedWallets.reduce((sum, wallet) => {
+        return (
+          sum +
+          firstValidNumber(
+            wallet?.balance,
+            wallet?.current_balance,
+            wallet?.wallet_balance,
+            wallet?.available_balance,
+            wallet?.amount
+          )
+        );
+      }, 0);
 
-    if (error) {
+      setWalletMoney(total);
+    } catch (error) {
       console.error("Failed to load wallets:", error);
       setWalletMoney(0);
-      return;
     }
-
-    const total = (data || []).reduce((sum, wallet) => {
-      return (
-        sum +
-        toNumber(
-          wallet?.current_balance,
-          wallet?.balance,
-          wallet?.amount,
-          wallet?.wallet_balance,
-          wallet?.available_balance
-        )
-      );
-    }, 0);
-
-    setWalletMoney(total);
-  }, [user?.id, user?.email]);
+  }, [user]);
 
   const loadDashboardData = useCallback(async () => {
     if (!user?.email && !user?.id) {
@@ -116,7 +126,8 @@ export default function Dashboard() {
         submissionsRes,
         billboardsRes,
         expensesRes,
-        profileRes,
+        profilesRes,
+        walletsRes,
       ] = await Promise.all([
         supabase
           .from("challenge_tasks")
@@ -136,16 +147,14 @@ export default function Dashboard() {
 
         supabase.from("expenses").select("*"),
 
-        user?.id
-          ? supabase
-              .from("profiles")
-              .select("monthly_survival_expense")
-              .eq("id", user.id)
-              .single()
-          : Promise.resolve({ data: null, error: null }),
+        supabase.from("profiles").select("*"),
+
+        supabase.from("wallets").select("*"),
       ]);
 
-      if (tasksRes.error) console.error("Failed to load tasks:", tasksRes.error);
+      if (tasksRes.error) {
+        console.error("Failed to load tasks:", tasksRes.error);
+      }
       if (submissionsRes.error) {
         console.error("Failed to load submissions:", submissionsRes.error);
       }
@@ -155,8 +164,11 @@ export default function Dashboard() {
       if (expensesRes.error) {
         console.error("Failed to load expenses:", expensesRes.error);
       }
-      if (profileRes?.error) {
-        console.error("Failed to load profile:", profileRes.error);
+      if (profilesRes.error) {
+        console.error("Failed to load profiles:", profilesRes.error);
+      }
+      if (walletsRes.error) {
+        console.error("Failed to load wallets:", walletsRes.error);
       }
 
       const userSubmissions = (submissionsRes.data || []).filter((item) =>
@@ -171,21 +183,41 @@ export default function Dashboard() {
           date: expense.date || expense.created_at || "",
         }));
 
-      setTasks(tasksRes.data || []);
-      setSubmissions(userSubmissions || []);
-      setBillboards(billboardsRes.data || []);
-      setExpenses(userExpenses || []);
-      setSurvivalExpense(
-        Number(profileRes?.data?.monthly_survival_expense) || 0
+      const userProfile =
+        (profilesRes.data || []).find((profile) => isOwnedByUser(profile, user)) ||
+        null;
+
+      const userWallets = (walletsRes.data || []).filter((wallet) =>
+        isOwnedByUser(wallet, user)
       );
 
-      await loadWalletBalance();
+      const totalWalletMoney = userWallets.reduce((sum, wallet) => {
+        return (
+          sum +
+          firstValidNumber(
+            wallet?.balance,
+            wallet?.current_balance,
+            wallet?.wallet_balance,
+            wallet?.available_balance,
+            wallet?.amount
+          )
+        );
+      }, 0);
+
+      setTasks(tasksRes.data || []);
+      setSubmissions(userSubmissions);
+      setBillboards(billboardsRes.data || []);
+      setExpenses(userExpenses);
+      setSurvivalExpense(
+        Number(userProfile?.monthly_survival_expense) || 0
+      );
+      setWalletMoney(totalWalletMoney);
     } catch (error) {
       console.error("Dashboard load error:", error);
     } finally {
       setLoading(false);
     }
-  }, [user, loadWalletBalance]);
+  }, [user]);
 
   useEffect(() => {
     loadDashboardData();
@@ -196,6 +228,22 @@ export default function Dashboard() {
 
     const channel = supabase
       .channel(`dashboard-live-${user?.id || user?.email}`)
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "wallets" },
+        () => {
+          loadWalletBalance();
+          loadDashboardData();
+        }
+      )
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "wallet_transactions" },
+        () => {
+          loadWalletBalance();
+          loadDashboardData();
+        }
+      )
       .on(
         "postgres_changes",
         { event: "*", schema: "public", table: "challenge_tasks" },
@@ -218,11 +266,6 @@ export default function Dashboard() {
       )
       .on(
         "postgres_changes",
-        { event: "*", schema: "public", table: "wallets" },
-        () => loadDashboardData()
-      )
-      .on(
-        "postgres_changes",
         { event: "*", schema: "public", table: "profiles" },
         () => loadDashboardData()
       )
@@ -231,14 +274,7 @@ export default function Dashboard() {
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [user?.id, user?.email, loadDashboardData]);
-
-  const fmt = (n) =>
-    new Intl.NumberFormat("en-PH", {
-      style: "currency",
-      currency: "PHP",
-      minimumFractionDigits: 0,
-    }).format(n || 0);
+  }, [user?.id, user?.email, loadDashboardData, loadWalletBalance]);
 
   const thisMonthSpent = useMemo(() => {
     const now = new Date();
@@ -300,7 +336,9 @@ export default function Dashboard() {
               const nextValue = Number(val) || 0;
               setSurvivalExpense(nextValue);
 
-              if (user?.id) {
+              try {
+                if (!user?.id) return;
+
                 const { error } = await supabase
                   .from("profiles")
                   .update({ monthly_survival_expense: nextValue })
@@ -308,10 +346,13 @@ export default function Dashboard() {
 
                 if (error) {
                   console.error("Failed to save survival expense:", error);
-                } else {
-                  refreshUser?.();
-                  loadDashboardData();
+                  return;
                 }
+
+                refreshUser?.();
+                loadDashboardData();
+              } catch (error) {
+                console.error("Failed to save survival expense:", error);
               }
             }}
           />
@@ -328,7 +369,7 @@ export default function Dashboard() {
           <StatCard
             label="Money Left"
             value={fmt(walletMoney)}
-            sub="Available money"
+            sub="Synced with wallets"
             icon={PiggyBank}
             variant="yellow"
           />

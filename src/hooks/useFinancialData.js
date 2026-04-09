@@ -18,53 +18,44 @@ const getSafeDate = (value) => {
   return d.toISOString();
 };
 
-// ✅ SAFE TABLE LOADER WITH FALLBACK FILTERS
+const normalizeString = (value) => String(value ?? "").trim().toLowerCase();
+
+const isOwnedByUser = (item, user) => {
+  if (!user || !item) return false;
+
+  const userId = String(user?.id ?? "").trim();
+  const userEmail = normalizeString(user?.email);
+
+  const itemIds = [item?.user_id, item?.owner_id, item?.profile_id]
+    .map((v) => String(v ?? "").trim())
+    .filter(Boolean);
+
+  const itemEmails = [
+    item?.created_by,
+    item?.user_email,
+    item?.owner_email,
+    item?.email,
+  ]
+    .map(normalizeString)
+    .filter(Boolean);
+
+  if (userId && itemIds.includes(userId)) return true;
+  if (userEmail && itemEmails.includes(userEmail)) return true;
+
+  return false;
+};
+
 const safeSelect = async (table, user) => {
   if (!user?.id && !user?.email) return [];
 
-  let data = [];
-  let error = null;
-
-  // 1) Try user_id first
-  if (user?.id) {
-    const res = await supabase.from(table).select("*").eq("user_id", user.id);
-    if (!res.error && Array.isArray(res.data) && res.data.length > 0) {
-      return res.data;
-    }
-    if (res.error) error = res.error;
-  }
-
-  // 2) Try user_email
-  if (user?.email) {
-    const res = await supabase
-      .from(table)
-      .select("*")
-      .eq("user_email", user.email);
-
-    if (!res.error && Array.isArray(res.data) && res.data.length > 0) {
-      return res.data;
-    }
-    if (res.error) error = res.error;
-  }
-
-  // 3) Try created_by
-  if (user?.email) {
-    const res = await supabase
-      .from(table)
-      .select("*")
-      .eq("created_by", user.email);
-
-    if (!res.error && Array.isArray(res.data)) {
-      return res.data;
-    }
-    if (res.error) error = res.error;
-  }
+  const { data, error } = await supabase.from(table).select("*");
 
   if (error) {
-    console.warn(`❌ Failed loading ${table}`, error);
+    console.warn(`Failed loading ${table}`, error);
+    return [];
   }
 
-  return data;
+  return (data || []).filter((item) => isOwnedByUser(item, user));
 };
 
 export default function useFinancialData(user) {
@@ -91,9 +82,8 @@ export default function useFinancialData(user) {
     setLoading(true);
 
     try {
-      const [e, i, w, b, wt, t] = await Promise.all([
+      const [e, w, b, wt, t] = await Promise.all([
         safeSelect("expenses", user),
-        safeSelect("incomes", user),
         safeSelect("wallets", user),
         safeSelect("budgets", user),
         safeSelect("wallet_transactions", user),
@@ -101,13 +91,13 @@ export default function useFinancialData(user) {
       ]);
 
       setExpenses(e || []);
-      setIncomes(i || []);
+      setIncomes([]); // no incomes table in your current schema
       setWallets(w || []);
       setBudgets(b || []);
       setWalletTransactions(wt || []);
       setTransfers(t || []);
     } catch (err) {
-      console.error("❌ loadAll error:", err);
+      console.error("loadAll error:", err);
     } finally {
       setLoading(false);
     }
@@ -147,17 +137,12 @@ export default function useFinancialData(user) {
         { event: "*", schema: "public", table: "budgets" },
         () => loadAll()
       )
-      .on(
-        "postgres_changes",
-        { event: "*", schema: "public", table: "incomes" },
-        () => loadAll()
-      )
       .subscribe();
 
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [user, loadAll]);
+  }, [user?.id, user?.email, loadAll]);
 
   const refreshData = useCallback(() => loadAll(), [loadAll]);
 
@@ -303,19 +288,6 @@ export default function useFinancialData(user) {
   const addIncome = async (income) => {
     const amount = toNumber(income.amount);
 
-    const { error } = await supabase.from("incomes").insert([
-      {
-        ...income,
-        amount,
-        date: getSafeDate(income.date),
-        user_id: user?.id || null,
-        user_email: user?.email || null,
-        created_by: user?.email || null,
-      },
-    ]);
-
-    if (error) throw error;
-
     if (income.wallet_id) {
       await updateWalletBalance(income.wallet_id, amount);
     }
@@ -328,10 +300,14 @@ export default function useFinancialData(user) {
     [expenses]
   );
 
-  const totalIncome = useMemo(
-    () => incomes.reduce((sum, i) => sum + toNumber(i.amount), 0),
-    [incomes]
-  );
+  const totalIncome = useMemo(() => {
+    return walletTransactions
+      .filter((t) => {
+        const type = String(t?.type || "").trim().toLowerCase();
+        return type === "income" || type === "add";
+      })
+      .reduce((sum, t) => sum + toNumber(t.amount), 0);
+  }, [walletTransactions]);
 
   const totalWalletBalance = useMemo(
     () =>

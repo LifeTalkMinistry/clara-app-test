@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo, useCallback } from "react";
-import { Plus, Target, Lock, RotateCcw } from "lucide-react";
+import { Plus, Target, Lock, RotateCcw, CalendarRange } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -14,27 +14,7 @@ import { Label } from "@/components/ui/label";
 import PageHeader from "../components/PageHeader";
 import EmptyState from "../components/EmptyState";
 import useUserRole from "../hooks/useUserRole";
-
-const STORAGE_KEYS = {
-  budgets: "clara_budgets",
-  expenses: "clara_expenses",
-};
-
-const getStoredData = (key) => {
-  try {
-    const raw = localStorage.getItem(key);
-    return raw ? JSON.parse(raw) : [];
-  } catch {
-    return [];
-  }
-};
-
-const setStoredData = (key, value) => {
-  localStorage.setItem(key, JSON.stringify(value));
-};
-
-const generateId = () =>
-  `${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
+import { supabase } from "../lib/supabaseClient";
 
 const toNumber = (value) => {
   const n = Number(value);
@@ -110,6 +90,102 @@ const getMonthKey = (date) => {
   return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`;
 };
 
+const pad = (n) => String(n).padStart(2, "0");
+
+const toDateTimeLocalValue = (value) => {
+  const d = value ? new Date(value) : null;
+  if (!d || Number.isNaN(d.getTime())) return "";
+
+  const year = d.getFullYear();
+  const month = pad(d.getMonth() + 1);
+  const day = pad(d.getDate());
+  const hours = pad(d.getHours());
+  const minutes = pad(d.getMinutes());
+
+  return `${year}-${month}-${day}T${hours}:${minutes}`;
+};
+
+const startOfMonthLocal = (date) => {
+  const d = new Date(date);
+  d.setDate(1);
+  d.setHours(0, 0, 0, 0);
+  return d;
+};
+
+const endOfMonthLocal = (date) => {
+  const d = new Date(date);
+  d.setMonth(d.getMonth() + 1, 0);
+  d.setHours(23, 59, 59, 999);
+  return d;
+};
+
+const monthKeyToRange = (monthKey) => {
+  if (!monthKey || !monthKey.includes("-")) {
+    const now = new Date();
+    return {
+      start: startOfMonthLocal(now).toISOString(),
+      end: endOfMonthLocal(now).toISOString(),
+    };
+  }
+
+  const [year, month] = monthKey.split("-").map(Number);
+  const start = new Date(year, month - 1, 1, 0, 0, 0, 0);
+  const end = new Date(year, month, 0, 23, 59, 59, 999);
+
+  return {
+    start: start.toISOString(),
+    end: end.toISOString(),
+  };
+};
+
+const formatRangeText = (start, end) => {
+  const startDate = start ? new Date(start) : null;
+  const endDate = end ? new Date(end) : null;
+
+  if (
+    !startDate ||
+    !endDate ||
+    Number.isNaN(startDate.getTime()) ||
+    Number.isNaN(endDate.getTime())
+  ) {
+    return "No range selected";
+  }
+
+  return `${startDate.toLocaleString("en-PH")} → ${endDate.toLocaleString("en-PH")}`;
+};
+
+const getBudgetStart = (budget, fallback) =>
+  budget?.tracking_start_date ||
+  budget?.range_start_datetime ||
+  budget?.range_start ||
+  fallback;
+
+const getBudgetEnd = (budget, fallback) =>
+  budget?.tracking_end_date ||
+  budget?.range_end_datetime ||
+  budget?.range_end ||
+  fallback;
+
+const isMissingBudgetsTableError = (error) => {
+  const message = String(error?.message || "").toLowerCase();
+  const details = String(error?.details || "").toLowerCase();
+  const code = String(error?.code || "").toLowerCase();
+
+  return (
+    code === "pgrst205" ||
+    message.includes("could not find the table") ||
+    message.includes("schema cache") ||
+    message.includes("public.budgets") ||
+    details.includes("public.budgets")
+  );
+};
+
+const showBudgetsTableMissingAlert = () => {
+  alert(
+    "Supabase table 'budgets' does not exist yet. Please create the public.budgets table first in your Supabase SQL Editor."
+  );
+};
+
 export default function Budgets() {
   const { user, isFree } = useUserRole();
 
@@ -117,9 +193,12 @@ export default function Budgets() {
   const [budgets, setBudgets] = useState([]);
   const [expenses, setExpenses] = useState([]);
   const [resetting, setResetting] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
 
   const now = new Date();
   const currentMonth = getMonthKey(now);
+  const defaultRange = monthKeyToRange(currentMonth);
 
   const [form, setForm] = useState({
     month: currentMonth,
@@ -127,23 +206,52 @@ export default function Budgets() {
     needs_pct: "50",
     wants_pct: "30",
     savings_pct: "20",
+    range_start: toDateTimeLocalValue(defaultRange.start),
+    range_end: toDateTimeLocalValue(defaultRange.end),
   });
 
-  const refreshPageData = useCallback(() => {
+  const refreshPageData = useCallback(async () => {
     if (!user) {
       setBudgets([]);
       setExpenses([]);
+      setLoading(false);
       return;
     }
 
-    const allBudgets = getStoredData(STORAGE_KEYS.budgets);
-    const allExpenses = getStoredData(STORAGE_KEYS.expenses);
+    try {
+      setLoading(true);
 
-    const userBudgets = allBudgets.filter((item) => isOwnedByUser(item, user));
-    const userExpenses = allExpenses.filter((item) => isOwnedByUser(item, user));
+      const [budgetRes, expenseRes] = await Promise.all([
+        supabase.from("budgets").select("*").order("created_at", { ascending: false }),
+        supabase.from("expenses").select("*").order("created_at", { ascending: false }),
+      ]);
 
-    setBudgets(userBudgets);
-    setExpenses(userExpenses);
+      if (budgetRes.error) {
+        if (isMissingBudgetsTableError(budgetRes.error)) {
+          console.error("Missing budgets table:", budgetRes.error);
+          setBudgets([]);
+        } else {
+          throw budgetRes.error;
+        }
+      } else {
+        const safeBudgets = (budgetRes.data || []).filter((item) => isOwnedByUser(item, user));
+        setBudgets(safeBudgets);
+      }
+
+      if (expenseRes.error) {
+        console.error("Failed to load expenses:", expenseRes.error);
+        setExpenses([]);
+      } else {
+        const safeExpenses = (expenseRes.data || []).filter((item) => isOwnedByUser(item, user));
+        setExpenses(safeExpenses);
+      }
+    } catch (error) {
+      console.error("Failed to load budgets page data:", error);
+      setBudgets([]);
+      setExpenses([]);
+    } finally {
+      setLoading(false);
+    }
   }, [user]);
 
   useEffect(() => {
@@ -151,15 +259,29 @@ export default function Budgets() {
   }, [refreshPageData]);
 
   useEffect(() => {
-    const onRefresh = () => refreshPageData();
+    if (!user) return;
 
+    const budgetsChannel = supabase
+      .channel(`budgets-page-budgets-${user.id || user.email}`)
+      .on("postgres_changes", { event: "*", schema: "public", table: "budgets" }, () => {
+        refreshPageData();
+      })
+      .subscribe();
+
+    const expensesChannel = supabase
+      .channel(`budgets-page-expenses-${user.id || user.email}`)
+      .on("postgres_changes", { event: "*", schema: "public", table: "expenses" }, () => {
+        refreshPageData();
+      })
+      .subscribe();
+
+    const onRefresh = () => refreshPageData();
     const onVisibility = () => {
       if (document.visibilityState === "visible") {
         refreshPageData();
       }
     };
 
-    window.addEventListener("storage", onRefresh);
     window.addEventListener("focus", onRefresh);
     window.addEventListener("clara-expenses-updated", onRefresh);
     window.addEventListener("clara-budgets-updated", onRefresh);
@@ -167,37 +289,75 @@ export default function Budgets() {
     document.addEventListener("visibilitychange", onVisibility);
 
     return () => {
-      window.removeEventListener("storage", onRefresh);
       window.removeEventListener("focus", onRefresh);
       window.removeEventListener("clara-expenses-updated", onRefresh);
       window.removeEventListener("clara-budgets-updated", onRefresh);
       window.removeEventListener("clara-finance-updated", onRefresh);
       document.removeEventListener("visibilitychange", onVisibility);
+      supabase.removeChannel(budgetsChannel);
+      supabase.removeChannel(expensesChannel);
     };
-  }, [refreshPageData]);
+  }, [refreshPageData, user]);
 
   const currentBudget = useMemo(() => {
-    return budgets.find((b) => b.month === currentMonth) || null;
+    const exactMonth = budgets.find((b) => b.month === currentMonth);
+    if (exactMonth) return exactMonth;
+
+    return (
+      budgets
+        .slice()
+        .sort((a, b) => {
+          const aTime = new Date(a.updated_at || a.created_at || 0).getTime();
+          const bTime = new Date(b.updated_at || b.created_at || 0).getTime();
+          return bTime - aTime;
+        })[0] || null
+    );
   }, [budgets, currentMonth]);
 
   useEffect(() => {
     if (currentBudget) {
+      const fallbackRange = monthKeyToRange(currentBudget.month || currentMonth);
+
       setForm({
         month: currentBudget.month || currentMonth,
         total_budget: String(currentBudget.total_budget ?? ""),
-        needs_pct: String(currentBudget.needs_pct ?? 50),
-        wants_pct: String(currentBudget.wants_pct ?? 30),
-        savings_pct: String(currentBudget.savings_pct ?? 20),
+        needs_pct: String(currentBudget.needs_pct ?? currentBudget.needs_percent ?? 50),
+        wants_pct: String(currentBudget.wants_pct ?? currentBudget.wants_percent ?? 30),
+        savings_pct: String(currentBudget.savings_pct ?? currentBudget.savings_percent ?? 20),
+        range_start: toDateTimeLocalValue(
+          getBudgetStart(currentBudget, fallbackRange.start)
+        ),
+        range_end: toDateTimeLocalValue(
+          getBudgetEnd(currentBudget, fallbackRange.end)
+        ),
       });
     } else {
+      const freshRange = monthKeyToRange(currentMonth);
+
       setForm({
         month: currentMonth,
         total_budget: "",
         needs_pct: "50",
         wants_pct: "30",
         savings_pct: "20",
+        range_start: toDateTimeLocalValue(freshRange.start),
+        range_end: toDateTimeLocalValue(freshRange.end),
       });
     }
+  }, [currentBudget, currentMonth]);
+
+  const activeRangeStart = useMemo(() => {
+    const fallback = monthKeyToRange(currentBudget?.month || currentMonth).start;
+    const raw = getBudgetStart(currentBudget, fallback);
+    const d = new Date(raw);
+    return Number.isNaN(d.getTime()) ? null : d;
+  }, [currentBudget, currentMonth]);
+
+  const activeRangeEnd = useMemo(() => {
+    const fallback = monthKeyToRange(currentBudget?.month || currentMonth).end;
+    const raw = getBudgetEnd(currentBudget, fallback);
+    const d = new Date(raw);
+    return Number.isNaN(d.getTime()) ? null : d;
   }, [currentBudget, currentMonth]);
 
   const financials = useMemo(() => {
@@ -208,19 +368,12 @@ export default function Budgets() {
       savingsSpent: 0,
     };
 
-    const trackingStart = currentBudget?.tracking_start_date
-      ? new Date(currentBudget.tracking_start_date)
-      : null;
+    if (!activeRangeStart || !activeRangeEnd) return result;
 
     expenses.forEach((item) => {
       const d = getItemDate(item);
       if (!d) return;
-
-      if (getMonthKey(d) !== currentMonth) return;
-
-      if (trackingStart && !Number.isNaN(trackingStart.getTime()) && d < trackingStart) {
-        return;
-      }
+      if (d < activeRangeStart || d > activeRangeEnd) return;
 
       const amount = getExpenseAmount(item);
       const type = getExpenseType(item);
@@ -237,15 +390,29 @@ export default function Budgets() {
     });
 
     return result;
-  }, [expenses, currentBudget, currentMonth]);
+  }, [expenses, activeRangeStart, activeRangeEnd]);
 
-  const handleSubmit = () => {
+  const handleMonthChange = (monthValue) => {
+    const nextRange = monthKeyToRange(monthValue);
+
+    setForm((prev) => ({
+      ...prev,
+      month: monthValue,
+      range_start: toDateTimeLocalValue(nextRange.start),
+      range_end: toDateTimeLocalValue(nextRange.end),
+    }));
+  };
+
+  const handleSubmit = async () => {
     if (!form.total_budget || isFree || !user?.email) return;
 
     const totalBudget = toNumber(form.total_budget);
     const needsPct = toNumber(form.needs_pct);
     const wantsPct = toNumber(form.wants_pct);
     const savingsPct = toNumber(form.savings_pct);
+
+    const rangeStart = form.range_start ? new Date(form.range_start) : null;
+    const rangeEnd = form.range_end ? new Date(form.range_end) : null;
 
     if (totalBudget <= 0) {
       alert("Please enter a valid total budget.");
@@ -257,80 +424,148 @@ export default function Budgets() {
       return;
     }
 
-    const allBudgets = getStoredData(STORAGE_KEYS.budgets);
-    const existing = allBudgets.find(
-      (b) => isOwnedByUser(b, user) && b.month === form.month
-    );
+    if (!rangeStart || Number.isNaN(rangeStart.getTime())) {
+      alert("Please select a valid start date and time.");
+      return;
+    }
 
-    if (existing) {
-      const updatedBudget = {
-        ...existing,
+    if (!rangeEnd || Number.isNaN(rangeEnd.getTime())) {
+      alert("Please select a valid end date and time.");
+      return;
+    }
+
+    if (rangeEnd <= rangeStart) {
+      alert("End date/time must be later than start date/time.");
+      return;
+    }
+
+    try {
+      setSaving(true);
+
+      const existing = budgets.find((b) => b.month === form.month);
+
+      const payload = {
+        month: form.month,
         total_budget: totalBudget,
+
         needs_pct: needsPct,
         wants_pct: wantsPct,
         savings_pct: savingsPct,
+
+        needs_percent: needsPct,
+        wants_percent: wantsPct,
+        savings_percent: savingsPct,
+
+        tracking_start_date: rangeStart.toISOString(),
+        tracking_end_date: rangeEnd.toISOString(),
+
+        range_start: rangeStart.toISOString(),
+        range_end: rangeEnd.toISOString(),
+
+        is_manual_range: true,
         updated_at: new Date().toISOString(),
       };
 
-      setStoredData(
-        STORAGE_KEYS.budgets,
-        allBudgets.map((item) => (item.id === existing.id ? updatedBudget : item))
-      );
-    } else {
-      const newBudget = {
-        id: generateId(),
-        created_by: user.email,
-        email: user.email,
-        user_email: user.email,
-        userEmail: user.email,
-        user_id: user.id ?? "",
-        userId: user.id ?? "",
-        month: form.month,
-        total_budget: totalBudget,
-        needs_pct: needsPct,
-        wants_pct: wantsPct,
-        savings_pct: savingsPct,
-        tracking_start_date: new Date().toISOString(),
-        created_at: new Date().toISOString(),
-      };
+      let result;
 
-      setStoredData(STORAGE_KEYS.budgets, [...allBudgets, newBudget]);
+      if (existing?.id) {
+        result = await supabase.from("budgets").update(payload).eq("id", existing.id);
+      } else {
+        result = await supabase.from("budgets").insert([
+          {
+            ...payload,
+            created_at: new Date().toISOString(),
+            created_by: user.email,
+            email: user.email,
+            user_id: user.id || null,
+          },
+        ]);
+      }
+
+      if (result.error) {
+        console.error("Budget save error:", result.error);
+
+        if (isMissingBudgetsTableError(result.error)) {
+          showBudgetsTableMissingAlert();
+        } else {
+          alert(result.error.message || "Failed to save budget to Supabase.");
+        }
+        return;
+      }
+
+      await refreshPageData();
+      window.dispatchEvent(new Event("clara-budgets-updated"));
+      window.dispatchEvent(new Event("clara-finance-updated"));
+      setOpen(false);
+    } catch (error) {
+      console.error("Failed to save budget:", error);
+
+      if (isMissingBudgetsTableError(error)) {
+        showBudgetsTableMissingAlert();
+      } else {
+        alert("Failed to save budget to Supabase.");
+      }
+    } finally {
+      setSaving(false);
     }
-
-    refreshPageData();
-    window.dispatchEvent(new Event("clara-budgets-updated"));
-    window.dispatchEvent(new Event("clara-finance-updated"));
-    setOpen(false);
   };
 
-  const handleReset = () => {
+  const handleReset = async () => {
     if (!currentBudget || !user?.email || resetting) return;
 
     const confirmReset = window.confirm(
-      "Reset tracking? Old expenses before today will no longer count for this month."
+      "Reset tracking start to right now? Expenses before this exact date and time will no longer count."
     );
     if (!confirmReset) return;
 
     try {
       setResetting(true);
 
-      const allBudgets = getStoredData(STORAGE_KEYS.budgets);
+      const nowIso = new Date().toISOString();
+      const fallbackEnd = monthKeyToRange(currentBudget.month || currentMonth).end;
+      const currentEnd = getBudgetEnd(currentBudget, fallbackEnd);
+      const endDate = new Date(currentEnd);
 
-      const updatedBudget = {
-        ...currentBudget,
-        tracking_start_date: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
-      };
+      const safeEnd =
+        !Number.isNaN(endDate.getTime()) && endDate > new Date(nowIso)
+          ? endDate.toISOString()
+          : new Date(new Date(nowIso).getTime() + 60 * 60 * 1000).toISOString();
 
-      setStoredData(
-        STORAGE_KEYS.budgets,
-        allBudgets.map((item) => (item.id === currentBudget.id ? updatedBudget : item))
-      );
+      const result = await supabase
+        .from("budgets")
+        .update({
+          tracking_start_date: nowIso,
+          tracking_end_date: safeEnd,
+          range_start: nowIso,
+          range_end: safeEnd,
+          is_manual_range: true,
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", currentBudget.id);
 
-      refreshPageData();
+      if (result.error) {
+        console.error("Budget reset error:", result.error);
+
+        if (isMissingBudgetsTableError(result.error)) {
+          showBudgetsTableMissingAlert();
+        } else {
+          alert(result.error.message || "Failed to reset budget tracking.");
+        }
+        return;
+      }
+
+      await refreshPageData();
       window.dispatchEvent(new Event("clara-budgets-updated"));
       window.dispatchEvent(new Event("clara-expenses-updated"));
       window.dispatchEvent(new Event("clara-finance-updated"));
+    } catch (error) {
+      console.error("Failed to reset budget tracking:", error);
+
+      if (isMissingBudgetsTableError(error)) {
+        showBudgetsTableMissingAlert();
+      } else {
+        alert("Failed to reset budget tracking.");
+      }
     } finally {
       setTimeout(() => setResetting(false), 150);
     }
@@ -345,13 +580,25 @@ export default function Budgets() {
 
   const totalBudget = toNumber(currentBudget?.total_budget);
   const needsBudget = currentBudget
-    ? (totalBudget * toNumber(currentBudget.needs_pct || 50)) / 100
+    ? (totalBudget *
+        toNumber(
+          currentBudget.needs_pct ?? currentBudget.needs_percent ?? 50
+        )) /
+      100
     : 0;
   const wantsBudget = currentBudget
-    ? (totalBudget * toNumber(currentBudget.wants_pct || 30)) / 100
+    ? (totalBudget *
+        toNumber(
+          currentBudget.wants_pct ?? currentBudget.wants_percent ?? 30
+        )) /
+      100
     : 0;
   const savingsBudget = currentBudget
-    ? (totalBudget * toNumber(currentBudget.savings_pct || 20)) / 100
+    ? (totalBudget *
+        toNumber(
+          currentBudget.savings_pct ?? currentBudget.savings_percent ?? 20
+        )) /
+      100
     : 0;
 
   const totalSpent = toNumber(financials.totalSpent);
@@ -363,7 +610,7 @@ export default function Budgets() {
     <div className="p-4 md:p-6 max-w-4xl mx-auto">
       <PageHeader
         title="Budgets"
-        subtitle="Set your monthly spending limits"
+        subtitle="Set your spending limits with a manual date and time range"
         action={
           isFree ? (
             <div className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-muted text-muted-foreground text-xs font-medium">
@@ -382,10 +629,10 @@ export default function Budgets() {
                 <DialogContent>
                   <DialogHeader>
                     <DialogTitle>
-                      {currentBudget ? "Edit" : "Set"} Monthly Budget
+                      {currentBudget ? "Edit" : "Set"} Budget
                     </DialogTitle>
                     <DialogDescription>
-                      Set your total monthly budget and category split.
+                      Set your total budget, category split, and exact clickable date/time range.
                     </DialogDescription>
                   </DialogHeader>
 
@@ -395,9 +642,7 @@ export default function Budgets() {
                       <Input
                         type="month"
                         value={form.month}
-                        onChange={(e) =>
-                          setForm({ ...form, month: e.target.value })
-                        }
+                        onChange={(e) => handleMonthChange(e.target.value)}
                       />
                     </div>
 
@@ -408,9 +653,42 @@ export default function Budgets() {
                         placeholder="0.00"
                         value={form.total_budget}
                         onChange={(e) =>
-                          setForm({ ...form, total_budget: e.target.value })
+                          setForm((prev) => ({
+                            ...prev,
+                            total_budget: e.target.value,
+                          }))
                         }
                       />
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                      <div>
+                        <Label>From</Label>
+                        <Input
+                          type="datetime-local"
+                          value={form.range_start}
+                          onChange={(e) =>
+                            setForm((prev) => ({
+                              ...prev,
+                              range_start: e.target.value,
+                            }))
+                          }
+                        />
+                      </div>
+
+                      <div>
+                        <Label>To</Label>
+                        <Input
+                          type="datetime-local"
+                          value={form.range_end}
+                          onChange={(e) =>
+                            setForm((prev) => ({
+                              ...prev,
+                              range_end: e.target.value,
+                            }))
+                          }
+                        />
+                      </div>
                     </div>
 
                     <div className="bg-muted/50 p-3 rounded-lg">
@@ -423,7 +701,10 @@ export default function Budgets() {
                             type="number"
                             value={form.needs_pct}
                             onChange={(e) =>
-                              setForm({ ...form, needs_pct: e.target.value })
+                              setForm((prev) => ({
+                                ...prev,
+                                needs_pct: e.target.value,
+                              }))
                             }
                           />
                         </div>
@@ -434,7 +715,10 @@ export default function Budgets() {
                             type="number"
                             value={form.wants_pct}
                             onChange={(e) =>
-                              setForm({ ...form, wants_pct: e.target.value })
+                              setForm((prev) => ({
+                                ...prev,
+                                wants_pct: e.target.value,
+                              }))
                             }
                           />
                         </div>
@@ -445,7 +729,10 @@ export default function Budgets() {
                             type="number"
                             value={form.savings_pct}
                             onChange={(e) =>
-                              setForm({ ...form, savings_pct: e.target.value })
+                              setForm((prev) => ({
+                                ...prev,
+                                savings_pct: e.target.value,
+                              }))
                             }
                           />
                         </div>
@@ -459,9 +746,9 @@ export default function Budgets() {
                     <Button
                       onClick={handleSubmit}
                       className="w-full"
-                      disabled={!form.total_budget}
+                      disabled={!form.total_budget || saving}
                     >
-                      Save Budget
+                      {saving ? "Saving..." : "Save Budget"}
                     </Button>
                   </div>
                 </DialogContent>
@@ -485,20 +772,20 @@ export default function Budgets() {
         }
       />
 
-      {!isFree && !currentBudget && (
+      {!isFree && !loading && !currentBudget && (
         <EmptyState
           icon={Target}
           title="No budget set"
-          description="Set your monthly budget to start tracking against your spending goals."
+          description="Set your budget and exact calculation range to start tracking."
         />
       )}
 
       {!isFree && currentBudget && (
         <div className="space-y-4">
           <div className="bg-card rounded-xl border border-border p-4">
-            <div className="flex items-center justify-between mb-4">
+            <div className="flex items-start justify-between gap-4 mb-4">
               <div>
-                <p className="text-xs text-muted-foreground">MONTHLY BUDGET</p>
+                <p className="text-xs text-muted-foreground">BUDGET</p>
                 <p className="font-heading text-2xl font-bold">
                   {fmt(totalBudget)}
                 </p>
@@ -508,6 +795,21 @@ export default function Budgets() {
                 <p className="text-xs text-muted-foreground">SPENT</p>
                 <p className="font-heading text-2xl font-bold text-destructive">
                   {fmt(totalSpent)}
+                </p>
+              </div>
+            </div>
+
+            <div className="flex items-start gap-2 rounded-lg border border-border/60 bg-muted/30 px-3 py-2 mb-4">
+              <CalendarRange className="w-4 h-4 mt-0.5 text-muted-foreground" />
+              <div>
+                <p className="text-[11px] uppercase tracking-wide text-muted-foreground">
+                  Active Calculation Range
+                </p>
+                <p className="text-sm font-medium">
+                  {formatRangeText(
+                    activeRangeStart?.toISOString(),
+                    activeRangeEnd?.toISOString()
+                  )}
                 </p>
               </div>
             </div>

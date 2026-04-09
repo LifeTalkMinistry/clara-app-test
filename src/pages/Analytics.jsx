@@ -51,6 +51,39 @@ const ALL_TIMEFRAMES = [
   { id: "custom", label: "Custom" },
 ];
 
+function normalizeString(value) {
+  return String(value ?? "").trim().toLowerCase();
+}
+
+function normalizeText(value) {
+  return String(value || "").trim().toLowerCase();
+}
+
+function isOwnedByUser(item, user) {
+  if (!user || !item) return false;
+
+  const userId = String(user?.id ?? "").trim();
+  const userEmail = normalizeString(user?.email);
+
+  const itemIds = [item?.user_id, item?.owner_id, item?.profile_id]
+    .map((v) => String(v ?? "").trim())
+    .filter(Boolean);
+
+  const itemEmails = [
+    item?.created_by,
+    item?.user_email,
+    item?.owner_email,
+    item?.email,
+  ]
+    .map(normalizeString)
+    .filter(Boolean);
+
+  if (userId && itemIds.includes(userId)) return true;
+  if (userEmail && itemEmails.includes(userEmail)) return true;
+
+  return false;
+}
+
 function getDateRange(timeframe, customStart, customEnd) {
   const now = new Date();
 
@@ -110,10 +143,6 @@ function toNumber(value) {
   return Number.isFinite(num) ? num : 0;
 }
 
-function normalizeText(value) {
-  return String(value || "").trim().toLowerCase();
-}
-
 function getExpenseNeedType(expense) {
   return normalizeText(
     expense?.need_type ||
@@ -146,9 +175,30 @@ function getWalletTransactionType(item) {
   return normalizeText(item?.type || item?.transaction_type || item?.kind);
 }
 
+function getWalletBalance(wallet) {
+  return toNumber(
+    wallet?.balance ??
+      wallet?.current_balance ??
+      wallet?.wallet_balance ??
+      wallet?.available_balance ??
+      wallet?.amount ??
+      0
+  );
+}
+
+function mapWalletTransactionIncome(item) {
+  return {
+    ...item,
+    amount: toNumber(item?.amount),
+    wallet_id: item?.wallet_id || item?.walletId || item?.wallet || null,
+    date: item?.date || item?.created_at || item?.timestamp || null,
+    __source: "wallet_transaction_income",
+  };
+}
+
 export default function Analytics() {
   const { user, isFree } = useUserRole();
-  const data = useFinancialData(user?.email);
+  const rawData = useFinancialData(user);
 
   const [timeframe, setTimeframe] = useState("this_month");
   const [customStart, setCustomStart] = useState("");
@@ -177,6 +227,21 @@ export default function Analytics() {
     () => getDateRange(activeTimeframe, customStart, customEnd),
     [activeTimeframe, customStart, customEnd]
   );
+
+  const data = useMemo(() => {
+    return {
+      wallets: (rawData?.wallets || []).filter((item) => isOwnedByUser(item, user)),
+      expenses: (rawData?.expenses || []).filter((item) => isOwnedByUser(item, user)),
+      incomes: (rawData?.incomes || []).filter((item) => isOwnedByUser(item, user)),
+      walletTransactions: (rawData?.walletTransactions || []).filter((item) =>
+        isOwnedByUser(item, user)
+      ),
+      transfers: (rawData?.transfers || []).filter((item) =>
+        isOwnedByUser(item, user)
+      ),
+      loading: rawData?.loading,
+    };
+  }, [rawData, user]);
 
   const filteredExpenses = useMemo(
     () => filterByRange(data.expenses || [], start, end, (item) => getItemDate(item)),
@@ -210,15 +275,27 @@ export default function Analytics() {
     [data.transfers, start, end]
   );
 
+  const fallbackIncomeTransactions = useMemo(() => {
+    return filteredWalletTransactions
+      .filter((item) => {
+        const type = getWalletTransactionType(item);
+        return type === "add" || type === "income";
+      })
+      .map(mapWalletTransactionIncome);
+  }, [filteredWalletTransactions]);
+
+  const effectiveIncomes = useMemo(() => {
+    if ((filteredIncomes || []).length > 0) return filteredIncomes;
+    return fallbackIncomeTransactions;
+  }, [filteredIncomes, fallbackIncomeTransactions]);
+
   const totalIncome = useMemo(
-    () =>
-      filteredIncomes.reduce((sum, item) => sum + toNumber(item?.amount), 0),
-    [filteredIncomes]
+    () => effectiveIncomes.reduce((sum, item) => sum + toNumber(item?.amount), 0),
+    [effectiveIncomes]
   );
 
   const totalExpenses = useMemo(
-    () =>
-      filteredExpenses.reduce((sum, item) => sum + toNumber(item?.amount), 0),
+    () => filteredExpenses.reduce((sum, item) => sum + toNumber(item?.amount), 0),
     [filteredExpenses]
   );
 
@@ -249,7 +326,7 @@ export default function Analytics() {
   const monthlyData = useMemo(() => {
     const map = {};
 
-    filteredIncomes.forEach((item) => {
+    effectiveIncomes.forEach((item) => {
       const date = safeDate(getItemDate(item));
       if (!date) return;
 
@@ -274,7 +351,7 @@ export default function Analytics() {
     });
 
     return Object.values(map).sort((a, b) => a.month.localeCompare(b.month));
-  }, [filteredExpenses, filteredIncomes]);
+  }, [effectiveIncomes, filteredExpenses]);
 
   const categoryBreakdown = useMemo(() => {
     const map = {};
@@ -320,7 +397,7 @@ export default function Analytics() {
     return (data.wallets || []).map((wallet) => {
       const walletId = String(wallet?.id || "");
 
-      const walletIncome = filteredIncomes
+      const walletIncome = effectiveIncomes
         .filter((item) => getWalletKey(item) === walletId)
         .reduce((sum, item) => sum + toNumber(item?.amount), 0);
 
@@ -356,7 +433,7 @@ export default function Analytics() {
 
       const txCount =
         filteredExpenses.filter((item) => getWalletKey(item) === walletId).length +
-        filteredIncomes.filter((item) => getWalletKey(item) === walletId).length +
+        effectiveIncomes.filter((item) => getWalletKey(item) === walletId).length +
         filteredWalletTransactions.filter(
           (item) => String(item?.wallet_id || "") === walletId
         ).length +
@@ -366,6 +443,7 @@ export default function Analytics() {
 
       return {
         ...wallet,
+        balance: getWalletBalance(wallet),
         received: walletIncome + walletTransferIn,
         spent: walletExpense + walletTransferOut,
         savingsMoved: walletSavingsTransferOut,
@@ -374,8 +452,8 @@ export default function Analytics() {
     });
   }, [
     data.wallets,
+    effectiveIncomes,
     filteredExpenses,
-    filteredIncomes,
     filteredWalletTransactions,
     filteredTransfers,
   ]);

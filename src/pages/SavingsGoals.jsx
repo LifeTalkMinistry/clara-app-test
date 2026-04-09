@@ -29,11 +29,7 @@ import PageHeader from "../components/PageHeader";
 import EmptyState from "../components/EmptyState";
 import useUserRole from "../hooks/useUserRole";
 import useFinancialData from "../hooks/useFinancialData";
-
-const STORAGE_KEY = "clara_savings_goals";
-const WALLET_KEY = "clara_wallets";
-const TXN_KEY = "clara_wallet_transactions";
-const TRANSFER_KEY = "clara_transfers";
+import { supabase } from "@/lib/supabaseClient";
 
 const CATEGORIES = {
   "Celebrations & Gifts": [
@@ -89,102 +85,29 @@ const selectDarkTriggerClass = "bg-[#0b1a2f] border-white/10 text-white";
 const labelDarkClass =
   "text-[11px] font-semibold uppercase tracking-[0.08em] text-white/70 mb-1.5 block";
 
-const safeRead = (key) => {
-  try {
-    const raw = localStorage.getItem(key);
-    const parsed = raw ? JSON.parse(raw) : [];
-    return Array.isArray(parsed) ? parsed : [];
-  } catch {
-    return [];
-  }
-};
-
-const safeWrite = (key, value) => {
-  localStorage.setItem(key, JSON.stringify(value));
-};
-
-const getStoredGoals = () => safeRead(STORAGE_KEY);
-
-const setStoredGoals = (goals) => {
-  safeWrite(STORAGE_KEY, goals);
-};
-
 const generateId = () =>
   `goal_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`;
 
-const generateTxnId = () =>
-  `txn_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`;
-
-const emitWalletSync = () => {
-  window.dispatchEvent(new Event("storage"));
-  window.dispatchEvent(new Event("clara-wallets-updated"));
-  window.dispatchEvent(new Event("clara-expenses-updated"));
+const toNumber = (value) => {
+  const n = Number(value);
+  return Number.isFinite(n) ? n : 0;
 };
 
-const normalizeString = (value) => String(value ?? "").trim();
-
-const isOwnedByUser = (item, user) => {
-  if (!user) return false;
-
-  const itemEmail = normalizeString(
-    item?.created_by ?? item?.user_email ?? item?.owner_email ?? item?.email
-  ).toLowerCase();
-
-  const userEmail = normalizeString(user?.email).toLowerCase();
-
-  const itemUserId = normalizeString(
-    item?.user_id ?? item?.owner_id ?? item?.profile_id
-  );
-
-  const currentUserId = normalizeString(user?.id);
-
-  if (itemEmail && userEmail && itemEmail === userEmail) return true;
-  if (itemUserId && currentUserId && itemUserId === currentUserId) return true;
-
-  return false;
-};
-
-const getWalletBalance = (wallet, allTransactions, allTransfers) => {
-  const walletId = String(wallet.id);
-
-  const walletTransactions = allTransactions.filter(
-    (t) => String(t.wallet_id) === walletId
-  );
-
-  const transactionTotal = walletTransactions.reduce(
-    (sum, t) => sum + Number(t.amount || 0),
-    0
-  );
-
-  const transfersIn = allTransfers
-    .filter(
-      (t) => String(t.wallet_id) === walletId && String(t.type) === "transfer_in"
-    )
-    .reduce((sum, t) => sum + Number(t.amount || 0), 0);
-
-  const transfersOut = allTransfers
-    .filter(
-      (t) =>
-        String(t.wallet_id) === walletId && String(t.type) === "transfer_out"
-    )
-    .reduce((sum, t) => sum + Number(t.amount || 0), 0);
-
-  return (
-    Number(wallet.starting_balance || 0) +
-    transactionTotal +
-    transfersIn -
-    transfersOut
-  );
-};
+const normalizeGoal = (goal) => ({
+  ...goal,
+  id: String(goal.id),
+  wallet_id: goal.wallet_id != null ? String(goal.wallet_id) : "",
+  target_amount: toNumber(goal.target_amount),
+  saved_amount: toNumber(goal.saved_amount),
+  reasons: Array.isArray(goal.reasons) ? goal.reasons : ["", "", ""],
+});
 
 export default function SavingsGoals() {
   const { user } = useUserRole();
-  const data = useFinancialData(user?.email);
+  const data = useFinancialData(user);
+  const { wallets, refreshData } = data;
 
   const [goals, setGoals] = useState([]);
-  const [wallets, setWallets] = useState([]);
-  const [walletTransactions, setWalletTransactions] = useState([]);
-  const [walletTransfers, setWalletTransfers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [open, setOpen] = useState(false);
@@ -192,122 +115,59 @@ export default function SavingsGoals() {
   const [editId, setEditId] = useState(null);
   const [form, setForm] = useState(EMPTY_FORM);
 
-  useEffect(() => {
-    const loadData = () => {
-      if (!user?.email && !user?.id) {
-        setGoals([]);
-        setWallets([]);
-        setWalletTransactions([]);
-        setWalletTransfers([]);
-        setLoading(false);
-        return;
+  const loadGoals = async (preferredGoalId = null) => {
+    if (!user?.id && !user?.email) {
+      setGoals([]);
+      setLoading(false);
+      return;
+    }
+
+    try {
+      setLoading(true);
+
+      let query = supabase
+        .from("savings_goals")
+        .select("*")
+        .order("created_date", { ascending: false });
+
+      if (user?.id) {
+        query = query.eq("user_id", user.id);
+      } else if (user?.email) {
+        query = query.eq("created_by", user.email);
       }
 
-      const allGoals = getStoredGoals();
-      const filteredGoals = allGoals.filter((g) => isOwnedByUser(g, user));
+      const { data: rows, error } = await query;
+      if (error) throw error;
 
-      const allWallets = safeRead(WALLET_KEY);
-      const allTransactions = safeRead(TXN_KEY);
-      const allTransfers = safeRead(TRANSFER_KEY);
+      const normalized = (rows || []).map(normalizeGoal);
+      setGoals(normalized);
 
-      const userWallets = allWallets
-        .filter((wallet) => isOwnedByUser(wallet, user))
-        .map((wallet) => ({
-          ...wallet,
-          id: String(wallet.id),
-        }));
-
-      const userWalletIds = new Set(userWallets.map((wallet) => String(wallet.id)));
-
-      const userTransactions = allTransactions
-        .filter(
-          (txn) => isOwnedByUser(txn, user) || userWalletIds.has(String(txn.wallet_id))
-        )
-        .map((txn) => ({
-          ...txn,
-          id: String(txn.id),
-          wallet_id: String(txn.wallet_id),
-        }));
-
-      const userTransfers = allTransfers
-        .filter(
-          (transfer) =>
-            isOwnedByUser(transfer, user) ||
-            userWalletIds.has(String(transfer.wallet_id)) ||
-            userWalletIds.has(String(transfer.linked_wallet_id))
-        )
-        .map((transfer) => ({
-          ...transfer,
-          id: String(transfer.id),
-          wallet_id: String(transfer.wallet_id),
-          linked_wallet_id:
-            transfer.linked_wallet_id != null
-              ? String(transfer.linked_wallet_id)
-              : "",
-        }));
-
-      const sortedGoals = filteredGoals.sort(
-        (a, b) => new Date(b.created_date) - new Date(a.created_date)
-      );
-
-      setGoals(sortedGoals);
-      setWallets(userWallets);
-      setWalletTransactions(userTransactions);
-      setWalletTransfers(userTransfers);
-
-      if (detailGoal?.id) {
-        const freshGoal = sortedGoals.find((g) => g.id === detailGoal.id) || null;
+      const targetId = preferredGoalId || detailGoal?.id;
+      if (targetId) {
+        const freshGoal =
+          normalized.find((g) => String(g.id) === String(targetId)) || null;
         setDetailGoal(freshGoal);
       }
-
+    } catch (error) {
+      console.error("Failed to load savings goals:", error);
+      setGoals([]);
+    } finally {
       setLoading(false);
-    };
+    }
+  };
 
-    loadData();
-
-    const handleReload = () => loadData();
-
-    window.addEventListener("storage", handleReload);
-    window.addEventListener("clara-wallets-updated", handleReload);
-    window.addEventListener("clara-expenses-updated", handleReload);
-
-    return () => {
-      window.removeEventListener("storage", handleReload);
-      window.removeEventListener("clara-wallets-updated", handleReload);
-      window.removeEventListener("clara-expenses-updated", handleReload);
-    };
-  }, [user?.email, user?.id, detailGoal?.id]);
+  useEffect(() => {
+    loadGoals();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user?.id, user?.email]);
 
   const walletBalances = useMemo(() => {
     const map = {};
-    wallets.forEach((wallet) => {
-      map[String(wallet.id)] = getWalletBalance(
-        wallet,
-        walletTransactions,
-        walletTransfers
-      );
+    (wallets || []).forEach((wallet) => {
+      map[String(wallet.id)] = Number(wallet.balance || 0);
     });
     return map;
-  }, [wallets, walletTransactions, walletTransfers]);
-
-  const syncGoals = (updatedUserGoals) => {
-    const allGoals = getStoredGoals();
-    const otherUsersGoals = allGoals.filter((g) => !isOwnedByUser(g, user));
-    const merged = [...otherUsersGoals, ...updatedUserGoals];
-
-    setStoredGoals(merged);
-
-    const sortedGoals = [...updatedUserGoals].sort(
-      (a, b) => new Date(b.created_date) - new Date(a.created_date)
-    );
-
-    setGoals(sortedGoals);
-
-    if (detailGoal?.id) {
-      const freshGoal = sortedGoals.find((g) => g.id === detailGoal.id) || null;
-      setDetailGoal(freshGoal);
-    }
-  };
+  }, [wallets]);
 
   const totalSaved = goals.reduce(
     (sum, goal) => sum + (Number(goal.saved_amount) || 0),
@@ -359,7 +219,7 @@ export default function SavingsGoals() {
   const handleSave = async () => {
     if (saving) return;
 
-    if (!user?.email) {
+    if (!user?.email && !user?.id) {
       alert("No user found. Please log in again.");
       return;
     }
@@ -383,49 +243,45 @@ export default function SavingsGoals() {
         subcategory: form.subcategory || "",
         target_amount: parseFloat(form.target_amount) || 0,
         saved_amount: Math.max(0, parseFloat(form.saved_amount) || 0),
-        planned_use_date: form.planned_use_date || "",
+        planned_use_date: form.planned_use_date || null,
         reasons: Array.isArray(form.reasons) ? form.reasons : ["", "", ""],
         emotional_value: form.emotional_value || "joy",
         flexibility: form.flexibility || "flexible",
         priority: form.priority || "medium",
         notes: form.notes || "",
-        wallet_id: form.wallet_id || "",
-        created_by: user.email,
-        user_id: user?.id || "",
+        wallet_id: form.wallet_id || null,
+        created_by: user?.email || null,
+        user_email: user?.email || null,
+        user_id: user?.id || null,
+        updated_date: new Date().toISOString(),
       };
 
       if (editId) {
-        const updated = goals.map((goal) =>
-          goal.id === editId
-            ? {
-                ...goal,
-                ...payload,
-                updated_date: new Date().toISOString(),
-              }
-            : goal
-        );
+        const { error } = await supabase
+          .from("savings_goals")
+          .update(payload)
+          .eq("id", editId);
 
-        syncGoals(updated);
-
-        const updatedDetail = updated.find((g) => g.id === editId) || null;
-        setDetailGoal(updatedDetail);
+        if (error) throw error;
       } else {
-        const newGoal = {
-          id: generateId(),
-          ...payload,
-          created_date: new Date().toISOString(),
-          updated_date: new Date().toISOString(),
-        };
+        const { error } = await supabase.from("savings_goals").insert([
+          {
+            id: generateId(),
+            ...payload,
+            created_date: new Date().toISOString(),
+          },
+        ]);
 
-        syncGoals([newGoal, ...goals]);
+        if (error) throw error;
       }
 
       setOpen(false);
       setEditId(null);
       setForm(EMPTY_FORM);
+      await loadGoals(editId || null);
     } catch (error) {
       console.error("Failed to save savings goal:", error);
-      alert("Failed to save goal.");
+      alert(error?.message || "Failed to save goal.");
     } finally {
       setSaving(false);
     }
@@ -433,11 +289,18 @@ export default function SavingsGoals() {
 
   const handleDelete = async (id) => {
     try {
-      const updated = goals.filter((g) => g.id !== id);
-      syncGoals(updated);
+      const { error } = await supabase
+        .from("savings_goals")
+        .delete()
+        .eq("id", id);
+
+      if (error) throw error;
+
       setDetailGoal((prev) => (prev?.id === id ? null : prev));
+      await loadGoals();
     } catch (error) {
       console.error("Failed to delete savings goal:", error);
+      alert(error?.message || "Failed to delete goal.");
     }
   };
 
@@ -454,11 +317,7 @@ export default function SavingsGoals() {
         return;
       }
 
-      const allWallets = safeRead(WALLET_KEY);
-      const allTransactions = safeRead(TXN_KEY);
-      const allTransfers = safeRead(TRANSFER_KEY);
-
-      const sourceWallet = allWallets.find(
+      const sourceWallet = (wallets || []).find(
         (wallet) => String(wallet.id) === String(goal.wallet_id)
       );
 
@@ -467,12 +326,7 @@ export default function SavingsGoals() {
         return;
       }
 
-      const currentWalletBalance = getWalletBalance(
-        sourceWallet,
-        allTransactions,
-        allTransfers
-      );
-
+      const currentWalletBalance = Number(sourceWallet.balance || 0);
       const currentGoalSaved = Number(goal.saved_amount) || 0;
       const targetAmount = Number(goal.target_amount) || 0;
       const remaining = Math.max(targetAmount - currentGoalSaved, 0);
@@ -489,45 +343,50 @@ export default function SavingsGoals() {
         return;
       }
 
-      const newTransaction = {
-        id: generateTxnId(),
-        wallet_id: String(sourceWallet.id),
-        amount: -finalAmount,
-        type: "savings_goal",
-        source_type: "savings_goal",
-        source_details: goal.title || "Savings Goal",
-        tag: "transfer",
-        notes: `Moved to savings goal: ${goal.title}`,
-        created_at: new Date().toISOString(),
-        created_by: user?.email || goal.created_by || "",
-        user_id: user?.id || goal.user_id || "",
-      };
+      const nextWalletBalance = currentWalletBalance - finalAmount;
+      const nextGoalSaved = Math.min(currentGoalSaved + finalAmount, targetAmount);
 
-      safeWrite(TXN_KEY, [newTransaction, ...allTransactions]);
+      const { error: walletError } = await supabase
+        .from("wallets")
+        .update({ balance: nextWalletBalance })
+        .eq("id", String(sourceWallet.id));
 
-      const updatedGoals = goals.map((g) => {
-        if (g.id !== goal.id) return g;
+      if (walletError) throw walletError;
 
-        return {
-          ...g,
-          saved_amount: Math.min(
-            (Number(g.saved_amount) || 0) + finalAmount,
-            Number(g.target_amount) || 0
-          ),
+      const { error: txnError } = await supabase
+        .from("wallet_transactions")
+        .insert([
+          {
+            wallet_id: String(sourceWallet.id),
+            type: "savings_goal",
+            amount: finalAmount,
+            notes: `Moved to savings goal: ${goal.title}`,
+            source_type: "Savings Goal",
+            source_details: goal.title || null,
+            tag: "Savings Top Up",
+            user_id: user?.id || null,
+            user_email: user?.email || null,
+            created_by: user?.email || null,
+          },
+        ]);
+
+      if (txnError) throw txnError;
+
+      const { error: goalError } = await supabase
+        .from("savings_goals")
+        .update({
+          saved_amount: nextGoalSaved,
           updated_date: new Date().toISOString(),
-        };
-      });
+        })
+        .eq("id", String(goal.id));
 
-      syncGoals(updatedGoals);
+      if (goalError) throw goalError;
 
-      const updatedGoal = updatedGoals.find((g) => g.id === goal.id) || null;
-      setDetailGoal(updatedGoal);
-
-      setWalletTransactions((prev) => [newTransaction, ...prev]);
-      emitWalletSync();
+      await refreshData();
+      await loadGoals(goal.id);
     } catch (error) {
       console.error("Failed to add savings:", error);
-      alert("Failed to add savings.");
+      alert(error?.message || "Failed to add savings.");
     }
   };
 
@@ -608,7 +467,7 @@ export default function SavingsGoals() {
             const target = Number(goal.target_amount) || 0;
             const pct = target > 0 ? Math.min((saved / target) * 100, 100) : 0;
             const remaining = Math.max(target - saved, 0);
-            const assignedWallet = wallets.find(
+            const assignedWallet = (wallets || []).find(
               (wallet) => String(wallet.id) === String(goal.wallet_id)
             );
 
@@ -636,7 +495,8 @@ export default function SavingsGoals() {
                     {assignedWallet ? (
                       <p className="text-[11px] text-muted-foreground mt-1 flex items-center gap-1">
                         <Wallet className="w-3 h-3" />
-                        {assignedWallet.name} • {fmt(walletBalances[String(assignedWallet.id)] || 0)}
+                        {assignedWallet.name} •{" "}
+                        {fmt(walletBalances[String(assignedWallet.id)] || 0)}
                       </p>
                     ) : null}
                   </div>
@@ -787,7 +647,7 @@ export default function SavingsGoals() {
                   <SelectValue placeholder="Select wallet..." />
                 </SelectTrigger>
                 <SelectContent>
-                  {wallets.length === 0 ? (
+                  {(wallets || []).length === 0 ? (
                     <SelectItem value="__no_wallets__" disabled>
                       No wallets available
                     </SelectItem>
@@ -795,7 +655,8 @@ export default function SavingsGoals() {
                     wallets.map((wallet) => (
                       <SelectItem key={wallet.id} value={String(wallet.id)}>
                         {wallet.icon ? `${wallet.icon} ` : ""}
-                        {wallet.name} • {fmt(walletBalances[String(wallet.id)] || 0)}
+                        {wallet.name} •{" "}
+                        {fmt(walletBalances[String(wallet.id)] || 0)}
                       </SelectItem>
                     ))
                   )}
@@ -930,7 +791,7 @@ export default function SavingsGoals() {
       {detailGoal && (
         <GoalDetail
           goal={detailGoal}
-          wallets={wallets}
+          wallets={wallets || []}
           walletBalances={walletBalances}
           onClose={() => setDetailGoal(null)}
           onEdit={openEdit}
