@@ -299,28 +299,28 @@ export default function Dashboard() {
     safeSurvivalExpense <= 0
       ? "Set your survival expense to unlock smarter guidance."
       : walletMoney >= safeSurvivalExpense
-      ? "You’re in control this month."
-      : walletMoney > safeSurvivalExpense * 0.5
-      ? "Careful — protect your essentials."
-      : "You’re near your limit — adjust now.";
+        ? "You’re in control this month."
+        : walletMoney > safeSurvivalExpense * 0.5
+          ? "Careful — protect your essentials."
+          : "You’re near your limit — adjust now.";
 
   const moneyLeftTone =
     safeSurvivalExpense <= 0
       ? "from-cyan-500/20 to-emerald-500/20 border-cyan-400/20"
       : walletMoney >= safeSurvivalExpense
-      ? "from-emerald-500/20 to-teal-500/20 border-emerald-400/20"
-      : walletMoney > safeSurvivalExpense * 0.5
-      ? "from-yellow-500/20 to-amber-500/20 border-yellow-400/20"
-      : "from-rose-500/20 to-red-500/20 border-rose-400/20";
+        ? "from-emerald-500/20 to-teal-500/20 border-emerald-400/20"
+        : walletMoney > safeSurvivalExpense * 0.5
+          ? "from-yellow-500/20 to-amber-500/20 border-yellow-400/20"
+          : "from-rose-500/20 to-red-500/20 border-rose-400/20";
 
   const moneyLeftBadge =
     safeSurvivalExpense <= 0
       ? "Smart Guide"
       : walletMoney >= safeSurvivalExpense
-      ? "Safe"
-      : walletMoney > safeSurvivalExpense * 0.5
-      ? "Watch"
-      : "Alert";
+        ? "Safe"
+        : walletMoney > safeSurvivalExpense * 0.5
+          ? "Watch"
+          : "Alert";
 
   const missionLabel = activeTask
     ? `Week ${activeTask.week} • Day ${activeTask.day}`
@@ -359,29 +359,29 @@ export default function Dashboard() {
     "Learn more";
 
   return (
-    <div className="min-h-full relative z-0 isolate">
-      <div className="grad-green px-4 md:px-6 pt-4 pb-2">
-        <div className="max-w-4xl mx-auto flex justify-between items-center gap-3">
-          <div className="min-w-0">
-            <p className="text-white/50 text-[10px]">Welcome back,</p>
-            <h1 className="text-xl font-bold text-white truncate leading-tight">
+    <div className="relative isolate z-0 min-h-full">
+      <div className="grad-green px-4 pb-2 pt-4 md:px-6">
+        <div className="mx-auto flex max-w-4xl items-center justify-between gap-3 pr-12">
+          <div className="min-w-0 flex-1">
+            <p className="text-[10px] text-white/50">Welcome back,</p>
+            <h1 className="truncate text-xl font-bold leading-tight text-white">
               {user?.full_name || "Financial Champion"}
             </h1>
           </div>
 
-          <Link to="/news">
-            <button className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-white/10 text-white text-[11px] font-medium shrink-0">
-              <Newspaper className="w-3.5 h-3.5" />
+          <Link to="/news" className="mr-2 shrink-0">
+            <button className="flex items-center gap-2 rounded-lg bg-white/10 px-3 py-1.5 text-[11px] font-medium text-white transition hover:bg-white/15">
+              <Newspaper className="h-3.5 w-3.5" />
               News
             </button>
           </Link>
         </div>
       </div>
 
-      <div className="px-4 md:px-6 mt-2 max-w-4xl mx-auto pb-8 space-y-4">
+      <div className="mx-auto mt-2 max-w-4xl space-y-4 px-4 pb-8 md:px-6">
         {isPending && (
-          <div className="p-3 rounded-2xl bg-secondary/20 border flex items-center gap-3">
-            <Clock className="w-5 h-5" />
+          <div className="flex items-center gap-3 rounded-2xl border bg-secondary/20 p-3">
+            <Clock className="h-5 w-5" />
             <div className="flex-1 text-sm">Enrollment Under Review</div>
             <Link to="/enroll">
               <Button size="sm">View</Button>
@@ -389,50 +389,50 @@ export default function Dashboard() {
           </div>
         )}
 
-        <div className="rounded-[28px] overflow-hidden border border-white/10 bg-[#0B1228] shadow-[0_0_25px_rgba(16,185,129,0.08)]">
+        <div className="overflow-hidden rounded-[28px] border border-white/10 bg-[#0B1228] shadow-[0_0_25px_rgba(16,185,129,0.08)]">
           <div className="relative h-[118px] sm:h-[126px]">
             {billboardImage ? (
               <img
                 src={billboardImage}
                 alt={billboardTitle}
-                className="w-full h-full object-cover"
+                className="h-full w-full object-cover"
               />
             ) : (
-              <div className="w-full h-full bg-gradient-to-r from-[#141B3A] via-[#251B4A] to-[#0E3A54]" />
+              <div className="h-full w-full bg-gradient-to-r from-[#141B3A] via-[#251B4A] to-[#0E3A54]" />
             )}
 
             <div className="absolute inset-0 bg-gradient-to-r from-black/75 via-black/35 to-black/10" />
 
-            <div className="absolute inset-0 p-4 flex items-center justify-between gap-3">
+            <div className="absolute inset-0 flex items-center justify-between gap-3 p-4">
               <div className="min-w-0 max-w-[72%]">
                 <p className="text-[10px] uppercase tracking-[0.22em] text-white/60">
                   Sponsored
                 </p>
-                <h3 className="text-white font-bold text-base leading-tight mt-1 line-clamp-1">
+                <h3 className="mt-1 line-clamp-1 text-base font-bold leading-tight text-white">
                   {billboardTitle}
                 </h3>
-                <p className="text-white/80 text-xs mt-1 line-clamp-2 leading-relaxed">
+                <p className="mt-1 line-clamp-2 text-xs leading-relaxed text-white/80">
                   {billboardSubtitle}
                 </p>
-                <div className="flex items-center gap-2 mt-2">
-                  <span className="text-[11px] text-white/90 font-medium">
+                <div className="mt-2 flex items-center gap-2">
+                  <span className="text-[11px] font-medium text-white/90">
                     {billboardCta}
                   </span>
                 </div>
               </div>
 
               <div className="shrink-0">
-                <div className="w-12 h-12 rounded-2xl bg-black/25 border border-white/15 backdrop-blur-sm flex items-center justify-center">
-                  <Play className="w-5 h-5 text-emerald-300 fill-emerald-300" />
+                <div className="flex h-12 w-12 items-center justify-center rounded-2xl border border-white/15 bg-black/25 backdrop-blur-sm">
+                  <Play className="h-5 w-5 fill-emerald-300 text-emerald-300" />
                 </div>
               </div>
             </div>
           </div>
 
-          <div className="flex items-center justify-center gap-1.5 py-2 bg-black/20">
-            <span className="w-4 h-1.5 rounded-full bg-emerald-400" />
-            <span className="w-1.5 h-1.5 rounded-full bg-white/20" />
-            <span className="w-1.5 h-1.5 rounded-full bg-white/20" />
+          <div className="flex items-center justify-center gap-1.5 bg-black/20 py-2">
+            <span className="h-1.5 w-4 rounded-full bg-emerald-400" />
+            <span className="h-1.5 w-1.5 rounded-full bg-white/20" />
+            <span className="h-1.5 w-1.5 rounded-full bg-white/20" />
           </div>
         </div>
 
@@ -468,47 +468,47 @@ export default function Dashboard() {
         )}
 
         <div
-          className={`rounded-3xl border p-4 bg-gradient-to-br ${moneyLeftTone} backdrop-blur-sm shadow-[0_0_25px_rgba(16,185,129,0.08)]`}
+          className={`rounded-3xl border bg-gradient-to-br p-4 shadow-[0_0_25px_rgba(16,185,129,0.08)] backdrop-blur-sm ${moneyLeftTone}`}
         >
           <div className="flex items-start justify-between gap-3">
             <div>
               <p className="text-xs uppercase tracking-[0.18em] text-white/55">
                 Money Left
               </p>
-              <h2 className="text-3xl font-bold text-white mt-2">
+              <h2 className="mt-2 text-3xl font-bold text-white">
                 {fmt(walletMoney)}
               </h2>
-              <p className="text-sm text-white/75 mt-2 max-w-[28rem]">
+              <p className="mt-2 max-w-[28rem] text-sm text-white/75">
                 {moneyLeftStatus}
               </p>
             </div>
 
-            <div className="flex flex-col items-end gap-2 shrink-0">
-              <div className="rounded-full px-3 py-1 text-xs font-semibold bg-white/10 text-white border border-white/10">
+            <div className="flex shrink-0 flex-col items-end gap-2">
+              <div className="rounded-full border border-white/10 bg-white/10 px-3 py-1 text-xs font-semibold text-white">
                 {moneyLeftBadge}
               </div>
-              <div className="w-11 h-11 rounded-2xl bg-white/10 border border-white/10 flex items-center justify-center">
-                <PiggyBank className="w-5 h-5 text-white" />
+              <div className="flex h-11 w-11 items-center justify-center rounded-2xl border border-white/10 bg-white/10">
+                <PiggyBank className="h-5 w-5 text-white" />
               </div>
             </div>
           </div>
 
           {safeSurvivalExpense > 0 && (
             <div className="mt-4 grid grid-cols-2 gap-3">
-              <div className="rounded-2xl bg-black/20 border border-white/10 px-3 py-3">
+              <div className="rounded-2xl border border-white/10 bg-black/20 px-3 py-3">
                 <p className="text-[11px] uppercase tracking-wide text-white/50">
                   Survival Need
                 </p>
-                <p className="text-sm font-semibold text-white mt-1">
+                <p className="mt-1 text-sm font-semibold text-white">
                   {fmt(safeSurvivalExpense)}
                 </p>
               </div>
 
-              <div className="rounded-2xl bg-black/20 border border-white/10 px-3 py-3">
+              <div className="rounded-2xl border border-white/10 bg-black/20 px-3 py-3">
                 <p className="text-[11px] uppercase tracking-wide text-white/50">
                   Wallet Sync
                 </p>
-                <p className="text-sm font-semibold text-white mt-1">
+                <p className="mt-1 text-sm font-semibold text-white">
                   Live from wallets
                 </p>
               </div>
@@ -531,36 +531,36 @@ export default function Dashboard() {
 
           {activeTask ? (
             <Link to="/tasks" className="block h-full">
-              <div className="rounded-2xl p-4 bg-[#0B1228] border border-white/10 h-full">
+              <div className="h-full rounded-2xl border border-white/10 bg-[#0B1228] p-4">
                 <div className="flex items-start justify-between gap-3">
                   <div>
-                    <p className="text-[11px] uppercase tracking-wide text-amber-300 font-semibold">
+                    <p className="text-[11px] font-semibold uppercase tracking-wide text-amber-300">
                       Day Mission
                     </p>
-                    <p className="text-sm font-semibold text-white mt-2 leading-snug">
+                    <p className="mt-2 text-sm font-semibold leading-snug text-white">
                       {missionTitle}
                     </p>
-                    <p className="text-xs text-white/55 mt-1">{missionLabel}</p>
+                    <p className="mt-1 text-xs text-white/55">{missionLabel}</p>
                   </div>
 
-                  <div className="w-10 h-10 rounded-2xl bg-white/5 border border-white/10 flex items-center justify-center shrink-0">
-                    <Sparkles className="w-4 h-4 text-amber-300" />
+                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl border border-white/10 bg-white/5">
+                    <Sparkles className="h-4 w-4 text-amber-300" />
                   </div>
                 </div>
 
-                <p className="text-xs text-white/70 mt-4">
+                <p className="mt-4 text-xs text-white/70">
                   Build awareness. Build control.
                 </p>
 
-                <p className="text-xs text-amber-300 mt-2">{missionSub}</p>
+                <p className="mt-2 text-xs text-amber-300">{missionSub}</p>
 
                 {loading && (
-                  <p className="text-[11px] text-white/35 mt-2">Refreshing…</p>
+                  <p className="mt-2 text-[11px] text-white/35">Refreshing…</p>
                 )}
               </div>
             </Link>
           ) : (
-            <div className="rounded-2xl p-4 bg-[#0B1228] border border-white/10 text-xs text-white/60">
+            <div className="rounded-2xl border border-white/10 bg-[#0B1228] p-4 text-xs text-white/60">
               {loading ? "Loading tasks..." : "No active tasks"}
             </div>
           )}
