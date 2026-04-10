@@ -5,6 +5,7 @@ export default function StatCard({
   icon: Icon = null,
   variant = "default",
   className = "",
+  highlight = false, // 🔥 NEW (for important cards)
 }) {
   const variants = {
     default: {
@@ -39,20 +40,26 @@ export default function StatCard({
       label: "text-white/80",
       sub: "text-white/65",
     },
-    outline: {
+    danger: {
       wrapper:
-        "border border-white/10 bg-[#111827]/95 backdrop-blur-xl shadow-[0_8px_24px_rgba(0,0,0,0.28)]",
-      icon: "bg-white/10 text-white",
+        "border border-red-500/30 bg-[linear-gradient(135deg,rgba(40,10,10,0.98)_0%,rgba(90,20,20,0.96)_100%)] backdrop-blur-xl shadow-[0_8px_24px_rgba(0,0,0,0.28)]",
+      icon: "bg-white/10 text-red-200",
       value: "text-white",
-      label: "text-white/75",
-      sub: "text-white/60",
+      label: "text-red-200",
+      sub: "text-red-100",
     },
   };
 
   const v = variants[variant] || variants.default;
 
   return (
-    <div className={`rounded-2xl p-4 transition-all ${v.wrapper} ${className}`}>
+    <div
+      className={`rounded-2xl p-4 transition-all duration-300 
+      active:scale-[0.97] hover:scale-[1.01]
+      ${highlight ? "ring-1 ring-emerald-400/30 shadow-[0_0_25px_rgba(16,185,129,0.15)]" : ""}
+      ${v.wrapper} ${className}`}
+    >
+      {/* TOP */}
       <div className="flex items-center justify-between mb-3 gap-3">
         <span
           className={`text-[11px] font-semibold uppercase tracking-wide ${v.label}`}
@@ -69,15 +76,24 @@ export default function StatCard({
         ) : null}
       </div>
 
-      <p className={`text-2xl font-bold leading-tight break-words ${v.value}`}>
+      {/* VALUE */}
+      <p
+        className={`text-2xl font-bold leading-tight break-words ${v.value}`}
+      >
         {value}
       </p>
 
+      {/* SUBTEXT */}
       {sub ? (
         <p className={`text-sm mt-2 leading-snug ${v.sub}`}>
           {sub}
         </p>
       ) : null}
+
+      {/* 🔥 OPTIONAL MINI PROGRESS LINE (AUTO PREMIUM FEEL) */}
+      <div className="mt-3 h-[3px] w-full bg-white/5 rounded-full overflow-hidden">
+        <div className="h-full w-[60%] bg-white/20 rounded-full" />
+      </div>
     </div>
   );
 }

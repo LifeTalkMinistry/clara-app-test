@@ -1,5 +1,14 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Shield, Edit2, Camera, X, Upload, Check, ChevronDown, ChevronUp } from "lucide-react";
+import {
+  Shield,
+  Edit2,
+  Camera,
+  X,
+  Upload,
+  Check,
+  ChevronDown,
+  ChevronUp,
+} from "lucide-react";
 import SurvivalExpenseModal from "./SurvivalExpenseModal";
 
 const fmt = (n) =>
@@ -133,18 +142,26 @@ function getStatus(months, targetMonths) {
 
 function getProgression(months, targetMonths) {
   if (months >= targetMonths && targetMonths === 3) {
-    return "Great job! Increase your safety to 6 months?";
+    return "You're safe. Now push to 6 months.";
   }
 
   if (months >= targetMonths && targetMonths === 6) {
-    return "You're building strong security. Aim for 12 months!";
+    return "Strong position. Aim for full protection (12 months).";
   }
 
   if (months >= targetMonths) {
-    return "Outstanding! You have maximum financial protection.";
+    return "You are financially protected. Maintain this discipline.";
   }
 
-  return `Start with ${targetMonths} month${targetMonths > 1 ? "s" : ""} of protection.`;
+  if (months >= targetMonths * 0.66) {
+    return "You're close. Stay consistent and finish this.";
+  }
+
+  if (months >= targetMonths * 0.33) {
+    return "Good start. Build momentum.";
+  }
+
+  return "Start building your protection today.";
 }
 
 function getStoredWallpaper() {
@@ -501,11 +518,15 @@ export default function EmergencyFundCard({
             <p className="mt-2 max-w-[28rem] text-xs font-medium leading-relaxed text-white/82">
               {progression}
             </p>
+
+            <p className="text-[11px] text-white/60 mt-1">
+              Your future stability depends on this.
+            </p>
           </div>
 
           <div className="mb-3">
             <div className="mb-1.5 flex items-center justify-between text-[11px] font-medium text-white/75">
-              <span>Current progress</span>
+              <span>Protection progress</span>
               <span>{pct.toFixed(0)}%</span>
             </div>
 

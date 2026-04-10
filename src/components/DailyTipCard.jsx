@@ -114,7 +114,8 @@ export default function DailyTipCard({
 
   useEffect(() => {
     try {
-      const sourceTips = Array.isArray(tips) && tips.length > 0 ? tips : loadLocalTips();
+      const sourceTips =
+        Array.isArray(tips) && tips.length > 0 ? tips : loadLocalTips();
       setTip(pickTip(sourceTips, isPaid, isPending));
     } catch (error) {
       console.error("Failed to load tips:", error);
@@ -164,8 +165,8 @@ export default function DailyTipCard({
   return (
     <>
       <div
-        className="cursor-pointer select-none"
-        style={{ perspective: "800px" }}
+        className="cursor-pointer select-none w-full"
+        style={{ perspective: "900px" }}
         onClick={() => setFlipped((f) => !f)}
       >
         <div
@@ -174,31 +175,39 @@ export default function DailyTipCard({
             transformStyle: "preserve-3d",
             transition: "transform 0.45s cubic-bezier(0.4, 0, 0.2, 1)",
             transform: flipped ? "rotateY(180deg)" : "rotateY(0deg)",
-            minHeight: "176px",
+            minHeight: "220px",
           }}
+          className="w-full"
         >
           <div
             style={{
               backfaceVisibility: "hidden",
               WebkitBackfaceVisibility: "hidden",
             }}
-            className="absolute inset-0 rounded-2xl p-4 border border-emerald-400/20 bg-[linear-gradient(135deg,rgba(10,24,20,0.98)_0%,rgba(16,52,38,0.96)_100%)] shadow-[0_8px_24px_rgba(0,0,0,0.28)] flex flex-col justify-between"
+            className="absolute inset-0 rounded-3xl p-5 border border-emerald-400/20 bg-[linear-gradient(135deg,rgba(10,24,20,0.98)_0%,rgba(16,52,38,0.96)_100%)] shadow-[0_8px_24px_rgba(0,0,0,0.28)] flex flex-col justify-between"
           >
-            <div className="flex items-center justify-between mb-2">
-              <span className="text-xs font-bold uppercase tracking-wider text-white/70">
+            <div className="flex items-center justify-between gap-3 mb-3">
+              <span className="text-xs font-bold uppercase tracking-[0.18em] text-white/70">
                 Daily Money Tip
               </span>
 
-              <div className="w-8 h-8 rounded-xl bg-emerald-500/10 border border-emerald-400/10 flex items-center justify-center">
-                <Lightbulb className="w-4 h-4 text-emerald-400" />
+              <div className="w-10 h-10 rounded-2xl bg-emerald-500/10 border border-emerald-400/10 flex items-center justify-center shrink-0">
+                <Lightbulb className="w-5 h-5 text-emerald-400" />
               </div>
             </div>
 
-            <div>
-              <p className="text-sm font-medium text-white/90 leading-snug">
-                Flip for today&apos;s tip
+            <div className="flex-1 flex flex-col justify-center">
+              <p className="text-xl font-semibold text-white leading-relaxed">
+                ⚠️ Most people ignore this...
+              </p>
+              <p className="text-sm text-white/65 mt-3 leading-relaxed">
+                Tap to reveal today&apos;s insight and improve your money behavior.
               </p>
             </div>
+
+            <p className="text-xs text-white/45 mt-4">
+              Tap to flip
+            </p>
           </div>
 
           <div
@@ -207,28 +216,34 @@ export default function DailyTipCard({
               WebkitBackfaceVisibility: "hidden",
               transform: "rotateY(180deg)",
             }}
-            className="absolute inset-0 rounded-2xl p-4 border border-emerald-400/20 bg-[linear-gradient(135deg,rgba(10,24,20,0.98)_0%,rgba(16,52,38,0.96)_100%)] shadow-[0_8px_24px_rgba(0,0,0,0.28)] flex flex-col"
+            className="absolute inset-0 rounded-3xl p-5 border border-emerald-400/20 bg-[linear-gradient(135deg,rgba(10,24,20,0.98)_0%,rgba(16,52,38,0.96)_100%)] shadow-[0_8px_24px_rgba(0,0,0,0.28)] flex flex-col"
           >
-            <span className="text-[10px] font-bold uppercase tracking-wider text-white/65 shrink-0">
-              Today&apos;s Tip
-            </span>
+            <div className="flex items-center justify-between gap-3 shrink-0">
+              <span className="text-xs font-bold uppercase tracking-[0.18em] text-white/65">
+                Today&apos;s Tip
+              </span>
 
-            <div className="mt-2 flex-1 min-h-0">
-              <p className="text-[15px] font-semibold text-white leading-snug line-clamp-4">
-                “{tipText}”
+              <div className="w-10 h-10 rounded-2xl bg-emerald-500/10 border border-emerald-400/10 flex items-center justify-center shrink-0">
+                <Lightbulb className="w-5 h-5 text-emerald-400" />
+              </div>
+            </div>
+
+            <div className="mt-4 flex-1 min-h-0">
+              <p className="text-lg font-semibold text-white leading-relaxed">
+                💡 {tipText}
               </p>
             </div>
 
-            <div className="pt-3 mt-2 border-t border-white/10 space-y-2 shrink-0">
+            <div className="pt-4 mt-4 border-t border-white/10 space-y-2 shrink-0">
               <div>
                 {isFree && !isPending && (
-                  <p className="text-[10px] text-emerald-300 font-semibold">
+                  <p className="text-xs text-emerald-300 font-semibold">
                     Unlock full system by enrolling →
                   </p>
                 )}
 
                 {isPending && (
-                  <p className="text-[10px] text-white/55">
+                  <p className="text-xs text-white/55">
                     Stay ready. Approval coming soon.
                   </p>
                 )}
@@ -240,15 +255,17 @@ export default function DailyTipCard({
                       setSuggestOpen(true);
                     }}
                     type="button"
-                    className="text-[10px] text-white/70 hover:text-emerald-300 transition-colors flex items-center gap-1"
+                    className="text-xs text-white/70 hover:text-emerald-300 transition-colors flex items-center gap-1.5"
                   >
-                    <Send className="w-3 h-3" />
+                    <Send className="w-3.5 h-3.5" />
                     Suggest a tip
                   </button>
                 )}
               </div>
 
-              <p className="text-[10px] text-white/45">Tap to flip back</p>
+              <p className="text-xs text-white/45">
+                Tap to flip • Apply this today
+              </p>
             </div>
           </div>
         </div>
