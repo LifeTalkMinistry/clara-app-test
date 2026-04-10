@@ -6,6 +6,9 @@ import {
   Clock,
   Sparkles,
   Play,
+  FileText,
+  ExternalLink,
+  Image as ImageIcon,
 } from "lucide-react";
 import { Link } from "react-router-dom";
 import { supabase } from "@/lib/supabaseClient";
@@ -48,6 +51,47 @@ const firstValidNumber = (...values) => {
     if (Number.isFinite(num)) return num;
   }
   return 0;
+};
+
+const isTruthyActive = (value) => {
+  return value === true || value === "true" || value === 1 || value === "1";
+};
+
+const getBillboardMediaType = (item) => {
+  const explicitType = normalizeString(item?.media_type).toLowerCase();
+  if (explicitType) return explicitType;
+
+  const url = normalizeString(
+    item?.media_url ||
+      item?.image_url ||
+      item?.thumbnail_url ||
+      item?.photo_url ||
+      ""
+  ).toLowerCase();
+
+  if (!url) return "none";
+  if (
+    url.includes(".mp4") ||
+    url.includes(".webm") ||
+    url.includes(".mov") ||
+    url.includes(".m4v") ||
+    url.includes("video")
+  ) {
+    return "video";
+  }
+  if (
+    url.includes(".jpg") ||
+    url.includes(".jpeg") ||
+    url.includes(".png") ||
+    url.includes(".webp") ||
+    url.includes(".gif") ||
+    url.includes(".svg")
+  ) {
+    return "image";
+  }
+  if (url.includes(".pdf")) return "pdf";
+
+  return "file";
 };
 
 export default function Dashboard() {
@@ -139,9 +183,9 @@ export default function Dashboard() {
         supabase
           .from("billboards")
           .select("*")
-          .eq("is_active", true)
+          .order("sort_order", { ascending: true })
           .order("created_at", { ascending: false })
-          .limit(5),
+          .limit(10),
 
         supabase.from("expenses").select("*"),
 
@@ -150,24 +194,12 @@ export default function Dashboard() {
         supabase.from("wallets").select("*"),
       ]);
 
-      if (tasksRes.error) {
-        console.error("Failed to load tasks:", tasksRes.error);
-      }
-      if (submissionsRes.error) {
-        console.error("Failed to load submissions:", submissionsRes.error);
-      }
-      if (billboardsRes.error) {
-        console.error("Failed to load billboards:", billboardsRes.error);
-      }
-      if (expensesRes.error) {
-        console.error("Failed to load expenses:", expensesRes.error);
-      }
-      if (profilesRes.error) {
-        console.error("Failed to load profiles:", profilesRes.error);
-      }
-      if (walletsRes.error) {
-        console.error("Failed to load wallets:", walletsRes.error);
-      }
+      if (tasksRes.error) console.error("Failed to load tasks:", tasksRes.error);
+      if (submissionsRes.error) console.error("Failed to load submissions:", submissionsRes.error);
+      if (billboardsRes.error) console.error("Failed to load billboards:", billboardsRes.error);
+      if (expensesRes.error) console.error("Failed to load expenses:", expensesRes.error);
+      if (profilesRes.error) console.error("Failed to load profiles:", profilesRes.error);
+      if (walletsRes.error) console.error("Failed to load wallets:", walletsRes.error);
 
       const userSubmissions = (submissionsRes.data || []).filter((item) =>
         isOwnedByUser(item, user)
@@ -202,9 +234,16 @@ export default function Dashboard() {
         );
       }, 0);
 
+      const activeBillboards = (billboardsRes.data || []).filter(
+        (item) =>
+          isTruthyActive(item?.is_active) ||
+          item?.is_active === null ||
+          item?.is_active === undefined
+      );
+
       setTasks(tasksRes.data || []);
       setSubmissions(userSubmissions);
-      setBillboards(billboardsRes.data || []);
+      setBillboards(activeBillboards);
       setExpenses(userExpenses);
       setSurvivalExpense(Number(userProfile?.monthly_survival_expense) || 0);
       setWalletMoney(totalWalletMoney);
@@ -333,30 +372,61 @@ export default function Dashboard() {
       ? `${pendingCount} pending task${pendingCount > 1 ? "s" : ""}`
       : "You’re caught up for now";
 
-  const activeBillboard = billboards[0] || null;
-  const billboardImage =
-    activeBillboard?.image_url ||
-    activeBillboard?.thumbnail_url ||
+  const activeBillboard =
+    billboards.find((item) => isTruthyActive(item?.is_active)) ||
+    billboards[0] ||
+    null;
+
+  const billboardMediaUrl = normalizeString(
     activeBillboard?.media_url ||
-    activeBillboard?.photo_url ||
-    "";
+      activeBillboard?.image_url ||
+      activeBillboard?.thumbnail_url ||
+      activeBillboard?.photo_url ||
+      ""
+  );
 
-  const billboardTitle =
+  const billboardTitle = normalizeString(
     activeBillboard?.title ||
-    activeBillboard?.headline ||
-    activeBillboard?.name ||
-    "Featured Spotlight";
+      activeBillboard?.headline ||
+      activeBillboard?.name ||
+      ""
+  );
 
-  const billboardSubtitle =
-    activeBillboard?.subtitle ||
-    activeBillboard?.description ||
-    activeBillboard?.caption ||
-    "Your future ad or promo space can live here.";
+  const billboardSubtitle = normalizeString(
+    activeBillboard?.body ||
+      activeBillboard?.subtitle ||
+      activeBillboard?.description ||
+      activeBillboard?.caption ||
+      ""
+  );
 
-  const billboardCta =
+  const billboardTag = normalizeString(
+    activeBillboard?.tag_label ||
+      activeBillboard?.tag ||
+      activeBillboard?.badge ||
+      ""
+  );
+
+  const billboardCta = normalizeString(
     activeBillboard?.cta_label ||
-    activeBillboard?.button_text ||
-    "Learn more";
+      activeBillboard?.button_text ||
+      ""
+  );
+
+  const billboardTargetUrl = normalizeString(
+    activeBillboard?.cta_url || billboardMediaUrl || ""
+  );
+
+  const billboardMediaType = getBillboardMediaType(activeBillboard);
+  const hasBillboardContent =
+    !!billboardMediaUrl || !!billboardTitle || !!billboardSubtitle;
+
+  const billboardClickable = !!billboardTargetUrl;
+
+  const openBillboardTarget = useCallback(() => {
+    if (!billboardTargetUrl) return;
+    window.open(billboardTargetUrl, "_blank", "noopener,noreferrer");
+  }, [billboardTargetUrl]);
 
   return (
     <div className="relative isolate z-0 min-h-full">
@@ -389,52 +459,113 @@ export default function Dashboard() {
           </div>
         )}
 
-        <div className="overflow-hidden rounded-[28px] border border-white/10 bg-[#0B1228] shadow-[0_0_25px_rgba(16,185,129,0.08)]">
-          <div className="relative h-[118px] sm:h-[126px]">
-            {billboardImage ? (
-              <img
-                src={billboardImage}
-                alt={billboardTitle}
-                className="h-full w-full object-cover"
-              />
-            ) : (
-              <div className="h-full w-full bg-gradient-to-r from-[#141B3A] via-[#251B4A] to-[#0E3A54]" />
-            )}
+        {hasBillboardContent && (
+          <div
+            className={`overflow-hidden rounded-[28px] border border-white/10 bg-[#0B1228] shadow-[0_0_25px_rgba(16,185,129,0.08)] ${
+              billboardClickable ? "cursor-pointer" : ""
+            }`}
+            onClick={billboardClickable ? openBillboardTarget : undefined}
+            role={billboardClickable ? "button" : undefined}
+            tabIndex={billboardClickable ? 0 : undefined}
+            onKeyDown={
+              billboardClickable
+                ? (e) => {
+                    if (e.key === "Enter" || e.key === " ") {
+                      e.preventDefault();
+                      openBillboardTarget();
+                    }
+                  }
+                : undefined
+            }
+          >
+            <div className="relative h-[118px] sm:h-[126px]">
+              {billboardMediaUrl ? (
+                billboardMediaType === "video" ? (
+                  <video
+                    src={billboardMediaUrl}
+                    className="h-full w-full object-cover"
+                    autoPlay
+                    muted
+                    loop
+                    playsInline
+                    controls={false}
+                    onClick={(e) => e.stopPropagation()}
+                  />
+                ) : billboardMediaType === "image" ? (
+                  <img
+                    src={billboardMediaUrl}
+                    alt={billboardTitle || "Billboard"}
+                    className="h-full w-full object-cover"
+                  />
+                ) : (
+                  <div className="flex h-full w-full items-center justify-center bg-gradient-to-r from-[#141B3A] via-[#251B4A] to-[#0E3A54]">
+                    <div className="flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-3 py-1.5 text-white/85">
+                      <FileText className="h-4 w-4" />
+                      <span className="text-xs font-medium">
+                        {billboardMediaType === "pdf" ? "PDF Attached" : "File Attached"}
+                      </span>
+                    </div>
+                  </div>
+                )
+              ) : (
+                <div className="h-full w-full bg-gradient-to-r from-[#141B3A] via-[#251B4A] to-[#0E3A54]" />
+              )}
 
-            <div className="absolute inset-0 bg-gradient-to-r from-black/75 via-black/35 to-black/10" />
+              <div className="absolute inset-0 bg-gradient-to-r from-black/75 via-black/35 to-black/10" />
 
-            <div className="absolute inset-0 flex items-center justify-between gap-3 p-4">
-              <div className="min-w-0 max-w-[72%]">
-                <p className="text-[10px] uppercase tracking-[0.22em] text-white/60">
-                  Sponsored
-                </p>
-                <h3 className="mt-1 line-clamp-1 text-base font-bold leading-tight text-white">
-                  {billboardTitle}
-                </h3>
-                <p className="mt-1 line-clamp-2 text-xs leading-relaxed text-white/80">
-                  {billboardSubtitle}
-                </p>
-                <div className="mt-2 flex items-center gap-2">
-                  <span className="text-[11px] font-medium text-white/90">
-                    {billboardCta}
-                  </span>
+              <div className="absolute inset-0 flex items-center justify-between gap-3 p-4">
+                <div className="min-w-0 max-w-[72%]">
+                  {!!billboardTag && (
+                    <p className="text-[10px] uppercase tracking-[0.22em] text-white/60">
+                      {billboardTag}
+                    </p>
+                  )}
+
+                  {!!billboardTitle && (
+                    <h3 className="mt-1 line-clamp-1 text-base font-bold leading-tight text-white">
+                      {billboardTitle}
+                    </h3>
+                  )}
+
+                  {!!billboardSubtitle && (
+                    <p className="mt-1 line-clamp-2 text-xs leading-relaxed text-white/80">
+                      {billboardSubtitle}
+                    </p>
+                  )}
+
+                  {!!billboardCta && (
+                    <div className="mt-2 flex items-center gap-2">
+                      <span className="inline-flex items-center gap-1 text-[11px] font-medium text-white/90">
+                        <span>{billboardCta}</span>
+                        {billboardClickable && <ExternalLink className="h-3 w-3" />}
+                      </span>
+                    </div>
+                  )}
                 </div>
-              </div>
 
-              <div className="shrink-0">
-                <div className="flex h-12 w-12 items-center justify-center rounded-2xl border border-white/15 bg-black/25 backdrop-blur-sm">
-                  <Play className="h-5 w-5 fill-emerald-300 text-emerald-300" />
+                <div className="shrink-0">
+                  <div className="flex h-12 w-12 items-center justify-center rounded-2xl border border-white/15 bg-black/25 backdrop-blur-sm">
+                    {billboardMediaType === "video" ? (
+                      <Play className="h-5 w-5 fill-emerald-300 text-emerald-300" />
+                    ) : billboardMediaType === "image" ? (
+                      <ImageIcon className="h-5 w-5 text-emerald-300" />
+                    ) : billboardMediaType === "pdf" || billboardMediaType === "file" ? (
+                      <FileText className="h-5 w-5 text-emerald-300" />
+                    ) : (
+                      <Play className="h-5 w-5 fill-emerald-300 text-emerald-300" />
+                    )}
+                  </div>
                 </div>
               </div>
             </div>
-          </div>
 
-          <div className="flex items-center justify-center gap-1.5 bg-black/20 py-2">
-            <span className="h-1.5 w-4 rounded-full bg-emerald-400" />
-            <span className="h-1.5 w-1.5 rounded-full bg-white/20" />
-            <span className="h-1.5 w-1.5 rounded-full bg-white/20" />
+            <div className="flex items-center justify-center gap-1.5 bg-black/20 py-2">
+              <span className="h-1.5 w-4 rounded-full bg-emerald-400" />
+              <span className="h-1.5 w-1.5 rounded-full bg-white/20" />
+              <span className="h-1.5 w-1.5 rounded-full bg-white/20" />
+            </div>
           </div>
-        </div>
+        )}
 
         {!!user && (
           <EmergencyFundCard
