@@ -478,7 +478,7 @@ export default function Dashboard() {
                 : undefined
             }
           >
-            <div className="relative h-[118px] sm:h-[126px]">
+            <div className="relative h-[142px] sm:h-[160px]">
               {billboardMediaUrl ? (
                 billboardMediaType === "video" ? (
                   <video
@@ -557,12 +557,6 @@ export default function Dashboard() {
                   </div>
                 </div>
               </div>
-            </div>
-
-            <div className="flex items-center justify-center gap-1.5 bg-black/20 py-2">
-              <span className="h-1.5 w-4 rounded-full bg-emerald-400" />
-              <span className="h-1.5 w-1.5 rounded-full bg-white/20" />
-              <span className="h-1.5 w-1.5 rounded-full bg-white/20" />
             </div>
           </div>
         )}

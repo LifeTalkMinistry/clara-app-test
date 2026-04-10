@@ -58,7 +58,7 @@ export default function BottomNav({
   );
 
   const isMoreActive = useMemo(
-    () => !["/dashboard", "/expenses", "/analytics"].includes(location.pathname),
+    () => !["/dashboard", "/expenses", "/analytics", "/transactions"].includes(location.pathname),
     [location.pathname]
   );
 
@@ -218,11 +218,13 @@ export default function BottomNav({
             <Link
               to="/expenses"
               className={`flex flex-col items-center gap-1 text-[10px] ${
-                isActive("/expenses") ? "text-emerald-400" : "text-white/60"
+                isActive("/expenses") || isActive("/transactions")
+                  ? "text-emerald-400"
+                  : "text-white/60"
               }`}
             >
               <Receipt className="w-5 h-5" />
-              Expenses
+              Transactions
             </Link>
 
             <div className="w-16" />

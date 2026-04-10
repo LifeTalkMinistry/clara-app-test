@@ -1,5 +1,15 @@
 import { useState, useEffect, useMemo, useCallback, useRef } from "react";
-import { Plus, Receipt, Trash2, Edit, ChevronDown, ChevronUp } from "lucide-react";
+import {
+  Plus,
+  Receipt,
+  Trash2,
+  Edit,
+  ChevronDown,
+  ChevronUp,
+  ArrowDownLeft,
+  ArrowUpRight,
+  ArrowLeftRight,
+} from "lucide-react";
 import { supabase } from "@/lib/supabaseClient";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -148,9 +158,7 @@ const toDateInputValue = (value) => {
   if (!value) return getToday();
 
   const d = parseSupabaseDate(value);
-  if (d) {
-    return getPHDateString(d);
-  }
+  if (d) return getPHDateString(d);
 
   const raw = String(value).slice(0, 10);
   return raw || getToday();
@@ -254,11 +262,7 @@ const isOwnedByUser = (item, user) => {
     .map((v) => normalizeString(v).toLowerCase())
     .filter(Boolean);
 
-  const possibleUserIds = [
-    item?.user_id,
-    item?.owner_id,
-    item?.profile_id,
-  ]
+  const possibleUserIds = [item?.user_id, item?.owner_id, item?.profile_id]
     .map((v) => normalizeString(v))
     .filter(Boolean);
 
@@ -293,8 +297,34 @@ const getExpenseDateObject = (expense) => {
   return null;
 };
 
+const getTransactionDateObject = (txn) => {
+  const exactRaw =
+    txn?.created_at ||
+    txn?.timestamp ||
+    txn?.datetime ||
+    txn?.updated_at ||
+    txn?.date;
+
+  if (exactRaw) {
+    const exactDate = parseSupabaseDate(exactRaw);
+    if (exactDate) return exactDate;
+  }
+
+  if (txn?.date && /^\d{4}-\d{2}-\d{2}$/.test(String(txn.date))) {
+    return parsePHDateOnlyToUtcDate(String(txn.date), false);
+  }
+
+  return null;
+};
+
 const getExpensePHDateKey = (expense) => {
   const d = getExpenseDateObject(expense);
+  if (!d) return "";
+  return getPHDateString(d);
+};
+
+const getTransactionPHDateKey = (txn) => {
+  const d = getTransactionDateObject(txn);
   if (!d) return "";
   return getPHDateString(d);
 };
@@ -322,9 +352,9 @@ const getPHStartOfWeekDateString = (value = new Date()) => {
   )}`;
 };
 
-const getExpenseGroupLabel = (expense) => {
-  const expenseKey = getExpensePHDateKey(expense);
-  if (!expenseKey) return "Older";
+const getTransactionGroupLabel = (txn) => {
+  const txnKey = getTransactionPHDateKey(txn);
+  if (!txnKey) return "Older";
 
   const todayKey = getPHDateString();
   const yesterdayDate = parsePHDateOnlyToUtcDate(todayKey, false);
@@ -337,10 +367,10 @@ const getExpenseGroupLabel = (expense) => {
   const nowParts = getPHParts(new Date());
   const startOfMonthKey = `${nowParts.year}-${pad(nowParts.month)}-01`;
 
-  if (expenseKey === todayKey) return "Today";
-  if (expenseKey === yesterdayKey) return "Yesterday";
-  if (expenseKey >= startOfWeekKey) return "This Week";
-  if (expenseKey >= startOfMonthKey) return "Earlier This Month";
+  if (txnKey === todayKey) return "Today";
+  if (txnKey === yesterdayKey) return "Yesterday";
+  if (txnKey >= startOfWeekKey) return "This Week";
+  if (txnKey >= startOfMonthKey) return "Earlier This Month";
   return "Older";
 };
 
@@ -407,6 +437,101 @@ const fetchRowsForUser = async (table, user, orderColumn = "created_at", ascendi
   return Array.from(map.values()).sort(sortByDateDesc);
 };
 
+const normalizeTxnType = (type) => {
+  const raw = String(type || "").trim().toLowerCase();
+  if (!raw) return "other";
+  if (raw === "cash_in") return "income";
+  if (raw === "cashout") return "expense";
+  return raw;
+};
+
+const getTxnDisplayType = (txn) => {
+  const normalized = normalizeTxnType(txn?.type);
+
+  if (normalized === "expense") return "expense";
+  if (normalized === "income") return "income";
+  if (
+    normalized === "transfer" ||
+    normalized === "transfer_in" ||
+    normalized === "transfer_out"
+  ) {
+    return "transfer";
+  }
+
+  return normalized;
+};
+
+const getTxnAmountSign = (txn) => {
+  const type = getTxnDisplayType(txn);
+  if (type === "expense") return -1;
+  if (type === "income") return 1;
+  return 0;
+};
+
+const getTxnAmountColor = (txn) => {
+  const type = getTxnDisplayType(txn);
+  if (type === "expense") return "text-destructive";
+  if (type === "income") return "text-emerald-400";
+  return "text-sky-400";
+};
+
+const getTxnIcon = (txn) => {
+  const type = getTxnDisplayType(txn);
+  if (type === "expense") return ArrowUpRight;
+  if (type === "income") return ArrowDownLeft;
+  return ArrowLeftRight;
+};
+
+const getTxnIconWrapClass = (txn) => {
+  const type = getTxnDisplayType(txn);
+  if (type === "expense") return "bg-destructive/10";
+  if (type === "income") return "bg-emerald-500/10";
+  return "bg-sky-500/10";
+};
+
+const getTxnIconClass = (txn) => {
+  const type = getTxnDisplayType(txn);
+  if (type === "expense") return "text-destructive";
+  if (type === "income") return "text-emerald-400";
+  return "text-sky-400";
+};
+
+const formatTxnAmount = (txn, fmt) => {
+  const amount = fmt(normalizeNumber(txn?.amount));
+  const type = getTxnDisplayType(txn);
+
+  if (type === "expense") return `-${amount}`;
+  if (type === "income") return `+${amount}`;
+  return amount;
+};
+
+const getTxnPrimaryLabel = (txn) => {
+  const type = getTxnDisplayType(txn);
+
+  if (type === "expense") {
+    return txn?.category
+      ? txn.category.charAt(0).toUpperCase() + txn.category.slice(1)
+      : "Expense";
+  }
+
+  if (type === "income") {
+    return txn?.category
+      ? txn.category.charAt(0).toUpperCase() + txn.category.slice(1)
+      : "Income";
+  }
+
+  if (type === "transfer") return "Transfer";
+
+  return txn?.category
+    ? txn.category.charAt(0).toUpperCase() + txn.category.slice(1)
+    : "Transaction";
+};
+
+const getTxnSecondaryLabel = (txn, walletMap) => {
+  const walletName = walletMap.get(String(txn?.wallet_id))?.name || "Unknown wallet";
+  return walletName;
+};
+
 export default function Expenses() {
   const { user } = useUserRole();
 
@@ -419,10 +544,12 @@ export default function Expenses() {
 
   const [open, setOpen] = useState(false);
   const [editId, setEditId] = useState(null);
+  const [editMode, setEditMode] = useState("expense");
   const [form, setForm] = useState(EMPTY_FORM);
   const [error, setError] = useState("");
 
   const [filter, setFilter] = useState("recent");
+  const [typeFilter, setTypeFilter] = useState("all");
   const [showAllRecent, setShowAllRecent] = useState(false);
   const [customStartDate, setCustomStartDate] = useState("");
   const [customEndDate, setCustomEndDate] = useState("");
@@ -470,18 +597,21 @@ export default function Expenses() {
         .sort(sortByDateDesc);
 
       const normalizedWalletRows = normalizeWallets(walletRows || []);
-      const normalizedTransactions = (transactionRows || []).map((txn) => ({
-        ...txn,
-        id: String(txn.id),
-        wallet_id: txn.wallet_id ? String(txn.wallet_id) : "",
-        amount: normalizeNumber(txn.amount),
-      }));
+      const normalizedTransactions = (transactionRows || [])
+        .map((txn) => ({
+          ...txn,
+          id: String(txn.id),
+          wallet_id: txn.wallet_id ? String(txn.wallet_id) : "",
+          amount: normalizeNumber(txn.amount),
+          type: normalizeTxnType(txn.type),
+        }))
+        .sort(sortByDateDesc);
 
       setExpenses(normalizedExpenses);
       setWallets(normalizedWalletRows);
       setTransactions(normalizedTransactions);
     } catch (err) {
-      console.error("Failed to load expenses page data:", err);
+      console.error("Failed to load transactions page data:", err);
       setExpenses([]);
       setWallets([]);
       setTransactions([]);
@@ -508,7 +638,7 @@ export default function Expenses() {
     };
 
     const channel = supabase
-      .channel(`expenses-page-${user?.id || user?.email || "guest"}`)
+      .channel(`transactions-page-${user?.id || user?.email || "guest"}`)
       .on("postgres_changes", { event: "*", schema: "public", table: EXPENSES_TABLE }, scheduleRefresh)
       .on("postgres_changes", { event: "*", schema: "public", table: WALLETS_TABLE }, scheduleRefresh)
       .on("postgres_changes", { event: "*", schema: "public", table: TXN_TABLE }, scheduleRefresh)
@@ -555,6 +685,34 @@ export default function Expenses() {
     [transactions, user]
   );
 
+  const expenseIdByTxnId = useMemo(() => {
+    const map = new Map();
+
+    expenses.forEach((expense) => {
+      const match = transactions.find((t) => {
+        if (String(t.type || "").toLowerCase() !== "expense") return false;
+        if (String(t.wallet_id) !== String(expense.wallet_id)) return false;
+        if (normalizeNumber(t.amount) !== normalizeNumber(expense.amount)) return false;
+
+        const txnTime = parseSupabaseDate(t.created_at || 0)?.getTime() ?? 0;
+        const expenseTime = parseSupabaseDate(expense.created_at || expense.date || 0)?.getTime() ?? 0;
+
+        if (Math.abs(txnTime - expenseTime) > 60 * 1000) return false;
+        if ((t.notes || "") !== (expense.notes || "")) return false;
+        if ((t.category || "") !== (expense.category || "")) return false;
+        if ((t.need_type || "") !== (expense.need_type || "")) return false;
+
+        return true;
+      });
+
+      if (match) {
+        map.set(String(match.id), expense);
+      }
+    });
+
+    return map;
+  }, [expenses, transactions]);
+
   const handleFilterChange = (value) => {
     setFilter(value);
     if (value !== "recent") setShowAllRecent(true);
@@ -562,6 +720,7 @@ export default function Expenses() {
 
   const openAdd = () => {
     setEditId(null);
+    setEditMode("expense");
     setError("");
     setForm({
       ...EMPTY_FORM,
@@ -571,8 +730,9 @@ export default function Expenses() {
     setOpen(true);
   };
 
-  const openEdit = (exp) => {
+  const openEditExpense = (exp) => {
     setError("");
+    setEditMode("expense");
     setEditId(String(exp.id));
     setForm({
       amount: String(exp.amount ?? ""),
@@ -585,10 +745,26 @@ export default function Expenses() {
     setOpen(true);
   };
 
+  const openEditIncome = (txn) => {
+    setError("");
+    setEditMode("income");
+    setEditId(String(txn.id));
+    setForm({
+      amount: String(txn.amount ?? ""),
+      category: "other",
+      wallet_id: txn.wallet_id ? String(txn.wallet_id) : "",
+      date: toDateInputValue(txn.created_at || txn.date),
+      notes: txn.notes || "",
+      need_type: "need",
+    });
+    setOpen(true);
+  };
+
   const closeModal = () => {
     if (saving) return;
     setOpen(false);
     setEditId(null);
+    setEditMode("expense");
     setError("");
     setForm({
       ...EMPTY_FORM,
@@ -607,7 +783,7 @@ export default function Expenses() {
     const parsedAmount = normalizeNumber(form.amount);
 
     if (!parsedAmount || parsedAmount <= 0) {
-      setError("Enter a valid expense amount.");
+      setError(`Enter a valid ${editMode === "income" ? "income" : "expense"} amount.`);
       return;
     }
 
@@ -625,7 +801,52 @@ export default function Expenses() {
     try {
       setSaving(true);
 
-      if (editId) {
+      if (editId && editMode === "income") {
+        const existingTxn = transactions.find((t) => String(t.id) === String(editId));
+        if (!existingTxn) {
+          setError("Income transaction not found.");
+          return;
+        }
+
+        const oldWallet = walletMap.get(String(existingTxn.wallet_id));
+        if (!oldWallet) {
+          setError("Original wallet not found.");
+          return;
+        }
+
+        const sameWallet = String(existingTxn.wallet_id) === String(form.wallet_id);
+        const oldAmount = normalizeNumber(existingTxn.amount);
+        const newAmount = parsedAmount;
+
+        const updatedCreatedAt = buildCreatedAtFromDate(
+          form.date,
+          existingTxn.created_at || new Date()
+        );
+
+        if (sameWallet) {
+          const newBalance = normalizeNumber(oldWallet.balance) - oldAmount + newAmount;
+          await updateWalletBalance(oldWallet.id, newBalance);
+        } else {
+          const oldWalletNewBalance = normalizeNumber(oldWallet.balance) - oldAmount;
+          const newWalletNewBalance = normalizeNumber(targetWallet.balance) + newAmount;
+
+          await updateWalletBalance(oldWallet.id, oldWalletNewBalance);
+          await updateWalletBalance(targetWallet.id, newWalletNewBalance);
+        }
+
+        const { error: txnUpdateError } = await supabase
+          .from(TXN_TABLE)
+          .update({
+            wallet_id: String(form.wallet_id),
+            amount: newAmount,
+            notes: form.notes || "",
+            created_at: updatedCreatedAt,
+            updated_at: new Date().toISOString(),
+          })
+          .eq("id", existingTxn.id);
+
+        if (txnUpdateError) throw txnUpdateError;
+      } else if (editId && editMode === "expense") {
         const oldExpense = expenses.find((e) => String(e.id) === String(editId));
         if (!oldExpense) {
           setError("Expense not found.");
@@ -785,18 +1006,20 @@ export default function Expenses() {
 
       window.dispatchEvent(new Event("clara-expenses-updated"));
       window.dispatchEvent(new Event("clara-finance-updated"));
+      window.dispatchEvent(new Event("clara-wallets-updated"));
+      window.dispatchEvent(new Event("clara-wallet-transactions-updated"));
 
       await loadData();
       closeModal();
     } catch (err) {
-      console.error("Failed to save expense:", err);
-      setError(err?.message || "Failed to save expense.");
+      console.error("Failed to save transaction:", err);
+      setError(err?.message || "Failed to save transaction.");
     } finally {
       setSaving(false);
     }
   };
 
-  const handleDelete = async (id) => {
+  const handleDeleteExpense = async (id) => {
     setError("");
 
     try {
@@ -836,6 +1059,8 @@ export default function Expenses() {
 
       window.dispatchEvent(new Event("clara-expenses-updated"));
       window.dispatchEvent(new Event("clara-finance-updated"));
+      window.dispatchEvent(new Event("clara-wallets-updated"));
+      window.dispatchEvent(new Event("clara-wallet-transactions-updated"));
 
       await loadData();
     } catch (err) {
@@ -846,9 +1071,53 @@ export default function Expenses() {
     }
   };
 
-  const filteredExpenses = useMemo(() => {
+  const handleDeleteIncome = async (txnId) => {
+    setError("");
+
+    try {
+      setSaving(true);
+
+      const incomeTxn = transactions.find((t) => String(t.id) === String(txnId));
+      if (!incomeTxn) return;
+
+      const wallet = walletMap.get(String(incomeTxn.wallet_id));
+      if (!wallet) {
+        setError("Wallet not found.");
+        return;
+      }
+
+      const nextBalance = normalizeNumber(wallet.balance) - normalizeNumber(incomeTxn.amount);
+
+      await updateWalletBalance(wallet.id, nextBalance);
+
+      const { error: txnDeleteError } = await supabase
+        .from(TXN_TABLE)
+        .delete()
+        .eq("id", incomeTxn.id);
+
+      if (txnDeleteError) throw txnDeleteError;
+
+      window.dispatchEvent(new Event("clara-expenses-updated"));
+      window.dispatchEvent(new Event("clara-finance-updated"));
+      window.dispatchEvent(new Event("clara-wallets-updated"));
+      window.dispatchEvent(new Event("clara-wallet-transactions-updated"));
+
+      await loadData();
+    } catch (err) {
+      console.error("Failed to delete income:", err);
+      setError(err?.message || "Failed to delete income.");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const filteredTransactions = useMemo(() => {
     const now = new Date();
-    const list = [...expenses];
+    let list = [...transactions];
+
+    if (typeFilter !== "all") {
+      list = list.filter((txn) => getTxnDisplayType(txn) === typeFilter);
+    }
 
     if (filter === "recent") return showAllRecent ? list : list.slice(0, 5);
 
@@ -864,9 +1133,9 @@ export default function Expenses() {
       });
       const end = now;
 
-      return list.filter((expense) => {
-        const expenseDate = getExpenseDateObject(expense);
-        return expenseDate && expenseDate >= start && expenseDate <= end;
+      return list.filter((txn) => {
+        const txnDate = getTransactionDateObject(txn);
+        return txnDate && txnDate >= start && txnDate <= end;
       });
     }
 
@@ -874,6 +1143,7 @@ export default function Expenses() {
       const nowParts = getPHParts(now);
       const lastMonth = nowParts.month === 1 ? 12 : nowParts.month - 1;
       const lastMonthYear = nowParts.month === 1 ? nowParts.year - 1 : nowParts.year;
+
       const start = phLocalPartsToUtcDate({
         year: lastMonthYear,
         month: lastMonth,
@@ -894,9 +1164,9 @@ export default function Expenses() {
 
       const end = new Date(currentMonthStart.getTime() - 1);
 
-      return list.filter((expense) => {
-        const expenseDate = getExpenseDateObject(expense);
-        return expenseDate && expenseDate >= start && expenseDate <= end;
+      return list.filter((txn) => {
+        const txnDate = getTransactionDateObject(txn);
+        return txnDate && txnDate >= start && txnDate <= end;
       });
     }
 
@@ -912,9 +1182,9 @@ export default function Expenses() {
       });
       const end = now;
 
-      return list.filter((expense) => {
-        const expenseDate = getExpenseDateObject(expense);
-        return expenseDate && expenseDate >= start && expenseDate <= end;
+      return list.filter((txn) => {
+        const txnDate = getTransactionDateObject(txn);
+        return txnDate && txnDate >= start && txnDate <= end;
       });
     }
 
@@ -930,9 +1200,9 @@ export default function Expenses() {
       });
       const end = now;
 
-      return list.filter((expense) => {
-        const expenseDate = getExpenseDateObject(expense);
-        return expenseDate && expenseDate >= start && expenseDate <= end;
+      return list.filter((txn) => {
+        const txnDate = getTransactionDateObject(txn);
+        return txnDate && txnDate >= start && txnDate <= end;
       });
     }
 
@@ -948,9 +1218,9 @@ export default function Expenses() {
       });
       const end = now;
 
-      return list.filter((expense) => {
-        const expenseDate = getExpenseDateObject(expense);
-        return expenseDate && expenseDate >= start && expenseDate <= end;
+      return list.filter((txn) => {
+        const txnDate = getTransactionDateObject(txn);
+        return txnDate && txnDate >= start && txnDate <= end;
       });
     }
 
@@ -960,27 +1230,45 @@ export default function Expenses() {
       const start = customStartDate ? parsePHDateOnlyToUtcDate(customStartDate, false) : null;
       const end = customEndDate ? parsePHDateOnlyToUtcDate(customEndDate, true) : null;
 
-      return list.filter((expense) => {
-        const expenseDate = getExpenseDateObject(expense);
-        if (!expenseDate) return false;
-        if (start && end) return expenseDate >= start && expenseDate <= end;
-        if (start) return expenseDate >= start;
-        if (end) return expenseDate <= end;
+      return list.filter((txn) => {
+        const txnDate = getTransactionDateObject(txn);
+        if (!txnDate) return false;
+        if (start && end) return txnDate >= start && txnDate <= end;
+        if (start) return txnDate >= start;
+        if (end) return txnDate <= end;
         return true;
       });
     }
 
     return list;
-  }, [expenses, filter, showAllRecent, customStartDate, customEndDate]);
+  }, [transactions, filter, typeFilter, showAllRecent, customStartDate, customEndDate]);
 
-  const totalFilteredAmount = useMemo(() => {
-    return filteredExpenses.reduce((sum, expense) => sum + normalizeNumber(expense.amount), 0);
-  }, [filteredExpenses]);
+  const totals = useMemo(() => {
+    return filteredTransactions.reduce(
+      (acc, txn) => {
+        const amount = normalizeNumber(txn.amount);
+        const type = getTxnDisplayType(txn);
+
+        if (type === "income") {
+          acc.income += amount;
+          acc.net += amount;
+        } else if (type === "expense") {
+          acc.expense += amount;
+          acc.net -= amount;
+        } else {
+          acc.transfer += amount;
+        }
+
+        return acc;
+      },
+      { income: 0, expense: 0, transfer: 0, net: 0 }
+    );
+  }, [filteredTransactions]);
 
   const filterLabel = useMemo(() => {
     switch (filter) {
       case "recent":
-        return showAllRecent ? "All recent expenses" : "Top 5 recent expenses";
+        return showAllRecent ? "All recent transactions" : "Top 5 recent transactions";
       case "this_month":
         return "This month";
       case "last_month":
@@ -994,18 +1282,18 @@ export default function Expenses() {
       case "custom":
         return "Custom range";
       default:
-        return "Expenses";
+        return "Transactions";
     }
   }, [filter, showAllRecent]);
 
-  const groupedExpenses = useMemo(() => {
+  const groupedTransactions = useMemo(() => {
     const orderedLabels = ["Today", "Yesterday", "This Week", "Earlier This Month", "Older"];
     const groups = {};
 
-    filteredExpenses.forEach((expense) => {
-      const label = getExpenseGroupLabel(expense);
+    filteredTransactions.forEach((txn) => {
+      const label = getTransactionGroupLabel(txn);
       if (!groups[label]) groups[label] = [];
-      groups[label].push(expense);
+      groups[label].push(txn);
     });
 
     return orderedLabels
@@ -1013,9 +1301,13 @@ export default function Expenses() {
       .map((label) => ({
         label,
         items: groups[label],
-        total: groups[label].reduce((sum, item) => sum + normalizeNumber(item.amount), 0),
+        net: groups[label].reduce((sum, item) => {
+          const amount = normalizeNumber(item.amount);
+          const sign = getTxnAmountSign(item);
+          return sum + amount * sign;
+        }, 0),
       }));
-  }, [filteredExpenses]);
+  }, [filteredTransactions]);
 
   const fmt = (n) =>
     new Intl.NumberFormat("en-PH", {
@@ -1023,8 +1315,6 @@ export default function Expenses() {
       currency: "PHP",
       minimumFractionDigits: 0,
     }).format(normalizeNumber(n));
-
-  const walletName = (id) => walletMap.get(String(id))?.name || "Unknown wallet";
 
   const needTypeColors = {
     need: "bg-primary/10 text-primary border border-primary/20",
@@ -1043,8 +1333,8 @@ export default function Expenses() {
   return (
     <div className="p-4 md:p-6 max-w-4xl mx-auto">
       <PageHeader
-        title="Expenses"
-        subtitle="Track every peso you spend"
+        title="Transactions"
+        subtitle="Track all your money activity"
         action={
           <Button size="sm" onClick={openAdd} className="rounded-xl px-4 shadow-sm">
             <Plus className="w-4 h-4 mr-1" /> Add Expense
@@ -1061,7 +1351,9 @@ export default function Expenses() {
       >
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>{editId ? "Edit" : "Add"} Expense</DialogTitle>
+            <DialogTitle>
+              {editId ? `Edit ${editMode === "income" ? "Income" : "Expense"}` : "Add Expense"}
+            </DialogTitle>
           </DialogHeader>
 
           <div className="space-y-4">
@@ -1075,43 +1367,47 @@ export default function Expenses() {
               />
             </div>
 
-            <div>
-              <Label>Category</Label>
-              <Select
-                value={form.category}
-                onValueChange={(v) => setForm({ ...form, category: v })}
-              >
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {categories.map((c) => (
-                    <SelectItem key={c} value={c}>
-                      {c.charAt(0).toUpperCase() + c.slice(1)}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
+            {editMode === "expense" && (
+              <>
+                <div>
+                  <Label>Category</Label>
+                  <Select
+                    value={form.category}
+                    onValueChange={(v) => setForm({ ...form, category: v })}
+                  >
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {categories.map((c) => (
+                        <SelectItem key={c} value={c}>
+                          {c.charAt(0).toUpperCase() + c.slice(1)}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
 
-            <div>
-              <Label>Type</Label>
-              <Select
-                value={form.need_type}
-                onValueChange={(v) => setForm({ ...form, need_type: v })}
-              >
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {needTypes.map((t) => (
-                    <SelectItem key={t} value={t}>
-                      {t.charAt(0).toUpperCase() + t.slice(1)}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
+                <div>
+                  <Label>Type</Label>
+                  <Select
+                    value={form.need_type}
+                    onValueChange={(v) => setForm({ ...form, need_type: v })}
+                  >
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {needTypes.map((t) => (
+                        <SelectItem key={t} value={t}>
+                          {t.charAt(0).toUpperCase() + t.slice(1)}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </>
+            )}
 
             <div>
               <Label>Wallet</Label>
@@ -1123,7 +1419,9 @@ export default function Expenses() {
                 }}
               >
                 <SelectTrigger>
-                  <SelectValue placeholder={wallets.length > 0 ? "Select wallet" : "No wallets found"} />
+                  <SelectValue
+                    placeholder={wallets.length > 0 ? "Select wallet" : "No wallets found"}
+                  />
                 </SelectTrigger>
                 <SelectContent>
                   {wallets.map((w) => (
@@ -1140,7 +1438,8 @@ export default function Expenses() {
 
               {!!selectedWallet && (
                 <p className="text-xs text-muted-foreground mt-1">
-                  Available balance: {fmt(selectedWallet.balance)}
+                  {editMode === "income" ? "Current balance" : "Available balance"}:{" "}
+                  {fmt(selectedWallet.balance)}
                 </p>
               )}
             </div>
@@ -1157,7 +1456,9 @@ export default function Expenses() {
             <div>
               <Label>Notes (optional)</Label>
               <Input
-                placeholder="What was this for?"
+                placeholder={
+                  editMode === "income" ? "Income details" : "What was this for?"
+                }
                 value={form.notes}
                 onChange={(e) => setForm({ ...form, notes: e.target.value })}
               />
@@ -1174,16 +1475,20 @@ export default function Expenses() {
               className="w-full"
               disabled={saving || !form.amount || !form.wallet_id || wallets.length === 0}
             >
-              {saving ? "Saving..." : editId ? "Save Changes" : "Add Expense"}
+              {saving
+                ? "Saving..."
+                : editId
+                ? `Save ${editMode === "income" ? "Income" : "Expense"}`
+                : "Add Expense"}
             </Button>
           </div>
         </DialogContent>
       </Dialog>
 
-      {expenses.length > 0 && (
+      {transactions.length > 0 && (
         <div className="mb-5 rounded-3xl border border-border/50 bg-gradient-to-br from-card to-card/60 backdrop-blur-md p-4 md:p-5 space-y-4 shadow-sm">
-          <div className="flex flex-col md:flex-row md:items-end gap-3">
-            <div className="flex-1">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+            <div>
               <Label className="mb-2 block">Timeframe</Label>
               <Select value={filter} onValueChange={handleFilterChange}>
                 <SelectTrigger className="w-full rounded-xl">
@@ -1201,9 +1506,24 @@ export default function Expenses() {
               </Select>
             </div>
 
+            <div>
+              <Label className="mb-2 block">Type</Label>
+              <Select value={typeFilter} onValueChange={setTypeFilter}>
+                <SelectTrigger className="w-full rounded-xl">
+                  <SelectValue placeholder="Select type" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Transactions</SelectItem>
+                  <SelectItem value="expense">Expenses</SelectItem>
+                  <SelectItem value="income">Income</SelectItem>
+                  <SelectItem value="transfer">Transfers</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
             {filter === "custom" && (
               <>
-                <div className="flex-1">
+                <div>
                   <Label className="mb-2 block">Start Date</Label>
                   <Input
                     type="date"
@@ -1213,7 +1533,7 @@ export default function Expenses() {
                   />
                 </div>
 
-                <div className="flex-1">
+                <div>
                   <Label className="mb-2 block">End Date</Label>
                   <Input
                     type="date"
@@ -1226,18 +1546,50 @@ export default function Expenses() {
             )}
           </div>
 
-          <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-2 text-sm">
+          <div className="flex flex-col gap-2 text-sm">
             <div className="text-muted-foreground">
-              Showing <span className="font-semibold text-foreground">{filteredExpenses.length}</span> • {filterLabel}
+              Showing{" "}
+              <span className="font-semibold text-foreground">{filteredTransactions.length}</span>{" "}
+              • {filterLabel}
             </div>
 
-            <div className="font-bold text-lg">
-              <span className="text-muted-foreground mr-1">Total:</span>
-              <span className="text-destructive">-{fmt(totalFilteredAmount)}</span>
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+              <div className="rounded-2xl border border-border/40 bg-background/30 p-3">
+                <p className="text-[11px] text-muted-foreground uppercase tracking-wide">
+                  Money In
+                </p>
+                <p className="text-sm font-bold text-emerald-400">+{fmt(totals.income)}</p>
+              </div>
+
+              <div className="rounded-2xl border border-border/40 bg-background/30 p-3">
+                <p className="text-[11px] text-muted-foreground uppercase tracking-wide">
+                  Money Out
+                </p>
+                <p className="text-sm font-bold text-destructive">-{fmt(totals.expense)}</p>
+              </div>
+
+              <div className="rounded-2xl border border-border/40 bg-background/30 p-3">
+                <p className="text-[11px] text-muted-foreground uppercase tracking-wide">
+                  Transfers
+                </p>
+                <p className="text-sm font-bold text-sky-400">{fmt(totals.transfer)}</p>
+              </div>
+
+              <div className="rounded-2xl border border-border/40 bg-background/30 p-3">
+                <p className="text-[11px] text-muted-foreground uppercase tracking-wide">Net</p>
+                <p
+                  className={`text-sm font-bold ${
+                    totals.net < 0 ? "text-destructive" : "text-emerald-400"
+                  }`}
+                >
+                  {totals.net < 0 ? "-" : "+"}
+                  {fmt(Math.abs(totals.net))}
+                </p>
+              </div>
             </div>
           </div>
 
-          {filter === "recent" && expenses.length > 5 && (
+          {filter === "recent" && filteredTransactions.length > 0 && transactions.length > 5 && (
             <Button
               type="button"
               variant="outline"
@@ -1261,103 +1613,160 @@ export default function Expenses() {
         </div>
       )}
 
-      {expenses.length === 0 ? (
+      {transactions.length === 0 ? (
         <EmptyState
           icon={Receipt}
-          title="No expenses yet"
-          description="Start tracking your spending by adding your first expense."
+          title="No transactions yet"
+          description="Start tracking your money movement by adding your first transaction."
         />
-      ) : filteredExpenses.length === 0 ? (
+      ) : filteredTransactions.length === 0 ? (
         <EmptyState
           icon={Receipt}
-          title="No expenses found"
-          description="No expenses match the selected timeframe."
+          title="No transactions found"
+          description="No transactions match the selected filters."
         />
       ) : (
         <div className="space-y-5">
-          {groupedExpenses.map((group) => (
+          {groupedTransactions.map((group) => (
             <div key={group.label} className="space-y-2">
               <div className="flex items-center justify-between px-1">
                 <div className="text-sm font-semibold tracking-wide text-foreground/90">
                   {group.label}
                 </div>
-                <div className="text-xs font-semibold text-destructive">
-                  -{fmt(group.total)}
+                <div
+                  className={`text-xs font-semibold ${
+                    group.net < 0 ? "text-destructive" : "text-emerald-400"
+                  }`}
+                >
+                  {group.net < 0 ? "-" : "+"}
+                  {fmt(Math.abs(group.net))}
                 </div>
               </div>
 
               <div className="rounded-2xl border border-border/50 bg-card/70 backdrop-blur-sm overflow-hidden">
-                {group.items.map((exp, index) => (
-                  <div
-                    key={exp.id}
-                    className={`group flex items-center gap-4 px-4 py-4 transition-all duration-200 hover:bg-muted/20 ${
-                      index !== group.items.length - 1 ? "border-b border-border/40" : ""
-                    }`}
-                  >
-                    <div className="w-11 h-11 rounded-2xl bg-destructive/10 flex items-center justify-center flex-shrink-0">
-                      <Receipt className="w-5 h-5 text-destructive" />
-                    </div>
+                {group.items.map((txn, index) => {
+                  const Icon = getTxnIcon(txn);
+                  const linkedExpense = expenseIdByTxnId.get(String(txn.id));
+                  const txnType = getTxnDisplayType(txn);
+                  const canEdit = (txnType === "expense" && !!linkedExpense) || txnType === "income";
+                  const canDelete =
+                    (txnType === "expense" && !!linkedExpense) || txnType === "income";
 
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-start justify-between gap-3">
-                        <div className="min-w-0">
-                          <p className="font-semibold text-sm truncate tracking-wide">
-                            {exp.category?.charAt(0).toUpperCase() + exp.category?.slice(1)}
-                          </p>
+                  return (
+                    <div
+                      key={txn.id}
+                      className={`group flex items-center gap-4 px-4 py-4 transition-all duration-200 hover:bg-muted/20 ${
+                        index !== group.items.length - 1 ? "border-b border-border/40" : ""
+                      }`}
+                    >
+                      <div
+                        className={`w-11 h-11 rounded-2xl flex items-center justify-center flex-shrink-0 ${getTxnIconWrapClass(
+                          txn
+                        )}`}
+                      >
+                        <Icon className={`w-5 h-5 ${getTxnIconClass(txn)}`} />
+                      </div>
 
-                          <div className="flex items-center gap-2 text-xs text-muted-foreground mt-1 flex-wrap">
-                            <span>{walletName(exp.wallet_id)}</span>
-                            <span>•</span>
-                            <span>
-                              {formatLocalDateTime(exp.created_at || exp.date || Date.now())}
-                            </span>
-                            <span
-                              className={`px-2 py-0.5 rounded-full text-[10px] font-semibold ${
-                                needTypeColors[exp.need_type] || ""
-                              }`}
-                            >
-                              {exp.need_type}
-                            </span>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-start justify-between gap-3">
+                          <div className="min-w-0">
+                            <p className="font-semibold text-sm truncate tracking-wide">
+                              {getTxnPrimaryLabel(txn)}
+                            </p>
+
+                            <div className="flex items-center gap-2 text-xs text-muted-foreground mt-1 flex-wrap">
+                              <span>{getTxnSecondaryLabel(txn, walletMap)}</span>
+                              <span>•</span>
+                              <span>
+                                {formatLocalDateTime(txn.created_at || txn.date || Date.now())}
+                              </span>
+
+                              <span
+                                className={`px-2 py-0.5 rounded-full text-[10px] font-semibold capitalize ${
+                                  txnType === "expense"
+                                    ? "bg-destructive/10 text-destructive border border-destructive/20"
+                                    : txnType === "income"
+                                    ? "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20"
+                                    : "bg-sky-500/10 text-sky-400 border border-sky-500/20"
+                                }`}
+                              >
+                                {txnType}
+                              </span>
+
+                              {!!txn.need_type && (
+                                <span
+                                  className={`px-2 py-0.5 rounded-full text-[10px] font-semibold ${
+                                    needTypeColors[txn.need_type] || ""
+                                  }`}
+                                >
+                                  {txn.need_type}
+                                </span>
+                              )}
+                            </div>
+
+                            {txn.notes && (
+                              <p className="text-xs text-muted-foreground mt-1 truncate italic">
+                                {txn.notes}
+                              </p>
+                            )}
                           </div>
 
-                          {exp.notes && (
-                            <p className="text-xs text-muted-foreground mt-1 truncate italic">
-                              {exp.notes}
+                          <div className="flex flex-col items-end gap-2 flex-shrink-0">
+                            <p
+                              className={`font-heading font-bold text-sm whitespace-nowrap ${getTxnAmountColor(
+                                txn
+                              )}`}
+                            >
+                              {formatTxnAmount(txn, fmt)}
                             </p>
-                          )}
-                        </div>
 
-                        <div className="flex flex-col items-end gap-2 flex-shrink-0">
-                          <p className="font-heading font-bold text-sm text-destructive whitespace-nowrap">
-                            -{fmt(exp.amount)}
-                          </p>
+                            {canEdit || canDelete ? (
+                              <div className="flex items-center gap-1 opacity-70 group-hover:opacity-100 transition">
+                                {canEdit && (
+                                  <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    className="h-8 w-8 hover:bg-primary/10 rounded-lg"
+                                    onClick={() => {
+                                      if (txnType === "expense" && linkedExpense) {
+                                        openEditExpense(linkedExpense);
+                                      } else if (txnType === "income") {
+                                        openEditIncome(txn);
+                                      }
+                                    }}
+                                    disabled={saving}
+                                  >
+                                    <Edit className="w-4 h-4" />
+                                  </Button>
+                                )}
 
-                          <div className="flex items-center gap-1 opacity-70 group-hover:opacity-100 transition">
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              className="h-8 w-8 hover:bg-primary/10 rounded-lg"
-                              onClick={() => openEdit(exp)}
-                              disabled={saving}
-                            >
-                              <Edit className="w-4 h-4" />
-                            </Button>
-
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              className="h-8 w-8 hover:bg-destructive/10 rounded-lg"
-                              onClick={() => handleDelete(exp.id)}
-                              disabled={saving}
-                            >
-                              <Trash2 className="w-4 h-4 text-destructive" />
-                            </Button>
+                                {canDelete && (
+                                  <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    className="h-8 w-8 hover:bg-destructive/10 rounded-lg"
+                                    onClick={() => {
+                                      if (txnType === "expense" && linkedExpense) {
+                                        handleDeleteExpense(linkedExpense.id);
+                                      } else if (txnType === "income") {
+                                        handleDeleteIncome(txn.id);
+                                      }
+                                    }}
+                                    disabled={saving}
+                                  >
+                                    <Trash2 className="w-4 h-4 text-destructive" />
+                                  </Button>
+                                )}
+                              </div>
+                            ) : (
+                              <div className="h-8" />
+                            )}
                           </div>
                         </div>
                       </div>
                     </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             </div>
           ))}

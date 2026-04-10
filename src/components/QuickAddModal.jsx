@@ -10,7 +10,7 @@ import {
   SelectItem,
 } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
-import { Receipt, TrendingUp } from "lucide-react";
+import { Receipt, TrendingUp, ArrowLeftRight } from "lucide-react";
 import { supabase } from "@/lib/supabaseClient";
 import useUserRole from "../hooks/useUserRole";
 
@@ -34,8 +34,9 @@ const categories = [
 ];
 
 const ACTION_TYPES = [
-  { id: "expense", label: "Add Expense", icon: Receipt },
-  { id: "income", label: "Add Funds", icon: TrendingUp },
+  { id: "expense", label: "Expense", icon: Receipt },
+  { id: "income", label: "Income", icon: TrendingUp },
+  { id: "transfer", label: "Transfer", icon: ArrowLeftRight },
 ];
 
 const pad = (n) => String(n).padStart(2, "0");
@@ -190,11 +191,7 @@ const isOwnedByUser = (item, user) => {
     .map((v) => normalizeString(v).toLowerCase())
     .filter(Boolean);
 
-  const possibleUserIds = [
-    item?.user_id,
-    item?.owner_id,
-    item?.profile_id,
-  ]
+  const possibleUserIds = [item?.user_id, item?.owner_id, item?.profile_id]
     .map((v) => normalizeString(v))
     .filter(Boolean);
 
@@ -269,10 +266,36 @@ const fetchRowsForUser = async (table, user, orderColumn = "created_at", ascendi
   return Array.from(map.values()).sort(sortByDateDesc);
 };
 
+const getDefaultExpenseForm = (walletId = "") => ({
+  amount: "",
+  category: "food",
+  wallet_id: walletId,
+  date: getToday(),
+  notes: "",
+  need_type: "need",
+});
+
+const getDefaultIncomeForm = (walletId = "") => ({
+  amount: "",
+  source: "",
+  wallet_id: walletId,
+  date: getToday(),
+  notes: "",
+});
+
+const getDefaultTransferForm = (fromWalletId = "", toWalletId = "") => ({
+  amount: "",
+  from_wallet_id: fromWalletId,
+  to_wallet_id: toWalletId,
+  date: getToday(),
+  notes: "",
+});
+
 export default function QuickAddModal({
   open,
   onClose,
   onSuccess,
+  initialAction = "expense",
 }) {
   const { user } = useUserRole();
 
@@ -280,24 +303,13 @@ export default function QuickAddModal({
   const [loadingWallets, setLoadingWallets] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
-  const [actionType, setActionType] = useState("expense");
+  const [actionType, setActionType] = useState(
+    ["expense", "income", "transfer"].includes(initialAction) ? initialAction : "expense"
+  );
 
-  const [expenseForm, setExpenseForm] = useState({
-    amount: "",
-    category: "food",
-    wallet_id: "",
-    date: getToday(),
-    notes: "",
-    need_type: "need",
-  });
-
-  const [incomeForm, setIncomeForm] = useState({
-    amount: "",
-    source: "",
-    wallet_id: "",
-    date: getToday(),
-    notes: "",
-  });
+  const [expenseForm, setExpenseForm] = useState(getDefaultExpenseForm());
+  const [incomeForm, setIncomeForm] = useState(getDefaultIncomeForm());
+  const [transferForm, setTransferForm] = useState(getDefaultTransferForm());
 
   const walletMap = useMemo(() => {
     const map = new Map();
@@ -306,6 +318,14 @@ export default function QuickAddModal({
     });
     return map;
   }, [wallets]);
+
+  useEffect(() => {
+    if (open) {
+      setActionType(
+        ["expense", "income", "transfer"].includes(initialAction) ? initialAction : "expense"
+      );
+    }
+  }, [open, initialAction]);
 
   useEffect(() => {
     if (!open) return;
@@ -320,6 +340,7 @@ export default function QuickAddModal({
 
       try {
         setLoadingWallets(true);
+
         const walletRows = await fetchRowsForUser(WALLETS_TABLE, user, "created_at", false);
         if (!active) return;
 
@@ -327,6 +348,11 @@ export default function QuickAddModal({
         setWallets(normalized);
 
         const firstWalletId = normalized[0]?.id ? String(normalized[0].id) : "";
+        const secondWalletId = normalized[1]?.id
+          ? String(normalized[1].id)
+          : normalized[0]?.id
+          ? String(normalized[0].id)
+          : "";
 
         setExpenseForm((prev) => ({
           ...prev,
@@ -336,6 +362,14 @@ export default function QuickAddModal({
         setIncomeForm((prev) => ({
           ...prev,
           wallet_id: prev.wallet_id || firstWalletId,
+        }));
+
+        setTransferForm((prev) => ({
+          ...prev,
+          from_wallet_id: prev.from_wallet_id || firstWalletId,
+          to_wallet_id:
+            prev.to_wallet_id ||
+            (secondWalletId && secondWalletId !== firstWalletId ? secondWalletId : ""),
         }));
       } catch (err) {
         console.error("Failed loading wallets:", err);
@@ -354,26 +388,26 @@ export default function QuickAddModal({
 
   const resetForms = () => {
     const firstWalletId = wallets[0]?.id ? String(wallets[0].id) : "";
+    const secondWalletId = wallets[1]?.id
+      ? String(wallets[1].id)
+      : wallets[0]?.id
+      ? String(wallets[0].id)
+      : "";
 
-    setActionType("expense");
+    const nextAction = ["expense", "income", "transfer"].includes(initialAction)
+      ? initialAction
+      : "expense";
+
+    setActionType(nextAction);
     setError("");
-
-    setExpenseForm({
-      amount: "",
-      category: "food",
-      wallet_id: firstWalletId,
-      date: getToday(),
-      notes: "",
-      need_type: "need",
-    });
-
-    setIncomeForm({
-      amount: "",
-      source: "",
-      wallet_id: firstWalletId,
-      date: getToday(),
-      notes: "",
-    });
+    setExpenseForm(getDefaultExpenseForm(firstWalletId));
+    setIncomeForm(getDefaultIncomeForm(firstWalletId));
+    setTransferForm(
+      getDefaultTransferForm(
+        firstWalletId,
+        secondWalletId && secondWalletId !== firstWalletId ? secondWalletId : ""
+      )
+    );
   };
 
   const handleClose = () => {
@@ -421,9 +455,7 @@ export default function QuickAddModal({
       payload.need_type = needType || null;
     }
 
-    const { error: txnInsertError } = await supabase
-      .from(TXN_TABLE)
-      .insert([payload]);
+    const { error: txnInsertError } = await supabase.from(TXN_TABLE).insert([payload]);
 
     if (txnInsertError) throw txnInsertError;
   };
@@ -523,6 +555,61 @@ export default function QuickAddModal({
     });
   };
 
+  const handleCreateTransfer = async () => {
+    const parsedAmount = normalizeNumber(transferForm.amount);
+
+    if (!user?.email && !user?.id) {
+      throw new Error("User not found.");
+    }
+
+    if (!parsedAmount || parsedAmount <= 0) {
+      throw new Error("Enter a valid transfer amount.");
+    }
+
+    if (!transferForm.from_wallet_id || !transferForm.to_wallet_id) {
+      throw new Error("Please select both wallets.");
+    }
+
+    if (String(transferForm.from_wallet_id) === String(transferForm.to_wallet_id)) {
+      throw new Error("Source and destination wallets must be different.");
+    }
+
+    const fromWallet = walletMap.get(String(transferForm.from_wallet_id));
+    const toWallet = walletMap.get(String(transferForm.to_wallet_id));
+
+    if (!fromWallet || !toWallet) {
+      throw new Error("Selected wallet not found.");
+    }
+
+    if (parsedAmount > normalizeNumber(fromWallet.balance)) {
+      throw new Error("Not enough wallet balance for this transfer.");
+    }
+
+    const createdAt = buildCreatedAtFromDate(transferForm.date);
+
+    const nextFromBalance = normalizeNumber(fromWallet.balance) - parsedAmount;
+    const nextToBalance = normalizeNumber(toWallet.balance) + parsedAmount;
+
+    await updateWalletBalance(fromWallet.id, nextFromBalance);
+    await updateWalletBalance(toWallet.id, nextToBalance);
+
+    await insertWalletTransaction({
+      walletId: transferForm.from_wallet_id,
+      amount: parsedAmount,
+      type: "transfer_out",
+      notes: transferForm.notes || "",
+      createdAt,
+    });
+
+    await insertWalletTransaction({
+      walletId: transferForm.to_wallet_id,
+      amount: parsedAmount,
+      type: "transfer_in",
+      notes: transferForm.notes || "",
+      createdAt,
+    });
+  };
+
   const handleSubmit = async () => {
     setError("");
     setSaving(true);
@@ -530,8 +617,10 @@ export default function QuickAddModal({
     try {
       if (actionType === "expense") {
         await handleCreateExpense();
-      } else {
+      } else if (actionType === "income") {
         await handleCreateIncome();
+      } else {
+        await handleCreateTransfer();
       }
 
       window.dispatchEvent(new Event("clara-expenses-updated"));
@@ -555,21 +644,25 @@ export default function QuickAddModal({
     wallets.length === 0 ||
     (actionType === "expense"
       ? !expenseForm.amount || !expenseForm.wallet_id
-      : !incomeForm.amount || !incomeForm.wallet_id);
+      : actionType === "income"
+      ? !incomeForm.amount || !incomeForm.wallet_id
+      : !transferForm.amount || !transferForm.from_wallet_id || !transferForm.to_wallet_id);
 
   const selectedExpenseWallet = walletMap.get(String(expenseForm.wallet_id));
   const selectedIncomeWallet = walletMap.get(String(incomeForm.wallet_id));
+  const selectedTransferFromWallet = walletMap.get(String(transferForm.from_wallet_id));
+  const selectedTransferToWallet = walletMap.get(String(transferForm.to_wallet_id));
 
   return (
     <Dialog open={open} onOpenChange={(nextOpen) => !nextOpen && handleClose()}>
       <DialogContent className="max-w-sm mx-auto border border-emerald-500/20 bg-[#031126] text-white shadow-2xl">
         <DialogHeader>
           <DialogTitle className="text-center text-2xl font-bold text-white">
-            Quick Log
+            New Transaction
           </DialogTitle>
         </DialogHeader>
 
-        <div className="grid grid-cols-2 gap-2 mb-2">
+        <div className="mb-2 grid grid-cols-3 gap-2">
           {ACTION_TYPES.map((item) => (
             <button
               key={item.id}
@@ -578,14 +671,14 @@ export default function QuickAddModal({
                 setError("");
                 setActionType(item.id);
               }}
-              className={`flex items-center justify-center gap-2 rounded-xl border px-3 py-3 text-sm font-semibold transition-all ${
+              className={`flex flex-col items-center justify-center gap-1 rounded-xl border px-2 py-3 text-xs font-semibold text-center transition-all ${
                 actionType === item.id
                   ? "border-emerald-400 text-emerald-400 shadow-[0_0_0_1px_rgba(16,185,129,0.25)]"
                   : "border-slate-700 text-slate-300"
               }`}
             >
-              <item.icon className="h-4 w-4" />
-              {item.label}
+              <item.icon className="h-4 w-4 shrink-0" />
+              <span className="block w-full leading-tight">{item.label}</span>
             </button>
           ))}
         </div>
@@ -670,7 +763,8 @@ export default function QuickAddModal({
 
               {!!selectedExpenseWallet && (
                 <p className="mt-1 text-xs text-slate-400">
-                  Available balance: ₱{normalizeNumber(selectedExpenseWallet.balance).toLocaleString()}
+                  Available balance: ₱
+                  {normalizeNumber(selectedExpenseWallet.balance).toLocaleString()}
                 </p>
               )}
             </div>
@@ -751,7 +845,8 @@ export default function QuickAddModal({
 
               {!!selectedIncomeWallet && (
                 <p className="mt-1 text-xs text-slate-400">
-                  Current balance: ₱{normalizeNumber(selectedIncomeWallet.balance).toLocaleString()}
+                  Current balance: ₱
+                  {normalizeNumber(selectedIncomeWallet.balance).toLocaleString()}
                 </p>
               )}
             </div>
@@ -782,6 +877,118 @@ export default function QuickAddModal({
           </div>
         )}
 
+        {actionType === "transfer" && (
+          <div className="space-y-3">
+            <div>
+              <Label className="mb-1 block text-xs text-slate-200">Amount (₱)</Label>
+              <Input
+                type="number"
+                placeholder="0.00"
+                value={transferForm.amount}
+                onChange={(e) =>
+                  setTransferForm((prev) => ({ ...prev, amount: e.target.value }))
+                }
+                className="border-emerald-500/40 bg-[#071a34] text-lg font-bold text-white"
+                autoFocus
+              />
+            </div>
+
+            <div>
+              <Label className="mb-1 block text-xs text-slate-200">From Wallet</Label>
+              <Select
+                value={transferForm.from_wallet_id}
+                onValueChange={(value) =>
+                  setTransferForm((prev) => {
+                    const nextToWallet =
+                      String(prev.to_wallet_id) === String(value) ? "" : prev.to_wallet_id;
+
+                    return {
+                      ...prev,
+                      from_wallet_id: value,
+                      to_wallet_id: nextToWallet,
+                    };
+                  })
+                }
+              >
+                <SelectTrigger className="border-slate-700 bg-[#071a34] text-white">
+                  <SelectValue placeholder={loadingWallets ? "Loading wallets..." : "Select wallet"} />
+                </SelectTrigger>
+                <SelectContent>
+                  {wallets.map((wallet) => (
+                    <SelectItem key={wallet.id} value={String(wallet.id)}>
+                      {wallet.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+
+              {!!selectedTransferFromWallet && (
+                <p className="mt-1 text-xs text-slate-400">
+                  Available balance: ₱
+                  {normalizeNumber(selectedTransferFromWallet.balance).toLocaleString()}
+                </p>
+              )}
+            </div>
+
+            <div>
+              <Label className="mb-1 block text-xs text-slate-200">To Wallet</Label>
+              <Select
+                value={transferForm.to_wallet_id}
+                onValueChange={(value) =>
+                  setTransferForm((prev) => ({ ...prev, to_wallet_id: value }))
+                }
+              >
+                <SelectTrigger className="border-slate-700 bg-[#071a34] text-white">
+                  <SelectValue placeholder={loadingWallets ? "Loading wallets..." : "Select wallet"} />
+                </SelectTrigger>
+                <SelectContent>
+                  {wallets
+                    .filter(
+                      (wallet) =>
+                        String(wallet.id) !== String(transferForm.from_wallet_id)
+                    )
+                    .map((wallet) => (
+                      <SelectItem key={wallet.id} value={String(wallet.id)}>
+                        {wallet.name}
+                      </SelectItem>
+                    ))}
+                </SelectContent>
+              </Select>
+
+              {!!selectedTransferToWallet && (
+                <p className="mt-1 text-xs text-slate-400">
+                  Destination balance: ₱
+                  {normalizeNumber(selectedTransferToWallet.balance).toLocaleString()}
+                </p>
+              )}
+            </div>
+
+            <div>
+              <Label className="mb-1 block text-xs text-slate-200">Date</Label>
+              <Input
+                type="date"
+                value={transferForm.date}
+                onChange={(e) =>
+                  setTransferForm((prev) => ({ ...prev, date: e.target.value }))
+                }
+                className="border-slate-700 bg-[#071a34] text-white"
+              />
+            </div>
+
+            <div>
+              <Label className="mb-1 block text-xs text-slate-200">Note (optional)</Label>
+              <Input
+                placeholder="Transfer details"
+                value={transferForm.notes}
+                onChange={(e) =>
+                  setTransferForm((prev) => ({ ...prev, notes: e.target.value }))
+                }
+                className="border-slate-700 bg-[#071a34] text-white"
+              />
+            </div>
+          </div>
+        )}
+
         {!!error && (
           <div className="rounded-lg border border-red-500/30 bg-red-500/10 px-3 py-2 text-sm text-red-300">
             {error}
@@ -799,7 +1006,13 @@ export default function QuickAddModal({
           disabled={isDisabled}
           className="mt-3 w-full bg-emerald-600 text-white hover:bg-emerald-500 disabled:opacity-60"
         >
-          {saving ? "Saving..." : actionType === "expense" ? "Log Expense" : "Log Funds"}
+          {saving
+            ? "Saving..."
+            : actionType === "expense"
+            ? "Add Expense"
+            : actionType === "income"
+            ? "Add Funds"
+            : "Transfer Money"}
         </Button>
       </DialogContent>
     </Dialog>

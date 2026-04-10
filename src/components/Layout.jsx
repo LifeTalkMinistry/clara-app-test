@@ -233,8 +233,8 @@ function MobileControlCenter({
     {
       label: "Profile",
       icon: User,
-      onClick: () => handleGo("/settings"),
-      active: false,
+      onClick: () => handleGo("/profile"),
+      active: currentPath === "/profile",
     },
     {
       label: "Settings",
@@ -245,8 +245,8 @@ function MobileControlCenter({
     {
       label: "Notifications",
       icon: Bell,
-      onClick: () => handleGo("/settings"),
-      active: false,
+      onClick: () => handleGo("/notifications"),
+      active: currentPath === "/notifications",
     },
   ];
 
