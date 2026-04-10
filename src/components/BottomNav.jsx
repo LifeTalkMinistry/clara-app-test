@@ -1,5 +1,5 @@
 import { Link, useLocation } from "react-router-dom";
-import { useState, useCallback, useMemo } from "react";
+import { useState, useCallback, useMemo, useRef } from "react";
 import {
   LayoutDashboard,
   Receipt,
@@ -18,9 +18,12 @@ import {
   PiggyBank,
   TrendingUp,
   Plus,
+  ArrowRightLeft,
 } from "lucide-react";
 import { Sheet, SheetContent } from "@/components/ui/sheet";
 import { supabase } from "@/lib/supabaseClient";
+
+const LONG_PRESS_MS = 450;
 
 const moreItems = [
   { path: "/wallets", label: "Wallets", icon: Wallet, tier: "free" },
@@ -42,25 +45,28 @@ export default function BottomNav({
 }) {
   const location = useLocation();
   const [moreOpen, setMoreOpen] = useState(false);
+  const [actionsOpen, setActionsOpen] = useState(false);
+  const [didLongPress, setDidLongPress] = useState(false);
 
-  // ✅ Memoized helpers
+  const pressTimerRef = useRef(null);
+  const pointerDownRef = useRef(false);
+
   const isActive = useCallback(
     (path) =>
-      location.pathname === path ||
-      location.pathname.startsWith(path + "/"),
+      location.pathname === path || location.pathname.startsWith(path + "/"),
     [location.pathname]
   );
 
   const isMoreActive = useMemo(
-    () =>
-      !["/dashboard", "/expenses", "/analytics"].includes(
-        location.pathname
-      ),
+    () => !["/dashboard", "/expenses", "/analytics"].includes(location.pathname),
     [location.pathname]
   );
 
-  // ✅ Stable handlers
-  const openMore = useCallback(() => setMoreOpen(true), []);
+  const openMore = useCallback(() => {
+    setActionsOpen(false);
+    setMoreOpen(true);
+  }, []);
+
   const closeMore = useCallback(() => setMoreOpen(false), []);
 
   const handleLogout = useCallback(async () => {
@@ -73,88 +79,208 @@ export default function BottomNav({
     window.location.href = "/login";
   }, [onLogout]);
 
-  const handleItemClick = useCallback(
-    (locked, e) => {
-      if (locked) {
-        e.preventDefault();
-        return;
-      }
+  const handleItemClick = useCallback((locked, e) => {
+    if (locked) {
+      e.preventDefault();
+      return;
+    }
+    setMoreOpen(false);
+  }, []);
+
+  const clearPressTimer = useCallback(() => {
+    if (pressTimerRef.current) {
+      clearTimeout(pressTimerRef.current);
+      pressTimerRef.current = null;
+    }
+  }, []);
+
+  const startPress = useCallback(() => {
+    pointerDownRef.current = true;
+    clearPressTimer();
+
+    pressTimerRef.current = setTimeout(() => {
+      if (!pointerDownRef.current) return;
+      setDidLongPress(true);
       setMoreOpen(false);
+      setActionsOpen(true);
+    }, LONG_PRESS_MS);
+  }, [clearPressTimer]);
+
+  const endPress = useCallback(() => {
+    pointerDownRef.current = false;
+    clearPressTimer();
+  }, [clearPressTimer]);
+
+  const handleFabClick = useCallback(() => {
+    if (didLongPress) {
+      setDidLongPress(false);
+      return;
+    }
+
+    setActionsOpen(false);
+
+    if (typeof onQuickAdd === "function") {
+      onQuickAdd();
+    }
+  }, [didLongPress, onQuickAdd]);
+
+  const openQuickAction = useCallback(
+    (action) => {
+      setActionsOpen(false);
+      setDidLongPress(false);
+
+      if (typeof onQuickAdd === "function") {
+        onQuickAdd(action);
+      }
     },
-    []
+    [onQuickAdd]
   );
 
   return (
     <>
-      <nav className="lg:hidden fixed bottom-0 left-0 right-0 z-40 bg-white border-t border-border">
-        <div className="relative flex items-end justify-around px-2 h-16">
-          <Link
-            to="/dashboard"
-            className={`flex flex-col items-center gap-1 pb-2 pt-2 px-4 min-w-[52px] ${
-              isActive("/dashboard") ? "text-primary" : "text-muted-foreground"
-            }`}
-          >
-            <LayoutDashboard className="w-5 h-5" />
-            <span className="text-[10px] font-medium">Home</span>
-          </Link>
+      {actionsOpen && (
+        <>
+          <button
+            type="button"
+            aria-label="Close quick actions"
+            onClick={() => setActionsOpen(false)}
+            className="fixed inset-0 z-[55] bg-black/35 backdrop-blur-[1px]"
+          />
 
-          <Link
-            to="/expenses"
-            className={`flex flex-col items-center gap-1 pb-2 pt-2 px-4 min-w-[52px] ${
-              isActive("/expenses") ? "text-primary" : "text-muted-foreground"
-            }`}
-          >
-            <Receipt className="w-5 h-5" />
-            <span className="text-[10px] font-medium">Expenses</span>
-          </Link>
+          <div className="lg:hidden fixed inset-x-0 bottom-24 z-[60] px-4">
+            <div className="mx-auto max-w-sm rounded-3xl border border-white/10 bg-[#0B1220]/95 p-3 shadow-2xl backdrop-blur-xl">
+              <div className="mb-2 flex items-center justify-between px-1">
+                <p className="text-sm font-semibold text-white">Quick Actions</p>
+                <button
+                  type="button"
+                  onClick={() => setActionsOpen(false)}
+                  className="rounded-full p-1 text-white/60 transition hover:bg-white/10 hover:text-white"
+                >
+                  <X className="h-4 w-4" />
+                </button>
+              </div>
 
-          <div className="min-w-[64px] flex justify-center">
-            <button
-              onClick={onQuickAdd}
-              className="absolute -top-5 w-14 h-14 grad-green rounded-full flex items-center justify-center shadow-lg active:scale-95 transition-all"
-              style={{ boxShadow: "0 4px 20px hsl(145 60% 36% / 0.4)" }}
+              <div className="grid grid-cols-2 gap-3">
+                <button
+                  type="button"
+                  onClick={() => openQuickAction("expense")}
+                  className="flex flex-col items-center gap-2 rounded-2xl border border-white/10 bg-white/5 px-3 py-4 text-white transition hover:bg-white/10 active:scale-[0.98]"
+                >
+                  <Receipt className="h-5 w-5 text-emerald-400" />
+                  <span className="text-xs font-medium">Add Expense</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => openQuickAction("income")}
+                  className="flex flex-col items-center gap-2 rounded-2xl border border-white/10 bg-white/5 px-3 py-4 text-white transition hover:bg-white/10 active:scale-[0.98]"
+                >
+                  <TrendingUp className="h-5 w-5 text-emerald-400" />
+                  <span className="text-xs font-medium">Add Funds</span>
+                </button>
+
+                <Link
+                  to="/wallets"
+                  onClick={() => setActionsOpen(false)}
+                  className="flex flex-col items-center gap-2 rounded-2xl border border-white/10 bg-white/5 px-3 py-4 text-white transition hover:bg-white/10 active:scale-[0.98]"
+                >
+                  <ArrowRightLeft className="h-5 w-5 text-emerald-400" />
+                  <span className="text-xs font-medium">Transfer</span>
+                </Link>
+
+                <Link
+                  to="/savings-goals"
+                  onClick={() => setActionsOpen(false)}
+                  className="flex flex-col items-center gap-2 rounded-2xl border border-white/10 bg-white/5 px-3 py-4 text-white transition hover:bg-white/10 active:scale-[0.98]"
+                >
+                  <PiggyBank className="h-5 w-5 text-emerald-400" />
+                  <span className="text-xs font-medium">Add Goal</span>
+                </Link>
+              </div>
+            </div>
+          </div>
+        </>
+      )}
+
+      <nav className="lg:hidden fixed bottom-0 left-0 right-0 z-50">
+        <div className="relative mx-3 mb-3 rounded-3xl border border-white/10 bg-[#0B1220]/95 backdrop-blur-xl shadow-2xl">
+          <div className="relative flex items-center justify-around h-16 px-2">
+            <Link
+              to="/dashboard"
+              className={`flex flex-col items-center gap-1 text-[10px] ${
+                isActive("/dashboard") ? "text-emerald-400" : "text-white/60"
+              }`}
             >
-              <Plus className="w-7 h-7 text-white" />
+              <LayoutDashboard className="w-5 h-5" />
+              Home
+            </Link>
+
+            <Link
+              to="/expenses"
+              className={`flex flex-col items-center gap-1 text-[10px] ${
+                isActive("/expenses") ? "text-emerald-400" : "text-white/60"
+              }`}
+            >
+              <Receipt className="w-5 h-5" />
+              Expenses
+            </Link>
+
+            <div className="w-16" />
+
+            <Link
+              to="/analytics"
+              className={`flex flex-col items-center gap-1 text-[10px] ${
+                isActive("/analytics") ? "text-emerald-400" : "text-white/60"
+              }`}
+            >
+              <BarChart2 className="w-5 h-5" />
+              Analytics
+            </Link>
+
+            <button
+              onClick={openMore}
+              className={`flex flex-col items-center gap-1 text-[10px] ${
+                isMoreActive ? "text-emerald-400" : "text-white/60"
+              }`}
+            >
+              <MoreHorizontal className="w-5 h-5" />
+              More
+            </button>
+
+            <button
+              type="button"
+              onMouseDown={startPress}
+              onMouseUp={endPress}
+              onMouseLeave={endPress}
+              onTouchStart={startPress}
+              onTouchEnd={endPress}
+              onTouchCancel={endPress}
+              onClick={handleFabClick}
+              className="absolute left-1/2 -translate-x-1/2 -top-7 z-50 flex h-16 w-16 items-center justify-center rounded-full shadow-[0_8px_30px_rgba(16,185,129,0.4)] transition-all active:scale-95"
+              style={{
+                background: "linear-gradient(135deg, #10b981, #059669)",
+              }}
+              aria-label="Quick add"
+            >
+              <Plus className="w-8 h-8 text-white" />
             </button>
           </div>
-
-          <Link
-            to="/analytics"
-            className={`flex flex-col items-center gap-1 pb-2 pt-2 px-4 min-w-[52px] ${
-              isActive("/analytics") ? "text-primary" : "text-muted-foreground"
-            }`}
-          >
-            <BarChart2 className="w-5 h-5" />
-            <span className="text-[10px] font-medium">Analytics</span>
-          </Link>
-
-          <button
-            onClick={openMore}
-            className={`flex flex-col items-center gap-1 pb-2 pt-2 px-4 min-w-[52px] ${
-              isMoreActive ? "text-primary" : "text-muted-foreground"
-            }`}
-          >
-            <MoreHorizontal className="w-5 h-5" />
-            <span className="text-[10px] font-medium">More</span>
-          </button>
         </div>
-
-        <div className="h-safe-bottom" />
       </nav>
 
       <Sheet open={moreOpen} onOpenChange={setMoreOpen}>
         <SheetContent
           side="bottom"
-          className="rounded-t-2xl max-h-[80vh] overflow-y-auto pb-8"
+          className="max-h-[85vh] overflow-y-auto rounded-t-3xl border-none bg-[#0B1220] text-white"
         >
-          <div className="flex items-center justify-between mb-5">
-            <h3 className="font-heading font-bold text-lg">More</h3>
-            <button onClick={closeMore} className="p-1" type="button">
-              <X className="w-5 h-5 text-muted-foreground" />
+          <div className="mb-5 flex items-center justify-between">
+            <h3 className="text-lg font-bold">More</h3>
+            <button onClick={closeMore} type="button">
+              <X className="w-5 h-5 text-white/70" />
             </button>
           </div>
 
-          <div className="grid grid-cols-3 gap-3 mb-4">
+          <div className="mb-4 grid grid-cols-3 gap-3">
             {moreItems.map((item) => {
               const locked = item.tier === "paid" && !isPaid;
 
@@ -163,20 +289,19 @@ export default function BottomNav({
                   key={item.path}
                   to={locked ? "#" : item.path}
                   onClick={(e) => handleItemClick(locked, e)}
-                  className={`flex flex-col items-center gap-2 p-3 rounded-2xl border transition-all ${
+                  className={`flex flex-col items-center gap-2 rounded-2xl border p-3 transition-all ${
                     isActive(item.path)
-                      ? "bg-primary text-white border-primary"
+                      ? "border-emerald-400 bg-emerald-500/20 text-emerald-300"
                       : locked
-                      ? "bg-muted border-border text-muted-foreground/50"
-                      : "bg-card border-border text-foreground hover:border-primary/30"
+                      ? "border-white/10 bg-white/5 text-white/30"
+                      : "border-white/10 bg-white/5 text-white hover:bg-white/10"
                   }`}
                 >
                   <item.icon className="w-5 h-5" />
-                  <span className="text-[11px] font-medium text-center leading-tight">
-                    {item.label}
-                  </span>
+                  <span className="text-center text-[11px]">{item.label}</span>
+
                   {locked && (
-                    <span className="text-[9px] font-bold bg-secondary/20 text-secondary-foreground px-1 rounded">
+                    <span className="rounded bg-yellow-500/20 px-1 text-[9px] font-bold text-yellow-300">
                       PRO
                     </span>
                   )}
@@ -189,7 +314,7 @@ export default function BottomNav({
             <Link
               to="/admin"
               onClick={closeMore}
-              className="flex items-center gap-3 p-3 rounded-xl bg-muted text-sm font-medium mb-3 w-full"
+              className="mb-3 flex items-center gap-3 rounded-xl bg-white/5 p-3 text-sm"
             >
               <Settings className="w-4 h-4" />
               Admin Panel
@@ -199,7 +324,7 @@ export default function BottomNav({
           <button
             onClick={handleLogout}
             type="button"
-            className="flex items-center gap-3 p-3 rounded-xl text-sm text-destructive w-full hover:bg-destructive/5"
+            className="flex w-full items-center gap-3 rounded-xl p-3 text-sm text-red-400 hover:bg-red-500/10"
           >
             <LogOut className="w-4 h-4" />
             Log Out

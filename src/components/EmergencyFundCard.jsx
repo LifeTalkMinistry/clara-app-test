@@ -1,14 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import {
-  Shield,
-  Edit2,
-  Minus,
-  Plus,
-  Camera,
-  X,
-  Upload,
-  Check,
-} from "lucide-react";
+import { Shield, Edit2, Camera, X, Upload, Check, ChevronDown, ChevronUp } from "lucide-react";
 import SurvivalExpenseModal from "./SurvivalExpenseModal";
 
 const fmt = (n) =>
@@ -153,9 +144,7 @@ function getProgression(months, targetMonths) {
     return "Outstanding! You have maximum financial protection.";
   }
 
-  return `Start with ${targetMonths} month${
-    targetMonths > 1 ? "s" : ""
-  } of protection.`;
+  return `Start with ${targetMonths} month${targetMonths > 1 ? "s" : ""} of protection.`;
 }
 
 function getStoredWallpaper() {
@@ -197,6 +186,7 @@ export default function EmergencyFundCard({
   retentionRate,
   onSurvivalSaved,
 }) {
+  const [expanded, setExpanded] = useState(false);
   const [editing, setEditing] = useState(false);
   const [showModal, setShowModal] = useState(false);
   const [targetMonths, setTargetMonths] = useState(getStoredTargetMonths());
@@ -273,31 +263,9 @@ export default function EmergencyFundCard({
   };
 
   const changeTargetMonths = (next) => {
-    const currentIndex = VALID_TARGET_MONTHS.indexOf(targetMonths);
-
-    if (next < targetMonths) {
-      const prevIndex = Math.max(0, currentIndex - 1);
-      const safeNext = VALID_TARGET_MONTHS[prevIndex];
-      setTargetMonths(safeNext);
-      setStoredTargetMonths(safeNext);
-      return;
-    }
-
-    if (next > targetMonths) {
-      const nextIndex = Math.min(
-        VALID_TARGET_MONTHS.length - 1,
-        currentIndex + 1
-      );
-      const safeNext = VALID_TARGET_MONTHS[nextIndex];
-      setTargetMonths(safeNext);
-      setStoredTargetMonths(safeNext);
-      return;
-    }
-
-    if (VALID_TARGET_MONTHS.includes(next)) {
-      setTargetMonths(next);
-      setStoredTargetMonths(next);
-    }
+    if (!VALID_TARGET_MONTHS.includes(next)) return;
+    setTargetMonths(next);
+    setStoredTargetMonths(next);
   };
 
   const resolvedWallpaperOpacity = Math.max(
@@ -359,13 +327,13 @@ export default function EmergencyFundCard({
             className="absolute inset-0 bg-black/70 backdrop-blur-sm"
             onClick={() => setShowWallpaperModal(false)}
           />
-          <div className="relative z-10 w-full max-w-md rounded-3xl border border-white/10 bg-[#08111d] shadow-2xl overflow-hidden">
-            <div className="p-4 border-b border-white/10 flex items-center justify-between">
+          <div className="relative z-10 w-full max-w-md overflow-hidden rounded-3xl border border-white/10 bg-[#08111d] shadow-2xl">
+            <div className="flex items-center justify-between border-b border-white/10 p-4">
               <div>
-                <p className="text-white font-semibold text-base">
+                <p className="text-base font-semibold text-white">
                   Emergency Background
                 </p>
-                <p className="text-white/60 text-xs mt-0.5">
+                <p className="mt-0.5 text-xs text-white/60">
                   Upload photo and adjust opacity
                 </p>
               </div>
@@ -373,14 +341,14 @@ export default function EmergencyFundCard({
               <button
                 type="button"
                 onClick={() => setShowWallpaperModal(false)}
-                className="w-9 h-9 rounded-xl border border-white/10 bg-white/5 text-white/70 hover:text-white hover:bg-white/10 flex items-center justify-center transition"
+                className="flex h-9 w-9 items-center justify-center rounded-xl border border-white/10 bg-white/5 text-white/70 transition hover:bg-white/10 hover:text-white"
               >
-                <X className="w-4 h-4" />
+                <X className="h-4 w-4" />
               </button>
             </div>
 
             <div className="p-4">
-              <div className="mb-4 rounded-2xl overflow-hidden border border-white/10 bg-black/20">
+              <div className="mb-4 overflow-hidden rounded-2xl border border-white/10 bg-black/20">
                 <div className="relative h-48">
                   <div className="absolute inset-0 bg-gradient-to-br from-[#08111d] via-[#111827] to-[#071520]" />
 
@@ -402,12 +370,12 @@ export default function EmergencyFundCard({
                   <div className="absolute inset-0 bg-gradient-to-b from-black/25 via-black/18 to-black/35" />
                   <div className="absolute inset-0 bg-[linear-gradient(to_bottom,rgba(255,255,255,0.08),rgba(255,255,255,0.02)_16%,transparent_38%)]" />
 
-                  <div className="relative z-10 h-full p-4 flex items-end">
+                  <div className="relative z-10 flex h-full items-end p-4">
                     <div>
-                      <p className="text-white font-bold text-lg">
+                      <p className="text-lg font-bold text-white">
                         Emergency Fund
                       </p>
-                      <p className="text-white/75 text-xs">
+                      <p className="text-xs text-white/75">
                         Preview of your card background
                       </p>
                     </div>
@@ -415,8 +383,8 @@ export default function EmergencyFundCard({
                 </div>
               </div>
 
-              <label className="mb-4 flex items-center justify-center gap-2 rounded-2xl border border-dashed border-white/15 bg-white/5 px-4 py-3 text-sm font-medium text-white/85 hover:bg-white/10 transition cursor-pointer">
-                <Upload className="w-4 h-4" />
+              <label className="mb-4 flex cursor-pointer items-center justify-center gap-2 rounded-2xl border border-dashed border-white/15 bg-white/5 px-4 py-3 text-sm font-medium text-white/85 transition hover:bg-white/10">
+                <Upload className="h-4 w-4" />
                 <span>{draftWallpaper ? "Change photo" : "Upload photo"}</span>
                 <input
                   type="file"
@@ -427,11 +395,11 @@ export default function EmergencyFundCard({
               </label>
 
               <div className="mb-5">
-                <div className="flex items-center justify-between mb-2">
-                  <p className="text-[11px] text-white/65 font-medium">
+                <div className="mb-2 flex items-center justify-between">
+                  <p className="text-[11px] font-medium text-white/65">
                     Background Opacity
                   </p>
-                  <p className="text-[11px] text-white/85 font-semibold">
+                  <p className="text-[11px] font-semibold text-white/85">
                     {Math.round((Number(draftOpacity) || 0) * 100)}%
                   </p>
                 </div>
@@ -451,7 +419,7 @@ export default function EmergencyFundCard({
                 <button
                   type="button"
                   onClick={handleWallpaperRemove}
-                  className="rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm font-semibold text-white/80 hover:bg-white/10 hover:text-white transition"
+                  className="rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm font-semibold text-white/80 transition hover:bg-white/10 hover:text-white"
                 >
                   Remove
                 </button>
@@ -459,9 +427,9 @@ export default function EmergencyFundCard({
                 <button
                   type="button"
                   onClick={handleWallpaperSave}
-                  className="rounded-2xl border border-emerald-400/30 bg-emerald-500/15 px-4 py-3 text-sm font-semibold text-emerald-300 hover:bg-emerald-500/20 transition flex items-center justify-center gap-2"
+                  className="flex items-center justify-center gap-2 rounded-2xl border border-emerald-400/30 bg-emerald-500/15 px-4 py-3 text-sm font-semibold text-emerald-300 transition hover:bg-emerald-500/20"
                 >
-                  <Check className="w-4 h-4" />
+                  <Check className="h-4 w-4" />
                   Save
                 </button>
               </div>
@@ -471,13 +439,13 @@ export default function EmergencyFundCard({
       )}
 
       <div
-        className={`relative overflow-hidden rounded-3xl mb-3 border border-white/10 shadow-2xl ${status.ring}`}
+        className={`relative mb-3 overflow-hidden rounded-3xl border border-white/10 shadow-2xl transition-all duration-200 ${status.ring}`}
       >
         <div className="absolute inset-0 bg-gradient-to-br from-[#08111d] via-[#111827] to-[#071520]" />
 
         {wallpaper ? (
           <div
-            className="absolute inset-0 bg-cover bg-center bg-no-repeat scale-[1.02]"
+            className="absolute inset-0 scale-[1.02] bg-cover bg-center bg-no-repeat"
             style={{
               backgroundImage: `url("${wallpaper}")`,
               opacity: resolvedWallpaperOpacity,
@@ -491,180 +459,176 @@ export default function EmergencyFundCard({
         <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(to_bottom,rgba(255,255,255,0.08),rgba(255,255,255,0.02)_16%,transparent_38%)]" />
 
         <div className="relative z-10 p-4">
-          <div className="flex items-start gap-2.5 mb-3">
-            <div className="w-9 h-9 rounded-xl bg-emerald-500/10 border border-emerald-400/20 flex items-center justify-center shrink-0 shadow-[0_0_18px_rgba(52,211,153,0.12)] backdrop-blur-sm">
-              <Shield className="w-4 h-4 text-emerald-400" />
+          <div className="mb-3 flex items-start gap-3">
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-emerald-400/20 bg-emerald-500/10 shadow-[0_0_18px_rgba(52,211,153,0.12)] backdrop-blur-sm">
+              <Shield className="h-4 w-4 text-emerald-400" />
             </div>
 
-            <div className="flex-1 min-w-0">
-              <p className="font-semibold text-base text-white tracking-tight">
-                Emergency Fund Progress
-              </p>
-              <p className="text-[11px] text-white/80 mt-0.5 font-medium">
-                Protection based on your monthly survival expense
-              </p>
-            </div>
+            <div className="min-w-0 flex-1">
+              <div className="flex items-start justify-between gap-2">
+                <div className="min-w-0">
+                  <p className="text-base font-semibold tracking-tight text-white">
+                    Emergency Fund
+                  </p>
+                  <p className="mt-0.5 text-[11px] font-medium text-white/75">
+                    Protection based on your monthly survival expense
+                  </p>
+                </div>
 
-            <div className="flex items-center gap-2 shrink-0">
-              <span
-                className={`text-[11px] px-2.5 py-1 rounded-full font-semibold backdrop-blur-sm ${status.badge}`}
-              >
-                {status.label}
-              </span>
-
-              <button
-                type="button"
-                onClick={openWallpaperModal}
-                className="w-7.5 h-7.5 min-w-[30px] min-h-[30px] rounded-lg border border-white/10 bg-white/5 backdrop-blur-sm flex items-center justify-center text-white/70 hover:text-white hover:bg-white/10 transition"
-                title="Change background"
-              >
-                <Camera className="w-3.5 h-3.5" />
-              </button>
-
-              <button
-                type="button"
-                onClick={() => setEditing(true)}
-                className="w-7.5 h-7.5 min-w-[30px] min-h-[30px] rounded-lg border border-white/10 bg-white/5 backdrop-blur-sm flex items-center justify-center text-white/70 hover:text-white hover:bg-white/10 transition"
-                title="Edit survival expense"
-              >
-                <Edit2 className="w-3.5 h-3.5" />
-              </button>
-            </div>
-          </div>
-
-          <div className="mb-4 rounded-2xl border border-white/10 bg-black/15 backdrop-blur-[2px] p-2.5 shadow-[inset_0_1px_0_rgba(255,255,255,0.05)]">
-            <div className="flex items-center justify-between mb-2.5">
-              <span className="text-xs text-white/90 font-semibold">Goal</span>
-
-              <div className="flex items-center gap-1">
-                <button
-                  type="button"
-                  onClick={() => changeTargetMonths(targetMonths - 1)}
-                  className="w-7 h-7 rounded-lg bg-white/5 border border-white/10 flex items-center justify-center text-white/80 hover:text-white hover:bg-white/10 transition"
+                <span
+                  className={`shrink-0 rounded-full px-2.5 py-1 text-[11px] font-semibold backdrop-blur-sm ${status.badge}`}
                 >
-                  <Minus className="w-3 h-3" />
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => changeTargetMonths(targetMonths + 1)}
-                  className="w-7 h-7 rounded-lg bg-white/5 border border-white/10 flex items-center justify-center text-white/80 hover:text-white hover:bg-white/10 transition"
-                >
-                  <Plus className="w-3 h-3" />
-                </button>
+                  {status.label}
+                </span>
               </div>
             </div>
-
-            <div className="grid grid-cols-3 gap-1.5">
-              {VALID_TARGET_MONTHS.map((m) => {
-                const active = targetMonths === m;
-
-                return (
-                  <button
-                    key={m}
-                    type="button"
-                    onClick={() => changeTargetMonths(m)}
-                    className={`relative rounded-xl px-2 py-2 text-xs font-semibold border transition-all duration-200 ${
-                      active
-                        ? "bg-emerald-500/15 border-emerald-400/40 text-emerald-300 shadow-[0_0_18px_rgba(52,211,153,0.25)]"
-                        : "bg-white/5 border-white/10 text-white/80 hover:bg-white/10 hover:text-white"
-                    }`}
-                  >
-                    <span className="block">{m} Months</span>
-                    {active && (
-                      <span className="absolute top-1.5 right-1.5 w-1.5 h-1.5 rounded-full bg-emerald-400 shadow-[0_0_8px_rgba(52,211,153,0.9)]" />
-                    )}
-                  </button>
-                );
-              })}
-            </div>
-
-            <div className="mt-2.5 flex items-center justify-between gap-3">
-              <span className="text-[10px] font-medium text-white/65 uppercase tracking-[0.14em]">
-                Selected Plan
-              </span>
-              <span className="text-xs font-semibold text-white/90">
-                {milestone?.label}
-              </span>
-            </div>
           </div>
 
-          <div className="mb-4 flex items-end justify-between gap-3">
-            <div>
-              {safeMoneyLeft <= 0 ? (
-                <p className="text-lg text-white/95 font-semibold">
-                  Start building your fund
-                </p>
-              ) : (
-                <p className={`text-[28px] leading-none font-bold ${status.text}`}>
-                  {months.toFixed(1)}
-                  <span className="text-base font-semibold text-white/90 ml-1.5">
-                    months
-                  </span>
-                </p>
-              )}
-              <p className="text-xs text-white/85 mt-1.5 font-medium max-w-[28rem] leading-relaxed">
-                {progression}
+          <div className="mb-3">
+            {safeMoneyLeft <= 0 ? (
+              <p className="text-2xl font-bold text-white/95">
+                Start your fund
               </p>
-            </div>
+            ) : (
+              <p className={`text-[32px] font-bold leading-none ${status.text}`}>
+                {months.toFixed(1)}
+                <span className="ml-1.5 text-base font-semibold text-white/85">
+                  months
+                </span>
+              </p>
+            )}
 
-            <div className="text-right shrink-0">
-              <p className="text-[10px] uppercase tracking-[0.22em] text-white/70 font-semibold">
-                Progress
-              </p>
-              <p className="text-xl font-bold text-white">{pct.toFixed(0)}%</p>
-            </div>
+            <p className="mt-2 max-w-[28rem] text-xs font-medium leading-relaxed text-white/82">
+              {progression}
+            </p>
           </div>
 
-          <div className="mb-4">
-            <div className="flex items-center justify-between mb-1.5 text-[11px] font-medium text-white/75">
+          <div className="mb-3">
+            <div className="mb-1.5 flex items-center justify-between text-[11px] font-medium text-white/75">
               <span>Current progress</span>
-              <span>
-                {fmt(safeMoneyLeft)} / {fmt(target)}
-              </span>
+              <span>{pct.toFixed(0)}%</span>
             </div>
 
-            <div className="h-2.5 bg-black/20 rounded-full overflow-hidden border border-white/10">
+            <div className="h-2.5 overflow-hidden rounded-full border border-white/10 bg-black/20">
               <div
-                className={`h-full rounded-full bg-gradient-to-r ${status.bar} transition-all duration-500 relative`}
+                className={`relative h-full rounded-full bg-gradient-to-r ${status.bar} transition-all duration-500`}
                 style={{ width: `${pct}%` }}
               >
                 <div className="absolute inset-0 bg-white/20 opacity-40" />
               </div>
             </div>
-          </div>
 
-          <div className="grid grid-cols-3 gap-2 text-center text-sm text-white">
-            <div className="rounded-2xl border border-white/10 bg-black/20 px-2.5 py-2.5 backdrop-blur-[2px] shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]">
-              <p className="text-white/70 text-[10px] uppercase tracking-[0.16em] mb-1 font-semibold">
-                Monthly
-              </p>
-              <p className="font-bold text-sm text-white">
-                {fmt(effectiveExpense)}
-              </p>
-            </div>
-
-            <div className="rounded-2xl border border-white/10 bg-black/20 px-2.5 py-2.5 backdrop-blur-[2px] shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]">
-              <p className="text-white/70 text-[10px] uppercase tracking-[0.16em] mb-1 font-semibold">
-                Available
-              </p>
-              <p className="font-bold text-sm text-white">
-                {fmt(safeMoneyLeft)}
-              </p>
-            </div>
-
-            <div className="rounded-2xl border border-white/10 bg-black/20 px-2.5 py-2.5 backdrop-blur-[2px] shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]">
-              <p className="text-white/70 text-[10px] uppercase tracking-[0.16em] mb-1 font-semibold">
-                Target
-              </p>
-              <p className="font-bold text-sm text-white">{fmt(target)}</p>
+            <div className="mt-2 flex items-center justify-between text-[11px] font-medium text-white/70">
+              <span>{fmt(safeMoneyLeft)}</span>
+              <span>{fmt(target)}</span>
             </div>
           </div>
 
-          {retentionRate != null && (
-            <div className="mt-3 flex items-center justify-between text-xs text-white/75 font-medium">
-              <span>Retention Rate</span>
-              <span className="text-white/95">{retentionRate}%</span>
+          <button
+            type="button"
+            onClick={() => setExpanded((prev) => !prev)}
+            className="flex w-full items-center justify-between rounded-2xl border border-white/10 bg-black/15 px-3 py-2.5 text-sm text-white/85 backdrop-blur-sm transition hover:bg-white/10"
+          >
+            <span className="font-medium">
+              {expanded ? "Hide details" : "Show details"}
+            </span>
+            {expanded ? (
+              <ChevronUp className="h-4 w-4" />
+            ) : (
+              <ChevronDown className="h-4 w-4" />
+            )}
+          </button>
+
+          {expanded && (
+            <div className="mt-3 space-y-3 rounded-2xl border border-white/10 bg-black/15 p-3 backdrop-blur-[2px] shadow-[inset_0_1px_0_rgba(255,255,255,0.05)]">
+              <div>
+                <div className="mb-2 flex items-center justify-between">
+                  <span className="text-xs font-semibold text-white/90">
+                    Goal
+                  </span>
+                  <span className="text-[11px] font-semibold text-white/70">
+                    {milestone?.label}
+                  </span>
+                </div>
+
+                <div className="grid grid-cols-3 gap-2">
+                  {VALID_TARGET_MONTHS.map((m) => {
+                    const active = targetMonths === m;
+
+                    return (
+                      <button
+                        key={m}
+                        type="button"
+                        onClick={() => changeTargetMonths(m)}
+                        className={`relative rounded-xl border px-2 py-2.5 text-xs font-semibold transition-all duration-200 ${
+                          active
+                            ? "border-emerald-400/40 bg-emerald-500/15 text-emerald-300 shadow-[0_0_18px_rgba(52,211,153,0.25)]"
+                            : "border-white/10 bg-white/5 text-white/80 hover:bg-white/10 hover:text-white"
+                        }`}
+                      >
+                        <span className="block">{m} Months</span>
+                        {active && (
+                          <span className="absolute right-1.5 top-1.5 h-1.5 w-1.5 rounded-full bg-emerald-400 shadow-[0_0_8px_rgba(52,211,153,0.9)]" />
+                        )}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              <div className="grid grid-cols-3 gap-2 text-center text-sm text-white">
+                <div className="rounded-2xl border border-white/10 bg-black/20 px-2.5 py-2.5 backdrop-blur-[2px] shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]">
+                  <p className="mb-1 text-[10px] font-semibold uppercase tracking-[0.16em] text-white/70">
+                    Monthly
+                  </p>
+                  <p className="text-sm font-bold text-white">
+                    {fmt(effectiveExpense)}
+                  </p>
+                </div>
+
+                <div className="rounded-2xl border border-white/10 bg-black/20 px-2.5 py-2.5 backdrop-blur-[2px] shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]">
+                  <p className="mb-1 text-[10px] font-semibold uppercase tracking-[0.16em] text-white/70">
+                    Available
+                  </p>
+                  <p className="text-sm font-bold text-white">
+                    {fmt(safeMoneyLeft)}
+                  </p>
+                </div>
+
+                <div className="rounded-2xl border border-white/10 bg-black/20 px-2.5 py-2.5 backdrop-blur-[2px] shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]">
+                  <p className="mb-1 text-[10px] font-semibold uppercase tracking-[0.16em] text-white/70">
+                    Target
+                  </p>
+                  <p className="text-sm font-bold text-white">{fmt(target)}</p>
+                </div>
+              </div>
+
+              {retentionRate != null && (
+                <div className="flex items-center justify-between text-xs font-medium text-white/75">
+                  <span>Retention Rate</span>
+                  <span className="text-white/95">{retentionRate}%</span>
+                </div>
+              )}
+
+              <div className="grid grid-cols-2 gap-2">
+                <button
+                  type="button"
+                  onClick={() => setEditing(true)}
+                  className="flex items-center justify-center gap-2 rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm font-semibold text-white/85 transition hover:bg-white/10 hover:text-white"
+                >
+                  <Edit2 className="h-4 w-4" />
+                  Edit Expense
+                </button>
+
+                <button
+                  type="button"
+                  onClick={openWallpaperModal}
+                  className="flex items-center justify-center gap-2 rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm font-semibold text-white/85 transition hover:bg-white/10 hover:text-white"
+                >
+                  <Camera className="h-4 w-4" />
+                  Background
+                </button>
+              </div>
             </div>
           )}
         </div>
