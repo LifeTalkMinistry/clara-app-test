@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useMemo, useState, useCallback } from "react";
 import {
   BarChart,
   Bar,
@@ -49,6 +49,45 @@ const ALL_TIMEFRAMES = [
   { id: "last_6", label: "Last 6 Mo" },
   { id: "this_year", label: "This Year" },
   { id: "custom", label: "Custom" },
+];
+
+const FREE_ALLOWED = ["this_month", "last_month", "last_3"];
+
+const CURRENCY_FORMATTER = new Intl.NumberFormat("en-PH", {
+  style: "currency",
+  currency: "PHP",
+  minimumFractionDigits: 0,
+});
+
+const TOOLTIP_STYLE = {
+  borderRadius: "12px",
+  background: "#0f172a",
+  border: "1px solid rgba(255,255,255,0.08)",
+  color: "#fff",
+};
+
+const AXIS_LINE_STYLE = { stroke: "rgba(255,255,255,0.08)" };
+const TICK_STYLE = { fontSize: 11, fill: "#94a3b8" };
+
+const SPENDING_TYPE_META = [
+  {
+    label: "Needs",
+    key: "needsSpent",
+    color: "bg-primary",
+    textColor: "text-primary",
+  },
+  {
+    label: "Wants",
+    key: "wantsSpent",
+    color: "bg-secondary",
+    textColor: "text-secondary",
+  },
+  {
+    label: "Savings",
+    key: "savingsSpent",
+    color: "bg-accent",
+    textColor: "text-accent",
+  },
 ];
 
 function normalizeString(value) {
@@ -122,14 +161,10 @@ function safeDate(value) {
   }
 }
 
-function filterByRange(items, start, end, customDateGetter) {
-  return (items || []).filter((item) => {
-    const rawValue = customDateGetter ? customDateGetter(item) : item?.date;
-    const parsed = safeDate(rawValue);
-    if (!parsed) return false;
-
-    return isWithinInterval(parsed, { start, end });
-  });
+function isInRange(value, start, end) {
+  const parsed = safeDate(value);
+  if (!parsed) return false;
+  return isWithinInterval(parsed, { start, end });
 }
 
 function toNumber(value) {
@@ -196,6 +231,14 @@ function mapWalletTransactionIncome(item) {
   };
 }
 
+function addToMap(map, key, value) {
+  map.set(key, (map.get(key) || 0) + value);
+}
+
+function incrementMap(map, key) {
+  map.set(key, (map.get(key) || 0) + 1);
+}
+
 export default function Analytics() {
   const { user, isFree } = useUserRole();
   const rawData = useFinancialData(user);
@@ -204,24 +247,18 @@ export default function Analytics() {
   const [customStart, setCustomStart] = useState("");
   const [customEnd, setCustomEnd] = useState("");
 
-  const fmt = (n) =>
-    new Intl.NumberFormat("en-PH", {
-      style: "currency",
-      currency: "PHP",
-      minimumFractionDigits: 0,
-    }).format(Number(n || 0));
+  const fmt = useCallback((n) => CURRENCY_FORMATTER.format(Number(n || 0)), []);
 
-  const FREE_ALLOWED = ["this_month", "last_month", "last_3"];
+  const availableTimeframes = useMemo(() => {
+    return ALL_TIMEFRAMES.map((item) => ({
+      ...item,
+      locked: isFree ? !FREE_ALLOWED.includes(item.id) : false,
+    }));
+  }, [isFree]);
 
-  const availableTimeframes = isFree
-    ? ALL_TIMEFRAMES.map((item) => ({
-        ...item,
-        locked: !FREE_ALLOWED.includes(item.id),
-      }))
-    : ALL_TIMEFRAMES.map((item) => ({ ...item, locked: false }));
-
-  const activeTimeframe =
-    isFree && !FREE_ALLOWED.includes(timeframe) ? "this_month" : timeframe;
+  const activeTimeframe = useMemo(() => {
+    return isFree && !FREE_ALLOWED.includes(timeframe) ? "this_month" : timeframe;
+  }, [isFree, timeframe]);
 
   const { start, end } = useMemo(
     () => getDateRange(activeTimeframe, customStart, customEnd),
@@ -229,234 +266,272 @@ export default function Analytics() {
   );
 
   const data = useMemo(() => {
+    const wallets = [];
+    const expenses = [];
+    const incomes = [];
+    const walletTransactions = [];
+    const transfers = [];
+
+    const rawWallets = rawData?.wallets || [];
+    const rawExpenses = rawData?.expenses || [];
+    const rawIncomes = rawData?.incomes || [];
+    const rawWalletTransactions = rawData?.walletTransactions || [];
+    const rawTransfers = rawData?.transfers || [];
+
+    for (let i = 0; i < rawWallets.length; i += 1) {
+      const item = rawWallets[i];
+      if (isOwnedByUser(item, user)) wallets.push(item);
+    }
+
+    for (let i = 0; i < rawExpenses.length; i += 1) {
+      const item = rawExpenses[i];
+      if (isOwnedByUser(item, user)) expenses.push(item);
+    }
+
+    for (let i = 0; i < rawIncomes.length; i += 1) {
+      const item = rawIncomes[i];
+      if (isOwnedByUser(item, user)) incomes.push(item);
+    }
+
+    for (let i = 0; i < rawWalletTransactions.length; i += 1) {
+      const item = rawWalletTransactions[i];
+      if (isOwnedByUser(item, user)) walletTransactions.push(item);
+    }
+
+    for (let i = 0; i < rawTransfers.length; i += 1) {
+      const item = rawTransfers[i];
+      if (isOwnedByUser(item, user)) transfers.push(item);
+    }
+
     return {
-      wallets: (rawData?.wallets || []).filter((item) => isOwnedByUser(item, user)),
-      expenses: (rawData?.expenses || []).filter((item) => isOwnedByUser(item, user)),
-      incomes: (rawData?.incomes || []).filter((item) => isOwnedByUser(item, user)),
-      walletTransactions: (rawData?.walletTransactions || []).filter((item) =>
-        isOwnedByUser(item, user)
-      ),
-      transfers: (rawData?.transfers || []).filter((item) =>
-        isOwnedByUser(item, user)
-      ),
+      wallets,
+      expenses,
+      incomes,
+      walletTransactions,
+      transfers,
       loading: rawData?.loading,
     };
   }, [rawData, user]);
 
-  const filteredExpenses = useMemo(
-    () => filterByRange(data.expenses || [], start, end, (item) => getItemDate(item)),
-    [data.expenses, start, end]
-  );
+  const analytics = useMemo(() => {
+    const filteredExpenses = [];
+    const filteredIncomes = [];
+    const filteredWalletTransactions = [];
+    const filteredTransfers = [];
 
-  const filteredIncomes = useMemo(
-    () => filterByRange(data.incomes || [], start, end, (item) => getItemDate(item)),
-    [data.incomes, start, end]
-  );
+    for (let i = 0; i < data.expenses.length; i += 1) {
+      const item = data.expenses[i];
+      if (isInRange(getItemDate(item), start, end)) filteredExpenses.push(item);
+    }
 
-  const filteredWalletTransactions = useMemo(
-    () =>
-      filterByRange(
-        data.walletTransactions || [],
-        start,
-        end,
-        (item) => getItemDate(item)
-      ),
-    [data.walletTransactions, start, end]
-  );
+    for (let i = 0; i < data.incomes.length; i += 1) {
+      const item = data.incomes[i];
+      if (isInRange(getItemDate(item), start, end)) filteredIncomes.push(item);
+    }
 
-  const filteredTransfers = useMemo(
-    () =>
-      filterByRange(
-        data.transfers || [],
-        start,
-        end,
-        (item) => getItemDate(item)
-      ),
-    [data.transfers, start, end]
-  );
+    for (let i = 0; i < data.walletTransactions.length; i += 1) {
+      const item = data.walletTransactions[i];
+      if (isInRange(getItemDate(item), start, end)) filteredWalletTransactions.push(item);
+    }
 
-  const fallbackIncomeTransactions = useMemo(() => {
-    return filteredWalletTransactions
-      .filter((item) => {
-        const type = getWalletTransactionType(item);
-        return type === "add" || type === "income";
-      })
-      .map(mapWalletTransactionIncome);
-  }, [filteredWalletTransactions]);
+    for (let i = 0; i < data.transfers.length; i += 1) {
+      const item = data.transfers[i];
+      if (isInRange(getItemDate(item), start, end)) filteredTransfers.push(item);
+    }
 
-  const effectiveIncomes = useMemo(() => {
-    if ((filteredIncomes || []).length > 0) return filteredIncomes;
-    return fallbackIncomeTransactions;
-  }, [filteredIncomes, fallbackIncomeTransactions]);
+    const fallbackIncomeTransactions = [];
+    for (let i = 0; i < filteredWalletTransactions.length; i += 1) {
+      const item = filteredWalletTransactions[i];
+      const type = getWalletTransactionType(item);
+      if (type === "add" || type === "income") {
+        fallbackIncomeTransactions.push(mapWalletTransactionIncome(item));
+      }
+    }
 
-  const totalIncome = useMemo(
-    () => effectiveIncomes.reduce((sum, item) => sum + toNumber(item?.amount), 0),
-    [effectiveIncomes]
-  );
+    const effectiveIncomes =
+      filteredIncomes.length > 0 ? filteredIncomes : fallbackIncomeTransactions;
 
-  const totalExpenses = useMemo(
-    () => filteredExpenses.reduce((sum, item) => sum + toNumber(item?.amount), 0),
-    [filteredExpenses]
-  );
+    let totalIncome = 0;
+    for (let i = 0; i < effectiveIncomes.length; i += 1) {
+      totalIncome += toNumber(effectiveIncomes[i]?.amount);
+    }
 
-  const needsSpent = useMemo(
-    () =>
-      filteredExpenses
-        .filter((e) => getExpenseNeedType(e) === "need")
-        .reduce((sum, e) => sum + toNumber(e?.amount), 0),
-    [filteredExpenses]
-  );
+    let totalExpenses = 0;
+    let needsSpent = 0;
+    let wantsSpent = 0;
+    let savingsSpent = 0;
+    let largestExpense = null;
 
-  const wantsSpent = useMemo(
-    () =>
-      filteredExpenses
-        .filter((e) => getExpenseNeedType(e) === "want")
-        .reduce((sum, e) => sum + toNumber(e?.amount), 0),
-    [filteredExpenses]
-  );
+    const monthlyMap = new Map();
+    const categoryTotalsMap = new Map();
+    const categoryCountMap = new Map();
 
-  const savingsSpent = useMemo(
-    () =>
-      filteredExpenses
-        .filter((e) => getExpenseNeedType(e) === "savings")
-        .reduce((sum, e) => sum + toNumber(e?.amount), 0),
-    [filteredExpenses]
-  );
+    const walletIncomeMap = new Map();
+    const walletExpenseMap = new Map();
+    const walletSavingsMovedMap = new Map();
+    const walletTransferOutMap = new Map();
+    const walletTransferInMap = new Map();
+    const walletTxCountMap = new Map();
 
-  const monthlyData = useMemo(() => {
-    const map = {};
-
-    effectiveIncomes.forEach((item) => {
+    for (let i = 0; i < effectiveIncomes.length; i += 1) {
+      const item = effectiveIncomes[i];
+      const amount = toNumber(item?.amount);
       const date = safeDate(getItemDate(item));
-      if (!date) return;
+      const walletId = getWalletKey(item);
 
-      const month = format(date, "yyyy-MM");
-      if (!map[month]) {
-        map[month] = { month, income: 0, expenses: 0 };
+      if (date) {
+        const month = format(date, "yyyy-MM");
+        const existing = monthlyMap.get(month) || { month, income: 0, expenses: 0 };
+        existing.income += amount;
+        monthlyMap.set(month, existing);
       }
 
-      map[month].income += toNumber(item?.amount);
-    });
+      if (walletId) {
+        addToMap(walletIncomeMap, walletId, amount);
+      }
+    }
 
-    filteredExpenses.forEach((item) => {
+    for (let i = 0; i < filteredExpenses.length; i += 1) {
+      const item = filteredExpenses[i];
+      const amount = toNumber(item?.amount);
+      const needType = getExpenseNeedType(item);
+      const category = getExpenseCategory(item);
       const date = safeDate(getItemDate(item));
-      if (!date) return;
+      const walletId = getWalletKey(item);
 
-      const month = format(date, "yyyy-MM");
-      if (!map[month]) {
-        map[month] = { month, income: 0, expenses: 0 };
+      totalExpenses += amount;
+
+      if (needType === "need") needsSpent += amount;
+      if (needType === "want") wantsSpent += amount;
+      if (needType === "savings") savingsSpent += amount;
+
+      addToMap(categoryTotalsMap, category, amount);
+      incrementMap(categoryCountMap, category);
+
+      if (!largestExpense || amount > toNumber(largestExpense?.amount)) {
+        largestExpense = item;
       }
 
-      map[month].expenses += toNumber(item?.amount);
-    });
+      if (date) {
+        const month = format(date, "yyyy-MM");
+        const existing = monthlyMap.get(month) || { month, income: 0, expenses: 0 };
+        existing.expenses += amount;
+        monthlyMap.set(month, existing);
+      }
 
-    return Object.values(map).sort((a, b) => a.month.localeCompare(b.month));
-  }, [effectiveIncomes, filteredExpenses]);
+      if (walletId) {
+        addToMap(walletExpenseMap, walletId, amount);
+        incrementMap(walletTxCountMap, walletId);
+      }
+    }
 
-  const categoryBreakdown = useMemo(() => {
-    const map = {};
+    for (let i = 0; i < filteredWalletTransactions.length; i += 1) {
+      const item = filteredWalletTransactions[i];
+      const amount = toNumber(item?.amount);
+      const type = getWalletTransactionType(item);
+      const walletId = String(item?.wallet_id || "");
 
-    filteredExpenses.forEach((item) => {
-      const key = getExpenseCategory(item);
-      if (!map[key]) map[key] = 0;
-      map[key] += toNumber(item?.amount);
-    });
+      if (walletId) {
+        incrementMap(walletTxCountMap, walletId);
 
-    return Object.entries(map)
+        if (type === "savings_transfer" || type === "savings") {
+          addToMap(walletSavingsMovedMap, walletId, amount);
+        }
+      }
+    }
+
+    for (let i = 0; i < filteredTransfers.length; i += 1) {
+      const item = filteredTransfers[i];
+      const amount = toNumber(item?.amount);
+      const type = normalizeText(item?.type);
+      const walletId = String(item?.wallet_id || "");
+
+      if (walletId) {
+        incrementMap(walletTxCountMap, walletId);
+
+        if (type === "transfer_out") {
+          addToMap(walletTransferOutMap, walletId, amount);
+        } else if (type === "transfer_in") {
+          addToMap(walletTransferInMap, walletId, amount);
+        }
+      }
+    }
+
+    for (let i = 0; i < effectiveIncomes.length; i += 1) {
+      const walletId = getWalletKey(effectiveIncomes[i]);
+      if (walletId) {
+        incrementMap(walletTxCountMap, walletId);
+      }
+    }
+
+    const monthlyData = Array.from(monthlyMap.values()).sort((a, b) =>
+      a.month.localeCompare(b.month)
+    );
+
+    const categoryBreakdown = Array.from(categoryTotalsMap.entries())
       .map(([name, value]) => ({
         name,
         value,
         pct: totalExpenses > 0 ? ((value / totalExpenses) * 100).toFixed(1) : 0,
       }))
       .sort((a, b) => b.value - a.value);
-  }, [filteredExpenses, totalExpenses]);
 
-  const categoryTotals = {};
-  const categoryCount = {};
-  let largestExpense = null;
+    const topCategory = Array.from(categoryTotalsMap.entries()).sort((a, b) => b[1] - a[1])[0];
+    const mostFrequent = Array.from(categoryCountMap.entries()).sort((a, b) => b[1] - a[1])[0];
 
-  filteredExpenses.forEach((item) => {
-    const category = getExpenseCategory(item);
-
-    categoryTotals[category] =
-      (categoryTotals[category] || 0) + toNumber(item?.amount);
-    categoryCount[category] = (categoryCount[category] || 0) + 1;
-
-    if (
-      !largestExpense ||
-      toNumber(item?.amount) > toNumber(largestExpense?.amount)
-    ) {
-      largestExpense = item;
-    }
-  });
-
-  const topCategory = Object.entries(categoryTotals).sort((a, b) => b[1] - a[1])[0];
-  const mostFrequent = Object.entries(categoryCount).sort((a, b) => b[1] - a[1])[0];
-
-  const walletAnalytics = useMemo(() => {
-    return (data.wallets || []).map((wallet) => {
+    const walletAnalytics = data.wallets.map((wallet) => {
       const walletId = String(wallet?.id || "");
 
-      const walletIncome = effectiveIncomes
-        .filter((item) => getWalletKey(item) === walletId)
-        .reduce((sum, item) => sum + toNumber(item?.amount), 0);
+      const received =
+        (walletIncomeMap.get(walletId) || 0) + (walletTransferInMap.get(walletId) || 0);
 
-      const walletExpense = filteredExpenses
-        .filter((item) => getWalletKey(item) === walletId)
-        .reduce((sum, item) => sum + toNumber(item?.amount), 0);
-
-      const walletSavingsTransferOut = filteredWalletTransactions
-        .filter((item) => {
-          const type = getWalletTransactionType(item);
-          return (
-            String(item?.wallet_id || "") === walletId &&
-            (type === "savings_transfer" || type === "savings")
-          );
-        })
-        .reduce((sum, item) => sum + toNumber(item?.amount), 0);
-
-      const walletTransferOut = filteredTransfers
-        .filter(
-          (item) =>
-            String(item?.wallet_id || "") === walletId &&
-            normalizeText(item?.type) === "transfer_out"
-        )
-        .reduce((sum, item) => sum + toNumber(item?.amount), 0);
-
-      const walletTransferIn = filteredTransfers
-        .filter(
-          (item) =>
-            String(item?.wallet_id || "") === walletId &&
-            normalizeText(item?.type) === "transfer_in"
-        )
-        .reduce((sum, item) => sum + toNumber(item?.amount), 0);
-
-      const txCount =
-        filteredExpenses.filter((item) => getWalletKey(item) === walletId).length +
-        effectiveIncomes.filter((item) => getWalletKey(item) === walletId).length +
-        filteredWalletTransactions.filter(
-          (item) => String(item?.wallet_id || "") === walletId
-        ).length +
-        filteredTransfers.filter(
-          (item) => String(item?.wallet_id || "") === walletId
-        ).length;
+      const spent =
+        (walletExpenseMap.get(walletId) || 0) + (walletTransferOutMap.get(walletId) || 0);
 
       return {
         ...wallet,
         balance: getWalletBalance(wallet),
-        received: walletIncome + walletTransferIn,
-        spent: walletExpense + walletTransferOut,
-        savingsMoved: walletSavingsTransferOut,
-        txCount,
+        received,
+        spent,
+        savingsMoved: walletSavingsMovedMap.get(walletId) || 0,
+        txCount: walletTxCountMap.get(walletId) || 0,
       };
     });
-  }, [
-    data.wallets,
-    effectiveIncomes,
-    filteredExpenses,
-    filteredWalletTransactions,
-    filteredTransfers,
-  ]);
+
+    return {
+      filteredExpenses,
+      filteredIncomes,
+      filteredWalletTransactions,
+      filteredTransfers,
+      fallbackIncomeTransactions,
+      effectiveIncomes,
+      totalIncome,
+      totalExpenses,
+      needsSpent,
+      wantsSpent,
+      savingsSpent,
+      monthlyData,
+      categoryBreakdown,
+      largestExpense,
+      topCategory,
+      mostFrequent,
+      walletAnalytics,
+    };
+  }, [data, start, end]);
+
+  const handleTimeframeChange = useCallback((nextTimeframe, locked) => {
+    if (!locked) {
+      setTimeframe(nextTimeframe);
+    }
+  }, []);
+
+  const handleCustomStartChange = useCallback((e) => {
+    setCustomStart(e.target.value);
+  }, []);
+
+  const handleCustomEndChange = useCallback((e) => {
+    setCustomEnd(e.target.value);
+  }, []);
 
   if (data.loading) {
     return (
@@ -488,7 +563,7 @@ export default function Analytics() {
           {availableTimeframes.map((opt) => (
             <button
               key={opt.id}
-              onClick={() => !opt.locked && setTimeframe(opt.id)}
+              onClick={() => handleTimeframeChange(opt.id, opt.locked)}
               className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition-all flex items-center gap-1 ${
                 opt.locked
                   ? "bg-muted text-muted-foreground/40 cursor-not-allowed"
@@ -510,7 +585,7 @@ export default function Analytics() {
               <Input
                 type="date"
                 value={customStart}
-                onChange={(e) => setCustomStart(e.target.value)}
+                onChange={handleCustomStartChange}
                 className="mt-1 h-8 text-sm clara-input"
               />
             </div>
@@ -520,7 +595,7 @@ export default function Analytics() {
               <Input
                 type="date"
                 value={customEnd}
-                onChange={(e) => setCustomEnd(e.target.value)}
+                onChange={handleCustomEndChange}
                 className="mt-1 h-8 text-sm clara-input"
               />
             </div>
@@ -536,7 +611,7 @@ export default function Analytics() {
         <div className="grad-green rounded-2xl p-3 text-center card-glow-green">
           <p className="text-[10px] text-green-100 font-semibold uppercase">Income</p>
           <p className="font-heading font-bold text-white text-lg leading-tight mt-1">
-            {fmt(totalIncome)}
+            {fmt(analytics.totalIncome)}
           </p>
         </div>
 
@@ -545,12 +620,12 @@ export default function Analytics() {
             Expenses
           </p>
           <p className="font-heading font-bold text-secondary-foreground text-lg leading-tight mt-1">
-            {fmt(totalExpenses)}
+            {fmt(analytics.totalExpenses)}
           </p>
         </div>
       </div>
 
-      {filteredExpenses.length > 0 && (
+      {analytics.filteredExpenses.length > 0 && (
         <div className="grad-card rounded-2xl p-4 mb-5">
           <div className="flex items-center gap-2 mb-3">
             <Zap className="w-4 h-4 text-primary" />
@@ -560,29 +635,30 @@ export default function Analytics() {
           </div>
 
           <div className="grid grid-cols-1 gap-2">
-            {topCategory && (
+            {analytics.topCategory && (
               <div className="flex items-center justify-between p-2.5 rounded-xl bg-muted/50">
                 <span className="text-sm text-muted-foreground">Top Spending Category</span>
                 <span className="font-bold text-sm capitalize text-white">
-                  {topCategory[0]} · {fmt(topCategory[1])}
+                  {analytics.topCategory[0]} · {fmt(analytics.topCategory[1])}
                 </span>
               </div>
             )}
 
-            {largestExpense && (
+            {analytics.largestExpense && (
               <div className="flex items-center justify-between p-2.5 rounded-xl bg-muted/50">
                 <span className="text-sm text-muted-foreground">Largest Single Expense</span>
                 <span className="font-bold text-sm capitalize text-white">
-                  {getExpenseCategory(largestExpense)} · {fmt(largestExpense.amount)}
+                  {getExpenseCategory(analytics.largestExpense)} ·{" "}
+                  {fmt(analytics.largestExpense.amount)}
                 </span>
               </div>
             )}
 
-            {mostFrequent && (
+            {analytics.mostFrequent && (
               <div className="flex items-center justify-between p-2.5 rounded-xl bg-muted/50">
                 <span className="text-sm text-muted-foreground">Most Frequent Category</span>
                 <span className="font-bold text-sm capitalize text-white">
-                  {mostFrequent[0]} ({mostFrequent[1]}x)
+                  {analytics.mostFrequent[0]} ({analytics.mostFrequent[1]}x)
                 </span>
               </div>
             )}
@@ -590,7 +666,11 @@ export default function Analytics() {
             <div className="flex items-center justify-between p-2.5 rounded-xl bg-muted/50">
               <span className="text-sm text-muted-foreground">Avg. per Transaction</span>
               <span className="font-bold text-sm text-white">
-                {fmt(filteredExpenses.length > 0 ? totalExpenses / filteredExpenses.length : 0)}
+                {fmt(
+                  analytics.filteredExpenses.length > 0
+                    ? analytics.totalExpenses / analytics.filteredExpenses.length
+                    : 0
+                )}
               </span>
             </div>
           </div>
@@ -614,35 +694,27 @@ export default function Analytics() {
         </TabsList>
 
         <TabsContent value="income">
-          {monthlyData.length > 0 ? (
+          {analytics.monthlyData.length > 0 ? (
             <div className="grad-card rounded-2xl p-4">
               <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground mb-3">
                 Monthly Income Trend
               </p>
 
               <ResponsiveContainer width="100%" height={220}>
-                <LineChart data={monthlyData}>
+                <LineChart data={analytics.monthlyData}>
                   <XAxis
                     dataKey="month"
                     tickFormatter={(v) => v.substring(5)}
-                    tick={{ fontSize: 11, fill: "#94a3b8" }}
-                    axisLine={{ stroke: "rgba(255,255,255,0.08)" }}
-                    tickLine={{ stroke: "rgba(255,255,255,0.08)" }}
+                    tick={TICK_STYLE}
+                    axisLine={AXIS_LINE_STYLE}
+                    tickLine={AXIS_LINE_STYLE}
                   />
                   <YAxis
-                    tick={{ fontSize: 11, fill: "#94a3b8" }}
-                    axisLine={{ stroke: "rgba(255,255,255,0.08)" }}
-                    tickLine={{ stroke: "rgba(255,255,255,0.08)" }}
+                    tick={TICK_STYLE}
+                    axisLine={AXIS_LINE_STYLE}
+                    tickLine={AXIS_LINE_STYLE}
                   />
-                  <Tooltip
-                    formatter={(v) => fmt(v)}
-                    contentStyle={{
-                      borderRadius: "12px",
-                      background: "#0f172a",
-                      border: "1px solid rgba(255,255,255,0.08)",
-                      color: "#fff",
-                    }}
-                  />
+                  <Tooltip formatter={(v) => fmt(v)} contentStyle={TOOLTIP_STYLE} />
                   <Line
                     type="monotone"
                     dataKey="income"
@@ -668,49 +740,32 @@ export default function Analytics() {
                 Spending Type
               </p>
 
-              {[
-                {
-                  label: "Needs",
-                  value: needsSpent,
-                  color: "bg-primary",
-                  textColor: "text-primary",
-                },
-                {
-                  label: "Wants",
-                  value: wantsSpent,
-                  color: "bg-secondary",
-                  textColor: "text-secondary",
-                },
-                {
-                  label: "Savings",
-                  value: savingsSpent,
-                  color: "bg-accent",
-                  textColor: "text-accent",
-                },
-              ].map((item) => (
-                <div key={item.label} className="mb-4">
-                  <div className="flex justify-between mb-1.5">
-                    <span className="text-sm font-medium text-white">{item.label}</span>
-                    <span className={`text-sm font-bold ${item.textColor}`}>{fmt(item.value)}</span>
-                  </div>
+              {SPENDING_TYPE_META.map((item) => {
+                const value = analytics[item.key];
+                const width =
+                  analytics.totalExpenses > 0
+                    ? Math.min((value / analytics.totalExpenses) * 100, 100)
+                    : 0;
 
-                  <div className="h-3 bg-muted rounded-full overflow-hidden">
-                    <div
-                      className={`h-full ${item.color} rounded-full progress-bar`}
-                      style={{
-                        width: `${
-                          totalExpenses > 0
-                            ? Math.min((item.value / totalExpenses) * 100, 100)
-                            : 0
-                        }%`,
-                      }}
-                    />
+                return (
+                  <div key={item.label} className="mb-4">
+                    <div className="flex justify-between mb-1.5">
+                      <span className="text-sm font-medium text-white">{item.label}</span>
+                      <span className={`text-sm font-bold ${item.textColor}`}>{fmt(value)}</span>
+                    </div>
+
+                    <div className="h-3 bg-muted rounded-full overflow-hidden">
+                      <div
+                        className={`h-full ${item.color} rounded-full progress-bar`}
+                        style={{ width: `${width}%` }}
+                      />
+                    </div>
                   </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
 
-            {categoryBreakdown.length > 0 && (
+            {analytics.categoryBreakdown.length > 0 && (
               <div className="grad-card rounded-2xl p-4">
                 <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground mb-3">
                   By Category
@@ -719,26 +774,18 @@ export default function Analytics() {
                 <ResponsiveContainer width="100%" height={220}>
                   <PieChart>
                     <Pie
-                      data={categoryBreakdown}
+                      data={analytics.categoryBreakdown}
                       dataKey="value"
                       nameKey="name"
                       cx="50%"
                       cy="50%"
                       outerRadius={80}
                     >
-                      {categoryBreakdown.map((_, i) => (
+                      {analytics.categoryBreakdown.map((_, i) => (
                         <Cell key={i} fill={COLORS[i % COLORS.length]} />
                       ))}
                     </Pie>
-                    <Tooltip
-                      formatter={(v) => fmt(v)}
-                      contentStyle={{
-                        borderRadius: "12px",
-                        background: "#0f172a",
-                        border: "1px solid rgba(255,255,255,0.08)",
-                        color: "#fff",
-                      }}
-                    />
+                    <Tooltip formatter={(v) => fmt(v)} contentStyle={TOOLTIP_STYLE} />
                     <Legend />
                   </PieChart>
                 </ResponsiveContainer>
@@ -748,35 +795,27 @@ export default function Analytics() {
         </TabsContent>
 
         <TabsContent value="retention">
-          {monthlyData.length > 0 ? (
+          {analytics.monthlyData.length > 0 ? (
             <div className="grad-card rounded-2xl p-4">
               <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground mb-3">
                 Income vs Expenses
               </p>
 
               <ResponsiveContainer width="100%" height={220}>
-                <BarChart data={monthlyData} barGap={4}>
+                <BarChart data={analytics.monthlyData} barGap={4}>
                   <XAxis
                     dataKey="month"
                     tickFormatter={(v) => v.substring(5)}
-                    tick={{ fontSize: 11, fill: "#94a3b8" }}
-                    axisLine={{ stroke: "rgba(255,255,255,0.08)" }}
-                    tickLine={{ stroke: "rgba(255,255,255,0.08)" }}
+                    tick={TICK_STYLE}
+                    axisLine={AXIS_LINE_STYLE}
+                    tickLine={AXIS_LINE_STYLE}
                   />
                   <YAxis
-                    tick={{ fontSize: 11, fill: "#94a3b8" }}
-                    axisLine={{ stroke: "rgba(255,255,255,0.08)" }}
-                    tickLine={{ stroke: "rgba(255,255,255,0.08)" }}
+                    tick={TICK_STYLE}
+                    axisLine={AXIS_LINE_STYLE}
+                    tickLine={AXIS_LINE_STYLE}
                   />
-                  <Tooltip
-                    formatter={(v) => fmt(v)}
-                    contentStyle={{
-                      borderRadius: "12px",
-                      background: "#0f172a",
-                      border: "1px solid rgba(255,255,255,0.08)",
-                      color: "#fff",
-                    }}
-                  />
+                  <Tooltip formatter={(v) => fmt(v)} contentStyle={TOOLTIP_STYLE} />
                   <Legend />
                   <Bar
                     dataKey="income"
@@ -801,11 +840,11 @@ export default function Analytics() {
         </TabsContent>
 
         <TabsContent value="wallets">
-          {walletAnalytics.length === 0 ? (
+          {analytics.walletAnalytics.length === 0 ? (
             <p className="text-center text-muted-foreground py-8 text-sm">No wallets found</p>
           ) : (
             <div className="space-y-3">
-              {walletAnalytics.map((wallet, i) => (
+              {analytics.walletAnalytics.map((wallet, i) => (
                 <div key={wallet?.id || i} className="grad-card rounded-2xl p-4">
                   <div className="flex justify-between mb-3">
                     <div>

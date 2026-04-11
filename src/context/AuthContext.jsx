@@ -22,7 +22,10 @@ const withTimeout = (promise, ms = 10000) => {
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(null);
   const [session, setSession] = useState(null);
+  const [profile, setProfile] = useState(null);
+
   const [loading, setLoading] = useState(true);
+  const [authReady, setAuthReady] = useState(false);
 
   const ensureBasicProfile = useCallback(async (authUser, fallbackName = "") => {
     if (!authUser?.id) return null;
@@ -44,6 +47,27 @@ export function AuthProvider({ children }) {
     }
   }, []);
 
+  const fetchProfile = useCallback(async (userId) => {
+    if (!userId) return null;
+
+    try {
+      const { data, error } = await supabase
+        .from("profiles")
+        .select("*")
+        .eq("id", userId)
+        .single();
+
+      if (error) throw error;
+
+      setProfile(data || null);
+      return data;
+    } catch (error) {
+      console.error("fetchProfile error:", error);
+      setProfile(null);
+      return null;
+    }
+  }, []);
+
   useEffect(() => {
     let mounted = true;
 
@@ -61,7 +85,8 @@ export function AuthProvider({ children }) {
         setUser(currentUser);
 
         if (currentUser?.id) {
-          ensureBasicProfile(currentUser);
+          await ensureBasicProfile(currentUser);
+          await fetchProfile(currentUser.id);
         }
       } catch (error) {
         console.error("loadSession error:", error);
@@ -69,8 +94,12 @@ export function AuthProvider({ children }) {
         if (!mounted) return;
         setSession(null);
         setUser(null);
+        setProfile(null);
       } finally {
-        if (mounted) setLoading(false); // ✅ CRITICAL
+        if (mounted) {
+          setLoading(false);
+          setAuthReady(true);
+        }
       }
     };
 
@@ -78,7 +107,7 @@ export function AuthProvider({ children }) {
 
     const {
       data: { subscription },
-    } = supabase.auth.onAuthStateChange((_event, nextSession) => {
+    } = supabase.auth.onAuthStateChange(async (_event, nextSession) => {
       if (!mounted) return;
 
       const nextUser = nextSession?.user ?? null;
@@ -87,17 +116,21 @@ export function AuthProvider({ children }) {
       setUser(nextUser);
 
       if (nextUser?.id) {
-        ensureBasicProfile(nextUser);
+        await ensureBasicProfile(nextUser);
+        await fetchProfile(nextUser.id);
+      } else {
+        setProfile(null);
       }
 
-      setLoading(false); // ✅ always release loading
+      setLoading(false);
+      setAuthReady(true);
     });
 
     return () => {
       mounted = false;
       subscription.unsubscribe();
     };
-  }, [ensureBasicProfile]);
+  }, [ensureBasicProfile, fetchProfile]);
 
   const signUp = async ({ email, password, fullName }) => {
     const { data, error } = await supabase.auth.signUp({
@@ -111,7 +144,8 @@ export function AuthProvider({ children }) {
     if (error) throw error;
 
     if (data?.user?.id) {
-      ensureBasicProfile(data.user, fullName);
+      await ensureBasicProfile(data.user, fullName);
+      await fetchProfile(data.user.id);
     }
 
     return data;
@@ -126,7 +160,8 @@ export function AuthProvider({ children }) {
     if (error) throw error;
 
     if (data?.user?.id) {
-      ensureBasicProfile(data.user);
+      await ensureBasicProfile(data.user);
+      await fetchProfile(data.user.id);
     }
 
     return data;
@@ -134,37 +169,32 @@ export function AuthProvider({ children }) {
 
   const signOut = async () => {
     await supabase.auth.signOut();
+    setUser(null);
+    setSession(null);
+    setProfile(null);
   };
 
   const refreshProfile = useCallback(async (targetUserId) => {
     const id = targetUserId || user?.id;
     if (!id) return null;
 
-    try {
-      const { data } = await supabase
-        .from("profiles")
-        .select("*")
-        .eq("id", id)
-        .maybeSingle();
-
-      return data || null;
-    } catch {
-      return null;
-    }
-  }, [user?.id]);
+    return await fetchProfile(id);
+  }, [user?.id, fetchProfile]);
 
   const value = useMemo(
     () => ({
       user,
       session,
+      profile,
       loading,
+      authReady,
       isAuthenticated: !!user,
       signUp,
       signIn,
       signOut,
       refreshProfile,
     }),
-    [user, session, loading, refreshProfile]
+    [user, session, profile, loading, authReady, refreshProfile]
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

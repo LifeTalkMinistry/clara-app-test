@@ -1,32 +1,46 @@
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { supabase } from "../lib/supabaseClient";
+import { useAuth } from "@/context/AuthContext";
+import { Eye, EyeOff } from "lucide-react";
 
 export default function Login() {
   const navigate = useNavigate();
+  const { signIn, signUp } = useAuth();
 
   const [mode, setMode] = useState("signup");
   const [fullName, setFullName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
 
+  const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState("");
+  const [success, setSuccess] = useState(false);
+
+  const validate = () => {
+    if (!email.trim()) return "Email is required.";
+    if (!password.trim()) return "Password is required.";
+
+    if (mode === "signup") {
+      if (!fullName.trim()) return "Full name is required.";
+      if (password.length < 6)
+        return "Password must be at least 6 characters.";
+    }
+
+    return null;
+  };
 
   const friendlyError = (error) => {
     const msg = error?.message?.toLowerCase() || "";
 
-    if (msg.includes("email rate limit exceeded")) {
-      return "Too many attempts. Please wait a few minutes.";
-    }
     if (msg.includes("invalid login credentials")) {
       return "Invalid email or password.";
     }
     if (msg.includes("user already registered")) {
       return "This email is already registered.";
     }
-    if (msg.includes("password should be at least")) {
-      return error.message;
+    if (msg.includes("rate limit")) {
+      return "Too many attempts. Please wait.";
     }
 
     return error?.message || "Something went wrong.";
@@ -36,45 +50,38 @@ export default function Login() {
     e.preventDefault();
     if (loading) return;
 
+    const validationError = validate();
+    if (validationError) {
+      setMessage(validationError);
+      return;
+    }
+
     setLoading(true);
     setMessage("");
+    setSuccess(false);
 
     try {
       if (mode === "signup") {
-        const { data, error } = await supabase.auth.signUp({
+        const data = await signUp({
           email,
           password,
-          options: {
-            data: {
-              full_name: fullName,
-            },
-          },
+          fullName,
         });
 
-        if (error) throw error;
-
-        if (!data.session) {
-          setMessage(
-            "Account created. Please check your email to confirm your account."
-          );
+        if (!data?.session) {
+          setSuccess(true);
+          setMessage("Check your email to confirm your account.");
           setMode("login");
-          setPassword("");
           return;
         }
 
-        navigate("/", { replace: true });
+        navigate("/onboarding");
       } else {
-        const { data, error } = await supabase.auth.signInWithPassword({
-          email,
-          password,
-        });
-
-        if (error) throw error;
-
-        navigate("/", { replace: true });
+        await signIn({ email, password });
+        navigate("/");
       }
     } catch (error) {
-      console.error("Auth error:", error);
+      console.error(error);
       setMessage(friendlyError(error));
     } finally {
       setLoading(false);
@@ -83,19 +90,23 @@ export default function Login() {
 
   return (
     <div className="min-h-screen bg-black text-white grid place-items-center px-4">
-      <div className="w-full max-w-md rounded-2xl border border-white/10 bg-white/5 p-6 shadow-2xl">
+      <div className="w-full max-w-md rounded-2xl border border-white/10 bg-white/5 p-6 shadow-2xl backdrop-blur">
+        
+        {/* TITLE */}
         <h1 className="text-3xl font-bold mb-6">
-          {mode === "signup" ? "Sign Up" : "Login"}
+          {mode === "signup" ? "Create your account" : "Welcome back"}
         </h1>
 
+        {/* FORM */}
         <form onSubmit={handleSubmit} className="space-y-4">
+
           {mode === "signup" && (
             <input
               type="text"
               placeholder="Full name"
               value={fullName}
               onChange={(e) => setFullName(e.target.value)}
-              className="w-full rounded-xl bg-black/40 border border-white/10 px-4 py-3 outline-none"
+              className="w-full rounded-xl bg-black/40 border border-white/10 px-4 py-3 outline-none focus:border-green-500"
             />
           )}
 
@@ -104,38 +115,54 @@ export default function Login() {
             placeholder="Email address"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
-            className="w-full rounded-xl bg-black/40 border border-white/10 px-4 py-3 outline-none"
-            required
+            className="w-full rounded-xl bg-black/40 border border-white/10 px-4 py-3 outline-none focus:border-green-500"
           />
 
-          <input
-            type="password"
-            placeholder="Password"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            className="w-full rounded-xl bg-black/40 border border-white/10 px-4 py-3 outline-none"
-            required
-          />
+          {/* PASSWORD */}
+          <div className="relative">
+            <input
+              type={showPassword ? "text" : "password"}
+              placeholder="Password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              className="w-full rounded-xl bg-black/40 border border-white/10 px-4 py-3 pr-12 outline-none focus:border-green-500"
+            />
 
+            <button
+              type="button"
+              onClick={() => setShowPassword(!showPassword)}
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-white/60"
+            >
+              {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+            </button>
+          </div>
+
+          {/* BUTTON */}
           <button
             type="submit"
             disabled={loading}
-            className="w-full rounded-xl bg-green-700 hover:bg-green-600 disabled:opacity-60 px-4 py-3 font-semibold"
+            className="w-full rounded-xl bg-green-600 hover:bg-green-500 disabled:opacity-60 px-4 py-3 font-semibold transition"
           >
             {loading
-              ? "Please wait..."
+              ? "Processing..."
               : mode === "signup"
               ? "Create account"
               : "Login"}
           </button>
         </form>
 
+        {/* MESSAGE */}
         {message && (
-          <div className="mt-4 text-sm text-red-400">
+          <div
+            className={`mt-4 text-sm ${
+              success ? "text-green-400" : "text-red-400"
+            }`}
+          >
             {message}
           </div>
         )}
 
+        {/* SWITCH */}
         <div className="mt-5 text-sm text-white/70">
           {mode === "signup" ? (
             <button
