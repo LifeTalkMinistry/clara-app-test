@@ -1,0 +1,51 @@
+import { useEffect, useRef } from "react";
+import { supabase } from "@/lib/supabaseClient";
+
+export default function useBillboardTracking({ billboardId, user }) {
+  const trackedView = useRef(false);
+  const trackedClick = useRef(false);
+
+  // ✅ VIEW (AUTO TRIGGER)
+  useEffect(() => {
+    if (!billboardId || !user?.id) return;
+    if (trackedView.current) return;
+
+    trackedView.current = true;
+
+    const run = async () => {
+      await supabase.from("billboard_views").upsert(
+        {
+          billboard_id: billboardId,
+          viewer_user_id: user.id,
+        },
+        {
+          onConflict: "billboard_id,viewer_user_id",
+          ignoreDuplicates: true,
+        }
+      );
+    };
+
+    run();
+  }, [billboardId, user]);
+
+  // ✅ CLICK (MANUAL TRIGGER)
+  const trackClick = async () => {
+    if (!billboardId || !user?.id) return;
+    if (trackedClick.current) return;
+
+    trackedClick.current = true;
+
+    await supabase.from("billboard_clicks").upsert(
+      {
+        billboard_id: billboardId,
+        viewer_user_id: user.id,
+      },
+      {
+        onConflict: "billboard_id,viewer_user_id",
+        ignoreDuplicates: true,
+      }
+    );
+  };
+
+  return { trackClick };
+}

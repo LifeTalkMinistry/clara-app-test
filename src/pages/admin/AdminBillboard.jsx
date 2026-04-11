@@ -11,6 +11,9 @@ import {
   Link2,
   RefreshCw,
   AlertCircle,
+  Eye,
+  MousePointerClick,
+  BarChart3,
 } from "lucide-react";
 import { supabase } from "@/lib/supabaseClient";
 import { Button } from "@/components/ui/button";
@@ -61,6 +64,7 @@ const EMPTY = {
   tag_label: "",
   cta_label: "",
   cta_url: "",
+  owner_email: "",
 };
 
 const normalizeString = (value) => String(value ?? "").trim();
@@ -168,11 +172,10 @@ const getFriendlySaveError = (error) => {
     message.includes("tag_label") ||
     message.includes("cta_label") ||
     message.includes("cta_url") ||
+    message.includes("owner_email") ||
     message.includes("column")
   ) {
-    return (
-      "Failed to save billboard item because your Supabase billboards table is missing one or more optional columns. Make sure tag_label, cta_label, and cta_url exist and are nullable."
-    );
+    return "Failed to save billboard item because your Supabase billboards table is missing one or more optional columns. Make sure tag_label, cta_label, cta_url, and owner_email exist and are nullable.";
   }
 
   return error?.message
@@ -205,6 +208,8 @@ const formatFileSize = (bytes = 0) => {
 
 export default function AdminBillboard() {
   const [items, setItems] = useState([]);
+  const [viewCounts, setViewCounts] = useState({});
+  const [clickCounts, setClickCounts] = useState({});
   const [loading, setLoading] = useState(true);
   const [open, setOpen] = useState(false);
   const [form, setForm] = useState(EMPTY);
@@ -256,8 +261,52 @@ export default function AdminBillboard() {
     }
   }, []);
 
+  const fetchViewCounts = useCallback(async () => {
+    try {
+      const { data, error } = await supabase
+        .from("billboard_views")
+        .select("billboard_id");
+
+      if (error) throw error;
+
+      const counts = {};
+      for (const row of data || []) {
+        const key = row.billboard_id;
+        counts[key] = (counts[key] || 0) + 1;
+      }
+
+      setViewCounts(counts);
+    } catch (error) {
+      console.error("Failed to fetch billboard view counts:", error);
+      setViewCounts({});
+    }
+  }, []);
+
+  const fetchClickCounts = useCallback(async () => {
+    try {
+      const { data, error } = await supabase
+        .from("billboard_clicks")
+        .select("billboard_id");
+
+      if (error) throw error;
+
+      const counts = {};
+      for (const row of data || []) {
+        const key = row.billboard_id;
+        counts[key] = (counts[key] || 0) + 1;
+      }
+
+      setClickCounts(counts);
+    } catch (error) {
+      console.error("Failed to fetch billboard click counts:", error);
+      setClickCounts({});
+    }
+  }, []);
+
   useEffect(() => {
     fetchItems();
+    fetchViewCounts();
+    fetchClickCounts();
 
     const channel = supabase
       .channel("admin-billboards-live")
@@ -268,12 +317,26 @@ export default function AdminBillboard() {
           fetchItems();
         }
       )
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "billboard_views" },
+        () => {
+          fetchViewCounts();
+        }
+      )
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "billboard_clicks" },
+        () => {
+          fetchClickCounts();
+        }
+      )
       .subscribe();
 
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [fetchItems]);
+  }, [fetchItems, fetchViewCounts, fetchClickCounts]);
 
   const handleUpload = async (e) => {
     const file = e.target.files?.[0];
@@ -297,9 +360,7 @@ export default function AdminBillboard() {
         !ACCEPTED_FILE_TYPES.includes(file.type) &&
         inferMediaType(file.name, file.type) === "file"
       ) {
-        throw new Error(
-          "Unsupported file type. Please upload an image, video, or PDF."
-        );
+        throw new Error("Unsupported file type. Please upload an image, video, or PDF.");
       }
 
       setUploadStatus("Preparing upload...");
@@ -357,6 +418,7 @@ export default function AdminBillboard() {
     const safeCtaLabel = toNullableString(form.cta_label);
     const safeCtaUrl = toNullableString(form.cta_url);
     const safeFileName = toNullableString(form.file_name);
+    const safeOwnerEmail = toNullableString(form.owner_email);
 
     if (!safeTitle && !safeBody && !safeMediaUrl) {
       alert("Add at least a title, body, or media.");
@@ -383,6 +445,7 @@ export default function AdminBillboard() {
         tag_label: safeTagLabel,
         cta_label: safeCtaLabel,
         cta_url: safeCtaUrl,
+        owner_email: safeOwnerEmail,
       };
 
       if (editId) {
@@ -410,6 +473,8 @@ export default function AdminBillboard() {
 
       resetForm();
       setOpen(false);
+      fetchViewCounts();
+      fetchClickCounts();
     } catch (error) {
       console.error("Save failed:", error);
       const friendly = getFriendlySaveError(error);
@@ -434,6 +499,7 @@ export default function AdminBillboard() {
       tag_label: item?.tag_label || "",
       cta_label: item?.cta_label || "",
       cta_url: item?.cta_url || "",
+      owner_email: item?.owner_email || "",
     });
     setEditId(item.id);
     setOpen(true);
@@ -448,9 +514,25 @@ export default function AdminBillboard() {
       if (error) throw error;
 
       setItems((prev) => prev.filter((item) => item.id !== id));
+
+      setViewCounts((prev) => {
+        const next = { ...prev };
+        delete next[id];
+        return next;
+      });
+
+      setClickCounts((prev) => {
+        const next = { ...prev };
+        delete next[id];
+        return next;
+      });
     } catch (error) {
       console.error("Delete failed:", error);
-      alert(error?.message ? `Failed to delete billboard item: ${error.message}` : "Failed to delete billboard item.");
+      alert(
+        error?.message
+          ? `Failed to delete billboard item: ${error.message}`
+          : "Failed to delete billboard item."
+      );
     }
   };
 
@@ -468,7 +550,11 @@ export default function AdminBillboard() {
       setItems((prev) => prev.map((i) => (i.id === item.id ? data : i)));
     } catch (error) {
       console.error("Toggle failed:", error);
-      alert(error?.message ? `Failed to update active status: ${error.message}` : "Failed to update active status.");
+      alert(
+        error?.message
+          ? `Failed to update active status: ${error.message}`
+          : "Failed to update active status."
+      );
     }
   };
 
@@ -497,12 +583,20 @@ export default function AdminBillboard() {
         <div>
           <h2 className="text-lg font-semibold">Billboard Manager</h2>
           <p className="text-sm text-muted-foreground">
-            Fully control billboard text, labels, CTA, CTA link, and media.
+            Fully control billboard text, labels, CTA, CTA link, media, and advertiser assignment.
           </p>
         </div>
 
         <div className="flex items-center gap-2">
-          <Button size="sm" variant="outline" onClick={fetchItems}>
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => {
+              fetchItems();
+              fetchViewCounts();
+              fetchClickCounts();
+            }}
+          >
             <RefreshCw className="mr-1 h-4 w-4" />
             Refresh
           </Button>
@@ -589,6 +683,20 @@ export default function AdminBillboard() {
                     }
                     placeholder="Optional link for CTA button or file open"
                   />
+                </div>
+
+                <div>
+                  <Label>Advertiser Email</Label>
+                  <Input
+                    value={form.owner_email}
+                    onChange={(e) =>
+                      setForm((prev) => ({ ...prev, owner_email: e.target.value }))
+                    }
+                    placeholder="client@email.com"
+                  />
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    Optional. Assign this billboard to a specific advertiser account.
+                  </p>
                 </div>
 
                 <div className="space-y-2">
@@ -786,6 +894,12 @@ export default function AdminBillboard() {
                         <p className="text-sm text-muted-foreground">{form.body}</p>
                       )}
 
+                      {!!normalizeString(form.owner_email) && (
+                        <div className="rounded-lg border px-3 py-2 text-xs text-muted-foreground">
+                          Advertiser: <span className="font-medium text-foreground">{form.owner_email}</span>
+                        </div>
+                      )}
+
                       {!!normalizeString(form.cta_label) && (
                         <div>
                           <Button
@@ -832,94 +946,125 @@ export default function AdminBillboard() {
             const ctaTarget =
               normalizeString(item?.cta_url) || normalizeString(item?.media_url);
 
+            const views = viewCounts[item.id] || 0;
+            const clicks = clickCounts[item.id] || 0;
+            const ctr = views > 0 ? ((clicks / views) * 100).toFixed(1) : "0.0";
+
             return (
               <div
                 key={item.id}
-                className="flex items-center gap-3 rounded-2xl border bg-card p-3"
+                className="rounded-2xl border bg-card p-3"
               >
-                <div className="flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-xl border bg-muted">
-                  {type === "image" && item.media_url ? (
-                    <img
-                      src={item.media_url}
-                      alt={item.title || "Billboard"}
-                      className="h-full w-full object-cover"
-                    />
-                  ) : type === "video" ? (
-                    <Video className="h-5 w-5" />
-                  ) : type === "youtube" ? (
-                    <Video className="h-5 w-5" />
-                  ) : type === "pdf" || type === "file" ? (
-                    <FileText className="h-5 w-5" />
-                  ) : (
-                    <ImageIcon className="h-5 w-5" />
-                  )}
-                </div>
-
-                <div className="min-w-0 flex-1">
-                  <p className="truncate text-sm font-semibold">
-                    {item.title || "Untitled billboard"}
-                  </p>
-
-                  <p className="line-clamp-2 text-xs text-muted-foreground">
-                    {item.body || "No description"}
-                  </p>
-
-                  <div className="mt-1 flex flex-wrap items-center gap-2 text-[11px] text-muted-foreground">
-                    <span className="rounded-full border px-2 py-0.5 uppercase">
-                      {type}
-                    </span>
-
-                    <span>Order: {Number(item.sort_order) || 1}</span>
-
-                    {hasTag && (
-                      <span className="rounded-full border px-2 py-0.5">
-                        Tag: {item.tag_label}
-                      </span>
-                    )}
-
-                    {hasCta && (
-                      <span className="rounded-full border px-2 py-0.5">
-                        CTA: {item.cta_label}
-                      </span>
-                    )}
-
-                    {!!normalizeString(item?.cta_url) && (
-                      <span className="rounded-full border px-2 py-0.5">
-                        Linked
-                      </span>
+                <div className="flex items-center gap-3">
+                  <div className="flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-xl border bg-muted">
+                    {type === "image" && item.media_url ? (
+                      <img
+                        src={item.media_url}
+                        alt={item.title || "Billboard"}
+                        className="h-full w-full object-cover"
+                      />
+                    ) : type === "video" ? (
+                      <Video className="h-5 w-5" />
+                    ) : type === "youtube" ? (
+                      <Video className="h-5 w-5" />
+                    ) : type === "pdf" || type === "file" ? (
+                      <FileText className="h-5 w-5" />
+                    ) : (
+                      <ImageIcon className="h-5 w-5" />
                     )}
                   </div>
+
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-sm font-semibold">
+                      {item.title || "Untitled billboard"}
+                    </p>
+
+                    <p className="line-clamp-2 text-xs text-muted-foreground">
+                      {item.body || "No description"}
+                    </p>
+
+                    <div className="mt-1 flex flex-wrap items-center gap-2 text-[11px] text-muted-foreground">
+                      <span className="rounded-full border px-2 py-0.5 uppercase">
+                        {type}
+                      </span>
+
+                      <span>Order: {Number(item.sort_order) || 1}</span>
+
+                      {hasTag && (
+                        <span className="rounded-full border px-2 py-0.5">
+                          Tag: {item.tag_label}
+                        </span>
+                      )}
+
+                      {hasCta && (
+                        <span className="rounded-full border px-2 py-0.5">
+                          CTA: {item.cta_label}
+                        </span>
+                      )}
+
+                      {!!normalizeString(item?.cta_url) && (
+                        <span className="rounded-full border px-2 py-0.5">
+                          Linked
+                        </span>
+                      )}
+
+                      {!!normalizeString(item?.owner_email) && (
+                        <span className="rounded-full border px-2 py-0.5">
+                          Advertiser: {item.owner_email}
+                        </span>
+                      )}
+                    </div>
+
+                    <div className="mt-2 flex flex-wrap items-center gap-2 text-[11px]">
+                      <span className="inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-muted-foreground">
+                        <Eye className="h-3 w-3" />
+                        {views} views
+                      </span>
+
+                      <span className="inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-muted-foreground">
+                        <MousePointerClick className="h-3 w-3" />
+                        {clicks} taps
+                      </span>
+
+                      <span className="inline-flex items-center gap-1 rounded-full border border-emerald-500/30 bg-emerald-500/10 px-2 py-0.5 text-emerald-400">
+                        <BarChart3 className="h-3 w-3" />
+                        {ctr}% CTR
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-1">
+                    {hasCta && ctaTarget ? (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="hidden md:inline-flex"
+                        onClick={() =>
+                          window.open(ctaTarget, "_blank", "noopener,noreferrer")
+                        }
+                      >
+                        {item.cta_label}
+                      </Button>
+                    ) : null}
+
+                    <Switch
+                      checked={Boolean(item.is_active)}
+                      onCheckedChange={() => toggleActive(item)}
+                    />
+
+                    <Button size="icon" variant="ghost" onClick={() => handleEdit(item)}>
+                      <Edit className="h-4 w-4" />
+                    </Button>
+
+                    <Button
+                      size="icon"
+                      variant="ghost"
+                      onClick={() => handleDelete(item.id)}
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  </div>
                 </div>
-
-                {hasCta && ctaTarget ? (
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    className="hidden md:inline-flex"
-                    onClick={() =>
-                      window.open(ctaTarget, "_blank", "noopener,noreferrer")
-                    }
-                  >
-                    {item.cta_label}
-                  </Button>
-                ) : null}
-
-                <Switch
-                  checked={Boolean(item.is_active)}
-                  onCheckedChange={() => toggleActive(item)}
-                />
-
-                <Button size="icon" variant="ghost" onClick={() => handleEdit(item)}>
-                  <Edit className="h-4 w-4" />
-                </Button>
-
-                <Button
-                  size="icon"
-                  variant="ghost"
-                  onClick={() => handleDelete(item.id)}
-                >
-                  <Trash2 className="h-4 w-4" />
-                </Button>
               </div>
             );
           })

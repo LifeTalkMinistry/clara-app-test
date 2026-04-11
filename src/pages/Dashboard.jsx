@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useCallback } from "react";
+import { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import {
   TrendingDown,
   PiggyBank,
@@ -70,6 +70,7 @@ const getBillboardMediaType = (item) => {
   ).toLowerCase();
 
   if (!url) return "none";
+
   if (
     url.includes(".mp4") ||
     url.includes(".webm") ||
@@ -79,6 +80,7 @@ const getBillboardMediaType = (item) => {
   ) {
     return "video";
   }
+
   if (
     url.includes(".jpg") ||
     url.includes(".jpeg") ||
@@ -89,6 +91,7 @@ const getBillboardMediaType = (item) => {
   ) {
     return "image";
   }
+
   if (url.includes(".pdf")) return "pdf";
 
   return "file";
@@ -104,6 +107,11 @@ export default function Dashboard() {
   const [walletMoney, setWalletMoney] = useState(0);
   const [expenses, setExpenses] = useState([]);
   const [loading, setLoading] = useState(true);
+
+  const refreshTimeoutRef = useRef(null);
+  const trackedViewIdsRef = useRef(new Set());
+  const trackedClickIdsRef = useRef(new Set());
+  const clickInFlightIdsRef = useRef(new Set());
 
   const fmt = useCallback((n) => {
     return new Intl.NumberFormat("en-PH", {
@@ -121,7 +129,6 @@ export default function Dashboard() {
 
     try {
       const { data, error } = await supabase.from("wallets").select("*");
-
       if (error) throw error;
 
       const ownedWallets = (data || []).filter((wallet) =>
@@ -195,11 +202,21 @@ export default function Dashboard() {
       ]);
 
       if (tasksRes.error) console.error("Failed to load tasks:", tasksRes.error);
-      if (submissionsRes.error) console.error("Failed to load submissions:", submissionsRes.error);
-      if (billboardsRes.error) console.error("Failed to load billboards:", billboardsRes.error);
-      if (expensesRes.error) console.error("Failed to load expenses:", expensesRes.error);
-      if (profilesRes.error) console.error("Failed to load profiles:", profilesRes.error);
-      if (walletsRes.error) console.error("Failed to load wallets:", walletsRes.error);
+      if (submissionsRes.error) {
+        console.error("Failed to load submissions:", submissionsRes.error);
+      }
+      if (billboardsRes.error) {
+        console.error("Failed to load billboards:", billboardsRes.error);
+      }
+      if (expensesRes.error) {
+        console.error("Failed to load expenses:", expensesRes.error);
+      }
+      if (profilesRes.error) {
+        console.error("Failed to load profiles:", profilesRes.error);
+      }
+      if (walletsRes.error) {
+        console.error("Failed to load wallets:", walletsRes.error);
+      }
 
       const userSubmissions = (submissionsRes.data || []).filter((item) =>
         isOwnedByUser(item, user)
@@ -254,6 +271,119 @@ export default function Dashboard() {
     }
   }, [user]);
 
+  const loadEverything = useCallback(() => {
+    loadWalletBalance();
+    loadDashboardData();
+  }, [loadWalletBalance, loadDashboardData]);
+
+  const scheduleRefresh = useCallback(() => {
+    if (refreshTimeoutRef.current) {
+      clearTimeout(refreshTimeoutRef.current);
+    }
+
+    refreshTimeoutRef.current = setTimeout(() => {
+      loadEverything();
+    }, 350);
+  }, [loadEverything]);
+
+  const trackBillboardView = useCallback(
+    async (billboardId) => {
+      if (!billboardId || !user?.id) return;
+      if (trackedViewIdsRef.current.has(billboardId)) return;
+
+      trackedViewIdsRef.current.add(billboardId);
+
+      try {
+        const { data: existing, error: existingError } = await supabase
+          .from("billboard_views")
+          .select("id")
+          .eq("billboard_id", billboardId)
+          .eq("viewer_user_id", user.id)
+          .maybeSingle();
+
+        if (existingError) throw existingError;
+        if (existing) return;
+
+        const { error: insertError } = await supabase
+          .from("billboard_views")
+          .insert({
+            billboard_id: billboardId,
+            viewer_user_id: user.id,
+          });
+
+        if (insertError) throw insertError;
+      } catch (error) {
+        console.error("View tracking failed:", error);
+      }
+    },
+    [user?.id]
+  );
+
+  const trackBillboardClick = useCallback(
+    async (billboardId) => {
+      if (!billboardId || !user?.id) return false;
+
+      if (trackedClickIdsRef.current.has(billboardId)) {
+        return false;
+      }
+
+      if (clickInFlightIdsRef.current.has(billboardId)) {
+        return false;
+      }
+
+      clickInFlightIdsRef.current.add(billboardId);
+
+      try {
+        const { data: existing, error: existingError } = await supabase
+          .from("billboard_clicks")
+          .select("id")
+          .eq("billboard_id", billboardId)
+          .eq("viewer_user_id", user.id)
+          .maybeSingle();
+
+        if (existingError) throw existingError;
+
+        if (existing) {
+          trackedClickIdsRef.current.add(billboardId);
+          return false;
+        }
+
+        const { error: insertError } = await supabase
+          .from("billboard_clicks")
+          .insert({
+            billboard_id: billboardId,
+            viewer_user_id: user.id,
+          });
+
+        if (insertError) {
+          const message = String(insertError?.message || "").toLowerCase();
+          const details = String(insertError?.details || "").toLowerCase();
+
+          if (
+            message.includes("duplicate") ||
+            message.includes("unique") ||
+            details.includes("duplicate") ||
+            details.includes("unique")
+          ) {
+            trackedClickIdsRef.current.add(billboardId);
+            return false;
+          }
+
+          throw insertError;
+        }
+
+        trackedClickIdsRef.current.add(billboardId);
+        return true;
+      } catch (error) {
+        console.error("Click tracking failed:", error);
+        return false;
+      } finally {
+        clickInFlightIdsRef.current.delete(billboardId);
+      }
+    },
+    [user?.id]
+  );
+
   useEffect(() => {
     loadDashboardData();
   }, [loadDashboardData]);
@@ -261,55 +391,69 @@ export default function Dashboard() {
   useEffect(() => {
     if (!user?.id && !user?.email) return;
 
+    window.addEventListener("clara-expenses-updated", scheduleRefresh);
+    window.addEventListener("clara-finance-updated", scheduleRefresh);
+    window.addEventListener("clara-wallets-updated", scheduleRefresh);
+    window.addEventListener(
+      "clara-wallet-transactions-updated",
+      scheduleRefresh
+    );
+
     const channel = supabase
       .channel(`dashboard-live-${user?.id || user?.email}`)
       .on(
         "postgres_changes",
         { event: "*", schema: "public", table: "wallets" },
-        () => {
-          loadWalletBalance();
-          loadDashboardData();
-        }
+        scheduleRefresh
       )
       .on(
         "postgres_changes",
         { event: "*", schema: "public", table: "wallet_transactions" },
-        () => {
-          loadWalletBalance();
-          loadDashboardData();
-        }
+        scheduleRefresh
       )
       .on(
         "postgres_changes",
         { event: "*", schema: "public", table: "challenge_tasks" },
-        () => loadDashboardData()
+        scheduleRefresh
       )
       .on(
         "postgres_changes",
         { event: "*", schema: "public", table: "task_submissions" },
-        () => loadDashboardData()
+        scheduleRefresh
       )
       .on(
         "postgres_changes",
         { event: "*", schema: "public", table: "billboards" },
-        () => loadDashboardData()
+        scheduleRefresh
       )
       .on(
         "postgres_changes",
         { event: "*", schema: "public", table: "expenses" },
-        () => loadDashboardData()
+        scheduleRefresh
       )
       .on(
         "postgres_changes",
         { event: "*", schema: "public", table: "profiles" },
-        () => loadDashboardData()
+        scheduleRefresh
       )
       .subscribe();
 
     return () => {
+      window.removeEventListener("clara-expenses-updated", scheduleRefresh);
+      window.removeEventListener("clara-finance-updated", scheduleRefresh);
+      window.removeEventListener("clara-wallets-updated", scheduleRefresh);
+      window.removeEventListener(
+        "clara-wallet-transactions-updated",
+        scheduleRefresh
+      );
+
+      if (refreshTimeoutRef.current) {
+        clearTimeout(refreshTimeoutRef.current);
+      }
+
       supabase.removeChannel(channel);
     };
-  }, [user?.id, user?.email, loadDashboardData, loadWalletBalance]);
+  }, [user?.id, user?.email, scheduleRefresh]);
 
   const thisMonthSpent = useMemo(() => {
     const now = new Date();
@@ -338,10 +482,10 @@ export default function Dashboard() {
     safeSurvivalExpense <= 0
       ? "Set your survival expense to unlock smarter guidance."
       : walletMoney >= safeSurvivalExpense
-        ? "You’re in control this month."
+        ? "You are in control this month."
         : walletMoney > safeSurvivalExpense * 0.5
           ? "Careful — protect your essentials."
-          : "You’re near your limit — adjust now.";
+          : "You are near your limit — adjust now.";
 
   const moneyLeftTone =
     safeSurvivalExpense <= 0
@@ -370,12 +514,18 @@ export default function Dashboard() {
   const missionSub =
     pendingCount > 0
       ? `${pendingCount} pending task${pendingCount > 1 ? "s" : ""}`
-      : "You’re caught up for now";
+      : "You are caught up for now";
 
   const activeBillboard =
     billboards.find((item) => isTruthyActive(item?.is_active)) ||
     billboards[0] ||
     null;
+
+  useEffect(() => {
+    if (activeBillboard?.id) {
+      trackBillboardView(activeBillboard.id);
+    }
+  }, [activeBillboard?.id, trackBillboardView]);
 
   const billboardMediaUrl = normalizeString(
     activeBillboard?.media_url ||
@@ -423,10 +573,15 @@ export default function Dashboard() {
 
   const billboardClickable = !!billboardTargetUrl;
 
-  const openBillboardTarget = useCallback(() => {
+  const openBillboardTarget = useCallback(async () => {
     if (!billboardTargetUrl) return;
+
+    if (activeBillboard?.id) {
+      await trackBillboardClick(activeBillboard.id);
+    }
+
     window.open(billboardTargetUrl, "_blank", "noopener,noreferrer");
-  }, [billboardTargetUrl]);
+  }, [billboardTargetUrl, activeBillboard?.id, trackBillboardClick]);
 
   return (
     <div className="relative isolate z-0 min-h-full">
@@ -448,10 +603,10 @@ export default function Dashboard() {
         </div>
       </div>
 
-      <div className="mx-auto mt-2 max-w-4xl space-y-4 px-4 pb-8 md:px-6">
+      <div className="mx-auto mt-2 max-w-4xl space-y-3 px-4 pb-8 md:space-y-4 md:px-6">
         {isPending && (
-          <div className="flex items-center gap-3 rounded-2xl border bg-secondary/20 p-3">
-            <Clock className="h-5 w-5" />
+          <div className="flex items-center gap-3 rounded-2xl border border-white/10 bg-secondary/20 p-3">
+            <Clock className="h-5 w-5 shrink-0" />
             <div className="flex-1 text-sm">Enrollment Under Review</div>
             <Link to="/enroll">
               <Button size="sm">View</Button>
@@ -478,7 +633,7 @@ export default function Dashboard() {
                 : undefined
             }
           >
-            <div className="relative h-[142px] sm:h-[160px]">
+            <div className="relative h-[132px] sm:h-[160px]">
               {billboardMediaUrl ? (
                 billboardMediaType === "video" ? (
                   <video
@@ -596,7 +751,7 @@ export default function Dashboard() {
           className={`rounded-3xl border bg-gradient-to-br p-4 shadow-[0_0_25px_rgba(16,185,129,0.08)] backdrop-blur-sm ${moneyLeftTone}`}
         >
           <div className="flex items-start justify-between gap-3">
-            <div>
+            <div className="min-w-0 flex-1">
               <p className="text-xs uppercase tracking-[0.18em] text-white/55">
                 Money Left
               </p>
@@ -658,7 +813,7 @@ export default function Dashboard() {
             <Link to="/tasks" className="block h-full">
               <div className="h-full rounded-2xl border border-white/10 bg-[#0B1228] p-4">
                 <div className="flex items-start justify-between gap-3">
-                  <div>
+                  <div className="min-w-0 flex-1">
                     <p className="text-[11px] font-semibold uppercase tracking-wide text-amber-300">
                       Day Mission
                     </p>
@@ -680,7 +835,7 @@ export default function Dashboard() {
                 <p className="mt-2 text-xs text-amber-300">{missionSub}</p>
 
                 {loading && (
-                  <p className="mt-2 text-[11px] text-white/35">Refreshing…</p>
+                  <p className="mt-2 text-[11px] text-white/35">Refreshing...</p>
                 )}
               </div>
             </Link>

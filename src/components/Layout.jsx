@@ -1,5 +1,5 @@
 import { Outlet, Link, useLocation, useNavigate } from "react-router-dom";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   LayoutDashboard,
   Receipt,
@@ -23,6 +23,7 @@ import {
   User,
   Bell,
   PlayCircle,
+  Megaphone,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { supabase } from "@/lib/supabaseClient";
@@ -33,6 +34,7 @@ import ClaraLogo from "./ClaraLogo";
 
 const allNavItems = [
   { path: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
+  { path: "/advertiser", label: "My Ads", icon: Megaphone },
   { path: "/expenses", label: "Expenses", icon: Receipt },
   { path: "/wallets", label: "Wallets", icon: Wallet },
   { path: "/budgets", label: "Budgets", icon: Target },
@@ -46,6 +48,12 @@ const allNavItems = [
   { path: "/referrals", label: "Referrals", icon: Share2, ambassadorOnly: true },
 ];
 
+const advertiserNavItems = [
+  { path: "/advertiser", label: "My Ads", icon: Megaphone },
+  { path: "/profile", label: "Profile", icon: User },
+  { path: "/settings", label: "Settings", icon: Settings },
+];
+
 function SidebarContent({
   currentPath,
   onClose,
@@ -53,9 +61,12 @@ function SidebarContent({
   planLabel,
   isAdmin,
   isPaid,
+  isAdvertiser,
   user,
   onLogout,
 }) {
+  const navItems = isAdvertiser ? advertiserNavItems : allNavItems;
+
   return (
     <div className="flex h-full flex-col bg-[#071018] text-white">
       <div
@@ -66,7 +77,7 @@ function SidebarContent({
         }}
       >
         <Link
-          to="/dashboard"
+          to={isAdvertiser ? "/advertiser" : "/dashboard"}
           onClick={onClose}
           className="mb-4 flex items-center gap-3"
         >
@@ -82,46 +93,69 @@ function SidebarContent({
       </div>
 
       <nav className="flex-1 overflow-y-auto space-y-0.5 p-3">
-        {allNavItems.map((item) => {
+        {navItems.map((item) => {
           const isActive =
             currentPath === item.path ||
             currentPath.startsWith(item.path + "/");
-          const isLocked = item.tier === "paid" && !isPaid;
-          const referralNotEnabled =
-            item.ambassadorOnly && !user?.referral_enabled;
 
-          if (referralNotEnabled) return null;
+          if (!isAdvertiser) {
+            const isLocked = item.tier === "paid" && !isPaid;
+            const referralNotEnabled =
+              item.ambassadorOnly && !user?.referral_enabled;
+
+            if (referralNotEnabled) return null;
+
+            return (
+              <Link
+                key={item.path}
+                to={isLocked ? "#" : item.path}
+                onClick={isLocked ? (e) => e.preventDefault() : onClose}
+                className={`group flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm transition-all ${
+                  isActive
+                    ? "bg-gradient-to-r from-green-500 to-emerald-600 font-semibold text-white"
+                    : isLocked
+                      ? "cursor-not-allowed text-white/30"
+                      : "text-white/70 hover:bg-white/10 hover:text-white"
+                }`}
+              >
+                <item.icon className="h-4 w-4 flex-shrink-0" />
+                <span className="flex-1">{item.label}</span>
+
+                {isLocked && (
+                  <span className="rounded-md bg-yellow-400/20 px-1.5 py-0.5 text-[9px] font-bold text-yellow-300">
+                    PRO
+                  </span>
+                )}
+
+                {isActive && (
+                  <div className="h-5 w-1.5 rounded-full bg-gradient-to-b from-yellow-400 to-lime-400" />
+                )}
+              </Link>
+            );
+          }
 
           return (
-            <Link
+            <button
               key={item.path}
-              to={isLocked ? "#" : item.path}
-              onClick={isLocked ? (e) => e.preventDefault() : onClose}
-              className={`group flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm transition-all ${
+              type="button"
+              onClick={() => onNavigate(item.path)}
+              className={`flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm transition-all ${
                 isActive
                   ? "bg-gradient-to-r from-green-500 to-emerald-600 font-semibold text-white"
-                  : isLocked
-                    ? "cursor-not-allowed text-white/30"
-                    : "text-white/70 hover:bg-white/10 hover:text-white"
+                  : "text-white/70 hover:bg-white/10 hover:text-white"
               }`}
             >
               <item.icon className="h-4 w-4 flex-shrink-0" />
-              <span className="flex-1">{item.label}</span>
-
-              {isLocked && (
-                <span className="rounded-md bg-yellow-400/20 px-1.5 py-0.5 text-[9px] font-bold text-yellow-300">
-                  PRO
-                </span>
-              )}
+              <span className="flex-1 text-left">{item.label}</span>
 
               {isActive && (
                 <div className="h-5 w-1.5 rounded-full bg-gradient-to-b from-yellow-400 to-lime-400" />
               )}
-            </Link>
+            </button>
           );
         })}
 
-        {isAdmin && (
+        {isAdmin && !isAdvertiser && (
           <>
             <div className="px-3 pb-1 pt-4">
               <p className="text-[10px] font-bold uppercase tracking-widest text-white/50">
@@ -146,7 +180,7 @@ function SidebarContent({
       </nav>
 
       <div className="space-y-1 border-t border-white/10 p-3">
-        {!isPaid && (
+        {!isPaid && !isAdvertiser && (
           <Link
             to="/enroll"
             onClick={onClose}
@@ -161,18 +195,20 @@ function SidebarContent({
           </Link>
         )}
 
-        <button
-          type="button"
-          onClick={() => onNavigate("/settings")}
-          className={`flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm transition-all ${
-            currentPath === "/settings"
-              ? "bg-white/10 text-white"
-              : "text-white/70 hover:bg-white/10 hover:text-white"
-          }`}
-        >
-          <Settings className="h-4 w-4" />
-          <span>Settings</span>
-        </button>
+        {!isAdvertiser && (
+          <button
+            type="button"
+            onClick={() => onNavigate("/settings")}
+            className={`flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm transition-all ${
+              currentPath === "/settings"
+                ? "bg-white/10 text-white"
+                : "text-white/70 hover:bg-white/10 hover:text-white"
+            }`}
+          >
+            <Settings className="h-4 w-4" />
+            <span>Settings</span>
+          </button>
+        )}
 
         <button
           type="button"
@@ -194,6 +230,7 @@ function MobileControlCenter({
   onLogout,
   isAdmin,
   isPaid,
+  isAdvertiser,
   currentPath,
   planLabel,
   user,
@@ -229,41 +266,70 @@ function MobileControlCenter({
     onNavigate(path);
   };
 
-  const primaryItems = [
-    {
-      label: "Profile",
-      icon: User,
-      onClick: () => handleGo("/profile"),
-      active: currentPath === "/profile",
-    },
-    {
-      label: "Settings",
-      icon: Settings,
-      onClick: () => handleGo("/settings"),
-      active: currentPath === "/settings",
-    },
-    {
-      label: "Notifications",
-      icon: Bell,
-      onClick: () => handleGo("/notifications"),
-      active: currentPath === "/notifications",
-    },
-  ];
+  const primaryItems = isAdvertiser
+    ? [
+        {
+          label: "My Ads",
+          icon: Megaphone,
+          onClick: () => handleGo("/advertiser"),
+          active: currentPath === "/advertiser",
+        },
+        {
+          label: "Profile",
+          icon: User,
+          onClick: () => handleGo("/profile"),
+          active: currentPath === "/profile",
+        },
+        {
+          label: "Settings",
+          icon: Settings,
+          onClick: () => handleGo("/settings"),
+          active: currentPath === "/settings",
+        },
+      ]
+    : [
+        {
+          label: "Profile",
+          icon: User,
+          onClick: () => handleGo("/profile"),
+          active: currentPath === "/profile",
+        },
+        {
+          label: "Settings",
+          icon: Settings,
+          onClick: () => handleGo("/settings"),
+          active: currentPath === "/settings",
+        },
+        {
+          label: "Notifications",
+          icon: Bell,
+          onClick: () => handleGo("/notifications"),
+          active: currentPath === "/notifications",
+        },
+        {
+          label: "My Ads",
+          icon: Megaphone,
+          onClick: () => handleGo("/advertiser"),
+          active: currentPath === "/advertiser",
+        },
+      ];
 
-  const supportItems = [
-    {
-      label: "Help Center",
-      icon: HelpCircle,
-      onClick: () => handleGo("/help"),
-      active: currentPath === "/help",
-    },
-    {
-      label: "Tutorials",
-      icon: PlayCircle,
-      onClick: () => handleGo("/tutorials"),
-      active: currentPath === "/tutorials",
-    },
-  ];
+  const supportItems = isAdvertiser
+    ? []
+    : [
+        {
+          label: "Help Center",
+          icon: HelpCircle,
+          onClick: () => handleGo("/help"),
+          active: currentPath === "/help",
+        },
+        {
+          label: "Tutorials",
+          icon: PlayCircle,
+          onClick: () => handleGo("/tutorials"),
+          active: currentPath === "/tutorials",
+        },
+      ];
 
   return (
     <>
@@ -284,7 +350,7 @@ function MobileControlCenter({
             <div className="flex items-start justify-between gap-3">
               <div className="min-w-0">
                 <p className="text-[10px] uppercase tracking-[0.2em] text-white/60">
-                  Control Center
+                  Account
                 </p>
                 <p className="truncate text-sm font-semibold text-white">
                   {user?.full_name || user?.name || user?.email || "CLARA User"}
@@ -321,25 +387,28 @@ function MobileControlCenter({
               </button>
             ))}
 
-            <div className="my-2 h-px bg-white/10" />
+            {supportItems.length > 0 && (
+              <>
+                <div className="my-2 h-px bg-white/10" />
+                {supportItems.map((item) => (
+                  <button
+                    key={item.label}
+                    type="button"
+                    onClick={item.onClick}
+                    className={`flex w-full items-center gap-3 rounded-xl px-3 py-3 text-sm transition-all ${
+                      item.active
+                        ? "bg-white/10 text-white"
+                        : "text-white/75 hover:bg-white/10 hover:text-white"
+                    }`}
+                  >
+                    <item.icon className="h-4 w-4" />
+                    <span className="flex-1 text-left">{item.label}</span>
+                  </button>
+                ))}
+              </>
+            )}
 
-            {supportItems.map((item) => (
-              <button
-                key={item.label}
-                type="button"
-                onClick={item.onClick}
-                className={`flex w-full items-center gap-3 rounded-xl px-3 py-3 text-sm transition-all ${
-                  item.active
-                    ? "bg-white/10 text-white"
-                    : "text-white/75 hover:bg-white/10 hover:text-white"
-                }`}
-              >
-                <item.icon className="h-4 w-4" />
-                <span className="flex-1 text-left">{item.label}</span>
-              </button>
-            ))}
-
-            {isAdmin && (
+            {isAdmin && !isAdvertiser && (
               <>
                 <div className="my-2 h-px bg-white/10" />
                 <button
@@ -357,7 +426,7 @@ function MobileControlCenter({
               </>
             )}
 
-            {!isPaid && (
+            {!isPaid && !isAdvertiser && (
               <>
                 <div className="my-2 h-px bg-white/10" />
                 <button
@@ -398,6 +467,7 @@ function MobileControlCenter({
 export default function Layout() {
   const location = useLocation();
   const navigate = useNavigate();
+
   const [quickAddOpen, setQuickAddOpen] = useState(false);
   const [controlOpen, setControlOpen] = useState(false);
 
@@ -409,15 +479,52 @@ export default function Layout() {
     loading = false,
   } = useUserRole() || {};
 
+  const role = String(user?.role || "user").toLowerCase();
+  const isAdvertiser = role === "advertiser";
+
+  const effectivePlanLabel = useMemo(() => {
+    if (isAdvertiser) return "Advertiser";
+    return planLabel;
+  }, [isAdvertiser, planLabel]);
+
+  useEffect(() => {
+    if (quickAddOpen) {
+      setControlOpen(false);
+    }
+  }, [quickAddOpen]);
+
+  useEffect(() => {
+    if (controlOpen) {
+      setQuickAddOpen(false);
+    }
+  }, [controlOpen]);
+
   const handleLogout = async () => {
-    await supabase.auth.signOut();
-    setControlOpen(false);
-    navigate("/login");
+    try {
+      setControlOpen(false);
+      setQuickAddOpen(false);
+      await supabase.auth.signOut();
+      navigate("/login");
+    } catch (error) {
+      console.error("Logout failed:", error);
+    }
   };
 
   const handleNavigate = (path) => {
     setControlOpen(false);
+    setQuickAddOpen(false);
     navigate(path);
+  };
+
+  const handleOpenQuickAdd = () => {
+    if (isAdvertiser) return;
+    setControlOpen(false);
+    setQuickAddOpen(true);
+  };
+
+  const handleToggleControl = () => {
+    setQuickAddOpen(false);
+    setControlOpen((prev) => !prev);
   };
 
   if (loading) {
@@ -435,9 +542,10 @@ export default function Layout() {
           currentPath={location.pathname}
           onClose={() => {}}
           onNavigate={handleNavigate}
-          planLabel={planLabel}
+          planLabel={effectivePlanLabel}
           isAdmin={isAdmin}
           isPaid={isPaid}
+          isAdvertiser={isAdvertiser}
           user={user}
           onLogout={handleLogout}
         />
@@ -450,7 +558,7 @@ export default function Layout() {
           <Button
             variant="ghost"
             size="icon"
-            onClick={() => setControlOpen((prev) => !prev)}
+            onClick={handleToggleControl}
             className={`h-11 w-11 rounded-2xl border border-white/10 bg-[#071018]/70 text-white shadow-lg backdrop-blur-xl transition hover:bg-white/10 ${
               controlOpen ? "bg-white/10" : ""
             }`}
@@ -471,23 +579,28 @@ export default function Layout() {
         onLogout={handleLogout}
         isAdmin={isAdmin}
         isPaid={isPaid}
+        isAdvertiser={isAdvertiser}
         currentPath={location.pathname}
-        planLabel={planLabel}
+        planLabel={effectivePlanLabel}
         user={user}
       />
 
-      <BottomNav
-        onQuickAdd={() => setQuickAddOpen(true)}
-        isAdmin={isAdmin}
-        isPaid={isPaid}
-        onLogout={handleLogout}
-      />
+      {!isAdvertiser && (
+        <BottomNav
+          onQuickAdd={handleOpenQuickAdd}
+          isAdmin={isAdmin}
+          isPaid={isPaid}
+          onLogout={handleLogout}
+        />
+      )}
 
-      <QuickAddModal
-        open={quickAddOpen}
-        onClose={() => setQuickAddOpen(false)}
-        userEmail={user?.email}
-      />
+      {!isAdvertiser && (
+        <QuickAddModal
+          open={quickAddOpen}
+          onClose={() => setQuickAddOpen(false)}
+          userEmail={user?.email}
+        />
+      )}
     </div>
   );
 }

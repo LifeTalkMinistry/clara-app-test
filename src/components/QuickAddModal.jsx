@@ -35,7 +35,7 @@ const categories = [
 
 const ACTION_TYPES = [
   { id: "expense", label: "Expense", icon: Receipt },
-  { id: "income", label: "Income", icon: TrendingUp },
+  { id: "income", label: "Add Funds", icon: TrendingUp },
   { id: "transfer", label: "Transfer", icon: ArrowLeftRight },
 ];
 
@@ -351,8 +351,8 @@ export default function QuickAddModal({
         const secondWalletId = normalized[1]?.id
           ? String(normalized[1].id)
           : normalized[0]?.id
-          ? String(normalized[0].id)
-          : "";
+            ? String(normalized[0].id)
+            : "";
 
         setExpenseForm((prev) => ({
           ...prev,
@@ -391,8 +391,8 @@ export default function QuickAddModal({
     const secondWalletId = wallets[1]?.id
       ? String(wallets[1].id)
       : wallets[0]?.id
-      ? String(wallets[0].id)
-      : "";
+        ? String(wallets[0].id)
+        : "";
 
     const nextAction = ["expense", "income", "transfer"].includes(initialAction)
       ? initialAction
@@ -645,8 +645,8 @@ export default function QuickAddModal({
     (actionType === "expense"
       ? !expenseForm.amount || !expenseForm.wallet_id
       : actionType === "income"
-      ? !incomeForm.amount || !incomeForm.wallet_id
-      : !transferForm.amount || !transferForm.from_wallet_id || !transferForm.to_wallet_id);
+        ? !incomeForm.amount || !incomeForm.wallet_id
+        : !transferForm.amount || !transferForm.from_wallet_id || !transferForm.to_wallet_id);
 
   const selectedExpenseWallet = walletMap.get(String(expenseForm.wallet_id));
   const selectedIncomeWallet = walletMap.get(String(incomeForm.wallet_id));
@@ -655,10 +655,10 @@ export default function QuickAddModal({
 
   return (
     <Dialog open={open} onOpenChange={(nextOpen) => !nextOpen && handleClose()}>
-      <DialogContent className="max-w-sm mx-auto border border-emerald-500/20 bg-[#031126] text-white shadow-2xl">
+      <DialogContent className="mx-auto max-w-sm border border-emerald-500/20 bg-[#031126] text-white shadow-2xl">
         <DialogHeader>
           <DialogTitle className="text-center text-2xl font-bold text-white">
-            New Transaction
+            Quick Actions
           </DialogTitle>
         </DialogHeader>
 
@@ -671,10 +671,10 @@ export default function QuickAddModal({
                 setError("");
                 setActionType(item.id);
               }}
-              className={`flex flex-col items-center justify-center gap-1 rounded-xl border px-2 py-3 text-xs font-semibold text-center transition-all ${
+              className={`flex flex-col items-center justify-center gap-1 rounded-xl border px-2 py-3 text-center text-xs font-semibold transition-all ${
                 actionType === item.id
-                  ? "border-emerald-400 text-emerald-400 shadow-[0_0_0_1px_rgba(16,185,129,0.25)]"
-                  : "border-slate-700 text-slate-300"
+                  ? "border-emerald-400 bg-emerald-500/5 text-emerald-400 shadow-[0_0_0_1px_rgba(16,185,129,0.25)]"
+                  : "border-slate-700 text-slate-300 hover:border-slate-500"
               }`}
             >
               <item.icon className="h-4 w-4 shrink-0" />
@@ -944,8 +944,7 @@ export default function QuickAddModal({
                 <SelectContent>
                   {wallets
                     .filter(
-                      (wallet) =>
-                        String(wallet.id) !== String(transferForm.from_wallet_id)
+                      (wallet) => String(wallet.id) !== String(transferForm.from_wallet_id)
                     )
                     .map((wallet) => (
                       <SelectItem key={wallet.id} value={String(wallet.id)}>
@@ -1009,10 +1008,10 @@ export default function QuickAddModal({
           {saving
             ? "Saving..."
             : actionType === "expense"
-            ? "Add Expense"
-            : actionType === "income"
-            ? "Add Funds"
-            : "Transfer Money"}
+              ? "Add Expense"
+              : actionType === "income"
+                ? "Add Funds"
+                : "Transfer Money"}
         </Button>
       </DialogContent>
     </Dialog>

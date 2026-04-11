@@ -30,6 +30,7 @@ import TierSelect from "./pages/TierSelect";
 import News from "./pages/News";
 import Referrals from "./pages/Referrals";
 import SavingsGoals from "./pages/SavingsGoals";
+import AdvertiserDashboard from "./pages/AdvertiserDashboard";
 
 // Onboarding
 import UniversalOnboarding from "./pages/onboarding/UniversalOnboarding";
@@ -50,14 +51,13 @@ function ProtectedRoute({ session, children }) {
   return children;
 }
 
-const withTimeout = (promise, ms = 6000) => {
-  return Promise.race([
+const withTimeout = (promise, ms = 5000) =>
+  Promise.race([
     promise,
     new Promise((_, reject) =>
-      setTimeout(() => reject(new Error("App request timed out.")), ms)
+      setTimeout(() => reject(new Error("Session request timed out.")), ms)
     ),
   ]);
-};
 
 function App() {
   const [session, setSession] = useState(null);
@@ -67,39 +67,52 @@ function App() {
   useEffect(() => {
     let alive = true;
 
+    const forceReleaseTimer = setTimeout(() => {
+      if (!alive) return;
+      console.warn("[App] Force releasing boot screen after timeout.");
+      setBooting(false);
+    }, 6000);
+
     const fetchProfile = async (userId) => {
       if (!userId) return null;
 
       try {
+        console.log("[App] Fetching profile for:", userId);
+
         const { data, error } = await withTimeout(
           supabase.from("profiles").select("*").eq("id", userId).maybeSingle(),
-          6000
+          5000
         );
 
         if (error) {
-          console.error("Profile fetch error:", error);
+          console.error("[App] Profile fetch error:", error);
           return null;
         }
 
+        console.log("[App] Profile loaded:", data);
         return data ?? null;
       } catch (error) {
-        console.error("Profile fetch timeout/error:", error);
+        console.error("[App] Profile fetch timeout/error:", error);
         return null;
       }
     };
 
     const init = async () => {
       try {
+        console.log("[App] Starting init...");
+
         const {
           data: { session: currentSession },
           error,
-        } = await withTimeout(supabase.auth.getSession(), 6000);
+        } = await withTimeout(supabase.auth.getSession(), 5000);
 
         if (!alive) return;
 
         if (error) {
-          console.error("getSession error:", error);
+          console.error("[App] getSession error:", error);
         }
+
+        console.log("[App] Session loaded:", currentSession);
 
         setSession(currentSession ?? null);
 
@@ -110,13 +123,17 @@ function App() {
         } else {
           setProfile(null);
         }
-      } catch (err) {
-        console.error("Init error:", err);
+      } catch (error) {
+        console.error("[App] Init failed:", error);
+
         if (!alive) return;
         setSession(null);
         setProfile(null);
       } finally {
-        if (alive) setBooting(false);
+        if (alive) {
+          console.log("[App] Releasing boot screen.");
+          setBooting(false);
+        }
       }
     };
 
@@ -124,24 +141,35 @@ function App() {
 
     const {
       data: { subscription },
-    } = supabase.auth.onAuthStateChange((_event, newSession) => {
+    } = supabase.auth.onAuthStateChange(async (event, newSession) => {
       if (!alive) return;
 
-      setSession(newSession ?? null);
-      setBooting(false);
+      try {
+        console.log("[App] Auth state changed:", event, newSession);
 
-      if (newSession?.user?.id) {
-        fetchProfile(newSession.user.id).then((profileData) => {
+        setSession(newSession ?? null);
+
+        if (newSession?.user?.id) {
+          const profileData = await fetchProfile(newSession.user.id);
           if (!alive) return;
           setProfile(profileData);
-        });
-      } else {
+        } else {
+          setProfile(null);
+        }
+      } catch (error) {
+        console.error("[App] Auth state change error:", error);
+        if (!alive) return;
         setProfile(null);
+      } finally {
+        if (alive) {
+          setBooting(false);
+        }
       }
     });
 
     return () => {
       alive = false;
+      clearTimeout(forceReleaseTimer);
       subscription.unsubscribe();
     };
   }, []);
@@ -152,10 +180,13 @@ function App() {
     try {
       return getUserFlow(profile);
     } catch (error) {
-      console.error("Flow error:", error);
+      console.error("[App] Flow error:", error);
       return "universal_onboarding";
     }
   }, [session, profile]);
+
+  const role = String(profile?.role || "user").toLowerCase();
+  const isAdvertiser = role === "advertiser";
 
   if (booting) {
     return (
@@ -216,7 +247,9 @@ function App() {
           <Route
             path="/"
             element={
-              flow === "universal_onboarding" ? (
+              isAdvertiser ? (
+                <Navigate to="/advertiser" replace />
+              ) : flow === "universal_onboarding" ? (
                 <Navigate to="/onboarding" replace />
               ) : flow === "payment_pending" ? (
                 <Navigate to="/pending" replace />
@@ -228,31 +261,38 @@ function App() {
             }
           />
 
-          <Route path="/dashboard" element={<Dashboard />} />
-          <Route path="/expenses" element={<Expenses />} />
-          <Route path="/add-funds" element={<AddFunds />} />
-          <Route path="/wallets" element={<Wallets />} />
-          <Route path="/budgets" element={<Budgets />} />
-          <Route path="/analytics" element={<Analytics />} />
-          <Route path="/tasks" element={<Tasks />} />
-          <Route path="/modules" element={<Modules />} />
-          <Route path="/community" element={<Community />} />
-          <Route path="/messages" element={<Messages />} />
-          <Route path="/coaching" element={<Coaching />} />
-          <Route path="/enroll" element={<Enroll />} />
-          <Route path="/tier-select" element={<TierSelect />} />
-          <Route path="/news" element={<News />} />
-          <Route path="/referrals" element={<Referrals />} />
-          <Route path="/savings-goals" element={<SavingsGoals />} />
+          <Route path="/advertiser" element={<AdvertiserDashboard />} />
+
+          {!isAdvertiser && (
+            <>
+              <Route path="/dashboard" element={<Dashboard />} />
+              <Route path="/expenses" element={<Expenses />} />
+              <Route path="/add-funds" element={<AddFunds />} />
+              <Route path="/wallets" element={<Wallets />} />
+              <Route path="/budgets" element={<Budgets />} />
+              <Route path="/analytics" element={<Analytics />} />
+              <Route path="/tasks" element={<Tasks />} />
+              <Route path="/modules" element={<Modules />} />
+              <Route path="/community" element={<Community />} />
+              <Route path="/messages" element={<Messages />} />
+              <Route path="/coaching" element={<Coaching />} />
+              <Route path="/enroll" element={<Enroll />} />
+              <Route path="/tier-select" element={<TierSelect />} />
+              <Route path="/news" element={<News />} />
+              <Route path="/referrals" element={<Referrals />} />
+              <Route path="/savings-goals" element={<SavingsGoals />} />
+              <Route path="/admin" element={<AdminPanel />} />
+              <Route path="/admin/student/:id" element={<StudentProfile />} />
+              <Route
+                path="/admin/referral-materials"
+                element={<AdminReferralMaterials />}
+              />
+              <Route path="/admin/daily-tips" element={<AdminDailyTips />} />
+            </>
+          )}
+
           <Route path="/settings" element={<Settings />} />
           <Route path="/profile" element={<Profile />} />
-          <Route path="/admin" element={<AdminPanel />} />
-          <Route path="/admin/student/:id" element={<StudentProfile />} />
-          <Route
-            path="/admin/referral-materials"
-            element={<AdminReferralMaterials />}
-          />
-          <Route path="/admin/daily-tips" element={<AdminDailyTips />} />
         </Route>
 
         <Route path="*" element={<PageNotFound />} />

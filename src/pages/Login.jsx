@@ -1,10 +1,9 @@
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { useAuth } from "../context/AuthContext";
+import { supabase } from "../lib/supabaseClient";
 
 export default function Login() {
   const navigate = useNavigate();
-  const { signIn, signUp, refreshProfile, ensureBasicProfile } = useAuth();
 
   const [mode, setMode] = useState("signup");
   const [fullName, setFullName] = useState("");
@@ -33,33 +32,6 @@ export default function Login() {
     return error?.message || "Something went wrong.";
   };
 
-  const hasFinishedOnboarding = (profile) => {
-    if (!profile) return true;
-    return Boolean(
-      profile.has_completed_onboarding ??
-        profile.onboarding_completed ??
-        true
-    );
-  };
-
-  const goNext = async (authUser, providedFullName = "") => {
-    if (!authUser?.id) {
-      navigate("/", { replace: true });
-      return;
-    }
-
-    await ensureBasicProfile(authUser, providedFullName);
-
-    const profile = await refreshProfile(authUser.id);
-
-    if (profile && !hasFinishedOnboarding(profile)) {
-      navigate("/onboarding", { replace: true });
-      return;
-    }
-
-    navigate("/dashboard", { replace: true });
-  };
-
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (loading) return;
@@ -69,36 +41,37 @@ export default function Login() {
 
     try {
       if (mode === "signup") {
-        const data = await signUp({
+        const { data, error } = await supabase.auth.signUp({
           email,
           password,
-          fullName,
+          options: {
+            data: {
+              full_name: fullName,
+            },
+          },
         });
 
-        const authUser = data?.user;
+        if (error) throw error;
 
-        if (!authUser) {
-          throw new Error("Signup failed. Try again.");
-        }
-
-        if (!data?.session) {
+        if (!data.session) {
           setMessage(
-            "Account created. Please check your email to confirm your account before logging in."
+            "Account created. Please check your email to confirm your account."
           );
           setMode("login");
           setPassword("");
-          setLoading(false);
           return;
         }
 
-        await goNext(authUser, fullName);
+        navigate("/", { replace: true });
       } else {
-        const data = await signIn({
+        const { data, error } = await supabase.auth.signInWithPassword({
           email,
           password,
         });
 
-        await goNext(data?.user);
+        if (error) throw error;
+
+        navigate("/", { replace: true });
       }
     } catch (error) {
       console.error("Auth error:", error);
