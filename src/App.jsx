@@ -1,13 +1,13 @@
-import Settings from "./pages/Settings";
-import Profile from "./pages/Profile";
 import { useEffect, useMemo, useState } from "react";
 import { Routes, Route, Navigate } from "react-router-dom";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "sonner";
 
+import Settings from "./pages/Settings";
+import Profile from "./pages/Profile";
 import { queryClientInstance } from "./lib/query-client";
-import { supabase } from "./lib/supabaseClient";
-import { getUserFlow } from "./lib/flowController";
+import { useAuth } from "@/context/AuthContext";
+import { supabase } from "@/lib/supabaseClient";
 
 // Layout
 import Layout from "./components/Layout";
@@ -46,154 +46,154 @@ import AdminDailyTips from "./pages/admin/AdminDailyTips";
 // Fallback
 import PageNotFound from "./lib/PageNotFound";
 
-function ProtectedRoute({ session, children }) {
-  if (!session) return <Navigate to="/login" replace />;
-  return children;
+const ENROLLMENT_PENDING_STATUSES = new Set([
+  "pending",
+  "under_review",
+  "payment_pending",
+]);
+
+const ENROLLMENT_APPROVED_STATUSES = new Set([
+  "approved",
+  "active",
+]);
+
+function FullScreenLoader() {
+  return (
+    <div className="min-h-screen flex items-center justify-center bg-[#061018] text-white">
+      <div className="flex flex-col items-center gap-3">
+        <div className="h-10 w-10 animate-spin rounded-full border-4 border-white/15 border-t-emerald-400" />
+        <p className="text-sm text-white/75">Loading...</p>
+      </div>
+    </div>
+  );
 }
 
-const withTimeout = (promise, ms = 5000) =>
-  Promise.race([
-    promise,
-    new Promise((_, reject) =>
-      setTimeout(() => reject(new Error("Session request timed out.")), ms)
-    ),
-  ]);
+function normalizeValue(value) {
+  return String(value ?? "").trim().toLowerCase();
+}
+
+function pickBestEnrollment(enrollments) {
+  if (!Array.isArray(enrollments) || enrollments.length === 0) return null;
+
+  const sorted = [...enrollments].sort((a, b) => {
+    const dateA = new Date(
+      a?.updated_at || a?.created_at || a?.submitted_at || 0
+    ).getTime();
+    const dateB = new Date(
+      b?.updated_at || b?.created_at || b?.submitted_at || 0
+    ).getTime();
+
+    return dateB - dateA;
+  });
+
+  return sorted[0] || null;
+}
+
+function resolveFlow(profile, enrollment) {
+  const hasCompletedOnboarding = Boolean(profile?.has_completed_onboarding);
+
+  if (!hasCompletedOnboarding) {
+    return "universal_onboarding";
+  }
+
+  if (!enrollment) {
+    return "normal";
+  }
+
+  const enrollmentStatus = normalizeValue(
+    enrollment?.status ||
+      enrollment?.payment_status ||
+      enrollment?.enrollment_status
+  );
+
+  if (ENROLLMENT_PENDING_STATUSES.has(enrollmentStatus)) {
+    return "payment_pending";
+  }
+
+  if (ENROLLMENT_APPROVED_STATUSES.has(enrollmentStatus)) {
+    return "program_onboarding";
+  }
+
+  return "normal";
+}
 
 function App() {
-  const [session, setSession] = useState(null);
-  const [profile, setProfile] = useState(null);
-  const [booting, setBooting] = useState(true);
+  const { user, profile, loading, authReady } = useAuth();
+
+  const [enrollment, setEnrollment] = useState(null);
+  const [enrollmentLoading, setEnrollmentLoading] = useState(true);
+
+  const profileReady = user ? profile !== null : true;
 
   useEffect(() => {
-    let alive = true;
+    let isMounted = true;
 
-    const forceReleaseTimer = setTimeout(() => {
-      if (!alive) return;
-      console.warn("[App] Force releasing boot screen after timeout.");
-      setBooting(false);
-    }, 6000);
-
-    const fetchProfile = async (userId) => {
-      if (!userId) return null;
-
-      try {
-        console.log("[App] Fetching profile for:", userId);
-
-        const { data, error } = await withTimeout(
-          supabase.from("profiles").select("*").eq("id", userId).maybeSingle(),
-          5000
-        );
-
-        if (error) {
-          console.error("[App] Profile fetch error:", error);
-          return null;
-        }
-
-        console.log("[App] Profile loaded:", data);
-        return data ?? null;
-      } catch (error) {
-        console.error("[App] Profile fetch timeout/error:", error);
-        return null;
-      }
+    const clearEnrollmentState = () => {
+      if (!isMounted) return;
+      setEnrollment(null);
+      setEnrollmentLoading(false);
     };
 
-    const init = async () => {
+    const fetchEnrollment = async () => {
+      if (!user?.id) {
+        clearEnrollmentState();
+        return;
+      }
+
+      setEnrollmentLoading(true);
+
       try {
-        console.log("[App] Starting init...");
-
-        const {
-          data: { session: currentSession },
-          error,
-        } = await withTimeout(supabase.auth.getSession(), 5000);
-
-        if (!alive) return;
+        const { data, error } = await supabase
+          .from("enrollments")
+          .select("*")
+          .eq("user_id", user.id)
+          .order("updated_at", { ascending: false })
+          .order("created_at", { ascending: false });
 
         if (error) {
-          console.error("[App] getSession error:", error);
+          throw error;
         }
 
-        console.log("[App] Session loaded:", currentSession);
+        if (!isMounted) return;
 
-        setSession(currentSession ?? null);
-
-        if (currentSession?.user?.id) {
-          const profileData = await fetchProfile(currentSession.user.id);
-          if (!alive) return;
-          setProfile(profileData);
-        } else {
-          setProfile(null);
-        }
+        const latestEnrollment = pickBestEnrollment(data);
+        setEnrollment(latestEnrollment || null);
       } catch (error) {
-        console.error("[App] Init failed:", error);
+        console.error("App enrollment fetch error:", error);
 
-        if (!alive) return;
-        setSession(null);
-        setProfile(null);
+        if (!isMounted) return;
+        setEnrollment(null);
       } finally {
-        if (alive) {
-          console.log("[App] Releasing boot screen.");
-          setBooting(false);
+        if (isMounted) {
+          setEnrollmentLoading(false);
         }
       }
     };
 
-    init();
-
-    const {
-      data: { subscription },
-    } = supabase.auth.onAuthStateChange(async (event, newSession) => {
-      if (!alive) return;
-
-      try {
-        console.log("[App] Auth state changed:", event, newSession);
-
-        setSession(newSession ?? null);
-
-        if (newSession?.user?.id) {
-          const profileData = await fetchProfile(newSession.user.id);
-          if (!alive) return;
-          setProfile(profileData);
-        } else {
-          setProfile(null);
-        }
-      } catch (error) {
-        console.error("[App] Auth state change error:", error);
-        if (!alive) return;
-        setProfile(null);
-      } finally {
-        if (alive) {
-          setBooting(false);
-        }
-      }
-    });
+    fetchEnrollment();
 
     return () => {
-      alive = false;
-      clearTimeout(forceReleaseTimer);
-      subscription.unsubscribe();
+      isMounted = false;
     };
-  }, []);
+  }, [user?.id]);
 
-  const flow = useMemo(() => {
-    if (!session) return "guest";
+  const role = useMemo(
+    () => normalizeValue(profile?.role || "user"),
+    [profile?.role]
+  );
 
-    try {
-      return getUserFlow(profile);
-    } catch (error) {
-      console.error("[App] Flow error:", error);
-      return "universal_onboarding";
-    }
-  }, [session, profile]);
-
-  const role = String(profile?.role || "user").toLowerCase();
   const isAdvertiser = role === "advertiser";
 
-  if (booting) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-[#061018] text-white">
-        Loading...
-      </div>
-    );
+  const flow = useMemo(() => {
+    if (!user || !profileReady || enrollmentLoading) {
+      return "loading";
+    }
+
+    return resolveFlow(profile, enrollment);
+  }, [user, profileReady, enrollmentLoading, profile, enrollment]);
+
+  if (!authReady || loading || (user && !profileReady) || (user && enrollmentLoading)) {
+    return <FullScreenLoader />;
   }
 
   return (
@@ -201,23 +201,19 @@ function App() {
       <Routes>
         <Route
           path="/login"
-          element={session ? <Navigate to="/" replace /> : <Login />}
+          element={user ? <Navigate to="/" replace /> : <Login />}
         />
 
         <Route
           path="/onboarding"
-          element={
-            session ? <UniversalOnboarding /> : <Navigate to="/login" replace />
-          }
+          element={user ? <UniversalOnboarding /> : <Navigate to="/login" replace />}
         />
 
         <Route
           path="/pending"
           element={
-            session && flow === "payment_pending" ? (
+            user && flow === "payment_pending" ? (
               <PendingScreen />
-            ) : !session ? (
-              <Navigate to="/login" replace />
             ) : (
               <Navigate to="/" replace />
             )
@@ -227,10 +223,8 @@ function App() {
         <Route
           path="/program-onboarding"
           element={
-            session && flow === "program_onboarding" ? (
+            user && flow === "program_onboarding" ? (
               <ProgramOnboarding />
-            ) : !session ? (
-              <Navigate to="/login" replace />
             ) : (
               <Navigate to="/" replace />
             )
@@ -238,62 +232,69 @@ function App() {
         />
 
         <Route
+          path="/*"
           element={
-            <ProtectedRoute session={session}>
-              <Layout />
-            </ProtectedRoute>
+            user ? (
+              <Layout>
+                <Routes>
+                  <Route
+                    path="/"
+                    element={
+                      isAdvertiser ? (
+                        <Navigate to="/advertiser" replace />
+                      ) : flow === "universal_onboarding" ? (
+                        <Navigate to="/onboarding" replace />
+                      ) : flow === "payment_pending" ? (
+                        <Navigate to="/pending" replace />
+                      ) : flow === "program_onboarding" ? (
+                        <Navigate to="/program-onboarding" replace />
+                      ) : (
+                        <Navigate to="/dashboard" replace />
+                      )
+                    }
+                  />
+
+                  <Route path="/advertiser" element={<AdvertiserDashboard />} />
+
+                  {!isAdvertiser && (
+                    <>
+                      <Route path="/dashboard" element={<Dashboard />} />
+                      <Route path="/expenses" element={<Expenses />} />
+                      <Route path="/add-funds" element={<AddFunds />} />
+                      <Route path="/wallets" element={<Wallets />} />
+                      <Route path="/budgets" element={<Budgets />} />
+                      <Route path="/analytics" element={<Analytics />} />
+                      <Route path="/tasks" element={<Tasks />} />
+                      <Route path="/modules" element={<Modules />} />
+                      <Route path="/community" element={<Community />} />
+                      <Route path="/messages" element={<Messages />} />
+                      <Route path="/coaching" element={<Coaching />} />
+                      <Route path="/enroll" element={<Enroll />} />
+                      <Route path="/tier-select" element={<TierSelect />} />
+                      <Route path="/news" element={<News />} />
+                      <Route path="/referrals" element={<Referrals />} />
+                      <Route path="/savings-goals" element={<SavingsGoals />} />
+
+                      <Route path="/admin" element={<AdminPanel />} />
+                      <Route path="/admin/student/:id" element={<StudentProfile />} />
+                      <Route
+                        path="/admin/referral-materials"
+                        element={<AdminReferralMaterials />}
+                      />
+                      <Route path="/admin/daily-tips" element={<AdminDailyTips />} />
+                    </>
+                  )}
+
+                  <Route path="/settings" element={<Settings />} />
+                  <Route path="/profile" element={<Profile />} />
+                  <Route path="*" element={<PageNotFound />} />
+                </Routes>
+              </Layout>
+            ) : (
+              <Navigate to="/login" replace />
+            )
           }
-        >
-          <Route
-            path="/"
-            element={
-              isAdvertiser ? (
-                <Navigate to="/advertiser" replace />
-              ) : flow === "universal_onboarding" ? (
-                <Navigate to="/onboarding" replace />
-              ) : flow === "payment_pending" ? (
-                <Navigate to="/pending" replace />
-              ) : flow === "program_onboarding" ? (
-                <Navigate to="/program-onboarding" replace />
-              ) : (
-                <Navigate to="/dashboard" replace />
-              )
-            }
-          />
-
-          <Route path="/advertiser" element={<AdvertiserDashboard />} />
-
-          {!isAdvertiser && (
-            <>
-              <Route path="/dashboard" element={<Dashboard />} />
-              <Route path="/expenses" element={<Expenses />} />
-              <Route path="/add-funds" element={<AddFunds />} />
-              <Route path="/wallets" element={<Wallets />} />
-              <Route path="/budgets" element={<Budgets />} />
-              <Route path="/analytics" element={<Analytics />} />
-              <Route path="/tasks" element={<Tasks />} />
-              <Route path="/modules" element={<Modules />} />
-              <Route path="/community" element={<Community />} />
-              <Route path="/messages" element={<Messages />} />
-              <Route path="/coaching" element={<Coaching />} />
-              <Route path="/enroll" element={<Enroll />} />
-              <Route path="/tier-select" element={<TierSelect />} />
-              <Route path="/news" element={<News />} />
-              <Route path="/referrals" element={<Referrals />} />
-              <Route path="/savings-goals" element={<SavingsGoals />} />
-              <Route path="/admin" element={<AdminPanel />} />
-              <Route path="/admin/student/:id" element={<StudentProfile />} />
-              <Route
-                path="/admin/referral-materials"
-                element={<AdminReferralMaterials />}
-              />
-              <Route path="/admin/daily-tips" element={<AdminDailyTips />} />
-            </>
-          )}
-
-          <Route path="/settings" element={<Settings />} />
-          <Route path="/profile" element={<Profile />} />
-        </Route>
+        />
 
         <Route path="*" element={<PageNotFound />} />
       </Routes>

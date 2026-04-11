@@ -19,35 +19,40 @@ export default function useUserRole() {
     try {
       setLoading(true);
 
+      // 🔥 timeout protection (VERY IMPORTANT)
+      const timeout = new Promise((_, reject) =>
+        setTimeout(() => reject(new Error("Timeout")), 8000)
+      );
+
       const {
         data: { user: authUser },
         error: authError,
-      } = await supabase.auth.getUser();
+      } = await Promise.race([
+        supabase.auth.getUser(),
+        timeout,
+      ]);
 
-      if (authError) {
-        console.error("getUser error:", authError);
+      if (authError || !authUser) {
         setUser(null);
         return;
       }
 
-      if (!authUser) {
-        setUser(null);
-        return;
-      }
+      let profile = null;
 
-      let { data: profile, error: profileError } = await supabase
+      // 🔥 try fetch profile (NON-BLOCKING)
+      const { data, error } = await supabase
         .from("profiles")
         .select("*")
         .eq("id", authUser.id)
         .maybeSingle();
 
-      if (profileError) {
-        console.error("fetch profile error:", profileError);
+      if (!error) {
+        profile = data;
       }
 
-      // auto create profile if missing
+      // 🔥 try create profile IF missing (but don't block app)
       if (!profile) {
-        const { data: newProfile, error: insertError } = await supabase
+        const { data: newProfile } = await supabase
           .from("profiles")
           .insert([
             {
@@ -60,20 +65,24 @@ export default function useUserRole() {
             },
           ])
           .select()
-          .single();
+          .maybeSingle();
 
-        if (insertError) {
-          console.error("create profile error:", insertError);
-          setUser(null);
-          return;
-        }
-
-        profile = newProfile;
+        profile = newProfile || null;
       }
 
-      setUser(profile);
+      // 🔥 ALWAYS SET USER (NO MATTER WHAT)
+      setUser({
+        id: authUser.id,
+        email: authUser.email,
+        role: profile?.role || "user",
+        plan: profile?.plan || "free",
+        enrollment_status: profile?.enrollment_status || "",
+        profile: profile || null,
+      });
     } catch (err) {
-      console.error("useUserRole error:", err);
+      console.error("useUserRole error:", err.message);
+
+      // fallback (prevents infinite loading)
       setUser(null);
     } finally {
       setLoading(false);
@@ -104,7 +113,6 @@ export default function useUserRole() {
 
   const isAdmin = role === "admin";
 
-  // 🔥 FIX: require BOTH plan + active enrollment
   const isPaid =
     isAdmin ||
     (PAID_TIERS.includes(plan) && enrollmentStatus === "active");

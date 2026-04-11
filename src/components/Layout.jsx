@@ -1,4 +1,4 @@
-import { Outlet, Link, useLocation, useNavigate } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
   LayoutDashboard,
@@ -92,7 +92,7 @@ function SidebarContent({
         </div>
       </div>
 
-      <nav className="flex-1 overflow-y-auto space-y-0.5 p-3">
+      <nav className="flex-1 space-y-0.5 overflow-y-auto p-3">
         {navItems.map((item) => {
           const isActive =
             currentPath === item.path ||
@@ -114,8 +114,8 @@ function SidebarContent({
                   isActive
                     ? "bg-gradient-to-r from-green-500 to-emerald-600 font-semibold text-white"
                     : isLocked
-                      ? "cursor-not-allowed text-white/30"
-                      : "text-white/70 hover:bg-white/10 hover:text-white"
+                    ? "cursor-not-allowed text-white/30"
+                    : "text-white/70 hover:bg-white/10 hover:text-white"
                 }`}
               >
                 <item.icon className="h-4 w-4 flex-shrink-0" />
@@ -464,7 +464,7 @@ function MobileControlCenter({
   );
 }
 
-export default function Layout() {
+export default function Layout({ children }) {
   const location = useLocation();
   const navigate = useNavigate();
 
@@ -568,7 +568,7 @@ export default function Layout() {
         </div>
 
         <main className="flex-1 overflow-y-auto pb-24 pt-3 lg:pb-0 lg:pt-0">
-          <Outlet />
+          {children}
         </main>
       </div>
 

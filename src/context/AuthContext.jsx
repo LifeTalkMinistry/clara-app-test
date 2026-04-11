@@ -10,7 +10,7 @@ import { supabase } from "@/lib/supabaseClient";
 
 const AuthContext = createContext(null);
 
-const withTimeout = (promise, ms = 10000) => {
+const withTimeout = (promise, ms = 8000) => {
   return Promise.race([
     promise,
     new Promise((_, reject) =>
@@ -28,27 +28,28 @@ export function AuthProvider({ children }) {
   const [authReady, setAuthReady] = useState(false);
 
   const ensureBasicProfile = useCallback(async (authUser, fallbackName = "") => {
-    if (!authUser?.id) return null;
-
-    const payload = {
-      id: authUser.id,
-      email: authUser.email || null,
-      full_name:
-        fallbackName?.trim() ||
-        authUser.user_metadata?.full_name ||
-        authUser.user_metadata?.name ||
-        null,
-    };
+    if (!authUser?.id) return;
 
     try {
-      await supabase.from("profiles").upsert(payload, { onConflict: "id" });
+      await supabase.from("profiles").upsert(
+        {
+          id: authUser.id,
+          email: authUser.email || null,
+          full_name:
+            fallbackName?.trim() ||
+            authUser.user_metadata?.full_name ||
+            authUser.user_metadata?.name ||
+            null,
+        },
+        { onConflict: "id" }
+      );
     } catch (error) {
       console.error("ensureBasicProfile error:", error);
     }
   }, []);
 
   const fetchProfile = useCallback(async (userId) => {
-    if (!userId) return null;
+    if (!userId) return;
 
     try {
       const { data, error } = await supabase
@@ -60,54 +61,56 @@ export function AuthProvider({ children }) {
       if (error) throw error;
 
       setProfile(data || null);
-      return data;
     } catch (error) {
       console.error("fetchProfile error:", error);
       setProfile(null);
-      return null;
     }
   }, []);
 
   useEffect(() => {
     let mounted = true;
 
-    const loadSession = async () => {
+    const init = async () => {
       try {
         const {
-          data: { session: currentSession },
-        } = await withTimeout(supabase.auth.getSession(), 10000);
+          data: { session },
+        } = await withTimeout(supabase.auth.getSession());
 
         if (!mounted) return;
 
-        const currentUser = currentSession?.user ?? null;
+        const currentUser = session?.user ?? null;
 
-        setSession(currentSession);
+        setSession(session);
         setUser(currentUser);
 
+        // ✅ IMPORTANT: stop blocking UI here
+        setLoading(false);
+        setAuthReady(true);
+
+        // ✅ Run profile in background (non-blocking)
         if (currentUser?.id) {
-          await ensureBasicProfile(currentUser);
-          await fetchProfile(currentUser.id);
+          ensureBasicProfile(currentUser);
+          fetchProfile(currentUser.id);
         }
       } catch (error) {
-        console.error("loadSession error:", error);
+        console.error("init auth error:", error);
 
         if (!mounted) return;
+
         setSession(null);
         setUser(null);
         setProfile(null);
-      } finally {
-        if (mounted) {
-          setLoading(false);
-          setAuthReady(true);
-        }
+
+        setLoading(false);
+        setAuthReady(true);
       }
     };
 
-    loadSession();
+    init();
 
     const {
       data: { subscription },
-    } = supabase.auth.onAuthStateChange(async (_event, nextSession) => {
+    } = supabase.auth.onAuthStateChange((_event, nextSession) => {
       if (!mounted) return;
 
       const nextUser = nextSession?.user ?? null;
@@ -115,15 +118,16 @@ export function AuthProvider({ children }) {
       setSession(nextSession ?? null);
       setUser(nextUser);
 
+      // ✅ NEVER block here
+      setLoading(false);
+      setAuthReady(true);
+
       if (nextUser?.id) {
-        await ensureBasicProfile(nextUser);
-        await fetchProfile(nextUser.id);
+        ensureBasicProfile(nextUser);
+        fetchProfile(nextUser.id);
       } else {
         setProfile(null);
       }
-
-      setLoading(false);
-      setAuthReady(true);
     });
 
     return () => {
@@ -143,11 +147,6 @@ export function AuthProvider({ children }) {
 
     if (error) throw error;
 
-    if (data?.user?.id) {
-      await ensureBasicProfile(data.user, fullName);
-      await fetchProfile(data.user.id);
-    }
-
     return data;
   };
 
@@ -159,11 +158,6 @@ export function AuthProvider({ children }) {
 
     if (error) throw error;
 
-    if (data?.user?.id) {
-      await ensureBasicProfile(data.user);
-      await fetchProfile(data.user.id);
-    }
-
     return data;
   };
 
@@ -174,11 +168,9 @@ export function AuthProvider({ children }) {
     setProfile(null);
   };
 
-  const refreshProfile = useCallback(async (targetUserId) => {
-    const id = targetUserId || user?.id;
-    if (!id) return null;
-
-    return await fetchProfile(id);
+  const refreshProfile = useCallback(async () => {
+    if (!user?.id) return;
+    await fetchProfile(user.id);
   }, [user?.id, fetchProfile]);
 
   const value = useMemo(
