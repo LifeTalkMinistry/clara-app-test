@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect, useRef } from "react";
 import {
   Plus,
   Wallet as WalletIcon,
@@ -58,6 +58,9 @@ const walletIcons = {
   other: "💰",
 };
 
+const LONG_PRESS_MS = 350;
+const MOVE_CANCEL_PX = 8;
+
 const toNumber = (v) => {
   const n = Number(v);
   return Number.isFinite(n) ? n : 0;
@@ -69,6 +72,19 @@ const getToday = () => {
   const mm = String(d.getMonth() + 1).padStart(2, "0");
   const dd = String(d.getDate()).padStart(2, "0");
   return `${yyyy}-${mm}-${dd}`;
+};
+
+const getWalletSortOrder = (wallet, index) => {
+  if (wallet?.sort_order === null || wallet?.sort_order === undefined) return index;
+  const n = Number(wallet.sort_order);
+  return Number.isFinite(n) ? n : index;
+};
+
+const arrayMove = (arr, fromIndex, toIndex) => {
+  const next = [...arr];
+  const [item] = next.splice(fromIndex, 1);
+  next.splice(toIndex, 0, item);
+  return next;
 };
 
 export default function Wallets() {
@@ -84,6 +100,7 @@ export default function Wallets() {
   const [isCreatingWallet, setIsCreatingWallet] = useState(false);
   const [isAddingMoney, setIsAddingMoney] = useState(false);
   const [isTransferringMoney, setIsTransferringMoney] = useState(false);
+  const [isReorderingWallets, setIsReorderingWallets] = useState(false);
 
   const [selectedWallet, setSelectedWallet] = useState(null);
   const [historyWallet, setHistoryWallet] = useState(null);
@@ -110,11 +127,52 @@ export default function Wallets() {
     notes: "",
   });
 
+  const sortedWallets = useMemo(() => {
+    return [...wallets].sort((a, b) => {
+      const aOrder = getWalletSortOrder(
+        a,
+        wallets.findIndex((w) => String(w.id) === String(a.id))
+      );
+      const bOrder = getWalletSortOrder(
+        b,
+        wallets.findIndex((w) => String(w.id) === String(b.id))
+      );
+
+      if (aOrder !== bOrder) return aOrder - bOrder;
+
+      const aCreated = new Date(a?.created_at || 0).getTime();
+      const bCreated = new Date(b?.created_at || 0).getTime();
+      return aCreated - bCreated;
+    });
+  }, [wallets]);
+
+  const [localWallets, setLocalWallets] = useState([]);
+
+  useEffect(() => {
+    setLocalWallets(sortedWallets);
+  }, [sortedWallets]);
+
+  const cardRefs = useRef({});
+  const longPressTimerRef = useRef(null);
+  const dragStateRef = useRef({
+    pointerId: null,
+    walletId: null,
+    startX: 0,
+    startY: 0,
+    latestY: 0,
+    latestX: 0,
+    dragging: false,
+    movedBeforeLongPress: false,
+  });
+
+  const [draggingWalletId, setDraggingWalletId] = useState(null);
+  const [pressingWalletId, setPressingWalletId] = useState(null);
+
   const getBalance = (wallet) => Number(wallet?.balance || 0);
 
   const totalBalance = useMemo(() => {
-    return wallets.reduce((sum, w) => sum + getBalance(w), 0);
-  }, [wallets]);
+    return localWallets.reduce((sum, w) => sum + getBalance(w), 0);
+  }, [localWallets]);
 
   const fmt = (n) =>
     new Intl.NumberFormat("en-PH", {
@@ -205,6 +263,199 @@ export default function Wallets() {
     return "+";
   };
 
+  const normalizeWalletOrder = async (walletList) => {
+    const updates = walletList.map((wallet, index) =>
+      supabase
+        .from("wallets")
+        .update({ sort_order: index })
+        .eq("id", String(wallet.id))
+    );
+
+    const results = await Promise.all(updates);
+    const failed = results.find((result) => result.error);
+
+    if (failed?.error) {
+      throw failed.error;
+    }
+  };
+
+  const clearLongPressTimer = () => {
+    if (longPressTimerRef.current) {
+      clearTimeout(longPressTimerRef.current);
+      longPressTimerRef.current = null;
+    }
+  };
+
+  const resetDragState = () => {
+    clearLongPressTimer();
+    dragStateRef.current = {
+      pointerId: null,
+      walletId: null,
+      startX: 0,
+      startY: 0,
+      latestY: 0,
+      latestX: 0,
+      dragging: false,
+      movedBeforeLongPress: false,
+    };
+    setDraggingWalletId(null);
+    setPressingWalletId(null);
+    document.body.style.userSelect = "";
+    document.body.style.webkitUserSelect = "";
+    document.body.style.touchAction = "";
+  };
+
+  const persistWalletOrder = async (nextWallets) => {
+    try {
+      setIsReorderingWallets(true);
+      await normalizeWalletOrder(nextWallets);
+      await refreshData();
+    } catch (error) {
+      alert(error?.message || "Failed to reorder wallets");
+      setLocalWallets(sortedWallets);
+    } finally {
+      setIsReorderingWallets(false);
+    }
+  };
+
+  const startLongPress = (walletId, e) => {
+    if (isReorderingWallets) return;
+    if (e.button !== undefined && e.button !== 0) return;
+
+    const target = e.target;
+    if (
+      target?.closest?.(
+        'button, input, select, textarea, [role="button"], [data-no-drag="true"]'
+      )
+    ) {
+      return;
+    }
+
+    clearLongPressTimer();
+
+    dragStateRef.current = {
+      pointerId: e.pointerId,
+      walletId: String(walletId),
+      startX: e.clientX,
+      startY: e.clientY,
+      latestY: e.clientY,
+      latestX: e.clientX,
+      dragging: false,
+      movedBeforeLongPress: false,
+    };
+
+    setPressingWalletId(String(walletId));
+
+    longPressTimerRef.current = setTimeout(() => {
+      if (dragStateRef.current.walletId !== String(walletId)) return;
+
+      dragStateRef.current.dragging = true;
+      setDraggingWalletId(String(walletId));
+      setPressingWalletId(null);
+
+      document.body.style.userSelect = "none";
+      document.body.style.webkitUserSelect = "none";
+      document.body.style.touchAction = "none";
+    }, LONG_PRESS_MS);
+  };
+
+  const updateDraggedWalletPosition = (clientY) => {
+    const activeId = dragStateRef.current.walletId;
+    if (!activeId) return;
+
+    const currentIndex = localWallets.findIndex(
+      (wallet) => String(wallet.id) === String(activeId)
+    );
+    if (currentIndex === -1) return;
+
+    let targetIndex = currentIndex;
+
+    for (let i = 0; i < localWallets.length; i += 1) {
+      const wallet = localWallets[i];
+      const el = cardRefs.current[String(wallet.id)];
+      if (!el) continue;
+
+      const rect = el.getBoundingClientRect();
+      const midpoint = rect.top + rect.height / 2;
+
+      if (clientY > midpoint) {
+        targetIndex = i;
+      }
+    }
+
+    if (targetIndex !== currentIndex) {
+      setLocalWallets((prev) => {
+        const fromIndex = prev.findIndex(
+          (wallet) => String(wallet.id) === String(activeId)
+        );
+        if (fromIndex === -1) return prev;
+        return arrayMove(prev, fromIndex, targetIndex);
+      });
+    }
+  };
+
+  const handleGlobalPointerMove = (e) => {
+    if (
+      dragStateRef.current.pointerId !== null &&
+      e.pointerId !== dragStateRef.current.pointerId
+    ) {
+      return;
+    }
+
+    const dx = Math.abs(e.clientX - dragStateRef.current.startX);
+    const dy = Math.abs(e.clientY - dragStateRef.current.startY);
+
+    dragStateRef.current.latestX = e.clientX;
+    dragStateRef.current.latestY = e.clientY;
+
+    if (
+      !dragStateRef.current.dragging &&
+      (dx > MOVE_CANCEL_PX || dy > MOVE_CANCEL_PX)
+    ) {
+      dragStateRef.current.movedBeforeLongPress = true;
+      clearLongPressTimer();
+      setPressingWalletId(null);
+    }
+
+    if (dragStateRef.current.dragging) {
+      e.preventDefault();
+      updateDraggedWalletPosition(e.clientY);
+    }
+  };
+
+  const handleGlobalPointerUp = async (e) => {
+    if (
+      dragStateRef.current.pointerId !== null &&
+      e.pointerId !== dragStateRef.current.pointerId
+    ) {
+      return;
+    }
+
+    const wasDragging = dragStateRef.current.dragging;
+    const currentWallets = [...localWallets];
+
+    resetDragState();
+
+    if (wasDragging) {
+      await persistWalletOrder(currentWallets);
+    }
+  };
+
+  useEffect(() => {
+    window.addEventListener("pointermove", handleGlobalPointerMove, {
+      passive: false,
+    });
+    window.addEventListener("pointerup", handleGlobalPointerUp);
+    window.addEventListener("pointercancel", handleGlobalPointerUp);
+
+    return () => {
+      window.removeEventListener("pointermove", handleGlobalPointerMove);
+      window.removeEventListener("pointerup", handleGlobalPointerUp);
+      window.removeEventListener("pointercancel", handleGlobalPointerUp);
+      clearLongPressTimer();
+    };
+  }, [localWallets, sortedWallets]);
+
   const handleAddWallet = async () => {
     if (!form.name.trim()) {
       alert("Please enter a wallet name.");
@@ -220,6 +471,7 @@ export default function Wallets() {
       setIsCreatingWallet(true);
 
       const starting = toNumber(form.starting_balance);
+      const nextSortOrder = localWallets.length;
 
       const { error } = await supabase.from("wallets").insert([
         {
@@ -227,6 +479,7 @@ export default function Wallets() {
           type: form.type,
           balance: starting,
           icon: walletIcons[form.type],
+          sort_order: nextSortOrder,
           user_id: user?.id || null,
           user_email: user?.email || null,
           created_by: user?.email || null,
@@ -256,6 +509,12 @@ export default function Wallets() {
         .eq("id", String(id));
 
       if (error) throw error;
+
+      const remainingWallets = localWallets.filter(
+        (wallet) => String(wallet.id) !== String(id)
+      );
+
+      await normalizeWalletOrder(remainingWallets);
       await refreshData();
     } catch (error) {
       alert(error?.message || "Failed to delete wallet");
@@ -263,6 +522,8 @@ export default function Wallets() {
   };
 
   const openAddMoneyModal = (wallet) => {
+    if (draggingWalletId || isReorderingWallets) return;
+
     setSelectedWallet(wallet);
     setAddMoneyForm({
       amount: "",
@@ -347,8 +608,8 @@ export default function Wallets() {
       return;
     }
 
-    const fromWallet = wallets.find((w) => String(w.id) === fromId);
-    const toWallet = wallets.find((w) => String(w.id) === toId);
+    const fromWallet = localWallets.find((w) => String(w.id) === fromId);
+    const toWallet = localWallets.find((w) => String(w.id) === toId);
 
     if (!fromWallet || !toWallet) {
       alert("Wallet not found.");
@@ -424,27 +685,26 @@ export default function Wallets() {
     getBalance(selectedWallet) + toNumber(addMoneyForm.amount || 0);
 
   return (
-    <div className="p-4 md:p-6 max-w-5xl mx-auto">
+    <div className="mx-auto max-w-5xl p-4 md:p-6">
       <PageHeader
         title="Wallets"
-        subtitle="Manage your money"
         action={
           <Button onClick={() => setAddOpen(true)}>
-            <Plus className="w-4 h-4 mr-1" />
+            <Plus className="mr-1 h-4 w-4" />
             Add Wallet
           </Button>
         }
       />
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-6">
-        <div className="p-4 rounded-xl bg-white/5 border border-white/10">
+      <div className="mb-6 grid grid-cols-1 gap-3 md:grid-cols-2">
+        <div className="rounded-xl border border-white/10 bg-white/5 p-4">
           <p className="text-xs text-white/60">Total Balance</p>
           <p className="text-xl font-bold">{fmt(totalBalance)}</p>
         </div>
 
-        <div className="p-4 rounded-xl bg-white/5 border border-white/10">
+        <div className="rounded-xl border border-white/10 bg-white/5 p-4">
           <p className="text-xs text-white/60">Total Wallets</p>
-          <p className="text-xl font-bold">{wallets.length}</p>
+          <p className="text-xl font-bold">{localWallets.length}</p>
         </div>
       </div>
 
@@ -507,7 +767,7 @@ export default function Wallets() {
             <Button
               onClick={handleAddWallet}
               disabled={isCreatingWallet}
-              className="w-full bg-emerald-500 hover:bg-emerald-400 text-black font-semibold"
+              className="w-full bg-emerald-500 font-semibold text-black hover:bg-emerald-400"
             >
               {isCreatingWallet ? "Creating..." : "Create"}
             </Button>
@@ -516,14 +776,14 @@ export default function Wallets() {
       </Dialog>
 
       <Dialog open={addMoneyOpen} onOpenChange={setAddMoneyOpen}>
-        <DialogContent className="border border-emerald-400/20 bg-[#020d24] text-white sm:max-w-[510px] rounded-3xl p-0 overflow-hidden">
+        <DialogContent className="overflow-hidden rounded-3xl border border-emerald-400/20 bg-[#020d24] p-0 text-white sm:max-w-[510px]">
           <div className="relative p-6 sm:p-6">
             <button
               type="button"
               onClick={() => setAddMoneyOpen(false)}
               className="absolute right-4 top-4 text-white/70 hover:text-white"
             >
-              <X className="w-5 h-5" />
+              <X className="h-5 w-5" />
             </button>
 
             <DialogHeader className="mb-5 text-left">
@@ -536,14 +796,14 @@ export default function Wallets() {
               <div className="rounded-2xl border border-white/10 bg-white/5 px-4 py-4">
                 <div className="flex items-start justify-between gap-4">
                   <div>
-                    <p className="text-sm text-white/60 mb-1">Wallet</p>
+                    <p className="mb-1 text-sm text-white/60">Wallet</p>
                     <p className="text-[17px] font-semibold">
                       {selectedWallet?.icon || "💰"} {selectedWallet?.name || "—"}
                     </p>
                   </div>
 
                   <div className="text-right">
-                    <p className="text-sm text-white/60 mb-1">Current Balance</p>
+                    <p className="mb-1 text-sm text-white/60">Current Balance</p>
                     <p className="text-[17px] font-semibold">
                       {fmt(getBalance(selectedWallet))}
                     </p>
@@ -552,7 +812,7 @@ export default function Wallets() {
               </div>
 
               <div>
-                <p className="text-sm font-medium text-white mb-2">Amount</p>
+                <p className="mb-2 text-sm font-medium text-white">Amount</p>
                 <Input
                   type="number"
                   placeholder="0.00"
@@ -563,10 +823,10 @@ export default function Wallets() {
                       amount: e.target.value,
                     }))
                   }
-                  className="h-12 rounded-2xl border-emerald-400/70 bg-transparent text-white text-base placeholder:text-white/35 focus-visible:ring-emerald-400"
+                  className="h-12 rounded-2xl border-emerald-400/70 bg-transparent text-base text-white placeholder:text-white/35 focus-visible:ring-emerald-400"
                 />
 
-                <div className="flex flex-wrap gap-2 mt-3">
+                <div className="mt-3 flex flex-wrap gap-2">
                   {[500, 1000, 5000].map((amt) => (
                     <button
                       key={amt}
@@ -586,7 +846,7 @@ export default function Wallets() {
               </div>
 
               <div>
-                <p className="text-sm font-medium text-white mb-2">Source Type</p>
+                <p className="mb-2 text-sm font-medium text-white">Source Type</p>
                 <Select
                   value={addMoneyForm.source_type}
                   onValueChange={(v) =>
@@ -607,7 +867,7 @@ export default function Wallets() {
               </div>
 
               <div>
-                <p className="text-sm font-medium text-white mb-2">Details</p>
+                <p className="mb-2 text-sm font-medium text-white">Details</p>
                 <Input
                   placeholder="e.g. Client payment, bonus, side hustle"
                   value={addMoneyForm.details}
@@ -621,9 +881,9 @@ export default function Wallets() {
                 />
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                 <div>
-                  <p className="text-sm font-medium text-white mb-2">Date</p>
+                  <p className="mb-2 text-sm font-medium text-white">Date</p>
                   <div className="relative">
                     <Input
                       type="date"
@@ -636,12 +896,12 @@ export default function Wallets() {
                       }
                       className="h-12 rounded-2xl border-white/10 bg-transparent pr-10 text-white"
                     />
-                    <CalendarDays className="w-4 h-4 text-white/50 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+                    <CalendarDays className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-white/50" />
                   </div>
                 </div>
 
                 <div>
-                  <p className="text-sm font-medium text-white mb-2">Tag</p>
+                  <p className="mb-2 text-sm font-medium text-white">Tag</p>
                   <Select
                     value={addMoneyForm.tag}
                     onValueChange={(v) =>
@@ -663,7 +923,7 @@ export default function Wallets() {
               </div>
 
               <div>
-                <p className="text-sm font-medium text-white mb-2">Notes</p>
+                <p className="mb-2 text-sm font-medium text-white">Notes</p>
                 <Input
                   placeholder="Optional note"
                   value={addMoneyForm.notes}
@@ -678,11 +938,11 @@ export default function Wallets() {
               </div>
 
               <div className="rounded-2xl border border-emerald-400/10 bg-gradient-to-r from-emerald-900/30 to-emerald-700/10 px-4 py-4">
-                <p className="text-sm text-white/70 mb-2">Projected Balance</p>
+                <p className="mb-2 text-sm text-white/70">Projected Balance</p>
                 <p className="text-[16px] font-semibold">
                   {fmt(getBalance(selectedWallet))} → {fmt(projectedBalance)}
                 </p>
-                <p className="text-sm text-white/55 mt-3">
+                <p className="mt-3 text-sm text-white/55">
                   Every peso you track builds more control.
                 </p>
               </div>
@@ -690,7 +950,7 @@ export default function Wallets() {
               <Button
                 onClick={handleAddMoney}
                 disabled={isAddingMoney}
-                className="w-full h-12 rounded-2xl bg-emerald-500 hover:bg-emerald-400 text-black font-semibold text-base"
+                className="h-12 w-full rounded-2xl bg-emerald-500 text-base font-semibold text-black hover:bg-emerald-400"
               >
                 {isAddingMoney ? "Saving..." : "Save"}
               </Button>
@@ -700,7 +960,7 @@ export default function Wallets() {
       </Dialog>
 
       <Dialog open={transferOpen} onOpenChange={setTransferOpen}>
-        <DialogContent className="border border-emerald-400/20 bg-[#020d24] text-white sm:max-w-[500px] rounded-3xl">
+        <DialogContent className="rounded-3xl border border-emerald-400/20 bg-[#020d24] text-white sm:max-w-[500px]">
           <DialogHeader>
             <DialogTitle className="text-[18px] font-semibold">
               Transfer Money
@@ -709,7 +969,7 @@ export default function Wallets() {
 
           <div className="space-y-4">
             <div>
-              <p className="text-sm font-medium text-white mb-2">From Wallet</p>
+              <p className="mb-2 text-sm font-medium text-white">From Wallet</p>
               <Select
                 value={transferForm.from_wallet_id}
                 onValueChange={(v) =>
@@ -720,7 +980,7 @@ export default function Wallets() {
                   <SelectValue placeholder="From wallet" />
                 </SelectTrigger>
                 <SelectContent className="border-white/10 bg-[#08152f] text-white">
-                  {wallets.map((wallet) => (
+                  {localWallets.map((wallet) => (
                     <SelectItem key={wallet.id} value={String(wallet.id)}>
                       {(wallet.icon || "💰") + " " + wallet.name} ({fmt(getBalance(wallet))})
                     </SelectItem>
@@ -730,7 +990,7 @@ export default function Wallets() {
             </div>
 
             <div>
-              <p className="text-sm font-medium text-white mb-2">To Wallet</p>
+              <p className="mb-2 text-sm font-medium text-white">To Wallet</p>
               <Select
                 value={transferForm.to_wallet_id}
                 onValueChange={(v) =>
@@ -741,7 +1001,7 @@ export default function Wallets() {
                   <SelectValue placeholder="To wallet" />
                 </SelectTrigger>
                 <SelectContent className="border-white/10 bg-[#08152f] text-white">
-                  {wallets
+                  {localWallets
                     .filter(
                       (wallet) =>
                         String(wallet.id) !== String(transferForm.from_wallet_id)
@@ -756,7 +1016,7 @@ export default function Wallets() {
             </div>
 
             <div>
-              <p className="text-sm font-medium text-white mb-2">Amount</p>
+              <p className="mb-2 text-sm font-medium text-white">Amount</p>
               <Input
                 type="number"
                 placeholder="0.00"
@@ -772,7 +1032,7 @@ export default function Wallets() {
             </div>
 
             <div>
-              <p className="text-sm font-medium text-white mb-2">Notes</p>
+              <p className="mb-2 text-sm font-medium text-white">Notes</p>
               <Input
                 placeholder="Optional transfer note"
                 value={transferForm.notes}
@@ -789,7 +1049,7 @@ export default function Wallets() {
             <Button
               onClick={handleTransferMoney}
               disabled={isTransferringMoney}
-              className="w-full h-12 rounded-2xl bg-emerald-500 hover:bg-emerald-400 text-black font-semibold"
+              className="h-12 w-full rounded-2xl bg-emerald-500 font-semibold text-black hover:bg-emerald-400"
             >
               {isTransferringMoney ? "Transferring..." : "Transfer Money"}
             </Button>
@@ -798,7 +1058,7 @@ export default function Wallets() {
       </Dialog>
 
       <Dialog open={historyOpen} onOpenChange={setHistoryOpen}>
-        <DialogContent className="border border-emerald-400/20 bg-[#020d24] text-white sm:max-w-[520px] rounded-3xl">
+        <DialogContent className="rounded-3xl border border-emerald-400/20 bg-[#020d24] text-white sm:max-w-[520px]">
           <DialogHeader>
             <DialogTitle className="text-[18px] font-semibold">
               Wallet History • {historyWallet?.name || ""}
@@ -809,14 +1069,14 @@ export default function Wallets() {
             <div className="rounded-2xl border border-white/10 bg-white/5 px-4 py-4">
               <div className="flex items-start justify-between gap-4">
                 <div>
-                  <p className="text-sm text-white/60 mb-1">Wallet</p>
+                  <p className="mb-1 text-sm text-white/60">Wallet</p>
                   <p className="text-[17px] font-semibold">
                     {historyWallet?.icon || "💰"} {historyWallet?.name || "—"}
                   </p>
                 </div>
 
                 <div className="text-right">
-                  <p className="text-sm text-white/60 mb-1">Current Balance</p>
+                  <p className="mb-1 text-sm text-white/60">Current Balance</p>
                   <p className="text-[17px] font-semibold">
                     {fmt(getBalance(historyWallet))}
                   </p>
@@ -826,10 +1086,10 @@ export default function Wallets() {
 
             {historyItems.length === 0 ? (
               <div className="rounded-2xl border border-white/10 bg-white/[0.03] px-4 py-10 text-center">
-                <p className="text-white/55 text-sm">No transaction history yet</p>
+                <p className="text-sm text-white/55">No transaction history yet</p>
               </div>
             ) : (
-              <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-3 max-h-[420px] overflow-y-auto space-y-3">
+              <div className="max-h-[420px] space-y-3 overflow-y-auto rounded-2xl border border-white/10 bg-white/[0.03] p-3">
                 {historyItems.map((item) => {
                   const isNegative =
                     item.type === "transfer_out" ||
@@ -847,18 +1107,18 @@ export default function Wallets() {
                             {getHistoryTypeLabel(item.type)}
                           </p>
 
-                          <p className="text-xs text-white/55 mt-1">
+                          <p className="mt-1 text-xs text-white/55">
                             {formatHistoryDate(item.created_at)}
                           </p>
 
                           {!!item.notes && (
-                            <p className="text-xs text-white/60 mt-2">
+                            <p className="mt-2 text-xs text-white/60">
                               Notes: {item.notes}
                             </p>
                           )}
                         </div>
 
-                        <div className="text-right shrink-0">
+                        <div className="shrink-0 text-right">
                           <p
                             className={`text-sm font-semibold ${
                               isNegative ? "text-red-300" : "text-emerald-300"
@@ -878,85 +1138,139 @@ export default function Wallets() {
         </DialogContent>
       </Dialog>
 
-      {!loading && wallets.length === 0 && (
+      {!loading && localWallets.length === 0 && (
         <EmptyState icon={WalletIcon} title="No wallets yet" />
       )}
 
       <div className="space-y-4">
-        {wallets.map((w) => (
-          <div
-            key={w.id}
-            className="p-5 rounded-[24px] bg-white/5 border border-white/10"
-          >
-            <div className="flex items-start justify-between gap-4">
-              <div className="min-w-0">
-                <p className="text-[18px] font-semibold">
-                  {w.icon || walletIcons[w.type] || "💰"} {w.name}
-                </p>
-                <p className="text-sm text-white/60 capitalize mt-1">
-                  {String(w.type || "other").replaceAll("_", " ")}
-                </p>
-                <p className="mt-4 text-[20px] font-bold">{fmt(getBalance(w))}</p>
-                <p className="text-sm text-white/45 mt-2">
-                  {walletTransactions.some(
-                    (t) => String(t.wallet_id) === String(w.id)
-                  )
-                    ? "Has activity"
-                    : "No activity yet"}
-                </p>
+        {localWallets.map((w) => {
+          const isDragging = String(draggingWalletId) === String(w.id);
+          const isPressing = String(pressingWalletId) === String(w.id);
+          const hasActivity = walletTransactions.some(
+            (t) => String(t.wallet_id) === String(w.id)
+          );
+
+          return (
+            <div
+              key={w.id}
+              ref={(el) => {
+                cardRefs.current[String(w.id)] = el;
+              }}
+              onPointerDown={(e) => startLongPress(w.id, e)}
+              className={[
+                "rounded-[24px] border bg-white/5 p-5 transition-all duration-200",
+                isDragging
+                  ? "scale-[1.01] border-emerald-400/80 bg-emerald-500/10 shadow-[0_0_0_1px_rgba(52,211,153,0.25),0_18px_50px_rgba(16,185,129,0.18)]"
+                  : isPressing
+                  ? "border-emerald-400/40 bg-white/[0.07]"
+                  : "border-white/10",
+                draggingWalletId && !isDragging ? "opacity-90" : "",
+              ].join(" ")}
+              style={{
+                touchAction: draggingWalletId ? "none" : "manipulation",
+              }}
+            >
+              <div className="mb-3 flex items-center justify-between gap-3">
+                <div className="min-w-0">
+                  <p className="text-[11px] uppercase tracking-[0.2em] text-white/40">
+                    Wallet
+                  </p>
+                  <p className="mt-1 text-xs text-white/55">
+                    {isDragging
+                      ? "Drop to save new order"
+                      : "Long press card to reorder"}
+                  </p>
+                </div>
+
+                <div
+                  className={`rounded-full px-3 py-1 text-[11px] font-medium ${
+                    isDragging
+                      ? "bg-emerald-500/20 text-emerald-300"
+                      : "bg-white/5 text-white/55"
+                  }`}
+                >
+                  {isDragging ? "Reordering..." : "Hold & drag"}
+                </div>
               </div>
 
-              <div className="flex items-center gap-2 shrink-0">
-                <button
-                  type="button"
-                  onClick={() => openAddMoneyModal(w)}
-                  className="h-9 w-9 rounded-full bg-[#22c55e] flex items-center justify-center text-white hover:scale-105 transition"
-                  title="Add Money"
-                >
-                  <Plus className="w-4 h-4" />
-                </button>
+              <div className="flex items-start justify-between gap-4">
+                <div className="min-w-0">
+                  <p className="text-[18px] font-semibold">
+                    {w.icon || walletIcons[w.type] || "💰"} {w.name}
+                  </p>
+                  <p className="mt-1 text-sm capitalize text-white/60">
+                    {String(w.type || "other").replaceAll("_", " ")}
+                  </p>
+                  <p className="mt-4 text-[20px] font-bold">{fmt(getBalance(w))}</p>
+                  <p className="mt-2 text-sm text-white/45">
+                    {hasActivity ? "Has activity" : "No activity yet"}
+                  </p>
+                </div>
 
-                <button
-                  type="button"
-                  onClick={() => {
-                    setTransferForm({
-                      from_wallet_id: String(w.id),
-                      to_wallet_id: "",
-                      amount: "",
-                      notes: "",
-                    });
-                    setTransferOpen(true);
-                  }}
-                  className="h-9 w-9 rounded-full bg-[#22c55e] flex items-center justify-center text-white hover:scale-105 transition"
-                  title="Transfer Money"
+                <div
+                  className={`flex shrink-0 items-center gap-2 ${
+                    draggingWalletId ? "pointer-events-none opacity-60" : ""
+                  }`}
                 >
-                  <ArrowLeftRight className="w-4 h-4" />
-                </button>
+                  <button
+                    type="button"
+                    data-no-drag="true"
+                    onPointerDown={(e) => e.stopPropagation()}
+                    onClick={() => openAddMoneyModal(w)}
+                    className="flex h-9 w-9 items-center justify-center rounded-full bg-[#22c55e] text-white transition hover:scale-105"
+                    title="Add Money"
+                  >
+                    <Plus className="h-4 w-4" />
+                  </button>
 
-                <button
-                  type="button"
-                  onClick={() => {
-                    setHistoryWallet(w);
-                    setHistoryOpen(true);
-                  }}
-                  className="h-9 w-9 rounded-full bg-[#facc15] flex items-center justify-center text-black hover:scale-105 transition"
-                  title="View History"
-                >
-                  <RotateCcw className="w-4 h-4" />
-                </button>
+                  <button
+                    type="button"
+                    data-no-drag="true"
+                    onPointerDown={(e) => e.stopPropagation()}
+                    onClick={() => {
+                      setTransferForm({
+                        from_wallet_id: String(w.id),
+                        to_wallet_id: "",
+                        amount: "",
+                        notes: "",
+                      });
+                      setTransferOpen(true);
+                    }}
+                    className="flex h-9 w-9 items-center justify-center rounded-full bg-[#22c55e] text-white transition hover:scale-105"
+                    title="Transfer Money"
+                  >
+                    <ArrowLeftRight className="h-4 w-4" />
+                  </button>
 
-                <button
-                  type="button"
-                  onClick={() => handleDeleteWallet(w.id)}
-                  className="h-9 w-9 rounded-full bg-[#ef4444] flex items-center justify-center text-white hover:scale-105 transition"
-                  title="Delete Wallet"
-                >
-                  <Trash2 className="w-4 h-4" />
-                </button>
+                  <button
+                    type="button"
+                    data-no-drag="true"
+                    onPointerDown={(e) => e.stopPropagation()}
+                    onClick={() => {
+                      setHistoryWallet(w);
+                      setHistoryOpen(true);
+                    }}
+                    className="flex h-9 w-9 items-center justify-center rounded-full bg-[#facc15] text-black transition hover:scale-105"
+                    title="View History"
+                  >
+                    <RotateCcw className="h-4 w-4" />
+                  </button>
+
+                  <button
+                    type="button"
+                    data-no-drag="true"
+                    onPointerDown={(e) => e.stopPropagation()}
+                    onClick={() => handleDeleteWallet(w.id)}
+                    className="flex h-9 w-9 items-center justify-center rounded-full bg-[#ef4444] text-white transition hover:scale-105"
+                    title="Delete Wallet"
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </button>
+                </div>
               </div>
             </div>
-          </div>
-        ))}
+          );
+        })}
       </div>
     </div>
   );

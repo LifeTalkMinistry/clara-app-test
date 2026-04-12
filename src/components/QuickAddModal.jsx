@@ -214,19 +214,35 @@ const sortByDateDesc = (a, b) => {
   return bTime - aTime;
 };
 
+const getWalletSortOrder = (wallet, fallbackIndex = 0) => {
+  if (wallet?.sort_order === null || wallet?.sort_order === undefined) return fallbackIndex;
+  const n = Number(wallet.sort_order);
+  return Number.isFinite(n) ? n : fallbackIndex;
+};
+
 const normalizeWallets = (wallets) =>
-  (wallets || []).map((wallet) => ({
-    ...wallet,
-    id: String(wallet.id),
-    balance: normalizeNumber(
-      wallet?.balance ??
-        wallet?.current_balance ??
-        wallet?.wallet_balance ??
-        wallet?.starting_balance ??
-        0
-    ),
-    name: wallet?.name || wallet?.wallet_name || "Untitled Wallet",
-  }));
+  (wallets || [])
+    .map((wallet, index) => ({
+      ...wallet,
+      id: String(wallet.id),
+      balance: normalizeNumber(
+        wallet?.balance ??
+          wallet?.current_balance ??
+          wallet?.wallet_balance ??
+          wallet?.starting_balance ??
+          0
+      ),
+      name: wallet?.name || wallet?.wallet_name || "Untitled Wallet",
+      sort_order: getWalletSortOrder(wallet, index),
+    }))
+    .sort((a, b) => {
+      const orderDiff = getWalletSortOrder(a) - getWalletSortOrder(b);
+      if (orderDiff !== 0) return orderDiff;
+
+      const aCreated = parseSupabaseDate(a?.created_at || 0)?.getTime() ?? 0;
+      const bCreated = parseSupabaseDate(b?.created_at || 0)?.getTime() ?? 0;
+      return aCreated - bCreated;
+    });
 
 const fetchRowsForUser = async (table, user, orderColumn = "created_at", ascending = false) => {
   if (!user?.id && !user?.email) return [];
@@ -499,28 +515,28 @@ export default function QuickAddModal({
         setWallets(normalized);
 
         const firstWalletId = normalized[0]?.id ? String(normalized[0].id) : "";
-        const secondWalletId = normalized[1]?.id
-          ? String(normalized[1].id)
-          : normalized[0]?.id
-            ? String(normalized[0].id)
+        const secondWalletId =
+          normalized.find((wallet) => String(wallet.id) !== String(firstWalletId))?.id
+            ? String(
+                normalized.find((wallet) => String(wallet.id) !== String(firstWalletId)).id
+              )
             : "";
 
         setExpenseForm((prev) => ({
           ...prev,
-          wallet_id: prev.wallet_id || firstWalletId,
+          wallet_id: firstWalletId,
         }));
 
         setIncomeForm((prev) => ({
           ...prev,
-          wallet_id: prev.wallet_id || firstWalletId,
+          wallet_id: firstWalletId,
         }));
 
         setTransferForm((prev) => ({
           ...prev,
-          from_wallet_id: prev.from_wallet_id || firstWalletId,
+          from_wallet_id: firstWalletId,
           to_wallet_id:
-            prev.to_wallet_id ||
-            (secondWalletId && secondWalletId !== firstWalletId ? secondWalletId : ""),
+            secondWalletId && secondWalletId !== firstWalletId ? secondWalletId : "",
         }));
       } catch (err) {
         console.error("Failed loading wallets:", err);
@@ -546,10 +562,9 @@ export default function QuickAddModal({
 
   const resetForms = () => {
     const firstWalletId = wallets[0]?.id ? String(wallets[0].id) : "";
-    const secondWalletId = wallets[1]?.id
-      ? String(wallets[1].id)
-      : wallets[0]?.id
-        ? String(wallets[0].id)
+    const secondWalletId =
+      wallets.find((wallet) => String(wallet.id) !== String(firstWalletId))?.id
+        ? String(wallets.find((wallet) => String(wallet.id) !== String(firstWalletId)).id)
         : "";
 
     const nextAction = ["expense", "income", "transfer"].includes(initialAction)
