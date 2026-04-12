@@ -10,7 +10,14 @@ import {
   SelectItem,
 } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
-import { Receipt, TrendingUp, ArrowLeftRight } from "lucide-react";
+import {
+  Receipt,
+  TrendingUp,
+  ArrowLeftRight,
+  Calculator,
+  Delete,
+  X,
+} from "lucide-react";
 import { supabase } from "@/lib/supabaseClient";
 import useUserRole from "../hooks/useUserRole";
 
@@ -291,6 +298,147 @@ const getDefaultTransferForm = (fromWalletId = "", toWalletId = "") => ({
   notes: "",
 });
 
+const CALCULATOR_KEYS = [
+  ["7", "8", "9", "/"],
+  ["4", "5", "6", "*"],
+  ["1", "2", "3", "-"],
+  ["0", ".", "(", ")"],
+  ["C", "⌫", "=", "+"],
+];
+
+function safeEvaluateExpression(expression) {
+  const raw = String(expression ?? "").trim();
+
+  if (!raw) return "";
+
+  const sanitized = raw.replace(/×/g, "*").replace(/÷/g, "/");
+
+  if (!/^[\d+\-*/().\s]+$/.test(sanitized)) {
+    throw new Error("Invalid expression");
+  }
+
+  const result = Function(`"use strict"; return (${sanitized})`)();
+
+  if (!Number.isFinite(result)) {
+    throw new Error("Invalid result");
+  }
+
+  return String(result);
+}
+
+function CalculatorPopover({ open, value, onValueChange, onApply, onClose }) {
+  if (!open) return null;
+
+  const handlePress = (key) => {
+    if (key === "C") {
+      onValueChange("");
+      return;
+    }
+
+    if (key === "⌫") {
+      onValueChange(String(value || "").slice(0, -1));
+      return;
+    }
+
+    if (key === "=") {
+      try {
+        const computed = safeEvaluateExpression(value);
+        onValueChange(computed);
+      } catch {
+        onValueChange("");
+      }
+      return;
+    }
+
+    onValueChange(`${value || ""}${key}`);
+  };
+
+  const previewResult = (() => {
+    if (!value?.trim()) return "";
+    try {
+      return safeEvaluateExpression(value);
+    } catch {
+      return "";
+    }
+  })();
+
+  return (
+    <div className="absolute right-0 top-[calc(100%+8px)] z-[120] w-[280px] rounded-2xl border border-emerald-500/20 bg-[#06162d] p-3 shadow-2xl">
+      <div className="mb-3 flex items-center justify-between">
+        <div className="text-sm font-semibold text-white">Calculator</div>
+        <button
+          type="button"
+          onClick={onClose}
+          className="rounded-md p-1 text-slate-400 transition hover:bg-white/5 hover:text-white"
+          aria-label="Close calculator"
+        >
+          <X className="h-4 w-4" />
+        </button>
+      </div>
+
+      <div className="mb-2 min-h-[52px] rounded-xl border border-white/10 bg-[#071a34] px-3 py-2">
+        <div className="truncate text-right text-sm text-slate-400">
+          {value || "0"}
+        </div>
+        <div className="truncate text-right text-lg font-bold text-white">
+          {previewResult || " "}
+        </div>
+      </div>
+
+      <div className="grid gap-2">
+        {CALCULATOR_KEYS.map((row, rowIndex) => (
+          <div key={`row-${rowIndex}`} className="grid grid-cols-4 gap-2">
+            {row.map((key) => {
+              const isEquals = key === "=";
+              const isClear = key === "C";
+              const isDelete = key === "⌫";
+
+              return (
+                <button
+                  key={key}
+                  type="button"
+                  onClick={() => handlePress(key)}
+                  className={[
+                    "flex h-10 items-center justify-center rounded-xl text-sm font-semibold transition",
+                    isEquals
+                      ? "bg-emerald-600 text-white hover:bg-emerald-500"
+                      : isClear
+                        ? "bg-red-500/15 text-red-300 hover:bg-red-500/25"
+                        : isDelete
+                          ? "bg-white/10 text-white hover:bg-white/15"
+                          : "bg-white/5 text-white hover:bg-white/10",
+                  ].join(" ")}
+                >
+                  {isDelete ? <Delete className="h-4 w-4" /> : key}
+                </button>
+              );
+            })}
+          </div>
+        ))}
+      </div>
+
+      <div className="mt-3 grid grid-cols-2 gap-2">
+        <Button
+          type="button"
+          variant="outline"
+          onClick={onClose}
+          className="border-slate-700 bg-transparent text-slate-200 hover:bg-white/5 hover:text-white"
+        >
+          Close
+        </Button>
+
+        <Button
+          type="button"
+          onClick={() => onApply(previewResult || value)}
+          className="bg-emerald-600 text-white hover:bg-emerald-500"
+        >
+          Apply
+        </Button>
+      </div>
+    </div>
+  );
+}
+
 export default function QuickAddModal({
   open,
   onClose,
@@ -310,6 +458,9 @@ export default function QuickAddModal({
   const [expenseForm, setExpenseForm] = useState(getDefaultExpenseForm());
   const [incomeForm, setIncomeForm] = useState(getDefaultIncomeForm());
   const [transferForm, setTransferForm] = useState(getDefaultTransferForm());
+
+  const [calculatorOpen, setCalculatorOpen] = useState(false);
+  const [calculatorValue, setCalculatorValue] = useState("");
 
   const walletMap = useMemo(() => {
     const map = new Map();
@@ -386,6 +537,13 @@ export default function QuickAddModal({
     };
   }, [open, user]);
 
+  useEffect(() => {
+    if (!open) {
+      setCalculatorOpen(false);
+      setCalculatorValue("");
+    }
+  }, [open]);
+
   const resetForms = () => {
     const firstWalletId = wallets[0]?.id ? String(wallets[0].id) : "";
     const secondWalletId = wallets[1]?.id
@@ -400,6 +558,8 @@ export default function QuickAddModal({
 
     setActionType(nextAction);
     setError("");
+    setCalculatorOpen(false);
+    setCalculatorValue("");
     setExpenseForm(getDefaultExpenseForm(firstWalletId));
     setIncomeForm(getDefaultIncomeForm(firstWalletId));
     setTransferForm(
@@ -653,6 +813,37 @@ export default function QuickAddModal({
   const selectedTransferFromWallet = walletMap.get(String(transferForm.from_wallet_id));
   const selectedTransferToWallet = walletMap.get(String(transferForm.to_wallet_id));
 
+  const openCalculatorForCurrentAction = () => {
+    if (actionType === "expense") {
+      setCalculatorValue(expenseForm.amount || "");
+    } else if (actionType === "income") {
+      setCalculatorValue(incomeForm.amount || "");
+    } else {
+      setCalculatorValue(transferForm.amount || "");
+    }
+
+    setCalculatorOpen(true);
+  };
+
+  const applyCalculatorValue = (value) => {
+    const computedValue = String(value ?? "").trim();
+
+    if (!computedValue) {
+      setCalculatorOpen(false);
+      return;
+    }
+
+    if (actionType === "expense") {
+      setExpenseForm((prev) => ({ ...prev, amount: computedValue }));
+    } else if (actionType === "income") {
+      setIncomeForm((prev) => ({ ...prev, amount: computedValue }));
+    } else {
+      setTransferForm((prev) => ({ ...prev, amount: computedValue }));
+    }
+
+    setCalculatorOpen(false);
+  };
+
   return (
     <Dialog open={open} onOpenChange={(nextOpen) => !nextOpen && handleClose()}>
       <DialogContent className="mx-auto max-w-sm border border-emerald-500/20 bg-[#031126] text-white shadow-2xl">
@@ -670,6 +861,7 @@ export default function QuickAddModal({
               onClick={() => {
                 setError("");
                 setActionType(item.id);
+                setCalculatorOpen(false);
               }}
               className={`flex flex-col items-center justify-center gap-1 rounded-xl border px-2 py-3 text-center text-xs font-semibold transition-all ${
                 actionType === item.id
@@ -685,17 +877,35 @@ export default function QuickAddModal({
 
         {actionType === "expense" && (
           <div className="space-y-3">
-            <div>
+            <div className="relative">
               <Label className="mb-1 block text-xs text-slate-200">Amount (₱)</Label>
-              <Input
-                type="number"
-                placeholder="0.00"
-                value={expenseForm.amount}
-                onChange={(e) =>
-                  setExpenseForm((prev) => ({ ...prev, amount: e.target.value }))
-                }
-                className="border-emerald-500/40 bg-[#071a34] text-lg font-bold text-white"
-                autoFocus
+              <div className="relative">
+                <Input
+                  type="number"
+                  placeholder="0.00"
+                  value={expenseForm.amount}
+                  onChange={(e) =>
+                    setExpenseForm((prev) => ({ ...prev, amount: e.target.value }))
+                  }
+                  className="border-emerald-500/40 bg-[#071a34] pr-12 text-lg font-bold text-white"
+                  autoFocus
+                />
+                <button
+                  type="button"
+                  onClick={openCalculatorForCurrentAction}
+                  className="absolute right-2 top-1/2 flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-lg text-emerald-400 transition hover:bg-emerald-500/10 hover:text-emerald-300"
+                  aria-label="Open calculator"
+                >
+                  <Calculator className="h-4 w-4" />
+                </button>
+              </div>
+
+              <CalculatorPopover
+                open={calculatorOpen}
+                value={calculatorValue}
+                onValueChange={setCalculatorValue}
+                onApply={applyCalculatorValue}
+                onClose={() => setCalculatorOpen(false)}
               />
             </div>
 
@@ -797,17 +1007,35 @@ export default function QuickAddModal({
 
         {actionType === "income" && (
           <div className="space-y-3">
-            <div>
+            <div className="relative">
               <Label className="mb-1 block text-xs text-slate-200">Amount (₱)</Label>
-              <Input
-                type="number"
-                placeholder="0.00"
-                value={incomeForm.amount}
-                onChange={(e) =>
-                  setIncomeForm((prev) => ({ ...prev, amount: e.target.value }))
-                }
-                className="border-emerald-500/40 bg-[#071a34] text-lg font-bold text-white"
-                autoFocus
+              <div className="relative">
+                <Input
+                  type="number"
+                  placeholder="0.00"
+                  value={incomeForm.amount}
+                  onChange={(e) =>
+                    setIncomeForm((prev) => ({ ...prev, amount: e.target.value }))
+                  }
+                  className="border-emerald-500/40 bg-[#071a34] pr-12 text-lg font-bold text-white"
+                  autoFocus
+                />
+                <button
+                  type="button"
+                  onClick={openCalculatorForCurrentAction}
+                  className="absolute right-2 top-1/2 flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-lg text-emerald-400 transition hover:bg-emerald-500/10 hover:text-emerald-300"
+                  aria-label="Open calculator"
+                >
+                  <Calculator className="h-4 w-4" />
+                </button>
+              </div>
+
+              <CalculatorPopover
+                open={calculatorOpen}
+                value={calculatorValue}
+                onValueChange={setCalculatorValue}
+                onApply={applyCalculatorValue}
+                onClose={() => setCalculatorOpen(false)}
               />
             </div>
 
@@ -879,17 +1107,35 @@ export default function QuickAddModal({
 
         {actionType === "transfer" && (
           <div className="space-y-3">
-            <div>
+            <div className="relative">
               <Label className="mb-1 block text-xs text-slate-200">Amount (₱)</Label>
-              <Input
-                type="number"
-                placeholder="0.00"
-                value={transferForm.amount}
-                onChange={(e) =>
-                  setTransferForm((prev) => ({ ...prev, amount: e.target.value }))
-                }
-                className="border-emerald-500/40 bg-[#071a34] text-lg font-bold text-white"
-                autoFocus
+              <div className="relative">
+                <Input
+                  type="number"
+                  placeholder="0.00"
+                  value={transferForm.amount}
+                  onChange={(e) =>
+                    setTransferForm((prev) => ({ ...prev, amount: e.target.value }))
+                  }
+                  className="border-emerald-500/40 bg-[#071a34] pr-12 text-lg font-bold text-white"
+                  autoFocus
+                />
+                <button
+                  type="button"
+                  onClick={openCalculatorForCurrentAction}
+                  className="absolute right-2 top-1/2 flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-lg text-emerald-400 transition hover:bg-emerald-500/10 hover:text-emerald-300"
+                  aria-label="Open calculator"
+                >
+                  <Calculator className="h-4 w-4" />
+                </button>
+              </div>
+
+              <CalculatorPopover
+                open={calculatorOpen}
+                value={calculatorValue}
+                onValueChange={setCalculatorValue}
+                onApply={applyCalculatorValue}
+                onClose={() => setCalculatorOpen(false)}
               />
             </div>
 

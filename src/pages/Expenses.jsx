@@ -1,6 +1,5 @@
 import { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import {
-  Plus,
   Receipt,
   Trash2,
   Edit,
@@ -27,7 +26,6 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
-import PageHeader from "../components/PageHeader";
 import EmptyState from "../components/EmptyState";
 import useUserRole from "../hooks/useUserRole";
 
@@ -315,12 +313,6 @@ const getTransactionDateObject = (txn) => {
   }
 
   return null;
-};
-
-const getExpensePHDateKey = (expense) => {
-  const d = getExpenseDateObject(expense);
-  if (!d) return "";
-  return getPHDateString(d);
 };
 
 const getTransactionPHDateKey = (txn) => {
@@ -1331,17 +1323,7 @@ export default function Expenses() {
   }
 
   return (
-    <div className="p-4 md:p-6 max-w-4xl mx-auto">
-      <PageHeader
-        title="Transactions"
-        subtitle="Track all your money activity"
-        action={
-          <Button size="sm" onClick={openAdd} className="rounded-xl px-4 shadow-sm">
-            <Plus className="w-4 h-4 mr-1" /> Add Expense
-          </Button>
-        }
-      />
-
+    <div className="mx-auto max-w-4xl px-4 pb-4 pt-2 md:px-6 md:pb-6 md:pt-4">
       <Dialog
         open={open}
         onOpenChange={(v) => {
@@ -1433,11 +1415,11 @@ export default function Expenses() {
               </Select>
 
               {wallets.length === 0 && (
-                <p className="text-xs text-destructive mt-1">Create a wallet first</p>
+                <p className="mt-1 text-xs text-destructive">Create a wallet first</p>
               )}
 
               {!!selectedWallet && (
-                <p className="text-xs text-muted-foreground mt-1">
+                <p className="mt-1 text-xs text-muted-foreground">
                   {editMode === "income" ? "Current balance" : "Available balance"}:{" "}
                   {fmt(selectedWallet.balance)}
                 </p>
@@ -1456,16 +1438,14 @@ export default function Expenses() {
             <div>
               <Label>Notes (optional)</Label>
               <Input
-                placeholder={
-                  editMode === "income" ? "Income details" : "What was this for?"
-                }
+                placeholder={editMode === "income" ? "Income details" : "What was this for?"}
                 value={form.notes}
                 onChange={(e) => setForm({ ...form, notes: e.target.value })}
               />
             </div>
 
             {!!error && (
-              <div className="text-sm text-destructive bg-destructive/10 border border-destructive/20 rounded-lg px-3 py-2">
+              <div className="rounded-lg border border-destructive/20 bg-destructive/10 px-3 py-2 text-sm text-destructive">
                 {error}
               </div>
             )}
@@ -1486,130 +1466,132 @@ export default function Expenses() {
       </Dialog>
 
       {transactions.length > 0 && (
-        <div className="mb-5 rounded-3xl border border-border/50 bg-gradient-to-br from-card to-card/60 backdrop-blur-md p-4 md:p-5 space-y-4 shadow-sm">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-            <div>
-              <Label className="mb-2 block">Timeframe</Label>
-              <Select value={filter} onValueChange={handleFilterChange}>
-                <SelectTrigger className="w-full rounded-xl">
-                  <SelectValue placeholder="Select timeframe" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="recent">Top 5 Recent</SelectItem>
-                  <SelectItem value="this_month">This Month</SelectItem>
-                  <SelectItem value="last_month">Last Month</SelectItem>
-                  <SelectItem value="3_months">Last 3 Months</SelectItem>
-                  <SelectItem value="6_months">Last 6 Months</SelectItem>
-                  <SelectItem value="this_year">This Year</SelectItem>
-                  <SelectItem value="custom">Custom Range</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div>
-              <Label className="mb-2 block">Type</Label>
-              <Select value={typeFilter} onValueChange={setTypeFilter}>
-                <SelectTrigger className="w-full rounded-xl">
-                  <SelectValue placeholder="Select type" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Transactions</SelectItem>
-                  <SelectItem value="expense">Expenses</SelectItem>
-                  <SelectItem value="income">Income</SelectItem>
-                  <SelectItem value="transfer">Transfers</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-
-            {filter === "custom" && (
-              <>
-                <div>
-                  <Label className="mb-2 block">Start Date</Label>
-                  <Input
-                    type="date"
-                    value={customStartDate}
-                    onChange={(e) => setCustomStartDate(e.target.value)}
-                    className="rounded-xl"
-                  />
-                </div>
-
-                <div>
-                  <Label className="mb-2 block">End Date</Label>
-                  <Input
-                    type="date"
-                    value={customEndDate}
-                    onChange={(e) => setCustomEndDate(e.target.value)}
-                    className="rounded-xl"
-                  />
-                </div>
-              </>
-            )}
-          </div>
-
-          <div className="flex flex-col gap-2 text-sm">
-            <div className="text-muted-foreground">
-              Showing{" "}
-              <span className="font-semibold text-foreground">{filteredTransactions.length}</span>{" "}
-              • {filterLabel}
-            </div>
-
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-              <div className="rounded-2xl border border-border/40 bg-background/30 p-3">
-                <p className="text-[11px] text-muted-foreground uppercase tracking-wide">
-                  Money In
-                </p>
-                <p className="text-sm font-bold text-emerald-400">+{fmt(totals.income)}</p>
+        <div className="mb-5 rounded-3xl border border-border/50 bg-gradient-to-br from-card to-card/60 p-4 shadow-sm backdrop-blur-md md:p-5">
+          <div className="space-y-4">
+            <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+              <div>
+                <Label className="mb-2 block">Timeframe</Label>
+                <Select value={filter} onValueChange={handleFilterChange}>
+                  <SelectTrigger className="w-full rounded-xl">
+                    <SelectValue placeholder="Select timeframe" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="recent">Top 5 Recent</SelectItem>
+                    <SelectItem value="this_month">This Month</SelectItem>
+                    <SelectItem value="last_month">Last Month</SelectItem>
+                    <SelectItem value="3_months">Last 3 Months</SelectItem>
+                    <SelectItem value="6_months">Last 6 Months</SelectItem>
+                    <SelectItem value="this_year">This Year</SelectItem>
+                    <SelectItem value="custom">Custom Range</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
 
-              <div className="rounded-2xl border border-border/40 bg-background/30 p-3">
-                <p className="text-[11px] text-muted-foreground uppercase tracking-wide">
-                  Money Out
-                </p>
-                <p className="text-sm font-bold text-destructive">-{fmt(totals.expense)}</p>
+              <div>
+                <Label className="mb-2 block">Type</Label>
+                <Select value={typeFilter} onValueChange={setTypeFilter}>
+                  <SelectTrigger className="w-full rounded-xl">
+                    <SelectValue placeholder="Select type" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Transactions</SelectItem>
+                    <SelectItem value="expense">Expenses</SelectItem>
+                    <SelectItem value="income">Income</SelectItem>
+                    <SelectItem value="transfer">Transfers</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
 
-              <div className="rounded-2xl border border-border/40 bg-background/30 p-3">
-                <p className="text-[11px] text-muted-foreground uppercase tracking-wide">
-                  Transfers
-                </p>
-                <p className="text-sm font-bold text-sky-400">{fmt(totals.transfer)}</p>
-              </div>
-
-              <div className="rounded-2xl border border-border/40 bg-background/30 p-3">
-                <p className="text-[11px] text-muted-foreground uppercase tracking-wide">Net</p>
-                <p
-                  className={`text-sm font-bold ${
-                    totals.net < 0 ? "text-destructive" : "text-emerald-400"
-                  }`}
-                >
-                  {totals.net < 0 ? "-" : "+"}
-                  {fmt(Math.abs(totals.net))}
-                </p>
-              </div>
-            </div>
-          </div>
-
-          {filter === "recent" && filteredTransactions.length > 0 && transactions.length > 5 && (
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              className="rounded-xl w-fit"
-              onClick={() => setShowAllRecent((prev) => !prev)}
-            >
-              {showAllRecent ? (
+              {filter === "custom" && (
                 <>
-                  <ChevronUp className="w-4 h-4 mr-1" />
-                  Show Less
-                </>
-              ) : (
-                <>
-                  <ChevronDown className="w-4 h-4 mr-1" />
-                  See More
+                  <div>
+                    <Label className="mb-2 block">Start Date</Label>
+                    <Input
+                      type="date"
+                      value={customStartDate}
+                      onChange={(e) => setCustomStartDate(e.target.value)}
+                      className="rounded-xl"
+                    />
+                  </div>
+
+                  <div>
+                    <Label className="mb-2 block">End Date</Label>
+                    <Input
+                      type="date"
+                      value={customEndDate}
+                      onChange={(e) => setCustomEndDate(e.target.value)}
+                      className="rounded-xl"
+                    />
+                  </div>
                 </>
               )}
-            </Button>
-          )}
+            </div>
+
+            <div className="flex flex-col gap-2 text-sm">
+              <div className="text-muted-foreground">
+                Showing{" "}
+                <span className="font-semibold text-foreground">{filteredTransactions.length}</span>{" "}
+                • {filterLabel}
+              </div>
+
+              <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
+                <div className="rounded-2xl border border-border/40 bg-background/30 p-3">
+                  <p className="text-[11px] uppercase tracking-wide text-muted-foreground">
+                    Money In
+                  </p>
+                  <p className="text-sm font-bold text-emerald-400">+{fmt(totals.income)}</p>
+                </div>
+
+                <div className="rounded-2xl border border-border/40 bg-background/30 p-3">
+                  <p className="text-[11px] uppercase tracking-wide text-muted-foreground">
+                    Money Out
+                  </p>
+                  <p className="text-sm font-bold text-destructive">-{fmt(totals.expense)}</p>
+                </div>
+
+                <div className="rounded-2xl border border-border/40 bg-background/30 p-3">
+                  <p className="text-[11px] uppercase tracking-wide text-muted-foreground">
+                    Transfers
+                  </p>
+                  <p className="text-sm font-bold text-sky-400">{fmt(totals.transfer)}</p>
+                </div>
+
+                <div className="rounded-2xl border border-border/40 bg-background/30 p-3">
+                  <p className="text-[11px] uppercase tracking-wide text-muted-foreground">Net</p>
+                  <p
+                    className={`text-sm font-bold ${
+                      totals.net < 0 ? "text-destructive" : "text-emerald-400"
+                    }`}
+                  >
+                    {totals.net < 0 ? "-" : "+"}
+                    {fmt(Math.abs(totals.net))}
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            {filter === "recent" && filteredTransactions.length > 0 && transactions.length > 5 && (
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="w-fit rounded-xl"
+                onClick={() => setShowAllRecent((prev) => !prev)}
+              >
+                {showAllRecent ? (
+                  <>
+                    <ChevronUp className="mr-1 h-4 w-4" />
+                    Show Less
+                  </>
+                ) : (
+                  <>
+                    <ChevronDown className="mr-1 h-4 w-4" />
+                    See More
+                  </>
+                )}
+              </Button>
+            )}
+          </div>
         </div>
       )}
 
@@ -1643,7 +1625,7 @@ export default function Expenses() {
                 </div>
               </div>
 
-              <div className="rounded-2xl border border-border/50 bg-card/70 backdrop-blur-sm overflow-hidden">
+              <div className="overflow-hidden rounded-2xl border border-border/50 bg-card/70 backdrop-blur-sm">
                 {group.items.map((txn, index) => {
                   const Icon = getTxnIcon(txn);
                   const linkedExpense = expenseIdByTxnId.get(String(txn.id));
@@ -1660,21 +1642,21 @@ export default function Expenses() {
                       }`}
                     >
                       <div
-                        className={`w-11 h-11 rounded-2xl flex items-center justify-center flex-shrink-0 ${getTxnIconWrapClass(
+                        className={`flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-2xl ${getTxnIconWrapClass(
                           txn
                         )}`}
                       >
-                        <Icon className={`w-5 h-5 ${getTxnIconClass(txn)}`} />
+                        <Icon className={`h-5 w-5 ${getTxnIconClass(txn)}`} />
                       </div>
 
-                      <div className="flex-1 min-w-0">
+                      <div className="min-w-0 flex-1">
                         <div className="flex items-start justify-between gap-3">
                           <div className="min-w-0">
-                            <p className="font-semibold text-sm truncate tracking-wide">
+                            <p className="truncate text-sm font-semibold tracking-wide">
                               {getTxnPrimaryLabel(txn)}
                             </p>
 
-                            <div className="flex items-center gap-2 text-xs text-muted-foreground mt-1 flex-wrap">
+                            <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
                               <span>{getTxnSecondaryLabel(txn, walletMap)}</span>
                               <span>•</span>
                               <span>
@@ -1682,12 +1664,12 @@ export default function Expenses() {
                               </span>
 
                               <span
-                                className={`px-2 py-0.5 rounded-full text-[10px] font-semibold capitalize ${
+                                className={`rounded-full border px-2 py-0.5 text-[10px] font-semibold capitalize ${
                                   txnType === "expense"
-                                    ? "bg-destructive/10 text-destructive border border-destructive/20"
+                                    ? "border-destructive/20 bg-destructive/10 text-destructive"
                                     : txnType === "income"
-                                    ? "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20"
-                                    : "bg-sky-500/10 text-sky-400 border border-sky-500/20"
+                                    ? "border-emerald-500/20 bg-emerald-500/10 text-emerald-400"
+                                    : "border-sky-500/20 bg-sky-500/10 text-sky-400"
                                 }`}
                               >
                                 {txnType}
@@ -1695,7 +1677,7 @@ export default function Expenses() {
 
                               {!!txn.need_type && (
                                 <span
-                                  className={`px-2 py-0.5 rounded-full text-[10px] font-semibold ${
+                                  className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ${
                                     needTypeColors[txn.need_type] || ""
                                   }`}
                                 >
@@ -1705,15 +1687,15 @@ export default function Expenses() {
                             </div>
 
                             {txn.notes && (
-                              <p className="text-xs text-muted-foreground mt-1 truncate italic">
+                              <p className="mt-1 truncate text-xs italic text-muted-foreground">
                                 {txn.notes}
                               </p>
                             )}
                           </div>
 
-                          <div className="flex flex-col items-end gap-2 flex-shrink-0">
+                          <div className="flex flex-shrink-0 flex-col items-end gap-2">
                             <p
-                              className={`font-heading font-bold text-sm whitespace-nowrap ${getTxnAmountColor(
+                              className={`whitespace-nowrap text-sm font-bold ${getTxnAmountColor(
                                 txn
                               )}`}
                             >
@@ -1721,12 +1703,12 @@ export default function Expenses() {
                             </p>
 
                             {canEdit || canDelete ? (
-                              <div className="flex items-center gap-1 opacity-70 group-hover:opacity-100 transition">
+                              <div className="flex items-center gap-1 opacity-70 transition group-hover:opacity-100">
                                 {canEdit && (
                                   <Button
                                     variant="ghost"
                                     size="icon"
-                                    className="h-8 w-8 hover:bg-primary/10 rounded-lg"
+                                    className="h-8 w-8 rounded-lg hover:bg-primary/10"
                                     onClick={() => {
                                       if (txnType === "expense" && linkedExpense) {
                                         openEditExpense(linkedExpense);
@@ -1736,7 +1718,7 @@ export default function Expenses() {
                                     }}
                                     disabled={saving}
                                   >
-                                    <Edit className="w-4 h-4" />
+                                    <Edit className="h-4 w-4" />
                                   </Button>
                                 )}
 
@@ -1744,7 +1726,7 @@ export default function Expenses() {
                                   <Button
                                     variant="ghost"
                                     size="icon"
-                                    className="h-8 w-8 hover:bg-destructive/10 rounded-lg"
+                                    className="h-8 w-8 rounded-lg hover:bg-destructive/10"
                                     onClick={() => {
                                       if (txnType === "expense" && linkedExpense) {
                                         handleDeleteExpense(linkedExpense.id);
@@ -1754,7 +1736,7 @@ export default function Expenses() {
                                     }}
                                     disabled={saving}
                                   >
-                                    <Trash2 className="w-4 h-4 text-destructive" />
+                                    <Trash2 className="h-4 w-4 text-destructive" />
                                   </Button>
                                 )}
                               </div>
