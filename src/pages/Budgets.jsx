@@ -11,13 +11,98 @@ import {
   DialogDescription,
 } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
-import PageHeader from "../components/PageHeader";
 import EmptyState from "../components/EmptyState";
 import useUserRole from "../hooks/useUserRole";
 import { supabase } from "../lib/supabaseClient";
 
 const PH_TIME_ZONE = "Asia/Manila";
 const PH_OFFSET_MINUTES = 8 * 60;
+
+const NEEDS_KEYWORDS = [
+  "need",
+  "needs",
+  "housing",
+  "house",
+  "rent",
+  "mortgage",
+  "food",
+  "groceries",
+  "grocery",
+  "transport",
+  "transportation",
+  "fare",
+  "gas",
+  "fuel",
+  "commute",
+  "utilities",
+  "utility",
+  "electric",
+  "electricity",
+  "water",
+  "internet",
+  "wifi",
+  "bill",
+  "bills",
+  "phone",
+  "load",
+  "medicine",
+  "medical",
+  "health",
+  "insurance",
+  "school",
+  "tuition",
+  "childcare",
+  "baby",
+  "essentials",
+  "essential",
+];
+
+const WANTS_KEYWORDS = [
+  "want",
+  "wants",
+  "personal",
+  "shopping",
+  "shop",
+  "entertainment",
+  "leisure",
+  "fun",
+  "dining",
+  "dining out",
+  "restaurant",
+  "coffee",
+  "milk tea",
+  "snacks",
+  "travel",
+  "vacation",
+  "beauty",
+  "self care",
+  "self-care",
+  "skin care",
+  "skincare",
+  "makeup",
+  "clothes",
+  "clothing",
+  "fashion",
+  "subscription",
+  "subscriptions",
+  "game",
+  "games",
+  "gaming",
+  "hobby",
+  "hobbies",
+  "gifts",
+  "gift",
+];
+
+const OTHER_KEYWORDS = [
+  "other",
+  "others",
+  "misc",
+  "miscellaneous",
+  "unknown",
+  "uncategorized",
+  "uncategorised",
+];
 
 const toNumber = (value) => {
   const n = Number(value);
@@ -225,18 +310,55 @@ const getExpenseAmount = (item) => {
   );
 };
 
-const getExpenseType = (item) => {
-  return normalizeText(
-    item?.type ||
-      item?.category ||
-      item?.category_type ||
-      item?.classification ||
-      item?.expense_type ||
-      item?.bucket ||
-      item?.budget_type ||
-      item?.label ||
-      item?.need_type
+const extractExpenseSignals = (item) => {
+  return [
+    item?.type,
+    item?.category,
+    item?.category_type,
+    item?.classification,
+    item?.expense_type,
+    item?.bucket,
+    item?.budget_type,
+    item?.label,
+    item?.need_type,
+    item?.main_category,
+    item?.sub_category,
+    item?.expense_category,
+    item?.title,
+    item?.name,
+    item?.description,
+    item?.notes,
+  ]
+    .filter(Boolean)
+    .map(normalizeText);
+};
+
+const includesKeyword = (signals, keywords) => {
+  return signals.some((signal) =>
+    keywords.some((keyword) => signal === keyword || signal.includes(keyword))
   );
+};
+
+const getBudgetBucket = (item) => {
+  const signals = extractExpenseSignals(item);
+
+  if (!signals.length) return "other";
+
+  if (includesKeyword(signals, NEEDS_KEYWORDS)) return "needs";
+  if (includesKeyword(signals, WANTS_KEYWORDS)) return "wants";
+  if (includesKeyword(signals, OTHER_KEYWORDS)) return "other";
+
+  const rawPrimary =
+    normalizeText(item?.type) ||
+    normalizeText(item?.classification) ||
+    normalizeText(item?.budget_type) ||
+    normalizeText(item?.bucket);
+
+  if (rawPrimary === "needs" || rawPrimary === "need") return "needs";
+  if (rawPrimary === "wants" || rawPrimary === "want") return "wants";
+  if (rawPrimary === "other" || rawPrimary === "others") return "other";
+
+  return "other";
 };
 
 const formatRangeText = (start, end) => {
@@ -314,7 +436,7 @@ export default function Budgets() {
     total_budget: "",
     needs_pct: "50",
     wants_pct: "30",
-    savings_pct: "20",
+    other_pct: "20",
     range_start: toPHDateTimeLocalValue(defaultRange.start),
     range_end: toPHDateTimeLocalValue(defaultRange.end),
   });
@@ -432,7 +554,13 @@ export default function Budgets() {
         total_budget: String(currentBudget.total_budget ?? ""),
         needs_pct: String(currentBudget.needs_pct ?? currentBudget.needs_percent ?? 50),
         wants_pct: String(currentBudget.wants_pct ?? currentBudget.wants_percent ?? 30),
-        savings_pct: String(currentBudget.savings_pct ?? currentBudget.savings_percent ?? 20),
+        other_pct: String(
+          currentBudget.other_pct ??
+            currentBudget.other_percent ??
+            currentBudget.savings_pct ??
+            currentBudget.savings_percent ??
+            20
+        ),
         range_start: toPHDateTimeLocalValue(getBudgetStart(currentBudget, fallbackRange.start)),
         range_end: toPHDateTimeLocalValue(getBudgetEnd(currentBudget, fallbackRange.end)),
       });
@@ -444,7 +572,7 @@ export default function Budgets() {
         total_budget: "",
         needs_pct: "50",
         wants_pct: "30",
-        savings_pct: "20",
+        other_pct: "20",
         range_start: toPHDateTimeLocalValue(freshRange.start),
         range_end: toPHDateTimeLocalValue(freshRange.end),
       });
@@ -470,7 +598,7 @@ export default function Budgets() {
       totalSpent: 0,
       needsSpent: 0,
       wantsSpent: 0,
-      savingsSpent: 0,
+      otherSpent: 0,
     };
 
     if (!activeRangeStart || !activeRangeEnd) return result;
@@ -481,16 +609,16 @@ export default function Budgets() {
       if (d < activeRangeStart || d > activeRangeEnd) return;
 
       const amount = getExpenseAmount(item);
-      const type = getExpenseType(item);
+      const bucket = getBudgetBucket(item);
 
       result.totalSpent += amount;
 
-      if (type === "needs" || type === "need") {
+      if (bucket === "needs") {
         result.needsSpent += amount;
-      } else if (type === "wants" || type === "want") {
+      } else if (bucket === "wants") {
         result.wantsSpent += amount;
-      } else if (type === "savings" || type === "saving") {
-        result.savingsSpent += amount;
+      } else {
+        result.otherSpent += amount;
       }
     });
 
@@ -514,7 +642,7 @@ export default function Budgets() {
     const totalBudget = toNumber(form.total_budget);
     const needsPct = toNumber(form.needs_pct);
     const wantsPct = toNumber(form.wants_pct);
-    const savingsPct = toNumber(form.savings_pct);
+    const otherPct = toNumber(form.other_pct);
 
     const rangeStart = parsePHDateTimeLocalValue(form.range_start);
     const rangeEnd = parsePHDateTimeLocalValue(form.range_end);
@@ -524,8 +652,8 @@ export default function Budgets() {
       return;
     }
 
-    if (needsPct + wantsPct + savingsPct !== 100) {
-      alert("Needs, Wants, and Savings must total exactly 100%.");
+    if (needsPct + wantsPct + otherPct !== 100) {
+      alert("Needs, Wants, and Other must total exactly 100%.");
       return;
     }
 
@@ -555,11 +683,14 @@ export default function Budgets() {
 
         needs_pct: needsPct,
         wants_pct: wantsPct,
-        savings_pct: savingsPct,
+        other_pct: otherPct,
 
         needs_percent: needsPct,
         wants_percent: wantsPct,
-        savings_percent: savingsPct,
+        other_percent: otherPct,
+
+        savings_pct: otherPct,
+        savings_percent: otherPct,
 
         tracking_start_date: rangeStart.toISOString(),
         tracking_end_date: rangeEnd.toISOString(),
@@ -690,178 +821,179 @@ export default function Budgets() {
   const wantsBudget = currentBudget
     ? (totalBudget * toNumber(currentBudget.wants_pct ?? currentBudget.wants_percent ?? 30)) / 100
     : 0;
-  const savingsBudget = currentBudget
+  const otherBudget = currentBudget
     ? (totalBudget *
-        toNumber(currentBudget.savings_pct ?? currentBudget.savings_percent ?? 20)) / 100
+        toNumber(
+          currentBudget.other_pct ??
+            currentBudget.other_percent ??
+            currentBudget.savings_pct ??
+            currentBudget.savings_percent ??
+            20
+        )) / 100
     : 0;
 
   const totalSpent = toNumber(financials.totalSpent);
   const needsSpent = toNumber(financials.needsSpent);
   const wantsSpent = toNumber(financials.wantsSpent);
-  const savingsSpent = toNumber(financials.savingsSpent);
+  const otherSpent = toNumber(financials.otherSpent);
 
   return (
     <div className="p-4 md:p-6 max-w-4xl mx-auto">
-      <PageHeader
-        title="Budgets"
-        subtitle="Set your spending limits using Philippine Standard Time"
-        action={
-          isFree ? (
-            <div className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-muted text-muted-foreground text-xs font-medium">
-              <Lock className="w-3.5 h-3.5" /> Upgrade to use budgets
-            </div>
-          ) : (
-            <div className="flex gap-2">
-              <Dialog open={open} onOpenChange={setOpen}>
-                <DialogTrigger asChild>
-                  <Button size="sm">
-                    <Plus className="w-4 h-4 mr-1" />
-                    {currentBudget ? "Edit" : "Set"} Budget
-                  </Button>
-                </DialogTrigger>
+      <div className="flex items-center justify-between gap-3 mb-4">
+        <div>
+          <h1 className="text-2xl md:text-3xl font-bold tracking-tight">Budgets</h1>
+        </div>
 
-                <DialogContent>
-                  <DialogHeader>
-                    <DialogTitle>{currentBudget ? "Edit" : "Set"} Budget</DialogTitle>
-                    <DialogDescription>
-                      Set your total budget, category split, and exact clickable date/time range in
-                      Philippine time.
-                    </DialogDescription>
-                  </DialogHeader>
+        {isFree ? (
+          <div className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-muted text-muted-foreground text-xs font-medium">
+            <Lock className="w-3.5 h-3.5" /> Upgrade to use budgets
+          </div>
+        ) : (
+          <div className="flex gap-2">
+            <Dialog open={open} onOpenChange={setOpen}>
+              <DialogTrigger asChild>
+                <Button size="sm">
+                  <Plus className="w-4 h-4 mr-1" />
+                  {currentBudget ? "Edit Budget" : "Set Budget"}
+                </Button>
+              </DialogTrigger>
 
-                  <div className="space-y-4">
+              <DialogContent>
+                <DialogHeader>
+                  <DialogTitle>{currentBudget ? "Edit" : "Set"} Budget</DialogTitle>
+                  <DialogDescription>
+                    Set your total budget, category split, and exact clickable date/time range in
+                    Philippine time.
+                  </DialogDescription>
+                </DialogHeader>
+
+                <div className="space-y-4">
+                  <div>
+                    <Label>Month</Label>
+                    <Input
+                      type="month"
+                      value={form.month}
+                      onChange={(e) => handleMonthChange(e.target.value)}
+                    />
+                  </div>
+
+                  <div>
+                    <Label>Total Budget (₱)</Label>
+                    <Input
+                      type="number"
+                      placeholder="0.00"
+                      value={form.total_budget}
+                      onChange={(e) =>
+                        setForm((prev) => ({
+                          ...prev,
+                          total_budget: e.target.value,
+                        }))
+                      }
+                    />
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                     <div>
-                      <Label>Month</Label>
+                      <Label>From</Label>
                       <Input
-                        type="month"
-                        value={form.month}
-                        onChange={(e) => handleMonthChange(e.target.value)}
-                      />
-                    </div>
-
-                    <div>
-                      <Label>Total Budget (₱)</Label>
-                      <Input
-                        type="number"
-                        placeholder="0.00"
-                        value={form.total_budget}
+                        type="datetime-local"
+                        value={form.range_start}
                         onChange={(e) =>
                           setForm((prev) => ({
                             ...prev,
-                            total_budget: e.target.value,
+                            range_start: e.target.value,
                           }))
                         }
                       />
                     </div>
 
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                      <div>
-                        <Label>From</Label>
-                        <Input
-                          type="datetime-local"
-                          value={form.range_start}
-                          onChange={(e) =>
-                            setForm((prev) => ({
-                              ...prev,
-                              range_start: e.target.value,
-                            }))
-                          }
-                        />
-                      </div>
-
-                      <div>
-                        <Label>To</Label>
-                        <Input
-                          type="datetime-local"
-                          value={form.range_end}
-                          onChange={(e) =>
-                            setForm((prev) => ({
-                              ...prev,
-                              range_end: e.target.value,
-                            }))
-                          }
-                        />
-                      </div>
+                    <div>
+                      <Label>To</Label>
+                      <Input
+                        type="datetime-local"
+                        value={form.range_end}
+                        onChange={(e) =>
+                          setForm((prev) => ({
+                            ...prev,
+                            range_end: e.target.value,
+                          }))
+                        }
+                      />
                     </div>
-
-                    <div className="bg-muted/50 p-3 rounded-lg">
-                      <p className="text-xs font-medium mb-3">50/30/20 SPLIT</p>
-
-                      <div className="grid grid-cols-3 gap-3">
-                        <div>
-                          <Label className="text-xs">Needs %</Label>
-                          <Input
-                            type="number"
-                            value={form.needs_pct}
-                            onChange={(e) =>
-                              setForm((prev) => ({
-                                ...prev,
-                                needs_pct: e.target.value,
-                              }))
-                            }
-                          />
-                        </div>
-
-                        <div>
-                          <Label className="text-xs">Wants %</Label>
-                          <Input
-                            type="number"
-                            value={form.wants_pct}
-                            onChange={(e) =>
-                              setForm((prev) => ({
-                                ...prev,
-                                wants_pct: e.target.value,
-                              }))
-                            }
-                          />
-                        </div>
-
-                        <div>
-                          <Label className="text-xs">Savings %</Label>
-                          <Input
-                            type="number"
-                            value={form.savings_pct}
-                            onChange={(e) =>
-                              setForm((prev) => ({
-                                ...prev,
-                                savings_pct: e.target.value,
-                              }))
-                            }
-                          />
-                        </div>
-                      </div>
-
-                      <p className="text-[11px] text-muted-foreground mt-3">Total must equal 100%</p>
-                    </div>
-
-                    <Button
-                      onClick={handleSubmit}
-                      className="w-full"
-                      disabled={!form.total_budget || saving}
-                    >
-                      {saving ? "Saving..." : "Save Budget"}
-                    </Button>
                   </div>
-                </DialogContent>
-              </Dialog>
 
-              {currentBudget && (
-                <Button
-                  size="sm"
-                  variant="outline"
-                  onClick={handleReset}
-                  disabled={resetting}
-                >
-                  <RotateCcw
-                    className={`w-4 h-4 mr-1 ${resetting ? "animate-spin" : ""}`}
-                  />
-                  {resetting ? "Resetting..." : "Reset"}
-                </Button>
-              )}
-            </div>
-          )
-        }
-      />
+                  <div className="bg-muted/50 p-3 rounded-lg">
+                    <p className="text-xs font-medium mb-3">50 / 30 / 20 SPLIT</p>
+
+                    <div className="grid grid-cols-3 gap-3">
+                      <div>
+                        <Label className="text-xs">Needs %</Label>
+                        <Input
+                          type="number"
+                          value={form.needs_pct}
+                          onChange={(e) =>
+                            setForm((prev) => ({
+                              ...prev,
+                              needs_pct: e.target.value,
+                            }))
+                          }
+                        />
+                      </div>
+
+                      <div>
+                        <Label className="text-xs">Wants %</Label>
+                        <Input
+                          type="number"
+                          value={form.wants_pct}
+                          onChange={(e) =>
+                            setForm((prev) => ({
+                              ...prev,
+                              wants_pct: e.target.value,
+                            }))
+                          }
+                        />
+                      </div>
+
+                      <div>
+                        <Label className="text-xs">Other %</Label>
+                        <Input
+                          type="number"
+                          value={form.other_pct}
+                          onChange={(e) =>
+                            setForm((prev) => ({
+                              ...prev,
+                              other_pct: e.target.value,
+                            }))
+                          }
+                        />
+                      </div>
+                    </div>
+
+                    <p className="text-[11px] text-muted-foreground mt-3">
+                      Total must equal 100%
+                    </p>
+                  </div>
+
+                  <Button
+                    onClick={handleSubmit}
+                    className="w-full"
+                    disabled={!form.total_budget || saving}
+                  >
+                    {saving ? "Saving..." : "Save Budget"}
+                  </Button>
+                </div>
+              </DialogContent>
+            </Dialog>
+
+            {currentBudget && (
+              <Button size="sm" variant="outline" onClick={handleReset} disabled={resetting}>
+                <RotateCcw className={`w-4 h-4 mr-1 ${resetting ? "animate-spin" : ""}`} />
+                {resetting ? "Resetting..." : "Reset"}
+              </Button>
+            )}
+          </div>
+        )}
+      </div>
 
       {!isFree && !loading && !currentBudget && (
         <EmptyState
@@ -936,16 +1068,13 @@ export default function Budgets() {
               color: "bg-secondary",
             },
             {
-              label: "Savings",
-              budget: savingsBudget,
-              spent: savingsSpent,
+              label: "Other",
+              budget: otherBudget,
+              spent: otherSpent,
               color: "bg-accent",
             },
           ].map((item) => (
-            <div
-              key={item.label}
-              className="bg-card rounded-xl border border-border p-4"
-            >
+            <div key={item.label} className="bg-card rounded-xl border border-border p-4">
               <div className="flex justify-between mb-2">
                 <span className="text-sm font-medium">{item.label}</span>
                 <span className="text-sm text-muted-foreground">

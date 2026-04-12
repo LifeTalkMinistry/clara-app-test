@@ -2,17 +2,16 @@ import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   ArrowLeft,
+  Save,
   User,
   Mail,
+  Phone,
   Shield,
-  Bell,
-  KeyRound,
   CreditCard,
-  Gift,
-  Settings,
-  LogOut,
-  ChevronRight,
   CalendarDays,
+  Camera,
+  CheckCircle2,
+  AlertCircle,
 } from "lucide-react";
 import { supabase } from "@/lib/supabaseClient";
 
@@ -31,24 +30,15 @@ const ROLE_STYLES = {
   user: "bg-white/10 text-slate-200 border-white/10",
 };
 
-function formatDate(value) {
-  if (!value) return "Not available";
-  try {
-    return new Date(value).toLocaleDateString("en-PH", {
-      year: "numeric",
-      month: "long",
-      day: "numeric",
-    });
-  } catch {
-    return "Not available";
-  }
-}
-
-function getInitials(name, email) {
-  const source = name?.trim() || email?.trim() || "U";
-  const parts = source.split(" ").filter(Boolean);
-  if (parts.length >= 2) return `${parts[0][0]}${parts[1][0]}`.toUpperCase();
-  return source.slice(0, 2).toUpperCase();
+function normalizeRole(profile) {
+  return (
+    profile?.role ||
+    profile?.user_role ||
+    profile?.account_role ||
+    "user"
+  )
+    .toString()
+    .toLowerCase();
 }
 
 function normalizePlan(profile, role) {
@@ -64,68 +54,88 @@ function normalizePlan(profile, role) {
     .toLowerCase();
 }
 
-function normalizeRole(profile) {
-  return (
-    profile?.role ||
-    profile?.user_role ||
-    profile?.account_role ||
-    "user"
-  )
-    .toString()
-    .toLowerCase();
+function getInitials(name, email) {
+  const source = name?.trim() || email?.trim() || "U";
+  const parts = source.split(" ").filter(Boolean);
+  if (parts.length >= 2) return `${parts[0][0]}${parts[1][0]}`.toUpperCase();
+  return source.slice(0, 2).toUpperCase();
 }
 
-function ActionRow({ icon: Icon, title, subtitle, onClick, danger = false }) {
+function formatDate(value) {
+  if (!value) return "Not available";
+  try {
+    return new Date(value).toLocaleDateString("en-PH", {
+      year: "numeric",
+      month: "long",
+      day: "numeric",
+    });
+  } catch {
+    return "Not available";
+  }
+}
+
+function LoadingState() {
   return (
-    <button
-      onClick={onClick}
-      className={`w-full rounded-2xl border px-4 py-4 text-left transition active:scale-[0.99] ${
-        danger
-          ? "border-red-500/20 bg-red-500/5 hover:bg-red-500/10"
-          : "border-white/10 bg-white/5 hover:bg-white/10"
-      }`}
-    >
-      <div className="flex items-center gap-3">
-        <div
-          className={`flex h-11 w-11 items-center justify-center rounded-xl border ${
-            danger
-              ? "border-red-500/20 bg-red-500/10 text-red-300"
-              : "border-white/10 bg-white/5 text-white"
-          }`}
-        >
-          <Icon size={18} />
+    <div className="min-h-screen bg-[#020817] text-white">
+      <div className="mx-auto flex min-h-screen max-w-md items-center justify-center px-4">
+        <div className="text-center">
+          <div className="mx-auto h-10 w-10 animate-spin rounded-full border-4 border-white/10 border-t-emerald-400" />
+          <p className="mt-3 text-sm text-slate-400">Loading account...</p>
         </div>
-
-        <div className="min-w-0 flex-1">
-          <p className={`font-semibold ${danger ? "text-red-300" : "text-white"}`}>
-            {title}
-          </p>
-          {subtitle ? (
-            <p className="mt-0.5 text-sm text-slate-400">{subtitle}</p>
-          ) : null}
-        </div>
-
-        {!danger && <ChevronRight size={18} className="text-slate-500" />}
       </div>
-    </button>
+    </div>
   );
 }
 
-export default function Profile() {
+function Field({ icon: Icon, label, children, hint }) {
+  return (
+    <div className="rounded-2xl border border-white/10 bg-white/5 p-4">
+      <div className="mb-3 flex items-center gap-2">
+        <div className="flex h-9 w-9 items-center justify-center rounded-xl border border-white/10 bg-white/5 text-slate-200">
+          <Icon size={16} />
+        </div>
+        <div className="min-w-0">
+          <p className="text-sm font-semibold text-white">{label}</p>
+          {hint ? <p className="text-xs text-slate-400">{hint}</p> : null}
+        </div>
+      </div>
+      {children}
+    </div>
+  );
+}
+
+export default function Account() {
   const navigate = useNavigate();
 
   const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+
   const [authUser, setAuthUser] = useState(null);
   const [profile, setProfile] = useState(null);
+
   const [error, setError] = useState("");
+  const [success, setSuccess] = useState("");
+
+  const [form, setForm] = useState({
+    full_name: "",
+    display_name: "",
+    phone: "",
+  });
+
+  const [initialForm, setInitialForm] = useState({
+    full_name: "",
+    display_name: "",
+    phone: "",
+  });
 
   useEffect(() => {
     let mounted = true;
 
-    const loadProfile = async () => {
+    const loadAccount = async () => {
       try {
         setLoading(true);
         setError("");
+        setSuccess("");
 
         const {
           data: { user },
@@ -135,40 +145,53 @@ export default function Profile() {
         if (authError) throw authError;
 
         if (!user) {
-          navigate("/login");
+          navigate("/login", { replace: true });
           return;
         }
 
         if (!mounted) return;
         setAuthUser(user);
 
-        const possibleTables = ["profiles", "users", "user_profiles"];
-        let foundProfile = null;
+        const { data, error: profileError } = await supabase
+          .from("profiles")
+          .select("*")
+          .eq("id", user.id)
+          .maybeSingle();
 
-        for (const table of possibleTables) {
-          const { data, error: tableError } = await supabase
-            .from(table)
-            .select("*")
-            .eq("id", user.id)
-            .maybeSingle();
-
-          if (!tableError && data) {
-            foundProfile = data;
-            break;
-          }
-        }
-
+        if (profileError) throw profileError;
         if (!mounted) return;
-        setProfile(foundProfile || null);
+
+        const safeProfile = data || {};
+        setProfile(safeProfile);
+
+        const nextForm = {
+          full_name:
+            safeProfile.full_name ||
+            user.user_metadata?.full_name ||
+            user.user_metadata?.name ||
+            "",
+          display_name:
+            safeProfile.display_name ||
+            safeProfile.nickname ||
+            "",
+          phone:
+            safeProfile.phone ||
+            safeProfile.mobile_number ||
+            safeProfile.contact_number ||
+            "",
+        };
+
+        setForm(nextForm);
+        setInitialForm(nextForm);
       } catch (err) {
-        console.error("Profile load error:", err);
-        if (mounted) setError(err.message || "Failed to load profile.");
+        console.error("Failed to load account:", err);
+        if (mounted) setError("Failed to load account details.");
       } finally {
         if (mounted) setLoading(false);
       }
     };
 
-    loadProfile();
+    loadAccount();
 
     return () => {
       mounted = false;
@@ -178,105 +201,181 @@ export default function Profile() {
   const role = useMemo(() => normalizeRole(profile), [profile]);
   const plan = useMemo(() => normalizePlan(profile, role), [profile, role]);
 
-  const displayName =
-    profile?.full_name ||
-    profile?.name ||
-    authUser?.user_metadata?.full_name ||
-    authUser?.user_metadata?.name ||
-    authUser?.email?.split("@")[0] ||
-    "User";
-
-  const email = profile?.email || authUser?.email || "No email";
-  const avatarUrl =
-    profile?.avatar_url ||
-    profile?.photo_url ||
-    authUser?.user_metadata?.avatar_url;
+  const email = profile?.email || authUser?.email || "";
+  const avatarUrl = profile?.avatar_url || "";
   const joinedAt = profile?.created_at || authUser?.created_at;
 
   const roleLabel =
     role === "admin"
       ? "Admin"
       : role === "student"
-        ? "Student"
-        : role === "free_user"
-          ? "Free User"
-          : "User";
+      ? "Student"
+      : role === "free_user"
+      ? "Free User"
+      : "User";
 
   const planLabel =
     plan === "transformation"
       ? "Transformation"
       : plan === "elite"
-        ? "Elite"
-        : plan === "basic"
-          ? "Basic"
-          : plan === "admin"
-            ? "Admin"
-            : "Free";
+      ? "Elite"
+      : plan === "basic"
+      ? "Basic"
+      : plan === "admin"
+      ? "Admin"
+      : "Free";
 
-  const handleLogout = async () => {
-    await supabase.auth.signOut();
-    navigate("/login");
+  const dirty =
+    form.full_name !== initialForm.full_name ||
+    form.display_name !== initialForm.display_name ||
+    form.phone !== initialForm.phone;
+
+  const onChange = (key) => (e) => {
+    const value = e.target.value;
+    setForm((prev) => ({ ...prev, [key]: value }));
+    if (success) setSuccess("");
   };
+
+  const handleSave = async () => {
+    try {
+      if (!authUser?.id) return;
+
+      setSaving(true);
+      setError("");
+      setSuccess("");
+
+      const payload = {
+        id: authUser.id,
+        full_name: form.full_name.trim(),
+        display_name: form.display_name.trim(),
+        phone: form.phone.trim(),
+        updated_at: new Date().toISOString(),
+      };
+
+      const { error: updateError } = await supabase
+        .from("profiles")
+        .upsert(payload, { onConflict: "id" });
+
+      if (updateError) throw updateError;
+
+      const mergedProfile = {
+        ...(profile || {}),
+        ...payload,
+      };
+
+      setProfile(mergedProfile);
+      setInitialForm({
+        full_name: form.full_name,
+        display_name: form.display_name,
+        phone: form.phone,
+      });
+      setSuccess("Profile updated successfully.");
+    } catch (err) {
+      console.error("Failed to save profile:", err);
+      setError("Unable to save your changes. Please try again.");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  if (loading) {
+    return <LoadingState />;
+  }
 
   return (
     <div className="min-h-screen bg-[#020817] text-white">
-      <div className="mx-auto w-full max-w-md px-4 pb-28 pt-4">
+      <div className="mx-auto max-w-md px-4 pb-32 pt-4">
         <div className="mb-4 flex items-center justify-between">
           <button
+            type="button"
             onClick={() => navigate(-1)}
-            className="flex h-11 w-11 items-center justify-center rounded-2xl border border-white/10 bg-white/5 backdrop-blur"
+            className="btn-icon"
           >
             <ArrowLeft size={18} />
           </button>
 
           <div className="text-center">
-            <p className="text-[11px] font-semibold uppercase tracking-[0.28em] text-emerald-300/80">
-              Control Center
+            <p className="text-xs tracking-[0.3em] text-emerald-300/70">
+              CONTROL CENTER
             </p>
-            <h1 className="text-lg font-bold">Profile</h1>
+            <h1 className="text-lg font-bold">Edit Profile</h1>
           </div>
 
           <button
-            onClick={() => navigate("/settings")}
-            className="flex h-11 w-11 items-center justify-center rounded-2xl border border-white/10 bg-white/5 backdrop-blur"
+            type="button"
+            onClick={handleSave}
+            disabled={!dirty || saving}
+            className={`save-chip ${
+              !dirty || saving
+                ? "cursor-not-allowed border-white/10 bg-white/5 text-slate-500"
+                : "border-emerald-400/20 bg-emerald-500/15 text-emerald-300"
+            }`}
           >
-            <Settings size={18} />
+            <Save size={15} />
           </button>
         </div>
 
-        <div className="overflow-hidden rounded-[28px] border border-emerald-400/10 bg-[#04111f] shadow-[0_10px_40px_rgba(0,0,0,0.35)]">
-          <div className="bg-gradient-to-r from-[#0b3b2e] via-[#0f8f5a] to-[#0ea5e9] p-5">
-            <div className="flex items-start gap-4">
-              {avatarUrl ? (
-                <img
-                  src={avatarUrl}
-                  alt="Profile"
-                  className="h-20 w-20 rounded-2xl border border-white/20 object-cover shadow-lg"
-                />
-              ) : (
-                <div className="flex h-20 w-20 items-center justify-center rounded-2xl border border-white/20 bg-white/10 text-2xl font-bold text-white shadow-lg">
-                  {getInitials(displayName, email)}
-                </div>
-              )}
+        {error ? (
+          <div className="mb-4 flex items-start gap-2 rounded-2xl border border-red-500/20 bg-red-500/10 px-4 py-3 text-sm text-red-200">
+            <AlertCircle size={16} className="mt-0.5 shrink-0" />
+            <span>{error}</span>
+          </div>
+        ) : null}
+
+        {success ? (
+          <div className="mb-4 flex items-start gap-2 rounded-2xl border border-emerald-500/20 bg-emerald-500/10 px-4 py-3 text-sm text-emerald-200">
+            <CheckCircle2 size={16} className="mt-0.5 shrink-0" />
+            <span>{success}</span>
+          </div>
+        ) : null}
+
+        {dirty && !success ? (
+          <div className="mb-4 rounded-2xl border border-yellow-500/20 bg-yellow-500/10 px-4 py-3 text-sm text-yellow-200">
+            You have unsaved changes.
+          </div>
+        ) : null}
+
+        <div className="overflow-hidden rounded-[28px] border border-emerald-400/10 bg-[#04111f]">
+          <div className="bg-gradient-to-r from-[#0b3b2e] via-[#0f8f5a] to-[#0ea5e9] px-6 py-6">
+            <div className="flex gap-4">
+              <div className="relative shrink-0">
+                {avatarUrl ? (
+                  <img
+                    src={avatarUrl}
+                    alt="Profile"
+                    className="avatar object-cover"
+                  />
+                ) : (
+                  <div className="avatar">
+                    {getInitials(form.full_name || form.display_name, email)}
+                  </div>
+                )}
+
+                <button
+                  type="button"
+                  className="camera-badge"
+                  onClick={() =>
+                    alert("Avatar upload can be added next once your storage flow is ready.")
+                  }
+                >
+                  <Camera size={14} />
+                </button>
+              </div>
 
               <div className="min-w-0 flex-1">
-                <p className="text-[11px] font-semibold uppercase tracking-[0.28em] text-white/70">
-                  My Account
-                </p>
-                <h2 className="truncate text-2xl font-bold">{displayName}</h2>
+                <h2 className="truncate text-2xl font-bold">
+                  {form.display_name?.trim() ||
+                    form.full_name?.trim() ||
+                    email.split("@")[0] ||
+                    "User"}
+                </h2>
+                <p className="truncate text-sm text-white/75">{email}</p>
+
                 <div className="mt-2 flex flex-wrap gap-2">
-                  <span
-                    className={`rounded-full border px-3 py-1 text-xs font-semibold ${
-                      ROLE_STYLES[role] || ROLE_STYLES.user
-                    }`}
-                  >
+                  <span className={`badge ${ROLE_STYLES[role] || ROLE_STYLES.user}`}>
                     {roleLabel}
                   </span>
-                  <span
-                    className={`rounded-full border px-3 py-1 text-xs font-semibold ${
-                      PLAN_STYLES[plan] || PLAN_STYLES.free
-                    }`}
-                  >
+                  <span className={`badge ${PLAN_STYLES[plan] || PLAN_STYLES.free}`}>
                     {planLabel} Plan
                   </span>
                 </div>
@@ -284,121 +383,273 @@ export default function Profile() {
             </div>
           </div>
 
-          <div className="space-y-3 p-4">
-            <div className="grid grid-cols-1 gap-3">
-              <div className="rounded-2xl border border-white/10 bg-white/5 p-4">
-                <div className="flex items-center gap-3">
-                  <div className="flex h-11 w-11 items-center justify-center rounded-xl border border-white/10 bg-white/5 text-emerald-300">
-                    <Mail size={18} />
-                  </div>
-                  <div className="min-w-0">
-                    <p className="text-xs uppercase tracking-[0.2em] text-slate-400">
-                      Email
-                    </p>
-                    <p className="truncate font-medium text-white">{email}</p>
-                  </div>
-                </div>
-              </div>
-
-              <div className="rounded-2xl border border-white/10 bg-white/5 p-4">
-                <div className="flex items-center gap-3">
-                  <div className="flex h-11 w-11 items-center justify-center rounded-xl border border-white/10 bg-white/5 text-cyan-300">
-                    <CalendarDays size={18} />
-                  </div>
-                  <div className="min-w-0">
-                    <p className="text-xs uppercase tracking-[0.2em] text-slate-400">
-                      Member Since
-                    </p>
-                    <p className="font-medium text-white">{formatDate(joinedAt)}</p>
-                  </div>
-                </div>
-              </div>
+          <div className="grid grid-cols-1 gap-3 p-4">
+            <div className="info-card">
+              <Mail size={16} />
+              <span className="truncate">{email || "No email available"}</span>
             </div>
 
-            {error ? (
-              <div className="rounded-2xl border border-red-500/20 bg-red-500/10 px-4 py-3 text-sm text-red-300">
-                {error}
+            <div className="info-card">
+              <CalendarDays size={16} />
+              <span>Joined {formatDate(joinedAt)}</span>
+            </div>
+          </div>
+        </div>
+
+        <div className="mt-5 space-y-4">
+          <div>
+            <p className="section-title">Personal Information</p>
+            <div className="mt-3 space-y-3">
+              <Field
+                icon={User}
+                label="Full Name"
+                hint="Your real name shown on your account"
+              >
+                <input
+                  type="text"
+                  value={form.full_name}
+                  onChange={onChange("full_name")}
+                  placeholder="Enter your full name"
+                  className="input"
+                />
+              </Field>
+
+              <Field
+                icon={User}
+                label="Display Name"
+                hint="Optional name shown more casually in the app"
+              >
+                <input
+                  type="text"
+                  value={form.display_name}
+                  onChange={onChange("display_name")}
+                  placeholder="Enter your display name"
+                  className="input"
+                />
+              </Field>
+
+              <Field
+                icon={Phone}
+                label="Phone Number"
+                hint="Optional contact number"
+              >
+                <input
+                  type="tel"
+                  value={form.phone}
+                  onChange={onChange("phone")}
+                  placeholder="e.g. 09123456789"
+                  className="input"
+                />
+              </Field>
+
+              <Field
+                icon={Mail}
+                label="Email Address"
+                hint="Managed by your login account"
+              >
+                <input
+                  type="email"
+                  value={email}
+                  disabled
+                  className="input input-disabled"
+                />
+              </Field>
+            </div>
+          </div>
+
+          <div>
+            <p className="section-title">Account Identity</p>
+            <div className="mt-3 grid grid-cols-1 gap-3">
+              <div className="identity-card">
+                <div className="identity-label">
+                  <Shield size={16} />
+                  <span>Role</span>
+                </div>
+                <span className={`badge ${ROLE_STYLES[role] || ROLE_STYLES.user}`}>
+                  {roleLabel}
+                </span>
               </div>
-            ) : null}
+
+              <div className="identity-card">
+                <div className="identity-label">
+                  <CreditCard size={16} />
+                  <span>Current Plan</span>
+                </div>
+                <span className={`badge ${PLAN_STYLES[plan] || PLAN_STYLES.free}`}>
+                  {planLabel} Plan
+                </span>
+              </div>
+            </div>
           </div>
         </div>
-
-        <div className="mt-5 space-y-3">
-          <p className="px-1 text-xs font-semibold uppercase tracking-[0.24em] text-slate-400">
-            Account Actions
-          </p>
-
-          <ActionRow
-            icon={User}
-            title="Edit Profile"
-            subtitle="Update your personal details later"
-            onClick={() => navigate("/settings")}
-          />
-
-          <ActionRow
-            icon={KeyRound}
-            title="Change Password"
-            subtitle="Manage account security"
-            onClick={() => navigate("/settings")}
-          />
-
-          <ActionRow
-            icon={Bell}
-            title="Notifications"
-            subtitle="Control alerts and reminders"
-            onClick={() => navigate("/notifications")}
-          />
-
-          <ActionRow
-            icon={CreditCard}
-            title="Plan & Billing"
-            subtitle={`Current plan: ${planLabel}`}
-            onClick={() => navigate("/settings")}
-          />
-
-          <ActionRow
-            icon={Gift}
-            title="Referral Code"
-            subtitle="Invite others and grow the mission"
-            onClick={() => navigate("/referrals")}
-          />
-        </div>
-
-        {role === "admin" && (
-          <div className="mt-5 space-y-3">
-            <p className="px-1 text-xs font-semibold uppercase tracking-[0.24em] text-slate-400">
-              Admin Tools
-            </p>
-
-            <ActionRow
-              icon={Shield}
-              title="Admin Panel"
-              subtitle="Manage students, modules, and system controls"
-              onClick={() => navigate("/admin")}
-            />
-          </div>
-        )}
-
-        <div className="mt-5 space-y-3">
-          <p className="px-1 text-xs font-semibold uppercase tracking-[0.24em] text-slate-400">
-            Session
-          </p>
-
-          <ActionRow
-            icon={LogOut}
-            title="Log Out"
-            subtitle="Sign out from your account"
-            onClick={handleLogout}
-            danger
-          />
-        </div>
-
-        {loading && (
-          <div className="mt-5 rounded-2xl border border-white/10 bg-white/5 p-4 text-sm text-slate-300">
-            Loading profile...
-          </div>
-        )}
       </div>
+
+      <div className="sticky-save-wrap">
+        <div className="mx-auto max-w-md px-4 pb-5">
+          <button
+            type="button"
+            onClick={handleSave}
+            disabled={!dirty || saving}
+            className={`save-button ${
+              !dirty || saving
+                ? "cursor-not-allowed opacity-60"
+                : "hover:brightness-110 active:scale-[0.99]"
+            }`}
+          >
+            <Save size={18} />
+            <span>{saving ? "Saving..." : "Save Changes"}</span>
+          </button>
+        </div>
+      </div>
+
+      <style>{`
+        .btn-icon {
+          height: 44px;
+          width: 44px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          border-radius: 16px;
+          background: rgba(255, 255, 255, 0.05);
+          border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .save-chip {
+          height: 44px;
+          width: 44px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          border-radius: 16px;
+          border: 1px solid;
+          transition: 0.2s ease;
+        }
+
+        .avatar {
+          height: 84px;
+          width: 84px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          border-radius: 20px;
+          background: rgba(255, 255, 255, 0.12);
+          font-size: 26px;
+          font-weight: 700;
+          color: white;
+          border: 1px solid rgba(255, 255, 255, 0.12);
+        }
+
+        .camera-badge {
+          position: absolute;
+          right: -4px;
+          bottom: -4px;
+          height: 32px;
+          width: 32px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          border-radius: 999px;
+          background: linear-gradient(135deg, #10b981, #06b6d4);
+          color: white;
+          border: 3px solid #04111f;
+          box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+        }
+
+        .badge {
+          padding: 4px 10px;
+          border-radius: 999px;
+          font-size: 12px;
+          border: 1px solid;
+          white-space: nowrap;
+        }
+
+        .info-card {
+          display: flex;
+          align-items: center;
+          gap: 10px;
+          padding: 14px;
+          border-radius: 16px;
+          background: rgba(255, 255, 255, 0.05);
+          color: white;
+          min-width: 0;
+        }
+
+        .section-title {
+          font-size: 12px;
+          letter-spacing: 0.18em;
+          text-transform: uppercase;
+          color: rgba(110, 231, 183, 0.75);
+          padding-left: 2px;
+        }
+
+        .input {
+          width: 100%;
+          border-radius: 16px;
+          border: 1px solid rgba(255, 255, 255, 0.1);
+          background: rgba(2, 8, 23, 0.65);
+          color: white;
+          padding: 14px 15px;
+          outline: none;
+          transition: 0.2s ease;
+        }
+
+        .input::placeholder {
+          color: rgba(148, 163, 184, 0.7);
+        }
+
+        .input:focus {
+          border-color: rgba(16, 185, 129, 0.45);
+          box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.12);
+        }
+
+        .input-disabled {
+          opacity: 0.75;
+          cursor: not-allowed;
+        }
+
+        .identity-card {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          gap: 14px;
+          border-radius: 20px;
+          border: 1px solid rgba(255, 255, 255, 0.1);
+          background: rgba(255, 255, 255, 0.05);
+          padding: 16px;
+        }
+
+        .identity-label {
+          display: flex;
+          align-items: center;
+          gap: 10px;
+          color: white;
+          font-weight: 600;
+        }
+
+        .sticky-save-wrap {
+          position: sticky;
+          bottom: 0;
+          z-index: 30;
+          background: linear-gradient(to top, rgba(2, 8, 23, 0.98), rgba(2, 8, 23, 0.82), transparent);
+          padding-top: 20px;
+        }
+
+        .save-button {
+          width: 100%;
+          height: 56px;
+          border: none;
+          border-radius: 18px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          gap: 10px;
+          font-weight: 700;
+          color: white;
+          background: linear-gradient(135deg, #0f8f5a, #06b6d4);
+          box-shadow: 0 16px 40px rgba(6, 182, 212, 0.18);
+          transition: 0.2s ease;
+        }
+      `}</style>
     </div>
   );
 }

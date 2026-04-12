@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect, useRef } from "react";
+import { useState, useMemo } from "react";
 import {
   Plus,
   Wallet as WalletIcon,
@@ -7,6 +7,8 @@ import {
   X,
   RotateCcw,
   CalendarDays,
+  ArrowUp,
+  ArrowDown,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -57,9 +59,6 @@ const walletIcons = {
   other: "💰",
 };
 
-const LONG_PRESS_MS = 260;
-const MOVE_CANCEL_PX = 8;
-
 const toNumber = (v) => {
   const n = Number(v);
   return Number.isFinite(n) ? n : 0;
@@ -77,13 +76,6 @@ const getWalletSortOrder = (wallet, index) => {
   if (wallet?.sort_order === null || wallet?.sort_order === undefined) return index;
   const n = Number(wallet.sort_order);
   return Number.isFinite(n) ? n : index;
-};
-
-const arrayMove = (arr, fromIndex, toIndex) => {
-  const next = [...arr];
-  const [item] = next.splice(fromIndex, 1);
-  next.splice(toIndex, 0, item);
-  return next;
 };
 
 export default function Wallets() {
@@ -145,36 +137,11 @@ export default function Wallets() {
     });
   }, [wallets]);
 
-  const [localWallets, setLocalWallets] = useState([]);
-
-  useEffect(() => {
-    setLocalWallets(sortedWallets);
-  }, [sortedWallets]);
-
-  const cardRefs = useRef({});
-  const longPressTimerRef = useRef(null);
-  const dragStateRef = useRef({
-    pointerId: null,
-    walletId: null,
-    startX: 0,
-    startY: 0,
-    currentX: 0,
-    currentY: 0,
-    dragging: false,
-    dragOffsetY: 0,
-    dragOffsetX: 0,
-  });
-
-  const [pressingWalletId, setPressingWalletId] = useState(null);
-  const [draggingWalletId, setDraggingWalletId] = useState(null);
-  const [dragOffsetY, setDragOffsetY] = useState(0);
-  const [dragOffsetX, setDragOffsetX] = useState(0);
-
   const getBalance = (wallet) => Number(wallet?.balance || 0);
 
   const totalBalance = useMemo(() => {
-    return localWallets.reduce((sum, w) => sum + getBalance(w), 0);
-  }, [localWallets]);
+    return sortedWallets.reduce((sum, w) => sum + getBalance(w), 0);
+  }, [sortedWallets]);
 
   const fmt = (n) =>
     new Intl.NumberFormat("en-PH", {
@@ -281,191 +248,35 @@ export default function Wallets() {
     }
   };
 
-  const clearLongPressTimer = () => {
-    if (longPressTimerRef.current) {
-      clearTimeout(longPressTimerRef.current);
-      longPressTimerRef.current = null;
-    }
-  };
+  const moveWallet = async (walletId, direction) => {
+    if (isReorderingWallets) return;
 
-  const resetDragState = () => {
-    clearLongPressTimer();
-    dragStateRef.current = {
-      pointerId: null,
-      walletId: null,
-      startX: 0,
-      startY: 0,
-      currentX: 0,
-      currentY: 0,
-      dragging: false,
-      dragOffsetY: 0,
-      dragOffsetX: 0,
-    };
-    setPressingWalletId(null);
-    setDraggingWalletId(null);
-    setDragOffsetY(0);
-    setDragOffsetX(0);
-    document.body.style.userSelect = "";
-    document.body.style.webkitUserSelect = "";
-    document.body.style.touchAction = "";
-  };
+    const currentIndex = sortedWallets.findIndex(
+      (wallet) => String(wallet.id) === String(walletId)
+    );
 
-  const persistWalletOrder = async (nextWallets) => {
+    if (currentIndex === -1) return;
+
+    const targetIndex = currentIndex + direction;
+
+    if (targetIndex < 0 || targetIndex >= sortedWallets.length) return;
+
+    const nextWallets = [...sortedWallets];
+    [nextWallets[currentIndex], nextWallets[targetIndex]] = [
+      nextWallets[targetIndex],
+      nextWallets[currentIndex],
+    ];
+
     try {
       setIsReorderingWallets(true);
       await normalizeWalletOrder(nextWallets);
       await refreshData();
     } catch (error) {
       alert(error?.message || "Failed to reorder wallets");
-      setLocalWallets(sortedWallets);
     } finally {
       setIsReorderingWallets(false);
     }
   };
-
-  const updateDraggedWalletPosition = (clientY) => {
-    const activeId = dragStateRef.current.walletId;
-    if (!activeId) return;
-
-    const currentIndex = localWallets.findIndex(
-      (wallet) => String(wallet.id) === String(activeId)
-    );
-    if (currentIndex === -1) return;
-
-    let targetIndex = currentIndex;
-
-    for (let i = 0; i < localWallets.length; i += 1) {
-      const wallet = localWallets[i];
-      const el = cardRefs.current[String(wallet.id)];
-      if (!el) continue;
-
-      const rect = el.getBoundingClientRect();
-      const midpoint = rect.top + rect.height / 2;
-
-      if (clientY > midpoint) {
-        targetIndex = i;
-      }
-    }
-
-    if (targetIndex !== currentIndex) {
-      setLocalWallets((prev) => {
-        const fromIndex = prev.findIndex(
-          (wallet) => String(wallet.id) === String(activeId)
-        );
-        if (fromIndex === -1) return prev;
-        return arrayMove(prev, fromIndex, targetIndex);
-      });
-    }
-  };
-
-  const startLongPress = (walletId, e) => {
-    if (isReorderingWallets) return;
-    if (e.button !== undefined && e.button !== 0) return;
-
-    const target = e.target;
-    if (
-      target?.closest?.(
-        'button, input, select, textarea, [role="button"], [data-no-drag="true"]'
-      )
-    ) {
-      return;
-    }
-
-    clearLongPressTimer();
-
-    dragStateRef.current = {
-      pointerId: e.pointerId,
-      walletId: String(walletId),
-      startX: e.clientX,
-      startY: e.clientY,
-      currentX: e.clientX,
-      currentY: e.clientY,
-      dragging: false,
-      dragOffsetY: 0,
-      dragOffsetX: 0,
-    };
-
-    setPressingWalletId(String(walletId));
-
-    longPressTimerRef.current = setTimeout(() => {
-      if (dragStateRef.current.walletId !== String(walletId)) return;
-
-      dragStateRef.current.dragging = true;
-      setDraggingWalletId(String(walletId));
-      setPressingWalletId(null);
-      setDragOffsetY(0);
-      setDragOffsetX(0);
-
-      document.body.style.userSelect = "none";
-      document.body.style.webkitUserSelect = "none";
-      document.body.style.touchAction = "none";
-    }, LONG_PRESS_MS);
-  };
-
-  const handleGlobalPointerMove = (e) => {
-    if (
-      dragStateRef.current.pointerId !== null &&
-      e.pointerId !== dragStateRef.current.pointerId
-    ) {
-      return;
-    }
-
-    const dx = e.clientX - dragStateRef.current.startX;
-    const dy = e.clientY - dragStateRef.current.startY;
-
-    dragStateRef.current.currentX = e.clientX;
-    dragStateRef.current.currentY = e.clientY;
-
-    if (
-      !dragStateRef.current.dragging &&
-      (Math.abs(dx) > MOVE_CANCEL_PX || Math.abs(dy) > MOVE_CANCEL_PX)
-    ) {
-      clearLongPressTimer();
-      setPressingWalletId(null);
-    }
-
-    if (dragStateRef.current.dragging) {
-      e.preventDefault();
-      dragStateRef.current.dragOffsetY = dy;
-      dragStateRef.current.dragOffsetX = dx;
-      setDragOffsetY(dy);
-      setDragOffsetX(dx);
-      updateDraggedWalletPosition(e.clientY);
-    }
-  };
-
-  const handleGlobalPointerUp = async (e) => {
-    if (
-      dragStateRef.current.pointerId !== null &&
-      e.pointerId !== dragStateRef.current.pointerId
-    ) {
-      return;
-    }
-
-    const wasDragging = dragStateRef.current.dragging;
-    const currentWallets = [...localWallets];
-
-    resetDragState();
-
-    if (wasDragging) {
-      await persistWalletOrder(currentWallets);
-    }
-  };
-
-  useEffect(() => {
-    window.addEventListener("pointermove", handleGlobalPointerMove, {
-      passive: false,
-    });
-    window.addEventListener("pointerup", handleGlobalPointerUp);
-    window.addEventListener("pointercancel", handleGlobalPointerUp);
-
-    return () => {
-      window.removeEventListener("pointermove", handleGlobalPointerMove);
-      window.removeEventListener("pointerup", handleGlobalPointerUp);
-      window.removeEventListener("pointercancel", handleGlobalPointerUp);
-      clearLongPressTimer();
-    };
-  }, [localWallets, sortedWallets]);
 
   const handleAddWallet = async () => {
     if (!form.name.trim()) {
@@ -482,7 +293,7 @@ export default function Wallets() {
       setIsCreatingWallet(true);
 
       const starting = toNumber(form.starting_balance);
-      const nextSortOrder = localWallets.length;
+      const nextSortOrder = sortedWallets.length;
 
       const { error } = await supabase.from("wallets").insert([
         {
@@ -521,7 +332,7 @@ export default function Wallets() {
 
       if (error) throw error;
 
-      const remainingWallets = localWallets.filter(
+      const remainingWallets = sortedWallets.filter(
         (wallet) => String(wallet.id) !== String(id)
       );
 
@@ -533,8 +344,6 @@ export default function Wallets() {
   };
 
   const openAddMoneyModal = (wallet) => {
-    if (draggingWalletId || isReorderingWallets) return;
-
     setSelectedWallet(wallet);
     setAddMoneyForm({
       amount: "",
@@ -619,8 +428,8 @@ export default function Wallets() {
       return;
     }
 
-    const fromWallet = localWallets.find((w) => String(w.id) === fromId);
-    const toWallet = localWallets.find((w) => String(w.id) === toId);
+    const fromWallet = sortedWallets.find((w) => String(w.id) === fromId);
+    const toWallet = sortedWallets.find((w) => String(w.id) === toId);
 
     if (!fromWallet || !toWallet) {
       alert("Wallet not found.");
@@ -715,7 +524,7 @@ export default function Wallets() {
 
         <div className="rounded-xl border border-white/10 bg-white/5 p-4">
           <p className="text-xs text-white/60">Total Wallets</p>
-          <p className="text-xl font-bold">{localWallets.length}</p>
+          <p className="text-xl font-bold">{sortedWallets.length}</p>
         </div>
       </div>
 
@@ -991,7 +800,7 @@ export default function Wallets() {
                   <SelectValue placeholder="From wallet" />
                 </SelectTrigger>
                 <SelectContent className="border-white/10 bg-[#08152f] text-white">
-                  {localWallets.map((wallet) => (
+                  {sortedWallets.map((wallet) => (
                     <SelectItem key={wallet.id} value={String(wallet.id)}>
                       {(wallet.icon || "💰") + " " + wallet.name} ({fmt(getBalance(wallet))})
                     </SelectItem>
@@ -1012,7 +821,7 @@ export default function Wallets() {
                   <SelectValue placeholder="To wallet" />
                 </SelectTrigger>
                 <SelectContent className="border-white/10 bg-[#08152f] text-white">
-                  {localWallets
+                  {sortedWallets
                     .filter(
                       (wallet) =>
                         String(wallet.id) !== String(transferForm.from_wallet_id)
@@ -1149,14 +958,12 @@ export default function Wallets() {
         </DialogContent>
       </Dialog>
 
-      {!loading && localWallets.length === 0 && (
+      {!loading && sortedWallets.length === 0 && (
         <EmptyState icon={WalletIcon} title="No wallets yet" />
       )}
 
       <div className="space-y-4">
-        {localWallets.map((w) => {
-          const isDragging = String(draggingWalletId) === String(w.id);
-          const isPressing = String(pressingWalletId) === String(w.id);
+        {sortedWallets.map((w, index) => {
           const hasActivity = walletTransactions.some(
             (t) => String(t.wallet_id) === String(w.id)
           );
@@ -1164,27 +971,7 @@ export default function Wallets() {
           return (
             <div
               key={w.id}
-              ref={(el) => {
-                cardRefs.current[String(w.id)] = el;
-              }}
-              onPointerDown={(e) => startLongPress(w.id, e)}
-              className={[
-                "rounded-[24px] border bg-white/5 p-5 transition-[transform,box-shadow,border-color,opacity] duration-150",
-                isDragging
-                  ? "border-emerald-400/80 bg-emerald-500/10 shadow-[0_24px_60px_rgba(16,185,129,0.25)]"
-                  : isPressing
-                  ? "border-emerald-400/40 bg-white/[0.07]"
-                  : "border-white/10",
-                draggingWalletId && !isDragging ? "opacity-80" : "",
-              ].join(" ")}
-              style={{
-                touchAction: draggingWalletId ? "none" : "manipulation",
-                transform: isDragging
-                  ? `translate3d(${dragOffsetX * 0.08}px, ${dragOffsetY}px, 0) scale(1.02)`
-                  : "translate3d(0,0,0)",
-                zIndex: isDragging ? 30 : 1,
-                position: "relative",
-              }}
+              className="rounded-[24px] border border-white/10 bg-white/5 p-5"
             >
               <div className="mb-3 flex items-center justify-between gap-3">
                 <div className="min-w-0">
@@ -1192,20 +979,12 @@ export default function Wallets() {
                     Wallet
                   </p>
                   <p className="mt-1 text-xs text-white/55">
-                    {isDragging
-                      ? "Move your finger and drop where you want"
-                      : "Long press and drag to reorder"}
+                    Use arrows to reorder wallet position
                   </p>
                 </div>
 
-                <div
-                  className={`rounded-full px-3 py-1 text-[11px] font-medium ${
-                    isDragging
-                      ? "bg-emerald-500/20 text-emerald-300"
-                      : "bg-white/5 text-white/55"
-                  }`}
-                >
-                  {isDragging ? "Dragging..." : "Hold & Move"}
+                <div className="rounded-full bg-white/5 px-3 py-1 text-[11px] font-medium text-white/55">
+                  Position {index + 1}
                 </div>
               </div>
 
@@ -1223,15 +1002,31 @@ export default function Wallets() {
                   </p>
                 </div>
 
-                <div
-                  className={`flex shrink-0 items-center gap-2 ${
-                    draggingWalletId ? "pointer-events-none opacity-60" : ""
-                  }`}
-                >
+                <div className="flex shrink-0 items-center gap-2">
+                  <div className="mr-1 flex flex-col gap-1">
+                    <button
+                      type="button"
+                      onClick={() => moveWallet(w.id, -1)}
+                      disabled={index === 0 || isReorderingWallets}
+                      className="flex h-8 w-8 items-center justify-center rounded-full bg-white/5 text-white transition hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-40"
+                      title="Move wallet up"
+                    >
+                      <ArrowUp className="h-4 w-4" />
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => moveWallet(w.id, 1)}
+                      disabled={index === sortedWallets.length - 1 || isReorderingWallets}
+                      className="flex h-8 w-8 items-center justify-center rounded-full bg-white/5 text-white transition hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-40"
+                      title="Move wallet down"
+                    >
+                      <ArrowDown className="h-4 w-4" />
+                    </button>
+                  </div>
+
                   <button
                     type="button"
-                    data-no-drag="true"
-                    onPointerDown={(e) => e.stopPropagation()}
                     onClick={() => openAddMoneyModal(w)}
                     className="flex h-9 w-9 items-center justify-center rounded-full bg-[#22c55e] text-white transition hover:scale-105"
                     title="Add Money"
@@ -1241,8 +1036,6 @@ export default function Wallets() {
 
                   <button
                     type="button"
-                    data-no-drag="true"
-                    onPointerDown={(e) => e.stopPropagation()}
                     onClick={() => {
                       setTransferForm({
                         from_wallet_id: String(w.id),
@@ -1260,8 +1053,6 @@ export default function Wallets() {
 
                   <button
                     type="button"
-                    data-no-drag="true"
-                    onPointerDown={(e) => e.stopPropagation()}
                     onClick={() => {
                       setHistoryWallet(w);
                       setHistoryOpen(true);
@@ -1274,8 +1065,6 @@ export default function Wallets() {
 
                   <button
                     type="button"
-                    data-no-drag="true"
-                    onPointerDown={(e) => e.stopPropagation()}
                     onClick={() => handleDeleteWallet(w.id)}
                     className="flex h-9 w-9 items-center justify-center rounded-full bg-[#ef4444] text-white transition hover:scale-105"
                     title="Delete Wallet"

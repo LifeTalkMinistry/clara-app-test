@@ -17,7 +17,6 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { CalendarDays, Lock, Zap } from "lucide-react";
-import PageHeader from "../components/PageHeader";
 import useUserRole from "../hooks/useUserRole";
 import useFinancialData from "../hooks/useFinancialData";
 import {
@@ -83,8 +82,8 @@ const SPENDING_TYPE_META = [
     textColor: "text-secondary",
   },
   {
-    label: "Savings",
-    key: "savingsSpent",
+    label: "Other",
+    key: "otherSpent",
     color: "bg-accent",
     textColor: "text-accent",
   },
@@ -359,7 +358,7 @@ export default function Analytics() {
     let totalExpenses = 0;
     let needsSpent = 0;
     let wantsSpent = 0;
-    let savingsSpent = 0;
+    let otherSpent = 0;
     let largestExpense = null;
 
     const monthlyMap = new Map();
@@ -401,9 +400,13 @@ export default function Analytics() {
 
       totalExpenses += amount;
 
-      if (needType === "need") needsSpent += amount;
-      if (needType === "want") wantsSpent += amount;
-      if (needType === "savings") savingsSpent += amount;
+      if (needType === "need") {
+        needsSpent += amount;
+      } else if (needType === "want") {
+        wantsSpent += amount;
+      } else {
+        otherSpent += amount;
+      }
 
       addToMap(categoryTotalsMap, category, amount);
       incrementMap(categoryCountMap, category);
@@ -509,7 +512,7 @@ export default function Analytics() {
       totalExpenses,
       needsSpent,
       wantsSpent,
-      savingsSpent,
+      otherSpent,
       monthlyData,
       categoryBreakdown,
       largestExpense,
@@ -543,7 +546,9 @@ export default function Analytics() {
 
   return (
     <div className="p-4 md:p-6 max-w-4xl mx-auto">
-      <PageHeader title="Analytics" subtitle="Your complete financial picture" />
+      <div className="mb-5">
+        <h1 className="text-3xl font-bold tracking-tight text-white">Analytics</h1>
+      </div>
 
       <div className="grad-card rounded-2xl p-4 mb-5">
         <div className="flex items-center gap-2 mb-3">

@@ -52,8 +52,16 @@ const allNavItems = [
 const advertiserNavItems = [
   { path: "/advertiser", label: "My Ads", icon: Megaphone },
   { path: "/profile", label: "Profile", icon: User },
-  { path: "/settings", label: "Settings", icon: Settings },
+  { path: "/settings/account", label: "Settings", icon: Settings },
 ];
+
+function isSettingsPath(pathname) {
+  return pathname === "/settings" || pathname.startsWith("/settings/");
+}
+
+function isStandaloneFocusPage(pathname) {
+  return pathname === "/profile" || isSettingsPath(pathname);
+}
 
 function SidebarLink({ item, isActive, isLocked, onNavigate, onClose }) {
   const handleClick = (e) => {
@@ -74,8 +82,8 @@ function SidebarLink({ item, isActive, isLocked, onNavigate, onClose }) {
         isActive
           ? "bg-gradient-to-r from-green-500 to-emerald-600 font-semibold text-white"
           : isLocked
-            ? "text-white/65 hover:bg-white/10"
-            : "text-white/70 hover:bg-white/10 hover:text-white"
+          ? "text-white/65 hover:bg-white/10"
+          : "text-white/70 hover:bg-white/10 hover:text-white"
       }`}
     >
       <item.icon className="h-4 w-4 flex-shrink-0" />
@@ -137,8 +145,9 @@ function SidebarContent({
       <nav className="flex-1 space-y-0.5 overflow-y-auto p-3">
         {navItems.map((item) => {
           const isActive =
-            currentPath === item.path ||
-            currentPath.startsWith(item.path + "/");
+            item.path === "/settings/account"
+              ? isSettingsPath(currentPath)
+              : currentPath === item.path || currentPath.startsWith(item.path + "/");
 
           if (!isAdvertiser) {
             const isLocked = Boolean(item.pro && isFree);
@@ -197,7 +206,7 @@ function SidebarContent({
                   : "text-white/70 hover:bg-white/10"
               }`}
             >
-              <Settings className="h-4 w-4" />
+              <Shield className="h-4 w-4" />
               <span>Admin Panel</span>
             </Link>
           </>
@@ -223,9 +232,9 @@ function SidebarContent({
         {!isAdvertiser && (
           <button
             type="button"
-            onClick={() => onNavigate("/settings")}
+            onClick={() => onNavigate("/settings/account")}
             className={`flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm transition-all ${
-              currentPath === "/settings"
+              isSettingsPath(currentPath)
                 ? "bg-white/10 text-white"
                 : "text-white/70 hover:bg-white/10 hover:text-white"
             }`}
@@ -308,8 +317,8 @@ function MobileControlCenter({
         {
           label: "Settings",
           icon: Settings,
-          onClick: () => handleGo("/settings"),
-          active: currentPath === "/settings",
+          onClick: () => handleGo("/settings/account"),
+          active: isSettingsPath(currentPath),
         },
       ]
     : [
@@ -322,14 +331,14 @@ function MobileControlCenter({
         {
           label: "Settings",
           icon: Settings,
-          onClick: () => handleGo("/settings"),
-          active: currentPath === "/settings",
+          onClick: () => handleGo("/settings/account"),
+          active: isSettingsPath(currentPath),
         },
         {
           label: "Notifications",
           icon: Bell,
-          onClick: () => handleGo("/news"),
-          active: currentPath === "/news",
+          onClick: () => handleGo("/settings/notifications"),
+          active: currentPath === "/settings/notifications",
         },
         {
           label: "My Ads",
@@ -345,14 +354,15 @@ function MobileControlCenter({
         {
           label: "Help Center",
           icon: HelpCircle,
-          onClick: () => handleGo("/enroll"),
-          active: false,
+          onClick: () => handleGo("/settings/support"),
+          active: currentPath === "/settings/support",
         },
         {
           label: "Tutorials",
           icon: PlayCircle,
-          onClick: () => handleGo("/enroll"),
-          active: false,
+          onClick: () => handleGo("/modules"),
+          active: currentPath === "/modules",
+          locked: !isPaid,
         },
       ];
 
@@ -419,7 +429,13 @@ function MobileControlCenter({
                   <button
                     key={item.label}
                     type="button"
-                    onClick={item.onClick}
+                    onClick={() => {
+                      if (item.locked) {
+                        handleGo("/enroll");
+                        return;
+                      }
+                      item.onClick();
+                    }}
                     className={`flex w-full items-center gap-3 rounded-xl px-3 py-3 text-sm transition-all ${
                       item.active
                         ? "bg-white/10 text-white"
@@ -428,6 +444,12 @@ function MobileControlCenter({
                   >
                     <item.icon className="h-4 w-4" />
                     <span className="flex-1 text-left">{item.label}</span>
+                    {item.locked ? (
+                      <span className="inline-flex items-center gap-1 rounded-md bg-yellow-400/20 px-1.5 py-0.5 text-[9px] font-bold text-yellow-300">
+                        <Lock className="h-3 w-3" />
+                        PRO
+                      </span>
+                    ) : null}
                   </button>
                 ))}
               </>
@@ -552,6 +574,14 @@ export default function Layout({ children }) {
     setControlOpen((prev) => !prev);
   }, []);
 
+  const hideMobileControlCenter = isStandaloneFocusPage(location.pathname);
+
+  useEffect(() => {
+    if (hideMobileControlCenter && controlOpen) {
+      setControlOpen(false);
+    }
+  }, [hideMobileControlCenter, controlOpen]);
+
   return (
     <div className="flex h-screen overflow-hidden bg-gradient-to-b from-[#0b1f1a] via-[#0f172a] to-[#020617] text-white">
       {loading && (
@@ -578,36 +608,40 @@ export default function Layout({ children }) {
       <div className="relative flex min-w-0 flex-1 flex-col">
         <div className="pointer-events-none fixed inset-x-0 top-0 z-40 h-20 bg-gradient-to-b from-[#071018]/85 via-[#071018]/35 to-transparent lg:hidden" />
 
-        <div className="fixed right-4 top-4 z-50 lg:hidden">
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={handleToggleControl}
-            className={`h-11 w-11 rounded-2xl border border-white/10 bg-[#071018]/70 text-white shadow-lg backdrop-blur-xl transition hover:bg-white/10 ${
-              controlOpen ? "bg-white/10" : ""
-            }`}
-          >
-            <Menu className="h-5 w-5" />
-          </Button>
-        </div>
+        {!hideMobileControlCenter && (
+          <div className="fixed right-4 top-4 z-50 lg:hidden">
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={handleToggleControl}
+              className={`h-11 w-11 rounded-2xl border border-white/10 bg-[#071018]/70 text-white shadow-lg backdrop-blur-xl transition hover:bg-white/10 ${
+                controlOpen ? "bg-white/10" : ""
+              }`}
+            >
+              <Menu className="h-5 w-5" />
+            </Button>
+          </div>
+        )}
 
         <main className="flex-1 overflow-y-auto pb-24 pt-3 lg:pb-0 lg:pt-0">
           {children}
         </main>
       </div>
 
-      <MobileControlCenter
-        open={controlOpen}
-        onClose={() => setControlOpen(false)}
-        onNavigate={handleNavigate}
-        onLogout={handleLogout}
-        isAdmin={isAdmin}
-        isPaid={isPaid}
-        isAdvertiser={isAdvertiser}
-        currentPath={location.pathname}
-        planLabel={effectivePlanLabel}
-        user={user}
-      />
+      {!hideMobileControlCenter && (
+        <MobileControlCenter
+          open={controlOpen}
+          onClose={() => setControlOpen(false)}
+          onNavigate={handleNavigate}
+          onLogout={handleLogout}
+          isAdmin={isAdmin}
+          isPaid={isPaid}
+          isAdvertiser={isAdvertiser}
+          currentPath={location.pathname}
+          planLabel={effectivePlanLabel}
+          user={user}
+        />
+      )}
 
       {!isAdvertiser && (
         <BottomNav

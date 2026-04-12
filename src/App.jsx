@@ -336,8 +336,16 @@ function AppRoutes() {
                   </>
                 )}
 
-                <Route path="/settings" element={<Settings />} />
                 <Route path="/profile" element={<Profile />} />
+
+                <Route path="/settings" element={<Navigate to="/settings/account" replace />} />
+                <Route path="/settings/:section" element={<Settings />} />
+
+                <Route path="/profile/edit" element={<Navigate to="/settings/account" replace />} />
+                <Route path="/change-password" element={<Navigate to="/settings/privacy" replace />} />
+                <Route path="/notifications" element={<Navigate to="/settings/notifications" replace />} />
+                <Route path="/billing" element={<Navigate to="/settings/account" replace />} />
+
                 <Route path="*" element={<PageNotFound />} />
               </Routes>
             </Layout>

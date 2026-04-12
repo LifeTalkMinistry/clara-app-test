@@ -960,7 +960,7 @@ export default function QuickAddModal({
                   <SelectContent>
                     <SelectItem value="need">Need</SelectItem>
                     <SelectItem value="want">Want</SelectItem>
-                    <SelectItem value="savings">Savings</SelectItem>
+                    <SelectItem value="other">Other</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
