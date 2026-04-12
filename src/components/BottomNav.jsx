@@ -1,4 +1,4 @@
-import { Link, useLocation } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import { useState, useCallback, useMemo, useRef } from "react";
 import {
   LayoutDashboard,
@@ -19,6 +19,7 @@ import {
   TrendingUp,
   Plus,
   ArrowRightLeft,
+  Lock,
 } from "lucide-react";
 import { Sheet, SheetContent } from "@/components/ui/sheet";
 import { supabase } from "@/lib/supabaseClient";
@@ -26,23 +27,34 @@ import { supabase } from "@/lib/supabaseClient";
 const LONG_PRESS_MS = 500;
 
 const moreItems = [
-  { path: "/wallets", label: "Wallets", icon: Wallet, tier: "free" },
-  { path: "/budgets", label: "Budgets", icon: Target, tier: "free" },
-  { path: "/savings-goals", label: "Savings Goals", icon: PiggyBank, tier: "free" },
-  { path: "/tasks", label: "Tasks", icon: ListChecks, tier: "paid" },
-  { path: "/modules", label: "Modules", icon: BookOpen, tier: "paid" },
-  { path: "/community", label: "Community", icon: Users, tier: "free" },
-  { path: "/messages", label: "Messages", icon: MessageSquare, tier: "paid" },
-  { path: "/coaching", label: "Coaching", icon: GraduationCap, tier: "paid" },
+  { path: "/wallets", label: "Wallets", icon: Wallet, pro: false },
+  { path: "/budgets", label: "Budgets", icon: Target, pro: false },
+  { path: "/savings-goals", label: "Savings Goals", icon: PiggyBank, pro: true },
+  { path: "/tasks", label: "Tasks", icon: ListChecks, pro: true },
+  { path: "/modules", label: "Modules", icon: BookOpen, pro: true },
+  { path: "/community", label: "Community", icon: Users, pro: true },
+  { path: "/messages", label: "Messages", icon: MessageSquare, pro: true },
+  { path: "/coaching", label: "Coaching", icon: GraduationCap, pro: true },
 ];
+
+function ProBadge() {
+  return (
+    <span className="mt-1 inline-flex items-center gap-1 rounded-md bg-yellow-400/20 px-1.5 py-0.5 text-[9px] font-bold text-yellow-300">
+      <Lock className="h-3 w-3" />
+      PRO
+    </span>
+  );
+}
 
 export default function BottomNav({
   onQuickAdd,
   isAdmin = false,
   isPaid = false,
+  isFree = false,
   onLogout,
 }) {
   const location = useLocation();
+  const navigate = useNavigate();
 
   const [moreOpen, setMoreOpen] = useState(false);
   const [actionsOpen, setActionsOpen] = useState(false);
@@ -77,7 +89,6 @@ export default function BottomNav({
 
   const startPress = useCallback(() => {
     pointerDownRef.current = true;
-
     clearPressTimer();
 
     pressTimerRef.current = setTimeout(() => {
@@ -112,6 +123,27 @@ export default function BottomNav({
     [onQuickAdd]
   );
 
+  const goToEnroll = useCallback(() => {
+    setActionsOpen(false);
+    setMoreOpen(false);
+    navigate("/enroll");
+  }, [navigate]);
+
+  const handleProtectedNavigation = useCallback(
+    (path, locked) => {
+      if (locked) {
+        goToEnroll();
+        return;
+      }
+
+      setMoreOpen(false);
+      navigate(path);
+    },
+    [goToEnroll, navigate]
+  );
+
+  const savingsGoalLocked = isFree;
+
   return (
     <>
       {actionsOpen && (
@@ -136,25 +168,46 @@ export default function BottomNav({
               </div>
 
               <div className="grid grid-cols-2 gap-3">
-                <button type="button" onClick={() => openQuickAction("expense")} className="quick-btn">
+                <button
+                  type="button"
+                  onClick={() => openQuickAction("expense")}
+                  className="quick-btn"
+                >
                   <Receipt className="icon" />
                   <span>Add Expense</span>
                 </button>
 
-                <button type="button" onClick={() => openQuickAction("income")} className="quick-btn">
+                <button
+                  type="button"
+                  onClick={() => openQuickAction("income")}
+                  className="quick-btn"
+                >
                   <TrendingUp className="icon" />
                   <span>Add Funds</span>
                 </button>
 
-                <button type="button" onClick={() => openQuickAction("transfer")} className="quick-btn">
+                <button
+                  type="button"
+                  onClick={() => openQuickAction("transfer")}
+                  className="quick-btn"
+                >
                   <ArrowRightLeft className="icon" />
                   <span>Transfer</span>
                 </button>
 
-                <Link to="/savings-goals" onClick={() => setActionsOpen(false)} className="quick-btn">
+                <button
+                  type="button"
+                  onClick={() =>
+                    savingsGoalLocked
+                      ? goToEnroll()
+                      : handleProtectedNavigation("/savings-goals", false)
+                  }
+                  className={`quick-btn ${savingsGoalLocked ? "locked" : ""}`}
+                >
                   <PiggyBank className="icon" />
                   <span>Add Goal</span>
-                </Link>
+                  {savingsGoalLocked && <ProBadge />}
+                </button>
               </div>
             </div>
           </div>
@@ -224,21 +277,19 @@ export default function BottomNav({
 
           <div className="grid grid-cols-3 gap-3">
             {moreItems.map((item) => {
-              const locked = item.tier === "paid" && !isPaid;
+              const locked = Boolean(item.pro && isFree);
 
               return (
-                <Link
+                <button
                   key={item.path}
-                  to={locked ? "#" : item.path}
+                  type="button"
                   className={`more-item ${locked ? "locked" : ""}`}
-                  onClick={(e) => {
-                    if (locked) e.preventDefault();
-                    else setMoreOpen(false);
-                  }}
+                  onClick={() => handleProtectedNavigation(item.path, locked)}
                 >
                   <item.icon className="icon" />
                   <span>{item.label}</span>
-                </Link>
+                  {locked && <ProBadge />}
+                </button>
               );
             })}
           </div>
@@ -276,6 +327,7 @@ export default function BottomNav({
         .icon {
           width: 20px;
           height: 20px;
+          flex-shrink: 0;
         }
 
         .quick-btn {
@@ -292,13 +344,17 @@ export default function BottomNav({
           border: 1px solid rgba(255,255,255,0.06);
         }
 
+        .quick-btn.locked {
+          opacity: 0.9;
+        }
+
         .more-item {
           display: flex;
           flex-direction: column;
           align-items: center;
           justify-content: center;
           gap: 6px;
-          min-height: 84px;
+          min-height: 92px;
           padding: 12px;
           border-radius: 16px;
           background: rgba(255,255,255,0.05);
@@ -306,10 +362,11 @@ export default function BottomNav({
           border: 1px solid rgba(255,255,255,0.06);
           text-align: center;
           font-size: 12px;
+          cursor: pointer;
         }
 
         .more-item.locked {
-          opacity: 0.55;
+          opacity: 0.85;
         }
 
         .more-admin {

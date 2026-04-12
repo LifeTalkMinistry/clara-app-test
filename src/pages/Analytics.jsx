@@ -568,8 +568,8 @@ export default function Analytics() {
                 opt.locked
                   ? "bg-muted text-muted-foreground/40 cursor-not-allowed"
                   : activeTimeframe === opt.id
-                  ? "grad-green text-white shadow-sm"
-                  : "bg-muted text-muted-foreground hover:bg-primary/10 hover:text-primary"
+                    ? "grad-green text-white shadow-sm"
+                    : "bg-muted text-muted-foreground hover:bg-primary/10 hover:text-primary"
               }`}
             >
               {opt.label}

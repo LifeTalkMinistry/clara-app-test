@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo } from "react";
+import { useNavigate } from "react-router-dom";
 import {
   CheckCircle,
   Circle,
@@ -77,8 +78,8 @@ const normalizeTask = (task = {}) => {
     typeof task.is_active === "boolean"
       ? task.is_active
       : task.status === "inactive"
-      ? false
-      : true;
+        ? false
+        : true;
 
   return {
     ...task,
@@ -120,6 +121,7 @@ const normalizeTask = (task = {}) => {
 
 export default function Tasks() {
   const { user, isPaid } = useUserRole();
+  const navigate = useNavigate();
 
   const [tasks, setTasks] = useState([]);
   const [submissions, setSubmissions] = useState([]);
@@ -214,11 +216,14 @@ export default function Tasks() {
 
   if (!isPaid) {
     return (
-      <div className="p-4 md:p-6 max-w-4xl mx-auto">
+      <div
+        className="p-4 md:p-6 max-w-4xl mx-auto cursor-pointer"
+        onClick={() => navigate("/enroll")}
+      >
         <EmptyState
           icon={ListChecks}
-          title="Tasks are for paid members"
-          description="Upgrade to access challenge tasks."
+          title="Tasks are PRO 🔒"
+          description="Tap to upgrade and unlock challenge tasks."
         />
       </div>
     );
@@ -268,14 +273,14 @@ export default function Tasks() {
                   const actionLabel = !sub
                     ? "Start"
                     : isNeedsRevision
-                    ? "Resubmit"
-                    : isPending
-                    ? "Under Review"
-                    : isApproved
-                    ? "Completed"
-                    : status === "rejected"
-                    ? "View"
-                    : "Open";
+                      ? "Resubmit"
+                      : isPending
+                        ? "Under Review"
+                        : isApproved
+                          ? "Completed"
+                          : status === "rejected"
+                            ? "View"
+                            : "Open";
 
                   return (
                     <div
@@ -291,10 +296,10 @@ export default function Tasks() {
                             isApproved
                               ? "text-primary"
                               : isNeedsRevision
-                              ? "text-yellow-400"
-                              : done
-                              ? "text-primary"
-                              : "text-muted-foreground"
+                                ? "text-yellow-400"
+                                : done
+                                  ? "text-primary"
+                                  : "text-muted-foreground"
                           )}
                         >
                           {isApproved ? (

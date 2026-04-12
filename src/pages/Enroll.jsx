@@ -1,727 +1,1047 @@
 import { useEffect, useMemo, useState } from "react";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import {
+  CheckCircle2,
   Upload,
-  CheckCircle,
+  XCircle,
+  Clock3,
+  ShieldCheck,
   Sparkles,
   CreditCard,
-  Building2,
-  Check,
-  ArrowRight,
+  RefreshCcw,
+  ArrowLeft,
+  Info,
+  FileImage,
+  Star,
+  Target,
+  Gem,
+  BadgeCheck,
+  Wallet,
+  Landmark,
+  Copy,
 } from "lucide-react";
-import { useLocation, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import useUserRole from "../hooks/useUserRole";
 import { supabase } from "@/lib/supabaseClient";
 
-const TIER_CONFIG = {
-  diy: {
-    keyAliases: ["diy", "basic"],
-    shortName: "DIY",
-    subtitle: "Do-It-Yourself",
-    badge: "Self-Paced",
-    badgeClass:
-      "bg-emerald-500/10 text-emerald-700 border border-emerald-200",
-    cardClass:
-      "bg-white/95 border border-emerald-100 shadow-[0_20px_45px_rgba(15,23,42,0.08)]",
-    buttonClass:
-      "bg-emerald-600 hover:bg-emerald-700 text-white shadow-[0_12px_25px_rgba(5,150,105,0.28)]",
-    priceClass: "text-emerald-600",
-    description:
-      "Fully self-paced program with no personal coaching. Best for users who want structure, tools, and progress tracking while managing the journey on their own.",
-    features: [
-      "Full access to modules",
-      "Daily tasks",
-      "Money tracking tools",
-      "Progress dashboard",
-      "Certification path",
-      "Onboarding via video",
-      "Structured completion flow",
-    ],
-    notIncluded: [
-      "No 1:1 coaching",
-      "No scheduled calls",
-      "No direct personal support",
-    ],
-    supportLine: "App-driven accountability • Fully self-managed",
-    priceFallback: 299,
-    sort: 1,
+const STATUS_META = {
+  pending: {
+    title: "Payment Under Review",
+    subtitle: "Your payment proof has been submitted successfully.",
+    color: "text-yellow-400",
+    border: "border-yellow-500/30",
+    bg: "from-yellow-500/10 to-transparent",
+    icon: Clock3,
   },
-  diwm: {
-    keyAliases: ["diwm", "transformation"],
-    shortName: "DIWM",
-    subtitle: "Do-It-With-Me",
-    badge: "Best Value",
-    badgeClass: "bg-amber-400/15 text-amber-700 border border-amber-300",
-    cardClass:
-      "bg-[linear-gradient(180deg,rgba(255,255,255,1)_0%,rgba(254,252,232,1)_100%)] border-2 border-amber-400 shadow-[0_25px_60px_rgba(245,158,11,0.22)] xl:-translate-y-2",
-    buttonClass:
-      "bg-amber-500 hover:bg-amber-600 text-slate-950 shadow-[0_14px_30px_rgba(245,158,11,0.28)]",
-    priceClass: "text-amber-600",
-    description:
-      "Guided program with limited but meaningful personal interaction at key milestones. Best for users who want structure plus human guidance without full intensive coaching.",
-    features: [
-      "Everything in DIY",
-      "Onboarding session (Day 1–3)",
-      "Final session (Day 27–30)",
-      "Orientation & alignment",
-      "Goal setting",
-      "Accountability agreement",
-      "Phone-based accountability as agreed",
-    ],
-    notIncluded: [
-      "No continuous coaching",
-      "No daily 1:1 support",
-      "No frequent sessions beyond the two milestones",
-    ],
-    supportLine: "Hybrid accountability • System + human support",
-    priceFallback: 499,
-    highlight: true,
-    sort: 2,
+  under_review: {
+    title: "Payment Under Review",
+    subtitle: "Your payment proof is currently being checked by admin.",
+    color: "text-yellow-400",
+    border: "border-yellow-500/30",
+    bg: "from-yellow-500/10 to-transparent",
+    icon: Clock3,
   },
-  ldit: {
-    keyAliases: ["ldit", "elite"],
-    shortName: "LDIT",
-    subtitle: "Led / Intensive Tier",
-    badge: "Highest Support",
-    badgeClass: "bg-cyan-500/10 text-cyan-700 border border-cyan-200",
-    cardClass:
-      "bg-white/95 border border-cyan-100 shadow-[0_20px_45px_rgba(15,23,42,0.08)]",
-    buttonClass:
-      "bg-cyan-600 hover:bg-cyan-700 text-white shadow-[0_12px_25px_rgba(8,145,178,0.28)]",
-    priceClass: "text-cyan-600",
-    description:
-      "High-touch, closely guided coaching with continuous accountability. Best for users who want intensive support, closer monitoring, and stronger follow-through.",
-    features: [
-      "Everything in DIWM",
-      "Weekly 1:1 coaching sessions",
-      "Higher level of monitoring and reminders",
-      "Stronger accountability enforcement",
-      "Frequent follow-ups",
-      "Missed tasks addressed quickly",
-      "Continuous guidance throughout the 30 days",
-    ],
-    notIncluded: [],
-    supportLine: "Active monitoring • Continuous guidance",
-    priceFallback: 999,
-    sort: 3,
+  payment_pending: {
+    title: "Payment Pending Review",
+    subtitle: "We received your submission and it is waiting for verification.",
+    color: "text-yellow-400",
+    border: "border-yellow-500/30",
+    bg: "from-yellow-500/10 to-transparent",
+    icon: Clock3,
+  },
+  rejected: {
+    title: "Payment Not Approved",
+    subtitle:
+      "Your payment proof was not approved. You may resubmit your proof or choose another tier before submitting again.",
+    color: "text-red-400",
+    border: "border-red-500/30",
+    bg: "from-red-500/10 to-transparent",
+    icon: XCircle,
+  },
+  resubmit_required: {
+    title: "Resubmission Required",
+    subtitle:
+      "Your proof needs to be replaced with a clearer or more complete screenshot. You may also return to tier selection before resubmitting.",
+    color: "text-red-400",
+    border: "border-red-500/30",
+    bg: "from-red-500/10 to-transparent",
+    icon: RefreshCcw,
+  },
+  approved: {
+    title: "Approved",
+    subtitle: "Your enrollment is approved. Redirecting you now...",
+    color: "text-emerald-400",
+    border: "border-emerald-500/30",
+    bg: "from-emerald-500/10 to-transparent",
+    icon: CheckCircle2,
+  },
+  active: {
+    title: "Active",
+    subtitle: "Your enrollment is active. Redirecting you now...",
+    color: "text-emerald-400",
+    border: "border-emerald-500/30",
+    bg: "from-emerald-500/10 to-transparent",
+    icon: CheckCircle2,
   },
 };
 
-function classifyPlan(plan) {
-  const key = String(plan?.plan_key || "").toLowerCase();
-  const name = String(plan?.name || "").toLowerCase();
-
-  if (
-    TIER_CONFIG.diy.keyAliases.some(
-      (alias) => key.includes(alias) || name.includes(alias)
-    )
-  ) {
-    return "diy";
-  }
-
-  if (
-    TIER_CONFIG.diwm.keyAliases.some(
-      (alias) => key.includes(alias) || name.includes(alias)
-    )
-  ) {
-    return "diwm";
-  }
-
-  if (
-    TIER_CONFIG.ldit.keyAliases.some(
-      (alias) => key.includes(alias) || name.includes(alias)
-    )
-  ) {
-    return "ldit";
-  }
-
-  return null;
+function normalizeText(value) {
+  return String(value || "").trim();
 }
 
-function normalizePrice(value, fallback) {
-  if (value === null || value === undefined || value === "") return fallback;
-  const numeric = Number(String(value).replace(/[^\d.]/g, ""));
-  if (Number.isNaN(numeric)) return fallback;
-  return numeric;
+function normalizeKey(value) {
+  return String(value || "").trim().toLowerCase();
 }
 
-function normalizeArray(value, fallback = []) {
-  if (Array.isArray(value)) {
-    return value.filter(Boolean);
+function formatPeso(value) {
+  const num = Number(value || 0);
+  return `₱${num.toLocaleString("en-PH")}`;
+}
+
+function normalizeFeatures(features) {
+  if (Array.isArray(features)) {
+    return features.map((item) => String(item).trim()).filter(Boolean);
   }
 
-  if (typeof value === "string") {
-    try {
-      const parsed = JSON.parse(value);
-      if (Array.isArray(parsed)) {
-        return parsed.filter(Boolean);
-      }
-    } catch {
-      return value
-        .split("\n")
-        .map((item) => item.trim())
-        .filter(Boolean);
-    }
+  if (typeof features === "string") {
+    return features
+      .split("\n")
+      .map((item) => item.trim())
+      .filter(Boolean);
   }
 
-  return fallback;
+  return [];
+}
+
+function normalizePlanRecord(row) {
+  const key = normalizeKey(row?.plan_key || row?.key || row?.name);
+
+  return {
+    id: row?.id ?? null,
+    key,
+    name: normalizeText(row?.name) || key.toUpperCase(),
+    price: Number(row?.price || 0),
+    badge: row?.popular ? "Most Popular" : "Plan",
+    description: normalizeText(row?.description),
+    benefits: normalizeFeatures(row?.features),
+    ctaLabel: normalizeText(row?.cta_label),
+    active: !!row?.active,
+    popular: !!row?.popular,
+    sortOrder: Number(row?.sort_order ?? 9999),
+  };
+}
+
+function pickTierIcon(planKey) {
+  if (planKey === "diy" || planKey === "basic") return Star;
+  if (planKey === "diwm" || planKey === "transformation") return Target;
+  if (planKey === "ldit" || planKey === "elite") return Gem;
+  return Sparkles;
+}
+
+function getPlanKeyFromEnrollment(enrollment, searchParams) {
+  const candidates = [
+    enrollment?.plan,
+    enrollment?.plan_key,
+    enrollment?.tier,
+    enrollment?.selected_plan,
+    searchParams.get("plan"),
+  ];
+
+  for (const item of candidates) {
+    const normalized = normalizeKey(item);
+    if (normalized) return normalized;
+  }
+
+  return "";
 }
 
 export default function Enroll() {
   const { user } = useUserRole();
   const navigate = useNavigate();
-  const location = useLocation();
+  const [searchParams, setSearchParams] = useSearchParams();
+
+  const [loading, setLoading] = useState(true);
+  const [plansLoading, setPlansLoading] = useState(true);
 
   const [plans, setPlans] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [selectedPlan, setSelectedPlan] = useState(null);
-  const [selectedPlanData, setSelectedPlanData] = useState(null);
+  const [enrollment, setEnrollment] = useState(null);
+
   const [proofFile, setProofFile] = useState(null);
+  const [proofPreview, setProofPreview] = useState("");
   const [submitting, setSubmitting] = useState(false);
+  const [uploadError, setUploadError] = useState("");
+  const [showReplaceUploader, setShowReplaceUploader] = useState(false);
+  const [manualTierEdit, setManualTierEdit] = useState(false);
+
+  const sortedPlans = useMemo(() => {
+    return [...plans].sort((a, b) => {
+      if (a.sortOrder !== b.sortOrder) return a.sortOrder - b.sortOrder;
+      return a.name.localeCompare(b.name);
+    });
+  }, [plans]);
+
+  const activePlans = useMemo(() => {
+    return sortedPlans.filter((plan) => plan.active);
+  }, [sortedPlans]);
+
+  const enrollmentPlanKey = useMemo(() => {
+    return getPlanKeyFromEnrollment(enrollment, searchParams);
+  }, [enrollment, searchParams]);
+
+  const selectedPlanKey = useMemo(() => {
+    if (manualTierEdit) {
+      return normalizeKey(searchParams.get("plan"));
+    }
+    return enrollment ? enrollmentPlanKey : normalizeKey(searchParams.get("plan"));
+  }, [manualTierEdit, enrollment, enrollmentPlanKey, searchParams]);
+
+  const selectedPlan = useMemo(() => {
+    if (!selectedPlanKey) return null;
+    return (
+      plans.find((plan) => normalizeKey(plan.key) === normalizeKey(selectedPlanKey)) || null
+    );
+  }, [plans, selectedPlanKey]);
+
+  const currentStatus = normalizeKey(enrollment?.status);
+  const statusMeta = STATUS_META[currentStatus] || null;
 
   useEffect(() => {
-    const params = new URLSearchParams(location.search);
-    const planKey = params.get("plan");
-    setSelectedPlan(planKey || null);
-  }, [location.search]);
+    loadInitialData();
+  }, [user?.id]);
 
   useEffect(() => {
-    const loadPlans = async () => {
-      try {
-        setLoading(true);
-
-        const { data, error } = await supabase
-          .from("plans")
-          .select("*")
-          .eq("is_active", true)
-          .order("sort_order", { ascending: true });
-
-        if (error) {
-          console.error("Failed to load plans:", error);
-          setPlans([]);
-          return;
-        }
-
-        const matchedPlans = (data || [])
-          .filter((plan) => classifyPlan(plan))
-          .map((plan) => {
-            const tierType = classifyPlan(plan);
-            const tierUi = TIER_CONFIG[tierType];
-
-            return {
-              ...plan,
-              tierType,
-              ui: {
-                ...tierUi,
-                shortName: plan.short_name || tierUi.shortName,
-                subtitle: plan.subtitle || tierUi.subtitle,
-                badge: plan.badge || tierUi.badge,
-                description: plan.description || tierUi.description,
-                features: normalizeArray(plan.features, tierUi.features),
-                notIncluded: normalizeArray(
-                  plan.not_included,
-                  tierUi.notIncluded
-                ),
-                supportLine: plan.support_line || tierUi.supportLine,
-              },
-              normalizedPrice: normalizePrice(plan.price, tierUi.priceFallback),
-            };
-          })
-          .sort((a, b) => a.ui.sort - b.ui.sort);
-
-        setPlans(matchedPlans);
-      } catch (error) {
-        console.error("Unexpected error loading plans:", error);
-        setPlans([]);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    loadPlans();
-  }, []);
-
-  useEffect(() => {
-    if (!selectedPlan || plans.length === 0) {
-      setSelectedPlanData(null);
+    if (!proofFile) {
+      setProofPreview("");
       return;
     }
 
-    const foundPlan =
-      plans.find((plan) => plan.plan_key === selectedPlan) || null;
-    setSelectedPlanData(foundPlan);
-  }, [selectedPlan, plans]);
+    if (proofFile.type?.startsWith("image/")) {
+      const objectUrl = URL.createObjectURL(proofFile);
+      setProofPreview(objectUrl);
+      return () => URL.revokeObjectURL(objectUrl);
+    }
 
-  const isPaidUser = useMemo(() => {
-    return (
-      [
-        "basic",
-        "transformation",
-        "elite",
-        "student",
-        "diy",
-        "diwm",
-        "ldit",
-      ].includes(user?.plan) || user?.role === "paid_user"
-    );
-  }, [user]);
+    setProofPreview("");
+  }, [proofFile]);
 
   useEffect(() => {
-    if (isPaidUser) {
-      navigate("/dashboard", { replace: true });
+    if (!currentStatus) return;
+
+    if (["approved", "active"].includes(currentStatus)) {
+      const timer = setTimeout(() => {
+        navigate("/dashboard", { replace: true });
+      }, 1200);
+
+      return () => clearTimeout(timer);
     }
-  }, [isPaidUser, navigate]);
+  }, [currentStatus, navigate]);
 
-  const handlePlanSelect = (planKey) => {
-    setProofFile(null);
-    navigate(`/enroll?plan=${planKey}`);
-  };
+  useEffect(() => {
+    if (enrollment && !manualTierEdit) {
+      const next = new URLSearchParams(searchParams);
+      const liveKey =
+        normalizeKey(enrollment?.plan_key) ||
+        normalizeKey(enrollment?.plan) ||
+        normalizeKey(enrollment?.tier) ||
+        "";
+      if (liveKey) {
+        next.set("plan", liveKey);
+        setSearchParams(next, { replace: true });
+      }
+    }
+  }, [enrollment, manualTierEdit]);
 
-  const handleBackToPlans = () => {
-    setProofFile(null);
-    navigate("/enroll");
-  };
+  async function loadInitialData() {
+    if (!user?.id) {
+      setLoading(false);
+      setPlansLoading(false);
+      return;
+    }
 
-  const handleSkip = () => {
-    navigate("/dashboard");
-  };
+    setLoading(true);
+    setPlansLoading(true);
 
-  const handleFileChange = (e) => {
+    try {
+      await Promise.all([fetchPlans(), fetchEnrollment()]);
+    } catch (error) {
+      console.error("Failed to load enrollment page:", error);
+    } finally {
+      setLoading(false);
+      setPlansLoading(false);
+    }
+  }
+
+  async function fetchPlans() {
+    const { data, error } = await supabase
+      .from("plans")
+      .select("*")
+      .order("sort_order", { ascending: true })
+      .order("name", { ascending: true });
+
+    if (error) {
+      console.error("Failed to fetch plans:", error);
+      throw error;
+    }
+
+    const normalized = (data || []).map(normalizePlanRecord);
+    setPlans(normalized);
+  }
+
+  async function fetchEnrollment() {
+    if (!user?.id) return;
+
+    const { data, error } = await supabase
+      .from("enrollments")
+      .select("*")
+      .eq("user_id", user.id)
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    if (error) {
+      console.error("Failed to fetch enrollment:", error);
+      throw error;
+    }
+
+    setEnrollment(data || null);
+  }
+
+  async function refreshEnrollment() {
+    await fetchEnrollment();
+  }
+
+  function handlePlanSelect(planKey) {
+    const next = new URLSearchParams(searchParams);
+    next.set("plan", normalizeKey(planKey));
+    setSearchParams(next);
+    setManualTierEdit(true);
+    setUploadError("");
+  }
+
+  function handleChangeTierMode() {
+    setManualTierEdit(true);
+    const next = new URLSearchParams(searchParams);
+    next.delete("plan");
+    setSearchParams(next);
+  }
+
+  function cancelChangeTierMode() {
+    setManualTierEdit(false);
+    const next = new URLSearchParams(searchParams);
+    const originalKey =
+      normalizeKey(enrollment?.plan_key) || normalizeKey(enrollment?.plan) || "";
+    if (originalKey) {
+      next.set("plan", originalKey);
+    } else {
+      next.delete("plan");
+    }
+    setSearchParams(next);
+    setUploadError("");
+  }
+
+  function handleFileChange(e) {
     const file = e.target.files?.[0] || null;
     setProofFile(file);
-  };
+    setUploadError("");
+  }
 
-  const handleSubmit = async () => {
-    if (!user?.id) {
-      alert("User not found. Please log in again.");
+  async function uploadProofAndGetUrl(file) {
+    const originalName = String(file?.name || "proof");
+    const ext = originalName.includes(".") ? originalName.split(".").pop() : "jpg";
+    const safeExt = normalizeKey(ext || "jpg") || "jpg";
+    const fileName = `${user.id}_${Date.now()}.${safeExt}`;
+    const path = `payment_proofs/${fileName}`;
+
+    const { error: uploadErr } = await supabase.storage
+      .from("payment-proofs")
+      .upload(path, file, { upsert: false });
+
+    if (uploadErr) throw uploadErr;
+
+    const { data } = supabase.storage.from("payment-proofs").getPublicUrl(path);
+    return data?.publicUrl || "";
+  }
+
+  async function handleSubmit() {
+    if (!user?.id) return;
+
+    if (!proofFile) {
+      setUploadError("Please upload your proof of payment first.");
       return;
     }
 
-    if (!selectedPlanData) {
-      alert("Please choose a plan first.");
+    const effectivePlanKey =
+      normalizeKey(selectedPlanKey) ||
+      normalizeKey(enrollment?.plan_key) ||
+      normalizeKey(enrollment?.plan) ||
+      "";
+
+    if (!effectivePlanKey) {
+      setUploadError("Please choose a plan first.");
       return;
     }
 
     setSubmitting(true);
+    setUploadError("");
 
     try {
-      let proofUrl = null;
+      const paymentProofUrl = await uploadProofAndGetUrl(proofFile);
 
-      if (proofFile) {
-        const fileExt = proofFile.name.split(".").pop();
-        const safeExt = fileExt ? `.${fileExt}` : "";
-        const fileName = `${user.id}_${Date.now()}${safeExt}`;
-        const filePath = `payment_proofs/${fileName}`;
+      if (enrollment) {
+        const { error } = await supabase
+          .from("enrollments")
+          .update({
+            payment_proof_url: paymentProofUrl,
+            status: "pending",
+            plan: effectivePlanKey,
+            plan_key: effectivePlanKey,
+          })
+          .eq("id", enrollment.id);
 
-        const { error: uploadError } = await supabase.storage
-          .from("payment-proofs")
-          .upload(filePath, proofFile, { upsert: false });
-
-        if (uploadError) {
-          console.error("Upload error:", uploadError);
-          alert(
-            "Your enrollment record can’t be completed because the payment proof upload failed. Check that your Supabase storage bucket exists and is named payment-proofs."
-          );
-          setSubmitting(false);
-          return;
-        }
-
-        const { data: publicUrlData } = supabase.storage
-          .from("payment-proofs")
-          .getPublicUrl(filePath);
-
-        proofUrl = publicUrlData?.publicUrl || null;
-      }
-
-      const { data: profileData, error: profileError } = await supabase
-        .from("profiles")
-        .select("full_name, email")
-        .eq("id", user.id)
-        .maybeSingle();
-
-      if (profileError) {
-        console.error("Profile fetch error:", profileError);
-      }
-
-      const resolvedUserName =
-        profileData?.full_name ||
-        user?.user_metadata?.full_name ||
-        user?.user_metadata?.name ||
-        null;
-
-      const resolvedUserEmail =
-        profileData?.email || user?.email || null;
-
-      const { error: insertError } = await supabase
-        .from("enrollments")
-        .insert([
+        if (error) throw error;
+      } else {
+        const { error } = await supabase.from("enrollments").insert([
           {
             user_id: user.id,
-            user_email: resolvedUserEmail,
-            user_name: resolvedUserName,
-            plan_key: selectedPlanData.plan_key,
-            plan_name:
-              selectedPlanData.name || selectedPlanData.ui?.shortName || null,
-            amount_paid: selectedPlanData.normalizedPrice,
-            payment_proof_url: proofUrl,
+            payment_proof_url: paymentProofUrl,
             status: "pending",
+            plan: effectivePlanKey,
+            plan_key: effectivePlanKey,
           },
         ]);
 
-      if (insertError) {
-        console.error("Enrollment insert error:", insertError);
-        alert("Something went wrong while submitting your enrollment.");
-        setSubmitting(false);
-        return;
+        if (error) throw error;
       }
 
-      alert("Enrollment submitted successfully. Please wait for admin approval.");
-      navigate("/dashboard");
-    } catch (error) {
-      console.error("Unexpected submit error:", error);
-      alert("Something went wrong while submitting your enrollment.");
+      setProofFile(null);
+      setProofPreview("");
+      setShowReplaceUploader(false);
+      setManualTierEdit(false);
+      await refreshEnrollment();
+    } catch (err) {
+      console.error(err);
+      setUploadError(err?.message || "Something went wrong while submitting your proof.");
     } finally {
       setSubmitting(false);
     }
-  };
+  }
 
-  if (loading) {
+  async function copyText(value) {
+    try {
+      await navigator.clipboard.writeText(String(value || ""));
+    } catch (error) {
+      console.error("Copy failed:", error);
+    }
+  }
+
+  function renderPlanSelector() {
     return (
-      <div className="flex items-center justify-center h-screen bg-slate-50">
-        <div className="w-6 h-6 border-2 border-primary/20 border-t-primary rounded-full animate-spin" />
+      <div className="rounded-3xl border border-white/10 bg-white/5 p-5 backdrop-blur-xl">
+        <div className="flex items-center justify-between gap-3 flex-wrap">
+          <div>
+            <h2 className="text-xl font-bold text-white">Choose Your Plan</h2>
+            <p className="mt-2 text-sm text-white/65">
+              Select a tier first so the user clearly sees what they are enrolling in.
+            </p>
+          </div>
+
+          {enrollment && manualTierEdit ? (
+            <Button
+              type="button"
+              variant="outline"
+              onClick={cancelChangeTierMode}
+              className="h-10 rounded-2xl border-white/15 bg-transparent text-white hover:bg-white/10"
+            >
+              Cancel Tier Change
+            </Button>
+          ) : null}
+        </div>
+
+        <div className="mt-5 grid gap-4 md:grid-cols-3">
+          {activePlans.map((plan) => {
+            const active = normalizeKey(selectedPlanKey) === normalizeKey(plan.key);
+
+            return (
+              <button
+                key={plan.id || plan.key}
+                type="button"
+                onClick={() => handlePlanSelect(plan.key)}
+                className={`w-full rounded-3xl border text-left transition-all duration-200 p-5 ${
+                  active
+                    ? "border-emerald-400/60 bg-emerald-500/10 shadow-[0_0_0_1px_rgba(16,185,129,0.2)]"
+                    : "border-white/10 bg-white/5 hover:bg-white/10"
+                }`}
+              >
+                <div className="flex items-start justify-between gap-4">
+                  <div>
+                    <div className="flex flex-wrap items-center gap-2">
+                      <h3 className="text-lg font-semibold text-white">{plan.name}</h3>
+
+                      {plan.popular ? (
+                        <span className="rounded-full border border-yellow-400/30 bg-yellow-400/10 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.18em] text-yellow-300">
+                          Most Popular
+                        </span>
+                      ) : null}
+                    </div>
+
+                    <p className="mt-2 text-sm text-white/70">
+                      {plan.description || "Choose this plan to continue your CLARA journey."}
+                    </p>
+                  </div>
+
+                  <div className="text-right">
+                    <p className="text-xl font-bold text-white">{formatPeso(plan.price)}</p>
+                  </div>
+                </div>
+              </button>
+            );
+          })}
+        </div>
       </div>
     );
   }
 
-  return (
-    <div className="min-h-screen bg-[linear-gradient(180deg,#eef7f4_0%,#f8fafc_28%,#f8fafc_100%)]">
-      <div className="w-full">
-        <div className="relative overflow-hidden rounded-none xl:rounded-bl-[36px] bg-[radial-gradient(circle_at_top,rgba(255,255,255,0.16),transparent_35%),linear-gradient(135deg,#0b3b24_0%,#0e7a46_52%,#10b5c9_100%)] text-white shadow-[0_18px_50px_rgba(15,23,42,0.14)]">
-          <div className="absolute inset-0 bg-black/10" />
-          <div className="absolute inset-0 opacity-20 bg-[linear-gradient(to_right,transparent,rgba(255,255,255,0.08),transparent)]" />
+  function renderSelectedTierOverview() {
+    if (!selectedPlan) return null;
 
-          <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-12 pb-16 md:pt-14 md:pb-20 text-center">
-            <div className="inline-flex items-center gap-2 rounded-full bg-white/12 backdrop-blur-md border border-white/15 px-4 py-1.5 text-sm font-medium mb-5">
-              <Sparkles className="w-4 h-4" />
-              CLARA Program
+    const TierIcon = pickTierIcon(selectedPlan.key);
+
+    return (
+      <div className="rounded-3xl border border-emerald-400/20 bg-gradient-to-br from-emerald-500/10 via-cyan-500/5 to-transparent p-5 backdrop-blur-xl">
+        <div className="flex items-start justify-between gap-4 flex-wrap">
+          <div className="flex items-start gap-4">
+            <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl border border-emerald-400/20 bg-emerald-500/10">
+              <TierIcon className="h-6 w-6 text-emerald-300" />
             </div>
 
-            <h1 className="text-4xl sm:text-5xl md:text-6xl font-extrabold tracking-tight leading-tight">
-              {selectedPlan ? "Complete Your Enrollment" : "Choose Your Plan"}
-            </h1>
+            <div>
+              <div className="flex flex-wrap items-center gap-2">
+                <h2 className="text-2xl font-bold text-white">{selectedPlan.name}</h2>
 
-            <p className="mt-4 text-sm sm:text-base md:text-lg text-white/90 max-w-3xl mx-auto">
-              {selectedPlan
-                ? "Review your selected tier, send your payment, and upload your proof in one seamless flow."
-                : "Choose the level of coaching, accountability, and guidance that matches the support you want for your 30-day CLARA journey."}
-            </p>
+                {selectedPlan.popular ? (
+                  <span className="rounded-full border border-yellow-400/30 bg-yellow-400/10 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.18em] text-yellow-300">
+                    Most Popular
+                  </span>
+                ) : (
+                  <span className="rounded-full border border-white/10 bg-white/5 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.18em] text-white/60">
+                    Active Plan
+                  </span>
+                )}
+              </div>
+
+              <p className="mt-2 text-base font-medium text-emerald-200">
+                {selectedPlan.description || "This is the plan currently selected for your enrollment."}
+              </p>
+            </div>
+          </div>
+
+          <div className="rounded-2xl border border-white/10 bg-black/20 px-4 py-3 text-right">
+            <p className="text-xs uppercase tracking-[0.2em] text-white/50">Tier Price</p>
+            <p className="text-2xl font-bold text-white">{formatPeso(selectedPlan.price)}</p>
+          </div>
+        </div>
+
+        <div className="mt-5 grid gap-4 md:grid-cols-2">
+          <div className="rounded-2xl border border-white/10 bg-black/20 p-4">
+            <div className="mb-3 flex items-center gap-2">
+              <ShieldCheck className="h-4 w-4 text-emerald-400" />
+              <h3 className="text-sm font-semibold uppercase tracking-[0.14em] text-white/80">
+                What’s Included
+              </h3>
+            </div>
+
+            <div className="space-y-2">
+              {selectedPlan.benefits.length > 0 ? (
+                selectedPlan.benefits.map((item, idx) => (
+                  <div key={idx} className="flex items-start gap-2 text-sm text-white/80">
+                    <CheckCircle2 className="mt-0.5 h-4 w-4 text-emerald-400 shrink-0" />
+                    <span>{item}</span>
+                  </div>
+                ))
+              ) : (
+                <div className="flex items-start gap-2 text-sm text-white/60">
+                  <CheckCircle2 className="mt-0.5 h-4 w-4 text-emerald-400 shrink-0" />
+                  <span>Plan features will appear here once added from admin.</span>
+                </div>
+              )}
+            </div>
+          </div>
+
+          <div className="rounded-2xl border border-white/10 bg-black/20 p-4">
+            <div className="mb-3 flex items-center gap-2">
+              <Info className="h-4 w-4 text-yellow-300" />
+              <h3 className="text-sm font-semibold uppercase tracking-[0.14em] text-white/80">
+                Enrollment Details
+              </h3>
+            </div>
+
+            <div className="space-y-3 text-sm text-white/80">
+              <div className="flex items-start gap-2">
+                <BadgeCheck className="mt-0.5 h-4 w-4 text-cyan-300 shrink-0" />
+                <span>
+                  Plan key: <span className="font-semibold text-white">{selectedPlan.key}</span>
+                </span>
+              </div>
+
+              <div className="flex items-start gap-2">
+                <CreditCard className="mt-0.5 h-4 w-4 text-cyan-300 shrink-0" />
+                <span>
+                  CTA label:{" "}
+                  <span className="font-semibold text-white">
+                    {selectedPlan.ctaLabel || "Not set"}
+                  </span>
+                </span>
+              </div>
+
+              <div className="flex items-start gap-2">
+                <CheckCircle2 className="mt-0.5 h-4 w-4 text-cyan-300 shrink-0" />
+                <span>
+                  Status:{" "}
+                  <span className="font-semibold text-white">
+                    {selectedPlan.active ? "Active" : "Inactive"}
+                  </span>
+                </span>
+              </div>
+
+              <div className="flex items-start gap-2">
+                <Sparkles className="mt-0.5 h-4 w-4 text-cyan-300 shrink-0" />
+                <span>
+                  Popular flag:{" "}
+                  <span className="font-semibold text-white">
+                    {selectedPlan.popular ? "Yes" : "No"}
+                  </span>
+                </span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  function renderStatusCard() {
+    if (!statusMeta) return null;
+
+    const Icon = statusMeta.icon;
+
+    return (
+      <div
+        className={`rounded-3xl border ${statusMeta.border} bg-gradient-to-br ${statusMeta.bg} p-5 backdrop-blur-xl`}
+      >
+        <div className="flex items-start gap-4">
+          <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl border border-white/10 bg-black/20">
+            <Icon className={`h-7 w-7 ${statusMeta.color}`} />
+          </div>
+
+          <div className="flex-1">
+            <div className="flex items-center gap-2 flex-wrap">
+              <h2 className="text-xl font-bold text-white">{statusMeta.title}</h2>
+              <span className="rounded-full border border-white/10 bg-white/5 px-2.5 py-1 text-[10px] uppercase tracking-[0.18em] text-white/60">
+                {currentStatus.replace(/_/g, " ")}
+              </span>
+            </div>
+
+            <p className="mt-2 text-sm text-white/70">{statusMeta.subtitle}</p>
+
+            {enrollment?.admin_notes ? (
+              <div className="mt-4 rounded-2xl border border-white/10 bg-black/20 p-4">
+                <p className="text-xs uppercase tracking-[0.18em] text-white/45">Admin Notes</p>
+                <p className="mt-2 text-sm text-white/80">{enrollment.admin_notes}</p>
+              </div>
+            ) : null}
           </div>
         </div>
       </div>
+    );
+  }
 
-      {!selectedPlan ? (
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pb-10 md:pb-12 -mt-8 md:-mt-10 relative z-20">
-          <div className="grid gap-5 xl:grid-cols-3">
-            {plans.map((plan) => {
-              const ui = plan.ui;
+  function renderPaymentMethods() {
+    return (
+      <div className="rounded-3xl border border-white/10 bg-white/5 p-5 backdrop-blur-xl">
+        <div className="flex items-center gap-3 mb-4">
+          <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-cyan-500/15">
+            <CreditCard className="h-5 w-5 text-cyan-300" />
+          </div>
+          <div>
+            <h3 className="text-base font-semibold text-white">Payment Methods</h3>
+            <p className="text-sm text-white/60">
+              Send your payment first, then upload a clear screenshot as proof.
+            </p>
+          </div>
+        </div>
 
-              return (
-                <div
-                  key={plan.id}
-                  className={`relative rounded-[28px] p-5 md:p-6 backdrop-blur-sm transition-all duration-300 hover:-translate-y-1 ${ui.cardClass}`}
-                >
-                  {ui.highlight && (
-                    <div className="absolute -top-3 left-1/2 -translate-x-1/2">
-                      <div className="rounded-full bg-amber-500 text-slate-950 text-xs font-extrabold px-4 py-1.5 shadow-lg">
-                        BEST VALUE
-                      </div>
-                    </div>
-                  )}
+        <div className="grid gap-4 md:grid-cols-2">
+          <div className="rounded-2xl border border-emerald-400/20 bg-emerald-500/5 p-4">
+            <div className="mb-3 flex items-center gap-2">
+              <Wallet className="h-4 w-4 text-emerald-300" />
+              <h4 className="text-sm font-semibold uppercase tracking-[0.14em] text-white/85">
+                GCash
+              </h4>
+            </div>
 
-                  <div className="flex items-start justify-between gap-4 mb-5">
-                    <div>
-                      <h2 className="text-[2rem] leading-none font-extrabold text-slate-900">
-                        {ui.shortName}
-                      </h2>
-                      <p className="text-sm font-medium text-slate-500 mt-2">
-                        {ui.subtitle}
-                      </p>
-                    </div>
-
-                    <div
-                      className={`shrink-0 rounded-full px-3 py-1 text-xs font-semibold ${ui.badgeClass}`}
-                    >
-                      {ui.badge}
-                    </div>
-                  </div>
-
-                  <p className="text-slate-600 leading-8 min-h-[110px] text-[15px]">
-                    {ui.description}
-                  </p>
-
-                  <div className="mt-6 mb-6">
-                    <div
-                      className={`text-5xl md:text-6xl font-extrabold ${ui.priceClass}`}
-                    >
-                      ₱{plan.normalizedPrice}
-                    </div>
-                    <p className="text-sm text-slate-500 mt-2">30-day access</p>
-                  </div>
-
-                  <div className="rounded-2xl bg-slate-50/95 border border-slate-200 p-4 mb-4">
-                    <div className="text-sm font-semibold text-slate-800 mb-3">
-                      What’s included
-                    </div>
-                    <ul className="space-y-2.5">
-                      {ui.features.map((feature) => (
-                        <li
-                          key={feature}
-                          className="flex items-start gap-2.5 text-sm text-slate-600"
-                        >
-                          <Check className="w-4 h-4 mt-0.5 shrink-0 text-emerald-600" />
-                          <span>{feature}</span>
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
-
-                  {ui.notIncluded?.length > 0 && (
-                    <div className="rounded-2xl bg-white border border-slate-200 p-4 mb-4">
-                      <div className="text-sm font-semibold text-slate-800 mb-3">
-                        Not included
-                      </div>
-                      <ul className="space-y-2.5">
-                        {ui.notIncluded.map((item) => (
-                          <li
-                            key={item}
-                            className="flex items-start gap-2.5 text-sm text-slate-500"
-                          >
-                            <span className="mt-1.5 h-1.5 w-1.5 rounded-full bg-slate-400 shrink-0" />
-                            <span>{item}</span>
-                          </li>
-                        ))}
-                      </ul>
-                    </div>
-                  )}
-
-                  <div className="mb-6 rounded-2xl bg-slate-900 text-white px-4 py-3">
-                    <div className="text-[11px] uppercase tracking-[0.14em] text-white/60 mb-1">
-                      Accountability Model
-                    </div>
-                    <div className="text-sm font-medium">{ui.supportLine}</div>
-                  </div>
-
+            <div className="space-y-3 text-sm">
+              <div className="rounded-xl border border-white/10 bg-black/20 p-3">
+                <p className="text-white/50 text-xs uppercase tracking-[0.14em]">Account Name</p>
+                <div className="mt-1 flex items-center justify-between gap-2">
+                  <p className="font-semibold text-white">Jerome Mirabuenos</p>
                   <button
                     type="button"
-                    onClick={() => handlePlanSelect(plan.plan_key)}
-                    className={`w-full rounded-2xl font-bold py-3.5 px-4 transition flex items-center justify-center gap-2 cursor-pointer ${ui.buttonClass}`}
+                    onClick={() => copyText("Jerome Mirabuenos")}
+                    className="inline-flex items-center gap-1 text-white/60 hover:text-white"
                   >
-                    Choose {ui.shortName}
-                    <ArrowRight className="w-4 h-4" />
+                    <Copy className="h-4 w-4" />
                   </button>
                 </div>
-              );
-            })}
-          </div>
+              </div>
 
-          <div className="mt-10 rounded-[28px] border border-slate-200 bg-white/90 shadow-[0_18px_45px_rgba(15,23,42,0.06)] p-5 md:p-6">
-            <h3 className="text-lg md:text-xl font-bold text-slate-900 mb-3">
-              Tier Comparison
-            </h3>
-            <div className="grid gap-3 md:grid-cols-3 text-sm">
-              <div className="rounded-2xl border border-emerald-100 bg-emerald-50/60 p-4 text-slate-700">
-                <span className="font-bold text-emerald-700">DIY</span> → Self-paced, no coach
-              </div>
-              <div className="rounded-2xl border border-amber-200 bg-amber-50/70 p-4 text-slate-700">
-                <span className="font-bold text-amber-700">DIWM</span> → Minimal coaching + structured accountability
-              </div>
-              <div className="rounded-2xl border border-cyan-100 bg-cyan-50/70 p-4 text-slate-700">
-                <span className="font-bold text-cyan-700">LDIT</span> → Frequent coaching + high-touch accountability
+              <div className="rounded-xl border border-white/10 bg-black/20 p-3">
+                <p className="text-white/50 text-xs uppercase tracking-[0.14em]">GCash Number</p>
+                <div className="mt-1 flex items-center justify-between gap-2">
+                  <p className="font-semibold text-white">09858410403</p>
+                  <button
+                    type="button"
+                    onClick={() => copyText("09858410403")}
+                    className="inline-flex items-center gap-1 text-white/60 hover:text-white"
+                  >
+                    <Copy className="h-4 w-4" />
+                  </button>
+                </div>
               </div>
             </div>
           </div>
 
-          <div className="text-center mt-8 pb-6">
-            <Button variant="ghost" onClick={handleSkip}>
-              Skip for now
-            </Button>
+          <div className="rounded-2xl border border-yellow-400/20 bg-yellow-500/5 p-4">
+            <div className="mb-3 flex items-center gap-2">
+              <Landmark className="h-4 w-4 text-yellow-300" />
+              <h4 className="text-sm font-semibold uppercase tracking-[0.14em] text-white/85">
+                Security Bank
+              </h4>
+            </div>
+
+            <div className="space-y-3 text-sm">
+              <div className="rounded-xl border border-white/10 bg-black/20 p-3">
+                <p className="text-white/50 text-xs uppercase tracking-[0.14em]">Account Name</p>
+                <div className="mt-1 flex items-center justify-between gap-2">
+                  <p className="font-semibold text-white">Jerome Mirabuenos</p>
+                  <button
+                    type="button"
+                    onClick={() => copyText("Jerome Mirabuenos")}
+                    className="inline-flex items-center gap-1 text-white/60 hover:text-white"
+                  >
+                    <Copy className="h-4 w-4" />
+                  </button>
+                </div>
+              </div>
+
+              <div className="rounded-xl border border-white/10 bg-black/20 p-3">
+                <p className="text-white/50 text-xs uppercase tracking-[0.14em]">Account Number</p>
+                <div className="mt-1 flex items-center justify-between gap-2">
+                  <p className="font-semibold text-white">000-006-704-2019</p>
+                  <button
+                    type="button"
+                    onClick={() => copyText("000-006-704-2019")}
+                    className="inline-flex items-center gap-1 text-white/60 hover:text-white"
+                  >
+                    <Copy className="h-4 w-4" />
+                  </button>
+                </div>
+              </div>
+            </div>
           </div>
         </div>
-      ) : (
-        <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8 md:py-10 -mt-8 md:-mt-10 relative z-20">
-          <div className="grid xl:grid-cols-[1.05fr_0.95fr] gap-6">
-            <div className="space-y-6">
-              <div className="rounded-[28px] border border-slate-200 bg-white shadow-[0_18px_45px_rgba(15,23,42,0.06)] p-5 md:p-7">
-                <div className="flex items-center justify-between gap-4 mb-5 flex-wrap">
-                  <div>
-                    <p className="text-sm text-slate-500 mb-2">Selected Plan</p>
-                    <h2 className="text-3xl font-extrabold text-slate-900">
-                      {selectedPlanData?.ui?.shortName}
-                    </h2>
-                    <p className="text-sm font-medium text-slate-500 mt-1">
-                      {selectedPlanData?.ui?.subtitle}
-                    </p>
-                  </div>
 
-                  <div
-                    className={`shrink-0 rounded-full px-3 py-1 text-xs font-semibold ${selectedPlanData?.ui?.badgeClass}`}
-                  >
-                    {selectedPlanData?.ui?.badge}
-                  </div>
-                </div>
+        <div className="mt-4 rounded-2xl border border-white/10 bg-black/20 p-4">
+          <p className="text-xs uppercase tracking-[0.18em] text-white/50">Important</p>
+          <p className="mt-2 text-sm text-white/75">
+            Make sure the uploaded screenshot clearly shows the sender, amount, and reference or
+            transaction details so admin can verify it faster.
+          </p>
+        </div>
+      </div>
+    );
+  }
 
-                <p className="text-slate-600 leading-7">
-                  {selectedPlanData?.ui?.description}
-                </p>
+  function renderCurrentProof() {
+    if (!enrollment?.payment_proof_url) return null;
 
-                <div className="mt-6 flex items-end justify-between gap-4 flex-wrap">
-                  <div>
-                    <p
-                      className={`text-5xl font-extrabold ${selectedPlanData?.ui?.priceClass}`}
-                    >
-                      ₱{selectedPlanData?.normalizedPrice ?? "0"}
-                    </p>
-                    <p className="text-sm text-slate-500 mt-1">One-time payment</p>
-                  </div>
+    return (
+      <div className="rounded-3xl border border-white/10 bg-white/5 backdrop-blur-xl p-5">
+        <div className="flex items-center justify-between gap-4 flex-wrap">
+          <div>
+            <h3 className="text-base font-semibold text-white">Current Submitted Proof</h3>
+            <p className="text-sm text-white/60">
+              This is the screenshot currently attached to your enrollment.
+            </p>
+          </div>
 
-                  <Button variant="ghost" onClick={handleBackToPlans}>
-                    Choose another plan
-                  </Button>
-                </div>
-              </div>
+          <a
+            href={enrollment.payment_proof_url}
+            target="_blank"
+            rel="noreferrer"
+            className="inline-flex items-center gap-2 rounded-2xl border border-white/15 bg-white/5 px-4 py-2 text-sm text-white hover:bg-white/10"
+          >
+            <FileImage className="h-4 w-4" />
+            Open Current Proof
+          </a>
+        </div>
+      </div>
+    );
+  }
 
-              <div className="rounded-[28px] border border-slate-200 bg-white shadow-[0_18px_45px_rgba(15,23,42,0.06)] p-5 md:p-7">
-                <h3 className="text-xl font-bold text-slate-900 mb-5">
-                  Payment Details
-                </h3>
+  function renderUploadBox({ isResubmit = false } = {}) {
+    return (
+      <div className="rounded-3xl border border-white/10 bg-white/5 backdrop-blur-xl p-5">
+        <div className="flex items-center gap-3 mb-4">
+          <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-emerald-500/15">
+            <Upload className="h-5 w-5 text-emerald-400" />
+          </div>
+          <div>
+            <h3 className="text-base font-semibold text-white">
+              {isResubmit ? "Re-upload Payment Proof" : "Upload Payment Proof"}
+            </h3>
+            <p className="text-sm text-white/60">
+              Upload a clear screenshot of your payment confirmation.
+            </p>
+          </div>
+        </div>
 
-                <div className="grid md:grid-cols-2 gap-4">
-                  <div className="rounded-2xl border border-emerald-100 bg-emerald-50/60 p-5">
-                    <div className="flex items-center gap-2 mb-3">
-                      <CreditCard className="w-4 h-4 text-emerald-600" />
-                      <p className="font-semibold text-slate-900">GCash</p>
-                    </div>
+        <label className="flex cursor-pointer flex-col items-center justify-center rounded-2xl border border-dashed border-white/15 bg-black/20 px-4 py-8 text-center transition hover:border-emerald-400/40 hover:bg-white/5">
+          <FileImage className="mb-3 h-8 w-8 text-white/50" />
+          <span className="text-sm font-medium text-white">
+            {proofFile ? proofFile.name : "Click to choose image or proof file"}
+          </span>
+          <span className="mt-1 text-xs text-white/50">
+            Best if the amount, sender, and transaction details are clearly visible
+          </span>
+          <input
+            type="file"
+            accept="image/*,.pdf"
+            onChange={handleFileChange}
+            className="hidden"
+          />
+        </label>
 
-                    <p className="text-xs uppercase tracking-wide text-slate-500">
-                      Number
-                    </p>
-                    <p className="font-semibold text-slate-900 mt-1">
-                      09858410403
-                    </p>
+        {proofPreview ? (
+          <div className="mt-4 overflow-hidden rounded-2xl border border-white/10 bg-black/20">
+            <img
+              src={proofPreview}
+              alt="Proof preview"
+              className="max-h-[320px] w-full object-contain bg-black/30"
+            />
+          </div>
+        ) : null}
 
-                    <p className="text-xs uppercase tracking-wide text-slate-500 mt-4">
-                      Account Name
-                    </p>
-                    <p className="font-semibold text-slate-900 mt-1">
-                      Jerome Mirabuenos
-                    </p>
-                  </div>
+        {proofFile && !proofPreview && proofFile.type === "application/pdf" ? (
+          <div className="mt-4 rounded-2xl border border-white/10 bg-black/20 p-4 text-sm text-white/70">
+            PDF selected: <span className="font-medium text-white">{proofFile.name}</span>
+          </div>
+        ) : null}
 
-                  <div className="rounded-2xl border border-cyan-100 bg-cyan-50/60 p-5">
-                    <div className="flex items-center gap-2 mb-3">
-                      <Building2 className="w-4 h-4 text-cyan-600" />
-                      <p className="font-semibold text-slate-900">
-                        Bank Transfer
-                      </p>
-                    </div>
+        {uploadError ? (
+          <div className="mt-4 rounded-2xl border border-red-500/20 bg-red-500/10 px-4 py-3 text-sm text-red-300">
+            {uploadError}
+          </div>
+        ) : null}
 
-                    <p className="text-xs uppercase tracking-wide text-slate-500">
-                      Bank
-                    </p>
-                    <p className="font-semibold text-slate-900 mt-1">
-                      Security Bank
-                    </p>
+        <div className="mt-4 flex flex-col gap-3 sm:flex-row">
+          <Button
+            onClick={handleSubmit}
+            disabled={submitting || !proofFile}
+            className="h-11 rounded-2xl bg-emerald-500 text-white hover:bg-emerald-600"
+          >
+            {submitting
+              ? isResubmit
+                ? "Resubmitting..."
+                : "Submitting..."
+              : isResubmit
+              ? "Resubmit Proof"
+              : "Submit Proof"}
+          </Button>
 
-                    <p className="text-xs uppercase tracking-wide text-slate-500 mt-4">
-                      Account Number
-                    </p>
-                    <p className="font-semibold text-slate-900 mt-1">
-                      000-006-704-2019
-                    </p>
+          {proofFile ? (
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => {
+                setProofFile(null);
+                setProofPreview("");
+                setUploadError("");
+              }}
+              className="h-11 rounded-2xl border-white/15 bg-transparent text-white hover:bg-white/10"
+            >
+              Remove Selected File
+            </Button>
+          ) : null}
+        </div>
+      </div>
+    );
+  }
 
-                    <p className="text-xs uppercase tracking-wide text-slate-500 mt-4">
-                      Account Name
-                    </p>
-                    <p className="font-semibold text-slate-900 mt-1">
-                      CLARA Financial Program
-                    </p>
-                  </div>
+  if (loading || plansLoading) {
+    return (
+      <div className="min-h-screen bg-[#020617] text-white flex items-center justify-center">
+        <div className="rounded-3xl border border-white/10 bg-white/5 px-6 py-5 backdrop-blur-xl">
+          <p className="text-sm text-white/70">Loading your enrollment...</p>
+        </div>
+      </div>
+    );
+  }
+
+  const hasEnrollment = !!enrollment;
+  const isRejectedState = ["rejected", "resubmit_required"].includes(currentStatus);
+  const isPendingState = ["pending", "under_review", "payment_pending"].includes(currentStatus);
+  const allowTierChange = isRejectedState;
+  const showPlanChooser = !hasEnrollment || allowTierChange || manualTierEdit;
+  const effectivePlanExists = !!selectedPlan;
+
+  return (
+    <div className="min-h-screen bg-[#020617] text-white">
+      <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,_rgba(16,185,129,0.16),_transparent_28%),linear-gradient(180deg,_rgba(2,6,23,0.4),_rgba(2,6,23,1))]" />
+
+      <div className="relative mx-auto w-full max-w-5xl px-4 py-6 sm:px-6 sm:py-8">
+        <div className="mb-6 flex items-center justify-between gap-4">
+          <Button
+            type="button"
+            variant="ghost"
+            onClick={() => navigate(-1)}
+            className="h-10 rounded-2xl border border-white/10 bg-white/5 px-4 text-white hover:bg-white/10"
+          >
+            <ArrowLeft className="mr-2 h-4 w-4" />
+            Back
+          </Button>
+
+          <div className="rounded-full border border-white/10 bg-white/5 px-4 py-2 text-xs uppercase tracking-[0.2em] text-white/60">
+            CLARA Enrollment
+          </div>
+        </div>
+
+        <div className="mb-6 rounded-[28px] border border-white/10 bg-white/5 p-6 backdrop-blur-2xl">
+          <div className="flex items-start justify-between gap-4 flex-wrap">
+            <div className="max-w-2xl">
+              <p className="text-xs font-semibold uppercase tracking-[0.22em] text-emerald-300/80">
+                Secure Enrollment
+              </p>
+
+              <h1 className="mt-2 text-3xl font-bold tracking-tight text-white sm:text-4xl">
+                Review your selected tier, payment status, and next steps
+              </h1>
+
+              <p className="mt-3 text-sm leading-6 text-white/70 sm:text-base">
+                Users see the live admin plan info, the available payment methods, and can
+                resubmit or change tier if the payment gets rejected.
+              </p>
+            </div>
+
+            <div className="rounded-3xl border border-emerald-400/20 bg-emerald-500/10 px-4 py-4">
+              <div className="flex items-center gap-3">
+                <CreditCard className="h-5 w-5 text-emerald-300" />
+                <div>
+                  <p className="text-xs uppercase tracking-[0.18em] text-white/50">Enrollment</p>
+                  <p className="text-sm font-semibold text-white">
+                    {selectedPlan?.name || "No tier selected yet"}
+                  </p>
                 </div>
               </div>
             </div>
+          </div>
+        </div>
 
-            <div className="space-y-6">
-              <div className="rounded-[28px] border border-slate-200 bg-white shadow-[0_18px_45px_rgba(15,23,42,0.06)] p-5 md:p-7">
-                <h3 className="text-xl font-bold text-slate-900 mb-4">
-                  Upload Payment Proof
-                </h3>
+        {statusMeta ? <div className="mb-5">{renderStatusCard()}</div> : null}
 
-                <div className="rounded-2xl border-2 border-dashed border-slate-300 bg-slate-50 p-5">
-                  <div className="flex items-center gap-2 mb-2">
-                    <Upload className="w-4 h-4 text-primary" />
-                    <p className="font-medium text-slate-900">
-                      Receipt Screenshot or PDF
-                    </p>
-                  </div>
+        {allowTierChange ? (
+          <div className="mb-5 rounded-3xl border border-yellow-400/20 bg-yellow-500/5 p-5 backdrop-blur-xl">
+            <div className="flex items-start justify-between gap-4 flex-wrap">
+              <div>
+                <h3 className="text-base font-semibold text-white">Choose Another Tier</h3>
+                <p className="mt-2 text-sm text-white/70">
+                  Since the payment was rejected, the user can now switch to another plan before
+                  uploading a new proof of payment.
+                </p>
+              </div>
 
-                  <p className="text-sm text-slate-500 mb-4">
-                    Upload a screenshot or clear photo of your payment receipt.
-                  </p>
-
-                  <input
-                    type="file"
-                    accept="image/*,.pdf"
-                    onChange={handleFileChange}
-                    className="block w-full text-sm text-slate-600 file:mr-4 file:rounded-xl file:border-0 file:bg-slate-900 file:px-4 file:py-2 file:text-sm file:font-semibold file:text-white hover:file:bg-slate-800"
-                  />
-
-                  {proofFile && (
-                    <div className="mt-4 flex items-center gap-2 text-sm text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-xl px-3 py-2">
-                      <CheckCircle className="w-4 h-4" />
-                      <span>{proofFile.name}</span>
-                    </div>
-                  )}
-                </div>
-
+              {!manualTierEdit ? (
                 <Button
                   type="button"
-                  className="w-full mt-6 rounded-2xl h-12 text-base font-bold"
-                  onClick={handleSubmit}
-                  disabled={submitting}
+                  onClick={handleChangeTierMode}
+                  className="h-11 rounded-2xl bg-yellow-400 text-black hover:bg-yellow-300"
                 >
-                  {submitting ? "Submitting..." : "Submit Enrollment"}
+                  Change Tier
                 </Button>
-              </div>
-
-              <div className="rounded-[28px] border border-slate-200 bg-slate-900 text-white shadow-[0_18px_45px_rgba(15,23,42,0.18)] p-5 md:p-7">
-                <div className="text-[11px] uppercase tracking-[0.16em] text-white/60 mb-2">
-                  What happens next
-                </div>
-                <ul className="space-y-3 text-sm text-white/90">
-                  <li className="flex gap-2">
-                    <Check className="w-4 h-4 mt-0.5 shrink-0 text-emerald-400" />
-                    <span>Your enrollment is submitted for admin review.</span>
-                  </li>
-                  <li className="flex gap-2">
-                    <Check className="w-4 h-4 mt-0.5 shrink-0 text-emerald-400" />
-                    <span>Once verified, your program access will be activated.</span>
-                  </li>
-                  <li className="flex gap-2">
-                    <Check className="w-4 h-4 mt-0.5 shrink-0 text-emerald-400" />
-                    <span>You’ll continue into the CLARA experience from there.</span>
-                  </li>
-                </ul>
-              </div>
-
-              <div className="text-center">
-                <Button variant="ghost" onClick={handleSkip}>
-                  Skip for now
+              ) : (
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={cancelChangeTierMode}
+                  className="h-11 rounded-2xl border-white/15 bg-transparent text-white hover:bg-white/10"
+                >
+                  Keep Current Tier
                 </Button>
-              </div>
+              )}
             </div>
           </div>
-        </div>
-      )}
+        ) : null}
+
+        {showPlanChooser ? <div className="mb-5">{renderPlanSelector()}</div> : null}
+
+        {effectivePlanExists ? <div className="mb-5">{renderSelectedTierOverview()}</div> : null}
+
+        {renderPaymentMethods()}
+
+        {hasEnrollment ? (
+          <div className="mt-5 space-y-5">
+            {renderCurrentProof()}
+
+            {isPendingState ? (
+              <div className="rounded-3xl border border-white/10 bg-white/5 backdrop-blur-xl p-5">
+                <div className="flex items-start justify-between gap-4 flex-wrap">
+                  <div>
+                    <h3 className="text-base font-semibold text-white">What Happens Next</h3>
+
+                    <div className="mt-3 space-y-2 text-sm text-white/75">
+                      <div className="flex items-start gap-2">
+                        <CheckCircle2 className="mt-0.5 h-4 w-4 text-emerald-400 shrink-0" />
+                        <span>Admin reviews the screenshot you submitted.</span>
+                      </div>
+                      <div className="flex items-start gap-2">
+                        <CheckCircle2 className="mt-0.5 h-4 w-4 text-emerald-400 shrink-0" />
+                        <span>If approved, your program access will unlock automatically.</span>
+                      </div>
+                      <div className="flex items-start gap-2">
+                        <CheckCircle2 className="mt-0.5 h-4 w-4 text-emerald-400 shrink-0" />
+                        <span>If there is an issue, your status can be updated to resubmit.</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => setShowReplaceUploader((prev) => !prev)}
+                    className="h-11 rounded-2xl border-white/15 bg-transparent text-white hover:bg-white/10"
+                  >
+                    <RefreshCcw className="mr-2 h-4 w-4" />
+                    {showReplaceUploader ? "Hide Re-upload" : "Replace Proof"}
+                  </Button>
+                </div>
+
+                {showReplaceUploader ? (
+                  <div className="mt-5">{renderUploadBox({ isResubmit: true })}</div>
+                ) : null}
+              </div>
+            ) : null}
+
+            {isRejectedState ? renderUploadBox({ isResubmit: true }) : null}
+          </div>
+        ) : (
+          effectivePlanExists && <div className="mt-5">{renderUploadBox()}</div>
+        )}
+
+        {!hasEnrollment && !effectivePlanExists && activePlans.length === 0 ? (
+          <div className="mt-5 rounded-3xl border border-white/10 bg-white/5 p-5 text-sm text-white/70 backdrop-blur-xl">
+            No active plans found yet. Please activate at least one plan from admin.
+          </div>
+        ) : null}
+      </div>
     </div>
   );
 }

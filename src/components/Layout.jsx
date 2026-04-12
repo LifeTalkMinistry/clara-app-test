@@ -1,5 +1,5 @@
 import { Link, useLocation, useNavigate } from "react-router-dom";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState, useCallback } from "react";
 import {
   LayoutDashboard,
   Receipt,
@@ -24,6 +24,7 @@ import {
   Bell,
   PlayCircle,
   Megaphone,
+  Lock,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { supabase } from "@/lib/supabaseClient";
@@ -34,17 +35,17 @@ import ClaraLogo from "./ClaraLogo";
 
 const allNavItems = [
   { path: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
-  { path: "/advertiser", label: "My Ads", icon: Megaphone },
   { path: "/expenses", label: "Expenses", icon: Receipt },
   { path: "/wallets", label: "Wallets", icon: Wallet },
   { path: "/budgets", label: "Budgets", icon: Target },
-  { path: "/savings-goals", label: "Savings Goals", icon: PiggyBank },
   { path: "/analytics", label: "Analytics", icon: BarChart2 },
-  { path: "/tasks", label: "Tasks", icon: ListChecks, tier: "paid" },
-  { path: "/modules", label: "Modules", icon: BookOpen, tier: "paid" },
-  { path: "/community", label: "Community", icon: Users },
-  { path: "/messages", label: "Messages", icon: MessageSquare, tier: "paid" },
-  { path: "/coaching", label: "Coaching", icon: GraduationCap, tier: "paid" },
+  { path: "/savings-goals", label: "Savings Goals", icon: PiggyBank, pro: true },
+  { path: "/tasks", label: "Tasks", icon: ListChecks, pro: true },
+  { path: "/modules", label: "Modules", icon: BookOpen, pro: true },
+  { path: "/community", label: "Community", icon: Users, pro: true },
+  { path: "/messages", label: "Messages", icon: MessageSquare, pro: true },
+  { path: "/coaching", label: "Coaching", icon: GraduationCap, pro: true },
+  { path: "/news", label: "News", icon: Bell },
   { path: "/referrals", label: "Referrals", icon: Share2, ambassadorOnly: true },
 ];
 
@@ -54,12 +55,53 @@ const advertiserNavItems = [
   { path: "/settings", label: "Settings", icon: Settings },
 ];
 
+function SidebarLink({ item, isActive, isLocked, onNavigate, onClose }) {
+  const handleClick = (e) => {
+    if (isLocked) {
+      e.preventDefault();
+      onNavigate("/enroll");
+      return;
+    }
+
+    onClose?.();
+  };
+
+  return (
+    <Link
+      to={isLocked ? "/enroll" : item.path}
+      onClick={handleClick}
+      className={`group flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm transition-all ${
+        isActive
+          ? "bg-gradient-to-r from-green-500 to-emerald-600 font-semibold text-white"
+          : isLocked
+            ? "text-white/65 hover:bg-white/10"
+            : "text-white/70 hover:bg-white/10 hover:text-white"
+      }`}
+    >
+      <item.icon className="h-4 w-4 flex-shrink-0" />
+      <span className="flex-1">{item.label}</span>
+
+      {isLocked && (
+        <span className="inline-flex items-center gap-1 rounded-md bg-yellow-400/20 px-1.5 py-0.5 text-[9px] font-bold text-yellow-300">
+          <Lock className="h-3 w-3" />
+          PRO
+        </span>
+      )}
+
+      {isActive && (
+        <div className="h-5 w-1.5 rounded-full bg-gradient-to-b from-yellow-400 to-lime-400" />
+      )}
+    </Link>
+  );
+}
+
 function SidebarContent({
   currentPath,
   onClose,
   onNavigate,
   planLabel,
   isAdmin,
+  isFree,
   isPaid,
   isAdvertiser,
   user,
@@ -99,38 +141,21 @@ function SidebarContent({
             currentPath.startsWith(item.path + "/");
 
           if (!isAdvertiser) {
-            const isLocked = item.tier === "paid" && !isPaid;
+            const isLocked = Boolean(item.pro && isFree);
             const referralNotEnabled =
               item.ambassadorOnly && !user?.referral_enabled;
 
             if (referralNotEnabled) return null;
 
             return (
-              <Link
+              <SidebarLink
                 key={item.path}
-                to={isLocked ? "#" : item.path}
-                onClick={isLocked ? (e) => e.preventDefault() : onClose}
-                className={`group flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm transition-all ${
-                  isActive
-                    ? "bg-gradient-to-r from-green-500 to-emerald-600 font-semibold text-white"
-                    : isLocked
-                    ? "cursor-not-allowed text-white/30"
-                    : "text-white/70 hover:bg-white/10 hover:text-white"
-                }`}
-              >
-                <item.icon className="h-4 w-4 flex-shrink-0" />
-                <span className="flex-1">{item.label}</span>
-
-                {isLocked && (
-                  <span className="rounded-md bg-yellow-400/20 px-1.5 py-0.5 text-[9px] font-bold text-yellow-300">
-                    PRO
-                  </span>
-                )}
-
-                {isActive && (
-                  <div className="h-5 w-1.5 rounded-full bg-gradient-to-b from-yellow-400 to-lime-400" />
-                )}
-              </Link>
+                item={item}
+                isActive={isActive}
+                isLocked={isLocked}
+                onNavigate={onNavigate}
+                onClose={onClose}
+              />
             );
           }
 
@@ -303,8 +328,8 @@ function MobileControlCenter({
         {
           label: "Notifications",
           icon: Bell,
-          onClick: () => handleGo("/notifications"),
-          active: currentPath === "/notifications",
+          onClick: () => handleGo("/news"),
+          active: currentPath === "/news",
         },
         {
           label: "My Ads",
@@ -320,14 +345,14 @@ function MobileControlCenter({
         {
           label: "Help Center",
           icon: HelpCircle,
-          onClick: () => handleGo("/help"),
-          active: currentPath === "/help",
+          onClick: () => handleGo("/enroll"),
+          active: false,
         },
         {
           label: "Tutorials",
           icon: PlayCircle,
-          onClick: () => handleGo("/tutorials"),
-          active: currentPath === "/tutorials",
+          onClick: () => handleGo("/enroll"),
+          active: false,
         },
       ];
 
@@ -476,6 +501,7 @@ export default function Layout({ children }) {
     planLabel = "FREE",
     isAdmin = false,
     isPaid = false,
+    isFree = false,
     loading = false,
   } = useUserRole() || {};
 
@@ -488,18 +514,14 @@ export default function Layout({ children }) {
   }, [isAdvertiser, planLabel]);
 
   useEffect(() => {
-    if (quickAddOpen) {
-      setControlOpen(false);
-    }
+    if (quickAddOpen) setControlOpen(false);
   }, [quickAddOpen]);
 
   useEffect(() => {
-    if (controlOpen) {
-      setQuickAddOpen(false);
-    }
+    if (controlOpen) setQuickAddOpen(false);
   }, [controlOpen]);
 
-  const handleLogout = async () => {
+  const handleLogout = useCallback(async () => {
     try {
       setControlOpen(false);
       setQuickAddOpen(false);
@@ -508,35 +530,36 @@ export default function Layout({ children }) {
     } catch (error) {
       console.error("Logout failed:", error);
     }
-  };
+  }, [navigate]);
 
-  const handleNavigate = (path) => {
-    setControlOpen(false);
-    setQuickAddOpen(false);
-    navigate(path);
-  };
+  const handleNavigate = useCallback(
+    (path) => {
+      setControlOpen(false);
+      setQuickAddOpen(false);
+      navigate(path);
+    },
+    [navigate]
+  );
 
-  const handleOpenQuickAdd = () => {
+  const handleOpenQuickAdd = useCallback(() => {
     if (isAdvertiser) return;
     setControlOpen(false);
     setQuickAddOpen(true);
-  };
+  }, [isAdvertiser]);
 
-  const handleToggleControl = () => {
+  const handleToggleControl = useCallback(() => {
     setQuickAddOpen(false);
     setControlOpen((prev) => !prev);
-  };
-
-  if (loading) {
-    return (
-      <div className="fixed inset-0 flex items-center justify-center bg-[#020617]">
-        <div className="h-8 w-8 animate-spin rounded-full border-4 border-green-500/20 border-t-green-500" />
-      </div>
-    );
-  }
+  }, []);
 
   return (
     <div className="flex h-screen overflow-hidden bg-gradient-to-b from-[#0b1f1a] via-[#0f172a] to-[#020617] text-white">
+      {loading && (
+        <div className="fixed inset-0 z-[999] flex items-center justify-center bg-[#020617]">
+          <div className="h-8 w-8 animate-spin rounded-full border-4 border-green-500/20 border-t-green-500" />
+        </div>
+      )}
+
       <aside className="hidden w-64 flex-shrink-0 flex-col border-r border-white/10 shadow-lg lg:flex">
         <SidebarContent
           currentPath={location.pathname}
@@ -544,6 +567,7 @@ export default function Layout({ children }) {
           onNavigate={handleNavigate}
           planLabel={effectivePlanLabel}
           isAdmin={isAdmin}
+          isFree={isFree}
           isPaid={isPaid}
           isAdvertiser={isAdvertiser}
           user={user}
@@ -590,6 +614,7 @@ export default function Layout({ children }) {
           onQuickAdd={handleOpenQuickAdd}
           isAdmin={isAdmin}
           isPaid={isPaid}
+          isFree={isFree}
           onLogout={handleLogout}
         />
       )}
