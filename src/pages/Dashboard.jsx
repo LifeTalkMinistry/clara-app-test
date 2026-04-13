@@ -26,6 +26,28 @@ import DailyTipCard from "../components/DailyTipCard";
 import useUserRole from "../hooks/useUserRole";
 
 const normalizeString = (value) => String(value ?? "").trim();
+const normalizeLower = (value) => normalizeString(value).toLowerCase();
+
+const ENROLLMENT_PENDING_STATUSES = new Set([
+  "pending",
+  "under_review",
+  "payment_pending",
+]);
+
+const ENROLLMENT_APPROVED_STATUSES = new Set([
+  "approved",
+  "active",
+  "enrolled",
+]);
+
+const ENROLLMENT_BLOCKED_TO_ENROLL_STATUSES = new Set([
+  "",
+  "none",
+  "free",
+  "rejected",
+  "resubmit_required",
+  "cancelled",
+]);
 
 const isOwnedByUser = (item, user) => {
   if (!user || !item) return false;
@@ -107,21 +129,67 @@ const getBillboardMediaType = (item) => {
 const getOnboardingStorageKey = (userId) =>
   `clara_program_onboarding_completed_${userId || "guest"}`;
 
-const isProgramApproved = (profile, isPaid) => {
-  const status = normalizeString(profile?.status).toLowerCase();
-  const enrollmentStatus = normalizeString(profile?.enrollment_status).toLowerCase();
+const isProgramApproved = (profile, isPaid, enrollmentRecord = null) => {
+  const status = normalizeLower(profile?.status);
+  const enrollmentStatus = normalizeLower(
+    enrollmentRecord?.status || profile?.enrollment_status
+  );
+  const plan = normalizeLower(profile?.plan);
+  const role = normalizeLower(profile?.role);
 
   return (
     isPaid === true ||
     profile?.is_enrolled === true ||
     profile?.program_active === true ||
-    status === "approved" ||
-    status === "active" ||
-    status === "enrolled" ||
-    enrollmentStatus === "approved" ||
-    enrollmentStatus === "active" ||
-    enrollmentStatus === "enrolled"
+    role === "paid_user" ||
+    (plan && plan !== "free") ||
+    ENROLLMENT_APPROVED_STATUSES.has(status) ||
+    ENROLLMENT_APPROVED_STATUSES.has(enrollmentStatus)
   );
+};
+
+const shouldForceToEnroll = (profile, enrollmentRecord, isPaid) => {
+  const role = normalizeLower(profile?.role);
+  const plan = normalizeLower(profile?.plan);
+  const profileStatus = normalizeLower(profile?.status);
+  const enrollmentStatus = normalizeLower(
+    enrollmentRecord?.status || profile?.enrollment_status
+  );
+
+  const hasApproved =
+    isProgramApproved(profile, isPaid, enrollmentRecord) ||
+    ENROLLMENT_APPROVED_STATUSES.has(profileStatus) ||
+    ENROLLMENT_APPROVED_STATUSES.has(enrollmentStatus);
+
+  const pending =
+    ENROLLMENT_PENDING_STATUSES.has(profileStatus) ||
+    ENROLLMENT_PENDING_STATUSES.has(enrollmentStatus);
+
+  if (hasApproved || pending) return false;
+
+  const freeRole = !role || role === "free_user" || role === "user";
+  const freePlan = !plan || plan === "free";
+  const noEnrollment = !enrollmentRecord;
+
+  if (freeRole && freePlan && noEnrollment) return true;
+
+  if (
+    freeRole &&
+    freePlan &&
+    ENROLLMENT_BLOCKED_TO_ENROLL_STATUSES.has(enrollmentStatus)
+  ) {
+    return true;
+  }
+
+  if (
+    freeRole &&
+    freePlan &&
+    ENROLLMENT_BLOCKED_TO_ENROLL_STATUSES.has(profileStatus)
+  ) {
+    return true;
+  }
+
+  return false;
 };
 
 const OnboardingActionBar = ({
@@ -171,6 +239,9 @@ export default function Dashboard() {
   const [loading, setLoading] = useState(true);
 
   const [profileData, setProfileData] = useState(null);
+  const [latestEnrollment, setLatestEnrollment] = useState(null);
+  const [guardChecked, setGuardChecked] = useState(false);
+
   const [showProgramStart, setShowProgramStart] = useState(false);
   const [showOnboarding, setShowOnboarding] = useState(false);
   const [onboardingStep, setOnboardingStep] = useState(0);
@@ -328,7 +399,9 @@ export default function Dashboard() {
       setWalletMoney(0);
       setSurvivalExpense(0);
       setProfileData(null);
+      setLatestEnrollment(null);
       setLoading(false);
+      setGuardChecked(true);
       return;
     }
 
@@ -342,6 +415,7 @@ export default function Dashboard() {
         expensesRes,
         profilesRes,
         walletsRes,
+        enrollmentsRes,
       ] = await Promise.all([
         supabase
           .from("challenge_tasks")
@@ -364,6 +438,13 @@ export default function Dashboard() {
         supabase.from("profiles").select("*"),
 
         supabase.from("wallets").select("*"),
+
+        supabase
+          .from("enrollments")
+          .select("*")
+          .eq("user_id", user.id)
+          .order("created_at", { ascending: false })
+          .limit(1),
       ]);
 
       if (tasksRes.error) console.error("Failed to load tasks:", tasksRes.error);
@@ -382,6 +463,9 @@ export default function Dashboard() {
       if (walletsRes.error) {
         console.error("Failed to load wallets:", walletsRes.error);
       }
+      if (enrollmentsRes.error) {
+        console.error("Failed to load enrollments:", enrollmentsRes.error);
+      }
 
       const userSubmissions = (submissionsRes.data || []).filter((item) =>
         isOwnedByUser(item, user)
@@ -398,6 +482,8 @@ export default function Dashboard() {
       const userProfile =
         (profilesRes.data || []).find((profile) => isOwnedByUser(profile, user)) ||
         null;
+
+      const enrollmentRecord = (enrollmentsRes.data || [])[0] || null;
 
       const userWallets = (walletsRes.data || []).filter((wallet) =>
         isOwnedByUser(wallet, user)
@@ -428,6 +514,7 @@ export default function Dashboard() {
       setBillboards(activeBillboards);
       setExpenses(userExpenses);
       setProfileData(userProfile);
+      setLatestEnrollment(enrollmentRecord);
       setSurvivalExpense(Number(userProfile?.monthly_survival_expense) || 0);
       setWalletMoney(totalWalletMoney);
 
@@ -445,7 +532,7 @@ export default function Dashboard() {
         setFinancialGoal(normalizeString(userProfile?.financial_goal || ""));
       }
 
-      const approved = isProgramApproved(userProfile, isPaid);
+      const approved = isProgramApproved(userProfile, isPaid, enrollmentRecord);
       const onboardingDone =
         userProfile?.onboarding_completed === true ||
         Number(userProfile?.onboarding_step) >= 999 ||
@@ -462,6 +549,7 @@ export default function Dashboard() {
       console.error("Dashboard load error:", error);
     } finally {
       setLoading(false);
+      setGuardChecked(true);
     }
   }, [
     user,
@@ -634,6 +722,11 @@ export default function Dashboard() {
       )
       .on(
         "postgres_changes",
+        { event: "*", schema: "public", table: "enrollments" },
+        scheduleRefresh
+      )
+      .on(
+        "postgres_changes",
         { event: "UPDATE", schema: "public", table: "profiles" },
         async (payload) => {
           scheduleRefresh();
@@ -647,8 +740,8 @@ export default function Dashboard() {
 
           if (!belongsToUser) return;
 
-          const wasApproved = isProgramApproved(oldData, false);
-          const nowApproved = isProgramApproved(newData, isPaid);
+          const wasApproved = isProgramApproved(oldData, false, latestEnrollment);
+          const nowApproved = isProgramApproved(newData, isPaid, latestEnrollment);
 
           if (!wasApproved && nowApproved && !approvalTriggeredRef.current) {
             approvalTriggeredRef.current = true;
@@ -685,12 +778,22 @@ export default function Dashboard() {
 
       supabase.removeChannel(channel);
     };
-  }, [user?.id, user?.email, scheduleRefresh, isPaid]);
+  }, [user?.id, user?.email, scheduleRefresh, isPaid, latestEnrollment]);
+
+  useEffect(() => {
+    if (!guardChecked || !profileData) return;
+
+    const shouldRedirect = shouldForceToEnroll(profileData, latestEnrollment, isPaid);
+
+    if (shouldRedirect) {
+      navigate("/enroll", { replace: true });
+    }
+  }, [guardChecked, profileData, latestEnrollment, isPaid, navigate]);
 
   useEffect(() => {
     if (!user?.id) return;
 
-    const approved = isProgramApproved(profileData, isPaid);
+    const approved = isProgramApproved(profileData, isPaid, latestEnrollment);
     const onboardingDone = isOnboardingCompleted();
 
     if (approved && !onboardingDone && !showOnboarding) {
@@ -703,6 +806,7 @@ export default function Dashboard() {
   }, [
     user?.id,
     profileData,
+    latestEnrollment,
     isPaid,
     showOnboarding,
     isOnboardingCompleted,
@@ -858,6 +962,17 @@ export default function Dashboard() {
     refreshUser?.();
     navigate("/tasks");
   };
+
+  if (!guardChecked) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-[#061018] text-white">
+        <div className="flex flex-col items-center gap-3">
+          <div className="h-10 w-10 animate-spin rounded-full border-4 border-white/15 border-t-emerald-400" />
+          <p className="text-sm text-white/75">Checking access...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="relative isolate z-0 min-h-full">

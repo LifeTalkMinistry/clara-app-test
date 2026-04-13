@@ -1,6 +1,13 @@
 import { useState, useEffect, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
-import { Search, ChevronRight, RefreshCw, Shield, User } from "lucide-react";
+import {
+  Search,
+  ChevronRight,
+  RefreshCw,
+  Shield,
+  User,
+  RotateCcw,
+} from "lucide-react";
 
 import {
   Select,
@@ -99,6 +106,56 @@ export default function AdminUsers() {
       plan,
       role,
     });
+  }
+
+  async function resetUser(id) {
+    const confirmReset = window.confirm(
+      "FULL RESET this user?\n\nThis will:\n- Reset onboarding\n- Remove enrollment\n- Remove paid/program access\n- Mark the account for forced re-login"
+    );
+
+    if (!confirmReset) return;
+
+    try {
+      setActionLoadingId(id);
+
+      const { error: profileError } = await supabase
+        .from("profiles")
+        .update({
+          role: "free_user",
+          plan: "free",
+
+          has_completed_onboarding: false,
+          onboarding_completed: false,
+          onboarding_step: 0,
+
+          enrollment_status: "none",
+          status: "free",
+          is_enrolled: false,
+          program_active: false,
+
+          force_reauth: true,
+        })
+        .eq("id", id);
+
+      if (profileError) {
+        throw profileError;
+      }
+
+      const { error: enrollmentDeleteError } = await supabase
+        .from("enrollments")
+        .delete()
+        .eq("user_id", id);
+
+      if (enrollmentDeleteError) {
+        console.error("Delete enrollment error:", enrollmentDeleteError);
+      }
+
+      await loadUsers();
+    } catch (err) {
+      console.error("Unexpected reset error:", err);
+    } finally {
+      setActionLoadingId(null);
+    }
   }
 
   const filteredUsers = useMemo(() => {
@@ -215,7 +272,9 @@ export default function AdminUsers() {
 
                 <div className="rounded-xl border p-2">
                   <p className="text-muted-foreground">Plan</p>
-                  <p className="font-medium capitalize">{getPlanLabel(user.plan)}</p>
+                  <p className="font-medium capitalize">
+                    {getPlanLabel(user.plan)}
+                  </p>
                 </div>
               </div>
 
@@ -253,6 +312,16 @@ export default function AdminUsers() {
                     ))}
                   </SelectContent>
                 </Select>
+
+                <Button
+                  size="sm"
+                  variant="destructive"
+                  onClick={() => resetUser(user.id)}
+                  disabled={isBusy}
+                >
+                  <RotateCcw className="w-3 h-3 mr-1" />
+                  Reset
+                </Button>
 
                 <div className="inline-flex items-center gap-2 rounded-xl border px-3 py-2 text-xs text-muted-foreground">
                   {user.role === "admin" ? (
