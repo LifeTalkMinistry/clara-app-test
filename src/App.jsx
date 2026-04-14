@@ -1,10 +1,8 @@
-import { useEffect, useMemo, useState } from "react";
-import { Routes, Route, Navigate, useLocation } from "react-router-dom";
+import { Suspense, lazy, useEffect, useMemo, useState } from "react";
+import { Routes, Route, Navigate } from "react-router-dom";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "sonner";
 
-import Settings from "./pages/Settings";
-import Profile from "./pages/Profile";
 import { queryClientInstance } from "./lib/query-client";
 import { useAuth } from "@/context/AuthContext";
 import { supabase } from "@/lib/supabaseClient";
@@ -14,38 +12,46 @@ import useUserRole, { isRestrictedForFree } from "./hooks/useUserRole";
 import Layout from "./components/Layout";
 
 // Pages
-import Login from "./pages/Login";
-import Dashboard from "./pages/Dashboard";
-import Expenses from "./pages/Expenses";
-import AddFunds from "./pages/AddFunds";
-import Wallets from "./pages/Wallets";
-import Budgets from "./pages/Budgets";
-import Analytics from "./pages/Analytics";
-import Tasks from "./pages/Tasks";
-import Modules from "./pages/Modules";
-import Community from "./pages/Community";
-import Messages from "./pages/Messages";
-import Coaching from "./pages/Coaching";
-import Enroll from "./pages/Enroll";
-import TierSelect from "./pages/TierSelect";
-import News from "./pages/News";
-import Referrals from "./pages/Referrals";
-import SavingsGoals from "./pages/SavingsGoals";
-import AdvertiserDashboard from "./pages/AdvertiserDashboard";
+const Settings = lazy(() => import("./pages/Settings"));
+const Profile = lazy(() => import("./pages/Profile"));
+const Login = lazy(() => import("./pages/Login"));
+const Dashboard = lazy(() => import("./pages/Dashboard"));
+const Expenses = lazy(() => import("./pages/Expenses"));
+const AddFunds = lazy(() => import("./pages/AddFunds"));
+const Wallets = lazy(() => import("./pages/Wallets"));
+const Budgets = lazy(() => import("./pages/Budgets"));
+const Analytics = lazy(() => import("./pages/Analytics"));
+const Tasks = lazy(() => import("./pages/Tasks"));
+const Modules = lazy(() => import("./pages/Modules"));
+const Community = lazy(() => import("./pages/Community"));
+const Messages = lazy(() => import("./pages/Messages"));
+const Coaching = lazy(() => import("./pages/Coaching"));
+const Enroll = lazy(() => import("./pages/Enroll"));
+const TierSelect = lazy(() => import("./pages/TierSelect"));
+const News = lazy(() => import("./pages/News"));
+const Referrals = lazy(() => import("./pages/Referrals"));
+const SavingsGoals = lazy(() => import("./pages/SavingsGoals"));
+const AdvertiserDashboard = lazy(() => import("./pages/AdvertiserDashboard"));
 
 // Onboarding
-import UniversalOnboarding from "./pages/onboarding/UniversalOnboarding";
-import ProgramOnboarding from "./pages/onboarding/ProgramOnboarding";
-import PendingScreen from "./pages/onboarding/PendingScreen";
+const UniversalOnboarding = lazy(() =>
+  import("./pages/onboarding/UniversalOnboarding")
+);
+const ProgramOnboarding = lazy(() =>
+  import("./pages/onboarding/ProgramOnboarding")
+);
+const PendingScreen = lazy(() => import("./pages/onboarding/PendingScreen"));
 
 // Admin
-import AdminPanel from "./pages/admin/AdminPanel";
-import StudentProfile from "./pages/admin/StudentProfile";
-import AdminReferralMaterials from "./pages/admin/AdminReferralMaterials";
-import AdminDailyTips from "./pages/admin/AdminDailyTips";
+const AdminPanel = lazy(() => import("./pages/admin/AdminPanel"));
+const StudentProfile = lazy(() => import("./pages/admin/StudentProfile"));
+const AdminReferralMaterials = lazy(() =>
+  import("./pages/admin/AdminReferralMaterials")
+);
+const AdminDailyTips = lazy(() => import("./pages/admin/AdminDailyTips"));
 
 // Fallback
-import PageNotFound from "./lib/PageNotFound";
+const PageNotFound = lazy(() => import("./lib/PageNotFound"));
 
 const ENROLLMENT_PENDING_STATUSES = new Set([
   "pending",
@@ -159,29 +165,28 @@ function resolveFlow(profile, enrollment) {
   return "normal";
 }
 
-function ProtectedPaidRoute({ isFree, children }) {
-  const location = useLocation();
-
-  if (isFree && isRestrictedForFree(location.pathname)) {
-    return <Navigate to="/enroll" replace state={{ from: location.pathname }} />;
-  }
-
-  return children;
+function getHomeRedirectPath({ isAdvertiser, flow, forceEnroll }) {
+  if (isAdvertiser) return "/advertiser";
+  if (flow === "universal_onboarding") return "/onboarding";
+  if (flow === "payment_pending") return "/pending";
+  if (flow === "program_onboarding") return "/program-onboarding";
+  if (forceEnroll) return "/enroll";
+  return "/dashboard";
 }
 
-function ForceEnrollRoute({ shouldForce, children }) {
-  const location = useLocation();
-  const blockedPaths = new Set([
-    "/enroll",
-    "/tier-select",
-    "/login",
-    "/onboarding",
-    "/pending",
-    "/program-onboarding",
-  ]);
+function GuardedRoute({
+  children,
+  shouldForceEnroll = false,
+  requiresPaid = false,
+  isFree = false,
+  path,
+}) {
+  if (shouldForceEnroll) {
+    return <Navigate to="/enroll" replace state={{ from: path }} />;
+  }
 
-  if (shouldForce && !blockedPaths.has(location.pathname)) {
-    return <Navigate to="/enroll" replace state={{ from: location.pathname }} />;
+  if (requiresPaid && isFree && isRestrictedForFree(path)) {
+    return <Navigate to="/enroll" replace state={{ from: path }} />;
   }
 
   return children;
@@ -351,6 +356,11 @@ function AppRoutes() {
     return shouldForceEnroll(profile, enrollment);
   }, [user, profileReady, enrollmentLoading, profile, enrollment, isAdvertiser]);
 
+  const homeRedirectPath = useMemo(
+    () => getHomeRedirectPath({ isAdvertiser, flow, forceEnroll }),
+    [isAdvertiser, flow, forceEnroll]
+  );
+
   if (
     forceLogoutProcessing ||
     !authReady ||
@@ -363,63 +373,49 @@ function AppRoutes() {
   }
 
   return (
-    <Routes>
-      <Route
-        path="/login"
-        element={user ? <Navigate to="/" replace /> : <Login />}
-      />
+    <Suspense fallback={<FullScreenLoader />}>
+      <Routes>
+        <Route
+          path="/login"
+          element={user ? <Navigate to={homeRedirectPath} replace /> : <Login />}
+        />
 
-      <Route
-        path="/onboarding"
-        element={user ? <UniversalOnboarding /> : <Navigate to="/login" replace />}
-      />
+        <Route
+          path="/onboarding"
+          element={user ? <UniversalOnboarding /> : <Navigate to="/login" replace />}
+        />
 
-      <Route
-        path="/pending"
-        element={
-          user && flow === "payment_pending" ? (
-            <PendingScreen />
-          ) : (
-            <Navigate to="/" replace />
-          )
-        }
-      />
+        <Route
+          path="/pending"
+          element={
+            user && flow === "payment_pending" ? (
+              <PendingScreen />
+            ) : (
+              <Navigate to={homeRedirectPath} replace />
+            )
+          }
+        />
 
-      <Route
-        path="/program-onboarding"
-        element={
-          user && flow === "program_onboarding" ? (
-            <ProgramOnboarding />
-          ) : (
-            <Navigate to="/" replace />
-          )
-        }
-      />
+        <Route
+          path="/program-onboarding"
+          element={
+            user && flow === "program_onboarding" ? (
+              <ProgramOnboarding />
+            ) : (
+              <Navigate to={homeRedirectPath} replace />
+            )
+          }
+        />
 
-      <Route
-        path="/*"
-        element={
-          user ? (
-            <ForceEnrollRoute shouldForce={forceEnroll}>
+        <Route
+          path="/*"
+          element={
+            user ? (
               <Layout>
                 <Routes>
                   <Route
                     path="/"
-                    element={
-                      isAdvertiser ? (
-                        <Navigate to="/advertiser" replace />
-                      ) : flow === "universal_onboarding" ? (
-                        <Navigate to="/onboarding" replace />
-                      ) : flow === "payment_pending" ? (
-                        <Navigate to="/pending" replace />
-                      ) : flow === "program_onboarding" ? (
-                        <Navigate to="/program-onboarding" replace />
-                      ) : forceEnroll ? (
-                        <Navigate to="/enroll" replace />
-                      ) : (
-                        <Navigate to="/dashboard" replace />
-                      )
-                    }
+                    element={<Navigate to={homeRedirectPath} replace />}
                   />
 
                   <Route path="/advertiser" element={<AdvertiserDashboard />} />
@@ -429,61 +425,49 @@ function AppRoutes() {
                       <Route
                         path="/dashboard"
                         element={
-                          forceEnroll ? (
-                            <Navigate to="/enroll" replace />
-                          ) : (
+                          <GuardedRoute shouldForceEnroll={forceEnroll} path="/dashboard">
                             <Dashboard />
-                          )
+                          </GuardedRoute>
                         }
                       />
                       <Route
                         path="/expenses"
                         element={
-                          forceEnroll ? (
-                            <Navigate to="/enroll" replace />
-                          ) : (
+                          <GuardedRoute shouldForceEnroll={forceEnroll} path="/expenses">
                             <Expenses />
-                          )
+                          </GuardedRoute>
                         }
                       />
                       <Route
                         path="/add-funds"
                         element={
-                          forceEnroll ? (
-                            <Navigate to="/enroll" replace />
-                          ) : (
+                          <GuardedRoute shouldForceEnroll={forceEnroll} path="/add-funds">
                             <AddFunds />
-                          )
+                          </GuardedRoute>
                         }
                       />
                       <Route
                         path="/wallets"
                         element={
-                          forceEnroll ? (
-                            <Navigate to="/enroll" replace />
-                          ) : (
+                          <GuardedRoute shouldForceEnroll={forceEnroll} path="/wallets">
                             <Wallets />
-                          )
+                          </GuardedRoute>
                         }
                       />
                       <Route
                         path="/budgets"
                         element={
-                          forceEnroll ? (
-                            <Navigate to="/enroll" replace />
-                          ) : (
+                          <GuardedRoute shouldForceEnroll={forceEnroll} path="/budgets">
                             <Budgets />
-                          )
+                          </GuardedRoute>
                         }
                       />
                       <Route
                         path="/analytics"
                         element={
-                          forceEnroll ? (
-                            <Navigate to="/enroll" replace />
-                          ) : (
+                          <GuardedRoute shouldForceEnroll={forceEnroll} path="/analytics">
                             <Analytics />
-                          )
+                          </GuardedRoute>
                         }
                       />
                       <Route path="/enroll" element={<Enroll />} />
@@ -491,95 +475,97 @@ function AppRoutes() {
                       <Route
                         path="/news"
                         element={
-                          forceEnroll ? (
-                            <Navigate to="/enroll" replace />
-                          ) : (
+                          <GuardedRoute shouldForceEnroll={forceEnroll} path="/news">
                             <News />
-                          )
+                          </GuardedRoute>
                         }
                       />
 
                       <Route
                         path="/tasks"
                         element={
-                          forceEnroll ? (
-                            <Navigate to="/enroll" replace />
-                          ) : (
-                            <ProtectedPaidRoute isFree={isFree}>
-                              <Tasks />
-                            </ProtectedPaidRoute>
-                          )
+                          <GuardedRoute
+                            shouldForceEnroll={forceEnroll}
+                            requiresPaid={isFree}
+                            isFree={isFree}
+                            path="/tasks"
+                          >
+                            <Tasks />
+                          </GuardedRoute>
                         }
                       />
                       <Route
                         path="/modules"
                         element={
-                          forceEnroll ? (
-                            <Navigate to="/enroll" replace />
-                          ) : (
-                            <ProtectedPaidRoute isFree={isFree}>
-                              <Modules />
-                            </ProtectedPaidRoute>
-                          )
+                          <GuardedRoute
+                            shouldForceEnroll={forceEnroll}
+                            requiresPaid={isFree}
+                            isFree={isFree}
+                            path="/modules"
+                          >
+                            <Modules />
+                          </GuardedRoute>
                         }
                       />
                       <Route
                         path="/community"
                         element={
-                          forceEnroll ? (
-                            <Navigate to="/enroll" replace />
-                          ) : (
-                            <ProtectedPaidRoute isFree={isFree}>
-                              <Community />
-                            </ProtectedPaidRoute>
-                          )
+                          <GuardedRoute
+                            shouldForceEnroll={forceEnroll}
+                            requiresPaid={isFree}
+                            isFree={isFree}
+                            path="/community"
+                          >
+                            <Community />
+                          </GuardedRoute>
                         }
                       />
                       <Route
                         path="/messages"
                         element={
-                          forceEnroll ? (
-                            <Navigate to="/enroll" replace />
-                          ) : (
-                            <ProtectedPaidRoute isFree={isFree}>
-                              <Messages />
-                            </ProtectedPaidRoute>
-                          )
+                          <GuardedRoute
+                            shouldForceEnroll={forceEnroll}
+                            requiresPaid={isFree}
+                            isFree={isFree}
+                            path="/messages"
+                          >
+                            <Messages />
+                          </GuardedRoute>
                         }
                       />
                       <Route
                         path="/coaching"
                         element={
-                          forceEnroll ? (
-                            <Navigate to="/enroll" replace />
-                          ) : (
-                            <ProtectedPaidRoute isFree={isFree}>
-                              <Coaching />
-                            </ProtectedPaidRoute>
-                          )
+                          <GuardedRoute
+                            shouldForceEnroll={forceEnroll}
+                            requiresPaid={isFree}
+                            isFree={isFree}
+                            path="/coaching"
+                          >
+                            <Coaching />
+                          </GuardedRoute>
                         }
                       />
                       <Route
                         path="/savings-goals"
                         element={
-                          forceEnroll ? (
-                            <Navigate to="/enroll" replace />
-                          ) : (
-                            <ProtectedPaidRoute isFree={isFree}>
-                              <SavingsGoals />
-                            </ProtectedPaidRoute>
-                          )
+                          <GuardedRoute
+                            shouldForceEnroll={forceEnroll}
+                            requiresPaid={isFree}
+                            isFree={isFree}
+                            path="/savings-goals"
+                          >
+                            <SavingsGoals />
+                          </GuardedRoute>
                         }
                       />
 
                       <Route
                         path="/referrals"
                         element={
-                          forceEnroll ? (
-                            <Navigate to="/enroll" replace />
-                          ) : (
+                          <GuardedRoute shouldForceEnroll={forceEnroll} path="/referrals">
                             <Referrals />
-                          )
+                          </GuardedRoute>
                         }
                       />
                       <Route path="/admin" element={<AdminPanel />} />
@@ -605,15 +591,15 @@ function AppRoutes() {
                   <Route path="*" element={<PageNotFound />} />
                 </Routes>
               </Layout>
-            </ForceEnrollRoute>
-          ) : (
-            <Navigate to="/login" replace />
-          )
-        }
-      />
+            ) : (
+              <Navigate to="/login" replace />
+            )
+          }
+        />
 
-      <Route path="*" element={<PageNotFound />} />
-    </Routes>
+        <Route path="*" element={<PageNotFound />} />
+      </Routes>
+    </Suspense>
   );
 }
 
