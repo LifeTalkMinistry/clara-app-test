@@ -505,16 +505,32 @@ const getTxnSecondaryLabel = (txn, walletMap) => {
   return walletName;
 };
 
+const createEmptyExpensesCache = (key = null) => ({
+  key,
+  loaded: false,
+  expenses: [],
+  wallets: [],
+  transactions: [],
+});
+
+let expensesPageCache = createEmptyExpensesCache();
+let expensesPageInFlight = null;
+
 export default function Expenses() {
   const { user } = useUserRole();
   const userId = user?.id || null;
   const userEmail = user?.email || null;
+  const cacheKey = userId || userEmail || null;
+  const initialCache =
+    expensesPageCache.loaded && expensesPageCache.key === cacheKey
+      ? expensesPageCache
+      : createEmptyExpensesCache(cacheKey);
 
-  const [expenses, setExpenses] = useState([]);
-  const [wallets, setWallets] = useState([]);
-  const [transactions, setTransactions] = useState([]);
+  const [expenses, setExpenses] = useState(initialCache.expenses);
+  const [wallets, setWallets] = useState(initialCache.wallets);
+  const [transactions, setTransactions] = useState(initialCache.transactions);
 
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(!initialCache.loaded);
   const [saving, setSaving] = useState(false);
 
   const [open, setOpen] = useState(false);
@@ -532,6 +548,31 @@ export default function Expenses() {
   const refreshTimeoutRef = useRef(null);
   const hasLoadedRef = useRef(false);
 
+  const hydrateFromCache = useCallback((nextCache) => {
+    setExpenses(nextCache.expenses);
+    setWallets(nextCache.wallets);
+    setTransactions(nextCache.transactions);
+    hasLoadedRef.current = nextCache.loaded;
+    setLoading(!nextCache.loaded);
+  }, []);
+
+  useEffect(() => {
+    if (!cacheKey) {
+      const emptyCache = createEmptyExpensesCache();
+      expensesPageCache = emptyCache;
+      hydrateFromCache(emptyCache);
+      return;
+    }
+
+    if (expensesPageCache.loaded && expensesPageCache.key === cacheKey) {
+      hydrateFromCache(expensesPageCache);
+      return;
+    }
+
+    hasLoadedRef.current = false;
+    setLoading(true);
+  }, [cacheKey, hydrateFromCache]);
+
   const walletMap = useMemo(() => {
     const map = new Map();
     wallets.forEach((wallet) => {
@@ -548,12 +589,14 @@ export default function Expenses() {
     const currentUser = { id: userId, email: userEmail };
 
     if (!currentUser.id && !currentUser.email) {
-      setExpenses([]);
-      setWallets([]);
-      setTransactions([]);
-      hasLoadedRef.current = false;
-      setLoading(false);
+      const emptyCache = createEmptyExpensesCache();
+      expensesPageCache = emptyCache;
+      hydrateFromCache(emptyCache);
       return;
+    }
+
+    if (expensesPageInFlight?.key === cacheKey) {
+      return expensesPageInFlight.promise;
     }
 
     try {
@@ -561,48 +604,66 @@ export default function Expenses() {
         setLoading(true);
       }
 
-      const [expenseRows, walletRows, transactionRows] = await Promise.all([
+      const promise = Promise.all([
         fetchRowsForUser(EXPENSES_TABLE, currentUser, "created_at", false),
         fetchRowsForUser(WALLETS_TABLE, currentUser, "created_at", false),
         fetchRowsForUser(TXN_TABLE, currentUser, "created_at", false),
-      ]);
+      ]).then(([expenseRows, walletRows, transactionRows]) => {
 
-      const normalizedExpenses = (expenseRows || [])
-        .map((expense) => ({
-          ...expense,
-          id: String(expense.id),
-          wallet_id: expense.wallet_id ? String(expense.wallet_id) : "",
-          amount: normalizeNumber(expense.amount),
-          date: toDateInputValue(expense?.date || expense?.created_at),
-        }))
-        .sort(sortByDateDesc);
+        const normalizedExpenses = (expenseRows || [])
+          .map((expense) => ({
+            ...expense,
+            id: String(expense.id),
+            wallet_id: expense.wallet_id ? String(expense.wallet_id) : "",
+            amount: normalizeNumber(expense.amount),
+            date: toDateInputValue(expense?.date || expense?.created_at),
+          }))
+          .sort(sortByDateDesc);
 
-      const normalizedWalletRows = normalizeWallets(walletRows || []);
-      const normalizedTransactions = (transactionRows || [])
-        .map((txn) => ({
-          ...txn,
-          id: String(txn.id),
-          wallet_id: txn.wallet_id ? String(txn.wallet_id) : "",
-          amount: normalizeNumber(txn.amount),
-          type: normalizeTxnType(txn.type),
-        }))
-        .sort(sortByDateDesc);
+        const normalizedWalletRows = normalizeWallets(walletRows || []);
+        const normalizedTransactions = (transactionRows || [])
+          .map((txn) => ({
+            ...txn,
+            id: String(txn.id),
+            wallet_id: txn.wallet_id ? String(txn.wallet_id) : "",
+            amount: normalizeNumber(txn.amount),
+            type: normalizeTxnType(txn.type),
+          }))
+          .sort(sortByDateDesc);
 
-      setExpenses(normalizedExpenses);
-      setWallets(normalizedWalletRows);
-      setTransactions(normalizedTransactions);
-      hasLoadedRef.current = true;
+        const nextCache = {
+          key: cacheKey,
+          loaded: true,
+          expenses: normalizedExpenses,
+          wallets: normalizedWalletRows,
+          transactions: normalizedTransactions,
+        };
+
+        expensesPageCache = nextCache;
+        hydrateFromCache(nextCache);
+        return nextCache;
+      });
+
+      expensesPageInFlight = {
+        key: cacheKey,
+        promise,
+      };
+
+      await promise;
     } catch (err) {
       console.error("Failed to load transactions page data:", err);
       if (!hasLoadedRef.current) {
-        setExpenses([]);
-        setWallets([]);
-        setTransactions([]);
+        const emptyCache = createEmptyExpensesCache(cacheKey);
+        expensesPageCache = emptyCache;
+        hydrateFromCache(emptyCache);
       }
     } finally {
+      if (expensesPageInFlight?.key === cacheKey) {
+        expensesPageInFlight = null;
+      }
       setLoading(false);
     }
-  }, [userEmail, userId]);
+  }, [cacheKey, hydrateFromCache, userEmail, userId]);
 
   useEffect(() => {
     loadData();

@@ -58,39 +58,88 @@ const safeSelect = async (table, user) => {
   return (data || []).filter((item) => isOwnedByUser(item, user));
 };
 
+const createEmptyFinancialCache = (key = null) => ({
+  key,
+  loaded: false,
+  expenses: [],
+  incomes: [],
+  wallets: [],
+  budgets: [],
+  walletTransactions: [],
+  transfers: [],
+});
+
+let financialDataCache = createEmptyFinancialCache();
+let financialDataInFlight = null;
+
 export default function useFinancialData(user) {
   const userId = user?.id || null;
   const userEmail = user?.email || null;
-  const [expenses, setExpenses] = useState([]);
-  const [incomes, setIncomes] = useState([]);
-  const [wallets, setWallets] = useState([]);
-  const [budgets, setBudgets] = useState([]);
-  const [walletTransactions, setWalletTransactions] = useState([]);
-  const [transfers, setTransfers] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const cacheKey = userId || userEmail || null;
+  const initialCache =
+    financialDataCache.loaded && financialDataCache.key === cacheKey
+      ? financialDataCache
+      : createEmptyFinancialCache(cacheKey);
+
+  const [expenses, setExpenses] = useState(initialCache.expenses);
+  const [incomes, setIncomes] = useState(initialCache.incomes);
+  const [wallets, setWallets] = useState(initialCache.wallets);
+  const [budgets, setBudgets] = useState(initialCache.budgets);
+  const [walletTransactions, setWalletTransactions] = useState(
+    initialCache.walletTransactions
+  );
+  const [transfers, setTransfers] = useState(initialCache.transfers);
+  const [loading, setLoading] = useState(!initialCache.loaded);
   const hasLoadedRef = useRef(false);
   const refreshTimeoutRef = useRef(null);
+
+  const hydrateFromCache = useCallback((nextCache) => {
+    setExpenses(nextCache.expenses);
+    setIncomes(nextCache.incomes);
+    setWallets(nextCache.wallets);
+    setBudgets(nextCache.budgets);
+    setWalletTransactions(nextCache.walletTransactions);
+    setTransfers(nextCache.transfers);
+    hasLoadedRef.current = nextCache.loaded;
+    setLoading(!nextCache.loaded);
+  }, []);
+
+  useEffect(() => {
+    if (!cacheKey) {
+      const emptyCache = createEmptyFinancialCache();
+      financialDataCache = emptyCache;
+      hydrateFromCache(emptyCache);
+      return;
+    }
+
+    if (financialDataCache.loaded && financialDataCache.key === cacheKey) {
+      hydrateFromCache(financialDataCache);
+      return;
+    }
+
+    hasLoadedRef.current = false;
+    setLoading(true);
+  }, [cacheKey, hydrateFromCache]);
 
   const loadAll = useCallback(async ({ background = false } = {}) => {
     const currentUser = { id: userId, email: userEmail };
 
     if (!currentUser.id && !currentUser.email) {
-      setExpenses([]);
-      setIncomes([]);
-      setWallets([]);
-      setBudgets([]);
-      setWalletTransactions([]);
-      setTransfers([]);
-      hasLoadedRef.current = false;
-      setLoading(false);
+      const emptyCache = createEmptyFinancialCache();
+      financialDataCache = emptyCache;
+      hydrateFromCache(emptyCache);
       return;
+    }
+
+    if (financialDataInFlight?.key === cacheKey) {
+      return financialDataInFlight.promise;
     }
 
     if (!hasLoadedRef.current && !background) {
       setLoading(true);
     }
 
-    try {
+    const promise = (async () => {
       const [e, w, b, wt, t] = await Promise.all([
         safeSelect("expenses", currentUser),
         safeSelect("wallets", currentUser),
@@ -99,19 +148,39 @@ export default function useFinancialData(user) {
         safeSelect("transfers", currentUser),
       ]);
 
-      setExpenses(e || []);
-      setIncomes([]); // no incomes table in your current schema
-      setWallets(w || []);
-      setBudgets(b || []);
-      setWalletTransactions(wt || []);
-      setTransfers(t || []);
-      hasLoadedRef.current = true;
-    } catch (err) {
+      const nextCache = {
+        key: cacheKey,
+        loaded: true,
+        expenses: e || [],
+        incomes: [], // no incomes table in your current schema
+        wallets: w || [],
+        budgets: b || [],
+        walletTransactions: wt || [],
+        transfers: t || [],
+      };
+
+      financialDataCache = nextCache;
+      hydrateFromCache(nextCache);
+      return nextCache;
+    })()
+      .catch((err) => {
       console.error("loadAll error:", err);
-    } finally {
+      throw err;
+    })
+      .finally(() => {
+        if (financialDataInFlight?.key === cacheKey) {
+          financialDataInFlight = null;
+        }
       setLoading(false);
-    }
-  }, [userEmail, userId]);
+      });
+
+    financialDataInFlight = {
+      key: cacheKey,
+      promise,
+    };
+
+    return promise;
+  }, [cacheKey, hydrateFromCache, userEmail, userId]);
 
   useEffect(() => {
     loadAll();
