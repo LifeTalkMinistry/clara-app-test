@@ -1,10 +1,4 @@
-import React, {
-  createContext,
-  useState,
-  useContext,
-  useEffect,
-  useCallback,
-} from "react";
+import { createContext, useState, useContext, useEffect, useCallback } from "react";
 import { appParams } from "@/lib/app-params";
 
 const AuthContext = createContext(null);

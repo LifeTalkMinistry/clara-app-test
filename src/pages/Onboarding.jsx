@@ -1,4 +1,4 @@
-import React, { useCallback, useMemo, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { ArrowRight, CheckCircle, Sparkles, ShieldCheck } from "lucide-react";
 import { supabase } from "@/lib/supabaseClient";
