@@ -43,7 +43,7 @@ async function deleteByColumn(table, column, value, { optional = false } = {}) {
   const { error } = await supabase.from(table).delete().eq(column, value);
 
   if (error) {
-    if (optional && isMissingRelationError(error)) return;
+    if (optional || isMissingRelationError(error)) return;
     throw new Error(getErrorMessage(table, error));
   }
 }
@@ -54,7 +54,7 @@ async function deleteByIds(table, column, ids, { optional = false } = {}) {
   const { error } = await supabase.from(table).delete().in(column, ids);
 
   if (error) {
-    if (optional && isMissingRelationError(error)) return;
+    if (optional || isMissingRelationError(error)) return;
     throw new Error(getErrorMessage(table, error));
   }
 }
@@ -93,7 +93,7 @@ async function collectOwnedIds(table, userId, email, { optional = false } = {}) 
   const { data, error } = await supabase.from(table).select("*");
 
   if (error) {
-    if (optional && isMissingRelationError(error)) return [];
+    if (optional || isMissingRelationError(error)) return [];
     throw new Error(getErrorMessage(table, error));
   }
 
@@ -113,6 +113,7 @@ async function collectOwnedWalletIds(userId, email) {
       .eq("user_id", userId);
 
     if (error) {
+      if (isMissingRelationError(error)) return [];
       throw new Error(getErrorMessage("wallets", error));
     }
 
@@ -129,6 +130,7 @@ async function collectOwnedWalletIds(userId, email) {
         .eq(column, email);
 
       if (error) {
+        if (isMissingRelationError(error)) return [];
         throw new Error(getErrorMessage("wallets", error));
       }
 
