@@ -26,6 +26,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import EmptyState from "../components/EmptyState";
+import FeaturePageLoader from "../components/FeaturePageLoader";
 import useUserRole from "../hooks/useUserRole";
 import useFinancialData from "../hooks/useFinancialData";
 import { supabase } from "@/lib/supabaseClient";
@@ -79,7 +80,7 @@ const getWalletSortOrder = (wallet, index) => {
 };
 
 export default function Wallets() {
-  const { user } = useUserRole();
+  const { user, loading: accessLoading } = useUserRole();
   const { wallets, walletTransactions, refreshData, loading } =
     useFinancialData(user);
 
@@ -117,6 +118,10 @@ export default function Wallets() {
     amount: "",
     notes: "",
   });
+
+  if (accessLoading || loading) {
+    return <FeaturePageLoader label="Preparing wallets..." />;
+  }
 
   const sortedWallets = useMemo(() => {
     return [...wallets].sort((a, b) => {
@@ -503,6 +508,10 @@ export default function Wallets() {
 
   const projectedBalance =
     getBalance(selectedWallet) + toNumber(addMoneyForm.amount || 0);
+
+  if (accessLoading) {
+    return <FeaturePageLoader label="Preparing wallets..." />;
+  }
 
   return (
     <div className="mx-auto max-w-5xl p-4 md:p-6">

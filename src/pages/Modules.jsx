@@ -13,6 +13,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Button } from "@/components/ui/button";
 import PageHeader from "../components/PageHeader";
 import EmptyState from "../components/EmptyState";
+import FeaturePageLoader from "../components/FeaturePageLoader";
 import useUserRole from "../hooks/useUserRole";
 import ReactMarkdown from "react-markdown";
 
@@ -97,7 +98,7 @@ const STATUS_CONFIG = {
 };
 
 export default function Modules() {
-  const { user, isPaid } = useUserRole();
+  const { user, isPaid, loading: accessLoading } = useUserRole();
   const [modules, setModules] = useState([]);
   const [progress, setProgress] = useState({});
   const [loading, setLoading] = useState(true);
@@ -235,6 +236,10 @@ export default function Modules() {
     setSelectedProgress(null);
     setSaving(false);
   };
+
+  if (accessLoading) {
+    return <FeaturePageLoader label="Preparing modules..." />;
+  }
 
   if (!isPaid) {
     return (

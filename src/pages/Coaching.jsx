@@ -27,6 +27,7 @@ import {
 import { Label } from "@/components/ui/label";
 import PageHeader from "../components/PageHeader";
 import EmptyState from "../components/EmptyState";
+import FeaturePageLoader from "../components/FeaturePageLoader";
 import useUserRole from "../hooks/useUserRole";
 import { supabase } from "@/lib/supabaseClient";
 import { formatSupabaseError } from "@/lib/admin-panel-utils";
@@ -43,7 +44,7 @@ const timeSlots = [
 ];
 
 export default function Coaching() {
-  const { user, isPaid } = useUserRole();
+  const { user, isPaid, loading: accessLoading } = useUserRole();
   const [requests, setRequests] = useState([]);
   const [loading, setLoading] = useState(true);
   const [open, setOpen] = useState(false);
@@ -87,6 +88,10 @@ export default function Coaching() {
   useEffect(() => {
     loadRequests();
   }, [loadRequests]);
+
+  if (accessLoading) {
+    return <FeaturePageLoader label="Preparing coaching..." />;
+  }
 
   if (!isPaid) {
     return (

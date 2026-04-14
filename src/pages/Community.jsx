@@ -14,6 +14,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
 import PageHeader from "../components/PageHeader";
 import EmptyState from "../components/EmptyState";
+import FeaturePageLoader from "../components/FeaturePageLoader";
 import useUserRole from "../hooks/useUserRole";
 
 const STORAGE_KEYS = {
@@ -37,7 +38,7 @@ const generateId = () =>
   `${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
 
 export default function Community() {
-  const { user, isPaid, isAdmin } = useUserRole();
+  const { user, isPaid, isAdmin, loading: accessLoading } = useUserRole();
   const [posts, setPosts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [newPost, setNewPost] = useState("");
@@ -157,6 +158,10 @@ export default function Community() {
     savePosts(updatedPosts);
     setCommentTexts({ ...commentTexts, [postId]: "" });
   };
+
+  if (accessLoading) {
+    return <FeaturePageLoader label="Preparing community..." />;
+  }
 
   if (loading) {
     return (

@@ -48,24 +48,74 @@ export function AuthProvider({ children }) {
     }
   }, []);
 
-  const fetchProfile = useCallback(async (userId) => {
-    if (!userId) return;
+  const fetchProfile = useCallback(async (authUser) => {
+    if (!authUser?.id) return;
 
     try {
       const { data, error } = await supabase
         .from("profiles")
         .select("*")
-        .eq("id", userId)
-        .single();
+        .eq("id", authUser.id)
+        .maybeSingle();
 
       if (error) throw error;
 
-      setProfile(data || null);
+      if (data) {
+        setProfile(data);
+        return;
+      }
+
+      await ensureBasicProfile(
+        authUser,
+        authUser.user_metadata?.full_name || authUser.user_metadata?.name || ""
+      );
+
+      const { data: ensuredProfile, error: retryError } = await supabase
+        .from("profiles")
+        .select("*")
+        .eq("id", authUser.id)
+        .maybeSingle();
+
+      if (retryError) throw retryError;
+
+      setProfile(
+        ensuredProfile || {
+          id: authUser.id,
+          email: authUser.email || null,
+          full_name:
+            authUser.user_metadata?.full_name ||
+            authUser.user_metadata?.name ||
+            "",
+          plan: "free",
+          role: "user",
+          enrollment_status: "none",
+          status: "free",
+          is_enrolled: false,
+          program_active: false,
+          onboarding_completed: false,
+          onboarding_step: 0,
+        }
+      );
     } catch (error) {
       console.error("fetchProfile error:", error);
-      setProfile(null);
+      setProfile({
+        id: authUser.id,
+        email: authUser.email || null,
+        full_name:
+          authUser.user_metadata?.full_name ||
+          authUser.user_metadata?.name ||
+          "",
+        plan: "free",
+        role: "user",
+        enrollment_status: "none",
+        status: "free",
+        is_enrolled: false,
+        program_active: false,
+        onboarding_completed: false,
+        onboarding_step: 0,
+      });
     }
-  }, []);
+  }, [ensureBasicProfile]);
 
   useEffect(() => {
     let mounted = true;
@@ -89,8 +139,7 @@ export function AuthProvider({ children }) {
 
         // ✅ Run profile in background (non-blocking)
         if (currentUser?.id) {
-          ensureBasicProfile(currentUser);
-          fetchProfile(currentUser.id);
+          fetchProfile(currentUser);
         }
       } catch (error) {
         console.error("init auth error:", error);
@@ -123,8 +172,7 @@ export function AuthProvider({ children }) {
       setAuthReady(true);
 
       if (nextUser?.id) {
-        ensureBasicProfile(nextUser);
-        fetchProfile(nextUser.id);
+        fetchProfile(nextUser);
       } else {
         setProfile(null);
       }
@@ -170,7 +218,7 @@ export function AuthProvider({ children }) {
 
   const refreshProfile = useCallback(async () => {
     if (!user?.id) return;
-    await fetchProfile(user.id);
+    await fetchProfile(user);
   }, [user?.id, fetchProfile]);
 
   const value = useMemo(

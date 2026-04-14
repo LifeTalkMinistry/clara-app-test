@@ -15,6 +15,7 @@ import { cn } from "@/lib/utils";
 import PageHeader from "../components/PageHeader";
 import EmptyState from "../components/EmptyState";
 import ChallengeModal from "../components/ChallengeModal";
+import FeaturePageLoader from "../components/FeaturePageLoader";
 import useUserRole from "../hooks/useUserRole";
 import { supabase } from "@/lib/supabaseClient";
 
@@ -120,7 +121,7 @@ const normalizeTask = (task = {}) => {
 };
 
 export default function Tasks() {
-  const { user, isPaid } = useUserRole();
+  const { user, isPaid, loading: accessLoading } = useUserRole();
   const navigate = useNavigate();
 
   const [tasks, setTasks] = useState([]);
@@ -213,6 +214,10 @@ export default function Tasks() {
 
     return groups;
   }, [tasks]);
+
+  if (accessLoading) {
+    return <FeaturePageLoader label="Preparing tasks..." />;
+  }
 
   if (!isPaid) {
     return (

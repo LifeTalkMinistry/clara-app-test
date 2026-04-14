@@ -12,6 +12,7 @@ import {
 } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import EmptyState from "../components/EmptyState";
+import FeaturePageLoader from "../components/FeaturePageLoader";
 import useUserRole from "../hooks/useUserRole";
 import { supabase } from "../lib/supabaseClient";
 
@@ -419,7 +420,7 @@ const showBudgetsTableMissingAlert = () => {
 };
 
 export default function Budgets() {
-  const { user, isFree } = useUserRole();
+  const { user, isFree, loading: accessLoading } = useUserRole();
 
   const [open, setOpen] = useState(false);
   const [budgets, setBudgets] = useState([]);
@@ -836,6 +837,14 @@ export default function Budgets() {
   const needsSpent = toNumber(financials.needsSpent);
   const wantsSpent = toNumber(financials.wantsSpent);
   const otherSpent = toNumber(financials.otherSpent);
+
+  if (loading) {
+    return <FeaturePageLoader label="Preparing budgets..." />;
+  }
+
+  if (accessLoading) {
+    return <FeaturePageLoader label="Preparing budgets..." />;
+  }
 
   return (
     <div className="p-4 md:p-6 max-w-4xl mx-auto">
