@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   CheckCircle,
@@ -130,7 +130,7 @@ export default function Tasks() {
   const [expanded, setExpanded] = useState({});
   const [tasksTable, setTasksTable] = useState(null);
 
-  const resolveTasksTable = async () => {
+  const resolveTasksTable = useCallback(async () => {
     if (tasksTable) return tasksTable;
 
     const challengeCheck = await supabase.from("challenge_tasks").select("id").limit(1);
@@ -148,9 +148,9 @@ export default function Tasks() {
     }
 
     throw new Error("Could not find challenge_tasks or tasks table.");
-  };
+  }, [tasksTable]);
 
-  const loadData = async () => {
+  const loadData = useCallback(async () => {
     if (!user?.email) return;
 
     try {
@@ -189,11 +189,11 @@ export default function Tasks() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [resolveTasksTable, user?.email]);
 
   useEffect(() => {
     loadData();
-  }, [user?.email]);
+  }, [loadData]);
 
   const getSubmission = (taskId) => submissions.find((s) => s.task_id === taskId);
 

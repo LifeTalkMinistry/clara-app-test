@@ -276,25 +276,6 @@ const sortByDateDesc = (a, b) => {
   return bTime - aTime;
 };
 
-const getExpenseDateObject = (expense) => {
-  const exactRaw =
-    expense?.created_at ||
-    expense?.timestamp ||
-    expense?.datetime ||
-    expense?.updated_at;
-
-  if (exactRaw) {
-    const exactDate = parseSupabaseDate(exactRaw);
-    if (exactDate) return exactDate;
-  }
-
-  if (expense?.date && /^\d{4}-\d{2}-\d{2}$/.test(String(expense.date))) {
-    return parsePHDateOnlyToUtcDate(String(expense.date), false);
-  }
-
-  return null;
-};
-
 const getTransactionDateObject = (txn) => {
   const exactRaw =
     txn?.created_at ||
@@ -708,18 +689,6 @@ export default function Expenses() {
   const handleFilterChange = (value) => {
     setFilter(value);
     if (value !== "recent") setShowAllRecent(true);
-  };
-
-  const openAdd = () => {
-    setEditId(null);
-    setEditMode("expense");
-    setError("");
-    setForm({
-      ...EMPTY_FORM,
-      wallet_id: wallets[0]?.id ? String(wallets[0].id) : "",
-      date: getToday(),
-    });
-    setOpen(true);
   };
 
   const openEditExpense = (exp) => {

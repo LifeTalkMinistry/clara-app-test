@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import {
   ArrowLeft,
@@ -148,6 +148,18 @@ function TabButton({ active, children, onClick }) {
   );
 }
 
+async function maybeSingle(queryBuilder) {
+  const { data, error } = await queryBuilder;
+  if (error) return null;
+  return data;
+}
+
+async function maybeMany(queryBuilder) {
+  const { data, error } = await queryBuilder;
+  if (error) return [];
+  return data || [];
+}
+
 export default function StudentProfile() {
   const { id, userId } = useParams();
   const navigate = useNavigate();
@@ -170,19 +182,7 @@ export default function StudentProfile() {
   const [adminNotes, setAdminNotes] = useState([]);
   const [noteText, setNoteText] = useState("");
 
-  async function maybeSingle(queryBuilder) {
-    const { data, error } = await queryBuilder;
-    if (error) return null;
-    return data;
-  }
-
-  async function maybeMany(queryBuilder) {
-    const { data, error } = await queryBuilder;
-    if (error) return [];
-    return data || [];
-  }
-
-  async function loadStudentProfile() {
+  const loadStudentProfile = useCallback(async () => {
     if (!profileId) return;
 
     setLoading(true);
@@ -388,7 +388,7 @@ export default function StudentProfile() {
     } finally {
       setLoading(false);
     }
-  }
+  }, [profileId]);
 
   async function toggleTaskAccess(task) {
     if (!profileId || !task?.id) return;
@@ -553,7 +553,7 @@ export default function StudentProfile() {
   useEffect(() => {
     if (!isAdmin || !profileId) return;
     loadStudentProfile();
-  }, [isAdmin, profileId]);
+  }, [isAdmin, loadStudentProfile, profileId]);
 
   const summary = useMemo(() => {
     const selectedMonths =

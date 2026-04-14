@@ -2,10 +2,7 @@ import { useState, useEffect } from "react";
 import { Plus, Edit3, Trash2, CheckCircle, XCircle, Eye, EyeOff } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { Label } from "@/components/ui/label";
-import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import PageHeader from "../../components/PageHeader";
 import useUserRole from "../../hooks/useUserRole";
@@ -16,9 +13,6 @@ const API = axios.create({
   baseURL: "/api",
   withCredentials: true,
 });
-
-const CATEGORIES = ["mindset","budgeting","savings","spending","investing","habits","system"];
-const AUDIENCES = ["all","free","pending","paid"];
 
 const BLANK = {
   text: "",

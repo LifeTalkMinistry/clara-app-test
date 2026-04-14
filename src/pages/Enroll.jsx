@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import {
   CheckCircle2,
@@ -205,9 +205,64 @@ export default function Enroll() {
   const currentStatus = normalizeKey(enrollment?.status);
   const statusMeta = STATUS_META[currentStatus] || null;
 
+  const fetchPlans = useCallback(async () => {
+    const { data, error } = await supabase
+      .from("plans")
+      .select("*")
+      .order("sort_order", { ascending: true })
+      .order("name", { ascending: true });
+
+    if (error) {
+      console.error("Failed to fetch plans:", error);
+      throw error;
+    }
+
+    const normalized = (data || []).map(normalizePlanRecord);
+    setPlans(normalized);
+  }, []);
+
+  const fetchEnrollment = useCallback(async () => {
+    if (!user?.id) return;
+
+    const { data, error } = await supabase
+      .from("enrollments")
+      .select("*")
+      .eq("user_id", user.id)
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    if (error) {
+      console.error("Failed to fetch enrollment:", error);
+      throw error;
+    }
+
+    setEnrollment(data || null);
+  }, [user?.id]);
+
+  const loadInitialData = useCallback(async () => {
+    if (!user?.id) {
+      setLoading(false);
+      setPlansLoading(false);
+      return;
+    }
+
+    setLoading(true);
+    setPlansLoading(true);
+
+    try {
+      await Promise.all([fetchPlans(), fetchEnrollment()]);
+    } catch (error) {
+      console.error("Failed to load enrollment page:", error);
+    } finally {
+      setLoading(false);
+      setPlansLoading(false);
+    }
+  }, [fetchEnrollment, fetchPlans, user?.id]);
+
   useEffect(() => {
     loadInitialData();
-  }, [user?.id]);
+  }, [loadInitialData]);
 
   useEffect(() => {
     if (!proofFile) {
@@ -238,73 +293,19 @@ export default function Enroll() {
 
   useEffect(() => {
     if (enrollment && !manualTierEdit) {
+      const currentPlanKey = normalizeKey(searchParams.get("plan"));
       const next = new URLSearchParams(searchParams);
       const liveKey =
         normalizeKey(enrollment?.plan_key) ||
         normalizeKey(enrollment?.plan) ||
         normalizeKey(enrollment?.tier) ||
         "";
-      if (liveKey) {
+      if (liveKey && currentPlanKey !== liveKey) {
         next.set("plan", liveKey);
         setSearchParams(next, { replace: true });
       }
     }
-  }, [enrollment, manualTierEdit]);
-
-  async function loadInitialData() {
-    if (!user?.id) {
-      setLoading(false);
-      setPlansLoading(false);
-      return;
-    }
-
-    setLoading(true);
-    setPlansLoading(true);
-
-    try {
-      await Promise.all([fetchPlans(), fetchEnrollment()]);
-    } catch (error) {
-      console.error("Failed to load enrollment page:", error);
-    } finally {
-      setLoading(false);
-      setPlansLoading(false);
-    }
-  }
-
-  async function fetchPlans() {
-    const { data, error } = await supabase
-      .from("plans")
-      .select("*")
-      .order("sort_order", { ascending: true })
-      .order("name", { ascending: true });
-
-    if (error) {
-      console.error("Failed to fetch plans:", error);
-      throw error;
-    }
-
-    const normalized = (data || []).map(normalizePlanRecord);
-    setPlans(normalized);
-  }
-
-  async function fetchEnrollment() {
-    if (!user?.id) return;
-
-    const { data, error } = await supabase
-      .from("enrollments")
-      .select("*")
-      .eq("user_id", user.id)
-      .order("created_at", { ascending: false })
-      .limit(1)
-      .maybeSingle();
-
-    if (error) {
-      console.error("Failed to fetch enrollment:", error);
-      throw error;
-    }
-
-    setEnrollment(data || null);
-  }
+  }, [enrollment, manualTierEdit, searchParams, setSearchParams]);
 
   async function refreshEnrollment() {
     await fetchEnrollment();
