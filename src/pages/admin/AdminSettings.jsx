@@ -1,91 +1,113 @@
-import { useState, useEffect } from "react";
-import { Save } from "lucide-react";
+import { useCallback, useEffect, useState } from "react";
+import { Save, RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import axios from "axios";
+import {
+  formatSupabaseError,
+  loadKeyValueSettings,
+  saveKeyValueSettings,
+  uploadPublicFile,
+} from "@/lib/admin-panel-utils";
 
-const API = axios.create({
-  baseURL: "/api",
-  withCredentials: true,
-});
+const SETTINGS_BUCKET = "settings";
+
+const DEFAULT_SETTINGS = {
+  gcash_number: "09858410403",
+  gcash_name: "Jerome Mirabuenos",
+  bank_name: "Security Bank",
+  bank_account: "000-006-704-2019",
+  bank_holder: "CLARA Financial Program",
+  standard_price: "499",
+  premium_price: "999",
+  gcash_qr_url: "",
+  bank_qr_url: "",
+};
 
 export default function AdminSettings() {
-  const [settings, setSettings] = useState({
-    gcash_number: "09858410403",
-    gcash_name: "Jerome Mirabuenos",
-    bank_name: "Security Bank",
-    bank_account: "000-006-704-2019",
-    bank_holder: "CLARA Financial Program",
-    standard_price: "499",
-    premium_price: "999",
-    gcash_qr_url: "",
-    bank_qr_url: "",
-  });
-
+  const [settings, setSettings] = useState(DEFAULT_SETTINGS);
   const [saving, setSaving] = useState(false);
   const [loaded, setLoaded] = useState(false);
+  const [errorText, setErrorText] = useState("");
 
-  useEffect(() => {
-    loadSettings();
-  }, []);
-
-  const loadSettings = async () => {
+  const loadSettings = useCallback(async () => {
     try {
-      const res = await API.get("/settings");
-      const data = res.data || {};
+      setLoaded(false);
+      setErrorText("");
 
-      setSettings(prev => ({
+      const data = await loadKeyValueSettings(Object.keys(DEFAULT_SETTINGS));
+
+      setSettings((prev) => ({
         ...prev,
         ...data,
       }));
-    } catch (err) {
-      console.error(err);
+    } catch (error) {
+      console.error("Failed to load admin settings:", error);
+      setErrorText(formatSupabaseError(error, "Failed to load admin settings."));
+      setSettings(DEFAULT_SETTINGS);
     } finally {
       setLoaded(true);
     }
-  };
+  }, []);
 
-  const handleSave = async () => {
+  useEffect(() => {
+    loadSettings();
+  }, [loadSettings]);
+
+  async function handleSave() {
     setSaving(true);
+    setErrorText("");
+
     try {
-      await API.post("/settings", settings);
-    } catch (err) {
-      console.error(err);
+      await saveKeyValueSettings(settings);
+    } catch (error) {
+      console.error("Failed to save admin settings:", error);
+      setErrorText(formatSupabaseError(error, "Failed to save admin settings."));
+      alert(formatSupabaseError(error, "Failed to save admin settings."));
     } finally {
       setSaving(false);
     }
-  };
+  }
 
-  const uploadFile = async (file) => {
-    const formData = new FormData();
-    formData.append("file", file);
-
-    const res = await API.post("/upload", formData);
-    return res.data.url;
-  };
-
-  const handleQrUpload = async (e, field) => {
-    const file = e.target.files[0];
+  async function handleQrUpload(event, field) {
+    const file = event.target.files?.[0];
     if (!file) return;
 
     try {
-      const url = await uploadFile(file);
-      setSettings(prev => ({ ...prev, [field]: url }));
-    } catch (err) {
-      console.error(err);
-    }
-  };
+      const url = await uploadPublicFile({
+        bucket: SETTINGS_BUCKET,
+        file,
+        folder: `qr/${field}`,
+      });
 
-  if (!loaded)
+      setSettings((prev) => ({ ...prev, [field]: url }));
+    } catch (error) {
+      console.error("Failed to upload QR image:", error);
+      setErrorText(error.message || "Failed to upload QR image.");
+      alert(error.message || "Failed to upload QR image.");
+    } finally {
+      event.target.value = "";
+    }
+  }
+
+  if (!loaded) {
     return (
       <div className="flex items-center justify-center h-32">
         <div className="w-6 h-6 border-2 border-primary/20 border-t-primary rounded-full animate-spin" />
       </div>
     );
+  }
 
   return (
     <div className="space-y-6">
-      {/* Payment */}
+      <div className="flex items-center justify-between gap-3">
+        <div>
+          {errorText ? <p className="text-sm text-red-400">{errorText}</p> : null}
+        </div>
+        <Button variant="outline" onClick={loadSettings}>
+          <RefreshCw className="w-4 h-4 mr-2" /> Refresh
+        </Button>
+      </div>
+
       <div className="bg-card rounded-xl border p-4 space-y-4">
         <p className="font-semibold">Payment Settings</p>
 
@@ -103,9 +125,9 @@ export default function AdminSettings() {
         </div>
 
         <Input type="file" onChange={(e) => handleQrUpload(e, "gcash_qr_url")} />
-        {settings.gcash_qr_url && (
-          <img src={settings.gcash_qr_url} className="h-24 rounded" />
-        )}
+        {settings.gcash_qr_url ? (
+          <img src={settings.gcash_qr_url} className="h-24 rounded" alt="GCash QR" />
+        ) : null}
 
         <div className="grid grid-cols-3 gap-3">
           <Input
@@ -126,12 +148,11 @@ export default function AdminSettings() {
         </div>
 
         <Input type="file" onChange={(e) => handleQrUpload(e, "bank_qr_url")} />
-        {settings.bank_qr_url && (
-          <img src={settings.bank_qr_url} className="h-24 rounded" />
-        )}
+        {settings.bank_qr_url ? (
+          <img src={settings.bank_qr_url} className="h-24 rounded" alt="Bank QR" />
+        ) : null}
       </div>
 
-      {/* Pricing */}
       <div className="bg-card rounded-xl border p-4 grid grid-cols-2 gap-3">
         <Input
           value={settings.standard_price}

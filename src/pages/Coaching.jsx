@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useCallback, useEffect, useState } from "react";
 import {
   Plus,
   GraduationCap,
@@ -28,10 +28,8 @@ import { Label } from "@/components/ui/label";
 import PageHeader from "../components/PageHeader";
 import EmptyState from "../components/EmptyState";
 import useUserRole from "../hooks/useUserRole";
-
-const STORAGE_KEYS = {
-  coachingRequests: "clara_coaching_requests",
-};
+import { supabase } from "@/lib/supabaseClient";
+import { formatSupabaseError } from "@/lib/admin-panel-utils";
 
 const timeSlots = [
   "9:00 AM",
@@ -44,27 +42,13 @@ const timeSlots = [
   "5:00 PM",
 ];
 
-const getStoredData = (key) => {
-  try {
-    const raw = localStorage.getItem(key);
-    return raw ? JSON.parse(raw) : [];
-  } catch {
-    return [];
-  }
-};
-
-const setStoredData = (key, value) => {
-  localStorage.setItem(key, JSON.stringify(value));
-};
-
-const generateId = () =>
-  `${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
-
 export default function Coaching() {
   const { user, isPaid } = useUserRole();
   const [requests, setRequests] = useState([]);
   const [loading, setLoading] = useState(true);
   const [open, setOpen] = useState(false);
+  const [errorText, setErrorText] = useState("");
+  const [saving, setSaving] = useState(false);
   const [form, setForm] = useState({
     date: "",
     time: "9:00 AM",
@@ -72,25 +56,37 @@ export default function Coaching() {
     notes: "",
   });
 
-  useEffect(() => {
+  const loadRequests = useCallback(async () => {
     if (!user?.email || !isPaid) {
+      setRequests([]);
       setLoading(false);
       return;
     }
 
-    const allRequests = getStoredData(STORAGE_KEYS.coachingRequests);
+    try {
+      setLoading(true);
+      setErrorText("");
 
-    const userRequests = allRequests
-      .filter((item) => item.created_by === user.email)
-      .sort((a, b) => {
-        const aDate = new Date(a.created_date || a.created_at || 0).getTime();
-        const bDate = new Date(b.created_date || b.created_at || 0).getTime();
-        return bDate - aDate;
-      });
+      const { data, error } = await supabase
+        .from("coaching_requests")
+        .select("*")
+        .or(`user_id.eq.${user.id},created_by.eq.${user.email}`)
+        .order("created_at", { ascending: false });
 
-    setRequests(userRequests);
-    setLoading(false);
-  }, [user?.email, isPaid]);
+      if (error) throw error;
+      setRequests(data || []);
+    } catch (error) {
+      console.error("Failed to load coaching requests:", error);
+      setRequests([]);
+      setErrorText(formatSupabaseError(error, "Failed to load coaching requests."));
+    } finally {
+      setLoading(false);
+    }
+  }, [isPaid, user?.email, user?.id]);
+
+  useEffect(() => {
+    loadRequests();
+  }, [loadRequests]);
 
   if (!isPaid) {
     return (
@@ -104,40 +100,46 @@ export default function Coaching() {
     );
   }
 
-  const handleSubmit = async () => {
+  async function handleSubmit() {
     if (!form.date || !form.topic || !user?.email) return;
 
-    const newRequest = {
-      id: generateId(),
-      created_by: user.email,
-      user_name: user.full_name || "User",
-      date: form.date,
-      time: form.time,
-      topic: form.topic.trim(),
-      notes: form.notes.trim(),
-      status: "pending",
-      created_date: new Date().toISOString(),
-      created_at: new Date().toISOString(),
-      session_name: "",
-      admin_notes: "",
-    };
+    try {
+      setSaving(true);
+      setErrorText("");
 
-    const allRequests = getStoredData(STORAGE_KEYS.coachingRequests);
-    const updatedRequests = [newRequest, ...allRequests];
-    setStoredData(STORAGE_KEYS.coachingRequests, updatedRequests);
+      const payload = {
+        user_id: user.id,
+        created_by: user.email,
+        user_name: user.full_name || user.email,
+        date: form.date,
+        time: form.time,
+        topic: form.topic.trim(),
+        notes: form.notes.trim() || null,
+        status: "pending",
+        session_name: null,
+        admin_notes: null,
+      };
 
-    const userRequests = updatedRequests
-      .filter((item) => item.created_by === user.email)
-      .sort((a, b) => {
-        const aDate = new Date(a.created_date || a.created_at || 0).getTime();
-        const bDate = new Date(b.created_date || b.created_at || 0).getTime();
-        return bDate - aDate;
-      });
+      const { data, error } = await supabase
+        .from("coaching_requests")
+        .insert([payload])
+        .select()
+        .single();
 
-    setRequests(userRequests);
-    setForm({ date: "", time: "9:00 AM", topic: "", notes: "" });
-    setOpen(false);
-  };
+      if (error) throw error;
+
+      setRequests((prev) => [data, ...prev]);
+      setForm({ date: "", time: "9:00 AM", topic: "", notes: "" });
+      setOpen(false);
+    } catch (error) {
+      console.error("Failed to submit coaching request:", error);
+      const message = formatSupabaseError(error, "Failed to submit coaching request.");
+      setErrorText(message);
+      alert(message);
+    } finally {
+      setSaving(false);
+    }
+  }
 
   const statusColors = {
     pending: "bg-yellow-100 text-yellow-800 border border-yellow-200",
@@ -217,17 +219,14 @@ export default function Coaching() {
 
                 <div>
                   <Label>Preferred Time</Label>
-                  <Select
-                    value={form.time}
-                    onValueChange={(v) => setForm({ ...form, time: v })}
-                  >
+                  <Select value={form.time} onValueChange={(value) => setForm({ ...form, time: value })}>
                     <SelectTrigger>
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      {timeSlots.map((t) => (
-                        <SelectItem key={t} value={t}>
-                          {t}
+                      {timeSlots.map((slot) => (
+                        <SelectItem key={slot} value={slot}>
+                          {slot}
                         </SelectItem>
                       ))}
                     </SelectContent>
@@ -256,15 +255,17 @@ export default function Coaching() {
                 <Button
                   onClick={handleSubmit}
                   className="w-full"
-                  disabled={!form.date || !form.topic}
+                  disabled={saving || !form.date || !form.topic}
                 >
-                  Request Session
+                  {saving ? "Requesting..." : "Request Session"}
                 </Button>
               </div>
             </DialogContent>
           </Dialog>
         }
       />
+
+      {errorText ? <p className="mb-4 text-sm text-red-400">{errorText}</p> : null}
 
       {requests.length === 0 ? (
         <EmptyState
@@ -274,66 +275,60 @@ export default function Coaching() {
         />
       ) : (
         <div className="space-y-4">
-          {requests.map((req) => (
+          {requests.map((request) => (
             <div
-              key={req.id}
+              key={request.id}
               className="bg-card rounded-2xl border border-border p-4 md:p-5 shadow-sm"
             >
               <div className="flex items-start justify-between gap-3 mb-3">
                 <div className="min-w-0">
-                  <p className="font-semibold text-base break-words">
-                    {req.topic}
-                  </p>
-                  {req.session_name && (
-                    <p className="text-sm text-primary font-medium mt-1">
-                      {req.session_name}
-                    </p>
-                  )}
+                  <p className="font-semibold text-base break-words">{request.topic}</p>
+                  {request.session_name ? (
+                    <p className="text-sm text-primary font-medium mt-1">{request.session_name}</p>
+                  ) : null}
                 </div>
 
                 <span
                   className={`shrink-0 text-xs px-3 py-1 rounded-full font-medium capitalize ${
-                    statusColors[req.status] ||
+                    statusColors[request.status] ||
                     "bg-muted text-muted-foreground border border-border"
                   }`}
                 >
-                  {req.status}
+                  {request.status || "pending"}
                 </span>
               </div>
 
               <div className="flex flex-wrap items-center gap-4 text-sm text-muted-foreground mb-3">
                 <span className="flex items-center gap-1.5">
                   <Calendar className="w-4 h-4" />
-                  {req.date}
+                  {request.date}
                 </span>
                 <span className="flex items-center gap-1.5">
                   <Clock className="w-4 h-4" />
-                  {req.time}
+                  {request.time}
                 </span>
               </div>
 
-              {req.notes && (
+              {request.notes ? (
                 <div className="mb-3">
                   <p className="text-sm text-muted-foreground whitespace-pre-wrap break-words">
-                    {req.notes}
+                    {request.notes}
                   </p>
                 </div>
-              )}
+              ) : null}
 
-              {req.admin_notes && (
+              {request.admin_notes ? (
                 <div className="mt-3 rounded-xl border border-primary/10 bg-primary/5 p-4">
                   <div className="flex items-center gap-2 mb-2">
                     <MessageSquare className="w-4 h-4 text-primary" />
-                    <span className="text-sm font-semibold text-foreground">
-                      Coach Response
-                    </span>
+                    <span className="text-sm font-semibold text-foreground">Coach Response</span>
                   </div>
 
                   <div className="text-sm leading-7 text-foreground whitespace-pre-wrap break-words space-y-2">
-                    {renderFormattedText(req.admin_notes)}
+                    {renderFormattedText(request.admin_notes)}
                   </div>
                 </div>
-              )}
+              ) : null}
             </div>
           ))}
         </div>

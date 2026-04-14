@@ -1,22 +1,53 @@
-import { useState, useEffect } from "react";
-import { CheckCircle, X, DollarSign, Settings } from "lucide-react";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { CheckCircle, X, DollarSign, Settings, RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import useUserRole from "../../hooks/useUserRole";
-import axios from "axios";
+import { supabase } from "@/lib/supabaseClient";
+import { formatSupabaseError, loadKeyValueSettings, saveKeyValueSettings } from "@/lib/admin-panel-utils";
 
-const API = axios.create({
-  baseURL: "/api",
-  withCredentials: true,
-});
+const REFERRAL_COMMISSION_KEY = "referral_commission_percent";
 
 export default function AdminReferrals() {
   const { isAdmin } = useUserRole();
 
   const [referrals, setReferrals] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [savingCommission, setSavingCommission] = useState(false);
   const [commissionPercent, setCommissionPercent] = useState(50);
+  const [errorText, setErrorText] = useState("");
+
+  const loadData = useCallback(async () => {
+    try {
+      setLoading(true);
+      setErrorText("");
+
+      const refRes = await supabase
+        .from("referrals")
+        .select("*")
+        .order("created_at", { ascending: false });
+
+      if (refRes.error) throw refRes.error;
+
+      setReferrals(refRes.data || []);
+
+      try {
+        const settings = await loadKeyValueSettings([REFERRAL_COMMISSION_KEY]);
+        if (settings[REFERRAL_COMMISSION_KEY]) {
+          setCommissionPercent(Number(settings[REFERRAL_COMMISSION_KEY]) || 50);
+        }
+      } catch (settingsError) {
+        console.warn("Referral commission setting is unavailable:", settingsError);
+      }
+    } catch (error) {
+      console.error("Failed to load referrals:", error);
+      setReferrals([]);
+      setErrorText(formatSupabaseError(error, "Failed to load referrals."));
+    } finally {
+      setLoading(false);
+    }
+  }, []);
 
   useEffect(() => {
     if (!isAdmin) {
@@ -25,88 +56,112 @@ export default function AdminReferrals() {
     }
 
     loadData();
-  }, [isAdmin]);
+  }, [isAdmin, loadData]);
 
-  const loadData = async () => {
+  async function updateReferral(id, updates) {
+    const { data, error } = await supabase
+      .from("referrals")
+      .update({ ...updates, updated_at: new Date().toISOString() })
+      .eq("id", id)
+      .select()
+      .single();
+
+    if (error) throw error;
+
+    setReferrals((prev) => prev.map((referral) => (referral.id === id ? data : referral)));
+    return data;
+  }
+
+  async function handleApprove(referral) {
     try {
-      const [refRes, settingsRes] = await Promise.all([
-        API.get("/referrals"),
-        API.get("/settings/referral-commission"),
-      ]);
+      const amountPaid = Number(referral.amount_paid || 0);
+      const commission = amountPaid * (commissionPercent / 100);
 
-      setReferrals(refRes.data);
-
-      if (settingsRes.data?.value) {
-        setCommissionPercent(Number(settingsRes.data.value));
-      }
-    } catch (err) {
-      console.error(err);
-    } finally {
-      setLoading(false);
+      await updateReferral(referral.id, {
+        status: "approved",
+        commission_amount: commission,
+        approval_date: new Date().toISOString().split("T")[0],
+      });
+    } catch (error) {
+      console.error("Failed to approve referral:", error);
+      alert(formatSupabaseError(error, "Failed to approve referral."));
     }
-  };
+  }
 
-  const updateReferral = async (id, updates) => {
-    const res = await API.patch(`/referrals/${id}`, updates);
-    setReferrals(prev =>
-      prev.map(r => r.id === id ? res.data : r)
-    );
-  };
+  async function handleReject(referral) {
+    try {
+      await updateReferral(referral.id, { status: "rejected" });
+    } catch (error) {
+      console.error("Failed to reject referral:", error);
+      alert(formatSupabaseError(error, "Failed to reject referral."));
+    }
+  }
 
-  const handleApprove = async (ref) => {
-    const commission = (ref.amount_paid || 0) * (commissionPercent / 100);
+  async function handleMarkPaid(referral) {
+    try {
+      await updateReferral(referral.id, { status: "paid" });
+    } catch (error) {
+      console.error("Failed to mark referral as paid:", error);
+      alert(formatSupabaseError(error, "Failed to mark referral as paid."));
+    }
+  }
 
-    await updateReferral(ref.id, {
-      status: "approved",
-      commission_amount: commission,
-      approval_date: new Date().toISOString().split("T")[0],
-    });
-  };
+  async function handleUpdateCommission() {
+    try {
+      setSavingCommission(true);
+      await saveKeyValueSettings({
+        [REFERRAL_COMMISSION_KEY]: commissionPercent,
+      });
+    } catch (error) {
+      console.error("Failed to update referral commission:", error);
+      alert(formatSupabaseError(error, "Failed to update referral commission."));
+    } finally {
+      setSavingCommission(false);
+    }
+  }
 
-  const handleReject = async (ref) => {
-    await updateReferral(ref.id, { status: "rejected" });
-  };
+  const stats = useMemo(
+    () => ({
+      pending: referrals.filter((item) => item.status === "pending").length,
+      approved: referrals.filter((item) => item.status === "approved").length,
+      paid: referrals.filter((item) => item.status === "paid").length,
+      totalCommission: referrals
+        .filter((item) => item.status === "paid")
+        .reduce((sum, item) => sum + Number(item.commission_amount || 0), 0),
+    }),
+    [referrals]
+  );
 
-  const handleMarkPaid = async (ref) => {
-    await updateReferral(ref.id, { status: "paid" });
-  };
-
-  const handleUpdateCommission = async () => {
-    await API.post("/settings/referral-commission", {
-      value: commissionPercent,
-    });
-  };
-
-  const stats = {
-    pending: referrals.filter(r => r.status === "pending").length,
-    approved: referrals.filter(r => r.status === "approved").length,
-    paid: referrals.filter(r => r.status === "paid").length,
-    totalCommission: referrals
-      .filter(r => r.status === "paid")
-      .reduce((s, r) => s + (r.commission_amount || 0), 0),
-  };
-
-  if (!isAdmin)
+  if (!isAdmin) {
     return <div className="p-6 text-center text-muted-foreground">Admin only.</div>;
+  }
 
-  if (loading)
+  if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
         <div className="w-6 h-6 border-2 border-primary/20 border-t-primary rounded-full animate-spin" />
       </div>
     );
+  }
 
   return (
     <div className="space-y-6">
-      {/* Stats */}
+      <div className="flex items-center justify-between gap-3">
+        <div>
+          {errorText ? <p className="text-sm text-red-400">{errorText}</p> : null}
+        </div>
+        <Button size="sm" variant="outline" onClick={loadData}>
+          <RefreshCw className="w-4 h-4 mr-2" /> Refresh
+        </Button>
+      </div>
+
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
         <Stat label="Pending" value={stats.pending} />
         <Stat label="Approved" value={stats.approved} />
         <Stat label="Paid" value={stats.paid} />
-        <Stat label="Total Paid" value={`₱${stats.totalCommission.toLocaleString("en-PH")}`} />
+        <Stat label="Total Paid" value={`PHP ${stats.totalCommission.toLocaleString("en-PH")}`} />
       </div>
 
-      {/* Commission */}
       <div className="bg-white rounded-2xl border p-5">
         <div className="flex justify-between mb-4">
           <h3 className="flex items-center gap-2">
@@ -120,7 +175,7 @@ export default function AdminReferrals() {
 
             <DialogContent>
               <DialogHeader>
-                <DialogTitle>Update %</DialogTitle>
+                <DialogTitle>Update Commission %</DialogTitle>
               </DialogHeader>
 
               <div className="space-y-3">
@@ -129,55 +184,58 @@ export default function AdminReferrals() {
                   value={commissionPercent}
                   onChange={(e) => setCommissionPercent(Number(e.target.value))}
                 />
-                <Button onClick={handleUpdateCommission}>Save</Button>
+                <Button onClick={handleUpdateCommission} disabled={savingCommission}>
+                  {savingCommission ? "Saving..." : "Save"}
+                </Button>
               </div>
             </DialogContent>
           </Dialog>
         </div>
 
-        <p className="text-sm text-muted-foreground">
-          Current: {commissionPercent}%
-        </p>
+        <p className="text-sm text-muted-foreground">Current: {commissionPercent}%</p>
       </div>
 
-      {/* List */}
       <div className="bg-white rounded-2xl border p-5">
         <div className="space-y-2 max-h-[600px] overflow-y-auto">
-          {referrals.map(ref => (
-            <div key={ref.id} className="p-3 border rounded-xl text-sm">
-              <div className="flex justify-between">
-                <div>
-                  <p className="font-medium">
-                    {ref.referrer_name} → {ref.new_user_name || ref.new_user_email}
-                  </p>
-                  <p className="text-xs text-muted-foreground">
-                    ₱{ref.amount_paid}
+          {referrals.length === 0 ? (
+            <div className="text-sm text-muted-foreground">No referrals found.</div>
+          ) : (
+            referrals.map((referral) => (
+              <div key={referral.id} className="p-3 border rounded-xl text-sm">
+                <div className="flex justify-between gap-3">
+                  <div>
+                    <p className="font-medium">
+                      {referral.referrer_name || referral.referrer_email || "Unknown Referrer"} →
+                      {" "}
+                      {referral.new_user_name || referral.new_user_email || referral.email || "Unknown User"}
+                    </p>
+                    <p className="text-xs text-muted-foreground">PHP {Number(referral.amount_paid || 0).toLocaleString("en-PH")}</p>
+                  </div>
+
+                  <p className="font-bold">
+                    PHP {Number(referral.commission_amount || 0).toLocaleString("en-PH")}
                   </p>
                 </div>
 
-                <p className="font-bold">
-                  ₱{(ref.commission_amount || 0).toLocaleString("en-PH")}
-                </p>
+                {referral.status === "pending" ? (
+                  <div className="flex gap-2 mt-2">
+                    <Button size="sm" onClick={() => handleApprove(referral)}>
+                      <CheckCircle className="w-3 h-3 mr-1" /> Approve
+                    </Button>
+                    <Button size="sm" variant="outline" onClick={() => handleReject(referral)}>
+                      <X className="w-3 h-3 mr-1" /> Reject
+                    </Button>
+                  </div>
+                ) : null}
+
+                {referral.status === "approved" ? (
+                  <Button size="sm" className="mt-2" onClick={() => handleMarkPaid(referral)}>
+                    <DollarSign className="w-3 h-3 mr-1" /> Paid
+                  </Button>
+                ) : null}
               </div>
-
-              {ref.status === "pending" && (
-                <div className="flex gap-2 mt-2">
-                  <Button size="sm" onClick={() => handleApprove(ref)}>
-                    <CheckCircle className="w-3 h-3 mr-1" /> Approve
-                  </Button>
-                  <Button size="sm" variant="outline" onClick={() => handleReject(ref)}>
-                    <X className="w-3 h-3 mr-1" /> Reject
-                  </Button>
-                </div>
-              )}
-
-              {ref.status === "approved" && (
-                <Button size="sm" className="mt-2" onClick={() => handleMarkPaid(ref)}>
-                  <DollarSign className="w-3 h-3 mr-1" /> Paid
-                </Button>
-              )}
-            </div>
-          ))}
+            ))
+          )}
         </div>
       </div>
     </div>

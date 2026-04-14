@@ -1,4 +1,9 @@
 import { supabase } from "@/lib/supabaseClient";
+import {
+  formatSupabaseError,
+  isSchemaMismatchError,
+  normalizeString,
+} from "@/lib/admin-panel-utils";
 
 export const RESET_PROFILE_FIELDS = {
   role: "free_user",
@@ -28,58 +33,37 @@ export const RESET_PROFILE_FIELDS = {
   force_reauth: true,
 };
 
-function getErrorMessage(table, error) {
-  return error?.message || `Failed to reset ${table}.`;
+const OWNED_TABLES = [
+  "admin_notes",
+  "student_task_access",
+  "student_module_access",
+  "task_submissions",
+  "module_progress",
+  "coaching_requests",
+  "referrals",
+  "enrollments",
+  "savings_goals",
+  "expenses",
+  "budgets",
+  "wallet_transactions",
+  "wallets",
+];
+
+function getOwnershipTokens(userId, email) {
+  const normalizedUserId = normalizeString(userId);
+  const normalizedEmail = normalizeString(email).toLowerCase();
+
+  return {
+    userId: normalizedUserId,
+    email: normalizedEmail,
+  };
 }
 
-function isMissingRelationError(error) {
-  const message = String(error?.message || "");
-  return error?.code === "PGRST205" || /Could not find the table|schema cache/i.test(message);
-}
-
-function isMissingColumnError(error) {
-  const message = String(error?.message || "");
-  return (
-    error?.code === "PGRST204" ||
-    /column .* does not exist/i.test(message) ||
-    /Could not find the .* column/i.test(message)
-  );
-}
-
-async function deleteByColumn(table, column, value, { optional = false } = {}) {
-  if (value === undefined || value === null || value === "") return;
-
-  const { error } = await supabase.from(table).delete().eq(column, value);
-
-  if (error) {
-    if (optional || isMissingRelationError(error) || isMissingColumnError(error)) return;
-    throw new Error(getErrorMessage(table, error));
-  }
-}
-
-async function deleteByIds(table, column, ids, { optional = false } = {}) {
-  if (!Array.isArray(ids) || ids.length === 0) return;
-
-  const { error } = await supabase.from(table).delete().in(column, ids);
-
-  if (error) {
-    if (optional || isMissingRelationError(error) || isMissingColumnError(error)) return;
-    throw new Error(getErrorMessage(table, error));
-  }
-}
-
-function normalizeValue(value) {
-  return String(value ?? "").trim().toLowerCase();
-}
-
-function isOwnedByUser(row, userId, email) {
+function rowBelongsToUser(row, ownership) {
   if (!row) return false;
 
-  const normalizedUserId = String(userId ?? "").trim();
-  const normalizedEmail = normalizeValue(email);
-
-  const possibleIds = [row.user_id, row.owner_id, row.profile_id, row.referrer_id]
-    .map((value) => String(value ?? "").trim())
+  const possibleIds = [row.id, row.user_id, row.owner_id, row.profile_id, row.referrer_id]
+    .map((value) => normalizeString(value))
     .filter(Boolean);
 
   const possibleEmails = [
@@ -88,68 +72,64 @@ function isOwnedByUser(row, userId, email) {
     row.owner_email,
     row.created_by,
     row.referrer_email,
+    row.student_email,
   ]
-    .map(normalizeValue)
+    .map((value) => normalizeString(value).toLowerCase())
     .filter(Boolean);
 
-  if (normalizedUserId && possibleIds.includes(normalizedUserId)) return true;
-  if (normalizedEmail && possibleEmails.includes(normalizedEmail)) return true;
-
-  return false;
+  return (
+    (ownership.userId && possibleIds.includes(ownership.userId)) ||
+    (ownership.email && possibleEmails.includes(ownership.email))
+  );
 }
 
-async function collectOwnedIds(table, userId, email, { optional = false } = {}) {
+async function deleteOwnedRows(table, ownership) {
   const { data, error } = await supabase.from(table).select("*");
 
   if (error) {
-    if (optional || isMissingRelationError(error) || isMissingColumnError(error)) return [];
-    throw new Error(getErrorMessage(table, error));
+    if (isSchemaMismatchError(error)) return;
+    throw new Error(formatSupabaseError(error, `Failed to inspect ${table}.`));
   }
 
-  return (data || [])
-    .filter((row) => isOwnedByUser(row, userId, email))
+  const ownedIds = (data || [])
+    .filter((row) => rowBelongsToUser(row, ownership))
     .map((row) => row?.id)
     .filter(Boolean);
+
+  if (ownedIds.length === 0) return;
+
+  const { error: deleteError } = await supabase.from(table).delete().in("id", ownedIds);
+
+  if (deleteError) {
+    if (isSchemaMismatchError(deleteError)) return;
+    throw new Error(formatSupabaseError(deleteError, `Failed to reset ${table}.`));
+  }
 }
 
-async function collectOwnedWalletIds(userId, email) {
-  const walletIdSet = new Set();
+async function deleteWalletLinkedTransactions(userId, email) {
+  const ownership = getOwnershipTokens(userId, email);
+  const { data, error } = await supabase.from("wallets").select("*");
 
-  if (userId) {
-    const { data, error } = await supabase
-      .from("wallets")
-      .select("id")
-      .eq("user_id", userId);
-
-    if (error) {
-      if (isMissingRelationError(error) || isMissingColumnError(error)) return [];
-      throw new Error(getErrorMessage("wallets", error));
-    }
-
-    (data || []).forEach((row) => {
-      if (row?.id) walletIdSet.add(row.id);
-    });
+  if (error) {
+    if (isSchemaMismatchError(error)) return;
+    throw new Error(formatSupabaseError(error, "Failed to inspect wallets."));
   }
 
-  if (email) {
-    for (const column of ["user_email", "created_by"]) {
-      const { data, error } = await supabase
-        .from("wallets")
-        .select("id")
-        .eq(column, email);
+  const walletIds = (data || [])
+    .filter((row) => rowBelongsToUser(row, ownership))
+    .map((row) => row?.id)
+    .filter(Boolean);
 
-      if (error) {
-        if (isMissingRelationError(error) || isMissingColumnError(error)) return [];
-        throw new Error(getErrorMessage("wallets", error));
-      }
+  if (walletIds.length === 0) return;
 
-      (data || []).forEach((row) => {
-        if (row?.id) walletIdSet.add(row.id);
-      });
-    }
+  const { error: deleteError } = await supabase
+    .from("wallet_transactions")
+    .delete()
+    .in("wallet_id", walletIds);
+
+  if (deleteError && !isSchemaMismatchError(deleteError)) {
+    throw new Error(formatSupabaseError(deleteError, "Failed to reset wallet transactions."));
   }
-
-  return Array.from(walletIdSet);
 }
 
 export async function resetUserAccount({ userId, email }) {
@@ -157,46 +137,22 @@ export async function resetUserAccount({ userId, email }) {
     throw new Error("Missing user id for reset.");
   }
 
-  const walletIds = await collectOwnedWalletIds(userId, email);
-  const enrollmentIds = await collectOwnedIds("enrollments", userId, email);
+  const ownership = getOwnershipTokens(userId, email);
 
-  await deleteByColumn("user_settings", "id", userId);
-  await deleteByColumn("admin_notes", "student_id", userId, { optional: true });
-  await deleteByColumn("student_task_access", "user_id", userId);
-  await deleteByColumn("student_module_access", "user_id", userId);
-  await deleteByColumn("task_submissions", "user_id", userId);
-  await deleteByColumn("module_progress", "user_id", userId);
-  await deleteByColumn("coaching_requests", "user_id", userId);
-  await deleteByColumn("referrals", "user_id", userId);
-  await deleteByColumn("referrals", "referrer_id", userId);
-  await deleteByColumn("enrollments", "user_id", userId);
-  await deleteByColumn("savings_goals", "user_id", userId);
-  await deleteByColumn("expenses", "user_id", userId);
-  await deleteByColumn("budgets", "user_id", userId);
-  await deleteByColumn("wallet_transactions", "user_id", userId);
-  await deleteByColumn("wallets", "user_id", userId);
+  const { error: settingsError } = await supabase
+    .from("user_settings")
+    .delete()
+    .eq("id", userId);
 
-  if (email) {
-    await deleteByColumn("task_submissions", "created_by", email);
-    await deleteByColumn("module_progress", "created_by", email);
-    await deleteByColumn("referrals", "created_by", email);
-    await deleteByColumn("referrals", "referrer_email", email);
-    await deleteByColumn("enrollments", "email", email);
-    await deleteByColumn("enrollments", "user_email", email);
-    await deleteByColumn("enrollments", "created_by", email);
-    await deleteByColumn("savings_goals", "created_by", email);
-    await deleteByColumn("expenses", "user_email", email);
-    await deleteByColumn("expenses", "created_by", email);
-    await deleteByColumn("budgets", "email", email);
-    await deleteByColumn("budgets", "created_by", email);
-    await deleteByColumn("wallet_transactions", "user_email", email);
-    await deleteByColumn("wallet_transactions", "created_by", email);
-    await deleteByColumn("wallets", "user_email", email);
-    await deleteByColumn("wallets", "created_by", email);
+  if (settingsError && !isSchemaMismatchError(settingsError)) {
+    throw new Error(formatSupabaseError(settingsError, "Failed to reset user settings."));
   }
 
-  await deleteByIds("enrollments", "id", enrollmentIds);
-  await deleteByIds("wallet_transactions", "wallet_id", walletIds);
+  for (const table of OWNED_TABLES) {
+    await deleteOwnedRows(table, ownership);
+  }
+
+  await deleteWalletLinkedTransactions(userId, email);
 
   const { error: profileError } = await supabase
     .from("profiles")
@@ -204,6 +160,6 @@ export async function resetUserAccount({ userId, email }) {
     .eq("id", userId);
 
   if (profileError) {
-    throw new Error(getErrorMessage("profiles", profileError));
+    throw new Error(formatSupabaseError(profileError, "Failed to reset profile."));
   }
 }

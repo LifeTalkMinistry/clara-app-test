@@ -1,16 +1,12 @@
-import { useState, useEffect } from "react";
-import { Eye } from "lucide-react";
+import { useCallback, useEffect, useState } from "react";
+import { Eye, RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
-import axios from "axios";
-
-const API = axios.create({
-  baseURL: "/api",
-  withCredentials: true,
-});
+import { supabase } from "@/lib/supabaseClient";
+import { formatSupabaseError } from "@/lib/admin-panel-utils";
 
 export default function AdminCoaching() {
   const [requests, setRequests] = useState([]);
@@ -18,40 +14,66 @@ export default function AdminCoaching() {
   const [selected, setSelected] = useState(null);
   const [notes, setNotes] = useState("");
   const [status, setStatus] = useState("pending");
+  const [errorText, setErrorText] = useState("");
+  const [saving, setSaving] = useState(false);
 
-  useEffect(() => {
-    fetchRequests();
-  }, []);
-
-  const fetchRequests = async () => {
+  const fetchRequests = useCallback(async () => {
     try {
-      const res = await API.get("/coaching-requests");
-      setRequests(res.data);
-    } catch (err) {
-      console.error(err);
+      setLoading(true);
+      setErrorText("");
+
+      const { data, error } = await supabase
+        .from("coaching_requests")
+        .select("*")
+        .order("created_at", { ascending: false });
+
+      if (error) throw error;
+
+      setRequests(data || []);
+    } catch (error) {
+      console.error("Failed to load coaching requests:", error);
+      setRequests([]);
+      setErrorText(formatSupabaseError(error, "Failed to load coaching requests."));
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
-  const handleUpdate = async () => {
+  useEffect(() => {
+    fetchRequests();
+  }, [fetchRequests]);
+
+  async function handleUpdate() {
     if (!selected) return;
 
     try {
-      const res = await API.put(`/coaching-requests/${selected.id}`, {
-        status,
-        admin_notes: notes,
-      });
+      setSaving(true);
+      setErrorText("");
 
-      setRequests((prev) =>
-        prev.map((r) => (r.id === selected.id ? res.data : r))
-      );
+      const { data, error } = await supabase
+        .from("coaching_requests")
+        .update({
+          status,
+          admin_notes: notes.trim() || null,
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", selected.id)
+        .select()
+        .single();
 
+      if (error) throw error;
+
+      setRequests((prev) => prev.map((item) => (item.id === selected.id ? data : item)));
       setSelected(null);
-    } catch (err) {
-      console.error(err);
+    } catch (error) {
+      console.error("Failed to update coaching request:", error);
+      const message = formatSupabaseError(error, "Failed to update coaching request.");
+      setErrorText(message);
+      alert(message);
+    } finally {
+      setSaving(false);
     }
-  };
+  }
 
   const statusColors = {
     pending: "bg-secondary/20 text-secondary-foreground",
@@ -69,53 +91,57 @@ export default function AdminCoaching() {
   }
 
   return (
-    <div className="space-y-2">
-      <p className="text-sm text-muted-foreground mb-4">
-        {requests.length} coaching requests
-      </p>
-
-      {requests.map((r) => (
-        <div
-          key={r.id}
-          className="flex flex-col sm:flex-row sm:items-center gap-3 p-4 bg-card rounded-xl border"
-        >
-          <div className="flex-1 min-w-0">
-            <p className="font-medium text-sm">
-              {r.user_name || r.created_by}
-            </p>
-
-            <p className="text-xs text-muted-foreground">
-              {r.topic} • {r.date} at {r.time}
-            </p>
-
-            <p className="text-xs font-medium text-primary mt-1">
-              {r.session_type === "session_1"
-                ? "Session 1: Financial Reset"
-                : "Session 2: Progress Review"}
-            </p>
-          </div>
-
-          <div className="flex items-center gap-2">
-            <span
-              className={`text-xs px-2 py-0.5 rounded-full font-medium capitalize ${statusColors[r.status]}`}
-            >
-              {r.status}
-            </span>
-
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => {
-                setSelected(r);
-                setStatus(r.status);
-                setNotes(r.admin_notes || "");
-              }}
-            >
-              <Eye className="w-3 h-3 mr-1" /> Manage
-            </Button>
-          </div>
+    <div className="space-y-3">
+      <div className="flex items-center justify-between gap-3">
+        <div>
+          <p className="text-sm text-muted-foreground">{requests.length} coaching requests</p>
+          {errorText ? <p className="mt-1 text-sm text-red-400">{errorText}</p> : null}
         </div>
-      ))}
+
+        <Button variant="outline" size="sm" onClick={fetchRequests}>
+          <RefreshCw className="w-3 h-3 mr-1" /> Refresh
+        </Button>
+      </div>
+
+      {requests.length === 0 ? (
+        <div className="rounded-xl border p-4 text-sm text-muted-foreground">
+          No coaching requests found.
+        </div>
+      ) : (
+        requests.map((request) => (
+          <div
+            key={request.id}
+            className="flex flex-col sm:flex-row sm:items-center gap-3 p-4 bg-card rounded-xl border"
+          >
+            <div className="flex-1 min-w-0">
+              <p className="font-medium text-sm">{request.user_name || request.created_by || "Unknown User"}</p>
+              <p className="text-xs text-muted-foreground">
+                {request.topic || "No topic"} • {request.date || "No date"} at {request.time || "No time"}
+              </p>
+            </div>
+
+            <div className="flex items-center gap-2">
+              <span
+                className={`text-xs px-2 py-0.5 rounded-full font-medium capitalize ${statusColors[request.status] || statusColors.pending}`}
+              >
+                {request.status || "pending"}
+              </span>
+
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  setSelected(request);
+                  setStatus(request.status || "pending");
+                  setNotes(request.admin_notes || "");
+                }}
+              >
+                <Eye className="w-3 h-3 mr-1" /> Manage
+              </Button>
+            </div>
+          </div>
+        ))
+      )}
 
       <Dialog open={!!selected} onOpenChange={() => setSelected(null)}>
         <DialogContent>
@@ -123,37 +149,15 @@ export default function AdminCoaching() {
             <DialogTitle>Manage Coaching Request</DialogTitle>
           </DialogHeader>
 
-          {selected && (
+          {selected ? (
             <div className="space-y-4">
               <div className="text-sm space-y-1">
-                <p>
-                  <span className="text-muted-foreground">User:</span>{" "}
-                  {selected.user_name || selected.created_by}
-                </p>
-
-                <p>
-                  <span className="text-muted-foreground">Session:</span>{" "}
-                  {selected.session_type === "session_1"
-                    ? "Session 1: Financial Reset"
-                    : "Session 2: Progress Review"}
-                </p>
-
-                <p>
-                  <span className="text-muted-foreground">Topic:</span>{" "}
-                  {selected.topic}
-                </p>
-
-                <p>
-                  <span className="text-muted-foreground">Date:</span>{" "}
-                  {selected.date} at {selected.time}
-                </p>
-
-                {selected.notes && (
-                  <p>
-                    <span className="text-muted-foreground">Notes:</span>{" "}
-                    {selected.notes}
-                  </p>
-                )}
+                <p><span className="text-muted-foreground">User:</span> {selected.user_name || selected.created_by || "Unknown User"}</p>
+                <p><span className="text-muted-foreground">Topic:</span> {selected.topic || "No topic"}</p>
+                <p><span className="text-muted-foreground">Date:</span> {selected.date || "No date"} at {selected.time || "No time"}</p>
+                {selected.notes ? (
+                  <p><span className="text-muted-foreground">Notes:</span> {selected.notes}</p>
+                ) : null}
               </div>
 
               <div>
@@ -173,18 +177,14 @@ export default function AdminCoaching() {
 
               <div>
                 <Label>Admin Notes</Label>
-                <Textarea
-                  value={notes}
-                  onChange={(e) => setNotes(e.target.value)}
-                  rows={3}
-                />
+                <Textarea value={notes} onChange={(e) => setNotes(e.target.value)} rows={3} />
               </div>
 
-              <Button onClick={handleUpdate} className="w-full">
-                Update
+              <Button onClick={handleUpdate} className="w-full" disabled={saving}>
+                {saving ? "Updating..." : "Update"}
               </Button>
             </div>
-          )}
+          ) : null}
         </DialogContent>
       </Dialog>
     </div>

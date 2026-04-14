@@ -80,6 +80,7 @@ export default function useUserRole() {
       }
 
       setUser({
+        ...(profile || {}),
         id: authUser.id,
         email: authUser.email,
         full_name:

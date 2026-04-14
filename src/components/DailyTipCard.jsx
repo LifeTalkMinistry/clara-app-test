@@ -9,12 +9,13 @@ import {
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
+import { supabase } from "@/lib/supabaseClient";
+import useUserRole from "@/hooks/useUserRole";
+import { formatSupabaseError } from "@/lib/admin-panel-utils";
 
 function getDayOfYear() {
   const today = new Date();
-  return Math.floor(
-    (today - new Date(today.getFullYear(), 0, 0)) / 86400000
-  );
+  return Math.floor((today - new Date(today.getFullYear(), 0, 0)) / 86400000);
 }
 
 function getTodayStr() {
@@ -40,6 +41,7 @@ const FALLBACK_TIPS = [
 ];
 
 export default function DailyTipCard({ isPaid, tips = null }) {
+  const { user } = useUserRole();
   const [revealed, setRevealed] = useState(false);
   const [tip, setTip] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -48,15 +50,48 @@ export default function DailyTipCard({ isPaid, tips = null }) {
   const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
-    try {
-      const source = tips?.length ? tips : FALLBACK_TIPS;
-      setTip(pickTip(source));
-    } catch {
-      setTip(FALLBACK_TIPS[0]);
-    } finally {
-      setLoading(false);
+    let cancelled = false;
+
+    async function loadTip() {
+      try {
+        setLoading(true);
+
+        if (tips?.length) {
+          if (!cancelled) setTip(pickTip(tips));
+          return;
+        }
+
+        const { data, error } = await supabase
+          .from("daily_tips")
+          .select("*")
+          .eq("status", "active")
+          .order("scheduled_date", { ascending: false })
+          .order("created_at", { ascending: false });
+
+        if (error) throw error;
+
+        const activeTips = (data || []).filter((item) => {
+          const audience = String(item.audience || "all").toLowerCase();
+          return audience === "all" || (audience === "paid" && isPaid);
+        });
+
+        if (!cancelled) {
+          setTip(pickTip(activeTips.length ? activeTips : FALLBACK_TIPS));
+        }
+      } catch (error) {
+        console.error("Failed to load daily tips:", error);
+        if (!cancelled) setTip(FALLBACK_TIPS[0]);
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
     }
-  }, [tips]);
+
+    loadTip();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [isPaid, tips]);
 
   const handleSuggest = async () => {
     if (!suggestion.trim()) return;
@@ -64,11 +99,24 @@ export default function DailyTipCard({ isPaid, tips = null }) {
     setSubmitting(true);
 
     try {
+      const payload = {
+        text: suggestion.trim(),
+        category: "mindset",
+        audience: "all",
+        status: "pending",
+        source: "student",
+        created_by: user?.email || null,
+      };
+
+      const { error } = await supabase.from("daily_tips").insert([payload]);
+      if (error) throw error;
+
       toast.success("Tip submitted for review!");
       setSuggestion("");
       setSuggestOpen(false);
-    } catch {
-      toast.error("Failed to submit");
+    } catch (error) {
+      console.error("Failed to submit daily tip:", error);
+      toast.error(formatSupabaseError(error, "Failed to submit tip."));
     } finally {
       setSubmitting(false);
     }
@@ -110,7 +158,7 @@ export default function DailyTipCard({ isPaid, tips = null }) {
             </p>
 
             <div className="mt-4 border-t border-white/10 pt-3">
-              {isPaid && (
+              {isPaid ? (
                 <button
                   onClick={(event) => {
                     event.stopPropagation();
@@ -121,7 +169,7 @@ export default function DailyTipCard({ isPaid, tips = null }) {
                   <Send className="h-3.5 w-3.5" />
                   Suggest a tip
                 </button>
-              )}
+              ) : null}
             </div>
           </div>
         )}
@@ -143,10 +191,7 @@ export default function DailyTipCard({ isPaid, tips = null }) {
             placeholder="Type your tip..."
           />
 
-          <Button
-            onClick={handleSuggest}
-            disabled={submitting || !suggestion.trim()}
-          >
+          <Button onClick={handleSuggest} disabled={submitting || !suggestion.trim()}>
             {submitting ? "Submitting..." : "Submit"}
           </Button>
         </DialogContent>
