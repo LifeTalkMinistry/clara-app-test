@@ -162,6 +162,11 @@ async function maybeMany(queryBuilder) {
   return data || [];
 }
 
+function isMissingRelationError(error) {
+  const message = String(error?.message || "");
+  return error?.code === "PGRST205" || /Could not find the table|schema cache/i.test(message);
+}
+
 export default function StudentProfile() {
   const { id, userId } = useParams();
   const navigate = useNavigate();
@@ -547,7 +552,11 @@ export default function StudentProfile() {
       setActiveTab("notes");
     } catch (error) {
       console.error("Failed to save admin note:", error);
-      alert(error.message || "Failed to save note.");
+      alert(
+        isMissingRelationError(error)
+          ? "Admin notes are not enabled in this database yet."
+          : error.message || "Failed to save note."
+      );
     } finally {
       setSavingNote(false);
     }

@@ -32,22 +32,29 @@ function getErrorMessage(table, error) {
   return error?.message || `Failed to reset ${table}.`;
 }
 
-async function deleteByColumn(table, column, value) {
+function isMissingRelationError(error) {
+  const message = String(error?.message || "");
+  return error?.code === "PGRST205" || /Could not find the table|schema cache/i.test(message);
+}
+
+async function deleteByColumn(table, column, value, { optional = false } = {}) {
   if (value === undefined || value === null || value === "") return;
 
   const { error } = await supabase.from(table).delete().eq(column, value);
 
   if (error) {
+    if (optional && isMissingRelationError(error)) return;
     throw new Error(getErrorMessage(table, error));
   }
 }
 
-async function deleteByIds(table, column, ids) {
+async function deleteByIds(table, column, ids, { optional = false } = {}) {
   if (!Array.isArray(ids) || ids.length === 0) return;
 
   const { error } = await supabase.from(table).delete().in(column, ids);
 
   if (error) {
+    if (optional && isMissingRelationError(error)) return;
     throw new Error(getErrorMessage(table, error));
   }
 }
@@ -82,10 +89,11 @@ function isOwnedByUser(row, userId, email) {
   return false;
 }
 
-async function collectOwnedIds(table, userId, email) {
+async function collectOwnedIds(table, userId, email, { optional = false } = {}) {
   const { data, error } = await supabase.from(table).select("*");
 
   if (error) {
+    if (optional && isMissingRelationError(error)) return [];
     throw new Error(getErrorMessage(table, error));
   }
 
@@ -142,7 +150,7 @@ export async function resetUserAccount({ userId, email }) {
   const enrollmentIds = await collectOwnedIds("enrollments", userId, email);
 
   await deleteByColumn("user_settings", "id", userId);
-  await deleteByColumn("admin_notes", "student_id", userId);
+  await deleteByColumn("admin_notes", "student_id", userId, { optional: true });
   await deleteByColumn("student_task_access", "user_id", userId);
   await deleteByColumn("student_module_access", "user_id", userId);
   await deleteByColumn("task_submissions", "user_id", userId);
