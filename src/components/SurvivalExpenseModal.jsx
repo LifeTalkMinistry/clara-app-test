@@ -3,7 +3,6 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Shield, ChevronDown, ChevronUp, X } from "lucide-react";
-import { supabase } from "@/lib/supabaseClient";
 
 function saveSurvivalExpenseLocally(value) {
   try {
@@ -93,17 +92,6 @@ export default function SurvivalExpenseModal({
 
       if (onSaveSurvivalExpense) {
         await onSaveSurvivalExpense(val);
-      } else {
-        const {
-          data: { user },
-        } = await supabase.auth.getUser();
-
-        if (user) {
-          await supabase
-            .from("profiles")
-            .update({ monthly_survival_expense: val })
-            .eq("id", user.id);
-        }
       }
 
       saveSurvivalExpenseLocally(val);

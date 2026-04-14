@@ -31,27 +31,12 @@ const ROLE_STYLES = {
 };
 
 function normalizeRole(profile) {
-  return (
-    profile?.role ||
-    profile?.user_role ||
-    profile?.account_role ||
-    "user"
-  )
-    .toString()
-    .toLowerCase();
+  return (profile?.role || "user").toString().toLowerCase();
 }
 
 function normalizePlan(profile, role) {
   if (role === "admin") return "admin";
-  return (
-    profile?.plan_key ||
-    profile?.plan ||
-    profile?.subscription_tier ||
-    profile?.tier ||
-    "free"
-  )
-    .toString()
-    .toLowerCase();
+  return (profile?.plan || "free").toString().toLowerCase();
 }
 
 function getInitials(name, email) {

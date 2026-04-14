@@ -129,6 +129,69 @@ const getBillboardMediaType = (item) => {
 const getOnboardingStorageKey = (userId) =>
   `clara_program_onboarding_completed_${userId || "guest"}`;
 
+const getDashboardPrefsStorageKey = (userId) =>
+  `clara_dashboard_prefs_${userId || "guest"}`;
+
+function readDashboardPrefs(userId) {
+  if (!userId) {
+    return {
+      reminderTime: "",
+      financialGoal: "",
+    };
+  }
+
+  try {
+    const raw = localStorage.getItem(getDashboardPrefsStorageKey(userId));
+    const parsed = raw ? JSON.parse(raw) : {};
+
+    return {
+      reminderTime: normalizeString(parsed?.reminderTime || ""),
+      financialGoal: normalizeString(parsed?.financialGoal || ""),
+    };
+  } catch (error) {
+    console.error("Failed to read dashboard prefs:", error);
+    return {
+      reminderTime: "",
+      financialGoal: "",
+    };
+  }
+}
+
+function persistDashboardPrefs(userId, updates) {
+  if (!userId) return;
+
+  try {
+    const current = readDashboardPrefs(userId);
+    localStorage.setItem(
+      getDashboardPrefsStorageKey(userId),
+      JSON.stringify({
+        ...current,
+        ...updates,
+      })
+    );
+  } catch (error) {
+    console.error("Failed to save dashboard prefs:", error);
+  }
+}
+
+function readStoredSurvivalExpense() {
+  try {
+    const direct = Number(localStorage.getItem("monthly_survival_expense"));
+    if (Number.isFinite(direct) && direct > 0) return direct;
+
+    const clara = Number(localStorage.getItem("clara_survival_expense"));
+    if (Number.isFinite(clara) && clara > 0) return clara;
+
+    const user = JSON.parse(localStorage.getItem("clara_user") || "null");
+    const userValue = Number(user?.monthly_survival_expense);
+    if (Number.isFinite(userValue) && userValue > 0) return userValue;
+  } catch (error) {
+    console.error("Failed to read survival expense:", error);
+  }
+
+  return 0;
+}
+
 const isProgramApproved = (profile, isPaid, enrollmentRecord = null) => {
   const status = normalizeLower(profile?.status);
   const enrollmentStatus = normalizeLower(
@@ -316,20 +379,17 @@ export default function Dashboard() {
 
     try {
       const nextName = normalizeString(nickname);
+      persistDashboardPrefs(user.id, {
+        reminderTime,
+        financialGoal,
+      });
+
       const updates = {
         onboarding_step: onboardingStep,
       };
 
       if (nextName) {
         updates.full_name = nextName;
-      }
-
-      if (reminderTime) {
-        updates.preferred_reminder_time = reminderTime;
-      }
-
-      if (financialGoal) {
-        updates.financial_goal = financialGoal;
       }
 
       const { error } = await supabase
@@ -514,7 +574,7 @@ export default function Dashboard() {
       setExpenses(userExpenses);
       setProfileData(userProfile);
       setLatestEnrollment(enrollmentRecord);
-      setSurvivalExpense(Number(userProfile?.monthly_survival_expense) || 0);
+      setSurvivalExpense(readStoredSurvivalExpense());
       setWalletMoney(totalWalletMoney);
 
       if (!nickname) {
@@ -523,12 +583,14 @@ export default function Dashboard() {
         );
       }
 
+      const storedPrefs = readDashboardPrefs(user?.id);
+
       if (!reminderTime) {
-        setReminderTime(normalizeString(userProfile?.preferred_reminder_time || ""));
+        setReminderTime(storedPrefs.reminderTime);
       }
 
       if (!financialGoal) {
-        setFinancialGoal(normalizeString(userProfile?.financial_goal || ""));
+        setFinancialGoal(storedPrefs.financialGoal);
       }
 
       const approved = isProgramApproved(userProfile, isPaid, enrollmentRecord);
@@ -1114,25 +1176,6 @@ export default function Dashboard() {
             onSurvivalSaved={async (val) => {
               const nextValue = Number(val) || 0;
               setSurvivalExpense(nextValue);
-
-              try {
-                if (!user?.id) return;
-
-                const { error } = await supabase
-                  .from("profiles")
-                  .update({ monthly_survival_expense: nextValue })
-                  .eq("id", user.id);
-
-                if (error) {
-                  console.error("Failed to save survival expense:", error);
-                  return;
-                }
-
-                refreshUser?.();
-                loadDashboardData();
-              } catch (error) {
-                console.error("Failed to save survival expense:", error);
-              }
             }}
           />
         )}

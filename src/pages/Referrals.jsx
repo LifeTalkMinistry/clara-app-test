@@ -124,7 +124,7 @@ export default function Referrals() {
     );
   }
 
-  if (!user?.referral_enabled) {
+  if (!user?.has_referral_access) {
     return (
       <div className="p-4 md:p-6 max-w-4xl mx-auto">
         <div className="rounded-2xl border-2 border-muted bg-muted/30 p-8 text-center">

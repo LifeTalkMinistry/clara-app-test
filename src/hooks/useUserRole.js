@@ -64,7 +64,6 @@ export default function useUserRole() {
               full_name: authUser.user_metadata?.full_name || "",
               plan: "free",
               role: "user",
-              monthly_survival_expense: 0,
               enrollment_status: "none",
               status: "free",
               is_enrolled: false,
@@ -78,6 +77,9 @@ export default function useUserRole() {
 
         profile = newProfile || null;
       }
+
+      const accessState = deriveAccessState(profile);
+      const hasReferralAccess = accessState.isAdmin || accessState.isPaid;
 
       setUser({
         ...(profile || {}),
@@ -93,7 +95,7 @@ export default function useUserRole() {
         program_active: profile?.program_active || false,
         onboarding_completed: profile?.onboarding_completed || false,
         onboarding_step: profile?.onboarding_step || 0,
-        referral_enabled: profile?.referral_enabled || false,
+        has_referral_access: hasReferralAccess,
         profile: profile || null,
       });
     } catch (err) {

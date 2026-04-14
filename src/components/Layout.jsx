@@ -17,7 +17,6 @@ import {
   PiggyBank,
   Star,
   Share2,
-  HelpCircle,
   Shield,
   X,
   User,
@@ -152,7 +151,7 @@ function SidebarContent({
           if (!isAdvertiser) {
             const isLocked = Boolean(item.pro && isFree);
             const referralNotEnabled =
-              item.ambassadorOnly && !user?.referral_enabled;
+              item.ambassadorOnly && !user?.has_referral_access;
 
             if (referralNotEnabled) return null;
 
@@ -214,6 +213,21 @@ function SidebarContent({
       </nav>
 
       <div className="space-y-1 border-t border-white/10 p-3">
+        {!isAdvertiser && (
+          <button
+            type="button"
+            onClick={() => onNavigate("/profile")}
+            className={`flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm transition-all ${
+              currentPath === "/profile"
+                ? "bg-white/10 text-white"
+                : "text-white/70 hover:bg-white/10 hover:text-white"
+            }`}
+          >
+            <User className="h-4 w-4" />
+            <span>Profile</span>
+          </button>
+        )}
+
         {!isPaid && !isAdvertiser && (
           <Link
             to="/enroll"
@@ -300,7 +314,7 @@ function MobileControlCenter({
     onNavigate(path);
   };
 
-  const primaryItems = isAdvertiser
+  const accountItems = isAdvertiser
     ? [
         {
           label: "My Ads",
@@ -334,29 +348,11 @@ function MobileControlCenter({
           onClick: () => handleGo("/settings/account"),
           active: isSettingsPath(currentPath),
         },
-        {
-          label: "Notifications",
-          icon: Bell,
-          onClick: () => handleGo("/settings/notifications"),
-          active: currentPath === "/settings/notifications",
-        },
-        {
-          label: "My Ads",
-          icon: Megaphone,
-          onClick: () => handleGo("/advertiser"),
-          active: currentPath === "/advertiser",
-        },
       ];
 
   const supportItems = isAdvertiser
     ? []
     : [
-        {
-          label: "Help Center",
-          icon: HelpCircle,
-          onClick: () => handleGo("/settings/support"),
-          active: currentPath === "/settings/support",
-        },
         {
           label: "Tutorials",
           icon: PlayCircle,
@@ -406,7 +402,13 @@ function MobileControlCenter({
           </div>
 
           <div className="p-2">
-            {primaryItems.map((item) => (
+            <div className="px-3 pb-2 pt-1">
+              <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-white/45">
+                Account
+              </p>
+            </div>
+
+            {accountItems.map((item) => (
               <button
                 key={item.label}
                 type="button"
@@ -425,6 +427,11 @@ function MobileControlCenter({
             {supportItems.length > 0 && (
               <>
                 <div className="my-2 h-px bg-white/10" />
+                <div className="px-3 pb-2 pt-1">
+                  <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-white/45">
+                    Learn
+                  </p>
+                </div>
                 {supportItems.map((item) => (
                   <button
                     key={item.label}

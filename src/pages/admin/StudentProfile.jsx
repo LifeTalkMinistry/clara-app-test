@@ -55,6 +55,34 @@ const getInitials = (name, email) => {
   return base.slice(0, 2).toUpperCase();
 };
 
+const matchesStudentRecord = (row, profileId, email) => {
+  if (!row) return false;
+
+  const normalizedId = String(profileId || "").trim();
+  const normalizedEmail = String(email || "")
+    .trim()
+    .toLowerCase();
+
+  const possibleIds = [row.id, row.user_id, row.owner_id, row.profile_id, row.wallet_id]
+    .map((value) => String(value || "").trim())
+    .filter(Boolean);
+
+  const possibleEmails = [
+    row.email,
+    row.user_email,
+    row.owner_email,
+    row.created_by,
+    row.student_email,
+  ]
+    .map((value) => String(value || "").trim().toLowerCase())
+    .filter(Boolean);
+
+  return (
+    (normalizedId && possibleIds.includes(normalizedId)) ||
+    (normalizedEmail && possibleEmails.includes(normalizedEmail))
+  );
+};
+
 function getCoachStatus({
   savingsRate = 0,
   taskCompletion = 0,
@@ -384,7 +412,25 @@ export default function StudentProfile() {
           .order("created_at", { ascending: false })
       );
 
-      setStudent({ profile, enrollment });
+      const walletRows = (await maybeMany(supabase.from("wallets").select("*"))).filter(
+        (wallet) => matchesStudentRecord(wallet, profileId, profile?.email)
+      );
+
+      const walletIds = walletRows.map((wallet) => wallet.id).filter(Boolean);
+
+      const walletTransactionRows = (
+        await maybeMany(supabase.from("wallet_transactions").select("*"))
+      ).filter((transaction) => {
+        if (walletIds.includes(transaction?.wallet_id)) return true;
+        return matchesStudentRecord(transaction, profileId, profile?.email);
+      });
+
+      setStudent({
+        profile,
+        enrollment,
+        wallets: walletRows,
+        walletTransactions: walletTransactionRows,
+      });
       setEmergencyFund(emergencyGoal);
       setModules(mergedModules);
       setTasks(mergedTasks);
@@ -641,11 +687,32 @@ export default function StudentProfile() {
     const activeTasks = tasks.filter((t) => t.final_is_active).length;
     const taskCompletion = tasks.length > 0 ? (submittedTasks / tasks.length) * 100 : 0;
 
-    const incomeTotal =
-      Number(student?.profile?.total_income || student?.profile?.income_total || 0) || 0;
+    const incomeTotal = (student?.walletTransactions || []).reduce((sum, transaction) => {
+      const type = String(transaction?.type || transaction?.transaction_type || "")
+        .trim()
+        .toLowerCase();
+
+      if (type !== "income" && type !== "add" && type !== "cash_in") {
+        return sum;
+      }
+
+      return sum + Number(transaction?.amount || 0);
+    }, 0);
 
     const savingsTotal =
-      Number(student?.profile?.total_savings || student?.profile?.savings_total || currentAmount || 0) ||
+      (student?.wallets || []).reduce((sum, wallet) => {
+        return (
+          sum +
+          Number(
+            wallet?.balance ||
+              wallet?.current_balance ||
+              wallet?.wallet_balance ||
+              wallet?.available_balance ||
+              0
+          )
+        );
+      }, 0) ||
+      Number(currentAmount || 0) ||
       0;
 
     const savingsRate = incomeTotal > 0 ? Math.min(100, (savingsTotal / incomeTotal) * 100) : 0;
@@ -767,7 +834,6 @@ export default function StudentProfile() {
   const plan =
     student.enrollment?.plan ||
     student.profile.plan ||
-    student.profile.plan_key ||
     "free";
 
   const enrollmentStatus =

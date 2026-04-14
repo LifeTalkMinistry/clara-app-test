@@ -7,13 +7,7 @@ import {
 
 export const RESET_PROFILE_FIELDS = {
   role: "free_user",
-  user_role: "free_user",
-  account_role: "free_user",
   plan: "free",
-  plan_key: "free",
-  tier: "free",
-  subscription_tier: "free",
-  selected_plan: null,
   has_completed_onboarding: false,
   onboarding_completed: false,
   onboarding_step: 0,
@@ -22,14 +16,6 @@ export const RESET_PROFILE_FIELDS = {
   status: "free",
   is_enrolled: false,
   program_active: false,
-  referral_enabled: false,
-  monthly_survival_expense: 0,
-  preferred_reminder_time: null,
-  financial_goal: null,
-  total_income: 0,
-  income_total: 0,
-  total_savings: 0,
-  savings_total: 0,
   force_reauth: true,
 };
 
