@@ -49,7 +49,6 @@ function ProBadge() {
 export default function BottomNav({
   onQuickAdd,
   isAdmin = false,
-  isPaid = false,
   isFree = false,
   onLogout,
 }) {

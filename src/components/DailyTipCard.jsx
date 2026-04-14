@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useEffect, useState } from "react";
 import { Lightbulb, Send } from "lucide-react";
 import {
   Dialog,
@@ -21,18 +21,15 @@ function getTodayStr() {
   return new Date().toISOString().split("T")[0];
 }
 
-function pickTip(tips, isPaid, isPending) {
+function pickTip(tips) {
   if (!tips || tips.length === 0) return null;
 
   const today = getTodayStr();
-
-  const scheduled = tips.find((t) => t.scheduled_date === today);
+  const scheduled = tips.find((tip) => tip.scheduled_date === today);
   if (scheduled) return scheduled;
 
-  let pool = tips;
-
-  const idx = getDayOfYear() % pool.length;
-  return pool[idx];
+  const index = getDayOfYear() % tips.length;
+  return tips[index];
 }
 
 const FALLBACK_TIPS = [
@@ -42,18 +39,10 @@ const FALLBACK_TIPS = [
   { text: "Review your money weekly, not only when you feel broke." },
 ];
 
-export default function DailyTipCard({
-  isPaid,
-  isPending,
-  isFree,
-  user,
-  tips = null,
-  onSuggestTip,
-}) {
+export default function DailyTipCard({ isPaid, tips = null }) {
   const [revealed, setRevealed] = useState(false);
   const [tip, setTip] = useState(null);
   const [loading, setLoading] = useState(true);
-
   const [suggestOpen, setSuggestOpen] = useState(false);
   const [suggestion, setSuggestion] = useState("");
   const [submitting, setSubmitting] = useState(false);
@@ -61,13 +50,13 @@ export default function DailyTipCard({
   useEffect(() => {
     try {
       const source = tips?.length ? tips : FALLBACK_TIPS;
-      setTip(pickTip(source, isPaid, isPending));
+      setTip(pickTip(source));
     } catch {
       setTip(FALLBACK_TIPS[0]);
     } finally {
       setLoading(false);
     }
-  }, [isPaid, isPending, tips]);
+  }, [tips]);
 
   const handleSuggest = async () => {
     if (!suggestion.trim()) return;
@@ -92,46 +81,44 @@ export default function DailyTipCard({
   return (
     <>
       <div
-        onClick={() => setRevealed((r) => !r)}
-        className="w-full cursor-pointer rounded-3xl p-5 border border-emerald-400/20 bg-[linear-gradient(135deg,rgba(10,24,20,0.98)_0%,rgba(16,52,38,0.96)_100%)] shadow-[0_8px_24px_rgba(0,0,0,0.28)]"
+        onClick={() => setRevealed((open) => !open)}
+        className="w-full cursor-pointer rounded-3xl border border-emerald-400/20 bg-[linear-gradient(135deg,rgba(10,24,20,0.98)_0%,rgba(16,52,38,0.96)_100%)] p-5 shadow-[0_8px_24px_rgba(0,0,0,0.28)]"
       >
-        {/* HEADER */}
-        <div className="flex items-center justify-between mb-3">
+        <div className="mb-3 flex items-center justify-between">
           <span className="text-xs font-bold uppercase tracking-[0.18em] text-white/70">
             Daily Money Tip
           </span>
 
-          <div className="w-10 h-10 rounded-2xl bg-emerald-500/10 border border-emerald-400/10 flex items-center justify-center">
-            <Lightbulb className="w-5 h-5 text-emerald-400" />
+          <div className="flex h-10 w-10 items-center justify-center rounded-2xl border border-emerald-400/10 bg-emerald-500/10">
+            <Lightbulb className="h-5 w-5 text-emerald-400" />
           </div>
         </div>
 
-        {/* CONTENT */}
         {!revealed ? (
           <div>
-            <p className="text-xl font-semibold text-white leading-relaxed">
-              ⚠️ Most people ignore this...
+            <p className="text-xl font-semibold leading-relaxed text-white">
+              Most people ignore this...
             </p>
-            <p className="text-sm text-white/65 mt-3">
-              Tap to reveal today’s insight and improve your money behavior.
+            <p className="mt-3 text-sm text-white/65">
+              Tap to reveal today's insight and improve your money behavior.
             </p>
           </div>
         ) : (
           <div>
-            <p className="text-lg font-semibold text-white leading-relaxed">
-              💡 {tipText}
+            <p className="text-lg font-semibold leading-relaxed text-white">
+              Tip: {tipText}
             </p>
 
-            <div className="mt-4 pt-3 border-t border-white/10">
+            <div className="mt-4 border-t border-white/10 pt-3">
               {isPaid && (
                 <button
-                  onClick={(e) => {
-                    e.stopPropagation();
+                  onClick={(event) => {
+                    event.stopPropagation();
                     setSuggestOpen(true);
                   }}
-                  className="text-xs text-white/70 hover:text-emerald-300 flex items-center gap-1.5"
+                  className="flex items-center gap-1.5 text-xs text-white/70 hover:text-emerald-300"
                 >
-                  <Send className="w-3.5 h-3.5" />
+                  <Send className="h-3.5 w-3.5" />
                   Suggest a tip
                 </button>
               )}
@@ -139,7 +126,7 @@ export default function DailyTipCard({
           </div>
         )}
 
-        <p className="text-xs text-white/40 mt-4">
+        <p className="mt-4 text-xs text-white/40">
           {revealed ? "Tap to hide" : "Tap to reveal"}
         </p>
       </div>
@@ -152,7 +139,7 @@ export default function DailyTipCard({
 
           <Textarea
             value={suggestion}
-            onChange={(e) => setSuggestion(e.target.value)}
+            onChange={(event) => setSuggestion(event.target.value)}
             placeholder="Type your tip..."
           />
 
