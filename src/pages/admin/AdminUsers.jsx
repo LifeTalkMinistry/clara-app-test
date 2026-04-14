@@ -19,6 +19,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { supabase } from "@/lib/supabaseClient";
+import { resetUserAccount } from "@/lib/admin-user-reset";
 
 const CLARA_TIERS = ["free", "basic", "transformation", "elite", "student"];
 const USER_ROLES = ["free_user", "paid_user", "admin"];
@@ -109,50 +110,23 @@ export default function AdminUsers() {
   }
 
   async function resetUser(id) {
+    const selectedUser = users.find((user) => user.id === id);
     const confirmReset = window.confirm(
-      "FULL RESET this user?\n\nThis will:\n- Reset onboarding\n- Remove enrollment\n- Remove paid/program access\n- Mark the account for forced re-login"
+      "FULL RESET this user?\n\nThis will:\n- Reset onboarding and program onboarding\n- Remove enrollment and paid/program access\n- Delete tracked progress, wallets, goals, submissions, notes, referrals, and coaching history\n- Mark the account for forced re-login"
     );
 
     if (!confirmReset) return;
 
     try {
       setActionLoadingId(id);
-
-      const { error: profileError } = await supabase
-        .from("profiles")
-        .update({
-          role: "free_user",
-          plan: "free",
-
-          has_completed_onboarding: false,
-          onboarding_completed: false,
-          onboarding_step: 0,
-
-          enrollment_status: "none",
-          status: "free",
-          is_enrolled: false,
-          program_active: false,
-
-          force_reauth: true,
-        })
-        .eq("id", id);
-
-      if (profileError) {
-        throw profileError;
-      }
-
-      const { error: enrollmentDeleteError } = await supabase
-        .from("enrollments")
-        .delete()
-        .eq("user_id", id);
-
-      if (enrollmentDeleteError) {
-        console.error("Delete enrollment error:", enrollmentDeleteError);
-      }
-
+      await resetUserAccount({
+        userId: id,
+        email: selectedUser?.email || null,
+      });
       await loadUsers();
     } catch (err) {
       console.error("Unexpected reset error:", err);
+      alert(err.message || "Failed to reset user.");
     } finally {
       setActionLoadingId(null);
     }

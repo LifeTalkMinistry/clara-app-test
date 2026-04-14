@@ -54,18 +54,13 @@ export function shouldForceEnrollment(profileLike, enrollment) {
   const role = normalizeAccessValue(profileLike?.role);
   const plan = normalizeAccessValue(profileLike?.plan);
   const enrollmentStatus = getEnrollmentStatus(enrollment, profileLike);
-
-  const noEnrollmentRecord = !enrollment;
   const freeRole = !role || role === "free_user" || role === "user";
   const freePlan = !plan || plan === "free";
   const notPaid = !hasAnyPaidSignal(profileLike, enrollment);
 
-  return (
-    freeRole &&
-    freePlan &&
-    notPaid &&
-    (noEnrollmentRecord || ENROLLMENT_RETRY_STATUSES.has(enrollmentStatus))
-  );
+  if (!enrollment) return false;
+
+  return freeRole && freePlan && notPaid && ENROLLMENT_RETRY_STATUSES.has(enrollmentStatus);
 }
 
 export function resolveAppFlow(profileLike, enrollment) {

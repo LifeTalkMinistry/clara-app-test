@@ -169,9 +169,8 @@ const shouldForceToEnroll = (profile, enrollmentRecord, isPaid) => {
 
   const freeRole = !role || role === "free_user" || role === "user";
   const freePlan = !plan || plan === "free";
-  const noEnrollment = !enrollmentRecord;
 
-  if (freeRole && freePlan && noEnrollment) return true;
+  if (!enrollmentRecord) return false;
 
   if (
     freeRole &&
