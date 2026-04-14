@@ -7,6 +7,10 @@ import { queryClientInstance } from "./lib/query-client";
 import { useAuth } from "@/context/AuthContext";
 import { supabase } from "@/lib/supabaseClient";
 import useUserRole, { isRestrictedForFree } from "./hooks/useUserRole";
+import {
+  deriveAccessState,
+  resolveAppFlow,
+} from "@/lib/access-control";
 
 // Layout
 import Layout from "./components/Layout";
@@ -53,20 +57,6 @@ const AdminDailyTips = lazy(() => import("./pages/admin/AdminDailyTips"));
 // Fallback
 const PageNotFound = lazy(() => import("./lib/PageNotFound"));
 
-const ENROLLMENT_PENDING_STATUSES = new Set([
-  "pending",
-  "under_review",
-  "payment_pending",
-]);
-
-const ENROLLMENT_APPROVED_STATUSES = new Set(["approved", "active"]);
-const ENROLLMENT_RETRY_STATUSES = new Set([
-  "rejected",
-  "resubmit_required",
-  "none",
-  "",
-]);
-
 function FullScreenLoader() {
   return (
     <div className="min-h-screen flex items-center justify-center bg-[#061018] text-white">
@@ -76,10 +66,6 @@ function FullScreenLoader() {
       </div>
     </div>
   );
-}
-
-function normalizeValue(value) {
-  return String(value ?? "").trim().toLowerCase();
 }
 
 function getEnrollmentTimestamp(enrollment) {
@@ -99,70 +85,6 @@ function pickBestEnrollment(enrollments) {
   });
 
   return sorted[0] || null;
-}
-
-function getEnrollmentStatus(enrollment, profile) {
-  return normalizeValue(
-    enrollment?.status ||
-      enrollment?.payment_status ||
-      enrollment?.enrollment_status ||
-      profile?.enrollment_status ||
-      profile?.status ||
-      ""
-  );
-}
-
-function hasAnyPaidSignal(profile, enrollment) {
-  const role = normalizeValue(profile?.role);
-  const plan = normalizeValue(profile?.plan);
-  const enrollmentStatus = getEnrollmentStatus(enrollment, profile);
-
-  return (
-    role === "paid_user" ||
-    profile?.program_active === true ||
-    profile?.is_enrolled === true ||
-    ENROLLMENT_APPROVED_STATUSES.has(enrollmentStatus) ||
-    (plan && plan !== "free")
-  );
-}
-
-function shouldForceEnroll(profile, enrollment) {
-  const role = normalizeValue(profile?.role);
-  const plan = normalizeValue(profile?.plan);
-  const enrollmentStatus = getEnrollmentStatus(enrollment, profile);
-
-  const noEnrollmentRecord = !enrollment;
-  const freeRole = !role || role === "free_user" || role === "user";
-  const freePlan = !plan || plan === "free";
-  const notPaid = !hasAnyPaidSignal(profile, enrollment);
-
-  return (
-    freeRole &&
-    freePlan &&
-    notPaid &&
-    (noEnrollmentRecord || ENROLLMENT_RETRY_STATUSES.has(enrollmentStatus))
-  );
-}
-
-function resolveFlow(profile, enrollment) {
-  const hasCompletedOnboarding = Boolean(
-    profile?.has_completed_onboarding || profile?.onboarding_completed
-  );
-
-  if (!hasCompletedOnboarding) return "universal_onboarding";
-  if (!enrollment) return "normal";
-
-  const enrollmentStatus = getEnrollmentStatus(enrollment, profile);
-
-  if (ENROLLMENT_PENDING_STATUSES.has(enrollmentStatus)) {
-    return "payment_pending";
-  }
-
-  if (ENROLLMENT_APPROVED_STATUSES.has(enrollmentStatus)) {
-    return "program_onboarding";
-  }
-
-  return "normal";
 }
 
 function getHomeRedirectPath({ isAdvertiser, flow, forceEnroll }) {
@@ -187,6 +109,14 @@ function GuardedRoute({
 
   if (requiresPaid && isFree && isRestrictedForFree(path)) {
     return <Navigate to="/enroll" replace state={{ from: path }} />;
+  }
+
+  return children;
+}
+
+function AdminRoute({ isAdmin, redirectTo = "/dashboard", children }) {
+  if (!isAdmin) {
+    return <Navigate to={redirectTo} replace />;
   }
 
   return children;
@@ -320,41 +250,40 @@ function AppRoutes() {
     };
   }, [user?.id, profile, forceLogoutProcessing]);
 
-  const role = useMemo(
-    () => normalizeValue(profile?.role || normalizedRole || "user"),
-    [profile?.role, normalizedRole]
-  );
+  const resolvedAccess = useMemo(() => {
+    if (!profile) {
+      return deriveAccessState({
+        role: normalizedRole || "user",
+      });
+    }
 
-  const isAdvertiser = role === "advertiser";
+    return deriveAccessState(
+      {
+        ...profile,
+        role: profile?.role || normalizedRole || "user",
+      },
+      enrollment
+    );
+  }, [profile, normalizedRole, enrollment]);
+
+  const isAdmin = resolvedAccess.isAdmin;
+  const isAdvertiser = resolvedAccess.isAdvertiser;
 
   const flow = useMemo(() => {
     if (!user || !profileReady || enrollmentLoading) return "loading";
-    return resolveFlow(profile, enrollment);
-  }, [user, profileReady, enrollmentLoading, profile, enrollment]);
+    return resolveAppFlow(
+      {
+        ...profile,
+        role: profile?.role || normalizedRole || "user",
+      },
+      enrollment
+    );
+  }, [user, profileReady, enrollmentLoading, profile, normalizedRole, enrollment]);
 
   const forceEnroll = useMemo(() => {
     if (!user || !profileReady || enrollmentLoading || !profile) return false;
-    if (isAdvertiser) return false;
-
-    const currentFlow = resolveFlow(profile, enrollment);
-
-    if (
-      currentFlow === "payment_pending" ||
-      currentFlow === "program_onboarding"
-    ) {
-      return false;
-    }
-
-    if (
-      !(
-        profile?.has_completed_onboarding || profile?.onboarding_completed
-      )
-    ) {
-      return false;
-    }
-
-    return shouldForceEnroll(profile, enrollment);
-  }, [user, profileReady, enrollmentLoading, profile, enrollment, isAdvertiser]);
+    return resolvedAccess.forceEnroll;
+  }, [user, profileReady, enrollmentLoading, profile, resolvedAccess.forceEnroll]);
 
   const homeRedirectPath = useMemo(
     () => getHomeRedirectPath({ isAdvertiser, flow, forceEnroll }),
@@ -568,13 +497,38 @@ function AppRoutes() {
                           </GuardedRoute>
                         }
                       />
-                      <Route path="/admin" element={<AdminPanel />} />
-                      <Route path="/admin/student/:id" element={<StudentProfile />} />
+                      <Route
+                        path="/admin"
+                        element={
+                          <AdminRoute isAdmin={isAdmin} redirectTo={homeRedirectPath}>
+                            <AdminPanel />
+                          </AdminRoute>
+                        }
+                      />
+                      <Route
+                        path="/admin/student/:id"
+                        element={
+                          <AdminRoute isAdmin={isAdmin} redirectTo={homeRedirectPath}>
+                            <StudentProfile />
+                          </AdminRoute>
+                        }
+                      />
                       <Route
                         path="/admin/referral-materials"
-                        element={<AdminReferralMaterials />}
+                        element={
+                          <AdminRoute isAdmin={isAdmin} redirectTo={homeRedirectPath}>
+                            <AdminReferralMaterials />
+                          </AdminRoute>
+                        }
                       />
-                      <Route path="/admin/daily-tips" element={<AdminDailyTips />} />
+                      <Route
+                        path="/admin/daily-tips"
+                        element={
+                          <AdminRoute isAdmin={isAdmin} redirectTo={homeRedirectPath}>
+                            <AdminDailyTips />
+                          </AdminRoute>
+                        }
+                      />
                     </>
                   )}
 
