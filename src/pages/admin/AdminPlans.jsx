@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { supabase } from "../../lib/supabaseClient";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -76,11 +76,7 @@ export default function AdminPlans() {
     });
   }, [plans]);
 
-  useEffect(() => {
-    initialize();
-  }, []);
-
-  async function initialize() {
+  const initialize = useCallback(async () => {
     setLoading(true);
     try {
       const {
@@ -95,7 +91,11 @@ export default function AdminPlans() {
     } finally {
       setLoading(false);
     }
-  }
+  }, []);
+
+  useEffect(() => {
+    initialize();
+  }, [initialize]);
 
   async function fetchPlans() {
     const { data, error } = await supabase

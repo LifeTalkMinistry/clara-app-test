@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   Plus,
   Edit,
@@ -44,10 +44,6 @@ export default function AdminTasks() {
   const [reviewLoading, setReviewLoading] = useState(false);
 
   const [tasksTable, setTasksTable] = useState(null);
-
-  useEffect(() => {
-    loadData();
-  }, []);
 
   useEffect(() => {
     setReviewNotes(subDialog?.admin_notes || "");
@@ -167,7 +163,7 @@ export default function AdminTasks() {
     };
   };
 
-  const resolveTasksTable = async () => {
+  const resolveTasksTable = useCallback(async () => {
     if (tasksTable) return tasksTable;
 
     const challengeCheck = await supabase.from("challenge_tasks").select("id").limit(1);
@@ -187,9 +183,9 @@ export default function AdminTasks() {
     throw new Error(
       "Could not find task table. Make sure challenge_tasks or tasks exists in Supabase."
     );
-  };
+  }, [tasksTable]);
 
-  const loadData = async (soft = false) => {
+  const loadData = useCallback(async (soft = false) => {
     try {
       if (soft) setRefreshing(true);
       else setLoading(true);
@@ -228,7 +224,11 @@ export default function AdminTasks() {
       setLoading(false);
       setRefreshing(false);
     }
-  };
+  }, [resolveTasksTable]);
+
+  useEffect(() => {
+    loadData();
+  }, [loadData]);
 
   const resetForm = () => {
     setForm(TASK_BLANK);

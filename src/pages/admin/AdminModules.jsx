@@ -32,7 +32,7 @@ export default function AdminModules() {
   const [open, setOpen] = useState(false);
   const [form, setForm] = useState(EMPTY);
   const [editId, setEditId] = useState(null);
-  const [uploading, setUploading] = useState({ video: false, resource: false });
+  const [, setUploading] = useState({ video: false, resource: false });
 
   useEffect(() => {
     fetchModules();

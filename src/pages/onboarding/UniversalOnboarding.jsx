@@ -3,6 +3,8 @@ import { useNavigate } from "react-router-dom";
 import { supabase } from "../../lib/supabaseClient";
 import { useAuth } from "../../context/AuthContext";
 
+const INVALID_STORED_NAMES = ["Recovered User", "No name"];
+
 const withTimeout = (promise, ms = 8000) => {
   return Promise.race([
     promise,
@@ -23,11 +25,9 @@ export default function UniversalOnboarding() {
   const [fullName, setFullName] = useState("");
   const [nameError, setNameError] = useState("");
 
-  const invalidStoredNames = ["Recovered User", "No name"];
-
   const needsNameFix = useMemo(() => {
     const storedName = profile?.full_name?.trim();
-    return !storedName || invalidStoredNames.includes(storedName);
+    return !storedName || INVALID_STORED_NAMES.includes(storedName);
   }, [profile]);
 
   useEffect(() => {
@@ -48,7 +48,7 @@ export default function UniversalOnboarding() {
 
         const safeName =
           existingProfile?.full_name &&
-          !invalidStoredNames.includes(existingProfile.full_name.trim())
+          !INVALID_STORED_NAMES.includes(existingProfile.full_name.trim())
             ? existingProfile.full_name
             : "";
 
