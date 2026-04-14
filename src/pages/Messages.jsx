@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import PageHeader from "../components/PageHeader";
 import EmptyState from "../components/EmptyState";
+import FeaturePageLoader from "../components/FeaturePageLoader";
 import useUserRole from "../hooks/useUserRole";
 
 const MESSAGES_KEY = "clara_direct_messages";
@@ -29,7 +30,7 @@ const generateId = () => {
 };
 
 export default function Messages() {
-  const { user, isPaid } = useUserRole();
+  const { user, isPaid, loading: accessLoading } = useUserRole();
   const [messages, setMessages] = useState([]);
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -67,6 +68,10 @@ export default function Messages() {
     setUsers(filteredUsers);
     setLoading(false);
   }, [user?.email, isPaid, user?.role]);
+
+  if (accessLoading) {
+    return <FeaturePageLoader label="Preparing messages..." />;
+  }
 
   if (!isPaid) {
     return (

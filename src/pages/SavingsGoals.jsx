@@ -27,6 +27,7 @@ import {
 import { Label } from "@/components/ui/label";
 import PageHeader from "../components/PageHeader";
 import EmptyState from "../components/EmptyState";
+import FeaturePageLoader from "../components/FeaturePageLoader";
 import useUserRole from "../hooks/useUserRole";
 import useFinancialData from "../hooks/useFinancialData";
 import { supabase } from "@/lib/supabaseClient";
@@ -103,7 +104,7 @@ const normalizeGoal = (goal) => ({
 });
 
 export default function SavingsGoals() {
-  const { user } = useUserRole();
+  const { user, loading: accessLoading } = useUserRole();
   const data = useFinancialData(user);
   const { wallets, refreshData } = data;
 
@@ -391,6 +392,10 @@ export default function SavingsGoals() {
   };
 
   const subcats = form.category ? CATEGORIES[form.category] || [] : [];
+
+  if (accessLoading) {
+    return <FeaturePageLoader label="Preparing savings goals..." />;
+  }
 
   if (loading) {
     return (

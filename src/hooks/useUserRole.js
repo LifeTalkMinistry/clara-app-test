@@ -1,6 +1,6 @@
-import { useState, useEffect, useCallback, useMemo } from "react";
-import { supabase } from "@/lib/supabaseClient";
+import { useCallback, useMemo } from "react";
 import { deriveAccessState } from "@/lib/access-control";
+import { useAuth } from "@/context/AuthContext";
 
 export const TIER_LABELS = {
   free: "Free",
@@ -26,105 +26,58 @@ export function isRestrictedForFree(pathname = "") {
   );
 }
 
+const buildResolvedUser = (authUser, profile, accessState) => {
+  if (!authUser) return null;
+
+  const fullName =
+    profile?.full_name ||
+    authUser.user_metadata?.full_name ||
+    authUser.user_metadata?.name ||
+    "";
+
+  return {
+    ...(profile || {}),
+    id: authUser.id,
+    email: authUser.email,
+    full_name: fullName,
+    role: profile?.role || "user",
+    plan: profile?.plan || "free",
+    enrollment_status: profile?.enrollment_status || "none",
+    status: profile?.status || "free",
+    is_enrolled: profile?.is_enrolled || false,
+    program_active: profile?.program_active || false,
+    onboarding_completed: profile?.onboarding_completed || false,
+    onboarding_step: profile?.onboarding_step || 0,
+    has_referral_access: accessState.isAdmin || accessState.isPaid,
+    profile: profile || null,
+  };
+};
+
 export default function useUserRole() {
-  const [user, setUser] = useState(null);
-  const [loading, setLoading] = useState(true);
+  const {
+    user: authUser,
+    profile,
+    loading: authLoading,
+    authReady,
+    refreshProfile,
+  } = useAuth();
 
-  const fetchUser = useCallback(async () => {
-    try {
-      setLoading(true);
+  const loading = !authReady || (Boolean(authUser) && profile === null) || authLoading;
 
-      const {
-        data: { user: authUser },
-        error: authError,
-      } = await supabase.auth.getUser();
-
-      if (authError || !authUser) {
-        setUser(null);
-        return;
-      }
-
-      let profile = null;
-
-      const { data, error } = await supabase
-        .from("profiles")
-        .select("*")
-        .eq("id", authUser.id)
-        .maybeSingle();
-
-      if (!error) profile = data;
-
-      if (!profile) {
-        const { data: newProfile } = await supabase
-          .from("profiles")
-          .insert([
-            {
-              id: authUser.id,
-              email: authUser.email,
-              full_name: authUser.user_metadata?.full_name || "",
-              plan: "free",
-              role: "user",
-              enrollment_status: "none",
-              status: "free",
-              is_enrolled: false,
-              program_active: false,
-              onboarding_completed: false,
-              onboarding_step: 0,
-            },
-          ])
-          .select()
-          .maybeSingle();
-
-        profile = newProfile || null;
-      }
-
-      const accessState = deriveAccessState(profile);
-      const hasReferralAccess = accessState.isAdmin || accessState.isPaid;
-
-      setUser({
-        ...(profile || {}),
-        id: authUser.id,
-        email: authUser.email,
-        full_name:
-          profile?.full_name || authUser.user_metadata?.full_name || "",
-        role: profile?.role || "user",
-        plan: profile?.plan || "free",
-        enrollment_status: profile?.enrollment_status || "none",
-        status: profile?.status || "free",
-        is_enrolled: profile?.is_enrolled || false,
-        program_active: profile?.program_active || false,
-        onboarding_completed: profile?.onboarding_completed || false,
-        onboarding_step: profile?.onboarding_step || 0,
-        has_referral_access: hasReferralAccess,
-        profile: profile || null,
+  const accessState = useMemo(() => {
+    if (!authUser || !profile) {
+      return deriveAccessState({
+        role: authUser?.user_metadata?.role || "user",
       });
-    } catch (err) {
-      console.error("useUserRole error:", err?.message || err);
-      setUser(null);
-    } finally {
-      setLoading(false);
     }
-  }, []);
 
-  useEffect(() => {
-    fetchUser();
+    return deriveAccessState(profile);
+  }, [authUser, profile]);
 
-    const {
-      data: { subscription },
-    } = supabase.auth.onAuthStateChange(() => {
-      fetchUser();
-    });
-
-    return () => {
-      subscription?.unsubscribe?.();
-    };
-  }, [fetchUser]);
-
-  const refreshUser = useCallback(async () => {
-    await fetchUser();
-  }, [fetchUser]);
-
-  const accessState = useMemo(() => deriveAccessState(user), [user]);
+  const user = useMemo(
+    () => buildResolvedUser(authUser, profile, accessState),
+    [authUser, profile, accessState]
+  );
 
   const role = accessState.role;
   const plan = accessState.plan;
@@ -155,9 +108,14 @@ export default function useUserRole() {
     [isPaid]
   );
 
+  const refreshUser = useCallback(async () => {
+    await refreshProfile?.();
+  }, [refreshProfile]);
+
   return {
     user,
     loading,
+    ready: !loading,
     role,
     plan,
     isAdmin,
