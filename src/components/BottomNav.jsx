@@ -1,11 +1,10 @@
 import { Link, useLocation, useNavigate } from "react-router-dom";
-import { useState, useCallback, useMemo, useRef } from "react";
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   LayoutDashboard,
   Receipt,
   BarChart2,
   MoreHorizontal,
-  X,
   Wallet,
   Target,
   ListChecks,
@@ -13,7 +12,7 @@ import {
   Users,
   MessageSquare,
   GraduationCap,
-  Settings,
+  Shield,
   LogOut,
   PiggyBank,
   TrendingUp,
@@ -26,7 +25,9 @@ import { supabase } from "@/lib/supabaseClient";
 
 const LONG_PRESS_MS = 500;
 
-const moreItems = [
+const CORE_PATHS = ["/dashboard", "/expenses", "/analytics"];
+
+const MORE_ITEMS = [
   { path: "/wallets", label: "Wallets", icon: Wallet, pro: false },
   { path: "/budgets", label: "Budgets", icon: Target, pro: false },
   { path: "/savings-goals", label: "Savings Goals", icon: PiggyBank, pro: true },
@@ -37,16 +38,217 @@ const moreItems = [
   { path: "/coaching", label: "Coaching", icon: GraduationCap, pro: true },
 ];
 
-function ProBadge() {
+const QUICK_ACTIONS = [
+  { key: "expense", label: "Add Expense", icon: Receipt },
+  { key: "income", label: "Add Funds", icon: TrendingUp },
+  { key: "transfer", label: "Transfer", icon: ArrowRightLeft },
+];
+
+const BOTTOM_ITEMS = [
+  { path: "/dashboard", label: "Home", icon: LayoutDashboard },
+  { path: "/expenses", label: "Transactions", icon: Receipt },
+  { path: "/analytics", label: "Analytics", icon: BarChart2 },
+];
+
+const ProBadge = memo(function ProBadge() {
   return (
     <span className="mt-1 inline-flex items-center gap-1 rounded-md bg-yellow-400/20 px-1.5 py-0.5 text-[9px] font-bold text-yellow-300">
       <Lock className="h-3 w-3" />
       PRO
     </span>
   );
+});
+
+const BottomNavLink = memo(function BottomNavLink({
+  to,
+  label,
+  icon: Icon,
+  active,
+}) {
+  return (
+    <Link to={to} className={`nav-item ${active ? "active" : ""}`}>
+      <Icon className="icon" />
+      <span>{label}</span>
+    </Link>
+  );
+});
+
+const QuickActionButton = memo(function QuickActionButton({
+  label,
+  icon: Icon,
+  actionKey,
+  locked = false,
+  onSelect,
+}) {
+  const handleClick = useCallback(() => {
+    onSelect(actionKey, locked);
+  }, [actionKey, locked, onSelect]);
+
+  return (
+    <button
+      type="button"
+      onClick={handleClick}
+      className={`quick-btn ${locked ? "locked" : ""}`}
+    >
+      <Icon className="icon" />
+      <span>{label}</span>
+      {locked ? <ProBadge /> : null}
+    </button>
+  );
+});
+
+const MoreFeatureCard = memo(function MoreFeatureCard({
+  path,
+  label,
+  icon: Icon,
+  locked,
+  onSelect,
+}) {
+  const handleClick = useCallback(() => {
+    onSelect(path, locked);
+  }, [locked, onSelect, path]);
+
+  return (
+    <button
+      type="button"
+      className={`more-item ${locked ? "locked" : ""}`}
+      onClick={handleClick}
+    >
+      <div className="more-icon-wrap">
+        <Icon className="icon" />
+      </div>
+      <span>{label}</span>
+      {locked ? <ProBadge /> : null}
+    </button>
+  );
+});
+
+function MorePanel({
+  open,
+  isAdmin,
+  featureItems,
+  onFeatureSelect,
+  onAdminNavigate,
+  onLogout,
+  onOpenChange,
+}) {
+  const handleAdminClick = useCallback(() => {
+    onAdminNavigate();
+  }, [onAdminNavigate]);
+
+  return (
+    <Sheet open={open} onOpenChange={onOpenChange}>
+      <SheetContent
+        side="bottom"
+        className="rounded-t-[28px] border-white/10 bg-[#0B1220]/98 px-4 pb-5 pt-5 text-white shadow-2xl backdrop-blur-xl"
+      >
+        <div className="mx-auto max-w-md">
+          <div className="mb-4 pr-10">
+            <p className="text-[11px] font-bold uppercase tracking-[0.24em] text-emerald-300/70">
+              More
+            </p>
+            <h3 className="mt-1 text-xl font-bold text-white">
+              Open more features
+            </h3>
+            <p className="mt-1 text-sm text-white/55">
+              Jump into your tools without losing momentum.
+            </p>
+          </div>
+
+          <div className="grid grid-cols-3 gap-3">
+            {featureItems.map((item) => (
+              <MoreFeatureCard
+                key={item.path}
+                path={item.path}
+                label={item.label}
+                icon={item.icon}
+                locked={item.locked}
+                onSelect={onFeatureSelect}
+              />
+            ))}
+          </div>
+
+          <div className="mt-4 space-y-3">
+            {isAdmin ? (
+              <button
+                type="button"
+                onClick={handleAdminClick}
+                className="more-admin"
+              >
+                <div className="more-admin-icon">
+                  <Shield className="icon" />
+                </div>
+                <div className="flex-1 text-left">
+                  <p className="text-sm font-semibold text-white">Admin Panel</p>
+                  <p className="text-xs text-white/50">
+                    Manage users, access, and program content.
+                  </p>
+                </div>
+              </button>
+            ) : null}
+
+            <button type="button" onClick={onLogout} className="logout-btn">
+              <LogOut className="icon" />
+              <span>Log Out</span>
+            </button>
+          </div>
+        </div>
+      </SheetContent>
+    </Sheet>
+  );
 }
 
-export default function BottomNav({
+function QuickActionsSheet({
+  open,
+  savingsGoalLocked,
+  onOpenChange,
+  onActionSelect,
+  onGoalSelect,
+}) {
+  if (!open) return null;
+
+  return (
+    <>
+      <div
+        className="fixed inset-0 z-[55] bg-black/40 backdrop-blur-[2px]"
+        onClick={() => onOpenChange(false)}
+      />
+
+      <div className="fixed bottom-24 left-0 right-0 z-[60] px-4">
+        <div className="mx-auto max-w-sm rounded-3xl border border-white/10 bg-[#0B1220]/95 p-4 shadow-2xl backdrop-blur-xl">
+          <div className="mb-3">
+            <p className="text-sm font-semibold text-white">Quick Actions</p>
+            <p className="mt-1 text-xs text-white/55">
+              Add something fast without leaving your flow.
+            </p>
+          </div>
+
+          <div className="grid grid-cols-2 gap-3">
+            {QUICK_ACTIONS.map((action) => (
+              <QuickActionButton
+                key={action.key}
+                actionKey={action.key}
+                label={action.label}
+                icon={action.icon}
+                onSelect={onActionSelect}
+              />
+            ))}
+
+            <QuickActionButton
+              actionKey="savings-goals"
+              label="Add Goal"
+              icon={PiggyBank}
+              locked={savingsGoalLocked}
+              onSelect={onGoalSelect}
+            />
+          </div>
+        </div>
+      </div>
+    </>
+  );
+}
+
+function BottomNav({
   onQuickAdd,
   isAdmin = false,
   isFree = false,
@@ -62,22 +264,32 @@ export default function BottomNav({
   const pressTimerRef = useRef(null);
   const pointerDownRef = useRef(false);
 
-  const isActive = useCallback(
-    (path) =>
-      location.pathname === path || location.pathname.startsWith(path + "/"),
-    [location.pathname]
+  const pathname = location.pathname;
+
+  const isDashboardActive = useMemo(
+    () => pathname === "/dashboard" || pathname.startsWith("/dashboard/"),
+    [pathname]
+  );
+  const isExpensesActive = useMemo(
+    () => pathname === "/expenses" || pathname.startsWith("/expenses/"),
+    [pathname]
+  );
+  const isAnalyticsActive = useMemo(
+    () => pathname === "/analytics" || pathname.startsWith("/analytics/"),
+    [pathname]
+  );
+  const isMoreActive = useMemo(() => !CORE_PATHS.includes(pathname), [pathname]);
+
+  const featureItems = useMemo(
+    () =>
+      MORE_ITEMS.map((item) => ({
+        ...item,
+        locked: Boolean(item.pro && isFree),
+      })),
+    [isFree]
   );
 
-  const isMoreActive = useMemo(
-    () => !["/dashboard", "/expenses", "/analytics"].includes(location.pathname),
-    [location.pathname]
-  );
-
-  const handleLogout = useCallback(async () => {
-    if (onLogout) return onLogout();
-    await supabase.auth.signOut();
-    window.location.href = "/login";
-  }, [onLogout]);
+  const savingsGoalLocked = isFree;
 
   const clearPressTimer = useCallback(() => {
     if (pressTimerRef.current) {
@@ -85,6 +297,67 @@ export default function BottomNav({
       pressTimerRef.current = null;
     }
   }, []);
+
+  useEffect(() => clearPressTimer, [clearPressTimer]);
+
+  const closeMore = useCallback(() => {
+    setMoreOpen(false);
+  }, []);
+
+  const closeActions = useCallback(() => {
+    setActionsOpen(false);
+  }, []);
+
+  const handleLogout = useCallback(async () => {
+    closeMore();
+    closeActions();
+
+    if (onLogout) {
+      await onLogout();
+      return;
+    }
+
+    await supabase.auth.signOut();
+    window.location.href = "/login";
+  }, [closeActions, closeMore, onLogout]);
+
+  const navigateSafely = useCallback(
+    (path) => {
+      closeMore();
+      closeActions();
+
+      if (pathname !== path) {
+        navigate(path);
+      }
+    },
+    [closeActions, closeMore, navigate, pathname]
+  );
+
+  const goToEnroll = useCallback(() => {
+    if (pathname === "/enroll") {
+      closeMore();
+      closeActions();
+      return;
+    }
+
+    navigateSafely("/enroll");
+  }, [closeActions, closeMore, navigateSafely, pathname]);
+
+  const handleProtectedNavigation = useCallback(
+    (path, locked) => {
+      if (locked) {
+        goToEnroll();
+        return;
+      }
+
+      navigateSafely(path);
+    },
+    [goToEnroll, navigateSafely]
+  );
+
+  const openAdminPanel = useCallback(() => {
+    navigateSafely("/admin");
+  }, [navigateSafely]);
 
   const startPress = useCallback(() => {
     pointerDownRef.current = true;
@@ -109,129 +382,73 @@ export default function BottomNav({
       return;
     }
 
-    setActionsOpen(false);
+    closeActions();
     onQuickAdd?.();
-  }, [didLongPress, onQuickAdd]);
+  }, [closeActions, didLongPress, onQuickAdd]);
 
   const openQuickAction = useCallback(
     (action) => {
-      setActionsOpen(false);
+      closeActions();
       setDidLongPress(false);
       onQuickAdd?.(action);
     },
-    [onQuickAdd]
+    [closeActions, onQuickAdd]
   );
 
-  const goToEnroll = useCallback(() => {
-    setActionsOpen(false);
-    setMoreOpen(false);
-    navigate("/enroll");
-  }, [navigate]);
+  const handleQuickActionSelect = useCallback(
+    (actionKey) => {
+      openQuickAction(actionKey);
+    },
+    [openQuickAction]
+  );
 
-  const handleProtectedNavigation = useCallback(
-    (path, locked) => {
+  const handleGoalQuickAction = useCallback(
+    (_, locked) => {
       if (locked) {
         goToEnroll();
         return;
       }
 
-      setMoreOpen(false);
-      navigate(path);
+      navigateSafely("/savings-goals");
     },
-    [goToEnroll, navigate]
+    [goToEnroll, navigateSafely]
   );
-
-  const savingsGoalLocked = isFree;
 
   return (
     <>
-      {actionsOpen && (
-        <>
-          <div
-            className="fixed inset-0 z-[55] bg-black/40 backdrop-blur-[2px]"
-            onClick={() => setActionsOpen(false)}
-          />
-
-          <div className="fixed bottom-24 left-0 right-0 z-[60] px-4">
-            <div className="mx-auto max-w-sm rounded-3xl border border-white/10 bg-[#0B1220]/95 p-4 shadow-2xl backdrop-blur-xl">
-              <div className="mb-3 flex justify-between">
-                <p className="text-sm font-semibold text-white">Quick Actions</p>
-                <button
-                  type="button"
-                  onClick={() => setActionsOpen(false)}
-                  className="text-white/60"
-                  aria-label="Close quick actions"
-                >
-                  <X className="h-4 w-4" />
-                </button>
-              </div>
-
-              <div className="grid grid-cols-2 gap-3">
-                <button
-                  type="button"
-                  onClick={() => openQuickAction("expense")}
-                  className="quick-btn"
-                >
-                  <Receipt className="icon" />
-                  <span>Add Expense</span>
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => openQuickAction("income")}
-                  className="quick-btn"
-                >
-                  <TrendingUp className="icon" />
-                  <span>Add Funds</span>
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => openQuickAction("transfer")}
-                  className="quick-btn"
-                >
-                  <ArrowRightLeft className="icon" />
-                  <span>Transfer</span>
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() =>
-                    savingsGoalLocked
-                      ? goToEnroll()
-                      : handleProtectedNavigation("/savings-goals", false)
-                  }
-                  className={`quick-btn ${savingsGoalLocked ? "locked" : ""}`}
-                >
-                  <PiggyBank className="icon" />
-                  <span>Add Goal</span>
-                  {savingsGoalLocked && <ProBadge />}
-                </button>
-              </div>
-            </div>
-          </div>
-        </>
-      )}
+      <QuickActionsSheet
+        open={actionsOpen}
+        savingsGoalLocked={savingsGoalLocked}
+        onOpenChange={setActionsOpen}
+        onActionSelect={handleQuickActionSelect}
+        onGoalSelect={handleGoalQuickAction}
+      />
 
       <nav className="fixed bottom-0 left-0 right-0 z-50 lg:hidden">
         <div className="mx-3 mb-3 rounded-3xl border border-white/10 bg-[#0B1220]/95 shadow-2xl backdrop-blur-xl">
           <div className="relative flex h-16 items-center justify-between px-6">
-            <Link to="/dashboard" className={`nav-item ${isActive("/dashboard") ? "active" : ""}`}>
-              <LayoutDashboard className="icon" />
-              <span>Home</span>
-            </Link>
+            <BottomNavLink
+              to={BOTTOM_ITEMS[0].path}
+              label={BOTTOM_ITEMS[0].label}
+              icon={BOTTOM_ITEMS[0].icon}
+              active={isDashboardActive}
+            />
 
-            <Link to="/expenses" className={`nav-item ${isActive("/expenses") ? "active" : ""}`}>
-              <Receipt className="icon" />
-              <span>Transactions</span>
-            </Link>
+            <BottomNavLink
+              to={BOTTOM_ITEMS[1].path}
+              label={BOTTOM_ITEMS[1].label}
+              icon={BOTTOM_ITEMS[1].icon}
+              active={isExpensesActive}
+            />
 
             <div className="w-16" />
 
-            <Link to="/analytics" className={`nav-item ${isActive("/analytics") ? "active" : ""}`}>
-              <BarChart2 className="icon" />
-              <span>Analytics</span>
-            </Link>
+            <BottomNavLink
+              to={BOTTOM_ITEMS[2].path}
+              label={BOTTOM_ITEMS[2].label}
+              icon={BOTTOM_ITEMS[2].icon}
+              active={isAnalyticsActive}
+            />
 
             <button
               type="button"
@@ -251,7 +468,7 @@ export default function BottomNav({
               onTouchEnd={endPress}
               onTouchCancel={endPress}
               onClick={handleFabClick}
-              className="absolute left-1/2 z-50 flex h-16 w-16 -translate-x-1/2 -top-8 items-center justify-center rounded-full shadow-xl transition active:scale-95"
+              className="absolute left-1/2 z-50 flex h-16 w-16 -translate-x-1/2 -top-8 items-center justify-center rounded-full shadow-xl transition-transform duration-150 active:scale-95"
               style={{ background: "linear-gradient(135deg, #10b981, #059669)" }}
               aria-label="Quick add"
             >
@@ -261,51 +478,15 @@ export default function BottomNav({
         </div>
       </nav>
 
-      <Sheet open={moreOpen} onOpenChange={setMoreOpen}>
-        <SheetContent side="bottom" className="rounded-t-3xl bg-[#0B1220] text-white">
-          <div className="mb-4 flex justify-between">
-            <h3 className="text-lg font-bold">More</h3>
-            <button
-              type="button"
-              onClick={() => setMoreOpen(false)}
-              aria-label="Close more menu"
-            >
-              <X className="h-5 w-5" />
-            </button>
-          </div>
-
-          <div className="grid grid-cols-3 gap-3">
-            {moreItems.map((item) => {
-              const locked = Boolean(item.pro && isFree);
-
-              return (
-                <button
-                  key={item.path}
-                  type="button"
-                  className={`more-item ${locked ? "locked" : ""}`}
-                  onClick={() => handleProtectedNavigation(item.path, locked)}
-                >
-                  <item.icon className="icon" />
-                  <span>{item.label}</span>
-                  {locked && <ProBadge />}
-                </button>
-              );
-            })}
-          </div>
-
-          {isAdmin && (
-            <Link to="/admin" className="more-admin" onClick={() => setMoreOpen(false)}>
-              <Settings className="icon" />
-              <span>Admin Panel</span>
-            </Link>
-          )}
-
-          <button type="button" onClick={handleLogout} className="logout-btn">
-            <LogOut className="icon" />
-            <span>Log Out</span>
-          </button>
-        </SheetContent>
-      </Sheet>
+      <MorePanel
+        open={moreOpen}
+        isAdmin={isAdmin}
+        featureItems={featureItems}
+        onFeatureSelect={handleProtectedNavigation}
+        onAdminNavigate={openAdminPanel}
+        onLogout={handleLogout}
+        onOpenChange={setMoreOpen}
+      />
 
       <style>{`
         .nav-item {
@@ -317,6 +498,7 @@ export default function BottomNav({
           color: rgba(255,255,255,0.6);
           background: transparent;
           border: 0;
+          transition: color 0.18s ease;
         }
 
         .nav-item.active {
@@ -341,6 +523,12 @@ export default function BottomNav({
           background: rgba(255,255,255,0.05);
           color: white;
           border: 1px solid rgba(255,255,255,0.06);
+          transition: transform 0.18s ease, background-color 0.18s ease, border-color 0.18s ease;
+          will-change: transform;
+        }
+
+        .quick-btn:active {
+          transform: scale(0.98);
         }
 
         .quick-btn.locked {
@@ -353,44 +541,87 @@ export default function BottomNav({
           align-items: center;
           justify-content: center;
           gap: 6px;
-          min-height: 92px;
-          padding: 12px;
-          border-radius: 16px;
+          min-height: 104px;
+          padding: 12px 10px;
+          border-radius: 18px;
           background: rgba(255,255,255,0.05);
           color: white;
           border: 1px solid rgba(255,255,255,0.06);
           text-align: center;
           font-size: 12px;
           cursor: pointer;
+          transition: transform 0.18s ease, background-color 0.18s ease, border-color 0.18s ease;
+          will-change: transform;
+          contain: layout paint;
+        }
+
+        .more-item:active {
+          transform: scale(0.98);
         }
 
         .more-item.locked {
           opacity: 0.85;
         }
 
-        .more-admin {
-          margin-top: 16px;
+        .more-icon-wrap {
           display: flex;
           align-items: center;
-          gap: 10px;
+          justify-content: center;
+          width: 40px;
+          height: 40px;
+          border-radius: 14px;
+          background: rgba(255,255,255,0.06);
+        }
+
+        .more-admin {
+          width: 100%;
+          display: flex;
+          align-items: center;
+          gap: 12px;
           padding: 14px 16px;
-          border-radius: 16px;
+          border-radius: 18px;
           background: rgba(255,255,255,0.05);
           color: white;
           border: 1px solid rgba(255,255,255,0.06);
+          transition: transform 0.18s ease, background-color 0.18s ease;
+        }
+
+        .more-admin:active {
+          transform: scale(0.99);
+        }
+
+        .more-admin-icon {
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          width: 42px;
+          height: 42px;
+          border-radius: 14px;
+          background: rgba(255,255,255,0.06);
+          color: #86efac;
+          flex-shrink: 0;
         }
 
         .logout-btn {
-          margin-top: 12px;
+          width: 100%;
           display: flex;
           align-items: center;
+          justify-content: center;
           gap: 10px;
           color: #f87171;
-          background: transparent;
-          border: 0;
-          padding: 10px 2px;
+          background: rgba(248, 113, 113, 0.08);
+          border: 1px solid rgba(248, 113, 113, 0.14);
+          padding: 14px 16px;
+          border-radius: 18px;
+          transition: transform 0.18s ease, background-color 0.18s ease;
+        }
+
+        .logout-btn:active {
+          transform: scale(0.99);
         }
       `}</style>
     </>
   );
 }
+
+export default memo(BottomNav);
