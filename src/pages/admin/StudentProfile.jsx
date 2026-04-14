@@ -4,6 +4,7 @@ import {
   ArrowLeft,
   RefreshCw,
   AlertCircle,
+  RotateCcw,
   User,
   Target,
   BookOpen,
@@ -23,6 +24,7 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
+import { resetUserAccount } from "@/lib/admin-user-reset";
 import useUserRole from "../../hooks/useUserRole";
 
 const peso = new Intl.NumberFormat("en-PH", {
@@ -169,6 +171,7 @@ export default function StudentProfile() {
 
   const [loading, setLoading] = useState(true);
   const [savingNote, setSavingNote] = useState(false);
+  const [resettingAccount, setResettingAccount] = useState(false);
   const [taskToggleLoading, setTaskToggleLoading] = useState({});
   const [moduleToggleLoading, setModuleToggleLoading] = useState({});
   const [activeTab, setActiveTab] = useState("overview");
@@ -550,6 +553,34 @@ export default function StudentProfile() {
     }
   }
 
+  async function handleResetAccount() {
+    if (!student?.profile?.id || resettingAccount) return;
+
+    const confirmReset = window.confirm(
+      "Fully reset this account?\n\nThis will send the user back to the start by:\n- resetting onboarding and program onboarding\n- removing enrollment and paid access\n- deleting progress, wallets, goals, submissions, notes, referrals, and coaching history\n- forcing the user to sign in again"
+    );
+
+    if (!confirmReset) return;
+
+    try {
+      setResettingAccount(true);
+
+      await resetUserAccount({
+        userId: student.profile.id,
+        email: student.profile.email || null,
+      });
+
+      await loadStudentProfile();
+      setActiveTab("overview");
+      alert("Account reset complete. This user will start from onboarding again after signing in.");
+    } catch (error) {
+      console.error("Failed to reset account:", error);
+      alert(error.message || "Failed to reset account.");
+    } finally {
+      setResettingAccount(false);
+    }
+  }
+
   useEffect(() => {
     if (!isAdmin || !profileId) return;
     loadStudentProfile();
@@ -763,6 +794,16 @@ export default function StudentProfile() {
             >
               <RefreshCw className="mr-2 h-4 w-4" />
               Refresh
+            </Button>
+
+            <Button
+              variant="destructive"
+              onClick={handleResetAccount}
+              disabled={resettingAccount}
+              className="rounded-2xl"
+            >
+              <RotateCcw className="mr-2 h-4 w-4" />
+              {resettingAccount ? "Resetting Account..." : "Reset Account"}
             </Button>
           </div>
 

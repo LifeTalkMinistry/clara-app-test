@@ -204,6 +204,18 @@ export default function Enroll() {
 
   const currentStatus = normalizeKey(enrollment?.status);
   const statusMeta = STATUS_META[currentStatus] || null;
+  const isFreshFreeProfile = useMemo(() => {
+    const profile = user?.profile;
+    if (!profile) return false;
+
+    return (
+      normalizeKey(profile.role || "free_user") !== "paid_user" &&
+      normalizeKey(profile.plan || "free") === "free" &&
+      normalizeKey(profile.enrollment_status || "none") === "none" &&
+      profile.is_enrolled !== true &&
+      profile.program_active !== true
+    );
+  }, [user?.profile]);
 
   const fetchPlans = useCallback(async () => {
     const { data, error } = await supabase
@@ -237,8 +249,15 @@ export default function Enroll() {
       throw error;
     }
 
-    setEnrollment(data || null);
-  }, [user?.id]);
+    const nextEnrollment = data || null;
+
+    if (isFreshFreeProfile) {
+      setEnrollment(null);
+      return;
+    }
+
+    setEnrollment(nextEnrollment);
+  }, [isFreshFreeProfile, user?.id]);
 
   const loadInitialData = useCallback(async () => {
     if (!user?.id) {

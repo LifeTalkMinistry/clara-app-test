@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, useMemo } from "react";
 import { supabase } from "@/lib/supabaseClient";
+import { deriveAccessState } from "@/lib/access-control";
 
 export const TIER_LABELS = {
   free: "Free",
@@ -8,8 +9,6 @@ export const TIER_LABELS = {
   elite: "Elite",
   student: "Student",
 };
-
-export const PAID_TIERS = ["basic", "transformation", "elite", "student"];
 
 export const FREE_RESTRICTED_PATHS = [
   "/tasks",
@@ -87,15 +86,12 @@ export default function useUserRole() {
           profile?.full_name || authUser.user_metadata?.full_name || "",
         role: profile?.role || "user",
         plan: profile?.plan || "free",
-
-        // 🔥 CRITICAL FIELDS
         enrollment_status: profile?.enrollment_status || "none",
         status: profile?.status || "free",
         is_enrolled: profile?.is_enrolled || false,
         program_active: profile?.program_active || false,
         onboarding_completed: profile?.onboarding_completed || false,
         onboarding_step: profile?.onboarding_step || 0,
-
         referral_enabled: profile?.referral_enabled || false,
         profile: profile || null,
       });
@@ -125,35 +121,15 @@ export default function useUserRole() {
     await fetchUser();
   }, [fetchUser]);
 
-  const role = useMemo(
-    () => String(user?.role || "user").toLowerCase(),
-    [user?.role]
-  );
+  const accessState = useMemo(() => deriveAccessState(user), [user]);
 
-  const plan = useMemo(
-    () => String(user?.plan || "free").toLowerCase(),
-    [user?.plan]
-  );
-
-  const enrollmentStatus = useMemo(
-    () => String(user?.enrollment_status || "none").toLowerCase(),
-    [user?.enrollment_status]
-  );
-
-  // 🔥 FIXED LOGIC
-  const isApproved =
-    enrollmentStatus === "approved" ||
-    user?.status === "approved" ||
-    user?.is_enrolled === true ||
-    user?.program_active === true;
-
-  const isAdmin = role === "admin";
-  const isAdvertiser = role === "advertiser";
-
-  const isPaid = isAdmin || (PAID_TIERS.includes(plan) && isApproved);
-
-  const isPending = enrollmentStatus === "pending";
-  const isFree = !isAdvertiser && !isPaid && !isPending;
+  const role = accessState.role;
+  const plan = accessState.plan;
+  const isAdmin = accessState.isAdmin;
+  const isAdvertiser = accessState.isAdvertiser;
+  const isPaid = accessState.isPaid;
+  const isPending = accessState.isPending;
+  const isFree = accessState.isFree;
 
   const planLabel = isAdmin
     ? "Admin"
