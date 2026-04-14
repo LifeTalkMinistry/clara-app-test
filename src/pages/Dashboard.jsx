@@ -291,6 +291,8 @@ const OnboardingActionBar = ({
 export default function Dashboard() {
   const navigate = useNavigate();
   const { user, isPaid, isFree, isPending, refreshUser } = useUserRole();
+  const userId = user?.id || null;
+  const userEmail = user?.email || null;
 
   const [tasks, setTasks] = useState([]);
   const [submissions, setSubmissions] = useState([]);
@@ -318,6 +320,10 @@ export default function Dashboard() {
   const trackedClickIdsRef = useRef(new Set());
   const clickInFlightIdsRef = useRef(new Set());
   const approvalTriggeredRef = useRef(false);
+  const hasLoadedDashboardRef = useRef(false);
+  const showOnboardingRef = useRef(false);
+  const latestEnrollmentRef = useRef(null);
+  const isPaidRef = useRef(isPaid);
 
   const fmt = useCallback((n) => {
     return new Intl.NumberFormat("en-PH", {
@@ -415,42 +421,14 @@ export default function Dashboard() {
     setOnboardingStep((prev) => prev + 1);
   }, [saveOnboardingDraft]);
 
-  const loadWalletBalance = useCallback(async () => {
-    if (!user?.id && !user?.email) {
-      setWalletMoney(0);
-      return;
-    }
+  const loadDashboardData = useCallback(async ({ background = false } = {}) => {
+    const currentUser = {
+      id: userId,
+      email: userEmail,
+      full_name: user?.full_name || "",
+    };
 
-    try {
-      const { data, error } = await supabase.from("wallets").select("*");
-      if (error) throw error;
-
-      const ownedWallets = (data || []).filter((wallet) =>
-        isOwnedByUser(wallet, user)
-      );
-
-      const total = ownedWallets.reduce((sum, wallet) => {
-        return (
-          sum +
-          firstValidNumber(
-            wallet?.balance,
-            wallet?.current_balance,
-            wallet?.wallet_balance,
-            wallet?.available_balance,
-            wallet?.amount
-          )
-        );
-      }, 0);
-
-      setWalletMoney(total);
-    } catch (error) {
-      console.error("Failed to load wallets:", error);
-      setWalletMoney(0);
-    }
-  }, [user]);
-
-  const loadDashboardData = useCallback(async () => {
-    if (!user?.email && !user?.id) {
+    if (!currentUser.email && !currentUser.id) {
       setTasks([]);
       setSubmissions([]);
       setBillboards([]);
@@ -459,12 +437,15 @@ export default function Dashboard() {
       setSurvivalExpense(0);
       setProfileData(null);
       setLatestEnrollment(null);
+      hasLoadedDashboardRef.current = false;
       setLoading(false);
       setGuardChecked(true);
       return;
     }
 
-    setLoading(true);
+    if (!hasLoadedDashboardRef.current && !background) {
+      setLoading(true);
+    }
 
     try {
       const [
@@ -501,7 +482,7 @@ export default function Dashboard() {
         supabase
           .from("enrollments")
           .select("*")
-          .eq("user_id", user.id)
+          .eq("user_id", currentUser.id)
           .order("created_at", { ascending: false })
           .limit(1),
       ]);
@@ -527,11 +508,11 @@ export default function Dashboard() {
       }
 
       const userSubmissions = (submissionsRes.data || []).filter((item) =>
-        isOwnedByUser(item, user)
+        isOwnedByUser(item, currentUser)
       );
 
       const userExpenses = (expensesRes.data || [])
-        .filter((expense) => isOwnedByUser(expense, user))
+        .filter((expense) => isOwnedByUser(expense, currentUser))
         .map((expense) => ({
           ...expense,
           amount: Number(expense.amount) || 0,
@@ -539,13 +520,13 @@ export default function Dashboard() {
         }));
 
       const userProfile =
-        (profilesRes.data || []).find((profile) => isOwnedByUser(profile, user)) ||
+        (profilesRes.data || []).find((profile) => isOwnedByUser(profile, currentUser)) ||
         null;
 
       const enrollmentRecord = (enrollmentsRes.data || [])[0] || null;
 
       const userWallets = (walletsRes.data || []).filter((wallet) =>
-        isOwnedByUser(wallet, user)
+        isOwnedByUser(wallet, currentUser)
       );
 
       const totalWalletMoney = userWallets.reduce((sum, wallet) => {
@@ -577,54 +558,38 @@ export default function Dashboard() {
       setSurvivalExpense(readStoredSurvivalExpense());
       setWalletMoney(totalWalletMoney);
 
-      if (!nickname) {
-        setNickname(
-          normalizeString(userProfile?.full_name || user?.full_name || "")
-        );
-      }
+      setNickname((prev) =>
+        prev || normalizeString(userProfile?.full_name || currentUser.full_name || "")
+      );
 
-      const storedPrefs = readDashboardPrefs(user?.id);
+      const storedPrefs = readDashboardPrefs(currentUser.id);
 
-      if (!reminderTime) {
-        setReminderTime(storedPrefs.reminderTime);
-      }
+      setReminderTime((prev) => prev || storedPrefs.reminderTime);
 
-      if (!financialGoal) {
-        setFinancialGoal(storedPrefs.financialGoal);
-      }
+      setFinancialGoal((prev) => prev || storedPrefs.financialGoal);
 
       const approved = isProgramApproved(userProfile, isPaid, enrollmentRecord);
       const onboardingDone =
         userProfile?.onboarding_completed === true ||
         Number(userProfile?.onboarding_step) >= 999 ||
-        (user?.id
-          ? localStorage.getItem(getOnboardingStorageKey(user.id)) === "true"
+        (currentUser.id
+          ? localStorage.getItem(getOnboardingStorageKey(currentUser.id)) === "true"
           : false);
 
-      if (approved && !onboardingDone && !showOnboarding) {
+      if (approved && !onboardingDone && !showOnboardingRef.current) {
         setShowProgramStart(true);
       } else if (onboardingDone) {
         setShowProgramStart(false);
       }
+
+      hasLoadedDashboardRef.current = true;
     } catch (error) {
       console.error("Dashboard load error:", error);
     } finally {
       setLoading(false);
       setGuardChecked(true);
     }
-  }, [
-    user,
-    isPaid,
-    nickname,
-    reminderTime,
-    financialGoal,
-    showOnboarding,
-  ]);
-
-  const loadEverything = useCallback(() => {
-    loadWalletBalance();
-    loadDashboardData();
-  }, [loadWalletBalance, loadDashboardData]);
+  }, [isPaid, user?.full_name, userEmail, userId]);
 
   const scheduleRefresh = useCallback(() => {
     if (refreshTimeoutRef.current) {
@@ -632,9 +597,9 @@ export default function Dashboard() {
     }
 
     refreshTimeoutRef.current = setTimeout(() => {
-      loadEverything();
+      loadDashboardData({ background: true });
     }, 350);
-  }, [loadEverything]);
+  }, [loadDashboardData]);
 
   const trackBillboardView = useCallback(
     async (billboardId) => {
@@ -735,6 +700,18 @@ export default function Dashboard() {
   );
 
   useEffect(() => {
+    showOnboardingRef.current = showOnboarding;
+  }, [showOnboarding]);
+
+  useEffect(() => {
+    latestEnrollmentRef.current = latestEnrollment;
+  }, [latestEnrollment]);
+
+  useEffect(() => {
+    isPaidRef.current = isPaid;
+  }, [isPaid]);
+
+  useEffect(() => {
     loadDashboardData();
   }, [loadDashboardData]);
 
@@ -801,8 +778,13 @@ export default function Dashboard() {
 
           if (!belongsToUser) return;
 
-          const wasApproved = isProgramApproved(oldData, false, latestEnrollment);
-          const nowApproved = isProgramApproved(newData, isPaid, latestEnrollment);
+          const currentEnrollment = latestEnrollmentRef.current;
+          const wasApproved = isProgramApproved(oldData, false, currentEnrollment);
+          const nowApproved = isProgramApproved(
+            newData,
+            isPaidRef.current,
+            currentEnrollment
+          );
 
           if (!wasApproved && nowApproved && !approvalTriggeredRef.current) {
             approvalTriggeredRef.current = true;
@@ -839,7 +821,7 @@ export default function Dashboard() {
 
       supabase.removeChannel(channel);
     };
-  }, [user?.id, user?.email, scheduleRefresh, isPaid, latestEnrollment]);
+  }, [user?.id, user?.email, scheduleRefresh]);
 
   useEffect(() => {
     if (!guardChecked || !profileData) return;

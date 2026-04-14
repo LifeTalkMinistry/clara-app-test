@@ -507,6 +507,8 @@ const getTxnSecondaryLabel = (txn, walletMap) => {
 
 export default function Expenses() {
   const { user } = useUserRole();
+  const userId = user?.id || null;
+  const userEmail = user?.email || null;
 
   const [expenses, setExpenses] = useState([]);
   const [wallets, setWallets] = useState([]);
@@ -528,6 +530,7 @@ export default function Expenses() {
   const [customEndDate, setCustomEndDate] = useState("");
 
   const refreshTimeoutRef = useRef(null);
+  const hasLoadedRef = useRef(false);
 
   const walletMap = useMemo(() => {
     const map = new Map();
@@ -541,22 +544,27 @@ export default function Expenses() {
     return walletMap.get(String(form.wallet_id)) || null;
   }, [walletMap, form.wallet_id]);
 
-  const loadData = useCallback(async () => {
-    if (!user?.id && !user?.email) {
+  const loadData = useCallback(async ({ background = false } = {}) => {
+    const currentUser = { id: userId, email: userEmail };
+
+    if (!currentUser.id && !currentUser.email) {
       setExpenses([]);
       setWallets([]);
       setTransactions([]);
+      hasLoadedRef.current = false;
       setLoading(false);
       return;
     }
 
     try {
-      setLoading(true);
+      if (!hasLoadedRef.current && !background) {
+        setLoading(true);
+      }
 
       const [expenseRows, walletRows, transactionRows] = await Promise.all([
-        fetchRowsForUser(EXPENSES_TABLE, user, "created_at", false),
-        fetchRowsForUser(WALLETS_TABLE, user, "created_at", false),
-        fetchRowsForUser(TXN_TABLE, user, "created_at", false),
+        fetchRowsForUser(EXPENSES_TABLE, currentUser, "created_at", false),
+        fetchRowsForUser(WALLETS_TABLE, currentUser, "created_at", false),
+        fetchRowsForUser(TXN_TABLE, currentUser, "created_at", false),
       ]);
 
       const normalizedExpenses = (expenseRows || [])
@@ -583,22 +591,25 @@ export default function Expenses() {
       setExpenses(normalizedExpenses);
       setWallets(normalizedWalletRows);
       setTransactions(normalizedTransactions);
+      hasLoadedRef.current = true;
     } catch (err) {
       console.error("Failed to load transactions page data:", err);
-      setExpenses([]);
-      setWallets([]);
-      setTransactions([]);
+      if (!hasLoadedRef.current) {
+        setExpenses([]);
+        setWallets([]);
+        setTransactions([]);
+      }
     } finally {
       setLoading(false);
     }
-  }, [user]);
+  }, [userEmail, userId]);
 
   useEffect(() => {
     loadData();
   }, [loadData]);
 
   useEffect(() => {
-    if (!user?.id && !user?.email) return;
+    if (!userId && !userEmail) return;
 
     const scheduleRefresh = () => {
       if (refreshTimeoutRef.current) {
@@ -606,12 +617,12 @@ export default function Expenses() {
       }
 
       refreshTimeoutRef.current = setTimeout(() => {
-        loadData();
+        loadData({ background: true });
       }, 120);
     };
 
     const channel = supabase
-      .channel(`transactions-page-${user?.id || user?.email || "guest"}`)
+      .channel(`transactions-page-${userId || userEmail || "guest"}`)
       .on("postgres_changes", { event: "*", schema: "public", table: EXPENSES_TABLE }, scheduleRefresh)
       .on("postgres_changes", { event: "*", schema: "public", table: WALLETS_TABLE }, scheduleRefresh)
       .on("postgres_changes", { event: "*", schema: "public", table: TXN_TABLE }, scheduleRefresh)
@@ -623,7 +634,7 @@ export default function Expenses() {
       }
       supabase.removeChannel(channel);
     };
-  }, [loadData, user?.id, user?.email]);
+  }, [loadData, userEmail, userId]);
 
   const updateWalletBalance = useCallback(async (walletId, nextBalance) => {
     const { error: walletError } = await supabase
@@ -970,7 +981,7 @@ export default function Expenses() {
       window.dispatchEvent(new Event("clara-wallets-updated"));
       window.dispatchEvent(new Event("clara-wallet-transactions-updated"));
 
-      await loadData();
+      await loadData({ background: true });
       closeModal();
     } catch (err) {
       console.error("Failed to save transaction:", err);
@@ -1023,7 +1034,7 @@ export default function Expenses() {
       window.dispatchEvent(new Event("clara-wallets-updated"));
       window.dispatchEvent(new Event("clara-wallet-transactions-updated"));
 
-      await loadData();
+      await loadData({ background: true });
     } catch (err) {
       console.error("Failed to delete expense:", err);
       setError(err?.message || "Failed to delete expense.");
@@ -1063,7 +1074,7 @@ export default function Expenses() {
       window.dispatchEvent(new Event("clara-wallets-updated"));
       window.dispatchEvent(new Event("clara-wallet-transactions-updated"));
 
-      await loadData();
+      await loadData({ background: true });
     } catch (err) {
       console.error("Failed to delete income:", err);
       setError(err?.message || "Failed to delete income.");

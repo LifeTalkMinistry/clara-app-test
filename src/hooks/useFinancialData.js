@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useMemo } from "react";
+import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { supabase } from "@/lib/supabaseClient";
 
 const toNumber = (value) => {
@@ -59,6 +59,8 @@ const safeSelect = async (table, user) => {
 };
 
 export default function useFinancialData(user) {
+  const userId = user?.id || null;
+  const userEmail = user?.email || null;
   const [expenses, setExpenses] = useState([]);
   const [incomes, setIncomes] = useState([]);
   const [wallets, setWallets] = useState([]);
@@ -66,28 +68,35 @@ export default function useFinancialData(user) {
   const [walletTransactions, setWalletTransactions] = useState([]);
   const [transfers, setTransfers] = useState([]);
   const [loading, setLoading] = useState(true);
+  const hasLoadedRef = useRef(false);
+  const refreshTimeoutRef = useRef(null);
 
-  const loadAll = useCallback(async () => {
-    if (!user?.id && !user?.email) {
+  const loadAll = useCallback(async ({ background = false } = {}) => {
+    const currentUser = { id: userId, email: userEmail };
+
+    if (!currentUser.id && !currentUser.email) {
       setExpenses([]);
       setIncomes([]);
       setWallets([]);
       setBudgets([]);
       setWalletTransactions([]);
       setTransfers([]);
+      hasLoadedRef.current = false;
       setLoading(false);
       return;
     }
 
-    setLoading(true);
+    if (!hasLoadedRef.current && !background) {
+      setLoading(true);
+    }
 
     try {
       const [e, w, b, wt, t] = await Promise.all([
-        safeSelect("expenses", user),
-        safeSelect("wallets", user),
-        safeSelect("budgets", user),
-        safeSelect("wallet_transactions", user),
-        safeSelect("transfers", user),
+        safeSelect("expenses", currentUser),
+        safeSelect("wallets", currentUser),
+        safeSelect("budgets", currentUser),
+        safeSelect("wallet_transactions", currentUser),
+        safeSelect("transfers", currentUser),
       ]);
 
       setExpenses(e || []);
@@ -96,55 +105,72 @@ export default function useFinancialData(user) {
       setBudgets(b || []);
       setWalletTransactions(wt || []);
       setTransfers(t || []);
+      hasLoadedRef.current = true;
     } catch (err) {
       console.error("loadAll error:", err);
     } finally {
       setLoading(false);
     }
-  }, [user]);
+  }, [userEmail, userId]);
 
   useEffect(() => {
     loadAll();
   }, [loadAll]);
 
   useEffect(() => {
-    if (!user?.id && !user?.email) return;
+    if (!userId && !userEmail) return;
+
+    const scheduleRefresh = () => {
+      if (refreshTimeoutRef.current) {
+        clearTimeout(refreshTimeoutRef.current);
+      }
+
+      refreshTimeoutRef.current = setTimeout(() => {
+        loadAll({ background: true });
+      }, 150);
+    };
 
     const channel = supabase
-      .channel(`finance-${user?.id || user?.email}`)
+      .channel(`finance-${userId || userEmail}`)
       .on(
         "postgres_changes",
         { event: "*", schema: "public", table: "expenses" },
-        () => loadAll()
+        scheduleRefresh
       )
       .on(
         "postgres_changes",
         { event: "*", schema: "public", table: "wallets" },
-        () => loadAll()
+        scheduleRefresh
       )
       .on(
         "postgres_changes",
         { event: "*", schema: "public", table: "wallet_transactions" },
-        () => loadAll()
+        scheduleRefresh
       )
       .on(
         "postgres_changes",
         { event: "*", schema: "public", table: "transfers" },
-        () => loadAll()
+        scheduleRefresh
       )
       .on(
         "postgres_changes",
         { event: "*", schema: "public", table: "budgets" },
-        () => loadAll()
+        scheduleRefresh
       )
       .subscribe();
 
     return () => {
+      if (refreshTimeoutRef.current) {
+        clearTimeout(refreshTimeoutRef.current);
+      }
       supabase.removeChannel(channel);
     };
-  }, [user?.id, user?.email, loadAll]);
+  }, [userEmail, userId, loadAll]);
 
-  const refreshData = useCallback(() => loadAll(), [loadAll]);
+  const refreshData = useCallback(
+    (options) => loadAll(options),
+    [loadAll]
+  );
 
   const updateWalletBalance = async (walletId, amountChange) => {
     const wallet = wallets.find((w) => String(w.id) === String(walletId));
