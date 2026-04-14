@@ -985,9 +985,6 @@ export default function Dashboard() {
 
   const safeSurvivalExpense = Number(survivalExpense) || 0;
   const moneyAfterEssentials = safeSurvivalExpense > 0 ? walletMoney - safeSurvivalExpense : walletMoney;
-  const runwayMonths =
-    safeSurvivalExpense > 0 ? walletMoney / safeSurvivalExpense : 0;
-
   const moneyLeftStatus =
     safeSurvivalExpense <= 0
       ? "Set your survival expense to unlock smarter guidance."
@@ -1042,25 +1039,6 @@ export default function Dashboard() {
       : moneyAfterEssentials >= 0
         ? "What stays available after your minimum monthly need."
         : "What your wallets still need to fully cover essentials.";
-
-  const runwayLabel =
-    safeSurvivalExpense <= 0
-      ? "Runway"
-      : runwayMonths >= 1
-        ? "Coverage"
-        : "Buffer";
-
-  const runwayValue =
-    safeSurvivalExpense <= 0
-      ? "Waiting"
-      : `${runwayMonths.toFixed(runwayMonths >= 10 ? 0 : 1)} mo`;
-
-  const runwaySub =
-    safeSurvivalExpense <= 0
-      ? "This appears after survival expense is set."
-      : runwayMonths >= 1
-        ? "Months of essentials your wallets can support right now."
-        : "You are below one month of protection.";
 
   const activeMyAds = useMemo(
     () => myAds.filter((item) => isTruthyActive(item?.is_active)),
@@ -1364,10 +1342,10 @@ export default function Dashboard() {
               <p className="text-xs uppercase tracking-[0.18em] text-white/55">
                 Money Left
               </p>
-              <h2 className="mt-2 text-3xl font-bold text-white">
+              <h2 className="mt-1 text-3xl font-bold text-white">
                 {fmt(walletMoney)}
               </h2>
-              <p className="mt-2 max-w-[28rem] text-sm text-white/75">
+              <p className="mt-1 max-w-[28rem] text-sm text-white/75">
                 {moneyLeftStatus}
               </p>
             </div>
@@ -1383,8 +1361,8 @@ export default function Dashboard() {
           </div>
 
           {safeSurvivalExpense > 0 && (
-            <div className="mt-4 grid grid-cols-2 gap-3">
-              <div className="rounded-2xl border border-white/10 bg-black/20 px-3 py-3">
+            <div className="mt-3">
+              <div className="rounded-2xl border border-white/10 bg-black/20 px-3 py-2.5">
                 <p className="text-[11px] uppercase tracking-wide text-white/50">
                   {moneyInsightLabel}
                 </p>
@@ -1393,18 +1371,6 @@ export default function Dashboard() {
                 </p>
                 <p className="mt-1 text-[11px] leading-relaxed text-white/55">
                   {moneyInsightSub}
-                </p>
-              </div>
-
-              <div className="rounded-2xl border border-white/10 bg-black/20 px-3 py-3">
-                <p className="text-[11px] uppercase tracking-wide text-white/50">
-                  {runwayLabel}
-                </p>
-                <p className="mt-1 text-sm font-semibold text-white">
-                  {runwayValue}
-                </p>
-                <p className="mt-1 text-[11px] leading-relaxed text-white/55">
-                  {runwaySub}
                 </p>
               </div>
             </div>
