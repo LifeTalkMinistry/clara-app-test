@@ -37,13 +37,22 @@ function isMissingRelationError(error) {
   return error?.code === "PGRST205" || /Could not find the table|schema cache/i.test(message);
 }
 
+function isMissingColumnError(error) {
+  const message = String(error?.message || "");
+  return (
+    error?.code === "PGRST204" ||
+    /column .* does not exist/i.test(message) ||
+    /Could not find the .* column/i.test(message)
+  );
+}
+
 async function deleteByColumn(table, column, value, { optional = false } = {}) {
   if (value === undefined || value === null || value === "") return;
 
   const { error } = await supabase.from(table).delete().eq(column, value);
 
   if (error) {
-    if (optional || isMissingRelationError(error)) return;
+    if (optional || isMissingRelationError(error) || isMissingColumnError(error)) return;
     throw new Error(getErrorMessage(table, error));
   }
 }
@@ -54,7 +63,7 @@ async function deleteByIds(table, column, ids, { optional = false } = {}) {
   const { error } = await supabase.from(table).delete().in(column, ids);
 
   if (error) {
-    if (optional || isMissingRelationError(error)) return;
+    if (optional || isMissingRelationError(error) || isMissingColumnError(error)) return;
     throw new Error(getErrorMessage(table, error));
   }
 }
@@ -93,7 +102,7 @@ async function collectOwnedIds(table, userId, email, { optional = false } = {}) 
   const { data, error } = await supabase.from(table).select("*");
 
   if (error) {
-    if (optional || isMissingRelationError(error)) return [];
+    if (optional || isMissingRelationError(error) || isMissingColumnError(error)) return [];
     throw new Error(getErrorMessage(table, error));
   }
 
@@ -113,7 +122,7 @@ async function collectOwnedWalletIds(userId, email) {
       .eq("user_id", userId);
 
     if (error) {
-      if (isMissingRelationError(error)) return [];
+      if (isMissingRelationError(error) || isMissingColumnError(error)) return [];
       throw new Error(getErrorMessage("wallets", error));
     }
 
@@ -130,7 +139,7 @@ async function collectOwnedWalletIds(userId, email) {
         .eq(column, email);
 
       if (error) {
-        if (isMissingRelationError(error)) return [];
+        if (isMissingRelationError(error) || isMissingColumnError(error)) return [];
         throw new Error(getErrorMessage("wallets", error));
       }
 
