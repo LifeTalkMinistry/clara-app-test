@@ -1,5 +1,6 @@
 import { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import {
+  ArrowRight,
   TrendingDown,
   PiggyBank,
   Newspaper,
@@ -15,6 +16,7 @@ import {
   CalendarDays,
   Flag,
   Bell,
+  Megaphone,
   X,
 } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
@@ -294,6 +296,7 @@ const createEmptyDashboardCache = (key = null) => ({
   tasks: [],
   submissions: [],
   billboards: [],
+  myAds: [],
   survivalExpense: 0,
   walletMoney: 0,
   expenses: [],
@@ -310,7 +313,7 @@ let dashboardPageInFlight = null;
 
 export default function Dashboard() {
   const navigate = useNavigate();
-  const { user, isPaid, isFree, isPending, refreshUser } = useUserRole();
+  const { user, isAdvertiser, isPaid, isFree, isPending, refreshUser } = useUserRole();
   const userId = user?.id || null;
   const userEmail = user?.email || null;
   const cacheKey = userId || userEmail || null;
@@ -322,6 +325,7 @@ export default function Dashboard() {
   const [tasks, setTasks] = useState(initialCache.tasks);
   const [submissions, setSubmissions] = useState(initialCache.submissions);
   const [billboards, setBillboards] = useState(initialCache.billboards);
+  const [myAds, setMyAds] = useState(initialCache.myAds);
   const [survivalExpense, setSurvivalExpense] = useState(initialCache.survivalExpense);
   const [walletMoney, setWalletMoney] = useState(initialCache.walletMoney);
   const [expenses, setExpenses] = useState(initialCache.expenses);
@@ -356,6 +360,7 @@ export default function Dashboard() {
     setTasks(nextCache.tasks);
     setSubmissions(nextCache.submissions);
     setBillboards(nextCache.billboards);
+    setMyAds(nextCache.myAds || []);
     setSurvivalExpense(nextCache.survivalExpense);
     setWalletMoney(nextCache.walletMoney);
     setExpenses(nextCache.expenses);
@@ -511,6 +516,7 @@ export default function Dashboard() {
           tasksRes,
           submissionsRes,
           billboardsRes,
+          myAdsRes,
           expensesRes,
           profilesRes,
           walletsRes,
@@ -532,6 +538,13 @@ export default function Dashboard() {
           .order("created_at", { ascending: false })
           .limit(10),
 
+        supabase
+          .from("billboards")
+          .select("*")
+          .eq("owner_email", currentUser.email || "")
+          .order("sort_order", { ascending: true })
+          .order("created_at", { ascending: false }),
+
         supabase.from("expenses").select("*"),
 
         supabase.from("profiles").select("*"),
@@ -552,6 +565,9 @@ export default function Dashboard() {
         }
         if (billboardsRes.error) {
           console.error("Failed to load billboards:", billboardsRes.error);
+        }
+        if (myAdsRes.error) {
+          console.error("Failed to load advertiser billboards:", myAdsRes.error);
         }
         if (expensesRes.error) {
           console.error("Failed to load expenses:", expensesRes.error);
@@ -638,6 +654,7 @@ export default function Dashboard() {
           tasks: tasksRes.data || [],
           submissions: userSubmissions,
           billboards: activeBillboards,
+          myAds: myAdsRes.data || [],
           survivalExpense: readStoredSurvivalExpense(),
           walletMoney: totalWalletMoney,
           expenses: userExpenses,
@@ -967,6 +984,9 @@ export default function Dashboard() {
   const activeTask = pendingTasks.length > 0 ? pendingTasks[0] : tasks[0] || null;
 
   const safeSurvivalExpense = Number(survivalExpense) || 0;
+  const moneyAfterEssentials = safeSurvivalExpense > 0 ? walletMoney - safeSurvivalExpense : walletMoney;
+  const runwayMonths =
+    safeSurvivalExpense > 0 ? walletMoney / safeSurvivalExpense : 0;
 
   const moneyLeftStatus =
     safeSurvivalExpense <= 0
@@ -1005,6 +1025,52 @@ export default function Dashboard() {
     pendingCount > 0
       ? `${pendingCount} pending task${pendingCount > 1 ? "s" : ""}`
       : "You are caught up for now";
+
+  const moneyInsightLabel =
+    safeSurvivalExpense <= 0
+      ? "Smart setup"
+      : moneyAfterEssentials >= 0
+        ? "After essentials"
+        : "Essential gap";
+
+  const moneyInsightValue =
+    safeSurvivalExpense <= 0 ? "Add baseline" : fmt(Math.abs(moneyAfterEssentials));
+
+  const moneyInsightSub =
+    safeSurvivalExpense <= 0
+      ? "Set one monthly number to unlock runway insights."
+      : moneyAfterEssentials >= 0
+        ? "What stays available after your minimum monthly need."
+        : "What your wallets still need to fully cover essentials.";
+
+  const runwayLabel =
+    safeSurvivalExpense <= 0
+      ? "Runway"
+      : runwayMonths >= 1
+        ? "Coverage"
+        : "Buffer";
+
+  const runwayValue =
+    safeSurvivalExpense <= 0
+      ? "Waiting"
+      : `${runwayMonths.toFixed(runwayMonths >= 10 ? 0 : 1)} mo`;
+
+  const runwaySub =
+    safeSurvivalExpense <= 0
+      ? "This appears after survival expense is set."
+      : runwayMonths >= 1
+        ? "Months of essentials your wallets can support right now."
+        : "You are below one month of protection.";
+
+  const activeMyAds = useMemo(
+    () => myAds.filter((item) => isTruthyActive(item?.is_active)),
+    [myAds]
+  );
+
+  const hasMyAdsSection = isAdvertiser || myAds.length > 0;
+  const featuredMyAd = activeMyAds[0] || myAds[0] || null;
+  const featuredMyAdTitle = normalizeString(featuredMyAd?.title || featuredMyAd?.body || "Untitled ad");
+  const featuredMyAdStatus = isTruthyActive(featuredMyAd?.is_active) ? "Active" : "Inactive";
 
   const activeBillboard =
     billboards.find((item) => isTruthyActive(item?.is_active)) ||
@@ -1252,6 +1318,44 @@ export default function Dashboard() {
           />
         )}
 
+        {hasMyAdsSection && (
+          <Link to="/advertiser" className="block">
+            <div className="overflow-hidden rounded-[28px] border border-white/10 bg-[linear-gradient(135deg,rgba(8,16,31,0.98)_0%,rgba(9,34,46,0.96)_52%,rgba(16,73,58,0.9)_100%)] p-5 shadow-[0_16px_40px_rgba(0,0,0,0.24)] transition hover:translate-y-[-1px]">
+              <div className="flex items-start justify-between gap-4">
+                <div className="min-w-0 flex-1">
+                  <div className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-white/70">
+                    <Megaphone className="h-3.5 w-3.5" />
+                    My Ads
+                  </div>
+
+                  <h3 className="mt-3 text-lg font-bold text-white">
+                    {myAds.length > 0 ? `${myAds.length} ad${myAds.length > 1 ? "s" : ""} connected` : "Your billboard space is ready"}
+                  </h3>
+
+                  <p className="mt-2 max-w-[32rem] text-sm leading-relaxed text-white/70">
+                    {featuredMyAd
+                      ? `${featuredMyAdTitle} is ${featuredMyAdStatus.toLowerCase()} in the admin billboard system. Open your ad dashboard for full performance and status tracking.`
+                      : "Review your billboard placements, status, and campaign performance in one place."}
+                  </p>
+
+                  <div className="mt-4 flex flex-wrap gap-2">
+                    <span className="rounded-full border border-white/10 bg-black/20 px-3 py-1 text-xs font-medium text-white/75">
+                      {activeMyAds.length} active
+                    </span>
+                    <span className="rounded-full border border-white/10 bg-black/20 px-3 py-1 text-xs font-medium text-white/75">
+                      {Math.max(myAds.length - activeMyAds.length, 0)} inactive
+                    </span>
+                  </div>
+                </div>
+
+                <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl border border-white/10 bg-white/10">
+                  <ArrowRight className="h-5 w-5 text-white" />
+                </div>
+              </div>
+            </div>
+          </Link>
+        )}
+
         <div
           className={`rounded-3xl border bg-gradient-to-br p-4 shadow-[0_0_25px_rgba(16,185,129,0.08)] backdrop-blur-sm ${moneyLeftTone}`}
         >
@@ -1282,28 +1386,34 @@ export default function Dashboard() {
             <div className="mt-4 grid grid-cols-2 gap-3">
               <div className="rounded-2xl border border-white/10 bg-black/20 px-3 py-3">
                 <p className="text-[11px] uppercase tracking-wide text-white/50">
-                  Survival Need
+                  {moneyInsightLabel}
                 </p>
                 <p className="mt-1 text-sm font-semibold text-white">
-                  {fmt(safeSurvivalExpense)}
+                  {moneyInsightValue}
+                </p>
+                <p className="mt-1 text-[11px] leading-relaxed text-white/55">
+                  {moneyInsightSub}
                 </p>
               </div>
 
               <div className="rounded-2xl border border-white/10 bg-black/20 px-3 py-3">
                 <p className="text-[11px] uppercase tracking-wide text-white/50">
-                  Wallet Sync
+                  {runwayLabel}
                 </p>
                 <p className="mt-1 text-sm font-semibold text-white">
-                  Live from wallets
+                  {runwayValue}
+                </p>
+                <p className="mt-1 text-[11px] leading-relaxed text-white/55">
+                  {runwaySub}
                 </p>
               </div>
             </div>
           )}
         </div>
 
-        <div className="grid grid-cols-2 gap-3">
+        <div className="grid grid-cols-2 gap-3 auto-rows-fr">
           <StatCard
-            label="This Month Spent"
+            label="This Month"
             value={fmt(thisMonthSpent)}
             sub={
               thisMonthSpent > 0
@@ -1312,15 +1422,16 @@ export default function Dashboard() {
             }
             icon={TrendingDown}
             variant="blue"
+            className="min-h-[208px]"
           />
 
           {activeTask ? (
             <Link to="/tasks" className="block h-full">
-              <div className="h-full rounded-2xl border border-white/10 bg-[#0B1228] p-4">
+              <div className="flex h-full min-h-[208px] flex-col rounded-2xl border border-white/10 bg-[#0B1228] p-4 shadow-[0_8px_24px_rgba(0,0,0,0.22)]">
                 <div className="flex items-start justify-between gap-3">
                   <div className="min-w-0 flex-1">
                     <p className="text-[11px] font-semibold uppercase tracking-wide text-amber-300">
-                      Day Mission
+                      Daily Mission
                     </p>
                     <p className="mt-2 text-sm font-semibold leading-snug text-white">
                       {missionTitle}
@@ -1333,7 +1444,7 @@ export default function Dashboard() {
                   </div>
                 </div>
 
-                <p className="mt-4 text-xs text-white/70">
+                <p className="mt-auto pt-4 text-xs text-white/70">
                   Build awareness. Build control.
                 </p>
 
@@ -1345,7 +1456,7 @@ export default function Dashboard() {
               </div>
             </Link>
           ) : (
-            <div className="rounded-2xl border border-white/10 bg-[#0B1228] p-4 text-xs text-white/60">
+            <div className="flex min-h-[208px] items-center rounded-2xl border border-white/10 bg-[#0B1228] p-4 text-xs text-white/60">
               {loading ? "Loading tasks..." : "No active tasks"}
             </div>
           )}
