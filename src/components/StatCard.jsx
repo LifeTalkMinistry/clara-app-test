@@ -1,11 +1,11 @@
 export default function StatCard({
   label = "",
-  value = "—",
+  value = "-",
   sub = "",
   icon: Icon = null,
   variant = "default",
   className = "",
-  highlight = false, // 🔥 NEW (for important cards)
+  highlight = false,
 }) {
   const variants = {
     default: {
@@ -54,13 +54,13 @@ export default function StatCard({
 
   return (
     <div
-      className={`rounded-2xl p-4 transition-all duration-300 
-      active:scale-[0.97] hover:scale-[1.01]
-      ${highlight ? "ring-1 ring-emerald-400/30 shadow-[0_0_25px_rgba(16,185,129,0.15)]" : ""}
-      ${v.wrapper} ${className}`}
+      className={`flex h-full flex-col rounded-2xl p-4 transition-all duration-300 active:scale-[0.97] hover:scale-[1.01] ${
+        highlight
+          ? "ring-1 ring-emerald-400/30 shadow-[0_0_25px_rgba(16,185,129,0.15)]"
+          : ""
+      } ${v.wrapper} ${className}`}
     >
-      {/* TOP */}
-      <div className="flex items-center justify-between mb-3 gap-3">
+      <div className="mb-3 flex items-center justify-between gap-3">
         <span
           className={`text-[11px] font-semibold uppercase tracking-wide ${v.label}`}
         >
@@ -69,30 +69,27 @@ export default function StatCard({
 
         {Icon ? (
           <div
-            className={`w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 ${v.icon}`}
+            className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl ${v.icon}`}
           >
-            <Icon className="w-4 h-4" />
+            <Icon className="h-4 w-4" />
           </div>
         ) : null}
       </div>
 
-      {/* VALUE */}
-      <p
-        className={`text-2xl font-bold leading-tight break-words ${v.value}`}
-      >
+      <p className={`break-words text-2xl font-bold leading-tight ${v.value}`}>
         {value}
       </p>
 
-      {/* SUBTEXT */}
       {sub ? (
-        <p className={`text-sm mt-2 leading-snug ${v.sub}`}>
+        <p className={`mt-2 text-sm leading-snug ${v.sub}`}>
           {sub}
         </p>
       ) : null}
 
-      {/* 🔥 OPTIONAL MINI PROGRESS LINE (AUTO PREMIUM FEEL) */}
-      <div className="mt-3 h-[3px] w-full bg-white/5 rounded-full overflow-hidden">
-        <div className="h-full w-[60%] bg-white/20 rounded-full" />
+      <div className="mt-auto pt-4">
+        <div className="h-[3px] w-full overflow-hidden rounded-full bg-white/5">
+          <div className="h-full w-[60%] rounded-full bg-white/20" />
+        </div>
       </div>
     </div>
   );
