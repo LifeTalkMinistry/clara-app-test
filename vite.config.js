@@ -81,7 +81,6 @@ export default defineConfig({
   plugins: [react()],
   base: "/clara-app-test/",
   build: {
-    outDir: "docs",
     rollupOptions: {
       output: {
         manualChunks: getManualChunk,
