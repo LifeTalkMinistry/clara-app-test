@@ -1,20 +1,6 @@
-import { useEffect, useMemo, useState } from "react";
-import {
-  ArrowLeft,
-  Bell,
-  ChevronRight,
-  CreditCard,
-  KeyRound,
-  LogOut,
-  Mail,
-  Moon,
-  Save,
-  Settings2,
-  Shield,
-  Sparkles,
-  User,
-} from "lucide-react";
-import { useNavigate, useParams } from "react-router-dom";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { ArrowLeft, Bell, ChevronRight, CreditCard, KeyRound, LogOut, Mail, Moon, Save, Settings2, Shield, Sparkles, User } from "lucide-react";
+import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { supabase } from "@/lib/supabaseClient";
 
 const PLAN_STYLES = {
@@ -34,46 +20,15 @@ const ROLE_STYLES = {
 };
 
 const SECTION_META = {
-  account: {
-    label: "Account",
-    icon: User,
-    subtitle: "Identity, plan, and account overview.",
-  },
-  notifications: {
-    label: "Notifications",
-    icon: Bell,
-    subtitle: "Control reminders and product communication.",
-  },
-  privacy: {
-    label: "Privacy",
-    icon: Shield,
-    subtitle: "Manage visibility, analytics, and session privacy.",
-  },
-  security: {
-    label: "Security",
-    icon: KeyRound,
-    subtitle: "Authentication and account protection.",
-  },
-  preferences: {
-    label: "App Preferences",
-    icon: Settings2,
-    subtitle: "Display and in-app experience preferences.",
-  },
-  billing: {
-    label: "Billing",
-    icon: CreditCard,
-    subtitle: "Plan and subscription access.",
-  },
+  account: { label: "Account", icon: User, subtitle: "Identity, plan, and account overview." },
+  notifications: { label: "Notifications", icon: Bell, subtitle: "Control reminders and product communication." },
+  privacy: { label: "Privacy", icon: Shield, subtitle: "Manage visibility, analytics, and session privacy." },
+  security: { label: "Security", icon: KeyRound, subtitle: "Authentication and account protection." },
+  preferences: { label: "App Preferences", icon: Settings2, subtitle: "Display and in-app experience preferences." },
+  billing: { label: "Billing", icon: CreditCard, subtitle: "Plan and subscription access." },
 };
 
-const SECTION_ORDER = [
-  "account",
-  "notifications",
-  "privacy",
-  "security",
-  "preferences",
-  "billing",
-];
+const SECTION_ORDER = ["account", "notifications", "privacy", "security", "preferences", "billing"];
 
 function normalizeRole(profile) {
   return String(profile?.role || "user").trim().toLowerCase();
@@ -87,11 +42,7 @@ function normalizePlan(profile, role) {
 function formatDate(value) {
   if (!value) return "Not available";
   try {
-    return new Date(value).toLocaleDateString("en-PH", {
-      year: "numeric",
-      month: "long",
-      day: "numeric",
-    });
+    return new Date(value).toLocaleDateString("en-PH", { year: "numeric", month: "long", day: "numeric" });
   } catch {
     return "Not available";
   }
@@ -103,42 +54,18 @@ function getSettingsStorageKey(userId) {
 
 function readStoredSettings(userId) {
   const defaults = {
-    notifications: {
-      dailyReminders: true,
-      productUpdates: true,
-      coachingAlerts: true,
-    },
-    privacy: {
-      analyticsSharing: true,
-      showCommunityProfile: true,
-      privateMode: false,
-    },
-    preferences: {
-      compactMode: false,
-      reduceMotion: false,
-      appearance: "system",
-    },
+    notifications: { dailyReminders: true, productUpdates: true, coachingAlerts: true },
+    privacy: { analyticsSharing: true, showCommunityProfile: true, privateMode: false },
+    preferences: { compactMode: false, reduceMotion: false, appearance: "system" },
   };
-
   if (!userId) return defaults;
-
   try {
     const raw = localStorage.getItem(getSettingsStorageKey(userId));
     const parsed = raw ? JSON.parse(raw) : {};
-
     return {
-      notifications: {
-        ...defaults.notifications,
-        ...(parsed.notifications || {}),
-      },
-      privacy: {
-        ...defaults.privacy,
-        ...(parsed.privacy || {}),
-      },
-      preferences: {
-        ...defaults.preferences,
-        ...(parsed.preferences || {}),
-      },
+      notifications: { ...defaults.notifications, ...(parsed.notifications || {}) },
+      privacy: { ...defaults.privacy, ...(parsed.privacy || {}) },
+      preferences: { ...defaults.preferences, ...(parsed.preferences || {}) },
     };
   } catch (error) {
     console.error("Failed to read settings:", error);
@@ -148,12 +75,8 @@ function readStoredSettings(userId) {
 
 function saveStoredSettings(userId, nextValue) {
   if (!userId) return;
-
   try {
-    localStorage.setItem(
-      getSettingsStorageKey(userId),
-      JSON.stringify(nextValue)
-    );
+    localStorage.setItem(getSettingsStorageKey(userId), JSON.stringify(nextValue));
   } catch (error) {
     console.error("Failed to save settings:", error);
   }
@@ -170,30 +93,17 @@ function LoadingState() {
   );
 }
 
-function SectionButton({ sectionKey, active, onClick }) {
+function LauncherCard({ sectionKey, onOpen }) {
   const meta = SECTION_META[sectionKey];
   const Icon = meta.icon;
-
   return (
-    <button
-      type="button"
-      onClick={() => onClick(sectionKey)}
-      className={`flex items-center gap-3 rounded-2xl border px-4 py-3 text-left transition ${
-        active
-          ? "border-emerald-400/25 bg-emerald-500/12 text-white"
-          : "border-white/10 bg-white/5 text-white/75 hover:bg-white/10 hover:text-white"
-      }`}
-    >
-      <div
-        className={`flex h-10 w-10 items-center justify-center rounded-xl ${
-          active ? "bg-emerald-500/15 text-emerald-300" : "bg-white/5 text-white/70"
-        }`}
-      >
-        <Icon size={16} />
+    <button type="button" onClick={() => onOpen(sectionKey)} className="launcher-card">
+      <div className="launcher-icon">
+        <Icon size={18} />
       </div>
-      <div className="min-w-0 flex-1">
-        <p className="text-sm font-semibold">{meta.label}</p>
-        <p className="text-xs text-white/50">{meta.subtitle}</p>
+      <div className="min-w-0 flex-1 text-left">
+        <p className="text-sm font-semibold text-white">{meta.label}</p>
+        <p className="mt-1 text-xs text-white/50">{meta.subtitle}</p>
       </div>
       <ChevronRight size={16} className="text-white/30" />
     </button>
@@ -206,9 +116,7 @@ function Panel({ title, subtitle, children, action }) {
       <div className="border-b border-white/10 px-5 py-4">
         <div className="flex items-start justify-between gap-4">
           <div>
-            <p className="text-xs uppercase tracking-[0.24em] text-emerald-300/70">
-              Settings
-            </p>
+            <p className="text-xs uppercase tracking-[0.24em] text-emerald-300/70">Settings</p>
             <h2 className="mt-1 text-xl font-bold text-white">{title}</h2>
             <p className="mt-1 text-sm text-white/60">{subtitle}</p>
           </div>
@@ -245,19 +153,8 @@ function ToggleRow({ label, description, checked, onChange }) {
         <p className="text-sm font-semibold text-white">{label}</p>
         <p className="mt-1 text-xs leading-relaxed text-white/55">{description}</p>
       </div>
-      <button
-        type="button"
-        onClick={onChange}
-        className={`relative h-7 w-12 rounded-full transition ${
-          checked ? "bg-emerald-500" : "bg-white/15"
-        }`}
-        aria-pressed={checked}
-      >
-        <span
-          className={`absolute top-1 h-5 w-5 rounded-full bg-white transition ${
-            checked ? "left-6" : "left-1"
-          }`}
-        />
+      <button type="button" onClick={onChange} className={`relative h-7 w-12 rounded-full transition ${checked ? "bg-emerald-500" : "bg-white/15"}`} aria-pressed={checked}>
+        <span className={`absolute top-1 h-5 w-5 rounded-full bg-white transition ${checked ? "left-6" : "left-1"}`} />
       </button>
     </div>
   );
@@ -266,8 +163,16 @@ function ToggleRow({ label, description, checked, onChange }) {
 export default function Settings() {
   const navigate = useNavigate();
   const { section } = useParams();
+  const [searchParams] = useSearchParams();
 
   const normalizedSection = SECTION_META[section] ? section : "account";
+  const viewParam = searchParams.get("view");
+  const detailSection = normalizedSection === "account" && SECTION_META[viewParam]
+    ? viewParam
+    : normalizedSection !== "account"
+    ? normalizedSection
+    : null;
+  const isLauncherView = detailSection === null;
 
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -275,12 +180,8 @@ export default function Settings() {
   const [userId, setUserId] = useState(null);
   const [profile, setProfile] = useState(null);
   const [authUser, setAuthUser] = useState(null);
-  const [settingsState, setSettingsState] = useState(() =>
-    readStoredSettings(null)
-  );
-  const [initialSettingsState, setInitialSettingsState] = useState(() =>
-    readStoredSettings(null)
-  );
+  const [settingsState, setSettingsState] = useState(() => readStoredSettings(null));
+  const [initialSettingsState, setInitialSettingsState] = useState(() => readStoredSettings(null));
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
 
@@ -291,56 +192,41 @@ export default function Settings() {
   }, [section, navigate]);
 
   useEffect(() => {
-    let mounted = true;
+    window.scrollTo({ top: 0, behavior: "instant" });
+  }, [detailSection]);
 
+  useEffect(() => {
+    let mounted = true;
     const load = async () => {
       try {
         setLoading(true);
         setError("");
         setMessage("");
-
-        const {
-          data: { user },
-          error: userError,
-        } = await supabase.auth.getUser();
-
+        const { data: { user }, error: userError } = await supabase.auth.getUser();
         if (userError) throw userError;
-
         if (!user) {
           navigate("/login");
           return;
         }
-
         if (!mounted) return;
-
         setUserId(user.id);
         setAuthUser(user);
-
-        const { data: profileData, error: profileError } = await supabase
-          .from("profiles")
-          .select("*")
-          .eq("id", user.id)
-          .maybeSingle();
-
+        const { data: profileData, error: profileError } = await supabase.from("profiles").select("*").eq("id", user.id).maybeSingle();
         if (profileError) throw profileError;
         if (!mounted) return;
-
         const safeProfile = profileData || {};
         const stored = readStoredSettings(user.id);
-
         setProfile(safeProfile);
         setSettingsState(stored);
         setInitialSettingsState(stored);
-      } catch (e) {
-        console.error("Settings load error:", e);
+      } catch (loadError) {
+        console.error("Settings load error:", loadError);
         if (mounted) setError("Failed to load settings.");
       } finally {
         if (mounted) setLoading(false);
       }
     };
-
     load();
-
     return () => {
       mounted = false;
     };
@@ -348,86 +234,62 @@ export default function Settings() {
 
   const role = useMemo(() => normalizeRole(profile), [profile]);
   const plan = useMemo(() => normalizePlan(profile, role), [profile, role]);
-
-  const roleLabel =
-    role === "admin"
-      ? "Admin"
-      : role === "student"
-      ? "Student"
-      : role === "paid_user"
-      ? "Paid User"
-      : role === "free_user"
-      ? "Free User"
-      : "User";
-
-  const planLabel =
-    plan === "admin"
-      ? "Admin"
-      : plan === "transformation"
-      ? "Transformation"
-      : plan === "elite"
-      ? "Elite"
-      : plan === "basic"
-      ? "Basic"
-      : "Free";
-
+  const roleLabel = role === "admin" ? "Admin" : role === "student" ? "Student" : role === "paid_user" ? "Paid User" : role === "free_user" ? "Free User" : "User";
+  const planLabel = plan === "admin" ? "Admin" : plan === "transformation" ? "Transformation" : plan === "elite" ? "Elite" : plan === "basic" ? "Basic" : "Free";
   const email = profile?.email || authUser?.email || "";
   const joinedAt = profile?.created_at || authUser?.created_at;
-  const enrollmentStatus = String(
-    profile?.enrollment_status || profile?.status || "free"
-  )
-    .replaceAll("_", " ")
-    .replace(/\b\w/g, (char) => char.toUpperCase());
+  const enrollmentStatus = String(profile?.enrollment_status || profile?.status || "free").replaceAll("_", " ").replace(/\b\w/g, (char) => char.toUpperCase());
 
   const dirty = useMemo(() => {
-    if (normalizedSection === "notifications") {
-      return (
-        JSON.stringify(settingsState.notifications) !==
-        JSON.stringify(initialSettingsState.notifications)
-      );
+    if (detailSection === "notifications") {
+      return JSON.stringify(settingsState.notifications) !== JSON.stringify(initialSettingsState.notifications);
     }
-
-    if (normalizedSection === "privacy") {
-      return (
-        JSON.stringify(settingsState.privacy) !==
-        JSON.stringify(initialSettingsState.privacy)
-      );
+    if (detailSection === "privacy") {
+      return JSON.stringify(settingsState.privacy) !== JSON.stringify(initialSettingsState.privacy);
     }
-
-    if (normalizedSection === "preferences") {
-      return (
-        JSON.stringify(settingsState.preferences) !==
-        JSON.stringify(initialSettingsState.preferences)
-      );
+    if (detailSection === "preferences") {
+      return JSON.stringify(settingsState.preferences) !== JSON.stringify(initialSettingsState.preferences);
     }
-
     return false;
-  }, [initialSettingsState, normalizedSection, settingsState]);
+  }, [detailSection, initialSettingsState, settingsState]);
 
-  const handleSectionChange = (nextSection) => {
+  const activeMeta = detailSection ? SECTION_META[detailSection] : null;
+
+  const openSection = useCallback((nextSection) => {
+    setMessage("");
+    setError("");
+    if (nextSection === "account") {
+      navigate("/settings/account?view=account");
+      return;
+    }
     navigate(`/settings/${nextSection}`);
-  };
+  }, [navigate]);
 
-  const updateNestedSetting = (group, key, value) => {
+  const handleBack = useCallback(() => {
+    setMessage("");
+    setError("");
+    if (detailSection) {
+      navigate("/settings/account");
+      return;
+    }
+    navigate(-1);
+  }, [detailSection, navigate]);
+
+  const updateNestedSetting = useCallback((group, key, value) => {
     setSettingsState((prev) => ({
       ...prev,
-      [group]: {
-        ...prev[group],
-        [key]: value,
-      },
+      [group]: { ...prev[group], [key]: value },
     }));
-    if (message) setMessage("");
-    if (error) setError("");
-  };
+    setMessage("");
+    setError("");
+  }, []);
 
-  const handleSave = () => {
-    if (!userId) return;
-
+  const handleSave = useCallback(() => {
+    if (!userId || !detailSection || !dirty) return;
     try {
       setSaving(true);
       setError("");
       setMessage("");
-
       saveStoredSettings(userId, settingsState);
       setInitialSettingsState(settingsState);
       setMessage("Settings updated successfully.");
@@ -437,28 +299,20 @@ export default function Settings() {
     } finally {
       setSaving(false);
     }
-  };
+  }, [detailSection, dirty, settingsState, userId]);
 
-  const handlePasswordReset = async () => {
+  const handlePasswordReset = useCallback(async () => {
     if (!email) return;
-
     try {
       setPasswordSending(true);
       setError("");
       setMessage("");
-
       const base = import.meta.env.BASE_URL || "/";
       const normalizedBase = base.endsWith("/") ? base : `${base}/`;
-
-      const { error: resetError } = await supabase.auth.resetPasswordForEmail(
-        email,
-        {
-          redirectTo: `${window.location.origin}${normalizedBase}#/login`,
-        }
-      );
-
+      const { error: resetError } = await supabase.auth.resetPasswordForEmail(email, {
+        redirectTo: `${window.location.origin}${normalizedBase}#/login`,
+      });
       if (resetError) throw resetError;
-
       setMessage("Password reset email sent. Check your inbox to continue.");
     } catch (resetError) {
       console.error("Password reset error:", resetError);
@@ -466,411 +320,197 @@ export default function Settings() {
     } finally {
       setPasswordSending(false);
     }
-  };
+  }, [email]);
 
-  if (loading) {
-    return <LoadingState />;
-  }
-
-  const activeMeta = SECTION_META[normalizedSection];
+  if (loading) return <LoadingState />;
 
   return (
     <div className="min-h-screen bg-[#020817] text-white px-4 pt-4 pb-32">
       <div className="mx-auto max-w-md">
         <div className="mb-5 flex items-center justify-between">
-          <button onClick={() => navigate(-1)} className="btn">
+          <button onClick={handleBack} className="btn">
             <ArrowLeft size={18} />
           </button>
 
           <div className="text-center">
-            <p className="text-[11px] uppercase tracking-[0.28em] text-emerald-300/70">
-              Control Center
-            </p>
-            <h1 className="mt-1 text-lg font-bold">Settings</h1>
+            <p className="text-[11px] uppercase tracking-[0.28em] text-emerald-300/70">Control Center</p>
+            <h1 className="mt-1 text-lg font-bold">{isLauncherView ? "Settings" : activeMeta.label}</h1>
           </div>
 
-          <button
-            onClick={handleSave}
-            disabled={!dirty || saving}
-            className={`saveBtn ${!dirty || saving ? "saveBtnDisabled" : ""}`}
-          >
-            <Save size={16} />
-          </button>
+          {detailSection ? (
+            <button onClick={handleSave} disabled={!dirty || saving} className={`saveBtn ${!dirty || saving ? "saveBtnDisabled" : ""}`}>
+              <Save size={16} />
+            </button>
+          ) : (
+            <div className="spacer" />
+          )}
         </div>
 
         {error ? <div className="alert error">{error}</div> : null}
         {message ? <div className="alert success">{message}</div> : null}
 
-        <div className="mb-4 rounded-[28px] border border-emerald-400/10 bg-[#04111f] overflow-hidden">
-          <div className="bg-gradient-to-r from-[#0b3b2e] via-[#0f8f5a] to-[#0ea5e9] px-5 py-5">
-            <div className="flex items-start justify-between gap-4">
-              <div className="min-w-0">
-                <p className="text-[10px] uppercase tracking-[0.22em] text-white/70">
-                  Account
-                </p>
-                <h2 className="mt-1 truncate text-2xl font-bold">
-                  {profile?.full_name || email.split("@")[0] || "CLARA User"}
-                </h2>
-                <p className="mt-1 truncate text-sm text-white/75">{email}</p>
-              </div>
-
-              <div className="flex flex-col items-end gap-2">
-                <span className={`badge ${ROLE_STYLES[role] || ROLE_STYLES.user}`}>
-                  {roleLabel}
-                </span>
-                <span className={`badge ${PLAN_STYLES[plan] || PLAN_STYLES.free}`}>
-                  {planLabel}
-                </span>
-              </div>
-            </div>
-          </div>
-
-          <div className="grid gap-3 p-4">
-            {SECTION_ORDER.map((sectionKey) => (
-              <SectionButton
-                key={sectionKey}
-                sectionKey={sectionKey}
-                active={normalizedSection === sectionKey}
-                onClick={handleSectionChange}
-              />
-            ))}
-          </div>
-        </div>
-
-        <Panel title={activeMeta.label} subtitle={activeMeta.subtitle}>
-          {normalizedSection === "account" && (
-            <div className="space-y-3">
-              <InfoRow
-                icon={Mail}
-                label="Email Address"
-                value={email || "Not available"}
-                hint="Managed by your authenticated account."
-              />
-              <InfoRow
-                icon={User}
-                label="Profile Details"
-                value={profile?.full_name || "No name saved yet"}
-                hint="Personal details live in your dedicated Profile screen."
-                action={
-                  <button
-                    type="button"
-                    onClick={() => navigate("/profile")}
-                    className="rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-xs font-semibold text-white/85 transition hover:bg-white/10"
-                  >
-                    Open Profile
-                  </button>
-                }
-              />
-              <InfoRow
-                icon={CreditCard}
-                label="Plan & Access"
-                value={`${planLabel} • ${enrollmentStatus}`}
-                hint={`Member since ${formatDate(joinedAt)}.`}
-              />
-            </div>
-          )}
-
-          {normalizedSection === "notifications" && (
-            <div className="space-y-3">
-              <ToggleRow
-                label="Daily reminders"
-                description="Receive your regular CLARA reminder and day-start prompt."
-                checked={settingsState.notifications.dailyReminders}
-                onChange={() =>
-                  updateNestedSetting(
-                    "notifications",
-                    "dailyReminders",
-                    !settingsState.notifications.dailyReminders
-                  )
-                }
-              />
-              <ToggleRow
-                label="Coaching alerts"
-                description="Get updates for coaching-related activity and important progress prompts."
-                checked={settingsState.notifications.coachingAlerts}
-                onChange={() =>
-                  updateNestedSetting(
-                    "notifications",
-                    "coachingAlerts",
-                    !settingsState.notifications.coachingAlerts
-                  )
-                }
-              />
-              <ToggleRow
-                label="Product updates"
-                description="Hear about meaningful feature updates and CLARA announcements."
-                checked={settingsState.notifications.productUpdates}
-                onChange={() =>
-                  updateNestedSetting(
-                    "notifications",
-                    "productUpdates",
-                    !settingsState.notifications.productUpdates
-                  )
-                }
-              />
-            </div>
-          )}
-
-          {normalizedSection === "privacy" && (
-            <div className="space-y-3">
-              <ToggleRow
-                label="Analytics sharing"
-                description="Allow anonymous product analytics to help improve CLARA."
-                checked={settingsState.privacy.analyticsSharing}
-                onChange={() =>
-                  updateNestedSetting(
-                    "privacy",
-                    "analyticsSharing",
-                    !settingsState.privacy.analyticsSharing
-                  )
-                }
-              />
-              <ToggleRow
-                label="Community visibility"
-                description="Show your profile presence in community-facing experiences where applicable."
-                checked={settingsState.privacy.showCommunityProfile}
-                onChange={() =>
-                  updateNestedSetting(
-                    "privacy",
-                    "showCommunityProfile",
-                    !settingsState.privacy.showCommunityProfile
-                  )
-                }
-              />
-              <ToggleRow
-                label="Private mode"
-                description="Reduce public-facing presence and keep the experience more low-profile."
-                checked={settingsState.privacy.privateMode}
-                onChange={() =>
-                  updateNestedSetting(
-                    "privacy",
-                    "privateMode",
-                    !settingsState.privacy.privateMode
-                  )
-                }
-              />
-            </div>
-          )}
-
-          {normalizedSection === "security" && (
-            <div className="space-y-3">
-              <InfoRow
-                icon={KeyRound}
-                label="Password Reset"
-                value="Send a secure password reset email to your login address."
-                hint="Best for updating credentials without leaving the app flow."
-                action={
-                  <button
-                    type="button"
-                    onClick={handlePasswordReset}
-                    disabled={passwordSending}
-                    className="rounded-xl border border-emerald-400/20 bg-emerald-500/15 px-3 py-2 text-xs font-semibold text-emerald-300 transition hover:bg-emerald-500/20 disabled:opacity-60"
-                  >
-                    {passwordSending ? "Sending..." : "Send Reset"}
-                  </button>
-                }
-              />
-              <InfoRow
-                icon={LogOut}
-                label="Current Session"
-                value="Sign out of this device when you are done."
-                hint="Useful on shared or borrowed devices."
-                action={
-                  <button
-                    type="button"
-                    onClick={async () => {
-                      await supabase.auth.signOut();
-                      navigate("/login");
-                    }}
-                    className="rounded-xl border border-red-400/20 bg-red-500/10 px-3 py-2 text-xs font-semibold text-red-300 transition hover:bg-red-500/15"
-                  >
-                    Log Out
-                  </button>
-                }
-              />
-            </div>
-          )}
-
-          {normalizedSection === "preferences" && (
-            <div className="space-y-3">
-              <ToggleRow
-                label="Compact mode"
-                description="Tighten spacing slightly for a denser dashboard view."
-                checked={settingsState.preferences.compactMode}
-                onChange={() =>
-                  updateNestedSetting(
-                    "preferences",
-                    "compactMode",
-                    !settingsState.preferences.compactMode
-                  )
-                }
-              />
-              <ToggleRow
-                label="Reduce motion"
-                description="Minimize animation intensity across the app."
-                checked={settingsState.preferences.reduceMotion}
-                onChange={() =>
-                  updateNestedSetting(
-                    "preferences",
-                    "reduceMotion",
-                    !settingsState.preferences.reduceMotion
-                  )
-                }
-              />
-              <div className="rounded-2xl border border-white/10 bg-white/5 p-4">
-                <div className="mb-3 flex items-center gap-3">
-                  <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-white/5 text-white/70">
-                    <Moon size={16} />
+        {isLauncherView ? (
+          <>
+            <div className="mb-4 overflow-hidden rounded-[28px] border border-emerald-400/10 bg-[#04111f]">
+              <div className="bg-gradient-to-r from-[#0b3b2e] via-[#0f8f5a] to-[#0ea5e9] px-5 py-5">
+                <div className="flex items-start justify-between gap-4">
+                  <div className="min-w-0">
+                    <p className="text-[10px] uppercase tracking-[0.22em] text-white/70">Account</p>
+                    <h2 className="mt-1 truncate text-2xl font-bold">{profile?.full_name || email.split("@")[0] || "CLARA User"}</h2>
+                    <p className="mt-1 truncate text-sm text-white/75">{email}</p>
                   </div>
-                  <div>
-                    <p className="text-sm font-semibold text-white">Appearance</p>
-                    <p className="text-xs text-white/55">
-                      Choose how CLARA should follow your device appearance.
-                    </p>
+                  <div className="flex flex-col items-end gap-2">
+                    <span className={`badge ${ROLE_STYLES[role] || ROLE_STYLES.user}`}>{roleLabel}</span>
+                    <span className={`badge ${PLAN_STYLES[plan] || PLAN_STYLES.free}`}>{planLabel}</span>
                   </div>
                 </div>
-
-                <div className="grid grid-cols-3 gap-2">
-                  {["system", "dark", "light"].map((option) => (
-                    <button
-                      key={option}
-                      type="button"
-                      onClick={() =>
-                        updateNestedSetting("preferences", "appearance", option)
-                      }
-                      className={`rounded-2xl border px-3 py-3 text-xs font-semibold capitalize transition ${
-                        settingsState.preferences.appearance === option
-                          ? "border-emerald-400/25 bg-emerald-500/12 text-emerald-300"
-                          : "border-white/10 bg-black/20 text-white/70 hover:bg-white/10 hover:text-white"
-                      }`}
-                    >
-                      {option}
-                    </button>
-                  ))}
-                </div>
+              </div>
+              <div className="px-5 py-4">
+                <p className="text-sm text-white/65">Open a focused settings area to manage your account, privacy, notifications, security, preferences, and billing without losing your place.</p>
               </div>
             </div>
-          )}
 
-          {normalizedSection === "billing" && (
             <div className="space-y-3">
-              <InfoRow
-                icon={CreditCard}
-                label="Current Plan"
-                value={planLabel}
-                hint="Billing and access are tied to your CLARA enrollment status."
-              />
-              <InfoRow
-                icon={Sparkles}
-                label="Enrollment Status"
-                value={enrollmentStatus}
-                hint="Use the enrollment flow to upgrade or re-enter the program."
-                action={
-                  <button
-                    type="button"
-                    onClick={() => navigate("/enroll")}
-                    className="rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-xs font-semibold text-white/85 transition hover:bg-white/10"
-                  >
-                    Manage Plan
-                  </button>
-                }
-              />
+              {SECTION_ORDER.map((sectionKey) => (
+                <LauncherCard key={sectionKey} sectionKey={sectionKey} onOpen={openSection} />
+              ))}
             </div>
-          )}
-        </Panel>
-      </div>
-
-      <div className="saveWrap">
-        <div className="mx-auto max-w-md">
-          <button
-            onClick={handleSave}
-            disabled={!dirty || saving}
-            className={`saveMain ${!dirty || saving ? "saveMainDisabled" : ""}`}
+          </>
+        ) : (
+          <Panel
+            title={activeMeta.label}
+            subtitle={activeMeta.subtitle}
+            action={detailSection === "notifications" || detailSection === "privacy" || detailSection === "preferences" ? (
+              <button type="button" onClick={handleSave} disabled={!dirty || saving} className={`panelSave ${!dirty || saving ? "panelSaveDisabled" : ""}`}>
+                {saving ? "Saving..." : "Save"}
+              </button>
+            ) : null}
           >
-            {saving ? "Saving..." : "Save Settings"}
-          </button>
-        </div>
+            {detailSection === "account" && (
+              <div className="space-y-3">
+                <InfoRow icon={Mail} label="Email Address" value={email || "Not available"} hint="Managed by your authenticated account." />
+                <InfoRow
+                  icon={User}
+                  label="Profile Details"
+                  value={profile?.full_name || "No name saved yet"}
+                  hint="Personal details live in your dedicated Profile screen."
+                  action={<button type="button" onClick={() => navigate("/profile")} className="inlineAction">Open Profile</button>}
+                />
+                <InfoRow icon={CreditCard} label="Plan & Access" value={`${planLabel} - ${enrollmentStatus}`} hint={`Member since ${formatDate(joinedAt)}.`} />
+              </div>
+            )}
+
+            {detailSection === "notifications" && (
+              <div className="space-y-3">
+                <ToggleRow label="Daily reminders" description="Receive your regular CLARA reminder and day-start prompt." checked={settingsState.notifications.dailyReminders} onChange={() => updateNestedSetting("notifications", "dailyReminders", !settingsState.notifications.dailyReminders)} />
+                <ToggleRow label="Coaching alerts" description="Get updates for coaching-related activity and important progress prompts." checked={settingsState.notifications.coachingAlerts} onChange={() => updateNestedSetting("notifications", "coachingAlerts", !settingsState.notifications.coachingAlerts)} />
+                <ToggleRow label="Product updates" description="Hear about meaningful feature updates and CLARA announcements." checked={settingsState.notifications.productUpdates} onChange={() => updateNestedSetting("notifications", "productUpdates", !settingsState.notifications.productUpdates)} />
+              </div>
+            )}
+
+            {detailSection === "privacy" && (
+              <div className="space-y-3">
+                <ToggleRow label="Analytics sharing" description="Allow anonymous product analytics to help improve CLARA." checked={settingsState.privacy.analyticsSharing} onChange={() => updateNestedSetting("privacy", "analyticsSharing", !settingsState.privacy.analyticsSharing)} />
+                <ToggleRow label="Community visibility" description="Show your profile presence in community-facing experiences where applicable." checked={settingsState.privacy.showCommunityProfile} onChange={() => updateNestedSetting("privacy", "showCommunityProfile", !settingsState.privacy.showCommunityProfile)} />
+                <ToggleRow label="Private mode" description="Reduce public-facing presence and keep the experience more low-profile." checked={settingsState.privacy.privateMode} onChange={() => updateNestedSetting("privacy", "privateMode", !settingsState.privacy.privateMode)} />
+              </div>
+            )}
+
+            {detailSection === "security" && (
+              <div className="space-y-3">
+                <InfoRow
+                  icon={KeyRound}
+                  label="Password Reset"
+                  value="Send a secure password reset email to your login address."
+                  hint="Best for updating credentials without leaving the app flow."
+                  action={<button type="button" onClick={handlePasswordReset} disabled={passwordSending} className="inlineAction inlineActionPrimary">{passwordSending ? "Sending..." : "Send Reset"}</button>}
+                />
+                <InfoRow
+                  icon={LogOut}
+                  label="Current Session"
+                  value="Sign out of this device when you are done."
+                  hint="Useful on shared or borrowed devices."
+                  action={<button type="button" onClick={async () => { await supabase.auth.signOut(); navigate("/login"); }} className="inlineAction inlineActionDanger">Log Out</button>}
+                />
+              </div>
+            )}
+
+            {detailSection === "preferences" && (
+              <div className="space-y-3">
+                <ToggleRow label="Compact mode" description="Tighten spacing slightly for a denser dashboard view." checked={settingsState.preferences.compactMode} onChange={() => updateNestedSetting("preferences", "compactMode", !settingsState.preferences.compactMode)} />
+                <ToggleRow label="Reduce motion" description="Minimize animation intensity across the app." checked={settingsState.preferences.reduceMotion} onChange={() => updateNestedSetting("preferences", "reduceMotion", !settingsState.preferences.reduceMotion)} />
+                <div className="rounded-2xl border border-white/10 bg-white/5 p-4">
+                  <div className="mb-3 flex items-center gap-3">
+                    <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-white/5 text-white/70">
+                      <Moon size={16} />
+                    </div>
+                    <div>
+                      <p className="text-sm font-semibold text-white">Appearance</p>
+                      <p className="text-xs text-white/55">Choose how CLARA should follow your device appearance.</p>
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-3 gap-2">
+                    {["system", "dark", "light"].map((option) => (
+                      <button
+                        key={option}
+                        type="button"
+                        onClick={() => updateNestedSetting("preferences", "appearance", option)}
+                        className={`rounded-2xl border px-3 py-3 text-xs font-semibold capitalize transition ${settingsState.preferences.appearance === option ? "border-emerald-400/25 bg-emerald-500/12 text-emerald-300" : "border-white/10 bg-black/20 text-white/70 hover:bg-white/10 hover:text-white"}`}
+                      >
+                        {option}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {detailSection === "billing" && (
+              <div className="space-y-3">
+                <InfoRow icon={CreditCard} label="Current Plan" value={planLabel} hint="Billing and access are tied to your CLARA enrollment status." />
+                <InfoRow
+                  icon={Sparkles}
+                  label="Enrollment Status"
+                  value={enrollmentStatus}
+                  hint="Use the enrollment flow to upgrade or re-enter the program."
+                  action={<button type="button" onClick={() => navigate("/enroll")} className="inlineAction">Manage Plan</button>}
+                />
+              </div>
+            )}
+          </Panel>
+        )}
       </div>
+
+      {detailSection && (detailSection === "notifications" || detailSection === "privacy" || detailSection === "preferences") ? (
+        <div className="saveWrap">
+          <div className="mx-auto max-w-md">
+            <button onClick={handleSave} disabled={!dirty || saving} className={`saveMain ${!dirty || saving ? "saveMainDisabled" : ""}`}>
+              {saving ? "Saving..." : "Save Settings"}
+            </button>
+          </div>
+        </div>
+      ) : null}
 
       <style>{`
-        .btn {
-          height: 44px;
-          width: 44px;
-          border-radius: 14px;
-          background: rgba(255,255,255,0.05);
-          border: 1px solid rgba(255,255,255,0.08);
-          display: flex;
-          align-items: center;
-          justify-content: center;
-        }
-
-        .saveBtn {
-          height: 44px;
-          width: 44px;
-          border-radius: 14px;
-          background: linear-gradient(135deg,#10b981,#06b6d4);
-          color: white;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          border: none;
-        }
-
-        .saveBtnDisabled {
-          opacity: 0.5;
-          cursor: not-allowed;
-        }
-
-        .badge {
-          padding: 4px 10px;
-          border-radius: 999px;
-          font-size: 12px;
-          border: 1px solid;
-          white-space: nowrap;
-        }
-
-        .alert {
-          margin-bottom: 14px;
-          padding: 12px 14px;
-          border-radius: 14px;
-          font-size: 14px;
-        }
-
-        .alert.error {
-          background: rgba(239, 68, 68, 0.12);
-          border: 1px solid rgba(239, 68, 68, 0.22);
-          color: #fca5a5;
-        }
-
-        .alert.success {
-          background: rgba(16, 185, 129, 0.12);
-          border: 1px solid rgba(16, 185, 129, 0.22);
-          color: #86efac;
-        }
-
-        .saveWrap {
-          position: fixed;
-          left: 0;
-          right: 0;
-          bottom: 0;
-          padding: 16px;
-          background: linear-gradient(to top,#020817,transparent);
-        }
-
-        .saveMain {
-          width: 100%;
-          padding: 16px;
-          border-radius: 16px;
-          background: linear-gradient(135deg,#10b981,#06b6d4);
-          font-weight: bold;
-          color: white;
-          border: none;
-        }
-
-        .saveMainDisabled {
-          opacity: 0.5;
-          cursor: not-allowed;
-        }
+        .btn{height:44px;width:44px;border-radius:14px;background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.08);display:flex;align-items:center;justify-content:center}
+        .spacer{width:44px;height:44px}
+        .saveBtn{height:44px;width:44px;border-radius:14px;background:linear-gradient(135deg,#10b981,#06b6d4);color:white;display:flex;align-items:center;justify-content:center;border:none}
+        .saveBtnDisabled{opacity:.5;cursor:not-allowed}
+        .badge{padding:4px 10px;border-radius:999px;font-size:12px;border:1px solid;white-space:nowrap}
+        .alert{margin-bottom:14px;padding:12px 14px;border-radius:14px;font-size:14px}
+        .alert.error{background:rgba(239,68,68,.12);border:1px solid rgba(239,68,68,.22);color:#fca5a5}
+        .alert.success{background:rgba(16,185,129,.12);border:1px solid rgba(16,185,129,.22);color:#86efac}
+        .launcher-card{width:100%;display:flex;align-items:center;gap:14px;padding:16px;border-radius:22px;border:1px solid rgba(255,255,255,.08);background:rgba(255,255,255,.05);transition:transform .18s ease,background-color .18s ease,border-color .18s ease}
+        .launcher-card:active{transform:scale(.99)}
+        .launcher-icon{width:44px;height:44px;border-radius:16px;display:flex;align-items:center;justify-content:center;background:rgba(255,255,255,.06);color:#86efac;flex-shrink:0}
+        .inlineAction{border-radius:12px;border:1px solid rgba(255,255,255,.1);background:rgba(255,255,255,.05);padding:10px 12px;font-size:12px;font-weight:600;color:rgba(255,255,255,.88);transition:.18s ease}
+        .inlineActionPrimary{border-color:rgba(16,185,129,.2);background:rgba(16,185,129,.12);color:#6ee7b7}
+        .inlineActionDanger{border-color:rgba(248,113,113,.2);background:rgba(248,113,113,.1);color:#fca5a5}
+        .panelSave{border-radius:12px;border:1px solid rgba(16,185,129,.18);background:rgba(16,185,129,.12);padding:10px 14px;font-size:12px;font-weight:700;color:#86efac}
+        .panelSaveDisabled{opacity:.5;cursor:not-allowed}
+        .saveWrap{position:fixed;left:0;right:0;bottom:0;padding:16px;background:linear-gradient(to top,#020817,transparent)}
+        .saveMain{width:100%;padding:16px;border-radius:16px;background:linear-gradient(135deg,#10b981,#06b6d4);font-weight:bold;color:white;border:none}
+        .saveMainDisabled{opacity:.5;cursor:not-allowed}
       `}</style>
     </div>
   );
