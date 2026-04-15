@@ -1,4 +1,5 @@
 const DEFAULT_STARTER_DAY_LIMIT = 5;
+const PROGRAM_LENGTH = 30;
 
 const COMPLETE_STATUSES = new Set(["pending", "submitted", "reviewed", "approved", "completed"]);
 const REVISION_STATUSES = new Set(["rejected", "needs_revision"]);
@@ -36,16 +37,90 @@ function toPositiveInt(...values) {
   return null;
 }
 
+function normalizeTierAccess(value) {
+  if (Array.isArray(value)) {
+    return value.map(normalizeLower).filter(Boolean);
+  }
+
+  const raw = normalize(value);
+  if (!raw) return [];
+
+  try {
+    const parsed = JSON.parse(raw);
+    if (Array.isArray(parsed)) {
+      return parsed.map(normalizeLower).filter(Boolean);
+    }
+  } catch {
+    // ignore
+  }
+
+  return raw
+    .split(",")
+    .map((item) => normalizeLower(item))
+    .filter(Boolean);
+}
+
 function sortTasks(tasks = []) {
   return [...tasks].sort((a, b) => {
-    const weekDiff = Number(a.week || a.week_number || 0) - Number(b.week || b.week_number || 0);
-    if (weekDiff !== 0) return weekDiff;
+    const sortDiff = Number(a.sort_order || 0) - Number(b.sort_order || 0);
+    if (sortDiff !== 0) return sortDiff;
 
     const dayDiff = Number(a.day || a.day_number || 0) - Number(b.day || b.day_number || 0);
     if (dayDiff !== 0) return dayDiff;
 
-    return Number(a.sort_order || 0) - Number(b.sort_order || 0);
+    return Number(a.week || a.week_number || 0) - Number(b.week || b.week_number || 0);
   });
+}
+
+export function normalizeProgramTask(task = {}) {
+  const day = Number(task.day ?? task.day_number ?? task.sort_order ?? 1);
+  const week = Number(task.week ?? task.week_number ?? (Math.ceil(day / 7) || 1));
+  const sortOrder = Number(task.sort_order ?? day ?? 0);
+  const title = normalize(task.title || `Day ${day}`);
+  const description = normalize(task.description);
+  const taskInstruction = normalize(
+    task.task_instruction || task.main_action_instruction || task.main_instruction || description
+  );
+  const whyThisMatters = normalize(task.why_this_matters || task.main_why_it_matters || task.why_it_matters);
+  const rewardTitle = normalize(task.reward_title || `Day ${day} Complete`);
+
+  return {
+    ...task,
+    week,
+    day,
+    week_number: week,
+    day_number: day,
+    sort_order: sortOrder,
+    title,
+    short_label: normalize(task.short_label || title),
+    theme: normalize(task.theme || ""),
+    description,
+    why_this_matters: whyThisMatters,
+    task_instruction: taskInstruction,
+    reflection_prompt: normalize(task.reflection_prompt || ""),
+    journal_placeholder: normalize(task.journal_placeholder || ""),
+    question_1: normalize(task.question_1 || ""),
+    question_2: normalize(task.question_2 || ""),
+    question_3: normalize(task.question_3 || ""),
+    completion_button_text: normalize(task.completion_button_text || "Mark Complete"),
+    milestone_type: normalizeLower(task.milestone_type || ""),
+    reward_title: rewardTitle,
+    reward_message: normalize(task.reward_message || ""),
+    estimated_minutes: Number(task.estimated_minutes || 10),
+    tier_access: normalizeTierAccess(task.tier_access),
+    is_active: typeof task.is_active === "boolean" ? task.is_active : task.status !== "inactive",
+    program_family: normalize(task.program_family || "reset_30"),
+    program_template_key: normalize(task.program_template_key || `day_${String(day).padStart(2, "0")}`),
+
+    difficulty_mode_enabled: !!task.difficulty_mode_enabled,
+    main_action_instruction: taskInstruction,
+    main_why_it_matters: whyThisMatters,
+    main_optional_guidance: normalize(task.main_optional_guidance || task.optional_guidance || ""),
+    main_points: Number(task.main_points ?? task.points ?? 10),
+    proof_required: task.proof_required || "none",
+    require_detailed_answer: !!task.require_detailed_answer,
+    interview_candidate_task: !!task.interview_candidate_task,
+  };
 }
 
 export function resolveExperienceTier(profileLike, enrollment = null, fallbackPlan = "") {
@@ -83,6 +158,24 @@ export function getStarterDayLimit(profileLike, enrollment = null) {
   );
 }
 
+export function taskSupportsTier(task, tier) {
+  if (!task) return false;
+  if (tier === "free") return false;
+
+  const tierAccess = normalizeTierAccess(task.tier_access);
+  if (tierAccess.length === 0) return true;
+
+  if (tier === "coaching") {
+    return tierAccess.includes("coaching") || tierAccess.includes("core") || tierAccess.includes("entry");
+  }
+
+  if (tier === "core") {
+    return tierAccess.includes("core") || tierAccess.includes("entry");
+  }
+
+  return tierAccess.includes("entry");
+}
+
 export function getSubmissionMeta(submission) {
   if (!submission) {
     return {
@@ -117,62 +210,66 @@ function buildSubmissionMap(submissions = []) {
   }, new Map());
 }
 
+export function calculateUnlockedProgramDay(programRecord, totalDays = PROGRAM_LENGTH) {
+  const startDateValue = programRecord?.program_start_date || programRecord?.started_at;
+  if (!startDateValue) return 1;
+
+  const startDate = new Date(startDateValue);
+  if (Number.isNaN(startDate.getTime())) return 1;
+
+  startDate.setHours(0, 0, 0, 0);
+
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+
+  const dayDiff = Math.floor((today.getTime() - startDate.getTime()) / 86400000);
+  const autoUnlocked = Math.max(1, dayDiff + 1);
+  const manualUnlocked = Number(programRecord?.manual_unlock_until || 0);
+  const overrideDay = Number(programRecord?.current_day_override || 0);
+
+  return Math.max(1, Math.min(totalDays, Math.max(autoUnlocked, manualUnlocked, overrideDay)));
+}
+
 export function buildProgramJourney(tasks = [], submissions = [], options = {}) {
-  const sortedTasks = sortTasks(tasks);
-  const submissionMap = buildSubmissionMap(submissions);
   const tier = resolveExperienceTier(options.profile, options.enrollment, options.plan);
   const starterDayLimit = getStarterDayLimit(options.profile, options.enrollment);
-  const accessibleTaskCount =
-    tier === "entry"
-      ? Math.min(starterDayLimit, sortedTasks.length)
-      : tier === "free"
-        ? 0
-        : sortedTasks.length;
+  const normalizedTasks = sortTasks(tasks.map(normalizeProgramTask)).filter(
+    (task) => task.program_family === "reset_30"
+  );
+  const totalDays = normalizedTasks.length || PROGRAM_LENGTH;
+  const unlockedDay = calculateUnlockedProgramDay(options.programRecord, totalDays);
+  const submissionMap = buildSubmissionMap(submissions);
 
-  let activeIndex = -1;
-
-  sortedTasks.forEach((task, index) => {
-    if (index >= accessibleTaskCount || activeIndex !== -1) return;
-
-    const submission = submissionMap.get(task.id);
-    const meta = getSubmissionMeta(submission);
-    const isPublished = task.is_active !== false && task.status !== "inactive";
-
-    if (!isPublished) return;
-    if (!meta.isComplete) {
-      activeIndex = index;
-    }
-  });
-
-  const items = sortedTasks.map((task, index) => {
+  const items = normalizedTasks.map((task, index) => {
     const submission = submissionMap.get(task.id) || null;
     const submissionMeta = getSubmissionMeta(submission);
     const isPublished = task.is_active !== false && task.status !== "inactive";
-    const isBeyondTierLimit = index >= accessibleTaskCount;
-    const isFuture = activeIndex !== -1 && index > activeIndex;
-    const isActive = activeIndex === index && !isBeyondTierLimit && isPublished;
+    const isTierAllowed = taskSupportsTier(task, tier);
+    const isVisibleToEntry = tier === "entry" && task.day > starterDayLimit;
+    const isUnlockedByDate = task.day <= unlockedDay;
+    const isToday = task.day === unlockedDay;
 
     let state = "locked";
     let lockedReason = "";
 
     if (!isPublished) {
       state = "locked";
-      lockedReason = "This day is not published yet.";
-    } else if (submissionMeta.isComplete) {
-      state = "completed";
-    } else if (isActive) {
-      state = "active";
-    } else if (isBeyondTierLimit) {
+      lockedReason = "This day is currently inactive.";
+    } else if (!isTierAllowed || isVisibleToEntry) {
       state = "locked";
       lockedReason =
         tier === "entry"
-          ? "Continue your reset by upgrading to Core."
-          : "This day is not available on your current access level.";
-    } else if (isFuture) {
-      state = "locked";
-      lockedReason = "Complete the current day to unlock this step.";
-    } else if (submissionMeta.needsRevision) {
+          ? "Upgrade to Core to continue beyond the starter days."
+          : "This day is not available on your current tier.";
+    } else if (submissionMeta.isComplete) {
+      state = "completed";
+    } else if (isToday || submissionMeta.needsRevision) {
       state = "active";
+    } else if (isUnlockedByDate) {
+      state = "available";
+    } else {
+      state = "locked";
+      lockedReason = "This day unlocks automatically as your program progresses.";
     }
 
     return {
@@ -181,63 +278,67 @@ export function buildProgramJourney(tasks = [], submissions = [], options = {}) 
       submission,
       submissionMeta,
       isPublished,
-      isBeyondTierLimit,
-      isFuture,
-      isActive: state === "active",
+      isTierAllowed,
+      isVisibleToEntry,
+      isUnlockedByDate,
+      isToday,
+      isCurrentDay: state === "active",
       isCompleted: state === "completed",
       state,
       lockedReason,
     };
   });
 
-  const completedItems = items.filter((item) => item.isCompleted);
-  const activeItem = items.find((item) => item.isActive) || null;
-  const firstLockedItem = items.find((item) => item.state === "locked") || null;
-  const nextItem = activeItem
-    ? items.find((item) => item.index > activeItem.index)
-    : items.find((item) => !item.isCompleted) || null;
-
-  const accessibleCompletedCount = items.filter(
-    (item) => item.index < accessibleTaskCount && item.isCompleted
-  ).length;
-
-  const accessibleTotal = Math.max(accessibleTaskCount, 1);
+  const visibleItems = items.filter((item) => item.isPublished);
+  const completedItems = visibleItems.filter((item) => item.isCompleted);
+  const activeItem = visibleItems.find((item) => item.state === "active") || null;
+  const todayItem =
+    visibleItems.find((item) => item.day === Math.min(unlockedDay, visibleItems.length || unlockedDay)) ||
+    activeItem ||
+    null;
+  const nextItem =
+    visibleItems.find((item) => item.day > (todayItem?.day || 0) && item.isTierAllowed) || null;
+  const firstLockedItem = visibleItems.find((item) => item.state === "locked") || null;
+  const accessibleItems = visibleItems.filter((item) => item.isTierAllowed && !item.isVisibleToEntry);
+  const accessibleCompletedCount = accessibleItems.filter((item) => item.isCompleted).length;
   const percentComplete =
-    accessibleTaskCount === 0
-      ? 0
-      : Math.round((accessibleCompletedCount / accessibleTotal) * 100);
-
-  const latestSubmission = submissions[0] || null;
+    accessibleItems.length === 0 ? 0 : Math.round((accessibleCompletedCount / accessibleItems.length) * 100);
 
   let state = "locked";
+
   if (tier === "free") {
     state = "locked";
-  } else if (activeItem && completedItems.length === 0) {
+  } else if (!options.programRecord?.program_start_date) {
     state = "not_started";
-  } else if (activeItem) {
-    state = "in_progress";
-  } else if (tier === "entry" && accessibleCompletedCount >= accessibleTaskCount) {
+  } else if (tier === "entry" && accessibleCompletedCount >= accessibleItems.length) {
     state = "starter_complete";
-  } else if (accessibleTaskCount > 0 && accessibleCompletedCount >= accessibleTaskCount) {
+  } else if (accessibleItems.length > 0 && accessibleCompletedCount >= accessibleItems.length) {
     state = "all_complete";
+  } else if (completedItems.length > 0) {
+    state = "in_progress";
+  } else {
+    state = "not_started";
   }
 
   return {
     tier,
     tierLabel: EXPERIENCE_TIER_LABELS[tier] || "Program",
     starterDayLimit,
+    unlockedDay,
     state,
-    items,
-    totalCount: items.length,
-    accessibleTaskCount,
+    items: visibleItems,
+    totalCount: visibleItems.length,
+    accessibleTaskCount: accessibleItems.length,
     completedCount: completedItems.length,
     accessibleCompletedCount,
     percentComplete,
     activeItem,
-    currentItem: activeItem || completedItems[completedItems.length - 1] || null,
+    todayItem,
+    currentItem: todayItem || activeItem || completedItems[completedItems.length - 1] || null,
     nextItem,
     firstLockedItem,
-    latestSubmission,
+    latestSubmission: submissions[0] || null,
+    programRecord: options.programRecord || null,
   };
 }
 
@@ -246,10 +347,8 @@ export function summarizeCoachingRequests(requests = []) {
     return new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime();
   });
 
-  const nextApproved =
-    ordered.find((item) => normalizeLower(item.status) === "approved") || null;
-  const pending =
-    ordered.find((item) => normalizeLower(item.status) === "pending") || null;
+  const nextApproved = ordered.find((item) => normalizeLower(item.status) === "approved") || null;
+  const pending = ordered.find((item) => normalizeLower(item.status) === "pending") || null;
   const completed = ordered.filter((item) => normalizeLower(item.status) === "completed");
 
   return {
@@ -277,30 +376,15 @@ export function getProgramBubbleContent(journey, options = {}) {
   }
 
   if (onboardingRequired) {
-    if (journey.tier === "entry") {
-      return {
-        eyebrow: "Starter Path",
-        title: "Start your guided reset",
-        body: "Your starter path is ready. Begin with the first guided days and build momentum.",
-        ctaLabel: "Begin Setup",
-        action: "onboarding",
-      };
-    }
-
-    if (journey.tier === "coaching") {
-      return {
-        eyebrow: "Coaching Active",
-        title: "Your coaching journey is ready",
-        body: "Complete your arrival setup, then step into Day 1 with your support layer in place.",
-        ctaLabel: "Begin Setup",
-        action: "onboarding",
-      };
-    }
-
     return {
-      eyebrow: "30-Day Reset",
-      title: "Your next guided step is ready",
-      body: "Complete your setup and enter the full CLARA reset with structure from Day 1.",
+      eyebrow: journey.tier === "coaching" ? "Coaching Journey" : "30-Day Reset",
+      title:
+        journey.tier === "entry"
+          ? "Start your starter path"
+          : journey.tier === "coaching"
+            ? "Your guided system and coaching layer are ready"
+            : "Your guided reset is ready",
+      body: "Complete your setup and begin the next step in your program.",
       ctaLabel: "Begin Setup",
       action: "onboarding",
     };
@@ -309,8 +393,8 @@ export function getProgramBubbleContent(journey, options = {}) {
   if (journey.tier === "entry" && journey.state === "starter_complete") {
     return {
       eyebrow: "Starter Complete",
-      title: "You have the tools. Now let's guide you.",
-      body: "You've finished your starter path. Upgrade to Core to continue the full 30-day reset.",
+      title: "Your starter path is complete",
+      body: "Upgrade to Core whenever you want to continue the full 30-day system.",
       ctaLabel: "Upgrade to Core",
       href: "/enroll",
     };
@@ -318,29 +402,22 @@ export function getProgramBubbleContent(journey, options = {}) {
 
   if (journey.tier === "coaching" && coachingSummary?.hasPendingSession) {
     const session = coachingSummary.nextApproved || coachingSummary.pending;
-    const statusLabel = normalize(session?.status || "pending").replaceAll("_", " ");
-
     return {
-      eyebrow: "Coaching Layer",
+      eyebrow: "Coaching Active",
       title: "Your coaching journey is active",
       body: session?.topic
-        ? `${session.topic} is ${statusLabel.toLowerCase()}. Continue your guided day and keep your support layer moving.`
-        : "Your next coaching checkpoint is in motion. Continue your guided day and keep momentum.",
+        ? `${session.topic} is in motion. Continue today's guided step and keep your support layer active.`
+        : "Your support layer is active. Continue today's guided step.",
       ctaLabel: "Open Program",
       href: "/tasks",
     };
   }
 
-  if (journey.activeItem) {
+  if (journey.todayItem) {
     return {
-      eyebrow: journey.tier === "coaching" ? "Coaching Journey" : "Today's Guided Step",
-      title:
-        journey.tier === "core"
-          ? `Continue Day ${journey.activeItem.day} of your 30-day reset`
-          : journey.tier === "coaching"
-            ? "Continue your guided day"
-            : "Continue your starter path",
-      body: journey.activeItem.title || "Your next guided task is ready.",
+      eyebrow: journey.tier === "coaching" ? "Coaching Journey" : "Today's Task",
+      title: `Continue Day ${journey.todayItem.day} of your reset`,
+      body: journey.todayItem.title || "Your next guided task is ready.",
       ctaLabel: "Open Today's Task",
       href: "/tasks",
     };
@@ -349,8 +426,8 @@ export function getProgramBubbleContent(journey, options = {}) {
   if (journey.state === "all_complete") {
     return {
       eyebrow: "Complete",
-      title: "Your guided reset is complete",
-      body: "You've finished the current journey. Review your progress and keep the structure going.",
+      title: "Your 30-day journey is complete",
+      body: "Review what you built and decide what the next chapter should look like.",
       ctaLabel: "Review Program",
       href: "/tasks",
     };
@@ -359,7 +436,7 @@ export function getProgramBubbleContent(journey, options = {}) {
   return {
     eyebrow: "Program",
     title: "Your guided path is ready",
-    body: "Open your program to see what is complete, what is next, and where to continue.",
+    body: "Open your program to see what is complete, what is next, and what unlocks later.",
     ctaLabel: "Open Program",
     href: "/tasks",
   };

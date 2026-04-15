@@ -7,10 +7,10 @@ import { Label } from "@/components/ui/label";
 import {
   ArrowRight,
   CheckCircle2,
-  Lock,
   MicVocal,
   RotateCcw,
   Sparkles,
+  Trophy,
   Zap,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -63,23 +63,46 @@ const REFLECTION_STEPS = [
       { value: "relief", label: "It reduced money stress" },
     ],
   },
-  {
-    id: "momentum",
-    prompt: "What do you want from the next day?",
-    options: [
-      { value: "steady", label: "Keep it steady" },
-      { value: "deeper", label: "Go a little deeper" },
-      { value: "support", label: "I want more support" },
-    ],
-  },
 ];
+
+function buildStructuredContent(form, task) {
+  const chunks = [];
+
+  if (form.journal_entry?.trim()) {
+    chunks.push(`Journal:\n${form.journal_entry.trim()}`);
+  }
+
+  [
+    [task.question_1, form.question_1_answer],
+    [task.question_2, form.question_2_answer],
+    [task.question_3, form.question_3_answer],
+  ].forEach(([question, answer]) => {
+    if (question && answer?.trim()) {
+      chunks.push(`${question}\n${answer.trim()}`);
+    }
+  });
+
+  return chunks.join("\n\n").trim();
+}
 
 function ProofSection({ task, form, setForm, onSubmit, submitting, submitLabel }) {
   const proof = task.proof_required || "none";
   const detailed = task.require_detailed_answer;
+  const hasGuidedQuestions =
+    task.program_family === "reset_30" ||
+    task.journal_placeholder ||
+    task.question_1 ||
+    task.question_2 ||
+    task.question_3;
 
   const canSubmit = () => {
-    if (proof === "none") return true;
+    const guidedContent = buildStructuredContent(form, task);
+
+    if (proof === "none") {
+      if (!hasGuidedQuestions) return true;
+      return guidedContent.length > 0;
+    }
+
     if (proof === "text_answer") return form.content?.trim().length > 0;
     if (proof === "amount_input") return form.amount !== "" && form.amount != null;
     if (proof === "screenshot_upload") {
@@ -94,14 +117,49 @@ function ProofSection({ task, form, setForm, onSubmit, submitting, submitLabel }
 
   return (
     <div className="space-y-4">
-      {proof === "none" && (
+      {hasGuidedQuestions ? (
+        <div className="space-y-4 rounded-2xl border border-white/10 bg-black/20 p-4">
+          <div className="space-y-2">
+            <Label className="text-sm font-semibold text-white">Journal</Label>
+            <Textarea
+              className={inputClass}
+              rows={4}
+              placeholder={task.journal_placeholder || "Write your thoughts here..."}
+              value={form.journal_entry || ""}
+              onChange={(e) => setForm((current) => ({ ...current, journal_entry: e.target.value }))}
+            />
+          </div>
+
+          {[task.question_1, task.question_2, task.question_3].map((question, index) =>
+            question ? (
+              <div className="space-y-2" key={`${task.id}-question-${index + 1}`}>
+                <Label className="text-sm font-semibold text-white">{question}</Label>
+                <Textarea
+                  className={inputClass}
+                  rows={2}
+                  placeholder="Write your answer..."
+                  value={form[`question_${index + 1}_answer`] || ""}
+                  onChange={(e) =>
+                    setForm((current) => ({
+                      ...current,
+                      [`question_${index + 1}_answer`]: e.target.value,
+                    }))
+                  }
+                />
+              </div>
+            ) : null
+          )}
+        </div>
+      ) : null}
+
+      {proof === "none" && !hasGuidedQuestions ? (
         <div className="rounded-2xl border border-white/10 bg-white/[0.04] p-4 text-center text-sm text-white/70">
           <p className="mb-1 font-semibold text-white">Honor-based task</p>
           <p>Complete it honestly, then mark it done.</p>
         </div>
-      )}
+      ) : null}
 
-      {proof === "text_answer" && (
+      {proof === "text_answer" ? (
         <div className="space-y-2">
           <Label className="text-sm font-semibold text-white">
             {detailed
@@ -120,9 +178,9 @@ function ProofSection({ task, form, setForm, onSubmit, submitting, submitLabel }
             onChange={(e) => setForm((current) => ({ ...current, content: e.target.value }))}
           />
         </div>
-      )}
+      ) : null}
 
-      {proof === "amount_input" && (
+      {proof === "amount_input" ? (
         <div className="space-y-3">
           <div className="space-y-2">
             <Label className="text-sm font-semibold text-white">Amount (PHP)</Label>
@@ -147,9 +205,9 @@ function ProofSection({ task, form, setForm, onSubmit, submitting, submitLabel }
             />
           </div>
         </div>
-      )}
+      ) : null}
 
-      {proof === "screenshot_upload" && (
+      {proof === "screenshot_upload" ? (
         <div className="space-y-3">
           <div className="space-y-2">
             <Label className="text-sm font-semibold text-white">Upload screenshot or photo</Label>
@@ -162,7 +220,6 @@ function ProofSection({ task, form, setForm, onSubmit, submitting, submitLabel }
                 if (!selectedFile) return;
 
                 const previewUrl = URL.createObjectURL(selectedFile);
-
                 setForm((current) => {
                   if (current.preview_url && current.preview_url.startsWith("blob:")) {
                     URL.revokeObjectURL(current.preview_url);
@@ -174,20 +231,13 @@ function ProofSection({ task, form, setForm, onSubmit, submitting, submitLabel }
                     preview_url: previewUrl,
                   };
                 });
-
-                toast.success(`Selected ${selectedFile.name}`);
               }}
             />
 
             {form.file ? <p className="text-xs text-[#86efac]">New file ready</p> : null}
-            {!form.file && form.existing_file_url ? (
-              <p className="text-xs text-white/60">
-                Your current proof stays attached unless you replace it.
-              </p>
-            ) : null}
           </div>
 
-          {(form.preview_url || form.existing_file_url) && (
+          {(form.preview_url || form.existing_file_url) ? (
             <div className="space-y-2">
               <Label className={subtleLabel}>Preview</Label>
               <img
@@ -196,20 +246,9 @@ function ProofSection({ task, form, setForm, onSubmit, submitting, submitLabel }
                 className="w-full max-h-56 rounded-xl border border-white/10 object-contain bg-black/20"
               />
             </div>
-          )}
-
-          <div className="space-y-2">
-            <Label className={subtleLabel}>Additional notes (optional)</Label>
-            <Textarea
-              className={inputClass}
-              rows={2}
-              placeholder="Anything you want to add..."
-              value={form.content || ""}
-              onChange={(e) => setForm((current) => ({ ...current, content: e.target.value }))}
-            />
-          </div>
+          ) : null}
         </div>
-      )}
+      ) : null}
 
       <Button
         className="w-full bg-[#22c55e] text-white shadow-[0_10px_30px_rgba(34,197,94,0.25)] hover:bg-[#16a34a]"
@@ -222,17 +261,10 @@ function ProofSection({ task, form, setForm, onSubmit, submitting, submitLabel }
   );
 }
 
-function ReflectionFlow({
-  answers,
-  currentStep,
-  onSelect,
-  note,
-  onNoteChange,
-  onFinish,
-  saving,
-}) {
+function ReflectionFlow({ task, answers, currentStep, onSelect, note, onNoteChange, onFinish, saving }) {
   const step = REFLECTION_STEPS[currentStep];
   const isLastQuestion = currentStep >= REFLECTION_STEPS.length;
+  const finalPrompt = task.reflection_prompt || "What do you want to remember from this day?";
   const progress = Math.round(((currentStep + 1) / (REFLECTION_STEPS.length + 1)) * 100);
 
   return (
@@ -271,14 +303,11 @@ function ReflectionFlow({
         </div>
       ) : (
         <div className="space-y-4 rounded-[26px] border border-white/10 bg-white/[0.04] p-5">
-          <p className="text-lg font-semibold text-white">Anything you want to remember?</p>
-          <p className="text-sm leading-7 text-white/68">
-            Optional. Keep it short and honest. This can help when you review your progress later.
-          </p>
+          <p className="text-lg font-semibold text-white">{finalPrompt}</p>
           <Textarea
             className="border-white/10 bg-black/20 text-white placeholder:text-white/35"
             rows={4}
-            placeholder="A short note to future you..."
+            placeholder="Write your reflection..."
             value={note}
             onChange={(e) => onNoteChange(e.target.value)}
           />
@@ -300,16 +329,19 @@ export default function ChallengeModal({
   existingSubmission = null,
 }) {
   const [difficulty, setDifficulty] = useState(null);
-  const [started, setStarted] = useState(false);
+  const [phase, setPhase] = useState("overview");
   const [form, setForm] = useState({
     content: "",
     amount: "",
     file: null,
     preview_url: "",
     existing_file_url: "",
+    journal_entry: "",
+    question_1_answer: "",
+    question_2_answer: "",
+    question_3_answer: "",
   });
   const [submitting, setSubmitting] = useState(false);
-  const [phase, setPhase] = useState("overview");
   const [submittedRecord, setSubmittedRecord] = useState(null);
   const [reflectionAnswers, setReflectionAnswers] = useState({});
   const [reflectionStep, setReflectionStep] = useState(0);
@@ -320,26 +352,15 @@ export default function ChallengeModal({
   const isNeedsRevision = submissionStatus === "needs_revision";
   const isApproved = submissionStatus === "approved";
   const isSubmitted = submissionStatus === "submitted" || submissionStatus === "pending";
+  const diffMode = !!task?.difficulty_mode_enabled;
 
   useEffect(() => {
-    let initialAmount = "";
-    let initialContent = existingSubmission?.content || "";
-
-    if (existingSubmission?.content?.startsWith("Amount: PHP")) {
-      const match = existingSubmission.content.match(/^Amount:\s*PHP([0-9.,]+)(?:\n([\s\S]*))?$/);
-      if (match) {
-        initialAmount = match[1] || "";
-        initialContent = match[2] || "";
-      }
-    }
-
     setDifficulty(null);
-    setStarted(isNeedsRevision);
     setPhase(isNeedsRevision ? "proof" : "overview");
     setSubmittedRecord(null);
     setReflectionAnswers({});
     setReflectionStep(0);
-    setReflectionNote("");
+    setReflectionNote(existingSubmission?.reflection || "");
 
     setForm((current) => {
       if (current.preview_url && current.preview_url.startsWith("blob:")) {
@@ -347,8 +368,8 @@ export default function ChallengeModal({
       }
 
       return {
-        content: initialContent,
-        amount: initialAmount,
+        content: existingSubmission?.content || "",
+        amount: "",
         file: null,
         preview_url: "",
         existing_file_url:
@@ -356,12 +377,16 @@ export default function ChallengeModal({
           existingSubmission?.proof_url ||
           existingSubmission?.image_url ||
           "",
+        journal_entry: existingSubmission?.journal_entry || "",
+        question_1_answer: existingSubmission?.question_1_answer || "",
+        question_2_answer: existingSubmission?.question_2_answer || "",
+        question_3_answer: existingSubmission?.question_3_answer || "",
       };
     });
 
     setSubmitting(false);
     setSavingReflection(false);
-  }, [task?.id, existingSubmission, isNeedsRevision]);
+  }, [existingSubmission, isNeedsRevision, task?.id]);
 
   useEffect(() => {
     return () => {
@@ -371,15 +396,13 @@ export default function ChallengeModal({
     };
   }, [form.preview_url]);
 
-  const diffMode = !!task?.difficulty_mode_enabled;
-
   const content = useMemo(() => {
     if (!task) return null;
 
     if (!diffMode) {
       return {
-        action: task.main_action_instruction,
-        why: task.main_why_it_matters,
+        action: task.task_instruction || task.main_action_instruction,
+        why: task.why_this_matters || task.main_why_it_matters,
         guidance: task.main_optional_guidance,
         points: Number(task.main_points || task.points || 0),
       };
@@ -401,21 +424,6 @@ export default function ChallengeModal({
 
   if (!task) return null;
 
-  const readyToStart = !diffMode || !!difficulty;
-  const proofLabel =
-    {
-      none: "Honor-based",
-      text_answer: "Short written answer",
-      amount_input: "Amount entry",
-      screenshot_upload: "Screenshot upload",
-    }[task.proof_required || "none"];
-
-  const submitLabel = isNeedsRevision
-    ? "Resubmit task"
-    : task.proof_required === "none"
-      ? "Mark complete"
-      : "Complete task";
-
   const uploadProofFile = async () => {
     if (!form.file) return form.existing_file_url || null;
 
@@ -433,8 +441,8 @@ export default function ChallengeModal({
 
     if (uploadError) throw uploadError;
 
-    const { data: publicData } = supabase.storage.from("task-proofs").getPublicUrl(filePath);
-    return publicData?.publicUrl || null;
+    const { data } = supabase.storage.from("task-proofs").getPublicUrl(filePath);
+    return data?.publicUrl || null;
   };
 
   const handleSubmit = async () => {
@@ -446,15 +454,21 @@ export default function ChallengeModal({
         uploadedFileUrl = await uploadProofFile();
       }
 
+      const structuredContent = buildStructuredContent(form, task);
       const submissionContent = form.amount
         ? `Amount: PHP${form.amount}${form.content ? `\n${form.content}` : ""}`
-        : form.content || "Completed (honor system)";
+        : structuredContent || form.content || "Completed (honor system)";
 
       const payload = {
         task_id: task.id,
+        user_id: user?.id || null,
         created_by: user?.email || null,
         student_name: user?.full_name?.trim() || user?.name || user?.email || "Student",
         content: submissionContent,
+        journal_entry: form.journal_entry || null,
+        question_1_answer: form.question_1_answer || null,
+        question_2_answer: form.question_2_answer || null,
+        question_3_answer: form.question_3_answer || null,
         file_url: uploadedFileUrl,
         status: "submitted",
         points_earned: Number(content?.points || 0),
@@ -486,7 +500,7 @@ export default function ChallengeModal({
 
       setSubmittedRecord(result);
       setPhase("reflection");
-      toast.success(isNeedsRevision ? "Revision submitted" : "Task completed");
+      toast.success(isNeedsRevision ? "Revision submitted" : "Day completed");
     } catch (error) {
       console.error("Submission failed:", error);
       toast.error(error.message || "Submission failed. Please try again.");
@@ -511,29 +525,28 @@ export default function ChallengeModal({
         ...REFLECTION_STEPS.map((step) =>
           reflectionAnswers[step.id]?.label ? `${step.prompt}: ${reflectionAnswers[step.id].label}` : null
         ).filter(Boolean),
-        reflectionNote ? `Note: ${reflectionNote.trim()}` : null,
+        reflectionNote ? `${task.reflection_prompt || "Reflection"}: ${reflectionNote.trim()}` : null,
       ]
         .filter(Boolean)
         .join("\n");
 
-      if (submittedRecord?.id && reflectionText) {
+      if (submittedRecord?.id) {
         const { error } = await supabase
           .from("task_submissions")
           .update({
-            reflection: reflectionText,
+            reflection: reflectionText || null,
+            completed_at: new Date().toISOString(),
           })
           .eq("id", submittedRecord.id);
 
-        if (error) {
-          console.error("Failed to save reflection:", error);
-        }
+        if (error) throw error;
       }
 
       await onSubmitted?.();
       setPhase("success");
     } catch (error) {
       console.error("Reflection flow failed:", error);
-      toast.error("We saved your task, but your reflection could not be saved fully.");
+      toast.error("We saved the task, but the reflection could not be stored.");
       await onSubmitted?.();
       setPhase("success");
     } finally {
@@ -541,10 +554,17 @@ export default function ChallengeModal({
     }
   };
 
-  const closeWithRefresh = async () => {
-    await onSubmitted?.();
-    onClose?.();
-  };
+  const proofLabel =
+    {
+      none: "Guided completion",
+      text_answer: "Short written answer",
+      amount_input: "Amount entry",
+      screenshot_upload: "Screenshot upload",
+    }[task.proof_required || "none"];
+
+  const submitLabel = isNeedsRevision
+    ? "Resubmit day"
+    : task.completion_button_text || "Mark complete";
 
   return (
     <Dialog open={!!task} onOpenChange={() => onClose?.()}>
@@ -552,199 +572,135 @@ export default function ChallengeModal({
         <div className="bg-[linear-gradient(135deg,#0f172a_0%,#0f766e_56%,#0ea5e9_100%)] px-6 pb-5 pt-6">
           <p className="mb-1 text-xs font-semibold uppercase tracking-wider text-white/70">
             Day {task.day}
-            {task.week ? ` • Week ${task.week}` : ""}
+            {task.theme ? ` • ${task.theme}` : ""}
           </p>
-
-          <h2 className="break-words text-2xl font-semibold leading-tight text-white">
-            {task.title}
-          </h2>
+          <h2 className="break-words text-2xl font-semibold leading-tight text-white">{task.title}</h2>
 
           <div className="mt-3 flex flex-wrap items-center gap-2">
-            {diffMode ? (
-              <span className="rounded-full border border-white/15 bg-white/15 px-2.5 py-1 text-xs font-semibold text-white">
-                Choose your pace
+            <span className="rounded-full border border-white/15 bg-white/15 px-2.5 py-1 text-xs font-semibold text-white">
+              {task.estimated_minutes || 10} min
+            </span>
+            {task.milestone_type ? (
+              <span className="rounded-full border border-amber-300/25 bg-amber-400/15 px-2.5 py-1 text-xs font-semibold text-amber-100">
+                {task.milestone_type}
               </span>
-            ) : (
-              <span className="rounded-full border border-white/15 bg-white/15 px-2.5 py-1 text-xs font-semibold text-white">
-                {content?.points || Number(task.main_points || task.points || 0)} pts
-              </span>
-            )}
-
+            ) : null}
             {task.interview_candidate_task ? (
               <span className="flex items-center gap-1 rounded-full border border-white/15 bg-white/15 px-2.5 py-1 text-xs text-white">
                 <MicVocal className="h-3 w-3" /> Integrity mode
-              </span>
-            ) : null}
-
-            {isApproved ? (
-              <span className="rounded-full border border-emerald-300/25 bg-emerald-400/15 px-2.5 py-1 text-xs font-semibold text-emerald-100">
-                Approved
-              </span>
-            ) : null}
-
-            {isSubmitted ? (
-              <span className="rounded-full border border-yellow-300/25 bg-yellow-400/15 px-2.5 py-1 text-xs font-semibold text-yellow-100">
-                Under review
-              </span>
-            ) : null}
-
-            {isNeedsRevision ? (
-              <span className="rounded-full border border-orange-300/25 bg-orange-400/15 px-2.5 py-1 text-xs font-semibold text-orange-100">
-                Needs revision
               </span>
             ) : null}
           </div>
         </div>
 
         <div className="max-h-[74vh] space-y-6 overflow-y-auto bg-[#0b1420] px-5 py-5">
-          {phase !== "success" ? (
-            <div className="rounded-2xl border border-white/10 bg-white/[0.04] p-4">
-              <p className="text-[11px] uppercase tracking-[0.18em] text-white/45">Focused task</p>
-              <p className="mt-2 text-sm leading-7 text-white/72">
-                Stay with one step at a time. Finish the task, complete your reflection, then move forward.
-              </p>
-            </div>
-          ) : null}
-
-          {task.interview_candidate_task && phase !== "success" ? (
-            <div className="rounded-2xl border border-sky-400/20 bg-sky-400/10 px-4 py-3 text-xs text-sky-100">
-              You may be asked in coaching to briefly walk through how you completed this task.
-            </div>
-          ) : null}
-
-          {isNeedsRevision && phase === "proof" ? (
-            <div className="rounded-2xl border border-orange-400/20 bg-orange-400/10 px-4 py-3 text-sm text-orange-50">
-              <div className="mb-2 flex items-center gap-2 font-semibold">
-                <RotateCcw className="h-4 w-4" />
-                Please revise and submit again
-              </div>
-              <p className="whitespace-pre-wrap text-orange-50/90">
-                {existingSubmission?.admin_notes || "Your coach requested a revision for this task."}
-              </p>
-            </div>
-          ) : null}
-
-          {isApproved && phase !== "success" ? (
+          {isApproved && phase === "overview" ? (
             <div className="rounded-2xl border border-emerald-400/20 bg-emerald-400/10 px-4 py-3 text-sm text-emerald-50">
-              This day is complete. You can reopen it anytime for review.
+              This day is already complete. You can review the content anytime.
             </div>
           ) : null}
 
-          {isSubmitted && !isNeedsRevision && phase !== "success" ? (
+          {isSubmitted && !isNeedsRevision && phase === "overview" ? (
             <div className="rounded-2xl border border-yellow-400/20 bg-yellow-400/10 px-4 py-3 text-sm text-yellow-50">
               Your submission is already under review.
             </div>
           ) : null}
 
-          {phase === "overview" && diffMode && !started && !isApproved && !isSubmitted ? (
-            <div className="space-y-3">
-              <p className="text-sm font-semibold text-white">Choose your level for today</p>
-
-              {DIFFICULTY_CONFIG.map((item) => (
-                <button
-                  key={item.key}
-                  type="button"
-                  onClick={() => setDifficulty(item.key)}
-                  className={cn(
-                    "w-full rounded-2xl border p-4 text-left transition-all duration-200",
-                    difficulty === item.key ? item.selectedColor : item.color
-                  )}
-                >
-                  <div className="mb-2 flex items-center justify-between gap-3">
-                    <span className="text-sm font-bold text-white">{item.label}</span>
-                    <span className={cn("rounded-full px-2 py-0.5 text-xs font-bold", item.badge)}>
-                      {task[`${item.key}_points`] || item.defaultPts} pts
-                    </span>
-                  </div>
-                  <p className="line-clamp-2 text-xs leading-5 text-white/70">
-                    {task[`${item.key}_action_instruction`] || "No description"}
-                  </p>
-                </button>
-              ))}
-            </div>
-          ) : null}
-
-          {phase === "overview" && readyToStart && content && !isApproved && !isSubmitted ? (
+          {phase === "overview" ? (
             <div className="space-y-4">
-              <div className="space-y-4 rounded-2xl border border-white/10 bg-white/[0.04] p-4 shadow-[0_8px_24px_rgba(0,0,0,0.18)]">
-                <div className="space-y-2">
-                  <p className="text-[10px] font-bold uppercase tracking-widest text-[#86efac]">
-                    Your task
-                  </p>
-                  <p className="whitespace-pre-line break-words text-[14px] leading-7 text-white">
-                    {content.action}
-                  </p>
+              <div className="rounded-2xl border border-white/10 bg-white/[0.04] p-4">
+                <p className="text-[11px] uppercase tracking-[0.18em] text-white/45">Description</p>
+                <p className="mt-2 text-sm leading-7 text-white/72">{task.description}</p>
+              </div>
+
+              {diffMode ? (
+                <div className="space-y-3">
+                  <p className="text-sm font-semibold text-white">Choose your level for today</p>
+                  {DIFFICULTY_CONFIG.map((item) => (
+                    <button
+                      key={item.key}
+                      type="button"
+                      onClick={() => setDifficulty(item.key)}
+                      className={cn(
+                        "w-full rounded-2xl border p-4 text-left transition-all duration-200",
+                        difficulty === item.key ? item.selectedColor : item.color
+                      )}
+                    >
+                      <div className="mb-2 flex items-center justify-between gap-3">
+                        <span className="text-sm font-bold text-white">{item.label}</span>
+                        <span className={cn("rounded-full px-2 py-0.5 text-xs font-bold", item.badge)}>
+                          {task[`${item.key}_points`] || item.defaultPts} pts
+                        </span>
+                      </div>
+                      <p className="line-clamp-2 text-xs leading-5 text-white/70">
+                        {task[`${item.key}_action_instruction`] || "No description"}
+                      </p>
+                    </button>
+                  ))}
                 </div>
+              ) : null}
 
-                {content.why ? (
-                  <div className="border-t border-white/10 pt-4">
-                    <p className="text-[10px] font-bold uppercase tracking-widest text-white/50">
-                      Why this matters
-                    </p>
-                    <p className="mt-1 whitespace-pre-line break-words text-[14px] leading-7 text-white/80">
-                      {content.why}
-                    </p>
-                  </div>
-                ) : null}
-
-                {content.guidance ? (
-                  <div className="border-t border-white/10 pt-4">
-                    <p className="text-[10px] font-bold uppercase tracking-widest text-white/50">
-                      Guidance
-                    </p>
-                    <p className="mt-1 whitespace-pre-line break-words text-[14px] leading-7 text-white/80">
-                      {content.guidance}
+              {(!diffMode || difficulty) && content && !isApproved && !isSubmitted ? (
+                <>
+                  <div className="rounded-2xl border border-white/10 bg-white/[0.04] p-4">
+                    <p className="text-[10px] font-bold uppercase tracking-widest text-[#86efac]">Today's instruction</p>
+                    <p className="mt-2 whitespace-pre-line break-words text-[14px] leading-7 text-white">
+                      {content.action}
                     </p>
                   </div>
-                ) : null}
-              </div>
 
-              <div className="flex items-center justify-between rounded-xl border border-white/10 bg-white/[0.04] px-3 py-2 text-xs">
-                <span className="font-semibold text-white/60">Completion check</span>
-                <span className="font-bold text-white">{proofLabel}</span>
-              </div>
+                  {content.why ? (
+                    <div className="rounded-2xl border border-white/10 bg-white/[0.04] p-4">
+                      <p className="text-[10px] font-bold uppercase tracking-widest text-white/50">Why this matters</p>
+                      <p className="mt-2 whitespace-pre-line break-words text-[14px] leading-7 text-white/80">
+                        {content.why}
+                      </p>
+                    </div>
+                  ) : null}
 
-              <Button
-                className="w-full bg-[#22c55e] text-white shadow-[0_10px_30px_rgba(34,197,94,0.25)] hover:bg-[#16a34a]"
-                size="lg"
-                onClick={() => {
-                  setStarted(true);
-                  setPhase("proof");
-                }}
-              >
-                <Zap className="mr-2 h-4 w-4" />
-                {isNeedsRevision ? "Revise now" : "Start task"}
-              </Button>
+                  <div className="flex items-center justify-between rounded-xl border border-white/10 bg-white/[0.04] px-3 py-2 text-xs">
+                    <span className="font-semibold text-white/60">Completion flow</span>
+                    <span className="font-bold text-white">{proofLabel}</span>
+                  </div>
+
+                  <Button size="lg" className="w-full" onClick={() => setPhase("proof")}>
+                    <Zap className="mr-2 h-4 w-4" />
+                    {isNeedsRevision ? "Revise now" : "Start day"}
+                  </Button>
+                </>
+              ) : null}
+
+              {(isApproved || (isSubmitted && !isNeedsRevision)) ? (
+                <Button variant="outline" className="w-full" onClick={onClose}>
+                  Close
+                </Button>
+              ) : null}
             </div>
           ) : null}
 
           {phase === "proof" && content && !isApproved && !isSubmitted ? (
             <div className="space-y-4">
-              <div className="rounded-2xl border border-white/10 bg-white/[0.04] p-4 shadow-[0_8px_24px_rgba(0,0,0,0.18)]">
-                <p className="mb-2 text-xs font-semibold text-[#86efac]">Today's instruction</p>
-                <p className="whitespace-pre-line break-words text-[14px] leading-7 text-white">
+              <div className="rounded-2xl border border-white/10 bg-white/[0.04] p-4">
+                <p className="text-[10px] font-bold uppercase tracking-widest text-[#86efac]">Complete today's work</p>
+                <p className="mt-2 whitespace-pre-line break-words text-[14px] leading-7 text-white">
                   {content.action}
                 </p>
               </div>
 
-              <div className="rounded-2xl border border-white/10 bg-white/[0.04] p-4 shadow-[0_8px_24px_rgba(0,0,0,0.18)]">
-                <p className="mb-3 text-sm font-semibold text-white">
-                  {isNeedsRevision ? "Revise and resubmit" : "Complete this day"}
-                </p>
-                <ProofSection
-                  task={task}
-                  form={form}
-                  setForm={setForm}
-                  onSubmit={handleSubmit}
-                  submitting={submitting}
-                  submitLabel={submitLabel}
-                />
-              </div>
+              <ProofSection
+                task={task}
+                form={form}
+                setForm={setForm}
+                onSubmit={handleSubmit}
+                submitting={submitting}
+                submitLabel={submitLabel}
+              />
             </div>
           ) : null}
 
           {phase === "reflection" ? (
             <ReflectionFlow
+              task={task}
               answers={reflectionAnswers}
               currentStep={reflectionStep}
               note={reflectionNote}
@@ -759,14 +715,14 @@ export default function ChallengeModal({
             <div className="space-y-5">
               <div className="rounded-[28px] border border-emerald-400/20 bg-emerald-400/10 p-5 text-center">
                 <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-emerald-400/15 text-emerald-200">
-                  <CheckCircle2 className="h-7 w-7" />
+                  {task.milestone_type ? <Trophy className="h-7 w-7" /> : <CheckCircle2 className="h-7 w-7" />}
                 </div>
-                <p className="mt-4 text-[11px] font-semibold uppercase tracking-[0.2em] text-emerald-200/75">
-                  Day complete
-                </p>
-                <h3 className="mt-2 text-2xl font-semibold text-white">Day {task.day} is done</h3>
+                <p className="mt-4 text-[11px] font-semibold uppercase tracking-[0.2em] text-emerald-200/75">Day complete</p>
+                <h3 className="mt-2 text-2xl font-semibold text-white">
+                  {task.reward_title || `Day ${task.day} Complete`}
+                </h3>
                 <p className="mt-3 text-sm leading-7 text-white/75">
-                  You completed the task, checked in with yourself, and moved the journey forward.
+                  {task.reward_message || "You moved your journey forward today."}
                 </p>
               </div>
 
@@ -774,41 +730,22 @@ export default function ChallengeModal({
                 <div className="rounded-[26px] border border-white/10 bg-white/[0.04] p-5">
                   <p className="text-[11px] uppercase tracking-[0.18em] text-white/45">Next day</p>
                   <h4 className="mt-2 text-lg font-semibold text-white">
-                    Day {nextTask.day}: {nextTask.title || "Keep going"}
+                    Day {nextTask.day}: {nextTask.title}
                   </h4>
                   <p className="mt-2 text-sm leading-7 text-white/70">
-                    {nextTask.main_action_instruction || "Your next guided step will be ready from the program view."}
+                    {nextTask.short_label || nextTask.description}
                   </p>
                 </div>
-              ) : (
-                <div className="rounded-[26px] border border-white/10 bg-white/[0.04] p-5">
-                  <p className="text-[11px] uppercase tracking-[0.18em] text-white/45">Keep momentum</p>
-                  <p className="mt-2 text-sm leading-7 text-white/70">
-                    Review your program list anytime to see what is complete and what unlocks next.
-                  </p>
-                </div>
-              )}
+              ) : null}
 
               <div className="flex flex-col gap-3 sm:flex-row">
-                <Button className="flex-1" onClick={closeWithRefresh}>
+                <Button className="flex-1" onClick={async () => { await onSubmitted?.(); onClose?.(); }}>
                   Back to program
                 </Button>
-                <Button variant="outline" className="flex-1" onClick={closeWithRefresh}>
-                  Back to dashboard
+                <Button variant="outline" className="flex-1" onClick={async () => { await onSubmitted?.(); onClose?.(); }}>
+                  Keep exploring
                 </Button>
               </div>
-            </div>
-          ) : null}
-
-          {(isApproved || isSubmitted) && phase === "overview" ? (
-            <Button variant="outline" className="w-full" onClick={onClose}>
-              Close
-            </Button>
-          ) : null}
-
-          {phase !== "success" && !started && !isApproved && !isSubmitted && !readyToStart ? (
-            <div className="rounded-2xl border border-white/10 bg-black/20 p-4 text-sm text-white/65">
-              Choose a difficulty to unlock the action details for today.
             </div>
           ) : null}
         </div>

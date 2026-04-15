@@ -26,6 +26,7 @@ const OWNED_TABLES = [
   "task_submissions",
   "module_progress",
   "coaching_requests",
+  "user_programs",
   "referrals",
   "enrollments",
   "savings_goals",

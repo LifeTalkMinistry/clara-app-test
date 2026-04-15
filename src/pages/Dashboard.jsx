@@ -26,7 +26,15 @@ import { Button } from "@/components/ui/button";
 import StatCard from "../components/StatCard";
 import DailyTipCard from "../components/DailyTipCard";
 import useUserRole from "../hooks/useUserRole";
-import { buildProgramJourney, getProgramBubbleContent } from "@/lib/program-journey";
+import {
+  buildProgramJourney,
+  getProgramBubbleContent,
+  normalizeProgramTask,
+} from "@/lib/program-journey";
+import {
+  ensureUserProgramAccess,
+  fetchUserProgramRecord,
+} from "@/lib/program-access";
 
 const normalizeString = (value) => String(value ?? "").trim();
 const normalizeLower = (value) => normalizeString(value).toLowerCase();
@@ -296,6 +304,7 @@ const createEmptyDashboardCache = (key = null) => ({
   loaded: false,
   tasks: [],
   submissions: [],
+  programRecord: null,
   billboards: [],
   myAds: [],
   survivalExpense: 0,
@@ -325,6 +334,7 @@ export default function Dashboard() {
 
   const [tasks, setTasks] = useState(initialCache.tasks);
   const [submissions, setSubmissions] = useState(initialCache.submissions);
+  const [programRecord, setProgramRecord] = useState(initialCache.programRecord);
   const [billboards, setBillboards] = useState(initialCache.billboards);
   const [myAds, setMyAds] = useState(initialCache.myAds);
   const [survivalExpense, setSurvivalExpense] = useState(initialCache.survivalExpense);
@@ -361,6 +371,7 @@ export default function Dashboard() {
   const hydrateFromCache = useCallback((nextCache) => {
     setTasks(nextCache.tasks);
     setSubmissions(nextCache.submissions);
+    setProgramRecord(nextCache.programRecord);
     setBillboards(nextCache.billboards);
     setMyAds(nextCache.myAds || []);
     setSurvivalExpense(nextCache.survivalExpense);
@@ -517,6 +528,7 @@ export default function Dashboard() {
         const [
           tasksRes,
           submissionsRes,
+          userProgramRecord,
           billboardsRes,
           myAdsRes,
           expensesRes,
@@ -527,11 +539,12 @@ export default function Dashboard() {
         supabase
           .from("challenge_tasks")
           .select("*")
-          .eq("is_active", true)
-          .order("week", { ascending: true })
+          .order("sort_order", { ascending: true })
           .order("day", { ascending: true }),
 
         supabase.from("task_submissions").select("*"),
+
+        fetchUserProgramRecord({ supabase, userId: currentUser.id }),
 
         supabase
           .from("billboards")
@@ -587,6 +600,8 @@ export default function Dashboard() {
         const userSubmissions = (submissionsRes.data || []).filter((item) =>
           isOwnedByUser(item, currentUser)
         );
+
+        const normalizedTasks = (tasksRes.data || []).map(normalizeProgramTask);
 
         const userExpenses = (expensesRes.data || [])
           .filter((expense) => isOwnedByUser(expense, currentUser))
@@ -653,8 +668,19 @@ export default function Dashboard() {
         const nextCache = {
           key: cacheKey,
           loaded: true,
-          tasks: tasksRes.data || [],
+          tasks: normalizedTasks,
           submissions: userSubmissions,
+          programRecord:
+            userProgramRecord ||
+            (approved
+              ? await ensureUserProgramAccess({
+                  supabase,
+                  user: currentUser,
+                  profile: userProfile,
+                  enrollment: enrollmentRecord,
+                  tasks: normalizedTasks,
+                })
+              : null),
           billboards: activeBillboards,
           myAds: myAdsRes.data || [],
           survivalExpense: readStoredSurvivalExpense(),
@@ -986,11 +1012,12 @@ export default function Dashboard() {
         plan,
         profile: profileData || user,
         enrollment: latestEnrollment,
+        programRecord,
       }),
-    [latestEnrollment, plan, profileData, submissions, tasks, user]
+    [latestEnrollment, plan, profileData, programRecord, submissions, tasks, user]
   );
 
-  const activeTask = programJourney.activeItem;
+  const activeTask = programJourney.todayItem || programJourney.activeItem;
   const nextTask = programJourney.nextItem;
 
   const safeSurvivalExpense = Number(survivalExpense) || 0;
