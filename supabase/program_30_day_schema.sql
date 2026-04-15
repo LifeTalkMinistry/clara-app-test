@@ -15,7 +15,6 @@ alter table if exists public.challenge_tasks
   add column if not exists description text,
   add column if not exists why_this_matters text,
   add column if not exists status text default 'active',
-  add column if not exists is_active boolean default true,
   add column if not exists sort_order integer default 0,
   add column if not exists day integer,
   add column if not exists day_number integer,
@@ -44,6 +43,9 @@ alter table if exists public.challenge_tasks
   add column if not exists reward_title text,
   add column if not exists reward_message text,
   add column if not exists estimated_minutes integer default 10;
+
+alter table if exists public.challenge_tasks
+  add column if not exists is_active boolean default true;
 
 alter table if exists public.challenge_tasks
   add column if not exists tier_access jsonb default '["entry","core","coaching"]'::jsonb;
@@ -80,6 +82,83 @@ begin
     alter table public.challenge_tasks
     alter column tier_access set default '["entry","core","coaching"]'::jsonb
   $sql$;
+end;
+$$;
+
+do $$
+declare
+  missing_columns text[];
+  tier_access_data_type text;
+  is_active_data_type text;
+begin
+  select array_agg(required.column_name order by required.column_name)
+  into missing_columns
+  from (
+    values
+      ('is_active'),
+      ('sort_order'),
+      ('day'),
+      ('day_number'),
+      ('week'),
+      ('week_number'),
+      ('why_this_matters'),
+      ('short_label'),
+      ('theme'),
+      ('task_instruction'),
+      ('reflection_prompt'),
+      ('journal_placeholder'),
+      ('question_1'),
+      ('question_2'),
+      ('question_3'),
+      ('completion_button_text'),
+      ('milestone_type'),
+      ('reward_title'),
+      ('reward_message'),
+      ('estimated_minutes'),
+      ('tier_access'),
+      ('program_family'),
+      ('program_template_key'),
+      ('main_action_instruction'),
+      ('main_instruction'),
+      ('main_why_it_matters'),
+      ('why_it_matters'),
+      ('main_points'),
+      ('points'),
+      ('proof_required')
+  ) as required(column_name)
+  where not exists (
+    select 1
+    from information_schema.columns c
+    where c.table_schema = 'public'
+      and c.table_name = 'challenge_tasks'
+      and c.column_name = required.column_name
+  );
+
+  if missing_columns is not null then
+    raise exception 'challenge_tasks schema verification failed. Missing columns: %', array_to_string(missing_columns, ', ');
+  end if;
+
+  select c.data_type
+  into is_active_data_type
+  from information_schema.columns c
+  where c.table_schema = 'public'
+    and c.table_name = 'challenge_tasks'
+    and c.column_name = 'is_active';
+
+  if is_active_data_type is distinct from 'boolean' then
+    raise exception 'challenge_tasks.is_active must be boolean before seed/sync. Current type: %', coalesce(is_active_data_type, 'missing');
+  end if;
+
+  select c.data_type
+  into tier_access_data_type
+  from information_schema.columns c
+  where c.table_schema = 'public'
+    and c.table_name = 'challenge_tasks'
+    and c.column_name = 'tier_access';
+
+  if tier_access_data_type is distinct from 'jsonb' then
+    raise exception 'challenge_tasks.tier_access must be jsonb before seed/sync. Current type: %', coalesce(tier_access_data_type, 'missing');
+  end if;
 end;
 $$;
 
