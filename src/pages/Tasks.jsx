@@ -1,16 +1,26 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import {
-  CheckCircle,
-  Circle,
-  ListChecks,
-  Zap,
-  ChevronDown,
-  ChevronUp,
-  RotateCcw,
+  ArrowRight,
+  BadgeCheck,
+  CheckCircle2,
   Clock3,
+  GraduationCap,
+  ListChecks,
+  Lock,
+  ShieldCheck,
+  Sparkles,
+  Star,
+  Zap,
 } from "lucide-react";
+import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
 import PageHeader from "../components/PageHeader";
 import EmptyState from "../components/EmptyState";
@@ -18,45 +28,12 @@ import ChallengeModal from "../components/ChallengeModal";
 import FeaturePageLoader from "../components/FeaturePageLoader";
 import useUserRole from "../hooks/useUserRole";
 import { supabase } from "@/lib/supabaseClient";
-
-function StatusBadge({ sub }) {
-  if (!sub) {
-    return (
-      <span className="text-[10px] px-2 py-0.5 rounded-full bg-muted text-muted-foreground font-semibold">
-        Not Started
-      </span>
-    );
-  }
-
-  const map = {
-    pending: "bg-secondary/20 text-secondary",
-    submitted: "bg-secondary/20 text-secondary",
-    reviewed: "bg-blue-500/10 text-blue-400",
-    approved: "bg-primary/10 text-primary",
-    rejected: "bg-destructive/10 text-destructive",
-    needs_revision: "bg-yellow-500/10 text-yellow-400",
-  };
-
-  const labels = {
-    pending: "Pending",
-    submitted: "Submitted",
-    reviewed: "Reviewed",
-    approved: "Approved ✓",
-    rejected: "Rejected",
-    needs_revision: "Needs Revision",
-  };
-
-  return (
-    <span
-      className={cn(
-        "text-[10px] px-2 py-0.5 rounded-full font-semibold",
-        map[sub.status] || "bg-secondary/20 text-secondary"
-      )}
-    >
-      {labels[sub.status] || "Submitted"}
-    </span>
-  );
-}
+import {
+  buildProgramJourney,
+  EXPERIENCE_TIER_LABELS,
+  getProgramBubbleContent,
+  summarizeCoachingRequests,
+} from "@/lib/program-journey";
 
 const sortTasks = (items = []) => {
   return [...items].sort((a, b) => {
@@ -90,59 +67,157 @@ const normalizeTask = (task = {}) => {
     week_number: week,
     day_number: day,
     is_active: isActive,
-
     difficulty_mode_enabled: !!task.difficulty_mode_enabled,
-
     main_action_instruction:
       task.main_action_instruction || task.main_instruction || task.description || "",
     main_why_it_matters: task.main_why_it_matters || task.why_it_matters || "",
     main_optional_guidance: task.main_optional_guidance || task.optional_guidance || "",
     main_points: Number(task.main_points ?? task.points ?? 10),
-
     easy_action_instruction: task.easy_action_instruction || "",
     easy_why_it_matters: task.easy_why_it_matters || "",
     easy_optional_guidance: task.easy_optional_guidance || "",
     easy_points: Number(task.easy_points ?? 5),
-
     medium_action_instruction: task.medium_action_instruction || "",
     medium_why_it_matters: task.medium_why_it_matters || "",
     medium_optional_guidance: task.medium_optional_guidance || "",
     medium_points: Number(task.medium_points ?? 10),
-
     hard_action_instruction: task.hard_action_instruction || "",
     hard_why_it_matters: task.hard_why_it_matters || "",
     hard_optional_guidance: task.hard_optional_guidance || "",
     hard_points: Number(task.hard_points ?? 20),
-
     proof_required: task.proof_required || "none",
     require_detailed_answer: !!task.require_detailed_answer,
     interview_candidate_task: !!task.interview_candidate_task,
   };
 };
 
+function StatusPill({ item }) {
+  if (item.state === "active") {
+    return (
+      <span className="rounded-full border border-emerald-400/30 bg-emerald-400/15 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wide text-emerald-100">
+        Active
+      </span>
+    );
+  }
+
+  if (item.state === "completed") {
+    const text = item.submissionMeta.isApproved ? "Approved" : "Completed";
+    const tone = item.submissionMeta.isApproved
+      ? "border-sky-400/30 bg-sky-400/15 text-sky-100"
+      : "border-white/10 bg-white/10 text-white/80";
+
+    return (
+      <span className={cn("rounded-full px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wide", tone)}>
+        {text}
+      </span>
+    );
+  }
+
+  if (item.isBeyondTierLimit) {
+    return (
+      <span className="rounded-full border border-amber-400/30 bg-amber-400/15 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wide text-amber-100">
+        Upgrade
+      </span>
+    );
+  }
+
+  return (
+    <span className="rounded-full border border-white/10 bg-white/5 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wide text-white/55">
+      Locked
+    </span>
+  );
+}
+
+function ProgramStateIcon({ item }) {
+  if (item.state === "completed") {
+    return (
+      <div className="flex h-11 w-11 items-center justify-center rounded-2xl border border-white/10 bg-white/10 text-emerald-300">
+        <CheckCircle2 className="h-5 w-5" />
+      </div>
+    );
+  }
+
+  if (item.state === "active") {
+    return (
+      <div className="flex h-11 w-11 items-center justify-center rounded-2xl border border-emerald-400/25 bg-emerald-400/15 text-emerald-200 shadow-[0_14px_30px_rgba(16,185,129,0.18)]">
+        <Sparkles className="h-5 w-5" />
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex h-11 w-11 items-center justify-center rounded-2xl border border-white/10 bg-black/20 text-white/40">
+      <Lock className="h-4 w-4" />
+    </div>
+  );
+}
+
+function LockedTaskDialog({ lockedInfo, onClose }) {
+  return (
+    <Dialog open={!!lockedInfo} onOpenChange={(open) => !open && onClose?.()}>
+      <DialogContent className="rounded-[28px] border border-white/10 bg-[#08111d] p-0 text-white">
+        <div className="bg-[linear-gradient(135deg,#122033_0%,#102837_55%,#114839_100%)] px-6 py-5">
+          <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-white/60">
+            {lockedInfo?.eyebrow || "Program"}
+          </p>
+          <h3 className="mt-2 text-xl font-semibold">{lockedInfo?.title}</h3>
+        </div>
+
+        <div className="space-y-5 px-6 py-6">
+          <p className="text-sm leading-7 text-white/72">{lockedInfo?.body}</p>
+
+          <div className="rounded-2xl border border-white/10 bg-white/[0.04] p-4">
+            <p className="text-xs uppercase tracking-wide text-white/45">
+              {lockedInfo?.metaLabel || "Day"}
+            </p>
+            <p className="mt-2 text-sm font-semibold text-white">{lockedInfo?.metaValue}</p>
+          </div>
+
+          <div className="flex gap-3">
+            {lockedInfo?.href ? (
+              <Button
+                className="flex-1"
+                onClick={() => {
+                  lockedInfo.onNavigate?.(lockedInfo.href);
+                  onClose?.();
+                }}
+              >
+                {lockedInfo.ctaLabel || "Continue"}
+              </Button>
+            ) : null}
+
+            <Button variant="outline" className="flex-1" onClick={onClose}>
+              Close
+            </Button>
+          </div>
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 export default function Tasks() {
-  const { user, isPaid, loading: accessLoading } = useUserRole();
+  const { user, plan, isPaid, loading: accessLoading } = useUserRole();
   const navigate = useNavigate();
 
   const [tasks, setTasks] = useState([]);
   const [submissions, setSubmissions] = useState([]);
+  const [coachingRequests, setCoachingRequests] = useState([]);
   const [loading, setLoading] = useState(true);
   const [selected, setSelected] = useState(null);
-  const [expanded, setExpanded] = useState({});
   const [tasksTable, setTasksTable] = useState(null);
+  const [lockedInfo, setLockedInfo] = useState(null);
 
   const resolveTasksTable = useCallback(async () => {
     if (tasksTable) return tasksTable;
 
     const challengeCheck = await supabase.from("challenge_tasks").select("id").limit(1);
-
     if (!challengeCheck.error) {
       setTasksTable("challenge_tasks");
       return "challenge_tasks";
     }
 
     const tasksCheck = await supabase.from("tasks").select("id").limit(1);
-
     if (!tasksCheck.error) {
       setTasksTable("tasks");
       return "tasks";
@@ -159,22 +234,27 @@ export default function Tasks() {
 
       const table = await resolveTasksTable();
 
-      const tasksRes = await supabase
-        .from(table)
-        .select("*")
-        .or("is_active.eq.true,status.eq.active")
-        .order("week", { ascending: true })
-        .order("day", { ascending: true })
-        .order("sort_order", { ascending: true });
+      const [tasksRes, subsRes, coachingRes] = await Promise.all([
+        supabase
+          .from(table)
+          .select("*")
+          .or("is_active.eq.true,status.eq.active")
+          .order("week", { ascending: true })
+          .order("day", { ascending: true })
+          .order("sort_order", { ascending: true }),
+        supabase
+          .from("task_submissions")
+          .select("*")
+          .eq("created_by", user.email)
+          .order("created_at", { ascending: false }),
+        supabase
+          .from("coaching_requests")
+          .select("*")
+          .or(`user_id.eq.${user.id},created_by.eq.${user.email}`)
+          .order("created_at", { ascending: false }),
+      ]);
 
       if (tasksRes.error) throw tasksRes.error;
-
-      const subsRes = await supabase
-        .from("task_submissions")
-        .select("*")
-        .eq("created_by", user.email)
-        .order("created_at", { ascending: false });
-
       if (subsRes.error) throw subsRes.error;
 
       const normalizedTasks = Array.isArray(tasksRes.data)
@@ -183,287 +263,406 @@ export default function Tasks() {
 
       setTasks(normalizedTasks);
       setSubmissions(Array.isArray(subsRes.data) ? subsRes.data : []);
+      setCoachingRequests(Array.isArray(coachingRes.data) ? coachingRes.data : []);
     } catch (err) {
       console.error("Failed loading tasks:", err);
       setTasks([]);
       setSubmissions([]);
+      setCoachingRequests([]);
     } finally {
       setLoading(false);
     }
-  }, [resolveTasksTable, user?.email]);
+  }, [resolveTasksTable, user?.email, user?.id]);
 
   useEffect(() => {
     loadData();
   }, [loadData]);
 
-  const getSubmission = (taskId) => submissions.find((s) => s.task_id === taskId);
+  const journey = useMemo(
+    () =>
+      buildProgramJourney(tasks, submissions, {
+        plan,
+        profile: user?.profile || user,
+      }),
+    [plan, submissions, tasks, user]
+  );
 
-  const handleSubmitted = async () => {
-    setSelected(null);
-    await loadData();
-  };
+  const coachingSummary = useMemo(
+    () => summarizeCoachingRequests(coachingRequests),
+    [coachingRequests]
+  );
+
+  const bubble = useMemo(
+    () =>
+      getProgramBubbleContent(journey, {
+        coachingSummary: journey.tier === "coaching" ? coachingSummary : null,
+      }),
+    [coachingSummary, journey]
+  );
 
   const groupedTasks = useMemo(() => {
-    const groups = {};
-
-    for (const task of tasks) {
-      const key = `Week ${task.week}`;
+    return journey.items.reduce((groups, item) => {
+      const key = `Week ${item.week}`;
       if (!groups[key]) groups[key] = [];
-      groups[key].push(task);
-    }
+      groups[key].push(item);
+      return groups;
+    }, {});
+  }, [journey.items]);
 
-    return groups;
-  }, [tasks]);
+  const selectedNextTask = useMemo(() => {
+    if (!selected) return null;
+    const current = journey.items.find((item) => item.id === selected.id);
+    if (!current) return null;
+
+    return journey.items.find((item) => item.index > current.index) || null;
+  }, [journey.items, selected]);
+
+  const handleTaskSelection = useCallback(
+    (item) => {
+      if (item.state === "locked") {
+        const isUpgradeLock = item.isBeyondTierLimit;
+
+        setLockedInfo({
+          eyebrow: isUpgradeLock ? "Upgrade Path" : "Locked Until Ready",
+          title: isUpgradeLock ? "Continue your reset" : "This day unlocks next",
+          body: isUpgradeLock
+            ? "You already have the tools. Upgrade to Core to continue the full guided 30-day reset."
+            : item.lockedReason || "Complete your current guided day to unlock this next step.",
+          metaLabel: "Selected day",
+          metaValue: `Week ${item.week} • Day ${item.day} • ${item.title || "Program task"}`,
+          ctaLabel: isUpgradeLock ? "View Upgrade" : "Open Program",
+          href: isUpgradeLock ? "/enroll" : "/tasks",
+          onNavigate: (href) => navigate(href),
+        });
+        return;
+      }
+
+      setSelected(item);
+    },
+    [navigate]
+  );
+
+  const handleSubmitted = useCallback(async () => {
+    await loadData();
+  }, [loadData]);
 
   if (accessLoading) {
-    return <FeaturePageLoader label="Preparing tasks..." />;
+    return <FeaturePageLoader label="Preparing your program..." />;
   }
 
   if (!isPaid) {
     return (
-      <div
-        className="p-4 md:p-6 max-w-4xl mx-auto cursor-pointer"
-        onClick={() => navigate("/enroll")}
-      >
+      <div className="p-4 md:p-6 max-w-4xl mx-auto cursor-pointer" onClick={() => navigate("/enroll")}>
         <EmptyState
           icon={ListChecks}
-          title="Tasks are PRO 🔒"
-          description="Tap to upgrade and unlock challenge tasks."
+          title="The guided system is available on paid plans"
+          description="Unlock your financial tools and program path to start CLARA's guided experience."
         />
       </div>
     );
   }
 
   if (loading) {
-    return <div className="h-64 flex items-center justify-center">Loading...</div>;
+    return <FeaturePageLoader label="Building your guided path..." />;
   }
 
   return (
-    <div className="p-4 md:p-6 max-w-4xl mx-auto pb-10">
+    <div className="mx-auto max-w-5xl px-4 pb-12 pt-4 md:px-6">
       <PageHeader
-        title="Daily Challenge Tasks"
-        subtitle={`${tasks.length} task${tasks.length !== 1 ? "s" : ""}`}
+        title="Program"
+        subtitle={`${journey.completedCount} of ${journey.totalCount} days completed`}
       />
 
-      {tasks.length === 0 ? (
-        <EmptyState
-          icon={ListChecks}
-          title="No tasks yet"
-          description="No active tasks are available right now."
-        />
-      ) : (
-        <div className="space-y-6">
-          {Object.entries(groupedTasks).map(([weekLabel, weekTasks]) => (
-            <div key={weekLabel} className="space-y-3">
-              <div className="flex items-center justify-between">
-                <h2 className="text-sm font-semibold text-muted-foreground">{weekLabel}</h2>
-                <span className="text-xs text-muted-foreground">
-                  {weekTasks.length} task{weekTasks.length !== 1 ? "s" : ""}
-                </span>
+      <div className="space-y-4">
+        <section className="overflow-hidden rounded-[30px] border border-white/10 bg-[linear-gradient(135deg,rgba(8,16,31,0.98)_0%,rgba(9,34,46,0.96)_52%,rgba(16,73,58,0.92)_100%)] p-5 text-white shadow-[0_20px_50px_rgba(0,0,0,0.24)]">
+          <div className="flex flex-col gap-5 md:flex-row md:items-start md:justify-between">
+            <div className="min-w-0 flex-1">
+              <div className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/10 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-white/70">
+                <ShieldCheck className="h-3.5 w-3.5" />
+                {EXPERIENCE_TIER_LABELS[journey.tier]} Program
               </div>
 
-              <div className="space-y-3">
-                {weekTasks.map((task) => {
-                  const sub = getSubmission(task.id);
-                  const isExpanded = !!expanded[task.id];
+              <h2 className="mt-4 text-2xl font-semibold leading-tight">
+                {journey.activeItem
+                  ? `Today's task is Day ${journey.activeItem.day}`
+                  : journey.state === "starter_complete"
+                    ? "Your starter path is complete"
+                    : "Your guided path is visible from here"}
+              </h2>
 
-                  const status = sub?.status || null;
-                  const isApproved = status === "approved";
-                  const isNeedsRevision = status === "needs_revision";
-                  const isPending =
-                    status === "submitted" || status === "pending" || status === "reviewed";
-                  const hasSubmission = !!sub;
-                  const done = hasSubmission;
+              <p className="mt-3 max-w-[42rem] text-sm leading-7 text-white/72">
+                {journey.activeItem
+                  ? journey.activeItem.title || "Open your focused task experience and continue your reset."
+                  : bubble.body}
+              </p>
+            </div>
 
-                  const actionLabel = !sub
-                    ? "Start"
-                    : isNeedsRevision
-                      ? "Resubmit"
-                      : isPending
-                        ? "Under Review"
-                        : isApproved
-                          ? "Completed"
-                          : status === "rejected"
-                            ? "View"
-                            : "Open";
+            <div className="grid min-w-[220px] grid-cols-2 gap-3 self-stretch">
+              <div className="rounded-2xl border border-white/10 bg-black/20 p-4">
+                <p className="text-[11px] uppercase tracking-wide text-white/50">Progress</p>
+                <p className="mt-2 text-2xl font-semibold text-white">{journey.percentComplete}%</p>
+                <p className="mt-1 text-xs text-white/55">
+                  {journey.accessibleCompletedCount} of {journey.accessibleTaskCount || journey.totalCount} unlocked days
+                </p>
+              </div>
 
-                  return (
-                    <div
-                      key={task.id}
-                      className={cn(
-                        "rounded-2xl p-4 border transition-all",
-                        done ? "bg-muted border-border" : "bg-card border-border"
-                      )}
-                    >
-                      <div className="flex items-start gap-3">
-                        <div
-                          className={cn(
-                            isApproved
-                              ? "text-primary"
-                              : isNeedsRevision
-                                ? "text-yellow-400"
-                                : done
-                                  ? "text-primary"
-                                  : "text-muted-foreground"
-                          )}
-                        >
-                          {isApproved ? (
-                            <CheckCircle className="w-5 h-5" />
-                          ) : isNeedsRevision ? (
-                            <RotateCcw className="w-5 h-5" />
-                          ) : done ? (
-                            <CheckCircle className="w-5 h-5" />
-                          ) : (
-                            <Circle className="w-5 h-5" />
-                          )}
-                        </div>
-
-                        <div className="flex-1 min-w-0">
-                          <div className="flex flex-wrap items-start justify-between gap-2">
-                            <div>
-                              <p className="font-semibold text-sm">{task.title || "Untitled Task"}</p>
-                              <p className="text-[11px] text-muted-foreground mt-1">
-                                Week {task.week} • Day {task.day}
-                              </p>
-                            </div>
-                            <StatusBadge sub={sub} />
-                          </div>
-
-                          <p className="text-xs text-muted-foreground mt-2">
-                            {task.main_action_instruction || "Complete this task"}
-                          </p>
-
-                          {!!task.main_why_it_matters && (
-                            <p className="text-[11px] text-muted-foreground mt-2">
-                              <span className="font-medium text-foreground/80">Why it matters:</span>{" "}
-                              {task.main_why_it_matters}
-                            </p>
-                          )}
-
-                          {!!task.main_optional_guidance && (
-                            <p className="text-[11px] text-muted-foreground mt-1">
-                              <span className="font-medium text-foreground/80">Guidance:</span>{" "}
-                              {task.main_optional_guidance}
-                            </p>
-                          )}
-
-                          {hasSubmission && sub && (
-                            <div className="mt-3 space-y-2">
-                              <button
-                                onClick={() =>
-                                  setExpanded((prev) => ({
-                                    ...prev,
-                                    [task.id]: !prev[task.id],
-                                  }))
-                                }
-                                className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors"
-                              >
-                                {isExpanded ? (
-                                  <>
-                                    <ChevronUp className="w-3.5 h-3.5" />
-                                    Hide submission
-                                  </>
-                                ) : (
-                                  <>
-                                    <ChevronDown className="w-3.5 h-3.5" />
-                                    View submission
-                                  </>
-                                )}
-                              </button>
-
-                              {isExpanded && (
-                                <div className="mt-2 p-3 bg-background/60 rounded-xl text-xs border border-border space-y-2">
-                                  <div>
-                                    <span className="font-medium">Status:</span>{" "}
-                                    {String(sub.status || "submitted").replaceAll("_", " ")}
-                                  </div>
-
-                                  {sub.content || sub.answer || sub.reflection ? (
-                                    <div>
-                                      <span className="font-medium">Your submission:</span>
-                                      <div className="mt-1 whitespace-pre-wrap text-muted-foreground">
-                                        {sub.content || sub.answer || sub.reflection}
-                                      </div>
-                                    </div>
-                                  ) : null}
-
-                                  {sub.file_url || sub.proof_url || sub.image_url ? (
-                                    <div>
-                                      <span className="font-medium">Uploaded proof:</span>
-                                      <div className="mt-2">
-                                        <img
-                                          src={sub.file_url || sub.proof_url || sub.image_url}
-                                          alt="submission proof"
-                                          className="max-h-52 rounded-lg border border-border object-contain bg-black/10"
-                                        />
-                                      </div>
-                                    </div>
-                                  ) : null}
-
-                                  {sub.admin_notes ? (
-                                    <div>
-                                      <span className="font-medium">Coach feedback:</span>
-                                      <div className="mt-1 whitespace-pre-wrap text-muted-foreground">
-                                        {sub.admin_notes}
-                                      </div>
-                                    </div>
-                                  ) : null}
-                                </div>
-                              )}
-                            </div>
-                          )}
-                        </div>
-
-                        {!sub && (
-                          <Button size="sm" onClick={() => setSelected(task)}>
-                            <Zap className="w-3.5 h-3.5 mr-1" />
-                            Start
-                          </Button>
-                        )}
-
-                        {isNeedsRevision && (
-                          <Button size="sm" onClick={() => setSelected(task)}>
-                            <RotateCcw className="w-3.5 h-3.5 mr-1" />
-                            Resubmit
-                          </Button>
-                        )}
-
-                        {isPending && (
-                          <Button size="sm" variant="outline" disabled>
-                            <Clock3 className="w-3.5 h-3.5 mr-1" />
-                            {actionLabel}
-                          </Button>
-                        )}
-
-                        {isApproved && (
-                          <Button size="sm" variant="outline" disabled>
-                            <CheckCircle className="w-3.5 h-3.5 mr-1" />
-                            {actionLabel}
-                          </Button>
-                        )}
-
-                        {status === "rejected" && (
-                          <Button size="sm" variant="outline" onClick={() => setSelected(task)}>
-                            <Zap className="w-3.5 h-3.5 mr-1" />
-                            {actionLabel}
-                          </Button>
-                        )}
-                      </div>
-                    </div>
-                  );
-                })}
+              <div className="rounded-2xl border border-white/10 bg-black/20 p-4">
+                <p className="text-[11px] uppercase tracking-wide text-white/50">Current access</p>
+                <p className="mt-2 text-2xl font-semibold text-white">
+                  {journey.tier === "entry" ? `${journey.starterDayLimit} days` : "30 days"}
+                </p>
+                <p className="mt-1 text-xs text-white/55">
+                  {journey.tier === "entry" ? "Starter path unlocked" : "Full guided journey"}
+                </p>
               </div>
             </div>
-          ))}
-        </div>
-      )}
+          </div>
+
+          <div className="mt-5 h-2 overflow-hidden rounded-full bg-white/10">
+            <div
+              className="h-full rounded-full bg-gradient-to-r from-emerald-300 via-teal-300 to-sky-300 transition-all duration-500"
+              style={{ width: `${Math.max(journey.percentComplete, 4)}%` }}
+            />
+          </div>
+
+          <div className="mt-4 flex flex-wrap gap-2">
+            <button
+              type="button"
+              onClick={() => {
+                if (journey.activeItem) {
+                  handleTaskSelection(journey.activeItem);
+                  return;
+                }
+
+                navigate(bubble.href || "/tasks");
+              }}
+              className="inline-flex items-center gap-2 rounded-2xl bg-white px-4 py-2.5 text-sm font-semibold text-slate-950 transition hover:translate-y-[-1px]"
+            >
+              <Zap className="h-4 w-4" />
+              {journey.activeItem ? "Open Today's Task" : bubble.ctaLabel}
+            </button>
+
+            {journey.tier === "entry" ? (
+              <button
+                type="button"
+                onClick={() => navigate("/enroll")}
+                className="inline-flex items-center gap-2 rounded-2xl border border-white/10 bg-white/5 px-4 py-2.5 text-sm font-medium text-white/80 transition hover:bg-white/10"
+              >
+                Continue Your Reset
+                <ArrowRight className="h-4 w-4" />
+              </button>
+            ) : null}
+          </div>
+        </section>
+
+        {journey.tier === "coaching" && (
+          <section className="grid gap-3 md:grid-cols-3">
+            <div className="rounded-[26px] border border-white/10 bg-[#0b1420] p-4 text-white shadow-[0_16px_36px_rgba(0,0,0,0.18)]">
+              <p className="text-[11px] uppercase tracking-[0.18em] text-white/45">Coaching status</p>
+              <h3 className="mt-2 text-base font-semibold">
+                {coachingSummary.hasPendingSession ? "Your support layer is active" : "Book your onboarding session"}
+              </h3>
+              <p className="mt-2 text-sm leading-7 text-white/70">
+                {coachingSummary.hasPendingSession
+                  ? (coachingSummary.nextApproved || coachingSummary.pending)?.topic ||
+                    "Your next coaching checkpoint is already in motion."
+                  : "Add your first coaching session so your guided system and human support start together."}
+              </p>
+            </div>
+
+            <div className="rounded-[26px] border border-white/10 bg-[#0b1420] p-4 text-white shadow-[0_16px_36px_rgba(0,0,0,0.18)]">
+              <p className="text-[11px] uppercase tracking-[0.18em] text-white/45">Session timeline</p>
+              <h3 className="mt-2 text-base font-semibold">
+                {coachingSummary.nextApproved
+                  ? "Next session approved"
+                  : coachingSummary.pending
+                    ? "Session request pending"
+                    : "No session scheduled yet"}
+              </h3>
+              <p className="mt-2 text-sm leading-7 text-white/70">
+                {coachingSummary.nextApproved
+                  ? `${coachingSummary.nextApproved.date || "Date pending"} at ${coachingSummary.nextApproved.time || "TBD"}`
+                  : coachingSummary.pending
+                    ? "Your request is waiting for confirmation."
+                    : "Use the coaching area when you want alignment, accountability, or a deeper review."}
+              </p>
+            </div>
+
+            <div className="rounded-[26px] border border-white/10 bg-[#0b1420] p-4 text-white shadow-[0_16px_36px_rgba(0,0,0,0.18)]">
+              <p className="text-[11px] uppercase tracking-[0.18em] text-white/45">Completion layer</p>
+              <h3 className="mt-2 text-base font-semibold">Final review and certification</h3>
+              <p className="mt-2 text-sm leading-7 text-white/70">
+                {coachingSummary.completedCount > 0
+                  ? `${coachingSummary.completedCount} coaching session${coachingSummary.completedCount > 1 ? "s" : ""} completed so far.`
+                  : "Your final review and certification surface here as you move through the full system."}
+              </p>
+            </div>
+          </section>
+        )}
+
+        {journey.tier === "entry" && (
+          <section className="rounded-[26px] border border-amber-400/20 bg-[linear-gradient(135deg,rgba(26,17,4,0.96)_0%,rgba(43,24,6,0.9)_100%)] p-4 text-white shadow-[0_16px_36px_rgba(0,0,0,0.2)]">
+            <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+              <div className="min-w-0 flex-1">
+                <div className="inline-flex items-center gap-2 rounded-full border border-amber-300/20 bg-amber-300/10 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-amber-100">
+                  <Star className="h-3.5 w-3.5" />
+                  Starter Path
+                </div>
+                <h3 className="mt-3 text-lg font-semibold">You have the tools. Now let's guide you.</h3>
+                <p className="mt-2 text-sm leading-7 text-white/72">
+                  Entry gives you a real guided start. When you're ready to continue the full reset, Core unlocks the remaining days.
+                </p>
+              </div>
+
+              <Button onClick={() => navigate("/enroll")} className="shrink-0">
+                Continue Your 30-Day Reset
+              </Button>
+            </div>
+          </section>
+        )}
+
+        {journey.totalCount === 0 ? (
+          <EmptyState
+            icon={ListChecks}
+            title="No program days are available yet"
+            description="Your guided program will appear here as soon as your tasks are published."
+          />
+        ) : (
+          <section className="space-y-5">
+            {Object.entries(groupedTasks).map(([weekLabel, weekItems]) => (
+              <div key={weekLabel} className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground">
+                      {weekLabel}
+                    </p>
+                    <p className="mt-1 text-sm text-muted-foreground">
+                      {weekItems.filter((item) => item.isCompleted).length} completed
+                    </p>
+                  </div>
+                  <div className="rounded-full border border-border bg-card px-3 py-1 text-xs text-muted-foreground">
+                    {weekItems.length} day{weekItems.length !== 1 ? "s" : ""}
+                  </div>
+                </div>
+
+                <div className="space-y-3">
+                  {weekItems.map((item) => (
+                    <button
+                      type="button"
+                      key={item.id}
+                      onClick={() => handleTaskSelection(item)}
+                      className={cn(
+                        "group w-full rounded-[26px] border p-4 text-left transition duration-200",
+                        item.state === "active" &&
+                          "border-emerald-400/25 bg-[linear-gradient(135deg,rgba(6,20,18,0.98)_0%,rgba(13,38,36,0.94)_100%)] shadow-[0_18px_38px_rgba(16,185,129,0.12)]",
+                        item.state === "completed" &&
+                          "border-white/8 bg-[linear-gradient(135deg,rgba(13,20,31,0.98)_0%,rgba(17,24,39,0.94)_100%)]",
+                        item.state === "locked" &&
+                          "border-white/8 bg-[linear-gradient(135deg,rgba(10,15,24,0.96)_0%,rgba(14,18,28,0.94)_100%)] opacity-90"
+                      )}
+                    >
+                      <div className="flex items-start gap-4">
+                        <ProgramStateIcon item={item} />
+
+                        <div className="min-w-0 flex-1">
+                          <div className="flex flex-wrap items-start justify-between gap-3">
+                            <div className="min-w-0">
+                              <p className="text-[11px] uppercase tracking-[0.18em] text-white/45">
+                                Day {item.day}
+                              </p>
+                              <h3
+                                className={cn(
+                                  "mt-1 text-base font-semibold leading-tight",
+                                  item.state === "locked" ? "text-white/78" : "text-white"
+                                )}
+                              >
+                                {item.title || "Program task"}
+                              </h3>
+                            </div>
+
+                            <StatusPill item={item} />
+                          </div>
+
+                          <p
+                            className={cn(
+                              "mt-3 text-sm leading-7",
+                              item.state === "locked" ? "text-white/45" : "text-white/70"
+                            )}
+                          >
+                            {item.main_action_instruction || "Open this day to view the guided instruction."}
+                          </p>
+
+                          <div className="mt-4 flex flex-wrap items-center gap-2 text-xs text-white/55">
+                            <span className="rounded-full border border-white/10 bg-black/20 px-3 py-1">
+                              Week {item.week}
+                            </span>
+                            {item.submissionMeta.isUnderReview ? (
+                              <span className="rounded-full border border-sky-400/20 bg-sky-400/10 px-3 py-1 text-sky-100/90">
+                                Under review
+                              </span>
+                            ) : null}
+                            {item.submissionMeta.needsRevision ? (
+                              <span className="rounded-full border border-amber-400/20 bg-amber-400/10 px-3 py-1 text-amber-100">
+                                Needs revision
+                              </span>
+                            ) : null}
+                            {item.lockedReason ? (
+                              <span className="rounded-full border border-white/10 bg-black/20 px-3 py-1">
+                                {item.lockedReason}
+                              </span>
+                            ) : null}
+                          </div>
+                        </div>
+
+                        <div className="hidden shrink-0 md:block">
+                          <div
+                            className={cn(
+                              "inline-flex items-center gap-2 rounded-2xl px-4 py-2 text-sm font-medium transition",
+                              item.state === "active" &&
+                                "bg-white text-slate-950 group-hover:translate-y-[-1px]",
+                              item.state === "completed" &&
+                                "border border-white/10 bg-white/5 text-white/80",
+                              item.state === "locked" &&
+                                "border border-white/10 bg-black/20 text-white/50"
+                            )}
+                          >
+                            {item.state === "active" ? (
+                              <>
+                                Start
+                                <ArrowRight className="h-4 w-4" />
+                              </>
+                            ) : item.state === "completed" ? (
+                              <>
+                                Review
+                                <BadgeCheck className="h-4 w-4" />
+                              </>
+                            ) : (
+                              <>
+                                View Details
+                                <Lock className="h-4 w-4" />
+                              </>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            ))}
+          </section>
+        )}
+      </div>
+
+      <LockedTaskDialog lockedInfo={lockedInfo} onClose={() => setLockedInfo(null)} />
 
       <ChallengeModal
         task={selected}
+        nextTask={selectedNextTask}
         onClose={() => setSelected(null)}
         onSubmitted={handleSubmitted}
         user={user}
-        existingSubmission={selected ? getSubmission(selected.id) : null}
+        existingSubmission={selected ? journey.items.find((item) => item.id === selected.id)?.submission : null}
       />
     </div>
   );
