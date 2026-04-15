@@ -11,6 +11,24 @@ end;
 $$;
 
 alter table if exists public.challenge_tasks
+  add column if not exists title text,
+  add column if not exists description text,
+  add column if not exists why_this_matters text,
+  add column if not exists status text default 'active',
+  add column if not exists is_active boolean default true,
+  add column if not exists sort_order integer default 0,
+  add column if not exists day integer,
+  add column if not exists day_number integer,
+  add column if not exists week integer,
+  add column if not exists week_number integer,
+  add column if not exists main_action_instruction text,
+  add column if not exists main_instruction text,
+  add column if not exists main_why_it_matters text,
+  add column if not exists why_it_matters text,
+  add column if not exists main_points integer default 10,
+  add column if not exists points integer default 10,
+  add column if not exists proof_required text default 'none',
+  add column if not exists updated_at timestamptz default timezone('utc'::text, now()),
   add column if not exists program_family text default 'reset_30',
   add column if not exists program_template_key text,
   add column if not exists short_label text,
@@ -34,6 +52,12 @@ create unique index if not exists challenge_tasks_program_template_key_idx
 
 create index if not exists challenge_tasks_program_family_idx
   on public.challenge_tasks(program_family, sort_order, day);
+
+drop trigger if exists set_challenge_tasks_updated_at on public.challenge_tasks;
+create trigger set_challenge_tasks_updated_at
+before update on public.challenge_tasks
+for each row
+execute function public.set_current_timestamp_updated_at();
 
 create table if not exists public.user_programs (
   id uuid primary key default gen_random_uuid(),
