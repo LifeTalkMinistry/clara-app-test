@@ -83,9 +83,10 @@ begin
 end;
 $$;
 
+drop index if exists public.challenge_tasks_program_template_key_idx;
+
 create unique index if not exists challenge_tasks_program_template_key_idx
-  on public.challenge_tasks(program_template_key)
-  where program_template_key is not null;
+  on public.challenge_tasks(program_template_key);
 
 create index if not exists challenge_tasks_program_family_idx
   on public.challenge_tasks(program_family, sort_order, day);
