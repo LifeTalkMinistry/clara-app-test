@@ -43,8 +43,45 @@ alter table if exists public.challenge_tasks
   add column if not exists milestone_type text,
   add column if not exists reward_title text,
   add column if not exists reward_message text,
-  add column if not exists estimated_minutes integer default 10,
-  add column if not exists tier_access text[] default array['entry','core','coaching'];
+  add column if not exists estimated_minutes integer default 10;
+
+alter table if exists public.challenge_tasks
+  add column if not exists tier_access jsonb default '["entry","core","coaching"]'::jsonb;
+
+do $$
+declare
+  tier_access_type text;
+begin
+  select c.data_type
+  into tier_access_type
+  from information_schema.columns c
+  where c.table_schema = 'public'
+    and c.table_name = 'challenge_tasks'
+    and c.column_name = 'tier_access';
+
+  if tier_access_type = 'ARRAY' then
+    execute $sql$
+      alter table public.challenge_tasks
+      alter column tier_access type jsonb
+      using to_jsonb(tier_access)
+    $sql$;
+  elsif tier_access_type is not null and tier_access_type <> 'jsonb' then
+    execute $sql$
+      alter table public.challenge_tasks
+      alter column tier_access type jsonb
+      using case
+        when tier_access is null then '["entry","core","coaching"]'::jsonb
+        else to_jsonb(string_to_array(tier_access::text, ','))
+      end
+    $sql$;
+  end if;
+
+  execute $sql$
+    alter table public.challenge_tasks
+    alter column tier_access set default '["entry","core","coaching"]'::jsonb
+  $sql$;
+end;
+$$;
 
 create unique index if not exists challenge_tasks_program_template_key_idx
   on public.challenge_tasks(program_template_key)
@@ -317,7 +354,7 @@ select
   coalesce(nullif(payload->>'reward_title', ''), format('Day %s Complete', day)),
   payload->>'reward_message',
   (payload->>'estimated_minutes')::integer,
-  array(select jsonb_array_elements_text(payload->'tier_access')),
+  coalesce(payload->'tier_access', '["entry","core","coaching"]'::jsonb),
   true,
   'active',
   day,
