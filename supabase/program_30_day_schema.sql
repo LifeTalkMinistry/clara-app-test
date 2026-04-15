@@ -1,3 +1,15 @@
+create extension if not exists pgcrypto;
+
+create or replace function public.set_current_timestamp_updated_at()
+returns trigger
+language plpgsql
+as $$
+begin
+  new.updated_at = timezone('utc'::text, now());
+  return new;
+end;
+$$;
+
 alter table if exists public.challenge_tasks
   add column if not exists program_family text default 'reset_30',
   add column if not exists program_template_key text,
@@ -20,21 +32,68 @@ create unique index if not exists challenge_tasks_program_template_key_idx
   on public.challenge_tasks(program_template_key)
   where program_template_key is not null;
 
+create index if not exists challenge_tasks_program_family_idx
+  on public.challenge_tasks(program_family, sort_order, day);
+
 create table if not exists public.user_programs (
   id uuid primary key default gen_random_uuid(),
   user_id uuid not null unique,
   user_email text,
   assigned_tier text,
+  program_family text not null default 'reset_30',
   program_start_date date not null default current_date,
   manual_unlock_until integer,
   current_day_override integer,
   is_active boolean not null default true,
   reset_at timestamptz,
+  started_at timestamptz not null default timezone('utc'::text, now()),
   created_at timestamptz not null default timezone('utc'::text, now()),
-  updated_at timestamptz not null default timezone('utc'::text, now())
+  updated_at timestamptz not null default timezone('utc'::text, now()),
+  constraint user_programs_assigned_tier_check
+    check (assigned_tier is null or assigned_tier in ('entry', 'core', 'coaching'))
 );
 
-create index if not exists user_programs_user_email_idx on public.user_programs(user_email);
+create index if not exists user_programs_user_email_idx
+  on public.user_programs(user_email);
+
+create index if not exists user_programs_family_idx
+  on public.user_programs(program_family, is_active, program_start_date);
+
+drop trigger if exists set_user_programs_updated_at on public.user_programs;
+create trigger set_user_programs_updated_at
+before update on public.user_programs
+for each row
+execute function public.set_current_timestamp_updated_at();
+
+create table if not exists public.user_program_day_assignments (
+  id uuid primary key default gen_random_uuid(),
+  user_program_id uuid not null references public.user_programs(id) on delete cascade,
+  user_id uuid not null,
+  task_id uuid not null,
+  program_family text not null default 'reset_30',
+  day_number integer not null,
+  sort_order integer not null default 0,
+  assigned_tier text,
+  template_version_key text,
+  unlocked_on date,
+  completed_at timestamptz,
+  is_active boolean not null default true,
+  created_at timestamptz not null default timezone('utc'::text, now()),
+  updated_at timestamptz not null default timezone('utc'::text, now()),
+  constraint user_program_day_assignments_unique unique (user_program_id, task_id)
+);
+
+create index if not exists user_program_day_assignments_user_idx
+  on public.user_program_day_assignments(user_id, day_number);
+
+create index if not exists user_program_day_assignments_program_idx
+  on public.user_program_day_assignments(user_program_id, day_number);
+
+drop trigger if exists set_user_program_day_assignments_updated_at on public.user_program_day_assignments;
+create trigger set_user_program_day_assignments_updated_at
+before update on public.user_program_day_assignments
+for each row
+execute function public.set_current_timestamp_updated_at();
 
 alter table if exists public.task_submissions
   add column if not exists user_id uuid,
@@ -43,6 +102,111 @@ alter table if exists public.task_submissions
   add column if not exists question_2_answer text,
   add column if not exists question_3_answer text,
   add column if not exists completed_at timestamptz;
+
+create index if not exists task_submissions_user_task_idx
+  on public.task_submissions(user_id, task_id, created_at desc);
+
+create index if not exists task_submissions_created_by_task_idx
+  on public.task_submissions(created_by, task_id, created_at desc);
+
+create or replace function public.sync_user_program_day_assignments(target_user_program_id uuid)
+returns void
+language plpgsql
+as $$
+declare
+  v_program public.user_programs%rowtype;
+begin
+  select *
+  into v_program
+  from public.user_programs
+  where id = target_user_program_id;
+
+  if not found then
+    return;
+  end if;
+
+  insert into public.user_program_day_assignments (
+    user_program_id,
+    user_id,
+    task_id,
+    program_family,
+    day_number,
+    sort_order,
+    assigned_tier,
+    template_version_key,
+    unlocked_on,
+    is_active
+  )
+  select
+    v_program.id,
+    v_program.user_id,
+    t.id,
+    coalesce(t.program_family, 'reset_30'),
+    coalesce(t.day_number, t.day, t.sort_order, 0),
+    coalesce(t.sort_order, t.day_number, t.day, 0),
+    v_program.assigned_tier,
+    coalesce(t.program_template_key, format('day_%s', lpad(coalesce(t.day_number, t.day, 0)::text, 2, '0'))),
+    case
+      when coalesce(t.day_number, t.day, 9999) <= greatest(1, coalesce(v_program.manual_unlock_until, v_program.current_day_override, 1))
+        then v_program.program_start_date
+      else null
+    end,
+    coalesce(t.is_active, true)
+  from public.challenge_tasks t
+  where coalesce(t.program_family, 'reset_30') = coalesce(v_program.program_family, 'reset_30')
+  on conflict (user_program_id, task_id) do update
+  set
+    user_id = excluded.user_id,
+    program_family = excluded.program_family,
+    day_number = excluded.day_number,
+    sort_order = excluded.sort_order,
+    assigned_tier = excluded.assigned_tier,
+    template_version_key = excluded.template_version_key,
+    is_active = excluded.is_active,
+    updated_at = timezone('utc'::text, now());
+end;
+$$;
+
+create or replace function public.handle_user_program_assignment_sync()
+returns trigger
+language plpgsql
+as $$
+begin
+  perform public.sync_user_program_day_assignments(new.id);
+  return new;
+end;
+$$;
+
+drop trigger if exists sync_user_program_day_assignments_trigger on public.user_programs;
+create trigger sync_user_program_day_assignments_trigger
+after insert or update of assigned_tier, program_family, manual_unlock_until, current_day_override, is_active
+on public.user_programs
+for each row
+execute function public.handle_user_program_assignment_sync();
+
+create or replace function public.handle_program_submission_completion()
+returns trigger
+language plpgsql
+as $$
+begin
+  update public.user_program_day_assignments
+  set
+    completed_at = coalesce(new.completed_at, timezone('utc'::text, now())),
+    updated_at = timezone('utc'::text, now())
+  where user_id = coalesce(new.user_id, user_id)
+    and task_id = new.task_id;
+
+  return new;
+end;
+$$;
+
+drop trigger if exists sync_program_assignment_completion_trigger on public.task_submissions;
+create trigger sync_program_assignment_completion_trigger
+after insert or update of completed_at, status
+on public.task_submissions
+for each row
+when (new.completed_at is not null or coalesce(new.status, '') in ('pending', 'submitted', 'reviewed', 'approved', 'completed'))
+execute function public.handle_program_submission_completion();
 
 with seed(day, payload) as (
   values
@@ -126,7 +290,7 @@ select
   payload->>'question_3',
   payload->>'completion_button_text',
   nullif(payload->>'milestone_type', ''),
-  payload->>'reward_title',
+  coalesce(nullif(payload->>'reward_title', ''), format('Day %s Complete', day)),
   payload->>'reward_message',
   (payload->>'estimated_minutes')::integer,
   array(select jsonb_array_elements_text(payload->'tier_access')),
@@ -177,4 +341,17 @@ set
   main_action_instruction = excluded.main_action_instruction,
   main_instruction = excluded.main_instruction,
   main_why_it_matters = excluded.main_why_it_matters,
-  why_it_matters = excluded.why_it_matters;
+  why_it_matters = excluded.why_it_matters,
+  updated_at = timezone('utc'::text, now());
+
+do $$
+declare
+  program_row record;
+begin
+  for program_row in
+    select id from public.user_programs
+  loop
+    perform public.sync_user_program_day_assignments(program_row.id);
+  end loop;
+end;
+$$;
