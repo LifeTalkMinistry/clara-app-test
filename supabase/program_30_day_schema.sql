@@ -270,6 +270,38 @@ for each row
 when (new.completed_at is not null or coalesce(new.status, '') in ('pending', 'submitted', 'reviewed', 'approved', 'completed'))
 execute function public.handle_program_submission_completion();
 
+alter table if exists public.challenge_tasks
+  add column if not exists status text default 'active',
+  add column if not exists is_active boolean default true,
+  add column if not exists sort_order integer default 0,
+  add column if not exists day integer,
+  add column if not exists day_number integer,
+  add column if not exists week integer,
+  add column if not exists week_number integer,
+  add column if not exists why_this_matters text,
+  add column if not exists short_label text,
+  add column if not exists theme text,
+  add column if not exists task_instruction text,
+  add column if not exists reflection_prompt text,
+  add column if not exists journal_placeholder text,
+  add column if not exists question_1 text,
+  add column if not exists question_2 text,
+  add column if not exists question_3 text,
+  add column if not exists completion_button_text text,
+  add column if not exists milestone_type text,
+  add column if not exists reward_title text,
+  add column if not exists reward_message text,
+  add column if not exists estimated_minutes integer default 10,
+  add column if not exists program_family text default 'reset_30',
+  add column if not exists program_template_key text,
+  add column if not exists main_action_instruction text,
+  add column if not exists main_instruction text,
+  add column if not exists main_why_it_matters text,
+  add column if not exists why_it_matters text,
+  add column if not exists main_points integer default 10,
+  add column if not exists points integer default 10,
+  add column if not exists proof_required text default 'none';
+
 with seed(day, payload) as (
   values
     (1, '{"title":"Welcome to Your 30-Day Reset","short_label":"Start Strong","theme":"Foundation","description":"Today is your starting line. This is not about perfection. This is about finally becoming aware of where you are, what needs to change, and what kind of financial life you want to build.","why_this_matters":"Real change starts with honesty. Before growth comes awareness.","task_instruction":"Open your finances without judgment. Review your current situation and commit to showing up for the next 30 days.","reflection_prompt":"What made you say yes to this journey, and what do you hope changes after 30 days?","journal_placeholder":"Write honestly about your current financial reality and your hopes.","question_1":"What is your biggest money struggle right now?","question_2":"What are you most tired of repeating?","question_3":"What would success after 30 days look like for you?","completion_button_text":"I''m Ready to Begin","milestone_type":"start","reward_title":"Day 1 Complete","reward_message":"You started. That matters more than you think.","estimated_minutes":10,"tier_access":["entry","core","coaching"]}'::jsonb),
