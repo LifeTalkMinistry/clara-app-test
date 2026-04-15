@@ -8,16 +8,43 @@ import {
   sanitizePlanRow,
 } from "@/lib/plan-config";
 
-const EMPTY_STATE = {
-  plans: CURRENT_PLAN_KEYS.map((planKey) => sanitizePlanRow({ plan_key: planKey })),
-  loading: true,
-};
+const EMPTY_PLANS = CURRENT_PLAN_KEYS.map((planKey) =>
+  sanitizePlanRow({ plan_key: planKey })
+);
 
-export default function usePlanAccess() {
-  const [plans, setPlans] = useState(EMPTY_STATE.plans);
-  const [loading, setLoading] = useState(true);
+const PLAN_ACCESS_CHANNEL = "clara-plan-access";
 
-  const loadPlans = useCallback(async () => {
+let sharedPlans = EMPTY_PLANS;
+let sharedLoading = true;
+let sharedInitialized = false;
+let sharedChannel = null;
+let sharedFetchPromise = null;
+const subscribers = new Set();
+
+function notifySubscribers() {
+  const snapshot = {
+    plans: sharedPlans,
+    loading: sharedLoading,
+  };
+
+  subscribers.forEach((listener) => {
+    try {
+      listener(snapshot);
+    } catch (error) {
+      console.error("Plan access subscriber error:", error);
+    }
+  });
+}
+
+async function fetchPlans() {
+  if (sharedFetchPromise) {
+    return sharedFetchPromise;
+  }
+
+  sharedFetchPromise = (async () => {
+    sharedLoading = true;
+    notifySubscribers();
+
     try {
       const { data, error } = await supabase
         .from("plans")
@@ -26,40 +53,104 @@ export default function usePlanAccess() {
         .order("name", { ascending: true });
 
       if (error) throw error;
-      setPlans(mergePlans(data || []));
+
+      sharedPlans = mergePlans(data || []);
     } catch (error) {
       console.error("Failed to load plan access:", error);
-      setPlans(EMPTY_STATE.plans);
+      sharedPlans = EMPTY_PLANS;
     } finally {
-      setLoading(false);
+      sharedLoading = false;
+      notifySubscribers();
+      sharedFetchPromise = null;
     }
-  }, []);
 
-  useEffect(() => {
-    loadPlans();
+    return sharedPlans;
+  })();
 
-    const channel = supabase
-      .channel("clara-plan-access")
+  return sharedFetchPromise;
+}
+
+function ensureRealtimeSubscription() {
+  if (sharedChannel) return;
+
+  try {
+    sharedChannel = supabase
+      .channel(PLAN_ACCESS_CHANNEL)
       .on(
         "postgres_changes",
         { event: "*", schema: "public", table: "plans" },
         () => {
-          loadPlans();
+          fetchPlans().catch((error) => {
+            console.error("Failed to refresh plan access after realtime event:", error);
+          });
         }
       )
-      .subscribe();
+      .subscribe((status) => {
+        if (status === "CHANNEL_ERROR" || status === "TIMED_OUT") {
+          console.warn("Plan access realtime unavailable:", status);
+        }
+      });
+  } catch (error) {
+    console.error("Plan access realtime setup failed:", error);
+    sharedChannel = null;
+  }
+}
+
+function releaseRealtimeSubscription() {
+  if (!sharedChannel || subscribers.size > 0) return;
+
+  try {
+    supabase.removeChannel(sharedChannel);
+  } catch (error) {
+    console.error("Failed to remove plan access realtime channel:", error);
+  } finally {
+    sharedChannel = null;
+  }
+}
+
+export default function usePlanAccess() {
+  const [state, setState] = useState({
+    plans: sharedPlans,
+    loading: sharedLoading,
+  });
+
+  const refreshPlans = useCallback(async () => {
+    await fetchPlans();
+  }, []);
+
+  useEffect(() => {
+    const handleUpdate = (nextState) => {
+      setState(nextState);
+    };
+
+    subscribers.add(handleUpdate);
+    handleUpdate({
+      plans: sharedPlans,
+      loading: sharedLoading,
+    });
+
+    if (!sharedInitialized) {
+      sharedInitialized = true;
+      fetchPlans().catch((error) => {
+        console.error("Initial plan access fetch failed:", error);
+      });
+    }
+
+    // Realtime is best-effort only. UI should already be usable from fetch data.
+    ensureRealtimeSubscription();
 
     return () => {
-      supabase.removeChannel(channel);
+      subscribers.delete(handleUpdate);
+      releaseRealtimeSubscription();
     };
-  }, [loadPlans]);
+  }, []);
 
   const plansByKey = useMemo(() => {
-    return plans.reduce((acc, plan) => {
+    return state.plans.reduce((acc, plan) => {
       acc[plan.plan_key] = plan;
       return acc;
     }, {});
-  }, [plans]);
+  }, [state.plans]);
 
   const getPlan = useCallback(
     (planKey) => plansByKey[planKey] || sanitizePlanRow({ plan_key: planKey }),
@@ -77,10 +168,10 @@ export default function usePlanAccess() {
   );
 
   return {
-    plans,
+    plans: state.plans,
     plansByKey,
-    loading,
-    refreshPlans: loadPlans,
+    loading: state.loading,
+    refreshPlans,
     getPlan,
     getPlanFeatureMode,
     isPlanFeatureEnabled,
