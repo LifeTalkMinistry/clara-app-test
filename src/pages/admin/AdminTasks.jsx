@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
-  CheckCircle,
   Edit,
   Eye,
   LockOpen,
@@ -8,8 +7,8 @@ import {
   PowerOff,
   RefreshCw,
   RotateCcw,
+  Trash2,
   Trophy,
-  Users,
 } from "lucide-react";
 import { supabase } from "@/lib/supabaseClient";
 import { Button } from "@/components/ui/button";
@@ -22,6 +21,8 @@ import {
   overrideUserProgramDay,
   resetUserProgramProgress,
 } from "@/lib/program-access";
+
+const PROGRAM_LENGTH = 30;
 
 export default function AdminTasks() {
   const [tasks, setTasks] = useState([]);
@@ -36,6 +37,7 @@ export default function AdminTasks() {
   const [selectedSubmission, setSelectedSubmission] = useState(null);
   const [reviewNotes, setReviewNotes] = useState("");
   const [reviewLoading, setReviewLoading] = useState(false);
+  const [deleteLoadingId, setDeleteLoadingId] = useState(null);
 
   const loadData = useCallback(async (soft = false) => {
     try {
@@ -56,7 +58,15 @@ export default function AdminTasks() {
 
       const profileMap = new Map((profileRows.data || []).map((profile) => [profile.id, profile]));
 
-      setTasks((taskRows.data || []).map(normalizeProgramTask));
+      setTasks(
+        (taskRows.data || [])
+          .map(normalizeProgramTask)
+          .sort((a, b) => {
+            const dayDiff = Number(a.day || 0) - Number(b.day || 0);
+            if (dayDiff !== 0) return dayDiff;
+            return Number(a.sort_order || 0) - Number(b.sort_order || 0);
+          })
+      );
       setSubmissions(submissionRows.data || []);
       setProgramUsers(
         (userProgramRows.data || []).map((row) => ({
@@ -81,21 +91,51 @@ export default function AdminTasks() {
     const activeTasks = tasks.filter((task) => task.is_active).length;
     const milestoneTasks = tasks.filter((task) => !!task.milestone_type).length;
     const activeUsers = programUsers.filter((user) => user.is_active !== false).length;
+    const completedSlots = tasks.filter((task) => Number(task.day) >= 1 && Number(task.day) <= PROGRAM_LENGTH).length;
 
     return {
       activeTasks,
       milestoneTasks,
       activeUsers,
+      completedSlots,
     };
   }, [programUsers, tasks]);
 
   const programTaskIds = useMemo(() => tasks.map((task) => task.id).filter(Boolean), [tasks]);
+  const tasksByDay = useMemo(() => {
+    return new Map(tasks.map((task) => [Number(task.day), task]));
+  }, [tasks]);
+  const taskSlots = useMemo(() => {
+    return Array.from({ length: PROGRAM_LENGTH }, (_, index) => {
+      const day = index + 1;
+      const task = tasksByDay.get(day) || null;
+      return {
+        day,
+        task,
+        exists: !!task,
+      };
+    });
+  }, [tasksByDay]);
+  const nextMissingDay = useMemo(() => {
+    const missingSlot = taskSlots.find((slot) => !slot.exists);
+    return missingSlot?.day || Math.min(tasks.length + 1, PROGRAM_LENGTH);
+  }, [taskSlots, tasks.length]);
 
   useEffect(() => {
     setReviewNotes(selectedSubmission?.admin_notes || "");
   }, [selectedSubmission]);
 
   const handleSaveDay = async (nextDay) => {
+    const normalizedDay = Number(nextDay.day || 1);
+    const duplicate = tasks.find(
+      (task) => Number(task.day) === normalizedDay && task.id !== nextDay.id
+    );
+
+    if (duplicate) {
+      alert(`Day ${normalizedDay} already exists. Edit the existing day or choose another day number.`);
+      return;
+    }
+
     const payload = {
       title: nextDay.title?.trim() || "",
       short_label: nextDay.short_label?.trim() || "",
@@ -116,13 +156,13 @@ export default function AdminTasks() {
       tier_access: nextDay.tier_access || ["entry", "core", "coaching"],
       is_active: !!nextDay.is_active,
       status: nextDay.is_active ? "active" : "inactive",
-      sort_order: Number(nextDay.sort_order || nextDay.day || 1),
-      day: Number(nextDay.day || 1),
-      day_number: Number(nextDay.day || 1),
-      week: Math.ceil(Number(nextDay.day || 1) / 7),
-      week_number: Math.ceil(Number(nextDay.day || 1) / 7),
+      sort_order: Number(nextDay.sort_order || normalizedDay),
+      day: normalizedDay,
+      day_number: normalizedDay,
+      week: Math.ceil(normalizedDay / 7),
+      week_number: Math.ceil(normalizedDay / 7),
       program_family: "reset_30",
-      program_template_key: `day_${String(Number(nextDay.day || 1)).padStart(2, "0")}`,
+      program_template_key: `day_${String(normalizedDay).padStart(2, "0")}`,
 
       main_action_instruction: nextDay.task_instruction?.trim() || "",
       main_instruction: nextDay.task_instruction?.trim() || "",
@@ -147,6 +187,27 @@ export default function AdminTasks() {
     } catch (error) {
       console.error("Failed to save program day:", error);
       alert(error.message || "Failed to save program day.");
+    }
+  };
+
+  const handleDeleteTask = async (task) => {
+    if (!task?.id) return;
+
+    const confirmed = confirm(
+      `Delete Day ${task.day}: ${task.title || "Untitled Day"}?\n\nThis removes the task from the 30-day program manager.`
+    );
+    if (!confirmed) return;
+
+    try {
+      setDeleteLoadingId(task.id);
+      const { error } = await supabase.from("challenge_tasks").delete().eq("id", task.id);
+      if (error) throw error;
+      await loadData(true);
+    } catch (error) {
+      console.error("Failed to delete program day:", error);
+      alert(error.message || "Failed to delete program day.");
+    } finally {
+      setDeleteLoadingId(null);
     }
   };
 
@@ -256,15 +317,21 @@ export default function AdminTasks() {
             <div className="space-y-4">
               <div className="rounded-2xl border border-white/10 bg-white/5 p-4">
                 <p className="text-xs uppercase tracking-[0.14em] text-white/45">Description</p>
-                <p className="mt-2 text-sm leading-7 text-white/78">{previewTask.description}</p>
+                <p className="mt-2 text-sm leading-7 text-white/78">
+                  {previewTask.description || "No description yet."}
+                </p>
               </div>
               <div className="rounded-2xl border border-white/10 bg-white/5 p-4">
                 <p className="text-xs uppercase tracking-[0.14em] text-white/45">Instruction</p>
-                <p className="mt-2 text-sm leading-7 text-white/78">{previewTask.task_instruction}</p>
+                <p className="mt-2 text-sm leading-7 text-white/78">
+                  {previewTask.task_instruction || "No instruction yet."}
+                </p>
               </div>
               <div className="rounded-2xl border border-white/10 bg-white/5 p-4">
                 <p className="text-xs uppercase tracking-[0.14em] text-white/45">Reflection Prompt</p>
-                <p className="mt-2 text-sm leading-7 text-white/78">{previewTask.reflection_prompt}</p>
+                <p className="mt-2 text-sm leading-7 text-white/78">
+                  {previewTask.reflection_prompt || "No reflection prompt yet."}
+                </p>
               </div>
             </div>
           ) : null}
@@ -325,6 +392,7 @@ export default function AdminTasks() {
             Milestones {stats.milestoneTasks}
           </Badge>
           <Badge variant="outline">Active Users {stats.activeUsers}</Badge>
+          <Badge variant="outline">Filled Slots {stats.completedSlots}/{PROGRAM_LENGTH}</Badge>
         </div>
 
         <div className="flex gap-2">
@@ -336,7 +404,11 @@ export default function AdminTasks() {
           <Button
             size="sm"
             onClick={() => {
-              setEditDay(PROGRAM_DAY_BLANK);
+              setEditDay({
+                ...PROGRAM_DAY_BLANK,
+                day: nextMissingDay,
+                sort_order: nextMissingDay,
+              });
               setEditOpen(true);
             }}
           >
@@ -347,53 +419,117 @@ export default function AdminTasks() {
 
       <Tabs defaultValue="templates">
         <TabsList className="mb-4">
-          <TabsTrigger value="templates">Program Days ({tasks.length})</TabsTrigger>
+          <TabsTrigger value="templates">Program Days ({stats.completedSlots}/{PROGRAM_LENGTH})</TabsTrigger>
           <TabsTrigger value="users">Program Users ({programUsers.length})</TabsTrigger>
           <TabsTrigger value="submissions">Submissions ({submissions.length})</TabsTrigger>
         </TabsList>
 
         <TabsContent value="templates">
-          <div className="space-y-3">
-            {tasks.map((task) => (
+          <div className="space-y-4">
+            {stats.completedSlots < PROGRAM_LENGTH ? (
+              <div className="rounded-2xl border border-dashed border-white/10 bg-white/[0.03] p-4 text-sm text-white/72">
+                {stats.completedSlots === 0
+                  ? "No program days exist yet. Create Day 1 or any missing day to start building the full 30-day system."
+                  : `The program currently has ${stats.completedSlots} of ${PROGRAM_LENGTH} days. Missing days stay visible below so you can fill the full structure without guessing what is missing.`}
+              </div>
+            ) : null}
+
+            {taskSlots.map(({ day, task, exists }) => (
               <div
-                key={task.id}
+                key={day}
                 className="rounded-2xl border p-4 flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between"
               >
-                <div className="min-w-0 flex-1">
-                  <div className="flex flex-wrap items-center gap-2">
-                    <p className="text-sm font-semibold">Day {task.day}: {task.title}</p>
-                    {task.milestone_type ? (
-                      <Badge className="border border-amber-500/30 bg-amber-500/15 text-amber-300">
-                        <Trophy className="mr-1 h-3 w-3" />
-                        {task.milestone_type}
-                      </Badge>
-                    ) : null}
-                    <Badge variant="outline">{task.theme || "No theme"}</Badge>
-                    <Badge variant="outline">{(task.tier_access || []).join(", ")}</Badge>
-                  </div>
+                {exists ? (
+                  <>
+                    <div className="min-w-0 flex-1">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <p className="text-sm font-semibold">Day {task.day}: {task.title}</p>
+                        {task.milestone_type ? (
+                          <Badge className="border border-amber-500/30 bg-amber-500/15 text-amber-300">
+                            <Trophy className="mr-1 h-3 w-3" />
+                            {task.milestone_type}
+                          </Badge>
+                        ) : null}
+                        <Badge variant="outline">{task.theme || "No theme"}</Badge>
+                        <Badge variant="outline">
+                          {task.is_active ? "Active" : "Inactive"}
+                        </Badge>
+                        <Badge variant="outline">
+                          {Array.isArray(task.tier_access) && task.tier_access.length
+                            ? task.tier_access.join(", ")
+                            : "All paid tiers"}
+                        </Badge>
+                      </div>
 
-                  <p className="mt-2 text-sm text-muted-foreground line-clamp-2">
-                    {task.short_label || task.description}
-                  </p>
-                </div>
+                      <p className="mt-2 text-sm text-muted-foreground line-clamp-2">
+                        {task.short_label || task.description || "No preview text yet."}
+                      </p>
+                    </div>
 
-                <div className="flex flex-wrap gap-2">
-                  <Button size="sm" variant="outline" onClick={() => setPreviewTask(task)}>
-                    <Eye className="w-4 h-4 mr-1" />
-                    Preview
-                  </Button>
-                  <Button size="sm" variant="outline" onClick={() => {
-                    setEditDay(task);
-                    setEditOpen(true);
-                  }}>
-                    <Edit className="w-4 h-4 mr-1" />
-                    Edit
-                  </Button>
-                  <Button size="sm" variant={task.is_active ? "destructive" : "outline"} onClick={() => toggleDay(task)}>
-                    {task.is_active ? <PowerOff className="w-4 h-4 mr-1" /> : <Power className="w-4 h-4 mr-1" />}
-                    {task.is_active ? "Deactivate" : "Activate"}
-                  </Button>
-                </div>
+                    <div className="flex flex-wrap gap-2">
+                      <Button size="sm" variant="outline" onClick={() => setPreviewTask(task)}>
+                        <Eye className="w-4 h-4 mr-1" />
+                        Preview
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => {
+                          setEditDay(task);
+                          setEditOpen(true);
+                        }}
+                      >
+                        <Edit className="w-4 h-4 mr-1" />
+                        Edit
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant={task.is_active ? "destructive" : "outline"}
+                        onClick={() => toggleDay(task)}
+                      >
+                        {task.is_active ? <PowerOff className="w-4 h-4 mr-1" /> : <Power className="w-4 h-4 mr-1" />}
+                        {task.is_active ? "Deactivate" : "Activate"}
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        disabled={deleteLoadingId === task.id}
+                        onClick={() => handleDeleteTask(task)}
+                      >
+                        <Trash2 className="w-4 h-4 mr-1" />
+                        {deleteLoadingId === task.id ? "Removing..." : "Remove"}
+                      </Button>
+                    </div>
+                  </>
+                ) : (
+                  <>
+                    <div className="min-w-0 flex-1">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <p className="text-sm font-semibold">Day {day}</p>
+                        <Badge variant="outline">Missing</Badge>
+                      </div>
+                      <p className="mt-2 text-sm text-muted-foreground">
+                        No task exists for this program day yet.
+                      </p>
+                    </div>
+
+                    <div className="flex flex-wrap gap-2">
+                      <Button
+                        size="sm"
+                        onClick={() => {
+                          setEditDay({
+                            ...PROGRAM_DAY_BLANK,
+                            day,
+                            sort_order: day,
+                          });
+                          setEditOpen(true);
+                        }}
+                      >
+                        Create Day
+                      </Button>
+                    </div>
+                  </>
+                )}
               </div>
             ))}
           </div>
