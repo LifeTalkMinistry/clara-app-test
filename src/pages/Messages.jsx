@@ -30,7 +30,16 @@ const generateId = () => {
 };
 
 export default function Messages() {
-  const { user, isPaid, loading: accessLoading } = useUserRole();
+  const {
+    user,
+    isAdmin,
+    access,
+    getFeatureAccessMode,
+    loading: accessLoading,
+  } = useUserRole();
+  const messageMode = getFeatureAccessMode("messages");
+  const hasFullMessaging = isAdmin || access.messagingFull;
+  const canMessageAdmins = isAdmin || access.messagingAdminOnly;
   const [messages, setMessages] = useState([]);
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -39,7 +48,7 @@ export default function Messages() {
   const [newRecipient, setNewRecipient] = useState("");
 
   useEffect(() => {
-    if (!user?.email || !isPaid) {
+    if (!user?.email || !canMessageAdmins) {
       setLoading(false);
       return;
     }
@@ -56,7 +65,7 @@ export default function Messages() {
 
     const isCurrentUserAdmin = (user.role || "").toLowerCase() === "admin";
 
-    const filteredUsers = isCurrentUserAdmin
+    const filteredUsers = hasFullMessaging || isCurrentUserAdmin
       ? allUsers.filter((x) => x.email !== user.email)
       : allUsers.filter(
           (x) =>
@@ -67,19 +76,19 @@ export default function Messages() {
     setMessages(relevantMessages);
     setUsers(filteredUsers);
     setLoading(false);
-  }, [user?.email, isPaid, user?.role]);
+  }, [canMessageAdmins, hasFullMessaging, user?.email, user?.role]);
 
   if (accessLoading) {
     return <FeaturePageLoader label="Preparing messages..." />;
   }
 
-  if (!isPaid) {
+  if (!canMessageAdmins) {
     return (
       <div className="p-4 md:p-6 max-w-4xl mx-auto">
         <EmptyState
           icon={MessageSquare}
-          title="Messages are for paid members"
-          description="Upgrade to access private messaging."
+          title="Messages are currently locked"
+          description="Turn on messages for this plan or upgrade for access."
         />
       </div>
     );
@@ -238,6 +247,11 @@ export default function Messages() {
   return (
     <div className="p-4 md:p-6 max-w-2xl mx-auto">
       <PageHeader title="Messages" subtitle="Private conversations" />
+      {messageMode === "admin_only" && !isAdmin ? (
+        <div className="mb-4 rounded-xl border border-emerald-400/20 bg-emerald-500/10 p-4 text-sm text-emerald-100">
+          Admin-only messaging is enabled for your plan. You can start conversations with CLARA admins here.
+        </div>
+      ) : null}
 
       <div className="bg-card rounded-xl border border-border p-4 mb-6">
         <p className="text-xs font-medium text-muted-foreground mb-2">

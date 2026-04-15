@@ -14,14 +14,7 @@ import {
   AlertCircle,
 } from "lucide-react";
 import { supabase } from "@/lib/supabaseClient";
-
-const PLAN_STYLES = {
-  free: "bg-white/10 text-white border-white/10",
-  basic: "bg-cyan-500/15 text-cyan-300 border-cyan-400/20",
-  transformation: "bg-emerald-500/15 text-emerald-300 border-emerald-400/20",
-  elite: "bg-yellow-500/15 text-yellow-300 border-yellow-400/20",
-  admin: "bg-fuchsia-500/15 text-fuchsia-300 border-fuchsia-400/20",
-};
+import { PLAN_BADGE_STYLES, PLAN_LABELS, normalizePlanKey } from "@/lib/plan-config";
 
 const ROLE_STYLES = {
   admin: "bg-emerald-500/15 text-emerald-300 border-emerald-400/20",
@@ -36,7 +29,7 @@ function normalizeRole(profile) {
 
 function normalizePlan(profile, role) {
   if (role === "admin") return "admin";
-  return (profile?.plan || "free").toString().toLowerCase();
+  return normalizePlanKey(profile?.plan || "free");
 }
 
 function getInitials(name, email) {
@@ -200,15 +193,9 @@ export default function Account() {
       : "User";
 
   const planLabel =
-    plan === "transformation"
-      ? "Transformation"
-      : plan === "elite"
-      ? "Elite"
-      : plan === "basic"
-      ? "Basic"
-      : plan === "admin"
+    plan === "admin"
       ? "Admin"
-      : "Free";
+      : PLAN_LABELS[plan] || "Free";
 
   const dirty =
     form.full_name !== initialForm.full_name ||
@@ -360,7 +347,7 @@ export default function Account() {
                   <span className={`badge ${ROLE_STYLES[role] || ROLE_STYLES.user}`}>
                     {roleLabel}
                   </span>
-                  <span className={`badge ${PLAN_STYLES[plan] || PLAN_STYLES.free}`}>
+                  <span className={`badge ${PLAN_BADGE_STYLES[plan] || PLAN_BADGE_STYLES.free}`}>
                     {planLabel} Plan
                   </span>
                 </div>
@@ -460,7 +447,7 @@ export default function Account() {
                   <CreditCard size={16} />
                   <span>Current Plan</span>
                 </div>
-                <span className={`badge ${PLAN_STYLES[plan] || PLAN_STYLES.free}`}>
+                <span className={`badge ${PLAN_BADGE_STYLES[plan] || PLAN_BADGE_STYLES.free}`}>
                   {planLabel} Plan
                 </span>
               </div>

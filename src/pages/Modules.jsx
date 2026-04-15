@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import {
   BookOpen,
   Lock,
@@ -98,7 +99,11 @@ const STATUS_CONFIG = {
 };
 
 export default function Modules() {
-  const { user, isPaid, loading: accessLoading } = useUserRole();
+  const navigate = useNavigate();
+  const { user, access, getFeatureAccessMode, loading: accessLoading } = useUserRole();
+  const modulesMode = getFeatureAccessMode("modules");
+  const hasFullModules = access.modulesFull;
+  const hasModulePreview = access.modulesPreview;
   const [modules, setModules] = useState([]);
   const [progress, setProgress] = useState({});
   const [loading, setLoading] = useState(true);
@@ -107,7 +112,7 @@ export default function Modules() {
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
-    if (!user?.email || !isPaid) {
+    if (!user?.email || !hasModulePreview) {
       setLoading(false);
       return;
     }
@@ -118,9 +123,11 @@ export default function Modules() {
     const publishedModules = allModules
       .filter((m) => m.is_published === true && m.is_activated === true)
       .sort((a, b) => (a.order || 0) - (b.order || 0))
-      .slice(0, 50);
+      .slice(0, hasFullModules ? 50 : 2);
 
-    const userProgress = allProgress.filter((p) => p.user_email === user.email);
+    const userProgress = hasFullModules
+      ? allProgress.filter((p) => p.user_email === user.email)
+      : [];
     const progressMap = {};
 
     userProgress.forEach((pr) => {
@@ -130,7 +137,7 @@ export default function Modules() {
     setModules(publishedModules);
     setProgress(progressMap);
     setLoading(false);
-  }, [user?.email, isPaid]);
+  }, [hasFullModules, hasModulePreview, user?.email]);
 
   const startDate = user?.challenge_start_date
     ? new Date(user.challenge_start_date)
@@ -151,7 +158,7 @@ export default function Modules() {
     const existing = progress[mod.id];
     setSelectedProgress(existing || null);
 
-    if (!existing) {
+    if (!existing && hasFullModules) {
       setSaving(true);
 
       const allProgress = safeRead(MODULE_PROGRESS_KEY);
@@ -173,7 +180,7 @@ export default function Modules() {
   };
 
   const markCompleted = async () => {
-    if (!selected || !user?.email) return;
+    if (!selected || !user?.email || !hasFullModules) return;
 
     setSaving(true);
 
@@ -213,7 +220,7 @@ export default function Modules() {
   };
 
   const resetProgress = async () => {
-    if (!selected) return;
+    if (!selected || !hasFullModules) return;
 
     const existing = progress[selected.id];
     if (!existing) return;
@@ -241,13 +248,13 @@ export default function Modules() {
     return <FeaturePageLoader label="Preparing modules..." />;
   }
 
-  if (!isPaid) {
+  if (!hasModulePreview) {
     return (
       <div className="p-4 md:p-6 max-w-4xl mx-auto">
         <EmptyState
           icon={BookOpen}
-          title="Weekly Modules are for paid members"
-          description="Upgrade to access the CLARA weekly learning modules."
+          title="Weekly Modules are locked"
+          description="Turn on module access for this plan or upgrade to continue."
         />
       </div>
     );
@@ -277,8 +284,14 @@ export default function Modules() {
     <div className="p-4 md:p-6 max-w-4xl mx-auto">
       <PageHeader
         title="Weekly Modules"
-        subtitle="Weekly content unlocked progressively"
+        subtitle={hasFullModules ? "Weekly content unlocked progressively" : "Preview the learning experience"}
       />
+
+      {!hasFullModules ? (
+        <div className="mb-4 rounded-2xl border border-amber-400/20 bg-amber-400/10 p-4 text-sm text-amber-100">
+          Preview mode is on for your plan. Open the sample modules below, then upgrade any time to unlock full progress tracking.
+        </div>
+      ) : null}
 
       {Object.keys(grouped).length === 0 ? (
         <EmptyState
@@ -462,7 +475,7 @@ export default function Modules() {
                   )}
 
                   <div className="flex gap-2 pt-2 border-t border-border mt-2">
-                    {status !== "completed" && (
+                    {hasFullModules && status !== "completed" && (
                       <Button
                         className="flex-1"
                         onClick={markCompleted}
@@ -475,7 +488,7 @@ export default function Modules() {
                       </Button>
                     )}
 
-                    {status === "completed" && (
+                    {hasFullModules && status === "completed" && (
                       <div className="flex-1 flex items-center gap-2">
                         <div className="flex-1 flex items-center gap-2 px-3 py-2 rounded-xl bg-primary/10 text-primary text-sm font-semibold">
                           <CheckCircle className="w-4 h-4" />
@@ -500,6 +513,11 @@ export default function Modules() {
                           <RotateCcw className="w-3 h-3 mr-1" /> Reset
                         </Button>
                       </div>
+                    )}
+                    {!hasFullModules && (
+                      <Button className="flex-1" onClick={() => navigate("/enroll")}>
+                        Unlock Full Modules
+                      </Button>
                     )}
                   </div>
                 </>

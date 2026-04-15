@@ -1,3 +1,5 @@
+import { isPaidPlan, normalizePlanKey } from "@/lib/plan-config";
+
 export const ENROLLMENT_PENDING_STATUSES = new Set([
   "pending",
   "under_review",
@@ -17,7 +19,7 @@ export const ENROLLMENT_RETRY_STATUSES = new Set([
   "",
 ]);
 
-export const PAID_TIERS = ["basic", "transformation", "elite", "student"];
+export const PAID_TIERS = ["entry", "core", "coaching"];
 
 export function normalizeAccessValue(value) {
   return String(value ?? "").trim().toLowerCase();
@@ -42,7 +44,7 @@ export function hasCompletedOnboarding(profileLike) {
 
 export function hasAnyPaidSignal(profileLike, enrollment) {
   const role = normalizeAccessValue(profileLike?.role);
-  const plan = normalizeAccessValue(profileLike?.plan);
+  const plan = normalizePlanKey(profileLike?.plan);
   const enrollmentStatus = getEnrollmentStatus(enrollment, profileLike);
 
   return (
@@ -50,13 +52,13 @@ export function hasAnyPaidSignal(profileLike, enrollment) {
     profileLike?.program_active === true ||
     profileLike?.is_enrolled === true ||
     ENROLLMENT_APPROVED_STATUSES.has(enrollmentStatus) ||
-    (plan && plan !== "free")
+    isPaidPlan(plan)
   );
 }
 
 export function shouldForceEnrollment(profileLike, enrollment) {
   const role = normalizeAccessValue(profileLike?.role);
-  const plan = normalizeAccessValue(profileLike?.plan);
+  const plan = normalizePlanKey(profileLike?.plan);
   const enrollmentStatus = getEnrollmentStatus(enrollment, profileLike);
   const freeRole = !role || role === "free_user" || role === "user";
   const freePlan = !plan || plan === "free";
@@ -86,7 +88,7 @@ export function resolveAppFlow(profileLike, enrollment) {
 
 export function deriveAccessState(profileLike, enrollment = null) {
   const role = normalizeAccessValue(profileLike?.role || "user");
-  const plan = normalizeAccessValue(profileLike?.plan || "free");
+  const plan = normalizePlanKey(profileLike?.plan || "free");
   const enrollmentStatus = getEnrollmentStatus(enrollment, profileLike);
   const isAdmin = role === "admin";
   const isAdvertiser = role === "advertiser";

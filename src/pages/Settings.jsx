@@ -2,14 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { ArrowLeft, Bell, ChevronRight, CreditCard, KeyRound, LogOut, Mail, Moon, Save, Settings2, Shield, Sparkles, User } from "lucide-react";
 import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { supabase } from "@/lib/supabaseClient";
-
-const PLAN_STYLES = {
-  free: "bg-white/10 text-white border-white/10",
-  basic: "bg-cyan-500/15 text-cyan-300 border-cyan-400/20",
-  transformation: "bg-emerald-500/15 text-emerald-300 border-emerald-400/20",
-  elite: "bg-yellow-500/15 text-yellow-300 border-yellow-400/20",
-  admin: "bg-fuchsia-500/15 text-fuchsia-300 border-fuchsia-400/20",
-};
+import { PLAN_BADGE_STYLES, PLAN_LABELS, normalizePlanKey } from "@/lib/plan-config";
 
 const ROLE_STYLES = {
   admin: "bg-emerald-500/15 text-emerald-300 border-emerald-400/20",
@@ -36,7 +29,7 @@ function normalizeRole(profile) {
 
 function normalizePlan(profile, role) {
   if (role === "admin") return "admin";
-  return String(profile?.plan || "free").trim().toLowerCase();
+  return normalizePlanKey(profile?.plan || "free");
 }
 
 function formatDate(value) {
@@ -235,7 +228,7 @@ export default function Settings() {
   const role = useMemo(() => normalizeRole(profile), [profile]);
   const plan = useMemo(() => normalizePlan(profile, role), [profile, role]);
   const roleLabel = role === "admin" ? "Admin" : role === "student" ? "Student" : role === "paid_user" ? "Paid User" : role === "free_user" ? "Free User" : "User";
-  const planLabel = plan === "admin" ? "Admin" : plan === "transformation" ? "Transformation" : plan === "elite" ? "Elite" : plan === "basic" ? "Basic" : "Free";
+  const planLabel = plan === "admin" ? "Admin" : PLAN_LABELS[plan] || "Free";
   const email = profile?.email || authUser?.email || "";
   const joinedAt = profile?.created_at || authUser?.created_at;
   const enrollmentStatus = String(profile?.enrollment_status || profile?.status || "free").replaceAll("_", " ").replace(/\b\w/g, (char) => char.toUpperCase());
@@ -361,7 +354,7 @@ export default function Settings() {
                   </div>
                   <div className="flex flex-col items-end gap-2">
                     <span className={`badge ${ROLE_STYLES[role] || ROLE_STYLES.user}`}>{roleLabel}</span>
-                    <span className={`badge ${PLAN_STYLES[plan] || PLAN_STYLES.free}`}>{planLabel}</span>
+                    <span className={`badge ${PLAN_BADGE_STYLES[plan] || PLAN_BADGE_STYLES.free}`}>{planLabel}</span>
                   </div>
                 </div>
               </div>
