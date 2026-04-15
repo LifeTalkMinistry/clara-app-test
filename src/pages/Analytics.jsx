@@ -239,8 +239,10 @@ function incrementMap(map, key) {
 }
 
 export default function Analytics() {
-  const { user, isFree } = useUserRole();
+  const { user, getFeatureAccessMode } = useUserRole();
   const rawData = useFinancialData(user);
+  const analyticsMode = getFeatureAccessMode("analytics");
+  const isLimitedAnalytics = analyticsMode === "limited";
 
   const [timeframe, setTimeframe] = useState("this_month");
   const [customStart, setCustomStart] = useState("");
@@ -251,13 +253,13 @@ export default function Analytics() {
   const availableTimeframes = useMemo(() => {
     return ALL_TIMEFRAMES.map((item) => ({
       ...item,
-      locked: isFree ? !FREE_ALLOWED.includes(item.id) : false,
+      locked: isLimitedAnalytics ? !FREE_ALLOWED.includes(item.id) : false,
     }));
-  }, [isFree]);
+  }, [isLimitedAnalytics]);
 
   const activeTimeframe = useMemo(() => {
-    return isFree && !FREE_ALLOWED.includes(timeframe) ? "this_month" : timeframe;
-  }, [isFree, timeframe]);
+    return isLimitedAnalytics && !FREE_ALLOWED.includes(timeframe) ? "this_month" : timeframe;
+  }, [isLimitedAnalytics, timeframe]);
 
   const { start, end } = useMemo(
     () => getDateRange(activeTimeframe, customStart, customEnd),
@@ -557,9 +559,9 @@ export default function Analytics() {
             Timeframe
           </p>
 
-          {isFree && (
+          {isLimitedAnalytics && (
             <span className="ml-auto text-[10px] bg-secondary/20 text-secondary px-2 py-0.5 rounded-full font-bold">
-              Free: up to 3 months
+              Limited: up to 3 months
             </span>
           )}
         </div>

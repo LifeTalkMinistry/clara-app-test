@@ -20,8 +20,9 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { supabase } from "@/lib/supabaseClient";
 import { resetUserAccount } from "@/lib/admin-user-reset";
+import { CURRENT_PLAN_KEYS, PLAN_LABELS, normalizePlanKey } from "@/lib/plan-config";
 
-const CLARA_TIERS = ["free", "basic", "transformation", "elite", "student"];
+const CLARA_TIERS = CURRENT_PLAN_KEYS;
 const USER_ROLES = ["free_user", "paid_user", "admin"];
 
 export default function AdminUsers() {
@@ -101,10 +102,11 @@ export default function AdminUsers() {
   }
 
   function updatePlan(id, plan) {
-    const role = plan === "free" ? "free_user" : "paid_user";
+      const normalizedPlan = normalizePlanKey(plan);
+      const role = normalizedPlan === "free" ? "free_user" : "paid_user";
 
-    updateUser(id, {
-      plan,
+      updateUser(id, {
+      plan: normalizedPlan,
       role,
     });
   }
@@ -168,7 +170,7 @@ export default function AdminUsers() {
   }
 
   function getPlanLabel(plan) {
-    return plan || "free";
+    return PLAN_LABELS[normalizePlanKey(plan)] || "Free";
   }
 
   if (loading) {
@@ -271,7 +273,7 @@ export default function AdminUsers() {
                 </Select>
 
                 <Select
-                  value={user.plan || "free"}
+                  value={normalizePlanKey(user.plan || "free")}
                   onValueChange={(value) => updatePlan(user.id, value)}
                   disabled={isBusy}
                 >
@@ -281,7 +283,7 @@ export default function AdminUsers() {
                   <SelectContent>
                     {CLARA_TIERS.map((tier) => (
                       <SelectItem key={tier} value={tier}>
-                        {tier}
+                        {PLAN_LABELS[tier]}
                       </SelectItem>
                     ))}
                   </SelectContent>
@@ -303,7 +305,7 @@ export default function AdminUsers() {
                   ) : (
                     <User className="w-4 h-4" />
                   )}
-                  {user.plan === "free" ? "Free access" : "Program access"}
+                  {normalizePlanKey(user.plan) === "free" ? "Free access" : "Program access"}
                 </div>
               </div>
             </div>

@@ -38,7 +38,15 @@ const generateId = () =>
   `${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
 
 export default function Community() {
-  const { user, isPaid, isAdmin, loading: accessLoading } = useUserRole();
+  const {
+    user,
+    isAdmin,
+    access,
+    getFeatureAccessMode,
+    loading: accessLoading,
+  } = useUserRole();
+  const communityMode = getFeatureAccessMode("community");
+  const canPost = isAdmin || access.communityPosting;
   const [posts, setPosts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [newPost, setNewPost] = useState("");
@@ -65,7 +73,7 @@ export default function Community() {
   };
 
   const handlePost = async () => {
-    if (!newPost.trim() || !isPaid) return;
+    if (!newPost.trim() || !canPost) return;
 
     const newCommunityPost = {
       id: generateId(),
@@ -85,7 +93,7 @@ export default function Community() {
   };
 
   const handleLike = async (post) => {
-    if (!isPaid || !user?.email) return;
+    if (!canPost || !user?.email) return;
 
     const likedBy = post.liked_by || [];
     const alreadyLiked = likedBy.includes(user.email);
@@ -132,7 +140,7 @@ export default function Community() {
 
   const handleComment = async (postId) => {
     const text = commentTexts[postId];
-    if (!text?.trim() || !isPaid || !user?.email) return;
+    if (!text?.trim() || !canPost || !user?.email) return;
 
     const updatedPosts = posts.map((post) => {
       if (post.id !== postId) return post;
@@ -175,10 +183,10 @@ export default function Community() {
     <div className="p-4 md:p-6 max-w-2xl mx-auto">
       <PageHeader
         title="Community"
-        subtitle={isPaid ? "Share your journey" : "Read-only for free members"}
+        subtitle={canPost ? "Share your journey" : communityMode === "view" ? "View-only access right now" : "Community"}
       />
 
-      {isPaid && (
+      {canPost && (
         <div className="bg-card rounded-xl border border-border p-4 mb-6">
           <Textarea
             placeholder="Share something with the community..."
@@ -288,13 +296,13 @@ export default function Community() {
               <div className="flex items-center gap-4 mb-3">
                 <button
                   onClick={() => handleLike(post)}
-                  disabled={!isPaid}
+                  disabled={!canPost}
                   className={`flex items-center gap-1 text-xs ${
                     post.liked_by?.includes(user?.email)
                       ? "text-destructive"
                       : "text-muted-foreground"
                   } ${
-                    isPaid ? "hover:text-destructive" : "cursor-default"
+                    canPost ? "hover:text-destructive" : "cursor-default"
                   } transition-colors`}
                 >
                   <Heart
@@ -324,7 +332,7 @@ export default function Community() {
                 </div>
               )}
 
-              {isPaid && (
+              {canPost && (
                 <div className="flex gap-2">
                   <Input
                     placeholder="Add a comment..."

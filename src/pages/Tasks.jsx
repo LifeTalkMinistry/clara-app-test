@@ -134,8 +134,11 @@ function LockedTaskDialog({ lockedInfo, onClose }) {
 }
 
 export default function Tasks() {
-  const { user, plan, isPaid, loading: accessLoading } = useUserRole();
+  const { user, plan, access, getFeatureAccessMode, loading: accessLoading } = useUserRole();
   const navigate = useNavigate();
+  const tasksMode = getFeatureAccessMode("tasks");
+  const hasFullTaskAccess = access.tasksFull;
+  const hasTaskPreview = access.tasksPreview;
 
   const [tasks, setTasks] = useState([]);
   const [submissions, setSubmissions] = useState([]);
@@ -177,17 +180,23 @@ export default function Tasks() {
           .select("*")
           .order("sort_order", { ascending: true })
           .order("day", { ascending: true }),
-        supabase
-          .from("task_submissions")
-          .select("*")
-          .or(`created_by.eq.${user.email},user_id.eq.${user.id}`)
-          .order("created_at", { ascending: false }),
-        supabase
-          .from("coaching_requests")
-          .select("*")
-          .or(`user_id.eq.${user.id},created_by.eq.${user.email}`)
-          .order("created_at", { ascending: false }),
-        fetchUserProgramRecord({ supabase, userId: user.id }),
+        hasFullTaskAccess
+          ? supabase
+              .from("task_submissions")
+              .select("*")
+              .or(`created_by.eq.${user.email},user_id.eq.${user.id}`)
+              .order("created_at", { ascending: false })
+          : Promise.resolve({ data: [], error: null }),
+        hasFullTaskAccess
+          ? supabase
+              .from("coaching_requests")
+              .select("*")
+              .or(`user_id.eq.${user.id},created_by.eq.${user.email}`)
+              .order("created_at", { ascending: false })
+          : Promise.resolve({ data: [], error: null }),
+        hasFullTaskAccess
+          ? fetchUserProgramRecord({ supabase, userId: user.id })
+          : Promise.resolve(null),
       ]);
 
       if (tasksRes.error) throw tasksRes.error;
@@ -199,7 +208,7 @@ export default function Tasks() {
 
       const ensuredProgram =
         nextProgramRecord ||
-        (isPaid
+        (hasFullTaskAccess
           ? await ensureUserProgramAccess({
               supabase,
               user,
@@ -221,7 +230,7 @@ export default function Tasks() {
     } finally {
       setLoading(false);
     }
-  }, [isPaid, resolveTasksTable, user]);
+  }, [hasFullTaskAccess, resolveTasksTable, user]);
 
   useEffect(() => {
     loadData();
@@ -285,13 +294,13 @@ export default function Tasks() {
     return <FeaturePageLoader label="Preparing your program..." />;
   }
 
-  if (!isPaid) {
+  if (!hasTaskPreview) {
     return (
       <div className="p-4 md:p-6 max-w-4xl mx-auto cursor-pointer" onClick={() => navigate("/enroll")}>
         <EmptyState
           icon={ListChecks}
-          title="The guided program is for paid members"
-          description="Unlock Entry, Core, or Coaching to begin the 30-day system."
+          title="The guided program is locked"
+          description="Turn on task access for this plan or upgrade to begin the 30-day system."
         />
       </div>
     );
@@ -299,6 +308,42 @@ export default function Tasks() {
 
   if (loading) {
     return <FeaturePageLoader label="Building your 30-day journey..." />;
+  }
+
+  if (!hasFullTaskAccess) {
+    const previewItems = tasks.slice(0, 3);
+
+    return (
+      <div className="mx-auto max-w-4xl px-4 pb-12 pt-4 md:px-6">
+        <PageHeader
+          title="Program Preview"
+          subtitle={tasksMode === "preview" ? "Sample the first few guided tasks" : "Program access"}
+        />
+
+        <div className="rounded-[28px] border border-amber-400/20 bg-amber-400/10 p-5 text-white">
+          <p className="text-[11px] uppercase tracking-[0.18em] text-amber-100/70">Preview Mode</p>
+          <h2 className="mt-2 text-xl font-semibold">Your plan includes a task preview</h2>
+          <p className="mt-2 text-sm leading-7 text-white/75">
+            Browse the first few CLARA tasks here. Upgrade any time to unlock the full guided flow, progress tracking, and submissions.
+          </p>
+          <Button className="mt-4" onClick={() => navigate("/enroll")}>
+            Unlock Full Program
+          </Button>
+        </div>
+
+        <div className="mt-5 space-y-3">
+          {previewItems.map((item) => (
+            <div key={item.id} className="rounded-[24px] border border-white/10 bg-[#0b1420] p-4 text-white">
+              <p className="text-[11px] uppercase tracking-[0.18em] text-white/45">Day {item.day}</p>
+              <h3 className="mt-1 text-lg font-semibold">{item.title}</h3>
+              <p className="mt-2 text-sm leading-7 text-white/70">
+                {item.task_instruction || item.description}
+              </p>
+            </div>
+          ))}
+        </div>
+      </div>
+    );
   }
 
   const bubble = getProgramBubbleContent(journey, {

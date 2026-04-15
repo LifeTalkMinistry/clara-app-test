@@ -18,6 +18,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { normalizePlanKey } from "@/lib/plan-config";
 
 const PLAN_DETAILS = {
   diy: {
@@ -124,7 +125,7 @@ function getPlanKey(enrollment) {
   ];
 
   for (const candidate of candidates) {
-    const key = normalizeLower(candidate);
+    const key = normalizePlanKey(candidate);
     if (PLAN_DETAILS[key]) return key;
   }
 
@@ -296,7 +297,7 @@ export default function AdminEnrollments() {
               enrollment.plan_key ||
               enrollment.tier ||
               enrollment.selected_plan ||
-              "basic",
+              "entry",
             enrollment_status: "approved",
             status: "approved",
             is_enrolled: true,
@@ -362,7 +363,7 @@ export default function AdminEnrollments() {
                           enrollment.plan_key ||
                           enrollment.tier ||
                           enrollment.selected_plan ||
-                          "basic",
+                          "entry",
                         enrollment_status: "approved",
                         status: "approved",
                         is_enrolled: true,

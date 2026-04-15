@@ -20,6 +20,11 @@ import { Button } from "@/components/ui/button";
 import useUserRole from "../hooks/useUserRole";
 import { supabase } from "@/lib/supabaseClient";
 import {
+  normalizePlanKey,
+  PLAN_LABELS,
+  sanitizePlanRow,
+} from "@/lib/plan-config";
+import {
   getGooglePlayProductId,
   launchGooglePlayPurchase,
   persistGooglePlayPurchase,
@@ -27,7 +32,7 @@ import {
 } from "@/lib/google-play-billing";
 
 const PLAN_UI_META = {
-  basic: {
+  entry: {
     label: "Entry",
     eyebrow: "Starter Access",
     badge: "Best for starting",
@@ -46,7 +51,7 @@ const PLAN_UI_META = {
     successCta: "Start Starter Program",
     icon: Star,
   },
-  transformation: {
+  core: {
     label: "Core",
     eyebrow: "Full 30-Day Reset",
     badge: "Most popular",
@@ -65,7 +70,7 @@ const PLAN_UI_META = {
     successCta: "Open Program",
     icon: Target,
   },
-  elite: {
+  coaching: {
     label: "Coaching",
     eyebrow: "Personal Guidance",
     badge: "Premium support",
@@ -83,25 +88,6 @@ const PLAN_UI_META = {
     successBody: "Your guided system and coaching layer are active. Open the journey and review your support surfaces.",
     successCta: "View Coaching Journey",
     icon: Gem,
-  },
-  student: {
-    label: "Core",
-    eyebrow: "Full 30-Day Reset",
-    badge: "Guided access",
-    statement: "Unlock the full guided system and move through CLARA one intentional day at a time.",
-    points: [
-      "Full 30-day guided system",
-      "Daily task progression",
-      "Reflection flow",
-      "Built for consistent action",
-    ],
-    accent: "from-emerald-400/22 via-teal-400/10 to-transparent",
-    border: "border-emerald-400/20",
-    button: "Buy with Google Play",
-    successTitle: "Core unlocked",
-    successBody: "Your full guided system is active. Day 1 is ready whenever you are.",
-    successCta: "Open Program",
-    icon: Target,
   },
 };
 
@@ -145,23 +131,24 @@ function normalizeFeatures(features) {
 }
 
 function normalizePlanRecord(row) {
-  const key = normalizeKey(row?.plan_key || row?.key || row?.name);
+  const normalizedRow = sanitizePlanRow(row);
+  const key = normalizePlanKey(normalizedRow.plan_key || normalizedRow.key || normalizedRow.name);
   const ui = PLAN_UI_META[key] || null;
 
   return {
-    id: row?.id ?? null,
+    id: normalizedRow?.id ?? null,
     key,
-    name: ui?.label || normalizeText(row?.name) || key.toUpperCase(),
-    price: Number(row?.price || 0),
-    badge: ui?.badge || (row?.popular ? "Most Popular" : "Plan"),
+    name: ui?.label || PLAN_LABELS[key] || normalizeText(normalizedRow?.name) || key.toUpperCase(),
+    price: Number(normalizedRow?.price || 0),
+    badge: ui?.badge || (normalizedRow?.popular ? "Most Popular" : "Plan"),
     eyebrow: ui?.eyebrow || "Unlock CLARA",
-    statement: ui?.statement || normalizeText(row?.description),
-    description: normalizeText(row?.description),
-    benefits: normalizeFeatures(row?.features),
-    ctaLabel: normalizeText(row?.cta_label) || ui?.button || "Buy with Google Play",
-    active: !!row?.active,
-    popular: !!row?.popular || ui?.badge === "Most popular",
-    sortOrder: Number(row?.sort_order ?? 9999),
+    statement: ui?.statement || normalizeText(normalizedRow?.description),
+    description: normalizeText(normalizedRow?.description),
+    benefits: normalizeFeatures(normalizedRow?.features),
+    ctaLabel: normalizeText(normalizedRow?.cta_label) || ui?.button || "Buy with Google Play",
+    active: !!normalizedRow?.active,
+    popular: !!normalizedRow?.popular || ui?.badge === "Most popular",
+    sortOrder: Number(normalizedRow?.sort_order ?? 9999),
     accent: ui?.accent || "from-white/10 to-transparent",
     border: ui?.border || "border-white/10",
     successTitle: ui?.successTitle || "Plan unlocked",
@@ -171,7 +158,7 @@ function normalizePlanRecord(row) {
     productId: getGooglePlayProductId(key),
     icon: ui?.icon || Sparkles,
     displayBenefits:
-      normalizeFeatures(row?.features).length > 0 ? normalizeFeatures(row?.features) : ui?.points || [],
+      normalizeFeatures(normalizedRow?.features).length > 0 ? normalizeFeatures(normalizedRow?.features) : ui?.points || [],
   };
 }
 
@@ -194,8 +181,8 @@ function getPlanKeyFromEnrollment(enrollment, searchParams) {
 
 function getSuccessDestination(planKey) {
   const normalized = normalizeKey(planKey);
-  if (normalized === "basic") return "/program-onboarding";
-  if (normalized === "elite") return "/tasks";
+  if (normalized === "entry") return "/program-onboarding";
+  if (normalized === "coaching") return "/tasks";
   return "/tasks";
 }
 

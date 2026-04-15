@@ -6,11 +6,12 @@ import { Toaster } from "sonner";
 import { queryClientInstance } from "./lib/query-client";
 import { useAuth } from "@/context/AuthContext";
 import { supabase } from "@/lib/supabaseClient";
-import useUserRole, { isRestrictedForFree } from "./hooks/useUserRole";
+import useUserRole from "./hooks/useUserRole";
 import {
   deriveAccessState,
   resolveAppFlow,
 } from "@/lib/access-control";
+import { FEATURE_ROUTE_MAP } from "@/lib/plan-config";
 
 // Layout
 import Layout from "./components/Layout";
@@ -99,15 +100,15 @@ function getHomeRedirectPath({ isAdvertiser, flow, forceEnroll }) {
 function GuardedRoute({
   children,
   shouldForceEnroll = false,
-  requiresPaid = false,
-  isFree = false,
+  featureKey = "",
+  isFeatureAvailable = () => true,
   path,
 }) {
-  if (shouldForceEnroll) {
+  if (featureKey && !isFeatureAvailable(featureKey)) {
     return <Navigate to="/enroll" replace state={{ from: path }} />;
   }
 
-  if (requiresPaid && isFree && isRestrictedForFree(path)) {
+  if (shouldForceEnroll && !featureKey) {
     return <Navigate to="/enroll" replace state={{ from: path }} />;
   }
 
@@ -131,8 +132,8 @@ function getLoginRedirectUrl() {
 function AppRoutes() {
   const { user, profile, loading, authReady } = useAuth();
   const {
-    isFree,
     role: normalizedRole,
+    isFeatureAvailable,
     loading: roleLoading,
   } = useUserRole();
 
@@ -354,7 +355,12 @@ function AppRoutes() {
                       <Route
                         path="/dashboard"
                         element={
-                          <GuardedRoute shouldForceEnroll={forceEnroll} path="/dashboard">
+                          <GuardedRoute
+                            shouldForceEnroll={forceEnroll}
+                            featureKey={FEATURE_ROUTE_MAP["/dashboard"]}
+                            isFeatureAvailable={isFeatureAvailable}
+                            path="/dashboard"
+                          >
                             <Dashboard />
                           </GuardedRoute>
                         }
@@ -362,7 +368,12 @@ function AppRoutes() {
                       <Route
                         path="/expenses"
                         element={
-                          <GuardedRoute shouldForceEnroll={forceEnroll} path="/expenses">
+                          <GuardedRoute
+                            shouldForceEnroll={forceEnroll}
+                            featureKey={FEATURE_ROUTE_MAP["/expenses"]}
+                            isFeatureAvailable={isFeatureAvailable}
+                            path="/expenses"
+                          >
                             <Expenses />
                           </GuardedRoute>
                         }
@@ -370,7 +381,12 @@ function AppRoutes() {
                       <Route
                         path="/add-funds"
                         element={
-                          <GuardedRoute shouldForceEnroll={forceEnroll} path="/add-funds">
+                          <GuardedRoute
+                            shouldForceEnroll={forceEnroll}
+                            featureKey={FEATURE_ROUTE_MAP["/add-funds"]}
+                            isFeatureAvailable={isFeatureAvailable}
+                            path="/add-funds"
+                          >
                             <AddFunds />
                           </GuardedRoute>
                         }
@@ -378,7 +394,12 @@ function AppRoutes() {
                       <Route
                         path="/wallets"
                         element={
-                          <GuardedRoute shouldForceEnroll={forceEnroll} path="/wallets">
+                          <GuardedRoute
+                            shouldForceEnroll={forceEnroll}
+                            featureKey={FEATURE_ROUTE_MAP["/wallets"]}
+                            isFeatureAvailable={isFeatureAvailable}
+                            path="/wallets"
+                          >
                             <Wallets />
                           </GuardedRoute>
                         }
@@ -386,7 +407,12 @@ function AppRoutes() {
                       <Route
                         path="/budgets"
                         element={
-                          <GuardedRoute shouldForceEnroll={forceEnroll} path="/budgets">
+                          <GuardedRoute
+                            shouldForceEnroll={forceEnroll}
+                            featureKey={FEATURE_ROUTE_MAP["/budgets"]}
+                            isFeatureAvailable={isFeatureAvailable}
+                            path="/budgets"
+                          >
                             <Budgets />
                           </GuardedRoute>
                         }
@@ -394,7 +420,12 @@ function AppRoutes() {
                       <Route
                         path="/analytics"
                         element={
-                          <GuardedRoute shouldForceEnroll={forceEnroll} path="/analytics">
+                          <GuardedRoute
+                            shouldForceEnroll={forceEnroll}
+                            featureKey={FEATURE_ROUTE_MAP["/analytics"]}
+                            isFeatureAvailable={isFeatureAvailable}
+                            path="/analytics"
+                          >
                             <Analytics />
                           </GuardedRoute>
                         }
@@ -404,7 +435,12 @@ function AppRoutes() {
                       <Route
                         path="/news"
                         element={
-                          <GuardedRoute shouldForceEnroll={forceEnroll} path="/news">
+                          <GuardedRoute
+                            shouldForceEnroll={forceEnroll}
+                            featureKey={FEATURE_ROUTE_MAP["/news"]}
+                            isFeatureAvailable={isFeatureAvailable}
+                            path="/news"
+                          >
                             <News />
                           </GuardedRoute>
                         }
@@ -415,8 +451,8 @@ function AppRoutes() {
                         element={
                           <GuardedRoute
                             shouldForceEnroll={forceEnroll}
-                            requiresPaid={isFree}
-                            isFree={isFree}
+                            featureKey={FEATURE_ROUTE_MAP["/tasks"]}
+                            isFeatureAvailable={isFeatureAvailable}
                             path="/tasks"
                           >
                             <Tasks />
@@ -428,8 +464,8 @@ function AppRoutes() {
                         element={
                           <GuardedRoute
                             shouldForceEnroll={forceEnroll}
-                            requiresPaid={isFree}
-                            isFree={isFree}
+                            featureKey={FEATURE_ROUTE_MAP["/modules"]}
+                            isFeatureAvailable={isFeatureAvailable}
                             path="/modules"
                           >
                             <Modules />
@@ -441,8 +477,8 @@ function AppRoutes() {
                         element={
                           <GuardedRoute
                             shouldForceEnroll={forceEnroll}
-                            requiresPaid={isFree}
-                            isFree={isFree}
+                            featureKey={FEATURE_ROUTE_MAP["/community"]}
+                            isFeatureAvailable={isFeatureAvailable}
                             path="/community"
                           >
                             <Community />
@@ -454,8 +490,8 @@ function AppRoutes() {
                         element={
                           <GuardedRoute
                             shouldForceEnroll={forceEnroll}
-                            requiresPaid={isFree}
-                            isFree={isFree}
+                            featureKey={FEATURE_ROUTE_MAP["/messages"]}
+                            isFeatureAvailable={isFeatureAvailable}
                             path="/messages"
                           >
                             <Messages />
@@ -467,8 +503,8 @@ function AppRoutes() {
                         element={
                           <GuardedRoute
                             shouldForceEnroll={forceEnroll}
-                            requiresPaid={isFree}
-                            isFree={isFree}
+                            featureKey={FEATURE_ROUTE_MAP["/coaching"]}
+                            isFeatureAvailable={isFeatureAvailable}
                             path="/coaching"
                           >
                             <Coaching />
@@ -480,8 +516,8 @@ function AppRoutes() {
                         element={
                           <GuardedRoute
                             shouldForceEnroll={forceEnroll}
-                            requiresPaid={isFree}
-                            isFree={isFree}
+                            featureKey={FEATURE_ROUTE_MAP["/savings-goals"]}
+                            isFeatureAvailable={isFeatureAvailable}
                             path="/savings-goals"
                           >
                             <SavingsGoals />
@@ -492,7 +528,12 @@ function AppRoutes() {
                       <Route
                         path="/referrals"
                         element={
-                          <GuardedRoute shouldForceEnroll={forceEnroll} path="/referrals">
+                          <GuardedRoute
+                            shouldForceEnroll={forceEnroll}
+                            featureKey={FEATURE_ROUTE_MAP["/referrals"]}
+                            isFeatureAvailable={isFeatureAvailable}
+                            path="/referrals"
+                          >
                             <Referrals />
                           </GuardedRoute>
                         }

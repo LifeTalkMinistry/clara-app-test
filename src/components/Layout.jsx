@@ -31,6 +31,7 @@ import BottomNav from "./BottomNav";
 import QuickAddModal from "./QuickAddModal";
 import useUserRole from "../hooks/useUserRole";
 import ClaraLogo from "./ClaraLogo";
+import { FEATURE_ROUTE_MAP } from "@/lib/plan-config";
 
 const allNavItems = [
   { path: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
@@ -111,6 +112,7 @@ function SidebarContent({
   isFree,
   isPaid,
   isAdvertiser,
+  isFeatureAvailable,
   user,
   onLogout,
 }) {
@@ -149,9 +151,10 @@ function SidebarContent({
               : currentPath === item.path || currentPath.startsWith(item.path + "/");
 
           if (!isAdvertiser) {
-            const isLocked = Boolean(item.pro && isFree);
+            const featureKey = FEATURE_ROUTE_MAP[item.path];
+            const isLocked = featureKey ? !isFeatureAvailable(featureKey) : Boolean(item.pro && isFree);
             const referralNotEnabled =
-              item.ambassadorOnly && !user?.has_referral_access;
+              item.ambassadorOnly && (!user?.has_referral_access || !isFeatureAvailable("referrals"));
 
             if (referralNotEnabled) return null;
 
@@ -279,6 +282,7 @@ function MobileControlCenter({
   isAdmin,
   isPaid,
   isAdvertiser,
+  isFeatureAvailable,
   currentPath,
   planLabel,
   user,
@@ -358,7 +362,7 @@ function MobileControlCenter({
           icon: PlayCircle,
           onClick: () => handleGo("/modules"),
           active: currentPath === "/modules",
-          locked: !isPaid,
+          locked: !isFeatureAvailable("modules"),
         },
       ];
 
@@ -531,6 +535,7 @@ export default function Layout({ children }) {
     isAdmin = false,
     isPaid = false,
     isFree = false,
+    isFeatureAvailable,
     loading = false,
   } = useUserRole() || {};
 
@@ -607,6 +612,7 @@ export default function Layout({ children }) {
           isFree={isFree}
           isPaid={isPaid}
           isAdvertiser={isAdvertiser}
+          isFeatureAvailable={isFeatureAvailable}
           user={user}
           onLogout={handleLogout}
         />
@@ -644,6 +650,7 @@ export default function Layout({ children }) {
           isAdmin={isAdmin}
           isPaid={isPaid}
           isAdvertiser={isAdvertiser}
+          isFeatureAvailable={isFeatureAvailable}
           currentPath={location.pathname}
           planLabel={effectivePlanLabel}
           user={user}
@@ -656,6 +663,7 @@ export default function Layout({ children }) {
           isAdmin={isAdmin}
           isPaid={isPaid}
           isFree={isFree}
+          isFeatureAvailable={isFeatureAvailable}
           onLogout={handleLogout}
         />
       )}
