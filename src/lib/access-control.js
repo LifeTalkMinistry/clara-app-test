@@ -2,6 +2,10 @@ export const ENROLLMENT_PENDING_STATUSES = new Set([
   "pending",
   "under_review",
   "payment_pending",
+  "google_play_pending",
+  "google_play_processing",
+  "purchase_pending",
+  "purchase_processing",
 ]);
 
 export const ENROLLMENT_APPROVED_STATUSES = new Set(["approved", "active"]);
