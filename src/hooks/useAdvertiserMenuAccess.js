@@ -68,6 +68,7 @@ export default function useAdvertiserMenuAccess({ email, isAdvertiser }) {
   return useMemo(
     () => ({
       ...state,
+      hasAds: state.totalAds > 0,
       canAccessAds: Boolean(isAdvertiser) || state.totalAds > 0,
     }),
     [isAdvertiser, state]

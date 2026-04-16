@@ -33,6 +33,7 @@ import useUserRole from "../hooks/useUserRole";
 import useAdvertiserMenuAccess from "../hooks/useAdvertiserMenuAccess";
 import ClaraLogo from "./ClaraLogo";
 import { FEATURE_ROUTE_MAP } from "@/lib/plan-config";
+import { BUSINESS_INQUIRY_URL } from "@/lib/business-config";
 
 const allNavItems = [
   { path: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
@@ -51,7 +52,6 @@ const allNavItems = [
 ];
 
 const advertiserNavItems = [
-  { path: "/advertiser", label: "My Ads", icon: Megaphone },
   { path: "/profile", label: "Profile", icon: User },
   { path: "/settings/account", label: "Settings", icon: Settings },
 ];
@@ -108,6 +108,7 @@ function SidebarContent({
   currentPath,
   onClose,
   onNavigate,
+  onOpenExternal,
   planLabel,
   isAdmin,
   isFree,
@@ -116,6 +117,7 @@ function SidebarContent({
   isFeatureAvailable,
   user,
   onLogout,
+  businessItem,
 }) {
   const navItems = isAdvertiser ? advertiserNavItems : allNavItems;
 
@@ -191,6 +193,52 @@ function SidebarContent({
             </button>
           );
         })}
+
+        {businessItem ? (
+          <>
+            <div className="px-3 pb-1 pt-4">
+              <p className="text-[10px] font-bold uppercase tracking-widest text-white/50">
+                Business
+              </p>
+            </div>
+
+            <button
+              type="button"
+              onClick={() => {
+                if (businessItem.external) {
+                  onOpenExternal?.(businessItem.href);
+                  return;
+                }
+                onNavigate(businessItem.href);
+              }}
+              className={`flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm transition-all ${
+                businessItem.active
+                  ? "bg-gradient-to-r from-green-500 to-emerald-600 font-semibold text-white"
+                  : "text-white/70 hover:bg-white/10 hover:text-white"
+              }`}
+            >
+              <businessItem.icon className="h-4 w-4 shrink-0" />
+              <div className="min-w-0 flex-1 text-left">
+                <p className="truncate font-medium">{businessItem.label}</p>
+                {businessItem.subtitle ? (
+                  <p className="mt-0.5 truncate text-[11px] text-white/55">
+                    {businessItem.subtitle}
+                  </p>
+                ) : null}
+              </div>
+
+              {businessItem.badge ? (
+                <span className="shrink-0 rounded-full border border-white/10 bg-white/8 px-2 py-1 text-[10px] font-semibold text-white/75">
+                  {businessItem.badge}
+                </span>
+              ) : null}
+
+              {businessItem.active ? (
+                <div className="h-5 w-1.5 rounded-full bg-gradient-to-b from-yellow-400 to-lime-400" />
+              ) : null}
+            </button>
+          </>
+        ) : null}
 
         {isAdmin && !isAdvertiser && (
           <>
@@ -279,6 +327,7 @@ function MobileControlCenter({
   open,
   onClose,
   onNavigate,
+  onOpenExternal,
   onLogout,
   isAdmin,
   isPaid,
@@ -287,9 +336,7 @@ function MobileControlCenter({
   currentPath,
   planLabel,
   user,
-  canAccessAds,
-  adsBadgeText,
-  adsSubtitle,
+  businessItem,
 }) {
   const panelRef = useRef(null);
 
@@ -337,15 +384,13 @@ function MobileControlCenter({
     },
   ];
 
-  const businessItems = canAccessAds
+  const businessItems = businessItem
     ? [
         {
-          label: "Ads",
-          icon: Megaphone,
-          onClick: () => handleGo("/advertiser"),
-          active: currentPath === "/advertiser",
-          subtitle: adsSubtitle,
-          badge: adsBadgeText,
+          ...businessItem,
+          onClick: businessItem.external
+            ? () => onOpenExternal?.(businessItem.href)
+            : () => handleGo(businessItem.href),
         },
       ]
     : [];
@@ -580,20 +625,45 @@ export default function Layout({ children }) {
     if (isAdvertiser) return "Advertiser";
     return planLabel;
   }, [isAdvertiser, planLabel]);
-  const { canAccessAds, totalAds, activeAds } = useAdvertiserMenuAccess({
+  const { hasAds, totalAds, activeAds } = useAdvertiserMenuAccess({
     email: user?.email,
     isAdvertiser,
   });
-  const adsSubtitle =
-    activeAds > 0
-      ? `${activeAds} active ad${activeAds === 1 ? "" : "s"}`
-      : totalAds > 0
-        ? "Ads connected"
-        : canAccessAds
-          ? "Open advertiser dashboard"
-          : "";
-  const adsBadgeText =
-    totalAds > 0 ? `${totalAds} ad${totalAds === 1 ? "" : "s"}` : "";
+  const businessItem = useMemo(() => {
+    if (activeAds > 0) {
+      return {
+        label: "Ads",
+        icon: Megaphone,
+        href: "/advertiser",
+        active: location.pathname === "/advertiser",
+        subtitle: `${activeAds} active ad${activeAds === 1 ? "" : "s"}`,
+        badge: `${totalAds} ad${totalAds === 1 ? "" : "s"}`,
+        external: false,
+      };
+    }
+
+    if (hasAds || isAdvertiser) {
+      return {
+        label: "Ads",
+        icon: Megaphone,
+        href: "/advertiser",
+        active: location.pathname === "/advertiser",
+        subtitle: "Ads connected",
+        badge: totalAds > 0 ? `${totalAds} ad${totalAds === 1 ? "" : "s"}` : "",
+        external: false,
+      };
+    }
+
+    return {
+      label: "Ads",
+      icon: Megaphone,
+      href: BUSINESS_INQUIRY_URL,
+      active: false,
+      subtitle: "Inquire now",
+      badge: "New",
+      external: true,
+    };
+  }, [activeAds, hasAds, isAdvertiser, location.pathname, totalAds]);
 
   useEffect(() => {
     if (quickAddOpen) setControlOpen(false);
@@ -622,6 +692,14 @@ export default function Layout({ children }) {
     },
     [navigate]
   );
+
+  const handleOpenExternal = useCallback((url) => {
+    setControlOpen(false);
+    setQuickAddOpen(false);
+
+    if (!url) return;
+    window.open(url, "_blank", "noopener,noreferrer");
+  }, []);
 
   const handleOpenQuickAdd = useCallback(() => {
     if (isAdvertiser) return;
@@ -655,6 +733,7 @@ export default function Layout({ children }) {
           currentPath={location.pathname}
           onClose={() => {}}
           onNavigate={handleNavigate}
+          onOpenExternal={handleOpenExternal}
           planLabel={effectivePlanLabel}
           isAdmin={isAdmin}
           isFree={isFree}
@@ -663,6 +742,7 @@ export default function Layout({ children }) {
           isFeatureAvailable={isFeatureAvailable}
           user={user}
           onLogout={handleLogout}
+          businessItem={businessItem}
         />
       </aside>
 
@@ -694,6 +774,7 @@ export default function Layout({ children }) {
           open={controlOpen}
           onClose={() => setControlOpen(false)}
           onNavigate={handleNavigate}
+          onOpenExternal={handleOpenExternal}
           onLogout={handleLogout}
           isAdmin={isAdmin}
           isPaid={isPaid}
@@ -702,9 +783,7 @@ export default function Layout({ children }) {
           currentPath={location.pathname}
           planLabel={effectivePlanLabel}
           user={user}
-          canAccessAds={canAccessAds}
-          adsBadgeText={adsBadgeText}
-          adsSubtitle={adsSubtitle}
+          businessItem={businessItem}
         />
       )}
 
