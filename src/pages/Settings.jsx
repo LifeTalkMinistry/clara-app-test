@@ -3,6 +3,8 @@ import { ArrowLeft, Bell, ChevronRight, CreditCard, KeyRound, LogOut, Mail, Moon
 import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { supabase } from "@/lib/supabaseClient";
 import { PLAN_BADGE_STYLES, PLAN_LABELS, normalizePlanKey } from "@/lib/plan-config";
+import TaskReminderSettingsCard from "@/components/TaskReminderSettingsCard";
+import useTaskReminderSettings from "@/hooks/useTaskReminderSettings";
 
 const ROLE_STYLES = {
   admin: "bg-emerald-500/15 text-emerald-300 border-emerald-400/20",
@@ -177,6 +179,7 @@ export default function Settings() {
   const [initialSettingsState, setInitialSettingsState] = useState(() => readStoredSettings(null));
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
+  const taskReminderSettings = useTaskReminderSettings(userId);
 
   useEffect(() => {
     if (section && !SECTION_META[section]) {
@@ -235,7 +238,11 @@ export default function Settings() {
 
   const dirty = useMemo(() => {
     if (detailSection === "notifications") {
-      return JSON.stringify(settingsState.notifications) !== JSON.stringify(initialSettingsState.notifications);
+      return (
+        JSON.stringify(settingsState.notifications) !==
+          JSON.stringify(initialSettingsState.notifications) ||
+        taskReminderSettings.dirty
+      );
     }
     if (detailSection === "privacy") {
       return JSON.stringify(settingsState.privacy) !== JSON.stringify(initialSettingsState.privacy);
@@ -244,7 +251,7 @@ export default function Settings() {
       return JSON.stringify(settingsState.preferences) !== JSON.stringify(initialSettingsState.preferences);
     }
     return false;
-  }, [detailSection, initialSettingsState, settingsState]);
+  }, [detailSection, initialSettingsState, settingsState, taskReminderSettings.dirty]);
 
   const activeMeta = detailSection ? SECTION_META[detailSection] : null;
 
@@ -277,13 +284,16 @@ export default function Settings() {
     setError("");
   }, []);
 
-  const handleSave = useCallback(() => {
+  const handleSave = useCallback(async () => {
     if (!userId || !detailSection || !dirty) return;
     try {
       setSaving(true);
       setError("");
       setMessage("");
       saveStoredSettings(userId, settingsState);
+      if (detailSection === "notifications") {
+        await taskReminderSettings.saveSettings();
+      }
       setInitialSettingsState(settingsState);
       setMessage("Settings updated successfully.");
     } catch (saveError) {
@@ -292,7 +302,7 @@ export default function Settings() {
     } finally {
       setSaving(false);
     }
-  }, [detailSection, dirty, settingsState, userId]);
+  }, [detailSection, dirty, settingsState, taskReminderSettings.saveSettings, userId]);
 
   const handlePasswordReset = useCallback(async () => {
     if (!email) return;
@@ -398,6 +408,34 @@ export default function Settings() {
                 <ToggleRow label="Daily reminders" description="Receive your regular CLARA reminder and day-start prompt." checked={settingsState.notifications.dailyReminders} onChange={() => updateNestedSetting("notifications", "dailyReminders", !settingsState.notifications.dailyReminders)} />
                 <ToggleRow label="Coaching alerts" description="Get updates for coaching-related activity and important progress prompts." checked={settingsState.notifications.coachingAlerts} onChange={() => updateNestedSetting("notifications", "coachingAlerts", !settingsState.notifications.coachingAlerts)} />
                 <ToggleRow label="Product updates" description="Hear about meaningful feature updates and CLARA announcements." checked={settingsState.notifications.productUpdates} onChange={() => updateNestedSetting("notifications", "productUpdates", !settingsState.notifications.productUpdates)} />
+                <TaskReminderSettingsCard
+                  settings={taskReminderSettings.settings}
+                  onChange={(nextSettings) => {
+                    taskReminderSettings.setSettings(nextSettings);
+                    setMessage("");
+                    setError("");
+                  }}
+                  loading={taskReminderSettings.loading || saving}
+                  pushSupported={taskReminderSettings.pushSupported}
+                  permissionState={taskReminderSettings.permissionState}
+                  pushConfigured={taskReminderSettings.pushConfigured}
+                  pushEnabling={taskReminderSettings.pushEnabling}
+                  onEnablePush={async () => {
+                    try {
+                      setError("");
+                      setMessage("");
+                      const result = await taskReminderSettings.enablePush();
+                      if (!result.configured) {
+                        setMessage("Push permission updated. Add your VAPID key to finish full browser push.");
+                        return;
+                      }
+                      setMessage("Push notifications connected for this device.");
+                    } catch (pushError) {
+                      console.error("Push setup error:", pushError);
+                      setError("Unable to enable push notifications right now.");
+                    }
+                  }}
+                />
               </div>
             )}
 

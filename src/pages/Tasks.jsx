@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 import {
   ArrowRight,
   BadgeCheck,
@@ -136,6 +136,7 @@ function LockedTaskDialog({ lockedInfo, onClose }) {
 export default function Tasks() {
   const { user, plan, access, getFeatureAccessMode, loading: accessLoading } = useUserRole();
   const navigate = useNavigate();
+  const location = useLocation();
   const tasksMode = getFeatureAccessMode("tasks");
   const hasFullTaskAccess = access.tasksFull;
   const hasTaskPreview = access.tasksPreview;
@@ -264,6 +265,18 @@ export default function Tasks() {
     if (!selected) return null;
     return journey.items.find((item) => item.day > selected.day && item.isTierAllowed) || null;
   }, [journey.items, selected]);
+
+  useEffect(() => {
+    const searchParams = new URLSearchParams(location.search);
+    if (searchParams.get("open") !== "today") return;
+    if (loading) return;
+
+    if (journey.todayItem) {
+      setSelected(journey.todayItem);
+    }
+
+    navigate("/tasks", { replace: true });
+  }, [journey.todayItem, loading, location.search, navigate]);
 
   const handleTaskSelection = useCallback(
     (item) => {

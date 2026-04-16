@@ -367,6 +367,7 @@ export function getProgramBubbleContent(journey, options = {}) {
 
   if (!journey || journey.tier === "free") {
     return {
+      kind: "upgrade",
       eyebrow: "Upgrade",
       title: "Unlock the full financial toolkit",
       body: "Track your money now, then unlock CLARA's guided system when you're ready.",
@@ -377,6 +378,7 @@ export function getProgramBubbleContent(journey, options = {}) {
 
   if (onboardingRequired) {
     return {
+      kind: "onboarding",
       eyebrow: journey.tier === "coaching" ? "Coaching Journey" : "30-Day Reset",
       title:
         journey.tier === "entry"
@@ -392,6 +394,7 @@ export function getProgramBubbleContent(journey, options = {}) {
 
   if (journey.tier === "entry" && journey.state === "starter_complete") {
     return {
+      kind: "starter_complete",
       eyebrow: "Starter Complete",
       title: "Your starter path is complete",
       body: "Upgrade to Core whenever you want to continue the full 30-day system.",
@@ -403,6 +406,7 @@ export function getProgramBubbleContent(journey, options = {}) {
   if (journey.tier === "coaching" && coachingSummary?.hasPendingSession) {
     const session = coachingSummary.nextApproved || coachingSummary.pending;
     return {
+      kind: "coaching_active",
       eyebrow: "Coaching Active",
       title: "Your coaching journey is active",
       body: session?.topic
@@ -415,6 +419,7 @@ export function getProgramBubbleContent(journey, options = {}) {
 
   if (journey.todayItem) {
     return {
+      kind: "task_reminder",
       eyebrow: journey.tier === "coaching" ? "Coaching Journey" : "Today's Task",
       title: `Continue Day ${journey.todayItem.day} of your reset`,
       body: journey.todayItem.title || "Your next guided task is ready.",
@@ -425,6 +430,7 @@ export function getProgramBubbleContent(journey, options = {}) {
 
   if (journey.state === "all_complete") {
     return {
+      kind: "all_complete",
       eyebrow: "Complete",
       title: "Your 30-day journey is complete",
       body: "Review what you built and decide what the next chapter should look like.",
@@ -434,6 +440,7 @@ export function getProgramBubbleContent(journey, options = {}) {
   }
 
   return {
+    kind: "program",
     eyebrow: "Program",
     title: "Your guided path is ready",
     body: "Open your program to see what is complete, what is next, and what unlocks later.",

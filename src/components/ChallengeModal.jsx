@@ -16,6 +16,7 @@ import {
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import { supabase } from "@/lib/supabaseClient";
+import { TASK_REMINDER_EVENT } from "@/lib/task-reminders";
 
 const DIFFICULTY_CONFIG = [
   {
@@ -501,6 +502,14 @@ export default function ChallengeModal({
       setSubmittedRecord(result);
       setPhase("reflection");
       toast.success(isNeedsRevision ? "Revision submitted" : "Day completed");
+      window.dispatchEvent(
+        new CustomEvent(TASK_REMINDER_EVENT, {
+          detail: {
+            taskId: task?.id,
+            day: task?.day || task?.day_number || null,
+          },
+        })
+      );
     } catch (error) {
       console.error("Submission failed:", error);
       toast.error(error.message || "Submission failed. Please try again.");

@@ -23,7 +23,9 @@ import EmergencyFundCard from "../components/EmergencyFundCard";
 import { Button } from "@/components/ui/button";
 import StatCard from "../components/StatCard";
 import DailyTipCard from "../components/DailyTipCard";
+import TaskReminderPrompt from "@/components/TaskReminderPrompt";
 import useUserRole from "../hooks/useUserRole";
+import useTaskReminderPrompt from "@/hooks/useTaskReminderPrompt";
 import { hasCompletedProgramOnboarding } from "@/lib/access-control";
 import {
   buildProgramJourney,
@@ -1019,6 +1021,11 @@ export default function Dashboard() {
       ? "Continue your 30-day reset when you're ready."
       : `${programJourney.accessibleCompletedCount} of ${programJourney.accessibleTaskCount || programJourney.totalCount} unlocked days complete`;
 
+  const taskReminder = useTaskReminderPrompt({
+    user,
+    task: activeTask,
+  });
+
   const onboardingDone = isProgramOnboardingCompleted();
 
   const programBubble = getProgramBubbleContent(programJourney, {
@@ -1027,6 +1034,9 @@ export default function Dashboard() {
       isProgramApproved(profileData, isPaid, latestEnrollment) &&
       !onboardingDone,
   });
+
+  const floatingProgramBubble =
+    programBubble && programBubble.kind !== "task_reminder" ? programBubble : null;
 
   const moneyInsightLabel =
     safeSurvivalExpense <= 0
@@ -1113,14 +1123,14 @@ export default function Dashboard() {
   }, [billboardTargetUrl, activeBillboard?.id, trackBillboardClick]);
 
   const startProgramFlow = () => {
-    if (programBubble?.action === "onboarding") {
+    if (floatingProgramBubble?.action === "onboarding") {
       setShowProgramStart(false);
       setShowOnboarding(true);
       setOnboardingStep(Number(profileData?.onboarding_step) || 0);
       return;
     }
 
-    navigate(programBubble?.href || "/tasks");
+    navigate(floatingProgramBubble?.href || "/tasks");
   };
 
   const closeProgramStart = () => {
@@ -1144,7 +1154,7 @@ export default function Dashboard() {
 
   useEffect(() => {
     setProgramBubbleDismissed(false);
-  }, [programBubble?.title, user?.id]);
+  }, [floatingProgramBubble?.title, user?.id]);
 
   if (!guardChecked) {
     return (
@@ -1415,7 +1425,24 @@ export default function Dashboard() {
         />
       </div>
 
-      {programBubble && !programBubbleDismissed && (
+      <TaskReminderPrompt
+        visible={taskReminder.visible}
+        task={activeTask}
+        reminderWindow={taskReminder.reminderWindow}
+        nextReminderWindow={taskReminder.nextReminderWindow}
+        snoozeChoices={taskReminder.snoozeChoices}
+        loading={taskReminder.actionLoading || taskReminder.stateLoading}
+        onOpen={async () => {
+          await taskReminder.acknowledgeReminder();
+          navigate("/tasks?open=today");
+        }}
+        onDismiss={taskReminder.dismissReminder}
+        onSnooze={taskReminder.snoozeReminder}
+      />
+
+      {floatingProgramBubble &&
+        !programBubbleDismissed &&
+        (floatingProgramBubble.kind !== "onboarding" || showProgramStart) && (
         <div className="fixed bottom-24 right-4 z-[70] w-[90%] max-w-[320px] md:bottom-8 md:right-5">
           <div className="rounded-3xl border border-emerald-400/20 bg-[#06111F]/95 p-4 shadow-[0_20px_60px_rgba(16,185,129,0.18)] backdrop-blur-xl">
             <div className="flex items-start gap-3">
@@ -1425,13 +1452,13 @@ export default function Dashboard() {
 
               <div className="min-w-0 flex-1">
                 <p className="text-[10px] uppercase tracking-[0.18em] text-emerald-300/80">
-                  {programBubble.eyebrow}
+                  {floatingProgramBubble.eyebrow}
                 </p>
                 <h3 className="mt-1 text-sm font-bold leading-snug text-white">
-                  {programBubble.title}
+                  {floatingProgramBubble.title}
                 </h3>
                 <p className="mt-1 text-xs leading-relaxed text-white/70">
-                  {programBubble.body}
+                  {floatingProgramBubble.body}
                 </p>
 
                 <div className="mt-3 flex items-center gap-2">
@@ -1440,7 +1467,7 @@ export default function Dashboard() {
                     className="inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-emerald-500 to-green-600 px-3.5 py-2 text-xs font-semibold text-white transition hover:scale-[1.02]"
                   >
                     <Rocket className="h-3.5 w-3.5" />
-                    {programBubble.ctaLabel}
+                    {floatingProgramBubble.ctaLabel}
                   </button>
 
                   <button

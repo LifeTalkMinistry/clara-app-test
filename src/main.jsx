@@ -8,6 +8,17 @@ import "./index.css";
 
 const queryClient = new QueryClient();
 
+if (typeof window !== "undefined" && "serviceWorker" in navigator) {
+  window.addEventListener("load", () => {
+    const base = import.meta.env.BASE_URL || "/";
+    const serviceWorkerPath = `${base.endsWith("/") ? base : `${base}/`}clara-task-reminder-sw.js`;
+
+    navigator.serviceWorker.register(serviceWorkerPath).catch((error) => {
+      console.error("Task reminder service worker registration failed:", error);
+    });
+  });
+}
+
 const root = ReactDOM.createRoot(document.getElementById("root"));
 
 root.render(
