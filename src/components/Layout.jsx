@@ -29,11 +29,11 @@ import { Button } from "@/components/ui/button";
 import { supabase } from "@/lib/supabaseClient";
 import BottomNav from "./BottomNav";
 import QuickAddModal from "./QuickAddModal";
+import AdsModal from "./AdsModal";
 import useUserRole from "../hooks/useUserRole";
 import useAdvertiserMenuAccess from "../hooks/useAdvertiserMenuAccess";
 import ClaraLogo from "./ClaraLogo";
 import { FEATURE_ROUTE_MAP } from "@/lib/plan-config";
-import { BUSINESS_INQUIRY_URL } from "@/lib/business-config";
 
 const allNavItems = [
   { path: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
@@ -108,7 +108,6 @@ function SidebarContent({
   currentPath,
   onClose,
   onNavigate,
-  onOpenExternal,
   planLabel,
   isAdmin,
   isFree,
@@ -205,11 +204,7 @@ function SidebarContent({
             <button
               type="button"
               onClick={() => {
-                if (businessItem.external) {
-                  onOpenExternal?.(businessItem.href);
-                  return;
-                }
-                onNavigate(businessItem.href);
+                businessItem.onClick?.();
               }}
               className={`flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm transition-all ${
                 businessItem.active
@@ -327,7 +322,6 @@ function MobileControlCenter({
   open,
   onClose,
   onNavigate,
-  onOpenExternal,
   onLogout,
   isAdmin,
   isPaid,
@@ -388,9 +382,7 @@ function MobileControlCenter({
     ? [
         {
           ...businessItem,
-          onClick: businessItem.external
-            ? () => onOpenExternal?.(businessItem.href)
-            : () => handleGo(businessItem.href),
+          onClick: businessItem.onClick,
         },
       ]
     : [];
@@ -607,6 +599,7 @@ export default function Layout({ children }) {
 
   const [quickAddOpen, setQuickAddOpen] = useState(false);
   const [controlOpen, setControlOpen] = useState(false);
+  const [adsModalOpen, setAdsModalOpen] = useState(false);
 
   const {
     user,
@@ -629,16 +622,21 @@ export default function Layout({ children }) {
     email: user?.email,
     isAdvertiser,
   });
+  const handleOpenAdsModal = useCallback(() => {
+    setControlOpen(false);
+    setQuickAddOpen(false);
+    setAdsModalOpen(true);
+  }, []);
+
   const businessItem = useMemo(() => {
     if (activeAds > 0) {
       return {
         label: "Ads",
         icon: Megaphone,
-        href: "/advertiser",
-        active: location.pathname === "/advertiser",
+        active: location.pathname === "/advertiser" || adsModalOpen,
         subtitle: `${activeAds} active ad${activeAds === 1 ? "" : "s"}`,
         badge: `${totalAds} ad${totalAds === 1 ? "" : "s"}`,
-        external: false,
+        onClick: handleOpenAdsModal,
       };
     }
 
@@ -646,24 +644,22 @@ export default function Layout({ children }) {
       return {
         label: "Ads",
         icon: Megaphone,
-        href: "/advertiser",
-        active: location.pathname === "/advertiser",
+        active: location.pathname === "/advertiser" || adsModalOpen,
         subtitle: "Ads connected",
         badge: totalAds > 0 ? `${totalAds} ad${totalAds === 1 ? "" : "s"}` : "",
-        external: false,
+        onClick: handleOpenAdsModal,
       };
     }
 
     return {
       label: "Ads",
       icon: Megaphone,
-      href: BUSINESS_INQUIRY_URL,
-      active: false,
+      active: adsModalOpen,
       subtitle: "Inquire now",
       badge: "New",
-      external: true,
+      onClick: handleOpenAdsModal,
     };
-  }, [activeAds, hasAds, isAdvertiser, location.pathname, totalAds]);
+  }, [activeAds, adsModalOpen, handleOpenAdsModal, hasAds, isAdvertiser, location.pathname, totalAds]);
 
   useEffect(() => {
     if (quickAddOpen) setControlOpen(false);
@@ -692,14 +688,6 @@ export default function Layout({ children }) {
     },
     [navigate]
   );
-
-  const handleOpenExternal = useCallback((url) => {
-    setControlOpen(false);
-    setQuickAddOpen(false);
-
-    if (!url) return;
-    window.open(url, "_blank", "noopener,noreferrer");
-  }, []);
 
   const handleOpenQuickAdd = useCallback(() => {
     if (isAdvertiser) return;
@@ -733,7 +721,6 @@ export default function Layout({ children }) {
           currentPath={location.pathname}
           onClose={() => {}}
           onNavigate={handleNavigate}
-          onOpenExternal={handleOpenExternal}
           planLabel={effectivePlanLabel}
           isAdmin={isAdmin}
           isFree={isFree}
@@ -774,7 +761,6 @@ export default function Layout({ children }) {
           open={controlOpen}
           onClose={() => setControlOpen(false)}
           onNavigate={handleNavigate}
-          onOpenExternal={handleOpenExternal}
           onLogout={handleLogout}
           isAdmin={isAdmin}
           isPaid={isPaid}
@@ -805,6 +791,16 @@ export default function Layout({ children }) {
           userEmail={user?.email}
         />
       )}
+
+      <AdsModal
+        open={adsModalOpen}
+        onClose={() => setAdsModalOpen(false)}
+        userEmail={user?.email}
+        onOpenDashboard={() => {
+          setAdsModalOpen(false);
+          handleNavigate("/advertiser");
+        }}
+      />
     </div>
   );
 }
