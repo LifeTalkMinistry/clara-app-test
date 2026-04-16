@@ -79,9 +79,9 @@ function getManualChunk(id) {
 
 export default defineConfig({
   plugins: [react()],
-  base: "/clara-app-test/",
+  base: "./",
   build: {
-    outDir: "docs",
+    outDir: "dist",
     rollupOptions: {
       output: {
         manualChunks: getManualChunk,
