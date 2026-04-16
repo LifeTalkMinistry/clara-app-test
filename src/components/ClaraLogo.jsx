@@ -1,4 +1,4 @@
-import logo from "@/assets/clara-logo.png";
+import logo from "../../assets/icon.png";
 
 /**
  * ClaraLogo – reusable brand logo component

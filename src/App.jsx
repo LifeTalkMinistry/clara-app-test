@@ -1,9 +1,7 @@
 import { Suspense, lazy, useEffect, useMemo, useState } from "react";
 import { Routes, Route, Navigate } from "react-router-dom";
-import { QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "sonner";
 
-import { queryClientInstance } from "./lib/query-client";
 import { useAuth } from "@/context/AuthContext";
 import { supabase } from "@/lib/supabaseClient";
 import useUserRole from "./hooks/useUserRole";
@@ -632,10 +630,10 @@ function AppRoutes() {
 
 function App() {
   return (
-    <QueryClientProvider client={queryClientInstance}>
+    <>
       <AppRoutes />
       <Toaster />
-    </QueryClientProvider>
+    </>
   );
 }
 
