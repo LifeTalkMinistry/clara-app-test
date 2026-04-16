@@ -86,10 +86,9 @@ export default function DailyTipCard({ user, isAdmin }) {
   };
 
   const teaserText = useMemo(() => buildTipTeaser(tipState.tip), [tipState.tip]);
-  const helperText = tipState.usingFallback
-    ? "Today's CLARA fallback tip is live while admin tips are inactive."
-    : "Today's tip is coming from the admin panel.";
-  const badgeText = tipState.loading ? "Checking live tip" : tipState.usingFallback ? "Daily rotation" : "Admin live";
+  const fallbackDay = tipState.usingFallback
+    ? (Number.isInteger(tipState.tip?.rotation_index) ? tipState.tip.rotation_index : 0) + 1
+    : null;
   const suggestionEnabled = Boolean(user && !(isAdmin || user?.role === "admin"));
 
   return (
@@ -127,11 +126,8 @@ export default function DailyTipCard({ user, isAdmin }) {
                     <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-white/60">
                       Daily Money Tip
                     </p>
-                    <p className="mt-2 max-w-[16rem] text-2xl font-semibold leading-tight text-white">
+                    <p className="mt-3 max-w-[16rem] text-xl font-semibold leading-snug text-white">
                       {teaserText}
-                    </p>
-                    <p className="mt-3 max-w-[18rem] text-sm leading-relaxed text-white/70">
-                      {helperText}
                     </p>
                   </div>
 
@@ -145,12 +141,9 @@ export default function DailyTipCard({ user, isAdmin }) {
                 </div>
 
                 <div className="mt-auto flex items-end justify-between gap-3 pt-6">
-                  <p className="max-w-[16rem] text-sm leading-relaxed text-white/75">
+                  <p className="max-w-[16rem] text-sm leading-normal text-white/75">
                     Tap to flip and read today's full insight.
                   </p>
-                  <span className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-[11px] font-medium text-white/65">
-                    {badgeText}
-                  </span>
                 </div>
               </div>
             </div>
@@ -167,9 +160,9 @@ export default function DailyTipCard({ user, isAdmin }) {
                 <div className="flex items-start justify-between gap-3">
                   <div className="min-w-0">
                     <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-emerald-300/80">
-                      {tipState.usingFallback ? "Today's rotation" : "Today's admin tip"}
+                      Daily Money Tip
                     </p>
-                    <p className="mt-2 text-lg font-semibold leading-relaxed text-white">
+                    <p className="mt-3 text-lg font-semibold leading-snug text-white">
                       {tipState.tip?.text}
                     </p>
                   </div>
@@ -193,14 +186,18 @@ export default function DailyTipCard({ user, isAdmin }) {
                       Suggest a money tip
                     </button>
                   ) : (
-                    <p className="text-xs text-white/45">
-                      {tipState.usingFallback ? "Fallback rotation stays active until admin selects a live tip." : "Updated from the admin panel"}
-                    </p>
+                    <div />
                   )}
 
-                  <span className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-[11px] font-medium text-white/65">
-                    Tap to flip back
-                  </span>
+                  {fallbackDay ? (
+                    <span className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-[11px] font-medium text-white/65">
+                      Day {fallbackDay} of 30
+                    </span>
+                  ) : (
+                    <span className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-[11px] font-medium text-white/65">
+                      Tap to flip back
+                    </span>
+                  )}
                 </div>
               </div>
             </div>

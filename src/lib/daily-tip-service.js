@@ -3,6 +3,7 @@ import {
   isSchemaMismatchError,
 } from "@/lib/admin-panel-utils";
 import {
+  FALLBACK_MONEY_TIPS,
   getFallbackTipForDate,
   getTodayDateString,
   normalizeTip,
@@ -10,7 +11,8 @@ import {
 } from "@/lib/daily-tip-utils";
 import { isSupabaseConfigured, supabase } from "@/lib/supabaseClient";
 
-const DASHBOARD_CACHE_KEY = "clara_daily_tip_cache_v2";
+const DASHBOARD_CACHE_KEY = "clara_daily_tip_cache_v3";
+const FALLBACK_TIP_TEXTS = new Set(FALLBACK_MONEY_TIPS.map((tip) => tip.text));
 
 function readDashboardTipCache() {
   if (typeof window === "undefined") return null;
@@ -22,9 +24,15 @@ function readDashboardTipCache() {
     const parsed = JSON.parse(raw);
     if (!parsed?.today || !parsed?.tip?.text) return null;
 
+    const normalizedTip = normalizeTip(parsed.tip);
+    const isValidFallbackTip =
+      parsed?.source === "admin" || FALLBACK_TIP_TEXTS.has(normalizedTip.text);
+
+    if (!isValidFallbackTip) return null;
+
     return {
       ...parsed,
-      tip: normalizeTip(parsed.tip),
+      tip: normalizedTip,
     };
   } catch (error) {
     console.error("Failed to read daily tip cache:", error);

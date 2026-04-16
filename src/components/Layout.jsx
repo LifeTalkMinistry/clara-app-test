@@ -30,7 +30,9 @@ import { supabase } from "@/lib/supabaseClient";
 import BottomNav from "./BottomNav";
 import QuickAddModal from "./QuickAddModal";
 import useUserRole from "../hooks/useUserRole";
+import useAdvertiserMenuAccess from "../hooks/useAdvertiserMenuAccess";
 import ClaraLogo from "./ClaraLogo";
+import { FEATURE_ROUTE_MAP } from "@/lib/plan-config";
 
 const allNavItems = [
   { path: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
@@ -111,6 +113,7 @@ function SidebarContent({
   isFree,
   isPaid,
   isAdvertiser,
+  isFeatureAvailable,
   user,
   onLogout,
 }) {
@@ -149,9 +152,10 @@ function SidebarContent({
               : currentPath === item.path || currentPath.startsWith(item.path + "/");
 
           if (!isAdvertiser) {
-            const isLocked = Boolean(item.pro && isFree);
+            const featureKey = FEATURE_ROUTE_MAP[item.path];
+            const isLocked = featureKey ? !isFeatureAvailable(featureKey) : Boolean(item.pro && isFree);
             const referralNotEnabled =
-              item.ambassadorOnly && !user?.has_referral_access;
+              item.ambassadorOnly && (!user?.has_referral_access || !isFeatureAvailable("referrals"));
 
             if (referralNotEnabled) return null;
 
@@ -279,9 +283,13 @@ function MobileControlCenter({
   isAdmin,
   isPaid,
   isAdvertiser,
+  isFeatureAvailable,
   currentPath,
   planLabel,
   user,
+  canAccessAds,
+  adsBadgeText,
+  adsSubtitle,
 }) {
   const panelRef = useRef(null);
 
@@ -314,41 +322,33 @@ function MobileControlCenter({
     onNavigate(path);
   };
 
-  const accountItems = isAdvertiser
+  const accountItems = [
+    {
+      label: "Profile",
+      icon: User,
+      onClick: () => handleGo("/profile"),
+      active: currentPath === "/profile",
+    },
+    {
+      label: "Settings",
+      icon: Settings,
+      onClick: () => handleGo("/settings/account"),
+      active: isSettingsPath(currentPath),
+    },
+  ];
+
+  const businessItems = canAccessAds
     ? [
         {
-          label: "My Ads",
+          label: "Ads",
           icon: Megaphone,
           onClick: () => handleGo("/advertiser"),
           active: currentPath === "/advertiser",
-        },
-        {
-          label: "Profile",
-          icon: User,
-          onClick: () => handleGo("/profile"),
-          active: currentPath === "/profile",
-        },
-        {
-          label: "Settings",
-          icon: Settings,
-          onClick: () => handleGo("/settings/account"),
-          active: isSettingsPath(currentPath),
+          subtitle: adsSubtitle,
+          badge: adsBadgeText,
         },
       ]
-    : [
-        {
-          label: "Profile",
-          icon: User,
-          onClick: () => handleGo("/profile"),
-          active: currentPath === "/profile",
-        },
-        {
-          label: "Settings",
-          icon: Settings,
-          onClick: () => handleGo("/settings/account"),
-          active: isSettingsPath(currentPath),
-        },
-      ];
+    : [];
 
   const supportItems = isAdvertiser
     ? []
@@ -358,7 +358,7 @@ function MobileControlCenter({
           icon: PlayCircle,
           onClick: () => handleGo("/modules"),
           active: currentPath === "/modules",
-          locked: !isPaid,
+          locked: !isFeatureAvailable("modules"),
         },
       ];
 
@@ -369,7 +369,7 @@ function MobileControlCenter({
       <div className="fixed right-4 top-16 z-50 lg:hidden">
         <div
           ref={panelRef}
-          className="w-[260px] overflow-hidden rounded-2xl border border-white/10 bg-[#071018]/95 shadow-2xl backdrop-blur-xl"
+          className="max-h-[calc(100vh-5.5rem)] w-[280px] overflow-hidden rounded-2xl border border-white/10 bg-[#071018]/95 shadow-2xl backdrop-blur-xl"
         >
           <div
             className="px-4 py-3"
@@ -401,7 +401,7 @@ function MobileControlCenter({
             </div>
           </div>
 
-          <div className="p-2">
+          <div className="max-h-[calc(100vh-9rem)] overflow-y-auto p-2">
             <div className="px-3 pb-2 pt-1">
               <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-white/45">
                 Account
@@ -423,6 +423,44 @@ function MobileControlCenter({
                 <span className="flex-1 text-left">{item.label}</span>
               </button>
             ))}
+
+            {businessItems.length > 0 && (
+              <>
+                <div className="my-2 h-px bg-white/10" />
+                <div className="px-3 pb-2 pt-1">
+                  <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-white/45">
+                    Business
+                  </p>
+                </div>
+                {businessItems.map((item) => (
+                  <button
+                    key={item.label}
+                    type="button"
+                    onClick={item.onClick}
+                    className={`flex w-full items-center gap-3 rounded-xl px-3 py-3 text-sm transition-all ${
+                      item.active
+                        ? "bg-white/10 text-white"
+                        : "text-white/75 hover:bg-white/10 hover:text-white"
+                    }`}
+                  >
+                    <item.icon className="h-4 w-4 shrink-0" />
+                    <div className="min-w-0 flex-1 text-left">
+                      <p className="truncate font-medium">{item.label}</p>
+                      {item.subtitle ? (
+                        <p className="mt-0.5 truncate text-[11px] text-white/55">
+                          {item.subtitle}
+                        </p>
+                      ) : null}
+                    </div>
+                    {item.badge ? (
+                      <span className="shrink-0 rounded-full border border-white/10 bg-white/8 px-2 py-1 text-[10px] font-semibold text-white/75">
+                        {item.badge}
+                      </span>
+                    ) : null}
+                  </button>
+                ))}
+              </>
+            )}
 
             {supportItems.length > 0 && (
               <>
@@ -531,6 +569,7 @@ export default function Layout({ children }) {
     isAdmin = false,
     isPaid = false,
     isFree = false,
+    isFeatureAvailable,
     loading = false,
   } = useUserRole() || {};
 
@@ -541,6 +580,20 @@ export default function Layout({ children }) {
     if (isAdvertiser) return "Advertiser";
     return planLabel;
   }, [isAdvertiser, planLabel]);
+  const { canAccessAds, totalAds, activeAds } = useAdvertiserMenuAccess({
+    email: user?.email,
+    isAdvertiser,
+  });
+  const adsSubtitle =
+    activeAds > 0
+      ? `${activeAds} active ad${activeAds === 1 ? "" : "s"}`
+      : totalAds > 0
+        ? "Ads connected"
+        : canAccessAds
+          ? "Open advertiser dashboard"
+          : "";
+  const adsBadgeText =
+    totalAds > 0 ? `${totalAds} ad${totalAds === 1 ? "" : "s"}` : "";
 
   useEffect(() => {
     if (quickAddOpen) setControlOpen(false);
@@ -607,6 +660,7 @@ export default function Layout({ children }) {
           isFree={isFree}
           isPaid={isPaid}
           isAdvertiser={isAdvertiser}
+          isFeatureAvailable={isFeatureAvailable}
           user={user}
           onLogout={handleLogout}
         />
@@ -644,9 +698,13 @@ export default function Layout({ children }) {
           isAdmin={isAdmin}
           isPaid={isPaid}
           isAdvertiser={isAdvertiser}
+          isFeatureAvailable={isFeatureAvailable}
           currentPath={location.pathname}
           planLabel={effectivePlanLabel}
           user={user}
+          canAccessAds={canAccessAds}
+          adsBadgeText={adsBadgeText}
+          adsSubtitle={adsSubtitle}
         />
       )}
 
@@ -656,6 +714,7 @@ export default function Layout({ children }) {
           isAdmin={isAdmin}
           isPaid={isPaid}
           isFree={isFree}
+          isFeatureAvailable={isFeatureAvailable}
           onLogout={handleLogout}
         />
       )}

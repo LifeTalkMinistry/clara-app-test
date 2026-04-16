@@ -1,89 +1,106 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import {
+  ArrowLeft,
+  ArrowRight,
+  BadgeCheck,
   CheckCircle2,
-  Upload,
-  XCircle,
+  ChevronLeft,
   Clock3,
+  Gem,
+  Lock,
   ShieldCheck,
   Sparkles,
-  CreditCard,
-  RefreshCcw,
-  ArrowLeft,
-  Info,
-  FileImage,
   Star,
   Target,
-  Gem,
-  BadgeCheck,
-  Wallet,
-  Landmark,
-  Copy,
+  Zap,
 } from "lucide-react";
+import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import useUserRole from "../hooks/useUserRole";
 import { supabase } from "@/lib/supabaseClient";
+import {
+  normalizePlanKey,
+  PLAN_LABELS,
+  sanitizePlanRow,
+} from "@/lib/plan-config";
+import {
+  getGooglePlayProductId,
+  launchGooglePlayPurchase,
+  persistGooglePlayPurchase,
+  waitForGooglePlayEntitlement,
+} from "@/lib/google-play-billing";
 
-const STATUS_META = {
-  pending: {
-    title: "Payment Under Review",
-    subtitle: "Your payment proof has been submitted successfully.",
-    color: "text-yellow-400",
-    border: "border-yellow-500/30",
-    bg: "from-yellow-500/10 to-transparent",
-    icon: Clock3,
+const PLAN_UI_META = {
+  entry: {
+    label: "Entry",
+    eyebrow: "Starter Access",
+    badge: "Best for starting",
+    statement: "Unlock your CLARA tools and begin with a guided starter path.",
+    points: [
+      "Full financial tools",
+      "Starter program access",
+      "Clear first steps",
+      "A real guided beginning",
+    ],
+    accent: "from-cyan-400/22 via-sky-400/10 to-transparent",
+    border: "border-cyan-400/20",
+    button: "Unlock with Google Play",
+    successTitle: "Entry unlocked",
+    successBody: "Your starter path is ready. Open CLARA and begin your first guided steps.",
+    successCta: "Start Starter Program",
+    icon: Star,
   },
-  under_review: {
-    title: "Payment Under Review",
-    subtitle: "Your payment proof is currently being checked by admin.",
-    color: "text-yellow-400",
-    border: "border-yellow-500/30",
-    bg: "from-yellow-500/10 to-transparent",
-    icon: Clock3,
+  core: {
+    label: "Core",
+    eyebrow: "Full 30-Day Reset",
+    badge: "Most popular",
+    statement: "Unlock the full guided system and move through CLARA one intentional day at a time.",
+    points: [
+      "Full 30-day guided system",
+      "Daily task progression",
+      "Reflection flow",
+      "Best value for serious structure",
+    ],
+    accent: "from-emerald-400/22 via-teal-400/10 to-transparent",
+    border: "border-emerald-400/20",
+    button: "Buy with Google Play",
+    successTitle: "Core unlocked",
+    successBody: "Your full guided system is active. Day 1 is ready whenever you are.",
+    successCta: "Open Program",
+    icon: Target,
   },
-  payment_pending: {
-    title: "Payment Pending Review",
-    subtitle: "We received your submission and it is waiting for verification.",
-    color: "text-yellow-400",
-    border: "border-yellow-500/30",
-    bg: "from-yellow-500/10 to-transparent",
-    icon: Clock3,
-  },
-  rejected: {
-    title: "Payment Not Approved",
-    subtitle:
-      "Your payment proof was not approved. You may resubmit your proof or choose another tier before submitting again.",
-    color: "text-red-400",
-    border: "border-red-500/30",
-    bg: "from-red-500/10 to-transparent",
-    icon: XCircle,
-  },
-  resubmit_required: {
-    title: "Resubmission Required",
-    subtitle:
-      "Your proof needs to be replaced with a clearer or more complete screenshot. You may also return to tier selection before resubmitting.",
-    color: "text-red-400",
-    border: "border-red-500/30",
-    bg: "from-red-500/10 to-transparent",
-    icon: RefreshCcw,
-  },
-  approved: {
-    title: "Approved",
-    subtitle: "Your enrollment is approved. Redirecting you now...",
-    color: "text-emerald-400",
-    border: "border-emerald-500/30",
-    bg: "from-emerald-500/10 to-transparent",
-    icon: CheckCircle2,
-  },
-  active: {
-    title: "Active",
-    subtitle: "Your enrollment is active. Redirecting you now...",
-    color: "text-emerald-400",
-    border: "border-emerald-500/30",
-    bg: "from-emerald-500/10 to-transparent",
-    icon: CheckCircle2,
+  coaching: {
+    label: "Coaching",
+    eyebrow: "Personal Guidance",
+    badge: "Premium support",
+    statement: "Unlock the full system plus a deeper layer of personal guidance and accountability.",
+    points: [
+      "Full 30-day guided system",
+      "Premium coaching layer",
+      "Deeper support surfaces",
+      "Built for real intervention and accountability",
+    ],
+    accent: "from-amber-400/22 via-orange-400/10 to-transparent",
+    border: "border-amber-400/20",
+    button: "Unlock with Google Play",
+    successTitle: "Coaching unlocked",
+    successBody: "Your guided system and coaching layer are active. Open the journey and review your support surfaces.",
+    successCta: "View Coaching Journey",
+    icon: Gem,
   },
 };
+
+const SUCCESS_STATUSES = new Set(["approved", "active"]);
+const PENDING_STATUSES = new Set([
+  "pending",
+  "under_review",
+  "payment_pending",
+  "google_play_pending",
+  "google_play_processing",
+  "purchase_pending",
+  "purchase_processing",
+]);
 
 function normalizeText(value) {
   return String(value || "").trim();
@@ -95,7 +112,7 @@ function normalizeKey(value) {
 
 function formatPeso(value) {
   const num = Number(value || 0);
-  return `₱${num.toLocaleString("en-PH")}`;
+  return `PHP ${num.toLocaleString("en-PH")}`;
 }
 
 function normalizeFeatures(features) {
@@ -114,28 +131,35 @@ function normalizeFeatures(features) {
 }
 
 function normalizePlanRecord(row) {
-  const key = normalizeKey(row?.plan_key || row?.key || row?.name);
+  const normalizedRow = sanitizePlanRow(row);
+  const key = normalizePlanKey(normalizedRow.plan_key || normalizedRow.key || normalizedRow.name);
+  const ui = PLAN_UI_META[key] || null;
 
   return {
-    id: row?.id ?? null,
+    id: normalizedRow?.id ?? null,
     key,
-    name: normalizeText(row?.name) || key.toUpperCase(),
-    price: Number(row?.price || 0),
-    badge: row?.popular ? "Most Popular" : "Plan",
-    description: normalizeText(row?.description),
-    benefits: normalizeFeatures(row?.features),
-    ctaLabel: normalizeText(row?.cta_label),
-    active: !!row?.active,
-    popular: !!row?.popular,
-    sortOrder: Number(row?.sort_order ?? 9999),
+    name: ui?.label || PLAN_LABELS[key] || normalizeText(normalizedRow?.name) || key.toUpperCase(),
+    price: Number(normalizedRow?.price || 0),
+    badge: ui?.badge || (normalizedRow?.popular ? "Most Popular" : "Plan"),
+    eyebrow: ui?.eyebrow || "Unlock CLARA",
+    statement: ui?.statement || normalizeText(normalizedRow?.description),
+    description: normalizeText(normalizedRow?.description),
+    benefits: normalizeFeatures(normalizedRow?.features),
+    ctaLabel: normalizeText(normalizedRow?.cta_label) || ui?.button || "Buy with Google Play",
+    active: !!normalizedRow?.active,
+    popular: !!normalizedRow?.popular || ui?.badge === "Most popular",
+    sortOrder: Number(normalizedRow?.sort_order ?? 9999),
+    accent: ui?.accent || "from-white/10 to-transparent",
+    border: ui?.border || "border-white/10",
+    successTitle: ui?.successTitle || "Plan unlocked",
+    successBody:
+      ui?.successBody || "Your purchase is complete and your CLARA access is ready.",
+    successCta: ui?.successCta || "Open CLARA",
+    productId: getGooglePlayProductId(key),
+    icon: ui?.icon || Sparkles,
+    displayBenefits:
+      normalizeFeatures(normalizedRow?.features).length > 0 ? normalizeFeatures(normalizedRow?.features) : ui?.points || [],
   };
-}
-
-function pickTierIcon(planKey) {
-  if (planKey === "diy" || planKey === "basic") return Star;
-  if (planKey === "diwm" || planKey === "transformation") return Target;
-  if (planKey === "ldit" || planKey === "elite") return Gem;
-  return Sparkles;
 }
 
 function getPlanKeyFromEnrollment(enrollment, searchParams) {
@@ -155,67 +179,72 @@ function getPlanKeyFromEnrollment(enrollment, searchParams) {
   return "";
 }
 
+function getSuccessDestination(planKey) {
+  const normalized = normalizeKey(planKey);
+  if (normalized === "entry") return "/program-onboarding";
+  if (normalized === "coaching") return "/tasks";
+  return "/tasks";
+}
+
+function SelectionCard({ plan, selected, onSelect }) {
+  const Icon = plan.icon;
+
+  return (
+    <button
+      type="button"
+      onClick={() => onSelect(plan.key)}
+      className={`w-full rounded-[28px] border p-5 text-left transition-all duration-200 ${
+        selected
+          ? `${plan.border} bg-white/[0.08] shadow-[0_18px_36px_rgba(0,0,0,0.22)]`
+          : "border-white/10 bg-white/[0.04] hover:bg-white/[0.07]"
+      }`}
+    >
+      <div className="flex items-start justify-between gap-4">
+        <div className="min-w-0 flex-1">
+          <div className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-black/20 px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.18em] text-white/65">
+            <Icon className="h-3.5 w-3.5" />
+            {plan.eyebrow}
+          </div>
+
+          <div className="mt-4 flex flex-wrap items-center gap-2">
+            <h3 className="text-2xl font-semibold text-white">{plan.name}</h3>
+            <span className="rounded-full border border-white/10 bg-white/5 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.18em] text-white/70">
+              {plan.badge}
+            </span>
+          </div>
+
+          <p className="mt-3 text-sm leading-7 text-white/72">{plan.statement}</p>
+        </div>
+
+        <div className="rounded-2xl border border-white/10 bg-black/20 px-4 py-3 text-right">
+          <p className="text-[11px] uppercase tracking-[0.16em] text-white/45">One-time</p>
+          <p className="mt-1 text-xl font-semibold text-white">{formatPeso(plan.price)}</p>
+        </div>
+      </div>
+
+      <div className="mt-5 space-y-2">
+        {plan.displayBenefits.slice(0, 3).map((item, index) => (
+          <div key={`${plan.key}-${index}`} className="flex items-start gap-2 text-sm text-white/75">
+            <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-emerald-300" />
+            <span>{item}</span>
+          </div>
+        ))}
+      </div>
+    </button>
+  );
+}
+
 export default function Enroll() {
-  const { user } = useUserRole();
+  const { user, refreshUser } = useUserRole();
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
 
   const [loading, setLoading] = useState(true);
-  const [plansLoading, setPlansLoading] = useState(true);
-
   const [plans, setPlans] = useState([]);
   const [enrollment, setEnrollment] = useState(null);
-
-  const [proofFile, setProofFile] = useState(null);
-  const [proofPreview, setProofPreview] = useState("");
-  const [submitting, setSubmitting] = useState(false);
-  const [uploadError, setUploadError] = useState("");
-  const [showReplaceUploader, setShowReplaceUploader] = useState(false);
-  const [manualTierEdit, setManualTierEdit] = useState(false);
-
-  const sortedPlans = useMemo(() => {
-    return [...plans].sort((a, b) => {
-      if (a.sortOrder !== b.sortOrder) return a.sortOrder - b.sortOrder;
-      return a.name.localeCompare(b.name);
-    });
-  }, [plans]);
-
-  const activePlans = useMemo(() => {
-    return sortedPlans.filter((plan) => plan.active);
-  }, [sortedPlans]);
-
-  const enrollmentPlanKey = useMemo(() => {
-    return getPlanKeyFromEnrollment(enrollment, searchParams);
-  }, [enrollment, searchParams]);
-
-  const selectedPlanKey = useMemo(() => {
-    if (manualTierEdit) {
-      return normalizeKey(searchParams.get("plan"));
-    }
-    return enrollment ? enrollmentPlanKey : normalizeKey(searchParams.get("plan"));
-  }, [manualTierEdit, enrollment, enrollmentPlanKey, searchParams]);
-
-  const selectedPlan = useMemo(() => {
-    if (!selectedPlanKey) return null;
-    return (
-      plans.find((plan) => normalizeKey(plan.key) === normalizeKey(selectedPlanKey)) || null
-    );
-  }, [plans, selectedPlanKey]);
-
-  const currentStatus = normalizeKey(enrollment?.status);
-  const statusMeta = STATUS_META[currentStatus] || null;
-  const isFreshFreeProfile = useMemo(() => {
-    const profile = user?.profile;
-    if (!profile) return false;
-
-    return (
-      normalizeKey(profile.role || "free_user") !== "paid_user" &&
-      normalizeKey(profile.plan || "free") === "free" &&
-      normalizeKey(profile.enrollment_status || "none") === "none" &&
-      profile.is_enrolled !== true &&
-      profile.program_active !== true
-    );
-  }, [user?.profile]);
+  const [purchaseState, setPurchaseState] = useState("idle");
+  const [purchaseMessage, setPurchaseMessage] = useState("");
+  const [activePurchasePlan, setActivePurchasePlan] = useState("");
 
   const fetchPlans = useCallback(async () => {
     const { data, error } = await supabase
@@ -224,17 +253,17 @@ export default function Enroll() {
       .order("sort_order", { ascending: true })
       .order("name", { ascending: true });
 
-    if (error) {
-      console.error("Failed to fetch plans:", error);
-      throw error;
-    }
+    if (error) throw error;
 
-    const normalized = (data || []).map(normalizePlanRecord);
+    const normalized = (data || [])
+      .map(normalizePlanRecord)
+      .filter((plan) => plan.active && plan.productId && PLAN_UI_META[plan.key]);
+
     setPlans(normalized);
   }, []);
 
   const fetchEnrollment = useCallback(async () => {
-    if (!user?.id) return;
+    if (!user?.id) return null;
 
     const { data, error } = await supabase
       .from("enrollments")
@@ -244,38 +273,26 @@ export default function Enroll() {
       .limit(1)
       .maybeSingle();
 
-    if (error) {
-      console.error("Failed to fetch enrollment:", error);
-      throw error;
-    }
+    if (error) throw error;
 
-    const nextEnrollment = data || null;
-
-    if (isFreshFreeProfile) {
-      setEnrollment(null);
-      return;
-    }
-
-    setEnrollment(nextEnrollment);
-  }, [isFreshFreeProfile, user?.id]);
+    setEnrollment(data || null);
+    return data || null;
+  }, [user?.id]);
 
   const loadInitialData = useCallback(async () => {
     if (!user?.id) {
       setLoading(false);
-      setPlansLoading(false);
       return;
     }
 
     setLoading(true);
-    setPlansLoading(true);
-
     try {
       await Promise.all([fetchPlans(), fetchEnrollment()]);
     } catch (error) {
-      console.error("Failed to load enrollment page:", error);
+      console.error("Failed to load Google Play purchase flow:", error);
+      toast.error("Could not load plans right now.");
     } finally {
       setLoading(false);
-      setPlansLoading(false);
     }
   }, [fetchEnrollment, fetchPlans, user?.id]);
 
@@ -283,784 +300,438 @@ export default function Enroll() {
     loadInitialData();
   }, [loadInitialData]);
 
-  useEffect(() => {
-    if (!proofFile) {
-      setProofPreview("");
-      return;
+  const currentStatus = normalizeKey(enrollment?.status);
+  const enrollmentPlanKey = useMemo(
+    () => getPlanKeyFromEnrollment(enrollment, searchParams),
+    [enrollment, searchParams]
+  );
+
+  const sortedPlans = useMemo(() => {
+    return [...plans].sort((a, b) => {
+      if (a.sortOrder !== b.sortOrder) return a.sortOrder - b.sortOrder;
+      return a.name.localeCompare(b.name);
+    });
+  }, [plans]);
+
+  const selectedPlanKey = normalizeKey(searchParams.get("plan") || enrollmentPlanKey);
+  const view = searchParams.get("view") || (selectedPlanKey ? "detail" : "select");
+
+  const selectedPlan = useMemo(() => {
+    return sortedPlans.find((plan) => normalizeKey(plan.key) === selectedPlanKey) || null;
+  }, [selectedPlanKey, sortedPlans]);
+
+  const unlockedPlan = useMemo(() => {
+    if (!SUCCESS_STATUSES.has(currentStatus)) return null;
+    return sortedPlans.find((plan) => normalizeKey(plan.key) === enrollmentPlanKey) || selectedPlan;
+  }, [currentStatus, enrollmentPlanKey, selectedPlan, sortedPlans]);
+
+  const purchaseStatusMeta = useMemo(() => {
+    if (purchaseState === "processing") {
+      return {
+        title: "Opening Google Play",
+        body: "Confirm your purchase in Google Play to continue.",
+      };
     }
 
-    if (proofFile.type?.startsWith("image/")) {
-      const objectUrl = URL.createObjectURL(proofFile);
-      setProofPreview(objectUrl);
-      return () => URL.revokeObjectURL(objectUrl);
+    if (purchaseState === "verifying") {
+      return {
+        title: "Unlocking your access",
+        body: "Your purchase was received. We are syncing your entitlement now.",
+      };
     }
 
-    setProofPreview("");
-  }, [proofFile]);
-
-  useEffect(() => {
-    if (!currentStatus) return;
-
-    if (["approved", "active"].includes(currentStatus)) {
-      const timer = setTimeout(() => {
-        navigate("/dashboard", { replace: true });
-      }, 1200);
-
-      return () => clearTimeout(timer);
+    if (purchaseState === "pending") {
+      return {
+        title: "Purchase received",
+        body: "Google Play completed the purchase. Your access is still syncing in the background.",
+      };
     }
-  }, [currentStatus, navigate]);
 
-  useEffect(() => {
-    if (enrollment && !manualTierEdit) {
-      const currentPlanKey = normalizeKey(searchParams.get("plan"));
-      const next = new URLSearchParams(searchParams);
-      const liveKey =
-        normalizeKey(enrollment?.plan_key) ||
-        normalizeKey(enrollment?.plan) ||
-        normalizeKey(enrollment?.tier) ||
-        "";
-      if (liveKey && currentPlanKey !== liveKey) {
-        next.set("plan", liveKey);
-        setSearchParams(next, { replace: true });
-      }
-    }
-  }, [enrollment, manualTierEdit, searchParams, setSearchParams]);
+    return null;
+  }, [purchaseState]);
 
-  async function refreshEnrollment() {
-    await fetchEnrollment();
+  const showSuccess = purchaseState === "success" || Boolean(unlockedPlan);
+  const showProcessing = Boolean(purchaseStatusMeta);
+
+  function updateSearch(nextPlan, nextView = "detail") {
+    const next = new URLSearchParams(searchParams);
+
+    if (nextPlan) next.set("plan", normalizeKey(nextPlan));
+    else next.delete("plan");
+
+    if (nextView) next.set("view", nextView);
+    else next.delete("view");
+
+    setSearchParams(next, { replace: true });
   }
 
   function handlePlanSelect(planKey) {
-    const next = new URLSearchParams(searchParams);
-    next.set("plan", normalizeKey(planKey));
-    setSearchParams(next);
-    setManualTierEdit(true);
-    setUploadError("");
+    updateSearch(planKey, "detail");
   }
 
-  function handleChangeTierMode() {
-    setManualTierEdit(true);
-    const next = new URLSearchParams(searchParams);
-    next.delete("plan");
-    setSearchParams(next);
-  }
-
-  function cancelChangeTierMode() {
-    setManualTierEdit(false);
-    const next = new URLSearchParams(searchParams);
-    const originalKey =
-      normalizeKey(enrollment?.plan_key) || normalizeKey(enrollment?.plan) || "";
-    if (originalKey) {
-      next.set("plan", originalKey);
-    } else {
-      next.delete("plan");
-    }
-    setSearchParams(next);
-    setUploadError("");
-  }
-
-  function handleFileChange(e) {
-    const file = e.target.files?.[0] || null;
-    setProofFile(file);
-    setUploadError("");
-  }
-
-  async function uploadProofAndGetUrl(file) {
-    const originalName = String(file?.name || "proof");
-    const ext = originalName.includes(".") ? originalName.split(".").pop() : "jpg";
-    const safeExt = normalizeKey(ext || "jpg") || "jpg";
-    const fileName = `${user.id}_${Date.now()}.${safeExt}`;
-    const path = `payment_proofs/${fileName}`;
-
-    const { error: uploadErr } = await supabase.storage
-      .from("payment-proofs")
-      .upload(path, file, { upsert: false });
-
-    if (uploadErr) throw uploadErr;
-
-    const { data } = supabase.storage.from("payment-proofs").getPublicUrl(path);
-    return data?.publicUrl || "";
-  }
-
-  async function handleSubmit() {
-    if (!user?.id) return;
-
-    if (!proofFile) {
-      setUploadError("Please upload your proof of payment first.");
-      return;
-    }
-
-    const effectivePlanKey =
-      normalizeKey(selectedPlanKey) ||
-      normalizeKey(enrollment?.plan_key) ||
-      normalizeKey(enrollment?.plan) ||
-      "";
-
-    if (!effectivePlanKey) {
-      setUploadError("Please choose a plan first.");
-      return;
-    }
-
-    setSubmitting(true);
-    setUploadError("");
+  async function handlePurchase(plan) {
+    if (!user?.id || !plan) return;
 
     try {
-      const paymentProofUrl = await uploadProofAndGetUrl(proofFile);
+      setActivePurchasePlan(plan.key);
+      setPurchaseState("processing");
+      setPurchaseMessage("");
 
-      if (enrollment) {
-        const { error } = await supabase
-          .from("enrollments")
-          .update({
-            payment_proof_url: paymentProofUrl,
-            status: "pending",
-            plan: effectivePlanKey,
-            plan_key: effectivePlanKey,
-          })
-          .eq("id", enrollment.id);
+      const purchase = await launchGooglePlayPurchase({
+        productId: plan.productId,
+        planKey: plan.key,
+        userId: user.id,
+        userEmail: user.email,
+      });
 
-        if (error) throw error;
-      } else {
-        const { error } = await supabase.from("enrollments").insert([
-          {
-            user_id: user.id,
-            payment_proof_url: paymentProofUrl,
-            status: "pending",
-            plan: effectivePlanKey,
-            plan_key: effectivePlanKey,
-          },
-        ]);
-
-        if (error) throw error;
+      if (purchase.cancelled) {
+        setPurchaseState("idle");
+        setActivePurchasePlan("");
+        toast.message("Purchase cancelled");
+        return;
       }
 
-      setProofFile(null);
-      setProofPreview("");
-      setShowReplaceUploader(false);
-      setManualTierEdit(false);
-      await refreshEnrollment();
-    } catch (err) {
-      console.error(err);
-      setUploadError(err?.message || "Something went wrong while submitting your proof.");
-    } finally {
-      setSubmitting(false);
-    }
-  }
+      if (!purchase.ok) {
+        throw new Error("Google Play did not confirm the purchase.");
+      }
 
-  async function copyText(value) {
-    try {
-      await navigator.clipboard.writeText(String(value || ""));
+      setPurchaseState("verifying");
+
+      await persistGooglePlayPurchase({
+        supabase,
+        userId: user.id,
+        planKey: plan.key,
+        productId: plan.productId,
+        purchaseToken: purchase.purchaseToken,
+        orderId: purchase.orderId,
+        bridgePayload: purchase.raw,
+      });
+
+      const entitlement = await waitForGooglePlayEntitlement({
+        supabase,
+        userId: user.id,
+        expectedPlanKey: plan.key,
+      });
+
+      await fetchEnrollment();
+      await refreshUser?.();
+
+      if (entitlement.status === "active") {
+        setPurchaseState("success");
+        setPurchaseMessage(plan.successBody);
+        toast.success(`${plan.name} unlocked`);
+        return;
+      }
+
+      setPurchaseState("pending");
+      setPurchaseMessage(
+        "Your purchase is complete. Access is still syncing and should unlock shortly."
+      );
     } catch (error) {
-      console.error("Copy failed:", error);
+      console.error("Google Play purchase failed:", error);
+      setPurchaseState("idle");
+      setPurchaseMessage("");
+      toast.error(error.message || "Could not complete purchase.");
     }
   }
 
-  function renderPlanSelector() {
+  if (loading) {
     return (
-      <div className="rounded-3xl border border-white/10 bg-white/5 p-5 backdrop-blur-xl">
-        <div className="flex items-center justify-between gap-3 flex-wrap">
-          <div>
-            <h2 className="text-xl font-bold text-white">Choose Your Plan</h2>
-            <p className="mt-2 text-sm text-white/65">
-              Select a tier first so the user clearly sees what they are enrolling in.
-            </p>
-          </div>
-
-          {enrollment && manualTierEdit ? (
-            <Button
-              type="button"
-              variant="outline"
-              onClick={cancelChangeTierMode}
-              className="h-10 rounded-2xl border-white/15 bg-transparent text-white hover:bg-white/10"
-            >
-              Cancel Tier Change
-            </Button>
-          ) : null}
-        </div>
-
-        <div className="mt-5 grid gap-4 md:grid-cols-3">
-          {activePlans.map((plan) => {
-            const active = normalizeKey(selectedPlanKey) === normalizeKey(plan.key);
-
-            return (
-              <button
-                key={plan.id || plan.key}
-                type="button"
-                onClick={() => handlePlanSelect(plan.key)}
-                className={`w-full rounded-3xl border text-left transition-all duration-200 p-5 ${
-                  active
-                    ? "border-emerald-400/60 bg-emerald-500/10 shadow-[0_0_0_1px_rgba(16,185,129,0.2)]"
-                    : "border-white/10 bg-white/5 hover:bg-white/10"
-                }`}
-              >
-                <div className="flex items-start justify-between gap-4">
-                  <div>
-                    <div className="flex flex-wrap items-center gap-2">
-                      <h3 className="text-lg font-semibold text-white">{plan.name}</h3>
-
-                      {plan.popular ? (
-                        <span className="rounded-full border border-yellow-400/30 bg-yellow-400/10 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.18em] text-yellow-300">
-                          Most Popular
-                        </span>
-                      ) : null}
-                    </div>
-
-                    <p className="mt-2 text-sm text-white/70">
-                      {plan.description || "Choose this plan to continue your CLARA journey."}
-                    </p>
-                  </div>
-
-                  <div className="text-right">
-                    <p className="text-xl font-bold text-white">{formatPeso(plan.price)}</p>
-                  </div>
-                </div>
-              </button>
-            );
-          })}
-        </div>
-      </div>
-    );
-  }
-
-  function renderSelectedTierOverview() {
-    if (!selectedPlan) return null;
-
-    const TierIcon = pickTierIcon(selectedPlan.key);
-
-    return (
-      <div className="rounded-3xl border border-emerald-400/20 bg-gradient-to-br from-emerald-500/10 via-cyan-500/5 to-transparent p-5 backdrop-blur-xl">
-        <div className="flex items-start justify-between gap-4 flex-wrap">
-          <div className="flex items-start gap-4">
-            <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl border border-emerald-400/20 bg-emerald-500/10">
-              <TierIcon className="h-6 w-6 text-emerald-300" />
-            </div>
-
-            <div>
-              <div className="flex flex-wrap items-center gap-2">
-                <h2 className="text-2xl font-bold text-white">{selectedPlan.name}</h2>
-
-                {selectedPlan.popular ? (
-                  <span className="rounded-full border border-yellow-400/30 bg-yellow-400/10 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.18em] text-yellow-300">
-                    Most Popular
-                  </span>
-                ) : (
-                  <span className="rounded-full border border-white/10 bg-white/5 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.18em] text-white/60">
-                    Active Plan
-                  </span>
-                )}
-              </div>
-
-              <p className="mt-2 text-base font-medium text-emerald-200">
-                {selectedPlan.description || "This is the plan currently selected for your enrollment."}
-              </p>
-            </div>
-          </div>
-
-          <div className="rounded-2xl border border-white/10 bg-black/20 px-4 py-3 text-right">
-            <p className="text-xs uppercase tracking-[0.2em] text-white/50">Tier Price</p>
-            <p className="text-2xl font-bold text-white">{formatPeso(selectedPlan.price)}</p>
-          </div>
-        </div>
-
-        <div className="mt-5 grid gap-4 md:grid-cols-2">
-          <div className="rounded-2xl border border-white/10 bg-black/20 p-4">
-            <div className="mb-3 flex items-center gap-2">
-              <ShieldCheck className="h-4 w-4 text-emerald-400" />
-              <h3 className="text-sm font-semibold uppercase tracking-[0.14em] text-white/80">
-                What’s Included
-              </h3>
-            </div>
-
-            <div className="space-y-2">
-              {selectedPlan.benefits.length > 0 ? (
-                selectedPlan.benefits.map((item, idx) => (
-                  <div key={idx} className="flex items-start gap-2 text-sm text-white/80">
-                    <CheckCircle2 className="mt-0.5 h-4 w-4 text-emerald-400 shrink-0" />
-                    <span>{item}</span>
-                  </div>
-                ))
-              ) : (
-                <div className="flex items-start gap-2 text-sm text-white/60">
-                  <CheckCircle2 className="mt-0.5 h-4 w-4 text-emerald-400 shrink-0" />
-                  <span>Plan features will appear here once added from admin.</span>
-                </div>
-              )}
-            </div>
-          </div>
-
-          <div className="rounded-2xl border border-white/10 bg-black/20 p-4">
-            <div className="mb-3 flex items-center gap-2">
-              <Info className="h-4 w-4 text-yellow-300" />
-              <h3 className="text-sm font-semibold uppercase tracking-[0.14em] text-white/80">
-                Enrollment Details
-              </h3>
-            </div>
-
-            <div className="space-y-3 text-sm text-white/80">
-              <div className="flex items-start gap-2">
-                <BadgeCheck className="mt-0.5 h-4 w-4 text-cyan-300 shrink-0" />
-                <span>
-                  Plan key: <span className="font-semibold text-white">{selectedPlan.key}</span>
-                </span>
-              </div>
-
-              <div className="flex items-start gap-2">
-                <CreditCard className="mt-0.5 h-4 w-4 text-cyan-300 shrink-0" />
-                <span>
-                  CTA label:{" "}
-                  <span className="font-semibold text-white">
-                    {selectedPlan.ctaLabel || "Not set"}
-                  </span>
-                </span>
-              </div>
-
-              <div className="flex items-start gap-2">
-                <CheckCircle2 className="mt-0.5 h-4 w-4 text-cyan-300 shrink-0" />
-                <span>
-                  Status:{" "}
-                  <span className="font-semibold text-white">
-                    {selectedPlan.active ? "Active" : "Inactive"}
-                  </span>
-                </span>
-              </div>
-
-              <div className="flex items-start gap-2">
-                <Sparkles className="mt-0.5 h-4 w-4 text-cyan-300 shrink-0" />
-                <span>
-                  Popular flag:{" "}
-                  <span className="font-semibold text-white">
-                    {selectedPlan.popular ? "Yes" : "No"}
-                  </span>
-                </span>
-              </div>
-            </div>
+      <div className="min-h-screen bg-[#020617] text-white">
+        <div className="mx-auto flex min-h-screen max-w-4xl items-center justify-center px-4">
+          <div className="rounded-3xl border border-white/10 bg-white/5 px-6 py-5 backdrop-blur-xl">
+            <p className="text-sm text-white/70">Loading plans...</p>
           </div>
         </div>
       </div>
     );
   }
-
-  function renderStatusCard() {
-    if (!statusMeta) return null;
-
-    const Icon = statusMeta.icon;
-
-    return (
-      <div
-        className={`rounded-3xl border ${statusMeta.border} bg-gradient-to-br ${statusMeta.bg} p-5 backdrop-blur-xl`}
-      >
-        <div className="flex items-start gap-4">
-          <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl border border-white/10 bg-black/20">
-            <Icon className={`h-7 w-7 ${statusMeta.color}`} />
-          </div>
-
-          <div className="flex-1">
-            <div className="flex items-center gap-2 flex-wrap">
-              <h2 className="text-xl font-bold text-white">{statusMeta.title}</h2>
-              <span className="rounded-full border border-white/10 bg-white/5 px-2.5 py-1 text-[10px] uppercase tracking-[0.18em] text-white/60">
-                {currentStatus.replace(/_/g, " ")}
-              </span>
-            </div>
-
-            <p className="mt-2 text-sm text-white/70">{statusMeta.subtitle}</p>
-
-            {enrollment?.admin_notes ? (
-              <div className="mt-4 rounded-2xl border border-white/10 bg-black/20 p-4">
-                <p className="text-xs uppercase tracking-[0.18em] text-white/45">Admin Notes</p>
-                <p className="mt-2 text-sm text-white/80">{enrollment.admin_notes}</p>
-              </div>
-            ) : null}
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  function renderPaymentMethods() {
-    return (
-      <div className="rounded-3xl border border-white/10 bg-white/5 p-5 backdrop-blur-xl">
-        <div className="flex items-center gap-3 mb-4">
-          <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-cyan-500/15">
-            <CreditCard className="h-5 w-5 text-cyan-300" />
-          </div>
-          <div>
-            <h3 className="text-base font-semibold text-white">Payment Methods</h3>
-            <p className="text-sm text-white/60">
-              Send your payment first, then upload a clear screenshot as proof.
-            </p>
-          </div>
-        </div>
-
-        <div className="grid gap-4 md:grid-cols-2">
-          <div className="rounded-2xl border border-emerald-400/20 bg-emerald-500/5 p-4">
-            <div className="mb-3 flex items-center gap-2">
-              <Wallet className="h-4 w-4 text-emerald-300" />
-              <h4 className="text-sm font-semibold uppercase tracking-[0.14em] text-white/85">
-                GCash
-              </h4>
-            </div>
-
-            <div className="space-y-3 text-sm">
-              <div className="rounded-xl border border-white/10 bg-black/20 p-3">
-                <p className="text-white/50 text-xs uppercase tracking-[0.14em]">Account Name</p>
-                <div className="mt-1 flex items-center justify-between gap-2">
-                  <p className="font-semibold text-white">Jerome Mirabuenos</p>
-                  <button
-                    type="button"
-                    onClick={() => copyText("Jerome Mirabuenos")}
-                    className="inline-flex items-center gap-1 text-white/60 hover:text-white"
-                  >
-                    <Copy className="h-4 w-4" />
-                  </button>
-                </div>
-              </div>
-
-              <div className="rounded-xl border border-white/10 bg-black/20 p-3">
-                <p className="text-white/50 text-xs uppercase tracking-[0.14em]">GCash Number</p>
-                <div className="mt-1 flex items-center justify-between gap-2">
-                  <p className="font-semibold text-white">09858410403</p>
-                  <button
-                    type="button"
-                    onClick={() => copyText("09858410403")}
-                    className="inline-flex items-center gap-1 text-white/60 hover:text-white"
-                  >
-                    <Copy className="h-4 w-4" />
-                  </button>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          <div className="rounded-2xl border border-yellow-400/20 bg-yellow-500/5 p-4">
-            <div className="mb-3 flex items-center gap-2">
-              <Landmark className="h-4 w-4 text-yellow-300" />
-              <h4 className="text-sm font-semibold uppercase tracking-[0.14em] text-white/85">
-                Security Bank
-              </h4>
-            </div>
-
-            <div className="space-y-3 text-sm">
-              <div className="rounded-xl border border-white/10 bg-black/20 p-3">
-                <p className="text-white/50 text-xs uppercase tracking-[0.14em]">Account Name</p>
-                <div className="mt-1 flex items-center justify-between gap-2">
-                  <p className="font-semibold text-white">Jerome Mirabuenos</p>
-                  <button
-                    type="button"
-                    onClick={() => copyText("Jerome Mirabuenos")}
-                    className="inline-flex items-center gap-1 text-white/60 hover:text-white"
-                  >
-                    <Copy className="h-4 w-4" />
-                  </button>
-                </div>
-              </div>
-
-              <div className="rounded-xl border border-white/10 bg-black/20 p-3">
-                <p className="text-white/50 text-xs uppercase tracking-[0.14em]">Account Number</p>
-                <div className="mt-1 flex items-center justify-between gap-2">
-                  <p className="font-semibold text-white">000-006-704-2019</p>
-                  <button
-                    type="button"
-                    onClick={() => copyText("000-006-704-2019")}
-                    className="inline-flex items-center gap-1 text-white/60 hover:text-white"
-                  >
-                    <Copy className="h-4 w-4" />
-                  </button>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <div className="mt-4 rounded-2xl border border-white/10 bg-black/20 p-4">
-          <p className="text-xs uppercase tracking-[0.18em] text-white/50">Important</p>
-          <p className="mt-2 text-sm text-white/75">
-            Make sure the uploaded screenshot clearly shows the sender, amount, and reference or
-            transaction details so admin can verify it faster.
-          </p>
-        </div>
-      </div>
-    );
-  }
-
-  function renderCurrentProof() {
-    if (!enrollment?.payment_proof_url) return null;
-
-    return (
-      <div className="rounded-3xl border border-white/10 bg-white/5 backdrop-blur-xl p-5">
-        <div className="flex items-center justify-between gap-4 flex-wrap">
-          <div>
-            <h3 className="text-base font-semibold text-white">Current Submitted Proof</h3>
-            <p className="text-sm text-white/60">
-              This is the screenshot currently attached to your enrollment.
-            </p>
-          </div>
-
-          <a
-            href={enrollment.payment_proof_url}
-            target="_blank"
-            rel="noreferrer"
-            className="inline-flex items-center gap-2 rounded-2xl border border-white/15 bg-white/5 px-4 py-2 text-sm text-white hover:bg-white/10"
-          >
-            <FileImage className="h-4 w-4" />
-            Open Current Proof
-          </a>
-        </div>
-      </div>
-    );
-  }
-
-  function renderUploadBox({ isResubmit = false } = {}) {
-    return (
-      <div className="rounded-3xl border border-white/10 bg-white/5 backdrop-blur-xl p-5">
-        <div className="flex items-center gap-3 mb-4">
-          <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-emerald-500/15">
-            <Upload className="h-5 w-5 text-emerald-400" />
-          </div>
-          <div>
-            <h3 className="text-base font-semibold text-white">
-              {isResubmit ? "Re-upload Payment Proof" : "Upload Payment Proof"}
-            </h3>
-            <p className="text-sm text-white/60">
-              Upload a clear screenshot of your payment confirmation.
-            </p>
-          </div>
-        </div>
-
-        <label className="flex cursor-pointer flex-col items-center justify-center rounded-2xl border border-dashed border-white/15 bg-black/20 px-4 py-8 text-center transition hover:border-emerald-400/40 hover:bg-white/5">
-          <FileImage className="mb-3 h-8 w-8 text-white/50" />
-          <span className="text-sm font-medium text-white">
-            {proofFile ? proofFile.name : "Click to choose image or proof file"}
-          </span>
-          <span className="mt-1 text-xs text-white/50">
-            Best if the amount, sender, and transaction details are clearly visible
-          </span>
-          <input
-            type="file"
-            accept="image/*,.pdf"
-            onChange={handleFileChange}
-            className="hidden"
-          />
-        </label>
-
-        {proofPreview ? (
-          <div className="mt-4 overflow-hidden rounded-2xl border border-white/10 bg-black/20">
-            <img
-              src={proofPreview}
-              alt="Proof preview"
-              className="max-h-[320px] w-full object-contain bg-black/30"
-            />
-          </div>
-        ) : null}
-
-        {proofFile && !proofPreview && proofFile.type === "application/pdf" ? (
-          <div className="mt-4 rounded-2xl border border-white/10 bg-black/20 p-4 text-sm text-white/70">
-            PDF selected: <span className="font-medium text-white">{proofFile.name}</span>
-          </div>
-        ) : null}
-
-        {uploadError ? (
-          <div className="mt-4 rounded-2xl border border-red-500/20 bg-red-500/10 px-4 py-3 text-sm text-red-300">
-            {uploadError}
-          </div>
-        ) : null}
-
-        <div className="mt-4 flex flex-col gap-3 sm:flex-row">
-          <Button
-            onClick={handleSubmit}
-            disabled={submitting || !proofFile}
-            className="h-11 rounded-2xl bg-emerald-500 text-white hover:bg-emerald-600"
-          >
-            {submitting
-              ? isResubmit
-                ? "Resubmitting..."
-                : "Submitting..."
-              : isResubmit
-              ? "Resubmit Proof"
-              : "Submit Proof"}
-          </Button>
-
-          {proofFile ? (
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => {
-                setProofFile(null);
-                setProofPreview("");
-                setUploadError("");
-              }}
-              className="h-11 rounded-2xl border-white/15 bg-transparent text-white hover:bg-white/10"
-            >
-              Remove Selected File
-            </Button>
-          ) : null}
-        </div>
-      </div>
-    );
-  }
-
-  if (loading || plansLoading) {
-    return (
-      <div className="min-h-screen bg-[#020617] text-white flex items-center justify-center">
-        <div className="rounded-3xl border border-white/10 bg-white/5 px-6 py-5 backdrop-blur-xl">
-          <p className="text-sm text-white/70">Loading your enrollment...</p>
-        </div>
-      </div>
-    );
-  }
-
-  const hasEnrollment = !!enrollment;
-  const isRejectedState = ["rejected", "resubmit_required"].includes(currentStatus);
-  const isPendingState = ["pending", "under_review", "payment_pending"].includes(currentStatus);
-  const allowTierChange = isRejectedState;
-  const showPlanChooser = !hasEnrollment || allowTierChange || manualTierEdit;
-  const effectivePlanExists = !!selectedPlan;
 
   return (
     <div className="min-h-screen bg-[#020617] text-white">
-      <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,_rgba(16,185,129,0.16),_transparent_28%),linear-gradient(180deg,_rgba(2,6,23,0.4),_rgba(2,6,23,1))]" />
+      <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,_rgba(16,185,129,0.16),_transparent_28%),linear-gradient(180deg,_rgba(2,6,23,0.42),_rgba(2,6,23,1))]" />
 
-      <div className="relative mx-auto w-full max-w-5xl px-4 py-6 sm:px-6 sm:py-8">
+      <div className="relative mx-auto max-w-5xl px-4 py-6 sm:px-6 sm:py-8">
         <div className="mb-6 flex items-center justify-between gap-4">
           <Button
             type="button"
             variant="ghost"
-            onClick={() => navigate(-1)}
+            onClick={() => {
+              if (view === "detail" && !showProcessing && !showSuccess) {
+                updateSearch("", "select");
+                return;
+              }
+              navigate(-1);
+            }}
             className="h-10 rounded-2xl border border-white/10 bg-white/5 px-4 text-white hover:bg-white/10"
           >
-            <ArrowLeft className="mr-2 h-4 w-4" />
-            Back
+            {view === "detail" && !showProcessing && !showSuccess ? (
+              <ChevronLeft className="mr-2 h-4 w-4" />
+            ) : (
+              <ArrowLeft className="mr-2 h-4 w-4" />
+            )}
+            {view === "detail" && !showProcessing && !showSuccess ? "Plans" : "Back"}
           </Button>
 
           <div className="rounded-full border border-white/10 bg-white/5 px-4 py-2 text-xs uppercase tracking-[0.2em] text-white/60">
-            CLARA Enrollment
+            Google Play Unlock
           </div>
         </div>
 
-        <div className="mb-6 rounded-[28px] border border-white/10 bg-white/5 p-6 backdrop-blur-2xl">
-          <div className="flex items-start justify-between gap-4 flex-wrap">
-            <div className="max-w-2xl">
-              <p className="text-xs font-semibold uppercase tracking-[0.22em] text-emerald-300/80">
-                Secure Enrollment
-              </p>
-
-              <h1 className="mt-2 text-3xl font-bold tracking-tight text-white sm:text-4xl">
-                Review your selected tier, payment status, and next steps
-              </h1>
-
-              <p className="mt-3 text-sm leading-6 text-white/70 sm:text-base">
-                Users see the live admin plan info, the available payment methods, and can
-                resubmit or change tier if the payment gets rejected.
-              </p>
-            </div>
-
-            <div className="rounded-3xl border border-emerald-400/20 bg-emerald-500/10 px-4 py-4">
-              <div className="flex items-center gap-3">
-                <CreditCard className="h-5 w-5 text-emerald-300" />
-                <div>
-                  <p className="text-xs uppercase tracking-[0.18em] text-white/50">Enrollment</p>
-                  <p className="text-sm font-semibold text-white">
-                    {selectedPlan?.name || "No tier selected yet"}
-                  </p>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {statusMeta ? <div className="mb-5">{renderStatusCard()}</div> : null}
-
-        {allowTierChange ? (
-          <div className="mb-5 rounded-3xl border border-yellow-400/20 bg-yellow-500/5 p-5 backdrop-blur-xl">
+        {!showSuccess && !showProcessing && (
+          <div className="mb-6 rounded-[30px] border border-white/10 bg-white/[0.04] p-6 backdrop-blur-2xl">
             <div className="flex items-start justify-between gap-4 flex-wrap">
-              <div>
-                <h3 className="text-base font-semibold text-white">Choose Another Tier</h3>
-                <p className="mt-2 text-sm text-white/70">
-                  Since the payment was rejected, the user can now switch to another plan before
-                  uploading a new proof of payment.
+              <div className="max-w-2xl">
+                <p className="text-xs font-semibold uppercase tracking-[0.22em] text-emerald-300/80">
+                  CLARA Plans
+                </p>
+                <h1 className="mt-2 text-3xl font-bold tracking-tight text-white sm:text-4xl">
+                  Choose your next level with less friction
+                </h1>
+                <p className="mt-3 text-sm leading-7 text-white/70 sm:text-base">
+                  Pick Entry, Core, or Coaching, review one focused plan page, and unlock through Google Play without the old proof-upload flow.
                 </p>
               </div>
 
-              {!manualTierEdit ? (
-                <Button
-                  type="button"
-                  onClick={handleChangeTierMode}
-                  className="h-11 rounded-2xl bg-yellow-400 text-black hover:bg-yellow-300"
-                >
-                  Change Tier
-                </Button>
-              ) : (
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={cancelChangeTierMode}
-                  className="h-11 rounded-2xl border-white/15 bg-transparent text-white hover:bg-white/10"
-                >
-                  Keep Current Tier
-                </Button>
-              )}
+              <div className="rounded-3xl border border-emerald-400/20 bg-emerald-500/10 px-4 py-4">
+                <div className="flex items-center gap-3">
+                  <ShieldCheck className="h-5 w-5 text-emerald-300" />
+                  <div>
+                    <p className="text-xs uppercase tracking-[0.18em] text-white/50">Purchase flow</p>
+                    <p className="text-sm font-semibold text-white">Google Play one-time unlock</p>
+                  </div>
+                </div>
+              </div>
             </div>
           </div>
-        ) : null}
+        )}
 
-        {showPlanChooser ? <div className="mb-5">{renderPlanSelector()}</div> : null}
+        {showSuccess ? (
+          <div className="mx-auto max-w-3xl space-y-5">
+            <div className="rounded-[32px] border border-emerald-400/20 bg-[linear-gradient(135deg,rgba(8,16,31,0.98)_0%,rgba(9,34,46,0.96)_52%,rgba(16,73,58,0.9)_100%)] p-6 shadow-[0_20px_50px_rgba(0,0,0,0.24)]">
+              <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full border border-emerald-300/25 bg-emerald-400/15 text-emerald-200">
+                <CheckCircle2 className="h-8 w-8" />
+              </div>
 
-        {effectivePlanExists ? <div className="mb-5">{renderSelectedTierOverview()}</div> : null}
+              <p className="mt-5 text-center text-[11px] font-semibold uppercase tracking-[0.2em] text-emerald-200/70">
+                Purchase complete
+              </p>
+              <h2 className="mt-2 text-center text-3xl font-semibold text-white">
+                {(unlockedPlan || selectedPlan)?.successTitle || "Access unlocked"}
+              </h2>
+              <p className="mx-auto mt-3 max-w-xl text-center text-sm leading-7 text-white/75">
+                {purchaseMessage ||
+                  (unlockedPlan || selectedPlan)?.successBody ||
+                  "Your CLARA access is ready."}
+              </p>
 
-        {renderPaymentMethods()}
+              <div className="mt-6 grid gap-3 sm:grid-cols-3">
+                {(unlockedPlan || selectedPlan)?.displayBenefits.slice(0, 3).map((item, index) => (
+                  <div
+                    key={`success-benefit-${index}`}
+                    className="rounded-2xl border border-white/10 bg-black/20 p-4 text-sm text-white/78"
+                  >
+                    {item}
+                  </div>
+                ))}
+              </div>
+            </div>
 
-        {hasEnrollment ? (
-          <div className="mt-5 space-y-5">
-            {renderCurrentProof()}
+            <div className="flex flex-col gap-3 sm:flex-row">
+              <Button
+                className="flex-1 h-12 rounded-2xl"
+                onClick={() => navigate(getSuccessDestination((unlockedPlan || selectedPlan)?.key))}
+              >
+                {(unlockedPlan || selectedPlan)?.successCta || "Open CLARA"}
+              </Button>
 
-            {isPendingState ? (
-              <div className="rounded-3xl border border-white/10 bg-white/5 backdrop-blur-xl p-5">
-                <div className="flex items-start justify-between gap-4 flex-wrap">
-                  <div>
-                    <h3 className="text-base font-semibold text-white">What Happens Next</h3>
+              <Button
+                variant="outline"
+                className="flex-1 h-12 rounded-2xl border-white/15 bg-transparent text-white hover:bg-white/10"
+                onClick={() => navigate("/dashboard")}
+              >
+                Go to Dashboard
+              </Button>
+            </div>
+          </div>
+        ) : showProcessing ? (
+          <div className="mx-auto max-w-3xl space-y-5">
+            <div className="rounded-[32px] border border-white/10 bg-white/[0.04] p-6 backdrop-blur-2xl">
+              <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full border border-white/10 bg-white/10">
+                {purchaseState === "pending" ? (
+                  <Clock3 className="h-6 w-6 text-amber-300" />
+                ) : (
+                  <Zap className="h-6 w-6 text-emerald-300" />
+                )}
+              </div>
 
-                    <div className="mt-3 space-y-2 text-sm text-white/75">
-                      <div className="flex items-start gap-2">
-                        <CheckCircle2 className="mt-0.5 h-4 w-4 text-emerald-400 shrink-0" />
-                        <span>Admin reviews the screenshot you submitted.</span>
-                      </div>
-                      <div className="flex items-start gap-2">
-                        <CheckCircle2 className="mt-0.5 h-4 w-4 text-emerald-400 shrink-0" />
-                        <span>If approved, your program access will unlock automatically.</span>
-                      </div>
-                      <div className="flex items-start gap-2">
-                        <CheckCircle2 className="mt-0.5 h-4 w-4 text-emerald-400 shrink-0" />
-                        <span>If there is an issue, your status can be updated to resubmit.</span>
-                      </div>
+              <h2 className="mt-5 text-center text-2xl font-semibold text-white">
+                {purchaseStatusMeta?.title}
+              </h2>
+              <p className="mx-auto mt-3 max-w-xl text-center text-sm leading-7 text-white/72">
+                {purchaseMessage || purchaseStatusMeta?.body}
+              </p>
+
+              <div className="mt-6 rounded-2xl border border-white/10 bg-black/20 p-4">
+                <p className="text-[11px] uppercase tracking-[0.18em] text-white/45">Selected plan</p>
+                <p className="mt-2 text-sm font-semibold text-white">
+                  {sortedPlans.find((plan) => plan.key === activePurchasePlan)?.name || "CLARA plan"}
+                </p>
+              </div>
+            </div>
+
+            <div className="flex flex-col gap-3 sm:flex-row">
+              <Button
+                className="flex-1 h-12 rounded-2xl"
+                onClick={async () => {
+                  await fetchEnrollment();
+                  await refreshUser?.();
+                }}
+              >
+                Refresh access
+              </Button>
+
+              <Button
+                variant="outline"
+                className="flex-1 h-12 rounded-2xl border-white/15 bg-transparent text-white hover:bg-white/10"
+                onClick={() => navigate("/dashboard")}
+              >
+                Return to dashboard
+              </Button>
+            </div>
+          </div>
+        ) : view === "detail" && selectedPlan ? (
+          <div className="mx-auto max-w-3xl">
+            <div className={`rounded-[32px] border ${selectedPlan.border} bg-white/[0.04] shadow-[0_20px_50px_rgba(0,0,0,0.24)] backdrop-blur-2xl`}>
+              <div className={`rounded-t-[32px] bg-gradient-to-br ${selectedPlan.accent} p-6`}>
+                {(() => {
+                  const SelectedIcon = selectedPlan.icon;
+                  return (
+                <div className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-black/20 px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.18em] text-white/65">
+                  <SelectedIcon className="h-3.5 w-3.5" />
+                  {selectedPlan.eyebrow}
+                </div>
+                  );
+                })()}
+
+                <div className="mt-5 flex items-start justify-between gap-4 flex-wrap">
+                  <div className="max-w-xl">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <h2 className="text-3xl font-semibold text-white">{selectedPlan.name}</h2>
+                      <span className="rounded-full border border-white/10 bg-white/5 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.18em] text-white/70">
+                        {selectedPlan.badge}
+                      </span>
                     </div>
+                    <p className="mt-3 text-sm leading-7 text-white/74">{selectedPlan.statement}</p>
                   </div>
 
-                  <Button
-                    type="button"
-                    variant="outline"
-                    onClick={() => setShowReplaceUploader((prev) => !prev)}
-                    className="h-11 rounded-2xl border-white/15 bg-transparent text-white hover:bg-white/10"
-                  >
-                    <RefreshCcw className="mr-2 h-4 w-4" />
-                    {showReplaceUploader ? "Hide Re-upload" : "Replace Proof"}
-                  </Button>
+                  <div className="rounded-2xl border border-white/10 bg-black/20 px-4 py-3 text-right">
+                    <p className="text-[11px] uppercase tracking-[0.16em] text-white/45">One-time unlock</p>
+                    <p className="mt-1 text-2xl font-semibold text-white">{formatPeso(selectedPlan.price)}</p>
+                  </div>
+                </div>
+              </div>
+
+              <div className="space-y-5 p-6">
+                <div className="rounded-[24px] border border-white/10 bg-black/20 p-5">
+                  <p className="text-[11px] uppercase tracking-[0.18em] text-white/45">What's included</p>
+                  <div className="mt-4 space-y-3">
+                    {selectedPlan.displayBenefits.map((item, index) => (
+                      <div key={`benefit-${index}`} className="flex items-start gap-3 text-sm text-white/78">
+                        <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-emerald-300" />
+                        <span>{item}</span>
+                      </div>
+                    ))}
+                  </div>
                 </div>
 
-                {showReplaceUploader ? (
-                  <div className="mt-5">{renderUploadBox({ isResubmit: true })}</div>
-                ) : null}
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <div className="rounded-[24px] border border-white/10 bg-black/20 p-4">
+                    <p className="text-[11px] uppercase tracking-[0.18em] text-white/45">Purchase method</p>
+                    <p className="mt-2 text-sm font-semibold text-white">Google Play Billing</p>
+                    <p className="mt-2 text-sm leading-7 text-white/68">
+                      Fast one-time unlock handled through Google Play. No proof upload. No manual review form.
+                    </p>
+                  </div>
+
+                  <div className="rounded-[24px] border border-white/10 bg-black/20 p-4">
+                    <p className="text-[11px] uppercase tracking-[0.18em] text-white/45">After purchase</p>
+                    <p className="mt-2 text-sm font-semibold text-white">Immediate guided handoff</p>
+                    <p className="mt-2 text-sm leading-7 text-white/68">
+                      Once entitlement sync completes, CLARA will route you to the right next step for this plan.
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div className="sticky bottom-4 mt-5 rounded-[28px] border border-white/10 bg-[#07111d]/92 p-4 shadow-[0_20px_50px_rgba(0,0,0,0.24)] backdrop-blur-2xl">
+              <div className="flex items-center justify-between gap-3">
+                <div className="min-w-0">
+                  <p className="text-[11px] uppercase tracking-[0.18em] text-white/45">Selected plan</p>
+                  <p className="mt-1 text-sm font-semibold text-white">
+                    {selectedPlan.name} • {formatPeso(selectedPlan.price)}
+                  </p>
+                </div>
+
+                <Button
+                  className="h-12 rounded-2xl px-5"
+                  onClick={() => handlePurchase(selectedPlan)}
+                >
+                  <Sparkles className="mr-2 h-4 w-4" />
+                  {selectedPlan.ctaLabel}
+                </Button>
+              </div>
+            </div>
+          </div>
+        ) : (
+          <div className="space-y-4">
+            {currentStatus && !showSuccess ? (
+              <div className="rounded-[28px] border border-white/10 bg-white/[0.04] p-5 backdrop-blur-xl">
+                <div className="flex items-start gap-3">
+                  <div className="flex h-11 w-11 items-center justify-center rounded-2xl border border-white/10 bg-black/20">
+                    {PENDING_STATUSES.has(currentStatus) ? (
+                      <Clock3 className="h-5 w-5 text-amber-300" />
+                    ) : SUCCESS_STATUSES.has(currentStatus) ? (
+                      <BadgeCheck className="h-5 w-5 text-emerald-300" />
+                    ) : (
+                      <Lock className="h-5 w-5 text-white/60" />
+                    )}
+                  </div>
+                  <div>
+                    <p className="text-sm font-semibold text-white">
+                      {PENDING_STATUSES.has(currentStatus)
+                        ? "Purchase sync is still in progress"
+                        : "Previous enrollment found"}
+                    </p>
+                    <p className="mt-2 text-sm leading-7 text-white/68">
+                      {PENDING_STATUSES.has(currentStatus)
+                        ? "If a recent Google Play purchase is still syncing, you can refresh access below or choose a plan to review again."
+                        : "Your account has an existing enrollment record. You can still review the available plans and continue with the cleaner Google Play unlock flow."}
+                    </p>
+                  </div>
+                </div>
               </div>
             ) : null}
 
-            {isRejectedState ? renderUploadBox({ isResubmit: true }) : null}
-          </div>
-        ) : (
-          effectivePlanExists && <div className="mt-5">{renderUploadBox()}</div>
-        )}
+            <div className="grid gap-4 md:grid-cols-3">
+              {sortedPlans.map((plan) => (
+                <SelectionCard
+                  key={plan.id || plan.key}
+                  plan={plan}
+                  selected={plan.key === selectedPlanKey}
+                  onSelect={handlePlanSelect}
+                />
+              ))}
+            </div>
 
-        {!hasEnrollment && !effectivePlanExists && activePlans.length === 0 ? (
-          <div className="mt-5 rounded-3xl border border-white/10 bg-white/5 p-5 text-sm text-white/70 backdrop-blur-xl">
-            No active plans found yet. Please activate at least one plan from admin.
+            {sortedPlans.length === 0 ? (
+              <div className="rounded-3xl border border-white/10 bg-white/5 p-5 text-sm text-white/70 backdrop-blur-xl">
+                No Google Play plans are active yet. Activate Entry, Core, or Coaching from admin first.
+              </div>
+            ) : null}
           </div>
-        ) : null}
+        )}
       </div>
     </div>
   );

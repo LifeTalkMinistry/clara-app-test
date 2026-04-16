@@ -22,6 +22,7 @@ import {
 } from "lucide-react";
 import { Sheet, SheetContent } from "@/components/ui/sheet";
 import { supabase } from "@/lib/supabaseClient";
+import { FEATURE_ROUTE_MAP } from "@/lib/plan-config";
 
 const LONG_PRESS_MS = 500;
 
@@ -252,6 +253,7 @@ function BottomNav({
   onQuickAdd,
   isAdmin = false,
   isFree = false,
+  isFeatureAvailable = () => true,
   onLogout,
 }) {
   const location = useLocation();
@@ -284,12 +286,12 @@ function BottomNav({
     () =>
       MORE_ITEMS.map((item) => ({
         ...item,
-        locked: Boolean(item.pro && isFree),
+        locked: !isFeatureAvailable(FEATURE_ROUTE_MAP[item.path]),
       })),
-    [isFree]
+    [isFeatureAvailable]
   );
 
-  const savingsGoalLocked = isFree;
+  const savingsGoalLocked = !isFeatureAvailable("savings_goals");
 
   const clearPressTimer = useCallback(() => {
     if (pressTimerRef.current) {

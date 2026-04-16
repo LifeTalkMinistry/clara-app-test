@@ -420,7 +420,8 @@ const showBudgetsTableMissingAlert = () => {
 };
 
 export default function Budgets() {
-  const { user, isFree, loading: accessLoading } = useUserRole();
+  const { user, access, loading: accessLoading } = useUserRole();
+  const canUseBudgets = access.budgets;
 
   const [open, setOpen] = useState(false);
   const [budgets, setBudgets] = useState([]);
@@ -638,7 +639,7 @@ export default function Budgets() {
   };
 
   const handleSubmit = async () => {
-    if (!form.total_budget || isFree || !user?.email) return;
+    if (!form.total_budget || !canUseBudgets || !user?.email) return;
 
     const totalBudget = toNumber(form.total_budget);
     const needsPct = toNumber(form.needs_pct);
@@ -853,7 +854,7 @@ export default function Budgets() {
           <h1 className="text-2xl md:text-3xl font-bold tracking-tight">Budgets</h1>
         </div>
 
-        {isFree ? (
+        {!canUseBudgets ? (
           <div className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-muted text-muted-foreground text-xs font-medium">
             <Lock className="w-3.5 h-3.5" /> Upgrade to use budgets
           </div>
@@ -1004,7 +1005,7 @@ export default function Budgets() {
         )}
       </div>
 
-      {!isFree && !loading && !currentBudget && (
+      {canUseBudgets && !loading && !currentBudget && (
         <EmptyState
           icon={Target}
           title="No budget set"
@@ -1012,7 +1013,7 @@ export default function Budgets() {
         />
       )}
 
-      {!isFree && currentBudget && (
+      {canUseBudgets && currentBudget && (
         <div className="space-y-4">
           <div className="bg-card rounded-xl border border-border p-4">
             <div className="flex items-start justify-between gap-4 mb-4">
