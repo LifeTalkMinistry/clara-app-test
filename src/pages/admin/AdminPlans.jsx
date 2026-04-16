@@ -66,6 +66,16 @@ function buildForm(plan) {
   };
 }
 
+function isMissingAccessConfigError(error) {
+  const message = String(error?.message || "").toLowerCase();
+  return message.includes("access_config") && message.includes("plans");
+}
+
+function stripAccessConfig(payload) {
+  const { access_config, ...rest } = payload;
+  return rest;
+}
+
 export default function AdminPlans() {
   const [plans, setPlans] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -74,6 +84,8 @@ export default function AdminPlans() {
   const [form, setForm] = useState(EMPTY_FORM);
   const [editingPlanKey, setEditingPlanKey] = useState("");
   const [currentUser, setCurrentUser] = useState(null);
+  const [supportsAccessConfig, setSupportsAccessConfig] = useState(true);
+  const [notice, setNotice] = useState("");
 
   const sortedPlans = useMemo(() => {
     return [...plans].sort((a, b) => {
@@ -82,6 +94,40 @@ export default function AdminPlans() {
       return String(a.name || "").localeCompare(String(b.name || ""));
     });
   }, [plans]);
+
+  const setSchemaFallbackNotice = useCallback(() => {
+    setNotice(
+      "Plan access is currently using built-in safe defaults. Apply the access_config migration to persist per-plan feature toggles."
+    );
+  }, []);
+
+  const detectAccessConfigSupport = useCallback(async () => {
+    try {
+      const { error } = await supabase.from("plans").select("id, access_config").limit(1);
+
+      if (error) {
+        if (isMissingAccessConfigError(error)) {
+          setSupportsAccessConfig(false);
+          setSchemaFallbackNotice();
+          return false;
+        }
+
+        throw error;
+      }
+
+      setSupportsAccessConfig(true);
+      return true;
+    } catch (error) {
+      if (isMissingAccessConfigError(error)) {
+        setSupportsAccessConfig(false);
+        setSchemaFallbackNotice();
+        return false;
+      }
+
+      console.error("Failed to detect access_config support:", error);
+      return true;
+    }
+  }, [setSchemaFallbackNotice]);
 
   const fetchPlans = useCallback(async () => {
     const { data, error } = await supabase
@@ -92,27 +138,53 @@ export default function AdminPlans() {
 
     if (error) throw error;
 
-    setPlans(mergePlans(data || []).filter((plan) => CURRENT_PLAN_KEYS.includes(plan.plan_key)));
+    setPlans(
+      mergePlans(data || []).filter((plan) => CURRENT_PLAN_KEYS.includes(plan.plan_key))
+    );
   }, []);
 
-  const ensureCurrentPlans = useCallback(async () => {
-    const { data, error } = await supabase.from("plans").select("*");
-    if (error) throw error;
+  const ensureCurrentPlans = useCallback(
+    async (canPersistAccessConfig) => {
+      const { data, error } = await supabase.from("plans").select("*");
+      if (error) throw error;
 
-    const merged = mergePlans(data || []);
-    const existingKeys = new Set((data || []).map((row) => String(row.plan_key || "").trim().toLowerCase()));
-    const missingPlans = merged.filter((plan) => !existingKeys.has(plan.plan_key));
+      const merged = mergePlans(data || []);
+      const existingKeys = new Set(
+        (data || []).map((row) => String(row.plan_key || "").trim().toLowerCase())
+      );
+      const missingPlans = merged.filter((plan) => !existingKeys.has(plan.plan_key));
 
-    if (missingPlans.length === 0) return;
+      if (missingPlans.length === 0) return;
 
-    const payload = missingPlans.map((plan) => ({
-      ...getPlanDefaults(plan.plan_key),
-      created_by: currentUser?.email || "",
-    }));
+      const payload = missingPlans.map((plan) => ({
+        ...(canPersistAccessConfig
+          ? getPlanDefaults(plan.plan_key)
+          : stripAccessConfig(getPlanDefaults(plan.plan_key))),
+        created_by: currentUser?.email || "",
+      }));
 
-    const { error: insertError } = await supabase.from("plans").insert(payload);
-    if (insertError) throw insertError;
-  }, [currentUser?.email]);
+      const { error: insertError } = await supabase.from("plans").insert(payload);
+
+      if (!insertError) return;
+
+      if (isMissingAccessConfigError(insertError)) {
+        setSupportsAccessConfig(false);
+        setSchemaFallbackNotice();
+
+        const retryPayload = missingPlans.map((plan) => ({
+          ...stripAccessConfig(getPlanDefaults(plan.plan_key)),
+          created_by: currentUser?.email || "",
+        }));
+
+        const { error: retryError } = await supabase.from("plans").insert(retryPayload);
+        if (retryError) throw retryError;
+        return;
+      }
+
+      throw insertError;
+    },
+    [currentUser?.email, setSchemaFallbackNotice]
+  );
 
   const initialize = useCallback(async () => {
     setLoading(true);
@@ -124,6 +196,7 @@ export default function AdminPlans() {
       setCurrentUser(user || null);
     } catch (error) {
       console.error("Failed to initialize admin plans:", error);
+      setNotice("Plan admin is available, but the current session could not be fully initialized.");
     } finally {
       setLoading(false);
     }
@@ -141,11 +214,14 @@ export default function AdminPlans() {
     const boot = async () => {
       try {
         setLoading(true);
-        await ensureCurrentPlans();
+        const canPersistAccessConfig = await detectAccessConfigSupport();
+        await ensureCurrentPlans(canPersistAccessConfig);
         await fetchPlans();
       } catch (error) {
         console.error("Failed to prepare plans:", error);
-        alert(error.message || "Failed to load plans.");
+        setNotice(
+          "Plans loaded with fallback defaults. Some admin changes may stay read-only until the database migration is applied."
+        );
       } finally {
         if (mounted) {
           setLoading(false);
@@ -162,13 +238,17 @@ export default function AdminPlans() {
           console.error("Failed to refresh plans after change:", error);
         });
       })
-      .subscribe();
+      .subscribe((status) => {
+        if (status === "CHANNEL_ERROR" || status === "TIMED_OUT") {
+          console.warn("Admin plans realtime unavailable:", status);
+        }
+      });
 
     return () => {
       mounted = false;
       supabase.removeChannel(channel);
     };
-  }, [currentUser, ensureCurrentPlans, fetchPlans]);
+  }, [currentUser, detectAccessConfigSupport, ensureCurrentPlans, fetchPlans]);
 
   function openEditDialog(plan) {
     const normalized = sanitizePlanRow(plan);
@@ -210,9 +290,12 @@ export default function AdminPlans() {
       setDialogOpen(false);
       setForm(EMPTY_FORM);
       setEditingPlanKey("");
+      setNotice("");
     } catch (error) {
       console.error("Failed to save plan details:", error);
-      alert(error.message || "Failed to save plan details.");
+      setNotice(
+        "Plan details could not be saved right now. The page is still available and your current plan data remains visible."
+      );
     } finally {
       setSaving(false);
     }
@@ -228,13 +311,19 @@ export default function AdminPlans() {
       setPlans((prev) =>
         prev.map((item) => (item.id === plan.id ? { ...item, [field]: nextValue } : item))
       );
+      setNotice("");
     } catch (error) {
       console.error(`Failed to toggle ${field}:`, error);
-      alert(error.message || `Failed to update ${field}.`);
+      setNotice(`Could not update ${field} right now. The current plan data is still loaded.`);
     }
   }
 
   async function updateAccessMode(plan, featureKey, nextMode) {
+    if (!supportsAccessConfig) {
+      setSchemaFallbackNotice();
+      return;
+    }
+
     try {
       const nextAccessConfig = normalizeAccessConfig(
         {
@@ -254,16 +343,27 @@ export default function AdminPlans() {
           item.id === plan.id ? { ...item, access_config: nextAccessConfig } : item
         )
       );
+      setNotice("");
     } catch (error) {
       console.error("Failed to update access mode:", error);
-      alert(error.message || "Failed to update plan access.");
+
+      if (isMissingAccessConfigError(error)) {
+        setSupportsAccessConfig(false);
+        setSchemaFallbackNotice();
+        await fetchPlans();
+        return;
+      }
+
+      setNotice(
+        "Plan access could not be saved right now. Current gating is still using the last available plan data."
+      );
     }
   }
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center h-64">
-        <Loader2 className="w-6 h-6 animate-spin" />
+      <div className="flex h-64 items-center justify-center">
+        <Loader2 className="h-6 w-6 animate-spin" />
       </div>
     );
   }
@@ -277,6 +377,12 @@ export default function AdminPlans() {
         </p>
       </div>
 
+      {notice ? (
+        <div className="rounded-2xl border border-amber-400/20 bg-amber-500/10 px-4 py-3 text-sm text-amber-100">
+          {notice}
+        </div>
+      ) : null}
+
       <div className="grid gap-5">
         {sortedPlans.map((plan) => {
           const unlockedFeatures = getFeatureSummary(plan);
@@ -288,7 +394,8 @@ export default function AdminPlans() {
                   <div>
                     <CardTitle className="text-xl">{plan.name}</CardTitle>
                     <p className="mt-1 text-sm text-muted-foreground">
-                      Key: {plan.plan_key} • ₱{Number(plan.price || 0).toLocaleString()} • Order: {plan.sort_order}
+                      Key: {plan.plan_key} - PHP {Number(plan.price || 0).toLocaleString()} -
+                      {" "}Order: {plan.sort_order}
                     </p>
                     <p className="mt-3 text-sm text-muted-foreground">
                       {plan.description || "No description yet."}
@@ -296,7 +403,7 @@ export default function AdminPlans() {
                   </div>
 
                   <Button variant="outline" size="icon" onClick={() => openEditDialog(plan)}>
-                    <Pencil className="w-4 h-4" />
+                    <Pencil className="h-4 w-4" />
                   </Button>
                 </div>
 
@@ -319,9 +426,7 @@ export default function AdminPlans() {
                     />
                   </div>
 
-                  <div className="text-sm text-muted-foreground">
-                    CTA: {plan.cta_label || "—"}
-                  </div>
+                  <div className="text-sm text-muted-foreground">CTA: {plan.cta_label || "-"}</div>
                 </div>
               </CardHeader>
 
@@ -335,7 +440,7 @@ export default function AdminPlans() {
                       <Badge
                         key={`${plan.plan_key}-${feature.key}`}
                         variant="secondary"
-                        className="bg-white/10 text-white border border-white/10"
+                        className="border border-white/10 bg-white/10 text-white"
                       >
                         {feature.label}: {FEATURE_MODE_LABELS[feature.mode] || feature.mode}
                       </Badge>
@@ -349,7 +454,9 @@ export default function AdminPlans() {
                       Access Control
                     </p>
                     <p className="mt-1 text-sm text-muted-foreground">
-                      Changes save immediately and update live app gating without a redeploy.
+                      {supportsAccessConfig
+                        ? "Changes save immediately and update live app gating without a redeploy."
+                        : "Access controls are showing safe defaults. Apply the migration to save per-plan toggles to Supabase."}
                     </p>
                   </div>
 
@@ -370,7 +477,8 @@ export default function AdminPlans() {
                           <select
                             value={plan.access_config?.[feature.key] || "off"}
                             onChange={(e) => updateAccessMode(plan, feature.key, e.target.value)}
-                            className="min-w-[120px] rounded-lg border border-white/10 bg-[#0b1626] px-3 py-2 text-sm text-white outline-none"
+                            disabled={!supportsAccessConfig}
+                            className="min-w-[120px] rounded-lg border border-white/10 bg-[#0b1626] px-3 py-2 text-sm text-white outline-none disabled:cursor-not-allowed disabled:opacity-60"
                           >
                             {feature.modes.map((mode) => (
                               <option key={mode} value={mode}>
@@ -467,7 +575,7 @@ export default function AdminPlans() {
             <Button type="submit" className="w-full" disabled={saving}>
               {saving ? (
                 <>
-                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                   Saving...
                 </>
               ) : (

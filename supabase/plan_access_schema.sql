@@ -1,5 +1,74 @@
 alter table if exists public.plans
-  add column if not exists access_config jsonb not null default '{}'::jsonb;
+  add column if not exists access_config jsonb;
+
+update public.plans
+set access_config = case lower(coalesce(plan_key, ''))
+  when 'free' then '{
+    "dashboard":"full",
+    "expenses":"full",
+    "wallets":"full",
+    "budgets":"off",
+    "analytics":"limited",
+    "savings_goals":"off",
+    "tasks":"off",
+    "modules":"off",
+    "community":"off",
+    "messages":"off",
+    "coaching":"off",
+    "news":"full",
+    "referrals":"off"
+  }'::jsonb
+  when 'entry' then '{
+    "dashboard":"full",
+    "expenses":"full",
+    "wallets":"full",
+    "budgets":"full",
+    "analytics":"full",
+    "savings_goals":"full",
+    "tasks":"full",
+    "modules":"full",
+    "community":"full",
+    "messages":"full",
+    "coaching":"teaser",
+    "news":"full",
+    "referrals":"full"
+  }'::jsonb
+  when 'core' then '{
+    "dashboard":"full",
+    "expenses":"full",
+    "wallets":"full",
+    "budgets":"full",
+    "analytics":"full",
+    "savings_goals":"full",
+    "tasks":"full",
+    "modules":"full",
+    "community":"full",
+    "messages":"full",
+    "coaching":"teaser",
+    "news":"full",
+    "referrals":"full"
+  }'::jsonb
+  when 'coaching' then '{
+    "dashboard":"full",
+    "expenses":"full",
+    "wallets":"full",
+    "budgets":"full",
+    "analytics":"full",
+    "savings_goals":"full",
+    "tasks":"full",
+    "modules":"full",
+    "community":"full",
+    "messages":"full",
+    "coaching":"full",
+    "news":"full",
+    "referrals":"full"
+  }'::jsonb
+  else access_config
+end
+where access_config is null;
+
+alter table if exists public.plans
+  alter column access_config set default '{}'::jsonb;
 
 update public.profiles
 set plan = case

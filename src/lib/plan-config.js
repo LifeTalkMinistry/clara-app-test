@@ -286,9 +286,17 @@ export function getFeatureDefinition(featureKey) {
 export function normalizeFeatureMode(featureKey, value) {
   const definition = getFeatureDefinition(featureKey);
   const normalized = String(value ?? "").trim().toLowerCase();
+  const aliases = {
+    "view-only": "view",
+    view_only: "view",
+    readonly: "view",
+    read_only: "view",
+    "admin-only": "admin_only",
+  };
+  const canonicalValue = aliases[normalized] || normalized;
 
-  if (definition?.modes.includes(normalized)) {
-    return normalized;
+  if (definition?.modes.includes(canonicalValue)) {
+    return canonicalValue;
   }
 
   const fallbackPlanModes =
