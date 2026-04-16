@@ -32,6 +32,10 @@ const buildResolvedUser = (authUser, profile, accessState, referralsEnabled) => 
     program_active: profile?.program_active || false,
     onboarding_completed: profile?.onboarding_completed || false,
     onboarding_step: profile?.onboarding_step || 0,
+    program_onboarding_completed:
+      profile?.program_onboarding_completed || false,
+    has_completed_program_onboarding:
+      profile?.has_completed_program_onboarding || false,
     has_referral_access:
       accessState.isAdmin ||
       accessState.isPaid ||

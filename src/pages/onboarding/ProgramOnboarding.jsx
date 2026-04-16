@@ -1,7 +1,11 @@
 import { useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { supabase } from "../../lib/supabaseClient";
+import { useAuth } from "@/context/AuthContext";
 
 export default function ProgramOnboarding() {
+  const navigate = useNavigate();
+  const { refreshProfile } = useAuth();
   const [checked, setChecked] = useState(false);
   const [saving, setSaving] = useState(false);
 
@@ -21,6 +25,7 @@ export default function ProgramOnboarding() {
         .from("profiles")
         .update({
           program_onboarding_completed: true,
+          has_completed_program_onboarding: true,
         })
         .eq("id", user.id);
 
@@ -29,8 +34,8 @@ export default function ProgramOnboarding() {
         return;
       }
 
-      window.location.hash = "#/dashboard";
-      window.location.reload();
+      await refreshProfile?.();
+      navigate("/dashboard", { replace: true });
     } finally {
       setSaving(false);
     }

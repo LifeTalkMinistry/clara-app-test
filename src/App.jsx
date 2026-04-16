@@ -9,6 +9,7 @@ import { supabase } from "@/lib/supabaseClient";
 import useUserRole from "./hooks/useUserRole";
 import {
   deriveAccessState,
+  hasCompletedProgramOnboarding,
   resolveAppFlow,
 } from "@/lib/access-control";
 import { FEATURE_ROUTE_MAP } from "@/lib/plan-config";
@@ -46,6 +47,9 @@ const ProgramOnboarding = lazy(() =>
   import("./pages/onboarding/ProgramOnboarding")
 );
 const PendingScreen = lazy(() => import("./pages/onboarding/PendingScreen"));
+const WelcomeBackTransition = lazy(() =>
+  import("./components/WelcomeBackTransition")
+);
 
 // Admin
 const AdminPanel = lazy(() => import("./pages/admin/AdminPanel"));
@@ -290,6 +294,20 @@ function AppRoutes() {
     () => getHomeRedirectPath({ isAdvertiser, flow, forceEnroll }),
     [isAdvertiser, flow, forceEnroll]
   );
+  const welcomeRedirectPath = useMemo(() => {
+    if (
+      flow === "program_onboarding" &&
+      hasCompletedProgramOnboarding(profile || {})
+    ) {
+      return "/dashboard";
+    }
+    return homeRedirectPath;
+  }, [flow, homeRedirectPath, profile]);
+  const displayName =
+    profile?.full_name ||
+    user?.user_metadata?.full_name ||
+    user?.user_metadata?.name ||
+    "";
 
   if (
     forceLogoutProcessing ||
@@ -308,6 +326,20 @@ function AppRoutes() {
         <Route
           path="/login"
           element={user ? <Navigate to={homeRedirectPath} replace /> : <Login />}
+        />
+
+        <Route
+          path="/welcome-back"
+          element={
+            user ? (
+              <WelcomeBackTransition
+                redirectTo={welcomeRedirectPath}
+                userName={displayName}
+              />
+            ) : (
+              <Navigate to="/login" replace />
+            )
+          }
         />
 
         <Route

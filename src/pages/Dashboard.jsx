@@ -24,6 +24,7 @@ import { Button } from "@/components/ui/button";
 import StatCard from "../components/StatCard";
 import DailyTipCard from "../components/DailyTipCard";
 import useUserRole from "../hooks/useUserRole";
+import { hasCompletedProgramOnboarding } from "@/lib/access-control";
 import {
   buildProgramJourney,
   getProgramBubbleContent,
@@ -134,9 +135,6 @@ const getBillboardMediaType = (item) => {
 
   return "file";
 };
-
-const getOnboardingStorageKey = (userId) =>
-  `clara_program_onboarding_completed_${userId || "guest"}`;
 
 const getDashboardPrefsStorageKey = (userId) =>
   `clara_dashboard_prefs_${userId || "guest"}`;
@@ -412,15 +410,9 @@ export default function Dashboard() {
     if (!user?.id) return;
 
     try {
-      localStorage.setItem(getOnboardingStorageKey(user.id), "true");
-    } catch (error) {
-      console.error("Failed to persist onboarding completion:", error);
-    }
-
-    try {
       const updates = {
-        onboarding_completed: true,
-        onboarding_step: 999,
+        program_onboarding_completed: true,
+        has_completed_program_onboarding: true,
       };
 
       const { error } = await supabase
@@ -436,22 +428,9 @@ export default function Dashboard() {
     }
   }, [user?.id]);
 
-  const isOnboardingCompleted = useCallback(() => {
-    if (!user?.id) return false;
-
-    const dbCompleted =
-      profileData?.onboarding_completed === true ||
-      Number(profileData?.onboarding_step) >= 999;
-
-    if (dbCompleted) return true;
-
-    try {
-      return localStorage.getItem(getOnboardingStorageKey(user.id)) === "true";
-    } catch (error) {
-      console.error("Failed to read onboarding completion:", error);
-      return false;
-    }
-  }, [user?.id, profileData]);
+  const isProgramOnboardingCompleted = useCallback(() => {
+    return hasCompletedProgramOnboarding(profileData);
+  }, [profileData]);
 
   const saveOnboardingDraft = useCallback(async () => {
     if (!user?.id) return true;
@@ -636,12 +615,7 @@ export default function Dashboard() {
           financialGoal || dashboardPageCache.financialGoal || storedPrefs.financialGoal;
 
         const approved = isProgramApproved(userProfile, isPaid, enrollmentRecord);
-        const onboardingDone =
-          userProfile?.onboarding_completed === true ||
-          Number(userProfile?.onboarding_step) >= 999 ||
-          (currentUser.id
-            ? localStorage.getItem(getOnboardingStorageKey(currentUser.id)) === "true"
-            : false);
+        const onboardingDone = hasCompletedProgramOnboarding(userProfile);
 
         if (approved && !onboardingDone && !showOnboardingRef.current) {
           setShowProgramStart(true);
@@ -908,8 +882,7 @@ export default function Dashboard() {
             approvalTriggeredRef.current = true;
 
             try {
-              const completed =
-                localStorage.getItem(getOnboardingStorageKey(user.id)) === "true";
+              const completed = hasCompletedProgramOnboarding(newData);
 
               if (!completed) {
                 setShowProgramStart(true);
@@ -955,7 +928,7 @@ export default function Dashboard() {
     if (!user?.id) return;
 
     const approved = isProgramApproved(profileData, isPaid, latestEnrollment);
-    const onboardingDone = isOnboardingCompleted();
+    const onboardingDone = isProgramOnboardingCompleted();
 
     if (approved && !onboardingDone && !showOnboarding) {
       setShowProgramStart(true);
@@ -970,7 +943,7 @@ export default function Dashboard() {
     latestEnrollment,
     isPaid,
     showOnboarding,
-    isOnboardingCompleted,
+    isProgramOnboardingCompleted,
   ]);
 
   const thisMonthSpent = useMemo(() => {
@@ -1046,7 +1019,7 @@ export default function Dashboard() {
       ? "Continue your 30-day reset when you're ready."
       : `${programJourney.accessibleCompletedCount} of ${programJourney.accessibleTaskCount || programJourney.totalCount} unlocked days complete`;
 
-  const onboardingDone = isOnboardingCompleted();
+  const onboardingDone = isProgramOnboardingCompleted();
 
   const programBubble = getProgramBubbleContent(programJourney, {
     onboardingRequired:

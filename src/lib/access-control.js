@@ -42,6 +42,13 @@ export function hasCompletedOnboarding(profileLike) {
   );
 }
 
+export function hasCompletedProgramOnboarding(profileLike) {
+  return Boolean(
+    profileLike?.has_completed_program_onboarding ||
+      profileLike?.program_onboarding_completed
+  );
+}
+
 export function hasAnyPaidSignal(profileLike, enrollment) {
   const role = normalizeAccessValue(profileLike?.role);
   const plan = normalizePlanKey(profileLike?.plan);
@@ -79,7 +86,10 @@ export function resolveAppFlow(profileLike, enrollment) {
     return "payment_pending";
   }
 
-  if (ENROLLMENT_APPROVED_STATUSES.has(enrollmentStatus)) {
+  if (
+    ENROLLMENT_APPROVED_STATUSES.has(enrollmentStatus) &&
+    !hasCompletedProgramOnboarding(profileLike)
+  ) {
     return "program_onboarding";
   }
 

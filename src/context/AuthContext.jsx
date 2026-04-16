@@ -94,6 +94,8 @@ export function AuthProvider({ children }) {
           program_active: false,
           onboarding_completed: false,
           onboarding_step: 0,
+          program_onboarding_completed: false,
+          has_completed_program_onboarding: false,
         }
       );
     } catch (error) {
@@ -113,6 +115,8 @@ export function AuthProvider({ children }) {
         program_active: false,
         onboarding_completed: false,
         onboarding_step: 0,
+        program_onboarding_completed: false,
+        has_completed_program_onboarding: false,
       });
     }
   }, [ensureBasicProfile]);
