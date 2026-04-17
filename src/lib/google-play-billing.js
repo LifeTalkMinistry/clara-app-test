@@ -1,14 +1,7 @@
 const PRODUCT_IDS = {
-  basic: "entry_unlock",
-  entry: "entry_unlock",
-  diy: "entry_unlock",
-  transformation: "core_unlock",
-  core: "core_unlock",
-  diwm: "core_unlock",
-  student: "core_unlock",
-  elite: "coaching_unlock",
-  coaching: "coaching_unlock",
-  ldit: "coaching_unlock",
+  entry: "clara_entry_299",
+  core: "clara_core_499",
+  coaching: "clara_coaching_999",
 };
 
 const SUCCESS_STATUSES = new Set(["approved", "active"]);
@@ -20,20 +13,29 @@ export function getGooglePlayProductId(planKey) {
   return PRODUCT_IDS[normalizeLower(planKey)] || "";
 }
 
+/**
+ * Detect Android billing bridge safely
+ */
 function getBillingBridge() {
   if (typeof window === "undefined") return null;
 
   return (
     window.ClaraBilling ||
     window.AndroidBilling ||
+    window.Capacitor?.Plugins?.Billing ||
+    window.Capacitor?.Plugins?.InAppPurchase ||
     window.googlePlayBilling ||
     window.AndroidBridge ||
     null
   );
 }
 
+/**
+ * Normalize any result coming from Android bridge
+ */
 function parseBridgeResult(result) {
-  if (!result) return { ok: false, reason: "empty_result" };
+  if (!result) return { ok: false };
+
   if (typeof result === "string") {
     try {
       return JSON.parse(result);
@@ -45,16 +47,25 @@ function parseBridgeResult(result) {
   return result;
 }
 
+/**
+ * Launch purchase
+ */
 export async function launchGooglePlayPurchase({
   productId,
   planKey,
   userId,
   userEmail,
 }) {
+  if (!productId) {
+    throw new Error("Invalid product ID.");
+  }
+
   const bridge = getBillingBridge();
 
   if (!bridge) {
-    throw new Error("Google Play Billing is not available on this device.");
+    throw new Error(
+      "Google Play Billing is not available. Install the app from Play Store internal testing."
+    );
   }
 
   const payload = {
@@ -64,22 +75,34 @@ export async function launchGooglePlayPurchase({
     userEmail: normalize(userEmail),
   };
 
-  let result = null;
+  let result;
 
-  if (typeof bridge.purchaseOneTimeProduct === "function") {
-    result = await bridge.purchaseOneTimeProduct(payload);
-  } else if (typeof bridge.launchPurchase === "function") {
-    result = await bridge.launchPurchase(payload);
-  } else if (typeof bridge.buyProduct === "function") {
-    result = await bridge.buyProduct(payload);
-  } else if (typeof bridge.purchaseProduct === "function") {
-    result = await bridge.purchaseProduct(productId, JSON.stringify(payload));
-  } else {
-    throw new Error("Google Play Billing bridge is connected but no purchase method was found.");
+  try {
+    if (typeof bridge.purchaseOneTimeProduct === "function") {
+      result = await bridge.purchaseOneTimeProduct(payload);
+    } else if (typeof bridge.launchPurchase === "function") {
+      result = await bridge.launchPurchase(payload);
+    } else if (typeof bridge.buyProduct === "function") {
+      result = await bridge.buyProduct(payload);
+    } else if (typeof bridge.purchaseProduct === "function") {
+      result = await bridge.purchaseProduct(
+        productId,
+        JSON.stringify(payload)
+      );
+    } else {
+      throw new Error("Billing bridge exists but no purchase method found.");
+    }
+  } catch (err) {
+    throw new Error(err?.message || "Failed to open Google Play purchase.");
   }
 
   const parsed = parseBridgeResult(result);
-  const cancelled = parsed?.cancelled === true || parsed?.status === "cancelled";
+
+  const cancelled =
+    parsed?.cancelled === true ||
+    parsed?.status === "cancelled" ||
+    parsed?.responseCode === "USER_CANCELED";
+
   const ok =
     parsed?.ok === true ||
     parsed?.success === true ||
@@ -90,12 +113,18 @@ export async function launchGooglePlayPurchase({
     ok,
     cancelled,
     purchaseToken:
-      parsed?.purchaseToken || parsed?.token || parsed?.purchase_token || "",
+      parsed?.purchaseToken ||
+      parsed?.token ||
+      parsed?.purchase_token ||
+      "",
     orderId: parsed?.orderId || parsed?.order_id || "",
     raw: parsed,
   };
 }
 
+/**
+ * Save purchase to Supabase
+ */
 export async function persistGooglePlayPurchase({
   supabase,
   userId,
@@ -117,7 +146,7 @@ export async function persistGooglePlayPurchase({
     purchase_payload: bridgePayload || null,
   };
 
-  const { data: existing, error: existingError } = await supabase
+  const { data: existing } = await supabase
     .from("enrollments")
     .select("id")
     .eq("user_id", userId)
@@ -125,38 +154,37 @@ export async function persistGooglePlayPurchase({
     .limit(1)
     .maybeSingle();
 
-  if (existingError) throw existingError;
-
   if (existing?.id) {
-    const { error } = await supabase
+    await supabase
       .from("enrollments")
       .update(payload)
       .eq("id", existing.id);
 
-    if (error) throw error;
     return existing.id;
   }
 
-  const { data, error } = await supabase
+  const { data } = await supabase
     .from("enrollments")
     .insert([payload])
     .select("id")
     .single();
 
-  if (error) throw error;
   return data?.id || null;
 }
 
+/**
+ * Wait until entitlement becomes active
+ */
 export async function waitForGooglePlayEntitlement({
   supabase,
   userId,
   expectedPlanKey,
-  timeoutMs = 15000,
+  timeoutMs = 20000,
   pollMs = 1500,
 }) {
-  const startedAt = Date.now();
+  const start = Date.now();
 
-  while (Date.now() - startedAt < timeoutMs) {
+  while (Date.now() - start < timeoutMs) {
     const [{ data: profile }, { data: enrollment }] = await Promise.all([
       supabase.from("profiles").select("*").eq("id", userId).maybeSingle(),
       supabase
@@ -168,26 +196,29 @@ export async function waitForGooglePlayEntitlement({
         .maybeSingle(),
     ]);
 
-    const profilePlan = normalizeLower(profile?.plan);
-    const enrollmentPlan = normalizeLower(enrollment?.plan_key || enrollment?.plan);
     const enrollmentStatus = normalizeLower(enrollment?.status);
+    const enrollmentPlan = normalizeLower(
+      enrollment?.plan_key || enrollment?.plan
+    );
+    const profilePlan = normalizeLower(profile?.plan);
 
     const unlocked =
       SUCCESS_STATUSES.has(enrollmentStatus) ||
       profile?.program_active === true ||
       profile?.is_enrolled === true ||
-      (profilePlan && profilePlan === normalizeLower(expectedPlanKey)) ||
-      (enrollmentPlan && enrollmentPlan === normalizeLower(expectedPlanKey) && SUCCESS_STATUSES.has(enrollmentStatus));
+      profilePlan === normalizeLower(expectedPlanKey) ||
+      (enrollmentPlan === normalizeLower(expectedPlanKey) &&
+        SUCCESS_STATUSES.has(enrollmentStatus));
 
     if (unlocked) {
       return {
         status: "active",
-        profile: profile || null,
-        enrollment: enrollment || null,
+        profile,
+        enrollment,
       };
     }
 
-    await new Promise((resolve) => setTimeout(resolve, pollMs));
+    await new Promise((r) => setTimeout(r, pollMs));
   }
 
   return { status: "pending" };

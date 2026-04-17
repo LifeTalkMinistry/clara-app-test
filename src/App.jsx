@@ -2,15 +2,21 @@ import { Suspense, lazy, useEffect, useMemo, useState } from "react";
 import { Routes, Route, Navigate } from "react-router-dom";
 import { Toaster } from "sonner";
 
+<<<<<<< HEAD
 import { useAuth } from "@/context/AuthContext";
 import { supabase } from "@/lib/supabaseClient";
+=======
+import { queryClientInstance } from "./lib/query-client";
+import { useAuth } from "./context/AuthContext";
+import { supabase } from "./lib/supabaseClient";
+>>>>>>> dffb3f4 (update)
 import useUserRole from "./hooks/useUserRole";
 import {
   deriveAccessState,
   hasCompletedProgramOnboarding,
   resolveAppFlow,
-} from "@/lib/access-control";
-import { FEATURE_ROUTE_MAP } from "@/lib/plan-config";
+} from "./lib/access-control";
+import { FEATURE_ROUTE_MAP } from "./lib/plan-config";
 
 // Layout
 import Layout from "./components/Layout";
@@ -292,6 +298,7 @@ function AppRoutes() {
     () => getHomeRedirectPath({ isAdvertiser, flow, forceEnroll }),
     [isAdvertiser, flow, forceEnroll]
   );
+
   const welcomeRedirectPath = useMemo(() => {
     if (
       flow === "program_onboarding" &&
@@ -301,6 +308,7 @@ function AppRoutes() {
     }
     return homeRedirectPath;
   }, [flow, homeRedirectPath, profile]);
+
   const displayName =
     profile?.full_name ||
     user?.user_metadata?.full_name ||

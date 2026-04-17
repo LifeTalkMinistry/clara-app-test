@@ -1,5 +1,35 @@
 {
   "appId": "com.clara.app",
   "appName": "CLARA",
+<<<<<<< HEAD
   "webDir": "dist"
 }
+=======
+  "webDir": "dist",
+  "bundledWebRuntime": false,
+
+  "server": {
+    "androidScheme": "https"
+  },
+
+  "android": {
+    "allowMixedContent": true,
+    "captureInput": true
+  },
+
+  "plugins": {
+    "SplashScreen": {
+      "launchShowDuration": 1500,
+      "launchAutoHide": true,
+      "backgroundColor": "#020617",
+      "androidSplashResourceName": "splash",
+      "androidScaleType": "CENTER_CROP",
+      "showSpinner": false
+    },
+    "StatusBar": {
+      "style": "dark",
+      "backgroundColor": "#020617"
+    }
+  }
+}
+>>>>>>> dffb3f4 (update)

@@ -2,12 +2,12 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import {
   ArrowLeft,
-  ArrowRight,
   BadgeCheck,
   CheckCircle2,
   ChevronLeft,
   Clock3,
   Gem,
+  Loader2,
   Lock,
   ShieldCheck,
   Sparkles,
@@ -47,7 +47,8 @@ const PLAN_UI_META = {
     border: "border-cyan-400/20",
     button: "Unlock with Google Play",
     successTitle: "Entry unlocked",
-    successBody: "Your starter path is ready. Open CLARA and begin your first guided steps.",
+    successBody:
+      "Your starter path is ready. Open CLARA and begin your first guided steps.",
     successCta: "Start Starter Program",
     icon: Star,
   },
@@ -55,7 +56,8 @@ const PLAN_UI_META = {
     label: "Core",
     eyebrow: "Full 30-Day Reset",
     badge: "Most popular",
-    statement: "Unlock the full guided system and move through CLARA one intentional day at a time.",
+    statement:
+      "Unlock the full guided system and move through CLARA one intentional day at a time.",
     points: [
       "Full 30-day guided system",
       "Daily task progression",
@@ -66,7 +68,8 @@ const PLAN_UI_META = {
     border: "border-emerald-400/20",
     button: "Buy with Google Play",
     successTitle: "Core unlocked",
-    successBody: "Your full guided system is active. Day 1 is ready whenever you are.",
+    successBody:
+      "Your full guided system is active. Day 1 is ready whenever you are.",
     successCta: "Open Program",
     icon: Target,
   },
@@ -74,7 +77,8 @@ const PLAN_UI_META = {
     label: "Coaching",
     eyebrow: "Personal Guidance",
     badge: "Premium support",
-    statement: "Unlock the full system plus a deeper layer of personal guidance and accountability.",
+    statement:
+      "Unlock the full system plus a deeper layer of personal guidance and accountability.",
     points: [
       "Full 30-day guided system",
       "Premium coaching layer",
@@ -85,7 +89,8 @@ const PLAN_UI_META = {
     border: "border-amber-400/20",
     button: "Unlock with Google Play",
     successTitle: "Coaching unlocked",
-    successBody: "Your guided system and coaching layer are active. Open the journey and review your support surfaces.",
+    successBody:
+      "Your guided system and coaching layer are active. Open the journey and review your support surfaces.",
     successCta: "View Coaching Journey",
     icon: Gem,
   },
@@ -132,20 +137,29 @@ function normalizeFeatures(features) {
 
 function normalizePlanRecord(row) {
   const normalizedRow = sanitizePlanRow(row);
-  const key = normalizePlanKey(normalizedRow.plan_key || normalizedRow.key || normalizedRow.name);
+  const key = normalizePlanKey(
+    normalizedRow.plan_key || normalizedRow.key || normalizedRow.name
+  );
   const ui = PLAN_UI_META[key] || null;
 
   return {
     id: normalizedRow?.id ?? null,
     key,
-    name: ui?.label || PLAN_LABELS[key] || normalizeText(normalizedRow?.name) || key.toUpperCase(),
+    name:
+      ui?.label ||
+      PLAN_LABELS[key] ||
+      normalizeText(normalizedRow?.name) ||
+      key.toUpperCase(),
     price: Number(normalizedRow?.price || 0),
     badge: ui?.badge || (normalizedRow?.popular ? "Most Popular" : "Plan"),
     eyebrow: ui?.eyebrow || "Unlock CLARA",
     statement: ui?.statement || normalizeText(normalizedRow?.description),
     description: normalizeText(normalizedRow?.description),
     benefits: normalizeFeatures(normalizedRow?.features),
-    ctaLabel: normalizeText(normalizedRow?.cta_label) || ui?.button || "Buy with Google Play",
+    ctaLabel:
+      normalizeText(normalizedRow?.cta_label) ||
+      ui?.button ||
+      "Buy with Google Play",
     active: !!normalizedRow?.active,
     popular: !!normalizedRow?.popular || ui?.badge === "Most popular",
     sortOrder: Number(normalizedRow?.sort_order ?? 9999),
@@ -158,7 +172,9 @@ function normalizePlanRecord(row) {
     productId: getGooglePlayProductId(key),
     icon: ui?.icon || Sparkles,
     displayBenefits:
-      normalizeFeatures(normalizedRow?.features).length > 0 ? normalizeFeatures(normalizedRow?.features) : ui?.points || [],
+      normalizeFeatures(normalizedRow?.features).length > 0
+        ? normalizeFeatures(normalizedRow?.features)
+        : ui?.points || [],
   };
 }
 
@@ -184,6 +200,38 @@ function getSuccessDestination(planKey) {
   if (normalized === "entry") return "/program-onboarding";
   if (normalized === "coaching") return "/tasks";
   return "/tasks";
+}
+
+function getFriendlyPurchaseError(error) {
+  const message = String(error?.message || "").trim();
+
+  if (!message) {
+    return "Could not complete purchase right now.";
+  }
+
+  const lower = message.toLowerCase();
+
+  if (lower.includes("billing is not available")) {
+    return "Google Play Billing is not available on this device yet. Make sure this app was installed from the Play internal testing link.";
+  }
+
+  if (
+    lower.includes("cancel") ||
+    lower.includes("cancelled") ||
+    lower.includes("canceled")
+  ) {
+    return "Purchase cancelled.";
+  }
+
+  if (lower.includes("product") && lower.includes("not found")) {
+    return "This Google Play product is not active yet. Check Play Console product setup.";
+  }
+
+  if (lower.includes("not available on this device")) {
+    return "This device is not ready for Google Play purchases yet. Reinstall the internal testing build from Play Store and try again.";
+  }
+
+  return message;
 }
 
 function SelectionCard({ plan, selected, onSelect }) {
@@ -217,14 +265,21 @@ function SelectionCard({ plan, selected, onSelect }) {
         </div>
 
         <div className="rounded-2xl border border-white/10 bg-black/20 px-4 py-3 text-right">
-          <p className="text-[11px] uppercase tracking-[0.16em] text-white/45">One-time</p>
-          <p className="mt-1 text-xl font-semibold text-white">{formatPeso(plan.price)}</p>
+          <p className="text-[11px] uppercase tracking-[0.16em] text-white/45">
+            One-time
+          </p>
+          <p className="mt-1 text-xl font-semibold text-white">
+            {formatPeso(plan.price)}
+          </p>
         </div>
       </div>
 
       <div className="mt-5 space-y-2">
         {plan.displayBenefits.slice(0, 3).map((item, index) => (
-          <div key={`${plan.key}-${index}`} className="flex items-start gap-2 text-sm text-white/75">
+          <div
+            key={`${plan.key}-${index}`}
+            className="flex items-start gap-2 text-sm text-white/75"
+          >
             <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-emerald-300" />
             <span>{item}</span>
           </div>
@@ -240,11 +295,13 @@ export default function Enroll() {
   const [searchParams, setSearchParams] = useSearchParams();
 
   const [loading, setLoading] = useState(true);
+  const [refreshingAccess, setRefreshingAccess] = useState(false);
   const [plans, setPlans] = useState([]);
   const [enrollment, setEnrollment] = useState(null);
   const [purchaseState, setPurchaseState] = useState("idle");
   const [purchaseMessage, setPurchaseMessage] = useState("");
   const [activePurchasePlan, setActivePurchasePlan] = useState("");
+  const [pageError, setPageError] = useState("");
 
   const fetchPlans = useCallback(async () => {
     const { data, error } = await supabase
@@ -260,10 +317,14 @@ export default function Enroll() {
       .filter((plan) => plan.active && plan.productId && PLAN_UI_META[plan.key]);
 
     setPlans(normalized);
+    return normalized;
   }, []);
 
   const fetchEnrollment = useCallback(async () => {
-    if (!user?.id) return null;
+    if (!user?.id) {
+      setEnrollment(null);
+      return null;
+    }
 
     const { data, error } = await supabase
       .from("enrollments")
@@ -286,10 +347,13 @@ export default function Enroll() {
     }
 
     setLoading(true);
+    setPageError("");
+
     try {
       await Promise.all([fetchPlans(), fetchEnrollment()]);
     } catch (error) {
       console.error("Failed to load Google Play purchase flow:", error);
+      setPageError("Could not load plans right now.");
       toast.error("Could not load plans right now.");
     } finally {
       setLoading(false);
@@ -301,6 +365,7 @@ export default function Enroll() {
   }, [loadInitialData]);
 
   const currentStatus = normalizeKey(enrollment?.status);
+
   const enrollmentPlanKey = useMemo(
     () => getPlanKeyFromEnrollment(enrollment, searchParams),
     [enrollment, searchParams]
@@ -317,13 +382,22 @@ export default function Enroll() {
   const view = searchParams.get("view") || (selectedPlanKey ? "detail" : "select");
 
   const selectedPlan = useMemo(() => {
-    return sortedPlans.find((plan) => normalizeKey(plan.key) === selectedPlanKey) || null;
+    return (
+      sortedPlans.find((plan) => normalizeKey(plan.key) === selectedPlanKey) || null
+    );
   }, [selectedPlanKey, sortedPlans]);
 
   const unlockedPlan = useMemo(() => {
     if (!SUCCESS_STATUSES.has(currentStatus)) return null;
-    return sortedPlans.find((plan) => normalizeKey(plan.key) === enrollmentPlanKey) || selectedPlan;
+    return (
+      sortedPlans.find((plan) => normalizeKey(plan.key) === enrollmentPlanKey) ||
+      selectedPlan
+    );
   }, [currentStatus, enrollmentPlanKey, selectedPlan, sortedPlans]);
+
+  const activePurchasePlanMeta = useMemo(() => {
+    return sortedPlans.find((plan) => plan.key === activePurchasePlan) || null;
+  }, [activePurchasePlan, sortedPlans]);
 
   const purchaseStatusMeta = useMemo(() => {
     if (purchaseState === "processing") {
@@ -352,6 +426,10 @@ export default function Enroll() {
 
   const showSuccess = purchaseState === "success" || Boolean(unlockedPlan);
   const showProcessing = Boolean(purchaseStatusMeta);
+  const purchaseBusy =
+    purchaseState === "processing" ||
+    purchaseState === "verifying" ||
+    purchaseState === "pending";
 
   function updateSearch(nextPlan, nextView = "detail") {
     const next = new URLSearchParams(searchParams);
@@ -366,13 +444,29 @@ export default function Enroll() {
   }
 
   function handlePlanSelect(planKey) {
+    if (purchaseBusy) return;
     updateSearch(planKey, "detail");
   }
 
+  async function handleRefreshAccess() {
+    try {
+      setRefreshingAccess(true);
+      await fetchEnrollment();
+      await refreshUser?.();
+      toast.success("Access refreshed");
+    } catch (error) {
+      console.error("Failed to refresh access:", error);
+      toast.error("Could not refresh access right now.");
+    } finally {
+      setRefreshingAccess(false);
+    }
+  }
+
   async function handlePurchase(plan) {
-    if (!user?.id || !plan) return;
+    if (!user?.id || !plan || purchaseBusy) return;
 
     try {
+      setPageError("");
       setActivePurchasePlan(plan.key);
       setPurchaseState("processing");
       setPurchaseMessage("");
@@ -384,14 +478,15 @@ export default function Enroll() {
         userEmail: user.email,
       });
 
-      if (purchase.cancelled) {
+      if (purchase?.cancelled) {
         setPurchaseState("idle");
         setActivePurchasePlan("");
+        setPurchaseMessage("");
         toast.message("Purchase cancelled");
         return;
       }
 
-      if (!purchase.ok) {
+      if (!purchase?.ok) {
         throw new Error("Google Play did not confirm the purchase.");
       }
 
@@ -416,7 +511,7 @@ export default function Enroll() {
       await fetchEnrollment();
       await refreshUser?.();
 
-      if (entitlement.status === "active") {
+      if (normalizeKey(entitlement?.status) === "active") {
         setPurchaseState("success");
         setPurchaseMessage(plan.successBody);
         toast.success(`${plan.name} unlocked`);
@@ -427,11 +522,23 @@ export default function Enroll() {
       setPurchaseMessage(
         "Your purchase is complete. Access is still syncing and should unlock shortly."
       );
+      toast.message("Purchase received. Syncing access...");
     } catch (error) {
       console.error("Google Play purchase failed:", error);
+      const friendlyMessage = getFriendlyPurchaseError(error);
+
+      if (friendlyMessage === "Purchase cancelled.") {
+        setPurchaseState("idle");
+        setActivePurchasePlan("");
+        setPurchaseMessage("");
+        toast.message("Purchase cancelled");
+        return;
+      }
+
       setPurchaseState("idle");
       setPurchaseMessage("");
-      toast.error(error.message || "Could not complete purchase.");
+      setPageError(friendlyMessage);
+      toast.error(friendlyMessage);
     }
   }
 
@@ -464,6 +571,7 @@ export default function Enroll() {
               navigate(-1);
             }}
             className="h-10 rounded-2xl border border-white/10 bg-white/5 px-4 text-white hover:bg-white/10"
+            disabled={purchaseBusy}
           >
             {view === "detail" && !showProcessing && !showSuccess ? (
               <ChevronLeft className="mr-2 h-4 w-4" />
@@ -478,9 +586,15 @@ export default function Enroll() {
           </div>
         </div>
 
+        {pageError ? (
+          <div className="mb-6 rounded-[28px] border border-red-400/20 bg-red-500/10 p-4 text-sm text-red-200 backdrop-blur-xl">
+            {pageError}
+          </div>
+        ) : null}
+
         {!showSuccess && !showProcessing && (
           <div className="mb-6 rounded-[30px] border border-white/10 bg-white/[0.04] p-6 backdrop-blur-2xl">
-            <div className="flex items-start justify-between gap-4 flex-wrap">
+            <div className="flex flex-wrap items-start justify-between gap-4">
               <div className="max-w-2xl">
                 <p className="text-xs font-semibold uppercase tracking-[0.22em] text-emerald-300/80">
                   CLARA Plans
@@ -489,7 +603,8 @@ export default function Enroll() {
                   Choose your next level with less friction
                 </h1>
                 <p className="mt-3 text-sm leading-7 text-white/70 sm:text-base">
-                  Pick Entry, Core, or Coaching, review one focused plan page, and unlock through Google Play without the old proof-upload flow.
+                  Pick Entry, Core, or Coaching, review one focused plan page, and
+                  unlock through Google Play without the old proof-upload flow.
                 </p>
               </div>
 
@@ -497,8 +612,12 @@ export default function Enroll() {
                 <div className="flex items-center gap-3">
                   <ShieldCheck className="h-5 w-5 text-emerald-300" />
                   <div>
-                    <p className="text-xs uppercase tracking-[0.18em] text-white/50">Purchase flow</p>
-                    <p className="text-sm font-semibold text-white">Google Play one-time unlock</p>
+                    <p className="text-xs uppercase tracking-[0.18em] text-white/50">
+                      Purchase flow
+                    </p>
+                    <p className="text-sm font-semibold text-white">
+                      Google Play one-time unlock
+                    </p>
                   </div>
                 </div>
               </div>
@@ -516,9 +635,11 @@ export default function Enroll() {
               <p className="mt-5 text-center text-[11px] font-semibold uppercase tracking-[0.2em] text-emerald-200/70">
                 Purchase complete
               </p>
+
               <h2 className="mt-2 text-center text-3xl font-semibold text-white">
                 {(unlockedPlan || selectedPlan)?.successTitle || "Access unlocked"}
               </h2>
+
               <p className="mx-auto mt-3 max-w-xl text-center text-sm leading-7 text-white/75">
                 {purchaseMessage ||
                   (unlockedPlan || selectedPlan)?.successBody ||
@@ -526,28 +647,32 @@ export default function Enroll() {
               </p>
 
               <div className="mt-6 grid gap-3 sm:grid-cols-3">
-                {(unlockedPlan || selectedPlan)?.displayBenefits.slice(0, 3).map((item, index) => (
-                  <div
-                    key={`success-benefit-${index}`}
-                    className="rounded-2xl border border-white/10 bg-black/20 p-4 text-sm text-white/78"
-                  >
-                    {item}
-                  </div>
-                ))}
+                {((unlockedPlan || selectedPlan)?.displayBenefits || [])
+                  .slice(0, 3)
+                  .map((item, index) => (
+                    <div
+                      key={`success-benefit-${index}`}
+                      className="rounded-2xl border border-white/10 bg-black/20 p-4 text-sm text-white/78"
+                    >
+                      {item}
+                    </div>
+                  ))}
               </div>
             </div>
 
             <div className="flex flex-col gap-3 sm:flex-row">
               <Button
-                className="flex-1 h-12 rounded-2xl"
-                onClick={() => navigate(getSuccessDestination((unlockedPlan || selectedPlan)?.key))}
+                className="h-12 flex-1 rounded-2xl"
+                onClick={() =>
+                  navigate(getSuccessDestination((unlockedPlan || selectedPlan)?.key))
+                }
               >
                 {(unlockedPlan || selectedPlan)?.successCta || "Open CLARA"}
               </Button>
 
               <Button
                 variant="outline"
-                className="flex-1 h-12 rounded-2xl border-white/15 bg-transparent text-white hover:bg-white/10"
+                className="h-12 flex-1 rounded-2xl border-white/15 bg-transparent text-white hover:bg-white/10"
                 onClick={() => navigate("/dashboard")}
               >
                 Go to Dashboard
@@ -560,6 +685,8 @@ export default function Enroll() {
               <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full border border-white/10 bg-white/10">
                 {purchaseState === "pending" ? (
                   <Clock3 className="h-6 w-6 text-amber-300" />
+                ) : purchaseState === "verifying" ? (
+                  <Loader2 className="h-6 w-6 animate-spin text-emerald-300" />
                 ) : (
                   <Zap className="h-6 w-6 text-emerald-300" />
                 )}
@@ -568,32 +695,40 @@ export default function Enroll() {
               <h2 className="mt-5 text-center text-2xl font-semibold text-white">
                 {purchaseStatusMeta?.title}
               </h2>
+
               <p className="mx-auto mt-3 max-w-xl text-center text-sm leading-7 text-white/72">
                 {purchaseMessage || purchaseStatusMeta?.body}
               </p>
 
               <div className="mt-6 rounded-2xl border border-white/10 bg-black/20 p-4">
-                <p className="text-[11px] uppercase tracking-[0.18em] text-white/45">Selected plan</p>
+                <p className="text-[11px] uppercase tracking-[0.18em] text-white/45">
+                  Selected plan
+                </p>
                 <p className="mt-2 text-sm font-semibold text-white">
-                  {sortedPlans.find((plan) => plan.key === activePurchasePlan)?.name || "CLARA plan"}
+                  {activePurchasePlanMeta?.name || "CLARA plan"}
                 </p>
               </div>
             </div>
 
             <div className="flex flex-col gap-3 sm:flex-row">
               <Button
-                className="flex-1 h-12 rounded-2xl"
-                onClick={async () => {
-                  await fetchEnrollment();
-                  await refreshUser?.();
-                }}
+                className="h-12 flex-1 rounded-2xl"
+                onClick={handleRefreshAccess}
+                disabled={refreshingAccess}
               >
-                Refresh access
+                {refreshingAccess ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Refreshing...
+                  </>
+                ) : (
+                  "Refresh access"
+                )}
               </Button>
 
               <Button
                 variant="outline"
-                className="flex-1 h-12 rounded-2xl border-white/15 bg-transparent text-white hover:bg-white/10"
+                className="h-12 flex-1 rounded-2xl border-white/15 bg-transparent text-white hover:bg-white/10"
                 onClick={() => navigate("/dashboard")}
               >
                 Return to dashboard
@@ -602,42 +737,60 @@ export default function Enroll() {
           </div>
         ) : view === "detail" && selectedPlan ? (
           <div className="mx-auto max-w-3xl">
-            <div className={`rounded-[32px] border ${selectedPlan.border} bg-white/[0.04] shadow-[0_20px_50px_rgba(0,0,0,0.24)] backdrop-blur-2xl`}>
-              <div className={`rounded-t-[32px] bg-gradient-to-br ${selectedPlan.accent} p-6`}>
+            <div
+              className={`rounded-[32px] border ${selectedPlan.border} bg-white/[0.04] shadow-[0_20px_50px_rgba(0,0,0,0.24)] backdrop-blur-2xl`}
+            >
+              <div
+                className={`rounded-t-[32px] bg-gradient-to-br ${selectedPlan.accent} p-6`}
+              >
                 {(() => {
                   const SelectedIcon = selectedPlan.icon;
                   return (
-                <div className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-black/20 px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.18em] text-white/65">
-                  <SelectedIcon className="h-3.5 w-3.5" />
-                  {selectedPlan.eyebrow}
-                </div>
+                    <div className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-black/20 px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.18em] text-white/65">
+                      <SelectedIcon className="h-3.5 w-3.5" />
+                      {selectedPlan.eyebrow}
+                    </div>
                   );
                 })()}
 
-                <div className="mt-5 flex items-start justify-between gap-4 flex-wrap">
+                <div className="mt-5 flex flex-wrap items-start justify-between gap-4">
                   <div className="max-w-xl">
                     <div className="flex flex-wrap items-center gap-2">
-                      <h2 className="text-3xl font-semibold text-white">{selectedPlan.name}</h2>
+                      <h2 className="text-3xl font-semibold text-white">
+                        {selectedPlan.name}
+                      </h2>
                       <span className="rounded-full border border-white/10 bg-white/5 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.18em] text-white/70">
                         {selectedPlan.badge}
                       </span>
                     </div>
-                    <p className="mt-3 text-sm leading-7 text-white/74">{selectedPlan.statement}</p>
+
+                    <p className="mt-3 text-sm leading-7 text-white/74">
+                      {selectedPlan.statement}
+                    </p>
                   </div>
 
                   <div className="rounded-2xl border border-white/10 bg-black/20 px-4 py-3 text-right">
-                    <p className="text-[11px] uppercase tracking-[0.16em] text-white/45">One-time unlock</p>
-                    <p className="mt-1 text-2xl font-semibold text-white">{formatPeso(selectedPlan.price)}</p>
+                    <p className="text-[11px] uppercase tracking-[0.16em] text-white/45">
+                      One-time unlock
+                    </p>
+                    <p className="mt-1 text-2xl font-semibold text-white">
+                      {formatPeso(selectedPlan.price)}
+                    </p>
                   </div>
                 </div>
               </div>
 
               <div className="space-y-5 p-6">
                 <div className="rounded-[24px] border border-white/10 bg-black/20 p-5">
-                  <p className="text-[11px] uppercase tracking-[0.18em] text-white/45">What's included</p>
+                  <p className="text-[11px] uppercase tracking-[0.18em] text-white/45">
+                    What's included
+                  </p>
                   <div className="mt-4 space-y-3">
                     {selectedPlan.displayBenefits.map((item, index) => (
-                      <div key={`benefit-${index}`} className="flex items-start gap-3 text-sm text-white/78">
+                      <div
+                        key={`benefit-${index}`}
+                        className="flex items-start gap-3 text-sm text-white/78"
+                      >
                         <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-emerald-300" />
                         <span>{item}</span>
                       </div>
@@ -647,18 +800,28 @@ export default function Enroll() {
 
                 <div className="grid gap-3 sm:grid-cols-2">
                   <div className="rounded-[24px] border border-white/10 bg-black/20 p-4">
-                    <p className="text-[11px] uppercase tracking-[0.18em] text-white/45">Purchase method</p>
-                    <p className="mt-2 text-sm font-semibold text-white">Google Play Billing</p>
+                    <p className="text-[11px] uppercase tracking-[0.18em] text-white/45">
+                      Purchase method
+                    </p>
+                    <p className="mt-2 text-sm font-semibold text-white">
+                      Google Play Billing
+                    </p>
                     <p className="mt-2 text-sm leading-7 text-white/68">
-                      Fast one-time unlock handled through Google Play. No proof upload. No manual review form.
+                      Fast one-time unlock handled through Google Play. No proof
+                      upload. No manual review form.
                     </p>
                   </div>
 
                   <div className="rounded-[24px] border border-white/10 bg-black/20 p-4">
-                    <p className="text-[11px] uppercase tracking-[0.18em] text-white/45">After purchase</p>
-                    <p className="mt-2 text-sm font-semibold text-white">Immediate guided handoff</p>
+                    <p className="text-[11px] uppercase tracking-[0.18em] text-white/45">
+                      After purchase
+                    </p>
+                    <p className="mt-2 text-sm font-semibold text-white">
+                      Immediate guided handoff
+                    </p>
                     <p className="mt-2 text-sm leading-7 text-white/68">
-                      Once entitlement sync completes, CLARA will route you to the right next step for this plan.
+                      Once entitlement sync completes, CLARA will route you to the
+                      right next step for this plan.
                     </p>
                   </div>
                 </div>
@@ -668,7 +831,9 @@ export default function Enroll() {
             <div className="sticky bottom-4 mt-5 rounded-[28px] border border-white/10 bg-[#07111d]/92 p-4 shadow-[0_20px_50px_rgba(0,0,0,0.24)] backdrop-blur-2xl">
               <div className="flex items-center justify-between gap-3">
                 <div className="min-w-0">
-                  <p className="text-[11px] uppercase tracking-[0.18em] text-white/45">Selected plan</p>
+                  <p className="text-[11px] uppercase tracking-[0.18em] text-white/45">
+                    Selected plan
+                  </p>
                   <p className="mt-1 text-sm font-semibold text-white">
                     {selectedPlan.name} • {formatPeso(selectedPlan.price)}
                   </p>
@@ -677,9 +842,19 @@ export default function Enroll() {
                 <Button
                   className="h-12 rounded-2xl px-5"
                   onClick={() => handlePurchase(selectedPlan)}
+                  disabled={purchaseBusy}
                 >
-                  <Sparkles className="mr-2 h-4 w-4" />
-                  {selectedPlan.ctaLabel}
+                  {purchaseBusy && activePurchasePlan === selectedPlan.key ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Processing...
+                    </>
+                  ) : (
+                    <>
+                      <Sparkles className="mr-2 h-4 w-4" />
+                      {selectedPlan.ctaLabel}
+                    </>
+                  )}
                 </Button>
               </div>
             </div>
@@ -698,12 +873,14 @@ export default function Enroll() {
                       <Lock className="h-5 w-5 text-white/60" />
                     )}
                   </div>
+
                   <div>
                     <p className="text-sm font-semibold text-white">
                       {PENDING_STATUSES.has(currentStatus)
                         ? "Purchase sync is still in progress"
                         : "Previous enrollment found"}
                     </p>
+
                     <p className="mt-2 text-sm leading-7 text-white/68">
                       {PENDING_STATUSES.has(currentStatus)
                         ? "If a recent Google Play purchase is still syncing, you can refresh access below or choose a plan to review again."
@@ -727,7 +904,8 @@ export default function Enroll() {
 
             {sortedPlans.length === 0 ? (
               <div className="rounded-3xl border border-white/10 bg-white/5 p-5 text-sm text-white/70 backdrop-blur-xl">
-                No Google Play plans are active yet. Activate Entry, Core, or Coaching from admin first.
+                No Google Play plans are active yet. Activate Entry, Core, or
+                Coaching from admin first.
               </div>
             ) : null}
           </div>
