@@ -2,14 +2,8 @@ import { Suspense, lazy, useEffect, useMemo, useState } from "react";
 import { Routes, Route, Navigate } from "react-router-dom";
 import { Toaster } from "sonner";
 
-<<<<<<< HEAD
 import { useAuth } from "@/context/AuthContext";
 import { supabase } from "@/lib/supabaseClient";
-=======
-import { queryClientInstance } from "./lib/query-client";
-import { useAuth } from "./context/AuthContext";
-import { supabase } from "./lib/supabaseClient";
->>>>>>> dffb3f4 (update)
 import useUserRole from "./hooks/useUserRole";
 import {
   deriveAccessState,

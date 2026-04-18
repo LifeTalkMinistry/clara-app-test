@@ -1,7 +1,12 @@
+import { registerPlugin } from "@capacitor/core";
+
+const ClaraBilling = registerPlugin("ClaraBilling");
+
 const PRODUCT_IDS = {
-  entry: "clara_entry_299",
-  core: "clara_core_499",
-  coaching: "clara_coaching_999",
+  entry: "clara_entry",
+  core: "clara_core",
+  coach: "clara_coach",
+  coaching: "clara_coach",
 };
 
 const SUCCESS_STATUSES = new Set(["approved", "active"]);
@@ -13,43 +18,292 @@ export function getGooglePlayProductId(planKey) {
   return PRODUCT_IDS[normalizeLower(planKey)] || "";
 }
 
-/**
- * Detect Android billing bridge safely
- */
-function getBillingBridge() {
-  if (typeof window === "undefined") return null;
-
-  return (
-    window.ClaraBilling ||
-    window.AndroidBilling ||
-    window.Capacitor?.Plugins?.Billing ||
-    window.Capacitor?.Plugins?.InAppPurchase ||
-    window.googlePlayBilling ||
-    window.AndroidBridge ||
-    null
-  );
+export function getAllGooglePlayProductIds() {
+  return Array.from(new Set(Object.values(PRODUCT_IDS).filter(Boolean)));
 }
 
-/**
- * Normalize any result coming from Android bridge
- */
 function parseBridgeResult(result) {
-  if (!result) return { ok: false };
+  if (!result) return {};
 
   if (typeof result === "string") {
     try {
       return JSON.parse(result);
     } catch {
-      return { ok: true, raw: result };
+      return { rawValue: result };
     }
   }
 
   return result;
 }
 
-/**
- * Launch purchase
- */
+function normalizeResponseCode(code) {
+  if (typeof code === "string") {
+    const upper = code.toUpperCase().trim();
+
+    if (
+      upper === "OK" ||
+      upper === "USER_CANCELED" ||
+      upper === "SERVICE_UNAVAILABLE" ||
+      upper === "BILLING_UNAVAILABLE" ||
+      upper === "ITEM_UNAVAILABLE" ||
+      upper === "DEVELOPER_ERROR" ||
+      upper === "ERROR" ||
+      upper === "ITEM_ALREADY_OWNED" ||
+      upper === "ITEM_NOT_OWNED" ||
+      upper === "SERVICE_DISCONNECTED" ||
+      upper === "FEATURE_NOT_SUPPORTED" ||
+      upper === "SERVICE_TIMEOUT" ||
+      upper === "NETWORK_ERROR" ||
+      upper === "UNKNOWN" ||
+      upper === "UNIMPLEMENTED"
+    ) {
+      return upper;
+    }
+
+    return "UNKNOWN";
+  }
+
+  switch (Number(code)) {
+    case 0:
+      return "OK";
+    case 1:
+      return "USER_CANCELED";
+    case 2:
+      return "SERVICE_UNAVAILABLE";
+    case 3:
+      return "BILLING_UNAVAILABLE";
+    case 4:
+      return "ITEM_UNAVAILABLE";
+    case 5:
+      return "DEVELOPER_ERROR";
+    case 6:
+      return "ERROR";
+    case 7:
+      return "ITEM_ALREADY_OWNED";
+    case 8:
+      return "ITEM_NOT_OWNED";
+    case 12:
+      return "NETWORK_ERROR";
+    case -1:
+      return "SERVICE_DISCONNECTED";
+    case -2:
+      return "FEATURE_NOT_SUPPORTED";
+    case -3:
+      return "SERVICE_TIMEOUT";
+    default:
+      return "UNKNOWN";
+  }
+}
+
+function makeError(message, extra = {}) {
+  const err = new Error(message);
+  Object.assign(err, extra);
+  return err;
+}
+
+function getBillingBridge() {
+  return ClaraBilling;
+}
+
+function getMissingBridgeResult(message) {
+  return {
+    ok: false,
+    responseCode: "BILLING_UNAVAILABLE",
+    debugMessage: message,
+    raw: null,
+  };
+}
+
+async function safeBridgeCall(methodName, payload) {
+  const bridge = getBillingBridge();
+
+  if (!bridge) {
+    return getMissingBridgeResult("ClaraBilling bridge object was not created.");
+  }
+
+  const method = bridge[methodName];
+
+  if (typeof method !== "function") {
+    return getMissingBridgeResult(
+      `ClaraBilling.${methodName}() is not available in this app build.`
+    );
+  }
+
+  try {
+    const result =
+      payload === undefined
+        ? await method.call(bridge)
+        : await method.call(bridge, payload);
+
+    return {
+      ok: true,
+      raw: parseBridgeResult(result),
+    };
+  } catch (error) {
+    return {
+      ok: false,
+      responseCode: normalizeResponseCode(error?.responseCode || error?.code),
+      debugMessage:
+        error?.debugMessage ||
+        error?.details ||
+        error?.message ||
+        `ClaraBilling.${methodName}() failed.`,
+      raw: error,
+    };
+  }
+}
+
+export async function connectGooglePlayBilling() {
+  const bridgeResult = await safeBridgeCall("connect");
+
+  if (!bridgeResult.ok && !bridgeResult.raw) {
+    return {
+      ok: false,
+      responseCode: bridgeResult.responseCode || "BILLING_UNAVAILABLE",
+      debugMessage:
+        bridgeResult.debugMessage ||
+        "Google Play Billing bridge is not available in this build.",
+      raw: bridgeResult.raw || null,
+    };
+  }
+
+  const result = bridgeResult.raw || {};
+
+  return {
+    ok:
+      result?.ok === true ||
+      normalizeResponseCode(result?.responseCode) === "OK",
+    responseCode: normalizeResponseCode(result?.responseCode),
+    debugMessage:
+      result?.debugMessage ||
+      result?.message ||
+      bridgeResult.debugMessage ||
+      "Billing connect completed.",
+    raw: result,
+  };
+}
+
+export async function queryGooglePlayProducts({ productIds = [] } = {}) {
+  const sourceIds =
+    Array.isArray(productIds) && productIds.length
+      ? productIds
+      : getAllGooglePlayProductIds();
+
+  const cleanedProductIds = Array.from(
+    new Set(sourceIds.map((id) => normalize(id)).filter(Boolean))
+  );
+
+  if (!cleanedProductIds.length) {
+    return {
+      ok: false,
+      responseCode: "DEVELOPER_ERROR",
+      debugMessage: "No Google Play product IDs were provided.",
+      foundProductIds: [],
+      missingProductIds: [],
+      raw: null,
+    };
+  }
+
+  const payload =
+    cleanedProductIds.length === 1
+      ? { productId: cleanedProductIds[0], productIds: cleanedProductIds }
+      : { productIds: cleanedProductIds };
+
+  const bridgeResult = await safeBridgeCall("queryProducts", payload);
+
+  if (!bridgeResult.ok && !bridgeResult.raw) {
+    return {
+      ok: false,
+      responseCode: bridgeResult.responseCode || "BILLING_UNAVAILABLE",
+      debugMessage:
+        bridgeResult.debugMessage ||
+        "Google Play Billing product query bridge is unavailable.",
+      foundProductIds: [],
+      missingProductIds: cleanedProductIds,
+      raw: null,
+    };
+  }
+
+  const result = bridgeResult.raw || {};
+
+  const foundProductIds = Array.isArray(result?.foundProductIds)
+    ? result.foundProductIds.map((id) => normalize(id)).filter(Boolean)
+    : [];
+
+  const missingProductIds = Array.isArray(result?.missingProductIds)
+    ? result.missingProductIds.map((id) => normalize(id)).filter(Boolean)
+    : cleanedProductIds.filter((id) => !foundProductIds.includes(id));
+
+  return {
+    ok:
+      result?.ok === true ||
+      normalizeResponseCode(result?.responseCode) === "OK",
+    responseCode: normalizeResponseCode(result?.responseCode),
+    debugMessage:
+      result?.debugMessage ||
+      result?.message ||
+      bridgeResult.debugMessage ||
+      "Product query completed.",
+    foundProductIds,
+    missingProductIds,
+    raw: result,
+  };
+}
+
+export async function diagnoseGooglePlayBilling({ productId } = {}) {
+  const connection = await connectGooglePlayBilling();
+
+  if (!connection.ok) {
+    return {
+      ready: false,
+      state: "diagnostic",
+      connectCode: connection.responseCode || "BILLING_UNAVAILABLE",
+      productCode: "UNKNOWN",
+      message: "Google Play billing is not fully ready yet.",
+      debugMessage: connection.debugMessage,
+      diagnostics: {
+        foundProductIds: [],
+        missingProductIds: productId
+          ? [productId]
+          : getAllGooglePlayProductIds(),
+        rawConnection: connection.raw || null,
+        rawProductResult: null,
+      },
+    };
+  }
+
+  const targetProductIds = productId
+    ? [productId]
+    : getAllGooglePlayProductIds();
+
+  const productState = await queryGooglePlayProducts({
+    productIds: targetProductIds,
+  });
+
+  const ready =
+    connection.ok &&
+    productState.ok &&
+    productState.missingProductIds.length === 0;
+
+  return {
+    ready,
+    state: ready ? "ready" : "diagnostic",
+    connectCode: connection.responseCode || "UNKNOWN",
+    productCode: productState.responseCode || "UNKNOWN",
+    message: ready
+      ? "Google Play billing looks ready on this device."
+      : "Google Play billing connected, but product readiness still needs attention.",
+    debugMessage:
+      productState.debugMessage || connection.debugMessage || "",
+    diagnostics: {
+      foundProductIds: productState.foundProductIds || [],
+      missingProductIds: productState.missingProductIds || [],
+      rawConnection: connection.raw || null,
+      rawProductResult: productState.raw || null,
+    },
+  };
+}
+
 export async function launchGooglePlayPurchase({
   productId,
   planKey,
@@ -57,61 +311,83 @@ export async function launchGooglePlayPurchase({
   userEmail,
 }) {
   if (!productId) {
-    throw new Error("Invalid product ID.");
-  }
-
-  const bridge = getBillingBridge();
-
-  if (!bridge) {
-    throw new Error(
-      "Google Play Billing is not available. Install the app from Play Store internal testing."
-    );
+    throw makeError("Invalid product ID.", {
+      responseCode: "DEVELOPER_ERROR",
+      debugMessage: "Missing productId in launchGooglePlayPurchase.",
+    });
   }
 
   const payload = {
-    productId,
-    planKey,
+    productId: normalize(productId),
+    planKey: normalize(planKey),
     userId: normalize(userId),
     userEmail: normalize(userEmail),
   };
 
-  let result;
+  const bridge = getBillingBridge();
 
-  try {
-    if (typeof bridge.purchaseOneTimeProduct === "function") {
-      result = await bridge.purchaseOneTimeProduct(payload);
-    } else if (typeof bridge.launchPurchase === "function") {
-      result = await bridge.launchPurchase(payload);
-    } else if (typeof bridge.buyProduct === "function") {
-      result = await bridge.buyProduct(payload);
-    } else if (typeof bridge.purchaseProduct === "function") {
-      result = await bridge.purchaseProduct(
-        productId,
-        JSON.stringify(payload)
-      );
-    } else {
-      throw new Error("Billing bridge exists but no purchase method found.");
-    }
-  } catch (err) {
-    throw new Error(err?.message || "Failed to open Google Play purchase.");
+  if (!bridge || typeof bridge.purchaseOneTimeProduct !== "function") {
+    throw makeError("Google Play Billing bridge was not found in this app build.", {
+      responseCode: "BILLING_UNAVAILABLE",
+      debugMessage:
+        "ClaraBilling purchaseOneTimeProduct() is not available through registerPlugin().",
+    });
   }
 
-  const parsed = parseBridgeResult(result);
+  let parsed;
+
+  try {
+    parsed = parseBridgeResult(await bridge.purchaseOneTimeProduct(payload));
+  } catch (err) {
+    throw makeError(err?.message || "Failed to open Google Play purchase.", {
+      responseCode: normalizeResponseCode(err?.responseCode || err?.code),
+      debugMessage:
+        err?.debugMessage || err?.details || err?.message || "",
+    });
+  }
+
+  const normalizedCode = normalizeResponseCode(
+    parsed?.responseCode ??
+      parsed?.code ??
+      parsed?.statusCode ??
+      (parsed?.ok === true || parsed?.success === true ? "OK" : "UNKNOWN")
+  );
 
   const cancelled =
     parsed?.cancelled === true ||
     parsed?.status === "cancelled" ||
-    parsed?.responseCode === "USER_CANCELED";
+    parsed?.status === "canceled" ||
+    normalizedCode === "USER_CANCELED";
 
   const ok =
     parsed?.ok === true ||
     parsed?.success === true ||
     parsed?.status === "purchased" ||
-    parsed?.purchaseState === "PURCHASED";
+    parsed?.purchaseState === "PURCHASED" ||
+    parsed?.purchaseState === 1 ||
+    normalizedCode === "OK";
+
+  if (!ok && !cancelled) {
+    throw makeError(
+      parsed?.message ||
+        parsed?.debugMessage ||
+        "Google Play did not confirm the purchase.",
+      {
+        responseCode: normalizedCode,
+        debugMessage:
+          parsed?.debugMessage ||
+          parsed?.details ||
+          parsed?.message ||
+          "Purchase returned a non-success result.",
+        raw: parsed,
+      }
+    );
+  }
 
   return {
     ok,
     cancelled,
+    responseCode: normalizedCode,
     purchaseToken:
       parsed?.purchaseToken ||
       parsed?.token ||
@@ -122,9 +398,6 @@ export async function launchGooglePlayPurchase({
   };
 }
 
-/**
- * Save purchase to Supabase
- */
 export async function persistGooglePlayPurchase({
   supabase,
   userId,
@@ -146,7 +419,7 @@ export async function persistGooglePlayPurchase({
     purchase_payload: bridgePayload || null,
   };
 
-  const { data: existing } = await supabase
+  const { data: existing, error: existingError } = await supabase
     .from("enrollments")
     .select("id")
     .eq("user_id", userId)
@@ -154,27 +427,28 @@ export async function persistGooglePlayPurchase({
     .limit(1)
     .maybeSingle();
 
+  if (existingError) throw existingError;
+
   if (existing?.id) {
-    await supabase
+    const { error: updateError } = await supabase
       .from("enrollments")
       .update(payload)
       .eq("id", existing.id);
 
+    if (updateError) throw updateError;
     return existing.id;
   }
 
-  const { data } = await supabase
+  const { data, error: insertError } = await supabase
     .from("enrollments")
     .insert([payload])
     .select("id")
     .single();
 
+  if (insertError) throw insertError;
   return data?.id || null;
 }
 
-/**
- * Wait until entitlement becomes active
- */
 export async function waitForGooglePlayEntitlement({
   supabase,
   userId,
@@ -185,7 +459,10 @@ export async function waitForGooglePlayEntitlement({
   const start = Date.now();
 
   while (Date.now() - start < timeoutMs) {
-    const [{ data: profile }, { data: enrollment }] = await Promise.all([
+    const [
+      { data: profile, error: profileError },
+      { data: enrollment, error: enrollmentError },
+    ] = await Promise.all([
       supabase.from("profiles").select("*").eq("id", userId).maybeSingle(),
       supabase
         .from("enrollments")
@@ -196,19 +473,22 @@ export async function waitForGooglePlayEntitlement({
         .maybeSingle(),
     ]);
 
+    if (profileError) throw profileError;
+    if (enrollmentError) throw enrollmentError;
+
     const enrollmentStatus = normalizeLower(enrollment?.status);
     const enrollmentPlan = normalizeLower(
       enrollment?.plan_key || enrollment?.plan
     );
     const profilePlan = normalizeLower(profile?.plan);
+    const expected = normalizeLower(expectedPlanKey);
 
     const unlocked =
       SUCCESS_STATUSES.has(enrollmentStatus) ||
       profile?.program_active === true ||
       profile?.is_enrolled === true ||
-      profilePlan === normalizeLower(expectedPlanKey) ||
-      (enrollmentPlan === normalizeLower(expectedPlanKey) &&
-        SUCCESS_STATUSES.has(enrollmentStatus));
+      profilePlan === expected ||
+      (enrollmentPlan === expected && SUCCESS_STATUSES.has(enrollmentStatus));
 
     if (unlocked) {
       return {
@@ -218,7 +498,7 @@ export async function waitForGooglePlayEntitlement({
       };
     }
 
-    await new Promise((r) => setTimeout(r, pollMs));
+    await new Promise((resolve) => setTimeout(resolve, pollMs));
   }
 
   return { status: "pending" };

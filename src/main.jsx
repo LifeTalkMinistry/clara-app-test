@@ -1,31 +1,16 @@
 import React from "react";
 import ReactDOM from "react-dom/client";
 import { HashRouter } from "react-router-dom";
-<<<<<<< HEAD
 import { QueryClientProvider } from "@tanstack/react-query";
-=======
->>>>>>> dffb3f4 (update)
 import { AuthProvider } from "@/context/AuthContext";
 import { queryClientInstance } from "@/lib/query-client";
 import App from "./App.jsx";
 import "./index.css";
 
-<<<<<<< HEAD
-const root = ReactDOM.createRoot(document.getElementById("root"));
-
-root.render(
-  <React.StrictMode>
-    <AuthProvider>
-      <QueryClientProvider client={queryClientInstance}>
-        <HashRouter>
-          <App />
-        </HashRouter>
-      </QueryClientProvider>
-=======
-// REMOVE direct import of cordova-plugin-purchase ❌
+// REMOVE direct import of cordova-plugin-purchase
 // import "cordova-plugin-purchase";
 
-// Safe billing setup (only when available)
+// Safe billing setup
 window.CLARA_BILLING = {
   productIds: {
     ENTRY: "clara_entry_299",
@@ -51,6 +36,7 @@ window.CLARA_BILLING = {
     return new Promise((resolve, reject) => {
       const check = () => {
         const store = window.CdvPurchase?.store || window.store;
+
         if (store) {
           resolve(store);
           return;
@@ -75,7 +61,8 @@ window.CLARA_BILLING = {
       /android/i.test(navigator.userAgent) ||
       !!window.Capacitor?.isNativePlatform?.();
 
-    // 🚨 DO NOT INIT if plugin is not ready
+    if (!isAndroid) return false;
+
     if (!window.CdvPurchase && !window.store) {
       console.warn("Billing plugin not available yet");
       return false;
@@ -87,7 +74,9 @@ window.CLARA_BILLING = {
 
     try {
       store.verbosity = store.DEBUG || 1;
-    } catch (_) {}
+    } catch (error) {
+      console.warn("Unable to set billing verbosity:", error);
+    }
 
     try {
       store.register([
@@ -95,20 +84,31 @@ window.CLARA_BILLING = {
         { id: this.productIds.CORE, type: productType, platform },
         { id: this.productIds.COACHING, type: productType, platform },
       ]);
-    } catch (err) {
-      console.error("Billing register error:", err);
+    } catch (error) {
+      console.error("Billing register error:", error);
       return false;
     }
 
     try {
-      store.when()
+      store
+        .when()
         .approved((transaction) => {
-          try { transaction.verify(); } catch {}
+          try {
+            transaction.verify();
+          } catch (error) {
+            console.warn("Transaction verify failed:", error);
+          }
         })
         .verified((receipt) => {
-          try { receipt.finish(); } catch {}
+          try {
+            receipt.finish();
+          } catch (error) {
+            console.warn("Receipt finish failed:", error);
+          }
         });
-    } catch {}
+    } catch (error) {
+      console.warn("Billing event binding failed:", error);
+    }
 
     try {
       await new Promise((resolve, reject) => {
@@ -128,17 +128,17 @@ window.CLARA_BILLING = {
           reject(new Error("Billing timeout"));
         }, 12000);
       });
-    } catch (err) {
-      console.warn("Billing init failed:", err);
+    } catch (error) {
+      console.warn("Billing init failed:", error);
       return false;
     }
 
     window.__CLARA_BILLING_READY__ = true;
     return true;
-  }
+  },
 };
 
-// SAFE auto-init
+// Safe auto-init
 (async () => {
   try {
     const isAndroid =
@@ -148,10 +148,10 @@ window.CLARA_BILLING = {
     if (isAndroid) {
       setTimeout(() => {
         window.CLARA_BILLING.init();
-      }, 1500); // delay to avoid crash
+      }, 1500);
     }
-  } catch (err) {
-    console.warn("Billing auto-init failed:", err);
+  } catch (error) {
+    console.warn("Billing auto-init failed:", error);
   }
 })();
 
@@ -164,10 +164,11 @@ if (!rootElement) {
 ReactDOM.createRoot(rootElement).render(
   <React.StrictMode>
     <AuthProvider>
-      <HashRouter>
-        <App />
-      </HashRouter>
->>>>>>> dffb3f4 (update)
+      <QueryClientProvider client={queryClientInstance}>
+        <HashRouter>
+          <App />
+        </HashRouter>
+      </QueryClientProvider>
     </AuthProvider>
   </React.StrictMode>
 );

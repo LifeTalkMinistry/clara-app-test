@@ -1,18 +1,23 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import {
+  AlertTriangle,
   ArrowLeft,
   BadgeCheck,
   CheckCircle2,
   ChevronLeft,
+  ChevronDown,
+  ChevronUp,
   Clock3,
   Gem,
   Loader2,
   Lock,
+  RefreshCw,
   ShieldCheck,
   Sparkles,
   Star,
   Target,
+  Wrench,
   Zap,
 } from "lucide-react";
 import { toast } from "sonner";
@@ -73,8 +78,8 @@ const PLAN_UI_META = {
     successCta: "Open Program",
     icon: Target,
   },
-  coaching: {
-    label: "Coaching",
+  coach: {
+    label: "Coach",
     eyebrow: "Personal Guidance",
     badge: "Premium support",
     statement:
@@ -88,7 +93,28 @@ const PLAN_UI_META = {
     accent: "from-amber-400/22 via-orange-400/10 to-transparent",
     border: "border-amber-400/20",
     button: "Unlock with Google Play",
-    successTitle: "Coaching unlocked",
+    successTitle: "Coach unlocked",
+    successBody:
+      "Your guided system and coaching layer are active. Open the journey and review your support surfaces.",
+    successCta: "View Coaching Journey",
+    icon: Gem,
+  },
+  coaching: {
+    label: "Coach",
+    eyebrow: "Personal Guidance",
+    badge: "Premium support",
+    statement:
+      "Unlock the full system plus a deeper layer of personal guidance and accountability.",
+    points: [
+      "Full 30-day guided system",
+      "Premium coaching layer",
+      "Deeper support surfaces",
+      "Built for real intervention and accountability",
+    ],
+    accent: "from-amber-400/22 via-orange-400/10 to-transparent",
+    border: "border-amber-400/20",
+    button: "Unlock with Google Play",
+    successTitle: "Coach unlocked",
     successBody:
       "Your guided system and coaching layer are active. Open the journey and review your support surfaces.",
     successCta: "View Coaching Journey",
@@ -107,12 +133,21 @@ const PENDING_STATUSES = new Set([
   "purchase_processing",
 ]);
 
+const BILLING_WARN_STATES = new Set(["diagnostic", "error"]);
+const BILLING_CHECKING_STATES = new Set(["idle", "checking"]);
+
 function normalizeText(value) {
   return String(value || "").trim();
 }
 
 function normalizeKey(value) {
   return String(value || "").trim().toLowerCase();
+}
+
+function normalizePlanUiKey(value) {
+  const key = normalizeKey(value);
+  if (key === "coaching") return "coach";
+  return key;
 }
 
 function formatPeso(value) {
@@ -137,17 +172,20 @@ function normalizeFeatures(features) {
 
 function normalizePlanRecord(row) {
   const normalizedRow = sanitizePlanRow(row);
-  const key = normalizePlanKey(
+  const rawKey = normalizePlanKey(
     normalizedRow.plan_key || normalizedRow.key || normalizedRow.name
   );
+  const key = normalizePlanUiKey(rawKey);
   const ui = PLAN_UI_META[key] || null;
 
   return {
     id: normalizedRow?.id ?? null,
     key,
+    rawKey,
     name:
       ui?.label ||
       PLAN_LABELS[key] ||
+      PLAN_LABELS[rawKey] ||
       normalizeText(normalizedRow?.name) ||
       key.toUpperCase(),
     price: Number(normalizedRow?.price || 0),
@@ -169,7 +207,7 @@ function normalizePlanRecord(row) {
     successBody:
       ui?.successBody || "Your purchase is complete and your CLARA access is ready.",
     successCta: ui?.successCta || "Open CLARA",
-    productId: getGooglePlayProductId(key),
+    productId: getGooglePlayProductId(key) || getGooglePlayProductId(rawKey),
     icon: ui?.icon || Sparkles,
     displayBenefits:
       normalizeFeatures(normalizedRow?.features).length > 0
@@ -188,7 +226,7 @@ function getPlanKeyFromEnrollment(enrollment, searchParams) {
   ];
 
   for (const item of candidates) {
-    const normalized = normalizeKey(item);
+    const normalized = normalizePlanUiKey(item);
     if (normalized) return normalized;
   }
 
@@ -196,23 +234,60 @@ function getPlanKeyFromEnrollment(enrollment, searchParams) {
 }
 
 function getSuccessDestination(planKey) {
-  const normalized = normalizeKey(planKey);
+  const normalized = normalizePlanUiKey(planKey);
   if (normalized === "entry") return "/program-onboarding";
-  if (normalized === "coaching") return "/tasks";
+  if (normalized === "coach") return "/tasks";
   return "/tasks";
+}
+
+function formatDebugError(error) {
+  const rawMessage = String(error?.message || "").trim();
+  const code = String(
+    error?.code ||
+      error?.responseCode ||
+      error?.status ||
+      error?.name ||
+      ""
+  ).trim();
+  const details = String(
+    error?.details ||
+      error?.debugMessage ||
+      error?.reason ||
+      ""
+  ).trim();
+
+  const lines = [];
+
+  if (rawMessage) lines.push(rawMessage);
+  if (code && !rawMessage.toLowerCase().includes(code.toLowerCase())) {
+    lines.push(`Code: ${code}`);
+  }
+  if (details && !rawMessage.toLowerCase().includes(details.toLowerCase())) {
+    lines.push(`Details: ${details}`);
+  }
+
+  return lines.join(" • ");
+}
+
+function isAlreadyOwnedError(error) {
+  const code = String(error?.responseCode || error?.code || "").toUpperCase();
+  const message = String(error?.message || "").toLowerCase();
+  const details = String(error?.debugMessage || error?.details || "").toLowerCase();
+
+  return (
+    code === "ITEM_ALREADY_OWNED" ||
+    message.includes("already own") ||
+    details.includes("already own")
+  );
 }
 
 function getFriendlyPurchaseError(error) {
   const message = String(error?.message || "").trim();
+  const lower = message.toLowerCase();
+  const debug = formatDebugError(error);
 
   if (!message) {
-    return "Could not complete purchase right now.";
-  }
-
-  const lower = message.toLowerCase();
-
-  if (lower.includes("billing is not available")) {
-    return "Google Play Billing is not available on this device yet. Make sure this app was installed from the Play internal testing link.";
+    return "Could not complete purchase right now. No error details were returned.";
   }
 
   if (
@@ -224,14 +299,401 @@ function getFriendlyPurchaseError(error) {
   }
 
   if (lower.includes("product") && lower.includes("not found")) {
-    return "This Google Play product is not active yet. Check Play Console product setup.";
+    return `Google Play product not found. Check that the product ID is correct and active in Play Console. ${debug}`;
+  }
+
+  if (lower.includes("offer") && lower.includes("not found")) {
+    return `No Google Play offer was found for this product. ${debug}`;
+  }
+
+  if (lower.includes("billing") && lower.includes("unavailable")) {
+    return `Google Play Billing returned unavailable. Real error: ${debug}`;
+  }
+
+  if (lower.includes("billing is not available")) {
+    return `Google Play Billing returned unavailable. Real error: ${debug}`;
   }
 
   if (lower.includes("not available on this device")) {
-    return "This device is not ready for Google Play purchases yet. Reinstall the internal testing build from Play Store and try again.";
+    return `Google Play purchase is not ready on this device yet. Review the billing diagnostics below. Real error: ${debug}`;
   }
 
-  return message;
+  if (lower.includes("store not found")) {
+    return `The purchase plugin store was not found inside the app build. Real error: ${debug}`;
+  }
+
+  if (lower.includes("cdvpurchase")) {
+    return `The purchase plugin bridge is missing in this build. Real error: ${debug}`;
+  }
+
+  if (lower.includes("already own")) {
+    return "This account already owns this item.";
+  }
+
+  return `Google Play purchase failed: ${debug}`;
+}
+
+function normalizeBillingResponseCode(code) {
+  if (typeof code === "string") {
+    const upper = code.toUpperCase().trim();
+
+    if (
+      upper === "OK" ||
+      upper === "USER_CANCELED" ||
+      upper === "SERVICE_UNAVAILABLE" ||
+      upper === "BILLING_UNAVAILABLE" ||
+      upper === "ITEM_UNAVAILABLE" ||
+      upper === "DEVELOPER_ERROR" ||
+      upper === "ERROR" ||
+      upper === "ITEM_ALREADY_OWNED" ||
+      upper === "ITEM_NOT_OWNED" ||
+      upper === "SERVICE_DISCONNECTED" ||
+      upper === "FEATURE_NOT_SUPPORTED" ||
+      upper === "SERVICE_TIMEOUT" ||
+      upper === "NETWORK_ERROR"
+    ) {
+      return upper;
+    }
+
+    return "UNKNOWN";
+  }
+
+  switch (Number(code)) {
+    case 0:
+      return "OK";
+    case 1:
+      return "USER_CANCELED";
+    case 2:
+      return "SERVICE_UNAVAILABLE";
+    case 3:
+      return "BILLING_UNAVAILABLE";
+    case 4:
+      return "ITEM_UNAVAILABLE";
+    case 5:
+      return "DEVELOPER_ERROR";
+    case 6:
+      return "ERROR";
+    case 7:
+      return "ITEM_ALREADY_OWNED";
+    case 8:
+      return "ITEM_NOT_OWNED";
+    case 12:
+      return "NETWORK_ERROR";
+    case -1:
+      return "SERVICE_DISCONNECTED";
+    case -2:
+      return "FEATURE_NOT_SUPPORTED";
+    case -3:
+      return "SERVICE_TIMEOUT";
+    default:
+      return "UNKNOWN";
+  }
+}
+
+function getBillingStatusLabel(code) {
+  switch (code) {
+    case "OK":
+      return "READY";
+    case "SERVICE_UNAVAILABLE":
+      return "SERVICE UNAVAILABLE";
+    case "BILLING_UNAVAILABLE":
+      return "BILLING UNAVAILABLE";
+    case "ITEM_UNAVAILABLE":
+      return "PRODUCT UNAVAILABLE";
+    case "DEVELOPER_ERROR":
+      return "CONFIG ISSUE";
+    case "SERVICE_DISCONNECTED":
+      return "DISCONNECTED";
+    case "FEATURE_NOT_SUPPORTED":
+      return "NOT SUPPORTED";
+    case "NETWORK_ERROR":
+      return "NETWORK ERROR";
+    case "SERVICE_TIMEOUT":
+      return "TIMEOUT";
+    case "ERROR":
+      return "ERROR";
+    case "USER_CANCELED":
+      return "CANCELLED";
+    case "ITEM_ALREADY_OWNED":
+      return "OWNED";
+    default:
+      return "NEEDS ATTENTION";
+  }
+}
+
+function formatBool(value) {
+  if (value === true) return "Yes";
+  if (value === false) return "No";
+  return "Unknown";
+}
+
+function getBillingBridge() {
+  if (typeof window === "undefined") return null;
+
+  return (
+    window?.ClaraBilling ||
+    window?.Capacitor?.Plugins?.ClaraBilling ||
+    null
+  );
+}
+
+async function probeGooglePlayBilling({ productId }) {
+  const bridge = getBillingBridge();
+
+  if (!bridge || typeof bridge.connect !== "function") {
+    return {
+      state: "diagnostic",
+      ready: false,
+      connectCode: "UNKNOWN",
+      productCode: "UNKNOWN",
+      message:
+        "Billing bridge is not wired in this build yet. The app can still render, but Google Play purchase readiness cannot be fully checked from the page.",
+      debugMessage:
+        "ClaraBilling.connect() was not found on window.ClaraBilling or window.Capacitor.Plugins.ClaraBilling.",
+      possibleCauses: [
+        "billing service unavailable on this build/device",
+        "purchase plugin bridge missing in this build",
+        "Capacitor billing plugin not registered correctly",
+      ],
+      diagnostics: {
+        hasBridge: false,
+        canConnect: false,
+        packageName: "Unknown",
+        storeAccountEmail: "Unknown",
+        isPlayStoreInstalled: null,
+        isGooglePlayServicesAvailable: null,
+        isAppFromPlay: null,
+        foundProductIds: [],
+        missingProductIds: productId ? [productId] : [],
+      },
+    };
+  }
+
+  try {
+    const connection = await bridge.connect();
+    const connectCode = normalizeBillingResponseCode(connection?.responseCode);
+
+    if (connectCode !== "OK") {
+      return {
+        state: "diagnostic",
+        ready: false,
+        connectCode,
+        productCode: "UNKNOWN",
+        message:
+          "Google Play purchases are not fully ready yet on this device.",
+        debugMessage:
+          connection?.debugMessage ||
+          connection?.details ||
+          connection?.message ||
+          "Billing connection did not return OK.",
+        possibleCauses: buildBillingPossibleCauses({
+          connectCode,
+          productCode: "UNKNOWN",
+          diagnostics: connection,
+          missingProductIds: productId ? [productId] : [],
+        }),
+        diagnostics: {
+          hasBridge: true,
+          canConnect: true,
+          packageName: connection?.packageName || "Unknown",
+          storeAccountEmail: connection?.storeAccountEmail || "Unknown",
+          isPlayStoreInstalled: connection?.isPlayStoreInstalled ?? null,
+          isGooglePlayServicesAvailable:
+            connection?.isGooglePlayServicesAvailable ?? null,
+          isAppFromPlay: connection?.isAppFromPlay ?? null,
+          foundProductIds: [],
+          missingProductIds: productId ? [productId] : [],
+          rawConnection: connection,
+        },
+      };
+    }
+
+    if (!productId || typeof bridge.queryProducts !== "function") {
+      return {
+        state: "ready",
+        ready: true,
+        connectCode,
+        productCode: "OK",
+        message: "Google Play purchases look ready on this device.",
+        debugMessage:
+          connection?.debugMessage ||
+          "Billing connection completed successfully.",
+        possibleCauses: [],
+        diagnostics: {
+          hasBridge: true,
+          canConnect: true,
+          packageName: connection?.packageName || "Unknown",
+          storeAccountEmail: connection?.storeAccountEmail || "Unknown",
+          isPlayStoreInstalled: connection?.isPlayStoreInstalled ?? null,
+          isGooglePlayServicesAvailable:
+            connection?.isGooglePlayServicesAvailable ?? null,
+          isAppFromPlay: connection?.isAppFromPlay ?? null,
+          foundProductIds: productId ? [productId] : [],
+          missingProductIds: [],
+          rawConnection: connection,
+        },
+      };
+    }
+
+    const productResult = await bridge.queryProducts({ productIds: [productId] });
+    const productCode = normalizeBillingResponseCode(productResult?.responseCode);
+    const foundProductIds = Array.isArray(productResult?.foundProductIds)
+      ? productResult.foundProductIds
+      : [];
+    const missingProductIds = Array.isArray(productResult?.missingProductIds)
+      ? productResult.missingProductIds
+      : foundProductIds.includes(productId)
+        ? []
+        : [productId];
+
+    const ready =
+      productCode === "OK" &&
+      (missingProductIds.length === 0 ||
+        foundProductIds.includes(productId) ||
+        productResult?.ok === true);
+
+    if (ready) {
+      return {
+        state: "ready",
+        ready: true,
+        connectCode,
+        productCode,
+        message: "Google Play purchases look ready on this device.",
+        debugMessage:
+          productResult?.debugMessage ||
+          connection?.debugMessage ||
+          "Billing connection and product lookup completed successfully.",
+        possibleCauses: [],
+        diagnostics: {
+          hasBridge: true,
+          canConnect: true,
+          packageName: connection?.packageName || "Unknown",
+          storeAccountEmail: connection?.storeAccountEmail || "Unknown",
+          isPlayStoreInstalled: connection?.isPlayStoreInstalled ?? null,
+          isGooglePlayServicesAvailable:
+            connection?.isGooglePlayServicesAvailable ?? null,
+          isAppFromPlay: connection?.isAppFromPlay ?? null,
+          foundProductIds,
+          missingProductIds: [],
+          rawConnection: connection,
+          rawProductResult: productResult,
+        },
+      };
+    }
+
+    return {
+      state: "diagnostic",
+      ready: false,
+      connectCode,
+      productCode,
+      message:
+        "Google Play billing connected, but purchase readiness still needs attention.",
+      debugMessage:
+        productResult?.debugMessage ||
+        connection?.debugMessage ||
+        "Product readiness did not return fully ready.",
+      possibleCauses: buildBillingPossibleCauses({
+        connectCode,
+        productCode,
+        diagnostics: connection,
+        missingProductIds,
+      }),
+      diagnostics: {
+        hasBridge: true,
+        canConnect: true,
+        packageName: connection?.packageName || "Unknown",
+        storeAccountEmail: connection?.storeAccountEmail || "Unknown",
+        isPlayStoreInstalled: connection?.isPlayStoreInstalled ?? null,
+        isGooglePlayServicesAvailable:
+          connection?.isGooglePlayServicesAvailable ?? null,
+        isAppFromPlay: connection?.isAppFromPlay ?? null,
+        foundProductIds,
+        missingProductIds,
+        rawConnection: connection,
+        rawProductResult: productResult,
+      },
+    };
+  } catch (error) {
+    return {
+      state: "error",
+      ready: false,
+      connectCode: normalizeBillingResponseCode(
+        error?.responseCode || error?.code
+      ),
+      productCode: "UNKNOWN",
+      message:
+        "The billing diagnostic check ran into an unexpected error.",
+      debugMessage: formatDebugError(error),
+      possibleCauses: buildBillingPossibleCauses({
+        connectCode: normalizeBillingResponseCode(
+          error?.responseCode || error?.code
+        ),
+        productCode: "UNKNOWN",
+        diagnostics: {},
+        missingProductIds: productId ? [productId] : [],
+      }),
+      diagnostics: {
+        hasBridge: true,
+        canConnect: true,
+        packageName: "Unknown",
+        storeAccountEmail: "Unknown",
+        isPlayStoreInstalled: null,
+        isGooglePlayServicesAvailable: null,
+        isAppFromPlay: null,
+        foundProductIds: [],
+        missingProductIds: productId ? [productId] : [],
+      },
+    };
+  }
+}
+
+function buildBillingPossibleCauses({
+  connectCode,
+  productCode,
+  diagnostics,
+  missingProductIds = [],
+}) {
+  const causes = new Set();
+
+  if (diagnostics?.isAppFromPlay === false) {
+    causes.add("app not installed from Play test track");
+  }
+
+  if (diagnostics?.isPlayStoreInstalled === false) {
+    causes.add("Play Store is not available on this device");
+  }
+
+  if (diagnostics?.isGooglePlayServicesAvailable === false) {
+    causes.add("Google Play Services is unavailable or outdated");
+  }
+
+  if (
+    connectCode === "BILLING_UNAVAILABLE" ||
+    connectCode === "SERVICE_UNAVAILABLE" ||
+    connectCode === "SERVICE_DISCONNECTED" ||
+    connectCode === "FEATURE_NOT_SUPPORTED" ||
+    connectCode === "UNKNOWN" ||
+    connectCode === "ERROR"
+  ) {
+    causes.add("tester account not opted in");
+    causes.add("tester account not listed in License Testing");
+    causes.add("wrong Google account on the device");
+    causes.add("Play Store cache/data outdated");
+    causes.add("billing service unavailable on this build/device");
+  }
+
+  if (
+    productCode === "ITEM_UNAVAILABLE" ||
+    (Array.isArray(missingProductIds) && missingProductIds.length > 0)
+  ) {
+    causes.add("product may not be active for this testing setup");
+  }
+
+  if (connectCode === "DEVELOPER_ERROR") {
+    causes.add("billing configuration mismatch in app or Play Console");
+  }
+
+  return Array.from(causes);
 }
 
 function SelectionCard({ plan, selected, onSelect }) {
@@ -289,6 +751,211 @@ function SelectionCard({ plan, selected, onSelect }) {
   );
 }
 
+function BillingDiagnosticCard({
+  billingMonitor,
+  billingDebugOpen,
+  setBillingDebugOpen,
+  onRefresh,
+  refreshing,
+  productId,
+}) {
+  const state = billingMonitor?.state || "idle";
+  const connectCode = billingMonitor?.connectCode || "UNKNOWN";
+  const productCode = billingMonitor?.productCode || "UNKNOWN";
+
+  const badgeClasses =
+    state === "ready"
+      ? "border-emerald-400/20 bg-emerald-500/10 text-emerald-200"
+      : state === "checking"
+        ? "border-sky-400/20 bg-sky-500/10 text-sky-200"
+        : "border-amber-400/20 bg-amber-500/10 text-amber-200";
+
+  const headline =
+    state === "ready"
+      ? "Google Play purchases look ready on this device."
+      : state === "checking"
+        ? "Checking Google Play billing readiness..."
+        : state === "error"
+          ? "Billing diagnostic check hit an unexpected error."
+          : "Google Play purchases are not fully ready yet on this device.";
+
+  const body =
+    state === "ready"
+      ? "The app was able to check billing without relying on install-source assumptions. You can continue with the purchase flow."
+      : state === "checking"
+        ? "Connecting to Google Play and checking billing availability."
+        : billingMonitor?.message ||
+          "This does not automatically mean the app is broken. It usually points to a tester, account, track, cache, or device readiness issue.";
+
+  return (
+    <div className="mb-5 rounded-[30px] border border-white/10 bg-white/[0.04] p-5 backdrop-blur-2xl">
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div className="max-w-2xl">
+          <div className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-black/20 px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.18em] text-white/65">
+            <ShieldCheck className="h-3.5 w-3.5" />
+            Billing Diagnostic
+          </div>
+
+          <h3 className="mt-4 text-xl font-semibold text-white">{headline}</h3>
+          <p className="mt-2 text-sm leading-7 text-white/72">{body}</p>
+        </div>
+
+        <div
+          className={`rounded-full border px-3 py-2 text-[11px] font-semibold uppercase tracking-[0.16em] ${badgeClasses}`}
+        >
+          {state === "ready"
+            ? "Ready"
+            : state === "checking"
+              ? "Checking"
+              : getBillingStatusLabel(connectCode)}
+        </div>
+      </div>
+
+      {BILLING_WARN_STATES.has(state) &&
+      Array.isArray(billingMonitor?.possibleCauses) &&
+      billingMonitor.possibleCauses.length > 0 ? (
+        <div className="mt-5 rounded-[24px] border border-amber-400/15 bg-amber-500/5 p-4">
+          <div className="flex items-center gap-2">
+            <AlertTriangle className="h-4 w-4 text-amber-300" />
+            <p className="text-[11px] uppercase tracking-[0.18em] text-amber-200/80">
+              Possible causes
+            </p>
+          </div>
+
+          <div className="mt-3 grid gap-2 sm:grid-cols-2">
+            {billingMonitor.possibleCauses.map((cause, index) => (
+              <div
+                key={`${cause}-${index}`}
+                className="rounded-2xl border border-white/10 bg-black/20 px-3 py-3 text-sm text-white/75"
+              >
+                {cause}
+              </div>
+            ))}
+          </div>
+        </div>
+      ) : null}
+
+      <div className="mt-5 flex flex-wrap items-center gap-3">
+        <Button
+          type="button"
+          onClick={onRefresh}
+          disabled={refreshing}
+          className="h-11 rounded-2xl"
+        >
+          {refreshing ? (
+            <>
+              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              Re-checking...
+            </>
+          ) : (
+            <>
+              <RefreshCw className="mr-2 h-4 w-4" />
+              Re-check billing
+            </>
+          )}
+        </Button>
+
+        <Button
+          type="button"
+          variant="outline"
+          onClick={() => setBillingDebugOpen((prev) => !prev)}
+          className="h-11 rounded-2xl border-white/10 bg-white/5 text-white hover:bg-white/10"
+        >
+          {billingDebugOpen ? (
+            <>
+              <ChevronUp className="mr-2 h-4 w-4" />
+              Hide debug
+            </>
+          ) : (
+            <>
+              <ChevronDown className="mr-2 h-4 w-4" />
+              Show debug
+            </>
+          )}
+        </Button>
+      </div>
+
+      {billingDebugOpen ? (
+        <div className="mt-5 rounded-[24px] border border-white/10 bg-black/20 p-4">
+          <div className="flex items-center gap-2">
+            <Wrench className="h-4 w-4 text-white/65" />
+            <p className="text-[11px] uppercase tracking-[0.18em] text-white/50">
+              Developer status block
+            </p>
+          </div>
+
+          <div className="mt-4 grid gap-3 sm:grid-cols-2">
+            <DebugRow label="Monitor state" value={state} />
+            <DebugRow label="Connect code" value={`${connectCode}`} />
+            <DebugRow label="Product code" value={`${productCode}`} />
+            <DebugRow label="Product ID" value={productId || "—"} />
+            <DebugRow
+              label="Package name"
+              value={billingMonitor?.diagnostics?.packageName || "Unknown"}
+            />
+            <DebugRow
+              label="Store account"
+              value={billingMonitor?.diagnostics?.storeAccountEmail || "Unknown"}
+            />
+            <DebugRow
+              label="Play Store installed"
+              value={formatBool(
+                billingMonitor?.diagnostics?.isPlayStoreInstalled
+              )}
+            />
+            <DebugRow
+              label="Play Services available"
+              value={formatBool(
+                billingMonitor?.diagnostics?.isGooglePlayServicesAvailable
+              )}
+            />
+            <DebugRow
+              label="Installed from Play"
+              value={formatBool(billingMonitor?.diagnostics?.isAppFromPlay)}
+            />
+            <DebugRow
+              label="Found product IDs"
+              value={
+                billingMonitor?.diagnostics?.foundProductIds?.length
+                  ? billingMonitor.diagnostics.foundProductIds.join(", ")
+                  : "—"
+              }
+            />
+            <DebugRow
+              label="Missing product IDs"
+              value={
+                billingMonitor?.diagnostics?.missingProductIds?.length
+                  ? billingMonitor.diagnostics.missingProductIds.join(", ")
+                  : "—"
+              }
+            />
+            <DebugRow
+              label="Debug details"
+              value={billingMonitor?.debugMessage || "—"}
+              wide
+            />
+          </div>
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
+function DebugRow({ label, value, wide = false }) {
+  return (
+    <div
+      className={`rounded-2xl border border-white/10 bg-white/[0.03] p-3 ${
+        wide ? "sm:col-span-2" : ""
+      }`}
+    >
+      <p className="text-[11px] uppercase tracking-[0.16em] text-white/40">
+        {label}
+      </p>
+      <p className="mt-2 break-words text-sm text-white/80">{value}</p>
+    </div>
+  );
+}
+
 export default function Enroll() {
   const { user, refreshUser } = useUserRole();
   const navigate = useNavigate();
@@ -302,6 +969,30 @@ export default function Enroll() {
   const [purchaseMessage, setPurchaseMessage] = useState("");
   const [activePurchasePlan, setActivePurchasePlan] = useState("");
   const [pageError, setPageError] = useState("");
+  const [debugError, setDebugError] = useState("");
+
+  const [billingMonitor, setBillingMonitor] = useState({
+    state: "idle",
+    ready: false,
+    connectCode: "UNKNOWN",
+    productCode: "UNKNOWN",
+    message: "",
+    debugMessage: "",
+    possibleCauses: [],
+    diagnostics: {
+      hasBridge: false,
+      canConnect: false,
+      packageName: "Unknown",
+      storeAccountEmail: "Unknown",
+      isPlayStoreInstalled: null,
+      isGooglePlayServicesAvailable: null,
+      isAppFromPlay: null,
+      foundProductIds: [],
+      missingProductIds: [],
+    },
+  });
+  const [billingRefreshing, setBillingRefreshing] = useState(false);
+  const [billingDebugOpen, setBillingDebugOpen] = useState(false);
 
   const fetchPlans = useCallback(async () => {
     const { data, error } = await supabase
@@ -348,12 +1039,15 @@ export default function Enroll() {
 
     setLoading(true);
     setPageError("");
+    setDebugError("");
 
     try {
       await Promise.all([fetchPlans(), fetchEnrollment()]);
     } catch (error) {
       console.error("Failed to load Google Play purchase flow:", error);
+      const debug = formatDebugError(error);
       setPageError("Could not load plans right now.");
+      setDebugError(debug);
       toast.error("Could not load plans right now.");
     } finally {
       setLoading(false);
@@ -378,25 +1072,33 @@ export default function Enroll() {
     });
   }, [plans]);
 
-  const selectedPlanKey = normalizeKey(searchParams.get("plan") || enrollmentPlanKey);
+  const selectedPlanKey = normalizePlanUiKey(
+    searchParams.get("plan") || enrollmentPlanKey
+  );
   const view = searchParams.get("view") || (selectedPlanKey ? "detail" : "select");
 
   const selectedPlan = useMemo(() => {
     return (
-      sortedPlans.find((plan) => normalizeKey(plan.key) === selectedPlanKey) || null
+      sortedPlans.find((plan) => normalizePlanUiKey(plan.key) === selectedPlanKey) ||
+      null
     );
   }, [selectedPlanKey, sortedPlans]);
 
   const unlockedPlan = useMemo(() => {
     if (!SUCCESS_STATUSES.has(currentStatus)) return null;
     return (
-      sortedPlans.find((plan) => normalizeKey(plan.key) === enrollmentPlanKey) ||
-      selectedPlan
+      sortedPlans.find(
+        (plan) => normalizePlanUiKey(plan.key) === normalizePlanUiKey(enrollmentPlanKey)
+      ) || selectedPlan
     );
   }, [currentStatus, enrollmentPlanKey, selectedPlan, sortedPlans]);
 
   const activePurchasePlanMeta = useMemo(() => {
-    return sortedPlans.find((plan) => plan.key === activePurchasePlan) || null;
+    return (
+      sortedPlans.find(
+        (plan) => normalizePlanUiKey(plan.key) === normalizePlanUiKey(activePurchasePlan)
+      ) || null
+    );
   }, [activePurchasePlan, sortedPlans]);
 
   const purchaseStatusMeta = useMemo(() => {
@@ -417,7 +1119,7 @@ export default function Enroll() {
     if (purchaseState === "pending") {
       return {
         title: "Purchase received",
-        body: "Google Play completed the purchase. Your access is still syncing in the background.",
+        body: "Google Play ownership is confirmed. Your access is still syncing in the background.",
       };
     }
 
@@ -431,10 +1133,68 @@ export default function Enroll() {
     purchaseState === "verifying" ||
     purchaseState === "pending";
 
+  const shouldShowBillingCard =
+    view === "detail" && selectedPlan && !showSuccess && !showProcessing;
+
+  const runBillingProbe = useCallback(
+    async (plan) => {
+      const targetPlan = plan || selectedPlan;
+
+      if (!targetPlan?.productId) {
+        setBillingMonitor({
+          state: "diagnostic",
+          ready: false,
+          connectCode: "UNKNOWN",
+          productCode: "UNKNOWN",
+          message: "No Google Play product ID was found for this plan yet.",
+          debugMessage:
+            "selectedPlan.productId is missing. Check getGooglePlayProductId(planKey).",
+          possibleCauses: [
+            "billing configuration mismatch in app or Play Console",
+            "product may not be active for this testing setup",
+          ],
+          diagnostics: {
+            hasBridge: false,
+            canConnect: false,
+            packageName: "Unknown",
+            storeAccountEmail: "Unknown",
+            isPlayStoreInstalled: null,
+            isGooglePlayServicesAvailable: null,
+            isAppFromPlay: null,
+            foundProductIds: [],
+            missingProductIds: [],
+          },
+        });
+        return null;
+      }
+
+      setBillingRefreshing(true);
+      setBillingMonitor((prev) => ({
+        ...prev,
+        state: "checking",
+        message: "Checking Google Play billing readiness...",
+      }));
+
+      const result = await probeGooglePlayBilling({
+        productId: targetPlan.productId,
+      });
+
+      setBillingMonitor(result);
+      setBillingRefreshing(false);
+      return result;
+    },
+    [selectedPlan]
+  );
+
+  useEffect(() => {
+    if (!shouldShowBillingCard) return;
+    runBillingProbe(selectedPlan);
+  }, [shouldShowBillingCard, selectedPlan, runBillingProbe]);
+
   function updateSearch(nextPlan, nextView = "detail") {
     const next = new URLSearchParams(searchParams);
 
-    if (nextPlan) next.set("plan", normalizeKey(nextPlan));
+    if (nextPlan) next.set("plan", normalizePlanUiKey(nextPlan));
     else next.delete("plan");
 
     if (nextView) next.set("view", nextView);
@@ -446,20 +1206,120 @@ export default function Enroll() {
   function handlePlanSelect(planKey) {
     if (purchaseBusy) return;
     updateSearch(planKey, "detail");
+    setPageError("");
+    setDebugError("");
   }
 
   async function handleRefreshAccess() {
     try {
       setRefreshingAccess(true);
+      setDebugError("");
       await fetchEnrollment();
       await refreshUser?.();
       toast.success("Access refreshed");
     } catch (error) {
       console.error("Failed to refresh access:", error);
+      const debug = formatDebugError(error);
+      setDebugError(debug);
       toast.error("Could not refresh access right now.");
     } finally {
       setRefreshingAccess(false);
     }
+  }
+
+  async function activateGooglePlayPurchase({
+    userId,
+    planKey,
+    productId,
+    purchaseToken,
+    orderId,
+  }) {
+    const functionUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/verify-google-play`;
+
+    const response = await fetch(functionUrl, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`,
+      },
+      body: JSON.stringify({
+        userId,
+        planKey,
+        productId,
+        purchaseToken: purchaseToken || null,
+        orderId: orderId || null,
+      }),
+    });
+
+    let payload = null;
+
+    try {
+      payload = await response.json();
+    } catch {
+      payload = null;
+    }
+
+    if (!response.ok) {
+      throw new Error(
+        payload?.error ||
+          payload?.message ||
+          "Supabase activation function failed."
+      );
+    }
+
+    return payload;
+  }
+
+  async function finalizeOwnedOrPurchasedPlan({
+    plan,
+    purchaseToken = "",
+    orderId = "",
+    bridgePayload = null,
+  }) {
+    const userId = user.id;
+    const planKey = plan.key;
+    const productId = plan.productId;
+
+    await persistGooglePlayPurchase({
+      supabase,
+      userId,
+      planKey,
+      productId,
+      purchaseToken,
+      orderId,
+      bridgePayload,
+    });
+
+    await activateGooglePlayPurchase({
+      userId,
+      planKey,
+      productId,
+      purchaseToken,
+      orderId,
+    });
+
+    const entitlement = await waitForGooglePlayEntitlement({
+      supabase,
+      userId,
+      expectedPlanKey: planKey,
+    });
+
+    await fetchEnrollment();
+    await refreshUser?.();
+
+    if (normalizeKey(entitlement?.status) === "active") {
+      setPurchaseState("success");
+      setPurchaseMessage(plan.successBody);
+      toast.success(`${plan.name} unlocked`);
+      return true;
+    }
+
+    setPurchaseState("pending");
+    setPurchaseMessage(
+      "Your Google Play ownership is confirmed. Access is still syncing and should unlock shortly."
+    );
+    toast.message("Ownership confirmed. Syncing access...");
+    return false;
   }
 
   async function handlePurchase(plan) {
@@ -467,16 +1327,60 @@ export default function Enroll() {
 
     try {
       setPageError("");
-      setActivePurchasePlan(plan.key);
-      setPurchaseState("processing");
+      setDebugError("");
       setPurchaseMessage("");
+      setActivePurchasePlan(plan.key);
 
-      const purchase = await launchGooglePlayPurchase({
-        productId: plan.productId,
-        planKey: plan.key,
-        userId: user.id,
-        userEmail: user.email,
-      });
+      const billingResult = await runBillingProbe(plan);
+
+      if (!billingResult?.ready) {
+        setPageError(
+          "Google Play billing is not fully ready yet. Review the diagnostic block below before trying again."
+        );
+        setDebugError(
+          billingResult?.debugMessage || "Billing readiness check failed."
+        );
+        setActivePurchasePlan("");
+        setPurchaseState("idle");
+        return;
+      }
+
+      setPurchaseState("processing");
+
+      let purchase = null;
+
+      try {
+        purchase = await launchGooglePlayPurchase({
+          productId: plan.productId,
+          planKey: plan.key,
+          userId: user.id,
+          userEmail: user.email,
+        });
+      } catch (error) {
+        if (isAlreadyOwnedError(error)) {
+          setPurchaseState("verifying");
+          setPurchaseMessage(
+            "This Google account already owns this item. Restoring your access now."
+          );
+
+          await finalizeOwnedOrPurchasedPlan({
+            plan,
+            purchaseToken: "",
+            orderId: "",
+            bridgePayload: {
+              restoredFromOwnedState: true,
+              responseCode:
+                error?.responseCode || error?.code || "ITEM_ALREADY_OWNED",
+              message: error?.message || "Already owned",
+              debugMessage: error?.debugMessage || error?.details || "",
+            },
+          });
+
+          return;
+        }
+
+        throw error;
+      }
 
       if (purchase?.cancelled) {
         setPurchaseState("idle");
@@ -492,40 +1396,17 @@ export default function Enroll() {
 
       setPurchaseState("verifying");
 
-      await persistGooglePlayPurchase({
-        supabase,
-        userId: user.id,
-        planKey: plan.key,
-        productId: plan.productId,
+      await finalizeOwnedOrPurchasedPlan({
+        plan,
         purchaseToken: purchase.purchaseToken,
         orderId: purchase.orderId,
         bridgePayload: purchase.raw,
       });
-
-      const entitlement = await waitForGooglePlayEntitlement({
-        supabase,
-        userId: user.id,
-        expectedPlanKey: plan.key,
-      });
-
-      await fetchEnrollment();
-      await refreshUser?.();
-
-      if (normalizeKey(entitlement?.status) === "active") {
-        setPurchaseState("success");
-        setPurchaseMessage(plan.successBody);
-        toast.success(`${plan.name} unlocked`);
-        return;
-      }
-
-      setPurchaseState("pending");
-      setPurchaseMessage(
-        "Your purchase is complete. Access is still syncing and should unlock shortly."
-      );
-      toast.message("Purchase received. Syncing access...");
     } catch (error) {
       console.error("Google Play purchase failed:", error);
+
       const friendlyMessage = getFriendlyPurchaseError(error);
+      const debug = formatDebugError(error);
 
       if (friendlyMessage === "Purchase cancelled.") {
         setPurchaseState("idle");
@@ -536,9 +1417,11 @@ export default function Enroll() {
       }
 
       setPurchaseState("idle");
+      setActivePurchasePlan("");
       setPurchaseMessage("");
       setPageError(friendlyMessage);
-      toast.error(friendlyMessage);
+      setDebugError(debug);
+      toast.error("Google Play purchase failed");
     }
   }
 
@@ -578,7 +1461,9 @@ export default function Enroll() {
             ) : (
               <ArrowLeft className="mr-2 h-4 w-4" />
             )}
-            {view === "detail" && !showProcessing && !showSuccess ? "Plans" : "Back"}
+            {view === "detail" && !showProcessing && !showSuccess
+              ? "Plans"
+              : "Back"}
           </Button>
 
           <div className="rounded-full border border-white/10 bg-white/5 px-4 py-2 text-xs uppercase tracking-[0.2em] text-white/60">
@@ -587,8 +1472,17 @@ export default function Enroll() {
         </div>
 
         {pageError ? (
-          <div className="mb-6 rounded-[28px] border border-red-400/20 bg-red-500/10 p-4 text-sm text-red-200 backdrop-blur-xl">
+          <div className="mb-4 rounded-[28px] border border-red-400/20 bg-red-500/10 p-4 text-sm text-red-200 backdrop-blur-xl">
             {pageError}
+          </div>
+        ) : null}
+
+        {debugError ? (
+          <div className="mb-6 rounded-[28px] border border-amber-400/20 bg-amber-500/10 p-4 text-xs leading-6 text-amber-100 backdrop-blur-xl break-words">
+            <span className="font-semibold uppercase tracking-[0.16em] text-amber-200/80">
+              Debug details
+            </span>
+            <div className="mt-2">{debugError}</div>
           </div>
         ) : null}
 
@@ -603,7 +1497,7 @@ export default function Enroll() {
                   Choose your next level with less friction
                 </h1>
                 <p className="mt-3 text-sm leading-7 text-white/70 sm:text-base">
-                  Pick Entry, Core, or Coaching, review one focused plan page, and
+                  Pick Entry, Core, or Coach, review one focused plan page, and
                   unlock through Google Play without the old proof-upload flow.
                 </p>
               </div>
@@ -664,7 +1558,9 @@ export default function Enroll() {
               <Button
                 className="h-12 flex-1 rounded-2xl"
                 onClick={() =>
-                  navigate(getSuccessDestination((unlockedPlan || selectedPlan)?.key))
+                  navigate(
+                    getSuccessDestination((unlockedPlan || selectedPlan)?.key)
+                  )
                 }
               >
                 {(unlockedPlan || selectedPlan)?.successCta || "Open CLARA"}
@@ -737,6 +1633,15 @@ export default function Enroll() {
           </div>
         ) : view === "detail" && selectedPlan ? (
           <div className="mx-auto max-w-3xl">
+            <BillingDiagnosticCard
+              billingMonitor={billingMonitor}
+              billingDebugOpen={billingDebugOpen}
+              setBillingDebugOpen={setBillingDebugOpen}
+              onRefresh={() => runBillingProbe(selectedPlan)}
+              refreshing={billingRefreshing}
+              productId={selectedPlan.productId}
+            />
+
             <div
               className={`rounded-[32px] border ${selectedPlan.border} bg-white/[0.04] shadow-[0_20px_50px_rgba(0,0,0,0.24)] backdrop-blur-2xl`}
             >
@@ -825,6 +1730,18 @@ export default function Enroll() {
                     </p>
                   </div>
                 </div>
+
+                {BILLING_CHECKING_STATES.has(billingMonitor.state) ? (
+                  <div className="rounded-[24px] border border-sky-400/15 bg-sky-500/5 p-4 text-sm text-sky-100">
+                    Checking billing readiness for this plan...
+                  </div>
+                ) : null}
+
+                {BILLING_WARN_STATES.has(billingMonitor.state) ? (
+                  <div className="rounded-[24px] border border-amber-400/15 bg-amber-500/5 p-4 text-sm leading-7 text-amber-100">
+                    Google Play billing is not fully ready yet. This is now treated as a diagnostic state instead of a hard-coded install-source failure.
+                  </div>
+                ) : null}
               </div>
             </div>
 
@@ -842,12 +1759,19 @@ export default function Enroll() {
                 <Button
                   className="h-12 rounded-2xl px-5"
                   onClick={() => handlePurchase(selectedPlan)}
-                  disabled={purchaseBusy}
+                  disabled={purchaseBusy || billingRefreshing}
                 >
-                  {purchaseBusy && activePurchasePlan === selectedPlan.key ? (
+                  {purchaseBusy &&
+                  normalizePlanUiKey(activePurchasePlan) ===
+                    normalizePlanUiKey(selectedPlan.key) ? (
                     <>
                       <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                       Processing...
+                    </>
+                  ) : billingRefreshing ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Checking...
                     </>
                   ) : (
                     <>
@@ -896,7 +1820,7 @@ export default function Enroll() {
                 <SelectionCard
                   key={plan.id || plan.key}
                   plan={plan}
-                  selected={plan.key === selectedPlanKey}
+                  selected={normalizePlanUiKey(plan.key) === selectedPlanKey}
                   onSelect={handlePlanSelect}
                 />
               ))}
@@ -905,7 +1829,7 @@ export default function Enroll() {
             {sortedPlans.length === 0 ? (
               <div className="rounded-3xl border border-white/10 bg-white/5 p-5 text-sm text-white/70 backdrop-blur-xl">
                 No Google Play plans are active yet. Activate Entry, Core, or
-                Coaching from admin first.
+                Coach from admin first.
               </div>
             ) : null}
           </div>
