@@ -11,7 +11,7 @@ import {
 } from "@/lib/admin-panel-utils";
 import { UNIVERSAL_ONBOARDING_SETTINGS_DEFAULTS } from "@/lib/universal-onboarding-content";
 
-const SETTINGS_BUCKET = "settings";
+const SETTINGS_BUCKET = "onboarding-images";
 
 const PAYMENT_SETTINGS_DEFAULTS = {
   gcash_number: "09858410403",
@@ -93,6 +93,8 @@ export default function AdminSettings() {
     if (!file) return;
 
     try {
+      setErrorText("");
+
       const url = await uploadPublicFile({
         bucket: SETTINGS_BUCKET,
         file,
@@ -184,6 +186,7 @@ export default function AdminSettings() {
 
         <Input
           type="file"
+          accept="image/*"
           onChange={(event) => handleImageUpload(event, "gcash_qr_url", "qr/gcash_qr_url")}
         />
         {settings.gcash_qr_url ? (
@@ -216,6 +219,7 @@ export default function AdminSettings() {
 
         <Input
           type="file"
+          accept="image/*"
           onChange={(event) => handleImageUpload(event, "bank_qr_url", "qr/bank_qr_url")}
         />
         {settings.bank_qr_url ? (

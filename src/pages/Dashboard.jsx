@@ -183,6 +183,32 @@ function persistDashboardPrefs(userId, updates) {
   }
 }
 
+function getSettingsStorageKey(userId) {
+  return `clara_settings_${userId || "guest"}`;
+}
+
+function readStoredNotificationSettings(userId) {
+  const defaults = {
+    dailyReminders: true,
+    productUpdates: true,
+    coachingAlerts: true,
+  };
+
+  if (!userId) return defaults;
+
+  try {
+    const raw = localStorage.getItem(getSettingsStorageKey(userId));
+    const parsed = raw ? JSON.parse(raw) : {};
+    return {
+      ...defaults,
+      ...(parsed?.notifications || {}),
+    };
+  } catch (error) {
+    console.error("Failed to read notification settings:", error);
+    return defaults;
+  }
+}
+
 function readStoredSurvivalExpense() {
   try {
     const direct = Number(localStorage.getItem("monthly_survival_expense"));
@@ -200,6 +226,53 @@ function readStoredSurvivalExpense() {
 
   return 0;
 }
+
+const getProgramPromptSessionKey = (userId, bubble) => {
+  const safeUserId = normalizeString(userId || "guest");
+  const bubbleSignature = [
+    normalizeString(bubble?.kind),
+    normalizeString(bubble?.action),
+    normalizeString(bubble?.href),
+    normalizeString(bubble?.title),
+    normalizeString(bubble?.body),
+    normalizeString(bubble?.ctaLabel),
+  ]
+    .filter(Boolean)
+    .join("||");
+
+  return `clara_program_prompt_seen_session_${safeUserId}_${bubbleSignature || "default"}`;
+};
+
+const readProgramPromptSeenThisSession = (userId, bubble) => {
+  if (!userId || !bubble) return false;
+
+  try {
+    return sessionStorage.getItem(getProgramPromptSessionKey(userId, bubble)) === "true";
+  } catch (error) {
+    console.error("Failed to read program prompt session state:", error);
+    return false;
+  }
+};
+
+const persistProgramPromptSeenThisSession = (userId, bubble) => {
+  if (!userId || !bubble) return;
+
+  try {
+    sessionStorage.setItem(getProgramPromptSessionKey(userId, bubble), "true");
+  } catch (error) {
+    console.error("Failed to save program prompt session state:", error);
+  }
+};
+
+const clearProgramPromptSeenThisSession = (userId, bubble) => {
+  if (!userId || !bubble) return;
+
+  try {
+    sessionStorage.removeItem(getProgramPromptSessionKey(userId, bubble));
+  } catch (error) {
+    console.error("Failed to clear program prompt session state:", error);
+  }
+};
 
 const isProgramApproved = (profile, isPaid, enrollmentRecord = null) => {
   const status = normalizeLower(profile?.status);
@@ -320,7 +393,9 @@ let dashboardPageInFlight = null;
 
 export default function Dashboard() {
   const navigate = useNavigate();
-  const { user, plan, isAdvertiser, isPaid, isFree, isPending, refreshUser } = useUserRole();
+  const { user, plan, isAdvertiser, isPaid, isFree, isPending, refreshUser } =
+    useUserRole();
+
   const userId = user?.id || null;
   const userEmail = user?.email || null;
   const cacheKey = userId || userEmail || null;
@@ -345,7 +420,8 @@ export default function Dashboard() {
   const [guardChecked, setGuardChecked] = useState(initialCache.guardChecked);
 
   const [showProgramStart, setShowProgramStart] = useState(false);
-  const [programBubbleDismissed, setProgramBubbleDismissed] = useState(false);
+  const [programPromptSeenThisSession, setProgramPromptSeenThisSession] =
+    useState(false);
   const [showOnboarding, setShowOnboarding] = useState(false);
   const [onboardingStep, setOnboardingStep] = useState(0);
   const [savingOnboarding, setSavingOnboarding] = useState(false);
@@ -353,6 +429,11 @@ export default function Dashboard() {
   const [nickname, setNickname] = useState(initialCache.nickname);
   const [reminderTime, setReminderTime] = useState(initialCache.reminderTime);
   const [financialGoal, setFinancialGoal] = useState(initialCache.financialGoal);
+  const [notificationSettings, setNotificationSettings] = useState(() =>
+    readStoredNotificationSettings(userId)
+  );
+
+  const dailyRemindersEnabled = notificationSettings?.dailyReminders !== false;
 
   const refreshTimeoutRef = useRef(null);
   const trackedViewIdsRef = useRef(new Set());
@@ -360,7 +441,6 @@ export default function Dashboard() {
   const clickInFlightIdsRef = useRef(new Set());
   const approvalTriggeredRef = useRef(false);
   const hasLoadedDashboardRef = useRef(false);
-  const showOnboardingRef = useRef(false);
   const latestEnrollmentRef = useRef(null);
   const isPaidRef = useRef(isPaid);
 
@@ -399,6 +479,75 @@ export default function Dashboard() {
     setGuardChecked(false);
     setLoading(true);
   }, [cacheKey, hydrateFromCache]);
+
+  useEffect(() => {
+    setNotificationSettings(readStoredNotificationSettings(userId));
+  }, [userId]);
+
+  useEffect(() => {
+    const syncNotificationSettings = () => {
+      if (document.visibilityState && document.visibilityState === "hidden") return;
+      setNotificationSettings(readStoredNotificationSettings(userId));
+    };
+
+    window.addEventListener("storage", syncNotificationSettings);
+    window.addEventListener("focus", syncNotificationSettings);
+    window.addEventListener("clara-settings-updated", syncNotificationSettings);
+    document.addEventListener("visibilitychange", syncNotificationSettings);
+
+    return () => {
+      window.removeEventListener("storage", syncNotificationSettings);
+      window.removeEventListener("focus", syncNotificationSettings);
+      window.removeEventListener("clara-settings-updated", syncNotificationSettings);
+      document.removeEventListener("visibilitychange", syncNotificationSettings);
+    };
+  }, [userId]);
+
+  useEffect(() => {
+    if (!showOnboarding) {
+      document.body.classList.remove("clara-onboarding-open");
+      document.documentElement.classList.remove("clara-onboarding-open");
+      return;
+    }
+
+    document.body.classList.add("clara-onboarding-open");
+    document.documentElement.classList.add("clara-onboarding-open");
+
+    const styleId = "clara-onboarding-global-hide-style";
+    let styleEl = document.getElementById(styleId);
+
+    if (!styleEl) {
+      styleEl = document.createElement("style");
+      styleEl.id = styleId;
+      styleEl.innerHTML = `
+        body.clara-onboarding-open [data-bottom-nav],
+        body.clara-onboarding-open [data-mobile-nav],
+        body.clara-onboarding-open [data-tab-bar],
+        body.clara-onboarding-open [data-fab],
+        body.clara-onboarding-open .bottom-nav,
+        body.clara-onboarding-open .mobile-bottom-nav,
+        body.clara-onboarding-open .app-bottom-nav,
+        body.clara-onboarding-open .floating-add-button,
+        body.clara-onboarding-open .global-fab,
+        body.clara-onboarding-open .bottom-tab-bar {
+          opacity: 0 !important;
+          pointer-events: none !important;
+          visibility: hidden !important;
+        }
+
+        body.clara-onboarding-open,
+        html.clara-onboarding-open {
+          overflow: hidden !important;
+        }
+      `;
+      document.head.appendChild(styleEl);
+    }
+
+    return () => {
+      document.body.classList.remove("clara-onboarding-open");
+      document.documentElement.classList.remove("clara-onboarding-open");
+    };
+  }, [showOnboarding]);
 
   const fmt = useCallback((n) => {
     return new Intl.NumberFormat("en-PH", {
@@ -477,213 +626,218 @@ export default function Dashboard() {
     setOnboardingStep((prev) => prev + 1);
   }, [saveOnboardingDraft]);
 
-  const loadDashboardData = useCallback(async ({ background = false } = {}) => {
-    const currentUser = {
-      id: userId,
-      email: userEmail,
-      full_name: user?.full_name || "",
-    };
-
-    if (!currentUser.email && !currentUser.id) {
-      const emptyCache = createEmptyDashboardCache();
-      dashboardPageCache = emptyCache;
-      hydrateFromCache(emptyCache);
-      return;
-    }
-
-    if (dashboardPageInFlight?.key === cacheKey) {
-      return dashboardPageInFlight.promise;
-    }
-
-    if (!hasLoadedDashboardRef.current && !background) {
-      setLoading(true);
-    }
-
-    try {
-      const promise = (async () => {
-        const [
-          tasksRes,
-          submissionsRes,
-          userProgramRecord,
-          billboardsRes,
-          expensesRes,
-          profilesRes,
-          walletsRes,
-          enrollmentsRes,
-        ] = await Promise.all([
-        supabase
-          .from("challenge_tasks")
-          .select("*")
-          .order("sort_order", { ascending: true })
-          .order("day", { ascending: true }),
-
-        supabase.from("task_submissions").select("*"),
-
-        fetchUserProgramRecord({ supabase, userId: currentUser.id }),
-
-        supabase
-          .from("billboards")
-          .select("*")
-          .order("sort_order", { ascending: true })
-          .order("created_at", { ascending: false })
-          .limit(10),
-
-        supabase.from("expenses").select("*"),
-
-        supabase.from("profiles").select("*"),
-
-        supabase.from("wallets").select("*"),
-
-        supabase
-          .from("enrollments")
-          .select("*")
-          .eq("user_id", currentUser.id)
-          .order("created_at", { ascending: false })
-          .limit(1),
-        ]);
-
-        if (tasksRes.error) console.error("Failed to load tasks:", tasksRes.error);
-        if (submissionsRes.error) {
-          console.error("Failed to load submissions:", submissionsRes.error);
-        }
-        if (billboardsRes.error) {
-          console.error("Failed to load billboards:", billboardsRes.error);
-        }
-        if (expensesRes.error) {
-          console.error("Failed to load expenses:", expensesRes.error);
-        }
-        if (profilesRes.error) {
-          console.error("Failed to load profiles:", profilesRes.error);
-        }
-        if (walletsRes.error) {
-          console.error("Failed to load wallets:", walletsRes.error);
-        }
-        if (enrollmentsRes.error) {
-          console.error("Failed to load enrollments:", enrollmentsRes.error);
-        }
-
-        const userSubmissions = (submissionsRes.data || []).filter((item) =>
-          isOwnedByUser(item, currentUser)
-        );
-
-        const normalizedTasks = (tasksRes.data || []).map(normalizeProgramTask);
-
-        const userExpenses = (expensesRes.data || [])
-          .filter((expense) => isOwnedByUser(expense, currentUser))
-          .map((expense) => ({
-            ...expense,
-            amount: Number(expense.amount) || 0,
-            date: expense.date || expense.created_at || "",
-          }));
-
-        const userProfile =
-          (profilesRes.data || []).find((profile) => isOwnedByUser(profile, currentUser)) ||
-          null;
-
-        const enrollmentRecord = (enrollmentsRes.data || [])[0] || null;
-
-        const userWallets = (walletsRes.data || []).filter((wallet) =>
-          isOwnedByUser(wallet, currentUser)
-        );
-
-        const totalWalletMoney = userWallets.reduce((sum, wallet) => {
-          return (
-            sum +
-            firstValidNumber(
-              wallet?.balance,
-              wallet?.current_balance,
-              wallet?.wallet_balance,
-              wallet?.available_balance,
-              wallet?.amount
-            )
-          );
-        }, 0);
-
-        const activeBillboards = (billboardsRes.data || []).filter(
-          (item) =>
-            isTruthyActive(item?.is_active) ||
-            item?.is_active === null ||
-            item?.is_active === undefined
-        );
-
-        const storedPrefs = readDashboardPrefs(currentUser.id);
-        const nextNickname =
-          nickname ||
-          dashboardPageCache.nickname ||
-          normalizeString(userProfile?.full_name || currentUser.full_name || "");
-        const nextReminderTime =
-          reminderTime || dashboardPageCache.reminderTime || storedPrefs.reminderTime;
-        const nextFinancialGoal =
-          financialGoal || dashboardPageCache.financialGoal || storedPrefs.financialGoal;
-
-        const approved = isProgramApproved(userProfile, isPaid, enrollmentRecord);
-        const onboardingDone = hasCompletedProgramOnboarding(userProfile);
-
-        if (approved && !onboardingDone && !showOnboardingRef.current) {
-          setShowProgramStart(true);
-        } else if (onboardingDone) {
-          setShowProgramStart(false);
-        }
-
-        const nextCache = {
-          key: cacheKey,
-          loaded: true,
-          tasks: normalizedTasks,
-          submissions: userSubmissions,
-          programRecord:
-            userProgramRecord ||
-            (approved
-              ? await ensureUserProgramAccess({
-                  supabase,
-                  user: currentUser,
-                  profile: userProfile,
-                  enrollment: enrollmentRecord,
-                  tasks: normalizedTasks,
-                })
-              : null),
-          billboards: activeBillboards,
-          survivalExpense: readStoredSurvivalExpense(),
-          walletMoney: totalWalletMoney,
-          expenses: userExpenses,
-          profileData: userProfile,
-          latestEnrollment: enrollmentRecord,
-          guardChecked: true,
-          nickname: nextNickname,
-          reminderTime: nextReminderTime,
-          financialGoal: nextFinancialGoal,
-        };
-
-        dashboardPageCache = nextCache;
-        hydrateFromCache(nextCache);
-        return nextCache;
-      })();
-
-      dashboardPageInFlight = {
-        key: cacheKey,
-        promise,
+  const loadDashboardData = useCallback(
+    async ({ background = false } = {}) => {
+      const currentUser = {
+        id: userId,
+        email: userEmail,
+        full_name: user?.full_name || "",
       };
 
-      return await promise;
-    } catch (error) {
-      console.error("Dashboard load error:", error);
-    } finally {
-      if (dashboardPageInFlight?.key === cacheKey) {
-        dashboardPageInFlight = null;
+      if (!currentUser.email && !currentUser.id) {
+        const emptyCache = createEmptyDashboardCache();
+        dashboardPageCache = emptyCache;
+        hydrateFromCache(emptyCache);
+        return;
       }
-      setLoading(false);
-      setGuardChecked(true);
-    }
-  }, [
-    cacheKey,
-    financialGoal,
-    hydrateFromCache,
-    isPaid,
-    nickname,
-    reminderTime,
-    user?.full_name,
-    userEmail,
-    userId,
-  ]);
+
+      if (dashboardPageInFlight?.key === cacheKey) {
+        return dashboardPageInFlight.promise;
+      }
+
+      if (!hasLoadedDashboardRef.current && !background) {
+        setLoading(true);
+      }
+
+      try {
+        const promise = (async () => {
+          const [
+            tasksRes,
+            submissionsRes,
+            userProgramRecord,
+            billboardsRes,
+            expensesRes,
+            profilesRes,
+            walletsRes,
+            enrollmentsRes,
+          ] = await Promise.all([
+            supabase
+              .from("challenge_tasks")
+              .select("*")
+              .order("sort_order", { ascending: true })
+              .order("day", { ascending: true }),
+
+            supabase.from("task_submissions").select("*"),
+
+            fetchUserProgramRecord({ supabase, userId: currentUser.id }),
+
+            supabase
+              .from("billboards")
+              .select("*")
+              .order("sort_order", { ascending: true })
+              .order("created_at", { ascending: false })
+              .limit(10),
+
+            supabase.from("expenses").select("*"),
+
+            supabase.from("profiles").select("*"),
+
+            supabase.from("wallets").select("*"),
+
+            supabase
+              .from("enrollments")
+              .select("*")
+              .eq("user_id", currentUser.id)
+              .order("created_at", { ascending: false })
+              .limit(1),
+          ]);
+
+          if (tasksRes.error) console.error("Failed to load tasks:", tasksRes.error);
+          if (submissionsRes.error) {
+            console.error("Failed to load submissions:", submissionsRes.error);
+          }
+          if (billboardsRes.error) {
+            console.error("Failed to load billboards:", billboardsRes.error);
+          }
+          if (expensesRes.error) {
+            console.error("Failed to load expenses:", expensesRes.error);
+          }
+          if (profilesRes.error) {
+            console.error("Failed to load profiles:", profilesRes.error);
+          }
+          if (walletsRes.error) {
+            console.error("Failed to load wallets:", walletsRes.error);
+          }
+          if (enrollmentsRes.error) {
+            console.error("Failed to load enrollments:", enrollmentsRes.error);
+          }
+
+          const userSubmissions = (submissionsRes.data || []).filter((item) =>
+            isOwnedByUser(item, currentUser)
+          );
+
+          const normalizedTasks = (tasksRes.data || []).map(normalizeProgramTask);
+
+          const userExpenses = (expensesRes.data || [])
+            .filter((expense) => isOwnedByUser(expense, currentUser))
+            .map((expense) => ({
+              ...expense,
+              amount: Number(expense.amount) || 0,
+              date: expense.date || expense.created_at || "",
+            }));
+
+          const userProfile =
+            (profilesRes.data || []).find((profile) =>
+              isOwnedByUser(profile, currentUser)
+            ) || null;
+
+          const enrollmentRecord = (enrollmentsRes.data || [])[0] || null;
+
+          const userWallets = (walletsRes.data || []).filter((wallet) =>
+            isOwnedByUser(wallet, currentUser)
+          );
+
+          const totalWalletMoney = userWallets.reduce((sum, wallet) => {
+            return (
+              sum +
+              firstValidNumber(
+                wallet?.balance,
+                wallet?.current_balance,
+                wallet?.wallet_balance,
+                wallet?.available_balance,
+                wallet?.amount
+              )
+            );
+          }, 0);
+
+          const activeBillboards = (billboardsRes.data || []).filter(
+            (item) =>
+              isTruthyActive(item?.is_active) ||
+              item?.is_active === null ||
+              item?.is_active === undefined
+          );
+
+          const storedPrefs = readDashboardPrefs(currentUser.id);
+          const nextNickname =
+            nickname ||
+            dashboardPageCache.nickname ||
+            normalizeString(userProfile?.full_name || currentUser.full_name || "");
+          const nextReminderTime =
+            reminderTime || dashboardPageCache.reminderTime || storedPrefs.reminderTime;
+          const nextFinancialGoal =
+            financialGoal ||
+            dashboardPageCache.financialGoal ||
+            storedPrefs.financialGoal;
+
+          const approved = isProgramApproved(userProfile, isPaid, enrollmentRecord);
+          const onboardingDone = hasCompletedProgramOnboarding(userProfile);
+
+          if (!approved || onboardingDone || !dailyRemindersEnabled) {
+            setShowProgramStart(false);
+          }
+
+          const nextCache = {
+            key: cacheKey,
+            loaded: true,
+            tasks: normalizedTasks,
+            submissions: userSubmissions,
+            programRecord:
+              userProgramRecord ||
+              (approved
+                ? await ensureUserProgramAccess({
+                    supabase,
+                    user: currentUser,
+                    profile: userProfile,
+                    enrollment: enrollmentRecord,
+                    tasks: normalizedTasks,
+                  })
+                : null),
+            billboards: activeBillboards,
+            survivalExpense: readStoredSurvivalExpense(),
+            walletMoney: totalWalletMoney,
+            expenses: userExpenses,
+            profileData: userProfile,
+            latestEnrollment: enrollmentRecord,
+            guardChecked: true,
+            nickname: nextNickname,
+            reminderTime: nextReminderTime,
+            financialGoal: nextFinancialGoal,
+          };
+
+          dashboardPageCache = nextCache;
+          hydrateFromCache(nextCache);
+          return nextCache;
+        })();
+
+        dashboardPageInFlight = {
+          key: cacheKey,
+          promise,
+        };
+
+        return await promise;
+      } catch (error) {
+        console.error("Dashboard load error:", error);
+      } finally {
+        if (dashboardPageInFlight?.key === cacheKey) {
+          dashboardPageInFlight = null;
+        }
+        setLoading(false);
+        setGuardChecked(true);
+      }
+    },
+    [
+      cacheKey,
+      financialGoal,
+      hydrateFromCache,
+      isPaid,
+      dailyRemindersEnabled,
+      nickname,
+      reminderTime,
+      user?.full_name,
+      userEmail,
+      userId,
+    ]
+  );
 
   const scheduleRefresh = useCallback(() => {
     if (refreshTimeoutRef.current) {
@@ -794,10 +948,6 @@ export default function Dashboard() {
   );
 
   useEffect(() => {
-    showOnboardingRef.current = showOnboarding;
-  }, [showOnboarding]);
-
-  useEffect(() => {
     latestEnrollmentRef.current = latestEnrollment;
   }, [latestEnrollment]);
 
@@ -815,10 +965,7 @@ export default function Dashboard() {
     window.addEventListener("clara-expenses-updated", scheduleRefresh);
     window.addEventListener("clara-finance-updated", scheduleRefresh);
     window.addEventListener("clara-wallets-updated", scheduleRefresh);
-    window.addEventListener(
-      "clara-wallet-transactions-updated",
-      scheduleRefresh
-    );
+    window.addEventListener("clara-wallet-transactions-updated", scheduleRefresh);
 
     const channel = supabase
       .channel(`dashboard-live-${user?.id || user?.email}`)
@@ -887,8 +1034,6 @@ export default function Dashboard() {
               const completed = hasCompletedProgramOnboarding(newData);
 
               if (!completed) {
-                setShowProgramStart(true);
-                setShowOnboarding(false);
                 setOnboardingStep(Number(newData?.onboarding_step) || 0);
               }
             } catch (error) {
@@ -926,28 +1071,6 @@ export default function Dashboard() {
     }
   }, [guardChecked, profileData, latestEnrollment, isPaid, navigate]);
 
-  useEffect(() => {
-    if (!user?.id) return;
-
-    const approved = isProgramApproved(profileData, isPaid, latestEnrollment);
-    const onboardingDone = isProgramOnboardingCompleted();
-
-    if (approved && !onboardingDone && !showOnboarding) {
-      setShowProgramStart(true);
-    }
-
-    if (onboardingDone) {
-      setShowProgramStart(false);
-    }
-  }, [
-    user?.id,
-    profileData,
-    latestEnrollment,
-    isPaid,
-    showOnboarding,
-    isProgramOnboardingCompleted,
-  ]);
-
   const thisMonthSpent = useMemo(() => {
     const now = new Date();
     const currentYear = now.getFullYear();
@@ -977,9 +1100,117 @@ export default function Dashboard() {
 
   const activeTask = programJourney.todayItem || programJourney.activeItem;
   const nextTask = programJourney.nextItem;
+  const onboardingDone = isProgramOnboardingCompleted();
+
+  const hasPaidProgramAccess = useMemo(() => {
+    const approved = isProgramApproved(profileData, isPaid, latestEnrollment);
+    const nonFreeTier =
+      normalizeLower(programJourney?.tier) !== "free" &&
+      normalizeLower(profileData?.plan || plan) !== "free";
+    return approved && nonFreeTier;
+  }, [profileData, latestEnrollment, isPaid, programJourney?.tier, plan]);
+
+  const taskReminder = useTaskReminderPrompt({
+    user,
+    task: activeTask,
+  });
+
+  const canShowTaskReminderPrompt =
+    !!user?.id &&
+    dailyRemindersEnabled &&
+    hasPaidProgramAccess &&
+    !!activeTask &&
+    !onboardingDone &&
+    !showOnboarding;
+
+  const programBubble = getProgramBubbleContent(programJourney, {
+    onboardingRequired: hasPaidProgramAccess && !onboardingDone,
+  });
+
+  const floatingProgramBubble =
+    hasPaidProgramAccess && programBubble && programBubble.kind !== "task_reminder"
+      ? programBubble
+      : null;
+
+  useEffect(() => {
+    if (!floatingProgramBubble || !user?.id) {
+      setProgramPromptSeenThisSession(false);
+      return;
+    }
+
+    const seen = readProgramPromptSeenThisSession(user.id, floatingProgramBubble);
+    setProgramPromptSeenThisSession(seen);
+  }, [floatingProgramBubble, user?.id]);
+
+  useEffect(() => {
+    if (!user?.id || !floatingProgramBubble) return;
+    if (floatingProgramBubble?.action !== "onboarding") return;
+
+    const completed = hasCompletedProgramOnboarding(profileData);
+
+    if (!completed) {
+      clearProgramPromptSeenThisSession(user.id, floatingProgramBubble);
+      setProgramPromptSeenThisSession(false);
+
+      if (!showOnboarding && dailyRemindersEnabled && hasPaidProgramAccess) {
+        setShowProgramStart(true);
+      }
+    }
+  }, [
+    user?.id,
+    floatingProgramBubble,
+    profileData,
+    showOnboarding,
+    dailyRemindersEnabled,
+    hasPaidProgramAccess,
+  ]);
+
+  useEffect(() => {
+    if (!dailyRemindersEnabled) {
+      setShowProgramStart(false);
+      return;
+    }
+
+    if (!floatingProgramBubble || !user?.id) {
+      setShowProgramStart(false);
+      return;
+    }
+
+    if (!hasPaidProgramAccess) {
+      setShowProgramStart(false);
+      return;
+    }
+
+    if (showOnboarding) {
+      setShowProgramStart(false);
+      return;
+    }
+
+    const completed = hasCompletedProgramOnboarding(profileData);
+
+    if (floatingProgramBubble?.action === "onboarding" && !completed) {
+      clearProgramPromptSeenThisSession(user.id, floatingProgramBubble);
+      setProgramPromptSeenThisSession(false);
+      setShowProgramStart(true);
+      return;
+    }
+
+    const seen = readProgramPromptSeenThisSession(user.id, floatingProgramBubble);
+    setProgramPromptSeenThisSession(seen);
+    setShowProgramStart(!seen);
+  }, [
+    dailyRemindersEnabled,
+    floatingProgramBubble,
+    hasPaidProgramAccess,
+    showOnboarding,
+    user?.id,
+    profileData,
+  ]);
 
   const safeSurvivalExpense = Number(survivalExpense) || 0;
-  const moneyAfterEssentials = safeSurvivalExpense > 0 ? walletMoney - safeSurvivalExpense : walletMoney;
+  const moneyAfterEssentials =
+    safeSurvivalExpense > 0 ? walletMoney - safeSurvivalExpense : walletMoney;
+
   const moneyLeftStatus =
     safeSurvivalExpense <= 0
       ? "Set your survival expense to unlock smarter guidance."
@@ -1016,27 +1247,12 @@ export default function Dashboard() {
   const missionTitle = activeTask?.title || "Your guided journey is ready";
 
   const missionSub = activeTask
-    ? activeTask.main_action_instruction || "Open your focused task and keep your reset moving."
+    ? "Start your reset journey."
     : programJourney.state === "starter_complete"
       ? "Continue your 30-day reset when you're ready."
-      : `${programJourney.accessibleCompletedCount} of ${programJourney.accessibleTaskCount || programJourney.totalCount} unlocked days complete`;
-
-  const taskReminder = useTaskReminderPrompt({
-    user,
-    task: activeTask,
-  });
-
-  const onboardingDone = isProgramOnboardingCompleted();
-
-  const programBubble = getProgramBubbleContent(programJourney, {
-    onboardingRequired:
-      programJourney.tier !== "free" &&
-      isProgramApproved(profileData, isPaid, latestEnrollment) &&
-      !onboardingDone,
-  });
-
-  const floatingProgramBubble =
-    programBubble && programBubble.kind !== "task_reminder" ? programBubble : null;
+      : `${programJourney.accessibleCompletedCount} of ${
+          programJourney.accessibleTaskCount || programJourney.totalCount
+        } unlocked days complete`;
 
   const moneyInsightLabel =
     safeSurvivalExpense <= 0
@@ -1122,24 +1338,58 @@ export default function Dashboard() {
     window.open(billboardTargetUrl, "_blank", "noopener,noreferrer");
   }, [billboardTargetUrl, activeBillboard?.id, trackBillboardClick]);
 
+  const standardPromptTitle =
+    floatingProgramBubble?.kind === "onboarding" ? "Complete your setup" : "Today's task";
+
+  const standardPromptBody =
+    floatingProgramBubble?.kind === "onboarding"
+      ? "Finish your CLARA setup to unlock your guided program properly."
+      : "Open your next step and keep your progress moving.";
+
+  const standardPromptButton =
+    floatingProgramBubble?.kind === "onboarding" ? "Continue" : "Open task";
+
+  const markProgramPromptAsSeen = useCallback(() => {
+    if (!user?.id || !floatingProgramBubble) return;
+    persistProgramPromptSeenThisSession(user.id, floatingProgramBubble);
+    setProgramPromptSeenThisSession(true);
+  }, [user?.id, floatingProgramBubble]);
+
   const startProgramFlow = () => {
+    setShowProgramStart(false);
+
     if (floatingProgramBubble?.action === "onboarding") {
-      setShowProgramStart(false);
+      if (user?.id && floatingProgramBubble) {
+        clearProgramPromptSeenThisSession(user.id, floatingProgramBubble);
+      }
+      setProgramPromptSeenThisSession(false);
       setShowOnboarding(true);
       setOnboardingStep(Number(profileData?.onboarding_step) || 0);
       return;
     }
 
+    markProgramPromptAsSeen();
     navigate(floatingProgramBubble?.href || "/tasks");
   };
 
   const closeProgramStart = () => {
+    markProgramPromptAsSeen();
     setShowProgramStart(false);
-    setProgramBubbleDismissed(true);
   };
 
   const closeOnboarding = () => {
     setShowOnboarding(false);
+
+    const completed = hasCompletedProgramOnboarding(profileData);
+
+    if (!completed && floatingProgramBubble?.action === "onboarding") {
+      setShowProgramStart(true);
+      setProgramPromptSeenThisSession(false);
+
+      if (user?.id && floatingProgramBubble) {
+        clearProgramPromptSeenThisSession(user.id, floatingProgramBubble);
+      }
+    }
   };
 
   const finishOnboarding = async () => {
@@ -1147,14 +1397,15 @@ export default function Dashboard() {
     await markOnboardingCompleted();
     setShowOnboarding(false);
     setShowProgramStart(false);
-    setProgramBubbleDismissed(false);
+
+    if (user?.id && floatingProgramBubble) {
+      clearProgramPromptSeenThisSession(user.id, floatingProgramBubble);
+      persistProgramPromptSeenThisSession(user.id, floatingProgramBubble);
+    }
+
     refreshUser?.();
     navigate("/tasks");
   };
-
-  useEffect(() => {
-    setProgramBubbleDismissed(false);
-  }, [floatingProgramBubble?.title, user?.id]);
 
   if (!guardChecked) {
     return (
@@ -1388,20 +1639,27 @@ export default function Dashboard() {
                   </div>
                 </div>
 
-                <p className="mt-4 text-xs leading-6 text-white/72">
+                <p className="mt-4 text-xs text-white/72 line-clamp-2">
                   {missionSub}
                 </p>
 
                 <div className="mt-auto flex items-end justify-between gap-3 pt-4">
                   <div>
-                    <p className="text-[11px] uppercase tracking-wide text-white/45">Progress</p>
+                    <p className="text-[11px] uppercase tracking-wide text-white/45">
+                      Progress
+                    </p>
                     <p className="mt-1 text-sm font-semibold text-white">
-                      {programJourney.accessibleCompletedCount} / {programJourney.accessibleTaskCount || programJourney.totalCount}
+                      {programJourney.accessibleCompletedCount} /{" "}
+                      {programJourney.accessibleTaskCount || programJourney.totalCount}
                     </p>
                   </div>
 
                   <div className="rounded-2xl bg-white px-3 py-2 text-xs font-semibold text-slate-950">
-                    {activeTask ? "Start / Continue" : nextTask ? "View Next Step" : "Open Program"}
+                    {activeTask
+                      ? "Start / Continue"
+                      : nextTask
+                        ? "View Next Step"
+                        : "Open Program"}
                   </div>
                 </div>
 
@@ -1412,7 +1670,9 @@ export default function Dashboard() {
             </Link>
           ) : (
             <div className="flex min-h-[208px] items-center rounded-[26px] border border-white/10 bg-[#0B1228] p-4 text-xs leading-6 text-white/60">
-              {loading ? "Loading your guided path..." : "Your guided program will appear here once your next task is ready."}
+              {loading
+                ? "Loading your guided path..."
+                : "Your guided program will appear here once your next task is ready."}
             </div>
           )}
         </div>
@@ -1426,7 +1686,7 @@ export default function Dashboard() {
       </div>
 
       <TaskReminderPrompt
-        visible={taskReminder.visible}
+        visible={canShowTaskReminderPrompt ? taskReminder.visible : false}
         task={activeTask}
         reminderWindow={taskReminder.reminderWindow}
         nextReminderWindow={taskReminder.nextReminderWindow}
@@ -1440,60 +1700,66 @@ export default function Dashboard() {
         onSnooze={taskReminder.snoozeReminder}
       />
 
-      {floatingProgramBubble &&
-        !programBubbleDismissed &&
-        (floatingProgramBubble.kind !== "onboarding" || showProgramStart) && (
-        <div className="fixed bottom-24 right-4 z-[70] w-[90%] max-w-[320px] md:bottom-8 md:right-5">
-          <div className="rounded-3xl border border-emerald-400/20 bg-[#06111F]/95 p-4 shadow-[0_20px_60px_rgba(16,185,129,0.18)] backdrop-blur-xl">
-            <div className="flex items-start gap-3">
-              <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-emerald-400 to-green-600 text-white shadow-lg">
-                <Rocket className="h-5 w-5" />
-              </div>
-
-              <div className="min-w-0 flex-1">
-                <p className="text-[10px] uppercase tracking-[0.18em] text-emerald-300/80">
-                  {floatingProgramBubble.eyebrow}
-                </p>
-                <h3 className="mt-1 text-sm font-bold leading-snug text-white">
-                  {floatingProgramBubble.title}
-                </h3>
-                <p className="mt-1 text-xs leading-relaxed text-white/70">
-                  {floatingProgramBubble.body}
-                </p>
-
-                <div className="mt-3 flex items-center gap-2">
-                  <button
-                    onClick={startProgramFlow}
-                    className="inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-emerald-500 to-green-600 px-3.5 py-2 text-xs font-semibold text-white transition hover:scale-[1.02]"
-                  >
-                    <Rocket className="h-3.5 w-3.5" />
-                    {floatingProgramBubble.ctaLabel}
-                  </button>
-
-                  <button
-                    onClick={closeProgramStart}
-                    className="rounded-xl border border-white/10 px-3 py-2 text-xs font-medium text-white/70 transition hover:bg-white/5"
-                  >
-                    Later
-                  </button>
+      {dailyRemindersEnabled &&
+        hasPaidProgramAccess &&
+        floatingProgramBubble &&
+        !programPromptSeenThisSession &&
+        showProgramStart &&
+        !showOnboarding && (
+          <div className="fixed bottom-24 right-4 z-[90] w-[90%] max-w-[320px] animate-bounce md:bottom-8 md:right-5">
+            <div className="rounded-3xl border border-white/10 bg-[#06111F]/95 p-4 shadow-[0_20px_60px_rgba(0,0,0,0.28)] backdrop-blur-xl">
+              <div className="flex items-start gap-3">
+                <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-white/10 text-white animate-bounce">
+                  <Bell className="h-5 w-5" />
                 </div>
-              </div>
 
-              <button
-                onClick={closeProgramStart}
-                className="rounded-full p-1 text-white/45 transition hover:bg-white/5 hover:text-white"
-              >
-                <X className="h-4 w-4" />
-              </button>
+                <div className="min-w-0 flex-1">
+                  <h3 className="text-sm font-bold leading-snug text-white">
+                    {floatingProgramBubble?.title || standardPromptTitle}
+                  </h3>
+                  <p className="mt-1 text-xs leading-relaxed text-white/70">
+                    {floatingProgramBubble?.body || standardPromptBody}
+                  </p>
+
+                  <div className="mt-3 flex items-center gap-2">
+                    <button
+                      onClick={startProgramFlow}
+                      className="inline-flex items-center gap-2 rounded-xl bg-white px-3.5 py-2 text-xs font-semibold text-slate-950 transition hover:scale-[1.02]"
+                    >
+                      <Rocket className="h-3.5 w-3.5" />
+                      {floatingProgramBubble?.ctaLabel || standardPromptButton}
+                    </button>
+
+                    <button
+                      onClick={closeProgramStart}
+                      className="rounded-xl border border-white/10 px-3 py-2 text-xs font-medium text-white/70 transition hover:bg-white/5"
+                    >
+                      Dismiss
+                    </button>
+                  </div>
+                </div>
+
+                <button
+                  onClick={closeProgramStart}
+                  className="rounded-full p-1 text-white/45 transition hover:bg-white/5 hover:text-white"
+                >
+                  <X className="h-4 w-4" />
+                </button>
+              </div>
             </div>
           </div>
-        </div>
-      )}
+        )}
 
       {showOnboarding && (
-        <div className="fixed inset-0 z-[80] bg-black/75 backdrop-blur-sm">
+        <div
+          className="fixed inset-0 z-[9999] bg-black/80 backdrop-blur-md"
+          onClick={closeOnboarding}
+        >
           <div className="flex min-h-screen items-end justify-center p-3 sm:items-center sm:p-4">
-            <div className="flex h-[92vh] w-full max-w-2xl flex-col overflow-hidden rounded-[28px] border border-white/10 bg-[#071120] text-white shadow-[0_25px_80px_rgba(0,0,0,0.45)] sm:h-auto sm:max-h-[90vh]">
+            <div
+              className="flex h-[92vh] w-full max-w-2xl flex-col overflow-hidden rounded-[28px] border border-white/10 bg-[#071120] text-white shadow-[0_25px_80px_rgba(0,0,0,0.45)] sm:h-auto sm:max-h-[90vh]"
+              onClick={(e) => e.stopPropagation()}
+            >
               <div className="border-b border-white/10 bg-gradient-to-r from-emerald-700/30 via-green-600/20 to-transparent px-5 py-4 md:px-6">
                 <div className="flex items-start justify-between gap-4">
                   <div className="min-w-0">
@@ -1541,9 +1807,12 @@ export default function Dashboard() {
                           <CheckCircle2 className="h-6 w-6" />
                         </div>
                         <div>
-                          <h3 className="text-lg font-bold">Welcome to your 30-day transformation</h3>
+                          <h3 className="text-lg font-bold">
+                            Welcome to your 30-day transformation
+                          </h3>
                           <p className="mt-2 text-sm leading-relaxed text-white/75">
-                            CLARA is not just a tracker. This is a guided behavior-change program built around structure, consistency, accountability, and action.
+                            CLARA is not just a tracker. This is a guided behavior-change program
+                            built around structure, consistency, accountability, and action.
                           </p>
                         </div>
                       </div>
@@ -1551,7 +1820,9 @@ export default function Dashboard() {
 
                     <div className="rounded-3xl border border-white/10 bg-white/5 p-5">
                       <p className="text-sm leading-relaxed text-white/80">
-                        By continuing, you acknowledge that you are entering a guided financial coaching experience and you are expected to complete your tasks honestly and consistently.
+                        By continuing, you acknowledge that you are entering a guided financial
+                        coaching experience and you are expected to complete your tasks honestly
+                        and consistently.
                       </p>
 
                       <label className="mt-4 flex cursor-pointer items-start gap-3 rounded-2xl border border-white/10 bg-black/20 p-4">
@@ -1562,7 +1833,8 @@ export default function Dashboard() {
                           onChange={(e) => setCommitmentChecked(e.target.checked)}
                         />
                         <span className="text-sm text-white/80">
-                          I commit to completing the CLARA program, following the daily process, and taking responsibility for my progress.
+                          I commit to completing the CLARA program, following the daily process,
+                          and taking responsibility for my progress.
                         </span>
                       </label>
                     </div>
@@ -1584,7 +1856,8 @@ export default function Dashboard() {
                           <p className="text-sm font-semibold">Behavior First</p>
                         </div>
                         <p className="mt-2 text-sm text-white/75">
-                          This program is not just knowledge. It is designed to change behavior through repeated action.
+                          This program is not just knowledge. It is designed to change behavior
+                          through repeated action.
                         </p>
                       </div>
 
@@ -1594,7 +1867,8 @@ export default function Dashboard() {
                           <p className="text-sm font-semibold">Complete in Order</p>
                         </div>
                         <p className="mt-2 text-sm text-white/75">
-                          Daily tasks are sequential. Missed tasks should be completed before moving forward.
+                          Daily tasks are sequential. Missed tasks should be completed before
+                          moving forward.
                         </p>
                       </div>
 
@@ -1604,7 +1878,8 @@ export default function Dashboard() {
                           <p className="text-sm font-semibold">Stay Accountable</p>
                         </div>
                         <p className="mt-2 text-sm text-white/75">
-                          Progress depends on consistency, not intensity. Small actions done daily matter.
+                          Progress depends on consistency, not intensity. Small actions done daily
+                          matter.
                         </p>
                       </div>
 
@@ -1614,7 +1889,8 @@ export default function Dashboard() {
                           <p className="text-sm font-semibold">Modules Unlock Weekly</p>
                         </div>
                         <p className="mt-2 text-sm text-white/75">
-                          Weekly modules support your journey while tasks train the habit in real life.
+                          Weekly modules support your journey while tasks train the habit in real
+                          life.
                         </p>
                       </div>
                     </div>
@@ -1631,7 +1907,9 @@ export default function Dashboard() {
                 {onboardingStep === 2 && (
                   <div className="space-y-4">
                     <div className="rounded-3xl border border-white/10 bg-white/5 p-5">
-                      <p className="text-sm font-semibold text-white">Complete your initial setup</p>
+                      <p className="text-sm font-semibold text-white">
+                        Complete your initial setup
+                      </p>
                       <p className="mt-1 text-sm text-white/65">
                         This helps personalize your coaching journey from Day 1.
                       </p>
@@ -1689,7 +1967,9 @@ export default function Dashboard() {
                     <div className="rounded-3xl border border-emerald-400/15 bg-emerald-500/10 p-5">
                       <p className="text-sm font-semibold text-white">Your support system</p>
                       <p className="mt-2 text-sm leading-relaxed text-white/75">
-                        If your tier includes coaching, book your first session within Day 1 to Day 3. That first session acts as your onboarding alignment and sets the tone for the rest of the program.
+                        If your tier includes coaching, book your first session within Day 1 to
+                        Day 3. That first session acts as your onboarding alignment and sets the
+                        tone for the rest of the program.
                       </p>
                     </div>
 
@@ -1728,7 +2008,8 @@ export default function Dashboard() {
                       <div className="rounded-3xl border border-white/10 bg-white/5 p-4">
                         <p className="text-sm font-semibold text-white">Dashboard</p>
                         <p className="mt-2 text-sm text-white/70">
-                          This is your main control center for progress, money tracking, and daily action.
+                          This is your main control center for progress, money tracking, and daily
+                          action.
                         </p>
                       </div>
 
@@ -1755,14 +2036,16 @@ export default function Dashboard() {
                       <div className="rounded-3xl border border-white/10 bg-white/5 p-4">
                         <p className="text-sm font-semibold text-white">Money Tools</p>
                         <p className="mt-2 text-sm text-white/70">
-                          Use wallets, expenses, budgets, and savings goals to support real behavior change.
+                          Use wallets, expenses, budgets, and savings goals to support real
+                          behavior change.
                         </p>
                       </div>
 
                       <div className="rounded-3xl border border-white/10 bg-white/5 p-4">
                         <p className="text-sm font-semibold text-white">Weekly Modules</p>
                         <p className="mt-2 text-sm text-white/70">
-                          Learn weekly, act daily, and let the repetition build your new financial identity.
+                          Learn weekly, act daily, and let the repetition build your new financial
+                          identity.
                         </p>
                       </div>
                     </div>
@@ -1770,7 +2053,8 @@ export default function Dashboard() {
                     <div className="rounded-3xl border border-amber-400/20 bg-amber-500/10 p-4">
                       <p className="text-sm font-semibold text-white">Important</p>
                       <p className="mt-2 text-sm text-white/75">
-                        Your first real activation is not reading more. It is completing your Day 1 task.
+                        Your first real activation is not reading more. It is completing your Day 1
+                        task.
                       </p>
                     </div>
 
@@ -1789,9 +2073,12 @@ export default function Dashboard() {
                       <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-3xl bg-gradient-to-br from-emerald-400 to-green-600 text-white shadow-xl">
                         <Rocket className="h-7 w-7" />
                       </div>
-                      <h3 className="mt-4 text-2xl font-bold">You are now officially inside CLARA</h3>
+                      <h3 className="mt-4 text-2xl font-bold">
+                        You are now officially inside CLARA
+                      </h3>
                       <p className="mt-3 text-sm leading-relaxed text-white/75">
-                        Your next move is simple: start your first task and begin building the behavior that will shape the rest of your financial journey.
+                        Your next move is simple: start your first task and begin building the
+                        behavior that will shape the rest of your financial journey.
                       </p>
                     </div>
 

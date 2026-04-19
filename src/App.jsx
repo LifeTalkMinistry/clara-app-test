@@ -90,6 +90,100 @@ function pickBestEnrollment(enrollments) {
   return sorted[0] || null;
 }
 
+function normalizeValue(value) {
+  if (value === null || value === undefined) return "";
+  return String(value).trim().toLowerCase();
+}
+
+function isGooglePlayEnrollment(enrollment) {
+  if (!enrollment) return false;
+
+  const source = normalizeValue(
+    enrollment?.source ||
+      enrollment?.enrollment_source ||
+      enrollment?.payment_source ||
+      enrollment?.provider ||
+      enrollment?.platform ||
+      enrollment?.purchase_source
+  );
+
+  return [
+    "google_play",
+    "googleplay",
+    "play_store",
+    "playstore",
+    "google-play",
+    "google play",
+  ].includes(source);
+}
+
+function isPaidEnrollment(enrollment) {
+  if (!enrollment) return false;
+
+  const status = normalizeValue(
+    enrollment?.status ||
+      enrollment?.enrollment_status ||
+      enrollment?.payment_status ||
+      enrollment?.purchase_status
+  );
+
+  const hasGooglePlaySource = isGooglePlayEnrollment(enrollment);
+
+  const paidStatuses = new Set([
+    "approved",
+    "active",
+    "completed",
+    "complete",
+    "paid",
+    "success",
+    "succeeded",
+    "confirmed",
+    "verified",
+    "processing_complete",
+    "purchase_completed",
+    "entitled",
+    "unlocked",
+  ]);
+
+  const pendingStatuses = new Set([
+    "pending",
+    "processing",
+    "under_review",
+    "submitted",
+    "awaiting_review",
+    "awaiting_payment",
+    "payment_pending",
+  ]);
+
+  if (paidStatuses.has(status)) return true;
+
+  if (hasGooglePlaySource && !pendingStatuses.has(status) && status !== "") {
+    return true;
+  }
+
+  if (
+    hasGooglePlaySource &&
+    (enrollment?.purchase_token ||
+      enrollment?.purchaseToken ||
+      enrollment?.order_id ||
+      enrollment?.orderId ||
+      enrollment?.product_id ||
+      enrollment?.productId)
+  ) {
+    return true;
+  }
+
+  return false;
+}
+
+function getSafeFlow(resolvedFlow, enrollment) {
+  if (isPaidEnrollment(enrollment)) {
+    return "active";
+  }
+
+  return resolvedFlow;
+}
+
 function getHomeRedirectPath({ isAdvertiser, flow, forceEnroll }) {
   if (isAdvertiser) return "/advertiser";
   if (flow === "universal_onboarding") return "/onboarding";
@@ -144,6 +238,7 @@ function AppRoutes() {
   const [forceLogoutProcessing, setForceLogoutProcessing] = useState(false);
 
   const profileReady = user ? profile !== null : true;
+  const enrollmentPaid = useMemo(() => isPaidEnrollment(enrollment), [enrollment]);
 
   useEffect(() => {
     let isMounted = true;
@@ -274,19 +369,30 @@ function AppRoutes() {
 
   const flow = useMemo(() => {
     if (!user || !profileReady || enrollmentLoading) return "loading";
-    return resolveAppFlow(
+
+    const resolvedFlow = resolveAppFlow(
       {
         ...profile,
         role: profile?.role || normalizedRole || "user",
       },
       enrollment
     );
+
+    return getSafeFlow(resolvedFlow, enrollment);
   }, [user, profileReady, enrollmentLoading, profile, normalizedRole, enrollment]);
 
   const forceEnroll = useMemo(() => {
     if (!user || !profileReady || enrollmentLoading || !profile) return false;
+    if (enrollmentPaid) return false;
     return resolvedAccess.forceEnroll;
-  }, [user, profileReady, enrollmentLoading, profile, resolvedAccess.forceEnroll]);
+  }, [
+    user,
+    profileReady,
+    enrollmentLoading,
+    profile,
+    enrollmentPaid,
+    resolvedAccess.forceEnroll,
+  ]);
 
   const homeRedirectPath = useMemo(
     () => getHomeRedirectPath({ isAdvertiser, flow, forceEnroll }),

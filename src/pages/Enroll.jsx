@@ -429,12 +429,7 @@ function formatBool(value) {
 
 function getBillingBridge() {
   if (typeof window === "undefined") return null;
-
-  return (
-    window?.ClaraBilling ||
-    window?.Capacitor?.Plugins?.ClaraBilling ||
-    null
-  );
+  return window?.ClaraBilling || window?.Capacitor?.Plugins?.ClaraBilling || null;
 }
 
 async function probeGooglePlayBilling({ productId }) {
@@ -479,8 +474,7 @@ async function probeGooglePlayBilling({ productId }) {
         ready: false,
         connectCode,
         productCode: "UNKNOWN",
-        message:
-          "Google Play purchases are not fully ready yet on this device.",
+        message: "Google Play purchases are not fully ready yet on this device.",
         debugMessage:
           connection?.debugMessage ||
           connection?.details ||
@@ -621,8 +615,7 @@ async function probeGooglePlayBilling({ productId }) {
         error?.responseCode || error?.code
       ),
       productCode: "UNKNOWN",
-      message:
-        "The billing diagnostic check ran into an unexpected error.",
+      message: "The billing diagnostic check ran into an unexpected error.",
       debugMessage: formatDebugError(error),
       possibleCauses: buildBillingPossibleCauses({
         connectCode: normalizeBillingResponseCode(
@@ -1011,8 +1004,10 @@ export default function Enroll() {
     return normalized;
   }, []);
 
-  const fetchEnrollment = useCallback(async () => {
-    if (!user?.id) {
+  const fetchEnrollmentForUserId = useCallback(async (userId) => {
+    const normalizedUserId = normalizeText(userId);
+
+    if (!normalizedUserId) {
       setEnrollment(null);
       return null;
     }
@@ -1020,7 +1015,7 @@ export default function Enroll() {
     const { data, error } = await supabase
       .from("enrollments")
       .select("*")
-      .eq("user_id", user.id)
+      .eq("user_id", normalizedUserId)
       .order("created_at", { ascending: false })
       .limit(1)
       .maybeSingle();
@@ -1029,7 +1024,25 @@ export default function Enroll() {
 
     setEnrollment(data || null);
     return data || null;
-  }, [user?.id]);
+  }, []);
+
+  const fetchEnrollment = useCallback(async () => {
+    return fetchEnrollmentForUserId(user?.id);
+  }, [fetchEnrollmentForUserId, user?.id]);
+
+  const getAuthenticatedUser = useCallback(async () => {
+    const {
+      data: { user: authUser },
+      error,
+    } = await supabase.auth.getUser();
+
+    if (error) throw error;
+    if (!authUser?.id) {
+      throw new Error("User not authenticated.");
+    }
+
+    return authUser;
+  }, []);
 
   const loadInitialData = useCallback(async () => {
     if (!user?.id) {
@@ -1175,13 +1188,16 @@ export default function Enroll() {
         message: "Checking Google Play billing readiness...",
       }));
 
-      const result = await probeGooglePlayBilling({
-        productId: targetPlan.productId,
-      });
+      try {
+        const result = await probeGooglePlayBilling({
+          productId: targetPlan.productId,
+        });
 
-      setBillingMonitor(result);
-      setBillingRefreshing(false);
-      return result;
+        setBillingMonitor(result);
+        return result;
+      } finally {
+        setBillingRefreshing(false);
+      }
     },
     [selectedPlan]
   );
@@ -1214,8 +1230,12 @@ export default function Enroll() {
     try {
       setRefreshingAccess(true);
       setDebugError("");
-      await fetchEnrollment();
+
+      const authUser = await getAuthenticatedUser();
+
+      await fetchEnrollmentForUserId(authUser.id);
       await refreshUser?.();
+
       toast.success("Access refreshed");
     } catch (error) {
       console.error("Failed to refresh access:", error);
@@ -1272,11 +1292,17 @@ export default function Enroll() {
 
   async function finalizeOwnedOrPurchasedPlan({
     plan,
+    authUser,
     purchaseToken = "",
     orderId = "",
     bridgePayload = null,
   }) {
-    const userId = user.id;
+    const userId = authUser?.id || user?.id;
+
+    if (!userId) {
+      throw new Error("Missing authenticated user during purchase finalization.");
+    }
+
     const planKey = plan.key;
     const productId = plan.productId;
 
@@ -1290,13 +1316,42 @@ export default function Enroll() {
       bridgePayload,
     });
 
-    await activateGooglePlayPurchase({
-      userId,
-      planKey,
-      productId,
-      purchaseToken,
-      orderId,
-    });
+    let activationResult = null;
+
+    try {
+      activationResult = await activateGooglePlayPurchase({
+        userId,
+        planKey,
+        productId,
+        purchaseToken,
+        orderId,
+      });
+    } catch (activationError) {
+      console.warn("verify-google-play function did not complete cleanly:", activationError);
+    }
+
+    const latestEnrollmentAfterPersist = await fetchEnrollmentForUserId(userId);
+    await refreshUser?.();
+
+    const activationStatus = normalizeKey(
+      activationResult?.status ||
+        activationResult?.enrollment?.status ||
+        activationResult?.data?.status
+    );
+
+    const persistedStatus = normalizeKey(
+      latestEnrollmentAfterPersist?.status
+    );
+
+    if (
+      SUCCESS_STATUSES.has(activationStatus) ||
+      SUCCESS_STATUSES.has(persistedStatus)
+    ) {
+      setPurchaseState("success");
+      setPurchaseMessage(plan.successBody);
+      toast.success(`${plan.name} unlocked`);
+      return true;
+    }
 
     const entitlement = await waitForGooglePlayEntitlement({
       supabase,
@@ -1304,10 +1359,18 @@ export default function Enroll() {
       expectedPlanKey: planKey,
     });
 
-    await fetchEnrollment();
+    const latestEnrollmentAfterWait = await fetchEnrollmentForUserId(userId);
     await refreshUser?.();
 
-    if (normalizeKey(entitlement?.status) === "active") {
+    const entitlementStatus = normalizeKey(entitlement?.status);
+    const latestEnrollmentStatus = normalizeKey(
+      latestEnrollmentAfterWait?.status
+    );
+
+    if (
+      SUCCESS_STATUSES.has(entitlementStatus) ||
+      SUCCESS_STATUSES.has(latestEnrollmentStatus)
+    ) {
       setPurchaseState("success");
       setPurchaseMessage(plan.successBody);
       toast.success(`${plan.name} unlocked`);
@@ -1323,13 +1386,15 @@ export default function Enroll() {
   }
 
   async function handlePurchase(plan) {
-    if (!user?.id || !plan || purchaseBusy) return;
+    if (!plan || purchaseBusy) return;
 
     try {
       setPageError("");
       setDebugError("");
       setPurchaseMessage("");
       setActivePurchasePlan(plan.key);
+
+      const authUser = await getAuthenticatedUser();
 
       const billingResult = await runBillingProbe(plan);
 
@@ -1353,8 +1418,8 @@ export default function Enroll() {
         purchase = await launchGooglePlayPurchase({
           productId: plan.productId,
           planKey: plan.key,
-          userId: user.id,
-          userEmail: user.email,
+          userId: authUser.id,
+          userEmail: authUser.email || user?.email || "",
         });
       } catch (error) {
         if (isAlreadyOwnedError(error)) {
@@ -1365,6 +1430,7 @@ export default function Enroll() {
 
           await finalizeOwnedOrPurchasedPlan({
             plan,
+            authUser,
             purchaseToken: "",
             orderId: "",
             bridgePayload: {
@@ -1398,6 +1464,7 @@ export default function Enroll() {
 
       await finalizeOwnedOrPurchasedPlan({
         plan,
+        authUser,
         purchaseToken: purchase.purchaseToken,
         orderId: purchase.orderId,
         bridgePayload: purchase.raw,

@@ -114,6 +114,47 @@ function getMissingBridgeResult(message) {
   };
 }
 
+function requireSupabaseClient(supabase) {
+  if (!supabase) {
+    throw makeError("Supabase client is required.", {
+      responseCode: "DEVELOPER_ERROR",
+      debugMessage: "persistGooglePlayPurchase() was called without supabase.",
+    });
+  }
+}
+
+function requireAuthenticatedUserId(userId) {
+  const normalizedUserId = normalize(userId);
+
+  if (!normalizedUserId) {
+    throw makeError("User not authenticated during Google Play purchase.", {
+      responseCode: "DEVELOPER_ERROR",
+      debugMessage:
+        "Missing userId while persisting Google Play purchase. Refusing to create unknown-user enrollment.",
+    });
+  }
+
+  return normalizedUserId;
+}
+
+function resolveEnrollmentStatus({ purchaseToken, orderId, bridgePayload }) {
+  const bridgeStatus = normalizeLower(
+    bridgePayload?.status ||
+      bridgePayload?.enrollment_status ||
+      bridgePayload?.purchase_status
+  );
+
+  if (SUCCESS_STATUSES.has(bridgeStatus)) {
+    return bridgeStatus;
+  }
+
+  if (normalize(purchaseToken) || normalize(orderId)) {
+    return "approved";
+  }
+
+  return "google_play_pending";
+}
+
 async function safeBridgeCall(methodName, payload) {
   const bridge = getBillingBridge();
 
@@ -407,27 +448,97 @@ export async function persistGooglePlayPurchase({
   orderId,
   bridgePayload,
 }) {
+  requireSupabaseClient(supabase);
+
+  const safeUserId = requireAuthenticatedUserId(userId);
+  const safePlanKey = normalize(planKey);
+  const safeProductId = normalize(productId);
+  const safePurchaseToken = normalize(purchaseToken) || null;
+  const safeOrderId = normalize(orderId) || null;
+  const resolvedStatus = resolveEnrollmentStatus({
+    purchaseToken: safePurchaseToken,
+    orderId: safeOrderId,
+    bridgePayload,
+  });
+
+  if (!safePlanKey) {
+    throw makeError("Missing Google Play plan key.", {
+      responseCode: "DEVELOPER_ERROR",
+      debugMessage: "persistGooglePlayPurchase() was called without planKey.",
+    });
+  }
+
+  if (!safeProductId) {
+    throw makeError("Missing Google Play product ID.", {
+      responseCode: "DEVELOPER_ERROR",
+      debugMessage: "persistGooglePlayPurchase() was called without productId.",
+    });
+  }
+
   const payload = {
-    user_id: userId,
-    plan: planKey,
-    plan_key: planKey,
-    product_id: productId,
-    purchase_token: purchaseToken || null,
-    order_id: orderId || null,
+    user_id: safeUserId,
+    plan: safePlanKey,
+    plan_key: safePlanKey,
+    product_id: safeProductId,
+    purchase_token: safePurchaseToken,
+    order_id: safeOrderId,
     source: "google_play",
-    status: "google_play_pending",
+    status: resolvedStatus,
     purchase_payload: bridgePayload || null,
   };
 
-  const { data: existing, error: existingError } = await supabase
-    .from("enrollments")
-    .select("id")
-    .eq("user_id", userId)
-    .order("created_at", { ascending: false })
-    .limit(1)
-    .maybeSingle();
+  let existing = null;
 
-  if (existingError) throw existingError;
+  if (safePurchaseToken) {
+    const { data, error } = await supabase
+      .from("enrollments")
+      .select("id")
+      .eq("purchase_token", safePurchaseToken)
+      .maybeSingle();
+
+    if (error) throw error;
+    existing = data || null;
+  }
+
+  if (!existing && safeOrderId) {
+    const { data, error } = await supabase
+      .from("enrollments")
+      .select("id")
+      .eq("order_id", safeOrderId)
+      .maybeSingle();
+
+    if (error) throw error;
+    existing = data || null;
+  }
+
+  if (!existing) {
+    const { data, error } = await supabase
+      .from("enrollments")
+      .select("id")
+      .eq("user_id", safeUserId)
+      .eq("product_id", safeProductId)
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    if (error) throw error;
+    existing = data || null;
+  }
+
+  if (!existing) {
+    const { data, error } = await supabase
+      .from("enrollments")
+      .select("id")
+      .eq("user_id", safeUserId)
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    if (error) throw error;
+    existing = data || null;
+  }
+
+  let enrollmentId = null;
 
   if (existing?.id) {
     const { error: updateError } = await supabase
@@ -436,17 +547,37 @@ export async function persistGooglePlayPurchase({
       .eq("id", existing.id);
 
     if (updateError) throw updateError;
-    return existing.id;
+    enrollmentId = existing.id;
+  } else {
+    const { data, error: insertError } = await supabase
+      .from("enrollments")
+      .insert([payload])
+      .select("id")
+      .single();
+
+    if (insertError) throw insertError;
+    enrollmentId = data?.id || null;
   }
 
-  const { data, error: insertError } = await supabase
-    .from("enrollments")
-    .insert([payload])
-    .select("id")
-    .single();
+  if (resolvedStatus === "approved" || resolvedStatus === "active") {
+    const profilePatch = {
+      plan: safePlanKey,
+      is_enrolled: true,
+      program_active: true,
+      enrollment_status: resolvedStatus,
+    };
 
-  if (insertError) throw insertError;
-  return data?.id || null;
+    const { error: profileUpdateError } = await supabase
+      .from("profiles")
+      .update(profilePatch)
+      .eq("id", safeUserId);
+
+    if (profileUpdateError) {
+      throw profileUpdateError;
+    }
+  }
+
+  return enrollmentId;
 }
 
 export async function waitForGooglePlayEntitlement({
@@ -456,6 +587,10 @@ export async function waitForGooglePlayEntitlement({
   timeoutMs = 20000,
   pollMs = 1500,
 }) {
+  requireSupabaseClient(supabase);
+
+  const safeUserId = requireAuthenticatedUserId(userId);
+  const expected = normalizeLower(expectedPlanKey);
   const start = Date.now();
 
   while (Date.now() - start < timeoutMs) {
@@ -463,11 +598,11 @@ export async function waitForGooglePlayEntitlement({
       { data: profile, error: profileError },
       { data: enrollment, error: enrollmentError },
     ] = await Promise.all([
-      supabase.from("profiles").select("*").eq("id", userId).maybeSingle(),
+      supabase.from("profiles").select("*").eq("id", safeUserId).maybeSingle(),
       supabase
         .from("enrollments")
         .select("*")
-        .eq("user_id", userId)
+        .eq("user_id", safeUserId)
         .order("created_at", { ascending: false })
         .limit(1)
         .maybeSingle(),
@@ -481,10 +616,11 @@ export async function waitForGooglePlayEntitlement({
       enrollment?.plan_key || enrollment?.plan
     );
     const profilePlan = normalizeLower(profile?.plan);
-    const expected = normalizeLower(expectedPlanKey);
+    const profileEnrollmentStatus = normalizeLower(profile?.enrollment_status);
 
     const unlocked =
       SUCCESS_STATUSES.has(enrollmentStatus) ||
+      SUCCESS_STATUSES.has(profileEnrollmentStatus) ||
       profile?.program_active === true ||
       profile?.is_enrolled === true ||
       profilePlan === expected ||
