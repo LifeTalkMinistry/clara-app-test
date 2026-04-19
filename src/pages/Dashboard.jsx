@@ -16,6 +16,9 @@ import {
   Flag,
   Bell,
   X,
+  Home,
+  MessageCircle,
+  ListChecks,
 } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
 import { supabase } from "@/lib/supabaseClient";
@@ -345,12 +348,13 @@ const OnboardingActionBar = ({
   nextClassName = "",
 }) => {
   return (
-    <div className="sticky bottom-0 z-20 -mx-5 mt-6 border-t border-white/10 bg-[#071120]/95 px-5 pb-[max(1rem,env(safe-area-inset-bottom))] pt-4 backdrop-blur-xl md:-mx-6 md:px-6">
-      <div className="flex flex-col gap-3 sm:flex-row sm:justify-between">
+    <div className="sticky bottom-0 z-30 mt-6 border-t border-white/10 bg-[#071120]/96 px-4 pb-[calc(1rem+env(safe-area-inset-bottom))] pt-4 backdrop-blur-2xl md:px-6">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         {onBack ? (
           <button
+            type="button"
             onClick={onBack}
-            className="w-full rounded-2xl border border-white/10 px-5 py-3 text-sm font-medium text-white/70 transition hover:bg-white/5 sm:w-auto"
+            className="w-full rounded-2xl border border-white/10 bg-white/[0.03] px-5 py-3 text-sm font-medium text-white/80 transition hover:bg-white/[0.06] sm:w-auto sm:min-w-[120px]"
           >
             {backLabel}
           </button>
@@ -359,9 +363,10 @@ const OnboardingActionBar = ({
         )}
 
         <button
+          type="button"
           onClick={onNext}
           disabled={nextDisabled}
-          className={`w-full rounded-2xl bg-gradient-to-r from-emerald-500 to-green-600 px-5 py-3 text-sm font-semibold text-white transition disabled:cursor-not-allowed disabled:opacity-50 sm:w-auto ${nextClassName}`}
+          className={`w-full rounded-2xl bg-gradient-to-r from-emerald-400 via-emerald-500 to-green-600 px-5 py-3.5 text-sm font-semibold text-white shadow-[0_10px_30px_rgba(16,185,129,0.28)] transition hover:scale-[1.01] disabled:cursor-not-allowed disabled:opacity-50 sm:w-auto sm:min-w-[180px] ${nextClassName}`}
         >
           {nextLabel}
         </button>
@@ -529,7 +534,12 @@ export default function Dashboard() {
         body.clara-onboarding-open .app-bottom-nav,
         body.clara-onboarding-open .floating-add-button,
         body.clara-onboarding-open .global-fab,
-        body.clara-onboarding-open .bottom-tab-bar {
+        body.clara-onboarding-open .bottom-tab-bar,
+        body.clara-onboarding-open *[class*="fab"],
+        body.clara-onboarding-open *[class*="FAB"],
+        body.clara-onboarding-open [class*="floating"],
+        body.clara-onboarding-open [class*="bottom-nav"],
+        body.clara-onboarding-open [class*="tab-bar"] {
           opacity: 0 !important;
           pointer-events: none !important;
           visibility: hidden !important;
@@ -758,10 +768,15 @@ export default function Dashboard() {
           );
 
           const storedPrefs = readDashboardPrefs(currentUser.id);
-          const nextNickname =
-            nickname ||
-            dashboardPageCache.nickname ||
-            normalizeString(userProfile?.full_name || currentUser.full_name || "");
+          const nextNickname = normalizeString(
+            userProfile?.display_name ||
+              userProfile?.nickname ||
+              userProfile?.full_name ||
+              nickname ||
+              dashboardPageCache.nickname ||
+              currentUser.full_name ||
+              ""
+          );
           const nextReminderTime =
             reminderTime || dashboardPageCache.reminderTime || storedPrefs.reminderTime;
           const nextFinancialGoal =
@@ -958,6 +973,36 @@ export default function Dashboard() {
   useEffect(() => {
     loadDashboardData();
   }, [loadDashboardData]);
+
+  useEffect(() => {
+    const handleProfileUpdated = (event) => {
+      const updated = event?.detail?.profile || {};
+
+      setProfileData((prev) => ({
+        ...(prev || {}),
+        ...updated,
+      }));
+
+      const nextName = normalizeString(
+        updated?.display_name ||
+          updated?.nickname ||
+          updated?.full_name ||
+          ""
+      );
+
+      if (nextName) {
+        setNickname(nextName);
+      }
+
+      scheduleRefresh();
+    };
+
+    window.addEventListener("clara-profile-updated", handleProfileUpdated);
+
+    return () => {
+      window.removeEventListener("clara-profile-updated", handleProfileUpdated);
+    };
+  }, [scheduleRefresh]);
 
   useEffect(() => {
     if (!user?.id && !user?.email) return;
@@ -1407,6 +1452,72 @@ export default function Dashboard() {
     navigate("/tasks");
   };
 
+
+  const feedHasHighlight = hasBillboardContent || programJourney.accessibleCompletedCount > 0;
+  const unreadMessagesCount = 0;
+  const taskBadgeLabel = activeTask
+    ? `Day ${activeTask.day}`
+    : nextTask
+      ? `Next ${nextTask.day}`
+      : "";
+  const newsHasUpdate = hasBillboardContent;
+
+  const headerQuickActions = [
+    {
+      key: "feed",
+      label: "Feed",
+      icon: Home,
+      to: "/feed",
+      badge: feedHasHighlight
+        ? {
+            type: "pill",
+            value: "New",
+            className:
+              "border-emerald-400/20 bg-emerald-400/12 text-emerald-200",
+          }
+        : null,
+    },
+    {
+      key: "messages",
+      label: "Messages",
+      icon: MessageCircle,
+      to: "/messages",
+      badge: unreadMessagesCount > 0
+        ? {
+            type: "count",
+            value: unreadMessagesCount > 9 ? "9+" : String(unreadMessagesCount),
+            className: "border-red-400/20 bg-red-500/18 text-red-100",
+          }
+        : null,
+    },
+    {
+      key: "task",
+      label: "Task",
+      icon: ListChecks,
+      to: "/tasks",
+      badge: taskBadgeLabel
+        ? {
+            type: "pill",
+            value: taskBadgeLabel,
+            className: "border-amber-400/20 bg-amber-400/14 text-amber-200",
+          }
+        : null,
+    },
+    {
+      key: "news",
+      label: "News",
+      icon: Newspaper,
+      to: "/news",
+      badge: newsHasUpdate
+        ? {
+            type: "dot",
+            value: "",
+            className: "border-sky-400/25 bg-sky-400 text-sky-100",
+          }
+        : null,
+    },
+  ];
+
   if (!guardChecked) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-[#061018] text-white">
@@ -1420,21 +1531,77 @@ export default function Dashboard() {
 
   return (
     <div className="relative isolate z-0 min-h-full">
-      <div className="grad-green px-4 pb-2 pt-4 md:px-6">
-        <div className="mx-auto flex max-w-4xl items-center justify-between gap-3 pr-12">
-          <div className="min-w-0 flex-1">
-            <p className="text-[10px] text-white/50">Welcome back,</p>
-            <h1 className="truncate text-xl font-bold leading-tight text-white">
-              {user?.full_name || nickname || "Financial Champion"}
-            </h1>
-          </div>
+      <div className="px-4 pb-2 pt-3 md:px-6">
+        <div className="mx-auto max-w-4xl">
+          <div className="relative w-full overflow-hidden rounded-[24px] border border-white/10 bg-[linear-gradient(135deg,rgba(10,25,60,0.95)_0%,rgba(8,20,40,0.95)_38%,rgba(38,18,46,0.94)_66%,rgba(92,16,28,0.72)_100%)] px-2 py-2 shadow-[0_0_0_1px_rgba(255,255,255,0.03),0_14px_34px_rgba(0,0,0,0.35),0_0_40px_rgba(59,130,246,0.08),0_0_30px_rgba(220,38,38,0.06)] backdrop-blur-xl sm:px-2.5">
+            <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(59,130,246,0.18),transparent_34%),radial-gradient(circle_at_bottom_right,rgba(220,38,38,0.13),transparent_38%),radial-gradient(circle_at_center,rgba(250,204,21,0.06),transparent_58%)]" />
+            <div className="pointer-events-none absolute inset-0 opacity-[0.10] bg-[linear-gradient(115deg,transparent_0%,rgba(255,255,255,0.18)_18%,transparent_36%,transparent_64%,rgba(255,255,255,0.10)_82%,transparent_100%)]" />
+            <div className="pointer-events-none absolute inset-x-6 top-0 h-px bg-gradient-to-r from-transparent via-white/25 to-transparent" />
 
-          <Link to="/news" className="mr-2 shrink-0">
-            <button className="flex items-center gap-2 rounded-lg bg-white/10 px-3 py-1.5 text-[11px] font-medium text-white transition hover:bg-white/15">
-              <Newspaper className="h-3.5 w-3.5" />
-              News
-            </button>
-          </Link>
+            <div className="relative flex items-center justify-between gap-1 sm:gap-1.5">
+              {headerQuickActions.map((item, index) => {
+                const Icon = item.icon;
+                const pillGlow =
+                  item.key === "feed"
+                    ? "shadow-[0_0_12px_rgba(59,130,246,0.20)]"
+                    : item.key === "task"
+                      ? "shadow-[0_0_12px_rgba(250,204,21,0.22)]"
+                      : "";
+                const iconHoverGlow =
+                  item.key === "feed"
+                    ? "group-hover:shadow-[0_0_24px_rgba(59,130,246,0.18)]"
+                    : item.key === "task"
+                      ? "group-hover:shadow-[0_0_24px_rgba(250,204,21,0.18)]"
+                      : item.key === "news"
+                        ? "group-hover:shadow-[0_0_22px_rgba(56,189,248,0.16)]"
+                        : "group-hover:shadow-[0_0_22px_rgba(255,255,255,0.10)]";
+
+                return (
+                  <div key={item.key} className="flex flex-1 items-center">
+                    <Link
+                      to={item.to}
+                      className="group flex-1"
+                      aria-label={item.label}
+                    >
+                      <div className="relative flex w-full flex-col items-center justify-center gap-1 rounded-[16px] px-1 py-2 text-white/82 transition duration-200 hover:-translate-y-[1px] hover:bg-white/[0.06] hover:text-white active:scale-[0.985] sm:px-2">
+                        <div className="pointer-events-none absolute inset-0 rounded-[16px] opacity-0 transition duration-200 group-hover:opacity-100 bg-[radial-gradient(circle_at_top,rgba(255,255,255,0.08),transparent_55%)]" />
+
+                        <div className={`relative flex h-10 w-10 items-center justify-center rounded-full border border-white/10 bg-[linear-gradient(180deg,rgba(255,255,255,0.08),rgba(255,255,255,0.03))] shadow-[inset_0_1px_0_rgba(255,255,255,0.08),0_0_18px_rgba(255,255,255,0.04)] transition duration-200 group-hover:border-white/20 group-hover:bg-white/[0.10] ${iconHoverGlow}`}>
+                          <Icon className="h-5 w-5" />
+
+                          {item.badge?.type === "count" ? (
+                            <span
+                              className={`absolute -right-1.5 -top-1.5 inline-flex min-w-[16px] items-center justify-center rounded-full border px-1 py-[2px] text-[8px] font-bold leading-none shadow-[0_4px_12px_rgba(0,0,0,0.24)] ${item.badge.className}`}
+                            >
+                              {item.badge.value}
+                            </span>
+                          ) : item.badge?.type === "pill" ? (
+                            <span
+                              className={`absolute -right-2 -top-1.5 inline-flex items-center justify-center rounded-full border px-1.5 py-[2px] text-[8px] font-semibold leading-none ${pillGlow} ${item.badge.className}`}
+                            >
+                              {item.badge.value}
+                            </span>
+                          ) : item.badge?.type === "dot" ? (
+                            <span
+                              className={`absolute right-0 top-0 h-1.5 w-1.5 rounded-full border shadow-[0_0_10px_rgba(56,189,248,0.45),0_4px_10px_rgba(0,0,0,0.22)] ${item.badge.className}`}
+                            />
+                          ) : null}
+                        </div>
+
+                        <span className="max-w-full truncate text-[11px] font-medium leading-none">
+                          {item.label}
+                        </span>
+                      </div>
+                    </Link>
+
+                    {index < headerQuickActions.length - 1 ? (
+                      <div className="pointer-events-none mx-0.5 hidden h-10 w-px shrink-0 bg-gradient-to-b from-transparent via-white/10 to-transparent sm:block" />
+                    ) : null}
+                  </div>
+                );
+              })}
+            </div>
+          </div>
         </div>
       </div>
 
@@ -1639,10 +1806,11 @@ export default function Dashboard() {
                   </div>
                 </div>
 
-                <p className="mt-4 text-xs text-white/72 line-clamp-2">
-                  {missionSub}
-                </p>
-
+                {loading && (
+  <p className="mt-auto pt-4 text-[11px] text-white/35">
+    Refreshing...
+  </p>
+)}
                 <div className="mt-auto flex items-end justify-between gap-3 pt-4">
                   <div>
                     <p className="text-[11px] uppercase tracking-wide text-white/45">
@@ -1752,21 +1920,27 @@ export default function Dashboard() {
 
       {showOnboarding && (
         <div
-          className="fixed inset-0 z-[9999] bg-black/80 backdrop-blur-md"
+          className="fixed inset-0 z-[99999] bg-[#020817]/88 backdrop-blur-xl"
           onClick={closeOnboarding}
         >
-          <div className="flex min-h-screen items-end justify-center p-3 sm:items-center sm:p-4">
+          <div className="flex h-[100dvh] w-full items-end justify-center sm:items-center">
             <div
-              className="flex h-[92vh] w-full max-w-2xl flex-col overflow-hidden rounded-[28px] border border-white/10 bg-[#071120] text-white shadow-[0_25px_80px_rgba(0,0,0,0.45)] sm:h-auto sm:max-h-[90vh]"
+              className="relative flex h-[100dvh] w-full flex-col overflow-hidden bg-[radial-gradient(circle_at_top,rgba(16,185,129,0.16),transparent_28%),linear-gradient(180deg,#08111f_0%,#071120_38%,#061018_100%)] text-white sm:h-[94vh] sm:max-h-[920px] sm:w-[min(100%,860px)] sm:rounded-[32px] sm:border sm:border-white/10 sm:shadow-[0_30px_100px_rgba(0,0,0,0.45)]"
               onClick={(e) => e.stopPropagation()}
             >
-              <div className="border-b border-white/10 bg-gradient-to-r from-emerald-700/30 via-green-600/20 to-transparent px-5 py-4 md:px-6">
+              <div className="pointer-events-none absolute inset-0 overflow-hidden">
+                <div className="absolute -top-20 left-1/2 h-56 w-56 -translate-x-1/2 rounded-full bg-emerald-500/10 blur-3xl" />
+                <div className="absolute bottom-0 right-0 h-48 w-48 rounded-full bg-cyan-500/10 blur-3xl" />
+              </div>
+
+              <div className="relative z-10 border-b border-white/10 bg-black/10 px-4 pb-4 pt-[max(1rem,env(safe-area-inset-top))] md:px-6">
                 <div className="flex items-start justify-between gap-4">
                   <div className="min-w-0">
-                    <p className="text-[11px] uppercase tracking-[0.2em] text-emerald-300/80">
-                      CLARA Program Onboarding
-                    </p>
-                    <h2 className="mt-1 text-xl font-bold">
+                    <div className="inline-flex items-center gap-2 rounded-full border border-emerald-400/15 bg-emerald-500/10 px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.22em] text-emerald-300/85">
+                      <span>CLARA Program Onboarding</span>
+                    </div>
+
+                    <h2 className="mt-3 text-[1.35rem] font-bold leading-tight md:text-[1.65rem]">
                       {onboardingStep === 0 && "Commitment Agreement"}
                       {onboardingStep === 1 && "Rules & Expectations"}
                       {onboardingStep === 2 && "Initial Setup"}
@@ -1775,331 +1949,343 @@ export default function Dashboard() {
                       {onboardingStep === 5 && "How CLARA Helps You Daily"}
                       {onboardingStep === 6 && "Start Day 1"}
                     </h2>
+
+                    <p className="mt-1 text-sm text-white/60">
+                      Step {onboardingStep + 1} of 7
+                    </p>
                   </div>
 
                   <button
+                    type="button"
                     onClick={closeOnboarding}
-                    className="shrink-0 rounded-full border border-white/10 p-2 text-white/60 transition hover:bg-white/5 hover:text-white"
+                    className="shrink-0 rounded-full border border-white/10 bg-white/[0.04] p-2.5 text-white/60 transition hover:bg-white/[0.08] hover:text-white"
                   >
                     <X className="h-4 w-4" />
                   </button>
                 </div>
 
                 <div className="mt-4">
-                  <div className="h-2 w-full rounded-full bg-white/10">
+                  <div className="h-2.5 w-full overflow-hidden rounded-full bg-white/10">
                     <div
-                      className="h-2 rounded-full bg-gradient-to-r from-emerald-400 to-green-500 transition-all duration-300"
+                      className="h-full rounded-full bg-gradient-to-r from-emerald-400 via-emerald-500 to-green-500 transition-all duration-300"
                       style={{ width: `${((onboardingStep + 1) / 7) * 100}%` }}
                     />
                   </div>
-                  <p className="mt-2 text-xs text-white/55">
-                    Step {onboardingStep + 1} of 7
-                  </p>
                 </div>
               </div>
 
-              <div className="flex-1 overflow-y-auto px-5 py-5 md:px-6 md:py-6">
-                {onboardingStep === 0 && (
-                  <div className="space-y-5">
-                    <div className="rounded-3xl border border-emerald-400/15 bg-emerald-500/10 p-5">
-                      <div className="flex items-start gap-3">
-                        <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-emerald-500/20 text-emerald-300">
-                          <CheckCircle2 className="h-6 w-6" />
+              <div className="relative z-10 flex-1 overflow-y-auto px-4 py-4 md:px-6 md:py-6">
+                <div className="mx-auto w-full max-w-3xl">
+                  {onboardingStep === 0 && (
+                    <div className="space-y-5">
+                      <div className="overflow-hidden rounded-[28px] border border-emerald-400/15 bg-gradient-to-br from-emerald-500/14 to-green-600/8 p-5 md:p-6">
+                        <div className="flex items-start gap-4">
+                          <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-3xl bg-emerald-500/18 text-emerald-300 shadow-[0_12px_30px_rgba(16,185,129,0.15)]">
+                            <CheckCircle2 className="h-7 w-7" />
+                          </div>
+
+                          <div>
+                            <h3 className="text-xl font-bold leading-tight">
+                              Welcome to your 30-day transformation
+                            </h3>
+                            <p className="mt-2 text-sm leading-7 text-white/75">
+                              CLARA is not just a tracker. This is a guided behavior-change
+                              program built around structure, consistency, accountability,
+                              and action.
+                            </p>
+                          </div>
                         </div>
-                        <div>
-                          <h3 className="text-lg font-bold">
-                            Welcome to your 30-day transformation
-                          </h3>
-                          <p className="mt-2 text-sm leading-relaxed text-white/75">
-                            CLARA is not just a tracker. This is a guided behavior-change program
-                            built around structure, consistency, accountability, and action.
+                      </div>
+
+                      <div className="rounded-[28px] border border-white/10 bg-white/[0.04] p-5 md:p-6">
+                        <p className="text-sm leading-7 text-white/80">
+                          By continuing, you acknowledge that you are entering a guided
+                          financial coaching experience and you are expected to complete
+                          your tasks honestly and consistently.
+                        </p>
+
+                        <label className="mt-5 flex cursor-pointer items-start gap-3 rounded-3xl border border-white/10 bg-[#091423] px-4 py-4 transition hover:border-emerald-400/25 hover:bg-[#0c1829]">
+                          <input
+                            type="checkbox"
+                            className="mt-1 h-4 w-4 shrink-0 rounded border-white/20 bg-transparent accent-emerald-500"
+                            checked={commitmentChecked}
+                            onChange={(e) => setCommitmentChecked(e.target.checked)}
+                          />
+                          <span className="text-sm leading-6 text-white/82">
+                            I commit to completing the CLARA program, following the daily
+                            process, and taking responsibility for my progress.
+                          </span>
+                        </label>
+                      </div>
+
+                      <OnboardingActionBar
+                        onNext={goToNextOnboardingStep}
+                        nextDisabled={!commitmentChecked || savingOnboarding}
+                        nextLabel="Continue"
+                      />
+                    </div>
+                  )}
+
+                  {onboardingStep === 1 && (
+                    <div className="space-y-4">
+                      <div className="grid gap-3 md:grid-cols-2">
+                        <div className="rounded-[28px] border border-white/10 bg-white/[0.04] p-5">
+                          <div className="flex items-center gap-2 text-emerald-300">
+                            <ShieldCheck className="h-4 w-4" />
+                            <p className="text-sm font-semibold">Behavior First</p>
+                          </div>
+                          <p className="mt-2 text-sm leading-7 text-white/75">
+                            This program is not just knowledge. It is designed to change
+                            behavior through repeated action.
+                          </p>
+                        </div>
+
+                        <div className="rounded-[28px] border border-white/10 bg-white/[0.04] p-5">
+                          <div className="flex items-center gap-2 text-emerald-300">
+                            <Flag className="h-4 w-4" />
+                            <p className="text-sm font-semibold">Complete in Order</p>
+                          </div>
+                          <p className="mt-2 text-sm leading-7 text-white/75">
+                            Daily tasks are sequential. Missed tasks should be completed
+                            before moving forward.
+                          </p>
+                        </div>
+
+                        <div className="rounded-[28px] border border-white/10 bg-white/[0.04] p-5">
+                          <div className="flex items-center gap-2 text-emerald-300">
+                            <Bell className="h-4 w-4" />
+                            <p className="text-sm font-semibold">Stay Accountable</p>
+                          </div>
+                          <p className="mt-2 text-sm leading-7 text-white/75">
+                            Progress depends on consistency, not intensity. Small actions
+                            done daily matter.
+                          </p>
+                        </div>
+
+                        <div className="rounded-[28px] border border-white/10 bg-white/[0.04] p-5">
+                          <div className="flex items-center gap-2 text-emerald-300">
+                            <CalendarDays className="h-4 w-4" />
+                            <p className="text-sm font-semibold">Modules Unlock Weekly</p>
+                          </div>
+                          <p className="mt-2 text-sm leading-7 text-white/75">
+                            Weekly modules support your journey while tasks train the habit
+                            in real life.
                           </p>
                         </div>
                       </div>
+
+                      <OnboardingActionBar
+                        onBack={() => setOnboardingStep(0)}
+                        onNext={goToNextOnboardingStep}
+                        nextDisabled={savingOnboarding}
+                        nextLabel="I Understand"
+                      />
                     </div>
+                  )}
 
-                    <div className="rounded-3xl border border-white/10 bg-white/5 p-5">
-                      <p className="text-sm leading-relaxed text-white/80">
-                        By continuing, you acknowledge that you are entering a guided financial
-                        coaching experience and you are expected to complete your tasks honestly
-                        and consistently.
-                      </p>
+                  {onboardingStep === 2 && (
+                    <div className="space-y-4">
+                      <div className="rounded-[28px] border border-white/10 bg-white/[0.04] p-5 md:p-6">
+                        <p className="text-sm font-semibold text-white">
+                          Complete your initial setup
+                        </p>
+                        <p className="mt-1 text-sm text-white/65">
+                          This helps personalize your coaching journey from Day 1.
+                        </p>
 
-                      <label className="mt-4 flex cursor-pointer items-start gap-3 rounded-2xl border border-white/10 bg-black/20 p-4">
-                        <input
-                          type="checkbox"
-                          className="mt-1 h-4 w-4 shrink-0 rounded border-white/20 bg-transparent"
-                          checked={commitmentChecked}
-                          onChange={(e) => setCommitmentChecked(e.target.checked)}
-                        />
-                        <span className="text-sm text-white/80">
-                          I commit to completing the CLARA program, following the daily process,
-                          and taking responsibility for my progress.
-                        </span>
-                      </label>
-                    </div>
+                        <div className="mt-5 grid gap-4">
+                          <div>
+                            <label className="mb-2 block text-xs uppercase tracking-wide text-white/50">
+                              Name or Nickname
+                            </label>
+                            <input
+                              value={nickname}
+                              onChange={(e) => setNickname(e.target.value)}
+                              placeholder="What should CLARA call you?"
+                              className="w-full rounded-2xl border border-white/10 bg-black/30 px-4 py-3 text-sm text-white outline-none placeholder:text-white/30"
+                            />
+                          </div>
 
-                    <OnboardingActionBar
-                      onNext={goToNextOnboardingStep}
-                      nextDisabled={!commitmentChecked || savingOnboarding}
-                      nextLabel="Continue"
-                    />
-                  </div>
-                )}
+                          <div>
+                            <label className="mb-2 block text-xs uppercase tracking-wide text-white/50">
+                              Preferred Reminder Time
+                            </label>
+                            <input
+                              type="time"
+                              value={reminderTime}
+                              onChange={(e) => setReminderTime(e.target.value)}
+                              className="w-full rounded-2xl border border-white/10 bg-black/30 px-4 py-3 text-sm text-white outline-none"
+                            />
+                          </div>
 
-                {onboardingStep === 1 && (
-                  <div className="space-y-4">
-                    <div className="grid gap-3 md:grid-cols-2">
-                      <div className="rounded-3xl border border-white/10 bg-white/5 p-4">
-                        <div className="flex items-center gap-2 text-emerald-300">
-                          <ShieldCheck className="h-4 w-4" />
-                          <p className="text-sm font-semibold">Behavior First</p>
+                          <div>
+                            <label className="mb-2 block text-xs uppercase tracking-wide text-white/50">
+                              Main Financial Goal
+                            </label>
+                            <textarea
+                              value={financialGoal}
+                              onChange={(e) => setFinancialGoal(e.target.value)}
+                              placeholder="Example: Build emergency fund, stop impulsive spending, save my first ₱50,000."
+                              className="min-h-[110px] w-full rounded-2xl border border-white/10 bg-black/30 px-4 py-3 text-sm text-white outline-none placeholder:text-white/30"
+                            />
+                          </div>
                         </div>
-                        <p className="mt-2 text-sm text-white/75">
-                          This program is not just knowledge. It is designed to change behavior
-                          through repeated action.
+                      </div>
+
+                      <OnboardingActionBar
+                        onBack={() => setOnboardingStep(1)}
+                        onNext={goToNextOnboardingStep}
+                        nextDisabled={savingOnboarding}
+                        nextLabel="Save & Continue"
+                      />
+                    </div>
+                  )}
+
+                  {onboardingStep === 3 && (
+                    <div className="space-y-4">
+                      <div className="rounded-[28px] border border-emerald-400/15 bg-emerald-500/10 p-5">
+                        <p className="text-sm font-semibold text-white">Your support system</p>
+                        <p className="mt-2 text-sm leading-7 text-white/75">
+                          If your tier includes coaching, book your first session within
+                          Day 1 to Day 3. That first session acts as your onboarding
+                          alignment and sets the tone for the rest of the program.
                         </p>
                       </div>
 
-                      <div className="rounded-3xl border border-white/10 bg-white/5 p-4">
-                        <div className="flex items-center gap-2 text-emerald-300">
-                          <Flag className="h-4 w-4" />
-                          <p className="text-sm font-semibold">Complete in Order</p>
+                      <div className="grid gap-3 md:grid-cols-2">
+                        <div className="rounded-[28px] border border-white/10 bg-white/[0.04] p-5">
+                          <p className="text-sm font-semibold text-white">What happens next</p>
+                          <ul className="mt-3 space-y-2 text-sm text-white/70">
+                            <li>• Access your first weekly module</li>
+                            <li>• Start completing daily tasks in order</li>
+                            <li>• Track money using your dashboard tools</li>
+                          </ul>
                         </div>
-                        <p className="mt-2 text-sm text-white/75">
-                          Daily tasks are sequential. Missed tasks should be completed before
-                          moving forward.
+
+                        <div className="rounded-[28px] border border-white/10 bg-white/[0.04] p-5">
+                          <p className="text-sm font-semibold text-white">Coaching users</p>
+                          <ul className="mt-3 space-y-2 text-sm text-white/70">
+                            <li>• Book your session early</li>
+                            <li>• Bring your honest money habits</li>
+                            <li>• Use the session for clarity and accountability</li>
+                          </ul>
+                        </div>
+                      </div>
+
+                      <OnboardingActionBar
+                        onBack={() => setOnboardingStep(2)}
+                        onNext={goToNextOnboardingStep}
+                        nextDisabled={savingOnboarding}
+                        nextLabel="Continue"
+                      />
+                    </div>
+                  )}
+
+                  {onboardingStep === 4 && (
+                    <div className="space-y-4">
+                      <div className="grid gap-3">
+                        <div className="rounded-[28px] border border-white/10 bg-white/[0.04] p-5">
+                          <p className="text-sm font-semibold text-white">Dashboard</p>
+                          <p className="mt-2 text-sm leading-7 text-white/70">
+                            This is your main control center for progress, money tracking,
+                            and daily action.
+                          </p>
+                        </div>
+
+                        <div className="rounded-[28px] border border-white/10 bg-white/[0.04] p-5">
+                          <p className="text-sm font-semibold text-white">Day Mission</p>
+                          <p className="mt-2 text-sm leading-7 text-white/70">
+                            Your next task is always visible so you know exactly what to do next.
+                          </p>
+                        </div>
+                      </div>
+
+                      <OnboardingActionBar
+                        onBack={() => setOnboardingStep(3)}
+                        onNext={goToNextOnboardingStep}
+                        nextDisabled={savingOnboarding}
+                        nextLabel="Continue"
+                      />
+                    </div>
+                  )}
+
+                  {onboardingStep === 5 && (
+                    <div className="space-y-4">
+                      <div className="grid gap-3">
+                        <div className="rounded-[28px] border border-white/10 bg-white/[0.04] p-5">
+                          <p className="text-sm font-semibold text-white">Money Tools</p>
+                          <p className="mt-2 text-sm leading-7 text-white/70">
+                            Use wallets, expenses, budgets, and savings goals to support real
+                            behavior change.
+                          </p>
+                        </div>
+
+                        <div className="rounded-[28px] border border-white/10 bg-white/[0.04] p-5">
+                          <p className="text-sm font-semibold text-white">Weekly Modules</p>
+                          <p className="mt-2 text-sm leading-7 text-white/70">
+                            Learn weekly, act daily, and let the repetition build your new
+                            financial identity.
+                          </p>
+                        </div>
+                      </div>
+
+                      <div className="rounded-[28px] border border-amber-400/20 bg-amber-500/10 p-5">
+                        <p className="text-sm font-semibold text-white">Important</p>
+                        <p className="mt-2 text-sm leading-7 text-white/75">
+                          Your first real activation is not reading more. It is completing your
+                          Day 1 task.
                         </p>
                       </div>
 
-                      <div className="rounded-3xl border border-white/10 bg-white/5 p-4">
-                        <div className="flex items-center gap-2 text-emerald-300">
-                          <Bell className="h-4 w-4" />
-                          <p className="text-sm font-semibold">Stay Accountable</p>
+                      <OnboardingActionBar
+                        onBack={() => setOnboardingStep(4)}
+                        onNext={goToNextOnboardingStep}
+                        nextDisabled={savingOnboarding}
+                        nextLabel="Got It"
+                      />
+                    </div>
+                  )}
+
+                  {onboardingStep === 6 && (
+                    <div className="space-y-5">
+                      <div className="rounded-[30px] border border-emerald-400/20 bg-gradient-to-br from-emerald-500/16 via-emerald-500/8 to-cyan-500/8 p-6 md:p-7">
+                        <div className="flex items-start gap-4">
+                          <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-3xl bg-emerald-500/18 text-emerald-300 shadow-[0_12px_30px_rgba(16,185,129,0.15)]">
+                            <Rocket className="h-7 w-7" />
+                          </div>
+
+                          <div>
+                            <h3 className="text-xl font-bold leading-tight">
+                              You’re ready to begin Day 1
+                            </h3>
+                            <p className="mt-2 text-sm leading-7 text-white/78">
+                              This is where CLARA shifts from setup into action. Your next step
+                              is to begin the first behavior that will shape the rest of your
+                              financial journey.
+                            </p>
+                          </div>
                         </div>
-                        <p className="mt-2 text-sm text-white/75">
-                          Progress depends on consistency, not intensity. Small actions done daily
-                          matter.
-                        </p>
                       </div>
 
-                      <div className="rounded-3xl border border-white/10 bg-white/5 p-4">
-                        <div className="flex items-center gap-2 text-emerald-300">
-                          <CalendarDays className="h-4 w-4" />
-                          <p className="text-sm font-semibold">Modules Unlock Weekly</p>
-                        </div>
-                        <p className="mt-2 text-sm text-white/75">
-                          Weekly modules support your journey while tasks train the habit in real
-                          life.
-                        </p>
-                      </div>
-                    </div>
-
-                    <OnboardingActionBar
-                      onBack={() => setOnboardingStep(0)}
-                      onNext={goToNextOnboardingStep}
-                      nextDisabled={savingOnboarding}
-                      nextLabel="I Understand"
-                    />
-                  </div>
-                )}
-
-                {onboardingStep === 2 && (
-                  <div className="space-y-4">
-                    <div className="rounded-3xl border border-white/10 bg-white/5 p-5">
-                      <p className="text-sm font-semibold text-white">
-                        Complete your initial setup
-                      </p>
-                      <p className="mt-1 text-sm text-white/65">
-                        This helps personalize your coaching journey from Day 1.
-                      </p>
-
-                      <div className="mt-5 grid gap-4">
-                        <div>
-                          <label className="mb-2 block text-xs uppercase tracking-wide text-white/50">
-                            Name or Nickname
-                          </label>
-                          <input
-                            value={nickname}
-                            onChange={(e) => setNickname(e.target.value)}
-                            placeholder="What should CLARA call you?"
-                            className="w-full rounded-2xl border border-white/10 bg-black/30 px-4 py-3 text-sm text-white outline-none placeholder:text-white/30"
-                          />
-                        </div>
-
-                        <div>
-                          <label className="mb-2 block text-xs uppercase tracking-wide text-white/50">
-                            Preferred Reminder Time
-                          </label>
-                          <input
-                            type="time"
-                            value={reminderTime}
-                            onChange={(e) => setReminderTime(e.target.value)}
-                            className="w-full rounded-2xl border border-white/10 bg-black/30 px-4 py-3 text-sm text-white outline-none"
-                          />
-                        </div>
-
-                        <div>
-                          <label className="mb-2 block text-xs uppercase tracking-wide text-white/50">
-                            Main Financial Goal
-                          </label>
-                          <textarea
-                            value={financialGoal}
-                            onChange={(e) => setFinancialGoal(e.target.value)}
-                            placeholder="Example: Build emergency fund, stop impulsive spending, save my first ₱50,000..."
-                            className="min-h-[110px] w-full rounded-2xl border border-white/10 bg-black/30 px-4 py-3 text-sm text-white outline-none placeholder:text-white/30"
-                          />
-                        </div>
-                      </div>
-                    </div>
-
-                    <OnboardingActionBar
-                      onBack={() => setOnboardingStep(1)}
-                      onNext={goToNextOnboardingStep}
-                      nextDisabled={savingOnboarding}
-                      nextLabel="Save & Continue"
-                    />
-                  </div>
-                )}
-
-                {onboardingStep === 3 && (
-                  <div className="space-y-4">
-                    <div className="rounded-3xl border border-emerald-400/15 bg-emerald-500/10 p-5">
-                      <p className="text-sm font-semibold text-white">Your support system</p>
-                      <p className="mt-2 text-sm leading-relaxed text-white/75">
-                        If your tier includes coaching, book your first session within Day 1 to
-                        Day 3. That first session acts as your onboarding alignment and sets the
-                        tone for the rest of the program.
-                      </p>
-                    </div>
-
-                    <div className="grid gap-3 md:grid-cols-2">
-                      <div className="rounded-3xl border border-white/10 bg-white/5 p-4">
-                        <p className="text-sm font-semibold text-white">What happens next</p>
-                        <ul className="mt-3 space-y-2 text-sm text-white/70">
-                          <li>• Access your first weekly module</li>
-                          <li>• Start completing daily tasks in order</li>
-                          <li>• Track money using your dashboard tools</li>
+                      <div className="rounded-[28px] border border-white/10 bg-white/[0.04] p-5">
+                        <p className="text-sm font-semibold text-white">Your Day 0 checklist</p>
+                        <ul className="mt-3 space-y-2 text-sm text-white/75">
+                          <li>• Commitment accepted</li>
+                          <li>• Rules understood</li>
+                          <li>• Initial setup completed</li>
+                          <li>• Ready for Day 1 action</li>
                         </ul>
                       </div>
 
-                      <div className="rounded-3xl border border-white/10 bg-white/5 p-4">
-                        <p className="text-sm font-semibold text-white">Coaching users</p>
-                        <ul className="mt-3 space-y-2 text-sm text-white/70">
-                          <li>• Book your session early</li>
-                          <li>• Bring your honest money habits</li>
-                          <li>• Use the session for clarity and accountability</li>
-                        </ul>
-                      </div>
+                      <OnboardingActionBar
+                        onBack={() => setOnboardingStep(5)}
+                        onNext={finishOnboarding}
+                        nextDisabled={savingOnboarding}
+                        nextLabel="Start Day 1 Now"
+                      />
                     </div>
-
-                    <OnboardingActionBar
-                      onBack={() => setOnboardingStep(2)}
-                      onNext={goToNextOnboardingStep}
-                      nextDisabled={savingOnboarding}
-                      nextLabel="Continue"
-                    />
-                  </div>
-                )}
-
-                {onboardingStep === 4 && (
-                  <div className="space-y-4">
-                    <div className="grid gap-3">
-                      <div className="rounded-3xl border border-white/10 bg-white/5 p-4">
-                        <p className="text-sm font-semibold text-white">Dashboard</p>
-                        <p className="mt-2 text-sm text-white/70">
-                          This is your main control center for progress, money tracking, and daily
-                          action.
-                        </p>
-                      </div>
-
-                      <div className="rounded-3xl border border-white/10 bg-white/5 p-4">
-                        <p className="text-sm font-semibold text-white">Day Mission</p>
-                        <p className="mt-2 text-sm text-white/70">
-                          Your next task is always visible so you know exactly what to do next.
-                        </p>
-                      </div>
-                    </div>
-
-                    <OnboardingActionBar
-                      onBack={() => setOnboardingStep(3)}
-                      onNext={goToNextOnboardingStep}
-                      nextDisabled={savingOnboarding}
-                      nextLabel="Continue"
-                    />
-                  </div>
-                )}
-
-                {onboardingStep === 5 && (
-                  <div className="space-y-4">
-                    <div className="grid gap-3">
-                      <div className="rounded-3xl border border-white/10 bg-white/5 p-4">
-                        <p className="text-sm font-semibold text-white">Money Tools</p>
-                        <p className="mt-2 text-sm text-white/70">
-                          Use wallets, expenses, budgets, and savings goals to support real
-                          behavior change.
-                        </p>
-                      </div>
-
-                      <div className="rounded-3xl border border-white/10 bg-white/5 p-4">
-                        <p className="text-sm font-semibold text-white">Weekly Modules</p>
-                        <p className="mt-2 text-sm text-white/70">
-                          Learn weekly, act daily, and let the repetition build your new financial
-                          identity.
-                        </p>
-                      </div>
-                    </div>
-
-                    <div className="rounded-3xl border border-amber-400/20 bg-amber-500/10 p-4">
-                      <p className="text-sm font-semibold text-white">Important</p>
-                      <p className="mt-2 text-sm text-white/75">
-                        Your first real activation is not reading more. It is completing your Day 1
-                        task.
-                      </p>
-                    </div>
-
-                    <OnboardingActionBar
-                      onBack={() => setOnboardingStep(4)}
-                      onNext={goToNextOnboardingStep}
-                      nextDisabled={savingOnboarding}
-                      nextLabel="Got It"
-                    />
-                  </div>
-                )}
-
-                {onboardingStep === 6 && (
-                  <div className="space-y-5">
-                    <div className="rounded-3xl border border-emerald-400/20 bg-gradient-to-br from-emerald-500/15 to-green-600/10 p-6 text-center">
-                      <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-3xl bg-gradient-to-br from-emerald-400 to-green-600 text-white shadow-xl">
-                        <Rocket className="h-7 w-7" />
-                      </div>
-                      <h3 className="mt-4 text-2xl font-bold">
-                        You are now officially inside CLARA
-                      </h3>
-                      <p className="mt-3 text-sm leading-relaxed text-white/75">
-                        Your next move is simple: start your first task and begin building the
-                        behavior that will shape the rest of your financial journey.
-                      </p>
-                    </div>
-
-                    <div className="rounded-3xl border border-white/10 bg-white/5 p-5">
-                      <p className="text-sm font-semibold text-white">Your Day 0 checklist</p>
-                      <ul className="mt-3 space-y-2 text-sm text-white/75">
-                        <li>• Commitment accepted</li>
-                        <li>• Rules understood</li>
-                        <li>• Initial setup completed</li>
-                        <li>• Ready for Day 1 action</li>
-                      </ul>
-                    </div>
-
-                    <OnboardingActionBar
-                      onBack={() => setOnboardingStep(5)}
-                      onNext={finishOnboarding}
-                      nextDisabled={savingOnboarding}
-                      nextLabel="Start Day 1 Now"
-                    />
-                  </div>
-                )}
+                  )}
+                </div>
               </div>
             </div>
           </div>

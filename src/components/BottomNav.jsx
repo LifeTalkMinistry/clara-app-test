@@ -7,10 +7,8 @@ import {
   MoreHorizontal,
   Wallet,
   Target,
-  ListChecks,
   BookOpen,
   Users,
-  MessageSquare,
   GraduationCap,
   Shield,
   LogOut,
@@ -19,6 +17,8 @@ import {
   Plus,
   ArrowRightLeft,
   Lock,
+  User,
+  Settings,
 } from "lucide-react";
 import { Sheet, SheetContent } from "@/components/ui/sheet";
 import { supabase } from "@/lib/supabaseClient";
@@ -32,10 +32,8 @@ const MORE_ITEMS = [
   { path: "/wallets", label: "Wallets", icon: Wallet, pro: false },
   { path: "/budgets", label: "Budgets", icon: Target, pro: false },
   { path: "/savings-goals", label: "Savings Goals", icon: PiggyBank, pro: true },
-  { path: "/tasks", label: "Tasks", icon: ListChecks, pro: true },
   { path: "/modules", label: "Modules", icon: BookOpen, pro: true },
   { path: "/community", label: "Community", icon: Users, pro: true },
-  { path: "/messages", label: "Messages", icon: MessageSquare, pro: true },
   { path: "/coaching", label: "Coaching", icon: GraduationCap, pro: true },
 ];
 
@@ -137,6 +135,14 @@ function MorePanel({
     onAdminNavigate();
   }, [onAdminNavigate]);
 
+  const handleProfileClick = useCallback(() => {
+    onFeatureSelect("/profile", false);
+  }, [onFeatureSelect]);
+
+  const handleSettingsClick = useCallback(() => {
+    onFeatureSelect("/settings/account", false);
+  }, [onFeatureSelect]);
+
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent
@@ -170,6 +176,38 @@ function MorePanel({
           </div>
 
           <div className="mt-4 space-y-3">
+            <button
+              type="button"
+              onClick={handleProfileClick}
+              className="more-admin"
+            >
+              <div className="more-admin-icon">
+                <User className="icon" />
+              </div>
+              <div className="flex-1 text-left">
+                <p className="text-sm font-semibold text-white">Profile</p>
+                <p className="text-xs text-white/50">
+                  View and manage your account.
+                </p>
+              </div>
+            </button>
+
+            <button
+              type="button"
+              onClick={handleSettingsClick}
+              className="more-admin"
+            >
+              <div className="more-admin-icon">
+                <Settings className="icon" />
+              </div>
+              <div className="flex-1 text-left">
+                <p className="text-sm font-semibold text-white">Settings</p>
+                <p className="text-xs text-white/50">
+                  Preferences, account, and app setup.
+                </p>
+              </div>
+            </button>
+
             {isAdmin ? (
               <button
                 type="button"
@@ -262,6 +300,7 @@ function BottomNav({
   const [moreOpen, setMoreOpen] = useState(false);
   const [actionsOpen, setActionsOpen] = useState(false);
   const [didLongPress, setDidLongPress] = useState(false);
+  const [hideForOnboarding, setHideForOnboarding] = useState(false);
 
   const pressTimerRef = useRef(null);
   const pointerDownRef = useRef(false);
@@ -301,6 +340,38 @@ function BottomNav({
   }, []);
 
   useEffect(() => clearPressTimer, [clearPressTimer]);
+
+  useEffect(() => {
+    const syncOnboardingState = () => {
+      const isOpen =
+        document.body.classList.contains("clara-onboarding-open") ||
+        document.documentElement.classList.contains("clara-onboarding-open");
+      setHideForOnboarding(isOpen);
+
+      if (isOpen) {
+        setMoreOpen(false);
+        setActionsOpen(false);
+      }
+    };
+
+    syncOnboardingState();
+
+    const observer = new MutationObserver(syncOnboardingState);
+    observer.observe(document.body, { attributes: true, attributeFilter: ["class"] });
+    observer.observe(document.documentElement, {
+      attributes: true,
+      attributeFilter: ["class"],
+    });
+
+    window.addEventListener("focus", syncOnboardingState);
+    document.addEventListener("visibilitychange", syncOnboardingState);
+
+    return () => {
+      observer.disconnect();
+      window.removeEventListener("focus", syncOnboardingState);
+      document.removeEventListener("visibilitychange", syncOnboardingState);
+    };
+  }, []);
 
   const closeMore = useCallback(() => {
     setMoreOpen(false);
@@ -362,6 +433,8 @@ function BottomNav({
   }, [navigateSafely]);
 
   const startPress = useCallback(() => {
+    if (hideForOnboarding) return;
+
     pointerDownRef.current = true;
     clearPressTimer();
 
@@ -371,7 +444,7 @@ function BottomNav({
       setMoreOpen(false);
       setActionsOpen(true);
     }, LONG_PRESS_MS);
-  }, [clearPressTimer]);
+  }, [clearPressTimer, hideForOnboarding]);
 
   const endPress = useCallback(() => {
     pointerDownRef.current = false;
@@ -379,6 +452,8 @@ function BottomNav({
   }, [clearPressTimer]);
 
   const handleFabClick = useCallback(() => {
+    if (hideForOnboarding) return;
+
     if (didLongPress) {
       setDidLongPress(false);
       return;
@@ -386,7 +461,7 @@ function BottomNav({
 
     closeActions();
     onQuickAdd?.();
-  }, [closeActions, didLongPress, onQuickAdd]);
+  }, [closeActions, didLongPress, hideForOnboarding, onQuickAdd]);
 
   const openQuickAction = useCallback(
     (action) => {
@@ -416,6 +491,10 @@ function BottomNav({
     [goToEnroll, navigateSafely]
   );
 
+  if (hideForOnboarding) {
+    return null;
+  }
+
   return (
     <>
       <QuickActionsSheet
@@ -426,7 +505,10 @@ function BottomNav({
         onGoalSelect={handleGoalQuickAction}
       />
 
-      <nav className="fixed bottom-0 left-0 right-0 z-50 lg:hidden">
+      <nav
+        data-bottom-nav
+        className="fixed bottom-0 left-0 right-0 z-50 lg:hidden"
+      >
         <div className="mx-3 mb-3 rounded-3xl border border-white/10 bg-[#0B1220]/95 shadow-2xl backdrop-blur-xl">
           <div className="relative flex h-16 items-center justify-between px-6">
             <BottomNavLink
@@ -463,6 +545,7 @@ function BottomNav({
 
             <button
               type="button"
+              data-fab
               onMouseDown={startPress}
               onMouseUp={endPress}
               onMouseLeave={endPress}

@@ -27,6 +27,7 @@ const Budgets = lazy(() => import("./pages/Budgets"));
 const Analytics = lazy(() => import("./pages/Analytics"));
 const Tasks = lazy(() => import("./pages/Tasks"));
 const Modules = lazy(() => import("./pages/Modules"));
+const Feed = lazy(() => import("./pages/Feed"));
 const Community = lazy(() => import("./pages/Community"));
 const Messages = lazy(() => import("./pages/Messages"));
 const Coaching = lazy(() => import("./pages/Coaching"));
@@ -503,6 +504,21 @@ function AppRoutes() {
                           </GuardedRoute>
                         }
                       />
+
+                      <Route
+                        path="/feed"
+                        element={
+                          <GuardedRoute
+                            shouldForceEnroll={false}
+                            featureKey={FEATURE_ROUTE_MAP["/feed"]}
+                            isFeatureAvailable={isFeatureAvailable}
+                            path="/feed"
+                          >
+                            <Feed />
+                          </GuardedRoute>
+                        }
+                      />
+
                       <Route
                         path="/expenses"
                         element={
@@ -516,6 +532,7 @@ function AppRoutes() {
                           </GuardedRoute>
                         }
                       />
+
                       <Route
                         path="/add-funds"
                         element={
@@ -529,6 +546,7 @@ function AppRoutes() {
                           </GuardedRoute>
                         }
                       />
+
                       <Route
                         path="/wallets"
                         element={
@@ -542,6 +560,7 @@ function AppRoutes() {
                           </GuardedRoute>
                         }
                       />
+
                       <Route
                         path="/budgets"
                         element={
@@ -555,6 +574,7 @@ function AppRoutes() {
                           </GuardedRoute>
                         }
                       />
+
                       <Route
                         path="/analytics"
                         element={
@@ -568,8 +588,10 @@ function AppRoutes() {
                           </GuardedRoute>
                         }
                       />
+
                       <Route path="/enroll" element={<Enroll />} />
                       <Route path="/tier-select" element={<TierSelect />} />
+
                       <Route
                         path="/news"
                         element={
@@ -597,6 +619,7 @@ function AppRoutes() {
                           </GuardedRoute>
                         }
                       />
+
                       <Route
                         path="/modules"
                         element={
@@ -610,6 +633,7 @@ function AppRoutes() {
                           </GuardedRoute>
                         }
                       />
+
                       <Route
                         path="/community"
                         element={
@@ -623,6 +647,7 @@ function AppRoutes() {
                           </GuardedRoute>
                         }
                       />
+
                       <Route
                         path="/messages"
                         element={
@@ -636,6 +661,7 @@ function AppRoutes() {
                           </GuardedRoute>
                         }
                       />
+
                       <Route
                         path="/coaching"
                         element={
@@ -649,6 +675,7 @@ function AppRoutes() {
                           </GuardedRoute>
                         }
                       />
+
                       <Route
                         path="/savings-goals"
                         element={
@@ -676,6 +703,7 @@ function AppRoutes() {
                           </GuardedRoute>
                         }
                       />
+
                       <Route
                         path="/admin"
                         element={
@@ -684,6 +712,7 @@ function AppRoutes() {
                           </AdminRoute>
                         }
                       />
+
                       <Route
                         path="/admin/student/:id"
                         element={
@@ -692,6 +721,7 @@ function AppRoutes() {
                           </AdminRoute>
                         }
                       />
+
                       <Route
                         path="/admin/referral-materials"
                         element={
@@ -700,6 +730,7 @@ function AppRoutes() {
                           </AdminRoute>
                         }
                       />
+
                       <Route
                         path="/admin/daily-tips"
                         element={
@@ -713,13 +744,28 @@ function AppRoutes() {
 
                   <Route path="/profile" element={<Profile />} />
 
-                  <Route path="/settings" element={<Navigate to="/settings/account" replace />} />
+                  <Route
+                    path="/settings"
+                    element={<Navigate to="/settings/account" replace />}
+                  />
                   <Route path="/settings/:section" element={<Settings />} />
 
-                  <Route path="/profile/edit" element={<Navigate to="/settings/account" replace />} />
-                  <Route path="/change-password" element={<Navigate to="/settings/security" replace />} />
-                  <Route path="/notifications" element={<Navigate to="/settings/notifications" replace />} />
-                  <Route path="/billing" element={<Navigate to="/settings/billing" replace />} />
+                  <Route
+                    path="/profile/edit"
+                    element={<Navigate to="/settings/account" replace />}
+                  />
+                  <Route
+                    path="/change-password"
+                    element={<Navigate to="/settings/security" replace />}
+                  />
+                  <Route
+                    path="/notifications"
+                    element={<Navigate to="/settings/notifications" replace />}
+                  />
+                  <Route
+                    path="/billing"
+                    element={<Navigate to="/settings/billing" replace />}
+                  />
 
                   <Route path="*" element={<PageNotFound />} />
                 </Routes>

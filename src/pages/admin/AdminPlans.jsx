@@ -76,6 +76,51 @@ function stripAccessConfig(payload) {
   return rest;
 }
 
+function getEnforcedFeatureMode(planKey, featureKey, requestedMode) {
+  const normalizedPlanKey = String(planKey || "").trim().toLowerCase();
+  const normalizedMode = String(requestedMode || "").trim().toLowerCase();
+
+  // Feed should always stay available as the daily engagement layer.
+  if (featureKey === "feed") {
+    return "full";
+  }
+
+  // Community should stay premium-only and separate from Feed.
+  if (featureKey === "community" && normalizedPlanKey === "free") {
+    return "off";
+  }
+
+  return normalizedMode;
+}
+
+function getSelectableModes(planKey, feature) {
+  const normalizedPlanKey = String(planKey || "").trim().toLowerCase();
+
+  if (feature.key === "feed") {
+    return ["full"];
+  }
+
+  if (feature.key === "community" && normalizedPlanKey === "free") {
+    return ["off"];
+  }
+
+  return feature.modes;
+}
+
+function getFeatureAdminHint(planKey, featureKey) {
+  const normalizedPlanKey = String(planKey || "").trim().toLowerCase();
+
+  if (featureKey === "feed") {
+    return "Feed is locked to Full because it is your daily engagement layer.";
+  }
+
+  if (featureKey === "community" && normalizedPlanKey === "free") {
+    return "Community stays Off for Free so it remains a premium-only space.";
+  }
+
+  return "";
+}
+
 export default function AdminPlans() {
   const [plans, setPlans] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -89,7 +134,8 @@ export default function AdminPlans() {
 
   const sortedPlans = useMemo(() => {
     return [...plans].sort((a, b) => {
-      const orderDiff = Number(a.sort_order || 9999) - Number(b.sort_order || 9999);
+      const orderDiff =
+        Number(a.sort_order || 9999) - Number(b.sort_order || 9999);
       if (orderDiff !== 0) return orderDiff;
       return String(a.name || "").localeCompare(String(b.name || ""));
     });
@@ -103,7 +149,10 @@ export default function AdminPlans() {
 
   const detectAccessConfigSupport = useCallback(async () => {
     try {
-      const { error } = await supabase.from("plans").select("id, access_config").limit(1);
+      const { error } = await supabase
+        .from("plans")
+        .select("id, access_config")
+        .limit(1);
 
       if (error) {
         if (isMissingAccessConfigError(error)) {
@@ -139,7 +188,9 @@ export default function AdminPlans() {
     if (error) throw error;
 
     setPlans(
-      mergePlans(data || []).filter((plan) => CURRENT_PLAN_KEYS.includes(plan.plan_key))
+      mergePlans(data || []).filter((plan) =>
+        CURRENT_PLAN_KEYS.includes(plan.plan_key)
+      )
     );
   }, []);
 
@@ -150,9 +201,13 @@ export default function AdminPlans() {
 
       const merged = mergePlans(data || []);
       const existingKeys = new Set(
-        (data || []).map((row) => String(row.plan_key || "").trim().toLowerCase())
+        (data || []).map((row) =>
+          String(row.plan_key || "").trim().toLowerCase()
+        )
       );
-      const missingPlans = merged.filter((plan) => !existingKeys.has(plan.plan_key));
+      const missingPlans = merged.filter(
+        (plan) => !existingKeys.has(plan.plan_key)
+      );
 
       if (missingPlans.length === 0) return;
 
@@ -176,7 +231,9 @@ export default function AdminPlans() {
           created_by: currentUser?.email || "",
         }));
 
-        const { error: retryError } = await supabase.from("plans").insert(retryPayload);
+        const { error: retryError } = await supabase
+          .from("plans")
+          .insert(retryPayload);
         if (retryError) throw retryError;
         return;
       }
@@ -196,7 +253,9 @@ export default function AdminPlans() {
       setCurrentUser(user || null);
     } catch (error) {
       console.error("Failed to initialize admin plans:", error);
-      setNotice("Plan admin is available, but the current session could not be fully initialized.");
+      setNotice(
+        "Plan admin is available, but the current session could not be fully initialized."
+      );
     } finally {
       setLoading(false);
     }
@@ -233,11 +292,15 @@ export default function AdminPlans() {
 
     const channel = supabase
       .channel("admin-plans-live")
-      .on("postgres_changes", { event: "*", schema: "public", table: "plans" }, () => {
-        fetchPlans().catch((error) => {
-          console.error("Failed to refresh plans after change:", error);
-        });
-      })
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "plans" },
+        () => {
+          fetchPlans().catch((error) => {
+            console.error("Failed to refresh plans after change:", error);
+          });
+        }
+      )
       .subscribe((status) => {
         if (status === "CHANNEL_ERROR" || status === "TIMED_OUT") {
           console.warn("Admin plans realtime unavailable:", status);
@@ -309,12 +372,16 @@ export default function AdminPlans() {
         created_by: currentUser?.email || "",
       });
       setPlans((prev) =>
-        prev.map((item) => (item.id === plan.id ? { ...item, [field]: nextValue } : item))
+        prev.map((item) =>
+          item.id === plan.id ? { ...item, [field]: nextValue } : item
+        )
       );
       setNotice("");
     } catch (error) {
       console.error(`Failed to toggle ${field}:`, error);
-      setNotice(`Could not update ${field} right now. The current plan data is still loaded.`);
+      setNotice(
+        `Could not update ${field} right now. The current plan data is still loaded.`
+      );
     }
   }
 
@@ -325,10 +392,16 @@ export default function AdminPlans() {
     }
 
     try {
+      const enforcedMode = getEnforcedFeatureMode(
+        plan.plan_key,
+        featureKey,
+        nextMode
+      );
+
       const nextAccessConfig = normalizeAccessConfig(
         {
           ...plan.access_config,
-          [featureKey]: nextMode,
+          [featureKey]: enforcedMode,
         },
         plan.plan_key
       );
@@ -373,7 +446,8 @@ export default function AdminPlans() {
       <div>
         <h2 className="text-2xl font-bold">Plans</h2>
         <p className="text-sm text-muted-foreground">
-          Manage the current CLARA plans and feature access from one source of truth.
+          Manage the current CLARA plans and feature access from one source of
+          truth.
         </p>
       </div>
 
@@ -388,21 +462,29 @@ export default function AdminPlans() {
           const unlockedFeatures = getFeatureSummary(plan);
 
           return (
-            <Card key={plan.plan_key} className="border border-white/10 bg-black/20">
+            <Card
+              key={plan.plan_key}
+              className="border border-white/10 bg-black/20"
+            >
               <CardHeader className="pb-4">
                 <div className="flex items-start justify-between gap-4">
                   <div>
                     <CardTitle className="text-xl">{plan.name}</CardTitle>
                     <p className="mt-1 text-sm text-muted-foreground">
-                      Key: {plan.plan_key} - PHP {Number(plan.price || 0).toLocaleString()} -
-                      {" "}Order: {plan.sort_order}
+                      Key: {plan.plan_key} - PHP{" "}
+                      {Number(plan.price || 0).toLocaleString()} - Order:{" "}
+                      {plan.sort_order}
                     </p>
                     <p className="mt-3 text-sm text-muted-foreground">
                       {plan.description || "No description yet."}
                     </p>
                   </div>
 
-                  <Button variant="outline" size="icon" onClick={() => openEditDialog(plan)}>
+                  <Button
+                    variant="outline"
+                    size="icon"
+                    onClick={() => openEditDialog(plan)}
+                  >
                     <Pencil className="h-4 w-4" />
                   </Button>
                 </div>
@@ -426,7 +508,9 @@ export default function AdminPlans() {
                     />
                   </div>
 
-                  <div className="text-sm text-muted-foreground">CTA: {plan.cta_label || "-"}</div>
+                  <div className="text-sm text-muted-foreground">
+                    CTA: {plan.cta_label || "-"}
+                  </div>
                 </div>
               </CardHeader>
 
@@ -442,7 +526,8 @@ export default function AdminPlans() {
                         variant="secondary"
                         className="border border-white/10 bg-white/10 text-white"
                       >
-                        {feature.label}: {FEATURE_MODE_LABELS[feature.mode] || feature.mode}
+                        {feature.label}:{" "}
+                        {FEATURE_MODE_LABELS[feature.mode] || feature.mode}
                       </Badge>
                     ))}
                   </div>
@@ -461,34 +546,54 @@ export default function AdminPlans() {
                   </div>
 
                   <div className="grid gap-3 md:grid-cols-2">
-                    {FEATURE_DEFINITIONS.map((feature) => (
-                      <div
-                        key={`${plan.plan_key}-${feature.key}`}
-                        className="rounded-xl border border-white/10 bg-black/20 p-3"
-                      >
-                        <div className="flex items-start justify-between gap-3">
-                          <div className="min-w-0">
-                            <p className="text-sm font-semibold text-white">{feature.label}</p>
-                            <p className="mt-1 text-xs text-muted-foreground">
-                              {feature.description}
-                            </p>
-                          </div>
+                    {FEATURE_DEFINITIONS.map((feature) => {
+                      const selectableModes = getSelectableModes(
+                        plan.plan_key,
+                        feature
+                      );
+                      const adminHint = getFeatureAdminHint(
+                        plan.plan_key,
+                        feature.key
+                      );
 
-                          <select
-                            value={plan.access_config?.[feature.key] || "off"}
-                            onChange={(e) => updateAccessMode(plan, feature.key, e.target.value)}
-                            disabled={!supportsAccessConfig}
-                            className="min-w-[120px] rounded-lg border border-white/10 bg-[#0b1626] px-3 py-2 text-sm text-white outline-none disabled:cursor-not-allowed disabled:opacity-60"
-                          >
-                            {feature.modes.map((mode) => (
-                              <option key={mode} value={mode}>
-                                {FEATURE_MODE_LABELS[mode] || mode}
-                              </option>
-                            ))}
-                          </select>
+                      return (
+                        <div
+                          key={`${plan.plan_key}-${feature.key}`}
+                          className="rounded-xl border border-white/10 bg-black/20 p-3"
+                        >
+                          <div className="flex items-start justify-between gap-3">
+                            <div className="min-w-0">
+                              <p className="text-sm font-semibold text-white">
+                                {feature.label}
+                              </p>
+                              <p className="mt-1 text-xs text-muted-foreground">
+                                {feature.description}
+                              </p>
+                              {adminHint ? (
+                                <p className="mt-2 text-[11px] leading-5 text-amber-300/90">
+                                  {adminHint}
+                                </p>
+                              ) : null}
+                            </div>
+
+                            <select
+                              value={plan.access_config?.[feature.key] || "off"}
+                              onChange={(e) =>
+                                updateAccessMode(plan, feature.key, e.target.value)
+                              }
+                              disabled={!supportsAccessConfig}
+                              className="min-w-[120px] rounded-lg border border-white/10 bg-[#0b1626] px-3 py-2 text-sm text-white outline-none disabled:cursor-not-allowed disabled:opacity-60"
+                            >
+                              {selectableModes.map((mode) => (
+                                <option key={mode} value={mode}>
+                                  {FEATURE_MODE_LABELS[mode] || mode}
+                                </option>
+                              ))}
+                            </select>
+                          </div>
                         </div>
-                      </div>
-                    ))}
+                      );
+                    })}
                   </div>
                 </div>
               </CardContent>
@@ -500,7 +605,9 @@ export default function AdminPlans() {
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
         <DialogContent className="sm:max-w-2xl">
           <DialogHeader>
-            <DialogTitle>Edit {PLAN_LABELS[editingPlanKey] || "Plan"}</DialogTitle>
+            <DialogTitle>
+              Edit {PLAN_LABELS[editingPlanKey] || "Plan"}
+            </DialogTitle>
           </DialogHeader>
 
           <form onSubmit={handleSave} className="space-y-4">
@@ -558,9 +665,13 @@ export default function AdminPlans() {
                 rows={6}
                 value={form.features}
                 onChange={(e) => updateField("features", e.target.value)}
-                placeholder={"Dashboard access\nExpense tracking\nStarter program access"}
+                placeholder={
+                  "Dashboard access\nFeed access\nExpense tracking\nStarter program access"
+                }
               />
-              <p className="text-xs text-muted-foreground">One feature per line.</p>
+              <p className="text-xs text-muted-foreground">
+                One feature per line.
+              </p>
             </div>
 
             <div className="space-y-2">

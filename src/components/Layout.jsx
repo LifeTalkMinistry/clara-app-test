@@ -1,5 +1,5 @@
 import { Link, useLocation, useNavigate } from "react-router-dom";
-import { useEffect, useMemo, useRef, useState, useCallback } from "react";
+import { useEffect, useMemo, useState, useCallback } from "react";
 import {
   LayoutDashboard,
   Receipt,
@@ -12,20 +12,16 @@ import {
   MessageSquare,
   GraduationCap,
   Settings,
-  Menu,
   LogOut,
   PiggyBank,
   Star,
   Share2,
   Shield,
-  X,
   User,
   Bell,
-  PlayCircle,
   Megaphone,
   Lock,
 } from "lucide-react";
-import { Button } from "@/components/ui/button";
 import { supabase } from "@/lib/supabaseClient";
 import BottomNav from "./BottomNav";
 import QuickAddModal from "./QuickAddModal";
@@ -37,6 +33,7 @@ import { FEATURE_ROUTE_MAP } from "@/lib/plan-config";
 
 const allNavItems = [
   { path: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
+  { path: "/feed", label: "Feed", icon: Users, pro: true },
   { path: "/expenses", label: "Expenses", icon: Receipt },
   { path: "/wallets", label: "Wallets", icon: Wallet },
   { path: "/budgets", label: "Budgets", icon: Target },
@@ -44,7 +41,6 @@ const allNavItems = [
   { path: "/savings-goals", label: "Savings Goals", icon: PiggyBank, pro: true },
   { path: "/tasks", label: "Tasks", icon: ListChecks, pro: true },
   { path: "/modules", label: "Modules", icon: BookOpen, pro: true },
-  { path: "/community", label: "Community", icon: Users, pro: true },
   { path: "/messages", label: "Messages", icon: MessageSquare, pro: true },
   { path: "/coaching", label: "Coaching", icon: GraduationCap, pro: true },
   { path: "/news", label: "News", icon: Bell },
@@ -58,10 +54,6 @@ const advertiserNavItems = [
 
 function isSettingsPath(pathname) {
   return pathname === "/settings" || pathname.startsWith("/settings/");
-}
-
-function isStandaloneFocusPage(pathname) {
-  return pathname === "/profile" || isSettingsPath(pathname);
 }
 
 function SidebarLink({ item, isActive, isLocked, onNavigate, onClose }) {
@@ -83,8 +75,8 @@ function SidebarLink({ item, isActive, isLocked, onNavigate, onClose }) {
         isActive
           ? "bg-gradient-to-r from-green-500 to-emerald-600 font-semibold text-white"
           : isLocked
-          ? "text-white/65 hover:bg-white/10"
-          : "text-white/70 hover:bg-white/10 hover:text-white"
+            ? "text-white/65 hover:bg-white/10"
+            : "text-white/70 hover:bg-white/10 hover:text-white"
       }`}
     >
       <item.icon className="h-4 w-4 flex-shrink-0" />
@@ -154,9 +146,12 @@ function SidebarContent({
 
           if (!isAdvertiser) {
             const featureKey = FEATURE_ROUTE_MAP[item.path];
-            const isLocked = featureKey ? !isFeatureAvailable(featureKey) : Boolean(item.pro && isFree);
+            const isLocked = featureKey
+              ? !isFeatureAvailable(featureKey)
+              : Boolean(item.pro && isFree);
             const referralNotEnabled =
-              item.ambassadorOnly && (!user?.has_referral_access || !isFeatureAvailable("referrals"));
+              item.ambassadorOnly &&
+              (!user?.has_referral_access || !isFeatureAvailable("referrals"));
 
             if (referralNotEnabled) return null;
 
@@ -318,279 +313,8 @@ function SidebarContent({
   );
 }
 
-function MobileControlCenter({
-  open,
-  onClose,
-  onNavigate,
-  onLogout,
-  isAdmin,
-  isPaid,
-  isAdvertiser,
-  isFeatureAvailable,
-  currentPath,
-  planLabel,
-  user,
-  businessItem,
-}) {
-  const panelRef = useRef(null);
-
-  useEffect(() => {
-    if (!open) return;
-
-    const handleClickOutside = (event) => {
-      if (panelRef.current && !panelRef.current.contains(event.target)) {
-        onClose();
-      }
-    };
-
-    const handleEscape = (event) => {
-      if (event.key === "Escape") onClose();
-    };
-
-    document.addEventListener("mousedown", handleClickOutside);
-    document.addEventListener("keydown", handleEscape);
-
-    return () => {
-      document.removeEventListener("mousedown", handleClickOutside);
-      document.removeEventListener("keydown", handleEscape);
-    };
-  }, [open, onClose]);
-
-  if (!open) return null;
-
-  const handleGo = (path) => {
-    onClose();
-    onNavigate(path);
-  };
-
-  const accountItems = [
-    {
-      label: "Profile",
-      icon: User,
-      onClick: () => handleGo("/profile"),
-      active: currentPath === "/profile",
-    },
-    {
-      label: "Settings",
-      icon: Settings,
-      onClick: () => handleGo("/settings/account"),
-      active: isSettingsPath(currentPath),
-    },
-  ];
-
-  const businessItems = businessItem
-    ? [
-        {
-          ...businessItem,
-          onClick: businessItem.onClick,
-        },
-      ]
-    : [];
-
-  const supportItems = isAdvertiser
-    ? []
-    : [
-        {
-          label: "Tutorials",
-          icon: PlayCircle,
-          onClick: () => handleGo("/modules"),
-          active: currentPath === "/modules",
-          locked: !isFeatureAvailable("modules"),
-        },
-      ];
-
-  return (
-    <>
-      <div className="fixed inset-0 z-40 bg-black/35 backdrop-blur-[2px] lg:hidden" />
-
-      <div className="fixed right-4 top-16 z-50 lg:hidden">
-        <div
-          ref={panelRef}
-          className="max-h-[calc(100vh-5.5rem)] w-[280px] overflow-hidden rounded-2xl border border-white/10 bg-[#071018]/95 shadow-2xl backdrop-blur-xl"
-        >
-          <div
-            className="px-4 py-3"
-            style={{
-              background:
-                "linear-gradient(160deg, rgba(2,6,23,0.96) 0%, rgba(21,128,61,0.96) 62%, rgba(14,165,233,0.96) 100%)",
-            }}
-          >
-            <div className="flex items-start justify-between gap-3">
-              <div className="min-w-0">
-                <p className="text-[10px] uppercase tracking-[0.2em] text-white/60">
-                  Account
-                </p>
-                <p className="truncate text-sm font-semibold text-white">
-                  {user?.full_name || user?.name || user?.email || "CLARA User"}
-                </p>
-                <div className="mt-1 inline-flex rounded-full bg-white/12 px-2 py-0.5 text-[10px] font-bold text-white/85">
-                  {planLabel || "FREE"}
-                </div>
-              </div>
-
-              <button
-                type="button"
-                onClick={onClose}
-                className="rounded-full p-1.5 text-white/70 transition hover:bg-white/10 hover:text-white"
-              >
-                <X className="h-4 w-4" />
-              </button>
-            </div>
-          </div>
-
-          <div className="max-h-[calc(100vh-9rem)] overflow-y-auto p-2">
-            <div className="px-3 pb-2 pt-1">
-              <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-white/45">
-                Account
-              </p>
-            </div>
-
-            {accountItems.map((item) => (
-              <button
-                key={item.label}
-                type="button"
-                onClick={item.onClick}
-                className={`flex w-full items-center gap-3 rounded-xl px-3 py-3 text-sm transition-all ${
-                  item.active
-                    ? "bg-white/10 text-white"
-                    : "text-white/75 hover:bg-white/10 hover:text-white"
-                }`}
-              >
-                <item.icon className="h-4 w-4" />
-                <span className="flex-1 text-left">{item.label}</span>
-              </button>
-            ))}
-
-            {businessItems.length > 0 && (
-              <>
-                <div className="my-2 h-px bg-white/10" />
-                <div className="px-3 pb-2 pt-1">
-                  <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-white/45">
-                    Business
-                  </p>
-                </div>
-                {businessItems.map((item) => (
-                  <button
-                    key={item.label}
-                    type="button"
-                    onClick={item.onClick}
-                    className={`flex w-full items-center gap-3 rounded-xl px-3 py-3 text-sm transition-all ${
-                      item.active
-                        ? "bg-white/10 text-white"
-                        : "text-white/75 hover:bg-white/10 hover:text-white"
-                    }`}
-                  >
-                    <item.icon className="h-4 w-4 shrink-0" />
-                    <div className="min-w-0 flex-1 text-left">
-                      <p className="truncate font-medium">{item.label}</p>
-                      {item.subtitle ? (
-                        <p className="mt-0.5 truncate text-[11px] text-white/55">
-                          {item.subtitle}
-                        </p>
-                      ) : null}
-                    </div>
-                    {item.badge ? (
-                      <span className="shrink-0 rounded-full border border-white/10 bg-white/8 px-2 py-1 text-[10px] font-semibold text-white/75">
-                        {item.badge}
-                      </span>
-                    ) : null}
-                  </button>
-                ))}
-              </>
-            )}
-
-            {supportItems.length > 0 && (
-              <>
-                <div className="my-2 h-px bg-white/10" />
-                <div className="px-3 pb-2 pt-1">
-                  <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-white/45">
-                    Learn
-                  </p>
-                </div>
-                {supportItems.map((item) => (
-                  <button
-                    key={item.label}
-                    type="button"
-                    onClick={() => {
-                      if (item.locked) {
-                        handleGo("/enroll");
-                        return;
-                      }
-                      item.onClick();
-                    }}
-                    className={`flex w-full items-center gap-3 rounded-xl px-3 py-3 text-sm transition-all ${
-                      item.active
-                        ? "bg-white/10 text-white"
-                        : "text-white/75 hover:bg-white/10 hover:text-white"
-                    }`}
-                  >
-                    <item.icon className="h-4 w-4" />
-                    <span className="flex-1 text-left">{item.label}</span>
-                    {item.locked ? (
-                      <span className="inline-flex items-center gap-1 rounded-md bg-yellow-400/20 px-1.5 py-0.5 text-[9px] font-bold text-yellow-300">
-                        <Lock className="h-3 w-3" />
-                        PRO
-                      </span>
-                    ) : null}
-                  </button>
-                ))}
-              </>
-            )}
-
-            {isAdmin && !isAdvertiser && (
-              <>
-                <div className="my-2 h-px bg-white/10" />
-                <button
-                  type="button"
-                  onClick={() => handleGo("/admin")}
-                  className={`flex w-full items-center gap-3 rounded-xl px-3 py-3 text-sm transition-all ${
-                    currentPath.startsWith("/admin")
-                      ? "bg-white/10 text-white"
-                      : "text-white/75 hover:bg-white/10 hover:text-white"
-                  }`}
-                >
-                  <Shield className="h-4 w-4" />
-                  <span className="flex-1 text-left">Admin Panel</span>
-                </button>
-              </>
-            )}
-
-            {!isPaid && !isAdvertiser && (
-              <>
-                <div className="my-2 h-px bg-white/10" />
-                <button
-                  type="button"
-                  onClick={() => handleGo("/enroll")}
-                  className="flex w-full items-center gap-3 rounded-xl px-3 py-3 text-sm font-semibold text-white transition-all"
-                  style={{
-                    background:
-                      "linear-gradient(135deg, #15803D 0%, #0EA5E9 100%)",
-                  }}
-                >
-                  <Star className="h-4 w-4" />
-                  <span className="flex-1 text-left">Enroll Now</span>
-                </button>
-              </>
-            )}
-
-            <div className="my-2 h-px bg-white/10" />
-
-            <button
-              type="button"
-              onClick={async () => {
-                onClose();
-                await onLogout();
-              }}
-              className="flex w-full items-center gap-3 rounded-xl px-3 py-3 text-sm text-red-300 transition-all hover:bg-red-500/10 hover:text-red-200"
-            >
-              <LogOut className="h-4 w-4" />
-              <span className="flex-1 text-left">Log Out</span>
-            </button>
-          </div>
-        </div>
-      </div>
-    </>
-  );
+function isStandaloneFocusPage(pathname) {
+  return pathname === "/profile" || isSettingsPath(pathname);
 }
 
 export default function Layout({ children }) {
@@ -598,7 +322,6 @@ export default function Layout({ children }) {
   const navigate = useNavigate();
 
   const [quickAddOpen, setQuickAddOpen] = useState(false);
-  const [controlOpen, setControlOpen] = useState(false);
   const [adsModalOpen, setAdsModalOpen] = useState(false);
 
   const {
@@ -618,12 +341,13 @@ export default function Layout({ children }) {
     if (isAdvertiser) return "Advertiser";
     return planLabel;
   }, [isAdvertiser, planLabel]);
+
   const { hasAds, totalAds, activeAds } = useAdvertiserMenuAccess({
     email: user?.email,
     isAdvertiser,
   });
+
   const handleOpenAdsModal = useCallback(() => {
-    setControlOpen(false);
     setQuickAddOpen(false);
     setAdsModalOpen(true);
   }, []);
@@ -659,19 +383,18 @@ export default function Layout({ children }) {
       badge: "New",
       onClick: handleOpenAdsModal,
     };
-  }, [activeAds, adsModalOpen, handleOpenAdsModal, hasAds, isAdvertiser, location.pathname, totalAds]);
-
-  useEffect(() => {
-    if (quickAddOpen) setControlOpen(false);
-  }, [quickAddOpen]);
-
-  useEffect(() => {
-    if (controlOpen) setQuickAddOpen(false);
-  }, [controlOpen]);
+  }, [
+    activeAds,
+    adsModalOpen,
+    handleOpenAdsModal,
+    hasAds,
+    isAdvertiser,
+    location.pathname,
+    totalAds,
+  ]);
 
   const handleLogout = useCallback(async () => {
     try {
-      setControlOpen(false);
       setQuickAddOpen(false);
       await supabase.auth.signOut();
       navigate("/login");
@@ -682,7 +405,6 @@ export default function Layout({ children }) {
 
   const handleNavigate = useCallback(
     (path) => {
-      setControlOpen(false);
       setQuickAddOpen(false);
       navigate(path);
     },
@@ -691,22 +413,16 @@ export default function Layout({ children }) {
 
   const handleOpenQuickAdd = useCallback(() => {
     if (isAdvertiser) return;
-    setControlOpen(false);
     setQuickAddOpen(true);
   }, [isAdvertiser]);
-
-  const handleToggleControl = useCallback(() => {
-    setQuickAddOpen(false);
-    setControlOpen((prev) => !prev);
-  }, []);
 
   const hideMobileControlCenter = isStandaloneFocusPage(location.pathname);
 
   useEffect(() => {
-    if (hideMobileControlCenter && controlOpen) {
-      setControlOpen(false);
+    if (hideMobileControlCenter) {
+      // hamburger/menu intentionally removed on mobile
     }
-  }, [hideMobileControlCenter, controlOpen]);
+  }, [hideMobileControlCenter]);
 
   return (
     <div className="flex h-screen overflow-hidden bg-gradient-to-b from-[#0b1f1a] via-[#0f172a] to-[#020617] text-white">
@@ -736,42 +452,10 @@ export default function Layout({ children }) {
       <div className="relative flex min-w-0 flex-1 flex-col">
         <div className="pointer-events-none fixed inset-x-0 top-0 z-40 h-20 bg-gradient-to-b from-[#071018]/85 via-[#071018]/35 to-transparent lg:hidden" />
 
-        {!hideMobileControlCenter && (
-          <div className="fixed right-4 top-4 z-50 lg:hidden">
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={handleToggleControl}
-              className={`h-11 w-11 rounded-2xl border border-white/10 bg-[#071018]/70 text-white shadow-lg backdrop-blur-xl transition hover:bg-white/10 ${
-                controlOpen ? "bg-white/10" : ""
-              }`}
-            >
-              <Menu className="h-5 w-5" />
-            </Button>
-          </div>
-        )}
-
         <main className="flex-1 overflow-y-auto pb-24 pt-3 lg:pb-0 lg:pt-0">
           {children}
         </main>
       </div>
-
-      {!hideMobileControlCenter && (
-        <MobileControlCenter
-          open={controlOpen}
-          onClose={() => setControlOpen(false)}
-          onNavigate={handleNavigate}
-          onLogout={handleLogout}
-          isAdmin={isAdmin}
-          isPaid={isPaid}
-          isAdvertiser={isAdvertiser}
-          isFeatureAvailable={isFeatureAvailable}
-          currentPath={location.pathname}
-          planLabel={effectivePlanLabel}
-          user={user}
-          businessItem={businessItem}
-        />
-      )}
 
       {!isAdvertiser && (
         <BottomNav
