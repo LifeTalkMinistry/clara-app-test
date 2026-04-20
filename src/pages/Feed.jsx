@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo } from "react";
+import { useNavigate } from "react-router-dom";
 import {
   MessageCircle,
   Heart,
@@ -25,7 +26,6 @@ import {
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
-import PageHeader from "../components/PageHeader";
 import EmptyState from "../components/EmptyState";
 import { supabase, isSupabaseConfigured } from "../lib/supabaseClient";
 
@@ -138,8 +138,14 @@ const formatRelativeTime = (dateString) => {
 };
 
 const getInitials = (name = "U") => {
-  const parts = name.trim().split(" ").filter(Boolean);
+  const parts = String(name || "")
+    .trim()
+    .split(" ")
+    .filter(Boolean);
+
+  if (parts.length === 0) return "U";
   if (parts.length === 1) return parts[0].slice(0, 1).toUpperCase();
+
   return `${parts[0][0] || ""}${parts[1][0] || ""}`.toUpperCase();
 };
 
@@ -147,7 +153,6 @@ const getCategoryConfig = (key) =>
   POST_CATEGORIES.find((item) => item.key === key) || POST_CATEGORIES[0];
 
 const isImageType = (type = "") => type.startsWith("image/");
-const isVideoType = (type = "") => type.startsWith("video/");
 
 const getYouTubeId = (value = "") => {
   const text = value.trim();
@@ -195,7 +200,7 @@ function MediaPreview({
         <img
           src={media.url}
           alt={media.name || "Post media"}
-          className="w-full max-h-[420px] object-cover"
+          className="max-h-[420px] w-full object-cover"
         />
       </div>
     );
@@ -210,7 +215,7 @@ function MediaPreview({
           playsInline
           preload="metadata"
           controlsList="nodownload"
-          className="w-full max-h-[420px] bg-black pointer-events-auto"
+          className="max-h-[420px] w-full bg-black pointer-events-auto"
           style={{ pointerEvents: "auto" }}
         />
       </div>
@@ -230,7 +235,7 @@ function MediaPreview({
               <img
                 src={media.thumbnailUrl}
                 alt={media.name || "YouTube preview"}
-                className="w-full max-h-[420px] object-cover"
+                className="max-h-[420px] w-full object-cover"
               />
             ) : (
               <div className="flex h-[240px] w-full items-center justify-center bg-black/40 text-muted-foreground">
@@ -351,11 +356,15 @@ const mapRowToPost = (postRow, comments = []) => {
 };
 
 export default function Feed() {
+  const navigate = useNavigate();
+
   const [posts, setPosts] = useState([]);
   const [loading, setLoading] = useState(true);
 
   const [currentUser, setCurrentUser] = useState(null);
   const [currentUserName, setCurrentUserName] = useState("You");
+  const [currentUserAvatar, setCurrentUserAvatar] = useState("");
+  const [currentUserProfileId, setCurrentUserProfileId] = useState(null);
 
   const [newPost, setNewPost] = useState("");
   const [selectedCategory, setSelectedCategory] = useState("achievement");
@@ -395,6 +404,8 @@ export default function Feed() {
       console.error("Failed to get current user:", error);
       setCurrentUser(null);
       setCurrentUserName("You");
+      setCurrentUserAvatar("");
+      setCurrentUserProfileId(null);
       return null;
     }
 
@@ -402,17 +413,50 @@ export default function Feed() {
 
     if (!user) {
       setCurrentUserName("You");
+      setCurrentUserAvatar("");
+      setCurrentUserProfileId(null);
       return null;
     }
 
-    const metaName =
+    const fallbackName =
+      user.user_metadata?.display_name ||
       user.user_metadata?.nickname ||
       user.user_metadata?.full_name ||
       user.user_metadata?.name ||
       user.email?.split("@")?.[0] ||
       "You";
 
-    setCurrentUserName(metaName);
+    setCurrentUserName(fallbackName);
+    setCurrentUserAvatar(user.user_metadata?.avatar_url || "");
+    setCurrentUserProfileId(user.id);
+
+    try {
+      const { data: profileData, error: profileError } = await supabase
+        .from("profiles")
+        .select("id, full_name, display_name, nickname, avatar_url")
+        .eq("id", user.id)
+        .maybeSingle();
+
+      if (profileError) {
+        console.error("Failed to fetch current profile:", profileError);
+        return user;
+      }
+
+      const resolvedName =
+        profileData?.display_name ||
+        profileData?.nickname ||
+        profileData?.full_name ||
+        fallbackName;
+
+      setCurrentUserName(resolvedName);
+      setCurrentUserAvatar(
+        profileData?.avatar_url || user.user_metadata?.avatar_url || ""
+      );
+      setCurrentUserProfileId(profileData?.id || user.id);
+    } catch (profileFetchError) {
+      console.error("Failed to resolve profile details:", profileFetchError);
+    }
+
     return user;
   };
 
@@ -460,9 +504,7 @@ export default function Feed() {
       setPosts(mappedPosts);
     } catch (error) {
       console.error("Failed to fetch feed:", error);
-      setComposerError(
-        error?.message || "Unable to load the feed right now."
-      );
+      setComposerError(error?.message || "Unable to load the feed right now.");
     } finally {
       setLoading(false);
       if (showRefresh) setIsRefreshing(false);
@@ -642,11 +684,12 @@ export default function Feed() {
       }
 
       const authorName =
+        currentUserName ||
+        freshUser.user_metadata?.display_name ||
         freshUser.user_metadata?.nickname ||
         freshUser.user_metadata?.full_name ||
         freshUser.user_metadata?.name ||
         freshUser.email?.split("@")?.[0] ||
-        currentUserName ||
         "You";
 
       let mediaPayload = {
@@ -774,11 +817,17 @@ export default function Feed() {
 
     try {
       if (targetPost?.media?.path) {
-        await supabase.storage.from(STORAGE_BUCKET).remove([targetPost.media.path]);
+        await supabase.storage
+          .from(STORAGE_BUCKET)
+          .remove([targetPost.media.path]);
       }
 
       await supabase.from("feed_comments").delete().eq("post_id", postId);
-      const { error } = await supabase.from("feed_posts").delete().eq("id", postId);
+
+      const { error } = await supabase
+        .from("feed_posts")
+        .delete()
+        .eq("id", postId);
 
       if (error) throw error;
 
@@ -796,12 +845,14 @@ export default function Feed() {
     setSavingEditPostId(postId);
 
     try {
+      const nextUpdatedAt = new Date().toISOString();
+
       const { error } = await supabase
         .from("feed_posts")
         .update({
           content: editContent.trim(),
           category: editCategory,
-          updated_at: new Date().toISOString(),
+          updated_at: nextUpdatedAt,
         })
         .eq("id", postId);
 
@@ -814,7 +865,7 @@ export default function Feed() {
                 ...p,
                 content: editContent.trim(),
                 category: editCategory,
-                updated_at: new Date().toISOString(),
+                updated_at: nextUpdatedAt,
               }
             : p
         )
@@ -845,11 +896,12 @@ export default function Feed() {
       }
 
       const authorName =
+        currentUserName ||
+        freshUser.user_metadata?.display_name ||
         freshUser.user_metadata?.nickname ||
         freshUser.user_metadata?.full_name ||
         freshUser.user_metadata?.name ||
         freshUser.email?.split("@")?.[0] ||
-        currentUserName ||
         "You";
 
       const commentPayload = {
@@ -936,11 +988,13 @@ export default function Feed() {
     setSavingComment(true);
 
     try {
+      const nextUpdatedAt = new Date().toISOString();
+
       const { error } = await supabase
         .from("feed_comments")
         .update({
           content: editingComment.content.trim(),
-          updated_at: new Date().toISOString(),
+          updated_at: nextUpdatedAt,
         })
         .eq("id", editingComment.commentId);
 
@@ -957,7 +1011,7 @@ export default function Feed() {
                 ? {
                     ...comment,
                     content: editingComment.content.trim(),
-                    updated_at: new Date().toISOString(),
+                    updated_at: nextUpdatedAt,
                   }
                 : comment
             ),
@@ -979,19 +1033,24 @@ export default function Feed() {
     if (composerMedia?.type === "image" && length === 0) {
       return "Image ready. Add context if you want.";
     }
+
     if (composerMedia?.type === "youtube" && length === 0) {
       return "YouTube link ready. Add why it is valuable.";
     }
+
     if (length === 0) {
       return "Share a win, lesson, testimony, or meaningful finance insight.";
     }
+
     if (length < 25) return "Good start — add a bit more context.";
     if (length < 80) return "Nice. This already feels valuable.";
+
     return "Strong post. This can inspire someone today.";
   }, [newPost, composerMedia]);
 
   const selectedComposerCategory = getCategoryConfig(selectedCategory);
   const SelectedComposerIcon = selectedComposerCategory.icon;
+  const currentUserInitials = getInitials(currentUserName || "You");
 
   if (loading) {
     return (
@@ -1009,7 +1068,42 @@ export default function Feed() {
       </div>
 
       <div className="relative z-10">
-        <PageHeader title="Feed" subtitle="See real progress. Stay motivated." />
+        <div className="mb-4 flex items-start justify-between gap-3">
+          <div className="min-w-0">
+            <h1 className="text-[28px] font-bold leading-tight tracking-[-0.02em] text-foreground">
+              Feed
+            </h1>
+            <p className="mt-1 text-sm text-muted-foreground">
+              See real progress. Stay motivated.
+            </p>
+          </div>
+
+          <button
+            type="button"
+            onClick={() =>
+              navigate(
+                currentUserProfileId ? `/user/${currentUserProfileId}` : "/profile"
+              )
+            }
+            className="group shrink-0"
+            aria-label="Open my profile"
+          >
+            <div className="relative">
+              <div className="absolute inset-0 rounded-full bg-emerald-400/15 opacity-80 blur-md transition-opacity group-hover:opacity-100" />
+              <div className="relative flex h-12 w-12 items-center justify-center overflow-hidden rounded-full border border-white/10 bg-gradient-to-br from-emerald-500/20 to-cyan-500/20 text-sm font-bold text-emerald-100 shadow-[0_10px_30px_rgba(0,0,0,0.28)] ring-1 ring-white/5 transition group-hover:scale-[1.03] group-hover:border-emerald-400/25">
+                {currentUserAvatar ? (
+                  <img
+                    src={currentUserAvatar}
+                    alt={currentUserName || "My profile"}
+                    className="h-full w-full object-cover"
+                  />
+                ) : (
+                  currentUserInitials
+                )}
+              </div>
+            </div>
+          </button>
+        </div>
 
         <div className="mb-4 rounded-[24px] border border-white/10 bg-gradient-to-b from-white/[0.06] to-white/[0.03] p-3 shadow-[0_8px_30px_rgba(0,0,0,0.18)] backdrop-blur-xl">
           <div className="mb-3 flex items-center justify-between gap-3">
@@ -1031,10 +1125,12 @@ export default function Feed() {
           <div className="space-y-2">
             {peopleCards.map((item) => {
               const ItemIcon = item.icon;
+
               return (
                 <button
                   key={item.id}
                   type="button"
+                  onClick={() => navigate("/people")}
                   className="flex w-full items-center gap-3 rounded-2xl border border-white/10 bg-white/5 px-3 py-3 text-left transition hover:border-emerald-400/20 hover:bg-white/10"
                 >
                   <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl border border-white/10 bg-gradient-to-br from-emerald-500/15 to-cyan-500/15 text-emerald-300">
@@ -1077,7 +1173,8 @@ export default function Feed() {
                     Create a post
                   </p>
                   <p className="truncate text-xs text-muted-foreground">
-                    Share progress, a meaningful photo, or an educational YouTube link...
+                    Share progress, a meaningful photo, or an educational YouTube
+                    link...
                   </p>
                 </div>
 
@@ -1093,7 +1190,7 @@ export default function Feed() {
                   </div>
 
                   <div className="min-w-0 flex-1">
-                    <div className="flex items-center gap-2 flex-wrap">
+                    <div className="flex flex-wrap items-center gap-2">
                       <h3 className="text-sm font-semibold text-foreground">
                         Create a post
                       </h3>
@@ -1120,7 +1217,7 @@ export default function Feed() {
                 </div>
 
                 <div className="mb-3">
-                  <div className="flex gap-2 overflow-x-auto pb-1 no-scrollbar">
+                  <div className="no-scrollbar flex gap-2 overflow-x-auto pb-1">
                     {POST_CATEGORIES.map((category) => {
                       const CategoryIcon = category.icon;
                       const isSelected = selectedCategory === category.key;
@@ -1167,7 +1264,7 @@ export default function Feed() {
                     />
                   </label>
 
-                  <div className="flex gap-2 sm:col-span-2">
+                  <div className="sm:col-span-2 flex gap-2">
                     <div className="relative flex-1">
                       <LinkIcon className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                       <Input
@@ -1177,6 +1274,7 @@ export default function Feed() {
                         className="h-12 rounded-2xl border-white/10 bg-white/[0.04] pl-9"
                       />
                     </div>
+
                     <Button
                       type="button"
                       variant="outline"
@@ -1194,6 +1292,7 @@ export default function Feed() {
                     <Lightbulb className="h-4 w-4" />
                     Suggested meaningful YouTube topics
                   </div>
+
                   <div className="flex flex-wrap gap-2">
                     {YOUTUBE_SUGGESTIONS.map((item) => (
                       <button
@@ -1246,7 +1345,7 @@ export default function Feed() {
                   </div>
                 ) : null}
 
-                <div className="relative z-40 mt-3 flex items-center justify-between gap-3 flex-wrap pointer-events-auto">
+                <div className="relative z-40 mt-3 flex flex-wrap items-center justify-between gap-3 pointer-events-auto">
                   <div className="min-w-0">
                     <div
                       className={`inline-flex items-center gap-1 rounded-full border px-2.5 py-1 text-[11px] font-medium ${selectedComposerCategory.badgeClass}`}
@@ -1254,6 +1353,7 @@ export default function Feed() {
                       <SelectedComposerIcon className="h-3.5 w-3.5" />
                       {selectedComposerCategory.label}
                     </div>
+
                     <p className="mt-2 text-xs text-muted-foreground">
                       {composerHint}
                     </p>
@@ -1357,7 +1457,7 @@ export default function Feed() {
                       </div>
 
                       <div className="min-w-0 flex-1">
-                        <div className="flex items-center gap-2 flex-wrap">
+                        <div className="flex flex-wrap items-center gap-2">
                           <p className="truncate text-sm font-semibold text-foreground">
                             {post.author_name}
                           </p>
@@ -1405,7 +1505,7 @@ export default function Feed() {
 
                     {editingPostId === post.id ? (
                       <div className="mb-3 rounded-2xl border border-white/10 bg-background/40 p-2">
-                        <div className="mb-2 flex gap-2 overflow-x-auto pb-1 no-scrollbar">
+                        <div className="no-scrollbar mb-2 flex gap-2 overflow-x-auto pb-1">
                           {POST_CATEGORIES.map((item) => {
                             const ItemIcon = item.icon;
                             const active = editCategory === item.key;
@@ -1481,7 +1581,7 @@ export default function Feed() {
                     />
 
                     {(likeCount > 0 || replyCount > 0) && (
-                      <div className="mb-3 flex items-center gap-2 flex-wrap">
+                      <div className="mb-3 flex flex-wrap items-center gap-2">
                         {likeCount > 0 && (
                           <div className="inline-flex items-center gap-1 rounded-full border border-white/10 bg-white/5 px-2.5 py-1 text-[11px] text-muted-foreground">
                             <Heart className="h-3.5 w-3.5" />
@@ -1560,6 +1660,7 @@ export default function Feed() {
                                     }
                                     className="mb-2 h-9 rounded-full border-white/10 bg-white/5 text-sm"
                                   />
+
                                   <div className="flex gap-2">
                                     <Button
                                       size="sm"
@@ -1570,6 +1671,7 @@ export default function Feed() {
                                       <Check className="mr-1 h-3.5 w-3.5" />
                                       {savingComment ? "Saving..." : "Save"}
                                     </Button>
+
                                     <Button
                                       size="sm"
                                       variant="ghost"
@@ -1590,7 +1692,7 @@ export default function Feed() {
                               ) : (
                                 <div className="flex items-start gap-2">
                                   <div className="min-w-0 flex-1">
-                                    <div className="mb-1 flex items-center gap-2 text-[11px] flex-wrap">
+                                    <div className="mb-1 flex flex-wrap items-center gap-2 text-[11px]">
                                       <span className="font-semibold text-foreground">
                                         {c.author_name}
                                       </span>
@@ -1598,6 +1700,7 @@ export default function Feed() {
                                         {formatRelativeTime(c.created_at)}
                                       </span>
                                     </div>
+
                                     <p className="text-xs leading-5 text-muted-foreground">
                                       {c.content}
                                     </p>
@@ -1615,6 +1718,7 @@ export default function Feed() {
                                       >
                                         <Pencil className="h-3 w-3" />
                                       </Button>
+
                                       <Button
                                         size="sm"
                                         variant="ghost"

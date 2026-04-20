@@ -28,6 +28,8 @@ const Analytics = lazy(() => import("./pages/Analytics"));
 const Tasks = lazy(() => import("./pages/Tasks"));
 const Modules = lazy(() => import("./pages/Modules"));
 const Feed = lazy(() => import("./pages/Feed"));
+const ClaraPeople = lazy(() => import("./pages/ClaraPeople"));
+const UserProfile = lazy(() => import("./pages/UserProfile"));
 const Community = lazy(() => import("./pages/Community"));
 const Messages = lazy(() => import("./pages/Messages"));
 const Coaching = lazy(() => import("./pages/Coaching"));
@@ -515,6 +517,34 @@ function AppRoutes() {
                             path="/feed"
                           >
                             <Feed />
+                          </GuardedRoute>
+                        }
+                      />
+
+                      <Route
+                        path="/people"
+                        element={
+                          <GuardedRoute
+                            shouldForceEnroll={false}
+                            featureKey={FEATURE_ROUTE_MAP["/feed"]}
+                            isFeatureAvailable={isFeatureAvailable}
+                            path="/people"
+                          >
+                            <ClaraPeople />
+                          </GuardedRoute>
+                        }
+                      />
+
+                      <Route
+                        path="/user/:id"
+                        element={
+                          <GuardedRoute
+                            shouldForceEnroll={false}
+                            featureKey={FEATURE_ROUTE_MAP["/feed"]}
+                            isFeatureAvailable={isFeatureAvailable}
+                            path="/user/:id"
+                          >
+                            <UserProfile />
                           </GuardedRoute>
                         }
                       />

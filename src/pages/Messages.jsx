@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState, useCallback } from "react";
+import { useSearchParams } from "react-router-dom";
 import {
   Send,
   MessageSquare,
@@ -59,6 +60,8 @@ const formatBubbleTime = (dateString) => {
 };
 
 export default function Messages() {
+  const [searchParams, setSearchParams] = useSearchParams();
+
   const {
     user,
     isAdmin,
@@ -81,6 +84,8 @@ export default function Messages() {
     user?.display_name ||
     user?.email ||
     "You";
+
+  const targetUserIdFromUrl = searchParams.get("userId") || "";
 
   const [messages, setMessages] = useState([]);
   const [users, setUsers] = useState([]);
@@ -357,6 +362,16 @@ export default function Messages() {
   }, [selectedConvo, convoMap, users]);
 
   useEffect(() => {
+    if (!targetUserIdFromUrl || !users.length) return;
+
+    const matchedUser = users.find((u) => u.id === targetUserIdFromUrl);
+    if (!matchedUser) return;
+
+    setSelectedConvo(targetUserIdFromUrl);
+    setComposerOpen(false);
+  }, [targetUserIdFromUrl, users]);
+
+  useEffect(() => {
     const markConversationAsRead = async () => {
       if (!activeConvo?.id || !currentUserId) return;
 
@@ -387,11 +402,27 @@ export default function Messages() {
   const openConversation = (userId) => {
     setSelectedConvo(userId);
     setComposerOpen(false);
+
+    const nextParams = new URLSearchParams(searchParams);
+    nextParams.set("userId", userId);
+    setSearchParams(nextParams, { replace: true });
   };
 
   const openNewChat = (userId) => {
     setSelectedConvo(userId);
     setComposerOpen(false);
+
+    const nextParams = new URLSearchParams(searchParams);
+    nextParams.set("userId", userId);
+    setSearchParams(nextParams, { replace: true });
+  };
+
+  const handleBackFromConversation = () => {
+    setSelectedConvo(null);
+
+    const nextParams = new URLSearchParams(searchParams);
+    nextParams.delete("userId");
+    setSearchParams(nextParams, { replace: true });
   };
 
   const handleSend = async () => {
@@ -492,7 +523,7 @@ export default function Messages() {
             <Button
               variant="ghost"
               size="icon"
-              onClick={() => setSelectedConvo(null)}
+              onClick={handleBackFromConversation}
               className="rounded-2xl bg-white/5 hover:bg-white/10 text-white"
             >
               <ArrowLeft className="w-4 h-4" />
@@ -664,12 +695,17 @@ export default function Messages() {
 
             {filteredUsers.map((u) => {
               const hasConversation = !!convoMap[u.id];
+              const isTargetFromUrl = targetUserIdFromUrl === u.id;
 
               return (
                 <button
                   key={u.id}
                   onClick={() => (hasConversation ? openConversation(u.id) : openNewChat(u.id))}
-                  className="shrink-0 w-[84px] rounded-[24px] border border-white/10 bg-white/5 backdrop-blur-xl px-3 py-3 flex flex-col items-center justify-center gap-2 shadow-lg"
+                  className={`shrink-0 w-[84px] rounded-[24px] border bg-white/5 backdrop-blur-xl px-3 py-3 flex flex-col items-center justify-center gap-2 shadow-lg transition-all ${
+                    isTargetFromUrl
+                      ? "border-emerald-400/35 bg-emerald-400/10"
+                      : "border-white/10"
+                  }`}
                 >
                   <div className="relative">
                     <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-cyan-400/20 via-blue-500/15 to-emerald-400/20 border border-white/10 flex items-center justify-center text-white font-semibold">

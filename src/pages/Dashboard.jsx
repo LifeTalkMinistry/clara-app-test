@@ -19,10 +19,26 @@ import {
   Home,
   MessageCircle,
   ListChecks,
+  WalletCards,
+  Target,
+  ChevronRight,
+  Plus,
+  Trash2,
+  ArrowLeftRight,
+  RotateCcw,
+  ArrowUp,
+  ArrowDown,
+  Edit,
+  Calendar,
+  AlertTriangle,
+  Wallet,
 } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
 import { supabase } from "@/lib/supabaseClient";
 import EmergencyFundCard from "../components/EmergencyFundCard";
+import WalletCard from "../components/WalletCard";
+import BudgetCard from "../components/BudgetCard";
+import SavingsCard from "../components/SavingsCard";
 import { Button } from "@/components/ui/button";
 import StatCard from "../components/StatCard";
 import DailyTipCard from "../components/DailyTipCard";
@@ -139,6 +155,153 @@ const getBillboardMediaType = (item) => {
   if (url.includes(".pdf")) return "pdf";
 
   return "file";
+};
+
+const normalizeDateValue = (value) => {
+  if (!value) return null;
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? null : date;
+};
+
+const sortByNewestDate = (items = [], dateKeys = ["updated_at", "created_at", "date"]) => {
+  return [...items].sort((a, b) => {
+    const aDate =
+      dateKeys.map((key) => normalizeDateValue(a?.[key])).find(Boolean) || null;
+    const bDate =
+      dateKeys.map((key) => normalizeDateValue(b?.[key])).find(Boolean) || null;
+    return (bDate?.getTime() || 0) - (aDate?.getTime() || 0);
+  });
+};
+
+const getWalletDisplayName = (wallet) =>
+  normalizeString(wallet?.name || wallet?.wallet_name || wallet?.title || "Wallet");
+
+const getWalletDisplayBalance = (wallet) =>
+  firstValidNumber(
+    wallet?.balance,
+    wallet?.current_balance,
+    wallet?.wallet_balance,
+    wallet?.available_balance,
+    wallet?.amount
+  );
+
+const getBudgetTotal = (budget) =>
+  firstValidNumber(
+    budget?.budget,
+    budget?.total_budget,
+    budget?.budget_amount,
+    budget?.amount,
+    budget?.target_amount
+  );
+
+const getBudgetSpent = (budget) =>
+  firstValidNumber(
+    budget?.spent,
+    budget?.spent_amount,
+    budget?.total_spent,
+    budget?.used_amount
+  );
+
+const getBudgetRemaining = (budget) => {
+  const explicit = firstValidNumber(
+    budget?.remaining,
+    budget?.remaining_amount,
+    budget?.amount_left
+  );
+  if (explicit) return explicit;
+  const total = getBudgetTotal(budget);
+  const spent = getBudgetSpent(budget);
+  return Math.max(total - spent, 0);
+};
+
+const getBudgetCategoryValue = (budget, keys = []) =>
+  firstValidNumber(...keys.map((key) => budget?.[key]));
+
+const getSavingsSaved = (goal) =>
+  firstValidNumber(
+    goal?.saved_amount,
+    goal?.current_amount,
+    goal?.saved,
+    goal?.progress_amount,
+    goal?.amount_saved
+  );
+
+const getSavingsTarget = (goal) =>
+  firstValidNumber(
+    goal?.target_amount,
+    goal?.goal_amount,
+    goal?.target,
+    goal?.amount,
+    goal?.desired_amount
+  );
+
+const getSavingsGoalTitle = (goal) =>
+  normalizeString(goal?.title || goal?.name || goal?.goal_name || "Savings Goal");
+
+const formatCompactDate = (value) => {
+  const date = normalizeDateValue(value);
+  if (!date) return "No date";
+  return new Intl.DateTimeFormat("en-PH", {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+  }).format(date);
+};
+
+const formatHistoryDate = (value) => {
+  const date = normalizeDateValue(value);
+  if (!date) return "No date";
+  return date.toLocaleString("en-PH", {
+    year: "numeric",
+    month: "short",
+    day: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+  });
+};
+
+const getHistoryTypeLabel = (type) => {
+  switch (normalizeLower(type)) {
+    case "add":
+      return "Added Money";
+    case "income":
+      return "Income";
+    case "transfer_in":
+      return "Transfer In";
+    case "transfer_out":
+      return "Transfer Out";
+    case "expense":
+      return "Expense";
+    case "reset":
+      return "Reset";
+    case "savings_goal":
+      return "Savings Goal";
+    default:
+      return String(type || "Transaction")
+        .replaceAll("_", " ")
+        .replace(/\b\w/g, (c) => c.toUpperCase());
+  }
+};
+
+const getHistoryAmountPrefix = (type) => {
+  const normalized = normalizeLower(type);
+  if (["transfer_out", "expense", "reset", "savings_goal"].includes(normalized)) {
+    return "-";
+  }
+  return "+";
+};
+
+const getWalletSortOrder = (wallet, index) => {
+  const value = Number(wallet?.sort_order);
+  return Number.isFinite(value) ? value : index;
+};
+
+const getToday = () => {
+  const d = new Date();
+  const yyyy = d.getFullYear();
+  const mm = String(d.getMonth() + 1).padStart(2, "0");
+  const dd = String(d.getDate()).padStart(2, "0");
+  return `${yyyy}-${mm}-${dd}`;
 };
 
 const getDashboardPrefsStorageKey = (userId) =>
@@ -375,6 +538,115 @@ const OnboardingActionBar = ({
   );
 };
 
+
+const FinanceInlineAlert = ({ notice, onClose }) => {
+  if (!notice?.message) return null;
+
+  const tone =
+    notice.type === "success"
+      ? "border-emerald-400/20 bg-emerald-500/10 text-emerald-100"
+      : "border-rose-400/20 bg-rose-500/10 text-rose-100";
+
+  return (
+    <div className={`mb-3 flex items-start justify-between gap-3 rounded-2xl border px-4 py-3 ${tone}`}>
+      <p className="text-sm leading-6">{notice.message}</p>
+      <button
+        type="button"
+        onClick={onClose}
+        className="mt-0.5 shrink-0 rounded-full border border-white/10 bg-white/5 p-1 text-white/70 transition hover:bg-white/10 hover:text-white"
+        aria-label="Dismiss message"
+      >
+        <X className="h-3.5 w-3.5" />
+      </button>
+    </div>
+  );
+};
+
+const FinanceActionModal = ({
+  open,
+  title,
+  description,
+  children,
+  onClose,
+  onSubmit,
+  submitLabel = "Save",
+  submitDisabled = false,
+  loading = false,
+  danger = false,
+}) => {
+  if (!open) return null;
+
+  return (
+    <div className="fixed inset-0 z-[120] flex items-end justify-center bg-black/70 p-4 backdrop-blur-md sm:items-center">
+      <div className="w-full max-w-lg overflow-hidden rounded-[28px] border border-white/10 bg-[#071120]/95 shadow-[0_25px_80px_rgba(0,0,0,0.45)]">
+        <div className="border-b border-white/10 bg-white/[0.03] px-5 py-4">
+          <div className="flex items-start justify-between gap-4">
+            <div>
+              <h3 className="text-lg font-semibold text-white">{title}</h3>
+              {description ? (
+                <p className="mt-1 text-sm leading-6 text-white/65">{description}</p>
+              ) : null}
+            </div>
+
+            <button
+              type="button"
+              onClick={onClose}
+              className="rounded-full border border-white/10 bg-white/5 p-2 text-white/70 transition hover:bg-white/10 hover:text-white"
+              aria-label="Close modal"
+            >
+              <X className="h-4 w-4" />
+            </button>
+          </div>
+        </div>
+
+        <form onSubmit={onSubmit} className="space-y-4 px-5 py-5">
+          <div className="space-y-4">{children}</div>
+
+          <div className="flex flex-col-reverse gap-3 border-t border-white/10 pt-4 sm:flex-row sm:justify-end">
+            <button
+              type="button"
+              onClick={onClose}
+              className="rounded-2xl border border-white/10 bg-white/[0.04] px-4 py-3 text-sm font-medium text-white/75 transition hover:bg-white/[0.08] hover:text-white"
+            >
+              Cancel
+            </button>
+
+            <button
+              type="submit"
+              disabled={submitDisabled || loading}
+              className={`rounded-2xl px-4 py-3 text-sm font-semibold text-white transition disabled:cursor-not-allowed disabled:opacity-60 ${
+                danger
+                  ? "bg-gradient-to-r from-rose-500 to-red-600 shadow-[0_10px_30px_rgba(244,63,94,0.24)]"
+                  : "bg-gradient-to-r from-emerald-400 via-emerald-500 to-green-600 shadow-[0_10px_30px_rgba(16,185,129,0.24)]"
+              }`}
+            >
+              {loading ? "Saving..." : submitLabel}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+};
+
+const FinanceField = ({ label, children, helper }) => (
+  <label className="block space-y-2">
+    <span className="text-sm font-medium text-white/85">{label}</span>
+    {children}
+    {helper ? <p className="text-xs leading-5 text-white/50">{helper}</p> : null}
+  </label>
+);
+
+const financeInputClassName =
+  "w-full rounded-2xl border border-white/10 bg-white/[0.04] px-4 py-3 text-sm text-white outline-none transition placeholder:text-white/35 focus:border-emerald-400/30 focus:bg-white/[0.06]";
+
+const FINANCE_CARD_KEYS = ["emergency", "wallets", "budgets", "savings"];
+
+const dispatchClaraEvent = (name) => {
+  if (typeof window === "undefined") return;
+  window.dispatchEvent(new Event(name));
+};
+
 const createEmptyDashboardCache = (key = null) => ({
   key,
   loaded: false,
@@ -384,6 +656,10 @@ const createEmptyDashboardCache = (key = null) => ({
   billboards: [],
   survivalExpense: 0,
   walletMoney: 0,
+  wallets: [],
+  walletTransactions: [],
+  budgets: [],
+  savingsGoals: [],
   expenses: [],
   profileData: null,
   latestEnrollment: null,
@@ -415,6 +691,10 @@ export default function Dashboard() {
   const [billboards, setBillboards] = useState(initialCache.billboards);
   const [survivalExpense, setSurvivalExpense] = useState(initialCache.survivalExpense);
   const [walletMoney, setWalletMoney] = useState(initialCache.walletMoney);
+  const [wallets, setWallets] = useState(initialCache.wallets);
+  const [walletTransactions, setWalletTransactions] = useState(initialCache.walletTransactions);
+  const [budgets, setBudgets] = useState(initialCache.budgets);
+  const [savingsGoals, setSavingsGoals] = useState(initialCache.savingsGoals);
   const [expenses, setExpenses] = useState(initialCache.expenses);
   const [loading, setLoading] = useState(!initialCache.loaded);
 
@@ -437,10 +717,30 @@ export default function Dashboard() {
   const [notificationSettings, setNotificationSettings] = useState(() =>
     readStoredNotificationSettings(userId)
   );
+  const [financeCardIndex, setFinanceCardIndex] = useState(0);
+  const [expandedFinanceCard, setExpandedFinanceCard] = useState(null);
+  const [financeActionLoading, setFinanceActionLoading] = useState(false);
+  const [financeNotice, setFinanceNotice] = useState(null);
+  const [financeModal, setFinanceModal] = useState({ type: null, payload: null });
+  const [financeForm, setFinanceForm] = useState({
+    name: "",
+    type: "cash",
+    startingBalance: "0",
+    amount: "",
+    destinationWalletId: "",
+    totalBudget: "",
+    needsPct: "50",
+    wantsPct: "30",
+    otherPct: "20",
+    title: "",
+    targetAmount: "",
+    savingsWalletId: "",
+  });
 
   const dailyRemindersEnabled = notificationSettings?.dailyReminders !== false;
 
   const refreshTimeoutRef = useRef(null);
+  const financeCarouselRef = useRef(null);
   const trackedViewIdsRef = useRef(new Set());
   const trackedClickIdsRef = useRef(new Set());
   const clickInFlightIdsRef = useRef(new Set());
@@ -456,6 +756,10 @@ export default function Dashboard() {
     setBillboards(nextCache.billboards);
     setSurvivalExpense(nextCache.survivalExpense);
     setWalletMoney(nextCache.walletMoney);
+    setWallets(nextCache.wallets);
+    setWalletTransactions(nextCache.walletTransactions);
+    setBudgets(nextCache.budgets);
+    setSavingsGoals(nextCache.savingsGoals);
     setExpenses(nextCache.expenses);
     setProfileData(nextCache.profileData);
     setLatestEnrollment(nextCache.latestEnrollment);
@@ -669,6 +973,9 @@ export default function Dashboard() {
             expensesRes,
             profilesRes,
             walletsRes,
+            walletTransactionsRes,
+            budgetsRes,
+            savingsGoalsRes,
             enrollmentsRes,
           ] = await Promise.all([
             supabase
@@ -695,6 +1002,16 @@ export default function Dashboard() {
             supabase.from("wallets").select("*"),
 
             supabase
+              .from("wallet_transactions")
+              .select("*")
+              .order("created_at", { ascending: false })
+              .limit(50),
+
+            supabase.from("budgets").select("*"),
+
+            supabase.from("savings_goals").select("*"),
+
+            supabase
               .from("enrollments")
               .select("*")
               .eq("user_id", currentUser.id)
@@ -717,6 +1034,18 @@ export default function Dashboard() {
           }
           if (walletsRes.error) {
             console.error("Failed to load wallets:", walletsRes.error);
+          }
+          if (walletTransactionsRes.error) {
+            console.error(
+              "Failed to load wallet transactions:",
+              walletTransactionsRes.error
+            );
+          }
+          if (budgetsRes.error) {
+            console.error("Failed to load budgets:", budgetsRes.error);
+          }
+          if (savingsGoalsRes.error) {
+            console.error("Failed to load savings goals:", savingsGoalsRes.error);
           }
           if (enrollmentsRes.error) {
             console.error("Failed to load enrollments:", enrollmentsRes.error);
@@ -747,17 +1076,44 @@ export default function Dashboard() {
             isOwnedByUser(wallet, currentUser)
           );
 
-          const totalWalletMoney = userWallets.reduce((sum, wallet) => {
-            return (
-              sum +
-              firstValidNumber(
-                wallet?.balance,
-                wallet?.current_balance,
-                wallet?.wallet_balance,
-                wallet?.available_balance,
-                wallet?.amount
-              )
+          const sortedWallets = [...userWallets].sort((a, b) => {
+            const aPosition = firstValidNumber(
+              a?.position,
+              a?.sort_order,
+              a?.display_order,
+              a?.priority,
+              999
             );
+            const bPosition = firstValidNumber(
+              b?.position,
+              b?.sort_order,
+              b?.display_order,
+              b?.priority,
+              999
+            );
+
+            if (aPosition !== bPosition) return aPosition - bPosition;
+            return getWalletDisplayName(a).localeCompare(getWalletDisplayName(b));
+          });
+
+          const userWalletTransactions = sortByNewestDate(
+            (walletTransactionsRes.data || []).filter((item) =>
+              isOwnedByUser(item, currentUser)
+            ),
+            ["transaction_date", "date", "created_at", "updated_at"]
+          );
+
+          const userBudgets = sortByNewestDate(
+            (budgetsRes.data || []).filter((budget) => isOwnedByUser(budget, currentUser))
+          );
+
+          const userSavingsGoals = sortByNewestDate(
+            (savingsGoalsRes.data || []).filter((goal) => isOwnedByUser(goal, currentUser)),
+            ["deadline", "due_date", "target_date", "updated_at", "created_at"]
+          );
+
+          const totalWalletMoney = sortedWallets.reduce((sum, wallet) => {
+            return sum + getWalletDisplayBalance(wallet);
           }, 0);
 
           const activeBillboards = (billboardsRes.data || []).filter(
@@ -810,6 +1166,10 @@ export default function Dashboard() {
             billboards: activeBillboards,
             survivalExpense: readStoredSurvivalExpense(),
             walletMoney: totalWalletMoney,
+            wallets: sortedWallets,
+            walletTransactions: userWalletTransactions,
+            budgets: userBudgets,
+            savingsGoals: userSavingsGoals,
             expenses: userExpenses,
             profileData: userProfile,
             latestEnrollment: enrollmentRecord,
@@ -863,6 +1223,14 @@ export default function Dashboard() {
       loadDashboardData({ background: true });
     }, 350);
   }, [loadDashboardData]);
+
+  useEffect(() => {
+    return () => {
+      if (refreshTimeoutRef.current) {
+        clearTimeout(refreshTimeoutRef.current);
+      }
+    };
+  }, []);
 
   const trackBillboardView = useCallback(
     async (billboardId) => {
@@ -1011,6 +1379,8 @@ export default function Dashboard() {
     window.addEventListener("clara-finance-updated", scheduleRefresh);
     window.addEventListener("clara-wallets-updated", scheduleRefresh);
     window.addEventListener("clara-wallet-transactions-updated", scheduleRefresh);
+    window.addEventListener("clara-budgets-updated", scheduleRefresh);
+    window.addEventListener("clara-savings-goals-updated", scheduleRefresh);
 
     const channel = supabase
       .channel(`dashboard-live-${user?.id || user?.email}`)
@@ -1022,6 +1392,16 @@ export default function Dashboard() {
       .on(
         "postgres_changes",
         { event: "*", schema: "public", table: "wallet_transactions" },
+        scheduleRefresh
+      )
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "budgets" },
+        scheduleRefresh
+      )
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "savings_goals" },
         scheduleRefresh
       )
       .on(
@@ -1097,6 +1477,8 @@ export default function Dashboard() {
         "clara-wallet-transactions-updated",
         scheduleRefresh
       );
+      window.removeEventListener("clara-budgets-updated", scheduleRefresh);
+      window.removeEventListener("clara-savings-goals-updated", scheduleRefresh);
 
       if (refreshTimeoutRef.current) {
         clearTimeout(refreshTimeoutRef.current);
@@ -1250,6 +1632,726 @@ export default function Dashboard() {
     showOnboarding,
     user?.id,
     profileData,
+  ]);
+
+  const financeCards = useMemo(() => FINANCE_CARD_KEYS, []);
+
+  const topWallet = useMemo(() => wallets[0] || null, [wallets]);
+
+  const walletPreviewTransactions = useMemo(
+    () => walletTransactions.slice(0, 2),
+    [walletTransactions]
+  );
+
+  const activeBudget = useMemo(() => {
+    if (!budgets.length) return null;
+
+    const active =
+      budgets.find(
+        (budget) =>
+          isTruthyActive(budget?.is_active) ||
+          normalizeLower(budget?.status) === "active"
+      ) || budgets[0];
+
+    return active || null;
+  }, [budgets]);
+
+  const totalSavingsTarget = useMemo(
+    () => savingsGoals.reduce((sum, goal) => sum + getSavingsTarget(goal), 0),
+    [savingsGoals]
+  );
+
+  const totalSavingsSaved = useMemo(
+    () => savingsGoals.reduce((sum, goal) => sum + getSavingsSaved(goal), 0),
+    [savingsGoals]
+  );
+
+  const primarySavingsGoal = useMemo(() => savingsGoals[0] || null, [savingsGoals]);
+
+  const scrollFinanceCardsTo = useCallback((nextIndex) => {
+    const container = financeCarouselRef.current;
+    if (!container) return;
+    const width = container.clientWidth || 0;
+    container.scrollTo({
+      left: width * nextIndex,
+      behavior: "smooth",
+    });
+  }, []);
+
+  const toggleFinanceDetails = useCallback((cardKey) => {
+    setExpandedFinanceCard((prev) => (prev === cardKey ? null : cardKey));
+  }, []);
+
+  const handleFinanceCarouselScroll = useCallback(() => {
+    const container = financeCarouselRef.current;
+    if (!container) return;
+    const width = container.clientWidth || 1;
+    const index = Math.round(container.scrollLeft / width);
+    setFinanceCardIndex(Math.max(0, Math.min(financeCards.length - 1, index)));
+  }, [financeCards.length]);
+
+  const showFinanceNotice = useCallback((message, type = "error") => {
+    setFinanceNotice({ message, type });
+  }, []);
+
+  const closeFinanceNotice = useCallback(() => {
+    setFinanceNotice(null);
+  }, []);
+
+  const closeFinanceModal = useCallback(() => {
+    setFinanceModal({ type: null, payload: null });
+  }, []);
+
+  const openCreateWalletModal = useCallback(() => {
+    setFinanceForm({
+      name: "",
+      type: "cash",
+      startingBalance: "0",
+      amount: "",
+      destinationWalletId: "",
+      totalBudget: "",
+      needsPct: "50",
+      wantsPct: "30",
+      otherPct: "20",
+      title: "",
+      targetAmount: "",
+      savingsWalletId: "",
+    });
+    setFinanceModal({ type: "create_wallet", payload: null });
+  }, []);
+
+  const openDeleteWalletModal = useCallback((walletId) => {
+    const wallet = wallets.find((item) => String(item.id) === String(walletId)) || null;
+    setFinanceModal({ type: "delete_wallet", payload: wallet });
+  }, [wallets]);
+
+  const openAddMoneyModal = useCallback((wallet) => {
+    setFinanceForm((prev) => ({
+      ...prev,
+      amount: "",
+    }));
+    setFinanceModal({ type: "add_money", payload: wallet });
+  }, []);
+
+  const openTransferMoneyModal = useCallback((fromWallet) => {
+    const destinationOptions = wallets.filter(
+      (wallet) => String(wallet.id) !== String(fromWallet?.id)
+    );
+
+    if (destinationOptions.length < 1) {
+      showFinanceNotice("Create another wallet first before transferring.");
+      return;
+    }
+
+    setFinanceForm((prev) => ({
+      ...prev,
+      amount: "",
+      destinationWalletId: String(destinationOptions[0]?.id || ""),
+    }));
+    setFinanceModal({ type: "transfer_money", payload: fromWallet });
+  }, [wallets, showFinanceNotice]);
+
+  const openBudgetModal = useCallback(() => {
+    setFinanceForm((prev) => ({
+      ...prev,
+      totalBudget: activeBudget ? String(getBudgetTotal(activeBudget)) : "",
+      needsPct: String(activeBudget?.needs_pct ?? activeBudget?.needs_percent ?? 50),
+      wantsPct: String(activeBudget?.wants_pct ?? activeBudget?.wants_percent ?? 30),
+      otherPct: String(activeBudget?.other_pct ?? activeBudget?.other_percent ?? 20),
+    }));
+    setFinanceModal({ type: "save_budget", payload: activeBudget || null });
+  }, [activeBudget]);
+
+  const openResetBudgetModal = useCallback(() => {
+    if (!activeBudget?.id) return;
+    setFinanceModal({ type: "reset_budget", payload: activeBudget });
+  }, [activeBudget]);
+
+  const openSavingsGoalModal = useCallback((goal = null) => {
+    setFinanceForm((prev) => ({
+      ...prev,
+      title: goal?.title || "",
+      targetAmount: String(goal?.target_amount ?? goal?.goal_amount ?? ""),
+    }));
+    setFinanceModal({ type: "save_savings_goal", payload: goal });
+  }, []);
+
+  const openDeleteSavingsGoalModal = useCallback((goalId) => {
+    const goal = savingsGoals.find((item) => String(item.id) === String(goalId)) || null;
+    setFinanceModal({ type: "delete_savings_goal", payload: goal });
+  }, [savingsGoals]);
+
+  const openAddSavingsModal = useCallback((goal) => {
+    const compatibleWallets = wallets.filter((wallet) => getWalletDisplayBalance(wallet) > 0);
+
+    if (!compatibleWallets.length) {
+      showFinanceNotice("Add balance to a wallet first before funding a goal.");
+      return;
+    }
+
+    setFinanceForm((prev) => ({
+      ...prev,
+      amount: "",
+      savingsWalletId: String(compatibleWallets[0]?.id || ""),
+    }));
+    setFinanceModal({ type: "add_savings", payload: goal });
+  }, [wallets, showFinanceNotice]);
+
+  useEffect(() => {
+    const container = financeCarouselRef.current;
+    if (!container) return;
+
+    let frame = null;
+
+    const onScroll = () => {
+      if (frame) cancelAnimationFrame(frame);
+      frame = requestAnimationFrame(handleFinanceCarouselScroll);
+    };
+
+    container.addEventListener("scroll", onScroll, { passive: true });
+    handleFinanceCarouselScroll();
+
+    return () => {
+      container.removeEventListener("scroll", onScroll);
+      if (frame) cancelAnimationFrame(frame);
+    };
+  }, [handleFinanceCarouselScroll]);
+
+
+  const refreshFinanceSection = useCallback(async () => {
+    await loadDashboardData({ background: true });
+    dispatchClaraEvent("clara-finance-updated");
+  }, [loadDashboardData]);
+
+  const moveWalletInline = useCallback(
+    async (walletId, direction) => {
+      if (financeActionLoading) return;
+
+      const orderedWallets = [...wallets].sort((a, b) => {
+        const aIndex = wallets.findIndex((wallet) => String(wallet.id) === String(a.id));
+        const bIndex = wallets.findIndex((wallet) => String(wallet.id) === String(b.id));
+        return getWalletSortOrder(a, aIndex) - getWalletSortOrder(b, bIndex);
+      });
+
+      const fromIndex = orderedWallets.findIndex(
+        (wallet) => String(wallet.id) === String(walletId)
+      );
+
+      if (fromIndex === -1) return;
+
+      const toIndex = fromIndex + direction;
+      if (toIndex < 0 || toIndex >= orderedWallets.length) return;
+
+      [orderedWallets[fromIndex], orderedWallets[toIndex]] = [
+        orderedWallets[toIndex],
+        orderedWallets[fromIndex],
+      ];
+
+      try {
+        setFinanceActionLoading(true);
+
+        const results = await Promise.all(
+          orderedWallets.map((wallet, index) =>
+            supabase
+              .from("wallets")
+              .update({ sort_order: index })
+              .eq("id", String(wallet.id))
+          )
+        );
+
+        const failed = results.find((result) => result?.error);
+        if (failed?.error) throw failed.error;
+
+        await refreshFinanceSection();
+      } catch (error) {
+        showFinanceNotice(error?.message || "Failed to reorder wallets.");
+      } finally {
+        setFinanceActionLoading(false);
+      }
+    },
+    [financeActionLoading, refreshFinanceSection, showFinanceNotice, wallets]
+  );
+
+  const createWalletInline = useCallback(async () => {
+    const name = normalizeString(financeForm.name);
+    const type = normalizeString(financeForm.type) || "cash";
+    const startingBalance = Number(financeForm.startingBalance);
+
+    if (!name) {
+      showFinanceNotice("Please enter a wallet name.");
+      return;
+    }
+
+    if (!Number.isFinite(startingBalance) || startingBalance < 0) {
+      showFinanceNotice("Please enter a valid starting balance.");
+      return;
+    }
+
+    try {
+      setFinanceActionLoading(true);
+      const { error } = await supabase.from("wallets").insert([
+        {
+          name,
+          type,
+          balance: startingBalance,
+          sort_order: wallets.length,
+          user_id: user?.id || null,
+          user_email: user?.email || null,
+          created_by: user?.email || null,
+        },
+      ]);
+
+      if (error) throw error;
+
+      await refreshFinanceSection();
+      setExpandedFinanceCard("wallets");
+      closeFinanceModal();
+      showFinanceNotice("Wallet created successfully.", "success");
+    } catch (error) {
+      showFinanceNotice(error?.message || "Failed to create wallet.");
+    } finally {
+      setFinanceActionLoading(false);
+    }
+  }, [
+    closeFinanceModal,
+    financeForm.name,
+    financeForm.startingBalance,
+    financeForm.type,
+    refreshFinanceSection,
+    showFinanceNotice,
+    user?.email,
+    user?.id,
+    wallets.length,
+  ]);
+
+  const deleteWalletInline = useCallback(async () => {
+    const walletId = financeModal?.payload?.id;
+    if (!walletId) return;
+
+    try {
+      setFinanceActionLoading(true);
+      const { error } = await supabase
+        .from("wallets")
+        .delete()
+        .eq("id", String(walletId));
+
+      if (error) throw error;
+
+      await refreshFinanceSection();
+      closeFinanceModal();
+      showFinanceNotice("Wallet deleted.", "success");
+    } catch (error) {
+      showFinanceNotice(error?.message || "Failed to delete wallet.");
+    } finally {
+      setFinanceActionLoading(false);
+    }
+  }, [closeFinanceModal, financeModal?.payload?.id, refreshFinanceSection, showFinanceNotice]);
+
+  const addMoneyInline = useCallback(async () => {
+    const wallet = financeModal?.payload;
+    const amount = Number(financeForm.amount);
+
+    if (!wallet) return;
+
+    if (!Number.isFinite(amount) || amount <= 0) {
+      showFinanceNotice("Please enter a valid amount.");
+      return;
+    }
+
+    try {
+      setFinanceActionLoading(true);
+      const newBalance = getWalletDisplayBalance(wallet) + amount;
+      const { error: walletError } = await supabase
+        .from("wallets")
+        .update({ balance: newBalance })
+        .eq("id", String(wallet.id));
+
+      if (walletError) throw walletError;
+
+      const { error: historyError } = await supabase.from("wallet_transactions").insert([
+        {
+          wallet_id: wallet.id,
+          type: "income",
+          amount,
+          user_id: user?.id || null,
+          user_email: user?.email || null,
+          created_by: user?.email || null,
+        },
+      ]);
+
+      if (historyError) throw historyError;
+
+      await refreshFinanceSection();
+      closeFinanceModal();
+      showFinanceNotice("Money added successfully.", "success");
+    } catch (error) {
+      showFinanceNotice(error?.message || "Failed to add money.");
+    } finally {
+      setFinanceActionLoading(false);
+    }
+  }, [
+    closeFinanceModal,
+    financeForm.amount,
+    financeModal?.payload,
+    refreshFinanceSection,
+    showFinanceNotice,
+    user?.email,
+    user?.id,
+  ]);
+
+  const transferMoneyInline = useCallback(async () => {
+    const fromWallet = financeModal?.payload;
+    const destinationWallet = wallets.find(
+      (wallet) => String(wallet.id) === String(financeForm.destinationWalletId)
+    );
+    const amount = Number(financeForm.amount);
+
+    if (!fromWallet) return;
+
+    if (!destinationWallet) {
+      showFinanceNotice("Please select a valid destination wallet.");
+      return;
+    }
+
+    if (!Number.isFinite(amount) || amount <= 0) {
+      showFinanceNotice("Please enter a valid amount.");
+      return;
+    }
+
+    if (getWalletDisplayBalance(fromWallet) < amount) {
+      showFinanceNotice("Insufficient balance in the source wallet.");
+      return;
+    }
+
+    try {
+      setFinanceActionLoading(true);
+      const { error: fromError } = await supabase
+        .from("wallets")
+        .update({ balance: getWalletDisplayBalance(fromWallet) - amount })
+        .eq("id", String(fromWallet.id));
+      if (fromError) throw fromError;
+
+      const { error: toError } = await supabase
+        .from("wallets")
+        .update({ balance: getWalletDisplayBalance(destinationWallet) + amount })
+        .eq("id", String(destinationWallet.id));
+      if (toError) throw toError;
+
+      const { error: historyError } = await supabase.from("wallet_transactions").insert([
+        {
+          wallet_id: fromWallet.id,
+          type: "transfer_out",
+          amount,
+          user_id: user?.id || null,
+          user_email: user?.email || null,
+          created_by: user?.email || null,
+        },
+        {
+          wallet_id: destinationWallet.id,
+          type: "transfer_in",
+          amount,
+          user_id: user?.id || null,
+          user_email: user?.email || null,
+          created_by: user?.email || null,
+        },
+      ]);
+      if (historyError) throw historyError;
+
+      await refreshFinanceSection();
+      closeFinanceModal();
+      showFinanceNotice("Transfer completed successfully.", "success");
+    } catch (error) {
+      showFinanceNotice(error?.message || "Failed to transfer money.");
+    } finally {
+      setFinanceActionLoading(false);
+    }
+  }, [
+    closeFinanceModal,
+    financeForm.amount,
+    financeForm.destinationWalletId,
+    financeModal?.payload,
+    refreshFinanceSection,
+    showFinanceNotice,
+    user?.email,
+    user?.id,
+    wallets,
+  ]);
+
+  const saveBudgetInline = useCallback(async () => {
+    const totalBudget = Number(financeForm.totalBudget);
+    const needsPct = Number(financeForm.needsPct);
+    const wantsPct = Number(financeForm.wantsPct);
+    const otherPct = Number(financeForm.otherPct);
+
+    if (!Number.isFinite(totalBudget) || totalBudget <= 0) {
+      showFinanceNotice("Please enter a valid total budget.");
+      return;
+    }
+
+    if (
+      ![needsPct, wantsPct, otherPct].every(Number.isFinite) ||
+      needsPct + wantsPct + otherPct !== 100
+    ) {
+      showFinanceNotice("Needs, Wants, and Other must total exactly 100%.");
+      return;
+    }
+
+    try {
+      setFinanceActionLoading(true);
+      const monthKey = activeBudget?.month || new Date().toISOString().slice(0, 7);
+      const payload = {
+        month: monthKey,
+        total_budget: totalBudget,
+        needs_pct: needsPct,
+        wants_pct: wantsPct,
+        other_pct: otherPct,
+        needs_percent: needsPct,
+        wants_percent: wantsPct,
+        other_percent: otherPct,
+        savings_pct: otherPct,
+        savings_percent: otherPct,
+        updated_at: new Date().toISOString(),
+      };
+
+      let result;
+      if (activeBudget?.id) {
+        result = await supabase.from("budgets").update(payload).eq("id", activeBudget.id);
+      } else {
+        result = await supabase.from("budgets").insert([
+          {
+            ...payload,
+            created_at: new Date().toISOString(),
+            created_by: user?.email || null,
+            email: user?.email || null,
+            user_id: user?.id || null,
+          },
+        ]);
+      }
+
+      if (result.error) throw result.error;
+
+      await refreshFinanceSection();
+      setExpandedFinanceCard("budgets");
+      closeFinanceModal();
+      showFinanceNotice("Budget saved successfully.", "success");
+    } catch (error) {
+      showFinanceNotice(error?.message || "Failed to save budget.");
+    } finally {
+      setFinanceActionLoading(false);
+    }
+  }, [
+    activeBudget,
+    closeFinanceModal,
+    financeForm.needsPct,
+    financeForm.otherPct,
+    financeForm.totalBudget,
+    financeForm.wantsPct,
+    refreshFinanceSection,
+    showFinanceNotice,
+    user?.email,
+    user?.id,
+  ]);
+
+  const resetBudgetInline = useCallback(async () => {
+    if (!activeBudget?.id) return;
+
+    try {
+      setFinanceActionLoading(true);
+      const nowIso = new Date().toISOString();
+      const { error } = await supabase
+        .from("budgets")
+        .update({
+          tracking_start_date: nowIso,
+          range_start: nowIso,
+          updated_at: nowIso,
+        })
+        .eq("id", activeBudget.id);
+      if (error) throw error;
+
+      await refreshFinanceSection();
+      closeFinanceModal();
+      showFinanceNotice("Budget tracking has been reset.", "success");
+    } catch (error) {
+      showFinanceNotice(error?.message || "Failed to reset budget.");
+    } finally {
+      setFinanceActionLoading(false);
+    }
+  }, [activeBudget, closeFinanceModal, refreshFinanceSection, showFinanceNotice]);
+
+  const saveSavingsGoalInline = useCallback(async () => {
+    const goal = financeModal?.payload || null;
+    const title = normalizeString(financeForm.title);
+    const targetAmount = Number(financeForm.targetAmount);
+
+    if (!title) {
+      showFinanceNotice("Please enter a goal title.");
+      return;
+    }
+
+    if (!Number.isFinite(targetAmount) || targetAmount <= 0) {
+      showFinanceNotice("Please enter a valid target amount.");
+      return;
+    }
+
+    try {
+      setFinanceActionLoading(true);
+      const payload = {
+        title,
+        target_amount: targetAmount,
+        saved_amount: Math.max(0, Number(goal?.saved_amount ?? 0)),
+        category: goal?.category || "",
+        subcategory: goal?.subcategory || "",
+        notes: goal?.notes || "",
+        wallet_id: goal?.wallet_id || null,
+        created_by: user?.email || null,
+        user_email: user?.email || null,
+        user_id: user?.id || null,
+        updated_date: new Date().toISOString(),
+      };
+
+      if (goal?.id) {
+        const { error } = await supabase
+          .from("savings_goals")
+          .update(payload)
+          .eq("id", String(goal.id));
+        if (error) throw error;
+      } else {
+        const { error } = await supabase.from("savings_goals").insert([
+          {
+            id: `goal_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`,
+            ...payload,
+            created_date: new Date().toISOString(),
+          },
+        ]);
+        if (error) throw error;
+      }
+
+      await refreshFinanceSection();
+      setExpandedFinanceCard("savings");
+      closeFinanceModal();
+      showFinanceNotice("Savings goal saved successfully.", "success");
+    } catch (error) {
+      showFinanceNotice(error?.message || "Failed to save savings goal.");
+    } finally {
+      setFinanceActionLoading(false);
+    }
+  }, [
+    closeFinanceModal,
+    financeForm.targetAmount,
+    financeForm.title,
+    financeModal?.payload,
+    refreshFinanceSection,
+    showFinanceNotice,
+    user?.email,
+    user?.id,
+  ]);
+
+  const deleteSavingsGoalInline = useCallback(async () => {
+    const goalId = financeModal?.payload?.id;
+    if (!goalId) return;
+
+    try {
+      setFinanceActionLoading(true);
+      const { error } = await supabase
+        .from("savings_goals")
+        .delete()
+        .eq("id", String(goalId));
+      if (error) throw error;
+
+      await refreshFinanceSection();
+      closeFinanceModal();
+      showFinanceNotice("Savings goal deleted.", "success");
+    } catch (error) {
+      showFinanceNotice(error?.message || "Failed to delete savings goal.");
+    } finally {
+      setFinanceActionLoading(false);
+    }
+  }, [closeFinanceModal, financeModal?.payload?.id, refreshFinanceSection, showFinanceNotice]);
+
+  const addSavingsInline = useCallback(async () => {
+    const goal = financeModal?.payload;
+    const sourceWallet = wallets.find(
+      (wallet) => String(wallet.id) === String(financeForm.savingsWalletId)
+    );
+    const amount = Number(financeForm.amount);
+
+    if (!goal) return;
+
+    if (!sourceWallet) {
+      showFinanceNotice("Please select a valid source wallet.");
+      return;
+    }
+
+    if (!Number.isFinite(amount) || amount <= 0) {
+      showFinanceNotice("Please enter a valid amount.");
+      return;
+    }
+
+    const currentSaved = getSavingsSaved(goal);
+    const target = getSavingsTarget(goal);
+    const remaining = Math.max(target - currentSaved, 0);
+
+    if (remaining <= 0) {
+      showFinanceNotice("This goal is already fully funded.");
+      return;
+    }
+
+    const finalAmount = Math.min(amount, remaining);
+
+    if (getWalletDisplayBalance(sourceWallet) < finalAmount) {
+      showFinanceNotice("Not enough balance in the selected wallet.");
+      return;
+    }
+
+    try {
+      setFinanceActionLoading(true);
+      const { error: walletError } = await supabase
+        .from("wallets")
+        .update({ balance: getWalletDisplayBalance(sourceWallet) - finalAmount })
+        .eq("id", String(sourceWallet.id));
+      if (walletError) throw walletError;
+
+      const { error: txnError } = await supabase.from("wallet_transactions").insert([
+        {
+          wallet_id: String(sourceWallet.id),
+          type: "savings_goal",
+          amount: finalAmount,
+          notes: `Moved to savings goal: ${goal.title}`,
+          user_id: user?.id || null,
+          user_email: user?.email || null,
+          created_by: user?.email || null,
+        },
+      ]);
+      if (txnError) throw txnError;
+
+      const { error: goalError } = await supabase
+        .from("savings_goals")
+        .update({
+          saved_amount: Math.min(currentSaved + finalAmount, target),
+          wallet_id: sourceWallet.id,
+          updated_date: new Date().toISOString(),
+        })
+        .eq("id", String(goal.id));
+      if (goalError) throw goalError;
+
+      await refreshFinanceSection();
+      closeFinanceModal();
+      showFinanceNotice("Savings added successfully.", "success");
+    } catch (error) {
+      showFinanceNotice(error?.message || "Failed to add savings.");
+    } finally {
+      setFinanceActionLoading(false);
+    }
+  }, [
+    closeFinanceModal,
+    financeForm.amount,
+    financeForm.savingsWalletId,
+    financeModal?.payload,
+    refreshFinanceSection,
+    showFinanceNotice,
+    user?.email,
+    user?.id,
+    wallets,
   ]);
 
   const safeSurvivalExpense = Number(survivalExpense) || 0;
@@ -1451,7 +2553,6 @@ export default function Dashboard() {
     refreshUser?.();
     navigate("/tasks");
   };
-
 
   const feedHasHighlight = hasBillboardContent || programJourney.accessibleCompletedCount > 0;
   const unreadMessagesCount = 0;
@@ -1719,15 +2820,85 @@ export default function Dashboard() {
         )}
 
         {!!user && (
-          <EmergencyFundCard
-            moneyLeft={walletMoney}
-            survivalExpense={survivalExpense}
-            retentionRate={0}
-            onSurvivalSaved={async (val) => {
-              const nextValue = Number(val) || 0;
-              setSurvivalExpense(nextValue);
-            }}
-          />
+          <div className="space-y-2">
+            <FinanceInlineAlert notice={financeNotice} onClose={closeFinanceNotice} />
+            <div className="overflow-hidden">
+              <div
+                ref={financeCarouselRef}
+                className="-mx-4 flex snap-x snap-mandatory overflow-x-auto overflow-y-visible px-4 pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+              >
+                <div className="w-full shrink-0 snap-center">
+                  <EmergencyFundCard
+                    moneyLeft={walletMoney}
+                    survivalExpense={survivalExpense}
+                    retentionRate={0}
+                    onSurvivalSaved={async (val) => {
+                      const nextValue = Number(val) || 0;
+                      setSurvivalExpense(nextValue);
+                    }}
+                  />
+                </div>
+
+                <div className="w-full shrink-0 snap-center">
+                  <WalletCard
+                    wallets={wallets}
+                    walletMoney={walletMoney}
+                    walletPreviewTransactions={walletPreviewTransactions}
+                    expanded={expandedFinanceCard === "wallets"}
+                    onToggleDetails={() => toggleFinanceDetails("wallets")}
+                    financeActionLoading={financeActionLoading}
+                    onCreateWallet={openCreateWalletModal}
+                    onMoveWallet={moveWalletInline}
+                    onDeleteWallet={openDeleteWalletModal}
+                    onAddMoney={openAddMoneyModal}
+                    onTransferMoney={openTransferMoneyModal}
+                  />
+                </div>
+
+                <div className="w-full shrink-0 snap-center">
+                  <BudgetCard
+                    activeBudget={activeBudget}
+                    expanded={expandedFinanceCard === "budgets"}
+                    onToggleDetails={() => toggleFinanceDetails("budgets")}
+                    financeActionLoading={financeActionLoading}
+                    onSaveBudget={openBudgetModal}
+                    onResetBudget={openResetBudgetModal}
+                  />
+                </div>
+
+                <div className="w-full shrink-0 snap-center">
+                  <SavingsCard
+                    savingsGoals={savingsGoals}
+                    totalSavingsSaved={totalSavingsSaved}
+                    totalSavingsTarget={totalSavingsTarget}
+                    primarySavingsGoal={primarySavingsGoal}
+                    expanded={expandedFinanceCard === "savings"}
+                    onToggleDetails={() => toggleFinanceDetails("savings")}
+                    financeActionLoading={financeActionLoading}
+                    onSaveSavingsGoal={openSavingsGoalModal}
+                    onDeleteSavingsGoal={openDeleteSavingsGoalModal}
+                    onAddSavings={openAddSavingsModal}
+                  />
+                </div>
+              </div>
+            </div>
+
+            <div className="flex items-center justify-center gap-1.5">
+              {financeCards.map((cardKey, index) => (
+                <button
+                  key={cardKey}
+                  type="button"
+                  onClick={() => scrollFinanceCardsTo(index)}
+                  aria-label={`Go to ${cardKey} card`}
+                  className={`h-2 rounded-full transition-all duration-200 ${
+                    financeCardIndex === index
+                      ? "w-5 bg-emerald-400"
+                      : "w-2 bg-white/20 hover:bg-white/35"
+                  }`}
+                />
+              ))}
+            </div>
+          </div>
         )}
 
         <div
@@ -1806,34 +2977,11 @@ export default function Dashboard() {
                   </div>
                 </div>
 
-                {loading && (
-  <p className="mt-auto pt-4 text-[11px] text-white/35">
-    Refreshing...
-  </p>
-)}
-                <div className="mt-auto flex items-end justify-between gap-3 pt-4">
-                  <div>
-                    <p className="text-[11px] uppercase tracking-wide text-white/45">
-                      Progress
-                    </p>
-                    <p className="mt-1 text-sm font-semibold text-white">
-                      {programJourney.accessibleCompletedCount} /{" "}
-                      {programJourney.accessibleTaskCount || programJourney.totalCount}
-                    </p>
-                  </div>
-
-                  <div className="rounded-2xl bg-white px-3 py-2 text-xs font-semibold text-slate-950">
-                    {activeTask
-                      ? "Start / Continue"
-                      : nextTask
-                        ? "View Next Step"
-                        : "Open Program"}
-                  </div>
+                <div className="mt-auto pt-4">
+                  {loading && (
+                    <p className="text-[11px] text-white/35">Refreshing...</p>
+                  )}
                 </div>
-
-                {loading && (
-                  <p className="mt-2 text-[11px] text-white/35">Refreshing...</p>
-                )}
               </div>
             </Link>
           ) : (
@@ -2030,48 +3178,36 @@ export default function Dashboard() {
                     <div className="space-y-4">
                       <div className="grid gap-3 md:grid-cols-2">
                         <div className="rounded-[28px] border border-white/10 bg-white/[0.04] p-5">
-                          <div className="flex items-center gap-2 text-emerald-300">
-                            <ShieldCheck className="h-4 w-4" />
-                            <p className="text-sm font-semibold">Behavior First</p>
+                          <div className="mb-3 inline-flex h-12 w-12 items-center justify-center rounded-2xl bg-white/10 text-emerald-300">
+                            <ShieldCheck className="h-6 w-6" />
                           </div>
-                          <p className="mt-2 text-sm leading-7 text-white/75">
-                            This program is not just knowledge. It is designed to change
-                            behavior through repeated action.
-                          </p>
+                          <p className="text-sm font-semibold text-white">What CLARA expects</p>
+                          <ul className="mt-3 space-y-2 text-sm text-white/70">
+                            <li>• Complete tasks in sequence</li>
+                            <li>• Show honesty in your submissions</li>
+                            <li>• Treat progress as discipline, not mood</li>
+                          </ul>
                         </div>
 
                         <div className="rounded-[28px] border border-white/10 bg-white/[0.04] p-5">
-                          <div className="flex items-center gap-2 text-emerald-300">
-                            <Flag className="h-4 w-4" />
-                            <p className="text-sm font-semibold">Complete in Order</p>
+                          <div className="mb-3 inline-flex h-12 w-12 items-center justify-center rounded-2xl bg-white/10 text-cyan-300">
+                            <CalendarDays className="h-6 w-6" />
                           </div>
-                          <p className="mt-2 text-sm leading-7 text-white/75">
-                            Daily tasks are sequential. Missed tasks should be completed
-                            before moving forward.
-                          </p>
+                          <p className="text-sm font-semibold text-white">How the flow works</p>
+                          <ul className="mt-3 space-y-2 text-sm text-white/70">
+                            <li>• You unlock structure one day at a time</li>
+                            <li>• Modules and tasks support each other</li>
+                            <li>• Your dashboard is your daily control center</li>
+                          </ul>
                         </div>
+                      </div>
 
-                        <div className="rounded-[28px] border border-white/10 bg-white/[0.04] p-5">
-                          <div className="flex items-center gap-2 text-emerald-300">
-                            <Bell className="h-4 w-4" />
-                            <p className="text-sm font-semibold">Stay Accountable</p>
-                          </div>
-                          <p className="mt-2 text-sm leading-7 text-white/75">
-                            Progress depends on consistency, not intensity. Small actions
-                            done daily matter.
-                          </p>
-                        </div>
-
-                        <div className="rounded-[28px] border border-white/10 bg-white/[0.04] p-5">
-                          <div className="flex items-center gap-2 text-emerald-300">
-                            <CalendarDays className="h-4 w-4" />
-                            <p className="text-sm font-semibold">Modules Unlock Weekly</p>
-                          </div>
-                          <p className="mt-2 text-sm leading-7 text-white/75">
-                            Weekly modules support your journey while tasks train the habit
-                            in real life.
-                          </p>
-                        </div>
+                      <div className="rounded-[28px] border border-white/10 bg-white/[0.04] p-5">
+                        <p className="text-sm font-semibold text-white">Your commitment matters</p>
+                        <p className="mt-2 text-sm leading-7 text-white/75">
+                          This program works best when you stop waiting for the perfect mood
+                          and start moving with structure. Your consistency is the strategy.
+                        </p>
                       </div>
 
                       <OnboardingActionBar
@@ -2198,6 +3334,14 @@ export default function Dashboard() {
                             Your next task is always visible so you know exactly what to do next.
                           </p>
                         </div>
+
+                        <div className="rounded-[28px] border border-white/10 bg-white/[0.04] p-5">
+                          <p className="text-sm font-semibold text-white">Finance carousel</p>
+                          <p className="mt-2 text-sm leading-7 text-white/70">
+                            Use wallets, expenses, budgets, and savings goals to support real
+                            progress without losing momentum.
+                          </p>
+                        </div>
                       </div>
 
                       <OnboardingActionBar
@@ -2211,77 +3355,59 @@ export default function Dashboard() {
 
                   {onboardingStep === 5 && (
                     <div className="space-y-4">
-                      <div className="grid gap-3">
-                        <div className="rounded-[28px] border border-white/10 bg-white/[0.04] p-5">
-                          <p className="text-sm font-semibold text-white">Money Tools</p>
-                          <p className="mt-2 text-sm leading-7 text-white/70">
-                            Use wallets, expenses, budgets, and savings goals to support real
-                            behavior change.
-                          </p>
+                      <div className="rounded-[28px] border border-white/10 bg-white/[0.04] p-5">
+                        <div className="mb-3 inline-flex h-12 w-12 items-center justify-center rounded-2xl bg-white/10 text-yellow-300">
+                          <Flag className="h-6 w-6" />
                         </div>
-
-                        <div className="rounded-[28px] border border-white/10 bg-white/[0.04] p-5">
-                          <p className="text-sm font-semibold text-white">Weekly Modules</p>
-                          <p className="mt-2 text-sm leading-7 text-white/70">
-                            Learn weekly, act daily, and let the repetition build your new
-                            financial identity.
-                          </p>
-                        </div>
+                        <p className="text-sm font-semibold text-white">How CLARA helps daily</p>
+                        <p className="mt-2 text-sm leading-7 text-white/75">
+                          Your dashboard keeps your priorities visible. Your tasks give you the
+                          next step. Your tools give you the structure to stop drifting and
+                          start building momentum.
+                        </p>
                       </div>
 
-                      <div className="rounded-[28px] border border-amber-400/20 bg-amber-500/10 p-5">
-                        <p className="text-sm font-semibold text-white">Important</p>
-                        <p className="mt-2 text-sm leading-7 text-white/75">
-                          Your first real activation is not reading more. It is completing your
-                          Day 1 task.
-                        </p>
+                      <div className="rounded-[28px] border border-white/10 bg-white/[0.04] p-5">
+                        <p className="text-sm font-semibold text-white">What to remember</p>
+                        <ul className="mt-3 space-y-2 text-sm text-white/70">
+                          <li>• Progress comes from repetition</li>
+                          <li>• Structure protects you from inconsistency</li>
+                          <li>• Small daily action compounds</li>
+                        </ul>
                       </div>
 
                       <OnboardingActionBar
                         onBack={() => setOnboardingStep(4)}
                         onNext={goToNextOnboardingStep}
                         nextDisabled={savingOnboarding}
-                        nextLabel="Got It"
+                        nextLabel="Continue"
                       />
                     </div>
                   )}
 
                   {onboardingStep === 6 && (
-                    <div className="space-y-5">
-                      <div className="rounded-[30px] border border-emerald-400/20 bg-gradient-to-br from-emerald-500/16 via-emerald-500/8 to-cyan-500/8 p-6 md:p-7">
+                    <div className="space-y-4">
+                      <div className="overflow-hidden rounded-[28px] border border-emerald-400/15 bg-gradient-to-br from-emerald-500/16 to-cyan-500/10 p-5 md:p-6">
                         <div className="flex items-start gap-4">
-                          <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-3xl bg-emerald-500/18 text-emerald-300 shadow-[0_12px_30px_rgba(16,185,129,0.15)]">
+                          <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-3xl bg-white/10 text-emerald-300">
                             <Rocket className="h-7 w-7" />
                           </div>
 
                           <div>
-                            <h3 className="text-xl font-bold leading-tight">
-                              You’re ready to begin Day 1
-                            </h3>
-                            <p className="mt-2 text-sm leading-7 text-white/78">
-                              This is where CLARA shifts from setup into action. Your next step
-                              is to begin the first behavior that will shape the rest of your
-                              financial journey.
+                            <h3 className="text-xl font-bold leading-tight">You are ready to start</h3>
+                            <p className="mt-2 text-sm leading-7 text-white/75">
+                              Your setup is complete. Head into Day 1 and begin your guided
+                              reset with clarity and structure.
                             </p>
                           </div>
                         </div>
-                      </div>
-
-                      <div className="rounded-[28px] border border-white/10 bg-white/[0.04] p-5">
-                        <p className="text-sm font-semibold text-white">Your Day 0 checklist</p>
-                        <ul className="mt-3 space-y-2 text-sm text-white/75">
-                          <li>• Commitment accepted</li>
-                          <li>• Rules understood</li>
-                          <li>• Initial setup completed</li>
-                          <li>• Ready for Day 1 action</li>
-                        </ul>
                       </div>
 
                       <OnboardingActionBar
                         onBack={() => setOnboardingStep(5)}
                         onNext={finishOnboarding}
                         nextDisabled={savingOnboarding}
-                        nextLabel="Start Day 1 Now"
+                        nextLabel={savingOnboarding ? "Saving..." : "Start Day 1"}
                       />
                     </div>
                   )}
@@ -2291,6 +3417,378 @@ export default function Dashboard() {
           </div>
         </div>
       )}
+
+      <FinanceActionModal
+        open={financeModal.type === "create_wallet"}
+        title="Create wallet"
+        description="Add a new wallet without leaving the finance carousel."
+        onClose={closeFinanceModal}
+        onSubmit={(event) => {
+          event.preventDefault();
+          createWalletInline();
+        }}
+        submitLabel="Create wallet"
+        loading={financeActionLoading}
+      >
+        <FinanceField label="Wallet name">
+          <input
+            type="text"
+            value={financeForm.name}
+            onChange={(event) =>
+              setFinanceForm((prev) => ({ ...prev, name: event.target.value }))
+            }
+            placeholder="e.g. GCash, Cash, Payroll"
+            className={financeInputClassName}
+          />
+        </FinanceField>
+
+        <FinanceField label="Wallet type">
+          <select
+            value={financeForm.type}
+            onChange={(event) =>
+              setFinanceForm((prev) => ({ ...prev, type: event.target.value }))
+            }
+            className={financeInputClassName}
+          >
+            <option value="cash">Cash</option>
+            <option value="gcash">GCash</option>
+            <option value="bank">Bank</option>
+            <option value="maya">Maya</option>
+            <option value="credit_card">Credit Card</option>
+            <option value="other">Other</option>
+          </select>
+        </FinanceField>
+
+        <FinanceField label="Starting balance">
+          <input
+            type="number"
+            min="0"
+            step="0.01"
+            value={financeForm.startingBalance}
+            onChange={(event) =>
+              setFinanceForm((prev) => ({
+                ...prev,
+                startingBalance: event.target.value,
+              }))
+            }
+            placeholder="0"
+            className={financeInputClassName}
+          />
+        </FinanceField>
+      </FinanceActionModal>
+
+      <FinanceActionModal
+        open={financeModal.type === "delete_wallet"}
+        title="Delete wallet"
+        description={`Remove ${getWalletDisplayName(financeModal.payload)} from your wallet list?`}
+        onClose={closeFinanceModal}
+        onSubmit={(event) => {
+          event.preventDefault();
+          deleteWalletInline();
+        }}
+        submitLabel="Delete wallet"
+        loading={financeActionLoading}
+        danger
+      >
+        <div className="rounded-2xl border border-rose-400/15 bg-rose-500/10 p-4 text-sm leading-6 text-rose-100">
+          This will remove the selected wallet from the dashboard. Use this only when you are sure.
+        </div>
+      </FinanceActionModal>
+
+      <FinanceActionModal
+        open={financeModal.type === "add_money"}
+        title="Add money"
+        description={`Add funds to ${getWalletDisplayName(financeModal.payload)}.`}
+        onClose={closeFinanceModal}
+        onSubmit={(event) => {
+          event.preventDefault();
+          addMoneyInline();
+        }}
+        submitLabel="Add money"
+        loading={financeActionLoading}
+      >
+        <FinanceField
+          label="Amount"
+          helper={`Current balance: ${fmt(getWalletDisplayBalance(financeModal.payload))}`}
+        >
+          <input
+            type="number"
+            min="0"
+            step="0.01"
+            value={financeForm.amount}
+            onChange={(event) =>
+              setFinanceForm((prev) => ({ ...prev, amount: event.target.value }))
+            }
+            placeholder="0"
+            className={financeInputClassName}
+          />
+        </FinanceField>
+      </FinanceActionModal>
+
+      <FinanceActionModal
+        open={financeModal.type === "transfer_money"}
+        title="Transfer money"
+        description={`Move funds from ${getWalletDisplayName(financeModal.payload)} to another wallet.`}
+        onClose={closeFinanceModal}
+        onSubmit={(event) => {
+          event.preventDefault();
+          transferMoneyInline();
+        }}
+        submitLabel="Transfer"
+        loading={financeActionLoading}
+      >
+        <FinanceField label="Destination wallet">
+          <select
+            value={financeForm.destinationWalletId}
+            onChange={(event) =>
+              setFinanceForm((prev) => ({
+                ...prev,
+                destinationWalletId: event.target.value,
+              }))
+            }
+            className={financeInputClassName}
+          >
+            {wallets
+              .filter(
+                (wallet) =>
+                  String(wallet.id) !== String(financeModal.payload?.id)
+              )
+              .map((wallet) => (
+                <option key={wallet.id} value={String(wallet.id)}>
+                  {getWalletDisplayName(wallet)} • {fmt(getWalletDisplayBalance(wallet))}
+                </option>
+              ))}
+          </select>
+        </FinanceField>
+
+        <FinanceField
+          label="Amount"
+          helper={`Available: ${fmt(getWalletDisplayBalance(financeModal.payload))}`}
+        >
+          <input
+            type="number"
+            min="0"
+            step="0.01"
+            value={financeForm.amount}
+            onChange={(event) =>
+              setFinanceForm((prev) => ({ ...prev, amount: event.target.value }))
+            }
+            placeholder="0"
+            className={financeInputClassName}
+          />
+        </FinanceField>
+      </FinanceActionModal>
+
+      <FinanceActionModal
+        open={financeModal.type === "save_budget"}
+        title={activeBudget?.id ? "Edit budget" : "Create budget"}
+        description="Keep the same premium card layout while updating your budget inside an in-app modal."
+        onClose={closeFinanceModal}
+        onSubmit={(event) => {
+          event.preventDefault();
+          saveBudgetInline();
+        }}
+        submitLabel={activeBudget?.id ? "Save changes" : "Create budget"}
+        loading={financeActionLoading}
+      >
+        <FinanceField label="Total budget">
+          <input
+            type="number"
+            min="0"
+            step="0.01"
+            value={financeForm.totalBudget}
+            onChange={(event) =>
+              setFinanceForm((prev) => ({
+                ...prev,
+                totalBudget: event.target.value,
+              }))
+            }
+            placeholder="0"
+            className={financeInputClassName}
+          />
+        </FinanceField>
+
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+          <FinanceField label="Needs %">
+            <input
+              type="number"
+              min="0"
+              max="100"
+              value={financeForm.needsPct}
+              onChange={(event) =>
+                setFinanceForm((prev) => ({ ...prev, needsPct: event.target.value }))
+              }
+              className={financeInputClassName}
+            />
+          </FinanceField>
+
+          <FinanceField label="Wants %">
+            <input
+              type="number"
+              min="0"
+              max="100"
+              value={financeForm.wantsPct}
+              onChange={(event) =>
+                setFinanceForm((prev) => ({ ...prev, wantsPct: event.target.value }))
+              }
+              className={financeInputClassName}
+            />
+          </FinanceField>
+
+          <FinanceField label="Other %">
+            <input
+              type="number"
+              min="0"
+              max="100"
+              value={financeForm.otherPct}
+              onChange={(event) =>
+                setFinanceForm((prev) => ({ ...prev, otherPct: event.target.value }))
+              }
+              className={financeInputClassName}
+            />
+          </FinanceField>
+        </div>
+
+        <div className="rounded-2xl border border-white/10 bg-white/[0.03] px-4 py-3 text-xs text-white/60">
+          Total allocation must equal exactly 100%.
+        </div>
+      </FinanceActionModal>
+
+      <FinanceActionModal
+        open={financeModal.type === "reset_budget"}
+        title="Reset budget tracking"
+        description="Start the active budget tracking window from right now."
+        onClose={closeFinanceModal}
+        onSubmit={(event) => {
+          event.preventDefault();
+          resetBudgetInline();
+        }}
+        submitLabel="Reset tracking"
+        loading={financeActionLoading}
+        danger
+      >
+        <div className="rounded-2xl border border-yellow-400/15 bg-yellow-500/10 p-4 text-sm leading-6 text-yellow-100">
+          This keeps your budget setup, but it resets the tracking start date to now.
+        </div>
+      </FinanceActionModal>
+
+      <FinanceActionModal
+        open={financeModal.type === "save_savings_goal"}
+        title={financeModal.payload?.id ? "Edit savings goal" : "Create savings goal"}
+        description="Manage your savings goals inside the same in-app premium flow."
+        onClose={closeFinanceModal}
+        onSubmit={(event) => {
+          event.preventDefault();
+          saveSavingsGoalInline();
+        }}
+        submitLabel={financeModal.payload?.id ? "Save changes" : "Create goal"}
+        loading={financeActionLoading}
+      >
+        <FinanceField label="Goal title">
+          <input
+            type="text"
+            value={financeForm.title}
+            onChange={(event) =>
+              setFinanceForm((prev) => ({ ...prev, title: event.target.value }))
+            }
+            placeholder="e.g. Emergency top-up, New phone"
+            className={financeInputClassName}
+          />
+        </FinanceField>
+
+        <FinanceField label="Target amount">
+          <input
+            type="number"
+            min="0"
+            step="0.01"
+            value={financeForm.targetAmount}
+            onChange={(event) =>
+              setFinanceForm((prev) => ({
+                ...prev,
+                targetAmount: event.target.value,
+              }))
+            }
+            placeholder="0"
+            className={financeInputClassName}
+          />
+        </FinanceField>
+      </FinanceActionModal>
+
+      <FinanceActionModal
+        open={financeModal.type === "delete_savings_goal"}
+        title="Delete savings goal"
+        description={`Remove ${getSavingsGoalTitle(financeModal.payload)} from your savings list?`}
+        onClose={closeFinanceModal}
+        onSubmit={(event) => {
+          event.preventDefault();
+          deleteSavingsGoalInline();
+        }}
+        submitLabel="Delete goal"
+        loading={financeActionLoading}
+        danger
+      >
+        <div className="rounded-2xl border border-rose-400/15 bg-rose-500/10 p-4 text-sm leading-6 text-rose-100">
+          This deletes the selected goal from the card details section.
+        </div>
+      </FinanceActionModal>
+
+      <FinanceActionModal
+        open={financeModal.type === "add_savings"}
+        title="Add to savings goal"
+        description={`Move money into ${getSavingsGoalTitle(financeModal.payload)} using one of your wallets.`}
+        onClose={closeFinanceModal}
+        onSubmit={(event) => {
+          event.preventDefault();
+          addSavingsInline();
+        }}
+        submitLabel="Add savings"
+        loading={financeActionLoading}
+      >
+        <FinanceField label="Source wallet">
+          <select
+            value={financeForm.savingsWalletId}
+            onChange={(event) =>
+              setFinanceForm((prev) => ({
+                ...prev,
+                savingsWalletId: event.target.value,
+              }))
+            }
+            className={financeInputClassName}
+          >
+            {wallets
+              .filter((wallet) => getWalletDisplayBalance(wallet) > 0)
+              .map((wallet) => (
+                <option key={wallet.id} value={String(wallet.id)}>
+                  {getWalletDisplayName(wallet)} • {fmt(getWalletDisplayBalance(wallet))}
+                </option>
+              ))}
+          </select>
+        </FinanceField>
+
+        <FinanceField
+          label="Amount"
+          helper={`Remaining target: ${fmt(
+            Math.max(
+              getSavingsTarget(financeModal.payload) -
+                getSavingsSaved(financeModal.payload),
+              0
+            )
+          )}`}
+        >
+          <input
+            type="number"
+            min="0"
+            step="0.01"
+            value={financeForm.amount}
+            onChange={(event) =>
+              setFinanceForm((prev) => ({ ...prev, amount: event.target.value }))
+            }
+            placeholder="0"
+            className={financeInputClassName}
+          />
+        </FinanceField>
+      </FinanceActionModal>
+
     </div>
   );
 }
