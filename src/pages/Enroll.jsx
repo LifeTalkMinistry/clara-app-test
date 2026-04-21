@@ -1049,7 +1049,7 @@ export default function Enroll() {
 
     setPlans(normalized);
     return normalized;
-  }, [user]);
+  }, []);
 
   const fetchEnrollmentForUserId = useCallback(async (userId) => {
     const normalizedUserId = normalizeText(userId);
@@ -1077,7 +1077,7 @@ export default function Enroll() {
     return fetchEnrollmentForUserId(user?.id);
   }, [fetchEnrollmentForUserId, user?.id]);
 
-  const refreshOwnedPurchases = useCallback(async (planList = plans) => {
+  const refreshOwnedPurchases = useCallback(async (planList = []) => {
     const productIds = planList.map((plan) => plan.productId).filter(Boolean);
     if (!productIds.length) {
       setOwnedPurchases([]);
@@ -1092,7 +1092,7 @@ export default function Enroll() {
 
     setOwnedPurchases([]);
     return [];
-  }, [plans]);
+  }, []);
 
   const getAuthenticatedUser = useCallback(async () => {
     const {
