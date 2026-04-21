@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useCallback } from "react";
 import {
   Plus,
   Wallet as WalletIcon,
@@ -60,8 +60,8 @@ const walletIcons = {
   other: "💰",
 };
 
-const toNumber = (v) => {
-  const n = Number(v);
+const toNumber = (value) => {
+  const n = Number(value);
   return Number.isFinite(n) ? n : 0;
 };
 
@@ -74,15 +74,77 @@ const getToday = () => {
 };
 
 const getWalletSortOrder = (wallet, index) => {
-  if (wallet?.sort_order === null || wallet?.sort_order === undefined) return index;
+  if (wallet?.sort_order === null || wallet?.sort_order === undefined) {
+    return index;
+  }
+
   const n = Number(wallet.sort_order);
   return Number.isFinite(n) ? n : index;
 };
 
+const formatPeso = (n) =>
+  new Intl.NumberFormat("en-PH", {
+    style: "currency",
+    currency: "PHP",
+    minimumFractionDigits: 0,
+  }).format(Number(n || 0));
+
+const formatHistoryDate = (value) => {
+  if (!value) return "No date";
+
+  const d = new Date(value);
+  if (Number.isNaN(d.getTime())) return "No date";
+
+  return d.toLocaleString("en-PH", {
+    year: "numeric",
+    month: "short",
+    day: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+  });
+};
+
+const getHistoryTypeLabel = (type) => {
+  switch (type) {
+    case "add":
+      return "Added Money";
+    case "income":
+      return "Income";
+    case "transfer_in":
+      return "Transfer In";
+    case "transfer_out":
+      return "Transfer Out";
+    case "expense":
+      return "Expense";
+    case "reset":
+      return "Reset";
+    default:
+      return String(type || "Transaction")
+        .replaceAll("_", " ")
+        .replace(/\b\w/g, (c) => c.toUpperCase());
+  }
+};
+
+const getHistoryAmountPrefix = (type) => {
+  if (type === "transfer_out" || type === "expense" || type === "reset") {
+    return "-";
+  }
+  return "+";
+};
+
 export default function Wallets() {
   const { user, loading: accessLoading } = useUserRole();
-  const { wallets, walletTransactions, refreshData, loading } =
-    useFinancialData(user);
+  const financial = useFinancialData(user);
+
+  const wallets = Array.isArray(financial?.wallets) ? financial.wallets : [];
+  const walletTransactions = Array.isArray(financial?.walletTransactions)
+    ? financial.walletTransactions
+    : [];
+  const refreshData =
+    typeof financial?.refreshData === "function"
+      ? financial.refreshData
+      : async () => {};
+  const loading = Boolean(financial?.loading);
 
   const [addOpen, setAddOpen] = useState(false);
   const [addMoneyOpen, setAddMoneyOpen] = useState(false);
@@ -119,9 +181,9 @@ export default function Wallets() {
     notes: "",
   });
 
-  if (accessLoading || loading) {
-    return <FeaturePageLoader label="Preparing wallets..." />;
-  }
+  const getBalance = useCallback((wallet) => {
+    return toNumber(wallet?.balance);
+  }, []);
 
   const sortedWallets = useMemo(() => {
     return [...wallets].sort((a, b) => {
@@ -142,31 +204,25 @@ export default function Wallets() {
     });
   }, [wallets]);
 
-  const getBalance = (wallet) => Number(wallet?.balance || 0);
-
   const totalBalance = useMemo(() => {
-    return sortedWallets.reduce((sum, w) => sum + getBalance(w), 0);
-  }, [sortedWallets]);
+    return sortedWallets.reduce((sum, wallet) => sum + getBalance(wallet), 0);
+  }, [sortedWallets, getBalance]);
 
-  const fmt = (n) =>
-    new Intl.NumberFormat("en-PH", {
-      style: "currency",
-      currency: "PHP",
-      minimumFractionDigits: 0,
-    }).format(Number(n || 0));
+  const historyItems = useMemo(() => {
+    if (!historyWallet?.id) return [];
 
-  const formatHistoryDate = (value) => {
-    if (!value) return "No date";
-    const d = new Date(value);
-    if (Number.isNaN(d.getTime())) return "No date";
-    return d.toLocaleString("en-PH", {
-      year: "numeric",
-      month: "short",
-      day: "numeric",
-      hour: "numeric",
-      minute: "2-digit",
-    });
-  };
+    return [...walletTransactions]
+      .filter((t) => String(t?.wallet_id) === String(historyWallet.id))
+      .sort((a, b) => {
+        const aTime = new Date(a?.created_at || 0).getTime();
+        const bTime = new Date(b?.created_at || 0).getTime();
+        return bTime - aTime;
+      });
+  }, [walletTransactions, historyWallet]);
+
+  const projectedBalance = useMemo(() => {
+    return getBalance(selectedWallet) + toNumber(addMoneyForm.amount || 0);
+  }, [selectedWallet, addMoneyForm.amount, getBalance]);
 
   const resetAddWalletForm = () => {
     setForm({
@@ -197,46 +253,6 @@ export default function Wallets() {
     });
   };
 
-  const historyItems = useMemo(() => {
-    if (!historyWallet?.id) return [];
-
-    return [...(walletTransactions || [])]
-      .filter((t) => String(t.wallet_id) === String(historyWallet.id))
-      .sort((a, b) => {
-        const aTime = new Date(a.created_at || 0).getTime();
-        const bTime = new Date(b.created_at || 0).getTime();
-        return bTime - aTime;
-      });
-  }, [walletTransactions, historyWallet]);
-
-  const getHistoryTypeLabel = (type) => {
-    switch (type) {
-      case "add":
-        return "Added Money";
-      case "income":
-        return "Income";
-      case "transfer_in":
-        return "Transfer In";
-      case "transfer_out":
-        return "Transfer Out";
-      case "expense":
-        return "Expense";
-      case "reset":
-        return "Reset";
-      default:
-        return String(type || "Transaction")
-          .replaceAll("_", " ")
-          .replace(/\b\w/g, (c) => c.toUpperCase());
-    }
-  };
-
-  const getHistoryAmountPrefix = (type) => {
-    if (type === "transfer_out" || type === "expense" || type === "reset") {
-      return "-";
-    }
-    return "+";
-  };
-
   const normalizeWalletOrder = async (walletList) => {
     const updates = walletList.map((wallet, index) =>
       supabase
@@ -246,7 +262,7 @@ export default function Wallets() {
     );
 
     const results = await Promise.all(updates);
-    const failed = results.find((result) => result.error);
+    const failed = results.find((result) => result?.error);
 
     if (failed?.error) {
       throw failed.error;
@@ -289,7 +305,7 @@ export default function Wallets() {
       return;
     }
 
-    if (!user?.email && !user?.id) {
+    if (!user?.id && !user?.email) {
       alert("User not found.");
       return;
     }
@@ -506,10 +522,7 @@ export default function Wallets() {
     }
   };
 
-  const projectedBalance =
-    getBalance(selectedWallet) + toNumber(addMoneyForm.amount || 0);
-
-  if (accessLoading) {
+  if (accessLoading || loading) {
     return <FeaturePageLoader label="Preparing wallets..." />;
   }
 
@@ -528,7 +541,7 @@ export default function Wallets() {
       <div className="mb-6 grid grid-cols-1 gap-3 md:grid-cols-2">
         <div className="rounded-xl border border-white/10 bg-white/5 p-4">
           <p className="text-xs text-white/60">Total Balance</p>
-          <p className="text-xl font-bold">{fmt(totalBalance)}</p>
+          <p className="text-xl font-bold">{formatPeso(totalBalance)}</p>
         </div>
 
         <div className="rounded-xl border border-white/10 bg-white/5 p-4">
@@ -634,7 +647,7 @@ export default function Wallets() {
                   <div className="text-right">
                     <p className="mb-1 text-sm text-white/60">Current Balance</p>
                     <p className="text-[17px] font-semibold">
-                      {fmt(getBalance(selectedWallet))}
+                      {formatPeso(getBalance(selectedWallet))}
                     </p>
                   </div>
                 </div>
@@ -769,7 +782,7 @@ export default function Wallets() {
               <div className="rounded-2xl border border-emerald-400/10 bg-gradient-to-r from-emerald-900/30 to-emerald-700/10 px-4 py-4">
                 <p className="mb-2 text-sm text-white/70">Projected Balance</p>
                 <p className="text-[16px] font-semibold">
-                  {fmt(getBalance(selectedWallet))} → {fmt(projectedBalance)}
+                  {formatPeso(getBalance(selectedWallet))} → {formatPeso(projectedBalance)}
                 </p>
                 <p className="mt-3 text-sm text-white/55">
                   Every peso you track builds more control.
@@ -811,7 +824,7 @@ export default function Wallets() {
                 <SelectContent className="border-white/10 bg-[#08152f] text-white">
                   {sortedWallets.map((wallet) => (
                     <SelectItem key={wallet.id} value={String(wallet.id)}>
-                      {(wallet.icon || "💰") + " " + wallet.name} ({fmt(getBalance(wallet))})
+                      {(wallet.icon || "💰") + " " + wallet.name} ({formatPeso(getBalance(wallet))})
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -837,7 +850,7 @@ export default function Wallets() {
                     )
                     .map((wallet) => (
                       <SelectItem key={wallet.id} value={String(wallet.id)}>
-                        {(wallet.icon || "💰") + " " + wallet.name} ({fmt(getBalance(wallet))})
+                        {(wallet.icon || "💰") + " " + wallet.name} ({formatPeso(getBalance(wallet))})
                       </SelectItem>
                     ))}
                 </SelectContent>
@@ -907,7 +920,7 @@ export default function Wallets() {
                 <div className="text-right">
                   <p className="mb-1 text-sm text-white/60">Current Balance</p>
                   <p className="text-[17px] font-semibold">
-                    {fmt(getBalance(historyWallet))}
+                    {formatPeso(getBalance(historyWallet))}
                   </p>
                 </div>
               </div>
@@ -954,7 +967,7 @@ export default function Wallets() {
                             }`}
                           >
                             {getHistoryAmountPrefix(item.type)}
-                            {fmt(item.amount)}
+                            {formatPeso(item.amount)}
                           </p>
                         </div>
                       </div>
@@ -967,19 +980,19 @@ export default function Wallets() {
         </DialogContent>
       </Dialog>
 
-      {!loading && sortedWallets.length === 0 && (
+      {sortedWallets.length === 0 && (
         <EmptyState icon={WalletIcon} title="No wallets yet" />
       )}
 
       <div className="space-y-4">
-        {sortedWallets.map((w, index) => {
+        {sortedWallets.map((wallet, index) => {
           const hasActivity = walletTransactions.some(
-            (t) => String(t.wallet_id) === String(w.id)
+            (t) => String(t?.wallet_id) === String(wallet.id)
           );
 
           return (
             <div
-              key={w.id}
+              key={wallet.id}
               className="rounded-[24px] border border-white/10 bg-white/5 p-5"
             >
               <div className="mb-3 flex items-center justify-between gap-3">
@@ -1000,12 +1013,14 @@ export default function Wallets() {
               <div className="flex items-start justify-between gap-4">
                 <div className="min-w-0">
                   <p className="text-[18px] font-semibold">
-                    {w.icon || walletIcons[w.type] || "💰"} {w.name}
+                    {wallet.icon || walletIcons[wallet.type] || "💰"} {wallet.name}
                   </p>
                   <p className="mt-1 text-sm capitalize text-white/60">
-                    {String(w.type || "other").replaceAll("_", " ")}
+                    {String(wallet.type || "other").replaceAll("_", " ")}
                   </p>
-                  <p className="mt-4 text-[20px] font-bold">{fmt(getBalance(w))}</p>
+                  <p className="mt-4 text-[20px] font-bold">
+                    {formatPeso(getBalance(wallet))}
+                  </p>
                   <p className="mt-2 text-sm text-white/45">
                     {hasActivity ? "Has activity" : "No activity yet"}
                   </p>
@@ -1015,7 +1030,7 @@ export default function Wallets() {
                   <div className="mr-1 flex flex-col gap-1">
                     <button
                       type="button"
-                      onClick={() => moveWallet(w.id, -1)}
+                      onClick={() => moveWallet(wallet.id, -1)}
                       disabled={index === 0 || isReorderingWallets}
                       className="flex h-8 w-8 items-center justify-center rounded-full bg-white/5 text-white transition hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-40"
                       title="Move wallet up"
@@ -1025,7 +1040,7 @@ export default function Wallets() {
 
                     <button
                       type="button"
-                      onClick={() => moveWallet(w.id, 1)}
+                      onClick={() => moveWallet(wallet.id, 1)}
                       disabled={index === sortedWallets.length - 1 || isReorderingWallets}
                       className="flex h-8 w-8 items-center justify-center rounded-full bg-white/5 text-white transition hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-40"
                       title="Move wallet down"
@@ -1036,7 +1051,7 @@ export default function Wallets() {
 
                   <button
                     type="button"
-                    onClick={() => openAddMoneyModal(w)}
+                    onClick={() => openAddMoneyModal(wallet)}
                     className="flex h-9 w-9 items-center justify-center rounded-full bg-[#22c55e] text-white transition hover:scale-105"
                     title="Add Money"
                   >
@@ -1047,7 +1062,7 @@ export default function Wallets() {
                     type="button"
                     onClick={() => {
                       setTransferForm({
-                        from_wallet_id: String(w.id),
+                        from_wallet_id: String(wallet.id),
                         to_wallet_id: "",
                         amount: "",
                         notes: "",
@@ -1063,7 +1078,7 @@ export default function Wallets() {
                   <button
                     type="button"
                     onClick={() => {
-                      setHistoryWallet(w);
+                      setHistoryWallet(wallet);
                       setHistoryOpen(true);
                     }}
                     className="flex h-9 w-9 items-center justify-center rounded-full bg-[#facc15] text-black transition hover:scale-105"
@@ -1074,7 +1089,7 @@ export default function Wallets() {
 
                   <button
                     type="button"
-                    onClick={() => handleDeleteWallet(w.id)}
+                    onClick={() => handleDeleteWallet(wallet.id)}
                     className="flex h-9 w-9 items-center justify-center rounded-full bg-[#ef4444] text-white transition hover:scale-105"
                     title="Delete Wallet"
                   >

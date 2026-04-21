@@ -37,6 +37,12 @@ export const FEATURE_DEFINITIONS = [
     modes: ["off", "full"],
   },
   {
+    key: "feed",
+    label: "Feed",
+    description: "Social feed for progress sharing, wins, and daily motivation.",
+    modes: ["off", "full"],
+  },
+  {
     key: "expenses",
     label: "Expenses",
     description: "Transaction logging and expense tracking.",
@@ -81,7 +87,7 @@ export const FEATURE_DEFINITIONS = [
   {
     key: "community",
     label: "Community",
-    description: "Community feed, posting, and interaction.",
+    description: "Private community space for deeper conversations and connection.",
     modes: ["off", "view", "full"],
   },
   {
@@ -117,6 +123,7 @@ export const FEATURE_LABELS = FEATURE_DEFINITIONS.reduce((acc, feature) => {
 
 export const FEATURE_ROUTE_MAP = {
   "/dashboard": "dashboard",
+  "/feed": "feed",
   "/expenses": "expenses",
   "/add-funds": "wallets",
   "/wallets": "wallets",
@@ -150,6 +157,7 @@ export const PLAN_DEFAULTS = {
     description: "Start with CLARA's core money tracking and unlock more any time.",
     features: [
       "Dashboard access",
+      "Feed access",
       "Expense tracking",
       "Wallet tracking",
       "News and updates",
@@ -160,6 +168,7 @@ export const PLAN_DEFAULTS = {
     sort_order: 1,
     access_config: {
       dashboard: "full",
+      feed: "full",
       expenses: "full",
       wallets: "full",
       budgets: "off",
@@ -180,7 +189,7 @@ export const PLAN_DEFAULTS = {
     price: 99,
     description: "Unlock CLARA's PRO financial tools with a monthly Google Play subscription.",
     features: [
-      "Full financial tools",
+      "Feed and full financial tools",
       "Budgets, analytics, goals, and referrals",
       "PRO-only tools access",
       "Monthly subscription through Google Play",
@@ -191,6 +200,7 @@ export const PLAN_DEFAULTS = {
     sort_order: 2,
     access_config: {
       dashboard: "full",
+      feed: "full",
       expenses: "full",
       wallets: "full",
       budgets: "full",
@@ -211,7 +221,7 @@ export const PLAN_DEFAULTS = {
     price: 599,
     description: "Unlock the 30-day CLARA Program with PRO during the program and +1 month continuation PRO after completion.",
     features: [
-      "30-day CLARA Program",
+      "Feed and full 30-day guided system",
       "Includes PRO access during the program",
       "+1 month continuation PRO after program completion",
       "One-time Google Play purchase",
@@ -222,6 +232,7 @@ export const PLAN_DEFAULTS = {
     sort_order: 3,
     access_config: {
       dashboard: "full",
+      feed: "full",
       expenses: "full",
       wallets: "full",
       budgets: "full",
@@ -242,7 +253,7 @@ export const PLAN_DEFAULTS = {
     price: 1299,
     description: "Unlock the 30-day CLARA Program, 2 coaching sessions, and +2 months continuation PRO after completion.",
     features: [
-      "30-day CLARA Program",
+      "Feed and full 30-day guided system",
       "Includes PRO access during the program",
       "+2 months continuation PRO after program completion",
       "2 coaching session credits",
@@ -253,6 +264,7 @@ export const PLAN_DEFAULTS = {
     sort_order: 4,
     access_config: {
       dashboard: "full",
+      feed: "full",
       expenses: "full",
       wallets: "full",
       budgets: "full",

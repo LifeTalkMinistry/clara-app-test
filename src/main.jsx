@@ -7,9 +7,161 @@ import { queryClientInstance } from "@/lib/query-client";
 import App from "./App.jsx";
 import "./index.css";
 
-const root = ReactDOM.createRoot(document.getElementById("root"));
+// REMOVE direct import of cordova-plugin-purchase
+// import "cordova-plugin-purchase";
 
-root.render(
+// Safe billing setup
+window.CLARA_BILLING = {
+  productIds: {
+    ENTRY: "clara_entry_299",
+    CORE: "clara_core_499",
+    COACHING: "clara_coaching_999",
+  },
+
+  getStore() {
+    return window.CdvPurchase?.store || window.store || null;
+  },
+
+  getPlatform() {
+    return window.CdvPurchase?.Platform?.GOOGLE_PLAY || "android-playstore";
+  },
+
+  getProductType() {
+    return window.CdvPurchase?.ProductType?.NON_CONSUMABLE || "non consumable";
+  },
+
+  async waitForStore(timeout = 10000) {
+    const started = Date.now();
+
+    return new Promise((resolve, reject) => {
+      const check = () => {
+        const store = window.CdvPurchase?.store || window.store;
+
+        if (store) {
+          resolve(store);
+          return;
+        }
+
+        if (Date.now() - started >= timeout) {
+          reject(new Error("Google Play Billing store not found."));
+          return;
+        }
+
+        setTimeout(check, 300);
+      };
+
+      check();
+    });
+  },
+
+  async init() {
+    if (window.__CLARA_BILLING_READY__) return true;
+
+    const isAndroid =
+      /android/i.test(navigator.userAgent) ||
+      !!window.Capacitor?.isNativePlatform?.();
+
+    if (!isAndroid) return false;
+
+    if (!window.CdvPurchase && !window.store) {
+      console.warn("Billing plugin not available yet");
+      return false;
+    }
+
+    const store = await this.waitForStore();
+    const platform = this.getPlatform();
+    const productType = this.getProductType();
+
+    try {
+      store.verbosity = store.DEBUG || 1;
+    } catch (error) {
+      console.warn("Unable to set billing verbosity:", error);
+    }
+
+    try {
+      store.register([
+        { id: this.productIds.ENTRY, type: productType, platform },
+        { id: this.productIds.CORE, type: productType, platform },
+        { id: this.productIds.COACHING, type: productType, platform },
+      ]);
+    } catch (error) {
+      console.error("Billing register error:", error);
+      return false;
+    }
+
+    try {
+      store
+        .when()
+        .approved((transaction) => {
+          try {
+            transaction.verify();
+          } catch (error) {
+            console.warn("Transaction verify failed:", error);
+          }
+        })
+        .verified((receipt) => {
+          try {
+            receipt.finish();
+          } catch (error) {
+            console.warn("Receipt finish failed:", error);
+          }
+        });
+    } catch (error) {
+      console.warn("Billing event binding failed:", error);
+    }
+
+    try {
+      await new Promise((resolve, reject) => {
+        let done = false;
+
+        store.ready(() => {
+          if (done) return;
+          done = true;
+          resolve();
+        });
+
+        store.initialize([platform]);
+
+        setTimeout(() => {
+          if (done) return;
+          done = true;
+          reject(new Error("Billing timeout"));
+        }, 12000);
+      });
+    } catch (error) {
+      console.warn("Billing init failed:", error);
+      return false;
+    }
+
+    window.__CLARA_BILLING_READY__ = true;
+    return true;
+  },
+};
+
+// Safe auto-init
+(async () => {
+  try {
+    const isAndroid =
+      /android/i.test(navigator.userAgent) ||
+      !!window.Capacitor?.isNativePlatform?.();
+
+    if (isAndroid) {
+      setTimeout(() => {
+        window.CLARA_BILLING.init();
+      }, 1500);
+    }
+  } catch (error) {
+    console.warn("Billing auto-init failed:", error);
+  }
+})();
+
+const rootElement = document.getElementById("root");
+
+if (!rootElement) {
+  throw new Error('Root element with id "root" was not found.');
+}
+
+ReactDOM.createRoot(rootElement).render(
   <React.StrictMode>
     <AuthProvider>
       <QueryClientProvider client={queryClientInstance}>

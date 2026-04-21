@@ -296,6 +296,7 @@ export default function Settings() {
       setError("");
       setMessage("");
       saveStoredSettings(userId, settingsState);
+      window.dispatchEvent(new CustomEvent("clara-settings-updated", { detail: { userId, settings: settingsState } }));
       if (detailSection === "notifications") {
         await taskReminderSettings.saveSettings();
       }
@@ -453,7 +454,7 @@ export default function Settings() {
 
             {detailSection === "notifications" && (
               <div className="space-y-3">
-                <ToggleRow label="Daily reminders" description="Receive your regular CLARA reminder and day-start prompt." checked={settingsState.notifications.dailyReminders} onChange={() => updateNestedSetting("notifications", "dailyReminders", !settingsState.notifications.dailyReminders)} />
+                <ToggleRow label="Daily reminders" description="Receive your regular CLARA reminder, dashboard guided-path prompt, and day-start nudges." checked={settingsState.notifications.dailyReminders} onChange={() => updateNestedSetting("notifications", "dailyReminders", !settingsState.notifications.dailyReminders)} />
                 <ToggleRow label="Coaching alerts" description="Get updates for coaching-related activity and important progress prompts." checked={settingsState.notifications.coachingAlerts} onChange={() => updateNestedSetting("notifications", "coachingAlerts", !settingsState.notifications.coachingAlerts)} />
                 <ToggleRow label="Product updates" description="Hear about meaningful feature updates and CLARA announcements." checked={settingsState.notifications.productUpdates} onChange={() => updateNestedSetting("notifications", "productUpdates", !settingsState.notifications.productUpdates)} />
                 <TaskReminderSettingsCard

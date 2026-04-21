@@ -9,9 +9,8 @@ import {
   deriveAccessState,
   hasCompletedProgramOnboarding,
   resolveAppFlow,
-} from "@/lib/access-control";
-import { FEATURE_ROUTE_MAP } from "@/lib/plan-config";
-import { initializeGooglePlayBilling } from "@/lib/google-play-billing";
+} from "./lib/access-control";
+import { FEATURE_ROUTE_MAP } from "./lib/plan-config";
 
 // Layout
 import Layout from "./components/Layout";
@@ -28,6 +27,9 @@ const Budgets = lazy(() => import("./pages/Budgets"));
 const Analytics = lazy(() => import("./pages/Analytics"));
 const Tasks = lazy(() => import("./pages/Tasks"));
 const Modules = lazy(() => import("./pages/Modules"));
+const Feed = lazy(() => import("./pages/Feed"));
+const ClaraPeople = lazy(() => import("./pages/ClaraPeople"));
+const UserProfile = lazy(() => import("./pages/UserProfile"));
 const Community = lazy(() => import("./pages/Community"));
 const Messages = lazy(() => import("./pages/Messages"));
 const Coaching = lazy(() => import("./pages/Coaching"));
@@ -91,6 +93,100 @@ function pickBestEnrollment(enrollments) {
   return sorted[0] || null;
 }
 
+function normalizeValue(value) {
+  if (value === null || value === undefined) return "";
+  return String(value).trim().toLowerCase();
+}
+
+function isGooglePlayEnrollment(enrollment) {
+  if (!enrollment) return false;
+
+  const source = normalizeValue(
+    enrollment?.source ||
+      enrollment?.enrollment_source ||
+      enrollment?.payment_source ||
+      enrollment?.provider ||
+      enrollment?.platform ||
+      enrollment?.purchase_source
+  );
+
+  return [
+    "google_play",
+    "googleplay",
+    "play_store",
+    "playstore",
+    "google-play",
+    "google play",
+  ].includes(source);
+}
+
+function isPaidEnrollment(enrollment) {
+  if (!enrollment) return false;
+
+  const status = normalizeValue(
+    enrollment?.status ||
+      enrollment?.enrollment_status ||
+      enrollment?.payment_status ||
+      enrollment?.purchase_status
+  );
+
+  const hasGooglePlaySource = isGooglePlayEnrollment(enrollment);
+
+  const paidStatuses = new Set([
+    "approved",
+    "active",
+    "completed",
+    "complete",
+    "paid",
+    "success",
+    "succeeded",
+    "confirmed",
+    "verified",
+    "processing_complete",
+    "purchase_completed",
+    "entitled",
+    "unlocked",
+  ]);
+
+  const pendingStatuses = new Set([
+    "pending",
+    "processing",
+    "under_review",
+    "submitted",
+    "awaiting_review",
+    "awaiting_payment",
+    "payment_pending",
+  ]);
+
+  if (paidStatuses.has(status)) return true;
+
+  if (hasGooglePlaySource && !pendingStatuses.has(status) && status !== "") {
+    return true;
+  }
+
+  if (
+    hasGooglePlaySource &&
+    (enrollment?.purchase_token ||
+      enrollment?.purchaseToken ||
+      enrollment?.order_id ||
+      enrollment?.orderId ||
+      enrollment?.product_id ||
+      enrollment?.productId)
+  ) {
+    return true;
+  }
+
+  return false;
+}
+
+function getSafeFlow(resolvedFlow, enrollment) {
+  if (isPaidEnrollment(enrollment)) {
+    return "active";
+  }
+
+  return resolvedFlow;
+}
+
 function getHomeRedirectPath({ isAdvertiser, flow, forceEnroll }) {
   if (isAdvertiser) return "/advertiser";
   if (flow === "universal_onboarding") return "/onboarding";
@@ -145,6 +241,7 @@ function AppRoutes() {
   const [forceLogoutProcessing, setForceLogoutProcessing] = useState(false);
 
   const profileReady = user ? profile !== null : true;
+  const enrollmentPaid = useMemo(() => isPaidEnrollment(enrollment), [enrollment]);
 
   useEffect(() => {
     let isMounted = true;
@@ -275,24 +372,36 @@ function AppRoutes() {
 
   const flow = useMemo(() => {
     if (!user || !profileReady || enrollmentLoading) return "loading";
-    return resolveAppFlow(
+
+    const resolvedFlow = resolveAppFlow(
       {
         ...profile,
         role: profile?.role || normalizedRole || "user",
       },
       enrollment
     );
+
+    return getSafeFlow(resolvedFlow, enrollment);
   }, [user, profileReady, enrollmentLoading, profile, normalizedRole, enrollment]);
 
   const forceEnroll = useMemo(() => {
     if (!user || !profileReady || enrollmentLoading || !profile) return false;
+    if (enrollmentPaid) return false;
     return resolvedAccess.forceEnroll;
-  }, [user, profileReady, enrollmentLoading, profile, resolvedAccess.forceEnroll]);
+  }, [
+    user,
+    profileReady,
+    enrollmentLoading,
+    profile,
+    enrollmentPaid,
+    resolvedAccess.forceEnroll,
+  ]);
 
   const homeRedirectPath = useMemo(
     () => getHomeRedirectPath({ isAdvertiser, flow, forceEnroll }),
     [isAdvertiser, flow, forceEnroll]
   );
+
   const welcomeRedirectPath = useMemo(() => {
     if (
       flow === "program_onboarding" &&
@@ -302,6 +411,7 @@ function AppRoutes() {
     }
     return homeRedirectPath;
   }, [flow, homeRedirectPath, profile]);
+
   const displayName =
     profile?.full_name ||
     user?.user_metadata?.full_name ||
@@ -396,6 +506,49 @@ function AppRoutes() {
                           </GuardedRoute>
                         }
                       />
+
+                      <Route
+                        path="/feed"
+                        element={
+                          <GuardedRoute
+                            shouldForceEnroll={false}
+                            featureKey={FEATURE_ROUTE_MAP["/feed"]}
+                            isFeatureAvailable={isFeatureAvailable}
+                            path="/feed"
+                          >
+                            <Feed />
+                          </GuardedRoute>
+                        }
+                      />
+
+                      <Route
+                        path="/people"
+                        element={
+                          <GuardedRoute
+                            shouldForceEnroll={false}
+                            featureKey={FEATURE_ROUTE_MAP["/feed"]}
+                            isFeatureAvailable={isFeatureAvailable}
+                            path="/people"
+                          >
+                            <ClaraPeople />
+                          </GuardedRoute>
+                        }
+                      />
+
+                      <Route
+                        path="/user/:id"
+                        element={
+                          <GuardedRoute
+                            shouldForceEnroll={false}
+                            featureKey={FEATURE_ROUTE_MAP["/feed"]}
+                            isFeatureAvailable={isFeatureAvailable}
+                            path="/user/:id"
+                          >
+                            <UserProfile />
+                          </GuardedRoute>
+                        }
+                      />
+
                       <Route
                         path="/expenses"
                         element={
@@ -409,6 +562,7 @@ function AppRoutes() {
                           </GuardedRoute>
                         }
                       />
+
                       <Route
                         path="/add-funds"
                         element={
@@ -422,6 +576,7 @@ function AppRoutes() {
                           </GuardedRoute>
                         }
                       />
+
                       <Route
                         path="/wallets"
                         element={
@@ -435,6 +590,7 @@ function AppRoutes() {
                           </GuardedRoute>
                         }
                       />
+
                       <Route
                         path="/budgets"
                         element={
@@ -448,6 +604,7 @@ function AppRoutes() {
                           </GuardedRoute>
                         }
                       />
+
                       <Route
                         path="/analytics"
                         element={
@@ -461,8 +618,10 @@ function AppRoutes() {
                           </GuardedRoute>
                         }
                       />
+
                       <Route path="/enroll" element={<Enroll />} />
                       <Route path="/tier-select" element={<TierSelect />} />
+
                       <Route
                         path="/news"
                         element={
@@ -490,6 +649,7 @@ function AppRoutes() {
                           </GuardedRoute>
                         }
                       />
+
                       <Route
                         path="/modules"
                         element={
@@ -503,6 +663,7 @@ function AppRoutes() {
                           </GuardedRoute>
                         }
                       />
+
                       <Route
                         path="/community"
                         element={
@@ -516,6 +677,7 @@ function AppRoutes() {
                           </GuardedRoute>
                         }
                       />
+
                       <Route
                         path="/messages"
                         element={
@@ -529,6 +691,7 @@ function AppRoutes() {
                           </GuardedRoute>
                         }
                       />
+
                       <Route
                         path="/coaching"
                         element={
@@ -542,6 +705,7 @@ function AppRoutes() {
                           </GuardedRoute>
                         }
                       />
+
                       <Route
                         path="/savings-goals"
                         element={
@@ -569,6 +733,7 @@ function AppRoutes() {
                           </GuardedRoute>
                         }
                       />
+
                       <Route
                         path="/admin"
                         element={
@@ -577,6 +742,7 @@ function AppRoutes() {
                           </AdminRoute>
                         }
                       />
+
                       <Route
                         path="/admin/student/:id"
                         element={
@@ -585,6 +751,7 @@ function AppRoutes() {
                           </AdminRoute>
                         }
                       />
+
                       <Route
                         path="/admin/referral-materials"
                         element={
@@ -593,6 +760,7 @@ function AppRoutes() {
                           </AdminRoute>
                         }
                       />
+
                       <Route
                         path="/admin/daily-tips"
                         element={
@@ -606,13 +774,28 @@ function AppRoutes() {
 
                   <Route path="/profile" element={<Profile />} />
 
-                  <Route path="/settings" element={<Navigate to="/settings/account" replace />} />
+                  <Route
+                    path="/settings"
+                    element={<Navigate to="/settings/account" replace />}
+                  />
                   <Route path="/settings/:section" element={<Settings />} />
 
-                  <Route path="/profile/edit" element={<Navigate to="/settings/account" replace />} />
-                  <Route path="/change-password" element={<Navigate to="/settings/security" replace />} />
-                  <Route path="/notifications" element={<Navigate to="/settings/notifications" replace />} />
-                  <Route path="/billing" element={<Navigate to="/settings/billing" replace />} />
+                  <Route
+                    path="/profile/edit"
+                    element={<Navigate to="/settings/account" replace />}
+                  />
+                  <Route
+                    path="/change-password"
+                    element={<Navigate to="/settings/security" replace />}
+                  />
+                  <Route
+                    path="/notifications"
+                    element={<Navigate to="/settings/notifications" replace />}
+                  />
+                  <Route
+                    path="/billing"
+                    element={<Navigate to="/settings/billing" replace />}
+                  />
 
                   <Route path="*" element={<PageNotFound />} />
                 </Routes>
@@ -630,12 +813,6 @@ function AppRoutes() {
 }
 
 function App() {
-  useEffect(() => {
-    initializeGooglePlayBilling().catch((error) => {
-      console.error("Initial Google Play billing warmup failed:", error);
-    });
-  }, []);
-
   return (
     <>
       <AppRoutes />

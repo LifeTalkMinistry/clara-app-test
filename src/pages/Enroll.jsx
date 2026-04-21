@@ -6,15 +6,18 @@ import {
   BadgeCheck,
   CheckCircle2,
   ChevronLeft,
+  ChevronDown,
+  ChevronUp,
   Clock3,
   Gem,
-  LoaderCircle,
+  Loader2,
   Lock,
   RefreshCw,
   ShieldCheck,
   Sparkles,
   Star,
   Target,
+  Wrench,
   Zap,
 } from "lucide-react";
 import { toast } from "sonner";
@@ -27,13 +30,9 @@ import {
   sanitizePlanRow,
 } from "@/lib/plan-config";
 import {
-  getGooglePlayBillingSnapshot,
   getGooglePlayProductId,
-  initializeGooglePlayBilling,
   launchGooglePlayPurchase,
   persistGooglePlayPurchase,
-  restoreGooglePlayPurchases,
-  subscribeToGooglePlayBilling,
   waitForGooglePlayEntitlement,
 } from "@/lib/google-play-billing";
 import { canOfferPlan, getClaraProductByPlan } from "@/lib/clara-entitlements";
@@ -62,7 +61,8 @@ const PLAN_UI_META = {
     label: "CLARA Program",
     eyebrow: "One-Time Program",
     badge: "Most popular",
-    statement: "Unlock the 30-day CLARA Program with PRO during the program and continuation access after completion.",
+    statement:
+      "Unlock the 30-day CLARA Program with PRO during the program and continuation access after completion.",
     points: [
       "30-day CLARA Program",
       "Includes PRO access during the program",
@@ -73,15 +73,17 @@ const PLAN_UI_META = {
     border: "border-emerald-400/20",
     button: "Unlock Program",
     successTitle: "CLARA Program unlocked",
-    successBody: "Your 30-day program is available. Start the challenge when you are ready.",
+    successBody:
+      "Your 30-day program is available. Start the challenge when you are ready.",
     successCta: "Open Program",
     icon: Target,
   },
-  coaching: {
+  coach: {
     label: "CLARA Coaching",
     eyebrow: "Personal Guidance",
     badge: "Premium support",
-    statement: "Unlock the 30-day CLARA Program, two coaching sessions, and two months of continuation PRO after completion.",
+    statement:
+      "Unlock the 30-day CLARA Program, two coaching sessions, and two months of continuation PRO after completion.",
     points: [
       "30-day CLARA Program",
       "Includes PRO access during the program",
@@ -90,9 +92,31 @@ const PLAN_UI_META = {
     ],
     accent: "from-amber-400/22 via-orange-400/10 to-transparent",
     border: "border-amber-400/20",
-    button: "Choose Coaching",
-    successTitle: "Coaching unlocked",
-    successBody: "Your guided system and 2 coaching credits are active. Start the challenge when you are ready.",
+    button: "Unlock with Google Play",
+    successTitle: "CLARA Coaching unlocked",
+    successBody:
+      "Your guided system and 2 coaching credits are active. Start the challenge when you are ready.",
+    successCta: "View Coaching Journey",
+    icon: Gem,
+  },
+  coaching: {
+    label: "CLARA Coaching",
+    eyebrow: "Personal Guidance",
+    badge: "Premium support",
+    statement:
+      "Unlock the 30-day CLARA Program, two coaching sessions, and two months of continuation PRO after completion.",
+    points: [
+      "30-day CLARA Program",
+      "Includes PRO access during the program",
+      "Your +2 months continuation PRO starts after program completion",
+      "Includes 2 coaching session credits",
+    ],
+    accent: "from-amber-400/22 via-orange-400/10 to-transparent",
+    border: "border-amber-400/20",
+    button: "Unlock with Google Play",
+    successTitle: "CLARA Coaching unlocked",
+    successBody:
+      "Your guided system and 2 coaching credits are active. Start the challenge when you are ready.",
     successCta: "View Coaching Journey",
     icon: Gem,
   },
@@ -109,12 +133,21 @@ const PENDING_STATUSES = new Set([
   "purchase_processing",
 ]);
 
+const BILLING_WARN_STATES = new Set(["diagnostic", "error"]);
+const BILLING_CHECKING_STATES = new Set(["idle", "checking"]);
+
 function normalizeText(value) {
   return String(value || "").trim();
 }
 
 function normalizeKey(value) {
   return String(value || "").trim().toLowerCase();
+}
+
+function normalizePlanUiKey(value) {
+  const key = normalizeKey(value);
+  if (key === "coaching") return "coach";
+  return key;
 }
 
 function formatPeso(value) {
@@ -139,34 +172,49 @@ function normalizeFeatures(features) {
 
 function normalizePlanRecord(row) {
   const normalizedRow = sanitizePlanRow(row);
-  const key = normalizePlanKey(normalizedRow.plan_key || normalizedRow.key || normalizedRow.name);
+  const rawKey = normalizePlanKey(
+    normalizedRow.plan_key || normalizedRow.key || normalizedRow.name
+  );
+  const key = normalizePlanUiKey(rawKey);
   const ui = PLAN_UI_META[key] || null;
-  const productMeta = getClaraProductByPlan(key);
-  const features = normalizeFeatures(normalizedRow?.features);
+  const productMeta = getClaraProductByPlan(rawKey);
 
   return {
     id: normalizedRow?.id ?? null,
     key,
-    name: ui?.label || PLAN_LABELS[key] || normalizeText(normalizedRow?.name) || key.toUpperCase(),
+    rawKey,
+    name:
+      ui?.label ||
+      PLAN_LABELS[key] ||
+      PLAN_LABELS[rawKey] ||
+      normalizeText(normalizedRow?.name) ||
+      key.toUpperCase(),
     price: Number(productMeta?.price ?? normalizedRow?.price ?? 0),
     badge: ui?.badge || (normalizedRow?.popular ? "Most Popular" : "Plan"),
     eyebrow: ui?.eyebrow || "Unlock CLARA",
     statement: ui?.statement || normalizeText(normalizedRow?.description),
     description: normalizeText(normalizedRow?.description),
-    benefits: features,
-    ctaLabel: normalizeText(normalizedRow?.cta_label) || ui?.button || "Choose Plan",
+    benefits: normalizeFeatures(normalizedRow?.features),
+    ctaLabel:
+      normalizeText(normalizedRow?.cta_label) ||
+      ui?.button ||
+      "Buy with Google Play",
     active: !!normalizedRow?.active,
     popular: !!normalizedRow?.popular || ui?.badge === "Most popular",
     sortOrder: Number(normalizedRow?.sort_order ?? 9999),
     accent: ui?.accent || "from-white/10 to-transparent",
     border: ui?.border || "border-white/10",
     successTitle: ui?.successTitle || "Plan unlocked",
-    successBody: ui?.successBody || "Your purchase is complete and your CLARA access is ready.",
+    successBody:
+      ui?.successBody || "Your purchase is complete and your CLARA access is ready.",
     successCta: ui?.successCta || "Open CLARA",
-    productId: getGooglePlayProductId(key),
+    productId: getGooglePlayProductId(key) || getGooglePlayProductId(rawKey),
     productMeta,
     icon: ui?.icon || Sparkles,
-    displayBenefits: features.length > 0 ? features : ui?.points || [],
+    displayBenefits:
+      normalizeFeatures(normalizedRow?.features).length > 0
+        ? normalizeFeatures(normalizedRow?.features)
+        : ui?.points || [],
   };
 }
 
@@ -180,7 +228,7 @@ function getPlanKeyFromEnrollment(enrollment, searchParams) {
   ];
 
   for (const item of candidates) {
-    const normalized = normalizeKey(item);
+    const normalized = normalizePlanUiKey(item);
     if (normalized) return normalized;
   }
 
@@ -188,47 +236,463 @@ function getPlanKeyFromEnrollment(enrollment, searchParams) {
 }
 
 function getSuccessDestination(planKey) {
-  const normalized = normalizeKey(planKey);
+  const normalized = normalizePlanUiKey(planKey);
   if (normalized === "entry") return "/dashboard";
-  if (normalized === "coaching") return "/tasks";
+  if (normalized === "coach") return "/tasks";
   return "/tasks";
 }
 
-function getBillingTone(billing) {
-  if (billing.phase === "ready") {
-    return {
-      icon: ShieldCheck,
-      border: "border-emerald-400/20",
-      background: "bg-emerald-500/10",
-      label: "Google Play ready",
-      body: "Your plan unlocks will open through Google Play on this build.",
-    };
+function formatDebugError(error) {
+  const rawMessage = String(error?.message || "").trim();
+  const code = String(
+    error?.code ||
+      error?.responseCode ||
+      error?.status ||
+      error?.name ||
+      ""
+  ).trim();
+  const details = String(
+    error?.details ||
+      error?.debugMessage ||
+      error?.reason ||
+      ""
+  ).trim();
+
+  const lines = [];
+
+  if (rawMessage) lines.push(rawMessage);
+  if (code && !rawMessage.toLowerCase().includes(code.toLowerCase())) {
+    lines.push(`Code: ${code}`);
+  }
+  if (details && !rawMessage.toLowerCase().includes(details.toLowerCase())) {
+    lines.push(`Details: ${details}`);
   }
 
-  if (billing.phase === "initializing") {
-    return {
-      icon: LoaderCircle,
-      border: "border-sky-400/20",
-      background: "bg-sky-500/10",
-      label: "Connecting billing",
-      body: billing.message || "Connecting to Google Play billing...",
-    };
-  }
-
-  return {
-    icon: AlertTriangle,
-    border: "border-amber-400/20",
-    background: "bg-amber-500/10",
-    label: "Billing unavailable",
-    body:
-      billing.message ||
-      "Google Play billing is not available on this build yet. Install the Play-delivered internal testing build and try again.",
-  };
+  return lines.join(" • ");
 }
 
-function SelectionCard({ plan, selected, onSelect, billingProduct }) {
+function isAlreadyOwnedError(error) {
+  const code = String(error?.responseCode || error?.code || "").toUpperCase();
+  const message = String(error?.message || "").toLowerCase();
+  const details = String(error?.debugMessage || error?.details || "").toLowerCase();
+
+  return (
+    code === "ITEM_ALREADY_OWNED" ||
+    message.includes("already own") ||
+    details.includes("already own")
+  );
+}
+
+function getFriendlyPurchaseError(error) {
+  const message = String(error?.message || "").trim();
+  const lower = message.toLowerCase();
+  const debug = formatDebugError(error);
+
+  if (!message) {
+    return "Could not complete purchase right now. No error details were returned.";
+  }
+
+  if (
+    lower.includes("cancel") ||
+    lower.includes("cancelled") ||
+    lower.includes("canceled")
+  ) {
+    return "Purchase cancelled.";
+  }
+
+  if (lower.includes("product") && lower.includes("not found")) {
+    return `Google Play product not found. Check that the product ID is correct and active in Play Console. ${debug}`;
+  }
+
+  if (lower.includes("offer") && lower.includes("not found")) {
+    return `No Google Play offer was found for this product. ${debug}`;
+  }
+
+  if (lower.includes("billing") && lower.includes("unavailable")) {
+    return `Google Play Billing returned unavailable. Real error: ${debug}`;
+  }
+
+  if (lower.includes("billing is not available")) {
+    return `Google Play Billing returned unavailable. Real error: ${debug}`;
+  }
+
+  if (lower.includes("not available on this device")) {
+    return `Google Play purchase is not ready on this device yet. Review the billing diagnostics below. Real error: ${debug}`;
+  }
+
+  if (lower.includes("store not found")) {
+    return `The purchase plugin store was not found inside the app build. Real error: ${debug}`;
+  }
+
+  if (lower.includes("cdvpurchase")) {
+    return `The purchase plugin bridge is missing in this build. Real error: ${debug}`;
+  }
+
+  if (lower.includes("already own")) {
+    return "This account already owns this item.";
+  }
+
+  return `Google Play purchase failed: ${debug}`;
+}
+
+function normalizeBillingResponseCode(code) {
+  if (typeof code === "string") {
+    const upper = code.toUpperCase().trim();
+
+    if (
+      upper === "OK" ||
+      upper === "USER_CANCELED" ||
+      upper === "SERVICE_UNAVAILABLE" ||
+      upper === "BILLING_UNAVAILABLE" ||
+      upper === "ITEM_UNAVAILABLE" ||
+      upper === "DEVELOPER_ERROR" ||
+      upper === "ERROR" ||
+      upper === "ITEM_ALREADY_OWNED" ||
+      upper === "ITEM_NOT_OWNED" ||
+      upper === "SERVICE_DISCONNECTED" ||
+      upper === "FEATURE_NOT_SUPPORTED" ||
+      upper === "SERVICE_TIMEOUT" ||
+      upper === "NETWORK_ERROR"
+    ) {
+      return upper;
+    }
+
+    return "UNKNOWN";
+  }
+
+  switch (Number(code)) {
+    case 0:
+      return "OK";
+    case 1:
+      return "USER_CANCELED";
+    case 2:
+      return "SERVICE_UNAVAILABLE";
+    case 3:
+      return "BILLING_UNAVAILABLE";
+    case 4:
+      return "ITEM_UNAVAILABLE";
+    case 5:
+      return "DEVELOPER_ERROR";
+    case 6:
+      return "ERROR";
+    case 7:
+      return "ITEM_ALREADY_OWNED";
+    case 8:
+      return "ITEM_NOT_OWNED";
+    case 12:
+      return "NETWORK_ERROR";
+    case -1:
+      return "SERVICE_DISCONNECTED";
+    case -2:
+      return "FEATURE_NOT_SUPPORTED";
+    case -3:
+      return "SERVICE_TIMEOUT";
+    default:
+      return "UNKNOWN";
+  }
+}
+
+function getBillingStatusLabel(code) {
+  switch (code) {
+    case "OK":
+      return "READY";
+    case "SERVICE_UNAVAILABLE":
+      return "SERVICE UNAVAILABLE";
+    case "BILLING_UNAVAILABLE":
+      return "BILLING UNAVAILABLE";
+    case "ITEM_UNAVAILABLE":
+      return "PRODUCT UNAVAILABLE";
+    case "DEVELOPER_ERROR":
+      return "CONFIG ISSUE";
+    case "SERVICE_DISCONNECTED":
+      return "DISCONNECTED";
+    case "FEATURE_NOT_SUPPORTED":
+      return "NOT SUPPORTED";
+    case "NETWORK_ERROR":
+      return "NETWORK ERROR";
+    case "SERVICE_TIMEOUT":
+      return "TIMEOUT";
+    case "ERROR":
+      return "ERROR";
+    case "USER_CANCELED":
+      return "CANCELLED";
+    case "ITEM_ALREADY_OWNED":
+      return "OWNED";
+    default:
+      return "NEEDS ATTENTION";
+  }
+}
+
+function formatBool(value) {
+  if (value === true) return "Yes";
+  if (value === false) return "No";
+  return "Unknown";
+}
+
+function getBillingBridge() {
+  if (typeof window === "undefined") return null;
+  return window?.ClaraBilling || window?.Capacitor?.Plugins?.ClaraBilling || null;
+}
+
+async function probeGooglePlayBilling({ productId }) {
+  const bridge = getBillingBridge();
+
+  if (!bridge || typeof bridge.connect !== "function") {
+    return {
+      state: "diagnostic",
+      ready: false,
+      connectCode: "UNKNOWN",
+      productCode: "UNKNOWN",
+      message:
+        "Billing bridge is not wired in this build yet. The app can still render, but Google Play purchase readiness cannot be fully checked from the page.",
+      debugMessage:
+        "ClaraBilling.connect() was not found on window.ClaraBilling or window.Capacitor.Plugins.ClaraBilling.",
+      possibleCauses: [
+        "billing service unavailable on this build/device",
+        "purchase plugin bridge missing in this build",
+        "Capacitor billing plugin not registered correctly",
+      ],
+      diagnostics: {
+        hasBridge: false,
+        canConnect: false,
+        packageName: "Unknown",
+        storeAccountEmail: "Unknown",
+        isPlayStoreInstalled: null,
+        isGooglePlayServicesAvailable: null,
+        isAppFromPlay: null,
+        foundProductIds: [],
+        missingProductIds: productId ? [productId] : [],
+      },
+    };
+  }
+
+  try {
+    const connection = await bridge.connect();
+    const connectCode = normalizeBillingResponseCode(connection?.responseCode);
+
+    if (connectCode !== "OK") {
+      return {
+        state: "diagnostic",
+        ready: false,
+        connectCode,
+        productCode: "UNKNOWN",
+        message: "Google Play purchases are not fully ready yet on this device.",
+        debugMessage:
+          connection?.debugMessage ||
+          connection?.details ||
+          connection?.message ||
+          "Billing connection did not return OK.",
+        possibleCauses: buildBillingPossibleCauses({
+          connectCode,
+          productCode: "UNKNOWN",
+          diagnostics: connection,
+          missingProductIds: productId ? [productId] : [],
+        }),
+        diagnostics: {
+          hasBridge: true,
+          canConnect: true,
+          packageName: connection?.packageName || "Unknown",
+          storeAccountEmail: connection?.storeAccountEmail || "Unknown",
+          isPlayStoreInstalled: connection?.isPlayStoreInstalled ?? null,
+          isGooglePlayServicesAvailable:
+            connection?.isGooglePlayServicesAvailable ?? null,
+          isAppFromPlay: connection?.isAppFromPlay ?? null,
+          foundProductIds: [],
+          missingProductIds: productId ? [productId] : [],
+          rawConnection: connection,
+        },
+      };
+    }
+
+    if (!productId || typeof bridge.queryProducts !== "function") {
+      return {
+        state: "ready",
+        ready: true,
+        connectCode,
+        productCode: "OK",
+        message: "Google Play purchases look ready on this device.",
+        debugMessage:
+          connection?.debugMessage ||
+          "Billing connection completed successfully.",
+        possibleCauses: [],
+        diagnostics: {
+          hasBridge: true,
+          canConnect: true,
+          packageName: connection?.packageName || "Unknown",
+          storeAccountEmail: connection?.storeAccountEmail || "Unknown",
+          isPlayStoreInstalled: connection?.isPlayStoreInstalled ?? null,
+          isGooglePlayServicesAvailable:
+            connection?.isGooglePlayServicesAvailable ?? null,
+          isAppFromPlay: connection?.isAppFromPlay ?? null,
+          foundProductIds: productId ? [productId] : [],
+          missingProductIds: [],
+          rawConnection: connection,
+        },
+      };
+    }
+
+    const productResult = await bridge.queryProducts({ productIds: [productId] });
+    const productCode = normalizeBillingResponseCode(productResult?.responseCode);
+    const foundProductIds = Array.isArray(productResult?.foundProductIds)
+      ? productResult.foundProductIds
+      : [];
+    const missingProductIds = Array.isArray(productResult?.missingProductIds)
+      ? productResult.missingProductIds
+      : foundProductIds.includes(productId)
+        ? []
+        : [productId];
+
+    const ready =
+      productCode === "OK" &&
+      (missingProductIds.length === 0 ||
+        foundProductIds.includes(productId) ||
+        productResult?.ok === true);
+
+    if (ready) {
+      return {
+        state: "ready",
+        ready: true,
+        connectCode,
+        productCode,
+        message: "Google Play purchases look ready on this device.",
+        debugMessage:
+          productResult?.debugMessage ||
+          connection?.debugMessage ||
+          "Billing connection and product lookup completed successfully.",
+        possibleCauses: [],
+        diagnostics: {
+          hasBridge: true,
+          canConnect: true,
+          packageName: connection?.packageName || "Unknown",
+          storeAccountEmail: connection?.storeAccountEmail || "Unknown",
+          isPlayStoreInstalled: connection?.isPlayStoreInstalled ?? null,
+          isGooglePlayServicesAvailable:
+            connection?.isGooglePlayServicesAvailable ?? null,
+          isAppFromPlay: connection?.isAppFromPlay ?? null,
+          foundProductIds,
+          missingProductIds: [],
+          rawConnection: connection,
+          rawProductResult: productResult,
+        },
+      };
+    }
+
+    return {
+      state: "diagnostic",
+      ready: false,
+      connectCode,
+      productCode,
+      message:
+        "Google Play billing connected, but purchase readiness still needs attention.",
+      debugMessage:
+        productResult?.debugMessage ||
+        connection?.debugMessage ||
+        "Product readiness did not return fully ready.",
+      possibleCauses: buildBillingPossibleCauses({
+        connectCode,
+        productCode,
+        diagnostics: connection,
+        missingProductIds,
+      }),
+      diagnostics: {
+        hasBridge: true,
+        canConnect: true,
+        packageName: connection?.packageName || "Unknown",
+        storeAccountEmail: connection?.storeAccountEmail || "Unknown",
+        isPlayStoreInstalled: connection?.isPlayStoreInstalled ?? null,
+        isGooglePlayServicesAvailable:
+          connection?.isGooglePlayServicesAvailable ?? null,
+        isAppFromPlay: connection?.isAppFromPlay ?? null,
+        foundProductIds,
+        missingProductIds,
+        rawConnection: connection,
+        rawProductResult: productResult,
+      },
+    };
+  } catch (error) {
+    return {
+      state: "error",
+      ready: false,
+      connectCode: normalizeBillingResponseCode(
+        error?.responseCode || error?.code
+      ),
+      productCode: "UNKNOWN",
+      message: "The billing diagnostic check ran into an unexpected error.",
+      debugMessage: formatDebugError(error),
+      possibleCauses: buildBillingPossibleCauses({
+        connectCode: normalizeBillingResponseCode(
+          error?.responseCode || error?.code
+        ),
+        productCode: "UNKNOWN",
+        diagnostics: {},
+        missingProductIds: productId ? [productId] : [],
+      }),
+      diagnostics: {
+        hasBridge: true,
+        canConnect: true,
+        packageName: "Unknown",
+        storeAccountEmail: "Unknown",
+        isPlayStoreInstalled: null,
+        isGooglePlayServicesAvailable: null,
+        isAppFromPlay: null,
+        foundProductIds: [],
+        missingProductIds: productId ? [productId] : [],
+      },
+    };
+  }
+}
+
+function buildBillingPossibleCauses({
+  connectCode,
+  productCode,
+  diagnostics,
+  missingProductIds = [],
+}) {
+  const causes = new Set();
+
+  if (diagnostics?.isAppFromPlay === false) {
+    causes.add("app not installed from Play test track");
+  }
+
+  if (diagnostics?.isPlayStoreInstalled === false) {
+    causes.add("Play Store is not available on this device");
+  }
+
+  if (diagnostics?.isGooglePlayServicesAvailable === false) {
+    causes.add("Google Play Services is unavailable or outdated");
+  }
+
+  if (
+    connectCode === "BILLING_UNAVAILABLE" ||
+    connectCode === "SERVICE_UNAVAILABLE" ||
+    connectCode === "SERVICE_DISCONNECTED" ||
+    connectCode === "FEATURE_NOT_SUPPORTED" ||
+    connectCode === "UNKNOWN" ||
+    connectCode === "ERROR"
+  ) {
+    causes.add("tester account not opted in");
+    causes.add("tester account not listed in License Testing");
+    causes.add("wrong Google account on the device");
+    causes.add("Play Store cache/data outdated");
+    causes.add("billing service unavailable on this build/device");
+  }
+
+  if (
+    productCode === "ITEM_UNAVAILABLE" ||
+    (Array.isArray(missingProductIds) && missingProductIds.length > 0)
+  ) {
+    causes.add("product may not be active for this testing setup");
+  }
+
+  if (connectCode === "DEVELOPER_ERROR") {
+    causes.add("billing configuration mismatch in app or Play Console");
+  }
+
+  return Array.from(causes);
+}
+
+function SelectionCard({ plan, selected, onSelect }) {
   const Icon = plan.icon;
-  const playPrice = billingProduct?.pricing?.price || "";
 
   return (
     <button
@@ -261,14 +725,18 @@ function SelectionCard({ plan, selected, onSelect, billingProduct }) {
           <p className="text-[11px] uppercase tracking-[0.16em] text-white/45">
             {plan.productMeta?.productType === "subscription" ? "Monthly" : "One-time"}
           </p>
-          <p className="mt-1 text-xl font-semibold text-white">{formatPeso(plan.price)}</p>
-          {playPrice ? <p className="mt-1 text-xs text-white/45">{playPrice} on Google Play</p> : null}
+          <p className="mt-1 text-xl font-semibold text-white">
+            {formatPeso(plan.price)}
+          </p>
         </div>
       </div>
 
       <div className="mt-5 space-y-2">
         {plan.displayBenefits.slice(0, 3).map((item, index) => (
-          <div key={`${plan.key}-${index}`} className="flex items-start gap-2 text-sm text-white/75">
+          <div
+            key={`${plan.key}-${index}`}
+            className="flex items-start gap-2 text-sm text-white/75"
+          >
             <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-emerald-300" />
             <span>{item}</span>
           </div>
@@ -278,18 +746,248 @@ function SelectionCard({ plan, selected, onSelect, billingProduct }) {
   );
 }
 
+function BillingDiagnosticCard({
+  billingMonitor,
+  billingDebugOpen,
+  setBillingDebugOpen,
+  onRefresh,
+  refreshing,
+  productId,
+}) {
+  const state = billingMonitor?.state || "idle";
+  const connectCode = billingMonitor?.connectCode || "UNKNOWN";
+  const productCode = billingMonitor?.productCode || "UNKNOWN";
+
+  const badgeClasses =
+    state === "ready"
+      ? "border-emerald-400/20 bg-emerald-500/10 text-emerald-200"
+      : state === "checking"
+        ? "border-sky-400/20 bg-sky-500/10 text-sky-200"
+        : "border-amber-400/20 bg-amber-500/10 text-amber-200";
+
+  const headline =
+    state === "ready"
+      ? "Google Play purchases look ready on this device."
+      : state === "checking"
+        ? "Checking Google Play billing readiness..."
+        : state === "error"
+          ? "Billing diagnostic check hit an unexpected error."
+          : "Google Play purchases are not fully ready yet on this device.";
+
+  const body =
+    state === "ready"
+      ? "The app was able to check billing without relying on install-source assumptions. You can continue with the purchase flow."
+      : state === "checking"
+        ? "Connecting to Google Play and checking billing availability."
+        : billingMonitor?.message ||
+          "This does not automatically mean the app is broken. It usually points to a tester, account, track, cache, or device readiness issue.";
+
+  return (
+    <div className="mb-5 rounded-[30px] border border-white/10 bg-white/[0.04] p-5 backdrop-blur-2xl">
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div className="max-w-2xl">
+          <div className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-black/20 px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.18em] text-white/65">
+            <ShieldCheck className="h-3.5 w-3.5" />
+            Billing Diagnostic
+          </div>
+
+          <h3 className="mt-4 text-xl font-semibold text-white">{headline}</h3>
+          <p className="mt-2 text-sm leading-7 text-white/72">{body}</p>
+        </div>
+
+        <div
+          className={`rounded-full border px-3 py-2 text-[11px] font-semibold uppercase tracking-[0.16em] ${badgeClasses}`}
+        >
+          {state === "ready"
+            ? "Ready"
+            : state === "checking"
+              ? "Checking"
+              : getBillingStatusLabel(connectCode)}
+        </div>
+      </div>
+
+      {BILLING_WARN_STATES.has(state) &&
+      Array.isArray(billingMonitor?.possibleCauses) &&
+      billingMonitor.possibleCauses.length > 0 ? (
+        <div className="mt-5 rounded-[24px] border border-amber-400/15 bg-amber-500/5 p-4">
+          <div className="flex items-center gap-2">
+            <AlertTriangle className="h-4 w-4 text-amber-300" />
+            <p className="text-[11px] uppercase tracking-[0.18em] text-amber-200/80">
+              Possible causes
+            </p>
+          </div>
+
+          <div className="mt-3 grid gap-2 sm:grid-cols-2">
+            {billingMonitor.possibleCauses.map((cause, index) => (
+              <div
+                key={`${cause}-${index}`}
+                className="rounded-2xl border border-white/10 bg-black/20 px-3 py-3 text-sm text-white/75"
+              >
+                {cause}
+              </div>
+            ))}
+          </div>
+        </div>
+      ) : null}
+
+      <div className="mt-5 flex flex-wrap items-center gap-3">
+        <Button
+          type="button"
+          onClick={onRefresh}
+          disabled={refreshing}
+          className="h-11 rounded-2xl"
+        >
+          {refreshing ? (
+            <>
+              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              Re-checking...
+            </>
+          ) : (
+            <>
+              <RefreshCw className="mr-2 h-4 w-4" />
+              Re-check billing
+            </>
+          )}
+        </Button>
+
+        <Button
+          type="button"
+          variant="outline"
+          onClick={() => setBillingDebugOpen((prev) => !prev)}
+          className="h-11 rounded-2xl border-white/10 bg-white/5 text-white hover:bg-white/10"
+        >
+          {billingDebugOpen ? (
+            <>
+              <ChevronUp className="mr-2 h-4 w-4" />
+              Hide debug
+            </>
+          ) : (
+            <>
+              <ChevronDown className="mr-2 h-4 w-4" />
+              Show debug
+            </>
+          )}
+        </Button>
+      </div>
+
+      {billingDebugOpen ? (
+        <div className="mt-5 rounded-[24px] border border-white/10 bg-black/20 p-4">
+          <div className="flex items-center gap-2">
+            <Wrench className="h-4 w-4 text-white/65" />
+            <p className="text-[11px] uppercase tracking-[0.18em] text-white/50">
+              Developer status block
+            </p>
+          </div>
+
+          <div className="mt-4 grid gap-3 sm:grid-cols-2">
+            <DebugRow label="Monitor state" value={state} />
+            <DebugRow label="Connect code" value={`${connectCode}`} />
+            <DebugRow label="Product code" value={`${productCode}`} />
+            <DebugRow label="Product ID" value={productId || "—"} />
+            <DebugRow
+              label="Package name"
+              value={billingMonitor?.diagnostics?.packageName || "Unknown"}
+            />
+            <DebugRow
+              label="Store account"
+              value={billingMonitor?.diagnostics?.storeAccountEmail || "Unknown"}
+            />
+            <DebugRow
+              label="Play Store installed"
+              value={formatBool(
+                billingMonitor?.diagnostics?.isPlayStoreInstalled
+              )}
+            />
+            <DebugRow
+              label="Play Services available"
+              value={formatBool(
+                billingMonitor?.diagnostics?.isGooglePlayServicesAvailable
+              )}
+            />
+            <DebugRow
+              label="Installed from Play"
+              value={formatBool(billingMonitor?.diagnostics?.isAppFromPlay)}
+            />
+            <DebugRow
+              label="Found product IDs"
+              value={
+                billingMonitor?.diagnostics?.foundProductIds?.length
+                  ? billingMonitor.diagnostics.foundProductIds.join(", ")
+                  : "—"
+              }
+            />
+            <DebugRow
+              label="Missing product IDs"
+              value={
+                billingMonitor?.diagnostics?.missingProductIds?.length
+                  ? billingMonitor.diagnostics.missingProductIds.join(", ")
+                  : "—"
+              }
+            />
+            <DebugRow
+              label="Debug details"
+              value={billingMonitor?.debugMessage || "—"}
+              wide
+            />
+          </div>
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
+function DebugRow({ label, value, wide = false }) {
+  return (
+    <div
+      className={`rounded-2xl border border-white/10 bg-white/[0.03] p-3 ${
+        wide ? "sm:col-span-2" : ""
+      }`}
+    >
+      <p className="text-[11px] uppercase tracking-[0.16em] text-white/40">
+        {label}
+      </p>
+      <p className="mt-2 break-words text-sm text-white/80">{value}</p>
+    </div>
+  );
+}
+
 export default function Enroll() {
   const { user, refreshUser } = useUserRole();
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
 
   const [loading, setLoading] = useState(true);
+  const [refreshingAccess, setRefreshingAccess] = useState(false);
   const [plans, setPlans] = useState([]);
   const [enrollment, setEnrollment] = useState(null);
   const [purchaseState, setPurchaseState] = useState("idle");
   const [purchaseMessage, setPurchaseMessage] = useState("");
   const [activePurchasePlan, setActivePurchasePlan] = useState("");
-  const [billing, setBilling] = useState(() => getGooglePlayBillingSnapshot());
+  const [pageError, setPageError] = useState("");
+  const [debugError, setDebugError] = useState("");
+
+  const [billingMonitor, setBillingMonitor] = useState({
+    state: "idle",
+    ready: false,
+    connectCode: "UNKNOWN",
+    productCode: "UNKNOWN",
+    message: "",
+    debugMessage: "",
+    possibleCauses: [],
+    diagnostics: {
+      hasBridge: false,
+      canConnect: false,
+      packageName: "Unknown",
+      storeAccountEmail: "Unknown",
+      isPlayStoreInstalled: null,
+      isGooglePlayServicesAvailable: null,
+      isAppFromPlay: null,
+      foundProductIds: [],
+      missingProductIds: [],
+    },
+  });
+  const [billingRefreshing, setBillingRefreshing] = useState(false);
+  const [billingDebugOpen, setBillingDebugOpen] = useState(false);
 
   const fetchPlans = useCallback(async () => {
     const { data, error } = await supabase
@@ -303,18 +1001,24 @@ export default function Enroll() {
     const normalized = (data || [])
       .map(normalizePlanRecord)
       .filter((plan) => plan.active && plan.productId && PLAN_UI_META[plan.key])
-      .filter((plan) => canOfferPlan(user?.profile || user, plan.key));
+      .filter((plan) => canOfferPlan(user?.profile || user, plan.rawKey || plan.key));
 
     setPlans(normalized);
+    return normalized;
   }, [user]);
 
-  const fetchEnrollment = useCallback(async () => {
-    if (!user?.id) return null;
+  const fetchEnrollmentForUserId = useCallback(async (userId) => {
+    const normalizedUserId = normalizeText(userId);
+
+    if (!normalizedUserId) {
+      setEnrollment(null);
+      return null;
+    }
 
     const { data, error } = await supabase
       .from("enrollments")
       .select("*")
-      .eq("user_id", user.id)
+      .eq("user_id", normalizedUserId)
       .order("created_at", { ascending: false })
       .limit(1)
       .maybeSingle();
@@ -323,7 +1027,25 @@ export default function Enroll() {
 
     setEnrollment(data || null);
     return data || null;
-  }, [user?.id]);
+  }, []);
+
+  const fetchEnrollment = useCallback(async () => {
+    return fetchEnrollmentForUserId(user?.id);
+  }, [fetchEnrollmentForUserId, user?.id]);
+
+  const getAuthenticatedUser = useCallback(async () => {
+    const {
+      data: { user: authUser },
+      error,
+    } = await supabase.auth.getUser();
+
+    if (error) throw error;
+    if (!authUser?.id) {
+      throw new Error("User not authenticated.");
+    }
+
+    return authUser;
+  }, []);
 
   const loadInitialData = useCallback(async () => {
     if (!user?.id) {
@@ -332,17 +1054,16 @@ export default function Enroll() {
     }
 
     setLoading(true);
+    setPageError("");
+    setDebugError("");
+
     try {
-      await Promise.all([
-        fetchPlans(),
-        fetchEnrollment(),
-        initializeGooglePlayBilling().catch((error) => {
-          console.error("Failed to initialize Google Play billing:", error);
-          return getGooglePlayBillingSnapshot();
-        }),
-      ]);
+      await Promise.all([fetchPlans(), fetchEnrollment()]);
     } catch (error) {
       console.error("Failed to load Google Play purchase flow:", error);
+      const debug = formatDebugError(error);
+      setPageError("Could not load plans right now.");
+      setDebugError(debug);
       toast.error("Could not load plans right now.");
     } finally {
       setLoading(false);
@@ -353,15 +1074,8 @@ export default function Enroll() {
     loadInitialData();
   }, [loadInitialData]);
 
-  useEffect(() => {
-    const unsubscribe = subscribeToGooglePlayBilling((nextState) => {
-      setBilling(nextState);
-    });
-
-    return unsubscribe;
-  }, []);
-
   const currentStatus = normalizeKey(enrollment?.status);
+
   const enrollmentPlanKey = useMemo(
     () => getPlanKeyFromEnrollment(enrollment, searchParams),
     [enrollment, searchParams]
@@ -374,17 +1088,34 @@ export default function Enroll() {
     });
   }, [plans]);
 
-  const selectedPlanKey = normalizeKey(searchParams.get("plan") || enrollmentPlanKey);
+  const selectedPlanKey = normalizePlanUiKey(
+    searchParams.get("plan") || enrollmentPlanKey
+  );
   const view = searchParams.get("view") || (selectedPlanKey ? "detail" : "select");
 
   const selectedPlan = useMemo(() => {
-    return sortedPlans.find((plan) => normalizeKey(plan.key) === selectedPlanKey) || null;
+    return (
+      sortedPlans.find((plan) => normalizePlanUiKey(plan.key) === selectedPlanKey) ||
+      null
+    );
   }, [selectedPlanKey, sortedPlans]);
 
   const unlockedPlan = useMemo(() => {
     if (!SUCCESS_STATUSES.has(currentStatus)) return null;
-    return sortedPlans.find((plan) => normalizeKey(plan.key) === enrollmentPlanKey) || selectedPlan;
+    return (
+      sortedPlans.find(
+        (plan) => normalizePlanUiKey(plan.key) === normalizePlanUiKey(enrollmentPlanKey)
+      ) || selectedPlan
+    );
   }, [currentStatus, enrollmentPlanKey, selectedPlan, sortedPlans]);
+
+  const activePurchasePlanMeta = useMemo(() => {
+    return (
+      sortedPlans.find(
+        (plan) => normalizePlanUiKey(plan.key) === normalizePlanUiKey(activePurchasePlan)
+      ) || null
+    );
+  }, [activePurchasePlan, sortedPlans]);
 
   const purchaseStatusMeta = useMemo(() => {
     if (purchaseState === "processing") {
@@ -404,7 +1135,7 @@ export default function Enroll() {
     if (purchaseState === "pending") {
       return {
         title: "Purchase received",
-        body: "Google Play completed the purchase. Your access is still syncing in the background.",
+        body: "Google Play ownership is confirmed. Your access is still syncing in the background.",
       };
     }
 
@@ -413,18 +1144,76 @@ export default function Enroll() {
 
   const showSuccess = purchaseState === "success" || Boolean(unlockedPlan);
   const showProcessing = Boolean(purchaseStatusMeta);
-  const billingTone = getBillingTone(billing);
-  const selectedBillingProduct = selectedPlan ? billing.products?.[selectedPlan.productId] : null;
-  const selectedPlanPlayable =
-    Boolean(selectedPlan?.productId) &&
-    Boolean(billing.products?.[selectedPlan.productId]) &&
-    billing.available;
-  const purchaseBusy = Boolean(activePurchasePlan) || Boolean(billing.busyProductId);
+  const purchaseBusy =
+    purchaseState === "processing" ||
+    purchaseState === "verifying" ||
+    purchaseState === "pending";
+
+  const shouldShowBillingCard =
+    view === "detail" && selectedPlan && !showSuccess && !showProcessing;
+
+  const runBillingProbe = useCallback(
+    async (plan) => {
+      const targetPlan = plan || selectedPlan;
+
+      if (!targetPlan?.productId) {
+        setBillingMonitor({
+          state: "diagnostic",
+          ready: false,
+          connectCode: "UNKNOWN",
+          productCode: "UNKNOWN",
+          message: "No Google Play product ID was found for this plan yet.",
+          debugMessage:
+            "selectedPlan.productId is missing. Check getGooglePlayProductId(planKey).",
+          possibleCauses: [
+            "billing configuration mismatch in app or Play Console",
+            "product may not be active for this testing setup",
+          ],
+          diagnostics: {
+            hasBridge: false,
+            canConnect: false,
+            packageName: "Unknown",
+            storeAccountEmail: "Unknown",
+            isPlayStoreInstalled: null,
+            isGooglePlayServicesAvailable: null,
+            isAppFromPlay: null,
+            foundProductIds: [],
+            missingProductIds: [],
+          },
+        });
+        return null;
+      }
+
+      setBillingRefreshing(true);
+      setBillingMonitor((prev) => ({
+        ...prev,
+        state: "checking",
+        message: "Checking Google Play billing readiness...",
+      }));
+
+      try {
+        const result = await probeGooglePlayBilling({
+          productId: targetPlan.productId,
+        });
+
+        setBillingMonitor(result);
+        return result;
+      } finally {
+        setBillingRefreshing(false);
+      }
+    },
+    [selectedPlan]
+  );
+
+  useEffect(() => {
+    if (!shouldShowBillingCard) return;
+    runBillingProbe(selectedPlan);
+  }, [shouldShowBillingCard, selectedPlan, runBillingProbe]);
 
   function updateSearch(nextPlan, nextView = "detail") {
     const next = new URLSearchParams(searchParams);
 
-    if (nextPlan) next.set("plan", normalizeKey(nextPlan));
+    if (nextPlan) next.set("plan", normalizePlanUiKey(nextPlan));
     else next.delete("plan");
 
     if (nextView) next.set("view", nextView);
@@ -434,120 +1223,254 @@ export default function Enroll() {
   }
 
   function handlePlanSelect(planKey) {
+    if (purchaseBusy) return;
     updateSearch(planKey, "detail");
+    setPageError("");
+    setDebugError("");
   }
 
-  async function refreshBillingCatalog() {
+  async function handleRefreshAccess() {
     try {
-      const nextState = await initializeGooglePlayBilling({ force: true });
-      if (!nextState.available) {
-        toast.error(nextState.message || "Google Play billing is still unavailable.");
-        return;
-      }
+      setRefreshingAccess(true);
+      setDebugError("");
 
-      toast.success("Google Play billing is ready.");
-    } catch (error) {
-      console.error("Failed to refresh billing:", error);
-      toast.error(error.message || "Could not refresh Google Play billing.");
-    }
-  }
+      const authUser = await getAuthenticatedUser();
 
-  async function restorePurchases() {
-    try {
-      await restoreGooglePlayPurchases();
-      await fetchEnrollment();
+      await fetchEnrollmentForUserId(authUser.id);
       await refreshUser?.();
-      toast.success("Google Play purchases checked.");
+
+      toast.success("Access refreshed");
     } catch (error) {
-      console.error("Restore purchases failed:", error);
-      toast.error(error.message || "Could not restore purchases.");
+      console.error("Failed to refresh access:", error);
+      const debug = formatDebugError(error);
+      setDebugError(debug);
+      toast.error("Could not refresh access right now.");
+    } finally {
+      setRefreshingAccess(false);
     }
+  }
+
+  async function activateGooglePlayPurchase({
+    planKey,
+    productId,
+    purchaseToken,
+    orderId,
+  }) {
+    const { data, error } = await supabase.functions.invoke("verify-google-play-purchase", {
+      body: {
+        plan_key: planKey,
+        product_id: productId,
+        purchase_token: purchaseToken || null,
+        order_id: orderId || null,
+      },
+    });
+
+    if (error) {
+      throw new Error(error.message || "Supabase activation function failed.");
+    }
+
+    return data;
+  }
+
+  async function finalizeOwnedOrPurchasedPlan({
+    plan,
+    authUser,
+    purchaseToken = "",
+    orderId = "",
+    bridgePayload = null,
+  }) {
+    const userId = authUser?.id || user?.id;
+
+    if (!userId) {
+      throw new Error("Missing authenticated user during purchase finalization.");
+    }
+
+    const planKey = plan.key;
+    const productId = plan.productId;
+
+    await persistGooglePlayPurchase({
+      supabase,
+      userId,
+      planKey,
+      productId,
+      purchaseToken,
+      orderId,
+      bridgePayload,
+    });
+
+    let activationResult = null;
+
+    try {
+      activationResult = await activateGooglePlayPurchase({
+        userId,
+        planKey,
+        productId,
+        purchaseToken,
+        orderId,
+      });
+    } catch (activationError) {
+      console.warn("verify-google-play function did not complete cleanly:", activationError);
+    }
+
+    const latestEnrollmentAfterPersist = await fetchEnrollmentForUserId(userId);
+    await refreshUser?.();
+
+    const activationStatus = normalizeKey(
+      activationResult?.status ||
+        activationResult?.enrollment?.status ||
+        activationResult?.data?.status
+    );
+
+    const persistedStatus = normalizeKey(
+      latestEnrollmentAfterPersist?.status
+    );
+
+    if (
+      SUCCESS_STATUSES.has(activationStatus) ||
+      SUCCESS_STATUSES.has(persistedStatus)
+    ) {
+      setPurchaseState("success");
+      setPurchaseMessage(plan.successBody);
+      toast.success(`${plan.name} unlocked`);
+      return true;
+    }
+
+    const entitlement = await waitForGooglePlayEntitlement({
+      supabase,
+      userId,
+      expectedPlanKey: planKey,
+    });
+
+    const latestEnrollmentAfterWait = await fetchEnrollmentForUserId(userId);
+    await refreshUser?.();
+
+    const entitlementStatus = normalizeKey(entitlement?.status);
+    const latestEnrollmentStatus = normalizeKey(
+      latestEnrollmentAfterWait?.status
+    );
+
+    if (
+      SUCCESS_STATUSES.has(entitlementStatus) ||
+      SUCCESS_STATUSES.has(latestEnrollmentStatus)
+    ) {
+      setPurchaseState("success");
+      setPurchaseMessage(plan.successBody);
+      toast.success(`${plan.name} unlocked`);
+      return true;
+    }
+
+    setPurchaseState("pending");
+    setPurchaseMessage(
+      "Your Google Play ownership is confirmed. Access is still syncing and should unlock shortly."
+    );
+    toast.message("Ownership confirmed. Syncing access...");
+    return false;
   }
 
   async function handlePurchase(plan) {
-    if (!user?.id || !plan) return;
-
-    if (purchaseBusy) {
-      toast.message("A purchase is already being processed.");
-      return;
-    }
-
-    if (!billing.available) {
-      toast.error(
-        billing.message ||
-          "Google Play billing is unavailable on this build. Install the internal testing build from Google Play and try again."
-      );
-      return;
-    }
-
-    if (!billing.products?.[plan.productId]) {
-      toast.error("This plan is not available from Google Play for the current tester account yet.");
-      return;
-    }
+    if (!plan || purchaseBusy) return;
 
     try {
-      setActivePurchasePlan(plan.key);
-      setPurchaseState("processing");
+      setPageError("");
+      setDebugError("");
       setPurchaseMessage("");
+      setActivePurchasePlan(plan.key);
 
-      const purchase = await launchGooglePlayPurchase({
-        productId: plan.productId,
-        planKey: plan.key,
-        userId: user.id,
-        userEmail: user.email,
-      });
+      const authUser = await getAuthenticatedUser();
 
-      if (purchase.cancelled) {
+      const billingResult = await runBillingProbe(plan);
+
+      if (!billingResult?.ready) {
+        setPageError(
+          "Google Play billing is not fully ready yet. Review the diagnostic block below before trying again."
+        );
+        setDebugError(
+          billingResult?.debugMessage || "Billing readiness check failed."
+        );
+        setActivePurchasePlan("");
+        setPurchaseState("idle");
+        return;
+      }
+
+      setPurchaseState("processing");
+
+      let purchase = null;
+
+      try {
+        purchase = await launchGooglePlayPurchase({
+          productId: plan.productId,
+          planKey: plan.key,
+          userId: authUser.id,
+          userEmail: authUser.email || user?.email || "",
+        });
+      } catch (error) {
+        if (isAlreadyOwnedError(error)) {
+          setPurchaseState("verifying");
+          setPurchaseMessage(
+            "This Google account already owns this item. Restoring your access now."
+          );
+
+          await finalizeOwnedOrPurchasedPlan({
+            plan,
+            authUser,
+            purchaseToken: "",
+            orderId: "",
+            bridgePayload: {
+              restoredFromOwnedState: true,
+              responseCode:
+                error?.responseCode || error?.code || "ITEM_ALREADY_OWNED",
+              message: error?.message || "Already owned",
+              debugMessage: error?.debugMessage || error?.details || "",
+            },
+          });
+
+          return;
+        }
+
+        throw error;
+      }
+
+      if (purchase?.cancelled) {
         setPurchaseState("idle");
         setActivePurchasePlan("");
+        setPurchaseMessage("");
         toast.message("Purchase cancelled");
         return;
       }
 
-      if (!purchase.ok) {
+      if (!purchase?.ok) {
         throw new Error("Google Play did not confirm the purchase.");
       }
 
       setPurchaseState("verifying");
 
-      await persistGooglePlayPurchase({
-        supabase,
-        userId: user.id,
-        planKey: plan.key,
-        productId: plan.productId,
+      await finalizeOwnedOrPurchasedPlan({
+        plan,
+        authUser,
         purchaseToken: purchase.purchaseToken,
         orderId: purchase.orderId,
         bridgePayload: purchase.raw,
       });
+    } catch (error) {
+      console.error("Google Play purchase failed:", error);
 
-      const entitlement = await waitForGooglePlayEntitlement({
-        supabase,
-        userId: user.id,
-        expectedPlanKey: plan.key,
-      });
+      const friendlyMessage = getFriendlyPurchaseError(error);
+      const debug = formatDebugError(error);
 
-      await fetchEnrollment();
-      await refreshUser?.();
-
-      if (entitlement.status === "active") {
-        setPurchaseState("success");
-        setPurchaseMessage(plan.successBody);
+      if (friendlyMessage === "Purchase cancelled.") {
+        setPurchaseState("idle");
         setActivePurchasePlan("");
-        toast.success(`${plan.name} unlocked`);
+        setPurchaseMessage("");
+        toast.message("Purchase cancelled");
         return;
       }
 
-      setPurchaseState("pending");
-      setPurchaseMessage(
-        "Your purchase is complete. Access is still syncing and should unlock shortly."
-      );
-      setActivePurchasePlan("");
-    } catch (error) {
-      console.error("Google Play purchase failed:", error);
       setPurchaseState("idle");
-      setPurchaseMessage("");
       setActivePurchasePlan("");
-      toast.error(error.message || "Could not complete purchase.");
+      setPurchaseMessage("");
+      setPageError(friendlyMessage);
+      setDebugError(debug);
+      toast.error("Google Play purchase failed");
     }
   }
 
@@ -580,13 +1503,16 @@ export default function Enroll() {
               navigate(-1);
             }}
             className="h-10 rounded-2xl border border-white/10 bg-white/5 px-4 text-white hover:bg-white/10"
+            disabled={purchaseBusy}
           >
             {view === "detail" && !showProcessing && !showSuccess ? (
               <ChevronLeft className="mr-2 h-4 w-4" />
             ) : (
               <ArrowLeft className="mr-2 h-4 w-4" />
             )}
-            {view === "detail" && !showProcessing && !showSuccess ? "Plans" : "Back"}
+            {view === "detail" && !showProcessing && !showSuccess
+              ? "Plans"
+              : "Back"}
           </Button>
 
           <div className="rounded-full border border-white/10 bg-white/5 px-4 py-2 text-xs uppercase tracking-[0.2em] text-white/60">
@@ -594,7 +1520,22 @@ export default function Enroll() {
           </div>
         </div>
 
-        {!showSuccess && !showProcessing ? (
+        {pageError ? (
+          <div className="mb-4 rounded-[28px] border border-red-400/20 bg-red-500/10 p-4 text-sm text-red-200 backdrop-blur-xl">
+            {pageError}
+          </div>
+        ) : null}
+
+        {debugError ? (
+          <div className="mb-6 rounded-[28px] border border-amber-400/20 bg-amber-500/10 p-4 text-xs leading-6 text-amber-100 backdrop-blur-xl break-words">
+            <span className="font-semibold uppercase tracking-[0.16em] text-amber-200/80">
+              Debug details
+            </span>
+            <div className="mt-2">{debugError}</div>
+          </div>
+        ) : null}
+
+        {!showSuccess && !showProcessing && (
           <div className="mb-6 rounded-[30px] border border-white/10 bg-white/[0.04] p-6 backdrop-blur-2xl">
             <div className="flex flex-wrap items-start justify-between gap-4">
               <div className="max-w-2xl">
@@ -605,51 +1546,27 @@ export default function Enroll() {
                   Choose your next level with less friction
                 </h1>
                 <p className="mt-3 text-sm leading-7 text-white/70 sm:text-base">
-                  Pick PRO Tools, CLARA Program, or CLARA Coaching, review one focused plan page, and unlock through Google Play without the old proof-upload flow.
+                  Pick PRO Tools, CLARA Program, or CLARA Coaching, review one focused plan page, and
+                  unlock through Google Play without the old proof-upload flow.
                 </p>
               </div>
 
-              <div className={`rounded-3xl border px-4 py-4 ${billingTone.border} ${billingTone.background}`}>
+              <div className="rounded-3xl border border-emerald-400/20 bg-emerald-500/10 px-4 py-4">
                 <div className="flex items-center gap-3">
-                  <billingTone.icon
-                    className={`h-5 w-5 ${billing.phase === "initializing" ? "animate-spin text-sky-200" : billing.phase === "ready" ? "text-emerald-300" : "text-amber-200"}`}
-                  />
-                  <div className="max-w-xs">
-                    <p className="text-xs uppercase tracking-[0.18em] text-white/50">Purchase flow</p>
-                    <p className="text-sm font-semibold text-white">{billingTone.label}</p>
-                    <p className="mt-1 text-xs leading-5 text-white/65">{billingTone.body}</p>
+                  <ShieldCheck className="h-5 w-5 text-emerald-300" />
+                  <div>
+                    <p className="text-xs uppercase tracking-[0.18em] text-white/50">
+                      Purchase flow
+                    </p>
+                    <p className="text-sm font-semibold text-white">
+                      Google Play unlock
+                    </p>
                   </div>
                 </div>
               </div>
             </div>
-
-            {!billing.available ? (
-              <div className="mt-5 flex flex-wrap items-center gap-3 rounded-3xl border border-white/10 bg-black/20 px-4 py-4">
-                <p className="flex-1 text-sm leading-7 text-white/70">
-                  If billing is unavailable, install the internal testing build from Google Play on an Android device signed into an approved tester account, then return here and refresh.
-                </p>
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={refreshBillingCatalog}
-                  className="h-11 rounded-2xl border-white/15 bg-transparent text-white hover:bg-white/10"
-                >
-                  <RefreshCw className="mr-2 h-4 w-4" />
-                  Refresh billing
-                </Button>
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={restorePurchases}
-                  className="h-11 rounded-2xl border-white/15 bg-transparent text-white hover:bg-white/10"
-                >
-                  <RefreshCw className="mr-2 h-4 w-4" />
-                  Restore purchases
-                </Button>
-              </div>
-            ) : null}
           </div>
-        ) : null}
+        )}
 
         {showSuccess ? (
           <div className="mx-auto max-w-3xl space-y-5">
@@ -661,9 +1578,11 @@ export default function Enroll() {
               <p className="mt-5 text-center text-[11px] font-semibold uppercase tracking-[0.2em] text-emerald-200/70">
                 Purchase complete
               </p>
+
               <h2 className="mt-2 text-center text-3xl font-semibold text-white">
                 {(unlockedPlan || selectedPlan)?.successTitle || "Access unlocked"}
               </h2>
+
               <p className="mx-auto mt-3 max-w-xl text-center text-sm leading-7 text-white/75">
                 {purchaseMessage ||
                   (unlockedPlan || selectedPlan)?.successBody ||
@@ -671,21 +1590,27 @@ export default function Enroll() {
               </p>
 
               <div className="mt-6 grid gap-3 sm:grid-cols-3">
-                {(unlockedPlan || selectedPlan)?.displayBenefits.slice(0, 3).map((item, index) => (
-                  <div
-                    key={`success-benefit-${index}`}
-                    className="rounded-2xl border border-white/10 bg-black/20 p-4 text-sm text-white/78"
-                  >
-                    {item}
-                  </div>
-                ))}
+                {((unlockedPlan || selectedPlan)?.displayBenefits || [])
+                  .slice(0, 3)
+                  .map((item, index) => (
+                    <div
+                      key={`success-benefit-${index}`}
+                      className="rounded-2xl border border-white/10 bg-black/20 p-4 text-sm text-white/78"
+                    >
+                      {item}
+                    </div>
+                  ))}
               </div>
             </div>
 
             <div className="flex flex-col gap-3 sm:flex-row">
               <Button
                 className="h-12 flex-1 rounded-2xl"
-                onClick={() => navigate(getSuccessDestination((unlockedPlan || selectedPlan)?.key))}
+                onClick={() =>
+                  navigate(
+                    getSuccessDestination((unlockedPlan || selectedPlan)?.key)
+                  )
+                }
               >
                 {(unlockedPlan || selectedPlan)?.successCta || "Open CLARA"}
               </Button>
@@ -705,6 +1630,8 @@ export default function Enroll() {
               <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full border border-white/10 bg-white/10">
                 {purchaseState === "pending" ? (
                   <Clock3 className="h-6 w-6 text-amber-300" />
+                ) : purchaseState === "verifying" ? (
+                  <Loader2 className="h-6 w-6 animate-spin text-emerald-300" />
                 ) : (
                   <Zap className="h-6 w-6 text-emerald-300" />
                 )}
@@ -713,14 +1640,17 @@ export default function Enroll() {
               <h2 className="mt-5 text-center text-2xl font-semibold text-white">
                 {purchaseStatusMeta?.title}
               </h2>
+
               <p className="mx-auto mt-3 max-w-xl text-center text-sm leading-7 text-white/72">
                 {purchaseMessage || purchaseStatusMeta?.body}
               </p>
 
               <div className="mt-6 rounded-2xl border border-white/10 bg-black/20 p-4">
-                <p className="text-[11px] uppercase tracking-[0.18em] text-white/45">Selected plan</p>
+                <p className="text-[11px] uppercase tracking-[0.18em] text-white/45">
+                  Selected plan
+                </p>
                 <p className="mt-2 text-sm font-semibold text-white">
-                  {sortedPlans.find((plan) => plan.key === activePurchasePlan)?.name || "CLARA plan"}
+                  {activePurchasePlanMeta?.name || "CLARA plan"}
                 </p>
               </div>
             </div>
@@ -728,12 +1658,17 @@ export default function Enroll() {
             <div className="flex flex-col gap-3 sm:flex-row">
               <Button
                 className="h-12 flex-1 rounded-2xl"
-                onClick={async () => {
-                  await fetchEnrollment();
-                  await refreshUser?.();
-                }}
+                onClick={handleRefreshAccess}
+                disabled={refreshingAccess}
               >
-                Refresh access
+                {refreshingAccess ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Refreshing...
+                  </>
+                ) : (
+                  "Refresh access"
+                )}
               </Button>
 
               <Button
@@ -747,8 +1682,21 @@ export default function Enroll() {
           </div>
         ) : view === "detail" && selectedPlan ? (
           <div className="mx-auto max-w-3xl">
-            <div className={`rounded-[32px] border ${selectedPlan.border} bg-white/[0.04] shadow-[0_20px_50px_rgba(0,0,0,0.24)] backdrop-blur-2xl`}>
-              <div className={`rounded-t-[32px] bg-gradient-to-br ${selectedPlan.accent} p-6`}>
+            <BillingDiagnosticCard
+              billingMonitor={billingMonitor}
+              billingDebugOpen={billingDebugOpen}
+              setBillingDebugOpen={setBillingDebugOpen}
+              onRefresh={() => runBillingProbe(selectedPlan)}
+              refreshing={billingRefreshing}
+              productId={selectedPlan.productId}
+            />
+
+            <div
+              className={`rounded-[32px] border ${selectedPlan.border} bg-white/[0.04] shadow-[0_20px_50px_rgba(0,0,0,0.24)] backdrop-blur-2xl`}
+            >
+              <div
+                className={`rounded-t-[32px] bg-gradient-to-br ${selectedPlan.accent} p-6`}
+              >
                 {(() => {
                   const SelectedIcon = selectedPlan.icon;
                   return (
@@ -762,34 +1710,41 @@ export default function Enroll() {
                 <div className="mt-5 flex flex-wrap items-start justify-between gap-4">
                   <div className="max-w-xl">
                     <div className="flex flex-wrap items-center gap-2">
-                      <h2 className="text-3xl font-semibold text-white">{selectedPlan.name}</h2>
+                      <h2 className="text-3xl font-semibold text-white">
+                        {selectedPlan.name}
+                      </h2>
                       <span className="rounded-full border border-white/10 bg-white/5 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.18em] text-white/70">
                         {selectedPlan.badge}
                       </span>
                     </div>
-                    <p className="mt-3 text-sm leading-7 text-white/74">{selectedPlan.statement}</p>
+
+                    <p className="mt-3 text-sm leading-7 text-white/74">
+                      {selectedPlan.statement}
+                    </p>
                   </div>
 
                   <div className="rounded-2xl border border-white/10 bg-black/20 px-4 py-3 text-right">
                     <p className="text-[11px] uppercase tracking-[0.16em] text-white/45">
                       {selectedPlan.productMeta?.productType === "subscription" ? "Monthly subscription" : "One-time unlock"}
                     </p>
-                    <p className="mt-1 text-2xl font-semibold text-white">{formatPeso(selectedPlan.price)}</p>
-                    {selectedBillingProduct?.pricing?.price ? (
-                      <p className="mt-1 text-xs text-white/45">
-                        Google Play: {selectedBillingProduct.pricing.price}
-                      </p>
-                    ) : null}
+                    <p className="mt-1 text-2xl font-semibold text-white">
+                      {formatPeso(selectedPlan.price)}
+                    </p>
                   </div>
                 </div>
               </div>
 
               <div className="space-y-5 p-6">
                 <div className="rounded-[24px] border border-white/10 bg-black/20 p-5">
-                  <p className="text-[11px] uppercase tracking-[0.18em] text-white/45">What's included</p>
+                  <p className="text-[11px] uppercase tracking-[0.18em] text-white/45">
+                    What's included
+                  </p>
                   <div className="mt-4 space-y-3">
                     {selectedPlan.displayBenefits.map((item, index) => (
-                      <div key={`benefit-${index}`} className="flex items-start gap-3 text-sm text-white/78">
+                      <div
+                        key={`benefit-${index}`}
+                        className="flex items-start gap-3 text-sm text-white/78"
+                      >
                         <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-emerald-300" />
                         <span>{item}</span>
                       </div>
@@ -799,8 +1754,12 @@ export default function Enroll() {
 
                 <div className="grid gap-3 sm:grid-cols-2">
                   <div className="rounded-[24px] border border-white/10 bg-black/20 p-4">
-                    <p className="text-[11px] uppercase tracking-[0.18em] text-white/45">Purchase method</p>
-                    <p className="mt-2 text-sm font-semibold text-white">Google Play Billing</p>
+                    <p className="text-[11px] uppercase tracking-[0.18em] text-white/45">
+                      Purchase method
+                    </p>
+                    <p className="mt-2 text-sm font-semibold text-white">
+                      Google Play Billing
+                    </p>
                     <p className="mt-2 text-sm leading-7 text-white/68">
                       {selectedPlan.productMeta?.productType === "subscription"
                         ? "Monthly subscription handled through Google Play. No proof upload. No manual review form."
@@ -809,36 +1768,28 @@ export default function Enroll() {
                   </div>
 
                   <div className="rounded-[24px] border border-white/10 bg-black/20 p-4">
-                    <p className="text-[11px] uppercase tracking-[0.18em] text-white/45">Billing status</p>
-                    <p className="mt-2 text-sm font-semibold text-white">{billingTone.label}</p>
+                    <p className="text-[11px] uppercase tracking-[0.18em] text-white/45">
+                      After purchase
+                    </p>
+                    <p className="mt-2 text-sm font-semibold text-white">
+                      Immediate guided handoff
+                    </p>
                     <p className="mt-2 text-sm leading-7 text-white/68">
-                      {selectedPlanPlayable
-                        ? "This plan is loaded from Google Play and ready to open the purchase sheet."
-                        : billingTone.body}
+                      Once entitlement sync completes, CLARA will route you to the
+                      right next step for this plan.
                     </p>
                   </div>
                 </div>
 
-                {!selectedPlanPlayable ? (
-                  <div className="rounded-[24px] border border-amber-400/20 bg-amber-500/10 p-4">
-                    <div className="flex flex-wrap items-center gap-3">
-                      <AlertTriangle className="h-5 w-5 text-amber-200" />
-                      <p className="flex-1 text-sm leading-7 text-white/75">
-                        {billing.available
-                          ? "Google Play is connected, but this product is not available for the current build or tester account yet."
-                          : billing.message ||
-                            "Google Play billing is unavailable right now. Install the internal testing build from Google Play and refresh billing."}
-                      </p>
-                      <Button
-                        type="button"
-                        variant="outline"
-                        onClick={refreshBillingCatalog}
-                        className="h-11 rounded-2xl border-white/15 bg-transparent text-white hover:bg-white/10"
-                      >
-                        <RefreshCw className="mr-2 h-4 w-4" />
-                        Refresh billing
-                      </Button>
-                    </div>
+                {BILLING_CHECKING_STATES.has(billingMonitor.state) ? (
+                  <div className="rounded-[24px] border border-sky-400/15 bg-sky-500/5 p-4 text-sm text-sky-100">
+                    Checking billing readiness for this plan...
+                  </div>
+                ) : null}
+
+                {BILLING_WARN_STATES.has(billingMonitor.state) ? (
+                  <div className="rounded-[24px] border border-amber-400/15 bg-amber-500/5 p-4 text-sm leading-7 text-amber-100">
+                    Google Play billing is not fully ready yet. This is now treated as a diagnostic state instead of a hard-coded install-source failure.
                   </div>
                 ) : null}
               </div>
@@ -847,25 +1798,37 @@ export default function Enroll() {
             <div className="sticky bottom-4 mt-5 rounded-[28px] border border-white/10 bg-[#07111d]/92 p-4 shadow-[0_20px_50px_rgba(0,0,0,0.24)] backdrop-blur-2xl">
               <div className="flex items-center justify-between gap-3">
                 <div className="min-w-0">
-                  <p className="text-[11px] uppercase tracking-[0.18em] text-white/45">Selected plan</p>
+                  <p className="text-[11px] uppercase tracking-[0.18em] text-white/45">
+                    Selected plan
+                  </p>
                   <p className="mt-1 text-sm font-semibold text-white">
-                    {selectedPlan.name} - {formatPeso(selectedPlan.price)}
+                    {selectedPlan.name} • {formatPeso(selectedPlan.price)}
                   </p>
                 </div>
 
                 <Button
                   className="h-12 rounded-2xl px-5"
                   onClick={() => handlePurchase(selectedPlan)}
-                  disabled={!selectedPlanPlayable || purchaseBusy}
+                  disabled={purchaseBusy || billingRefreshing}
                 >
-                  {purchaseBusy ? (
-                    <LoaderCircle className="mr-2 h-4 w-4 animate-spin" />
+                  {purchaseBusy &&
+                  normalizePlanUiKey(activePurchasePlan) ===
+                    normalizePlanUiKey(selectedPlan.key) ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Processing...
+                    </>
+                  ) : billingRefreshing ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Checking...
+                    </>
                   ) : (
-                    <Sparkles className="mr-2 h-4 w-4" />
+                    <>
+                      <Sparkles className="mr-2 h-4 w-4" />
+                      {selectedPlan.ctaLabel}
+                    </>
                   )}
-                  {purchaseBusy && activePurchasePlan === selectedPlan.key
-                    ? "Opening Google Play..."
-                    : selectedPlan.ctaLabel}
                 </Button>
               </div>
             </div>
@@ -884,12 +1847,14 @@ export default function Enroll() {
                       <Lock className="h-5 w-5 text-white/60" />
                     )}
                   </div>
+
                   <div>
                     <p className="text-sm font-semibold text-white">
                       {PENDING_STATUSES.has(currentStatus)
                         ? "Purchase sync is still in progress"
                         : "Previous enrollment found"}
                     </p>
+
                     <p className="mt-2 text-sm leading-7 text-white/68">
                       {PENDING_STATUSES.has(currentStatus)
                         ? "If a recent Google Play purchase is still syncing, you can refresh access below or choose a plan to review again."
@@ -905,16 +1870,16 @@ export default function Enroll() {
                 <SelectionCard
                   key={plan.id || plan.key}
                   plan={plan}
-                  selected={plan.key === selectedPlanKey}
+                  selected={normalizePlanUiKey(plan.key) === selectedPlanKey}
                   onSelect={handlePlanSelect}
-                  billingProduct={billing.products?.[plan.productId]}
                 />
               ))}
             </div>
 
             {sortedPlans.length === 0 ? (
               <div className="rounded-3xl border border-white/10 bg-white/5 p-5 text-sm text-white/70 backdrop-blur-xl">
-                No Google Play plans are active yet. Activate PRO Tools, CLARA Program, or CLARA Coaching from admin first.
+                No Google Play plans are active yet. Activate PRO Tools, CLARA Program, or
+                CLARA Coaching from admin first.
               </div>
             ) : null}
           </div>
