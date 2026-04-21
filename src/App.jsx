@@ -83,19 +83,62 @@ function getEnrollmentTimestamp(enrollment) {
   ).getTime();
 }
 
-function pickBestEnrollment(enrollments) {
-  if (!Array.isArray(enrollments) || enrollments.length === 0) return null;
-
-  const sorted = [...enrollments].sort((a, b) => {
-    return getEnrollmentTimestamp(b) - getEnrollmentTimestamp(a);
-  });
-
-  return sorted[0] || null;
-}
-
 function normalizeValue(value) {
   if (value === null || value === undefined) return "";
   return String(value).trim().toLowerCase();
+}
+
+function normalizePlanKey(value) {
+  const normalized = normalizeValue(value);
+
+  const aliases = {
+    entry: "entry",
+    pro: "entry",
+    pro_tools: "entry",
+    protools: "entry",
+    clara_entry: "entry",
+    clara_pro_tools: "entry",
+    clara_pro_tools_monthly: "entry",
+    clara_pro_tools_monthly_99: "entry",
+
+    core: "core",
+    program: "core",
+    clara_core: "core",
+    clara_program: "core",
+    clara_program_599: "core",
+
+    coach: "coaching",
+    coaching: "coaching",
+    clara_coach: "coaching",
+    clara_coaching: "coaching",
+    clara_coaching_1299: "coaching",
+
+    free: "free",
+    basic: "entry",
+    diy: "entry",
+    transformation: "core",
+    diwm: "core",
+    student: "core",
+    elite: "coaching",
+    ldit: "coaching",
+  };
+
+  return aliases[normalized] || normalized;
+}
+
+function getEnrollmentPlanKey(enrollment) {
+  return normalizePlanKey(
+    enrollment?.plan_key ||
+      enrollment?.plan ||
+      enrollment?.tier ||
+      enrollment?.selected_plan ||
+      enrollment?.product_id ||
+      enrollment?.productId
+  );
+}
+
+function isSupportedPaidPlanKey(planKey) {
+  return ["entry", "core", "coaching"].includes(normalizePlanKey(planKey));
 }
 
 function isGooglePlayEnrollment(enrollment) {
@@ -156,6 +199,10 @@ function isPaidEnrollment(enrollment) {
     "awaiting_review",
     "awaiting_payment",
     "payment_pending",
+    "google_play_pending",
+    "google_play_processing",
+    "purchase_pending",
+    "purchase_processing",
   ]);
 
   if (paidStatuses.has(status)) return true;
@@ -179,8 +226,70 @@ function isPaidEnrollment(enrollment) {
   return false;
 }
 
+function isPendingEnrollment(enrollment) {
+  if (!enrollment) return false;
+
+  const status = normalizeValue(
+    enrollment?.status ||
+      enrollment?.enrollment_status ||
+      enrollment?.payment_status ||
+      enrollment?.purchase_status
+  );
+
+  return new Set([
+    "pending",
+    "processing",
+    "under_review",
+    "submitted",
+    "awaiting_review",
+    "awaiting_payment",
+    "payment_pending",
+    "google_play_pending",
+    "google_play_processing",
+    "purchase_pending",
+    "purchase_processing",
+  ]).has(status);
+}
+
+function getEnrollmentPriorityScore(enrollment) {
+  if (!enrollment) return -1;
+
+  const planKey = getEnrollmentPlanKey(enrollment);
+  const supportedPaidPlan = isSupportedPaidPlanKey(planKey);
+  const paid = isPaidEnrollment(enrollment);
+  const pending = isPendingEnrollment(enrollment);
+  const timestamp = getEnrollmentTimestamp(enrollment);
+
+  let score = 0;
+
+  if (supportedPaidPlan) score += 1000;
+  if (paid) score += 10000;
+  if (pending) score += 2000;
+  if (isGooglePlayEnrollment(enrollment)) score += 500;
+  if (
+    enrollment?.purchase_token ||
+    enrollment?.purchaseToken ||
+    enrollment?.order_id ||
+    enrollment?.orderId
+  ) {
+    score += 750;
+  }
+
+  return score * 10000000000000 + timestamp;
+}
+
+function pickBestEnrollment(enrollments) {
+  if (!Array.isArray(enrollments) || enrollments.length === 0) return null;
+
+  const sorted = [...enrollments].sort((a, b) => {
+    return getEnrollmentPriorityScore(b) - getEnrollmentPriorityScore(a);
+  });
+
+  return sorted[0] || null;
+}
+
 function getSafeFlow(resolvedFlow, enrollment) {
-  if (isPaidEnrollment(enrollment)) {
+  if (isPaidEnrollment(enrollment) && isSupportedPaidPlanKey(getEnrollmentPlanKey(enrollment))) {
     return "active";
   }
 
@@ -241,7 +350,18 @@ function AppRoutes() {
   const [forceLogoutProcessing, setForceLogoutProcessing] = useState(false);
 
   const profileReady = user ? profile !== null : true;
-  const enrollmentPaid = useMemo(() => isPaidEnrollment(enrollment), [enrollment]);
+
+  const enrollmentPlanKey = useMemo(
+    () => getEnrollmentPlanKey(enrollment),
+    [enrollment]
+  );
+
+  const enrollmentPaid = useMemo(
+    () =>
+      isPaidEnrollment(enrollment) &&
+      isSupportedPaidPlanKey(enrollmentPlanKey),
+    [enrollment, enrollmentPlanKey]
+  );
 
   useEffect(() => {
     let isMounted = true;
@@ -385,8 +505,9 @@ function AppRoutes() {
   }, [user, profileReady, enrollmentLoading, profile, normalizedRole, enrollment]);
 
   const forceEnroll = useMemo(() => {
-    if (!user || !profileReady || enrollmentLoading || !profile) return false;
+    if (!user || !profileReady || enrollmentLoading) return false;
     if (enrollmentPaid) return false;
+    if (!profile) return false;
     return resolvedAccess.forceEnroll;
   }, [
     user,

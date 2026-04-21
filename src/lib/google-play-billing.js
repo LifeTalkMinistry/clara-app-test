@@ -2,7 +2,9 @@ import { CLARA_PRODUCTS, getClaraProductByPlan } from "@/lib/clara-entitlements"
 
 const PRODUCT_IDS = {
   entry: CLARA_PRODUCTS.pro.productId,
+  pro: CLARA_PRODUCTS.pro.productId,
   core: CLARA_PRODUCTS.program.productId,
+  program: CLARA_PRODUCTS.program.productId,
   coach: CLARA_PRODUCTS.coaching.productId,
   coaching: CLARA_PRODUCTS.coaching.productId,
 };
@@ -28,6 +30,10 @@ export function getAllGooglePlayProductIds() {
 
 function getGooglePlayProductType(productId) {
   return PRODUCT_TYPES[normalize(productId)] || "inapp";
+}
+
+function isSubscriptionProduct(productId) {
+  return getGooglePlayProductType(productId) === "subs";
 }
 
 function parseBridgeResult(result) {
@@ -146,7 +152,7 @@ function requireAuthenticatedUserId(userId) {
   return normalizedUserId;
 }
 
-function resolveEnrollmentStatus({ purchaseToken, orderId, bridgePayload }) {
+function resolveEnrollmentStatus({ purchaseToken, orderId, bridgePayload, productId }) {
   const bridgeStatus = normalizeLower(
     bridgePayload?.status ||
       bridgePayload?.enrollment_status ||
@@ -157,11 +163,93 @@ function resolveEnrollmentStatus({ purchaseToken, orderId, bridgePayload }) {
     return bridgeStatus;
   }
 
+  const purchaseState = normalizeLower(
+    bridgePayload?.purchaseState ||
+      bridgePayload?.purchase_state ||
+      bridgePayload?.state
+  );
+
+  if (purchaseState === "purchased" || purchaseState === "1") {
+    return isSubscriptionProduct(productId) ? "active" : "approved";
+  }
+
   if (normalize(purchaseToken) || normalize(orderId)) {
-    return "approved";
+    return isSubscriptionProduct(productId) ? "active" : "approved";
   }
 
   return "google_play_pending";
+}
+
+function extractPurchases(parsed) {
+  return [
+    ...(Array.isArray(parsed?.purchases) ? parsed.purchases : []),
+    ...(Array.isArray(parsed?.items) ? parsed.items : []),
+    ...(Array.isArray(parsed?.purchaseList) ? parsed.purchaseList : []),
+    ...(Array.isArray(parsed?.purchaseDataList) ? parsed.purchaseDataList : []),
+    ...(Array.isArray(parsed?.subscriptions) ? parsed.subscriptions : []),
+    ...(parsed?.purchase ? [parsed.purchase] : []),
+    ...(parsed?.item ? [parsed.item] : []),
+    ...(parsed?.subscription ? [parsed.subscription] : []),
+  ]
+    .map((item) => parseBridgeResult(item))
+    .filter(Boolean);
+}
+
+function extractPurchaseToken(parsed, matchedPurchase = null) {
+  const source = matchedPurchase || parsed || {};
+
+  return (
+    source?.purchaseToken ||
+    source?.token ||
+    source?.purchase_token ||
+    parsed?.purchaseToken ||
+    parsed?.token ||
+    parsed?.purchase_token ||
+    ""
+  );
+}
+
+function extractOrderId(parsed, matchedPurchase = null) {
+  const source = matchedPurchase || parsed || {};
+
+  return (
+    source?.orderId ||
+    source?.order_id ||
+    parsed?.orderId ||
+    parsed?.order_id ||
+    ""
+  );
+}
+
+function extractSubscriptionFields(parsed, matchedPurchase = null) {
+  const source = matchedPurchase || parsed || {};
+
+  return {
+    subscriptionId:
+      source?.subscriptionId ||
+      source?.subscription_id ||
+      source?.productId ||
+      source?.product_id ||
+      "",
+    basePlanId:
+      source?.basePlanId ||
+      source?.base_plan_id ||
+      source?.basePlan ||
+      source?.offerBasePlanId ||
+      "",
+    offerId:
+      source?.offerId ||
+      source?.offer_id ||
+      source?.offerToken ||
+      source?.offer_token ||
+      "",
+    offerToken:
+      source?.offerToken ||
+      source?.offer_token ||
+      source?.subscriptionOfferToken ||
+      source?.subscription_offer_token ||
+      "",
+  };
 }
 
 async function safeBridgeCall(methodName, payload) {
@@ -201,6 +289,119 @@ async function safeBridgeCall(methodName, payload) {
       raw: error,
     };
   }
+}
+
+async function restoreOwnedGooglePlayPurchase({
+  productId,
+  planKey,
+  userId,
+  userEmail,
+  purchaseContext = "owned_restore",
+}) {
+  const payload = {
+    productId: normalize(productId),
+    planKey: normalize(planKey),
+    productType: getGooglePlayProductType(productId),
+    userId: normalize(userId),
+    userEmail: normalize(userEmail),
+    purchaseContext: normalize(purchaseContext) || "owned_restore",
+  };
+
+  const restoreMethods = [
+    "restorePurchases",
+    "restorePurchase",
+    "getPurchases",
+    "queryPurchases",
+    "getOwnedPurchases",
+    "getPurchaseHistory",
+  ];
+
+  for (const methodName of restoreMethods) {
+    const result = await safeBridgeCall(methodName, payload);
+
+    if (!result.ok && !result.raw) {
+      continue;
+    }
+
+    const parsed = result.raw || {};
+    const responseCode = normalizeResponseCode(
+      parsed?.responseCode ?? parsed?.code ?? parsed?.statusCode ?? "UNKNOWN"
+    );
+
+    const purchases = extractPurchases(parsed);
+
+    const matchedPurchase =
+      purchases.find((purchase) => {
+        const purchaseProductId = normalize(
+          purchase?.productId ||
+            purchase?.product_id ||
+            purchase?.sku ||
+            purchase?.product ||
+            purchase?.subscriptionId ||
+            purchase?.subscription_id
+        );
+        return !payload.productId || purchaseProductId === payload.productId;
+      }) ||
+      (normalize(
+        parsed?.productId ||
+          parsed?.product_id ||
+          parsed?.sku ||
+          parsed?.product ||
+          parsed?.subscriptionId ||
+          parsed?.subscription_id
+      ) === payload.productId
+        ? parsed
+        : null);
+
+    if (matchedPurchase) {
+      const subscriptionFields = extractSubscriptionFields(parsed, matchedPurchase);
+
+      return {
+        ok: true,
+        restored: true,
+        cancelled: false,
+        responseCode:
+          responseCode === "UNKNOWN" ? "ITEM_ALREADY_OWNED" : responseCode,
+        purchaseToken: extractPurchaseToken(parsed, matchedPurchase),
+        orderId: extractOrderId(parsed, matchedPurchase),
+        ...subscriptionFields,
+        raw: {
+          ...parsed,
+          restored: true,
+          restoredVia: methodName,
+          matchedPurchase,
+        },
+      };
+    }
+
+    if (responseCode === "OK" && purchases.length === 0) {
+      const subscriptionFields = extractSubscriptionFields(parsed);
+
+      return {
+        ok: true,
+        restored: true,
+        cancelled: false,
+        responseCode: "ITEM_ALREADY_OWNED",
+        purchaseToken: extractPurchaseToken(parsed),
+        orderId: extractOrderId(parsed),
+        ...subscriptionFields,
+        raw: {
+          ...parsed,
+          restored: true,
+          restoredVia: methodName,
+        },
+      };
+    }
+  }
+
+  throw makeError(
+    "Google Play reports this item is already owned, but the restore details could not be loaded.",
+    {
+      responseCode: "ITEM_ALREADY_OWNED",
+      debugMessage:
+        "Tried restorePurchases/restorePurchase/getPurchases/queryPurchases/getOwnedPurchases/getPurchaseHistory but no matching purchase details were returned.",
+    }
+  );
 }
 
 export async function connectGooglePlayBilling() {
@@ -357,8 +558,7 @@ export async function diagnoseGooglePlayBilling({ productId } = {}) {
     message: ready
       ? "Google Play billing looks ready on this device."
       : "Google Play billing connected, but product readiness still needs attention.",
-    debugMessage:
-      productState.debugMessage || connection.debugMessage || "",
+    debugMessage: productState.debugMessage || connection.debugMessage || "",
     diagnostics: {
       foundProductIds: productState.foundProductIds || [],
       missingProductIds: productState.missingProductIds || [],
@@ -366,6 +566,73 @@ export async function diagnoseGooglePlayBilling({ productId } = {}) {
       rawProductResult: productState.raw || null,
     },
   };
+}
+
+function getBridgePurchaseMethods(productType) {
+  if (productType === "subs") {
+    return [
+      "purchaseSubscription",
+      "subscribe",
+      "purchaseProduct",
+      "launchPurchase",
+      "purchase",
+    ];
+  }
+
+  return [
+    "purchaseOneTimeProduct",
+    "purchaseProduct",
+    "launchPurchase",
+    "purchase",
+  ];
+}
+
+function getBridgeAvailabilityDebugMessage(productType, triedMethods) {
+  const typeLabel = productType === "subs" ? "subscription" : "one-time product";
+  return `No ClaraBilling purchase method is available for ${typeLabel}. Tried: ${triedMethods.join(
+    ", "
+  )}.`;
+}
+
+async function performBridgePurchase({ bridge, payload }) {
+  const productType = payload?.productType || "inapp";
+  const methodNames = getBridgePurchaseMethods(productType);
+
+  for (const methodName of methodNames) {
+    const method = bridge?.[methodName];
+    if (typeof method !== "function") continue;
+
+    try {
+      const result = await method.call(bridge, payload);
+      return {
+        methodName,
+        parsed: parseBridgeResult(result),
+      };
+    } catch (error) {
+      const normalizedCode = normalizeResponseCode(
+        error?.responseCode || error?.code
+      );
+
+      if (normalizedCode === "ITEM_ALREADY_OWNED") {
+        throw makeError(error?.message || "Google Play item already owned.", {
+          responseCode: normalizedCode,
+          debugMessage:
+            error?.debugMessage || error?.details || error?.message || "",
+        });
+      }
+
+      throw makeError(error?.message || "Failed to open Google Play purchase.", {
+        responseCode: normalizedCode,
+        debugMessage:
+          error?.debugMessage || error?.details || error?.message || "",
+      });
+    }
+  }
+
+  throw makeError("Google Play Billing bridge was not found in this app build.", {
+    responseCode: "BILLING_UNAVAILABLE",
+    debugMessage: getBridgeAvailabilityDebugMessage(productType, methodNames),
+  });
 }
 
 export async function launchGooglePlayPurchase({
@@ -381,34 +648,45 @@ export async function launchGooglePlayPurchase({
     });
   }
 
+  const productType = getGooglePlayProductType(productId);
+
   const payload = {
     productId: normalize(productId),
     planKey: normalize(planKey),
-    productType: getGooglePlayProductType(productId),
+    productType,
     userId: normalize(userId),
     userEmail: normalize(userEmail),
   };
 
   const bridge = getBillingBridge();
 
-  if (!bridge || typeof bridge.purchaseOneTimeProduct !== "function") {
+  if (!bridge) {
     throw makeError("Google Play Billing bridge was not found in this app build.", {
       responseCode: "BILLING_UNAVAILABLE",
       debugMessage:
-        "ClaraBilling purchaseOneTimeProduct() is not available through registerPlugin().",
+        "ClaraBilling was not found on window.ClaraBilling or window.Capacitor.Plugins.ClaraBilling.",
     });
   }
 
   let parsed;
+  let purchaseMethodName = "";
 
   try {
-    parsed = parseBridgeResult(await bridge.purchaseOneTimeProduct(payload));
+    const purchaseResult = await performBridgePurchase({ bridge, payload });
+    parsed = purchaseResult.parsed;
+    purchaseMethodName = purchaseResult.methodName;
   } catch (err) {
-    throw makeError(err?.message || "Failed to open Google Play purchase.", {
-      responseCode: normalizeResponseCode(err?.responseCode || err?.code),
-      debugMessage:
-        err?.debugMessage || err?.details || err?.message || "",
-    });
+    if (normalizeResponseCode(err?.responseCode || err?.code) === "ITEM_ALREADY_OWNED") {
+      return restoreOwnedGooglePlayPurchase({
+        productId,
+        planKey,
+        userId,
+        userEmail,
+        purchaseContext: "already_owned",
+      });
+    }
+
+    throw err;
   }
 
   const normalizedCode = normalizeResponseCode(
@@ -424,12 +702,23 @@ export async function launchGooglePlayPurchase({
     parsed?.status === "canceled" ||
     normalizedCode === "USER_CANCELED";
 
+  if (normalizedCode === "ITEM_ALREADY_OWNED") {
+    return restoreOwnedGooglePlayPurchase({
+      productId,
+      planKey,
+      userId,
+      userEmail,
+      purchaseContext: "already_owned",
+    });
+  }
+
   const ok =
     parsed?.ok === true ||
     parsed?.success === true ||
     parsed?.status === "purchased" ||
     parsed?.purchaseState === "PURCHASED" ||
     parsed?.purchaseState === 1 ||
+    normalizeLower(parsed?.purchaseState) === "purchased" ||
     normalizedCode === "OK";
 
   if (!ok && !cancelled) {
@@ -443,23 +732,26 @@ export async function launchGooglePlayPurchase({
           parsed?.debugMessage ||
           parsed?.details ||
           parsed?.message ||
-          "Purchase returned a non-success result.",
+          `Purchase returned a non-success result from ${purchaseMethodName || "bridge method"}.`,
         raw: parsed,
       }
     );
   }
 
+  const subscriptionFields = extractSubscriptionFields(parsed);
+
   return {
     ok,
     cancelled,
+    restored: false,
     responseCode: normalizedCode,
-    purchaseToken:
-      parsed?.purchaseToken ||
-      parsed?.token ||
-      parsed?.purchase_token ||
-      "",
-    orderId: parsed?.orderId || parsed?.order_id || "",
-    raw: parsed,
+    purchaseToken: extractPurchaseToken(parsed),
+    orderId: extractOrderId(parsed),
+    ...subscriptionFields,
+    raw: {
+      ...parsed,
+      purchaseMethodName,
+    },
   };
 }
 
@@ -479,10 +771,12 @@ export async function persistGooglePlayPurchase({
   const safeProductId = normalize(productId);
   const safePurchaseToken = normalize(purchaseToken) || null;
   const safeOrderId = normalize(orderId) || null;
+  const productType = getGooglePlayProductType(safeProductId);
   const resolvedStatus = resolveEnrollmentStatus({
     purchaseToken: safePurchaseToken,
     orderId: safeOrderId,
     bridgePayload,
+    productId: safeProductId,
   });
 
   if (!safePlanKey) {
@@ -504,6 +798,7 @@ export async function persistGooglePlayPurchase({
       "verify-google-play-purchase",
       {
         body: {
+          user_id: safeUserId,
           plan_key: safePlanKey,
           product_id: safeProductId,
           purchase_token: safePurchaseToken,
@@ -528,9 +823,28 @@ export async function persistGooglePlayPurchase({
     tier_type: getClaraProductByPlan(safePlanKey)?.tierType || safePlanKey,
     product_id: safeProductId,
     play_product_id: safeProductId,
+    product_type: productType,
+    play_product_type: productType,
     purchase_token: safePurchaseToken,
     play_purchase_token: safePurchaseToken,
     order_id: safeOrderId,
+    subscription_id:
+      normalize(
+        bridgePayload?.subscriptionId || bridgePayload?.subscription_id
+      ) || (productType === "subs" ? safeProductId : null),
+    base_plan_id:
+      normalize(
+        bridgePayload?.basePlanId ||
+          bridgePayload?.base_plan_id ||
+          bridgePayload?.basePlan
+      ) || null,
+    offer_id:
+      normalize(
+        bridgePayload?.offerId ||
+          bridgePayload?.offer_id ||
+          bridgePayload?.offerToken ||
+          bridgePayload?.offer_token
+      ) || null,
     source: "google_play",
     purchase_source: "google_play",
     status: resolvedStatus,
@@ -542,22 +856,46 @@ export async function persistGooglePlayPurchase({
   if (safePurchaseToken) {
     const { data, error } = await supabase
       .from("enrollments")
-      .select("id")
+      .select("id, user_id")
       .eq("purchase_token", safePurchaseToken)
       .maybeSingle();
 
     if (error) throw error;
+
+    if (data?.user_id && normalize(data.user_id) !== safeUserId) {
+      throw makeError(
+        "This Google Play purchase is already linked to another account.",
+        {
+          responseCode: "ITEM_ALREADY_OWNED",
+          debugMessage:
+            "purchase_token already exists and belongs to a different CLARA user.",
+        }
+      );
+    }
+
     existing = data || null;
   }
 
   if (!existing && safeOrderId) {
     const { data, error } = await supabase
       .from("enrollments")
-      .select("id")
+      .select("id, user_id")
       .eq("order_id", safeOrderId)
       .maybeSingle();
 
     if (error) throw error;
+
+    if (data?.user_id && normalize(data.user_id) !== safeUserId) {
+      throw makeError(
+        "This Google Play purchase is already linked to another account.",
+        {
+          responseCode: "ITEM_ALREADY_OWNED",
+          debugMessage:
+            "order_id already exists and belongs to a different CLARA user.",
+        }
+      );
+    }
+
     existing = data || null;
   }
 
@@ -567,19 +905,6 @@ export async function persistGooglePlayPurchase({
       .select("id")
       .eq("user_id", safeUserId)
       .eq("product_id", safeProductId)
-      .order("created_at", { ascending: false })
-      .limit(1)
-      .maybeSingle();
-
-    if (error) throw error;
-    existing = data || null;
-  }
-
-  if (!existing) {
-    const { data, error } = await supabase
-      .from("enrollments")
-      .select("id")
-      .eq("user_id", safeUserId)
       .order("created_at", { ascending: false })
       .limit(1)
       .maybeSingle();
@@ -611,7 +936,9 @@ export async function persistGooglePlayPurchase({
 
   if (resolvedStatus === "approved" || resolvedStatus === "active") {
     const product = getClaraProductByPlan(safePlanKey);
-    const isProOnly = safePlanKey === "entry";
+    const isProOnly =
+      safePlanKey === "entry" || safePlanKey === "pro" || productType === "subs";
+
     const profilePatch = isProOnly
       ? {
           plan: "entry",
