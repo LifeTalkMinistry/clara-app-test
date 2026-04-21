@@ -1,14 +1,12 @@
-import { useMemo, useState } from "react";
+import { useMemo } from "react";
 import {
   WalletCards,
   Plus,
-  ArrowLeftRight,
   Trash2,
   ArrowUp,
   ArrowDown,
   ChevronDown,
   ChevronUp,
-  X,
 } from "lucide-react";
 
 const fmt = (n) =>
@@ -100,72 +98,6 @@ function getWalletMessage(topWallet, walletCount) {
   return "Your wallets are ready for tracking and movement.";
 }
 
-function WalletActionModal({
-  open,
-  onClose,
-  expanded,
-  financeActionLoading,
-  onCreateWallet,
-  onToggleDetails,
-}) {
-  if (!open) return null;
-
-  return (
-    <div className="fixed inset-0 z-[120] flex items-center justify-center p-4">
-      <div
-        className="absolute inset-0 bg-black/70 backdrop-blur-sm"
-        onClick={onClose}
-      />
-      <div className="relative z-10 w-full max-w-md overflow-hidden rounded-3xl border border-white/10 bg-[#08111d] shadow-2xl">
-        <div className="flex items-center justify-between border-b border-white/10 p-4">
-          <div>
-            <p className="text-base font-semibold text-white">Wallet Actions</p>
-            <p className="mt-0.5 text-xs text-white/60">
-              Quick actions for your wallet section
-            </p>
-          </div>
-
-          <button
-            type="button"
-            onClick={onClose}
-            className="flex h-9 w-9 items-center justify-center rounded-xl border border-white/10 bg-white/5 text-white/70 transition hover:bg-white/10 hover:text-white"
-          >
-            <X className="h-4 w-4" />
-          </button>
-        </div>
-
-        <div className="p-4 space-y-3">
-          <button
-            type="button"
-            onClick={() => {
-              onClose();
-              onCreateWallet?.();
-            }}
-            disabled={financeActionLoading}
-            className="flex w-full items-center justify-center gap-2 rounded-2xl border border-emerald-400/30 bg-emerald-500/15 px-4 py-3 text-sm font-semibold text-emerald-300 transition hover:bg-emerald-500/20 disabled:opacity-50"
-          >
-            <Plus className="h-4 w-4" />
-            Create Wallet
-          </button>
-
-          <button
-            type="button"
-            onClick={() => {
-              onClose();
-              onToggleDetails?.();
-            }}
-            disabled={financeActionLoading}
-            className="flex w-full items-center justify-center gap-2 rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm font-semibold text-white/85 transition hover:bg-white/10 hover:text-white disabled:opacity-50"
-          >
-            <ArrowLeftRight className="h-4 w-4" />
-            {expanded ? "Hide Details" : "Show Details"}
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-}
-
 export default function WalletCard({
   wallets = [],
   walletMoney = 0,
@@ -179,8 +111,6 @@ export default function WalletCard({
   onAddMoney,
   onTransferMoney,
 }) {
-  const [showManageModal, setShowManageModal] = useState(false);
-
   const topWallet = wallets[0] || null;
   const status = getWalletStatus(wallets.length, walletMoney);
   const message = getWalletMessage(topWallet, wallets.length);
@@ -196,17 +126,7 @@ export default function WalletCard({
   }, [walletPreviewTransactions, expanded]);
 
   return (
-    <>
-      <WalletActionModal
-        open={showManageModal}
-        onClose={() => setShowManageModal(false)}
-        expanded={expanded}
-        financeActionLoading={financeActionLoading}
-        onCreateWallet={onCreateWallet}
-        onToggleDetails={onToggleDetails}
-      />
-
-      <div
+    <div
         className={`relative mb-3 min-h-[280px] overflow-hidden rounded-3xl border border-white/10 shadow-2xl transition-all duration-200 ${status.ring}`}
       >
         <div className="absolute inset-0 bg-gradient-to-br from-[#07142d] via-[#08182a] to-[#0c2a1c]" />
@@ -421,23 +341,14 @@ export default function WalletCard({
                   </div>
                 )}
 
-                <div className="grid grid-cols-2 gap-2">
+                <div className="grid grid-cols-1 gap-2">
                   <button
                     type="button"
-                    onClick={() => setShowManageModal(true)}
+                    onClick={onCreateWallet}
                     className="flex items-center justify-center gap-2 rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm font-semibold text-white/85 transition hover:bg-white/10 hover:text-white"
                   >
                     <Plus className="h-4 w-4" />
                     Create Wallet
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() => setShowManageModal(true)}
-                    className="flex items-center justify-center gap-2 rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm font-semibold text-white/85 transition hover:bg-white/10 hover:text-white"
-                  >
-                    <ArrowLeftRight className="h-4 w-4" />
-                    More Actions
                   </button>
                 </div>
               </div>
@@ -445,6 +356,5 @@ export default function WalletCard({
           </div>
         </div>
       </div>
-    </>
   );
 }

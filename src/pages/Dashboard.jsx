@@ -217,6 +217,30 @@ const getBudgetRemaining = (budget) => {
 const getBudgetCategoryValue = (budget, keys = []) =>
   firstValidNumber(...keys.map((key) => budget?.[key]));
 
+const getBudgetTrackingStart = (budget) => {
+  const raw =
+    budget?.tracking_start_date ||
+    budget?.range_start ||
+    budget?.start_date ||
+    budget?.created_at ||
+    budget?.created_date ||
+    null;
+
+  return normalizeDateValue(raw);
+};
+
+const isExpenseInsideBudgetWindow = (expense, budget) => {
+  const expenseDate = normalizeDateValue(
+    expense?.date || expense?.expense_date || expense?.created_at
+  );
+  if (!expenseDate) return false;
+
+  const trackingStart = getBudgetTrackingStart(budget);
+  if (!trackingStart) return true;
+
+  return expenseDate.getTime() >= trackingStart.getTime();
+};
+
 const getSavingsSaved = (goal) =>
   firstValidNumber(
     goal?.saved_amount,
@@ -577,8 +601,8 @@ const FinanceActionModal = ({
   if (!open) return null;
 
   return (
-    <div className="fixed inset-0 z-[120] flex items-end justify-center bg-black/70 p-4 backdrop-blur-md sm:items-center">
-      <div className="w-full max-w-lg overflow-hidden rounded-[28px] border border-white/10 bg-[#071120]/95 shadow-[0_25px_80px_rgba(0,0,0,0.45)]">
+    <div className="fixed inset-0 z-[120] flex items-start justify-center bg-black/70 px-4 pb-4 pt-10 backdrop-blur-md sm:items-center sm:p-4">
+      <div className="w-full max-w-lg max-h-[calc(100dvh-5rem)] overflow-hidden rounded-[28px] border border-white/10 bg-[#071120]/95 shadow-[0_25px_80px_rgba(0,0,0,0.45)] sm:max-h-[calc(100dvh-2rem)]">
         <div className="border-b border-white/10 bg-white/[0.03] px-5 py-4">
           <div className="flex items-start justify-between gap-4">
             <div>
@@ -599,10 +623,10 @@ const FinanceActionModal = ({
           </div>
         </div>
 
-        <form onSubmit={onSubmit} className="space-y-4 px-5 py-5">
-          <div className="space-y-4">{children}</div>
+        <form onSubmit={onSubmit} className="flex max-h-[calc(100dvh-5rem)] flex-col sm:max-h-[calc(100dvh-2rem)]">
+          <div className="space-y-4 overflow-y-auto px-5 py-5">{children}</div>
 
-          <div className="flex flex-col-reverse gap-3 border-t border-white/10 pt-4 sm:flex-row sm:justify-end">
+          <div className="flex flex-col-reverse gap-3 border-t border-white/10 px-5 py-4 sm:flex-row sm:justify-end">
             <button
               type="button"
               onClick={onClose}
@@ -641,6 +665,37 @@ const financeInputClassName =
   "w-full rounded-2xl border border-white/10 bg-white/[0.04] px-4 py-3 text-sm text-white outline-none transition placeholder:text-white/35 focus:border-emerald-400/30 focus:bg-white/[0.06]";
 
 const FINANCE_CARD_KEYS = ["emergency", "wallets", "budgets", "savings"];
+
+const getFinanceSlideShellClass = (cardKey) => {
+  const accentMap = {
+    emergency:
+      "bg-[radial-gradient(circle_at_top_left,rgba(45,212,191,0.2),transparent_34%),radial-gradient(circle_at_bottom_right,rgba(56,189,248,0.16),transparent_38%),linear-gradient(135deg,rgba(5,16,31,0.88),rgba(6,18,36,0.96)_42%,rgba(3,10,24,0.98))] shadow-[0_28px_85px_rgba(16,185,129,0.16)]",
+    wallets:
+      "bg-[radial-gradient(circle_at_top_left,rgba(34,211,238,0.18),transparent_34%),radial-gradient(circle_at_bottom_right,rgba(16,185,129,0.16),transparent_38%),linear-gradient(135deg,rgba(5,16,31,0.88),rgba(6,18,36,0.96)_42%,rgba(3,10,24,0.98))] shadow-[0_28px_85px_rgba(34,211,238,0.15)]",
+    budgets:
+      "bg-[radial-gradient(circle_at_top_left,rgba(250,204,21,0.2),transparent_34%),radial-gradient(circle_at_bottom_right,rgba(245,158,11,0.16),transparent_40%),linear-gradient(135deg,rgba(15,8,30,0.9),rgba(11,10,37,0.96)_42%,rgba(4,6,22,0.98))] shadow-[0_28px_85px_rgba(250,204,21,0.16)]",
+    savings:
+      "bg-[radial-gradient(circle_at_top_left,rgba(52,211,153,0.2),transparent_34%),radial-gradient(circle_at_bottom_right,rgba(20,184,166,0.16),transparent_40%),linear-gradient(135deg,rgba(4,18,24,0.9),rgba(5,21,31,0.96)_42%,rgba(3,10,24,0.98))] shadow-[0_28px_85px_rgba(52,211,153,0.16)]",
+  };
+
+  return `relative isolate overflow-hidden rounded-[30px] border border-white/10 p-[1px] backdrop-blur-sm before:pointer-events-none before:absolute before:inset-x-5 before:top-0 before:h-20 before:rounded-full before:bg-white/10 before:blur-3xl after:pointer-events-none after:absolute after:inset-0 after:rounded-[30px] after:ring-1 after:ring-inset after:ring-white/6 [&>*]:mb-0 [&>*]:h-full [&>*]:min-h-0 [&>*]:rounded-[29px] ${accentMap[cardKey] || accentMap.emergency}`;
+};
+
+const getDashboardGlowCardClass = (tone = "emerald") => {
+  const toneMap = {
+    emerald:
+      "bg-[radial-gradient(circle_at_top_left,rgba(52,211,153,0.14),transparent_34%),radial-gradient(circle_at_bottom_right,rgba(20,184,166,0.12),transparent_42%),linear-gradient(135deg,rgba(7,25,24,0.94),rgba(7,31,40,0.92)_52%,rgba(5,18,29,0.95))] shadow-[0_22px_65px_rgba(16,185,129,0.14)]",
+    blue:
+      "bg-[radial-gradient(circle_at_top_left,rgba(59,130,246,0.16),transparent_34%),radial-gradient(circle_at_bottom_right,rgba(99,102,241,0.12),transparent_42%),linear-gradient(135deg,rgba(10,20,54,0.95),rgba(18,44,112,0.9)_54%,rgba(10,18,40,0.95))] shadow-[0_22px_65px_rgba(59,130,246,0.16)]",
+    teal:
+      "bg-[radial-gradient(circle_at_top_left,rgba(45,212,191,0.15),transparent_34%),radial-gradient(circle_at_bottom_right,rgba(16,185,129,0.12),transparent_42%),linear-gradient(135deg,rgba(7,24,44,0.95),rgba(7,39,53,0.92)_54%,rgba(8,21,31,0.96))] shadow-[0_22px_65px_rgba(20,184,166,0.15)]",
+    gold:
+      "bg-[radial-gradient(circle_at_top_left,rgba(250,204,21,0.16),transparent_34%),radial-gradient(circle_at_bottom_right,rgba(245,158,11,0.12),transparent_42%),linear-gradient(135deg,rgba(31,19,9,0.95),rgba(46,26,17,0.92)_54%,rgba(16,11,26,0.96))] shadow-[0_22px_65px_rgba(245,158,11,0.15)]",
+  };
+
+  return `relative isolate overflow-hidden rounded-[28px] border border-white/10 backdrop-blur-sm before:pointer-events-none before:absolute before:inset-x-8 before:top-0 before:h-16 before:rounded-full before:bg-white/8 before:blur-3xl after:pointer-events-none after:absolute after:inset-0 after:rounded-[28px] after:ring-1 after:ring-inset after:ring-white/6 ${toneMap[tone] || toneMap.emerald}`;
+};
+
 
 const dispatchClaraEvent = (name) => {
   if (typeof window === "undefined") return;
@@ -725,6 +780,7 @@ export default function Dashboard() {
   const [financeForm, setFinanceForm] = useState({
     name: "",
     type: "cash",
+    customWalletType: "",
     startingBalance: "0",
     amount: "",
     destinationWalletId: "",
@@ -735,6 +791,16 @@ export default function Dashboard() {
     title: "",
     targetAmount: "",
     savingsWalletId: "",
+    category: "",
+    subcategory: "",
+    plannedUseDate: "",
+    reasonOne: "",
+    reasonTwo: "",
+    reasonThree: "",
+    emotionalValue: "joy",
+    priority: "medium",
+    flexibility: "flexible",
+    notes: "",
   });
 
   const dailyRemindersEnabled = notificationSettings?.dailyReminders !== false;
@@ -1656,6 +1722,30 @@ export default function Dashboard() {
     return active || null;
   }, [budgets]);
 
+  const derivedActiveBudget = useMemo(() => {
+    if (!activeBudget) return null;
+
+    const spentFromExpenses = expenses.reduce((sum, expense) => {
+      if (!isExpenseInsideBudgetWindow(expense, activeBudget)) return sum;
+      return sum + firstValidNumber(expense?.amount);
+    }, 0);
+
+    const explicitSpent = getBudgetSpent(activeBudget);
+    const spent = spentFromExpenses > 0 ? spentFromExpenses : explicitSpent;
+    const total = getBudgetTotal(activeBudget);
+    const remaining = Math.max(total - spent, 0);
+
+    return {
+      ...activeBudget,
+      spent,
+      spent_amount: spent,
+      total_spent: spent,
+      remaining,
+      remaining_amount: remaining,
+      amount_left: remaining,
+    };
+  }, [activeBudget, expenses]);
+
   const totalSavingsTarget = useMemo(
     () => savingsGoals.reduce((sum, goal) => sum + getSavingsTarget(goal), 0),
     [savingsGoals]
@@ -1706,6 +1796,7 @@ export default function Dashboard() {
     setFinanceForm({
       name: "",
       type: "cash",
+      customWalletType: "",
       startingBalance: "0",
       amount: "",
       destinationWalletId: "",
@@ -1716,6 +1807,16 @@ export default function Dashboard() {
       title: "",
       targetAmount: "",
       savingsWalletId: "",
+      category: "",
+      subcategory: "",
+      plannedUseDate: "",
+      reasonOne: "",
+      reasonTwo: "",
+      reasonThree: "",
+      emotionalValue: "joy",
+      priority: "medium",
+      flexibility: "flexible",
+      notes: "",
     });
     setFinanceModal({ type: "create_wallet", payload: null });
   }, []);
@@ -1754,27 +1855,39 @@ export default function Dashboard() {
   const openBudgetModal = useCallback(() => {
     setFinanceForm((prev) => ({
       ...prev,
-      totalBudget: activeBudget ? String(getBudgetTotal(activeBudget)) : "",
-      needsPct: String(activeBudget?.needs_pct ?? activeBudget?.needs_percent ?? 50),
-      wantsPct: String(activeBudget?.wants_pct ?? activeBudget?.wants_percent ?? 30),
-      otherPct: String(activeBudget?.other_pct ?? activeBudget?.other_percent ?? 20),
+      totalBudget: derivedActiveBudget ? String(getBudgetTotal(derivedActiveBudget)) : "",
+      needsPct: String(derivedActiveBudget?.needs_pct ?? derivedActiveBudget?.needs_percent ?? 50),
+      wantsPct: String(derivedActiveBudget?.wants_pct ?? derivedActiveBudget?.wants_percent ?? 30),
+      otherPct: String(derivedActiveBudget?.other_pct ?? derivedActiveBudget?.other_percent ?? 20),
     }));
     setFinanceModal({ type: "save_budget", payload: activeBudget || null });
-  }, [activeBudget]);
+  }, [derivedActiveBudget]);
 
   const openResetBudgetModal = useCallback(() => {
     if (!activeBudget?.id) return;
     setFinanceModal({ type: "reset_budget", payload: activeBudget });
   }, [activeBudget]);
 
-  const openSavingsGoalModal = useCallback((goal = null) => {
-    setFinanceForm((prev) => ({
-      ...prev,
-      title: goal?.title || "",
-      targetAmount: String(goal?.target_amount ?? goal?.goal_amount ?? ""),
-    }));
-    setFinanceModal({ type: "save_savings_goal", payload: goal });
-  }, []);
+  const openSavingsGoalModal = useCallback(
+    (goal = null) => {
+      if (goal?.id) {
+        navigate("/savings-goals", {
+          state: {
+            editGoalId: String(goal.id),
+            focusGoalId: String(goal.id),
+          },
+        });
+        return;
+      }
+
+      navigate("/savings-goals", {
+        state: {
+          openCreateSavingsGoal: true,
+        },
+      });
+    },
+    [navigate]
+  );
 
   const openDeleteSavingsGoalModal = useCallback((goalId) => {
     const goal = savingsGoals.find((item) => String(item.id) === String(goalId)) || null;
@@ -1874,11 +1987,19 @@ export default function Dashboard() {
 
   const createWalletInline = useCallback(async () => {
     const name = normalizeString(financeForm.name);
-    const type = normalizeString(financeForm.type) || "cash";
+    const selectedWalletType = normalizeString(financeForm.type) || "cash";
+    const customWalletType = normalizeString(financeForm.customWalletType);
+    const type =
+      selectedWalletType === "custom" ? customWalletType || "other" : selectedWalletType;
     const startingBalance = Number(financeForm.startingBalance);
 
     if (!name) {
       showFinanceNotice("Please enter a wallet name.");
+      return;
+    }
+
+    if (!type) {
+      showFinanceNotice("Please enter a wallet type.");
       return;
     }
 
@@ -1914,6 +2035,7 @@ export default function Dashboard() {
     }
   }, [
     closeFinanceModal,
+    financeForm.customWalletType,
     financeForm.name,
     financeForm.startingBalance,
     financeForm.type,
@@ -2099,7 +2221,26 @@ export default function Dashboard() {
     try {
       setFinanceActionLoading(true);
       const monthKey = activeBudget?.month || new Date().toISOString().slice(0, 7);
+
+      if (user?.id || user?.email) {
+        await supabase
+          .from("budgets")
+          .update({ is_active: false, status: "inactive" })
+          .or(
+            [
+              user?.id ? `user_id.eq.${user.id}` : null,
+              user?.email ? `user_email.eq.${user.email}` : null,
+              user?.email ? `email.eq.${user.email}` : null,
+              user?.email ? `created_by.eq.${user.email}` : null,
+            ]
+              .filter(Boolean)
+              .join(",")
+          );
+      }
+
       const payload = {
+        is_active: true,
+        status: "active",
         month: monthKey,
         total_budget: totalBudget,
         needs_pct: needsPct,
@@ -2120,7 +2261,9 @@ export default function Dashboard() {
         result = await supabase.from("budgets").insert([
           {
             ...payload,
-            created_at: new Date().toISOString(),
+            tracking_start_date: nowIso,
+            range_start: nowIso,
+            created_at: nowIso,
             created_by: user?.email || null,
             email: user?.email || null,
             user_id: user?.id || null,
@@ -2141,6 +2284,7 @@ export default function Dashboard() {
     }
   }, [
     activeBudget,
+    derivedActiveBudget,
     closeFinanceModal,
     financeForm.needsPct,
     financeForm.otherPct,
@@ -2195,14 +2339,27 @@ export default function Dashboard() {
 
     try {
       setFinanceActionLoading(true);
+      const currentSavedAmount = Math.max(
+        0,
+        Number(financeForm.amount || goal?.saved_amount || goal?.current_amount || goal?.saved || 0)
+      );
       const payload = {
         title,
         target_amount: targetAmount,
-        saved_amount: Math.max(0, Number(goal?.saved_amount ?? 0)),
-        category: goal?.category || "",
-        subcategory: goal?.subcategory || "",
-        notes: goal?.notes || "",
-        wallet_id: goal?.wallet_id || null,
+        saved_amount: currentSavedAmount,
+        current_amount: currentSavedAmount,
+        category: financeForm.category || "",
+        subcategory: financeForm.subcategory || "",
+        notes: financeForm.notes || "",
+        wallet_id: financeForm.savingsWalletId || null,
+        planned_use_date: financeForm.plannedUseDate || null,
+        deadline: financeForm.plannedUseDate || null,
+        reason_one: financeForm.reasonOne || "",
+        reason_two: financeForm.reasonTwo || "",
+        reason_three: financeForm.reasonThree || "",
+        emotional_value: financeForm.emotionalValue || "joy",
+        priority: financeForm.priority || "medium",
+        flexibility: financeForm.flexibility || "flexible",
         created_by: user?.email || null,
         user_email: user?.email || null,
         user_id: user?.id || null,
@@ -2237,6 +2394,18 @@ export default function Dashboard() {
     }
   }, [
     closeFinanceModal,
+    financeForm.amount,
+    financeForm.category,
+    financeForm.emotionalValue,
+    financeForm.flexibility,
+    financeForm.notes,
+    financeForm.plannedUseDate,
+    financeForm.priority,
+    financeForm.reasonOne,
+    financeForm.reasonThree,
+    financeForm.reasonTwo,
+    financeForm.savingsWalletId,
+    financeForm.subcategory,
     financeForm.targetAmount,
     financeForm.title,
     financeModal?.payload,
@@ -2719,7 +2888,7 @@ export default function Dashboard() {
 
         {hasBillboardContent && (
           <div
-            className={`overflow-hidden rounded-[28px] border border-white/10 bg-[#0B1228] shadow-[0_0_25px_rgba(16,185,129,0.08)] ${
+            className={`${getDashboardGlowCardClass("teal")} ${
               billboardClickable ? "cursor-pointer" : ""
             }`}
             onClick={billboardClickable ? openBillboardTarget : undefined}
@@ -2825,10 +2994,11 @@ export default function Dashboard() {
             <div className="overflow-hidden">
               <div
                 ref={financeCarouselRef}
-                className="-mx-4 flex snap-x snap-mandatory overflow-x-auto overflow-y-visible px-4 pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+                className="-mx-4 flex snap-x snap-mandatory overflow-x-auto overflow-y-visible px-4 pb-0 pt-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
               >
                 <div className="w-full shrink-0 snap-center">
-                  <EmergencyFundCard
+                  <div className={getFinanceSlideShellClass("emergency")}>
+                    <EmergencyFundCard
                     moneyLeft={walletMoney}
                     survivalExpense={survivalExpense}
                     retentionRate={0}
@@ -2837,10 +3007,12 @@ export default function Dashboard() {
                       setSurvivalExpense(nextValue);
                     }}
                   />
+                  </div>
                 </div>
 
                 <div className="w-full shrink-0 snap-center">
-                  <WalletCard
+                  <div className={getFinanceSlideShellClass("wallets")}>
+                    <WalletCard
                     wallets={wallets}
                     walletMoney={walletMoney}
                     walletPreviewTransactions={walletPreviewTransactions}
@@ -2853,21 +3025,25 @@ export default function Dashboard() {
                     onAddMoney={openAddMoneyModal}
                     onTransferMoney={openTransferMoneyModal}
                   />
+                  </div>
                 </div>
 
                 <div className="w-full shrink-0 snap-center">
-                  <BudgetCard
-                    activeBudget={activeBudget}
+                  <div className={getFinanceSlideShellClass("budgets")}>
+                    <BudgetCard
+                    activeBudget={derivedActiveBudget}
                     expanded={expandedFinanceCard === "budgets"}
                     onToggleDetails={() => toggleFinanceDetails("budgets")}
                     financeActionLoading={financeActionLoading}
                     onSaveBudget={openBudgetModal}
                     onResetBudget={openResetBudgetModal}
                   />
+                  </div>
                 </div>
 
                 <div className="w-full shrink-0 snap-center">
-                  <SavingsCard
+                  <div className={getFinanceSlideShellClass("savings")}>
+                    <SavingsCard
                     savingsGoals={savingsGoals}
                     totalSavingsSaved={totalSavingsSaved}
                     totalSavingsTarget={totalSavingsTarget}
@@ -2879,6 +3055,7 @@ export default function Dashboard() {
                     onDeleteSavingsGoal={openDeleteSavingsGoalModal}
                     onAddSavings={openAddSavingsModal}
                   />
+                  </div>
                 </div>
               </div>
             </div>
@@ -2902,7 +3079,7 @@ export default function Dashboard() {
         )}
 
         <div
-          className={`rounded-3xl border bg-gradient-to-br p-4 shadow-[0_0_25px_rgba(16,185,129,0.08)] backdrop-blur-sm ${moneyLeftTone}`}
+          className={`${getDashboardGlowCardClass("emerald")} p-4 ${moneyLeftTone}`}
         >
           <div className="flex items-start justify-between gap-3">
             <div className="min-w-0 flex-1">
@@ -2955,12 +3132,12 @@ export default function Dashboard() {
             }
             icon={TrendingDown}
             variant="blue"
-            className="min-h-[208px]"
+            className={`${getDashboardGlowCardClass("blue")} min-h-[208px] p-4`}
           />
 
           {activeTask ? (
             <Link to="/tasks" className="block h-full">
-              <div className="flex h-full min-h-[208px] flex-col rounded-[26px] border border-white/10 bg-[linear-gradient(135deg,rgba(11,18,40,0.98)_0%,rgba(10,31,45,0.96)_52%,rgba(16,73,58,0.88)_100%)] p-4 shadow-[0_18px_36px_rgba(0,0,0,0.28)]">
+              <div className="flex h-full min-h-[208px] flex-col rounded-[26px] border border-white/10 bg-[radial-gradient(circle_at_top_left,rgba(52,211,153,0.16),transparent_34%),radial-gradient(circle_at_bottom_right,rgba(34,197,94,0.14),transparent_42%),linear-gradient(135deg,rgba(11,18,40,0.98)_0%,rgba(10,31,45,0.96)_52%,rgba(16,73,58,0.9)_100%)] p-4 shadow-[0_22px_60px_rgba(16,185,129,0.15)]">
                 <div className="flex items-start justify-between gap-3">
                   <div className="min-w-0 flex-1">
                     <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-emerald-200/80">
@@ -2985,7 +3162,7 @@ export default function Dashboard() {
               </div>
             </Link>
           ) : (
-            <div className="flex min-h-[208px] items-center rounded-[26px] border border-white/10 bg-[#0B1228] p-4 text-xs leading-6 text-white/60">
+            <div className="flex min-h-[208px] items-center rounded-[26px] border border-white/10 bg-[radial-gradient(circle_at_top_left,rgba(59,130,246,0.12),transparent_34%),radial-gradient(circle_at_bottom_right,rgba(16,185,129,0.1),transparent_42%),linear-gradient(135deg,rgba(11,18,40,0.96),rgba(10,20,48,0.94)_54%,rgba(7,18,34,0.96))] p-4 text-xs leading-6 text-white/60 shadow-[0_20px_55px_rgba(59,130,246,0.14)]">
               {loading
                 ? "Loading your guided path..."
                 : "Your guided program will appear here once your next task is ready."}
@@ -2993,12 +3170,14 @@ export default function Dashboard() {
           )}
         </div>
 
-        <DailyTipCard
-          isPaid={isPaid}
-          isPending={isPending}
-          isFree={isFree}
-          user={user}
-        />
+        <div className={getDashboardGlowCardClass("emerald")}>
+          <DailyTipCard
+            isPaid={isPaid}
+            isPending={isPending}
+            isFree={isFree}
+            user={user}
+          />
+        </div>
       </div>
 
       <TaskReminderPrompt
@@ -3442,21 +3621,50 @@ export default function Dashboard() {
           />
         </FinanceField>
 
-        <FinanceField label="Wallet type">
-          <select
-            value={financeForm.type}
-            onChange={(event) =>
-              setFinanceForm((prev) => ({ ...prev, type: event.target.value }))
-            }
-            className={financeInputClassName}
-          >
-            <option value="cash">Cash</option>
-            <option value="gcash">GCash</option>
-            <option value="bank">Bank</option>
-            <option value="maya">Maya</option>
-            <option value="credit_card">Credit Card</option>
-            <option value="other">Other</option>
-          </select>
+        <FinanceField
+          label="Wallet type"
+          helper="Choose a default type or create your own custom wallet type."
+        >
+          <div className="space-y-3">
+            <select
+              value={financeForm.type}
+              onChange={(event) =>
+                setFinanceForm((prev) => ({
+                  ...prev,
+                  type: event.target.value,
+                  customWalletType:
+                    event.target.value === "custom" ? prev.customWalletType : "",
+                }))
+              }
+              className={financeInputClassName}
+            >
+              <option value="cash">Cash</option>
+              <option value="gcash">GCash</option>
+              <option value="maya">Maya</option>
+              <option value="bank">Bank</option>
+              <option value="payroll">Payroll</option>
+              <option value="savings">Savings</option>
+              <option value="allowance">Allowance</option>
+              <option value="business">Business</option>
+              <option value="credit_card">Credit Card</option>
+              <option value="custom">Custom</option>
+            </select>
+
+            {financeForm.type === "custom" ? (
+              <input
+                type="text"
+                value={financeForm.customWalletType}
+                onChange={(event) =>
+                  setFinanceForm((prev) => ({
+                    ...prev,
+                    customWalletType: event.target.value,
+                  }))
+                }
+                placeholder="e.g. Loan Wallet, Travel Fund, Side Hustle"
+                className={financeInputClassName}
+              />
+            ) : null}
+          </div>
         </FinanceField>
 
         <FinanceField label="Starting balance">
@@ -3674,8 +3882,8 @@ export default function Dashboard() {
 
       <FinanceActionModal
         open={financeModal.type === "save_savings_goal"}
-        title={financeModal.payload?.id ? "Edit savings goal" : "Create savings goal"}
-        description="Manage your savings goals inside the same in-app premium flow."
+        title={financeModal.payload?.id ? "Edit savings goal" : "New Savings Goal"}
+        description={null}
         onClose={closeFinanceModal}
         onSubmit={(event) => {
           event.preventDefault();
@@ -3684,32 +3892,227 @@ export default function Dashboard() {
         submitLabel={financeModal.payload?.id ? "Save changes" : "Create goal"}
         loading={financeActionLoading}
       >
-        <FinanceField label="Goal title">
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+          <FinanceField label="Goal title">
+            <input
+              type="text"
+              value={financeForm.title}
+              onChange={(event) =>
+                setFinanceForm((prev) => ({ ...prev, title: event.target.value }))
+              }
+              placeholder="e.g., Emergency Fund, Dream Vacation"
+              className={financeInputClassName}
+            />
+          </FinanceField>
+
+          <FinanceField label="Category">
+            <input
+              type="text"
+              value={financeForm.category || ""}
+              onChange={(event) =>
+                setFinanceForm((prev) => ({ ...prev, category: event.target.value }))
+              }
+              placeholder="e.g. Travel, Emergency, Gadget"
+              className={financeInputClassName}
+            />
+          </FinanceField>
+
+          <FinanceField label="Subcategory">
+            <input
+              type="text"
+              value={financeForm.subcategory || ""}
+              onChange={(event) =>
+                setFinanceForm((prev) => ({ ...prev, subcategory: event.target.value }))
+              }
+              placeholder="e.g. Local Trip, Repairs, Phone"
+              className={financeInputClassName}
+            />
+          </FinanceField>
+
+          <FinanceField label="Target amount">
+            <input
+              type="number"
+              min="0"
+              step="0.01"
+              value={financeForm.targetAmount}
+              onChange={(event) =>
+                setFinanceForm((prev) => ({
+                  ...prev,
+                  targetAmount: event.target.value,
+                }))
+              }
+              placeholder="Target ₱"
+              className={financeInputClassName}
+            />
+          </FinanceField>
+
+          <FinanceField label="Already saved">
+            <input
+              type="number"
+              min="0"
+              step="0.01"
+              value={financeForm.amount}
+              onChange={(event) =>
+                setFinanceForm((prev) => ({
+                  ...prev,
+                  amount: event.target.value,
+                }))
+              }
+              placeholder="0"
+              className={financeInputClassName}
+            />
+          </FinanceField>
+
+          <FinanceField label="Source wallet">
+            <select
+              value={financeForm.savingsWalletId || ""}
+              onChange={(event) =>
+                setFinanceForm((prev) => ({
+                  ...prev,
+                  savingsWalletId: event.target.value,
+                }))
+              }
+              className={financeInputClassName}
+            >
+              <option value="">Select wallet...</option>
+              {wallets.map((wallet) => (
+                <option key={wallet.id} value={String(wallet.id)}>
+                  {getWalletDisplayName(wallet)}
+                </option>
+              ))}
+            </select>
+          </FinanceField>
+
+          <FinanceField label="Planned use date">
+            <input
+              type="date"
+              value={financeForm.plannedUseDate || ""}
+              onChange={(event) =>
+                setFinanceForm((prev) => ({
+                  ...prev,
+                  plannedUseDate: event.target.value,
+                }))
+              }
+              className={financeInputClassName}
+            />
+          </FinanceField>
+        </div>
+
+        <div className="space-y-3">
+          <p className="text-xs font-semibold uppercase tracking-[0.18em] text-white/72">
+            3 reasons / motivations
+          </p>
+
           <input
             type="text"
-            value={financeForm.title}
+            value={financeForm.reasonOne || ""}
             onChange={(event) =>
-              setFinanceForm((prev) => ({ ...prev, title: event.target.value }))
+              setFinanceForm((prev) => ({ ...prev, reasonOne: event.target.value }))
             }
-            placeholder="e.g. Emergency top-up, New phone"
+            placeholder="Reason 1"
             className={financeInputClassName}
           />
-        </FinanceField>
 
-        <FinanceField label="Target amount">
           <input
-            type="number"
-            min="0"
-            step="0.01"
-            value={financeForm.targetAmount}
+            type="text"
+            value={financeForm.reasonTwo || ""}
             onChange={(event) =>
-              setFinanceForm((prev) => ({
-                ...prev,
-                targetAmount: event.target.value,
-              }))
+              setFinanceForm((prev) => ({ ...prev, reasonTwo: event.target.value }))
             }
-            placeholder="0"
+            placeholder="Reason 2"
             className={financeInputClassName}
+          />
+
+          <input
+            type="text"
+            value={financeForm.reasonThree || ""}
+            onChange={(event) =>
+              setFinanceForm((prev) => ({ ...prev, reasonThree: event.target.value }))
+            }
+            placeholder="Reason 3"
+            className={financeInputClassName}
+          />
+        </div>
+
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+          <FinanceField label="Emotional value">
+            <select
+              value={financeForm.emotionalValue || "joy"}
+              onChange={(event) =>
+                setFinanceForm((prev) => ({
+                  ...prev,
+                  emotionalValue: event.target.value,
+                }))
+              }
+              className={financeInputClassName}
+            >
+              <option value="joy">Joy 😊</option>
+              <option value="peace">Peace 😌</option>
+              <option value="security">Security 🛡️</option>
+              <option value="freedom">Freedom ✨</option>
+              <option value="love">Love ❤️</option>
+            </select>
+          </FinanceField>
+
+          <FinanceField label="Priority">
+            <select
+              value={financeForm.priority || "medium"}
+              onChange={(event) =>
+                setFinanceForm((prev) => ({
+                  ...prev,
+                  priority: event.target.value,
+                }))
+              }
+              className={financeInputClassName}
+            >
+              <option value="low">Low</option>
+              <option value="medium">Medium</option>
+              <option value="high">High</option>
+            </select>
+          </FinanceField>
+
+          <FinanceField label="Flexibility">
+            <div className="grid grid-cols-2 gap-2">
+              <button
+                type="button"
+                onClick={() =>
+                  setFinanceForm((prev) => ({ ...prev, flexibility: "flexible" }))
+                }
+                className={`rounded-2xl border px-4 py-3 text-sm font-semibold transition ${
+                  (financeForm.flexibility || "flexible") === "flexible"
+                    ? "border-emerald-400/30 bg-gradient-to-r from-emerald-400 via-emerald-500 to-green-600 text-white shadow-[0_10px_30px_rgba(16,185,129,0.24)]"
+                    : "border-white/10 bg-white/[0.04] text-white/75 hover:bg-white/[0.08] hover:text-white"
+                }`}
+              >
+                Flexible
+              </button>
+
+              <button
+                type="button"
+                onClick={() =>
+                  setFinanceForm((prev) => ({ ...prev, flexibility: "must_have" }))
+                }
+                className={`rounded-2xl border px-4 py-3 text-sm font-semibold transition ${
+                  (financeForm.flexibility || "flexible") === "must_have"
+                    ? "border-emerald-400/30 bg-gradient-to-r from-emerald-400 via-emerald-500 to-green-600 text-white shadow-[0_10px_30px_rgba(16,185,129,0.24)]"
+                    : "border-white/10 bg-white/[0.04] text-white/75 hover:bg-white/[0.08] hover:text-white"
+                }`}
+              >
+                Must Have
+              </button>
+            </div>
+          </FinanceField>
+        </div>
+
+        <FinanceField label="Notes">
+          <textarea
+            rows={4}
+            value={financeForm.notes || ""}
+            onChange={(event) =>
+              setFinanceForm((prev) => ({ ...prev, notes: event.target.value }))
+            }
+            placeholder="Add extra context, reminders, or details for this goal."
+            className={`${financeInputClassName} resize-none`}
           />
         </FinanceField>
       </FinanceActionModal>

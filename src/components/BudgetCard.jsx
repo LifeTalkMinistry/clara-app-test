@@ -358,7 +358,7 @@ export default function BudgetCard({
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-2">
+              <div className="grid grid-cols-1 gap-2">
                 <button
                   type="button"
                   onClick={() => setShowModal(true)}
@@ -366,15 +366,6 @@ export default function BudgetCard({
                 >
                   <Edit3 className="h-4 w-4" />
                   {activeBudget ? "Edit Budget" : "Create Budget"}
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => setShowModal(true)}
-                  className="flex items-center justify-center gap-2 rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm font-semibold text-white/85 transition hover:bg-white/10 hover:text-white"
-                >
-                  <RotateCcw className="h-4 w-4" />
-                  More Actions
                 </button>
               </div>
             </div>

@@ -398,16 +398,7 @@ export default function SavingsCard({
                 </div>
               )}
 
-              <div className="grid grid-cols-2 gap-2">
-                <button
-                  type="button"
-                  onClick={() => setShowModal(true)}
-                  className="flex items-center justify-center gap-2 rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm font-semibold text-white/85 transition hover:bg-white/10 hover:text-white"
-                >
-                  <Plus className="h-4 w-4" />
-                  Create Goal
-                </button>
-
+              <div className="grid grid-cols-1 gap-2">
                 <button
                   type="button"
                   onClick={() =>

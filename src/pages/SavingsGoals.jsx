@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import {
   Plus,
   Target,
@@ -8,6 +8,7 @@ import {
   Trash2,
   Wallet,
 } from "lucide-react";
+import { useLocation, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -81,10 +82,17 @@ const EMPTY_FORM = {
 };
 
 const inputDarkClass =
-  "bg-[#0b1a2f] border-white/10 text-white placeholder:text-white/40 focus-visible:ring-1 focus-visible:ring-green-500/60";
-const selectDarkTriggerClass = "bg-[#0b1a2f] border-white/10 text-white";
+  "h-10 rounded-xl bg-[#0b1a2f] border-white/10 text-white placeholder:text-white/40 focus-visible:ring-1 focus-visible:ring-green-500/60";
+const selectDarkTriggerClass =
+  "h-10 rounded-xl bg-[#0b1a2f] border-white/10 text-white";
 const labelDarkClass =
   "text-[11px] font-semibold uppercase tracking-[0.08em] text-white/70 mb-1.5 block";
+
+const formDialogClass =
+  "w-[calc(100vw-1rem)] max-w-[28rem] sm:max-w-[34rem] max-h-[min(88dvh,46rem)] overflow-hidden rounded-[26px] border border-white/10 bg-[#061224] p-0 text-white shadow-[0_24px_80px_rgba(0,0,0,0.55)] sm:w-full [&>button]:top-3 [&>button]:right-3 [&>button]:h-8 [&>button]:w-8 [&>button]:rounded-full [&>button]:bg-white/5 [&>button]:text-white/75 [&>button]:hover:bg-white/10 [&>button]:hover:text-white";
+
+const detailDialogClass =
+  "w-[calc(100vw-1rem)] max-w-[27rem] sm:max-w-[32rem] max-h-[min(86dvh,42rem)] overflow-hidden rounded-[26px] border border-white/10 bg-[#041226] p-0 text-white shadow-[0_24px_80px_rgba(0,0,0,0.55)] sm:w-full [&>button]:top-3 [&>button]:right-3 [&>button]:h-8 [&>button]:w-8 [&>button]:rounded-full [&>button]:bg-white/5 [&>button]:text-white/75 [&>button]:hover:bg-white/10 [&>button]:hover:text-white";
 
 const generateId = () =>
   `goal_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`;
@@ -104,6 +112,9 @@ const normalizeGoal = (goal) => ({
 });
 
 export default function SavingsGoals() {
+  const navigate = useNavigate();
+  const location = useLocation();
+  const routeActionHandledRef = useRef(false);
   const { user, loading: accessLoading } = useUserRole();
   const data = useFinancialData(user);
   const { wallets, refreshData } = data;
@@ -162,6 +173,50 @@ export default function SavingsGoals() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user?.id, user?.email]);
 
+  useEffect(() => {
+    if (loading || routeActionHandledRef.current) return;
+
+    const routeState = location.state || {};
+    const requestedEditId = routeState?.editGoalId
+      ? String(routeState.editGoalId)
+      : "";
+    const requestedFocusId = routeState?.focusGoalId
+      ? String(routeState.focusGoalId)
+      : "";
+
+    if (routeState?.openCreateSavingsGoal) {
+      routeActionHandledRef.current = true;
+      openAdd();
+      navigate(location.pathname, { replace: true, state: null });
+      return;
+    }
+
+    if (requestedEditId) {
+      const targetGoal =
+        goals.find((goal) => String(goal.id) === requestedEditId) || null;
+
+      if (targetGoal) {
+        routeActionHandledRef.current = true;
+        setDetailGoal(null);
+        openEdit(targetGoal);
+        navigate(location.pathname, { replace: true, state: null });
+      }
+
+      return;
+    }
+
+    if (requestedFocusId) {
+      const targetGoal =
+        goals.find((goal) => String(goal.id) === requestedFocusId) || null;
+
+      if (targetGoal) {
+        routeActionHandledRef.current = true;
+        setDetailGoal(targetGoal);
+        navigate(location.pathname, { replace: true, state: null });
+      }
+    }
+  }, [goals, loading, location.pathname, location.state, navigate]);
+
   const walletBalances = useMemo(() => {
     const map = {};
     (wallets || []).forEach((wallet) => {
@@ -189,7 +244,14 @@ export default function SavingsGoals() {
       minimumFractionDigits: 0,
     }).format(Number(n) || 0);
 
+  const closeFormModal = () => {
+    setOpen(false);
+    setEditId(null);
+    setForm(EMPTY_FORM);
+  };
+
   const openAdd = () => {
+    setDetailGoal(null);
     setForm(EMPTY_FORM);
     setEditId(null);
     setOpen(true);
@@ -276,9 +338,7 @@ export default function SavingsGoals() {
         if (error) throw error;
       }
 
-      setOpen(false);
-      setEditId(null);
-      setForm(EMPTY_FORM);
+      closeFormModal();
       await loadGoals(editId || null);
     } catch (error) {
       console.error("Failed to save savings goal:", error);
@@ -482,9 +542,9 @@ export default function SavingsGoals() {
                 onClick={() => setDetailGoal(goal)}
                 className="bg-card rounded-2xl border border-border p-4 cursor-pointer hover:border-primary/30 transition-all"
               >
-                <div className="flex items-start justify-between mb-2">
-                  <div>
-                    <div className="flex items-center gap-2">
+                <div className="flex items-start justify-between mb-2 gap-3">
+                  <div className="min-w-0">
+                    <div className="flex items-center gap-2 flex-wrap">
                       <p className="font-semibold text-sm">{goal.title}</p>
                       {goal.priority === "urgent" && (
                         <span className="text-[10px] bg-destructive/10 text-destructive px-1.5 py-0.5 rounded font-bold">
@@ -506,7 +566,7 @@ export default function SavingsGoals() {
                     ) : null}
                   </div>
 
-                  <div className="text-right">
+                  <div className="text-right shrink-0">
                     <p className="font-heading font-bold text-sm text-primary">
                       {fmt(saved)}
                     </p>
@@ -525,7 +585,7 @@ export default function SavingsGoals() {
                   />
                 </div>
 
-                <div className="flex justify-between text-xs text-muted-foreground">
+                <div className="flex justify-between text-xs text-muted-foreground gap-3">
                   <span>{pct.toFixed(0)}% funded</span>
                   {goal.planned_use_date ? (
                     <span className="flex items-center gap-1">
@@ -546,249 +606,267 @@ export default function SavingsGoals() {
       <Dialog
         open={open}
         onOpenChange={(value) => {
-          setOpen(value);
-          if (!value) {
-            setEditId(null);
-            setForm(EMPTY_FORM);
-          }
+          if (!value) closeFormModal();
+          else setOpen(true);
         }}
       >
-        <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto bg-[#061224] border border-white/10 rounded-2xl text-white">
-          <DialogHeader>
-            <DialogTitle className="text-white text-lg">
-              {editId ? "Edit Savings Goal" : "New Savings Goal"}
-            </DialogTitle>
-          </DialogHeader>
+        <DialogContent className={formDialogClass}>
+          <div className="flex max-h-[inherit] flex-col">
+            <DialogHeader className="border-b border-white/10 px-4 sm:px-5 py-4 pr-12">
+              <DialogTitle className="text-white text-xl sm:text-2xl leading-tight">
+                {editId ? "Edit Savings Goal" : "New Savings Goal"}
+              </DialogTitle>
+            </DialogHeader>
 
-          <div className="space-y-3">
-            <div>
-              <Label className={labelDarkClass}>Goal Title</Label>
-              <Input
-                placeholder="e.g., Emergency Fund, Dream Vacation"
-                className={inputDarkClass}
-                value={form.title}
-                onChange={(e) => setForm({ ...form, title: e.target.value })}
-              />
-            </div>
-
-            <div className="grid grid-cols-2 gap-2">
-              <div>
-                <Label className={labelDarkClass}>Category</Label>
-                <Select
-                  value={form.category}
-                  onValueChange={(v) =>
-                    setForm({ ...form, category: v, subcategory: "" })
-                  }
-                >
-                  <SelectTrigger className={selectDarkTriggerClass}>
-                    <SelectValue placeholder="Select..." />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {Object.keys(CATEGORIES).map((category) => (
-                      <SelectItem key={category} value={category}>
-                        {category}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div>
-                <Label className={labelDarkClass}>Subcategory</Label>
-                <Select
-                  value={form.subcategory}
-                  onValueChange={(v) => setForm({ ...form, subcategory: v })}
-                  disabled={!form.category}
-                >
-                  <SelectTrigger className={selectDarkTriggerClass}>
-                    <SelectValue placeholder="Select..." />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {subcats.map((subcat) => (
-                      <SelectItem key={subcat} value={subcat}>
-                        {subcat}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-
-            <div className="grid grid-cols-2 gap-2">
-              <div>
-                <Label className={labelDarkClass}>Target Amount</Label>
-                <Input
-                  type="number"
-                  placeholder="Target ₱"
-                  className={inputDarkClass}
-                  value={form.target_amount}
-                  onChange={(e) =>
-                    setForm({ ...form, target_amount: e.target.value })
-                  }
-                />
-              </div>
-
-              <div>
-                <Label className={labelDarkClass}>Already Saved</Label>
-                <Input
-                  type="number"
-                  placeholder="0"
-                  className={inputDarkClass}
-                  value={form.saved_amount}
-                  onChange={(e) =>
-                    setForm({ ...form, saved_amount: e.target.value })
-                  }
-                />
-              </div>
-            </div>
-
-            <div>
-              <Label className={labelDarkClass}>Source Wallet</Label>
-              <Select
-                value={form.wallet_id}
-                onValueChange={(v) => setForm({ ...form, wallet_id: v })}
-              >
-                <SelectTrigger className={selectDarkTriggerClass}>
-                  <SelectValue placeholder="Select wallet..." />
-                </SelectTrigger>
-                <SelectContent>
-                  {(wallets || []).length === 0 ? (
-                    <SelectItem value="__no_wallets__" disabled>
-                      No wallets available
-                    </SelectItem>
-                  ) : (
-                    wallets.map((wallet) => (
-                      <SelectItem key={wallet.id} value={String(wallet.id)}>
-                        {wallet.icon ? `${wallet.icon} ` : ""}
-                        {wallet.name} •{" "}
-                        {fmt(walletBalances[String(wallet.id)] || 0)}
-                      </SelectItem>
-                    ))
-                  )}
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div>
-              <Label className={labelDarkClass}>Planned Use Date</Label>
-              <input
-                type="date"
-                value={form.planned_use_date}
-                onChange={(e) =>
-                  setForm({ ...form, planned_use_date: e.target.value })
-                }
-                className="w-full h-10 px-3 rounded-md bg-[#0b1a2f] border border-white/10 text-white cursor-pointer outline-none focus:ring-1 focus:ring-green-500/60"
-              />
-            </div>
-
-            <div>
-              <Label className={labelDarkClass}>3 Reasons / Motivations</Label>
-              <div className="space-y-2">
-                {form.reasons.map((reason, i) => (
+            <div className="flex-1 overflow-y-auto px-4 sm:px-5 py-4">
+              <div className="space-y-4">
+                <div>
+                  <Label className={labelDarkClass}>Goal Title</Label>
                   <Input
-                    key={i}
-                    placeholder={`Reason ${i + 1}`}
+                    placeholder="e.g., Emergency Fund, Dream Vacation"
                     className={inputDarkClass}
-                    value={reason}
-                    onChange={(e) => {
-                      const updatedReasons = [...form.reasons];
-                      updatedReasons[i] = e.target.value;
-                      setForm({ ...form, reasons: updatedReasons });
-                    }}
+                    value={form.title}
+                    onChange={(e) => setForm({ ...form, title: e.target.value })}
                   />
-                ))}
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <Label className={labelDarkClass}>Category</Label>
+                    <Select
+                      value={form.category}
+                      onValueChange={(v) =>
+                        setForm({ ...form, category: v, subcategory: "" })
+                      }
+                    >
+                      <SelectTrigger className={selectDarkTriggerClass}>
+                        <SelectValue placeholder="Select..." />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {Object.keys(CATEGORIES).map((category) => (
+                          <SelectItem key={category} value={category}>
+                            {category}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <div>
+                    <Label className={labelDarkClass}>Subcategory</Label>
+                    <Select
+                      value={form.subcategory}
+                      onValueChange={(v) => setForm({ ...form, subcategory: v })}
+                      disabled={!form.category}
+                    >
+                      <SelectTrigger className={selectDarkTriggerClass}>
+                        <SelectValue placeholder="Select..." />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {subcats.map((subcat) => (
+                          <SelectItem key={subcat} value={subcat}>
+                            {subcat}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <Label className={labelDarkClass}>Target Amount</Label>
+                    <Input
+                      type="number"
+                      placeholder="Target ₱"
+                      className={inputDarkClass}
+                      value={form.target_amount}
+                      onChange={(e) =>
+                        setForm({ ...form, target_amount: e.target.value })
+                      }
+                    />
+                  </div>
+
+                  <div>
+                    <Label className={labelDarkClass}>Already Saved</Label>
+                    <Input
+                      type="number"
+                      placeholder="0"
+                      className={inputDarkClass}
+                      value={form.saved_amount}
+                      onChange={(e) =>
+                        setForm({ ...form, saved_amount: e.target.value })
+                      }
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <Label className={labelDarkClass}>Source Wallet</Label>
+                  <Select
+                    value={form.wallet_id}
+                    onValueChange={(v) => setForm({ ...form, wallet_id: v })}
+                  >
+                    <SelectTrigger className={selectDarkTriggerClass}>
+                      <SelectValue placeholder="Select wallet..." />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {(wallets || []).length === 0 ? (
+                        <SelectItem value="__no_wallets__" disabled>
+                          No wallets available
+                        </SelectItem>
+                      ) : (
+                        wallets.map((wallet) => (
+                          <SelectItem key={wallet.id} value={String(wallet.id)}>
+                            {wallet.icon ? `${wallet.icon} ` : ""}
+                            {wallet.name} •{" "}
+                            {fmt(walletBalances[String(wallet.id)] || 0)}
+                          </SelectItem>
+                        ))
+                      )}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div>
+                  <Label className={labelDarkClass}>Planned Use Date</Label>
+                  <input
+                    type="date"
+                    value={form.planned_use_date}
+                    onChange={(e) =>
+                      setForm({ ...form, planned_use_date: e.target.value })
+                    }
+                    className="w-full h-10 px-3 rounded-xl bg-[#0b1a2f] border border-white/10 text-white cursor-pointer outline-none focus:ring-1 focus:ring-green-500/60"
+                  />
+                </div>
+
+                <div>
+                  <Label className={labelDarkClass}>3 Reasons / Motivations</Label>
+                  <div className="space-y-2">
+                    {form.reasons.map((reason, i) => (
+                      <Input
+                        key={i}
+                        placeholder={`Reason ${i + 1}`}
+                        className={inputDarkClass}
+                        value={reason}
+                        onChange={(e) => {
+                          const updatedReasons = [...form.reasons];
+                          updatedReasons[i] = e.target.value;
+                          setForm({ ...form, reasons: updatedReasons });
+                        }}
+                      />
+                    ))}
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <Label className={labelDarkClass}>Emotional Value</Label>
+                    <Select
+                      value={form.emotional_value}
+                      onValueChange={(v) =>
+                        setForm({ ...form, emotional_value: v })
+                      }
+                    >
+                      <SelectTrigger className={selectDarkTriggerClass}>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {EMOTIONAL_VALUES.map((item) => (
+                          <SelectItem key={item.value} value={item.value}>
+                            {item.label}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <div>
+                    <Label className={labelDarkClass}>Priority</Label>
+                    <Select
+                      value={form.priority}
+                      onValueChange={(v) => setForm({ ...form, priority: v })}
+                    >
+                      <SelectTrigger className={selectDarkTriggerClass}>
+                        <SelectValue placeholder="Priority" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {PRIORITIES.map((item) => (
+                          <SelectItem key={item.value} value={item.value}>
+                            {item.label}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+
+                <div>
+                  <Label className={labelDarkClass}>Flexibility</Label>
+                  <div className="grid grid-cols-2 gap-2">
+                    <Button
+                      type="button"
+                      className={`h-10 rounded-xl ${
+                        form.flexibility === "flexible"
+                          ? "bg-green-500 hover:bg-green-600 text-white"
+                          : "bg-transparent border border-white/20 text-white hover:bg-white/5"
+                      }`}
+                      onClick={() =>
+                        setForm({ ...form, flexibility: "flexible" })
+                      }
+                    >
+                      Flexible
+                    </Button>
+
+                    <Button
+                      type="button"
+                      className={`h-10 rounded-xl ${
+                        form.flexibility === "must_have"
+                          ? "bg-green-500 hover:bg-green-600 text-white"
+                          : "bg-transparent border border-white/20 text-white hover:bg-white/5"
+                      }`}
+                      onClick={() =>
+                        setForm({ ...form, flexibility: "must_have" })
+                      }
+                    >
+                      Must Have
+                    </Button>
+                  </div>
+                </div>
+
+                <div>
+                  <Label className={labelDarkClass}>Notes</Label>
+                  <Textarea
+                    placeholder="Notes"
+                    className={`${inputDarkClass} min-h-[92px] sm:min-h-[100px]`}
+                    value={form.notes}
+                    onChange={(e) => setForm({ ...form, notes: e.target.value })}
+                  />
+                </div>
               </div>
             </div>
 
-            <div className="grid grid-cols-2 gap-2">
-              <div>
-                <Label className={labelDarkClass}>Emotional Value</Label>
-                <Select
-                  value={form.emotional_value}
-                  onValueChange={(v) =>
-                    setForm({ ...form, emotional_value: v })
-                  }
-                >
-                  <SelectTrigger className={selectDarkTriggerClass}>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {EMOTIONAL_VALUES.map((item) => (
-                      <SelectItem key={item.value} value={item.value}>
-                        {item.label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div>
-                <Label className={labelDarkClass}>Priority</Label>
-                <Select
-                  value={form.priority}
-                  onValueChange={(v) => setForm({ ...form, priority: v })}
-                >
-                  <SelectTrigger className={selectDarkTriggerClass}>
-                    <SelectValue placeholder="Priority" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {PRIORITIES.map((item) => (
-                      <SelectItem key={item.value} value={item.value}>
-                        {item.label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-
-            <div>
-              <Label className={labelDarkClass}>Flexibility</Label>
-              <div className="flex gap-2">
+            <div className="border-t border-white/10 bg-[#061224]/96 px-4 sm:px-5 py-3 backdrop-blur-xl">
+              <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
                 <Button
                   type="button"
-                  className={`flex-1 ${
-                    form.flexibility === "flexible"
-                      ? "bg-green-500 hover:bg-green-600 text-white"
-                      : "bg-transparent border border-white/20 text-white hover:bg-white/5"
-                  }`}
-                  onClick={() => setForm({ ...form, flexibility: "flexible" })}
+                  onClick={closeFormModal}
+                  variant="ghost"
+                  className="h-10 rounded-xl border border-white/10 bg-white/[0.04] px-4 text-white/80 hover:bg-white/[0.08] hover:text-white"
                 >
-                  Flexible
+                  Cancel
                 </Button>
 
                 <Button
                   type="button"
-                  className={`flex-1 ${
-                    form.flexibility === "must_have"
-                      ? "bg-green-500 hover:bg-green-600 text-white"
-                      : "bg-transparent border border-white/20 text-white hover:bg-white/5"
-                  }`}
-                  onClick={() => setForm({ ...form, flexibility: "must_have" })}
+                  onClick={handleSave}
+                  disabled={saving}
+                  className="h-10 rounded-xl bg-green-500 px-4 text-white font-semibold hover:bg-green-600 disabled:opacity-50"
                 >
-                  Must Have
+                  {saving ? "Saving..." : editId ? "Update Goal" : "Create Goal"}
                 </Button>
               </div>
             </div>
-
-            <div>
-              <Label className={labelDarkClass}>Notes</Label>
-              <Textarea
-                placeholder="Notes"
-                className={`${inputDarkClass} min-h-[84px]`}
-                value={form.notes}
-                onChange={(e) => setForm({ ...form, notes: e.target.value })}
-              />
-            </div>
-
-            <Button
-              type="button"
-              onClick={handleSave}
-              disabled={saving}
-              className="w-full bg-green-500 hover:bg-green-600 text-white font-semibold disabled:opacity-50"
-            >
-              {saving ? "Saving..." : editId ? "Update Goal" : "Create Goal"}
-            </Button>
           </div>
         </DialogContent>
       </Dialog>
@@ -866,205 +944,212 @@ function GoalDetail({
 
   return (
     <Dialog open={true} onOpenChange={onClose}>
-      <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto rounded-2xl border border-white/10 bg-[#041226] text-white p-0 shadow-2xl [&>button]:top-4 [&>button]:right-4 [&>button]:h-8 [&>button]:w-8 [&>button]:rounded-full [&>button]:bg-white/5 [&>button]:text-white/75 [&>button]:hover:bg-white/10 [&>button]:hover:text-white">
-        <div className="p-6">
-          <DialogHeader className="mb-4 pr-12">
-            <DialogTitle className="font-heading text-2xl text-white leading-tight">
-              {goal.title}
-            </DialogTitle>
-            <p className="text-sm text-white/65 mt-1">
-              {goal.category}
-              {goal.subcategory ? ` • ${goal.subcategory}` : ""}
-            </p>
-          </DialogHeader>
-
-          <div className="flex items-center gap-2 mb-4">
-            <Button
-              type="button"
-              variant="ghost"
-              className="h-9 rounded-xl border border-white/10 bg-white/5 px-3 text-white/85 hover:bg-white/10 hover:text-white"
-              onClick={() => onEdit(goal)}
-            >
-              <Edit className="w-4 h-4 mr-2" />
-              Edit
-            </Button>
-
-            <Button
-              type="button"
-              variant="ghost"
-              className="h-9 rounded-xl border border-red-500/20 bg-red-500/10 px-3 text-red-400 hover:bg-red-500/20 hover:text-red-300"
-              onClick={() => {
-                onDelete(goal.id);
-                onClose();
-              }}
-            >
-              <Trash2 className="w-4 h-4 mr-2" />
-              Delete
-            </Button>
-          </div>
-
-          {assignedWallet ? (
-            <div className="rounded-2xl border border-white/10 bg-[#0d1b34] p-4 mb-4">
-              <p className="text-xs font-bold uppercase tracking-wide text-white/55 mb-2">
-                Source Wallet
+      <DialogContent className={detailDialogClass}>
+        <div className="flex max-h-[inherit] flex-col">
+          <div className="flex-1 overflow-y-auto px-4 sm:px-5 py-4 sm:py-5">
+            <DialogHeader className="mb-4 pr-12">
+              <DialogTitle className="font-heading text-[1.65rem] sm:text-2xl text-white leading-tight">
+                {goal.title}
+              </DialogTitle>
+              <p className="text-sm text-white/65 mt-1">
+                {goal.category}
+                {goal.subcategory ? ` • ${goal.subcategory}` : ""}
               </p>
-              <div className="flex items-center justify-between gap-3">
-                <div className="flex items-center gap-2 text-white/90">
-                  <Wallet className="w-4 h-4 text-green-400" />
-                  <span className="font-medium">
-                    {assignedWallet.icon ? `${assignedWallet.icon} ` : ""}
-                    {assignedWallet.name}
+            </DialogHeader>
+
+            <div className="flex flex-wrap items-center gap-2 mb-4">
+              <Button
+                type="button"
+                variant="ghost"
+                className="h-9 rounded-xl border border-white/10 bg-white/5 px-3 text-white/85 hover:bg-white/10 hover:text-white"
+                onClick={() => {
+                  onClose();
+                  onEdit(goal);
+                }}
+              >
+                <Edit className="w-4 h-4 mr-2" />
+                Edit
+              </Button>
+
+              <Button
+                type="button"
+                variant="ghost"
+                className="h-9 rounded-xl border border-red-500/20 bg-red-500/10 px-3 text-red-400 hover:bg-red-500/20 hover:text-red-300"
+                onClick={() => {
+                  onDelete(goal.id);
+                  onClose();
+                }}
+              >
+                <Trash2 className="w-4 h-4 mr-2" />
+                Delete
+              </Button>
+            </div>
+
+            {assignedWallet ? (
+              <div className="rounded-2xl border border-white/10 bg-[#0d1b34] p-4 mb-4">
+                <p className="text-xs font-bold uppercase tracking-wide text-white/55 mb-2">
+                  Source Wallet
+                </p>
+                <div className="flex items-center justify-between gap-3">
+                  <div className="flex items-center gap-2 text-white/90 min-w-0">
+                    <Wallet className="w-4 h-4 text-green-400 shrink-0" />
+                    <span className="font-medium truncate">
+                      {assignedWallet.icon ? `${assignedWallet.icon} ` : ""}
+                      {assignedWallet.name}
+                    </span>
+                  </div>
+                  <span className="text-sm font-bold text-green-400 shrink-0">
+                    {fmt(walletBalance)}
                   </span>
                 </div>
-                <span className="text-sm font-bold text-green-400">
-                  {fmt(walletBalance)}
+              </div>
+            ) : null}
+
+            <div className="rounded-2xl border border-white/10 bg-[#0d1b34] p-4 mb-4">
+              <div className="flex justify-between items-center mb-2 gap-3">
+                <span className="text-sm font-semibold text-white">Progress</span>
+                <span className="text-lg font-bold text-green-400">
+                  {pct.toFixed(0)}%
                 </span>
               </div>
-            </div>
-          ) : null}
 
-          <div className="rounded-2xl border border-white/10 bg-[#0d1b34] p-4 mb-4">
-            <div className="flex justify-between items-center mb-2">
-              <span className="text-sm font-semibold text-white">Progress</span>
-              <span className="text-lg font-bold text-green-400">
-                {pct.toFixed(0)}%
-              </span>
-            </div>
-
-            <div className="h-4 bg-white/10 rounded-full overflow-hidden mb-3">
-              <div
-                className={`h-full rounded-full transition-all duration-300 ${
-                  pct >= 100 ? "grad-green" : "bg-green-400"
-                }`}
-                style={{ width: `${pct}%` }}
-              />
-            </div>
-
-            <div className="flex justify-between text-sm text-white/75">
-              <span>{fmt(saved)} saved</span>
-              <span>{fmt(remaining)} remaining</span>
-            </div>
-          </div>
-
-          {remaining > 0 && (
-            <div className="mb-4 space-y-2">
-              <div className="flex gap-2">
-                <Input
-                  type="number"
-                  placeholder={
-                    assignedWallet
-                      ? "Add savings amount"
-                      : "Assign a wallet first"
-                  }
-                  value={addAmount}
-                  onChange={(e) => setAddAmount(e.target.value)}
-                  className="flex-1 bg-[#081427] border-white/10 text-white placeholder:text-white/35 focus-visible:ring-1 focus-visible:ring-green-500/60"
-                  disabled={!assignedWallet}
+              <div className="h-3.5 bg-white/10 rounded-full overflow-hidden mb-3">
+                <div
+                  className={`h-full rounded-full transition-all duration-300 ${
+                    pct >= 100 ? "grad-green" : "bg-green-400"
+                  }`}
+                  style={{ width: `${pct}%` }}
                 />
-                <Button
-                  type="button"
-                  className="bg-green-500 hover:bg-green-600 text-white px-5 disabled:opacity-50"
-                  onClick={() => {
-                    if (!addAmount) return;
-                    onAddSavings(goal, parseFloat(addAmount));
-                    setAddAmount("");
-                  }}
-                  disabled={
-                    !addAmount ||
-                    !assignedWallet ||
-                    Number(addAmount) <= 0 ||
-                    Number(addAmount) > walletBalance
-                  }
-                >
-                  Add
-                </Button>
               </div>
 
-              {assignedWallet && (
-                <div className="flex flex-wrap gap-2">
-                  {quickAmounts.map((amount) => (
-                    <button
-                      key={amount}
-                      type="button"
-                      onClick={() => setAddAmount(String(amount))}
-                      className="px-3 py-1.5 rounded-full text-xs border border-white/10 bg-white/5 hover:bg-white/10 transition"
-                    >
-                      {fmt(amount)}
-                    </button>
-                  ))}
-                </div>
-              )}
+              <div className="flex justify-between text-sm text-white/75 gap-3">
+                <span>{fmt(saved)} saved</span>
+                <span>{fmt(remaining)} remaining</span>
+              </div>
             </div>
-          )}
 
-          <div className="space-y-2 mb-4">
-            {weeklyTarget ? (
-              <div className="flex justify-between items-center p-3 rounded-xl border border-white/10 bg-[#0d1b34] text-sm">
-                <span className="text-white/70">Suggested / week</span>
-                <span className="font-bold text-green-400">
-                  {fmt(weeklyTarget)}
-                </span>
+            {remaining > 0 && (
+              <div className="mb-4 space-y-2">
+                <div className="flex flex-col sm:flex-row gap-2">
+                  <Input
+                    type="number"
+                    placeholder={
+                      assignedWallet
+                        ? "Add savings amount"
+                        : "Assign a wallet first"
+                    }
+                    value={addAmount}
+                    onChange={(e) => setAddAmount(e.target.value)}
+                    className="flex-1 h-10 rounded-xl bg-[#081427] border-white/10 text-white placeholder:text-white/35 focus-visible:ring-1 focus-visible:ring-green-500/60"
+                    disabled={!assignedWallet}
+                  />
+                  <Button
+                    type="button"
+                    className="h-10 rounded-xl bg-green-500 hover:bg-green-600 text-white px-5 disabled:opacity-50 sm:min-w-[92px]"
+                    onClick={() => {
+                      if (!addAmount) return;
+                      onAddSavings(goal, parseFloat(addAmount));
+                      setAddAmount("");
+                    }}
+                    disabled={
+                      !addAmount ||
+                      !assignedWallet ||
+                      Number(addAmount) <= 0 ||
+                      Number(addAmount) > walletBalance
+                    }
+                  >
+                    Add
+                  </Button>
+                </div>
+
+                {assignedWallet && (
+                  <div className="flex flex-wrap gap-2">
+                    {quickAmounts.map((amount) => (
+                      <button
+                        key={amount}
+                        type="button"
+                        onClick={() => setAddAmount(String(amount))}
+                        className="px-3 py-1.5 rounded-full text-xs border border-white/10 bg-white/5 hover:bg-white/10 transition"
+                      >
+                        {fmt(amount)}
+                      </button>
+                    ))}
+                  </div>
+                )}
               </div>
-            ) : null}
+            )}
 
-            {monthlyTarget ? (
-              <div className="flex justify-between items-center p-3 rounded-xl border border-white/10 bg-[#0d1b34] text-sm">
-                <span className="text-white/70">Suggested / month</span>
-                <span className="font-bold text-green-400">
-                  {fmt(monthlyTarget)}
-                </span>
-              </div>
-            ) : null}
+            <div className="space-y-2 mb-4">
+              {weeklyTarget ? (
+                <div className="flex justify-between items-center gap-3 p-3 rounded-xl border border-white/10 bg-[#0d1b34] text-sm">
+                  <span className="text-white/70">Suggested / week</span>
+                  <span className="font-bold text-green-400 shrink-0">
+                    {fmt(weeklyTarget)}
+                  </span>
+                </div>
+              ) : null}
 
-            {impactOnRetention ? (
-              <div
-                className={`flex justify-between items-center p-3 rounded-xl border text-sm ${
-                  parseFloat(impactOnRetention) > 20
-                    ? "bg-orange-500/10 border-orange-400/20"
-                    : "bg-[#0d1b34] border-white/10"
-                }`}
-              >
-                <span className="text-white/70">Impact on leftover %</span>
-                <span
-                  className={`font-bold ${
+              {monthlyTarget ? (
+                <div className="flex justify-between items-center gap-3 p-3 rounded-xl border border-white/10 bg-[#0d1b34] text-sm">
+                  <span className="text-white/70">Suggested / month</span>
+                  <span className="font-bold text-green-400 shrink-0">
+                    {fmt(monthlyTarget)}
+                  </span>
+                </div>
+              ) : null}
+
+              {impactOnRetention ? (
+                <div
+                  className={`flex justify-between items-center gap-3 p-3 rounded-xl border text-sm ${
                     parseFloat(impactOnRetention) > 20
-                      ? "text-orange-300"
-                      : "text-white"
+                      ? "bg-orange-500/10 border-orange-400/20"
+                      : "bg-[#0d1b34] border-white/10"
                   }`}
                 >
-                  {impactOnRetention}% of income
-                </span>
-              </div>
+                  <span className="text-white/70">Impact on leftover %</span>
+                  <span
+                    className={`font-bold shrink-0 ${
+                      parseFloat(impactOnRetention) > 20
+                        ? "text-orange-300"
+                        : "text-white"
+                    }`}
+                  >
+                    {impactOnRetention}% of income
+                  </span>
+                </div>
+              ) : null}
+            </div>
+
+            <div className="p-4 rounded-2xl bg-[#0d1b34] border border-white/10 mb-4">
+              <p className="text-xs font-bold uppercase tracking-wide text-white/60 mb-3">
+                Why this matters {emotionEmojis[goal.emotional_value] || "✨"}
+              </p>
+
+              {Array.isArray(goal.reasons) &&
+                goal.reasons.filter(Boolean).map((reason, i) => (
+                  <p
+                    key={i}
+                    className="text-sm text-white/90 flex items-start gap-2 mb-2"
+                  >
+                    <span className="text-green-400 font-bold shrink-0">
+                      {i + 1}.
+                    </span>
+                    <span>{reason}</span>
+                  </p>
+                ))}
+
+              {goal.notes ? (
+                <p className="text-sm text-white/65 mt-3 italic">{goal.notes}</p>
+              ) : null}
+            </div>
+
+            {goal.planned_use_date ? (
+              <p className="text-sm text-white/65 flex items-center gap-2">
+                <Calendar className="w-4 h-4 shrink-0" />
+                Planned use: {goal.planned_use_date}
+              </p>
             ) : null}
           </div>
-
-          <div className="p-4 rounded-2xl bg-[#0d1b34] border border-white/10 mb-4">
-            <p className="text-xs font-bold uppercase tracking-wide text-white/60 mb-3">
-              Why this matters {emotionEmojis[goal.emotional_value] || "✨"}
-            </p>
-
-            {Array.isArray(goal.reasons) &&
-              goal.reasons.filter(Boolean).map((reason, i) => (
-                <p
-                  key={i}
-                  className="text-sm text-white/90 flex items-start gap-2 mb-2"
-                >
-                  <span className="text-green-400 font-bold">{i + 1}.</span>
-                  <span>{reason}</span>
-                </p>
-              ))}
-
-            {goal.notes ? (
-              <p className="text-sm text-white/65 mt-3 italic">{goal.notes}</p>
-            ) : null}
-          </div>
-
-          {goal.planned_use_date ? (
-            <p className="text-sm text-white/65 flex items-center gap-2">
-              <Calendar className="w-4 h-4" />
-              Planned use: {goal.planned_use_date}
-            </p>
-          ) : null}
         </div>
       </DialogContent>
     </Dialog>
