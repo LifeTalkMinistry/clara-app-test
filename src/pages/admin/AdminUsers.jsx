@@ -22,7 +22,7 @@ import { supabase } from "@/lib/supabaseClient";
 import { resetUserAccount } from "@/lib/admin-user-reset";
 import { CURRENT_PLAN_KEYS, PLAN_LABELS, normalizePlanKey } from "@/lib/plan-config";
 
-const CLARA_TIERS = CURRENT_PLAN_KEYS;
+const CLARA_TIERS = ["free", ...CURRENT_PLAN_KEYS];
 const USER_ROLES = ["free_user", "paid_user", "admin"];
 
 export default function AdminUsers() {

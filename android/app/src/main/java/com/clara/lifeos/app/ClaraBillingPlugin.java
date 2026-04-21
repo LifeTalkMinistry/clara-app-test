@@ -13,6 +13,7 @@ import com.android.billingclient.api.ProductDetails;
 import com.android.billingclient.api.Purchase;
 import com.android.billingclient.api.PurchasesUpdatedListener;
 import com.android.billingclient.api.QueryProductDetailsParams;
+import com.android.billingclient.api.QueryPurchasesParams;
 import com.getcapacitor.JSArray;
 import com.getcapacitor.JSObject;
 import com.getcapacitor.Plugin;
@@ -283,6 +284,127 @@ public class ClaraBillingPlugin extends Plugin implements PurchasesUpdatedListen
                 savedCall = null;
             }
         });
+    }
+
+    @PluginMethod
+    public void queryOwnedPurchases(PluginCall call) {
+        if (billingClient == null) {
+            JSObject ret = new JSObject();
+            ret.put("ok", false);
+            ret.put("responseCode", "ERROR");
+            ret.put("debugMessage", "Billing client is not initialized.");
+            call.resolve(ret);
+            return;
+        }
+
+        if (!billingClient.isReady()) {
+            JSObject ret = new JSObject();
+            ret.put("ok", false);
+            ret.put("responseCode", -1);
+            ret.put("debugMessage", "Billing client is not connected.");
+            call.resolve(ret);
+            return;
+        }
+
+        JSArray productIdsArray = call.getArray("productIds");
+        JSObject productTypes = call.getObject("productTypes");
+        List<String> targetIds = new ArrayList<>();
+
+        if (productIdsArray != null) {
+            try {
+                for (int i = 0; i < productIdsArray.length(); i++) {
+                    String id = productIdsArray.getString(i);
+                    if (id != null && !id.trim().isEmpty()) {
+                        targetIds.add(id.trim());
+                    }
+                }
+            } catch (JSONException e) {
+                call.reject("Invalid productIds");
+                return;
+            }
+        }
+
+        JSArray purchases = new JSArray();
+        queryOwnedPurchasesForType(BillingClient.ProductType.INAPP, productTypes, targetIds, purchases, (inappResult) -> {
+            queryOwnedPurchasesForType(BillingClient.ProductType.SUBS, productTypes, targetIds, purchases, (subsResult) -> {
+                JSObject ret = new JSObject();
+                boolean ok = inappResult.getResponseCode() == BillingClient.BillingResponseCode.OK
+                        && subsResult.getResponseCode() == BillingClient.BillingResponseCode.OK;
+                ret.put("ok", ok);
+                ret.put("responseCode", ok ? BillingClient.BillingResponseCode.OK : subsResult.getResponseCode());
+                ret.put("debugMessage", ok ? "Owned purchases queried." : subsResult.getDebugMessage());
+                ret.put("purchases", purchases);
+                call.resolve(ret);
+            });
+        });
+    }
+
+    private interface PurchaseQueryDone {
+        void done(BillingResult result);
+    }
+
+    private void queryOwnedPurchasesForType(
+            String productType,
+            JSObject productTypes,
+            List<String> targetIds,
+            JSArray purchases,
+            PurchaseQueryDone done
+    ) {
+        QueryPurchasesParams params = QueryPurchasesParams.newBuilder()
+                .setProductType(productType)
+                .build();
+
+        billingClient.queryPurchasesAsync(params, (billingResult, list) -> {
+            if (billingResult.getResponseCode() == BillingClient.BillingResponseCode.OK && list != null) {
+                for (Purchase purchase : list) {
+                    List<String> products = purchase.getProducts();
+                    if (!shouldIncludePurchase(productType, productTypes, targetIds, products)) {
+                        continue;
+                    }
+
+                    JSObject item = new JSObject();
+                    JSArray productIds = new JSArray();
+                    for (String product : products) {
+                        productIds.put(product);
+                    }
+                    item.put("productIds", productIds);
+                    item.put("productId", products != null && !products.isEmpty() ? products.get(0) : "");
+                    item.put("purchaseToken", purchase.getPurchaseToken());
+                    item.put("orderId", purchase.getOrderId() != null ? purchase.getOrderId() : "");
+                    item.put("purchaseState", purchase.getPurchaseState());
+                    purchases.put(item);
+                }
+            }
+
+            done.done(billingResult);
+        });
+    }
+
+    private boolean shouldIncludePurchase(
+            String productType,
+            JSObject productTypes,
+            List<String> targetIds,
+            List<String> products
+    ) {
+        if (products == null || products.isEmpty()) {
+            return false;
+        }
+
+        if (targetIds == null || targetIds.isEmpty()) {
+            return true;
+        }
+
+        for (String product : products) {
+            if (targetIds.contains(product)) {
+                if (productTypes == null) {
+                    return true;
+                }
+                Object mappedType = productTypes.opt(product);
+                return mappedType == null || normalizeProductType(String.valueOf(mappedType)).equals(productType);
+            }
+        }
+
+        return false;
     }
 
     @Override

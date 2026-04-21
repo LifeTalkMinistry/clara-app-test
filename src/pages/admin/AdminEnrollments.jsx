@@ -25,68 +25,46 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { normalizePlanKey } from "@/lib/plan-config";
+import { PLAN_LABELS, normalizePlanKey } from "@/lib/plan-config";
+import usePlanAccess from "@/hooks/usePlanAccess";
 
 const PLAN_DETAILS = {
-  entry: {
-    label: "Entry",
-    price: "₱299",
-    badge: "Starter Access",
-    description: "Starter CLARA access with guided beginning tools.",
+  pro_99: {
+    label: "PRO",
+    price: "₱99",
+    badge: "Monthly Subscription",
+    description: "Monthly PRO subscription through Google Play.",
     benefits: [
       "Full financial tools",
-      "Starter program access",
-      "Clear first steps",
-      "Guided beginning",
+      "Budgets, analytics, savings goals, and referrals",
+      "Monthly Google Play renewal",
     ],
   },
-  core: {
-    label: "Core",
-    price: "₱499",
+  core_599: {
+    label: "CORE",
+    price: "₱599",
     badge: "Most Popular",
-    description: "Full guided CLARA flow for stronger consistency and structure.",
+    description: "One-time CORE purchase with the 30-day CLARA Program.",
     benefits: [
       "Full 30-day guided system",
-      "Daily task progression",
-      "Reflection flow",
-      "Best value structure",
+      "Includes PRO access during the program",
+      "+1 month continuation PRO after program completion",
     ],
   },
-  coaching: {
-    label: "Coaching",
-    price: "₱999",
+  coaching_1299: {
+    label: "COACHING",
+    price: "₱1,299",
     badge: "Premium",
-    description: "Full system plus coaching support and deeper accountability.",
+    description: "One-time COACHING purchase with guided program and coaching credits.",
     benefits: [
-      "Everything in Core",
-      "Premium coaching layer",
-      "Deeper support surfaces",
-      "Higher-touch accountability",
+      "Full 30-day guided system",
+      "Includes PRO access during the program",
+      "+2 months continuation PRO after program completion",
+      "2 coaching session credits",
     ],
-  },
-  diy: {
-    label: "DIY",
-    price: "₱2,999",
-    badge: "Legacy",
-    description: "Legacy self-paced plan.",
-    benefits: [],
-  },
-  diwm: {
-    label: "DIWM",
-    price: "₱5,999",
-    badge: "Legacy",
-    description: "Legacy guided plan.",
-    benefits: [],
-  },
-  ldit: {
-    label: "LDIT",
-    price: "₱11,999",
-    badge: "Legacy",
-    description: "Legacy premium plan.",
-    benefits: [],
   },
   basic: {
-    label: "Basic",
+    label: "Free",
     price: "—",
     badge: "Free",
     description: "Basic free access.",
@@ -185,21 +163,26 @@ function getPlanKey(record) {
   return "";
 }
 
-function getPlanMeta(record) {
+function getPlanMeta(record, plansByKey = {}) {
   const key = getPlanKey(record);
+
+  const planRow = plansByKey[key];
+  if (planRow) {
+    return {
+      label: planRow.name || PLAN_LABELS[key] || key.toUpperCase(),
+      price: `₱${Number(planRow.price || 0).toLocaleString("en-PH")}`,
+      badge: planRow.billing_type === "subscription" ? "Monthly Subscription" : "One-Time Purchase",
+      description: planRow.description || "",
+      benefits: Array.isArray(planRow.features) ? planRow.features : [],
+    };
+  }
 
   if (key && PLAN_DETAILS[key]) {
     return PLAN_DETAILS[key];
   }
 
   return {
-    label:
-      record?.plan ||
-      record?.plan_key ||
-      record?.tier ||
-      record?.selected_plan ||
-      record?.profile?.plan ||
-      "Basic",
+    label: PLAN_LABELS[key] || "Free",
     price: record?.amount_paid ? `₱${record.amount_paid}` : "—",
     badge: record?.purchase_token ? "Paid" : "Free",
     description: record?.purchase_token
@@ -348,6 +331,7 @@ function sortRows(rows) {
 }
 
 export default function AdminEnrollments() {
+  const { plansByKey } = usePlanAccess();
   const [rows, setRows] = useState([]);
   const [loading, setLoading] = useState(true);
   const [selectedEnrollment, setSelectedEnrollment] = useState(null);
@@ -566,8 +550,8 @@ export default function AdminEnrollments() {
 
   const selectedPlanMeta = useMemo(() => {
     if (!selectedEnrollment) return null;
-    return getPlanMeta(selectedEnrollment);
-  }, [selectedEnrollment]);
+    return getPlanMeta(selectedEnrollment, plansByKey);
+  }, [plansByKey, selectedEnrollment]);
 
   const stats = useMemo(() => {
     const totalUsers = rows.length;
@@ -642,7 +626,7 @@ export default function AdminEnrollments() {
           {rows.map((record) => {
             const statusMeta = getStatusMeta(record);
             const StatusIcon = statusMeta.icon;
-            const planMeta = getPlanMeta(record);
+            const planMeta = getPlanMeta(record, plansByKey);
             const status = getNormalizedStatus(record);
 
             return (

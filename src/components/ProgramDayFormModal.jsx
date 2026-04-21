@@ -13,7 +13,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 
-const TIER_OPTIONS = ["entry", "core", "coaching"];
+const TIER_OPTIONS = ["core_599", "coaching_1299"];
 
 export const PROGRAM_DAY_BLANK = {
   title: "",
@@ -32,7 +32,7 @@ export const PROGRAM_DAY_BLANK = {
   reward_title: "",
   reward_message: "",
   estimated_minutes: 10,
-  tier_access: ["entry", "core", "coaching"],
+  tier_access: ["core_599", "coaching_1299"],
   is_active: true,
   sort_order: 1,
   day: 1,

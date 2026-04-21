@@ -1,8 +1,8 @@
 export const CLARA_PRODUCTS = {
   pro: {
-    planKey: "entry",
+    planKey: "pro_99",
     tierType: "pro_tools",
-    productId: "clara_pro_tools_monthly_99",
+    productId: "pro_99",
     productType: "subscription",
     price: 99,
     continuationMonths: 0,
@@ -10,20 +10,20 @@ export const CLARA_PRODUCTS = {
     completedTier: 1,
   },
   program: {
-    planKey: "core",
+    planKey: "core_599",
     tierType: "clara_program",
-    productId: "clara_program_599",
-    productType: "inapp",
+    productId: "core_599",
+    productType: "one_time",
     price: 599,
     continuationMonths: 1,
     coachingCredits: 0,
     completedTier: 2,
   },
   coaching: {
-    planKey: "coaching",
+    planKey: "coaching_1299",
     tierType: "clara_coaching",
-    productId: "clara_coaching_1299",
-    productType: "inapp",
+    productId: "coaching_1299",
+    productType: "one_time",
     price: 1299,
     continuationMonths: 2,
     coachingCredits: 2,
@@ -62,7 +62,7 @@ export function getClaraProductById(productId) {
 
 export function isProgramPlan(planKey) {
   const product = getClaraProductByPlan(planKey);
-  return product?.planKey === "core" || product?.planKey === "coaching";
+  return product?.planKey === "core_599" || product?.planKey === "coaching_1299";
 }
 
 function toDate(value) {
@@ -99,9 +99,9 @@ export function getHighestCompletedTier(profile = {}) {
 
 export function getEligiblePlanKeys(profile = {}) {
   const highest = getHighestCompletedTier(profile);
-  if (highest >= 3) return ["entry"];
-  if (highest === 2) return ["entry", "coaching"];
-  return ["entry", "core", "coaching"];
+  if (highest >= 3) return ["pro_99"];
+  if (highest === 2) return ["pro_99", "coaching_1299"];
+  return ["pro_99", "core_599", "coaching_1299"];
 }
 
 export function canOfferPlan(profile = {}, planKey) {
@@ -146,16 +146,16 @@ export function deriveEffectiveEntitlements(profile = {}, now = new Date()) {
   const hasProgramAccess =
     programActive ||
     (!programCompleted &&
-      ["core", "coaching"].includes(normalize(profile.plan)) &&
+      ["core_599", "coaching_1299"].includes(normalize(profile.plan)) &&
       normalize(profile.entitlement_status || profile.status) !== "revoked");
 
   let effectivePlan = "free";
   if (hasProgramAccess) {
-    effectivePlan = normalize(profile.tier_type) === "clara_coaching" || normalize(profile.plan) === "coaching"
-      ? "coaching"
-      : "core";
+    effectivePlan = normalize(profile.tier_type) === "clara_coaching" || normalize(profile.plan) === "coaching_1299"
+      ? "coaching_1299"
+      : "core_599";
   } else if (hasProAccess) {
-    effectivePlan = "entry";
+    effectivePlan = "pro_99";
   }
 
   return {
@@ -179,8 +179,8 @@ export function deriveEffectiveEntitlements(profile = {}, now = new Date()) {
 export function buildProgramCompletionPatch(profile = {}, completedAt = new Date()) {
   const planProduct = getClaraProductByPlan(profile.plan);
   const tierType = normalize(profile.tier_type);
-  const isCoaching = planProduct?.planKey === "coaching" || tierType === "clara_coaching";
-  const isProgram = planProduct?.planKey === "core" || tierType === "clara_program";
+  const isCoaching = planProduct?.planKey === "coaching_1299" || tierType === "clara_coaching";
+  const isProgram = planProduct?.planKey === "core_599" || tierType === "clara_program";
   const continuationMonths = isCoaching ? 2 : isProgram ? 1 : 0;
   const startsAt = toDate(completedAt) || new Date();
   const endsAt = continuationMonths > 0 ? addMonths(startsAt, continuationMonths) : null;
@@ -194,7 +194,7 @@ export function buildProgramCompletionPatch(profile = {}, completedAt = new Date
     has_completed_program_tier_599: Boolean(profile.has_completed_program_tier_599 || isProgram),
     has_completed_coaching_tier_1299: Boolean(profile.has_completed_coaching_tier_1299 || isCoaching),
     highest_completed_tier: highestCompletedTier,
-    plan: endsAt ? "entry" : "free",
+    plan: endsAt ? "pro_99" : "free",
     status: endsAt ? "approved" : "free",
     enrollment_status: endsAt ? "active" : "completed",
     is_enrolled: false,

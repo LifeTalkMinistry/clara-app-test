@@ -12,23 +12,19 @@ const REVISION_STATUSES = new Set(["rejected", "needs_revision"]);
 
 const PLAN_TO_EXPERIENCE_TIER = {
   free: "free",
-  basic: "entry",
-  diy: "entry",
-  entry: "entry",
-  transformation: "core",
-  diwm: "core",
-  core: "core",
-  student: "core",
-  elite: "coaching",
-  ldit: "coaching",
-  coaching: "coaching",
+  pro: "pro_99",
+  pro_99: "pro_99",
+  core: "core_599",
+  core_599: "core_599",
+  coaching: "coaching_1299",
+  coaching_1299: "coaching_1299",
 };
 
 export const EXPERIENCE_TIER_LABELS = {
   free: "Free",
-  entry: "Entry",
-  core: "Core",
-  coaching: "Coaching",
+  pro_99: "PRO",
+  core_599: "CORE",
+  coaching_1299: "COACHING",
 };
 
 const normalize = (value) => String(value ?? "").trim();
@@ -155,11 +151,9 @@ export function getStarterDayLimit(profileLike, enrollment = null) {
     toPositiveInt(
       profileLike?.starter_program_days,
       profileLike?.starter_day_limit,
-      profileLike?.entry_program_days,
       profileLike?.program_preview_days,
       enrollment?.starter_program_days,
       enrollment?.starter_day_limit,
-      enrollment?.entry_program_days
     ) || DEFAULT_STARTER_DAY_LIMIT
   );
 }
@@ -171,15 +165,15 @@ export function taskSupportsTier(task, tier) {
   const tierAccess = normalizeTierAccess(task.tier_access);
   if (tierAccess.length === 0) return true;
 
-  if (tier === "coaching") {
-    return tierAccess.includes("coaching") || tierAccess.includes("core") || tierAccess.includes("entry");
+  if (tier === "coaching_1299") {
+    return tierAccess.includes("coaching_1299") || tierAccess.includes("core_599");
   }
 
-  if (tier === "core") {
-    return tierAccess.includes("core") || tierAccess.includes("entry");
+  if (tier === "core_599") {
+    return tierAccess.includes("core_599");
   }
 
-  return tierAccess.includes("entry");
+  return false;
 }
 
 export function getSubmissionMeta(submission) {
@@ -270,7 +264,7 @@ export function buildProgramJourney(tasks = [], submissions = [], options = {}) 
     const submissionMeta = getSubmissionMeta(submission);
     const isPublished = task.is_active !== false && task.status !== "inactive";
     const isTierAllowed = taskSupportsTier(task, tier);
-    const isVisibleToEntry = tier === "entry" && task.day > starterDayLimit;
+    const isVisibleToPro = tier === "pro_99";
     const isUnlockedByDate =
       challengeStarted &&
       task.day <= unlockedDay &&
@@ -283,11 +277,11 @@ export function buildProgramJourney(tasks = [], submissions = [], options = {}) 
     if (!isPublished) {
       state = "locked";
       lockedReason = "This day is currently inactive.";
-    } else if (!isTierAllowed || isVisibleToEntry) {
+    } else if (!isTierAllowed || isVisibleToPro) {
       state = "locked";
       lockedReason =
-        tier === "entry"
-          ? "Upgrade to Core to continue beyond the starter days."
+        tier === "pro_99"
+          ? "Unlock CORE to start the 30-day program."
           : "This day is not available on your current tier.";
     } else if (!challengeStarted) {
       state = "locked";
@@ -310,7 +304,7 @@ export function buildProgramJourney(tasks = [], submissions = [], options = {}) 
       submissionMeta,
       isPublished,
       isTierAllowed,
-      isVisibleToEntry,
+      isProProgramBlocked: isVisibleToPro,
       isUnlockedByDate,
       isToday,
       isCurrentDay: state === "active",
@@ -330,7 +324,7 @@ export function buildProgramJourney(tasks = [], submissions = [], options = {}) 
   const nextItem =
     visibleItems.find((item) => item.day > (todayItem?.day || 0) && item.isTierAllowed) || null;
   const firstLockedItem = visibleItems.find((item) => item.state === "locked") || null;
-  const accessibleItems = visibleItems.filter((item) => item.isTierAllowed && !item.isVisibleToEntry);
+  const accessibleItems = visibleItems.filter((item) => item.isTierAllowed && !item.isProProgramBlocked);
   const accessibleCompletedCount = accessibleItems.filter((item) => item.isCompleted).length;
   const percentComplete =
     accessibleItems.length === 0 ? 0 : Math.round((accessibleCompletedCount / accessibleItems.length) * 100);
@@ -341,8 +335,6 @@ export function buildProgramJourney(tasks = [], submissions = [], options = {}) 
     state = "locked";
   } else if (!challengeStarted) {
     state = "available_not_started";
-  } else if (tier === "entry" && accessibleCompletedCount >= accessibleItems.length) {
-    state = "starter_complete";
   } else if (accessibleItems.length > 0 && accessibleCompletedCount >= accessibleItems.length) {
     state = "all_complete";
   } else if (completedItems.length > 0) {
@@ -415,9 +407,7 @@ export function getProgramBubbleContent(journey, options = {}) {
       kind: "onboarding",
       eyebrow: journey.tier === "coaching" ? "Coaching Journey" : "30-Day Reset",
       title:
-        journey.tier === "entry"
-          ? "Start your starter path"
-          : journey.tier === "coaching"
+        journey.tier === "coaching_1299"
             ? "Your guided system and coaching layer are ready"
             : "Your guided reset is ready",
       body: "Complete your setup and begin the next step in your program.",
@@ -426,18 +416,7 @@ export function getProgramBubbleContent(journey, options = {}) {
     };
   }
 
-  if (journey.tier === "entry" && journey.state === "starter_complete") {
-    return {
-      kind: "starter_complete",
-      eyebrow: "Starter Complete",
-      title: "Your starter path is complete",
-      body: "Upgrade to Core whenever you want to continue the full 30-day system.",
-      ctaLabel: "Upgrade to Core",
-      href: "/enroll",
-    };
-  }
-
-  if (journey.tier === "coaching" && coachingSummary?.hasPendingSession) {
+  if (journey.tier === "coaching_1299" && coachingSummary?.hasPendingSession) {
     const session = coachingSummary.nextApproved || coachingSummary.pending;
     return {
       kind: "coaching_active",
@@ -454,7 +433,7 @@ export function getProgramBubbleContent(journey, options = {}) {
   if (journey.state === "available_not_started") {
     return {
       kind: "start_challenge",
-      eyebrow: journey.tier === "coaching" ? "Coaching Journey" : "30-Day Program",
+      eyebrow: journey.tier === "coaching_1299" ? "Coaching Journey" : "30-Day Program",
       title: "Your CLARA challenge is ready",
       body: "Start the challenge when you are ready. Day 1 opens immediately, then each next day unlocks at 6:00 AM.",
       ctaLabel: "Start Challenge",
@@ -465,7 +444,7 @@ export function getProgramBubbleContent(journey, options = {}) {
   if (journey.todayItem) {
     return {
       kind: "task_reminder",
-      eyebrow: journey.tier === "coaching" ? "Coaching Journey" : "Today's Task",
+      eyebrow: journey.tier === "coaching_1299" ? "Coaching Journey" : "Today's Task",
       title: `Continue Day ${journey.todayItem.day} of your reset`,
       body: journey.todayItem.title || "Your next guided task is ready.",
       ctaLabel: "Open Today's Task",

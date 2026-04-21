@@ -1,31 +1,28 @@
-export const CURRENT_PLAN_KEYS = ["free", "entry", "core", "coaching"];
+export const CURRENT_PLAN_KEYS = ["pro_99", "core_599", "coaching_1299"];
 
 export const LEGACY_PLAN_ALIASES = {
   free: "free",
-  basic: "entry",
-  diy: "entry",
-  entry: "entry",
-  transformation: "core",
-  diwm: "core",
-  student: "core",
-  core: "core",
-  elite: "coaching",
-  ldit: "coaching",
-  coaching: "coaching",
+  pro: "pro_99",
+  pro_99: "pro_99",
+  core: "core_599",
+  core_599: "core_599",
+  coach: "coaching_1299",
+  coaching: "coaching_1299",
+  coaching_1299: "coaching_1299",
 };
 
 export const PLAN_LABELS = {
   free: "Free",
-  entry: "PRO Tools",
-  core: "CLARA Program",
-  coaching: "CLARA Coaching",
+  pro_99: "PRO",
+  core_599: "CORE",
+  coaching_1299: "COACHING",
 };
 
 export const PLAN_BADGE_STYLES = {
   free: "bg-white/10 text-white border-white/10",
-  entry: "bg-cyan-500/15 text-cyan-300 border-cyan-400/20",
-  core: "bg-emerald-500/15 text-emerald-300 border-emerald-400/20",
-  coaching: "bg-amber-500/15 text-amber-300 border-amber-400/20",
+  pro_99: "bg-cyan-500/15 text-cyan-300 border-cyan-400/20",
+  core_599: "bg-emerald-500/15 text-emerald-300 border-emerald-400/20",
+  coaching_1299: "bg-amber-500/15 text-amber-300 border-amber-400/20",
   admin: "bg-fuchsia-500/15 text-fuchsia-300 border-fuchsia-400/20",
 };
 
@@ -183,10 +180,12 @@ export const PLAN_DEFAULTS = {
       referrals: "off",
     },
   },
-  entry: {
-    key: "entry",
-    name: "PRO Tools",
+  pro_99: {
+    key: "pro_99",
+    name: "PRO",
     price: 99,
+    product_id: "pro_99",
+    billing_type: "subscription",
     description: "Unlock CLARA's PRO financial tools with a monthly Google Play subscription.",
     features: [
       "Feed and full financial tools",
@@ -215,13 +214,15 @@ export const PLAN_DEFAULTS = {
       referrals: "full",
     },
   },
-  core: {
-    key: "core",
-    name: "CLARA Program",
+  core_599: {
+    key: "core_599",
+    name: "CORE",
     price: 599,
-    description: "Unlock the 30-day CLARA Program with PRO during the program and +1 month continuation PRO after completion.",
+    product_id: "core_599",
+    billing_type: "one_time",
+    description: "Unlock CORE with PRO during the program and +1 month continuation PRO after completion.",
     features: [
-      "Feed and full 30-day guided system",
+      "Feed and full CORE guided system",
       "Includes PRO access during the program",
       "+1 month continuation PRO after program completion",
       "One-time Google Play purchase",
@@ -247,13 +248,15 @@ export const PLAN_DEFAULTS = {
       referrals: "full",
     },
   },
-  coaching: {
-    key: "coaching",
-    name: "CLARA Coaching",
+  coaching_1299: {
+    key: "coaching_1299",
+    name: "COACHING",
     price: 1299,
-    description: "Unlock the 30-day CLARA Program, 2 coaching sessions, and +2 months continuation PRO after completion.",
+    product_id: "coaching_1299",
+    billing_type: "one_time",
+    description: "Unlock COACHING, 2 coaching sessions, and +2 months continuation PRO after completion.",
     features: [
-      "Feed and full 30-day guided system",
+      "Feed and full COACHING guided system",
       "Includes PRO access during the program",
       "+2 months continuation PRO after program completion",
       "2 coaching session credits",
@@ -339,6 +342,8 @@ export function getPlanDefaults(planKey) {
     plan_key: normalizedPlanKey,
     name: defaults.name,
     price: defaults.price,
+    product_id: defaults.product_id,
+    billing_type: defaults.billing_type,
     description: defaults.description,
     features: [...defaults.features],
     cta_label: defaults.cta_label,
@@ -363,6 +368,8 @@ export function sanitizePlanRow(row = {}) {
     plan_key: planKey,
     name: String(row.name || defaults.name).trim(),
     price: Number(row.price ?? defaults.price ?? 0),
+    product_id: String(row.product_id || row.play_product_id || defaults.product_id || "").trim(),
+    billing_type: String(row.billing_type || defaults.billing_type || "").trim(),
     description: String(row.description || defaults.description || "").trim(),
     features,
     cta_label: String(row.cta_label || defaults.cta_label || "").trim(),

@@ -1,6 +1,6 @@
 import { normalizeProgramTask } from "@/lib/program-journey";
 
-const STARTER_TIERS = ["entry", "core", "coaching"];
+const STARTER_TIERS = ["core_599", "coaching_1299"];
 const FULL_PROGRAM_TIERS = ["core", "coaching"];
 
 function createOfficialDay(day, fields) {
@@ -717,7 +717,7 @@ export function buildOfficialProgramTaskPayload(dayDefinition, overrides = {}) {
     estimated_minutes: Number(normalized.estimated_minutes || 10),
     tier_access: normalized.tier_access?.length
       ? normalized.tier_access
-      : ["entry", "core", "coaching"],
+      : ["core_599", "coaching_1299"],
     is_active: normalized.is_active !== false,
     status: normalized.is_active === false ? "inactive" : "active",
     sort_order: Number(normalized.sort_order || day),

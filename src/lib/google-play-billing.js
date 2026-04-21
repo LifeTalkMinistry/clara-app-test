@@ -1,8 +1,11 @@
 import { CLARA_PRODUCTS, getClaraProductByPlan } from "@/lib/clara-entitlements";
 
 const PRODUCT_IDS = {
-  entry: CLARA_PRODUCTS.pro.productId,
+  pro_99: CLARA_PRODUCTS.pro.productId,
+  pro: CLARA_PRODUCTS.pro.productId,
+  core_599: CLARA_PRODUCTS.program.productId,
   core: CLARA_PRODUCTS.program.productId,
+  coaching_1299: CLARA_PRODUCTS.coaching.productId,
   coach: CLARA_PRODUCTS.coaching.productId,
   coaching: CLARA_PRODUCTS.coaching.productId,
 };
@@ -28,6 +31,22 @@ export function getAllGooglePlayProductIds() {
 
 function getGooglePlayProductType(productId) {
   return PRODUCT_TYPES[normalize(productId)] || "inapp";
+}
+
+function normalizeOwnedPurchase(raw = {}) {
+  const productIds = Array.isArray(raw.productIds)
+    ? raw.productIds.map((id) => normalize(id)).filter(Boolean)
+    : [normalize(raw.productId)].filter(Boolean);
+
+  return {
+    productIds,
+    productId: productIds[0] || "",
+    purchaseToken:
+      normalize(raw.purchaseToken || raw.purchase_token || raw.token) || "",
+    orderId: normalize(raw.orderId || raw.order_id) || "",
+    purchaseState: raw.purchaseState,
+    raw,
+  };
 }
 
 function parseBridgeResult(result) {
@@ -314,6 +333,52 @@ export async function queryGooglePlayProducts({ productIds = [] } = {}) {
   };
 }
 
+export async function queryOwnedGooglePlayPurchases({ productIds = [] } = {}) {
+  const targetIds = Array.isArray(productIds) && productIds.length
+    ? productIds.map((id) => normalize(id)).filter(Boolean)
+    : getAllGooglePlayProductIds();
+
+  const bridgeResult = await safeBridgeCall("queryOwnedPurchases", {
+    productIds: targetIds,
+    productTypes: targetIds.reduce((acc, id) => {
+      acc[id] = getGooglePlayProductType(id);
+      return acc;
+    }, {}),
+  });
+
+  if (!bridgeResult.ok && !bridgeResult.raw) {
+    return {
+      ok: false,
+      responseCode: bridgeResult.responseCode || "BILLING_UNAVAILABLE",
+      debugMessage: bridgeResult.debugMessage || "Owned purchase query is unavailable.",
+      purchases: [],
+      raw: null,
+    };
+  }
+
+  const result = bridgeResult.raw || {};
+  const purchases = Array.isArray(result.purchases)
+    ? result.purchases.map(normalizeOwnedPurchase)
+    : [];
+  const filtered = targetIds.length
+    ? purchases.filter((purchase) =>
+        purchase.productIds.some((productId) => targetIds.includes(productId))
+      )
+    : purchases;
+
+  return {
+    ok: result?.ok === true || normalizeResponseCode(result?.responseCode) === "OK",
+    responseCode: normalizeResponseCode(result?.responseCode),
+    debugMessage:
+      result?.debugMessage ||
+      result?.message ||
+      bridgeResult.debugMessage ||
+      "Owned purchase query completed.",
+    purchases: filtered,
+    raw: result,
+  };
+}
+
 export async function diagnoseGooglePlayBilling({ productId } = {}) {
   const connection = await connectGooglePlayBilling();
 
@@ -499,6 +564,14 @@ export async function persistGooglePlayPurchase({
     });
   }
 
+  if (!safePurchaseToken) {
+    throw makeError("Missing Google Play purchase token.", {
+      responseCode: "DEVELOPER_ERROR",
+      debugMessage:
+        "Google Play restore/purchase must include a purchaseToken before backend validation.",
+    });
+  }
+
   try {
     const { data, error } = await supabase.functions.invoke(
       "verify-google-play-purchase",
@@ -514,11 +587,26 @@ export async function persistGooglePlayPurchase({
       }
     );
 
-    if (!error && data?.ok) {
+    if (error) throw error;
+
+    if (data?.ok) {
       return data.enrollment_id || data.purchase_id || null;
     }
+
+    throw makeError(data?.error || "Google Play purchase was not validated.", {
+      responseCode: "VALIDATION_FAILED",
+      debugMessage: data?.error || "Backend verification returned a non-success response.",
+      raw: data,
+    });
   } catch (error) {
-    console.warn("Server-side Google Play verification is pending:", error);
+    throw makeError(error?.message || "Server-side Google Play verification failed.", {
+      responseCode: error?.responseCode || error?.code || "VALIDATION_FAILED",
+      debugMessage:
+        error?.debugMessage ||
+        error?.details ||
+        "The purchase was not persisted because backend validation did not succeed.",
+      raw: error,
+    });
   }
 
   const payload = {
@@ -611,10 +699,10 @@ export async function persistGooglePlayPurchase({
 
   if (resolvedStatus === "approved" || resolvedStatus === "active") {
     const product = getClaraProductByPlan(safePlanKey);
-    const isProOnly = safePlanKey === "entry";
+    const isProOnly = safePlanKey === "pro_99";
     const profilePatch = isProOnly
       ? {
-          plan: "entry",
+          plan: "pro_99",
           tier_type: product?.tierType || "pro_tools",
           purchase_source: "google_play",
           play_product_id: safeProductId,
@@ -636,7 +724,7 @@ export async function persistGooglePlayPurchase({
           enrollment_status: resolvedStatus,
           entitlement_status: "program_available",
           coaching_credits_total:
-            safePlanKey === "coaching" ? product?.coachingCredits || 2 : 0,
+            safePlanKey === "coaching_1299" ? product?.coachingCredits || 2 : 0,
         };
 
     const { error: profileUpdateError } = await supabase

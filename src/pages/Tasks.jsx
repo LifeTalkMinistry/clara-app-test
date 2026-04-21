@@ -55,7 +55,7 @@ function StatusPill({ item }) {
     return <span className={`${base} border border-white/10 bg-white/10 text-white/80`}>Completed</span>;
   }
 
-  if (item.isVisibleToEntry) {
+  if (item.isProProgramBlocked) {
     return <span className={`${base} border border-amber-400/20 bg-amber-400/10 text-amber-100`}>Upgrade</span>;
   }
 
@@ -293,17 +293,17 @@ export default function Tasks() {
     (item) => {
       if (item.state === "locked") {
         setLockedInfo({
-          eyebrow: item.isVisibleToEntry ? "Upgrade" : "Locked",
-          title: item.isVisibleToEntry ? "Continue your full 30-day journey" : "This day unlocks later",
+          eyebrow: item.isProProgramBlocked ? "Upgrade" : "Locked",
+          title: item.isProProgramBlocked ? "Continue your full 30-day journey" : "This day unlocks later",
           body:
             item.lockedReason ||
-            (item.isVisibleToEntry
+            (item.isProProgramBlocked
               ? "Upgrade to Core to continue beyond your starter path."
               : "This day will unlock automatically as your program progresses."),
           metaLabel: "Selected day",
           metaValue: `Day ${item.day} • ${item.title}`,
-          ctaLabel: item.isVisibleToEntry ? "View Upgrade" : "Open Program",
-          href: item.isVisibleToEntry ? "/enroll" : "/tasks",
+          ctaLabel: item.isProProgramBlocked ? "View Upgrade" : "Open Program",
+          href: item.isProProgramBlocked ? "/enroll" : "/tasks",
           onNavigate: (href) => navigate(href),
         });
         return;

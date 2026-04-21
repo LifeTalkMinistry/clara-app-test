@@ -3,9 +3,9 @@ import React, { useCallback, useEffect, useState } from "react";
 type BillingProbeState = "idle" | "checking" | "ready" | "diagnostic" | "error";
 
 const PRODUCT_IDS = [
-  "clara_entry",
-  "clara_core",
-  "clara_coach",
+  "pro_99",
+  "core_599",
+  "coaching_1299",
 ];
 
 const billingBridge = {
