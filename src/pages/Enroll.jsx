@@ -1045,13 +1045,7 @@ export default function Enroll() {
 
     const normalized = (data || [])
       .map(normalizePlanRecord)
-      .filter((plan) => plan.active && plan.productId && PLAN_UI_META[plan.key])
-      .filter((plan) => {
-        const candidates = getPlanCandidates(plan.rawKey || plan.key);
-        return candidates.some((candidate) =>
-          canOfferPlan(user?.profile || user, candidate)
-        );
-      });
+      .filter((plan) => plan.active && plan.productId && PLAN_UI_META[plan.key]);
 
     setPlans(normalized);
     return normalized;
