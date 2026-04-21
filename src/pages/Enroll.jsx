@@ -38,8 +38,32 @@ import {
 } from "@/lib/google-play-billing";
 import { canOfferPlan, getClaraProductByPlan } from "@/lib/clara-entitlements";
 
+const CANONICAL_PLAN_KEYS = {
+  PRO: "pro_99",
+  PROGRAM: "core_599",
+  COACHING: "coaching_1299",
+};
+
+const SUPPORTED_ENROLLMENT_PLAN_KEYS = new Set([
+  CANONICAL_PLAN_KEYS.PRO,
+  CANONICAL_PLAN_KEYS.PROGRAM,
+  CANONICAL_PLAN_KEYS.COACHING,
+]);
+
+const LEGACY_PLAN_KEY_MAP = {
+  pro: CANONICAL_PLAN_KEYS.PRO,
+  pro_tools: CANONICAL_PLAN_KEYS.PRO,
+  protools: CANONICAL_PLAN_KEYS.PRO,
+
+  core: CANONICAL_PLAN_KEYS.PROGRAM,
+  program: CANONICAL_PLAN_KEYS.PROGRAM,
+
+  coach: CANONICAL_PLAN_KEYS.COACHING,
+  coaching: CANONICAL_PLAN_KEYS.COACHING,
+};
+
 const PLAN_UI_META = {
-  pro_99: {
+  [CANONICAL_PLAN_KEYS.PRO]: {
     label: "PRO",
     eyebrow: "Monthly Subscription",
     badge: "Monthly subscription",
@@ -58,7 +82,7 @@ const PLAN_UI_META = {
     successCta: "Open Dashboard",
     icon: Star,
   },
-  core_599: {
+  [CANONICAL_PLAN_KEYS.PROGRAM]: {
     label: "CORE",
     eyebrow: "One-Time Program",
     badge: "Most popular",
@@ -79,7 +103,7 @@ const PLAN_UI_META = {
     successCta: "Open Program",
     icon: Target,
   },
-  coaching_1299: {
+  [CANONICAL_PLAN_KEYS.COACHING]: {
     label: "COACHING",
     eyebrow: "Personal Guidance",
     badge: "Premium support",
@@ -126,10 +150,11 @@ function normalizeKey(value) {
 
 function normalizePlanUiKey(value) {
   const key = normalizeKey(value);
-  if (key === "pro") return "pro_99";
-  if (key === "core") return "core_599";
-  if (key === "coach" || key === "coaching") return "coaching_1299";
-  return key;
+  return LEGACY_PLAN_KEY_MAP[key] || key;
+}
+
+function isSupportedEnrollmentPlanKey(value) {
+  return SUPPORTED_ENROLLMENT_PLAN_KEYS.has(normalizePlanUiKey(value));
 }
 
 function formatPeso(value) {
@@ -152,23 +177,43 @@ function normalizeFeatures(features) {
   return [];
 }
 
+function getPlanCandidates(value) {
+  const raw = normalizeText(value);
+  const normalized = normalizePlanUiKey(value);
+  const normalizedRaw = normalizeKey(raw);
+  return Array.from(
+    new Set([normalized, raw, normalizedRaw].filter(Boolean))
+  );
+}
+
 function normalizePlanRecord(row) {
   const normalizedRow = sanitizePlanRow(row);
-  const rawKey = normalizePlanKey(
-    normalizedRow.plan_key || normalizedRow.key || normalizedRow.name
-  );
-  const key = normalizePlanUiKey(rawKey);
+  const rawSource =
+    normalizedRow.plan_key || normalizedRow.key || normalizedRow.name;
+  const normalizedRawKey = normalizePlanKey(rawSource);
+  const key = normalizePlanUiKey(normalizedRawKey || rawSource);
   const ui = PLAN_UI_META[key] || null;
-  const productMeta = getClaraProductByPlan(rawKey);
+
+  const productMeta =
+    getClaraProductByPlan(key) ||
+    getClaraProductByPlan(normalizedRawKey) ||
+    getClaraProductByPlan(rawSource);
+
+  const productId =
+    normalizeText(normalizedRow?.product_id) ||
+    getGooglePlayProductId(key) ||
+    getGooglePlayProductId(normalizedRawKey) ||
+    getGooglePlayProductId(rawSource) ||
+    "";
 
   return {
     id: normalizedRow?.id ?? null,
     key,
-    rawKey,
+    rawKey: normalizedRawKey || normalizeKey(rawSource),
     name:
       ui?.label ||
       PLAN_LABELS[key] ||
-      PLAN_LABELS[rawKey] ||
+      PLAN_LABELS[normalizedRawKey] ||
       normalizeText(normalizedRow?.name) ||
       key.toUpperCase(),
     price: Number(productMeta?.price ?? normalizedRow?.price ?? 0),
@@ -188,12 +233,10 @@ function normalizePlanRecord(row) {
     border: ui?.border || "border-white/10",
     successTitle: ui?.successTitle || "Plan unlocked",
     successBody:
-      ui?.successBody || "Your purchase is complete and your CLARA access is ready.",
+      ui?.successBody ||
+      "Your purchase is complete and your CLARA access is ready.",
     successCta: ui?.successCta || "Open CLARA",
-    productId:
-      normalizeText(normalizedRow?.product_id) ||
-      getGooglePlayProductId(key) ||
-      getGooglePlayProductId(rawKey),
+    productId,
     productMeta,
     icon: ui?.icon || Sparkles,
     displayBenefits:
@@ -220,27 +263,43 @@ function getPlanKeyFromEnrollment(enrollment, searchParams) {
   return "";
 }
 
+function getSupportedPlanKeyFromEnrollment(enrollment) {
+  const candidates = [
+    enrollment?.plan,
+    enrollment?.plan_key,
+    enrollment?.tier,
+    enrollment?.selected_plan,
+  ];
+
+  for (const item of candidates) {
+    const normalized = normalizePlanUiKey(item);
+    if (isSupportedEnrollmentPlanKey(normalized)) {
+      return normalized;
+    }
+  }
+
+  return "";
+}
+
 function getSuccessDestination(planKey) {
   const normalized = normalizePlanUiKey(planKey);
-  if (normalized === "pro_99") return "/dashboard";
-  if (normalized === "coaching_1299") return "/tasks";
+  if (normalized === CANONICAL_PLAN_KEYS.PRO) return "/dashboard";
+  if (
+    normalized === CANONICAL_PLAN_KEYS.PROGRAM ||
+    normalized === CANONICAL_PLAN_KEYS.COACHING
+  ) {
+    return "/tasks";
+  }
   return "/tasks";
 }
 
 function formatDebugError(error) {
   const rawMessage = String(error?.message || "").trim();
   const code = String(
-    error?.code ||
-      error?.responseCode ||
-      error?.status ||
-      error?.name ||
-      ""
+    error?.code || error?.responseCode || error?.status || error?.name || ""
   ).trim();
   const details = String(
-    error?.details ||
-      error?.debugMessage ||
-      error?.reason ||
-      ""
+    error?.details || error?.debugMessage || error?.reason || ""
   ).trim();
 
   const lines = [];
@@ -987,7 +1046,12 @@ export default function Enroll() {
     const normalized = (data || [])
       .map(normalizePlanRecord)
       .filter((plan) => plan.active && plan.productId && PLAN_UI_META[plan.key])
-      .filter((plan) => canOfferPlan(user?.profile || user, plan.rawKey || plan.key));
+      .filter((plan) => {
+        const candidates = getPlanCandidates(plan.rawKey || plan.key);
+        return candidates.some((candidate) =>
+          canOfferPlan(user?.profile || user, candidate)
+        );
+      });
 
     setPlans(normalized);
     return normalized;
@@ -1015,7 +1079,7 @@ export default function Enroll() {
     return data || null;
   }, []);
 
-  const fetchEnrollment = useCallback(async () => {
+  const fetchEnrollment = useCallback(() => {
     return fetchEnrollmentForUserId(user?.id);
   }, [fetchEnrollmentForUserId, user?.id]);
 
@@ -1085,6 +1149,23 @@ export default function Enroll() {
     [enrollment, searchParams]
   );
 
+  const supportedEnrollmentPlanKey = useMemo(
+    () => getSupportedPlanKeyFromEnrollment(enrollment),
+    [enrollment]
+  );
+
+  const hasCurrentSupportedEnrollment = useMemo(() => {
+    return Boolean(supportedEnrollmentPlanKey);
+  }, [supportedEnrollmentPlanKey]);
+
+  const shouldShowEnrollmentBanner = useMemo(() => {
+    return hasCurrentSupportedEnrollment && !(purchaseState === "success");
+  }, [hasCurrentSupportedEnrollment, purchaseState]);
+
+  const shouldShowPendingEnrollmentBanner = useMemo(() => {
+    return shouldShowEnrollmentBanner && PENDING_STATUSES.has(currentStatus);
+  }, [shouldShowEnrollmentBanner, currentStatus]);
+
   const sortedPlans = useMemo(() => {
     return [...plans].sort((a, b) => {
       if (a.sortOrder !== b.sortOrder) return a.sortOrder - b.sortOrder;
@@ -1092,9 +1173,8 @@ export default function Enroll() {
     });
   }, [plans]);
 
-  const selectedPlanKey = normalizePlanUiKey(
-    searchParams.get("plan") || enrollmentPlanKey
-  );
+  const requestedPlanKey = normalizePlanUiKey(searchParams.get("plan"));
+  const selectedPlanKey = requestedPlanKey || supportedEnrollmentPlanKey;
   const view = searchParams.get("view") || (selectedPlanKey ? "detail" : "select");
 
   const selectedPlan = useMemo(() => {
@@ -1114,13 +1194,24 @@ export default function Enroll() {
   }, [ownedPurchases, selectedPlan]);
 
   const unlockedPlan = useMemo(() => {
-    if (!SUCCESS_STATUSES.has(currentStatus)) return null;
+    if (!SUCCESS_STATUSES.has(currentStatus) || !hasCurrentSupportedEnrollment) {
+      return null;
+    }
+
     return (
       sortedPlans.find(
-        (plan) => normalizePlanUiKey(plan.key) === normalizePlanUiKey(enrollmentPlanKey)
+        (plan) =>
+          normalizePlanUiKey(plan.key) ===
+          normalizePlanUiKey(supportedEnrollmentPlanKey)
       ) || selectedPlan
     );
-  }, [currentStatus, enrollmentPlanKey, selectedPlan, sortedPlans]);
+  }, [
+    currentStatus,
+    hasCurrentSupportedEnrollment,
+    selectedPlan,
+    sortedPlans,
+    supportedEnrollmentPlanKey,
+  ]);
 
   const activePurchasePlanMeta = useMemo(() => {
     return (
@@ -1322,7 +1413,16 @@ export default function Enroll() {
         orderId,
       });
     } catch (activationError) {
-      console.warn("verify-google-play function did not complete cleanly:", activationError);
+      console.warn(
+        "verify-google-play function did not complete cleanly:",
+        activationError
+      );
+    }
+
+    try {
+      await supabase.auth.refreshSession();
+    } catch (sessionError) {
+      console.warn("Session refresh after purchase did not complete cleanly:", sessionError);
     }
 
     const latestEnrollmentAfterPersist = await fetchEnrollmentForUserId(userId);
@@ -1334,13 +1434,15 @@ export default function Enroll() {
         activationResult?.data?.status
     );
 
-    const persistedStatus = normalizeKey(
-      latestEnrollmentAfterPersist?.status
+    const persistedStatus = normalizeKey(latestEnrollmentAfterPersist?.status);
+    const persistedPlanKey = getSupportedPlanKeyFromEnrollment(
+      latestEnrollmentAfterPersist
     );
 
     if (
-      SUCCESS_STATUSES.has(activationStatus) ||
-      SUCCESS_STATUSES.has(persistedStatus)
+      persistedPlanKey &&
+      (SUCCESS_STATUSES.has(activationStatus) ||
+        SUCCESS_STATUSES.has(persistedStatus))
     ) {
       setPurchaseState("success");
       setPurchaseMessage(plan.successBody);
@@ -1354,6 +1456,12 @@ export default function Enroll() {
       expectedPlanKey: planKey,
     });
 
+    try {
+      await supabase.auth.refreshSession();
+    } catch (sessionError) {
+      console.warn("Session refresh after entitlement wait did not complete cleanly:", sessionError);
+    }
+
     const latestEnrollmentAfterWait = await fetchEnrollmentForUserId(userId);
     await refreshUser?.();
 
@@ -1361,10 +1469,14 @@ export default function Enroll() {
     const latestEnrollmentStatus = normalizeKey(
       latestEnrollmentAfterWait?.status
     );
+    const latestEnrollmentPlanKey = getSupportedPlanKeyFromEnrollment(
+      latestEnrollmentAfterWait
+    );
 
     if (
-      SUCCESS_STATUSES.has(entitlementStatus) ||
-      SUCCESS_STATUSES.has(latestEnrollmentStatus)
+      latestEnrollmentPlanKey &&
+      (SUCCESS_STATUSES.has(entitlementStatus) ||
+        SUCCESS_STATUSES.has(latestEnrollmentStatus))
     ) {
       setPurchaseState("success");
       setPurchaseMessage(plan.successBody);
@@ -1775,7 +1887,9 @@ export default function Enroll() {
 
                   <div className="rounded-2xl border border-white/10 bg-black/20 px-4 py-3 text-right">
                     <p className="text-[11px] uppercase tracking-[0.16em] text-white/45">
-                      {selectedPlan.productMeta?.productType === "subscription" ? "Monthly subscription" : "One-time unlock"}
+                      {selectedPlan.productMeta?.productType === "subscription"
+                        ? "Monthly subscription"
+                        : "One-time unlock"}
                     </p>
                     <p className="mt-1 text-2xl font-semibold text-white">
                       {formatPeso(selectedPlan.price)}
@@ -1839,7 +1953,8 @@ export default function Enroll() {
 
                 {BILLING_WARN_STATES.has(billingMonitor.state) ? (
                   <div className="rounded-[24px] border border-amber-400/15 bg-amber-500/5 p-4 text-sm leading-7 text-amber-100">
-                    Google Play billing is not fully ready yet. This is now treated as a diagnostic state instead of a hard-coded install-source failure.
+                    Google Play billing is not fully ready yet. This is now treated as a
+                    diagnostic state instead of a hard-coded install-source failure.
                   </div>
                 ) : null}
               </div>
@@ -1890,11 +2005,11 @@ export default function Enroll() {
           </div>
         ) : (
           <div className="space-y-4">
-            {currentStatus && !showSuccess ? (
+            {shouldShowEnrollmentBanner && !showSuccess ? (
               <div className="rounded-[28px] border border-white/10 bg-white/[0.04] p-5 backdrop-blur-xl">
                 <div className="flex items-start gap-3">
                   <div className="flex h-11 w-11 items-center justify-center rounded-2xl border border-white/10 bg-black/20">
-                    {PENDING_STATUSES.has(currentStatus) ? (
+                    {shouldShowPendingEnrollmentBanner ? (
                       <Clock3 className="h-5 w-5 text-amber-300" />
                     ) : SUCCESS_STATUSES.has(currentStatus) ? (
                       <BadgeCheck className="h-5 w-5 text-emerald-300" />
@@ -1905,15 +2020,15 @@ export default function Enroll() {
 
                   <div>
                     <p className="text-sm font-semibold text-white">
-                      {PENDING_STATUSES.has(currentStatus)
+                      {shouldShowPendingEnrollmentBanner
                         ? "Purchase sync is still in progress"
                         : "Previous enrollment found"}
                     </p>
 
                     <p className="mt-2 text-sm leading-7 text-white/68">
-                      {PENDING_STATUSES.has(currentStatus)
+                      {shouldShowPendingEnrollmentBanner
                         ? "If a recent Google Play purchase is still syncing, you can refresh access below or choose a plan to review again."
-                        : "Your account has an existing enrollment record. You can still review the available plans and continue with the cleaner Google Play unlock flow."}
+                        : "Your account has an existing enrollment record for a current CLARA plan. You can still review the available plans and continue with the cleaner Google Play unlock flow."}
                     </p>
                   </div>
                 </div>
