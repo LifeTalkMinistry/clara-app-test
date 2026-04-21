@@ -248,6 +248,7 @@ export function shouldSurfaceTaskReminder({
   const normalizedSettings = coerceTaskReminderSettings(settings);
 
   if (!task || !reminderWindow) return false;
+  if (task.state && !["active", "available"].includes(task.state)) return false;
   if (!normalizedSettings.reminders_enabled) return false;
   if (!modeSupportsInApp(normalizedSettings.reminder_mode)) return false;
   if (normalizedSettings.only_notify_if_incomplete && isTaskReminderComplete(task)) {
@@ -280,6 +281,7 @@ export function shouldSuppressVisibleReminder({
   const normalizedSettings = coerceTaskReminderSettings(settings);
 
   if (!task || !reminderWindow) return true;
+  if (task.state && !["active", "available"].includes(task.state)) return true;
   if (!normalizedSettings.reminders_enabled) return true;
   if (!modeSupportsInApp(normalizedSettings.reminder_mode)) return true;
   if (normalizedSettings.only_notify_if_incomplete && isTaskReminderComplete(task)) {

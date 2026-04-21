@@ -1,14 +1,16 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import {
+  AlertTriangle,
   ArrowLeft,
-  ArrowRight,
   BadgeCheck,
   CheckCircle2,
   ChevronLeft,
   Clock3,
   Gem,
+  LoaderCircle,
   Lock,
+  RefreshCw,
   ShieldCheck,
   Sparkles,
   Star,
@@ -25,67 +27,72 @@ import {
   sanitizePlanRow,
 } from "@/lib/plan-config";
 import {
+  getGooglePlayBillingSnapshot,
   getGooglePlayProductId,
+  initializeGooglePlayBilling,
   launchGooglePlayPurchase,
   persistGooglePlayPurchase,
+  restoreGooglePlayPurchases,
+  subscribeToGooglePlayBilling,
   waitForGooglePlayEntitlement,
 } from "@/lib/google-play-billing";
+import { canOfferPlan, getClaraProductByPlan } from "@/lib/clara-entitlements";
 
 const PLAN_UI_META = {
   entry: {
-    label: "Entry",
-    eyebrow: "Starter Access",
-    badge: "Best for starting",
-    statement: "Unlock your CLARA tools and begin with a guided starter path.",
+    label: "PRO Tools",
+    eyebrow: "Monthly Subscription",
+    badge: "Entry paid tier",
+    statement: "Unlock CLARA's PRO tools through Google Play Billing.",
     points: [
       "Full financial tools",
-      "Starter program access",
-      "Clear first steps",
-      "A real guided beginning",
+      "Budgets, analytics, savings goals, referrals",
+      "Does not include the 30-day program",
+      "Renews monthly through Google Play",
     ],
     accent: "from-cyan-400/22 via-sky-400/10 to-transparent",
     border: "border-cyan-400/20",
-    button: "Unlock with Google Play",
-    successTitle: "Entry unlocked",
-    successBody: "Your starter path is ready. Open CLARA and begin your first guided steps.",
-    successCta: "Start Starter Program",
+    button: "Subscribe to PRO",
+    successTitle: "PRO Tools unlocked",
+    successBody: "Your PRO tools are active while your subscription is active.",
+    successCta: "Open Dashboard",
     icon: Star,
   },
   core: {
-    label: "Core",
-    eyebrow: "Full 30-Day Reset",
+    label: "CLARA Program",
+    eyebrow: "One-Time Program",
     badge: "Most popular",
-    statement: "Unlock the full guided system and move through CLARA one intentional day at a time.",
+    statement: "Unlock the 30-day CLARA Program with PRO during the program and continuation access after completion.",
     points: [
-      "Full 30-day guided system",
-      "Daily task progression",
-      "Reflection flow",
-      "Best value for serious structure",
+      "30-day CLARA Program",
+      "Includes PRO access during the program",
+      "Your +1 month continuation PRO starts after program completion",
+      "One-time Google Play purchase",
     ],
     accent: "from-emerald-400/22 via-teal-400/10 to-transparent",
     border: "border-emerald-400/20",
-    button: "Buy with Google Play",
-    successTitle: "Core unlocked",
-    successBody: "Your full guided system is active. Day 1 is ready whenever you are.",
+    button: "Unlock Program",
+    successTitle: "CLARA Program unlocked",
+    successBody: "Your 30-day program is available. Start the challenge when you are ready.",
     successCta: "Open Program",
     icon: Target,
   },
   coaching: {
-    label: "Coaching",
+    label: "CLARA Coaching",
     eyebrow: "Personal Guidance",
     badge: "Premium support",
-    statement: "Unlock the full system plus a deeper layer of personal guidance and accountability.",
+    statement: "Unlock the 30-day CLARA Program, two coaching sessions, and two months of continuation PRO after completion.",
     points: [
-      "Full 30-day guided system",
-      "Premium coaching layer",
-      "Deeper support surfaces",
-      "Built for real intervention and accountability",
+      "30-day CLARA Program",
+      "Includes PRO access during the program",
+      "Your +2 months continuation PRO starts after program completion",
+      "Includes 2 coaching session credits",
     ],
     accent: "from-amber-400/22 via-orange-400/10 to-transparent",
     border: "border-amber-400/20",
-    button: "Unlock with Google Play",
+    button: "Choose Coaching",
     successTitle: "Coaching unlocked",
-    successBody: "Your guided system and coaching layer are active. Open the journey and review your support surfaces.",
+    successBody: "Your guided system and 2 coaching credits are active. Start the challenge when you are ready.",
     successCta: "View Coaching Journey",
     icon: Gem,
   },
@@ -134,31 +141,32 @@ function normalizePlanRecord(row) {
   const normalizedRow = sanitizePlanRow(row);
   const key = normalizePlanKey(normalizedRow.plan_key || normalizedRow.key || normalizedRow.name);
   const ui = PLAN_UI_META[key] || null;
+  const productMeta = getClaraProductByPlan(key);
+  const features = normalizeFeatures(normalizedRow?.features);
 
   return {
     id: normalizedRow?.id ?? null,
     key,
     name: ui?.label || PLAN_LABELS[key] || normalizeText(normalizedRow?.name) || key.toUpperCase(),
-    price: Number(normalizedRow?.price || 0),
+    price: Number(productMeta?.price ?? normalizedRow?.price ?? 0),
     badge: ui?.badge || (normalizedRow?.popular ? "Most Popular" : "Plan"),
     eyebrow: ui?.eyebrow || "Unlock CLARA",
     statement: ui?.statement || normalizeText(normalizedRow?.description),
     description: normalizeText(normalizedRow?.description),
-    benefits: normalizeFeatures(normalizedRow?.features),
-    ctaLabel: normalizeText(normalizedRow?.cta_label) || ui?.button || "Buy with Google Play",
+    benefits: features,
+    ctaLabel: normalizeText(normalizedRow?.cta_label) || ui?.button || "Choose Plan",
     active: !!normalizedRow?.active,
     popular: !!normalizedRow?.popular || ui?.badge === "Most popular",
     sortOrder: Number(normalizedRow?.sort_order ?? 9999),
     accent: ui?.accent || "from-white/10 to-transparent",
     border: ui?.border || "border-white/10",
     successTitle: ui?.successTitle || "Plan unlocked",
-    successBody:
-      ui?.successBody || "Your purchase is complete and your CLARA access is ready.",
+    successBody: ui?.successBody || "Your purchase is complete and your CLARA access is ready.",
     successCta: ui?.successCta || "Open CLARA",
     productId: getGooglePlayProductId(key),
+    productMeta,
     icon: ui?.icon || Sparkles,
-    displayBenefits:
-      normalizeFeatures(normalizedRow?.features).length > 0 ? normalizeFeatures(normalizedRow?.features) : ui?.points || [],
+    displayBenefits: features.length > 0 ? features : ui?.points || [],
   };
 }
 
@@ -181,13 +189,46 @@ function getPlanKeyFromEnrollment(enrollment, searchParams) {
 
 function getSuccessDestination(planKey) {
   const normalized = normalizeKey(planKey);
-  if (normalized === "entry") return "/program-onboarding";
+  if (normalized === "entry") return "/dashboard";
   if (normalized === "coaching") return "/tasks";
   return "/tasks";
 }
 
-function SelectionCard({ plan, selected, onSelect }) {
+function getBillingTone(billing) {
+  if (billing.phase === "ready") {
+    return {
+      icon: ShieldCheck,
+      border: "border-emerald-400/20",
+      background: "bg-emerald-500/10",
+      label: "Google Play ready",
+      body: "Your plan unlocks will open through Google Play on this build.",
+    };
+  }
+
+  if (billing.phase === "initializing") {
+    return {
+      icon: LoaderCircle,
+      border: "border-sky-400/20",
+      background: "bg-sky-500/10",
+      label: "Connecting billing",
+      body: billing.message || "Connecting to Google Play billing...",
+    };
+  }
+
+  return {
+    icon: AlertTriangle,
+    border: "border-amber-400/20",
+    background: "bg-amber-500/10",
+    label: "Billing unavailable",
+    body:
+      billing.message ||
+      "Google Play billing is not available on this build yet. Install the Play-delivered internal testing build and try again.",
+  };
+}
+
+function SelectionCard({ plan, selected, onSelect, billingProduct }) {
   const Icon = plan.icon;
+  const playPrice = billingProduct?.pricing?.price || "";
 
   return (
     <button
@@ -217,8 +258,11 @@ function SelectionCard({ plan, selected, onSelect }) {
         </div>
 
         <div className="rounded-2xl border border-white/10 bg-black/20 px-4 py-3 text-right">
-          <p className="text-[11px] uppercase tracking-[0.16em] text-white/45">One-time</p>
+          <p className="text-[11px] uppercase tracking-[0.16em] text-white/45">
+            {plan.productMeta?.productType === "subscription" ? "Monthly" : "One-time"}
+          </p>
           <p className="mt-1 text-xl font-semibold text-white">{formatPeso(plan.price)}</p>
+          {playPrice ? <p className="mt-1 text-xs text-white/45">{playPrice} on Google Play</p> : null}
         </div>
       </div>
 
@@ -245,6 +289,7 @@ export default function Enroll() {
   const [purchaseState, setPurchaseState] = useState("idle");
   const [purchaseMessage, setPurchaseMessage] = useState("");
   const [activePurchasePlan, setActivePurchasePlan] = useState("");
+  const [billing, setBilling] = useState(() => getGooglePlayBillingSnapshot());
 
   const fetchPlans = useCallback(async () => {
     const { data, error } = await supabase
@@ -257,10 +302,11 @@ export default function Enroll() {
 
     const normalized = (data || [])
       .map(normalizePlanRecord)
-      .filter((plan) => plan.active && plan.productId && PLAN_UI_META[plan.key]);
+      .filter((plan) => plan.active && plan.productId && PLAN_UI_META[plan.key])
+      .filter((plan) => canOfferPlan(user?.profile || user, plan.key));
 
     setPlans(normalized);
-  }, []);
+  }, [user]);
 
   const fetchEnrollment = useCallback(async () => {
     if (!user?.id) return null;
@@ -287,7 +333,14 @@ export default function Enroll() {
 
     setLoading(true);
     try {
-      await Promise.all([fetchPlans(), fetchEnrollment()]);
+      await Promise.all([
+        fetchPlans(),
+        fetchEnrollment(),
+        initializeGooglePlayBilling().catch((error) => {
+          console.error("Failed to initialize Google Play billing:", error);
+          return getGooglePlayBillingSnapshot();
+        }),
+      ]);
     } catch (error) {
       console.error("Failed to load Google Play purchase flow:", error);
       toast.error("Could not load plans right now.");
@@ -299,6 +352,14 @@ export default function Enroll() {
   useEffect(() => {
     loadInitialData();
   }, [loadInitialData]);
+
+  useEffect(() => {
+    const unsubscribe = subscribeToGooglePlayBilling((nextState) => {
+      setBilling(nextState);
+    });
+
+    return unsubscribe;
+  }, []);
 
   const currentStatus = normalizeKey(enrollment?.status);
   const enrollmentPlanKey = useMemo(
@@ -352,6 +413,13 @@ export default function Enroll() {
 
   const showSuccess = purchaseState === "success" || Boolean(unlockedPlan);
   const showProcessing = Boolean(purchaseStatusMeta);
+  const billingTone = getBillingTone(billing);
+  const selectedBillingProduct = selectedPlan ? billing.products?.[selectedPlan.productId] : null;
+  const selectedPlanPlayable =
+    Boolean(selectedPlan?.productId) &&
+    Boolean(billing.products?.[selectedPlan.productId]) &&
+    billing.available;
+  const purchaseBusy = Boolean(activePurchasePlan) || Boolean(billing.busyProductId);
 
   function updateSearch(nextPlan, nextView = "detail") {
     const next = new URLSearchParams(searchParams);
@@ -369,8 +437,53 @@ export default function Enroll() {
     updateSearch(planKey, "detail");
   }
 
+  async function refreshBillingCatalog() {
+    try {
+      const nextState = await initializeGooglePlayBilling({ force: true });
+      if (!nextState.available) {
+        toast.error(nextState.message || "Google Play billing is still unavailable.");
+        return;
+      }
+
+      toast.success("Google Play billing is ready.");
+    } catch (error) {
+      console.error("Failed to refresh billing:", error);
+      toast.error(error.message || "Could not refresh Google Play billing.");
+    }
+  }
+
+  async function restorePurchases() {
+    try {
+      await restoreGooglePlayPurchases();
+      await fetchEnrollment();
+      await refreshUser?.();
+      toast.success("Google Play purchases checked.");
+    } catch (error) {
+      console.error("Restore purchases failed:", error);
+      toast.error(error.message || "Could not restore purchases.");
+    }
+  }
+
   async function handlePurchase(plan) {
     if (!user?.id || !plan) return;
+
+    if (purchaseBusy) {
+      toast.message("A purchase is already being processed.");
+      return;
+    }
+
+    if (!billing.available) {
+      toast.error(
+        billing.message ||
+          "Google Play billing is unavailable on this build. Install the internal testing build from Google Play and try again."
+      );
+      return;
+    }
+
+    if (!billing.products?.[plan.productId]) {
+      toast.error("This plan is not available from Google Play for the current tester account yet.");
+      return;
+    }
 
     try {
       setActivePurchasePlan(plan.key);
@@ -419,6 +532,7 @@ export default function Enroll() {
       if (entitlement.status === "active") {
         setPurchaseState("success");
         setPurchaseMessage(plan.successBody);
+        setActivePurchasePlan("");
         toast.success(`${plan.name} unlocked`);
         return;
       }
@@ -427,10 +541,12 @@ export default function Enroll() {
       setPurchaseMessage(
         "Your purchase is complete. Access is still syncing and should unlock shortly."
       );
+      setActivePurchasePlan("");
     } catch (error) {
       console.error("Google Play purchase failed:", error);
       setPurchaseState("idle");
       setPurchaseMessage("");
+      setActivePurchasePlan("");
       toast.error(error.message || "Could not complete purchase.");
     }
   }
@@ -478,9 +594,9 @@ export default function Enroll() {
           </div>
         </div>
 
-        {!showSuccess && !showProcessing && (
+        {!showSuccess && !showProcessing ? (
           <div className="mb-6 rounded-[30px] border border-white/10 bg-white/[0.04] p-6 backdrop-blur-2xl">
-            <div className="flex items-start justify-between gap-4 flex-wrap">
+            <div className="flex flex-wrap items-start justify-between gap-4">
               <div className="max-w-2xl">
                 <p className="text-xs font-semibold uppercase tracking-[0.22em] text-emerald-300/80">
                   CLARA Plans
@@ -489,22 +605,51 @@ export default function Enroll() {
                   Choose your next level with less friction
                 </h1>
                 <p className="mt-3 text-sm leading-7 text-white/70 sm:text-base">
-                  Pick Entry, Core, or Coaching, review one focused plan page, and unlock through Google Play without the old proof-upload flow.
+                  Pick PRO Tools, CLARA Program, or CLARA Coaching, review one focused plan page, and unlock through Google Play without the old proof-upload flow.
                 </p>
               </div>
 
-              <div className="rounded-3xl border border-emerald-400/20 bg-emerald-500/10 px-4 py-4">
+              <div className={`rounded-3xl border px-4 py-4 ${billingTone.border} ${billingTone.background}`}>
                 <div className="flex items-center gap-3">
-                  <ShieldCheck className="h-5 w-5 text-emerald-300" />
-                  <div>
+                  <billingTone.icon
+                    className={`h-5 w-5 ${billing.phase === "initializing" ? "animate-spin text-sky-200" : billing.phase === "ready" ? "text-emerald-300" : "text-amber-200"}`}
+                  />
+                  <div className="max-w-xs">
                     <p className="text-xs uppercase tracking-[0.18em] text-white/50">Purchase flow</p>
-                    <p className="text-sm font-semibold text-white">Google Play one-time unlock</p>
+                    <p className="text-sm font-semibold text-white">{billingTone.label}</p>
+                    <p className="mt-1 text-xs leading-5 text-white/65">{billingTone.body}</p>
                   </div>
                 </div>
               </div>
             </div>
+
+            {!billing.available ? (
+              <div className="mt-5 flex flex-wrap items-center gap-3 rounded-3xl border border-white/10 bg-black/20 px-4 py-4">
+                <p className="flex-1 text-sm leading-7 text-white/70">
+                  If billing is unavailable, install the internal testing build from Google Play on an Android device signed into an approved tester account, then return here and refresh.
+                </p>
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={refreshBillingCatalog}
+                  className="h-11 rounded-2xl border-white/15 bg-transparent text-white hover:bg-white/10"
+                >
+                  <RefreshCw className="mr-2 h-4 w-4" />
+                  Refresh billing
+                </Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={restorePurchases}
+                  className="h-11 rounded-2xl border-white/15 bg-transparent text-white hover:bg-white/10"
+                >
+                  <RefreshCw className="mr-2 h-4 w-4" />
+                  Restore purchases
+                </Button>
+              </div>
+            ) : null}
           </div>
-        )}
+        ) : null}
 
         {showSuccess ? (
           <div className="mx-auto max-w-3xl space-y-5">
@@ -539,7 +684,7 @@ export default function Enroll() {
 
             <div className="flex flex-col gap-3 sm:flex-row">
               <Button
-                className="flex-1 h-12 rounded-2xl"
+                className="h-12 flex-1 rounded-2xl"
                 onClick={() => navigate(getSuccessDestination((unlockedPlan || selectedPlan)?.key))}
               >
                 {(unlockedPlan || selectedPlan)?.successCta || "Open CLARA"}
@@ -547,7 +692,7 @@ export default function Enroll() {
 
               <Button
                 variant="outline"
-                className="flex-1 h-12 rounded-2xl border-white/15 bg-transparent text-white hover:bg-white/10"
+                className="h-12 flex-1 rounded-2xl border-white/15 bg-transparent text-white hover:bg-white/10"
                 onClick={() => navigate("/dashboard")}
               >
                 Go to Dashboard
@@ -582,7 +727,7 @@ export default function Enroll() {
 
             <div className="flex flex-col gap-3 sm:flex-row">
               <Button
-                className="flex-1 h-12 rounded-2xl"
+                className="h-12 flex-1 rounded-2xl"
                 onClick={async () => {
                   await fetchEnrollment();
                   await refreshUser?.();
@@ -593,7 +738,7 @@ export default function Enroll() {
 
               <Button
                 variant="outline"
-                className="flex-1 h-12 rounded-2xl border-white/15 bg-transparent text-white hover:bg-white/10"
+                className="h-12 flex-1 rounded-2xl border-white/15 bg-transparent text-white hover:bg-white/10"
                 onClick={() => navigate("/dashboard")}
               >
                 Return to dashboard
@@ -607,14 +752,14 @@ export default function Enroll() {
                 {(() => {
                   const SelectedIcon = selectedPlan.icon;
                   return (
-                <div className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-black/20 px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.18em] text-white/65">
-                  <SelectedIcon className="h-3.5 w-3.5" />
-                  {selectedPlan.eyebrow}
-                </div>
+                    <div className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-black/20 px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.18em] text-white/65">
+                      <SelectedIcon className="h-3.5 w-3.5" />
+                      {selectedPlan.eyebrow}
+                    </div>
                   );
                 })()}
 
-                <div className="mt-5 flex items-start justify-between gap-4 flex-wrap">
+                <div className="mt-5 flex flex-wrap items-start justify-between gap-4">
                   <div className="max-w-xl">
                     <div className="flex flex-wrap items-center gap-2">
                       <h2 className="text-3xl font-semibold text-white">{selectedPlan.name}</h2>
@@ -626,8 +771,15 @@ export default function Enroll() {
                   </div>
 
                   <div className="rounded-2xl border border-white/10 bg-black/20 px-4 py-3 text-right">
-                    <p className="text-[11px] uppercase tracking-[0.16em] text-white/45">One-time unlock</p>
+                    <p className="text-[11px] uppercase tracking-[0.16em] text-white/45">
+                      {selectedPlan.productMeta?.productType === "subscription" ? "Monthly subscription" : "One-time unlock"}
+                    </p>
                     <p className="mt-1 text-2xl font-semibold text-white">{formatPeso(selectedPlan.price)}</p>
+                    {selectedBillingProduct?.pricing?.price ? (
+                      <p className="mt-1 text-xs text-white/45">
+                        Google Play: {selectedBillingProduct.pricing.price}
+                      </p>
+                    ) : null}
                   </div>
                 </div>
               </div>
@@ -650,18 +802,45 @@ export default function Enroll() {
                     <p className="text-[11px] uppercase tracking-[0.18em] text-white/45">Purchase method</p>
                     <p className="mt-2 text-sm font-semibold text-white">Google Play Billing</p>
                     <p className="mt-2 text-sm leading-7 text-white/68">
-                      Fast one-time unlock handled through Google Play. No proof upload. No manual review form.
+                      {selectedPlan.productMeta?.productType === "subscription"
+                        ? "Monthly subscription handled through Google Play. No proof upload. No manual review form."
+                        : "Fast one-time unlock handled through Google Play. No proof upload. No manual review form."}
                     </p>
                   </div>
 
                   <div className="rounded-[24px] border border-white/10 bg-black/20 p-4">
-                    <p className="text-[11px] uppercase tracking-[0.18em] text-white/45">After purchase</p>
-                    <p className="mt-2 text-sm font-semibold text-white">Immediate guided handoff</p>
+                    <p className="text-[11px] uppercase tracking-[0.18em] text-white/45">Billing status</p>
+                    <p className="mt-2 text-sm font-semibold text-white">{billingTone.label}</p>
                     <p className="mt-2 text-sm leading-7 text-white/68">
-                      Once entitlement sync completes, CLARA will route you to the right next step for this plan.
+                      {selectedPlanPlayable
+                        ? "This plan is loaded from Google Play and ready to open the purchase sheet."
+                        : billingTone.body}
                     </p>
                   </div>
                 </div>
+
+                {!selectedPlanPlayable ? (
+                  <div className="rounded-[24px] border border-amber-400/20 bg-amber-500/10 p-4">
+                    <div className="flex flex-wrap items-center gap-3">
+                      <AlertTriangle className="h-5 w-5 text-amber-200" />
+                      <p className="flex-1 text-sm leading-7 text-white/75">
+                        {billing.available
+                          ? "Google Play is connected, but this product is not available for the current build or tester account yet."
+                          : billing.message ||
+                            "Google Play billing is unavailable right now. Install the internal testing build from Google Play and refresh billing."}
+                      </p>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        onClick={refreshBillingCatalog}
+                        className="h-11 rounded-2xl border-white/15 bg-transparent text-white hover:bg-white/10"
+                      >
+                        <RefreshCw className="mr-2 h-4 w-4" />
+                        Refresh billing
+                      </Button>
+                    </div>
+                  </div>
+                ) : null}
               </div>
             </div>
 
@@ -670,16 +849,23 @@ export default function Enroll() {
                 <div className="min-w-0">
                   <p className="text-[11px] uppercase tracking-[0.18em] text-white/45">Selected plan</p>
                   <p className="mt-1 text-sm font-semibold text-white">
-                    {selectedPlan.name} • {formatPeso(selectedPlan.price)}
+                    {selectedPlan.name} - {formatPeso(selectedPlan.price)}
                   </p>
                 </div>
 
                 <Button
                   className="h-12 rounded-2xl px-5"
                   onClick={() => handlePurchase(selectedPlan)}
+                  disabled={!selectedPlanPlayable || purchaseBusy}
                 >
-                  <Sparkles className="mr-2 h-4 w-4" />
-                  {selectedPlan.ctaLabel}
+                  {purchaseBusy ? (
+                    <LoaderCircle className="mr-2 h-4 w-4 animate-spin" />
+                  ) : (
+                    <Sparkles className="mr-2 h-4 w-4" />
+                  )}
+                  {purchaseBusy && activePurchasePlan === selectedPlan.key
+                    ? "Opening Google Play..."
+                    : selectedPlan.ctaLabel}
                 </Button>
               </div>
             </div>
@@ -721,13 +907,14 @@ export default function Enroll() {
                   plan={plan}
                   selected={plan.key === selectedPlanKey}
                   onSelect={handlePlanSelect}
+                  billingProduct={billing.products?.[plan.productId]}
                 />
               ))}
             </div>
 
             {sortedPlans.length === 0 ? (
               <div className="rounded-3xl border border-white/10 bg-white/5 p-5 text-sm text-white/70 backdrop-blur-xl">
-                No Google Play plans are active yet. Activate Entry, Core, or Coaching from admin first.
+                No Google Play plans are active yet. Activate PRO Tools, CLARA Program, or CLARA Coaching from admin first.
               </div>
             ) : null}
           </div>

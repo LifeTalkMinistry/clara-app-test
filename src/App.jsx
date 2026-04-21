@@ -11,6 +11,7 @@ import {
   resolveAppFlow,
 } from "@/lib/access-control";
 import { FEATURE_ROUTE_MAP } from "@/lib/plan-config";
+import { initializeGooglePlayBilling } from "@/lib/google-play-billing";
 
 // Layout
 import Layout from "./components/Layout";
@@ -629,6 +630,12 @@ function AppRoutes() {
 }
 
 function App() {
+  useEffect(() => {
+    initializeGooglePlayBilling().catch((error) => {
+      console.error("Initial Google Play billing warmup failed:", error);
+    });
+  }, []);
+
   return (
     <>
       <AppRoutes />

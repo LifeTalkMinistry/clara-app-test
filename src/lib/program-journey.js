@@ -1,6 +1,12 @@
+import {
+  getChallengeDayUnlockLabel,
+  getCurrentChallengeDay,
+  getNextUnlockAt,
+  isChallengeDayUnlocked,
+} from "@/lib/challenge-schedule";
+
 const DEFAULT_STARTER_DAY_LIMIT = 5;
 const PROGRAM_LENGTH = 30;
-
 const COMPLETE_STATUSES = new Set(["pending", "submitted", "reviewed", "approved", "completed"]);
 const REVISION_STATUSES = new Set(["rejected", "needs_revision"]);
 
@@ -211,8 +217,24 @@ function buildSubmissionMap(submissions = []) {
 }
 
 export function calculateUnlockedProgramDay(programRecord, totalDays = PROGRAM_LENGTH) {
+  if (!programRecord?.challenge_started) return 0;
+
+  const startDateValue =
+    programRecord?.challenge_local_start_date ||
+    programRecord?.program_start_date ||
+    programRecord?.started_at;
+  if (!startDateValue) return 0;
+
+  const scheduledUnlocked = getCurrentChallengeDay(startDateValue);
+  const manualUnlocked = Number(programRecord?.manual_unlock_until || 0);
+  const overrideDay = Number(programRecord?.current_day_override || 0);
+
+  return Math.max(1, Math.min(totalDays, Math.max(scheduledUnlocked, manualUnlocked, overrideDay)));
+}
+
+export function calculateLegacyUnlockedProgramDay(programRecord, totalDays = PROGRAM_LENGTH) {
   const startDateValue = programRecord?.program_start_date || programRecord?.started_at;
-  if (!startDateValue) return 1;
+  if (!startDateValue) return 0;
 
   const startDate = new Date(startDateValue);
   if (Number.isNaN(startDate.getTime())) return 1;
@@ -238,6 +260,9 @@ export function buildProgramJourney(tasks = [], submissions = [], options = {}) 
   );
   const totalDays = normalizedTasks.length || PROGRAM_LENGTH;
   const unlockedDay = calculateUnlockedProgramDay(options.programRecord, totalDays);
+  const challengeStarted = Boolean(options.programRecord?.challenge_started);
+  const challengeStartDate =
+    options.programRecord?.challenge_local_start_date || options.programRecord?.program_start_date || "";
   const submissionMap = buildSubmissionMap(submissions);
 
   const items = normalizedTasks.map((task, index) => {
@@ -246,7 +271,10 @@ export function buildProgramJourney(tasks = [], submissions = [], options = {}) 
     const isPublished = task.is_active !== false && task.status !== "inactive";
     const isTierAllowed = taskSupportsTier(task, tier);
     const isVisibleToEntry = tier === "entry" && task.day > starterDayLimit;
-    const isUnlockedByDate = task.day <= unlockedDay;
+    const isUnlockedByDate =
+      challengeStarted &&
+      task.day <= unlockedDay &&
+      isChallengeDayUnlocked(challengeStartDate, task.day);
     const isToday = task.day === unlockedDay;
 
     let state = "locked";
@@ -261,6 +289,9 @@ export function buildProgramJourney(tasks = [], submissions = [], options = {}) 
         tier === "entry"
           ? "Upgrade to Core to continue beyond the starter days."
           : "This day is not available on your current tier.";
+    } else if (!challengeStarted) {
+      state = "locked";
+      lockedReason = "Start the challenge to unlock Day 1.";
     } else if (submissionMeta.isComplete) {
       state = "completed";
     } else if (isToday || submissionMeta.needsRevision) {
@@ -269,7 +300,7 @@ export function buildProgramJourney(tasks = [], submissions = [], options = {}) 
       state = "available";
     } else {
       state = "locked";
-      lockedReason = "This day unlocks automatically as your program progresses.";
+      lockedReason = `Unlocks ${getChallengeDayUnlockLabel(challengeStartDate, task.day)}.`;
     }
 
     return {
@@ -308,8 +339,8 @@ export function buildProgramJourney(tasks = [], submissions = [], options = {}) 
 
   if (tier === "free") {
     state = "locked";
-  } else if (!options.programRecord?.program_start_date) {
-    state = "not_started";
+  } else if (!challengeStarted) {
+    state = "available_not_started";
   } else if (tier === "entry" && accessibleCompletedCount >= accessibleItems.length) {
     state = "starter_complete";
   } else if (accessibleItems.length > 0 && accessibleCompletedCount >= accessibleItems.length) {
@@ -339,6 +370,9 @@ export function buildProgramJourney(tasks = [], submissions = [], options = {}) 
     firstLockedItem,
     latestSubmission: submissions[0] || null,
     programRecord: options.programRecord || null,
+    challengeStarted,
+    challengeStartDate,
+    nextUnlockAt: getNextUnlockAt(challengeStartDate, unlockedDay),
   };
 }
 
@@ -413,6 +447,17 @@ export function getProgramBubbleContent(journey, options = {}) {
         ? `${session.topic} is in motion. Continue today's guided step and keep your support layer active.`
         : "Your support layer is active. Continue today's guided step.",
       ctaLabel: "Open Program",
+      href: "/tasks",
+    };
+  }
+
+  if (journey.state === "available_not_started") {
+    return {
+      kind: "start_challenge",
+      eyebrow: journey.tier === "coaching" ? "Coaching Journey" : "30-Day Program",
+      title: "Your CLARA challenge is ready",
+      body: "Start the challenge when you are ready. Day 1 opens immediately, then each next day unlocks at 6:00 AM.",
+      ctaLabel: "Start Challenge",
       href: "/tasks",
     };
   }
