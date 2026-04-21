@@ -29,10 +29,9 @@ const normalizeProfileAccess = (rawProfile = {}, authUser = null) => {
   const isGooglePlay = enrollmentSource === "google_play";
   const isApproved = enrollmentStatus === "approved";
   const isPaidPlan =
-    profilePlan === "entry" ||
-    profilePlan === "core" ||
-    profilePlan === "coach" ||
-    profilePlan === "coaching" ||
+    profilePlan === "pro_99" ||
+    profilePlan === "core_599" ||
+    profilePlan === "coaching_1299" ||
     profilePlan === "pro" ||
     profilePlan === "premium" ||
     profilePlan === "paid";

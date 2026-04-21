@@ -33,14 +33,15 @@ import {
   getGooglePlayProductId,
   launchGooglePlayPurchase,
   persistGooglePlayPurchase,
+  queryOwnedGooglePlayPurchases,
   waitForGooglePlayEntitlement,
 } from "@/lib/google-play-billing";
 import { canOfferPlan, getClaraProductByPlan } from "@/lib/clara-entitlements";
 
 const CANONICAL_PLAN_KEYS = {
-  PRO: "clara_pro_tools_monthly_99",
-  PROGRAM: "clara_program_599",
-  COACHING: "clara_coaching_1299",
+  PRO: "pro_99",
+  PROGRAM: "core_599",
+  COACHING: "coaching_1299",
 };
 
 const SUPPORTED_ENROLLMENT_PLAN_KEYS = new Set([
@@ -50,33 +51,22 @@ const SUPPORTED_ENROLLMENT_PLAN_KEYS = new Set([
 ]);
 
 const LEGACY_PLAN_KEY_MAP = {
-  entry: CANONICAL_PLAN_KEYS.PRO,
   pro: CANONICAL_PLAN_KEYS.PRO,
   pro_tools: CANONICAL_PLAN_KEYS.PRO,
   protools: CANONICAL_PLAN_KEYS.PRO,
-  clara_entry: CANONICAL_PLAN_KEYS.PRO,
-  clara_pro_tools: CANONICAL_PLAN_KEYS.PRO,
-  clara_pro_tools_monthly: CANONICAL_PLAN_KEYS.PRO,
-  clara_pro_tools_monthly_99: CANONICAL_PLAN_KEYS.PRO,
 
   core: CANONICAL_PLAN_KEYS.PROGRAM,
   program: CANONICAL_PLAN_KEYS.PROGRAM,
-  clara_core: CANONICAL_PLAN_KEYS.PROGRAM,
-  clara_program: CANONICAL_PLAN_KEYS.PROGRAM,
-  clara_program_599: CANONICAL_PLAN_KEYS.PROGRAM,
 
   coach: CANONICAL_PLAN_KEYS.COACHING,
   coaching: CANONICAL_PLAN_KEYS.COACHING,
-  clara_coach: CANONICAL_PLAN_KEYS.COACHING,
-  clara_coaching: CANONICAL_PLAN_KEYS.COACHING,
-  clara_coaching_1299: CANONICAL_PLAN_KEYS.COACHING,
 };
 
 const PLAN_UI_META = {
   [CANONICAL_PLAN_KEYS.PRO]: {
-    label: "PRO Tools",
+    label: "PRO",
     eyebrow: "Monthly Subscription",
-    badge: "PRO Access",
+    badge: "Monthly subscription",
     statement: "Unlock CLARA's PRO tools through Google Play Billing.",
     points: [
       "Full financial tools",
@@ -87,19 +77,19 @@ const PLAN_UI_META = {
     accent: "from-cyan-400/22 via-sky-400/10 to-transparent",
     border: "border-cyan-400/20",
     button: "Subscribe to PRO",
-    successTitle: "PRO Tools unlocked",
+    successTitle: "PRO unlocked",
     successBody: "Your PRO tools are active while your subscription is active.",
     successCta: "Open Dashboard",
     icon: Star,
   },
   [CANONICAL_PLAN_KEYS.PROGRAM]: {
-    label: "CLARA Program",
+    label: "CORE",
     eyebrow: "One-Time Program",
     badge: "Most popular",
     statement:
-      "Unlock the 30-day CLARA Program with PRO during the program and continuation access after completion.",
+      "Unlock CORE with PRO during the program and continuation access after completion.",
     points: [
-      "30-day CLARA Program",
+      "CORE guided system",
       "Includes PRO access during the program",
       "Your +1 month continuation PRO starts after program completion",
       "One-time Google Play purchase",
@@ -107,20 +97,20 @@ const PLAN_UI_META = {
     accent: "from-emerald-400/22 via-teal-400/10 to-transparent",
     border: "border-emerald-400/20",
     button: "Unlock Program",
-    successTitle: "CLARA Program unlocked",
+    successTitle: "CORE unlocked",
     successBody:
       "Your 30-day program is available. Start the challenge when you are ready.",
     successCta: "Open Program",
     icon: Target,
   },
   [CANONICAL_PLAN_KEYS.COACHING]: {
-    label: "CLARA Coaching",
+    label: "COACHING",
     eyebrow: "Personal Guidance",
     badge: "Premium support",
     statement:
-      "Unlock the 30-day CLARA Program, two coaching sessions, and two months of continuation PRO after completion.",
+      "Unlock COACHING, two coaching sessions, and two months of continuation PRO after completion.",
     points: [
-      "30-day CLARA Program",
+      "COACHING guided system",
       "Includes PRO access during the program",
       "Your +2 months continuation PRO starts after program completion",
       "Includes 2 coaching session credits",
@@ -128,7 +118,7 @@ const PLAN_UI_META = {
     accent: "from-amber-400/22 via-orange-400/10 to-transparent",
     border: "border-amber-400/20",
     button: "Unlock with Google Play",
-    successTitle: "CLARA Coaching unlocked",
+    successTitle: "COACHING unlocked",
     successBody:
       "Your guided system and 2 coaching credits are active. Start the challenge when you are ready.",
     successCta: "View Coaching Journey",
@@ -210,6 +200,7 @@ function normalizePlanRecord(row) {
     getClaraProductByPlan(rawSource);
 
   const productId =
+    normalizeText(normalizedRow?.product_id) ||
     getGooglePlayProductId(key) ||
     getGooglePlayProductId(normalizedRawKey) ||
     getGooglePlayProductId(rawSource) ||
@@ -1041,6 +1032,7 @@ export default function Enroll() {
   });
   const [billingRefreshing, setBillingRefreshing] = useState(false);
   const [billingDebugOpen, setBillingDebugOpen] = useState(false);
+  const [ownedPurchases, setOwnedPurchases] = useState([]);
 
   const fetchPlans = useCallback(async () => {
     const { data, error } = await supabase
@@ -1091,6 +1083,23 @@ export default function Enroll() {
     return fetchEnrollmentForUserId(user?.id);
   }, [fetchEnrollmentForUserId, user?.id]);
 
+  const refreshOwnedPurchases = useCallback(async (planList = plans) => {
+    const productIds = planList.map((plan) => plan.productId).filter(Boolean);
+    if (!productIds.length) {
+      setOwnedPurchases([]);
+      return [];
+    }
+
+    const result = await queryOwnedGooglePlayPurchases({ productIds });
+    if (result.ok) {
+      setOwnedPurchases(result.purchases || []);
+      return result.purchases || [];
+    }
+
+    setOwnedPurchases([]);
+    return [];
+  }, [plans]);
+
   const getAuthenticatedUser = useCallback(async () => {
     const {
       data: { user: authUser },
@@ -1116,7 +1125,8 @@ export default function Enroll() {
     setDebugError("");
 
     try {
-      await Promise.all([fetchPlans(), fetchEnrollment()]);
+      const [planList] = await Promise.all([fetchPlans(), fetchEnrollment()]);
+      await refreshOwnedPurchases(planList);
     } catch (error) {
       console.error("Failed to load Google Play purchase flow:", error);
       const debug = formatDebugError(error);
@@ -1126,7 +1136,7 @@ export default function Enroll() {
     } finally {
       setLoading(false);
     }
-  }, [fetchEnrollment, fetchPlans, user?.id]);
+  }, [fetchEnrollment, fetchPlans, refreshOwnedPurchases, user?.id]);
 
   useEffect(() => {
     loadInitialData();
@@ -1173,6 +1183,15 @@ export default function Enroll() {
       null
     );
   }, [selectedPlanKey, sortedPlans]);
+
+  const selectedOwnedPurchase = useMemo(() => {
+    if (!selectedPlan?.productId) return null;
+    return (
+      ownedPurchases.find((purchase) =>
+        purchase.productIds?.includes(selectedPlan.productId)
+      ) || null
+    );
+  }, [ownedPurchases, selectedPlan]);
 
   const unlockedPlan = useMemo(() => {
     if (!SUCCESS_STATUSES.has(currentStatus) || !hasCurrentSupportedEnrollment) {
@@ -1501,6 +1520,30 @@ export default function Enroll() {
       setPurchaseState("processing");
 
       let purchase = null;
+      const ownedResult = await queryOwnedGooglePlayPurchases({
+        productIds: [plan.productId],
+      });
+      const ownedPurchase = ownedResult.purchases?.find((item) =>
+        item.productIds?.includes(plan.productId)
+      );
+
+      if (ownedPurchase?.purchaseToken) {
+        setOwnedPurchases(ownedResult.purchases || []);
+        setPurchaseState("verifying");
+        setPurchaseMessage(
+          "This Google Play account already owns this plan. Validating ownership now."
+        );
+
+        await finalizeOwnedOrPurchasedPlan({
+          plan,
+          authUser,
+          purchaseToken: ownedPurchase.purchaseToken,
+          orderId: ownedPurchase.orderId,
+          bridgePayload: ownedPurchase.raw,
+        });
+
+        return;
+      }
 
       try {
         purchase = await launchGooglePlayPurchase({
@@ -1511,6 +1554,18 @@ export default function Enroll() {
         });
       } catch (error) {
         if (isAlreadyOwnedError(error)) {
+          const restoreResult = await queryOwnedGooglePlayPurchases({
+            productIds: [plan.productId],
+          });
+          const restoredPurchase = restoreResult.purchases?.find((item) =>
+            item.productIds?.includes(plan.productId)
+          );
+
+          if (!restoredPurchase?.purchaseToken) {
+            throw error;
+          }
+
+          setOwnedPurchases(restoreResult.purchases || []);
           setPurchaseState("verifying");
           setPurchaseMessage(
             "This Google account already owns this item. Restoring your access now."
@@ -1519,9 +1574,10 @@ export default function Enroll() {
           await finalizeOwnedOrPurchasedPlan({
             plan,
             authUser,
-            purchaseToken: "",
-            orderId: "",
+            purchaseToken: restoredPurchase.purchaseToken,
+            orderId: restoredPurchase.orderId,
             bridgePayload: {
+              ...restoredPurchase.raw,
               restoredFromOwnedState: true,
               responseCode:
                 error?.responseCode || error?.code || "ITEM_ALREADY_OWNED",
@@ -1652,9 +1708,8 @@ export default function Enroll() {
                   Choose your next level with less friction
                 </h1>
                 <p className="mt-3 text-sm leading-7 text-white/70 sm:text-base">
-                  Pick PRO Tools, CLARA Program, or CLARA Coaching, review one focused
-                  plan page, and unlock through Google Play without the old proof-upload
-                  flow.
+                  Pick PRO, CORE, or COACHING, review one focused plan page, and
+                  unlock through Google Play without the old proof-upload flow.
                 </p>
               </div>
 
@@ -1919,9 +1974,14 @@ export default function Enroll() {
                 <Button
                   className="h-12 rounded-2xl px-5"
                   onClick={() => handlePurchase(selectedPlan)}
-                  disabled={purchaseBusy || billingRefreshing}
+                  disabled={purchaseBusy || billingRefreshing || Boolean(selectedOwnedPurchase)}
                 >
-                  {purchaseBusy &&
+                  {selectedOwnedPurchase ? (
+                    <>
+                      <BadgeCheck className="mr-2 h-4 w-4" />
+                      Active plan
+                    </>
+                  ) : purchaseBusy &&
                   normalizePlanUiKey(activePurchasePlan) ===
                     normalizePlanUiKey(selectedPlan.key) ? (
                     <>
@@ -1988,8 +2048,8 @@ export default function Enroll() {
 
             {sortedPlans.length === 0 ? (
               <div className="rounded-3xl border border-white/10 bg-white/5 p-5 text-sm text-white/70 backdrop-blur-xl">
-                No Google Play plans are active yet. Activate PRO Tools, CLARA Program,
-                or CLARA Coaching from admin first.
+                No Google Play plans are active yet. Activate PRO, CORE, or
+                COACHING from admin first.
               </div>
             ) : null}
           </div>

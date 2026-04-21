@@ -3,9 +3,9 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.4";
 
 const PACKAGE_NAME = "com.clara.moneytracker";
 const PRODUCT_TYPES: Record<string, "subs" | "products"> = {
-  clara_pro_tools_monthly_99: "subs",
-  clara_program_599: "products",
-  clara_coaching_1299: "products",
+  pro_99: "subs",
+  core_599: "products",
+  coaching_1299: "products",
 };
 
 function jsonResponse(body: unknown, status = 200) {
@@ -157,8 +157,16 @@ serve(async (request) => {
     const accessToken = await getAccessToken();
     const googlePurchase = await verifyWithGoogle({ accessToken, productId, purchaseToken });
 
-    const purchaseState = Number(googlePurchase.purchaseState ?? 0);
-    if (purchaseState !== 0) {
+    const productType = PRODUCT_TYPES[productId];
+    const expiryTimeMillis = Number(googlePurchase.expiryTimeMillis || 0);
+    const subscriptionActive =
+      productType === "subs" &&
+      expiryTimeMillis > Date.now() &&
+      googlePurchase.cancelReason === undefined;
+    const oneTimePurchased =
+      productType === "products" && Number(googlePurchase.purchaseState ?? 0) === 0;
+
+    if (!subscriptionActive && !oneTimePurchased) {
       return jsonResponse({ ok: false, error: "Purchase is not completed", google_purchase: googlePurchase }, 409);
     }
 

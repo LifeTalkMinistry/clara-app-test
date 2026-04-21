@@ -92,35 +92,20 @@ function normalizePlanKey(value) {
   const normalized = normalizeValue(value);
 
   const aliases = {
-    entry: "entry",
-    pro: "entry",
-    pro_tools: "entry",
-    protools: "entry",
-    clara_entry: "entry",
-    clara_pro_tools: "entry",
-    clara_pro_tools_monthly: "entry",
-    clara_pro_tools_monthly_99: "entry",
+    pro: "pro_99",
+    pro_99: "pro_99",
+    pro_tools: "pro_99",
+    protools: "pro_99",
 
-    core: "core",
-    program: "core",
-    clara_core: "core",
-    clara_program: "core",
-    clara_program_599: "core",
+    core: "core_599",
+    core_599: "core_599",
+    program: "core_599",
 
-    coach: "coaching",
-    coaching: "coaching",
-    clara_coach: "coaching",
-    clara_coaching: "coaching",
-    clara_coaching_1299: "coaching",
+    coach: "coaching_1299",
+    coaching: "coaching_1299",
+    coaching_1299: "coaching_1299",
 
     free: "free",
-    basic: "entry",
-    diy: "entry",
-    transformation: "core",
-    diwm: "core",
-    student: "core",
-    elite: "coaching",
-    ldit: "coaching",
   };
 
   return aliases[normalized] || normalized;
@@ -138,7 +123,7 @@ function getEnrollmentPlanKey(enrollment) {
 }
 
 function isSupportedPaidPlanKey(planKey) {
-  return ["entry", "core", "coaching"].includes(normalizePlanKey(planKey));
+  return ["pro_99", "core_599", "coaching_1299"].includes(normalizePlanKey(planKey));
 }
 
 function isGooglePlayEnrollment(enrollment) {

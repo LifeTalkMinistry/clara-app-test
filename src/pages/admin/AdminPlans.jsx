@@ -199,7 +199,25 @@ export default function AdminPlans() {
       const { data, error } = await supabase.from("plans").select("*");
       if (error) throw error;
 
-      const merged = mergePlans(data || []);
+      const deprecatedRows = (data || []).filter(
+        (row) => !CURRENT_PLAN_KEYS.includes(String(row.plan_key || "").trim().toLowerCase())
+      );
+
+      const deprecatedIds = deprecatedRows.map((row) => row.id).filter(Boolean);
+
+      if (deprecatedIds.length > 0) {
+        const { error: deleteError } = await supabase
+          .from("plans")
+          .delete()
+          .in("id", deprecatedIds);
+
+        if (deleteError) throw deleteError;
+      }
+
+      const currentRows = (data || []).filter((row) =>
+        CURRENT_PLAN_KEYS.includes(String(row.plan_key || "").trim().toLowerCase())
+      );
+      const merged = mergePlans(currentRows);
       const existingKeys = new Set(
         (data || []).map((row) =>
           String(row.plan_key || "").trim().toLowerCase()
@@ -472,8 +490,9 @@ export default function AdminPlans() {
                     <CardTitle className="text-xl">{plan.name}</CardTitle>
                     <p className="mt-1 text-sm text-muted-foreground">
                       Key: {plan.plan_key} - PHP{" "}
-                      {Number(plan.price || 0).toLocaleString()} - Order:{" "}
-                      {plan.sort_order}
+                      {Number(plan.price || 0).toLocaleString()} - Product:{" "}
+                      {plan.product_id || "-"} - Billing:{" "}
+                      {plan.billing_type || "-"} - Order: {plan.sort_order}
                     </p>
                     <p className="mt-3 text-sm text-muted-foreground">
                       {plan.description || "No description yet."}
@@ -617,7 +636,7 @@ export default function AdminPlans() {
                 <Input
                   value={form.name}
                   onChange={(e) => updateField("name", e.target.value)}
-                  placeholder="Entry"
+                  placeholder="PRO"
                 />
               </div>
 
@@ -634,7 +653,7 @@ export default function AdminPlans() {
                   type="number"
                   value={form.price}
                   onChange={(e) => updateField("price", e.target.value)}
-                  placeholder="299"
+                  placeholder="99"
                 />
               </div>
 
@@ -679,7 +698,7 @@ export default function AdminPlans() {
               <Input
                 value={form.cta_label}
                 onChange={(e) => updateField("cta_label", e.target.value)}
-                placeholder="Unlock Entry"
+                placeholder="Subscribe to PRO"
               />
             </div>
 

@@ -38,6 +38,13 @@ alter table if exists public.enrollments
   add column if not exists purchase_payload jsonb,
   add column if not exists last_billing_sync_at timestamptz;
 
+alter table if exists public.plans
+  add column if not exists product_id text,
+  add column if not exists billing_type text;
+
+create unique index if not exists plans_plan_key_unique
+  on public.plans(plan_key);
+
 alter table if exists public.user_programs
   alter column program_start_date drop not null;
 
@@ -79,6 +86,10 @@ create table if not exists public.google_play_purchases (
 create index if not exists google_play_purchases_user_idx
   on public.google_play_purchases(user_id, created_at desc);
 
+create unique index if not exists enrollments_purchase_token_unique
+  on public.enrollments(purchase_token)
+  where purchase_token is not null;
+
 create table if not exists public.account_deletion_requests (
   id uuid primary key default gen_random_uuid(),
   user_id uuid not null,
@@ -100,9 +111,9 @@ language sql
 immutable
 as $$
   select case product_id
-    when 'clara_pro_tools_monthly_99' then 'entry'
-    when 'clara_program_599' then 'core'
-    when 'clara_coaching_1299' then 'coaching'
+    when 'pro_99' then 'pro_99'
+    when 'core_599' then 'core_599'
+    when 'coaching_1299' then 'coaching_1299'
     else null
   end
 $$;
@@ -113,9 +124,9 @@ language sql
 immutable
 as $$
   select case product_id
-    when 'clara_pro_tools_monthly_99' then 'pro_tools'
-    when 'clara_program_599' then 'clara_program'
-    when 'clara_coaching_1299' then 'clara_coaching'
+    when 'pro_99' then 'pro_tools'
+    when 'core_599' then 'clara_program'
+    when 'coaching_1299' then 'clara_coaching'
     else null
   end
 $$;
@@ -140,18 +151,27 @@ declare
   v_enrollment_id uuid;
   v_existing public.google_play_purchases%rowtype;
   v_now timestamptz := timezone('utc', now());
+  v_expires_at timestamptz := case
+    when coalesce(p_payload->>'expiryTimeMillis', '') ~ '^[0-9]+$'
+      then to_timestamp(((p_payload->>'expiryTimeMillis')::numeric / 1000.0))
+    else null
+  end;
 begin
   if p_user_id is null or p_purchase_token is null or length(trim(p_purchase_token)) = 0 then
     raise exception 'Missing required purchase fields';
   end if;
 
-  if v_plan not in ('entry', 'core', 'coaching') or v_tier is null then
+  if v_plan not in ('pro_99', 'core_599', 'coaching_1299') or v_tier is null then
     raise exception 'Unsupported CLARA product %', p_product_id;
   end if;
 
   select * into v_existing
   from public.google_play_purchases
   where purchase_token = p_purchase_token;
+
+  if found and v_existing.user_id <> p_user_id then
+    raise exception 'Google Play purchase is already linked to another user';
+  end if;
 
   if found and v_existing.processed_at is not null then
     select id into v_enrollment_id
@@ -245,15 +265,16 @@ begin
     limit 1;
   end if;
 
-  if v_plan = 'entry' then
+  if v_plan = 'pro_99' then
     update public.profiles
     set
-      plan = 'entry',
+      plan = 'pro_99',
       tier_type = v_tier,
       purchase_source = 'google_play',
       play_product_id = p_product_id,
       play_purchase_token = p_purchase_token,
       pro_subscription_status = 'active',
+      pro_subscription_expires_at = v_expires_at,
       entitlement_status = 'pro_subscription',
       status = 'approved',
       enrollment_status = 'active',
@@ -261,7 +282,7 @@ begin
       program_active = false,
       last_billing_sync_at = v_now
     where id = p_user_id;
-  elsif v_plan in ('core', 'coaching') then
+  elsif v_plan in ('core_599', 'coaching_1299') then
     update public.profiles
     set
       plan = v_plan,
@@ -274,7 +295,7 @@ begin
       enrollment_status = 'active',
       is_enrolled = true,
       program_active = false,
-      coaching_credits_total = case when v_plan = 'coaching' then greatest(coaching_credits_total, 2) else coaching_credits_total end,
+      coaching_credits_total = case when v_plan = 'coaching_1299' then greatest(coaching_credits_total, 2) else coaching_credits_total end,
       last_billing_sync_at = v_now
     where id = p_user_id;
   end if;
@@ -302,12 +323,12 @@ begin
   if v_profile.program_completed_at is not null then
     if v_profile.continuation_pro_ends_at is not null and v_profile.continuation_pro_ends_at > v_now then
       update public.profiles
-      set plan = 'entry', entitlement_status = 'continuation_pro', program_active = false, is_enrolled = false
+      set plan = 'pro_99', entitlement_status = 'continuation_pro', program_active = false, is_enrolled = false
       where id = p_user_id;
     elsif coalesce(v_profile.pro_subscription_status, '') = 'active'
        or (v_profile.pro_subscription_expires_at is not null and v_profile.pro_subscription_expires_at > v_now) then
       update public.profiles
-      set plan = 'entry', entitlement_status = 'pro_subscription', program_active = false, is_enrolled = false
+      set plan = 'pro_99', entitlement_status = 'pro_subscription', program_active = false, is_enrolled = false
       where id = p_user_id;
     else
       update public.profiles
@@ -318,36 +339,71 @@ begin
 end;
 $$;
 
-update public.plans
+delete from public.plans
+where lower(coalesce(plan_key, '')) not in ('pro_99', 'core_599', 'coaching_1299');
+
+insert into public.plans (
+  name,
+  plan_key,
+  price,
+  description,
+  features,
+  cta_label,
+  active,
+  popular,
+  sort_order,
+  product_id,
+  billing_type
+)
+values
+  (
+    'PRO',
+    'pro_99',
+    99,
+    'Unlock CLARA PRO tools with a Google Play monthly subscription.',
+    array['Full financial tools', 'PRO-only tool access', 'Monthly Google Play subscription'],
+    'Subscribe to PRO',
+    true,
+    false,
+    1,
+    'pro_99',
+    'subscription'
+  ),
+  (
+    'CORE',
+    'core_599',
+    599,
+    'Unlock the 30-day CLARA Program, PRO during the program, and +1 month continuation PRO after completion.',
+    array['30-day CLARA Program', 'Includes PRO access during the program', '+1 month continuation PRO after program completion'],
+    'Unlock CORE',
+    true,
+    true,
+    2,
+    'core_599',
+    'one_time'
+  ),
+  (
+    'COACHING',
+    'coaching_1299',
+    1299,
+    'Unlock the 30-day CLARA Program, PRO during the program, +2 months continuation PRO after completion, and 2 coaching sessions.',
+    array['30-day CLARA Program', 'Includes PRO access during the program', '+2 months continuation PRO after program completion', '2 coaching session credits'],
+    'Unlock COACHING',
+    true,
+    false,
+    3,
+    'coaching_1299',
+    'one_time'
+  )
+on conflict (plan_key) do update
 set
-  name = case plan_key
-    when 'entry' then 'PRO Tools'
-    when 'core' then 'CLARA Program'
-    when 'coaching' then 'CLARA Coaching'
-    else name
-  end,
-  price = case plan_key
-    when 'entry' then 99
-    when 'core' then 599
-    when 'coaching' then 1299
-    else price
-  end,
-  description = case plan_key
-    when 'entry' then 'Unlock CLARA PRO tools with a Google Play monthly subscription.'
-    when 'core' then 'Unlock the 30-day CLARA Program, PRO during the program, and +1 month continuation PRO after completion.'
-    when 'coaching' then 'Unlock the 30-day CLARA Program, PRO during the program, +2 months continuation PRO after completion, and 2 coaching sessions.'
-    else description
-  end,
-  features = case plan_key
-    when 'entry' then array['Full financial tools', 'PRO-only tool access', 'Monthly Google Play subscription']
-    when 'core' then array['30-day CLARA Program', 'Includes PRO access during the program', '+1 month continuation PRO after program completion']
-    when 'coaching' then array['30-day CLARA Program', 'Includes PRO access during the program', '+2 months continuation PRO after program completion', '2 coaching session credits']
-    else features
-  end,
-  cta_label = case plan_key
-    when 'entry' then 'Subscribe to PRO'
-    when 'core' then 'Unlock Program'
-    when 'coaching' then 'Unlock Coaching'
-    else cta_label
-  end
-where plan_key in ('entry', 'core', 'coaching');
+  name = excluded.name,
+  price = excluded.price,
+  description = excluded.description,
+  features = excluded.features,
+  cta_label = excluded.cta_label,
+  active = excluded.active,
+  popular = excluded.popular,
+  sort_order = excluded.sort_order,
+  product_id = excluded.product_id,
+  billing_type = excluded.billing_type;

@@ -20,7 +20,7 @@ export const ENROLLMENT_RETRY_STATUSES = new Set([
   "",
 ]);
 
-export const PAID_TIERS = ["entry", "core", "coaching"];
+export const PAID_TIERS = ["pro_99", "core_599", "coaching_1299"];
 
 export function normalizeAccessValue(value) {
   return String(value ?? "").trim().toLowerCase();
@@ -92,7 +92,7 @@ export function resolveAppFlow(profileLike, enrollment) {
 
   if (
     ENROLLMENT_APPROVED_STATUSES.has(enrollmentStatus) &&
-    ["core", "coaching"].includes(
+    ["core_599", "coaching_1299"].includes(
       normalizePlanKey(profileLike?.plan || enrollment?.plan_key || enrollment?.plan)
     ) &&
     !hasCompletedProgramOnboarding(profileLike)

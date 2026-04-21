@@ -13,9 +13,9 @@ import "./index.css";
 // Safe billing setup
 window.CLARA_BILLING = {
   productIds: {
-    ENTRY: "clara_entry_299",
-    CORE: "clara_core_499",
-    COACHING: "clara_coaching_999",
+    PRO: "pro_99",
+    CORE: "core_599",
+    COACHING: "coaching_1299",
   },
 
   getStore() {
@@ -80,7 +80,7 @@ window.CLARA_BILLING = {
 
     try {
       store.register([
-        { id: this.productIds.ENTRY, type: productType, platform },
+        { id: this.productIds.PRO, type: productType, platform },
         { id: this.productIds.CORE, type: productType, platform },
         { id: this.productIds.COACHING, type: productType, platform },
       ]);
