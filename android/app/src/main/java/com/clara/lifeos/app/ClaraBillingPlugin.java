@@ -31,6 +31,15 @@ public class ClaraBillingPlugin extends Plugin implements PurchasesUpdatedListen
     private BillingClient billingClient;
     private PluginCall savedCall;
 
+    private String normalizeProductType(String value) {
+        if (value == null) return BillingClient.ProductType.INAPP;
+        String normalized = value.trim().toLowerCase();
+        if (normalized.equals("subs") || normalized.equals("subscription")) {
+            return BillingClient.ProductType.SUBS;
+        }
+        return BillingClient.ProductType.INAPP;
+    }
+
     @Override
     public void load() {
         billingClient = BillingClient.newBuilder(getContext())
@@ -105,6 +114,8 @@ public class ClaraBillingPlugin extends Plugin implements PurchasesUpdatedListen
         }
 
         JSArray productIdsArray = call.getArray("productIds");
+        JSObject productTypes = call.getObject("productTypes");
+        String fallbackProductType = normalizeProductType(call.getString("productType"));
         if (productIdsArray == null || productIdsArray.length() == 0) {
             call.reject("Missing productIds");
             return;
@@ -116,10 +127,17 @@ public class ClaraBillingPlugin extends Plugin implements PurchasesUpdatedListen
             for (int i = 0; i < productIdsArray.length(); i++) {
                 String id = productIdsArray.getString(i);
                 if (id != null && !id.trim().isEmpty()) {
+                    String productType = fallbackProductType;
+                    if (productTypes != null) {
+                        Object mappedType = productTypes.opt(id.trim());
+                        if (mappedType != null) {
+                            productType = normalizeProductType(String.valueOf(mappedType));
+                        }
+                    }
                     productList.add(
                             QueryProductDetailsParams.Product.newBuilder()
                                     .setProductId(id.trim())
-                                    .setProductType(BillingClient.ProductType.INAPP)
+                                    .setProductType(productType)
                                     .build()
                     );
                 }
@@ -195,6 +213,7 @@ public class ClaraBillingPlugin extends Plugin implements PurchasesUpdatedListen
         }
 
         String productId = call.getString("productId");
+        String productType = normalizeProductType(call.getString("productType"));
         if (productId == null || productId.trim().isEmpty()) {
             call.reject("Missing productId");
             return;
@@ -206,7 +225,7 @@ public class ClaraBillingPlugin extends Plugin implements PurchasesUpdatedListen
         productList.add(
                 QueryProductDetailsParams.Product.newBuilder()
                         .setProductId(productId.trim())
-                        .setProductType(BillingClient.ProductType.INAPP)
+                        .setProductType(productType)
                         .build()
         );
 
@@ -233,11 +252,19 @@ public class ClaraBillingPlugin extends Plugin implements PurchasesUpdatedListen
             ProductDetails productDetails = list.get(0);
 
             List<BillingFlowParams.ProductDetailsParams> paramsList = new ArrayList<>();
-            paramsList.add(
+            BillingFlowParams.ProductDetailsParams.Builder detailsBuilder =
                     BillingFlowParams.ProductDetailsParams.newBuilder()
-                            .setProductDetails(productDetails)
-                            .build()
-            );
+                            .setProductDetails(productDetails);
+
+            if (BillingClient.ProductType.SUBS.equals(productType)
+                    && productDetails.getSubscriptionOfferDetails() != null
+                    && !productDetails.getSubscriptionOfferDetails().isEmpty()) {
+                detailsBuilder.setOfferToken(
+                        productDetails.getSubscriptionOfferDetails().get(0).getOfferToken()
+                );
+            }
+
+            paramsList.add(detailsBuilder.build());
 
             BillingFlowParams flowParams = BillingFlowParams.newBuilder()
                     .setProductDetailsParamsList(paramsList)

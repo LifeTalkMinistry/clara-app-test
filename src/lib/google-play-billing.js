@@ -1,12 +1,16 @@
-import { registerPlugin } from "@capacitor/core";
-
-const ClaraBilling = registerPlugin("ClaraBilling");
+import { CLARA_PRODUCTS, getClaraProductByPlan } from "@/lib/clara-entitlements";
 
 const PRODUCT_IDS = {
-  entry: "clara_entry",
-  core: "clara_core",
-  coach: "clara_coach",
-  coaching: "clara_coach",
+  entry: CLARA_PRODUCTS.pro.productId,
+  core: CLARA_PRODUCTS.program.productId,
+  coach: CLARA_PRODUCTS.coaching.productId,
+  coaching: CLARA_PRODUCTS.coaching.productId,
+};
+
+const PRODUCT_TYPES = {
+  [CLARA_PRODUCTS.pro.productId]: "subs",
+  [CLARA_PRODUCTS.program.productId]: "inapp",
+  [CLARA_PRODUCTS.coaching.productId]: "inapp",
 };
 
 const SUCCESS_STATUSES = new Set(["approved", "active"]);
@@ -20,6 +24,10 @@ export function getGooglePlayProductId(planKey) {
 
 export function getAllGooglePlayProductIds() {
   return Array.from(new Set(Object.values(PRODUCT_IDS).filter(Boolean)));
+}
+
+function getGooglePlayProductType(productId) {
+  return PRODUCT_TYPES[normalize(productId)] || "inapp";
 }
 
 function parseBridgeResult(result) {
@@ -102,7 +110,8 @@ function makeError(message, extra = {}) {
 }
 
 function getBillingBridge() {
-  return ClaraBilling;
+  if (typeof window === "undefined") return null;
+  return window?.ClaraBilling || window?.Capacitor?.Plugins?.ClaraBilling || null;
 }
 
 function getMissingBridgeResult(message) {
@@ -247,8 +256,22 @@ export async function queryGooglePlayProducts({ productIds = [] } = {}) {
 
   const payload =
     cleanedProductIds.length === 1
-      ? { productId: cleanedProductIds[0], productIds: cleanedProductIds }
-      : { productIds: cleanedProductIds };
+      ? {
+          productId: cleanedProductIds[0],
+          productIds: cleanedProductIds,
+          productType: getGooglePlayProductType(cleanedProductIds[0]),
+          productTypes: cleanedProductIds.reduce((acc, id) => {
+            acc[id] = getGooglePlayProductType(id);
+            return acc;
+          }, {}),
+        }
+      : {
+          productIds: cleanedProductIds,
+          productTypes: cleanedProductIds.reduce((acc, id) => {
+            acc[id] = getGooglePlayProductType(id);
+            return acc;
+          }, {}),
+        };
 
   const bridgeResult = await safeBridgeCall("queryProducts", payload);
 
@@ -361,6 +384,7 @@ export async function launchGooglePlayPurchase({
   const payload = {
     productId: normalize(productId),
     planKey: normalize(planKey),
+    productType: getGooglePlayProductType(productId),
     userId: normalize(userId),
     userEmail: normalize(userEmail),
   };
@@ -475,14 +499,40 @@ export async function persistGooglePlayPurchase({
     });
   }
 
+  try {
+    const { data, error } = await supabase.functions.invoke(
+      "verify-google-play-purchase",
+      {
+        body: {
+          plan_key: safePlanKey,
+          product_id: safeProductId,
+          purchase_token: safePurchaseToken,
+          order_id: safeOrderId,
+          package_name: "com.clara.moneytracker",
+          purchase_payload: bridgePayload || null,
+        },
+      }
+    );
+
+    if (!error && data?.ok) {
+      return data.enrollment_id || data.purchase_id || null;
+    }
+  } catch (error) {
+    console.warn("Server-side Google Play verification is pending:", error);
+  }
+
   const payload = {
     user_id: safeUserId,
     plan: safePlanKey,
     plan_key: safePlanKey,
+    tier_type: getClaraProductByPlan(safePlanKey)?.tierType || safePlanKey,
     product_id: safeProductId,
+    play_product_id: safeProductId,
     purchase_token: safePurchaseToken,
+    play_purchase_token: safePurchaseToken,
     order_id: safeOrderId,
     source: "google_play",
+    purchase_source: "google_play",
     status: resolvedStatus,
     purchase_payload: bridgePayload || null,
   };
@@ -560,12 +610,34 @@ export async function persistGooglePlayPurchase({
   }
 
   if (resolvedStatus === "approved" || resolvedStatus === "active") {
-    const profilePatch = {
-      plan: safePlanKey,
-      is_enrolled: true,
-      program_active: true,
-      enrollment_status: resolvedStatus,
-    };
+    const product = getClaraProductByPlan(safePlanKey);
+    const isProOnly = safePlanKey === "entry";
+    const profilePatch = isProOnly
+      ? {
+          plan: "entry",
+          tier_type: product?.tierType || "pro_tools",
+          purchase_source: "google_play",
+          play_product_id: safeProductId,
+          play_purchase_token: safePurchaseToken,
+          pro_subscription_status: "active",
+          entitlement_status: "pro_subscription",
+          is_enrolled: false,
+          program_active: false,
+          enrollment_status: resolvedStatus,
+        }
+      : {
+          plan: safePlanKey,
+          tier_type: product?.tierType || safePlanKey,
+          purchase_source: "google_play",
+          play_product_id: safeProductId,
+          play_purchase_token: safePurchaseToken,
+          is_enrolled: true,
+          program_active: false,
+          enrollment_status: resolvedStatus,
+          entitlement_status: "program_available",
+          coaching_credits_total:
+            safePlanKey === "coaching" ? product?.coachingCredits || 2 : 0,
+        };
 
     const { error: profileUpdateError } = await supabase
       .from("profiles")

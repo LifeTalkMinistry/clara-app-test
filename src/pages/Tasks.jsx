@@ -35,6 +35,8 @@ import {
 } from "@/lib/program-journey";
 import {
   ensureUserProgramAccess,
+  startUserChallenge,
+  syncChallengeDaySummary,
   fetchUserProgramRecord,
 } from "@/lib/program-access";
 
@@ -149,6 +151,7 @@ export default function Tasks() {
   const [selected, setSelected] = useState(null);
   const [tasksTable, setTasksTable] = useState(null);
   const [lockedInfo, setLockedInfo] = useState(null);
+  const [startingChallenge, setStartingChallenge] = useState(false);
 
   const resolveTasksTable = useCallback(async () => {
     if (tasksTable) return tasksTable;
@@ -217,11 +220,19 @@ export default function Tasks() {
               tasks: normalizedTasks,
             })
           : null);
+      const syncedProgram =
+        ensuredProgram?.challenge_started
+          ? await syncChallengeDaySummary({
+              supabase,
+              userId: user.id,
+              programRecord: ensuredProgram,
+            })
+          : ensuredProgram;
 
       setTasks(normalizedTasks);
       setSubmissions(Array.isArray(subsRes.data) ? subsRes.data : []);
       setCoachingRequests(Array.isArray(coachingRes.data) ? coachingRes.data : []);
-      setProgramRecord(ensuredProgram || null);
+      setProgramRecord(syncedProgram || null);
     } catch (error) {
       console.error("Failed loading program tasks:", error);
       setTasks([]);
@@ -303,6 +314,26 @@ export default function Tasks() {
     [navigate]
   );
 
+  const handleStartChallenge = useCallback(async () => {
+    if (!user?.id) return;
+
+    try {
+      setStartingChallenge(true);
+      const nextRecord = await startUserChallenge({
+        supabase,
+        user,
+        profile: user?.profile || user,
+        programRecord,
+      });
+      setProgramRecord(nextRecord);
+      await loadData();
+    } catch (error) {
+      console.error("Failed to start challenge:", error);
+    } finally {
+      setStartingChallenge(false);
+    }
+  }, [loadData, programRecord, user]);
+
   if (accessLoading) {
     return <FeaturePageLoader label="Preparing your program..." />;
   }
@@ -367,10 +398,34 @@ export default function Tasks() {
     <div className="mx-auto max-w-5xl px-4 pb-12 pt-4 md:px-6">
       <PageHeader
         title="Program"
-        subtitle={`Day ${journey.unlockedDay} of ${journey.totalCount || 30} unlocked`}
+        subtitle={
+          journey.challengeStarted
+            ? `Day ${journey.unlockedDay} of ${journey.totalCount || 30} unlocked`
+            : "Available when you start the challenge"
+        }
       />
 
       <div className="space-y-4">
+        {!journey.challengeStarted ? (
+          <section className="rounded-[30px] border border-emerald-400/20 bg-[linear-gradient(135deg,rgba(8,16,31,0.98)_0%,rgba(9,34,46,0.96)_52%,rgba(16,73,58,0.92)_100%)] p-5 text-white shadow-[0_20px_50px_rgba(0,0,0,0.24)]">
+            <div className="flex flex-col gap-5 md:flex-row md:items-center md:justify-between">
+              <div>
+                <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-emerald-200/75">
+                  30-Day Challenge
+                </p>
+                <h2 className="mt-2 text-2xl font-semibold">Start when you are ready</h2>
+                <p className="mt-3 max-w-2xl text-sm leading-7 text-white/72">
+                  Day 1 opens immediately. After that, each next day unlocks at 6:00 AM Manila time based on your challenge start date.
+                </p>
+              </div>
+              <Button onClick={handleStartChallenge} disabled={startingChallenge} className="shrink-0">
+                <Zap className="mr-2 h-4 w-4" />
+                {startingChallenge ? "Starting..." : "Start Challenge"}
+              </Button>
+            </div>
+          </section>
+        ) : null}
+
         <section className="overflow-hidden rounded-[30px] border border-white/10 bg-[linear-gradient(135deg,rgba(8,16,31,0.98)_0%,rgba(9,34,46,0.96)_52%,rgba(16,73,58,0.92)_100%)] p-5 text-white shadow-[0_20px_50px_rgba(0,0,0,0.24)]">
           <div className="flex flex-col gap-5 md:flex-row md:items-start md:justify-between">
             <div className="min-w-0 flex-1">
@@ -405,7 +460,9 @@ export default function Tasks() {
                   {programRecord?.program_start_date || "Not started"}
                 </p>
                 <p className="mt-1 text-xs text-white/55">
-                  Unlocks automatically day by day
+                  {journey.challengeStarted
+                    ? "Next days unlock at 6:00 AM"
+                    : "Waiting for Start Challenge"}
                 </p>
               </div>
             </div>
@@ -570,6 +627,8 @@ export default function Tasks() {
         onClose={() => setSelected(null)}
         onSubmitted={loadData}
         user={user}
+        profile={user?.profile || user}
+        programRecord={programRecord}
         existingSubmission={selected ? journey.items.find((item) => item.id === selected.id)?.submission : null}
       />
     </div>

@@ -9,6 +9,7 @@ import {
   isFeatureEnabled,
   normalizePlanKey,
 } from "@/lib/plan-config";
+import { deriveEffectiveEntitlements } from "@/lib/clara-entitlements";
 
 const buildResolvedUser = (authUser, profile, accessState, referralsEnabled) => {
   if (!authUser) return null;
@@ -25,11 +26,19 @@ const buildResolvedUser = (authUser, profile, accessState, referralsEnabled) => 
     email: authUser.email,
     full_name: fullName,
     role: profile?.role || "user",
-    plan: normalizePlanKey(profile?.plan || "free"),
+    plan: normalizePlanKey(accessState?.plan || profile?.plan || "free"),
     enrollment_status: profile?.enrollment_status || "none",
     status: profile?.status || "free",
     is_enrolled: profile?.is_enrolled || false,
     program_active: profile?.program_active || false,
+    entitlement_status: profile?.entitlement_status || "free",
+    challenge_started: profile?.challenge_started || false,
+    active_day_number: Number(profile?.active_day_number || 0),
+    current_day_status: profile?.current_day_status || "not_started",
+    coaching_credits_total: Number(profile?.coaching_credits_total || 0),
+    coaching_credits_used: Number(profile?.coaching_credits_used || 0),
+    coaching_credits_remaining: Number(profile?.coaching_credits_remaining || 0),
+    entitlements: deriveEffectiveEntitlements(profile || {}),
     onboarding_completed: profile?.onboarding_completed || false,
     onboarding_step: profile?.onboarding_step || 0,
     program_onboarding_completed:

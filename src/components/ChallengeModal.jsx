@@ -17,6 +17,7 @@ import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import { supabase } from "@/lib/supabaseClient";
 import { TASK_REMINDER_EVENT } from "@/lib/task-reminders";
+import { completeUserProgram } from "@/lib/program-access";
 
 const DIFFICULTY_CONFIG = [
   {
@@ -86,7 +87,7 @@ function buildStructuredContent(form, task) {
   return chunks.join("\n\n").trim();
 }
 
-function ProofSection({ task, form, setForm, onSubmit, submitting, submitLabel }) {
+function ProofSection({ task, form, setForm, onSubmit, onSaveDraft, submitting, savingDraft, submitLabel }) {
   const proof = task.proof_required || "none";
   const detailed = task.require_detailed_answer;
   const hasGuidedQuestions =
@@ -251,13 +252,23 @@ function ProofSection({ task, form, setForm, onSubmit, submitting, submitLabel }
         </div>
       ) : null}
 
-      <Button
-        className="w-full bg-[#22c55e] text-white shadow-[0_10px_30px_rgba(34,197,94,0.25)] hover:bg-[#16a34a]"
-        disabled={!canSubmit() || submitting}
-        onClick={onSubmit}
-      >
-        {submitting ? "Submitting..." : submitLabel}
-      </Button>
+      <div className="grid gap-3 sm:grid-cols-2">
+        <Button
+          variant="outline"
+          className="w-full border-white/10 bg-white/5 text-white hover:bg-white/10"
+          disabled={savingDraft || submitting}
+          onClick={onSaveDraft}
+        >
+          {savingDraft ? "Saving..." : "Save draft"}
+        </Button>
+        <Button
+          className="w-full bg-[#22c55e] text-white shadow-[0_10px_30px_rgba(34,197,94,0.25)] hover:bg-[#16a34a]"
+          disabled={!canSubmit() || submitting}
+          onClick={onSubmit}
+        >
+          {submitting ? "Submitting..." : submitLabel}
+        </Button>
+      </div>
     </div>
   );
 }
@@ -327,6 +338,8 @@ export default function ChallengeModal({
   onClose,
   onSubmitted,
   user,
+  profile,
+  programRecord,
   existingSubmission = null,
 }) {
   const [difficulty, setDifficulty] = useState(null);
@@ -343,6 +356,7 @@ export default function ChallengeModal({
     question_3_answer: "",
   });
   const [submitting, setSubmitting] = useState(false);
+  const [savingDraft, setSavingDraft] = useState(false);
   const [submittedRecord, setSubmittedRecord] = useState(null);
   const [reflectionAnswers, setReflectionAnswers] = useState({});
   const [reflectionStep, setReflectionStep] = useState(0);
@@ -518,6 +532,45 @@ export default function ChallengeModal({
     }
   };
 
+  const saveDraft = async () => {
+    try {
+      setSavingDraft(true);
+      const structuredContent = buildStructuredContent(form, task);
+      const payload = {
+        task_id: task.id,
+        user_id: user?.id || null,
+        created_by: user?.email || null,
+        student_name: user?.full_name?.trim() || user?.name || user?.email || "Student",
+        content: structuredContent || form.content || null,
+        journal_entry: form.journal_entry || null,
+        question_1_answer: form.question_1_answer || null,
+        question_2_answer: form.question_2_answer || null,
+        question_3_answer: form.question_3_answer || null,
+        status: "draft",
+        admin_notes: null,
+      };
+
+      if (existingSubmission?.id) {
+        const { error } = await supabase
+          .from("task_submissions")
+          .update(payload)
+          .eq("id", existingSubmission.id);
+        if (error) throw error;
+      } else {
+        const { error } = await supabase.from("task_submissions").insert([payload]);
+        if (error) throw error;
+      }
+
+      toast.success("Draft saved");
+      await onSubmitted?.();
+    } catch (error) {
+      console.error("Draft save failed:", error);
+      toast.error(error.message || "Could not save draft.");
+    } finally {
+      setSavingDraft(false);
+    }
+  };
+
   const handleReflectionSelect = (questionId, value, label) => {
     setReflectionAnswers((current) => ({
       ...current,
@@ -549,6 +602,15 @@ export default function ChallengeModal({
           .eq("id", submittedRecord.id);
 
         if (error) throw error;
+      }
+
+      if (Number(task?.day || task?.day_number || 0) >= 30) {
+        await completeUserProgram({
+          supabase,
+          userId: user?.id,
+          profile: profile || user?.profile || user,
+          programRecord,
+        });
       }
 
       await onSubmitted?.();
@@ -701,7 +763,9 @@ export default function ChallengeModal({
                 form={form}
                 setForm={setForm}
                 onSubmit={handleSubmit}
+                onSaveDraft={saveDraft}
                 submitting={submitting}
+                savingDraft={savingDraft}
                 submitLabel={submitLabel}
               />
             </div>

@@ -35,88 +35,88 @@ import {
   persistGooglePlayPurchase,
   waitForGooglePlayEntitlement,
 } from "@/lib/google-play-billing";
+import { canOfferPlan, getClaraProductByPlan } from "@/lib/clara-entitlements";
 
 const PLAN_UI_META = {
   entry: {
-    label: "Entry",
-    eyebrow: "Starter Access",
-    badge: "Best for starting",
-    statement: "Unlock your CLARA tools and begin with a guided starter path.",
+    label: "PRO Tools",
+    eyebrow: "Monthly Subscription",
+    badge: "Entry paid tier",
+    statement: "Unlock CLARA's PRO tools through Google Play Billing.",
     points: [
       "Full financial tools",
-      "Starter program access",
-      "Clear first steps",
-      "A real guided beginning",
+      "Budgets, analytics, savings goals, referrals",
+      "Does not include the 30-day program",
+      "Renews monthly through Google Play",
     ],
     accent: "from-cyan-400/22 via-sky-400/10 to-transparent",
     border: "border-cyan-400/20",
-    button: "Unlock with Google Play",
-    successTitle: "Entry unlocked",
-    successBody:
-      "Your starter path is ready. Open CLARA and begin your first guided steps.",
-    successCta: "Start Starter Program",
+    button: "Subscribe to PRO",
+    successTitle: "PRO Tools unlocked",
+    successBody: "Your PRO tools are active while your subscription is active.",
+    successCta: "Open Dashboard",
     icon: Star,
   },
   core: {
-    label: "Core",
-    eyebrow: "Full 30-Day Reset",
+    label: "CLARA Program",
+    eyebrow: "One-Time Program",
     badge: "Most popular",
     statement:
-      "Unlock the full guided system and move through CLARA one intentional day at a time.",
+      "Unlock the 30-day CLARA Program with PRO during the program and continuation access after completion.",
     points: [
-      "Full 30-day guided system",
-      "Daily task progression",
-      "Reflection flow",
-      "Best value for serious structure",
+      "30-day CLARA Program",
+      "Includes PRO access during the program",
+      "Your +1 month continuation PRO starts after program completion",
+      "One-time Google Play purchase",
     ],
     accent: "from-emerald-400/22 via-teal-400/10 to-transparent",
     border: "border-emerald-400/20",
-    button: "Buy with Google Play",
-    successTitle: "Core unlocked",
+    button: "Unlock Program",
+    successTitle: "CLARA Program unlocked",
     successBody:
-      "Your full guided system is active. Day 1 is ready whenever you are.",
+      "Your 30-day program is available. Start the challenge when you are ready.",
     successCta: "Open Program",
     icon: Target,
   },
   coach: {
-    label: "Coach",
+    label: "CLARA Coaching",
     eyebrow: "Personal Guidance",
     badge: "Premium support",
     statement:
-      "Unlock the full system plus a deeper layer of personal guidance and accountability.",
+      "Unlock the 30-day CLARA Program, two coaching sessions, and two months of continuation PRO after completion.",
     points: [
-      "Full 30-day guided system",
-      "Premium coaching layer",
-      "Deeper support surfaces",
-      "Built for real intervention and accountability",
+      "30-day CLARA Program",
+      "Includes PRO access during the program",
+      "Your +2 months continuation PRO starts after program completion",
+      "Includes 2 coaching session credits",
     ],
     accent: "from-amber-400/22 via-orange-400/10 to-transparent",
     border: "border-amber-400/20",
     button: "Unlock with Google Play",
-    successTitle: "Coach unlocked",
+    successTitle: "CLARA Coaching unlocked",
     successBody:
-      "Your guided system and coaching layer are active. Open the journey and review your support surfaces.",
+      "Your guided system and 2 coaching credits are active. Start the challenge when you are ready.",
     successCta: "View Coaching Journey",
     icon: Gem,
   },
   coaching: {
-    label: "Coach",
+    label: "CLARA Coaching",
     eyebrow: "Personal Guidance",
     badge: "Premium support",
     statement:
-      "Unlock the full system plus a deeper layer of personal guidance and accountability.",
+      "Unlock the 30-day CLARA Program, two coaching sessions, and two months of continuation PRO after completion.",
     points: [
-      "Full 30-day guided system",
-      "Premium coaching layer",
-      "Deeper support surfaces",
-      "Built for real intervention and accountability",
+      "30-day CLARA Program",
+      "Includes PRO access during the program",
+      "Your +2 months continuation PRO starts after program completion",
+      "Includes 2 coaching session credits",
     ],
     accent: "from-amber-400/22 via-orange-400/10 to-transparent",
     border: "border-amber-400/20",
     button: "Unlock with Google Play",
-    successTitle: "Coach unlocked",
+    successTitle: "CLARA Coaching unlocked",
     successBody:
-      "Your guided system and coaching layer are active. Open the journey and review your support surfaces.",
+      "Your guided system and 2 coaching credits are active. Start the challenge when you are ready.",
     successCta: "View Coaching Journey",
     icon: Gem,
   },
@@ -177,6 +177,7 @@ function normalizePlanRecord(row) {
   );
   const key = normalizePlanUiKey(rawKey);
   const ui = PLAN_UI_META[key] || null;
+  const productMeta = getClaraProductByPlan(rawKey);
 
   return {
     id: normalizedRow?.id ?? null,
@@ -188,7 +189,7 @@ function normalizePlanRecord(row) {
       PLAN_LABELS[rawKey] ||
       normalizeText(normalizedRow?.name) ||
       key.toUpperCase(),
-    price: Number(normalizedRow?.price || 0),
+    price: Number(productMeta?.price ?? normalizedRow?.price ?? 0),
     badge: ui?.badge || (normalizedRow?.popular ? "Most Popular" : "Plan"),
     eyebrow: ui?.eyebrow || "Unlock CLARA",
     statement: ui?.statement || normalizeText(normalizedRow?.description),
@@ -208,6 +209,7 @@ function normalizePlanRecord(row) {
       ui?.successBody || "Your purchase is complete and your CLARA access is ready.",
     successCta: ui?.successCta || "Open CLARA",
     productId: getGooglePlayProductId(key) || getGooglePlayProductId(rawKey),
+    productMeta,
     icon: ui?.icon || Sparkles,
     displayBenefits:
       normalizeFeatures(normalizedRow?.features).length > 0
@@ -235,7 +237,7 @@ function getPlanKeyFromEnrollment(enrollment, searchParams) {
 
 function getSuccessDestination(planKey) {
   const normalized = normalizePlanUiKey(planKey);
-  if (normalized === "entry") return "/program-onboarding";
+  if (normalized === "entry") return "/dashboard";
   if (normalized === "coach") return "/tasks";
   return "/tasks";
 }
@@ -721,7 +723,7 @@ function SelectionCard({ plan, selected, onSelect }) {
 
         <div className="rounded-2xl border border-white/10 bg-black/20 px-4 py-3 text-right">
           <p className="text-[11px] uppercase tracking-[0.16em] text-white/45">
-            One-time
+            {plan.productMeta?.productType === "subscription" ? "Monthly" : "One-time"}
           </p>
           <p className="mt-1 text-xl font-semibold text-white">
             {formatPeso(plan.price)}
@@ -998,11 +1000,12 @@ export default function Enroll() {
 
     const normalized = (data || [])
       .map(normalizePlanRecord)
-      .filter((plan) => plan.active && plan.productId && PLAN_UI_META[plan.key]);
+      .filter((plan) => plan.active && plan.productId && PLAN_UI_META[plan.key])
+      .filter((plan) => canOfferPlan(user?.profile || user, plan.rawKey || plan.key));
 
     setPlans(normalized);
     return normalized;
-  }, []);
+  }, [user]);
 
   const fetchEnrollmentForUserId = useCallback(async (userId) => {
     const normalizedUserId = normalizeText(userId);
@@ -1248,46 +1251,25 @@ export default function Enroll() {
   }
 
   async function activateGooglePlayPurchase({
-    userId,
     planKey,
     productId,
     purchaseToken,
     orderId,
   }) {
-    const functionUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/verify-google-play`;
-
-    const response = await fetch(functionUrl, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`,
+    const { data, error } = await supabase.functions.invoke("verify-google-play-purchase", {
+      body: {
+        plan_key: planKey,
+        product_id: productId,
+        purchase_token: purchaseToken || null,
+        order_id: orderId || null,
       },
-      body: JSON.stringify({
-        userId,
-        planKey,
-        productId,
-        purchaseToken: purchaseToken || null,
-        orderId: orderId || null,
-      }),
     });
 
-    let payload = null;
-
-    try {
-      payload = await response.json();
-    } catch {
-      payload = null;
+    if (error) {
+      throw new Error(error.message || "Supabase activation function failed.");
     }
 
-    if (!response.ok) {
-      throw new Error(
-        payload?.error ||
-          payload?.message ||
-          "Supabase activation function failed."
-      );
-    }
-
-    return payload;
+    return data;
   }
 
   async function finalizeOwnedOrPurchasedPlan({
@@ -1564,7 +1546,7 @@ export default function Enroll() {
                   Choose your next level with less friction
                 </h1>
                 <p className="mt-3 text-sm leading-7 text-white/70 sm:text-base">
-                  Pick Entry, Core, or Coach, review one focused plan page, and
+                  Pick PRO Tools, CLARA Program, or CLARA Coaching, review one focused plan page, and
                   unlock through Google Play without the old proof-upload flow.
                 </p>
               </div>
@@ -1577,7 +1559,7 @@ export default function Enroll() {
                       Purchase flow
                     </p>
                     <p className="text-sm font-semibold text-white">
-                      Google Play one-time unlock
+                      Google Play unlock
                     </p>
                   </div>
                 </div>
@@ -1743,7 +1725,7 @@ export default function Enroll() {
 
                   <div className="rounded-2xl border border-white/10 bg-black/20 px-4 py-3 text-right">
                     <p className="text-[11px] uppercase tracking-[0.16em] text-white/45">
-                      One-time unlock
+                      {selectedPlan.productMeta?.productType === "subscription" ? "Monthly subscription" : "One-time unlock"}
                     </p>
                     <p className="mt-1 text-2xl font-semibold text-white">
                       {formatPeso(selectedPlan.price)}
@@ -1779,8 +1761,9 @@ export default function Enroll() {
                       Google Play Billing
                     </p>
                     <p className="mt-2 text-sm leading-7 text-white/68">
-                      Fast one-time unlock handled through Google Play. No proof
-                      upload. No manual review form.
+                      {selectedPlan.productMeta?.productType === "subscription"
+                        ? "Monthly subscription handled through Google Play. No proof upload. No manual review form."
+                        : "Fast one-time unlock handled through Google Play. No proof upload. No manual review form."}
                     </p>
                   </div>
 
@@ -1895,8 +1878,8 @@ export default function Enroll() {
 
             {sortedPlans.length === 0 ? (
               <div className="rounded-3xl border border-white/10 bg-white/5 p-5 text-sm text-white/70 backdrop-blur-xl">
-                No Google Play plans are active yet. Activate Entry, Core, or
-                Coach from admin first.
+                No Google Play plans are active yet. Activate PRO Tools, CLARA Program, or
+                CLARA Coaching from admin first.
               </div>
             ) : null}
           </div>

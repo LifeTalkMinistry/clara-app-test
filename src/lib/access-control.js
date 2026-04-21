@@ -1,4 +1,5 @@
 import { isPaidPlan, normalizePlanKey } from "@/lib/plan-config";
+import { deriveEffectiveEntitlements } from "@/lib/clara-entitlements";
 
 export const ENROLLMENT_PENDING_STATUSES = new Set([
   "pending",
@@ -51,11 +52,14 @@ export function hasCompletedProgramOnboarding(profileLike) {
 
 export function hasAnyPaidSignal(profileLike, enrollment) {
   const role = normalizeAccessValue(profileLike?.role);
-  const plan = normalizePlanKey(profileLike?.plan);
+  const effective = deriveEffectiveEntitlements(profileLike || {});
+  const plan = normalizePlanKey(effective.effectivePlan || profileLike?.plan);
   const enrollmentStatus = getEnrollmentStatus(enrollment, profileLike);
 
   return (
     role === "paid_user" ||
+    effective.hasProAccess ||
+    effective.hasProgramAccess ||
     profileLike?.program_active === true ||
     profileLike?.is_enrolled === true ||
     ENROLLMENT_APPROVED_STATUSES.has(enrollmentStatus) ||
@@ -88,6 +92,7 @@ export function resolveAppFlow(profileLike, enrollment) {
 
   if (
     ENROLLMENT_APPROVED_STATUSES.has(enrollmentStatus) &&
+    ["core", "coaching"].includes(normalizePlanKey(profileLike?.plan || enrollment?.plan_key || enrollment?.plan)) &&
     !hasCompletedProgramOnboarding(profileLike)
   ) {
     return "program_onboarding";
@@ -98,12 +103,15 @@ export function resolveAppFlow(profileLike, enrollment) {
 
 export function deriveAccessState(profileLike, enrollment = null) {
   const role = normalizeAccessValue(profileLike?.role || "user");
-  const plan = normalizePlanKey(profileLike?.plan || "free");
+  const effective = deriveEffectiveEntitlements(profileLike || {});
+  const plan = normalizePlanKey(effective.effectivePlan || profileLike?.plan || "free");
   const enrollmentStatus = getEnrollmentStatus(enrollment, profileLike);
   const isAdmin = role === "admin";
   const isAdvertiser = role === "advertiser";
 
   const isApproved =
+    effective.hasProAccess ||
+    effective.hasProgramAccess ||
     enrollmentStatus === "approved" ||
     normalizeAccessValue(profileLike?.status) === "approved" ||
     profileLike?.is_enrolled === true ||
@@ -124,6 +132,7 @@ export function deriveAccessState(profileLike, enrollment = null) {
   return {
     role,
     plan,
+    entitlements: effective,
     enrollmentStatus,
     isAdmin,
     isAdvertiser,

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { ArrowLeft, Bell, ChevronRight, CreditCard, KeyRound, LogOut, Mail, Moon, Save, Settings2, Shield, Sparkles, User } from "lucide-react";
+import { AlertTriangle, ArrowLeft, Bell, ChevronRight, CreditCard, KeyRound, LogOut, Mail, Moon, Save, Settings2, Shield, Sparkles, Trash2, User } from "lucide-react";
 import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { supabase } from "@/lib/supabaseClient";
 import { PLAN_BADGE_STYLES, PLAN_LABELS, normalizePlanKey } from "@/lib/plan-config";
@@ -179,7 +179,12 @@ export default function Settings() {
   const [initialSettingsState, setInitialSettingsState] = useState(() => readStoredSettings(null));
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
+  const [deleteConfirm, setDeleteConfirm] = useState(false);
+  const [deleteRequesting, setDeleteRequesting] = useState(false);
   const taskReminderSettings = useTaskReminderSettings(userId);
+  const deletionRequestUrl =
+    import.meta.env.VITE_ACCOUNT_DELETION_URL ||
+    "https://lifetalkministry.github.io/clara-app-test/#/account-deletion";
 
   useEffect(() => {
     if (section && !SECTION_META[section]) {
@@ -326,6 +331,49 @@ export default function Settings() {
     }
   }, [email]);
 
+  const handleDeleteAccountRequest = useCallback(async () => {
+    if (!userId || !email) return;
+
+    if (!deleteConfirm) {
+      setDeleteConfirm(true);
+      setMessage("Tap Request deletion again to confirm.");
+      return;
+    }
+
+    try {
+      setDeleteRequesting(true);
+      setError("");
+      setMessage("");
+
+      const { error: requestError } = await supabase.from("account_deletion_requests").insert([
+        {
+          user_id: userId,
+          email,
+          status: "requested",
+          requested_from: "in_app",
+        },
+      ]);
+
+      if (requestError) throw requestError;
+
+      await supabase
+        .from("profiles")
+        .update({
+          account_deletion_requested_at: new Date().toISOString(),
+          account_deletion_status: "requested",
+        })
+        .eq("id", userId);
+
+      setMessage("Account deletion request submitted. CLARA support will process the associated data deletion.");
+      setDeleteConfirm(false);
+    } catch (deleteError) {
+      console.error("Account deletion request error:", deleteError);
+      setError("Unable to submit deletion request right now.");
+    } finally {
+      setDeleteRequesting(false);
+    }
+  }, [deleteConfirm, email, userId]);
+
   if (loading) return <LoadingState />;
 
   return (
@@ -464,6 +512,24 @@ export default function Settings() {
                   hint="Useful on shared or borrowed devices."
                   action={<button type="button" onClick={async () => { await supabase.auth.signOut(); navigate("/login"); }} className="inlineAction inlineActionDanger">Log Out</button>}
                 />
+                <InfoRow
+                  icon={Trash2}
+                  label="Delete Account"
+                  value="Request deletion of your CLARA account and associated app data."
+                  hint="You can also use the web deletion request link required for Google Play listing support."
+                  action={<button type="button" onClick={handleDeleteAccountRequest} disabled={deleteRequesting} className="inlineAction inlineActionDanger">{deleteRequesting ? "Requesting..." : deleteConfirm ? "Confirm" : "Request"}</button>}
+                />
+                <div className="rounded-2xl border border-amber-400/20 bg-amber-500/10 p-4">
+                  <div className="flex items-start gap-3">
+                    <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-amber-200" />
+                    <div>
+                      <p className="text-sm font-semibold text-white">Web deletion request</p>
+                      <a className="mt-1 block break-all text-xs text-amber-100 underline" href={deletionRequestUrl} target="_blank" rel="noreferrer">
+                        {deletionRequestUrl}
+                      </a>
+                    </div>
+                  </div>
+                </div>
               </div>
             )}
 
