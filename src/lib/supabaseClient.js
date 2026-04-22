@@ -13,7 +13,7 @@ if (isSupabaseConfigured) {
     auth: {
       persistSession: true,
       autoRefreshToken: true,
-      detectSessionInUrl: false,
+      detectSessionInUrl: true,
     },
   });
 } else {
@@ -42,6 +42,10 @@ const createMissingConfigProxy = () =>
               error: new Error("Supabase is not configured."),
             }),
             signUp: async () => ({
+              data: null,
+              error: new Error("Supabase is not configured."),
+            }),
+            signInWithOAuth: async () => ({
               data: null,
               error: new Error("Supabase is not configured."),
             }),

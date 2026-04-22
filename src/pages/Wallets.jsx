@@ -73,6 +73,28 @@ const getToday = () => {
   return `${yyyy}-${mm}-${dd}`;
 };
 
+const buildCreatedAtFromDate = (dateValue) => {
+  if (!dateValue) return new Date().toISOString();
+  const [year, month, day] = String(dateValue).split("-").map(Number);
+  if (!year || !month || !day) return new Date().toISOString();
+  const now = new Date();
+  return new Date(
+    year,
+    month - 1,
+    day,
+    now.getHours(),
+    now.getMinutes(),
+    now.getSeconds()
+  ).toISOString();
+};
+
+const generateId = () => {
+  if (typeof crypto !== "undefined" && crypto.randomUUID) {
+    return crypto.randomUUID();
+  }
+  return `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+};
+
 const getWalletSortOrder = (wallet, index) => {
   if (wallet?.sort_order === null || wallet?.sort_order === undefined) {
     return index;
@@ -136,10 +158,17 @@ export default function Wallets() {
   const { user, loading: accessLoading } = useUserRole();
   const financial = useFinancialData(user);
 
-  const wallets = Array.isArray(financial?.wallets) ? financial.wallets : [];
-  const walletTransactions = Array.isArray(financial?.walletTransactions)
-    ? financial.walletTransactions
-    : [];
+  const wallets = useMemo(
+    () => (Array.isArray(financial?.wallets) ? financial.wallets : []),
+    [financial?.wallets]
+  );
+  const walletTransactions = useMemo(
+    () =>
+      Array.isArray(financial?.walletTransactions)
+        ? financial.walletTransactions
+        : [],
+    [financial?.walletTransactions]
+  );
   const refreshData =
     typeof financial?.refreshData === "function"
       ? financial.refreshData
@@ -321,6 +350,7 @@ export default function Wallets() {
           name: form.name.trim(),
           type: form.type,
           balance: starting,
+          starting_balance: starting,
           icon: walletIcons[form.type],
           sort_order: nextSortOrder,
           user_id: user?.id || null,
@@ -407,7 +437,12 @@ export default function Wallets() {
         wallet_id: selectedWallet.id,
         type: "income",
         amount,
+        source_type: addMoneyForm.source_type,
+        tag: addMoneyForm.tag,
+        details: addMoneyForm.details || null,
         notes: addMoneyForm.notes || null,
+        created_at: buildCreatedAtFromDate(addMoneyForm.date),
+        updated_at: new Date().toISOString(),
         user_id: user?.id || null,
         user_email: user?.email || null,
         created_by: user?.email || null,
@@ -470,6 +505,7 @@ export default function Wallets() {
 
       const nextFromBalance = fromBalance - amount;
       const nextToBalance = toBalance + amount;
+      const transferGroupId = generateId();
 
       const { error: fromError } = await supabase
         .from("wallets")
@@ -490,6 +526,8 @@ export default function Wallets() {
           wallet_id: fromId,
           type: "transfer_out",
           amount,
+          transfer_group_id: transferGroupId,
+          related_wallet_id: toId,
           notes: transferForm.notes || null,
           user_id: user?.id || null,
           user_email: user?.email || null,
@@ -499,6 +537,8 @@ export default function Wallets() {
           wallet_id: toId,
           type: "transfer_in",
           amount,
+          transfer_group_id: transferGroupId,
+          related_wallet_id: fromId,
           notes: transferForm.notes || null,
           user_id: user?.id || null,
           user_email: user?.email || null,
@@ -511,6 +551,25 @@ export default function Wallets() {
         .insert(historyRows);
 
       if (historyError) throw historyError;
+
+      const { error: transferError } = await supabase.from("transfers").insert([
+        {
+          id: transferGroupId,
+          from_wallet_id: fromId,
+          to_wallet_id: toId,
+          amount,
+          notes: transferForm.notes || null,
+          user_id: user?.id || null,
+          user_email: user?.email || null,
+          created_by: user?.email || null,
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+        },
+      ]);
+
+      if (transferError) {
+        console.warn("Transfer summary insert failed:", transferError);
+      }
 
       setTransferOpen(false);
       resetTransferForm();

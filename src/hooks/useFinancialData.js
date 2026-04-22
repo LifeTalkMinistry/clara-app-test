@@ -58,6 +58,20 @@ const safeSelect = async (table, user) => {
   return (data || []).filter((item) => isOwnedByUser(item, user));
 };
 
+const generateId = () => {
+  if (typeof crypto !== "undefined" && crypto.randomUUID) {
+    return crypto.randomUUID();
+  }
+  return `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+};
+
+const normalizePlanningStatus = (value) => {
+  const normalized = String(value || "planned").trim().toLowerCase();
+  return ["planned", "unplanned", "undocumented"].includes(normalized)
+    ? normalized
+    : "planned";
+};
+
 const createEmptyFinancialCache = (key = null) => ({
   key,
   loaded: false,
@@ -262,16 +276,56 @@ export default function useFinancialData(user) {
     if (error) throw error;
   };
 
+  const insertWalletTransaction = async (payload) => {
+    const now = new Date().toISOString();
+    const { error } = await supabase.from("wallet_transactions").insert([
+      {
+        id: payload.id || generateId(),
+        wallet_id: payload.wallet_id ? String(payload.wallet_id) : null,
+        amount: toNumber(payload.amount),
+        type: payload.type,
+        category: payload.category || null,
+        need_type: payload.need_type || null,
+        planning_status: payload.planning_status || null,
+        unplanned_reason: payload.unplanned_reason || null,
+        expense_id: payload.expense_id || null,
+        transfer_group_id: payload.transfer_group_id || null,
+        related_wallet_id: payload.related_wallet_id || null,
+        source_type: payload.source_type || null,
+        tag: payload.tag || null,
+        notes: payload.notes || "",
+        created_at: payload.created_at || now,
+        updated_at: now,
+        user_id: user?.id || null,
+        user_email: user?.email || null,
+        created_by: user?.email || null,
+      },
+    ]);
+
+    if (error) throw error;
+  };
+
   const addExpense = async (expense) => {
     const amount = toNumber(expense.amount);
+    const planningStatus = normalizePlanningStatus(expense.planning_status);
+
+    if (planningStatus === "unplanned" && !String(expense.unplanned_reason || "").trim()) {
+      throw new Error("Reason is required for unplanned expenses.");
+    }
 
     const payload = {
       ...expense,
+      id: expense.id || generateId(),
       user_id: user?.id || null,
       user_email: user?.email || null,
       created_by: user?.email || null,
       amount,
       date: getSafeDate(expense.date),
+      planning_status: planningStatus,
+      unplanned_reason:
+        planningStatus === "unplanned"
+          ? String(expense.unplanned_reason || "").trim()
+          : null,
     };
 
     const { error } = await supabase.from("expenses").insert([payload]);
@@ -279,6 +333,18 @@ export default function useFinancialData(user) {
 
     if (expense.wallet_id) {
       await updateWalletBalance(expense.wallet_id, -amount);
+      await insertWalletTransaction({
+        wallet_id: expense.wallet_id,
+        amount,
+        type: "expense",
+        category: expense.category,
+        need_type: expense.need_type,
+        planning_status: planningStatus,
+        unplanned_reason: payload.unplanned_reason,
+        expense_id: payload.id,
+        notes: expense.notes,
+        created_at: payload.date,
+      });
     }
 
     await loadAll();
@@ -295,6 +361,23 @@ export default function useFinancialData(user) {
 
     if (updates.date !== undefined) {
       normalizedUpdates.date = getSafeDate(updates.date);
+    }
+
+    if (updates.planning_status !== undefined) {
+      normalizedUpdates.planning_status = normalizePlanningStatus(updates.planning_status);
+    }
+
+    const nextPlanningStatus =
+      normalizedUpdates.planning_status || oldExpense?.planning_status || "planned";
+
+    if (nextPlanningStatus === "unplanned") {
+      const reason = String(
+        normalizedUpdates.unplanned_reason ?? oldExpense?.unplanned_reason ?? ""
+      ).trim();
+      if (!reason) throw new Error("Reason is required for unplanned expenses.");
+      normalizedUpdates.unplanned_reason = reason;
+    } else if (updates.planning_status !== undefined) {
+      normalizedUpdates.unplanned_reason = null;
     }
 
     const { error } = await supabase
@@ -318,6 +401,44 @@ export default function useFinancialData(user) {
       await updateWalletBalance(nextWalletId, -nextAmount);
     }
 
+    const linkedTxn = walletTransactions.find(
+      (txn) =>
+        String(txn?.expense_id || "") === String(id) ||
+        (String(txn?.type || "").toLowerCase() === "expense" &&
+          String(txn?.wallet_id || "") === String(oldExpense?.wallet_id || "") &&
+          toNumber(txn?.amount) === toNumber(oldExpense?.amount))
+    );
+
+    const txnPayload = {
+      wallet_id: nextWalletId,
+      amount: nextAmount,
+      category: normalizedUpdates.category ?? oldExpense?.category,
+      need_type: normalizedUpdates.need_type ?? oldExpense?.need_type,
+      planning_status: nextPlanningStatus,
+      unplanned_reason:
+        nextPlanningStatus === "unplanned"
+          ? normalizedUpdates.unplanned_reason ?? oldExpense?.unplanned_reason
+          : null,
+      notes: normalizedUpdates.notes ?? oldExpense?.notes ?? "",
+      updated_at: new Date().toISOString(),
+    };
+
+    if (linkedTxn?.id) {
+      const { error: txnError } = await supabase
+        .from("wallet_transactions")
+        .update(txnPayload)
+        .eq("id", linkedTxn.id);
+
+      if (txnError) throw txnError;
+    } else if (nextWalletId) {
+      await insertWalletTransaction({
+        ...txnPayload,
+        type: "expense",
+        expense_id: id,
+        created_at: normalizedUpdates.date || oldExpense?.date || new Date().toISOString(),
+      });
+    }
+
     await loadAll();
   };
 
@@ -329,6 +450,23 @@ export default function useFinancialData(user) {
 
     if (expense?.wallet_id) {
       await updateWalletBalance(expense.wallet_id, toNumber(expense.amount));
+    }
+
+    const linkedTxn = walletTransactions.find(
+      (txn) =>
+        String(txn?.expense_id || "") === String(id) ||
+        (String(txn?.type || "").toLowerCase() === "expense" &&
+          String(txn?.wallet_id || "") === String(expense?.wallet_id || "") &&
+          toNumber(txn?.amount) === toNumber(expense?.amount))
+    );
+
+    if (linkedTxn?.id) {
+      const { error: txnError } = await supabase
+        .from("wallet_transactions")
+        .delete()
+        .eq("id", linkedTxn.id);
+
+      if (txnError) throw txnError;
     }
 
     await loadAll();
@@ -385,7 +523,69 @@ export default function useFinancialData(user) {
 
     if (income.wallet_id) {
       await updateWalletBalance(income.wallet_id, amount);
+      await insertWalletTransaction({
+        wallet_id: income.wallet_id,
+        amount,
+        type: "income",
+        source_type: income.source_type || income.source,
+        tag: income.tag,
+        notes: income.notes,
+        created_at: getSafeDate(income.date),
+      });
     }
+
+    await loadAll();
+  };
+
+  const transferBetweenWallets = async ({ from_wallet_id, to_wallet_id, amount, notes = "" }) => {
+    const parsedAmount = toNumber(amount);
+    const fromWallet = wallets.find((w) => String(w.id) === String(from_wallet_id));
+    const toWallet = wallets.find((w) => String(w.id) === String(to_wallet_id));
+
+    if (!fromWallet || !toWallet) throw new Error("Wallet not found.");
+    if (String(fromWallet.id) === String(toWallet.id)) {
+      throw new Error("Source and destination wallets must be different.");
+    }
+    if (parsedAmount <= 0) throw new Error("Enter a valid transfer amount.");
+
+    const fromBalance = toNumber(fromWallet.balance ?? fromWallet.current_balance);
+    const toBalance = toNumber(toWallet.balance ?? toWallet.current_balance);
+
+    if (fromBalance < parsedAmount) {
+      throw new Error("Insufficient balance in source wallet.");
+    }
+
+    const transferGroupId = generateId();
+
+    await supabase
+      .from("wallets")
+      .update({ balance: fromBalance - parsedAmount, updated_at: new Date().toISOString() })
+      .eq("id", fromWallet.id)
+      .throwOnError();
+
+    await supabase
+      .from("wallets")
+      .update({ balance: toBalance + parsedAmount, updated_at: new Date().toISOString() })
+      .eq("id", toWallet.id)
+      .throwOnError();
+
+    await insertWalletTransaction({
+      wallet_id: fromWallet.id,
+      amount: parsedAmount,
+      type: "transfer_out",
+      transfer_group_id: transferGroupId,
+      related_wallet_id: toWallet.id,
+      notes,
+    });
+
+    await insertWalletTransaction({
+      wallet_id: toWallet.id,
+      amount: parsedAmount,
+      type: "transfer_in",
+      transfer_group_id: transferGroupId,
+      related_wallet_id: fromWallet.id,
+      notes,
+    });
 
     await loadAll();
   };
@@ -438,5 +638,6 @@ export default function useFinancialData(user) {
     updateWallet,
     deleteWallet,
     addIncome,
+    transferBetweenWallets,
   };
 }

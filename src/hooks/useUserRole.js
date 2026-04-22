@@ -20,13 +20,34 @@ const buildResolvedUser = (authUser, profile, accessState, referralsEnabled) => 
     authUser.user_metadata?.name ||
     "";
 
+  const plan = normalizePlanKey(accessState?.plan || profile?.plan || "free");
+  const subscriptionStatus =
+    plan === "free"
+      ? "free"
+      : plan === "pro_99"
+        ? "pro"
+        : plan === "core_599"
+          ? "core"
+          : "life_os";
+
   return {
     ...(profile || {}),
     id: authUser.id,
     email: authUser.email,
     full_name: fullName,
     role: profile?.role || "user",
-    plan: normalizePlanKey(accessState?.plan || profile?.plan || "free"),
+    plan,
+    subscription_status: subscriptionStatus,
+    subscription_label: PLAN_LABELS[plan] || "Free",
+    subscription: {
+      plan,
+      status: subscriptionStatus,
+      label: PLAN_LABELS[plan] || "Free",
+      isPaid: Boolean(accessState.isPaid),
+      isPro: Boolean(accessState.isPaid) || plan === "pro_99",
+      isCore: plan === "core_599",
+      isLifeOS: plan === "coaching_1299",
+    },
     enrollment_status: profile?.enrollment_status || "none",
     status: profile?.status || "free",
     is_enrolled: profile?.is_enrolled || false,

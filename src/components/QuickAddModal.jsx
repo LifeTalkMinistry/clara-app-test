@@ -296,6 +296,8 @@ const getDefaultExpenseForm = (walletId = "") => ({
   date: getToday(),
   notes: "",
   need_type: "need",
+  planning_status: "planned",
+  unplanned_reason: "",
 });
 
 const getDefaultIncomeForm = (walletId = "") => ({
@@ -609,6 +611,9 @@ export default function QuickAddModal({
     type,
     category = null,
     needType = null,
+    planningStatus = null,
+    unplannedReason = null,
+    expenseId = null,
     notes = "",
     createdAt,
   }) => {
@@ -628,6 +633,9 @@ export default function QuickAddModal({
     if (type === "expense") {
       payload.category = category || null;
       payload.need_type = needType || null;
+      payload.planning_status = planningStatus || "planned";
+      payload.unplanned_reason = unplannedReason || null;
+      payload.expense_id = expenseId || null;
     }
 
     const { error: txnInsertError } = await supabase.from(TXN_TABLE).insert([payload]);
@@ -659,6 +667,17 @@ export default function QuickAddModal({
       throw new Error("Not enough wallet balance for this expense.");
     }
 
+    const planningStatus = ["planned", "unplanned", "undocumented"].includes(
+      String(expenseForm.planning_status || "").toLowerCase()
+    )
+      ? String(expenseForm.planning_status).toLowerCase()
+      : "planned";
+    const unplannedReason = String(expenseForm.unplanned_reason || "").trim();
+
+    if (planningStatus === "unplanned" && !unplannedReason) {
+      throw new Error("Reason is required when an expense is unplanned.");
+    }
+
     const createdAt = buildCreatedAtFromDate(expenseForm.date);
 
     const newExpense = {
@@ -669,6 +688,8 @@ export default function QuickAddModal({
       date: expenseForm.date || getToday(),
       notes: expenseForm.notes || "",
       need_type: expenseForm.need_type,
+      planning_status: planningStatus,
+      unplanned_reason: planningStatus === "unplanned" ? unplannedReason : null,
       created_by: user.email ?? "",
       user_email: user.email ?? "",
       user_id: user.id ?? "",
@@ -688,6 +709,9 @@ export default function QuickAddModal({
       type: "expense",
       category: expenseForm.category,
       needType: expenseForm.need_type,
+      planningStatus,
+      unplannedReason: planningStatus === "unplanned" ? unplannedReason : null,
+      expenseId: newExpense.id,
       notes: expenseForm.notes || "",
       createdAt,
     });
@@ -947,7 +971,7 @@ export default function QuickAddModal({
               </div>
 
               <div>
-                <Label className="mb-1 block text-xs text-slate-200">Type</Label>
+                <Label className="mb-1 block text-xs text-slate-200">Need Type</Label>
                 <Select
                   value={expenseForm.need_type}
                   onValueChange={(value) =>
@@ -960,10 +984,55 @@ export default function QuickAddModal({
                   <SelectContent>
                     <SelectItem value="need">Need</SelectItem>
                     <SelectItem value="want">Want</SelectItem>
-                    <SelectItem value="other">Other</SelectItem>
+                    <SelectItem value="savings">Savings</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
+
+              <div>
+                <Label className="mb-1 block text-xs text-slate-200">
+                  Planning Status
+                </Label>
+                <Select
+                  value={expenseForm.planning_status}
+                  onValueChange={(value) =>
+                    setExpenseForm((prev) => ({
+                      ...prev,
+                      planning_status: value,
+                      unplanned_reason:
+                        value === "unplanned" ? prev.unplanned_reason : "",
+                    }))
+                  }
+                >
+                  <SelectTrigger className="border-slate-700 bg-[#071a34] text-white">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="planned">Planned</SelectItem>
+                    <SelectItem value="unplanned">Unplanned</SelectItem>
+                    <SelectItem value="undocumented">Undocumented</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {expenseForm.planning_status === "unplanned" && (
+                <div>
+                  <Label className="mb-1 block text-xs text-slate-200">
+                    Reason
+                  </Label>
+                  <Input
+                    value={expenseForm.unplanned_reason}
+                    onChange={(event) =>
+                      setExpenseForm((prev) => ({
+                        ...prev,
+                        unplanned_reason: event.target.value,
+                      }))
+                    }
+                    placeholder="Why did this need to happen?"
+                    className="border-slate-700 bg-[#071a34] text-white"
+                  />
+                </div>
+              )}
             </div>
 
             <div>

@@ -43,6 +43,7 @@ const categories = [
 ];
 
 const needTypes = ["need", "want", "savings"];
+const planningStatuses = ["planned", "unplanned", "undocumented"];
 
 const EXPENSES_TABLE = "expenses";
 const WALLETS_TABLE = "wallets";
@@ -223,6 +224,8 @@ const EMPTY_FORM = {
   date: getToday(),
   notes: "",
   need_type: "need",
+  planning_status: "planned",
+  unplanned_reason: "",
 };
 
 const generateId = () => {
@@ -243,6 +246,11 @@ const normalizeNumber = (value) => {
   }
   const num = Number(value);
   return Number.isFinite(num) ? num : 0;
+};
+
+const normalizePlanningStatus = (value) => {
+  const normalized = String(value || "planned").trim().toLowerCase();
+  return planningStatuses.includes(normalized) ? normalized : "planned";
 };
 
 const isOwnedByUser = (item, user) => {
@@ -330,20 +338,14 @@ const getTransactionGroupLabel = (txn) => {
   if (!txnKey) return "Older";
 
   const todayKey = getPHDateString();
-  const yesterdayDate = parsePHDateOnlyToUtcDate(todayKey, false);
-  const yesterday = new Date(yesterdayDate);
-  yesterday.setUTCDate(yesterday.getUTCDate() - 1);
-  const yesterdayKey = getPHDateString(yesterday);
-
   const startOfWeekKey = getPHStartOfWeekDateString(new Date());
 
   const nowParts = getPHParts(new Date());
   const startOfMonthKey = `${nowParts.year}-${pad(nowParts.month)}-01`;
 
   if (txnKey === todayKey) return "Today";
-  if (txnKey === yesterdayKey) return "Yesterday";
   if (txnKey >= startOfWeekKey) return "This Week";
-  if (txnKey >= startOfMonthKey) return "Earlier This Month";
+  if (txnKey >= startOfMonthKey) return "This Month";
   return "Older";
 };
 
@@ -617,6 +619,8 @@ export default function Expenses() {
             wallet_id: expense.wallet_id ? String(expense.wallet_id) : "",
             amount: normalizeNumber(expense.amount),
             date: toDateInputValue(expense?.date || expense?.created_at),
+            planning_status: normalizePlanningStatus(expense?.planning_status),
+            unplanned_reason: expense?.unplanned_reason || "",
           }))
           .sort(sortByDateDesc);
 
@@ -628,6 +632,10 @@ export default function Expenses() {
             wallet_id: txn.wallet_id ? String(txn.wallet_id) : "",
             amount: normalizeNumber(txn.amount),
             type: normalizeTxnType(txn.type),
+            planning_status: txn?.planning_status
+              ? normalizePlanningStatus(txn.planning_status)
+              : null,
+            unplanned_reason: txn?.unplanned_reason || "",
           }))
           .sort(sortByDateDesc);
 
@@ -713,6 +721,7 @@ export default function Expenses() {
     (expense) => {
       return transactions.find((t) => {
         if (String(t.type || "").toLowerCase() !== "expense") return false;
+        if (t.expense_id && String(t.expense_id) === String(expense.id)) return true;
         if (String(t.wallet_id) !== String(expense.wallet_id)) return false;
         if (normalizeNumber(t.amount) !== normalizeNumber(expense.amount)) return false;
 
@@ -723,6 +732,12 @@ export default function Expenses() {
         if ((t.notes || "") !== (expense.notes || "")) return false;
         if ((t.category || "") !== (expense.category || "")) return false;
         if ((t.need_type || "") !== (expense.need_type || "")) return false;
+        if (
+          normalizePlanningStatus(t.planning_status) !==
+          normalizePlanningStatus(expense.planning_status)
+        ) {
+          return false;
+        }
 
         return isOwnedByUser(t, user) || !t.created_by;
       });
@@ -736,6 +751,7 @@ export default function Expenses() {
     expenses.forEach((expense) => {
       const match = transactions.find((t) => {
         if (String(t.type || "").toLowerCase() !== "expense") return false;
+        if (t.expense_id && String(t.expense_id) === String(expense.id)) return true;
         if (String(t.wallet_id) !== String(expense.wallet_id)) return false;
         if (normalizeNumber(t.amount) !== normalizeNumber(expense.amount)) return false;
 
@@ -746,6 +762,12 @@ export default function Expenses() {
         if ((t.notes || "") !== (expense.notes || "")) return false;
         if ((t.category || "") !== (expense.category || "")) return false;
         if ((t.need_type || "") !== (expense.need_type || "")) return false;
+        if (
+          normalizePlanningStatus(t.planning_status) !==
+          normalizePlanningStatus(expense.planning_status)
+        ) {
+          return false;
+        }
 
         return true;
       });
@@ -774,6 +796,8 @@ export default function Expenses() {
       date: toDateInputValue(exp.date || exp.created_at),
       notes: exp.notes || "",
       need_type: exp.need_type || "need",
+      planning_status: normalizePlanningStatus(exp.planning_status),
+      unplanned_reason: exp.unplanned_reason || "",
     });
     setOpen(true);
   };
@@ -789,6 +813,8 @@ export default function Expenses() {
       date: toDateInputValue(txn.created_at || txn.date),
       notes: txn.notes || "",
       need_type: "need",
+      planning_status: "planned",
+      unplanned_reason: "",
     });
     setOpen(true);
   };
@@ -822,6 +848,14 @@ export default function Expenses() {
 
     if (!form.wallet_id) {
       setError("Please select a wallet.");
+      return;
+    }
+
+    const planningStatus = normalizePlanningStatus(form.planning_status);
+    const unplannedReason = String(form.unplanned_reason || "").trim();
+
+    if (editMode === "expense" && planningStatus === "unplanned" && !unplannedReason) {
+      setError("Reason is required when an expense is unplanned.");
       return;
     }
 
@@ -916,6 +950,8 @@ export default function Expenses() {
           date: form.date || toDateOnly(updatedCreatedAt),
           notes: form.notes || "",
           need_type: form.need_type,
+          planning_status: planningStatus,
+          unplanned_reason: planningStatus === "unplanned" ? unplannedReason : null,
           created_at: updatedCreatedAt,
           updated_at: new Date().toISOString(),
         };
@@ -950,6 +986,9 @@ export default function Expenses() {
             amount: parsedAmount,
             category: form.category,
             need_type: form.need_type,
+            planning_status: planningStatus,
+            unplanned_reason: planningStatus === "unplanned" ? unplannedReason : null,
+            expense_id: oldExpense.id,
             notes: form.notes || "",
             created_at: updatedCreatedAt,
             updated_at: new Date().toISOString(),
@@ -969,6 +1008,9 @@ export default function Expenses() {
             type: "expense",
             category: form.category,
             need_type: form.need_type,
+            planning_status: planningStatus,
+            unplanned_reason: planningStatus === "unplanned" ? unplannedReason : null,
+            expense_id: oldExpense.id,
             notes: form.notes || "",
             created_at: updatedCreatedAt,
             updated_at: new Date().toISOString(),
@@ -999,6 +1041,8 @@ export default function Expenses() {
           date: form.date || toDateOnly(createdAt),
           notes: form.notes || "",
           need_type: form.need_type,
+          planning_status: planningStatus,
+          unplanned_reason: planningStatus === "unplanned" ? unplannedReason : null,
           created_by: user.email ?? "",
           user_email: user.email ?? "",
           user_id: user.id ?? "",
@@ -1013,6 +1057,9 @@ export default function Expenses() {
           type: "expense",
           category: form.category,
           need_type: form.need_type,
+          planning_status: planningStatus,
+          unplanned_reason: planningStatus === "unplanned" ? unplannedReason : null,
+          expense_id: newExpense.id,
           notes: form.notes || "",
           created_at: createdAt,
           updated_at: createdAt,
@@ -1320,7 +1367,7 @@ export default function Expenses() {
   }, [filter, showAllRecent]);
 
   const groupedTransactions = useMemo(() => {
-    const orderedLabels = ["Today", "Yesterday", "This Week", "Earlier This Month", "Older"];
+    const orderedLabels = ["Today", "This Week", "This Month", "Older"];
     const groups = {};
 
     filteredTransactions.forEach((txn) => {
@@ -1412,7 +1459,7 @@ export default function Expenses() {
                 </div>
 
                 <div>
-                  <Label>Type</Label>
+                  <Label>Need Type</Label>
                   <Select
                     value={form.need_type}
                     onValueChange={(v) => setForm({ ...form, need_type: v })}
@@ -1429,6 +1476,45 @@ export default function Expenses() {
                     </SelectContent>
                   </Select>
                 </div>
+
+                <div>
+                  <Label>Planning Status</Label>
+                  <Select
+                    value={form.planning_status}
+                    onValueChange={(v) =>
+                      setForm({
+                        ...form,
+                        planning_status: v,
+                        unplanned_reason:
+                          v === "unplanned" ? form.unplanned_reason : "",
+                      })
+                    }
+                  >
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {planningStatuses.map((status) => (
+                        <SelectItem key={status} value={status}>
+                          {status.charAt(0).toUpperCase() + status.slice(1)}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                {form.planning_status === "unplanned" && (
+                  <div>
+                    <Label>Reason for Unplanned Expense</Label>
+                    <Input
+                      placeholder="Why did this need to happen?"
+                      value={form.unplanned_reason}
+                      onChange={(e) =>
+                        setForm({ ...form, unplanned_reason: e.target.value })
+                      }
+                    />
+                  </div>
+                )}
               </>
             )}
 
@@ -1494,7 +1580,15 @@ export default function Expenses() {
             <Button
               onClick={handleSubmit}
               className="w-full"
-              disabled={saving || !form.amount || !form.wallet_id || wallets.length === 0}
+              disabled={
+                saving ||
+                !form.amount ||
+                !form.wallet_id ||
+                wallets.length === 0 ||
+                (editMode === "expense" &&
+                  form.planning_status === "unplanned" &&
+                  !form.unplanned_reason.trim())
+              }
             >
               {saving
                 ? "Saving..."
@@ -1725,11 +1819,23 @@ export default function Expenses() {
                                   {txn.need_type}
                                 </span>
                               )}
+
+                              {!!txn.planning_status && (
+                                <span className="rounded-full border border-white/10 bg-white/5 px-2 py-0.5 text-[10px] font-semibold capitalize text-muted-foreground">
+                                  {txn.planning_status}
+                                </span>
+                              )}
                             </div>
 
                             {txn.notes && (
                               <p className="mt-1 truncate text-xs italic text-muted-foreground">
                                 {txn.notes}
+                              </p>
+                            )}
+
+                            {txn.planning_status === "unplanned" && txn.unplanned_reason && (
+                              <p className="mt-1 truncate text-xs text-amber-300/85">
+                                Reason: {txn.unplanned_reason}
                               </p>
                             )}
                           </div>

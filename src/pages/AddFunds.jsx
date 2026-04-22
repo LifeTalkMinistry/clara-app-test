@@ -1,4 +1,4 @@
-import { memo, useCallback, useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { Plus, TrendingUp, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -19,12 +19,10 @@ import {
 import { Label } from "@/components/ui/label";
 import PageHeader from "../components/PageHeader";
 import EmptyState from "../components/EmptyState";
+import FeaturePageLoader from "../components/FeaturePageLoader";
 import useUserRole from "../hooks/useUserRole";
-
-const STORAGE_KEYS = {
-  incomes: "clara_incomes",
-  wallets: "clara_wallets",
-};
+import useFinancialData from "../hooks/useFinancialData";
+import { supabase } from "@/lib/supabaseClient";
 
 const currencyFormatter = new Intl.NumberFormat("en-PH", {
   style: "currency",
@@ -42,316 +40,299 @@ const createInitialForm = (walletId = "") => ({
   notes: "",
 });
 
-const getStoredData = (key) => {
-  try {
-    const raw = localStorage.getItem(key);
-    return raw ? JSON.parse(raw) : [];
-  } catch {
-    return [];
-  }
+const toNumber = (value) => {
+  const num = Number(value);
+  return Number.isFinite(num) ? num : 0;
 };
 
-const setStoredData = (key, value) => {
-  localStorage.setItem(key, JSON.stringify(value));
+const formatDate = (value) => {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "No date";
+  return date.toLocaleDateString("en-PH", {
+    year: "numeric",
+    month: "short",
+    day: "numeric",
+  });
 };
-
-const generateId = () =>
-  `${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
-
-const sortByDateDesc = (a, b) => new Date(b.date) - new Date(a.date);
-
-const IncomeRow = memo(function IncomeRow({
-  income,
-  walletName,
-  formattedAmount,
-  onDelete,
-}) {
-  const handleDeleteClick = useCallback(() => {
-    onDelete(income.id);
-  }, [income.id, onDelete]);
-
-  return (
-    <div className="flex items-center gap-3 p-3 bg-card rounded-xl border border-border">
-      <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center flex-shrink-0">
-        <TrendingUp className="w-5 h-5 text-primary" />
-      </div>
-
-      <div className="flex-1 min-w-0">
-        <div className="flex items-center justify-between">
-          <p className="font-medium text-sm truncate">{income.source}</p>
-          <p className="font-heading font-bold text-sm text-primary">
-            +{formattedAmount}
-          </p>
-        </div>
-
-        <div className="flex items-center gap-2 text-xs text-muted-foreground mt-0.5">
-          <span>{walletName}</span>
-          <span>•</span>
-          <span>{income.date}</span>
-        </div>
-      </div>
-
-      <Button
-        variant="ghost"
-        size="icon"
-        className="flex-shrink-0 h-8 w-8"
-        onClick={handleDeleteClick}
-      >
-        <Trash2 className="w-3.5 h-3.5 text-muted-foreground" />
-      </Button>
-    </div>
-  );
-});
 
 export default function AddFunds() {
-  const { user } = useUserRole();
+  const { user, loading: accessLoading } = useUserRole();
+  const financial = useFinancialData(user);
 
-  const [incomes, setIncomes] = useState([]);
-  const [wallets, setWallets] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const wallets = useMemo(
+    () => (Array.isArray(financial.wallets) ? financial.wallets : []),
+    [financial.wallets]
+  );
+  const transactions = useMemo(
+    () =>
+      Array.isArray(financial.walletTransactions)
+        ? financial.walletTransactions
+        : [],
+    [financial.walletTransactions]
+  );
+  const loading = accessLoading || financial.loading;
+
   const [open, setOpen] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState("");
   const [form, setForm] = useState(() => createInitialForm());
 
-  useEffect(() => {
-    const email = user?.email;
+  const walletNameMap = useMemo(() => {
+    return wallets.reduce((map, wallet) => {
+      map.set(String(wallet.id), wallet.name || wallet.wallet_name || "Wallet");
+      return map;
+    }, new Map());
+  }, [wallets]);
 
-    if (!email) {
-      setIncomes([]);
-      setWallets([]);
-      setLoading(false);
+  const incomeTransactions = useMemo(() => {
+    return transactions
+      .filter((txn) => ["income", "add", "cash_in"].includes(String(txn.type).toLowerCase()))
+      .sort((a, b) => new Date(b.created_at || 0) - new Date(a.created_at || 0));
+  }, [transactions]);
+
+  const resetForm = () => {
+    setForm(createInitialForm(wallets[0]?.id ? String(wallets[0].id) : ""));
+    setError("");
+  };
+
+  const handleSubmit = async () => {
+    const amount = toNumber(form.amount);
+
+    if (!user?.id && !user?.email) {
+      setError("User not found.");
       return;
     }
 
-    const allIncomes = getStoredData(STORAGE_KEYS.incomes);
-    const allWallets = getStoredData(STORAGE_KEYS.wallets);
-
-    const userWallets = allWallets.filter((item) => item.created_by === email);
-    const userIncomes = allIncomes
-      .filter((item) => item.created_by === email)
-      .sort(sortByDateDesc);
-
-    setWallets(userWallets);
-    setIncomes(userIncomes);
-    setForm((prev) => {
-      if (prev.wallet_id || userWallets.length === 0) return prev;
-      return { ...prev, wallet_id: userWallets[0].id };
-    });
-    setLoading(false);
-  }, [user?.email]);
-
-  const walletNameMap = useMemo(() => {
-    const map = new Map();
-    for (const wallet of wallets) {
-      map.set(wallet.id, wallet.name);
+    if (amount <= 0 || !form.wallet_id || !form.source.trim()) {
+      setError("Amount, source, and wallet are required.");
+      return;
     }
-    return map;
-  }, [wallets]);
 
-  const formattedAmounts = useMemo(() => {
-    const map = new Map();
-    for (const income of incomes) {
-      map.set(income.id, currencyFormatter.format(income.amount));
+    const wallet = wallets.find((item) => String(item.id) === String(form.wallet_id));
+    if (!wallet) {
+      setError("Wallet not found.");
+      return;
     }
-    return map;
-  }, [incomes]);
 
-  const updateFormField = useCallback((field, value) => {
-    setForm((prev) => {
-      if (prev[field] === value) return prev;
-      return { ...prev, [field]: value };
-    });
-  }, []);
+    try {
+      setSaving(true);
+      setError("");
 
-  const handleAmountChange = useCallback(
-    (e) => updateFormField("amount", e.target.value),
-    [updateFormField]
-  );
+      await financial.addIncome({
+        amount,
+        wallet_id: form.wallet_id,
+        source_type: form.source.trim(),
+        notes: form.notes.trim() || form.source.trim(),
+        date: form.date,
+      });
 
-  const handleSourceChange = useCallback(
-    (e) => updateFormField("source", e.target.value),
-    [updateFormField]
-  );
+      setOpen(false);
+      resetForm();
+      window.dispatchEvent(new Event("clara-finance-updated"));
+      window.dispatchEvent(new Event("clara-wallets-updated"));
+      window.dispatchEvent(new Event("clara-wallet-transactions-updated"));
+    } catch (err) {
+      console.error("Failed to add funds:", err);
+      setError(err?.message || "Failed to add funds.");
+    } finally {
+      setSaving(false);
+    }
+  };
 
-  const handleWalletChange = useCallback(
-    (value) => updateFormField("wallet_id", value),
-    [updateFormField]
-  );
+  const handleDelete = async (txn) => {
+    const wallet = wallets.find((item) => String(item.id) === String(txn.wallet_id));
+    if (!wallet) return;
 
-  const handleDateChange = useCallback(
-    (e) => updateFormField("date", e.target.value),
-    [updateFormField]
-  );
+    try {
+      setSaving(true);
+      const nextBalance = toNumber(wallet.balance) - toNumber(txn.amount);
 
-  const handleNotesChange = useCallback(
-    (e) => updateFormField("notes", e.target.value),
-    [updateFormField]
-  );
+      const { error: walletError } = await supabase
+        .from("wallets")
+        .update({ balance: nextBalance, updated_at: new Date().toISOString() })
+        .eq("id", String(wallet.id));
 
-  const handleSubmit = useCallback(() => {
-    const email = user?.email;
-    if (!form.amount || !form.wallet_id || !form.source || !email) return;
+      if (walletError) throw walletError;
 
-    const newIncome = {
-      id: generateId(),
-      created_by: email,
-      amount: parseFloat(form.amount),
-      source: form.source.trim(),
-      wallet_id: form.wallet_id,
-      date: form.date,
-      notes: form.notes.trim(),
-      created_at: new Date().toISOString(),
-    };
+      const { error: txnError } = await supabase
+        .from("wallet_transactions")
+        .delete()
+        .eq("id", String(txn.id));
 
-    const allIncomes = getStoredData(STORAGE_KEYS.incomes);
-    const updatedIncomes = [newIncome, ...allIncomes];
-    setStoredData(STORAGE_KEYS.incomes, updatedIncomes);
+      if (txnError) throw txnError;
 
-    setIncomes((prev) => [newIncome, ...prev].sort(sortByDateDesc));
-    setForm(createInitialForm(wallets[0]?.id || ""));
-    setOpen(false);
-  }, [form, user?.email, wallets]);
+      await financial.refreshData();
+    } catch (err) {
+      console.error("Failed to delete funds:", err);
+      setError(err?.message || "Failed to delete funds.");
+    } finally {
+      setSaving(false);
+    }
+  };
 
-  const handleDelete = useCallback((id) => {
-    const allIncomes = getStoredData(STORAGE_KEYS.incomes);
-    const updatedIncomes = allIncomes.filter((item) => item.id !== id);
-    setStoredData(STORAGE_KEYS.incomes, updatedIncomes);
-    setIncomes((prev) => prev.filter((item) => item.id !== id));
-  }, []);
+  const addFundsAction = (
+    <Dialog
+      open={open}
+      onOpenChange={(nextOpen) => {
+        setOpen(nextOpen);
+        if (nextOpen && !form.wallet_id && wallets[0]?.id) {
+          setForm((prev) => ({ ...prev, wallet_id: String(wallets[0].id) }));
+        }
+        if (!nextOpen) resetForm();
+      }}
+    >
+      <DialogTrigger asChild>
+        <Button size="sm">
+          <Plus className="mr-1 h-4 w-4" />
+          Add Funds
+        </Button>
+      </DialogTrigger>
 
-  const isSubmitDisabled = !form.amount || !form.wallet_id || !form.source;
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>Add Funds to Wallet</DialogTitle>
+        </DialogHeader>
 
-  const addFundsAction = useMemo(
-    () => (
-      <Dialog open={open} onOpenChange={setOpen}>
-        <DialogTrigger asChild>
-          <Button size="sm">
-            <Plus className="w-4 h-4 mr-1" />
-            Add Funds
-          </Button>
-        </DialogTrigger>
-
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Add Funds to Wallet</DialogTitle>
-          </DialogHeader>
-
-          <div className="space-y-4">
-            <div>
-              <Label>Amount (₱)</Label>
-              <Input
-                type="number"
-                placeholder="0.00"
-                value={form.amount}
-                onChange={handleAmountChange}
-              />
-            </div>
-
-            <div>
-              <Label>Source / Description</Label>
-              <Input
-                placeholder="e.g., Salary, Freelance, Gift"
-                value={form.source}
-                onChange={handleSourceChange}
-              />
-            </div>
-
-            <div>
-              <Label>Wallet</Label>
-              <Select value={form.wallet_id} onValueChange={handleWalletChange}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Select wallet" />
-                </SelectTrigger>
-                <SelectContent>
-                  {wallets.map((wallet) => (
-                    <SelectItem key={wallet.id} value={wallet.id}>
-                      {wallet.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-
-              {wallets.length === 0 && (
-                <p className="text-xs text-destructive mt-1">
-                  Create a wallet first
-                </p>
-              )}
-            </div>
-
-            <div>
-              <Label>Date</Label>
-              <Input type="date" value={form.date} onChange={handleDateChange} />
-            </div>
-
-            <div>
-              <Label>Notes (optional)</Label>
-              <Input
-                placeholder="Additional details"
-                value={form.notes}
-                onChange={handleNotesChange}
-              />
-            </div>
-
-            <Button
-              onClick={handleSubmit}
-              className="w-full"
-              disabled={isSubmitDisabled}
-            >
-              Add Funds
-            </Button>
+        <div className="space-y-4">
+          <div>
+            <Label>Amount</Label>
+            <Input
+              type="number"
+              placeholder="0.00"
+              value={form.amount}
+              onChange={(event) => setForm((prev) => ({ ...prev, amount: event.target.value }))}
+            />
           </div>
-        </DialogContent>
-      </Dialog>
-    ),
-    [
-      open,
-      form.amount,
-      form.source,
-      form.wallet_id,
-      form.date,
-      form.notes,
-      wallets,
-      handleAmountChange,
-      handleSourceChange,
-      handleWalletChange,
-      handleDateChange,
-      handleNotesChange,
-      handleSubmit,
-      isSubmitDisabled,
-    ]
+
+          <div>
+            <Label>Source / Description</Label>
+            <Input
+              placeholder="e.g., Salary, Freelance, Gift"
+              value={form.source}
+              onChange={(event) => setForm((prev) => ({ ...prev, source: event.target.value }))}
+            />
+          </div>
+
+          <div>
+            <Label>Wallet</Label>
+            <Select
+              value={form.wallet_id}
+              onValueChange={(value) => setForm((prev) => ({ ...prev, wallet_id: value }))}
+            >
+              <SelectTrigger>
+                <SelectValue placeholder="Select wallet" />
+              </SelectTrigger>
+              <SelectContent>
+                {wallets.map((wallet) => (
+                  <SelectItem key={wallet.id} value={String(wallet.id)}>
+                    {wallet.name || wallet.wallet_name || "Wallet"}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            {wallets.length === 0 ? (
+              <p className="mt-1 text-xs text-destructive">Create a wallet first</p>
+            ) : null}
+          </div>
+
+          <div>
+            <Label>Date</Label>
+            <Input
+              type="date"
+              value={form.date}
+              onChange={(event) => setForm((prev) => ({ ...prev, date: event.target.value }))}
+            />
+          </div>
+
+          <div>
+            <Label>Notes</Label>
+            <Input
+              placeholder="Additional details"
+              value={form.notes}
+              onChange={(event) => setForm((prev) => ({ ...prev, notes: event.target.value }))}
+            />
+          </div>
+
+          {error ? (
+            <div className="rounded-lg border border-destructive/20 bg-destructive/10 px-3 py-2 text-sm text-destructive">
+              {error}
+            </div>
+          ) : null}
+
+          <Button
+            onClick={handleSubmit}
+            className="w-full"
+            disabled={saving || !form.amount || !form.wallet_id || !form.source.trim()}
+          >
+            {saving ? "Saving..." : "Add Funds"}
+          </Button>
+        </div>
+      </DialogContent>
+    </Dialog>
   );
 
   if (loading) {
-    return (
-      <div className="flex items-center justify-center h-64">
-        <div className="w-6 h-6 border-2 border-primary/20 border-t-primary rounded-full animate-spin" />
-      </div>
-    );
+    return <FeaturePageLoader label="Preparing funds..." />;
   }
 
   return (
-    <div className="p-4 md:p-6 max-w-4xl mx-auto">
+    <div className="mx-auto max-w-4xl p-4 md:p-6">
       <PageHeader
         title="Add Funds"
         subtitle="Record money added to your wallets"
         action={addFundsAction}
       />
 
-      {incomes.length === 0 ? (
+      {error && !open ? (
+        <div className="mb-3 rounded-lg border border-destructive/20 bg-destructive/10 px-3 py-2 text-sm text-destructive">
+          {error}
+        </div>
+      ) : null}
+
+      {incomeTransactions.length === 0 ? (
         <EmptyState
           icon={TrendingUp}
           title="No funds added yet"
-          description="Record money added to your wallets to track your income and wallet balances."
+          description="Record money added to your wallets to track income and wallet balances."
         />
       ) : (
         <div className="space-y-2">
-          {incomes.map((income) => (
-            <IncomeRow
+          {incomeTransactions.map((income) => (
+            <div
               key={income.id}
-              income={income}
-              walletName={walletNameMap.get(income.wallet_id) || "Unknown"}
-              formattedAmount={formattedAmounts.get(income.id) || "₱0"}
-              onDelete={handleDelete}
-            />
+              className="flex items-center gap-3 rounded-xl border border-border bg-card p-3"
+            >
+              <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-lg bg-primary/10">
+                <TrendingUp className="h-5 w-5 text-primary" />
+              </div>
+
+              <div className="min-w-0 flex-1">
+                <div className="flex items-center justify-between gap-3">
+                  <p className="truncate text-sm font-medium">
+                    {income.source_type || income.notes || "Funds added"}
+                  </p>
+                  <p className="font-heading text-sm font-bold text-primary">
+                    +{currencyFormatter.format(toNumber(income.amount))}
+                  </p>
+                </div>
+
+                <div className="mt-0.5 flex items-center gap-2 text-xs text-muted-foreground">
+                  <span>{walletNameMap.get(String(income.wallet_id)) || "Unknown"}</span>
+                  <span>-</span>
+                  <span>{formatDate(income.created_at)}</span>
+                </div>
+              </div>
+
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-8 w-8 flex-shrink-0"
+                onClick={() => handleDelete(income)}
+                disabled={saving}
+              >
+                <Trash2 className="h-3.5 w-3.5 text-muted-foreground" />
+              </Button>
+            </div>
           ))}
         </div>
       )}

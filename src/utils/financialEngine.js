@@ -1,52 +1,68 @@
-const WALLET_KEY = "clara_wallets";
-const TXN_KEY = "clara_wallet_transactions";
-const TRANSFER_KEY = "clara_transfers";
-
-const safeRead = (key) => {
-  try {
-    return JSON.parse(localStorage.getItem(key) || "[]");
-  } catch {
-    return [];
-  }
+const toNumber = (value) => {
+  const num = Number(value);
+  return Number.isFinite(num) ? num : 0;
 };
 
-// 🔥 SINGLE SOURCE OF TRUTH
-export function getWalletData() {
-  const wallets = safeRead(WALLET_KEY);
-  const transactions = safeRead(TXN_KEY);
-  const transfers = safeRead(TRANSFER_KEY);
-
-  return { wallets, transactions, transfers };
+export function getWalletData(source = {}) {
+  return {
+    wallets: Array.isArray(source.wallets) ? source.wallets : [],
+    transactions: Array.isArray(source.transactions)
+      ? source.transactions
+      : Array.isArray(source.walletTransactions)
+        ? source.walletTransactions
+        : [],
+    transfers: Array.isArray(source.transfers) ? source.transfers : [],
+  };
 }
 
-// 🔥 CORE BALANCE CALCULATION (same as Wallets.jsx)
-export function getWalletBalance(wallet, transactions, transfers) {
+export function getWalletBalance(wallet, transactions = [], transfers = []) {
+  const storedBalance = wallet?.balance ?? wallet?.current_balance ?? wallet?.wallet_balance;
+
+  if (storedBalance !== null && storedBalance !== undefined) {
+    return toNumber(storedBalance);
+  }
+
+  const walletId = String(wallet?.id || "");
   const deposits = transactions
-    .filter((t) => t.wallet_id === wallet.id)
-    .reduce((s, t) => s + Number(t.amount || 0), 0);
+    .filter((t) => String(t.wallet_id) === walletId && ["income", "add"].includes(t.type))
+    .reduce((sum, t) => sum + toNumber(t.amount), 0);
 
-  const transfersIn = transfers
-    .filter((t) => t.wallet_id === wallet.id && t.type === "transfer_in")
-    .reduce((s, t) => s + Number(t.amount || 0), 0);
+  const expenses = transactions
+    .filter((t) => String(t.wallet_id) === walletId && t.type === "expense")
+    .reduce((sum, t) => sum + toNumber(t.amount), 0);
 
-  const transfersOut = transfers
-    .filter((t) => t.wallet_id === wallet.id && t.type === "transfer_out")
-    .reduce((s, t) => s + Number(t.amount || 0), 0);
+  const transfersIn = transactions
+    .filter((t) => String(t.wallet_id) === walletId && t.type === "transfer_in")
+    .reduce((sum, t) => sum + toNumber(t.amount), 0);
+
+  const transfersOut = transactions
+    .filter((t) => String(t.wallet_id) === walletId && t.type === "transfer_out")
+    .reduce((sum, t) => sum + toNumber(t.amount), 0);
+
+  const legacyTransfersIn = transfers
+    .filter((t) => String(t.wallet_id) === walletId && t.type === "transfer_in")
+    .reduce((sum, t) => sum + toNumber(t.amount), 0);
+
+  const legacyTransfersOut = transfers
+    .filter((t) => String(t.wallet_id) === walletId && t.type === "transfer_out")
+    .reduce((sum, t) => sum + toNumber(t.amount), 0);
 
   return (
-    Number(wallet.starting_balance || 0) +
-    deposits +
+    toNumber(wallet?.starting_balance) +
+    deposits -
+    expenses +
     transfersIn -
-    transfersOut
+    transfersOut +
+    legacyTransfersIn -
+    legacyTransfersOut
   );
 }
 
-// 🔥 TOTAL MONEY (THIS FIXES DASHBOARD)
-export function getTotalBalance() {
-  const { wallets, transactions, transfers } = getWalletData();
+export function getTotalBalance(source = {}) {
+  const { wallets, transactions, transfers } = getWalletData(source);
 
   return wallets.reduce(
-    (sum, w) => sum + getWalletBalance(w, transactions, transfers),
+    (sum, wallet) => sum + getWalletBalance(wallet, transactions, transfers),
     0
   );
 }

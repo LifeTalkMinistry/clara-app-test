@@ -15,7 +15,7 @@ export const PLAN_LABELS = {
   free: "Free",
   pro_99: "PRO",
   core_599: "CORE",
-  coaching_1299: "COACHING",
+  coaching_1299: "Life OS",
 };
 
 export const PLAN_BADGE_STYLES = {
@@ -250,7 +250,7 @@ export const PLAN_DEFAULTS = {
   },
   coaching_1299: {
     key: "coaching_1299",
-    name: "COACHING",
+    name: "Life OS",
     price: 1299,
     product_id: "coaching_1299",
     billing_type: "one_time",

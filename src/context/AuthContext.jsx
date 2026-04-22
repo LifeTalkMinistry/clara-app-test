@@ -7,6 +7,7 @@ import {
   useCallback,
 } from "react";
 import { supabase } from "@/lib/supabaseClient";
+import { normalizePlanKey, PLAN_LABELS } from "@/lib/plan-config";
 
 const AuthContext = createContext(null);
 
@@ -46,6 +47,16 @@ const normalizeProfileAccess = (rawProfile = {}, authUser = null) => {
     isApproved || isGooglePlay || isPaidPlan || isPaidStatus
   );
 
+  const normalizedPlan = normalizePlanKey(rawProfile?.plan || (isPro ? "pro" : "free"));
+  const subscriptionStatus =
+    normalizedPlan === "free"
+      ? "free"
+      : normalizedPlan === "pro_99"
+        ? "pro"
+        : normalizedPlan === "core_599"
+          ? "core"
+          : "life_os";
+
   return {
     id: rawProfile?.id || authUser?.id || null,
     email: rawProfile?.email || authUser?.email || null,
@@ -54,7 +65,18 @@ const normalizeProfileAccess = (rawProfile = {}, authUser = null) => {
       authUser?.user_metadata?.full_name ||
       authUser?.user_metadata?.name ||
       "",
-    plan: rawProfile?.plan || (isPro ? "pro" : "free"),
+    plan: normalizedPlan,
+    subscription_status: subscriptionStatus,
+    subscription_label: PLAN_LABELS[normalizedPlan] || "Free",
+    subscription: {
+      plan: normalizedPlan,
+      status: subscriptionStatus,
+      label: PLAN_LABELS[normalizedPlan] || "Free",
+      isPaid: normalizedPlan !== "free" || isPro,
+      isPro: isPro || normalizedPlan === "pro_99",
+      isCore: normalizedPlan === "core_599",
+      isLifeOS: normalizedPlan === "coaching_1299",
+    },
     role: profileRole || "user",
     enrollment_source: rawProfile?.enrollment_source || null,
     enrollment_status: rawProfile?.enrollment_status || (isPro ? "approved" : "none"),
@@ -300,6 +322,20 @@ export function AuthProvider({ children }) {
     return data;
   };
 
+  const signInWithGoogle = async () => {
+    const redirectTo = `${window.location.origin}${window.location.pathname}`;
+    const { data, error } = await supabase.auth.signInWithOAuth({
+      provider: "google",
+      options: {
+        redirectTo,
+      },
+    });
+
+    if (error) throw error;
+
+    return data;
+  };
+
   const signOut = async () => {
     await supabase.auth.signOut();
     setUser(null);
@@ -327,6 +363,7 @@ export function AuthProvider({ children }) {
       isPro: computedIsPro,
       signUp,
       signIn,
+      signInWithGoogle,
       signOut,
       refreshProfile,
     };

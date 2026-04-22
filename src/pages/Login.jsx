@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { ArrowRight, Eye, EyeOff, Sparkles, X } from "lucide-react";
+import { ArrowRight, Chrome, Eye, EyeOff, Sparkles, X } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 import ClaraLogo from "@/components/ClaraLogo";
 import { queuePostLoginWelcome } from "@/components/WelcomeBackTransition";
@@ -185,7 +185,7 @@ function ForgotPasswordModal({
 
 export default function Login() {
   const navigate = useNavigate();
-  const { signIn, signUp } = useAuth();
+  const { signIn, signInWithGoogle, signUp } = useAuth();
 
   const [mode, setMode] = useState("login");
   const [fullName, setFullName] = useState("");
@@ -287,6 +287,23 @@ export default function Login() {
     setMode(nextMode);
     setMessage("");
     setSuccess(false);
+  };
+
+  const handleGoogleSignIn = async () => {
+    if (loading) return;
+
+    setLoading(true);
+    setMessage("");
+    setSuccess(false);
+
+    try {
+      await signInWithGoogle();
+    } catch (error) {
+      console.error(error);
+      setSuccess(false);
+      setMessage(friendlyError(error));
+      setLoading(false);
+    }
   };
 
   return (
@@ -420,6 +437,26 @@ export default function Login() {
                   ) : null}
                 </button>
               </form>
+
+              <div className="mt-4">
+                <div className="mb-3 flex items-center gap-3">
+                  <div className="h-px flex-1 bg-white/10" />
+                  <span className="text-[11px] uppercase tracking-[0.22em] text-white/35">
+                    or
+                  </span>
+                  <div className="h-px flex-1 bg-white/10" />
+                </div>
+
+                <button
+                  type="button"
+                  onClick={handleGoogleSignIn}
+                  disabled={loading}
+                  className="inline-flex h-13 w-full items-center justify-center gap-2 rounded-2xl border border-white/10 bg-white/[0.06] px-4 text-sm font-semibold text-white transition hover:bg-white/[0.1] active:scale-[0.985] disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  <Chrome className="h-[17px] w-[17px]" />
+                  <span>Continue with Google</span>
+                </button>
+              </div>
 
               <div className="mt-5 flex items-center justify-center gap-1.5 text-sm text-white/54">
                 <span>{copy.secondaryLead}</span>
