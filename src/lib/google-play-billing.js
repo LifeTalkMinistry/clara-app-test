@@ -18,8 +18,8 @@ const PRODUCT_IDS = {
 
 const PRODUCT_TYPES = {
   [CLARA_PRODUCTS.pro.productId]: "subs",
-  [CLARA_PRODUCTS.program.productId]: "inapp",
-  [CLARA_PRODUCTS.coaching.productId]: "inapp",
+  [CLARA_PRODUCTS.program.productId]: "subs",
+  [CLARA_PRODUCTS.coaching.productId]: "subs",
 };
 
 const SUCCESS_STATUSES = new Set(["approved", "active"]);
@@ -36,7 +36,7 @@ export function getAllGooglePlayProductIds() {
 }
 
 function getGooglePlayProductType(productId) {
-  return PRODUCT_TYPES[normalize(productId)] || "inapp";
+  return PRODUCT_TYPES[normalize(productId)] || "subs";
 }
 
 function normalizeOwnedPurchase(raw = {}) {
@@ -282,26 +282,6 @@ async function safeBridgeCall(methodName, payload) {
     return getMissingBridgeResult("ClaraBilling bridge object was not created.");
   }
 
-  const productState = await queryGooglePlayProducts({ productIds: [payload.productId] });
-  if (
-    !productState.ok ||
-    productState.missingProductIds.includes(payload.productId)
-  ) {
-    throw makeError(
-      "Google Play product is not ready for purchase on this device.",
-      {
-        responseCode:
-          productState.responseCode === "OK"
-            ? "ITEM_UNAVAILABLE"
-            : productState.responseCode || "ITEM_UNAVAILABLE",
-        debugMessage:
-          productState.debugMessage ||
-          `Product ${payload.productId} was not returned by Google Play. Check Play Console product activation, tester access, and Play-distributed install.`,
-        raw: productState.raw,
-      }
-    );
-  }
-
   const method = bridge[methodName];
 
   if (typeof method !== "function") {
@@ -537,6 +517,11 @@ export async function queryGooglePlayProducts({ productIds = [] } = {}) {
   const foundProductIds = Array.isArray(result?.foundProductIds)
     ? result.foundProductIds.map((id) => normalize(id)).filter(Boolean)
     : [];
+  const productDetails = Array.isArray(result?.productDetails)
+    ? result.productDetails
+    : Array.isArray(result?.products)
+      ? result.products
+      : [];
 
   const missingProductIds = Array.isArray(result?.missingProductIds)
     ? result.missingProductIds.map((id) => normalize(id)).filter(Boolean)
@@ -554,6 +539,8 @@ export async function queryGooglePlayProducts({ productIds = [] } = {}) {
       "Product query completed.",
     foundProductIds,
     missingProductIds,
+    productDetails,
+    queriedProductIds: cleanedProductIds,
     raw: result,
   };
 }
@@ -684,7 +671,7 @@ function getBridgeAvailabilityDebugMessage(productType, triedMethods) {
 }
 
 async function performBridgePurchase({ bridge, payload }) {
-  const productType = payload?.productType || "inapp";
+  const productType = payload?.productType || "subs";
   const methodNames = getBridgePurchaseMethods(productType);
 
   for (const methodName of methodNames) {
@@ -754,6 +741,23 @@ export async function launchGooglePlayPurchase({
       responseCode: "BILLING_UNAVAILABLE",
       debugMessage:
         "ClaraBilling was not found on window.ClaraBilling or window.Capacitor.Plugins.ClaraBilling.",
+    });
+  }
+
+  const productState = await queryGooglePlayProducts({ productIds: [payload.productId] });
+  if (
+    !productState.ok ||
+    productState.missingProductIds.includes(payload.productId)
+  ) {
+    throw makeError("Google Play product not found or unavailable.", {
+      responseCode:
+        productState.responseCode === "OK"
+          ? "ITEM_UNAVAILABLE"
+          : productState.responseCode || "ITEM_UNAVAILABLE",
+      debugMessage:
+        productState.debugMessage ||
+        `Missing product ID ${payload.productId}. Queried: ${(productState.queriedProductIds || [payload.productId]).join(", ")}. Found: ${(productState.foundProductIds || []).join(", ") || "none"}.`,
+      raw: productState.raw,
     });
   }
 

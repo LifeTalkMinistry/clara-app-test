@@ -4,8 +4,10 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.4";
 const PACKAGE_NAME = "com.clara.moneytracker";
 const PRODUCT_TYPES: Record<string, "subs" | "products"> = {
   pro_99: "subs",
-  core_599: "products",
-  coaching_1299: "products",
+  core_199: "subs",
+  lifeos_499: "subs",
+  core_599: "subs",
+  coaching_1299: "subs",
 };
 
 function jsonResponse(body: unknown, status = 200) {
@@ -119,6 +121,35 @@ async function verifyWithGoogle({
   return response.json();
 }
 
+async function acknowledgeWithGoogle({
+  accessToken,
+  productId,
+  purchaseToken,
+}: {
+  accessToken: string;
+  productId: string;
+  purchaseToken: string;
+}) {
+  const productType = PRODUCT_TYPES[productId];
+  const path =
+    productType === "subs"
+      ? `applications/${PACKAGE_NAME}/purchases/subscriptions/${productId}/tokens/${purchaseToken}:acknowledge`
+      : `applications/${PACKAGE_NAME}/purchases/products/${productId}/tokens/${purchaseToken}:acknowledge`;
+  const url = `https://androidpublisher.googleapis.com/androidpublisher/v3/${path}`;
+  const response = await fetch(url, {
+    method: "POST",
+    headers: {
+      authorization: `Bearer ${accessToken}`,
+      "content-type": "application/json",
+    },
+    body: JSON.stringify({ developerPayload: "clara-entitlement-sync" }),
+  });
+
+  if (!response.ok && response.status !== 409) {
+    throw new Error(`Google purchase acknowledgement failed: ${await response.text()}`);
+  }
+}
+
 serve(async (request) => {
   if (request.method !== "POST") {
     return jsonResponse({ ok: false, error: "Method not allowed" }, 405);
@@ -168,6 +199,11 @@ serve(async (request) => {
 
     if (!subscriptionActive && !oneTimePurchased) {
       return jsonResponse({ ok: false, error: "Purchase is not completed", google_purchase: googlePurchase }, 409);
+    }
+
+    const acknowledgementState = Number(googlePurchase.acknowledgementState ?? 1);
+    if (acknowledgementState === 0) {
+      await acknowledgeWithGoogle({ accessToken, productId, purchaseToken });
     }
 
     const admin = createClient(supabaseUrl, serviceRoleKey);

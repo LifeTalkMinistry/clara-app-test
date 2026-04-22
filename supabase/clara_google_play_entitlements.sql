@@ -2,6 +2,7 @@ create extension if not exists pgcrypto;
 
 alter table if exists public.profiles
   add column if not exists tier_type text,
+  add column if not exists access_level text default 'pro',
   add column if not exists purchase_source text,
   add column if not exists play_product_id text,
   add column if not exists play_purchase_token text,
@@ -112,6 +113,8 @@ immutable
 as $$
   select case product_id
     when 'pro_99' then 'pro_99'
+    when 'core_199' then 'core_599'
+    when 'lifeos_499' then 'coaching_1299'
     when 'core_599' then 'core_599'
     when 'coaching_1299' then 'coaching_1299'
     else null
@@ -125,6 +128,8 @@ immutable
 as $$
   select case product_id
     when 'pro_99' then 'pro_tools'
+    when 'core_199' then 'clara_core'
+    when 'lifeos_499' then 'clara_life_os'
     when 'core_599' then 'clara_program'
     when 'coaching_1299' then 'clara_coaching'
     else null
@@ -269,6 +274,7 @@ begin
     update public.profiles
     set
       plan = 'pro_99',
+      access_level = 'pro',
       tier_type = v_tier,
       purchase_source = 'google_play',
       play_product_id = p_product_id,
@@ -286,6 +292,7 @@ begin
     update public.profiles
     set
       plan = v_plan,
+      access_level = case when v_plan = 'coaching_1299' then 'life_os' else 'core' end,
       tier_type = v_tier,
       purchase_source = 'google_play',
       play_product_id = p_product_id,
@@ -372,28 +379,28 @@ values
   (
     'CORE',
     'core_599',
-    599,
-    'Unlock the 30-day CLARA Program, PRO during the program, and +1 month continuation PRO after completion.',
-    array['30-day CLARA Program', 'Includes PRO access during the program', '+1 month continuation PRO after program completion'],
+    199,
+    'Unlock CORE: the advanced daily spending system with guided support and CLARA Companion intelligence.',
+    array['Complete CORE financial system', 'Advanced daily spending AI through CLARA Companion', 'Guided spending strategy and practical next steps'],
     'Unlock CORE',
     true,
     true,
     2,
-    'core_599',
-    'one_time'
+    'core_199',
+    'subscription'
   ),
   (
-    'COACHING',
+    'Life OS',
     'coaching_1299',
-    1299,
-    'Unlock the 30-day CLARA Program, PRO during the program, +2 months continuation PRO after completion, and 2 coaching sessions.',
-    array['30-day CLARA Program', 'Includes PRO access during the program', '+2 months continuation PRO after program completion', '2 coaching session credits'],
-    'Unlock COACHING',
+    499,
+    'Unlock Life OS, CLARA''s broadest decision-intelligence layer for money, planning, and life organization.',
+    array['Complete Life OS operating layer', 'Broader decision intelligence beyond daily spending', 'Life scheduling, organization, and deeper CLARA context'],
+    'Unlock Life OS',
     true,
     false,
     3,
-    'coaching_1299',
-    'one_time'
+    'lifeos_499',
+    'subscription'
   )
 on conflict (plan_key) do update
 set

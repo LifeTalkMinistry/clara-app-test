@@ -257,7 +257,7 @@ export const PLAN_DEFAULTS = {
     name: "CORE",
     price: 199,
     product_id: "core_199",
-    billing_type: "one_time",
+    billing_type: "subscription",
     description: "Unlock CORE: the advanced daily spending system with guided support and CLARA Companion intelligence.",
     features: [
       "Complete CORE financial system",
@@ -293,7 +293,7 @@ export const PLAN_DEFAULTS = {
     name: "Life OS",
     price: 499,
     product_id: "lifeos_499",
-    billing_type: "one_time",
+    billing_type: "subscription",
     description: "Unlock Life OS, CLARA's broadest decision-intelligence layer for money, planning, and life organization.",
     features: [
       "Complete Life OS operating layer",

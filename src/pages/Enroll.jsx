@@ -478,7 +478,7 @@ function getBillingBridge() {
   return window?.ClaraBilling || window?.Capacitor?.Plugins?.ClaraBilling || null;
 }
 
-async function probeGooglePlayBilling({ productId }) {
+async function probeGooglePlayBilling({ productId, productType = "subscription", planKey = "" }) {
   const bridge = getBillingBridge();
 
   if (!bridge || typeof bridge.connect !== "function") {
@@ -497,6 +497,8 @@ async function probeGooglePlayBilling({ productId }) {
         "Capacitor billing plugin not registered correctly",
       ],
       diagnostics: {
+        platform: "android",
+        selectedPlanKey: planKey,
         hasBridge: false,
         canConnect: false,
         packageName: "Unknown",
@@ -506,6 +508,8 @@ async function probeGooglePlayBilling({ productId }) {
         isAppFromPlay: null,
         foundProductIds: [],
         missingProductIds: productId ? [productId] : [],
+        queriedProductIds: productId ? [productId] : [],
+        productDetails: [],
       },
     };
   }
@@ -535,7 +539,10 @@ async function probeGooglePlayBilling({ productId }) {
         diagnostics: {
           hasBridge: true,
           canConnect: true,
+          platform: "android",
+          selectedPlanKey: planKey,
           packageName: connection?.packageName || "Unknown",
+          installerPackageName: connection?.installerPackageName || "Unknown",
           storeAccountEmail: connection?.storeAccountEmail || "Unknown",
           isPlayStoreInstalled: connection?.isPlayStoreInstalled ?? null,
           isGooglePlayServicesAvailable:
@@ -543,6 +550,8 @@ async function probeGooglePlayBilling({ productId }) {
           isAppFromPlay: connection?.isAppFromPlay ?? null,
           foundProductIds: [],
           missingProductIds: productId ? [productId] : [],
+          queriedProductIds: productId ? [productId] : [],
+          productDetails: [],
           rawConnection: connection,
         },
       };
@@ -562,7 +571,10 @@ async function probeGooglePlayBilling({ productId }) {
         diagnostics: {
           hasBridge: true,
           canConnect: true,
+          platform: "android",
+          selectedPlanKey: planKey,
           packageName: connection?.packageName || "Unknown",
+          installerPackageName: connection?.installerPackageName || "Unknown",
           storeAccountEmail: connection?.storeAccountEmail || "Unknown",
           isPlayStoreInstalled: connection?.isPlayStoreInstalled ?? null,
           isGooglePlayServicesAvailable:
@@ -570,12 +582,19 @@ async function probeGooglePlayBilling({ productId }) {
           isAppFromPlay: connection?.isAppFromPlay ?? null,
           foundProductIds: productId ? [productId] : [],
           missingProductIds: [],
+          queriedProductIds: productId ? [productId] : [],
+          productDetails: [],
           rawConnection: connection,
         },
       };
     }
 
-    const productResult = await bridge.queryProducts({ productIds: [productId] });
+    const productResult = await bridge.queryProducts({
+      productId,
+      productIds: [productId],
+      productType,
+      productTypes: { [productId]: productType },
+    });
     const productCode = normalizeBillingResponseCode(productResult?.responseCode);
     const foundProductIds = Array.isArray(productResult?.foundProductIds)
       ? productResult.foundProductIds
@@ -607,7 +626,10 @@ async function probeGooglePlayBilling({ productId }) {
         diagnostics: {
           hasBridge: true,
           canConnect: true,
+          platform: "android",
+          selectedPlanKey: planKey,
           packageName: connection?.packageName || "Unknown",
+          installerPackageName: connection?.installerPackageName || "Unknown",
           storeAccountEmail: connection?.storeAccountEmail || "Unknown",
           isPlayStoreInstalled: connection?.isPlayStoreInstalled ?? null,
           isGooglePlayServicesAvailable:
@@ -615,6 +637,8 @@ async function probeGooglePlayBilling({ productId }) {
           isAppFromPlay: connection?.isAppFromPlay ?? null,
           foundProductIds,
           missingProductIds: [],
+          queriedProductIds: productResult?.queriedProductIds || [productId],
+          productDetails: productResult?.productDetails || [],
           rawConnection: connection,
           rawProductResult: productResult,
         },
@@ -641,7 +665,10 @@ async function probeGooglePlayBilling({ productId }) {
       diagnostics: {
         hasBridge: true,
         canConnect: true,
+        platform: "android",
+        selectedPlanKey: planKey,
         packageName: connection?.packageName || "Unknown",
+        installerPackageName: connection?.installerPackageName || "Unknown",
         storeAccountEmail: connection?.storeAccountEmail || "Unknown",
         isPlayStoreInstalled: connection?.isPlayStoreInstalled ?? null,
         isGooglePlayServicesAvailable:
@@ -649,6 +676,8 @@ async function probeGooglePlayBilling({ productId }) {
         isAppFromPlay: connection?.isAppFromPlay ?? null,
         foundProductIds,
         missingProductIds,
+        queriedProductIds: productResult?.queriedProductIds || [productId],
+        productDetails: productResult?.productDetails || [],
         rawConnection: connection,
         rawProductResult: productResult,
       },
@@ -674,13 +703,18 @@ async function probeGooglePlayBilling({ productId }) {
       diagnostics: {
         hasBridge: true,
         canConnect: true,
+        platform: "android",
+        selectedPlanKey: planKey,
         packageName: "Unknown",
+        installerPackageName: "Unknown",
         storeAccountEmail: "Unknown",
         isPlayStoreInstalled: null,
         isGooglePlayServicesAvailable: null,
         isAppFromPlay: null,
         foundProductIds: [],
         missingProductIds: productId ? [productId] : [],
+        queriedProductIds: productId ? [productId] : [],
+        productDetails: [],
       },
     };
   }
@@ -797,6 +831,7 @@ function BillingDiagnosticCard({
   onRefresh,
   refreshing,
   productId,
+  planKey,
 }) {
   const state = billingMonitor?.state || "idle";
   const connectCode = billingMonitor?.connectCode || "UNKNOWN";
@@ -925,12 +960,19 @@ function BillingDiagnosticCard({
 
           <div className="mt-4 grid gap-3 sm:grid-cols-2">
             <DebugRow label="Monitor state" value={state} />
+            <DebugRow label="Platform" value={billingMonitor?.diagnostics?.platform || "android"} />
+            <DebugRow label="Native bridge" value={billingMonitor?.diagnostics?.hasBridge === false ? "missing" : "detected"} />
             <DebugRow label="Connect code" value={`${connectCode}`} />
             <DebugRow label="Product code" value={`${productCode}`} />
+            <DebugRow label="Selected plan" value={planKey || "-"} />
             <DebugRow label="Product ID" value={productId || "—"} />
             <DebugRow
               label="Package name"
               value={billingMonitor?.diagnostics?.packageName || "Unknown"}
+            />
+            <DebugRow
+              label="Installer"
+              value={billingMonitor?.diagnostics?.installerPackageName || "Unknown"}
             />
             <DebugRow
               label="Store account"
@@ -953,6 +995,14 @@ function BillingDiagnosticCard({
               value={formatBool(billingMonitor?.diagnostics?.isAppFromPlay)}
             />
             <DebugRow
+              label="Queried product IDs"
+              value={
+                billingMonitor?.diagnostics?.queriedProductIds?.length
+                  ? billingMonitor.diagnostics.queriedProductIds.join(", ")
+                  : productId || "-"
+              }
+            />
+            <DebugRow
               label="Found product IDs"
               value={
                 billingMonitor?.diagnostics?.foundProductIds?.length
@@ -967,6 +1017,10 @@ function BillingDiagnosticCard({
                   ? billingMonitor.diagnostics.missingProductIds.join(", ")
                   : "—"
               }
+            />
+            <DebugRow
+              label="Google Play price"
+              value={billingMonitor?.diagnostics?.productDetails?.[0]?.formattedPrice || "-"}
             />
             <DebugRow
               label="Debug details"
@@ -1242,6 +1296,8 @@ export default function Enroll() {
 
   const showSuccess = purchaseState === "success" || Boolean(unlockedPlan);
   const showProcessing = Boolean(purchaseStatusMeta);
+  const selectedGooglePlayPrice =
+    billingMonitor?.diagnostics?.productDetails?.[0]?.formattedPrice || "";
   const purchaseBusy =
     purchaseState === "processing" ||
     purchaseState === "verifying" ||
@@ -1268,15 +1324,20 @@ export default function Enroll() {
             "product may not be active for this testing setup",
           ],
           diagnostics: {
+            platform: "android",
+            selectedPlanKey: targetPlan?.key || "",
             hasBridge: false,
             canConnect: false,
             packageName: "Unknown",
+            installerPackageName: "Unknown",
             storeAccountEmail: "Unknown",
             isPlayStoreInstalled: null,
             isGooglePlayServicesAvailable: null,
             isAppFromPlay: null,
             foundProductIds: [],
             missingProductIds: [],
+            queriedProductIds: [],
+            productDetails: [],
           },
         });
         return null;
@@ -1292,6 +1353,8 @@ export default function Enroll() {
       try {
         const result = await probeGooglePlayBilling({
           productId: targetPlan.productId,
+          productType: targetPlan.productMeta?.productType || "subscription",
+          planKey: targetPlan.key,
         });
 
         setBillingMonitor(result);
@@ -1845,6 +1908,7 @@ export default function Enroll() {
               onRefresh={() => runBillingProbe(selectedPlan)}
               refreshing={billingRefreshing}
               productId={selectedPlan.productId}
+              planKey={selectedPlan.key}
             />
 
             <div
@@ -1886,8 +1950,13 @@ export default function Enroll() {
                         : "One-time unlock"}
                     </p>
                     <p className="mt-1 text-2xl font-semibold text-white">
-                      {formatPeso(selectedPlan.price)}
+                      {selectedGooglePlayPrice || formatPeso(selectedPlan.price)}
                     </p>
+                    {selectedGooglePlayPrice ? (
+                      <p className="mt-1 text-[10px] uppercase tracking-[0.14em] text-white/45">
+                        From Google Play
+                      </p>
+                    ) : null}
                   </div>
                 </div>
               </div>

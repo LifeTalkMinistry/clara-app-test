@@ -68,7 +68,7 @@ values
     true,
     2,
     'core_199',
-    'one_time',
+    'subscription',
     '{
       "dashboard":"full","feed":"full","expenses":"full","wallets":"full",
       "budgets":"full","analytics":"full","ai":"advanced","customization":"full","savings_goals":"full",
@@ -87,7 +87,7 @@ values
     false,
     3,
     'lifeos_499',
-    'one_time',
+    'subscription',
     '{
       "dashboard":"full","feed":"full","expenses":"full","wallets":"full",
       "budgets":"full","analytics":"full","ai":"life_os","customization":"full","savings_goals":"full",

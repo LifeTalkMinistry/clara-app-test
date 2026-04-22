@@ -27,7 +27,7 @@ window.CLARA_BILLING = {
   },
 
   getProductType() {
-    return window.CdvPurchase?.ProductType?.NON_CONSUMABLE || "non consumable";
+    return window.CdvPurchase?.ProductType?.PAID_SUBSCRIPTION || "paid subscription";
   },
 
   async waitForStore(timeout = 10000) {

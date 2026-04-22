@@ -1,6 +1,7 @@
 package com.clara.lifeos.app;
 
 import android.app.Activity;
+import android.content.pm.PackageManager;
 
 import androidx.annotation.NonNull;
 
@@ -41,6 +42,43 @@ public class ClaraBillingPlugin extends Plugin implements PurchasesUpdatedListen
         return BillingClient.ProductType.INAPP;
     }
 
+    private String getInstallerPackageName() {
+        try {
+            if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.R) {
+                return getContext()
+                        .getPackageManager()
+                        .getInstallSourceInfo(getContext().getPackageName())
+                        .getInstallingPackageName();
+            }
+
+            return getContext()
+                    .getPackageManager()
+                    .getInstallerPackageName(getContext().getPackageName());
+        } catch (PackageManager.NameNotFoundException | RuntimeException ignored) {
+            return "";
+        }
+    }
+
+    private void addDeviceDiagnostics(JSObject ret) {
+        String installer = getInstallerPackageName();
+        ret.put("packageName", getContext().getPackageName());
+        ret.put("installerPackageName", installer);
+        ret.put("isAppFromPlay", "com.android.vending".equals(installer));
+        ret.put("isPlayStoreInstalled", isPackageInstalled("com.android.vending"));
+        ret.put("isGooglePlayServicesAvailable", isPackageInstalled("com.google.android.gms"));
+        ret.put("billingBridge", "ClaraBillingPlugin");
+        ret.put("pluginVersion", "2026.04.billing-v2");
+    }
+
+    private boolean isPackageInstalled(String packageName) {
+        try {
+            getContext().getPackageManager().getPackageInfo(packageName, 0);
+            return true;
+        } catch (PackageManager.NameNotFoundException | RuntimeException ignored) {
+            return false;
+        }
+    }
+
     @Override
     public void load() {
         billingClient = BillingClient.newBuilder(getContext())
@@ -60,6 +98,7 @@ public class ClaraBillingPlugin extends Plugin implements PurchasesUpdatedListen
             ret.put("ok", false);
             ret.put("responseCode", "ERROR");
             ret.put("debugMessage", "Billing client is not initialized.");
+            addDeviceDiagnostics(ret);
             call.resolve(ret);
             return;
         }
@@ -69,6 +108,7 @@ public class ClaraBillingPlugin extends Plugin implements PurchasesUpdatedListen
             ret.put("ok", true);
             ret.put("responseCode", BillingClient.BillingResponseCode.OK);
             ret.put("debugMessage", "Billing client already connected.");
+            addDeviceDiagnostics(ret);
             call.resolve(ret);
             return;
         }
@@ -80,6 +120,7 @@ public class ClaraBillingPlugin extends Plugin implements PurchasesUpdatedListen
                 ret.put("ok", billingResult.getResponseCode() == BillingClient.BillingResponseCode.OK);
                 ret.put("responseCode", billingResult.getResponseCode());
                 ret.put("debugMessage", billingResult.getDebugMessage());
+                addDeviceDiagnostics(ret);
                 call.resolve(ret);
             }
 
@@ -89,6 +130,7 @@ public class ClaraBillingPlugin extends Plugin implements PurchasesUpdatedListen
                 ret.put("ok", false);
                 ret.put("responseCode", -1);
                 ret.put("debugMessage", "Billing disconnected");
+                addDeviceDiagnostics(ret);
                 call.resolve(ret);
             }
         });
@@ -101,6 +143,7 @@ public class ClaraBillingPlugin extends Plugin implements PurchasesUpdatedListen
             ret.put("ok", false);
             ret.put("responseCode", "ERROR");
             ret.put("debugMessage", "Billing client is not initialized.");
+            addDeviceDiagnostics(ret);
             call.resolve(ret);
             return;
         }
@@ -110,6 +153,7 @@ public class ClaraBillingPlugin extends Plugin implements PurchasesUpdatedListen
             ret.put("ok", false);
             ret.put("responseCode", -1);
             ret.put("debugMessage", "Billing client is not connected.");
+            addDeviceDiagnostics(ret);
             call.resolve(ret);
             return;
         }
@@ -165,19 +209,56 @@ public class ClaraBillingPlugin extends Plugin implements PurchasesUpdatedListen
 
             JSArray found = new JSArray();
             JSArray missing = new JSArray();
+            JSArray queried = new JSArray();
+            JSObject queriedTypes = new JSObject();
+            JSArray details = new JSArray();
 
             List<ProductDetails> list = result.getProductDetailsList();
 
             if (list != null) {
                 for (ProductDetails pd : list) {
                     found.put(pd.getProductId());
+                    JSObject detail = new JSObject();
+                    detail.put("productId", pd.getProductId());
+                    detail.put("productType", pd.getProductType());
+                    detail.put("title", pd.getTitle());
+                    detail.put("name", pd.getName());
+                    detail.put("description", pd.getDescription());
+
+                    if (pd.getSubscriptionOfferDetails() != null && !pd.getSubscriptionOfferDetails().isEmpty()) {
+                        ProductDetails.SubscriptionOfferDetails offer = pd.getSubscriptionOfferDetails().get(0);
+                        if (offer.getPricingPhases() != null
+                                && offer.getPricingPhases().getPricingPhaseList() != null
+                                && !offer.getPricingPhases().getPricingPhaseList().isEmpty()) {
+                            ProductDetails.PricingPhase phase = offer.getPricingPhases().getPricingPhaseList().get(0);
+                            detail.put("formattedPrice", phase.getFormattedPrice());
+                            detail.put("priceCurrencyCode", phase.getPriceCurrencyCode());
+                            detail.put("billingPeriod", phase.getBillingPeriod());
+                        }
+                        detail.put("basePlanId", offer.getBasePlanId());
+                        detail.put("offerToken", offer.getOfferToken());
+                    } else if (pd.getOneTimePurchaseOfferDetails() != null) {
+                        detail.put("formattedPrice", pd.getOneTimePurchaseOfferDetails().getFormattedPrice());
+                        detail.put("priceCurrencyCode", pd.getOneTimePurchaseOfferDetails().getPriceCurrencyCode());
+                    }
+
+                    details.put(detail);
                 }
             }
 
             try {
                 for (int i = 0; i < productIdsArray.length(); i++) {
                     String id = productIdsArray.getString(i);
+                    queried.put(id);
                     boolean exists = false;
+                    String productType = fallbackProductType;
+                    if (productTypes != null) {
+                        Object mappedType = productTypes.opt(id.trim());
+                        if (mappedType != null) {
+                            productType = normalizeProductType(String.valueOf(mappedType));
+                        }
+                    }
+                    queriedTypes.put(id, productType);
 
                     if (list != null) {
                         for (ProductDetails pd : list) {
@@ -197,12 +278,45 @@ public class ClaraBillingPlugin extends Plugin implements PurchasesUpdatedListen
 
             ret.put("foundProductIds", found);
             ret.put("missingProductIds", missing);
+            ret.put("queriedProductIds", queried);
+            ret.put("queriedProductTypes", queriedTypes);
+            ret.put("productDetails", details);
+            addDeviceDiagnostics(ret);
             call.resolve(ret);
         });
     }
 
     @PluginMethod
     public void purchaseOneTimeProduct(PluginCall call) {
+        launchProductPurchase(call);
+    }
+
+    @PluginMethod
+    public void purchaseSubscription(PluginCall call) {
+        launchProductPurchase(call);
+    }
+
+    @PluginMethod
+    public void subscribe(PluginCall call) {
+        launchProductPurchase(call);
+    }
+
+    @PluginMethod
+    public void purchaseProduct(PluginCall call) {
+        launchProductPurchase(call);
+    }
+
+    @PluginMethod
+    public void launchPurchase(PluginCall call) {
+        launchProductPurchase(call);
+    }
+
+    @PluginMethod
+    public void purchase(PluginCall call) {
+        launchProductPurchase(call);
+    }
+
+    private void launchProductPurchase(PluginCall call) {
         if (billingClient == null) {
             call.reject("Billing client is not initialized.");
             return;
@@ -238,14 +352,14 @@ public class ClaraBillingPlugin extends Plugin implements PurchasesUpdatedListen
             if (savedCall == null) return;
 
             if (billingResult.getResponseCode() != BillingClient.BillingResponseCode.OK) {
-                savedCall.reject("Query failed: " + billingResult.getDebugMessage());
+                savedCall.reject("Query failed: " + billingResult.getDebugMessage(), String.valueOf(billingResult.getResponseCode()));
                 savedCall = null;
                 return;
             }
 
             List<ProductDetails> list = result.getProductDetailsList();
             if (list == null || list.isEmpty()) {
-                savedCall.reject("Product not found");
+                savedCall.reject("Product not found: " + productId.trim(), String.valueOf(BillingClient.BillingResponseCode.ITEM_UNAVAILABLE));
                 savedCall = null;
                 return;
             }
@@ -280,7 +394,7 @@ public class ClaraBillingPlugin extends Plugin implements PurchasesUpdatedListen
 
             BillingResult launchResult = billingClient.launchBillingFlow(activity, flowParams);
             if (launchResult.getResponseCode() != BillingClient.BillingResponseCode.OK) {
-                savedCall.reject("Launch failed: " + launchResult.getDebugMessage());
+                savedCall.reject("Launch failed: " + launchResult.getDebugMessage(), String.valueOf(launchResult.getResponseCode()));
                 savedCall = null;
             }
         });
@@ -420,8 +534,14 @@ public class ClaraBillingPlugin extends Plugin implements PurchasesUpdatedListen
                 && !purchases.isEmpty()) {
 
             Purchase purchase = purchases.get(0);
+            JSArray productIds = new JSArray();
+            for (String product : purchase.getProducts()) {
+                productIds.put(product);
+            }
             ret.put("ok", true);
             ret.put("cancelled", false);
+            ret.put("productIds", productIds);
+            ret.put("productId", purchase.getProducts() != null && !purchase.getProducts().isEmpty() ? purchase.getProducts().get(0) : "");
             ret.put("purchaseToken", purchase.getPurchaseToken());
             ret.put("orderId", purchase.getOrderId() != null ? purchase.getOrderId() : "");
             ret.put("purchaseState", purchase.getPurchaseState());
