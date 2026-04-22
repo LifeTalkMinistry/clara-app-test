@@ -4,51 +4,9 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Shield, ChevronDown, ChevronUp, X } from "lucide-react";
 
-function saveSurvivalExpenseLocally(value) {
-  try {
-    const currentUser =
-      JSON.parse(localStorage.getItem("clara_user") || "null") || {};
-
-    const updatedUser = {
-      ...currentUser,
-      monthly_survival_expense: Number(value),
-      survival_setup_done: true,
-    };
-
-    localStorage.setItem("clara_user", JSON.stringify(updatedUser));
-    localStorage.setItem("monthly_survival_expense", String(value));
-    localStorage.setItem("clara_survival_expense", String(value));
-    localStorage.setItem("survival_setup_done", "true");
-
-    return updatedUser;
-  } catch {
-    localStorage.setItem("monthly_survival_expense", String(value));
-    localStorage.setItem("clara_survival_expense", String(value));
-    localStorage.setItem("survival_setup_done", "true");
-    return { monthly_survival_expense: Number(value) };
-  }
-}
-
-function getSavedSurvivalExpense() {
-  try {
-    const direct = localStorage.getItem("monthly_survival_expense");
-    if (direct && Number(direct) > 0) return String(direct);
-
-    const clara = localStorage.getItem("clara_survival_expense");
-    if (clara && Number(clara) > 0) return String(clara);
-
-    const user = JSON.parse(localStorage.getItem("clara_user") || "null");
-    if (user?.monthly_survival_expense > 0)
-      return String(user.monthly_survival_expense);
-
-    return "";
-  } catch {
-    return "";
-  }
-}
-
 export default function SurvivalExpenseModal({
   open,
+  initialValue = 0,
   onSaved,
   onSaveSurvivalExpense,
   onOpenChange,
@@ -65,7 +23,7 @@ export default function SurvivalExpenseModal({
 
   useEffect(() => {
     if (open) {
-      setAmount(getSavedSurvivalExpense());
+      setAmount(Number(initialValue) > 0 ? String(initialValue) : "");
     } else {
       setShowEstimator(false);
       setEst({
@@ -76,7 +34,7 @@ export default function SurvivalExpenseModal({
       });
       setSaving(false);
     }
-  }, [open]);
+  }, [initialValue, open]);
 
   const estTotal = Object.values(est).reduce(
     (sum, v) => sum + (parseFloat(v) || 0),
@@ -94,7 +52,6 @@ export default function SurvivalExpenseModal({
         await onSaveSurvivalExpense(val);
       }
 
-      saveSurvivalExpenseLocally(val);
       onSaved?.(val);
       onOpenChange?.(false);
     } catch (err) {

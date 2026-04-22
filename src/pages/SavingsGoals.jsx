@@ -31,6 +31,7 @@ import EmptyState from "../components/EmptyState";
 import FeaturePageLoader from "../components/FeaturePageLoader";
 import useUserRole from "../hooks/useUserRole";
 import useFinancialData from "../hooks/useFinancialData";
+import { getWalletBalance } from "@/utils/financialEngine";
 import { supabase } from "@/lib/supabaseClient";
 
 const CATEGORIES = {
@@ -117,7 +118,7 @@ export default function SavingsGoals() {
   const routeActionHandledRef = useRef(false);
   const { user, loading: accessLoading } = useUserRole();
   const data = useFinancialData(user);
-  const { wallets, refreshData } = data;
+  const { wallets, walletTransactions, transfers, refreshData } = data;
 
   const [goals, setGoals] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -220,10 +221,14 @@ export default function SavingsGoals() {
   const walletBalances = useMemo(() => {
     const map = {};
     (wallets || []).forEach((wallet) => {
-      map[String(wallet.id)] = Number(wallet.balance || 0);
+      map[String(wallet.id)] = getWalletBalance(
+        wallet,
+        walletTransactions || [],
+        transfers || []
+      );
     });
     return map;
-  }, [wallets]);
+  }, [transfers, walletTransactions, wallets]);
 
   const totalSaved = goals.reduce(
     (sum, goal) => sum + (Number(goal.saved_amount) || 0),
@@ -387,7 +392,8 @@ export default function SavingsGoals() {
         return;
       }
 
-      const currentWalletBalance = Number(sourceWallet.balance || 0);
+      const currentWalletBalance =
+        walletBalances[String(sourceWallet.id)] ?? Number(sourceWallet.balance || 0);
       const currentGoalSaved = Number(goal.saved_amount) || 0;
       const targetAmount = Number(goal.target_amount) || 0;
       const remaining = Math.max(targetAmount - currentGoalSaved, 0);

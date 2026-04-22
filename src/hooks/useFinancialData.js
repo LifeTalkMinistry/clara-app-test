@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { supabase } from "@/lib/supabaseClient";
+import { getWalletBalance } from "@/utils/financialEngine";
 
 const toNumber = (value) => {
   if (typeof value === "number") return Number.isFinite(value) ? value : 0;
@@ -167,7 +168,14 @@ export default function useFinancialData(user) {
         loaded: true,
         expenses: e || [],
         incomes: [], // no incomes table in your current schema
-        wallets: w || [],
+        wallets: (w || []).map((wallet) => {
+          const balance = getWalletBalance(wallet, wt || [], t || []);
+          return {
+            ...wallet,
+            balance,
+            derived_balance: balance,
+          };
+        }),
         budgets: b || [],
         walletTransactions: wt || [],
         transfers: t || [],
@@ -259,18 +267,11 @@ export default function useFinancialData(user) {
     const wallet = wallets.find((w) => String(w.id) === String(walletId));
     if (!wallet) return;
 
-    const current =
-      wallet.balance ??
-      wallet.current_balance ??
-      wallet.wallet_balance ??
-      wallet.starting_balance ??
-      0;
-
-    const updated = toNumber(current) + toNumber(amountChange);
+    const updated = toNumber(wallet?.derived_balance ?? wallet?.balance) + toNumber(amountChange);
 
     const { error } = await supabase
       .from("wallets")
-      .update({ balance: updated })
+      .update({ balance: updated, updated_at: new Date().toISOString() })
       .eq("id", walletId);
 
     if (error) throw error;

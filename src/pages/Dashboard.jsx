@@ -55,6 +55,7 @@ import {
   ensureUserProgramAccess,
   fetchUserProgramRecord,
 } from "@/lib/program-access";
+import { getWalletBalance } from "@/utils/financialEngine";
 
 const normalizeString = (value) => String(value ?? "").trim();
 const normalizeLower = (value) => normalizeString(value).toLowerCase();
@@ -397,24 +398,6 @@ function readStoredNotificationSettings(userId) {
     console.error("Failed to read notification settings:", error);
     return defaults;
   }
-}
-
-function readStoredSurvivalExpense() {
-  try {
-    const direct = Number(localStorage.getItem("monthly_survival_expense"));
-    if (Number.isFinite(direct) && direct > 0) return direct;
-
-    const clara = Number(localStorage.getItem("clara_survival_expense"));
-    if (Number.isFinite(clara) && clara > 0) return clara;
-
-    const user = JSON.parse(localStorage.getItem("clara_user") || "null");
-    const userValue = Number(user?.monthly_survival_expense);
-    if (Number.isFinite(userValue) && userValue > 0) return userValue;
-  } catch (error) {
-    console.error("Failed to read survival expense:", error);
-  }
-
-  return 0;
 }
 
 const getProgramPromptSessionKey = (userId, bubble) => {
@@ -1142,6 +1125,13 @@ export default function Dashboard() {
             isOwnedByUser(wallet, currentUser)
           );
 
+          const userWalletTransactions = sortByNewestDate(
+            (walletTransactionsRes.data || []).filter((item) =>
+              isOwnedByUser(item, currentUser)
+            ),
+            ["transaction_date", "date", "created_at", "updated_at"]
+          );
+
           const sortedWallets = [...userWallets].sort((a, b) => {
             const aPosition = firstValidNumber(
               a?.position,
@@ -1160,14 +1150,14 @@ export default function Dashboard() {
 
             if (aPosition !== bPosition) return aPosition - bPosition;
             return getWalletDisplayName(a).localeCompare(getWalletDisplayName(b));
+          }).map((wallet) => {
+            const balance = getWalletBalance(wallet, userWalletTransactions);
+            return {
+              ...wallet,
+              balance,
+              derived_balance: balance,
+            };
           });
-
-          const userWalletTransactions = sortByNewestDate(
-            (walletTransactionsRes.data || []).filter((item) =>
-              isOwnedByUser(item, currentUser)
-            ),
-            ["transaction_date", "date", "created_at", "updated_at"]
-          );
 
           const userBudgets = sortByNewestDate(
             (budgetsRes.data || []).filter((budget) => isOwnedByUser(budget, currentUser))
@@ -1230,7 +1220,11 @@ export default function Dashboard() {
                   })
                 : null),
             billboards: activeBillboards,
-            survivalExpense: readStoredSurvivalExpense(),
+            survivalExpense: firstValidNumber(
+              userProfile?.monthly_survival_expense,
+              userProfile?.survival_expense,
+              userProfile?.clara_survival_expense
+            ),
             walletMoney: totalWalletMoney,
             wallets: sortedWallets,
             walletTransactions: userWalletTransactions,
@@ -2015,6 +2009,7 @@ export default function Dashboard() {
           name,
           type,
           balance: startingBalance,
+          starting_balance: startingBalance,
           sort_order: wallets.length,
           user_id: user?.id || null,
           user_email: user?.email || null,
@@ -2085,7 +2080,7 @@ export default function Dashboard() {
       const newBalance = getWalletDisplayBalance(wallet) + amount;
       const { error: walletError } = await supabase
         .from("wallets")
-        .update({ balance: newBalance })
+        .update({ balance: newBalance, updated_at: new Date().toISOString() })
         .eq("id", String(wallet.id));
 
       if (walletError) throw walletError;
@@ -2149,13 +2144,19 @@ export default function Dashboard() {
       setFinanceActionLoading(true);
       const { error: fromError } = await supabase
         .from("wallets")
-        .update({ balance: getWalletDisplayBalance(fromWallet) - amount })
+        .update({
+          balance: getWalletDisplayBalance(fromWallet) - amount,
+          updated_at: new Date().toISOString(),
+        })
         .eq("id", String(fromWallet.id));
       if (fromError) throw fromError;
 
       const { error: toError } = await supabase
         .from("wallets")
-        .update({ balance: getWalletDisplayBalance(destinationWallet) + amount })
+        .update({
+          balance: getWalletDisplayBalance(destinationWallet) + amount,
+          updated_at: new Date().toISOString(),
+        })
         .eq("id", String(destinationWallet.id));
       if (toError) throw toError;
 
@@ -3004,7 +3005,23 @@ export default function Dashboard() {
                     retentionRate={0}
                     onSurvivalSaved={async (val) => {
                       const nextValue = Number(val) || 0;
+                      if (user?.id && nextValue > 0) {
+                        const { error } = await supabase
+                          .from("profiles")
+                          .update({
+                            monthly_survival_expense: nextValue,
+                            survival_setup_done: true,
+                            updated_at: new Date().toISOString(),
+                          })
+                          .eq("id", user.id);
+
+                        if (error) {
+                          console.error("Failed to save survival expense:", error);
+                          throw error;
+                        }
+                      }
                       setSurvivalExpense(nextValue);
+                      await loadDashboardData({ background: true });
                     }}
                   />
                   </div>

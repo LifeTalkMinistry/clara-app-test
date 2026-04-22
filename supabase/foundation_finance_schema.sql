@@ -1,7 +1,9 @@
 alter table if exists public.profiles
   add column if not exists display_name text,
   add column if not exists subscription_status text,
-  add column if not exists subscription_label text;
+  add column if not exists subscription_label text,
+  add column if not exists monthly_survival_expense numeric default 0,
+  add column if not exists survival_setup_done boolean default false;
 
 alter table if exists public.expenses
   add column if not exists user_id uuid,
@@ -78,3 +80,31 @@ create index if not exists wallet_transactions_wallet_id_idx on public.wallet_tr
 create index if not exists wallet_transactions_user_id_idx on public.wallet_transactions(user_id);
 create index if not exists wallet_transactions_expense_id_idx on public.wallet_transactions(expense_id);
 create index if not exists wallets_user_id_idx on public.wallets(user_id);
+
+update public.wallets wallet
+set starting_balance = greatest(
+  coalesce(wallet.balance, 0) -
+  coalesce((
+    select sum(
+      case lower(coalesce(txn.type, ''))
+        when 'expense' then -coalesce(txn.amount, 0)
+        when 'transfer_out' then -coalesce(txn.amount, 0)
+        when 'savings_goal' then -coalesce(txn.amount, 0)
+        when 'savings_transfer' then -coalesce(txn.amount, 0)
+        when 'reset' then -coalesce(txn.amount, 0)
+        when 'income' then coalesce(txn.amount, 0)
+        when 'add' then coalesce(txn.amount, 0)
+        when 'cash_in' then coalesce(txn.amount, 0)
+        when 'deposit' then coalesce(txn.amount, 0)
+        when 'transfer_in' then coalesce(txn.amount, 0)
+        when 'opening_balance' then coalesce(txn.amount, 0)
+        else 0
+      end
+    )
+    from public.wallet_transactions txn
+    where txn.wallet_id = wallet.id::text
+  ), 0),
+  0
+)
+where coalesce(wallet.starting_balance, 0) = 0
+  and coalesce(wallet.balance, 0) > 0;

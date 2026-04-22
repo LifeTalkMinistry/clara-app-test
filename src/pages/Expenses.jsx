@@ -28,6 +28,7 @@ import {
 import { Label } from "@/components/ui/label";
 import EmptyState from "../components/EmptyState";
 import useUserRole from "../hooks/useUserRole";
+import { getWalletBalance } from "@/utils/financialEngine";
 
 const categories = [
   "food",
@@ -349,17 +350,12 @@ const getTransactionGroupLabel = (txn) => {
   return "Older";
 };
 
-const normalizeWallets = (wallets) => {
+const normalizeWallets = (wallets, transactions = []) => {
   return (wallets || []).map((wallet) => ({
     ...wallet,
     id: String(wallet.id),
-    balance: normalizeNumber(
-      wallet?.balance ??
-        wallet?.current_balance ??
-        wallet?.wallet_balance ??
-        wallet?.starting_balance ??
-        0
-    ),
+    balance: getWalletBalance(wallet, transactions),
+    derived_balance: getWalletBalance(wallet, transactions),
     name: wallet?.name || wallet?.wallet_name || "Untitled Wallet",
   }));
 };
@@ -624,7 +620,6 @@ export default function Expenses() {
           }))
           .sort(sortByDateDesc);
 
-        const normalizedWalletRows = normalizeWallets(walletRows || []);
         const normalizedTransactions = (transactionRows || [])
           .map((txn) => ({
             ...txn,
@@ -638,6 +633,7 @@ export default function Expenses() {
             unplanned_reason: txn?.unplanned_reason || "",
           }))
           .sort(sortByDateDesc);
+        const normalizedWalletRows = normalizeWallets(walletRows || [], normalizedTransactions);
 
         const nextCache = {
           key: cacheKey,

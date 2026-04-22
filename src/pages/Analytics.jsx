@@ -19,6 +19,7 @@ import { Label } from "@/components/ui/label";
 import { CalendarDays, Lock, Zap } from "lucide-react";
 import useUserRole from "../hooks/useUserRole";
 import useFinancialData from "../hooks/useFinancialData";
+import { getWalletBalance as getDerivedWalletBalance } from "@/utils/financialEngine";
 import {
   startOfMonth,
   endOfMonth,
@@ -207,17 +208,6 @@ function getItemDate(item) {
 
 function getWalletTransactionType(item) {
   return normalizeText(item?.type || item?.transaction_type || item?.kind);
-}
-
-function getWalletBalance(wallet) {
-  return toNumber(
-    wallet?.balance ??
-      wallet?.current_balance ??
-      wallet?.wallet_balance ??
-      wallet?.available_balance ??
-      wallet?.amount ??
-      0
-  );
 }
 
 function mapWalletTransactionIncome(item) {
@@ -495,7 +485,7 @@ export default function Analytics() {
 
       return {
         ...wallet,
-        balance: getWalletBalance(wallet),
+        balance: getDerivedWalletBalance(wallet, data.walletTransactions, data.transfers),
         received,
         spent,
         savingsMoved: walletSavingsMovedMap.get(walletId) || 0,

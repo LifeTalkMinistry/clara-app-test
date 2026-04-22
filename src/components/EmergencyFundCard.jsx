@@ -26,53 +26,9 @@ const MILESTONES = [
 
 const VALID_TARGET_MONTHS = [3, 6, 12];
 
-const SURVIVAL_EXPENSE_KEY = "clara_survival_expense";
-const SURVIVAL_SETUP_DONE_KEY = "survival_setup_done";
 const EMERGENCY_TARGET_MONTHS_KEY = "clara_emergency_target_months";
 const EMERGENCY_WALLPAPER_KEY = "clara_wallpaper";
 const EMERGENCY_WALLPAPER_OPACITY_KEY = "clara_wallpaper_opacity";
-
-function getLocalSurvivalExpense() {
-  try {
-    const direct = localStorage.getItem("monthly_survival_expense");
-    if (direct && Number(direct) > 0) return Number(direct);
-
-    const clara = localStorage.getItem(SURVIVAL_EXPENSE_KEY);
-    if (clara && Number(clara) > 0) return Number(clara);
-
-    const user = JSON.parse(localStorage.getItem("clara_user") || "null");
-    if (
-      user?.monthly_survival_expense &&
-      Number(user.monthly_survival_expense) > 0
-    ) {
-      return Number(user.monthly_survival_expense);
-    }
-
-    return 0;
-  } catch {
-    return 0;
-  }
-}
-
-function setLocalSurvivalExpense(value) {
-  try {
-    localStorage.setItem("monthly_survival_expense", String(value));
-    localStorage.setItem(SURVIVAL_EXPENSE_KEY, String(value));
-    localStorage.setItem(SURVIVAL_SETUP_DONE_KEY, "true");
-
-    const currentUser =
-      JSON.parse(localStorage.getItem("clara_user") || "null") || {};
-
-    localStorage.setItem(
-      "clara_user",
-      JSON.stringify({
-        ...currentUser,
-        monthly_survival_expense: Number(value),
-        survival_setup_done: true,
-      })
-    );
-  } catch {}
-}
 
 function getStoredTargetMonths() {
   try {
@@ -88,14 +44,6 @@ function setStoredTargetMonths(value) {
   try {
     localStorage.setItem(EMERGENCY_TARGET_MONTHS_KEY, String(value));
   } catch {}
-}
-
-function isSetupDone() {
-  try {
-    return localStorage.getItem(SURVIVAL_SETUP_DONE_KEY) === "true";
-  } catch {
-    return false;
-  }
 }
 
 function getStatus(months, targetMonths) {
@@ -207,7 +155,6 @@ export default function EmergencyFundCard({
   const [editing, setEditing] = useState(false);
   const [showModal, setShowModal] = useState(false);
   const [targetMonths, setTargetMonths] = useState(getStoredTargetMonths());
-  const [localExpense, setLocalExpense] = useState(getLocalSurvivalExpense());
 
   const [wallpaper, setWallpaper] = useState(getStoredWallpaper());
   const [wallpaperOpacity, setWallpaperOpacity] = useState(
@@ -221,15 +168,8 @@ export default function EmergencyFundCard({
   const hasPrompted = useRef(false);
 
   const propExpense = Number(survivalExpense) || 0;
-  const effectiveExpense = propExpense || localExpense;
+  const effectiveExpense = propExpense;
   const safeMoneyLeft = Number(moneyLeft) || 0;
-
-  useEffect(() => {
-    if (propExpense > 0) {
-      setLocalSurvivalExpense(propExpense);
-      setLocalExpense(propExpense);
-    }
-  }, [propExpense]);
 
   useEffect(() => {
     setStoredTargetMonths(targetMonths);
@@ -238,10 +178,9 @@ export default function EmergencyFundCard({
   useEffect(() => {
     if (hasPrompted.current) return;
 
-    const done = isSetupDone();
     const hasValue = effectiveExpense > 0;
 
-    if (!done && !hasValue) {
+    if (!hasValue) {
       setShowModal(true);
     }
 
@@ -270,8 +209,6 @@ export default function EmergencyFundCard({
   const handleSaved = (val) => {
     const num = Number(val) || 0;
 
-    setLocalSurvivalExpense(num);
-    setLocalExpense(num);
     setEditing(false);
     setShowModal(false);
     hasPrompted.current = true;
@@ -329,6 +266,7 @@ export default function EmergencyFundCard({
     <>
       <SurvivalExpenseModal
         open={showModal || editing}
+        initialValue={effectiveExpense}
         onSaved={handleSaved}
         onOpenChange={(open) => {
           if (!open) {
