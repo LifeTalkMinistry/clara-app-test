@@ -74,12 +74,30 @@ create table if not exists public.transfers (
   updated_at timestamptz default now()
 );
 
+alter table if exists public.budgets
+  add column if not exists category text,
+  add column if not exists budget_category text,
+  add column if not exists allocated_amount numeric default 0,
+  add column if not exists month text,
+  add column if not exists tracking_start_date timestamptz,
+  add column if not exists tracking_end_date timestamptz,
+  add column if not exists range_start timestamptz,
+  add column if not exists range_end timestamptz,
+  add column if not exists is_manual_range boolean default false,
+  add column if not exists user_id uuid,
+  add column if not exists email text,
+  add column if not exists user_email text,
+  add column if not exists created_by text,
+  add column if not exists updated_at timestamptz default now();
+
 create index if not exists expenses_user_id_idx on public.expenses(user_id);
 create index if not exists expenses_user_email_idx on public.expenses(user_email);
 create index if not exists wallet_transactions_wallet_id_idx on public.wallet_transactions(wallet_id);
 create index if not exists wallet_transactions_user_id_idx on public.wallet_transactions(user_id);
 create index if not exists wallet_transactions_expense_id_idx on public.wallet_transactions(expense_id);
 create index if not exists wallets_user_id_idx on public.wallets(user_id);
+create index if not exists budgets_user_id_idx on public.budgets(user_id);
+create index if not exists budgets_month_category_idx on public.budgets(month, category);
 
 update public.wallets wallet
 set starting_balance = greatest(

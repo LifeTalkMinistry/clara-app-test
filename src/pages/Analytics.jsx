@@ -21,13 +21,7 @@ import useUserRole from "../hooks/useUserRole";
 import useFinancialData from "../hooks/useFinancialData";
 import { getWalletBalance as getDerivedWalletBalance } from "@/utils/financialEngine";
 import {
-  startOfMonth,
-  endOfMonth,
-  subMonths,
-  startOfYear,
-  endOfYear,
   format,
-  isWithinInterval,
   parseISO,
 } from "date-fns";
 
@@ -45,13 +39,15 @@ const COLORS = [
 const ALL_TIMEFRAMES = [
   { id: "this_month", label: "This Month" },
   { id: "last_month", label: "Last Month" },
-  { id: "last_3", label: "Last 3 Mo" },
-  { id: "last_6", label: "Last 6 Mo" },
+  { id: "last_3_months", label: "Last 3 Mo" },
+  { id: "last_6_months", label: "Last 6 Mo" },
   { id: "this_year", label: "This Year" },
   { id: "custom", label: "Custom" },
 ];
 
-const FREE_ALLOWED = ["this_month", "last_month", "last_3"];
+const FREE_ALLOWED = ["this_month", "last_month", "last_3_months"];
+const PH_TIME_ZONE = "Asia/Manila";
+const PH_OFFSET_MINUTES = 8 * 60;
 
 const CURRENCY_FORMATTER = new Intl.NumberFormat("en-PH", {
   style: "currency",
@@ -98,6 +94,112 @@ function normalizeText(value) {
   return String(value || "").trim().toLowerCase();
 }
 
+function getPHParts(value = new Date()) {
+  const date = value instanceof Date ? value : new Date(value);
+  if (Number.isNaN(date.getTime())) return null;
+
+  const formatter = new Intl.DateTimeFormat("en-CA", {
+    timeZone: PH_TIME_ZONE,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+    hourCycle: "h23",
+  });
+
+  const parts = formatter.formatToParts(date);
+  const map = {};
+
+  for (const part of parts) {
+    if (part.type !== "literal") map[part.type] = part.value;
+  }
+
+  return {
+    year: Number(map.year),
+    month: Number(map.month),
+    day: Number(map.day),
+    hour: Number(map.hour),
+    minute: Number(map.minute),
+    second: Number(map.second),
+  };
+}
+
+function getPHMonthKey(value = new Date()) {
+  const parts = getPHParts(value);
+  if (!parts) return "";
+  return `${parts.year}-${String(parts.month).padStart(2, "0")}`;
+}
+
+function phLocalPartsToUtcDate({
+  year,
+  month,
+  day,
+  hour = 0,
+  minute = 0,
+  second = 0,
+  millisecond = 0,
+}) {
+  return new Date(
+    Date.UTC(year, month - 1, day, hour, minute, second, millisecond) -
+      PH_OFFSET_MINUTES * 60 * 1000
+  );
+}
+
+function addPHMonths(parts, offset) {
+  const date = phLocalPartsToUtcDate({
+    year: parts.year,
+    month: parts.month + offset,
+    day: 1,
+  });
+  return getPHParts(date);
+}
+
+function getPHMonthRange(offset = 0) {
+  const nowParts = getPHParts(new Date());
+  const target = addPHMonths(nowParts, offset);
+  const start = phLocalPartsToUtcDate({
+    year: target.year,
+    month: target.month,
+    day: 1,
+  });
+  const next = addPHMonths(target, 1);
+  const end = new Date(
+    phLocalPartsToUtcDate({
+      year: next.year,
+      month: next.month,
+      day: 1,
+    }).getTime() - 1
+  );
+
+  return { start, end };
+}
+
+function getPHYearRange() {
+  const parts = getPHParts(new Date());
+  const start = phLocalPartsToUtcDate({ year: parts.year, month: 1, day: 1 });
+  const end = new Date(
+    phLocalPartsToUtcDate({ year: parts.year + 1, month: 1, day: 1 }).getTime() - 1
+  );
+  return { start, end };
+}
+
+function parsePHDateOnly(value, endOfDay = false) {
+  const [year, month, day] = String(value || "").split("-").map(Number);
+  if (!year || !month || !day) return null;
+
+  return phLocalPartsToUtcDate({
+    year,
+    month,
+    day,
+    hour: endOfDay ? 23 : 0,
+    minute: endOfDay ? 59 : 0,
+    second: endOfDay ? 59 : 0,
+    millisecond: endOfDay ? 999 : 0,
+  });
+}
+
 function isOwnedByUser(item, user) {
   if (!user || !item) return false;
 
@@ -124,28 +226,26 @@ function isOwnedByUser(item, user) {
 }
 
 function getDateRange(timeframe, customStart, customEnd) {
-  const now = new Date();
-
   switch (timeframe) {
     case "this_month":
-      return { start: startOfMonth(now), end: endOfMonth(now) };
-    case "last_month": {
-      const last = subMonths(now, 1);
-      return { start: startOfMonth(last), end: endOfMonth(last) };
-    }
+      return getPHMonthRange(0);
+    case "last_month":
+      return getPHMonthRange(-1);
+    case "last_3_months":
     case "last_3":
-      return { start: startOfMonth(subMonths(now, 2)), end: endOfMonth(now) };
+      return { start: getPHMonthRange(-2).start, end: getPHMonthRange(0).end };
+    case "last_6_months":
     case "last_6":
-      return { start: startOfMonth(subMonths(now, 5)), end: endOfMonth(now) };
+      return { start: getPHMonthRange(-5).start, end: getPHMonthRange(0).end };
     case "this_year":
-      return { start: startOfYear(now), end: endOfYear(now) };
+      return getPHYearRange();
     case "custom":
       return {
-        start: customStart ? new Date(customStart) : startOfMonth(now),
-        end: customEnd ? new Date(customEnd) : endOfMonth(now),
+        start: parsePHDateOnly(customStart, false) || getPHMonthRange(0).start,
+        end: parsePHDateOnly(customEnd, true) || getPHMonthRange(0).end,
       };
     default:
-      return { start: startOfMonth(now), end: endOfMonth(now) };
+      return getPHMonthRange(0);
   }
 }
 
@@ -164,7 +264,7 @@ function safeDate(value) {
 function isInRange(value, start, end) {
   const parsed = safeDate(value);
   if (!parsed) return false;
-  return isWithinInterval(parsed, { start, end });
+  return parsed >= start && parsed <= end;
 }
 
 function toNumber(value) {
@@ -371,7 +471,7 @@ export default function Analytics() {
       const walletId = getWalletKey(item);
 
       if (date) {
-        const month = format(date, "yyyy-MM");
+        const month = getPHMonthKey(date);
         const existing = monthlyMap.get(month) || { month, income: 0, expenses: 0 };
         existing.income += amount;
         monthlyMap.set(month, existing);
@@ -408,7 +508,7 @@ export default function Analytics() {
       }
 
       if (date) {
-        const month = format(date, "yyyy-MM");
+        const month = getPHMonthKey(date);
         const existing = monthlyMap.get(month) || { month, income: 0, expenses: 0 };
         existing.expenses += amount;
         monthlyMap.set(month, existing);

@@ -701,18 +701,6 @@ export default function Expenses() {
     };
   }, [loadData, userEmail, userId]);
 
-  const updateWalletBalance = useCallback(async (walletId, nextBalance) => {
-    const { error: walletError } = await supabase
-      .from(WALLETS_TABLE)
-      .update({
-        balance: normalizeNumber(nextBalance),
-        updated_at: new Date().toISOString(),
-      })
-      .eq("id", walletId);
-
-    if (walletError) throw walletError;
-  }, []);
-
   const findMatchingExpenseTxn = useCallback(
     (expense) => {
       return transactions.find((t) => {
@@ -871,31 +859,12 @@ export default function Expenses() {
           return;
         }
 
-        const oldWallet = walletMap.get(String(existingTxn.wallet_id));
-        if (!oldWallet) {
-          setError("Original wallet not found.");
-          return;
-        }
-
-        const sameWallet = String(existingTxn.wallet_id) === String(form.wallet_id);
-        const oldAmount = normalizeNumber(existingTxn.amount);
         const newAmount = parsedAmount;
 
         const updatedCreatedAt = buildCreatedAtFromDate(
           form.date,
           existingTxn.created_at || new Date()
         );
-
-        if (sameWallet) {
-          const newBalance = normalizeNumber(oldWallet.balance) - oldAmount + newAmount;
-          await updateWalletBalance(oldWallet.id, newBalance);
-        } else {
-          const oldWalletNewBalance = normalizeNumber(oldWallet.balance) - oldAmount;
-          const newWalletNewBalance = normalizeNumber(targetWallet.balance) + newAmount;
-
-          await updateWalletBalance(oldWallet.id, oldWalletNewBalance);
-          await updateWalletBalance(targetWallet.id, newWalletNewBalance);
-        }
 
         const { error: txnUpdateError } = await supabase
           .from(TXN_TABLE)
@@ -958,21 +927,6 @@ export default function Expenses() {
           .eq("id", oldExpense.id);
 
         if (expenseUpdateError) throw expenseUpdateError;
-
-        if (sameWallet) {
-          const restored = normalizeNumber(oldWallet.balance) + normalizeNumber(oldExpense.amount);
-          const newBalance = restored - parsedAmount;
-          await updateWalletBalance(oldWallet.id, newBalance);
-        } else {
-          const oldWalletNewBalance =
-            normalizeNumber(oldWallet.balance) + normalizeNumber(oldExpense.amount);
-
-          const newWalletNewBalance =
-            normalizeNumber(targetWallet.balance) - parsedAmount;
-
-          await updateWalletBalance(oldWallet.id, oldWalletNewBalance);
-          await updateWalletBalance(targetWallet.id, newWalletNewBalance);
-        }
 
         const oldTxn = findMatchingExpenseTxn(oldExpense);
 
@@ -1076,8 +1030,6 @@ export default function Expenses() {
 
         if (txnInsertError) throw txnInsertError;
 
-        const nextBalance = normalizeNumber(targetWallet.balance) - parsedAmount;
-        await updateWalletBalance(targetWallet.id, nextBalance);
       }
 
       window.dispatchEvent(new Event("clara-expenses-updated"));
@@ -1128,11 +1080,6 @@ export default function Expenses() {
         if (txnDeleteError) throw txnDeleteError;
       }
 
-      const nextBalance =
-        normalizeNumber(wallet.balance) + normalizeNumber(expenseToDelete.amount);
-
-      await updateWalletBalance(wallet.id, nextBalance);
-
       window.dispatchEvent(new Event("clara-expenses-updated"));
       window.dispatchEvent(new Event("clara-finance-updated"));
       window.dispatchEvent(new Event("clara-wallets-updated"));
@@ -1161,10 +1108,6 @@ export default function Expenses() {
         setError("Wallet not found.");
         return;
       }
-
-      const nextBalance = normalizeNumber(wallet.balance) - normalizeNumber(incomeTxn.amount);
-
-      await updateWalletBalance(wallet.id, nextBalance);
 
       const { error: txnDeleteError } = await supabase
         .from(TXN_TABLE)

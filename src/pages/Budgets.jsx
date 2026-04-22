@@ -105,6 +105,32 @@ const OTHER_KEYWORDS = [
   "uncategorised",
 ];
 
+const BUDGET_CATEGORIES = [
+  "food",
+  "transport",
+  "housing",
+  "utilities",
+  "entertainment",
+  "shopping",
+  "health",
+  "education",
+  "personal",
+  "other",
+];
+
+const CATEGORY_LABELS = {
+  food: "Food",
+  transport: "Transport",
+  housing: "Housing",
+  utilities: "Utilities",
+  entertainment: "Entertainment",
+  shopping: "Shopping",
+  health: "Health",
+  education: "Education",
+  personal: "Personal",
+  other: "Other",
+};
+
 const toNumber = (value) => {
   const n = Number(value);
   return Number.isFinite(n) ? n : 0;
@@ -311,6 +337,32 @@ const getExpenseAmount = (item) => {
   );
 };
 
+const getExpenseCategory = (item) => {
+  const raw = normalizeText(
+    item?.category ||
+      item?.budget_category ||
+      item?.expense_category ||
+      item?.classification ||
+      item?.type ||
+      "other"
+  );
+
+  return BUDGET_CATEGORIES.includes(raw) ? raw : "other";
+};
+
+const getBudgetCategory = (item) => {
+  const raw = normalizeText(
+    item?.category ||
+      item?.budget_category ||
+      item?.expense_category ||
+      item?.classification ||
+      item?.type ||
+      "other"
+  );
+
+  return BUDGET_CATEGORIES.includes(raw) ? raw : "other";
+};
+
 const extractExpenseSignals = (item) => {
   return [
     item?.type,
@@ -435,6 +487,7 @@ export default function Budgets() {
 
   const [form, setForm] = useState({
     month: currentMonth,
+    category: "food",
     total_budget: "",
     needs_pct: "50",
     wants_pct: "30",
@@ -533,11 +586,14 @@ export default function Budgets() {
   }, [refreshPageData, user]);
 
   const currentBudget = useMemo(() => {
-    const exactMonth = budgets.find((b) => b.month === currentMonth);
+    const exactMonth = budgets.find(
+      (b) => b.month === currentMonth && getBudgetCategory(b) === form.category
+    );
     if (exactMonth) return exactMonth;
 
     return (
       budgets
+        .filter((budget) => budget.month === currentMonth)
         .slice()
         .sort((a, b) => {
           const aTime = new Date(a.updated_at || a.created_at || 0).getTime();
@@ -545,7 +601,7 @@ export default function Budgets() {
           return bTime - aTime;
         })[0] || null
     );
-  }, [budgets, currentMonth]);
+  }, [budgets, currentMonth, form.category]);
 
   useEffect(() => {
     if (currentBudget) {
@@ -553,6 +609,7 @@ export default function Budgets() {
 
       setForm({
         month: currentBudget.month || currentMonth,
+        category: getBudgetCategory(currentBudget),
         total_budget: String(currentBudget.total_budget ?? ""),
         needs_pct: String(currentBudget.needs_pct ?? currentBudget.needs_percent ?? 50),
         wants_pct: String(currentBudget.wants_pct ?? currentBudget.wants_percent ?? 30),
@@ -571,6 +628,7 @@ export default function Budgets() {
 
       setForm({
         month: currentMonth,
+        category: "food",
         total_budget: "",
         needs_pct: "50",
         wants_pct: "30",
@@ -627,6 +685,35 @@ export default function Budgets() {
     return result;
   }, [expenses, activeRangeStart, activeRangeEnd]);
 
+  const categoryBudgetCards = useMemo(() => {
+    const monthBudgets = budgets.filter((budget) => budget.month === currentMonth);
+    const monthRange = monthKeyToRange(currentMonth);
+    const start = new Date(monthRange.start);
+    const end = new Date(monthRange.end);
+
+    return BUDGET_CATEGORIES.map((category) => {
+      const allocated = monthBudgets.reduce((sum, budget) => {
+        if (getBudgetCategory(budget) !== category) return sum;
+        return sum + toNumber(budget.allocated_amount ?? budget.total_budget);
+      }, 0);
+
+      const used = expenses.reduce((sum, expense) => {
+        const date = getItemDate(expense);
+        if (!date || date < start || date > end) return sum;
+        if (getExpenseCategory(expense) !== category) return sum;
+        return sum + getExpenseAmount(expense);
+      }, 0);
+
+      return {
+        category,
+        allocated,
+        used,
+        remaining: Math.max(allocated - used, 0),
+        pct: allocated > 0 ? Math.min((used / allocated) * 100, 999) : 0,
+      };
+    }).filter((item) => item.allocated > 0 || item.used > 0);
+  }, [budgets, currentMonth, expenses]);
+
   const handleMonthChange = (monthValue) => {
     const nextRange = monthKeyToRange(monthValue);
 
@@ -642,20 +729,13 @@ export default function Budgets() {
     if (!form.total_budget || !canUseBudgets || !user?.email) return;
 
     const totalBudget = toNumber(form.total_budget);
-    const needsPct = toNumber(form.needs_pct);
-    const wantsPct = toNumber(form.wants_pct);
-    const otherPct = toNumber(form.other_pct);
+    const category = BUDGET_CATEGORIES.includes(form.category) ? form.category : "other";
 
     const rangeStart = parsePHDateTimeLocalValue(form.range_start);
     const rangeEnd = parsePHDateTimeLocalValue(form.range_end);
 
     if (totalBudget <= 0) {
       alert("Please enter a valid total budget.");
-      return;
-    }
-
-    if (needsPct + wantsPct + otherPct !== 100) {
-      alert("Needs, Wants, and Other must total exactly 100%.");
       return;
     }
 
@@ -677,22 +757,27 @@ export default function Budgets() {
     try {
       setSaving(true);
 
-      const existing = budgets.find((b) => b.month === form.month);
+      const existing = budgets.find(
+        (b) => b.month === form.month && getBudgetCategory(b) === category
+      );
 
       const payload = {
         month: form.month,
+        category,
+        budget_category: category,
+        allocated_amount: totalBudget,
         total_budget: totalBudget,
 
-        needs_pct: needsPct,
-        wants_pct: wantsPct,
-        other_pct: otherPct,
+        needs_pct: category === "housing" || category === "food" || category === "transport" || category === "utilities" || category === "health" || category === "education" ? 100 : 0,
+        wants_pct: category === "entertainment" || category === "shopping" || category === "personal" ? 100 : 0,
+        other_pct: category === "other" ? 100 : 0,
 
-        needs_percent: needsPct,
-        wants_percent: wantsPct,
-        other_percent: otherPct,
+        needs_percent: category === "housing" || category === "food" || category === "transport" || category === "utilities" || category === "health" || category === "education" ? 100 : 0,
+        wants_percent: category === "entertainment" || category === "shopping" || category === "personal" ? 100 : 0,
+        other_percent: category === "other" ? 100 : 0,
 
-        savings_pct: otherPct,
-        savings_percent: otherPct,
+        savings_pct: category === "other" ? 100 : 0,
+        savings_percent: category === "other" ? 100 : 0,
 
         tracking_start_date: rangeStart.toISOString(),
         tracking_end_date: rangeEnd.toISOString(),
@@ -888,6 +973,26 @@ export default function Budgets() {
                   </div>
 
                   <div>
+                    <Label>Category</Label>
+                    <select
+                      value={form.category}
+                      onChange={(e) =>
+                        setForm((prev) => ({
+                          ...prev,
+                          category: e.target.value,
+                        }))
+                      }
+                      className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background"
+                    >
+                      {BUDGET_CATEGORIES.map((category) => (
+                        <option key={category} value={category}>
+                          {CATEGORY_LABELS[category]}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div>
                     <Label>Total Budget (₱)</Label>
                     <Input
                       type="number"
@@ -932,7 +1037,7 @@ export default function Budgets() {
                     </div>
                   </div>
 
-                  <div className="bg-muted/50 p-3 rounded-lg">
+                  <div className="hidden">
                     <p className="text-xs font-medium mb-3">50 / 30 / 20 SPLIT</p>
 
                     <div className="grid grid-cols-3 gap-3">
@@ -1063,6 +1168,52 @@ export default function Budgets() {
               {fmt(Math.max(0, totalBudget - totalSpent))} remaining
             </p>
           </div>
+
+          {categoryBudgetCards.length > 0 && (
+            <div className="space-y-3">
+              {categoryBudgetCards.map((item) => {
+                const warning = item.pct >= 80 && item.pct < 100;
+                const exceeded = item.pct >= 100;
+
+                return (
+                  <div key={item.category} className="bg-card rounded-xl border border-border p-4">
+                    <div className="flex justify-between gap-3 mb-2">
+                      <div>
+                        <span className="text-sm font-medium">
+                          {CATEGORY_LABELS[item.category]}
+                        </span>
+                        {(warning || exceeded) && (
+                          <p
+                            className={`mt-1 text-xs font-medium ${
+                              exceeded ? "text-destructive" : "text-secondary"
+                            }`}
+                          >
+                            {exceeded ? "Budget exceeded" : "Nearing limit"}
+                          </p>
+                        )}
+                      </div>
+                      <span className="text-sm text-muted-foreground">
+                        {fmt(item.used)} / {fmt(item.allocated)}
+                      </span>
+                    </div>
+
+                    <div className="h-2 bg-muted rounded-full overflow-hidden">
+                      <div
+                        className={`h-full rounded-full ${
+                          exceeded ? "bg-destructive" : warning ? "bg-secondary" : "bg-primary"
+                        }`}
+                        style={{ width: `${Math.min(item.pct, 100)}%` }}
+                      />
+                    </div>
+
+                    <p className="mt-2 text-xs text-muted-foreground">
+                      {fmt(item.remaining)} remaining
+                    </p>
+                  </div>
+                );
+              })}
+            </div>
+          )}
 
           {[
             {

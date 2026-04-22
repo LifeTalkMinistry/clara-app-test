@@ -59,6 +59,33 @@ import { getWalletBalance } from "@/utils/financialEngine";
 
 const normalizeString = (value) => String(value ?? "").trim();
 const normalizeLower = (value) => normalizeString(value).toLowerCase();
+const PH_TIME_ZONE = "Asia/Manila";
+const PH_OFFSET_MINUTES = 8 * 60;
+
+const FINANCE_CATEGORIES = [
+  "food",
+  "transport",
+  "housing",
+  "utilities",
+  "entertainment",
+  "shopping",
+  "health",
+  "education",
+  "personal",
+  "other",
+];
+
+const INCOME_TRANSACTION_TYPES = new Set([
+  "income",
+  "add",
+  "cash_in",
+  "deposit",
+  "opening_balance",
+  "credit",
+]);
+
+const createFinanceId = (prefix) =>
+  `${prefix}_${Date.now()}_${Math.random().toString(36).slice(2, 10)}`;
 
 const ENROLLMENT_PENDING_STATUSES = new Set([
   "pending",
@@ -162,6 +189,101 @@ const normalizeDateValue = (value) => {
   if (!value) return null;
   const date = new Date(value);
   return Number.isNaN(date.getTime()) ? null : date;
+};
+
+const padDatePart = (value) => String(value).padStart(2, "0");
+
+const getPHParts = (value = new Date()) => {
+  const date = value instanceof Date ? value : new Date(value);
+  if (Number.isNaN(date.getTime())) return null;
+
+  const formatter = new Intl.DateTimeFormat("en-CA", {
+    timeZone: PH_TIME_ZONE,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+    hourCycle: "h23",
+  });
+
+  const parts = formatter.formatToParts(date);
+  const map = {};
+
+  for (const part of parts) {
+    if (part.type !== "literal") map[part.type] = part.value;
+  }
+
+  return {
+    year: Number(map.year),
+    month: Number(map.month),
+    day: Number(map.day),
+    hour: Number(map.hour),
+    minute: Number(map.minute),
+    second: Number(map.second),
+  };
+};
+
+const getPHDateKey = (value = new Date()) => {
+  const parts = getPHParts(value);
+  if (!parts) return "";
+  return `${parts.year}-${padDatePart(parts.month)}-${padDatePart(parts.day)}`;
+};
+
+const getPHMonthKey = (value = new Date()) => {
+  const parts = getPHParts(value);
+  if (!parts) return "";
+  return `${parts.year}-${padDatePart(parts.month)}`;
+};
+
+const phLocalPartsToUtcDate = ({
+  year,
+  month,
+  day,
+  hour = 0,
+  minute = 0,
+  second = 0,
+  millisecond = 0,
+}) => {
+  const utcMillis =
+    Date.UTC(year, month - 1, day, hour, minute, second, millisecond) -
+    PH_OFFSET_MINUTES * 60 * 1000;
+  return new Date(utcMillis);
+};
+
+const getPHMonthRange = (value = new Date()) => {
+  const parts = getPHParts(value) || getPHParts(new Date());
+  const start = phLocalPartsToUtcDate({
+    year: parts.year,
+    month: parts.month,
+    day: 1,
+  });
+  const nextMonth = phLocalPartsToUtcDate({
+    year: parts.month === 12 ? parts.year + 1 : parts.year,
+    month: parts.month === 12 ? 1 : parts.month + 1,
+    day: 1,
+  });
+
+  return { start, end: new Date(nextMonth.getTime() - 1) };
+};
+
+const getPHWeekStartKey = (value = new Date()) => {
+  const parts = getPHParts(value);
+  if (!parts) return "";
+  const current = new Date(Date.UTC(parts.year, parts.month - 1, parts.day));
+  const dayIndex = current.getUTCDay();
+  const mondayOffset = dayIndex === 0 ? -6 : 1 - dayIndex;
+  current.setUTCDate(current.getUTCDate() + mondayOffset);
+  return `${current.getUTCFullYear()}-${padDatePart(current.getUTCMonth() + 1)}-${padDatePart(
+    current.getUTCDate()
+  )}`;
+};
+
+const isInPHRange = (value, start, end) => {
+  const date = normalizeDateValue(value);
+  if (!date) return false;
+  return date >= start && date <= end;
 };
 
 const sortByNewestDate = (items = [], dateKeys = ["updated_at", "created_at", "date"]) => {
@@ -314,6 +436,89 @@ const getHistoryAmountPrefix = (type) => {
     return "-";
   }
   return "+";
+};
+
+const getTransactionDate = (item) =>
+  normalizeDateValue(
+    item?.transaction_date ||
+      item?.date ||
+      item?.created_at ||
+      item?.updated_at ||
+      item?.expense_date
+  );
+
+const getExpenseCategoryKey = (item) => {
+  const raw = normalizeLower(
+    item?.category ||
+      item?.budget_category ||
+      item?.expense_category ||
+      item?.classification ||
+      "other"
+  );
+  return FINANCE_CATEGORIES.includes(raw) ? raw : "other";
+};
+
+const getBudgetCategoryKey = (budget) => {
+  const raw = normalizeLower(
+    budget?.category ||
+      budget?.budget_category ||
+      budget?.expense_category ||
+      budget?.classification ||
+      budget?.type ||
+      "all"
+  );
+  return FINANCE_CATEGORIES.includes(raw) ? raw : "all";
+};
+
+const getTransactionGroupLabel = (dateValue) => {
+  const date = normalizeDateValue(dateValue);
+  if (!date) return "Older";
+
+  const todayKey = getPHDateKey();
+  const txDateKey = getPHDateKey(date);
+  if (txDateKey === todayKey) return "Today";
+
+  const now = new Date();
+  if (getPHWeekStartKey(date) === getPHWeekStartKey(now)) return "This Week";
+  if (getPHMonthKey(date) === getPHMonthKey(now)) return "This Month";
+
+  return "Older";
+};
+
+const buildUnifiedTransactions = (walletTransactions = [], expenses = []) => {
+  const expenseIdsInLedger = new Set(
+    walletTransactions
+      .filter((txn) => normalizeLower(txn?.type) === "expense" && txn?.expense_id)
+      .map((txn) => String(txn.expense_id))
+  );
+
+  const walletItems = walletTransactions.map((txn) => ({
+    id: `wallet-${txn.id}`,
+    source: "wallet",
+    date: getTransactionDate(txn),
+    type: normalizeLower(txn?.type || "transaction"),
+    title: getHistoryTypeLabel(txn?.type),
+    description: txn?.notes || txn?.category || txn?.details || "",
+    amount: firstValidNumber(txn?.amount),
+    raw: txn,
+  }));
+
+  const orphanExpenseItems = expenses
+    .filter((expense) => !expenseIdsInLedger.has(String(expense.id)))
+    .map((expense) => ({
+      id: `expense-${expense.id}`,
+      source: "expense",
+      date: getTransactionDate(expense),
+      type: "expense",
+      title: "Expense",
+      description: expense?.notes || getExpenseCategoryKey(expense),
+      amount: firstValidNumber(expense?.amount),
+      raw: expense,
+    }));
+
+  return [...walletItems, ...orphanExpenseItems].sort(
+    (a, b) => (b.date?.getTime() || 0) - (a.date?.getTime() || 0)
+  );
 };
 
 const getWalletSortOrder = (wallet, index) => {
@@ -1053,8 +1258,7 @@ export default function Dashboard() {
             supabase
               .from("wallet_transactions")
               .select("*")
-              .order("created_at", { ascending: false })
-              .limit(50),
+              .order("created_at", { ascending: false }),
 
             supabase.from("budgets").select("*"),
 
@@ -1559,20 +1763,89 @@ export default function Dashboard() {
   }, [guardChecked, profileData, latestEnrollment, isPaid, navigate]);
 
   const thisMonthSpent = useMemo(() => {
-    const now = new Date();
-    const currentYear = now.getFullYear();
-    const currentMonth = now.getMonth();
+    const currentMonthKey = getPHMonthKey();
 
     return expenses.reduce((sum, expense) => {
-      const expenseDate = new Date(expense.date);
-      if (Number.isNaN(expenseDate.getTime())) return sum;
+      const expenseDate = getTransactionDate(expense);
+      if (!expenseDate) return sum;
 
-      const sameYear = expenseDate.getFullYear() === currentYear;
-      const sameMonth = expenseDate.getMonth() === currentMonth;
-
-      return sameYear && sameMonth ? sum + Number(expense.amount || 0) : sum;
+      return getPHMonthKey(expenseDate) === currentMonthKey
+        ? sum + Number(expense.amount || 0)
+        : sum;
     }, 0);
   }, [expenses]);
+
+  const thisMonthIncome = useMemo(() => {
+    const currentMonthKey = getPHMonthKey();
+
+    return walletTransactions.reduce((sum, transaction) => {
+      const type = normalizeLower(transaction?.type || transaction?.transaction_type);
+      if (!INCOME_TRANSACTION_TYPES.has(type)) return sum;
+
+      const date = getTransactionDate(transaction);
+      if (!date || getPHMonthKey(date) !== currentMonthKey) return sum;
+
+      return sum + firstValidNumber(transaction?.amount);
+    }, 0);
+  }, [walletTransactions]);
+
+  const moneyLeftThisMonth = thisMonthIncome - thisMonthSpent;
+
+  const dashboardTransactions = useMemo(
+    () => buildUnifiedTransactions(walletTransactions, expenses),
+    [walletTransactions, expenses]
+  );
+
+  const groupedDashboardTransactions = useMemo(() => {
+    const groups = {
+      Today: [],
+      "This Week": [],
+      "This Month": [],
+      Older: [],
+    };
+
+    dashboardTransactions.slice(0, 18).forEach((transaction) => {
+      const label = getTransactionGroupLabel(transaction.date);
+      groups[label].push(transaction);
+    });
+
+    return groups;
+  }, [dashboardTransactions]);
+
+  const budgetSummaries = useMemo(() => {
+    const monthRange = getPHMonthRange();
+    const activeBudgets = budgets.filter((budget) => {
+      const month = normalizeString(budget?.month || budget?.budget_month);
+      return !month || month === getPHMonthKey();
+    });
+
+    return FINANCE_CATEGORIES.map((category) => {
+      const allocated = activeBudgets.reduce((sum, budget) => {
+        const budgetCategory = getBudgetCategoryKey(budget);
+        if (budgetCategory !== category) return sum;
+        return sum + getBudgetTotal(budget);
+      }, 0);
+
+      const used = expenses.reduce((sum, expense) => {
+        if (getExpenseCategoryKey(expense) !== category) return sum;
+        if (!isInPHRange(getTransactionDate(expense), monthRange.start, monthRange.end)) {
+          return sum;
+        }
+        return sum + firstValidNumber(expense?.amount);
+      }, 0);
+
+      return {
+        category,
+        allocated,
+        used,
+        remaining: Math.max(allocated - used, 0),
+        pct: allocated > 0 ? Math.min((used / allocated) * 100, 999) : 0,
+      };
+    })
+      .filter((item) => item.allocated > 0 || item.used > 0)
+      .sort((a, b) => b.used - a.used || b.allocated - a.allocated)
+      .slice(0, 4);
+  }, [budgets, expenses]);
 
   const programJourney = useMemo(
     () =>
@@ -2077,16 +2350,9 @@ export default function Dashboard() {
 
     try {
       setFinanceActionLoading(true);
-      const newBalance = getWalletDisplayBalance(wallet) + amount;
-      const { error: walletError } = await supabase
-        .from("wallets")
-        .update({ balance: newBalance, updated_at: new Date().toISOString() })
-        .eq("id", String(wallet.id));
-
-      if (walletError) throw walletError;
-
       const { error: historyError } = await supabase.from("wallet_transactions").insert([
         {
+          id: createFinanceId("txn"),
           wallet_id: wallet.id,
           type: "income",
           amount,
@@ -2142,37 +2408,26 @@ export default function Dashboard() {
 
     try {
       setFinanceActionLoading(true);
-      const { error: fromError } = await supabase
-        .from("wallets")
-        .update({
-          balance: getWalletDisplayBalance(fromWallet) - amount,
-          updated_at: new Date().toISOString(),
-        })
-        .eq("id", String(fromWallet.id));
-      if (fromError) throw fromError;
-
-      const { error: toError } = await supabase
-        .from("wallets")
-        .update({
-          balance: getWalletDisplayBalance(destinationWallet) + amount,
-          updated_at: new Date().toISOString(),
-        })
-        .eq("id", String(destinationWallet.id));
-      if (toError) throw toError;
-
+      const transferGroupId = createFinanceId("transfer");
       const { error: historyError } = await supabase.from("wallet_transactions").insert([
         {
+          id: createFinanceId("txn"),
           wallet_id: fromWallet.id,
           type: "transfer_out",
           amount,
+          transfer_group_id: transferGroupId,
+          related_wallet_id: String(destinationWallet.id),
           user_id: user?.id || null,
           user_email: user?.email || null,
           created_by: user?.email || null,
         },
         {
+          id: createFinanceId("txn"),
           wallet_id: destinationWallet.id,
           type: "transfer_in",
           amount,
+          transfer_group_id: transferGroupId,
+          related_wallet_id: String(fromWallet.id),
           user_id: user?.id || null,
           user_email: user?.email || null,
           created_by: user?.email || null,
@@ -2221,7 +2476,8 @@ export default function Dashboard() {
 
     try {
       setFinanceActionLoading(true);
-      const monthKey = activeBudget?.month || new Date().toISOString().slice(0, 7);
+      const nowIso = new Date().toISOString();
+      const monthKey = activeBudget?.month || getPHMonthKey();
 
       if (user?.id || user?.email) {
         await supabase
@@ -2475,14 +2731,9 @@ export default function Dashboard() {
 
     try {
       setFinanceActionLoading(true);
-      const { error: walletError } = await supabase
-        .from("wallets")
-        .update({ balance: getWalletDisplayBalance(sourceWallet) - finalAmount })
-        .eq("id", String(sourceWallet.id));
-      if (walletError) throw walletError;
-
       const { error: txnError } = await supabase.from("wallet_transactions").insert([
         {
+          id: createFinanceId("txn"),
           wallet_id: String(sourceWallet.id),
           type: "savings_goal",
           amount: finalAmount,
@@ -3140,16 +3391,16 @@ export default function Dashboard() {
 
         <div className="grid grid-cols-2 gap-3 auto-rows-fr">
           <StatCard
-            label="This Month"
-            value={fmt(thisMonthSpent)}
+            label="Left This Month"
+            value={fmt(moneyLeftThisMonth)}
             sub={
-              thisMonthSpent > 0
-                ? "Within current month expenses"
-                : "No expenses recorded this month"
+              thisMonthIncome > 0
+                ? `${fmt(thisMonthIncome)} in - ${fmt(thisMonthSpent)} out`
+                : "Add funds to activate this month's view"
             }
-            icon={TrendingDown}
-            variant="blue"
-            className={`${getDashboardGlowCardClass("blue")} min-h-[208px] p-4`}
+            icon={moneyLeftThisMonth >= 0 ? ArrowUp : TrendingDown}
+            variant={moneyLeftThisMonth >= 0 ? "green" : "blue"}
+            className={`${getDashboardGlowCardClass(moneyLeftThisMonth >= 0 ? "emerald" : "blue")} min-h-[208px] p-4`}
           />
 
           {activeTask ? (
@@ -3184,6 +3435,165 @@ export default function Dashboard() {
                 ? "Loading your guided path..."
                 : "Your guided program will appear here once your next task is ready."}
             </div>
+          )}
+        </div>
+
+        <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+          <div className={`${getDashboardGlowCardClass("blue")} p-4`}>
+            <div className="mb-3 flex items-center justify-between gap-3">
+              <div>
+                <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-white/55">
+                  Wallet Overview
+                </p>
+                <p className="mt-1 text-lg font-bold text-white">{fmt(walletMoney)}</p>
+              </div>
+              <WalletCards className="h-5 w-5 text-cyan-200" />
+            </div>
+
+            {wallets.length > 0 ? (
+              <div className="space-y-2">
+                {wallets.slice(0, 5).map((wallet) => (
+                  <div
+                    key={wallet.id}
+                    className="flex items-center justify-between gap-3 rounded-2xl border border-white/10 bg-white/[0.04] px-3 py-2"
+                  >
+                    <span className="min-w-0 truncate text-sm font-medium text-white/85">
+                      {getWalletDisplayName(wallet)}
+                    </span>
+                    <span className="shrink-0 text-sm font-bold text-white">
+                      {fmt(getWalletDisplayBalance(wallet))}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <p className="rounded-2xl border border-white/10 bg-white/[0.04] px-3 py-4 text-sm text-white/55">
+                Create a wallet to start tracking real balances.
+              </p>
+            )}
+          </div>
+
+          <div className={`${getDashboardGlowCardClass("yellow")} p-4`}>
+            <div className="mb-3 flex items-center justify-between gap-3">
+              <div>
+                <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-white/55">
+                  Budget Watch
+                </p>
+                <p className="mt-1 text-sm text-white/65">
+                  Category usage from this month
+                </p>
+              </div>
+              <Target className="h-5 w-5 text-yellow-200" />
+            </div>
+
+            {budgetSummaries.length > 0 ? (
+              <div className="space-y-3">
+                {budgetSummaries.map((budget) => {
+                  const danger = budget.pct >= 100;
+                  const warning = budget.pct >= 80 && !danger;
+                  return (
+                    <div key={budget.category} className="space-y-1.5">
+                      <div className="flex items-center justify-between gap-3">
+                        <span className="text-sm font-medium capitalize text-white/85">
+                          {budget.category}
+                        </span>
+                        <span
+                          className={`text-xs font-semibold ${
+                            danger
+                              ? "text-rose-200"
+                              : warning
+                                ? "text-yellow-200"
+                                : "text-white/70"
+                          }`}
+                        >
+                          {fmt(budget.used)} / {fmt(budget.allocated)}
+                        </span>
+                      </div>
+                      <div className="h-2 overflow-hidden rounded-full bg-white/10">
+                        <div
+                          className={`h-full rounded-full ${
+                            danger
+                              ? "bg-rose-400"
+                              : warning
+                                ? "bg-yellow-300"
+                                : "bg-emerald-400"
+                          }`}
+                          style={{ width: `${Math.min(budget.pct, 100)}%` }}
+                        />
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            ) : (
+              <p className="rounded-2xl border border-white/10 bg-white/[0.04] px-3 py-4 text-sm text-white/55">
+                Create a category budget to see usage alerts here.
+              </p>
+            )}
+          </div>
+        </div>
+
+        <div className={`${getDashboardGlowCardClass("emerald")} p-4`}>
+          <div className="mb-3 flex items-center justify-between gap-3">
+            <div>
+              <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-white/55">
+                Recent Transactions
+              </p>
+              <p className="mt-1 text-sm text-white/65">
+                Expenses and wallet activity from Supabase
+              </p>
+            </div>
+            <Clock className="h-5 w-5 text-emerald-200" />
+          </div>
+
+          {dashboardTransactions.length > 0 ? (
+            <div className="space-y-4">
+              {["Today", "This Week", "This Month", "Older"].map((group) => {
+                const items = groupedDashboardTransactions[group] || [];
+                if (!items.length) return null;
+
+                return (
+                  <div key={group} className="space-y-2">
+                    <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-white/45">
+                      {group}
+                    </p>
+                    <div className="space-y-2">
+                      {items.slice(0, 5).map((transaction) => {
+                        const prefix = getHistoryAmountPrefix(transaction.type);
+                        const negative = prefix === "-";
+                        return (
+                          <div
+                            key={transaction.id}
+                            className="flex items-center justify-between gap-3 rounded-2xl border border-white/10 bg-white/[0.04] px-3 py-2.5"
+                          >
+                            <div className="min-w-0">
+                              <p className="truncate text-sm font-semibold text-white/90">
+                                {transaction.title}
+                              </p>
+                              <p className="truncate text-[11px] text-white/45">
+                                {transaction.description || formatHistoryDate(transaction.date)}
+                              </p>
+                            </div>
+                            <span
+                              className={`shrink-0 text-sm font-bold ${
+                                negative ? "text-rose-200" : "text-emerald-200"
+                              }`}
+                            >
+                              {prefix}
+                              {fmt(transaction.amount)}
+                            </span>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          ) : (
+            <p className="rounded-2xl border border-white/10 bg-white/[0.04] px-3 py-4 text-sm text-white/55">
+              Your real transaction history will appear here after your first wallet action.
+            </p>
           )}
         </div>
 
