@@ -15,6 +15,111 @@ const fmt = (n) =>
     minimumFractionDigits: 0,
   }).format(Number(n || 0));
 
+
+const getBudgetThemeClasses = (theme) => {
+  const isLight = theme?.isLight === true;
+  const tone = theme?.monthTone || theme?.moneyTone || "gold";
+
+  const surfaces = isLight
+    ? {
+        gold:
+          "bg-[linear-gradient(135deg,rgba(255,251,235,0.98),rgba(255,247,237,0.95),rgba(254,249,195,0.92))]",
+        blue:
+          "bg-[linear-gradient(135deg,rgba(239,246,255,0.98),rgba(224,231,255,0.95),rgba(219,234,254,0.92))]",
+        teal:
+          "bg-[linear-gradient(135deg,rgba(240,253,250,0.98),rgba(236,254,255,0.95),rgba(207,250,254,0.92))]",
+        emerald:
+          "bg-[linear-gradient(135deg,rgba(240,253,244,0.98),rgba(236,253,245,0.95),rgba(220,252,231,0.92))]",
+      }
+    : {
+        gold:
+          "bg-[linear-gradient(135deg,rgba(24,15,6,0.98),rgba(42,26,10,0.96),rgba(18,11,8,0.98))]",
+        blue:
+          "bg-[linear-gradient(135deg,rgba(10,20,54,0.98),rgba(18,44,112,0.94),rgba(10,18,40,0.98))]",
+        teal:
+          "bg-[linear-gradient(135deg,rgba(7,24,44,0.98),rgba(7,39,53,0.95),rgba(8,21,31,0.98))]",
+        emerald:
+          "bg-[linear-gradient(135deg,rgba(7,25,24,0.98),rgba(7,31,40,0.95),rgba(5,18,29,0.98))]",
+      };
+
+  const overlays = isLight
+    ? {
+        gold:
+          "bg-[radial-gradient(circle_at_top_left,rgba(250,204,21,0.18),transparent_28%),radial-gradient(circle_at_top_right,rgba(245,158,11,0.12),transparent_28%),radial-gradient(circle_at_bottom_right,rgba(253,224,71,0.10),transparent_24%),linear-gradient(135deg,rgba(255,255,255,0.55)_0%,rgba(255,255,255,0.00)_35%,rgba(255,255,255,0.16)_100%)]",
+        blue:
+          "bg-[radial-gradient(circle_at_top_left,rgba(59,130,246,0.18),transparent_28%),radial-gradient(circle_at_top_right,rgba(99,102,241,0.12),transparent_28%),radial-gradient(circle_at_bottom_right,rgba(147,197,253,0.10),transparent_24%),linear-gradient(135deg,rgba(255,255,255,0.55)_0%,rgba(255,255,255,0.00)_35%,rgba(255,255,255,0.16)_100%)]",
+        teal:
+          "bg-[radial-gradient(circle_at_top_left,rgba(45,212,191,0.18),transparent_28%),radial-gradient(circle_at_top_right,rgba(34,211,238,0.12),transparent_28%),radial-gradient(circle_at_bottom_right,rgba(125,211,252,0.10),transparent_24%),linear-gradient(135deg,rgba(255,255,255,0.55)_0%,rgba(255,255,255,0.00)_35%,rgba(255,255,255,0.16)_100%)]",
+        emerald:
+          "bg-[radial-gradient(circle_at_top_left,rgba(52,211,153,0.18),transparent_28%),radial-gradient(circle_at_top_right,rgba(16,185,129,0.12),transparent_28%),radial-gradient(circle_at_bottom_right,rgba(134,239,172,0.10),transparent_24%),linear-gradient(135deg,rgba(255,255,255,0.55)_0%,rgba(255,255,255,0.00)_35%,rgba(255,255,255,0.16)_100%)]",
+      }
+    : {
+        gold:
+          "bg-[radial-gradient(circle_at_top_left,rgba(250,204,21,0.24),transparent_28%),radial-gradient(circle_at_top_right,rgba(245,158,11,0.16),transparent_28%),radial-gradient(circle_at_bottom_right,rgba(253,224,71,0.10),transparent_24%),linear-gradient(135deg,rgba(255,255,255,0.05)_0%,rgba(255,255,255,0.00)_35%,rgba(255,255,255,0.02)_100%)]",
+        blue:
+          "bg-[radial-gradient(circle_at_top_left,rgba(59,130,246,0.24),transparent_28%),radial-gradient(circle_at_top_right,rgba(99,102,241,0.16),transparent_28%),radial-gradient(circle_at_bottom_right,rgba(147,197,253,0.10),transparent_24%),linear-gradient(135deg,rgba(255,255,255,0.05)_0%,rgba(255,255,255,0.00)_35%,rgba(255,255,255,0.02)_100%)]",
+        teal:
+          "bg-[radial-gradient(circle_at_top_left,rgba(45,212,191,0.24),transparent_28%),radial-gradient(circle_at_top_right,rgba(34,211,238,0.16),transparent_28%),radial-gradient(circle_at_bottom_right,rgba(125,211,252,0.10),transparent_24%),linear-gradient(135deg,rgba(255,255,255,0.05)_0%,rgba(255,255,255,0.00)_35%,rgba(255,255,255,0.02)_100%)]",
+        emerald:
+          "bg-[radial-gradient(circle_at_top_left,rgba(52,211,153,0.24),transparent_28%),radial-gradient(circle_at_top_right,rgba(16,185,129,0.16),transparent_28%),radial-gradient(circle_at_bottom_right,rgba(134,239,172,0.10),transparent_24%),linear-gradient(135deg,rgba(255,255,255,0.05)_0%,rgba(255,255,255,0.00)_35%,rgba(255,255,255,0.02)_100%)]",
+      };
+
+  const iconShells = isLight
+    ? {
+        gold: "border-amber-300/40 bg-amber-500/12 shadow-[0_0_18px_rgba(245,158,11,0.10)]",
+        blue: "border-blue-300/40 bg-blue-500/10 shadow-[0_0_18px_rgba(59,130,246,0.10)]",
+        teal: "border-teal-300/40 bg-teal-500/10 shadow-[0_0_18px_rgba(20,184,166,0.10)]",
+        emerald: "border-emerald-300/40 bg-emerald-500/10 shadow-[0_0_18px_rgba(16,185,129,0.10)]",
+      }
+    : {
+        gold: "border-amber-400/20 bg-amber-500/10 shadow-[0_0_18px_rgba(245,158,11,0.12)]",
+        blue: "border-blue-400/20 bg-blue-500/10 shadow-[0_0_18px_rgba(59,130,246,0.12)]",
+        teal: "border-teal-400/20 bg-teal-500/10 shadow-[0_0_18px_rgba(20,184,166,0.12)]",
+        emerald: "border-emerald-400/20 bg-emerald-500/10 shadow-[0_0_18px_rgba(16,185,129,0.12)]",
+      };
+
+  const iconColors = isLight
+    ? {
+        gold: "text-amber-700",
+        blue: "text-blue-700",
+        teal: "text-teal-700",
+        emerald: "text-emerald-700",
+      }
+    : {
+        gold: "text-amber-300",
+        blue: "text-blue-300",
+        teal: "text-teal-300",
+        emerald: "text-emerald-300",
+      };
+
+  const glass = isLight
+    ? "border-slate-300/45 bg-white/55 shadow-[inset_0_1px_0_rgba(255,255,255,0.85)]"
+    : "border-white/10 bg-black/20 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]";
+
+  const border = isLight ? "border-slate-300/45" : "border-white/10";
+  const title = isLight ? "text-slate-900" : "text-white";
+  const body = isLight ? "text-slate-700" : "text-white/82";
+  const muted = isLight ? "text-slate-500" : "text-white/60";
+  const action = isLight
+    ? "border-slate-300/45 bg-white/70 text-slate-800 hover:bg-white"
+    : "border-white/10 bg-white/5 text-white/85 hover:bg-white/10 hover:text-white";
+
+  return {
+    isLight,
+    surface: surfaces[tone] || surfaces.emerald,
+    overlay: overlays[tone] || overlays.emerald,
+    iconShell: iconShells[tone] || iconShells.emerald,
+    iconColor: iconColors[tone] || iconColors.emerald,
+    glass,
+    border,
+    title,
+    body,
+    muted,
+    action,
+  };
+};
+
+
 function getBudgetStatus(progress) {
   if (progress <= 50) {
     return {
@@ -84,8 +189,8 @@ function ActionModal({
       <div className="relative z-10 w-full max-w-md overflow-hidden rounded-3xl border border-white/10 bg-[#08111d] shadow-2xl">
         <div className="flex items-center justify-between border-b border-white/10 p-4">
           <div>
-            <p className="text-base font-semibold text-white">Budget Actions</p>
-            <p className="mt-0.5 text-xs text-white/60">
+            <p className={`text-base font-semibold ${themeClasses.title}`}>Budget Actions</p>
+            <p className={`mt-0.5 text-xs ${themeClasses.muted}`}>
               Manage your budget setup and tracking cycle
             </p>
           </div>
@@ -140,6 +245,7 @@ export default function BudgetCard({
   financeActionLoading = false,
   onSaveBudget,
   onResetBudget,
+  theme = null,
 }) {
   const [showModal, setShowModal] = useState(false);
 
@@ -187,6 +293,7 @@ export default function BudgetCard({
   const hasBudget = !!activeBudget && total > 0;
   const status = getBudgetStatus(progress);
   const message = getBudgetMessage(hasBudget, progress, remaining);
+  const themeClasses = getBudgetThemeClasses(theme);
 
   return (
     <>
@@ -200,26 +307,26 @@ export default function BudgetCard({
       />
 
       <div
-        className={`relative mb-3 overflow-hidden rounded-3xl border border-white/10 shadow-2xl transition-all duration-200 ${status.ring}`}
+        className={`relative mb-3 overflow-hidden rounded-3xl border shadow-2xl transition-all duration-200 ${themeClasses.border} ${status.ring}`}
       >
-        <div className="absolute inset-0 bg-gradient-to-br from-[#14081d] via-[#1b1028] to-[#0a1120]" />
-        <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(217,70,239,0.24),transparent_28%),radial-gradient(circle_at_top_right,rgba(168,85,247,0.16),transparent_28%),radial-gradient(circle_at_bottom_right,rgba(59,130,246,0.10),transparent_24%),linear-gradient(135deg,rgba(255,255,255,0.05)_0%,rgba(255,255,255,0.00)_35%,rgba(255,255,255,0.02)_100%)]" />
+        <div className={`absolute inset-0 ${themeClasses.surface}`} />
+        <div className={`pointer-events-none absolute inset-0 ${themeClasses.overlay}`} />
         <div className="pointer-events-none absolute inset-0 bg-gradient-to-b from-black/25 via-black/18 to-black/35" />
         <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(to_bottom,rgba(255,255,255,0.08),rgba(255,255,255,0.02)_16%,transparent_38%)]" />
 
         <div className="relative z-10 p-4">
           <div className="mb-3 flex items-start gap-3">
-            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-fuchsia-400/20 bg-fuchsia-500/10 shadow-[0_0_18px_rgba(217,70,239,0.12)] backdrop-blur-sm">
-              <PieChart className="h-4 w-4 text-fuchsia-300" />
+            <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border backdrop-blur-sm ${themeClasses.iconShell}`}>
+              <PieChart className={`h-4 w-4 ${themeClasses.iconColor}`} />
             </div>
 
             <div className="min-w-0 flex-1">
               <div className="flex items-start justify-between gap-2">
                 <div className="min-w-0">
-                  <p className="text-base font-semibold tracking-tight text-white">
+                  <p className={`text-base font-semibold tracking-tight ${themeClasses.title}`}>
                     Budget
                   </p>
-                  <p className="mt-0.5 text-[11px] font-medium text-white/75">
+                  <p className={`mt-0.5 text-[11px] font-medium ${themeClasses.body}`}>
                     Stay aligned with your monthly structure
                   </p>
                 </div>
@@ -242,11 +349,11 @@ export default function BudgetCard({
               {fmt(total)}
             </p>
 
-            <p className="mt-2 max-w-[28rem] text-xs font-medium leading-relaxed text-white/82">
+            <p className={`mt-2 max-w-[28rem] text-xs font-medium leading-relaxed ${themeClasses.body}`}>
               {message}
             </p>
 
-            <p className="mt-1 text-[11px] text-white/60">
+            <p className={`mt-1 text-[11px] ${themeClasses.muted}`}>
               {hasBudget
                 ? `${fmt(remaining)} left for this cycle.`
                 : "Your money needs a plan before it disappears."}
@@ -296,14 +403,14 @@ export default function BudgetCard({
                   <p className="mb-1 text-[10px] font-semibold uppercase tracking-[0.16em] text-white/70">
                     Spent
                   </p>
-                  <p className="text-sm font-bold text-white">{fmt(spent)}</p>
+                  <p className={`text-sm font-bold ${themeClasses.title}`}>{fmt(spent)}</p>
                 </div>
 
                 <div className="rounded-2xl border border-white/10 bg-black/20 px-2.5 py-2.5 backdrop-blur-[2px] shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]">
                   <p className="mb-1 text-[10px] font-semibold uppercase tracking-[0.16em] text-white/70">
                     Remaining
                   </p>
-                  <p className="text-sm font-bold text-white">
+                  <p className={`text-sm font-bold ${themeClasses.title}`}>
                     {fmt(remaining)}
                   </p>
                 </div>
@@ -312,7 +419,7 @@ export default function BudgetCard({
                   <p className="mb-1 text-[10px] font-semibold uppercase tracking-[0.16em] text-white/70">
                     Structure
                   </p>
-                  <p className="text-sm font-bold text-white">
+                  <p className={`text-sm font-bold ${themeClasses.title}`}>
                     {needsPct}/{wantsPct}/{otherPct}
                   </p>
                 </div>
@@ -330,28 +437,28 @@ export default function BudgetCard({
 
                 <div className="grid grid-cols-3 gap-2">
                   <div className="rounded-xl border border-white/10 bg-white/5 px-2 py-2.5 text-center">
-                    <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-white/60">
+                    <p className={`text-[10px] font-semibold uppercase tracking-[0.14em] ${themeClasses.muted}`}>
                       Needs
                     </p>
-                    <p className="mt-1 text-sm font-bold text-white">
+                    <p className={`mt-1 text-sm font-bold ${themeClasses.title}`}>
                       {needsPct}%
                     </p>
                   </div>
 
                   <div className="rounded-xl border border-white/10 bg-white/5 px-2 py-2.5 text-center">
-                    <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-white/60">
+                    <p className={`text-[10px] font-semibold uppercase tracking-[0.14em] ${themeClasses.muted}`}>
                       Wants
                     </p>
-                    <p className="mt-1 text-sm font-bold text-white">
+                    <p className={`mt-1 text-sm font-bold ${themeClasses.title}`}>
                       {wantsPct}%
                     </p>
                   </div>
 
                   <div className="rounded-xl border border-white/10 bg-white/5 px-2 py-2.5 text-center">
-                    <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-white/60">
+                    <p className={`text-[10px] font-semibold uppercase tracking-[0.14em] ${themeClasses.muted}`}>
                       Other
                     </p>
-                    <p className="mt-1 text-sm font-bold text-white">
+                    <p className={`mt-1 text-sm font-bold ${themeClasses.title}`}>
                       {otherPct}%
                     </p>
                   </div>

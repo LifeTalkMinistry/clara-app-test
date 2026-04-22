@@ -1,7 +1,6 @@
 import { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import {
   TrendingDown,
-  PiggyBank,
   Newspaper,
   Clock,
   Sparkles,
@@ -32,6 +31,8 @@ import {
   Calendar,
   AlertTriangle,
   Wallet,
+  Palette,
+  Check,
 } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
 import { supabase } from "@/lib/supabaseClient";
@@ -854,7 +855,36 @@ const financeInputClassName =
 
 const FINANCE_CARD_KEYS = ["emergency", "wallets", "budgets", "savings"];
 
-const getFinanceSlideShellClass = (cardKey) => {
+const getFinanceThemeAccentClass = (tone = "emerald", isLight = false) => {
+  if (isLight) {
+    const lightToneMap = {
+      emerald:
+        "border-slate-300/45 bg-[radial-gradient(circle_at_top_left,rgba(255,255,255,0.92),transparent_34%),radial-gradient(circle_at_bottom_right,rgba(134,239,172,0.18),transparent_42%),linear-gradient(135deg,rgba(255,255,255,0.98),rgba(240,253,244,0.94)_52%,rgba(236,253,245,0.96))] shadow-[0_22px_60px_rgba(16,185,129,0.10)]",
+      blue:
+        "border-slate-300/45 bg-[radial-gradient(circle_at_top_left,rgba(255,255,255,0.92),transparent_34%),radial-gradient(circle_at_bottom_right,rgba(96,165,250,0.18),transparent_42%),linear-gradient(135deg,rgba(255,255,255,0.98),rgba(239,246,255,0.94)_52%,rgba(224,231,255,0.96))] shadow-[0_22px_60px_rgba(59,130,246,0.10)]",
+      teal:
+        "border-slate-300/45 bg-[radial-gradient(circle_at_top_left,rgba(255,255,255,0.92),transparent_34%),radial-gradient(circle_at_bottom_right,rgba(45,212,191,0.18),transparent_42%),linear-gradient(135deg,rgba(255,255,255,0.98),rgba(240,253,250,0.94)_52%,rgba(236,254,255,0.96))] shadow-[0_22px_60px_rgba(20,184,166,0.10)]",
+      gold:
+        "border-slate-300/45 bg-[radial-gradient(circle_at_top_left,rgba(255,255,255,0.92),transparent_34%),radial-gradient(circle_at_bottom_right,rgba(250,204,21,0.18),transparent_42%),linear-gradient(135deg,rgba(255,255,255,0.98),rgba(255,251,235,0.94)_52%,rgba(255,247,237,0.96))] shadow-[0_22px_60px_rgba(245,158,11,0.10)]",
+    };
+    return lightToneMap[tone] || lightToneMap.emerald;
+  }
+
+  const darkToneMap = {
+    emerald:
+      "border-white/10 bg-[radial-gradient(circle_at_top_left,rgba(52,211,153,0.18),transparent_34%),radial-gradient(circle_at_bottom_right,rgba(20,184,166,0.14),transparent_42%),linear-gradient(135deg,rgba(4,25,24,0.96),rgba(6,38,36,0.93)_52%,rgba(3,19,18,0.98))] shadow-[0_28px_85px_rgba(16,185,129,0.16)]",
+    blue:
+      "border-white/10 bg-[radial-gradient(circle_at_top_left,rgba(59,130,246,0.18),transparent_34%),radial-gradient(circle_at_bottom_right,rgba(99,102,241,0.14),transparent_42%),linear-gradient(135deg,rgba(8,18,52,0.96),rgba(12,33,80,0.93)_52%,rgba(7,15,38,0.98))] shadow-[0_28px_85px_rgba(59,130,246,0.16)]",
+    teal:
+      "border-white/10 bg-[radial-gradient(circle_at_top_left,rgba(45,212,191,0.18),transparent_34%),radial-gradient(circle_at_bottom_right,rgba(34,211,238,0.14),transparent_42%),linear-gradient(135deg,rgba(4,23,30,0.96),rgba(5,40,48,0.93)_52%,rgba(4,17,24,0.98))] shadow-[0_28px_85px_rgba(20,184,166,0.16)]",
+    gold:
+      "border-white/10 bg-[radial-gradient(circle_at_top_left,rgba(250,204,21,0.18),transparent_34%),radial-gradient(circle_at_bottom_right,rgba(245,158,11,0.14),transparent_42%),linear-gradient(135deg,rgba(29,18,8,0.96),rgba(43,28,13,0.93)_52%,rgba(18,11,8,0.98))] shadow-[0_28px_85px_rgba(245,158,11,0.16)]",
+  };
+
+  return darkToneMap[tone] || darkToneMap.emerald;
+};
+
+const getFinanceSlideShellClass = (cardKey, theme = null) => {
   const accentMap = {
     emergency:
       "bg-[radial-gradient(circle_at_top_left,rgba(45,212,191,0.2),transparent_34%),radial-gradient(circle_at_bottom_right,rgba(56,189,248,0.16),transparent_38%),linear-gradient(135deg,rgba(5,16,31,0.88),rgba(6,18,36,0.96)_42%,rgba(3,10,24,0.98))] shadow-[0_28px_85px_rgba(16,185,129,0.16)]",
@@ -866,7 +896,22 @@ const getFinanceSlideShellClass = (cardKey) => {
       "bg-[radial-gradient(circle_at_top_left,rgba(52,211,153,0.2),transparent_34%),radial-gradient(circle_at_bottom_right,rgba(20,184,166,0.16),transparent_40%),linear-gradient(135deg,rgba(4,18,24,0.9),rgba(5,21,31,0.96)_42%,rgba(3,10,24,0.98))] shadow-[0_28px_85px_rgba(52,211,153,0.16)]",
   };
 
-  return `relative isolate overflow-hidden rounded-[30px] border border-white/10 p-[1px] backdrop-blur-sm before:pointer-events-none before:absolute before:inset-x-5 before:top-0 before:h-20 before:rounded-full before:bg-white/10 before:blur-3xl after:pointer-events-none after:absolute after:inset-0 after:rounded-[30px] after:ring-1 after:ring-inset after:ring-white/6 [&>*]:mb-0 [&>*]:h-full [&>*]:min-h-0 [&>*]:rounded-[29px] ${accentMap[cardKey] || accentMap.emergency}`;
+  const toneMap = {
+    emergency: theme?.moneyTone || "blue",
+    wallets: theme?.moneyTone || "teal",
+    budgets: theme?.monthTone || theme?.moneyTone || "gold",
+    savings: theme?.tipTone || theme?.monthTone || "emerald",
+  };
+
+  const accentClass = theme
+    ? getFinanceThemeAccentClass(toneMap[cardKey] || "emerald", theme?.isLight === true)
+    : accentMap[cardKey] || accentMap.emergency;
+
+  const shellBorderClass = theme?.isLight === true ? "border-slate-300/45" : "border-white/10";
+  const glowCapClass = theme?.isLight === true ? "before:bg-white/70" : "before:bg-white/10";
+  const innerRingClass = theme?.isLight === true ? "after:ring-slate-300/40" : "after:ring-white/6";
+
+  return `relative isolate w-full overflow-hidden rounded-[30px] ${shellBorderClass} p-[1px] backdrop-blur-sm before:pointer-events-none before:absolute before:inset-x-5 before:top-0 before:h-20 before:rounded-full ${glowCapClass} before:blur-3xl after:pointer-events-none after:absolute after:inset-0 after:rounded-[30px] after:ring-1 after:ring-inset ${innerRingClass} min-h-[314px] [&>*]:mb-0 [&>*]:h-full [&>*]:min-h-[312px] [&>*]:rounded-[29px] ${accentClass}`;
 };
 
 const getDashboardGlowCardClass = (tone = "emerald") => {
@@ -884,6 +929,428 @@ const getDashboardGlowCardClass = (tone = "emerald") => {
   return `relative isolate overflow-hidden rounded-[28px] border border-white/10 backdrop-blur-sm before:pointer-events-none before:absolute before:inset-x-8 before:top-0 before:h-16 before:rounded-full before:bg-white/8 before:blur-3xl after:pointer-events-none after:absolute after:inset-0 after:rounded-[28px] after:ring-1 after:ring-inset after:ring-white/6 ${toneMap[tone] || toneMap.emerald}`;
 };
 
+
+const DASHBOARD_THEME_CATEGORY_ORDER = [
+  "classic",
+  "aesthetic",
+  "anime",
+  "marvel",
+  "signature",
+];
+
+const DASHBOARD_THEME_CATEGORY_LABELS = {
+  classic: "Classic",
+  aesthetic: "Aesthetic",
+  anime: "Anime Inspired",
+  marvel: "Marvel Inspired",
+  signature: "Signature",
+};
+
+const DASHBOARD_THEME_PRESETS = [
+  {
+    key: "obsidian",
+    category: "classic",
+    label: "Obsidian Black",
+    chip: "Pure dark",
+    pageSurface: "bg-[#05070a]",
+    pageGlow: "before:absolute before:inset-x-0 before:top-0 before:-z-10 before:h-[260px] before:bg-[radial-gradient(circle_at_top,rgba(255,255,255,0.04),transparent_58%)] after:absolute after:inset-x-0 after:bottom-0 after:-z-10 after:h-[220px] after:bg-[radial-gradient(circle_at_bottom,rgba(255,255,255,0.03),transparent_58%)]",
+    heroShell: "border-white/10 bg-[#0a0d12] shadow-[0_0_0_1px_rgba(255,255,255,0.02),0_14px_34px_rgba(0,0,0,0.35)]",
+    heroGlow: "bg-[radial-gradient(circle_at_top_left,rgba(255,255,255,0.04),transparent_32%),radial-gradient(circle_at_bottom_right,rgba(255,255,255,0.03),transparent_36%)]",
+    moneyTone: "blue",
+    moneyOverlay: "border-white/10 bg-[#0c1016]",
+    monthTone: "blue",
+    monthOverlay: "border-white/10 bg-[#0d1118]",
+    tipTone: "blue",
+    tipOverlay: "border-white/10 bg-[#0d1118]",
+    indicatorActive: "bg-white",
+    modalAccent: "from-white/10 via-white/5 to-white/10",
+    preview: "bg-[#05070a]",
+  },
+  {
+    key: "arctic",
+    category: "classic",
+    label: "Arctic White",
+    chip: "Pure light",
+    isLight: true,
+    pageSurface: "bg-[linear-gradient(180deg,#dce9f7_0%,#f8fbff_42%,#dfe8f2_100%)]",
+    pageGlow: "before:absolute before:inset-x-0 before:top-0 before:-z-10 before:h-[340px] before:bg-[radial-gradient(circle_at_top,rgba(255,255,255,0.78),transparent_62%)] after:absolute after:inset-x-0 after:bottom-0 after:-z-10 after:h-[240px] after:bg-[radial-gradient(circle_at_bottom,rgba(191,219,254,0.35),transparent_58%)]",
+    heroShell: "border-slate-300/40 bg-[linear-gradient(135deg,rgba(255,255,255,0.92)_0%,rgba(240,247,255,0.96)_100%)] shadow-[0_0_0_1px_rgba(148,163,184,0.18),0_18px_40px_rgba(15,23,42,0.12)]",
+    heroGlow: "bg-[radial-gradient(circle_at_top_left,rgba(255,255,255,0.55),transparent_34%),radial-gradient(circle_at_bottom_right,rgba(191,219,254,0.24),transparent_40%)]",
+    moneyTone: "blue",
+    moneyOverlay: "border-slate-300/40 bg-white/90",
+    monthTone: "teal",
+    monthOverlay: "border-slate-300/40 bg-white/88",
+    tipTone: "blue",
+    tipOverlay: "border-slate-300/40 bg-white/88",
+    indicatorActive: "bg-slate-700",
+    modalAccent: "from-slate-300/25 via-sky-200/18 to-white/20",
+    preview: "bg-[linear-gradient(135deg,#ffffff_0%,#eef6ff_55%,#d7e6f3_100%)]",
+  },
+  {
+    key: "royal",
+    category: "classic",
+    label: "Royal Blue",
+    chip: "Single-color blue",
+    pageSurface: "bg-[linear-gradient(180deg,#07132d_0%,#0a2252_48%,#0b1b3b_100%)]",
+    pageGlow: "before:absolute before:inset-x-0 before:top-0 before:-z-10 before:h-[360px] before:bg-[radial-gradient(circle_at_top,rgba(59,130,246,0.22),transparent_60%)] after:absolute after:inset-x-0 after:bottom-0 after:-z-10 after:h-[250px] after:bg-[radial-gradient(circle_at_bottom,rgba(96,165,250,0.12),transparent_58%)]",
+    heroShell: "border-blue-300/15 bg-[linear-gradient(135deg,rgba(10,37,90,0.97)_0%,rgba(13,46,117,0.94)_100%)] shadow-[0_0_0_1px_rgba(96,165,250,0.10),0_16px_38px_rgba(0,0,0,0.34),0_0_44px_rgba(59,130,246,0.15)]",
+    heroGlow: "bg-[radial-gradient(circle_at_top_left,rgba(96,165,250,0.24),transparent_32%),radial-gradient(circle_at_bottom_right,rgba(59,130,246,0.16),transparent_36%)]",
+    moneyTone: "blue",
+    moneyOverlay: "from-blue-500/26 to-blue-600/18 border-blue-300/24",
+    monthTone: "blue",
+    monthOverlay: "from-blue-500/18 to-blue-600/12 border-blue-300/18",
+    tipTone: "blue",
+    tipOverlay: "from-blue-500/18 to-blue-600/12 border-blue-300/18",
+    indicatorActive: "bg-blue-400",
+    modalAccent: "from-blue-400/20 via-blue-500/16 to-blue-600/18",
+    preview: "bg-[linear-gradient(135deg,#07132d_0%,#1347a6_100%)]",
+  },
+  {
+    key: "emerald",
+    category: "classic",
+    label: "Emerald Green",
+    chip: "Single-color green",
+    pageSurface: "bg-[linear-gradient(180deg,#041510_0%,#0a2a1f_46%,#081c16_100%)]",
+    pageGlow: "before:absolute before:inset-x-0 before:top-0 before:-z-10 before:h-[360px] before:bg-[radial-gradient(circle_at_top,rgba(16,185,129,0.24),transparent_60%)] after:absolute after:inset-x-0 after:bottom-0 after:-z-10 after:h-[250px] after:bg-[radial-gradient(circle_at_bottom,rgba(52,211,153,0.10),transparent_58%)]",
+    heroShell: "border-emerald-300/15 bg-[linear-gradient(135deg,rgba(6,44,33,0.97)_0%,rgba(7,88,68,0.94)_100%)] shadow-[0_0_0_1px_rgba(52,211,153,0.10),0_16px_38px_rgba(0,0,0,0.34),0_0_44px_rgba(16,185,129,0.14)]",
+    heroGlow: "bg-[radial-gradient(circle_at_top_left,rgba(110,231,183,0.24),transparent_32%),radial-gradient(circle_at_bottom_right,rgba(16,185,129,0.16),transparent_36%)]",
+    moneyTone: "emerald",
+    moneyOverlay: "from-emerald-500/26 to-emerald-600/18 border-emerald-300/24",
+    monthTone: "emerald",
+    monthOverlay: "from-emerald-500/18 to-emerald-600/12 border-emerald-300/18",
+    tipTone: "emerald",
+    tipOverlay: "from-emerald-500/18 to-emerald-600/12 border-emerald-300/18",
+    indicatorActive: "bg-emerald-400",
+    modalAccent: "from-emerald-400/20 via-emerald-500/16 to-emerald-600/18",
+    preview: "bg-[linear-gradient(135deg,#041510_0%,#0ea56f_100%)]",
+  },
+  {
+    key: "crimson",
+    category: "classic",
+    label: "Crimson Red",
+    chip: "Single-color red",
+    pageSurface: "bg-[linear-gradient(180deg,#190709_0%,#3d1117_44%,#190709_100%)]",
+    pageGlow: "before:absolute before:inset-x-0 before:top-0 before:-z-10 before:h-[360px] before:bg-[radial-gradient(circle_at_top,rgba(239,68,68,0.22),transparent_60%)] after:absolute after:inset-x-0 after:bottom-0 after:-z-10 after:h-[250px] after:bg-[radial-gradient(circle_at_bottom,rgba(248,113,113,0.10),transparent_58%)]",
+    heroShell: "border-red-300/15 bg-[linear-gradient(135deg,rgba(65,12,20,0.98)_0%,rgba(127,29,29,0.94)_100%)] shadow-[0_0_0_1px_rgba(248,113,113,0.10),0_16px_38px_rgba(0,0,0,0.34),0_0_44px_rgba(239,68,68,0.14)]",
+    heroGlow: "bg-[radial-gradient(circle_at_top_left,rgba(252,165,165,0.22),transparent_32%),radial-gradient(circle_at_bottom_right,rgba(239,68,68,0.16),transparent_36%)]",
+    moneyTone: "gold",
+    moneyOverlay: "from-red-500/26 to-rose-600/18 border-red-300/24",
+    monthTone: "gold",
+    monthOverlay: "from-red-500/18 to-rose-600/12 border-red-300/18",
+    tipTone: "gold",
+    tipOverlay: "from-red-500/18 to-rose-600/12 border-red-300/18",
+    indicatorActive: "bg-red-400",
+    modalAccent: "from-red-400/20 via-rose-500/16 to-red-600/18",
+    preview: "bg-[linear-gradient(135deg,#190709_0%,#dc2626_100%)]",
+  },
+  {
+    key: "violet",
+    category: "classic",
+    label: "Deep Violet",
+    chip: "Single-color violet",
+    pageSurface: "bg-[linear-gradient(180deg,#12071f_0%,#2c1456_46%,#14081f_100%)]",
+    pageGlow: "before:absolute before:inset-x-0 before:top-0 before:-z-10 before:h-[360px] before:bg-[radial-gradient(circle_at_top,rgba(168,85,247,0.22),transparent_60%)] after:absolute after:inset-x-0 after:bottom-0 after:-z-10 after:h-[250px] after:bg-[radial-gradient(circle_at_bottom,rgba(196,181,253,0.10),transparent_58%)]",
+    heroShell: "border-violet-300/15 bg-[linear-gradient(135deg,rgba(48,15,91,0.98)_0%,rgba(91,33,182,0.94)_100%)] shadow-[0_0_0_1px_rgba(196,181,253,0.10),0_16px_38px_rgba(0,0,0,0.34),0_0_44px_rgba(168,85,247,0.14)]",
+    heroGlow: "bg-[radial-gradient(circle_at_top_left,rgba(216,180,254,0.22),transparent_32%),radial-gradient(circle_at_bottom_right,rgba(168,85,247,0.16),transparent_36%)]",
+    moneyTone: "blue",
+    moneyOverlay: "from-violet-500/26 to-violet-600/18 border-violet-300/24",
+    monthTone: "blue",
+    monthOverlay: "from-violet-500/18 to-violet-600/12 border-violet-300/18",
+    tipTone: "blue",
+    tipOverlay: "from-violet-500/18 to-violet-600/12 border-violet-300/18",
+    indicatorActive: "bg-violet-400",
+    modalAccent: "from-violet-400/20 via-violet-500/16 to-violet-600/18",
+    preview: "bg-[linear-gradient(135deg,#12071f_0%,#8b5cf6_100%)]",
+  },
+  {
+    key: "midnight",
+    category: "aesthetic",
+    label: "Midnight CLARA",
+    chip: "Default glow",
+    pageSurface: "bg-[linear-gradient(180deg,#030b14_0%,#06131d_42%,#04111b_100%)]",
+    pageGlow: "before:absolute before:inset-x-0 before:top-0 before:-z-10 before:h-[420px] before:bg-[radial-gradient(circle_at_top,rgba(16,185,129,0.16),transparent_58%)] after:absolute after:inset-x-0 after:bottom-0 after:-z-10 after:h-[320px] after:bg-[radial-gradient(circle_at_bottom,rgba(59,130,246,0.14),transparent_58%)]",
+    heroShell: "border-cyan-300/15 bg-[linear-gradient(135deg,rgba(10,25,60,0.95)_0%,rgba(8,20,40,0.95)_38%,rgba(38,18,46,0.94)_66%,rgba(92,16,28,0.72)_100%)] shadow-[0_0_0_1px_rgba(255,255,255,0.03),0_14px_34px_rgba(0,0,0,0.35),0_0_40px_rgba(59,130,246,0.10),0_0_30px_rgba(220,38,38,0.08)]",
+    heroGlow: "bg-[radial-gradient(circle_at_top_left,rgba(59,130,246,0.22),transparent_34%),radial-gradient(circle_at_bottom_right,rgba(220,38,38,0.16),transparent_38%),radial-gradient(circle_at_center,rgba(250,204,21,0.08),transparent_58%)]",
+    moneyTone: "blue",
+    moneyOverlay: "from-cyan-500/20 to-emerald-500/20 border-cyan-400/20",
+    monthTone: "emerald",
+    monthOverlay: "from-emerald-500/16 to-cyan-500/12 border-emerald-300/18",
+    tipTone: "emerald",
+    tipOverlay: "from-emerald-500/18 to-teal-500/16 border-emerald-300/18",
+    indicatorActive: "bg-emerald-400",
+    modalAccent: "from-cyan-400/20 via-blue-500/18 to-emerald-400/20",
+    preview: "bg-[linear-gradient(135deg,#071828_0%,#0b2a4a_45%,#341127_100%)]",
+  },
+  {
+    key: "rainy",
+    category: "aesthetic",
+    label: "Rainy Season",
+    chip: "Storm blue",
+    pageSurface: "bg-[linear-gradient(180deg,#04101b_0%,#072136_38%,#0a3150_100%)]",
+    pageGlow: "before:absolute before:inset-x-0 before:top-0 before:-z-10 before:h-[440px] before:bg-[radial-gradient(circle_at_top,rgba(14,165,233,0.22),transparent_58%)] after:absolute after:inset-x-0 after:bottom-0 after:-z-10 after:h-[320px] after:bg-[radial-gradient(circle_at_bottom,rgba(56,189,248,0.16),transparent_58%)]",
+    heroShell: "border-sky-300/15 bg-[linear-gradient(145deg,rgba(4,15,34,0.98)_0%,rgba(10,32,64,0.96)_38%,rgba(18,58,94,0.92)_72%,rgba(29,78,120,0.88)_100%)] shadow-[0_0_0_1px_rgba(255,255,255,0.03),0_16px_38px_rgba(0,0,0,0.34),0_0_44px_rgba(56,189,248,0.16)]",
+    heroGlow: "bg-[radial-gradient(circle_at_top_left,rgba(125,211,252,0.24),transparent_30%),radial-gradient(circle_at_bottom_right,rgba(56,189,248,0.18),transparent_36%),radial-gradient(circle_at_center,rgba(191,219,254,0.08),transparent_58%)]",
+    moneyTone: "blue",
+    moneyOverlay: "from-sky-500/24 to-cyan-500/18 border-sky-300/30",
+    monthTone: "teal",
+    monthOverlay: "from-sky-500/16 to-cyan-500/12 border-sky-300/20",
+    tipTone: "blue",
+    tipOverlay: "from-blue-500/20 to-sky-500/16 border-sky-300/20",
+    indicatorActive: "bg-sky-400",
+    modalAccent: "from-sky-400/20 via-cyan-500/16 to-blue-500/18",
+    preview: "bg-[linear-gradient(135deg,#061427_0%,#0a3358_50%,#146c94_100%)]",
+  },
+  {
+    key: "sunset",
+    category: "aesthetic",
+    label: "Sunset Glow",
+    chip: "Warm reward",
+    pageSurface: "bg-[linear-gradient(180deg,#2e0f10_0%,#7b2d26_34%,#ea580c_72%,#3b1207_100%)]",
+    pageGlow: "before:absolute before:inset-x-0 before:top-0 before:-z-10 before:h-[430px] before:bg-[radial-gradient(circle_at_top,rgba(251,146,60,0.22),transparent_58%)] after:absolute after:inset-x-0 after:bottom-0 after:-z-10 after:h-[320px] after:bg-[radial-gradient(circle_at_bottom,rgba(244,114,182,0.14),transparent_58%)]",
+    heroShell: "border-orange-300/15 bg-[linear-gradient(135deg,rgba(70,20,10,0.97)_0%,rgba(180,83,9,0.92)_48%,rgba(190,24,93,0.84)_100%)] shadow-[0_0_0_1px_rgba(254,215,170,0.10),0_18px_40px_rgba(0,0,0,0.34),0_0_46px_rgba(251,146,60,0.14)]",
+    heroGlow: "bg-[radial-gradient(circle_at_top_left,rgba(253,186,116,0.24),transparent_30%),radial-gradient(circle_at_bottom_right,rgba(244,114,182,0.18),transparent_34%)]",
+    moneyTone: "gold",
+    moneyOverlay: "from-orange-500/24 to-pink-500/18 border-orange-300/25",
+    monthTone: "gold",
+    monthOverlay: "from-orange-500/16 to-pink-500/12 border-orange-300/20",
+    tipTone: "gold",
+    tipOverlay: "from-orange-500/18 to-pink-500/12 border-orange-300/20",
+    indicatorActive: "bg-orange-400",
+    modalAccent: "from-orange-400/20 via-amber-500/16 to-pink-500/18",
+    preview: "bg-[linear-gradient(135deg,#431407_0%,#f97316_62%,#ec4899_100%)]",
+  },
+  {
+    key: "ocean",
+    category: "aesthetic",
+    label: "Ocean Flow",
+    chip: "Aqua balance",
+    pageSurface: "bg-[linear-gradient(180deg,#031319_0%,#083344_34%,#0f766e_70%,#07272a_100%)]",
+    pageGlow: "before:absolute before:inset-x-0 before:top-0 before:-z-10 before:h-[430px] before:bg-[radial-gradient(circle_at_top,rgba(45,212,191,0.20),transparent_58%)] after:absolute after:inset-x-0 after:bottom-0 after:-z-10 after:h-[320px] after:bg-[radial-gradient(circle_at_bottom,rgba(34,211,238,0.14),transparent_58%)]",
+    heroShell: "border-teal-300/15 bg-[linear-gradient(135deg,rgba(3,30,38,0.97)_0%,rgba(8,83,95,0.94)_56%,rgba(14,116,144,0.84)_100%)] shadow-[0_0_0_1px_rgba(153,246,228,0.10),0_18px_42px_rgba(0,0,0,0.34),0_0_48px_rgba(45,212,191,0.14)]",
+    heroGlow: "bg-[radial-gradient(circle_at_top_left,rgba(153,246,228,0.22),transparent_30%),radial-gradient(circle_at_bottom_right,rgba(34,211,238,0.16),transparent_34%)]",
+    moneyTone: "teal",
+    moneyOverlay: "from-teal-500/24 to-cyan-500/18 border-teal-300/24",
+    monthTone: "teal",
+    monthOverlay: "from-teal-500/16 to-cyan-500/12 border-teal-300/18",
+    tipTone: "teal",
+    tipOverlay: "from-teal-500/18 to-cyan-500/12 border-teal-300/18",
+    indicatorActive: "bg-teal-400",
+    modalAccent: "from-teal-400/20 via-cyan-500/16 to-sky-500/18",
+    preview: "bg-[linear-gradient(135deg,#042f2e_0%,#0891b2_55%,#5eead4_100%)]",
+  },
+  {
+    key: "forest",
+    category: "aesthetic",
+    label: "Forest Deep",
+    chip: "Earth calm",
+    pageSurface: "bg-[linear-gradient(180deg,#07130b_0%,#18331f_36%,#365314_72%,#111827_100%)]",
+    pageGlow: "before:absolute before:inset-x-0 before:top-0 before:-z-10 before:h-[420px] before:bg-[radial-gradient(circle_at_top,rgba(101,163,13,0.18),transparent_58%)] after:absolute after:inset-x-0 after:bottom-0 after:-z-10 after:h-[310px] after:bg-[radial-gradient(circle_at_bottom,rgba(34,197,94,0.12),transparent_58%)]",
+    heroShell: "border-lime-300/15 bg-[linear-gradient(135deg,rgba(15,37,15,0.97)_0%,rgba(39,72,22,0.92)_54%,rgba(77,124,15,0.84)_100%)] shadow-[0_0_0_1px_rgba(190,242,100,0.08),0_18px_42px_rgba(0,0,0,0.34),0_0_42px_rgba(101,163,13,0.12)]",
+    heroGlow: "bg-[radial-gradient(circle_at_top_left,rgba(190,242,100,0.18),transparent_30%),radial-gradient(circle_at_bottom_right,rgba(34,197,94,0.14),transparent_36%)]",
+    moneyTone: "emerald",
+    moneyOverlay: "from-lime-500/18 to-emerald-500/18 border-lime-300/18",
+    monthTone: "emerald",
+    monthOverlay: "from-lime-500/14 to-emerald-500/12 border-lime-300/16",
+    tipTone: "emerald",
+    tipOverlay: "from-lime-500/16 to-emerald-500/12 border-lime-300/16",
+    indicatorActive: "bg-lime-400",
+    modalAccent: "from-lime-400/18 via-emerald-500/14 to-lime-600/14",
+    preview: "bg-[linear-gradient(135deg,#0f2410_0%,#4d7c0f_58%,#86efac_100%)]",
+  },
+  {
+    key: "rainbow",
+    category: "aesthetic",
+    label: "Rainbow Pop",
+    chip: "Bold spectrum",
+    pageSurface: "bg-[linear-gradient(180deg,#250a3d_0%,#0b2454_28%,#0b4f45_58%,#663f0a_82%,#3a0c16_100%)]",
+    pageGlow: "before:absolute before:inset-x-0 before:top-0 before:-z-10 before:h-[460px] before:bg-[radial-gradient(circle_at_top,rgba(244,114,182,0.20),transparent_58%)] after:absolute after:inset-x-0 after:bottom-0 after:-z-10 after:h-[360px] after:bg-[radial-gradient(circle_at_bottom,rgba(59,130,246,0.14),transparent_58%)]",
+    heroShell: "border-fuchsia-300/15 bg-[linear-gradient(135deg,rgba(56,10,72,0.96)_0%,rgba(16,42,103,0.96)_22%,rgba(4,120,87,0.94)_48%,rgba(202,138,4,0.92)_70%,rgba(153,27,27,0.90)_100%)] shadow-[0_0_0_1px_rgba(255,255,255,0.03),0_18px_40px_rgba(0,0,0,0.34),0_0_52px_rgba(217,70,239,0.14)]",
+    heroGlow: "bg-[radial-gradient(circle_at_top_left,rgba(244,114,182,0.24),transparent_28%),radial-gradient(circle_at_top_right,rgba(59,130,246,0.18),transparent_30%),radial-gradient(circle_at_bottom_left,rgba(34,197,94,0.16),transparent_30%),radial-gradient(circle_at_bottom_right,rgba(251,191,36,0.16),transparent_32%)]",
+    moneyTone: "gold",
+    moneyOverlay: "from-fuchsia-500/24 via-cyan-500/18 to-emerald-500/18 border-fuchsia-300/28",
+    monthTone: "blue",
+    monthOverlay: "from-fuchsia-500/16 via-sky-500/12 to-amber-500/12 border-fuchsia-300/20",
+    tipTone: "emerald",
+    tipOverlay: "from-emerald-500/18 via-cyan-500/12 to-fuchsia-500/14 border-emerald-300/18",
+    indicatorActive: "bg-fuchsia-400",
+    modalAccent: "from-fuchsia-400/22 via-sky-500/18 to-amber-400/18",
+    preview: "bg-[linear-gradient(135deg,#591c87_0%,#1d4ed8_28%,#059669_56%,#f59e0b_78%,#dc2626_100%)]",
+  },
+  {
+    key: "dawn-blade",
+    category: "anime",
+    label: "Dawn Blade",
+    chip: "Sunrise swordsman",
+    pageSurface: "bg-[linear-gradient(180deg,#1c0b07_0%,#7c2d12_42%,#f97316_76%,#2a0f08_100%)]",
+    pageGlow: "before:absolute before:inset-x-0 before:top-0 before:-z-10 before:h-[430px] before:bg-[radial-gradient(circle_at_top,rgba(251,146,60,0.22),transparent_58%)] after:absolute after:inset-x-0 after:bottom-0 after:-z-10 after:h-[320px] after:bg-[radial-gradient(circle_at_bottom,rgba(254,215,170,0.10),transparent_58%)]",
+    heroShell: "border-orange-300/15 bg-[linear-gradient(135deg,rgba(74,24,7,0.98)_0%,rgba(194,65,12,0.92)_58%,rgba(251,146,60,0.82)_100%)] shadow-[0_0_0_1px_rgba(253,186,116,0.10),0_18px_42px_rgba(0,0,0,0.34),0_0_44px_rgba(249,115,22,0.14)]",
+    heroGlow: "bg-[radial-gradient(circle_at_top_left,rgba(254,215,170,0.20),transparent_30%),radial-gradient(circle_at_bottom_right,rgba(251,146,60,0.16),transparent_34%)]",
+    moneyTone: "gold",
+    moneyOverlay: "from-orange-500/24 to-amber-500/18 border-orange-300/24",
+    monthTone: "gold",
+    monthOverlay: "from-orange-500/18 to-amber-500/12 border-orange-300/18",
+    tipTone: "gold",
+    tipOverlay: "from-orange-500/18 to-amber-500/12 border-orange-300/18",
+    indicatorActive: "bg-orange-400",
+    modalAccent: "from-orange-400/20 via-amber-500/16 to-orange-600/18",
+    preview: "bg-[linear-gradient(135deg,#431407_0%,#ea580c_62%,#fdba74_100%)]",
+  },
+  {
+    key: "moon-aura",
+    category: "anime",
+    label: "Moon Aura",
+    chip: "Mystic silver-blue",
+    pageSurface: "bg-[linear-gradient(180deg,#060a19_0%,#1e1b4b_42%,#312e81_76%,#090d1d_100%)]",
+    pageGlow: "before:absolute before:inset-x-0 before:top-0 before:-z-10 before:h-[430px] before:bg-[radial-gradient(circle_at_top,rgba(165,180,252,0.18),transparent_58%)] after:absolute after:inset-x-0 after:bottom-0 after:-z-10 after:h-[320px] after:bg-[radial-gradient(circle_at_bottom,rgba(129,140,248,0.12),transparent_58%)]",
+    heroShell: "border-indigo-300/15 bg-[linear-gradient(135deg,rgba(8,14,39,0.98)_0%,rgba(49,46,129,0.92)_58%,rgba(99,102,241,0.82)_100%)] shadow-[0_0_0_1px_rgba(199,210,254,0.10),0_18px_42px_rgba(0,0,0,0.34),0_0_44px_rgba(99,102,241,0.14)]",
+    heroGlow: "bg-[radial-gradient(circle_at_top_left,rgba(224,231,255,0.18),transparent_30%),radial-gradient(circle_at_bottom_right,rgba(129,140,248,0.16),transparent_34%)]",
+    moneyTone: "blue",
+    moneyOverlay: "from-indigo-500/24 to-blue-500/18 border-indigo-300/24",
+    monthTone: "blue",
+    monthOverlay: "from-indigo-500/18 to-blue-500/12 border-indigo-300/18",
+    tipTone: "blue",
+    tipOverlay: "from-indigo-500/18 to-blue-500/12 border-indigo-300/18",
+    indicatorActive: "bg-indigo-400",
+    modalAccent: "from-indigo-400/20 via-blue-500/16 to-violet-500/18",
+    preview: "bg-[linear-gradient(135deg,#0b122e_0%,#4338ca_60%,#93c5fd_100%)]",
+  },
+  {
+    key: "spirit-sakura",
+    category: "anime",
+    label: "Spirit Sakura",
+    chip: "Pink + magenta bloom",
+    pageSurface: "bg-[linear-gradient(180deg,#2b0b1b_0%,#7a1638_42%,#db2777_76%,#2a0a18_100%)]",
+    pageGlow: "before:absolute before:inset-x-0 before:top-0 before:-z-10 before:h-[430px] before:bg-[radial-gradient(circle_at_top,rgba(244,114,182,0.18),transparent_58%)] after:absolute after:inset-x-0 after:bottom-0 after:-z-10 after:h-[320px] after:bg-[radial-gradient(circle_at_bottom,rgba(251,207,232,0.10),transparent_58%)]",
+    heroShell: "border-pink-300/15 bg-[linear-gradient(135deg,rgba(72,13,32,0.98)_0%,rgba(157,23,77,0.92)_58%,rgba(236,72,153,0.82)_100%)] shadow-[0_0_0_1px_rgba(251,207,232,0.10),0_18px_42px_rgba(0,0,0,0.34),0_0_44px_rgba(236,72,153,0.14)]",
+    heroGlow: "bg-[radial-gradient(circle_at_top_left,rgba(251,207,232,0.18),transparent_30%),radial-gradient(circle_at_bottom_right,rgba(244,114,182,0.16),transparent_34%)]",
+    moneyTone: "gold",
+    moneyOverlay: "from-pink-500/24 to-fuchsia-500/18 border-pink-300/24",
+    monthTone: "gold",
+    monthOverlay: "from-pink-500/18 to-fuchsia-500/12 border-pink-300/18",
+    tipTone: "gold",
+    tipOverlay: "from-pink-500/18 to-fuchsia-500/12 border-pink-300/18",
+    indicatorActive: "bg-pink-400",
+    modalAccent: "from-pink-400/20 via-fuchsia-500/16 to-rose-500/18",
+    preview: "bg-[linear-gradient(135deg,#4a1029_0%,#db2777_62%,#f9a8d4_100%)]",
+  },
+  {
+    key: "hero-red",
+    category: "marvel",
+    label: "Hero Red",
+    chip: "Iconic action red",
+    pageSurface: "bg-[linear-gradient(180deg,#060d1d_0%,#0d2145_36%,#3d111b_72%,#19080c_100%)]",
+    pageGlow: "before:absolute before:inset-x-0 before:top-0 before:-z-10 before:h-[430px] before:bg-[radial-gradient(circle_at_top,rgba(239,68,68,0.18),transparent_58%)] after:absolute after:inset-x-0 after:bottom-0 after:-z-10 after:h-[330px] after:bg-[radial-gradient(circle_at_bottom,rgba(59,130,246,0.14),transparent_58%)]",
+    heroShell: "border-red-300/15 bg-[linear-gradient(135deg,rgba(6,16,40,0.97)_0%,rgba(11,30,74,0.95)_42%,rgba(92,16,28,0.92)_72%,rgba(127,29,29,0.90)_100%)] shadow-[0_0_0_1px_rgba(255,255,255,0.03),0_18px_42px_rgba(0,0,0,0.34),0_0_52px_rgba(239,68,68,0.12),0_0_42px_rgba(59,130,246,0.10)]",
+    heroGlow: "bg-[radial-gradient(circle_at_top_left,rgba(59,130,246,0.22),transparent_30%),radial-gradient(circle_at_bottom_right,rgba(239,68,68,0.18),transparent_34%),radial-gradient(circle_at_center,rgba(255,255,255,0.06),transparent_58%)]",
+    moneyTone: "blue",
+    moneyOverlay: "from-blue-500/24 to-red-500/20 border-red-300/25",
+    monthTone: "blue",
+    monthOverlay: "from-red-500/14 to-blue-500/14 border-red-300/20",
+    tipTone: "gold",
+    tipOverlay: "from-amber-500/18 to-red-500/14 border-amber-300/20",
+    indicatorActive: "bg-red-400",
+    modalAccent: "from-blue-500/20 via-red-500/18 to-slate-200/10",
+    preview: "bg-[linear-gradient(135deg,#07122a_0%,#123a7a_40%,#7f1d1d_100%)]",
+  },
+  {
+    key: "gamma-smash",
+    category: "marvel",
+    label: "Gamma Smash",
+    chip: "Power green",
+    pageSurface: "bg-[linear-gradient(180deg,#071209_0%,#12321a_36%,#3f6212_72%,#10140b_100%)]",
+    pageGlow: "before:absolute before:inset-x-0 before:top-0 before:-z-10 before:h-[430px] before:bg-[radial-gradient(circle_at_top,rgba(132,204,22,0.18),transparent_58%)] after:absolute after:inset-x-0 after:bottom-0 after:-z-10 after:h-[320px] after:bg-[radial-gradient(circle_at_bottom,rgba(163,230,53,0.12),transparent_58%)]",
+    heroShell: "border-lime-300/15 bg-[linear-gradient(135deg,rgba(11,27,11,0.98)_0%,rgba(34,84,20,0.92)_58%,rgba(101,163,13,0.82)_100%)] shadow-[0_0_0_1px_rgba(217,249,157,0.08),0_18px_42px_rgba(0,0,0,0.34),0_0_44px_rgba(132,204,22,0.12)]",
+    heroGlow: "bg-[radial-gradient(circle_at_top_left,rgba(217,249,157,0.16),transparent_30%),radial-gradient(circle_at_bottom_right,rgba(132,204,22,0.16),transparent_34%)]",
+    moneyTone: "emerald",
+    moneyOverlay: "from-lime-500/24 to-emerald-500/18 border-lime-300/22",
+    monthTone: "emerald",
+    monthOverlay: "from-lime-500/16 to-emerald-500/12 border-lime-300/18",
+    tipTone: "emerald",
+    tipOverlay: "from-lime-500/16 to-emerald-500/12 border-lime-300/18",
+    indicatorActive: "bg-lime-400",
+    modalAccent: "from-lime-400/20 via-emerald-500/16 to-green-500/18",
+    preview: "bg-[linear-gradient(135deg,#0b1c0f_0%,#4d7c0f_62%,#bef264_100%)]",
+  },
+  {
+    key: "arc-reactor",
+    category: "marvel",
+    label: "Arc Reactor",
+    chip: "Tech cyan",
+    pageSurface: "bg-[linear-gradient(180deg,#03111a_0%,#083146_36%,#0e7490_72%,#06131d_100%)]",
+    pageGlow: "before:absolute before:inset-x-0 before:top-0 before:-z-10 before:h-[430px] before:bg-[radial-gradient(circle_at_top,rgba(34,211,238,0.18),transparent_58%)] after:absolute after:inset-x-0 after:bottom-0 after:-z-10 after:h-[320px] after:bg-[radial-gradient(circle_at_bottom,rgba(103,232,249,0.12),transparent_58%)]",
+    heroShell: "border-cyan-300/15 bg-[linear-gradient(135deg,rgba(6,22,36,0.98)_0%,rgba(8,83,118,0.92)_58%,rgba(34,211,238,0.78)_100%)] shadow-[0_0_0_1px_rgba(165,243,252,0.08),0_18px_42px_rgba(0,0,0,0.34),0_0_46px_rgba(34,211,238,0.14)]",
+    heroGlow: "bg-[radial-gradient(circle_at_top_left,rgba(165,243,252,0.16),transparent_30%),radial-gradient(circle_at_bottom_right,rgba(34,211,238,0.16),transparent_34%)]",
+    moneyTone: "teal",
+    moneyOverlay: "from-cyan-500/24 to-sky-500/18 border-cyan-300/22",
+    monthTone: "teal",
+    monthOverlay: "from-cyan-500/16 to-sky-500/12 border-cyan-300/18",
+    tipTone: "teal",
+    tipOverlay: "from-cyan-500/16 to-sky-500/12 border-cyan-300/18",
+    indicatorActive: "bg-cyan-400",
+    modalAccent: "from-cyan-400/20 via-sky-500/16 to-blue-500/18",
+    preview: "bg-[linear-gradient(135deg,#06273b_0%,#0891b2_62%,#67e8f9_100%)]",
+  },
+  {
+    key: "messenger",
+    category: "signature",
+    label: "Messenger Pulse",
+    chip: "Social neon",
+    pageSurface: "bg-[linear-gradient(180deg,#051624_0%,#0b2a44_34%,#1649a1_64%,#432785_100%)]",
+    pageGlow: "before:absolute before:inset-x-0 before:top-0 before:-z-10 before:h-[430px] before:bg-[radial-gradient(circle_at_top,rgba(34,211,238,0.18),transparent_58%)] after:absolute after:inset-x-0 after:bottom-0 after:-z-10 after:h-[320px] after:bg-[radial-gradient(circle_at_bottom,rgba(168,85,247,0.14),transparent_58%)]",
+    heroShell: "border-cyan-300/15 bg-[linear-gradient(135deg,rgba(4,18,38,0.97)_0%,rgba(8,47,73,0.95)_30%,rgba(37,99,235,0.90)_58%,rgba(168,85,247,0.84)_100%)] shadow-[0_0_0_1px_rgba(255,255,255,0.03),0_18px_42px_rgba(0,0,0,0.34),0_0_52px_rgba(34,211,238,0.12),0_0_42px_rgba(168,85,247,0.10)]",
+    heroGlow: "bg-[radial-gradient(circle_at_top_left,rgba(34,211,238,0.24),transparent_30%),radial-gradient(circle_at_bottom_right,rgba(168,85,247,0.18),transparent_34%),radial-gradient(circle_at_center,rgba(59,130,246,0.10),transparent_58%)]",
+    moneyTone: "teal",
+    moneyOverlay: "from-cyan-500/24 to-violet-500/18 border-cyan-300/28",
+    monthTone: "blue",
+    monthOverlay: "from-cyan-500/14 to-violet-500/14 border-cyan-300/20",
+    tipTone: "teal",
+    tipOverlay: "from-cyan-500/18 via-blue-500/14 to-violet-500/14 border-cyan-300/20",
+    indicatorActive: "bg-cyan-400",
+    modalAccent: "from-cyan-400/20 via-blue-500/18 to-violet-500/18",
+    preview: "bg-[linear-gradient(135deg,#05263b_0%,#2563eb_52%,#8b5cf6_100%)]",
+  },
+  {
+    key: "pirate-gold",
+    category: "signature",
+    label: "Pirate Gold",
+    chip: "Treasure mood",
+    pageSurface: "bg-[linear-gradient(180deg,#1c1208_0%,#5b3711_36%,#b45309_72%,#1f1007_100%)]",
+    pageGlow: "before:absolute before:inset-x-0 before:top-0 before:-z-10 before:h-[430px] before:bg-[radial-gradient(circle_at_top,rgba(245,158,11,0.22),transparent_58%)] after:absolute after:inset-x-0 after:bottom-0 after:-z-10 after:h-[320px] after:bg-[radial-gradient(circle_at_bottom,rgba(253,230,138,0.10),transparent_58%)]",
+    heroShell: "border-amber-300/15 bg-[linear-gradient(135deg,rgba(53,30,9,0.98)_0%,rgba(146,64,14,0.92)_58%,rgba(245,158,11,0.84)_100%)] shadow-[0_0_0_1px_rgba(252,211,77,0.08),0_18px_42px_rgba(0,0,0,0.34),0_0_44px_rgba(245,158,11,0.12)]",
+    heroGlow: "bg-[radial-gradient(circle_at_top_left,rgba(253,230,138,0.18),transparent_30%),radial-gradient(circle_at_bottom_right,rgba(245,158,11,0.16),transparent_34%)]",
+    moneyTone: "gold",
+    moneyOverlay: "from-amber-500/24 to-orange-500/18 border-amber-300/22",
+    monthTone: "gold",
+    monthOverlay: "from-amber-500/16 to-orange-500/12 border-amber-300/18",
+    tipTone: "gold",
+    tipOverlay: "from-amber-500/16 to-orange-500/12 border-amber-300/18",
+    indicatorActive: "bg-amber-400",
+    modalAccent: "from-amber-400/20 via-orange-500/16 to-yellow-500/18",
+    preview: "bg-[linear-gradient(135deg,#2a1807_0%,#d97706_62%,#fde68a_100%)]",
+  },
+];
+
+const getDashboardThemeStorageKey = (userId) =>
+  `clara_dashboard_theme_${userId || "guest"}`;
+
+function readStoredDashboardTheme(userId) {
+  try {
+    const raw = localStorage.getItem(getDashboardThemeStorageKey(userId));
+    const exists = DASHBOARD_THEME_PRESETS.some((theme) => theme.key === raw);
+    return exists ? raw : DASHBOARD_THEME_PRESETS[0].key;
+  } catch (error) {
+    console.error("Failed to read dashboard theme:", error);
+    return DASHBOARD_THEME_PRESETS[0].key;
+  }
+}
+
+function persistDashboardTheme(userId, themeKey) {
+  try {
+    localStorage.setItem(getDashboardThemeStorageKey(userId), themeKey);
+  } catch (error) {
+    console.error("Failed to save dashboard theme:", error);
+  }
+}
 
 const dispatchClaraEvent = (name) => {
   if (typeof window === "undefined") return;
@@ -960,6 +1427,10 @@ export default function Dashboard() {
   const [notificationSettings, setNotificationSettings] = useState(() =>
     readStoredNotificationSettings(userId)
   );
+  const [dashboardThemeKey, setDashboardThemeKey] = useState(() =>
+    readStoredDashboardTheme(userId)
+  );
+  const [showDashboardThemePicker, setShowDashboardThemePicker] = useState(false);
   const [financeCardIndex, setFinanceCardIndex] = useState(0);
   const [expandedFinanceCard, setExpandedFinanceCard] = useState(null);
   const [financeActionLoading, setFinanceActionLoading] = useState(false);
@@ -992,6 +1463,46 @@ export default function Dashboard() {
   });
 
   const dailyRemindersEnabled = notificationSettings?.dailyReminders !== false;
+  const selectedDashboardTheme = useMemo(() => {
+    return (
+      DASHBOARD_THEME_PRESETS.find((theme) => theme.key === dashboardThemeKey) ||
+      DASHBOARD_THEME_PRESETS[0]
+    );
+  }, [dashboardThemeKey]);
+  const themeIsLight = selectedDashboardTheme?.isLight === true;
+  const themePrimaryTextClass = themeIsLight ? "text-slate-900" : "text-white";
+  const themeSecondaryTextClass = themeIsLight ? "text-slate-700" : "text-white/82";
+  const themeMutedTextClass = themeIsLight ? "text-slate-600" : "text-white/75";
+  const themeSoftTextClass = themeIsLight ? "text-slate-500" : "text-white/55";
+  const themeGlassButtonClass = themeIsLight
+    ? "border-slate-300/60 bg-white/72 text-slate-800 shadow-[0_8px_22px_rgba(148,163,184,0.18)] hover:bg-white/90"
+    : "border-white/10 bg-white/10 text-white hover:bg-white/15";
+  const themeGlassIconButtonClass = themeIsLight
+    ? "border-slate-300/60 bg-white/78 text-slate-800 shadow-[0_8px_22px_rgba(148,163,184,0.18)] hover:bg-white/92"
+    : "border-white/10 bg-white/10 text-white hover:bg-white/15";
+  const themeQuickActionBaseClass = themeIsLight
+    ? "text-slate-700 hover:bg-slate-900/[0.04] hover:text-slate-900"
+    : "text-white/82 hover:bg-white/[0.06] hover:text-white";
+  const themeQuickActionPanelClass = themeIsLight
+    ? "border-slate-300/55 bg-[linear-gradient(135deg,rgba(255,255,255,0.92),rgba(239,246,255,0.95))] shadow-[0_0_0_1px_rgba(148,163,184,0.18),0_18px_40px_rgba(15,23,42,0.10)]"
+    : selectedDashboardTheme.heroShell;
+  const themeQuickActionGlowClass = themeIsLight
+    ? "bg-[radial-gradient(circle_at_top_left,rgba(255,255,255,0.55),transparent_34%),radial-gradient(circle_at_bottom_right,rgba(191,219,254,0.24),transparent_40%)]"
+    : selectedDashboardTheme.heroGlow;
+  const themeQuickActionIconShellClass = themeIsLight
+    ? "border-slate-300/60 bg-[linear-gradient(180deg,rgba(255,255,255,0.98),rgba(241,245,249,0.90))] text-slate-700 shadow-[inset_0_1px_0_rgba(255,255,255,0.85),0_10px_18px_rgba(148,163,184,0.16)] group-hover:border-slate-400/60 group-hover:bg-white"
+    : "border-white/10 bg-[linear-gradient(180deg,rgba(255,255,255,0.08),rgba(255,255,255,0.03))] text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.08),0_0_18px_rgba(255,255,255,0.04)] group-hover:border-white/20 group-hover:bg-white/[0.10]";
+  const themeDividerClass = themeIsLight ? "via-slate-300/50" : "via-white/10";
+  const themeInactiveDotClass = themeIsLight ? "bg-slate-400/35 hover:bg-slate-500/55" : "bg-white/20 hover:bg-white/35";
+
+  const groupedDashboardThemes = useMemo(() => {
+    return DASHBOARD_THEME_CATEGORY_ORDER.map((categoryKey) => ({
+      key: categoryKey,
+      label: DASHBOARD_THEME_CATEGORY_LABELS[categoryKey] || categoryKey,
+      items: DASHBOARD_THEME_PRESETS.filter((theme) => theme.category === categoryKey),
+    })).filter((group) => group.items.length > 0);
+  }, []);
+
 
   const refreshTimeoutRef = useRef(null);
   const financeCarouselRef = useRef(null);
@@ -1046,6 +1557,14 @@ export default function Dashboard() {
   useEffect(() => {
     setNotificationSettings(readStoredNotificationSettings(userId));
   }, [userId]);
+  useEffect(() => {
+    setDashboardThemeKey(readStoredDashboardTheme(userId));
+  }, [userId]);
+
+  useEffect(() => {
+    persistDashboardTheme(userId, dashboardThemeKey);
+  }, [dashboardThemeKey, userId]);
+
 
   useEffect(() => {
     const syncNotificationSettings = () => {
@@ -3052,11 +3571,11 @@ export default function Dashboard() {
   }
 
   return (
-    <div className="relative isolate z-0 min-h-full">
+    <div className={`relative isolate z-0 min-h-full overflow-hidden ${selectedDashboardTheme.pageSurface || "bg-[#061018]"} ${selectedDashboardTheme.pageGlow}`}>
       <div className="px-4 pb-2 pt-3 md:px-6">
         <div className="mx-auto max-w-4xl">
-          <div className="relative w-full overflow-hidden rounded-[24px] border border-white/10 bg-[linear-gradient(135deg,rgba(10,25,60,0.95)_0%,rgba(8,20,40,0.95)_38%,rgba(38,18,46,0.94)_66%,rgba(92,16,28,0.72)_100%)] px-2 py-2 shadow-[0_0_0_1px_rgba(255,255,255,0.03),0_14px_34px_rgba(0,0,0,0.35),0_0_40px_rgba(59,130,246,0.08),0_0_30px_rgba(220,38,38,0.06)] backdrop-blur-xl sm:px-2.5">
-            <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(59,130,246,0.18),transparent_34%),radial-gradient(circle_at_bottom_right,rgba(220,38,38,0.13),transparent_38%),radial-gradient(circle_at_center,rgba(250,204,21,0.06),transparent_58%)]" />
+          <div className={`relative w-full overflow-hidden rounded-[24px] px-2 py-2 backdrop-blur-xl sm:px-2.5 ${themeQuickActionPanelClass}`}>
+            <div className={`pointer-events-none absolute inset-0 ${themeQuickActionGlowClass}`} />
             <div className="pointer-events-none absolute inset-0 opacity-[0.10] bg-[linear-gradient(115deg,transparent_0%,rgba(255,255,255,0.18)_18%,transparent_36%,transparent_64%,rgba(255,255,255,0.10)_82%,transparent_100%)]" />
             <div className="pointer-events-none absolute inset-x-6 top-0 h-px bg-gradient-to-r from-transparent via-white/25 to-transparent" />
 
@@ -3085,10 +3604,10 @@ export default function Dashboard() {
                       className="group flex-1"
                       aria-label={item.label}
                     >
-                      <div className="relative flex w-full flex-col items-center justify-center gap-1 rounded-[16px] px-1 py-2 text-white/82 transition duration-200 hover:-translate-y-[1px] hover:bg-white/[0.06] hover:text-white active:scale-[0.985] sm:px-2">
-                        <div className="pointer-events-none absolute inset-0 rounded-[16px] opacity-0 transition duration-200 group-hover:opacity-100 bg-[radial-gradient(circle_at_top,rgba(255,255,255,0.08),transparent_55%)]" />
+                      <div className={`relative flex w-full flex-col items-center justify-center gap-1 rounded-[16px] px-1 py-2 transition duration-200 hover:-translate-y-[1px] active:scale-[0.985] sm:px-2 ${themeQuickActionBaseClass}`}>
+                        <div className={`pointer-events-none absolute inset-0 rounded-[16px] opacity-0 transition duration-200 group-hover:opacity-100 ${themeIsLight ? "bg-[radial-gradient(circle_at_top,rgba(148,163,184,0.12),transparent_55%)]" : "bg-[radial-gradient(circle_at_top,rgba(255,255,255,0.08),transparent_55%)]"}`} />
 
-                        <div className={`relative flex h-10 w-10 items-center justify-center rounded-full border border-white/10 bg-[linear-gradient(180deg,rgba(255,255,255,0.08),rgba(255,255,255,0.03))] shadow-[inset_0_1px_0_rgba(255,255,255,0.08),0_0_18px_rgba(255,255,255,0.04)] transition duration-200 group-hover:border-white/20 group-hover:bg-white/[0.10] ${iconHoverGlow}`}>
+                        <div className={`relative flex h-10 w-10 items-center justify-center rounded-full border transition duration-200 ${themeQuickActionIconShellClass} ${iconHoverGlow}`}>
                           <Icon className="h-5 w-5" />
 
                           {item.badge?.type === "count" ? (
@@ -3110,14 +3629,14 @@ export default function Dashboard() {
                           ) : null}
                         </div>
 
-                        <span className="max-w-full truncate text-[11px] font-medium leading-none">
+                        <span className={`max-w-full truncate text-[11px] font-medium leading-none ${themeSecondaryTextClass}`}>
                           {item.label}
                         </span>
                       </div>
                     </Link>
 
                     {index < headerQuickActions.length - 1 ? (
-                      <div className="pointer-events-none mx-0.5 hidden h-10 w-px shrink-0 bg-gradient-to-b from-transparent via-white/10 to-transparent sm:block" />
+                      <div className={`pointer-events-none mx-0.5 hidden h-10 w-px shrink-0 bg-gradient-to-b from-transparent ${themeDividerClass} to-transparent sm:block`} />
                     ) : null}
                   </div>
                 );
@@ -3243,13 +3762,13 @@ export default function Dashboard() {
         {!!user && (
           <div className="space-y-2">
             <FinanceInlineAlert notice={financeNotice} onClose={closeFinanceNotice} />
-            <div className="overflow-hidden">
+            <div className="overflow-hidden rounded-[30px]">
               <div
                 ref={financeCarouselRef}
-                className="-mx-4 flex snap-x snap-mandatory overflow-x-auto overflow-y-visible px-4 pb-0 pt-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+                className="flex items-stretch snap-x snap-mandatory overflow-x-auto overflow-y-hidden [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
               >
-                <div className="w-full shrink-0 snap-center">
-                  <div className={getFinanceSlideShellClass("emergency")}>
+                <div className="flex w-full shrink-0 snap-center">
+                  <div className={getFinanceSlideShellClass("emergency", selectedDashboardTheme)}>
                     <EmergencyFundCard
                     moneyLeft={walletMoney}
                     survivalExpense={survivalExpense}
@@ -3278,8 +3797,8 @@ export default function Dashboard() {
                   </div>
                 </div>
 
-                <div className="w-full shrink-0 snap-center">
-                  <div className={getFinanceSlideShellClass("wallets")}>
+                <div className="flex w-full shrink-0 snap-center">
+                  <div className={getFinanceSlideShellClass("wallets", selectedDashboardTheme)}>
                     <WalletCard
                     wallets={wallets}
                     walletMoney={walletMoney}
@@ -3296,8 +3815,8 @@ export default function Dashboard() {
                   </div>
                 </div>
 
-                <div className="w-full shrink-0 snap-center">
-                  <div className={getFinanceSlideShellClass("budgets")}>
+                <div className="flex w-full shrink-0 snap-center">
+                  <div className={getFinanceSlideShellClass("budgets", selectedDashboardTheme)}>
                     <BudgetCard
                     activeBudget={derivedActiveBudget}
                     expanded={expandedFinanceCard === "budgets"}
@@ -3309,8 +3828,8 @@ export default function Dashboard() {
                   </div>
                 </div>
 
-                <div className="w-full shrink-0 snap-center">
-                  <div className={getFinanceSlideShellClass("savings")}>
+                <div className="flex w-full shrink-0 snap-center">
+                  <div className={getFinanceSlideShellClass("savings", selectedDashboardTheme)}>
                     <SavingsCard
                     savingsGoals={savingsGoals}
                     totalSavingsSaved={totalSavingsSaved}
@@ -3328,7 +3847,7 @@ export default function Dashboard() {
               </div>
             </div>
 
-            <div className="flex items-center justify-center gap-1.5">
+            <div className="flex items-center justify-center gap-1.5 pt-0.5">
               {financeCards.map((cardKey, index) => (
                 <button
                   key={cardKey}
@@ -3337,8 +3856,8 @@ export default function Dashboard() {
                   aria-label={`Go to ${cardKey} card`}
                   className={`h-2 rounded-full transition-all duration-200 ${
                     financeCardIndex === index
-                      ? "w-5 bg-emerald-400"
-                      : "w-2 bg-white/20 hover:bg-white/35"
+                      ? `w-5 ${selectedDashboardTheme.indicatorActive || "bg-emerald-400"}`
+                      : `w-2 ${themeInactiveDotClass}`
                   }`}
                 />
               ))}
@@ -3347,41 +3866,50 @@ export default function Dashboard() {
         )}
 
         <div
-          className={`${getDashboardGlowCardClass("emerald")} p-4 ${moneyLeftTone}`}
+          className={`${getDashboardGlowCardClass(selectedDashboardTheme.moneyTone || "emerald")} p-4 ${selectedDashboardTheme.moneyOverlay || moneyLeftTone}`}
         >
           <div className="flex items-start justify-between gap-3">
             <div className="min-w-0 flex-1">
-              <p className="text-xs uppercase tracking-[0.18em] text-white/55">
+              <p className={`text-xs uppercase tracking-[0.18em] ${themeSoftTextClass}`}>
                 Money Left
               </p>
-              <h2 className="mt-1 text-3xl font-bold text-white">
+              <h2 className={`mt-1 text-3xl font-bold ${themePrimaryTextClass}`}>
                 {fmt(walletMoney)}
               </h2>
-              <p className="mt-1 max-w-[28rem] text-sm text-white/75">
+              <p className={`mt-1 max-w-[28rem] text-sm ${themeMutedTextClass}`}>
                 {moneyLeftStatus}
               </p>
             </div>
 
             <div className="flex shrink-0 flex-col items-end gap-2">
-              <div className="rounded-full border border-white/10 bg-white/10 px-3 py-1 text-xs font-semibold text-white">
-                {moneyLeftBadge}
-              </div>
-              <div className="flex h-11 w-11 items-center justify-center rounded-2xl border border-white/10 bg-white/10">
-                <PiggyBank className="h-5 w-5 text-white" />
-              </div>
+              <button
+                type="button"
+                onClick={() => setShowDashboardThemePicker(true)}
+                className={`rounded-full border px-3 py-1 text-xs font-semibold transition ${themeGlassButtonClass}` }
+              >
+                {selectedDashboardTheme.label}
+              </button>
+              <button
+                type="button"
+                onClick={() => setShowDashboardThemePicker(true)}
+                className={`flex h-11 w-11 items-center justify-center rounded-2xl border transition hover:scale-[1.02] ${themeGlassIconButtonClass}` }
+                aria-label="Open dashboard theme picker"
+              >
+                <Palette className={`h-5 w-5 ${themeIsLight ? "text-slate-700" : "text-white"}`} />
+              </button>
             </div>
           </div>
 
           {safeSurvivalExpense > 0 && (
             <div className="mt-3">
               <div className="rounded-2xl border border-white/10 bg-black/20 px-3 py-2.5">
-                <p className="text-[11px] uppercase tracking-wide text-white/50">
+                <p className={`text-[11px] uppercase tracking-wide ${themeIsLight ? "text-slate-500" : "text-white/50"}`}>
                   {moneyInsightLabel}
                 </p>
-                <p className="mt-1 text-sm font-semibold text-white">
+                <p className={`mt-1 text-sm font-semibold ${themePrimaryTextClass}`}>
                   {moneyInsightValue}
                 </p>
-                <p className="mt-1 text-[11px] leading-relaxed text-white/55">
+                <p className={`mt-1 text-[11px] leading-relaxed ${themeSoftTextClass}`}>
                   {moneyInsightSub}
                 </p>
               </div>
@@ -3389,288 +3917,151 @@ export default function Dashboard() {
           )}
         </div>
 
-        <div className="grid grid-cols-2 gap-3 auto-rows-fr">
-          <StatCard
-            label="Left This Month"
-            value={fmt(moneyLeftThisMonth)}
-            sub={
-              thisMonthIncome > 0
-                ? `${fmt(thisMonthIncome)} in - ${fmt(thisMonthSpent)} out`
-                : "Add funds to activate this month's view"
-            }
-            icon={moneyLeftThisMonth >= 0 ? ArrowUp : TrendingDown}
-            variant={moneyLeftThisMonth >= 0 ? "green" : "blue"}
-            className={`${getDashboardGlowCardClass(moneyLeftThisMonth >= 0 ? "emerald" : "blue")} min-h-[208px] p-4`}
-          />
-
-          {activeTask ? (
-            <Link to="/tasks" className="block h-full">
-              <div className="flex h-full min-h-[208px] flex-col rounded-[26px] border border-white/10 bg-[radial-gradient(circle_at_top_left,rgba(52,211,153,0.16),transparent_34%),radial-gradient(circle_at_bottom_right,rgba(34,197,94,0.14),transparent_42%),linear-gradient(135deg,rgba(11,18,40,0.98)_0%,rgba(10,31,45,0.96)_52%,rgba(16,73,58,0.9)_100%)] p-4 shadow-[0_22px_60px_rgba(16,185,129,0.15)]">
-                <div className="flex items-start justify-between gap-3">
-                  <div className="min-w-0 flex-1">
-                    <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-emerald-200/80">
-                      Today's Task
-                    </p>
-                    <p className="mt-2 text-sm font-semibold leading-snug text-white">
-                      {missionTitle}
-                    </p>
-                    <p className="mt-1 text-xs text-white/55">{missionLabel}</p>
-                  </div>
-
-                  <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border border-white/10 bg-white/10">
-                    <Sparkles className="h-4 w-4 text-emerald-200" />
-                  </div>
-                </div>
-
-                <div className="mt-auto pt-4">
-                  {loading && (
-                    <p className="text-[11px] text-white/35">Refreshing...</p>
-                  )}
-                </div>
-              </div>
-            </Link>
-          ) : (
-            <div className="flex min-h-[208px] items-center rounded-[26px] border border-white/10 bg-[radial-gradient(circle_at_top_left,rgba(59,130,246,0.12),transparent_34%),radial-gradient(circle_at_bottom_right,rgba(16,185,129,0.1),transparent_42%),linear-gradient(135deg,rgba(11,18,40,0.96),rgba(10,20,48,0.94)_54%,rgba(7,18,34,0.96))] p-4 text-xs leading-6 text-white/60 shadow-[0_20px_55px_rgba(59,130,246,0.14)]">
-              {loading
-                ? "Loading your guided path..."
-                : "Your guided program will appear here once your next task is ready."}
-            </div>
-          )}
-        </div>
-
-        <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
-          <div className={`${getDashboardGlowCardClass("blue")} p-4`}>
-            <div className="mb-3 flex items-center justify-between gap-3">
-              <div>
-                <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-white/55">
-                  Wallet Overview
-                </p>
-                <p className="mt-1 text-lg font-bold text-white">{fmt(walletMoney)}</p>
-              </div>
-              <WalletCards className="h-5 w-5 text-cyan-200" />
-            </div>
-
-            {wallets.length > 0 ? (
-              <div className="space-y-2">
-                {wallets.slice(0, 5).map((wallet) => (
-                  <div
-                    key={wallet.id}
-                    className="flex items-center justify-between gap-3 rounded-2xl border border-white/10 bg-white/[0.04] px-3 py-2"
-                  >
-                    <span className="min-w-0 truncate text-sm font-medium text-white/85">
-                      {getWalletDisplayName(wallet)}
-                    </span>
-                    <span className="shrink-0 text-sm font-bold text-white">
-                      {fmt(getWalletDisplayBalance(wallet))}
-                    </span>
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <p className="rounded-2xl border border-white/10 bg-white/[0.04] px-3 py-4 text-sm text-white/55">
-                Create a wallet to start tracking real balances.
+        <div
+          className={`${getDashboardGlowCardClass(
+            selectedDashboardTheme.monthTone || "blue"
+          )} border ${selectedDashboardTheme.monthOverlay || "border-white/10 bg-gradient-to-br from-white/[0.04] to-white/[0.01]"} p-4`}
+        >
+          <div className="flex items-start justify-between gap-3">
+            <div className="min-w-0 flex-1">
+              <p className={`text-xs uppercase tracking-[0.18em] ${themeSoftTextClass}`}>
+                Total Expense
               </p>
-            )}
-          </div>
-
-          <div className={`${getDashboardGlowCardClass("yellow")} p-4`}>
-            <div className="mb-3 flex items-center justify-between gap-3">
-              <div>
-                <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-white/55">
-                  Budget Watch
-                </p>
-                <p className="mt-1 text-sm text-white/65">
-                  Category usage from this month
-                </p>
-              </div>
-              <Target className="h-5 w-5 text-yellow-200" />
-            </div>
-
-            {budgetSummaries.length > 0 ? (
-              <div className="space-y-3">
-                {budgetSummaries.map((budget) => {
-                  const danger = budget.pct >= 100;
-                  const warning = budget.pct >= 80 && !danger;
-                  return (
-                    <div key={budget.category} className="space-y-1.5">
-                      <div className="flex items-center justify-between gap-3">
-                        <span className="text-sm font-medium capitalize text-white/85">
-                          {budget.category}
-                        </span>
-                        <span
-                          className={`text-xs font-semibold ${
-                            danger
-                              ? "text-rose-200"
-                              : warning
-                                ? "text-yellow-200"
-                                : "text-white/70"
-                          }`}
-                        >
-                          {fmt(budget.used)} / {fmt(budget.allocated)}
-                        </span>
-                      </div>
-                      <div className="h-2 overflow-hidden rounded-full bg-white/10">
-                        <div
-                          className={`h-full rounded-full ${
-                            danger
-                              ? "bg-rose-400"
-                              : warning
-                                ? "bg-yellow-300"
-                                : "bg-emerald-400"
-                          }`}
-                          style={{ width: `${Math.min(budget.pct, 100)}%` }}
-                        />
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            ) : (
-              <p className="rounded-2xl border border-white/10 bg-white/[0.04] px-3 py-4 text-sm text-white/55">
-                Create a category budget to see usage alerts here.
+              <h2 className={`mt-1 text-3xl font-bold ${themePrimaryTextClass}`}>
+                {fmt(thisMonthSpent)}
+              </h2>
+              <p className={`mt-1 max-w-[28rem] text-sm ${themeMutedTextClass}`}>
+                {thisMonthSpent > 0
+                  ? `Tracked spending this month. Income: ${fmt(thisMonthIncome)}`
+                  : "Your recorded spending for this month will appear here."}
               </p>
-            )}
+            </div>
           </div>
         </div>
 
-        <div className={`${getDashboardGlowCardClass("emerald")} p-4`}>
-          <div className="mb-3 flex items-center justify-between gap-3">
-            <div>
-              <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-white/55">
-                Recent Transactions
-              </p>
-              <p className="mt-1 text-sm text-white/65">
-                Expenses and wallet activity from Supabase
-              </p>
-            </div>
-            <Clock className="h-5 w-5 text-emerald-200" />
+        <div
+          className={`${getDashboardGlowCardClass(
+            selectedDashboardTheme.tipTone || "emerald"
+          )} border ${selectedDashboardTheme.tipOverlay || "border-white/10 bg-gradient-to-br from-white/[0.04] to-white/[0.01]"} p-[1px]`}
+        >
+          <div className="overflow-hidden rounded-[27px]">
+            <DailyTipCard
+              isPaid={isPaid}
+              isPending={isPending}
+              isFree={isFree}
+              user={user}
+            />
           </div>
-
-          {dashboardTransactions.length > 0 ? (
-            <div className="space-y-4">
-              {["Today", "This Week", "This Month", "Older"].map((group) => {
-                const items = groupedDashboardTransactions[group] || [];
-                if (!items.length) return null;
-
-                return (
-                  <div key={group} className="space-y-2">
-                    <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-white/45">
-                      {group}
-                    </p>
-                    <div className="space-y-2">
-                      {items.slice(0, 5).map((transaction) => {
-                        const prefix = getHistoryAmountPrefix(transaction.type);
-                        const negative = prefix === "-";
-                        return (
-                          <div
-                            key={transaction.id}
-                            className="flex items-center justify-between gap-3 rounded-2xl border border-white/10 bg-white/[0.04] px-3 py-2.5"
-                          >
-                            <div className="min-w-0">
-                              <p className="truncate text-sm font-semibold text-white/90">
-                                {transaction.title}
-                              </p>
-                              <p className="truncate text-[11px] text-white/45">
-                                {transaction.description || formatHistoryDate(transaction.date)}
-                              </p>
-                            </div>
-                            <span
-                              className={`shrink-0 text-sm font-bold ${
-                                negative ? "text-rose-200" : "text-emerald-200"
-                              }`}
-                            >
-                              {prefix}
-                              {fmt(transaction.amount)}
-                            </span>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          ) : (
-            <p className="rounded-2xl border border-white/10 bg-white/[0.04] px-3 py-4 text-sm text-white/55">
-              Your real transaction history will appear here after your first wallet action.
-            </p>
-          )}
-        </div>
-
-        <div className={getDashboardGlowCardClass("emerald")}>
-          <DailyTipCard
-            isPaid={isPaid}
-            isPending={isPending}
-            isFree={isFree}
-            user={user}
-          />
         </div>
       </div>
 
-      <TaskReminderPrompt
-        visible={canShowTaskReminderPrompt ? taskReminder.visible : false}
-        task={activeTask}
-        reminderWindow={taskReminder.reminderWindow}
-        nextReminderWindow={taskReminder.nextReminderWindow}
-        snoozeChoices={taskReminder.snoozeChoices}
-        loading={taskReminder.actionLoading || taskReminder.stateLoading}
-        onOpen={async () => {
-          await taskReminder.acknowledgeReminder();
-          navigate("/tasks?open=today");
-        }}
-        onDismiss={taskReminder.dismissReminder}
-        onSnooze={taskReminder.snoozeReminder}
-      />
 
-      {dailyRemindersEnabled &&
-        hasPaidProgramAccess &&
-        floatingProgramBubble &&
-        !programPromptSeenThisSession &&
-        showProgramStart &&
-        !showOnboarding && (
-          <div className="fixed bottom-24 right-4 z-[90] w-[90%] max-w-[320px] animate-bounce md:bottom-8 md:right-5">
-            <div className="rounded-3xl border border-white/10 bg-[#06111F]/95 p-4 shadow-[0_20px_60px_rgba(0,0,0,0.28)] backdrop-blur-xl">
-              <div className="flex items-start gap-3">
-                <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-white/10 text-white animate-bounce">
-                  <Bell className="h-5 w-5" />
+      {showDashboardThemePicker && (
+        <div className="fixed inset-0 z-[130] flex items-end justify-center bg-black/70 px-4 pb-4 pt-10 backdrop-blur-md sm:items-center sm:p-4">
+          <div className="w-full max-w-2xl overflow-hidden rounded-[28px] border border-white/10 bg-[#071120]/95 shadow-[0_25px_80px_rgba(0,0,0,0.45)]">
+            <div className={`border-b border-white/10 bg-[linear-gradient(135deg,rgba(255,255,255,0.06),rgba(255,255,255,0.02))] px-5 py-4`}>
+              <div className="flex items-start justify-between gap-4">
+                <div>
+                  <h3 className="text-lg font-semibold text-white">Dashboard Theme Studio</h3>
+                  <p className="mt-1 text-sm leading-6 text-white/65">Choose from Classic pure colors, Aesthetic blends, Anime-inspired moods, Marvel-inspired power palettes, and Signature looks. Every selection updates the full dashboard background, money cards, bars, and daily tip styling.</p>
                 </div>
-
-                <div className="min-w-0 flex-1">
-                  <h3 className="text-sm font-bold leading-snug text-white">
-                    {floatingProgramBubble?.title || standardPromptTitle}
-                  </h3>
-                  <p className="mt-1 text-xs leading-relaxed text-white/70">
-                    {floatingProgramBubble?.body || standardPromptBody}
-                  </p>
-
-                  <div className="mt-3 flex items-center gap-2">
-                    <button
-                      onClick={startProgramFlow}
-                      className="inline-flex items-center gap-2 rounded-xl bg-white px-3.5 py-2 text-xs font-semibold text-slate-950 transition hover:scale-[1.02]"
-                    >
-                      <Rocket className="h-3.5 w-3.5" />
-                      {floatingProgramBubble?.ctaLabel || standardPromptButton}
-                    </button>
-
-                    <button
-                      onClick={closeProgramStart}
-                      className="rounded-xl border border-white/10 px-3 py-2 text-xs font-medium text-white/70 transition hover:bg-white/5"
-                    >
-                      Dismiss
-                    </button>
-                  </div>
-                </div>
-
                 <button
-                  onClick={closeProgramStart}
-                  className="rounded-full p-1 text-white/45 transition hover:bg-white/5 hover:text-white"
+                  type="button"
+                  onClick={() => setShowDashboardThemePicker(false)}
+                  className="rounded-full border border-white/10 bg-white/5 p-2 text-white/70 transition hover:bg-white/10 hover:text-white"
+                  aria-label="Close dashboard theme picker"
                 >
                   <X className="h-4 w-4" />
                 </button>
               </div>
             </div>
+
+            <div className="max-h-[75vh] overflow-y-auto px-5 py-5">
+              <div className="space-y-5">
+                {groupedDashboardThemes.map((group) => (
+                  <div key={group.key} className="space-y-3">
+                    <div className="flex items-center justify-between gap-3">
+                      <div>
+                        <h4 className="text-sm font-semibold uppercase tracking-[0.18em] text-white/62">
+                          {group.label}
+                        </h4>
+                        <p className="mt-1 text-xs text-white/45">
+                          {group.key === "classic"
+                            ? "Pure color themes with minimal mixing."
+                            : group.key === "aesthetic"
+                            ? "Blended moods and stylish combinations."
+                            : group.key === "anime"
+                            ? "Inspired dramatic palettes with strong visual emotion."
+                            : group.key === "marvel"
+                            ? "Hero-style power colors and bold contrast."
+                            : "Extra signature looks for standout identity."}
+                        </p>
+                      </div>
+                      <span className="rounded-full border border-white/10 bg-white/[0.04] px-2.5 py-1 text-[11px] font-medium text-white/55">
+                        {group.items.length} themes
+                      </span>
+                    </div>
+
+                    <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                      {group.items.map((theme) => {
+                        const active = theme.key === selectedDashboardTheme.key;
+
+                        return (
+                          <button
+                            key={theme.key}
+                            type="button"
+                            onClick={() => setDashboardThemeKey(theme.key)}
+                            className={`rounded-[24px] border p-3 text-left transition ${
+                              active
+                                ? "border-emerald-300/45 bg-white/10 shadow-[0_0_0_1px_rgba(110,231,183,0.14),0_20px_45px_rgba(0,0,0,0.22)]"
+                                : "border-white/10 bg-white/[0.03] hover:border-white/20 hover:bg-white/[0.05]"
+                            }`}
+                          >
+                            <div className={`h-24 rounded-[18px] border border-white/10 ${theme.preview}`} />
+                            <div className="mt-3 flex items-start justify-between gap-3">
+                              <div>
+                                <p className="text-sm font-semibold text-white">{theme.label}</p>
+                                <p className="mt-1 text-xs text-white/55">{theme.chip}</p>
+                              </div>
+                              <div
+                                className={`mt-0.5 flex h-6 w-6 items-center justify-center rounded-full border ${
+                                  active
+                                    ? "border-emerald-300/50 bg-emerald-400/20 text-emerald-200"
+                                    : "border-white/12 bg-white/5 text-transparent"
+                                }`}
+                              >
+                                <Check className="h-3.5 w-3.5" />
+                              </div>
+                            </div>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <div className="flex flex-col-reverse gap-3 border-t border-white/10 px-5 py-4 sm:flex-row sm:justify-end">
+              <button
+                type="button"
+                onClick={() => setDashboardThemeKey(DASHBOARD_THEME_PRESETS[0].key)}
+                className="rounded-2xl border border-white/10 bg-white/[0.04] px-4 py-3 text-sm font-medium text-white/75 transition hover:bg-white/[0.08] hover:text-white"
+              >
+                Reset to default
+              </button>
+              <button
+                type="button"
+                onClick={() => setShowDashboardThemePicker(false)}
+                className="rounded-2xl bg-gradient-to-r from-emerald-400 via-emerald-500 to-green-600 px-4 py-3 text-sm font-semibold text-white shadow-[0_10px_30px_rgba(16,185,129,0.24)]"
+              >
+                Done
+              </button>
+            </div>
           </div>
-        )}
+        </div>
+      )}
+
 
       {showOnboarding && (
         <div

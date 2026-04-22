@@ -1,5 +1,12 @@
 import { Link, useLocation, useNavigate } from "react-router-dom";
-import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import {
+  memo,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import {
   LayoutDashboard,
   Receipt,
@@ -49,6 +56,401 @@ const BOTTOM_ITEMS = [
   { path: "/analytics", label: "Analytics", icon: BarChart2 },
 ];
 
+const DASHBOARD_THEME_STORAGE_PREFIX = "clara_dashboard_theme_";
+
+const DEFAULT_NAV_THEME = {
+  accent: "#34d399",
+  accentEnd: "#059669",
+  accentSoft: "rgba(52, 211, 153, 0.12)",
+  accentBorder: "rgba(52, 211, 153, 0.18)",
+  accentGlow: "rgba(52, 211, 153, 0.28)",
+  shellStart: "rgba(11, 18, 32, 0.92)",
+  shellEnd: "rgba(11, 18, 32, 0.74)",
+  surfaceGlowFrom: "rgba(52, 211, 153, 0.06)",
+  surfaceGlowMid: "rgba(255, 255, 255, 0.02)",
+  surfaceGlowTo: "rgba(59, 130, 246, 0.06)",
+  panelStart: "rgba(11, 18, 32, 0.98)",
+  panelEnd: "rgba(11, 18, 32, 0.94)",
+  panelBorder: "rgba(255, 255, 255, 0.10)",
+  fabRing: "rgba(11, 18, 32, 0.96)",
+  mutedText: "rgba(255, 255, 255, 0.64)",
+  strongText: "#ffffff",
+};
+
+const THEME_PALETTE_MAP = {
+  obsidian: {
+    accent: "#ffffff",
+    accentEnd: "#cbd5e1",
+    accentSoft: "rgba(255, 255, 255, 0.10)",
+    accentBorder: "rgba(255, 255, 255, 0.18)",
+    accentGlow: "rgba(255, 255, 255, 0.18)",
+    shellStart: "rgba(10, 13, 18, 0.94)",
+    shellEnd: "rgba(10, 13, 18, 0.78)",
+    surfaceGlowFrom: "rgba(255, 255, 255, 0.05)",
+    surfaceGlowMid: "rgba(255, 255, 255, 0.02)",
+    surfaceGlowTo: "rgba(148, 163, 184, 0.05)",
+  },
+  arctic: {
+    accent: "#475569",
+    accentEnd: "#64748b",
+    accentSoft: "rgba(71, 85, 105, 0.12)",
+    accentBorder: "rgba(71, 85, 105, 0.20)",
+    accentGlow: "rgba(148, 163, 184, 0.20)",
+    shellStart: "rgba(255, 255, 255, 0.90)",
+    shellEnd: "rgba(237, 245, 255, 0.82)",
+    surfaceGlowFrom: "rgba(191, 219, 254, 0.14)",
+    surfaceGlowMid: "rgba(255, 255, 255, 0.28)",
+    surfaceGlowTo: "rgba(203, 213, 225, 0.14)",
+    panelStart: "rgba(255, 255, 255, 0.94)",
+    panelEnd: "rgba(241, 245, 249, 0.92)",
+    panelBorder: "rgba(148, 163, 184, 0.22)",
+    fabRing: "rgba(226, 232, 240, 0.96)",
+    mutedText: "rgba(51, 65, 85, 0.76)",
+    strongText: "#0f172a",
+  },
+  royal: {
+    accent: "#60a5fa",
+    accentEnd: "#2563eb",
+    accentSoft: "rgba(96, 165, 250, 0.14)",
+    accentBorder: "rgba(147, 197, 253, 0.24)",
+    accentGlow: "rgba(96, 165, 250, 0.24)",
+    shellStart: "rgba(10, 37, 90, 0.94)",
+    shellEnd: "rgba(11, 27, 59, 0.78)",
+    surfaceGlowFrom: "rgba(96, 165, 250, 0.10)",
+    surfaceGlowMid: "rgba(255, 255, 255, 0.02)",
+    surfaceGlowTo: "rgba(37, 99, 235, 0.08)",
+  },
+  emerald: {
+    accent: "#34d399",
+    accentEnd: "#059669",
+    accentSoft: "rgba(52, 211, 153, 0.12)",
+    accentBorder: "rgba(110, 231, 183, 0.20)",
+    accentGlow: "rgba(16, 185, 129, 0.26)",
+    shellStart: "rgba(6, 44, 33, 0.94)",
+    shellEnd: "rgba(8, 28, 22, 0.78)",
+    surfaceGlowFrom: "rgba(52, 211, 153, 0.08)",
+    surfaceGlowMid: "rgba(255, 255, 255, 0.02)",
+    surfaceGlowTo: "rgba(16, 185, 129, 0.08)",
+  },
+  crimson: {
+    accent: "#f87171",
+    accentEnd: "#dc2626",
+    accentSoft: "rgba(248, 113, 113, 0.12)",
+    accentBorder: "rgba(252, 165, 165, 0.22)",
+    accentGlow: "rgba(239, 68, 68, 0.24)",
+    shellStart: "rgba(65, 12, 20, 0.95)",
+    shellEnd: "rgba(25, 7, 9, 0.80)",
+    surfaceGlowFrom: "rgba(248, 113, 113, 0.08)",
+    surfaceGlowMid: "rgba(255, 255, 255, 0.02)",
+    surfaceGlowTo: "rgba(239, 68, 68, 0.08)",
+  },
+  violet: {
+    accent: "#a78bfa",
+    accentEnd: "#7c3aed",
+    accentSoft: "rgba(167, 139, 250, 0.12)",
+    accentBorder: "rgba(196, 181, 253, 0.22)",
+    accentGlow: "rgba(168, 85, 247, 0.22)",
+    shellStart: "rgba(48, 15, 91, 0.95)",
+    shellEnd: "rgba(20, 8, 31, 0.80)",
+    surfaceGlowFrom: "rgba(196, 181, 253, 0.08)",
+    surfaceGlowMid: "rgba(255, 255, 255, 0.02)",
+    surfaceGlowTo: "rgba(168, 85, 247, 0.08)",
+  },
+  midnight: {
+    accent: "#34d399",
+    accentEnd: "#0ea5e9",
+    accentSoft: "rgba(52, 211, 153, 0.12)",
+    accentBorder: "rgba(45, 212, 191, 0.20)",
+    accentGlow: "rgba(59, 130, 246, 0.20)",
+    shellStart: "rgba(10, 25, 60, 0.95)",
+    shellEnd: "rgba(52, 17, 39, 0.78)",
+    surfaceGlowFrom: "rgba(34, 211, 238, 0.08)",
+    surfaceGlowMid: "rgba(255, 255, 255, 0.02)",
+    surfaceGlowTo: "rgba(239, 68, 68, 0.08)",
+  },
+  rainy: {
+    accent: "#38bdf8",
+    accentEnd: "#2563eb",
+    accentSoft: "rgba(56, 189, 248, 0.14)",
+    accentBorder: "rgba(125, 211, 252, 0.22)",
+    accentGlow: "rgba(56, 189, 248, 0.24)",
+    shellStart: "rgba(10, 32, 64, 0.95)",
+    shellEnd: "rgba(8, 49, 80, 0.78)",
+    surfaceGlowFrom: "rgba(125, 211, 252, 0.10)",
+    surfaceGlowMid: "rgba(255, 255, 255, 0.02)",
+    surfaceGlowTo: "rgba(56, 189, 248, 0.08)",
+  },
+  sunset: {
+    accent: "#fb923c",
+    accentEnd: "#ec4899",
+    accentSoft: "rgba(251, 146, 60, 0.14)",
+    accentBorder: "rgba(253, 186, 116, 0.22)",
+    accentGlow: "rgba(244, 114, 182, 0.20)",
+    shellStart: "rgba(70, 20, 10, 0.95)",
+    shellEnd: "rgba(59, 18, 7, 0.80)",
+    surfaceGlowFrom: "rgba(251, 146, 60, 0.10)",
+    surfaceGlowMid: "rgba(255, 255, 255, 0.02)",
+    surfaceGlowTo: "rgba(244, 114, 182, 0.08)",
+  },
+  ocean: {
+    accent: "#2dd4bf",
+    accentEnd: "#0891b2",
+    accentSoft: "rgba(45, 212, 191, 0.14)",
+    accentBorder: "rgba(153, 246, 228, 0.22)",
+    accentGlow: "rgba(34, 211, 238, 0.22)",
+    shellStart: "rgba(3, 30, 38, 0.95)",
+    shellEnd: "rgba(7, 39, 42, 0.80)",
+    surfaceGlowFrom: "rgba(45, 212, 191, 0.10)",
+    surfaceGlowMid: "rgba(255, 255, 255, 0.02)",
+    surfaceGlowTo: "rgba(34, 211, 238, 0.08)",
+  },
+  forest: {
+    accent: "#a3e635",
+    accentEnd: "#16a34a",
+    accentSoft: "rgba(163, 230, 53, 0.14)",
+    accentBorder: "rgba(190, 242, 100, 0.22)",
+    accentGlow: "rgba(101, 163, 13, 0.22)",
+    shellStart: "rgba(15, 37, 15, 0.95)",
+    shellEnd: "rgba(17, 24, 39, 0.80)",
+    surfaceGlowFrom: "rgba(190, 242, 100, 0.10)",
+    surfaceGlowMid: "rgba(255, 255, 255, 0.02)",
+    surfaceGlowTo: "rgba(34, 197, 94, 0.08)",
+  },
+  rainbow: {
+    accent: "#d946ef",
+    accentEnd: "#0ea5e9",
+    accentSoft: "rgba(217, 70, 239, 0.14)",
+    accentBorder: "rgba(244, 114, 182, 0.20)",
+    accentGlow: "rgba(59, 130, 246, 0.22)",
+    shellStart: "rgba(56, 10, 72, 0.95)",
+    shellEnd: "rgba(58, 12, 22, 0.82)",
+    surfaceGlowFrom: "rgba(244, 114, 182, 0.10)",
+    surfaceGlowMid: "rgba(34, 197, 94, 0.03)",
+    surfaceGlowTo: "rgba(59, 130, 246, 0.10)",
+  },
+  "dawn-blade": {
+    accent: "#fb923c",
+    accentEnd: "#ea580c",
+    accentSoft: "rgba(251, 146, 60, 0.14)",
+    accentBorder: "rgba(253, 186, 116, 0.22)",
+    accentGlow: "rgba(249, 115, 22, 0.24)",
+    shellStart: "rgba(74, 24, 7, 0.95)",
+    shellEnd: "rgba(42, 15, 8, 0.82)",
+    surfaceGlowFrom: "rgba(254, 215, 170, 0.08)",
+    surfaceGlowMid: "rgba(255, 255, 255, 0.02)",
+    surfaceGlowTo: "rgba(251, 146, 60, 0.08)",
+  },
+  "moon-aura": {
+    accent: "#818cf8",
+    accentEnd: "#2563eb",
+    accentSoft: "rgba(129, 140, 248, 0.14)",
+    accentBorder: "rgba(199, 210, 254, 0.22)",
+    accentGlow: "rgba(99, 102, 241, 0.22)",
+    shellStart: "rgba(8, 14, 39, 0.95)",
+    shellEnd: "rgba(9, 13, 29, 0.82)",
+    surfaceGlowFrom: "rgba(224, 231, 255, 0.08)",
+    surfaceGlowMid: "rgba(255, 255, 255, 0.02)",
+    surfaceGlowTo: "rgba(129, 140, 248, 0.08)",
+  },
+  "spirit-sakura": {
+    accent: "#f472b6",
+    accentEnd: "#d946ef",
+    accentSoft: "rgba(244, 114, 182, 0.14)",
+    accentBorder: "rgba(251, 207, 232, 0.22)",
+    accentGlow: "rgba(236, 72, 153, 0.22)",
+    shellStart: "rgba(72, 13, 32, 0.95)",
+    shellEnd: "rgba(42, 10, 24, 0.82)",
+    surfaceGlowFrom: "rgba(251, 207, 232, 0.08)",
+    surfaceGlowMid: "rgba(255, 255, 255, 0.02)",
+    surfaceGlowTo: "rgba(244, 114, 182, 0.08)",
+  },
+  "hero-red": {
+    accent: "#f87171",
+    accentEnd: "#3b82f6",
+    accentSoft: "rgba(248, 113, 113, 0.14)",
+    accentBorder: "rgba(252, 165, 165, 0.22)",
+    accentGlow: "rgba(59, 130, 246, 0.20)",
+    shellStart: "rgba(6, 16, 40, 0.95)",
+    shellEnd: "rgba(25, 8, 12, 0.82)",
+    surfaceGlowFrom: "rgba(59, 130, 246, 0.08)",
+    surfaceGlowMid: "rgba(255, 255, 255, 0.02)",
+    surfaceGlowTo: "rgba(239, 68, 68, 0.08)",
+  },
+  "gamma-smash": {
+    accent: "#84cc16",
+    accentEnd: "#22c55e",
+    accentSoft: "rgba(132, 204, 22, 0.14)",
+    accentBorder: "rgba(190, 242, 100, 0.22)",
+    accentGlow: "rgba(132, 204, 22, 0.24)",
+    shellStart: "rgba(18, 50, 26, 0.95)",
+    shellEnd: "rgba(16, 20, 11, 0.82)",
+    surfaceGlowFrom: "rgba(190, 242, 100, 0.08)",
+    surfaceGlowMid: "rgba(255, 255, 255, 0.02)",
+    surfaceGlowTo: "rgba(34, 197, 94, 0.08)",
+  },
+  "pirate-gold": {
+    accent: "#f59e0b",
+    accentEnd: "#d97706",
+    accentSoft: "rgba(245, 158, 11, 0.14)",
+    accentBorder: "rgba(253, 230, 138, 0.22)",
+    accentGlow: "rgba(245, 158, 11, 0.24)",
+    shellStart: "rgba(53, 30, 9, 0.95)",
+    shellEnd: "rgba(31, 16, 7, 0.82)",
+    surfaceGlowFrom: "rgba(253, 230, 138, 0.08)",
+    surfaceGlowMid: "rgba(255, 255, 255, 0.02)",
+    surfaceGlowTo: "rgba(245, 158, 11, 0.08)",
+  },
+};
+
+function getDashboardThemeStorageKey(userId) {
+  return `${DASHBOARD_THEME_STORAGE_PREFIX}${userId || "guest"}`;
+}
+
+function findStoredDashboardThemeKey(userId) {
+  try {
+    const candidateKeys = [
+      getDashboardThemeStorageKey(userId),
+      getDashboardThemeStorageKey("guest"),
+    ].filter(Boolean);
+
+    for (const key of candidateKeys) {
+      const value = localStorage.getItem(key);
+      if (typeof value === "string" && value.trim()) return value.trim();
+    }
+
+    for (let index = 0; index < localStorage.length; index += 1) {
+      const key = localStorage.key(index);
+      if (!key || !key.startsWith(DASHBOARD_THEME_STORAGE_PREFIX)) continue;
+      const value = localStorage.getItem(key);
+      if (typeof value === "string" && value.trim()) return value.trim();
+    }
+  } catch (error) {
+    console.error("Failed to read dashboard theme key:", error);
+  }
+
+  return "emerald";
+}
+
+function resolveThemePalette(themeKey) {
+  const normalized = String(themeKey || "").trim().toLowerCase();
+  const mapped = THEME_PALETTE_MAP[normalized];
+
+  if (mapped) {
+    return {
+      ...DEFAULT_NAV_THEME,
+      ...mapped,
+    };
+  }
+
+  if (normalized.includes("gold") || normalized.includes("amber")) {
+    return {
+      ...DEFAULT_NAV_THEME,
+      ...THEME_PALETTE_MAP["pirate-gold"],
+    };
+  }
+
+  if (normalized.includes("red") || normalized.includes("crimson")) {
+    return {
+      ...DEFAULT_NAV_THEME,
+      ...THEME_PALETTE_MAP.crimson,
+    };
+  }
+
+  if (normalized.includes("violet") || normalized.includes("purple")) {
+    return {
+      ...DEFAULT_NAV_THEME,
+      ...THEME_PALETTE_MAP.violet,
+    };
+  }
+
+  if (normalized.includes("blue") || normalized.includes("royal")) {
+    return {
+      ...DEFAULT_NAV_THEME,
+      ...THEME_PALETTE_MAP.royal,
+    };
+  }
+
+  if (normalized.includes("ocean") || normalized.includes("teal")) {
+    return {
+      ...DEFAULT_NAV_THEME,
+      ...THEME_PALETTE_MAP.ocean,
+    };
+  }
+
+  if (
+    normalized.includes("forest") ||
+    normalized.includes("lime") ||
+    normalized.includes("gamma")
+  ) {
+    return {
+      ...DEFAULT_NAV_THEME,
+      ...THEME_PALETTE_MAP.forest,
+    };
+  }
+
+  return DEFAULT_NAV_THEME;
+}
+
+function resolveThemePaletteFromEventDetail(detail) {
+  if (!detail || typeof detail !== "object") return null;
+
+  if (detail.palette && typeof detail.palette === "object") {
+    return {
+      ...DEFAULT_NAV_THEME,
+      ...detail.palette,
+    };
+  }
+
+  const themeKeyCandidates = [
+    detail.themeKey,
+    detail.key,
+    detail.theme,
+    detail.selectedTheme,
+    detail.dashboardTheme,
+    detail.value,
+  ];
+
+  const matchedThemeKey = themeKeyCandidates.find(
+    (candidate) => typeof candidate === "string" && candidate.trim()
+  );
+
+  if (matchedThemeKey) {
+    return resolveThemePalette(matchedThemeKey);
+  }
+
+  const directColorKeys = [
+    "accent",
+    "accentEnd",
+    "accentSoft",
+    "accentBorder",
+    "accentGlow",
+    "shellStart",
+    "shellEnd",
+    "surfaceGlowFrom",
+    "surfaceGlowMid",
+    "surfaceGlowTo",
+    "panelStart",
+    "panelEnd",
+    "panelBorder",
+    "fabRing",
+    "mutedText",
+    "strongText",
+  ];
+
+  const hasDirectPaletteValues = directColorKeys.some(
+    (key) => typeof detail[key] === "string" && detail[key].trim()
+  );
+
+  if (hasDirectPaletteValues) {
+    return {
+      ...DEFAULT_NAV_THEME,
+      ...detail,
+    };
+  }
+
+  return null;
+}
+
 const ProBadge = memo(function ProBadge() {
   return (
     <span className="mt-1 inline-flex items-center gap-1 rounded-md bg-yellow-400/20 px-1.5 py-0.5 text-[9px] font-bold text-yellow-300">
@@ -66,7 +468,9 @@ const BottomNavLink = memo(function BottomNavLink({
 }) {
   return (
     <Link to={to} className={`nav-item ${active ? "active" : ""}`}>
-      <Icon className="icon" />
+      <div className="nav-icon-wrap">
+        <Icon className="icon" />
+      </div>
       <span>{label}</span>
     </Link>
   );
@@ -130,6 +534,7 @@ function MorePanel({
   onAdminNavigate,
   onLogout,
   onOpenChange,
+  themePalette,
 }) {
   const handleAdminClick = useCallback(() => {
     onAdminNavigate();
@@ -147,17 +552,31 @@ function MorePanel({
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent
         side="bottom"
-        className="rounded-t-[28px] border-white/10 bg-[#0B1220]/98 px-4 pb-5 pt-5 text-white shadow-2xl backdrop-blur-xl"
+        className="rounded-t-[28px] px-4 pb-5 pt-5 shadow-2xl backdrop-blur-xl"
+        style={{
+          color: themePalette.strongText,
+          borderColor: themePalette.panelBorder,
+          background: `linear-gradient(180deg, ${themePalette.panelStart} 0%, ${themePalette.panelEnd} 100%)`,
+        }}
       >
         <div className="mx-auto max-w-md">
           <div className="mb-4 pr-10">
-            <p className="text-[11px] font-bold uppercase tracking-[0.24em] text-emerald-300/70">
+            <p
+              className="text-[11px] font-bold uppercase tracking-[0.24em]"
+              style={{ color: themePalette.accent }}
+            >
               More
             </p>
-            <h3 className="mt-1 text-xl font-bold text-white">
+            <h3
+              className="mt-1 text-xl font-bold"
+              style={{ color: themePalette.strongText }}
+            >
               Open more features
             </h3>
-            <p className="mt-1 text-sm text-white/55">
+            <p
+              className="mt-1 text-sm"
+              style={{ color: themePalette.mutedText }}
+            >
               Jump into your tools without losing momentum.
             </p>
           </div>
@@ -185,8 +604,16 @@ function MorePanel({
                 <User className="icon" />
               </div>
               <div className="flex-1 text-left">
-                <p className="text-sm font-semibold text-white">Profile</p>
-                <p className="text-xs text-white/50">
+                <p
+                  className="text-sm font-semibold"
+                  style={{ color: themePalette.strongText }}
+                >
+                  Profile
+                </p>
+                <p
+                  className="text-xs"
+                  style={{ color: themePalette.mutedText }}
+                >
                   View and manage your account.
                 </p>
               </div>
@@ -201,8 +628,16 @@ function MorePanel({
                 <Settings className="icon" />
               </div>
               <div className="flex-1 text-left">
-                <p className="text-sm font-semibold text-white">Settings</p>
-                <p className="text-xs text-white/50">
+                <p
+                  className="text-sm font-semibold"
+                  style={{ color: themePalette.strongText }}
+                >
+                  Settings
+                </p>
+                <p
+                  className="text-xs"
+                  style={{ color: themePalette.mutedText }}
+                >
                   Preferences, account, and app setup.
                 </p>
               </div>
@@ -218,8 +653,16 @@ function MorePanel({
                   <Shield className="icon" />
                 </div>
                 <div className="flex-1 text-left">
-                  <p className="text-sm font-semibold text-white">Admin Panel</p>
-                  <p className="text-xs text-white/50">
+                  <p
+                    className="text-sm font-semibold"
+                    style={{ color: themePalette.strongText }}
+                  >
+                    Admin Panel
+                  </p>
+                  <p
+                    className="text-xs"
+                    style={{ color: themePalette.mutedText }}
+                  >
                     Manage users, access, and program content.
                   </p>
                 </div>
@@ -243,6 +686,7 @@ function QuickActionsSheet({
   onOpenChange,
   onActionSelect,
   onGoalSelect,
+  themePalette,
 }) {
   if (!open) return null;
 
@@ -254,10 +698,25 @@ function QuickActionsSheet({
       />
 
       <div className="fixed bottom-24 left-0 right-0 z-[60] px-4">
-        <div className="mx-auto max-w-sm rounded-3xl border border-white/10 bg-[#0B1220]/95 p-4 shadow-2xl backdrop-blur-xl">
+        <div
+          className="mx-auto max-w-sm rounded-3xl border p-4 backdrop-blur-xl"
+          style={{
+            borderColor: themePalette.panelBorder,
+            background: `linear-gradient(180deg, ${themePalette.panelStart} 0%, ${themePalette.panelEnd} 100%)`,
+            boxShadow: `0 20px 60px rgba(0,0,0,0.7), 0 0 0 1px ${themePalette.accentSoft} inset`,
+          }}
+        >
           <div className="mb-3">
-            <p className="text-sm font-semibold text-white">Quick Actions</p>
-            <p className="mt-1 text-xs text-white/55">
+            <p
+              className="text-sm font-semibold"
+              style={{ color: themePalette.strongText }}
+            >
+              Quick Actions
+            </p>
+            <p
+              className="mt-1 text-xs"
+              style={{ color: themePalette.mutedText }}
+            >
               Add something fast without leaving your flow.
             </p>
           </div>
@@ -301,9 +760,12 @@ function BottomNav({
   const [actionsOpen, setActionsOpen] = useState(false);
   const [didLongPress, setDidLongPress] = useState(false);
   const [hideForOnboarding, setHideForOnboarding] = useState(false);
+  const [themePalette, setThemePalette] = useState(DEFAULT_NAV_THEME);
 
   const pressTimerRef = useRef(null);
   const pointerDownRef = useRef(false);
+  const currentUserIdRef = useRef(null);
+  const rafSyncRef = useRef(null);
 
   const pathname = location.pathname;
 
@@ -339,7 +801,192 @@ function BottomNav({
     }
   }, []);
 
-  useEffect(() => clearPressTimer, [clearPressTimer]);
+  const clearScheduledThemeSync = useCallback(() => {
+    if (rafSyncRef.current) {
+      cancelAnimationFrame(rafSyncRef.current);
+      rafSyncRef.current = null;
+    }
+  }, []);
+
+  const applyThemePalette = useCallback((palette) => {
+    setThemePalette((previous) => {
+      const next = {
+        ...DEFAULT_NAV_THEME,
+        ...palette,
+      };
+
+      const same =
+        previous.accent === next.accent &&
+        previous.accentEnd === next.accentEnd &&
+        previous.shellStart === next.shellStart &&
+        previous.shellEnd === next.shellEnd &&
+        previous.panelStart === next.panelStart &&
+        previous.panelEnd === next.panelEnd &&
+        previous.strongText === next.strongText &&
+        previous.mutedText === next.mutedText &&
+        previous.accentGlow === next.accentGlow &&
+        previous.panelBorder === next.panelBorder;
+
+      return same ? previous : next;
+    });
+  }, []);
+
+  const syncThemeFromStorage = useCallback(
+    (userId = currentUserIdRef.current, forcedThemeKey = null) => {
+      try {
+        const themeKey =
+          typeof forcedThemeKey === "string" && forcedThemeKey.trim()
+            ? forcedThemeKey.trim()
+            : findStoredDashboardThemeKey(userId);
+
+        applyThemePalette(resolveThemePalette(themeKey));
+      } catch (error) {
+        console.error("Failed to sync BottomNav theme:", error);
+      }
+    },
+    [applyThemePalette]
+  );
+
+  const syncThemeOnNextFrame = useCallback(
+    (userId = currentUserIdRef.current, forcedThemeKey = null) => {
+      clearScheduledThemeSync();
+      rafSyncRef.current = requestAnimationFrame(() => {
+        syncThemeFromStorage(userId, forcedThemeKey);
+      });
+    },
+    [clearScheduledThemeSync, syncThemeFromStorage]
+  );
+
+  useEffect(() => {
+    return () => {
+      clearPressTimer();
+      clearScheduledThemeSync();
+    };
+  }, [clearPressTimer, clearScheduledThemeSync]);
+
+  useEffect(() => {
+    let isMounted = true;
+
+    syncThemeFromStorage();
+
+    supabase.auth
+      .getUser()
+      .then(({ data }) => {
+        if (!isMounted) return;
+        currentUserIdRef.current = data?.user?.id || null;
+        syncThemeFromStorage(currentUserIdRef.current);
+      })
+      .catch((error) => {
+        console.error("Failed to load user for BottomNav theme sync:", error);
+      });
+
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((_event, session) => {
+      currentUserIdRef.current = session?.user?.id || null;
+      syncThemeOnNextFrame(currentUserIdRef.current);
+    });
+
+    return () => {
+      isMounted = false;
+      subscription?.unsubscribe?.();
+    };
+  }, [syncThemeFromStorage, syncThemeOnNextFrame]);
+
+  useEffect(() => {
+    const handleThemeSync = (event) => {
+      if (document.visibilityState && document.visibilityState === "hidden") {
+        return;
+      }
+
+      const detailPalette = resolveThemePaletteFromEventDetail(event?.detail);
+
+      if (detailPalette) {
+        const detailUserId =
+          event?.detail?.userId ||
+          event?.detail?.uid ||
+          event?.detail?.profileId ||
+          currentUserIdRef.current ||
+          null;
+
+        currentUserIdRef.current = detailUserId;
+        applyThemePalette(detailPalette);
+        syncThemeOnNextFrame(detailUserId);
+        return;
+      }
+
+      const detailThemeKey =
+        typeof event?.detail?.themeKey === "string"
+          ? event.detail.themeKey
+          : typeof event?.detail?.key === "string"
+            ? event.detail.key
+            : typeof event?.detail?.theme === "string"
+              ? event.detail.theme
+              : null;
+
+      const detailUserId =
+        event?.detail?.userId ||
+        event?.detail?.uid ||
+        event?.detail?.profileId ||
+        currentUserIdRef.current ||
+        null;
+
+      currentUserIdRef.current = detailUserId;
+      syncThemeOnNextFrame(detailUserId, detailThemeKey);
+    };
+
+    const handleVisibilitySync = () => {
+      if (document.visibilityState === "visible") {
+        syncThemeOnNextFrame();
+      }
+    };
+
+    const handlePageshowSync = () => {
+      syncThemeOnNextFrame();
+    };
+
+    const handleDocumentAttrSync = () => {
+      syncThemeOnNextFrame();
+    };
+
+    const documentObserver = new MutationObserver(handleDocumentAttrSync);
+
+    documentObserver.observe(document.documentElement, {
+      attributes: true,
+      attributeFilter: ["class", "style", "data-theme", "data-dashboard-theme"],
+    });
+
+    documentObserver.observe(document.body, {
+      attributes: true,
+      attributeFilter: ["class", "style", "data-theme", "data-dashboard-theme"],
+    });
+
+    window.addEventListener("storage", handleThemeSync);
+    window.addEventListener("focus", handleThemeSync);
+    window.addEventListener("pageshow", handlePageshowSync);
+    window.addEventListener("clara-theme-change", handleThemeSync);
+    window.addEventListener("clara-theme-preview", handleThemeSync);
+    window.addEventListener("clara-theme-selected", handleThemeSync);
+    window.addEventListener("clara-dashboard-theme-updated", handleThemeSync);
+    window.addEventListener("clara-dashboard-updated", handleThemeSync);
+    document.addEventListener("visibilitychange", handleVisibilitySync);
+
+    return () => {
+      documentObserver.disconnect();
+      window.removeEventListener("storage", handleThemeSync);
+      window.removeEventListener("focus", handleThemeSync);
+      window.removeEventListener("pageshow", handlePageshowSync);
+      window.removeEventListener("clara-theme-change", handleThemeSync);
+      window.removeEventListener("clara-theme-preview", handleThemeSync);
+      window.removeEventListener("clara-theme-selected", handleThemeSync);
+      window.removeEventListener(
+        "clara-dashboard-theme-updated",
+        handleThemeSync
+      );
+      window.removeEventListener("clara-dashboard-updated", handleThemeSync);
+      document.removeEventListener("visibilitychange", handleVisibilitySync);
+    };
+  }, [applyThemePalette, syncThemeOnNextFrame]);
 
   useEffect(() => {
     const syncOnboardingState = () => {
@@ -357,7 +1004,10 @@ function BottomNav({
     syncOnboardingState();
 
     const observer = new MutationObserver(syncOnboardingState);
-    observer.observe(document.body, { attributes: true, attributeFilter: ["class"] });
+    observer.observe(document.body, {
+      attributes: true,
+      attributeFilter: ["class"],
+    });
     observer.observe(document.documentElement, {
       attributes: true,
       attributeFilter: ["class"],
@@ -503,62 +1153,90 @@ function BottomNav({
         onOpenChange={setActionsOpen}
         onActionSelect={handleQuickActionSelect}
         onGoalSelect={handleGoalQuickAction}
+        themePalette={themePalette}
       />
 
       <nav
         data-bottom-nav
         className="fixed bottom-0 left-0 right-0 z-50 lg:hidden"
       >
-        <div className="mx-3 mb-3 rounded-3xl border border-white/10 bg-[#0B1220]/95 shadow-2xl backdrop-blur-xl">
-          <div className="relative flex h-16 items-center justify-between px-6">
-            <BottomNavLink
-              to={BOTTOM_ITEMS[0].path}
-              label={BOTTOM_ITEMS[0].label}
-              icon={BOTTOM_ITEMS[0].icon}
-              active={isDashboardActive}
+        <div
+          className="mx-3 mb-3 rounded-[30px] border backdrop-blur-2xl"
+          style={{
+            borderColor: themePalette.panelBorder,
+            background: `linear-gradient(180deg, ${themePalette.shellStart} 0%, ${themePalette.shellEnd} 100%)`,
+            boxShadow:
+              "0 12px 36px rgba(0,0,0,0.52), 0 0 0 1px rgba(255,255,255,0.02) inset",
+          }}
+        >
+          <div className="relative overflow-visible rounded-[30px]">
+            <div
+              className="pointer-events-none absolute inset-0 rounded-[30px]"
+              style={{
+                background: `linear-gradient(90deg, ${themePalette.surfaceGlowFrom} 0%, ${themePalette.surfaceGlowMid} 50%, ${themePalette.surfaceGlowTo} 100%)`,
+              }}
             />
+            <div className="pointer-events-none absolute inset-x-6 top-0 h-px bg-gradient-to-r from-transparent via-white/18 to-transparent" />
 
-            <BottomNavLink
-              to={BOTTOM_ITEMS[1].path}
-              label={BOTTOM_ITEMS[1].label}
-              icon={BOTTOM_ITEMS[1].icon}
-              active={isExpensesActive}
-            />
+            <div className="relative flex h-[76px] items-end justify-between px-4 pb-2">
+              <BottomNavLink
+                to={BOTTOM_ITEMS[0].path}
+                label={BOTTOM_ITEMS[0].label}
+                icon={BOTTOM_ITEMS[0].icon}
+                active={isDashboardActive}
+              />
 
-            <div className="w-16" />
+              <BottomNavLink
+                to={BOTTOM_ITEMS[1].path}
+                label={BOTTOM_ITEMS[1].label}
+                icon={BOTTOM_ITEMS[1].icon}
+                active={isExpensesActive}
+              />
 
-            <BottomNavLink
-              to={BOTTOM_ITEMS[2].path}
-              label={BOTTOM_ITEMS[2].label}
-              icon={BOTTOM_ITEMS[2].icon}
-              active={isAnalyticsActive}
-            />
+              <div className="w-[82px] flex-shrink-0" />
 
-            <button
-              type="button"
-              onClick={() => setMoreOpen(true)}
-              className={`nav-item ${isMoreActive ? "active" : ""}`}
-            >
-              <MoreHorizontal className="icon" />
-              <span>More</span>
-            </button>
+              <BottomNavLink
+                to={BOTTOM_ITEMS[2].path}
+                label={BOTTOM_ITEMS[2].label}
+                icon={BOTTOM_ITEMS[2].icon}
+                active={isAnalyticsActive}
+              />
 
-            <button
-              type="button"
-              data-fab
-              onMouseDown={startPress}
-              onMouseUp={endPress}
-              onMouseLeave={endPress}
-              onTouchStart={startPress}
-              onTouchEnd={endPress}
-              onTouchCancel={endPress}
-              onClick={handleFabClick}
-              className="absolute left-1/2 z-50 flex h-16 w-16 -translate-x-1/2 -top-8 items-center justify-center rounded-full shadow-xl transition-transform duration-150 active:scale-95"
-              style={{ background: "linear-gradient(135deg, #10b981, #059669)" }}
-              aria-label="Quick add"
-            >
-              <Plus className="h-8 w-8 text-white" />
-            </button>
+              <button
+                type="button"
+                onClick={() => setMoreOpen(true)}
+                className={`nav-item ${isMoreActive ? "active" : ""}`}
+              >
+                <div className="nav-icon-wrap">
+                  <MoreHorizontal className="icon" />
+                </div>
+                <span>More</span>
+              </button>
+
+              <button
+                type="button"
+                data-fab
+                onMouseDown={startPress}
+                onMouseUp={endPress}
+                onMouseLeave={endPress}
+                onTouchStart={startPress}
+                onTouchEnd={endPress}
+                onTouchCancel={endPress}
+                onClick={handleFabClick}
+                className="absolute left-1/2 top-0 z-50 flex h-[58px] w-[58px] -translate-x-1/2 -translate-y-[28%] items-center justify-center rounded-full transition-transform duration-200 active:scale-95"
+                style={{
+                  background: `linear-gradient(180deg, ${themePalette.accent} 0%, ${themePalette.accent} 38%, ${themePalette.accentEnd} 100%)`,
+                  boxShadow: `0 10px 22px ${themePalette.accentGlow}, 0 0 0 5px ${themePalette.fabRing}, inset 0 1px 0 rgba(255,255,255,0.18)`,
+                }}
+                aria-label="Quick add"
+              >
+                <span className="fab-inner-ring" />
+                <Plus
+                  className="relative z-[1] h-7 w-7 text-white"
+                  strokeWidth={2.35}
+                />
+              </button>
+            </div>
           </div>
         </div>
       </nav>
@@ -571,29 +1249,102 @@ function BottomNav({
         onAdminNavigate={openAdminPanel}
         onLogout={handleLogout}
         onOpenChange={setMoreOpen}
+        themePalette={themePalette}
       />
 
       <style>{`
         .nav-item {
+          position: relative;
           display: flex;
+          flex: 1 1 0;
+          min-width: 0;
           flex-direction: column;
           align-items: center;
-          gap: 2px;
+          justify-content: flex-end;
+          gap: 4px;
+          height: 100%;
+          padding: 0 2px 3px;
           font-size: 10px;
-          color: rgba(255,255,255,0.6);
+          color: ${themePalette.mutedText};
           background: transparent;
           border: 0;
-          transition: color 0.18s ease;
+          border-radius: 16px;
+          transition:
+            color 0.14s ease,
+            transform 0.18s ease,
+            opacity 0.14s ease,
+            filter 0.14s ease;
+          -webkit-tap-highlight-color: transparent;
+        }
+
+        .nav-item:active {
+          transform: scale(0.96);
         }
 
         .nav-item.active {
-          color: #34d399;
+          color: ${themePalette.accent};
+        }
+
+        .nav-item.active .nav-icon-wrap {
+          background: ${themePalette.accentSoft};
+          border-color: ${themePalette.accentBorder};
+          box-shadow:
+            0 0 0 1px ${themePalette.accentSoft} inset,
+            0 0 10px ${themePalette.accentGlow};
+        }
+
+        .nav-item.active .icon {
+          filter: drop-shadow(0 0 6px ${themePalette.accentGlow});
+        }
+
+        .nav-icon-wrap {
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          width: 32px;
+          height: 32px;
+          border-radius: 12px;
+          background: rgba(255,255,255,0.04);
+          border: 1px solid transparent;
+          transition:
+            background-color 0.14s ease,
+            border-color 0.14s ease,
+            box-shadow 0.14s ease;
+        }
+
+        .nav-item span {
+          line-height: 1.1;
+          font-weight: 500;
+          letter-spacing: 0.01em;
+          white-space: nowrap;
         }
 
         .icon {
-          width: 20px;
-          height: 20px;
+          width: 18px;
+          height: 18px;
           flex-shrink: 0;
+          transition: transform 0.14s ease, filter 0.14s ease, opacity 0.14s ease;
+        }
+
+        [data-fab] {
+          -webkit-tap-highlight-color: transparent;
+          transition:
+            transform 0.16s ease,
+            box-shadow 0.14s ease,
+            background 0.14s ease;
+        }
+
+        .fab-inner-ring {
+          position: absolute;
+          inset: 3px;
+          border-radius: 999px;
+          background: linear-gradient(
+            180deg,
+            rgba(255,255,255,0.14) 0%,
+            rgba(255,255,255,0.03) 44%,
+            rgba(0,0,0,0.08) 100%
+          );
+          pointer-events: none;
         }
 
         .quick-btn {
@@ -606,10 +1357,15 @@ function BottomNav({
           padding: 12px;
           border-radius: 16px;
           background: rgba(255,255,255,0.05);
-          color: white;
+          color: ${themePalette.strongText};
           border: 1px solid rgba(255,255,255,0.06);
-          transition: transform 0.18s ease, background-color 0.18s ease, border-color 0.18s ease;
+          transition:
+            transform 0.18s ease,
+            background-color 0.18s ease,
+            border-color 0.18s ease,
+            box-shadow 0.18s ease;
           will-change: transform;
+          -webkit-tap-highlight-color: transparent;
         }
 
         .quick-btn:active {
@@ -630,14 +1386,19 @@ function BottomNav({
           padding: 12px 10px;
           border-radius: 18px;
           background: rgba(255,255,255,0.05);
-          color: white;
+          color: ${themePalette.strongText};
           border: 1px solid rgba(255,255,255,0.06);
           text-align: center;
           font-size: 12px;
           cursor: pointer;
-          transition: transform 0.18s ease, background-color 0.18s ease, border-color 0.18s ease;
+          transition:
+            transform 0.18s ease,
+            background-color 0.18s ease,
+            border-color 0.18s ease,
+            box-shadow 0.18s ease;
           will-change: transform;
           contain: layout paint;
+          -webkit-tap-highlight-color: transparent;
         }
 
         .more-item:active {
@@ -666,9 +1427,13 @@ function BottomNav({
           padding: 14px 16px;
           border-radius: 18px;
           background: rgba(255,255,255,0.05);
-          color: white;
+          color: ${themePalette.strongText};
           border: 1px solid rgba(255,255,255,0.06);
-          transition: transform 0.18s ease, background-color 0.18s ease;
+          transition:
+            transform 0.18s ease,
+            background-color 0.18s ease,
+            box-shadow 0.18s ease;
+          -webkit-tap-highlight-color: transparent;
         }
 
         .more-admin:active {
@@ -683,7 +1448,7 @@ function BottomNav({
           height: 42px;
           border-radius: 14px;
           background: rgba(255,255,255,0.06);
-          color: #86efac;
+          color: ${themePalette.accent};
           flex-shrink: 0;
         }
 
@@ -698,7 +1463,11 @@ function BottomNav({
           border: 1px solid rgba(248, 113, 113, 0.14);
           padding: 14px 16px;
           border-radius: 18px;
-          transition: transform 0.18s ease, background-color 0.18s ease;
+          transition:
+            transform 0.18s ease,
+            background-color 0.18s ease,
+            box-shadow 0.18s ease;
+          -webkit-tap-highlight-color: transparent;
         }
 
         .logout-btn:active {
