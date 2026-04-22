@@ -499,7 +499,7 @@ export default function Tasks() {
 
         {journey.tier === "coaching" ? (
           <section className="rounded-[26px] border border-white/10 bg-[#0b1420] p-4 text-white shadow-[0_16px_36px_rgba(0,0,0,0.18)]">
-            <p className="text-[11px] uppercase tracking-[0.18em] text-white/45">Coaching layer</p>
+            <p className="text-[11px] uppercase tracking-[0.18em] text-white/45">Life OS support</p>
             <h3 className="mt-2 text-base font-semibold">
               {coachingSummary.hasPendingSession ? "Your support layer is active" : "Your personal support surfaces live here"}
             </h3>

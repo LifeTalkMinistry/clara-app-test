@@ -3,6 +3,20 @@ alter table if exists public.plans
   add column if not exists product_id text,
   add column if not exists billing_type text;
 
+alter table if exists public.profiles
+  add column if not exists access_level text default 'pro',
+  add column if not exists recommended_access_level text,
+  add column if not exists onboarding_answers jsonb;
+
+update public.profiles
+set access_level = case
+  when lower(coalesce(plan, '')) in ('coaching_1299', 'life_os', 'lifeos', 'lifeos_499', 'life_os_499') then 'life_os'
+  when lower(coalesce(plan, '')) in ('core_599', 'core_199', 'core') then 'core'
+  else 'pro'
+end
+where access_level is null
+   or lower(access_level) not in ('pro', 'core', 'life_os');
+
 create unique index if not exists plans_plan_key_unique
   on public.plans(plan_key);
 
@@ -38,7 +52,7 @@ values
     'subscription',
     '{
       "dashboard":"full","feed":"full","expenses":"full","wallets":"full",
-      "budgets":"full","analytics":"full","savings_goals":"full",
+      "budgets":"full","analytics":"full","ai":"off","savings_goals":"full",
       "tasks":"off","modules":"off","community":"full","messages":"full",
       "coaching":"teaser","news":"full","referrals":"full"
     }'::jsonb
@@ -46,37 +60,37 @@ values
   (
     'CORE',
     'core_599',
-    599,
-    'Unlock the 30-day CLARA Program, PRO during the program, and +1 month continuation PRO after completion.',
-    array['30-day CLARA Program', 'Includes PRO access during the program', '+1 month continuation PRO after program completion'],
+    199,
+    'Unlock CORE: the advanced daily spending system with guided support and CLARA Companion intelligence.',
+    array['Complete CORE financial system', 'Advanced daily spending AI through CLARA Companion', 'Guided spending strategy and practical next steps'],
     'Unlock CORE',
     true,
     true,
     2,
-    'core_599',
+    'core_199',
     'one_time',
     '{
       "dashboard":"full","feed":"full","expenses":"full","wallets":"full",
-      "budgets":"full","analytics":"full","savings_goals":"full",
+      "budgets":"full","analytics":"full","ai":"advanced","customization":"full","savings_goals":"full",
       "tasks":"full","modules":"full","community":"full","messages":"full",
       "coaching":"teaser","news":"full","referrals":"full"
     }'::jsonb
   ),
   (
-    'COACHING',
+    'Life OS',
     'coaching_1299',
-    1299,
-    'Unlock the 30-day CLARA Program, PRO during the program, +2 months continuation PRO after completion, and 2 coaching sessions.',
-    array['30-day CLARA Program', 'Includes PRO access during the program', '+2 months continuation PRO after program completion', '2 coaching session credits'],
-    'Unlock COACHING',
+    499,
+    'Unlock Life OS, CLARA''s broadest decision-intelligence layer for money, planning, and life organization.',
+    array['Complete Life OS operating layer', 'Broader decision intelligence beyond daily spending', 'Life scheduling, organization, and deeper CLARA context'],
+    'Unlock Life OS',
     true,
     false,
     3,
-    'coaching_1299',
+    'lifeos_499',
     'one_time',
     '{
       "dashboard":"full","feed":"full","expenses":"full","wallets":"full",
-      "budgets":"full","analytics":"full","savings_goals":"full",
+      "budgets":"full","analytics":"full","ai":"life_os","customization":"full","savings_goals":"full",
       "tasks":"full","modules":"full","community":"full","messages":"full",
       "coaching":"full","news":"full","referrals":"full"
     }'::jsonb

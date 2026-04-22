@@ -5,8 +5,10 @@ import usePlanAccess from "@/hooks/usePlanAccess";
 import {
   FEATURE_DEFINITIONS,
   PLAN_LABELS,
+  getAccessLevelForPlan,
   getFeatureMode,
   isFeatureEnabled,
+  normalizeAccessLevel,
   normalizePlanKey,
 } from "@/lib/plan-config";
 import { deriveEffectiveEntitlements } from "@/lib/clara-entitlements";
@@ -29,6 +31,9 @@ const buildResolvedUser = (authUser, profile, accessState, referralsEnabled) => 
         : plan === "core_599"
           ? "core"
           : "life_os";
+  const accessLevel = normalizeAccessLevel(
+    profile?.access_level || subscriptionStatus || getAccessLevelForPlan(plan)
+  );
 
   return {
     ...(profile || {}),
@@ -38,9 +43,11 @@ const buildResolvedUser = (authUser, profile, accessState, referralsEnabled) => 
     role: profile?.role || "user",
     plan,
     subscription_status: subscriptionStatus,
+    access_level: accessLevel,
     subscription_label: PLAN_LABELS[plan] || "Free",
     subscription: {
       plan,
+      access_level: accessLevel,
       status: subscriptionStatus,
       label: PLAN_LABELS[plan] || "Free",
       isPaid: Boolean(accessState.isPaid),
@@ -137,7 +144,7 @@ export default function useUserRole() {
       community: "view",
       messages: "admin_only",
       coaching: "teaser",
-      ai: plan === "coaching_1299" ? "advanced" : "basic",
+      ai: plan === "coaching_1299" ? "life_os" : plan === "core_599" ? "advanced" : "off",
     };
   }, [isPreActivation, plan, planConfig]);
 

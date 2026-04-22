@@ -14,8 +14,8 @@ import "./index.css";
 window.CLARA_BILLING = {
   productIds: {
     PRO: "pro_99",
-    CORE: "core_599",
-    COACHING: "coaching_1299",
+    CORE: "core_199",
+    LIFE_OS: "lifeos_499",
   },
 
   getStore() {
@@ -82,7 +82,7 @@ window.CLARA_BILLING = {
       store.register([
         { id: this.productIds.PRO, type: productType, platform },
         { id: this.productIds.CORE, type: productType, platform },
-        { id: this.productIds.COACHING, type: productType, platform },
+        { id: this.productIds.LIFE_OS, type: productType, platform },
       ]);
     } catch (error) {
       console.error("Billing register error:", error);

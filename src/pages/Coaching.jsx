@@ -102,8 +102,8 @@ export default function Coaching() {
       <div className="p-4 md:p-6 max-w-4xl mx-auto">
         <EmptyState
           icon={GraduationCap}
-          title="Coaching is locked"
-          description="Turn on coaching for this plan or upgrade to book sessions."
+          title="Life OS support is locked"
+          description="Upgrade to Life OS to use deeper support sessions and the full accountability layer."
         />
       </div>
     );
@@ -112,15 +112,15 @@ export default function Coaching() {
   if (!hasFullCoaching) {
     return (
       <div className="p-4 md:p-6 max-w-4xl mx-auto">
-        <PageHeader title="Coaching" subtitle="Preview your support layer" />
+        <PageHeader title="Life OS Support" subtitle="Preview your support layer" />
         <div className="rounded-2xl border border-amber-400/20 bg-amber-400/10 p-6 text-white">
           <p className="text-[11px] uppercase tracking-[0.18em] text-amber-100/70">Teaser Access</p>
-          <h2 className="mt-2 text-2xl font-semibold">Your plan can preview coaching</h2>
+          <h2 className="mt-2 text-2xl font-semibold">Your plan can preview Life OS support</h2>
           <p className="mt-3 text-sm leading-7 text-white/75">
-            Coaching gives you session booking, admin feedback, and a deeper accountability layer inside CLARA.
+            Life OS support gives you session booking, admin feedback, and a deeper accountability layer inside CLARA.
           </p>
           <Button className="mt-4" onClick={() => navigate("/enroll")}>
-            Unlock Coaching
+            Unlock Life OS
           </Button>
         </div>
       </div>

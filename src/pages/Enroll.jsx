@@ -84,23 +84,23 @@ const PLAN_UI_META = {
   },
   [CANONICAL_PLAN_KEYS.PROGRAM]: {
     label: "CORE",
-    eyebrow: "Core Activation",
+    eyebrow: "Advanced Spending AI",
     badge: "Most popular",
     statement:
-      "Unlock CORE with PRO during the program and continuation access after completion.",
+      "Choose CORE as your complete upgraded tier with advanced daily spending intelligence.",
     points: [
-      "CORE guided system",
-      "Includes PRO access during the program",
-      "Your +1 month continuation PRO starts after program completion",
-      "Activation code unlocks full intelligence",
+      "Complete CORE financial system",
+      "Advanced CLARA Companion for daily spending strategy",
+      "Guided support for today's spending decisions",
+      "Activation code unlocks the full CORE layer",
     ],
     accent: "from-emerald-400/22 via-teal-400/10 to-transparent",
     border: "border-emerald-400/20",
-    button: "Unlock Program",
+    button: "Unlock CORE",
     successTitle: "CORE unlocked",
     successBody:
-      "Your 30-day program is available. Start the challenge when you are ready.",
-    successCta: "Open Program",
+      "Your CORE tier is connected. Complete activation when your code is ready.",
+    successCta: "Open CORE",
     icon: Target,
   },
   [CANONICAL_PLAN_KEYS.COACHING]: {
@@ -108,20 +108,20 @@ const PLAN_UI_META = {
     eyebrow: "Premium Decision System",
     badge: "Premium support",
     statement:
-      "Unlock COACHING, two coaching sessions, and two months of continuation PRO after completion.",
+      "Choose Life OS as CLARA's highest tier for broader life-operating intelligence.",
     points: [
-      "Life OS guided system",
-      "Includes PRO access during the program",
-      "Your +2 months continuation PRO starts after program completion",
-      "Advanced activation code unlocks full Life OS intelligence",
+      "Complete Life OS operating layer",
+      "Decision intelligence beyond daily spending",
+      "Life scheduling, organization, and deeper CLARA context",
+      "Activation code unlocks the full Life OS layer",
     ],
     accent: "from-amber-400/22 via-orange-400/10 to-transparent",
     border: "border-amber-400/20",
     button: "Unlock Life OS",
     successTitle: "Life OS unlocked",
     successBody:
-      "Your guided system and 2 coaching credits are active. Start the challenge when you are ready.",
-    successCta: "View Coaching Journey",
+      "Your Life OS tier is connected. Complete activation when your code is ready.",
+    successCta: "Open Life OS",
     icon: Gem,
   },
 };
@@ -1702,7 +1702,7 @@ export default function Enroll() {
                   Choose your next level with less friction
                 </h1>
                 <p className="mt-3 text-sm leading-7 text-white/70 sm:text-base">
-                  Pick PRO, CORE, or COACHING, review one focused plan page, and
+                  Pick PRO, CORE, or LIFE OS, review one focused plan page, and
                   unlock through Google Play without the old proof-upload flow.
                 </p>
               </div>
@@ -2043,7 +2043,7 @@ export default function Enroll() {
             {sortedPlans.length === 0 ? (
               <div className="rounded-3xl border border-white/10 bg-white/5 p-5 text-sm text-white/70 backdrop-blur-xl">
                 No Google Play plans are active yet. Activate PRO, CORE, or
-                COACHING from admin first.
+                LIFE OS from admin first.
               </div>
             ) : null}
           </div>

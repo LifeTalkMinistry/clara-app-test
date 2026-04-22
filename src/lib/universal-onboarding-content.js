@@ -29,21 +29,21 @@ export const UNIVERSAL_ONBOARDING_SETTINGS_DEFAULTS = {
   onboarding_teaser_body:
     "CLARA can stay lightweight, or it can guide you through a more structured path when you are ready for deeper support.",
   onboarding_teaser_cta: "Explore guided options",
-  onboarding_result_tools_title: "Start with the tools and build confidence.",
+  onboarding_result_tools_title: "PRO is your cleanest starting point.",
   onboarding_result_tools_body:
-    "A clean starting point focused on visibility, tracking, and simple momentum.",
-  onboarding_result_tools_primary_cta: "Enter my dashboard",
-  onboarding_result_tools_secondary_cta: "See guided options",
-  onboarding_result_system_title: "A step-by-step system fits you best right now.",
+    "A simple entry into CLARA focused on essential financial visibility, tracking, and beginner-friendly control.",
+  onboarding_result_tools_primary_cta: "Choose PRO",
+  onboarding_result_tools_secondary_cta: "View all tiers",
+  onboarding_result_system_title: "CORE fits your daily spending needs best.",
   onboarding_result_system_body:
-    "You will likely benefit from a more structured path that helps turn intention into repeatable habits.",
-  onboarding_result_system_primary_cta: "Explore the guided system",
-  onboarding_result_system_secondary_cta: "Start with free tools",
-  onboarding_result_guidance_title: "A more supportive path may serve you best.",
+    "Your answers point toward more guidance, structure, and advanced daily spending intelligence through CLARA Companion.",
+  onboarding_result_system_primary_cta: "Choose CORE",
+  onboarding_result_system_secondary_cta: "View all tiers",
+  onboarding_result_guidance_title: "Life OS may be the right fit.",
   onboarding_result_guidance_body:
-    "Your answers suggest you may want stronger guidance, accountability, and a clearer route forward.",
-  onboarding_result_guidance_primary_cta: "Explore support options",
-  onboarding_result_guidance_secondary_cta: "Start with free tools",
+    "Your answers suggest you want broader decision support, planning context, and CLARA's deepest operating-system intelligence.",
+  onboarding_result_guidance_primary_cta: "Choose Life OS",
+  onboarding_result_guidance_secondary_cta: "View all tiers",
 };
 
 export const UNIVERSAL_ONBOARDING_SETTINGS_KEYS = Object.keys(

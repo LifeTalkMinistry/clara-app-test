@@ -19,8 +19,8 @@ export default function ProgramOnboarding() {
     if (isLifeOS && !activated) {
       return {
         title: "Life OS Preview",
-        body: "This is CLARA's premium decision layer. Advanced intelligence stays locked until your activation code connects the physical kit to this account.",
-        points: ["Decision system positioning", "Advanced AI preview", "Full Life OS unlock after activation"],
+        body: "This is CLARA's broadest decision-intelligence tier. You can preview the operating-system layer now while full Life OS intelligence waits for activation.",
+        points: ["Decision system positioning", "Advanced AI preview", "Life planning, organization, and deeper context unlock after activation"],
         cta: "Continue in Preview",
       };
     }
@@ -28,8 +28,8 @@ export default function ProgramOnboarding() {
     if (isCore && !activated) {
       return {
         title: "CORE Pre-Activation",
-        body: "Your Core kit and activation step are still coming. For now, CLARA gives partial access, a clear system intro, and an AI preview.",
-        points: ["Core intro", "Kit is coming", "Partial access explained"],
+        body: "CORE is your advanced daily spending intelligence tier. Your activation step is still coming, so CLARA gives partial access, a clear intro, and a focused AI preview for now.",
+        points: ["CORE intro", "Kit is coming", "Partial access and AI preview explained"],
         cta: "Enter Partial Access",
       };
     }
@@ -37,7 +37,7 @@ export default function ProgramOnboarding() {
     if (isCore || isLifeOS) {
       return {
         title: "System Activated",
-        body: "Your upgraded CLARA layer is unlocked. Start with one guided action so daily spending intelligence can begin with fresh data.",
+        body: "Your selected CLARA tier is fully unlocked. Start with one guided action so the intelligence layer can work with fresh, useful context.",
         points: ["Full CLARA introduction", "AI and daily spending intelligence", "Guided first action"],
         cta: "Start Guided Action",
       };

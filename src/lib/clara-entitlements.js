@@ -1,6 +1,7 @@
 export const CLARA_PRODUCTS = {
   pro: {
     planKey: "pro_99",
+    accessLevel: "pro",
     tierType: "pro_tools",
     productId: "pro_99",
     productType: "subscription",
@@ -11,7 +12,8 @@ export const CLARA_PRODUCTS = {
   },
   program: {
     planKey: "core_599",
-    tierType: "clara_program",
+    accessLevel: "core",
+    tierType: "clara_core",
     productId: "core_199",
     productType: "one_time",
     price: 199,
@@ -21,8 +23,9 @@ export const CLARA_PRODUCTS = {
   },
   coaching: {
     planKey: "coaching_1299",
-    tierType: "clara_coaching",
-    productId: "life_os_499",
+    accessLevel: "life_os",
+    tierType: "clara_life_os",
+    productId: "lifeos_499",
     productType: "one_time",
     price: 499,
     continuationMonths: 2,
@@ -30,6 +33,10 @@ export const CLARA_PRODUCTS = {
     completedTier: 3,
   },
 };
+
+CLARA_PRODUCTS.core = CLARA_PRODUCTS.program;
+CLARA_PRODUCTS.life_os = CLARA_PRODUCTS.coaching;
+CLARA_PRODUCTS.lifeos = CLARA_PRODUCTS.coaching;
 
 export const CLARA_PRODUCT_IDS = Object.values(CLARA_PRODUCTS).reduce((acc, product) => {
   acc[product.planKey] = product.productId;

@@ -1,4 +1,4 @@
-import { isPaidPlan, normalizePlanKey } from "@/lib/plan-config";
+import { getAccessLevelForPlan, isPaidPlan, normalizePlanKey } from "@/lib/plan-config";
 import { deriveEffectiveEntitlements } from "@/lib/clara-entitlements";
 
 export const ENROLLMENT_PENDING_STATUSES = new Set([
@@ -170,6 +170,7 @@ export function deriveAccessState(profileLike, enrollment = null) {
   return {
     role,
     plan,
+    accessLevel: getAccessLevelForPlan(plan),
     entitlements: effective,
     enrollmentStatus,
     isAdmin,

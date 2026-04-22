@@ -1,4 +1,5 @@
 export const CURRENT_PLAN_KEYS = ["pro_99", "core_599", "coaching_1299"];
+export const ACCESS_LEVEL_KEYS = ["pro", "core", "life_os"];
 
 export const LEGACY_PLAN_ALIASES = {
   free: "free",
@@ -10,9 +11,22 @@ export const LEGACY_PLAN_ALIASES = {
   life_os: "coaching_1299",
   lifeos: "coaching_1299",
   life_os_499: "coaching_1299",
+  lifeos_499: "coaching_1299",
   coach: "coaching_1299",
   coaching: "coaching_1299",
   coaching_1299: "coaching_1299",
+};
+
+export const PLAN_ACCESS_LEVELS = {
+  pro_99: "pro",
+  core_599: "core",
+  coaching_1299: "life_os",
+};
+
+export const ACCESS_LEVEL_PLAN_KEYS = {
+  pro: "pro_99",
+  core: "core_599",
+  life_os: "coaching_1299",
 };
 
 export const PLAN_LABELS = {
@@ -226,7 +240,7 @@ export const PLAN_DEFAULTS = {
       wallets: "full",
       budgets: "full",
       analytics: "full",
-      ai: "basic",
+      ai: "off",
       customization: "off",
       savings_goals: "full",
       tasks: "off",
@@ -244,14 +258,14 @@ export const PLAN_DEFAULTS = {
     price: 199,
     product_id: "core_199",
     billing_type: "one_time",
-    description: "Unlock CORE decision support, guided structure, and advanced CLARA intelligence after activation.",
+    description: "Unlock CORE: the advanced daily spending system with guided support and CLARA Companion intelligence.",
     features: [
-      "Feed and full CORE guided system",
-      "Includes PRO access during the program",
-      "+1 month continuation PRO after program completion",
-      "Core activation code required for full intelligence",
+      "Complete CORE financial system",
+      "Advanced daily spending AI through CLARA Companion",
+      "Guided spending strategy and practical next steps",
+      "Activation code unlocks the full CORE layer",
     ],
-    cta_label: "Unlock Program",
+    cta_label: "Unlock CORE",
     active: true,
     popular: true,
     sort_order: 3,
@@ -278,16 +292,16 @@ export const PLAN_DEFAULTS = {
     key: "coaching_1299",
     name: "Life OS",
     price: 499,
-    product_id: "life_os_499",
+    product_id: "lifeos_499",
     billing_type: "one_time",
-    description: "Unlock Life OS, CLARA's premium decision layer, advanced AI, and coaching controls after activation.",
+    description: "Unlock Life OS, CLARA's broadest decision-intelligence layer for money, planning, and life organization.",
     features: [
-      "Feed and full COACHING guided system",
-      "Includes PRO access during the program",
-      "+2 months continuation PRO after program completion",
-      "Advanced activation code required for full Life OS intelligence",
+      "Complete Life OS operating layer",
+      "Broader decision intelligence beyond daily spending",
+      "Life scheduling, organization, and deeper CLARA context",
+      "Activation code unlocks the full Life OS layer",
     ],
-    cta_label: "Unlock Coaching",
+    cta_label: "Unlock Life OS",
     active: true,
     popular: false,
     sort_order: 4,
@@ -315,6 +329,32 @@ export const PLAN_DEFAULTS = {
 export function normalizePlanKey(value) {
   const normalized = String(value ?? "").trim().toLowerCase();
   return LEGACY_PLAN_ALIASES[normalized] || (CURRENT_PLAN_KEYS.includes(normalized) ? normalized : "free");
+}
+
+export function normalizeAccessLevel(value, fallback = "pro") {
+  const normalized = String(value ?? "").trim().toLowerCase().replace(/[\s-]+/g, "_");
+  const aliases = {
+    pro_99: "pro",
+    core_199: "core",
+    core_599: "core",
+    lifeos: "life_os",
+    life_os_499: "life_os",
+    lifeos_499: "life_os",
+    coaching: "life_os",
+    coaching_1299: "life_os",
+  };
+  const resolved = aliases[normalized] || normalized;
+  return ACCESS_LEVEL_KEYS.includes(resolved) ? resolved : fallback;
+}
+
+export function getAccessLevelForPlan(planKey, fallback = "pro") {
+  const normalizedPlan = normalizePlanKey(planKey);
+  return PLAN_ACCESS_LEVELS[normalizedPlan] || normalizeAccessLevel(planKey, fallback);
+}
+
+export function getPlanKeyForAccessLevel(accessLevel, fallback = "pro_99") {
+  const normalizedAccess = normalizeAccessLevel(accessLevel);
+  return ACCESS_LEVEL_PLAN_KEYS[normalizedAccess] || fallback;
 }
 
 export function isPaidPlan(planKey) {

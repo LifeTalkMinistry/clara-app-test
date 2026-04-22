@@ -136,7 +136,18 @@ function getCompletionDestination(profile, recommendation) {
   const isPaid = hasAnyPaidSignal(profile);
   if (ENROLLMENT_PENDING_STATUSES.has(enrollmentStatus)) return "/pending";
   if (ENROLLMENT_APPROVED_STATUSES.has(enrollmentStatus) || isPaid) return "/program-onboarding";
-  return recommendation === "tools" ? "/dashboard" : "/tier-select";
+  const planByRecommendation = {
+    tools: "pro_99",
+    system: "core_599",
+    guidance: "coaching_1299",
+  };
+  return `/enroll?plan=${planByRecommendation[recommendation] || "pro_99"}&view=detail`;
+}
+
+function getRecommendedAccessLevel(recommendation) {
+  if (recommendation === "guidance") return "life_os";
+  if (recommendation === "system") return "core";
+  return "pro";
 }
 
 export default function UniversalOnboarding() {
@@ -273,6 +284,8 @@ export default function UniversalOnboarding() {
         onboarding_completed: true,
         onboarding_step: 4,
         has_completed_onboarding: true,
+        onboarding_answers: answers,
+        recommended_access_level: getRecommendedAccessLevel(recommendation),
       });
       await refreshProfile?.();
       navigate(destination, {
@@ -512,7 +525,7 @@ export default function UniversalOnboarding() {
                         {saving ? "Saving..." : resultContent.primaryCta}
                         {!saving ? <ArrowRight className="h-4 w-4" /> : null}
                       </Button>
-                      <Button type="button" variant="outline" onClick={() => finishOnboarding("/dashboard")} disabled={saving} className="h-12 flex-1 rounded-2xl border-white/12 bg-white/[0.03] text-white hover:bg-white/[0.08]">
+                      <Button type="button" variant="outline" onClick={() => finishOnboarding("/enroll")} disabled={saving} className="h-12 flex-1 rounded-2xl border-white/12 bg-white/[0.03] text-white hover:bg-white/[0.08]">
                         {resultContent.secondaryCta}
                       </Button>
                     </div>

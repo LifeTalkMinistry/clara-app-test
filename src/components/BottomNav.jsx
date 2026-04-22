@@ -25,14 +25,16 @@ import {
   Plus,
   ArrowRightLeft,
   Lock,
+  Sparkles,
   User,
   Settings,
+  X,
 } from "lucide-react";
 import { Sheet, SheetContent } from "@/components/ui/sheet";
 import { supabase } from "@/lib/supabaseClient";
 import { FEATURE_ROUTE_MAP } from "@/lib/plan-config";
 
-const LONG_PRESS_MS = 500;
+const LONG_PRESS_MS = 720;
 
 const CORE_PATHS = ["/dashboard", "/expenses", "/analytics"];
 
@@ -748,11 +750,210 @@ function QuickActionsSheet({
   );
 }
 
+function ClaraAiPanel({
+  open,
+  accessLevel = "pro",
+  onOpenChange,
+  onUpgrade,
+  onQuickAdd,
+  themePalette,
+}) {
+  const [lifeQuestion, setLifeQuestion] = useState("");
+  const [lifeResponse, setLifeResponse] = useState({
+    alignment: "Pause for one clear breath before committing.",
+    reason: "CLARA is checking whether this action supports your money, time, and current priorities.",
+    suggestion: "If it still matters after the pause, choose the smallest version that keeps your plan intact.",
+  });
+  const [coreInsight, setCoreInsight] = useState(
+    "Review today's essentials first, then choose one flexible spend that still leaves room for tomorrow."
+  );
+
+  if (!open) return null;
+
+  const isLife = accessLevel === "life_os";
+  const isCore = accessLevel === "core";
+
+  const close = () => onOpenChange(false);
+  const runLifePrompt = (prompt) => {
+    const text = String(prompt || lifeQuestion || "").trim();
+    setLifeQuestion(text);
+    setLifeResponse({
+      alignment: text.toLowerCase().includes("spend")
+        ? "This is a spending decision, so CLARA is checking impact before emotion takes over."
+        : "This decision should support the life system you are building, not just the moment in front of you.",
+      reason:
+        "A strong choice protects your essentials, your schedule, and your longer-term direction at the same time.",
+      suggestion:
+        "Make the decision smaller, time-box it, or delay it until your next planned review if the answer is not clear.",
+    });
+  };
+
+  return (
+    <>
+      <button
+        type="button"
+        className="fixed inset-0 z-[65] bg-black/55 backdrop-blur-[5px]"
+        onClick={close}
+        aria-label="Close CLARA AI"
+      />
+
+      <div className="fixed inset-x-0 bottom-0 z-[70] px-3 pb-3">
+        <div
+          className="mx-auto max-w-md rounded-[30px] border p-4 shadow-[0_28px_90px_rgba(0,0,0,0.72)] backdrop-blur-2xl"
+          style={{
+            borderColor: themePalette.panelBorder,
+            background: `linear-gradient(180deg, ${themePalette.panelStart} 0%, ${themePalette.panelEnd} 100%)`,
+          }}
+        >
+          <div className="flex items-start justify-between gap-4">
+            <div>
+              <div
+                className="inline-flex items-center gap-2 rounded-full border px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.18em]"
+                style={{
+                  borderColor: themePalette.accentBorder,
+                  background: themePalette.accentSoft,
+                  color: themePalette.accent,
+                }}
+              >
+                <Sparkles className="h-3.5 w-3.5" />
+                CLARA Mode
+              </div>
+              <h2
+                className="mt-3 text-2xl font-semibold"
+                style={{ color: themePalette.strongText }}
+              >
+                {isLife ? "CLARA" : isCore ? "CLARA Companion" : "Unlock CLARA AI"}
+              </h2>
+              <p className="mt-1 text-sm" style={{ color: themePalette.mutedText }}>
+                {isLife
+                  ? "Ask before you act."
+                  : isCore
+                    ? "Smart help for today's spending."
+                    : "Get smarter guidance with CORE or full decision intelligence with LIFE OS."}
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={close}
+              className="rounded-full border border-white/10 bg-white/5 p-2 text-white/70"
+              aria-label="Close"
+            >
+              <X className="h-4 w-4" />
+            </button>
+          </div>
+
+          {!isCore && !isLife ? (
+            <div className="mt-5 space-y-3">
+              <button
+                type="button"
+                onClick={() => {
+                  close();
+                  onUpgrade?.();
+                }}
+                className="w-full rounded-2xl px-4 py-3 text-sm font-semibold text-white"
+                style={{
+                  background: `linear-gradient(135deg, ${themePalette.accent} 0%, ${themePalette.accentEnd} 100%)`,
+                }}
+              >
+                Upgrade to CORE
+              </button>
+              <button
+                type="button"
+                onClick={close}
+                className="w-full rounded-2xl border border-white/10 bg-white/[0.04] px-4 py-3 text-sm font-semibold text-white/75"
+              >
+                Maybe later
+              </button>
+            </div>
+          ) : null}
+
+          {isCore ? (
+            <div className="mt-5 space-y-4">
+              <div className="rounded-3xl border border-white/10 bg-black/20 p-4">
+                <p className="text-xs uppercase tracking-[0.16em] text-white/45">
+                  Today's guidance
+                </p>
+                <p className="mt-2 text-sm leading-7 text-white/78">{coreInsight}</p>
+              </div>
+              <div className="grid grid-cols-3 gap-2">
+                {[
+                  ["Log expense", () => { close(); onQuickAdd?.("expense"); }],
+                  ["Review today", () => setCoreInsight("Your best move today is to compare planned spending against wallet balance before adding anything unplanned.")],
+                  ["Quick suggestion", () => setCoreInsight("Keep one small flexible allowance, then protect the rest for essentials and tomorrow's needs.")],
+                ].map(([label, action]) => (
+                  <button
+                    key={label}
+                    type="button"
+                    onClick={action}
+                    className="rounded-2xl border border-white/10 bg-white/[0.05] px-3 py-3 text-xs font-semibold text-white/78"
+                  >
+                    {label}
+                  </button>
+                ))}
+              </div>
+            </div>
+          ) : null}
+
+          {isLife ? (
+            <div className="mt-5 space-y-4">
+              <div className="rounded-3xl border border-white/10 bg-black/20 p-3">
+                <input
+                  value={lifeQuestion}
+                  onChange={(event) => setLifeQuestion(event.target.value)}
+                  onKeyDown={(event) => {
+                    if (event.key === "Enter") runLifePrompt();
+                  }}
+                  className="h-11 w-full rounded-2xl border border-white/10 bg-white/[0.04] px-4 text-sm text-white outline-none placeholder:text-white/35"
+                  placeholder="Ask before you act..."
+                />
+              </div>
+              <div className="flex flex-wrap gap-2">
+                {["Ask before spending", "Log expense", "Review today"].map((prompt) => (
+                  <button
+                    key={prompt}
+                    type="button"
+                    onClick={() => {
+                      if (prompt === "Log expense") {
+                        close();
+                        onQuickAdd?.("expense");
+                        return;
+                      }
+                      runLifePrompt(prompt);
+                    }}
+                    className="rounded-full border border-white/10 bg-white/[0.05] px-3 py-2 text-xs font-semibold text-white/72"
+                  >
+                    {prompt}
+                  </button>
+                ))}
+              </div>
+              <div className="grid gap-3">
+                {[
+                  ["Alignment", lifeResponse.alignment],
+                  ["Reason", lifeResponse.reason],
+                  ["Suggestion", lifeResponse.suggestion],
+                ].map(([label, body]) => (
+                  <div key={label} className="rounded-2xl border border-white/10 bg-white/[0.04] p-3">
+                    <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-white/40">
+                      {label}
+                    </p>
+                    <p className="mt-1 text-sm leading-6 text-white/78">{body}</p>
+                  </div>
+                ))}
+              </div>
+            </div>
+          ) : null}
+        </div>
+      </div>
+    </>
+  );
+}
+
 function BottomNav({
   onQuickAdd,
   isAdmin = false,
   isFree = false,
   isFeatureAvailable = () => true,
+  user,
   onLogout,
 }) {
   const location = useLocation();
@@ -760,7 +961,9 @@ function BottomNav({
 
   const [moreOpen, setMoreOpen] = useState(false);
   const [actionsOpen, setActionsOpen] = useState(false);
+  const [claraOpen, setClaraOpen] = useState(false);
   const [didLongPress, setDidLongPress] = useState(false);
+  const [holdActive, setHoldActive] = useState(false);
   const [hideForOnboarding, setHideForOnboarding] = useState(false);
   const [themePalette, setThemePalette] = useState(DEFAULT_NAV_THEME);
 
@@ -795,12 +998,34 @@ function BottomNav({
   );
 
   const savingsGoalLocked = !isFeatureAvailable("savings_goals");
+  const accessLevel = useMemo(() => {
+    const value = String(
+      user?.access_level ||
+        user?.subscription?.access_level ||
+        user?.subscription_status ||
+        "pro"
+    )
+      .trim()
+      .toLowerCase()
+      .replace(/[\s-]+/g, "_");
+
+    if (["life_os", "lifeos", "life_os_499", "lifeos_499", "coaching_1299"].includes(value)) {
+      return "life_os";
+    }
+
+    if (["core", "core_199", "core_599"].includes(value)) {
+      return "core";
+    }
+
+    return "pro";
+  }, [user?.access_level, user?.subscription?.access_level, user?.subscription_status]);
 
   const clearPressTimer = useCallback(() => {
     if (pressTimerRef.current) {
       clearTimeout(pressTimerRef.current);
       pressTimerRef.current = null;
     }
+    setHoldActive(false);
   }, []);
 
   const clearScheduledThemeSync = useCallback(() => {
@@ -1000,6 +1225,7 @@ function BottomNav({
       if (isOpen) {
         setMoreOpen(false);
         setActionsOpen(false);
+        setClaraOpen(false);
       }
     };
 
@@ -1033,9 +1259,14 @@ function BottomNav({
     setActionsOpen(false);
   }, []);
 
+  const closeClara = useCallback(() => {
+    setClaraOpen(false);
+  }, []);
+
   const handleLogout = useCallback(async () => {
     closeMore();
     closeActions();
+    closeClara();
 
     if (onLogout) {
       await onLogout();
@@ -1044,29 +1275,31 @@ function BottomNav({
 
     await supabase.auth.signOut();
     window.location.href = "/login";
-  }, [closeActions, closeMore, onLogout]);
+  }, [closeActions, closeClara, closeMore, onLogout]);
 
   const navigateSafely = useCallback(
     (path) => {
       closeMore();
       closeActions();
+      closeClara();
 
       if (pathname !== path) {
         navigate(path);
       }
     },
-    [closeActions, closeMore, navigate, pathname]
+    [closeActions, closeClara, closeMore, navigate, pathname]
   );
 
   const goToEnroll = useCallback(() => {
     if (pathname === "/enroll") {
       closeMore();
       closeActions();
+      closeClara();
       return;
     }
 
     navigateSafely("/enroll");
-  }, [closeActions, closeMore, navigateSafely, pathname]);
+  }, [closeActions, closeClara, closeMore, navigateSafely, pathname]);
 
   const handleProtectedNavigation = useCallback(
     (path, locked) => {
@@ -1089,12 +1322,17 @@ function BottomNav({
 
     pointerDownRef.current = true;
     clearPressTimer();
+    setHoldActive(true);
 
     pressTimerRef.current = setTimeout(() => {
       if (!pointerDownRef.current) return;
       setDidLongPress(true);
       setMoreOpen(false);
-      setActionsOpen(true);
+      setActionsOpen(false);
+      setClaraOpen(true);
+      if (typeof navigator !== "undefined" && typeof navigator.vibrate === "function") {
+        navigator.vibrate(12);
+      }
     }, LONG_PRESS_MS);
   }, [clearPressTimer, hideForOnboarding]);
 
@@ -1112,8 +1350,9 @@ function BottomNav({
     }
 
     closeActions();
-    onQuickAdd?.();
-  }, [closeActions, didLongPress, hideForOnboarding, onQuickAdd]);
+    closeClara();
+    onQuickAdd?.("expense");
+  }, [closeActions, closeClara, didLongPress, hideForOnboarding, onQuickAdd]);
 
   const openQuickAction = useCallback(
     (action) => {
@@ -1155,6 +1394,15 @@ function BottomNav({
         onOpenChange={setActionsOpen}
         onActionSelect={handleQuickActionSelect}
         onGoalSelect={handleGoalQuickAction}
+        themePalette={themePalette}
+      />
+
+      <ClaraAiPanel
+        open={claraOpen}
+        accessLevel={accessLevel}
+        onOpenChange={setClaraOpen}
+        onUpgrade={() => navigateSafely("/enroll?plan=core_599&view=detail")}
+        onQuickAdd={onQuickAdd}
         themePalette={themePalette}
       />
 
@@ -1225,12 +1473,14 @@ function BottomNav({
                 onTouchEnd={endPress}
                 onTouchCancel={endPress}
                 onClick={handleFabClick}
-                className="absolute left-1/2 top-0 z-50 flex h-[58px] w-[58px] -translate-x-1/2 -translate-y-[28%] items-center justify-center rounded-full transition-transform duration-200 active:scale-95"
+                className={`absolute left-1/2 top-0 z-50 flex h-[58px] w-[58px] -translate-x-1/2 -translate-y-[28%] items-center justify-center rounded-full transition-transform duration-200 active:scale-95 ${holdActive ? "fab-holding" : ""}`}
                 style={{
                   background: `linear-gradient(180deg, ${themePalette.accent} 0%, ${themePalette.accent} 38%, ${themePalette.accentEnd} 100%)`,
-                  boxShadow: `0 10px 22px ${themePalette.accentGlow}, 0 0 0 5px ${themePalette.fabRing}, inset 0 1px 0 rgba(255,255,255,0.18)`,
+                  boxShadow: holdActive
+                    ? `0 16px 34px ${themePalette.accentGlow}, 0 0 0 7px ${themePalette.fabRing}, 0 0 28px ${themePalette.accentGlow}, inset 0 1px 0 rgba(255,255,255,0.22)`
+                    : `0 10px 22px ${themePalette.accentGlow}, 0 0 0 5px ${themePalette.fabRing}, inset 0 1px 0 rgba(255,255,255,0.18)`,
                 }}
-                aria-label="Quick add"
+                aria-label="Quick add expense. Long press for CLARA AI."
               >
                 <span className="fab-inner-ring" />
                 <Plus
@@ -1334,6 +1584,20 @@ function BottomNav({
             transform 0.16s ease,
             box-shadow 0.14s ease,
             background 0.14s ease;
+        }
+
+        [data-fab].fab-holding {
+          transform: translateX(-50%) translateY(-28%) scale(1.08);
+          animation: clara-fab-pulse 0.72s ease-out infinite alternate;
+        }
+
+        @keyframes clara-fab-pulse {
+          from {
+            filter: saturate(1);
+          }
+          to {
+            filter: saturate(1.2) brightness(1.08);
+          }
         }
 
         .fab-inner-ring {

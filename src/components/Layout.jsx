@@ -466,6 +466,7 @@ export default function Layout({ children }) {
           isPaid={isPaid}
           isFree={isFree}
           isFeatureAvailable={isFeatureAvailable}
+          user={user}
           onLogout={handleLogout}
         />
       )}

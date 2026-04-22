@@ -405,10 +405,10 @@ export function getProgramBubbleContent(journey, options = {}) {
   if (onboardingRequired) {
     return {
       kind: "onboarding",
-      eyebrow: journey.tier === "coaching" ? "Coaching Journey" : "30-Day Reset",
+      eyebrow: journey.tier === "coaching" ? "Life OS Journey" : "30-Day Reset",
       title:
         journey.tier === "coaching_1299"
-            ? "Your guided system and coaching layer are ready"
+            ? "Your Life OS layer is ready"
             : "Your guided reset is ready",
       body: "Complete your setup and begin the next step in your program.",
       ctaLabel: "Begin Setup",
@@ -420,8 +420,8 @@ export function getProgramBubbleContent(journey, options = {}) {
     const session = coachingSummary.nextApproved || coachingSummary.pending;
     return {
       kind: "coaching_active",
-      eyebrow: "Coaching Active",
-      title: "Your coaching journey is active",
+      eyebrow: "Life OS Support",
+      title: "Your Life OS support is active",
       body: session?.topic
         ? `${session.topic} is in motion. Continue today's guided step and keep your support layer active.`
         : "Your support layer is active. Continue today's guided step.",
@@ -433,7 +433,7 @@ export function getProgramBubbleContent(journey, options = {}) {
   if (journey.state === "available_not_started") {
     return {
       kind: "start_challenge",
-      eyebrow: journey.tier === "coaching_1299" ? "Coaching Journey" : "30-Day Program",
+      eyebrow: journey.tier === "coaching_1299" ? "Life OS Journey" : "30-Day Program",
       title: "Your CLARA challenge is ready",
       body: "Start the challenge when you are ready. Day 1 opens immediately, then each next day unlocks at 6:00 AM.",
       ctaLabel: "Start Challenge",
@@ -444,7 +444,7 @@ export function getProgramBubbleContent(journey, options = {}) {
   if (journey.todayItem) {
     return {
       kind: "task_reminder",
-      eyebrow: journey.tier === "coaching_1299" ? "Coaching Journey" : "Today's Task",
+      eyebrow: journey.tier === "coaching_1299" ? "Life OS Journey" : "Today's Task",
       title: `Continue Day ${journey.todayItem.day} of your reset`,
       body: journey.todayItem.title || "Your next guided task is ready.",
       ctaLabel: "Open Today's Task",

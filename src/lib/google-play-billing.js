@@ -4,9 +4,14 @@ const PRODUCT_IDS = {
   pro_99: CLARA_PRODUCTS.pro.productId,
   pro: CLARA_PRODUCTS.pro.productId,
   core_599: CLARA_PRODUCTS.program.productId,
+  core_199: CLARA_PRODUCTS.program.productId,
   core: CLARA_PRODUCTS.program.productId,
   program: CLARA_PRODUCTS.program.productId,
   coaching_1299: CLARA_PRODUCTS.coaching.productId,
+  life_os: CLARA_PRODUCTS.coaching.productId,
+  lifeos: CLARA_PRODUCTS.coaching.productId,
+  life_os_499: CLARA_PRODUCTS.coaching.productId,
+  lifeos_499: CLARA_PRODUCTS.coaching.productId,
   coach: CLARA_PRODUCTS.coaching.productId,
   coaching: CLARA_PRODUCTS.coaching.productId,
 };
@@ -275,6 +280,26 @@ async function safeBridgeCall(methodName, payload) {
 
   if (!bridge) {
     return getMissingBridgeResult("ClaraBilling bridge object was not created.");
+  }
+
+  const productState = await queryGooglePlayProducts({ productIds: [payload.productId] });
+  if (
+    !productState.ok ||
+    productState.missingProductIds.includes(payload.productId)
+  ) {
+    throw makeError(
+      "Google Play product is not ready for purchase on this device.",
+      {
+        responseCode:
+          productState.responseCode === "OK"
+            ? "ITEM_UNAVAILABLE"
+            : productState.responseCode || "ITEM_UNAVAILABLE",
+        debugMessage:
+          productState.debugMessage ||
+          `Product ${payload.productId} was not returned by Google Play. Check Play Console product activation, tester access, and Play-distributed install.`,
+        raw: productState.raw,
+      }
+    );
   }
 
   const method = bridge[methodName];
@@ -1028,6 +1053,7 @@ export async function persistGooglePlayPurchase({
     const profilePatch = isProOnly
       ? {
           plan: "pro_99",
+          access_level: "pro",
           tier_type: product?.tierType || "pro_tools",
           purchase_source: "google_play",
           play_product_id: safeProductId,
@@ -1040,6 +1066,7 @@ export async function persistGooglePlayPurchase({
         }
       : {
           plan: safePlanKey,
+          access_level: product?.accessLevel || (safePlanKey === "coaching_1299" ? "life_os" : "core"),
           tier_type: product?.tierType || safePlanKey,
           purchase_source: "google_play",
           play_product_id: safeProductId,
