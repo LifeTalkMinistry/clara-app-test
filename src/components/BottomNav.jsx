@@ -15,6 +15,7 @@ import {
   Wallet,
   Target,
   BookOpen,
+  Brain,
   Users,
   GraduationCap,
   Shield,
@@ -40,6 +41,7 @@ const MORE_ITEMS = [
   { path: "/budgets", label: "Budgets", icon: Target, pro: false },
   { path: "/savings-goals", label: "Savings Goals", icon: PiggyBank, pro: true },
   { path: "/modules", label: "Modules", icon: BookOpen, pro: true },
+  { path: "/ai", label: "CLARA AI", icon: Brain, pro: true },
   { path: "/community", label: "Community", icon: Users, pro: true },
   { path: "/coaching", label: "Coaching", icon: GraduationCap, pro: true },
 ];

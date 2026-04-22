@@ -43,7 +43,7 @@ export default function AdminUsers() {
 
       const { data, error } = await supabase
         .from("profiles")
-        .select("id, email, full_name, plan, role");
+        .select("id, email, full_name, plan, role, activation_status, is_activated, suspended_at, messaging_disabled");
 
       if (error) {
         console.error("Load users error:", error);
@@ -74,7 +74,7 @@ export default function AdminUsers() {
         .from("profiles")
         .update(updates)
         .eq("id", id)
-        .select("id, email, full_name, plan, role")
+        .select("id, email, full_name, plan, role, activation_status, is_activated, suspended_at, messaging_disabled")
         .single();
 
       if (error) {
@@ -108,6 +108,26 @@ export default function AdminUsers() {
       updateUser(id, {
       plan: normalizedPlan,
       role,
+      activation_status:
+        normalizedPlan === "core_599" || normalizedPlan === "coaching_1299"
+          ? "pending"
+          : "not_required",
+      is_activated: normalizedPlan === "pro_99",
+    });
+  }
+
+  function suspendUser(id, suspended) {
+    updateUser(id, {
+      suspended_at: suspended ? new Date().toISOString() : null,
+      status: suspended ? "suspended" : "active",
+      force_reauth: suspended,
+    });
+  }
+
+  function toggleMessaging(id, disabled) {
+    updateUser(id, {
+      messaging_disabled: disabled,
+      updated_at: new Date().toISOString(),
     });
   }
 
@@ -252,6 +272,18 @@ export default function AdminUsers() {
                     {getPlanLabel(user.plan)}
                   </p>
                 </div>
+                <div className="rounded-xl border p-2">
+                  <p className="text-muted-foreground">Activation</p>
+                  <p className="font-medium capitalize">
+                    {user.is_activated ? "Activated" : user.activation_status || "Not required"}
+                  </p>
+                </div>
+                <div className="rounded-xl border p-2">
+                  <p className="text-muted-foreground">Access</p>
+                  <p className="font-medium">
+                    {user.suspended_at ? "Suspended" : "Active"}
+                  </p>
+                </div>
               </div>
 
               <div className="flex flex-wrap gap-2">
@@ -297,6 +329,24 @@ export default function AdminUsers() {
                 >
                   <RotateCcw className="w-3 h-3 mr-1" />
                   Reset
+                </Button>
+
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => suspendUser(user.id, !user.suspended_at)}
+                  disabled={isBusy}
+                >
+                  {user.suspended_at ? "Unsuspend" : "Suspend"}
+                </Button>
+
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => toggleMessaging(user.id, !user.messaging_disabled)}
+                  disabled={isBusy}
+                >
+                  {user.messaging_disabled ? "Enable Messages" : "Disable Messages"}
                 </Button>
 
                 <div className="inline-flex items-center gap-2 rounded-xl border px-3 py-2 text-xs text-muted-foreground">

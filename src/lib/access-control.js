@@ -50,6 +50,28 @@ export function hasCompletedProgramOnboarding(profileLike) {
   );
 }
 
+export function isActivationRequiredPlan(planKey) {
+  const normalized = normalizePlanKey(planKey);
+  return normalized === "core_599" || normalized === "coaching_1299";
+}
+
+export function hasActivatedPlan(profileLike = {}) {
+  const status = normalizeAccessValue(
+    profileLike?.activation_status ||
+      profileLike?.kit_activation_status ||
+      profileLike?.system_activation_status
+  );
+
+  return (
+    status === "active" ||
+    status === "activated" ||
+    profileLike?.is_activated === true ||
+    profileLike?.core_activated === true ||
+    profileLike?.life_os_activated === true ||
+    Boolean(profileLike?.activated_at)
+  );
+}
+
 export function hasAnyPaidSignal(profileLike, enrollment) {
   const role = normalizeAccessValue(profileLike?.role);
   const effective = deriveEffectiveEntitlements(profileLike || {});
@@ -132,6 +154,8 @@ export function deriveAccessState(profileLike, enrollment = null) {
 
   const isPending = ENROLLMENT_PENDING_STATUSES.has(enrollmentStatus);
   const isFree = !isAdvertiser && !isPaid && !isPending;
+  const activationRequired = isActivationRequiredPlan(plan);
+  const isActivated = !activationRequired || hasActivatedPlan(profileLike);
 
   const flow = resolveAppFlow(profileLike, enrollment);
 
@@ -154,6 +178,9 @@ export function deriveAccessState(profileLike, enrollment = null) {
     isPaid,
     isPending,
     isFree,
+    activationRequired,
+    isActivated,
+    isPreActivation: activationRequired && !isActivated,
     flow,
     forceEnroll,
   };

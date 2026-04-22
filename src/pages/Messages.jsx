@@ -74,7 +74,8 @@ export default function Messages() {
 
   const hasFullMessaging = isAdmin || !!access?.messagingFull;
   const canMessageAdmins = isAdmin || !!access?.messagingAdminOnly;
-  const hasMessagingAccess = hasFullMessaging || canMessageAdmins;
+  const hasMessagingAccess =
+    (hasFullMessaging || canMessageAdmins) && !user?.messaging_disabled;
 
   const currentUserId = user?.id || null;
   const currentUserEmail = user?.email || "";

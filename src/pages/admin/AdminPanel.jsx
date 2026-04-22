@@ -15,6 +15,8 @@ import AdminPlans from "./AdminPlans";
 import AdminBillboard from "./AdminBillboard";
 import AdminReferrals from "./AdminReferrals";
 import AdminDailyTips from "./AdminDailyTips";
+import AdminActivation from "./AdminActivation";
+import AdminOverview from "./AdminOverview";
 
 export default function AdminPanel() {
   const { isAdmin, loading } = useUserRole();
@@ -39,9 +41,12 @@ export default function AdminPanel() {
     <div className="p-4 md:p-6 max-w-5xl mx-auto">
       <PageHeader title="Admin Panel" subtitle="Manage CLARA platform" />
 
-      <Tabs defaultValue="users" className="w-full">
+      <Tabs defaultValue="overview" className="w-full">
         <div className="overflow-x-auto mb-5 -mx-1 px-1">
           <TabsList className="flex w-max gap-0.5">
+            <TabsTrigger value="overview" className="text-xs px-3">
+              Overview
+            </TabsTrigger>
             <TabsTrigger value="users" className="text-xs px-3">
               Users
             </TabsTrigger>
@@ -50,6 +55,9 @@ export default function AdminPanel() {
             </TabsTrigger>
             <TabsTrigger value="plans" className="text-xs px-3">
               Plans
+            </TabsTrigger>
+            <TabsTrigger value="activation" className="text-xs px-3">
+              Activation
             </TabsTrigger>
             <TabsTrigger value="billboard" className="text-xs px-3">
               Billboard
@@ -75,6 +83,10 @@ export default function AdminPanel() {
           </TabsList>
         </div>
 
+        <TabsContent value="overview">
+          <AdminOverview />
+        </TabsContent>
+
         <TabsContent value="users">
           <AdminUsers />
         </TabsContent>
@@ -85,6 +97,10 @@ export default function AdminPanel() {
 
         <TabsContent value="plans">
           <AdminPlans />
+        </TabsContent>
+
+        <TabsContent value="activation">
+          <AdminActivation />
         </TabsContent>
 
         <TabsContent value="billboard">

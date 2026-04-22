@@ -1,4 +1,5 @@
 import { Link } from "react-router-dom";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   Users,
   ShieldCheck,
@@ -13,11 +14,103 @@ import {
 import PageHeader from "../components/PageHeader";
 import { Button } from "@/components/ui/button";
 import useUserRole from "../hooks/useUserRole";
+import { supabase } from "@/lib/supabaseClient";
 
 export default function Community() {
-  const { isPaid, isFree, isPending } = useUserRole();
+  const { user, access, isAdmin, isFree, isPending } = useUserRole();
+  const [posts, setPosts] = useState([]);
+  const [comments, setComments] = useState([]);
+  const [body, setBody] = useState("");
+  const [commentDrafts, setCommentDrafts] = useState({});
+  const [saving, setSaving] = useState(false);
 
-  const isLocked = isFree || isPending;
+  const isLocked = isFree || isPending || !access.community;
+  const canPost = isAdmin || access.communityPosting;
+
+  const loadCommunity = useCallback(async () => {
+    if (isLocked) return;
+    const [postRes, commentRes] = await Promise.all([
+      supabase.from("community_posts").select("*").order("created_at", { ascending: false }).limit(50),
+      supabase.from("community_comments").select("*").order("created_at", { ascending: true }).limit(200),
+    ]);
+    if (!postRes.error) setPosts(postRes.data || []);
+    if (!commentRes.error) setComments(commentRes.data || []);
+  }, [isLocked]);
+
+  useEffect(() => {
+    loadCommunity();
+  }, [loadCommunity]);
+
+  useEffect(() => {
+    if (isLocked) return undefined;
+    const channel = supabase
+      .channel("community-live")
+      .on("postgres_changes", { event: "*", schema: "public", table: "community_posts" }, loadCommunity)
+      .on("postgres_changes", { event: "*", schema: "public", table: "community_comments" }, loadCommunity)
+      .subscribe();
+    return () => supabase.removeChannel(channel);
+  }, [isLocked, loadCommunity]);
+
+  const commentsByPost = useMemo(() => {
+    return comments.reduce((acc, comment) => {
+      const key = String(comment.post_id || "");
+      if (!acc[key]) acc[key] = [];
+      acc[key].push(comment);
+      return acc;
+    }, {});
+  }, [comments]);
+
+  const createPost = async () => {
+    const text = body.trim();
+    if (!text || !canPost || !user?.id) return;
+    try {
+      setSaving(true);
+      const { error } = await supabase.from("community_posts").insert([
+        {
+          body: text,
+          author_id: user.id,
+          author_email: user.email,
+          author_name: user.full_name || user.email,
+          status: "active",
+        },
+      ]);
+      if (error) throw error;
+      setBody("");
+      await loadCommunity();
+    } catch (error) {
+      console.error("Failed to create community post:", error);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const addComment = async (postId) => {
+    const text = String(commentDrafts[postId] || "").trim();
+    if (!text || !user?.id || isLocked) return;
+    const { error } = await supabase.from("community_comments").insert([
+      {
+        post_id: postId,
+        body: text,
+        author_id: user.id,
+        author_email: user.email,
+        author_name: user.full_name || user.email,
+      },
+    ]);
+    if (!error) {
+      setCommentDrafts((prev) => ({ ...prev, [postId]: "" }));
+      await loadCommunity();
+    }
+  };
+
+  const reactToPost = async (post) => {
+    if (!user?.id || isLocked) return;
+    const reactions = Number(post.reactions || 0) + 1;
+    const { error } = await supabase
+      .from("community_posts")
+      .update({ reactions, updated_at: new Date().toISOString() })
+      .eq("id", post.id);
+    if (!error) await loadCommunity();
+  };
 
   const highlights = [
     {
@@ -138,12 +231,12 @@ export default function Community() {
                     Status
                   </p>
                   <h3 className="mt-1 text-lg font-bold text-white">
-                    {isLocked ? "Locked for now" : "Premium access detected"}
+                    {isLocked ? "Locked for now" : "Community access detected"}
                   </h3>
                   <p className="mt-2 text-sm leading-6 text-white/65">
                     {isLocked
                       ? "Community is reserved for committed members. Unlock premium access to enter this deeper support space."
-                      : "You already have premium access. This section is ready as your future members-only community hub."}
+                      : "Create posts, react, and comment inside the members-only community hub."}
                   </p>
                 </div>
               </div>
@@ -157,13 +250,9 @@ export default function Community() {
                     </Button>
                   </Link>
                 ) : (
-                  <button
-                    type="button"
-                    className="flex h-11 w-full items-center justify-center rounded-2xl bg-gradient-to-r from-emerald-500 via-emerald-500 to-cyan-500 text-sm font-semibold text-white shadow-[0_12px_30px_rgba(16,185,129,0.28)] transition hover:scale-[1.01]"
-                  >
-                    Enter Community
-                    <ArrowRight className="ml-2 h-4 w-4" />
-                  </button>
+                  <div className="rounded-2xl border border-emerald-400/15 bg-emerald-400/10 px-4 py-3 text-sm text-emerald-100">
+                    Live community enabled
+                  </div>
                 )}
               </div>
             </section>
@@ -205,6 +294,63 @@ export default function Community() {
             </section>
           </aside>
         </div>
+
+        {!isLocked ? (
+          <div className="mt-4 space-y-4">
+            {canPost ? (
+              <section className="rounded-[28px] border border-white/10 bg-[#0B1228] p-4">
+                <textarea
+                  rows={3}
+                  value={body}
+                  onChange={(event) => setBody(event.target.value)}
+                  placeholder="Share a win, question, or financial reflection..."
+                  className="w-full resize-none rounded-2xl border border-white/10 bg-black/20 p-3 text-sm text-white placeholder:text-white/35"
+                />
+                <div className="mt-3 flex justify-end">
+                  <Button onClick={createPost} disabled={saving || !body.trim()}>
+                    {saving ? "Posting..." : "Post"}
+                  </Button>
+                </div>
+              </section>
+            ) : null}
+
+            {posts.map((post) => (
+              <article key={post.id} className="rounded-[28px] border border-white/10 bg-[#0B1228] p-4 text-white">
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <p className="text-sm font-semibold">{post.author_name || post.author_email || "Member"}</p>
+                    <p className="text-xs text-white/45">{new Date(post.created_at).toLocaleString("en-PH")}</p>
+                  </div>
+                  <button className="text-xs text-emerald-200" onClick={() => reactToPost(post)}>
+                    {Number(post.reactions || 0)} reactions
+                  </button>
+                </div>
+                <p className="mt-3 text-sm leading-6 text-white/75">{post.body}</p>
+                <div className="mt-4 space-y-2">
+                  {(commentsByPost[String(post.id)] || []).map((comment) => (
+                    <div key={comment.id} className="rounded-2xl bg-white/[0.04] px-3 py-2 text-sm">
+                      <span className="font-semibold">{comment.author_name || "Member"}: </span>
+                      <span className="text-white/70">{comment.body}</span>
+                    </div>
+                  ))}
+                  <div className="flex gap-2">
+                    <input
+                      value={commentDrafts[post.id] || ""}
+                      onChange={(event) =>
+                        setCommentDrafts((prev) => ({ ...prev, [post.id]: event.target.value }))
+                      }
+                      placeholder="Comment..."
+                      className="h-10 flex-1 rounded-xl border border-white/10 bg-black/20 px-3 text-sm text-white"
+                    />
+                    <Button size="sm" onClick={() => addComment(post.id)}>
+                      Send
+                    </Button>
+                  </div>
+                </div>
+              </article>
+            ))}
+          </div>
+        ) : null}
       </div>
     </div>
   );

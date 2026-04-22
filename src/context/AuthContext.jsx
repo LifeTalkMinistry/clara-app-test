@@ -67,6 +67,15 @@ const normalizeProfileAccess = (rawProfile = {}, authUser = null) => {
       "",
     plan: normalizedPlan,
     subscription_status: subscriptionStatus,
+    activation_status: rawProfile?.activation_status || "not_required",
+    is_activated: Boolean(
+      rawProfile?.is_activated ||
+        rawProfile?.activated_at ||
+        ["active", "activated"].includes(
+          String(rawProfile?.activation_status || "").toLowerCase()
+        )
+    ),
+    activated_at: rawProfile?.activated_at || null,
     subscription_label: PLAN_LABELS[normalizedPlan] || "Free",
     subscription: {
       plan: normalizedPlan,
@@ -296,6 +305,32 @@ export function AuthProvider({ children }) {
       subscription.unsubscribe();
     };
   }, [fetchProfile]);
+
+  useEffect(() => {
+    if (!user?.id) return undefined;
+
+    const channel = supabase
+      .channel(`profile-live-${user.id}`)
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "profiles",
+          filter: `id=eq.${user.id}`,
+        },
+        () => {
+          fetchProfile(user).catch((error) => {
+            console.error("Profile realtime refresh error:", error);
+          });
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [fetchProfile, user]);
 
   const signUp = async ({ email, password, fullName }) => {
     const { data, error } = await supabase.auth.signUp({

@@ -12,9 +12,9 @@ export const CLARA_PRODUCTS = {
   program: {
     planKey: "core_599",
     tierType: "clara_program",
-    productId: "core_599",
+    productId: "core_199",
     productType: "one_time",
-    price: 599,
+    price: 199,
     continuationMonths: 1,
     coachingCredits: 0,
     completedTier: 2,
@@ -22,9 +22,9 @@ export const CLARA_PRODUCTS = {
   coaching: {
     planKey: "coaching_1299",
     tierType: "clara_coaching",
-    productId: "coaching_1299",
+    productId: "life_os_499",
     productType: "one_time",
-    price: 1299,
+    price: 499,
     continuationMonths: 2,
     coachingCredits: 2,
     completedTier: 3,

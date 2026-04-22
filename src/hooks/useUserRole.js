@@ -66,6 +66,10 @@ const buildResolvedUser = (authUser, profile, accessState, referralsEnabled) => 
       profile?.program_onboarding_completed || false,
     has_completed_program_onboarding:
       profile?.has_completed_program_onboarding || false,
+    activation_status: profile?.activation_status || "not_required",
+    is_activated: Boolean(accessState.isActivated),
+    is_pre_activation: Boolean(accessState.isPreActivation),
+    activated_at: profile?.activated_at || null,
     has_referral_access:
       accessState.isAdmin ||
       accessState.isPaid ||
@@ -108,6 +112,8 @@ export default function useUserRole() {
   const isPaid = accessState.isPaid;
   const isPending = accessState.isPending;
   const isFree = accessState.isFree;
+  const isPreActivation = accessState.isPreActivation;
+  const isActivated = accessState.isActivated;
   const planConfig = plansByKey[plan] || null;
 
   const planLabel = isAdmin
@@ -117,11 +123,23 @@ export default function useUserRole() {
       : PLAN_LABELS[plan] || "Free";
 
   const featureModes = useMemo(() => {
-    return FEATURE_DEFINITIONS.reduce((acc, feature) => {
+    const baseModes = FEATURE_DEFINITIONS.reduce((acc, feature) => {
       acc[feature.key] = getFeatureMode(planConfig || { plan_key: plan }, feature.key);
       return acc;
     }, {});
-  }, [plan, planConfig]);
+
+    if (!isPreActivation) return baseModes;
+
+    return {
+      ...baseModes,
+      tasks: "preview",
+      modules: "preview",
+      community: "view",
+      messages: "admin_only",
+      coaching: "teaser",
+      ai: plan === "coaching_1299" ? "advanced" : "basic",
+    };
+  }, [isPreActivation, plan, planConfig]);
 
   const isFeatureAvailable = useCallback(
     (featureKey) => {
@@ -185,6 +203,11 @@ export default function useUserRole() {
       savingsGoals: isFeatureAvailable("savings_goals"),
       news: isFeatureAvailable("news"),
       referrals: isFeatureAvailable("referrals"),
+      ai: isFeatureAvailable("ai"),
+      aiBasic: hasFeatureAccess("ai", ["basic", "advanced", "life_os"]),
+      aiAdvanced: hasFeatureAccess("ai", ["advanced", "life_os"]),
+      aiLifeOS: hasFeatureAccess("ai", ["life_os"]),
+      customization: isFeatureAvailable("customization"),
     }),
     [hasFeatureAccess, isFeatureAvailable]
   );
@@ -204,6 +227,8 @@ export default function useUserRole() {
     isPaid,
     isFree,
     isPending,
+    isPreActivation,
+    isActivated,
     planLabel,
     planConfig,
     featureModes,

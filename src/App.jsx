@@ -25,6 +25,7 @@ const AddFunds = lazy(() => import("./pages/AddFunds"));
 const Wallets = lazy(() => import("./pages/Wallets"));
 const Budgets = lazy(() => import("./pages/Budgets"));
 const Analytics = lazy(() => import("./pages/Analytics"));
+const AiInsights = lazy(() => import("./pages/AiInsights"));
 const Tasks = lazy(() => import("./pages/Tasks"));
 const Modules = lazy(() => import("./pages/Modules"));
 const Feed = lazy(() => import("./pages/Feed"));
@@ -39,6 +40,7 @@ const News = lazy(() => import("./pages/News"));
 const Referrals = lazy(() => import("./pages/Referrals"));
 const SavingsGoals = lazy(() => import("./pages/SavingsGoals"));
 const AdvertiserDashboard = lazy(() => import("./pages/AdvertiserDashboard"));
+const Activation = lazy(() => import("./pages/Activation"));
 
 // Onboarding
 const UniversalOnboarding = lazy(() =>
@@ -724,6 +726,22 @@ function AppRoutes() {
                           </GuardedRoute>
                         }
                       />
+
+                      <Route
+                        path="/ai"
+                        element={
+                          <GuardedRoute
+                            shouldForceEnroll={forceEnroll}
+                            featureKey={FEATURE_ROUTE_MAP["/ai"]}
+                            isFeatureAvailable={isFeatureAvailable}
+                            path="/ai"
+                          >
+                            <AiInsights />
+                          </GuardedRoute>
+                        }
+                      />
+
+                      <Route path="/activation" element={<Activation />} />
 
                       <Route path="/enroll" element={<Enroll />} />
                       <Route path="/tier-select" element={<TierSelect />} />

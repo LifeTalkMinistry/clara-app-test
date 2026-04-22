@@ -84,7 +84,7 @@ const PLAN_UI_META = {
   },
   [CANONICAL_PLAN_KEYS.PROGRAM]: {
     label: "CORE",
-    eyebrow: "One-Time Program",
+    eyebrow: "Core Activation",
     badge: "Most popular",
     statement:
       "Unlock CORE with PRO during the program and continuation access after completion.",
@@ -92,7 +92,7 @@ const PLAN_UI_META = {
       "CORE guided system",
       "Includes PRO access during the program",
       "Your +1 month continuation PRO starts after program completion",
-      "One-time Google Play purchase",
+      "Activation code unlocks full intelligence",
     ],
     accent: "from-emerald-400/22 via-teal-400/10 to-transparent",
     border: "border-emerald-400/20",
@@ -104,21 +104,21 @@ const PLAN_UI_META = {
     icon: Target,
   },
   [CANONICAL_PLAN_KEYS.COACHING]: {
-    label: "COACHING",
-    eyebrow: "Personal Guidance",
+    label: "Life OS",
+    eyebrow: "Premium Decision System",
     badge: "Premium support",
     statement:
       "Unlock COACHING, two coaching sessions, and two months of continuation PRO after completion.",
     points: [
-      "COACHING guided system",
+      "Life OS guided system",
       "Includes PRO access during the program",
       "Your +2 months continuation PRO starts after program completion",
-      "Includes 2 coaching session credits",
+      "Advanced activation code unlocks full Life OS intelligence",
     ],
     accent: "from-amber-400/22 via-orange-400/10 to-transparent",
     border: "border-amber-400/20",
-    button: "Unlock with Google Play",
-    successTitle: "COACHING unlocked",
+    button: "Unlock Life OS",
+    successTitle: "Life OS unlocked",
     successBody:
       "Your guided system and 2 coaching credits are active. Start the challenge when you are ready.",
     successCta: "View Coaching Journey",
