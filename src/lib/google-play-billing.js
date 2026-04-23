@@ -27,6 +27,11 @@ const SUCCESS_STATUSES = new Set(["approved", "active"]);
 const normalize = (value) => String(value ?? "").trim();
 const normalizeLower = (value) => normalize(value).toLowerCase();
 
+function billingDebug(label, payload = {}) {
+  if (typeof console === "undefined") return;
+  console.info(`[CLARA Billing] ${label}`, payload);
+}
+
 export function getGooglePlayProductId(planKey) {
   return PRODUCT_IDS[normalizeLower(planKey)] || "";
 }
@@ -498,6 +503,10 @@ export async function queryGooglePlayProducts({ productIds = [] } = {}) {
         };
 
   const bridgeResult = await safeBridgeCall("queryProducts", payload);
+  billingDebug("queryProducts request", {
+    productIds: cleanedProductIds,
+    productTypes: payload.productTypes || {},
+  });
 
   if (!bridgeResult.ok && !bridgeResult.raw) {
     return {
@@ -522,10 +531,30 @@ export async function queryGooglePlayProducts({ productIds = [] } = {}) {
     : Array.isArray(result?.products)
       ? result.products
       : [];
+  const unavailableProducts = Array.isArray(result?.unavailableProducts)
+    ? result.unavailableProducts
+    : Array.isArray(result?.unfetchedProducts)
+      ? result.unfetchedProducts
+      : [];
+  const unavailableProductIds = unavailableProducts
+    .map((item) => normalize(item?.productId || item?.id))
+    .filter(Boolean);
 
-  const missingProductIds = Array.isArray(result?.missingProductIds)
+  const bridgeMissingProductIds = Array.isArray(result?.missingProductIds)
     ? result.missingProductIds.map((id) => normalize(id)).filter(Boolean)
     : cleanedProductIds.filter((id) => !foundProductIds.includes(id));
+  const missingProductIds = Array.from(
+    new Set([...bridgeMissingProductIds, ...unavailableProductIds])
+  );
+  billingDebug("queryProducts response", {
+    responseCode: normalizeResponseCode(result?.responseCode),
+    debugMessage: result?.debugMessage || result?.message || "",
+    foundProductIds,
+    missingProductIds,
+    unavailableProducts,
+    productDetails,
+    raw: result,
+  });
 
   return {
     ok:
@@ -539,8 +568,13 @@ export async function queryGooglePlayProducts({ productIds = [] } = {}) {
       "Product query completed.",
     foundProductIds,
     missingProductIds,
+    unavailableProductIds,
+    unavailableProducts,
     productDetails,
-    queriedProductIds: cleanedProductIds,
+    queriedProductIds: Array.isArray(result?.queriedProductIds)
+      ? result.queriedProductIds
+      : cleanedProductIds,
+    queriedProductTypes: result?.queriedProductTypes || payload.productTypes || {},
     raw: result,
   };
 }
@@ -749,12 +783,19 @@ export async function launchGooglePlayPurchase({
     !productState.ok ||
     productState.missingProductIds.includes(payload.productId)
   ) {
+    const unavailable = (productState.unavailableProducts || []).find(
+      (item) => normalize(item?.productId || item?.id) === payload.productId
+    );
     throw makeError("Google Play product not found or unavailable.", {
       responseCode:
         productState.responseCode === "OK"
           ? "ITEM_UNAVAILABLE"
           : productState.responseCode || "ITEM_UNAVAILABLE",
       debugMessage:
+        unavailable?.reason ||
+        (unavailable?.statusCode
+          ? `Google Play marked ${payload.productId} unavailable with status ${unavailable.statusCode}.`
+          : "") ||
         productState.debugMessage ||
         `Missing product ID ${payload.productId}. Queried: ${(productState.queriedProductIds || [payload.productId]).join(", ")}. Found: ${(productState.foundProductIds || []).join(", ") || "none"}.`,
       raw: productState.raw,

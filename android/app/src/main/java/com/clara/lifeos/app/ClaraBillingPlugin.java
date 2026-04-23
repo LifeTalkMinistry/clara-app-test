@@ -2,6 +2,7 @@ package com.clara.lifeos.app;
 
 import android.app.Activity;
 import android.content.pm.PackageManager;
+import android.util.Log;
 
 import androidx.annotation.NonNull;
 
@@ -15,6 +16,7 @@ import com.android.billingclient.api.Purchase;
 import com.android.billingclient.api.PurchasesUpdatedListener;
 import com.android.billingclient.api.QueryProductDetailsParams;
 import com.android.billingclient.api.QueryPurchasesParams;
+import com.android.billingclient.api.UnfetchedProduct;
 import com.getcapacitor.JSArray;
 import com.getcapacitor.JSObject;
 import com.getcapacitor.Plugin;
@@ -29,6 +31,8 @@ import java.util.List;
 
 @CapacitorPlugin(name = "ClaraBilling")
 public class ClaraBillingPlugin extends Plugin implements PurchasesUpdatedListener {
+
+    private static final String TAG = "ClaraBilling";
 
     private BillingClient billingClient;
     private PluginCall savedCall;
@@ -66,8 +70,37 @@ public class ClaraBillingPlugin extends Plugin implements PurchasesUpdatedListen
         ret.put("isAppFromPlay", "com.android.vending".equals(installer));
         ret.put("isPlayStoreInstalled", isPackageInstalled("com.android.vending"));
         ret.put("isGooglePlayServicesAvailable", isPackageInstalled("com.google.android.gms"));
+        ret.put("billingReady", billingClient != null && billingClient.isReady());
         ret.put("billingBridge", "ClaraBillingPlugin");
-        ret.put("pluginVersion", "2026.04.billing-v2");
+        ret.put("pluginVersion", "2026.04.billing-v3-product-details");
+    }
+
+    private void addFeatureDiagnostics(JSObject ret) {
+        if (billingClient == null || !billingClient.isReady()) {
+            ret.put("productDetailsSupported", false);
+            ret.put("subscriptionsSupported", false);
+            return;
+        }
+
+        BillingResult productDetailsSupport =
+                billingClient.isFeatureSupported(BillingClient.FeatureType.PRODUCT_DETAILS);
+        BillingResult subscriptionsSupport =
+                billingClient.isFeatureSupported(BillingClient.FeatureType.SUBSCRIPTIONS);
+        ret.put("productDetailsSupported",
+                productDetailsSupport.getResponseCode() == BillingClient.BillingResponseCode.OK);
+        ret.put("productDetailsSupportCode", productDetailsSupport.getResponseCode());
+        ret.put("productDetailsSupportMessage", productDetailsSupport.getDebugMessage());
+        ret.put("subscriptionsSupported",
+                subscriptionsSupport.getResponseCode() == BillingClient.BillingResponseCode.OK);
+        ret.put("subscriptionsSupportCode", subscriptionsSupport.getResponseCode());
+        ret.put("subscriptionsSupportMessage", subscriptionsSupport.getDebugMessage());
+    }
+
+    private boolean hasPurchasableSubscriptionOffer(ProductDetails productDetails) {
+        return productDetails.getSubscriptionOfferDetails() != null
+                && !productDetails.getSubscriptionOfferDetails().isEmpty()
+                && productDetails.getSubscriptionOfferDetails().get(0).getOfferToken() != null
+                && !productDetails.getSubscriptionOfferDetails().get(0).getOfferToken().trim().isEmpty();
     }
 
     private boolean isPackageInstalled(String packageName) {
@@ -99,6 +132,8 @@ public class ClaraBillingPlugin extends Plugin implements PurchasesUpdatedListen
             ret.put("responseCode", "ERROR");
             ret.put("debugMessage", "Billing client is not initialized.");
             addDeviceDiagnostics(ret);
+            addFeatureDiagnostics(ret);
+            Log.w(TAG, "connect failed: billing client is not initialized");
             call.resolve(ret);
             return;
         }
@@ -109,6 +144,8 @@ public class ClaraBillingPlugin extends Plugin implements PurchasesUpdatedListen
             ret.put("responseCode", BillingClient.BillingResponseCode.OK);
             ret.put("debugMessage", "Billing client already connected.");
             addDeviceDiagnostics(ret);
+            addFeatureDiagnostics(ret);
+            Log.d(TAG, "connect reused ready billing client for " + getContext().getPackageName());
             call.resolve(ret);
             return;
         }
@@ -121,6 +158,11 @@ public class ClaraBillingPlugin extends Plugin implements PurchasesUpdatedListen
                 ret.put("responseCode", billingResult.getResponseCode());
                 ret.put("debugMessage", billingResult.getDebugMessage());
                 addDeviceDiagnostics(ret);
+                addFeatureDiagnostics(ret);
+                Log.d(TAG, "connect result code=" + billingResult.getResponseCode()
+                        + " message=" + billingResult.getDebugMessage()
+                        + " package=" + getContext().getPackageName()
+                        + " installer=" + getInstallerPackageName());
                 call.resolve(ret);
             }
 
@@ -131,6 +173,8 @@ public class ClaraBillingPlugin extends Plugin implements PurchasesUpdatedListen
                 ret.put("responseCode", -1);
                 ret.put("debugMessage", "Billing disconnected");
                 addDeviceDiagnostics(ret);
+                addFeatureDiagnostics(ret);
+                Log.w(TAG, "billing service disconnected");
                 call.resolve(ret);
             }
         });
@@ -144,6 +188,7 @@ public class ClaraBillingPlugin extends Plugin implements PurchasesUpdatedListen
             ret.put("responseCode", "ERROR");
             ret.put("debugMessage", "Billing client is not initialized.");
             addDeviceDiagnostics(ret);
+            addFeatureDiagnostics(ret);
             call.resolve(ret);
             return;
         }
@@ -154,6 +199,24 @@ public class ClaraBillingPlugin extends Plugin implements PurchasesUpdatedListen
             ret.put("responseCode", -1);
             ret.put("debugMessage", "Billing client is not connected.");
             addDeviceDiagnostics(ret);
+            addFeatureDiagnostics(ret);
+            call.resolve(ret);
+            return;
+        }
+
+        BillingResult productDetailsSupport =
+                billingClient.isFeatureSupported(BillingClient.FeatureType.PRODUCT_DETAILS);
+        if (productDetailsSupport.getResponseCode() != BillingClient.BillingResponseCode.OK) {
+            JSObject ret = new JSObject();
+            ret.put("ok", false);
+            ret.put("responseCode", productDetailsSupport.getResponseCode());
+            ret.put("debugMessage", "ProductDetails is not supported on this device: "
+                    + productDetailsSupport.getDebugMessage());
+            addDeviceDiagnostics(ret);
+            addFeatureDiagnostics(ret);
+            Log.w(TAG, "queryProducts blocked because ProductDetails is unsupported. code="
+                    + productDetailsSupport.getResponseCode()
+                    + " message=" + productDetailsSupport.getDebugMessage());
             call.resolve(ret);
             return;
         }
@@ -167,6 +230,7 @@ public class ClaraBillingPlugin extends Plugin implements PurchasesUpdatedListen
         }
 
         List<QueryProductDetailsParams.Product> productList = new ArrayList<>();
+        List<String> queryLog = new ArrayList<>();
 
         try {
             for (int i = 0; i < productIdsArray.length(); i++) {
@@ -179,6 +243,7 @@ public class ClaraBillingPlugin extends Plugin implements PurchasesUpdatedListen
                             productType = normalizeProductType(String.valueOf(mappedType));
                         }
                     }
+                    queryLog.add(id.trim() + ":" + productType);
                     productList.add(
                             QueryProductDetailsParams.Product.newBuilder()
                                     .setProductId(id.trim())
@@ -201,6 +266,9 @@ public class ClaraBillingPlugin extends Plugin implements PurchasesUpdatedListen
                 .setProductList(productList)
                 .build();
 
+        Log.d(TAG, "queryProducts start " + queryLog);
+        // If these come back unfetched, check Play Console product activation, Play test track install,
+        // tester access, and whether each subscription has a valid base plan/offer for this account.
         billingClient.queryProductDetailsAsync(params, (billingResult, result) -> {
             JSObject ret = new JSObject();
             ret.put("ok", billingResult.getResponseCode() == BillingClient.BillingResponseCode.OK);
@@ -212,8 +280,10 @@ public class ClaraBillingPlugin extends Plugin implements PurchasesUpdatedListen
             JSArray queried = new JSArray();
             JSObject queriedTypes = new JSObject();
             JSArray details = new JSArray();
+            JSArray unavailable = new JSArray();
+            JSArray unavailableIds = new JSArray();
 
-            List<ProductDetails> list = result.getProductDetailsList();
+            List<ProductDetails> list = result != null ? result.getProductDetailsList() : null;
 
             if (list != null) {
                 for (ProductDetails pd : list) {
@@ -237,12 +307,38 @@ public class ClaraBillingPlugin extends Plugin implements PurchasesUpdatedListen
                         }
                         detail.put("basePlanId", offer.getBasePlanId());
                         detail.put("offerToken", offer.getOfferToken());
+                        detail.put("offerCount", pd.getSubscriptionOfferDetails().size());
+                    } else if (BillingClient.ProductType.SUBS.equals(pd.getProductType())) {
+                        JSObject item = new JSObject();
+                        item.put("productId", pd.getProductId());
+                        item.put("productType", pd.getProductType());
+                        item.put("statusCode", BillingClient.BillingResponseCode.ITEM_UNAVAILABLE);
+                        item.put("reason", "Subscription was returned without an eligible base plan/offer token for this user.");
+                        unavailable.put(item);
+                        unavailableIds.put(pd.getProductId());
                     } else if (pd.getOneTimePurchaseOfferDetails() != null) {
                         detail.put("formattedPrice", pd.getOneTimePurchaseOfferDetails().getFormattedPrice());
                         detail.put("priceCurrencyCode", pd.getOneTimePurchaseOfferDetails().getPriceCurrencyCode());
                     }
 
                     details.put(detail);
+                }
+            }
+
+            if (result != null && result.getUnfetchedProductList() != null) {
+                for (UnfetchedProduct product : result.getUnfetchedProductList()) {
+                    JSObject item = new JSObject();
+                    item.put("productId", product.getProductId());
+                    item.put("productType", product.getProductType());
+                    item.put("statusCode", product.getStatusCode());
+                    item.put("serializedDocid", product.getSerializedDocid());
+                    item.put("reason", product.toString());
+                    unavailable.put(item);
+                    unavailableIds.put(product.getProductId());
+                    Log.w(TAG, "queryProducts unfetched productId=" + product.getProductId()
+                            + " type=" + product.getProductType()
+                            + " status=" + product.getStatusCode()
+                            + " detail=" + product.toString());
                 }
             }
 
@@ -281,7 +377,15 @@ public class ClaraBillingPlugin extends Plugin implements PurchasesUpdatedListen
             ret.put("queriedProductIds", queried);
             ret.put("queriedProductTypes", queriedTypes);
             ret.put("productDetails", details);
+            ret.put("unavailableProductIds", unavailableIds);
+            ret.put("unavailableProducts", unavailable);
             addDeviceDiagnostics(ret);
+            addFeatureDiagnostics(ret);
+            Log.d(TAG, "queryProducts result code=" + billingResult.getResponseCode()
+                    + " message=" + billingResult.getDebugMessage()
+                    + " found=" + found
+                    + " missing=" + missing
+                    + " unavailable=" + unavailable);
             call.resolve(ret);
         });
     }
@@ -319,11 +423,13 @@ public class ClaraBillingPlugin extends Plugin implements PurchasesUpdatedListen
     private void launchProductPurchase(PluginCall call) {
         if (billingClient == null) {
             call.reject("Billing client is not initialized.");
+            Log.w(TAG, "purchase blocked: billing client is not initialized");
             return;
         }
 
         if (!billingClient.isReady()) {
             call.reject("Billing client is not connected.");
+            Log.w(TAG, "purchase blocked: billing client is not connected");
             return;
         }
 
@@ -331,6 +437,20 @@ public class ClaraBillingPlugin extends Plugin implements PurchasesUpdatedListen
         String productType = normalizeProductType(call.getString("productType"));
         if (productId == null || productId.trim().isEmpty()) {
             call.reject("Missing productId");
+            return;
+        }
+
+        BillingResult productDetailsSupport =
+                billingClient.isFeatureSupported(BillingClient.FeatureType.PRODUCT_DETAILS);
+        if (productDetailsSupport.getResponseCode() != BillingClient.BillingResponseCode.OK) {
+            call.reject(
+                    "ProductDetails is not supported on this device: "
+                            + productDetailsSupport.getDebugMessage(),
+                    String.valueOf(productDetailsSupport.getResponseCode())
+            );
+            Log.w(TAG, "purchase blocked: ProductDetails unsupported code="
+                    + productDetailsSupport.getResponseCode()
+                    + " message=" + productDetailsSupport.getDebugMessage());
             return;
         }
 
@@ -348,32 +468,60 @@ public class ClaraBillingPlugin extends Plugin implements PurchasesUpdatedListen
                 .setProductList(productList)
                 .build();
 
+        Log.d(TAG, "purchase query start productId=" + productId.trim() + " type=" + productType);
         billingClient.queryProductDetailsAsync(params, (billingResult, result) -> {
             if (savedCall == null) return;
 
             if (billingResult.getResponseCode() != BillingClient.BillingResponseCode.OK) {
+                Log.w(TAG, "purchase query failed code=" + billingResult.getResponseCode()
+                        + " message=" + billingResult.getDebugMessage());
                 savedCall.reject("Query failed: " + billingResult.getDebugMessage(), String.valueOf(billingResult.getResponseCode()));
                 savedCall = null;
                 return;
             }
 
-            List<ProductDetails> list = result.getProductDetailsList();
+            if (result != null && result.getUnfetchedProductList() != null && !result.getUnfetchedProductList().isEmpty()) {
+                for (UnfetchedProduct product : result.getUnfetchedProductList()) {
+                    Log.w(TAG, "purchase query unfetched productId=" + product.getProductId()
+                            + " type=" + product.getProductType()
+                            + " status=" + product.getStatusCode()
+                            + " detail=" + product.toString());
+                }
+            }
+
+            List<ProductDetails> list = result != null ? result.getProductDetailsList() : null;
             if (list == null || list.isEmpty()) {
+                Log.w(TAG, "purchase query returned no ProductDetails for productId="
+                        + productId.trim() + " type=" + productType);
                 savedCall.reject("Product not found: " + productId.trim(), String.valueOf(BillingClient.BillingResponseCode.ITEM_UNAVAILABLE));
                 savedCall = null;
                 return;
             }
 
             ProductDetails productDetails = list.get(0);
+            Log.d(TAG, "purchase query returned productId=" + productDetails.getProductId()
+                    + " type=" + productDetails.getProductType()
+                    + " offerCount="
+                    + (productDetails.getSubscriptionOfferDetails() == null
+                    ? 0
+                    : productDetails.getSubscriptionOfferDetails().size()));
 
             List<BillingFlowParams.ProductDetailsParams> paramsList = new ArrayList<>();
             BillingFlowParams.ProductDetailsParams.Builder detailsBuilder =
                     BillingFlowParams.ProductDetailsParams.newBuilder()
                             .setProductDetails(productDetails);
 
-            if (BillingClient.ProductType.SUBS.equals(productType)
-                    && productDetails.getSubscriptionOfferDetails() != null
-                    && !productDetails.getSubscriptionOfferDetails().isEmpty()) {
+            if (BillingClient.ProductType.SUBS.equals(productType)) {
+                if (!hasPurchasableSubscriptionOffer(productDetails)) {
+                    savedCall.reject(
+                            "Subscription has no eligible base plan/offer for this user: " + productId.trim(),
+                            String.valueOf(BillingClient.BillingResponseCode.ITEM_UNAVAILABLE)
+                    );
+                    Log.w(TAG, "purchase blocked: subscription has no eligible offer productId="
+                            + productId.trim());
+                    savedCall = null;
+                    return;
+                }
                 detailsBuilder.setOfferToken(
                         productDetails.getSubscriptionOfferDetails().get(0).getOfferToken()
                 );
@@ -394,8 +542,12 @@ public class ClaraBillingPlugin extends Plugin implements PurchasesUpdatedListen
 
             BillingResult launchResult = billingClient.launchBillingFlow(activity, flowParams);
             if (launchResult.getResponseCode() != BillingClient.BillingResponseCode.OK) {
+                Log.w(TAG, "launchBillingFlow failed code=" + launchResult.getResponseCode()
+                        + " message=" + launchResult.getDebugMessage());
                 savedCall.reject("Launch failed: " + launchResult.getDebugMessage(), String.valueOf(launchResult.getResponseCode()));
                 savedCall = null;
+            } else {
+                Log.d(TAG, "launchBillingFlow started productId=" + productId.trim());
             }
         });
     }

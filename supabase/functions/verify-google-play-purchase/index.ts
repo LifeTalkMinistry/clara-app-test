@@ -3,6 +3,9 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.4";
 
 const PACKAGE_NAME = "com.clara.moneytracker";
 const PRODUCT_TYPES: Record<string, "subs" | "products"> = {
+  clara_pro_99: "subs",
+  clara_core_199: "subs",
+  clara_lifeos_499: "subs",
   pro_99: "subs",
   core_199: "subs",
   lifeos_499: "subs",

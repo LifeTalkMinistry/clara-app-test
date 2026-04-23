@@ -112,6 +112,9 @@ language sql
 immutable
 as $$
   select case product_id
+    when 'clara_pro_99' then 'pro_99'
+    when 'clara_core_199' then 'core_599'
+    when 'clara_lifeos_499' then 'coaching_1299'
     when 'pro_99' then 'pro_99'
     when 'core_199' then 'core_599'
     when 'lifeos_499' then 'coaching_1299'
@@ -127,6 +130,9 @@ language sql
 immutable
 as $$
   select case product_id
+    when 'clara_pro_99' then 'pro_tools'
+    when 'clara_core_199' then 'clara_core'
+    when 'clara_lifeos_499' then 'clara_life_os'
     when 'pro_99' then 'pro_tools'
     when 'core_199' then 'clara_core'
     when 'lifeos_499' then 'clara_life_os'
@@ -365,7 +371,7 @@ insert into public.plans (
 values
   (
     'PRO',
-    'pro_99',
+    'clara_pro_99',
     99,
     'Unlock CLARA PRO tools with a Google Play monthly subscription.',
     array['Full financial tools', 'PRO-only tool access', 'Monthly Google Play subscription'],
@@ -386,7 +392,7 @@ values
     true,
     true,
     2,
-    'core_199',
+    'clara_core_199',
     'subscription'
   ),
   (
@@ -399,7 +405,7 @@ values
     true,
     false,
     3,
-    'lifeos_499',
+    'clara_lifeos_499',
     'subscription'
   )
 on conflict (plan_key) do update

@@ -40,7 +40,7 @@ insert into public.plans (
 values
   (
     'PRO',
-    'pro_99',
+    'clara_pro_99',
     99,
     'Unlock CLARA PRO tools with a Google Play monthly subscription.',
     array['Full financial tools', 'PRO-only tool access', 'Monthly Google Play subscription'],
@@ -67,7 +67,7 @@ values
     true,
     true,
     2,
-    'core_199',
+    'clara_core_199',
     'subscription',
     '{
       "dashboard":"full","feed":"full","expenses":"full","wallets":"full",
@@ -86,7 +86,7 @@ values
     true,
     false,
     3,
-    'lifeos_499',
+    'clara_lifeos_499',
     'subscription',
     '{
       "dashboard":"full","feed":"full","expenses":"full","wallets":"full",

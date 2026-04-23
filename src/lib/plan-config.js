@@ -220,7 +220,7 @@ export const PLAN_DEFAULTS = {
     key: "pro_99",
     name: "PRO",
     price: 99,
-    product_id: "pro_99",
+    product_id: "clara_pro_99",
     billing_type: "subscription",
     description: "Unlock CLARA's PRO financial tools with a monthly Google Play subscription.",
     features: [
@@ -256,7 +256,7 @@ export const PLAN_DEFAULTS = {
     key: "core_599",
     name: "CORE",
     price: 199,
-    product_id: "core_199",
+    product_id: "clara_core_199",
     billing_type: "subscription",
     description: "Unlock CORE: the advanced daily spending system with guided support and CLARA Companion intelligence.",
     features: [
@@ -292,7 +292,7 @@ export const PLAN_DEFAULTS = {
     key: "coaching_1299",
     name: "Life OS",
     price: 499,
-    product_id: "lifeos_499",
+    product_id: "clara_lifeos_499",
     billing_type: "subscription",
     description: "Unlock Life OS, CLARA's broadest decision-intelligence layer for money, planning, and life organization.",
     features: [
@@ -336,10 +336,13 @@ export function normalizeAccessLevel(value, fallback = "pro") {
   const aliases = {
     pro_99: "pro",
     core_199: "core",
+    clara_core_199: "core",
     core_599: "core",
     lifeos: "life_os",
     life_os_499: "life_os",
     lifeos_499: "life_os",
+    clara_lifeos_499: "life_os",
+    clara_pro_99: "pro",
     coaching: "life_os",
     coaching_1299: "life_os",
   };
@@ -436,7 +439,7 @@ export function sanitizePlanRow(row = {}) {
     plan_key: planKey,
     name: String(row.name || defaults.name).trim(),
     price: Number(row.price ?? defaults.price ?? 0),
-    product_id: String(row.product_id || row.play_product_id || defaults.product_id || "").trim(),
+    product_id: defaults.product_id || String(row.product_id || row.play_product_id || "").trim(),
     billing_type: String(row.billing_type || defaults.billing_type || "").trim(),
     description: String(row.description || defaults.description || "").trim(),
     features,
