@@ -18,8 +18,14 @@ if (isSupabaseConfigured) {
   });
 } else {
   console.error(
-    "Supabase is not configured. Missing VITE_SUPABASE_URL or VITE_SUPABASE_ANON_KEY."
+    "❌ Supabase is not configured. Missing VITE_SUPABASE_URL or VITE_SUPABASE_ANON_KEY."
   );
+
+  // 🔍 DEBUG VISIBILITY (helps detect env issues in production like GitHub Pages)
+  console.log("ENV DEBUG:", {
+    url: import.meta.env.VITE_SUPABASE_URL,
+    hasKey: !!import.meta.env.VITE_SUPABASE_ANON_KEY,
+  });
 }
 
 const createMissingConfigProxy = () =>

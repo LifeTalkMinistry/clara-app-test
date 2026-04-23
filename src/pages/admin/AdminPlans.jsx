@@ -1,16 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { supabase } from "../../lib/supabaseClient";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
-import { Switch } from "@/components/ui/switch";
-import { Label } from "@/components/ui/label";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
 import {
   Card,
   CardContent,
@@ -18,438 +7,98 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Loader2, Pencil } from "lucide-react";
+import { Loader2 } from "lucide-react";
 import {
   CURRENT_PLAN_KEYS,
   FEATURE_DEFINITIONS,
   FEATURE_MODE_LABELS,
-  PLAN_LABELS,
-  getFeatureSummary,
-  getPlanDefaults,
   mergePlans,
-  normalizeAccessConfig,
-  sanitizePlanRow,
 } from "@/lib/plan-config";
 
-const EMPTY_FORM = {
-  id: null,
-  name: "",
-  plan_key: "",
-  price: "",
-  sort_order: 1,
-  description: "",
-  features: "",
-  cta_label: "",
-  active: true,
-  popular: false,
+const PLAN_STYLES = {
+  free: "border-white/10 bg-white/5",
+  pro: "border-blue-500/40 bg-blue-500/5",
+  core: "border-green-500/40 bg-green-500/5",
+  lifeos: "border-purple-500/40 bg-purple-500/5",
 };
-
-function parseFeatures(featuresText) {
-  return String(featuresText || "")
-    .split("\n")
-    .map((item) => item.trim())
-    .filter(Boolean);
-}
-
-function buildForm(plan) {
-  return {
-    id: plan.id ?? null,
-    name: plan.name ?? "",
-    plan_key: plan.plan_key ?? "",
-    price: String(plan.price ?? 0),
-    sort_order: Number(plan.sort_order ?? 1),
-    description: plan.description ?? "",
-    features: Array.isArray(plan.features) ? plan.features.join("\n") : "",
-    cta_label: plan.cta_label ?? "",
-    active: !!plan.active,
-    popular: !!plan.popular,
-  };
-}
-
-function isMissingAccessConfigError(error) {
-  const message = String(error?.message || "").toLowerCase();
-  return message.includes("access_config") && message.includes("plans");
-}
-
-function stripAccessConfig(payload) {
-  const { access_config, ...rest } = payload;
-  return rest;
-}
-
-function getEnforcedFeatureMode(planKey, featureKey, requestedMode) {
-  const normalizedPlanKey = String(planKey || "").trim().toLowerCase();
-  const normalizedMode = String(requestedMode || "").trim().toLowerCase();
-
-  // Feed should always stay available as the daily engagement layer.
-  if (featureKey === "feed") {
-    return "full";
-  }
-
-  // Community should stay premium-only and separate from Feed.
-  if (featureKey === "community" && normalizedPlanKey === "free") {
-    return "off";
-  }
-
-  return normalizedMode;
-}
-
-function getSelectableModes(planKey, feature) {
-  const normalizedPlanKey = String(planKey || "").trim().toLowerCase();
-
-  if (feature.key === "feed") {
-    return ["full"];
-  }
-
-  if (feature.key === "community" && normalizedPlanKey === "free") {
-    return ["off"];
-  }
-
-  return feature.modes;
-}
-
-function getFeatureAdminHint(planKey, featureKey) {
-  const normalizedPlanKey = String(planKey || "").trim().toLowerCase();
-
-  if (featureKey === "feed") {
-    return "Feed is locked to Full because it is your daily engagement layer.";
-  }
-
-  if (featureKey === "community" && normalizedPlanKey === "free") {
-    return "Community stays Off for Free so it remains a premium-only space.";
-  }
-
-  return "";
-}
 
 export default function AdminPlans() {
   const [plans, setPlans] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
-  const [dialogOpen, setDialogOpen] = useState(false);
-  const [form, setForm] = useState(EMPTY_FORM);
-  const [editingPlanKey, setEditingPlanKey] = useState("");
-  const [currentUser, setCurrentUser] = useState(null);
-  const [supportsAccessConfig, setSupportsAccessConfig] = useState(true);
   const [notice, setNotice] = useState("");
+  const [savingMap, setSavingMap] = useState({});
 
-  const sortedPlans = useMemo(() => {
-    return [...plans].sort((a, b) => {
-      const orderDiff =
-        Number(a.sort_order || 9999) - Number(b.sort_order || 9999);
-      if (orderDiff !== 0) return orderDiff;
-      return String(a.name || "").localeCompare(String(b.name || ""));
+  useEffect(() => {
+    console.log("🔥 ENV CHECK:", {
+      url: import.meta.env.VITE_SUPABASE_URL,
+      hasKey: !!import.meta.env.VITE_SUPABASE_ANON_KEY,
     });
-  }, [plans]);
-
-  const setSchemaFallbackNotice = useCallback(() => {
-    setNotice(
-      "Plan access is currently using built-in safe defaults. Apply the access_config migration to persist per-plan feature toggles."
-    );
   }, []);
 
-  const detectAccessConfigSupport = useCallback(async () => {
+  const fetchPlans = useCallback(async () => {
+    try {
+      const { data, error } = await supabase
+        .from("plans")
+        .select("*")
+        .order("sort_order", { ascending: true });
+
+      if (error) throw error;
+
+      const merged = mergePlans(data || []).filter((plan) =>
+        CURRENT_PLAN_KEYS.includes(plan.plan_key)
+      );
+
+      setPlans(merged);
+      setNotice("");
+    } catch (err) {
+      console.error(err);
+      setNotice("Failed to load plans.");
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchPlans().finally(() => setLoading(false));
+  }, [fetchPlans]);
+
+  const sortedPlans = useMemo(() => {
+    return [...plans].sort(
+      (a, b) => Number(a.sort_order) - Number(b.sort_order)
+    );
+  }, [plans]);
+
+  const updateFeature = async (plan, featureKey, value) => {
+    const currentConfig = plan.access_config || {};
+
+    const updatedConfig = {
+      ...currentConfig,
+      [featureKey]: value,
+    };
+
+    setSavingMap((prev) => ({ ...prev, [plan.id]: true }));
+
     try {
       const { error } = await supabase
         .from("plans")
-        .select("id, access_config")
-        .limit(1);
+        .update({
+          access_config: updatedConfig,
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", plan.id);
 
-      if (error) {
-        if (isMissingAccessConfigError(error)) {
-          setSupportsAccessConfig(false);
-          setSchemaFallbackNotice();
-          return false;
-        }
-
-        throw error;
-      }
-
-      setSupportsAccessConfig(true);
-      return true;
-    } catch (error) {
-      if (isMissingAccessConfigError(error)) {
-        setSupportsAccessConfig(false);
-        setSchemaFallbackNotice();
-        return false;
-      }
-
-      console.error("Failed to detect access_config support:", error);
-      return true;
-    }
-  }, [setSchemaFallbackNotice]);
-
-  const fetchPlans = useCallback(async () => {
-    const { data, error } = await supabase
-      .from("plans")
-      .select("*")
-      .order("sort_order", { ascending: true })
-      .order("name", { ascending: true });
-
-    if (error) throw error;
-
-    setPlans(
-      mergePlans(data || []).filter((plan) =>
-        CURRENT_PLAN_KEYS.includes(plan.plan_key)
-      )
-    );
-  }, []);
-
-  const ensureCurrentPlans = useCallback(
-    async (canPersistAccessConfig) => {
-      const { data, error } = await supabase.from("plans").select("*");
       if (error) throw error;
 
-      const deprecatedRows = (data || []).filter(
-        (row) => !CURRENT_PLAN_KEYS.includes(String(row.plan_key || "").trim().toLowerCase())
-      );
-
-      const deprecatedIds = deprecatedRows.map((row) => row.id).filter(Boolean);
-
-      if (deprecatedIds.length > 0) {
-        const { error: deleteError } = await supabase
-          .from("plans")
-          .delete()
-          .in("id", deprecatedIds);
-
-        if (deleteError) throw deleteError;
-      }
-
-      const currentRows = (data || []).filter((row) =>
-        CURRENT_PLAN_KEYS.includes(String(row.plan_key || "").trim().toLowerCase())
-      );
-      const merged = mergePlans(currentRows);
-      const existingKeys = new Set(
-        (data || []).map((row) =>
-          String(row.plan_key || "").trim().toLowerCase()
-        )
-      );
-      const missingPlans = merged.filter(
-        (plan) => !existingKeys.has(plan.plan_key)
-      );
-
-      if (missingPlans.length === 0) return;
-
-      const payload = missingPlans.map((plan) => ({
-        ...(canPersistAccessConfig
-          ? getPlanDefaults(plan.plan_key)
-          : stripAccessConfig(getPlanDefaults(plan.plan_key))),
-        created_by: currentUser?.email || "",
-      }));
-
-      const { error: insertError } = await supabase.from("plans").insert(payload);
-
-      if (!insertError) return;
-
-      if (isMissingAccessConfigError(insertError)) {
-        setSupportsAccessConfig(false);
-        setSchemaFallbackNotice();
-
-        const retryPayload = missingPlans.map((plan) => ({
-          ...stripAccessConfig(getPlanDefaults(plan.plan_key)),
-          created_by: currentUser?.email || "",
-        }));
-
-        const { error: retryError } = await supabase
-          .from("plans")
-          .insert(retryPayload);
-        if (retryError) throw retryError;
-        return;
-      }
-
-      throw insertError;
-    },
-    [currentUser?.email, setSchemaFallbackNotice]
-  );
-
-  const initialize = useCallback(async () => {
-    setLoading(true);
-    try {
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
-
-      setCurrentUser(user || null);
-    } catch (error) {
-      console.error("Failed to initialize admin plans:", error);
-      setNotice(
-        "Plan admin is available, but the current session could not be fully initialized."
-      );
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
-  useEffect(() => {
-    initialize();
-  }, [initialize]);
-
-  useEffect(() => {
-    if (!currentUser) return;
-
-    let mounted = true;
-
-    const boot = async () => {
-      try {
-        setLoading(true);
-        const canPersistAccessConfig = await detectAccessConfigSupport();
-        await ensureCurrentPlans(canPersistAccessConfig);
-        await fetchPlans();
-      } catch (error) {
-        console.error("Failed to prepare plans:", error);
-        setNotice(
-          "Plans loaded with fallback defaults. Some admin changes may stay read-only until the database migration is applied."
-        );
-      } finally {
-        if (mounted) {
-          setLoading(false);
-        }
-      }
-    };
-
-    boot();
-
-    const channel = supabase
-      .channel("admin-plans-live")
-      .on(
-        "postgres_changes",
-        { event: "*", schema: "public", table: "plans" },
-        () => {
-          fetchPlans().catch((error) => {
-            console.error("Failed to refresh plans after change:", error);
-          });
-        }
-      )
-      .subscribe((status) => {
-        if (status === "CHANNEL_ERROR" || status === "TIMED_OUT") {
-          console.warn("Admin plans realtime unavailable:", status);
-        }
-      });
-
-    return () => {
-      mounted = false;
-      supabase.removeChannel(channel);
-    };
-  }, [currentUser, detectAccessConfigSupport, ensureCurrentPlans, fetchPlans]);
-
-  function openEditDialog(plan) {
-    const normalized = sanitizePlanRow(plan);
-    setEditingPlanKey(normalized.plan_key);
-    setForm(buildForm(normalized));
-    setDialogOpen(true);
-  }
-
-  function updateField(key, value) {
-    setForm((prev) => ({ ...prev, [key]: value }));
-  }
-
-  async function updatePlan(planId, payload) {
-    const { error } = await supabase.from("plans").update(payload).eq("id", planId);
-    if (error) throw error;
-  }
-
-  async function handleSave(e) {
-    e.preventDefault();
-
-    const normalizedPlanKey = editingPlanKey || form.plan_key;
-    const payload = {
-      name: form.name.trim() || PLAN_LABELS[normalizedPlanKey],
-      price: Number(form.price || 0),
-      sort_order: Number(form.sort_order || 1),
-      description: form.description.trim(),
-      features: parseFeatures(form.features),
-      cta_label: form.cta_label.trim(),
-      active: !!form.active,
-      popular: !!form.popular,
-      created_by: currentUser?.email || "",
-    };
-
-    try {
-      setSaving(true);
-      if (!form.id) throw new Error("Plan record not found.");
-      await updatePlan(form.id, payload);
-      await fetchPlans();
-      setDialogOpen(false);
-      setForm(EMPTY_FORM);
-      setEditingPlanKey("");
-      setNotice("");
-    } catch (error) {
-      console.error("Failed to save plan details:", error);
-      setNotice(
-        "Plan details could not be saved right now. The page is still available and your current plan data remains visible."
-      );
-    } finally {
-      setSaving(false);
-    }
-  }
-
-  async function togglePlanField(plan, field) {
-    try {
-      const nextValue = !plan[field];
-      await updatePlan(plan.id, {
-        [field]: nextValue,
-        created_by: currentUser?.email || "",
-      });
       setPlans((prev) =>
-        prev.map((item) =>
-          item.id === plan.id ? { ...item, [field]: nextValue } : item
+        prev.map((p) =>
+          p.id === plan.id ? { ...p, access_config: updatedConfig } : p
         )
       );
-      setNotice("");
-    } catch (error) {
-      console.error(`Failed to toggle ${field}:`, error);
-      setNotice(
-        `Could not update ${field} right now. The current plan data is still loaded.`
-      );
+    } catch (err) {
+      console.error("Update failed:", err);
+      setNotice("Failed to save changes.");
+    } finally {
+      setSavingMap((prev) => ({ ...prev, [plan.id]: false }));
     }
-  }
-
-  async function updateAccessMode(plan, featureKey, nextMode) {
-    if (!supportsAccessConfig) {
-      setSchemaFallbackNotice();
-      return;
-    }
-
-    try {
-      const enforcedMode = getEnforcedFeatureMode(
-        plan.plan_key,
-        featureKey,
-        nextMode
-      );
-
-      const nextAccessConfig = normalizeAccessConfig(
-        {
-          ...plan.access_config,
-          [featureKey]: enforcedMode,
-        },
-        plan.plan_key
-      );
-
-      await updatePlan(plan.id, {
-        access_config: nextAccessConfig,
-        created_by: currentUser?.email || "",
-      });
-
-      setPlans((prev) =>
-        prev.map((item) =>
-          item.id === plan.id ? { ...item, access_config: nextAccessConfig } : item
-        )
-      );
-      setNotice("");
-    } catch (error) {
-      console.error("Failed to update access mode:", error);
-
-      if (isMissingAccessConfigError(error)) {
-        setSupportsAccessConfig(false);
-        setSchemaFallbackNotice();
-        await fetchPlans();
-        return;
-      }
-
-      setNotice(
-        "Plan access could not be saved right now. Current gating is still using the last available plan data."
-      );
-    }
-  }
+  };
 
   if (loading) {
     return (
@@ -460,261 +109,115 @@ export default function AdminPlans() {
   }
 
   return (
-    <div className="space-y-6">
-      <div>
-        <h2 className="text-2xl font-bold">Plans</h2>
-        <p className="text-sm text-muted-foreground">
-          Manage the current CLARA plans and feature access from one source of
-          truth.
-        </p>
-      </div>
+    <div className="space-y-8">
+      <h2 className="text-2xl font-bold tracking-tight">Plans Control</h2>
 
-      {notice ? (
-        <div className="rounded-2xl border border-amber-400/20 bg-amber-500/10 px-4 py-3 text-sm text-amber-100">
+      {notice && (
+        <div className="p-3 rounded bg-red-500/20 text-red-200 text-sm">
           {notice}
         </div>
-      ) : null}
+      )}
 
-      <div className="grid gap-5">
+      <div className="grid gap-6">
         {sortedPlans.map((plan) => {
-          const unlockedFeatures = getFeatureSummary(plan);
+          const config = plan.access_config || {};
+          const isSaving = savingMap[plan.id];
 
           return (
             <Card
               key={plan.plan_key}
-              className="border border-white/10 bg-black/20"
+              className={`rounded-2xl border backdrop-blur-md shadow-xl ${PLAN_STYLES[plan.plan_key]}`}
             >
-              <CardHeader className="pb-4">
-                <div className="flex items-start justify-between gap-4">
-                  <div>
-                    <CardTitle className="text-xl">{plan.name}</CardTitle>
-                    <p className="mt-1 text-sm text-muted-foreground">
-                      Effective Plan: {PLAN_LABELS[plan.plan_key] || plan.name} - PHP{" "}
-                      {Number(plan.price || 0).toLocaleString()} - Product:{" "}
-                      {plan.product_id || "-"} - Billing:{" "}
-                      {plan.billing_type || "-"} - Order: {plan.sort_order}
-                    </p>
-                    <p className="mt-3 text-sm text-muted-foreground">
-                      {plan.description || "No description yet."}
-                    </p>
-                  </div>
-
-                  <Button
-                    variant="outline"
-                    size="icon"
-                    onClick={() => openEditDialog(plan)}
-                  >
-                    <Pencil className="h-4 w-4" />
-                  </Button>
+              <CardHeader className="flex flex-row items-center justify-between">
+                <div>
+                  <CardTitle className="text-xl">{plan.name}</CardTitle>
+                  <p className="text-sm opacity-60 mt-1">
+                    PHP {plan.price}
+                  </p>
                 </div>
 
-                <div className="mt-4 flex flex-wrap items-center gap-3">
-                  <div className="flex items-center gap-3">
-                    <Label htmlFor={`active-${plan.plan_key}`}>Active</Label>
-                    <Switch
-                      id={`active-${plan.plan_key}`}
-                      checked={!!plan.active}
-                      onCheckedChange={() => togglePlanField(plan, "active")}
-                    />
-                  </div>
-
-                  <div className="flex items-center gap-3">
-                    <Label htmlFor={`popular-${plan.plan_key}`}>Popular</Label>
-                    <Switch
-                      id={`popular-${plan.plan_key}`}
-                      checked={!!plan.popular}
-                      onCheckedChange={() => togglePlanField(plan, "popular")}
-                    />
-                  </div>
-
-                  <div className="text-sm text-muted-foreground">
-                    CTA: {plan.cta_label || "-"}
-                  </div>
+                <div className="flex items-center gap-2">
+                  {isSaving && (
+                    <Loader2 className="h-4 w-4 animate-spin opacity-70" />
+                  )}
+                  <Badge variant="outline">{plan.product_id}</Badge>
                 </div>
               </CardHeader>
 
               <CardContent className="space-y-5">
-                <div>
-                  <p className="text-xs font-semibold uppercase tracking-[0.16em] text-muted-foreground">
-                    Included Features
+                {/* AI CONTROL */}
+                <div className="rounded-xl border border-white/10 p-4 bg-black/20">
+                  <p className="text-xs uppercase opacity-60 mb-2">
+                    AI Intelligence
                   </p>
-                  <div className="mt-3 flex flex-wrap gap-2">
-                    {unlockedFeatures.map((feature) => (
-                      <Badge
-                        key={`${plan.plan_key}-${feature.key}`}
-                        variant="secondary"
-                        className="border border-white/10 bg-white/10 text-white"
+
+                  <select
+                    className="w-full bg-black/40 border border-white/10 rounded-md p-2 text-sm"
+                    value={config.ai || "off"}
+                    onChange={(e) =>
+                      updateFeature(plan, "ai", e.target.value)
+                    }
+                  >
+                    <option value="off">Off</option>
+                    <option value="basic">Basic</option>
+                    <option value="advanced">Advanced</option>
+                    <option value="life_os">Life OS</option>
+                  </select>
+                </div>
+
+                {/* FEATURES */}
+                <div className="space-y-3">
+                  <p className="text-xs uppercase opacity-60">
+                    Feature Access Control
+                  </p>
+
+                  <div className="grid grid-cols-2 gap-3">
+                    {FEATURE_DEFINITIONS.filter(
+                      (f) => f.key !== "ai"
+                    ).map((feature) => (
+                      <div
+                        key={feature.key}
+                        className="p-3 rounded-lg border border-white/10 bg-white/5"
                       >
-                        {feature.label}:{" "}
-                        {FEATURE_MODE_LABELS[feature.mode] || feature.mode}
-                      </Badge>
+                        <p className="text-xs opacity-60 mb-1">
+                          {feature.label}
+                        </p>
+
+                        <select
+                          className="w-full bg-black/40 border border-white/10 rounded-md p-1 text-xs"
+                          value={config[feature.key] || "off"}
+                          onChange={(e) =>
+                            updateFeature(
+                              plan,
+                              feature.key,
+                              e.target.value
+                            )
+                          }
+                        >
+                          <option value="off">Off</option>
+                          <option value="limited">Limited</option>
+                          <option value="full">Full</option>
+                        </select>
+                      </div>
                     ))}
                   </div>
                 </div>
 
-                <div className="rounded-2xl border border-white/10 bg-[#07111d]/70 p-4">
-                  <div className="mb-4">
-                    <p className="text-xs font-semibold uppercase tracking-[0.16em] text-muted-foreground">
-                      Access Control
-                    </p>
-                    <p className="mt-1 text-sm text-muted-foreground">
-                      {supportsAccessConfig
-                        ? "Changes save immediately and update live app gating without a redeploy."
-                        : "Access controls are showing safe defaults. Apply the migration to save per-plan toggles to Supabase."}
-                    </p>
-                  </div>
+                {/* STATUS */}
+                <div className="flex items-center justify-between pt-2 border-t border-white/10">
+                  <span className="text-xs opacity-50">
+                    Live configuration
+                  </span>
 
-                  <div className="grid gap-3 md:grid-cols-2">
-                    {FEATURE_DEFINITIONS.map((feature) => {
-                      const selectableModes = getSelectableModes(
-                        plan.plan_key,
-                        feature
-                      );
-                      const adminHint = getFeatureAdminHint(
-                        plan.plan_key,
-                        feature.key
-                      );
-
-                      return (
-                        <div
-                          key={`${plan.plan_key}-${feature.key}`}
-                          className="rounded-xl border border-white/10 bg-black/20 p-3"
-                        >
-                          <div className="flex items-start justify-between gap-3">
-                            <div className="min-w-0">
-                              <p className="text-sm font-semibold text-white">
-                                {feature.label}
-                              </p>
-                              <p className="mt-1 text-xs text-muted-foreground">
-                                {feature.description}
-                              </p>
-                              {adminHint ? (
-                                <p className="mt-2 text-[11px] leading-5 text-amber-300/90">
-                                  {adminHint}
-                                </p>
-                              ) : null}
-                            </div>
-
-                            <select
-                              value={plan.access_config?.[feature.key] || "off"}
-                              onChange={(e) =>
-                                updateAccessMode(plan, feature.key, e.target.value)
-                              }
-                              disabled={!supportsAccessConfig}
-                              className="min-w-[120px] rounded-lg border border-white/10 bg-[#0b1626] px-3 py-2 text-sm text-white outline-none disabled:cursor-not-allowed disabled:opacity-60"
-                            >
-                              {selectableModes.map((mode) => (
-                                <option key={mode} value={mode}>
-                                  {FEATURE_MODE_LABELS[mode] || mode}
-                                </option>
-                              ))}
-                            </select>
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
+                  <span className="text-xs text-green-400">
+                    ● Active
+                  </span>
                 </div>
               </CardContent>
             </Card>
           );
         })}
       </div>
-
-      <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-        <DialogContent className="sm:max-w-2xl">
-          <DialogHeader>
-            <DialogTitle>
-              Edit {PLAN_LABELS[editingPlanKey] || "Plan"}
-            </DialogTitle>
-          </DialogHeader>
-
-          <form onSubmit={handleSave} className="space-y-4">
-            <div className="grid gap-4 sm:grid-cols-2">
-              <div className="space-y-2">
-                <Label>Plan Name</Label>
-                <Input
-                  value={form.name}
-                  onChange={(e) => updateField("name", e.target.value)}
-                  placeholder="PRO"
-                />
-              </div>
-
-              <div className="space-y-2">
-                <Label>Plan Key</Label>
-                <Input value={editingPlanKey} disabled />
-              </div>
-            </div>
-
-            <div className="grid gap-4 sm:grid-cols-2">
-              <div className="space-y-2">
-                <Label>Price</Label>
-                <Input
-                  type="number"
-                  value={form.price}
-                  onChange={(e) => updateField("price", e.target.value)}
-                  placeholder="99"
-                />
-              </div>
-
-              <div className="space-y-2">
-                <Label>Sort Order</Label>
-                <Input
-                  type="number"
-                  value={form.sort_order}
-                  onChange={(e) => updateField("sort_order", e.target.value)}
-                  placeholder="1"
-                />
-              </div>
-            </div>
-
-            <div className="space-y-2">
-              <Label>Description</Label>
-              <Textarea
-                rows={4}
-                value={form.description}
-                onChange={(e) => updateField("description", e.target.value)}
-                placeholder="Short summary of the plan"
-              />
-            </div>
-
-            <div className="space-y-2">
-              <Label>Included Features</Label>
-              <Textarea
-                rows={6}
-                value={form.features}
-                onChange={(e) => updateField("features", e.target.value)}
-                placeholder={
-                  "Dashboard access\nFeed access\nExpense tracking\nStarter program access"
-                }
-              />
-              <p className="text-xs text-muted-foreground">
-                One feature per line.
-              </p>
-            </div>
-
-            <div className="space-y-2">
-              <Label>CTA Label</Label>
-              <Input
-                value={form.cta_label}
-                onChange={(e) => updateField("cta_label", e.target.value)}
-                placeholder="Subscribe to PRO"
-              />
-            </div>
-
-            <Button type="submit" className="w-full" disabled={saving}>
-              {saving ? (
-                <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Saving...
-                </>
-              ) : (
-                "Save Plan Details"
-              )}
-            </Button>
-          </form>
-        </DialogContent>
-      </Dialog>
     </div>
   );
 }

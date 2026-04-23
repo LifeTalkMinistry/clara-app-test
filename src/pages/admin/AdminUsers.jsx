@@ -7,6 +7,8 @@ import {
   Shield,
   User,
   RotateCcw,
+  CheckCircle2,
+  XCircle,
 } from "lucide-react";
 
 import {
@@ -20,10 +22,52 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { supabase } from "@/lib/supabaseClient";
 import { resetUserAccount } from "@/lib/admin-user-reset";
-import { CURRENT_PLAN_KEYS, PLAN_LABELS, normalizePlanKey } from "@/lib/plan-config";
 
-const CLARA_TIERS = CURRENT_PLAN_KEYS;
 const USER_ROLES = ["free_user", "paid_user", "admin"];
+
+const ADMIN_PLAN_OPTIONS = [
+  { value: "free", label: "Free" },
+  { value: "pro", label: "Pro 99" },
+  { value: "core", label: "Core 199" },
+  { value: "life_os", label: "Life OS 499" },
+];
+
+function normalizeAdminPlan(value) {
+  const raw = String(value || "").toLowerCase().trim();
+
+  if (
+    raw === "life_os" ||
+    raw === "lifeos" ||
+    raw === "coaching_1299" ||
+    raw === "coaching" ||
+    raw === "life os"
+  ) {
+    return "life_os";
+  }
+
+  if (raw === "core" || raw === "core_599") {
+    return "core";
+  }
+
+  if (raw === "pro" || raw === "pro_99") {
+    return "pro";
+  }
+
+  return "free";
+}
+
+function getPlanLabel(value) {
+  const normalized = normalizeAdminPlan(value);
+  return (
+    ADMIN_PLAN_OPTIONS.find((item) => item.value === normalized)?.label || "Free"
+  );
+}
+
+function getRoleLabel(role) {
+  if (role === "admin") return "Admin";
+  if (role === "paid_user") return "Paid User";
+  return "Free User";
+}
 
 export default function AdminUsers() {
   const navigate = useNavigate();
@@ -32,6 +76,7 @@ export default function AdminUsers() {
   const [loading, setLoading] = useState(true);
   const [actionLoadingId, setActionLoadingId] = useState(null);
   const [search, setSearch] = useState("");
+  const [loadError, setLoadError] = useState("");
 
   useEffect(() => {
     loadUsers();
@@ -40,14 +85,32 @@ export default function AdminUsers() {
   async function loadUsers() {
     try {
       setLoading(true);
+      setLoadError("");
 
       const { data, error } = await supabase
         .from("profiles")
-        .select("id, email, full_name, plan, role, access_level, access_source, subscription_status, admin_plan_override, activation_status, is_activated, suspended_at, messaging_disabled");
+        .select(`
+          id,
+          email,
+          full_name,
+          role,
+          plan,
+          access_level,
+          access_source,
+          subscription_status,
+          admin_plan_override,
+          activation_status,
+          is_activated,
+          suspended_at,
+          messaging_disabled,
+          updated_at
+        `)
+        .order("full_name", { ascending: true });
 
       if (error) {
         console.error("Load users error:", error);
         setUsers([]);
+        setLoadError(error.message || "Failed to load users.");
         return;
       }
 
@@ -61,6 +124,7 @@ export default function AdminUsers() {
     } catch (error) {
       console.error("Unexpected load users error:", error);
       setUsers([]);
+      setLoadError(error?.message || "Unexpected error while loading users.");
     } finally {
       setLoading(false);
     }
@@ -70,15 +134,36 @@ export default function AdminUsers() {
     try {
       setActionLoadingId(id);
 
+      const payload = {
+        ...updates,
+        updated_at: new Date().toISOString(),
+      };
+
       const { data, error } = await supabase
         .from("profiles")
-        .update(updates)
+        .update(payload)
         .eq("id", id)
-        .select("id, email, full_name, plan, role, access_level, access_source, subscription_status, admin_plan_override, activation_status, is_activated, suspended_at, messaging_disabled")
+        .select(`
+          id,
+          email,
+          full_name,
+          role,
+          plan,
+          access_level,
+          access_source,
+          subscription_status,
+          admin_plan_override,
+          activation_status,
+          is_activated,
+          suspended_at,
+          messaging_disabled,
+          updated_at
+        `)
         .single();
 
       if (error) {
         console.error("Update user error:", error);
+        alert(error.message || "Failed to update user.");
         return;
       }
 
@@ -92,6 +177,7 @@ export default function AdminUsers() {
       });
     } catch (error) {
       console.error("Unexpected update user error:", error);
+      alert(error?.message || "Unexpected error while updating user.");
     } finally {
       setActionLoadingId(null);
     }
@@ -101,52 +187,66 @@ export default function AdminUsers() {
     updateUser(id, { role });
   }
 
-  function updatePlan(id, plan) {
-    const normalizedPlan = normalizePlanKey(plan);
-    const role = normalizedPlan === "free" ? "free_user" : "paid_user";
-    const accessLevel =
-      normalizedPlan === "coaching_1299"
-        ? "life_os"
-        : normalizedPlan === "core_599"
-          ? "core"
-          : normalizedPlan === "pro_99"
-            ? "pro"
-            : "free";
-    const publicPlan =
-      normalizedPlan === "coaching_1299"
-        ? "lifeos"
-        : normalizedPlan === "core_599"
-          ? "core"
-          : normalizedPlan === "pro_99"
-            ? "pro"
-            : "free";
+  function updatePlan(id, selectedPlan) {
+    const normalizedPlan = normalizeAdminPlan(selectedPlan);
+    const isFree = normalizedPlan === "free";
+    const isPro = normalizedPlan === "pro";
+    const isCore = normalizedPlan === "core";
+    const isLifeOS = normalizedPlan === "life_os";
+
+    const role = isFree ? "free_user" : "paid_user";
+    const subscriptionStatus = isFree ? "free" : "active";
 
     const updates = {
-      plan: publicPlan,
-      access_level: accessLevel,
-      access_source: "admin",
-      purchase_source: null,
-      subscription_status: normalizedPlan === "free" ? "free" : "active",
-      admin_plan_override: true,
+      plan: normalizedPlan === "life_os" ? "lifeos" : normalizedPlan,
       role,
-      activation_status:
-        normalizedPlan === "core_599" || normalizedPlan === "coaching_1299"
-          ? "pending"
-          : "not_required",
-      is_activated: normalizedPlan === "pro_99",
-      entitlement_status: normalizedPlan === "free" ? "free" : "admin_override",
-      program_active: false,
-      is_enrolled: normalizedPlan !== "free" && normalizedPlan !== "pro_99",
-      updated_at: new Date().toISOString(),
+      access_level: normalizedPlan,
+      access_source: "admin",
+      admin_plan_override: true,
+      subscription_status: subscriptionStatus,
+      entitlement_status: isFree ? "free" : "admin_override",
+      purchase_source: "admin",
+      program_active: isCore || isLifeOS,
+      is_enrolled: isCore || isLifeOS,
+      activation_status: isCore || isLifeOS ? "pending" : "not_required",
+      is_activated: isPro || isCore || isLifeOS,
+      pro_subscription_status: isFree ? "inactive" : "active",
     };
 
-    if (normalizedPlan === "free") {
-      updates.pro_subscription_status = "inactive";
+    if (isFree) {
+      updates.purchase_source = null;
       updates.play_product_id = null;
       updates.play_purchase_token = null;
+      updates.program_active = false;
+      updates.is_enrolled = false;
+      updates.is_activated = false;
+      updates.activation_status = "not_required";
     }
 
     updateUser(id, updates);
+  }
+
+  function grantFreeAccess(id) {
+    updatePlan(id, "free");
+  }
+
+  function activatePaidAccess(id) {
+    updateUser(id, {
+      is_activated: true,
+      activation_status: "activated",
+      subscription_status: "active",
+      admin_plan_override: true,
+      access_source: "admin",
+    });
+  }
+
+  function deactivatePaidAccess(id) {
+    updateUser(id, {
+      is_activated: false,
+      activation_status: "pending",
+      admin_plan_override: true,
+      access_source: "admin",
+    });
   }
 
   function suspendUser(id, suspended) {
@@ -160,7 +260,6 @@ export default function AdminUsers() {
   function toggleMessaging(id, disabled) {
     updateUser(id, {
       messaging_disabled: disabled,
-      updated_at: new Date().toISOString(),
     });
   }
 
@@ -196,7 +295,7 @@ export default function AdminUsers() {
       const fullName = (user.full_name || "").toLowerCase();
       const email = (user.email || "").toLowerCase();
       const role = (user.role || "").toLowerCase();
-      const plan = (user.plan || "").toLowerCase();
+      const plan = normalizeAdminPlan(user.access_level || user.plan);
 
       return (
         fullName.includes(keyword) ||
@@ -216,14 +315,8 @@ export default function AdminUsers() {
     return source.charAt(0).toUpperCase();
   }
 
-  function getRoleLabel(role) {
-    if (role === "admin") return "Admin";
-    if (role === "paid_user") return "Paid User";
-    return "Free User";
-  }
-
-  function getPlanLabel(plan) {
-    return PLAN_LABELS[normalizePlanKey(plan)] || "Free";
+  function getEffectivePlan(user) {
+    return normalizeAdminPlan(user.access_level || user.plan);
   }
 
   if (loading) {
@@ -257,13 +350,23 @@ export default function AdminUsers() {
         {filteredUsers.length} user{filteredUsers.length !== 1 ? "s" : ""}
       </p>
 
-      {filteredUsers.length === 0 ? (
-        <div className="border rounded-2xl p-6 text-center text-sm text-muted-foreground">
-          No users found.
+      {loadError ? (
+        <div className="border rounded-2xl p-4 text-sm text-red-400 bg-red-500/5">
+          Failed to load users: {loadError}
+        </div>
+      ) : null}
+
+      {!loadError && filteredUsers.length === 0 ? (
+        <div className="border rounded-2xl p-6 text-center text-sm text-muted-foreground space-y-2">
+          <p>No users found in the <span className="font-medium">profiles</span> table.</p>
+          <p className="text-xs">
+            If users already signed up, they may exist in Supabase Auth but do not yet have matching profile rows.
+          </p>
         </div>
       ) : (
         filteredUsers.map((user) => {
           const isBusy = actionLoadingId === user.id;
+          const effectivePlan = getEffectivePlan(user);
 
           return (
             <div key={user.id} className="p-4 border rounded-2xl space-y-3">
@@ -301,16 +404,14 @@ export default function AdminUsers() {
 
                 <div className="rounded-xl border p-2">
                   <p className="text-muted-foreground">Plan</p>
-                  <p className="font-medium capitalize">
-                    {getPlanLabel(user.plan)}
-                  </p>
+                  <p className="font-medium">{getPlanLabel(user.plan)}</p>
                 </div>
+
                 <div className="rounded-xl border p-2">
                   <p className="text-muted-foreground">Effective Plan</p>
-                  <p className="font-medium capitalize">
-                    {user.access_level === "life_os" ? "Life OS" : user.access_level || getPlanLabel(user.plan)}
-                  </p>
+                  <p className="font-medium">{getPlanLabel(effectivePlan)}</p>
                 </div>
+
                 <div className="rounded-xl border p-2">
                   <p className="text-muted-foreground">Access Source</p>
                   <p className="font-medium capitalize">
@@ -318,12 +419,14 @@ export default function AdminUsers() {
                     {user.admin_plan_override ? " · Override" : ""}
                   </p>
                 </div>
+
                 <div className="rounded-xl border p-2">
                   <p className="text-muted-foreground">Activation</p>
                   <p className="font-medium capitalize">
                     {user.is_activated ? "Activated" : user.activation_status || "Not required"}
                   </p>
                 </div>
+
                 <div className="rounded-xl border p-2">
                   <p className="text-muted-foreground">Access</p>
                   <p className="font-medium">
@@ -351,7 +454,7 @@ export default function AdminUsers() {
                 </Select>
 
                 <Select
-                  value={normalizePlanKey(user.plan || "free")}
+                  value={effectivePlan}
                   onValueChange={(value) => updatePlan(user.id, value)}
                   disabled={isBusy}
                 >
@@ -359,13 +462,42 @@ export default function AdminUsers() {
                     <SelectValue placeholder="Select plan" />
                   </SelectTrigger>
                   <SelectContent>
-                    {CLARA_TIERS.map((tier) => (
-                      <SelectItem key={tier} value={tier}>
-                        {PLAN_LABELS[tier]}
+                    {ADMIN_PLAN_OPTIONS.map((tier) => (
+                      <SelectItem key={tier.value} value={tier.value}>
+                        {tier.label}
                       </SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
+
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => grantFreeAccess(user.id)}
+                  disabled={isBusy}
+                >
+                  Free Access
+                </Button>
+
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => activatePaidAccess(user.id)}
+                  disabled={isBusy}
+                >
+                  <CheckCircle2 className="w-3 h-3 mr-1" />
+                  Activate
+                </Button>
+
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => deactivatePaidAccess(user.id)}
+                  disabled={isBusy}
+                >
+                  <XCircle className="w-3 h-3 mr-1" />
+                  Deactivate
+                </Button>
 
                 <Button
                   size="sm"
@@ -401,7 +533,7 @@ export default function AdminUsers() {
                   ) : (
                     <User className="w-4 h-4" />
                   )}
-                  {normalizePlanKey(user.plan) === "free" ? "Free access" : "Program access"}
+                  {effectivePlan === "free" ? "Free access" : "Program access"}
                 </div>
               </div>
             </div>
