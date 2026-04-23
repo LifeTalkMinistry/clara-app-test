@@ -53,6 +53,37 @@ function buildConversationalFallback(input) {
   return "I’m here with you. Tell me the full money question or action you want help with, and I’ll reason it through step by step.";
 }
 
+async function safeLoadFinanceSnapshot(user) {
+  try {
+    return await loadFinanceSnapshot(user);
+  } catch (error) {
+    console.warn("CLARA finance snapshot load failed:", error);
+    return {
+      expenses: [],
+      wallets: [],
+      walletTransactions: [],
+      budgets: [],
+      savingsGoals: [],
+      transfers: [],
+      summary: {
+        totalBalance: 0,
+        incomeThisMonth: 0,
+        spentThisMonth: 0,
+        spentToday: 0,
+        moneyLeftThisMonth: 0,
+        walletCount: 0,
+        expenseCountThisMonth: 0,
+        categoryTotals: {},
+        topCategory: { name: "none", amount: 0 },
+        budgetTotal: 0,
+        savingsTarget: 0,
+        savingsSaved: 0,
+        savingsProgress: 0,
+      },
+    };
+  }
+}
+
 export async function processAssistantTurn({ text, session, user }) {
   const input = String(text || "").trim();
   if (!input) {
@@ -121,7 +152,7 @@ export async function processAssistantTurn({ text, session, user }) {
     };
   }
 
-  const financeSnapshot = await loadFinanceSnapshot(activeUser);
+  const financeSnapshot = await safeLoadFinanceSnapshot(activeUser);
   const command = await understandInput({ text: input, session, financeSnapshot });
 
   if (shouldExecuteImmediately(command)) {
