@@ -489,7 +489,7 @@ export default function AdminPlans() {
                   <div>
                     <CardTitle className="text-xl">{plan.name}</CardTitle>
                     <p className="mt-1 text-sm text-muted-foreground">
-                      Key: {plan.plan_key} - PHP{" "}
+                      Effective Plan: {PLAN_LABELS[plan.plan_key] || plan.name} - PHP{" "}
                       {Number(plan.price || 0).toLocaleString()} - Product:{" "}
                       {plan.product_id || "-"} - Billing:{" "}
                       {plan.billing_type || "-"} - Order: {plan.sort_order}

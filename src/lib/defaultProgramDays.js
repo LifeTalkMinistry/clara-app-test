@@ -1,7 +1,7 @@
 import { normalizeProgramTask } from "@/lib/program-journey";
 
 const STARTER_TIERS = ["core_599", "coaching_1299"];
-const FULL_PROGRAM_TIERS = ["core", "coaching"];
+const FULL_PROGRAM_TIERS = ["core", "life_os", "coaching_1299"];
 
 function createOfficialDay(day, fields) {
   return normalizeProgramTask({

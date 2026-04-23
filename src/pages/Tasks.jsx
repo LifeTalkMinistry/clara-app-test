@@ -391,7 +391,7 @@ export default function Tasks() {
   }
 
   const bubble = getProgramBubbleContent(journey, {
-    coachingSummary: journey.tier === "coaching" ? coachingSummary : null,
+    coachingSummary: journey.tier === "coaching_1299" ? coachingSummary : null,
   });
 
   return (
@@ -497,7 +497,7 @@ export default function Tasks() {
           ) : null}
         </section>
 
-        {journey.tier === "coaching" ? (
+        {journey.tier === "coaching_1299" ? (
           <section className="rounded-[26px] border border-white/10 bg-[#0b1420] p-4 text-white shadow-[0_16px_36px_rgba(0,0,0,0.18)]">
             <p className="text-[11px] uppercase tracking-[0.18em] text-white/45">Life OS support</p>
             <h3 className="mt-2 text-base font-semibold">
@@ -505,7 +505,7 @@ export default function Tasks() {
             </h3>
             <p className="mt-2 text-sm leading-7 text-white/70">
               {coachingSummary.hasPendingSession
-                ? "Continue the daily system while your next coaching checkpoint stays in motion."
+                ? "Continue the daily system while your next Life OS checkpoint stays in motion."
                 : "This is where CLARA pairs the guided system with your deeper accountability layer."}
             </p>
           </section>

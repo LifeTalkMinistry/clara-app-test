@@ -1,4 +1,5 @@
 import { CLARA_PRODUCTS, getClaraProductByPlan } from "@/lib/clara-entitlements";
+import { supabaseAnonKey, supabaseUrl } from "@/lib/supabaseClient";
 
 const PRODUCT_IDS = {
   pro_99: CLARA_PRODUCTS.pro.productId,
@@ -30,6 +31,19 @@ const normalizeLower = (value) => normalize(value).toLowerCase();
 function billingDebug(label, payload = {}) {
   if (typeof console === "undefined") return;
   console.info(`[CLARA Billing] ${label}`, payload);
+}
+
+function maskToken(value = "") {
+  const token = normalize(value);
+  if (!token) return "";
+  if (token.length <= 12) return `${token.slice(0, 4)}...`;
+  return `${token.slice(0, 8)}...${token.slice(-6)}`;
+}
+
+async function getSupabaseAccessToken(supabase) {
+  const { data, error } = await supabase.auth.getSession();
+  if (error) throw error;
+  return data?.session?.access_token || "";
 }
 
 export function getGooglePlayProductId(planKey) {
@@ -936,22 +950,69 @@ export async function persistGooglePlayPurchase({
   }
 
   try {
-    const { data, error } = await supabase.functions.invoke(
-      "verify-google-play-purchase",
-      {
-        body: {
-          user_id: safeUserId,
-          plan_key: safePlanKey,
-          product_id: safeProductId,
-          purchase_token: safePurchaseToken,
-          order_id: safeOrderId,
-          package_name: "com.clara.moneytracker",
-          purchase_payload: bridgePayload || null,
-        },
-      }
-    );
+    if (!supabaseUrl || !supabaseAnonKey) {
+      throw makeError("Supabase is not configured for billing validation.", {
+        responseCode: "VALIDATION_FAILED",
+        debugMessage: "Missing VITE_SUPABASE_URL or VITE_SUPABASE_ANON_KEY.",
+      });
+    }
 
-    if (error) throw error;
+    const requestUrl = `${supabaseUrl.replace(/\/+$/, "")}/functions/v1/verify-google-play-purchase`;
+    const accessToken = await getSupabaseAccessToken(supabase);
+    const payload = {
+      user_id: safeUserId,
+      plan_key: safePlanKey,
+      product_id: safeProductId,
+      purchase_token: safePurchaseToken,
+      order_id: safeOrderId,
+      package_name: "com.clara.moneytracker",
+      purchase_payload: bridgePayload || null,
+    };
+
+    billingDebug("backend validation request", {
+      requestUrl,
+      productId: safeProductId,
+      packageName: payload.package_name,
+      orderId: safeOrderId,
+      purchaseTokenPresent: Boolean(safePurchaseToken),
+      purchaseTokenPreview: maskToken(safePurchaseToken),
+      payload: {
+        ...payload,
+        purchase_token: maskToken(safePurchaseToken),
+      },
+    });
+
+    const response = await fetch(requestUrl, {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+        apikey: supabaseAnonKey,
+        authorization: `Bearer ${accessToken || supabaseAnonKey}`,
+      },
+      body: JSON.stringify(payload),
+    });
+
+    const responseText = await response.text();
+    let data = null;
+    try {
+      data = responseText ? JSON.parse(responseText) : null;
+    } catch {
+      data = { ok: false, error: responseText || "Non-JSON validation response." };
+    }
+
+    billingDebug("backend validation response", {
+      status: response.status,
+      ok: response.ok,
+      body: data,
+    });
+
+    if (!response.ok) {
+      throw makeError(data?.error || `Validation request failed with ${response.status}.`, {
+        responseCode: data?.code || "VALIDATION_FAILED",
+        debugMessage: responseText || response.statusText,
+        raw: data,
+      });
+    }
 
     if (data?.ok) {
       return data.enrollment_id || data.purchase_id || null;
@@ -1093,14 +1154,17 @@ export async function persistGooglePlayPurchase({
 
   if (resolvedStatus === "approved" || resolvedStatus === "active") {
     const product = getClaraProductByPlan(safePlanKey);
-    const isProOnly =
-      safePlanKey === "pro_99" || safePlanKey === "pro" || productType === "subs";
+    const accessLevel = product?.accessLevel || (safePlanKey === "coaching_1299" ? "life_os" : safePlanKey === "core_599" ? "core" : "pro");
+    const publicPlan = accessLevel === "life_os" ? "lifeos" : accessLevel;
+    const isProOnly = accessLevel === "pro";
     const profilePatch = isProOnly
       ? {
-          plan: "pro_99",
+          plan: "pro",
           access_level: "pro",
           tier_type: product?.tierType || "pro_tools",
           purchase_source: "google_play",
+          access_source: "google_play",
+          subscription_status: "active",
           play_product_id: safeProductId,
           play_purchase_token: safePurchaseToken,
           pro_subscription_status: "active",
@@ -1110,10 +1174,12 @@ export async function persistGooglePlayPurchase({
           enrollment_status: resolvedStatus,
         }
       : {
-          plan: safePlanKey,
-          access_level: product?.accessLevel || (safePlanKey === "coaching_1299" ? "life_os" : "core"),
+          plan: publicPlan,
+          access_level: accessLevel,
           tier_type: product?.tierType || safePlanKey,
           purchase_source: "google_play",
+          access_source: "google_play",
+          subscription_status: "active",
           play_product_id: safeProductId,
           play_purchase_token: safePurchaseToken,
           is_enrolled: true,

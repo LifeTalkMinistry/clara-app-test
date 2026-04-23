@@ -24,7 +24,7 @@ export const EXPERIENCE_TIER_LABELS = {
   free: "Free",
   pro_99: "PRO",
   core_599: "CORE",
-  coaching_1299: "COACHING",
+  coaching_1299: "Life OS",
 };
 
 const normalize = (value) => String(value ?? "").trim();
@@ -405,7 +405,7 @@ export function getProgramBubbleContent(journey, options = {}) {
   if (onboardingRequired) {
     return {
       kind: "onboarding",
-      eyebrow: journey.tier === "coaching" ? "Life OS Journey" : "30-Day Reset",
+      eyebrow: journey.tier === "coaching_1299" ? "Life OS Journey" : "30-Day Reset",
       title:
         journey.tier === "coaching_1299"
             ? "Your Life OS layer is ready"
@@ -419,7 +419,7 @@ export function getProgramBubbleContent(journey, options = {}) {
   if (journey.tier === "coaching_1299" && coachingSummary?.hasPendingSession) {
     const session = coachingSummary.nextApproved || coachingSummary.pending;
     return {
-      kind: "coaching_active",
+      kind: "life_os_support_active",
       eyebrow: "Life OS Support",
       title: "Your Life OS support is active",
       body: session?.topic

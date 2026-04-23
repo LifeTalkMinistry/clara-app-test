@@ -33,7 +33,6 @@ const ClaraPeople = lazy(() => import("./pages/ClaraPeople"));
 const UserProfile = lazy(() => import("./pages/UserProfile"));
 const Community = lazy(() => import("./pages/Community"));
 const Messages = lazy(() => import("./pages/Messages"));
-const Coaching = lazy(() => import("./pages/Coaching"));
 const Enroll = lazy(() => import("./pages/Enroll"));
 const TierSelect = lazy(() => import("./pages/TierSelect"));
 const News = lazy(() => import("./pages/News"));
@@ -105,6 +104,8 @@ function normalizePlanKey(value) {
 
     coach: "coaching_1299",
     coaching: "coaching_1299",
+    lifeos: "coaching_1299",
+    life_os: "coaching_1299",
     coaching_1299: "coaching_1299",
 
     free: "free",
@@ -812,20 +813,6 @@ function AppRoutes() {
                             path="/messages"
                           >
                             <Messages />
-                          </GuardedRoute>
-                        }
-                      />
-
-                      <Route
-                        path="/coaching"
-                        element={
-                          <GuardedRoute
-                            shouldForceEnroll={forceEnroll}
-                            featureKey={FEATURE_ROUTE_MAP["/coaching"]}
-                            isFeatureAvailable={isFeatureAvailable}
-                            path="/coaching"
-                          >
-                            <Coaching />
                           </GuardedRoute>
                         }
                       />

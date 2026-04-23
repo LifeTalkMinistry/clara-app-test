@@ -22,7 +22,7 @@ import { supabase } from "@/lib/supabaseClient";
 import { resetUserAccount } from "@/lib/admin-user-reset";
 import { CURRENT_PLAN_KEYS, PLAN_LABELS, normalizePlanKey } from "@/lib/plan-config";
 
-const CLARA_TIERS = ["free", ...CURRENT_PLAN_KEYS];
+const CLARA_TIERS = CURRENT_PLAN_KEYS;
 const USER_ROLES = ["free_user", "paid_user", "admin"];
 
 export default function AdminUsers() {
@@ -43,7 +43,7 @@ export default function AdminUsers() {
 
       const { data, error } = await supabase
         .from("profiles")
-        .select("id, email, full_name, plan, role, activation_status, is_activated, suspended_at, messaging_disabled");
+        .select("id, email, full_name, plan, role, access_level, access_source, subscription_status, admin_plan_override, activation_status, is_activated, suspended_at, messaging_disabled");
 
       if (error) {
         console.error("Load users error:", error);
@@ -74,7 +74,7 @@ export default function AdminUsers() {
         .from("profiles")
         .update(updates)
         .eq("id", id)
-        .select("id, email, full_name, plan, role, activation_status, is_activated, suspended_at, messaging_disabled")
+        .select("id, email, full_name, plan, role, access_level, access_source, subscription_status, admin_plan_override, activation_status, is_activated, suspended_at, messaging_disabled")
         .single();
 
       if (error) {
@@ -102,18 +102,51 @@ export default function AdminUsers() {
   }
 
   function updatePlan(id, plan) {
-      const normalizedPlan = normalizePlanKey(plan);
-      const role = normalizedPlan === "free" ? "free_user" : "paid_user";
+    const normalizedPlan = normalizePlanKey(plan);
+    const role = normalizedPlan === "free" ? "free_user" : "paid_user";
+    const accessLevel =
+      normalizedPlan === "coaching_1299"
+        ? "life_os"
+        : normalizedPlan === "core_599"
+          ? "core"
+          : normalizedPlan === "pro_99"
+            ? "pro"
+            : "free";
+    const publicPlan =
+      normalizedPlan === "coaching_1299"
+        ? "lifeos"
+        : normalizedPlan === "core_599"
+          ? "core"
+          : normalizedPlan === "pro_99"
+            ? "pro"
+            : "free";
 
-      updateUser(id, {
-      plan: normalizedPlan,
+    const updates = {
+      plan: publicPlan,
+      access_level: accessLevel,
+      access_source: "admin",
+      purchase_source: null,
+      subscription_status: normalizedPlan === "free" ? "free" : "active",
+      admin_plan_override: true,
       role,
       activation_status:
         normalizedPlan === "core_599" || normalizedPlan === "coaching_1299"
           ? "pending"
           : "not_required",
       is_activated: normalizedPlan === "pro_99",
-    });
+      entitlement_status: normalizedPlan === "free" ? "free" : "admin_override",
+      program_active: false,
+      is_enrolled: normalizedPlan !== "free" && normalizedPlan !== "pro_99",
+      updated_at: new Date().toISOString(),
+    };
+
+    if (normalizedPlan === "free") {
+      updates.pro_subscription_status = "inactive";
+      updates.play_product_id = null;
+      updates.play_purchase_token = null;
+    }
+
+    updateUser(id, updates);
   }
 
   function suspendUser(id, suspended) {
@@ -134,7 +167,7 @@ export default function AdminUsers() {
   async function resetUser(id) {
     const selectedUser = users.find((user) => user.id === id);
     const confirmReset = window.confirm(
-      "FULL RESET this user?\n\nThis will:\n- Reset onboarding and program onboarding\n- Remove enrollment and paid/program access\n- Delete tracked progress, wallets, goals, submissions, notes, referrals, and coaching history\n- Mark the account for forced re-login"
+      "FULL RESET this user?\n\nThis will:\n- Reset onboarding and program onboarding\n- Remove enrollment and paid/program access\n- Delete tracked progress, wallets, goals, submissions, notes, referrals, and legacy support history\n- Mark the account for forced re-login"
     );
 
     if (!confirmReset) return;
@@ -270,6 +303,19 @@ export default function AdminUsers() {
                   <p className="text-muted-foreground">Plan</p>
                   <p className="font-medium capitalize">
                     {getPlanLabel(user.plan)}
+                  </p>
+                </div>
+                <div className="rounded-xl border p-2">
+                  <p className="text-muted-foreground">Effective Plan</p>
+                  <p className="font-medium capitalize">
+                    {user.access_level === "life_os" ? "Life OS" : user.access_level || getPlanLabel(user.plan)}
+                  </p>
+                </div>
+                <div className="rounded-xl border p-2">
+                  <p className="text-muted-foreground">Access Source</p>
+                  <p className="font-medium capitalize">
+                    {user.access_source || "profile"}
+                    {user.admin_plan_override ? " · Override" : ""}
                   </p>
                 </div>
                 <div className="rounded-xl border p-2">

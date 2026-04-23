@@ -958,7 +958,6 @@ export default function StudentProfile() {
                 <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
                   <InfoBox label="Task Completion" value={formatPercent(summary.taskCompletion)} />
                   <InfoBox label="Module Completion" value={formatPercent(summary.moduleCompletion)} />
-                  <InfoBox label="Coaching Sessions" value={String(coaching.length)} />
                   <InfoBox label="Referrals" value={String(referrals.length)} />
                 </div>
               </PremiumCard>
@@ -1226,39 +1225,11 @@ export default function StudentProfile() {
 
           {activeTab === "enrollment" && (
             <>
-              <PremiumCard title="Enrollment & Coaching" icon={MessageSquare}>
-                <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+              <PremiumCard title="Enrollment & Access" icon={MessageSquare}>
+                <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
                   <InfoBox label="Plan" value={String(plan)} />
                   <InfoBox label="Enrollment Status" value={String(enrollmentStatus)} />
-                  <InfoBox label="Coaching Sessions" value={String(coaching.length)} />
-                  <InfoBox label="Last Coaching" value={formatDate(summary.lastCoachingDate)} />
-                </div>
-
-                <div className="mt-5 space-y-3">
-                  {coaching.length === 0 ? (
-                    <div className="rounded-2xl border border-dashed border-white/10 bg-[#111827] p-5 text-sm text-slate-400">
-                      No coaching sessions yet.
-                    </div>
-                  ) : (
-                    coaching.map((item) => (
-                      <div
-                        key={item.id}
-                        className="rounded-2xl border border-white/8 bg-[#111827] p-4"
-                      >
-                        <div className="flex items-center justify-between gap-3">
-                          <div className="text-base font-semibold capitalize text-white">
-                            {item.status || "pending"}
-                          </div>
-                          <div className="text-sm text-slate-400">
-                            {formatDate(item.scheduled_at || item.session_date || item.created_at)}
-                          </div>
-                        </div>
-                        <div className="mt-2 text-sm text-slate-300">
-                          {item.topic || item.title || "Coaching request"}
-                        </div>
-                      </div>
-                    ))
-                  )}
+                  <InfoBox label="Access Source" value={String(student.profile.access_source || "profile")} />
                 </div>
               </PremiumCard>
 

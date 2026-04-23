@@ -41,13 +41,13 @@ import { canOfferPlan, getClaraProductByPlan } from "@/lib/clara-entitlements";
 const CANONICAL_PLAN_KEYS = {
   PRO: "pro_99",
   PROGRAM: "core_599",
-  COACHING: "coaching_1299",
+  LIFE_OS: "coaching_1299",
 };
 
 const SUPPORTED_ENROLLMENT_PLAN_KEYS = new Set([
   CANONICAL_PLAN_KEYS.PRO,
   CANONICAL_PLAN_KEYS.PROGRAM,
-  CANONICAL_PLAN_KEYS.COACHING,
+  CANONICAL_PLAN_KEYS.LIFE_OS,
 ]);
 
 const LEGACY_PLAN_KEY_MAP = {
@@ -58,8 +58,8 @@ const LEGACY_PLAN_KEY_MAP = {
   core: CANONICAL_PLAN_KEYS.PROGRAM,
   program: CANONICAL_PLAN_KEYS.PROGRAM,
 
-  coach: CANONICAL_PLAN_KEYS.COACHING,
-  coaching: CANONICAL_PLAN_KEYS.COACHING,
+  coach: CANONICAL_PLAN_KEYS.LIFE_OS,
+  coaching: CANONICAL_PLAN_KEYS.LIFE_OS,
 };
 
 const PLAN_UI_META = {
@@ -103,7 +103,7 @@ const PLAN_UI_META = {
     successCta: "Open CORE",
     icon: Target,
   },
-  [CANONICAL_PLAN_KEYS.COACHING]: {
+  [CANONICAL_PLAN_KEYS.LIFE_OS]: {
     label: "Life OS",
     eyebrow: "Premium Decision System",
     badge: "Premium support",
@@ -286,7 +286,7 @@ function getSuccessDestination(planKey) {
   if (normalized === CANONICAL_PLAN_KEYS.PRO) return "/dashboard";
   if (
     normalized === CANONICAL_PLAN_KEYS.PROGRAM ||
-    normalized === CANONICAL_PLAN_KEYS.COACHING
+    normalized === CANONICAL_PLAN_KEYS.LIFE_OS
   ) {
     return "/tasks";
   }
@@ -1483,28 +1483,6 @@ export default function Enroll() {
     }
   }
 
-  async function activateGooglePlayPurchase({
-    planKey,
-    productId,
-    purchaseToken,
-    orderId,
-  }) {
-    const { data, error } = await supabase.functions.invoke("verify-google-play-purchase", {
-      body: {
-        plan_key: planKey,
-        product_id: productId,
-        purchase_token: purchaseToken || null,
-        order_id: orderId || null,
-      },
-    });
-
-    if (error) {
-      throw new Error(error.message || "Supabase activation function failed.");
-    }
-
-    return data;
-  }
-
   async function finalizeOwnedOrPurchasedPlan({
     plan,
     authUser,
@@ -1531,23 +1509,6 @@ export default function Enroll() {
       bridgePayload,
     });
 
-    let activationResult = null;
-
-    try {
-      activationResult = await activateGooglePlayPurchase({
-        userId,
-        planKey,
-        productId,
-        purchaseToken,
-        orderId,
-      });
-    } catch (activationError) {
-      console.warn(
-        "verify-google-play function did not complete cleanly:",
-        activationError
-      );
-    }
-
     try {
       await supabase.auth.refreshSession();
     } catch (sessionError) {
@@ -1557,12 +1518,6 @@ export default function Enroll() {
     const latestEnrollmentAfterPersist = await fetchEnrollmentForUserId(userId);
     await refreshUser?.();
 
-    const activationStatus = normalizeKey(
-      activationResult?.status ||
-        activationResult?.enrollment?.status ||
-        activationResult?.data?.status
-    );
-
     const persistedStatus = normalizeKey(latestEnrollmentAfterPersist?.status);
     const persistedPlanKey = getSupportedPlanKeyFromEnrollment(
       latestEnrollmentAfterPersist
@@ -1570,8 +1525,7 @@ export default function Enroll() {
 
     if (
       persistedPlanKey &&
-      (SUCCESS_STATUSES.has(activationStatus) ||
-        SUCCESS_STATUSES.has(persistedStatus))
+      SUCCESS_STATUSES.has(persistedStatus)
     ) {
       setPurchaseState("success");
       setPurchaseMessage(plan.successBody);

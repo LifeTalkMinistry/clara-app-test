@@ -17,7 +17,6 @@ import {
   BookOpen,
   Brain,
   Users,
-  GraduationCap,
   Shield,
   LogOut,
   PiggyBank,
@@ -45,7 +44,6 @@ const MORE_ITEMS = [
   { path: "/modules", label: "Modules", icon: BookOpen, pro: true },
   { path: "/ai", label: "CLARA AI", icon: Brain, pro: true },
   { path: "/community", label: "Community", icon: Users, pro: true },
-  { path: "/coaching", label: "Coaching", icon: GraduationCap, pro: true },
 ];
 
 const QUICK_ACTIONS = [
