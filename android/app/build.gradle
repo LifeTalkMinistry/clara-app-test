@@ -12,11 +12,11 @@ android {
     compileSdk rootProject.ext.compileSdkVersion
 
     defaultConfig {
-        applicationId "com.clara.moneytracker"
+        applicationId "com.clara.lifeos.app"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
-        versionCode 7
-        versionName "1.7"
+        versionCode 10
+        versionName "1.10"
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
 
         aaptOptions {
@@ -71,10 +71,17 @@ android {
                 'META-INF/NOTICE.txt',
                 'META-INF/notice.txt',
                 'META-INF/ASL2.0',
-                'META-INF/*.kotlin_module'
+                'META-INF/*.kotlin_module',
+                'META-INF/AL2.0',
+                'META-INF/LGPL2.1'
             ]
         }
     }
+}
+
+configurations.all {
+    exclude group: 'org.jetbrains.kotlin', module: 'kotlin-stdlib-jdk7'
+    exclude group: 'org.jetbrains.kotlin', module: 'kotlin-stdlib-jdk8'
 }
 
 dependencies {
@@ -91,7 +98,7 @@ dependencies {
 
     testImplementation "junit:junit:$junitVersion"
     androidTestImplementation "androidx.junit:junit:$androidxJunitVersion"
-    androidTestImplementation "androidx.espresso:espresso-core:$androidxEspressoCoreVersion"
+    androidTestImplementation "androidx.espresso:espresso-core:3.5.1"
 }
 
 apply from: 'capacitor.build.gradle'
