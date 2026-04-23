@@ -118,7 +118,7 @@ function detectIntent(text) {
   if (/\b(wallet history|transaction history|history for|recent transactions)\b/.test(lower)) return AI_INTENTS.READ_WALLET_HISTORY;
   if (/\b(how much did i spend|spent today|spent yesterday|spending today|spending yesterday)\b/.test(lower)) return AI_INTENTS.READ_SPENDING;
   if (/\b(budget left|budget status|budget remaining|how is my budget|how are my budgets)\b/.test(lower)) return AI_INTENTS.READ_BUDGET_STATUS;
-  if (/\b(savings status|savings goal|save-for|save for goal|how much saved)\b/.test(lower) && !/\bcreate|make|set\b/.test(lower)) return AI_INTENTS.READ_SAVINGS_STATUS;
+  if (/\b(savings status|savings goals?|saving goals?|save-for|save for goal|how much saved)\b/.test(lower) && !/\bcreate|make|set|help me create\b/.test(lower)) return AI_INTENTS.READ_SAVINGS_STATUS;
   if (/\b(balance|money left|how much.*have|left for today|left this month|wallet balances?)\b/.test(lower)) return AI_INTENTS.CHECK_BALANCE;
   if (/\b(analy[sz]e|analysis|spending pattern|breakdown|where did my money)\b/.test(lower)) return AI_INTENTS.ANALYZE_SPENDING;
   if (/\b(save|saving|savings suggestion|suggest.*saving)\b/.test(lower) && !/\bgoal\b/.test(lower)) return AI_INTENTS.SUGGEST_SAVINGS;
@@ -133,7 +133,8 @@ function detectIntent(text) {
   if (/\b(lifestyle|organize my life|life advice)\b/.test(lower)) return AI_INTENTS.LIFESTYLE_GUIDANCE;
   if (/\b(stress|overwhelmed|anxious|guilty|feel bad)\b/.test(lower)) return AI_INTENTS.EMOTIONAL_GUIDANCE;
   if (/\b(budget|allocate|allocation)\b/.test(lower)) return AI_INTENTS.CREATE_BUDGET;
-  if (/\b(savings goal|saving goal|goal)\b/.test(lower)) return AI_INTENTS.CREATE_SAVINGS_GOAL;
+  if (/\b(create|make|set|start|open|help me create)\b/.test(lower) && /\b(savings goals?|saving goals?|goal)\b/.test(lower)) return AI_INTENTS.CREATE_SAVINGS_GOAL;
+  if (/\b(savings goals?|saving goals?|goal)\b/.test(lower)) return AI_INTENTS.CREATE_SAVINGS_GOAL;
   if (/\b(add|put|deposit|cash in|top up)\b/.test(lower) && /\b(to|into|wallet|gcash|maya|cash)\b/.test(lower)) return AI_INTENTS.ADD_MONEY;
   if (/\b(bought|buy|spent|paid|log|expense|purchased)\b/.test(lower)) return AI_INTENTS.LOG_EXPENSE;
   if (lower.length > 5) return AI_INTENTS.GENERAL_GUIDANCE;
@@ -191,9 +192,9 @@ function extractBudgetLabel(text) {
 function extractGoalLabel(text) {
   const withoutAmount = stripAmountPhrase(text);
   const match =
-    withoutAmount.match(/\b(?:goal|savings goal)\s+(?:for\s+)?(.+?)(?:\s+by\s+.+)?$/i) ||
+    withoutAmount.match(/\b(?:goal|goals|savings goal|savings goals|saving goal|saving goals)\s+(?:for\s+)?(.+?)(?:\s+by\s+.+)?$/i) ||
     withoutAmount.match(/\bcreate\s+(?:a\s+)?(.+?)\s+goal/i) ||
-    withoutAmount.match(/\bmake\s+(?:a\s+)?(?:savings\s+)?goal\s+for\s+(.+)$/i) ||
+    withoutAmount.match(/\bmake\s+(?:a\s+)?(?:savings\s+)?goals?\s+for\s+(.+)$/i) ||
     withoutAmount.match(/\bsave\s+for\s+(.+)$/i);
   return match ? cleanupLabel(match[1]) : "";
 }
