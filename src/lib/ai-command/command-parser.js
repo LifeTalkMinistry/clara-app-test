@@ -259,9 +259,9 @@ export function buildCommand(intent, parsedData = {}, confidence = 0.5, conversa
     confirmationText: canExecute && isWrite ? generateConfirmation({ intent: safeIntent, parsedData }) : "",
     userPrompt:
       safeIntent === AI_INTENTS.UNKNOWN
-        ? "I am not fully sure yet. Are you trying to log money, move money, check your finances, or plan something?"
+        ? conversationalText || "I am not fully sure yet. Are you trying to log money, move money, check your finances, or plan something?"
         : missingFields.length
-          ? FIELD_PROMPTS[missingFields[0]] || "What should I use for that?"
+          ? conversationalText || FIELD_PROMPTS[missingFields[0]] || "What should I use for that?"
           : conversationalText,
     status,
   };

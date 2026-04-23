@@ -1,4 +1,4 @@
-import { executeAICommand } from "@/lib/ai-command/command-executor";
+import { executeAICommand, resolveAuthenticatedUser } from "@/lib/ai-command/command-executor";
 import { loadFinanceSnapshot } from "@/lib/ai-command/finance-context";
 import {
   AI_INTENTS,
@@ -13,18 +13,23 @@ import { askGeminiForUnderstanding, getGeminiStatus } from "@/lib/ai-command/gem
 
 async function understandInput({ text, session, financeSnapshot }) {
   const previous = session?.currentCommand;
-  if (previous?.status === "collecting_missing_fields" || previous?.status === "awaiting_confirmation") {
-    return parseCommand(text, previous);
+  const geminiStatus = getGeminiStatus();
+
+  if (geminiStatus.configured) {
+    try {
+      return await askGeminiForUnderstanding({ text, session, financeSnapshot });
+    } catch (error) {
+      console.warn("CLARA Gemini understanding failed:", error);
+      return buildCommand(
+        AI_INTENTS.UNKNOWN,
+        {},
+        0.1,
+        "I had trouble reaching CLARA intelligence. The session is still here. Try again in a moment."
+      );
+    }
   }
 
-  try {
-    return await askGeminiForUnderstanding({ text, session, financeSnapshot });
-  } catch (error) {
-    if (error?.code !== "GEMINI_NOT_CONFIGURED") {
-      console.warn("CLARA Gemini understanding fell back to local parser:", error);
-    }
-    return parseCommand(text, previous);
-  }
+  return parseCommand(text, previous);
 }
 
 function shouldExecuteImmediately(command) {
@@ -56,10 +61,11 @@ export async function processAssistantTurn({ text, session, user }) {
 
   if (isCancelText(input)) return cancelledTurn();
 
+  const activeUser = await resolveAuthenticatedUser(user);
   const previous = session?.currentCommand;
   if (previous?.status === "awaiting_confirmation" && isYesText(input)) {
     const command = { ...previous, status: "ready_to_execute", canExecute: true };
-    const result = await executeAICommand(command, { user });
+    const result = await executeAICommand(command, { user: activeUser });
     return {
       command: { ...command, status: result.success ? "executed" : "error" },
       assistantMessage: result.message,
@@ -76,11 +82,11 @@ export async function processAssistantTurn({ text, session, user }) {
     };
   }
 
-  const financeSnapshot = await loadFinanceSnapshot(user);
+  const financeSnapshot = await loadFinanceSnapshot(activeUser);
   const command = await understandInput({ text: input, session, financeSnapshot });
 
   if (shouldExecuteImmediately(command)) {
-    const result = await executeAICommand(command, { user, financeSnapshot });
+    const result = await executeAICommand(command, { user: activeUser, financeSnapshot });
     return {
       command: { ...command, status: result.success ? "executed" : "error" },
       assistantMessage: result.message,

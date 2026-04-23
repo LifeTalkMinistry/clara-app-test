@@ -164,6 +164,10 @@ export default function Layout({ children }) {
       {!isAdvertiser && (
         <BottomNav
           onQuickAdd={handleOpenQuickAdd}
+          user={user}
+          isAdmin={isAdmin}
+          isFree={isFree}
+          isFeatureAvailable={isFeatureAvailable}
           onOpenAssistant={(mode) => {
             setAssistantMode(mode);
             setAssistantOpen(true);

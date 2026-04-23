@@ -13,6 +13,8 @@ export default function AiCommandPanel({
 }) {
   const [text, setText] = useState("");
   const inputRef = useRef(null);
+  const historyRef = useRef(null);
+  const lastSpokenRef = useRef("");
   const sessionApi = useAiCommandSession({ user, mode });
   const { session, processing, reset, submitText, confirm, cancel } = sessionApi;
   const geminiStatus = getGeminiStatus();
@@ -40,10 +42,46 @@ export default function AiCommandPanel({
     if (open && mode === "chat") inputRef.current?.focus?.();
   }, [mode, open]);
 
+  useEffect(() => {
+    if (!open) return;
+    const frame = requestAnimationFrame(() => {
+      const node = historyRef.current;
+      if (!node) return;
+      node.scrollTo({
+        top: node.scrollHeight,
+        behavior: session.history.length <= 1 ? "auto" : "smooth",
+      });
+    });
+    return () => cancelAnimationFrame(frame);
+  }, [open, processing, session.awaitingConfirmation, session.history.length]);
+
+  useEffect(() => {
+    if (!open || typeof window === "undefined" || !("speechSynthesis" in window)) return;
+    const lastMessage = session.history[session.history.length - 1];
+    if (lastMessage?.role !== "assistant") return;
+    const content = String(lastMessage.content || "").trim();
+    if (!content || content === lastSpokenRef.current) return;
+
+    lastSpokenRef.current = content;
+    try {
+      window.speechSynthesis.cancel();
+      const utterance = new SpeechSynthesisUtterance(content);
+      utterance.lang = "en-PH";
+      utterance.rate = 0.96;
+      utterance.pitch = 1;
+      window.speechSynthesis.speak(utterance);
+    } catch (error) {
+      console.warn("CLARA voice output unavailable:", error);
+    }
+  }, [open, session.history]);
+
   if (!open) return null;
 
   const close = () => {
     voice.stop();
+    if (typeof window !== "undefined" && "speechSynthesis" in window) {
+      window.speechSynthesis.cancel();
+    }
     onOpenChange(false);
   };
 
@@ -147,7 +185,7 @@ export default function AiCommandPanel({
             </div>
           </div>
 
-          <div className="mt-4 min-h-0 flex-1 space-y-3 overflow-y-auto pr-1">
+          <div ref={historyRef} className="mt-4 min-h-0 flex-1 space-y-3 overflow-y-auto pr-1">
             {session.history.map((message, index) => (
               <div
                 key={`${message.role}-${index}`}

@@ -95,6 +95,25 @@ async function insertWalletTransaction(payload, user) {
   if (error) throw error;
 }
 
+export async function resolveAuthenticatedUser(user) {
+  if (user?.id || user?.email) {
+    console.info("CLARA AI executor user:", { id: user?.id || null, email: user?.email || null, source: "prop" });
+    return user;
+  }
+
+  const { data, error } = await supabase.auth.getUser();
+  if (error) {
+    console.warn("CLARA AI could not read Supabase auth user:", error);
+  }
+  const authUser = data?.user || null;
+  console.info("CLARA AI executor user:", {
+    id: authUser?.id || null,
+    email: authUser?.email || null,
+    source: authUser ? "supabase.auth.getUser" : "missing",
+  });
+  return authUser;
+}
+
 function ensureUser(user) {
   if (!user?.id && !user?.email) {
     throw Object.assign(new Error("Please sign in again before I make changes."), {
@@ -511,6 +530,9 @@ function refreshAppFinanceState() {
 }
 
 export async function executeAICommand(command, context = {}) {
+  const executionUser = await resolveAuthenticatedUser(context.user);
+  const executionContext = { ...context, user: executionUser };
+
   if (!command?.canExecute) {
     return {
       success: false,
@@ -522,16 +544,16 @@ export async function executeAICommand(command, context = {}) {
 
   try {
     let result;
-    if (command.intent === AI_INTENTS.LOG_EXPENSE) result = await executeLogExpense(command, context);
-    else if (command.intent === AI_INTENTS.ADD_MONEY) result = await executeAddMoney(command, context);
-    else if (command.intent === AI_INTENTS.TRANSFER_MONEY) result = await executeTransferMoney(command, context);
-    else if (command.intent === AI_INTENTS.CREATE_BUDGET) result = await executeCreateBudget(command, context);
-    else if (command.intent === AI_INTENTS.CREATE_SAVINGS_GOAL) result = await executeCreateSavingsGoal(command, context);
-    else if (command.intent === AI_INTENTS.CHECK_BALANCE) result = await executeCheckBalance(command, context);
-    else if (command.intent === AI_INTENTS.ANALYZE_SPENDING) result = await executeAnalyzeSpending(command, context);
-    else if (command.intent === AI_INTENTS.SUGGEST_SAVINGS) result = await executeSavingsSuggestion(command, context);
-    else if (command.intent === AI_INTENTS.PLAN_SPENDING) result = await executeSpendingPlan(command, context);
-    else if (command.intent === AI_INTENTS.EMERGENCY_FUND_PLAN) result = await executeEmergencyFundPlan(command, context);
+    if (command.intent === AI_INTENTS.LOG_EXPENSE) result = await executeLogExpense(command, executionContext);
+    else if (command.intent === AI_INTENTS.ADD_MONEY) result = await executeAddMoney(command, executionContext);
+    else if (command.intent === AI_INTENTS.TRANSFER_MONEY) result = await executeTransferMoney(command, executionContext);
+    else if (command.intent === AI_INTENTS.CREATE_BUDGET) result = await executeCreateBudget(command, executionContext);
+    else if (command.intent === AI_INTENTS.CREATE_SAVINGS_GOAL) result = await executeCreateSavingsGoal(command, executionContext);
+    else if (command.intent === AI_INTENTS.CHECK_BALANCE) result = await executeCheckBalance(command, executionContext);
+    else if (command.intent === AI_INTENTS.ANALYZE_SPENDING) result = await executeAnalyzeSpending(command, executionContext);
+    else if (command.intent === AI_INTENTS.SUGGEST_SAVINGS) result = await executeSavingsSuggestion(command, executionContext);
+    else if (command.intent === AI_INTENTS.PLAN_SPENDING) result = await executeSpendingPlan(command, executionContext);
+    else if (command.intent === AI_INTENTS.EMERGENCY_FUND_PLAN) result = await executeEmergencyFundPlan(command, executionContext);
     else if (
       [
         AI_INTENTS.DECISION_GUIDANCE,
@@ -544,7 +566,7 @@ export async function executeAICommand(command, context = {}) {
         AI_INTENTS.EMOTIONAL_GUIDANCE,
         AI_INTENTS.GENERAL_GUIDANCE,
       ].includes(command.intent)
-    ) result = await executeLifeGuidance(command, context);
+    ) result = await executeLifeGuidance(command, executionContext);
     else {
       return {
         success: false,
