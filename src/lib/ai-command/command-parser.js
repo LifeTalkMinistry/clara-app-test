@@ -83,6 +83,34 @@ function cleanupLabel(value) {
     .trim();
 }
 
+function isGenericExpenseStarter(value) {
+  const normalized = normalizeLower(value)
+    .replace(/[?.!,]+$/g, "")
+    .trim();
+
+  return [
+    "i want to log",
+    "want to log",
+    "log",
+    "log expense",
+    "log an expense",
+    "i want to log expense",
+    "i want to log an expense",
+    "i want to add an expense",
+    "add an expense",
+    "add expense",
+    "expense",
+    "spent",
+    "i spent",
+    "i want to spend",
+    "buy",
+    "i want to buy",
+    "i bought",
+    "paid",
+    "i paid",
+  ].includes(normalized);
+}
+
 function stripAmountPhrase(text) {
   return normalizeText(text)
     .replace(CURRENCY_RE, " ")
@@ -169,12 +197,16 @@ function extractTransferWallets(text) {
 
 function extractExpenseItem(text) {
   const afterFor = extractAfterKeyword(text, "for");
-  if (afterFor) return afterFor;
-  return cleanupLabel(
+  if (afterFor && !isGenericExpenseStarter(afterFor)) return afterFor;
+
+  const cleaned = cleanupLabel(
     stripAmountPhrase(text)
       .replace(/^(i\s+)?(bought|buy|spent|paid|log|purchased)\s*/i, "")
       .replace(/\b(from|using|under|today|yesterday|this morning|last night)\b.*$/i, "")
   );
+
+  if (!cleaned || isGenericExpenseStarter(cleaned)) return "";
+  return cleaned;
 }
 
 function extractBudgetLabel(text) {
@@ -297,6 +329,17 @@ function buildSingleCommand(intent, parsedData = {}, confidence = 0.5, conversat
           ? "ready_to_execute"
           : "collecting_missing_fields";
 
+  const defaultPrompt =
+    safeIntent === AI_INTENTS.LOG_EXPENSE
+      ? missingFields[0] === "amount"
+        ? "How much was it?"
+        : missingFields[0] === "item"
+          ? "What did you spend it on?"
+          : missingFields[0] === "wallet"
+            ? "Which wallet should I use?"
+            : FIELD_PROMPTS[missingFields[0]]
+      : FIELD_PROMPTS[missingFields[0]];
+
   return {
     intent: safeIntent,
     confidence,
@@ -309,7 +352,7 @@ function buildSingleCommand(intent, parsedData = {}, confidence = 0.5, conversat
       safeIntent === AI_INTENTS.UNKNOWN
         ? conversationalText || "I am not fully sure yet. Are you trying to log money, move money, check your finances, or plan something?"
         : missingFields.length
-          ? conversationalText || FIELD_PROMPTS[missingFields[0]] || "What should I use for that?"
+          ? conversationalText || defaultPrompt || "What should I use for that?"
           : conversationalText,
     status,
   };
