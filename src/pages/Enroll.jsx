@@ -509,6 +509,9 @@ async function probeGooglePlayBilling({ productId, productType = "subscription",
         foundProductIds: [],
         missingProductIds: productId ? [productId] : [],
         queriedProductIds: productId ? [productId] : [],
+        queriedProductTypes: productId ? { [productId]: productType } : {},
+        unavailableProductIds: [],
+        unavailableProducts: [],
         productDetails: [],
       },
     };
@@ -551,6 +554,9 @@ async function probeGooglePlayBilling({ productId, productType = "subscription",
           foundProductIds: [],
           missingProductIds: productId ? [productId] : [],
           queriedProductIds: productId ? [productId] : [],
+          queriedProductTypes: productId ? { [productId]: productType } : {},
+          unavailableProductIds: [],
+          unavailableProducts: [],
           productDetails: [],
           rawConnection: connection,
         },
@@ -583,6 +589,9 @@ async function probeGooglePlayBilling({ productId, productType = "subscription",
           foundProductIds: productId ? [productId] : [],
           missingProductIds: [],
           queriedProductIds: productId ? [productId] : [],
+          queriedProductTypes: productId ? { [productId]: productType } : {},
+          unavailableProductIds: [],
+          unavailableProducts: [],
           productDetails: [],
           rawConnection: connection,
         },
@@ -604,9 +613,23 @@ async function probeGooglePlayBilling({ productId, productType = "subscription",
       : foundProductIds.includes(productId)
         ? []
         : [productId];
+    const unavailableProducts = Array.isArray(productResult?.unavailableProducts)
+      ? productResult.unavailableProducts
+      : [];
+    const unavailableProductIds = Array.isArray(productResult?.unavailableProductIds)
+      ? productResult.unavailableProductIds
+      : unavailableProducts.map((item) => item?.productId).filter(Boolean);
+    const normalizedProductType = String(productType || "").toLowerCase();
+    const isSubscriptionProduct =
+      normalizedProductType === "subscription" || normalizedProductType === "subs";
+    const hasEligibleOffer = !isSubscriptionProduct
+      ? true
+      : Boolean(productResult?.productDetails?.[0]?.offerToken);
 
     const ready =
       productCode === "OK" &&
+      unavailableProductIds.length === 0 &&
+      hasEligibleOffer &&
       (missingProductIds.length === 0 ||
         foundProductIds.includes(productId) ||
         productResult?.ok === true);
@@ -638,6 +661,9 @@ async function probeGooglePlayBilling({ productId, productType = "subscription",
           foundProductIds,
           missingProductIds: [],
           queriedProductIds: productResult?.queriedProductIds || [productId],
+          queriedProductTypes: productResult?.queriedProductTypes || { [productId]: productType },
+          unavailableProductIds: [],
+          unavailableProducts: [],
           productDetails: productResult?.productDetails || [],
           rawConnection: connection,
           rawProductResult: productResult,
@@ -659,7 +685,7 @@ async function probeGooglePlayBilling({ productId, productType = "subscription",
       possibleCauses: buildBillingPossibleCauses({
         connectCode,
         productCode,
-        diagnostics: connection,
+        diagnostics: { ...connection, ...productResult },
         missingProductIds,
       }),
       diagnostics: {
@@ -677,6 +703,9 @@ async function probeGooglePlayBilling({ productId, productType = "subscription",
         foundProductIds,
         missingProductIds,
         queriedProductIds: productResult?.queriedProductIds || [productId],
+        queriedProductTypes: productResult?.queriedProductTypes || { [productId]: productType },
+        unavailableProductIds,
+        unavailableProducts,
         productDetails: productResult?.productDetails || [],
         rawConnection: connection,
         rawProductResult: productResult,
@@ -714,6 +743,9 @@ async function probeGooglePlayBilling({ productId, productType = "subscription",
         foundProductIds: [],
         missingProductIds: productId ? [productId] : [],
         queriedProductIds: productId ? [productId] : [],
+        queriedProductTypes: productId ? { [productId]: productType } : {},
+        unavailableProductIds: [],
+        unavailableProducts: [],
         productDetails: [],
       },
     };
@@ -757,9 +789,12 @@ function buildBillingPossibleCauses({
 
   if (
     productCode === "ITEM_UNAVAILABLE" ||
-    (Array.isArray(missingProductIds) && missingProductIds.length > 0)
+    (Array.isArray(missingProductIds) && missingProductIds.length > 0) ||
+    (Array.isArray(diagnostics?.unavailableProducts) &&
+      diagnostics.unavailableProducts.length > 0)
   ) {
     causes.add("product may not be active for this testing setup");
+    causes.add("subscription may not have an eligible active base plan or offer for this account");
   }
 
   if (connectCode === "DEVELOPER_ERROR") {
@@ -962,10 +997,19 @@ function BillingDiagnosticCard({
             <DebugRow label="Monitor state" value={state} />
             <DebugRow label="Platform" value={billingMonitor?.diagnostics?.platform || "android"} />
             <DebugRow label="Native bridge" value={billingMonitor?.diagnostics?.hasBridge === false ? "missing" : "detected"} />
+            <DebugRow label="Billing ready" value={formatBool(billingMonitor?.diagnostics?.billingReady ?? billingMonitor?.ready)} />
             <DebugRow label="Connect code" value={`${connectCode}`} />
             <DebugRow label="Product code" value={`${productCode}`} />
             <DebugRow label="Selected plan" value={planKey || "-"} />
             <DebugRow label="Product ID" value={productId || "—"} />
+            <DebugRow
+              label="Product type used"
+              value={
+                billingMonitor?.diagnostics?.queriedProductTypes?.[productId] ||
+                billingMonitor?.diagnostics?.rawProductResult?.queriedProductTypes?.[productId] ||
+                "subs"
+              }
+            />
             <DebugRow
               label="Package name"
               value={billingMonitor?.diagnostics?.packageName || "Unknown"}
@@ -1019,8 +1063,26 @@ function BillingDiagnosticCard({
               }
             />
             <DebugRow
+              label="Unavailable products"
+              value={
+                billingMonitor?.diagnostics?.unavailableProducts?.length
+                  ? billingMonitor.diagnostics.unavailableProducts
+                      .map((item) => `${item.productId || "unknown"} (${item.statusCode || "no-code"})`)
+                      .join(", ")
+                  : "—"
+              }
+            />
+            <DebugRow
               label="Google Play price"
               value={billingMonitor?.diagnostics?.productDetails?.[0]?.formattedPrice || "-"}
+            />
+            <DebugRow
+              label="ProductDetails supported"
+              value={formatBool(billingMonitor?.diagnostics?.productDetailsSupported)}
+            />
+            <DebugRow
+              label="Subscriptions supported"
+              value={formatBool(billingMonitor?.diagnostics?.subscriptionsSupported)}
             />
             <DebugRow
               label="Debug details"
@@ -1302,6 +1364,13 @@ export default function Enroll() {
     purchaseState === "processing" ||
     purchaseState === "verifying" ||
     purchaseState === "pending";
+  const billingReadyForSelectedPlan =
+    billingMonitor?.ready === true &&
+    billingMonitor?.state === "ready" &&
+    Array.isArray(billingMonitor?.diagnostics?.foundProductIds) &&
+    billingMonitor.diagnostics.foundProductIds.includes(selectedPlan?.productId) &&
+    !billingMonitor?.diagnostics?.missingProductIds?.includes(selectedPlan?.productId) &&
+    !billingMonitor?.diagnostics?.unavailableProductIds?.includes(selectedPlan?.productId);
 
   const shouldShowBillingCard =
     view === "detail" && selectedPlan && !showSuccess && !showProcessing;
@@ -1337,6 +1406,9 @@ export default function Enroll() {
             foundProductIds: [],
             missingProductIds: [],
             queriedProductIds: [],
+            queriedProductTypes: {},
+            unavailableProductIds: [],
+            unavailableProducts: [],
             productDetails: [],
           },
         });
@@ -2016,8 +2088,9 @@ export default function Enroll() {
 
                 {BILLING_WARN_STATES.has(billingMonitor.state) ? (
                   <div className="rounded-[24px] border border-amber-400/15 bg-amber-500/5 p-4 text-sm leading-7 text-amber-100">
-                    Google Play billing is not fully ready yet. This is now treated as a
-                    diagnostic state instead of a hard-coded install-source failure.
+                    Google Play billing is not fully ready yet. The unlock button stays
+                    disabled until Google returns this subscription product with an
+                    eligible base plan or offer.
                   </div>
                 ) : null}
               </div>
@@ -2037,7 +2110,12 @@ export default function Enroll() {
                 <Button
                   className="h-12 rounded-2xl px-5"
                   onClick={() => handlePurchase(selectedPlan)}
-                  disabled={purchaseBusy || billingRefreshing || Boolean(selectedOwnedPurchase)}
+                  disabled={
+                    purchaseBusy ||
+                    billingRefreshing ||
+                    Boolean(selectedOwnedPurchase) ||
+                    !billingReadyForSelectedPlan
+                  }
                 >
                   {selectedOwnedPurchase ? (
                     <>
@@ -2055,6 +2133,11 @@ export default function Enroll() {
                     <>
                       <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                       Checking...
+                    </>
+                  ) : !billingReadyForSelectedPlan ? (
+                    <>
+                      <AlertTriangle className="mr-2 h-4 w-4" />
+                      Google Play not ready
                     </>
                   ) : (
                     <>

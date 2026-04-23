@@ -87,7 +87,7 @@ dependencies {
     implementation project(':capacitor-android')
     implementation project(':capacitor-cordova-android-plugins')
 
-    implementation "com.android.billingclient:billing:8.1.1"
+    implementation "com.android.billingclient:billing:8.3.0"
 
     testImplementation "junit:junit:$junitVersion"
     androidTestImplementation "androidx.junit:junit:$androidxJunitVersion"

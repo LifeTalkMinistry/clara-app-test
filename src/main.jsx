@@ -13,9 +13,9 @@ import "./index.css";
 // Safe billing setup
 window.CLARA_BILLING = {
   productIds: {
-    PRO: "pro_99",
-    CORE: "core_199",
-    LIFE_OS: "lifeos_499",
+    PRO: "clara_pro_99",
+    CORE: "clara_core_199",
+    LIFE_OS: "clara_lifeos_499",
   },
 
   getStore() {
