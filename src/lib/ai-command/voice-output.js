@@ -42,8 +42,12 @@ function rankVoice(voice, preference) {
   return score;
 }
 
+export function speechOutputSupported() {
+  return typeof window !== "undefined" && "speechSynthesis" in window;
+}
+
 export function getSpeechSynthesisVoices() {
-  if (typeof window === "undefined" || !("speechSynthesis" in window)) return [];
+  if (!speechOutputSupported()) return [];
   return window.speechSynthesis.getVoices() || [];
 }
 
@@ -54,9 +58,7 @@ export function pickSpeechVoice(voices = [], preference = "female") {
     (a, b) => rankVoice(b, preference) - rankVoice(a, preference)
   );
 
-  if (rankVoice(ranked[0], preference) > 0) {
-    return ranked[0];
-  }
+  if (rankVoice(ranked[0], preference) > 0) return ranked[0];
 
   const localeVoices = voices.filter((voice) => rankVoice(voice, preference) >= 20);
   if (preference === "male" && localeVoices.length > 1) return localeVoices[1];
@@ -64,30 +66,64 @@ export function pickSpeechVoice(voices = [], preference = "female") {
 }
 
 export function stopSpeechOutput() {
-  if (typeof window === "undefined" || !("speechSynthesis" in window)) return;
+  if (!speechOutputSupported()) return;
   window.speechSynthesis.cancel();
 }
 
-export function speakClaraText(text, { voicePreference = "female" } = {}) {
-  if (
-    typeof window === "undefined" ||
-    !("speechSynthesis" in window) ||
-    !String(text || "").trim()
-  ) {
+export function warmupSpeechOutput() {
+  if (!speechOutputSupported()) return [];
+  try {
+    window.speechSynthesis.getVoices();
+    window.speechSynthesis.resume();
+  } catch (error) {
+    console.warn("CLARA speech warmup failed:", error);
+  }
+  return getSpeechSynthesisVoices();
+}
+
+export function speakClaraText(
+  text,
+  { voicePreference = "female", onStart, onEnd, onError } = {}
+) {
+  if (!speechOutputSupported() || !String(text || "").trim()) {
+    onError?.(new Error("Speech synthesis unavailable."));
     return null;
   }
 
+  const synthesis = window.speechSynthesis;
   const utterance = new SpeechSynthesisUtterance(String(text).trim());
-  const voices = getSpeechSynthesisVoices();
+  const voices = warmupSpeechOutput();
   const voice = pickSpeechVoice(voices, voicePreference);
 
   utterance.lang = voice?.lang || "en-PH";
   utterance.voice = voice || null;
   utterance.rate = 0.96;
-  utterance.pitch = voicePreference === "male" ? 0.92 : 1.08;
+  utterance.pitch = voicePreference === "male" ? 0.9 : 1.06;
+  utterance.volume = 1;
 
-  stopSpeechOutput();
-  window.speechSynthesis.speak(utterance);
+  utterance.onstart = () => onStart?.({ utterance, voice });
+  utterance.onend = () => onEnd?.({ utterance, voice });
+  utterance.onerror = (event) => {
+    const error = Object.assign(new Error("Speech synthesis failed."), {
+      originalEvent: event,
+    });
+    onError?.(error);
+  };
+
+  try {
+    stopSpeechOutput();
+    synthesis.resume();
+    setTimeout(() => {
+      try {
+        synthesis.speak(utterance);
+      } catch (error) {
+        onError?.(error);
+      }
+    }, 60);
+  } catch (error) {
+    onError?.(error);
+  }
+
   return {
     utterance,
     voice,

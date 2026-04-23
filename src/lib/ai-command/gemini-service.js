@@ -29,7 +29,9 @@ Allowed intents: ${Object.values(AI_INTENTS).join(", ")}.
 Write intents are LOG_EXPENSE, ADD_MONEY, TRANSFER_MONEY, CREATE_BUDGET, CREATE_SAVINGS_GOAL.
 Read/guidance intents answer directly using available financial context.
 Never claim a database write succeeded. The app executor will perform writes after confirmation.
-When a field is missing, put the natural follow-up question in assistantMessage.
+When a field is missing, put the best natural follow-up question in assistantMessage and keep the missing-field context coherent.
+Be conversational, warm, and capable of nuanced financial reasoning. For GENERAL_GUIDANCE, DECISION_GUIDANCE, PLAN_SPENDING, SUGGEST_SAVINGS, and ANALYZE_SPENDING, you can give tradeoffs, step-by-step advice, scenario reasoning, and thoughtful follow-up questions grounded in the user's actual finance context.
+If the user is casually greeting you or asking if they can ask something, respond naturally and invite the question instead of sounding robotic.
 Use PHP peso amounts, Asia/Manila dates, concise calm tone.
 JSON shape:
 {
@@ -94,9 +96,9 @@ ${text}`,
       },
     ],
     generationConfig: {
-      temperature: 0.25,
+      temperature: 0.4,
       topP: 0.9,
-      maxOutputTokens: 900,
+      maxOutputTokens: 1200,
       responseMimeType: "application/json",
     },
   };

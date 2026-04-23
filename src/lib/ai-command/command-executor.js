@@ -626,6 +626,15 @@ async function executeLifeGuidance(command, context) {
   const data = command.parsedData || {};
   const subject = data.decisionSubject || data.label || "this";
   const amount = toNumber(data.amount);
+  const normalizedSubject = normalize(subject);
+
+  if (/^(hi|hello|hey|good morning|good evening|can i ask|may i ask)/.test(normalizedSubject)) {
+    return {
+      success: true,
+      intent: command.intent,
+      message: `Yes, of course. Ask me anything about your spending, wallets, budgets, savings goals, or a money decision you are weighing. I can reason through it using your real CLARA numbers.`,
+    };
+  }
 
   if (command.intent === AI_INTENTS.DECISION_GUIDANCE && amount > 0) {
     const pressure = summary.totalBalance > 0 ? amount / summary.totalBalance : 1;
@@ -643,10 +652,43 @@ async function executeLifeGuidance(command, context) {
     };
   }
 
+  if (/save more|saving more|how do i save|save money/.test(normalizedSubject)) {
+    const topCategory = summary.topCategory?.name && summary.topCategory.name !== "none"
+      ? `${summary.topCategory.name} at ${formatPeso(summary.topCategory.amount)}`
+      : "your variable spending";
+    return {
+      success: true,
+      intent: command.intent,
+      message:
+        summary.totalBalance > 0
+          ? `A strong next move is to protect a small automatic savings amount first, then tighten ${topCategory}. You currently have ${formatPeso(summary.totalBalance)} across wallets, so even setting aside 10% to 15% before flexible spending would make your month calmer.`
+          : `Start by protecting essentials, cutting one repeat expense, and setting a very small non-zero savings target so the habit stays alive. Once more money lands, save first before flexible spending starts.`,
+    };
+  }
+
+  if (/debt|loan|utang|borrow/.test(normalizedSubject)) {
+    return {
+      success: true,
+      intent: command.intent,
+      message: `When you are weighing debt, check three things in order: whether it solves a real urgent need, whether the payment still leaves breathing room after essentials, and whether there is a cheaper alternative. If you want, tell me the loan amount, payment, and purpose and I will reason it through with you.`,
+    };
+  }
+
+  if (/budget|overspend|overspending|too much/.test(normalizedSubject)) {
+    const topCategory = summary.topCategory?.name && summary.topCategory.name !== "none"
+      ? titleCase(summary.topCategory.name)
+      : "your biggest flexible category";
+    return {
+      success: true,
+      intent: command.intent,
+      message: `Your best budget fix is to anchor essentials first, put a hard cap on ${topCategory}, and review spending every few days instead of waiting for month-end. Right now your total wallet balance is ${formatPeso(summary.totalBalance)}, so keep your next adjustment simple and measurable.`,
+    };
+  }
+
   return {
     success: true,
     intent: command.intent,
-    message: `For ${subject}, choose one clear next action, one spending boundary, and one time block today.`,
+    message: `I can help you think this through. For ${subject}, start with the goal, the money limit, and the tradeoff. If you want deeper advice, tell me the amount, timeline, and what you are choosing between, and I will reason it out with your real CLARA finances in mind.`,
   };
 }
 
