@@ -24,13 +24,13 @@ import {
   Plus,
   ArrowRightLeft,
   Lock,
-  Mic,
   MessageCircle,
+  Mic,
   User,
   Settings,
-  X,
 } from "lucide-react";
 import { Sheet, SheetContent } from "@/components/ui/sheet";
+import AiCommandPanel from "@/components/AiCommandPanel";
 import { supabase } from "@/lib/supabaseClient";
 import { FEATURE_ROUTE_MAP } from "@/lib/plan-config";
 
@@ -749,108 +749,8 @@ function QuickActionsSheet({
   );
 }
 
-function AiModeSelector({
-  open,
-  onClose,
-  onVoiceSelect,
-  onChatSelect,
-  themePalette,
-}) {
-  if (!open) return null;
-
-  return (
-    <>
-      <button
-        type="button"
-        className="fixed inset-0 z-[65] bg-black/45 backdrop-blur-[5px]"
-        onClick={onClose}
-        aria-label="Close AI mode chooser"
-      />
-
-      <div className="fixed inset-x-0 bottom-0 z-[70] px-3 pb-3">
-        <div
-          className="mx-auto max-w-md rounded-[30px] border p-4 shadow-[0_28px_90px_rgba(0,0,0,0.72)] backdrop-blur-2xl"
-          style={{
-            borderColor: themePalette.panelBorder,
-            background: `linear-gradient(180deg, ${themePalette.panelStart} 0%, ${themePalette.panelEnd} 100%)`,
-          }}
-        >
-          <div className="flex items-start justify-between gap-4">
-            <div>
-              <div
-                className="inline-flex items-center gap-2 rounded-full border px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.18em]"
-                style={{
-                  borderColor: themePalette.accentBorder,
-                  background: themePalette.accentSoft,
-                  color: themePalette.accent,
-                }}
-              >
-                <Brain className="h-3.5 w-3.5" />
-                AI Mode
-              </div>
-              <h2
-                className="mt-3 text-2xl font-semibold"
-                style={{ color: themePalette.strongText }}
-              >
-                Choose AI mode
-              </h2>
-              <p className="mt-1 text-sm" style={{ color: themePalette.mutedText }}>
-                Long press now opens AI only. Choose how you want to continue.
-              </p>
-            </div>
-
-            <button
-              type="button"
-              onClick={onClose}
-              className="rounded-full border border-white/10 bg-white/5 p-2 text-white/70"
-              aria-label="Close"
-            >
-              <X className="h-4 w-4" />
-            </button>
-          </div>
-
-          <div className="mt-5 grid grid-cols-1 gap-3 sm:grid-cols-2">
-            <button
-              type="button"
-              onClick={onVoiceSelect}
-              className="ai-mode-btn"
-            >
-              <div className="ai-mode-icon">
-                <Mic className="h-5 w-5" />
-              </div>
-              <div className="flex-1 text-left">
-                <p className="text-sm font-semibold text-white">Voice or Talk to AI</p>
-                <p className="mt-1 text-xs text-white/60">
-                  Start with speaking.
-                </p>
-              </div>
-            </button>
-
-            <button
-              type="button"
-              onClick={onChatSelect}
-              className="ai-mode-btn"
-            >
-              <div className="ai-mode-icon">
-                <MessageCircle className="h-5 w-5" />
-              </div>
-              <div className="flex-1 text-left">
-                <p className="text-sm font-semibold text-white">Chat with AI</p>
-                <p className="mt-1 text-xs text-white/60">
-                  Open the chat version.
-                </p>
-              </div>
-            </button>
-          </div>
-        </div>
-      </div>
-    </>
-  );
-}
-
 function BottomNav({
   onQuickAdd,
-  onOpenAssistant,
   isAdmin = false,
   isFree = false,
   isFeatureAvailable = () => true,
@@ -862,7 +762,10 @@ function BottomNav({
 
   const [moreOpen, setMoreOpen] = useState(false);
   const [actionsOpen, setActionsOpen] = useState(false);
-  const [aiModeSelectorOpen, setAiModeSelectorOpen] = useState(false);
+  const [aiCommandOpen, setAiCommandOpen] = useState(false);
+  const [aiCommandMode, setAiCommandMode] = useState("speak");
+  const [chooserOpen, setChooserOpen] = useState(false);
+  const [chooserTarget, setChooserTarget] = useState("speak");
   const [didLongPress, setDidLongPress] = useState(false);
   const [holdActive, setHoldActive] = useState(false);
   const [hideForOnboarding, setHideForOnboarding] = useState(false);
@@ -870,6 +773,8 @@ function BottomNav({
 
   const pressTimerRef = useRef(null);
   const pointerDownRef = useRef(false);
+  const pressOriginRef = useRef({ x: 0, y: 0 });
+  const chooserTargetRef = useRef("speak");
   const currentUserIdRef = useRef(null);
   const rafSyncRef = useRef(null);
 
@@ -1102,7 +1007,8 @@ function BottomNav({
       if (isOpen) {
         setMoreOpen(false);
         setActionsOpen(false);
-        setAiModeSelectorOpen(false);
+        setAiCommandOpen(false);
+        setChooserOpen(false);
       }
     };
 
@@ -1136,14 +1042,15 @@ function BottomNav({
     setActionsOpen(false);
   }, []);
 
-  const closeAiModeSelector = useCallback(() => {
-    setAiModeSelectorOpen(false);
+  const closeClara = useCallback(() => {
+    setAiCommandOpen(false);
+    setChooserOpen(false);
   }, []);
 
   const handleLogout = useCallback(async () => {
     closeMore();
     closeActions();
-    closeAiModeSelector();
+    closeClara();
 
     if (onLogout) {
       await onLogout();
@@ -1152,31 +1059,31 @@ function BottomNav({
 
     await supabase.auth.signOut();
     window.location.href = "/login";
-  }, [closeActions, closeAiModeSelector, closeMore, onLogout]);
+  }, [closeActions, closeClara, closeMore, onLogout]);
 
   const navigateSafely = useCallback(
     (path) => {
       closeMore();
       closeActions();
-      closeAiModeSelector();
+      closeClara();
 
       if (pathname !== path) {
         navigate(path);
       }
     },
-    [closeActions, closeAiModeSelector, closeMore, navigate, pathname]
+    [closeActions, closeClara, closeMore, navigate, pathname]
   );
 
   const goToEnroll = useCallback(() => {
     if (pathname === "/enroll") {
       closeMore();
       closeActions();
-      closeAiModeSelector();
+      closeClara();
       return;
     }
 
     navigateSafely("/enroll");
-  }, [closeActions, closeAiModeSelector, closeMore, navigateSafely, pathname]);
+  }, [closeActions, closeClara, closeMore, navigateSafely, pathname]);
 
   const handleProtectedNavigation = useCallback(
     (path, locked) => {
@@ -1194,20 +1101,38 @@ function BottomNav({
     navigateSafely("/admin");
   }, [navigateSafely]);
 
-  const handleVoiceAiOpen = useCallback(() => {
-    closeAiModeSelector();
-    onOpenAssistant?.("voice");
-  }, [closeAiModeSelector, onOpenAssistant]);
+  const resolvePoint = (event) => {
+    const source = event?.touches?.[0] || event?.changedTouches?.[0] || event;
+    return {
+      x: Number(source?.clientX || 0),
+      y: Number(source?.clientY || 0),
+    };
+  };
 
-  const handleChatAiOpen = useCallback(() => {
-    closeAiModeSelector();
-    onOpenAssistant?.("chat");
-  }, [closeAiModeSelector, onOpenAssistant]);
+  const updateChooserTarget = useCallback((event) => {
+    if (!pointerDownRef.current) return;
+    const point = resolvePoint(event);
+    const dx = point.x - pressOriginRef.current.x;
+    const dy = point.y - pressOriginRef.current.y;
+    const target = dx < -34 ? "chat" : dx > 34 || dy < -38 ? "speak" : "speak";
+    chooserTargetRef.current = target;
+    setChooserTarget(target);
+  }, []);
 
-  const startPress = useCallback(() => {
+  const openAiCommand = useCallback((mode = "speak") => {
+    setAiCommandMode(mode);
+    setAiCommandOpen(true);
+    setActionsOpen(false);
+    setMoreOpen(false);
+  }, []);
+
+  const startPress = useCallback((event) => {
     if (hideForOnboarding) return;
 
     pointerDownRef.current = true;
+    pressOriginRef.current = resolvePoint(event);
+    chooserTargetRef.current = "speak";
+    setChooserTarget("speak");
     setDidLongPress(false);
     clearPressTimer();
     setHoldActive(true);
@@ -1217,18 +1142,26 @@ function BottomNav({
       setDidLongPress(true);
       setMoreOpen(false);
       setActionsOpen(false);
-      setAiModeSelectorOpen(true);
-
+      setChooserOpen(true);
       if (typeof navigator !== "undefined" && typeof navigator.vibrate === "function") {
         navigator.vibrate(12);
       }
     }, LONG_PRESS_MS);
   }, [clearPressTimer, hideForOnboarding]);
 
-  const endPress = useCallback(() => {
+  const endPress = useCallback((event) => {
+    const wasChoosing = chooserOpen || didLongPress;
+    if (wasChoosing) {
+      updateChooserTarget(event);
+    }
     pointerDownRef.current = false;
     clearPressTimer();
-  }, [clearPressTimer]);
+    setChooserOpen(false);
+
+    if (wasChoosing) {
+      openAiCommand(chooserTargetRef.current || "speak");
+    }
+  }, [chooserOpen, clearPressTimer, didLongPress, openAiCommand, updateChooserTarget]);
 
   const handleFabClick = useCallback(() => {
     if (hideForOnboarding) return;
@@ -1239,10 +1172,10 @@ function BottomNav({
     }
 
     closeMore();
-    closeAiModeSelector();
+    closeClara();
     closeActions();
     onQuickAdd?.("expense");
-  }, [closeActions, closeAiModeSelector, closeMore, didLongPress, hideForOnboarding, onQuickAdd]);
+  }, [closeActions, closeClara, closeMore, didLongPress, hideForOnboarding, onQuickAdd]);
 
   const openQuickAction = useCallback(
     (action) => {
@@ -1289,13 +1222,43 @@ function BottomNav({
         themePalette={themePalette}
       />
 
-      <AiModeSelector
-        open={aiModeSelectorOpen}
-        onClose={closeAiModeSelector}
-        onVoiceSelect={handleVoiceAiOpen}
-        onChatSelect={handleChatAiOpen}
+      <AiCommandPanel
+        open={aiCommandOpen}
+        mode={aiCommandMode}
+        user={user}
+        onOpenChange={setAiCommandOpen}
         themePalette={themePalette}
       />
+
+      {chooserOpen ? (
+        <div className="fixed inset-0 z-[64] pointer-events-none bg-black/20 backdrop-blur-[2px]">
+          <div className="absolute bottom-28 left-1/2 flex -translate-x-1/2 items-center gap-4">
+            {[
+              { key: "chat", label: "Chat", icon: MessageCircle },
+              { key: "speak", label: "Speak", icon: Mic },
+            ].map((item) => {
+              const Icon = item.icon;
+              const active = chooserTarget === item.key;
+              return (
+                <div
+                  key={item.key}
+                  className={`flex h-20 w-20 flex-col items-center justify-center rounded-3xl border text-xs font-semibold transition-all duration-150 ${
+                    active ? "scale-110 text-white" : "scale-95 text-white/58"
+                  }`}
+                  style={{
+                    borderColor: active ? themePalette.accentBorder : "rgba(255,255,255,0.10)",
+                    background: active ? themePalette.accentSoft : "rgba(255,255,255,0.06)",
+                    boxShadow: active ? `0 0 34px ${themePalette.accentGlow}` : "none",
+                  }}
+                >
+                  <Icon className="mb-1 h-5 w-5" />
+                  {item.label}
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      ) : null}
 
       <nav
         data-bottom-nav
@@ -1360,9 +1323,11 @@ function BottomNav({
                 onMouseDown={startPress}
                 onMouseUp={endPress}
                 onMouseLeave={endPress}
+                onMouseMove={updateChooserTarget}
                 onTouchStart={startPress}
                 onTouchEnd={endPress}
                 onTouchCancel={endPress}
+                onTouchMove={updateChooserTarget}
                 onClick={handleFabClick}
                 className={`absolute left-1/2 top-0 z-50 flex h-[58px] w-[58px] -translate-x-1/2 -translate-y-[28%] items-center justify-center rounded-full transition-transform duration-200 active:scale-95 ${holdActive ? "fab-holding" : ""}`}
                 style={{
