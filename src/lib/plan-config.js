@@ -1,4 +1,4 @@
-export const CURRENT_PLAN_KEYS = ["pro_99", "core_599", "coaching_1299"];
+export const CURRENT_PLAN_KEYS = ["free", "pro_99", "core_599", "coaching_1299"];
 export const ACCESS_LEVEL_KEYS = ["pro", "core", "life_os"];
 
 export const LEGACY_PLAN_ALIASES = {
@@ -124,12 +124,6 @@ export const FEATURE_DEFINITIONS = [
     modes: ["off", "admin_only", "full"],
   },
   {
-    key: "coaching",
-    label: "Coaching",
-    description: "Session booking and coaching request management.",
-    modes: ["off", "teaser", "full"],
-  },
-  {
     key: "news",
     label: "News",
     description: "News and CLARA updates.",
@@ -162,7 +156,6 @@ export const FEATURE_ROUTE_MAP = {
   "/modules": "modules",
   "/community": "community",
   "/messages": "messages",
-  "/coaching": "coaching",
   "/news": "news",
   "/referrals": "referrals",
 };
@@ -211,7 +204,6 @@ export const PLAN_DEFAULTS = {
       modules: "off",
       community: "off",
       messages: "off",
-      coaching: "off",
       news: "full",
       referrals: "off",
     },
@@ -247,7 +239,6 @@ export const PLAN_DEFAULTS = {
       modules: "off",
       community: "full",
       messages: "full",
-      coaching: "teaser",
       news: "full",
       referrals: "full",
     },
@@ -283,7 +274,6 @@ export const PLAN_DEFAULTS = {
       modules: "full",
       community: "full",
       messages: "full",
-      coaching: "teaser",
       news: "full",
       referrals: "full",
     },
@@ -319,7 +309,6 @@ export const PLAN_DEFAULTS = {
       modules: "full",
       community: "full",
       messages: "full",
-      coaching: "full",
       news: "full",
       referrals: "full",
     },

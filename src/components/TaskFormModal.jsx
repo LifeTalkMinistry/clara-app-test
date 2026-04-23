@@ -521,7 +521,7 @@ export default function TaskFormModal({
                 <FieldLabel className="text-white">Interview Candidate Task</FieldLabel>
                 <p className="text-[10px] text-white/50">
                   This task may be selected for random accountability interviews during
-                  weekly sessions or coaching. Supports CLARA&apos;s Integrity Mode.
+                  weekly support sessions. Supports CLARA&apos;s Integrity Mode.
                 </p>
               </div>
             </div>

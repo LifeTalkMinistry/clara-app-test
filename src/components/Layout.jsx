@@ -11,7 +11,6 @@ import {
   BookOpen,
   Users,
   MessageSquare,
-  GraduationCap,
   Settings,
   LogOut,
   PiggyBank,
@@ -44,7 +43,6 @@ const allNavItems = [
   { path: "/tasks", label: "Tasks", icon: ListChecks, pro: true },
   { path: "/modules", label: "Modules", icon: BookOpen, pro: true },
   { path: "/messages", label: "Messages", icon: MessageSquare, pro: true },
-  { path: "/coaching", label: "Coaching", icon: GraduationCap, pro: true },
   { path: "/news", label: "News", icon: Bell },
   { path: "/referrals", label: "Referrals", icon: Share2, ambassadorOnly: true },
 ];

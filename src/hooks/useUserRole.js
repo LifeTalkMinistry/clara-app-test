@@ -143,7 +143,6 @@ export default function useUserRole() {
       modules: "preview",
       community: "view",
       messages: "admin_only",
-      coaching: "teaser",
       ai: plan === "coaching_1299" ? "life_os" : plan === "core_599" ? "advanced" : "off",
     };
   }, [isPreActivation, plan, planConfig]);
@@ -203,9 +202,6 @@ export default function useUserRole() {
       messaging: isFeatureAvailable("messages"),
       messagingFull: hasFeatureAccess("messages", ["full"]),
       messagingAdminOnly: hasFeatureAccess("messages", ["admin_only", "full"]),
-      coaching: isFeatureAvailable("coaching"),
-      coachingFull: hasFeatureAccess("coaching", ["full"]),
-      coachingTeaser: hasFeatureAccess("coaching", ["teaser", "full"]),
       emergencyFund: isFeatureAvailable("savings_goals"),
       savingsGoals: isFeatureAvailable("savings_goals"),
       news: isFeatureAvailable("news"),

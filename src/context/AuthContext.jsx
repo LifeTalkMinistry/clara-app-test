@@ -34,6 +34,9 @@ const normalizeProfileAccess = (rawProfile = {}, authUser = null) => {
     profilePlan === "core_599" ||
     profilePlan === "coaching_1299" ||
     profilePlan === "pro" ||
+    profilePlan === "core" ||
+    profilePlan === "lifeos" ||
+    profilePlan === "life_os" ||
     profilePlan === "premium" ||
     profilePlan === "paid";
 

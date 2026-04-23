@@ -8,22 +8,19 @@ export default function AdminOverview() {
   const [profiles, setProfiles] = useState([]);
   const [enrollments, setEnrollments] = useState([]);
   const [activationCodes, setActivationCodes] = useState([]);
-  const [coaching, setCoaching] = useState([]);
   const [loading, setLoading] = useState(true);
 
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const [profilesRes, enrollmentsRes, codesRes, coachingRes] = await Promise.all([
+      const [profilesRes, enrollmentsRes, codesRes] = await Promise.all([
         supabase.from("profiles").select("id,email,plan,role,created_at,activation_status").order("created_at", { ascending: false }),
         supabase.from("enrollments").select("*").order("created_at", { ascending: false }).limit(20),
         supabase.from("activation_codes").select("*").order("created_at", { ascending: false }).limit(20),
-        supabase.from("coaching_purchases").select("*").order("created_at", { ascending: false }).limit(20),
       ]);
       if (!profilesRes.error) setProfiles(profilesRes.data || []);
       if (!enrollmentsRes.error) setEnrollments(enrollmentsRes.data || []);
       if (!codesRes.error) setActivationCodes(codesRes.data || []);
-      if (!coachingRes.error) setCoaching(coachingRes.data || []);
     } catch (error) {
       console.error("Admin overview load failed:", error);
     } finally {
@@ -70,7 +67,7 @@ export default function AdminOverview() {
         ))}
       </div>
 
-      <div className="grid gap-4 md:grid-cols-3">
+      <div className="grid gap-4 md:grid-cols-2">
         <section className="rounded-2xl border bg-card p-4">
           <Activity className="h-5 w-5 text-primary" />
           <h3 className="mt-3 font-bold">Recent Activity</h3>
@@ -89,12 +86,6 @@ export default function AdminOverview() {
           <h3 className="mt-3 font-bold">New Kit Requests</h3>
           <p className="mt-2 text-2xl font-bold">{kitRequests.length}</p>
           <p className="text-xs text-muted-foreground">Activation codes not yet used.</p>
-        </section>
-
-        <section className="rounded-2xl border bg-card p-4">
-          <h3 className="font-bold">Coaching Purchases</h3>
-          <p className="mt-2 text-2xl font-bold">{coaching.length}</p>
-          <p className="text-xs text-muted-foreground">Loaded from coaching purchase records.</p>
         </section>
       </div>
     </div>

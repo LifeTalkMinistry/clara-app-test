@@ -4,6 +4,9 @@ alter table if exists public.profiles
   add column if not exists tier_type text,
   add column if not exists access_level text default 'pro',
   add column if not exists purchase_source text,
+  add column if not exists access_source text,
+  add column if not exists admin_plan_override boolean not null default false,
+  add column if not exists subscription_status text default 'free',
   add column if not exists play_product_id text,
   add column if not exists play_purchase_token text,
   add column if not exists program_started_at timestamptz,
@@ -279,10 +282,13 @@ begin
   if v_plan = 'pro_99' then
     update public.profiles
     set
-      plan = 'pro_99',
+      plan = 'pro',
       access_level = 'pro',
       tier_type = v_tier,
       purchase_source = 'google_play',
+      access_source = 'google_play',
+      admin_plan_override = false,
+      subscription_status = 'active',
       play_product_id = p_product_id,
       play_purchase_token = p_purchase_token,
       pro_subscription_status = 'active',
@@ -297,10 +303,13 @@ begin
   elsif v_plan in ('core_599', 'coaching_1299') then
     update public.profiles
     set
-      plan = v_plan,
+      plan = case when v_plan = 'coaching_1299' then 'lifeos' else 'core' end,
       access_level = case when v_plan = 'coaching_1299' then 'life_os' else 'core' end,
       tier_type = v_tier,
       purchase_source = 'google_play',
+      access_source = 'google_play',
+      admin_plan_override = false,
+      subscription_status = 'active',
       play_product_id = p_product_id,
       play_purchase_token = p_purchase_token,
       entitlement_status = 'program_available',

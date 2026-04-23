@@ -9,7 +9,6 @@ import AdminUsers from "./AdminUsers";
 import AdminEnrollments from "./AdminEnrollments";
 import AdminTasks from "./AdminTasks";
 import AdminModules from "./AdminModules";
-import AdminCoaching from "./AdminCoaching";
 import AdminSettings from "./AdminSettings";
 import AdminPlans from "./AdminPlans";
 import AdminBillboard from "./AdminBillboard";
@@ -68,9 +67,6 @@ export default function AdminPanel() {
             <TabsTrigger value="modules" className="text-xs px-3">
               Modules
             </TabsTrigger>
-            <TabsTrigger value="coaching" className="text-xs px-3">
-              Coaching
-            </TabsTrigger>
             <TabsTrigger value="referrals" className="text-xs px-3">
               Referrals
             </TabsTrigger>
@@ -113,10 +109,6 @@ export default function AdminPanel() {
 
         <TabsContent value="modules">
           <AdminModules />
-        </TabsContent>
-
-        <TabsContent value="coaching">
-          <AdminCoaching />
         </TabsContent>
 
         <TabsContent value="referrals">

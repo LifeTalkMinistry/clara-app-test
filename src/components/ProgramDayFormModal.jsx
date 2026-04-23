@@ -14,6 +14,10 @@ import {
 } from "@/components/ui/select";
 
 const TIER_OPTIONS = ["core_599", "coaching_1299"];
+const TIER_LABELS = {
+  core_599: "CORE",
+  coaching_1299: "Life OS",
+};
 
 export const PROGRAM_DAY_BLANK = {
   title: "",
@@ -303,7 +307,7 @@ export default function ProgramDayFormModal({
                         : "border-white/10 bg-white/5 text-white/65"
                     }`}
                   >
-                    {tier}
+                    {TIER_LABELS[tier] || tier}
                   </button>
                 );
               })}

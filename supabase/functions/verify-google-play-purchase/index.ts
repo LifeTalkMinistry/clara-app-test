@@ -13,11 +13,18 @@ const PRODUCT_TYPES: Record<string, "subs" | "products"> = {
   coaching_1299: "subs",
 };
 
+const CORS_HEADERS = {
+  "access-control-allow-origin": "*",
+  "access-control-allow-methods": "POST, OPTIONS",
+  "access-control-allow-headers": "authorization, x-client-info, apikey, content-type",
+};
+
 function jsonResponse(body: unknown, status = 200) {
   return new Response(JSON.stringify(body), {
     status,
     headers: {
       "content-type": "application/json",
+      ...CORS_HEADERS,
     },
   });
 }
@@ -154,6 +161,10 @@ async function acknowledgeWithGoogle({
 }
 
 serve(async (request) => {
+  if (request.method === "OPTIONS") {
+    return new Response("ok", { headers: CORS_HEADERS });
+  }
+
   if (request.method !== "POST") {
     return jsonResponse({ ok: false, error: "Method not allowed" }, 405);
   }
@@ -183,9 +194,26 @@ serve(async (request) => {
     const purchaseToken = String(body.purchase_token || "").trim();
     const orderId = String(body.order_id || "").trim() || null;
     const planKey = String(body.plan_key || "").trim();
+    const packageName = String(body.package_name || "").trim() || PACKAGE_NAME;
+
+    console.log("verify-google-play-purchase request", {
+      user_id: user.id,
+      product_id: productId,
+      plan_key: planKey,
+      package_name: packageName,
+      order_id: orderId,
+      purchase_token_present: Boolean(purchaseToken),
+      purchase_token_preview: purchaseToken
+        ? `${purchaseToken.slice(0, 8)}...${purchaseToken.slice(-6)}`
+        : "",
+    });
 
     if (!productId || !purchaseToken || !PRODUCT_TYPES[productId]) {
       return jsonResponse({ ok: false, error: "Invalid purchase payload" }, 400);
+    }
+
+    if (packageName !== PACKAGE_NAME) {
+      return jsonResponse({ ok: false, error: `Invalid package name ${packageName}` }, 400);
     }
 
     const accessToken = await getAccessToken();
