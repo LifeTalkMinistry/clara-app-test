@@ -3770,10 +3770,20 @@ export default function Dashboard() {
                 <div className="flex w-full shrink-0 snap-center">
                   <div className={getFinanceSlideShellClass("emergency", selectedDashboardTheme)}>
                     <EmergencyFundCard
-                    moneyLeft={walletMoney}
-                    survivalExpense={survivalExpense}
-                    retentionRate={0}
-                    onSurvivalSaved={async (val) => {
+                      moneyLeft={walletMoney}
+                      survivalExpense={survivalExpense}
+                      retentionRate={0}
+                      canAutoPrompt={Boolean(user?.id) && guardChecked && !loading}
+                      hasSurvivalSetup={
+                        Boolean(profileData?.survival_setup_done) ||
+                        firstValidNumber(
+                          profileData?.monthly_survival_expense,
+                          profileData?.survival_expense,
+                          profileData?.clara_survival_expense,
+                          survivalExpense
+                        ) > 0
+                      }
+                      onSurvivalSaved={async (val) => {
                       const nextValue = Number(val) || 0;
                       if (user?.id && nextValue > 0) {
                         const { error } = await supabase

@@ -150,6 +150,8 @@ export default function EmergencyFundCard({
   survivalExpense = 0,
   retentionRate,
   onSurvivalSaved,
+  canAutoPrompt = false,
+  hasSurvivalSetup = false,
 }) {
   const [expanded, setExpanded] = useState(false);
   const [editing, setEditing] = useState(false);
@@ -166,6 +168,7 @@ export default function EmergencyFundCard({
   const [draftOpacity, setDraftOpacity] = useState(getStoredWallpaperOpacity());
 
   const hasPrompted = useRef(false);
+  const autoPromptTimeoutRef = useRef(null);
 
   const propExpense = Number(survivalExpense) || 0;
   const effectiveExpense = propExpense;
@@ -176,16 +179,45 @@ export default function EmergencyFundCard({
   }, [targetMonths]);
 
   useEffect(() => {
+    return () => {
+      if (autoPromptTimeoutRef.current) {
+        window.clearTimeout(autoPromptTimeoutRef.current);
+        autoPromptTimeoutRef.current = null;
+      }
+    };
+  }, []);
+
+  useEffect(() => {
+    if (autoPromptTimeoutRef.current) {
+      window.clearTimeout(autoPromptTimeoutRef.current);
+      autoPromptTimeoutRef.current = null;
+    }
+
+    if (!canAutoPrompt) return;
     if (hasPrompted.current) return;
 
     const hasValue = effectiveExpense > 0;
+    const alreadySetup = hasSurvivalSetup || hasValue;
 
-    if (!hasValue) {
-      setShowModal(true);
+    if (alreadySetup) {
+      hasPrompted.current = true;
+      return;
     }
 
-    hasPrompted.current = true;
-  }, [effectiveExpense]);
+    autoPromptTimeoutRef.current = window.setTimeout(() => {
+      if (hasPrompted.current) return;
+      setShowModal(true);
+      hasPrompted.current = true;
+      autoPromptTimeoutRef.current = null;
+    }, 350);
+
+    return () => {
+      if (autoPromptTimeoutRef.current) {
+        window.clearTimeout(autoPromptTimeoutRef.current);
+        autoPromptTimeoutRef.current = null;
+      }
+    };
+  }, [canAutoPrompt, hasSurvivalSetup, effectiveExpense]);
 
   const target = useMemo(
     () => effectiveExpense * targetMonths,

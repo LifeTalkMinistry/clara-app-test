@@ -24,7 +24,8 @@ import {
   Plus,
   ArrowRightLeft,
   Lock,
-  Sparkles,
+  Mic,
+  MessageCircle,
   User,
   Settings,
   X,
@@ -748,51 +749,22 @@ function QuickActionsSheet({
   );
 }
 
-function ClaraAiPanel({
+function AiModeSelector({
   open,
-  accessLevel = "pro",
-  onOpenChange,
-  onUpgrade,
-  onQuickAdd,
+  onClose,
+  onVoiceSelect,
+  onChatSelect,
   themePalette,
 }) {
-  const [lifeQuestion, setLifeQuestion] = useState("");
-  const [lifeResponse, setLifeResponse] = useState({
-    alignment: "Pause for one clear breath before committing.",
-    reason: "CLARA is checking whether this action supports your money, time, and current priorities.",
-    suggestion: "If it still matters after the pause, choose the smallest version that keeps your plan intact.",
-  });
-  const [coreInsight, setCoreInsight] = useState(
-    "Review today's essentials first, then choose one flexible spend that still leaves room for tomorrow."
-  );
-
   if (!open) return null;
-
-  const isLife = accessLevel === "life_os";
-  const isCore = accessLevel === "core";
-
-  const close = () => onOpenChange(false);
-  const runLifePrompt = (prompt) => {
-    const text = String(prompt || lifeQuestion || "").trim();
-    setLifeQuestion(text);
-    setLifeResponse({
-      alignment: text.toLowerCase().includes("spend")
-        ? "This is a spending decision, so CLARA is checking impact before emotion takes over."
-        : "This decision should support the life system you are building, not just the moment in front of you.",
-      reason:
-        "A strong choice protects your essentials, your schedule, and your longer-term direction at the same time.",
-      suggestion:
-        "Make the decision smaller, time-box it, or delay it until your next planned review if the answer is not clear.",
-    });
-  };
 
   return (
     <>
       <button
         type="button"
-        className="fixed inset-0 z-[65] bg-black/55 backdrop-blur-[5px]"
-        onClick={close}
-        aria-label="Close CLARA AI"
+        className="fixed inset-0 z-[65] bg-black/45 backdrop-blur-[5px]"
+        onClick={onClose}
+        aria-label="Close AI mode chooser"
       />
 
       <div className="fixed inset-x-0 bottom-0 z-[70] px-3 pb-3">
@@ -813,26 +785,23 @@ function ClaraAiPanel({
                   color: themePalette.accent,
                 }}
               >
-                <Sparkles className="h-3.5 w-3.5" />
-                CLARA Mode
+                <Brain className="h-3.5 w-3.5" />
+                AI Mode
               </div>
               <h2
                 className="mt-3 text-2xl font-semibold"
                 style={{ color: themePalette.strongText }}
               >
-                {isLife ? "CLARA" : isCore ? "CLARA Companion" : "Unlock CLARA AI"}
+                Choose AI mode
               </h2>
               <p className="mt-1 text-sm" style={{ color: themePalette.mutedText }}>
-                {isLife
-                  ? "Ask before you act."
-                  : isCore
-                    ? "Smart help for today's spending."
-                    : "Get smarter guidance with CORE or full decision intelligence with LIFE OS."}
+                Long press now opens AI only. Choose how you want to continue.
               </p>
             </div>
+
             <button
               type="button"
-              onClick={close}
+              onClick={onClose}
               className="rounded-full border border-white/10 bg-white/5 p-2 text-white/70"
               aria-label="Close"
             >
@@ -840,106 +809,39 @@ function ClaraAiPanel({
             </button>
           </div>
 
-          {!isCore && !isLife ? (
-            <div className="mt-5 space-y-3">
-              <button
-                type="button"
-                onClick={() => {
-                  close();
-                  onUpgrade?.();
-                }}
-                className="w-full rounded-2xl px-4 py-3 text-sm font-semibold text-white"
-                style={{
-                  background: `linear-gradient(135deg, ${themePalette.accent} 0%, ${themePalette.accentEnd} 100%)`,
-                }}
-              >
-                Upgrade to CORE
-              </button>
-              <button
-                type="button"
-                onClick={close}
-                className="w-full rounded-2xl border border-white/10 bg-white/[0.04] px-4 py-3 text-sm font-semibold text-white/75"
-              >
-                Maybe later
-              </button>
-            </div>
-          ) : null}
-
-          {isCore ? (
-            <div className="mt-5 space-y-4">
-              <div className="rounded-3xl border border-white/10 bg-black/20 p-4">
-                <p className="text-xs uppercase tracking-[0.16em] text-white/45">
-                  Today's guidance
+          <div className="mt-5 grid grid-cols-1 gap-3 sm:grid-cols-2">
+            <button
+              type="button"
+              onClick={onVoiceSelect}
+              className="ai-mode-btn"
+            >
+              <div className="ai-mode-icon">
+                <Mic className="h-5 w-5" />
+              </div>
+              <div className="flex-1 text-left">
+                <p className="text-sm font-semibold text-white">Voice or Talk to AI</p>
+                <p className="mt-1 text-xs text-white/60">
+                  Start with speaking.
                 </p>
-                <p className="mt-2 text-sm leading-7 text-white/78">{coreInsight}</p>
               </div>
-              <div className="grid grid-cols-3 gap-2">
-                {[
-                  ["Log expense", () => { close(); onQuickAdd?.("expense"); }],
-                  ["Review today", () => setCoreInsight("Your best move today is to compare planned spending against wallet balance before adding anything unplanned.")],
-                  ["Quick suggestion", () => setCoreInsight("Keep one small flexible allowance, then protect the rest for essentials and tomorrow's needs.")],
-                ].map(([label, action]) => (
-                  <button
-                    key={label}
-                    type="button"
-                    onClick={action}
-                    className="rounded-2xl border border-white/10 bg-white/[0.05] px-3 py-3 text-xs font-semibold text-white/78"
-                  >
-                    {label}
-                  </button>
-                ))}
-              </div>
-            </div>
-          ) : null}
+            </button>
 
-          {isLife ? (
-            <div className="mt-5 space-y-4">
-              <div className="rounded-3xl border border-white/10 bg-black/20 p-3">
-                <input
-                  value={lifeQuestion}
-                  onChange={(event) => setLifeQuestion(event.target.value)}
-                  onKeyDown={(event) => {
-                    if (event.key === "Enter") runLifePrompt();
-                  }}
-                  className="h-11 w-full rounded-2xl border border-white/10 bg-white/[0.04] px-4 text-sm text-white outline-none placeholder:text-white/35"
-                  placeholder="Ask before you act..."
-                />
+            <button
+              type="button"
+              onClick={onChatSelect}
+              className="ai-mode-btn"
+            >
+              <div className="ai-mode-icon">
+                <MessageCircle className="h-5 w-5" />
               </div>
-              <div className="flex flex-wrap gap-2">
-                {["Ask before spending", "Log expense", "Review today"].map((prompt) => (
-                  <button
-                    key={prompt}
-                    type="button"
-                    onClick={() => {
-                      if (prompt === "Log expense") {
-                        close();
-                        onQuickAdd?.("expense");
-                        return;
-                      }
-                      runLifePrompt(prompt);
-                    }}
-                    className="rounded-full border border-white/10 bg-white/[0.05] px-3 py-2 text-xs font-semibold text-white/72"
-                  >
-                    {prompt}
-                  </button>
-                ))}
+              <div className="flex-1 text-left">
+                <p className="text-sm font-semibold text-white">Chat with AI</p>
+                <p className="mt-1 text-xs text-white/60">
+                  Open the chat version.
+                </p>
               </div>
-              <div className="grid gap-3">
-                {[
-                  ["Alignment", lifeResponse.alignment],
-                  ["Reason", lifeResponse.reason],
-                  ["Suggestion", lifeResponse.suggestion],
-                ].map(([label, body]) => (
-                  <div key={label} className="rounded-2xl border border-white/10 bg-white/[0.04] p-3">
-                    <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-white/40">
-                      {label}
-                    </p>
-                    <p className="mt-1 text-sm leading-6 text-white/78">{body}</p>
-                  </div>
-                ))}
-              </div>
-            </div>
-          ) : null}
+            </button>
+          </div>
         </div>
       </div>
     </>
@@ -948,6 +850,7 @@ function ClaraAiPanel({
 
 function BottomNav({
   onQuickAdd,
+  onOpenAssistant,
   isAdmin = false,
   isFree = false,
   isFeatureAvailable = () => true,
@@ -959,7 +862,7 @@ function BottomNav({
 
   const [moreOpen, setMoreOpen] = useState(false);
   const [actionsOpen, setActionsOpen] = useState(false);
-  const [claraOpen, setClaraOpen] = useState(false);
+  const [aiModeSelectorOpen, setAiModeSelectorOpen] = useState(false);
   const [didLongPress, setDidLongPress] = useState(false);
   const [holdActive, setHoldActive] = useState(false);
   const [hideForOnboarding, setHideForOnboarding] = useState(false);
@@ -996,27 +899,6 @@ function BottomNav({
   );
 
   const savingsGoalLocked = !isFeatureAvailable("savings_goals");
-  const accessLevel = useMemo(() => {
-    const value = String(
-      user?.access_level ||
-        user?.subscription?.access_level ||
-        user?.subscription_status ||
-        "pro"
-    )
-      .trim()
-      .toLowerCase()
-      .replace(/[\s-]+/g, "_");
-
-    if (["life_os", "lifeos", "life_os_499", "lifeos_499", "coaching_1299"].includes(value)) {
-      return "life_os";
-    }
-
-    if (["core", "core_199", "core_599"].includes(value)) {
-      return "core";
-    }
-
-    return "pro";
-  }, [user?.access_level, user?.subscription?.access_level, user?.subscription_status]);
 
   const clearPressTimer = useCallback(() => {
     if (pressTimerRef.current) {
@@ -1144,10 +1026,10 @@ function BottomNav({
         typeof event?.detail?.themeKey === "string"
           ? event.detail.themeKey
           : typeof event?.detail?.key === "string"
-            ? event.detail.key
-            : typeof event?.detail?.theme === "string"
-              ? event.detail.theme
-              : null;
+          ? event.detail.key
+          : typeof event?.detail?.theme === "string"
+          ? event.detail.theme
+          : null;
 
       const detailUserId =
         event?.detail?.userId ||
@@ -1204,10 +1086,7 @@ function BottomNav({
       window.removeEventListener("clara-theme-change", handleThemeSync);
       window.removeEventListener("clara-theme-preview", handleThemeSync);
       window.removeEventListener("clara-theme-selected", handleThemeSync);
-      window.removeEventListener(
-        "clara-dashboard-theme-updated",
-        handleThemeSync
-      );
+      window.removeEventListener("clara-dashboard-theme-updated", handleThemeSync);
       window.removeEventListener("clara-dashboard-updated", handleThemeSync);
       document.removeEventListener("visibilitychange", handleVisibilitySync);
     };
@@ -1223,7 +1102,7 @@ function BottomNav({
       if (isOpen) {
         setMoreOpen(false);
         setActionsOpen(false);
-        setClaraOpen(false);
+        setAiModeSelectorOpen(false);
       }
     };
 
@@ -1257,14 +1136,14 @@ function BottomNav({
     setActionsOpen(false);
   }, []);
 
-  const closeClara = useCallback(() => {
-    setClaraOpen(false);
+  const closeAiModeSelector = useCallback(() => {
+    setAiModeSelectorOpen(false);
   }, []);
 
   const handleLogout = useCallback(async () => {
     closeMore();
     closeActions();
-    closeClara();
+    closeAiModeSelector();
 
     if (onLogout) {
       await onLogout();
@@ -1273,31 +1152,31 @@ function BottomNav({
 
     await supabase.auth.signOut();
     window.location.href = "/login";
-  }, [closeActions, closeClara, closeMore, onLogout]);
+  }, [closeActions, closeAiModeSelector, closeMore, onLogout]);
 
   const navigateSafely = useCallback(
     (path) => {
       closeMore();
       closeActions();
-      closeClara();
+      closeAiModeSelector();
 
       if (pathname !== path) {
         navigate(path);
       }
     },
-    [closeActions, closeClara, closeMore, navigate, pathname]
+    [closeActions, closeAiModeSelector, closeMore, navigate, pathname]
   );
 
   const goToEnroll = useCallback(() => {
     if (pathname === "/enroll") {
       closeMore();
       closeActions();
-      closeClara();
+      closeAiModeSelector();
       return;
     }
 
     navigateSafely("/enroll");
-  }, [closeActions, closeClara, closeMore, navigateSafely, pathname]);
+  }, [closeActions, closeAiModeSelector, closeMore, navigateSafely, pathname]);
 
   const handleProtectedNavigation = useCallback(
     (path, locked) => {
@@ -1315,10 +1194,21 @@ function BottomNav({
     navigateSafely("/admin");
   }, [navigateSafely]);
 
+  const handleVoiceAiOpen = useCallback(() => {
+    closeAiModeSelector();
+    onOpenAssistant?.("voice");
+  }, [closeAiModeSelector, onOpenAssistant]);
+
+  const handleChatAiOpen = useCallback(() => {
+    closeAiModeSelector();
+    onOpenAssistant?.("chat");
+  }, [closeAiModeSelector, onOpenAssistant]);
+
   const startPress = useCallback(() => {
     if (hideForOnboarding) return;
 
     pointerDownRef.current = true;
+    setDidLongPress(false);
     clearPressTimer();
     setHoldActive(true);
 
@@ -1327,7 +1217,8 @@ function BottomNav({
       setDidLongPress(true);
       setMoreOpen(false);
       setActionsOpen(false);
-      setClaraOpen(true);
+      setAiModeSelectorOpen(true);
+
       if (typeof navigator !== "undefined" && typeof navigator.vibrate === "function") {
         navigator.vibrate(12);
       }
@@ -1347,10 +1238,11 @@ function BottomNav({
       return;
     }
 
+    closeMore();
+    closeAiModeSelector();
     closeActions();
-    closeClara();
     onQuickAdd?.("expense");
-  }, [closeActions, closeClara, didLongPress, hideForOnboarding, onQuickAdd]);
+  }, [closeActions, closeAiModeSelector, closeMore, didLongPress, hideForOnboarding, onQuickAdd]);
 
   const openQuickAction = useCallback(
     (action) => {
@@ -1370,6 +1262,8 @@ function BottomNav({
 
   const handleGoalQuickAction = useCallback(
     (_, locked) => {
+      closeActions();
+
       if (locked) {
         goToEnroll();
         return;
@@ -1377,7 +1271,7 @@ function BottomNav({
 
       navigateSafely("/savings-goals");
     },
-    [goToEnroll, navigateSafely]
+    [closeActions, goToEnroll, navigateSafely]
   );
 
   if (hideForOnboarding) {
@@ -1395,12 +1289,11 @@ function BottomNav({
         themePalette={themePalette}
       />
 
-      <ClaraAiPanel
-        open={claraOpen}
-        accessLevel={accessLevel}
-        onOpenChange={setClaraOpen}
-        onUpgrade={() => navigateSafely("/enroll?plan=core_599&view=detail")}
-        onQuickAdd={onQuickAdd}
+      <AiModeSelector
+        open={aiModeSelectorOpen}
+        onClose={closeAiModeSelector}
+        onVoiceSelect={handleVoiceAiOpen}
+        onChatSelect={handleChatAiOpen}
         themePalette={themePalette}
       />
 
@@ -1478,7 +1371,7 @@ function BottomNav({
                     ? `0 16px 34px ${themePalette.accentGlow}, 0 0 0 7px ${themePalette.fabRing}, 0 0 28px ${themePalette.accentGlow}, inset 0 1px 0 rgba(255,255,255,0.22)`
                     : `0 10px 22px ${themePalette.accentGlow}, 0 0 0 5px ${themePalette.fabRing}, inset 0 1px 0 rgba(255,255,255,0.18)`,
                 }}
-                aria-label="Quick add expense. Long press for CLARA AI."
+                aria-label="Quick add expense. Long press for Voice or Chat with AI."
               >
                 <span className="fab-inner-ring" />
                 <Plus
@@ -1736,6 +1629,41 @@ function BottomNav({
 
         .logout-btn:active {
           transform: scale(0.99);
+        }
+
+        .ai-mode-btn {
+          width: 100%;
+          display: flex;
+          align-items: center;
+          gap: 12px;
+          padding: 16px;
+          border-radius: 20px;
+          background: rgba(255,255,255,0.05);
+          color: ${themePalette.strongText};
+          border: 1px solid rgba(255,255,255,0.08);
+          transition:
+            transform 0.18s ease,
+            background-color 0.18s ease,
+            border-color 0.18s ease,
+            box-shadow 0.18s ease;
+          -webkit-tap-highlight-color: transparent;
+        }
+
+        .ai-mode-btn:active {
+          transform: scale(0.99);
+        }
+
+        .ai-mode-icon {
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          width: 44px;
+          height: 44px;
+          border-radius: 16px;
+          flex-shrink: 0;
+          color: ${themePalette.accent};
+          background: ${themePalette.accentSoft};
+          border: 1px solid ${themePalette.accentBorder};
         }
       `}</style>
     </>
