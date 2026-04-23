@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { Keyboard, Loader2, Mic, RefreshCw, Send, Sparkles, X } from "lucide-react";
 import useAiCommandSession from "@/hooks/useAiCommandSession";
 import useVoiceCapture from "@/hooks/useVoiceCapture";
+import { getGeminiStatus } from "@/lib/ai-command/ai-engine";
 
 export default function AiCommandPanel({
   open,
@@ -14,6 +15,7 @@ export default function AiCommandPanel({
   const inputRef = useRef(null);
   const sessionApi = useAiCommandSession({ user, mode });
   const { session, processing, reset, submitText, confirm, cancel } = sessionApi;
+  const geminiStatus = getGeminiStatus();
   const voice = useVoiceCapture({
     onTranscript: (nextTranscript) => {
       if (nextTranscript && nextTranscript.trim().length >= 2) {
@@ -60,7 +62,7 @@ export default function AiCommandPanel({
     if (voice.voiceState === "error" || voice.voiceState === "fallback_text") {
       return voice.transcriptError || "Microphone unavailable. You can type instead.";
     }
-    return mode === "speak" ? "Speak naturally. I’ll ask only for what’s missing." : "Text fallback is ready.";
+    return mode === "speak" ? "Speak naturally. I will ask only for what is missing." : "Text fallback is ready.";
   })();
 
   return (
@@ -100,6 +102,9 @@ export default function AiCommandPanel({
               <p className="mt-1 text-sm" style={{ color: themePalette.mutedText }}>
                 Voice first. Text stays ready when you need it.
               </p>
+              <p className="mt-2 text-[11px]" style={{ color: themePalette.mutedText }}>
+                {geminiStatus.configured ? `Gemini: ${geminiStatus.model}` : "Gemini key not configured. Using safe local understanding."}
+              </p>
             </div>
             <button
               type="button"
@@ -128,7 +133,7 @@ export default function AiCommandPanel({
               <div className="min-w-0 flex-1">
                 <p className="text-sm font-semibold">{voiceStatus}</p>
                 {voice.transcript ? (
-                  <p className="mt-1 truncate text-xs text-white/55">“{voice.transcript}”</p>
+                  <p className="mt-1 truncate text-xs text-white/55">"{voice.transcript}"</p>
                 ) : null}
               </div>
               <button
@@ -212,4 +217,3 @@ export default function AiCommandPanel({
     </>
   );
 }
-

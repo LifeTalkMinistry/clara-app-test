@@ -1,6 +1,5 @@
 import { useCallback, useMemo, useState } from "react";
-import { executeAICommand } from "@/lib/ai-command/command-executor";
-import { buildCommand, isCancelText, isYesText, parseCommand } from "@/lib/ai-command/command-parser";
+import { processAssistantTurn } from "@/lib/ai-command/ai-engine";
 
 const initialSession = (mode = "speak") => ({
   activeMode: mode,
@@ -14,8 +13,8 @@ const initialSession = (mode = "speak") => ({
       role: "assistant",
       content:
         mode === "speak"
-          ? "I’m listening. Tell me what to log, add, budget, or save for."
-          : "Type what you want CLARA to do.",
+          ? "I am listening. Tell me what you want to log, move, check, plan, or decide."
+          : "Type what you want CLARA to help with.",
     },
   ],
   awaitingConfirmation: false,
@@ -29,9 +28,12 @@ export default function useAiCommandSession({ user, mode = "speak" } = {}) {
   const [session, setSession] = useState(() => initialSession(mode));
   const [processing, setProcessing] = useState(false);
 
-  const reset = useCallback((nextMode = mode) => {
-    setSession(initialSession(nextMode));
-  }, [mode]);
+  const reset = useCallback(
+    (nextMode = mode) => {
+      setSession(initialSession(nextMode));
+    },
+    [mode]
+  );
 
   const append = useCallback((messages) => {
     const items = Array.isArray(messages) ? messages : [messages];
@@ -47,81 +49,51 @@ export default function useAiCommandSession({ user, mode = "speak" } = {}) {
       if (!text || processing) return;
 
       setProcessing(true);
-      setSession((current) => ({
-        ...current,
+      const activeSession = {
+        ...session,
         rawUserInput: text,
-        history: [...current.history, { role: "user", content: text }],
-      }));
+        history: [...session.history, { role: "user", content: text }],
+      };
+
+      setSession(activeSession);
 
       try {
-        let nextCommand;
-        let assistantMessage = "";
-        let shouldExecute = false;
-
-        if (isCancelText(text)) {
-          nextCommand = buildCommand("UNKNOWN", {}, 0);
-          nextCommand.status = "cancelled";
-          assistantMessage = "Alright, I won’t make any changes.";
-          setSession((current) => ({
-            ...current,
-            currentCommand: null,
-            missingFields: [],
-            currentQuestion: "",
-            awaitingConfirmation: false,
-            cancellationState: "cancelled",
-            status: "cancelled",
-            history: [...current.history, { role: "assistant", content: assistantMessage }],
-          }));
-          return;
-        }
-
-        const previous = session.currentCommand;
-        if (previous?.status === "awaiting_confirmation" && isYesText(text)) {
-          nextCommand = { ...previous, status: "ready_to_execute", canExecute: true };
-          shouldExecute = true;
-        } else {
-          nextCommand = parseCommand(text, previous);
-          assistantMessage =
-            nextCommand.status === "awaiting_confirmation"
-              ? nextCommand.confirmationText
-              : nextCommand.userPrompt;
-        }
-
-        if (shouldExecute) {
-          const result = await executeAICommand(nextCommand, { user });
-          setSession((current) => ({
-            ...current,
-            currentCommand: { ...nextCommand, status: result.success ? "executed" : "error" },
-            missingFields: [],
-            currentQuestion: "",
-            awaitingConfirmation: false,
-            executionResult: result,
-            status: result.success ? "executed" : "error",
-            history: [...current.history, { role: "assistant", content: result.message }],
-          }));
-          return;
-        }
-
+        const turn = await processAssistantTurn({ text, session: activeSession, user });
         setSession((current) => ({
           ...current,
-          currentCommand: nextCommand,
-          missingFields: nextCommand.missingFields,
-          currentQuestion: nextCommand.userPrompt,
-          awaitingConfirmation: nextCommand.status === "awaiting_confirmation",
+          currentCommand: turn.command,
+          missingFields: turn.command?.missingFields || [],
+          currentQuestion: turn.command?.userPrompt || "",
+          awaitingConfirmation: turn.awaitingConfirmation,
           correctionState:
-            previous?.status === "awaiting_confirmation" && nextCommand.status === "awaiting_confirmation"
+            session.currentCommand?.status === "awaiting_confirmation" && turn.command?.status === "awaiting_confirmation"
               ? "corrected"
               : null,
-          status: nextCommand.status,
-          history: assistantMessage
-            ? [...current.history, { role: "assistant", content: assistantMessage }]
+          executionResult: turn.executionResult,
+          cancellationState: turn.cancellationState || null,
+          status: turn.status,
+          history: turn.assistantMessage
+            ? [...current.history, { role: "assistant", content: turn.assistantMessage }]
             : current.history,
+        }));
+      } catch (error) {
+        console.error("CLARA assistant turn failed:", error);
+        setSession((current) => ({
+          ...current,
+          status: "error",
+          history: [
+            ...current.history,
+            {
+              role: "assistant",
+              content: "I hit a connection issue, but the session is still here. Try again or type the command.",
+            },
+          ],
         }));
       } finally {
         setProcessing(false);
       }
     },
-    [processing, session.currentCommand, user]
+    [processing, session, user]
   );
 
   const confirm = useCallback(() => submitText("yes"), [submitText]);
@@ -140,4 +112,3 @@ export default function useAiCommandSession({ user, mode = "speak" } = {}) {
     [append, cancel, confirm, processing, reset, session, submitText]
   );
 }
-
