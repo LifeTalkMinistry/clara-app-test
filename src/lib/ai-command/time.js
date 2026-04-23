@@ -93,21 +93,33 @@ export function monthKeyToPHRange(monthKey = getPHMonthKey()) {
 
 export function parseLooseDateToPHDate(value) {
   const raw = String(value || "").trim().toLowerCase();
-  if (!raw || raw === "today") return getTodayPHDateString();
+  if (!raw || raw === "today" || raw === "this morning" || raw === "this afternoon" || raw === "tonight") {
+    return getTodayPHDateString();
+  }
+  if (raw === "yesterday" || raw === "last night") {
+    return getTodayPHDateString(Date.now() - 24 * 60 * 60 * 1000);
+  }
   if (raw === "tomorrow") {
-    const now = getPHParts();
-    const date = phLocalPartsToUtcDate({
-      year: now.year,
-      month: now.month,
-      day: now.day + 1,
-    });
-    return getTodayPHDateString(date);
+    return getTodayPHDateString(Date.now() + 24 * 60 * 60 * 1000);
+  }
+
+  if (/^\d{4}-\d{2}-\d{2}$/.test(raw)) return raw;
+
+  const slashMatch = raw.match(/^(\d{1,2})[/-](\d{1,2})(?:[/-](\d{2,4}))?$/);
+  if (slashMatch) {
+    const today = getPHParts();
+    const month = Number(slashMatch[1]);
+    const day = Number(slashMatch[2]);
+    const year = Number(slashMatch[3]) || today.year;
+    if (month >= 1 && month <= 12 && day >= 1 && day <= 31) {
+      return `${year < 100 ? 2000 + year : year}-${pad(month)}-${pad(day)}`;
+    }
   }
 
   const monthMatch = raw.match(
     /(jan|january|feb|february|mar|march|apr|april|may|jun|june|jul|july|aug|august|sep|sept|september|oct|october|nov|november|dec|december)(?:\s+(\d{1,2}))?(?:,\s*(\d{4}))?/i
   );
-  if (!monthMatch) return raw.match(/^\d{4}-\d{2}-\d{2}$/) ? raw : "";
+  if (!monthMatch) return "";
 
   const monthNames = [
     "jan",
@@ -128,5 +140,37 @@ export function parseLooseDateToPHDate(value) {
   const year = Number(monthMatch[3]) || today.year;
   const day = Number(monthMatch[2]) || 1;
   return `${year}-${pad(month)}-${pad(day)}`;
+}
+
+export function getDateScopeMeta(scope = "today") {
+  const normalized = String(scope || "today").trim().toLowerCase();
+  const today = getTodayPHDateString();
+  const yesterday = getTodayPHDateString(Date.now() - 24 * 60 * 60 * 1000);
+  const thisMonth = getPHMonthKey();
+
+  if (normalized === "today" || normalized === "this morning" || normalized === "tonight") {
+    return { scope: "today", date: today, label: "today" };
+  }
+  if (normalized === "yesterday" || normalized === "last night") {
+    return { scope: "yesterday", date: yesterday, label: "yesterday" };
+  }
+  if (normalized === "this month" || normalized === "month") {
+    return { scope: "this_month", month: thisMonth, label: "this month" };
+  }
+  if (normalized === "last month") {
+    const parts = getPHParts(Date.now() - 28 * 24 * 60 * 60 * 1000);
+    return {
+      scope: "last_month",
+      month: `${parts.year}-${pad(parts.month)}`,
+      label: "last month",
+    };
+  }
+
+  const parsed = parseLooseDateToPHDate(normalized);
+  if (parsed) {
+    return { scope: "date", date: parsed, label: parsed };
+  }
+
+  return { scope: "today", date: today, label: "today" };
 }
 

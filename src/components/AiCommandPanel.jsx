@@ -1,8 +1,28 @@
-import { useEffect, useRef, useState } from "react";
-import { Keyboard, Loader2, Mic, RefreshCw, Send, Sparkles, X } from "lucide-react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import {
+  Keyboard,
+  Loader2,
+  Mic,
+  RefreshCw,
+  Send,
+  Sparkles,
+  Volume2,
+  X,
+} from "lucide-react";
 import useAiCommandSession from "@/hooks/useAiCommandSession";
 import useVoiceCapture from "@/hooks/useVoiceCapture";
 import { getGeminiStatus } from "@/lib/ai-command/ai-engine";
+import {
+  CLARA_VOICE_OPTIONS,
+  getStoredClaraVoice,
+  setStoredClaraVoice,
+} from "@/lib/clara-settings";
+import {
+  getSpeechSynthesisVoices,
+  pickSpeechVoice,
+  speakClaraText,
+  stopSpeechOutput,
+} from "@/lib/ai-command/voice-output";
 
 export default function AiCommandPanel({
   open,
@@ -12,12 +32,17 @@ export default function AiCommandPanel({
   themePalette,
 }) {
   const [text, setText] = useState("");
+  const [voicePreference, setVoicePreference] = useState(() =>
+    getStoredClaraVoice(user?.id)
+  );
+  const [voiceName, setVoiceName] = useState("");
   const inputRef = useRef(null);
   const historyRef = useRef(null);
   const lastSpokenRef = useRef("");
   const sessionApi = useAiCommandSession({ user, mode });
   const { session, processing, reset, submitText, confirm, cancel } = sessionApi;
   const geminiStatus = getGeminiStatus();
+
   const voice = useVoiceCapture({
     onTranscript: (nextTranscript) => {
       if (nextTranscript && nextTranscript.trim().length >= 2) {
@@ -27,16 +52,20 @@ export default function AiCommandPanel({
   });
 
   useEffect(() => {
+    setVoicePreference(getStoredClaraVoice(user?.id));
+  }, [user?.id]);
+
+  useEffect(() => {
     if (!open) return;
     reset(mode);
     setText("");
+    lastSpokenRef.current = "";
     if (mode === "speak") {
       setTimeout(() => voice.start(), 180);
     } else {
       setTimeout(() => inputRef.current?.focus?.(), 180);
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open, mode]);
+  }, [open, mode, reset, voice]);
 
   useEffect(() => {
     if (open && mode === "chat") inputRef.current?.focus?.();
@@ -53,10 +82,37 @@ export default function AiCommandPanel({
       });
     });
     return () => cancelAnimationFrame(frame);
-  }, [open, processing, session.awaitingConfirmation, session.history.length]);
+  }, [open, processing, session.awaitingConfirmation, session.history.length, voice.transcript]);
 
   useEffect(() => {
-    if (!open || typeof window === "undefined" || !("speechSynthesis" in window)) return;
+    const syncVoices = () => {
+      const selected = pickSpeechVoice(getSpeechSynthesisVoices(), voicePreference);
+      setVoiceName(selected?.name || "");
+    };
+
+    syncVoices();
+    if (typeof window === "undefined" || !("speechSynthesis" in window)) return undefined;
+
+    window.speechSynthesis.onvoiceschanged = syncVoices;
+    return () => {
+      if (window.speechSynthesis.onvoiceschanged === syncVoices) {
+        window.speechSynthesis.onvoiceschanged = null;
+      }
+    };
+  }, [voicePreference]);
+
+  useEffect(() => {
+    if (!open) return;
+    const handler = (event) => {
+      const nextVoice = event?.detail?.settings?.ai?.voice;
+      if (nextVoice) setVoicePreference(nextVoice);
+    };
+    window.addEventListener("clara-settings-updated", handler);
+    return () => window.removeEventListener("clara-settings-updated", handler);
+  }, [open]);
+
+  useEffect(() => {
+    if (!open) return;
     const lastMessage = session.history[session.history.length - 1];
     if (lastMessage?.role !== "assistant") return;
     const content = String(lastMessage.content || "").trim();
@@ -64,24 +120,22 @@ export default function AiCommandPanel({
 
     lastSpokenRef.current = content;
     try {
-      window.speechSynthesis.cancel();
-      const utterance = new SpeechSynthesisUtterance(content);
-      utterance.lang = "en-PH";
-      utterance.rate = 0.96;
-      utterance.pitch = 1;
-      window.speechSynthesis.speak(utterance);
+      speakClaraText(content, { voicePreference });
     } catch (error) {
       console.warn("CLARA voice output unavailable:", error);
     }
-  }, [open, session.history]);
+  }, [open, session.history, voicePreference]);
+
+  const transcriptPreview = useMemo(
+    () => String(voice.transcript || "").trim(),
+    [voice.transcript]
+  );
 
   if (!open) return null;
 
   const close = () => {
     voice.stop();
-    if (typeof window !== "undefined" && "speechSynthesis" in window) {
-      window.speechSynthesis.cancel();
-    }
+    stopSpeechOutput();
     onOpenChange(false);
   };
 
@@ -92,6 +146,10 @@ export default function AiCommandPanel({
     submitText(next);
   };
 
+  const handleVoicePreferenceChange = (nextVoice) => {
+    setVoicePreference(setStoredClaraVoice(user?.id, nextVoice));
+  };
+
   const voiceStatus = (() => {
     if (voice.voiceState === "requesting_permission") return "Requesting microphone...";
     if (voice.voiceState === "listening") return "Listening...";
@@ -100,7 +158,9 @@ export default function AiCommandPanel({
     if (voice.voiceState === "error" || voice.voiceState === "fallback_text") {
       return voice.transcriptError || "Microphone unavailable. You can type instead.";
     }
-    return mode === "speak" ? "Speak naturally. I will ask only for what is missing." : "Text fallback is ready.";
+    return mode === "speak"
+      ? "Speak naturally. I will ask only for what is missing."
+      : "Text fallback is ready.";
   })();
 
   return (
@@ -114,7 +174,7 @@ export default function AiCommandPanel({
 
       <div className="fixed inset-x-0 bottom-0 z-[70] px-3 pb-3">
         <section
-          className="mx-auto flex max-h-[78dvh] max-w-md flex-col rounded-[30px] border p-4 shadow-[0_28px_90px_rgba(0,0,0,0.72)] backdrop-blur-2xl"
+          className="mx-auto flex max-h-[80dvh] max-w-md flex-col rounded-[30px] border p-4 shadow-[0_28px_90px_rgba(0,0,0,0.72)] backdrop-blur-2xl"
           style={{
             borderColor: themePalette.panelBorder,
             background: `linear-gradient(180deg, ${themePalette.panelStart} 0%, ${themePalette.panelEnd} 100%)`,
@@ -122,7 +182,7 @@ export default function AiCommandPanel({
           }}
         >
           <div className="flex items-start justify-between gap-4">
-            <div>
+            <div className="min-w-0">
               <div
                 className="inline-flex items-center gap-2 rounded-full border px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.18em]"
                 style={{
@@ -141,7 +201,9 @@ export default function AiCommandPanel({
                 Voice first. Text stays ready when you need it.
               </p>
               <p className="mt-2 text-[11px]" style={{ color: themePalette.mutedText }}>
-                {geminiStatus.configured ? `Gemini: ${geminiStatus.model}` : "Gemini key not configured. Using safe local understanding."}
+                {geminiStatus.configured
+                  ? `Gemini: ${geminiStatus.model}`
+                  : "Gemini key not configured. Using safe local understanding."}
               </p>
             </div>
             <button
@@ -152,6 +214,39 @@ export default function AiCommandPanel({
             >
               <X className="h-4 w-4" />
             </button>
+          </div>
+
+          <div className="mt-4 rounded-3xl border border-white/10 bg-black/20 p-3">
+            <div className="flex items-center justify-between gap-3">
+              <div className="flex items-center gap-2 text-xs font-semibold text-white/80">
+                <Volume2 className="h-4 w-4" />
+                CLARA Voice
+              </div>
+              <div className="flex rounded-full border border-white/10 bg-white/[0.04] p-1">
+                {CLARA_VOICE_OPTIONS.map((option) => {
+                  const active = voicePreference === option.value;
+                  return (
+                    <button
+                      key={option.value}
+                      type="button"
+                      onClick={() => handleVoicePreferenceChange(option.value)}
+                      className="rounded-full px-3 py-1.5 text-xs font-semibold transition"
+                      style={{
+                        color: active ? "#fff" : "rgba(255,255,255,0.66)",
+                        background: active
+                          ? `linear-gradient(135deg, ${themePalette.accent} 0%, ${themePalette.accentEnd} 100%)`
+                          : "transparent",
+                      }}
+                    >
+                      {option.label}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+            <p className="mt-2 text-[11px] text-white/50">
+              {voiceName ? `Using ${voiceName}` : "Voice will use your selected male or female preference."}
+            </p>
           </div>
 
           <div className="mt-4 rounded-3xl border border-white/10 bg-black/20 p-4">
@@ -170,8 +265,8 @@ export default function AiCommandPanel({
               </div>
               <div className="min-w-0 flex-1">
                 <p className="text-sm font-semibold">{voiceStatus}</p>
-                {voice.transcript ? (
-                  <p className="mt-1 truncate text-xs text-white/55">"{voice.transcript}"</p>
+                {transcriptPreview ? (
+                  <p className="mt-1 line-clamp-2 text-xs text-white/65">"{transcriptPreview}"</p>
                 ) : null}
               </div>
               <button
@@ -198,6 +293,13 @@ export default function AiCommandPanel({
                 {message.content}
               </div>
             ))}
+
+            {voice.voiceState === "listening" && transcriptPreview ? (
+              <div className="ml-8 rounded-2xl border border-white/10 bg-white/[0.03] px-3 py-2 text-sm leading-6 text-white/55">
+                {transcriptPreview}
+              </div>
+            ) : null}
+
             {processing ? (
               <div className="mr-8 flex items-center gap-2 rounded-2xl border border-white/10 bg-white/[0.045] px-3 py-2 text-sm text-white/65">
                 <Loader2 className="h-4 w-4 animate-spin" />

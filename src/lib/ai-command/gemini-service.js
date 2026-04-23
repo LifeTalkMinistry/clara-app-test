@@ -47,7 +47,9 @@ JSON shape:
     "period": "YYYY-MM",
     "targetAmount": number,
     "targetDate": "YYYY-MM-DD",
-    "decisionSubject": string
+    "decisionSubject": string,
+    "scope": "today|yesterday|this month|last month",
+    "commands": []
   },
   "assistantMessage": "short natural response if no write confirmation is needed"
 }`;
