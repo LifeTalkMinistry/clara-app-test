@@ -20,12 +20,7 @@ async function understandInput({ text, session, financeSnapshot }) {
       return await askGeminiForUnderstanding({ text, session, financeSnapshot });
     } catch (error) {
       console.warn("CLARA Gemini understanding failed:", error);
-      return buildCommand(
-        AI_INTENTS.UNKNOWN,
-        {},
-        0.1,
-        "I had trouble reaching CLARA intelligence. The session is still here. Try again in a moment."
-      );
+      return parseCommand(text, previous);
     }
   }
 
@@ -61,8 +56,41 @@ export async function processAssistantTurn({ text, session, user }) {
 
   if (isCancelText(input)) return cancelledTurn();
 
+  const lastUserTurn = [...(session?.history || [])]
+    .reverse()
+    .find((message) => message.role === "user")?.content;
+  if (
+    session?.status === "executed" &&
+    lastUserTurn &&
+    String(lastUserTurn).trim().toLowerCase() === input.toLowerCase()
+  ) {
+    return {
+      command: session?.currentCommand || null,
+      assistantMessage:
+        "That looks like the same command you just sent. If you want me to do it again, say repeat it.",
+      executionResult: null,
+      status: "awaiting_repeat_confirmation",
+      awaitingConfirmation: false,
+    };
+  }
+
   const activeUser = await resolveAuthenticatedUser(user);
   const previous = session?.currentCommand;
+  if (
+    session?.status === "awaiting_repeat_confirmation" &&
+    previous?.canExecute &&
+    /^(repeat( it)?|do it again|yes)$/i.test(input)
+  ) {
+    const result = await executeAICommand(previous, { user: activeUser });
+    return {
+      command: { ...previous, status: result.success ? "executed" : "error" },
+      assistantMessage: result.message,
+      executionResult: result,
+      status: result.success ? "executed" : "error",
+      awaitingConfirmation: false,
+    };
+  }
+
   if (previous?.status === "awaiting_confirmation" && isYesText(input)) {
     const command = { ...previous, status: "ready_to_execute", canExecute: true };
     const result = await executeAICommand(command, { user: activeUser });

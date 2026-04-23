@@ -1,10 +1,11 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { AlertTriangle, ArrowLeft, Bell, ChevronRight, CreditCard, KeyRound, LogOut, Mail, Moon, Save, Settings2, Shield, Sparkles, Trash2, User } from "lucide-react";
+import { AlertTriangle, ArrowLeft, Bell, ChevronRight, CreditCard, KeyRound, LogOut, Mail, Mic, Moon, Save, Settings2, Shield, Sparkles, Trash2, User } from "lucide-react";
 import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { supabase } from "@/lib/supabaseClient";
 import { PLAN_BADGE_STYLES, PLAN_LABELS, normalizePlanKey } from "@/lib/plan-config";
 import TaskReminderSettingsCard from "@/components/TaskReminderSettingsCard";
 import useTaskReminderSettings from "@/hooks/useTaskReminderSettings";
+import { CLARA_VOICE_OPTIONS, readClaraSettings, saveClaraSettings } from "@/lib/clara-settings";
 
 const ROLE_STYLES = {
   admin: "bg-emerald-500/15 text-emerald-300 border-emerald-400/20",
@@ -40,40 +41,6 @@ function formatDate(value) {
     return new Date(value).toLocaleDateString("en-PH", { year: "numeric", month: "long", day: "numeric" });
   } catch {
     return "Not available";
-  }
-}
-
-function getSettingsStorageKey(userId) {
-  return `clara_settings_${userId || "guest"}`;
-}
-
-function readStoredSettings(userId) {
-  const defaults = {
-    notifications: { dailyReminders: true, productUpdates: true, coachingAlerts: true },
-    privacy: { analyticsSharing: true, showCommunityProfile: true, privateMode: false },
-    preferences: { compactMode: false, reduceMotion: false, appearance: "system" },
-  };
-  if (!userId) return defaults;
-  try {
-    const raw = localStorage.getItem(getSettingsStorageKey(userId));
-    const parsed = raw ? JSON.parse(raw) : {};
-    return {
-      notifications: { ...defaults.notifications, ...(parsed.notifications || {}) },
-      privacy: { ...defaults.privacy, ...(parsed.privacy || {}) },
-      preferences: { ...defaults.preferences, ...(parsed.preferences || {}) },
-    };
-  } catch (error) {
-    console.error("Failed to read settings:", error);
-    return defaults;
-  }
-}
-
-function saveStoredSettings(userId, nextValue) {
-  if (!userId) return;
-  try {
-    localStorage.setItem(getSettingsStorageKey(userId), JSON.stringify(nextValue));
-  } catch (error) {
-    console.error("Failed to save settings:", error);
   }
 }
 
@@ -175,8 +142,8 @@ export default function Settings() {
   const [userId, setUserId] = useState(null);
   const [profile, setProfile] = useState(null);
   const [authUser, setAuthUser] = useState(null);
-  const [settingsState, setSettingsState] = useState(() => readStoredSettings(null));
-  const [initialSettingsState, setInitialSettingsState] = useState(() => readStoredSettings(null));
+  const [settingsState, setSettingsState] = useState(() => readClaraSettings(null));
+  const [initialSettingsState, setInitialSettingsState] = useState(() => readClaraSettings(null));
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
   const [deleteConfirm, setDeleteConfirm] = useState(false);
@@ -216,7 +183,7 @@ export default function Settings() {
         if (profileError) throw profileError;
         if (!mounted) return;
         const safeProfile = profileData || {};
-        const stored = readStoredSettings(user.id);
+        const stored = readClaraSettings(user.id);
         setProfile(safeProfile);
         setSettingsState(stored);
         setInitialSettingsState(stored);
@@ -253,7 +220,10 @@ export default function Settings() {
       return JSON.stringify(settingsState.privacy) !== JSON.stringify(initialSettingsState.privacy);
     }
     if (detailSection === "preferences") {
-      return JSON.stringify(settingsState.preferences) !== JSON.stringify(initialSettingsState.preferences);
+      return (
+        JSON.stringify(settingsState.preferences) !== JSON.stringify(initialSettingsState.preferences) ||
+        JSON.stringify(settingsState.ai) !== JSON.stringify(initialSettingsState.ai)
+      );
     }
     return false;
   }, [detailSection, initialSettingsState, settingsState, taskReminderSettings.dirty]);
@@ -295,8 +265,7 @@ export default function Settings() {
       setSaving(true);
       setError("");
       setMessage("");
-      saveStoredSettings(userId, settingsState);
-      window.dispatchEvent(new CustomEvent("clara-settings-updated", { detail: { userId, settings: settingsState } }));
+      saveClaraSettings(userId, settingsState);
       if (detailSection === "notifications") {
         await taskReminderSettings.saveSettings();
       }
@@ -308,7 +277,7 @@ export default function Settings() {
     } finally {
       setSaving(false);
     }
-  }, [detailSection, dirty, settingsState, taskReminderSettings.saveSettings, userId]);
+  }, [detailSection, dirty, settingsState, taskReminderSettings, userId]);
 
   const handlePasswordReset = useCallback(async () => {
     if (!email) return;
@@ -556,6 +525,33 @@ export default function Settings() {
                         className={`rounded-2xl border px-3 py-3 text-xs font-semibold capitalize transition ${settingsState.preferences.appearance === option ? "border-emerald-400/25 bg-emerald-500/12 text-emerald-300" : "border-white/10 bg-black/20 text-white/70 hover:bg-white/10 hover:text-white"}`}
                       >
                         {option}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+                <div className="rounded-2xl border border-white/10 bg-white/5 p-4">
+                  <div className="mb-3 flex items-center gap-3">
+                    <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-white/5 text-white/70">
+                      <Mic size={16} />
+                    </div>
+                    <div>
+                      <p className="text-sm font-semibold text-white">CLARA Voice</p>
+                      <p className="text-xs text-white/55">Choose the male or female voice CLARA uses for spoken replies.</p>
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-2 gap-2">
+                    {CLARA_VOICE_OPTIONS.map((option) => (
+                      <button
+                        key={option.value}
+                        type="button"
+                        onClick={() => updateNestedSetting("ai", "voice", option.value)}
+                        className={`rounded-2xl border px-3 py-3 text-xs font-semibold transition ${
+                          settingsState.ai.voice === option.value
+                            ? "border-emerald-400/25 bg-emerald-500/12 text-emerald-300"
+                            : "border-white/10 bg-black/20 text-white/70 hover:bg-white/10 hover:text-white"
+                        }`}
+                      >
+                        {option.label}
                       </button>
                     ))}
                   </div>

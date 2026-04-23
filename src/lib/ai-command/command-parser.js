@@ -1,11 +1,20 @@
 import { inferExpenseCategory } from "@/lib/ai-command/category-inference";
-import { getPHMonthKey, getTodayPHDateString, parseLooseDateToPHDate } from "@/lib/ai-command/time";
+import {
+  getDateScopeMeta,
+  getPHMonthKey,
+  getTodayPHDateString,
+  parseLooseDateToPHDate,
+} from "@/lib/ai-command/time";
 
 export const AI_INTENTS = {
   LOG_EXPENSE: "LOG_EXPENSE",
   ADD_MONEY: "ADD_MONEY",
   TRANSFER_MONEY: "TRANSFER_MONEY",
   CHECK_BALANCE: "CHECK_BALANCE",
+  READ_SPENDING: "READ_SPENDING",
+  READ_WALLET_HISTORY: "READ_WALLET_HISTORY",
+  READ_BUDGET_STATUS: "READ_BUDGET_STATUS",
+  READ_SAVINGS_STATUS: "READ_SAVINGS_STATUS",
   ANALYZE_SPENDING: "ANALYZE_SPENDING",
   SUGGEST_SAVINGS: "SUGGEST_SAVINGS",
   PLAN_SPENDING: "PLAN_SPENDING",
@@ -21,6 +30,7 @@ export const AI_INTENTS = {
   GENERAL_GUIDANCE: "GENERAL_GUIDANCE",
   CREATE_BUDGET: "CREATE_BUDGET",
   CREATE_SAVINGS_GOAL: "CREATE_SAVINGS_GOAL",
+  MULTI_ACTION: "MULTI_ACTION",
   UNKNOWN: "UNKNOWN",
 };
 
@@ -30,11 +40,12 @@ export const WRITE_INTENTS = new Set([
   AI_INTENTS.TRANSFER_MONEY,
   AI_INTENTS.CREATE_BUDGET,
   AI_INTENTS.CREATE_SAVINGS_GOAL,
+  AI_INTENTS.MULTI_ACTION,
 ]);
 
 const FIELD_PROMPTS = {
   amount: "How much should I use?",
-  item: "What did you buy?",
+  item: "What should I log this as?",
   label: "What should I call it?",
   wallet: "Which wallet should I use?",
   fromWallet: "Which wallet should I transfer from?",
@@ -54,6 +65,7 @@ const REQUIRED_FIELDS = {
 };
 
 const CURRENCY_RE = /(?:php|p|peso|pesos|₱)?\s*([0-9][0-9,]*(?:\.\d+)?)/i;
+const ACTION_SPLIT_RE = /\s+(?:and then|then|and)\s+/i;
 
 function normalizeText(value) {
   return String(value || "").trim();
@@ -63,29 +75,10 @@ function normalizeLower(value) {
   return normalizeText(value).toLowerCase();
 }
 
-export function isCancelText(text) {
-  return /^(cancel|never mind|nevermind|stop|quit|close|forget it)$/i.test(normalizeText(text));
-}
-
-export function isYesText(text) {
-  return /^(yes|yep|yeah|sure|confirm|proceed|go ahead|okay|ok|do it)$/i.test(normalizeText(text));
-}
-
-export function isNoText(text) {
-  return /^(no|nope|not yet|wait|hold on)$/i.test(normalizeText(text));
-}
-
-function extractAmount(text) {
-  const match = normalizeText(text).match(CURRENCY_RE);
-  if (!match) return null;
-  const amount = Number(String(match[1]).replace(/,/g, ""));
-  return Number.isFinite(amount) && amount > 0 ? amount : null;
-}
-
 function cleanupLabel(value) {
   return normalizeText(value)
     .replace(/^(a|an|the|my|for|of|to|into|from|using)\s+/i, "")
-    .replace(/\s+(this month|today|tomorrow)$/i, "")
+    .replace(/\s+(this month|today|yesterday|this morning|last night)$/i, "")
     .replace(/[?.!,]+$/g, "")
     .trim();
 }
@@ -98,16 +91,36 @@ function stripAmountPhrase(text) {
     .trim();
 }
 
-function extractAfterFor(text) {
-  const match = normalizeText(text).match(/\bfor\s+(.+)$/i);
+function extractAmount(text) {
+  const match = normalizeText(text).match(CURRENCY_RE);
+  if (!match) return null;
+  const amount = Number(String(match[1]).replace(/,/g, ""));
+  return Number.isFinite(amount) && amount > 0 ? amount : null;
+}
+
+function extractAfterKeyword(text, keyword) {
+  const match = normalizeText(text).match(new RegExp(`\\b${keyword}\\s+(.+)$`, "i"));
   return match ? cleanupLabel(match[1]) : "";
+}
+
+function detectScope(text) {
+  const lower = normalizeLower(text);
+  if (/\byesterday|last night\b/.test(lower)) return "yesterday";
+  if (/\blast month\b/.test(lower)) return "last month";
+  if (/\bthis month\b/.test(lower)) return "this month";
+  if (/\bthis morning\b/.test(lower)) return "this morning";
+  return "today";
 }
 
 function detectIntent(text) {
   const lower = normalizeLower(text);
   if (/\b(transfer|move|send)\b/.test(lower) && /\b(to|from|wallet|gcash|maya|cash)\b/.test(lower)) return AI_INTENTS.TRANSFER_MONEY;
-  if (/\b(balance|money left|how much.*have|left for today|left this month)\b/.test(lower)) return AI_INTENTS.CHECK_BALANCE;
-  if (/\b(analy[sz]e|analysis|spending pattern|spent this|breakdown|where did my money)\b/.test(lower)) return AI_INTENTS.ANALYZE_SPENDING;
+  if (/\b(wallet history|transaction history|history for|recent transactions)\b/.test(lower)) return AI_INTENTS.READ_WALLET_HISTORY;
+  if (/\b(how much did i spend|spent today|spent yesterday|spending today|spending yesterday)\b/.test(lower)) return AI_INTENTS.READ_SPENDING;
+  if (/\b(budget left|budget status|budget remaining|how is my budget|how are my budgets)\b/.test(lower)) return AI_INTENTS.READ_BUDGET_STATUS;
+  if (/\b(savings status|savings goal|save-for|save for goal|how much saved)\b/.test(lower) && !/\bcreate|make|set\b/.test(lower)) return AI_INTENTS.READ_SAVINGS_STATUS;
+  if (/\b(balance|money left|how much.*have|left for today|left this month|wallet balances?)\b/.test(lower)) return AI_INTENTS.CHECK_BALANCE;
+  if (/\b(analy[sz]e|analysis|spending pattern|breakdown|where did my money)\b/.test(lower)) return AI_INTENTS.ANALYZE_SPENDING;
   if (/\b(save|saving|savings suggestion|suggest.*saving)\b/.test(lower) && !/\bgoal\b/.test(lower)) return AI_INTENTS.SUGGEST_SAVINGS;
   if (/\b(plan.*spend|spending today|budget today|help.*spending)\b/.test(lower)) return AI_INTENTS.PLAN_SPENDING;
   if (/\b(emergency fund|survive|months can i)\b/.test(lower)) return AI_INTENTS.EMERGENCY_FUND_PLAN;
@@ -127,20 +140,26 @@ function detectIntent(text) {
   return AI_INTENTS.UNKNOWN;
 }
 
-function extractWallet(text) {
-  const lower = normalizeLower(text);
-  const explicit = lower.match(/\b(?:from|to|into|using|wallet)\s+([a-z0-9 _-]{2,40})$/i);
-  if (explicit) return cleanupLabel(explicit[1]);
+function extractWallet(text, fallbackToMention = true) {
+  const raw = normalizeText(text);
+  const lower = raw.toLowerCase();
+  const matches = [
+    raw.match(/\b(?:from|using)\s+([a-z0-9 _-]{2,40})(?:\s+for\b|\s+under\b|\s+today\b|\s+yesterday\b|$)/i),
+    raw.match(/\b(?:into|to|wallet)\s+([a-z0-9 _-]{2,40})(?:\s+for\b|\s+today\b|\s+yesterday\b|$)/i),
+  ].filter(Boolean);
+
+  if (matches[0]) return cleanupLabel(matches[0][1]);
+  if (!fallbackToMention) return "";
   if (lower.includes("gcash")) return "GCash";
   if (lower.includes("maya")) return "Maya";
-  if (lower.includes("cash")) return "Cash";
+  if (/\bcash\b/.test(lower)) return "Cash";
   return "";
 }
 
 function extractTransferWallets(text) {
   const raw = normalizeText(text);
   const fromMatch = raw.match(/\bfrom\s+([a-z0-9 _-]+?)(?:\s+to\b|$)/i);
-  const toMatch = raw.match(/\bto\s+([a-z0-9 _-]+)$/i);
+  const toMatch = raw.match(/\bto\s+([a-z0-9 _-]+?)(?:\s+from\b|$)/i);
   return {
     fromWallet: fromMatch ? cleanupLabel(fromMatch[1]) : "",
     toWallet: toMatch ? cleanupLabel(toMatch[1]) : "",
@@ -148,12 +167,12 @@ function extractTransferWallets(text) {
 }
 
 function extractExpenseItem(text) {
-  const afterFor = extractAfterFor(text);
+  const afterFor = extractAfterKeyword(text, "for");
   if (afterFor) return afterFor;
   return cleanupLabel(
     stripAmountPhrase(text)
       .replace(/^(i\s+)?(bought|buy|spent|paid|log|purchased)\s*/i, "")
-      .replace(/\b(of|for)\b/i, " ")
+      .replace(/\b(from|using|under|today|yesterday|this morning|last night)\b.*$/i, "")
   );
 }
 
@@ -191,16 +210,35 @@ function extractTargetDate(text) {
   return match ? parseLooseDateToPHDate(match[1]) : "";
 }
 
+function getMissingFields(intent, parsedData) {
+  return (REQUIRED_FIELDS[intent] || []).filter((field) => {
+    if (field === "item") return !parsedData.item && !parsedData.label;
+    return !parsedData[field] || (typeof parsedData[field] === "number" && parsedData[field] <= 0);
+  });
+}
+
 function applyMissingFieldAnswer(command, text) {
   const next = { ...(command?.parsedData || {}) };
   const firstMissing = command?.missingFields?.[0];
   const amount = extractAmount(text);
   if (!firstMissing) return next;
-  if (["amount", "targetAmount"].includes(firstMissing)) next[firstMissing] = amount || Number(normalizeText(text).replace(/,/g, ""));
-  else if (firstMissing === "wallet") next.wallet = extractWallet(text) || normalizeText(text);
-  else if (firstMissing === "fromWallet" || firstMissing === "toWallet") next[firstMissing] = extractWallet(text) || normalizeText(text);
-  else if (firstMissing === "period") next.period = extractPeriod(text);
-  else next[firstMissing] = cleanupLabel(text);
+
+  if (["amount", "targetAmount"].includes(firstMissing)) {
+    next[firstMissing] = amount || Number(normalizeText(text).replace(/,/g, ""));
+  } else if (firstMissing === "wallet") {
+    next.wallet = extractWallet(text) || normalizeText(text);
+  } else if (firstMissing === "fromWallet" || firstMissing === "toWallet") {
+    next[firstMissing] = extractWallet(text) || normalizeText(text);
+  } else if (firstMissing === "period") {
+    next.period = extractPeriod(text);
+  } else {
+    next[firstMissing] = cleanupLabel(text);
+  }
+
+  if (command.intent === AI_INTENTS.LOG_EXPENSE && !next.date) {
+    next.date = getTodayPHDateString();
+  }
+
   return next;
 }
 
@@ -212,33 +250,42 @@ function applyCorrections(command, text) {
     if (command.intent === AI_INTENTS.CREATE_SAVINGS_GOAL || /\btarget\b/.test(lower)) next.targetAmount = amount;
     else next.amount = amount;
   }
+
   const wallet = extractWallet(text);
-  if (wallet && /\b(wallet|from|using|gcash|maya|cash)\b/.test(lower)) next.wallet = wallet;
-  const transferWallets = extractTransferWallets(text);
-  if (transferWallets.fromWallet) next.fromWallet = transferWallets.fromWallet;
-  if (transferWallets.toWallet) next.toWallet = transferWallets.toWallet;
-  const labelMatch = normalizeText(text).match(/\b(?:label|name|call it|for)\s+(.+)$/i);
+  if (wallet && /\b(wallet|from|using|into|to|gcash|maya|cash)\b/.test(lower)) {
+    if (command.intent === AI_INTENTS.TRANSFER_MONEY) {
+      const transferWallets = extractTransferWallets(text);
+      if (transferWallets.fromWallet) next.fromWallet = transferWallets.fromWallet;
+      if (transferWallets.toWallet) next.toWallet = transferWallets.toWallet;
+    } else {
+      next.wallet = wallet;
+    }
+  }
+
+  const labelMatch = normalizeText(text).match(/\b(?:label|name|call it|for|under)\s+(.+)$/i);
   if (labelMatch) {
     const label = cleanupLabel(labelMatch[1]);
-    if (command.intent === AI_INTENTS.LOG_EXPENSE) next.item = label;
-    else next.label = label;
+    if (command.intent === AI_INTENTS.LOG_EXPENSE) {
+      next.item = label;
+      next.label = label;
+      next.category = next.category || inferExpenseCategory(label);
+    } else {
+      next.label = label;
+    }
   }
+
+  const detectedDate = parseLooseDateToPHDate(text);
+  if (detectedDate && command.intent === AI_INTENTS.LOG_EXPENSE) next.date = detectedDate;
+
   const targetDate = extractTargetDate(text);
   if (targetDate) next.targetDate = targetDate;
   return next;
 }
 
-function getMissingFields(intent, parsedData) {
-  return (REQUIRED_FIELDS[intent] || []).filter((field) => {
-    if (field === "item") return !parsedData.item && !parsedData.label;
-    return !parsedData[field] || (typeof parsedData[field] === "number" && parsedData[field] <= 0);
-  });
-}
-
-export function buildCommand(intent, parsedData = {}, confidence = 0.5, conversationalText = "") {
+function buildSingleCommand(intent, parsedData = {}, confidence = 0.5, conversationalText = "") {
   const safeIntent = AI_INTENTS[intent] || intent || AI_INTENTS.UNKNOWN;
   const missingFields = getMissingFields(safeIntent, parsedData);
-  const isWrite = WRITE_INTENTS.has(safeIntent);
+  const isWrite = WRITE_INTENTS.has(safeIntent) && safeIntent !== AI_INTENTS.MULTI_ACTION;
   const canExecute = safeIntent !== AI_INTENTS.UNKNOWN && missingFields.length === 0;
   const status =
     safeIntent === AI_INTENTS.UNKNOWN
@@ -267,31 +314,61 @@ export function buildCommand(intent, parsedData = {}, confidence = 0.5, conversa
   };
 }
 
-export function normalizeGeminiCommand(value = {}) {
-  const parsedData = value.parsedData && typeof value.parsedData === "object" ? value.parsedData : {};
-  const intent = AI_INTENTS[value.intent] || value.intent || AI_INTENTS.UNKNOWN;
-  if (intent === AI_INTENTS.LOG_EXPENSE) {
-    parsedData.date = parsedData.date || getTodayPHDateString();
-    parsedData.category = parsedData.category || inferExpenseCategory(parsedData.item || parsedData.label || "");
-    parsedData.label = parsedData.label || parsedData.item || "";
-  }
-  if (intent === AI_INTENTS.CREATE_BUDGET) {
-    parsedData.period = parsedData.period || getPHMonthKey();
-    parsedData.category = parsedData.category || inferExpenseCategory(parsedData.label || "");
-  }
-  return buildCommand(intent, parsedData, Number(value.confidence) || 0.7, value.assistantMessage || "");
+function maybeBuildMultiAction(text) {
+  const parts = normalizeText(text)
+    .split(ACTION_SPLIT_RE)
+    .map((part) => part.trim())
+    .filter(Boolean);
+
+  if (parts.length < 2) return null;
+
+  const subcommands = parts.map((part) => parseSingleIntentCommand(part));
+  const actionable = subcommands.filter(
+    (command) => command.intent !== AI_INTENTS.UNKNOWN && command.intent !== AI_INTENTS.GENERAL_GUIDANCE
+  );
+
+  if (actionable.length < 2) return null;
+
+  const missingFields = actionable.flatMap((command) => command.missingFields || []);
+  const allExecutable = actionable.every((command) => command.canExecute);
+  return {
+    intent: AI_INTENTS.MULTI_ACTION,
+    confidence: 0.82,
+    parsedData: {
+      commands: actionable,
+    },
+    missingFields,
+    requiresConfirmation: true,
+    canExecute: allExecutable,
+    confirmationText: allExecutable
+      ? `Just to confirm: ${actionable.map((command) => generateConfirmation(command).replace(/^Just to confirm:\s*/i, "").replace(/\s*Should I proceed\?$/i, "").replace(/\s*Should I log it\?$/i, "")).join(" Then ")}. Should I do both?`
+      : "",
+    userPrompt: missingFields.length
+      ? FIELD_PROMPTS[missingFields[0]] || "What detail should I use first?"
+      : "",
+    status: allExecutable ? "awaiting_confirmation" : "collecting_missing_fields",
+    subcommands: actionable,
+  };
 }
 
-export function parseCommand(text, previousCommand = null) {
+function parseSingleIntentCommand(text, previousCommand = null) {
   const raw = normalizeText(text);
-  if (!raw) return buildCommand(AI_INTENTS.UNKNOWN, {}, 0.1);
+  if (!raw) return buildSingleCommand(AI_INTENTS.UNKNOWN, {}, 0.1);
 
   if (previousCommand?.status === "collecting_missing_fields") {
-    return buildCommand(previousCommand.intent, applyMissingFieldAnswer(previousCommand, raw), previousCommand.confidence || 0.7);
+    return buildSingleCommand(
+      previousCommand.intent,
+      applyMissingFieldAnswer(previousCommand, raw),
+      previousCommand.confidence || 0.7
+    );
   }
 
   if (previousCommand?.status === "awaiting_confirmation" && !isYesText(raw)) {
-    return buildCommand(previousCommand.intent, applyCorrections(previousCommand, raw), previousCommand.confidence || 0.7);
+    return buildSingleCommand(
+      previousCommand.intent,
+      applyCorrections(previousCommand, raw),
+      previousCommand.confidence || 0.7
+    );
   }
 
   const intent = detectIntent(raw);
@@ -305,7 +382,7 @@ export function parseCommand(text, previousCommand = null) {
     parsedData.label = parsedData.item;
     parsedData.wallet = extractWallet(raw);
     parsedData.category = inferExpenseCategory(parsedData.item || raw);
-    parsedData.date = getTodayPHDateString();
+    parsedData.date = parseLooseDateToPHDate(raw) || getTodayPHDateString();
   } else if (intent === AI_INTENTS.ADD_MONEY) {
     parsedData.amount = amount;
     parsedData.wallet = extractWallet(raw);
@@ -321,6 +398,15 @@ export function parseCommand(text, previousCommand = null) {
     parsedData.targetAmount = amount;
     parsedData.label = extractGoalLabel(raw);
     parsedData.targetDate = extractTargetDate(raw);
+  } else if (intent === AI_INTENTS.READ_SPENDING) {
+    parsedData.scope = detectScope(raw);
+  } else if (intent === AI_INTENTS.READ_WALLET_HISTORY) {
+    parsedData.wallet = extractWallet(raw);
+  } else if (intent === AI_INTENTS.READ_BUDGET_STATUS) {
+    parsedData.category = inferExpenseCategory(raw);
+    parsedData.period = extractPeriod(raw);
+  } else if (intent === AI_INTENTS.READ_SAVINGS_STATUS) {
+    parsedData.label = extractGoalLabel(raw);
   } else if (intent === AI_INTENTS.DECISION_GUIDANCE) {
     parsedData.decisionSubject = cleanupLabel(raw);
     parsedData.amount = amount || undefined;
@@ -329,7 +415,62 @@ export function parseCommand(text, previousCommand = null) {
   }
 
   if (amount) confidence += 0.1;
-  return buildCommand(intent, parsedData, Math.min(confidence, 0.95));
+  return buildSingleCommand(intent, parsedData, Math.min(confidence, 0.95));
+}
+
+export function buildCommand(intent, parsedData = {}, confidence = 0.5, conversationalText = "") {
+  return buildSingleCommand(intent, parsedData, confidence, conversationalText);
+}
+
+export function normalizeGeminiCommand(value = {}) {
+  const parsedData = value.parsedData && typeof value.parsedData === "object" ? value.parsedData : {};
+  const intent = AI_INTENTS[value.intent] || value.intent || AI_INTENTS.UNKNOWN;
+  if (intent === AI_INTENTS.LOG_EXPENSE) {
+    parsedData.date = parsedData.date || getTodayPHDateString();
+    parsedData.category = parsedData.category || inferExpenseCategory(parsedData.item || parsedData.label || "");
+    parsedData.label = parsedData.label || parsedData.item || "";
+  }
+  if (intent === AI_INTENTS.CREATE_BUDGET) {
+    parsedData.period = parsedData.period || getPHMonthKey();
+    parsedData.category = parsedData.category || inferExpenseCategory(parsedData.label || "");
+  }
+  if (intent === AI_INTENTS.READ_SPENDING) {
+    parsedData.scope = parsedData.scope || "today";
+  }
+  return buildSingleCommand(intent, parsedData, Number(value.confidence) || 0.7, value.assistantMessage || "");
+}
+
+export function parseCommand(text, previousCommand = null) {
+  const raw = normalizeText(text);
+  if (!raw) return buildSingleCommand(AI_INTENTS.UNKNOWN, {}, 0.1);
+
+  if (previousCommand?.intent === AI_INTENTS.MULTI_ACTION && previousCommand?.status === "collecting_missing_fields") {
+    const firstPending = (previousCommand.subcommands || []).find((command) => !command.canExecute);
+    if (!firstPending) return previousCommand;
+    const updatedFirst = parseSingleIntentCommand(raw, firstPending);
+    const subcommands = (previousCommand.subcommands || []).map((command) =>
+      command === firstPending ? updatedFirst : command
+    );
+    const allExecutable = subcommands.every((command) => command.canExecute);
+    const missingFields = subcommands.flatMap((command) => command.missingFields || []);
+    return {
+      ...previousCommand,
+      parsedData: { commands: subcommands },
+      subcommands,
+      canExecute: allExecutable,
+      missingFields,
+      status: allExecutable ? "awaiting_confirmation" : "collecting_missing_fields",
+      confirmationText: allExecutable
+        ? `Just to confirm: ${subcommands.map((command) => generateConfirmation(command).replace(/^Just to confirm:\s*/i, "").replace(/\s*Should I proceed\?$/i, "").replace(/\s*Should I log it\?$/i, "")).join(" Then ")}. Should I do both?`
+        : "",
+      userPrompt: missingFields.length ? FIELD_PROMPTS[missingFields[0]] || "What detail should I use first?" : "",
+    };
+  }
+
+  const multiAction = maybeBuildMultiAction(raw);
+  if (multiAction) return multiAction;
+
+  return parseSingleIntentCommand(raw, previousCommand);
 }
 
 export function generateConfirmation(command) {
@@ -338,7 +479,7 @@ export function generateConfirmation(command) {
   const label = data.item || data.label || "this";
 
   if (command.intent === AI_INTENTS.LOG_EXPENSE) {
-    return `Just to confirm: ${amount} for ${label} from ${data.wallet} under ${data.category || "other"} for today. Should I log it?`;
+    return `Just to confirm: ${amount} for ${label} from ${data.wallet} under ${data.category || "other"} on ${data.date || "today"}. Should I log it?`;
   }
   if (command.intent === AI_INTENTS.ADD_MONEY) {
     return `Just to confirm: add ${amount} to your ${data.wallet} wallet. Should I proceed?`;
@@ -347,13 +488,25 @@ export function generateConfirmation(command) {
     return `Just to confirm: transfer ${amount} from ${data.fromWallet} to ${data.toWallet}. Should I proceed?`;
   }
   if (command.intent === AI_INTENTS.CREATE_BUDGET) {
-    return `Just to confirm: create a ${amount} budget for ${titleCase(label)} for this month. Should I proceed?`;
+    return `Just to confirm: create a ${amount} budget for ${titleCase(label)} for ${data.period || "this month"}. Should I proceed?`;
   }
   if (command.intent === AI_INTENTS.CREATE_SAVINGS_GOAL) {
     const deadline = data.targetDate ? ` by ${data.targetDate}` : "";
     return `Just to confirm: create a ${titleCase(label)} savings goal with a target of ${amount}${deadline}. Should I proceed?`;
   }
   return "";
+}
+
+export function isCancelText(text) {
+  return /^(cancel|never mind|nevermind|stop|quit|close|forget it)$/i.test(normalizeText(text));
+}
+
+export function isYesText(text) {
+  return /^(yes|yep|yeah|sure|confirm|proceed|go ahead|okay|ok|do it)$/i.test(normalizeText(text));
+}
+
+export function isNoText(text) {
+  return /^(no|nope|not yet|wait|hold on)$/i.test(normalizeText(text));
 }
 
 export function formatPeso(value) {
@@ -370,4 +523,8 @@ export function titleCase(value) {
     .filter(Boolean)
     .map((word) => `${word.charAt(0).toUpperCase()}${word.slice(1)}`)
     .join(" ");
+}
+
+export function resolveReadScopeLabel(scope) {
+  return getDateScopeMeta(scope).label;
 }

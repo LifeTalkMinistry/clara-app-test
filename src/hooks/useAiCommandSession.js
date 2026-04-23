@@ -66,7 +66,7 @@ export default function useAiCommandSession({ user, mode = "speak" } = {}) {
           currentQuestion: turn.command?.userPrompt || "",
           awaitingConfirmation: turn.awaitingConfirmation,
           correctionState:
-            session.currentCommand?.status === "awaiting_confirmation" && turn.command?.status === "awaiting_confirmation"
+            current.currentCommand?.status === "awaiting_confirmation" && turn.command?.status === "awaiting_confirmation"
               ? "corrected"
               : null,
           executionResult: turn.executionResult,
