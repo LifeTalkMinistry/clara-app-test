@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   Keyboard,
   Loader2,
@@ -21,7 +21,9 @@ import {
   getSpeechSynthesisVoices,
   pickSpeechVoice,
   speakClaraText,
+  speechOutputSupported,
   stopSpeechOutput,
+  warmupSpeechOutput,
 } from "@/lib/ai-command/voice-output";
 
 export default function AiCommandPanel({
@@ -36,9 +38,13 @@ export default function AiCommandPanel({
     getStoredClaraVoice(user?.id)
   );
   const [voiceName, setVoiceName] = useState("");
+  const [speechStatus, setSpeechStatus] = useState("idle");
   const inputRef = useRef(null);
   const historyRef = useRef(null);
   const lastSpokenRef = useRef("");
+  const lastAssistantIndexRef = useRef(-1);
+  const micResumeTimerRef = useRef(null);
+
   const sessionApi = useAiCommandSession({ user, mode });
   const { session, processing, reset, submitText, confirm, cancel } = sessionApi;
   const geminiStatus = getGeminiStatus();
@@ -51,6 +57,26 @@ export default function AiCommandPanel({
     },
   });
 
+  const clearMicResume = useCallback(() => {
+    if (micResumeTimerRef.current) {
+      clearTimeout(micResumeTimerRef.current);
+      micResumeTimerRef.current = null;
+    }
+  }, []);
+
+  const resumeMicForReply = useCallback(
+    (delay = 280) => {
+      if (!open || mode !== "speak" || processing) return;
+      clearMicResume();
+      micResumeTimerRef.current = setTimeout(() => {
+        if (!open || mode !== "speak" || processing) return;
+        if (voice.voiceState === "listening" || voice.voiceState === "requesting_permission") return;
+        voice.start();
+      }, delay);
+    },
+    [clearMicResume, mode, open, processing, voice]
+  );
+
   useEffect(() => {
     setVoicePreference(getStoredClaraVoice(user?.id));
   }, [user?.id]);
@@ -59,13 +85,16 @@ export default function AiCommandPanel({
     if (!open) return;
     reset(mode);
     setText("");
+    setSpeechStatus("idle");
     lastSpokenRef.current = "";
+    lastAssistantIndexRef.current = -1;
+    warmupSpeechOutput();
     if (mode === "speak") {
       setTimeout(() => voice.start(), 180);
     } else {
       setTimeout(() => inputRef.current?.focus?.(), 180);
     }
-  }, [open, mode, reset, voice]);
+  }, [mode, open, reset, voice]);
 
   useEffect(() => {
     if (open && mode === "chat") inputRef.current?.focus?.();
@@ -91,7 +120,7 @@ export default function AiCommandPanel({
     };
 
     syncVoices();
-    if (typeof window === "undefined" || !("speechSynthesis" in window)) return undefined;
+    if (!speechOutputSupported()) return undefined;
 
     window.speechSynthesis.onvoiceschanged = syncVoices;
     return () => {
@@ -102,7 +131,7 @@ export default function AiCommandPanel({
   }, [voicePreference]);
 
   useEffect(() => {
-    if (!open) return;
+    if (!open) return undefined;
     const handler = (event) => {
       const nextVoice = event?.detail?.settings?.ai?.voice;
       if (nextVoice) setVoicePreference(nextVoice);
@@ -113,18 +142,67 @@ export default function AiCommandPanel({
 
   useEffect(() => {
     if (!open) return;
-    const lastMessage = session.history[session.history.length - 1];
+    const lastIndex = session.history.length - 1;
+    const lastMessage = session.history[lastIndex];
     if (lastMessage?.role !== "assistant") return;
-    const content = String(lastMessage.content || "").trim();
-    if (!content || content === lastSpokenRef.current) return;
+    if (lastIndex === lastAssistantIndexRef.current) return;
 
-    lastSpokenRef.current = content;
-    try {
-      speakClaraText(content, { voicePreference });
-    } catch (error) {
-      console.warn("CLARA voice output unavailable:", error);
+    lastAssistantIndexRef.current = lastIndex;
+    const content = String(lastMessage.content || "").trim();
+    if (!content) return;
+
+    const shouldResumeMic = mode === "speak";
+    if (content !== lastSpokenRef.current) {
+      lastSpokenRef.current = content;
+      voice.stop();
+      clearMicResume();
+
+      const speechResult = speakClaraText(content, {
+        voicePreference,
+        onStart: () => setSpeechStatus("speaking"),
+        onEnd: () => {
+          setSpeechStatus("idle");
+          if (shouldResumeMic) resumeMicForReply(220);
+        },
+        onError: (error) => {
+          console.warn("CLARA voice output unavailable:", error);
+          setSpeechStatus("error");
+          if (shouldResumeMic) resumeMicForReply(140);
+        },
+      });
+
+      if (!speechResult && shouldResumeMic) {
+        resumeMicForReply(140);
+      }
+      return;
     }
-  }, [open, session.history, voicePreference]);
+
+    if (shouldResumeMic) resumeMicForReply(160);
+  }, [
+    clearMicResume,
+    mode,
+    open,
+    resumeMicForReply,
+    session.history,
+    voice,
+    voicePreference,
+  ]);
+
+  useEffect(() => {
+    if (processing || mode !== "speak") return;
+    if (session.currentCommand?.status === "collecting_missing_fields") {
+      resumeMicForReply(220);
+    }
+    if (session.awaitingConfirmation) {
+      resumeMicForReply(220);
+    }
+  }, [
+    mode,
+    processing,
+    resumeMicForReply,
+    session.awaitingConfirmation,
+    session.currentCommand?.status,
+  ]);
 
   const transcriptPreview = useMemo(
     () => String(voice.transcript || "").trim(),
@@ -134,6 +212,7 @@ export default function AiCommandPanel({
   if (!open) return null;
 
   const close = () => {
+    clearMicResume();
     voice.stop();
     stopSpeechOutput();
     onOpenChange(false);
@@ -150,16 +229,37 @@ export default function AiCommandPanel({
     setVoicePreference(setStoredClaraVoice(user?.id, nextVoice));
   };
 
+  const handleReplaySpeech = () => {
+    const lastAssistantMessage = [...session.history]
+      .reverse()
+      .find((message) => message.role === "assistant")?.content;
+    if (!lastAssistantMessage) return;
+
+    speakClaraText(lastAssistantMessage, {
+      voicePreference,
+      onStart: () => setSpeechStatus("speaking"),
+      onEnd: () => {
+        setSpeechStatus("idle");
+        if (mode === "speak") resumeMicForReply(220);
+      },
+      onError: () => setSpeechStatus("error"),
+    });
+  };
+
   const voiceStatus = (() => {
     if (voice.voiceState === "requesting_permission") return "Requesting microphone...";
     if (voice.voiceState === "listening") return "Listening...";
-    if (voice.voiceState === "processing") return "Processing your command...";
+    if (processing) return "Processing your command...";
+    if (speechStatus === "speaking") return "CLARA is speaking...";
     if (voice.voiceState === "transcript_ready") return "Transcript captured.";
     if (voice.voiceState === "error" || voice.voiceState === "fallback_text") {
       return voice.transcriptError || "Microphone unavailable. You can type instead.";
     }
+    if (speechStatus === "error") {
+      return "Voice reply is unavailable on this device right now, but CLARA can still listen and type.";
+    }
     return mode === "speak"
-      ? "Speak naturally. I will ask only for what is missing."
+      ? "Speak naturally. I will keep listening after follow-up questions."
       : "Text fallback is ready.";
   })();
 
@@ -203,7 +303,7 @@ export default function AiCommandPanel({
               <p className="mt-2 text-[11px]" style={{ color: themePalette.mutedText }}>
                 {geminiStatus.configured
                   ? `Gemini: ${geminiStatus.model}`
-                  : "Gemini key not configured. Using safe local understanding."}
+                  : "Gemini key not configured. Using local financial reasoning with live app data."}
               </p>
             </div>
             <button
@@ -222,30 +322,44 @@ export default function AiCommandPanel({
                 <Volume2 className="h-4 w-4" />
                 CLARA Voice
               </div>
-              <div className="flex rounded-full border border-white/10 bg-white/[0.04] p-1">
-                {CLARA_VOICE_OPTIONS.map((option) => {
-                  const active = voicePreference === option.value;
-                  return (
-                    <button
-                      key={option.value}
-                      type="button"
-                      onClick={() => handleVoicePreferenceChange(option.value)}
-                      className="rounded-full px-3 py-1.5 text-xs font-semibold transition"
-                      style={{
-                        color: active ? "#fff" : "rgba(255,255,255,0.66)",
-                        background: active
-                          ? `linear-gradient(135deg, ${themePalette.accent} 0%, ${themePalette.accentEnd} 100%)`
-                          : "transparent",
-                      }}
-                    >
-                      {option.label}
-                    </button>
-                  );
-                })}
+              <div className="flex items-center gap-2">
+                <div className="flex rounded-full border border-white/10 bg-white/[0.04] p-1">
+                  {CLARA_VOICE_OPTIONS.map((option) => {
+                    const active = voicePreference === option.value;
+                    return (
+                      <button
+                        key={option.value}
+                        type="button"
+                        onClick={() => handleVoicePreferenceChange(option.value)}
+                        className="rounded-full px-3 py-1.5 text-xs font-semibold transition"
+                        style={{
+                          color: active ? "#fff" : "rgba(255,255,255,0.66)",
+                          background: active
+                            ? `linear-gradient(135deg, ${themePalette.accent} 0%, ${themePalette.accentEnd} 100%)`
+                            : "transparent",
+                        }}
+                      >
+                        {option.label}
+                      </button>
+                    );
+                  })}
+                </div>
+                <button
+                  type="button"
+                  onClick={handleReplaySpeech}
+                  className="rounded-full border border-white/10 bg-white/[0.05] p-2 text-white/75"
+                  aria-label="Replay CLARA voice"
+                >
+                  <RefreshCw className="h-4 w-4" />
+                </button>
               </div>
             </div>
             <p className="mt-2 text-[11px] text-white/50">
-              {voiceName ? `Using ${voiceName}` : "Voice will use your selected male or female preference."}
+              {voiceName
+                ? `Using ${voiceName}`
+                : speechOutputSupported()
+                  ? "Speech is available and will try your preferred male or female voice."
+                  : "Speech output is unavailable on this device, but CLARA will keep listening."}
             </p>
           </div>
 
@@ -271,7 +385,10 @@ export default function AiCommandPanel({
               </div>
               <button
                 type="button"
-                onClick={voice.start}
+                onClick={() => {
+                  clearMicResume();
+                  voice.start();
+                }}
                 className="rounded-full border border-white/10 bg-white/[0.05] p-2 text-white/75"
                 aria-label="Retry voice"
               >

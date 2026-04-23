@@ -42,6 +42,17 @@ function cancelledTurn() {
   };
 }
 
+function buildConversationalFallback(input) {
+  const text = String(input || "").trim().toLowerCase();
+  if (/^(hi|hello|hey|good morning|good evening)/.test(text)) {
+    return "Hi. I’m here with you. Ask me about your spending, wallets, budgets, savings goals, or any money decision you want to think through.";
+  }
+  if (/can i ask|may i ask|can you help me/.test(text)) {
+    return "Yes, absolutely. Ask me the full question and I’ll help you reason through it using your real financial data when it applies.";
+  }
+  return "I’m here with you. Tell me the full money question or action you want help with, and I’ll reason it through step by step.";
+}
+
 export async function processAssistantTurn({ text, session, user }) {
   const input = String(text || "").trim();
   if (!input) {
@@ -128,8 +139,8 @@ export async function processAssistantTurn({ text, session, user }) {
     command.status === "awaiting_confirmation"
       ? command.confirmationText
       : command.userPrompt ||
-        (command.intent === AI_INTENTS.UNKNOWN
-          ? "I am not fully sure yet. Tell me if this is about money, planning, a decision, or a goal."
+        ([AI_INTENTS.UNKNOWN, AI_INTENTS.GENERAL_GUIDANCE].includes(command.intent)
+          ? buildConversationalFallback(input)
           : "Got it. What should we do next?");
 
   return {
