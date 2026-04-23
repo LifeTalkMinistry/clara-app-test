@@ -85,7 +85,8 @@ export default function useAiCommandSession({ user, mode = "speak" } = {}) {
             ...current.history,
             {
               role: "assistant",
-              content: "I hit a connection issue, but the session is still here. Try again or type the command.",
+              content:
+                "I’m still here with you. Ask that again in a simpler way, or continue the thought and I’ll keep working with what I have.",
             },
           ],
         }));
