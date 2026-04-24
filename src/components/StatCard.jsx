@@ -1,3 +1,10 @@
+import { useNavigate } from "react-router-dom";
+
+const MONEY_TRANSACTION_LABELS = new Set([
+  "money left",
+  "total money",
+]);
+
 export default function StatCard({
   label = "",
   value = "-",
@@ -6,7 +13,26 @@ export default function StatCard({
   variant = "default",
   className = "",
   highlight = false,
+  to = "",
+  onClick = null,
 }) {
+  const navigate = useNavigate();
+  const normalizedLabel = String(label || "").trim().toLowerCase();
+  const autoTransactionTarget = MONEY_TRANSACTION_LABELS.has(normalizedLabel) ? "/expenses" : "";
+  const targetPath = to || autoTransactionTarget;
+  const isClickable = Boolean(targetPath || onClick);
+
+  const handleClick = () => {
+    if (typeof onClick === "function") {
+      onClick();
+      return;
+    }
+
+    if (targetPath) {
+      navigate(targetPath);
+    }
+  };
+
   const variants = {
     default: {
       wrapper:
@@ -51,15 +77,16 @@ export default function StatCard({
   };
 
   const v = variants[variant] || variants.default;
+  const cardClassName = `flex h-full flex-col rounded-2xl p-4 text-left transition-all duration-300 active:scale-[0.97] hover:scale-[1.01] ${
+    isClickable ? "cursor-pointer focus:outline-none focus:ring-2 focus:ring-emerald-400/40" : ""
+  } ${
+    highlight
+      ? "ring-1 ring-emerald-400/30 shadow-[0_0_25px_rgba(16,185,129,0.15)]"
+      : ""
+  } ${v.wrapper} ${className}`;
 
-  return (
-    <div
-      className={`flex h-full flex-col rounded-2xl p-4 transition-all duration-300 active:scale-[0.97] hover:scale-[1.01] ${
-        highlight
-          ? "ring-1 ring-emerald-400/30 shadow-[0_0_25px_rgba(16,185,129,0.15)]"
-          : ""
-      } ${v.wrapper} ${className}`}
-    >
+  const content = (
+    <>
       <div className="mb-3 flex items-center justify-between gap-3">
         <span
           className={`text-[11px] font-semibold uppercase tracking-wide ${v.label}`}
@@ -91,6 +118,21 @@ export default function StatCard({
           <div className="h-full w-[60%] rounded-full bg-white/20" />
         </div>
       </div>
-    </div>
+    </>
   );
+
+  if (isClickable) {
+    return (
+      <button
+        type="button"
+        onClick={handleClick}
+        className={cardClassName}
+        aria-label={`Open transactions for ${label}`}
+      >
+        {content}
+      </button>
+    );
+  }
+
+  return <div className={cardClassName}>{content}</div>;
 }
