@@ -79,7 +79,7 @@ function getManualChunk(id) {
 
 export default defineConfig({
   plugins: [react()],
-  base: "/clara-app-test/", // ✅ FIXED for GitHub Pages
+  base: "/", // ✅ FIXED for root GitHub Pages domain
   build: {
     outDir: "dist",
     emptyOutDir: true,
