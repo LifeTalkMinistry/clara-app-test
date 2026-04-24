@@ -16,6 +16,7 @@ import { buildCreatedAtFromPHDate, getPHMonthKey, monthKeyToPHRange } from "@/li
 const EXPENSES_TABLE = "expenses";
 const WALLETS_TABLE = "wallets";
 const TXN_TABLE = "wallet_transactions";
+const TRANSFERS_TABLE = "transfers";
 
 function generateId(prefix = "ai") {
   if (typeof crypto !== "undefined" && crypto.randomUUID) return crypto.randomUUID();
@@ -33,9 +34,28 @@ function normalize(value) {
   return String(value ?? "").trim().toLowerCase();
 }
 
+function getWalletName(wallet) {
+  return wallet?.name || wallet?.wallet_name || "Wallet";
+}
+
+function getWalletBalance(wallet) {
+  return toNumber(wallet?.balance ?? wallet?.current_balance ?? wallet?.wallet_balance ?? 0);
+}
+
+function isDefaultWallet(wallet) {
+  return Boolean(
+    wallet?.is_default ||
+      wallet?.default ||
+      wallet?.is_primary ||
+      wallet?.primary ||
+      wallet?.type === "default"
+  );
+}
+
 function userFilter(row, user) {
   const userId = String(user?.id || "");
   const email = normalize(user?.email);
+
   return (
     (userId && [row?.user_id, row?.owner_id, row?.profile_id].map(String).includes(userId)) ||
     (email &&
@@ -51,69 +71,105 @@ async function fetchUserRows(table, user) {
   return (data || []).filter((row) => userFilter(row, user));
 }
 
-async function resolveWallet(walletName, user) {
+function normalizeWallet(wallet) {
+  if (!wallet) return null;
+
+  return {
+    ...wallet,
+    id: String(wallet.id),
+    name: getWalletName(wallet),
+    balance: getWalletBalance(wallet),
+  };
+}
+
+function pickFallbackWallet(wallets = []) {
+  if (!wallets.length) return null;
+
+  return (
+    wallets.find(isDefaultWallet) ||
+    wallets.find((wallet) => normalize(getWalletName(wallet)) === "gcash") ||
+    wallets.find((wallet) => normalize(getWalletName(wallet)) === "cash") ||
+    wallets[0] ||
+    null
+  );
+}
+
+async function resolveWallet(walletName, user, options = {}) {
   const wallets = await fetchUserRows(WALLETS_TABLE, user);
   const requested = normalize(walletName);
-  const wallet =
-    wallets.find((item) => normalize(item.name || item.wallet_name) === requested) ||
-    wallets.find((item) => normalize(item.name || item.wallet_name).includes(requested)) ||
-    null;
 
-  if (!wallet) return { wallet: null, wallets };
+  let wallet = null;
+
+  if (requested) {
+    wallet =
+      wallets.find((item) => normalize(getWalletName(item)) === requested) ||
+      wallets.find((item) => normalize(getWalletName(item)).includes(requested)) ||
+      null;
+  }
+
+  if (!wallet && options.allowFallback) {
+    wallet = pickFallbackWallet(wallets);
+  }
+
   return {
-    wallet: {
-      ...wallet,
-      id: String(wallet.id),
-      name: wallet.name || wallet.wallet_name || "Wallet",
-      balance: toNumber(wallet.balance ?? wallet.current_balance ?? wallet.wallet_balance ?? 0),
-    },
-    wallets,
+    wallet: normalizeWallet(wallet),
+    wallets: wallets.map(normalizeWallet).filter(Boolean),
+    usedFallback: !requested && Boolean(wallet),
   };
 }
 
 async function updateWalletBalance(walletId, nextBalance) {
+  const now = new Date().toISOString();
+
   const { error } = await supabase
     .from(WALLETS_TABLE)
-    .update({ balance: toNumber(nextBalance), updated_at: new Date().toISOString() })
+    .update({
+      balance: toNumber(nextBalance),
+      updated_at: now,
+    })
     .eq("id", walletId);
+
   if (error) throw error;
 }
 
 async function insertWalletTransaction(payload, user) {
   const now = payload.created_at || new Date().toISOString();
-  const { error } = await supabase.from(TXN_TABLE).insert([
-    {
-      id: payload.id || generateId("txn"),
-      wallet_id: payload.wallet_id ? String(payload.wallet_id) : null,
-      amount: toNumber(payload.amount),
-      type: payload.type,
-      category: payload.category || null,
-      need_type: payload.need_type || null,
-      planning_status: payload.planning_status || null,
-      unplanned_reason: payload.unplanned_reason || null,
-      expense_id: payload.expense_id || null,
-      transfer_group_id: payload.transfer_group_id || null,
-      related_wallet_id: payload.related_wallet_id || null,
-      source_type: payload.source_type || null,
-      tag: payload.tag || null,
-      notes: payload.notes || "",
-      details: payload.details || null,
-      created_at: now,
-      updated_at: now,
-      created_by: user?.email || null,
-      user_email: user?.email || null,
-      user_id: user?.id || null,
-    },
-  ]);
+
+  const record = {
+    id: payload.id || generateId("txn"),
+    wallet_id: payload.wallet_id ? String(payload.wallet_id) : null,
+    amount: toNumber(payload.amount),
+    type: payload.type,
+    category: payload.category || null,
+    need_type: payload.need_type || null,
+    planning_status: payload.planning_status || null,
+    unplanned_reason: payload.unplanned_reason || null,
+    expense_id: payload.expense_id || null,
+    transfer_group_id: payload.transfer_group_id || null,
+    related_wallet_id: payload.related_wallet_id || null,
+    source_type: payload.source_type || null,
+    tag: payload.tag || null,
+    notes: payload.notes || "",
+    details: payload.details || null,
+    created_at: now,
+    updated_at: now,
+    created_by: user?.email || null,
+    user_email: user?.email || null,
+    user_id: user?.id || null,
+  };
+
+  const { error, data } = await supabase.from(TXN_TABLE).insert([record]).select("*").single();
   if (error) throw error;
+
+  return data || record;
 }
 
 export async function resolveAuthenticatedUser(user) {
-  if (user?.id || user?.email) {
-    return user;
-  }
+  if (user?.id || user?.email) return user;
 
-  const { data } = await supabase.auth.getUser();
+  const { data, error } = await supabase.auth.getUser();
+  if (error) throw error;
+
   return data?.user || null;
 }
 
@@ -127,38 +183,60 @@ function ensureUser(user) {
 
 function ensurePositiveAmount(value) {
   const amount = toNumber(value);
+
   if (amount <= 0) {
     throw Object.assign(new Error("I need a valid amount before I can do that."), {
       code: "INVALID_AMOUNT",
     });
   }
+
   return amount;
 }
 
 function invalidResult(command, errorCode, message) {
   return {
     success: false,
-    intent: command.intent,
+    intent: command?.intent || AI_INTENTS.UNKNOWN,
     errorCode,
     message,
   };
 }
 
+function getNeedType(category) {
+  return ["food", "transport", "utilities", "housing", "health", "education"].includes(category)
+    ? "need"
+    : "want";
+}
+
+function buildWalletMissingMessage(action, walletName, wallets = []) {
+  if (!wallets.length) {
+    return "I could not find any wallet yet. Please create a wallet first before I make money changes.";
+  }
+
+  const walletList = wallets.map((wallet) => wallet.name).filter(Boolean).slice(0, 5).join(", ");
+  const requested = walletName ? ` named ${walletName}` : "";
+
+  return `I could not find a wallet${requested} for ${action}. Available wallets: ${walletList}.`;
+}
+
 async function executeLogExpense(command, context) {
   const user = context.user;
   ensureUser(user);
+
   const data = command.parsedData || {};
   const amount = ensurePositiveAmount(data.amount);
   const label = String(data.item || data.label || "").trim();
-  if (!label) return invalidResult(command, "MISSING_LABEL", "What should I call this expense?");
 
-  const { wallet } = await resolveWallet(data.wallet, user);
+  if (!label) {
+    return invalidResult(command, "MISSING_LABEL", "What should I call this expense?");
+  }
+
+  const { wallet, wallets, usedFallback } = await resolveWallet(data.wallet, user, {
+    allowFallback: true,
+  });
+
   if (!wallet) {
-    return invalidResult(
-      command,
-      "WALLET_NOT_FOUND",
-      `I could not find a wallet named ${data.wallet}. Try the exact wallet name.`
-    );
+    return invalidResult(command, "WALLET_NOT_FOUND", buildWalletMissingMessage("this expense", data.wallet, wallets));
   }
 
   if (amount > wallet.balance) {
@@ -172,6 +250,8 @@ async function executeLogExpense(command, context) {
   const createdAt = buildCreatedAtFromPHDate(data.date);
   const expenseId = generateId("expense");
   const category = data.category || "other";
+  const needType = data.need_type || getNeedType(category);
+
   const payload = {
     id: expenseId,
     amount,
@@ -179,9 +259,10 @@ async function executeLogExpense(command, context) {
     wallet_id: wallet.id,
     date: data.date,
     notes: label,
-    need_type: ["food", "transport", "utilities", "housing", "health", "education"].includes(category) ? "need" : "want",
+    need_type: needType,
     planning_status: data.planning_status || "planned",
-    unplanned_reason: data.planning_status === "unplanned" ? data.unplanned_reason || "Logged through CLARA" : null,
+    unplanned_reason:
+      data.planning_status === "unplanned" ? data.unplanned_reason || "Logged through CLARA" : null,
     created_by: user.email || null,
     user_email: user.email || null,
     user_id: user.id || null,
@@ -189,56 +270,87 @@ async function executeLogExpense(command, context) {
     updated_at: createdAt,
   };
 
-  const { error } = await supabase.from(EXPENSES_TABLE).insert([payload]);
+  const nextBalance = wallet.balance - amount;
+
+  const { error, data: insertedExpense } = await supabase
+    .from(EXPENSES_TABLE)
+    .insert([payload])
+    .select("*")
+    .single();
+
   if (error) throw error;
 
-  await insertWalletTransaction(
+  const insertedTransaction = await insertWalletTransaction(
     {
       wallet_id: wallet.id,
       amount,
       type: "expense",
       category,
-      need_type: payload.need_type,
+      need_type: needType,
       planning_status: payload.planning_status,
       unplanned_reason: payload.unplanned_reason,
       expense_id: expenseId,
+      source_type: "AI command",
       notes: label,
+      details: {
+        label,
+        previous_balance: wallet.balance,
+        next_balance: nextBalance,
+        wallet_used_by_fallback: usedFallback,
+      },
       created_at: createdAt,
     },
     user
   );
 
-  const nextBalance = wallet.balance - amount;
   await updateWalletBalance(wallet.id, nextBalance);
 
   return {
     success: true,
     intent: command.intent,
-    message: `Logged ${formatPeso(amount)} for ${label} from ${wallet.name}. Balance moved from ${formatPeso(wallet.balance)} to ${formatPeso(nextBalance)}.`,
-    createdRecord: payload,
+    message: `Logged ${formatPeso(amount)} for ${label} from ${wallet.name}. Balance moved from ${formatPeso(
+      wallet.balance
+    )} to ${formatPeso(nextBalance)}.${usedFallback ? " I used your default wallet because no wallet was specified." : ""}`,
+    createdRecord: insertedExpense || payload,
+    transactionRecord: insertedTransaction,
   };
 }
 
 async function executeAddMoney(command, context) {
   const user = context.user;
   ensureUser(user);
+
   const data = command.parsedData || {};
   const amount = ensurePositiveAmount(data.amount);
-  const { wallet } = await resolveWallet(data.wallet, user);
+
+  const { wallet, wallets, usedFallback } = await resolveWallet(data.wallet, user, {
+    allowFallback: true,
+  });
+
   if (!wallet) {
-    return invalidResult(command, "WALLET_NOT_FOUND", `I could not find a wallet named ${data.wallet}.`);
+    return invalidResult(command, "WALLET_NOT_FOUND", buildWalletMissingMessage("adding money", data.wallet, wallets));
   }
 
   const nextBalance = wallet.balance + amount;
+  const now = new Date().toISOString();
+  const note = data.notes || data.label || data.item || "Added through CLARA";
+
   await updateWalletBalance(wallet.id, nextBalance);
-  await insertWalletTransaction(
+
+  const insertedTransaction = await insertWalletTransaction(
     {
       wallet_id: wallet.id,
       amount,
       type: "income",
       source_type: "AI command",
-      notes: data.notes || "Added through CLARA",
-      created_at: new Date().toISOString(),
+      notes: note,
+      details: {
+        label: note,
+        previous_balance: wallet.balance,
+        next_balance: nextBalance,
+        wallet_used_by_fallback: usedFallback,
+      },
+      created_at: now,
     },
     user
   );
@@ -246,23 +358,29 @@ async function executeAddMoney(command, context) {
   return {
     success: true,
     intent: command.intent,
-    message: `Added ${formatPeso(amount)} to ${wallet.name}. Balance moved from ${formatPeso(wallet.balance)} to ${formatPeso(nextBalance)}.`,
+    message: `Added ${formatPeso(amount)} to ${wallet.name}. Balance moved from ${formatPeso(
+      wallet.balance
+    )} to ${formatPeso(nextBalance)}.${usedFallback ? " I used your default wallet because no wallet was specified." : ""}`,
+    transactionRecord: insertedTransaction,
   };
 }
 
 async function executeTransferMoney(command, context) {
   const user = context.user;
   ensureUser(user);
+
   const data = command.parsedData || {};
   const amount = ensurePositiveAmount(data.amount);
-  const { wallet: fromWallet } = await resolveWallet(data.fromWallet, user);
-  const { wallet: toWallet } = await resolveWallet(data.toWallet, user);
+
+  const { wallet: fromWallet, wallets: fromWallets } = await resolveWallet(data.fromWallet, user);
+  const { wallet: toWallet, wallets: toWallets } = await resolveWallet(data.toWallet, user);
 
   if (!fromWallet || !toWallet) {
+    const availableWallets = fromWallets?.length ? fromWallets : toWallets;
     return invalidResult(
       command,
       "WALLET_NOT_FOUND",
-      "I could not find one of those wallets. Try the exact wallet names."
+      buildWalletMissingMessage("this transfer", !fromWallet ? data.fromWallet : data.toWallet, availableWallets)
     );
   }
 
@@ -285,32 +403,48 @@ async function executeTransferMoney(command, context) {
 
   await updateWalletBalance(fromWallet.id, fromNextBalance);
   await updateWalletBalance(toWallet.id, toNextBalance);
-  await insertWalletTransaction(
+
+  const transferOut = await insertWalletTransaction(
     {
       wallet_id: fromWallet.id,
       amount,
       type: "transfer_out",
       transfer_group_id: transferGroupId,
       related_wallet_id: toWallet.id,
-      notes: `Transfer to ${toWallet.name}`,
+      source_type: "AI command",
+      notes: data.notes || `Transfer to ${toWallet.name}`,
+      details: {
+        from_wallet_name: fromWallet.name,
+        to_wallet_name: toWallet.name,
+        previous_balance: fromWallet.balance,
+        next_balance: fromNextBalance,
+      },
       created_at: now,
     },
     user
   );
-  await insertWalletTransaction(
+
+  const transferIn = await insertWalletTransaction(
     {
       wallet_id: toWallet.id,
       amount,
       type: "transfer_in",
       transfer_group_id: transferGroupId,
       related_wallet_id: fromWallet.id,
-      notes: `Transfer from ${fromWallet.name}`,
+      source_type: "AI command",
+      notes: data.notes || `Transfer from ${fromWallet.name}`,
+      details: {
+        from_wallet_name: fromWallet.name,
+        to_wallet_name: toWallet.name,
+        previous_balance: toWallet.balance,
+        next_balance: toNextBalance,
+      },
       created_at: now,
     },
     user
   );
 
-  const { error } = await supabase.from("transfers").insert([
+  const { error: transferError } = await supabase.from(TRANSFERS_TABLE).insert([
     {
       id: transferGroupId,
       from_wallet_id: fromWallet.id,
@@ -324,22 +458,31 @@ async function executeTransferMoney(command, context) {
       updated_at: now,
     },
   ]);
-  if (error) console.warn("AI transfer summary insert failed:", error);
+
+  if (transferError) {
+    console.warn("AI transfer summary insert failed:", transferError);
+  }
 
   return {
     success: true,
     intent: command.intent,
     message: `Transferred ${formatPeso(amount)} from ${fromWallet.name} to ${toWallet.name}. ${fromWallet.name} is now ${formatPeso(fromNextBalance)} and ${toWallet.name} is now ${formatPeso(toNextBalance)}.`,
+    transferGroupId,
+    transactions: [transferOut, transferIn],
   };
 }
 
 async function executeCreateBudget(command, context) {
   const user = context.user;
   ensureUser(user);
+
   const data = command.parsedData || {};
   const amount = ensurePositiveAmount(data.amount);
   const label = String(data.label || "").trim();
-  if (!label) return invalidResult(command, "MISSING_LABEL", "What should I call this budget?");
+
+  if (!label) {
+    return invalidResult(command, "MISSING_LABEL", "What should I call this budget?");
+  }
 
   const month = data.period || getPHMonthKey();
   const range = monthKeyToPHRange(month);
@@ -347,6 +490,7 @@ async function executeCreateBudget(command, context) {
   const now = new Date().toISOString();
   const isNeed = ["housing", "food", "transport", "utilities", "health", "education"].includes(category);
   const isWant = ["entertainment", "shopping", "personal"].includes(category);
+
   const payload = {
     month,
     category,
@@ -373,11 +517,7 @@ async function executeCreateBudget(command, context) {
     user_id: user.id || null,
   };
 
-  const { error, data: inserted } = await supabase
-    .from("budgets")
-    .insert([payload])
-    .select("*")
-    .single();
+  const { error, data: inserted } = await supabase.from("budgets").insert([payload]).select("*").single();
   if (error) throw error;
 
   return {
@@ -391,12 +531,17 @@ async function executeCreateBudget(command, context) {
 async function executeCreateSavingsGoal(command, context) {
   const user = context.user;
   ensureUser(user);
+
   const data = command.parsedData || {};
   const amount = ensurePositiveAmount(data.targetAmount);
   const label = String(data.label || "").trim();
-  if (!label) return invalidResult(command, "MISSING_LABEL", "What should I call this savings goal?");
+
+  if (!label) {
+    return invalidResult(command, "MISSING_LABEL", "What should I call this savings goal?");
+  }
 
   const now = new Date().toISOString();
+
   const payload = {
     id: generateId("goal"),
     title: titleCase(label),
@@ -418,12 +563,9 @@ async function executeCreateSavingsGoal(command, context) {
     updated_date: now,
   };
 
-  const { error, data: inserted } = await supabase
-    .from("savings_goals")
-    .insert([payload])
-    .select("*")
-    .single();
+  const { error, data: inserted } = await supabase.from("savings_goals").insert([payload]).select("*").single();
   if (error) throw error;
+
   return {
     success: true,
     intent: command.intent,
@@ -434,8 +576,10 @@ async function executeCreateSavingsGoal(command, context) {
 
 async function executeCheckBalance(command, context) {
   ensureUser(context.user);
+
   const snapshot = context.financeSnapshot || (await loadFinanceSnapshot(context.user));
   const summary = snapshot.summary || computeFinanceSummary(snapshot);
+
   const wallets = (snapshot.wallets || [])
     .map((wallet) => `${wallet.name}: ${formatPeso(wallet.balance)}`)
     .slice(0, 6)
@@ -450,19 +594,25 @@ async function executeCheckBalance(command, context) {
 
 async function executeReadSpending(command, context) {
   ensureUser(context.user);
+
   const snapshot = context.financeSnapshot || (await loadFinanceSnapshot(context.user));
   const scoped = summarizeSpendForScope(snapshot, command.parsedData?.scope || "today");
+
   return {
     success: true,
     intent: command.intent,
-    message: `You spent ${formatPeso(scoped.amount)} ${scoped.label} across ${scoped.expenseCount} expense${scoped.expenseCount === 1 ? "" : "s"}.`,
+    message: `You spent ${formatPeso(scoped.amount)} ${scoped.label} across ${scoped.expenseCount} expense${
+      scoped.expenseCount === 1 ? "" : "s"
+    }.`,
   };
 }
 
 async function executeReadWalletHistory(command, context) {
   ensureUser(context.user);
+
   const snapshot = context.financeSnapshot || (await loadFinanceSnapshot(context.user));
   const walletName = command.parsedData?.wallet;
+
   const wallet =
     (snapshot.wallets || []).find((item) => normalize(item.name) === normalize(walletName)) ||
     (snapshot.wallets || []).find((item) => normalize(item.name).includes(normalize(walletName)));
@@ -470,8 +620,9 @@ async function executeReadWalletHistory(command, context) {
   if (!walletName || !wallet) {
     const recent = (snapshot.walletTransactions || [])
       .slice(0, 3)
-      .map((txn) => `${txn.type} ${formatPeso(txn.amount)}`)
+      .map((txn) => `${String(txn.type || "").replace(/_/g, " ")} ${formatPeso(txn.amount)}`)
       .join(", ");
+
     return {
       success: true,
       intent: command.intent,
@@ -484,7 +635,7 @@ async function executeReadWalletHistory(command, context) {
   const recent = (snapshot.walletTransactions || [])
     .filter((txn) => String(txn.wallet_id) === String(wallet.id))
     .slice(0, 4)
-    .map((txn) => `${txn.type.replace(/_/g, " ")} ${formatPeso(txn.amount)}`)
+    .map((txn) => `${String(txn.type || "").replace(/_/g, " ")} ${formatPeso(txn.amount)}`)
     .join(", ");
 
   return {
@@ -498,6 +649,7 @@ async function executeReadWalletHistory(command, context) {
 
 async function executeReadBudgetStatus(command, context) {
   ensureUser(context.user);
+
   const snapshot = context.financeSnapshot || (await loadFinanceSnapshot(context.user));
   const month = command.parsedData?.period || getPHMonthKey();
   const category = command.parsedData?.category;
@@ -512,8 +664,7 @@ async function executeReadBudgetStatus(command, context) {
   }
 
   const matchedBudget =
-    budgets.find((budget) => normalize(budget.category) === normalize(category)) ||
-    budgets[0];
+    budgets.find((budget) => normalize(budget.category) === normalize(category)) || budgets[0];
 
   const spent = (snapshot.expenses || [])
     .filter(
@@ -522,6 +673,7 @@ async function executeReadBudgetStatus(command, context) {
         normalize(expense.category) === normalize(matchedBudget.category)
     )
     .reduce((sum, expense) => sum + toNumber(expense.amount), 0);
+
   const remaining = Math.max(toNumber(matchedBudget.allocated_amount) - spent, 0);
 
   return {
@@ -535,6 +687,7 @@ async function executeReadBudgetStatus(command, context) {
 
 async function executeReadSavingsStatus(command, context) {
   ensureUser(context.user);
+
   const snapshot = context.financeSnapshot || (await loadFinanceSnapshot(context.user));
   const goals = snapshot.savingsGoals || [];
 
@@ -547,6 +700,7 @@ async function executeReadSavingsStatus(command, context) {
   }
 
   const requested = normalize(command.parsedData?.label);
+
   const goal =
     goals.find((item) => normalize(item.title) === requested) ||
     goals.find((item) => normalize(item.title).includes(requested)) ||
@@ -555,72 +709,92 @@ async function executeReadSavingsStatus(command, context) {
   return {
     success: true,
     intent: command.intent,
-    message: `${goal.title}: saved ${formatPeso(goal.saved_amount)} out of ${formatPeso(
-      goal.target_amount
-    )}${goal.planned_use_date ? `, target date ${goal.planned_use_date}` : ""}.`,
+    message: `${goal.title}: saved ${formatPeso(goal.saved_amount)} out of ${formatPeso(goal.target_amount)}${
+      goal.planned_use_date ? `, target date ${goal.planned_use_date}` : ""
+    }.`,
   };
 }
 
 async function executeAnalyzeSpending(command, context) {
   ensureUser(context.user);
+
   const snapshot = context.financeSnapshot || (await loadFinanceSnapshot(context.user));
   const summary = snapshot.summary || computeFinanceSummary(snapshot);
+
   const top =
     summary.topCategory?.name && summary.topCategory.name !== "none"
       ? `${summary.topCategory.name} at ${formatPeso(summary.topCategory.amount)}`
       : "no clear category yet";
+
   return {
     success: true,
     intent: command.intent,
-    message: `This month you have spent ${formatPeso(summary.spentThisMonth)} across ${summary.expenseCountThisMonth} expenses. Your biggest area is ${top}. Today is at ${formatPeso(summary.spentToday)}.`,
+    message: `This month you have spent ${formatPeso(summary.spentThisMonth)} across ${
+      summary.expenseCountThisMonth
+    } expenses. Your biggest area is ${top}. Today is at ${formatPeso(summary.spentToday)}.`,
   };
 }
 
 async function executeSavingsSuggestion(command, context) {
   ensureUser(context.user);
+
   const snapshot = context.financeSnapshot || (await loadFinanceSnapshot(context.user));
   const summary = snapshot.summary || computeFinanceSummary(snapshot);
   const suggested = Math.max(50, Math.round(Math.max(summary.totalBalance, 0) * 0.15));
+
   return {
     success: true,
     intent: command.intent,
     message:
       summary.totalBalance > 0
-        ? `A gentle next savings move is ${formatPeso(suggested)}. Your available wallet balance is ${formatPeso(summary.totalBalance)} right now.`
+        ? `A gentle next savings move is ${formatPeso(suggested)}. Your available wallet balance is ${formatPeso(
+            summary.totalBalance
+          )} right now.`
         : "Your balance is tight right now. Protect essentials first and save only a symbolic amount until more money comes in.",
   };
 }
 
 async function executeSpendingPlan(command, context) {
   ensureUser(context.user);
+
   const snapshot = context.financeSnapshot || (await loadFinanceSnapshot(context.user));
   const summary = snapshot.summary || computeFinanceSummary(snapshot);
   const dayAllowance = Math.max(0, Math.floor(summary.totalBalance / 7));
+
   return {
     success: true,
     intent: command.intent,
-    message: `For today, keep flexible spending around ${formatPeso(dayAllowance || 100)} and stay anchored to essentials first. You have spent ${formatPeso(summary.spentToday)} today so far.`,
+    message: `For today, keep flexible spending around ${formatPeso(
+      dayAllowance || 100
+    )} and stay anchored to essentials first. You have spent ${formatPeso(summary.spentToday)} today so far.`,
   };
 }
 
 async function executeEmergencyFundPlan(command, context) {
   ensureUser(context.user);
+
   const snapshot = context.financeSnapshot || (await loadFinanceSnapshot(context.user));
   const essentialCategories = new Set(["food", "transport", "housing", "utilities", "health", "education"]);
+
   const essentialMonthly = (snapshot.expenses || [])
     .filter((expense) => essentialCategories.has(normalize(expense.category)))
     .reduce((sum, expense) => sum + toNumber(expense.amount), 0);
+
   const summary = snapshot.summary || computeFinanceSummary(snapshot);
   const months = essentialMonthly > 0 ? summary.savingsSaved / essentialMonthly : 0;
+
   return {
     success: true,
     intent: command.intent,
-    message: `Your tracked essential spending baseline is about ${formatPeso(essentialMonthly)}. Based on saved goals in CLARA, you have roughly ${months.toFixed(1)} months of coverage.`,
+    message: `Your tracked essential spending baseline is about ${formatPeso(
+      essentialMonthly
+    )}. Based on saved goals in CLARA, you have roughly ${months.toFixed(1)} months of coverage.`,
   };
 }
 
 async function executeLifeGuidance(command, context) {
   ensureUser(context.user);
+
   const snapshot = context.financeSnapshot || (await loadFinanceSnapshot(context.user));
   const summary = snapshot.summary || computeFinanceSummary(snapshot);
   const data = command.parsedData || {};
@@ -632,37 +806,47 @@ async function executeLifeGuidance(command, context) {
     return {
       success: true,
       intent: command.intent,
-      message: `Yes, of course. Ask me anything about your spending, wallets, budgets, savings goals, or a money decision you are weighing. I can reason through it using your real CLARA numbers.`,
+      message:
+        "Yes, of course. Ask me anything about your spending, wallets, budgets, savings goals, or a money decision you are weighing. I can reason through it using your real CLARA numbers.",
     };
   }
 
   if (command.intent === AI_INTENTS.DECISION_GUIDANCE && amount > 0) {
     const pressure = summary.totalBalance > 0 ? amount / summary.totalBalance : 1;
+
     if (pressure > 0.35) {
       return {
         success: true,
         intent: command.intent,
-        message: `${formatPeso(amount)} is a heavy move against your current available balance. If it is not urgent, wait a day or choose a smaller version.`,
+        message: `${formatPeso(
+          amount
+        )} is a heavy move against your current available balance. If it is not urgent, wait a day or choose a smaller version.`,
       };
     }
+
     return {
       success: true,
       intent: command.intent,
-      message: "This looks manageable if it truly matches your priorities. Keep it planned and avoid stacking another unplanned spend after it.",
+      message:
+        "This looks manageable if it truly matches your priorities. Keep it planned and avoid stacking another unplanned spend after it.",
     };
   }
 
   if (/save more|saving more|how do i save|save money/.test(normalizedSubject)) {
-    const topCategory = summary.topCategory?.name && summary.topCategory.name !== "none"
-      ? `${summary.topCategory.name} at ${formatPeso(summary.topCategory.amount)}`
-      : "your variable spending";
+    const topCategory =
+      summary.topCategory?.name && summary.topCategory.name !== "none"
+        ? `${summary.topCategory.name} at ${formatPeso(summary.topCategory.amount)}`
+        : "your variable spending";
+
     return {
       success: true,
       intent: command.intent,
       message:
         summary.totalBalance > 0
-          ? `A strong next move is to protect a small automatic savings amount first, then tighten ${topCategory}. You currently have ${formatPeso(summary.totalBalance)} across wallets, so even setting aside 10% to 15% before flexible spending would make your month calmer.`
-          : `Start by protecting essentials, cutting one repeat expense, and setting a very small non-zero savings target so the habit stays alive. Once more money lands, save first before flexible spending starts.`,
+          ? `A strong next move is to protect a small automatic savings amount first, then tighten ${topCategory}. You currently have ${formatPeso(
+              summary.totalBalance
+            )} across wallets, so even setting aside 10% to 15% before flexible spending would make your month calmer.`
+          : "Start by protecting essentials, cutting one repeat expense, and setting a very small non-zero savings target so the habit stays alive. Once more money lands, save first before flexible spending starts.",
     };
   }
 
@@ -670,25 +854,30 @@ async function executeLifeGuidance(command, context) {
     return {
       success: true,
       intent: command.intent,
-      message: `When you are weighing debt, check three things in order: whether it solves a real urgent need, whether the payment still leaves breathing room after essentials, and whether there is a cheaper alternative. If you want, tell me the loan amount, payment, and purpose and I will reason it through with you.`,
+      message:
+        "When you are weighing debt, check three things in order: whether it solves a real urgent need, whether the payment still leaves breathing room after essentials, and whether there is a cheaper alternative. Tell me the loan amount, payment, and purpose and I will reason it through with you.",
     };
   }
 
   if (/budget|overspend|overspending|too much/.test(normalizedSubject)) {
-    const topCategory = summary.topCategory?.name && summary.topCategory.name !== "none"
-      ? titleCase(summary.topCategory.name)
-      : "your biggest flexible category";
+    const topCategory =
+      summary.topCategory?.name && summary.topCategory.name !== "none"
+        ? titleCase(summary.topCategory.name)
+        : "your biggest flexible category";
+
     return {
       success: true,
       intent: command.intent,
-      message: `Your best budget fix is to anchor essentials first, put a hard cap on ${topCategory}, and review spending every few days instead of waiting for month-end. Right now your total wallet balance is ${formatPeso(summary.totalBalance)}, so keep your next adjustment simple and measurable.`,
+      message: `Your best budget fix is to anchor essentials first, put a hard cap on ${topCategory}, and review spending every few days instead of waiting for month-end. Right now your total wallet balance is ${formatPeso(
+        summary.totalBalance
+      )}, so keep your next adjustment simple and measurable.`,
     };
   }
 
   return {
     success: true,
     intent: command.intent,
-    message: `I can help you think this through. For ${subject}, start with the goal, the money limit, and the tradeoff. If you want deeper advice, tell me the amount, timeline, and what you are choosing between, and I will reason it out with your real CLARA finances in mind.`,
+    message: `I can help you think this through. For ${subject}, start with the goal, the money limit, and the tradeoff. Tell me the amount, timeline, and what you are choosing between, and I will reason it out with your real CLARA finances in mind.`,
   };
 }
 
@@ -701,6 +890,7 @@ async function executeMultiAction(command, context) {
     const result = await executeAICommand(subcommand, context);
     results.push(result);
     messages.push(result.message);
+
     if (!result.success) {
       return {
         success: false,
@@ -722,6 +912,7 @@ async function executeMultiAction(command, context) {
 
 function refreshAppFinanceState() {
   if (typeof window === "undefined") return;
+
   [
     "clara-expenses-updated",
     "clara-finance-updated",
@@ -730,6 +921,7 @@ function refreshAppFinanceState() {
     "clara-budgets-updated",
     "clara-savings-goals-updated",
   ].forEach((eventName) => window.dispatchEvent(new Event(eventName)));
+
   queryClientInstance.invalidateQueries();
 }
 
@@ -748,6 +940,7 @@ export async function executeAICommand(command, context = {}) {
 
   try {
     let result;
+
     if (command.intent === AI_INTENTS.MULTI_ACTION) result = await executeMultiAction(command, executionContext);
     else if (command.intent === AI_INTENTS.LOG_EXPENSE) result = await executeLogExpense(command, executionContext);
     else if (command.intent === AI_INTENTS.ADD_MONEY) result = await executeAddMoney(command, executionContext);
@@ -790,6 +983,7 @@ export async function executeAICommand(command, context = {}) {
     return result;
   } catch (error) {
     console.error("AI command execution failed:", error);
+
     return {
       success: false,
       intent: command?.intent || AI_INTENTS.UNKNOWN,

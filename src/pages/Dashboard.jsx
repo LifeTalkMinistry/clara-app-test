@@ -42,7 +42,6 @@ import BudgetCard from "../components/BudgetCard";
 import SavingsCard from "../components/SavingsCard";
 import { Button } from "@/components/ui/button";
 import StatCard from "../components/StatCard";
-import DailyTipCard from "../components/DailyTipCard";
 import TaskReminderPrompt from "@/components/TaskReminderPrompt";
 import useUserRole from "../hooks/useUserRole";
 import useTaskReminderPrompt from "@/hooks/useTaskReminderPrompt";
@@ -139,6 +138,14 @@ const firstValidNumber = (...values) => {
   for (const value of values) {
     const num = Number(value);
     if (Number.isFinite(num)) return num;
+  }
+  return 0;
+};
+
+const firstPositiveNumber = (...values) => {
+  for (const value of values) {
+    const num = Number(String(value ?? "").replace(/[₱,\s]/g, ""));
+    if (Number.isFinite(num) && num > 0) return num;
   }
   return 0;
 };
@@ -1348,14 +1355,117 @@ function readStoredDashboardTheme(userId) {
 function persistDashboardTheme(userId, themeKey) {
   try {
     localStorage.setItem(getDashboardThemeStorageKey(userId), themeKey);
+
+    if (typeof window !== "undefined") {
+      const detail = {
+        themeKey,
+        key: themeKey,
+        dashboardTheme: themeKey,
+        userId: userId || null,
+      };
+
+      window.dispatchEvent(
+        new CustomEvent("clara-dashboard-theme-updated", { detail })
+      );
+      window.dispatchEvent(new CustomEvent("clara-theme-selected", { detail }));
+      window.dispatchEvent(new CustomEvent("clara-theme-change", { detail }));
+    }
   } catch (error) {
     console.error("Failed to save dashboard theme:", error);
   }
 }
 
-const dispatchClaraEvent = (name) => {
+const dispatchClaraEvent = (name, detail = null) => {
   if (typeof window === "undefined") return;
+
+  if (detail && typeof detail === "object") {
+    window.dispatchEvent(new CustomEvent(name, { detail }));
+    return;
+  }
+
   window.dispatchEvent(new Event(name));
+};
+
+const getSurvivalExpenseStorageKeys = (userId) => {
+  const safeUserId = userId || "guest";
+  return [
+    `clara_survival_expense_${safeUserId}`,
+    `clara_survival_number_${safeUserId}`,
+    `survival_expense_${safeUserId}`,
+    "clara_survival_expense",
+    "clara_survival_number",
+    "survival_expense",
+  ];
+};
+
+const readStoredSurvivalExpense = (userId) => {
+  if (typeof window === "undefined") return 0;
+
+  for (const key of getSurvivalExpenseStorageKeys(userId)) {
+    try {
+      const raw = window.localStorage.getItem(key);
+      if (!raw) continue;
+
+      const parsed = (() => {
+        try {
+          return JSON.parse(raw);
+        } catch {
+          return raw;
+        }
+      })();
+
+      const amount = firstPositiveNumber(
+        parsed?.monthlyEssentialExpenses,
+        parsed?.monthly_survival_expense,
+        parsed?.survivalExpense,
+        parsed?.survival_expense,
+        parsed?.amount,
+        parsed
+      );
+
+      if (amount > 0) return amount;
+    } catch (error) {
+      console.error(`Failed to read ${key}:`, error);
+    }
+  }
+
+  return 0;
+};
+
+const persistStoredSurvivalExpense = (userId, value) => {
+  if (typeof window === "undefined") return;
+
+  const amount = firstPositiveNumber(value);
+  if (amount <= 0) return;
+
+  const payload = JSON.stringify({
+    amount,
+    monthlyEssentialExpenses: amount,
+    monthly_survival_expense: amount,
+    survivalExpense: amount,
+    survival_expense: amount,
+    savedAt: new Date().toISOString(),
+  });
+
+  for (const key of getSurvivalExpenseStorageKeys(userId)) {
+    try {
+      window.localStorage.setItem(key, payload);
+    } catch (error) {
+      console.error(`Failed to save ${key}:`, error);
+    }
+  }
+
+  window.dispatchEvent(
+    new CustomEvent("clara:survival-expense-updated", {
+      detail: {
+        amount,
+        monthlyEssentialExpenses: amount,
+        monthly_survival_expense: amount,
+        survivalExpense: amount,
+        survival_expense: amount,
+      },
+    })
+  );
 };
 
 const createEmptyDashboardCache = (key = null) => ({
@@ -1496,6 +1606,41 @@ export default function Dashboard() {
       "var(--theme-gradient-hero)",
     opacity: themeIsLight ? 0.42 : 0.7,
   };
+
+  useEffect(() => {
+    const themeKey = normalizeString(
+      selectedDashboardTheme?.key ||
+        selectedDashboardTheme?.id ||
+        selectedDashboardTheme?.value ||
+        selectedDashboardTheme?.name ||
+        selectedDashboardTheme?.label ||
+        ""
+    ).toLowerCase();
+
+    if (!themeKey) return;
+
+    persistDashboardTheme(userId, themeKey);
+
+    const detail = {
+      themeKey,
+      key: themeKey,
+      dashboardTheme: themeKey,
+      selectedTheme: themeKey,
+      userId: userId || null,
+      isLight: selectedDashboardTheme?.isLight === true,
+    };
+
+    dispatchClaraEvent("clara-dashboard-theme-updated", detail);
+    dispatchClaraEvent("clara-theme-selected", detail);
+    dispatchClaraEvent("clara-theme-change", detail);
+
+    if (typeof document !== "undefined") {
+      document.documentElement.dataset.dashboardTheme = themeKey;
+      document.body.dataset.dashboardTheme = themeKey;
+      document.documentElement.dataset.theme = themeKey;
+      document.body.dataset.theme = themeKey;
+    }
+  }, [selectedDashboardTheme, userId]);
 
   const refreshTimeoutRef = useRef(null);
   const financeCarouselRef = useRef(null);
@@ -1928,10 +2073,13 @@ export default function Dashboard() {
                   })
                 : null),
             billboards: activeBillboards,
-            survivalExpense: firstValidNumber(
+            survivalExpense: firstPositiveNumber(
               userProfile?.monthly_survival_expense,
               userProfile?.survival_expense,
-              userProfile?.clara_survival_expense
+              userProfile?.clara_survival_expense,
+              readStoredSurvivalExpense(currentUser.id),
+              survivalExpense,
+              dashboardPageCache.survivalExpense
             ),
             walletMoney: totalWalletMoney,
             wallets: sortedWallets,
@@ -3280,17 +3428,148 @@ export default function Dashboard() {
   ]);
 
   const safeSurvivalExpense = Number(survivalExpense) || 0;
-  const moneyAfterEssentials =
-    safeSurvivalExpense > 0 ? walletMoney - safeSurvivalExpense : walletMoney;
 
-  const moneyLeftStatus =
-    safeSurvivalExpense <= 0
-      ? "Set your survival expense to unlock smarter guidance."
-      : walletMoney >= safeSurvivalExpense
-        ? "You are in control this month."
-        : walletMoney > safeSurvivalExpense * 0.5
-          ? "Careful — protect your essentials."
-          : "You are near your limit — adjust now.";
+  const daysLeftInPHMonth = useMemo(() => {
+    const parts = getPHParts(new Date());
+    if (!parts) return 1;
+
+    const lastDay = new Date(Date.UTC(parts.year, parts.month, 0)).getUTCDate();
+    return Math.max(lastDay - parts.day + 1, 1);
+  }, []);
+
+  const moneyLeftHealth = useMemo(() => {
+    const income = Math.max(Number(thisMonthIncome) || 0, 0);
+    const spent = Math.max(Number(thisMonthSpent) || 0, 0);
+    const balance = Math.max(Number(walletMoney) || 0, 0);
+    const survival = Math.max(Number(safeSurvivalExpense) || 0, 0);
+
+    if (income > 0) {
+      const remainingFromIncome = income - spent;
+      const safeDailyFromIncome = Math.max(remainingFromIncome, 0) / daysLeftInPHMonth;
+      const ratio = spent / income;
+
+      if (remainingFromIncome <= 0 || ratio > 1) {
+        return {
+          title: "Pause extra spending",
+          highlight: "",
+          subcopy: "Your spending already passed this month’s income.",
+        };
+      }
+
+      if (ratio >= 0.9) {
+        return {
+          title: "Protect your cash",
+          highlight: `${fmt(remainingFromIncome)} left.`,
+          subcopy: "You’re near your monthly limit.",
+        };
+      }
+
+      if (ratio >= 0.7) {
+        return {
+          title: "Spend carefully",
+          highlight: `${fmt(safeDailyFromIncome)} today.`,
+          subcopy: "Keep your spending pace under control.",
+        };
+      }
+
+      return {
+        title: "You can safely spend",
+        highlight: `${fmt(safeDailyFromIncome)} today.`,
+        subcopy: "Stay on track and reach your goals.",
+      };
+    }
+
+    if (survival > 0) {
+      const moneyAfterEssentials = balance - survival;
+      const safeDailyFromSurvival = Math.max(moneyAfterEssentials, 0) / daysLeftInPHMonth;
+
+      if (balance >= survival) {
+        return {
+          title: "You can safely spend",
+          highlight: `${fmt(safeDailyFromSurvival)} today.`,
+          subcopy: "Stay on track and reach your goals.",
+        };
+      }
+
+      if (balance > survival * 0.5) {
+        return {
+          title: "Spend carefully today",
+          highlight: "",
+          subcopy: "Limit non-essentials and protect your basics.",
+        };
+      }
+
+      return {
+        title: "Pause extra spending today",
+        highlight: "",
+        subcopy: "Focus on essentials until you add more funds.",
+      };
+    }
+
+    if (balance > 0) {
+      return {
+        title: "Cash available",
+        highlight: fmt(balance),
+        subcopy: "Add income or essentials for a smarter daily limit.",
+      };
+    }
+
+    return {
+      title: "No balance yet",
+      highlight: "",
+      subcopy: "Add money to start tracking your spending power.",
+    };
+  }, [daysLeftInPHMonth, safeSurvivalExpense, thisMonthIncome, thisMonthSpent, walletMoney]);
+
+  const expenseHealth = useMemo(() => {
+    if (thisMonthSpent <= 0) {
+      return {
+        title: "No spending yet",
+        highlight: "",
+        subcopy: "Your recorded spending for this month will appear here.",
+      };
+    }
+
+    if (thisMonthIncome <= 0) {
+      return {
+        title: "Spending tracked",
+        highlight: "",
+        subcopy: `Income not recorded yet. Spent ${fmt(thisMonthSpent)} this month.`,
+      };
+    }
+
+    const ratio = thisMonthSpent / thisMonthIncome;
+
+    if (ratio <= 0.7) {
+      return {
+        title: "You’re",
+        highlight: "within budget 🎉",
+        subcopy: "Great job managing your spending.",
+      };
+    }
+
+    if (ratio <= 0.9) {
+      return {
+        title: "You’re",
+        highlight: "still okay",
+        subcopy: "Keep watching your spending pace.",
+      };
+    }
+
+    if (ratio <= 1) {
+      return {
+        title: "You’re",
+        highlight: "near your limit",
+        subcopy: "Slow down before you exceed your income.",
+      };
+    }
+
+    return {
+      title: "You’re",
+      highlight: "over budget",
+      subcopy: "Pause extras and review your expenses today.",
+    };
+  }, [thisMonthIncome, thisMonthSpent]);
 
   const moneyLeftTone =
     safeSurvivalExpense <= 0
@@ -3325,6 +3604,8 @@ export default function Dashboard() {
       : `${programJourney.accessibleCompletedCount} of ${
           programJourney.accessibleTaskCount || programJourney.totalCount
         } unlocked days complete`;
+
+  const moneyAfterEssentials = walletMoney - safeSurvivalExpense;
 
   const moneyInsightLabel =
     safeSurvivalExpense <= 0
@@ -3766,33 +4047,55 @@ export default function Dashboard() {
                       canAutoPrompt={Boolean(user?.id) && guardChecked && !loading}
                       hasSurvivalSetup={
                         Boolean(profileData?.survival_setup_done) ||
-                        firstValidNumber(
+                        firstPositiveNumber(
                           profileData?.monthly_survival_expense,
                           profileData?.survival_expense,
                           profileData?.clara_survival_expense,
-                          survivalExpense
+                          survivalExpense,
+                          readStoredSurvivalExpense(user?.id)
                         ) > 0
                       }
                       onSurvivalSaved={async (val) => {
-                      const nextValue = Number(val) || 0;
-                      if (user?.id && nextValue > 0) {
-                        const { error } = await supabase
-                          .from("profiles")
-                          .update({
-                            monthly_survival_expense: nextValue,
-                            survival_setup_done: true,
-                            updated_at: new Date().toISOString(),
-                          })
-                          .eq("id", user.id);
+                        const nextValue = firstPositiveNumber(val);
+                        if (nextValue <= 0) return;
 
-                        if (error) {
-                          console.error("Failed to save survival expense:", error);
-                          throw error;
+                        persistStoredSurvivalExpense(user?.id, nextValue);
+                        setSurvivalExpense(nextValue);
+
+                        const nextProfileData = {
+                          ...(profileData || {}),
+                          monthly_survival_expense: nextValue,
+                          survival_expense: nextValue,
+                          clara_survival_expense: nextValue,
+                          survival_setup_done: true,
+                        };
+
+                        setProfileData(nextProfileData);
+                        dashboardPageCache = {
+                          ...dashboardPageCache,
+                          survivalExpense: nextValue,
+                          profileData: nextProfileData,
+                        };
+
+                        if (user?.id) {
+                          const { error } = await supabase
+                            .from("profiles")
+                            .update({
+                              monthly_survival_expense: nextValue,
+                              survival_setup_done: true,
+                            })
+                            .eq("id", user.id);
+
+                          if (error) {
+                            console.warn(
+                              "Survival expense was saved locally, but profile sync failed:",
+                              error
+                            );
+                          }
                         }
-                      }
-                      setSurvivalExpense(nextValue);
-                      await loadDashboardData({ background: true });
-                    }}
+
+                        await loadDashboardData({ background: true });
+                      }}
                   />
                   </div>
                 </div>
@@ -3869,114 +4172,89 @@ export default function Dashboard() {
         )}
 
         <div
-          className={`${getDashboardGlowCardClass(selectedDashboardTheme.moneyTone || "emerald")} p-4`}
+          className="grid grid-cols-2 overflow-hidden rounded-[28px] border backdrop-blur-sm"
           style={{
-            background:
-              selectedDashboardTheme?.tokens?.gradientMoney ||
-              "var(--theme-gradient-money)",
             borderColor:
               selectedDashboardTheme?.tokens?.border || "var(--theme-border)",
+            boxShadow: themeIsLight
+              ? "0 18px 44px rgba(15,23,42,0.10)"
+              : "0 22px 65px rgba(0,0,0,0.26)",
           }}
         >
-          <div className="flex items-start justify-between gap-3">
-            <div className="min-w-0 flex-1">
-              <p className={`text-xs uppercase tracking-[0.18em] ${themeSoftTextClass}`}>
-                Money Left
-              </p>
-              <h2 className={`mt-1 text-3xl font-bold ${themePrimaryTextClass}`}>
+          <div
+            className="relative isolate min-h-[132px] overflow-hidden p-4"
+            style={{
+              background:
+                selectedDashboardTheme?.tokens?.gradientMoney ||
+                "var(--theme-gradient-money)",
+            }}
+          >
+            <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(255,255,255,0.08),transparent_42%)]" />
+            <div className="relative min-w-0">
+              <div className="flex items-start justify-between gap-2">
+                <p className={`text-[11px] uppercase tracking-[0.22em] ${themeSoftTextClass}`}>
+                  Money Left
+                </p>
+                <span aria-hidden="true" className="w-8 shrink-0" />
+              </div>
+              <h2 className={`mt-3 text-3xl font-bold leading-none ${themePrimaryTextClass}`}>
                 {fmt(walletMoney)}
               </h2>
-              <p className={`mt-1 max-w-[28rem] text-sm ${themeMutedTextClass}`}>
-                {moneyLeftStatus}
+              <p className={`mt-3 text-sm leading-6 ${themeMutedTextClass}`}>
+                {moneyLeftHealth.title}
+                {moneyLeftHealth.highlight ? (
+                  <>
+                    {" "}
+                    <span className="font-bold text-emerald-300">
+                      {moneyLeftHealth.highlight}
+                    </span>
+                  </>
+                ) : null}
               </p>
-            </div>
-
-            <div className="flex shrink-0 flex-col items-end gap-2">
-              <button
-                type="button"
-                onClick={openThemePicker}
-                className={`rounded-full border px-3 py-1 text-xs font-semibold transition ${themeGlassButtonClass}` }
-              >
-                {selectedDashboardTheme.label}
-              </button>
-              <button
-                type="button"
-                onClick={openThemePicker}
-                className={`flex h-11 w-11 items-center justify-center rounded-2xl border transition hover:scale-[1.02] ${themeGlassIconButtonClass}` }
-                aria-label="Open dashboard theme picker"
-              >
-                <Palette className={`h-5 w-5 ${themeIsLight ? "text-slate-700" : "text-white"}`} />
-              </button>
+              {moneyLeftHealth.subcopy ? (
+                <p className={`mt-2 text-xs leading-5 ${themeSoftTextClass}`}>
+                  {moneyLeftHealth.subcopy}
+                </p>
+              ) : null}
             </div>
           </div>
 
-          {safeSurvivalExpense > 0 && (
-            <div className="mt-3">
-              <div className="rounded-2xl border border-white/10 bg-black/20 px-3 py-2.5">
-                <p className={`text-[11px] uppercase tracking-wide ${themeIsLight ? "text-slate-500" : "text-white/50"}`}>
-                  {moneyInsightLabel}
-                </p>
-                <p className={`mt-1 text-sm font-semibold ${themePrimaryTextClass}`}>
-                  {moneyInsightValue}
-                </p>
-                <p className={`mt-1 text-[11px] leading-relaxed ${themeSoftTextClass}`}>
-                  {moneyInsightSub}
-                </p>
-              </div>
-            </div>
-          )}
-        </div>
-
-        <div
-          className={`${getDashboardGlowCardClass(
-            selectedDashboardTheme.monthTone || "blue"
-          )} border p-4`}
-          style={{
-            background:
-              selectedDashboardTheme?.tokens?.gradientExpense ||
-              "var(--theme-gradient-expense)",
-            borderColor:
-              selectedDashboardTheme?.tokens?.border || "var(--theme-border)",
-          }}
-        >
-          <div className="flex items-start justify-between gap-3">
-            <div className="min-w-0 flex-1">
-              <p className={`text-xs uppercase tracking-[0.18em] ${themeSoftTextClass}`}>
+          <div
+            className="relative isolate min-h-[132px] overflow-hidden border-l p-4"
+            style={{
+              background:
+                selectedDashboardTheme?.tokens?.gradientExpense ||
+                "var(--theme-gradient-expense)",
+              borderColor:
+                selectedDashboardTheme?.tokens?.border || "var(--theme-border)",
+            }}
+          >
+            <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_bottom_right,rgba(255,255,255,0.08),transparent_42%)]" />
+            <div className="relative min-w-0">
+              <p className={`text-[11px] uppercase tracking-[0.22em] ${themeSoftTextClass}`}>
                 Total Expense
               </p>
-              <h2 className={`mt-1 text-3xl font-bold ${themePrimaryTextClass}`}>
+              <h2 className={`mt-3 text-3xl font-bold leading-none ${themePrimaryTextClass}`}>
                 {fmt(thisMonthSpent)}
               </h2>
-              <p className={`mt-1 max-w-[28rem] text-sm ${themeMutedTextClass}`}>
-                {thisMonthSpent > 0
-                  ? `Tracked spending this month. Income: ${fmt(thisMonthIncome)}`
-                  : "Your recorded spending for this month will appear here."}
+              <p className={`mt-3 text-sm leading-6 ${themeMutedTextClass}`}>
+                {expenseHealth.title}
+                {expenseHealth.highlight ? (
+                  <>
+                    {" "}
+                    <span className="font-bold text-emerald-300">
+                      {expenseHealth.highlight}
+                    </span>
+                  </>
+                ) : null}
+              </p>
+              <p className={`mt-2 text-xs leading-5 ${themeSoftTextClass}`}>
+                {expenseHealth.subcopy}
               </p>
             </div>
           </div>
         </div>
 
-        <div
-          className={`${getDashboardGlowCardClass(
-            selectedDashboardTheme.tipTone || "emerald"
-          )} border p-[1px]`}
-          style={{
-            background:
-              selectedDashboardTheme?.tokens?.gradientCard ||
-              "var(--theme-gradient-card)",
-            borderColor:
-              selectedDashboardTheme?.tokens?.border || "var(--theme-border)",
-          }}
-        >
-          <div className="overflow-hidden rounded-[27px]">
-            <DailyTipCard
-              isPaid={isPaid}
-              isPending={isPending}
-              isFree={isFree}
-              user={user}
-            />
-          </div>
-        </div>
       </div>
 
 

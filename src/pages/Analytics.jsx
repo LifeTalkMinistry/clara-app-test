@@ -16,14 +16,11 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { CalendarDays, Lock, Zap } from "lucide-react";
+import { CalendarDays, Lock, Zap, TrendingUp, TrendingDown } from "lucide-react";
 import useUserRole from "../hooks/useUserRole";
 import useFinancialData from "../hooks/useFinancialData";
 import { getWalletBalance as getDerivedWalletBalance } from "@/utils/financialEngine";
-import {
-  format,
-  parseISO,
-} from "date-fns";
+import { format, parseISO } from "date-fns";
 
 const COLORS = [
   "hsl(145,60%,36%)",
@@ -263,7 +260,7 @@ function safeDate(value) {
 
 function isInRange(value, start, end) {
   const parsed = safeDate(value);
-  if (!parsed) return false;
+  if (!parsed) return true;
   return parsed >= start && parsed <= end;
 }
 
@@ -303,7 +300,15 @@ function getWalletKey(item) {
 }
 
 function getItemDate(item) {
-  return item?.date || item?.created_at || item?.timestamp || null;
+  return (
+    item?.date ||
+    item?.expense_date ||
+    item?.transaction_date ||
+    item?.created_at ||
+    item?.updated_at ||
+    item?.timestamp ||
+    null
+  );
 }
 
 function getWalletTransactionType(item) {
@@ -315,7 +320,7 @@ function mapWalletTransactionIncome(item) {
     ...item,
     amount: toNumber(item?.amount),
     wallet_id: item?.wallet_id || item?.walletId || item?.wallet || null,
-    date: item?.date || item?.created_at || item?.timestamp || null,
+    date: getItemDate(item),
     __source: "wallet_transaction_income",
   };
 }
@@ -434,7 +439,14 @@ export default function Analytics() {
     for (let i = 0; i < filteredWalletTransactions.length; i += 1) {
       const item = filteredWalletTransactions[i];
       const type = getWalletTransactionType(item);
-      if (type === "add" || type === "income") {
+      if (
+        type === "add" ||
+        type === "income" ||
+        type === "cash_in" ||
+        type === "deposit" ||
+        type === "opening_balance" ||
+        type === "credit"
+      ) {
         fallbackIncomeTransactions.push(mapWalletTransactionIncome(item));
       }
     }
@@ -705,20 +717,38 @@ export default function Analytics() {
       </div>
 
       <div className="grid grid-cols-2 gap-3 mb-5">
-        <div className="grad-green rounded-2xl p-3 text-center card-glow-green">
-          <p className="text-[10px] text-green-100 font-semibold uppercase">Income</p>
-          <p className="font-heading font-bold text-white text-lg leading-tight mt-1">
-            {fmt(analytics.totalIncome)}
-          </p>
+        <div className="relative overflow-hidden rounded-2xl border border-white/10 bg-[radial-gradient(circle_at_top_left,rgba(52,211,153,0.22),transparent_38%),radial-gradient(circle_at_bottom_right,rgba(34,211,238,0.2),transparent_42%),linear-gradient(135deg,rgba(5,38,31,0.92),rgba(12,58,72,0.78)_55%,rgba(10,16,35,0.92))] p-3 shadow-[0_18px_45px_rgba(16,185,129,0.12)] backdrop-blur-xl before:pointer-events-none before:absolute before:inset-x-4 before:top-0 before:h-10 before:rounded-full before:bg-white/10 before:blur-2xl after:pointer-events-none after:absolute after:inset-0 after:rounded-2xl after:ring-1 after:ring-inset after:ring-white/10">
+          <div className="relative z-10 flex items-center gap-3">
+            <div className="hidden h-10 w-10 shrink-0 items-center justify-center rounded-full border border-emerald-300/20 bg-black/15 text-emerald-300 shadow-inner sm:flex">
+              <TrendingUp className="h-5 w-5" />
+            </div>
+
+            <div className="min-w-0">
+              <p className="text-[10px] text-emerald-50/80 font-semibold uppercase tracking-wide">
+                Income
+              </p>
+              <p className="font-heading font-bold text-white text-lg leading-tight mt-1 drop-shadow-sm">
+                {fmt(analytics.totalIncome)}
+              </p>
+            </div>
+          </div>
         </div>
 
-        <div className="grad-yellow rounded-2xl p-3 text-center card-glow-yellow">
-          <p className="text-[10px] text-secondary-foreground/70 font-semibold uppercase">
-            Expenses
-          </p>
-          <p className="font-heading font-bold text-secondary-foreground text-lg leading-tight mt-1">
-            {fmt(analytics.totalExpenses)}
-          </p>
+        <div className="relative overflow-hidden rounded-2xl border border-white/10 bg-[radial-gradient(circle_at_top_left,rgba(250,204,21,0.22),transparent_38%),radial-gradient(circle_at_bottom_right,rgba(236,72,153,0.16),transparent_42%),linear-gradient(135deg,rgba(44,40,31,0.88),rgba(101,76,17,0.78)_55%,rgba(23,19,38,0.92))] p-3 shadow-[0_18px_45px_rgba(245,158,11,0.12)] backdrop-blur-xl before:pointer-events-none before:absolute before:inset-x-4 before:top-0 before:h-10 before:rounded-full before:bg-white/10 before:blur-2xl after:pointer-events-none after:absolute after:inset-0 after:rounded-2xl after:ring-1 after:ring-inset after:ring-white/10">
+          <div className="relative z-10 flex items-center gap-3">
+            <div className="hidden h-10 w-10 shrink-0 items-center justify-center rounded-full border border-yellow-300/20 bg-black/15 text-yellow-300 shadow-inner sm:flex">
+              <TrendingDown className="h-5 w-5" />
+            </div>
+
+            <div className="min-w-0">
+              <p className="text-[10px] text-yellow-50/80 font-semibold uppercase tracking-wide">
+                Expenses
+              </p>
+              <p className="font-heading font-bold text-white text-lg leading-tight mt-1 drop-shadow-sm">
+                {fmt(analytics.totalExpenses)}
+              </p>
+            </div>
+          </div>
         </div>
       </div>
 

@@ -24,8 +24,6 @@ import {
   Plus,
   ArrowRightLeft,
   Lock,
-  MessageCircle,
-  Mic,
   User,
   Settings,
 } from "lucide-react";
@@ -36,7 +34,7 @@ import { FEATURE_ROUTE_MAP } from "@/lib/plan-config";
 import { useTheme } from "@/theme/ThemeProvider";
 import { buildNavPalette } from "@/theme/themes";
 
-const LONG_PRESS_MS = 720;
+const LONG_PRESS_MS = 500;
 
 const CORE_PATHS = ["/dashboard", "/expenses", "/analytics"];
 
@@ -333,7 +331,7 @@ function findStoredDashboardThemeKey(userId) {
     console.error("Failed to read dashboard theme key:", error);
   }
 
-  return "emerald";
+  return "";
 }
 
 function resolveThemePalette(themeKey) {
@@ -766,9 +764,7 @@ function BottomNav({
   const [moreOpen, setMoreOpen] = useState(false);
   const [actionsOpen, setActionsOpen] = useState(false);
   const [aiCommandOpen, setAiCommandOpen] = useState(false);
-  const [aiCommandMode, setAiCommandMode] = useState("speak");
-  const [chooserOpen, setChooserOpen] = useState(false);
-  const [chooserTarget, setChooserTarget] = useState("speak");
+  const [aiCommandMode, setAiCommandMode] = useState("chat");
   const [didLongPress, setDidLongPress] = useState(false);
   const [holdActive, setHoldActive] = useState(false);
   const [hideForOnboarding, setHideForOnboarding] = useState(false);
@@ -776,8 +772,6 @@ function BottomNav({
 
   const pressTimerRef = useRef(null);
   const pointerDownRef = useRef(false);
-  const pressOriginRef = useRef({ x: 0, y: 0 });
-  const chooserTargetRef = useRef("speak");
   const currentUserIdRef = useRef(null);
   const rafSyncRef = useRef(null);
 
@@ -854,12 +848,17 @@ function BottomNav({
             ? forcedThemeKey.trim()
             : findStoredDashboardThemeKey(userId);
 
-        applyThemePalette(resolveThemePalette(themeKey));
+        if (themeKey) {
+          applyThemePalette(resolveThemePalette(themeKey));
+          return;
+        }
+
+        applyThemePalette(buildNavPalette(selectedTheme));
       } catch (error) {
         console.error("Failed to sync BottomNav theme:", error);
       }
     },
-    [applyThemePalette]
+    [applyThemePalette, selectedTheme]
   );
 
   const syncThemeOnNextFrame = useCallback(
@@ -881,7 +880,8 @@ function BottomNav({
 
   useEffect(() => {
     applyThemePalette(buildNavPalette(selectedTheme));
-  }, [applyThemePalette, selectedTheme]);
+    syncThemeOnNextFrame(currentUserIdRef.current);
+  }, [applyThemePalette, selectedTheme, syncThemeOnNextFrame]);
 
   useEffect(() => {
     let isMounted = true;
@@ -1015,7 +1015,6 @@ function BottomNav({
         setMoreOpen(false);
         setActionsOpen(false);
         setAiCommandOpen(false);
-        setChooserOpen(false);
       }
     };
 
@@ -1051,7 +1050,6 @@ function BottomNav({
 
   const closeClara = useCallback(() => {
     setAiCommandOpen(false);
-    setChooserOpen(false);
   }, []);
 
   const handleLogout = useCallback(async () => {
@@ -1108,67 +1106,42 @@ function BottomNav({
     navigateSafely("/admin");
   }, [navigateSafely]);
 
-  const resolvePoint = (event) => {
-    const source = event?.touches?.[0] || event?.changedTouches?.[0] || event;
-    return {
-      x: Number(source?.clientX || 0),
-      y: Number(source?.clientY || 0),
-    };
-  };
-
-  const updateChooserTarget = useCallback((event) => {
-    if (!pointerDownRef.current) return;
-    const point = resolvePoint(event);
-    const dx = point.x - pressOriginRef.current.x;
-    const dy = point.y - pressOriginRef.current.y;
-    const target = dx < -34 ? "chat" : dx > 34 || dy < -38 ? "speak" : "speak";
-    chooserTargetRef.current = target;
-    setChooserTarget(target);
-  }, []);
-
-  const openAiCommand = useCallback((mode = "speak") => {
-    setAiCommandMode(mode);
+  const openAiCommand = useCallback(() => {
+    setAiCommandMode("chat");
     setAiCommandOpen(true);
     setActionsOpen(false);
     setMoreOpen(false);
   }, []);
 
-  const startPress = useCallback((event) => {
+  const startPress = useCallback(() => {
     if (hideForOnboarding) return;
 
     pointerDownRef.current = true;
-    pressOriginRef.current = resolvePoint(event);
-    chooserTargetRef.current = "speak";
-    setChooserTarget("speak");
     setDidLongPress(false);
     clearPressTimer();
     setHoldActive(true);
 
     pressTimerRef.current = setTimeout(() => {
       if (!pointerDownRef.current) return;
+
       setDidLongPress(true);
-      setMoreOpen(false);
-      setActionsOpen(false);
-      setChooserOpen(true);
-      if (typeof navigator !== "undefined" && typeof navigator.vibrate === "function") {
+      pointerDownRef.current = false;
+      clearPressTimer();
+      openAiCommand();
+
+      if (
+        typeof navigator !== "undefined" &&
+        typeof navigator.vibrate === "function"
+      ) {
         navigator.vibrate(12);
       }
     }, LONG_PRESS_MS);
-  }, [clearPressTimer, hideForOnboarding]);
+  }, [clearPressTimer, hideForOnboarding, openAiCommand]);
 
-  const endPress = useCallback((event) => {
-    const wasChoosing = chooserOpen || didLongPress;
-    if (wasChoosing) {
-      updateChooserTarget(event);
-    }
+  const endPress = useCallback(() => {
     pointerDownRef.current = false;
     clearPressTimer();
-    setChooserOpen(false);
-
-    if (wasChoosing) {
-      openAiCommand(chooserTargetRef.current || "speak");
-    }
-  }, [chooserOpen, clearPressTimer, didLongPress, openAiCommand, updateChooserTarget]);
+  }, [clearPressTimer]);
 
   const handleFabClick = useCallback(() => {
     if (hideForOnboarding) return;
@@ -1182,7 +1155,14 @@ function BottomNav({
     closeClara();
     closeActions();
     onQuickAdd?.("expense");
-  }, [closeActions, closeClara, closeMore, didLongPress, hideForOnboarding, onQuickAdd]);
+  }, [
+    closeActions,
+    closeClara,
+    closeMore,
+    didLongPress,
+    hideForOnboarding,
+    onQuickAdd,
+  ]);
 
   const openQuickAction = useCallback(
     (action) => {
@@ -1237,36 +1217,6 @@ function BottomNav({
         themePalette={themePalette}
       />
 
-      {chooserOpen ? (
-        <div className="fixed inset-0 z-[64] pointer-events-none bg-black/20 backdrop-blur-[2px]">
-          <div className="absolute bottom-28 left-1/2 flex -translate-x-1/2 items-center gap-4">
-            {[
-              { key: "chat", label: "Chat", icon: MessageCircle },
-              { key: "speak", label: "Speak", icon: Mic },
-            ].map((item) => {
-              const Icon = item.icon;
-              const active = chooserTarget === item.key;
-              return (
-                <div
-                  key={item.key}
-                  className={`flex h-20 w-20 flex-col items-center justify-center rounded-3xl border text-xs font-semibold transition-all duration-150 ${
-                    active ? "scale-110 text-white" : "scale-95 text-white/58"
-                  }`}
-                  style={{
-                    borderColor: active ? themePalette.accentBorder : "rgba(255,255,255,0.10)",
-                    background: active ? themePalette.accentSoft : "rgba(255,255,255,0.06)",
-                    boxShadow: active ? `0 0 34px ${themePalette.accentGlow}` : "none",
-                  }}
-                >
-                  <Icon className="mb-1 h-5 w-5" />
-                  {item.label}
-                </div>
-              );
-            })}
-          </div>
-        </div>
-      ) : null}
-
       <nav
         data-bottom-nav
         className="fixed bottom-0 left-0 right-0 z-50 lg:hidden"
@@ -1276,8 +1226,7 @@ function BottomNav({
           style={{
             borderColor: themePalette.panelBorder,
             background: `linear-gradient(180deg, ${themePalette.shellStart} 0%, ${themePalette.shellEnd} 100%)`,
-            boxShadow:
-              "0 12px 36px rgba(0,0,0,0.52), 0 0 0 1px rgba(255,255,255,0.02) inset",
+            boxShadow: `0 12px 36px rgba(0,0,0,0.52), 0 0 0 1px ${themePalette.accentSoft} inset, 0 0 28px ${themePalette.surfaceGlowFrom}`,
           }}
         >
           <div className="relative overflow-visible rounded-[30px]">
@@ -1287,7 +1236,12 @@ function BottomNav({
                 background: `linear-gradient(90deg, ${themePalette.surfaceGlowFrom} 0%, ${themePalette.surfaceGlowMid} 50%, ${themePalette.surfaceGlowTo} 100%)`,
               }}
             />
-            <div className="pointer-events-none absolute inset-x-6 top-0 h-px bg-gradient-to-r from-transparent via-white/18 to-transparent" />
+            <div
+              className="pointer-events-none absolute inset-x-6 top-0 h-px"
+              style={{
+                background: `linear-gradient(90deg, transparent 0%, ${themePalette.accentBorder} 50%, transparent 100%)`,
+              }}
+            />
 
             <div className="relative flex h-[76px] items-end justify-between px-4 pb-2">
               <BottomNavLink
@@ -1330,20 +1284,20 @@ function BottomNav({
                 onMouseDown={startPress}
                 onMouseUp={endPress}
                 onMouseLeave={endPress}
-                onMouseMove={updateChooserTarget}
                 onTouchStart={startPress}
                 onTouchEnd={endPress}
                 onTouchCancel={endPress}
-                onTouchMove={updateChooserTarget}
                 onClick={handleFabClick}
-                className={`absolute left-1/2 top-0 z-50 flex h-[58px] w-[58px] -translate-x-1/2 -translate-y-[28%] items-center justify-center rounded-full transition-transform duration-200 active:scale-95 ${holdActive ? "fab-holding" : ""}`}
+                className={`absolute left-1/2 top-0 z-50 flex h-[58px] w-[58px] -translate-x-1/2 -translate-y-[28%] items-center justify-center rounded-full transition-transform duration-200 active:scale-95 ${
+                  holdActive ? "fab-holding" : ""
+                }`}
                 style={{
                   background: `linear-gradient(180deg, ${themePalette.accent} 0%, ${themePalette.accent} 38%, ${themePalette.accentEnd} 100%)`,
                   boxShadow: holdActive
                     ? `0 16px 34px ${themePalette.accentGlow}, 0 0 0 7px ${themePalette.fabRing}, 0 0 28px ${themePalette.accentGlow}, inset 0 1px 0 rgba(255,255,255,0.22)`
                     : `0 10px 22px ${themePalette.accentGlow}, 0 0 0 5px ${themePalette.fabRing}, inset 0 1px 0 rgba(255,255,255,0.18)`,
                 }}
-                aria-label="Quick add expense. Long press for Voice or Chat with AI."
+                aria-label="Quick add expense. Long press for CLARA AI chat."
               >
                 <span className="fab-inner-ring" />
                 <Plus
@@ -1405,7 +1359,7 @@ function BottomNav({
           border-color: ${themePalette.accentBorder};
           box-shadow:
             0 0 0 1px ${themePalette.accentSoft} inset,
-            0 0 10px ${themePalette.accentGlow};
+            0 0 12px ${themePalette.accentGlow};
         }
 
         .nav-item.active .icon {
@@ -1485,9 +1439,9 @@ function BottomNav({
           min-height: 84px;
           padding: 12px;
           border-radius: 16px;
-          background: rgba(255,255,255,0.05);
+          background: linear-gradient(180deg, ${themePalette.accentSoft} 0%, rgba(255,255,255,0.04) 100%);
           color: ${themePalette.strongText};
-          border: 1px solid rgba(255,255,255,0.06);
+          border: 1px solid ${themePalette.accentBorder};
           transition:
             transform 0.18s ease,
             background-color 0.18s ease,
@@ -1495,6 +1449,11 @@ function BottomNav({
             box-shadow 0.18s ease;
           will-change: transform;
           -webkit-tap-highlight-color: transparent;
+        }
+
+        .quick-btn .icon {
+          color: ${themePalette.accent};
+          filter: drop-shadow(0 0 5px ${themePalette.accentGlow});
         }
 
         .quick-btn:active {
@@ -1514,9 +1473,9 @@ function BottomNav({
           min-height: 104px;
           padding: 12px 10px;
           border-radius: 18px;
-          background: rgba(255,255,255,0.05);
+          background: linear-gradient(180deg, ${themePalette.accentSoft} 0%, rgba(255,255,255,0.04) 100%);
           color: ${themePalette.strongText};
-          border: 1px solid rgba(255,255,255,0.06);
+          border: 1px solid ${themePalette.accentBorder};
           text-align: center;
           font-size: 12px;
           cursor: pointer;
@@ -1545,7 +1504,9 @@ function BottomNav({
           width: 40px;
           height: 40px;
           border-radius: 14px;
-          background: rgba(255,255,255,0.06);
+          background: ${themePalette.accentSoft};
+          color: ${themePalette.accent};
+          border: 1px solid ${themePalette.accentBorder};
         }
 
         .more-admin {
@@ -1555,9 +1516,9 @@ function BottomNav({
           gap: 12px;
           padding: 14px 16px;
           border-radius: 18px;
-          background: rgba(255,255,255,0.05);
+          background: linear-gradient(180deg, ${themePalette.accentSoft} 0%, rgba(255,255,255,0.04) 100%);
           color: ${themePalette.strongText};
-          border: 1px solid rgba(255,255,255,0.06);
+          border: 1px solid ${themePalette.accentBorder};
           transition:
             transform 0.18s ease,
             background-color 0.18s ease,
@@ -1576,8 +1537,9 @@ function BottomNav({
           width: 42px;
           height: 42px;
           border-radius: 14px;
-          background: rgba(255,255,255,0.06);
+          background: ${themePalette.accentSoft};
           color: ${themePalette.accent};
+          border: 1px solid ${themePalette.accentBorder};
           flex-shrink: 0;
         }
 
@@ -1610,9 +1572,9 @@ function BottomNav({
           gap: 12px;
           padding: 16px;
           border-radius: 20px;
-          background: rgba(255,255,255,0.05);
+          background: linear-gradient(180deg, ${themePalette.accentSoft} 0%, rgba(255,255,255,0.04) 100%);
           color: ${themePalette.strongText};
-          border: 1px solid rgba(255,255,255,0.08);
+          border: 1px solid ${themePalette.accentBorder};
           transition:
             transform 0.18s ease,
             background-color 0.18s ease,
