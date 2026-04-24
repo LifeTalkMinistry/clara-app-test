@@ -7,6 +7,7 @@ import {
 } from "@/lib/ai-command/time";
 
 export const AI_INTENTS = {
+  GET_LAST_EXPENSE: "GET_LAST_EXPENSE",
   LOG_EXPENSE: "LOG_EXPENSE",
   ADD_MONEY: "ADD_MONEY",
   TRANSFER_MONEY: "TRANSFER_MONEY",
@@ -246,6 +247,14 @@ function detectScope(text) {
 
 function detectIntent(text) {
   const lower = normalizeLower(text);
+
+  if (
+    /\b(last expense|latest expense|recent expense|most recent expense|last spending|latest spending|recent spending|what was my last expense|what did i spend recently|what was my recent expense)\b/.test(
+      lower
+    )
+  ) {
+    return AI_INTENTS.GET_LAST_EXPENSE;
+  }
 
   if (looksLikeBareExpense(lower)) {
     return AI_INTENTS.LOG_EXPENSE;
@@ -665,6 +674,8 @@ function parseSingleIntentCommand(text, previousCommand = null) {
     parsedData.period = extractPeriod(raw);
   } else if (intent === AI_INTENTS.READ_SAVINGS_STATUS) {
     parsedData.label = extractGoalLabel(raw);
+  } else if (intent === AI_INTENTS.GET_LAST_EXPENSE) {
+    parsedData.scope = "latest";
   } else if (intent === AI_INTENTS.DECISION_GUIDANCE) {
     parsedData.decisionSubject = cleanupLabel(raw);
     parsedData.amount = amount || undefined;
@@ -698,6 +709,10 @@ export function normalizeGeminiCommand(value = {}) {
 
   if (intent === AI_INTENTS.READ_SPENDING) {
     parsedData.scope = parsedData.scope || "today";
+  }
+
+  if (intent === AI_INTENTS.GET_LAST_EXPENSE) {
+    parsedData.scope = parsedData.scope || "latest";
   }
 
   return buildSingleCommand(intent, parsedData, Number(value.confidence) || 0.7, value.assistantMessage || "");
