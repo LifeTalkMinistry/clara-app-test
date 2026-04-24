@@ -5,13 +5,14 @@ import {
   useMemo,
   useState,
   useCallback,
+  useRef,
 } from "react";
 import { supabase } from "@/lib/supabaseClient";
 import { normalizePlanKey, PLAN_LABELS } from "@/lib/plan-config";
 
 const AuthContext = createContext(null);
 
-const withTimeout = (promise, ms = 8000) => {
+const withTimeout = (promise, ms = 15000) => {
   return Promise.race([
     promise,
     new Promise((_, reject) =>
@@ -46,9 +47,7 @@ const normalizeProfileAccess = (rawProfile = {}, authUser = null) => {
     profileStatus === "pro" ||
     profileStatus === "premium";
 
-  const isPro = Boolean(
-    isApproved || isGooglePlay || isPaidPlan || isPaidStatus
-  );
+  const isPro = Boolean(isApproved || isGooglePlay || isPaidPlan || isPaidStatus);
 
   const normalizedPlan = normalizePlanKey(rawProfile?.plan || (isPro ? "pro" : "free"));
   const subscriptionStatus =
@@ -106,9 +105,7 @@ const normalizeProfileAccess = (rawProfile = {}, authUser = null) => {
         : isPro,
     onboarding_completed: Boolean(rawProfile?.onboarding_completed ?? false),
     onboarding_step: Number(rawProfile?.onboarding_step ?? 0),
-    program_onboarding_completed: Boolean(
-      rawProfile?.program_onboarding_completed ?? false
-    ),
+    program_onboarding_completed: Boolean(rawProfile?.program_onboarding_completed ?? false),
     has_completed_program_onboarding: Boolean(
       rawProfile?.has_completed_program_onboarding ??
         rawProfile?.program_onboarding_completed ??
@@ -132,9 +129,11 @@ export function AuthProvider({ children }) {
   const [user, setUser] = useState(null);
   const [session, setSession] = useState(null);
   const [profile, setProfile] = useState(null);
-
   const [loading, setLoading] = useState(true);
   const [authReady, setAuthReady] = useState(false);
+
+  const initializedRef = useRef(false);
+  const authRunIdRef = useRef(0);
 
   const ensureBasicProfile = useCallback(async (authUser, fallbackName = "") => {
     if (!authUser?.id) return;
@@ -251,34 +250,60 @@ export function AuthProvider({ children }) {
     [ensureBasicProfile]
   );
 
+  const applySession = useCallback(
+    async (nextSession, { markInitialized = false } = {}) => {
+      const runId = authRunIdRef.current + 1;
+      authRunIdRef.current = runId;
+
+      const nextUser = nextSession?.user ?? null;
+
+      setLoading(true);
+      setSession(nextSession ?? null);
+      setUser(nextUser);
+
+      if (!nextUser?.id) {
+        setProfile(null);
+        if (authRunIdRef.current === runId) {
+          if (markInitialized) initializedRef.current = true;
+          setLoading(false);
+          setAuthReady(true);
+        }
+        return null;
+      }
+
+      const nextProfile = await fetchProfile(nextUser);
+
+      if (authRunIdRef.current === runId) {
+        if (markInitialized) initializedRef.current = true;
+        setLoading(false);
+        setAuthReady(true);
+      }
+
+      return nextProfile;
+    },
+    [fetchProfile]
+  );
+
   useEffect(() => {
     let mounted = true;
 
     const init = async () => {
       try {
+        setLoading(true);
+        setAuthReady(false);
+
         const {
           data: { session: currentSession },
         } = await withTimeout(supabase.auth.getSession());
 
         if (!mounted) return;
-
-        const currentUser = currentSession?.user ?? null;
-
-        setSession(currentSession);
-        setUser(currentUser);
-        setLoading(false);
-        setAuthReady(true);
-
-        if (currentUser?.id) {
-          fetchProfile(currentUser);
-        } else {
-          setProfile(null);
-        }
+        await applySession(currentSession, { markInitialized: true });
       } catch (error) {
         console.error("init auth error:", error);
 
         if (!mounted) return;
 
+        initializedRef.current = true;
         setSession(null);
         setUser(null);
         setProfile(null);
@@ -291,28 +316,28 @@ export function AuthProvider({ children }) {
 
     const {
       data: { subscription },
-    } = supabase.auth.onAuthStateChange((_event, nextSession) => {
+    } = supabase.auth.onAuthStateChange((event, nextSession) => {
       if (!mounted) return;
 
-      const nextUser = nextSession?.user ?? null;
-
-      setSession(nextSession ?? null);
-      setUser(nextUser);
-      setLoading(false);
-      setAuthReady(true);
-
-      if (nextUser?.id) {
-        fetchProfile(nextUser);
-      } else {
-        setProfile(null);
+      if (event === "INITIAL_SESSION" && !initializedRef.current) {
+        return;
       }
+
+      window.setTimeout(() => {
+        if (!mounted) return;
+        applySession(nextSession).catch((error) => {
+          console.error("auth state change error:", error);
+          setLoading(false);
+          setAuthReady(true);
+        });
+      }, 0);
     });
 
     return () => {
       mounted = false;
       subscription.unsubscribe();
     };
-  }, [fetchProfile]);
+  }, [applySession]);
 
   useEffect(() => {
     if (!user?.id) return undefined;
@@ -362,6 +387,8 @@ export function AuthProvider({ children }) {
 
     if (error) throw error;
 
+    await applySession(data?.session ?? null);
+
     return data;
   };
 
@@ -381,6 +408,7 @@ export function AuthProvider({ children }) {
 
   const signOut = async () => {
     await supabase.auth.signOut();
+    initializedRef.current = true;
     setUser(null);
     setSession(null);
     setProfile(null);
