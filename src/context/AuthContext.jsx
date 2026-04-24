@@ -93,6 +93,11 @@ const normalizeProfileAccess = (rawProfile = {}, authUser = null) => {
     enrollment_source: rawProfile?.enrollment_source || null,
     enrollment_status: rawProfile?.enrollment_status || (isPro ? "approved" : "none"),
     status: rawProfile?.status || (isPro ? "active" : "free"),
+    app_theme:
+      rawProfile?.app_theme ||
+      rawProfile?.theme_key ||
+      rawProfile?.dashboard_theme ||
+      null,
     is_enrolled:
       typeof rawProfile?.is_enrolled === "boolean" ? rawProfile.is_enrolled : isPro,
     program_active:

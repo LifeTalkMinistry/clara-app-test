@@ -4,6 +4,7 @@ import { HashRouter } from "react-router-dom";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { AuthProvider } from "@/context/AuthContext";
 import { queryClientInstance } from "@/lib/query-client";
+import { ThemeProvider } from "@/theme/ThemeProvider";
 import App from "./App.jsx";
 import "./index.css";
 
@@ -164,11 +165,13 @@ if (!rootElement) {
 ReactDOM.createRoot(rootElement).render(
   <React.StrictMode>
     <AuthProvider>
-      <QueryClientProvider client={queryClientInstance}>
-        <HashRouter>
-          <App />
-        </HashRouter>
-      </QueryClientProvider>
+      <ThemeProvider>
+        <QueryClientProvider client={queryClientInstance}>
+          <HashRouter>
+            <App />
+          </HashRouter>
+        </QueryClientProvider>
+      </ThemeProvider>
     </AuthProvider>
   </React.StrictMode>
 );

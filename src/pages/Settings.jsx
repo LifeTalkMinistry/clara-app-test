@@ -46,7 +46,7 @@ function formatDate(value) {
 
 function LoadingState() {
   return (
-    <div className="min-h-screen flex items-center justify-center bg-[#020817] text-white">
+    <div className="theme-page-shell min-h-screen flex items-center justify-center text-white">
       <div className="text-center">
         <div className="mx-auto h-10 w-10 animate-spin rounded-full border-4 border-white/10 border-t-emerald-400" />
         <p className="mt-3 text-sm text-slate-400">Loading settings...</p>
@@ -59,7 +59,7 @@ function LauncherCard({ sectionKey, onOpen }) {
   const meta = SECTION_META[sectionKey];
   const Icon = meta.icon;
   return (
-    <button type="button" onClick={() => onOpen(sectionKey)} className="launcher-card">
+    <button type="button" onClick={() => onOpen(sectionKey)} className="launcher-card theme-panel-card">
       <div className="launcher-icon">
         <Icon size={18} />
       </div>
@@ -74,11 +74,11 @@ function LauncherCard({ sectionKey, onOpen }) {
 
 function Panel({ title, subtitle, children, action }) {
   return (
-    <div className="rounded-[28px] border border-white/10 bg-[#04111f]">
+    <div className="theme-panel-card rounded-[28px]">
       <div className="border-b border-white/10 px-5 py-4">
         <div className="flex items-start justify-between gap-4">
           <div>
-            <p className="text-xs uppercase tracking-[0.24em] text-emerald-300/70">Settings</p>
+            <p className="text-xs uppercase tracking-[0.24em] text-[color:var(--theme-accent)]">Settings</p>
             <h2 className="mt-1 text-xl font-bold text-white">{title}</h2>
             <p className="mt-1 text-sm text-white/60">{subtitle}</p>
           </div>
@@ -92,9 +92,9 @@ function Panel({ title, subtitle, children, action }) {
 
 function InfoRow({ icon: Icon, label, value, hint, action }) {
   return (
-    <div className="rounded-2xl border border-white/10 bg-white/5 p-4">
+    <div className="theme-soft-card rounded-2xl p-4">
       <div className="flex items-start gap-3">
-        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-white/5 text-white/70">
+        <div className="theme-soft-card flex h-10 w-10 shrink-0 items-center justify-center rounded-xl text-white/70">
           <Icon size={16} />
         </div>
         <div className="min-w-0 flex-1">
@@ -110,7 +110,7 @@ function InfoRow({ icon: Icon, label, value, hint, action }) {
 
 function ToggleRow({ label, description, checked, onChange }) {
   return (
-    <div className="flex items-start justify-between gap-4 rounded-2xl border border-white/10 bg-white/5 p-4">
+    <div className="theme-soft-card flex items-start justify-between gap-4 rounded-2xl p-4">
       <div className="min-w-0 flex-1">
         <p className="text-sm font-semibold text-white">{label}</p>
         <p className="mt-1 text-xs leading-relaxed text-white/55">{description}</p>
@@ -346,7 +346,7 @@ export default function Settings() {
   if (loading) return <LoadingState />;
 
   return (
-    <div className="min-h-screen bg-[#020817] text-white px-4 pt-4 pb-32">
+    <div className="theme-page-shell min-h-screen text-white px-4 pt-4 pb-32">
       <div className="mx-auto max-w-md">
         <div className="mb-5 flex items-center justify-between">
           <button onClick={handleBack} className="btn">
@@ -372,8 +372,8 @@ export default function Settings() {
 
         {isLauncherView ? (
           <>
-            <div className="mb-4 overflow-hidden rounded-[28px] border border-emerald-400/10 bg-[#04111f]">
-              <div className="bg-gradient-to-r from-[#0b3b2e] via-[#0f8f5a] to-[#0ea5e9] px-5 py-5">
+            <div className="theme-panel-card mb-4 overflow-hidden rounded-[28px]">
+              <div className="px-5 py-5" style={{ background: "var(--theme-gradient-hero)" }}>
                 <div className="flex items-start justify-between gap-4">
                   <div className="min-w-0">
                     <p className="text-[10px] uppercase tracking-[0.22em] text-white/70">Account</p>

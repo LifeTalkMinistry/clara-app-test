@@ -95,7 +95,9 @@ function GoalActionModal({
   financeActionLoading,
   onSaveSavingsGoal,
   onAddSavings,
+  theme,
 }) {
+  const isLight = theme?.isLight === true;
   if (!open) return null;
 
   return (
@@ -104,13 +106,13 @@ function GoalActionModal({
         className="absolute inset-0 bg-black/70 backdrop-blur-sm"
         onClick={onClose}
       />
-      <div className="relative z-10 w-full max-w-md overflow-hidden rounded-3xl border border-white/10 bg-[#08111d] shadow-2xl">
+      <div className="theme-modal-card relative z-10 w-full max-w-md overflow-hidden rounded-3xl shadow-2xl">
         <div className="flex items-center justify-between border-b border-white/10 p-4">
           <div>
-            <p className="text-base font-semibold text-white">
+            <p className={`text-base font-semibold ${isLight ? "text-slate-900" : "text-white"}`}>
               Savings Goal Actions
             </p>
-            <p className="mt-0.5 text-xs text-white/60">
+            <p className={`mt-0.5 text-xs ${isLight ? "text-slate-500" : "text-white/60"}`}>
               Create goals or add money to your current target
             </p>
           </div>
@@ -169,8 +171,14 @@ export default function SavingsCard({
   onSaveSavingsGoal,
   onDeleteSavingsGoal,
   onAddSavings,
+  theme = null,
 }) {
   const [showModal, setShowModal] = useState(false);
+  const isLight = theme?.isLight === true;
+  const surfaceStyle = {
+    background: theme?.tokens?.gradientCard || "var(--theme-gradient-card)",
+    borderColor: theme?.tokens?.border || "var(--theme-border)",
+  };
 
   const overallProgress = useMemo(() => {
     return totalSavingsTarget > 0
@@ -199,12 +207,14 @@ export default function SavingsCard({
         financeActionLoading={financeActionLoading}
         onSaveSavingsGoal={onSaveSavingsGoal}
         onAddSavings={onAddSavings}
+        theme={theme}
       />
 
       <div
-        className={`relative mb-3 overflow-hidden rounded-3xl border border-white/10 shadow-2xl transition-all duration-200 ${status.ring}`}
+        className={`relative mb-3 overflow-hidden rounded-3xl border shadow-2xl transition-all duration-200 ${status.ring}`}
+        style={surfaceStyle}
       >
-        <div className="absolute inset-0 bg-gradient-to-br from-[#06161a] via-[#0b1b26] to-[#0d2718]" />
+        <div className="absolute inset-0" style={{ background: theme?.tokens?.gradientCard || "var(--theme-gradient-card)" }} />
         <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(16,185,129,0.26),transparent_28%),radial-gradient(circle_at_top_right,rgba(34,211,238,0.14),transparent_28%),radial-gradient(circle_at_bottom_right,rgba(132,204,22,0.12),transparent_24%),linear-gradient(135deg,rgba(255,255,255,0.05)_0%,rgba(255,255,255,0.00)_35%,rgba(255,255,255,0.02)_100%)]" />
         <div className="pointer-events-none absolute inset-0 bg-gradient-to-b from-black/25 via-black/18 to-black/35" />
         <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(to_bottom,rgba(255,255,255,0.08),rgba(255,255,255,0.02)_16%,transparent_38%)]" />
@@ -218,10 +228,10 @@ export default function SavingsCard({
             <div className="min-w-0 flex-1">
               <div className="flex items-start justify-between gap-2">
                 <div className="min-w-0">
-                  <p className="text-base font-semibold tracking-tight text-white">
+                  <p className={`text-base font-semibold tracking-tight ${isLight ? "text-slate-900" : "text-white"}`}>
                     Savings Goals
                   </p>
-                  <p className="mt-0.5 text-[11px] font-medium text-white/75">
+                  <p className={`mt-0.5 text-[11px] font-medium ${isLight ? "text-slate-600" : "text-white/75"}`}>
                     Build dedicated money for what matters next
                   </p>
                 </div>
@@ -242,11 +252,11 @@ export default function SavingsCard({
               {fmt(totalSavingsSaved)}
             </p>
 
-            <p className="mt-2 max-w-[28rem] text-xs font-medium leading-relaxed text-white/82">
+            <p className={`mt-2 max-w-[28rem] text-xs font-medium leading-relaxed ${isLight ? "text-slate-700" : "text-white/82"}`}>
               {message}
             </p>
 
-            <p className="mt-1 text-[11px] text-white/60">
+            <p className={`mt-1 text-[11px] ${isLight ? "text-slate-500" : "text-white/60"}`}>
               Target: {fmt(totalSavingsTarget)}
             </p>
           </div>

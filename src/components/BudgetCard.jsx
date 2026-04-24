@@ -177,7 +177,9 @@ function ActionModal({
   financeActionLoading,
   onSaveBudget,
   onResetBudget,
+  theme,
 }) {
+  const themeClasses = getBudgetThemeClasses(theme);
   if (!open) return null;
 
   return (
@@ -186,7 +188,7 @@ function ActionModal({
         className="absolute inset-0 bg-black/70 backdrop-blur-sm"
         onClick={onClose}
       />
-      <div className="relative z-10 w-full max-w-md overflow-hidden rounded-3xl border border-white/10 bg-[#08111d] shadow-2xl">
+      <div className="theme-modal-card relative z-10 w-full max-w-md overflow-hidden rounded-3xl shadow-2xl">
         <div className="flex items-center justify-between border-b border-white/10 p-4">
           <div>
             <p className={`text-base font-semibold ${themeClasses.title}`}>Budget Actions</p>
@@ -304,6 +306,7 @@ export default function BudgetCard({
         financeActionLoading={financeActionLoading}
         onSaveBudget={onSaveBudget}
         onResetBudget={onResetBudget}
+        theme={theme}
       />
 
       <div

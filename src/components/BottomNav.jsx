@@ -33,6 +33,8 @@ import { Sheet, SheetContent } from "@/components/ui/sheet";
 import AiCommandPanel from "@/components/AiCommandPanel";
 import { supabase } from "@/lib/supabaseClient";
 import { FEATURE_ROUTE_MAP } from "@/lib/plan-config";
+import { useTheme } from "@/theme/ThemeProvider";
+import { buildNavPalette } from "@/theme/themes";
 
 const LONG_PRESS_MS = 720;
 
@@ -759,6 +761,7 @@ function BottomNav({
 }) {
   const location = useLocation();
   const navigate = useNavigate();
+  const { selectedTheme } = useTheme();
 
   const [moreOpen, setMoreOpen] = useState(false);
   const [actionsOpen, setActionsOpen] = useState(false);
@@ -875,6 +878,10 @@ function BottomNav({
       clearScheduledThemeSync();
     };
   }, [clearPressTimer, clearScheduledThemeSync]);
+
+  useEffect(() => {
+    applyThemePalette(buildNavPalette(selectedTheme));
+  }, [applyThemePalette, selectedTheme]);
 
   useEffect(() => {
     let isMounted = true;
