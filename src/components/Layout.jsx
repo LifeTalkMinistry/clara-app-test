@@ -33,9 +33,7 @@ import ClaraLogo from "./ClaraLogo";
 import { FEATURE_ROUTE_MAP } from "@/lib/plan-config";
 
 function getAppLoginUrl() {
-  const base = import.meta.env.BASE_URL || "/";
-  const normalizedBase = base.endsWith("/") ? base : `${base}/`;
-  return `${window.location.origin}${normalizedBase}#/login`;
+  return `${window.location.origin}/clara-app-test/#/login`;
 }
 
 const allNavItems = [
