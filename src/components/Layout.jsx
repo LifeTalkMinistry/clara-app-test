@@ -21,9 +21,9 @@ import {
   Bell,
   Megaphone,
   Lock,
-  Plus,
 } from "lucide-react";
 import { supabase } from "@/lib/supabaseClient";
+import BottomNav from "./BottomNav";
 import QuickAddModal from "./QuickAddModal";
 import AdsModal from "./AdsModal";
 import ClaraAssistantPanel from "@/components/ai/ClaraAssistantPanel";
@@ -107,7 +107,7 @@ export default function Layout({ children }) {
   const [quickAddOpen, setQuickAddOpen] = useState(false);
   const [adsModalOpen, setAdsModalOpen] = useState(false);
 
-  // ✅ AI assistant state
+  // AI assistant state
   const [assistantOpen, setAssistantOpen] = useState(false);
   const [assistantMode, setAssistantMode] = useState("voice");
 
@@ -161,15 +161,18 @@ export default function Layout({ children }) {
         </main>
       </div>
 
-      {!isAdvertiser && !hideMobileControlCenter && (
-        <button
-          type="button"
-          onClick={handleOpenQuickAdd}
-          aria-label="Open quick add"
-          className="fixed bottom-6 left-1/2 z-50 flex h-20 w-20 -translate-x-1/2 items-center justify-center rounded-full border-[7px] border-black/70 bg-gradient-to-br from-amber-300 via-orange-400 to-amber-600 text-white shadow-[0_18px_45px_rgba(245,158,11,0.35),0_0_0_1px_rgba(255,255,255,0.16)_inset] transition-transform duration-200 active:scale-95"
-        >
-          <Plus className="h-10 w-10 stroke-[2.6]" />
-        </button>
+      {!isAdvertiser && (
+        <BottomNav
+          onQuickAdd={handleOpenQuickAdd}
+          user={user}
+          isAdmin={isAdmin}
+          isFree={isFree}
+          isFeatureAvailable={isFeatureAvailable}
+          onOpenAssistant={(mode) => {
+            setAssistantMode(mode);
+            setAssistantOpen(true);
+          }}
+        />
       )}
 
       {!isAdvertiser && (
