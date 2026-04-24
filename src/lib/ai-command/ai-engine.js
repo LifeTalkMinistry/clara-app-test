@@ -233,6 +233,139 @@ function isLikelySimpleFinanceCommand(text) {
   return hasAmount && (hasExpenseWord || hasWalletWord);
 }
 
+function isLastTransactionRequest(text) {
+  const clean = normalizeText(text);
+
+  return (
+    /\b(last|latest|recent|newest|previous)\b/.test(clean) &&
+    /\b(transaction|transactions|expense|expenses|spending|spent|purchase|payment|wallet movement|wallet update|history|record)\b/.test(
+      clean,
+    )
+  );
+}
+
+function getTransactionTimestamp(item) {
+  const rawDate =
+    item?.created_at ||
+    item?.transaction_date ||
+    item?.date ||
+    item?.spent_at ||
+    item?.updated_at ||
+    item?.timestamp ||
+    item?.time;
+
+  const time = rawDate ? new Date(rawDate).getTime() : 0;
+  return Number.isFinite(time) ? time : 0;
+}
+
+function getTransactionAmount(item) {
+  const rawAmount =
+    item?.amount ??
+    item?.total ??
+    item?.value ??
+    item?.price ??
+    item?.cost ??
+    item?.balance_change ??
+    item?.change_amount;
+
+  const amount = Number(rawAmount);
+  return Number.isFinite(amount) ? amount : 0;
+}
+
+function getTransactionLabel(item, type) {
+  return (
+    item?.title ||
+    item?.name ||
+    item?.description ||
+    item?.note ||
+    item?.notes ||
+    item?.category ||
+    item?.type ||
+    type ||
+    "transaction"
+  );
+}
+
+function formatPeso(amount) {
+  const value = Number(amount || 0);
+
+  try {
+    return new Intl.NumberFormat("en-PH", {
+      style: "currency",
+      currency: "PHP",
+      maximumFractionDigits: value % 1 === 0 ? 0 : 2,
+    }).format(value);
+  } catch {
+    return `₱${value.toLocaleString("en-PH")}`;
+  }
+}
+
+function formatTransactionDate(item) {
+  const timestamp = getTransactionTimestamp(item);
+  if (!timestamp) return "";
+
+  try {
+    return new Intl.DateTimeFormat("en-PH", {
+      month: "short",
+      day: "numeric",
+      hour: "numeric",
+      minute: "2-digit",
+    }).format(new Date(timestamp));
+  } catch {
+    return "";
+  }
+}
+
+function getLatestLocalTransaction(financeSnapshot) {
+  const expenses = Array.isArray(financeSnapshot?.expenses) ? financeSnapshot.expenses : [];
+  const walletTransactions = Array.isArray(financeSnapshot?.walletTransactions)
+    ? financeSnapshot.walletTransactions
+    : [];
+
+  const expenseItems = expenses.map((item) => ({
+    source: "expense",
+    item,
+    timestamp: getTransactionTimestamp(item),
+  }));
+
+  const walletItems = walletTransactions.map((item) => ({
+    source: "wallet transaction",
+    item,
+    timestamp: getTransactionTimestamp(item),
+  }));
+
+  return [...expenseItems, ...walletItems].sort((a, b) => b.timestamp - a.timestamp)[0] || null;
+}
+
+function buildLatestTransactionMessage(financeSnapshot, user) {
+  const latest = getLatestLocalTransaction(financeSnapshot);
+
+  if (!latest?.item) {
+    return personalize("{name}, I don’t see any transaction recorded yet.", user);
+  }
+
+  const amount = getTransactionAmount(latest.item);
+  const label = getTransactionLabel(latest.item, latest.source);
+  const dateText = formatTransactionDate(latest.item);
+  const walletName =
+    latest.item?.wallet_name ||
+    latest.item?.walletName ||
+    latest.item?.wallet?.name ||
+    latest.item?.wallet ||
+    "";
+
+  const details = [
+    `Your latest ${latest.source} is ${formatPeso(Math.abs(amount))}`,
+    label ? `for ${label}` : "",
+    walletName ? `from ${walletName}` : "",
+    dateText ? `on ${dateText}` : "",
+  ]
+    .filter(Boolean)
+    .join(" ");
+
+  return personalize(`${details}.`, user);
+}
+
 function shouldTrustLocalParser(command) {
   if (!command) return false;
   if (!command.intent) return false;
@@ -249,6 +382,7 @@ function shouldTrustLocalParser(command) {
 
 function shouldAskGemini({ text, localCommand, geminiStatus }) {
   if (!geminiStatus.configured) return false;
+  if (isLastTransactionRequest(text)) return false;
   if (isPureSmallTalk(text)) return false;
   if (isLikelySimpleFinanceCommand(text) && shouldTrustLocalParser(localCommand)) return false;
 
@@ -544,6 +678,23 @@ export async function processAssistantTurn({ text, session, user }) {
   }
 
   const financeSnapshot = await safeLoadFinanceSnapshot(activeUser);
+
+  if (isLastTransactionRequest(input)) {
+    return {
+      command: buildCommand(
+        AI_INTENTS.GENERAL_GUIDANCE,
+        {
+          localAction: "latest_transaction",
+        },
+        0.95,
+      ),
+      assistantMessage: buildLatestTransactionMessage(financeSnapshot, activeUser),
+      executionResult: null,
+      status: "detected",
+      awaitingConfirmation: false,
+    };
+  }
+
   const command = await understandInput({
     text: input,
     session,
