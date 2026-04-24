@@ -32,6 +32,12 @@ import useAdvertiserMenuAccess from "../hooks/useAdvertiserMenuAccess";
 import ClaraLogo from "./ClaraLogo";
 import { FEATURE_ROUTE_MAP } from "@/lib/plan-config";
 
+function getAppLoginUrl() {
+  const base = import.meta.env.BASE_URL || "/";
+  const normalizedBase = base.endsWith("/") ? base : `${base}/`;
+  return `${window.location.origin}${normalizedBase}#/login`;
+}
+
 const allNavItems = [
   { path: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
   { path: "/feed", label: "Feed", icon: Users, pro: true },
@@ -128,11 +134,12 @@ export default function Layout({ children }) {
     try {
       setQuickAddOpen(false);
       await supabase.auth.signOut();
-      navigate("/login");
+      window.location.replace(getAppLoginUrl());
     } catch (error) {
       console.error("Logout failed:", error);
+      window.location.replace(getAppLoginUrl());
     }
-  }, [navigate]);
+  }, []);
 
   const handleOpenQuickAdd = useCallback(() => {
     if (isAdvertiser) return;
