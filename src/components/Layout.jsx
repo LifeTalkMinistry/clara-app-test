@@ -23,81 +23,20 @@ import {
   Lock,
 } from "lucide-react";
 import { supabase } from "@/lib/supabaseClient";
-import BottomNav from "./BottomNav";
+import QuickCircle from "@/components/QuickCircle";
+import DashboardInsightCarousel from "@/components/DashboardInsightCarousel";
 import QuickAddModal from "./QuickAddModal";
 import AdsModal from "./AdsModal";
 import ClaraAssistantPanel from "@/components/ai/ClaraAssistantPanel";
 import useUserRole from "../hooks/useUserRole";
-import useAdvertiserMenuAccess from "../hooks/useAdvertiserMenuAccess";
 import ClaraLogo from "./ClaraLogo";
-import { FEATURE_ROUTE_MAP } from "@/lib/plan-config";
 
 function getAppLoginUrl() {
   return `${window.location.origin}/clara-app-test/#/login`;
 }
 
-const allNavItems = [
-  { path: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
-  { path: "/feed", label: "Feed", icon: Users, pro: true },
-  { path: "/expenses", label: "Expenses", icon: Receipt },
-  { path: "/wallets", label: "Wallets", icon: Wallet },
-  { path: "/budgets", label: "Budgets", icon: Target },
-  { path: "/analytics", label: "Analytics", icon: BarChart2 },
-  { path: "/ai", label: "CLARA AI", icon: Brain, pro: true },
-  { path: "/savings-goals", label: "Savings Goals", icon: PiggyBank, pro: true },
-  { path: "/tasks", label: "Tasks", icon: ListChecks, pro: true },
-  { path: "/modules", label: "Modules", icon: BookOpen, pro: true },
-  { path: "/messages", label: "Messages", icon: MessageSquare, pro: true },
-  { path: "/news", label: "News", icon: Bell },
-  { path: "/referrals", label: "Referrals", icon: Share2, ambassadorOnly: true },
-];
-
-const advertiserNavItems = [
-  { path: "/profile", label: "Profile", icon: User },
-  { path: "/settings/account", label: "Settings", icon: Settings },
-];
-
 function isSettingsPath(pathname) {
   return pathname === "/settings" || pathname.startsWith("/settings/");
-}
-
-function SidebarLink({ item, isActive, isLocked, onNavigate, onClose }) {
-  const handleClick = (e) => {
-    if (isLocked) {
-      e.preventDefault();
-      onNavigate("/enroll");
-      return;
-    }
-    onClose?.();
-  };
-
-  return (
-    <Link
-      to={isLocked ? "/enroll" : item.path}
-      onClick={handleClick}
-      className={`group flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm transition-all ${
-        isActive
-          ? "bg-gradient-to-r from-green-500 to-emerald-600 font-semibold text-white"
-          : isLocked
-          ? "text-white/65 hover:bg-white/10"
-          : "text-white/70 hover:bg-white/10 hover:text-white"
-      }`}
-    >
-      <item.icon className="h-4 w-4 flex-shrink-0" />
-      <span className="flex-1">{item.label}</span>
-
-      {isLocked && (
-        <span className="inline-flex items-center gap-1 rounded-md bg-yellow-400/20 px-1.5 py-0.5 text-[9px] font-bold text-yellow-300">
-          <Lock className="h-3 w-3" />
-          PRO
-        </span>
-      )}
-
-      {isActive && (
-        <div className="h-5 w-1.5 rounded-full bg-gradient-to-b from-yellow-400 to-lime-400" />
-      )}
-    </Link>
-  );
 }
 
 function isStandaloneFocusPage(pathname) {
@@ -111,22 +50,19 @@ export default function Layout({ children }) {
   const [quickAddOpen, setQuickAddOpen] = useState(false);
   const [adsModalOpen, setAdsModalOpen] = useState(false);
 
-  // AI assistant state
   const [assistantOpen, setAssistantOpen] = useState(false);
   const [assistantMode, setAssistantMode] = useState("voice");
 
+  const [expenses, setExpenses] = useState([]);
+  const [budgets, setBudgets] = useState([]);
+
   const {
     user,
-    planLabel = "FREE",
     isAdmin = false,
-    isPaid = false,
     isFree = false,
     isFeatureAvailable,
     loading = false,
   } = useUserRole() || {};
-
-  const role = String(user?.role || "user").toLowerCase();
-  const isAdvertiser = role === "advertiser";
 
   const handleLogout = useCallback(async () => {
     try {
@@ -140,17 +76,36 @@ export default function Layout({ children }) {
   }, []);
 
   const handleOpenQuickAdd = useCallback(() => {
-    if (isAdvertiser) return;
     setQuickAddOpen(true);
-  }, [isAdvertiser]);
-
-  const hideMobileControlCenter = isStandaloneFocusPage(location.pathname);
+  }, []);
 
   useEffect(() => {
-    if (hideMobileControlCenter) {
-      // no-op
-    }
-  }, [hideMobileControlCenter]);
+    if (!user?.id || location.pathname !== "/dashboard") return;
+
+    const fetchData = async () => {
+      try {
+        const { data: expensesData } = await supabase
+          .from("expenses")
+          .select("*")
+          .eq("user_id", user.id)
+          .limit(100);
+
+        const { data: budgetsData } = await supabase
+          .from("budgets")
+          .select("*")
+          .eq("user_id", user.id);
+
+        setExpenses(expensesData || []);
+        setBudgets(budgetsData || []);
+      } catch (e) {
+        console.error("Insight fetch error", e);
+      }
+    };
+
+    fetchData();
+  }, [user?.id, location.pathname]);
+
+  const hideMobileControlCenter = isStandaloneFocusPage(location.pathname);
 
   return (
     <div className="theme-page-shell flex h-screen overflow-hidden text-white">
@@ -162,17 +117,17 @@ export default function Layout({ children }) {
 
       <div className="relative flex min-w-0 flex-1 flex-col">
         <main className="flex-1 overflow-y-auto pb-24 pt-3">
+          {location.pathname === "/dashboard" && (
+            <DashboardInsightCarousel expenses={expenses} budgets={budgets} />
+          )}
+
           {children}
         </main>
       </div>
 
-      {!isAdvertiser && (
-        <BottomNav
+      {!hideMobileControlCenter && (
+        <QuickCircle
           onQuickAdd={handleOpenQuickAdd}
-          user={user}
-          isAdmin={isAdmin}
-          isFree={isFree}
-          isFeatureAvailable={isFeatureAvailable}
           onOpenAssistant={(mode) => {
             setAssistantMode(mode);
             setAssistantOpen(true);
@@ -180,13 +135,11 @@ export default function Layout({ children }) {
         />
       )}
 
-      {!isAdvertiser && (
-        <QuickAddModal
-          open={quickAddOpen}
-          onClose={() => setQuickAddOpen(false)}
-          userEmail={user?.email}
-        />
-      )}
+      <QuickAddModal
+        open={quickAddOpen}
+        onClose={() => setQuickAddOpen(false)}
+        userEmail={user?.email}
+      />
 
       <AdsModal
         open={adsModalOpen}
