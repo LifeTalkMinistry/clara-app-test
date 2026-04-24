@@ -1,7 +1,17 @@
 const toNumber = (value) => {
+  if (typeof value === "number") return Number.isFinite(value) ? value : 0;
+
+  if (typeof value === "string") {
+    const cleaned = value.replace(/[₱,\s]/g, "");
+    const num = Number(cleaned);
+    return Number.isFinite(num) ? num : 0;
+  }
+
   const num = Number(value);
   return Number.isFinite(num) ? num : 0;
 };
+
+const hasValue = (value) => value !== null && value !== undefined && value !== "";
 
 const normalizeType = (value) => String(value || "").trim().toLowerCase();
 
@@ -40,6 +50,14 @@ const getSignedTransactionAmount = (transaction) => {
   return 0;
 };
 
+const getStoredWalletBalance = (wallet) => {
+  if (hasValue(wallet?.balance)) return toNumber(wallet.balance);
+  if (hasValue(wallet?.current_balance)) return toNumber(wallet.current_balance);
+  if (hasValue(wallet?.wallet_balance)) return toNumber(wallet.wallet_balance);
+  if (hasValue(wallet?.available_balance)) return toNumber(wallet.available_balance);
+  return null;
+};
+
 export function getWalletData(source = {}) {
   return {
     wallets: Array.isArray(source.wallets) ? source.wallets : [],
@@ -52,7 +70,7 @@ export function getWalletData(source = {}) {
   };
 }
 
-export function getWalletBalance(wallet, transactions = [], transfers = []) {
+export function getWalletLedgerBalance(wallet, transactions = [], transfers = []) {
   const walletId = String(wallet?.id || "");
   const walletTransactions = transactions.filter((t) => String(t?.wallet_id || "") === walletId);
   const transactionTotal = walletTransactions.reduce(
@@ -64,14 +82,17 @@ export function getWalletBalance(wallet, transactions = [], transfers = []) {
     .filter((transfer) => String(transfer?.wallet_id || "") === walletId)
     .reduce((sum, transfer) => sum + getSignedTransactionAmount(transfer), 0);
 
-  const hasTransactionLedger = walletTransactions.length > 0 || legacyTransferTotal !== 0;
-  const startingBalance = toNumber(wallet?.starting_balance);
+  return toNumber(wallet?.starting_balance) + transactionTotal + legacyTransferTotal;
+}
 
-  if (startingBalance > 0 || hasTransactionLedger) {
-    return startingBalance + transactionTotal + legacyTransferTotal;
+export function getWalletBalance(wallet, transactions = [], transfers = []) {
+  const storedBalance = getStoredWalletBalance(wallet);
+
+  if (storedBalance !== null) {
+    return storedBalance;
   }
 
-  return toNumber(wallet?.balance ?? wallet?.current_balance ?? wallet?.wallet_balance);
+  return getWalletLedgerBalance(wallet, transactions, transfers);
 }
 
 export function getTotalBalance(source = {}) {
