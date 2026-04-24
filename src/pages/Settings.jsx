@@ -44,6 +44,12 @@ function formatDate(value) {
   }
 }
 
+function getLoginRedirectUrl() {
+  const base = import.meta.env.BASE_URL || "/clara-app-test/";
+  const normalizedBase = base.endsWith("/") ? base : `${base}/`;
+  return `${window.location.origin}${normalizedBase}#/login`;
+}
+
 function LoadingState() {
   return (
     <div className="theme-page-shell min-h-screen flex items-center justify-center text-white">
@@ -300,6 +306,16 @@ export default function Settings() {
     }
   }, [email]);
 
+  const handleLogout = useCallback(async () => {
+    try {
+      await supabase.auth.signOut();
+    } catch (logoutError) {
+      console.error("Settings logout error:", logoutError);
+    } finally {
+      window.location.replace(getLoginRedirectUrl());
+    }
+  }, []);
+
   const handleDeleteAccountRequest = useCallback(async () => {
     if (!userId || !email) return;
 
@@ -479,7 +495,7 @@ export default function Settings() {
                   label="Current Session"
                   value="Sign out of this device when you are done."
                   hint="Useful on shared or borrowed devices."
-                  action={<button type="button" onClick={async () => { await supabase.auth.signOut(); navigate("/login"); }} className="inlineAction inlineActionDanger">Log Out</button>}
+                  action={<button type="button" onClick={handleLogout} className="inlineAction inlineActionDanger">Log Out</button>}
                 />
                 <InfoRow
                   icon={Trash2}
