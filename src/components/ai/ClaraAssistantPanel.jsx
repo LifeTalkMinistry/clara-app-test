@@ -11,6 +11,9 @@ import {
   clearSession,
 } from "@/lib/ai/sessionManager";
 
+// Import the memory router to extract, persist and summarise user memories.
+import { processMessage, getMemoryContext } from "@/lib/ai/clara-memory-router";
+
 const THINKING_MIN_DELAY_MS = 900;
 const THINKING_MAX_DELAY_MS = 1300;
 const TYPING_WORD_DELAY_MS = 45;
@@ -481,6 +484,13 @@ export default function ClaraAssistantPanel({ open, onClose }) {
     // Prevent empty sends or overlapping operations
     if (!clean || thinking || typingMessage) return;
 
+    // Extract and persist any useful memories from the user's message.
+    try {
+      processMessage(user?.id, clean);
+    } catch (err) {
+      console.error("Memory processing failed", err);
+    }
+
     // Reset any prior typing animation cancellation
     typingCancelledRef.current = false;
 
@@ -598,7 +608,20 @@ export default function ClaraAssistantPanel({ open, onClose }) {
 
     // Otherwise, call the AI with full context
     // Pull the last few messages as context (excluding the one we just added)
-    const context = messages.slice(-5);
+    let context = messages.slice(-5);
+    // Prepend a system message containing recent memory context if available.
+    let memoryContext = "";
+    try {
+      memoryContext = getMemoryContext(user?.id);
+    } catch (err) {
+      memoryContext = "";
+    }
+    if (memoryContext) {
+      context = [
+        { role: "system", content: `Relevant memory: ${memoryContext}` },
+        ...context,
+      ];
+    }
     let aiReply = "";
     try {
       aiReply = await generateAiResponse({
