@@ -47,6 +47,7 @@ import TaskReminderPrompt from "@/components/TaskReminderPrompt";
 import useUserRole from "../hooks/useUserRole";
 import useTaskReminderPrompt from "@/hooks/useTaskReminderPrompt";
 import { hasCompletedProgramOnboarding } from "@/lib/access-control";
+import { useTheme } from "@/theme/ThemeProvider";
 import {
   buildProgramJourney,
   getProgramBubbleContent,
@@ -1384,6 +1385,7 @@ let dashboardPageInFlight = null;
 
 export default function Dashboard() {
   const navigate = useNavigate();
+  const { selectedTheme: selectedDashboardTheme, openThemePicker } = useTheme();
   const { user, plan, isAdvertiser, isPaid, isFree, isPending, refreshUser } =
     useUserRole();
 
@@ -1427,10 +1429,6 @@ export default function Dashboard() {
   const [notificationSettings, setNotificationSettings] = useState(() =>
     readStoredNotificationSettings(userId)
   );
-  const [dashboardThemeKey, setDashboardThemeKey] = useState(() =>
-    readStoredDashboardTheme(userId)
-  );
-  const [showDashboardThemePicker, setShowDashboardThemePicker] = useState(false);
   const [financeCardIndex, setFinanceCardIndex] = useState(0);
   const [expandedFinanceCard, setExpandedFinanceCard] = useState(null);
   const [financeActionLoading, setFinanceActionLoading] = useState(false);
@@ -1463,12 +1461,6 @@ export default function Dashboard() {
   });
 
   const dailyRemindersEnabled = notificationSettings?.dailyReminders !== false;
-  const selectedDashboardTheme = useMemo(() => {
-    return (
-      DASHBOARD_THEME_PRESETS.find((theme) => theme.key === dashboardThemeKey) ||
-      DASHBOARD_THEME_PRESETS[0]
-    );
-  }, [dashboardThemeKey]);
   const themeIsLight = selectedDashboardTheme?.isLight === true;
   const themePrimaryTextClass = themeIsLight ? "text-slate-900" : "text-white";
   const themeSecondaryTextClass = themeIsLight ? "text-slate-700" : "text-white/82";
@@ -1483,26 +1475,27 @@ export default function Dashboard() {
   const themeQuickActionBaseClass = themeIsLight
     ? "text-slate-700 hover:bg-slate-900/[0.04] hover:text-slate-900"
     : "text-white/82 hover:bg-white/[0.06] hover:text-white";
-  const themeQuickActionPanelClass = themeIsLight
-    ? "border-slate-300/55 bg-[linear-gradient(135deg,rgba(255,255,255,0.92),rgba(239,246,255,0.95))] shadow-[0_0_0_1px_rgba(148,163,184,0.18),0_18px_40px_rgba(15,23,42,0.10)]"
-    : selectedDashboardTheme.heroShell;
-  const themeQuickActionGlowClass = themeIsLight
-    ? "bg-[radial-gradient(circle_at_top_left,rgba(255,255,255,0.55),transparent_34%),radial-gradient(circle_at_bottom_right,rgba(191,219,254,0.24),transparent_40%)]"
-    : selectedDashboardTheme.heroGlow;
   const themeQuickActionIconShellClass = themeIsLight
     ? "border-slate-300/60 bg-[linear-gradient(180deg,rgba(255,255,255,0.98),rgba(241,245,249,0.90))] text-slate-700 shadow-[inset_0_1px_0_rgba(255,255,255,0.85),0_10px_18px_rgba(148,163,184,0.16)] group-hover:border-slate-400/60 group-hover:bg-white"
     : "border-white/10 bg-[linear-gradient(180deg,rgba(255,255,255,0.08),rgba(255,255,255,0.03))] text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.08),0_0_18px_rgba(255,255,255,0.04)] group-hover:border-white/20 group-hover:bg-white/[0.10]";
   const themeDividerClass = themeIsLight ? "via-slate-300/50" : "via-white/10";
   const themeInactiveDotClass = themeIsLight ? "bg-slate-400/35 hover:bg-slate-500/55" : "bg-white/20 hover:bg-white/35";
-
-  const groupedDashboardThemes = useMemo(() => {
-    return DASHBOARD_THEME_CATEGORY_ORDER.map((categoryKey) => ({
-      key: categoryKey,
-      label: DASHBOARD_THEME_CATEGORY_LABELS[categoryKey] || categoryKey,
-      items: DASHBOARD_THEME_PRESETS.filter((theme) => theme.category === categoryKey),
-    })).filter((group) => group.items.length > 0);
-  }, []);
-
+  const themeQuickActionPanelStyle = {
+    background:
+      selectedDashboardTheme?.tokens?.topNav ||
+      selectedDashboardTheme?.tokens?.gradientHero ||
+      "var(--theme-top-nav)",
+    borderColor: selectedDashboardTheme?.tokens?.border || "var(--theme-border)",
+    boxShadow: themeIsLight
+      ? "0 0 0 1px rgba(148,163,184,0.18), 0 18px 40px rgba(15,23,42,0.10)"
+      : "0 0 0 1px rgba(255,255,255,0.03), 0 18px 46px rgba(0,0,0,0.32), 0 0 40px color-mix(in srgb, var(--theme-glow) 18%, transparent)",
+  };
+  const themeQuickActionGlowStyle = {
+    background:
+      selectedDashboardTheme?.tokens?.gradientHero ||
+      "var(--theme-gradient-hero)",
+    opacity: themeIsLight ? 0.42 : 0.7,
+  };
 
   const refreshTimeoutRef = useRef(null);
   const financeCarouselRef = useRef(null);
@@ -1557,14 +1550,6 @@ export default function Dashboard() {
   useEffect(() => {
     setNotificationSettings(readStoredNotificationSettings(userId));
   }, [userId]);
-  useEffect(() => {
-    setDashboardThemeKey(readStoredDashboardTheme(userId));
-  }, [userId]);
-
-  useEffect(() => {
-    persistDashboardTheme(userId, dashboardThemeKey);
-  }, [dashboardThemeKey, userId]);
-
 
   useEffect(() => {
     const syncNotificationSettings = () => {
@@ -3571,11 +3556,14 @@ export default function Dashboard() {
   }
 
   return (
-    <div className={`relative isolate z-0 min-h-full overflow-hidden ${selectedDashboardTheme.pageSurface || "bg-[#061018]"} ${selectedDashboardTheme.pageGlow}`}>
+    <div className="theme-page-shell relative isolate z-0 min-h-full overflow-hidden">
       <div className="px-4 pb-2 pt-3 md:px-6">
         <div className="mx-auto max-w-4xl">
-          <div className={`relative w-full overflow-hidden rounded-[24px] px-2 py-2 backdrop-blur-xl sm:px-2.5 ${themeQuickActionPanelClass}`}>
-            <div className={`pointer-events-none absolute inset-0 ${themeQuickActionGlowClass}`} />
+          <div
+            className="relative w-full overflow-hidden rounded-[24px] border px-2 py-2 backdrop-blur-xl sm:px-2.5"
+            style={themeQuickActionPanelStyle}
+          >
+            <div className="pointer-events-none absolute inset-0" style={themeQuickActionGlowStyle} />
             <div className="pointer-events-none absolute inset-0 opacity-[0.10] bg-[linear-gradient(115deg,transparent_0%,rgba(255,255,255,0.18)_18%,transparent_36%,transparent_64%,rgba(255,255,255,0.10)_82%,transparent_100%)]" />
             <div className="pointer-events-none absolute inset-x-6 top-0 h-px bg-gradient-to-r from-transparent via-white/25 to-transparent" />
 
@@ -3773,6 +3761,8 @@ export default function Dashboard() {
                       moneyLeft={walletMoney}
                       survivalExpense={survivalExpense}
                       retentionRate={0}
+                      theme={selectedDashboardTheme}
+                      onOpenThemePicker={openThemePicker}
                       canAutoPrompt={Boolean(user?.id) && guardChecked && !loading}
                       hasSurvivalSetup={
                         Boolean(profileData?.survival_setup_done) ||
@@ -3813,6 +3803,7 @@ export default function Dashboard() {
                     wallets={wallets}
                     walletMoney={walletMoney}
                     walletPreviewTransactions={walletPreviewTransactions}
+                    theme={selectedDashboardTheme}
                     expanded={expandedFinanceCard === "wallets"}
                     onToggleDetails={() => toggleFinanceDetails("wallets")}
                     financeActionLoading={financeActionLoading}
@@ -3829,6 +3820,7 @@ export default function Dashboard() {
                   <div className={getFinanceSlideShellClass("budgets", selectedDashboardTheme)}>
                     <BudgetCard
                     activeBudget={derivedActiveBudget}
+                    theme={selectedDashboardTheme}
                     expanded={expandedFinanceCard === "budgets"}
                     onToggleDetails={() => toggleFinanceDetails("budgets")}
                     financeActionLoading={financeActionLoading}
@@ -3845,6 +3837,7 @@ export default function Dashboard() {
                     totalSavingsSaved={totalSavingsSaved}
                     totalSavingsTarget={totalSavingsTarget}
                     primarySavingsGoal={primarySavingsGoal}
+                    theme={selectedDashboardTheme}
                     expanded={expandedFinanceCard === "savings"}
                     onToggleDetails={() => toggleFinanceDetails("savings")}
                     financeActionLoading={financeActionLoading}
@@ -3876,7 +3869,14 @@ export default function Dashboard() {
         )}
 
         <div
-          className={`${getDashboardGlowCardClass(selectedDashboardTheme.moneyTone || "emerald")} p-4 ${selectedDashboardTheme.moneyOverlay || moneyLeftTone}`}
+          className={`${getDashboardGlowCardClass(selectedDashboardTheme.moneyTone || "emerald")} p-4`}
+          style={{
+            background:
+              selectedDashboardTheme?.tokens?.gradientMoney ||
+              "var(--theme-gradient-money)",
+            borderColor:
+              selectedDashboardTheme?.tokens?.border || "var(--theme-border)",
+          }}
         >
           <div className="flex items-start justify-between gap-3">
             <div className="min-w-0 flex-1">
@@ -3894,14 +3894,14 @@ export default function Dashboard() {
             <div className="flex shrink-0 flex-col items-end gap-2">
               <button
                 type="button"
-                onClick={() => setShowDashboardThemePicker(true)}
+                onClick={openThemePicker}
                 className={`rounded-full border px-3 py-1 text-xs font-semibold transition ${themeGlassButtonClass}` }
               >
                 {selectedDashboardTheme.label}
               </button>
               <button
                 type="button"
-                onClick={() => setShowDashboardThemePicker(true)}
+                onClick={openThemePicker}
                 className={`flex h-11 w-11 items-center justify-center rounded-2xl border transition hover:scale-[1.02] ${themeGlassIconButtonClass}` }
                 aria-label="Open dashboard theme picker"
               >
@@ -3930,7 +3930,14 @@ export default function Dashboard() {
         <div
           className={`${getDashboardGlowCardClass(
             selectedDashboardTheme.monthTone || "blue"
-          )} border ${selectedDashboardTheme.monthOverlay || "border-white/10 bg-gradient-to-br from-white/[0.04] to-white/[0.01]"} p-4`}
+          )} border p-4`}
+          style={{
+            background:
+              selectedDashboardTheme?.tokens?.gradientExpense ||
+              "var(--theme-gradient-expense)",
+            borderColor:
+              selectedDashboardTheme?.tokens?.border || "var(--theme-border)",
+          }}
         >
           <div className="flex items-start justify-between gap-3">
             <div className="min-w-0 flex-1">
@@ -3952,7 +3959,14 @@ export default function Dashboard() {
         <div
           className={`${getDashboardGlowCardClass(
             selectedDashboardTheme.tipTone || "emerald"
-          )} border ${selectedDashboardTheme.tipOverlay || "border-white/10 bg-gradient-to-br from-white/[0.04] to-white/[0.01]"} p-[1px]`}
+          )} border p-[1px]`}
+          style={{
+            background:
+              selectedDashboardTheme?.tokens?.gradientCard ||
+              "var(--theme-gradient-card)",
+            borderColor:
+              selectedDashboardTheme?.tokens?.border || "var(--theme-border)",
+          }}
         >
           <div className="overflow-hidden rounded-[27px]">
             <DailyTipCard
@@ -3964,113 +3978,6 @@ export default function Dashboard() {
           </div>
         </div>
       </div>
-
-
-      {showDashboardThemePicker && (
-        <div className="fixed inset-0 z-[130] flex items-end justify-center bg-black/70 px-4 pb-4 pt-10 backdrop-blur-md sm:items-center sm:p-4">
-          <div className="w-full max-w-2xl overflow-hidden rounded-[28px] border border-white/10 bg-[#071120]/95 shadow-[0_25px_80px_rgba(0,0,0,0.45)]">
-            <div className={`border-b border-white/10 bg-[linear-gradient(135deg,rgba(255,255,255,0.06),rgba(255,255,255,0.02))] px-5 py-4`}>
-              <div className="flex items-start justify-between gap-4">
-                <div>
-                  <h3 className="text-lg font-semibold text-white">Dashboard Theme Studio</h3>
-                  <p className="mt-1 text-sm leading-6 text-white/65">Choose from Classic pure colors, Aesthetic blends, Anime-inspired moods, Marvel-inspired power palettes, and Signature looks. Every selection updates the full dashboard background, money cards, bars, and daily tip styling.</p>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => setShowDashboardThemePicker(false)}
-                  className="rounded-full border border-white/10 bg-white/5 p-2 text-white/70 transition hover:bg-white/10 hover:text-white"
-                  aria-label="Close dashboard theme picker"
-                >
-                  <X className="h-4 w-4" />
-                </button>
-              </div>
-            </div>
-
-            <div className="max-h-[75vh] overflow-y-auto px-5 py-5">
-              <div className="space-y-5">
-                {groupedDashboardThemes.map((group) => (
-                  <div key={group.key} className="space-y-3">
-                    <div className="flex items-center justify-between gap-3">
-                      <div>
-                        <h4 className="text-sm font-semibold uppercase tracking-[0.18em] text-white/62">
-                          {group.label}
-                        </h4>
-                        <p className="mt-1 text-xs text-white/45">
-                          {group.key === "classic"
-                            ? "Pure color themes with minimal mixing."
-                            : group.key === "aesthetic"
-                            ? "Blended moods and stylish combinations."
-                            : group.key === "anime"
-                            ? "Inspired dramatic palettes with strong visual emotion."
-                            : group.key === "marvel"
-                            ? "Hero-style power colors and bold contrast."
-                            : "Extra signature looks for standout identity."}
-                        </p>
-                      </div>
-                      <span className="rounded-full border border-white/10 bg-white/[0.04] px-2.5 py-1 text-[11px] font-medium text-white/55">
-                        {group.items.length} themes
-                      </span>
-                    </div>
-
-                    <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                      {group.items.map((theme) => {
-                        const active = theme.key === selectedDashboardTheme.key;
-
-                        return (
-                          <button
-                            key={theme.key}
-                            type="button"
-                            onClick={() => setDashboardThemeKey(theme.key)}
-                            className={`rounded-[24px] border p-3 text-left transition ${
-                              active
-                                ? "border-emerald-300/45 bg-white/10 shadow-[0_0_0_1px_rgba(110,231,183,0.14),0_20px_45px_rgba(0,0,0,0.22)]"
-                                : "border-white/10 bg-white/[0.03] hover:border-white/20 hover:bg-white/[0.05]"
-                            }`}
-                          >
-                            <div className={`h-24 rounded-[18px] border border-white/10 ${theme.preview}`} />
-                            <div className="mt-3 flex items-start justify-between gap-3">
-                              <div>
-                                <p className="text-sm font-semibold text-white">{theme.label}</p>
-                                <p className="mt-1 text-xs text-white/55">{theme.chip}</p>
-                              </div>
-                              <div
-                                className={`mt-0.5 flex h-6 w-6 items-center justify-center rounded-full border ${
-                                  active
-                                    ? "border-emerald-300/50 bg-emerald-400/20 text-emerald-200"
-                                    : "border-white/12 bg-white/5 text-transparent"
-                                }`}
-                              >
-                                <Check className="h-3.5 w-3.5" />
-                              </div>
-                            </div>
-                          </button>
-                        );
-                      })}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            <div className="flex flex-col-reverse gap-3 border-t border-white/10 px-5 py-4 sm:flex-row sm:justify-end">
-              <button
-                type="button"
-                onClick={() => setDashboardThemeKey(DASHBOARD_THEME_PRESETS[0].key)}
-                className="rounded-2xl border border-white/10 bg-white/[0.04] px-4 py-3 text-sm font-medium text-white/75 transition hover:bg-white/[0.08] hover:text-white"
-              >
-                Reset to default
-              </button>
-              <button
-                type="button"
-                onClick={() => setShowDashboardThemePicker(false)}
-                className="rounded-2xl bg-gradient-to-r from-emerald-400 via-emerald-500 to-green-600 px-4 py-3 text-sm font-semibold text-white shadow-[0_10px_30px_rgba(16,185,129,0.24)]"
-              >
-                Done
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
 
 
       {showOnboarding && (

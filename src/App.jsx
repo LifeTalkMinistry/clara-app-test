@@ -3,6 +3,7 @@ import { Routes, Route, Navigate } from "react-router-dom";
 import { Toaster } from "sonner";
 
 import { useAuth } from "@/context/AuthContext";
+import ThemePicker from "@/components/ThemePicker";
 import { supabase } from "@/lib/supabaseClient";
 import useUserRole from "./hooks/useUserRole";
 import {
@@ -66,7 +67,7 @@ const PageNotFound = lazy(() => import("./lib/PageNotFound"));
 
 function FullScreenLoader() {
   return (
-    <div className="min-h-screen flex items-center justify-center bg-[#061018] text-white">
+    <div className="theme-page-shell min-h-screen flex items-center justify-center text-white">
       <div className="flex flex-col items-center gap-3">
         <div className="h-10 w-10 animate-spin rounded-full border-4 border-white/15 border-t-emerald-400" />
         <p className="text-sm text-white/75">Loading...</p>
@@ -927,6 +928,7 @@ function App() {
   return (
     <>
       <AppRoutes />
+      <ThemePicker />
       <Toaster />
     </>
   );

@@ -3,6 +3,7 @@ import {
   Shield,
   Edit2,
   Camera,
+  Palette,
   X,
   Upload,
   Check,
@@ -145,6 +146,31 @@ function saveWallpaperToStorage(url, opacity) {
   } catch {}
 }
 
+function getEmergencyThemeClasses(theme) {
+  const isLight = theme?.isLight === true;
+  const border = isLight ? "border-slate-300/45" : "border-white/10";
+  const title = isLight ? "text-slate-950" : "text-white";
+  const body = isLight ? "text-slate-700" : "text-white/82";
+  const muted = isLight ? "text-slate-500" : "text-white/60";
+  const glass = isLight
+    ? "border-slate-300/45 bg-white/70 text-slate-800"
+    : "border-white/10 bg-black/15 text-white/85";
+
+  return {
+    border,
+    title,
+    body,
+    muted,
+    glass,
+    iconShell: isLight
+      ? "border-cyan-300/40 bg-cyan-500/10 shadow-[0_0_18px_rgba(14,165,233,0.10)]"
+      : "border-cyan-400/20 bg-cyan-400/10 shadow-[0_0_18px_rgba(34,211,238,0.12)]",
+    iconColor: isLight ? "text-cyan-700" : "text-cyan-300",
+    background: theme?.tokens?.gradientEmergency || "var(--theme-gradient-emergency)",
+    outline: theme?.tokens?.border || "var(--theme-border)",
+  };
+}
+
 export default function EmergencyFundCard({
   moneyLeft = 0,
   survivalExpense = 0,
@@ -152,6 +178,8 @@ export default function EmergencyFundCard({
   onSurvivalSaved,
   canAutoPrompt = false,
   hasSurvivalSetup = false,
+  theme = null,
+  onOpenThemePicker,
 }) {
   const [expanded, setExpanded] = useState(false);
   const [editing, setEditing] = useState(false);
@@ -237,6 +265,7 @@ export default function EmergencyFundCard({
   const status = getStatus(months, targetMonths);
   const progression = getProgression(months, targetMonths);
   const milestone = MILESTONES.find((m) => m.months === targetMonths);
+  const themeClasses = getEmergencyThemeClasses(theme);
 
   const handleSaved = (val) => {
     const num = Number(val) || 0;
@@ -314,13 +343,13 @@ export default function EmergencyFundCard({
             className="absolute inset-0 bg-black/70 backdrop-blur-sm"
             onClick={() => setShowWallpaperModal(false)}
           />
-          <div className="relative z-10 w-full max-w-md overflow-hidden rounded-3xl border border-white/10 bg-[#08111d] shadow-2xl">
+          <div className="theme-modal-card relative z-10 w-full max-w-md overflow-hidden rounded-3xl shadow-2xl">
             <div className="flex items-center justify-between border-b border-white/10 p-4">
               <div>
-                <p className="text-base font-semibold text-white">
+                <p className={`text-base font-semibold ${themeClasses.title}`}>
                   Emergency Background
                 </p>
-                <p className="mt-0.5 text-xs text-white/60">
+                <p className={`mt-0.5 text-xs ${themeClasses.muted}`}>
                   Upload photo and adjust opacity
                 </p>
               </div>
@@ -426,9 +455,12 @@ export default function EmergencyFundCard({
       )}
 
       <div
-        className={`relative mb-3 overflow-hidden rounded-3xl border border-white/10 shadow-2xl transition-all duration-200 ${status.ring}`}
+        className={`relative mb-3 overflow-hidden rounded-3xl border shadow-2xl transition-all duration-200 ${themeClasses.border} ${status.ring}`}
+        style={{
+          borderColor: themeClasses.outline,
+        }}
       >
-        <div className="absolute inset-0 bg-gradient-to-br from-[#08111d] via-[#111827] to-[#071520]" />
+        <div className="absolute inset-0" style={{ background: themeClasses.background }} />
 
         {wallpaper ? (
           <div
@@ -447,33 +479,44 @@ export default function EmergencyFundCard({
 
         <div className="relative z-10 p-4">
           <div className="mb-3 flex items-start gap-3">
-            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-emerald-400/20 bg-emerald-500/10 shadow-[0_0_18px_rgba(52,211,153,0.12)] backdrop-blur-sm">
-              <Shield className="h-4 w-4 text-emerald-400" />
+            <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border backdrop-blur-sm ${themeClasses.iconShell}`}>
+              <Shield className={`h-4 w-4 ${themeClasses.iconColor}`} />
             </div>
 
             <div className="min-w-0 flex-1">
               <div className="flex items-start justify-between gap-2">
                 <div className="min-w-0">
-                  <p className="text-base font-semibold tracking-tight text-white">
+                  <p className={`text-base font-semibold tracking-tight ${themeClasses.title}`}>
                     Emergency Fund
                   </p>
-                  <p className="mt-0.5 text-[11px] font-medium text-white/75">
+                  <p className={`mt-0.5 text-[11px] font-medium ${themeClasses.body}`}>
                     Protection based on your monthly survival expense
                   </p>
                 </div>
 
-                <span
-                  className={`shrink-0 rounded-full px-2.5 py-1 text-[11px] font-semibold backdrop-blur-sm ${status.badge}`}
-                >
-                  {status.label}
-                </span>
+                <div className="flex shrink-0 flex-col items-end gap-2">
+                  <span
+                    className={`shrink-0 rounded-full px-2.5 py-1 text-[11px] font-semibold backdrop-blur-sm ${status.badge}`}
+                  >
+                    {status.label}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={onOpenThemePicker}
+                    disabled={!onOpenThemePicker}
+                    className={`flex h-9 w-9 items-center justify-center rounded-xl border backdrop-blur-sm transition hover:scale-[1.03] ${themeClasses.glass}`}
+                    aria-label="Open theme picker"
+                  >
+                    <Palette className="h-4 w-4" />
+                  </button>
+                </div>
               </div>
             </div>
           </div>
 
           <div className="mb-3">
             {safeMoneyLeft <= 0 ? (
-              <p className="text-2xl font-bold text-white/95">
+              <p className={`text-2xl font-bold ${themeClasses.title}`}>
                 Start your fund
               </p>
             ) : (
@@ -485,11 +528,11 @@ export default function EmergencyFundCard({
               </p>
             )}
 
-            <p className="mt-2 max-w-[28rem] text-xs font-medium leading-relaxed text-white/82">
+            <p className={`mt-2 max-w-[28rem] text-xs font-medium leading-relaxed ${themeClasses.body}`}>
               {progression}
             </p>
 
-            <p className="text-[11px] text-white/60 mt-1">
+            <p className={`text-[11px] mt-1 ${themeClasses.muted}`}>
               Your future stability depends on this.
             </p>
           </div>
@@ -518,7 +561,7 @@ export default function EmergencyFundCard({
           <button
             type="button"
             onClick={() => setExpanded((prev) => !prev)}
-            className="flex w-full items-center justify-between rounded-2xl border border-white/10 bg-black/15 px-3 py-2.5 text-sm text-white/85 backdrop-blur-sm transition hover:bg-white/10"
+            className={`flex w-full items-center justify-between rounded-2xl border px-3 py-2.5 text-sm backdrop-blur-sm transition hover:bg-white/10 ${themeClasses.glass}`}
           >
             <span className="font-medium">
               {expanded ? "Hide details" : "Show details"}
@@ -531,7 +574,7 @@ export default function EmergencyFundCard({
           </button>
 
           {expanded && (
-            <div className="mt-3 space-y-3 rounded-2xl border border-white/10 bg-black/15 p-3 backdrop-blur-[2px] shadow-[inset_0_1px_0_rgba(255,255,255,0.05)]">
+            <div className={`mt-3 space-y-3 rounded-2xl border p-3 backdrop-blur-[2px] shadow-[inset_0_1px_0_rgba(255,255,255,0.05)] ${themeClasses.glass}`}>
               <div>
                 <div className="mb-2 flex items-center justify-between">
                   <span className="text-xs font-semibold text-white/90">

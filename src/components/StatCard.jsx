@@ -10,7 +10,7 @@ export default function StatCard({
   const variants = {
     default: {
       wrapper:
-        "border border-white/10 bg-[#0B1220]/95 backdrop-blur-xl shadow-[0_8px_24px_rgba(0,0,0,0.28)]",
+        "theme-panel-card backdrop-blur-xl shadow-[0_8px_24px_rgba(0,0,0,0.28)]",
       icon: "bg-white/10 text-white",
       value: "text-white",
       label: "text-white/75",

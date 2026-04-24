@@ -148,9 +148,9 @@ export default function Layout({ children }) {
   }, [hideMobileControlCenter]);
 
   return (
-    <div className="flex h-screen overflow-hidden bg-gradient-to-b from-[#0b1f1a] via-[#0f172a] to-[#020617] text-white">
+    <div className="theme-page-shell flex h-screen overflow-hidden text-white">
       {loading && (
-        <div className="fixed inset-0 z-[999] flex items-center justify-center bg-[#020617]">
+        <div className="fixed inset-0 z-[999] flex items-center justify-center bg-[color:var(--theme-background)]">
           <div className="h-8 w-8 animate-spin rounded-full border-4 border-green-500/20 border-t-green-500" />
         </div>
       )}
