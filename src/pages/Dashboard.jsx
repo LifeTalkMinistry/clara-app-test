@@ -3367,7 +3367,29 @@ function DashboardSettingsPanel({
   }, [notificationSettings]);
 
   const displayName = profileName?.trim() || initialDisplayName || "Your CLARA account";
-  const currentPlan = isPaid ? plan || "Paid" : isFree ? "Free" : plan || "Plan";
+  const rawCurrentPlan = isPaid ? plan || "Paid" : isFree ? "Free" : plan || "Plan";
+  const normalizePlanDisplay = useCallback((value) => {
+    const normalized = normalizeLower(value);
+
+    if (["pro", "pro_99", "pro99", "pro tools", "pro_tools"].some((key) => normalized.includes(key))) {
+      return "PRO 99";
+    }
+
+    if (["core", "core_199", "core199", "core_599"].some((key) => normalized.includes(key))) {
+      return "CORE 199";
+    }
+
+    if (["life os", "life_os", "lifeos", "life-os", "coaching", "coach", "coaching_1299"].some((key) => normalized.includes(key))) {
+      return "LIFE OS 499";
+    }
+
+    if (normalized === "free") return "Free";
+    if (!normalized || normalized === "paid" || normalized === "plan") return isPaid ? "Paid plan" : "Free";
+
+    return String(value || "").replaceAll("_", " ").replace(/\b\w/g, (char) => char.toUpperCase());
+  }, [isPaid]);
+
+  const currentPlan = normalizePlanDisplay(rawCurrentPlan);
   const planStatusLabel = isPaid ? "Unlocked" : isFree ? "Limited" : "Active";
   const supportEmail = "support@clara.app";
 
@@ -3659,22 +3681,25 @@ function DashboardSettingsPanel({
 
   const planOptions = [
     {
-      key: "entry_199",
-      title: "Entry",
+      key: "pro_99",
+      title: "PRO",
+      price: "₱99",
+      displayName: "PRO 99",
+      description: "Starter upgrade for essential CLARA tools.",
+    },
+    {
+      key: "core_199",
+      title: "CORE",
       price: "₱199",
-      description: "Core tracking access for getting started.",
+      displayName: "CORE 199",
+      description: "Main financial system access for deeper tracking.",
     },
     {
-      key: "core_599",
-      title: "Core",
-      price: "₱599",
-      description: "Deeper financial system access and guided progress.",
-    },
-    {
-      key: "coaching_1299",
-      title: "Coaching",
-      price: "₱1,299",
-      description: "Full access with coaching support.",
+      key: "life_os_499",
+      title: "LIFE OS",
+      price: "₱499",
+      displayName: "LIFE OS 499",
+      description: "Full CLARA access with Life OS support.",
     },
   ];
 
@@ -3878,15 +3903,60 @@ function DashboardSettingsPanel({
         </div>
       </div>
 
+      <div className="rounded-[24px] border border-white/10 bg-white/[0.04] p-4">
+        <p className="text-sm font-black text-white">Plan details</p>
+        <div className="mt-3 grid grid-cols-2 gap-2">
+          {["Expense tracking", "Wallets", "Budgets", "Analytics", "Emergency fund", "Messages"].map((feature) => (
+            <div
+              key={feature}
+              className="flex items-center gap-2 rounded-2xl border border-white/10 bg-black/15 px-3 py-2"
+            >
+              <Check className="h-3.5 w-3.5 shrink-0 text-emerald-200" />
+              <span className="truncate text-[11px] font-bold text-white/62">{feature}</span>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      <div className="rounded-[24px] border border-white/10 bg-white/[0.035] p-4">
+        <p className="text-sm font-black text-white">Simple terms</p>
+        <p className="mt-2 text-xs leading-5 text-white/48">
+          Access depends on approved enrollment or active payment status. For billing concerns, use Help & support inside Settings.
+        </p>
+      </div>
+
       <div className="space-y-3">
         <p className="px-1 text-[11px] font-black uppercase tracking-[0.18em] text-white/35">
           Available plans
         </p>
 
         {planOptions.map((option) => {
+          const normalizedCurrentPlan = normalizeLower(currentPlan);
+          const normalizedRawPlan = normalizeLower(rawCurrentPlan);
+          const isLifeOsLegacy =
+            option.key === "life_os_499" &&
+            ["coaching", "coach", "coaching_1299", "life os", "life_os", "lifeos"].some((key) =>
+              normalizedRawPlan.includes(key)
+            );
+
+          const isCoreLegacy =
+            option.key === "core_199" &&
+            ["core", "core_199", "core199", "core_599"].some((key) =>
+              normalizedRawPlan.includes(key)
+            );
+
+          const isProLegacy =
+            option.key === "pro_99" &&
+            ["pro", "pro_99", "pro99", "pro_tools"].some((key) =>
+              normalizedRawPlan.includes(key)
+            );
+
           const isCurrent =
-            normalizeLower(currentPlan).includes(normalizeLower(option.key)) ||
-            normalizeLower(currentPlan).includes(normalizeLower(option.title));
+            normalizedCurrentPlan.includes(normalizeLower(option.displayName)) ||
+            normalizedCurrentPlan.includes(normalizeLower(option.title)) ||
+            isLifeOsLegacy ||
+            isCoreLegacy ||
+            isProLegacy;
 
           return (
             <div
