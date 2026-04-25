@@ -2314,6 +2314,10 @@ function DashboardFeedPanel({ onBack }) {
             preload="metadata"
             className="aspect-video max-h-[340px] w-full bg-black object-contain"
           />
+          <div className="flex items-center justify-between gap-2 border-t border-white/10 bg-black/35 px-3 py-2 text-[10px] font-semibold text-white/55">
+            <span>Play / pause</span>
+            <span>Volume control</span>
+          </div>
         </div>
       );
     }
@@ -2327,7 +2331,7 @@ function DashboardFeedPanel({ onBack }) {
             type="button"
             onClick={() => setActiveYoutubePosts((prev) => ({ ...prev, [post.id]: true }))}
             className="relative mx-auto mt-3 block w-full max-w-full overflow-hidden rounded-[22px] border border-white/10 bg-black/30 text-left touch-pan-y"
-            aria-label="Play YouTube video"
+            aria-label="Play YouTube video inline"
           >
             <div className="relative aspect-video w-full bg-black">
               {media.thumbnailUrl ? (
@@ -2350,6 +2354,10 @@ function DashboardFeedPanel({ onBack }) {
                   <Play className="ml-1 h-7 w-7 fill-current" />
                 </div>
               </div>
+
+              <div className="absolute bottom-2 left-2 right-2 rounded-full border border-white/10 bg-black/55 px-3 py-1.5 text-center text-[10px] font-bold text-white/75 backdrop-blur-md">
+                Tap to play inside post
+              </div>
             </div>
           </button>
         );
@@ -2357,9 +2365,28 @@ function DashboardFeedPanel({ onBack }) {
 
       return (
         <div className="mx-auto mt-3 w-full max-w-full overflow-hidden rounded-[22px] border border-white/10 bg-black/30">
+          <div className="flex items-center justify-between gap-3 border-b border-white/10 bg-black/45 px-3 py-2">
+            <div className="min-w-0">
+              <p className="truncate text-[11px] font-bold text-white/80">Playing video</p>
+              <p className="truncate text-[10px] text-white/45">Use the video controls for pause/play and volume.</p>
+            </div>
+            <button
+              type="button"
+              onClick={() =>
+                setActiveYoutubePosts((prev) => ({
+                  ...prev,
+                  [post.id]: false,
+                }))
+              }
+              className="shrink-0 rounded-full border border-white/10 bg-white/10 px-3 py-1.5 text-[10px] font-bold text-white/70 transition hover:bg-white/15"
+            >
+              Stop
+            </button>
+          </div>
+
           <div className="relative aspect-video w-full">
             <iframe
-              src={`${media.embedUrl}?autoplay=1&playsinline=1&rel=0&modestbranding=1&controls=1`}
+              src={`${media.embedUrl}?autoplay=1&playsinline=1&rel=0&modestbranding=1&controls=1&fs=1`}
               title="YouTube video"
               className="absolute inset-0 h-full w-full"
               allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
