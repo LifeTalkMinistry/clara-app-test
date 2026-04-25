@@ -1643,6 +1643,571 @@ const createEmptyDashboardCache = (key = null) => ({
 let dashboardPageCache = createEmptyDashboardCache();
 let dashboardPageInFlight = null;
 
+
+const DASHBOARD_PANEL_ORDER = ["home", "feed", "messages", "task", "settings"];
+
+const dashboardPanelCardClass =
+  "rounded-[28px] border border-white/10 bg-white/[0.055] p-4 shadow-[0_18px_50px_rgba(0,0,0,0.20)] backdrop-blur-xl";
+
+const dashboardPanelTextClass = "text-white/65";
+
+const dashboardPanelFormatTime = (dateString) => {
+  if (!dateString) return "Just now";
+  const date = new Date(dateString);
+  if (Number.isNaN(date.getTime())) return "Just now";
+
+  const diff = Date.now() - date.getTime();
+  const minute = 60 * 1000;
+  const hour = 60 * minute;
+  const day = 24 * hour;
+
+  if (diff < minute) return "Just now";
+  if (diff < hour) return `${Math.floor(diff / minute)}m ago`;
+  if (diff < day) return `${Math.floor(diff / hour)}h ago`;
+  if (diff < day * 7) return `${Math.floor(diff / day)}d ago`;
+
+  return date.toLocaleDateString("en-PH", { month: "short", day: "numeric" });
+};
+
+const dashboardPanelInitials = (value = "") => {
+  const parts = String(value || "")
+    .trim()
+    .split(" ")
+    .filter(Boolean);
+
+  if (parts.length === 0) return "?";
+  if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
+  return `${parts[0][0] || ""}${parts[1][0] || ""}`.toUpperCase();
+};
+
+function DashboardPanelShell({
+  title,
+  subtitle,
+  icon: Icon,
+  viewAllTo,
+  viewAllLabel = "View full page",
+  onBack,
+  children,
+}) {
+  return (
+    <div className="space-y-3">
+      <div className="flex items-center justify-between gap-3 rounded-[28px] border border-white/10 bg-white/[0.05] p-4 shadow-[0_18px_50px_rgba(0,0,0,0.18)] backdrop-blur-xl">
+        <div className="flex min-w-0 items-center gap-3">
+          <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border border-white/10 bg-white/10 text-white">
+            <Icon className="h-5 w-5" />
+          </div>
+          <div className="min-w-0">
+            <p className="truncate text-base font-bold text-white">{title}</p>
+            <p className="truncate text-xs text-white/55">{subtitle}</p>
+          </div>
+        </div>
+
+        <div className="flex shrink-0 items-center gap-2">
+          {viewAllTo ? (
+            <Link
+              to={viewAllTo}
+              className="rounded-full border border-white/10 bg-white/8 px-3 py-2 text-[11px] font-semibold text-white/75 transition hover:bg-white/12"
+            >
+              {viewAllLabel}
+            </Link>
+          ) : null}
+          <button
+            type="button"
+            onClick={onBack}
+            className="rounded-full border border-white/10 bg-white/8 px-3 py-2 text-[11px] font-semibold text-white/75 transition hover:bg-white/12"
+          >
+            Home
+          </button>
+        </div>
+      </div>
+
+      {children}
+    </div>
+  );
+}
+
+function DashboardFeedPanel({ onBack }) {
+  const [posts, setPosts] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+
+  useEffect(() => {
+    let mounted = true;
+
+    const fetchPosts = async () => {
+      setLoading(true);
+      setError("");
+
+      try {
+        const { data, error: postsError } = await supabase
+          .from("feed_posts")
+          .select("id, author_name, content, category, likes, created_at, media_type, media_url, youtube_thumbnail_url")
+          .order("created_at", { ascending: false })
+          .limit(4);
+
+        if (postsError) throw postsError;
+        if (mounted) setPosts(Array.isArray(data) ? data : []);
+      } catch (fetchError) {
+        console.error("Dashboard feed panel fetch failed:", fetchError);
+        if (mounted) setError(fetchError?.message || "Unable to load feed.");
+      } finally {
+        if (mounted) setLoading(false);
+      }
+    };
+
+    fetchPosts();
+
+    const channel = supabase
+      .channel("dashboard-feed-panel")
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "feed_posts" },
+        fetchPosts
+      )
+      .subscribe();
+
+    return () => {
+      mounted = false;
+      supabase.removeChannel(channel);
+    };
+  }, []);
+
+  return (
+    <DashboardPanelShell
+      title="Feed"
+      subtitle="Community updates inside your dashboard"
+      icon={Home}
+      viewAllTo="/feed"
+      onBack={onBack}
+    >
+      <div className={dashboardPanelCardClass}>
+        <Link to="/feed" className="block rounded-[24px] border border-dashed border-emerald-400/25 bg-emerald-400/10 p-4 transition hover:bg-emerald-400/14">
+          <div className="flex items-center gap-3">
+            <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-emerald-400/15 text-emerald-200">
+              <Plus className="h-5 w-5" />
+            </div>
+            <div className="min-w-0 flex-1">
+              <p className="text-sm font-semibold text-white">Share a quick win</p>
+              <p className="text-xs text-white/55">Open the full feed to post, upload, react, or comment.</p>
+            </div>
+            <ChevronRight className="h-4 w-4 text-white/45" />
+          </div>
+        </Link>
+      </div>
+
+      {loading ? (
+        <div className={dashboardPanelCardClass}>
+          <div className="h-5 w-32 animate-pulse rounded-full bg-white/10" />
+          <div className="mt-4 space-y-3">
+            <div className="h-16 animate-pulse rounded-2xl bg-white/8" />
+            <div className="h-16 animate-pulse rounded-2xl bg-white/8" />
+          </div>
+        </div>
+      ) : error ? (
+        <div className={`${dashboardPanelCardClass} text-sm text-rose-100`}>{error}</div>
+      ) : posts.length === 0 ? (
+        <div className={`${dashboardPanelCardClass} text-center`}>
+          <p className="text-sm font-semibold text-white">No posts yet</p>
+          <p className={`mt-1 text-xs ${dashboardPanelTextClass}`}>Your community feed will appear here.</p>
+        </div>
+      ) : (
+        <div className="space-y-3">
+          {posts.map((post) => {
+            const mediaUrl = post.media_type === "youtube" ? post.youtube_thumbnail_url : post.media_url;
+
+            return (
+              <Link key={post.id} to="/feed" className={`${dashboardPanelCardClass} block transition hover:bg-white/[0.075]`}>
+                <div className="flex items-start gap-3">
+                  <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border border-white/10 bg-white/10 text-sm font-bold text-white">
+                    {dashboardPanelInitials(post.author_name)}
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center justify-between gap-2">
+                      <p className="truncate text-sm font-semibold text-white">{post.author_name || "CLARA User"}</p>
+                      <span className="shrink-0 text-[10px] text-white/45">{dashboardPanelFormatTime(post.created_at)}</span>
+                    </div>
+                    <p className="mt-1 line-clamp-2 text-xs leading-5 text-white/70">{post.content || "Shared an update."}</p>
+                    <div className="mt-3 flex items-center justify-between gap-3 text-[11px] text-white/45">
+                      <span className="rounded-full border border-white/10 bg-white/6 px-2.5 py-1 capitalize">{post.category || "update"}</span>
+                      <span>{Number(post.likes || 0)} likes</span>
+                    </div>
+                  </div>
+                  {mediaUrl ? (
+                    <div className="h-14 w-14 shrink-0 overflow-hidden rounded-2xl border border-white/10 bg-black/20">
+                      <img src={mediaUrl} alt="Feed media" className="h-full w-full object-cover" />
+                    </div>
+                  ) : null}
+                </div>
+              </Link>
+            );
+          })}
+        </div>
+      )}
+    </DashboardPanelShell>
+  );
+}
+
+function DashboardMessagesPanel({ onBack }) {
+  const { user, isAdmin, access, getFeatureAccessMode, loading: accessLoading } = useUserRole();
+  const [messages, setMessages] = useState([]);
+  const [profiles, setProfiles] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  const currentUserId = user?.id || null;
+  const hasFullMessaging = isAdmin || !!access?.messagingFull;
+  const canMessageAdmins = isAdmin || !!access?.messagingAdminOnly;
+  const hasMessagingAccess = (hasFullMessaging || canMessageAdmins) && !user?.messaging_disabled;
+  const messageMode = getFeatureAccessMode?.("messages");
+
+  const fetchMessagesPanelData = useCallback(async () => {
+    if (!currentUserId || !hasMessagingAccess) {
+      setMessages([]);
+      setProfiles([]);
+      setLoading(false);
+      return;
+    }
+
+    setLoading(true);
+
+    try {
+      const [profilesResult, messagesResult] = await Promise.all([
+        supabase.from("profiles").select("id,email,full_name").limit(24),
+        supabase
+          .from("direct_messages")
+          .select("*")
+          .or(`sender_id.eq.${currentUserId},recipient_id.eq.${currentUserId}`)
+          .order("created_at", { ascending: false })
+          .limit(40),
+      ]);
+
+      if (profilesResult.error) throw profilesResult.error;
+      if (messagesResult.error) throw messagesResult.error;
+
+      setProfiles(Array.isArray(profilesResult.data) ? profilesResult.data : []);
+      setMessages(Array.isArray(messagesResult.data) ? messagesResult.data : []);
+    } catch (error) {
+      console.error("Dashboard messages panel fetch failed:", error);
+      setProfiles([]);
+      setMessages([]);
+    } finally {
+      setLoading(false);
+    }
+  }, [currentUserId, hasMessagingAccess]);
+
+  useEffect(() => {
+    fetchMessagesPanelData();
+
+    if (!currentUserId || !hasMessagingAccess) return undefined;
+
+    const channel = supabase
+      .channel(`dashboard-messages-panel-${currentUserId}`)
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "direct_messages" },
+        fetchMessagesPanelData
+      )
+      .subscribe();
+
+    return () => supabase.removeChannel(channel);
+  }, [currentUserId, hasMessagingAccess, fetchMessagesPanelData]);
+
+  const profileMap = useMemo(() => {
+    return profiles.reduce((acc, profile) => {
+      if (profile?.id) acc[profile.id] = profile;
+      return acc;
+    }, {});
+  }, [profiles]);
+
+  const conversations = useMemo(() => {
+    const map = {};
+
+    messages.forEach((message) => {
+      const isMine = message.sender_id === currentUserId;
+      const otherId = isMine ? message.recipient_id : message.sender_id;
+      if (!otherId) return;
+
+      const fallbackName = isMine
+        ? message.recipient_name || message.recipient_email
+        : message.sender_name || message.sender_email;
+
+      if (!map[otherId]) {
+        map[otherId] = {
+          id: otherId,
+          name: profileMap[otherId]?.full_name || fallbackName || "CLARA User",
+          email: profileMap[otherId]?.email || (isMine ? message.recipient_email : message.sender_email) || "",
+          lastMessage: message,
+          unreadCount: 0,
+        };
+      }
+
+      if (new Date(message.created_at || 0) > new Date(map[otherId].lastMessage?.created_at || 0)) {
+        map[otherId].lastMessage = message;
+      }
+
+      if (message.recipient_id === currentUserId && !message.is_read) {
+        map[otherId].unreadCount += 1;
+      }
+    });
+
+    return Object.values(map).sort(
+      (a, b) => new Date(b.lastMessage?.created_at || 0) - new Date(a.lastMessage?.created_at || 0)
+    );
+  }, [messages, currentUserId, profileMap]);
+
+  return (
+    <DashboardPanelShell
+      title="Messages"
+      subtitle="Private conversations without leaving your dashboard"
+      icon={MessageCircle}
+      viewAllTo="/messages"
+      onBack={onBack}
+    >
+      {accessLoading || loading ? (
+        <div className={dashboardPanelCardClass}>
+          <div className="h-5 w-36 animate-pulse rounded-full bg-white/10" />
+          <div className="mt-4 space-y-3">
+            <div className="h-14 animate-pulse rounded-2xl bg-white/8" />
+            <div className="h-14 animate-pulse rounded-2xl bg-white/8" />
+          </div>
+        </div>
+      ) : !currentUserId ? (
+        <div className={`${dashboardPanelCardClass} text-center`}>
+          <p className="text-sm font-semibold text-white">Session not ready</p>
+          <p className="mt-1 text-xs text-white/55">Please refresh or log in again.</p>
+        </div>
+      ) : !hasMessagingAccess ? (
+        <div className={`${dashboardPanelCardClass} text-center`}>
+          <p className="text-sm font-semibold text-white">Messages are locked</p>
+          <p className="mt-1 text-xs text-white/55">Upgrade or enable messaging to use this feature.</p>
+        </div>
+      ) : conversations.length === 0 ? (
+        <div className={`${dashboardPanelCardClass} text-center`}>
+          <p className="text-sm font-semibold text-white">No messages yet</p>
+          <p className="mt-1 text-xs text-white/55">
+            {messageMode === "admin_only" && !isAdmin
+              ? "You can message CLARA admins from the full page."
+              : "Start a private conversation from the full page."}
+          </p>
+          <Link to="/messages" className="mt-4 inline-flex rounded-full bg-emerald-400 px-4 py-2 text-xs font-bold text-slate-950">
+            Start chat
+          </Link>
+        </div>
+      ) : (
+        <div className="space-y-3">
+          {conversations.slice(0, 5).map((conversation) => {
+            const isMine = conversation.lastMessage?.sender_id === currentUserId;
+
+            return (
+              <Link
+                key={conversation.id}
+                to={`/messages?userId=${conversation.id}`}
+                className={`${dashboardPanelCardClass} block transition hover:bg-white/[0.075]`}
+              >
+                <div className="flex items-center gap-3">
+                  <div className="relative shrink-0">
+                    <div className="flex h-12 w-12 items-center justify-center rounded-2xl border border-white/10 bg-white/10 text-sm font-bold text-white">
+                      {dashboardPanelInitials(conversation.name || conversation.email)}
+                    </div>
+                    {conversation.unreadCount > 0 ? (
+                      <span className="absolute -right-1 -top-1 flex min-h-5 min-w-5 items-center justify-center rounded-full bg-emerald-400 px-1 text-[10px] font-black text-slate-950">
+                        {conversation.unreadCount > 9 ? "9+" : conversation.unreadCount}
+                      </span>
+                    ) : null}
+                  </div>
+
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center justify-between gap-2">
+                      <p className="truncate text-sm font-semibold text-white">{conversation.name}</p>
+                      <span className="shrink-0 text-[10px] text-white/45">
+                        {dashboardPanelFormatTime(conversation.lastMessage?.created_at)}
+                      </span>
+                    </div>
+                    <p className="mt-1 truncate text-xs text-white/55">
+                      {isMine ? "You: " : ""}{conversation.lastMessage?.content || "Start chatting"}
+                    </p>
+                  </div>
+
+                  <ChevronRight className="h-4 w-4 text-white/35" />
+                </div>
+              </Link>
+            );
+          })}
+        </div>
+      )}
+    </DashboardPanelShell>
+  );
+}
+
+function DashboardTasksPanel({ onBack, activeTask, nextTask, tasks = [], submissions = [], programJourney }) {
+  const completedSubmissionIds = useMemo(() => {
+    return new Set((submissions || []).map((submission) => String(submission.task_id || submission.id || "")));
+  }, [submissions]);
+
+  const visibleTasks = useMemo(() => {
+    const journeyTasks = Array.isArray(programJourney?.items) ? programJourney.items : [];
+    const sourceTasks = journeyTasks.length > 0 ? journeyTasks : tasks;
+    return (sourceTasks || []).slice(0, 6);
+  }, [programJourney, tasks]);
+
+  const highlightedTask = activeTask || nextTask || visibleTasks[0] || null;
+
+  return (
+    <DashboardPanelShell
+      title="Tasks"
+      subtitle="Today’s program focus and progress"
+      icon={ListChecks}
+      viewAllTo="/tasks"
+      onBack={onBack}
+    >
+      {highlightedTask ? (
+        <div className="overflow-hidden rounded-[30px] border border-amber-400/18 bg-[radial-gradient(circle_at_top_left,rgba(250,204,21,0.18),transparent_36%),linear-gradient(135deg,rgba(58,35,12,0.92),rgba(24,18,12,0.96))] p-5 shadow-[0_20px_60px_rgba(250,204,21,0.12)]">
+          <div className="flex items-start justify-between gap-3">
+            <div>
+              <p className="text-[10px] font-bold uppercase tracking-[0.24em] text-amber-200/80">
+                {highlightedTask.week ? `Week ${highlightedTask.week}` : "Current focus"}
+                {highlightedTask.day ? ` • Day ${highlightedTask.day}` : ""}
+              </p>
+              <h3 className="mt-2 text-xl font-black leading-tight text-white">{highlightedTask.title || "Your next task is ready"}</h3>
+              <p className="mt-2 line-clamp-3 text-sm leading-6 text-white/68">
+                {highlightedTask.description || highlightedTask.summary || "Open your full tasks page to continue your guided CLARA progress."}
+              </p>
+            </div>
+            <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl border border-amber-300/20 bg-amber-300/12 text-amber-100">
+              <Flag className="h-6 w-6" />
+            </div>
+          </div>
+
+          <Link to="/tasks" className="mt-5 inline-flex w-full items-center justify-center rounded-2xl bg-amber-300 px-4 py-3 text-sm font-black text-slate-950 shadow-[0_12px_30px_rgba(250,204,21,0.22)]">
+            Continue task
+          </Link>
+        </div>
+      ) : (
+        <div className={`${dashboardPanelCardClass} text-center`}>
+          <p className="text-sm font-semibold text-white">No task assigned yet</p>
+          <p className="mt-1 text-xs text-white/55">Once your program starts, your tasks will appear here.</p>
+        </div>
+      )}
+
+      {visibleTasks.length > 0 ? (
+        <div className="space-y-3">
+          {visibleTasks.map((task, index) => {
+            const taskId = String(task.id || task.task_id || index);
+            const done = completedSubmissionIds.has(taskId) || task.status === "completed" || task.completed === true;
+
+            return (
+              <Link key={taskId} to="/tasks" className={`${dashboardPanelCardClass} block transition hover:bg-white/[0.075]`}>
+                <div className="flex items-center gap-3">
+                  <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl border ${done ? "border-emerald-400/25 bg-emerald-400/15 text-emerald-200" : "border-white/10 bg-white/8 text-white/65"}`}>
+                    {done ? <Check className="h-5 w-5" /> : <span className="text-xs font-bold">{index + 1}</span>}
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-sm font-semibold text-white">{task.title || `Task ${index + 1}`}</p>
+                    <p className="mt-1 truncate text-xs text-white/50">
+                      {task.day ? `Day ${task.day}` : "Program task"}{done ? " • Completed" : " • Pending"}
+                    </p>
+                  </div>
+                  <ChevronRight className="h-4 w-4 text-white/35" />
+                </div>
+              </Link>
+            );
+          })}
+        </div>
+      ) : null}
+    </DashboardPanelShell>
+  );
+}
+
+function DashboardSettingsPanel({ onBack, user, plan, isPaid, isFree, notificationSettings, openThemePicker }) {
+  const settingsItems = [
+    { label: "Account profile", description: "Name, email, and personal details", to: "/settings/account", icon: Home },
+    { label: "Security", description: "Password and access controls", to: "/settings/security", icon: ShieldCheck },
+    { label: "Notifications", description: "Daily reminders and coaching alerts", to: "/settings/notifications", icon: Bell },
+    { label: "Billing", description: "Plan, enrollment, and payments", to: "/settings/billing", icon: WalletCards },
+  ];
+
+  return (
+    <DashboardPanelShell
+      title="Settings"
+      subtitle="Main app controls inside CLARA"
+      icon={Settings}
+      viewAllTo="/settings"
+      onBack={onBack}
+    >
+      <div className={dashboardPanelCardClass}>
+        <div className="flex items-center gap-3">
+          <div className="flex h-14 w-14 items-center justify-center rounded-3xl border border-white/10 bg-white/10 text-lg font-black text-white">
+            {dashboardPanelInitials(user?.full_name || user?.display_name || user?.email || "You")}
+          </div>
+          <div className="min-w-0 flex-1">
+            <p className="truncate text-base font-bold text-white">
+              {user?.full_name || user?.display_name || user?.email?.split("@")[0] || "Your CLARA account"}
+            </p>
+            <p className="truncate text-xs text-white/50">{user?.email || "Signed in user"}</p>
+          </div>
+          <span className="rounded-full border border-emerald-400/20 bg-emerald-400/10 px-3 py-1 text-[10px] font-bold text-emerald-200">
+            {isPaid ? "Paid" : isFree ? "Free" : plan || "Plan"}
+          </span>
+        </div>
+      </div>
+
+      <button
+        type="button"
+        onClick={openThemePicker}
+        className="w-full rounded-[28px] border border-emerald-400/20 bg-emerald-400/10 p-4 text-left shadow-[0_18px_50px_rgba(16,185,129,0.10)] backdrop-blur-xl transition hover:bg-emerald-400/14"
+      >
+        <div className="flex items-center gap-3">
+          <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-emerald-400/15 text-emerald-100">
+            <Palette className="h-5 w-5" />
+          </div>
+          <div className="min-w-0 flex-1">
+            <p className="text-sm font-semibold text-white">Theme & appearance</p>
+            <p className="mt-1 text-xs text-white/55">Change CLARA’s look without leaving the dashboard.</p>
+          </div>
+          <ChevronRight className="h-4 w-4 text-white/40" />
+        </div>
+      </button>
+
+      <div className="space-y-3">
+        {settingsItems.map((item) => {
+          const Icon = item.icon;
+          return (
+            <Link key={item.to} to={item.to} className={`${dashboardPanelCardClass} block transition hover:bg-white/[0.075]`}>
+              <div className="flex items-center gap-3">
+                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl border border-white/10 bg-white/8 text-white/70">
+                  <Icon className="h-5 w-5" />
+                </div>
+                <div className="min-w-0 flex-1">
+                  <p className="truncate text-sm font-semibold text-white">{item.label}</p>
+                  <p className="mt-1 truncate text-xs text-white/50">{item.description}</p>
+                </div>
+                <ChevronRight className="h-4 w-4 text-white/35" />
+              </div>
+            </Link>
+          );
+        })}
+      </div>
+
+      <div className={dashboardPanelCardClass}>
+        <p className="text-sm font-semibold text-white">Reminder status</p>
+        <div className="mt-3 grid grid-cols-3 gap-2 text-center text-[11px]">
+          <div className="rounded-2xl border border-white/10 bg-white/6 p-3">
+            <p className="font-bold text-white">{notificationSettings?.dailyReminders !== false ? "On" : "Off"}</p>
+            <p className="mt-1 text-white/45">Daily</p>
+          </div>
+          <div className="rounded-2xl border border-white/10 bg-white/6 p-3">
+            <p className="font-bold text-white">{notificationSettings?.productUpdates !== false ? "On" : "Off"}</p>
+            <p className="mt-1 text-white/45">Updates</p>
+          </div>
+          <div className="rounded-2xl border border-white/10 bg-white/6 p-3">
+            <p className="font-bold text-white">{notificationSettings?.coachingAlerts !== false ? "On" : "Off"}</p>
+            <p className="mt-1 text-white/45">Coaching</p>
+          </div>
+        </div>
+      </div>
+    </DashboardPanelShell>
+  );
+}
+
 export default function Dashboard() {
   const navigate = useNavigate();
   const { selectedTheme: selectedDashboardTheme, openThemePicker } = useTheme();
@@ -1692,6 +2257,8 @@ export default function Dashboard() {
     readStoredNotificationSettings(userId)
   );
   const [financeCardIndex, setFinanceCardIndex] = useState(0);
+  const [activeDashboardPanel, setActiveDashboardPanel] = useState("home");
+  const [dashboardPanelDirection, setDashboardPanelDirection] = useState("forward");
   const [expandedFinanceCard, setExpandedFinanceCard] = useState(null);
   const [financeActionLoading, setFinanceActionLoading] = useState(false);
   const [financeNotice, setFinanceNotice] = useState(null);
@@ -3919,6 +4486,28 @@ export default function Dashboard() {
     : nextTask
       ? `Next ${nextTask.day}`
       : "";
+
+  const openDashboardPanel = useCallback((panelKey) => {
+    const targetPanel = DASHBOARD_PANEL_ORDER.includes(panelKey) ? panelKey : "home";
+    const currentIndex = DASHBOARD_PANEL_ORDER.indexOf(activeDashboardPanel);
+    const nextIndex = DASHBOARD_PANEL_ORDER.indexOf(targetPanel);
+
+    setDashboardPanelDirection(nextIndex >= currentIndex ? "forward" : "backward");
+    setActiveDashboardPanel(targetPanel);
+  }, [activeDashboardPanel]);
+
+  const closeDashboardPanel = useCallback(() => {
+    setDashboardPanelDirection("backward");
+    setActiveDashboardPanel("home");
+  }, []);
+
+  const dashboardPanelAnimationClass =
+    activeDashboardPanel === "home"
+      ? "animate-[claraDashboardPanelReverseIn_320ms_cubic-bezier(.22,1,.36,1)_both]"
+      : dashboardPanelDirection === "forward"
+        ? "animate-[claraDashboardPanelForwardIn_340ms_cubic-bezier(.22,1,.36,1)_both]"
+        : "animate-[claraDashboardPanelReverseIn_340ms_cubic-bezier(.22,1,.36,1)_both]";
+
   const headerQuickActions = [
     {
       key: "feed",
@@ -3982,6 +4571,16 @@ export default function Dashboard() {
 
   return (
     <div className={`theme-page-shell relative isolate z-0 w-full max-w-[430px] mx-auto ${dashboardScale.page} overflow-x-hidden overflow-y-auto`} style={{ WebkitOverflowScrolling: "touch" }}>
+      <style>{`
+        @keyframes claraDashboardPanelForwardIn {
+          0% { opacity: 0; transform: translate3d(32px, 0, 0) scale(0.985); filter: blur(5px); }
+          100% { opacity: 1; transform: translate3d(0, 0, 0) scale(1); filter: blur(0); }
+        }
+        @keyframes claraDashboardPanelReverseIn {
+          0% { opacity: 0; transform: translate3d(-32px, 0, 0) scale(0.985); filter: blur(5px); }
+          100% { opacity: 1; transform: translate3d(0, 0, 0) scale(1); filter: blur(0); }
+        }
+      `}</style>
       <div className={dashboardScale.headerOuter}>
         <div className="mx-auto w-full max-w-[430px]">
           <div
@@ -4006,18 +4605,19 @@ export default function Dashboard() {
                     ? "group-hover:shadow-[0_0_24px_rgba(59,130,246,0.18)]"
                     : item.key === "task"
                       ? "group-hover:shadow-[0_0_24px_rgba(250,204,21,0.18)]"
-                      : item.key === "news"
-                        ? "group-hover:shadow-[0_0_22px_rgba(56,189,248,0.16)]"
+                      : item.key === "settings"
+                        ? "group-hover:shadow-[0_0_22px_rgba(255,255,255,0.16)]"
                         : "group-hover:shadow-[0_0_22px_rgba(255,255,255,0.10)]";
 
                 return (
                   <div key={item.key} className="flex flex-1 items-center">
-                    <Link
-                      to={item.to}
+                    <button
+                      type="button"
+                      onClick={() => openDashboardPanel(item.key)}
                       className="group flex-1"
                       aria-label={item.label}
                     >
-                      <div className={`relative flex w-full flex-col items-center justify-center transition duration-200 hover:-translate-y-[1px] active:scale-[0.985] ${dashboardScale.headerItem} ${themeQuickActionBaseClass}`}>
+                      <div className={`relative flex w-full flex-col items-center justify-center transition duration-200 hover:-translate-y-[1px] active:scale-[0.985] ${dashboardScale.headerItem} ${themeQuickActionBaseClass} ${activeDashboardPanel === item.key ? "bg-white/10" : ""}`}>
                         <div className={`pointer-events-none absolute inset-0 rounded-[16px] opacity-0 transition duration-200 group-hover:opacity-100 ${themeIsLight ? "bg-[radial-gradient(circle_at_top,rgba(148,163,184,0.12),transparent_55%)]" : "bg-[radial-gradient(circle_at_top,rgba(255,255,255,0.08),transparent_55%)]"}`} />
 
                         <div className={`relative flex items-center justify-center rounded-full border transition duration-200 ${dashboardScale.headerIcon} ${themeQuickActionIconShellClass} ${iconHoverGlow}`}>
@@ -4046,7 +4646,7 @@ export default function Dashboard() {
                           {item.label}
                         </span>
                       </div>
-                    </Link>
+                    </button>
 
                     {index < headerQuickActions.length - 1 ? (
                       <div className={`pointer-events-none mx-0.5 hidden h-10 w-px shrink-0 bg-gradient-to-b from-transparent ${themeDividerClass} to-transparent sm:block`} />
@@ -4060,6 +4660,9 @@ export default function Dashboard() {
       </div>
 
       <div className={`mx-auto w-full max-w-[430px] ${dashboardScale.content}`}>
+        <div key={activeDashboardPanel} className={dashboardPanelAnimationClass}>
+          {activeDashboardPanel === "home" ? (
+            <>
         {isPending && (
           <div className="flex items-center gap-3 rounded-2xl border border-white/10 bg-secondary/20 p-3">
             <Clock className="h-5 w-5 shrink-0" />
@@ -4753,6 +5356,33 @@ export default function Dashboard() {
           </div>
         </div>
       )}
+            </>
+          ) : activeDashboardPanel === "feed" ? (
+            <DashboardFeedPanel onBack={closeDashboardPanel} />
+          ) : activeDashboardPanel === "messages" ? (
+            <DashboardMessagesPanel onBack={closeDashboardPanel} />
+          ) : activeDashboardPanel === "task" ? (
+            <DashboardTasksPanel
+              onBack={closeDashboardPanel}
+              activeTask={activeTask}
+              nextTask={nextTask}
+              tasks={tasks}
+              submissions={submissions}
+              programJourney={programJourney}
+            />
+          ) : activeDashboardPanel === "settings" ? (
+            <DashboardSettingsPanel
+              onBack={closeDashboardPanel}
+              user={user}
+              plan={plan}
+              isPaid={isPaid}
+              isFree={isFree}
+              notificationSettings={notificationSettings}
+              openThemePicker={openThemePicker}
+            />
+          ) : null}
+        </div>
+      </div>
 
       <FinanceActionModal
         open={financeModal.type === "create_wallet"}
