@@ -1644,7 +1644,7 @@ let dashboardPageCache = createEmptyDashboardCache();
 let dashboardPageInFlight = null;
 
 
-const DASHBOARD_PANEL_ORDER = ["home", "feed", "messages", "task", "settings"];
+const DASHBOARD_PANEL_ORDER = ["home", "feed", "messages", "settings"];
 
 const dashboardPanelCardClass =
   "rounded-[28px] border border-white/10 bg-white/[0.055] p-4 shadow-[0_18px_50px_rgba(0,0,0,0.20)] backdrop-blur-xl";
@@ -4510,50 +4510,33 @@ export default function Dashboard() {
 
   const headerQuickActions = [
     {
+      key: "home",
+      label: "Home",
+      icon: Home,
+      badge: null,
+    },
+    {
       key: "feed",
       label: "Feed",
       icon: Home,
-      to: "/feed",
-      badge: feedHasHighlight
+      badge: hasBillboardContent
         ? {
-            type: "pill",
-            value: "New",
-            className:
-              "border-emerald-400/20 bg-emerald-400/12 text-emerald-200",
+            type: "dot",
+            value: "",
+            className: "border-sky-400/25 bg-sky-400 text-sky-100",
           }
         : null,
     },
     {
       key: "messages",
-      label: "Messages",
+      label: "Message",
       icon: MessageCircle,
-      to: "/messages",
-      badge: unreadMessagesCount > 0
-        ? {
-            type: "count",
-            value: unreadMessagesCount > 9 ? "9+" : String(unreadMessagesCount),
-            className: "border-red-400/20 bg-red-500/18 text-red-100",
-          }
-        : null,
-    },
-    {
-      key: "task",
-      label: "Task",
-      icon: ListChecks,
-      to: "/tasks",
-      badge: taskBadgeLabel
-        ? {
-            type: "pill",
-            value: taskBadgeLabel,
-            className: "border-amber-400/20 bg-amber-400/14 text-amber-200",
-          }
-        : null,
+      badge: null,
     },
     {
       key: "settings",
-      label: "Settings",
+      label: "Setting",
       icon: Settings,
-      to: "/settings",
       badge: null,
     },
   ];
@@ -5007,15 +4990,6 @@ export default function Dashboard() {
             <DashboardFeedPanel onBack={closeDashboardPanel} />
           ) : activeDashboardPanel === "messages" ? (
             <DashboardMessagesPanel onBack={closeDashboardPanel} />
-          ) : activeDashboardPanel === "task" ? (
-            <DashboardTasksPanel
-              onBack={closeDashboardPanel}
-              activeTask={activeTask}
-              nextTask={nextTask}
-              tasks={tasks}
-              submissions={submissions}
-              programJourney={programJourney}
-            />
           ) : activeDashboardPanel === "settings" ? (
             <DashboardSettingsPanel
               onBack={closeDashboardPanel}
