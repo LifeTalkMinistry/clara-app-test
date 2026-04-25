@@ -935,15 +935,15 @@ function useDashboardViewportMode() {
 
 const DASHBOARD_SCALE = {
   ultraCompact: {
-    page: "min-h-[100dvh]",
+    page: "min-h-[100svh]",
     headerOuter: "px-[clamp(10px,3vw,14px)] pb-1 pt-[calc(env(safe-area-inset-top)+8px)] md:px-[clamp(10px,3vw,14px)]",
     headerPanel: "rounded-[22px] px-2 py-1.5 sm:px-2",
     headerItem: "gap-0.5 rounded-[14px] px-1 py-1.5 sm:px-1.5",
     headerIcon: "h-8 w-8",
     headerIconSvg: "h-4 w-4",
     headerLabel: "text-[10px]",
-    content: "mt-1 space-y-[clamp(7px,1.5dvh,10px)] px-[clamp(10px,3vw,14px)] pb-[calc(env(safe-area-inset-bottom)+12px)] md:px-[clamp(10px,3vw,14px)] md:space-y-[clamp(7px,1.5dvh,10px)]",
-    billboard: "h-[clamp(78px,13dvh,96px)]",
+    content: "mt-2 space-y-[clamp(10px,1.9dvh,15px)] px-[clamp(10px,3vw,14px)] pb-[max(calc(env(safe-area-inset-bottom)+14px),16px)] md:px-[clamp(10px,3vw,14px)] md:space-y-[clamp(10px,1.9dvh,15px)]",
+    billboard: "h-[clamp(84px,14dvh,104px)]",
     billboardPad: "gap-2 p-3",
     billboardTitle: "mt-0.5 text-[clamp(13px,3.5vw,15px)]",
     billboardText: "mt-0.5 line-clamp-1 text-[11px] leading-snug",
@@ -961,15 +961,15 @@ const DASHBOARD_SCALE = {
     summarySubcopy: "mt-1 text-[10px] leading-4",
   },
   compact: {
-    page: "min-h-[100dvh]",
+    page: "min-h-[100svh]",
     headerOuter: "px-[clamp(12px,3.5vw,16px)] pb-1 pt-[calc(env(safe-area-inset-top)+10px)] md:px-[clamp(12px,3.5vw,16px)]",
     headerPanel: "rounded-[24px] px-2 py-2 sm:px-2",
     headerItem: "gap-0.5 rounded-[15px] px-1 py-1.5 sm:px-1.5",
     headerIcon: "h-9 w-9",
     headerIconSvg: "h-[18px] w-[18px]",
     headerLabel: "text-[10.5px]",
-    content: "mt-1.5 space-y-[clamp(8px,1.7dvh,12px)] px-[clamp(12px,3.5vw,16px)] pb-[calc(env(safe-area-inset-bottom)+14px)] md:px-[clamp(12px,3.5vw,16px)] md:space-y-[clamp(8px,1.7dvh,12px)]",
-    billboard: "h-[clamp(88px,14dvh,108px)]",
+    content: "mt-2.5 space-y-[clamp(12px,2.1dvh,17px)] px-[clamp(12px,3.5vw,16px)] pb-[max(calc(env(safe-area-inset-bottom)+16px),18px)] md:px-[clamp(12px,3.5vw,16px)] md:space-y-[clamp(12px,2.1dvh,17px)]",
+    billboard: "h-[clamp(96px,15dvh,116px)]",
     billboardPad: "gap-2.5 p-3",
     billboardTitle: "mt-0.5 text-[clamp(14px,3.7vw,16px)]",
     billboardText: "mt-0.5 line-clamp-1 text-xs leading-snug",
@@ -987,15 +987,15 @@ const DASHBOARD_SCALE = {
     summarySubcopy: "mt-1.5 text-[11px] leading-4",
   },
   normal: {
-    page: "min-h-[100dvh]",
+    page: "min-h-[100svh]",
     headerOuter: "px-[clamp(14px,4vw,18px)] pb-1.5 pt-[calc(env(safe-area-inset-top)+12px)] md:px-[clamp(14px,4vw,18px)]",
     headerPanel: "rounded-[24px] px-2 py-2 sm:px-2.5",
     headerItem: "gap-1 rounded-[16px] px-1 py-2 sm:px-2",
     headerIcon: "h-10 w-10",
     headerIconSvg: "h-5 w-5",
     headerLabel: "text-[11px]",
-    content: "mt-2 space-y-[clamp(10px,1.8dvh,14px)] px-[clamp(14px,4vw,18px)] pb-[calc(env(safe-area-inset-bottom)+16px)] md:px-[clamp(14px,4vw,18px)] md:space-y-[clamp(10px,1.8dvh,14px)]",
-    billboard: "h-[clamp(100px,15dvh,124px)]",
+    content: "mt-3 space-y-[clamp(14px,2.25dvh,20px)] px-[clamp(14px,4vw,18px)] pb-[max(calc(env(safe-area-inset-bottom)+18px),20px)] md:px-[clamp(14px,4vw,18px)] md:space-y-[clamp(14px,2.25dvh,20px)]",
+    billboard: "h-[clamp(108px,16dvh,132px)]",
     billboardPad: "gap-3 p-4",
     billboardTitle: "mt-1 text-base",
     billboardText: "mt-1 line-clamp-2 text-xs leading-relaxed",
@@ -1013,15 +1013,15 @@ const DASHBOARD_SCALE = {
     summarySubcopy: "mt-2 text-xs leading-5",
   },
   spacious: {
-    page: "min-h-[100dvh]",
+    page: "min-h-[100svh]",
     headerOuter: "px-[clamp(16px,4vw,20px)] pb-2 pt-[calc(env(safe-area-inset-top)+14px)] md:px-[clamp(16px,4vw,20px)]",
     headerPanel: "rounded-[24px] px-2 py-2.5 sm:px-2.5",
     headerItem: "gap-1 rounded-[16px] px-1 py-2 sm:px-2",
     headerIcon: "h-10 w-10",
     headerIconSvg: "h-5 w-5",
     headerLabel: "text-[11px]",
-    content: "mt-2.5 space-y-[clamp(12px,2dvh,16px)] px-[clamp(16px,4vw,20px)] pb-[calc(env(safe-area-inset-bottom)+18px)] md:px-[clamp(16px,4vw,20px)] md:space-y-[clamp(12px,2dvh,16px)]",
-    billboard: "h-[clamp(112px,15dvh,138px)]",
+    content: "mt-3.5 space-y-[clamp(16px,2.35dvh,22px)] px-[clamp(16px,4vw,20px)] pb-[max(calc(env(safe-area-inset-bottom)+20px),22px)] md:px-[clamp(16px,4vw,20px)] md:space-y-[clamp(16px,2.35dvh,22px)]",
+    billboard: "h-[clamp(120px,16.5dvh,148px)]",
     billboardPad: "gap-3 p-4",
     billboardTitle: "mt-1 text-base",
     billboardText: "mt-1 line-clamp-2 text-xs leading-relaxed",
@@ -5002,6 +5002,7 @@ export default function Dashboard() {
             />
           ) : null}
         </div>
+        <div className="pointer-events-none h-[clamp(8px,2dvh,22px)]" aria-hidden="true" />
       </div>
 
 
