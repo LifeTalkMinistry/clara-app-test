@@ -70,7 +70,7 @@ export default function QuickCircle({ onQuickAdd, onOpenAssistant }) {
   }, [clearLongPressTimer, clearTapTimer, goDashboard, onQuickAdd]);
 
   return (
-    <div className="pointer-events-none fixed inset-x-0 bottom-0 z-[70] flex justify-center px-4 pb-[calc(0.55rem+env(safe-area-inset-bottom))]">
+    <div className="pointer-events-none fixed inset-x-0 bottom-0 z-[70] flex justify-center px-4 pb-[calc(0.1rem+env(safe-area-inset-bottom))]">
       <button
         type="button"
         aria-label="CLARA quick action. Tap to add transaction, long press for CLARA AI, double tap for dashboard."
@@ -78,14 +78,14 @@ export default function QuickCircle({ onQuickAdd, onOpenAssistant }) {
         onPointerUp={handlePointerUp}
         onPointerCancel={clearLongPressTimer}
         onPointerLeave={clearLongPressTimer}
-        className="pointer-events-auto relative flex h-[5.35rem] w-[5.35rem] items-center justify-center rounded-full bg-transparent p-0 transition duration-200 active:scale-95 focus:outline-none focus:ring-2 focus:ring-emerald-300/45"
+        className="pointer-events-auto relative flex h-[8.2rem] w-[8.2rem] items-center justify-center bg-transparent p-0 transition duration-200 active:scale-95"
       >
-        <span className="absolute inset-[0.7rem] -z-10 rounded-full bg-cyan-300/10 blur-xl" />
+        <span className="absolute inset-[1rem] -z-10 rounded-full bg-cyan-300/20 blur-3xl" />
         <img
           src={`${import.meta.env.BASE_URL || "/"}clara-icon.png`}
           alt="CLARA"
           draggable="false"
-          className="h-full w-full select-none object-contain drop-shadow-[0_16px_26px_rgba(0,0,0,0.55)]"
+          className="h-full w-full select-none object-contain drop-shadow-[0_28px_55px_rgba(0,0,0,0.7)]"
         />
       </button>
     </div>
