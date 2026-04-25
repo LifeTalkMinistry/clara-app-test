@@ -1,7 +1,6 @@
 import { useLocation, useNavigate } from "react-router-dom";
 import { useState, useCallback, useEffect, useRef, useMemo } from "react";
 import { supabase } from "@/lib/supabaseClient";
-import QuickCircle from "@/components/QuickCircle";
 import QuickAddModal from "./QuickAddModal";
 import AdsModal from "./AdsModal";
 import ClaraAssistantPanel from "@/components/ai/ClaraAssistantPanel";
@@ -38,15 +37,6 @@ function isMotionPage(pathname) {
 
 function getHintKey(pathname) {
   return isAnalyticsPath(pathname) ? ANALYTICS_HINT_KEY : TRANSACTION_HINT_KEY;
-}
-
-function isStandaloneFocusPage(pathname) {
-  return (
-    pathname === "/profile" ||
-    isSettingsPath(pathname) ||
-    isTransactionsPath(pathname) ||
-    isAnalyticsPath(pathname)
-  );
 }
 
 function getFallbackTransitionOrigin() {
@@ -221,7 +211,6 @@ export default function Layout({ children }) {
 
   const isDashboard = location.pathname === "/dashboard";
   const activeMotionPage = isMotionPage(location.pathname);
-  const hideMobileControlCenter = isStandaloneFocusPage(location.pathname) || isDashboard;
 
   const dragProgress = useMemo(() => Math.min(Math.max(dragY / 360, 0), 1), [dragY]);
   const overlayOpacity = Math.max(0.18, 1 - dragProgress * 0.78);
@@ -664,13 +653,6 @@ export default function Layout({ children }) {
           {children}
         </main>
       </div>
-
-      {!hideMobileControlCenter && (
-        <QuickCircle
-          onQuickAdd={handleOpenQuickAdd}
-          onOpenAssistant={openAssistant}
-        />
-      )}
 
       <QuickAddModal
         open={quickAddOpen}
