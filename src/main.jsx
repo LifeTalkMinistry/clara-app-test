@@ -3,6 +3,7 @@ import ReactDOM from "react-dom/client";
 import { HashRouter } from "react-router-dom";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { AuthProvider } from "@/context/AuthContext";
+import { supabase } from "@/lib/supabaseClient";
 import { queryClientInstance } from "@/lib/query-client";
 import { ThemeProvider } from "@/theme/ThemeProvider";
 import App from "./App.jsx";
@@ -213,7 +214,89 @@ function installDashboardSettingsShortcutPatch() {
   });
 }
 
+function installSettingsLogoutButtonPatch() {
+  if (window.__CLARA_SETTINGS_LOGOUT_PATCHED__) return;
+  window.__CLARA_SETTINGS_LOGOUT_PATCHED__ = true;
+
+  const logoutSvg = `
+    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+      <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
+      <polyline points="16 17 21 12 16 7" />
+      <line x1="21" x2="9" y1="12" y2="12" />
+    </svg>`;
+
+  const signOutAndReturnToLogin = async () => {
+    try {
+      await supabase.auth.signOut();
+    } catch (error) {
+      console.error("Logout failed:", error);
+    } finally {
+      window.location.hash = "#/login";
+      window.location.reload();
+    }
+  };
+
+  const createLogoutButton = () => {
+    const button = document.createElement("button");
+    button.type = "button";
+    button.dataset.claraSettingsLogout = "true";
+    button.setAttribute("aria-label", "Log out");
+    button.innerHTML = `
+      <span class="flex h-10 w-10 items-center justify-center rounded-2xl border border-rose-300/25 bg-rose-500/10 text-rose-100">
+        ${logoutSvg}
+      </span>
+      <span class="min-w-0 flex-1 text-left">
+        <span class="block text-sm font-semibold text-white">Logout</span>
+        <span class="mt-0.5 block text-xs leading-5 text-white/55">Sign out of your CLARA account</span>
+      </span>
+    `;
+    button.className =
+      "mt-3 flex w-full items-center gap-3 rounded-2xl border border-rose-400/20 bg-rose-500/10 px-4 py-3 text-left shadow-[0_10px_30px_rgba(244,63,94,0.10)] transition hover:bg-rose-500/15 active:scale-[0.99]";
+    button.addEventListener("click", signOutAndReturnToLogin);
+    return button;
+  };
+
+  const findSettingsCategoryContainer = () => {
+    const headings = Array.from(document.querySelectorAll("h1, h2, h3, p, span, div"));
+    const settingsHeading = headings.find((node) => {
+      const text = node.textContent?.trim().toLowerCase();
+      return text === "settings" || text === "account settings" || text === "settings category";
+    });
+
+    const headingContainer = settingsHeading?.closest("section, aside, nav, div");
+    if (headingContainer) return headingContainer;
+
+    const accountLink = Array.from(document.querySelectorAll("a, button, [role='button']")).find((node) => {
+      const text = node.textContent?.trim().toLowerCase() || "";
+      return text.includes("account") && !text.includes("logout");
+    });
+
+    return accountLink?.parentElement || accountLink?.closest("section, aside, nav, div") || null;
+  };
+
+  const patch = () => {
+    if (!window.location.hash.includes("/settings")) return;
+    if (document.querySelector("[data-clara-settings-logout='true']")) return;
+
+    const container = findSettingsCategoryContainer();
+    if (!container) return;
+
+    container.appendChild(createLogoutButton());
+  };
+
+  patch();
+
+  window.addEventListener("hashchange", () => window.setTimeout(patch, 80));
+
+  const observer = new MutationObserver(() => patch());
+  observer.observe(document.documentElement, {
+    childList: true,
+    subtree: true,
+  });
+}
+
 installDashboardSettingsShortcutPatch();
+installSettingsLogoutButtonPatch();
 
 const rootElement = document.getElementById("root");
 
