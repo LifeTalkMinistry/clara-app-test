@@ -4,7 +4,6 @@ import {
   Shield,
   Edit2,
   Camera,
-  Palette,
   X,
   Upload,
   Check,
@@ -183,7 +182,6 @@ export default function EmergencyFundCard({
   canAutoPrompt = false,
   hasSurvivalSetup = false,
   theme = null,
-  onOpenThemePicker,
   onQuickExpense,
   onQuickAI,
 }) {
@@ -656,21 +654,12 @@ export default function EmergencyFundCard({
                   </p>
                 </div>
 
-                <div className="flex shrink-0 flex-col items-end gap-2">
+                <div className="flex shrink-0 items-start">
                   <span
                     className={`shrink-0 rounded-full px-2.5 py-1 text-[11px] font-semibold backdrop-blur-sm ${status.badge}`}
                   >
                     {status.label}
                   </span>
-                  <button
-                    type="button"
-                    onClick={onOpenThemePicker}
-                    disabled={!onOpenThemePicker}
-                    className={`flex h-9 w-9 items-center justify-center rounded-xl border backdrop-blur-sm transition hover:scale-[1.03] ${themeClasses.glass}`}
-                    aria-label="Open theme picker"
-                  >
-                    <Palette className="h-4 w-4" />
-                  </button>
                 </div>
               </div>
             </div>
