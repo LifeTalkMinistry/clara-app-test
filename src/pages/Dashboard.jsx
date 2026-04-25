@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import {
   TrendingDown,
-  Newspaper,
+  Settings,
   Clock,
   Sparkles,
   Play,
@@ -3919,8 +3919,6 @@ export default function Dashboard() {
     : nextTask
       ? `Next ${nextTask.day}`
       : "";
-  const newsHasUpdate = hasBillboardContent;
-
   const headerQuickActions = [
     {
       key: "feed",
@@ -3963,17 +3961,11 @@ export default function Dashboard() {
         : null,
     },
     {
-      key: "news",
-      label: "News",
-      icon: Newspaper,
-      to: "/news",
-      badge: newsHasUpdate
-        ? {
-            type: "dot",
-            value: "",
-            className: "border-sky-400/25 bg-sky-400 text-sky-100",
-          }
-        : null,
+      key: "settings",
+      label: "Settings",
+      icon: Settings,
+      to: "/settings",
+      badge: null,
     },
   ];
 
