@@ -9,6 +9,7 @@ import {
   Check,
   ChevronDown,
   ChevronUp,
+  Sparkles,
 } from "lucide-react";
 import SurvivalExpenseModal from "./SurvivalExpenseModal";
 
@@ -185,6 +186,7 @@ export default function EmergencyFundCard({
   const [editing, setEditing] = useState(false);
   const [showModal, setShowModal] = useState(false);
   const [targetMonths, setTargetMonths] = useState(getStoredTargetMonths());
+  const [quickOpen, setQuickOpen] = useState(false);
 
   const [wallpaper, setWallpaper] = useState(getStoredWallpaper());
   const [wallpaperOpacity, setWallpaperOpacity] = useState(
@@ -281,6 +283,24 @@ export default function EmergencyFundCard({
     if (!VALID_TARGET_MONTHS.includes(next)) return;
     setTargetMonths(next);
     setStoredTargetMonths(next);
+  };
+
+  const handleQuickAction = (action) => {
+    setQuickOpen(false);
+
+    if (action === "edit") {
+      setEditing(true);
+      return;
+    }
+
+    if (action === "background") {
+      openWallpaperModal();
+      return;
+    }
+
+    if (VALID_TARGET_MONTHS.includes(action)) {
+      changeTargetMonths(action);
+    }
   };
 
   const resolvedWallpaperOpacity = Math.max(
@@ -477,6 +497,99 @@ export default function EmergencyFundCard({
         <div className="pointer-events-none absolute inset-0 bg-gradient-to-b from-black/25 via-black/18 to-black/35" />
         <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(to_bottom,rgba(255,255,255,0.08),rgba(255,255,255,0.02)_16%,transparent_38%)]" />
 
+        {quickOpen && (
+          <button
+            type="button"
+            aria-label="Close emergency quick actions"
+            onClick={() => setQuickOpen(false)}
+            className="absolute inset-0 z-[18] cursor-default bg-transparent"
+          />
+        )}
+
+        <div className="absolute right-4 top-[116px] z-20 sm:right-5 sm:top-[120px]">
+          {quickOpen && (
+            <div
+              className={`absolute bottom-[calc(100%+0.65rem)] right-0 w-[178px] overflow-hidden rounded-2xl border shadow-[0_18px_45px_rgba(0,0,0,0.28)] backdrop-blur-2xl ${themeClasses.glass}`}
+            >
+              <div className="grid grid-cols-1 divide-y divide-white/10">
+                <button
+                  type="button"
+                  onClick={() => handleQuickAction("edit")}
+                  className="flex items-center gap-2 px-3 py-2.5 text-left text-xs font-semibold transition hover:bg-white/10"
+                >
+                  <Edit2 className="h-3.5 w-3.5" />
+                  Edit Expense
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => handleQuickAction("background")}
+                  className="flex items-center gap-2 px-3 py-2.5 text-left text-xs font-semibold transition hover:bg-white/10"
+                >
+                  <Camera className="h-3.5 w-3.5" />
+                  Background
+                </button>
+
+                <div className="grid grid-cols-3 gap-1 p-2">
+                  {VALID_TARGET_MONTHS.map((m) => {
+                    const active = targetMonths === m;
+
+                    return (
+                      <button
+                        key={m}
+                        type="button"
+                        onClick={() => handleQuickAction(m)}
+                        className={`rounded-xl border px-2 py-2 text-[11px] font-bold transition ${
+                          active
+                            ? "border-emerald-400/40 bg-emerald-500/20 text-emerald-300"
+                            : "border-white/10 bg-white/5 hover:bg-white/10"
+                        }`}
+                      >
+                        {m}m
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            </div>
+          )}
+
+          <button
+            type="button"
+            onClick={() => setQuickOpen((prev) => !prev)}
+            className={`relative flex h-11 w-11 items-center justify-center rounded-full border backdrop-blur-xl transition hover:scale-[1.04] active:scale-95 ${themeClasses.glass}`}
+            aria-label="Emergency quick actions"
+          >
+            <span className="absolute inset-[-5px] rounded-full bg-emerald-400/20 blur-md animate-[emergencyOrbPulse_1.8s_ease-in-out_infinite]" />
+            <span className="absolute inset-0 rounded-full bg-white/10 animate-[emergencyOrbBeat_1.8s_ease-in-out_infinite]" />
+            <Sparkles className="relative z-10 h-4 w-4" />
+          </button>
+        </div>
+
+        <style>{`
+          @keyframes emergencyOrbPulse {
+            0%, 100% {
+              opacity: 0.35;
+              transform: scale(0.96);
+            }
+            50% {
+              opacity: 0.78;
+              transform: scale(1.12);
+            }
+          }
+
+          @keyframes emergencyOrbBeat {
+            0%, 100% {
+              opacity: 0.45;
+              transform: scale(0.98);
+            }
+            45% {
+              opacity: 0.95;
+              transform: scale(1.04);
+            }
+          }
+        `}</style>
+
         <div className="relative z-10 p-4">
           <div className="mb-3 flex items-start gap-3">
             <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border backdrop-blur-sm ${themeClasses.iconShell}`}>
@@ -514,7 +627,7 @@ export default function EmergencyFundCard({
             </div>
           </div>
 
-          <div className="mb-3">
+          <div className="mb-3 pr-14">
             {safeMoneyLeft <= 0 ? (
               <p className={`text-2xl font-bold ${themeClasses.title}`}>
                 Start your fund
