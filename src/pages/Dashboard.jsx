@@ -1730,6 +1730,17 @@ function DashboardPanelShell({
 
 function DashboardFeedPanel({ onBack }) {
   const FEED_STORAGE_BUCKET = "feed-media";
+  const createFeedUuid = () => {
+    if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
+      return crypto.randomUUID();
+    }
+
+    return "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g, (char) => {
+      const random = Math.floor(Math.random() * 16);
+      const value = char === "x" ? random : (random & 0x3) | 0x8;
+      return value.toString(16);
+    });
+  };
   const FEED_CATEGORIES = [
     { key: "achievement", label: "Achievement" },
     { key: "testimony", label: "Testimony" },
@@ -2030,13 +2041,13 @@ function DashboardFeedPanel({ onBack }) {
     });
   }, [composerMedia]);
 
-  const applyYoutubeLink = useCallback(() => {
-    const trimmed = youtubeLink.trim();
+  const applyYoutubeLink = useCallback((rawValue = youtubeLink, options = {}) => {
+    const trimmed = String(rawValue || "").trim();
     const youtubeId = getYoutubeId(trimmed);
 
     if (!youtubeId) {
-      setError("Paste a valid YouTube video link.");
-      return;
+      if (!options.silent) setError("Paste a valid YouTube video link.");
+      return false;
     }
 
     if (composerMedia?.previewUrl?.startsWith?.("blob:")) {
@@ -2053,6 +2064,8 @@ function DashboardFeedPanel({ onBack }) {
       name: "YouTube video",
       file: null,
     });
+
+    return true;
   }, [composerMedia, getYoutubeId, youtubeLink]);
 
   const handlePost = useCallback(async () => {
@@ -2118,6 +2131,7 @@ function DashboardFeedPanel({ onBack }) {
       }
 
       const insertPayload = {
+        id: createFeedUuid(),
         author_id: freshUser.id,
         author_name: currentUserName || freshUser.email?.split("@")?.[0] || "You",
         content,
@@ -2150,6 +2164,7 @@ function DashboardFeedPanel({ onBack }) {
     }
   }, [
     composerMedia,
+    createFeedUuid,
     currentUser,
     currentUserName,
     fetchFeedPosts,
@@ -2215,6 +2230,7 @@ function DashboardFeedPanel({ onBack }) {
       }
 
       const commentPayload = {
+        id: createFeedUuid(),
         post_id: postId,
         author_id: freshUser.id,
         author_name: currentUserName || freshUser.email?.split("@")?.[0] || "You",
@@ -2387,7 +2403,7 @@ function DashboardFeedPanel({ onBack }) {
               <div className="rounded-[22px] border border-white/10 bg-black/20 p-3">
                 <div className="mb-2 flex items-center justify-between gap-3">
                   <p className="truncate text-xs font-semibold text-white/70">{composerMedia.name || "Attached media"}</p>
-                  <button type="button" onClick={() => setComposerMedia(null)} className="rounded-full bg-white/10 p-1 text-white/70">
+                  <button type="button" onClick={() => { setComposerMedia(null); setYoutubeLink(""); }} className="rounded-full bg-white/10 p-1 text-white/70">
                     <X className="h-3.5 w-3.5" />
                   </button>
                 </div>
@@ -2415,17 +2431,20 @@ function DashboardFeedPanel({ onBack }) {
               <div className="flex min-w-0 flex-1 items-center gap-2 rounded-2xl border border-white/10 bg-white/6 px-3 py-2">
                 <input
                   value={youtubeLink}
-                  onChange={(event) => setYoutubeLink(event.target.value)}
-                  placeholder="YouTube link"
+                  onChange={(event) => {
+                    const nextValue = event.target.value;
+                    setYoutubeLink(nextValue);
+                    applyYoutubeLink(nextValue, { silent: true });
+                  }}
+                  onPaste={(event) => {
+                    const pastedValue = event.clipboardData?.getData("text") || "";
+                    if (pastedValue) {
+                      applyYoutubeLink(pastedValue, { silent: true });
+                    }
+                  }}
+                  placeholder="Paste YouTube link"
                   className="min-w-0 flex-1 bg-transparent text-xs text-white outline-none placeholder:text-white/35"
                 />
-                <button
-                  type="button"
-                  onClick={applyYoutubeLink}
-                  className="rounded-full bg-white/10 px-3 py-1.5 text-[10px] font-bold text-white/70"
-                >
-                  Add
-                </button>
               </div>
 
               <button
