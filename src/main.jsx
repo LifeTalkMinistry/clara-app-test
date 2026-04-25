@@ -8,7 +8,6 @@ import { ThemeProvider } from "@/theme/ThemeProvider";
 import App from "./App.jsx";
 import "./index.css";
 import "./clara-fab-theme.css";
-import "./clara-fab-drag.js";
 
 window.CLARA_BILLING = {
   productIds: {
