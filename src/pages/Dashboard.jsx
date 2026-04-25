@@ -3044,7 +3044,7 @@ function DashboardMessagesPanel({ onBack }) {
               Inbox
             </button>
           </div>
-          <div className="min-h-0 flex flex-1 flex-col justify-end gap-3 overflow-y-auto overscroll-contain px-4 py-4 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+          <div className="min-h-0 flex-1 space-y-3 overflow-y-auto overscroll-contain px-4 py-4 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
             {activeConvo.messages.length === 0 ? (
               <div className="flex h-full items-center justify-center text-center">
                 <div>
@@ -3612,13 +3612,10 @@ function DashboardSettingsPanel({
     try {
       const { data: adminProfiles, error: adminError } = await supabase
         .from("profiles")
-        .select("id,email,full_name,role")
+        .select("id,email,full_name,nickname,display_name,role")
         .eq("role", "admin");
 
-      if (adminError) {
-        console.error("Support admin lookup failed:", adminError);
-        throw new Error("Unable to find CLARA admin accounts. Please check the profiles role setup.");
-      }
+      if (adminError) throw adminError;
 
       const admins = (Array.isArray(adminProfiles) ? adminProfiles : [])
         .filter((admin) => admin?.id && admin.id !== user.id);
@@ -3644,6 +3641,8 @@ function DashboardSettingsPanel({
       const payloads = admins.map((admin) => {
         const adminName =
           admin?.full_name ||
+          admin?.nickname ||
+          admin?.display_name ||
           admin?.email ||
           "CLARA Admin";
 
