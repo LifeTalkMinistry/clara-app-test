@@ -861,14 +861,6 @@ const FinanceField = ({ label, children, helper }) => (
 const financeInputClassName =
   "w-full rounded-2xl border border-white/10 bg-white/[0.04] px-4 py-3 text-sm text-white outline-none transition placeholder:text-white/35 focus:border-emerald-400/30 focus:bg-white/[0.06]";
 
-const dashboardMobileShellClass =
-  "theme-page-shell relative isolate z-0 mx-auto min-h-screen w-full max-w-[430px] overflow-x-hidden overflow-y-auto pb-[calc(env(safe-area-inset-bottom)+96px)] pt-[env(safe-area-inset-top)] [scrollbar-width:none] [-webkit-overflow-scrolling:touch] [&::-webkit-scrollbar]:hidden";
-
-const dashboardSectionClass =
-  "mx-auto w-full max-w-[430px] space-y-[clamp(0.75rem,3.2vw,1rem)] px-[clamp(0.75rem,3.8vw,1.25rem)]";
-
-const dashboardCardPaddingClass = "p-[clamp(0.75rem,3.5vw,1rem)]";
-
 const FINANCE_CARD_KEYS = ["emergency", "wallets", "budgets", "savings"];
 
 const getFinanceThemeAccentClass = (tone = "emerald", isLight = false) => {
@@ -900,7 +892,155 @@ const getFinanceThemeAccentClass = (tone = "emerald", isLight = false) => {
   return darkToneMap[tone] || darkToneMap.emerald;
 };
 
-const getFinanceSlideShellClass = (cardKey, theme = null) => {
+
+const getDashboardViewportMode = () => {
+  if (typeof window === "undefined") return "normal";
+
+  const height = window.innerHeight || 844;
+  const width = window.innerWidth || 390;
+
+  if (height <= 700 || width <= 360) return "ultraCompact";
+  if (height <= 780) return "compact";
+  if (height <= 860) return "normal";
+  return "spacious";
+};
+
+function useDashboardViewportMode() {
+  const [mode, setMode] = useState(getDashboardViewportMode);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return undefined;
+
+    let frameId = null;
+    const updateMode = () => {
+      if (frameId) window.cancelAnimationFrame(frameId);
+      frameId = window.requestAnimationFrame(() => {
+        setMode(getDashboardViewportMode());
+      });
+    };
+
+    updateMode();
+    window.addEventListener("resize", updateMode, { passive: true });
+    window.addEventListener("orientationchange", updateMode, { passive: true });
+
+    return () => {
+      if (frameId) window.cancelAnimationFrame(frameId);
+      window.removeEventListener("resize", updateMode);
+      window.removeEventListener("orientationchange", updateMode);
+    };
+  }, []);
+
+  return mode;
+}
+
+const DASHBOARD_SCALE = {
+  ultraCompact: {
+    page: "min-h-[100dvh]",
+    headerOuter: "px-[clamp(10px,3vw,14px)] pb-1 pt-[calc(env(safe-area-inset-top)+8px)] md:px-[clamp(10px,3vw,14px)]",
+    headerPanel: "rounded-[22px] px-2 py-1.5 sm:px-2",
+    headerItem: "gap-0.5 rounded-[14px] px-1 py-1.5 sm:px-1.5",
+    headerIcon: "h-8 w-8",
+    headerIconSvg: "h-4 w-4",
+    headerLabel: "text-[10px]",
+    content: "mt-1 space-y-[clamp(7px,1.5dvh,10px)] px-[clamp(10px,3vw,14px)] pb-[calc(env(safe-area-inset-bottom)+12px)] md:px-[clamp(10px,3vw,14px)] md:space-y-[clamp(7px,1.5dvh,10px)]",
+    billboard: "h-[clamp(78px,13dvh,96px)]",
+    billboardPad: "gap-2 p-3",
+    billboardTitle: "mt-0.5 text-[clamp(13px,3.5vw,15px)]",
+    billboardText: "mt-0.5 line-clamp-1 text-[11px] leading-snug",
+    billboardCta: "mt-1",
+    billboardIcon: "h-10 w-10 rounded-xl",
+    financeWrap: "space-y-1.5",
+    financeClip: "rounded-[24px]",
+    financeSlide: "min-h-[238px] rounded-[24px] [&>*]:min-h-[236px] [&>*]:rounded-[23px]",
+    dots: "gap-1 pt-0",
+    summaryGrid: "rounded-[22px]",
+    summaryCell: "min-h-[118px] p-[clamp(10px,3vw,12px)]",
+    summaryLabel: "text-[9px] tracking-[0.18em]",
+    summaryAmount: "mt-2 text-[clamp(22px,7vw,27px)]",
+    summaryCopy: "mt-2 text-[11px] leading-4",
+    summarySubcopy: "mt-1 text-[10px] leading-4",
+  },
+  compact: {
+    page: "min-h-[100dvh]",
+    headerOuter: "px-[clamp(12px,3.5vw,16px)] pb-1 pt-[calc(env(safe-area-inset-top)+10px)] md:px-[clamp(12px,3.5vw,16px)]",
+    headerPanel: "rounded-[24px] px-2 py-2 sm:px-2",
+    headerItem: "gap-0.5 rounded-[15px] px-1 py-1.5 sm:px-1.5",
+    headerIcon: "h-9 w-9",
+    headerIconSvg: "h-[18px] w-[18px]",
+    headerLabel: "text-[10.5px]",
+    content: "mt-1.5 space-y-[clamp(8px,1.7dvh,12px)] px-[clamp(12px,3.5vw,16px)] pb-[calc(env(safe-area-inset-bottom)+14px)] md:px-[clamp(12px,3.5vw,16px)] md:space-y-[clamp(8px,1.7dvh,12px)]",
+    billboard: "h-[clamp(88px,14dvh,108px)]",
+    billboardPad: "gap-2.5 p-3",
+    billboardTitle: "mt-0.5 text-[clamp(14px,3.7vw,16px)]",
+    billboardText: "mt-0.5 line-clamp-1 text-xs leading-snug",
+    billboardCta: "mt-1.5",
+    billboardIcon: "h-11 w-11 rounded-[14px]",
+    financeWrap: "space-y-1.5",
+    financeClip: "rounded-[26px]",
+    financeSlide: "min-h-[258px] rounded-[26px] [&>*]:min-h-[256px] [&>*]:rounded-[25px]",
+    dots: "gap-1.5 pt-0",
+    summaryGrid: "rounded-[24px]",
+    summaryCell: "min-h-[128px] p-[clamp(11px,3.2vw,14px)]",
+    summaryLabel: "text-[10px] tracking-[0.2em]",
+    summaryAmount: "mt-2.5 text-[clamp(24px,7.2vw,29px)]",
+    summaryCopy: "mt-2 text-xs leading-5",
+    summarySubcopy: "mt-1.5 text-[11px] leading-4",
+  },
+  normal: {
+    page: "min-h-[100dvh]",
+    headerOuter: "px-[clamp(14px,4vw,18px)] pb-1.5 pt-[calc(env(safe-area-inset-top)+12px)] md:px-[clamp(14px,4vw,18px)]",
+    headerPanel: "rounded-[24px] px-2 py-2 sm:px-2.5",
+    headerItem: "gap-1 rounded-[16px] px-1 py-2 sm:px-2",
+    headerIcon: "h-10 w-10",
+    headerIconSvg: "h-5 w-5",
+    headerLabel: "text-[11px]",
+    content: "mt-2 space-y-[clamp(10px,1.8dvh,14px)] px-[clamp(14px,4vw,18px)] pb-[calc(env(safe-area-inset-bottom)+16px)] md:px-[clamp(14px,4vw,18px)] md:space-y-[clamp(10px,1.8dvh,14px)]",
+    billboard: "h-[clamp(100px,15dvh,124px)]",
+    billboardPad: "gap-3 p-4",
+    billboardTitle: "mt-1 text-base",
+    billboardText: "mt-1 line-clamp-2 text-xs leading-relaxed",
+    billboardCta: "mt-2",
+    billboardIcon: "h-12 w-12 rounded-2xl",
+    financeWrap: "space-y-2",
+    financeClip: "rounded-[28px]",
+    financeSlide: "min-h-[286px] rounded-[28px] [&>*]:min-h-[284px] [&>*]:rounded-[27px]",
+    dots: "gap-1.5 pt-0.5",
+    summaryGrid: "rounded-[26px]",
+    summaryCell: "min-h-[140px] p-[clamp(13px,3.6vw,16px)]",
+    summaryLabel: "text-[11px] tracking-[0.22em]",
+    summaryAmount: "mt-3 text-3xl",
+    summaryCopy: "mt-3 text-sm leading-6",
+    summarySubcopy: "mt-2 text-xs leading-5",
+  },
+  spacious: {
+    page: "min-h-[100dvh]",
+    headerOuter: "px-[clamp(16px,4vw,20px)] pb-2 pt-[calc(env(safe-area-inset-top)+14px)] md:px-[clamp(16px,4vw,20px)]",
+    headerPanel: "rounded-[24px] px-2 py-2.5 sm:px-2.5",
+    headerItem: "gap-1 rounded-[16px] px-1 py-2 sm:px-2",
+    headerIcon: "h-10 w-10",
+    headerIconSvg: "h-5 w-5",
+    headerLabel: "text-[11px]",
+    content: "mt-2.5 space-y-[clamp(12px,2dvh,16px)] px-[clamp(16px,4vw,20px)] pb-[calc(env(safe-area-inset-bottom)+18px)] md:px-[clamp(16px,4vw,20px)] md:space-y-[clamp(12px,2dvh,16px)]",
+    billboard: "h-[clamp(112px,15dvh,138px)]",
+    billboardPad: "gap-3 p-4",
+    billboardTitle: "mt-1 text-base",
+    billboardText: "mt-1 line-clamp-2 text-xs leading-relaxed",
+    billboardCta: "mt-2",
+    billboardIcon: "h-12 w-12 rounded-2xl",
+    financeWrap: "space-y-2",
+    financeClip: "rounded-[30px]",
+    financeSlide: "min-h-[314px] rounded-[30px] [&>*]:min-h-[312px] [&>*]:rounded-[29px]",
+    dots: "gap-1.5 pt-0.5",
+    summaryGrid: "rounded-[28px]",
+    summaryCell: "min-h-[148px] p-4",
+    summaryLabel: "text-[11px] tracking-[0.22em]",
+    summaryAmount: "mt-3 text-3xl",
+    summaryCopy: "mt-3 text-sm leading-6",
+    summarySubcopy: "mt-2 text-xs leading-5",
+  },
+};
+
+const getFinanceSlideShellClass = (cardKey, theme = null, scale = null) => {
   const accentMap = {
     emergency:
       "bg-[radial-gradient(circle_at_top_left,rgba(45,212,191,0.2),transparent_34%),radial-gradient(circle_at_bottom_right,rgba(56,189,248,0.16),transparent_38%),linear-gradient(135deg,rgba(5,16,31,0.88),rgba(6,18,36,0.96)_42%,rgba(3,10,24,0.98))] shadow-[0_28px_85px_rgba(16,185,129,0.16)]",
@@ -927,7 +1067,9 @@ const getFinanceSlideShellClass = (cardKey, theme = null) => {
   const glowCapClass = theme?.isLight === true ? "before:bg-white/70" : "before:bg-white/10";
   const innerRingClass = theme?.isLight === true ? "after:ring-slate-300/40" : "after:ring-white/6";
 
-  return `relative isolate w-full overflow-hidden rounded-[30px] ${shellBorderClass} p-[1px] backdrop-blur-sm before:pointer-events-none before:absolute before:inset-x-5 before:top-0 before:h-20 before:rounded-full ${glowCapClass} before:blur-3xl after:pointer-events-none after:absolute after:inset-0 after:rounded-[30px] after:ring-1 after:ring-inset ${innerRingClass} min-h-[clamp(18rem,78vw,20.5rem)] [&>*]:mb-0 [&>*]:h-full [&>*]:min-h-[clamp(17.85rem,77vw,20.35rem)] [&>*]:rounded-[29px] ${accentClass}`;
+  const scaleSlideClass = scale?.financeSlide || "min-h-[314px] rounded-[30px] [&>*]:min-h-[312px] [&>*]:rounded-[29px]";
+
+  return `relative isolate w-full overflow-hidden ${scaleSlideClass} ${shellBorderClass} p-[1px] backdrop-blur-sm before:pointer-events-none before:absolute before:inset-x-5 before:top-0 before:h-20 before:rounded-full ${glowCapClass} before:blur-3xl after:pointer-events-none after:absolute after:inset-0 after:rounded-[inherit] after:ring-1 after:ring-inset ${innerRingClass} [&>*]:mb-0 [&>*]:h-full ${accentClass}`;
 };
 
 const getDashboardGlowCardClass = (tone = "emerald") => {
@@ -1504,6 +1646,8 @@ let dashboardPageInFlight = null;
 export default function Dashboard() {
   const navigate = useNavigate();
   const { selectedTheme: selectedDashboardTheme, openThemePicker } = useTheme();
+  const dashboardViewportMode = useDashboardViewportMode();
+  const dashboardScale = DASHBOARD_SCALE[dashboardViewportMode] || DASHBOARD_SCALE.normal;
   const { user, plan, isAdvertiser, isPaid, isFree, isPending, refreshUser } =
     useUserRole();
 
@@ -3835,7 +3979,7 @@ export default function Dashboard() {
 
   if (!guardChecked) {
     return (
-      <div className="mx-auto flex min-h-screen w-full max-w-[430px] items-center justify-center bg-[#061018] px-[clamp(0.75rem,3.8vw,1.25rem)] text-white">
+      <div className="min-h-screen flex items-center justify-center bg-[#061018] text-white">
         <div className="flex flex-col items-center gap-3">
           <div className="h-10 w-10 animate-spin rounded-full border-4 border-white/15 border-t-emerald-400" />
           <p className="text-sm text-white/75">Checking access...</p>
@@ -3845,18 +3989,18 @@ export default function Dashboard() {
   }
 
   return (
-    <div className={dashboardMobileShellClass}>
-      <div className="px-[clamp(0.75rem,3.8vw,1.25rem)] pb-2 pt-[clamp(0.75rem,3.2vw,1rem)]">
+    <div className={`theme-page-shell relative isolate z-0 w-full max-w-[430px] mx-auto ${dashboardScale.page} overflow-x-hidden overflow-y-auto`} style={{ WebkitOverflowScrolling: "touch" }}>
+      <div className={dashboardScale.headerOuter}>
         <div className="mx-auto w-full max-w-[430px]">
           <div
-            className="relative w-full overflow-hidden rounded-[24px] border px-[clamp(0.45rem,2.4vw,0.625rem)] py-[clamp(0.45rem,2.4vw,0.625rem)] backdrop-blur-xl"
+            className={`relative w-full overflow-hidden border backdrop-blur-xl ${dashboardScale.headerPanel}`}
             style={themeQuickActionPanelStyle}
           >
             <div className="pointer-events-none absolute inset-0" style={themeQuickActionGlowStyle} />
             <div className="pointer-events-none absolute inset-0 opacity-[0.10] bg-[linear-gradient(115deg,transparent_0%,rgba(255,255,255,0.18)_18%,transparent_36%,transparent_64%,rgba(255,255,255,0.10)_82%,transparent_100%)]" />
             <div className="pointer-events-none absolute inset-x-6 top-0 h-px bg-gradient-to-r from-transparent via-white/25 to-transparent" />
 
-            <div className="relative flex items-center justify-between gap-[clamp(0.2rem,1.2vw,0.375rem)]">
+            <div className="relative flex items-center justify-between gap-1 sm:gap-1.5">
               {headerQuickActions.map((item, index) => {
                 const Icon = item.icon;
                 const pillGlow =
@@ -3881,11 +4025,11 @@ export default function Dashboard() {
                       className="group flex-1"
                       aria-label={item.label}
                     >
-                      <div className={`relative flex w-full flex-col items-center justify-center gap-[clamp(0.2rem,1vw,0.25rem)] rounded-[16px] px-[clamp(0.25rem,1.8vw,0.5rem)] py-[clamp(0.5rem,2.2vw,0.625rem)] transition duration-200 hover:-translate-y-[1px] active:scale-[0.985] ${themeQuickActionBaseClass}`}>
+                      <div className={`relative flex w-full flex-col items-center justify-center transition duration-200 hover:-translate-y-[1px] active:scale-[0.985] ${dashboardScale.headerItem} ${themeQuickActionBaseClass}`}>
                         <div className={`pointer-events-none absolute inset-0 rounded-[16px] opacity-0 transition duration-200 group-hover:opacity-100 ${themeIsLight ? "bg-[radial-gradient(circle_at_top,rgba(148,163,184,0.12),transparent_55%)]" : "bg-[radial-gradient(circle_at_top,rgba(255,255,255,0.08),transparent_55%)]"}`} />
 
-                        <div className={`relative flex h-[clamp(2.25rem,10vw,2.5rem)] w-[clamp(2.25rem,10vw,2.5rem)] items-center justify-center rounded-full border transition duration-200 ${themeQuickActionIconShellClass} ${iconHoverGlow}`}>
-                          <Icon className="h-[clamp(1.05rem,4.6vw,1.25rem)] w-[clamp(1.05rem,4.6vw,1.25rem)]" />
+                        <div className={`relative flex items-center justify-center rounded-full border transition duration-200 ${dashboardScale.headerIcon} ${themeQuickActionIconShellClass} ${iconHoverGlow}`}>
+                          <Icon className={dashboardScale.headerIconSvg} />
 
                           {item.badge?.type === "count" ? (
                             <span
@@ -3906,7 +4050,7 @@ export default function Dashboard() {
                           ) : null}
                         </div>
 
-                        <span className={`max-w-full truncate text-[clamp(0.62rem,2.8vw,0.7rem)] font-medium leading-none ${themeSecondaryTextClass}`}>
+                        <span className={`max-w-full truncate font-medium leading-none ${dashboardScale.headerLabel} ${themeSecondaryTextClass}`}>
                           {item.label}
                         </span>
                       </div>
@@ -3923,7 +4067,7 @@ export default function Dashboard() {
         </div>
       </div>
 
-      <div className={`${dashboardSectionClass} mt-[clamp(0.5rem,2.2vw,0.75rem)] pb-[calc(env(safe-area-inset-bottom)+7rem)]`}>
+      <div className={`mx-auto w-full max-w-[430px] ${dashboardScale.content}`}>
         {isPending && (
           <div className="flex items-center gap-3 rounded-2xl border border-white/10 bg-secondary/20 p-3">
             <Clock className="h-5 w-5 shrink-0" />
@@ -3953,7 +4097,7 @@ export default function Dashboard() {
                 : undefined
             }
           >
-            <div className="relative min-h-[clamp(8.25rem,34vw,10rem)]">
+            <div className={`relative ${dashboardScale.billboard}`}>
               {billboardMediaUrl ? (
                 billboardMediaType === "video" ? (
                   <video
@@ -3988,7 +4132,7 @@ export default function Dashboard() {
 
               <div className="absolute inset-0 bg-gradient-to-r from-black/75 via-black/35 to-black/10" />
 
-              <div className={`absolute inset-0 flex items-center justify-between gap-[clamp(0.65rem,3vw,0.9rem)] ${dashboardCardPaddingClass}`}>
+              <div className={`absolute inset-0 flex items-center justify-between ${dashboardScale.billboardPad}`}>
                 <div className="min-w-0 max-w-[72%]">
                   {!!billboardTag && (
                     <p className="text-[10px] uppercase tracking-[0.22em] text-white/60">
@@ -3997,19 +4141,19 @@ export default function Dashboard() {
                   )}
 
                   {!!billboardTitle && (
-                    <h3 className="mt-1 line-clamp-1 text-[clamp(0.95rem,4vw,1rem)] font-bold leading-tight text-white">
+                    <h3 className={`line-clamp-1 font-bold leading-tight text-white ${dashboardScale.billboardTitle}`}>
                       {billboardTitle}
                     </h3>
                   )}
 
                   {!!billboardSubtitle && (
-                    <p className="mt-1 line-clamp-2 text-[clamp(0.72rem,3vw,0.75rem)] leading-relaxed text-white/80">
+                    <p className={`${dashboardScale.billboardText} text-white/80`}>
                       {billboardSubtitle}
                     </p>
                   )}
 
                   {!!billboardCta && (
-                    <div className="mt-2 flex items-center gap-2">
+                    <div className={`flex items-center gap-2 ${dashboardScale.billboardCta}`}>
                       <span className="inline-flex items-center gap-1 text-[11px] font-medium text-white/90">
                         <span>{billboardCta}</span>
                         {billboardClickable && <ExternalLink className="h-3 w-3" />}
@@ -4019,7 +4163,7 @@ export default function Dashboard() {
                 </div>
 
                 <div className="shrink-0">
-                  <div className="flex h-[clamp(2.75rem,11vw,3rem)] w-[clamp(2.75rem,11vw,3rem)] items-center justify-center rounded-2xl border border-white/15 bg-black/25 backdrop-blur-sm">
+                  <div className={`flex items-center justify-center border border-white/15 bg-black/25 backdrop-blur-sm ${dashboardScale.billboardIcon}`}>
                     {billboardMediaType === "video" ? (
                       <Play className="h-5 w-5 fill-emerald-300 text-emerald-300" />
                     ) : billboardMediaType === "image" ? (
@@ -4037,15 +4181,15 @@ export default function Dashboard() {
         )}
 
         {!!user && (
-          <div className="space-y-2">
+          <div className={dashboardScale.financeWrap}>
             <FinanceInlineAlert notice={financeNotice} onClose={closeFinanceNotice} />
-            <div className="overflow-hidden rounded-[30px]">
+            <div className={`overflow-hidden ${dashboardScale.financeClip}`}>
               <div
                 ref={financeCarouselRef}
-                className="flex items-stretch snap-x snap-mandatory overflow-x-auto overflow-y-hidden [scrollbar-width:none] [-webkit-overflow-scrolling:touch] [&::-webkit-scrollbar]:hidden"
+                className="flex items-stretch snap-x snap-mandatory overflow-x-auto overflow-y-hidden [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
               >
                 <div className="flex w-full shrink-0 snap-center">
-                  <div className={getFinanceSlideShellClass("emergency", selectedDashboardTheme)}>
+                  <div className={getFinanceSlideShellClass("emergency", selectedDashboardTheme, dashboardScale)}>
                     <EmergencyFundCard
                       moneyLeft={walletMoney}
                       survivalExpense={survivalExpense}
@@ -4109,7 +4253,7 @@ export default function Dashboard() {
                 </div>
 
                 <div className="flex w-full shrink-0 snap-center">
-                  <div className={getFinanceSlideShellClass("wallets", selectedDashboardTheme)}>
+                  <div className={getFinanceSlideShellClass("wallets", selectedDashboardTheme, dashboardScale)}>
                     <WalletCard
                     wallets={wallets}
                     walletMoney={walletMoney}
@@ -4128,7 +4272,7 @@ export default function Dashboard() {
                 </div>
 
                 <div className="flex w-full shrink-0 snap-center">
-                  <div className={getFinanceSlideShellClass("budgets", selectedDashboardTheme)}>
+                  <div className={getFinanceSlideShellClass("budgets", selectedDashboardTheme, dashboardScale)}>
                     <BudgetCard
                     activeBudget={derivedActiveBudget}
                     theme={selectedDashboardTheme}
@@ -4142,7 +4286,7 @@ export default function Dashboard() {
                 </div>
 
                 <div className="flex w-full shrink-0 snap-center">
-                  <div className={getFinanceSlideShellClass("savings", selectedDashboardTheme)}>
+                  <div className={getFinanceSlideShellClass("savings", selectedDashboardTheme, dashboardScale)}>
                     <SavingsCard
                     savingsGoals={savingsGoals}
                     totalSavingsSaved={totalSavingsSaved}
@@ -4161,7 +4305,7 @@ export default function Dashboard() {
               </div>
             </div>
 
-            <div className="flex items-center justify-center gap-1.5 pt-0.5">
+            <div className={`flex items-center justify-center ${dashboardScale.dots}`}>
               {financeCards.map((cardKey, index) => (
                 <button
                   key={cardKey}
@@ -4180,7 +4324,7 @@ export default function Dashboard() {
         )}
 
         <div
-          className="grid grid-cols-2 overflow-hidden rounded-[28px] border backdrop-blur-sm"
+          className={`grid grid-cols-2 overflow-hidden border backdrop-blur-sm ${dashboardScale.summaryGrid}`}
           style={{
             borderColor:
               selectedDashboardTheme?.tokens?.border || "var(--theme-border)",
@@ -4190,7 +4334,7 @@ export default function Dashboard() {
           }}
         >
           <div
-            className={`relative isolate min-h-[clamp(8.25rem,34vw,9.5rem)] overflow-hidden ${dashboardCardPaddingClass}`}
+            className={`relative isolate overflow-hidden ${dashboardScale.summaryCell}`}
             style={{
               background:
                 selectedDashboardTheme?.tokens?.gradientMoney ||
@@ -4200,15 +4344,15 @@ export default function Dashboard() {
             <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(255,255,255,0.08),transparent_42%)]" />
             <div className="relative min-w-0">
               <div className="flex items-start justify-between gap-2">
-                <p className={`text-[11px] uppercase tracking-[0.22em] ${themeSoftTextClass}`}>
+                <p className={`uppercase ${dashboardScale.summaryLabel} ${themeSoftTextClass}`}>
                   Money Left
                 </p>
                 <span aria-hidden="true" className="w-8 shrink-0" />
               </div>
-              <h2 className={`mt-[clamp(0.65rem,3vw,0.75rem)] text-[clamp(1.55rem,7vw,1.875rem)] font-bold leading-none ${themePrimaryTextClass}`}>
+              <h2 className={`font-bold leading-none ${dashboardScale.summaryAmount} ${themePrimaryTextClass}`}>
                 {fmt(walletMoney)}
               </h2>
-              <p className={`mt-[clamp(0.65rem,3vw,0.75rem)] text-[clamp(0.78rem,3.3vw,0.875rem)] leading-[1.55] ${themeMutedTextClass}`}>
+              <p className={`${dashboardScale.summaryCopy} ${themeMutedTextClass}`}>
                 {moneyLeftHealth.title}
                 {moneyLeftHealth.highlight ? (
                   <>
@@ -4220,7 +4364,7 @@ export default function Dashboard() {
                 ) : null}
               </p>
               {moneyLeftHealth.subcopy ? (
-                <p className={`mt-2 text-[clamp(0.7rem,3vw,0.75rem)] leading-5 ${themeSoftTextClass}`}>
+                <p className={`${dashboardScale.summarySubcopy} ${themeSoftTextClass}`}>
                   {moneyLeftHealth.subcopy}
                 </p>
               ) : null}
@@ -4228,7 +4372,7 @@ export default function Dashboard() {
           </div>
 
           <div
-            className={`relative isolate min-h-[clamp(8.25rem,34vw,9.5rem)] overflow-hidden border-l ${dashboardCardPaddingClass}`}
+            className={`relative isolate overflow-hidden border-l ${dashboardScale.summaryCell}`}
             style={{
               background:
                 selectedDashboardTheme?.tokens?.gradientExpense ||
@@ -4239,13 +4383,13 @@ export default function Dashboard() {
           >
             <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_bottom_right,rgba(255,255,255,0.08),transparent_42%)]" />
             <div className="relative min-w-0">
-              <p className={`text-[11px] uppercase tracking-[0.22em] ${themeSoftTextClass}`}>
+              <p className={`uppercase ${dashboardScale.summaryLabel} ${themeSoftTextClass}`}>
                 Total Expense
               </p>
-              <h2 className={`mt-[clamp(0.65rem,3vw,0.75rem)] text-[clamp(1.55rem,7vw,1.875rem)] font-bold leading-none ${themePrimaryTextClass}`}>
+              <h2 className={`font-bold leading-none ${dashboardScale.summaryAmount} ${themePrimaryTextClass}`}>
                 {fmt(thisMonthSpent)}
               </h2>
-              <p className={`mt-[clamp(0.65rem,3vw,0.75rem)] text-[clamp(0.78rem,3.3vw,0.875rem)] leading-[1.55] ${themeMutedTextClass}`}>
+              <p className={`${dashboardScale.summaryCopy} ${themeMutedTextClass}`}>
                 {expenseHealth.title}
                 {expenseHealth.highlight ? (
                   <>
@@ -4256,7 +4400,7 @@ export default function Dashboard() {
                   </>
                 ) : null}
               </p>
-              <p className={`mt-2 text-[clamp(0.7rem,3vw,0.75rem)] leading-5 ${themeSoftTextClass}`}>
+              <p className={`${dashboardScale.summarySubcopy} ${themeSoftTextClass}`}>
                 {expenseHealth.subcopy}
               </p>
             </div>
