@@ -3,11 +3,7 @@ import { BarChart3, ChevronRight, ListChecks } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useTheme } from "@/theme/ThemeProvider";
 
-const MONEY_TRANSACTION_LABELS = new Set([
-  "total money",
-  "total expense",
-  "total expenses",
-]);
+const MONEY_TRANSACTION_LABELS = new Set([]);
 
 const clamp = (value, min, max) => Math.min(Math.max(value, min), max);
 
@@ -42,12 +38,21 @@ const getThemeGlow = (theme) => {
   return "rgba(16,185,129,0.34)";
 };
 
-const isMoneyLeftLabel = (label) => {
-  const value = String(label || "").trim().toLowerCase();
-  const compact = value.replace(/[^a-z0-9]+/g, " ").trim();
+const normalizeLabel = (label) =>
+  String(label || "")
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, " ")
+    .trim();
+
+const isMoneySummaryLabel = (label) => {
+  const compact = normalizeLabel(label);
 
   return (
     compact === "money left" ||
+    compact === "total expense" ||
+    compact === "total expenses" ||
+    compact === "total money" ||
     compact.includes("money left") ||
     compact.includes("left money") ||
     compact.includes("cash left") ||
@@ -57,7 +62,12 @@ const isMoneyLeftLabel = (label) => {
     compact.includes("money available") ||
     compact.includes("remaining balance") ||
     compact.includes("available balance") ||
-    compact.includes("balance left")
+    compact.includes("balance left") ||
+    compact.includes("total expense") ||
+    compact.includes("total expenses") ||
+    compact.includes("monthly expense") ||
+    compact.includes("month expense") ||
+    compact.includes("expense total")
   );
 };
 
@@ -75,12 +85,12 @@ export default function StatCard({
   const navigate = useNavigate();
   const themeContext = useTheme?.() || {};
   const themeGlow = getThemeGlow(themeContext?.theme || themeContext?.currentTheme || themeContext);
-  const normalizedLabel = String(label || "").trim().toLowerCase();
-  const isMoneyLeftDisplayOnly = isMoneyLeftLabel(label);
-  const isMoneyMetric = !isMoneyLeftDisplayOnly && MONEY_TRANSACTION_LABELS.has(normalizedLabel);
+  const normalizedLabel = normalizeLabel(label);
+  const isMoneySummaryDisplayOnly = isMoneySummaryLabel(label);
+  const isMoneyMetric = !isMoneySummaryDisplayOnly && MONEY_TRANSACTION_LABELS.has(normalizedLabel);
   const autoTransactionTarget = isMoneyMetric ? "/expenses" : "";
-  const targetPath = isMoneyLeftDisplayOnly ? "" : to || autoTransactionTarget;
-  const isClickable = !isMoneyLeftDisplayOnly && Boolean(targetPath || onClick);
+  const targetPath = isMoneySummaryDisplayOnly ? "" : to || autoTransactionTarget;
+  const isClickable = !isMoneySummaryDisplayOnly && Boolean(targetPath || onClick);
 
   const [activeSlide, setActiveSlide] = useState(0);
   const [dragX, setDragX] = useState(0);
@@ -103,18 +113,18 @@ export default function StatCard({
     []
   );
 
-  const stopMoneyLeftEvent = useCallback(
+  const stopMoneySummaryEvent = useCallback(
     (event) => {
-      if (!isMoneyLeftDisplayOnly) return;
+      if (!isMoneySummaryDisplayOnly) return;
       event.preventDefault?.();
       event.stopPropagation?.();
       event.nativeEvent?.stopImmediatePropagation?.();
     },
-    [isMoneyLeftDisplayOnly]
+    [isMoneySummaryDisplayOnly]
   );
 
   const handleClick = useCallback(() => {
-    if (isMoneyLeftDisplayOnly) return;
+    if (isMoneySummaryDisplayOnly) return;
     if (isDragging || dragRef.current.moved) return;
 
     if (activeSlide === 1) {
@@ -135,7 +145,7 @@ export default function StatCard({
     if (targetPath) {
       navigate(targetPath);
     }
-  }, [activeSlide, isDragging, isMoneyLeftDisplayOnly, navigate, onClick, targetPath]);
+  }, [activeSlide, isDragging, isMoneySummaryDisplayOnly, navigate, onClick, targetPath]);
 
   const goToAnalytics = useCallback(() => {
     if (isMoneyMetric) navigate("/analytics");
@@ -420,17 +430,17 @@ export default function StatCard({
       }
     : {};
 
-  const displayOnlyProps = isMoneyLeftDisplayOnly
+  const displayOnlyProps = isMoneySummaryDisplayOnly
     ? {
         role: "presentation",
-        onClick: stopMoneyLeftEvent,
-        onClickCapture: stopMoneyLeftEvent,
-        onMouseDown: stopMoneyLeftEvent,
-        onMouseDownCapture: stopMoneyLeftEvent,
-        onPointerDown: stopMoneyLeftEvent,
-        onPointerDownCapture: stopMoneyLeftEvent,
-        onTouchStart: stopMoneyLeftEvent,
-        onTouchStartCapture: stopMoneyLeftEvent,
+        onClick: stopMoneySummaryEvent,
+        onClickCapture: stopMoneySummaryEvent,
+        onMouseDown: stopMoneySummaryEvent,
+        onMouseDownCapture: stopMoneySummaryEvent,
+        onPointerDown: stopMoneySummaryEvent,
+        onPointerDownCapture: stopMoneySummaryEvent,
+        onTouchStart: stopMoneySummaryEvent,
+        onTouchStartCapture: stopMoneySummaryEvent,
       }
     : {};
 
