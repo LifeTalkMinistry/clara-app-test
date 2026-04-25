@@ -7,11 +7,10 @@ import { queryClientInstance } from "@/lib/query-client";
 import { ThemeProvider } from "@/theme/ThemeProvider";
 import App from "./App.jsx";
 import "./index.css";
+import "./clara-fab-theme.css";
 
 // REMOVE direct import of cordova-plugin-purchase
-// import "cordova-plugin-purchase";
 
-// Safe billing setup
 window.CLARA_BILLING = {
   productIds: {
     PRO: "clara_pro_99",
@@ -139,7 +138,6 @@ window.CLARA_BILLING = {
   },
 };
 
-// Safe auto-init
 (async () => {
   try {
     const isAndroid =
