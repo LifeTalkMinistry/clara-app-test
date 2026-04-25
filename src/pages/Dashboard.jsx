@@ -2969,42 +2969,9 @@ function DashboardMessagesPanel({ onBack }) {
     users,
   ]);
 
-  const panelHeader = (
-    <div className="rounded-[30px] border border-white/10 bg-white/[0.055] p-4 shadow-[0_18px_50px_rgba(0,0,0,0.20)] backdrop-blur-xl">
-      <div className="flex items-center justify-between gap-3">
-        <div className="flex min-w-0 items-center gap-3">
-          <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border border-white/10 bg-white/10 text-white">
-            <MessageCircle className="h-5 w-5" />
-          </div>
-          <div className="min-w-0">
-            <p className="truncate text-base font-bold text-white">
-              {activeConvo ? activeConvo.name : "Messages"}
-            </p>
-            <p className="truncate text-xs text-white/55">
-              {activeConvo
-                ? messageMode === "admin_only" && !isAdmin
-                  ? "CLARA Admin conversation"
-                  : "Private conversation"
-                : "Chat directly inside your dashboard"}
-            </p>
-          </div>
-        </div>
-
-        <button
-          type="button"
-          onClick={activeConvo ? () => setSelectedConvo(null) : onBack}
-          className="rounded-full border border-white/10 bg-white/8 px-3 py-2 text-[11px] font-semibold text-white/75 transition hover:bg-white/12"
-        >
-          {activeConvo ? "Inbox" : "Home"}
-        </button>
-      </div>
-    </div>
-  );
-
   if (accessLoading || loading) {
     return (
       <div className="space-y-4">
-        {panelHeader}
         <div className="rounded-[30px] border border-white/10 bg-white/[0.055] p-8 text-center backdrop-blur-xl">
           <div className="mx-auto h-6 w-6 animate-spin rounded-full border-2 border-white/15 border-t-emerald-300" />
           <p className="mt-3 text-sm text-white/55">Preparing messages...</p>
@@ -3016,7 +2983,6 @@ function DashboardMessagesPanel({ onBack }) {
   if (!currentUserId || !hasMessagingAccess) {
     return (
       <div className="space-y-4">
-        {panelHeader}
         <div className="rounded-[30px] border border-white/10 bg-white/[0.055] p-8 text-center backdrop-blur-xl">
           <MessageCircle className="mx-auto h-8 w-8 text-white/55" />
           <p className="mt-3 text-sm font-bold text-white">
@@ -3035,9 +3001,21 @@ function DashboardMessagesPanel({ onBack }) {
   if (activeConvo) {
     return (
       <div className="space-y-4">
-        {panelHeader}
 
         <div className="flex max-h-[62dvh] min-h-[420px] flex-col overflow-hidden rounded-[30px] border border-white/10 bg-white/[0.055] shadow-[0_18px_50px_rgba(0,0,0,0.20)] backdrop-blur-xl">
+          <div className="flex items-center justify-between gap-3 border-b border-white/10 bg-black/15 px-4 py-3">
+            <div className="min-w-0">
+              <p className="truncate text-sm font-bold text-white">{activeConvo.name}</p>
+              <p className="truncate text-[11px] text-white/45">Private conversation</p>
+            </div>
+            <button
+              type="button"
+              onClick={() => setSelectedConvo(null)}
+              className="rounded-full border border-white/10 bg-white/8 px-3 py-2 text-[11px] font-semibold text-white/75 transition hover:bg-white/12"
+            >
+              Inbox
+            </button>
+          </div>
           <div className="flex-1 space-y-3 overflow-y-auto px-4 py-4 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
             {activeConvo.messages.length === 0 ? (
               <div className="flex h-full items-center justify-center text-center">
@@ -3111,8 +3089,6 @@ function DashboardMessagesPanel({ onBack }) {
 
   return (
     <div className="space-y-4">
-      {panelHeader}
-
       <div className="rounded-[30px] border border-white/10 bg-white/[0.055] p-4 shadow-[0_18px_50px_rgba(0,0,0,0.20)] backdrop-blur-xl">
         <div className="flex items-center gap-2 rounded-2xl border border-white/10 bg-black/15 px-3 py-2">
           <Search className="h-4 w-4 text-white/45" />
