@@ -3921,57 +3921,92 @@ function DashboardSettingsPanel({
     <div className="space-y-4">
       <DetailHeader
         title="Security & privacy"
-        subtitle="Review your current session and safely reset visual preferences."
+        subtitle="Your account session, protected data, and safe preference reset."
       />
 
       {renderNotice()}
 
-      <div className="rounded-[30px] border border-white/10 bg-white/[0.045] p-4 shadow-[0_18px_50px_rgba(0,0,0,0.18)] backdrop-blur-xl">
+      <div className="rounded-[30px] border border-white/10 bg-[radial-gradient(circle_at_top_left,rgba(16,185,129,0.12),transparent_34%),rgba(255,255,255,0.045)] p-4 shadow-[0_18px_50px_rgba(0,0,0,0.18)] backdrop-blur-xl">
         <div className="flex items-start gap-3">
-          <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border border-white/10 bg-white/8 text-white/70">
+          <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl border border-emerald-300/20 bg-emerald-400/10 text-emerald-100">
             <ShieldCheck className="h-5 w-5" />
           </div>
 
           <div className="min-w-0 flex-1">
-            <p className="text-sm font-black text-white">Current session</p>
-            <p className="mt-1 truncate text-xs text-white/50">{user?.email || "Current user session"}</p>
-            <div className="mt-3 inline-flex rounded-full border border-emerald-300/20 bg-emerald-400/10 px-3 py-1 text-[10px] font-black text-emerald-100">
-              Signed in securely
+            <div className="flex items-start justify-between gap-3">
+              <div className="min-w-0">
+                <p className="text-sm font-black text-white">Current session</p>
+                <p className="mt-1 truncate text-xs text-white/50">
+                  {user?.email || "Current user session"}
+                </p>
+              </div>
+
+              <span className="shrink-0 rounded-full border border-emerald-300/20 bg-emerald-400/10 px-3 py-1 text-[10px] font-black text-emerald-100">
+                Secure
+              </span>
+            </div>
+
+            <div className="mt-4 grid grid-cols-2 gap-2 text-center">
+              <div className="rounded-2xl border border-white/10 bg-black/15 p-3">
+                <p className="text-[11px] font-black text-white">Signed in</p>
+                <p className="mt-1 text-[10px] text-white/40">Session</p>
+              </div>
+              <div className="rounded-2xl border border-white/10 bg-black/15 p-3">
+                <p className="text-[11px] font-black text-white">Protected</p>
+                <p className="mt-1 text-[10px] text-white/40">Account</p>
+              </div>
             </div>
           </div>
         </div>
       </div>
 
       <div className="rounded-[30px] border border-white/10 bg-white/[0.045] p-4 shadow-[0_18px_50px_rgba(0,0,0,0.18)] backdrop-blur-xl">
-        <p className="text-sm font-black text-white">Safe preference reset</p>
-        <p className="mt-2 text-xs leading-5 text-white/50">
-          This only clears local dashboard preferences like notification choices, wallpaper/theme-related local cache, and dashboard reminders.
+        <p className="text-sm font-black text-white">Protected app data</p>
+        <p className="mt-2 text-xs leading-5 text-white/48">
+          Preference reset only affects local dashboard settings. Your core financial records stay untouched.
         </p>
 
-        <div className="mt-3 rounded-2xl border border-white/10 bg-black/15 p-3">
-          <p className="text-xs font-bold text-white/75">It will NOT delete:</p>
-          <div className="mt-2 grid grid-cols-2 gap-2 text-[11px] font-semibold text-white/50">
-            <span className="rounded-xl bg-white/6 px-3 py-2">Wallets</span>
-            <span className="rounded-xl bg-white/6 px-3 py-2">Expenses</span>
-            <span className="rounded-xl bg-white/6 px-3 py-2">Budgets</span>
-            <span className="rounded-xl bg-white/6 px-3 py-2">Enrollments</span>
+        <div className="mt-4 grid grid-cols-2 gap-2">
+          {["Wallets", "Expenses", "Budgets", "Enrollments"].map((item) => (
+            <div
+              key={item}
+              className="flex items-center gap-2 rounded-2xl border border-white/10 bg-black/15 px-3 py-3"
+            >
+              <Check className="h-3.5 w-3.5 shrink-0 text-emerald-200" />
+              <span className="truncate text-xs font-bold text-white/68">{item}</span>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      <div className="rounded-[30px] border border-amber-300/15 bg-[radial-gradient(circle_at_top_left,rgba(251,191,36,0.12),transparent_34%),rgba(255,255,255,0.04)] p-4 shadow-[0_18px_50px_rgba(0,0,0,0.16)] backdrop-blur-xl">
+        <div className="flex items-start gap-3">
+          <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border border-amber-300/20 bg-amber-400/10 text-amber-100">
+            <RotateCcw className="h-5 w-5" />
+          </div>
+
+          <div className="min-w-0 flex-1">
+            <p className="text-sm font-black text-white">Local preference reset</p>
+            <p className="mt-1 text-xs leading-5 text-white/48">
+              Clears notification choices, dashboard reminder cache, and local visual preferences on this device.
+            </p>
           </div>
         </div>
 
         <button
           type="button"
           onClick={clearLocalPreferences}
-          className="mt-4 flex w-full items-center justify-center gap-2 rounded-2xl border border-amber-300/20 bg-amber-400/10 px-4 py-3 text-sm font-bold text-amber-100 transition hover:bg-amber-400/15"
+          className="mt-4 flex w-full items-center justify-center gap-2 rounded-2xl border border-amber-300/20 bg-amber-400/10 px-4 py-3 text-sm font-black text-amber-100 transition hover:bg-amber-400/15"
         >
           <RotateCcw className="h-4 w-4" />
-          Reset local preferences only
+          Reset local preferences
         </button>
       </div>
 
       <div className="rounded-[24px] border border-white/10 bg-white/[0.035] p-4">
-        <p className="text-sm font-bold text-white">Account sign out</p>
+        <p className="text-sm font-bold text-white">Log out location</p>
         <p className="mt-1 text-xs leading-5 text-white/45">
-          The logout button is now placed at the bottom of the main Settings page for easier access.
+          Log out is available at the bottom of the main Settings screen so it stays easy to find without mixing it into privacy controls.
         </p>
       </div>
     </div>
@@ -4148,15 +4183,21 @@ function DashboardSettingsPanel({
         </section>
       ))}
 
-      <button
-        type="button"
-        onClick={handleSignOut}
-        disabled={signingOut}
-        className="flex w-full items-center justify-center gap-2 rounded-[24px] border border-rose-300/20 bg-rose-500/10 px-4 py-4 text-sm font-black text-rose-100 shadow-[0_14px_40px_rgba(244,63,94,0.08)] transition hover:bg-rose-500/15 disabled:opacity-55"
-      >
-        <X className="h-4 w-4" />
-        {signingOut ? "Signing out..." : "Log out"}
-      </button>
+      <div className="space-y-2 pt-1">
+        <button
+          type="button"
+          onClick={handleSignOut}
+          disabled={signingOut}
+          className="flex w-full items-center justify-center gap-2 rounded-[24px] border border-rose-300/20 bg-[radial-gradient(circle_at_top_left,rgba(244,63,94,0.16),transparent_34%),rgba(244,63,94,0.08)] px-4 py-4 text-sm font-black text-rose-100 shadow-[0_14px_40px_rgba(244,63,94,0.08)] transition hover:bg-rose-500/15 disabled:opacity-55"
+        >
+          <X className="h-4 w-4" />
+          {signingOut ? "Signing out..." : "Log out"}
+        </button>
+
+        <p className="px-3 text-center text-[10px] font-semibold leading-4 text-white/32">
+          You can log back in anytime using your CLARA account.
+        </p>
+      </div>
     </div>
   );
 }
