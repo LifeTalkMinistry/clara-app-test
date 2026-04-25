@@ -1,5 +1,6 @@
 import { useEffect } from "react";
 import { useNavigate } from "react-router-dom";
+import ClaraFabLogoInjector from "@/components/ClaraFabLogoInjector";
 import { Check, Palette, Sparkles, X } from "lucide-react";
 import {
   Sheet,
@@ -89,6 +90,7 @@ export default function ThemePicker() {
 
   return (
     <>
+      <ClaraFabLogoInjector />
       <DashboardFinanceCardClickBridge />
       <Sheet open={pickerOpen} onOpenChange={setPickerOpen}>
         <SheetContent
