@@ -16,7 +16,12 @@ function isSettingsPath(pathname) {
 }
 
 function isStandaloneFocusPage(pathname) {
-  return pathname === "/profile" || isSettingsPath(pathname);
+  return (
+    pathname === "/profile" ||
+    isSettingsPath(pathname) ||
+    pathname === "/expenses" ||
+    pathname.startsWith("/expenses/")
+  );
 }
 
 export default function Layout({ children }) {
