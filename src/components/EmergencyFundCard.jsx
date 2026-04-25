@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import {
   Shield,
   Edit2,
@@ -27,6 +28,8 @@ const MILESTONES = [
 ];
 
 const VALID_TARGET_MONTHS = [3, 6, 12];
+const ORB_LONG_PRESS_MS = 520;
+const ORB_DOUBLE_TAP_DELAY_MS = 340;
 
 const EMERGENCY_TARGET_MONTHS_KEY = "clara_emergency_target_months";
 const EMERGENCY_WALLPAPER_KEY = "clara_wallpaper";
@@ -184,6 +187,8 @@ export default function EmergencyFundCard({
   onQuickExpense,
   onQuickAI,
 }) {
+  const navigate = useNavigate();
+
   const [expanded, setExpanded] = useState(false);
   const [editing, setEditing] = useState(false);
   const [showModal, setShowModal] = useState(false);
@@ -202,6 +207,8 @@ export default function EmergencyFundCard({
   const autoPromptTimeoutRef = useRef(null);
   const longPressTimeoutRef = useRef(null);
   const longPressTriggeredRef = useRef(false);
+  const orbTapTimeoutRef = useRef(null);
+  const orbTapCountRef = useRef(0);
 
   const propExpense = Number(survivalExpense) || 0;
   const effectiveExpense = propExpense;
@@ -221,6 +228,11 @@ export default function EmergencyFundCard({
       if (longPressTimeoutRef.current) {
         window.clearTimeout(longPressTimeoutRef.current);
         longPressTimeoutRef.current = null;
+      }
+
+      if (orbTapTimeoutRef.current) {
+        window.clearTimeout(orbTapTimeoutRef.current);
+        orbTapTimeoutRef.current = null;
       }
     };
   }, []);
@@ -293,7 +305,21 @@ export default function EmergencyFundCard({
     setStoredTargetMonths(next);
   };
 
+  const clearOrbTapTimer = () => {
+    if (orbTapTimeoutRef.current) {
+      window.clearTimeout(orbTapTimeoutRef.current);
+      orbTapTimeoutRef.current = null;
+    }
+  };
+
+  const resetOrbTapState = () => {
+    orbTapCountRef.current = 0;
+    clearOrbTapTimer();
+  };
+
   const openQuickExpense = () => {
+    resetOrbTapState();
+
     if (typeof onQuickExpense === "function") {
       onQuickExpense();
       return;
@@ -303,12 +329,19 @@ export default function EmergencyFundCard({
   };
 
   const openQuickAI = () => {
+    resetOrbTapState();
+
     if (typeof onQuickAI === "function") {
       onQuickAI();
       return;
     }
 
     window.dispatchEvent(new CustomEvent("clara:open-ai-chat"));
+  };
+
+  const openAnalytics = () => {
+    resetOrbTapState();
+    navigate("/analytics");
   };
 
   const clearLongPressTimer = () => {
@@ -326,11 +359,16 @@ export default function EmergencyFundCard({
       longPressTriggeredRef.current = true;
       openQuickAI();
       clearLongPressTimer();
-    }, 520);
+    }, ORB_LONG_PRESS_MS);
   };
 
   const handleOrbPointerUp = () => {
     clearLongPressTimer();
+  };
+
+  const handleOrbPointerCancel = () => {
+    clearLongPressTimer();
+    resetOrbTapState();
   };
 
   const handleOrbClick = (event) => {
@@ -339,10 +377,21 @@ export default function EmergencyFundCard({
 
     if (longPressTriggeredRef.current) {
       longPressTriggeredRef.current = false;
+      resetOrbTapState();
       return;
     }
 
-    openQuickExpense();
+    orbTapCountRef.current += 1;
+
+    if (orbTapCountRef.current >= 2) {
+      openAnalytics();
+      return;
+    }
+
+    clearOrbTapTimer();
+    orbTapTimeoutRef.current = window.setTimeout(() => {
+      openQuickExpense();
+    }, ORB_DOUBLE_TAP_DELAY_MS);
   };
 
   const resolvedWallpaperOpacity = Math.max(
@@ -547,12 +596,12 @@ export default function EmergencyFundCard({
             type="button"
             onPointerDown={handleOrbPointerDown}
             onPointerUp={handleOrbPointerUp}
-            onPointerCancel={handleOrbPointerUp}
+            onPointerCancel={handleOrbPointerCancel}
             onPointerLeave={handleOrbPointerUp}
             onClick={handleOrbClick}
             className={`relative flex h-11 w-11 touch-none select-none items-center justify-center rounded-full border backdrop-blur-xl transition hover:scale-[1.04] active:scale-95 ${themeClasses.glass}`}
-            aria-label="Tap to log expense, long press to open CLARA AI"
-            title="Tap: Log expense • Long press: CLARA AI"
+            aria-label="Tap to log expense, double tap to open analytics, long press to open CLARA AI"
+            title="Tap: Log expense • Double tap: Analytics • Long press: CLARA AI"
           >
             <span className="absolute inset-[-5px] rounded-full bg-emerald-400/20 blur-md animate-[emergencyOrbPulse_1.8s_ease-in-out_infinite]" />
             <span className="absolute inset-0 rounded-full bg-white/10 animate-[emergencyOrbBeat_1.8s_ease-in-out_infinite]" />
