@@ -4759,7 +4759,7 @@ export default function Dashboard() {
         )}
 
         {!!user && (
-          <div className={dashboardScale.financeWrap}>
+          <div className={`${dashboardScale.financeWrap} ${hasBillboardContent ? "mt-[clamp(16px,2.6dvh,24px)]" : ""}`}>
             <FinanceInlineAlert notice={financeNotice} onClose={closeFinanceNotice} />
             <div className={`overflow-hidden ${dashboardScale.financeClip}`}>
               <div
