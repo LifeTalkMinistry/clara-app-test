@@ -63,7 +63,7 @@ export default function QuickCircle({ onQuickAdd, onOpenAssistant, placement = "
 
   const shellPositionStyle = isDashboardPlacement
     ? {
-        top: "clamp(20rem, 56dvh, 29rem)",
+        top: "clamp(17rem, 50dvh, 26rem)",
         right: "calc((100vw - min(100vw, 430px)) / 2 + clamp(1.15rem, 7vw, 2rem))",
       }
     : undefined;
@@ -80,42 +80,12 @@ export default function QuickCircle({ onQuickAdd, onOpenAssistant, placement = "
       )}
 
       <div className="relative flex h-[clamp(3.25rem,12vw,3.95rem)] w-[clamp(3.25rem,12vw,3.95rem)] items-center justify-center">
-        {expanded && (
-          <div className="absolute bottom-[calc(100%+0.7rem)] right-0 flex flex-col items-end gap-2.5">
-            {quickActions.map((action) => {
-              const Icon = action.icon;
-              return (
-                <button
-                  key={action.key}
-                  type="button"
-                  onClick={() => handleQuickAction(action.key)}
-                  className="pointer-events-auto flex min-w-[9.5rem] items-center justify-between gap-3 rounded-2xl border border-white/15 bg-[color-mix(in_srgb,var(--theme-surface)_72%,transparent)] px-3.5 py-2.5 text-sm font-semibold text-white shadow-[0_16px_35px_rgba(0,0,0,0.28),0_0_24px_color-mix(in_srgb,var(--theme-glow)_20%,transparent)] backdrop-blur-xl transition hover:-translate-y-0.5 hover:border-white/25 hover:bg-[color-mix(in_srgb,var(--theme-primary)_22%,var(--theme-surface)_68%)] active:scale-[0.98]"
-                >
-                  <span>{action.label}</span>
-                  <span className="flex h-8 w-8 items-center justify-center rounded-full border border-white/15 bg-white/10">
-                    <Icon className="h-4 w-4" />
-                  </span>
-                </button>
-              );
-            })}
-          </div>
-        )}
 
         <span
           className="pointer-events-none absolute inset-[-0.75rem] rounded-full opacity-80 blur-2xl animate-[claraFabPulse_1.9s_ease-in-out_infinite]"
           style={{
             background:
               "radial-gradient(circle, color-mix(in srgb, var(--theme-glow) 56%, transparent) 0%, color-mix(in srgb, var(--theme-primary) 28%, transparent) 38%, transparent 72%)",
-          }}
-        />
-
-        <span
-          className="pointer-events-none absolute inset-[-0.2rem] rounded-full border border-white/15 opacity-80"
-          style={{
-            background:
-              "linear-gradient(135deg, color-mix(in srgb, var(--theme-primary) 36%, transparent), color-mix(in srgb, var(--theme-accent) 24%, transparent))",
-            boxShadow:
-              "0 0 0 1px color-mix(in srgb, var(--theme-primary) 24%, transparent), 0 0 28px color-mix(in srgb, var(--theme-glow) 34%, transparent)",
           }}
         />
 
@@ -132,14 +102,6 @@ export default function QuickCircle({ onQuickAdd, onOpenAssistant, placement = "
           }}
           aria-label="Open CLARA assistant"
         >
-          <span
-            className="pointer-events-none absolute inset-0 rounded-full opacity-80"
-            style={{
-              background:
-                "radial-gradient(circle at 28% 22%, rgba(255,255,255,0.42), transparent 30%), radial-gradient(circle at 72% 78%, color-mix(in srgb, var(--theme-primary) 36%, transparent), transparent 55%)",
-            }}
-          />
-
           <img
             src={`${import.meta.env.BASE_URL || "/"}clara-icon.png`}
             alt=""
