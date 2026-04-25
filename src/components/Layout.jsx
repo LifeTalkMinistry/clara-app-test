@@ -8,6 +8,8 @@ import ClaraAssistantPanel from "@/components/ai/ClaraAssistantPanel";
 import useUserRole from "../hooks/useUserRole";
 
 const TRANSACTION_TRANSITION_KEY = "clara_transactions_transition_origin";
+const TRANSACTION_HINT_KEY = "clara_transactions_swipe_hint_seen_count";
+const TRANSACTION_HINT_LIMIT = 3;
 
 function getAppLoginUrl() {
   return `${window.location.origin}/clara-app-test/#/login`;
@@ -101,6 +103,30 @@ function storeTransitionOriginFromElement(element) {
   }
 }
 
+function shouldShowSwipeHint() {
+  try {
+    const count = Number(localStorage.getItem(TRANSACTION_HINT_KEY) || 0);
+    if (!Number.isFinite(count) || count < 0) return true;
+    return count < TRANSACTION_HINT_LIMIT;
+  } catch (error) {
+    console.error("Failed to read transaction hint count:", error);
+    return true;
+  }
+}
+
+function markSwipeHintSeen() {
+  try {
+    const count = Number(localStorage.getItem(TRANSACTION_HINT_KEY) || 0);
+    const safeCount = Number.isFinite(count) && count >= 0 ? count : 0;
+    localStorage.setItem(
+      TRANSACTION_HINT_KEY,
+      String(Math.min(safeCount + 1, TRANSACTION_HINT_LIMIT))
+    );
+  } catch (error) {
+    console.error("Failed to save transaction hint count:", error);
+  }
+}
+
 function isExpensesTarget(element) {
   if (!element) return false;
 
@@ -145,6 +171,7 @@ export default function Layout({ children }) {
   const [assistantMode, setAssistantMode] = useState("voice");
   const [transactionsClosing, setTransactionsClosing] = useState(false);
   const [transitionOrigin, setTransitionOrigin] = useState(null);
+  const [showSwipeHint, setShowSwipeHint] = useState(false);
 
   const { user, loading = false } = useUserRole() || {};
 
@@ -164,19 +191,35 @@ export default function Layout({ children }) {
   const handleBackToDashboard = useCallback(() => {
     if (transactionsClosing) return;
 
+    setShowSwipeHint(false);
     setTransitionOrigin(readStoredTransitionOrigin());
     setTransactionsClosing(true);
     window.setTimeout(() => {
       navigate("/dashboard");
       setTransactionsClosing(false);
-    }, 330);
+    }, 380);
   }, [navigate, transactionsClosing]);
 
   useEffect(() => {
     if (isTransactionsPage) {
       setTransitionOrigin(readStoredTransitionOrigin());
+      const canShowHint = shouldShowSwipeHint();
+      setShowSwipeHint(canShowHint);
+
+      if (canShowHint) {
+        markSwipeHintSeen();
+        const hideTimer = window.setTimeout(() => {
+          setShowSwipeHint(false);
+        }, 2600);
+
+        return () => window.clearTimeout(hideTimer);
+      }
+    } else {
+      setShowSwipeHint(false);
     }
+
     setTransactionsClosing(false);
+    return undefined;
   }, [isTransactionsPage, location.pathname]);
 
   useEffect(() => {
@@ -263,22 +306,32 @@ export default function Layout({ children }) {
       <style>{`
         @keyframes claraTransactionsExpandIn {
           0% {
-            opacity: 0.48;
-            transform: translate3d(var(--clara-origin-x), var(--clara-origin-y), 0) scale(var(--clara-origin-scale-x), var(--clara-origin-scale-y)) rotateX(58deg);
+            opacity: 0.42;
+            transform: translate3d(var(--clara-origin-x), var(--clara-origin-y), 0) scale(var(--clara-origin-scale-x), var(--clara-origin-scale-y)) rotateX(62deg);
             border-radius: var(--clara-origin-radius);
-            filter: blur(4px) saturate(1.12);
+            filter: blur(5px) saturate(1.14);
+            box-shadow: 0 22px 80px rgba(0,0,0,0.10);
           }
-          52% {
+          38% {
+            opacity: 0.92;
+            transform: translate3d(calc(var(--clara-origin-x) * .18), calc(var(--clara-origin-y) * .18 - 22px), 0) scale(.92, .9) rotateX(13deg);
+            border-radius: 30px;
+            filter: blur(1px) saturate(1.08);
+            box-shadow: 0 30px 110px rgba(0,0,0,0.28);
+          }
+          68% {
             opacity: 1;
             transform: translate3d(0, -10px, 0) scale(1.018, 1.012) rotateX(-4deg);
             border-radius: 26px;
             filter: blur(0px) saturate(1.04);
+            box-shadow: 0 24px 90px rgba(0,0,0,0.22);
           }
           100% {
             opacity: 1;
             transform: translate3d(0, 0, 0) scale(1, 1) rotateX(0deg);
             border-radius: 0px;
             filter: blur(0px) saturate(1);
+            box-shadow: none;
           }
         }
 
@@ -290,28 +343,71 @@ export default function Layout({ children }) {
             filter: blur(0px) saturate(1);
           }
           100% {
-            opacity: 0.18;
-            transform: translate3d(var(--clara-origin-x), var(--clara-origin-y), 0) scale(var(--clara-origin-scale-x), var(--clara-origin-scale-y)) rotateX(60deg);
+            opacity: 0.14;
+            transform: translate3d(var(--clara-origin-x), var(--clara-origin-y), 0) scale(var(--clara-origin-scale-x), var(--clara-origin-scale-y)) rotateX(64deg);
             border-radius: var(--clara-origin-radius);
-            filter: blur(5px) saturate(1.18);
+            filter: blur(6px) saturate(1.18);
           }
+        }
+
+        @keyframes claraOverlayIn {
+          0% { opacity: 0; backdrop-filter: blur(0px); }
+          100% { opacity: 1; backdrop-filter: blur(10px); }
+        }
+
+        @keyframes claraOverlayOut {
+          0% { opacity: 1; backdrop-filter: blur(10px); }
+          100% { opacity: 0; backdrop-filter: blur(0px); }
+        }
+
+        @keyframes claraHintInOut {
+          0% { opacity: 0; transform: translate(-50%, -8px); }
+          18% { opacity: .5; transform: translate(-50%, 0); }
+          76% { opacity: .5; transform: translate(-50%, 0); }
+          100% { opacity: 0; transform: translate(-50%, -8px); }
+        }
+
+        @keyframes claraContentSettle {
+          0%, 42% { opacity: .72; transform: translateY(10px); }
+          100% { opacity: 1; transform: translateY(0); }
         }
 
         .clara-transactions-stage {
           transform-origin: center center;
           backface-visibility: hidden;
-          perspective: 1400px;
-          will-change: transform, opacity, filter, border-radius;
+          perspective: 1600px;
+          will-change: transform, opacity, filter, border-radius, box-shadow;
           overflow: hidden;
+          position: relative;
+          z-index: 30;
         }
 
         .clara-transactions-stage-in {
-          animation: claraTransactionsExpandIn 560ms cubic-bezier(.16,.92,.22,1) both;
+          animation: claraTransactionsExpandIn 680ms cubic-bezier(.16,.92,.22,1) both;
+        }
+
+        .clara-transactions-stage-in > * {
+          animation: claraContentSettle 780ms cubic-bezier(.16,.92,.22,1) both;
         }
 
         .clara-transactions-stage-out {
-          animation: claraTransactionsCollapseOut 330ms cubic-bezier(.4,0,.2,1) both;
+          animation: claraTransactionsCollapseOut 380ms cubic-bezier(.4,0,.2,1) both;
           pointer-events: none;
+        }
+
+        .clara-transactions-overlay {
+          animation: claraOverlayIn 360ms ease-out both;
+          background:
+            radial-gradient(circle at 50% 20%, rgba(255,255,255,0.08), transparent 30%),
+            rgba(0,0,0,0.22);
+        }
+
+        .clara-transactions-overlay-out {
+          animation: claraOverlayOut 380ms ease-in both;
+        }
+
+        .clara-transactions-hint {
+          animation: claraHintInOut 2600ms ease both;
         }
       `}</style>
 
@@ -322,7 +418,21 @@ export default function Layout({ children }) {
       )}
 
       {isTransactionsPage && (
+        <div
+          className={`pointer-events-none fixed inset-0 z-20 clara-transactions-overlay ${
+            transactionsClosing ? "clara-transactions-overlay-out" : ""
+          }`}
+        />
+      )}
+
+      {isTransactionsPage && (
         <div className="pointer-events-none fixed left-1/2 top-[calc(env(safe-area-inset-top)+0.75rem)] z-40 h-1.5 w-12 -translate-x-1/2 rounded-full bg-[color:var(--theme-text)]/35" />
+      )}
+
+      {isTransactionsPage && showSwipeHint && !transactionsClosing && (
+        <div className="clara-transactions-hint pointer-events-none fixed left-1/2 top-[calc(env(safe-area-inset-top)+2.05rem)] z-40 -translate-x-1/2 rounded-full border border-[color:var(--theme-border)] bg-[color:var(--theme-card)]/45 px-3.5 py-1.5 text-[11px] font-medium tracking-wide text-[color:var(--theme-text)]/50 shadow-[0_12px_32px_rgba(0,0,0,0.18)] backdrop-blur-xl">
+          Swipe down to go back
+        </div>
       )}
 
       <div className="relative flex min-w-0 flex-1 flex-col">
