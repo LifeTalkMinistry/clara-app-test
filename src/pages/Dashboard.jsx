@@ -861,6 +861,14 @@ const FinanceField = ({ label, children, helper }) => (
 const financeInputClassName =
   "w-full rounded-2xl border border-white/10 bg-white/[0.04] px-4 py-3 text-sm text-white outline-none transition placeholder:text-white/35 focus:border-emerald-400/30 focus:bg-white/[0.06]";
 
+const dashboardMobileShellClass =
+  "theme-page-shell relative isolate z-0 mx-auto min-h-screen w-full max-w-[430px] overflow-x-hidden overflow-y-auto pb-[calc(env(safe-area-inset-bottom)+96px)] pt-[env(safe-area-inset-top)] [scrollbar-width:none] [-webkit-overflow-scrolling:touch] [&::-webkit-scrollbar]:hidden";
+
+const dashboardSectionClass =
+  "mx-auto w-full max-w-[430px] space-y-[clamp(0.75rem,3.2vw,1rem)] px-[clamp(0.75rem,3.8vw,1.25rem)]";
+
+const dashboardCardPaddingClass = "p-[clamp(0.75rem,3.5vw,1rem)]";
+
 const FINANCE_CARD_KEYS = ["emergency", "wallets", "budgets", "savings"];
 
 const getFinanceThemeAccentClass = (tone = "emerald", isLight = false) => {
@@ -919,7 +927,7 @@ const getFinanceSlideShellClass = (cardKey, theme = null) => {
   const glowCapClass = theme?.isLight === true ? "before:bg-white/70" : "before:bg-white/10";
   const innerRingClass = theme?.isLight === true ? "after:ring-slate-300/40" : "after:ring-white/6";
 
-  return `relative isolate w-full overflow-hidden rounded-[30px] ${shellBorderClass} p-[1px] backdrop-blur-sm before:pointer-events-none before:absolute before:inset-x-5 before:top-0 before:h-20 before:rounded-full ${glowCapClass} before:blur-3xl after:pointer-events-none after:absolute after:inset-0 after:rounded-[30px] after:ring-1 after:ring-inset ${innerRingClass} min-h-[314px] [&>*]:mb-0 [&>*]:h-full [&>*]:min-h-[312px] [&>*]:rounded-[29px] ${accentClass}`;
+  return `relative isolate w-full overflow-hidden rounded-[30px] ${shellBorderClass} p-[1px] backdrop-blur-sm before:pointer-events-none before:absolute before:inset-x-5 before:top-0 before:h-20 before:rounded-full ${glowCapClass} before:blur-3xl after:pointer-events-none after:absolute after:inset-0 after:rounded-[30px] after:ring-1 after:ring-inset ${innerRingClass} min-h-[clamp(18rem,78vw,20.5rem)] [&>*]:mb-0 [&>*]:h-full [&>*]:min-h-[clamp(17.85rem,77vw,20.35rem)] [&>*]:rounded-[29px] ${accentClass}`;
 };
 
 const getDashboardGlowCardClass = (tone = "emerald") => {
@@ -3827,7 +3835,7 @@ export default function Dashboard() {
 
   if (!guardChecked) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-[#061018] text-white">
+      <div className="mx-auto flex min-h-screen w-full max-w-[430px] items-center justify-center bg-[#061018] px-[clamp(0.75rem,3.8vw,1.25rem)] text-white">
         <div className="flex flex-col items-center gap-3">
           <div className="h-10 w-10 animate-spin rounded-full border-4 border-white/15 border-t-emerald-400" />
           <p className="text-sm text-white/75">Checking access...</p>
@@ -3837,18 +3845,18 @@ export default function Dashboard() {
   }
 
   return (
-    <div className="theme-page-shell relative isolate z-0 min-h-full overflow-hidden">
-      <div className="px-4 pb-2 pt-3 md:px-6">
-        <div className="mx-auto max-w-4xl">
+    <div className={dashboardMobileShellClass}>
+      <div className="px-[clamp(0.75rem,3.8vw,1.25rem)] pb-2 pt-[clamp(0.75rem,3.2vw,1rem)]">
+        <div className="mx-auto w-full max-w-[430px]">
           <div
-            className="relative w-full overflow-hidden rounded-[24px] border px-2 py-2 backdrop-blur-xl sm:px-2.5"
+            className="relative w-full overflow-hidden rounded-[24px] border px-[clamp(0.45rem,2.4vw,0.625rem)] py-[clamp(0.45rem,2.4vw,0.625rem)] backdrop-blur-xl"
             style={themeQuickActionPanelStyle}
           >
             <div className="pointer-events-none absolute inset-0" style={themeQuickActionGlowStyle} />
             <div className="pointer-events-none absolute inset-0 opacity-[0.10] bg-[linear-gradient(115deg,transparent_0%,rgba(255,255,255,0.18)_18%,transparent_36%,transparent_64%,rgba(255,255,255,0.10)_82%,transparent_100%)]" />
             <div className="pointer-events-none absolute inset-x-6 top-0 h-px bg-gradient-to-r from-transparent via-white/25 to-transparent" />
 
-            <div className="relative flex items-center justify-between gap-1 sm:gap-1.5">
+            <div className="relative flex items-center justify-between gap-[clamp(0.2rem,1.2vw,0.375rem)]">
               {headerQuickActions.map((item, index) => {
                 const Icon = item.icon;
                 const pillGlow =
@@ -3873,11 +3881,11 @@ export default function Dashboard() {
                       className="group flex-1"
                       aria-label={item.label}
                     >
-                      <div className={`relative flex w-full flex-col items-center justify-center gap-1 rounded-[16px] px-1 py-2 transition duration-200 hover:-translate-y-[1px] active:scale-[0.985] sm:px-2 ${themeQuickActionBaseClass}`}>
+                      <div className={`relative flex w-full flex-col items-center justify-center gap-[clamp(0.2rem,1vw,0.25rem)] rounded-[16px] px-[clamp(0.25rem,1.8vw,0.5rem)] py-[clamp(0.5rem,2.2vw,0.625rem)] transition duration-200 hover:-translate-y-[1px] active:scale-[0.985] ${themeQuickActionBaseClass}`}>
                         <div className={`pointer-events-none absolute inset-0 rounded-[16px] opacity-0 transition duration-200 group-hover:opacity-100 ${themeIsLight ? "bg-[radial-gradient(circle_at_top,rgba(148,163,184,0.12),transparent_55%)]" : "bg-[radial-gradient(circle_at_top,rgba(255,255,255,0.08),transparent_55%)]"}`} />
 
-                        <div className={`relative flex h-10 w-10 items-center justify-center rounded-full border transition duration-200 ${themeQuickActionIconShellClass} ${iconHoverGlow}`}>
-                          <Icon className="h-5 w-5" />
+                        <div className={`relative flex h-[clamp(2.25rem,10vw,2.5rem)] w-[clamp(2.25rem,10vw,2.5rem)] items-center justify-center rounded-full border transition duration-200 ${themeQuickActionIconShellClass} ${iconHoverGlow}`}>
+                          <Icon className="h-[clamp(1.05rem,4.6vw,1.25rem)] w-[clamp(1.05rem,4.6vw,1.25rem)]" />
 
                           {item.badge?.type === "count" ? (
                             <span
@@ -3898,7 +3906,7 @@ export default function Dashboard() {
                           ) : null}
                         </div>
 
-                        <span className={`max-w-full truncate text-[11px] font-medium leading-none ${themeSecondaryTextClass}`}>
+                        <span className={`max-w-full truncate text-[clamp(0.62rem,2.8vw,0.7rem)] font-medium leading-none ${themeSecondaryTextClass}`}>
                           {item.label}
                         </span>
                       </div>
@@ -3915,7 +3923,7 @@ export default function Dashboard() {
         </div>
       </div>
 
-      <div className="mx-auto mt-2 max-w-4xl space-y-3 px-4 pb-8 md:space-y-4 md:px-6">
+      <div className={`${dashboardSectionClass} mt-[clamp(0.5rem,2.2vw,0.75rem)] pb-[calc(env(safe-area-inset-bottom)+7rem)]`}>
         {isPending && (
           <div className="flex items-center gap-3 rounded-2xl border border-white/10 bg-secondary/20 p-3">
             <Clock className="h-5 w-5 shrink-0" />
@@ -3945,7 +3953,7 @@ export default function Dashboard() {
                 : undefined
             }
           >
-            <div className="relative h-[132px] sm:h-[160px]">
+            <div className="relative min-h-[clamp(8.25rem,34vw,10rem)]">
               {billboardMediaUrl ? (
                 billboardMediaType === "video" ? (
                   <video
@@ -3980,7 +3988,7 @@ export default function Dashboard() {
 
               <div className="absolute inset-0 bg-gradient-to-r from-black/75 via-black/35 to-black/10" />
 
-              <div className="absolute inset-0 flex items-center justify-between gap-3 p-4">
+              <div className={`absolute inset-0 flex items-center justify-between gap-[clamp(0.65rem,3vw,0.9rem)] ${dashboardCardPaddingClass}`}>
                 <div className="min-w-0 max-w-[72%]">
                   {!!billboardTag && (
                     <p className="text-[10px] uppercase tracking-[0.22em] text-white/60">
@@ -3989,13 +3997,13 @@ export default function Dashboard() {
                   )}
 
                   {!!billboardTitle && (
-                    <h3 className="mt-1 line-clamp-1 text-base font-bold leading-tight text-white">
+                    <h3 className="mt-1 line-clamp-1 text-[clamp(0.95rem,4vw,1rem)] font-bold leading-tight text-white">
                       {billboardTitle}
                     </h3>
                   )}
 
                   {!!billboardSubtitle && (
-                    <p className="mt-1 line-clamp-2 text-xs leading-relaxed text-white/80">
+                    <p className="mt-1 line-clamp-2 text-[clamp(0.72rem,3vw,0.75rem)] leading-relaxed text-white/80">
                       {billboardSubtitle}
                     </p>
                   )}
@@ -4011,7 +4019,7 @@ export default function Dashboard() {
                 </div>
 
                 <div className="shrink-0">
-                  <div className="flex h-12 w-12 items-center justify-center rounded-2xl border border-white/15 bg-black/25 backdrop-blur-sm">
+                  <div className="flex h-[clamp(2.75rem,11vw,3rem)] w-[clamp(2.75rem,11vw,3rem)] items-center justify-center rounded-2xl border border-white/15 bg-black/25 backdrop-blur-sm">
                     {billboardMediaType === "video" ? (
                       <Play className="h-5 w-5 fill-emerald-300 text-emerald-300" />
                     ) : billboardMediaType === "image" ? (
@@ -4034,7 +4042,7 @@ export default function Dashboard() {
             <div className="overflow-hidden rounded-[30px]">
               <div
                 ref={financeCarouselRef}
-                className="flex items-stretch snap-x snap-mandatory overflow-x-auto overflow-y-hidden [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+                className="flex items-stretch snap-x snap-mandatory overflow-x-auto overflow-y-hidden [scrollbar-width:none] [-webkit-overflow-scrolling:touch] [&::-webkit-scrollbar]:hidden"
               >
                 <div className="flex w-full shrink-0 snap-center">
                   <div className={getFinanceSlideShellClass("emergency", selectedDashboardTheme)}>
@@ -4182,7 +4190,7 @@ export default function Dashboard() {
           }}
         >
           <div
-            className="relative isolate min-h-[132px] overflow-hidden p-4"
+            className={`relative isolate min-h-[clamp(8.25rem,34vw,9.5rem)] overflow-hidden ${dashboardCardPaddingClass}`}
             style={{
               background:
                 selectedDashboardTheme?.tokens?.gradientMoney ||
@@ -4197,10 +4205,10 @@ export default function Dashboard() {
                 </p>
                 <span aria-hidden="true" className="w-8 shrink-0" />
               </div>
-              <h2 className={`mt-3 text-3xl font-bold leading-none ${themePrimaryTextClass}`}>
+              <h2 className={`mt-[clamp(0.65rem,3vw,0.75rem)] text-[clamp(1.55rem,7vw,1.875rem)] font-bold leading-none ${themePrimaryTextClass}`}>
                 {fmt(walletMoney)}
               </h2>
-              <p className={`mt-3 text-sm leading-6 ${themeMutedTextClass}`}>
+              <p className={`mt-[clamp(0.65rem,3vw,0.75rem)] text-[clamp(0.78rem,3.3vw,0.875rem)] leading-[1.55] ${themeMutedTextClass}`}>
                 {moneyLeftHealth.title}
                 {moneyLeftHealth.highlight ? (
                   <>
@@ -4212,7 +4220,7 @@ export default function Dashboard() {
                 ) : null}
               </p>
               {moneyLeftHealth.subcopy ? (
-                <p className={`mt-2 text-xs leading-5 ${themeSoftTextClass}`}>
+                <p className={`mt-2 text-[clamp(0.7rem,3vw,0.75rem)] leading-5 ${themeSoftTextClass}`}>
                   {moneyLeftHealth.subcopy}
                 </p>
               ) : null}
@@ -4220,7 +4228,7 @@ export default function Dashboard() {
           </div>
 
           <div
-            className="relative isolate min-h-[132px] overflow-hidden border-l p-4"
+            className={`relative isolate min-h-[clamp(8.25rem,34vw,9.5rem)] overflow-hidden border-l ${dashboardCardPaddingClass}`}
             style={{
               background:
                 selectedDashboardTheme?.tokens?.gradientExpense ||
@@ -4234,10 +4242,10 @@ export default function Dashboard() {
               <p className={`text-[11px] uppercase tracking-[0.22em] ${themeSoftTextClass}`}>
                 Total Expense
               </p>
-              <h2 className={`mt-3 text-3xl font-bold leading-none ${themePrimaryTextClass}`}>
+              <h2 className={`mt-[clamp(0.65rem,3vw,0.75rem)] text-[clamp(1.55rem,7vw,1.875rem)] font-bold leading-none ${themePrimaryTextClass}`}>
                 {fmt(thisMonthSpent)}
               </h2>
-              <p className={`mt-3 text-sm leading-6 ${themeMutedTextClass}`}>
+              <p className={`mt-[clamp(0.65rem,3vw,0.75rem)] text-[clamp(0.78rem,3.3vw,0.875rem)] leading-[1.55] ${themeMutedTextClass}`}>
                 {expenseHealth.title}
                 {expenseHealth.highlight ? (
                   <>
@@ -4248,7 +4256,7 @@ export default function Dashboard() {
                   </>
                 ) : null}
               </p>
-              <p className={`mt-2 text-xs leading-5 ${themeSoftTextClass}`}>
+              <p className={`mt-2 text-[clamp(0.7rem,3vw,0.75rem)] leading-5 ${themeSoftTextClass}`}>
                 {expenseHealth.subcopy}
               </p>
             </div>
