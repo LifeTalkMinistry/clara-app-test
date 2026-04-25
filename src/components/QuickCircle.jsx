@@ -71,7 +71,7 @@ export default function QuickCircle({ onQuickAdd, onOpenAssistant }) {
   }, [clearLongPressTimer, clearTapTimer, goDashboard, onQuickAdd]);
 
   return (
-    <div className="pointer-events-none fixed inset-x-0 bottom-[-2.65rem] z-[120] flex justify-center px-4">
+    <div className="pointer-events-none fixed inset-x-0 bottom-[-3.2rem] z-[120] flex justify-center px-4">
       <div
         aria-hidden="true"
         className="absolute bottom-0 h-[13rem] w-[22rem] max-w-[92vw] rounded-full blur-3xl"
