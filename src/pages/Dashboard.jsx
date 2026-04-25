@@ -1693,6 +1693,9 @@ export default function Dashboard() {
   );
   const [financeCardIndex, setFinanceCardIndex] = useState(0);
   const [moneySummarySlide, setMoneySummarySlide] = useState(0);
+  const [moneySummaryDragX, setMoneySummaryDragX] = useState(0);
+  const [isMoneySummaryDragging, setIsMoneySummaryDragging] = useState(false);
+  const moneySummaryDragRef = useRef({ startX: 0, moved: false });
   const [expandedFinanceCard, setExpandedFinanceCard] = useState(null);
   const [financeActionLoading, setFinanceActionLoading] = useState(false);
   const [financeNotice, setFinanceNotice] = useState(null);
@@ -2839,6 +2842,55 @@ export default function Dashboard() {
       behavior: "smooth",
     });
   }, []);
+
+  const goToMoneySummarySlide = useCallback((nextIndex) => {
+    setMoneySummarySlide(Math.max(0, Math.min(2, nextIndex)));
+    setMoneySummaryDragX(0);
+  }, []);
+
+  const handleMoneySummaryTouchStart = useCallback((event) => {
+    const startX = event.touches?.[0]?.clientX || 0;
+    moneySummaryDragRef.current = { startX, moved: false };
+    setIsMoneySummaryDragging(true);
+    setMoneySummaryDragX(0);
+  }, []);
+
+  const handleMoneySummaryTouchMove = useCallback((event) => {
+    if (!isMoneySummaryDragging) return;
+
+    const currentX = event.touches?.[0]?.clientX || 0;
+    const deltaX = currentX - moneySummaryDragRef.current.startX;
+    const isAtStart = moneySummarySlide === 0 && deltaX > 0;
+    const isAtEnd = moneySummarySlide === 2 && deltaX < 0;
+    const resistedDelta = deltaX * (isAtStart || isAtEnd ? 0.28 : 1);
+
+    if (Math.abs(deltaX) > 8) {
+      moneySummaryDragRef.current.moved = true;
+    }
+
+    setMoneySummaryDragX(resistedDelta);
+  }, [isMoneySummaryDragging, moneySummarySlide]);
+
+  const handleMoneySummaryTouchEnd = useCallback(() => {
+    if (!isMoneySummaryDragging) return;
+
+    const shouldGoNext = moneySummaryDragX < -48;
+    const shouldGoPrev = moneySummaryDragX > 48;
+
+    if (shouldGoNext) {
+      goToMoneySummarySlide(moneySummarySlide + 1);
+    } else if (shouldGoPrev) {
+      goToMoneySummarySlide(moneySummarySlide - 1);
+    } else {
+      setMoneySummaryDragX(0);
+    }
+
+    setIsMoneySummaryDragging(false);
+
+    window.setTimeout(() => {
+      moneySummaryDragRef.current.moved = false;
+    }, 90);
+  }, [goToMoneySummarySlide, isMoneySummaryDragging, moneySummaryDragX, moneySummarySlide]);
 
   const toggleFinanceDetails = useCallback((cardKey) => {
     setExpandedFinanceCard((prev) => (prev === cardKey ? null : cardKey));
@@ -4324,10 +4376,18 @@ export default function Dashboard() {
           </div>
         )}
 
-        <div className="overflow-hidden">
+        <div
+          className="overflow-hidden touch-pan-y select-none"
+          onTouchStart={handleMoneySummaryTouchStart}
+          onTouchMove={handleMoneySummaryTouchMove}
+          onTouchEnd={handleMoneySummaryTouchEnd}
+          onTouchCancel={handleMoneySummaryTouchEnd}
+        >
           <div
-            className="flex transition-transform duration-300 ease-out"
-            style={{ transform: `translateX(-${moneySummarySlide * 100}%)` }}
+            className={`flex ${isMoneySummaryDragging ? "" : "transition-transform duration-300 ease-out"}`}
+            style={{
+              transform: `translate3d(calc(-${moneySummarySlide * 100}% + ${moneySummaryDragX}px), 0, 0)`,
+            }}
           >
             <div className="min-w-full">
               <div
@@ -4477,7 +4537,7 @@ export default function Dashboard() {
               <button
                 key={slideIndex}
                 type="button"
-                onClick={() => setMoneySummarySlide(slideIndex)}
+                onClick={() => goToMoneySummarySlide(slideIndex)}
                 aria-label={`Go to money summary slide ${slideIndex + 1}`}
                 className={`h-2 rounded-full transition-all duration-200 ${
                   moneySummarySlide === slideIndex
