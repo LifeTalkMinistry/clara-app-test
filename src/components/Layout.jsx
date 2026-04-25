@@ -1,5 +1,5 @@
 import { useLocation } from "react-router-dom";
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect } from "react";
 import { supabase } from "@/lib/supabaseClient";
 import QuickCircle from "@/components/QuickCircle";
 import QuickAddModal from "./QuickAddModal";
@@ -29,6 +29,23 @@ export default function Layout({ children }) {
 
   const { user, loading = false } = useUserRole() || {};
 
+  const openAssistant = useCallback((mode = "voice") => {
+    setAssistantMode(mode || "voice");
+    setAssistantOpen(true);
+  }, []);
+
+  useEffect(() => {
+    const handleEmbeddedAssistantOpen = (event) => {
+      openAssistant(event?.detail?.mode || "voice");
+    };
+
+    window.addEventListener("clara:open-assistant", handleEmbeddedAssistantOpen);
+
+    return () => {
+      window.removeEventListener("clara:open-assistant", handleEmbeddedAssistantOpen);
+    };
+  }, [openAssistant]);
+
   const handleLogout = useCallback(async () => {
     try {
       setQuickAddOpen(false);
@@ -44,8 +61,8 @@ export default function Layout({ children }) {
     setQuickAddOpen(true);
   }, []);
 
-  const hideMobileControlCenter = isStandaloneFocusPage(location.pathname);
   const isDashboard = location.pathname === "/dashboard";
+  const hideMobileControlCenter = isStandaloneFocusPage(location.pathname) || isDashboard;
 
   return (
     <div className="theme-page-shell flex h-screen overflow-hidden text-white">
@@ -61,12 +78,8 @@ export default function Layout({ children }) {
 
       {!hideMobileControlCenter && (
         <QuickCircle
-          placement={isDashboard ? "dashboard" : "default"}
           onQuickAdd={handleOpenQuickAdd}
-          onOpenAssistant={(mode) => {
-            setAssistantMode(mode);
-            setAssistantOpen(true);
-          }}
+          onOpenAssistant={openAssistant}
         />
       )}
 
