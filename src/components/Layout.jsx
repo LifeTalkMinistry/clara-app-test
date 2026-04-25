@@ -45,6 +45,7 @@ export default function Layout({ children }) {
   }, []);
 
   const hideMobileControlCenter = isStandaloneFocusPage(location.pathname);
+  const isDashboard = location.pathname === "/dashboard";
 
   return (
     <div className="theme-page-shell flex h-screen overflow-hidden text-white">
@@ -60,6 +61,7 @@ export default function Layout({ children }) {
 
       {!hideMobileControlCenter && (
         <QuickCircle
+          placement={isDashboard ? "dashboard" : "default"}
           onQuickAdd={handleOpenQuickAdd}
           onOpenAssistant={(mode) => {
             setAssistantMode(mode);
