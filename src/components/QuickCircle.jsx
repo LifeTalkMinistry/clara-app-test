@@ -1,8 +1,9 @@
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Plus, Sparkles, Wallet } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 
 const LONG_PRESS_MS = 520;
+const TAP_DELAY_MS = 240;
 
 const quickActions = [
   { key: "expense", label: "Add Expense", icon: Plus },
@@ -15,6 +16,8 @@ export default function QuickCircle({ onQuickAdd, onOpenAssistant, placement = "
 
   const [expanded, setExpanded] = useState(false);
   const longPressTimerRef = useRef(null);
+  const singleTapTimerRef = useRef(null);
+  const tapCountRef = useRef(0);
   const longPressTriggeredRef = useRef(false);
 
   const isDashboardPlacement = placement === "dashboard";
@@ -26,15 +29,34 @@ export default function QuickCircle({ onQuickAdd, onOpenAssistant, placement = "
     }
   }, []);
 
+  const clearSingleTapTimer = useCallback(() => {
+    if (singleTapTimerRef.current) {
+      window.clearTimeout(singleTapTimerRef.current);
+      singleTapTimerRef.current = null;
+    }
+  }, []);
+
+  const resetTapState = useCallback(() => {
+    tapCountRef.current = 0;
+    clearSingleTapTimer();
+  }, [clearSingleTapTimer]);
+
   const openAssistant = useCallback(() => {
+    resetTapState();
     setExpanded(false);
     onOpenAssistant?.("voice");
-  }, [onOpenAssistant]);
+  }, [onOpenAssistant, resetTapState]);
 
   const openManualExpense = useCallback(() => {
     setExpanded(false);
     onQuickAdd?.();
   }, [onQuickAdd]);
+
+  const openAnalytics = useCallback(() => {
+    resetTapState();
+    setExpanded(false);
+    navigate("/analytics");
+  }, [navigate, resetTapState]);
 
   const handlePointerDown = useCallback(() => {
     longPressTriggeredRef.current = false;
@@ -42,25 +64,55 @@ export default function QuickCircle({ onQuickAdd, onOpenAssistant, placement = "
 
     longPressTimerRef.current = window.setTimeout(() => {
       longPressTriggeredRef.current = true;
-      setExpanded((current) => !current);
+      openAssistant();
     }, LONG_PRESS_MS);
-  }, [clearLongPressTimer]);
+  }, [clearLongPressTimer, openAssistant]);
 
   const handlePointerUp = useCallback(() => {
     clearLongPressTimer();
-    if (longPressTriggeredRef.current) return;
-    openManualExpense();
-  }, [clearLongPressTimer, openManualExpense]);
+
+    if (longPressTriggeredRef.current) {
+      resetTapState();
+      return;
+    }
+
+    tapCountRef.current += 1;
+
+    if (tapCountRef.current >= 2) {
+      openAnalytics();
+      return;
+    }
+
+    clearSingleTapTimer();
+    singleTapTimerRef.current = window.setTimeout(() => {
+      tapCountRef.current = 0;
+      singleTapTimerRef.current = null;
+      openManualExpense();
+    }, TAP_DELAY_MS);
+  }, [clearLongPressTimer, clearSingleTapTimer, openAnalytics, openManualExpense, resetTapState]);
+
+  const handlePointerCancel = useCallback(() => {
+    clearLongPressTimer();
+    resetTapState();
+  }, [clearLongPressTimer, resetTapState]);
 
   const handleQuickAction = useCallback(
     (actionKey) => {
+      resetTapState();
       setExpanded(false);
       if (actionKey === "expense") return onQuickAdd?.();
       if (actionKey === "funds") return navigate("/add-funds");
       openAssistant();
     },
-    [navigate, onQuickAdd, openAssistant]
+    [navigate, onQuickAdd, openAssistant, resetTapState]
   );
+
+  useEffect(() => {
+    return () => {
+      clearLongPressTimer();
+      clearSingleTapTimer();
+    };
+  }, [clearLongPressTimer, clearSingleTapTimer]);
 
   const shellPositionClass = isDashboardPlacement
     ? "fixed z-[120] flex justify-end pointer-events-none"
@@ -128,15 +180,15 @@ export default function QuickCircle({ onQuickAdd, onOpenAssistant, placement = "
           type="button"
           onPointerDown={handlePointerDown}
           onPointerUp={handlePointerUp}
-          onPointerCancel={clearLongPressTimer}
+          onPointerCancel={handlePointerCancel}
           onPointerLeave={clearLongPressTimer}
           className="pointer-events-auto relative flex h-[clamp(2.95rem,10vw,3.35rem)] w-[clamp(2.95rem,10vw,3.35rem)] items-center justify-center rounded-full border border-white/25 bg-[color-mix(in_srgb,var(--theme-surface)_42%,transparent)] backdrop-blur-2xl transition duration-200 hover:scale-[1.04] active:scale-95"
           style={{
             boxShadow:
               "inset 0 1px 0 rgba(255,255,255,0.24), 0 12px 26px rgba(0,0,0,0.24), 0 0 28px color-mix(in srgb, var(--theme-primary) 42%, transparent)",
           }}
-          aria-label="Open manual expense"
-          title="Tap to add expense. Long press for quick actions."
+          aria-label="Open CLARA quick actions"
+          title="Tap to add expense. Double tap for analytics. Long press for CLARA."
         >
           <span
             className="pointer-events-none absolute inset-0 rounded-full opacity-85"
