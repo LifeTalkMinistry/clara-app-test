@@ -81,19 +81,19 @@ export default function QuickCircle({ onQuickAdd, onOpenAssistant }) {
         onPointerLeave={clearLongPressTimer}
         className="pointer-events-auto relative flex h-[11.25rem] w-[11.25rem] items-center justify-center bg-transparent p-0 transition duration-200 active:scale-95"
       >
-        {/* Base cut / surface synced to theme */}
+        {/* Base surface */}
         <span
           className="absolute inset-[1.4rem] -z-10 rounded-full blur-2xl"
           style={{ background: "var(--theme-surface)" }}
         />
 
-        {/* Glow synced to theme */}
+        {/* Softer glow */}
         <span
-          className="absolute inset-[2rem] -z-10 rounded-full blur-3xl"
-          style={{ background: "var(--theme-glow)", opacity: 0.25 }}
+          className="absolute inset-[2rem] -z-10 rounded-full blur-2xl"
+          style={{ background: "var(--theme-glow)", opacity: 0.18 }}
         />
 
-        {/* Accent radial synced to theme */}
+        {/* Accent radial */}
         <span
           className="absolute inset-[2.8rem] -z-10 rounded-full blur-xl"
           style={{
@@ -102,11 +102,18 @@ export default function QuickCircle({ onQuickAdd, onOpenAssistant }) {
           }}
         />
 
+        {/* Premium inner ring */}
+        <span
+          className="absolute inset-[2.2rem] rounded-full"
+          style={{ boxShadow: "inset 0 0 0 2px rgba(255,255,255,0.06)" }}
+        />
+
         <img
           src={`${import.meta.env.BASE_URL || "/"}clara-icon.png`}
           alt="CLARA"
           draggable="false"
-          className="h-full w-full select-none object-contain opacity-[0.92] drop-shadow-[0_22px_45px_rgba(0,0,0,0.55)]"
+          className="h-full w-full select-none object-contain opacity-[0.95]"
+          style={{ filter: "drop-shadow(0 25px 50px rgba(0,0,0,0.6))" }}
         />
       </button>
     </div>
