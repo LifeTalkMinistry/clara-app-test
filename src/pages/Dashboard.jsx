@@ -3322,22 +3322,75 @@ function DashboardSettingsPanel({
   isFree,
   notificationSettings,
   openThemePicker,
+  onOpenMessages,
 }) {
+  const navigate = useNavigate();
+
+  const initialDisplayName =
+    user?.full_name ||
+    user?.display_name ||
+    user?.nickname ||
+    user?.user_metadata?.full_name ||
+    user?.user_metadata?.name ||
+    user?.email?.split("@")?.[0] ||
+    "";
+
   const [localNotifications, setLocalNotifications] = useState(() => ({
     dailyReminders: notificationSettings?.dailyReminders !== false,
     productUpdates: notificationSettings?.productUpdates !== false,
     coachingAlerts: notificationSettings?.coachingAlerts !== false,
+    budgetAlerts: notificationSettings?.budgetAlerts !== false,
   }));
 
   const [activeSetting, setActiveSetting] = useState(null);
+  const [profileName, setProfileName] = useState(initialDisplayName);
+  const [settingsNotice, setSettingsNotice] = useState(null);
+  const [savingProfile, setSavingProfile] = useState(false);
+  const [signingOut, setSigningOut] = useState(false);
+
+  useEffect(() => {
+    setProfileName(initialDisplayName);
+  }, [initialDisplayName]);
 
   useEffect(() => {
     setLocalNotifications({
       dailyReminders: notificationSettings?.dailyReminders !== false,
       productUpdates: notificationSettings?.productUpdates !== false,
       coachingAlerts: notificationSettings?.coachingAlerts !== false,
+      budgetAlerts: notificationSettings?.budgetAlerts !== false,
     });
   }, [notificationSettings]);
+
+  const displayName = profileName?.trim() || initialDisplayName || "Your CLARA account";
+  const currentPlan = isPaid ? plan || "Paid" : isFree ? "Free" : plan || "Plan";
+  const planStatusLabel = isPaid ? "Unlocked" : isFree ? "Limited" : "Active";
+
+  const saveNotificationSettings = useCallback((next) => {
+    try {
+      const storageKey = getSettingsStorageKey(user?.id || "guest");
+      const raw = localStorage.getItem(storageKey);
+      const parsed = raw ? JSON.parse(raw) : {};
+
+      localStorage.setItem(
+        storageKey,
+        JSON.stringify({
+          ...parsed,
+          notifications: {
+            ...(parsed.notifications || {}),
+            ...next,
+          },
+        })
+      );
+
+      window.dispatchEvent(
+        new CustomEvent("clara:settings-updated", {
+          detail: { type: "notifications", notifications: next },
+        })
+      );
+    } catch (error) {
+      console.error("Failed to save embedded settings:", error);
+    }
+  }, [user?.id]);
 
   const persistNotificationToggle = useCallback((key) => {
     setLocalNotifications((prev) => {
@@ -3346,42 +3399,142 @@ function DashboardSettingsPanel({
         [key]: !prev[key],
       };
 
-      try {
-        const storageKey = getSettingsStorageKey(user?.id || "guest");
-        const raw = localStorage.getItem(storageKey);
-        const parsed = raw ? JSON.parse(raw) : {};
-        localStorage.setItem(
-          storageKey,
-          JSON.stringify({
-            ...parsed,
-            notifications: {
-              ...(parsed.notifications || {}),
-              ...next,
-            },
-          })
-        );
-      } catch (error) {
-        console.error("Failed to save embedded settings:", error);
-      }
-
+      saveNotificationSettings(next);
+      setSettingsNotice({ type: "success", message: "Notification preference updated." });
       return next;
     });
-  }, [user?.id]);
+  }, [saveNotificationSettings]);
 
-  const displayName =
-    user?.full_name ||
-    user?.display_name ||
-    user?.nickname ||
-    user?.email?.split("@")?.[0] ||
-    "Your CLARA account";
+  const handleSaveProfile = useCallback(async () => {
+    const nextName = profileName.trim();
 
-  const currentPlan = isPaid ? plan || "Paid" : isFree ? "Free" : plan || "Plan";
+    if (!nextName) {
+      setSettingsNotice({ type: "error", message: "Please enter a display name." });
+      return;
+    }
+
+    if (!user?.id) {
+      setSettingsNotice({ type: "error", message: "User session is not ready. Please log in again." });
+      return;
+    }
+
+    setSavingProfile(true);
+    setSettingsNotice(null);
+
+    try {
+      const { error: profileError } = await supabase
+        .from("profiles")
+        .upsert(
+          {
+            id: user.id,
+            email: user.email || "",
+            full_name: nextName,
+          },
+          { onConflict: "id" }
+        );
+
+      if (profileError) throw profileError;
+
+      try {
+        await supabase.auth.updateUser({
+          data: {
+            full_name: nextName,
+            name: nextName,
+          },
+        });
+      } catch (metadataError) {
+        console.warn("Profile metadata update skipped:", metadataError);
+      }
+
+      setSettingsNotice({ type: "success", message: "Profile updated successfully." });
+    } catch (error) {
+      console.error("Profile update failed:", error);
+      setSettingsNotice({
+        type: "error",
+        message: error?.message || "Profile update failed. Please try again.",
+      });
+    } finally {
+      setSavingProfile(false);
+    }
+  }, [profileName, user?.email, user?.id]);
+
+  const clearLocalPreferences = useCallback(() => {
+    try {
+      const prefixesToRemove = [
+        "clara_settings_",
+        "clara_dashboard_prefs_",
+        "clara_program_prompt_seen_session_",
+      ];
+
+      const exactKeysToRemove = [
+        "clara_emergency_target_months",
+        "clara_wallpaper",
+        "clara_wallpaper_opacity",
+      ];
+
+      for (let index = localStorage.length - 1; index >= 0; index -= 1) {
+        const key = localStorage.key(index);
+        if (!key) continue;
+
+        if (
+          prefixesToRemove.some((prefix) => key.startsWith(prefix)) ||
+          exactKeysToRemove.includes(key)
+        ) {
+          localStorage.removeItem(key);
+        }
+      }
+
+      setSettingsNotice({
+        type: "success",
+        message: "Local preferences were reset. Financial data was not touched.",
+      });
+    } catch (error) {
+      console.error("Local preferences reset failed:", error);
+      setSettingsNotice({ type: "error", message: "Unable to reset local preferences." });
+    }
+  }, []);
+
+  const handleSignOut = useCallback(async () => {
+    setSigningOut(true);
+    setSettingsNotice(null);
+
+    try {
+      const { error } = await supabase.auth.signOut();
+      if (error) throw error;
+      navigate("/login", { replace: true });
+    } catch (error) {
+      console.error("Sign out failed:", error);
+      setSettingsNotice({ type: "error", message: "Sign out failed. Please try again." });
+      setSigningOut(false);
+    }
+  }, [navigate]);
+
+  const openSupportMessages = useCallback(() => {
+    setActiveSetting(null);
+
+    if (typeof onOpenMessages === "function") {
+      onOpenMessages();
+      return;
+    }
+
+    navigate("/messages");
+  }, [navigate, onOpenMessages]);
+
+  const openRoute = useCallback((route) => {
+    setActiveSetting(null);
+    navigate(route);
+  }, [navigate]);
 
   const notificationRows = [
     {
       key: "dailyReminders",
       title: "Daily reminders",
       description: "Budget nudges and daily financial check-ins",
+    },
+    {
+      key: "budgetAlerts",
+      title: "Budget alerts",
+      description: "Warnings when spending gets close to your budget",
     },
     {
       key: "productUpdates",
@@ -3402,7 +3555,7 @@ function DashboardSettingsPanel({
         {
           key: "profile",
           title: "Profile information",
-          description: "Name, email, and account details",
+          description: "Edit name, email, and account identity",
           icon: Home,
           badge: displayName,
           action: () => setActiveSetting("profile"),
@@ -3410,7 +3563,7 @@ function DashboardSettingsPanel({
         {
           key: "security",
           title: "Privacy & security",
-          description: "Account safety and data controls",
+          description: "Sign out, reset preferences, and security controls",
           icon: ShieldCheck,
           badge: "Active",
           action: () => setActiveSetting("security"),
@@ -3453,7 +3606,7 @@ function DashboardSettingsPanel({
         {
           key: "support",
           title: "Help & support",
-          description: "Contact support or report an issue",
+          description: "Contact support or message CLARA admin",
           icon: MessageCircle,
           badge: "Help",
           action: () => setActiveSetting("support"),
@@ -3470,43 +3623,253 @@ function DashboardSettingsPanel({
     },
   ];
 
-  const settingDetailCopy = {
-    profile: {
-      title: "Profile information",
-      body: "This is where profile editing will live: name, display name, email visibility, and account details.",
-      status: user?.email || "Signed in CLARA user",
-    },
-    security: {
-      title: "Privacy & security",
-      body: "Security tools will live here: session controls, privacy settings, data reset options, and account protection.",
-      status: "Account active",
-    },
-    notifications: {
-      title: "Notifications",
-      body: "Use the toggles below to control what CLARA reminds you about.",
-      status: localNotifications.dailyReminders ? "Daily reminders on" : "Daily reminders off",
-    },
-    plan: {
-      title: "Plan & billing",
-      body: "This area will hold plan details, payment status, upgrade options, and enrollment history.",
-      status: currentPlan,
-    },
-    support: {
-      title: "Help & support",
-      body: "Support options will live here: help center, contact admin, report issue, and feedback.",
-      status: "Ready",
-    },
-    about: {
-      title: "About CLARA",
-      body: "CLARA financial companion dashboard. App information, terms, and privacy links can be placed here.",
-      status: "CLARA",
-    },
+  const detailTitleMap = {
+    profile: "Profile information",
+    security: "Privacy & security",
+    notifications: "Notifications",
+    plan: "Plan & billing",
+    support: "Help & support",
+    about: "About CLARA",
   };
 
-  const activeDetail = activeSetting ? settingDetailCopy[activeSetting] : null;
+  const renderSettingDetail = () => {
+    if (activeSetting === "profile") {
+      return (
+        <div className="space-y-4">
+          <div className="rounded-2xl border border-white/10 bg-white/6 p-3">
+            <p className="text-xs font-bold text-white/55">Email</p>
+            <p className="mt-1 truncate text-sm font-semibold text-white">{user?.email || "No email found"}</p>
+          </div>
+
+          <label className="block space-y-2">
+            <span className="text-xs font-bold text-white/65">Display name</span>
+            <input
+              value={profileName}
+              onChange={(event) => setProfileName(event.target.value)}
+              placeholder="Enter your name"
+              className="w-full rounded-2xl border border-white/10 bg-white/6 px-4 py-3 text-sm font-semibold text-white outline-none placeholder:text-white/35 focus:border-emerald-300/35"
+            />
+          </label>
+
+          <button
+            type="button"
+            onClick={handleSaveProfile}
+            disabled={savingProfile}
+            className="flex w-full items-center justify-center gap-2 rounded-2xl bg-emerald-400 px-4 py-3 text-sm font-black text-slate-950 shadow-[0_12px_30px_rgba(16,185,129,0.22)] disabled:opacity-55"
+          >
+            <Check className="h-4 w-4" />
+            {savingProfile ? "Saving..." : "Save profile"}
+          </button>
+
+          <button
+            type="button"
+            onClick={() => openRoute("/settings/account")}
+            className="w-full rounded-2xl border border-white/10 bg-white/8 px-4 py-3 text-sm font-bold text-white/75 transition hover:bg-white/12"
+          >
+            Open full account settings
+          </button>
+        </div>
+      );
+    }
+
+    if (activeSetting === "notifications") {
+      return (
+        <div className="space-y-2">
+          {notificationRows.map((row) => {
+            const enabled = localNotifications[row.key];
+
+            return (
+              <button
+                key={row.key}
+                type="button"
+                onClick={() => persistNotificationToggle(row.key)}
+                className="flex w-full items-center justify-between gap-3 rounded-2xl border border-white/10 bg-white/6 px-3 py-3 text-left transition hover:bg-white/10"
+              >
+                <div className="min-w-0">
+                  <p className="text-xs font-bold text-white">{row.title}</p>
+                  <p className="mt-1 text-[11px] leading-4 text-white/45">{row.description}</p>
+                </div>
+
+                <span
+                  className={`relative h-7 w-12 shrink-0 rounded-full border transition ${
+                    enabled
+                      ? "border-emerald-300/25 bg-emerald-400/30"
+                      : "border-white/10 bg-white/8"
+                  }`}
+                >
+                  <span
+                    className={`absolute top-1 h-5 w-5 rounded-full bg-white shadow transition ${
+                      enabled ? "left-6" : "left-1"
+                    }`}
+                  />
+                </span>
+              </button>
+            );
+          })}
+
+          <button
+            type="button"
+            onClick={() => openRoute("/settings/notifications")}
+            className="mt-2 w-full rounded-2xl border border-white/10 bg-white/8 px-4 py-3 text-sm font-bold text-white/75 transition hover:bg-white/12"
+          >
+            Open full notification settings
+          </button>
+        </div>
+      );
+    }
+
+    if (activeSetting === "plan") {
+      return (
+        <div className="space-y-3">
+          <div className="rounded-2xl border border-emerald-400/20 bg-emerald-400/10 p-4">
+            <p className="text-xs font-bold uppercase tracking-[0.18em] text-emerald-200/70">Current access</p>
+            <p className="mt-2 text-lg font-black text-white">{currentPlan}</p>
+            <p className="mt-1 text-xs text-white/55">{planStatusLabel} access level</p>
+          </div>
+
+          <button
+            type="button"
+            onClick={() => openRoute("/tier-select")}
+            className="w-full rounded-2xl bg-emerald-400 px-4 py-3 text-sm font-black text-slate-950 shadow-[0_12px_30px_rgba(16,185,129,0.22)]"
+          >
+            View plans / upgrade
+          </button>
+
+          <button
+            type="button"
+            onClick={() => openRoute("/enroll")}
+            className="w-full rounded-2xl border border-white/10 bg-white/8 px-4 py-3 text-sm font-bold text-white/75 transition hover:bg-white/12"
+          >
+            Enrollment and payment status
+          </button>
+
+          <button
+            type="button"
+            onClick={() => openRoute("/settings/billing")}
+            className="w-full rounded-2xl border border-white/10 bg-white/8 px-4 py-3 text-sm font-bold text-white/75 transition hover:bg-white/12"
+          >
+            Open full billing settings
+          </button>
+        </div>
+      );
+    }
+
+    if (activeSetting === "security") {
+      return (
+        <div className="space-y-3">
+          <div className="rounded-2xl border border-white/10 bg-white/6 p-4">
+            <p className="text-sm font-bold text-white">Signed in</p>
+            <p className="mt-1 truncate text-xs text-white/50">{user?.email || "Current user session"}</p>
+          </div>
+
+          <button
+            type="button"
+            onClick={() => openRoute("/settings/security")}
+            className="w-full rounded-2xl border border-white/10 bg-white/8 px-4 py-3 text-sm font-bold text-white/75 transition hover:bg-white/12"
+          >
+            Open full security settings
+          </button>
+
+          <button
+            type="button"
+            onClick={clearLocalPreferences}
+            className="flex w-full items-center justify-center gap-2 rounded-2xl border border-amber-300/20 bg-amber-400/10 px-4 py-3 text-sm font-bold text-amber-100 transition hover:bg-amber-400/15"
+          >
+            <RotateCcw className="h-4 w-4" />
+            Reset local preferences only
+          </button>
+
+          <button
+            type="button"
+            onClick={handleSignOut}
+            disabled={signingOut}
+            className="flex w-full items-center justify-center gap-2 rounded-2xl border border-rose-300/20 bg-rose-500/12 px-4 py-3 text-sm font-bold text-rose-100 transition hover:bg-rose-500/18 disabled:opacity-55"
+          >
+            <X className="h-4 w-4" />
+            {signingOut ? "Signing out..." : "Sign out"}
+          </button>
+        </div>
+      );
+    }
+
+    if (activeSetting === "support") {
+      return (
+        <div className="space-y-3">
+          <button
+            type="button"
+            onClick={openSupportMessages}
+            className="w-full rounded-2xl bg-emerald-400 px-4 py-3 text-sm font-black text-slate-950 shadow-[0_12px_30px_rgba(16,185,129,0.22)]"
+          >
+            Message CLARA support
+          </button>
+
+          <button
+            type="button"
+            onClick={() => openRoute("/messages")}
+            className="w-full rounded-2xl border border-white/10 bg-white/8 px-4 py-3 text-sm font-bold text-white/75 transition hover:bg-white/12"
+          >
+            Open full messages page
+          </button>
+
+          <a
+            href="mailto:support@clara.app?subject=CLARA%20Support%20Request"
+            className="block w-full rounded-2xl border border-white/10 bg-white/8 px-4 py-3 text-center text-sm font-bold text-white/75 transition hover:bg-white/12"
+          >
+            Email support
+          </a>
+        </div>
+      );
+    }
+
+    if (activeSetting === "about") {
+      return (
+        <div className="space-y-3">
+          <div className="rounded-2xl border border-white/10 bg-white/6 p-4">
+            <p className="text-lg font-black text-white">CLARA</p>
+            <p className="mt-1 text-sm leading-6 text-white/60">
+              A financial companion for tracking money, building discipline, and guiding users through financial progress.
+            </p>
+          </div>
+
+          <div className="grid grid-cols-2 gap-2 text-center">
+            <div className="rounded-2xl border border-white/10 bg-white/6 p-3">
+              <p className="text-sm font-black text-white">v1</p>
+              <p className="mt-1 text-[11px] text-white/45">App version</p>
+            </div>
+            <div className="rounded-2xl border border-white/10 bg-white/6 p-3">
+              <p className="text-sm font-black text-white">Mobile</p>
+              <p className="mt-1 text-[11px] text-white/45">Optimized</p>
+            </div>
+          </div>
+
+          <button
+            type="button"
+            onClick={() => openRoute("/settings/about")}
+            className="w-full rounded-2xl border border-white/10 bg-white/8 px-4 py-3 text-sm font-bold text-white/75 transition hover:bg-white/12"
+          >
+            Open full about page
+          </button>
+        </div>
+      );
+    }
+
+    return null;
+  };
 
   return (
     <div className="space-y-4">
+      {settingsNotice ? (
+        <div
+          className={`rounded-2xl border px-4 py-3 text-sm font-semibold ${
+            settingsNotice.type === "error"
+              ? "border-rose-300/20 bg-rose-500/12 text-rose-100"
+              : "border-emerald-300/20 bg-emerald-400/10 text-emerald-100"
+          }`}
+        >
+          {settingsNotice.message}
+        </div>
+      ) : null}
+
       <div className="rounded-[30px] border border-white/10 bg-white/[0.055] p-4 shadow-[0_18px_50px_rgba(0,0,0,0.20)] backdrop-blur-xl">
         <div className="flex items-center gap-3">
           <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-[22px] border border-white/10 bg-white/10 text-lg font-black text-white">
@@ -3587,7 +3950,7 @@ function DashboardSettingsPanel({
         </div>
 
         <div className="space-y-2">
-          {notificationRows.map((row) => {
+          {notificationRows.slice(0, 3).map((row) => {
             const enabled = localNotifications[row.key];
 
             return (
@@ -3627,13 +3990,17 @@ function DashboardSettingsPanel({
         </p>
       </div>
 
-      {activeDetail ? (
+      {activeSetting ? (
         <div className="fixed inset-0 z-[140] flex items-end justify-center bg-black/70 px-4 pb-4 pt-10 backdrop-blur-md">
           <div className="w-full max-w-[430px] overflow-hidden rounded-[30px] border border-white/10 bg-[#071120]/96 shadow-[0_28px_90px_rgba(0,0,0,0.55)]">
             <div className="flex items-center justify-between gap-3 border-b border-white/10 px-4 py-4">
               <div className="min-w-0">
-                <p className="truncate text-base font-black text-white">{activeDetail.title}</p>
-                <p className="truncate text-xs text-white/45">{activeDetail.status}</p>
+                <p className="truncate text-base font-black text-white">
+                  {detailTitleMap[activeSetting] || "Settings"}
+                </p>
+                <p className="truncate text-xs text-white/45">
+                  {activeSetting === "plan" ? currentPlan : user?.email || "CLARA settings"}
+                </p>
               </div>
 
               <button
@@ -3646,38 +4013,13 @@ function DashboardSettingsPanel({
               </button>
             </div>
 
-            <div className="space-y-4 p-4">
-              <p className="text-sm leading-6 text-white/68">{activeDetail.body}</p>
-
-              {activeSetting === "notifications" ? (
-                <div className="space-y-2">
-                  {notificationRows.map((row) => {
-                    const enabled = localNotifications[row.key];
-
-                    return (
-                      <button
-                        key={row.key}
-                        type="button"
-                        onClick={() => persistNotificationToggle(row.key)}
-                        className="flex w-full items-center justify-between gap-3 rounded-2xl border border-white/10 bg-white/6 px-3 py-3 text-left"
-                      >
-                        <div>
-                          <p className="text-xs font-bold text-white">{row.title}</p>
-                          <p className="mt-1 text-[11px] text-white/45">{row.description}</p>
-                        </div>
-                        <span className={`text-[11px] font-black ${enabled ? "text-emerald-200" : "text-white/35"}`}>
-                          {enabled ? "ON" : "OFF"}
-                        </span>
-                      </button>
-                    );
-                  })}
-                </div>
-              ) : null}
+            <div className="max-h-[70dvh] overflow-y-auto p-4 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+              {renderSettingDetail()}
 
               <button
                 type="button"
                 onClick={() => setActiveSetting(null)}
-                className="w-full rounded-2xl border border-white/10 bg-white/8 px-4 py-3 text-sm font-bold text-white/75 transition hover:bg-white/12"
+                className="mt-4 w-full rounded-2xl border border-white/10 bg-white/8 px-4 py-3 text-sm font-bold text-white/75 transition hover:bg-white/12"
               >
                 Done
               </button>
@@ -6515,6 +6857,7 @@ export default function Dashboard() {
               isFree={isFree}
               notificationSettings={notificationSettings}
               openThemePicker={openThemePicker}
+              onOpenMessages={() => openDashboardPanel("messages")}
             />
           ) : null}
         </div>
