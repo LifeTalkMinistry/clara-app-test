@@ -84,6 +84,16 @@ export default function StatCard({
     []
   );
 
+  const stopMoneyLeftEvent = useCallback(
+    (event) => {
+      if (!isMoneyLeftDisplayOnly) return;
+      event.preventDefault?.();
+      event.stopPropagation?.();
+      event.nativeEvent?.stopImmediatePropagation?.();
+    },
+    [isMoneyLeftDisplayOnly]
+  );
+
   const handleClick = useCallback(() => {
     if (isMoneyLeftDisplayOnly) return;
     if (isDragging || dragRef.current.moved) return;
@@ -391,6 +401,20 @@ export default function StatCard({
       }
     : {};
 
+  const displayOnlyProps = isMoneyLeftDisplayOnly
+    ? {
+        role: "presentation",
+        onClick: stopMoneyLeftEvent,
+        onClickCapture: stopMoneyLeftEvent,
+        onMouseDown: stopMoneyLeftEvent,
+        onMouseDownCapture: stopMoneyLeftEvent,
+        onPointerDown: stopMoneyLeftEvent,
+        onPointerDownCapture: stopMoneyLeftEvent,
+        onTouchStart: stopMoneyLeftEvent,
+        onTouchStartCapture: stopMoneyLeftEvent,
+      }
+    : {};
+
   if (isClickable || isMoneyMetric) {
     return (
       <button
@@ -405,5 +429,9 @@ export default function StatCard({
     );
   }
 
-  return <div className={cardClassName}>{content}</div>;
+  return (
+    <div className={cardClassName} {...displayOnlyProps}>
+      {content}
+    </div>
+  );
 }
