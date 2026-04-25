@@ -3329,6 +3329,8 @@ function DashboardSettingsPanel({
     coachingAlerts: notificationSettings?.coachingAlerts !== false,
   }));
 
+  const [activeSetting, setActiveSetting] = useState(null);
+
   useEffect(() => {
     setLocalNotifications({
       dailyReminders: notificationSettings?.dailyReminders !== false,
@@ -3375,30 +3377,6 @@ function DashboardSettingsPanel({
 
   const currentPlan = isPaid ? plan || "Paid" : isFree ? "Free" : plan || "Plan";
 
-  const settingsCards = [
-    {
-      key: "account",
-      title: "Account",
-      description: user?.email || "Signed in CLARA user",
-      icon: Home,
-      detail: displayName,
-    },
-    {
-      key: "security",
-      title: "Security",
-      description: "Protect your account and access",
-      icon: ShieldCheck,
-      detail: "Active",
-    },
-    {
-      key: "billing",
-      title: "Plan & Billing",
-      description: "Enrollment, access, and payment status",
-      icon: WalletCards,
-      detail: currentPlan,
-    },
-  ];
-
   const notificationRows = [
     {
       key: "dailyReminders",
@@ -3417,12 +3395,121 @@ function DashboardSettingsPanel({
     },
   ];
 
+  const settingSections = [
+    {
+      title: "Account",
+      rows: [
+        {
+          key: "profile",
+          title: "Profile information",
+          description: "Name, email, and account details",
+          icon: Home,
+          badge: displayName,
+          action: () => setActiveSetting("profile"),
+        },
+        {
+          key: "security",
+          title: "Privacy & security",
+          description: "Account safety and data controls",
+          icon: ShieldCheck,
+          badge: "Active",
+          action: () => setActiveSetting("security"),
+        },
+      ],
+    },
+    {
+      title: "App preferences",
+      rows: [
+        {
+          key: "appearance",
+          title: "Theme & appearance",
+          description: "Dashboard colors and visual style",
+          icon: Palette,
+          badge: "Customize",
+          featured: true,
+          action: openThemePicker,
+        },
+        {
+          key: "notifications",
+          title: "Notifications",
+          description: "Reminders, updates, and coaching alerts",
+          icon: Bell,
+          badge: localNotifications.dailyReminders ? "On" : "Off",
+          action: () => setActiveSetting("notifications"),
+        },
+      ],
+    },
+    {
+      title: "Program",
+      rows: [
+        {
+          key: "plan",
+          title: "Plan & billing",
+          description: "Enrollment, payments, and access level",
+          icon: WalletCards,
+          badge: currentPlan,
+          action: () => setActiveSetting("plan"),
+        },
+        {
+          key: "support",
+          title: "Help & support",
+          description: "Contact support or report an issue",
+          icon: MessageCircle,
+          badge: "Help",
+          action: () => setActiveSetting("support"),
+        },
+        {
+          key: "about",
+          title: "About CLARA",
+          description: "Version, terms, and app information",
+          icon: FileText,
+          badge: "Info",
+          action: () => setActiveSetting("about"),
+        },
+      ],
+    },
+  ];
+
+  const settingDetailCopy = {
+    profile: {
+      title: "Profile information",
+      body: "This is where profile editing will live: name, display name, email visibility, and account details.",
+      status: user?.email || "Signed in CLARA user",
+    },
+    security: {
+      title: "Privacy & security",
+      body: "Security tools will live here: session controls, privacy settings, data reset options, and account protection.",
+      status: "Account active",
+    },
+    notifications: {
+      title: "Notifications",
+      body: "Use the toggles below to control what CLARA reminds you about.",
+      status: localNotifications.dailyReminders ? "Daily reminders on" : "Daily reminders off",
+    },
+    plan: {
+      title: "Plan & billing",
+      body: "This area will hold plan details, payment status, upgrade options, and enrollment history.",
+      status: currentPlan,
+    },
+    support: {
+      title: "Help & support",
+      body: "Support options will live here: help center, contact admin, report issue, and feedback.",
+      status: "Ready",
+    },
+    about: {
+      title: "About CLARA",
+      body: "CLARA financial companion dashboard. App information, terms, and privacy links can be placed here.",
+      status: "CLARA",
+    },
+  };
+
+  const activeDetail = activeSetting ? settingDetailCopy[activeSetting] : null;
+
   return (
     <div className="space-y-4">
-
-      <div className="rounded-[30px] border border-emerald-400/15 bg-[radial-gradient(circle_at_top_left,rgba(16,185,129,0.16),transparent_34%),rgba(255,255,255,0.055)] p-4 shadow-[0_18px_50px_rgba(0,0,0,0.20)] backdrop-blur-xl">
+      <div className="rounded-[30px] border border-white/10 bg-white/[0.055] p-4 shadow-[0_18px_50px_rgba(0,0,0,0.20)] backdrop-blur-xl">
         <div className="flex items-center gap-3">
-          <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-[24px] border border-white/10 bg-white/10 text-xl font-black text-white">
+          <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-[22px] border border-white/10 bg-white/10 text-lg font-black text-white">
             {dashboardPanelInitials(displayName)}
           </div>
 
@@ -3431,66 +3518,72 @@ function DashboardSettingsPanel({
             <p className="truncate text-xs text-white/50">{user?.email || "CLARA user"}</p>
           </div>
 
-          <span className="rounded-full border border-emerald-400/20 bg-emerald-400/10 px-3 py-1 text-[10px] font-black text-emerald-200">
+          <span className="shrink-0 rounded-full border border-emerald-400/20 bg-emerald-400/10 px-3 py-1 text-[10px] font-black text-emerald-200">
             {currentPlan}
           </span>
         </div>
       </div>
 
-      <button
-        type="button"
-        onClick={openThemePicker}
-        className="w-full rounded-[30px] border border-emerald-400/20 bg-emerald-400/10 p-4 text-left shadow-[0_18px_50px_rgba(16,185,129,0.10)] backdrop-blur-xl transition hover:bg-emerald-400/14"
-      >
-        <div className="flex items-center gap-3">
-          <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-emerald-400/15 text-emerald-100">
-            <Palette className="h-5 w-5" />
-          </div>
-          <div className="min-w-0 flex-1">
-            <p className="text-sm font-bold text-white">Theme & appearance</p>
-            <p className="mt-1 text-xs text-white/55">Change the dashboard color and visual style.</p>
-          </div>
-          <ChevronRight className="h-4 w-4 text-white/40" />
-        </div>
-      </button>
+      <div className="space-y-5">
+        {settingSections.map((section) => (
+          <section key={section.title} className="space-y-2">
+            <p className="px-1 text-[11px] font-black uppercase tracking-[0.18em] text-white/35">
+              {section.title}
+            </p>
 
-      <div className="space-y-3">
-        {settingsCards.map((item) => {
-          const Icon = item.icon;
+            <div className="overflow-hidden rounded-[28px] border border-white/10 bg-white/[0.045] shadow-[0_18px_50px_rgba(0,0,0,0.18)] backdrop-blur-xl">
+              {section.rows.map((row, index) => {
+                const Icon = row.icon;
 
-          return (
-            <div
-              key={item.key}
-              className="rounded-[30px] border border-white/10 bg-white/[0.055] p-4 shadow-[0_18px_50px_rgba(0,0,0,0.20)] backdrop-blur-xl"
-            >
-              <div className="flex items-center gap-3">
-                <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border border-white/10 bg-white/8 text-white/70">
-                  <Icon className="h-5 w-5" />
-                </div>
+                return (
+                  <button
+                    key={row.key}
+                    type="button"
+                    onClick={row.action}
+                    className={`group flex w-full items-center gap-3 px-4 py-4 text-left transition hover:bg-white/[0.065] ${
+                      index > 0 ? "border-t border-white/10" : ""
+                    } ${row.featured ? "bg-emerald-400/8" : ""}`}
+                  >
+                    <div
+                      className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border transition ${
+                        row.featured
+                          ? "border-emerald-400/20 bg-emerald-400/12 text-emerald-100"
+                          : "border-white/10 bg-white/8 text-white/65 group-hover:text-white"
+                      }`}
+                    >
+                      <Icon className="h-5 w-5" />
+                    </div>
 
-                <div className="min-w-0 flex-1">
-                  <p className="truncate text-sm font-bold text-white">{item.title}</p>
-                  <p className="mt-1 truncate text-xs text-white/50">{item.description}</p>
-                </div>
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate text-sm font-bold text-white">{row.title}</p>
+                      <p className="mt-1 truncate text-xs text-white/45">{row.description}</p>
+                    </div>
 
-                <span className="shrink-0 rounded-full border border-white/10 bg-white/8 px-3 py-1 text-[10px] font-bold text-white/60">
-                  {item.detail}
-                </span>
-              </div>
+                    {row.badge ? (
+                      <span className="max-w-[96px] shrink-0 truncate rounded-full border border-white/10 bg-white/8 px-2.5 py-1 text-[10px] font-bold text-white/55">
+                        {row.badge}
+                      </span>
+                    ) : null}
+
+                    <ChevronRight className="h-4 w-4 shrink-0 text-white/30 transition group-hover:translate-x-0.5 group-hover:text-white/55" />
+                  </button>
+                );
+              })}
             </div>
-          );
-        })}
+          </section>
+        ))}
       </div>
 
-      <div className="rounded-[30px] border border-white/10 bg-white/[0.055] p-4 shadow-[0_18px_50px_rgba(0,0,0,0.20)] backdrop-blur-xl">
-        <div className="mb-3 flex items-center gap-3">
-          <div className="flex h-11 w-11 items-center justify-center rounded-2xl border border-white/10 bg-white/8 text-white/70">
-            <Bell className="h-5 w-5" />
-          </div>
+      <div className="rounded-[28px] border border-white/10 bg-white/[0.045] p-4 shadow-[0_18px_50px_rgba(0,0,0,0.18)] backdrop-blur-xl">
+        <div className="mb-3 flex items-center justify-between gap-3">
           <div>
-            <p className="text-sm font-bold text-white">Notifications</p>
-            <p className="mt-1 text-xs text-white/50">Control what CLARA reminds you about.</p>
+            <p className="text-sm font-bold text-white">Notification quick toggles</p>
+            <p className="mt-1 text-xs text-white/45">Control reminders without opening another page.</p>
           </div>
+
+          <span className="rounded-full border border-white/10 bg-white/8 px-3 py-1 text-[10px] font-bold text-white/55">
+            {localNotifications.dailyReminders ? "Active" : "Muted"}
+          </span>
         </div>
 
         <div className="space-y-2">
@@ -3528,27 +3621,73 @@ function DashboardSettingsPanel({
         </div>
       </div>
 
-      <div className="rounded-[30px] border border-white/10 bg-white/[0.055] p-4 shadow-[0_18px_50px_rgba(0,0,0,0.20)] backdrop-blur-xl">
-        <p className="text-sm font-bold text-white">Quick status</p>
-        <div className="mt-3 grid grid-cols-3 gap-2 text-center text-[11px]">
-          <div className="rounded-2xl border border-white/10 bg-white/6 p-3">
-            <p className="font-black text-white">{isPaid ? "Unlocked" : "Limited"}</p>
-            <p className="mt-1 text-white/45">Access</p>
-          </div>
-          <div className="rounded-2xl border border-white/10 bg-white/6 p-3">
-            <p className="font-black text-white">{localNotifications.dailyReminders ? "On" : "Off"}</p>
-            <p className="mt-1 text-white/45">Daily</p>
-          </div>
-          <div className="rounded-2xl border border-white/10 bg-white/6 p-3">
-            <p className="font-black text-white">{currentPlan}</p>
-            <p className="mt-1 text-white/45">Plan</p>
+      <div className="rounded-[28px] border border-white/10 bg-white/[0.035] px-4 py-3 text-center backdrop-blur-xl">
+        <p className="text-[11px] font-semibold text-white/42">
+          CLARA Settings • Account, preferences, plan, support, and app info
+        </p>
+      </div>
+
+      {activeDetail ? (
+        <div className="fixed inset-0 z-[140] flex items-end justify-center bg-black/70 px-4 pb-4 pt-10 backdrop-blur-md">
+          <div className="w-full max-w-[430px] overflow-hidden rounded-[30px] border border-white/10 bg-[#071120]/96 shadow-[0_28px_90px_rgba(0,0,0,0.55)]">
+            <div className="flex items-center justify-between gap-3 border-b border-white/10 px-4 py-4">
+              <div className="min-w-0">
+                <p className="truncate text-base font-black text-white">{activeDetail.title}</p>
+                <p className="truncate text-xs text-white/45">{activeDetail.status}</p>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => setActiveSetting(null)}
+                className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-white/10 bg-white/10 text-white/75"
+                aria-label="Close settings details"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+
+            <div className="space-y-4 p-4">
+              <p className="text-sm leading-6 text-white/68">{activeDetail.body}</p>
+
+              {activeSetting === "notifications" ? (
+                <div className="space-y-2">
+                  {notificationRows.map((row) => {
+                    const enabled = localNotifications[row.key];
+
+                    return (
+                      <button
+                        key={row.key}
+                        type="button"
+                        onClick={() => persistNotificationToggle(row.key)}
+                        className="flex w-full items-center justify-between gap-3 rounded-2xl border border-white/10 bg-white/6 px-3 py-3 text-left"
+                      >
+                        <div>
+                          <p className="text-xs font-bold text-white">{row.title}</p>
+                          <p className="mt-1 text-[11px] text-white/45">{row.description}</p>
+                        </div>
+                        <span className={`text-[11px] font-black ${enabled ? "text-emerald-200" : "text-white/35"}`}>
+                          {enabled ? "ON" : "OFF"}
+                        </span>
+                      </button>
+                    );
+                  })}
+                </div>
+              ) : null}
+
+              <button
+                type="button"
+                onClick={() => setActiveSetting(null)}
+                className="w-full rounded-2xl border border-white/10 bg-white/8 px-4 py-3 text-sm font-bold text-white/75 transition hover:bg-white/12"
+              >
+                Done
+              </button>
+            </div>
           </div>
         </div>
-      </div>
+      ) : null}
     </div>
   );
 }
-
 
 
 export default function Dashboard() {
