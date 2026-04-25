@@ -34,17 +34,29 @@ export default function Layout({ children }) {
     setAssistantOpen(true);
   }, []);
 
+  const handleOpenQuickAdd = useCallback(() => {
+    setQuickAddOpen(true);
+  }, []);
+
   useEffect(() => {
-    const handleEmbeddedAssistantOpen = (event) => {
+    const handleAssistantOpen = (event) => {
       openAssistant(event?.detail?.mode || "voice");
     };
 
-    window.addEventListener("clara:open-assistant", handleEmbeddedAssistantOpen);
+    const handleManualExpenseOpen = () => {
+      handleOpenQuickAdd();
+    };
+
+    window.addEventListener("clara:open-assistant", handleAssistantOpen);
+    window.addEventListener("clara:open-ai-chat", handleAssistantOpen);
+    window.addEventListener("clara:open-manual-expense", handleManualExpenseOpen);
 
     return () => {
-      window.removeEventListener("clara:open-assistant", handleEmbeddedAssistantOpen);
+      window.removeEventListener("clara:open-assistant", handleAssistantOpen);
+      window.removeEventListener("clara:open-ai-chat", handleAssistantOpen);
+      window.removeEventListener("clara:open-manual-expense", handleManualExpenseOpen);
     };
-  }, [openAssistant]);
+  }, [handleOpenQuickAdd, openAssistant]);
 
   const handleLogout = useCallback(async () => {
     try {
@@ -55,10 +67,6 @@ export default function Layout({ children }) {
       console.error("Logout failed:", error);
       window.location.replace(getAppLoginUrl());
     }
-  }, []);
-
-  const handleOpenQuickAdd = useCallback(() => {
-    setQuickAddOpen(true);
   }, []);
 
   const isDashboard = location.pathname === "/dashboard";
