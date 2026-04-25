@@ -57,10 +57,11 @@ export default function StatCard({
   const themeContext = useTheme?.() || {};
   const themeGlow = getThemeGlow(themeContext?.theme || themeContext?.currentTheme || themeContext);
   const normalizedLabel = String(label || "").trim().toLowerCase();
-  const isMoneyMetric = MONEY_TRANSACTION_LABELS.has(normalizedLabel);
+  const isMoneyLeftDisplayOnly = normalizedLabel === "money left";
+  const isMoneyMetric = !isMoneyLeftDisplayOnly && MONEY_TRANSACTION_LABELS.has(normalizedLabel);
   const autoTransactionTarget = isMoneyMetric ? "/expenses" : "";
-  const targetPath = to || autoTransactionTarget;
-  const isClickable = Boolean(targetPath || onClick);
+  const targetPath = isMoneyLeftDisplayOnly ? "" : to || autoTransactionTarget;
+  const isClickable = !isMoneyLeftDisplayOnly && Boolean(targetPath || onClick);
 
   const [activeSlide, setActiveSlide] = useState(0);
   const [dragX, setDragX] = useState(0);
@@ -84,6 +85,7 @@ export default function StatCard({
   );
 
   const handleClick = useCallback(() => {
+    if (isMoneyLeftDisplayOnly) return;
     if (isDragging || dragRef.current.moved) return;
 
     if (activeSlide === 1) {
@@ -104,7 +106,7 @@ export default function StatCard({
     if (targetPath) {
       navigate(targetPath);
     }
-  }, [activeSlide, isDragging, navigate, onClick, targetPath]);
+  }, [activeSlide, isDragging, isMoneyLeftDisplayOnly, navigate, onClick, targetPath]);
 
   const goToAnalytics = useCallback(() => {
     if (isMoneyMetric) navigate("/analytics");
