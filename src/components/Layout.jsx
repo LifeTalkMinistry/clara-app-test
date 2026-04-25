@@ -1,5 +1,5 @@
 import { useLocation, useNavigate } from "react-router-dom";
-import { useState, useCallback, useEffect } from "react";
+import { useState, useCallback, useEffect, useRef } from "react";
 import { ArrowLeft } from "lucide-react";
 import { supabase } from "@/lib/supabaseClient";
 import QuickCircle from "@/components/QuickCircle";
@@ -31,13 +31,21 @@ function isStandaloneFocusPage(pathname) {
 export default function Layout({ children }) {
   const location = useLocation();
   const navigate = useNavigate();
+  const touchStartYRef = useRef(null);
+  const touchStartXRef = useRef(null);
+  const touchStartScrollTopRef = useRef(0);
 
   const [quickAddOpen, setQuickAddOpen] = useState(false);
   const [adsModalOpen, setAdsModalOpen] = useState(false);
   const [assistantOpen, setAssistantOpen] = useState(false);
   const [assistantMode, setAssistantMode] = useState("voice");
+  const [transactionsClosing, setTransactionsClosing] = useState(false);
 
   const { user, loading = false } = useUserRole() || {};
+
+  const isDashboard = location.pathname === "/dashboard";
+  const isTransactionsPage = isTransactionsPath(location.pathname);
+  const hideMobileControlCenter = isStandaloneFocusPage(location.pathname) || isDashboard;
 
   const openAssistant = useCallback((mode = "voice") => {
     setAssistantMode(mode || "voice");
@@ -49,8 +57,18 @@ export default function Layout({ children }) {
   }, []);
 
   const handleBackToDashboard = useCallback(() => {
-    navigate("/dashboard");
-  }, [navigate]);
+    if (transactionsClosing) return;
+
+    setTransactionsClosing(true);
+    window.setTimeout(() => {
+      navigate("/dashboard");
+      setTransactionsClosing(false);
+    }, 260);
+  }, [navigate, transactionsClosing]);
+
+  useEffect(() => {
+    setTransactionsClosing(false);
+  }, [location.pathname]);
 
   useEffect(() => {
     const handleAssistantOpen = (event) => {
@@ -83,12 +101,89 @@ export default function Layout({ children }) {
     }
   }, []);
 
-  const isDashboard = location.pathname === "/dashboard";
-  const isTransactionsPage = isTransactionsPath(location.pathname);
-  const hideMobileControlCenter = isStandaloneFocusPage(location.pathname) || isDashboard;
+  const handleTransactionsTouchStart = useCallback((event) => {
+    if (!isTransactionsPage || transactionsClosing) return;
+    const touch = event.touches?.[0];
+    if (!touch) return;
+
+    touchStartYRef.current = touch.clientY;
+    touchStartXRef.current = touch.clientX;
+    touchStartScrollTopRef.current = event.currentTarget?.scrollTop || 0;
+  }, [isTransactionsPage, transactionsClosing]);
+
+  const handleTransactionsTouchEnd = useCallback((event) => {
+    if (!isTransactionsPage || transactionsClosing) return;
+    if (touchStartYRef.current === null || touchStartXRef.current === null) return;
+
+    const touch = event.changedTouches?.[0];
+    if (!touch) return;
+
+    const deltaY = touch.clientY - touchStartYRef.current;
+    const deltaX = Math.abs(touch.clientX - touchStartXRef.current);
+    const startedAtTop = touchStartScrollTopRef.current <= 8;
+
+    touchStartYRef.current = null;
+    touchStartXRef.current = null;
+    touchStartScrollTopRef.current = 0;
+
+    if (startedAtTop && deltaY > 110 && deltaY > deltaX * 1.25) {
+      handleBackToDashboard();
+    }
+  }, [handleBackToDashboard, isTransactionsPage, transactionsClosing]);
 
   return (
     <div className="theme-page-shell flex h-screen overflow-hidden text-white">
+      <style>{`
+        @keyframes claraTransactionsExpandIn {
+          0% {
+            opacity: 0.62;
+            transform: translateY(46vh) scale(0.58) rotateX(58deg);
+            border-radius: 28px;
+            filter: blur(4px);
+          }
+          58% {
+            opacity: 1;
+            transform: translateY(-1.5vh) scale(1.018) rotateX(-5deg);
+            filter: blur(0px);
+          }
+          100% {
+            opacity: 1;
+            transform: translateY(0) scale(1) rotateX(0deg);
+            border-radius: 0px;
+            filter: blur(0px);
+          }
+        }
+
+        @keyframes claraTransactionsCollapseOut {
+          0% {
+            opacity: 1;
+            transform: translateY(0) scale(1) rotateX(0deg);
+            filter: blur(0px);
+          }
+          100% {
+            opacity: 0.18;
+            transform: translateY(46vh) scale(0.56) rotateX(60deg);
+            filter: blur(5px);
+          }
+        }
+
+        .clara-transactions-stage {
+          transform-origin: center bottom;
+          backface-visibility: hidden;
+          perspective: 1200px;
+          will-change: transform, opacity, filter;
+        }
+
+        .clara-transactions-stage-in {
+          animation: claraTransactionsExpandIn 520ms cubic-bezier(.18,.88,.2,1) both;
+        }
+
+        .clara-transactions-stage-out {
+          animation: claraTransactionsCollapseOut 260ms cubic-bezier(.4,0,.2,1) both;
+          pointer-events: none;
+        }
+      `}</style>
+
       {loading && (
         <div className="fixed inset-0 z-[999] flex items-center justify-center bg-[color:var(--theme-background)]">
           <div className="h-8 w-8 animate-spin rounded-full border-4 border-green-500/20 border-t-green-500" />
@@ -106,8 +201,22 @@ export default function Layout({ children }) {
         </button>
       )}
 
+      {isTransactionsPage && (
+        <div className="pointer-events-none fixed left-1/2 top-[calc(env(safe-area-inset-top)+0.75rem)] z-40 h-1.5 w-12 -translate-x-1/2 rounded-full bg-[color:var(--theme-text)]/35" />
+      )}
+
       <div className="relative flex min-w-0 flex-1 flex-col">
-        <main className="flex-1 overflow-y-auto pb-24 pt-3">{children}</main>
+        <main
+          onTouchStart={handleTransactionsTouchStart}
+          onTouchEnd={handleTransactionsTouchEnd}
+          className={`flex-1 overflow-y-auto pb-24 pt-3 ${
+            isTransactionsPage
+              ? `clara-transactions-stage ${transactionsClosing ? "clara-transactions-stage-out" : "clara-transactions-stage-in"}`
+              : ""
+          }`}
+        >
+          {children}
+        </main>
       </div>
 
       {!hideMobileControlCenter && (
