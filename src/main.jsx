@@ -152,6 +152,69 @@ window.CLARA_BILLING = {
   }
 })();
 
+function installDashboardSettingsShortcutPatch() {
+  if (window.__CLARA_SETTINGS_SHORTCUT_PATCHED__) return;
+  window.__CLARA_SETTINGS_SHORTCUT_PATCHED__ = true;
+
+  const gearSvg = `
+    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+      <path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.38a2 2 0 0 0-.73-2.73l-.15-.09a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z" />
+      <circle cx="12" cy="12" r="3" />
+    </svg>`;
+
+  const goToSettings = (event) => {
+    event.preventDefault();
+    event.stopPropagation();
+    window.location.hash = "#/settings/account";
+  };
+
+  const patch = () => {
+    const candidates = Array.from(document.querySelectorAll("button, a, [role='button'], div"));
+
+    for (const element of candidates) {
+      if (element.dataset?.claraSettingsShortcut === "true") continue;
+
+      const labelNode = Array.from(element.querySelectorAll("span, p, small, div"))
+        .reverse()
+        .find((node) => node.textContent?.trim() === "News");
+
+      const directTextMatch = element.childNodes.length <= 4 && element.textContent?.trim() === "News";
+      const targetLabel = labelNode || (directTextMatch ? element : null);
+
+      if (!targetLabel) continue;
+
+      const clickable = targetLabel.closest("button, a, [role='button']") || element;
+      if (!clickable) continue;
+
+      targetLabel.textContent = "Settings";
+      clickable.dataset.claraSettingsShortcut = "true";
+      clickable.setAttribute("aria-label", "Open settings");
+      clickable.style.cursor = "pointer";
+
+      if (clickable.tagName === "A") {
+        clickable.setAttribute("href", "#/settings/account");
+      }
+
+      const icon = clickable.querySelector("svg");
+      if (icon) {
+        icon.outerHTML = gearSvg;
+      }
+
+      clickable.addEventListener("click", goToSettings, true);
+    }
+  };
+
+  patch();
+
+  const observer = new MutationObserver(() => patch());
+  observer.observe(document.documentElement, {
+    childList: true,
+    subtree: true,
+  });
+}
+
+installDashboardSettingsShortcutPatch();
+
 const rootElement = document.getElementById("root");
 
 if (!rootElement) {
