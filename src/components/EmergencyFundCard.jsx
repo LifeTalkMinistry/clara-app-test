@@ -181,12 +181,13 @@ export default function EmergencyFundCard({
   hasSurvivalSetup = false,
   theme = null,
   onOpenThemePicker,
+  onQuickExpense,
+  onQuickAI,
 }) {
   const [expanded, setExpanded] = useState(false);
   const [editing, setEditing] = useState(false);
   const [showModal, setShowModal] = useState(false);
   const [targetMonths, setTargetMonths] = useState(getStoredTargetMonths());
-  const [quickOpen, setQuickOpen] = useState(false);
 
   const [wallpaper, setWallpaper] = useState(getStoredWallpaper());
   const [wallpaperOpacity, setWallpaperOpacity] = useState(
@@ -199,6 +200,8 @@ export default function EmergencyFundCard({
 
   const hasPrompted = useRef(false);
   const autoPromptTimeoutRef = useRef(null);
+  const longPressTimeoutRef = useRef(null);
+  const longPressTriggeredRef = useRef(false);
 
   const propExpense = Number(survivalExpense) || 0;
   const effectiveExpense = propExpense;
@@ -213,6 +216,11 @@ export default function EmergencyFundCard({
       if (autoPromptTimeoutRef.current) {
         window.clearTimeout(autoPromptTimeoutRef.current);
         autoPromptTimeoutRef.current = null;
+      }
+
+      if (longPressTimeoutRef.current) {
+        window.clearTimeout(longPressTimeoutRef.current);
+        longPressTimeoutRef.current = null;
       }
     };
   }, []);
@@ -285,22 +293,56 @@ export default function EmergencyFundCard({
     setStoredTargetMonths(next);
   };
 
-  const handleQuickAction = (action) => {
-    setQuickOpen(false);
-
-    if (action === "edit") {
-      setEditing(true);
+  const openQuickExpense = () => {
+    if (typeof onQuickExpense === "function") {
+      onQuickExpense();
       return;
     }
 
-    if (action === "background") {
-      openWallpaperModal();
+    window.dispatchEvent(new CustomEvent("clara:open-manual-expense"));
+  };
+
+  const openQuickAI = () => {
+    if (typeof onQuickAI === "function") {
+      onQuickAI();
       return;
     }
 
-    if (VALID_TARGET_MONTHS.includes(action)) {
-      changeTargetMonths(action);
+    window.dispatchEvent(new CustomEvent("clara:open-ai-chat"));
+  };
+
+  const clearLongPressTimer = () => {
+    if (longPressTimeoutRef.current) {
+      window.clearTimeout(longPressTimeoutRef.current);
+      longPressTimeoutRef.current = null;
     }
+  };
+
+  const handleOrbPointerDown = () => {
+    longPressTriggeredRef.current = false;
+    clearLongPressTimer();
+
+    longPressTimeoutRef.current = window.setTimeout(() => {
+      longPressTriggeredRef.current = true;
+      openQuickAI();
+      clearLongPressTimer();
+    }, 520);
+  };
+
+  const handleOrbPointerUp = () => {
+    clearLongPressTimer();
+  };
+
+  const handleOrbClick = (event) => {
+    event.preventDefault();
+    event.stopPropagation();
+
+    if (longPressTriggeredRef.current) {
+      longPressTriggeredRef.current = false;
+      return;
+    }
+
+    openQuickExpense();
   };
 
   const resolvedWallpaperOpacity = Math.max(
@@ -480,7 +522,10 @@ export default function EmergencyFundCard({
           borderColor: themeClasses.outline,
         }}
       >
-        <div className="absolute inset-0" style={{ background: themeClasses.background }} />
+        <div
+          className="absolute inset-0"
+          style={{ background: themeClasses.background }}
+        />
 
         {wallpaper ? (
           <div
@@ -497,68 +542,17 @@ export default function EmergencyFundCard({
         <div className="pointer-events-none absolute inset-0 bg-gradient-to-b from-black/25 via-black/18 to-black/35" />
         <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(to_bottom,rgba(255,255,255,0.08),rgba(255,255,255,0.02)_16%,transparent_38%)]" />
 
-        {quickOpen && (
+        <div className="absolute right-4 top-[112px] z-20 sm:right-5 sm:top-[116px]">
           <button
             type="button"
-            aria-label="Close emergency quick actions"
-            onClick={() => setQuickOpen(false)}
-            className="absolute inset-0 z-[18] cursor-default bg-transparent"
-          />
-        )}
-
-        <div className="absolute right-4 top-[116px] z-20 sm:right-5 sm:top-[120px]">
-          {quickOpen && (
-            <div
-              className={`absolute bottom-[calc(100%+0.65rem)] right-0 w-[178px] overflow-hidden rounded-2xl border shadow-[0_18px_45px_rgba(0,0,0,0.28)] backdrop-blur-2xl ${themeClasses.glass}`}
-            >
-              <div className="grid grid-cols-1 divide-y divide-white/10">
-                <button
-                  type="button"
-                  onClick={() => handleQuickAction("edit")}
-                  className="flex items-center gap-2 px-3 py-2.5 text-left text-xs font-semibold transition hover:bg-white/10"
-                >
-                  <Edit2 className="h-3.5 w-3.5" />
-                  Edit Expense
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => handleQuickAction("background")}
-                  className="flex items-center gap-2 px-3 py-2.5 text-left text-xs font-semibold transition hover:bg-white/10"
-                >
-                  <Camera className="h-3.5 w-3.5" />
-                  Background
-                </button>
-
-                <div className="grid grid-cols-3 gap-1 p-2">
-                  {VALID_TARGET_MONTHS.map((m) => {
-                    const active = targetMonths === m;
-
-                    return (
-                      <button
-                        key={m}
-                        type="button"
-                        onClick={() => handleQuickAction(m)}
-                        className={`rounded-xl border px-2 py-2 text-[11px] font-bold transition ${
-                          active
-                            ? "border-emerald-400/40 bg-emerald-500/20 text-emerald-300"
-                            : "border-white/10 bg-white/5 hover:bg-white/10"
-                        }`}
-                      >
-                        {m}m
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
-            </div>
-          )}
-
-          <button
-            type="button"
-            onClick={() => setQuickOpen((prev) => !prev)}
-            className={`relative flex h-11 w-11 items-center justify-center rounded-full border backdrop-blur-xl transition hover:scale-[1.04] active:scale-95 ${themeClasses.glass}`}
-            aria-label="Emergency quick actions"
+            onPointerDown={handleOrbPointerDown}
+            onPointerUp={handleOrbPointerUp}
+            onPointerCancel={handleOrbPointerUp}
+            onPointerLeave={handleOrbPointerUp}
+            onClick={handleOrbClick}
+            className={`relative flex h-11 w-11 touch-none select-none items-center justify-center rounded-full border backdrop-blur-xl transition hover:scale-[1.04] active:scale-95 ${themeClasses.glass}`}
+            aria-label="Tap to log expense, long press to open CLARA AI"
+            title="Tap: Log expense • Long press: CLARA AI"
           >
             <span className="absolute inset-[-5px] rounded-full bg-emerald-400/20 blur-md animate-[emergencyOrbPulse_1.8s_ease-in-out_infinite]" />
             <span className="absolute inset-0 rounded-full bg-white/10 animate-[emergencyOrbBeat_1.8s_ease-in-out_infinite]" />
@@ -592,17 +586,23 @@ export default function EmergencyFundCard({
 
         <div className="relative z-10 p-4">
           <div className="mb-3 flex items-start gap-3">
-            <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border backdrop-blur-sm ${themeClasses.iconShell}`}>
+            <div
+              className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border backdrop-blur-sm ${themeClasses.iconShell}`}
+            >
               <Shield className={`h-4 w-4 ${themeClasses.iconColor}`} />
             </div>
 
             <div className="min-w-0 flex-1">
               <div className="flex items-start justify-between gap-2">
                 <div className="min-w-0">
-                  <p className={`text-base font-semibold tracking-tight ${themeClasses.title}`}>
+                  <p
+                    className={`text-base font-semibold tracking-tight ${themeClasses.title}`}
+                  >
                     Emergency Fund
                   </p>
-                  <p className={`mt-0.5 text-[11px] font-medium ${themeClasses.body}`}>
+                  <p
+                    className={`mt-0.5 text-[11px] font-medium ${themeClasses.body}`}
+                  >
                     Protection based on your monthly survival expense
                   </p>
                 </div>
@@ -641,7 +641,9 @@ export default function EmergencyFundCard({
               </p>
             )}
 
-            <p className={`mt-2 max-w-[28rem] text-xs font-medium leading-relaxed ${themeClasses.body}`}>
+            <p
+              className={`mt-2 max-w-[28rem] text-xs font-medium leading-relaxed ${themeClasses.body}`}
+            >
               {progression}
             </p>
 
@@ -687,7 +689,9 @@ export default function EmergencyFundCard({
           </button>
 
           {expanded && (
-            <div className={`mt-3 space-y-3 rounded-2xl border p-3 backdrop-blur-[2px] shadow-[inset_0_1px_0_rgba(255,255,255,0.05)] ${themeClasses.glass}`}>
+            <div
+              className={`mt-3 space-y-3 rounded-2xl border p-3 backdrop-blur-[2px] shadow-[inset_0_1px_0_rgba(255,255,255,0.05)] ${themeClasses.glass}`}
+            >
               <div>
                 <div className="mb-2 flex items-center justify-between">
                   <span className="text-xs font-semibold text-white/90">
