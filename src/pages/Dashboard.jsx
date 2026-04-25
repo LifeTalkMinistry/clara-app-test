@@ -935,24 +935,24 @@ function useDashboardViewportMode() {
 
 const DASHBOARD_SCALE = {
   ultraCompact: {
-    page: "min-h-[100svh]",
+    page: "min-h-0",
     headerOuter: "px-[clamp(10px,3vw,14px)] pb-1 pt-[calc(env(safe-area-inset-top)+8px)] md:px-[clamp(10px,3vw,14px)]",
     headerPanel: "rounded-[22px] px-2 py-1.5 sm:px-2",
     headerItem: "gap-0.5 rounded-[14px] px-1 py-1.5 sm:px-1.5",
     headerIcon: "h-8 w-8",
     headerIconSvg: "h-4 w-4",
     headerLabel: "text-[10px]",
-    content: "mt-2 space-y-[clamp(10px,1.9dvh,15px)] px-[clamp(10px,3vw,14px)] pb-[max(calc(env(safe-area-inset-bottom)+14px),16px)] md:px-[clamp(10px,3vw,14px)] md:space-y-[clamp(10px,1.9dvh,15px)]",
-    billboard: "h-[clamp(84px,14dvh,104px)]",
+    content: "mt-1 space-y-[clamp(7px,1.5dvh,10px)] px-[clamp(10px,3vw,14px)] pb-[calc(env(safe-area-inset-bottom)+12px)] md:px-[clamp(10px,3vw,14px)] md:space-y-[clamp(7px,1.5dvh,10px)]",
+    billboard: "h-[clamp(78px,13dvh,96px)]",
     billboardPad: "gap-2 p-3",
     billboardTitle: "mt-0.5 text-[clamp(13px,3.5vw,15px)]",
     billboardText: "mt-0.5 line-clamp-1 text-[11px] leading-snug",
     billboardCta: "mt-1",
     billboardIcon: "h-10 w-10 rounded-xl",
-    financeWrap: "space-y-1.5",
+    financeWrap: "space-y-[clamp(8px,1.4dvh,12px)]",
     financeClip: "rounded-[24px]",
     financeSlide: "min-h-[238px] rounded-[24px] [&>*]:min-h-[236px] [&>*]:rounded-[23px]",
-    dots: "gap-1 pt-0",
+    dots: "gap-1 pt-1 pb-[clamp(6px,1.2dvh,10px)]",
     summaryGrid: "rounded-[22px]",
     summaryCell: "min-h-[118px] p-[clamp(10px,3vw,12px)]",
     summaryLabel: "text-[9px] tracking-[0.18em]",
@@ -961,24 +961,24 @@ const DASHBOARD_SCALE = {
     summarySubcopy: "mt-1 text-[10px] leading-4",
   },
   compact: {
-    page: "min-h-[100svh]",
+    page: "min-h-0",
     headerOuter: "px-[clamp(12px,3.5vw,16px)] pb-1 pt-[calc(env(safe-area-inset-top)+10px)] md:px-[clamp(12px,3.5vw,16px)]",
     headerPanel: "rounded-[24px] px-2 py-2 sm:px-2",
     headerItem: "gap-0.5 rounded-[15px] px-1 py-1.5 sm:px-1.5",
     headerIcon: "h-9 w-9",
     headerIconSvg: "h-[18px] w-[18px]",
     headerLabel: "text-[10.5px]",
-    content: "mt-2.5 space-y-[clamp(12px,2.1dvh,17px)] px-[clamp(12px,3.5vw,16px)] pb-[max(calc(env(safe-area-inset-bottom)+16px),18px)] md:px-[clamp(12px,3.5vw,16px)] md:space-y-[clamp(12px,2.1dvh,17px)]",
-    billboard: "h-[clamp(96px,15dvh,116px)]",
+    content: "mt-1.5 space-y-[clamp(8px,1.7dvh,12px)] px-[clamp(12px,3.5vw,16px)] pb-[calc(env(safe-area-inset-bottom)+14px)] md:px-[clamp(12px,3.5vw,16px)] md:space-y-[clamp(8px,1.7dvh,12px)]",
+    billboard: "h-[clamp(88px,14dvh,108px)]",
     billboardPad: "gap-2.5 p-3",
     billboardTitle: "mt-0.5 text-[clamp(14px,3.7vw,16px)]",
     billboardText: "mt-0.5 line-clamp-1 text-xs leading-snug",
     billboardCta: "mt-1.5",
     billboardIcon: "h-11 w-11 rounded-[14px]",
-    financeWrap: "space-y-1.5",
+    financeWrap: "space-y-[clamp(8px,1.4dvh,12px)]",
     financeClip: "rounded-[26px]",
     financeSlide: "min-h-[258px] rounded-[26px] [&>*]:min-h-[256px] [&>*]:rounded-[25px]",
-    dots: "gap-1.5 pt-0",
+    dots: "gap-1.5 pt-1 pb-[clamp(7px,1.3dvh,12px)]",
     summaryGrid: "rounded-[24px]",
     summaryCell: "min-h-[128px] p-[clamp(11px,3.2vw,14px)]",
     summaryLabel: "text-[10px] tracking-[0.2em]",
@@ -987,24 +987,24 @@ const DASHBOARD_SCALE = {
     summarySubcopy: "mt-1.5 text-[11px] leading-4",
   },
   normal: {
-    page: "min-h-[100svh]",
+    page: "min-h-0",
     headerOuter: "px-[clamp(14px,4vw,18px)] pb-1.5 pt-[calc(env(safe-area-inset-top)+12px)] md:px-[clamp(14px,4vw,18px)]",
     headerPanel: "rounded-[24px] px-2 py-2 sm:px-2.5",
     headerItem: "gap-1 rounded-[16px] px-1 py-2 sm:px-2",
     headerIcon: "h-10 w-10",
     headerIconSvg: "h-5 w-5",
     headerLabel: "text-[11px]",
-    content: "mt-3 space-y-[clamp(14px,2.25dvh,20px)] px-[clamp(14px,4vw,18px)] pb-[max(calc(env(safe-area-inset-bottom)+18px),20px)] md:px-[clamp(14px,4vw,18px)] md:space-y-[clamp(14px,2.25dvh,20px)]",
-    billboard: "h-[clamp(108px,16dvh,132px)]",
+    content: "mt-2 space-y-[clamp(10px,1.8dvh,14px)] px-[clamp(14px,4vw,18px)] pb-[calc(env(safe-area-inset-bottom)+16px)] md:px-[clamp(14px,4vw,18px)] md:space-y-[clamp(10px,1.8dvh,14px)]",
+    billboard: "h-[clamp(100px,15dvh,124px)]",
     billboardPad: "gap-3 p-4",
     billboardTitle: "mt-1 text-base",
     billboardText: "mt-1 line-clamp-2 text-xs leading-relaxed",
     billboardCta: "mt-2",
     billboardIcon: "h-12 w-12 rounded-2xl",
-    financeWrap: "space-y-2",
+    financeWrap: "space-y-[clamp(9px,1.5dvh,14px)]",
     financeClip: "rounded-[28px]",
     financeSlide: "min-h-[286px] rounded-[28px] [&>*]:min-h-[284px] [&>*]:rounded-[27px]",
-    dots: "gap-1.5 pt-0.5",
+    dots: "gap-1.5 pt-1.5 pb-[clamp(8px,1.4dvh,14px)]",
     summaryGrid: "rounded-[26px]",
     summaryCell: "min-h-[140px] p-[clamp(13px,3.6vw,16px)]",
     summaryLabel: "text-[11px] tracking-[0.22em]",
@@ -1013,24 +1013,24 @@ const DASHBOARD_SCALE = {
     summarySubcopy: "mt-2 text-xs leading-5",
   },
   spacious: {
-    page: "min-h-[100svh]",
+    page: "min-h-0",
     headerOuter: "px-[clamp(16px,4vw,20px)] pb-2 pt-[calc(env(safe-area-inset-top)+14px)] md:px-[clamp(16px,4vw,20px)]",
     headerPanel: "rounded-[24px] px-2 py-2.5 sm:px-2.5",
     headerItem: "gap-1 rounded-[16px] px-1 py-2 sm:px-2",
     headerIcon: "h-10 w-10",
     headerIconSvg: "h-5 w-5",
     headerLabel: "text-[11px]",
-    content: "mt-3.5 space-y-[clamp(16px,2.35dvh,22px)] px-[clamp(16px,4vw,20px)] pb-[max(calc(env(safe-area-inset-bottom)+20px),22px)] md:px-[clamp(16px,4vw,20px)] md:space-y-[clamp(16px,2.35dvh,22px)]",
-    billboard: "h-[clamp(120px,16.5dvh,148px)]",
+    content: "mt-2.5 space-y-[clamp(12px,2dvh,16px)] px-[clamp(16px,4vw,20px)] pb-[calc(env(safe-area-inset-bottom)+18px)] md:px-[clamp(16px,4vw,20px)] md:space-y-[clamp(12px,2dvh,16px)]",
+    billboard: "h-[clamp(112px,15dvh,138px)]",
     billboardPad: "gap-3 p-4",
     billboardTitle: "mt-1 text-base",
     billboardText: "mt-1 line-clamp-2 text-xs leading-relaxed",
     billboardCta: "mt-2",
     billboardIcon: "h-12 w-12 rounded-2xl",
-    financeWrap: "space-y-2",
+    financeWrap: "space-y-[clamp(9px,1.5dvh,14px)]",
     financeClip: "rounded-[30px]",
     financeSlide: "min-h-[314px] rounded-[30px] [&>*]:min-h-[312px] [&>*]:rounded-[29px]",
-    dots: "gap-1.5 pt-0.5",
+    dots: "gap-1.5 pt-1.5 pb-[clamp(8px,1.4dvh,14px)]",
     summaryGrid: "rounded-[28px]",
     summaryCell: "min-h-[148px] p-4",
     summaryLabel: "text-[11px] tracking-[0.22em]",
@@ -4553,7 +4553,7 @@ export default function Dashboard() {
   }
 
   return (
-    <div className={`theme-page-shell relative isolate z-0 w-full max-w-[430px] mx-auto ${dashboardScale.page} overflow-x-hidden overflow-y-auto`} style={{ WebkitOverflowScrolling: "touch" }}>
+    <div className={`theme-page-shell relative isolate z-0 w-full max-w-[430px] mx-auto ${dashboardScale.page} overflow-x-hidden`} style={{ WebkitOverflowScrolling: "touch" }}>
       <style>{`
         @keyframes claraDashboardPanelForwardIn {
           0% { opacity: 0; transform: translate3d(32px, 0, 0) scale(0.985); filter: blur(5px); }
@@ -5002,7 +5002,6 @@ export default function Dashboard() {
             />
           ) : null}
         </div>
-        <div className="pointer-events-none h-[clamp(8px,2dvh,22px)]" aria-hidden="true" />
       </div>
 
 
