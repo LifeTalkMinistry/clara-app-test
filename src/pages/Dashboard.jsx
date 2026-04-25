@@ -3347,6 +3347,9 @@ function DashboardSettingsPanel({
   const [settingsNotice, setSettingsNotice] = useState(null);
   const [savingProfile, setSavingProfile] = useState(false);
   const [signingOut, setSigningOut] = useState(false);
+  const [supportTopic, setSupportTopic] = useState("Billing / enrollment");
+  const [supportMessage, setSupportMessage] = useState("");
+  const [supportSent, setSupportSent] = useState(false);
 
   useEffect(() => {
     setProfileName(initialDisplayName);
@@ -3364,6 +3367,7 @@ function DashboardSettingsPanel({
   const displayName = profileName?.trim() || initialDisplayName || "Your CLARA account";
   const currentPlan = isPaid ? plan || "Paid" : isFree ? "Free" : plan || "Plan";
   const planStatusLabel = isPaid ? "Unlocked" : isFree ? "Limited" : "Active";
+  const supportEmail = "support@clara.app";
 
   const saveNotificationSettings = useCallback((next) => {
     try {
@@ -3518,9 +3522,36 @@ function DashboardSettingsPanel({
     navigate("/messages");
   }, [navigate, onOpenMessages]);
 
-  const openRoute = useCallback((route) => {
-    navigate(route);
-  }, [navigate]);
+  const handleSupportDraft = useCallback(() => {
+    const trimmed = supportMessage.trim();
+
+    if (!trimmed) {
+      setSettingsNotice({ type: "error", message: "Write a short message first." });
+      return;
+    }
+
+    try {
+      const storageKey = `clara_support_draft_${user?.id || "guest"}`;
+      localStorage.setItem(
+        storageKey,
+        JSON.stringify({
+          topic: supportTopic,
+          message: trimmed,
+          email: user?.email || "",
+          createdAt: new Date().toISOString(),
+        })
+      );
+
+      setSupportSent(true);
+      setSettingsNotice({
+        type: "success",
+        message: "Support note saved locally. You can now message CLARA support.",
+      });
+    } catch (error) {
+      console.error("Support draft save failed:", error);
+      setSettingsNotice({ type: "error", message: "Unable to save support note." });
+    }
+  }, [supportMessage, supportTopic, user?.email, user?.id]);
 
   const notificationRows = [
     {
@@ -3620,6 +3651,27 @@ function DashboardSettingsPanel({
     },
   ];
 
+  const planOptions = [
+    {
+      key: "entry_199",
+      title: "Entry",
+      price: "₱199",
+      description: "Core tracking access for getting started.",
+    },
+    {
+      key: "core_599",
+      title: "Core",
+      price: "₱599",
+      description: "Deeper financial system access and guided progress.",
+    },
+    {
+      key: "coaching_1299",
+      title: "Coaching",
+      price: "₱1,299",
+      description: "Full access with coaching support.",
+    },
+  ];
+
   const renderNotice = () => {
     if (!settingsNotice) return null;
 
@@ -3652,7 +3704,7 @@ function DashboardSettingsPanel({
     </span>
   );
 
-  const PremiumRow = ({ icon: Icon, title, description, badge, featured, onClick, children }) => (
+  const PremiumRow = ({ icon: Icon, title, description, badge, featured, onClick }) => (
     <button
       type="button"
       onClick={onClick}
@@ -3675,7 +3727,6 @@ function DashboardSettingsPanel({
       <div className="min-w-0 flex-1">
         <p className="truncate text-sm font-bold text-white">{title}</p>
         <p className="mt-1 truncate text-xs text-white/45">{description}</p>
-        {children}
       </div>
 
       {badge ? (
@@ -3689,21 +3740,30 @@ function DashboardSettingsPanel({
   );
 
   const DetailHeader = ({ title, subtitle }) => (
-    <div className="sticky top-0 z-20 -mx-1 mb-4 rounded-b-[28px] border-b border-white/10 bg-[#071120]/92 px-1 pb-3 pt-1 backdrop-blur-2xl">
+    <div className="mb-4">
       <button
         type="button"
         onClick={() => {
           setActiveSetting(null);
           setSettingsNotice(null);
         }}
-        className="mb-3 inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/8 px-3 py-2 text-[11px] font-bold text-white/70 transition hover:bg-white/12"
+        className="mb-4 inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/8 px-3 py-2 text-[11px] font-bold text-white/70 transition hover:bg-white/12"
       >
         <ArrowDown className="h-3.5 w-3.5 rotate-90" />
         Settings
       </button>
 
-      <h2 className="text-xl font-black tracking-tight text-white">{title}</h2>
-      {subtitle ? <p className="mt-1 text-xs leading-5 text-white/50">{subtitle}</p> : null}
+      <div className="rounded-b-[28px] border-b border-white/10 pb-4">
+        <h2 className="text-xl font-black tracking-tight text-white">{title}</h2>
+        {subtitle ? <p className="mt-1 text-xs leading-5 text-white/50">{subtitle}</p> : null}
+      </div>
+    </div>
+  );
+
+  const InfoTile = ({ label, value }) => (
+    <div className="rounded-2xl border border-white/10 bg-black/15 p-3">
+      <p className="text-[10px] font-black uppercase tracking-[0.16em] text-white/35">{label}</p>
+      <p className="mt-1 truncate text-sm font-black text-white">{value}</p>
     </div>
   );
 
@@ -3711,7 +3771,7 @@ function DashboardSettingsPanel({
     <div className="space-y-4">
       <DetailHeader
         title="Profile information"
-        subtitle="Keep your CLARA identity clean and recognizable."
+        subtitle="Manage how your CLARA profile appears across the app."
       />
 
       {renderNotice()}
@@ -3735,14 +3795,14 @@ function DashboardSettingsPanel({
             value={profileName}
             onChange={(event) => setProfileName(event.target.value)}
             placeholder="Enter your name"
-            className="w-full rounded-2xl border border-white/10 bg-black/18 px-4 py-3 text-sm font-semibold text-white outline-none placeholder:text-white/35 focus:border-emerald-300/35"
+            className="w-full rounded-2xl border border-white/10 bg-[#071120] px-4 py-3 text-sm font-semibold text-white caret-emerald-300 outline-none placeholder:text-white/35 focus:border-emerald-300/35"
           />
         </label>
 
         <div className="mt-4 rounded-2xl border border-white/10 bg-black/15 px-4 py-3">
           <p className="text-xs font-bold uppercase tracking-[0.14em] text-white/35">Email</p>
           <p className="mt-1 truncate text-sm font-semibold text-white">{user?.email || "No email found"}</p>
-          <p className="mt-1 text-[11px] text-white/40">Email changes should stay in full account settings for security.</p>
+          <p className="mt-1 text-[11px] text-white/40">For security, email is read-only inside dashboard settings.</p>
         </div>
 
         <button
@@ -3755,14 +3815,6 @@ function DashboardSettingsPanel({
           {savingProfile ? "Saving..." : "Save profile"}
         </button>
       </div>
-
-      <button
-        type="button"
-        onClick={() => openRoute("/settings/account")}
-        className="w-full rounded-2xl border border-white/10 bg-white/8 px-4 py-3 text-sm font-bold text-white/75 transition hover:bg-white/12"
-      >
-        Open full account settings
-      </button>
     </div>
   );
 
@@ -3793,13 +3845,12 @@ function DashboardSettingsPanel({
         ))}
       </div>
 
-      <button
-        type="button"
-        onClick={() => openRoute("/settings/notifications")}
-        className="w-full rounded-2xl border border-white/10 bg-white/8 px-4 py-3 text-sm font-bold text-white/75 transition hover:bg-white/12"
-      >
-        Open full notification settings
-      </button>
+      <div className="rounded-[24px] border border-white/10 bg-white/[0.035] p-4">
+        <p className="text-sm font-bold text-white">Delivery behavior</p>
+        <p className="mt-1 text-xs leading-5 text-white/45">
+          These preferences are saved on this device first. You can later move them to Supabase when you add a shared user settings table.
+        </p>
+      </div>
     </div>
   );
 
@@ -3807,7 +3858,7 @@ function DashboardSettingsPanel({
     <div className="space-y-4">
       <DetailHeader
         title="Plan & billing"
-        subtitle="Manage your access, enrollment, and payment flow."
+        subtitle="Manage your access, enrollment, and payment flow inside settings."
       />
 
       <div className="rounded-[30px] border border-emerald-400/20 bg-[radial-gradient(circle_at_top_left,rgba(16,185,129,0.18),transparent_35%),rgba(16,185,129,0.07)] p-5 shadow-[0_18px_50px_rgba(16,185,129,0.10)] backdrop-blur-xl">
@@ -3816,41 +3867,52 @@ function DashboardSettingsPanel({
         <p className="mt-1 text-sm text-white/58">{planStatusLabel} access level</p>
 
         <div className="mt-4 grid grid-cols-2 gap-2 text-center text-[11px]">
-          <div className="rounded-2xl border border-white/10 bg-black/15 p-3">
-            <p className="font-black text-white">{isPaid ? "Unlocked" : "Limited"}</p>
-            <p className="mt-1 text-white/40">Features</p>
-          </div>
-          <div className="rounded-2xl border border-white/10 bg-black/15 p-3">
-            <p className="font-black text-white">{currentPlan}</p>
-            <p className="mt-1 text-white/40">Tier</p>
-          </div>
+          <InfoTile label="Features" value={isPaid ? "Unlocked" : "Limited"} />
+          <InfoTile label="Tier" value={currentPlan} />
         </div>
       </div>
 
-      <div className="grid gap-3">
-        <button
-          type="button"
-          onClick={() => openRoute("/tier-select")}
-          className="w-full rounded-2xl bg-emerald-400 px-4 py-3 text-sm font-black text-slate-950 shadow-[0_12px_30px_rgba(16,185,129,0.22)]"
-        >
-          View plans / upgrade
-        </button>
+      <div className="space-y-3">
+        <p className="px-1 text-[11px] font-black uppercase tracking-[0.18em] text-white/35">
+          Available plans
+        </p>
 
-        <button
-          type="button"
-          onClick={() => openRoute("/enroll")}
-          className="w-full rounded-2xl border border-white/10 bg-white/8 px-4 py-3 text-sm font-bold text-white/75 transition hover:bg-white/12"
-        >
-          Enrollment and payment status
-        </button>
+        {planOptions.map((option) => {
+          const isCurrent =
+            normalizeLower(currentPlan).includes(normalizeLower(option.key)) ||
+            normalizeLower(currentPlan).includes(normalizeLower(option.title));
 
-        <button
-          type="button"
-          onClick={() => openRoute("/settings/billing")}
-          className="w-full rounded-2xl border border-white/10 bg-white/8 px-4 py-3 text-sm font-bold text-white/75 transition hover:bg-white/12"
-        >
-          Open full billing settings
-        </button>
+          return (
+            <div
+              key={option.key}
+              className={`rounded-[24px] border p-4 ${
+                isCurrent
+                  ? "border-emerald-400/25 bg-emerald-400/10"
+                  : "border-white/10 bg-white/[0.045]"
+              }`}
+            >
+              <div className="flex items-start justify-between gap-3">
+                <div>
+                  <p className="text-sm font-black text-white">{option.title}</p>
+                  <p className="mt-1 text-xs leading-5 text-white/45">{option.description}</p>
+                </div>
+                <div className="text-right">
+                  <p className="text-sm font-black text-white">{option.price}</p>
+                  {isCurrent ? (
+                    <p className="mt-1 text-[10px] font-black text-emerald-200">CURRENT</p>
+                  ) : null}
+                </div>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+
+      <div className="rounded-[24px] border border-white/10 bg-white/[0.035] p-4">
+        <p className="text-sm font-bold text-white">Payment status</p>
+        <p className="mt-1 text-xs leading-5 text-white/45">
+          Your active plan is shown here. Enrollment review, upgrade requests, and payment proof status can be connected here next from your enrollments table.
+        </p>
       </div>
     </div>
   );
@@ -3878,14 +3940,6 @@ function DashboardSettingsPanel({
 
       <button
         type="button"
-        onClick={() => openRoute("/settings/security")}
-        className="w-full rounded-2xl border border-white/10 bg-white/8 px-4 py-3 text-sm font-bold text-white/75 transition hover:bg-white/12"
-      >
-        Open full security settings
-      </button>
-
-      <button
-        type="button"
         onClick={clearLocalPreferences}
         className="flex w-full items-center justify-center gap-2 rounded-2xl border border-amber-300/20 bg-amber-400/10 px-4 py-3 text-sm font-bold text-amber-100 transition hover:bg-amber-400/15"
       >
@@ -3909,38 +3963,70 @@ function DashboardSettingsPanel({
     <div className="space-y-4">
       <DetailHeader
         title="Help & support"
-        subtitle="Get help without leaving your dashboard."
+        subtitle="Create a support note or jump to CLARA messages."
       />
 
-      <div className="rounded-[30px] border border-white/10 bg-white/[0.045] p-4 backdrop-blur-xl">
-        <p className="text-sm font-bold text-white">Need help?</p>
-        <p className="mt-1 text-xs leading-5 text-white/48">
-          Message CLARA support, open the full messages page, or send an email if you need manual assistance.
-        </p>
+      {renderNotice()}
+
+      <div className="rounded-[28px] border border-white/10 bg-white/[0.045] p-4 backdrop-blur-xl">
+        <label className="block space-y-2">
+          <span className="text-xs font-bold uppercase tracking-[0.14em] text-white/45">Topic</span>
+          <select
+            value={supportTopic}
+            onChange={(event) => setSupportTopic(event.target.value)}
+            className="w-full rounded-2xl border border-white/10 bg-[#071120] px-4 py-3 text-sm font-semibold text-white outline-none focus:border-emerald-300/35"
+          >
+            <option>Billing / enrollment</option>
+            <option>Technical issue</option>
+            <option>Account access</option>
+            <option>Feature request</option>
+            <option>Other concern</option>
+          </select>
+        </label>
+
+        <label className="mt-4 block space-y-2">
+          <span className="text-xs font-bold uppercase tracking-[0.14em] text-white/45">Message</span>
+          <textarea
+            value={supportMessage}
+            onChange={(event) => setSupportMessage(event.target.value)}
+            placeholder="Briefly describe what you need help with..."
+            className="min-h-[120px] w-full resize-none rounded-2xl border border-white/10 bg-[#071120] px-4 py-3 text-sm font-semibold text-white outline-none placeholder:text-white/35 focus:border-emerald-300/35"
+          />
+        </label>
+
+        <button
+          type="button"
+          onClick={handleSupportDraft}
+          className="mt-4 w-full rounded-2xl bg-emerald-400 px-4 py-3 text-sm font-black text-slate-950 shadow-[0_12px_30px_rgba(16,185,129,0.22)]"
+        >
+          Save support note
+        </button>
       </div>
+
+      {supportSent ? (
+        <div className="rounded-[24px] border border-emerald-300/20 bg-emerald-400/10 p-4">
+          <p className="text-sm font-bold text-emerald-100">Support note ready</p>
+          <p className="mt-1 text-xs leading-5 text-white/50">
+            Your note is saved on this device. Open CLARA support messages to continue the conversation.
+          </p>
+        </div>
+      ) : null}
 
       <button
         type="button"
         onClick={openSupportMessages}
-        className="w-full rounded-2xl bg-emerald-400 px-4 py-3 text-sm font-black text-slate-950 shadow-[0_12px_30px_rgba(16,185,129,0.22)]"
+        className="w-full rounded-2xl border border-white/10 bg-white/8 px-4 py-3 text-sm font-bold text-white/75 transition hover:bg-white/12"
       >
         Message CLARA support
       </button>
 
-      <button
-        type="button"
-        onClick={() => openRoute("/messages")}
-        className="w-full rounded-2xl border border-white/10 bg-white/8 px-4 py-3 text-sm font-bold text-white/75 transition hover:bg-white/12"
-      >
-        Open full messages page
-      </button>
-
-      <a
-        href="mailto:support@clara.app?subject=CLARA%20Support%20Request"
-        className="block w-full rounded-2xl border border-white/10 bg-white/8 px-4 py-3 text-center text-sm font-bold text-white/75 transition hover:bg-white/12"
-      >
-        Email support
-      </a>
+      <div className="rounded-[24px] border border-white/10 bg-white/[0.035] p-4">
+        <p className="text-sm font-bold text-white">Support email</p>
+        <p className="mt-1 select-all text-sm font-black text-emerald-100">{supportEmail}</p>
+        <p className="mt-1 text-xs leading-5 text-white/45">
+          This is shown for reference only so the settings page does not open another outside app.
+        </p>
+      </div>
     </div>
   );
 
@@ -3958,24 +4044,28 @@ function DashboardSettingsPanel({
         </p>
 
         <div className="mt-4 grid grid-cols-2 gap-2 text-center">
-          <div className="rounded-2xl border border-white/10 bg-black/15 p-3">
-            <p className="text-sm font-black text-white">v1</p>
-            <p className="mt-1 text-[11px] text-white/45">App version</p>
-          </div>
-          <div className="rounded-2xl border border-white/10 bg-black/15 p-3">
-            <p className="text-sm font-black text-white">Mobile</p>
-            <p className="mt-1 text-[11px] text-white/45">Optimized</p>
-          </div>
+          <InfoTile label="Version" value="v1" />
+          <InfoTile label="Experience" value="Mobile" />
         </div>
       </div>
 
-      <button
-        type="button"
-        onClick={() => openRoute("/settings/about")}
-        className="w-full rounded-2xl border border-white/10 bg-white/8 px-4 py-3 text-sm font-bold text-white/75 transition hover:bg-white/12"
-      >
-        Open full about page
-      </button>
+      <div className="rounded-[24px] border border-white/10 bg-white/[0.035] p-4">
+        <p className="text-sm font-bold text-white">Legal & information</p>
+        <p className="mt-1 text-xs leading-5 text-white/45">
+          Terms, privacy details, and build information can be rendered here directly so the user stays inside settings.
+        </p>
+      </div>
+
+      <div className="grid gap-2">
+        <div className="rounded-2xl border border-white/10 bg-white/6 px-4 py-3">
+          <p className="text-xs font-bold text-white">Terms of use</p>
+          <p className="mt-1 text-[11px] text-white/42">Coming inside CLARA settings.</p>
+        </div>
+        <div className="rounded-2xl border border-white/10 bg-white/6 px-4 py-3">
+          <p className="text-xs font-bold text-white">Privacy policy</p>
+          <p className="mt-1 text-[11px] text-white/42">Coming inside CLARA settings.</p>
+        </div>
+      </div>
     </div>
   );
 
@@ -4042,7 +4132,7 @@ function DashboardSettingsPanel({
 
       <div className="rounded-[28px] border border-white/10 bg-white/[0.035] px-4 py-3 text-center backdrop-blur-xl">
         <p className="text-[11px] font-semibold text-white/42">
-          CLARA Settings • Account, preferences, plan, support, and app info
+          CLARA Settings • Everything stays inside this dashboard panel
         </p>
       </div>
     </div>
