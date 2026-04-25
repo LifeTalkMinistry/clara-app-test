@@ -1,1 +1,281 @@
-/* removed override */
+/* ✅ Google Fonts (safe) */
+@import url("https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=Space+Grotesk:wght@400;500;600;700;800&display=swap");
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ================= BASE ================= */
+@layer base {
+  :root {
+    --font-heading: "Space Grotesk", sans-serif;
+    --font-body: "Inter", sans-serif;
+    --theme-background: #041120;
+    --theme-surface: #07182d;
+    --theme-card: #0a2038;
+    --theme-card-alt: #10294a;
+    --theme-primary: #57a8ff;
+    --theme-secondary: #ff5b73;
+    --theme-accent: #2ef6de;
+    --theme-danger: #ff7288;
+    --theme-success: #3ef4a5;
+    --theme-warning: #ffcc67;
+    --theme-text: #f9fbff;
+    --theme-muted-text: #9eb3c8;
+    --theme-border: #1789d5;
+    --theme-glow: #20d8ff;
+    --theme-bottom-nav: linear-gradient(180deg, rgba(8, 22, 44, 0.97) 0%, rgba(5, 15, 30, 0.94) 100%);
+    --theme-top-nav: linear-gradient(135deg, rgba(11, 44, 102, 0.96) 0%, rgba(26, 53, 122, 0.92) 48%, rgba(145, 26, 40, 0.88) 100%);
+    --theme-gradient-hero: linear-gradient(135deg, rgba(8, 41, 103, 0.97) 0%, rgba(24, 53, 126, 0.94) 46%, rgba(163, 27, 45, 0.88) 100%);
+    --theme-gradient-card: linear-gradient(135deg, rgba(8, 32, 82, 0.95) 0%, rgba(21, 39, 91, 0.93) 46%, rgba(132, 18, 36, 0.9) 100%);
+    --theme-gradient-expense: linear-gradient(135deg, rgba(42, 21, 86, 0.95) 0%, rgba(105, 22, 44, 0.92) 100%);
+    --theme-gradient-money: linear-gradient(135deg, rgba(13, 54, 126, 0.96) 0%, rgba(28, 52, 120, 0.92) 54%, rgba(54, 31, 112, 0.9) 100%);
+    --theme-gradient-emergency: linear-gradient(135deg, rgba(8, 42, 98, 0.96) 0%, rgba(20, 37, 85, 0.94) 48%, rgba(130, 18, 38, 0.9) 100%);
+
+    /* CLARA THEME */
+    --background: 222 84% 5%;
+    --foreground: 0 0% 100%;
+
+    --card: 220 39% 11%;
+    --card-foreground: 0 0% 100%;
+
+    --popover: 220 39% 11%;
+    --popover-foreground: 0 0% 100%;
+
+    --primary: 142 71% 45%;
+    --primary-foreground: 0 0% 100%;
+
+    --secondary: 48 96% 53%;
+    --secondary-foreground: 220 30% 10%;
+
+    --muted: 217 33% 17%;
+    --muted-foreground: 215 20% 65%;
+
+    --accent: 199 89% 48%;
+    --accent-foreground: 0 0% 100%;
+
+    --destructive: 0 84% 58%;
+    --destructive-foreground: 0 0% 98%;
+
+    --border: 217 33% 22%;
+    --input: 217 33% 18%;
+    --ring: 142 71% 45%;
+
+    --radius: 0.875rem;
+
+    --yellow: 48 96% 53%;
+    --navy: 222 84% 5%;
+  }
+
+  * {
+    @apply border-border outline-ring/50;
+  }
+
+  html, body {
+    height: 100%;
+  }
+
+  body {
+    @apply bg-background text-foreground;
+    font-family: var(--font-body);
+
+    /* ✅ CLEAN GRADIENT (no weird black artifacts) */
+    background:
+      radial-gradient(circle at top, color-mix(in srgb, var(--theme-accent) 18%, transparent), transparent 34%),
+      radial-gradient(circle at bottom right, color-mix(in srgb, var(--theme-secondary) 16%, transparent), transparent 38%),
+      linear-gradient(180deg, color-mix(in srgb, var(--theme-background) 96%, black 4%) 0%, var(--theme-background) 48%, color-mix(in srgb, var(--theme-surface) 74%, black 26%) 100%);
+    
+    min-height: 100vh;
+    color: var(--theme-text);
+    overflow-x: hidden; /* ✅ prevent side scroll bug */
+  }
+}
+
+/* ================= SCROLLBAR ================= */
+::-webkit-scrollbar {
+  width: 4px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: hsl(145 60% 36% / 0.25);
+  border-radius: 4px;
+}
+
+/* ================= CARD GLOW ================= */
+.card-glow-green {
+  box-shadow: 0 4px 24px hsl(142 71% 45% / 0.18),
+              0 1px 4px hsl(142 71% 45% / 0.1);
+}
+
+.card-glow-yellow {
+  box-shadow: 0 4px 24px hsl(48 96% 53% / 0.22),
+              0 1px 4px hsl(48 96% 53% / 0.12);
+}
+
+.card-glow-blue {
+  box-shadow: 0 4px 24px hsl(199 89% 48% / 0.18),
+              0 1px 4px hsl(199 89% 48% / 0.1);
+}
+
+/* ================= GRADIENTS ================= */
+.grad-green {
+  background: linear-gradient(135deg, #020617 0%, #15803d 55%, #0ea5e9 100%);
+}
+
+.grad-yellow {
+  background: linear-gradient(135deg, #facc15 0%, #d9f99d 100%);
+}
+
+.grad-lime {
+  background: linear-gradient(135deg, #d9f99d 0%, #22c55e 100%);
+}
+
+.grad-blue {
+  background: linear-gradient(135deg, #0ea5e9 0%, #2563eb 100%);
+}
+
+.grad-green-blue {
+  background: linear-gradient(135deg, #15803d 0%, #0ea5e9 100%);
+}
+
+/* ================= CARD SURFACES ================= */
+.grad-card {
+  background: linear-gradient(
+    180deg,
+    rgba(15, 23, 42, 0.92) 0%,
+    rgba(10, 15, 28, 0.98) 100%
+  );
+  border: 1px solid hsl(217 33% 22%);
+  color: white;
+}
+
+.clara-card {
+  background: linear-gradient(
+    180deg,
+    rgba(15, 23, 42, 0.9) 0%,
+    rgba(2, 6, 23, 0.96) 100%
+  );
+  border: 1px solid rgba(34, 197, 94, 0.14);
+  backdrop-filter: blur(10px);
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.28);
+  color: white;
+}
+
+.clara-card-soft {
+  background: rgba(15, 23, 42, 0.72);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  backdrop-filter: blur(8px);
+  color: white;
+}
+
+/* ================= INPUT ================= */
+.clara-input {
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid hsl(217 33% 22%);
+  color: white;
+}
+
+.clara-input::placeholder {
+  color: rgba(255, 255, 255, 0.45);
+}
+
+/* ================= PROGRESS ================= */
+.progress-bar {
+  transition: width 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.theme-page-shell {
+  background:
+    radial-gradient(circle at top left, color-mix(in srgb, var(--theme-primary) 16%, transparent), transparent 34%),
+    radial-gradient(circle at top right, color-mix(in srgb, var(--theme-secondary) 14%, transparent), transparent 30%),
+    radial-gradient(circle at bottom, color-mix(in srgb, var(--theme-accent) 12%, transparent), transparent 36%),
+    linear-gradient(180deg, color-mix(in srgb, var(--theme-background) 94%, black 6%) 0%, var(--theme-background) 48%, color-mix(in srgb, var(--theme-surface) 72%, black 28%) 100%);
+}
+
+.theme-shell-card {
+  border: 1px solid color-mix(in srgb, var(--theme-border) 26%, transparent);
+  background: color-mix(in srgb, var(--theme-card) 92%, transparent);
+  box-shadow:
+    0 22px 64px rgba(0, 0, 0, 0.28),
+    0 0 0 1px color-mix(in srgb, var(--theme-border) 12%, transparent) inset;
+  backdrop-filter: blur(18px);
+}
+
+.theme-panel-card {
+  border: 1px solid color-mix(in srgb, var(--theme-border) 22%, transparent);
+  background: linear-gradient(
+    180deg,
+    color-mix(in srgb, var(--theme-card) 94%, transparent) 0%,
+    color-mix(in srgb, var(--theme-card-alt) 94%, transparent) 100%
+  );
+  box-shadow: 0 18px 48px rgba(0, 0, 0, 0.22);
+  backdrop-filter: blur(18px);
+}
+
+.theme-soft-card {
+  border: 1px solid color-mix(in srgb, var(--theme-border) 18%, transparent);
+  background: color-mix(in srgb, var(--theme-card-alt) 86%, transparent);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05);
+  backdrop-filter: blur(14px);
+}
+
+.theme-modal-card {
+  border: 1px solid color-mix(in srgb, var(--theme-border) 28%, transparent);
+  background: linear-gradient(
+    180deg,
+    color-mix(in srgb, var(--theme-card) 96%, black 4%) 0%,
+    color-mix(in srgb, var(--theme-card-alt) 94%, black 6%) 100%
+  );
+  box-shadow:
+    0 28px 80px rgba(0, 0, 0, 0.42),
+    0 0 0 1px color-mix(in srgb, var(--theme-border) 12%, transparent) inset;
+  backdrop-filter: blur(20px);
+}
+
+.theme-glass-button {
+  border: 1px solid color-mix(in srgb, var(--theme-border) 32%, transparent);
+  background: color-mix(in srgb, var(--theme-card-alt) 88%, white 12%);
+  color: var(--theme-text);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.08),
+    0 12px 28px rgba(0, 0, 0, 0.18);
+  transition:
+    transform 0.18s ease,
+    background-color 0.18s ease,
+    border-color 0.18s ease,
+    box-shadow 0.18s ease;
+}
+
+.theme-glass-button:hover {
+  background: color-mix(in srgb, var(--theme-card-alt) 74%, white 26%);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.12),
+    0 16px 34px rgba(0, 0, 0, 0.24);
+}
+
+.theme-glass-button:active {
+  transform: scale(0.985);
+}
+
+.theme-gradient-button {
+  background: linear-gradient(
+    135deg,
+    color-mix(in srgb, var(--theme-secondary) 84%, white 16%) 0%,
+    color-mix(in srgb, var(--theme-primary) 84%, white 16%) 100%
+  );
+  color: white;
+  box-shadow: 0 18px 38px color-mix(in srgb, var(--theme-glow) 28%, transparent);
+}
+
+.theme-input {
+  border: 1px solid color-mix(in srgb, var(--theme-border) 24%, transparent);
+  background: color-mix(in srgb, var(--theme-card-alt) 84%, transparent);
+  color: var(--theme-text);
+  backdrop-filter: blur(10px);
+}
+
+.theme-input::placeholder {
+  color: color-mix(in srgb, var(--theme-muted-text) 88%, transparent);
+}
