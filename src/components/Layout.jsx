@@ -7,9 +7,14 @@ import AdsModal from "./AdsModal";
 import ClaraAssistantPanel from "@/components/ai/ClaraAssistantPanel";
 import useUserRole from "../hooks/useUserRole";
 
+const MOTION_TRANSITION_KEY = "clara_motion_transition_origin";
 const TRANSACTION_TRANSITION_KEY = "clara_transactions_transition_origin";
+const MOTION_TARGET_KEY = "clara_motion_target_path";
 const TRANSACTION_HINT_KEY = "clara_transactions_swipe_hint_seen_count";
-const TRANSACTION_HINT_LIMIT = 3;
+const ANALYTICS_HINT_KEY = "clara_analytics_swipe_hint_seen_count";
+const HINT_LIMIT = 3;
+const LONG_PRESS_MS = 520;
+const LONG_PRESS_MOVE_TOLERANCE = 12;
 
 function getAppLoginUrl() {
   return `${window.location.origin}/clara-app-test/#/login`;
@@ -23,11 +28,24 @@ function isTransactionsPath(pathname) {
   return pathname === "/expenses" || pathname.startsWith("/expenses/");
 }
 
+function isAnalyticsPath(pathname) {
+  return pathname === "/analytics" || pathname.startsWith("/analytics/");
+}
+
+function isMotionPage(pathname) {
+  return isTransactionsPath(pathname) || isAnalyticsPath(pathname);
+}
+
+function getHintKey(pathname) {
+  return isAnalyticsPath(pathname) ? ANALYTICS_HINT_KEY : TRANSACTION_HINT_KEY;
+}
+
 function isStandaloneFocusPage(pathname) {
   return (
     pathname === "/profile" ||
     isSettingsPath(pathname) ||
-    isTransactionsPath(pathname)
+    isTransactionsPath(pathname) ||
+    isAnalyticsPath(pathname)
   );
 }
 
@@ -81,55 +99,55 @@ function buildTransitionStyle(origin, dragY = 0) {
 
 function readStoredTransitionOrigin() {
   try {
-    const raw = sessionStorage.getItem(TRANSACTION_TRANSITION_KEY);
+    const raw =
+      sessionStorage.getItem(MOTION_TRANSITION_KEY) ||
+      sessionStorage.getItem(TRANSACTION_TRANSITION_KEY);
     if (!raw) return getFallbackTransitionOrigin();
     return normalizeTransitionOrigin(JSON.parse(raw));
   } catch (error) {
-    console.error("Failed to read transaction transition origin:", error);
+    console.error("Failed to read motion transition origin:", error);
     return getFallbackTransitionOrigin();
   }
 }
 
-function storeTransitionOriginFromElement(element) {
+function storeTransitionOriginFromElement(element, targetPath = "/expenses") {
   if (!element) return;
 
   try {
     const rect = element.getBoundingClientRect();
-    sessionStorage.setItem(
-      TRANSACTION_TRANSITION_KEY,
-      JSON.stringify({
-        x: rect.left,
-        y: rect.top,
-        width: rect.width,
-        height: rect.height,
-      })
-    );
+    const payload = JSON.stringify({
+      x: rect.left,
+      y: rect.top,
+      width: rect.width,
+      height: rect.height,
+    });
+
+    sessionStorage.setItem(MOTION_TRANSITION_KEY, payload);
+    sessionStorage.setItem(TRANSACTION_TRANSITION_KEY, payload);
+    sessionStorage.setItem(MOTION_TARGET_KEY, targetPath);
   } catch (error) {
-    console.error("Failed to store transaction transition origin:", error);
+    console.error("Failed to store motion transition origin:", error);
   }
 }
 
-function shouldShowSwipeHint() {
+function shouldShowSwipeHint(hintKey) {
   try {
-    const count = Number(localStorage.getItem(TRANSACTION_HINT_KEY) || 0);
+    const count = Number(localStorage.getItem(hintKey) || 0);
     if (!Number.isFinite(count) || count < 0) return true;
-    return count < TRANSACTION_HINT_LIMIT;
+    return count < HINT_LIMIT;
   } catch (error) {
-    console.error("Failed to read transaction hint count:", error);
+    console.error("Failed to read swipe hint count:", error);
     return true;
   }
 }
 
-function markSwipeHintSeen() {
+function markSwipeHintSeen(hintKey) {
   try {
-    const count = Number(localStorage.getItem(TRANSACTION_HINT_KEY) || 0);
+    const count = Number(localStorage.getItem(hintKey) || 0);
     const safeCount = Number.isFinite(count) && count >= 0 ? count : 0;
-    localStorage.setItem(
-      TRANSACTION_HINT_KEY,
-      String(Math.min(safeCount + 1, TRANSACTION_HINT_LIMIT))
-    );
+    localStorage.setItem(hintKey, String(Math.min(safeCount + 1, HINT_LIMIT)));
   } catch (error) {
-    console.error("Failed to save transaction hint count:", error);
+    console.error("Failed to save swipe hint count:", error);
   }
 }
 
@@ -139,28 +157,33 @@ function rubberBandDistance(distance) {
   return (distance * viewportHeight * 0.72) / (viewportHeight * 0.72 + distance);
 }
 
-function isExpensesTarget(element) {
+function isFinanceCardTarget(element) {
   if (!element) return false;
 
   const hrefElement = element.closest?.("a[href]");
   const href = hrefElement?.getAttribute?.("href") || "";
-  if (href.includes("/expenses")) return true;
+  if (href.includes("/expenses") || href.includes("/analytics")) return true;
 
   const text = String(element.textContent || "").toLowerCase();
   return (
     text.includes("money left") ||
     text.includes("total expense") ||
     text.includes("over budget") ||
-    text.includes("pause extra spending")
+    text.includes("pause extra spending") ||
+    text.includes("analytics") ||
+    text.includes("insights")
   );
 }
 
-function findTransactionCardElement(element) {
+function findFinanceCardElement(element) {
   if (!element?.closest) return element;
 
   return (
     element.closest("[data-transaction-card]") ||
+    element.closest("[data-analytics-card]") ||
+    element.closest("[data-finance-card]") ||
     element.closest("a[href*='/expenses']") ||
+    element.closest("a[href*='/analytics']") ||
     element.closest("button") ||
     element.closest(".rounded-[30px]") ||
     element.closest(".rounded-[28px]") ||
@@ -179,26 +202,32 @@ export default function Layout({ children }) {
   const touchStartTimeRef = useRef(0);
   const touchLastYRef = useRef(0);
   const touchLastTimeRef = useRef(0);
+  const longPressTimerRef = useRef(null);
+  const longPressStartRef = useRef(null);
+  const longPressTriggeredRef = useRef(false);
 
   const [quickAddOpen, setQuickAddOpen] = useState(false);
   const [adsModalOpen, setAdsModalOpen] = useState(false);
   const [assistantOpen, setAssistantOpen] = useState(false);
   const [assistantMode, setAssistantMode] = useState("voice");
-  const [transactionsClosing, setTransactionsClosing] = useState(false);
+  const [motionClosing, setMotionClosing] = useState(false);
   const [transitionOrigin, setTransitionOrigin] = useState(null);
   const [showSwipeHint, setShowSwipeHint] = useState(false);
   const [dragY, setDragY] = useState(0);
-  const [isDraggingTransactions, setIsDraggingTransactions] = useState(false);
-  const [isReboundingTransactions, setIsReboundingTransactions] = useState(false);
+  const [isDraggingMotion, setIsDraggingMotion] = useState(false);
+  const [isReboundingMotion, setIsReboundingMotion] = useState(false);
 
   const { user, loading = false } = useUserRole() || {};
 
   const isDashboard = location.pathname === "/dashboard";
-  const isTransactionsPage = isTransactionsPath(location.pathname);
+  const activeMotionPage = isMotionPage(location.pathname);
   const hideMobileControlCenter = isStandaloneFocusPage(location.pathname) || isDashboard;
 
   const dragProgress = useMemo(() => Math.min(Math.max(dragY / 360, 0), 1), [dragY]);
   const overlayOpacity = Math.max(0.18, 1 - dragProgress * 0.78);
+  const hintLabel = isAnalyticsPath(location.pathname)
+    ? "Swipe down to return from analytics"
+    : "Swipe down to go back";
 
   const openAssistant = useCallback((mode = "voice") => {
     setAssistantMode(mode || "voice");
@@ -209,34 +238,43 @@ export default function Layout({ children }) {
     setQuickAddOpen(true);
   }, []);
 
+  const clearLongPressTimer = useCallback(() => {
+    if (longPressTimerRef.current) {
+      window.clearTimeout(longPressTimerRef.current);
+      longPressTimerRef.current = null;
+    }
+  }, []);
+
   const handleBackToDashboard = useCallback((options = {}) => {
-    if (transactionsClosing) return;
+    if (motionClosing) return;
 
     setShowSwipeHint(false);
-    setIsDraggingTransactions(false);
-    setIsReboundingTransactions(false);
+    setIsDraggingMotion(false);
+    setIsReboundingMotion(false);
     setTransitionOrigin(readStoredTransitionOrigin());
-    setTransactionsClosing(true);
+    setMotionClosing(true);
 
     const closeDelay = options.fast ? 260 : 380;
     window.setTimeout(() => {
       setDragY(0);
       navigate("/dashboard");
-      setTransactionsClosing(false);
+      setMotionClosing(false);
     }, closeDelay);
-  }, [navigate, transactionsClosing]);
+  }, [navigate, motionClosing]);
 
   useEffect(() => {
-    if (isTransactionsPage) {
+    if (activeMotionPage) {
       setTransitionOrigin(readStoredTransitionOrigin());
       setDragY(0);
-      setIsDraggingTransactions(false);
-      setIsReboundingTransactions(false);
-      const canShowHint = shouldShowSwipeHint();
+      setIsDraggingMotion(false);
+      setIsReboundingMotion(false);
+
+      const hintKey = getHintKey(location.pathname);
+      const canShowHint = shouldShowSwipeHint(hintKey);
       setShowSwipeHint(canShowHint);
 
       if (canShowHint) {
-        markSwipeHintSeen();
+        markSwipeHintSeen(hintKey);
         const hideTimer = window.setTimeout(() => {
           setShowSwipeHint(false);
         }, 2600);
@@ -246,31 +284,94 @@ export default function Layout({ children }) {
     } else {
       setShowSwipeHint(false);
       setDragY(0);
-      setIsDraggingTransactions(false);
-      setIsReboundingTransactions(false);
+      setIsDraggingMotion(false);
+      setIsReboundingMotion(false);
     }
 
-    setTransactionsClosing(false);
+    setMotionClosing(false);
     return undefined;
-  }, [isTransactionsPage, location.pathname]);
+  }, [activeMotionPage, location.pathname]);
 
   useEffect(() => {
     if (!isDashboard) return undefined;
 
-    const captureTransactionOrigin = (event) => {
+    const captureFinanceOrigin = (event) => {
       const target = event.target;
-      if (!isExpensesTarget(target)) return;
+      if (!isFinanceCardTarget(target)) return;
 
-      const cardElement = findTransactionCardElement(target);
-      storeTransitionOriginFromElement(cardElement);
+      const hrefElement = target.closest?.("a[href]");
+      const href = hrefElement?.getAttribute?.("href") || "";
+      const targetPath = href.includes("/analytics") ? "/analytics" : "/expenses";
+      const cardElement = findFinanceCardElement(target);
+      storeTransitionOriginFromElement(cardElement, targetPath);
     };
 
-    document.addEventListener("click", captureTransactionOrigin, true);
+    const startLongPress = (event) => {
+      const target = event.target;
+      if (!isFinanceCardTarget(target)) return;
+
+      clearLongPressTimer();
+      longPressTriggeredRef.current = false;
+      longPressStartRef.current = {
+        x: event.clientX,
+        y: event.clientY,
+        target,
+      };
+
+      longPressTimerRef.current = window.setTimeout(() => {
+        const cardElement = findFinanceCardElement(target);
+        storeTransitionOriginFromElement(cardElement, "/analytics");
+        longPressTriggeredRef.current = true;
+        setShowSwipeHint(false);
+        navigate("/analytics");
+      }, LONG_PRESS_MS);
+    };
+
+    const moveLongPress = (event) => {
+      if (!longPressStartRef.current) return;
+      const dx = Math.abs(event.clientX - longPressStartRef.current.x);
+      const dy = Math.abs(event.clientY - longPressStartRef.current.y);
+      if (dx > LONG_PRESS_MOVE_TOLERANCE || dy > LONG_PRESS_MOVE_TOLERANCE) {
+        clearLongPressTimer();
+      }
+    };
+
+    const endLongPress = (event) => {
+      clearLongPressTimer();
+      longPressStartRef.current = null;
+
+      if (longPressTriggeredRef.current) {
+        event.preventDefault();
+        event.stopPropagation();
+        window.setTimeout(() => {
+          longPressTriggeredRef.current = false;
+        }, 80);
+      }
+    };
+
+    const blockClickAfterLongPress = (event) => {
+      if (!longPressTriggeredRef.current) return;
+      event.preventDefault();
+      event.stopPropagation();
+    };
+
+    document.addEventListener("click", captureFinanceOrigin, true);
+    document.addEventListener("pointerdown", startLongPress, true);
+    document.addEventListener("pointermove", moveLongPress, true);
+    document.addEventListener("pointerup", endLongPress, true);
+    document.addEventListener("pointercancel", endLongPress, true);
+    document.addEventListener("click", blockClickAfterLongPress, true);
 
     return () => {
-      document.removeEventListener("click", captureTransactionOrigin, true);
+      clearLongPressTimer();
+      document.removeEventListener("click", captureFinanceOrigin, true);
+      document.removeEventListener("pointerdown", startLongPress, true);
+      document.removeEventListener("pointermove", moveLongPress, true);
+      document.removeEventListener("pointerup", endLongPress, true);
+      document.removeEventListener("pointercancel", endLongPress, true);
+      document.removeEventListener("click", blockClickAfterLongPress, true);
     };
-  }, [isDashboard]);
+  }, [clearLongPressTimer, isDashboard, navigate]);
 
   useEffect(() => {
     const handleAssistantOpen = (event) => {
@@ -303,8 +404,8 @@ export default function Layout({ children }) {
     }
   }, []);
 
-  const handleTransactionsTouchStart = useCallback((event) => {
-    if (!isTransactionsPage || transactionsClosing) return;
+  const handleMotionTouchStart = useCallback((event) => {
+    if (!activeMotionPage || motionClosing) return;
     const touch = event.touches?.[0];
     if (!touch) return;
 
@@ -314,11 +415,11 @@ export default function Layout({ children }) {
     touchStartTimeRef.current = Date.now();
     touchLastYRef.current = touch.clientY;
     touchLastTimeRef.current = Date.now();
-    setIsReboundingTransactions(false);
-  }, [isTransactionsPage, transactionsClosing]);
+    setIsReboundingMotion(false);
+  }, [activeMotionPage, motionClosing]);
 
-  const handleTransactionsTouchMove = useCallback((event) => {
-    if (!isTransactionsPage || transactionsClosing) return;
+  const handleMotionTouchMove = useCallback((event) => {
+    if (!activeMotionPage || motionClosing) return;
     if (touchStartYRef.current === null || touchStartXRef.current === null) return;
 
     const touch = event.touches?.[0];
@@ -335,13 +436,13 @@ export default function Layout({ children }) {
     if (!startedAtTop || !isPullingDown) return;
 
     setShowSwipeHint(false);
-    setIsDraggingTransactions(true);
-    setIsReboundingTransactions(false);
+    setIsDraggingMotion(true);
+    setIsReboundingMotion(false);
     setDragY(rubberBandDistance(rawDeltaY));
-  }, [isTransactionsPage, transactionsClosing]);
+  }, [activeMotionPage, motionClosing]);
 
-  const handleTransactionsTouchEnd = useCallback((event) => {
-    if (!isTransactionsPage || transactionsClosing) return;
+  const handleMotionTouchEnd = useCallback((event) => {
+    if (!activeMotionPage || motionClosing) return;
     if (touchStartYRef.current === null || touchStartXRef.current === null) return;
 
     const touch = event.changedTouches?.[0];
@@ -374,20 +475,20 @@ export default function Layout({ children }) {
       return;
     }
 
-    if (isDraggingTransactions || dragY > 0) {
-      setIsDraggingTransactions(false);
-      setIsReboundingTransactions(true);
+    if (isDraggingMotion || dragY > 0) {
+      setIsDraggingMotion(false);
+      setIsReboundingMotion(true);
       setDragY(0);
       window.setTimeout(() => {
-        setIsReboundingTransactions(false);
+        setIsReboundingMotion(false);
       }, 260);
     }
-  }, [dragY, handleBackToDashboard, isDraggingTransactions, isTransactionsPage, transactionsClosing]);
+  }, [activeMotionPage, dragY, handleBackToDashboard, isDraggingMotion, motionClosing]);
 
   return (
     <div className="theme-page-shell flex h-screen overflow-hidden text-white">
       <style>{`
-        @keyframes claraTransactionsExpandIn {
+        @keyframes claraMotionExpandIn {
           0% {
             opacity: 0.42;
             transform: translate3d(var(--clara-origin-x), var(--clara-origin-y), 0) scale(var(--clara-origin-scale-x), var(--clara-origin-scale-y)) rotateX(62deg);
@@ -418,10 +519,10 @@ export default function Layout({ children }) {
           }
         }
 
-        @keyframes claraTransactionsCollapseOut {
+        @keyframes claraMotionCollapseOut {
           0% {
             opacity: 1;
-            transform: translate3d(var(--clara-drag-y, 0), 0, 0) scale(1, 1) rotateX(0deg);
+            transform: translate3d(0, var(--clara-drag-y, 0), 0) scale(var(--clara-drag-scale, 1)) rotateX(0deg);
             border-radius: var(--clara-drag-radius, 0px);
             filter: blur(0px) saturate(1);
           }
@@ -455,7 +556,7 @@ export default function Layout({ children }) {
           100% { opacity: 1; transform: translateY(0); }
         }
 
-        .clara-transactions-stage {
+        .clara-motion-stage {
           transform-origin: center center;
           backface-visibility: hidden;
           perspective: 1600px;
@@ -466,15 +567,15 @@ export default function Layout({ children }) {
           touch-action: pan-y;
         }
 
-        .clara-transactions-stage-in {
-          animation: claraTransactionsExpandIn 680ms cubic-bezier(.16,.92,.22,1) both;
+        .clara-motion-stage-in {
+          animation: claraMotionExpandIn 680ms cubic-bezier(.16,.92,.22,1) both;
         }
 
-        .clara-transactions-stage-in > * {
+        .clara-motion-stage-in > * {
           animation: claraContentSettle 780ms cubic-bezier(.16,.92,.22,1) both;
         }
 
-        .clara-transactions-stage-dragging {
+        .clara-motion-stage-dragging {
           animation: none !important;
           transform: translate3d(0, var(--clara-drag-y), 0) scale(var(--clara-drag-scale)) rotateX(calc(var(--clara-drag-y) * .025deg));
           border-radius: var(--clara-drag-radius);
@@ -482,19 +583,19 @@ export default function Layout({ children }) {
           transition: none;
         }
 
-        .clara-transactions-stage-rebound {
+        .clara-motion-stage-rebound {
           animation: none !important;
           transform: translate3d(0, 0, 0) scale(1) rotateX(0deg);
           border-radius: 0px;
           transition: transform 260ms cubic-bezier(.18,.9,.24,1), border-radius 260ms cubic-bezier(.18,.9,.24,1), box-shadow 260ms ease;
         }
 
-        .clara-transactions-stage-out {
-          animation: claraTransactionsCollapseOut 380ms cubic-bezier(.4,0,.2,1) both;
+        .clara-motion-stage-out {
+          animation: claraMotionCollapseOut 380ms cubic-bezier(.4,0,.2,1) both;
           pointer-events: none;
         }
 
-        .clara-transactions-overlay {
+        .clara-motion-overlay {
           animation: claraOverlayIn 360ms ease-out both;
           background:
             radial-gradient(circle at 50% 20%, rgba(255,255,255,0.08), transparent 30%),
@@ -502,11 +603,11 @@ export default function Layout({ children }) {
           transition: opacity 120ms linear, backdrop-filter 120ms linear;
         }
 
-        .clara-transactions-overlay-out {
+        .clara-motion-overlay-out {
           animation: claraOverlayOut 380ms ease-in both;
         }
 
-        .clara-transactions-hint {
+        .clara-motion-hint {
           animation: claraHintInOut 2600ms ease both;
         }
       `}</style>
@@ -517,45 +618,45 @@ export default function Layout({ children }) {
         </div>
       )}
 
-      {isTransactionsPage && (
+      {activeMotionPage && (
         <div
-          style={!transactionsClosing ? { opacity: overlayOpacity } : undefined}
-          className={`pointer-events-none fixed inset-0 z-20 clara-transactions-overlay ${
-            transactionsClosing ? "clara-transactions-overlay-out" : ""
+          style={!motionClosing ? { opacity: overlayOpacity } : undefined}
+          className={`pointer-events-none fixed inset-0 z-20 clara-motion-overlay ${
+            motionClosing ? "clara-motion-overlay-out" : ""
           }`}
         />
       )}
 
-      {isTransactionsPage && (
+      {activeMotionPage && (
         <div
           className="pointer-events-none fixed left-1/2 top-[calc(env(safe-area-inset-top)+0.75rem)] z-40 h-1.5 w-12 -translate-x-1/2 rounded-full bg-[color:var(--theme-text)]/35 transition-opacity duration-150"
           style={{ opacity: Math.max(0.18, 1 - dragProgress * 1.4) }}
         />
       )}
 
-      {isTransactionsPage && showSwipeHint && !transactionsClosing && !isDraggingTransactions && (
-        <div className="clara-transactions-hint pointer-events-none fixed left-1/2 top-[calc(env(safe-area-inset-top)+2.05rem)] z-40 -translate-x-1/2 rounded-full border border-[color:var(--theme-border)] bg-[color:var(--theme-card)]/45 px-3.5 py-1.5 text-[11px] font-medium tracking-wide text-[color:var(--theme-text)]/50 shadow-[0_12px_32px_rgba(0,0,0,0.18)] backdrop-blur-xl">
-          Swipe down to go back
+      {activeMotionPage && showSwipeHint && !motionClosing && !isDraggingMotion && (
+        <div className="clara-motion-hint pointer-events-none fixed left-1/2 top-[calc(env(safe-area-inset-top)+2.05rem)] z-40 -translate-x-1/2 rounded-full border border-[color:var(--theme-border)] bg-[color:var(--theme-card)]/45 px-3.5 py-1.5 text-[11px] font-medium tracking-wide text-[color:var(--theme-text)]/50 shadow-[0_12px_32px_rgba(0,0,0,0.18)] backdrop-blur-xl">
+          {hintLabel}
         </div>
       )}
 
       <div className="relative flex min-w-0 flex-1 flex-col">
         <main
-          onTouchStart={handleTransactionsTouchStart}
-          onTouchMove={handleTransactionsTouchMove}
-          onTouchEnd={handleTransactionsTouchEnd}
-          onTouchCancel={handleTransactionsTouchEnd}
-          style={isTransactionsPage ? buildTransitionStyle(transitionOrigin, dragY) : undefined}
+          onTouchStart={handleMotionTouchStart}
+          onTouchMove={handleMotionTouchMove}
+          onTouchEnd={handleMotionTouchEnd}
+          onTouchCancel={handleMotionTouchEnd}
+          style={activeMotionPage ? buildTransitionStyle(transitionOrigin, dragY) : undefined}
           className={`flex-1 overflow-y-auto pb-24 pt-3 ${
-            isTransactionsPage
-              ? `clara-transactions-stage ${
-                  transactionsClosing
-                    ? "clara-transactions-stage-out"
-                    : isDraggingTransactions
-                      ? "clara-transactions-stage-dragging"
-                      : isReboundingTransactions
-                        ? "clara-transactions-stage-rebound"
-                        : "clara-transactions-stage-in"
+            activeMotionPage
+              ? `clara-motion-stage ${
+                  motionClosing
+                    ? "clara-motion-stage-out"
+                    : isDraggingMotion
+                      ? "clara-motion-stage-dragging"
+                      : isReboundingMotion
+                        ? "clara-motion-stage-rebound"
+                        : "clara-motion-stage-in"
                 }`
               : ""
           }`}
