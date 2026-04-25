@@ -66,7 +66,7 @@ export default function QuickCircle({ onQuickAdd, onOpenAssistant }) {
         />
       )}
 
-      <div className="relative flex h-[3.6rem] w-[3.6rem] items-center justify-center">
+      <div className="relative flex h-[3.8rem] w-[3.8rem] items-center justify-center">
 
         <span
           className="absolute inset-[-0.7rem] rounded-full blur-xl"
@@ -81,7 +81,7 @@ export default function QuickCircle({ onQuickAdd, onOpenAssistant }) {
           onPointerUp={handlePointerUp}
           onPointerCancel={clearLongPressTimer}
           onPointerLeave={clearLongPressTimer}
-          className="pointer-events-auto relative flex h-[3.6rem] w-[3.6rem] items-center justify-center rounded-full border border-white/20 backdrop-blur-xl active:scale-95"
+          className="pointer-events-auto relative flex h-[3.8rem] w-[3.8rem] items-center justify-center rounded-full border border-white/20 backdrop-blur-xl active:scale-95"
           style={{
             background:
               "radial-gradient(circle at 30% 30%, rgba(255,255,255,0.15), transparent 35%), radial-gradient(circle, color-mix(in srgb, var(--theme-primary) 55%, rgba(0,0,0,0.5)) 0%, rgba(0,0,0,0.7) 75%)",
@@ -92,7 +92,7 @@ export default function QuickCircle({ onQuickAdd, onOpenAssistant }) {
           <img
             src={`${import.meta.env.BASE_URL || "/"}clara-icon.png`}
             alt=""
-            className="h-[3rem] w-[3rem] object-contain drop-shadow-[0_6px_14px_rgba(0,0,0,1)]"
+            className="h-[3.4rem] w-[3.4rem] object-contain drop-shadow-[0_6px_14px_rgba(0,0,0,1)]"
           />
         </button>
       </div>
