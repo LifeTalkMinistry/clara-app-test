@@ -1,12 +1,13 @@
 import { useLocation, useNavigate } from "react-router-dom";
 import { useState, useCallback, useEffect, useRef } from "react";
-import { ArrowLeft } from "lucide-react";
 import { supabase } from "@/lib/supabaseClient";
 import QuickCircle from "@/components/QuickCircle";
 import QuickAddModal from "./QuickAddModal";
 import AdsModal from "./AdsModal";
 import ClaraAssistantPanel from "@/components/ai/ClaraAssistantPanel";
 import useUserRole from "../hooks/useUserRole";
+
+const TRANSACTION_TRANSITION_KEY = "clara_transactions_transition_origin";
 
 function getAppLoginUrl() {
   return `${window.location.origin}/clara-app-test/#/login`;
@@ -28,6 +29,109 @@ function isStandaloneFocusPage(pathname) {
   );
 }
 
+function getFallbackTransitionOrigin() {
+  const width = Math.min(window.innerWidth - 32, 360);
+  const height = 170;
+
+  return {
+    x: (window.innerWidth - width) / 2,
+    y: Math.max(window.innerHeight * 0.62, window.innerHeight - 240),
+    width,
+    height,
+  };
+}
+
+function normalizeTransitionOrigin(origin) {
+  const fallback = getFallbackTransitionOrigin();
+  const next = origin && typeof origin === "object" ? origin : fallback;
+
+  const width = Math.max(Number(next.width) || fallback.width, 80);
+  const height = Math.max(Number(next.height) || fallback.height, 80);
+  const x = Number.isFinite(Number(next.x)) ? Number(next.x) : fallback.x;
+  const y = Number.isFinite(Number(next.y)) ? Number(next.y) : fallback.y;
+
+  return { x, y, width, height };
+}
+
+function buildTransitionStyle(origin) {
+  if (typeof window === "undefined") return {};
+
+  const rect = normalizeTransitionOrigin(origin);
+  const viewportWidth = Math.max(window.innerWidth, 1);
+  const viewportHeight = Math.max(window.innerHeight, 1);
+  const centerX = rect.x + rect.width / 2;
+  const centerY = rect.y + rect.height / 2;
+
+  return {
+    "--clara-origin-x": `${centerX - viewportWidth / 2}px`,
+    "--clara-origin-y": `${centerY - viewportHeight / 2}px`,
+    "--clara-origin-scale-x": Math.min(Math.max(rect.width / viewportWidth, 0.18), 0.95),
+    "--clara-origin-scale-y": Math.min(Math.max(rect.height / viewportHeight, 0.12), 0.8),
+    "--clara-origin-radius": "30px",
+  };
+}
+
+function readStoredTransitionOrigin() {
+  try {
+    const raw = sessionStorage.getItem(TRANSACTION_TRANSITION_KEY);
+    if (!raw) return getFallbackTransitionOrigin();
+    return normalizeTransitionOrigin(JSON.parse(raw));
+  } catch (error) {
+    console.error("Failed to read transaction transition origin:", error);
+    return getFallbackTransitionOrigin();
+  }
+}
+
+function storeTransitionOriginFromElement(element) {
+  if (!element) return;
+
+  try {
+    const rect = element.getBoundingClientRect();
+    sessionStorage.setItem(
+      TRANSACTION_TRANSITION_KEY,
+      JSON.stringify({
+        x: rect.left,
+        y: rect.top,
+        width: rect.width,
+        height: rect.height,
+      })
+    );
+  } catch (error) {
+    console.error("Failed to store transaction transition origin:", error);
+  }
+}
+
+function isExpensesTarget(element) {
+  if (!element) return false;
+
+  const hrefElement = element.closest?.("a[href]");
+  const href = hrefElement?.getAttribute?.("href") || "";
+  if (href.includes("/expenses")) return true;
+
+  const text = String(element.textContent || "").toLowerCase();
+  return (
+    text.includes("money left") ||
+    text.includes("total expense") ||
+    text.includes("over budget") ||
+    text.includes("pause extra spending")
+  );
+}
+
+function findTransactionCardElement(element) {
+  if (!element?.closest) return element;
+
+  return (
+    element.closest("[data-transaction-card]") ||
+    element.closest("a[href*='/expenses']") ||
+    element.closest("button") ||
+    element.closest(".rounded-[30px]") ||
+    element.closest(".rounded-[28px]") ||
+    element.closest(".rounded-3xl") ||
+    element.closest(".rounded-2xl") ||
+    element
+  );
+}
+
 export default function Layout({ children }) {
   const location = useLocation();
   const navigate = useNavigate();
@@ -40,6 +144,7 @@ export default function Layout({ children }) {
   const [assistantOpen, setAssistantOpen] = useState(false);
   const [assistantMode, setAssistantMode] = useState("voice");
   const [transactionsClosing, setTransactionsClosing] = useState(false);
+  const [transitionOrigin, setTransitionOrigin] = useState(null);
 
   const { user, loading = false } = useUserRole() || {};
 
@@ -59,16 +164,38 @@ export default function Layout({ children }) {
   const handleBackToDashboard = useCallback(() => {
     if (transactionsClosing) return;
 
+    setTransitionOrigin(readStoredTransitionOrigin());
     setTransactionsClosing(true);
     window.setTimeout(() => {
       navigate("/dashboard");
       setTransactionsClosing(false);
-    }, 260);
+    }, 330);
   }, [navigate, transactionsClosing]);
 
   useEffect(() => {
+    if (isTransactionsPage) {
+      setTransitionOrigin(readStoredTransitionOrigin());
+    }
     setTransactionsClosing(false);
-  }, [location.pathname]);
+  }, [isTransactionsPage, location.pathname]);
+
+  useEffect(() => {
+    if (!isDashboard) return undefined;
+
+    const captureTransactionOrigin = (event) => {
+      const target = event.target;
+      if (!isExpensesTarget(target)) return;
+
+      const cardElement = findTransactionCardElement(target);
+      storeTransitionOriginFromElement(cardElement);
+    };
+
+    document.addEventListener("click", captureTransactionOrigin, true);
+
+    return () => {
+      document.removeEventListener("click", captureTransactionOrigin, true);
+    };
+  }, [isDashboard]);
 
   useEffect(() => {
     const handleAssistantOpen = (event) => {
@@ -136,50 +263,54 @@ export default function Layout({ children }) {
       <style>{`
         @keyframes claraTransactionsExpandIn {
           0% {
-            opacity: 0.62;
-            transform: translateY(46vh) scale(0.58) rotateX(58deg);
-            border-radius: 28px;
-            filter: blur(4px);
+            opacity: 0.48;
+            transform: translate3d(var(--clara-origin-x), var(--clara-origin-y), 0) scale(var(--clara-origin-scale-x), var(--clara-origin-scale-y)) rotateX(58deg);
+            border-radius: var(--clara-origin-radius);
+            filter: blur(4px) saturate(1.12);
           }
-          58% {
+          52% {
             opacity: 1;
-            transform: translateY(-1.5vh) scale(1.018) rotateX(-5deg);
-            filter: blur(0px);
+            transform: translate3d(0, -10px, 0) scale(1.018, 1.012) rotateX(-4deg);
+            border-radius: 26px;
+            filter: blur(0px) saturate(1.04);
           }
           100% {
             opacity: 1;
-            transform: translateY(0) scale(1) rotateX(0deg);
+            transform: translate3d(0, 0, 0) scale(1, 1) rotateX(0deg);
             border-radius: 0px;
-            filter: blur(0px);
+            filter: blur(0px) saturate(1);
           }
         }
 
         @keyframes claraTransactionsCollapseOut {
           0% {
             opacity: 1;
-            transform: translateY(0) scale(1) rotateX(0deg);
-            filter: blur(0px);
+            transform: translate3d(0, 0, 0) scale(1, 1) rotateX(0deg);
+            border-radius: 0px;
+            filter: blur(0px) saturate(1);
           }
           100% {
             opacity: 0.18;
-            transform: translateY(46vh) scale(0.56) rotateX(60deg);
-            filter: blur(5px);
+            transform: translate3d(var(--clara-origin-x), var(--clara-origin-y), 0) scale(var(--clara-origin-scale-x), var(--clara-origin-scale-y)) rotateX(60deg);
+            border-radius: var(--clara-origin-radius);
+            filter: blur(5px) saturate(1.18);
           }
         }
 
         .clara-transactions-stage {
-          transform-origin: center bottom;
+          transform-origin: center center;
           backface-visibility: hidden;
-          perspective: 1200px;
-          will-change: transform, opacity, filter;
+          perspective: 1400px;
+          will-change: transform, opacity, filter, border-radius;
+          overflow: hidden;
         }
 
         .clara-transactions-stage-in {
-          animation: claraTransactionsExpandIn 520ms cubic-bezier(.18,.88,.2,1) both;
+          animation: claraTransactionsExpandIn 560ms cubic-bezier(.16,.92,.22,1) both;
         }
 
         .clara-transactions-stage-out {
-          animation: claraTransactionsCollapseOut 260ms cubic-bezier(.4,0,.2,1) both;
+          animation: claraTransactionsCollapseOut 330ms cubic-bezier(.4,0,.2,1) both;
           pointer-events: none;
         }
       `}</style>
@@ -191,17 +322,6 @@ export default function Layout({ children }) {
       )}
 
       {isTransactionsPage && (
-        <button
-          type="button"
-          onClick={handleBackToDashboard}
-          aria-label="Back to dashboard"
-          className="fixed left-4 top-[calc(env(safe-area-inset-top)+0.875rem)] z-50 flex h-11 w-11 items-center justify-center rounded-full border border-[color:var(--theme-border)] bg-[color:var(--theme-card)]/75 text-[color:var(--theme-text)] shadow-[0_12px_34px_rgba(0,0,0,0.28)] backdrop-blur-xl transition-all duration-200 hover:-translate-y-0.5 hover:bg-[color:var(--theme-card)]/90 active:scale-95"
-        >
-          <ArrowLeft className="h-5 w-5" strokeWidth={2.4} />
-        </button>
-      )}
-
-      {isTransactionsPage && (
         <div className="pointer-events-none fixed left-1/2 top-[calc(env(safe-area-inset-top)+0.75rem)] z-40 h-1.5 w-12 -translate-x-1/2 rounded-full bg-[color:var(--theme-text)]/35" />
       )}
 
@@ -209,6 +329,7 @@ export default function Layout({ children }) {
         <main
           onTouchStart={handleTransactionsTouchStart}
           onTouchEnd={handleTransactionsTouchEnd}
+          style={isTransactionsPage ? buildTransitionStyle(transitionOrigin) : undefined}
           className={`flex-1 overflow-y-auto pb-24 pt-3 ${
             isTransactionsPage
               ? `clara-transactions-stage ${transactionsClosing ? "clara-transactions-stage-out" : "clara-transactions-stage-in"}`
