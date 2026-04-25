@@ -231,9 +231,11 @@ export default function StatCard({
 
   const v = variants[variant] || variants.default;
   const activeGlowStrength = isMoneyMetric ? 0.68 + activeSlide * 0.08 : 0;
-  const cardClassName = `relative flex h-full flex-col overflow-hidden rounded-2xl p-4 text-left transition-all duration-300 active:scale-[0.97] hover:scale-[1.01] ${
-    isClickable || isMoneyMetric ? "cursor-pointer focus:outline-none focus:ring-2 focus:ring-emerald-400/40" : ""
-  } ${
+  const interactionClassName =
+    isClickable || isMoneyMetric
+      ? "cursor-pointer active:scale-[0.97] hover:scale-[1.01] focus:outline-none focus:ring-2 focus:ring-emerald-400/40"
+      : "cursor-default";
+  const cardClassName = `relative flex h-full flex-col overflow-hidden rounded-2xl p-4 text-left transition-all duration-300 ${interactionClassName} ${
     highlight
       ? "ring-1 ring-emerald-400/30 shadow-[0_0_25px_rgba(16,185,129,0.15)]"
       : ""
