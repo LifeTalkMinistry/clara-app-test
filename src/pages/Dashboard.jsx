@@ -1692,10 +1692,6 @@ export default function Dashboard() {
     readStoredNotificationSettings(userId)
   );
   const [financeCardIndex, setFinanceCardIndex] = useState(0);
-  const [moneySummarySlide, setMoneySummarySlide] = useState(0);
-  const [moneySummaryDragX, setMoneySummaryDragX] = useState(0);
-  const [isMoneySummaryDragging, setIsMoneySummaryDragging] = useState(false);
-  const moneySummaryDragRef = useRef({ startX: 0, moved: false });
   const [expandedFinanceCard, setExpandedFinanceCard] = useState(null);
   const [financeActionLoading, setFinanceActionLoading] = useState(false);
   const [financeNotice, setFinanceNotice] = useState(null);
@@ -2842,55 +2838,6 @@ export default function Dashboard() {
       behavior: "smooth",
     });
   }, []);
-
-  const goToMoneySummarySlide = useCallback((nextIndex) => {
-    setMoneySummarySlide(Math.max(0, Math.min(2, nextIndex)));
-    setMoneySummaryDragX(0);
-  }, []);
-
-  const handleMoneySummaryTouchStart = useCallback((event) => {
-    const startX = event.touches?.[0]?.clientX || 0;
-    moneySummaryDragRef.current = { startX, moved: false };
-    setIsMoneySummaryDragging(true);
-    setMoneySummaryDragX(0);
-  }, []);
-
-  const handleMoneySummaryTouchMove = useCallback((event) => {
-    if (!isMoneySummaryDragging) return;
-
-    const currentX = event.touches?.[0]?.clientX || 0;
-    const deltaX = currentX - moneySummaryDragRef.current.startX;
-    const isAtStart = moneySummarySlide === 0 && deltaX > 0;
-    const isAtEnd = moneySummarySlide === 2 && deltaX < 0;
-    const resistedDelta = deltaX * (isAtStart || isAtEnd ? 0.28 : 1);
-
-    if (Math.abs(deltaX) > 8) {
-      moneySummaryDragRef.current.moved = true;
-    }
-
-    setMoneySummaryDragX(resistedDelta);
-  }, [isMoneySummaryDragging, moneySummarySlide]);
-
-  const handleMoneySummaryTouchEnd = useCallback(() => {
-    if (!isMoneySummaryDragging) return;
-
-    const shouldGoNext = moneySummaryDragX < -48;
-    const shouldGoPrev = moneySummaryDragX > 48;
-
-    if (shouldGoNext) {
-      goToMoneySummarySlide(moneySummarySlide + 1);
-    } else if (shouldGoPrev) {
-      goToMoneySummarySlide(moneySummarySlide - 1);
-    } else {
-      setMoneySummaryDragX(0);
-    }
-
-    setIsMoneySummaryDragging(false);
-
-    window.setTimeout(() => {
-      moneySummaryDragRef.current.moved = false;
-    }, 90);
-  }, [goToMoneySummarySlide, isMoneySummaryDragging, moneySummaryDragX, moneySummarySlide]);
 
   const toggleFinanceDetails = useCallback((cardKey) => {
     setExpandedFinanceCard((prev) => (prev === cardKey ? null : cardKey));
@@ -4377,178 +4324,89 @@ export default function Dashboard() {
         )}
 
         <div
-          className="overflow-hidden touch-pan-y select-none"
-          onTouchStart={handleMoneySummaryTouchStart}
-          onTouchMove={handleMoneySummaryTouchMove}
-          onTouchEnd={handleMoneySummaryTouchEnd}
-          onTouchCancel={handleMoneySummaryTouchEnd}
+          className={`grid grid-cols-2 overflow-hidden border backdrop-blur-sm ${dashboardScale.summaryGrid}`}
+          style={{
+            borderColor:
+              selectedDashboardTheme?.tokens?.border || "var(--theme-border)",
+            boxShadow: themeIsLight
+              ? "0 18px 44px rgba(15,23,42,0.10)"
+              : "0 22px 65px rgba(0,0,0,0.26)",
+          }}
         >
           <div
-            className={`flex ${isMoneySummaryDragging ? "" : "transition-transform duration-300 ease-out"}`}
+            className={`relative isolate overflow-hidden ${dashboardScale.summaryCell}`}
             style={{
-              transform: `translate3d(calc(-${moneySummarySlide * 100}% + ${moneySummaryDragX}px), 0, 0)`,
+              background:
+                selectedDashboardTheme?.tokens?.gradientMoney ||
+                "var(--theme-gradient-money)",
             }}
           >
-            <div className="min-w-full">
-              <div
-                className={`grid grid-cols-2 overflow-hidden border backdrop-blur-sm ${dashboardScale.summaryGrid}`}
-                style={{
-                  borderColor:
-                    selectedDashboardTheme?.tokens?.border || "var(--theme-border)",
-                  boxShadow: themeIsLight
-                    ? "0 18px 44px rgba(15,23,42,0.10)"
-                    : "0 22px 65px rgba(0,0,0,0.26)",
-                }}
-              >
-                <div
-                  className={`relative isolate overflow-hidden ${dashboardScale.summaryCell}`}
-                  style={{
-                    background:
-                      selectedDashboardTheme?.tokens?.gradientMoney ||
-                      "var(--theme-gradient-money)",
-                  }}
-                >
-                  <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(255,255,255,0.08),transparent_42%)]" />
-                  <div className="relative min-w-0">
-                    <div className="flex items-start justify-between gap-2">
-                      <p className={`uppercase ${dashboardScale.summaryLabel} ${themeSoftTextClass}`}>
-                        Money Left
-                      </p>
-                      <span aria-hidden="true" className="w-8 shrink-0" />
-                    </div>
-                    <h2 className={`font-bold leading-none ${dashboardScale.summaryAmount} ${themePrimaryTextClass}`}>
-                      {fmt(walletMoney)}
-                    </h2>
-                    <p className={`${dashboardScale.summaryCopy} ${themeMutedTextClass}`}>
-                      {moneyLeftHealth.title}
-                      {moneyLeftHealth.highlight ? (
-                        <>
-                          {" "}
-                          <span className="font-bold text-emerald-300">
-                            {moneyLeftHealth.highlight}
-                          </span>
-                        </>
-                      ) : null}
-                    </p>
-                    {moneyLeftHealth.subcopy ? (
-                      <p className={`${dashboardScale.summarySubcopy} ${themeSoftTextClass}`}>
-                        {moneyLeftHealth.subcopy}
-                      </p>
-                    ) : null}
-                  </div>
-                </div>
-
-                <div
-                  className={`relative isolate overflow-hidden border-l ${dashboardScale.summaryCell}`}
-                  style={{
-                    background:
-                      selectedDashboardTheme?.tokens?.gradientExpense ||
-                      "var(--theme-gradient-expense)",
-                    borderColor:
-                      selectedDashboardTheme?.tokens?.border || "var(--theme-border)",
-                  }}
-                >
-                  <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_bottom_right,rgba(255,255,255,0.08),transparent_42%)]" />
-                  <div className="relative min-w-0">
-                    <p className={`uppercase ${dashboardScale.summaryLabel} ${themeSoftTextClass}`}>
-                      Total Expense
-                    </p>
-                    <h2 className={`font-bold leading-none ${dashboardScale.summaryAmount} ${themePrimaryTextClass}`}>
-                      {fmt(thisMonthSpent)}
-                    </h2>
-                    <p className={`${dashboardScale.summaryCopy} ${themeMutedTextClass}`}>
-                      {expenseHealth.title}
-                      {expenseHealth.highlight ? (
-                        <>
-                          {" "}
-                          <span className="font-bold text-emerald-300">
-                            {expenseHealth.highlight}
-                          </span>
-                        </>
-                      ) : null}
-                    </p>
-                    <p className={`${dashboardScale.summarySubcopy} ${themeSoftTextClass}`}>
-                      {expenseHealth.subcopy}
-                    </p>
-                  </div>
-                </div>
+            <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(255,255,255,0.08),transparent_42%)]" />
+            <div className="relative min-w-0">
+              <div className="flex items-start justify-between gap-2">
+                <p className={`uppercase ${dashboardScale.summaryLabel} ${themeSoftTextClass}`}>
+                  Money Left
+                </p>
+                <span aria-hidden="true" className="w-8 shrink-0" />
               </div>
+              <h2 className={`font-bold leading-none ${dashboardScale.summaryAmount} ${themePrimaryTextClass}`}>
+                {fmt(walletMoney)}
+              </h2>
+              <p className={`${dashboardScale.summaryCopy} ${themeMutedTextClass}`}>
+                {moneyLeftHealth.title}
+                {moneyLeftHealth.highlight ? (
+                  <>
+                    {" "}
+                    <span className="font-bold text-emerald-300">
+                      {moneyLeftHealth.highlight}
+                    </span>
+                  </>
+                ) : null}
+              </p>
+              {moneyLeftHealth.subcopy ? (
+                <p className={`${dashboardScale.summarySubcopy} ${themeSoftTextClass}`}>
+                  {moneyLeftHealth.subcopy}
+                </p>
+              ) : null}
             </div>
-
-            <button
-              type="button"
-              onClick={() => navigate("/expenses")}
-              className={`min-w-full overflow-hidden border text-left backdrop-blur-sm ${dashboardScale.summaryGrid}`}
-              style={{
-                borderColor:
-                  selectedDashboardTheme?.tokens?.border || "var(--theme-border)",
-                background:
-                  selectedDashboardTheme?.tokens?.gradientMoney ||
-                  "var(--theme-gradient-money)",
-              }}
-            >
-              <div className={`relative isolate ${dashboardScale.summaryCell}`}>
-                <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(255,255,255,0.08),transparent_42%)]" />
-                <div className="relative flex h-full min-h-[inherit] flex-col justify-center">
-                  <p className={`uppercase ${dashboardScale.summaryLabel} ${themeSoftTextClass}`}>
-                    Transaction
-                  </p>
-                  <h2 className={`font-bold leading-none ${dashboardScale.summaryAmount} ${themePrimaryTextClass}`}>
-                    Open Records
-                  </h2>
-                  <p className={`${dashboardScale.summaryCopy} ${themeMutedTextClass}`}>
-                    View the original transaction page connected to your money movement.
-                  </p>
-                </div>
-              </div>
-            </button>
-
-            <button
-              type="button"
-              onClick={() => navigate("/analytics")}
-              className={`min-w-full overflow-hidden border text-left backdrop-blur-sm ${dashboardScale.summaryGrid}`}
-              style={{
-                borderColor:
-                  selectedDashboardTheme?.tokens?.border || "var(--theme-border)",
-                background:
-                  selectedDashboardTheme?.tokens?.gradientExpense ||
-                  "var(--theme-gradient-expense)",
-              }}
-            >
-              <div className={`relative isolate ${dashboardScale.summaryCell}`}>
-                <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_bottom_right,rgba(255,255,255,0.08),transparent_42%)]" />
-                <div className="relative flex h-full min-h-[inherit] flex-col justify-center">
-                  <p className={`uppercase ${dashboardScale.summaryLabel} ${themeSoftTextClass}`}>
-                    Analytic
-                  </p>
-                  <h2 className={`font-bold leading-none ${dashboardScale.summaryAmount} ${themePrimaryTextClass}`}>
-                    View Insights
-                  </h2>
-                  <p className={`${dashboardScale.summaryCopy} ${themeMutedTextClass}`}>
-                    Open your analytics page for patterns and monthly performance.
-                  </p>
-                </div>
-              </div>
-            </button>
           </div>
 
-          <div className="mt-2 flex items-center justify-center gap-1.5">
-            {[0, 1, 2].map((slideIndex) => (
-              <button
-                key={slideIndex}
-                type="button"
-                onClick={() => goToMoneySummarySlide(slideIndex)}
-                aria-label={`Go to money summary slide ${slideIndex + 1}`}
-                className={`h-2 rounded-full transition-all duration-200 ${
-                  moneySummarySlide === slideIndex
-                    ? `w-5 ${selectedDashboardTheme.indicatorActive || "bg-emerald-400"}`
-                    : `w-2 ${themeInactiveDotClass}`
-                }`}
-              />
-            ))}
+          <div
+            className={`relative isolate overflow-hidden border-l ${dashboardScale.summaryCell}`}
+            style={{
+              background:
+                selectedDashboardTheme?.tokens?.gradientExpense ||
+                "var(--theme-gradient-expense)",
+              borderColor:
+                selectedDashboardTheme?.tokens?.border || "var(--theme-border)",
+            }}
+          >
+            <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_bottom_right,rgba(255,255,255,0.08),transparent_42%)]" />
+            <div className="relative min-w-0">
+              <p className={`uppercase ${dashboardScale.summaryLabel} ${themeSoftTextClass}`}>
+                Total Expense
+              </p>
+              <h2 className={`font-bold leading-none ${dashboardScale.summaryAmount} ${themePrimaryTextClass}`}>
+                {fmt(thisMonthSpent)}
+              </h2>
+              <p className={`${dashboardScale.summaryCopy} ${themeMutedTextClass}`}>
+                {expenseHealth.title}
+                {expenseHealth.highlight ? (
+                  <>
+                    {" "}
+                    <span className="font-bold text-emerald-300">
+                      {expenseHealth.highlight}
+                    </span>
+                  </>
+                ) : null}
+              </p>
+              <p className={`${dashboardScale.summarySubcopy} ${themeSoftTextClass}`}>
+                {expenseHealth.subcopy}
+              </p>
+            </div>
           </div>
         </div>
-
+            </div>
       </div>
 
 
