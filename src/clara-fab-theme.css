@@ -1,0 +1,16 @@
+/* CLARA FAB theme patch */
+.clara-fab,
+.clara-quick-fab,
+.clara-quick-button,
+.clara-ai-fab,
+.quick-fab,
+.quick-circle,
+.quick-orb,
+.fab-button,
+.ai-fab,
+.bottom-nav-fab,
+.floating-ai-button,
+.floating-quick-button,
+.floating-action-button {
+  border-radius: 9999px !important;
+}
