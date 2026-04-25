@@ -3590,10 +3590,10 @@ function DashboardSettingsPanel({
         },
         {
           key: "security",
-          title: "Privacy & security",
-          description: "Sign out, reset preferences, and account safety",
+          title: "Security & privacy",
+          description: "Session status and safe preference reset",
           icon: ShieldCheck,
-          badge: "Active",
+          badge: "Safe",
           action: () => setActiveSetting("security"),
         },
       ],
@@ -3920,42 +3920,60 @@ function DashboardSettingsPanel({
   const renderSecurityPage = () => (
     <div className="space-y-4">
       <DetailHeader
-        title="Privacy & security"
-        subtitle="Account safety, sign out, and local preference controls."
+        title="Security & privacy"
+        subtitle="Review your current session and safely reset visual preferences."
       />
 
       {renderNotice()}
 
-      <div className="rounded-[28px] border border-white/10 bg-white/[0.045] p-4 backdrop-blur-xl">
-        <p className="text-sm font-bold text-white">Current session</p>
-        <p className="mt-1 truncate text-xs text-white/50">{user?.email || "Current user session"}</p>
+      <div className="rounded-[30px] border border-white/10 bg-white/[0.045] p-4 shadow-[0_18px_50px_rgba(0,0,0,0.18)] backdrop-blur-xl">
+        <div className="flex items-start gap-3">
+          <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border border-white/10 bg-white/8 text-white/70">
+            <ShieldCheck className="h-5 w-5" />
+          </div>
 
-        <div className="mt-4 rounded-2xl border border-white/10 bg-black/15 p-3">
-          <p className="text-xs font-bold text-white/70">Safe reset</p>
-          <p className="mt-1 text-[11px] leading-5 text-white/45">
-            Reset local preferences only. This will not delete wallets, expenses, budgets, or financial records.
-          </p>
+          <div className="min-w-0 flex-1">
+            <p className="text-sm font-black text-white">Current session</p>
+            <p className="mt-1 truncate text-xs text-white/50">{user?.email || "Current user session"}</p>
+            <div className="mt-3 inline-flex rounded-full border border-emerald-300/20 bg-emerald-400/10 px-3 py-1 text-[10px] font-black text-emerald-100">
+              Signed in securely
+            </div>
+          </div>
         </div>
       </div>
 
-      <button
-        type="button"
-        onClick={clearLocalPreferences}
-        className="flex w-full items-center justify-center gap-2 rounded-2xl border border-amber-300/20 bg-amber-400/10 px-4 py-3 text-sm font-bold text-amber-100 transition hover:bg-amber-400/15"
-      >
-        <RotateCcw className="h-4 w-4" />
-        Reset local preferences only
-      </button>
+      <div className="rounded-[30px] border border-white/10 bg-white/[0.045] p-4 shadow-[0_18px_50px_rgba(0,0,0,0.18)] backdrop-blur-xl">
+        <p className="text-sm font-black text-white">Safe preference reset</p>
+        <p className="mt-2 text-xs leading-5 text-white/50">
+          This only clears local dashboard preferences like notification choices, wallpaper/theme-related local cache, and dashboard reminders.
+        </p>
 
-      <button
-        type="button"
-        onClick={handleSignOut}
-        disabled={signingOut}
-        className="flex w-full items-center justify-center gap-2 rounded-2xl border border-rose-300/20 bg-rose-500/12 px-4 py-3 text-sm font-bold text-rose-100 transition hover:bg-rose-500/18 disabled:opacity-55"
-      >
-        <X className="h-4 w-4" />
-        {signingOut ? "Signing out..." : "Sign out"}
-      </button>
+        <div className="mt-3 rounded-2xl border border-white/10 bg-black/15 p-3">
+          <p className="text-xs font-bold text-white/75">It will NOT delete:</p>
+          <div className="mt-2 grid grid-cols-2 gap-2 text-[11px] font-semibold text-white/50">
+            <span className="rounded-xl bg-white/6 px-3 py-2">Wallets</span>
+            <span className="rounded-xl bg-white/6 px-3 py-2">Expenses</span>
+            <span className="rounded-xl bg-white/6 px-3 py-2">Budgets</span>
+            <span className="rounded-xl bg-white/6 px-3 py-2">Enrollments</span>
+          </div>
+        </div>
+
+        <button
+          type="button"
+          onClick={clearLocalPreferences}
+          className="mt-4 flex w-full items-center justify-center gap-2 rounded-2xl border border-amber-300/20 bg-amber-400/10 px-4 py-3 text-sm font-bold text-amber-100 transition hover:bg-amber-400/15"
+        >
+          <RotateCcw className="h-4 w-4" />
+          Reset local preferences only
+        </button>
+      </div>
+
+      <div className="rounded-[24px] border border-white/10 bg-white/[0.035] p-4">
+        <p className="text-sm font-bold text-white">Account sign out</p>
+        <p className="mt-1 text-xs leading-5 text-white/45">
+          The logout button is now placed at the bottom of the main Settings page for easier access.
+        </p>
+      </div>
     </div>
   );
 
@@ -4130,11 +4148,15 @@ function DashboardSettingsPanel({
         </section>
       ))}
 
-      <div className="rounded-[28px] border border-white/10 bg-white/[0.035] px-4 py-3 text-center backdrop-blur-xl">
-        <p className="text-[11px] font-semibold text-white/42">
-          CLARA Settings • Everything stays inside this dashboard panel
-        </p>
-      </div>
+      <button
+        type="button"
+        onClick={handleSignOut}
+        disabled={signingOut}
+        className="flex w-full items-center justify-center gap-2 rounded-[24px] border border-rose-300/20 bg-rose-500/10 px-4 py-4 text-sm font-black text-rose-100 shadow-[0_14px_40px_rgba(244,63,94,0.08)] transition hover:bg-rose-500/15 disabled:opacity-55"
+      >
+        <X className="h-4 w-4" />
+        {signingOut ? "Signing out..." : "Log out"}
+      </button>
     </div>
   );
 }
