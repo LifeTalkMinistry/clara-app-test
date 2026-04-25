@@ -79,7 +79,14 @@ function getManualChunk(id) {
 
 export default defineConfig({
   plugins: [react()],
-  base: "/clara-app-test/",
+
+  // IMPORTANT FOR ANDROID/CAPACITOR:
+  // The app is loaded from local Android assets, not from https://domain/clara-app-test/.
+  // A repository-path base makes the installed app look for JS/CSS in the wrong place,
+  // which commonly results in a blank white screen after install.
+  // Relative assets work for Capacitor and still work with the current HashRouter setup.
+  base: "./",
+
   build: {
     outDir: "dist",
     emptyOutDir: true,
