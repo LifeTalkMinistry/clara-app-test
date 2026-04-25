@@ -8,8 +8,7 @@ import { ThemeProvider } from "@/theme/ThemeProvider";
 import App from "./App.jsx";
 import "./index.css";
 import "./clara-fab-theme.css";
-
-// REMOVE direct import of cordova-plugin-purchase
+import "./clara-fab-drag.js";
 
 window.CLARA_BILLING = {
   productIds: {
