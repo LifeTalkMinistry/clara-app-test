@@ -5,10 +5,28 @@
     <link rel="icon" type="image/svg+xml" href="./favicon.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
     <title>CLARA</title>
+    <style>
+      html, body, #root {
+        min-height: 100%;
+        margin: 0;
+        background: #020617;
+      }
+
+      #clara-boot {
+        min-height: 100vh;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: white;
+        font-family: sans-serif;
+      }
+    </style>
   </head>
 
   <body>
-    <div id="root"></div>
+    <div id="root">
+      <div id="clara-boot">CLARA is starting...</div>
+    </div>
     <script type="module" src="/src/main.jsx"></script>
   </body>
 </html>
