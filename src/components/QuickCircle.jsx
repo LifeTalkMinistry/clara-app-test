@@ -3,62 +3,7 @@ import { useLocation, useNavigate } from "react-router-dom";
 
 const DOUBLE_TAP_MS = 320;
 const LONG_PRESS_MS = 520;
-
-function ClaraFabLogo() {
-  return (
-    <svg
-      viewBox="0 0 120 120"
-      aria-hidden="true"
-      className="relative z-10 h-[3.35rem] w-[3.35rem] drop-shadow-[0_10px_16px_rgba(0,0,0,0.5)]"
-    >
-      <defs>
-        <linearGradient id="claraMainGreen" x1="19" y1="18" x2="98" y2="87" gradientUnits="userSpaceOnUse">
-          <stop offset="0" stopColor="#ecff43" />
-          <stop offset="0.32" stopColor="#63df35" />
-          <stop offset="0.72" stopColor="#019a52" />
-          <stop offset="1" stopColor="#006544" />
-        </linearGradient>
-        <linearGradient id="claraArrowYellow" x1="60" y1="35" x2="106" y2="72" gradientUnits="userSpaceOnUse">
-          <stop offset="0" stopColor="#ffff3d" />
-          <stop offset="0.56" stopColor="#d9ff23" />
-          <stop offset="1" stopColor="#78dc2e" />
-        </linearGradient>
-        <linearGradient id="claraBottomBlue" x1="29" y1="82" x2="92" y2="104" gradientUnits="userSpaceOnUse">
-          <stop offset="0" stopColor="#003681" />
-          <stop offset="0.58" stopColor="#087ee6" />
-          <stop offset="1" stopColor="#26d7ff" />
-        </linearGradient>
-      </defs>
-
-      <path
-        d="M97.6 32.6C88.3 23.8 75.6 19.3 61.8 20.2C36.8 21.8 18 40.9 18 63.1C18 79.7 29 94.8 46.4 102.1C34.4 94.9 28.9 82.9 32.7 70.8C38.7 51.6 62.1 41.9 87.5 51.1L97.6 32.6Z"
-        fill="url(#claraMainGreen)"
-      />
-      <path
-        d="M27.8 72.8C33.6 92.2 58.8 102.1 82.2 91.8C71.3 101.5 53.7 106.1 36.3 99.5C25.8 95.5 18.7 87.4 17.1 77.3C16.7 74.8 18.8 72.8 21.4 72.8H27.8Z"
-        fill="url(#claraBottomBlue)"
-      />
-      <path
-        d="M49.1 76.8C64.8 74.8 77.7 65.8 86.3 53.9L71.2 54.4L106.7 24.1L100.4 75.2L90.9 64.2C80.1 81.3 65.6 90.8 47.1 90.8C40.1 90.8 34.4 89.6 29.6 87.4C35.4 82 42 77.7 49.1 76.8Z"
-        fill="url(#claraArrowYellow)"
-      />
-      <path
-        d="M31.1 57.4C39.4 38.6 63.4 30.4 86.8 39.4"
-        fill="none"
-        stroke="rgba(255,255,255,0.45)"
-        strokeWidth="3.8"
-        strokeLinecap="round"
-      />
-      <path
-        d="M44.9 99.8C58.8 105.1 75.1 102.9 87.7 93.6"
-        fill="none"
-        stroke="rgba(255,255,255,0.2)"
-        strokeWidth="3"
-        strokeLinecap="round"
-      />
-    </svg>
-  );
-}
+const CLARA_FAB_LOGO = "data:image/webp;base64,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";
 
 export default function QuickCircle({ onQuickAdd, onOpenAssistant }) {
   const navigate = useNavigate();
@@ -134,11 +79,16 @@ export default function QuickCircle({ onQuickAdd, onOpenAssistant }) {
         onPointerUp={handlePointerUp}
         onPointerCancel={clearLongPressTimer}
         onPointerLeave={clearLongPressTimer}
-        className="pointer-events-auto group relative flex h-[4.65rem] w-[4.65rem] items-center justify-center rounded-full border border-cyan-200/30 bg-[radial-gradient(circle_at_34%_18%,rgba(255,255,255,0.24),transparent_28%),linear-gradient(145deg,rgba(7,89,91,0.97),rgba(6,55,81,0.98)_50%,rgba(2,18,35,0.98))] shadow-[0_18px_42px_rgba(6,182,212,0.22),0_0_0_7px_rgba(4,12,18,0.7)] backdrop-blur-xl transition duration-200 active:scale-95"
+        className="pointer-events-auto relative flex h-[4.65rem] w-[4.65rem] items-center justify-center rounded-full border border-cyan-200/25 bg-[linear-gradient(145deg,rgba(3,37,48,0.92),rgba(5,28,47,0.98))] shadow-[0_18px_42px_rgba(6,182,212,0.20),0_0_0_7px_rgba(4,12,18,0.7)] backdrop-blur-xl transition duration-200 active:scale-95"
       >
-        <span className="absolute -inset-1.5 -z-10 rounded-full bg-[conic-gradient(from_210deg,rgba(34,211,238,0.12),rgba(163,230,53,0.28),rgba(16,185,129,0.18),rgba(59,130,246,0.22),rgba(34,211,238,0.12))] blur-sm" />
-        <span className="absolute inset-[0.22rem] rounded-full border border-white/10 bg-black/15 shadow-[inset_0_1px_10px_rgba(255,255,255,0.12),inset_0_-10px_20px_rgba(0,0,0,0.26)]" />
-        <ClaraFabLogo />
+        <span className="absolute -inset-1.5 -z-10 rounded-full bg-[conic-gradient(from_210deg,rgba(34,211,238,0.10),rgba(163,230,53,0.22),rgba(16,185,129,0.16),rgba(59,130,246,0.18),rgba(34,211,238,0.10))] blur-sm" />
+        <span className="absolute inset-[0.24rem] rounded-full border border-white/10 bg-black/10 shadow-[inset_0_1px_10px_rgba(255,255,255,0.12),inset_0_-10px_20px_rgba(0,0,0,0.24)]" />
+        <img
+          src={CLARA_FAB_LOGO}
+          alt="CLARA"
+          draggable="false"
+          className="relative z-10 h-[4.25rem] w-[4.25rem] select-none object-contain drop-shadow-[0_10px_18px_rgba(0,0,0,0.48)]"
+        />
       </button>
     </div>
   );
