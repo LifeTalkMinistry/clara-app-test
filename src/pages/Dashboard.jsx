@@ -3027,9 +3027,9 @@ function DashboardMessagesPanel({ onBack }) {
 
   if (activeConvo) {
     return (
-      <div className="space-y-4">
+      <div className="flex h-[calc(100svh-148px)] min-h-[560px] flex-col">
 
-        <div className="flex max-h-[62dvh] min-h-[420px] flex-col overflow-hidden rounded-[30px] border border-white/10 bg-white/[0.055] shadow-[0_18px_50px_rgba(0,0,0,0.20)] backdrop-blur-xl">
+        <div className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-[30px] border border-white/10 bg-white/[0.055] shadow-[0_18px_50px_rgba(0,0,0,0.20)] backdrop-blur-xl">
           <div className="flex items-center justify-between gap-3 border-b border-white/10 bg-black/15 px-4 py-3">
             <div className="min-w-0">
               <p className="truncate text-sm font-bold text-white">{activeConvo.name}</p>
@@ -3043,7 +3043,7 @@ function DashboardMessagesPanel({ onBack }) {
               Inbox
             </button>
           </div>
-          <div className="flex-1 space-y-3 overflow-y-auto px-4 py-4 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+          <div className="min-h-0 flex-1 space-y-3 overflow-y-auto px-4 py-4 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
             {activeConvo.messages.length === 0 ? (
               <div className="flex h-full items-center justify-center text-center">
                 <div>
@@ -3084,7 +3084,7 @@ function DashboardMessagesPanel({ onBack }) {
             <div ref={messagesEndRef} />
           </div>
 
-          <div className="border-t border-white/10 bg-black/15 px-3 py-3">
+          <div className="shrink-0 border-t border-white/10 bg-black/15 px-3 pb-[calc(env(safe-area-inset-bottom)+12px)] pt-3">
             <div className="flex items-center gap-2 rounded-[24px] border border-white/10 bg-white/6 px-3 py-2">
               <input
                 value={newMsg}
@@ -5868,7 +5868,9 @@ export default function Dashboard() {
   const dashboardPanelViewportClass =
     activeDashboardPanel === "home"
       ? ""
-      : "max-h-[calc(100svh-132px)] overflow-y-auto overscroll-y-contain touch-pan-y pr-0.5 pb-[calc(env(safe-area-inset-bottom)+14px)] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden";
+      : activeDashboardPanel === "messages"
+        ? "max-h-[calc(100svh-132px)] overflow-hidden pr-0.5 pb-0 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+        : "max-h-[calc(100svh-132px)] overflow-y-auto overscroll-y-contain touch-pan-y pr-0.5 pb-[calc(env(safe-area-inset-bottom)+14px)] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden";
 
   const headerQuickActions = [
     {
