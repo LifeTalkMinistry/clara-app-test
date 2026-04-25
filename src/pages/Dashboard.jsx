@@ -7270,11 +7270,6 @@ export default function Dashboard() {
                   </>
                 ) : null}
               </p>
-              {moneyLeftHealth.subcopy ? (
-                <p className={`${dashboardScale.summarySubcopy} ${themeSoftTextClass}`}>
-                  {moneyLeftHealth.subcopy}
-                </p>
-              ) : null}
             </div>
           </div>
 
@@ -7306,9 +7301,6 @@ export default function Dashboard() {
                     </span>
                   </>
                 ) : null}
-              </p>
-              <p className={`${dashboardScale.summarySubcopy} ${themeSoftTextClass}`}>
-                {expenseHealth.subcopy}
               </p>
             </div>
           </div>
