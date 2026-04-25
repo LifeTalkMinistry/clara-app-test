@@ -3029,7 +3029,7 @@ function DashboardMessagesPanel({ onBack }) {
     return (
       <div className="flex h-full min-h-0 max-h-full flex-col overflow-hidden">
 
-        <div className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-[30px] border border-white/10 bg-white/[0.055] shadow-[0_18px_50px_rgba(0,0,0,0.20)] backdrop-blur-xl">
+        <div className="flex h-full min-h-0 flex-1 flex-col overflow-hidden rounded-[30px] border border-white/10 bg-white/[0.055] shadow-[0_18px_50px_rgba(0,0,0,0.20)] backdrop-blur-xl">
           <div className="flex items-center justify-between gap-3 border-b border-white/10 bg-black/15 px-4 py-3">
             <div className="min-w-0">
               <p className="truncate text-sm font-bold text-white">{activeConvo.name}</p>
@@ -3043,7 +3043,7 @@ function DashboardMessagesPanel({ onBack }) {
               Inbox
             </button>
           </div>
-          <div className="min-h-0 flex-1 space-y-3 overflow-y-auto px-4 py-4 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+          <div className="min-h-0 flex-1 space-y-3 overflow-y-auto overscroll-contain px-4 py-4 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
             {activeConvo.messages.length === 0 ? (
               <div className="flex h-full items-center justify-center text-center">
                 <div>
@@ -5869,7 +5869,7 @@ export default function Dashboard() {
     activeDashboardPanel === "home"
       ? ""
       : activeDashboardPanel === "messages"
-        ? "h-[calc(100svh-54px)] max-h-[calc(100svh-54px)] overflow-hidden pr-0.5 pb-0 [padding-bottom:0!important] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+        ? "h-[calc(100svh-132px)] max-h-[calc(100svh-132px)] overflow-hidden pr-0.5 pb-0 [padding-bottom:0!important] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
         : "max-h-[calc(100svh-132px)] overflow-y-auto overscroll-y-contain touch-pan-y pr-0.5 pb-[calc(env(safe-area-inset-bottom)+14px)] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden";
 
   const headerQuickActions = [
@@ -6010,7 +6010,13 @@ export default function Dashboard() {
         </div>
       </div>
 
-      <div className={`mx-auto w-full max-w-[430px] ${dashboardScale.content} ${activeDashboardPanel === "home" ? "" : "[padding-bottom:0!important]"}`}>
+      <div
+        className={`mx-auto w-full max-w-[430px] ${
+          activeDashboardPanel === "messages"
+            ? "mt-3 px-[clamp(14px,4vw,18px)] pb-0 [padding-bottom:0!important]"
+            : `${dashboardScale.content} ${activeDashboardPanel === "home" ? "" : "[padding-bottom:0!important]"}`
+        }`}
+      >
         <div
           key={activeDashboardPanel}
           className={`${dashboardPanelAnimationClass} ${dashboardPanelViewportClass}`}
