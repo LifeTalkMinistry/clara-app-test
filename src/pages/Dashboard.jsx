@@ -3321,6 +3321,7 @@ function DashboardSettingsPanel({
   plan,
   isPaid,
   isFree,
+  isAdmin,
   notificationSettings,
   openThemePicker,
   resetThemeToDefault,
@@ -3434,6 +3435,10 @@ function DashboardSettingsPanel({
 
   const currentPlan = normalizePlanDisplay(rawCurrentPlan);
   const planStatusLabel = isPaid ? "Unlocked" : isFree ? "Limited" : "Active";
+  const canSeeAdminPanel =
+    isAdmin === true ||
+    normalizeLower(user?.role) === "admin" ||
+    normalizeLower(user?.user_metadata?.role) === "admin";
   const supportEmail = "claraprogram2026@gmail.com";
 
   const saveNotificationSettings = useCallback((next) => {
@@ -3812,6 +3817,24 @@ function DashboardSettingsPanel({
         },
       ],
     },
+    ...(canSeeAdminPanel
+      ? [
+          {
+            title: "Admin",
+            rows: [
+              {
+                key: "admin-panel",
+                title: "Admin panel",
+                description: "Manage users, enrollments, plans, content, and app controls",
+                icon: ShieldCheck,
+                badge: "Admin",
+                featured: true,
+                action: () => navigate("/admin"),
+              },
+            ],
+          },
+        ]
+      : []),
   ];
 
   const resolveBillingCycle = useCallback((record) => {
@@ -4479,7 +4502,7 @@ export default function Dashboard() {
   const { selectedTheme: selectedDashboardTheme, openThemePicker, setTheme } = useTheme();
   const dashboardViewportMode = useDashboardViewportMode();
   const dashboardScale = DASHBOARD_SCALE[dashboardViewportMode] || DASHBOARD_SCALE.normal;
-  const { user, plan, isAdvertiser, isPaid, isFree, isPending, refreshUser } =
+  const { user, plan, isAdvertiser, isPaid, isFree, isPending, isAdmin, refreshUser } =
     useUserRole();
 
   const userId = user?.id || null;
@@ -7303,6 +7326,7 @@ export default function Dashboard() {
               plan={plan}
               isPaid={isPaid}
               isFree={isFree}
+              isAdmin={isAdmin}
               notificationSettings={notificationSettings}
               openThemePicker={openThemePicker}
               resetThemeToDefault={resetDashboardThemeToDefault}
