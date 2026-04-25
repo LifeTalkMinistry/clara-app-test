@@ -3352,6 +3352,8 @@ function DashboardSettingsPanel({
   const [supportTopic, setSupportTopic] = useState("Billing / enrollment");
   const [supportMessage, setSupportMessage] = useState("");
   const [supportSent, setSupportSent] = useState(false);
+  const [billingRecord, setBillingRecord] = useState(null);
+  const [billingLoading, setBillingLoading] = useState(false);
 
   useEffect(() => {
     setProfileName(initialDisplayName);
@@ -3366,21 +3368,61 @@ function DashboardSettingsPanel({
     });
   }, [notificationSettings]);
 
+  useEffect(() => {
+    let isMounted = true;
+
+    const fetchBillingRecord = async () => {
+      if (!user?.id) {
+        setBillingRecord(null);
+        setBillingLoading(false);
+        return;
+      }
+
+      setBillingLoading(true);
+
+      try {
+        const { data, error } = await supabase
+          .from("enrollments")
+          .select("*")
+          .eq("user_id", user.id)
+          .order("created_at", { ascending: false })
+          .limit(1)
+          .maybeSingle();
+
+        if (error) throw error;
+        if (!isMounted) return;
+
+        setBillingRecord(data || null);
+      } catch (error) {
+        console.error("Embedded billing fetch failed:", error);
+        if (isMounted) setBillingRecord(null);
+      } finally {
+        if (isMounted) setBillingLoading(false);
+      }
+    };
+
+    fetchBillingRecord();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [user?.id]);
+
   const displayName = profileName?.trim() || initialDisplayName || "Your CLARA account";
   const rawCurrentPlan = isPaid ? plan || "Paid" : isFree ? "Free" : plan || "Plan";
   const normalizePlanDisplay = useCallback((value) => {
     const normalized = normalizeLower(value);
 
     if (["pro", "pro_99", "pro99", "pro tools", "pro_tools"].some((key) => normalized.includes(key))) {
-      return "PRO 99";
+      return "Pro 99";
     }
 
     if (["core", "core_199", "core199", "core_599"].some((key) => normalized.includes(key))) {
-      return "CORE 199";
+      return "Core 199";
     }
 
     if (["life os", "life_os", "lifeos", "life-os", "coaching", "coach", "coaching_1299"].some((key) => normalized.includes(key))) {
-      return "LIFE OS 499";
+      return "Life OS 499";
     }
 
     if (normalized === "free") return "Free";
@@ -3679,26 +3721,76 @@ function DashboardSettingsPanel({
     },
   ];
 
+  const resolveBillingCycle = useCallback((record) => {
+    const rawCycle = normalizeLower(
+      record?.billing_cycle ||
+        record?.billing_interval ||
+        record?.subscription_interval ||
+        record?.interval ||
+        record?.cycle ||
+        record?.renewal_frequency ||
+        record?.payment_cycle ||
+        ""
+    );
+
+    if (!rawCycle) return "Not recorded";
+    if (["month", "monthly", "1 month", "per month", "mo"].includes(rawCycle) || rawCycle.includes("monthly")) {
+      return "Monthly";
+    }
+    if (["year", "yearly", "annual", "annually", "12 months"].includes(rawCycle) || rawCycle.includes("annual")) {
+      return "Yearly";
+    }
+    if (rawCycle.includes("one") || rawCycle.includes("lifetime")) {
+      return "One-time";
+    }
+
+    return rawCycle.replaceAll("_", " ").replace(/\b\w/g, (char) => char.toUpperCase());
+  }, []);
+
+  const resolveBillingDate = useCallback((record, keys = []) => {
+    const rawValue = keys.map((key) => record?.[key]).find(Boolean);
+    return rawValue ? formatCompactDate(rawValue) : "Not recorded";
+  }, []);
+
+  const billingCycleLabel = resolveBillingCycle(billingRecord);
+  const billingStatusLabel = billingLoading
+    ? "Checking..."
+    : billingRecord
+      ? normalizePlanDisplay(
+          billingRecord?.payment_status ||
+            billingRecord?.status ||
+            billingRecord?.enrollment_status ||
+            billingRecord?.subscription_status ||
+            "Active"
+        )
+      : "No record";
+  const billingStartLabel = billingRecord
+    ? resolveBillingDate(billingRecord, ["current_period_start", "billing_start", "started_at", "approved_at", "created_at"])
+    : "Not recorded";
+  const nextBillingLabel = billingRecord
+    ? resolveBillingDate(billingRecord, ["next_billing_date", "next_payment_due", "current_period_end", "renewal_date", "expires_at", "valid_until", "end_date"])
+    : "Not recorded";
+
   const planOptions = [
     {
       key: "pro_99",
-      title: "PRO",
+      title: "Pro",
       price: "₱99",
-      displayName: "PRO 99",
+      displayName: "Pro 99",
       description: "Starter upgrade for essential CLARA tools.",
     },
     {
       key: "core_199",
-      title: "CORE",
+      title: "Core",
       price: "₱199",
-      displayName: "CORE 199",
+      displayName: "Core 199",
       description: "Main financial system access for deeper tracking.",
     },
     {
       key: "life_os_499",
-      title: "LIFE OS",
+      title: "Life OS",
       price: "₱499",
-      displayName: "LIFE OS 499",
+      displayName: "Life OS 499",
       description: "Full CLARA access with Life OS support.",
     },
   ];
@@ -3900,6 +3992,8 @@ function DashboardSettingsPanel({
         <div className="mt-4 grid grid-cols-2 gap-2 text-center text-[11px]">
           <InfoTile label="Features" value={isPaid ? "Unlocked" : "Limited"} />
           <InfoTile label="Tier" value={currentPlan} />
+          <InfoTile label="Billing cycle" value={billingCycleLabel} />
+          <InfoTile label="Next billing" value={nextBillingLabel} />
         </div>
       </div>
 
@@ -3985,10 +4079,29 @@ function DashboardSettingsPanel({
       </div>
 
       <div className="rounded-[24px] border border-white/10 bg-white/[0.035] p-4">
-        <p className="text-sm font-bold text-white">Payment status</p>
-        <p className="mt-1 text-xs leading-5 text-white/45">
-          Your active plan is shown here. Enrollment review, upgrade requests, and payment proof status can be connected here next from your enrollments table.
-        </p>
+        <div className="flex items-start justify-between gap-3">
+          <div>
+            <p className="text-sm font-bold text-white">Billing status</p>
+            <p className="mt-1 text-xs leading-5 text-white/45">
+              Read from your enrollment/payment record when available.
+            </p>
+          </div>
+
+          <span className="shrink-0 rounded-full border border-white/10 bg-white/8 px-3 py-1 text-[10px] font-black text-white/55">
+            {billingStatusLabel}
+          </span>
+        </div>
+
+        <div className="mt-4 grid grid-cols-2 gap-2 text-center">
+          <InfoTile label="Cycle" value={billingCycleLabel} />
+          <InfoTile label="Started" value={billingStartLabel} />
+        </div>
+
+        {billingCycleLabel === "Not recorded" ? (
+          <p className="mt-3 rounded-2xl border border-amber-300/15 bg-amber-400/8 px-3 py-2 text-[11px] leading-5 text-amber-100/75">
+            Monthly billing will show here once the billing cycle field is saved in the enrollment record.
+          </p>
+        ) : null}
       </div>
     </div>
   );
