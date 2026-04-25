@@ -3397,14 +3397,23 @@ export default function Dashboard() {
   const primarySavingsGoal = useMemo(() => savingsGoals[0] || null, [savingsGoals]);
 
   const scrollFinanceCardsTo = useCallback((nextIndex) => {
+    const safeIndex = Math.max(0, Math.min(financeCards.length - 1, nextIndex));
     const container = financeCarouselRef.current;
+
+    setFinanceCardIndex(safeIndex);
+
     if (!container) return;
-    const width = container.clientWidth || 0;
+
+    const slideWidth =
+      financeCards.length > 0
+        ? container.scrollWidth / financeCards.length
+        : container.clientWidth || 0;
+
     container.scrollTo({
-      left: width * nextIndex,
+      left: slideWidth * safeIndex,
       behavior: "smooth",
     });
-  }, []);
+  }, [financeCards.length]);
 
   const toggleFinanceDetails = useCallback((cardKey) => {
     setExpandedFinanceCard((prev) => (prev === cardKey ? null : cardKey));
@@ -3412,9 +3421,14 @@ export default function Dashboard() {
 
   const handleFinanceCarouselScroll = useCallback(() => {
     const container = financeCarouselRef.current;
-    if (!container) return;
-    const width = container.clientWidth || 1;
-    const index = Math.round(container.scrollLeft / width);
+    if (!container || financeCards.length <= 0) return;
+
+    const slideWidth = Math.max(
+      1,
+      container.scrollWidth / financeCards.length || container.clientWidth || 1
+    );
+
+    const index = Math.round(container.scrollLeft / slideWidth);
     setFinanceCardIndex(Math.max(0, Math.min(financeCards.length - 1, index)));
   }, [financeCards.length]);
 
@@ -3550,7 +3564,7 @@ export default function Dashboard() {
 
   useEffect(() => {
     const container = financeCarouselRef.current;
-    if (!container) return;
+    if (!container) return undefined;
 
     let frame = null;
 
@@ -3566,7 +3580,7 @@ export default function Dashboard() {
       container.removeEventListener("scroll", onScroll);
       if (frame) cancelAnimationFrame(frame);
     };
-  }, [handleFinanceCarouselScroll]);
+  }, [handleFinanceCarouselScroll, user?.id, activeDashboardPanel, financeCards.length]);
 
 
   const refreshFinanceSection = useCallback(async () => {
@@ -4769,6 +4783,7 @@ export default function Dashboard() {
             <div className={`overflow-hidden ${dashboardScale.financeClip}`}>
               <div
                 ref={financeCarouselRef}
+                onScroll={handleFinanceCarouselScroll}
                 className="flex touch-pan-x items-stretch snap-x snap-mandatory overflow-x-auto overflow-y-hidden overscroll-x-contain [scrollbar-width:none] [-webkit-overflow-scrolling:touch] [&::-webkit-scrollbar]:hidden"
               >
                 <div className="flex w-full min-w-full shrink-0 snap-center">
