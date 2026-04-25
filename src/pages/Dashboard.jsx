@@ -3740,22 +3740,22 @@ function DashboardSettingsPanel({
   );
 
   const DetailHeader = ({ title, subtitle }) => (
-    <div className="mb-4">
+    <div className="mb-4 space-y-4">
       <button
         type="button"
         onClick={() => {
           setActiveSetting(null);
           setSettingsNotice(null);
         }}
-        className="mb-4 inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/8 px-3 py-2 text-[11px] font-bold text-white/70 transition hover:bg-white/12"
+        className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/8 px-3 py-2 text-[11px] font-bold text-white/70 transition hover:bg-white/12"
       >
         <ArrowDown className="h-3.5 w-3.5 rotate-90" />
         Settings
       </button>
 
-      <div className="rounded-b-[28px] border-b border-white/10 pb-4">
+      <div className="rounded-[28px] border border-white/10 bg-white/[0.035] px-4 py-4 shadow-[0_14px_40px_rgba(0,0,0,0.12)] backdrop-blur-xl">
         <h2 className="text-xl font-black tracking-tight text-white">{title}</h2>
-        {subtitle ? <p className="mt-1 text-xs leading-5 text-white/50">{subtitle}</p> : null}
+        {subtitle ? <p className="mt-2 max-w-[30ch] text-xs leading-5 text-white/50">{subtitle}</p> : null}
       </div>
     </div>
   );
@@ -3918,10 +3918,10 @@ function DashboardSettingsPanel({
   );
 
   const renderSecurityPage = () => (
-    <div className="space-y-4">
+    <div className="space-y-4 pb-6">
       <DetailHeader
         title="Security & privacy"
-        subtitle="Your account session, protected data, and safe preference reset."
+        subtitle="Account session, protected data, and safe local reset."
       />
 
       {renderNotice()}
@@ -3963,7 +3963,7 @@ function DashboardSettingsPanel({
       <div className="rounded-[30px] border border-white/10 bg-white/[0.045] p-4 shadow-[0_18px_50px_rgba(0,0,0,0.18)] backdrop-blur-xl">
         <p className="text-sm font-black text-white">Protected app data</p>
         <p className="mt-2 text-xs leading-5 text-white/48">
-          Preference reset only affects local dashboard settings. Your core financial records stay untouched.
+          Resetting preferences will not touch your financial records.
         </p>
 
         <div className="mt-4 grid grid-cols-2 gap-2">
@@ -3988,7 +3988,7 @@ function DashboardSettingsPanel({
           <div className="min-w-0 flex-1">
             <p className="text-sm font-black text-white">Local preference reset</p>
             <p className="mt-1 text-xs leading-5 text-white/48">
-              Clears notification choices, dashboard reminder cache, and local visual preferences on this device.
+              Clears notification choices, dashboard reminders, and local visual cache on this device.
             </p>
           </div>
         </div>
@@ -4003,12 +4003,6 @@ function DashboardSettingsPanel({
         </button>
       </div>
 
-      <div className="rounded-[24px] border border-white/10 bg-white/[0.035] p-4">
-        <p className="text-sm font-bold text-white">Log out location</p>
-        <p className="mt-1 text-xs leading-5 text-white/45">
-          Log out is available at the bottom of the main Settings screen so it stays easy to find without mixing it into privacy controls.
-        </p>
-      </div>
     </div>
   );
 
