@@ -3044,7 +3044,7 @@ function DashboardMessagesPanel({ onBack }) {
               Inbox
             </button>
           </div>
-          <div className="min-h-0 flex-1 space-y-3 overflow-y-auto overscroll-contain px-4 py-4 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+          <div className="min-h-0 flex flex-1 flex-col justify-end gap-3 overflow-y-auto overscroll-contain px-4 py-4 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
             {activeConvo.messages.length === 0 ? (
               <div className="flex h-full items-center justify-center text-center">
                 <div>
