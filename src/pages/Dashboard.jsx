@@ -1765,7 +1765,7 @@ function DashboardFeedPanel({ onBack }) {
   const [youtubeLink, setYoutubeLink] = useState("");
   const [commentTexts, setCommentTexts] = useState({});
   const [openComments, setOpenComments] = useState({});
-  const [youtubeModalMedia, setYoutubeModalMedia] = useState(null);
+  const [activeYoutubePosts, setActiveYoutubePosts] = useState({});
 
   const getYoutubeId = useCallback((value = "") => {
     const text = value.trim();
@@ -2293,7 +2293,7 @@ function DashboardFeedPanel({ onBack }) {
 
     if (media.type === "image" && media.url) {
       return (
-        <div className="mt-3 overflow-hidden rounded-[22px] border border-white/10 bg-black/20">
+        <div className="mx-auto mt-3 w-full max-w-[clamp(240px,78vw,360px)] overflow-hidden rounded-[22px] border border-white/10 bg-black/20">
           <img
             src={media.url}
             alt={media.name || "Feed media"}
@@ -2306,7 +2306,7 @@ function DashboardFeedPanel({ onBack }) {
 
     if (media.type === "video" && media.url) {
       return (
-        <div className="mt-3 overflow-hidden rounded-[22px] border border-white/10 bg-black/30">
+        <div className="mx-auto mt-3 w-full max-w-[clamp(240px,78vw,360px)] overflow-hidden rounded-[22px] border border-white/10 bg-black/30">
           <video
             src={media.url}
             controls
@@ -2319,36 +2319,56 @@ function DashboardFeedPanel({ onBack }) {
     }
 
     if (media.type === "youtube" && media.embedUrl) {
-      return (
-        <button
-          type="button"
-          onClick={() => setYoutubeModalMedia(media)}
-          className="relative mt-3 block w-full overflow-hidden rounded-[22px] border border-white/10 bg-black/30 text-left touch-pan-y"
-          aria-label="Open YouTube video"
-        >
-          <div className="relative aspect-video w-full bg-black">
-            {media.thumbnailUrl ? (
-              <img
-                src={media.thumbnailUrl}
-                alt="YouTube preview"
-                className="h-full w-full object-cover"
-                loading="lazy"
-              />
-            ) : (
-              <div className="flex h-full w-full items-center justify-center text-white/50">
-                YouTube preview
-              </div>
-            )}
+      const isActive = activeYoutubePosts[post.id];
 
-            <div className="absolute inset-0 bg-black/20" />
+      if (!isActive) {
+        return (
+          <button
+            type="button"
+            onClick={() => setActiveYoutubePosts((prev) => ({ ...prev, [post.id]: true }))}
+            className="relative mx-auto mt-3 block w-full max-w-[clamp(240px,78vw,360px)] overflow-hidden rounded-[22px] border border-white/10 bg-black/30 text-left touch-pan-y"
+            aria-label="Play YouTube video"
+          >
+            <div className="relative aspect-video w-full bg-black">
+              {media.thumbnailUrl ? (
+                <img
+                  src={media.thumbnailUrl}
+                  alt="YouTube preview"
+                  className="h-full w-full object-cover"
+                  loading="lazy"
+                />
+              ) : (
+                <div className="flex h-full w-full items-center justify-center text-white/50">
+                  YouTube preview
+                </div>
+              )}
 
-            <div className="absolute inset-0 flex items-center justify-center">
-              <div className="flex h-16 w-16 items-center justify-center rounded-full bg-white text-slate-950 shadow-[0_18px_55px_rgba(0,0,0,0.35)]">
-                <Play className="ml-1 h-7 w-7 fill-current" />
+              <div className="absolute inset-0 bg-black/20" />
+
+              <div className="absolute inset-0 flex items-center justify-center">
+                <div className="flex h-16 w-16 items-center justify-center rounded-full bg-white text-slate-950 shadow-[0_18px_55px_rgba(0,0,0,0.35)]">
+                  <Play className="ml-1 h-7 w-7 fill-current" />
+                </div>
               </div>
             </div>
+          </button>
+        );
+      }
+
+      return (
+        <div className="mx-auto mt-3 w-full max-w-[clamp(240px,78vw,360px)] overflow-hidden rounded-[22px] border border-white/10 bg-black/30">
+          <div className="relative aspect-video w-full">
+            <iframe
+              src={`${media.embedUrl}?autoplay=1&playsinline=1&rel=0&modestbranding=1&controls=1`}
+              title="YouTube video"
+              className="absolute inset-0 h-full w-full"
+              allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+              allowFullScreen
+              loading="lazy"
+              referrerPolicy="strict-origin-when-cross-origin"
+            />
           </div>
-        </button>
+        </div>
       );
     }
 
@@ -2499,7 +2519,7 @@ function DashboardFeedPanel({ onBack }) {
                 key={post.id}
                 className="rounded-[30px] border border-white/10 bg-white/[0.055] p-4 shadow-[0_18px_50px_rgba(0,0,0,0.20)] backdrop-blur-xl"
               >
-                <div className="flex items-start gap-3">
+                <div className="flex items-start gap-2.5">
                   <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border border-white/10 bg-white/10 text-sm font-black text-white">
                     {dashboardPanelInitials(post.author_name)}
                   </div>
@@ -2609,43 +2629,6 @@ function DashboardFeedPanel({ onBack }) {
         </div>
       )}
 
-      {youtubeModalMedia ? (
-        <div className="fixed inset-0 z-[140] flex items-center justify-center bg-black/82 px-4 py-6 backdrop-blur-xl">
-          <div className="w-full max-w-[430px] overflow-hidden rounded-[28px] border border-white/10 bg-[#020817] shadow-[0_28px_90px_rgba(0,0,0,0.55)]">
-            <div className="flex items-center justify-between gap-3 border-b border-white/10 px-4 py-3">
-              <div className="min-w-0">
-                <p className="truncate text-sm font-bold text-white">
-                  {youtubeModalMedia.name || "YouTube video"}
-                </p>
-                <p className="text-[11px] text-white/45">Tap close to return to Feed</p>
-              </div>
-
-              <button
-                type="button"
-                onClick={() => setYoutubeModalMedia(null)}
-                className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-white/10 bg-white/10 text-white/75"
-                aria-label="Close video"
-              >
-                <X className="h-4 w-4" />
-              </button>
-            </div>
-
-            <div className="bg-black">
-              <div className="relative aspect-video w-full">
-                <iframe
-                  src={`${youtubeModalMedia.embedUrl}?autoplay=1&playsinline=1&rel=0&modestbranding=1&controls=1`}
-                  title="YouTube video"
-                  className="absolute inset-0 h-full w-full"
-                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
-                  allowFullScreen
-                  loading="lazy"
-                  referrerPolicy="strict-origin-when-cross-origin"
-                />
-              </div>
-            </div>
-          </div>
-        </div>
-      ) : null}
     </div>
   );
 }
