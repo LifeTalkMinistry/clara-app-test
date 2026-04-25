@@ -4553,14 +4553,12 @@ export default function Dashboard() {
   }
 
   return (
-    <div className={`theme-page-shell relative isolate z-0 w-full max-w-[430px] mx-auto ${dashboardScale.page} overflow-x-hidden overscroll-none`} style={{ WebkitOverflowScrolling: "touch" }}>
+    <div className={`theme-page-shell relative isolate z-0 w-full max-w-[430px] mx-auto ${dashboardScale.page} overflow-x-hidden`} style={{ WebkitOverflowScrolling: "touch" }}>
       <style>{`
         .theme-page-shell {
-          overscroll-behavior: none;
+          overscroll-behavior-y: none;
+          overscroll-behavior-x: auto;
           scroll-padding-bottom: 0;
-        }
-        .theme-page-shell * {
-          overscroll-behavior: contain;
         }
         @keyframes claraDashboardPanelForwardIn {
           0% { opacity: 0; transform: translate3d(32px, 0, 0) scale(0.985); filter: blur(5px); }
@@ -4771,9 +4769,9 @@ export default function Dashboard() {
             <div className={`overflow-hidden ${dashboardScale.financeClip}`}>
               <div
                 ref={financeCarouselRef}
-                className="flex items-stretch snap-x snap-mandatory overflow-x-auto overflow-y-hidden [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+                className="flex touch-pan-x items-stretch snap-x snap-mandatory overflow-x-auto overflow-y-hidden overscroll-x-contain [scrollbar-width:none] [-webkit-overflow-scrolling:touch] [&::-webkit-scrollbar]:hidden"
               >
-                <div className="flex w-full shrink-0 snap-center">
+                <div className="flex w-full min-w-full shrink-0 snap-center">
                   <div className={getFinanceSlideShellClass("emergency", selectedDashboardTheme, dashboardScale)}>
                     <EmergencyFundCard
                       moneyLeft={walletMoney}
@@ -4837,7 +4835,7 @@ export default function Dashboard() {
                   </div>
                 </div>
 
-                <div className="flex w-full shrink-0 snap-center">
+                <div className="flex w-full min-w-full shrink-0 snap-center">
                   <div className={getFinanceSlideShellClass("wallets", selectedDashboardTheme, dashboardScale)}>
                     <WalletCard
                     wallets={wallets}
@@ -4856,7 +4854,7 @@ export default function Dashboard() {
                   </div>
                 </div>
 
-                <div className="flex w-full shrink-0 snap-center">
+                <div className="flex w-full min-w-full shrink-0 snap-center">
                   <div className={getFinanceSlideShellClass("budgets", selectedDashboardTheme, dashboardScale)}>
                     <BudgetCard
                     activeBudget={derivedActiveBudget}
@@ -4870,7 +4868,7 @@ export default function Dashboard() {
                   </div>
                 </div>
 
-                <div className="flex w-full shrink-0 snap-center">
+                <div className="flex w-full min-w-full shrink-0 snap-center">
                   <div className={getFinanceSlideShellClass("savings", selectedDashboardTheme, dashboardScale)}>
                     <SavingsCard
                     savingsGoals={savingsGoals}
