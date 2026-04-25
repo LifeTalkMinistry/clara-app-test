@@ -942,7 +942,7 @@ const DASHBOARD_SCALE = {
     headerIcon: "h-8 w-8",
     headerIconSvg: "h-4 w-4",
     headerLabel: "text-[10px]",
-    content: "mt-1 space-y-[clamp(7px,1.5dvh,10px)] px-[clamp(10px,3vw,14px)] pb-[calc(env(safe-area-inset-bottom)+12px)] md:px-[clamp(10px,3vw,14px)] md:space-y-[clamp(7px,1.5dvh,10px)]",
+    content: "mt-1 space-y-[clamp(7px,1.5dvh,10px)] px-[clamp(10px,3vw,14px)] pb-[calc(env(safe-area-inset-bottom)+6px)] md:px-[clamp(10px,3vw,14px)] md:space-y-[clamp(7px,1.5dvh,10px)]",
     billboard: "h-[clamp(78px,13dvh,96px)]",
     billboardPad: "gap-2 p-3",
     billboardTitle: "mt-0.5 text-[clamp(13px,3.5vw,15px)]",
@@ -968,7 +968,7 @@ const DASHBOARD_SCALE = {
     headerIcon: "h-9 w-9",
     headerIconSvg: "h-[18px] w-[18px]",
     headerLabel: "text-[10.5px]",
-    content: "mt-1.5 space-y-[clamp(8px,1.7dvh,12px)] px-[clamp(12px,3.5vw,16px)] pb-[calc(env(safe-area-inset-bottom)+14px)] md:px-[clamp(12px,3.5vw,16px)] md:space-y-[clamp(8px,1.7dvh,12px)]",
+    content: "mt-1.5 space-y-[clamp(8px,1.7dvh,12px)] px-[clamp(12px,3.5vw,16px)] pb-[calc(env(safe-area-inset-bottom)+6px)] md:px-[clamp(12px,3.5vw,16px)] md:space-y-[clamp(8px,1.7dvh,12px)]",
     billboard: "h-[clamp(88px,14dvh,108px)]",
     billboardPad: "gap-2.5 p-3",
     billboardTitle: "mt-0.5 text-[clamp(14px,3.7vw,16px)]",
@@ -994,7 +994,7 @@ const DASHBOARD_SCALE = {
     headerIcon: "h-10 w-10",
     headerIconSvg: "h-5 w-5",
     headerLabel: "text-[11px]",
-    content: "mt-2 space-y-[clamp(10px,1.8dvh,14px)] px-[clamp(14px,4vw,18px)] pb-[calc(env(safe-area-inset-bottom)+16px)] md:px-[clamp(14px,4vw,18px)] md:space-y-[clamp(10px,1.8dvh,14px)]",
+    content: "mt-2 space-y-[clamp(10px,1.8dvh,14px)] px-[clamp(14px,4vw,18px)] pb-[calc(env(safe-area-inset-bottom)+6px)] md:px-[clamp(14px,4vw,18px)] md:space-y-[clamp(10px,1.8dvh,14px)]",
     billboard: "h-[clamp(100px,15dvh,124px)]",
     billboardPad: "gap-3 p-4",
     billboardTitle: "mt-1 text-base",
@@ -1020,7 +1020,7 @@ const DASHBOARD_SCALE = {
     headerIcon: "h-10 w-10",
     headerIconSvg: "h-5 w-5",
     headerLabel: "text-[11px]",
-    content: "mt-2.5 space-y-[clamp(12px,2dvh,16px)] px-[clamp(16px,4vw,20px)] pb-[calc(env(safe-area-inset-bottom)+18px)] md:px-[clamp(16px,4vw,20px)] md:space-y-[clamp(12px,2dvh,16px)]",
+    content: "mt-2.5 space-y-[clamp(12px,2dvh,16px)] px-[clamp(16px,4vw,20px)] pb-[calc(env(safe-area-inset-bottom)+6px)] md:px-[clamp(16px,4vw,20px)] md:space-y-[clamp(12px,2dvh,16px)]",
     billboard: "h-[clamp(112px,15dvh,138px)]",
     billboardPad: "gap-3 p-4",
     billboardTitle: "mt-1 text-base",
@@ -4553,8 +4553,15 @@ export default function Dashboard() {
   }
 
   return (
-    <div className={`theme-page-shell relative isolate z-0 w-full max-w-[430px] mx-auto ${dashboardScale.page} overflow-x-hidden`} style={{ WebkitOverflowScrolling: "touch" }}>
+    <div className={`theme-page-shell relative isolate z-0 w-full max-w-[430px] mx-auto ${dashboardScale.page} overflow-x-hidden overscroll-none`} style={{ WebkitOverflowScrolling: "touch" }}>
       <style>{`
+        .theme-page-shell {
+          overscroll-behavior: none;
+          scroll-padding-bottom: 0;
+        }
+        .theme-page-shell * {
+          overscroll-behavior: contain;
+        }
         @keyframes claraDashboardPanelForwardIn {
           0% { opacity: 0; transform: translate3d(32px, 0, 0) scale(0.985); filter: blur(5px); }
           100% { opacity: 1; transform: translate3d(0, 0, 0) scale(1); filter: blur(0); }
