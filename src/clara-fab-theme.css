@@ -11,6 +11,62 @@
 .bottom-nav-fab,
 .floating-ai-button,
 .floating-quick-button,
-.floating-action-button {
+.floating-action-button,
+.clara-draggable-fab {
+  width: 64px !important;
+  height: 64px !important;
+  min-width: 64px !important;
+  min-height: 64px !important;
   border-radius: 9999px !important;
+  border: 1px solid var(--theme-border) !important;
+  background: linear-gradient(135deg, var(--theme-card), var(--theme-primary), var(--theme-accent)) !important;
+  box-shadow: 0 0 18px var(--theme-glow), 0 14px 30px rgba(0, 0, 0, 0.24) !important;
+  color: var(--theme-text) !important;
+  opacity: 0.94;
+  overflow: visible !important;
+}
+
+.clara-fab img,
+.clara-quick-fab img,
+.clara-quick-button img,
+.clara-ai-fab img,
+.quick-fab img,
+.quick-circle img,
+.quick-orb img,
+.fab-button img,
+.ai-fab img,
+.bottom-nav-fab img,
+.floating-ai-button img,
+.floating-quick-button img,
+.floating-action-button img,
+.clara-draggable-fab img {
+  display: none !important;
+}
+
+.clara-fab svg,
+.clara-quick-fab svg,
+.clara-quick-button svg,
+.clara-ai-fab svg,
+.quick-fab svg,
+.quick-circle svg,
+.quick-orb svg,
+.fab-button svg,
+.ai-fab svg,
+.bottom-nav-fab svg,
+.floating-ai-button svg,
+.floating-quick-button svg,
+.floating-action-button svg,
+.clara-draggable-fab svg {
+  width: 28px !important;
+  height: 28px !important;
+}
+
+.clara-draggable-fab {
+  touch-action: none;
+  cursor: grab;
+}
+
+.clara-draggable-fab.is-dragging {
+  cursor: grabbing;
+  transition: none !important;
 }
