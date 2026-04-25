@@ -4,7 +4,6 @@ import { useNavigate } from "react-router-dom";
 import { useTheme } from "@/theme/ThemeProvider";
 
 const MONEY_TRANSACTION_LABELS = new Set([
-  "money left",
   "total money",
   "total expense",
   "total expenses",
