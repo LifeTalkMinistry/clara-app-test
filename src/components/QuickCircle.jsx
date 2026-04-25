@@ -10,12 +10,14 @@ const quickActions = [
   { key: "clara", label: "Ask CLARA", icon: Sparkles },
 ];
 
-export default function QuickCircle({ onQuickAdd, onOpenAssistant }) {
+export default function QuickCircle({ onQuickAdd, onOpenAssistant, placement = "default" }) {
   const navigate = useNavigate();
 
   const [expanded, setExpanded] = useState(false);
   const longPressTimerRef = useRef(null);
   const longPressTriggeredRef = useRef(false);
+
+  const isDashboardPlacement = placement === "dashboard";
 
   const clearLongPressTimer = useCallback(() => {
     if (longPressTimerRef.current) {
@@ -55,44 +57,93 @@ export default function QuickCircle({ onQuickAdd, onOpenAssistant }) {
     [navigate, onQuickAdd, openAssistant]
   );
 
-  return (
-    <div className="pointer-events-none fixed bottom-[calc(5.7rem+env(safe-area-inset-bottom))] right-5 z-[120] flex justify-end sm:bottom-[calc(1.5rem+env(safe-area-inset-bottom))] sm:right-6">
+  const shellPositionClass = isDashboardPlacement
+    ? "fixed z-[120] flex justify-end pointer-events-none"
+    : "fixed bottom-[calc(5.7rem+env(safe-area-inset-bottom))] right-5 z-[120] flex justify-end pointer-events-none sm:bottom-[calc(1.5rem+env(safe-area-inset-bottom))] sm:right-6";
 
+  const shellPositionStyle = isDashboardPlacement
+    ? {
+        top: "clamp(20rem, 56dvh, 29rem)",
+        right: "calc((100vw - min(100vw, 430px)) / 2 + clamp(1.15rem, 7vw, 2rem))",
+      }
+    : undefined;
+
+  return (
+    <div className={shellPositionClass} style={shellPositionStyle} data-fab="clara-quick-circle">
       {expanded && (
         <button
           type="button"
           className="pointer-events-auto fixed inset-0 z-[-1]"
           onClick={() => setExpanded(false)}
+          aria-label="Close quick actions"
         />
       )}
 
-      <div className="relative flex h-[3.8rem] w-[3.8rem] items-center justify-center">
+      <div className="relative flex h-[clamp(3.25rem,12vw,3.95rem)] w-[clamp(3.25rem,12vw,3.95rem)] items-center justify-center">
+        {expanded && (
+          <div className="absolute bottom-[calc(100%+0.7rem)] right-0 flex flex-col items-end gap-2.5">
+            {quickActions.map((action) => {
+              const Icon = action.icon;
+              return (
+                <button
+                  key={action.key}
+                  type="button"
+                  onClick={() => handleQuickAction(action.key)}
+                  className="pointer-events-auto flex min-w-[9.5rem] items-center justify-between gap-3 rounded-2xl border border-white/15 bg-[color-mix(in_srgb,var(--theme-surface)_72%,transparent)] px-3.5 py-2.5 text-sm font-semibold text-white shadow-[0_16px_35px_rgba(0,0,0,0.28),0_0_24px_color-mix(in_srgb,var(--theme-glow)_20%,transparent)] backdrop-blur-xl transition hover:-translate-y-0.5 hover:border-white/25 hover:bg-[color-mix(in_srgb,var(--theme-primary)_22%,var(--theme-surface)_68%)] active:scale-[0.98]"
+                >
+                  <span>{action.label}</span>
+                  <span className="flex h-8 w-8 items-center justify-center rounded-full border border-white/15 bg-white/10">
+                    <Icon className="h-4 w-4" />
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+        )}
 
         <span
-          className="absolute inset-[-0.7rem] rounded-full blur-xl"
+          className="pointer-events-none absolute inset-[-0.75rem] rounded-full opacity-80 blur-2xl animate-[claraFabPulse_1.9s_ease-in-out_infinite]"
           style={{
             background:
-              "radial-gradient(circle, color-mix(in srgb, var(--theme-primary) 45%, transparent) 0%, transparent 70%)",
+              "radial-gradient(circle, color-mix(in srgb, var(--theme-glow) 56%, transparent) 0%, color-mix(in srgb, var(--theme-primary) 28%, transparent) 38%, transparent 72%)",
+          }}
+        />
+
+        <span
+          className="pointer-events-none absolute inset-[-0.2rem] rounded-full border border-white/15 opacity-80"
+          style={{
+            background:
+              "linear-gradient(135deg, color-mix(in srgb, var(--theme-primary) 36%, transparent), color-mix(in srgb, var(--theme-accent) 24%, transparent))",
+            boxShadow:
+              "0 0 0 1px color-mix(in srgb, var(--theme-primary) 24%, transparent), 0 0 28px color-mix(in srgb, var(--theme-glow) 34%, transparent)",
           }}
         />
 
         <button
+          type="button"
           onPointerDown={handlePointerDown}
           onPointerUp={handlePointerUp}
           onPointerCancel={clearLongPressTimer}
           onPointerLeave={clearLongPressTimer}
-          className="pointer-events-auto relative flex h-[3.8rem] w-[3.8rem] items-center justify-center rounded-full border border-white/20 backdrop-blur-xl active:scale-95"
+          className="pointer-events-auto relative flex h-[clamp(3.15rem,11vw,3.75rem)] w-[clamp(3.15rem,11vw,3.75rem)] items-center justify-center rounded-full border border-white/25 bg-[color-mix(in_srgb,var(--theme-surface)_42%,transparent)] backdrop-blur-2xl transition duration-200 hover:scale-[1.04] active:scale-95"
           style={{
-            background:
-              "radial-gradient(circle at 30% 30%, rgba(255,255,255,0.15), transparent 35%), radial-gradient(circle, color-mix(in srgb, var(--theme-primary) 55%, rgba(0,0,0,0.5)) 0%, rgba(0,0,0,0.7) 75%)",
             boxShadow:
-              "0 10px 24px rgba(0,0,0,0.45), 0 0 18px color-mix(in srgb, var(--theme-primary) 35%, transparent)",
+              "inset 0 1px 0 rgba(255,255,255,0.20), 0 14px 30px rgba(0,0,0,0.24), 0 0 26px color-mix(in srgb, var(--theme-primary) 34%, transparent)",
           }}
+          aria-label="Open CLARA assistant"
         >
+          <span
+            className="pointer-events-none absolute inset-0 rounded-full opacity-80"
+            style={{
+              background:
+                "radial-gradient(circle at 28% 22%, rgba(255,255,255,0.42), transparent 30%), radial-gradient(circle at 72% 78%, color-mix(in srgb, var(--theme-primary) 36%, transparent), transparent 55%)",
+            }}
+          />
+
           <img
             src={`${import.meta.env.BASE_URL || "/"}clara-icon.png`}
             alt=""
-            className="h-[3.4rem] w-[3.4rem] object-contain drop-shadow-[0_6px_14px_rgba(0,0,0,1)]"
+            className="relative h-[clamp(2.75rem,9.8vw,3.35rem)] w-[clamp(2.75rem,9.8vw,3.35rem)] object-contain drop-shadow-[0_8px_16px_rgba(0,0,0,0.55)]"
           />
         </button>
       </div>
