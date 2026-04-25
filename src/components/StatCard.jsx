@@ -42,6 +42,25 @@ const getThemeGlow = (theme) => {
   return "rgba(16,185,129,0.34)";
 };
 
+const isMoneyLeftLabel = (label) => {
+  const value = String(label || "").trim().toLowerCase();
+  const compact = value.replace(/[^a-z0-9]+/g, " ").trim();
+
+  return (
+    compact === "money left" ||
+    compact.includes("money left") ||
+    compact.includes("left money") ||
+    compact.includes("cash left") ||
+    compact.includes("remaining money") ||
+    compact.includes("money remaining") ||
+    compact.includes("available money") ||
+    compact.includes("money available") ||
+    compact.includes("remaining balance") ||
+    compact.includes("available balance") ||
+    compact.includes("balance left")
+  );
+};
+
 export default function StatCard({
   label = "",
   value = "-",
@@ -57,7 +76,7 @@ export default function StatCard({
   const themeContext = useTheme?.() || {};
   const themeGlow = getThemeGlow(themeContext?.theme || themeContext?.currentTheme || themeContext);
   const normalizedLabel = String(label || "").trim().toLowerCase();
-  const isMoneyLeftDisplayOnly = normalizedLabel === "money left";
+  const isMoneyLeftDisplayOnly = isMoneyLeftLabel(label);
   const isMoneyMetric = !isMoneyLeftDisplayOnly && MONEY_TRANSACTION_LABELS.has(normalizedLabel);
   const autoTransactionTarget = isMoneyMetric ? "/expenses" : "";
   const targetPath = isMoneyLeftDisplayOnly ? "" : to || autoTransactionTarget;
