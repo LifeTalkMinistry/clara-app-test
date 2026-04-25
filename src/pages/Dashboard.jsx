@@ -5861,6 +5861,11 @@ export default function Dashboard() {
         ? "animate-[claraDashboardPanelForwardIn_340ms_cubic-bezier(.22,1,.36,1)_both]"
         : "animate-[claraDashboardPanelReverseIn_340ms_cubic-bezier(.22,1,.36,1)_both]";
 
+  const dashboardPanelViewportClass =
+    activeDashboardPanel === "home"
+      ? ""
+      : "max-h-[calc(100svh-132px)] overflow-y-auto overscroll-y-contain touch-pan-y pr-0.5 pb-[calc(env(safe-area-inset-bottom)+14px)] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden";
+
   const headerQuickActions = [
     {
       key: "home",
@@ -5909,7 +5914,6 @@ export default function Dashboard() {
     <div className={`theme-page-shell relative isolate z-0 w-full max-w-[430px] mx-auto ${dashboardScale.page} overflow-x-hidden`} style={{ WebkitOverflowScrolling: "touch" }}>
       <style>{`
         .theme-page-shell {
-          overscroll-behavior-y: none;
           overscroll-behavior-x: auto;
           scroll-padding-bottom: 0;
         }
@@ -6000,8 +6004,11 @@ export default function Dashboard() {
         </div>
       </div>
 
-      <div className={`mx-auto w-full max-w-[430px] ${dashboardScale.content}`}>
-        <div key={activeDashboardPanel} className={dashboardPanelAnimationClass}>
+      <div className={`mx-auto w-full max-w-[430px] ${dashboardScale.content} ${activeDashboardPanel === "home" ? "" : "pb-0"}`}>
+        <div
+          key={activeDashboardPanel}
+          className={`${dashboardPanelAnimationClass} ${dashboardPanelViewportClass}`}
+        >
           {activeDashboardPanel === "home" ? (
             <>
         {isPending && (
