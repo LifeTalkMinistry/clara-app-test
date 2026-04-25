@@ -17,6 +17,8 @@ import {
   X,
   Home,
   MessageCircle,
+  Send,
+  Search,
   ListChecks,
   WalletCards,
   Target,
@@ -2611,74 +2613,172 @@ function DashboardFeedPanel({ onBack }) {
 
 function DashboardMessagesPanel({ onBack }) {
   const { user, isAdmin, access, getFeatureAccessMode, loading: accessLoading } = useUserRole();
+
   const [messages, setMessages] = useState([]);
-  const [profiles, setProfiles] = useState([]);
+  const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [sending, setSending] = useState(false);
+  const [selectedConvo, setSelectedConvo] = useState(null);
+  const [newMsg, setNewMsg] = useState("");
+  const [search, setSearch] = useState("");
+  const [peopleOpen, setPeopleOpen] = useState(false);
+
+  const messagesEndRef = useRef(null);
 
   const currentUserId = user?.id || null;
+  const currentUserEmail = user?.email || "";
+  const currentUserName =
+    user?.full_name ||
+    user?.nickname ||
+    user?.display_name ||
+    user?.email ||
+    "You";
+
+  const messageMode = getFeatureAccessMode?.("messages");
   const hasFullMessaging = isAdmin || !!access?.messagingFull;
   const canMessageAdmins = isAdmin || !!access?.messagingAdminOnly;
-  const hasMessagingAccess = (hasFullMessaging || canMessageAdmins) && !user?.messaging_disabled;
-  const messageMode = getFeatureAccessMode?.("messages");
+  const hasMessagingAccess =
+    (hasFullMessaging || canMessageAdmins) && !user?.messaging_disabled;
 
-  const fetchMessagesPanelData = useCallback(async () => {
-    if (!currentUserId || !hasMessagingAccess) {
-      setMessages([]);
-      setProfiles([]);
-      setLoading(false);
+  const fetchUsers = useCallback(async () => {
+    if (!currentUserId) {
+      setUsers([]);
       return;
     }
 
-    setLoading(true);
+    const { data: baseProfiles, error: baseError } = await supabase
+      .from("profiles")
+      .select("id,email,full_name");
 
-    try {
-      const [profilesResult, messagesResult] = await Promise.all([
-        supabase.from("profiles").select("id,email,full_name").limit(24),
-        supabase
-          .from("direct_messages")
-          .select("*")
-          .or(`sender_id.eq.${currentUserId},recipient_id.eq.${currentUserId}`)
-          .order("created_at", { ascending: false })
-          .limit(40),
-      ]);
-
-      if (profilesResult.error) throw profilesResult.error;
-      if (messagesResult.error) throw messagesResult.error;
-
-      setProfiles(Array.isArray(profilesResult.data) ? profilesResult.data : []);
-      setMessages(Array.isArray(messagesResult.data) ? messagesResult.data : []);
-    } catch (error) {
-      console.error("Dashboard messages panel fetch failed:", error);
-      setProfiles([]);
-      setMessages([]);
-    } finally {
-      setLoading(false);
+    if (baseError) {
+      console.error("[DashboardMessagesPanel] base profiles fetch failed:", baseError);
+      setUsers([]);
+      return;
     }
-  }, [currentUserId, hasMessagingAccess]);
+
+    let optionalProfiles = [];
+    const { data: extraProfiles, error: extraError } = await supabase
+      .from("profiles")
+      .select("id,nickname,display_name,role");
+
+    if (!extraError) optionalProfiles = Array.isArray(extraProfiles) ? extraProfiles : [];
+
+    const optionalMap = optionalProfiles.reduce((acc, item) => {
+      if (item?.id) acc[item.id] = item;
+      return acc;
+    }, {});
+
+    let merged = (Array.isArray(baseProfiles) ? baseProfiles : []).map((profile) => {
+      const extra = optionalMap[profile.id] || {};
+      const displayName =
+        extra?.nickname ||
+        extra?.display_name ||
+        profile?.full_name ||
+        profile?.email ||
+        "CLARA User";
+
+      return {
+        id: profile?.id || null,
+        email: profile?.email || "",
+        full_name: displayName,
+        role: String(extra?.role || "user").toLowerCase(),
+      };
+    });
+
+    merged = merged.filter((profile) => {
+      if (!profile?.id) return false;
+      if (profile.id === currentUserId) return false;
+      if (
+        currentUserEmail &&
+        profile.email &&
+        profile.email.toLowerCase() === currentUserEmail.toLowerCase()
+      ) {
+        return false;
+      }
+      return true;
+    });
+
+    if (!hasFullMessaging && canMessageAdmins) {
+      merged = merged.filter((profile) => profile.role === "admin");
+    }
+
+    setUsers(merged);
+  }, [canMessageAdmins, currentUserEmail, currentUserId, hasFullMessaging]);
+
+  const fetchMessages = useCallback(async () => {
+    if (!currentUserId) {
+      setMessages([]);
+      return;
+    }
+
+    const { data, error } = await supabase
+      .from("direct_messages")
+      .select("*")
+      .or(`sender_id.eq.${currentUserId},recipient_id.eq.${currentUserId}`)
+      .order("created_at", { ascending: false });
+
+    if (error) {
+      console.error("[DashboardMessagesPanel] messages fetch failed:", error);
+      return;
+    }
+
+    setMessages(Array.isArray(data) ? data : []);
+  }, [currentUserId]);
 
   useEffect(() => {
-    fetchMessagesPanelData();
+    let mounted = true;
 
+    const load = async () => {
+      if (!currentUserId || !hasMessagingAccess) {
+        if (mounted) {
+          setUsers([]);
+          setMessages([]);
+          setLoading(false);
+        }
+        return;
+      }
+
+      if (mounted) setLoading(true);
+
+      try {
+        await Promise.all([fetchUsers(), fetchMessages()]);
+      } catch (error) {
+        console.error("[DashboardMessagesPanel] initial load failed:", error);
+      } finally {
+        if (mounted) setLoading(false);
+      }
+    };
+
+    load();
+
+    return () => {
+      mounted = false;
+    };
+  }, [currentUserId, fetchMessages, fetchUsers, hasMessagingAccess]);
+
+  useEffect(() => {
     if (!currentUserId || !hasMessagingAccess) return undefined;
 
     const channel = supabase
-      .channel(`dashboard-messages-panel-${currentUserId}`)
+      .channel(`dashboard-direct-messages-${currentUserId}`)
       .on(
         "postgres_changes",
         { event: "*", schema: "public", table: "direct_messages" },
-        fetchMessagesPanelData
+        fetchMessages
       )
       .subscribe();
 
-    return () => supabase.removeChannel(channel);
-  }, [currentUserId, hasMessagingAccess, fetchMessagesPanelData]);
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [currentUserId, fetchMessages, hasMessagingAccess]);
 
-  const profileMap = useMemo(() => {
-    return profiles.reduce((acc, profile) => {
-      if (profile?.id) acc[profile.id] = profile;
+  const usersById = useMemo(() => {
+    return users.reduce((acc, item) => {
+      if (item?.id) acc[item.id] = item;
       return acc;
     }, {});
-  }, [profiles]);
+  }, [users]);
 
   const conversations = useMemo(() => {
     const map = {};
@@ -2688,87 +2788,418 @@ function DashboardMessagesPanel({ onBack }) {
       const otherId = isMine ? message.recipient_id : message.sender_id;
       if (!otherId) return;
 
-      const fallbackName = isMine
-        ? message.recipient_name || message.recipient_email
-        : message.sender_name || message.sender_email;
+      const otherEmail = isMine ? message.recipient_email : message.sender_email;
+      const otherName = isMine
+        ? message.recipient_name || usersById[message.recipient_id]?.full_name || otherEmail
+        : message.sender_name || usersById[message.sender_id]?.full_name || otherEmail;
 
       if (!map[otherId]) {
         map[otherId] = {
           id: otherId,
-          name: profileMap[otherId]?.full_name || fallbackName || "CLARA User",
-          email: profileMap[otherId]?.email || (isMine ? message.recipient_email : message.sender_email) || "",
-          lastMessage: message,
+          email: otherEmail || "",
+          name: otherName || "CLARA User",
+          messages: [],
+          lastMessage: null,
           unreadCount: 0,
         };
       }
 
-      if (new Date(message.created_at || 0) > new Date(map[otherId].lastMessage?.created_at || 0)) {
-        map[otherId].lastMessage = message;
-      }
+      map[otherId].messages.push(message);
 
       if (message.recipient_id === currentUserId && !message.is_read) {
         map[otherId].unreadCount += 1;
       }
     });
 
-    return Object.values(map).sort(
-      (a, b) => new Date(b.lastMessage?.created_at || 0) - new Date(a.lastMessage?.created_at || 0)
-    );
-  }, [messages, currentUserId, profileMap]);
+    Object.values(map).forEach((convo) => {
+      convo.messages.sort((a, b) => new Date(a.created_at) - new Date(b.created_at));
+      convo.lastMessage = convo.messages[convo.messages.length - 1] || null;
+    });
 
-  return (
-    <DashboardPanelShell
-      title="Messages"
-      subtitle="Private conversations without leaving your dashboard"
-      icon={MessageCircle}
-      viewAllTo="/messages"
-      onBack={onBack}
-    >
-      {accessLoading || loading ? (
-        <div className={dashboardPanelCardClass}>
-          <div className="h-5 w-36 animate-pulse rounded-full bg-white/10" />
-          <div className="mt-4 space-y-3">
-            <div className="h-14 animate-pulse rounded-2xl bg-white/8" />
-            <div className="h-14 animate-pulse rounded-2xl bg-white/8" />
+    return Object.values(map).sort(
+      (a, b) =>
+        new Date(b.lastMessage?.created_at || 0) -
+        new Date(a.lastMessage?.created_at || 0)
+    );
+  }, [currentUserId, messages, usersById]);
+
+  const filteredPeople = useMemo(() => {
+    const term = search.trim().toLowerCase();
+    const source = users;
+
+    if (!term) return source;
+
+    return source.filter((item) => {
+      const name = (item.full_name || "").toLowerCase();
+      const email = (item.email || "").toLowerCase();
+      return name.includes(term) || email.includes(term);
+    });
+  }, [search, users]);
+
+  const filteredConversations = useMemo(() => {
+    const term = search.trim().toLowerCase();
+
+    if (!term) return conversations;
+
+    return conversations.filter((convo) => {
+      const name = (convo.name || "").toLowerCase();
+      const email = (convo.email || "").toLowerCase();
+      const preview = (convo.lastMessage?.content || "").toLowerCase();
+      return name.includes(term) || email.includes(term) || preview.includes(term);
+    });
+  }, [conversations, search]);
+
+  const activeConvo = useMemo(() => {
+    if (!selectedConvo) return null;
+
+    const existing = conversations.find((item) => item.id === selectedConvo);
+    if (existing) return existing;
+
+    const foundUser = users.find((item) => item.id === selectedConvo);
+    if (!foundUser) return null;
+
+    return {
+      id: foundUser.id,
+      email: foundUser.email || "",
+      name: foundUser.full_name || foundUser.email || "CLARA User",
+      messages: [],
+      lastMessage: null,
+      unreadCount: 0,
+    };
+  }, [conversations, selectedConvo, users]);
+
+  useEffect(() => {
+    if (activeConvo && messagesEndRef.current) {
+      messagesEndRef.current.scrollIntoView({ behavior: "smooth" });
+    }
+  }, [activeConvo, messages]);
+
+  useEffect(() => {
+    const markRead = async () => {
+      if (!activeConvo?.id || !currentUserId) return;
+
+      const unreadIds = activeConvo.messages
+        .filter((message) => message.recipient_id === currentUserId && !message.is_read)
+        .map((message) => message.id);
+
+      if (!unreadIds.length) return;
+
+      const { error } = await supabase
+        .from("direct_messages")
+        .update({ is_read: true })
+        .in("id", unreadIds);
+
+      if (error) {
+        console.error("[DashboardMessagesPanel] mark as read failed:", error);
+        return;
+      }
+
+      setMessages((prev) =>
+        prev.map((message) =>
+          unreadIds.includes(message.id) ? { ...message, is_read: true } : message
+        )
+      );
+    };
+
+    markRead();
+  }, [activeConvo, currentUserId]);
+
+  const openConversation = useCallback((userId) => {
+    setSelectedConvo(userId);
+    setPeopleOpen(false);
+  }, []);
+
+  const handleSend = useCallback(async () => {
+    if (!newMsg.trim() || !selectedConvo || !currentUserId || sending) return;
+
+    const recipientUser = users.find((item) => item.id === selectedConvo);
+    if (!recipientUser) return;
+
+    setSending(true);
+
+    const payload = {
+      conversation_id: [String(currentUserId), String(recipientUser.id)].sort().join("_"),
+      sender_id: currentUserId,
+      sender_email: currentUserEmail,
+      sender_name: currentUserName,
+      recipient_id: recipientUser.id,
+      recipient_email: recipientUser.email || "",
+      recipient_name: recipientUser.full_name || recipientUser.email || "CLARA User",
+      content: newMsg.trim(),
+      is_read: false,
+    };
+
+    const optimisticId = `temp-${Date.now()}`;
+    const optimisticMessage = {
+      id: optimisticId,
+      ...payload,
+      created_at: new Date().toISOString(),
+    };
+
+    setMessages((prev) => [optimisticMessage, ...prev]);
+    setNewMsg("");
+
+    const { data, error } = await supabase
+      .from("direct_messages")
+      .insert(payload)
+      .select()
+      .single();
+
+    if (error) {
+      console.error("[DashboardMessagesPanel] send failed:", error);
+      setMessages((prev) => prev.filter((message) => message.id !== optimisticId));
+      setNewMsg(payload.content);
+      setSending(false);
+      return;
+    }
+
+    setMessages((prev) => {
+      const withoutTemp = prev.filter((message) => message.id !== optimisticId);
+      return data ? [data, ...withoutTemp] : withoutTemp;
+    });
+
+    setSending(false);
+  }, [
+    currentUserEmail,
+    currentUserId,
+    currentUserName,
+    newMsg,
+    selectedConvo,
+    sending,
+    users,
+  ]);
+
+  const panelHeader = (
+    <div className="rounded-[30px] border border-white/10 bg-white/[0.055] p-4 shadow-[0_18px_50px_rgba(0,0,0,0.20)] backdrop-blur-xl">
+      <div className="flex items-center justify-between gap-3">
+        <div className="flex min-w-0 items-center gap-3">
+          <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border border-white/10 bg-white/10 text-white">
+            <MessageCircle className="h-5 w-5" />
+          </div>
+          <div className="min-w-0">
+            <p className="truncate text-base font-bold text-white">
+              {activeConvo ? activeConvo.name : "Messages"}
+            </p>
+            <p className="truncate text-xs text-white/55">
+              {activeConvo
+                ? messageMode === "admin_only" && !isAdmin
+                  ? "CLARA Admin conversation"
+                  : "Private conversation"
+                : "Chat directly inside your dashboard"}
+            </p>
           </div>
         </div>
-      ) : !currentUserId ? (
-        <div className={`${dashboardPanelCardClass} text-center`}>
-          <p className="text-sm font-semibold text-white">Session not ready</p>
-          <p className="mt-1 text-xs text-white/55">Please refresh or log in again.</p>
+
+        <button
+          type="button"
+          onClick={activeConvo ? () => setSelectedConvo(null) : onBack}
+          className="rounded-full border border-white/10 bg-white/8 px-3 py-2 text-[11px] font-semibold text-white/75 transition hover:bg-white/12"
+        >
+          {activeConvo ? "Inbox" : "Home"}
+        </button>
+      </div>
+    </div>
+  );
+
+  if (accessLoading || loading) {
+    return (
+      <div className="space-y-4">
+        {panelHeader}
+        <div className="rounded-[30px] border border-white/10 bg-white/[0.055] p-8 text-center backdrop-blur-xl">
+          <div className="mx-auto h-6 w-6 animate-spin rounded-full border-2 border-white/15 border-t-emerald-300" />
+          <p className="mt-3 text-sm text-white/55">Preparing messages...</p>
         </div>
-      ) : !hasMessagingAccess ? (
-        <div className={`${dashboardPanelCardClass} text-center`}>
-          <p className="text-sm font-semibold text-white">Messages are locked</p>
-          <p className="mt-1 text-xs text-white/55">Upgrade or enable messaging to use this feature.</p>
-        </div>
-      ) : conversations.length === 0 ? (
-        <div className={`${dashboardPanelCardClass} text-center`}>
-          <p className="text-sm font-semibold text-white">No messages yet</p>
-          <p className="mt-1 text-xs text-white/55">
-            {messageMode === "admin_only" && !isAdmin
-              ? "You can message CLARA admins from the full page."
-              : "Start a private conversation from the full page."}
+      </div>
+    );
+  }
+
+  if (!currentUserId || !hasMessagingAccess) {
+    return (
+      <div className="space-y-4">
+        {panelHeader}
+        <div className="rounded-[30px] border border-white/10 bg-white/[0.055] p-8 text-center backdrop-blur-xl">
+          <MessageCircle className="mx-auto h-8 w-8 text-white/55" />
+          <p className="mt-3 text-sm font-bold text-white">
+            {!currentUserId ? "User session not ready" : "Messages are locked"}
           </p>
-          <Link to="/messages" className="mt-4 inline-flex rounded-full bg-emerald-400 px-4 py-2 text-xs font-bold text-slate-950">
-            Start chat
-          </Link>
+          <p className="mt-1 text-xs text-white/55">
+            {!currentUserId
+              ? "Refresh or log in again."
+              : "Enable messaging or upgrade this plan to use conversations."}
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  if (activeConvo) {
+    return (
+      <div className="space-y-4">
+        {panelHeader}
+
+        <div className="flex max-h-[62dvh] min-h-[420px] flex-col overflow-hidden rounded-[30px] border border-white/10 bg-white/[0.055] shadow-[0_18px_50px_rgba(0,0,0,0.20)] backdrop-blur-xl">
+          <div className="flex-1 space-y-3 overflow-y-auto px-4 py-4 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+            {activeConvo.messages.length === 0 ? (
+              <div className="flex h-full items-center justify-center text-center">
+                <div>
+                  <MessageCircle className="mx-auto h-10 w-10 text-white/45" />
+                  <p className="mt-3 text-sm font-bold text-white">Start your conversation</p>
+                  <p className="mt-1 text-xs text-white/50">
+                    Send your first message to {activeConvo.name}.
+                  </p>
+                </div>
+              </div>
+            ) : (
+              activeConvo.messages.map((message) => {
+                const isMine = message.sender_id === currentUserId;
+
+                return (
+                  <div
+                    key={message.id}
+                    className={`flex ${isMine ? "justify-end" : "justify-start"}`}
+                  >
+                    <div
+                      className={`max-w-[82%] rounded-[22px] px-4 py-3 shadow-lg ${
+                        isMine
+                          ? "rounded-br-md bg-gradient-to-br from-emerald-500 to-teal-600 text-white"
+                          : "rounded-bl-md border border-white/10 bg-white/8 text-white backdrop-blur-xl"
+                      }`}
+                    >
+                      <p className="whitespace-pre-wrap break-words text-[14px] leading-relaxed">
+                        {message.content}
+                      </p>
+                      <div className={`mt-1.5 text-[10px] ${isMine ? "text-white/70" : "text-white/40"}`}>
+                        {dashboardPanelFormatTime(message.created_at)}
+                      </div>
+                    </div>
+                  </div>
+                );
+              })
+            )}
+            <div ref={messagesEndRef} />
+          </div>
+
+          <div className="border-t border-white/10 bg-black/15 px-3 py-3">
+            <div className="flex items-center gap-2 rounded-[24px] border border-white/10 bg-white/6 px-3 py-2">
+              <input
+                value={newMsg}
+                onChange={(event) => setNewMsg(event.target.value)}
+                placeholder="Type a message..."
+                className="min-w-0 flex-1 bg-transparent text-sm text-white outline-none placeholder:text-white/35"
+                disabled={sending}
+                onKeyDown={(event) => {
+                  if (event.key === "Enter" && !event.shiftKey) {
+                    event.preventDefault();
+                    handleSend();
+                  }
+                }}
+              />
+              <button
+                type="button"
+                onClick={handleSend}
+                disabled={!newMsg.trim() || sending}
+                className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-emerald-400 text-slate-950 shadow-[0_12px_30px_rgba(16,185,129,0.22)] disabled:opacity-45"
+              >
+                <Send className="h-4 w-4" />
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-4">
+      {panelHeader}
+
+      <div className="rounded-[30px] border border-white/10 bg-white/[0.055] p-4 shadow-[0_18px_50px_rgba(0,0,0,0.20)] backdrop-blur-xl">
+        <div className="flex items-center gap-2 rounded-2xl border border-white/10 bg-black/15 px-3 py-2">
+          <Search className="h-4 w-4 text-white/45" />
+          <input
+            value={search}
+            onChange={(event) => setSearch(event.target.value)}
+            placeholder="Search people or conversations..."
+            className="min-w-0 flex-1 bg-transparent text-sm text-white outline-none placeholder:text-white/35"
+          />
+        </div>
+
+        <button
+          type="button"
+          onClick={() => setPeopleOpen((prev) => !prev)}
+          className="mt-3 flex w-full items-center justify-between gap-3 rounded-2xl border border-emerald-400/20 bg-emerald-400/10 px-3 py-3 text-left"
+        >
+          <div>
+            <p className="text-sm font-bold text-white">Start new chat</p>
+            <p className="text-xs text-white/55">
+              {messageMode === "admin_only" && !isAdmin
+                ? "Message CLARA admins"
+                : "Choose someone from CLARA People"}
+            </p>
+          </div>
+          <Plus className="h-5 w-5 text-emerald-200" />
+        </button>
+
+        {peopleOpen ? (
+          <div className="mt-3 grid gap-2">
+            {filteredPeople.length === 0 ? (
+              <div className="rounded-2xl border border-white/10 bg-white/6 px-4 py-4 text-sm text-white/55">
+                No people found.
+              </div>
+            ) : (
+              filteredPeople.map((person) => (
+                <button
+                  key={person.id}
+                  type="button"
+                  onClick={() => openConversation(person.id)}
+                  className="w-full rounded-2xl border border-white/10 bg-white/6 px-4 py-3 text-left transition hover:bg-white/10"
+                >
+                  <div className="flex items-center gap-3">
+                    <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border border-white/10 bg-white/10 text-sm font-black text-white">
+                      {dashboardPanelInitials(person.full_name || person.email)}
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate text-sm font-bold text-white">
+                        {person.full_name || person.email || "CLARA User"}
+                      </p>
+                      <p className="truncate text-xs text-white/45">
+                        {person.role === "admin" ? "Admin" : person.email || "Member"}
+                      </p>
+                    </div>
+                    <ChevronRight className="h-4 w-4 text-white/35" />
+                  </div>
+                </button>
+              ))
+            )}
+          </div>
+        ) : null}
+      </div>
+
+      {filteredConversations.length === 0 ? (
+        <div className="rounded-[30px] border border-white/10 bg-white/[0.055] p-8 text-center shadow-[0_18px_50px_rgba(0,0,0,0.20)] backdrop-blur-xl">
+          <MessageCircle className="mx-auto h-8 w-8 text-white/45" />
+          <p className="mt-3 text-sm font-bold text-white">No messages yet</p>
+          <p className="mt-1 text-xs text-white/55">
+            Start a conversation above and it will appear here.
+          </p>
         </div>
       ) : (
         <div className="space-y-3">
-          {conversations.slice(0, 5).map((conversation) => {
-            const isMine = conversation.lastMessage?.sender_id === currentUserId;
+          {filteredConversations.map((conversation) => {
+            const last = conversation.lastMessage;
+            const isMine = last?.sender_id === currentUserId;
 
             return (
-              <Link
+              <button
                 key={conversation.id}
-                to={`/messages?userId=${conversation.id}`}
-                className={`${dashboardPanelCardClass} block transition hover:bg-white/[0.075]`}
+                type="button"
+                onClick={() => openConversation(conversation.id)}
+                className="w-full rounded-[30px] border border-white/10 bg-white/[0.055] p-4 text-left shadow-[0_18px_50px_rgba(0,0,0,0.20)] backdrop-blur-xl transition hover:bg-white/[0.075]"
               >
                 <div className="flex items-center gap-3">
                   <div className="relative shrink-0">
-                    <div className="flex h-12 w-12 items-center justify-center rounded-2xl border border-white/10 bg-white/10 text-sm font-bold text-white">
-                      {dashboardPanelInitials(conversation.name || conversation.email)}
+                    <div className="flex h-14 w-14 items-center justify-center rounded-[20px] border border-white/10 bg-white/10 text-sm font-black text-white">
+                      {dashboardPanelInitials(conversation.name)}
                     </div>
                     {conversation.unreadCount > 0 ? (
                       <span className="absolute -right-1 -top-1 flex min-h-5 min-w-5 items-center justify-center rounded-full bg-emerald-400 px-1 text-[10px] font-black text-slate-950">
@@ -2779,26 +3210,27 @@ function DashboardMessagesPanel({ onBack }) {
 
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center justify-between gap-2">
-                      <p className="truncate text-sm font-semibold text-white">{conversation.name}</p>
+                      <p className="truncate text-sm font-bold text-white">{conversation.name}</p>
                       <span className="shrink-0 text-[10px] text-white/45">
-                        {dashboardPanelFormatTime(conversation.lastMessage?.created_at)}
+                        {dashboardPanelFormatTime(last?.created_at)}
                       </span>
                     </div>
                     <p className="mt-1 truncate text-xs text-white/55">
-                      {isMine ? "You: " : ""}{conversation.lastMessage?.content || "Start chatting"}
+                      {isMine ? "You: " : ""}{last?.content || "Start chatting"}
                     </p>
                   </div>
 
                   <ChevronRight className="h-4 w-4 text-white/35" />
                 </div>
-              </Link>
+              </button>
             );
           })}
         </div>
       )}
-    </DashboardPanelShell>
+    </div>
   );
 }
+
 
 function DashboardTasksPanel({ onBack, activeTask, nextTask, tasks = [], submissions = [], programJourney }) {
   const completedSubmissionIds = useMemo(() => {
@@ -2879,35 +3311,146 @@ function DashboardTasksPanel({ onBack, activeTask, nextTask, tasks = [], submiss
   );
 }
 
-function DashboardSettingsPanel({ onBack, user, plan, isPaid, isFree, notificationSettings, openThemePicker }) {
-  const settingsItems = [
-    { label: "Account profile", description: "Name, email, and personal details", to: "/settings/account", icon: Home },
-    { label: "Security", description: "Password and access controls", to: "/settings/security", icon: ShieldCheck },
-    { label: "Notifications", description: "Daily reminders and coaching alerts", to: "/settings/notifications", icon: Bell },
-    { label: "Billing", description: "Plan, enrollment, and payments", to: "/settings/billing", icon: WalletCards },
+function DashboardSettingsPanel({
+  onBack,
+  user,
+  plan,
+  isPaid,
+  isFree,
+  notificationSettings,
+  openThemePicker,
+}) {
+  const [localNotifications, setLocalNotifications] = useState(() => ({
+    dailyReminders: notificationSettings?.dailyReminders !== false,
+    productUpdates: notificationSettings?.productUpdates !== false,
+    coachingAlerts: notificationSettings?.coachingAlerts !== false,
+  }));
+
+  useEffect(() => {
+    setLocalNotifications({
+      dailyReminders: notificationSettings?.dailyReminders !== false,
+      productUpdates: notificationSettings?.productUpdates !== false,
+      coachingAlerts: notificationSettings?.coachingAlerts !== false,
+    });
+  }, [notificationSettings]);
+
+  const persistNotificationToggle = useCallback((key) => {
+    setLocalNotifications((prev) => {
+      const next = {
+        ...prev,
+        [key]: !prev[key],
+      };
+
+      try {
+        const storageKey = getSettingsStorageKey(user?.id || "guest");
+        const raw = localStorage.getItem(storageKey);
+        const parsed = raw ? JSON.parse(raw) : {};
+        localStorage.setItem(
+          storageKey,
+          JSON.stringify({
+            ...parsed,
+            notifications: {
+              ...(parsed.notifications || {}),
+              ...next,
+            },
+          })
+        );
+      } catch (error) {
+        console.error("Failed to save embedded settings:", error);
+      }
+
+      return next;
+    });
+  }, [user?.id]);
+
+  const displayName =
+    user?.full_name ||
+    user?.display_name ||
+    user?.nickname ||
+    user?.email?.split("@")?.[0] ||
+    "Your CLARA account";
+
+  const currentPlan = isPaid ? plan || "Paid" : isFree ? "Free" : plan || "Plan";
+
+  const settingsCards = [
+    {
+      key: "account",
+      title: "Account",
+      description: user?.email || "Signed in CLARA user",
+      icon: Home,
+      detail: displayName,
+    },
+    {
+      key: "security",
+      title: "Security",
+      description: "Protect your account and access",
+      icon: ShieldCheck,
+      detail: "Active",
+    },
+    {
+      key: "billing",
+      title: "Plan & Billing",
+      description: "Enrollment, access, and payment status",
+      icon: WalletCards,
+      detail: currentPlan,
+    },
+  ];
+
+  const notificationRows = [
+    {
+      key: "dailyReminders",
+      title: "Daily reminders",
+      description: "Budget nudges and daily financial check-ins",
+    },
+    {
+      key: "productUpdates",
+      title: "Product updates",
+      description: "New CLARA improvements and feature notices",
+    },
+    {
+      key: "coachingAlerts",
+      title: "Coaching alerts",
+      description: "Program/coaching related prompts",
+    },
   ];
 
   return (
-    <DashboardPanelShell
-      title="Settings"
-      subtitle="Main app controls inside CLARA"
-      icon={Settings}
-      viewAllTo="/settings"
-      onBack={onBack}
-    >
-      <div className={dashboardPanelCardClass}>
+    <div className="space-y-4">
+      <div className="rounded-[30px] border border-white/10 bg-white/[0.055] p-4 shadow-[0_18px_50px_rgba(0,0,0,0.20)] backdrop-blur-xl">
+        <div className="flex items-center justify-between gap-3">
+          <div className="flex min-w-0 items-center gap-3">
+            <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border border-white/10 bg-white/10 text-white">
+              <Settings className="h-5 w-5" />
+            </div>
+            <div className="min-w-0">
+              <p className="truncate text-base font-bold text-white">Setting</p>
+              <p className="truncate text-xs text-white/55">Manage CLARA without leaving dashboard</p>
+            </div>
+          </div>
+
+          <button
+            type="button"
+            onClick={onBack}
+            className="rounded-full border border-white/10 bg-white/8 px-3 py-2 text-[11px] font-semibold text-white/75 transition hover:bg-white/12"
+          >
+            Home
+          </button>
+        </div>
+      </div>
+
+      <div className="rounded-[30px] border border-emerald-400/15 bg-[radial-gradient(circle_at_top_left,rgba(16,185,129,0.16),transparent_34%),rgba(255,255,255,0.055)] p-4 shadow-[0_18px_50px_rgba(0,0,0,0.20)] backdrop-blur-xl">
         <div className="flex items-center gap-3">
-          <div className="flex h-14 w-14 items-center justify-center rounded-3xl border border-white/10 bg-white/10 text-lg font-black text-white">
-            {dashboardPanelInitials(user?.full_name || user?.display_name || user?.email || "You")}
+          <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-[24px] border border-white/10 bg-white/10 text-xl font-black text-white">
+            {dashboardPanelInitials(displayName)}
           </div>
+
           <div className="min-w-0 flex-1">
-            <p className="truncate text-base font-bold text-white">
-              {user?.full_name || user?.display_name || user?.email?.split("@")[0] || "Your CLARA account"}
-            </p>
-            <p className="truncate text-xs text-white/50">{user?.email || "Signed in user"}</p>
+            <p className="truncate text-base font-black text-white">{displayName}</p>
+            <p className="truncate text-xs text-white/50">{user?.email || "CLARA user"}</p>
           </div>
-          <span className="rounded-full border border-emerald-400/20 bg-emerald-400/10 px-3 py-1 text-[10px] font-bold text-emerald-200">
-            {isPaid ? "Paid" : isFree ? "Free" : plan || "Plan"}
+
+          <span className="rounded-full border border-emerald-400/20 bg-emerald-400/10 px-3 py-1 text-[10px] font-black text-emerald-200">
+            {currentPlan}
           </span>
         </div>
       </div>
@@ -2915,60 +3458,116 @@ function DashboardSettingsPanel({ onBack, user, plan, isPaid, isFree, notificati
       <button
         type="button"
         onClick={openThemePicker}
-        className="w-full rounded-[28px] border border-emerald-400/20 bg-emerald-400/10 p-4 text-left shadow-[0_18px_50px_rgba(16,185,129,0.10)] backdrop-blur-xl transition hover:bg-emerald-400/14"
+        className="w-full rounded-[30px] border border-emerald-400/20 bg-emerald-400/10 p-4 text-left shadow-[0_18px_50px_rgba(16,185,129,0.10)] backdrop-blur-xl transition hover:bg-emerald-400/14"
       >
         <div className="flex items-center gap-3">
-          <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-emerald-400/15 text-emerald-100">
+          <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-emerald-400/15 text-emerald-100">
             <Palette className="h-5 w-5" />
           </div>
           <div className="min-w-0 flex-1">
-            <p className="text-sm font-semibold text-white">Theme & appearance</p>
-            <p className="mt-1 text-xs text-white/55">Change CLARA’s look without leaving the dashboard.</p>
+            <p className="text-sm font-bold text-white">Theme & appearance</p>
+            <p className="mt-1 text-xs text-white/55">Change the dashboard color and visual style.</p>
           </div>
           <ChevronRight className="h-4 w-4 text-white/40" />
         </div>
       </button>
 
       <div className="space-y-3">
-        {settingsItems.map((item) => {
+        {settingsCards.map((item) => {
           const Icon = item.icon;
+
           return (
-            <Link key={item.to} to={item.to} className={`${dashboardPanelCardClass} block transition hover:bg-white/[0.075]`}>
+            <div
+              key={item.key}
+              className="rounded-[30px] border border-white/10 bg-white/[0.055] p-4 shadow-[0_18px_50px_rgba(0,0,0,0.20)] backdrop-blur-xl"
+            >
               <div className="flex items-center gap-3">
-                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl border border-white/10 bg-white/8 text-white/70">
+                <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border border-white/10 bg-white/8 text-white/70">
                   <Icon className="h-5 w-5" />
                 </div>
+
                 <div className="min-w-0 flex-1">
-                  <p className="truncate text-sm font-semibold text-white">{item.label}</p>
+                  <p className="truncate text-sm font-bold text-white">{item.title}</p>
                   <p className="mt-1 truncate text-xs text-white/50">{item.description}</p>
                 </div>
-                <ChevronRight className="h-4 w-4 text-white/35" />
+
+                <span className="shrink-0 rounded-full border border-white/10 bg-white/8 px-3 py-1 text-[10px] font-bold text-white/60">
+                  {item.detail}
+                </span>
               </div>
-            </Link>
+            </div>
           );
         })}
       </div>
 
-      <div className={dashboardPanelCardClass}>
-        <p className="text-sm font-semibold text-white">Reminder status</p>
+      <div className="rounded-[30px] border border-white/10 bg-white/[0.055] p-4 shadow-[0_18px_50px_rgba(0,0,0,0.20)] backdrop-blur-xl">
+        <div className="mb-3 flex items-center gap-3">
+          <div className="flex h-11 w-11 items-center justify-center rounded-2xl border border-white/10 bg-white/8 text-white/70">
+            <Bell className="h-5 w-5" />
+          </div>
+          <div>
+            <p className="text-sm font-bold text-white">Notifications</p>
+            <p className="mt-1 text-xs text-white/50">Control what CLARA reminds you about.</p>
+          </div>
+        </div>
+
+        <div className="space-y-2">
+          {notificationRows.map((row) => {
+            const enabled = localNotifications[row.key];
+
+            return (
+              <button
+                key={row.key}
+                type="button"
+                onClick={() => persistNotificationToggle(row.key)}
+                className="flex w-full items-center justify-between gap-3 rounded-2xl border border-white/10 bg-black/15 px-3 py-3 text-left transition hover:bg-white/8"
+              >
+                <div className="min-w-0">
+                  <p className="text-xs font-bold text-white">{row.title}</p>
+                  <p className="mt-1 truncate text-[11px] text-white/45">{row.description}</p>
+                </div>
+
+                <span
+                  className={`relative h-7 w-12 shrink-0 rounded-full border transition ${
+                    enabled
+                      ? "border-emerald-300/25 bg-emerald-400/30"
+                      : "border-white/10 bg-white/8"
+                  }`}
+                >
+                  <span
+                    className={`absolute top-1 h-5 w-5 rounded-full bg-white shadow transition ${
+                      enabled ? "left-6" : "left-1"
+                    }`}
+                  />
+                </span>
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
+      <div className="rounded-[30px] border border-white/10 bg-white/[0.055] p-4 shadow-[0_18px_50px_rgba(0,0,0,0.20)] backdrop-blur-xl">
+        <p className="text-sm font-bold text-white">Quick status</p>
         <div className="mt-3 grid grid-cols-3 gap-2 text-center text-[11px]">
           <div className="rounded-2xl border border-white/10 bg-white/6 p-3">
-            <p className="font-bold text-white">{notificationSettings?.dailyReminders !== false ? "On" : "Off"}</p>
+            <p className="font-black text-white">{isPaid ? "Unlocked" : "Limited"}</p>
+            <p className="mt-1 text-white/45">Access</p>
+          </div>
+          <div className="rounded-2xl border border-white/10 bg-white/6 p-3">
+            <p className="font-black text-white">{localNotifications.dailyReminders ? "On" : "Off"}</p>
             <p className="mt-1 text-white/45">Daily</p>
           </div>
           <div className="rounded-2xl border border-white/10 bg-white/6 p-3">
-            <p className="font-bold text-white">{notificationSettings?.productUpdates !== false ? "On" : "Off"}</p>
-            <p className="mt-1 text-white/45">Updates</p>
-          </div>
-          <div className="rounded-2xl border border-white/10 bg-white/6 p-3">
-            <p className="font-bold text-white">{notificationSettings?.coachingAlerts !== false ? "On" : "Off"}</p>
-            <p className="mt-1 text-white/45">Coaching</p>
+            <p className="font-black text-white">{currentPlan}</p>
+            <p className="mt-1 text-white/45">Plan</p>
           </div>
         </div>
       </div>
-    </DashboardPanelShell>
+    </div>
   );
 }
+
+
 
 export default function Dashboard() {
   const navigate = useNavigate();
