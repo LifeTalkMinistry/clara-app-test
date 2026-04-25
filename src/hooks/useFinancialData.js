@@ -20,7 +20,6 @@ const getSafeDate = (value) => {
 };
 
 const normalizeString = (value) => String(value ?? "").trim().toLowerCase();
-
 const normalizeId = (value) => String(value ?? "").trim();
 
 const FINANCE_INCOME_TYPES = new Set([
@@ -31,6 +30,8 @@ const FINANCE_INCOME_TYPES = new Set([
   "opening_balance",
   "credit",
 ]);
+
+const FINANCE_TABLES = ["expenses", "wallets", "wallet_transactions", "transfers", "budgets"];
 
 const isMissingColumnError = (error) => {
   const message = normalizeString(error?.message || error?.details || error?.hint);
@@ -107,11 +108,106 @@ const filterOwnedRows = (rows, user) => {
   return safeRows;
 };
 
-const safeSelect = async (table, user) => {
+const createOrderedQuery = (query, orderColumn = "created_at", ascending = false) => {
+  if (!orderColumn) return query;
+  return query.order(orderColumn, { ascending });
+};
+
+const runScopedSelect = async ({ table, column, value, orderColumn, ascending }) => {
+  if (!value) {
+    return { data: [], error: null, skipped: true };
+  }
+
+  const query = createOrderedQuery(
+    supabase.from(table).select("*").eq(column, value),
+    orderColumn,
+    ascending
+  );
+
+  return query;
+};
+
+const mergeRowsById = (...rowGroups) => {
+  const map = new Map();
+
+  rowGroups.flat().forEach((row) => {
+    if (!row) return;
+    const key = normalizeId(row?.id) || JSON.stringify(row);
+    if (!map.has(key)) map.set(key, row);
+  });
+
+  return Array.from(map.values());
+};
+
+const safeSelect = async (table, user, options = {}) => {
   if (!user?.id && !user?.email) return [];
 
-  const baseQuery = supabase.from(table).select("*");
-  const { data, error } = await baseQuery;
+  const orderColumn = options.orderColumn || "created_at";
+  const ascending = options.ascending === true;
+  const scopedResults = [];
+  let sawMissingOwnershipColumn = false;
+  let sawUsableOwnershipColumn = false;
+
+  const ownershipQueries = [
+    { column: "user_id", value: user?.id },
+    { column: "owner_id", value: user?.id },
+    { column: "profile_id", value: user?.id },
+    { column: "user_email", value: user?.email },
+    { column: "created_by", value: user?.email },
+    { column: "owner_email", value: user?.email },
+    { column: "email", value: user?.email },
+  ];
+
+  for (const lookup of ownershipQueries) {
+    if (!lookup.value) continue;
+
+    const { data, error, skipped } = await runScopedSelect({
+      table,
+      column: lookup.column,
+      value: lookup.value,
+      orderColumn,
+      ascending,
+    });
+
+    if (skipped) continue;
+
+    if (error) {
+      if (isMissingTableError(error)) return [];
+      if (isMissingColumnError(error)) {
+        sawMissingOwnershipColumn = true;
+        continue;
+      }
+
+      console.warn(`Failed loading ${table} by ${lookup.column}`, error);
+      continue;
+    }
+
+    sawUsableOwnershipColumn = true;
+
+    if (Array.isArray(data) && data.length > 0) {
+      scopedResults.push(...data);
+    }
+  }
+
+  if (scopedResults.length > 0) {
+    return filterOwnedRows(mergeRowsById(scopedResults), user);
+  }
+
+  if (sawUsableOwnershipColumn) {
+    return [];
+  }
+
+  if (!sawMissingOwnershipColumn) {
+    return [];
+  }
+
+  const fallbackQuery = createOrderedQuery(
+    supabase.from(table).select("*"),
+    orderColumn,
+    ascending
+  );
+
+  const { data, error } = await fallbackQuery;
 
   if (error) {
     if (isMissingTableError(error)) return [];
@@ -192,9 +288,7 @@ const safeInsert = async (table, payload) => {
 };
 
 const getWalletId = (item) => normalizeId(item?.wallet_id || item?.walletId || item?.wallet);
-
 const getExpenseId = (item) => normalizeId(item?.expense_id || item?.expenseId);
-
 const getRelatedWalletId = (item) =>
   normalizeId(item?.related_wallet_id || item?.relatedWalletId);
 
@@ -285,12 +379,14 @@ export default function useFinancialData(user) {
   const hydrateFromCache = useCallback((nextCache) => {
     if (!mountedRef.current) return;
 
-    setExpenses(nextCache.expenses || []);
-    setIncomes(nextCache.incomes || []);
-    setWallets(nextCache.wallets || []);
-    setBudgets(nextCache.budgets || []);
-    setWalletTransactions(nextCache.walletTransactions || []);
-    setTransfers(nextCache.transfers || []);
+    setExpenses((prev) => (prev === nextCache.expenses ? prev : nextCache.expenses || []));
+    setIncomes((prev) => (prev === nextCache.incomes ? prev : nextCache.incomes || []));
+    setWallets((prev) => (prev === nextCache.wallets ? prev : nextCache.wallets || []));
+    setBudgets((prev) => (prev === nextCache.budgets ? prev : nextCache.budgets || []));
+    setWalletTransactions((prev) =>
+      prev === nextCache.walletTransactions ? prev : nextCache.walletTransactions || []
+    );
+    setTransfers((prev) => (prev === nextCache.transfers ? prev : nextCache.transfers || []));
     hasLoadedRef.current = nextCache.loaded;
     setLoading(!nextCache.loaded);
   }, []);
@@ -440,34 +536,46 @@ export default function useFinancialData(user) {
         if (isActive) {
           loadAll({ background: true });
         }
-      }, 250);
+      }, 350);
     };
 
-    const channelName = `finance-${userId || userEmail}-${Date.now()}-${Math.random()
-      .toString(36)
-      .slice(2)}`;
-
+    const channelName = `finance-${userId || userEmail || "guest"}`;
     const channel = supabase.channel(channelName);
 
-    channel
-      .on("postgres_changes", { event: "*", schema: "public", table: "expenses" }, scheduleRefresh)
-      .on("postgres_changes", { event: "*", schema: "public", table: "wallets" }, scheduleRefresh)
-      .on(
-        "postgres_changes",
-        { event: "*", schema: "public", table: "wallet_transactions" },
-        scheduleRefresh
-      )
-      .on("postgres_changes", { event: "*", schema: "public", table: "transfers" }, scheduleRefresh)
-      .on("postgres_changes", { event: "*", schema: "public", table: "budgets" }, scheduleRefresh)
-      .subscribe((status, error) => {
-        if (error) {
-          console.warn("Financial realtime subscription warning:", error);
-        }
+    FINANCE_TABLES.forEach((table) => {
+      if (userId) {
+        channel.on(
+          "postgres_changes",
+          {
+            event: "*",
+            schema: "public",
+            table,
+            filter: `user_id=eq.${userId}`,
+          },
+          scheduleRefresh
+        );
+      } else {
+        channel.on(
+          "postgres_changes",
+          {
+            event: "*",
+            schema: "public",
+            table,
+          },
+          scheduleRefresh
+        );
+      }
+    });
 
-        if (status === "CHANNEL_ERROR") {
-          console.warn("Financial realtime channel error. Data will still refresh manually.");
-        }
-      });
+    channel.subscribe((status, error) => {
+      if (error) {
+        console.warn("Financial realtime subscription warning:", error);
+      }
+
+      if (status === "CHANNEL_ERROR") {
+        console.warn("Financial realtime channel error. Data will still refresh manually.");
+      }
+    });
 
     return () => {
       isActive = false;
