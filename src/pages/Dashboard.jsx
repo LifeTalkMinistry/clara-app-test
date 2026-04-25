@@ -3352,6 +3352,7 @@ function DashboardSettingsPanel({
   const [supportTopic, setSupportTopic] = useState("Billing / enrollment");
   const [supportMessage, setSupportMessage] = useState("");
   const [supportSent, setSupportSent] = useState(false);
+  const [supportSending, setSupportSending] = useState(false);
   const [billingRecord, setBillingRecord] = useState(null);
   const [billingLoading, setBillingLoading] = useState(false);
 
@@ -3433,7 +3434,7 @@ function DashboardSettingsPanel({
 
   const currentPlan = normalizePlanDisplay(rawCurrentPlan);
   const planStatusLabel = isPaid ? "Unlocked" : isFree ? "Limited" : "Active";
-  const supportEmail = "support@clara.app";
+  const supportEmail = "claraprogram2026@gmail.com";
 
   const saveNotificationSettings = useCallback((next) => {
     try {
@@ -3592,36 +3593,128 @@ function DashboardSettingsPanel({
     navigate("/messages");
   }, [navigate, onOpenMessages]);
 
-  const handleSupportDraft = useCallback(() => {
+  const handleSendSupportMessage = useCallback(async () => {
     const trimmed = supportMessage.trim();
 
     if (!trimmed) {
-      setSettingsNotice({ type: "error", message: "Write a short message first." });
+      setSettingsNotice({ type: "error", message: "Write a short support message first." });
       return;
     }
 
+    if (!user?.id) {
+      setSettingsNotice({ type: "error", message: "Your session is not ready. Please log in again." });
+      return;
+    }
+
+    setSupportSending(true);
+    setSettingsNotice(null);
+
     try {
-      const storageKey = `clara_support_draft_${user?.id || "guest"}`;
-      localStorage.setItem(
-        storageKey,
-        JSON.stringify({
-          topic: supportTopic,
-          message: trimmed,
-          email: user?.email || "",
-          createdAt: new Date().toISOString(),
-        })
-      );
+      const { data: adminProfiles, error: adminError } = await supabase
+        .from("profiles")
+        .select("id,email,full_name,role")
+        .eq("role", "admin");
+
+      if (adminError) {
+        console.error("Support admin lookup failed:", adminError);
+        throw new Error("Unable to find CLARA admin accounts. Please check the profiles role setup.");
+      }
+
+      const admins = (Array.isArray(adminProfiles) ? adminProfiles : [])
+        .filter((admin) => admin?.id && admin.id !== user.id);
+
+      if (admins.length === 0) {
+        setSettingsNotice({
+          type: "error",
+          message: "No admin account is available for support messages yet.",
+        });
+        setSupportSending(false);
+        return;
+      }
+
+      const supportContent = `[CLARA Support • ${supportTopic}]\n\n${trimmed}`;
+      const senderName =
+        displayName ||
+        user?.full_name ||
+        user?.nickname ||
+        user?.display_name ||
+        user?.email ||
+        "CLARA User";
+
+      const payloads = admins.map((admin) => {
+        const adminName =
+          admin?.full_name ||
+          admin?.email ||
+          "CLARA Admin";
+
+        return {
+          conversation_id: [String(user.id), String(admin.id)].sort().join("_"),
+          sender_id: user.id,
+          sender_email: user.email || "",
+          sender_name: senderName,
+          recipient_id: admin.id,
+          recipient_email: admin.email || supportEmail,
+          recipient_name: adminName,
+          content: supportContent,
+          is_read: false,
+        };
+      });
+
+      const { error: messageError } = await supabase
+        .from("direct_messages")
+        .insert(payloads);
+
+      if (messageError) throw messageError;
+
+      try {
+        const storageKey = `clara_support_draft_${user.id}`;
+        localStorage.setItem(
+          storageKey,
+          JSON.stringify({
+            topic: supportTopic,
+            message: trimmed,
+            email: user?.email || "",
+            adminCount: admins.length,
+            sentAt: new Date().toISOString(),
+          })
+        );
+      } catch (storageError) {
+        console.warn("Support message local note skipped:", storageError);
+      }
 
       setSupportSent(true);
+      setSupportMessage("");
       setSettingsNotice({
         type: "success",
-        message: "Support note saved locally. You can now message CLARA support.",
+        message: `Support message sent to ${admins.length} admin${admins.length > 1 ? "s" : ""}.`,
       });
+
+      if (typeof onOpenMessages === "function") {
+        setTimeout(() => {
+          onOpenMessages();
+        }, 350);
+      }
     } catch (error) {
-      console.error("Support draft save failed:", error);
-      setSettingsNotice({ type: "error", message: "Unable to save support note." });
+      console.error("Support message send failed:", error);
+      setSettingsNotice({
+        type: "error",
+        message: error?.message || "Unable to send support message.",
+      });
+    } finally {
+      setSupportSending(false);
     }
-  }, [supportMessage, supportTopic, user?.email, user?.id]);
+  }, [
+    displayName,
+    onOpenMessages,
+    supportEmail,
+    supportMessage,
+    supportTopic,
+    user?.display_name,
+    user?.email,
+    user?.full_name,
+    user?.id,
+    user?.nickname,
+  ]);
 
   const notificationRows = [
     {
@@ -4199,7 +4292,7 @@ function DashboardSettingsPanel({
     <div className="space-y-4">
       <DetailHeader
         title="Help & support"
-        subtitle="Create a support note or jump to CLARA messages."
+        subtitle="Send a support message directly to CLARA admins."
       />
 
       {renderNotice()}
@@ -4227,41 +4320,36 @@ function DashboardSettingsPanel({
             onChange={(event) => setSupportMessage(event.target.value)}
             placeholder="Briefly describe what you need help with..."
             className="min-h-[120px] w-full resize-none rounded-2xl border border-white/10 bg-[#071120] px-4 py-3 text-sm font-semibold text-white outline-none placeholder:text-white/35 focus:border-emerald-300/35"
+            disabled={supportSending}
           />
         </label>
 
         <button
           type="button"
-          onClick={handleSupportDraft}
-          className="mt-4 w-full rounded-2xl bg-emerald-400 px-4 py-3 text-sm font-black text-slate-950 shadow-[0_12px_30px_rgba(16,185,129,0.22)]"
+          onClick={handleSendSupportMessage}
+          disabled={supportSending || !supportMessage.trim()}
+          className="mt-4 w-full rounded-2xl bg-emerald-400 px-4 py-3 text-sm font-black text-slate-950 shadow-[0_12px_30px_rgba(16,185,129,0.22)] transition hover:scale-[1.01] disabled:opacity-55"
         >
-          Save support note
+          {supportSending ? "Sending to CLARA support..." : "Send CLARA support message"}
         </button>
+
+        <p className="mt-3 text-center text-[11px] leading-5 text-white/45">
+          Admin accounts will receive this in Messages, and you’ll be moved to the Message tab after sending.
+        </p>
       </div>
 
       {supportSent ? (
         <div className="rounded-[24px] border border-emerald-300/20 bg-emerald-400/10 p-4">
-          <p className="text-sm font-bold text-emerald-100">Support note ready</p>
+          <p className="text-sm font-bold text-emerald-100">Support message sent</p>
           <p className="mt-1 text-xs leading-5 text-white/50">
-            Your note is saved on this device. Open CLARA support messages to continue the conversation.
+            Your message was sent to CLARA admin support. Check the Message tab for the conversation.
           </p>
         </div>
       ) : null}
 
-      <button
-        type="button"
-        onClick={openSupportMessages}
-        className="w-full rounded-2xl border border-white/10 bg-white/8 px-4 py-3 text-sm font-bold text-white/75 transition hover:bg-white/12"
-      >
-        Message CLARA support
-      </button>
-
       <div className="rounded-[24px] border border-white/10 bg-white/[0.035] p-4">
         <p className="text-sm font-bold text-white">Support email</p>
         <p className="mt-1 select-all text-sm font-black text-emerald-100">{supportEmail}</p>
-        <p className="mt-1 text-xs leading-5 text-white/45">
-          This is shown for reference only so the settings page does not open another outside app.
-        </p>
       </div>
     </div>
   );
