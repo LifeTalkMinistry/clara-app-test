@@ -3510,8 +3510,6 @@ function DashboardSettingsPanel({
   }, [navigate]);
 
   const openSupportMessages = useCallback(() => {
-    setActiveSetting(null);
-
     if (typeof onOpenMessages === "function") {
       onOpenMessages();
       return;
@@ -3521,7 +3519,6 @@ function DashboardSettingsPanel({
   }, [navigate, onOpenMessages]);
 
   const openRoute = useCallback((route) => {
-    setActiveSetting(null);
     navigate(route);
   }, [navigate]);
 
@@ -3555,15 +3552,15 @@ function DashboardSettingsPanel({
         {
           key: "profile",
           title: "Profile information",
-          description: "Edit name, email, and account identity",
+          description: "Name, email, and account identity",
           icon: Home,
-          badge: displayName,
+          badge: "Edit",
           action: () => setActiveSetting("profile"),
         },
         {
           key: "security",
           title: "Privacy & security",
-          description: "Sign out, reset preferences, and security controls",
+          description: "Sign out, reset preferences, and account safety",
           icon: ShieldCheck,
           badge: "Active",
           action: () => setActiveSetting("security"),
@@ -3571,12 +3568,12 @@ function DashboardSettingsPanel({
       ],
     },
     {
-      title: "App preferences",
+      title: "Preferences",
       rows: [
         {
           key: "appearance",
           title: "Theme & appearance",
-          description: "Dashboard colors and visual style",
+          description: "Colors, visual style, and dashboard theme",
           icon: Palette,
           badge: "Customize",
           featured: true,
@@ -3585,7 +3582,7 @@ function DashboardSettingsPanel({
         {
           key: "notifications",
           title: "Notifications",
-          description: "Reminders, updates, and coaching alerts",
+          description: "Reminders, alerts, and program updates",
           icon: Bell,
           badge: localNotifications.dailyReminders ? "On" : "Off",
           action: () => setActiveSetting("notifications"),
@@ -3598,7 +3595,7 @@ function DashboardSettingsPanel({
         {
           key: "plan",
           title: "Plan & billing",
-          description: "Enrollment, payments, and access level",
+          description: "Enrollment, payment, and access level",
           icon: WalletCards,
           badge: currentPlan,
           action: () => setActiveSetting("plan"),
@@ -3606,7 +3603,7 @@ function DashboardSettingsPanel({
         {
           key: "support",
           title: "Help & support",
-          description: "Contact support or message CLARA admin",
+          description: "Message support or report an issue",
           icon: MessageCircle,
           badge: "Help",
           action: () => setActiveSetting("support"),
@@ -3614,7 +3611,7 @@ function DashboardSettingsPanel({
         {
           key: "about",
           title: "About CLARA",
-          description: "Version, terms, and app information",
+          description: "App version, terms, and information",
           icon: FileText,
           badge: "Info",
           action: () => setActiveSetting("about"),
@@ -3623,254 +3620,388 @@ function DashboardSettingsPanel({
     },
   ];
 
-  const detailTitleMap = {
-    profile: "Profile information",
-    security: "Privacy & security",
-    notifications: "Notifications",
-    plan: "Plan & billing",
-    support: "Help & support",
-    about: "About CLARA",
+  const renderNotice = () => {
+    if (!settingsNotice) return null;
+
+    return (
+      <div
+        className={`rounded-2xl border px-4 py-3 text-sm font-semibold ${
+          settingsNotice.type === "error"
+            ? "border-rose-300/20 bg-rose-500/12 text-rose-100"
+            : "border-emerald-300/20 bg-emerald-400/10 text-emerald-100"
+        }`}
+      >
+        {settingsNotice.message}
+      </div>
+    );
   };
 
-  const renderSettingDetail = () => {
-    if (activeSetting === "profile") {
-      return (
-        <div className="space-y-4">
-          <div className="rounded-2xl border border-white/10 bg-white/6 p-3">
-            <p className="text-xs font-bold text-white/55">Email</p>
-            <p className="mt-1 truncate text-sm font-semibold text-white">{user?.email || "No email found"}</p>
+  const SettingsToggle = ({ enabled }) => (
+    <span
+      className={`relative h-7 w-12 shrink-0 rounded-full border transition ${
+        enabled
+          ? "border-emerald-300/25 bg-emerald-400/30"
+          : "border-white/10 bg-white/8"
+      }`}
+    >
+      <span
+        className={`absolute top-1 h-5 w-5 rounded-full bg-white shadow transition ${
+          enabled ? "left-6" : "left-1"
+        }`}
+      />
+    </span>
+  );
+
+  const PremiumRow = ({ icon: Icon, title, description, badge, featured, onClick, children }) => (
+    <button
+      type="button"
+      onClick={onClick}
+      className={`group flex w-full items-center gap-3 rounded-[24px] border px-4 py-4 text-left transition ${
+        featured
+          ? "border-emerald-400/20 bg-[radial-gradient(circle_at_top_left,rgba(16,185,129,0.16),transparent_35%),rgba(16,185,129,0.07)] shadow-[0_16px_40px_rgba(16,185,129,0.08)]"
+          : "border-white/10 bg-white/[0.045] hover:bg-white/[0.07]"
+      }`}
+    >
+      <div
+        className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border transition ${
+          featured
+            ? "border-emerald-400/25 bg-emerald-400/15 text-emerald-100"
+            : "border-white/10 bg-white/8 text-white/65 group-hover:text-white"
+        }`}
+      >
+        <Icon className="h-5 w-5" />
+      </div>
+
+      <div className="min-w-0 flex-1">
+        <p className="truncate text-sm font-bold text-white">{title}</p>
+        <p className="mt-1 truncate text-xs text-white/45">{description}</p>
+        {children}
+      </div>
+
+      {badge ? (
+        <span className="max-w-[96px] shrink-0 truncate rounded-full border border-white/10 bg-white/8 px-2.5 py-1 text-[10px] font-bold text-white/55">
+          {badge}
+        </span>
+      ) : null}
+
+      <ChevronRight className="h-4 w-4 shrink-0 text-white/30 transition group-hover:translate-x-0.5 group-hover:text-white/55" />
+    </button>
+  );
+
+  const DetailHeader = ({ title, subtitle }) => (
+    <div className="sticky top-0 z-20 -mx-1 mb-4 rounded-b-[28px] border-b border-white/10 bg-[#071120]/92 px-1 pb-3 pt-1 backdrop-blur-2xl">
+      <button
+        type="button"
+        onClick={() => {
+          setActiveSetting(null);
+          setSettingsNotice(null);
+        }}
+        className="mb-3 inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/8 px-3 py-2 text-[11px] font-bold text-white/70 transition hover:bg-white/12"
+      >
+        <ArrowDown className="h-3.5 w-3.5 rotate-90" />
+        Settings
+      </button>
+
+      <h2 className="text-xl font-black tracking-tight text-white">{title}</h2>
+      {subtitle ? <p className="mt-1 text-xs leading-5 text-white/50">{subtitle}</p> : null}
+    </div>
+  );
+
+  const renderProfilePage = () => (
+    <div className="space-y-4">
+      <DetailHeader
+        title="Profile information"
+        subtitle="Keep your CLARA identity clean and recognizable."
+      />
+
+      {renderNotice()}
+
+      <div className="rounded-[30px] border border-white/10 bg-white/[0.055] p-4 shadow-[0_18px_50px_rgba(0,0,0,0.20)] backdrop-blur-xl">
+        <div className="flex items-center gap-3">
+          <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-[24px] border border-white/10 bg-white/10 text-xl font-black text-white">
+            {dashboardPanelInitials(displayName)}
           </div>
-
-          <label className="block space-y-2">
-            <span className="text-xs font-bold text-white/65">Display name</span>
-            <input
-              value={profileName}
-              onChange={(event) => setProfileName(event.target.value)}
-              placeholder="Enter your name"
-              className="w-full rounded-2xl border border-white/10 bg-white/6 px-4 py-3 text-sm font-semibold text-white outline-none placeholder:text-white/35 focus:border-emerald-300/35"
-            />
-          </label>
-
-          <button
-            type="button"
-            onClick={handleSaveProfile}
-            disabled={savingProfile}
-            className="flex w-full items-center justify-center gap-2 rounded-2xl bg-emerald-400 px-4 py-3 text-sm font-black text-slate-950 shadow-[0_12px_30px_rgba(16,185,129,0.22)] disabled:opacity-55"
-          >
-            <Check className="h-4 w-4" />
-            {savingProfile ? "Saving..." : "Save profile"}
-          </button>
-
-          <button
-            type="button"
-            onClick={() => openRoute("/settings/account")}
-            className="w-full rounded-2xl border border-white/10 bg-white/8 px-4 py-3 text-sm font-bold text-white/75 transition hover:bg-white/12"
-          >
-            Open full account settings
-          </button>
-        </div>
-      );
-    }
-
-    if (activeSetting === "notifications") {
-      return (
-        <div className="space-y-2">
-          {notificationRows.map((row) => {
-            const enabled = localNotifications[row.key];
-
-            return (
-              <button
-                key={row.key}
-                type="button"
-                onClick={() => persistNotificationToggle(row.key)}
-                className="flex w-full items-center justify-between gap-3 rounded-2xl border border-white/10 bg-white/6 px-3 py-3 text-left transition hover:bg-white/10"
-              >
-                <div className="min-w-0">
-                  <p className="text-xs font-bold text-white">{row.title}</p>
-                  <p className="mt-1 text-[11px] leading-4 text-white/45">{row.description}</p>
-                </div>
-
-                <span
-                  className={`relative h-7 w-12 shrink-0 rounded-full border transition ${
-                    enabled
-                      ? "border-emerald-300/25 bg-emerald-400/30"
-                      : "border-white/10 bg-white/8"
-                  }`}
-                >
-                  <span
-                    className={`absolute top-1 h-5 w-5 rounded-full bg-white shadow transition ${
-                      enabled ? "left-6" : "left-1"
-                    }`}
-                  />
-                </span>
-              </button>
-            );
-          })}
-
-          <button
-            type="button"
-            onClick={() => openRoute("/settings/notifications")}
-            className="mt-2 w-full rounded-2xl border border-white/10 bg-white/8 px-4 py-3 text-sm font-bold text-white/75 transition hover:bg-white/12"
-          >
-            Open full notification settings
-          </button>
-        </div>
-      );
-    }
-
-    if (activeSetting === "plan") {
-      return (
-        <div className="space-y-3">
-          <div className="rounded-2xl border border-emerald-400/20 bg-emerald-400/10 p-4">
-            <p className="text-xs font-bold uppercase tracking-[0.18em] text-emerald-200/70">Current access</p>
-            <p className="mt-2 text-lg font-black text-white">{currentPlan}</p>
-            <p className="mt-1 text-xs text-white/55">{planStatusLabel} access level</p>
+          <div className="min-w-0">
+            <p className="truncate text-base font-black text-white">{displayName}</p>
+            <p className="truncate text-xs text-white/50">{user?.email || "No email found"}</p>
           </div>
-
-          <button
-            type="button"
-            onClick={() => openRoute("/tier-select")}
-            className="w-full rounded-2xl bg-emerald-400 px-4 py-3 text-sm font-black text-slate-950 shadow-[0_12px_30px_rgba(16,185,129,0.22)]"
-          >
-            View plans / upgrade
-          </button>
-
-          <button
-            type="button"
-            onClick={() => openRoute("/enroll")}
-            className="w-full rounded-2xl border border-white/10 bg-white/8 px-4 py-3 text-sm font-bold text-white/75 transition hover:bg-white/12"
-          >
-            Enrollment and payment status
-          </button>
-
-          <button
-            type="button"
-            onClick={() => openRoute("/settings/billing")}
-            className="w-full rounded-2xl border border-white/10 bg-white/8 px-4 py-3 text-sm font-bold text-white/75 transition hover:bg-white/12"
-          >
-            Open full billing settings
-          </button>
         </div>
-      );
-    }
+      </div>
 
-    if (activeSetting === "security") {
-      return (
-        <div className="space-y-3">
-          <div className="rounded-2xl border border-white/10 bg-white/6 p-4">
-            <p className="text-sm font-bold text-white">Signed in</p>
-            <p className="mt-1 truncate text-xs text-white/50">{user?.email || "Current user session"}</p>
-          </div>
+      <div className="rounded-[28px] border border-white/10 bg-white/[0.045] p-4 backdrop-blur-xl">
+        <label className="block space-y-2">
+          <span className="text-xs font-bold uppercase tracking-[0.14em] text-white/45">Display name</span>
+          <input
+            value={profileName}
+            onChange={(event) => setProfileName(event.target.value)}
+            placeholder="Enter your name"
+            className="w-full rounded-2xl border border-white/10 bg-black/18 px-4 py-3 text-sm font-semibold text-white outline-none placeholder:text-white/35 focus:border-emerald-300/35"
+          />
+        </label>
 
-          <button
-            type="button"
-            onClick={() => openRoute("/settings/security")}
-            className="w-full rounded-2xl border border-white/10 bg-white/8 px-4 py-3 text-sm font-bold text-white/75 transition hover:bg-white/12"
-          >
-            Open full security settings
-          </button>
-
-          <button
-            type="button"
-            onClick={clearLocalPreferences}
-            className="flex w-full items-center justify-center gap-2 rounded-2xl border border-amber-300/20 bg-amber-400/10 px-4 py-3 text-sm font-bold text-amber-100 transition hover:bg-amber-400/15"
-          >
-            <RotateCcw className="h-4 w-4" />
-            Reset local preferences only
-          </button>
-
-          <button
-            type="button"
-            onClick={handleSignOut}
-            disabled={signingOut}
-            className="flex w-full items-center justify-center gap-2 rounded-2xl border border-rose-300/20 bg-rose-500/12 px-4 py-3 text-sm font-bold text-rose-100 transition hover:bg-rose-500/18 disabled:opacity-55"
-          >
-            <X className="h-4 w-4" />
-            {signingOut ? "Signing out..." : "Sign out"}
-          </button>
+        <div className="mt-4 rounded-2xl border border-white/10 bg-black/15 px-4 py-3">
+          <p className="text-xs font-bold uppercase tracking-[0.14em] text-white/35">Email</p>
+          <p className="mt-1 truncate text-sm font-semibold text-white">{user?.email || "No email found"}</p>
+          <p className="mt-1 text-[11px] text-white/40">Email changes should stay in full account settings for security.</p>
         </div>
-      );
-    }
 
-    if (activeSetting === "support") {
-      return (
-        <div className="space-y-3">
+        <button
+          type="button"
+          onClick={handleSaveProfile}
+          disabled={savingProfile}
+          className="mt-4 flex w-full items-center justify-center gap-2 rounded-2xl bg-emerald-400 px-4 py-3 text-sm font-black text-slate-950 shadow-[0_12px_30px_rgba(16,185,129,0.22)] disabled:opacity-55"
+        >
+          <Check className="h-4 w-4" />
+          {savingProfile ? "Saving..." : "Save profile"}
+        </button>
+      </div>
+
+      <button
+        type="button"
+        onClick={() => openRoute("/settings/account")}
+        className="w-full rounded-2xl border border-white/10 bg-white/8 px-4 py-3 text-sm font-bold text-white/75 transition hover:bg-white/12"
+      >
+        Open full account settings
+      </button>
+    </div>
+  );
+
+  const renderNotificationsPage = () => (
+    <div className="space-y-4">
+      <DetailHeader
+        title="Notifications"
+        subtitle="Choose what deserves your attention."
+      />
+
+      {renderNotice()}
+
+      <div className="space-y-3">
+        {notificationRows.map((row) => (
           <button
+            key={row.key}
             type="button"
-            onClick={openSupportMessages}
-            className="w-full rounded-2xl bg-emerald-400 px-4 py-3 text-sm font-black text-slate-950 shadow-[0_12px_30px_rgba(16,185,129,0.22)]"
+            onClick={() => persistNotificationToggle(row.key)}
+            className="flex w-full items-center justify-between gap-3 rounded-[24px] border border-white/10 bg-white/[0.045] px-4 py-4 text-left transition hover:bg-white/[0.07]"
           >
-            Message CLARA support
-          </button>
-
-          <button
-            type="button"
-            onClick={() => openRoute("/messages")}
-            className="w-full rounded-2xl border border-white/10 bg-white/8 px-4 py-3 text-sm font-bold text-white/75 transition hover:bg-white/12"
-          >
-            Open full messages page
-          </button>
-
-          <a
-            href="mailto:support@clara.app?subject=CLARA%20Support%20Request"
-            className="block w-full rounded-2xl border border-white/10 bg-white/8 px-4 py-3 text-center text-sm font-bold text-white/75 transition hover:bg-white/12"
-          >
-            Email support
-          </a>
-        </div>
-      );
-    }
-
-    if (activeSetting === "about") {
-      return (
-        <div className="space-y-3">
-          <div className="rounded-2xl border border-white/10 bg-white/6 p-4">
-            <p className="text-lg font-black text-white">CLARA</p>
-            <p className="mt-1 text-sm leading-6 text-white/60">
-              A financial companion for tracking money, building discipline, and guiding users through financial progress.
-            </p>
-          </div>
-
-          <div className="grid grid-cols-2 gap-2 text-center">
-            <div className="rounded-2xl border border-white/10 bg-white/6 p-3">
-              <p className="text-sm font-black text-white">v1</p>
-              <p className="mt-1 text-[11px] text-white/45">App version</p>
+            <div className="min-w-0">
+              <p className="text-sm font-bold text-white">{row.title}</p>
+              <p className="mt-1 text-xs leading-5 text-white/45">{row.description}</p>
             </div>
-            <div className="rounded-2xl border border-white/10 bg-white/6 p-3">
-              <p className="text-sm font-black text-white">Mobile</p>
-              <p className="mt-1 text-[11px] text-white/45">Optimized</p>
-            </div>
-          </div>
 
-          <button
-            type="button"
-            onClick={() => openRoute("/settings/about")}
-            className="w-full rounded-2xl border border-white/10 bg-white/8 px-4 py-3 text-sm font-bold text-white/75 transition hover:bg-white/12"
-          >
-            Open full about page
+            <SettingsToggle enabled={localNotifications[row.key]} />
           </button>
-        </div>
-      );
-    }
+        ))}
+      </div>
 
+      <button
+        type="button"
+        onClick={() => openRoute("/settings/notifications")}
+        className="w-full rounded-2xl border border-white/10 bg-white/8 px-4 py-3 text-sm font-bold text-white/75 transition hover:bg-white/12"
+      >
+        Open full notification settings
+      </button>
+    </div>
+  );
+
+  const renderPlanPage = () => (
+    <div className="space-y-4">
+      <DetailHeader
+        title="Plan & billing"
+        subtitle="Manage your access, enrollment, and payment flow."
+      />
+
+      <div className="rounded-[30px] border border-emerald-400/20 bg-[radial-gradient(circle_at_top_left,rgba(16,185,129,0.18),transparent_35%),rgba(16,185,129,0.07)] p-5 shadow-[0_18px_50px_rgba(16,185,129,0.10)] backdrop-blur-xl">
+        <p className="text-xs font-black uppercase tracking-[0.18em] text-emerald-200/70">Current plan</p>
+        <p className="mt-2 text-2xl font-black text-white">{currentPlan}</p>
+        <p className="mt-1 text-sm text-white/58">{planStatusLabel} access level</p>
+
+        <div className="mt-4 grid grid-cols-2 gap-2 text-center text-[11px]">
+          <div className="rounded-2xl border border-white/10 bg-black/15 p-3">
+            <p className="font-black text-white">{isPaid ? "Unlocked" : "Limited"}</p>
+            <p className="mt-1 text-white/40">Features</p>
+          </div>
+          <div className="rounded-2xl border border-white/10 bg-black/15 p-3">
+            <p className="font-black text-white">{currentPlan}</p>
+            <p className="mt-1 text-white/40">Tier</p>
+          </div>
+        </div>
+      </div>
+
+      <div className="grid gap-3">
+        <button
+          type="button"
+          onClick={() => openRoute("/tier-select")}
+          className="w-full rounded-2xl bg-emerald-400 px-4 py-3 text-sm font-black text-slate-950 shadow-[0_12px_30px_rgba(16,185,129,0.22)]"
+        >
+          View plans / upgrade
+        </button>
+
+        <button
+          type="button"
+          onClick={() => openRoute("/enroll")}
+          className="w-full rounded-2xl border border-white/10 bg-white/8 px-4 py-3 text-sm font-bold text-white/75 transition hover:bg-white/12"
+        >
+          Enrollment and payment status
+        </button>
+
+        <button
+          type="button"
+          onClick={() => openRoute("/settings/billing")}
+          className="w-full rounded-2xl border border-white/10 bg-white/8 px-4 py-3 text-sm font-bold text-white/75 transition hover:bg-white/12"
+        >
+          Open full billing settings
+        </button>
+      </div>
+    </div>
+  );
+
+  const renderSecurityPage = () => (
+    <div className="space-y-4">
+      <DetailHeader
+        title="Privacy & security"
+        subtitle="Account safety, sign out, and local preference controls."
+      />
+
+      {renderNotice()}
+
+      <div className="rounded-[28px] border border-white/10 bg-white/[0.045] p-4 backdrop-blur-xl">
+        <p className="text-sm font-bold text-white">Current session</p>
+        <p className="mt-1 truncate text-xs text-white/50">{user?.email || "Current user session"}</p>
+
+        <div className="mt-4 rounded-2xl border border-white/10 bg-black/15 p-3">
+          <p className="text-xs font-bold text-white/70">Safe reset</p>
+          <p className="mt-1 text-[11px] leading-5 text-white/45">
+            Reset local preferences only. This will not delete wallets, expenses, budgets, or financial records.
+          </p>
+        </div>
+      </div>
+
+      <button
+        type="button"
+        onClick={() => openRoute("/settings/security")}
+        className="w-full rounded-2xl border border-white/10 bg-white/8 px-4 py-3 text-sm font-bold text-white/75 transition hover:bg-white/12"
+      >
+        Open full security settings
+      </button>
+
+      <button
+        type="button"
+        onClick={clearLocalPreferences}
+        className="flex w-full items-center justify-center gap-2 rounded-2xl border border-amber-300/20 bg-amber-400/10 px-4 py-3 text-sm font-bold text-amber-100 transition hover:bg-amber-400/15"
+      >
+        <RotateCcw className="h-4 w-4" />
+        Reset local preferences only
+      </button>
+
+      <button
+        type="button"
+        onClick={handleSignOut}
+        disabled={signingOut}
+        className="flex w-full items-center justify-center gap-2 rounded-2xl border border-rose-300/20 bg-rose-500/12 px-4 py-3 text-sm font-bold text-rose-100 transition hover:bg-rose-500/18 disabled:opacity-55"
+      >
+        <X className="h-4 w-4" />
+        {signingOut ? "Signing out..." : "Sign out"}
+      </button>
+    </div>
+  );
+
+  const renderSupportPage = () => (
+    <div className="space-y-4">
+      <DetailHeader
+        title="Help & support"
+        subtitle="Get help without leaving your dashboard."
+      />
+
+      <div className="rounded-[30px] border border-white/10 bg-white/[0.045] p-4 backdrop-blur-xl">
+        <p className="text-sm font-bold text-white">Need help?</p>
+        <p className="mt-1 text-xs leading-5 text-white/48">
+          Message CLARA support, open the full messages page, or send an email if you need manual assistance.
+        </p>
+      </div>
+
+      <button
+        type="button"
+        onClick={openSupportMessages}
+        className="w-full rounded-2xl bg-emerald-400 px-4 py-3 text-sm font-black text-slate-950 shadow-[0_12px_30px_rgba(16,185,129,0.22)]"
+      >
+        Message CLARA support
+      </button>
+
+      <button
+        type="button"
+        onClick={() => openRoute("/messages")}
+        className="w-full rounded-2xl border border-white/10 bg-white/8 px-4 py-3 text-sm font-bold text-white/75 transition hover:bg-white/12"
+      >
+        Open full messages page
+      </button>
+
+      <a
+        href="mailto:support@clara.app?subject=CLARA%20Support%20Request"
+        className="block w-full rounded-2xl border border-white/10 bg-white/8 px-4 py-3 text-center text-sm font-bold text-white/75 transition hover:bg-white/12"
+      >
+        Email support
+      </a>
+    </div>
+  );
+
+  const renderAboutPage = () => (
+    <div className="space-y-4">
+      <DetailHeader
+        title="About CLARA"
+        subtitle="Financial clarity, daily discipline, and guided progress."
+      />
+
+      <div className="rounded-[30px] border border-white/10 bg-white/[0.045] p-5 backdrop-blur-xl">
+        <p className="text-2xl font-black text-white">CLARA</p>
+        <p className="mt-2 text-sm leading-6 text-white/60">
+          A financial companion for tracking money, building discipline, and guiding users through financial progress.
+        </p>
+
+        <div className="mt-4 grid grid-cols-2 gap-2 text-center">
+          <div className="rounded-2xl border border-white/10 bg-black/15 p-3">
+            <p className="text-sm font-black text-white">v1</p>
+            <p className="mt-1 text-[11px] text-white/45">App version</p>
+          </div>
+          <div className="rounded-2xl border border-white/10 bg-black/15 p-3">
+            <p className="text-sm font-black text-white">Mobile</p>
+            <p className="mt-1 text-[11px] text-white/45">Optimized</p>
+          </div>
+        </div>
+      </div>
+
+      <button
+        type="button"
+        onClick={() => openRoute("/settings/about")}
+        className="w-full rounded-2xl border border-white/10 bg-white/8 px-4 py-3 text-sm font-bold text-white/75 transition hover:bg-white/12"
+      >
+        Open full about page
+      </button>
+    </div>
+  );
+
+  const renderActiveSetting = () => {
+    if (activeSetting === "profile") return renderProfilePage();
+    if (activeSetting === "notifications") return renderNotificationsPage();
+    if (activeSetting === "plan") return renderPlanPage();
+    if (activeSetting === "security") return renderSecurityPage();
+    if (activeSetting === "support") return renderSupportPage();
+    if (activeSetting === "about") return renderAboutPage();
     return null;
   };
 
-  return (
-    <div className="space-y-4">
-      {settingsNotice ? (
-        <div
-          className={`rounded-2xl border px-4 py-3 text-sm font-semibold ${
-            settingsNotice.type === "error"
-              ? "border-rose-300/20 bg-rose-500/12 text-rose-100"
-              : "border-emerald-300/20 bg-emerald-400/10 text-emerald-100"
-          }`}
-        >
-          {settingsNotice.message}
-        </div>
-      ) : null}
+  if (activeSetting) {
+    return (
+      <div className="min-h-full space-y-4 pb-6">
+        {renderActiveSetting()}
+      </div>
+    );
+  }
 
-      <div className="rounded-[30px] border border-white/10 bg-white/[0.055] p-4 shadow-[0_18px_50px_rgba(0,0,0,0.20)] backdrop-blur-xl">
+  return (
+    <div className="space-y-5 pb-6">
+      {renderNotice()}
+
+      <div className="rounded-[30px] border border-white/10 bg-[radial-gradient(circle_at_top_left,rgba(255,255,255,0.08),transparent_34%),rgba(255,255,255,0.045)] p-4 shadow-[0_18px_50px_rgba(0,0,0,0.20)] backdrop-blur-xl">
         <div className="flex items-center gap-3">
           <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-[22px] border border-white/10 bg-white/10 text-lg font-black text-white">
             {dashboardPanelInitials(displayName)}
@@ -3887,146 +4018,33 @@ function DashboardSettingsPanel({
         </div>
       </div>
 
-      <div className="space-y-5">
-        {settingSections.map((section) => (
-          <section key={section.title} className="space-y-2">
-            <p className="px-1 text-[11px] font-black uppercase tracking-[0.18em] text-white/35">
-              {section.title}
-            </p>
+      {settingSections.map((section) => (
+        <section key={section.title} className="space-y-2">
+          <p className="px-1 text-[11px] font-black uppercase tracking-[0.18em] text-white/35">
+            {section.title}
+          </p>
 
-            <div className="overflow-hidden rounded-[28px] border border-white/10 bg-white/[0.045] shadow-[0_18px_50px_rgba(0,0,0,0.18)] backdrop-blur-xl">
-              {section.rows.map((row, index) => {
-                const Icon = row.icon;
-
-                return (
-                  <button
-                    key={row.key}
-                    type="button"
-                    onClick={row.action}
-                    className={`group flex w-full items-center gap-3 px-4 py-4 text-left transition hover:bg-white/[0.065] ${
-                      index > 0 ? "border-t border-white/10" : ""
-                    } ${row.featured ? "bg-emerald-400/8" : ""}`}
-                  >
-                    <div
-                      className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border transition ${
-                        row.featured
-                          ? "border-emerald-400/20 bg-emerald-400/12 text-emerald-100"
-                          : "border-white/10 bg-white/8 text-white/65 group-hover:text-white"
-                      }`}
-                    >
-                      <Icon className="h-5 w-5" />
-                    </div>
-
-                    <div className="min-w-0 flex-1">
-                      <p className="truncate text-sm font-bold text-white">{row.title}</p>
-                      <p className="mt-1 truncate text-xs text-white/45">{row.description}</p>
-                    </div>
-
-                    {row.badge ? (
-                      <span className="max-w-[96px] shrink-0 truncate rounded-full border border-white/10 bg-white/8 px-2.5 py-1 text-[10px] font-bold text-white/55">
-                        {row.badge}
-                      </span>
-                    ) : null}
-
-                    <ChevronRight className="h-4 w-4 shrink-0 text-white/30 transition group-hover:translate-x-0.5 group-hover:text-white/55" />
-                  </button>
-                );
-              })}
-            </div>
-          </section>
-        ))}
-      </div>
-
-      <div className="rounded-[28px] border border-white/10 bg-white/[0.045] p-4 shadow-[0_18px_50px_rgba(0,0,0,0.18)] backdrop-blur-xl">
-        <div className="mb-3 flex items-center justify-between gap-3">
-          <div>
-            <p className="text-sm font-bold text-white">Notification quick toggles</p>
-            <p className="mt-1 text-xs text-white/45">Control reminders without opening another page.</p>
-          </div>
-
-          <span className="rounded-full border border-white/10 bg-white/8 px-3 py-1 text-[10px] font-bold text-white/55">
-            {localNotifications.dailyReminders ? "Active" : "Muted"}
-          </span>
-        </div>
-
-        <div className="space-y-2">
-          {notificationRows.slice(0, 3).map((row) => {
-            const enabled = localNotifications[row.key];
-
-            return (
-              <button
+          <div className="space-y-2.5">
+            {section.rows.map((row) => (
+              <PremiumRow
                 key={row.key}
-                type="button"
-                onClick={() => persistNotificationToggle(row.key)}
-                className="flex w-full items-center justify-between gap-3 rounded-2xl border border-white/10 bg-black/15 px-3 py-3 text-left transition hover:bg-white/8"
-              >
-                <div className="min-w-0">
-                  <p className="text-xs font-bold text-white">{row.title}</p>
-                  <p className="mt-1 truncate text-[11px] text-white/45">{row.description}</p>
-                </div>
-
-                <span
-                  className={`relative h-7 w-12 shrink-0 rounded-full border transition ${
-                    enabled
-                      ? "border-emerald-300/25 bg-emerald-400/30"
-                      : "border-white/10 bg-white/8"
-                  }`}
-                >
-                  <span
-                    className={`absolute top-1 h-5 w-5 rounded-full bg-white shadow transition ${
-                      enabled ? "left-6" : "left-1"
-                    }`}
-                  />
-                </span>
-              </button>
-            );
-          })}
-        </div>
-      </div>
+                icon={row.icon}
+                title={row.title}
+                description={row.description}
+                badge={row.badge}
+                featured={row.featured}
+                onClick={row.action}
+              />
+            ))}
+          </div>
+        </section>
+      ))}
 
       <div className="rounded-[28px] border border-white/10 bg-white/[0.035] px-4 py-3 text-center backdrop-blur-xl">
         <p className="text-[11px] font-semibold text-white/42">
           CLARA Settings • Account, preferences, plan, support, and app info
         </p>
       </div>
-
-      {activeSetting ? (
-        <div className="fixed inset-0 z-[140] flex items-end justify-center bg-black/70 px-4 pb-4 pt-10 backdrop-blur-md">
-          <div className="w-full max-w-[430px] overflow-hidden rounded-[30px] border border-white/10 bg-[#071120]/96 shadow-[0_28px_90px_rgba(0,0,0,0.55)]">
-            <div className="flex items-center justify-between gap-3 border-b border-white/10 px-4 py-4">
-              <div className="min-w-0">
-                <p className="truncate text-base font-black text-white">
-                  {detailTitleMap[activeSetting] || "Settings"}
-                </p>
-                <p className="truncate text-xs text-white/45">
-                  {activeSetting === "plan" ? currentPlan : user?.email || "CLARA settings"}
-                </p>
-              </div>
-
-              <button
-                type="button"
-                onClick={() => setActiveSetting(null)}
-                className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-white/10 bg-white/10 text-white/75"
-                aria-label="Close settings details"
-              >
-                <X className="h-4 w-4" />
-              </button>
-            </div>
-
-            <div className="max-h-[70dvh] overflow-y-auto p-4 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-              {renderSettingDetail()}
-
-              <button
-                type="button"
-                onClick={() => setActiveSetting(null)}
-                className="mt-4 w-full rounded-2xl border border-white/10 bg-white/8 px-4 py-3 text-sm font-bold text-white/75 transition hover:bg-white/12"
-              >
-                Done
-              </button>
-            </div>
-          </div>
-        </div>
-      ) : null}
     </div>
   );
 }
