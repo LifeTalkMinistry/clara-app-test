@@ -49,6 +49,7 @@ import useUserRole from "../hooks/useUserRole";
 import useTaskReminderPrompt from "@/hooks/useTaskReminderPrompt";
 import { hasCompletedProgramOnboarding } from "@/lib/access-control";
 import { useTheme } from "@/theme/ThemeProvider";
+import { DEFAULT_THEME_KEY } from "@/theme/themes";
 import {
   buildProgramJourney,
   getProgramBubbleContent,
@@ -3322,6 +3323,7 @@ function DashboardSettingsPanel({
   isFree,
   notificationSettings,
   openThemePicker,
+  resetThemeToDefault,
   onOpenMessages,
 }) {
   const navigate = useNavigate();
@@ -3462,7 +3464,7 @@ function DashboardSettingsPanel({
     }
   }, [profileName, user?.email, user?.id]);
 
-  const clearLocalPreferences = useCallback(() => {
+  const clearLocalPreferences = useCallback(async () => {
     try {
       const prefixesToRemove = [
         "clara_settings_",
@@ -3488,15 +3490,19 @@ function DashboardSettingsPanel({
         }
       }
 
+      if (typeof resetThemeToDefault === "function") {
+        await resetThemeToDefault();
+      }
+
       setSettingsNotice({
         type: "success",
-        message: "Local preferences were reset. Financial data was not touched.",
+        message: "Local preferences were reset and the theme is back to default. Financial data was not touched.",
       });
     } catch (error) {
       console.error("Local preferences reset failed:", error);
       setSettingsNotice({ type: "error", message: "Unable to reset local preferences." });
     }
-  }, []);
+  }, [resetThemeToDefault]);
 
   const handleSignOut = useCallback(async () => {
     setSigningOut(true);
@@ -3921,7 +3927,7 @@ function DashboardSettingsPanel({
     <div className="space-y-4 pb-6">
       <DetailHeader
         title="Security & privacy"
-        subtitle="Account session, protected data, and safe local reset."
+        subtitle="Account session, protected data, and default theme reset."
       />
 
       {renderNotice()}
@@ -3988,7 +3994,7 @@ function DashboardSettingsPanel({
           <div className="min-w-0 flex-1">
             <p className="text-sm font-black text-white">Local preference reset</p>
             <p className="mt-1 text-xs leading-5 text-white/48">
-              Clears notification choices, dashboard reminders, and local visual cache on this device.
+              Clears local choices and restores CLARA's default theme on this device.
             </p>
           </div>
         </div>
@@ -3999,7 +4005,7 @@ function DashboardSettingsPanel({
           className="mt-4 flex w-full items-center justify-center gap-2 rounded-2xl border border-amber-300/20 bg-amber-400/10 px-4 py-3 text-sm font-black text-amber-100 transition hover:bg-amber-400/15"
         >
           <RotateCcw className="h-4 w-4" />
-          Reset local preferences
+          Reset preferences and theme
         </button>
       </div>
 
@@ -4199,7 +4205,7 @@ function DashboardSettingsPanel({
 
 export default function Dashboard() {
   const navigate = useNavigate();
-  const { selectedTheme: selectedDashboardTheme, openThemePicker } = useTheme();
+  const { selectedTheme: selectedDashboardTheme, openThemePicker, setTheme } = useTheme();
   const dashboardViewportMode = useDashboardViewportMode();
   const dashboardScale = DASHBOARD_SCALE[dashboardViewportMode] || DASHBOARD_SCALE.normal;
   const { user, plan, isAdvertiser, isPaid, isFree, isPending, refreshUser } =
@@ -6504,6 +6510,12 @@ export default function Dashboard() {
     setActiveDashboardPanel("home");
   }, []);
 
+  const resetDashboardThemeToDefault = useCallback(async () => {
+    if (typeof setTheme === "function") {
+      await setTheme(DEFAULT_THEME_KEY);
+    }
+  }, [setTheme]);
+
   const dashboardPanelAnimationClass =
     activeDashboardPanel === "home"
       ? "animate-[claraDashboardPanelReverseIn_320ms_cubic-bezier(.22,1,.36,1)_both]"
@@ -7022,6 +7034,7 @@ export default function Dashboard() {
               isFree={isFree}
               notificationSettings={notificationSettings}
               openThemePicker={openThemePicker}
+              resetThemeToDefault={resetDashboardThemeToDefault}
               onOpenMessages={() => openDashboardPanel("messages")}
             />
           ) : null}
