@@ -5002,6 +5002,32 @@ export default function Dashboard() {
           </div>
         </div>
 
+            </>
+          ) : activeDashboardPanel === "feed" ? (
+            <DashboardFeedPanel onBack={closeDashboardPanel} />
+          ) : activeDashboardPanel === "messages" ? (
+            <DashboardMessagesPanel onBack={closeDashboardPanel} />
+          ) : activeDashboardPanel === "task" ? (
+            <DashboardTasksPanel
+              onBack={closeDashboardPanel}
+              activeTask={activeTask}
+              nextTask={nextTask}
+              tasks={tasks}
+              submissions={submissions}
+              programJourney={programJourney}
+            />
+          ) : activeDashboardPanel === "settings" ? (
+            <DashboardSettingsPanel
+              onBack={closeDashboardPanel}
+              user={user}
+              plan={plan}
+              isPaid={isPaid}
+              isFree={isFree}
+              notificationSettings={notificationSettings}
+              openThemePicker={openThemePicker}
+            />
+          ) : null}
+        </div>
       </div>
 
 
@@ -5356,33 +5382,7 @@ export default function Dashboard() {
           </div>
         </div>
       )}
-            </>
-          ) : activeDashboardPanel === "feed" ? (
-            <DashboardFeedPanel onBack={closeDashboardPanel} />
-          ) : activeDashboardPanel === "messages" ? (
-            <DashboardMessagesPanel onBack={closeDashboardPanel} />
-          ) : activeDashboardPanel === "task" ? (
-            <DashboardTasksPanel
-              onBack={closeDashboardPanel}
-              activeTask={activeTask}
-              nextTask={nextTask}
-              tasks={tasks}
-              submissions={submissions}
-              programJourney={programJourney}
-            />
-          ) : activeDashboardPanel === "settings" ? (
-            <DashboardSettingsPanel
-              onBack={closeDashboardPanel}
-              user={user}
-              plan={plan}
-              isPaid={isPaid}
-              isFree={isFree}
-              notificationSettings={notificationSettings}
-              openThemePicker={openThemePicker}
-            />
-          ) : null}
-        </div>
-      </div>
+
 
       <FinanceActionModal
         open={financeModal.type === "create_wallet"}
