@@ -128,7 +128,7 @@ export default function QuickCircle({ onQuickAdd, onOpenAssistant }) {
           src={`${import.meta.env.BASE_URL || "/"}clara-icon.png`}
           alt="CLARA"
           draggable="false"
-          className="h-full w-full select-none object-contain opacity-[0.95]"
+          className="h-full w-full select-none object-contain opacity-[0.82]"
           style={{ filter: "drop-shadow(0 28px 56px rgba(0,0,0,0.62))" }}
         />
       </button>
