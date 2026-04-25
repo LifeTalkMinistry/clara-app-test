@@ -72,6 +72,26 @@ export default function QuickCircle({ onQuickAdd, onOpenAssistant }) {
 
   return (
     <div className="pointer-events-none fixed inset-x-0 bottom-[-2.65rem] z-[120] flex justify-center px-4">
+      <div
+        aria-hidden="true"
+        className="absolute bottom-0 h-[13rem] w-[22rem] max-w-[92vw] rounded-full blur-3xl"
+        style={{
+          background:
+            "radial-gradient(circle at center, rgba(255,255,255,0.075), var(--theme-glow) 0%, transparent 58%)",
+          opacity: 0.32,
+        }}
+      />
+
+      <div
+        aria-hidden="true"
+        className="absolute bottom-[-1.25rem] h-[8rem] w-[18rem] max-w-[88vw] rounded-full blur-2xl"
+        style={{
+          background:
+            "radial-gradient(circle at center, var(--theme-accent), transparent 64%)",
+          opacity: 0.16,
+        }}
+      />
+
       <button
         type="button"
         aria-label="CLARA quick action"
@@ -81,19 +101,16 @@ export default function QuickCircle({ onQuickAdd, onOpenAssistant }) {
         onPointerLeave={clearLongPressTimer}
         className="pointer-events-auto relative flex h-[11.25rem] w-[11.25rem] items-center justify-center bg-transparent p-0 transition duration-200 active:scale-95"
       >
-        {/* Base surface */}
         <span
           className="absolute inset-[1.4rem] -z-10 rounded-full blur-2xl"
           style={{ background: "var(--theme-surface)" }}
         />
 
-        {/* Softer glow */}
         <span
           className="absolute inset-[2rem] -z-10 rounded-full blur-2xl"
-          style={{ background: "var(--theme-glow)", opacity: 0.18 }}
+          style={{ background: "var(--theme-glow)", opacity: 0.16 }}
         />
 
-        {/* Accent radial */}
         <span
           className="absolute inset-[2.8rem] -z-10 rounded-full blur-xl"
           style={{
@@ -102,7 +119,6 @@ export default function QuickCircle({ onQuickAdd, onOpenAssistant }) {
           }}
         />
 
-        {/* Premium inner ring */}
         <span
           className="absolute inset-[2.2rem] rounded-full"
           style={{ boxShadow: "inset 0 0 0 2px rgba(255,255,255,0.06)" }}
@@ -113,7 +129,7 @@ export default function QuickCircle({ onQuickAdd, onOpenAssistant }) {
           alt="CLARA"
           draggable="false"
           className="h-full w-full select-none object-contain opacity-[0.95]"
-          style={{ filter: "drop-shadow(0 25px 50px rgba(0,0,0,0.6))" }}
+          style={{ filter: "drop-shadow(0 28px 56px rgba(0,0,0,0.62))" }}
         />
       </button>
     </div>
