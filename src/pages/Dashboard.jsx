@@ -3724,6 +3724,12 @@ function DashboardSettingsPanel({
 
   const [activeSetting, setActiveSetting] = useState(null);
   const [activeAboutInfo, setActiveAboutInfo] = useState(null);
+  const [legalInfoRows, setLegalInfoRows] = useState([]);
+  const [legalInfoDraftRows, setLegalInfoDraftRows] = useState([]);
+  const [legalInfoLoading, setLegalInfoLoading] = useState(false);
+  const [legalInfoSaving, setLegalInfoSaving] = useState(false);
+  const [legalInfoEditMode, setLegalInfoEditMode] = useState(false);
+  const [legalInfoError, setLegalInfoError] = useState("");
   const [profileName, setProfileName] = useState(initialDisplayName);
   const [settingsNotice, setSettingsNotice] = useState(null);
   const [savingProfile, setSavingProfile] = useState(false);
@@ -3806,6 +3812,49 @@ function DashboardSettingsPanel({
     };
 
     fetchBillingRecord();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [user?.id]);
+
+  useEffect(() => {
+    let isMounted = true;
+
+    const fetchLegalInformationContent = async () => {
+      setLegalInfoError("");
+
+      if (!user?.id) {
+        setLegalInfoRows([]);
+        setLegalInfoLoading(false);
+        return;
+      }
+
+      setLegalInfoLoading(true);
+
+      try {
+        const { data, error } = await supabase
+          .from("legal_information_content")
+          .select("section_key,title,subtitle,body,sort_order,is_active,updated_at")
+          .eq("is_active", true)
+          .order("sort_order", { ascending: true });
+
+        if (error) throw error;
+        if (!isMounted) return;
+
+        setLegalInfoRows(Array.isArray(data) ? data : []);
+      } catch (error) {
+        console.error("Legal information content fetch failed:", error);
+        if (isMounted) {
+          setLegalInfoRows([]);
+          setLegalInfoError("");
+        }
+      } finally {
+        if (isMounted) setLegalInfoLoading(false);
+      }
+    };
+
+    fetchLegalInformationContent();
 
     return () => {
       isMounted = false;
@@ -4840,54 +4889,197 @@ function DashboardSettingsPanel({
     </div>
   );
 
-  const aboutClaraRows = [
+  const defaultAboutClaraRows = [
     {
+      section_key: "mission",
       key: "mission",
       title: "Mission",
       subtitle: "See CLARA’s purpose and guiding mission.",
-      content:
+      body:
         "To help people build financial discipline through simple tracking, guided decisions, and a supportive environment.",
+      sort_order: 1,
+      is_active: true,
     },
     {
+      section_key: "vision",
       key: "vision",
       title: "Vision",
       subtitle: "See the long-term direction of CLARA.",
-      content:
+      body:
         "To make budgeting normal, approachable, and part of everyday life.",
+      sort_order: 2,
+      is_active: true,
     },
     {
-      key: "difference",
+      section_key: "clara_difference",
+      key: "clara_difference",
       title: "What makes CLARA different",
       subtitle: "See how CLARA goes beyond basic expense tracking.",
-      content:
-        "CLARA is not only built to record expenses. It is designed to help users understand behavior, reduce emotional spending, and make better choices before money is spent.",
-      extra:
-        "People do not change because of information alone. People change because of environment. CLARA is built to become that environment.",
+      body:
+        "CLARA is not only built to record expenses. It is designed to help users understand behavior, reduce emotional spending, and make better choices before money is spent.\n\nPeople do not change because of information alone. People change because of environment. CLARA is built to become that environment.",
+      sort_order: 3,
+      is_active: true,
     },
     {
-      key: "terms",
+      section_key: "terms_of_use",
+      key: "terms_of_use",
       title: "Terms of use",
       subtitle: "Coming inside CLARA settings.",
-      content:
+      body:
         "Terms of use will be available inside CLARA settings.",
+      sort_order: 4,
+      is_active: true,
     },
     {
-      key: "privacy",
+      section_key: "privacy_policy",
+      key: "privacy_policy",
       title: "Privacy policy",
       subtitle: "Coming inside CLARA settings.",
-      content:
+      body:
         "Privacy policy will be available inside CLARA settings.",
+      sort_order: 5,
+      is_active: true,
     },
   ];
 
+  const normalizeLegalInfoRow = (row, fallback) => ({
+    section_key: row?.section_key || fallback.section_key,
+    key: row?.section_key || fallback.section_key,
+    title: normalizeString(row?.title || fallback.title),
+    subtitle: normalizeString(row?.subtitle || fallback.subtitle),
+    body: normalizeString(row?.body || fallback.body),
+    sort_order: firstValidNumber(row?.sort_order, fallback.sort_order),
+    is_active: row?.is_active !== false,
+  });
+
+  const aboutClaraRows = useMemo(() => {
+    const savedRows = Array.isArray(legalInfoRows) ? legalInfoRows : [];
+
+    return defaultAboutClaraRows.map((fallback) => {
+      const saved = savedRows.find((row) => row?.section_key === fallback.section_key);
+      return normalizeLegalInfoRow(saved, fallback);
+    });
+  }, [legalInfoRows]);
+
+  const canEditLegalInformation = Boolean(isAdmin);
+
+  const isProfileAdmin = useCallback((profileRecord) => {
+    const roleValue = normalizeLower(profileRecord?.role);
+    const userTypeValue = normalizeLower(profileRecord?.user_type);
+    const accessLevelValue = normalizeLower(profileRecord?.access_level);
+
+    return (
+      roleValue === "admin" ||
+      userTypeValue === "admin" ||
+      accessLevelValue === "admin" ||
+      profileRecord?.is_admin === true ||
+      profileRecord?.admin === true
+    );
+  }, []);
+
+  const verifyLegalInformationAdminAccess = useCallback(async () => {
+    if (!user?.id || !canEditLegalInformation) return false;
+
+    const { data, error } = await supabase
+      .from("profiles")
+      .select("*")
+      .eq("id", user.id)
+      .maybeSingle();
+
+    if (error) throw error;
+
+    return isProfileAdmin(data);
+  }, [canEditLegalInformation, isProfileAdmin, user?.id]);
+
+  const startLegalInformationEdit = useCallback(() => {
+    if (!canEditLegalInformation) return;
+
+    setLegalInfoError("");
+    setSettingsNotice(null);
+    setLegalInfoDraftRows(aboutClaraRows.map((row) => ({ ...row })));
+    setLegalInfoEditMode(true);
+  }, [aboutClaraRows, canEditLegalInformation]);
+
+  const cancelLegalInformationEdit = useCallback(() => {
+    setLegalInfoDraftRows([]);
+    setLegalInfoEditMode(false);
+    setLegalInfoError("");
+  }, []);
+
+  const updateLegalInformationDraft = useCallback((sectionKey, field, value) => {
+    setLegalInfoDraftRows((currentRows) =>
+      currentRows.map((row) =>
+        row.section_key === sectionKey ? { ...row, [field]: value } : row
+      )
+    );
+    setLegalInfoError("");
+    setSettingsNotice(null);
+  }, []);
+
+  const saveLegalInformationContent = useCallback(async () => {
+    if (!canEditLegalInformation || legalInfoSaving) return;
+
+    setLegalInfoSaving(true);
+    setLegalInfoError("");
+    setSettingsNotice(null);
+
+    try {
+      const verifiedAdmin = await verifyLegalInformationAdminAccess();
+
+      if (!verifiedAdmin) {
+        throw new Error("Admin permission is required to update Legal & Information content.");
+      }
+
+      const now = new Date().toISOString();
+      const rowsToSave = legalInfoDraftRows.map((row, index) => ({
+        section_key: row.section_key,
+        title: normalizeString(row.title) || defaultAboutClaraRows[index]?.title || "Untitled",
+        subtitle: normalizeString(row.subtitle),
+        body: normalizeString(row.body),
+        sort_order: index + 1,
+        is_active: true,
+        updated_at: now,
+        updated_by: user?.id || null,
+      }));
+
+      const { data, error } = await supabase
+        .from("legal_information_content")
+        .upsert(rowsToSave, { onConflict: "section_key" })
+        .select("section_key,title,subtitle,body,sort_order,is_active,updated_at")
+        .order("sort_order", { ascending: true });
+
+      if (error) throw error;
+
+      setLegalInfoRows(Array.isArray(data) ? data : rowsToSave);
+      setLegalInfoDraftRows([]);
+      setLegalInfoEditMode(false);
+      setSettingsNotice({
+        type: "success",
+        message: "Legal & Information content updated.",
+      });
+    } catch (error) {
+      console.error("Legal information content save failed:", error);
+      setLegalInfoError(error?.message || "Unable to save Legal & Information content right now.");
+    } finally {
+      setLegalInfoSaving(false);
+    }
+  }, [
+    canEditLegalInformation,
+    defaultAboutClaraRows,
+    legalInfoDraftRows,
+    legalInfoSaving,
+    user?.id,
+    verifyLegalInformationAdminAccess,
+  ]);
+
   const AboutClaraRow = ({ row }) => {
-    const isOpen = activeAboutInfo === row.key;
+    const isOpen = activeAboutInfo === row.section_key;
 
     return (
       <div className="overflow-hidden rounded-2xl border border-white/10 bg-white/[0.045]">
         <button
           type="button"
-          onClick={() => setActiveAboutInfo((current) => (current === row.key ? null : row.key))}
+          onClick={() => setActiveAboutInfo((current) => (current === row.section_key ? null : row.section_key))}
           className="flex w-full items-center justify-between gap-3 px-4 py-3.5 text-left transition hover:bg-white/[0.065] active:scale-[0.99]"
           aria-expanded={isOpen}
         >
@@ -4910,18 +5102,70 @@ function DashboardSettingsPanel({
         >
           <div className="min-h-0 overflow-hidden">
             <div className="border-t border-white/10 bg-black/15 px-4 py-4">
-              <p className="text-sm leading-6 text-white/70">{row.content}</p>
-              {row.extra ? (
-                <p className="mt-3 rounded-2xl border border-emerald-300/15 bg-emerald-400/10 p-3 text-sm leading-6 text-emerald-50/85">
-                  {row.extra}
-                </p>
-              ) : null}
+              {row.body
+                .split(/\n{2,}/)
+                .map((paragraph, index) => (
+                  <p
+                    key={`${row.section_key}-${index}`}
+                    className={`${index > 0 ? "mt-3 rounded-2xl border border-emerald-300/15 bg-emerald-400/10 p-3 text-emerald-50/85" : "text-white/70"} text-sm leading-6`}
+                  >
+                    {paragraph}
+                  </p>
+                ))}
             </div>
           </div>
         </div>
       </div>
     );
   };
+
+  const LegalInformationEditField = ({ row, index }) => (
+    <div className="rounded-2xl border border-white/10 bg-white/[0.045] p-4">
+      <div className="mb-3 flex items-center justify-between gap-3">
+        <p className="text-xs font-black uppercase tracking-[0.18em] text-white/50">
+          {row.title || defaultAboutClaraRows[index]?.title || "Section"}
+        </p>
+        <span className="rounded-full border border-white/10 bg-white/[0.06] px-2.5 py-1 text-[10px] font-bold text-white/45">
+          {index + 1}
+        </span>
+      </div>
+
+      <div className="space-y-3">
+        <label className="block space-y-1.5">
+          <span className="text-[11px] font-bold text-white/60">Title</span>
+          <input
+            type="text"
+            value={row.title}
+            onChange={(event) => updateLegalInformationDraft(row.section_key, "title", event.target.value)}
+            className="w-full rounded-2xl border border-white/10 bg-black/20 px-3.5 py-3 text-sm text-white outline-none transition placeholder:text-white/25 focus:border-emerald-300/30 focus:bg-white/[0.06]"
+            placeholder="Section title"
+          />
+        </label>
+
+        <label className="block space-y-1.5">
+          <span className="text-[11px] font-bold text-white/60">Subtitle</span>
+          <input
+            type="text"
+            value={row.subtitle}
+            onChange={(event) => updateLegalInformationDraft(row.section_key, "subtitle", event.target.value)}
+            className="w-full rounded-2xl border border-white/10 bg-black/20 px-3.5 py-3 text-sm text-white outline-none transition placeholder:text-white/25 focus:border-emerald-300/30 focus:bg-white/[0.06]"
+            placeholder="Short row description"
+          />
+        </label>
+
+        <label className="block space-y-1.5">
+          <span className="text-[11px] font-bold text-white/60">Body</span>
+          <textarea
+            value={row.body}
+            onChange={(event) => updateLegalInformationDraft(row.section_key, "body", event.target.value)}
+            rows={5}
+            className="min-h-[118px] w-full resize-y rounded-2xl border border-white/10 bg-black/20 px-3.5 py-3 text-sm leading-6 text-white outline-none transition placeholder:text-white/25 focus:border-emerald-300/30 focus:bg-white/[0.06]"
+            placeholder="Main detail content"
+          />
+        </label>
+      </div>
+    </div>
+  );
 
   const renderAboutPage = () => (
     <div className="space-y-4">
@@ -4943,18 +5187,77 @@ function DashboardSettingsPanel({
       </div>
 
       <div className="rounded-[30px] border border-white/10 bg-white/[0.04] p-4 shadow-[0_18px_50px_rgba(0,0,0,0.16)] backdrop-blur-xl">
-        <div className="mb-4">
-          <p className="text-sm font-black text-white">Legal & information</p>
-          <p className="mt-1 text-xs leading-5 text-white/45">
-            Mission, vision, and build information can be rendered here directly so the user stays inside settings.
-          </p>
+        <div className="mb-4 flex items-start justify-between gap-3">
+          <div className="min-w-0 flex-1">
+            <p className="text-sm font-black text-white">Legal & information</p>
+            <p className="mt-1 text-xs leading-5 text-white/45">
+              Mission, vision, and build information can be rendered here directly so the user stays inside settings.
+            </p>
+          </div>
+
+          {canEditLegalInformation && !legalInfoEditMode ? (
+            <button
+              type="button"
+              onClick={startLegalInformationEdit}
+              className="inline-flex shrink-0 items-center gap-1.5 rounded-full border border-emerald-300/15 bg-emerald-400/10 px-3 py-2 text-[11px] font-bold text-emerald-100 transition hover:bg-emerald-400/15 active:scale-[0.98]"
+            >
+              <Edit className="h-3.5 w-3.5" />
+              Edit
+            </button>
+          ) : null}
         </div>
 
-        <div className="grid gap-2">
-          {aboutClaraRows.map((row) => (
-            <AboutClaraRow key={row.key} row={row} />
-          ))}
-        </div>
+        {legalInfoError ? (
+          <div className="mb-3 rounded-2xl border border-rose-300/20 bg-rose-400/10 px-4 py-3 text-xs leading-5 text-rose-100">
+            {legalInfoError}
+          </div>
+        ) : null}
+
+        {legalInfoLoading && !legalInfoEditMode ? (
+          <div className="mb-3 rounded-2xl border border-white/10 bg-white/[0.04] px-4 py-3 text-xs text-white/45">
+            Loading Legal & Information content...
+          </div>
+        ) : null}
+
+        {legalInfoEditMode ? (
+          <div className="space-y-3">
+            <div className="rounded-2xl border border-emerald-300/15 bg-emerald-400/10 px-4 py-3">
+              <p className="text-xs font-bold text-emerald-50">Admin editing mode</p>
+              <p className="mt-1 text-[11px] leading-5 text-emerald-50/65">
+                Edit the Legal & Information content below. Changes are saved to Supabase and shown to all users.
+              </p>
+            </div>
+
+            {legalInfoDraftRows.map((row, index) => (
+              <LegalInformationEditField key={row.section_key} row={row} index={index} />
+            ))}
+
+            <div className="sticky bottom-3 z-10 grid grid-cols-2 gap-2 rounded-[22px] border border-white/10 bg-[#071120]/92 p-2 shadow-[0_20px_55px_rgba(0,0,0,0.35)] backdrop-blur-xl">
+              <button
+                type="button"
+                onClick={cancelLegalInformationEdit}
+                disabled={legalInfoSaving}
+                className="rounded-2xl border border-white/10 bg-white/[0.055] px-4 py-3 text-sm font-bold text-white/70 transition hover:bg-white/[0.08] disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={saveLegalInformationContent}
+                disabled={legalInfoSaving}
+                className="rounded-2xl bg-gradient-to-r from-emerald-400 via-emerald-500 to-green-600 px-4 py-3 text-sm font-black text-white shadow-[0_12px_34px_rgba(16,185,129,0.24)] transition hover:scale-[1.01] disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                {legalInfoSaving ? "Saving..." : "Save"}
+              </button>
+            </div>
+          </div>
+        ) : (
+          <div className="grid gap-2">
+            {aboutClaraRows.map((row) => (
+              <AboutClaraRow key={row.section_key} row={row} />
+            ))}
+          </div>
+        )}
       </div>
     </div>
   );
