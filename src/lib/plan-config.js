@@ -1,46 +1,57 @@
-export const CURRENT_PLAN_KEYS = ["free", "pro_99", "core_599", "coaching_1299"];
+export const CURRENT_PLAN_KEYS = ["free", "pro_99", "core_199", "life_os_499"];
 export const ACCESS_LEVEL_KEYS = ["pro", "core", "life_os"];
 
 export const LEGACY_PLAN_ALIASES = {
   free: "free",
+
   pro: "pro_99",
+  pro99: "pro_99",
   pro_99: "pro_99",
-  core: "core_599",
-  core_199: "core_599",
-  core_599: "core_599",
-  life_os: "coaching_1299",
-  lifeos: "coaching_1299",
-  life_os_499: "coaching_1299",
-  lifeos_499: "coaching_1299",
-  coach: "coaching_1299",
-  coaching: "coaching_1299",
-  coaching_1299: "coaching_1299",
+  pro_tools: "pro_99",
+  protools: "pro_99",
+  clara_pro_99: "pro_99",
+
+  core: "core_199",
+  core199: "core_199",
+  core_199: "core_199",
+  core_599: "core_199",
+  program: "core_199",
+  clara_core_199: "core_199",
+
+  life_os: "life_os_499",
+  lifeos: "life_os_499",
+  life_os_499: "life_os_499",
+  lifeos_499: "life_os_499",
+  clara_lifeos_499: "life_os_499",
+  coach: "life_os_499",
+  coaching: "life_os_499",
+  coaching_1299: "life_os_499",
 };
 
 export const PLAN_ACCESS_LEVELS = {
   pro_99: "pro",
-  core_599: "core",
-  coaching_1299: "life_os",
+  core_199: "core",
+  life_os_499: "life_os",
 };
 
 export const ACCESS_LEVEL_PLAN_KEYS = {
   pro: "pro_99",
-  core: "core_599",
-  life_os: "coaching_1299",
+  core: "core_199",
+  life_os: "life_os_499",
 };
 
 export const PLAN_LABELS = {
   free: "Free",
-  pro_99: "PRO",
-  core_599: "CORE",
-  coaching_1299: "Life OS",
+  pro_99: "Pro",
+  core_199: "Core",
+  life_os_499: "Life OS",
 };
 
 export const PLAN_BADGE_STYLES = {
   free: "bg-white/10 text-white border-white/10",
   pro_99: "bg-cyan-500/15 text-cyan-300 border-cyan-400/20",
-  core_599: "bg-emerald-500/15 text-emerald-300 border-emerald-400/20",
-  coaching_1299: "bg-amber-500/15 text-amber-300 border-amber-400/20",
+  core_199: "bg-emerald-500/15 text-emerald-300 border-emerald-400/20",
+  life_os_499: "bg-amber-500/15 text-amber-300 border-amber-400/20",
   admin: "bg-fuchsia-500/15 text-fuchsia-300 border-fuchsia-400/20",
 };
 
@@ -210,18 +221,18 @@ export const PLAN_DEFAULTS = {
   },
   pro_99: {
     key: "pro_99",
-    name: "PRO",
+    name: "Pro",
     price: 99,
     product_id: "clara_pro_99",
     billing_type: "subscription",
-    description: "Unlock CLARA's PRO financial tools with a monthly Google Play subscription.",
+    description: "Unlock CLARA's Pro financial tools with a monthly Google Play subscription.",
     features: [
       "Feed and full financial tools",
       "Budgets, analytics, goals, and referrals",
-      "PRO-only tools access",
+      "Pro tools access",
       "Monthly subscription through Google Play",
     ],
-    cta_label: "Subscribe to PRO",
+    cta_label: "Subscribe to Pro",
     active: true,
     popular: false,
     sort_order: 2,
@@ -243,20 +254,20 @@ export const PLAN_DEFAULTS = {
       referrals: "full",
     },
   },
-  core_599: {
-    key: "core_599",
-    name: "CORE",
+  core_199: {
+    key: "core_199",
+    name: "Core",
     price: 199,
     product_id: "clara_core_199",
     billing_type: "subscription",
-    description: "Unlock CORE: the advanced daily spending system with guided support and CLARA Companion intelligence.",
+    description: "Unlock Core: the advanced daily spending system with guided support and CLARA Companion intelligence.",
     features: [
-      "Complete CORE financial system",
+      "Complete Core financial system",
       "Advanced daily spending AI through CLARA Companion",
       "Guided spending strategy and practical next steps",
-      "Activation code unlocks the full CORE layer",
+      "Activation code unlocks the full Core layer",
     ],
-    cta_label: "Unlock CORE",
+    cta_label: "Unlock Core",
     active: true,
     popular: true,
     sort_order: 3,
@@ -278,8 +289,8 @@ export const PLAN_DEFAULTS = {
       referrals: "full",
     },
   },
-  coaching_1299: {
-    key: "coaching_1299",
+  life_os_499: {
+    key: "life_os_499",
     name: "Life OS",
     price: 499,
     product_id: "clara_lifeos_499",
@@ -316,7 +327,7 @@ export const PLAN_DEFAULTS = {
 };
 
 export function normalizePlanKey(value) {
-  const normalized = String(value ?? "").trim().toLowerCase();
+  const normalized = String(value ?? "").trim().toLowerCase().replace(/[\s-]+/g, "_");
   return LEGACY_PLAN_ALIASES[normalized] || (CURRENT_PLAN_KEYS.includes(normalized) ? normalized : "free");
 }
 
@@ -324,14 +335,14 @@ export function normalizeAccessLevel(value, fallback = "pro") {
   const normalized = String(value ?? "").trim().toLowerCase().replace(/[\s-]+/g, "_");
   const aliases = {
     pro_99: "pro",
+    clara_pro_99: "pro",
     core_199: "core",
-    clara_core_199: "core",
     core_599: "core",
+    clara_core_199: "core",
     lifeos: "life_os",
     life_os_499: "life_os",
     lifeos_499: "life_os",
     clara_lifeos_499: "life_os",
-    clara_pro_99: "pro",
     coaching: "life_os",
     coaching_1299: "life_os",
   };
@@ -350,8 +361,7 @@ export function getPlanKeyForAccessLevel(accessLevel, fallback = "pro_99") {
 }
 
 export function isPaidPlan(planKey) {
-  const normalized = normalizePlanKey(planKey);
-  return normalized !== "free";
+  return normalizePlanKey(planKey) !== "free";
 }
 
 export function getFeatureDefinition(featureKey) {
