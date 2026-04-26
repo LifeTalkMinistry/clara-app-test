@@ -7564,11 +7564,23 @@ export default function Dashboard() {
                     expanded={true}
                     onToggleDetails={() => setExpandedFinanceCard(null)}
                     financeActionLoading={financeActionLoading}
-                    onCreateWallet={openCreateWalletModal}
+                    onCreateWallet={() => {
+                      setExpandedFinanceCard(null);
+                      window.requestAnimationFrame(() => openCreateWalletModal());
+                    }}
                     onMoveWallet={moveWalletInline}
-                    onDeleteWallet={openDeleteWalletModal}
-                    onAddMoney={openAddMoneyModal}
-                    onTransferMoney={openTransferMoneyModal}
+                    onDeleteWallet={(walletId) => {
+                      setExpandedFinanceCard(null);
+                      window.requestAnimationFrame(() => openDeleteWalletModal(walletId));
+                    }}
+                    onAddMoney={(wallet) => {
+                      setExpandedFinanceCard(null);
+                      window.requestAnimationFrame(() => openAddMoneyModal(wallet));
+                    }}
+                    onTransferMoney={(wallet) => {
+                      setExpandedFinanceCard(null);
+                      window.requestAnimationFrame(() => openTransferMoneyModal(wallet));
+                    }}
                   />
                 </div>
               )}
@@ -7581,8 +7593,14 @@ export default function Dashboard() {
                     expanded={true}
                     onToggleDetails={() => setExpandedFinanceCard(null)}
                     financeActionLoading={financeActionLoading}
-                    onSaveBudget={openBudgetModal}
-                    onResetBudget={openResetBudgetModal}
+                    onSaveBudget={() => {
+                      setExpandedFinanceCard(null);
+                      window.requestAnimationFrame(() => openBudgetModal());
+                    }}
+                    onResetBudget={() => {
+                      setExpandedFinanceCard(null);
+                      window.requestAnimationFrame(() => openResetBudgetModal());
+                    }}
                   />
                 </div>
               )}
@@ -7598,9 +7616,18 @@ export default function Dashboard() {
                     expanded={true}
                     onToggleDetails={() => setExpandedFinanceCard(null)}
                     financeActionLoading={financeActionLoading}
-                    onSaveSavingsGoal={openSavingsGoalModal}
-                    onDeleteSavingsGoal={openDeleteSavingsGoalModal}
-                    onAddSavings={openAddSavingsModal}
+                    onSaveSavingsGoal={(goal) => {
+                      setExpandedFinanceCard(null);
+                      window.requestAnimationFrame(() => openSavingsGoalModal(goal));
+                    }}
+                    onDeleteSavingsGoal={(goalId) => {
+                      setExpandedFinanceCard(null);
+                      window.requestAnimationFrame(() => openDeleteSavingsGoalModal(goalId));
+                    }}
+                    onAddSavings={(goal) => {
+                      setExpandedFinanceCard(null);
+                      window.requestAnimationFrame(() => openAddSavingsModal(goal));
+                    }}
                   />
                 </div>
               )}
