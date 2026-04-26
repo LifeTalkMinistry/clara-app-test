@@ -97,6 +97,11 @@ const PENDING_STATUSES = new Set([
   "purchase_processing",
 ]);
 
+const ADMIN_RECOVERY_EMAILS = new Set([
+  "jeromemirabuenos62@gmail.com",
+  "lifetalkministry@gmail.com",
+]);
+
 function FullScreenLoader() {
   return (
     <div className="theme-page-shell min-h-screen flex items-center justify-center text-white">
@@ -325,6 +330,24 @@ function getLoginRedirectUrl() {
   return `${window.location.origin}${normalizedBase}#/login`;
 }
 
+function isRecoveryAdminEmail(email) {
+  return ADMIN_RECOVERY_EMAILS.has(String(email || "").trim().toLowerCase());
+}
+
+function AdminRescueButton({ show }) {
+  if (!show) return null;
+
+  return (
+    <a
+      href="#/admin"
+      className="fixed right-4 top-[calc(env(safe-area-inset-top)+1rem)] z-[9999] rounded-2xl border border-emerald-300/30 bg-emerald-400/15 px-4 py-3 text-xs font-bold uppercase tracking-[0.18em] text-emerald-100 shadow-[0_12px_36px_rgba(16,185,129,0.25)] backdrop-blur-2xl transition hover:bg-emerald-400/25"
+      aria-label="Open admin panel"
+    >
+      Admin
+    </a>
+  );
+}
+
 function AppRoutes() {
   const { user, profile, loading, authReady } = useAuth();
   const {
@@ -474,7 +497,7 @@ function AppRoutes() {
     );
   }, [profile, normalizedRole, enrollment]);
 
-  const isAdmin = resolvedAccess.isAdmin;
+  const isAdmin = resolvedAccess.isAdmin || isRecoveryAdminEmail(user?.email || profile?.email);
   const isAdvertiser = resolvedAccess.isAdvertiser;
 
   const flow = useMemo(() => {
@@ -483,16 +506,17 @@ function AppRoutes() {
     const resolvedFlow = resolveAppFlow(
       {
         ...profile,
-        role: profile?.role || normalizedRole || "user",
+        role: isAdmin ? "admin" : profile?.role || normalizedRole || "user",
       },
       enrollment
     );
 
     return getSafeFlow(resolvedFlow, enrollment);
-  }, [user, profileReady, enrollmentLoading, profile, normalizedRole, enrollment]);
+  }, [user, profileReady, enrollmentLoading, profile, normalizedRole, enrollment, isAdmin]);
 
   const forceEnroll = useMemo(() => {
     if (!user || !profileReady || enrollmentLoading) return false;
+    if (isAdmin) return false;
     if (enrollmentPaid) return false;
     if (!profile) return false;
     return resolvedAccess.forceEnroll;
@@ -503,6 +527,7 @@ function AppRoutes() {
     profile,
     enrollmentPaid,
     resolvedAccess.forceEnroll,
+    isAdmin,
   ]);
 
   const homeRedirectPath = useMemo(
@@ -918,6 +943,7 @@ function AppRoutes() {
 
         <Route path="*" element={<PageNotFound />} />
       </Routes>
+      <AdminRescueButton show={Boolean(user && isAdmin)} />
     </Suspense>
   );
 }
