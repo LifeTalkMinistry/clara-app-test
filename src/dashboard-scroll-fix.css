@@ -1,5 +1,6 @@
 /* Focused dashboard scroll/clipping fix.
-   This file targets only the Dashboard main scroll area added in Layout.jsx. */
+   This file targets only the Dashboard main scroll area added in Layout.jsx.
+   Keep this conservative so premium rounded cards remain clipped/polished. */
 
 .clara-dashboard-main {
   height: 100dvh !important;
@@ -14,11 +15,8 @@
   scroll-padding-bottom: calc(180px + env(safe-area-inset-bottom));
 }
 
-.clara-dashboard-main > * {
-  min-height: auto !important;
-  max-height: none !important;
-}
-
+/* Only unlock screen-height wrappers. Do not touch overflow-hidden globally,
+   because that breaks the rounded corners of the nav, billboard, and cards. */
 .clara-dashboard-main [class*="min-h-screen"],
 .clara-dashboard-main [class*="h-screen"],
 .clara-dashboard-main [class*="max-h-screen"] {
@@ -27,32 +25,25 @@
   max-height: none !important;
 }
 
-.clara-dashboard-main [class*="overflow-hidden"] {
-  overflow: visible !important;
+/* Restore premium card clipping that was damaged by the earlier broad overflow rule. */
+.clara-dashboard-main [class*="rounded-"] {
+  overflow: hidden;
 }
 
-/* Re-clip only visual media containers so the billboard stays rounded. */
-.clara-dashboard-main [class*="rounded-"]:has(video),
-.clara-dashboard-main [class*="rounded-"]:has(img),
-.clara-dashboard-main video,
-.clara-dashboard-main img {
-  overflow: hidden !important;
-  border-radius: inherit;
-}
-
-.clara-dashboard-main video,
-.clara-dashboard-main img {
+.clara-dashboard-main [class*="rounded-"] video,
+.clara-dashboard-main [class*="rounded-"] img {
   display: block;
   max-width: 100%;
+  border-radius: inherit;
   object-fit: cover;
   transform: translateZ(0) scale(1.002);
   backface-visibility: hidden;
 }
 
-/* Make sure the last dashboard card can fully clear Android's navigation bar. */
-.clara-dashboard-main > *::after {
+/* Add scroll clearance without affecting card borders/corners. */
+.clara-dashboard-main::after {
   content: "";
   display: block;
-  height: calc(96px + env(safe-area-inset-bottom));
+  height: calc(140px + env(safe-area-inset-bottom));
   flex: 0 0 auto;
 }
