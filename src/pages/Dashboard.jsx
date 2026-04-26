@@ -3163,14 +3163,34 @@ function DashboardMessagesPanel({ onBack }) {
 
   if (activeConvo) {
     return (
-      <div className="flex h-full min-h-0 max-h-full flex-col overflow-hidden">
+      <div className="fixed inset-0 z-[99980] flex h-[100dvh] w-screen flex-col overflow-hidden bg-[radial-gradient(circle_at_top,#0d3b2f_0%,#031b2d_35%,#020817_75%)] text-white">
+        <div className="relative z-20 shrink-0 border-b border-white/10 bg-black/25 px-4 pb-3 pt-[calc(env(safe-area-inset-top)+0.85rem)] backdrop-blur-2xl">
+          <div className="mx-auto flex max-w-3xl items-center gap-3">
+            <button
+              type="button"
+              onClick={() => setSelectedConvo(null)}
+              className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border border-white/10 bg-white/5 text-white transition hover:bg-white/10 active:scale-95"
+              aria-label="Back to inbox"
+            >
+              <ArrowDown className="h-4 w-4 rotate-90" />
+            </button>
 
-        <div className="flex h-full min-h-0 flex-1 flex-col overflow-hidden rounded-[30px] border border-white/10 bg-white/[0.055] shadow-[0_18px_50px_rgba(0,0,0,0.20)] backdrop-blur-xl">
-          <div className="flex items-center justify-between gap-3 border-b border-white/10 bg-black/15 px-4 py-3">
-            <div className="min-w-0">
-              <p className="truncate text-sm font-bold text-white">{activeConvo.name}</p>
-              <p className="truncate text-[11px] text-white/45">Private conversation</p>
+            <div className="relative shrink-0">
+              <div className="flex h-11 w-11 items-center justify-center rounded-2xl border border-white/10 bg-gradient-to-br from-emerald-400/20 via-cyan-400/10 to-blue-500/20 font-semibold text-white shadow-lg">
+                {String(activeConvo.name || "?").slice(0, 2).toUpperCase()}
+              </div>
+              <span className="absolute -bottom-0.5 -right-0.5 h-3 w-3 rounded-full border-2 border-slate-950 bg-emerald-400" />
             </div>
+
+            <div className="min-w-0 flex-1">
+              <p className="truncate text-sm font-bold text-white">{activeConvo.name}</p>
+              <p className="truncate text-[11px] text-white/50">
+                {messageMode === "admin_only" && !isAdmin
+                  ? "CLARA Admin"
+                  : "Private conversation"}
+              </p>
+            </div>
+
             <button
               type="button"
               onClick={() => setSelectedConvo(null)}
@@ -3179,10 +3199,16 @@ function DashboardMessagesPanel({ onBack }) {
               Inbox
             </button>
           </div>
-          <div className="min-h-0 flex-1 space-y-3 overflow-y-auto overscroll-contain px-4 py-4 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+        </div>
+
+        <div
+          className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 py-4 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+          style={{ WebkitOverflowScrolling: "touch" }}
+        >
+          <div className="mx-auto flex min-h-full max-w-3xl flex-col justify-end space-y-3">
             {activeConvo.messages.length === 0 ? (
-              <div className="flex h-full items-center justify-center text-center">
-                <div>
+              <div className="flex min-h-[56dvh] items-center justify-center text-center">
+                <div className="w-full max-w-sm rounded-[28px] border border-white/10 bg-white/5 p-6 shadow-[0_20px_70px_rgba(0,0,0,0.28)] backdrop-blur-xl">
                   <MessageCircle className="mx-auto h-10 w-10 text-white/45" />
                   <p className="mt-3 text-sm font-bold text-white">Start your conversation</p>
                   <p className="mt-1 text-xs text-white/50">
@@ -3209,7 +3235,11 @@ function DashboardMessagesPanel({ onBack }) {
                       <p className="whitespace-pre-wrap break-words text-[14px] leading-relaxed">
                         {message.content}
                       </p>
-                      <div className={`mt-1.5 text-[10px] ${isMine ? "text-white/70" : "text-white/40"}`}>
+                      <div
+                        className={`mt-1.5 text-[10px] ${
+                          isMine ? "text-white/70" : "text-white/40"
+                        }`}
+                      >
                         {dashboardPanelFormatTime(message.created_at)}
                       </div>
                     </div>
@@ -3219,31 +3249,31 @@ function DashboardMessagesPanel({ onBack }) {
             )}
             <div ref={messagesEndRef} />
           </div>
+        </div>
 
-          <div className="shrink-0 border-t border-white/10 bg-black/15 px-3 py-3">
-            <div className="flex items-center gap-2 rounded-[24px] border border-white/10 bg-white/6 px-3 py-2">
-              <input
-                value={newMsg}
-                onChange={(event) => setNewMsg(event.target.value)}
-                placeholder="Type a message..."
-                className="min-w-0 flex-1 bg-transparent text-sm text-white outline-none placeholder:text-white/35"
-                disabled={sending}
-                onKeyDown={(event) => {
-                  if (event.key === "Enter" && !event.shiftKey) {
-                    event.preventDefault();
-                    handleSend();
-                  }
-                }}
-              />
-              <button
-                type="button"
-                onClick={handleSend}
-                disabled={!newMsg.trim() || sending}
-                className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-emerald-400 text-slate-950 shadow-[0_12px_30px_rgba(16,185,129,0.22)] disabled:opacity-45"
-              >
-                <Send className="h-4 w-4" />
-              </button>
-            </div>
+        <div className="relative z-20 shrink-0 border-t border-white/10 bg-black/25 px-4 pb-[calc(env(safe-area-inset-bottom)+0.75rem)] pt-3 backdrop-blur-2xl">
+          <div className="mx-auto flex max-w-3xl items-center gap-2 rounded-[24px] border border-white/10 bg-white/6 px-3 py-2">
+            <input
+              value={newMsg}
+              onChange={(event) => setNewMsg(event.target.value)}
+              placeholder="Type a message..."
+              className="min-w-0 flex-1 bg-transparent text-sm text-white outline-none placeholder:text-white/35"
+              disabled={sending}
+              onKeyDown={(event) => {
+                if (event.key === "Enter" && !event.shiftKey) {
+                  event.preventDefault();
+                  handleSend();
+                }
+              }}
+            />
+            <button
+              type="button"
+              onClick={handleSend}
+              disabled={!newMsg.trim() || sending}
+              className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-emerald-400 text-slate-950 shadow-[0_12px_30px_rgba(16,185,129,0.22)] disabled:opacity-45"
+            >
+              <Send className="h-4 w-4" />
+            </button>
           </div>
         </div>
       </div>
