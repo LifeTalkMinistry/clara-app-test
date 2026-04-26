@@ -21,61 +21,42 @@
         font-family: sans-serif;
       }
 
-      /* CLARA message thread must pop out above BOTH default mode and performance mode layouts. */
-      body:has([class*="h-[100dvh]"][class*="w-screen"][class*="fixed"]),
-      body.clara-conversation-open {
+      /* Message thread uses the same screen context as Performance Mode. */
+      body.clara-message-context-open {
         overflow: hidden !important;
       }
 
-      body:has([class*="h-[100dvh]"][class*="w-screen"][class*="fixed"]) #root,
-      body:has([class*="h-[100dvh]"][class*="w-screen"][class*="fixed"]) #root > *,
-      body:has([class*="h-[100dvh]"][class*="w-screen"][class*="fixed"]) .theme-page-shell,
-      body:has([class*="h-[100dvh]"][class*="w-screen"][class*="fixed"]) .theme-page-shell > *,
-      body:has([class*="h-[100dvh]"][class*="w-screen"][class*="fixed"]) .theme-page-shell main,
-      body:has([class*="h-[100dvh]"][class*="w-screen"][class*="fixed"]) .theme-page-shell main > *,
-      body.clara-conversation-open #root,
-      body.clara-conversation-open #root > *,
-      body.clara-conversation-open .theme-page-shell,
-      body.clara-conversation-open .theme-page-shell > *,
-      body.clara-conversation-open .theme-page-shell main,
-      body.clara-conversation-open .theme-page-shell main > * {
-        overflow: visible !important;
-        transform: none !important;
-        filter: none !important;
-        perspective: none !important;
-        contain: none !important;
-        isolation: auto !important;
-      }
-
-      body:has([class*="h-[100dvh]"][class*="w-screen"][class*="fixed"]) [data-bottom-nav],
-      body:has([class*="h-[100dvh]"][class*="w-screen"][class*="fixed"]) [data-fab],
-      body:has([class*="h-[100dvh]"][class*="w-screen"][class*="fixed"]) a[aria-label="Open admin panel"],
-      body:has([class*="h-[100dvh]"][class*="w-screen"][class*="fixed"]) nav:not([data-conversation-nav]),
-      body:has([class*="h-[100dvh]"][class*="w-screen"][class*="fixed"]) [class*="sticky"][class*="top-"],
-      body:has([class*="h-[100dvh]"][class*="w-screen"][class*="fixed"]) [class*="fixed"][class*="top-"]:not([class*="h-[100dvh]"]),
-      body.clara-conversation-open [data-bottom-nav],
-      body.clara-conversation-open [data-fab],
-      body.clara-conversation-open a[aria-label="Open admin panel"],
-      body.clara-conversation-open nav:not([data-conversation-nav]),
-      body.clara-conversation-open [data-clara-hidden-while-chat="true"],
-      body.clara-conversation-open [class*="sticky"][class*="top-"],
-      body.clara-conversation-open [class*="fixed"][class*="top-"]:not([data-clara-conversation-overlay="true"]) {
+      body.clara-message-context-open [data-bottom-nav],
+      body.clara-message-context-open [data-fab],
+      body.clara-message-context-open a[aria-label="Open admin panel"] {
         display: none !important;
         pointer-events: none !important;
       }
 
-      body:has([class*="h-[100dvh]"][class*="w-screen"][class*="fixed"]) [class*="h-[100dvh]"][class*="w-screen"][class*="fixed"],
-      body.clara-conversation-open [data-clara-conversation-overlay="true"] {
+      body.clara-message-context-open .theme-page-shell,
+      body.clara-message-context-open .theme-page-shell > *,
+      body.clara-message-context-open .theme-page-shell main,
+      body.clara-message-context-open .theme-page-shell main > * {
+        transform: none !important;
+        filter: none !important;
+        perspective: none !important;
+        contain: none !important;
+      }
+
+      body.clara-message-context-open [data-clara-message-context="true"] {
         position: fixed !important;
-        inset: 0 !important;
-        z-index: 2147483000 !important;
+        left: 0 !important;
+        right: 0 !important;
+        bottom: 0 !important;
+        top: var(--clara-message-context-top, 0px) !important;
+        z-index: 80 !important;
         width: 100vw !important;
         max-width: none !important;
-        height: 100dvh !important;
-        max-height: 100dvh !important;
+        height: auto !important;
+        max-height: none !important;
         margin: 0 !important;
-        transform: none !important;
         border-radius: 0 !important;
+        transform: none !important;
         isolation: isolate !important;
       }
     </style>
@@ -90,14 +71,6 @@
         const CHAT_PLACEHOLDER = "Type a message";
         const TOP_NAV_WORDS = ["Home", "Feed", "Message", "Setting"];
         let lastOverlay = null;
-        let hiddenNodes = new Set();
-
-        const clearHidden = () => {
-          hiddenNodes.forEach((node) => {
-            if (node && node.dataset) delete node.dataset.claraHiddenWhileChat;
-          });
-          hiddenNodes = new Set();
-        };
 
         const findChatInput = () => {
           return Array.from(document.querySelectorAll("input, textarea")).find((node) => {
@@ -106,75 +79,126 @@
           });
         };
 
-        const findOverlay = (input) => {
+        const findMessageOverlay = (input) => {
           if (!input) return null;
+
           let node = input;
           while (node && node !== document.body) {
             const className = String(node.getAttribute?.("class") || "");
-            if (className.includes("fixed") || className.includes("h-[100dvh]") || className.includes("w-screen")) {
+            const isConversationShell =
+              className.includes("fixed") ||
+              className.includes("h-[100dvh]") ||
+              className.includes("w-screen") ||
+              className.includes("overflow-hidden");
+
+            if (isConversationShell && String(node.textContent || "").includes(CHAT_PLACEHOLDER.replace(" a", ""))) {
               return node;
             }
+
             node = node.parentElement;
           }
+
           return input.closest("div") || null;
         };
 
-        const forceOverlayStyle = (overlay) => {
-          if (!overlay) return;
-          overlay.dataset.claraConversationOverlay = "true";
-          overlay.style.position = "fixed";
-          overlay.style.inset = "0";
-          overlay.style.zIndex = "2147483000";
-          overlay.style.width = "100vw";
-          overlay.style.maxWidth = "none";
-          overlay.style.height = "100dvh";
-          overlay.style.maxHeight = "100dvh";
-          overlay.style.margin = "0";
-          overlay.style.transform = "none";
-          overlay.style.borderRadius = "0";
-          overlay.style.isolation = "isolate";
-        };
+        const findDefaultTopNav = (overlay) => {
+          const candidates = Array.from(document.querySelectorAll("nav, header, section, div"));
+          let best = null;
 
-        const hideDefaultTopNav = (overlay) => {
-          clearHidden();
-          if (!overlay) return;
-
-          const candidates = Array.from(document.querySelectorAll("nav, header, aside, section, div"));
           candidates.forEach((node) => {
-            if (!node || node === overlay || overlay.contains(node) || node.contains(overlay)) return;
+            if (!node || node === overlay || overlay?.contains(node) || node.contains(overlay)) return;
 
             const text = String(node.textContent || "").replace(/\s+/g, " ").trim();
             const hasTopNavWords = TOP_NAV_WORDS.every((word) => text.includes(word));
             if (!hasTopNavWords) return;
 
             const rect = node.getBoundingClientRect();
-            const looksLikeTopNav = rect.top <= 140 && rect.height <= 140 && rect.width >= Math.min(window.innerWidth * 0.68, 260);
-            if (!looksLikeTopNav) return;
+            const isVisible = rect.width > 220 && rect.height > 44;
+            const isTopContext = rect.top >= -2 && rect.top <= 48 && rect.bottom <= 132;
+            const isWideEnough = rect.width >= Math.min(window.innerWidth * 0.7, 280);
 
-            node.dataset.claraHiddenWhileChat = "true";
-            hiddenNodes.add(node);
+            if (!isVisible || !isTopContext || !isWideEnough) return;
+
+            if (!best || rect.bottom > best.getBoundingClientRect().bottom) {
+              best = node;
+            }
           });
+
+          return best;
         };
 
-        const syncConversationOverlay = () => {
+        const getPerformanceModeTop = (overlay) => {
+          const topNav = findDefaultTopNav(overlay);
+          if (!topNav) return 0;
+
+          const rect = topNav.getBoundingClientRect();
+          const safeGap = 16;
+          return Math.max(0, Math.ceil(rect.bottom + safeGap));
+        };
+
+        const applyMessageContext = (overlay) => {
+          if (!overlay) return;
+
+          const top = getPerformanceModeTop(overlay);
+          document.documentElement.style.setProperty("--clara-message-context-top", `${top}px`);
+          document.body.classList.add("clara-message-context-open");
+
+          overlay.dataset.claraMessageContext = "true";
+          overlay.style.position = "fixed";
+          overlay.style.left = "0";
+          overlay.style.right = "0";
+          overlay.style.bottom = "0";
+          overlay.style.top = `${top}px`;
+          overlay.style.zIndex = "80";
+          overlay.style.width = "100vw";
+          overlay.style.maxWidth = "none";
+          overlay.style.height = "auto";
+          overlay.style.maxHeight = "none";
+          overlay.style.margin = "0";
+          overlay.style.borderRadius = "0";
+          overlay.style.transform = "none";
+          overlay.style.isolation = "isolate";
+        };
+
+        const clearMessageContext = () => {
+          document.body.classList.remove("clara-message-context-open");
+          document.documentElement.style.removeProperty("--clara-message-context-top");
+
+          if (lastOverlay?.dataset) delete lastOverlay.dataset.claraMessageContext;
+          if (lastOverlay?.style) {
+            lastOverlay.style.removeProperty("position");
+            lastOverlay.style.removeProperty("left");
+            lastOverlay.style.removeProperty("right");
+            lastOverlay.style.removeProperty("bottom");
+            lastOverlay.style.removeProperty("top");
+            lastOverlay.style.removeProperty("z-index");
+            lastOverlay.style.removeProperty("width");
+            lastOverlay.style.removeProperty("max-width");
+            lastOverlay.style.removeProperty("height");
+            lastOverlay.style.removeProperty("max-height");
+            lastOverlay.style.removeProperty("margin");
+            lastOverlay.style.removeProperty("border-radius");
+            lastOverlay.style.removeProperty("transform");
+            lastOverlay.style.removeProperty("isolation");
+          }
+
+          lastOverlay = null;
+        };
+
+        const syncMessageContext = () => {
           const input = findChatInput();
-          const overlay = findOverlay(input);
+          const overlay = findMessageOverlay(input);
 
           if (!input || !overlay) {
-            document.body.classList.remove("clara-conversation-open");
-            if (lastOverlay?.dataset) delete lastOverlay.dataset.claraConversationOverlay;
-            lastOverlay = null;
-            clearHidden();
+            clearMessageContext();
             return;
           }
 
-          document.body.classList.add("clara-conversation-open");
           lastOverlay = overlay;
-          forceOverlayStyle(overlay);
-          hideDefaultTopNav(overlay);
+          applyMessageContext(overlay);
         };
 
-        const scheduleSync = () => requestAnimationFrame(syncConversationOverlay);
+        const scheduleSync = () => requestAnimationFrame(syncMessageContext);
         new MutationObserver(scheduleSync).observe(document.documentElement, {
           childList: true,
           subtree: true,
