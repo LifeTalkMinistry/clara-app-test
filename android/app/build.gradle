@@ -43,8 +43,9 @@ android {
         }
 
         release {
-            minifyEnabled false
-            shrinkResources false
+            // Release-only optimization. Debug builds stay untouched for easier testing.
+            minifyEnabled true
+            shrinkResources true
             debuggable false
 
             if (keystorePropertiesFile.exists()) {
@@ -96,7 +97,7 @@ dependencies {
 
     implementation "com.android.billingclient:billing:8.3.0"
 
-    testImplementation "junit:junit:$junitVersion"
+    testImplementation "junit:junitVersion"
     androidTestImplementation "androidx.junit:junit:$androidxJunitVersion"
     androidTestImplementation "androidx.espresso:espresso-core:3.5.1"
 }
