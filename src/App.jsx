@@ -27,7 +27,6 @@ const Wallets = lazy(() => import("./pages/Wallets"));
 const Budgets = lazy(() => import("./pages/Budgets"));
 const Analytics = lazy(() => import("./pages/Analytics"));
 const AiInsights = lazy(() => import("./pages/AiInsights"));
-const Tasks = lazy(() => import("./pages/Tasks"));
 const Modules = lazy(() => import("./pages/Modules"));
 const Feed = lazy(() => import("./pages/Feed"));
 const ClaraPeople = lazy(() => import("./pages/ClaraPeople"));
@@ -785,19 +784,7 @@ function AppRoutes() {
                         }
                       />
 
-                      <Route
-                        path="/tasks"
-                        element={
-                          <GuardedRoute
-                            shouldForceEnroll={forceEnroll}
-                            featureKey={FEATURE_ROUTE_MAP["/tasks"]}
-                            isFeatureAvailable={isFeatureAvailable}
-                            path="/tasks"
-                          >
-                            <Tasks />
-                          </GuardedRoute>
-                        }
-                      />
+                      <Route path="/tasks" element={<Navigate to="/dashboard" replace />} />
 
                       <Route
                         path="/modules"
