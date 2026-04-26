@@ -316,19 +316,21 @@ body {
   overflow-y: visible !important;
 }
 
-/* Prevent expandable dashboard cards and carousels from being trapped inside fixed-height wrappers. */
+/* Prevent screen-sized wrappers from trapping dashboard scroll. */
 .theme-page-shell main:not(.clara-motion-stage) [class*="h-screen"],
 .theme-page-shell main:not(.clara-motion-stage) [class*="max-h-screen"] {
   height: auto !important;
   max-height: none !important;
 }
 
-.theme-page-shell main:not(.clara-motion-stage) [class*="overflow-hidden"]:has(button),
-.theme-page-shell main:not(.clara-motion-stage) [class*="overflow-hidden"]:has([role="button"]) {
-  overflow: visible;
+/* Keep premium rounded dashboard surfaces polished and clipped. */
+.theme-page-shell main:not(.clara-motion-stage) [class*="rounded-"][class*="overflow-hidden"],
+.theme-page-shell main:not(.clara-motion-stage) [class*="rounded-"] video,
+.theme-page-shell main:not(.clara-motion-stage) [class*="rounded-"] img {
+  overflow: hidden;
+  clip-path: inset(0 round inherit);
 }
 
-/* Keep media/banner cards clipped normally while allowing expandable finance sections to grow. */
 .theme-page-shell main:not(.clara-motion-stage) video,
 .theme-page-shell main:not(.clara-motion-stage) img {
   max-width: 100%;
