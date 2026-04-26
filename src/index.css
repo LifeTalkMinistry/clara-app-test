@@ -284,7 +284,9 @@
 html,
 body,
 #root {
+  height: 100%;
   min-height: 100%;
+  overflow-x: hidden;
 }
 
 body {
@@ -292,28 +294,30 @@ body {
 }
 
 .theme-page-shell.flex.h-screen.overflow-hidden {
-  height: auto !important;
+  height: 100dvh !important;
   min-height: 100dvh !important;
-  overflow-x: hidden !important;
-  overflow-y: visible !important;
+  max-height: 100dvh !important;
+  overflow: hidden !important;
 }
 
 .theme-page-shell > .relative.flex.min-w-0.flex-1.flex-col {
-  min-height: 100dvh;
-  overflow-x: hidden;
+  height: 100%;
+  min-height: 0;
+  overflow: hidden;
 }
 
 .theme-page-shell > .relative.flex.min-w-0.flex-1.flex-col > main.flex-1 {
+  height: 100%;
   min-height: 0;
   overflow-x: hidden !important;
   overflow-y: auto !important;
   -webkit-overflow-scrolling: touch;
   overscroll-behavior-y: contain;
-  padding-bottom: calc(120px + env(safe-area-inset-bottom)) !important;
+  padding-bottom: calc(68px + env(safe-area-inset-bottom)) !important;
 }
 
 .theme-page-shell > .relative.flex.min-w-0.flex-1.flex-col > main.flex-1:not(.clara-motion-stage) {
-  overflow-y: visible !important;
+  overflow-y: auto !important;
 }
 
 /* Prevent screen-sized wrappers from trapping dashboard scroll. */
