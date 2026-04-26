@@ -37,10 +37,13 @@ const isMissingColumnError = (error) => {
   const message = normalizeString(error?.message || error?.details || error?.hint);
   return (
     error?.code === "PGRST204" ||
+    error?.code === "PGRST200" ||
+    error?.code === "42703" ||
     message.includes("column") ||
     message.includes("schema cache") ||
     message.includes("does not exist") ||
-    message.includes("could not find")
+    message.includes("could not find") ||
+    message.includes("unknown")
   );
 };
 
@@ -118,13 +121,17 @@ const runScopedSelect = async ({ table, column, value, orderColumn, ascending })
     return { data: [], error: null, skipped: true };
   }
 
-  const query = createOrderedQuery(
-    supabase.from(table).select("*").eq(column, value),
-    orderColumn,
-    ascending
-  );
+  try {
+    const query = createOrderedQuery(
+      supabase.from(table).select("*").eq(column, value),
+      orderColumn,
+      ascending
+    );
 
-  return query;
+    return await query;
+  } catch (error) {
+    return { data: null, error, skipped: false };
+  }
 };
 
 const mergeRowsById = (...rowGroups) => {
@@ -201,21 +208,26 @@ const safeSelect = async (table, user, options = {}) => {
     return [];
   }
 
-  const fallbackQuery = createOrderedQuery(
-    supabase.from(table).select("*"),
-    orderColumn,
-    ascending
-  );
+  try {
+    const fallbackQuery = createOrderedQuery(
+      supabase.from(table).select("*"),
+      orderColumn,
+      ascending
+    );
 
-  const { data, error } = await fallbackQuery;
+    const { data, error } = await fallbackQuery;
 
-  if (error) {
-    if (isMissingTableError(error)) return [];
+    if (error) {
+      if (isMissingTableError(error)) return [];
+      console.warn(`Failed loading ${table}`, error);
+      return [];
+    }
+
+    return filterOwnedRows(data || [], user);
+  } catch (error) {
     console.warn(`Failed loading ${table}`, error);
     return [];
   }
-
-  return filterOwnedRows(data || [], user);
 };
 
 const generateId = () => {
@@ -374,6 +386,7 @@ export default function useFinancialData(user) {
 
   const hasLoadedRef = useRef(initialCache.loaded);
   const refreshTimeoutRef = useRef(null);
+  const channelRef = useRef(null);
   const mountedRef = useRef(true);
 
   const hydrateFromCache = useCallback((nextCache) => {
@@ -539,43 +552,63 @@ export default function useFinancialData(user) {
       }, 350);
     };
 
-    const channelName = `finance-${userId || userEmail || "guest"}`;
-    const channel = supabase.channel(channelName);
+    let channel = null;
 
-    FINANCE_TABLES.forEach((table) => {
-      if (userId) {
-        channel.on(
-          "postgres_changes",
-          {
-            event: "*",
-            schema: "public",
-            table,
-            filter: `user_id=eq.${userId}`,
-          },
-          scheduleRefresh
-        );
-      } else {
-        channel.on(
-          "postgres_changes",
-          {
-            event: "*",
-            schema: "public",
-            table,
-          },
-          scheduleRefresh
-        );
-      }
-    });
-
-    channel.subscribe((status, error) => {
-      if (error) {
-        console.warn("Financial realtime subscription warning:", error);
+    try {
+      if (channelRef.current) {
+        supabase.removeChannel(channelRef.current);
+        channelRef.current = null;
       }
 
-      if (status === "CHANNEL_ERROR") {
-        console.warn("Financial realtime channel error. Data will still refresh manually.");
-      }
-    });
+      const safeUserKey = String(userId || userEmail || "guest").replace(/[^a-zA-Z0-9_-]/g, "_");
+      const channelName = `finance-${safeUserKey}-${Date.now()}-${Math.random()
+        .toString(36)
+        .slice(2, 8)}`;
+
+      channel = supabase.channel(channelName);
+      channelRef.current = channel;
+
+      FINANCE_TABLES.forEach((table) => {
+        try {
+          if (userId) {
+            channel.on(
+              "postgres_changes",
+              {
+                event: "*",
+                schema: "public",
+                table,
+                filter: `user_id=eq.${userId}`,
+              },
+              scheduleRefresh
+            );
+          } else {
+            channel.on(
+              "postgres_changes",
+              {
+                event: "*",
+                schema: "public",
+                table,
+              },
+              scheduleRefresh
+            );
+          }
+        } catch (error) {
+          console.warn(`Realtime listener skipped for ${table}:`, error);
+        }
+      });
+
+      channel.subscribe((status, error) => {
+        if (error) {
+          console.warn("Financial realtime subscription warning:", error);
+        }
+
+        if (status === "CHANNEL_ERROR") {
+          console.warn("Financial realtime channel error. Data will still refresh manually.");
+        }
+      });
+    } catch (error) {
+      console.warn("Financial realtime setup skipped. Data will still load normally.", error);
+    }
 
     return () => {
       isActive = false;
@@ -584,7 +617,13 @@ export default function useFinancialData(user) {
         clearTimeout(refreshTimeoutRef.current);
       }
 
-      supabase.removeChannel(channel);
+      if (channel) {
+        supabase.removeChannel(channel);
+      }
+
+      if (channelRef.current === channel) {
+        channelRef.current = null;
+      }
     };
   }, [userEmail, userId, loadAll]);
 
