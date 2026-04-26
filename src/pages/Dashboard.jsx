@@ -951,9 +951,9 @@ const DASHBOARD_SCALE = {
     financeSlide: "min-h-[238px] rounded-[24px] [&>*]:min-h-[236px] [&>*]:rounded-[23px]",
     dots: "gap-1 pt-1 pb-[clamp(6px,1.2dvh,10px)]",
     summaryGrid: "rounded-[22px]",
-    summaryCell: "min-h-[96px] p-[clamp(12px,3vw,14px)]",
+    summaryCell: "min-h-[82px] p-[clamp(10px,2.8vw,12px)]",
     summaryLabel: "text-[9px] tracking-[0.18em]",
-    summaryAmount: "mt-3 text-[clamp(25px,7vw,30px)]",
+    summaryAmount: "mt-2 text-[clamp(24px,6.8vw,29px)]",
     summaryCopy: "mt-2 text-[11px] leading-4",
     summarySubcopy: "mt-1 text-[10px] leading-4",
   },
@@ -977,9 +977,9 @@ const DASHBOARD_SCALE = {
     financeSlide: "min-h-[258px] rounded-[26px] [&>*]:min-h-[256px] [&>*]:rounded-[25px]",
     dots: "gap-1.5 pt-1 pb-[clamp(7px,1.3dvh,12px)]",
     summaryGrid: "rounded-[24px]",
-    summaryCell: "min-h-[102px] p-[clamp(12px,3.2vw,15px)]",
+    summaryCell: "min-h-[84px] p-[clamp(10px,3vw,13px)]",
     summaryLabel: "text-[10px] tracking-[0.2em]",
-    summaryAmount: "mt-3 text-[clamp(26px,7.2vw,31px)]",
+    summaryAmount: "mt-2 text-[clamp(25px,7vw,30px)]",
     summaryCopy: "mt-2 text-xs leading-5",
     summarySubcopy: "mt-1.5 text-[11px] leading-4",
   },
@@ -1003,9 +1003,9 @@ const DASHBOARD_SCALE = {
     financeSlide: "min-h-[286px] rounded-[28px] [&>*]:min-h-[284px] [&>*]:rounded-[27px]",
     dots: "gap-1.5 pt-1.5 pb-[clamp(8px,1.4dvh,14px)]",
     summaryGrid: "rounded-[26px]",
-    summaryCell: "min-h-[110px] p-[clamp(14px,3.6vw,16px)]",
+    summaryCell: "min-h-[88px] p-[clamp(11px,3.2vw,14px)]",
     summaryLabel: "text-[11px] tracking-[0.22em]",
-    summaryAmount: "mt-3 text-[clamp(28px,7.5vw,32px)]",
+    summaryAmount: "mt-2 text-[clamp(26px,7.2vw,31px)]",
     summaryCopy: "mt-3 text-sm leading-6",
     summarySubcopy: "mt-2 text-xs leading-5",
   },
@@ -1029,9 +1029,9 @@ const DASHBOARD_SCALE = {
     financeSlide: "min-h-[314px] rounded-[30px] [&>*]:min-h-[312px] [&>*]:rounded-[29px]",
     dots: "gap-1.5 pt-1.5 pb-[clamp(8px,1.4dvh,14px)]",
     summaryGrid: "rounded-[28px]",
-    summaryCell: "min-h-[116px] p-4",
+    summaryCell: "min-h-[90px] p-[clamp(12px,3.4vw,14px)]",
     summaryLabel: "text-[11px] tracking-[0.22em]",
-    summaryAmount: "mt-3 text-[clamp(28px,7.5vw,32px)]",
+    summaryAmount: "mt-2 text-[clamp(26px,7.2vw,31px)]",
     summaryCopy: "mt-3 text-sm leading-6",
     summarySubcopy: "mt-2 text-xs leading-5",
   },
@@ -7311,7 +7311,7 @@ export default function Dashboard() {
         <button
           type="button"
           onClick={() => setDailyStrategyFlipped((current) => !current)}
-          className="group mt-3.5 block w-full text-left outline-none [perspective:1000px] sm:mt-4"
+          className="group mt-2.5 block w-full text-left outline-none [perspective:1000px] sm:mt-3"
           aria-label="Tap to reveal Daily Money Tip"
         >
           <div
