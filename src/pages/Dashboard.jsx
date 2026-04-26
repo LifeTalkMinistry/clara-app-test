@@ -31,6 +31,7 @@ import {
   Check,
 } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
+import { createPortal } from "react-dom";
 import { supabase } from "@/lib/supabaseClient";
 import EmergencyFundCard from "../components/EmergencyFundCard";
 import WalletCard from "../components/WalletCard";
@@ -3162,9 +3163,25 @@ function DashboardMessagesPanel({ onBack }) {
   }
 
   if (activeConvo) {
-    return (
-      <div className="fixed inset-0 z-[99980] flex h-[100dvh] w-screen flex-col overflow-hidden bg-[radial-gradient(circle_at_top,#0d3b2f_0%,#031b2d_35%,#020817_75%)] text-white">
-        <div className="relative z-20 shrink-0 border-b border-white/10 bg-black/25 px-4 pb-3 pt-[calc(env(safe-area-inset-top)+0.85rem)] backdrop-blur-2xl">
+    return createPortal(
+      <div
+        className="fixed inset-0 z-[2147483000] flex h-[100dvh] w-screen flex-col overflow-hidden bg-[radial-gradient(circle_at_top,#0d3b2f_0%,#031b2d_35%,#020817_75%)] text-white"
+        style={{
+          position: "fixed",
+          inset: 0,
+          width: "100vw",
+          height: "100dvh",
+          maxWidth: "100vw",
+          maxHeight: "100dvh",
+          margin: 0,
+          transform: "none",
+          borderRadius: 0,
+          overflow: "hidden",
+          zIndex: 2147483000,
+          isolation: "isolate",
+        }}
+      >
+        <div className="relative z-[2147483001] shrink-0 border-b border-white/10 bg-black/40 px-4 pb-3 pt-[calc(env(safe-area-inset-top)+0.85rem)]">
           <div className="mx-auto flex max-w-3xl items-center gap-3">
             <button
               type="button"
@@ -3251,7 +3268,7 @@ function DashboardMessagesPanel({ onBack }) {
           </div>
         </div>
 
-        <div className="relative z-20 shrink-0 border-t border-white/10 bg-black/25 px-4 pb-[calc(env(safe-area-inset-bottom)+0.75rem)] pt-3 backdrop-blur-2xl">
+        <div className="relative z-[2147483001] shrink-0 border-t border-white/10 bg-black/40 px-4 pb-[calc(env(safe-area-inset-bottom)+0.75rem)] pt-3">
           <div className="mx-auto flex max-w-3xl items-center gap-2 rounded-[24px] border border-white/10 bg-white/6 px-3 py-2">
             <input
               value={newMsg}
@@ -3276,7 +3293,8 @@ function DashboardMessagesPanel({ onBack }) {
             </button>
           </div>
         </div>
-      </div>
+      </div>,
+      document.body
     );
   }
 
