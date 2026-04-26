@@ -1,110 +1,14 @@
-/* Mobile WebView performance helpers for CLARA.
-   These rules do not redesign the app. They let Chromium skip painting offscreen
-   dashboard/card-heavy sections until they are close to the viewport. */
-
-@supports (content-visibility: auto) {
-  @media (max-width: 768px) {
-    main .theme-panel-card,
-    main .theme-shell-card,
-    main .theme-soft-card,
-    main .clara-card,
-    main .clara-card-soft,
-    main section,
-    main article {
-      content-visibility: auto;
-      contain-intrinsic-size: 1px 320px;
-    }
-
-    main .theme-panel-card:first-child,
-    main .theme-shell-card:first-child,
-    main .clara-card:first-child {
-      content-visibility: visible;
-      contain-intrinsic-size: auto;
-    }
-  }
-}
+/* CLARA mobile visual mode helpers.
+   Premium Mode is the default and keeps the full glass, glow, blur, shadow,
+   and animation experience. Performance Mode is the only mode that reduces
+   heavy visuals, and it intentionally becomes static for smoother phones. */
 
 @media (max-width: 768px) {
   main {
     -webkit-overflow-scrolling: touch;
     overscroll-behavior-y: contain;
   }
-
-  main img,
-  main video {
-    content-visibility: auto;
-  }
-
-  .theme-shell-card,
-  .theme-panel-card,
-  .theme-soft-card,
-  .theme-modal-card,
-  .clara-card,
-  .clara-card-soft {
-    backdrop-filter: blur(8px) !important;
-    -webkit-backdrop-filter: blur(8px) !important;
-  }
-
-  .theme-shell-card,
-  .theme-panel-card,
-  .theme-modal-card {
-    box-shadow:
-      0 14px 36px rgba(0, 0, 0, 0.24),
-      0 0 0 1px color-mix(in srgb, var(--theme-border) 10%, transparent) inset !important;
-  }
-
-  .theme-soft-card,
-  .clara-card,
-  .clara-card-soft {
-    box-shadow: 0 10px 26px rgba(0, 0, 0, 0.18) !important;
-  }
-
-  .card-glow-green,
-  .card-glow-yellow,
-  .card-glow-blue {
-    box-shadow: 0 4px 18px rgba(0, 0, 0, 0.16) !important;
-  }
-
-  .clara-motion-stage {
-    will-change: transform, opacity !important;
-    filter: none !important;
-  }
-
-  .clara-motion-stage-dragging,
-  .clara-motion-stage-rebound,
-  .clara-motion-stage-out,
-  .clara-motion-stage-in {
-    filter: none !important;
-  }
-
-  .clara-motion-stage-dragging {
-    box-shadow: 0 18px 54px rgba(0, 0, 0, 0.24) !important;
-  }
-
-  .clara-motion-overlay,
-  .clara-motion-overlay-out {
-    backdrop-filter: blur(4px) !important;
-    -webkit-backdrop-filter: blur(4px) !important;
-  }
-
-  .clara-motion-hint {
-    backdrop-filter: blur(8px) !important;
-    -webkit-backdrop-filter: blur(8px) !important;
-    box-shadow: 0 8px 22px rgba(0, 0, 0, 0.16) !important;
-  }
-
-  [class*="shadow-[0_25px_80px"],
-  [class*="shadow-[0_30px_110px"],
-  [class*="shadow-[0_28px_80px"],
-  [class*="shadow-[0_22px_60px"] {
-    box-shadow: 0 14px 38px rgba(0, 0, 0, 0.24) !important;
-  }
 }
-
-/* ================= CLARA VISUAL PERFORMANCE MODE =================
-   Toggle-driven global visual mode. Premium mode remains the default.
-   Performance mode keeps the same layout/colors while reducing GPU-heavy
-   effects such as blur, glow, large shadows, and continuous animations. */
 
 .clara-premium-mode {
   --clara-motion-duration: 220ms;
@@ -113,16 +17,20 @@
 }
 
 .clara-performance-mode {
-  --clara-motion-duration: 90ms;
-  --clara-glow-strength: 0.35;
-  --clara-blur-strength: 0.45;
+  --clara-motion-duration: 0ms;
+  --clara-glow-strength: 0;
+  --clara-blur-strength: 0;
 }
 
+/* Static CLARA mode: same layout/colors, but no motion/glow/blur/GPU-heavy effects. */
 .clara-performance-mode *,
 .clara-performance-mode *::before,
 .clara-performance-mode *::after {
-  transition-duration: 90ms !important;
+  animation: none !important;
+  transition: none !important;
+  transition-duration: 0ms !important;
   scroll-behavior: auto !important;
+  text-shadow: none !important;
 }
 
 .clara-performance-mode .theme-shell-card,
@@ -132,66 +40,54 @@
 .clara-performance-mode .clara-card,
 .clara-performance-mode .clara-card-soft,
 .clara-performance-mode [class*="backdrop-blur"] {
-  backdrop-filter: blur(4px) !important;
-  -webkit-backdrop-filter: blur(4px) !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
 }
 
-.clara-performance-mode .theme-shell-card,
-.clara-performance-mode .theme-panel-card,
-.clara-performance-mode .theme-modal-card,
-.clara-performance-mode [class*="shadow-[0_22px"],
-.clara-performance-mode [class*="shadow-[0_25px"],
-.clara-performance-mode [class*="shadow-[0_28px"],
-.clara-performance-mode [class*="shadow-[0_30px"],
-.clara-performance-mode [class*="shadow-[0_18px"],
-.clara-performance-mode [class*="shadow-[0_16px"] {
-  box-shadow: 0 10px 24px rgba(0, 0, 0, 0.20) !important;
+.clara-performance-mode [class*="shadow-"],
+.clara-performance-mode [style*="box-shadow"] {
+  box-shadow: none !important;
 }
 
-.clara-performance-mode .theme-soft-card,
-.clara-performance-mode .clara-card,
-.clara-performance-mode .clara-card-soft,
-.clara-performance-mode .card-glow-green,
-.clara-performance-mode .card-glow-yellow,
-.clara-performance-mode .card-glow-blue,
-.clara-performance-mode [class*="shadow-[0_0"],
-.clara-performance-mode [class*="shadow-[inset"] {
-  box-shadow: 0 8px 18px rgba(0, 0, 0, 0.16) !important;
+.clara-performance-mode [class*="blur-"],
+.clara-performance-mode [style*="filter"] {
+  filter: none !important;
 }
 
-.clara-performance-mode [class*="blur-md"],
-.clara-performance-mode [class*="blur-lg"],
-.clara-performance-mode [class*="blur-xl"],
-.clara-performance-mode [class*="blur-2xl"],
-.clara-performance-mode [class*="blur-3xl"] {
-  filter: blur(4px) !important;
+.clara-performance-mode [class*="before:blur"]::before,
+.clara-performance-mode [class*="after:blur"]::after,
+.clara-performance-mode [class*="before:bg-white"]::before,
+.clara-performance-mode [class*="after:bg-white"]::after {
+  opacity: 0 !important;
+  filter: none !important;
 }
 
 .clara-performance-mode [class*="animate-"],
-.clara-performance-mode .clara-motion-hint,
-.clara-performance-mode .clara-motion-overlay,
-.clara-performance-mode .clara-motion-overlay-out,
 .clara-performance-mode [style*="animation"] {
-  animation-duration: 1ms !important;
+  animation: none !important;
+  animation-duration: 0ms !important;
   animation-iteration-count: 1 !important;
 }
 
-.clara-performance-mode .clara-motion-stage,
-.clara-performance-mode .clara-motion-stage-in,
-.clara-performance-mode .clara-motion-stage-out,
-.clara-performance-mode .clara-motion-stage-dragging,
-.clara-performance-mode .clara-motion-stage-rebound {
-  filter: none !important;
-  will-change: transform, opacity !important;
+.clara-performance-mode [class*="hover:-translate"],
+.clara-performance-mode [class*="hover:scale"],
+.clara-performance-mode [class*="active:scale"],
+.clara-performance-mode [class*="group-hover:-translate"],
+.clara-performance-mode [class*="group-active:scale"] {
+  transform: none !important;
 }
 
-.clara-performance-mode video {
+.clara-performance-mode video,
+.clara-performance-mode img {
   filter: none !important;
 }
 
-.clara-performance-mode [class*="text-shadow"],
-.clara-performance-mode [style*="text-shadow"] {
-  text-shadow: none !important;
+.clara-performance-mode .theme-page-shell,
+.clara-performance-mode .theme-panel-card,
+.clara-performance-mode .theme-shell-card,
+.clara-performance-mode .theme-soft-card,
+.clara-performance-mode .theme-modal-card {
+  isolation: auto !important;
 }
 
 @media (max-width: 768px) and (prefers-reduced-motion: reduce) {
