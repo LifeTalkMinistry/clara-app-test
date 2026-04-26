@@ -216,6 +216,43 @@ function installSettingsAdminShortcutPatch() {
   };
 }
 
+function installFinanceSummaryCopyCleanup() {
+  const extraCopyPatterns = [
+    "stay on track and reach your goals",
+    "great job managing your spending",
+  ];
+
+  const cleanup = () => {
+    const nodes = Array.from(document.querySelectorAll("p, span, div"));
+
+    nodes.forEach((node) => {
+      const text = String(node.textContent || "").trim().toLowerCase();
+      const isExactCopy = extraCopyPatterns.some((pattern) => text === pattern || text === `${pattern}.`);
+
+      if (!isExactCopy) return;
+
+      node.style.display = "none";
+      node.setAttribute("aria-hidden", "true");
+    });
+  };
+
+  const scheduleCleanup = () => {
+    window.requestAnimationFrame(cleanup);
+  };
+
+  cleanup();
+  const observer = new MutationObserver(scheduleCleanup);
+  observer.observe(document.body, { childList: true, subtree: true, characterData: true });
+  window.addEventListener("hashchange", scheduleCleanup);
+  window.addEventListener("focus", scheduleCleanup);
+
+  return () => {
+    observer.disconnect();
+    window.removeEventListener("hashchange", scheduleCleanup);
+    window.removeEventListener("focus", scheduleCleanup);
+  };
+}
+
 const rootElement = document.getElementById("root");
 
 if (!rootElement) {
@@ -252,5 +289,9 @@ setTimeout(() => {
 
   safeRun(() => {
     installSettingsAdminShortcutPatch();
+  });
+
+  safeRun(() => {
+    installFinanceSummaryCopyCleanup();
   });
 }, 500);
