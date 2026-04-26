@@ -1,22 +1,46 @@
 /* Focused dashboard scroll/clipping fix.
-   This file targets only the Dashboard main scroll area added in Layout.jsx.
-   Keep this conservative so premium rounded cards remain clipped/polished. */
+   Dashboard must scroll naturally on Android/iPhone while keeping premium rounded cards clipped. */
 
-.clara-dashboard-main {
-  height: 100dvh !important;
-  max-height: 100dvh !important;
-  min-height: 0 !important;
+/* Let the document become scrollable when the Dashboard is active. */
+html:has(.clara-dashboard-main),
+body:has(.clara-dashboard-main),
+#root:has(.clara-dashboard-main) {
+  height: auto !important;
+  min-height: 100dvh !important;
+  max-height: none !important;
   overflow-x: hidden !important;
   overflow-y: auto !important;
-  -webkit-overflow-scrolling: touch !important;
-  overscroll-behavior-y: contain;
-  padding-top: calc(0.75rem + env(safe-area-inset-top)) !important;
-  padding-bottom: calc(180px + env(safe-area-inset-bottom)) !important;
-  scroll-padding-bottom: calc(180px + env(safe-area-inset-bottom));
 }
 
-/* Only unlock screen-height wrappers. Do not touch overflow-hidden globally,
-   because that breaks the rounded corners of the nav, billboard, and cards. */
+/* Override Layout's h-screen/overflow-hidden only for the Dashboard route. */
+.theme-page-shell:has(.clara-dashboard-main) {
+  height: auto !important;
+  min-height: 100dvh !important;
+  max-height: none !important;
+  overflow-x: hidden !important;
+  overflow-y: visible !important;
+}
+
+.theme-page-shell:has(.clara-dashboard-main) > .relative.flex.min-w-0.flex-1.flex-col {
+  height: auto !important;
+  min-height: 100dvh !important;
+  max-height: none !important;
+  overflow: visible !important;
+}
+
+.clara-dashboard-main {
+  height: auto !important;
+  min-height: 100dvh !important;
+  max-height: none !important;
+  overflow-x: hidden !important;
+  overflow-y: visible !important;
+  -webkit-overflow-scrolling: touch !important;
+  padding-top: calc(0.75rem + env(safe-area-inset-top)) !important;
+  padding-bottom: calc(140px + env(safe-area-inset-bottom)) !important;
+  scroll-padding-bottom: calc(140px + env(safe-area-inset-bottom));
+}
+
+/* Unlock only screen-height wrappers so expanded cards can grow. */
 .clara-dashboard-main [class*="min-h-screen"],
 .clara-dashboard-main [class*="h-screen"],
 .clara-dashboard-main [class*="max-h-screen"] {
@@ -25,7 +49,7 @@
   max-height: none !important;
 }
 
-/* Restore premium card clipping that was damaged by the earlier broad overflow rule. */
+/* Keep premium rounded cards, billboard, stat cards, and media clipped cleanly. */
 .clara-dashboard-main [class*="rounded-"] {
   overflow: hidden;
 }
@@ -40,10 +64,10 @@
   backface-visibility: hidden;
 }
 
-/* Add scroll clearance without affecting card borders/corners. */
+/* Final clearance after the dashboard content so the Daily Money Tip can clear Android navigation. */
 .clara-dashboard-main::after {
   content: "";
   display: block;
-  height: calc(140px + env(safe-area-inset-bottom));
+  height: calc(96px + env(safe-area-inset-bottom));
   flex: 0 0 auto;
 }
