@@ -1691,7 +1691,7 @@ function DashboardPanelShell({
       <div className="flex items-center justify-between gap-3 rounded-[28px] border border-white/10 bg-white/[0.05] p-4 shadow-[0_18px_50px_rgba(0,0,0,0.18)] backdrop-blur-xl">
         <div className="flex min-w-0 items-center gap-3">
           <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border border-white/10 bg-white/10 text-white">
-            <Icon className="h-5 w-5" />
+            <Icon className="h-6 w-6" />
           </div>
           <div className="min-w-0">
             <p className="truncate text-base font-bold text-white">{title}</p>
@@ -3257,7 +3257,7 @@ function DashboardTasksPanel({ onBack, activeTask, nextTask, tasks = [], submiss
                 {highlightedTask.description || highlightedTask.summary || "Open your full tasks page to continue your guided CLARA progress."}
               </p>
             </div>
-            <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl border border-amber-300/20 bg-amber-300/12 text-amber-100">
+            <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-[20px] border border-amber-300/20 bg-amber-300/12 text-amber-100">
               <Flag className="h-6 w-6" />
             </div>
           </div>
@@ -4209,7 +4209,7 @@ function DashboardSettingsPanel({
 
       <div className="rounded-[30px] border border-white/10 bg-[radial-gradient(circle_at_top_left,rgba(16,185,129,0.12),transparent_34%),rgba(255,255,255,0.045)] p-4 shadow-[0_18px_50px_rgba(0,0,0,0.18)] backdrop-blur-xl">
         <div className="flex items-start gap-3">
-          <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl border border-emerald-300/20 bg-emerald-400/10 text-emerald-100">
+          <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-[20px] border border-emerald-300/20 bg-emerald-400/10 text-emerald-100">
             <ShieldCheck className="h-5 w-5" />
           </div>
 
@@ -7311,7 +7311,7 @@ export default function Dashboard() {
         <button
           type="button"
           onClick={() => setDailyStrategyFlipped((current) => !current)}
-          className="group mt-2 block w-full text-left outline-none [perspective:1000px] sm:mt-2.5"
+          className="group mt-2.5 block w-full text-left outline-none [perspective:1000px] sm:mt-3"
           aria-label="Tap to reveal Daily Money Tip"
         >
           <div
