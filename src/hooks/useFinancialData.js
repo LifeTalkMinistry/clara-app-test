@@ -32,6 +32,19 @@ const FINANCE_INCOME_TYPES = new Set([
 ]);
 
 const FINANCE_TABLES = ["expenses", "wallets", "wallet_transactions", "transfers", "budgets"];
+const PRIMARY_OWNERSHIP_COLUMN = "user_id";
+
+const logFinanceWarning = (...args) => {
+  if (import.meta.env.DEV) {
+    console.warn(...args);
+  }
+};
+
+const logFinanceError = (...args) => {
+  if (import.meta.env.DEV) {
+    console.error(...args);
+  }
+};
 
 const isMissingColumnError = (error) => {
   const message = normalizeString(error?.message || error?.details || error?.hint);
@@ -151,12 +164,35 @@ const safeSelect = async (table, user, options = {}) => {
 
   const orderColumn = options.orderColumn || "created_at";
   const ascending = options.ascending === true;
+
+  if (user?.id) {
+    const primaryResult = await runScopedSelect({
+      table,
+      column: PRIMARY_OWNERSHIP_COLUMN,
+      value: user.id,
+      orderColumn,
+      ascending,
+    });
+
+    if (primaryResult?.error) {
+      if (isMissingTableError(primaryResult.error)) return [];
+
+      if (!isMissingColumnError(primaryResult.error)) {
+        logFinanceWarning(
+          `Primary finance load failed for ${table}. Falling back to legacy ownership lookup.`,
+          primaryResult.error
+        );
+      }
+    } else if (!primaryResult?.skipped) {
+      return filterOwnedRows(primaryResult.data || [], user);
+    }
+  }
+
   const scopedResults = [];
   let sawMissingOwnershipColumn = false;
   let sawUsableOwnershipColumn = false;
 
   const ownershipQueries = [
-    { column: "user_id", value: user?.id },
     { column: "owner_id", value: user?.id },
     { column: "profile_id", value: user?.id },
     { column: "user_email", value: user?.email },
@@ -185,7 +221,7 @@ const safeSelect = async (table, user, options = {}) => {
         continue;
       }
 
-      console.warn(`Failed loading ${table} by ${lookup.column}`, error);
+      logFinanceWarning(`Failed loading ${table} by ${lookup.column}`, error);
       continue;
     }
 
@@ -219,13 +255,13 @@ const safeSelect = async (table, user, options = {}) => {
 
     if (error) {
       if (isMissingTableError(error)) return [];
-      console.warn(`Failed loading ${table}`, error);
+      logFinanceWarning(`Failed loading ${table}`, error);
       return [];
     }
 
     return filterOwnedRows(data || [], user);
   } catch (error) {
-    console.warn(`Failed loading ${table}`, error);
+    logFinanceWarning(`Failed loading ${table}`, error);
     return [];
   }
 };
@@ -495,7 +531,7 @@ export default function useFinancialData(user) {
         return nextCache;
       })()
         .catch((err) => {
-          console.error("loadAll error:", err);
+          logFinanceError("loadAll error:", err);
 
           const fallbackCache =
             financialDataCache.key === cacheKey
@@ -593,21 +629,21 @@ export default function useFinancialData(user) {
             );
           }
         } catch (error) {
-          console.warn(`Realtime listener skipped for ${table}:`, error);
+          logFinanceWarning(`Realtime listener skipped for ${table}:`, error);
         }
       });
 
       channel.subscribe((status, error) => {
         if (error) {
-          console.warn("Financial realtime subscription warning:", error);
+          logFinanceWarning("Financial realtime subscription warning:", error);
         }
 
         if (status === "CHANNEL_ERROR") {
-          console.warn("Financial realtime channel error. Data will still refresh manually.");
+          logFinanceWarning("Financial realtime channel error. Data will still refresh manually.");
         }
       });
     } catch (error) {
-      console.warn("Financial realtime setup skipped. Data will still load normally.", error);
+      logFinanceWarning("Financial realtime setup skipped. Data will still load normally.", error);
     }
 
     return () => {
