@@ -7337,7 +7337,7 @@ export default function Dashboard() {
           type="button"
           onClick={() => setDailyStrategyFlipped((current) => !current)}
           className="group mt-3 block w-full text-left outline-none [perspective:1000px] sm:mt-4"
-          aria-label="Tap to flip Daily Spending Strategy card"
+          aria-label="Tap to reveal Daily Money Tip"
         >
           <div
             className="relative min-h-[82px] transition-transform duration-500 [transform-style:preserve-3d]"
@@ -7366,16 +7366,16 @@ export default function Dashboard() {
                 </div>
                 <div className="relative min-w-0 flex-1">
                   <p className={`text-[10px] font-bold uppercase tracking-[0.22em] ${themeSoftTextClass}`}>
-                    Tap to Flip
+                    Tap to Reveal
                   </p>
                   <h3 className={`mt-1 text-sm font-extrabold leading-tight ${themePrimaryTextClass}`}>
-                    Daily Spending Strategy
+                    Daily Money Tip
                   </h3>
                   <p className={`mt-1 text-xs leading-5 ${themeMutedTextClass}`}>
-                    Safe to spend today: {dailyStrategyCard.safeAmount}
+                    A smart money tip is waiting for you.
                   </p>
                   <p className="mt-0.5 text-xs font-bold leading-5 text-emerald-300">
-                    {dailyStrategyCard.action}
+                    Tap to reveal today’s tip.
                   </p>
                 </div>
               </div>
@@ -7404,13 +7404,13 @@ export default function Dashboard() {
                 </div>
                 <div className="relative min-w-0 flex-1">
                   <p className={`text-[10px] font-bold uppercase tracking-[0.22em] ${themeSoftTextClass}`}>
-                    Before You Spend
+                    Daily Money Tip
                   </p>
                   <h3 className={`mt-1 text-sm font-extrabold leading-tight ${themePrimaryTextClass}`}>
-                    Is this planned, needed, or emotional?
+                    {dailyStrategyCard.action}
                   </h3>
                   <p className={`mt-1 text-xs leading-5 ${themeMutedTextClass}`}>
-                    {dailyStrategyCard.backNote}
+                    Safe to spend today: {dailyStrategyCard.safeAmount}. Tap again to hide.
                   </p>
                 </div>
               </div>
