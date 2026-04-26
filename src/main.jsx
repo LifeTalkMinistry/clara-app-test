@@ -6,11 +6,14 @@ import { AuthProvider } from "@/context/AuthContext";
 import { supabase } from "@/lib/supabaseClient";
 import { queryClientInstance } from "@/lib/query-client";
 import { ThemeProvider } from "@/theme/ThemeProvider";
+import { applyClaraVisualMode, readStoredVisualMode } from "@/lib/clara-settings";
 import App from "./App.jsx";
 import "./index.css";
 import "./clara-fab-theme.css";
 import "./mobile-responsive.css";
 import "./mobile-performance.css";
+
+applyClaraVisualMode(readStoredVisualMode());
 
 // --- SAFE BILLING INIT (non-blocking, crash-proof) ---
 window.CLARA_BILLING = window.CLARA_BILLING || {};
