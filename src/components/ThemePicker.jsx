@@ -1,7 +1,6 @@
 import { useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import ClaraFabLogoInjector from "@/components/ClaraFabLogoInjector";
-import VisualPerformanceModeToggle from "@/components/VisualPerformanceModeToggle";
 import { Check, Palette, Sparkles, X } from "lucide-react";
 import {
   Sheet,
@@ -93,7 +92,6 @@ export default function ThemePicker() {
     <>
       <ClaraFabLogoInjector />
       <DashboardFinanceCardClickBridge />
-      <VisualPerformanceModeToggle />
       <Sheet open={pickerOpen} onOpenChange={setPickerOpen}>
         <SheetContent
           side="bottom"
