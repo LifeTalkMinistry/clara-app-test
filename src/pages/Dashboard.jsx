@@ -3163,9 +3163,24 @@ function DashboardMessagesPanel({ onBack }) {
   }
 
   if (activeConvo) {
-    const chatOverlay = (
-      <div className="fixed inset-0 z-[2147483000] flex h-[100dvh] w-screen flex-col overflow-hidden bg-[radial-gradient(circle_at_top,#0d3b2f_0%,#031b2d_35%,#020817_75%)] text-white">
-        <div className="shrink-0 border-b border-white/10 bg-[#03181d]/95 px-4 pb-3 pt-[calc(env(safe-area-inset-top)+0.85rem)]">
+    const activeChatOverlay = (
+      <div className="fixed inset-0 flex h-[100dvh] w-screen flex-col overflow-hidden bg-[radial-gradient(circle_at_top,#0d3b2f_0%,#031b2d_35%,#020817_75%)] text-white"
+        style={{
+          position: "fixed",
+          inset: 0,
+          width: "100vw",
+          height: "100dvh",
+          maxWidth: "100vw",
+          maxHeight: "100dvh",
+          margin: 0,
+          padding: 0,
+          transform: "none",
+          borderRadius: 0,
+          overflow: "hidden",
+          zIndex: 2147483000,
+          isolation: "isolate",
+        }}>
+        <div className="relative z-20 shrink-0 border-b border-white/10 bg-black/35 px-4 pb-3 pt-[calc(env(safe-area-inset-top)+0.85rem)]">
           <div className="mx-auto flex max-w-3xl items-center gap-3">
             <button
               type="button"
@@ -3206,10 +3221,10 @@ function DashboardMessagesPanel({ onBack }) {
           className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 py-4 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
           style={{ WebkitOverflowScrolling: "touch" }}
         >
-          <div className="mx-auto flex min-h-full max-w-3xl flex-col justify-end gap-3 pb-1">
+          <div className="mx-auto flex min-h-full max-w-3xl flex-col justify-end space-y-3">
             {activeConvo.messages.length === 0 ? (
               <div className="flex min-h-[56dvh] items-center justify-center text-center">
-                <div className="w-full max-w-sm rounded-[28px] border border-white/10 bg-white/5 p-6 shadow-[0_20px_70px_rgba(0,0,0,0.28)]">
+                <div className="w-full max-w-sm rounded-[28px] border border-white/10 bg-white/5 p-6 shadow-[0_20px_70px_rgba(0,0,0,0.28)] backdrop-blur-xl">
                   <MessageCircle className="mx-auto h-10 w-10 text-white/45" />
                   <p className="mt-3 text-sm font-bold text-white">Start your conversation</p>
                   <p className="mt-1 text-xs text-white/50">
@@ -3224,13 +3239,13 @@ function DashboardMessagesPanel({ onBack }) {
                 return (
                   <div
                     key={message.id}
-                    className={`flex w-full ${isMine ? "justify-end" : "justify-start"}`}
+                    className={`flex ${isMine ? "justify-end" : "justify-start"}`}
                   >
                     <div
                       className={`max-w-[82%] rounded-[22px] px-4 py-3 shadow-lg ${
                         isMine
                           ? "rounded-br-md bg-gradient-to-br from-emerald-500 to-teal-600 text-white"
-                          : "rounded-bl-md border border-white/10 bg-white/8 text-white"
+                          : "rounded-bl-md border border-white/10 bg-white/8 text-white backdrop-blur-xl"
                       }`}
                     >
                       <p className="whitespace-pre-wrap break-words text-[14px] leading-relaxed">
@@ -3252,13 +3267,7 @@ function DashboardMessagesPanel({ onBack }) {
           </div>
         </div>
 
-        <form
-          onSubmit={(event) => {
-            event.preventDefault();
-            handleSend();
-          }}
-          className="shrink-0 border-t border-white/10 bg-[#020817]/96 px-4 pb-[calc(env(safe-area-inset-bottom)+0.75rem)] pt-3"
-        >
+        <div className="relative z-20 shrink-0 border-t border-white/10 bg-black/40 px-4 pb-[calc(env(safe-area-inset-bottom)+0.75rem)] pt-3">
           <div className="mx-auto flex max-w-3xl items-center gap-2 rounded-[24px] border border-white/10 bg-white/6 px-3 py-2">
             <input
               value={newMsg}
@@ -3266,21 +3275,27 @@ function DashboardMessagesPanel({ onBack }) {
               placeholder="Type a message..."
               className="min-w-0 flex-1 bg-transparent text-sm text-white outline-none placeholder:text-white/35"
               disabled={sending}
+              onKeyDown={(event) => {
+                if (event.key === "Enter" && !event.shiftKey) {
+                  event.preventDefault();
+                  handleSend();
+                }
+              }}
             />
             <button
-              type="submit"
+              type="button"
+              onClick={handleSend}
               disabled={!newMsg.trim() || sending}
-              className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-emerald-400 text-slate-950 shadow-[0_12px_30px_rgba(16,185,129,0.22)] transition active:scale-95 disabled:opacity-45"
-              aria-label="Send message"
+              className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-emerald-400 text-slate-950 shadow-[0_12px_30px_rgba(16,185,129,0.22)] disabled:opacity-45"
             >
               <Send className="h-4 w-4" />
             </button>
           </div>
-        </form>
+        </div>
       </div>
     );
 
-    return createPortal(chatOverlay, document.body);
+    return createPortal(activeChatOverlay, document.body);
   }
 
   return (
