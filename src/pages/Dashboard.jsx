@@ -1904,12 +1904,16 @@ function DashboardFeedPanel({ onBack }) {
 
   const [newPost, setNewPost] = useState("");
   const [selectedCategory, setSelectedCategory] = useState("achievement");
-  const [composerOpen, setComposerOpen] = useState(true);
+  const [composerOpen, setComposerOpen] = useState(false);
   const [composerMedia, setComposerMedia] = useState(null);
   const [youtubeLink, setYoutubeLink] = useState("");
   const [commentTexts, setCommentTexts] = useState({});
   const [openComments, setOpenComments] = useState({});
   const [activeYoutubePosts, setActiveYoutubePosts] = useState({});
+
+  useEffect(() => {
+    setComposerOpen(false);
+  }, []);
 
   const getYoutubeId = useCallback((value = "") => {
     const text = value.trim();
@@ -2295,6 +2299,7 @@ function DashboardFeedPanel({ onBack }) {
       }
 
       resetComposer();
+      setComposerOpen(false);
     } catch (postError) {
       console.error("Dashboard feed post failed:", postError);
       setError(postError?.message || "Unable to post right now.");
@@ -2525,7 +2530,8 @@ function DashboardFeedPanel({ onBack }) {
         <button
           type="button"
           onClick={() => setComposerOpen((prev) => !prev)}
-          className="mb-3 flex w-full items-center justify-between gap-3 rounded-2xl border border-white/10 bg-white/6 px-3 py-3 text-left"
+          className={`flex w-full items-center justify-between gap-3 rounded-2xl border border-white/10 bg-white/6 px-3 py-3 text-left transition hover:bg-white/8 ${composerOpen ? "mb-3" : ""}`}
+          aria-expanded={composerOpen}
         >
           <div className="flex items-center gap-3">
             <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-emerald-400/15 text-emerald-200">
@@ -2539,8 +2545,14 @@ function DashboardFeedPanel({ onBack }) {
           <ChevronRight className={`h-4 w-4 text-white/45 transition ${composerOpen ? "rotate-90" : ""}`} />
         </button>
 
-        {composerOpen ? (
-          <div className="space-y-3">
+        <div
+          className={`grid transition-all duration-300 ease-out ${
+            composerOpen ? "grid-rows-[1fr] opacity-100" : "grid-rows-[0fr] opacity-0"
+          }`}
+          aria-hidden={!composerOpen}
+        >
+          <div className="min-h-0 overflow-hidden">
+            <div className="space-y-3">
             <textarea
               value={newPost}
               onChange={(event) => setNewPost(event.target.value)}
@@ -2630,8 +2642,9 @@ function DashboardFeedPanel({ onBack }) {
                 Clear
               </button>
             </div>
+            </div>
           </div>
-        ) : null}
+        </div>
 
         {error ? (
           <div className="mt-3 rounded-2xl border border-rose-400/20 bg-rose-500/10 px-3 py-2 text-xs text-rose-100">
@@ -2775,6 +2788,7 @@ function DashboardFeedPanel({ onBack }) {
     </div>
   );
 }
+
 
 
 function DashboardMessagesPanel({ onBack }) {
