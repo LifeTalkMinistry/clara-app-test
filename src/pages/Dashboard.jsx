@@ -1826,25 +1826,6 @@ const dashboardPanelInitials = (value = "") => {
   return `${parts[0][0] || ""}${parts[1][0] || ""}`.toUpperCase();
 };
 
-const buildDashboardMessageSignature = (message = {}) => {
-  const conversationId = String(message?.conversation_id || "").trim();
-  const senderId = String(message?.sender_id || "").trim();
-  const recipientId = String(message?.recipient_id || "").trim();
-  const content = String(message?.content || "").trim().replace(/\s+/g, " ");
-  return `${conversationId}|${senderId}|${recipientId}|${content}`;
-};
-
-const isDashboardOptimisticMessage = (message = {}) => {
-  const id = String(message?.id || "").toLowerCase();
-  return Boolean(
-    message?.client_key ||
-      message?.optimistic === true ||
-      message?.pending === true ||
-      id.startsWith("temp-") ||
-      id.startsWith("local-")
-  );
-};
-
 function DashboardPanelShell({
   title,
   subtitle,
@@ -2807,9 +2788,9 @@ function DashboardMessagesPanel({ onBack }) {
   const [newMsg, setNewMsg] = useState("");
   const [search, setSearch] = useState("");
   const [peopleOpen, setPeopleOpen] = useState(false);
+  const [newChatSearch, setNewChatSearch] = useState("");
 
   const messagesEndRef = useRef(null);
-  const messageAnimationSeenRef = useRef(new Set());
 
   const currentUserId = user?.id || null;
   const currentUserEmail = user?.email || "";
@@ -2845,9 +2826,19 @@ function DashboardMessagesPanel({ onBack }) {
     let optionalProfiles = [];
     const { data: extraProfiles, error: extraError } = await supabase
       .from("profiles")
-      .select("id,role");
+      .select("id,role,username,display_name");
 
-    if (!extraError) optionalProfiles = Array.isArray(extraProfiles) ? extraProfiles : [];
+    if (!extraError) {
+      optionalProfiles = Array.isArray(extraProfiles) ? extraProfiles : [];
+    } else {
+      const { data: fallbackProfiles, error: fallbackError } = await supabase
+        .from("profiles")
+        .select("id,role");
+
+      if (!fallbackError) {
+        optionalProfiles = Array.isArray(fallbackProfiles) ? fallbackProfiles : [];
+      }
+    }
 
     const optionalMap = optionalProfiles.reduce((acc, item) => {
       if (item?.id) acc[item.id] = item;
@@ -2856,15 +2847,19 @@ function DashboardMessagesPanel({ onBack }) {
 
     let merged = (Array.isArray(baseProfiles) ? baseProfiles : []).map((profile) => {
       const extra = optionalMap[profile.id] || {};
+      const username = normalizeString(extra?.username || "");
       const displayName =
-        profile?.full_name ||
-        profile?.email ||
+        normalizeString(profile?.full_name) ||
+        normalizeString(extra?.display_name) ||
+        username ||
+        normalizeString(profile?.email) ||
         "CLARA User";
 
       return {
         id: profile?.id || null,
         email: profile?.email || "",
         full_name: displayName,
+        username,
         role: String(extra?.role || "user").toLowerCase(),
       };
     });
@@ -2906,38 +2901,7 @@ function DashboardMessagesPanel({ onBack }) {
       return;
     }
 
-    const fetchedMessages = Array.isArray(data) ? data : [];
-
-    setMessages((prev) => {
-      if (!Array.isArray(prev) || prev.length === 0) return fetchedMessages;
-
-      const previousByServerId = new Map(
-        prev
-          .filter((message) => message?.id && !String(message.id).startsWith("temp-"))
-          .map((message) => [String(message.id), message])
-      );
-
-      const optimisticBySignature = new Map(
-        prev
-          .filter(isDashboardOptimisticMessage)
-          .map((message) => [buildDashboardMessageSignature(message), message])
-      );
-
-      return fetchedMessages.map((message) => {
-        const existing = previousByServerId.get(String(message.id));
-        if (existing?.client_key) return { ...message, client_key: existing.client_key };
-
-        const optimistic = optimisticBySignature.get(buildDashboardMessageSignature(message));
-        if (optimistic?.client_key || optimistic?.id) {
-          return {
-            ...message,
-            client_key: optimistic.client_key || optimistic.id,
-          };
-        }
-
-        return message;
-      });
-    });
+    setMessages(Array.isArray(data) ? data : []);
   }, [currentUserId]);
 
   useEffect(() => {
@@ -2995,6 +2959,36 @@ function DashboardMessagesPanel({ onBack }) {
     }, {});
   }, [users]);
 
+  const getPersonDisplayName = useCallback((person = {}) => {
+    return normalizeString(person.full_name || person.name || person.email || person.username || "CLARA User");
+  }, []);
+
+  const getPersonSortKey = useCallback(
+    (person = {}) => getPersonDisplayName(person).trim().toLowerCase(),
+    [getPersonDisplayName]
+  );
+
+  const sortPeopleAlphabetically = useCallback(
+    (items = []) =>
+      [...items].sort((a, b) => {
+        const nameA = getPersonSortKey(a);
+        const nameB = getPersonSortKey(b);
+        if (nameA !== nameB) return nameA.localeCompare(nameB);
+        return normalizeLower(a.email).localeCompare(normalizeLower(b.email));
+      }),
+    [getPersonSortKey]
+  );
+
+  const alphabetizedUsers = useMemo(() => {
+    const unique = new Map();
+
+    users.forEach((person) => {
+      if (person?.id && !unique.has(person.id)) unique.set(person.id, person);
+    });
+
+    return sortPeopleAlphabetically(Array.from(unique.values()));
+  }, [sortPeopleAlphabetically, users]);
+
   const conversations = useMemo(() => {
     const map = {};
 
@@ -3013,6 +3007,7 @@ function DashboardMessagesPanel({ onBack }) {
           id: otherId,
           email: otherEmail || "",
           name: otherName || "CLARA User",
+          username: usersById[otherId]?.username || "",
           messages: [],
           lastMessage: null,
           unreadCount: 0,
@@ -3031,25 +3026,41 @@ function DashboardMessagesPanel({ onBack }) {
       convo.lastMessage = convo.messages[convo.messages.length - 1] || null;
     });
 
-    return Object.values(map).sort(
-      (a, b) =>
-        new Date(b.lastMessage?.created_at || 0) -
-        new Date(a.lastMessage?.created_at || 0)
-    );
+    return Object.values(map).sort((a, b) => {
+      const nameA = normalizeLower(a.name || a.email || a.username || "CLARA User");
+      const nameB = normalizeLower(b.name || b.email || b.username || "CLARA User");
+      if (nameA !== nameB) return nameA.localeCompare(nameB);
+      return normalizeLower(a.email).localeCompare(normalizeLower(b.email));
+    });
   }, [currentUserId, messages, usersById]);
 
   const filteredPeople = useMemo(() => {
     const term = search.trim().toLowerCase();
-    const source = users;
+    const source = alphabetizedUsers;
 
     if (!term) return source;
 
     return source.filter((item) => {
-      const name = (item.full_name || "").toLowerCase();
-      const email = (item.email || "").toLowerCase();
-      return name.includes(term) || email.includes(term);
+      const name = (item.full_name || item.name || "").trim().toLowerCase();
+      const email = (item.email || "").trim().toLowerCase();
+      const username = (item.username || "").trim().toLowerCase();
+      return name.includes(term) || email.includes(term) || username.includes(term);
     });
-  }, [search, users]);
+  }, [alphabetizedUsers, search]);
+
+  const filteredNewChatPeople = useMemo(() => {
+    const term = newChatSearch.trim().toLowerCase();
+    const source = alphabetizedUsers;
+
+    if (!term) return source;
+
+    return source.filter((item) => {
+      const name = (item.full_name || item.name || "").trim().toLowerCase();
+      const email = (item.email || "").trim().toLowerCase();
+      const username = (item.username || "").trim().toLowerCase();
+      return name.includes(term) || email.includes(term) || username.includes(term);
+    });
+  }, [alphabetizedUsers, newChatSearch]);
 
   const filteredConversations = useMemo(() => {
     const term = search.trim().toLowerCase();
@@ -3057,10 +3068,10 @@ function DashboardMessagesPanel({ onBack }) {
     if (!term) return conversations;
 
     return conversations.filter((convo) => {
-      const name = (convo.name || "").toLowerCase();
-      const email = (convo.email || "").toLowerCase();
-      const preview = (convo.lastMessage?.content || "").toLowerCase();
-      return name.includes(term) || email.includes(term) || preview.includes(term);
+      const name = (convo.name || "").trim().toLowerCase();
+      const email = (convo.email || "").trim().toLowerCase();
+      const username = (convo.username || "").trim().toLowerCase();
+      return name.includes(term) || email.includes(term) || username.includes(term);
     });
   }, [conversations, search]);
 
@@ -3077,6 +3088,7 @@ function DashboardMessagesPanel({ onBack }) {
       id: foundUser.id,
       email: foundUser.email || "",
       name: foundUser.full_name || foundUser.email || "CLARA User",
+      username: foundUser.username || "",
       messages: [],
       lastMessage: null,
       unreadCount: 0,
@@ -3122,6 +3134,7 @@ function DashboardMessagesPanel({ onBack }) {
   const openConversation = useCallback((userId) => {
     setSelectedConvo(userId);
     setPeopleOpen(false);
+    setNewChatSearch("");
   }, []);
 
   const handleSend = useCallback(async () => {
@@ -3144,26 +3157,14 @@ function DashboardMessagesPanel({ onBack }) {
       is_read: false,
     };
 
-    const optimisticId = `temp-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+    const optimisticId = `temp-${Date.now()}`;
     const optimisticMessage = {
       id: optimisticId,
-      client_key: optimisticId,
-      optimistic: true,
-      pending: true,
       ...payload,
       created_at: new Date().toISOString(),
     };
 
-    setMessages((prev) => {
-      const alreadyExists = prev.some(
-        (message) =>
-          buildDashboardMessageSignature(message) ===
-            buildDashboardMessageSignature(optimisticMessage) &&
-          isDashboardOptimisticMessage(message)
-      );
-
-      return alreadyExists ? prev : [optimisticMessage, ...prev];
-    });
+    setMessages((prev) => [optimisticMessage, ...prev]);
     setNewMsg("");
 
     const { data, error } = await supabase
@@ -3181,37 +3182,8 @@ function DashboardMessagesPanel({ onBack }) {
     }
 
     setMessages((prev) => {
-      if (!data) return prev.filter((message) => message.id !== optimisticId);
-
-      const savedMessage = {
-        ...data,
-        client_key: optimisticId,
-        optimistic: false,
-        pending: false,
-      };
-
-      let replaced = false;
-      const next = prev.map((message) => {
-        if (message.id === optimisticId || message.client_key === optimisticId) {
-          replaced = true;
-          return savedMessage;
-        }
-
-        if (
-          String(message.id) === String(data.id) ||
-          buildDashboardMessageSignature(message) === buildDashboardMessageSignature(savedMessage)
-        ) {
-          replaced = true;
-          return {
-            ...savedMessage,
-            client_key: message.client_key || optimisticId,
-          };
-        }
-
-        return message;
-      });
-
-      return replaced ? next : [savedMessage, ...next];
+      const withoutTemp = prev.filter((message) => message.id !== optimisticId);
+      return data ? [data, ...withoutTemp] : withoutTemp;
     });
 
     setSending(false);
@@ -3342,9 +3314,6 @@ function DashboardMessagesPanel({ onBack }) {
               </div>
             ) : (
               activeMessages.map((message, index) => {
-                const stableMessageKey =
-                  message.client_key || message.id || `${message.created_at || "message"}-${index}`;
-                const shouldAnimate = !messageAnimationSeenRef.current.has(stableMessageKey);
                 const isMine = message.sender_id === currentUserId;
                 const previous = activeMessages[index - 1];
                 const next = activeMessages[index + 1];
@@ -3360,14 +3329,8 @@ function DashboardMessagesPanel({ onBack }) {
                   !previousDate ||
                   currentDate.toDateString() !== previousDate.toDateString();
 
-                if (shouldAnimate && typeof requestAnimationFrame === "function") {
-                  requestAnimationFrame(() => {
-                    messageAnimationSeenRef.current.add(stableMessageKey);
-                  });
-                }
-
                 return (
-                  <div key={stableMessageKey}>
+                  <div key={message.id || `message-${index}`}>
                     {showDateSeparator ? (
                       <div className="my-4 flex justify-center">
                         <span className="rounded-full border border-white/10 bg-white/[0.06] px-3 py-1 text-[10px] font-black uppercase tracking-[0.14em] text-white/45">
@@ -3377,11 +3340,9 @@ function DashboardMessagesPanel({ onBack }) {
                     ) : null}
 
                     <div
-                      className={`flex w-full ${
-                        shouldAnimate ? "animate-[claraDashboardMessageIn_180ms_ease-out_both]" : ""
-                      } ${isMine ? "justify-end" : "justify-start"} ${
-                        isFirstInGroup ? "mt-4" : "mt-1.5"
-                      }`}
+                      className={`flex w-full animate-[claraDashboardMessageIn_180ms_ease-out_both] ${
+                        isMine ? "justify-end" : "justify-start"
+                      } ${isFirstInGroup ? "mt-4" : "mt-1.5"}`}
                     >
                       <div className={`flex max-w-[86%] items-end gap-2 ${isMine ? "flex-row-reverse" : "flex-row"}`}>
                         {!isMine ? (
@@ -3419,7 +3380,8 @@ function DashboardMessagesPanel({ onBack }) {
                     </div>
                   </div>
                 );
-              })            )}
+              })
+            )}
             <div ref={messagesEndRef} className="h-2" />
           </div>
         </main>
@@ -3462,6 +3424,91 @@ function DashboardMessagesPanel({ onBack }) {
     return createPortal(conversationOverlay, document.body);
   }
 
+  if (peopleOpen) {
+    const newChatOverlay = (
+      <section
+        className="fixed inset-0 z-[2147483000] flex h-[100dvh] w-screen flex-col overflow-hidden bg-[#020817] text-white"
+        aria-label="New chat"
+      >
+        <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(20,184,166,0.18),transparent_34%),radial-gradient(circle_at_bottom_right,rgba(59,130,246,0.10),transparent_42%)]" />
+
+        <header className="relative z-20 shrink-0 border-b border-white/10 bg-[#03151b]/92 px-4 pb-3 pt-[calc(env(safe-area-inset-top)+0.75rem)] backdrop-blur-xl">
+          <div className="mx-auto flex max-w-3xl items-center gap-3">
+            <button
+              type="button"
+              onClick={() => {
+                setPeopleOpen(false);
+                setNewChatSearch("");
+              }}
+              className="grid h-10 w-10 shrink-0 place-items-center rounded-full border border-white/10 bg-white/[0.05] text-white/85 transition hover:bg-white/[0.08] active:scale-95"
+              aria-label="Back to messages"
+            >
+              <ArrowDown className="h-4 w-4 rotate-90" />
+            </button>
+
+            <div className="min-w-0 flex-1">
+              <p className="truncate text-[17px] font-black leading-tight text-white">New Chat</p>
+              <p className="truncate text-[11px] font-medium text-white/55">Choose someone from CLARA People</p>
+            </div>
+          </div>
+        </header>
+
+        <div className="relative z-10 shrink-0 border-b border-white/10 bg-[#020817]/86 px-4 py-3 backdrop-blur-xl">
+          <div className="mx-auto flex max-w-3xl items-center gap-2 rounded-2xl border border-white/10 bg-white/[0.055] px-3 py-2 shadow-[0_12px_34px_rgba(0,0,0,0.18)]">
+            <Search className="h-4 w-4 text-white/45" />
+            <input
+              value={newChatSearch}
+              onChange={(event) => setNewChatSearch(event.target.value)}
+              placeholder="Search people..."
+              className="min-w-0 flex-1 bg-transparent text-sm text-white outline-none placeholder:text-white/35"
+              autoFocus
+            />
+          </div>
+        </div>
+
+        <main
+          className="relative z-10 min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 py-4"
+          style={{ WebkitOverflowScrolling: "touch" }}
+        >
+          <div className="mx-auto grid w-full max-w-3xl gap-2 pb-[calc(env(safe-area-inset-bottom)+1rem)]">
+            {filteredNewChatPeople.length === 0 ? (
+              <div className="rounded-[30px] border border-white/10 bg-white/[0.055] p-8 text-center shadow-[0_18px_50px_rgba(0,0,0,0.20)] backdrop-blur-xl">
+                <MessageCircle className="mx-auto h-8 w-8 text-white/45" />
+                <p className="mt-3 text-sm font-bold text-white">No people found.</p>
+              </div>
+            ) : (
+              filteredNewChatPeople.map((person) => (
+                <button
+                  key={person.id}
+                  type="button"
+                  onClick={() => openConversation(person.id)}
+                  className="w-full rounded-[24px] border border-white/10 bg-white/[0.055] px-4 py-3 text-left shadow-[0_12px_36px_rgba(0,0,0,0.16)] backdrop-blur-xl transition hover:bg-white/[0.075] active:scale-[0.99]"
+                >
+                  <div className="flex items-center gap-3">
+                    <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-[18px] border border-white/10 bg-white/10 text-sm font-black text-white">
+                      {dashboardPanelInitials(person.full_name || person.email || person.username)}
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate text-sm font-bold text-white">
+                        {person.full_name || person.email || person.username || "CLARA User"}
+                      </p>
+                      <p className="truncate text-xs text-white/45">
+                        {person.email || person.username || "CLARA member"}
+                      </p>
+                    </div>
+                    <ChevronRight className="h-4 w-4 text-white/35" />
+                  </div>
+                </button>
+              ))
+            )}
+          </div>
+        </main>
+      </section>
+    );
+
+    return createPortal(newChatOverlay, document.body);
+  }
+
   return (
     <div className="space-y-4">
       <div className="rounded-[30px] border border-white/10 bg-white/[0.055] p-4 shadow-[0_18px_50px_rgba(0,0,0,0.20)] backdrop-blur-xl">
@@ -3477,8 +3524,8 @@ function DashboardMessagesPanel({ onBack }) {
 
         <button
           type="button"
-          onClick={() => setPeopleOpen((prev) => !prev)}
-          className="mt-3 flex w-full items-center justify-between gap-3 rounded-2xl border border-emerald-400/20 bg-emerald-400/10 px-3 py-3 text-left"
+          onClick={() => setPeopleOpen(true)}
+          className="mt-3 flex w-full items-center justify-between gap-3 rounded-2xl border border-emerald-400/20 bg-emerald-400/10 px-3 py-3 text-left transition hover:bg-emerald-400/15 active:scale-[0.99]"
         >
           <div>
             <p className="text-sm font-bold text-white">Start new chat</p>
@@ -3490,48 +3537,14 @@ function DashboardMessagesPanel({ onBack }) {
           </div>
           <Plus className="h-5 w-5 text-emerald-200" />
         </button>
-
-        {peopleOpen ? (
-          <div className="mt-3 grid gap-2">
-            {filteredPeople.length === 0 ? (
-              <div className="rounded-2xl border border-white/10 bg-white/6 px-4 py-4 text-sm text-white/55">
-                No people found.
-              </div>
-            ) : (
-              filteredPeople.map((person) => (
-                <button
-                  key={person.id}
-                  type="button"
-                  onClick={() => openConversation(person.id)}
-                  className="w-full rounded-2xl border border-white/10 bg-white/6 px-4 py-3 text-left transition hover:bg-white/10"
-                >
-                  <div className="flex items-center gap-3">
-                    <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border border-white/10 bg-white/10 text-sm font-black text-white">
-                      {dashboardPanelInitials(person.full_name || person.email)}
-                    </div>
-                    <div className="min-w-0 flex-1">
-                      <p className="truncate text-sm font-bold text-white">
-                        {person.full_name || person.email || "CLARA User"}
-                      </p>
-                      <p className="truncate text-xs text-white/45">
-                        {person.role === "admin" ? "Admin" : person.email || "Member"}
-                      </p>
-                    </div>
-                    <ChevronRight className="h-4 w-4 text-white/35" />
-                  </div>
-                </button>
-              ))
-            )}
-          </div>
-        ) : null}
       </div>
 
       {filteredConversations.length === 0 ? (
         <div className="rounded-[30px] border border-white/10 bg-white/[0.055] p-8 text-center shadow-[0_18px_50px_rgba(0,0,0,0.20)] backdrop-blur-xl">
           <MessageCircle className="mx-auto h-8 w-8 text-white/45" />
-          <p className="mt-3 text-sm font-bold text-white">No messages yet</p>
+          <p className="mt-3 text-sm font-bold text-white">{search.trim() ? "No conversations found." : "No messages yet"}</p>
           <p className="mt-1 text-xs text-white/55">
-            Start a conversation above and it will appear here.
+            {search.trim() ? "Try searching another name, email, or username." : "Start a conversation above and it will appear here."}
           </p>
         </div>
       ) : (
