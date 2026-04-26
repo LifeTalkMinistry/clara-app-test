@@ -335,3 +335,45 @@ main > *:last-child {
     padding-bottom: calc(0.5rem + var(--clara-safe-bottom)) !important;
   }
 }
+
+/* Dashboard ad / billboard edge alignment fix
+   Keeps the ad card, media layer, and glow/border using the same rounded edge. */
+@media (max-width: 430px) {
+  .theme-page-shell main > div:first-child > :nth-child(2) {
+    position: relative;
+    width: 100%;
+    max-width: 100%;
+    border-radius: 24px !important;
+    overflow: hidden !important;
+    contain: paint;
+    isolation: isolate;
+    box-sizing: border-box;
+  }
+
+  .theme-page-shell main > div:first-child > :nth-child(2) > * {
+    max-width: 100%;
+  }
+
+  .theme-page-shell main > div:first-child > :nth-child(2) img,
+  .theme-page-shell main > div:first-child > :nth-child(2) video,
+  .theme-page-shell main > div:first-child > :nth-child(2) canvas,
+  .theme-page-shell main > div:first-child > :nth-child(2) picture {
+    display: block;
+    width: 100% !important;
+    height: 100% !important;
+    border-radius: 24px !important;
+    object-fit: cover;
+    overflow: hidden;
+  }
+}
+
+@media (max-width: 374px) {
+  .theme-page-shell main > div:first-child > :nth-child(2),
+  .theme-page-shell main > div:first-child > :nth-child(2) img,
+  .theme-page-shell main > div:first-child > :nth-child(2) video,
+  .theme-page-shell main > div:first-child > :nth-child(2) canvas,
+  .theme-page-shell main > div:first-child > :nth-child(2) picture {
+    border-radius: 22px !important;
+  }
+}
+
