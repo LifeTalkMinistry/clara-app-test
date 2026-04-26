@@ -611,6 +611,129 @@ function readStoredNotificationSettings(userId) {
   }
 }
 
+const CLARA_VISUAL_PERFORMANCE_GLOBAL_KEY = "clara_visual_performance_mode";
+const CLARA_VISUAL_PERFORMANCE_STYLE_ID = "clara-visual-performance-mode-style";
+
+const getVisualPerformanceStorageKey = (userId) =>
+  `clara_visual_performance_${userId || "guest"}`;
+
+const ensureClaraVisualPerformanceStyles = () => {
+  if (typeof document === "undefined") return;
+  if (document.getElementById(CLARA_VISUAL_PERFORMANCE_STYLE_ID)) return;
+
+  const style = document.createElement("style");
+  style.id = CLARA_VISUAL_PERFORMANCE_STYLE_ID;
+  style.textContent = `
+    .clara-premium-mode {
+      --clara-motion-duration: 220ms;
+      --clara-glow-strength: 1;
+      --clara-blur-strength: 1;
+    }
+
+    .clara-performance-mode {
+      --clara-motion-duration: 90ms;
+      --clara-glow-strength: 0.36;
+      --clara-blur-strength: 0.45;
+    }
+
+    .clara-performance-mode *,
+    .clara-performance-mode *::before,
+    .clara-performance-mode *::after {
+      transition-duration: 90ms !important;
+      scroll-behavior: auto !important;
+    }
+
+    .clara-performance-mode .theme-shell-card,
+    .clara-performance-mode .theme-panel-card,
+    .clara-performance-mode .theme-soft-card,
+    .clara-performance-mode .theme-modal-card,
+    .clara-performance-mode .clara-card,
+    .clara-performance-mode .clara-card-soft,
+    .clara-performance-mode [class*="backdrop-blur"] {
+      backdrop-filter: blur(4px) !important;
+      -webkit-backdrop-filter: blur(4px) !important;
+    }
+
+    .clara-performance-mode [class*="shadow-[0_22px"],
+    .clara-performance-mode [class*="shadow-[0_25px"],
+    .clara-performance-mode [class*="shadow-[0_28px"],
+    .clara-performance-mode [class*="shadow-[0_30px"],
+    .clara-performance-mode [class*="shadow-[0_18px"],
+    .clara-performance-mode [class*="shadow-[0_16px"] {
+      box-shadow: 0 10px 24px rgba(0, 0, 0, 0.20) !important;
+    }
+
+    .clara-performance-mode [class*="shadow-[0_0"],
+    .clara-performance-mode [class*="blur-2xl"],
+    .clara-performance-mode [class*="blur-3xl"] {
+      filter: blur(4px) !important;
+    }
+
+    .clara-performance-mode [class*="animate-"],
+    .clara-performance-mode [style*="animation"] {
+      animation-duration: 1ms !important;
+      animation-iteration-count: 1 !important;
+    }
+
+    .clara-performance-mode video {
+      filter: none !important;
+    }
+  `;
+
+  document.head.appendChild(style);
+};
+
+const applyVisualPerformanceMode = (enabled) => {
+  if (typeof document === "undefined") return;
+
+  ensureClaraVisualPerformanceStyles();
+
+  document.documentElement.classList.toggle("clara-performance-mode", Boolean(enabled));
+  document.documentElement.classList.toggle("clara-premium-mode", !enabled);
+  document.body?.classList?.toggle("clara-performance-mode", Boolean(enabled));
+  document.body?.classList?.toggle("clara-premium-mode", !enabled);
+  document.documentElement.dataset.claraVisualMode = enabled ? "performance" : "premium";
+  if (document.body) {
+    document.body.dataset.claraVisualMode = enabled ? "performance" : "premium";
+  }
+};
+
+const readStoredPerformanceMode = (userId) => {
+  if (typeof localStorage === "undefined") return false;
+
+  try {
+    const userValue = localStorage.getItem(getVisualPerformanceStorageKey(userId));
+    if (userValue !== null) return userValue === "true";
+    return localStorage.getItem(CLARA_VISUAL_PERFORMANCE_GLOBAL_KEY) === "true";
+  } catch (error) {
+    console.error("Failed to read visual performance mode:", error);
+    return false;
+  }
+};
+
+const saveVisualPerformanceMode = (userId, enabled) => {
+  const nextValue = Boolean(enabled);
+
+  try {
+    localStorage.setItem(CLARA_VISUAL_PERFORMANCE_GLOBAL_KEY, String(nextValue));
+    localStorage.setItem(getVisualPerformanceStorageKey(userId), String(nextValue));
+    applyVisualPerformanceMode(nextValue);
+    window.dispatchEvent(
+      new CustomEvent("clara:visual-performance-mode-updated", {
+        detail: {
+          enabled: nextValue,
+          visualMode: nextValue ? "performance" : "premium",
+          userId: userId || null,
+        },
+      })
+    );
+  } catch (error) {
+    console.error("Failed to save visual performance mode:", error);
+  }
+
+  return nextValue;
+};
+
 const getProgramPromptSessionKey = (userId, bubble) => {
   const safeUserId = normalizeString(userId || "guest");
   const bubbleSignature = [
@@ -3331,6 +3454,9 @@ function DashboardSettingsPanel({
     coachingAlerts: notificationSettings?.coachingAlerts !== false,
     budgetAlerts: notificationSettings?.budgetAlerts !== false,
   }));
+  const [localPerformanceMode, setLocalPerformanceMode] = useState(() =>
+    readStoredPerformanceMode(user?.id || "guest")
+  );
 
   const [activeSetting, setActiveSetting] = useState(null);
   const [profileName, setProfileName] = useState(initialDisplayName);
@@ -3356,6 +3482,30 @@ function DashboardSettingsPanel({
       budgetAlerts: notificationSettings?.budgetAlerts !== false,
     });
   }, [notificationSettings]);
+
+  useEffect(() => {
+    const storedPerformanceMode = readStoredPerformanceMode(user?.id || "guest");
+    setLocalPerformanceMode(storedPerformanceMode);
+    applyVisualPerformanceMode(storedPerformanceMode);
+  }, [user?.id]);
+
+  useEffect(() => {
+    applyVisualPerformanceMode(localPerformanceMode);
+  }, [localPerformanceMode]);
+
+  useEffect(() => {
+    const syncPerformanceMode = () => {
+      setLocalPerformanceMode(readStoredPerformanceMode(user?.id || "guest"));
+    };
+
+    window.addEventListener("storage", syncPerformanceMode);
+    window.addEventListener("clara:visual-performance-mode-updated", syncPerformanceMode);
+
+    return () => {
+      window.removeEventListener("storage", syncPerformanceMode);
+      window.removeEventListener("clara:visual-performance-mode-updated", syncPerformanceMode);
+    };
+  }, [user?.id]);
 
   useEffect(() => {
     let isMounted = true;
@@ -3463,6 +3613,20 @@ function DashboardSettingsPanel({
       return next;
     });
   }, [saveNotificationSettings]);
+
+  const persistPerformanceToggle = useCallback(() => {
+    setLocalPerformanceMode((current) => {
+      const next = !current;
+      saveVisualPerformanceMode(user?.id || "guest", next);
+      setSettingsNotice({
+        type: "success",
+        message: next
+          ? "Performance Mode is on. CLARA will reduce heavy visual effects."
+          : "Premium Mode is on. CLARA will use the full premium visual experience.",
+      });
+      return next;
+    });
+  }, [user?.id]);
 
   const handleSaveProfile = useCallback(async () => {
     const nextName = profileName.trim();
@@ -3758,6 +3922,15 @@ function DashboardSettingsPanel({
           badge: "Customize",
           featured: true,
           action: openThemePicker,
+        },
+        {
+          key: "performance",
+          title: "Performance Mode",
+          description: "Reduce animations, glow, blur, and motion effects",
+          icon: Rocket,
+          badge: localPerformanceMode ? "On" : "Off",
+          featured: localPerformanceMode,
+          action: () => setActiveSetting("performance"),
         },
         {
           key: "notifications",
@@ -4353,6 +4526,54 @@ function DashboardSettingsPanel({
     </div>
   );
 
+  const renderPerformancePage = () => (
+    <div className="space-y-4">
+      <DetailHeader
+        title="Performance Mode"
+        subtitle="Keep CLARA premium while reducing heavy visual effects on slower phones."
+      />
+
+      {renderNotice()}
+
+      <button
+        type="button"
+        onClick={persistPerformanceToggle}
+        className={`flex w-full items-center justify-between gap-4 rounded-[30px] border p-5 text-left transition ${
+          localPerformanceMode
+            ? "border-emerald-300/25 bg-[radial-gradient(circle_at_top_left,rgba(16,185,129,0.18),transparent_36%),rgba(16,185,129,0.08)] shadow-[0_16px_42px_rgba(16,185,129,0.10)]"
+            : "border-white/10 bg-white/[0.045] hover:bg-white/[0.07]"
+        }`}
+      >
+        <div className="flex min-w-0 flex-1 items-center gap-3">
+          <div className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl border ${
+            localPerformanceMode
+              ? "border-emerald-300/25 bg-emerald-400/15 text-emerald-100"
+              : "border-white/10 bg-white/8 text-white/65"
+          }`}>
+            <Rocket className="h-5 w-5" />
+          </div>
+          <div className="min-w-0">
+            <p className="text-sm font-black text-white">Performance Mode</p>
+            <p className="mt-1 text-xs leading-5 text-white/50">
+              Reduce animations, glow, blur, and motion effects for smoother performance.
+            </p>
+          </div>
+        </div>
+
+        <SettingsToggle enabled={localPerformanceMode} />
+      </button>
+
+      <div className="rounded-[24px] border border-white/10 bg-white/[0.035] p-4">
+        <p className="text-sm font-bold text-white">
+          Current visual mode: {localPerformanceMode ? "Performance" : "Premium"}
+        </p>
+        <p className="mt-1 text-xs leading-5 text-white/45">
+          Premium Mode keeps CLARA's full glow, blur, shadows, and animations. Performance Mode keeps the same layout and colors, but reduces visual-heavy effects globally.
+        </p>
+      </div>
+    </div>
+  );
+
   const renderAboutPage = () => (
     <div className="space-y-4">
       <DetailHeader
@@ -4395,6 +4616,7 @@ function DashboardSettingsPanel({
   const renderActiveSetting = () => {
     if (activeSetting === "profile") return renderProfilePage();
     if (activeSetting === "notifications") return renderNotificationsPage();
+    if (activeSetting === "performance") return renderPerformancePage();
     if (activeSetting === "plan") return renderPlanPage();
     if (activeSetting === "security") return renderSecurityPage();
     if (activeSetting === "support") return renderSupportPage();
