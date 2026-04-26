@@ -9,6 +9,7 @@ import { ThemeProvider } from "@/theme/ThemeProvider";
 import App from "./App.jsx";
 import "./index.css";
 import "./clara-fab-theme.css";
+import "./mobile-responsive.css";
 
 // --- SAFE BILLING INIT (non-blocking, crash-proof) ---
 window.CLARA_BILLING = window.CLARA_BILLING || {};
