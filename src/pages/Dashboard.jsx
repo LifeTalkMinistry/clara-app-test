@@ -3165,7 +3165,7 @@ function DashboardMessagesPanel({ onBack }) {
   if (activeConvo) {
     return createPortal(
       <div
-        className="fixed inset-0 z-[2147483000] flex h-[100dvh] w-screen flex-col overflow-hidden bg-[radial-gradient(circle_at_top,#0d3b2f_0%,#031b2d_35%,#020817_75%)] text-white"
+        className="fixed inset-0 z-[2147483000] grid h-[100dvh] w-screen grid-rows-[auto_minmax(0,1fr)_auto] overflow-hidden bg-[linear-gradient(180deg,#062c2c_0%,#031b2d_34%,#020817_78%)] text-white"
         style={{
           position: "fixed",
           inset: 0,
@@ -3174,6 +3174,7 @@ function DashboardMessagesPanel({ onBack }) {
           maxWidth: "100vw",
           maxHeight: "100dvh",
           margin: 0,
+          padding: 0,
           transform: "none",
           borderRadius: 0,
           overflow: "hidden",
@@ -3181,27 +3182,29 @@ function DashboardMessagesPanel({ onBack }) {
           isolation: "isolate",
         }}
       >
-        <div className="relative z-[2147483001] shrink-0 border-b border-white/10 bg-black/40 px-4 pb-3 pt-[calc(env(safe-area-inset-top)+0.85rem)]">
+        <header className="relative z-[2147483001] border-b border-white/10 bg-[#03151d]/95 px-4 pb-3 pt-[calc(env(safe-area-inset-top)+0.75rem)]">
           <div className="mx-auto flex max-w-3xl items-center gap-3">
             <button
               type="button"
               onClick={() => setSelectedConvo(null)}
-              className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border border-white/10 bg-white/5 text-white transition hover:bg-white/10 active:scale-95"
+              className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border border-white/10 bg-white/[0.06] text-white transition active:scale-95"
               aria-label="Back to inbox"
             >
               <ArrowDown className="h-4 w-4 rotate-90" />
             </button>
 
             <div className="relative shrink-0">
-              <div className="flex h-11 w-11 items-center justify-center rounded-2xl border border-white/10 bg-gradient-to-br from-emerald-400/20 via-cyan-400/10 to-blue-500/20 font-semibold text-white shadow-lg">
+              <div className="flex h-11 w-11 items-center justify-center rounded-2xl border border-white/10 bg-gradient-to-br from-emerald-400/20 via-cyan-400/10 to-blue-500/20 text-sm font-black text-white">
                 {String(activeConvo.name || "?").slice(0, 2).toUpperCase()}
               </div>
-              <span className="absolute -bottom-0.5 -right-0.5 h-3 w-3 rounded-full border-2 border-slate-950 bg-emerald-400" />
+              <span className="absolute -bottom-0.5 -right-0.5 h-3 w-3 rounded-full border-2 border-[#03151d] bg-emerald-400" />
             </div>
 
             <div className="min-w-0 flex-1">
-              <p className="truncate text-sm font-bold text-white">{activeConvo.name}</p>
-              <p className="truncate text-[11px] text-white/50">
+              <p className="truncate text-sm font-black leading-tight text-white">
+                {activeConvo.name}
+              </p>
+              <p className="mt-0.5 truncate text-[11px] leading-tight text-white/55">
                 {messageMode === "admin_only" && !isAdmin
                   ? "CLARA Admin"
                   : "Private conversation"}
@@ -3211,53 +3214,72 @@ function DashboardMessagesPanel({ onBack }) {
             <button
               type="button"
               onClick={() => setSelectedConvo(null)}
-              className="rounded-full border border-white/10 bg-white/8 px-3 py-2 text-[11px] font-semibold text-white/75 transition hover:bg-white/12"
+              className="shrink-0 rounded-full border border-white/10 bg-white/[0.06] px-3 py-2 text-[11px] font-bold text-white/75 transition active:scale-95"
             >
               Inbox
             </button>
           </div>
-        </div>
+        </header>
 
-        <div
-          className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 py-4 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+        <main
+          className="min-h-0 overflow-y-auto overscroll-contain px-4 py-4 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
           style={{ WebkitOverflowScrolling: "touch" }}
         >
-          <div className="mx-auto flex min-h-full max-w-3xl flex-col justify-end space-y-3">
+          <div className="mx-auto flex min-h-full max-w-3xl flex-col justify-end gap-2.5">
             {activeConvo.messages.length === 0 ? (
-              <div className="flex min-h-[56dvh] items-center justify-center text-center">
-                <div className="w-full max-w-sm rounded-[28px] border border-white/10 bg-white/5 p-6 shadow-[0_20px_70px_rgba(0,0,0,0.28)] backdrop-blur-xl">
-                  <MessageCircle className="mx-auto h-10 w-10 text-white/45" />
+              <div className="flex min-h-full items-center justify-center text-center">
+                <div className="w-full max-w-sm rounded-[28px] border border-white/10 bg-white/[0.05] p-6">
+                  <MessageCircle className="mx-auto h-10 w-10 text-white/40" />
                   <p className="mt-3 text-sm font-bold text-white">Start your conversation</p>
-                  <p className="mt-1 text-xs text-white/50">
+                  <p className="mt-1 text-xs leading-5 text-white/50">
                     Send your first message to {activeConvo.name}.
                   </p>
                 </div>
               </div>
             ) : (
-              activeConvo.messages.map((message) => {
+              activeConvo.messages.map((message, index) => {
                 const isMine = message.sender_id === currentUserId;
+                const previousMessage = activeConvo.messages[index - 1];
+                const nextMessage = activeConvo.messages[index + 1];
+                const previousIsMine = previousMessage?.sender_id === message.sender_id;
+                const nextIsMine = nextMessage?.sender_id === message.sender_id;
+                const showTimeSeparator =
+                  !previousMessage ||
+                  new Date(message.created_at).getTime() -
+                    new Date(previousMessage.created_at).getTime() >
+                    1000 * 60 * 30;
 
                 return (
-                  <div
-                    key={message.id}
-                    className={`flex ${isMine ? "justify-end" : "justify-start"}`}
-                  >
-                    <div
-                      className={`max-w-[82%] rounded-[22px] px-4 py-3 shadow-lg ${
-                        isMine
-                          ? "rounded-br-md bg-gradient-to-br from-emerald-500 to-teal-600 text-white"
-                          : "rounded-bl-md border border-white/10 bg-white/8 text-white backdrop-blur-xl"
-                      }`}
-                    >
-                      <p className="whitespace-pre-wrap break-words text-[14px] leading-relaxed">
-                        {message.content}
-                      </p>
+                  <div key={message.id} className="space-y-2">
+                    {showTimeSeparator ? (
+                      <div className="flex justify-center py-1">
+                        <span className="rounded-full border border-white/10 bg-white/[0.05] px-3 py-1 text-[10px] font-bold uppercase tracking-[0.14em] text-white/35">
+                          {dashboardPanelFormatTime(message.created_at)}
+                        </span>
+                      </div>
+                    ) : null}
+
+                    <div className={`flex ${isMine ? "justify-end" : "justify-start"}`}>
                       <div
-                        className={`mt-1.5 text-[10px] ${
-                          isMine ? "text-white/70" : "text-white/40"
-                        }`}
+                        className={[
+                          "max-w-[78%] px-4 py-3 text-[14px] leading-relaxed shadow-[0_10px_24px_rgba(0,0,0,0.20)]",
+                          isMine
+                            ? "bg-emerald-500 text-white"
+                            : "border border-white/10 bg-[#071120] text-white",
+                          isMine && previousIsMine ? "rounded-tr-xl" : "rounded-tr-[22px]",
+                          isMine && nextIsMine ? "rounded-br-xl" : "rounded-br-[22px]",
+                          !isMine && previousIsMine ? "rounded-tl-xl" : "rounded-tl-[22px]",
+                          !isMine && nextIsMine ? "rounded-bl-xl" : "rounded-bl-[22px]",
+                        ].join(" ")}
                       >
-                        {dashboardPanelFormatTime(message.created_at)}
+                        <p className="whitespace-pre-wrap break-words">{message.content}</p>
+                        <div
+                          className={`mt-1.5 text-[10px] leading-none ${
+                            isMine ? "text-white/70" : "text-white/40"
+                          }`}
+                        >
+                          {dashboardPanelFormatTime(message.created_at)}
+                        </div>
                       </div>
                     </div>
                   </div>
@@ -3266,33 +3288,37 @@ function DashboardMessagesPanel({ onBack }) {
             )}
             <div ref={messagesEndRef} />
           </div>
-        </div>
+        </main>
 
-        <div className="relative z-[2147483001] shrink-0 border-t border-white/10 bg-black/40 px-4 pb-[calc(env(safe-area-inset-bottom)+0.75rem)] pt-3">
-          <div className="mx-auto flex max-w-3xl items-center gap-2 rounded-[24px] border border-white/10 bg-white/6 px-3 py-2">
-            <input
-              value={newMsg}
-              onChange={(event) => setNewMsg(event.target.value)}
-              placeholder="Type a message..."
-              className="min-w-0 flex-1 bg-transparent text-sm text-white outline-none placeholder:text-white/35"
-              disabled={sending}
-              onKeyDown={(event) => {
-                if (event.key === "Enter" && !event.shiftKey) {
-                  event.preventDefault();
-                  handleSend();
-                }
-              }}
-            />
+        <footer className="relative z-[2147483001] border-t border-white/10 bg-[#020817]/96 px-4 pb-[calc(env(safe-area-inset-bottom)+0.75rem)] pt-3">
+          <div className="mx-auto flex max-w-3xl items-end gap-2">
+            <div className="flex min-h-[46px] flex-1 items-center rounded-[24px] border border-white/10 bg-white/[0.06] px-4">
+              <input
+                value={newMsg}
+                onChange={(event) => setNewMsg(event.target.value)}
+                placeholder="Type a message..."
+                className="h-11 min-w-0 flex-1 bg-transparent text-sm text-white outline-none placeholder:text-white/35"
+                disabled={sending}
+                onKeyDown={(event) => {
+                  if (event.key === "Enter" && !event.shiftKey) {
+                    event.preventDefault();
+                    handleSend();
+                  }
+                }}
+              />
+            </div>
+
             <button
               type="button"
               onClick={handleSend}
               disabled={!newMsg.trim() || sending}
-              className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-emerald-400 text-slate-950 shadow-[0_12px_30px_rgba(16,185,129,0.22)] disabled:opacity-45"
+              className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-emerald-500 text-white shadow-[0_10px_24px_rgba(16,185,129,0.24)] transition active:scale-95 disabled:opacity-45"
+              aria-label="Send message"
             >
               <Send className="h-4 w-4" />
             </button>
           </div>
-        </div>
+        </footer>
       </div>,
       document.body
     );
