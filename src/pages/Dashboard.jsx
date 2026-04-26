@@ -7311,7 +7311,7 @@ export default function Dashboard() {
         <button
           type="button"
           onClick={() => setDailyStrategyFlipped((current) => !current)}
-          className="group mt-2.5 block w-full text-left outline-none [perspective:1000px] sm:mt-3"
+          className="group mt-2 block w-full text-left outline-none [perspective:1000px] sm:mt-2.5"
           aria-label="Tap to reveal Daily Money Tip"
         >
           <div
@@ -7348,9 +7348,6 @@ export default function Dashboard() {
                   </h3>
                   <p className={`mt-1 text-xs leading-5 ${themeMutedTextClass}`}>
                     A smart money tip is waiting for you.
-                  </p>
-                  <p className="mt-0.5 text-xs font-bold leading-5 text-emerald-300">
-                    Tap to reveal today’s tip.
                   </p>
                 </div>
               </div>
