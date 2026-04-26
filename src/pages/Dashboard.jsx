@@ -951,9 +951,9 @@ const DASHBOARD_SCALE = {
     financeSlide: "min-h-[238px] rounded-[24px] [&>*]:min-h-[236px] [&>*]:rounded-[23px]",
     dots: "gap-1 pt-1 pb-[clamp(6px,1.2dvh,10px)]",
     summaryGrid: "rounded-[22px]",
-    summaryCell: "min-h-[118px] p-[clamp(10px,3vw,12px)]",
+    summaryCell: "min-h-[96px] p-[clamp(12px,3vw,14px)]",
     summaryLabel: "text-[9px] tracking-[0.18em]",
-    summaryAmount: "mt-2 text-[clamp(22px,7vw,27px)]",
+    summaryAmount: "mt-3 text-[clamp(25px,7vw,30px)]",
     summaryCopy: "mt-2 text-[11px] leading-4",
     summarySubcopy: "mt-1 text-[10px] leading-4",
   },
@@ -977,9 +977,9 @@ const DASHBOARD_SCALE = {
     financeSlide: "min-h-[258px] rounded-[26px] [&>*]:min-h-[256px] [&>*]:rounded-[25px]",
     dots: "gap-1.5 pt-1 pb-[clamp(7px,1.3dvh,12px)]",
     summaryGrid: "rounded-[24px]",
-    summaryCell: "min-h-[128px] p-[clamp(11px,3.2vw,14px)]",
+    summaryCell: "min-h-[102px] p-[clamp(12px,3.2vw,15px)]",
     summaryLabel: "text-[10px] tracking-[0.2em]",
-    summaryAmount: "mt-2.5 text-[clamp(24px,7.2vw,29px)]",
+    summaryAmount: "mt-3 text-[clamp(26px,7.2vw,31px)]",
     summaryCopy: "mt-2 text-xs leading-5",
     summarySubcopy: "mt-1.5 text-[11px] leading-4",
   },
@@ -1003,9 +1003,9 @@ const DASHBOARD_SCALE = {
     financeSlide: "min-h-[286px] rounded-[28px] [&>*]:min-h-[284px] [&>*]:rounded-[27px]",
     dots: "gap-1.5 pt-1.5 pb-[clamp(8px,1.4dvh,14px)]",
     summaryGrid: "rounded-[26px]",
-    summaryCell: "min-h-[140px] p-[clamp(13px,3.6vw,16px)]",
+    summaryCell: "min-h-[110px] p-[clamp(14px,3.6vw,16px)]",
     summaryLabel: "text-[11px] tracking-[0.22em]",
-    summaryAmount: "mt-3 text-3xl",
+    summaryAmount: "mt-3 text-[clamp(28px,7.5vw,32px)]",
     summaryCopy: "mt-3 text-sm leading-6",
     summarySubcopy: "mt-2 text-xs leading-5",
   },
@@ -1029,9 +1029,9 @@ const DASHBOARD_SCALE = {
     financeSlide: "min-h-[314px] rounded-[30px] [&>*]:min-h-[312px] [&>*]:rounded-[29px]",
     dots: "gap-1.5 pt-1.5 pb-[clamp(8px,1.4dvh,14px)]",
     summaryGrid: "rounded-[28px]",
-    summaryCell: "min-h-[148px] p-4",
+    summaryCell: "min-h-[116px] p-4",
     summaryLabel: "text-[11px] tracking-[0.22em]",
-    summaryAmount: "mt-3 text-3xl",
+    summaryAmount: "mt-3 text-[clamp(28px,7.5vw,32px)]",
     summaryCopy: "mt-3 text-sm leading-6",
     summarySubcopy: "mt-2 text-xs leading-5",
   },
@@ -7276,27 +7276,13 @@ export default function Dashboard() {
             }}
           >
             <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(255,255,255,0.08),transparent_42%)]" />
-            <div className="relative min-w-0">
-              <div className="flex items-start justify-between gap-2">
-                <p className={`uppercase ${dashboardScale.summaryLabel} ${themeSoftTextClass}`}>
-                  Money Left
-                </p>
-                <span aria-hidden="true" className="w-8 shrink-0" />
-              </div>
+            <div className="relative flex min-h-full min-w-0 flex-col justify-center">
+              <p className={`uppercase ${dashboardScale.summaryLabel} ${themeSoftTextClass}`}>
+                Total Money Left
+              </p>
               <h2 className={`font-bold leading-none ${dashboardScale.summaryAmount} ${themePrimaryTextClass}`}>
                 {fmt(walletMoney)}
               </h2>
-              <p className={`${dashboardScale.summaryCopy} ${themeMutedTextClass}`}>
-                {moneyLeftHealth.title}
-                {moneyLeftHealth.highlight ? (
-                  <>
-                    {" "}
-                    <span className="font-bold text-emerald-300">
-                      {moneyLeftHealth.highlight}
-                    </span>
-                  </>
-                ) : null}
-              </p>
             </div>
           </div>
 
@@ -7311,24 +7297,13 @@ export default function Dashboard() {
             }}
           >
             <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_bottom_right,rgba(255,255,255,0.08),transparent_42%)]" />
-            <div className="relative min-w-0">
+            <div className="relative flex min-h-full min-w-0 flex-col justify-center">
               <p className={`uppercase ${dashboardScale.summaryLabel} ${themeSoftTextClass}`}>
                 Total Expense
               </p>
               <h2 className={`font-bold leading-none ${dashboardScale.summaryAmount} ${themePrimaryTextClass}`}>
                 {fmt(thisMonthSpent)}
               </h2>
-              <p className={`${dashboardScale.summaryCopy} ${themeMutedTextClass}`}>
-                {expenseHealth.title}
-                {expenseHealth.highlight ? (
-                  <>
-                    {" "}
-                    <span className="font-bold text-emerald-300">
-                      {expenseHealth.highlight}
-                    </span>
-                  </>
-                ) : null}
-              </p>
             </div>
           </div>
         </div>
@@ -7336,11 +7311,11 @@ export default function Dashboard() {
         <button
           type="button"
           onClick={() => setDailyStrategyFlipped((current) => !current)}
-          className="group mt-3 block w-full text-left outline-none [perspective:1000px] sm:mt-4"
+          className="group mt-3.5 block w-full text-left outline-none [perspective:1000px] sm:mt-4"
           aria-label="Tap to reveal Daily Money Tip"
         >
           <div
-            className="relative min-h-[82px] transition-transform duration-500 [transform-style:preserve-3d]"
+            className="relative min-h-[86px] transition-transform duration-500 [transform-style:preserve-3d]"
             style={{ transform: dailyStrategyFlipped ? "rotateY(180deg)" : "rotateY(0deg)" }}
           >
             <div
@@ -7353,7 +7328,7 @@ export default function Dashboard() {
               }}
             >
               <div
-                className="relative flex h-full min-h-[80px] items-center gap-3 overflow-hidden rounded-[23px] px-4 py-2.5 backdrop-blur-xl"
+                className="relative flex h-full min-h-[84px] items-center gap-3 overflow-hidden rounded-[23px] px-4 py-3 backdrop-blur-xl"
                 style={{
                   background:
                     selectedDashboardTheme?.tokens?.card ||
@@ -7391,7 +7366,7 @@ export default function Dashboard() {
               }}
             >
               <div
-                className="relative flex h-full min-h-[80px] items-center gap-3 overflow-hidden rounded-[23px] px-4 py-2.5 backdrop-blur-xl"
+                className="relative flex h-full min-h-[84px] items-center gap-3 overflow-hidden rounded-[23px] px-4 py-3 backdrop-blur-xl"
                 style={{
                   background:
                     selectedDashboardTheme?.tokens?.card ||
