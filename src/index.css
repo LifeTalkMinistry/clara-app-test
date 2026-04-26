@@ -279,3 +279,19 @@
 .theme-input::placeholder {
   color: color-mix(in srgb, var(--theme-muted-text) 88%, transparent);
 }
+
+/* ================= ADMIN RECOVERY BUTTON ================= */
+a[aria-label="Open admin panel"] {
+  top: auto !important;
+  right: 1rem !important;
+  bottom: calc(env(safe-area-inset-bottom) + 7.5rem) !important;
+  border-radius: 999px !important;
+  padding: 0.7rem 1rem !important;
+  opacity: 0.92;
+}
+
+@media (min-width: 768px) {
+  a[aria-label="Open admin panel"] {
+    bottom: calc(env(safe-area-inset-bottom) + 2rem) !important;
+  }
+}
