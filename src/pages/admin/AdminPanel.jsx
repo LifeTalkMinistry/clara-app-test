@@ -8,7 +8,6 @@ import FeaturePageLoader from "../../components/FeaturePageLoader";
 
 import AdminUsers from "./AdminUsers";
 import AdminEnrollments from "./AdminEnrollments";
-import AdminTasks from "./AdminTasks";
 import AdminModules from "./AdminModules";
 import AdminSettings from "./AdminSettings";
 import AdminPlans from "./AdminPlans";
@@ -81,9 +80,6 @@ export default function AdminPanel() {
             <TabsTrigger value="billboard" className="text-xs px-3">
               Billboard
             </TabsTrigger>
-            <TabsTrigger value="tasks" className="text-xs px-3">
-              Tasks
-            </TabsTrigger>
             <TabsTrigger value="modules" className="text-xs px-3">
               Modules
             </TabsTrigger>
@@ -121,10 +117,6 @@ export default function AdminPanel() {
 
         <TabsContent value="billboard">
           <AdminBillboard />
-        </TabsContent>
-
-        <TabsContent value="tasks">
-          <AdminTasks />
         </TabsContent>
 
         <TabsContent value="modules">
