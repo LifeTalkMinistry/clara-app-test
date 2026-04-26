@@ -1,10 +1,11 @@
 import { useLocation, useNavigate } from "react-router-dom";
-import { useState, useCallback, useEffect, useRef, useMemo } from "react";
+import { Suspense, lazy, useState, useCallback, useEffect, useRef, useMemo } from "react";
 import { supabase } from "@/lib/supabaseClient";
 import QuickAddModal from "./QuickAddModal";
 import AdsModal from "./AdsModal";
-import ClaraAssistantPanel from "@/components/ai/ClaraAssistantPanel";
 import useUserRole from "../hooks/useUserRole";
+
+const ClaraAssistantPanel = lazy(() => import("@/components/ai/ClaraAssistantPanel"));
 
 const MOTION_TRANSITION_KEY = "clara_motion_transition_origin";
 const TRANSACTION_TRANSITION_KEY = "clara_transactions_transition_origin";
@@ -666,11 +667,15 @@ export default function Layout({ children }) {
         userEmail={user?.email}
       />
 
-      <ClaraAssistantPanel
-        open={assistantOpen}
-        mode={assistantMode}
-        onClose={() => setAssistantOpen(false)}
-      />
+      {assistantOpen && (
+        <Suspense fallback={null}>
+          <ClaraAssistantPanel
+            open={assistantOpen}
+            mode={assistantMode}
+            onClose={() => setAssistantOpen(false)}
+          />
+        </Suspense>
+      )}
     </div>
   );
 }
