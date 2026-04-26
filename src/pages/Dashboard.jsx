@@ -7455,7 +7455,7 @@ export default function Dashboard() {
 
 
       {activeDashboardPanel === "home" && expandedFinanceCard && (
-        <div className="fixed inset-0 z-[99980] flex items-end justify-center bg-black/72 backdrop-blur-xl sm:items-center">
+        <div className="fixed inset-0 z-[80] flex items-end justify-center bg-black/72 backdrop-blur-xl sm:items-center">
           <button
             type="button"
             className="absolute inset-0 cursor-default"
