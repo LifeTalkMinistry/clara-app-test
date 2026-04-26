@@ -77,8 +77,12 @@ a[aria-label="Open admin panel"] {
 }
 
 /* Premium Mode messaging fix: an opened private conversation must behave like the clean Performance Mode chat view. */
-main > .fixed.inset-0 {
-  z-index: 999999 !important;
+main > .fixed.inset-0,
+.theme-page-shell .fixed.inset-0.z-\[99980\],
+.theme-page-shell [class*="z-[99980]"][class*="h-[100dvh]"][class*="w-screen"] {
+  position: fixed !important;
+  inset: 0 !important;
+  z-index: 2147483000 !important;
   width: 100vw !important;
   height: 100dvh !important;
   max-width: 100vw !important;
@@ -87,12 +91,25 @@ main > .fixed.inset-0 {
   transform: none !important;
   border-radius: 0 !important;
   overflow: hidden !important;
+  isolation: isolate !important;
 }
 
 main > .fixed.inset-0 > div:first-child,
-main > .fixed.inset-0 > div:last-child {
-  z-index: 1000000 !important;
+main > .fixed.inset-0 > div:last-child,
+.theme-page-shell .fixed.inset-0.z-\[99980\] > div:first-child,
+.theme-page-shell .fixed.inset-0.z-\[99980\] > div:last-child,
+.theme-page-shell [class*="z-[99980]"][class*="h-[100dvh]"][class*="w-screen"] > div:first-child,
+.theme-page-shell [class*="z-[99980]"][class*="h-[100dvh]"][class*="w-screen"] > div:last-child {
+  position: relative !important;
+  z-index: 2147483001 !important;
   background: rgba(2, 10, 23, 0.78) !important;
   backdrop-filter: none !important;
   -webkit-backdrop-filter: none !important;
+}
+
+body:has(.theme-page-shell [class*="z-[99980]"][class*="h-[100dvh]"][class*="w-screen"]) [data-bottom-nav],
+body:has(.theme-page-shell [class*="z-[99980]"][class*="h-[100dvh]"][class*="w-screen"]) [data-fab],
+body:has(.theme-page-shell [class*="z-[99980]"][class*="h-[100dvh]"][class*="w-screen"]) a[aria-label="Open admin panel"] {
+  display: none !important;
+  pointer-events: none !important;
 }
