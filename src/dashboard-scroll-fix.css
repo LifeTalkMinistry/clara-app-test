@@ -1,0 +1,58 @@
+/* Focused dashboard scroll/clipping fix.
+   This file targets only the Dashboard main scroll area added in Layout.jsx. */
+
+.clara-dashboard-main {
+  height: 100dvh !important;
+  max-height: 100dvh !important;
+  min-height: 0 !important;
+  overflow-x: hidden !important;
+  overflow-y: auto !important;
+  -webkit-overflow-scrolling: touch !important;
+  overscroll-behavior-y: contain;
+  padding-top: calc(0.75rem + env(safe-area-inset-top)) !important;
+  padding-bottom: calc(180px + env(safe-area-inset-bottom)) !important;
+  scroll-padding-bottom: calc(180px + env(safe-area-inset-bottom));
+}
+
+.clara-dashboard-main > * {
+  min-height: auto !important;
+  max-height: none !important;
+}
+
+.clara-dashboard-main [class*="min-h-screen"],
+.clara-dashboard-main [class*="h-screen"],
+.clara-dashboard-main [class*="max-h-screen"] {
+  min-height: auto !important;
+  height: auto !important;
+  max-height: none !important;
+}
+
+.clara-dashboard-main [class*="overflow-hidden"] {
+  overflow: visible !important;
+}
+
+/* Re-clip only visual media containers so the billboard stays rounded. */
+.clara-dashboard-main [class*="rounded-"]:has(video),
+.clara-dashboard-main [class*="rounded-"]:has(img),
+.clara-dashboard-main video,
+.clara-dashboard-main img {
+  overflow: hidden !important;
+  border-radius: inherit;
+}
+
+.clara-dashboard-main video,
+.clara-dashboard-main img {
+  display: block;
+  max-width: 100%;
+  object-fit: cover;
+  transform: translateZ(0) scale(1.002);
+  backface-visibility: hidden;
+}
+
+/* Make sure the last dashboard card can fully clear Android's navigation bar. */
+.clara-dashboard-main > *::after {
+  content: "";
+  display: block;
+  height: calc(96px + env(safe-area-inset-bottom));
+  flex: 0 0 auto;
+}
