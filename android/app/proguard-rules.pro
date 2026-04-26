@@ -5,12 +5,25 @@
 # For more details, see
 #   http://developer.android.com/guide/developing/tools/proguard.html
 
-# If your project uses WebView with JS, uncomment the following
-# and specify the fully qualified class name to the JavaScript interface
-# class:
-#-keepclassmembers class fqcn.of.javascript.interface.for.webview {
-#   public *;
-#}
+# CLARA / Capacitor release safety rules.
+# These keep native bridge, Cordova plugin, WebView interface, and Billing classes
+# stable when release minification is enabled.
+
+-keep class com.getcapacitor.** { *; }
+-keep class org.apache.cordova.** { *; }
+-keep class com.android.billingclient.** { *; }
+
+-keepclassmembers class * {
+    @android.webkit.JavascriptInterface <methods>;
+}
+
+-keepattributes *Annotation*
+-keepattributes Signature
+-keepattributes InnerClasses
+
+-dontwarn com.getcapacitor.**
+-dontwarn org.apache.cordova.**
+-dontwarn com.android.billingclient.**
 
 # Uncomment this to preserve the line number information for
 # debugging stack traces.
