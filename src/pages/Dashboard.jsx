@@ -7336,11 +7336,11 @@ export default function Dashboard() {
         <button
           type="button"
           onClick={() => setDailyStrategyFlipped((current) => !current)}
-          className="group block w-full text-left outline-none [perspective:1000px]"
+          className="group mt-3 block w-full text-left outline-none [perspective:1000px] sm:mt-4"
           aria-label="Tap to flip Daily Spending Strategy card"
         >
           <div
-            className="relative min-h-[92px] transition-transform duration-500 [transform-style:preserve-3d]"
+            className="relative min-h-[82px] transition-transform duration-500 [transform-style:preserve-3d]"
             style={{ transform: dailyStrategyFlipped ? "rotateY(180deg)" : "rotateY(0deg)" }}
           >
             <div
@@ -7353,7 +7353,7 @@ export default function Dashboard() {
               }}
             >
               <div
-                className="relative flex h-full min-h-[90px] items-center gap-3 overflow-hidden rounded-[23px] px-4 py-3 backdrop-blur-xl"
+                className="relative flex h-full min-h-[80px] items-center gap-3 overflow-hidden rounded-[23px] px-4 py-2.5 backdrop-blur-xl"
                 style={{
                   background:
                     selectedDashboardTheme?.tokens?.card ||
@@ -7391,7 +7391,7 @@ export default function Dashboard() {
               }}
             >
               <div
-                className="relative flex h-full min-h-[90px] items-center gap-3 overflow-hidden rounded-[23px] px-4 py-3 backdrop-blur-xl"
+                className="relative flex h-full min-h-[80px] items-center gap-3 overflow-hidden rounded-[23px] px-4 py-2.5 backdrop-blur-xl"
                 style={{
                   background:
                     selectedDashboardTheme?.tokens?.card ||
