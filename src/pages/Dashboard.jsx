@@ -4522,6 +4522,7 @@ export default function Dashboard() {
     readStoredNotificationSettings(userId)
   );
   const [financeCardIndex, setFinanceCardIndex] = useState(0);
+  const [dailyStrategyFlipped, setDailyStrategyFlipped] = useState(false);
   const [activeDashboardPanel, setActiveDashboardPanel] = useState("home");
   const [dashboardPanelDirection, setDashboardPanelDirection] = useState("forward");
   const [expandedFinanceCard, setExpandedFinanceCard] = useState(null);
@@ -6569,6 +6570,56 @@ export default function Dashboard() {
     };
   }, [thisMonthIncome, thisMonthSpent]);
 
+  const dailyStrategyCard = useMemo(() => {
+    const safeSpendText = moneyLeftHealth?.highlight ||
+      (walletMoney > 0 ? `${fmt(walletMoney)} available.` : "Set up your wallet first.");
+
+    const income = Math.max(Number(thisMonthIncome) || 0, 0);
+    const spent = Math.max(Number(thisMonthSpent) || 0, 0);
+    const balance = Math.max(Number(walletMoney) || 0, 0);
+    const survival = Math.max(Number(safeSurvivalExpense) || 0, 0);
+    const remainingIncome = Math.max(income - spent, 0);
+    const recommendedWantLimit = Math.max(Math.min(remainingIncome * 0.15, balance * 0.08), 0);
+
+    if (moneyLeftHealth?.title?.toLowerCase?.().includes("pause")) {
+      return {
+        safeAmount: safeSpendText,
+        action: "Delay wants and protect essentials today.",
+        backNote: "When money feels tight, CLARA’s safest move is to pause extras first.",
+      };
+    }
+
+    if (moneyLeftHealth?.title?.toLowerCase?.().includes("carefully")) {
+      return {
+        safeAmount: safeSpendText,
+        action: "Limit non-essentials and review before buying.",
+        backNote: "Small pauses prevent emotional spending from becoming a pattern.",
+      };
+    }
+
+    if (recommendedWantLimit > 0) {
+      return {
+        safeAmount: safeSpendText,
+        action: `Keep wants under ${fmt(recommendedWantLimit)} today.`,
+        backNote: "Before buying, ask: is this planned, needed, or emotional?",
+      };
+    }
+
+    if (survival > 0 && balance >= survival) {
+      return {
+        safeAmount: safeSpendText,
+        action: "Spend lightly and keep your emergency fund protected.",
+        backNote: "Your future stability depends on what you protect today.",
+      };
+    }
+
+    return {
+      safeAmount: safeSpendText,
+      action: "Log income and essentials to unlock smarter guidance.",
+      backNote: "The more accurate your records are, the smarter CLARA’s advice becomes.",
+    };
+  }, [moneyLeftHealth, safeSurvivalExpense, thisMonthIncome, thisMonthSpent, walletMoney]);
+
   const moneyLeftTone =
     safeSurvivalExpense <= 0
       ? "from-cyan-500/20 to-emerald-500/20 border-cyan-400/20"
@@ -7246,11 +7297,6 @@ export default function Dashboard() {
                   </>
                 ) : null}
               </p>
-              {moneyLeftHealth.subcopy ? (
-                <p className={`${dashboardScale.summarySubcopy} ${themeSoftTextClass}`}>
-                  {moneyLeftHealth.subcopy}
-                </p>
-              ) : null}
             </div>
           </div>
 
@@ -7283,12 +7329,94 @@ export default function Dashboard() {
                   </>
                 ) : null}
               </p>
-              <p className={`${dashboardScale.summarySubcopy} ${themeSoftTextClass}`}>
-                {expenseHealth.subcopy}
-              </p>
             </div>
           </div>
         </div>
+
+        <button
+          type="button"
+          onClick={() => setDailyStrategyFlipped((current) => !current)}
+          className="group block w-full text-left outline-none [perspective:1000px]"
+          aria-label="Tap to flip Daily Spending Strategy card"
+        >
+          <div
+            className="relative min-h-[92px] transition-transform duration-500 [transform-style:preserve-3d]"
+            style={{ transform: dailyStrategyFlipped ? "rotateY(180deg)" : "rotateY(0deg)" }}
+          >
+            <div
+              className="absolute inset-0 overflow-hidden rounded-[24px] border p-[1px] shadow-[0_18px_50px_rgba(0,0,0,0.22)] [backface-visibility:hidden]"
+              style={{
+                borderColor:
+                  selectedDashboardTheme?.tokens?.border || "var(--theme-border)",
+                background:
+                  "linear-gradient(135deg, color-mix(in srgb, var(--theme-accent) 34%, transparent), color-mix(in srgb, var(--theme-card) 92%, transparent), color-mix(in srgb, var(--theme-secondary) 22%, transparent))",
+              }}
+            >
+              <div
+                className="relative flex h-full min-h-[90px] items-center gap-3 overflow-hidden rounded-[23px] px-4 py-3 backdrop-blur-xl"
+                style={{
+                  background:
+                    selectedDashboardTheme?.tokens?.card ||
+                    "linear-gradient(135deg, rgba(6,31,43,0.94), rgba(7,20,36,0.96))",
+                }}
+              >
+                <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(45,246,222,0.16),transparent_36%),radial-gradient(circle_at_bottom_right,rgba(59,130,246,0.12),transparent_42%)]" />
+                <div className="relative flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border border-emerald-300/20 bg-emerald-400/10 text-emerald-200 shadow-[0_0_24px_rgba(45,246,222,0.10)]">
+                  <RotateCcw className="h-5 w-5 transition duration-300 group-active:rotate-180" />
+                </div>
+                <div className="relative min-w-0 flex-1">
+                  <p className={`text-[10px] font-bold uppercase tracking-[0.22em] ${themeSoftTextClass}`}>
+                    Tap to Flip
+                  </p>
+                  <h3 className={`mt-1 text-sm font-extrabold leading-tight ${themePrimaryTextClass}`}>
+                    Daily Spending Strategy
+                  </h3>
+                  <p className={`mt-1 text-xs leading-5 ${themeMutedTextClass}`}>
+                    Safe to spend today: {dailyStrategyCard.safeAmount}
+                  </p>
+                  <p className="mt-0.5 text-xs font-bold leading-5 text-emerald-300">
+                    {dailyStrategyCard.action}
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            <div
+              className="absolute inset-0 overflow-hidden rounded-[24px] border p-[1px] shadow-[0_18px_50px_rgba(0,0,0,0.22)] [backface-visibility:hidden] [transform:rotateY(180deg)]"
+              style={{
+                borderColor:
+                  selectedDashboardTheme?.tokens?.border || "var(--theme-border)",
+                background:
+                  "linear-gradient(135deg, color-mix(in srgb, var(--theme-secondary) 30%, transparent), color-mix(in srgb, var(--theme-card) 92%, transparent), color-mix(in srgb, var(--theme-accent) 26%, transparent))",
+              }}
+            >
+              <div
+                className="relative flex h-full min-h-[90px] items-center gap-3 overflow-hidden rounded-[23px] px-4 py-3 backdrop-blur-xl"
+                style={{
+                  background:
+                    selectedDashboardTheme?.tokens?.card ||
+                    "linear-gradient(135deg, rgba(34,12,45,0.94), rgba(6,25,39,0.96))",
+                }}
+              >
+                <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(255,255,255,0.10),transparent_34%),radial-gradient(circle_at_bottom_right,rgba(45,246,222,0.14),transparent_42%)]" />
+                <div className="relative flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border border-white/10 bg-white/10 text-emerald-200">
+                  <Check className="h-5 w-5" />
+                </div>
+                <div className="relative min-w-0 flex-1">
+                  <p className={`text-[10px] font-bold uppercase tracking-[0.22em] ${themeSoftTextClass}`}>
+                    Before You Spend
+                  </p>
+                  <h3 className={`mt-1 text-sm font-extrabold leading-tight ${themePrimaryTextClass}`}>
+                    Is this planned, needed, or emotional?
+                  </h3>
+                  <p className={`mt-1 text-xs leading-5 ${themeMutedTextClass}`}>
+                    {dailyStrategyCard.backNote}
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </button>
 
             </>
           ) : activeDashboardPanel === "feed" ? (
