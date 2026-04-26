@@ -70,3 +70,27 @@
   cursor: grabbing;
   transition: none !important;
 }
+
+/* Admin shortcut: keep it attached below the Settings tab, not floating in the content list */
+a[aria-label="Open admin panel"] {
+  top: calc(env(safe-area-inset-top) + 5.35rem) !important;
+  right: 1.35rem !important;
+  bottom: auto !important;
+  z-index: 99999 !important;
+  border-radius: 999px !important;
+  padding: 0.45rem 0.72rem !important;
+  font-size: 0.58rem !important;
+  letter-spacing: 0.16em !important;
+  line-height: 1 !important;
+  opacity: 0.96 !important;
+  transform: none !important;
+}
+
+@media (max-width: 380px) {
+  a[aria-label="Open admin panel"] {
+    right: 1.1rem !important;
+    top: calc(env(safe-area-inset-top) + 5.2rem) !important;
+    padding: 0.42rem 0.64rem !important;
+    font-size: 0.54rem !important;
+  }
+}
