@@ -6946,15 +6946,8 @@ export default function Dashboard() {
         ? "h-[calc(100svh-132px)] max-h-[calc(100svh-132px)] overflow-hidden pr-0.5 pb-0 [padding-bottom:0!important] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
         : "max-h-[calc(100svh-132px)] overflow-y-auto overscroll-y-contain touch-pan-y pr-0.5 pb-[calc(env(safe-area-inset-bottom)+14px)] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden";
 
-  const dashboardSmartScrollClass =
-    activeDashboardPanel === "home" && isDashboardScrollable
-      ? "max-h-[100dvh] overflow-y-auto overscroll-y-contain touch-pan-y pb-[calc(env(safe-area-inset-bottom)+88px)] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
-      : "overflow-y-hidden";
-
-  const dashboardSmartContentClass =
-    activeDashboardPanel === "home" && isDashboardScrollable
-      ? "pb-[calc(env(safe-area-inset-bottom)+88px)]"
-      : "";
+  const dashboardSmartScrollClass = "overflow-y-hidden";
+  const dashboardSmartContentClass = "";
 
   const headerQuickActions = [
     {
@@ -7239,11 +7232,10 @@ export default function Dashboard() {
                     onClickCapture={(event) => {
                       const button = event.target?.closest?.("button");
                       const label = String(button?.textContent || "").toLowerCase();
-                      if (label.includes("show details")) {
+                      if (label.includes("show details") || label.includes("hide details")) {
+                        event.preventDefault();
+                        event.stopPropagation();
                         setExpandedFinanceCard("emergency");
-                        scheduleDashboardScrollMeasure();
-                      } else if (label.includes("hide details")) {
-                        setExpandedFinanceCard(null);
                       }
                     }}
                   >
@@ -7252,7 +7244,7 @@ export default function Dashboard() {
                       survivalExpense={survivalExpense}
                       retentionRate={0}
                       theme={selectedDashboardTheme}
-                      expanded={expandedFinanceCard === "emergency"}
+                      expanded={false}
                       onExpandedChange={(open) => {
                         setExpandedFinanceCard(open ? "emergency" : null);
                       }}
@@ -7319,9 +7311,9 @@ export default function Dashboard() {
                     walletMoney={walletMoney}
                     walletPreviewTransactions={walletPreviewTransactions}
                     theme={selectedDashboardTheme}
-                    expanded={expandedFinanceCard === "wallets"}
+                    expanded={false}
                     onExpandedChange={(open) => setExpandedFinanceCard(open ? "wallets" : null)}
-                    onToggleDetails={() => toggleFinanceDetails("wallets")}
+                    onToggleDetails={() => setExpandedFinanceCard("wallets")}
                     financeActionLoading={financeActionLoading}
                     onCreateWallet={openCreateWalletModal}
                     onMoveWallet={moveWalletInline}
@@ -7337,9 +7329,9 @@ export default function Dashboard() {
                     <BudgetCard
                     activeBudget={derivedActiveBudget}
                     theme={selectedDashboardTheme}
-                    expanded={expandedFinanceCard === "budgets"}
+                    expanded={false}
                     onExpandedChange={(open) => setExpandedFinanceCard(open ? "budgets" : null)}
-                    onToggleDetails={() => toggleFinanceDetails("budgets")}
+                    onToggleDetails={() => setExpandedFinanceCard("budgets")}
                     financeActionLoading={financeActionLoading}
                     onSaveBudget={openBudgetModal}
                     onResetBudget={openResetBudgetModal}
@@ -7355,9 +7347,9 @@ export default function Dashboard() {
                     totalSavingsTarget={totalSavingsTarget}
                     primarySavingsGoal={primarySavingsGoal}
                     theme={selectedDashboardTheme}
-                    expanded={expandedFinanceCard === "savings"}
+                    expanded={false}
                     onExpandedChange={(open) => setExpandedFinanceCard(open ? "savings" : null)}
-                    onToggleDetails={() => toggleFinanceDetails("savings")}
+                    onToggleDetails={() => setExpandedFinanceCard("savings")}
                     financeActionLoading={financeActionLoading}
                     onSaveSavingsGoal={openSavingsGoalModal}
                     onDeleteSavingsGoal={openDeleteSavingsGoalModal}
@@ -7460,6 +7452,162 @@ export default function Dashboard() {
           ) : null}
         </div>
       </div>
+
+
+      {activeDashboardPanel === "home" && expandedFinanceCard && (
+        <div className="fixed inset-0 z-[99980] flex items-end justify-center bg-black/72 backdrop-blur-xl sm:items-center">
+          <button
+            type="button"
+            className="absolute inset-0 cursor-default"
+            aria-label="Close finance details"
+            onClick={() => setExpandedFinanceCard(null)}
+          />
+
+          <div className="relative z-10 flex h-[100dvh] w-full max-w-[430px] flex-col overflow-hidden rounded-t-[32px] border border-white/10 bg-[radial-gradient(circle_at_top,rgba(45,246,222,0.14),transparent_34%),linear-gradient(180deg,rgba(4,17,32,0.98),rgba(3,10,24,0.99))] shadow-[0_-24px_80px_rgba(0,0,0,0.45)] sm:h-[92dvh] sm:rounded-[32px]">
+            <div className="flex shrink-0 items-center justify-between border-b border-white/10 px-4 pb-3 pt-[calc(env(safe-area-inset-top)+14px)]">
+              <div>
+                <p className="text-[10px] font-bold uppercase tracking-[0.24em] text-white/45">
+                  CLARA Details
+                </p>
+                <h2 className="mt-1 text-lg font-extrabold text-white">
+                  {expandedFinanceCard === "emergency"
+                    ? "Emergency Fund"
+                    : expandedFinanceCard === "wallets"
+                      ? "Wallets"
+                      : expandedFinanceCard === "budgets"
+                        ? "Budget"
+                        : "Savings Goals"}
+                </h2>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => setExpandedFinanceCard(null)}
+                className="flex h-10 w-10 items-center justify-center rounded-2xl border border-white/10 bg-white/5 text-white/75 backdrop-blur-xl transition hover:bg-white/10 hover:text-white"
+                aria-label="Close details"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+
+            <div className="flex-1 overflow-y-auto overflow-x-hidden px-4 py-4 pb-[calc(env(safe-area-inset-bottom)+24px)] [-webkit-overflow-scrolling:touch] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+              {expandedFinanceCard === "emergency" && (
+                <div className="[&>*]:!mb-0">
+                  <EmergencyFundCard
+                    moneyLeft={walletMoney}
+                    survivalExpense={survivalExpense}
+                    retentionRate={0}
+                    theme={selectedDashboardTheme}
+                    canAutoPrompt={false}
+                    hasSurvivalSetup={
+                      Boolean(profileData?.survival_setup_done) ||
+                      firstPositiveNumber(
+                        profileData?.monthly_survival_expense,
+                        profileData?.survival_expense,
+                        profileData?.clara_survival_expense,
+                        survivalExpense,
+                        readStoredSurvivalExpense(user?.id)
+                      ) > 0
+                    }
+                    onSurvivalSaved={async (val) => {
+                      const nextValue = firstPositiveNumber(val);
+                      if (nextValue <= 0) return;
+
+                      persistStoredSurvivalExpense(user?.id, nextValue);
+                      setSurvivalExpense(nextValue);
+
+                      const nextProfileData = {
+                        ...(profileData || {}),
+                        monthly_survival_expense: nextValue,
+                        survival_expense: nextValue,
+                        clara_survival_expense: nextValue,
+                        survival_setup_done: true,
+                      };
+
+                      setProfileData(nextProfileData);
+                      dashboardPageCache = {
+                        ...dashboardPageCache,
+                        survivalExpense: nextValue,
+                        profileData: nextProfileData,
+                      };
+
+                      if (user?.id) {
+                        const { error } = await supabase
+                          .from("profiles")
+                          .update({
+                            monthly_survival_expense: nextValue,
+                            survival_setup_done: true,
+                          })
+                          .eq("id", user.id);
+
+                        if (error) {
+                          console.warn(
+                            "Survival expense was saved locally, but profile sync failed:",
+                            error
+                          );
+                        }
+                      }
+
+                      await loadDashboardData({ background: true });
+                    }}
+                  />
+                </div>
+              )}
+
+              {expandedFinanceCard === "wallets" && (
+                <div className="[&>*]:!mb-0 [&>*]:!min-h-0">
+                  <WalletCard
+                    wallets={wallets}
+                    walletMoney={walletMoney}
+                    walletPreviewTransactions={walletPreviewTransactions}
+                    theme={selectedDashboardTheme}
+                    expanded={true}
+                    onToggleDetails={() => setExpandedFinanceCard(null)}
+                    financeActionLoading={financeActionLoading}
+                    onCreateWallet={openCreateWalletModal}
+                    onMoveWallet={moveWalletInline}
+                    onDeleteWallet={openDeleteWalletModal}
+                    onAddMoney={openAddMoneyModal}
+                    onTransferMoney={openTransferMoneyModal}
+                  />
+                </div>
+              )}
+
+              {expandedFinanceCard === "budgets" && (
+                <div className="[&>*]:!mb-0 [&>*]:!min-h-0">
+                  <BudgetCard
+                    activeBudget={derivedActiveBudget}
+                    theme={selectedDashboardTheme}
+                    expanded={true}
+                    onToggleDetails={() => setExpandedFinanceCard(null)}
+                    financeActionLoading={financeActionLoading}
+                    onSaveBudget={openBudgetModal}
+                    onResetBudget={openResetBudgetModal}
+                  />
+                </div>
+              )}
+
+              {expandedFinanceCard === "savings" && (
+                <div className="[&>*]:!mb-0 [&>*]:!min-h-0">
+                  <SavingsCard
+                    savingsGoals={savingsGoals}
+                    totalSavingsSaved={totalSavingsSaved}
+                    totalSavingsTarget={totalSavingsTarget}
+                    primarySavingsGoal={primarySavingsGoal}
+                    theme={selectedDashboardTheme}
+                    expanded={true}
+                    onToggleDetails={() => setExpandedFinanceCard(null)}
+                    financeActionLoading={financeActionLoading}
+                    onSaveSavingsGoal={openSavingsGoalModal}
+                    onDeleteSavingsGoal={openDeleteSavingsGoalModal}
+                    onAddSavings={openAddSavingsModal}
+                  />
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
 
 
       {showOnboarding && (
