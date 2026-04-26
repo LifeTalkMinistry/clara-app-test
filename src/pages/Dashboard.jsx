@@ -631,16 +631,19 @@ const ensureClaraVisualPerformanceStyles = () => {
     }
 
     .clara-performance-mode {
-      --clara-motion-duration: 90ms;
-      --clara-glow-strength: 0.36;
-      --clara-blur-strength: 0.45;
+      --clara-motion-duration: 0ms;
+      --clara-glow-strength: 0;
+      --clara-blur-strength: 0;
     }
 
     .clara-performance-mode *,
     .clara-performance-mode *::before,
     .clara-performance-mode *::after {
-      transition-duration: 90ms !important;
+      animation: none !important;
+      transition: none !important;
+      transition-duration: 0ms !important;
       scroll-behavior: auto !important;
+      text-shadow: none !important;
     }
 
     .clara-performance-mode .theme-shell-card,
@@ -650,35 +653,57 @@ const ensureClaraVisualPerformanceStyles = () => {
     .clara-performance-mode .clara-card,
     .clara-performance-mode .clara-card-soft,
     .clara-performance-mode [class*="backdrop-blur"] {
-      backdrop-filter: blur(4px) !important;
-      -webkit-backdrop-filter: blur(4px) !important;
+      backdrop-filter: none !important;
+      -webkit-backdrop-filter: none !important;
     }
 
-    .clara-performance-mode [class*="shadow-[0_22px"],
-    .clara-performance-mode [class*="shadow-[0_25px"],
-    .clara-performance-mode [class*="shadow-[0_28px"],
-    .clara-performance-mode [class*="shadow-[0_30px"],
-    .clara-performance-mode [class*="shadow-[0_18px"],
-    .clara-performance-mode [class*="shadow-[0_16px"] {
-      box-shadow: 0 10px 24px rgba(0, 0, 0, 0.20) !important;
+    .clara-performance-mode [class*="shadow-"],
+    .clara-performance-mode [style*="box-shadow"] {
+      box-shadow: none !important;
     }
 
-    .clara-performance-mode [class*="shadow-[0_0"],
-    .clara-performance-mode [class*="blur-2xl"],
-    .clara-performance-mode [class*="blur-3xl"] {
-      filter: blur(4px) !important;
+    .clara-performance-mode [class*="blur-"],
+    .clara-performance-mode [style*="filter"] {
+      filter: none !important;
+    }
+
+    .clara-performance-mode [class*="before:blur"]::before,
+    .clara-performance-mode [class*="after:blur"]::after,
+    .clara-performance-mode [class*="before:bg-white"]::before,
+    .clara-performance-mode [class*="after:bg-white"]::after {
+      opacity: 0 !important;
+      filter: none !important;
     }
 
     .clara-performance-mode [class*="animate-"],
     .clara-performance-mode [style*="animation"] {
-      animation-duration: 1ms !important;
+      animation: none !important;
+      animation-duration: 0ms !important;
       animation-iteration-count: 1 !important;
     }
 
-    .clara-performance-mode video {
+    .clara-performance-mode [class*="hover:-translate"],
+    .clara-performance-mode [class*="hover:scale"],
+    .clara-performance-mode [class*="active:scale"],
+    .clara-performance-mode [class*="group-hover:-translate"],
+    .clara-performance-mode [class*="group-active:scale"] {
+      transform: none !important;
+    }
+
+    .clara-performance-mode video,
+    .clara-performance-mode img {
       filter: none !important;
     }
+
+    .clara-performance-mode .theme-page-shell,
+    .clara-performance-mode .theme-panel-card,
+    .clara-performance-mode .theme-shell-card,
+    .clara-performance-mode .theme-soft-card,
+    .clara-performance-mode .theme-modal-card {
+      isolation: auto !important;
+    }
   `;
+
 
   document.head.appendChild(style);
 };
@@ -3621,7 +3646,7 @@ function DashboardSettingsPanel({
       setSettingsNotice({
         type: "success",
         message: next
-          ? "Performance Mode is on. CLARA will reduce heavy visual effects."
+          ? "Performance Mode is on. CLARA is now using a static, smoother visual design."
           : "Premium Mode is on. CLARA will use the full premium visual experience.",
       });
       return next;
@@ -3926,7 +3951,7 @@ function DashboardSettingsPanel({
         {
           key: "performance",
           title: "Performance Mode",
-          description: "Reduce animations, glow, blur, and motion effects",
+          description: "Static visuals with no animation, glow, or blur",
           icon: Rocket,
           badge: localPerformanceMode ? "On" : "Off",
           featured: localPerformanceMode,
@@ -4530,7 +4555,7 @@ function DashboardSettingsPanel({
     <div className="space-y-4">
       <DetailHeader
         title="Performance Mode"
-        subtitle="Keep CLARA premium while reducing heavy visual effects on slower phones."
+        subtitle="Keep CLARA premium with a static, smooth, no-glow visual mode for slower phones."
       />
 
       {renderNotice()}
@@ -4555,7 +4580,7 @@ function DashboardSettingsPanel({
           <div className="min-w-0">
             <p className="text-sm font-black text-white">Performance Mode</p>
             <p className="mt-1 text-xs leading-5 text-white/50">
-              Reduce animations, glow, blur, and motion effects for smoother performance.
+              Static visuals with no animation, glow, or blur for smoother performance.
             </p>
           </div>
         </div>
@@ -4568,7 +4593,7 @@ function DashboardSettingsPanel({
           Current visual mode: {localPerformanceMode ? "Performance" : "Premium"}
         </p>
         <p className="mt-1 text-xs leading-5 text-white/45">
-          Premium Mode keeps CLARA's full glow, blur, shadows, and animations. Performance Mode keeps the same layout and colors, but reduces visual-heavy effects globally.
+          Premium Mode keeps CLARA's full glow, blur, shadows, and animations. Performance Mode keeps the same layout and colors, but uses static visuals with no glow, no blur, and no motion.
         </p>
       </div>
     </div>
