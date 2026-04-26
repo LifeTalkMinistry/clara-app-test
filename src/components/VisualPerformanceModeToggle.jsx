@@ -12,11 +12,7 @@ export default function VisualPerformanceModeToggle() {
   const location = useLocation();
   const [visualMode, setVisualMode] = useState(() => readStoredVisualMode());
 
-  const isPreferencesSettings =
-    location.pathname === "/settings/preferences" ||
-    (location.pathname === "/settings/account" &&
-      location.search?.includes("view=preferences"));
-
+  const isSettingsScreen = location.pathname.startsWith("/settings");
   const performanceMode = visualMode === CLARA_VISUAL_MODES.PERFORMANCE;
 
   useEffect(() => {
@@ -44,7 +40,7 @@ export default function VisualPerformanceModeToggle() {
     [performanceMode]
   );
 
-  if (!isPreferencesSettings) return null;
+  if (!isSettingsScreen) return null;
 
   const handleToggle = () => {
     const nextMode = performanceMode
@@ -54,8 +50,8 @@ export default function VisualPerformanceModeToggle() {
   };
 
   return (
-    <div className="pointer-events-none fixed inset-x-0 bottom-[calc(5.9rem+env(safe-area-inset-bottom))] z-[90] px-4">
-      <div className="pointer-events-auto mx-auto max-w-md rounded-[22px] border border-[color:var(--theme-border)]/25 bg-[color:var(--theme-card)]/90 p-4 text-white shadow-[0_18px_46px_rgba(0,0,0,0.30)] backdrop-blur-2xl">
+    <div className="pointer-events-none fixed inset-x-0 bottom-[calc(1rem+env(safe-area-inset-bottom))] z-[9000] px-4">
+      <div className="pointer-events-auto mx-auto max-w-md rounded-[22px] border border-[color:var(--theme-border)]/25 bg-[color:var(--theme-card)]/92 p-4 text-white shadow-[0_18px_46px_rgba(0,0,0,0.30)] backdrop-blur-2xl">
         <div className="flex items-start justify-between gap-4">
           <div className="flex min-w-0 flex-1 gap-3">
             <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border border-emerald-300/20 bg-emerald-400/10 text-emerald-200">
