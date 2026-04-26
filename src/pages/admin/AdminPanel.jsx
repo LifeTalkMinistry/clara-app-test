@@ -1,5 +1,6 @@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Shield } from "lucide-react";
+import { ArrowLeft, Shield } from "lucide-react";
+import { useNavigate } from "react-router-dom";
 import PageHeader from "../../components/PageHeader";
 import useUserRole from "../../hooks/useUserRole";
 import EmptyState from "../../components/EmptyState";
@@ -18,6 +19,7 @@ import AdminActivation from "./AdminActivation";
 import AdminOverview from "./AdminOverview";
 
 export default function AdminPanel() {
+  const navigate = useNavigate();
   const { isAdmin, loading } = useUserRole();
 
   if (loading) {
@@ -27,6 +29,15 @@ export default function AdminPanel() {
   if (!isAdmin) {
     return (
       <div className="p-4 md:p-6">
+        <button
+          type="button"
+          onClick={() => navigate("/dashboard")}
+          className="mb-4 inline-flex items-center gap-2 rounded-2xl border border-white/10 bg-white/[0.06] px-4 py-2.5 text-sm font-semibold text-white/85 shadow-[0_12px_30px_rgba(0,0,0,0.18)] backdrop-blur-xl transition hover:bg-white/[0.1] hover:text-white active:scale-[0.98]"
+        >
+          <ArrowLeft className="h-4 w-4" />
+          Back to Dashboard
+        </button>
+
         <EmptyState
           icon={Shield}
           title="Admin Only"
@@ -38,6 +49,15 @@ export default function AdminPanel() {
 
   return (
     <div className="p-4 md:p-6 max-w-5xl mx-auto">
+      <button
+        type="button"
+        onClick={() => navigate("/dashboard")}
+        className="mb-4 inline-flex items-center gap-2 rounded-2xl border border-white/10 bg-white/[0.06] px-4 py-2.5 text-sm font-semibold text-white/85 shadow-[0_12px_30px_rgba(0,0,0,0.18)] backdrop-blur-xl transition hover:bg-white/[0.1] hover:text-white active:scale-[0.98]"
+      >
+        <ArrowLeft className="h-4 w-4" />
+        Back to Dashboard
+      </button>
+
       <PageHeader title="Admin Panel" subtitle="Manage CLARA platform" />
 
       <Tabs defaultValue="overview" className="w-full">
