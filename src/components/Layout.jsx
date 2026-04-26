@@ -637,7 +637,7 @@ export default function Layout({ children }) {
           onTouchEnd={handleMotionTouchEnd}
           onTouchCancel={handleMotionTouchEnd}
           style={activeMotionPage ? buildTransitionStyle(transitionOrigin, dragY) : undefined}
-          className={`flex-1 overflow-y-auto pb-24 pt-3 ${isDashboard ? "clara-dashboard-main" : ""} ${
+          className={`flex-1 overflow-y-auto pb-24 pt-3 ${
             activeMotionPage
               ? `clara-motion-stage ${
                   motionClosing
