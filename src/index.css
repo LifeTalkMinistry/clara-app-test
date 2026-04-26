@@ -388,3 +388,41 @@ a[aria-label="Open admin panel"] {
     bottom: calc(env(safe-area-inset-bottom) + 2rem) !important;
   }
 }
+
+/* ================= MESSAGE CONVERSATION FULLSCREEN FIX =================
+   The chat thread is rendered from inside the Messages page. Some premium
+   layout wrappers/navs use higher stacking contexts, so a fixed conversation
+   can still appear trapped under the layout. This makes the thread behave
+   like a true app-level overlay without expanding the existing layout. */
+body:has([class*="h-[100dvh]"][class*="w-screen"][class*="fixed"]) {
+  overflow: hidden !important;
+}
+
+body:has([class*="h-[100dvh]"][class*="w-screen"][class*="fixed"]) nav:not([data-conversation-nav]),
+body:has([class*="h-[100dvh]"][class*="w-screen"][class*="fixed"]) [data-bottom-nav],
+body:has([class*="h-[100dvh]"][class*="w-screen"][class*="fixed"]) [data-fab],
+body:has([class*="h-[100dvh]"][class*="w-screen"][class*="fixed"]) a[aria-label="Open admin panel"] {
+  display: none !important;
+  pointer-events: none !important;
+}
+
+body:has([class*="h-[100dvh]"][class*="w-screen"][class*="fixed"]) .theme-page-shell > .relative.flex.min-w-0.flex-1.flex-col,
+body:has([class*="h-[100dvh]"][class*="w-screen"][class*="fixed"]) .theme-page-shell > .relative.flex.min-w-0.flex-1.flex-col > main.flex-1 {
+  overflow: visible !important;
+  transform: none !important;
+  contain: none !important;
+}
+
+body:has([class*="h-[100dvh]"][class*="w-screen"][class*="fixed"]) .theme-page-shell main [class*="h-[100dvh]"][class*="w-screen"][class*="fixed"] {
+  position: fixed !important;
+  inset: 0 !important;
+  z-index: 2147483000 !important;
+  width: 100vw !important;
+  max-width: none !important;
+  height: 100dvh !important;
+  max-height: 100dvh !important;
+  margin: 0 !important;
+  transform: none !important;
+  border-radius: 0 !important;
+  isolation: isolate !important;
+}
