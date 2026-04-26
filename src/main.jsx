@@ -222,18 +222,78 @@ function installFinanceSummaryCopyCleanup() {
     "great job managing your spending",
   ];
 
+  const findNearestCard = (node) => {
+    let current = node?.parentElement;
+    while (current && current !== document.body) {
+      const text = String(current.textContent || "").toLowerCase();
+      const hasFinanceCopy = text.includes("money left") || text.includes("total expense");
+      const isCardLike =
+        current.className &&
+        String(current.className).includes("rounded") &&
+        current.getBoundingClientRect().width > 120;
+
+      if (hasFinanceCopy && isCardLike) return current;
+      current = current.parentElement;
+    }
+    return null;
+  };
+
+  const compactFinanceSummary = (card) => {
+    if (!card) return;
+
+    card.style.minHeight = "0px";
+    card.style.paddingBottom = "16px";
+    card.style.marginBottom = "0px";
+
+    const cardRect = card.getBoundingClientRect();
+    const childElements = Array.from(card.children || []);
+    const visibleChildren = childElements.filter((child) => {
+      const style = window.getComputedStyle(child);
+      return style.display !== "none" && style.visibility !== "hidden";
+    });
+
+    if (visibleChildren.length) {
+      const lastChild = visibleChildren[visibleChildren.length - 1];
+      const lastRect = lastChild.getBoundingClientRect();
+      const bottomGap = cardRect.bottom - lastRect.bottom;
+
+      if (bottomGap > 24) {
+        card.style.paddingBottom = "12px";
+      }
+    }
+
+    const parent = card.parentElement;
+    if (parent) {
+      parent.style.paddingBottom = "0px";
+      parent.style.marginBottom = "0px";
+      parent.style.minHeight = "0px";
+    }
+  };
+
   const cleanup = () => {
     const nodes = Array.from(document.querySelectorAll("p, span, div"));
+    const affectedCards = new Set();
 
     nodes.forEach((node) => {
       const text = String(node.textContent || "").trim().toLowerCase();
-      const isExactCopy = extraCopyPatterns.some((pattern) => text === pattern || text === `${pattern}.`);
+      const isExactCopy = extraCopyPatterns.some(
+        (pattern) => text === pattern || text === `${pattern}.`
+      );
 
       if (!isExactCopy) return;
 
+      const card = findNearestCard(node);
+      if (card) affectedCards.add(card);
+
       node.style.display = "none";
+      node.style.margin = "0px";
+      node.style.padding = "0px";
+      node.style.height = "0px";
+      node.style.minHeight = "0px";
       node.setAttribute("aria-hidden", "true");
     });
+
+    affectedCards.forEach(compactFinanceSummary);
   };
 
   const scheduleCleanup = () => {
@@ -242,14 +302,16 @@ function installFinanceSummaryCopyCleanup() {
 
   cleanup();
   const observer = new MutationObserver(scheduleCleanup);
-  observer.observe(document.body, { childList: true, subtree: true, characterData: true });
+  observer.observe(document.body, { childList: true, subtree: true, characterData: true, attributes: true });
   window.addEventListener("hashchange", scheduleCleanup);
   window.addEventListener("focus", scheduleCleanup);
+  window.addEventListener("resize", scheduleCleanup);
 
   return () => {
     observer.disconnect();
     window.removeEventListener("hashchange", scheduleCleanup);
     window.removeEventListener("focus", scheduleCleanup);
+    window.removeEventListener("resize", scheduleCleanup);
   };
 }
 
