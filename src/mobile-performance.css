@@ -34,4 +34,80 @@
   main video {
     content-visibility: auto;
   }
+
+  .theme-shell-card,
+  .theme-panel-card,
+  .theme-soft-card,
+  .theme-modal-card,
+  .clara-card,
+  .clara-card-soft {
+    backdrop-filter: blur(8px) !important;
+    -webkit-backdrop-filter: blur(8px) !important;
+  }
+
+  .theme-shell-card,
+  .theme-panel-card,
+  .theme-modal-card {
+    box-shadow:
+      0 14px 36px rgba(0, 0, 0, 0.24),
+      0 0 0 1px color-mix(in srgb, var(--theme-border) 10%, transparent) inset !important;
+  }
+
+  .theme-soft-card,
+  .clara-card,
+  .clara-card-soft {
+    box-shadow: 0 10px 26px rgba(0, 0, 0, 0.18) !important;
+  }
+
+  .card-glow-green,
+  .card-glow-yellow,
+  .card-glow-blue {
+    box-shadow: 0 4px 18px rgba(0, 0, 0, 0.16) !important;
+  }
+
+  .clara-motion-stage {
+    will-change: transform, opacity !important;
+    filter: none !important;
+  }
+
+  .clara-motion-stage-dragging,
+  .clara-motion-stage-rebound,
+  .clara-motion-stage-out,
+  .clara-motion-stage-in {
+    filter: none !important;
+  }
+
+  .clara-motion-stage-dragging {
+    box-shadow: 0 18px 54px rgba(0, 0, 0, 0.24) !important;
+  }
+
+  .clara-motion-overlay,
+  .clara-motion-overlay-out {
+    backdrop-filter: blur(4px) !important;
+    -webkit-backdrop-filter: blur(4px) !important;
+  }
+
+  .clara-motion-hint {
+    backdrop-filter: blur(8px) !important;
+    -webkit-backdrop-filter: blur(8px) !important;
+    box-shadow: 0 8px 22px rgba(0, 0, 0, 0.16) !important;
+  }
+
+  [class*="shadow-[0_25px_80px"],
+  [class*="shadow-[0_30px_110px"],
+  [class*="shadow-[0_28px_80px"],
+  [class*="shadow-[0_22px_60px"] {
+    box-shadow: 0 14px 38px rgba(0, 0, 0, 0.24) !important;
+  }
+}
+
+@media (max-width: 768px) and (prefers-reduced-motion: reduce) {
+  .clara-motion-stage-in,
+  .clara-motion-stage-out,
+  .clara-motion-overlay,
+  .clara-motion-overlay-out,
+  .clara-motion-hint {
+    animation-duration: 1ms !important;
+    animation-iteration-count: 1 !important;
+  }
 }
