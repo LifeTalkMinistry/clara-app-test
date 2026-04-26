@@ -1826,6 +1826,25 @@ const dashboardPanelInitials = (value = "") => {
   return `${parts[0][0] || ""}${parts[1][0] || ""}`.toUpperCase();
 };
 
+const buildDashboardMessageSignature = (message = {}) => {
+  const conversationId = String(message?.conversation_id || "").trim();
+  const senderId = String(message?.sender_id || "").trim();
+  const recipientId = String(message?.recipient_id || "").trim();
+  const content = String(message?.content || "").trim().replace(/\s+/g, " ");
+  return `${conversationId}|${senderId}|${recipientId}|${content}`;
+};
+
+const isDashboardOptimisticMessage = (message = {}) => {
+  const id = String(message?.id || "").toLowerCase();
+  return Boolean(
+    message?.client_key ||
+      message?.optimistic === true ||
+      message?.pending === true ||
+      id.startsWith("temp-") ||
+      id.startsWith("local-")
+  );
+};
+
 function DashboardPanelShell({
   title,
   subtitle,
@@ -2790,6 +2809,7 @@ function DashboardMessagesPanel({ onBack }) {
   const [peopleOpen, setPeopleOpen] = useState(false);
 
   const messagesEndRef = useRef(null);
+  const messageAnimationSeenRef = useRef(new Set());
 
   const currentUserId = user?.id || null;
   const currentUserEmail = user?.email || "";
@@ -2886,7 +2906,38 @@ function DashboardMessagesPanel({ onBack }) {
       return;
     }
 
-    setMessages(Array.isArray(data) ? data : []);
+    const fetchedMessages = Array.isArray(data) ? data : [];
+
+    setMessages((prev) => {
+      if (!Array.isArray(prev) || prev.length === 0) return fetchedMessages;
+
+      const previousByServerId = new Map(
+        prev
+          .filter((message) => message?.id && !String(message.id).startsWith("temp-"))
+          .map((message) => [String(message.id), message])
+      );
+
+      const optimisticBySignature = new Map(
+        prev
+          .filter(isDashboardOptimisticMessage)
+          .map((message) => [buildDashboardMessageSignature(message), message])
+      );
+
+      return fetchedMessages.map((message) => {
+        const existing = previousByServerId.get(String(message.id));
+        if (existing?.client_key) return { ...message, client_key: existing.client_key };
+
+        const optimistic = optimisticBySignature.get(buildDashboardMessageSignature(message));
+        if (optimistic?.client_key || optimistic?.id) {
+          return {
+            ...message,
+            client_key: optimistic.client_key || optimistic.id,
+          };
+        }
+
+        return message;
+      });
+    });
   }, [currentUserId]);
 
   useEffect(() => {
@@ -3093,14 +3144,26 @@ function DashboardMessagesPanel({ onBack }) {
       is_read: false,
     };
 
-    const optimisticId = `temp-${Date.now()}`;
+    const optimisticId = `temp-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
     const optimisticMessage = {
       id: optimisticId,
+      client_key: optimisticId,
+      optimistic: true,
+      pending: true,
       ...payload,
       created_at: new Date().toISOString(),
     };
 
-    setMessages((prev) => [optimisticMessage, ...prev]);
+    setMessages((prev) => {
+      const alreadyExists = prev.some(
+        (message) =>
+          buildDashboardMessageSignature(message) ===
+            buildDashboardMessageSignature(optimisticMessage) &&
+          isDashboardOptimisticMessage(message)
+      );
+
+      return alreadyExists ? prev : [optimisticMessage, ...prev];
+    });
     setNewMsg("");
 
     const { data, error } = await supabase
@@ -3118,8 +3181,37 @@ function DashboardMessagesPanel({ onBack }) {
     }
 
     setMessages((prev) => {
-      const withoutTemp = prev.filter((message) => message.id !== optimisticId);
-      return data ? [data, ...withoutTemp] : withoutTemp;
+      if (!data) return prev.filter((message) => message.id !== optimisticId);
+
+      const savedMessage = {
+        ...data,
+        client_key: optimisticId,
+        optimistic: false,
+        pending: false,
+      };
+
+      let replaced = false;
+      const next = prev.map((message) => {
+        if (message.id === optimisticId || message.client_key === optimisticId) {
+          replaced = true;
+          return savedMessage;
+        }
+
+        if (
+          String(message.id) === String(data.id) ||
+          buildDashboardMessageSignature(message) === buildDashboardMessageSignature(savedMessage)
+        ) {
+          replaced = true;
+          return {
+            ...savedMessage,
+            client_key: message.client_key || optimisticId,
+          };
+        }
+
+        return message;
+      });
+
+      return replaced ? next : [savedMessage, ...next];
     });
 
     setSending(false);
@@ -3228,13 +3320,6 @@ function DashboardMessagesPanel({ onBack }) {
               </p>
             </div>
 
-            <button
-              type="button"
-              onClick={() => setSelectedConvo(null)}
-              className="rounded-full border border-white/10 bg-white/[0.04] px-3 py-2 text-[11px] font-bold text-white/78 transition hover:bg-white/[0.08] active:scale-95"
-            >
-              Inbox
-            </button>
           </div>
         </header>
 
@@ -3257,6 +3342,9 @@ function DashboardMessagesPanel({ onBack }) {
               </div>
             ) : (
               activeMessages.map((message, index) => {
+                const stableMessageKey =
+                  message.client_key || message.id || `${message.created_at || "message"}-${index}`;
+                const shouldAnimate = !messageAnimationSeenRef.current.has(stableMessageKey);
                 const isMine = message.sender_id === currentUserId;
                 const previous = activeMessages[index - 1];
                 const next = activeMessages[index + 1];
@@ -3272,8 +3360,14 @@ function DashboardMessagesPanel({ onBack }) {
                   !previousDate ||
                   currentDate.toDateString() !== previousDate.toDateString();
 
+                if (shouldAnimate && typeof requestAnimationFrame === "function") {
+                  requestAnimationFrame(() => {
+                    messageAnimationSeenRef.current.add(stableMessageKey);
+                  });
+                }
+
                 return (
-                  <div key={message.id || `message-${index}`}>
+                  <div key={stableMessageKey}>
                     {showDateSeparator ? (
                       <div className="my-4 flex justify-center">
                         <span className="rounded-full border border-white/10 bg-white/[0.06] px-3 py-1 text-[10px] font-black uppercase tracking-[0.14em] text-white/45">
@@ -3283,9 +3377,11 @@ function DashboardMessagesPanel({ onBack }) {
                     ) : null}
 
                     <div
-                      className={`flex w-full animate-[claraDashboardMessageIn_180ms_ease-out_both] ${
-                        isMine ? "justify-end" : "justify-start"
-                      } ${isFirstInGroup ? "mt-4" : "mt-1.5"}`}
+                      className={`flex w-full ${
+                        shouldAnimate ? "animate-[claraDashboardMessageIn_180ms_ease-out_both]" : ""
+                      } ${isMine ? "justify-end" : "justify-start"} ${
+                        isFirstInGroup ? "mt-4" : "mt-1.5"
+                      }`}
                     >
                       <div className={`flex max-w-[86%] items-end gap-2 ${isMine ? "flex-row-reverse" : "flex-row"}`}>
                         {!isMine ? (
@@ -3323,8 +3419,7 @@ function DashboardMessagesPanel({ onBack }) {
                     </div>
                   </div>
                 );
-              })
-            )}
+              })            )}
             <div ref={messagesEndRef} className="h-2" />
           </div>
         </main>
