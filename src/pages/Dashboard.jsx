@@ -3723,6 +3723,7 @@ function DashboardSettingsPanel({
   );
 
   const [activeSetting, setActiveSetting] = useState(null);
+  const [activeAboutInfo, setActiveAboutInfo] = useState(null);
   const [profileName, setProfileName] = useState(initialDisplayName);
   const [settingsNotice, setSettingsNotice] = useState(null);
   const [savingProfile, setSavingProfile] = useState(false);
@@ -4228,7 +4229,7 @@ function DashboardSettingsPanel({
         {
           key: "about",
           title: "About CLARA",
-          description: "App version, terms, and information",
+          description: "Mission, vision, app info, and legal links",
           icon: FileText,
           badge: "Info",
           action: () => setActiveSetting("about"),
@@ -4397,6 +4398,7 @@ function DashboardSettingsPanel({
         type="button"
         onClick={() => {
           setActiveSetting(null);
+          setActiveAboutInfo(null);
           setSettingsNotice(null);
         }}
         className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/8 px-3 py-2 text-[11px] font-bold text-white/70 transition hover:bg-white/12"
@@ -4838,6 +4840,89 @@ function DashboardSettingsPanel({
     </div>
   );
 
+  const aboutClaraRows = [
+    {
+      key: "mission",
+      title: "Mission",
+      subtitle: "See CLARA’s purpose and guiding mission.",
+      content:
+        "To help people build financial discipline through simple tracking, guided decisions, and a supportive environment.",
+    },
+    {
+      key: "vision",
+      title: "Vision",
+      subtitle: "See the long-term direction of CLARA.",
+      content:
+        "To make budgeting normal, approachable, and part of everyday life.",
+    },
+    {
+      key: "difference",
+      title: "What makes CLARA different",
+      subtitle: "See how CLARA goes beyond basic expense tracking.",
+      content:
+        "CLARA is not only built to record expenses. It is designed to help users understand behavior, reduce emotional spending, and make better choices before money is spent.",
+      extra:
+        "People do not change because of information alone. People change because of environment. CLARA is built to become that environment.",
+    },
+    {
+      key: "terms",
+      title: "Terms of use",
+      subtitle: "Coming inside CLARA settings.",
+      content:
+        "Terms of use will be available inside CLARA settings.",
+    },
+    {
+      key: "privacy",
+      title: "Privacy policy",
+      subtitle: "Coming inside CLARA settings.",
+      content:
+        "Privacy policy will be available inside CLARA settings.",
+    },
+  ];
+
+  const AboutClaraRow = ({ row }) => {
+    const isOpen = activeAboutInfo === row.key;
+
+    return (
+      <div className="overflow-hidden rounded-2xl border border-white/10 bg-white/[0.045]">
+        <button
+          type="button"
+          onClick={() => setActiveAboutInfo((current) => (current === row.key ? null : row.key))}
+          className="flex w-full items-center justify-between gap-3 px-4 py-3.5 text-left transition hover:bg-white/[0.065] active:scale-[0.99]"
+          aria-expanded={isOpen}
+        >
+          <div className="min-w-0 flex-1">
+            <p className="break-words text-xs font-bold text-white">{row.title}</p>
+            <p className="mt-1 break-words text-[11px] leading-5 text-white/42">{row.subtitle}</p>
+          </div>
+
+          <ChevronRight
+            className={`h-4 w-4 shrink-0 text-white/35 transition duration-200 ${
+              isOpen ? "rotate-90 text-emerald-200" : ""
+            }`}
+          />
+        </button>
+
+        <div
+          className={`grid transition-all duration-200 ease-out ${
+            isOpen ? "grid-rows-[1fr] opacity-100" : "grid-rows-[0fr] opacity-0"
+          }`}
+        >
+          <div className="min-h-0 overflow-hidden">
+            <div className="border-t border-white/10 bg-black/15 px-4 py-4">
+              <p className="text-sm leading-6 text-white/70">{row.content}</p>
+              {row.extra ? (
+                <p className="mt-3 rounded-2xl border border-emerald-300/15 bg-emerald-400/10 p-3 text-sm leading-6 text-emerald-50/85">
+                  {row.extra}
+                </p>
+              ) : null}
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
   const renderAboutPage = () => (
     <div className="space-y-4">
       <DetailHeader
@@ -4845,7 +4930,7 @@ function DashboardSettingsPanel({
         subtitle="Financial clarity, daily discipline, and guided progress."
       />
 
-      <div className="rounded-[30px] border border-white/10 bg-white/[0.045] p-5 backdrop-blur-xl">
+      <div className="rounded-[30px] border border-white/10 bg-white/[0.045] p-5 shadow-[0_18px_50px_rgba(0,0,0,0.18)] backdrop-blur-xl">
         <p className="text-2xl font-black text-white">CLARA</p>
         <p className="mt-2 text-sm leading-6 text-white/60">
           A financial companion for tracking money, building discipline, and guiding users through financial progress.
@@ -4857,21 +4942,18 @@ function DashboardSettingsPanel({
         </div>
       </div>
 
-      <div className="rounded-[24px] border border-white/10 bg-white/[0.035] p-4">
-        <p className="text-sm font-bold text-white">Legal & information</p>
-        <p className="mt-1 text-xs leading-5 text-white/45">
-          Terms, privacy details, and build information can be rendered here directly so the user stays inside settings.
-        </p>
-      </div>
-
-      <div className="grid gap-2">
-        <div className="rounded-2xl border border-white/10 bg-white/6 px-4 py-3">
-          <p className="text-xs font-bold text-white">Terms of use</p>
-          <p className="mt-1 text-[11px] text-white/42">Coming inside CLARA settings.</p>
+      <div className="rounded-[30px] border border-white/10 bg-white/[0.04] p-4 shadow-[0_18px_50px_rgba(0,0,0,0.16)] backdrop-blur-xl">
+        <div className="mb-4">
+          <p className="text-sm font-black text-white">Legal & information</p>
+          <p className="mt-1 text-xs leading-5 text-white/45">
+            Mission, vision, and build information can be rendered here directly so the user stays inside settings.
+          </p>
         </div>
-        <div className="rounded-2xl border border-white/10 bg-white/6 px-4 py-3">
-          <p className="text-xs font-bold text-white">Privacy policy</p>
-          <p className="mt-1 text-[11px] text-white/42">Coming inside CLARA settings.</p>
+
+        <div className="grid gap-2">
+          {aboutClaraRows.map((row) => (
+            <AboutClaraRow key={row.key} row={row} />
+          ))}
         </div>
       </div>
     </div>
