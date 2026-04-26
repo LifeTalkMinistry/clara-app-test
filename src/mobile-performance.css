@@ -1,0 +1,37 @@
+/* Mobile WebView performance helpers for CLARA.
+   These rules do not redesign the app. They let Chromium skip painting offscreen
+   dashboard/card-heavy sections until they are close to the viewport. */
+
+@supports (content-visibility: auto) {
+  @media (max-width: 768px) {
+    main .theme-panel-card,
+    main .theme-shell-card,
+    main .theme-soft-card,
+    main .clara-card,
+    main .clara-card-soft,
+    main section,
+    main article {
+      content-visibility: auto;
+      contain-intrinsic-size: 1px 320px;
+    }
+
+    main .theme-panel-card:first-child,
+    main .theme-shell-card:first-child,
+    main .clara-card:first-child {
+      content-visibility: visible;
+      contain-intrinsic-size: auto;
+    }
+  }
+}
+
+@media (max-width: 768px) {
+  main {
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior-y: contain;
+  }
+
+  main img,
+  main video {
+    content-visibility: auto;
+  }
+}
