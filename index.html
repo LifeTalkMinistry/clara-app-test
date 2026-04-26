@@ -20,6 +20,49 @@
         color: white;
         font-family: sans-serif;
       }
+
+      /* CLARA message thread must pop out above BOTH default mode and performance mode layouts. */
+      body:has([class*="h-[100dvh]"][class*="w-screen"][class*="fixed"]) {
+        overflow: hidden !important;
+      }
+
+      body:has([class*="h-[100dvh]"][class*="w-screen"][class*="fixed"]) #root,
+      body:has([class*="h-[100dvh]"][class*="w-screen"][class*="fixed"]) #root > *,
+      body:has([class*="h-[100dvh]"][class*="w-screen"][class*="fixed"]) .theme-page-shell,
+      body:has([class*="h-[100dvh]"][class*="w-screen"][class*="fixed"]) .theme-page-shell > *,
+      body:has([class*="h-[100dvh]"][class*="w-screen"][class*="fixed"]) .theme-page-shell main,
+      body:has([class*="h-[100dvh]"][class*="w-screen"][class*="fixed"]) .theme-page-shell main > * {
+        overflow: visible !important;
+        transform: none !important;
+        filter: none !important;
+        perspective: none !important;
+        contain: none !important;
+        isolation: auto !important;
+      }
+
+      body:has([class*="h-[100dvh]"][class*="w-screen"][class*="fixed"]) [data-bottom-nav],
+      body:has([class*="h-[100dvh]"][class*="w-screen"][class*="fixed"]) [data-fab],
+      body:has([class*="h-[100dvh]"][class*="w-screen"][class*="fixed"]) a[aria-label="Open admin panel"],
+      body:has([class*="h-[100dvh]"][class*="w-screen"][class*="fixed"]) nav:not([data-conversation-nav]),
+      body:has([class*="h-[100dvh]"][class*="w-screen"][class*="fixed"]) [class*="sticky"][class*="top-"],
+      body:has([class*="h-[100dvh]"][class*="w-screen"][class*="fixed"]) [class*="fixed"][class*="top-"]:not([class*="h-[100dvh]"]) {
+        display: none !important;
+        pointer-events: none !important;
+      }
+
+      body:has([class*="h-[100dvh]"][class*="w-screen"][class*="fixed"]) [class*="h-[100dvh]"][class*="w-screen"][class*="fixed"] {
+        position: fixed !important;
+        inset: 0 !important;
+        z-index: 2147483000 !important;
+        width: 100vw !important;
+        max-width: none !important;
+        height: 100dvh !important;
+        max-height: 100dvh !important;
+        margin: 0 !important;
+        transform: none !important;
+        border-radius: 0 !important;
+        isolation: isolate !important;
+      }
     </style>
   </head>
 
