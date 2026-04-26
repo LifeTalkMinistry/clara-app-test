@@ -1,9 +1,7 @@
 import { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import {
-  TrendingDown,
   Settings,
   Clock,
-  Sparkles,
   Play,
   FileText,
   ExternalLink,
@@ -25,13 +23,9 @@ import {
   ChevronRight,
   Plus,
   Trash2,
-  ArrowLeftRight,
   RotateCcw,
-  ArrowUp,
   ArrowDown,
   Edit,
-  Calendar,
-  AlertTriangle,
   Wallet,
   Palette,
   Check,
@@ -1866,17 +1860,12 @@ function DashboardFeedPanel({ onBack }) {
 
       const { data: profileData, error: profileError } = await supabase
         .from("profiles")
-        .select("id, full_name, display_name, nickname")
+        .select("id, full_name")
         .eq("id", user.id)
         .maybeSingle();
 
       if (!profileError && profileData) {
-        setCurrentUserName(
-          profileData.display_name ||
-            profileData.nickname ||
-            profileData.full_name ||
-            fallbackName
-        );
+        setCurrentUserName(profileData.full_name || fallbackName);
       }
 
       return user;
@@ -2687,7 +2676,7 @@ function DashboardMessagesPanel({ onBack }) {
     let optionalProfiles = [];
     const { data: extraProfiles, error: extraError } = await supabase
       .from("profiles")
-      .select("id,nickname,display_name,role");
+      .select("id,role");
 
     if (!extraError) optionalProfiles = Array.isArray(extraProfiles) ? extraProfiles : [];
 
@@ -2699,8 +2688,6 @@ function DashboardMessagesPanel({ onBack }) {
     let merged = (Array.isArray(baseProfiles) ? baseProfiles : []).map((profile) => {
       const extra = optionalMap[profile.id] || {};
       const displayName =
-        extra?.nickname ||
-        extra?.display_name ||
         profile?.full_name ||
         profile?.email ||
         "CLARA User";
@@ -3321,7 +3308,6 @@ function DashboardSettingsPanel({
   plan,
   isPaid,
   isFree,
-  isAdmin,
   notificationSettings,
   openThemePicker,
   resetThemeToDefault,
@@ -3435,10 +3421,6 @@ function DashboardSettingsPanel({
 
   const currentPlan = normalizePlanDisplay(rawCurrentPlan);
   const planStatusLabel = isPaid ? "Unlocked" : isFree ? "Limited" : "Active";
-  const canSeeAdminPanel =
-    isAdmin === true ||
-    normalizeLower(user?.role) === "admin" ||
-    normalizeLower(user?.user_metadata?.role) === "admin";
   const supportEmail = "claraprogram2026@gmail.com";
 
   const saveNotificationSettings = useCallback((next) => {
@@ -3640,9 +3622,8 @@ function DashboardSettingsPanel({
       const supportContent = `[CLARA Support • ${supportTopic}]\n\n${trimmed}`;
       const senderName =
         displayName ||
-        user?.full_name ||
-        user?.nickname ||
-        user?.display_name ||
+        user?.user_metadata?.full_name ||
+        user?.user_metadata?.name ||
         user?.email ||
         "CLARA User";
 
@@ -3714,11 +3695,10 @@ function DashboardSettingsPanel({
     supportEmail,
     supportMessage,
     supportTopic,
-    user?.display_name,
     user?.email,
-    user?.full_name,
     user?.id,
-    user?.nickname,
+    user?.user_metadata?.full_name,
+    user?.user_metadata?.name,
   ]);
 
   const notificationRows = [
@@ -3817,24 +3797,6 @@ function DashboardSettingsPanel({
         },
       ],
     },
-    ...(canSeeAdminPanel
-      ? [
-          {
-            title: "Admin",
-            rows: [
-              {
-                key: "admin-panel",
-                title: "Admin panel",
-                description: "Manage users, enrollments, plans, content, and app controls",
-                icon: ShieldCheck,
-                badge: "Admin",
-                featured: true,
-                action: () => navigate("/admin"),
-              },
-            ],
-          },
-        ]
-      : []),
   ];
 
   const resolveBillingCycle = useCallback((record) => {
@@ -4357,7 +4319,7 @@ function DashboardSettingsPanel({
         </button>
 
         <p className="mt-3 text-center text-[11px] leading-5 text-white/45">
-          Admin accounts will receive this in Messages, and you’ll be moved to the Message tab after sending.
+          All admin accounts will receive this in Messages. You’ll be moved to the Message tab after sending.
         </p>
       </div>
 
@@ -4502,7 +4464,7 @@ export default function Dashboard() {
   const { selectedTheme: selectedDashboardTheme, openThemePicker, setTheme } = useTheme();
   const dashboardViewportMode = useDashboardViewportMode();
   const dashboardScale = DASHBOARD_SCALE[dashboardViewportMode] || DASHBOARD_SCALE.normal;
-  const { user, plan, isAdvertiser, isPaid, isFree, isPending, isAdmin, refreshUser } =
+  const { user, plan, isAdvertiser, isPaid, isFree, isPending, refreshUser } =
     useUserRole();
 
   const userId = user?.id || null;
@@ -7270,6 +7232,11 @@ export default function Dashboard() {
                   </>
                 ) : null}
               </p>
+              {moneyLeftHealth.subcopy ? (
+                <p className={`${dashboardScale.summarySubcopy} ${themeSoftTextClass}`}>
+                  {moneyLeftHealth.subcopy}
+                </p>
+              ) : null}
             </div>
           </div>
 
@@ -7302,6 +7269,9 @@ export default function Dashboard() {
                   </>
                 ) : null}
               </p>
+              <p className={`${dashboardScale.summarySubcopy} ${themeSoftTextClass}`}>
+                {expenseHealth.subcopy}
+              </p>
             </div>
           </div>
         </div>
@@ -7318,7 +7288,6 @@ export default function Dashboard() {
               plan={plan}
               isPaid={isPaid}
               isFree={isFree}
-              isAdmin={isAdmin}
               notificationSettings={notificationSettings}
               openThemePicker={openThemePicker}
               resetThemeToDefault={resetDashboardThemeToDefault}
