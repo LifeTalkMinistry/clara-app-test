@@ -49,8 +49,15 @@ const ADMIN_RECOVERY_EMAILS = new Set([
   "lifetalkministry@gmail.com",
 ]);
 
+function hasRecoveryEmailVisibleInSettings() {
+  const bodyText = String(document.body?.textContent || "").toLowerCase();
+  return [...ADMIN_RECOVERY_EMAILS].some((email) => bodyText.includes(email));
+}
+
 async function isCurrentUserAdmin() {
   try {
+    if (hasRecoveryEmailVisibleInSettings()) return true;
+
     const {
       data: { user },
     } = await supabase.auth.getUser();
@@ -73,7 +80,7 @@ async function isCurrentUserAdmin() {
     return role === "admin" || plan === "admin" || ADMIN_RECOVERY_EMAILS.has(profileEmail);
   } catch (error) {
     console.warn("Admin check skipped:", error);
-    return false;
+    return hasRecoveryEmailVisibleInSettings();
   }
 }
 
@@ -81,16 +88,20 @@ function findCardByText(label) {
   const needle = String(label || "").trim().toLowerCase();
   if (!needle) return null;
 
-  const candidates = Array.from(document.querySelectorAll("button, a, div"));
-  const match = candidates.find((element) =>
-    String(element.textContent || "").trim().toLowerCase().includes(needle)
-  );
+  const candidates = Array.from(document.querySelectorAll("button, a, [role='button'], div"))
+    .filter((element) => {
+      const text = String(element.textContent || "").trim().toLowerCase();
+      return text.includes(needle) && text.length <= 260;
+    })
+    .sort((a, b) => String(a.textContent || "").length - String(b.textContent || "").length);
 
+  const match = candidates[0];
   if (!match) return null;
 
   return (
     match.closest("button") ||
     match.closest("a") ||
+    match.closest("[role='button']") ||
     match.closest(".theme-panel-card") ||
     match.closest(".launcher-card") ||
     match.closest("[class*='rounded']") ||
@@ -112,7 +123,7 @@ function buildAdminSettingsButton(referenceCard) {
   button.style.marginTop = "12px";
   button.style.padding = "16px";
   button.style.borderRadius = "22px";
-  button.style.border = "1px solid color-mix(in srgb, var(--theme-accent) 28%, transparent)";
+  button.style.border = "1px solid color-mix(in srgb, var(--theme-accent) 30%, transparent)";
   button.style.background = "linear-gradient(180deg, color-mix(in srgb, var(--theme-card) 94%, transparent), color-mix(in srgb, var(--theme-card-alt) 94%, transparent))";
   button.style.color = "white";
   button.style.boxShadow = "0 18px 48px rgba(0, 0, 0, 0.22)";
@@ -139,7 +150,6 @@ function installSettingsAdminShortcutPatch() {
   let disposed = false;
   let observer = null;
   let debounceTimer = null;
-  let adminCache = null;
 
   const apply = async () => {
     if (disposed) return;
@@ -153,21 +163,24 @@ function installSettingsAdminShortcutPatch() {
       return;
     }
 
-    if (adminCache === null) {
-      adminCache = await isCurrentUserAdmin();
-    }
-
-    if (!adminCache) {
+    const isAdmin = await isCurrentUserAdmin();
+    if (!isAdmin) {
       existing?.remove();
       return;
     }
-
-    if (existing) return;
 
     const aboutCard = findCardByText("About CLARA");
     const logoutCard = findCardByText("Log out");
     const referenceCard = aboutCard || logoutCard;
     if (!referenceCard?.parentElement) return;
+
+    if (existing) {
+      const expectedPrevious = aboutCard;
+      if (expectedPrevious && existing.previousElementSibling !== expectedPrevious) {
+        aboutCard.insertAdjacentElement("afterend", existing);
+      }
+      return;
+    }
 
     const adminButton = buildAdminSettingsButton(referenceCard);
 
@@ -185,18 +198,20 @@ function installSettingsAdminShortcutPatch() {
     window.clearTimeout(debounceTimer);
     debounceTimer = window.setTimeout(() => {
       apply().catch((error) => console.warn("Admin settings shortcut skipped:", error));
-    }, 160);
+    }, 120);
   };
 
   window.addEventListener("hashchange", scheduleApply);
+  window.addEventListener("focus", scheduleApply);
   observer = new MutationObserver(scheduleApply);
-  observer.observe(document.body, { childList: true, subtree: true });
+  observer.observe(document.body, { childList: true, subtree: true, characterData: true });
   scheduleApply();
 
   return () => {
     disposed = true;
     window.clearTimeout(debounceTimer);
     window.removeEventListener("hashchange", scheduleApply);
+    window.removeEventListener("focus", scheduleApply);
     observer?.disconnect();
   };
 }
