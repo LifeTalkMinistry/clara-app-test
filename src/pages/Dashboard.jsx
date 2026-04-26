@@ -3308,6 +3308,7 @@ function DashboardSettingsPanel({
   plan,
   isPaid,
   isFree,
+  isAdmin = false,
   notificationSettings,
   openThemePicker,
   resetThemeToDefault,
@@ -3795,6 +3796,19 @@ function DashboardSettingsPanel({
           badge: "Info",
           action: () => setActiveSetting("about"),
         },
+        ...(isAdmin
+          ? [
+              {
+                key: "admin",
+                title: "Admin Panel",
+                description: "Manage users, access, and CLARA controls",
+                icon: ShieldCheck,
+                badge: "Admin",
+                featured: true,
+                action: () => navigate("/admin"),
+              },
+            ]
+          : []),
       ],
     },
   ];
@@ -4464,7 +4478,7 @@ export default function Dashboard() {
   const { selectedTheme: selectedDashboardTheme, openThemePicker, setTheme } = useTheme();
   const dashboardViewportMode = useDashboardViewportMode();
   const dashboardScale = DASHBOARD_SCALE[dashboardViewportMode] || DASHBOARD_SCALE.normal;
-  const { user, plan, isAdvertiser, isPaid, isFree, isPending, refreshUser } =
+  const { user, plan, isAdmin, isAdvertiser, isPaid, isFree, isPending, refreshUser } =
     useUserRole();
 
   const userId = user?.id || null;
@@ -7288,6 +7302,7 @@ export default function Dashboard() {
               plan={plan}
               isPaid={isPaid}
               isFree={isFree}
+              isAdmin={isAdmin}
               notificationSettings={notificationSettings}
               openThemePicker={openThemePicker}
               resetThemeToDefault={resetDashboardThemeToDefault}
