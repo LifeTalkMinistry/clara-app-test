@@ -65,6 +65,38 @@ const AdminDailyTips = lazy(() => import("./pages/admin/AdminDailyTips"));
 // Fallback
 const PageNotFound = lazy(() => import("./lib/PageNotFound"));
 
+const SUPPORTED_PAID_PLAN_KEYS = new Set(["pro_99", "core_199", "life_os_499"]);
+
+const PAID_STATUSES = new Set([
+  "approved",
+  "active",
+  "completed",
+  "complete",
+  "paid",
+  "success",
+  "succeeded",
+  "confirmed",
+  "verified",
+  "processing_complete",
+  "purchase_completed",
+  "entitled",
+  "unlocked",
+]);
+
+const PENDING_STATUSES = new Set([
+  "pending",
+  "processing",
+  "under_review",
+  "submitted",
+  "awaiting_review",
+  "awaiting_payment",
+  "payment_pending",
+  "google_play_pending",
+  "google_play_processing",
+  "purchase_pending",
+  "purchase_processing",
+]);
+
 function FullScreenLoader() {
   return (
     <div className="theme-page-shell min-h-screen flex items-center justify-center text-white">
@@ -76,6 +108,44 @@ function FullScreenLoader() {
   );
 }
 
+function normalizeValue(value) {
+  if (value === null || value === undefined) return "";
+  return String(value).trim().toLowerCase().replace(/[\s-]+/g, "_");
+}
+
+function normalizePlanKey(value) {
+  const normalized = normalizeValue(value);
+
+  const aliases = {
+    free: "free",
+
+    pro: "pro_99",
+    pro99: "pro_99",
+    pro_99: "pro_99",
+    pro_tools: "pro_99",
+    protools: "pro_99",
+    clara_pro_99: "pro_99",
+
+    core: "core_199",
+    core199: "core_199",
+    core_199: "core_199",
+    core_599: "core_199",
+    program: "core_199",
+    clara_core_199: "core_199",
+
+    coach: "life_os_499",
+    coaching: "life_os_499",
+    coaching_1299: "life_os_499",
+    lifeos: "life_os_499",
+    life_os: "life_os_499",
+    life_os_499: "life_os_499",
+    lifeos_499: "life_os_499",
+    clara_lifeos_499: "life_os_499",
+  };
+
+  return aliases[normalized] || normalized;
+}
+
 function getEnrollmentTimestamp(enrollment) {
   return new Date(
     enrollment?.updated_at ||
@@ -83,36 +153,6 @@ function getEnrollmentTimestamp(enrollment) {
       enrollment?.submitted_at ||
       0
   ).getTime();
-}
-
-function normalizeValue(value) {
-  if (value === null || value === undefined) return "";
-  return String(value).trim().toLowerCase();
-}
-
-function normalizePlanKey(value) {
-  const normalized = normalizeValue(value);
-
-  const aliases = {
-    pro: "pro_99",
-    pro_99: "pro_99",
-    pro_tools: "pro_99",
-    protools: "pro_99",
-
-    core: "core_599",
-    core_599: "core_599",
-    program: "core_599",
-
-    coach: "coaching_1299",
-    coaching: "coaching_1299",
-    lifeos: "coaching_1299",
-    life_os: "coaching_1299",
-    coaching_1299: "coaching_1299",
-
-    free: "free",
-  };
-
-  return aliases[normalized] || normalized;
 }
 
 function getEnrollmentPlanKey(enrollment) {
@@ -127,7 +167,7 @@ function getEnrollmentPlanKey(enrollment) {
 }
 
 function isSupportedPaidPlanKey(planKey) {
-  return ["pro_99", "core_599", "coaching_1299"].includes(normalizePlanKey(planKey));
+  return SUPPORTED_PAID_PLAN_KEYS.has(normalizePlanKey(planKey));
 }
 
 function isGooglePlayEnrollment(enrollment) {
@@ -164,39 +204,9 @@ function isPaidEnrollment(enrollment) {
 
   const hasGooglePlaySource = isGooglePlayEnrollment(enrollment);
 
-  const paidStatuses = new Set([
-    "approved",
-    "active",
-    "completed",
-    "complete",
-    "paid",
-    "success",
-    "succeeded",
-    "confirmed",
-    "verified",
-    "processing_complete",
-    "purchase_completed",
-    "entitled",
-    "unlocked",
-  ]);
+  if (PAID_STATUSES.has(status)) return true;
 
-  const pendingStatuses = new Set([
-    "pending",
-    "processing",
-    "under_review",
-    "submitted",
-    "awaiting_review",
-    "awaiting_payment",
-    "payment_pending",
-    "google_play_pending",
-    "google_play_processing",
-    "purchase_pending",
-    "purchase_processing",
-  ]);
-
-  if (paidStatuses.has(status)) return true;
-
-  if (hasGooglePlaySource && !pendingStatuses.has(status) && status !== "") {
+  if (hasGooglePlaySource && !PENDING_STATUSES.has(status) && status !== "") {
     return true;
   }
 
@@ -225,19 +235,7 @@ function isPendingEnrollment(enrollment) {
       enrollment?.purchase_status
   );
 
-  return new Set([
-    "pending",
-    "processing",
-    "under_review",
-    "submitted",
-    "awaiting_review",
-    "awaiting_payment",
-    "payment_pending",
-    "google_play_pending",
-    "google_play_processing",
-    "purchase_pending",
-    "purchase_processing",
-  ]).has(status);
+  return PENDING_STATUSES.has(status);
 }
 
 function getEnrollmentPriorityScore(enrollment) {
@@ -270,15 +268,16 @@ function getEnrollmentPriorityScore(enrollment) {
 function pickBestEnrollment(enrollments) {
   if (!Array.isArray(enrollments) || enrollments.length === 0) return null;
 
-  const sorted = [...enrollments].sort((a, b) => {
-    return getEnrollmentPriorityScore(b) - getEnrollmentPriorityScore(a);
-  });
-
-  return sorted[0] || null;
+  return [...enrollments].sort(
+    (a, b) => getEnrollmentPriorityScore(b) - getEnrollmentPriorityScore(a)
+  )[0] || null;
 }
 
 function getSafeFlow(resolvedFlow, enrollment) {
-  if (isPaidEnrollment(enrollment) && isSupportedPaidPlanKey(getEnrollmentPlanKey(enrollment))) {
+  if (
+    isPaidEnrollment(enrollment) &&
+    isSupportedPaidPlanKey(getEnrollmentPlanKey(enrollment))
+  ) {
     return "active";
   }
 
@@ -379,8 +378,7 @@ function AppRoutes() {
         if (error) throw error;
         if (!isMounted) return;
 
-        const latestEnrollment = pickBestEnrollment(data);
-        setEnrollment(latestEnrollment || null);
+        setEnrollment(pickBestEnrollment(data));
       } catch (error) {
         console.error("App enrollment fetch error:", error);
 
