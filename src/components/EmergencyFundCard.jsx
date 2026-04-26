@@ -33,6 +33,9 @@ const ORB_DOUBLE_TAP_DELAY_MS = 340;
 const EMERGENCY_TARGET_MONTHS_KEY = "clara_emergency_target_months";
 const EMERGENCY_WALLPAPER_KEY = "clara_wallpaper";
 const EMERGENCY_WALLPAPER_OPACITY_KEY = "clara_wallpaper_opacity";
+const MOTION_TRANSITION_KEY = "clara_motion_transition_origin";
+const TRANSACTION_TRANSITION_KEY = "clara_transactions_transition_origin";
+const MOTION_TARGET_KEY = "clara_motion_target_path";
 
 function getStoredTargetMonths() {
   try {
@@ -48,6 +51,27 @@ function setStoredTargetMonths(value) {
   try {
     localStorage.setItem(EMERGENCY_TARGET_MONTHS_KEY, String(value));
   } catch {}
+}
+
+function storeAnalyticsTransitionOrigin(element) {
+  if (!element || typeof window === "undefined") return;
+
+  try {
+    const card = element.closest?.("[data-emergency-card]") || element;
+    const rect = card.getBoundingClientRect();
+    const payload = JSON.stringify({
+      x: rect.left,
+      y: rect.top,
+      width: rect.width,
+      height: rect.height,
+    });
+
+    sessionStorage.setItem(MOTION_TRANSITION_KEY, payload);
+    sessionStorage.setItem(TRANSACTION_TRANSITION_KEY, payload);
+    sessionStorage.setItem(MOTION_TARGET_KEY, "/analytics");
+  } catch (error) {
+    console.warn("Unable to store analytics transition origin:", error);
+  }
 }
 
 function getStatus(months, targetMonths) {
@@ -337,8 +361,10 @@ export default function EmergencyFundCard({
     window.dispatchEvent(new CustomEvent("clara:open-ai-chat"));
   };
 
-  const openAnalytics = () => {
+  const openAnalytics = (event) => {
+    const sourceElement = event?.currentTarget || event?.target || null;
     resetOrbTapState();
+    storeAnalyticsTransitionOrigin(sourceElement);
     navigate("/analytics");
   };
 
@@ -382,7 +408,8 @@ export default function EmergencyFundCard({
     orbTapCountRef.current += 1;
 
     if (orbTapCountRef.current >= 2) {
-      openAnalytics();
+      clearOrbTapTimer();
+      openAnalytics(event);
       return;
     }
 
@@ -564,6 +591,7 @@ export default function EmergencyFundCard({
       )}
 
       <div
+        data-emergency-card="true"
         className={`relative mb-3 overflow-hidden rounded-3xl border shadow-2xl transition-all duration-200 ${themeClasses.border} ${status.ring}`}
         style={{
           borderColor: themeClasses.outline,
