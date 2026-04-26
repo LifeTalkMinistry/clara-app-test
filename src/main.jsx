@@ -254,109 +254,6 @@ function installFinanceSummaryCopyCleanup() {
   };
 }
 
-function installDashboardBottomFitPatch() {
-  let observer = null;
-  let frameId = null;
-
-  const isDashboardRoute = () => {
-    const hash = String(window.location.hash || "").toLowerCase();
-    return hash === "#/dashboard" || hash.includes("/dashboard") || hash === "";
-  };
-
-  const findDailyMoneyTipCard = () => {
-    const nodes = Array.from(document.querySelectorAll("button, [role='button'], div, section"));
-    const match = nodes
-      .filter((node) => {
-        const text = String(node.textContent || "").trim().toLowerCase();
-        return text.includes("daily money tip") && text.length <= 220;
-      })
-      .sort((a, b) => String(a.textContent || "").length - String(b.textContent || "").length)[0];
-
-    if (!match) return null;
-
-    return (
-      match.closest("button") ||
-      match.closest("[role='button']") ||
-      match.closest("[class*='rounded']") ||
-      match
-    );
-  };
-
-  const apply = () => {
-    frameId = null;
-
-    if (!isDashboardRoute()) return;
-
-    const card = findDailyMoneyTipCard();
-    if (!card) return;
-
-    const rect = card.getBoundingClientRect();
-    if (!rect.width || !rect.height) return;
-
-    const safeBottom = Number(
-      getComputedStyle(document.documentElement)
-        .getPropertyValue("--clara-safe-bottom")
-        .replace("px", "")
-        .trim()
-    ) || 0;
-
-    const viewportHeight = window.visualViewport?.height || window.innerHeight || 0;
-    const bottomTarget = Math.max(0, viewportHeight - safeBottom - 8);
-    const availableHeight = Math.floor(bottomTarget - rect.top);
-
-    if (availableHeight <= 0) return;
-
-    const nextHeight = Math.max(96, Math.min(availableHeight, 190));
-
-    card.style.minHeight = `${nextHeight}px`;
-    card.style.height = `${nextHeight}px`;
-    card.style.display = "flex";
-    card.style.alignItems = "center";
-    card.style.overflow = "hidden";
-
-    const innerCard = Array.from(card.querySelectorAll("div"))
-      .filter((node) => {
-        const box = node.getBoundingClientRect();
-        return box.width >= rect.width * 0.72 && String(node.textContent || "").toLowerCase().includes("daily money tip");
-      })
-      .sort((a, b) => b.getBoundingClientRect().width - a.getBoundingClientRect().width)[0];
-
-    if (innerCard) {
-      innerCard.style.minHeight = "100%";
-      innerCard.style.height = "100%";
-      innerCard.style.display = "flex";
-      innerCard.style.alignItems = "center";
-    }
-  };
-
-  const schedule = () => {
-    if (frameId) window.cancelAnimationFrame(frameId);
-    frameId = window.requestAnimationFrame(apply);
-  };
-
-  observer = new MutationObserver(schedule);
-  observer.observe(document.body, { childList: true, subtree: true, characterData: true });
-  window.addEventListener("hashchange", schedule);
-  window.addEventListener("focus", schedule);
-  window.addEventListener("resize", schedule);
-  window.visualViewport?.addEventListener("resize", schedule);
-  window.visualViewport?.addEventListener("scroll", schedule);
-
-  schedule();
-  window.setTimeout(schedule, 400);
-  window.setTimeout(schedule, 1200);
-
-  return () => {
-    if (frameId) window.cancelAnimationFrame(frameId);
-    observer?.disconnect();
-    window.removeEventListener("hashchange", schedule);
-    window.removeEventListener("focus", schedule);
-    window.removeEventListener("resize", schedule);
-    window.visualViewport?.removeEventListener("resize", schedule);
-    window.visualViewport?.removeEventListener("scroll", schedule);
-  };
-}
-
 const rootElement = document.getElementById("root");
 
 if (!rootElement) {
@@ -397,9 +294,5 @@ setTimeout(() => {
 
   safeRun(() => {
     installFinanceSummaryCopyCleanup();
-  });
-
-  safeRun(() => {
-    installDashboardBottomFitPatch();
   });
 }, 500);
