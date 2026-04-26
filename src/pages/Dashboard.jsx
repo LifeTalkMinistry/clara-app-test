@@ -3165,7 +3165,7 @@ function DashboardMessagesPanel({ onBack }) {
   if (activeConvo) {
     return createPortal(
       <div
-        className="fixed inset-0 z-[2147483000] grid h-[100dvh] w-screen grid-rows-[auto_minmax(0,1fr)_auto] overflow-hidden bg-[linear-gradient(180deg,#062c2c_0%,#031b2d_34%,#020817_78%)] text-white"
+        className="fixed inset-0 z-[2147483000] flex h-[100dvh] w-screen flex-col overflow-hidden bg-[linear-gradient(180deg,#062c2c_0%,#031b2d_34%,#020817_78%)] text-white"
         style={{
           position: "fixed",
           inset: 0,
@@ -3222,7 +3222,7 @@ function DashboardMessagesPanel({ onBack }) {
         </header>
 
         <main
-          className="min-h-0 overflow-y-auto overscroll-contain px-4 py-4 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+          className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 pb-[112px] pt-4 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
           style={{ WebkitOverflowScrolling: "touch" }}
         >
           <div className="mx-auto flex min-h-full max-w-3xl flex-col justify-end gap-2.5">
@@ -3290,14 +3290,23 @@ function DashboardMessagesPanel({ onBack }) {
           </div>
         </main>
 
-        <footer className="relative z-[2147483001] border-t border-white/10 bg-[#020817]/96 px-4 pb-[calc(env(safe-area-inset-bottom)+0.75rem)] pt-3">
-          <div className="mx-auto flex max-w-3xl items-end gap-2">
-            <div className="flex min-h-[46px] flex-1 items-center rounded-[24px] border border-white/10 bg-white/[0.06] px-4">
+        <footer
+          className="fixed inset-x-0 bottom-0 z-[2147483001] border-t border-white/10 bg-[#020817]/98 px-4 pb-[calc(env(safe-area-inset-bottom)+0.75rem)] pt-3"
+          style={{ transform: "translateZ(0)" }}
+        >
+          <form
+            onSubmit={(event) => {
+              event.preventDefault();
+              handleSend();
+            }}
+            className="mx-auto flex w-full max-w-3xl items-center gap-2"
+          >
+            <div className="flex h-12 min-w-0 flex-1 items-center rounded-full border border-white/10 bg-white/[0.07] px-4 shadow-[0_10px_30px_rgba(0,0,0,0.18)]">
               <input
                 value={newMsg}
                 onChange={(event) => setNewMsg(event.target.value)}
                 placeholder="Type a message..."
-                className="h-11 min-w-0 flex-1 bg-transparent text-sm text-white outline-none placeholder:text-white/35"
+                className="h-full min-w-0 flex-1 bg-transparent text-[14px] text-white outline-none placeholder:text-white/40"
                 disabled={sending}
                 onKeyDown={(event) => {
                   if (event.key === "Enter" && !event.shiftKey) {
@@ -3309,15 +3318,14 @@ function DashboardMessagesPanel({ onBack }) {
             </div>
 
             <button
-              type="button"
-              onClick={handleSend}
+              type="submit"
               disabled={!newMsg.trim() || sending}
-              className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-emerald-500 text-white shadow-[0_10px_24px_rgba(16,185,129,0.24)] transition active:scale-95 disabled:opacity-45"
+              className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-emerald-500 text-white shadow-[0_10px_24px_rgba(16,185,129,0.24)] transition active:scale-95 disabled:opacity-45"
               aria-label="Send message"
             >
               <Send className="h-4 w-4" />
             </button>
-          </div>
+          </form>
         </footer>
       </div>,
       document.body
