@@ -22,7 +22,8 @@
       }
 
       /* CLARA message thread must pop out above BOTH default mode and performance mode layouts. */
-      body:has([class*="h-[100dvh]"][class*="w-screen"][class*="fixed"]) {
+      body:has([class*="h-[100dvh]"][class*="w-screen"][class*="fixed"]),
+      body.clara-conversation-open {
         overflow: hidden !important;
       }
 
@@ -31,7 +32,13 @@
       body:has([class*="h-[100dvh]"][class*="w-screen"][class*="fixed"]) .theme-page-shell,
       body:has([class*="h-[100dvh]"][class*="w-screen"][class*="fixed"]) .theme-page-shell > *,
       body:has([class*="h-[100dvh]"][class*="w-screen"][class*="fixed"]) .theme-page-shell main,
-      body:has([class*="h-[100dvh]"][class*="w-screen"][class*="fixed"]) .theme-page-shell main > * {
+      body:has([class*="h-[100dvh]"][class*="w-screen"][class*="fixed"]) .theme-page-shell main > *,
+      body.clara-conversation-open #root,
+      body.clara-conversation-open #root > *,
+      body.clara-conversation-open .theme-page-shell,
+      body.clara-conversation-open .theme-page-shell > *,
+      body.clara-conversation-open .theme-page-shell main,
+      body.clara-conversation-open .theme-page-shell main > * {
         overflow: visible !important;
         transform: none !important;
         filter: none !important;
@@ -45,12 +52,20 @@
       body:has([class*="h-[100dvh]"][class*="w-screen"][class*="fixed"]) a[aria-label="Open admin panel"],
       body:has([class*="h-[100dvh]"][class*="w-screen"][class*="fixed"]) nav:not([data-conversation-nav]),
       body:has([class*="h-[100dvh]"][class*="w-screen"][class*="fixed"]) [class*="sticky"][class*="top-"],
-      body:has([class*="h-[100dvh]"][class*="w-screen"][class*="fixed"]) [class*="fixed"][class*="top-"]:not([class*="h-[100dvh]"]) {
+      body:has([class*="h-[100dvh]"][class*="w-screen"][class*="fixed"]) [class*="fixed"][class*="top-"]:not([class*="h-[100dvh]"]),
+      body.clara-conversation-open [data-bottom-nav],
+      body.clara-conversation-open [data-fab],
+      body.clara-conversation-open a[aria-label="Open admin panel"],
+      body.clara-conversation-open nav:not([data-conversation-nav]),
+      body.clara-conversation-open [data-clara-hidden-while-chat="true"],
+      body.clara-conversation-open [class*="sticky"][class*="top-"],
+      body.clara-conversation-open [class*="fixed"][class*="top-"]:not([data-clara-conversation-overlay="true"]) {
         display: none !important;
         pointer-events: none !important;
       }
 
-      body:has([class*="h-[100dvh]"][class*="w-screen"][class*="fixed"]) [class*="h-[100dvh]"][class*="w-screen"][class*="fixed"] {
+      body:has([class*="h-[100dvh]"][class*="w-screen"][class*="fixed"]) [class*="h-[100dvh]"][class*="w-screen"][class*="fixed"],
+      body.clara-conversation-open [data-clara-conversation-overlay="true"] {
         position: fixed !important;
         inset: 0 !important;
         z-index: 2147483000 !important;
@@ -70,6 +85,108 @@
     <div id="root">
       <div id="clara-boot">CLARA is starting...</div>
     </div>
+    <script>
+      (() => {
+        const CHAT_PLACEHOLDER = "Type a message";
+        const TOP_NAV_WORDS = ["Home", "Feed", "Message", "Setting"];
+        let lastOverlay = null;
+        let hiddenNodes = new Set();
+
+        const clearHidden = () => {
+          hiddenNodes.forEach((node) => {
+            if (node && node.dataset) delete node.dataset.claraHiddenWhileChat;
+          });
+          hiddenNodes = new Set();
+        };
+
+        const findChatInput = () => {
+          return Array.from(document.querySelectorAll("input, textarea")).find((node) => {
+            const placeholder = String(node.getAttribute("placeholder") || "");
+            return placeholder.includes(CHAT_PLACEHOLDER);
+          });
+        };
+
+        const findOverlay = (input) => {
+          if (!input) return null;
+          let node = input;
+          while (node && node !== document.body) {
+            const className = String(node.getAttribute?.("class") || "");
+            if (className.includes("fixed") || className.includes("h-[100dvh]") || className.includes("w-screen")) {
+              return node;
+            }
+            node = node.parentElement;
+          }
+          return input.closest("div") || null;
+        };
+
+        const forceOverlayStyle = (overlay) => {
+          if (!overlay) return;
+          overlay.dataset.claraConversationOverlay = "true";
+          overlay.style.position = "fixed";
+          overlay.style.inset = "0";
+          overlay.style.zIndex = "2147483000";
+          overlay.style.width = "100vw";
+          overlay.style.maxWidth = "none";
+          overlay.style.height = "100dvh";
+          overlay.style.maxHeight = "100dvh";
+          overlay.style.margin = "0";
+          overlay.style.transform = "none";
+          overlay.style.borderRadius = "0";
+          overlay.style.isolation = "isolate";
+        };
+
+        const hideDefaultTopNav = (overlay) => {
+          clearHidden();
+          if (!overlay) return;
+
+          const candidates = Array.from(document.querySelectorAll("nav, header, aside, section, div"));
+          candidates.forEach((node) => {
+            if (!node || node === overlay || overlay.contains(node) || node.contains(overlay)) return;
+
+            const text = String(node.textContent || "").replace(/\s+/g, " ").trim();
+            const hasTopNavWords = TOP_NAV_WORDS.every((word) => text.includes(word));
+            if (!hasTopNavWords) return;
+
+            const rect = node.getBoundingClientRect();
+            const looksLikeTopNav = rect.top <= 140 && rect.height <= 140 && rect.width >= Math.min(window.innerWidth * 0.68, 260);
+            if (!looksLikeTopNav) return;
+
+            node.dataset.claraHiddenWhileChat = "true";
+            hiddenNodes.add(node);
+          });
+        };
+
+        const syncConversationOverlay = () => {
+          const input = findChatInput();
+          const overlay = findOverlay(input);
+
+          if (!input || !overlay) {
+            document.body.classList.remove("clara-conversation-open");
+            if (lastOverlay?.dataset) delete lastOverlay.dataset.claraConversationOverlay;
+            lastOverlay = null;
+            clearHidden();
+            return;
+          }
+
+          document.body.classList.add("clara-conversation-open");
+          lastOverlay = overlay;
+          forceOverlayStyle(overlay);
+          hideDefaultTopNav(overlay);
+        };
+
+        const scheduleSync = () => requestAnimationFrame(syncConversationOverlay);
+        new MutationObserver(scheduleSync).observe(document.documentElement, {
+          childList: true,
+          subtree: true,
+          attributes: true,
+          attributeFilter: ["class", "style", "placeholder"],
+        });
+        window.addEventListener("resize", scheduleSync);
+        window.addEventListener("orientationchange", scheduleSync);
+        document.addEventListener("visibilitychange", scheduleSync);
+        scheduleSync();
+      })();
+    </script>
     <script type="module" src="/src/main.jsx"></script>
   </body>
 </html>
