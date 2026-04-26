@@ -1,5 +1,5 @@
 /* Focused dashboard scroll/clipping fix.
-   Dashboard must scroll naturally on Android/iPhone while keeping premium rounded cards clipped. */
+   Dashboard now keeps premium rounded cards polished while removing the Daily Money Tip block. */
 
 /* Let the document become scrollable when the Dashboard is active. */
 html:has(.clara-dashboard-main),
@@ -36,8 +36,8 @@ body:has(.clara-dashboard-main),
   overflow-y: visible !important;
   -webkit-overflow-scrolling: touch !important;
   padding-top: calc(0.75rem + env(safe-area-inset-top)) !important;
-  padding-bottom: calc(140px + env(safe-area-inset-bottom)) !important;
-  scroll-padding-bottom: calc(140px + env(safe-area-inset-bottom));
+  padding-bottom: calc(72px + env(safe-area-inset-bottom)) !important;
+  scroll-padding-bottom: calc(72px + env(safe-area-inset-bottom));
 }
 
 /* Unlock only screen-height wrappers so expanded cards can grow. */
@@ -64,10 +64,31 @@ body:has(.clara-dashboard-main),
   backface-visibility: hidden;
 }
 
-/* Final clearance after the dashboard content so the Daily Money Tip can clear Android navigation. */
+/* Hide the Daily Money Tip block.
+   It is the final dashboard card after the Total Money Left / Total Expense strip. */
+.clara-dashboard-main > div > div:last-child,
+.clara-dashboard-main > div > section:last-child,
+.clara-dashboard-main > div > button:last-child {
+  display: none !important;
+}
+
+/* Enlarge the Total Money Left / Total Expense strip to cover the removed tip space. */
+.clara-dashboard-main > div > div:nth-last-child(2),
+.clara-dashboard-main > div > section:nth-last-child(2),
+.clara-dashboard-main > div > a:nth-last-child(2) {
+  min-height: 112px !important;
+}
+
+.clara-dashboard-main > div > div:nth-last-child(2) > *,
+.clara-dashboard-main > div > section:nth-last-child(2) > *,
+.clara-dashboard-main > div > a:nth-last-child(2) > * {
+  min-height: 112px !important;
+}
+
+/* Small final clearance for Android navigation without creating a huge blank gap. */
 .clara-dashboard-main::after {
   content: "";
   display: block;
-  height: calc(96px + env(safe-area-inset-bottom));
+  height: calc(40px + env(safe-area-inset-bottom));
   flex: 0 0 auto;
 }
