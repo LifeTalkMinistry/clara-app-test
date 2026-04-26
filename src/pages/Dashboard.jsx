@@ -4526,6 +4526,7 @@ export default function Dashboard() {
   const [activeDashboardPanel, setActiveDashboardPanel] = useState("home");
   const [dashboardPanelDirection, setDashboardPanelDirection] = useState("forward");
   const [expandedFinanceCard, setExpandedFinanceCard] = useState(null);
+  const [isDashboardScrollable, setIsDashboardScrollable] = useState(false);
   const [financeActionLoading, setFinanceActionLoading] = useState(false);
   const [financeNotice, setFinanceNotice] = useState(null);
   const [financeModal, setFinanceModal] = useState({ type: null, payload: null });
@@ -4629,6 +4630,9 @@ export default function Dashboard() {
 
   const refreshTimeoutRef = useRef(null);
   const financeCarouselRef = useRef(null);
+  const dashboardScrollRef = useRef(null);
+  const dashboardContentRef = useRef(null);
+  const dashboardScrollTimersRef = useRef([]);
   const trackedViewIdsRef = useRef(new Set());
   const trackedClickIdsRef = useRef(new Set());
   const clickInFlightIdsRef = useRef(new Set());
@@ -5681,8 +5685,65 @@ export default function Dashboard() {
     });
   }, [financeCards.length]);
 
+  const clearDashboardScrollTimers = useCallback(() => {
+    dashboardScrollTimersRef.current.forEach((timerId) => {
+      window.clearTimeout(timerId);
+    });
+    dashboardScrollTimersRef.current = [];
+  }, []);
+
+  const measureDashboardScrollability = useCallback(() => {
+    if (activeDashboardPanel !== "home" || !expandedFinanceCard) {
+      setIsDashboardScrollable(false);
+      return false;
+    }
+
+    const scrollNode = dashboardScrollRef.current;
+    const contentNode = dashboardContentRef.current;
+    if (!scrollNode || !contentNode || typeof window === "undefined") {
+      setIsDashboardScrollable(false);
+      return false;
+    }
+
+    const viewportHeight = Math.max(window.innerHeight || 0, scrollNode.clientHeight || 0);
+    const contentHeight = Math.max(
+      scrollNode.scrollHeight || 0,
+      contentNode.scrollHeight || 0,
+      contentNode.getBoundingClientRect?.().height || 0
+    );
+    const shouldScroll = contentHeight > viewportHeight + 8;
+
+    setIsDashboardScrollable(shouldScroll);
+    return shouldScroll;
+  }, [activeDashboardPanel, expandedFinanceCard]);
+
+  const scheduleDashboardScrollMeasure = useCallback(() => {
+    if (typeof window === "undefined") return;
+
+    clearDashboardScrollTimers();
+    window.requestAnimationFrame(() => {
+      measureDashboardScrollability();
+    });
+
+    [120, 280, 380].forEach((delay) => {
+      const timerId = window.setTimeout(() => {
+        measureDashboardScrollability();
+      }, delay);
+      dashboardScrollTimersRef.current.push(timerId);
+    });
+  }, [clearDashboardScrollTimers, measureDashboardScrollability]);
+
   const toggleFinanceDetails = useCallback((cardKey) => {
-    setExpandedFinanceCard((prev) => (prev === cardKey ? null : cardKey));
+    setExpandedFinanceCard((prev) => {
+      const next = prev === cardKey ? null : cardKey;
+      if (!next) {
+        setIsDashboardScrollable(false);
+        window.requestAnimationFrame(() => {
+          dashboardScrollRef.current?.scrollTo?.({ top: 0, behavior: "smooth" });
+        });
+      }
+      return next;
+    });
   }, []);
 
   const handleFinanceCarouselScroll = useCallback(() => {
@@ -5697,6 +5758,40 @@ export default function Dashboard() {
     const index = Math.round(container.scrollLeft / slideWidth);
     setFinanceCardIndex(Math.max(0, Math.min(financeCards.length - 1, index)));
   }, [financeCards.length]);
+
+  useEffect(() => {
+    scheduleDashboardScrollMeasure();
+
+    if (!expandedFinanceCard) {
+      setIsDashboardScrollable(false);
+      dashboardScrollRef.current?.scrollTo?.({ top: 0, behavior: "smooth" });
+    }
+
+    return clearDashboardScrollTimers;
+  }, [
+    activeDashboardPanel,
+    expandedFinanceCard,
+    financeCardIndex,
+    dashboardViewportMode,
+    scheduleDashboardScrollMeasure,
+    clearDashboardScrollTimers,
+  ]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return undefined;
+
+    const handleResize = () => {
+      scheduleDashboardScrollMeasure();
+    };
+
+    window.addEventListener("resize", handleResize, { passive: true });
+    window.addEventListener("orientationchange", handleResize, { passive: true });
+
+    return () => {
+      window.removeEventListener("resize", handleResize);
+      window.removeEventListener("orientationchange", handleResize);
+    };
+  }, [scheduleDashboardScrollMeasure]);
 
   const showFinanceNotice = useCallback((message, type = "error") => {
     setFinanceNotice({ message, type });
@@ -6851,6 +6946,16 @@ export default function Dashboard() {
         ? "h-[calc(100svh-132px)] max-h-[calc(100svh-132px)] overflow-hidden pr-0.5 pb-0 [padding-bottom:0!important] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
         : "max-h-[calc(100svh-132px)] overflow-y-auto overscroll-y-contain touch-pan-y pr-0.5 pb-[calc(env(safe-area-inset-bottom)+14px)] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden";
 
+  const dashboardSmartScrollClass =
+    activeDashboardPanel === "home" && isDashboardScrollable
+      ? "max-h-[100dvh] overflow-y-auto overscroll-y-contain touch-pan-y pb-[calc(env(safe-area-inset-bottom)+88px)] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+      : "overflow-y-hidden";
+
+  const dashboardSmartContentClass =
+    activeDashboardPanel === "home" && isDashboardScrollable
+      ? "pb-[calc(env(safe-area-inset-bottom)+88px)]"
+      : "";
+
   const headerQuickActions = [
     {
       key: "home",
@@ -6896,7 +7001,11 @@ export default function Dashboard() {
   }
 
   return (
-    <div className={`theme-page-shell relative isolate z-0 w-full max-w-[430px] mx-auto ${dashboardScale.page} overflow-x-hidden`} style={{ WebkitOverflowScrolling: "touch" }}>
+    <div
+      ref={dashboardScrollRef}
+      className={`theme-page-shell relative isolate z-0 w-full max-w-[430px] mx-auto ${dashboardScale.page} overflow-x-hidden ${dashboardSmartScrollClass}`}
+      style={{ WebkitOverflowScrolling: "touch" }}
+    >
       <style>{`
         .theme-page-shell {
           overscroll-behavior-x: auto;
@@ -6990,10 +7099,11 @@ export default function Dashboard() {
       </div>
 
       <div
+        ref={dashboardContentRef}
         className={`mx-auto w-full max-w-[430px] ${
           activeDashboardPanel === "messages"
             ? "mt-3 px-[clamp(14px,4vw,18px)] pb-0 [padding-bottom:0!important]"
-            : `${dashboardScale.content} ${activeDashboardPanel === "home" ? "" : "[padding-bottom:0!important]"}`
+            : `${dashboardScale.content} ${activeDashboardPanel === "home" ? dashboardSmartContentClass : "[padding-bottom:0!important]"}`
         }`}
       >
         <div
@@ -7124,12 +7234,28 @@ export default function Dashboard() {
                 className="flex touch-pan-x items-stretch snap-x snap-mandatory overflow-x-auto overflow-y-hidden overscroll-x-contain [scrollbar-width:none] [-webkit-overflow-scrolling:touch] [&::-webkit-scrollbar]:hidden"
               >
                 <div className="flex w-full min-w-full shrink-0 snap-center">
-                  <div className={getFinanceSlideShellClass("emergency", selectedDashboardTheme, dashboardScale)}>
+                  <div
+                    className={getFinanceSlideShellClass("emergency", selectedDashboardTheme, dashboardScale)}
+                    onClickCapture={(event) => {
+                      const button = event.target?.closest?.("button");
+                      const label = String(button?.textContent || "").toLowerCase();
+                      if (label.includes("show details")) {
+                        setExpandedFinanceCard("emergency");
+                        scheduleDashboardScrollMeasure();
+                      } else if (label.includes("hide details")) {
+                        setExpandedFinanceCard(null);
+                      }
+                    }}
+                  >
                     <EmergencyFundCard
                       moneyLeft={walletMoney}
                       survivalExpense={survivalExpense}
                       retentionRate={0}
                       theme={selectedDashboardTheme}
+                      expanded={expandedFinanceCard === "emergency"}
+                      onExpandedChange={(open) => {
+                        setExpandedFinanceCard(open ? "emergency" : null);
+                      }}
                       canAutoPrompt={Boolean(user?.id) && guardChecked && !loading}
                       hasSurvivalSetup={
                         Boolean(profileData?.survival_setup_done) ||
@@ -7194,6 +7320,7 @@ export default function Dashboard() {
                     walletPreviewTransactions={walletPreviewTransactions}
                     theme={selectedDashboardTheme}
                     expanded={expandedFinanceCard === "wallets"}
+                    onExpandedChange={(open) => setExpandedFinanceCard(open ? "wallets" : null)}
                     onToggleDetails={() => toggleFinanceDetails("wallets")}
                     financeActionLoading={financeActionLoading}
                     onCreateWallet={openCreateWalletModal}
@@ -7211,6 +7338,7 @@ export default function Dashboard() {
                     activeBudget={derivedActiveBudget}
                     theme={selectedDashboardTheme}
                     expanded={expandedFinanceCard === "budgets"}
+                    onExpandedChange={(open) => setExpandedFinanceCard(open ? "budgets" : null)}
                     onToggleDetails={() => toggleFinanceDetails("budgets")}
                     financeActionLoading={financeActionLoading}
                     onSaveBudget={openBudgetModal}
@@ -7228,6 +7356,7 @@ export default function Dashboard() {
                     primarySavingsGoal={primarySavingsGoal}
                     theme={selectedDashboardTheme}
                     expanded={expandedFinanceCard === "savings"}
+                    onExpandedChange={(open) => setExpandedFinanceCard(open ? "savings" : null)}
                     onToggleDetails={() => toggleFinanceDetails("savings")}
                     financeActionLoading={financeActionLoading}
                     onSaveSavingsGoal={openSavingsGoalModal}
