@@ -185,6 +185,19 @@ iframe {
   .theme-page-shell main .mt-4 {
     margin-top: 0.7rem !important;
   }
+
+  /* Dashboard Daily Money Tip: make the actual flip card taller, not the page. */
+  .theme-page-shell main > div:first-child [class*="perspective"] {
+    min-height: clamp(128px, 16.5dvh, 155px) !important;
+  }
+
+  .theme-page-shell main > div:first-child [class*="perspective"] > * {
+    min-height: clamp(128px, 16.5dvh, 155px) !important;
+  }
+
+  .theme-page-shell main > div:first-child [class*="perspective"] [class*="min-h-"] {
+    min-height: clamp(128px, 16.5dvh, 155px) !important;
+  }
 }
 
 @media (max-width: 374px) {
@@ -196,6 +209,15 @@ iframe {
   .theme-page-shell main {
     padding-top: max(0.15rem, calc(var(--clara-safe-top) + 0.08rem)) !important;
     padding-bottom: calc(0.6rem + var(--clara-safe-bottom)) !important;
+  }
+
+  .theme-page-shell main > div:first-child [class*="perspective"] {
+    min-height: clamp(112px, 15dvh, 138px) !important;
+  }
+
+  .theme-page-shell main > div:first-child [class*="perspective"] > *,
+  .theme-page-shell main > div:first-child [class*="perspective"] [class*="min-h-"] {
+    min-height: clamp(112px, 15dvh, 138px) !important;
   }
 
   .gap-4 {
