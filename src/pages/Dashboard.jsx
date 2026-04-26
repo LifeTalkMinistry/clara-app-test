@@ -30,8 +30,8 @@ import {
   Palette,
   Check,
 } from "lucide-react";
-import { createPortal } from "react-dom";
 import { Link, useNavigate } from "react-router-dom";
+import { createPortal } from "react-dom";
 import { supabase } from "@/lib/supabaseClient";
 import EmergencyFundCard from "../components/EmergencyFundCard";
 import WalletCard from "../components/WalletCard";
@@ -3164,25 +3164,8 @@ function DashboardMessagesPanel({ onBack }) {
 
   if (activeConvo) {
     const chatOverlay = (
-      <div
-        className="fixed inset-0 flex h-[100dvh] w-screen flex-col overflow-hidden bg-[radial-gradient(circle_at_top,#0d3b2f_0%,#031b2d_35%,#020817_75%)] text-white"
-        style={{
-          position: "fixed",
-          inset: 0,
-          width: "100vw",
-          height: "100dvh",
-          maxWidth: "100vw",
-          maxHeight: "100dvh",
-          margin: 0,
-          padding: 0,
-          transform: "none",
-          borderRadius: 0,
-          overflow: "hidden",
-          isolation: "isolate",
-          zIndex: 2147483000,
-        }}
-      >
-        <div className="relative z-30 shrink-0 border-b border-white/10 bg-[#03141d]/95 px-4 pb-3 pt-[calc(env(safe-area-inset-top)+0.85rem)]">
+      <div className="fixed inset-0 z-[2147483000] flex h-[100dvh] w-screen flex-col overflow-hidden bg-[radial-gradient(circle_at_top,#0d3b2f_0%,#031b2d_35%,#020817_75%)] text-white">
+        <div className="shrink-0 border-b border-white/10 bg-[#03181d]/95 px-4 pb-3 pt-[calc(env(safe-area-inset-top)+0.85rem)]">
           <div className="mx-auto flex max-w-3xl items-center gap-3">
             <button
               type="button"
@@ -3202,7 +3185,7 @@ function DashboardMessagesPanel({ onBack }) {
 
             <div className="min-w-0 flex-1">
               <p className="truncate text-sm font-bold text-white">{activeConvo.name}</p>
-              <p className="truncate text-[11px] text-white/55">
+              <p className="truncate text-[11px] text-white/50">
                 {messageMode === "admin_only" && !isAdmin
                   ? "CLARA Admin"
                   : "Private conversation"}
@@ -3220,10 +3203,10 @@ function DashboardMessagesPanel({ onBack }) {
         </div>
 
         <div
-          className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 pb-5 pt-4 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+          className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 py-4 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
           style={{ WebkitOverflowScrolling: "touch" }}
         >
-          <div className="mx-auto flex min-h-full max-w-3xl flex-col justify-end gap-3">
+          <div className="mx-auto flex min-h-full max-w-3xl flex-col justify-end gap-3 pb-1">
             {activeConvo.messages.length === 0 ? (
               <div className="flex min-h-[56dvh] items-center justify-center text-center">
                 <div className="w-full max-w-sm rounded-[28px] border border-white/10 bg-white/5 p-6 shadow-[0_20px_70px_rgba(0,0,0,0.28)]">
@@ -3247,7 +3230,7 @@ function DashboardMessagesPanel({ onBack }) {
                       className={`max-w-[82%] rounded-[22px] px-4 py-3 shadow-lg ${
                         isMine
                           ? "rounded-br-md bg-gradient-to-br from-emerald-500 to-teal-600 text-white"
-                          : "rounded-bl-md border border-white/10 bg-[#071120]/90 text-white"
+                          : "rounded-bl-md border border-white/10 bg-white/8 text-white"
                       }`}
                     >
                       <p className="whitespace-pre-wrap break-words text-[14px] leading-relaxed">
@@ -3269,44 +3252,35 @@ function DashboardMessagesPanel({ onBack }) {
           </div>
         </div>
 
-        <div className="relative z-30 shrink-0 border-t border-white/10 bg-[#050b18]/96 px-4 pb-[calc(env(safe-area-inset-bottom)+0.75rem)] pt-3">
-          <form
-            onSubmit={(event) => {
-              event.preventDefault();
-              handleSend();
-            }}
-            className="mx-auto flex max-w-3xl items-end gap-2"
-          >
-            <div className="min-h-[48px] flex-1 rounded-[24px] border border-white/10 bg-white/6 px-4 py-3">
-              <input
-                value={newMsg}
-                onChange={(event) => setNewMsg(event.target.value)}
-                placeholder="Type a message..."
-                className="h-6 w-full bg-transparent text-sm text-white outline-none placeholder:text-white/35"
-                disabled={sending}
-                onKeyDown={(event) => {
-                  if (event.key === "Enter" && !event.shiftKey) {
-                    event.preventDefault();
-                    handleSend();
-                  }
-                }}
-              />
-            </div>
-
+        <form
+          onSubmit={(event) => {
+            event.preventDefault();
+            handleSend();
+          }}
+          className="shrink-0 border-t border-white/10 bg-[#020817]/96 px-4 pb-[calc(env(safe-area-inset-bottom)+0.75rem)] pt-3"
+        >
+          <div className="mx-auto flex max-w-3xl items-center gap-2 rounded-[24px] border border-white/10 bg-white/6 px-3 py-2">
+            <input
+              value={newMsg}
+              onChange={(event) => setNewMsg(event.target.value)}
+              placeholder="Type a message..."
+              className="min-w-0 flex-1 bg-transparent text-sm text-white outline-none placeholder:text-white/35"
+              disabled={sending}
+            />
             <button
               type="submit"
               disabled={!newMsg.trim() || sending}
-              className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-emerald-400 text-slate-950 shadow-[0_12px_30px_rgba(16,185,129,0.22)] transition active:scale-95 disabled:opacity-45"
+              className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-emerald-400 text-slate-950 shadow-[0_12px_30px_rgba(16,185,129,0.22)] transition active:scale-95 disabled:opacity-45"
               aria-label="Send message"
             >
               <Send className="h-4 w-4" />
             </button>
-          </form>
-        </div>
+          </div>
+        </form>
       </div>
     );
 
-    return typeof document !== "undefined" ? createPortal(chatOverlay, document.body) : chatOverlay;
+    return createPortal(chatOverlay, document.body);
   }
 
   return (
