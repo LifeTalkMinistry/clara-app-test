@@ -2,21 +2,33 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-
-    <!-- ✅ Local favicon (recommended) -->
     <link rel="icon" type="image/svg+xml" href="/clara-app-test/favicon.svg" />
-
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-
-    <!-- ✅ PWA (optional, safe) -->
     <link rel="manifest" href="/clara-app-test/manifest.json" />
-
-    <!-- ✅ SEO / Branding -->
     <title>CLARA</title>
     <meta name="description" content="CLARA Financial Program - Take control of your money." />
-
-    <!-- ✅ Theme color (mobile browser UI) -->
     <meta name="theme-color" content="#020617" />
+    <style>
+      a[aria-label="Open admin panel"]{display:none!important}
+      #clara-settings-admin-shortcut{width:100%;display:flex;align-items:center;gap:14px;margin-top:12px;padding:16px;border-radius:22px;border:1px solid rgba(45,246,222,.25);background:rgba(10,32,56,.92);color:white;box-shadow:0 18px 48px rgba(0,0,0,.22)}
+      #clara-settings-admin-shortcut .admin-icon{width:44px;height:44px;border-radius:16px;display:flex;align-items:center;justify-content:center;background:rgba(16,185,129,.14);border:1px solid rgba(45,246,222,.18);color:var(--theme-accent,#2ef6de);flex-shrink:0;font-weight:900}
+      #clara-settings-admin-shortcut .admin-copy{min-width:0;flex:1;text-align:left}
+      #clara-settings-admin-shortcut .admin-title{margin:0;font-size:14px;font-weight:800;color:white}
+      #clara-settings-admin-shortcut .admin-sub{margin:4px 0 0;font-size:12px;color:rgba(255,255,255,.52);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+      #clara-settings-admin-shortcut .admin-badge{border-radius:999px;border:1px solid rgba(45,246,222,.18);background:rgba(16,185,129,.12);padding:4px 10px;font-size:10px;font-weight:800;letter-spacing:.08em;color:var(--theme-accent,#2ef6de)}
+    </style>
+    <script>
+      (function(){
+        function txt(e){return String((e&&e.textContent)||'').trim().toLowerCase()}
+        function isAdmin(){var t=txt(document.body);return t.indexOf('jeromemirabuenos62@gmail.com')>-1||t.indexOf('lifetalkministry@gmail.com')>-1}
+        function isSettings(){var h=String(location.hash||'').toLowerCase();return h.indexOf('/settings')>-1||txt(document.body).indexOf('about clara')>-1}
+        function card(label){var n=label.toLowerCase();var a=[].slice.call(document.querySelectorAll('button,a,[role=button],div')).filter(function(x){var s=txt(x);return s.indexOf(n)>-1&&s.length<260}).sort(function(a,b){return txt(a).length-txt(b).length})[0];return a&&(a.closest('button')||a.closest('a')||a.closest('[role=button]')||a.closest('[class*=rounded]')||a)}
+        function make(ref){var b=document.createElement('button');b.type='button';b.id='clara-settings-admin-shortcut';b.className=(ref&&ref.className)||'';b.innerHTML='<div class="admin-icon">A</div><div class="admin-copy"><p class="admin-title">Admin Panel</p><p class="admin-sub">Manage users, access, and CLARA controls...</p></div><span class="admin-badge">ADMIN</span>';b.onclick=function(){location.hash='#/admin'};return b}
+        function run(){var ex=document.getElementById('clara-settings-admin-shortcut');if(!isSettings()||!isAdmin()){if(ex)ex.remove();return}var about=card('About CLARA'),logout=card('Log out');if(!about&&!logout)return;if(!ex)ex=make(about||logout);if(about&&ex.previousElementSibling!==about){about.insertAdjacentElement('afterend',ex);return}if(!about&&logout&&ex.nextElementSibling!==logout)logout.insertAdjacentElement('beforebegin',ex)}
+        var tm;function sch(){clearTimeout(tm);tm=setTimeout(run,120)}
+        addEventListener('hashchange',sch);addEventListener('focus',sch);new MutationObserver(sch).observe(document.documentElement,{childList:true,subtree:true,characterData:true});setInterval(run,1000);setTimeout(sch,500);setTimeout(sch,1500);setTimeout(sch,3000)
+      })();
+    </script>
     <script type="module" crossorigin src="/clara-app-test/assets/index-COOtjBiR.js"></script>
     <link rel="modulepreload" crossorigin href="/clara-app-test/assets/react-vendor-DVG3ZxCM.js">
     <link rel="modulepreload" crossorigin href="/clara-app-test/assets/router-vendor-DmN0Vx7J.js">
@@ -26,10 +38,7 @@
     <link rel="modulepreload" crossorigin href="/clara-app-test/assets/ui-vendor-Ca4VSs3l.js">
     <link rel="stylesheet" crossorigin href="/clara-app-test/assets/index-BcGdSOm7.css">
   </head>
-
   <body>
     <div id="root"></div>
-
-    <!-- ✅ Vite entry -->
   </body>
 </html>
