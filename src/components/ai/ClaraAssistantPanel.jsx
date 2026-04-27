@@ -8,6 +8,8 @@ const LOADING_REPLY = "Dashboard data is still loading. Try again in a second.";
 const CLOSE_ANIMATION_MS = 190;
 const GHOST_CLICK_WINDOW_MS = 520;
 const TOUCH_DEDUPE_MS = 700;
+const FEATURE_TAP_MOVE_THRESHOLD_PX = 8;
+const FEATURE_SCROLL_GUARD_MS = 420;
 
 const QUICK_OPTIONS = [
   {
@@ -213,6 +215,17 @@ const CLARA_ASSISTANT_ANIMATION_STYLES = `
   .clara-ai-glow {
     animation: claraAssistantGlowPulse 3.8s ease-in-out infinite;
     will-change: transform, opacity;
+  }
+
+  .clara-ai-feature-scroll {
+    overscroll-behavior: contain;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .clara-ai-feature-button {
+    touch-action: pan-y;
+    user-select: none;
+    -webkit-user-select: none;
   }
 
   .clara-ai-safe-shield {
@@ -685,6 +698,15 @@ export default function ClaraAssistantPanel({ open, onClose, context = {} }) {
   const closeTimeoutRef = useRef(null);
   const ghostClickUntilRef = useRef(0);
   const optionOpenLockRef = useRef("");
+  const featureTapRef = useRef({
+    pointerId: null,
+    startX: 0,
+    startY: 0,
+    optionKey: "",
+    moved: false,
+    startedAt: 0,
+  });
+  const featureScrollGuardUntilRef = useRef(0);
 
   const activeContext = getBestContext(context || {}, latestContextRef.current || {});
   latestContextRef.current = activeContext;
@@ -715,6 +737,15 @@ export default function ClaraAssistantPanel({ open, onClose, context = {} }) {
     }
 
     optionOpenLockRef.current = "";
+    featureTapRef.current = {
+      pointerId: null,
+      startX: 0,
+      startY: 0,
+      optionKey: "",
+      moved: false,
+      startedAt: 0,
+    };
+    featureScrollGuardUntilRef.current = 0;
     ghostClickUntilRef.current = 0;
     lastBackdropTouchAtRef.current = 0;
     lastFeatureTouchSentAtRef.current = 0;
@@ -750,6 +781,15 @@ export default function ClaraAssistantPanel({ open, onClose, context = {} }) {
     setDraft("");
     setActiveMode(null);
     optionOpenLockRef.current = "";
+    featureTapRef.current = {
+      pointerId: null,
+      startX: 0,
+      startY: 0,
+      optionKey: "",
+      moved: false,
+      startedAt: 0,
+    };
+    featureScrollGuardUntilRef.current = Date.now() + FEATURE_SCROLL_GUARD_MS;
     lastTouchSentAtRef.current = 0;
     lastFeatureTouchSentAtRef.current = 0;
     lastBackdropTouchAtRef.current = Date.now();
@@ -854,18 +894,103 @@ export default function ClaraAssistantPanel({ open, onClose, context = {} }) {
     }
   };
 
-  const handleFeatureOptionTouchEnd = (event, option) => {
-    stopAssistantEvent(event);
-    if (isClosing) return;
+  const getFeatureOptionKey = (option) =>
+    `${option?.label || "ask"}-${option?.message || "blank"}-${option?.mode || "normal"}`;
 
-    lastFeatureTouchSentAtRef.current = Date.now();
+  const markFeatureScrollGuard = () => {
+    const now = Date.now();
+    featureScrollGuardUntilRef.current = now + FEATURE_SCROLL_GUARD_MS;
+    ghostClickUntilRef.current = Math.max(ghostClickUntilRef.current, now + FEATURE_SCROLL_GUARD_MS);
+  };
+
+  const resetFeatureTap = () => {
+    featureTapRef.current = {
+      pointerId: null,
+      startX: 0,
+      startY: 0,
+      optionKey: "",
+      moved: false,
+      startedAt: 0,
+    };
+  };
+
+  const handleFeatureListScroll = () => {
+    markFeatureScrollGuard();
+    featureTapRef.current.moved = true;
+  };
+
+  const handleFeatureOptionPointerDown = (event, option) => {
+    stopAssistantPropagation(event);
+    if (isClosing || Date.now() < ghostClickUntilRef.current) return;
+
+    featureTapRef.current = {
+      pointerId: event.pointerId ?? null,
+      startX: event.clientX ?? 0,
+      startY: event.clientY ?? 0,
+      optionKey: getFeatureOptionKey(option),
+      moved: false,
+      startedAt: Date.now(),
+    };
+  };
+
+  const handleFeatureOptionPointerMove = (event) => {
+    const tap = featureTapRef.current;
+    if (!tap.startedAt) return;
+    if (tap.pointerId !== null && event.pointerId !== tap.pointerId) return;
+
+    const deltaX = Math.abs((event.clientX ?? 0) - tap.startX);
+    const deltaY = Math.abs((event.clientY ?? 0) - tap.startY);
+
+    if (deltaX > FEATURE_TAP_MOVE_THRESHOLD_PX || deltaY > FEATURE_TAP_MOVE_THRESHOLD_PX) {
+      tap.moved = true;
+      markFeatureScrollGuard();
+    }
+  };
+
+  const handleFeatureOptionPointerCancel = () => {
+    markFeatureScrollGuard();
+    resetFeatureTap();
+  };
+
+  const handleFeatureOptionPointerUp = (event, option) => {
+    const tap = featureTapRef.current;
+    const optionKey = getFeatureOptionKey(option);
+    const now = Date.now();
+
+    stopAssistantEvent(event);
+
+    if (isClosing || now < ghostClickUntilRef.current || now < featureScrollGuardUntilRef.current) {
+      resetFeatureTap();
+      return;
+    }
+
+    if (tap.pointerId !== null && event.pointerId !== tap.pointerId) {
+      resetFeatureTap();
+      return;
+    }
+
+    const deltaX = Math.abs((event.clientX ?? 0) - tap.startX);
+    const deltaY = Math.abs((event.clientY ?? 0) - tap.startY);
+    const moved = tap.moved || deltaX > FEATURE_TAP_MOVE_THRESHOLD_PX || deltaY > FEATURE_TAP_MOVE_THRESHOLD_PX;
+    const sameOption = tap.optionKey === optionKey;
+
+    if (moved || !sameOption) {
+      markFeatureScrollGuard();
+      resetFeatureTap();
+      return;
+    }
+
+    lastFeatureTouchSentAtRef.current = now;
+    resetFeatureTap();
     openAssistantWithPrompt(option);
   };
 
   const handleFeatureOptionClick = (event, option) => {
     stopAssistantEvent(event);
-    if (isClosing || Date.now() < ghostClickUntilRef.current) return;
-    if (Date.now() - lastFeatureTouchSentAtRef.current < TOUCH_DEDUPE_MS) return;
+
+    const now = Date.now();
+    if (isClosing || now < ghostClickUntilRef.current || now < featureScrollGuardUntilRef.current) return;
+    if (now - lastFeatureTouchSentAtRef.current < TOUCH_DEDUPE_MS) return;
 
     openAssistantWithPrompt(option);
   };
@@ -965,16 +1090,22 @@ export default function ClaraAssistantPanel({ open, onClose, context = {} }) {
                 </button>
               </div>
 
-              <div className="grid gap-3 overflow-y-auto pr-1">
+              <div
+                className="clara-ai-feature-scroll grid gap-3 overflow-y-auto pr-1"
+                onScroll={handleFeatureListScroll}
+              >
                 {AI_FEATURE_OPTIONS.map((option, index) => (
                   <button
                     key={option.label}
-                    className="clara-ai-option group w-full rounded-2xl border border-white/10 bg-white/[0.055] p-4 text-left transition hover:border-emerald-200/30 hover:bg-white/[0.085] active:scale-[0.985]"
+                    className="clara-ai-feature-button clara-ai-option group w-full rounded-2xl border border-white/10 bg-white/[0.055] p-4 text-left transition hover:border-emerald-200/30 hover:bg-white/[0.085] active:scale-[0.985]"
                     style={{ animationDelay: `${index * 24}ms` }}
                     type="button"
                     onClick={(event) => handleFeatureOptionClick(event, option)}
-                    onPointerDown={stopAssistantPropagation}
-                    onTouchEnd={(event) => handleFeatureOptionTouchEnd(event, option)}
+                    onPointerDown={(event) => handleFeatureOptionPointerDown(event, option)}
+                    onPointerMove={handleFeatureOptionPointerMove}
+                    onPointerCancel={handleFeatureOptionPointerCancel}
+                    onPointerUp={(event) => handleFeatureOptionPointerUp(event, option)}
+                    onTouchEnd={stopAssistantPropagation}
                   >
                     <div className="flex items-center justify-between gap-3">
                       <div>
