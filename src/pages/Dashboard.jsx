@@ -62,10 +62,6 @@ const normalizeLower = (value) => normalizeString(value).toLowerCase();
 const PH_TIME_ZONE = "Asia/Manila";
 const PH_OFFSET_MINUTES = 8 * 60;
 const DEBUG_FINANCE_DIAGNOSTICS = false;
-const CLARA_ORB_DOCK_STORAGE_KEY = "clara_orb_dock_position";
-const CLARA_ORB_DRAG_THRESHOLD_PX = 8;
-const CLARA_ORB_DOCK_POSITIONS = ["center", "left", "right"];
-
 
 const FINANCE_CATEGORIES = [
   "food",
@@ -5598,17 +5594,6 @@ export default function Dashboard() {
   const [dashboardPanelDirection, setDashboardPanelDirection] = useState("forward");
   const [expandedFinanceCard, setExpandedFinanceCard] = useState(null);
   const [showAiAssistant, setShowAiAssistant] = useState(false);
-  const [claraOrbDock, setClaraOrbDock] = useState(() => {
-    try {
-      const savedDock = localStorage.getItem(CLARA_ORB_DOCK_STORAGE_KEY);
-      return CLARA_ORB_DOCK_POSITIONS.includes(savedDock) ? savedDock : "center";
-    } catch {
-      return "center";
-    }
-  });
-  const [isClaraOrbDragging, setIsClaraOrbDragging] = useState(false);
-  const [isClaraOrbSnapping, setIsClaraOrbSnapping] = useState(false);
-  const [claraOrbDragPoint, setClaraOrbDragPoint] = useState(null);
   const [isDashboardScrollable, setIsDashboardScrollable] = useState(false);
   const [financeActionLoading, setFinanceActionLoading] = useState(false);
   const [financeNotice, setFinanceNotice] = useState(null);
@@ -5762,15 +5747,6 @@ export default function Dashboard() {
   const isPaidRef = useRef(isPaid);
   const longPressTimerRef = useRef(null);
   const longPressTriggeredRef = useRef(false);
-  const claraOrbTapTimerRef = useRef(null);
-  const claraOrbTapCountRef = useRef(0);
-  const claraOrbButtonRef = useRef(null);
-  const claraOrbDragStateRef = useRef(null);
-  const claraOrbPendingPointRef = useRef(null);
-  const claraOrbRafRef = useRef(null);
-  const claraOrbSnapTimeoutRef = useRef(null);
-  const claraOrbSuppressClickRef = useRef(false);
-  const claraSummaryCardRef = useRef(null);
 
   const hydrateFromCache = useCallback((nextCache) => {
     setTasks(nextCache.tasks);
@@ -7597,133 +7573,9 @@ export default function Dashboard() {
     }
   }, []);
 
-  const clearClaraOrbTapTimer = useCallback(() => {
-    if (claraOrbTapTimerRef.current) {
-      window.clearTimeout(claraOrbTapTimerRef.current);
-      claraOrbTapTimerRef.current = null;
-    }
-  }, []);
-
-  const resetClaraOrbTapState = useCallback(() => {
-    claraOrbTapCountRef.current = 0;
-    clearClaraOrbTapTimer();
-  }, [clearClaraOrbTapTimer]);
-
-  const getSafeClaraOrbDragPoint = useCallback((clientX, clientY, safeRect = null) => {
-    const fallbackWidth = typeof window !== "undefined" ? window.innerWidth : 390;
-    const fallbackHeight = typeof window !== "undefined" ? window.innerHeight : 844;
-
-    const orbRadius = 34;
-    const bounds = safeRect || {
-      left: 0,
-      top: 0,
-      right: fallbackWidth,
-      bottom: fallbackHeight,
-    };
-
-    const safeTop = Math.max(84, bounds.top + orbRadius + 8);
-    const safeBottom = Math.max(safeTop + orbRadius, bounds.bottom - orbRadius - 8);
-    const safeLeft = Math.max(orbRadius + 8, bounds.left + orbRadius + 8);
-    const safeRight = Math.max(safeLeft, bounds.right - orbRadius - 8);
-
-    return {
-      x: Math.min(Math.max(clientX, safeLeft), safeRight),
-      y: Math.min(Math.max(clientY, safeTop), safeBottom),
-    };
-  }, []);
-
-  const getClaraOrbDockPoint = useCallback((dock, cardRect = null) => {
-    const rect = cardRect || claraSummaryCardRef.current?.getBoundingClientRect?.();
-    const fallbackWidth = typeof window !== "undefined" ? window.innerWidth : 390;
-    const fallbackHeight = typeof window !== "undefined" ? window.innerHeight : 844;
-    const safeRect = rect?.width
-      ? rect
-      : {
-          left: 12,
-          top: fallbackHeight - 150,
-          right: fallbackWidth - 12,
-          bottom: fallbackHeight - 12,
-          width: Math.max(fallbackWidth - 24, 1),
-          height: 138,
-        };
-
-    const xRatio = dock === "left" ? 0.25 : dock === "right" ? 0.75 : 0.5;
-    const x = safeRect.left + safeRect.width * xRatio;
-    const y = safeRect.top + 16 + 29;
-
-    return getSafeClaraOrbDragPoint(x, y, {
-      left: 0,
-      top: 0,
-      right: typeof window !== "undefined" ? window.innerWidth : safeRect.right,
-      bottom: typeof window !== "undefined" ? window.innerHeight : safeRect.bottom,
-    });
-  }, [getSafeClaraOrbDragPoint]);
-
-  const getNearestClaraOrbDock = useCallback((point, cardRect = null) => {
-    const safePoint = point || {
-      x: typeof window !== "undefined" ? window.innerWidth / 2 : 195,
-      y: typeof window !== "undefined" ? window.innerHeight / 2 : 422,
-    };
-
-    return CLARA_ORB_DOCK_POSITIONS.reduce((nearest, dock) => {
-      const dockPoint = getClaraOrbDockPoint(dock, cardRect);
-      const distance = Math.hypot(safePoint.x - dockPoint.x, safePoint.y - dockPoint.y);
-
-      if (!nearest || distance < nearest.distance) {
-        return {
-          dock,
-          distance,
-          point: dockPoint,
-        };
-      }
-
-      return nearest;
-    }, null) || {
-      dock: "center",
-      point: getClaraOrbDockPoint("center", cardRect),
-    };
-  }, [getClaraOrbDockPoint]);
-
-  const saveClaraOrbDock = useCallback((nextDock) => {
-    const safeDock = CLARA_ORB_DOCK_POSITIONS.includes(nextDock) ? nextDock : "center";
-    setClaraOrbDock(safeDock);
-
-    try {
-      localStorage.setItem(CLARA_ORB_DOCK_STORAGE_KEY, safeDock);
-    } catch {}
-  }, []);
-
-  const scheduleClaraOrbDragPoint = useCallback((point) => {
-    claraOrbPendingPointRef.current = point;
-
-    if (claraOrbRafRef.current) return;
-
-    claraOrbRafRef.current = window.requestAnimationFrame(() => {
-      claraOrbRafRef.current = null;
-
-      const nextPoint = claraOrbPendingPointRef.current;
-      if (nextPoint) {
-        setClaraOrbDragPoint(nextPoint);
-      }
-    });
-  }, []);
-
-  const clearClaraOrbSnapTimer = useCallback(() => {
-    if (claraOrbSnapTimeoutRef.current) {
-      window.clearTimeout(claraOrbSnapTimeoutRef.current);
-      claraOrbSnapTimeoutRef.current = null;
-    }
-  }, []);
-
   const openClaraAiFromLongPress = useCallback(() => {
-    resetClaraOrbTapState();
     setShowAiAssistant(true);
-  }, [resetClaraOrbTapState]);
-
-  const openTransactionsFromClaraOrb = useCallback(() => {
-    resetClaraOrbTapState();
-    navigate("/expenses");
-  }, [navigate, resetClaraOrbTapState]);
+  }, []);
 
   const startClaraAiLongPress = useCallback((event) => {
     if (!isClaraAiOrbEvent(event)) return;
@@ -7735,269 +7587,31 @@ export default function Dashboard() {
       longPressTriggeredRef.current = true;
       openClaraAiFromLongPress();
     }, 550);
-  }, [clearLongPressTimer, openClaraAiFromLongPress]);
+  }, [clearLongPressTimer, isClaraAiOrbEvent, openClaraAiFromLongPress]);
 
-  const cancelClaraAiLongPress = useCallback(() => {
+  const endClaraAiLongPress = useCallback(() => {
     clearLongPressTimer();
   }, [clearLongPressTimer]);
 
-  const handleClaraAiOrbClick = useCallback((event) => {
-    if (!isClaraAiOrbEvent(event)) return;
-    event.preventDefault();
-    event.stopPropagation();
+  const handleClaraAiOrbClickCapture = useCallback((event) => {
+    if (!isClaraAiOrbEvent(event)) return false;
 
-    if (longPressTriggeredRef.current) {
-      longPressTriggeredRef.current = false;
-      return;
-    }
-
-    openManualExpenseModal();
-  }, [openManualExpenseModal]);
-
-  const startCenteredClaraOrbPress = useCallback((event) => {
-    event?.stopPropagation?.();
-    event?.nativeEvent?.stopImmediatePropagation?.();
-
-    const clientX = Number(event?.clientX);
-    const clientY = Number(event?.clientY);
-    const buttonRect = event?.currentTarget?.getBoundingClientRect?.();
-    const cardRect = claraSummaryCardRef.current?.getBoundingClientRect?.();
-
-    const centerX = buttonRect ? buttonRect.left + buttonRect.width / 2 : clientX;
-    const centerY = buttonRect ? buttonRect.top + buttonRect.height / 2 : clientY;
-
-    clearClaraOrbSnapTimer();
-    claraOrbSuppressClickRef.current = false;
-    longPressTriggeredRef.current = false;
-    setIsClaraOrbSnapping(false);
-    clearLongPressTimer();
-
-    claraOrbDragStateRef.current = {
-      pointerId: event?.pointerId,
-      startX: Number.isFinite(clientX) ? clientX : centerX,
-      startY: Number.isFinite(clientY) ? clientY : centerY,
-      lastX: Number.isFinite(centerX) ? centerX : 0,
-      lastY: Number.isFinite(centerY) ? centerY : 0,
-      offsetX: Number.isFinite(clientX) && Number.isFinite(centerX) ? clientX - centerX : 0,
-      offsetY: Number.isFinite(clientY) && Number.isFinite(centerY) ? clientY - centerY : 0,
-      cardRect,
-      didDrag: false,
-    };
-
-    try {
-      event?.currentTarget?.setPointerCapture?.(event.pointerId);
-    } catch {}
-
-    longPressTimerRef.current = window.setTimeout(() => {
-      const dragState = claraOrbDragStateRef.current;
-      if (dragState?.didDrag) return;
-
-      longPressTriggeredRef.current = true;
-      openClaraAiFromLongPress();
-    }, 550);
-  }, [clearClaraOrbSnapTimer, clearLongPressTimer, openClaraAiFromLongPress]);
-
-  const moveCenteredClaraOrbPress = useCallback((event) => {
-    const dragState = claraOrbDragStateRef.current;
-    if (!dragState) return;
-    if (dragState.pointerId !== undefined && event?.pointerId !== dragState.pointerId) return;
-
-    const clientX = Number(event?.clientX);
-    const clientY = Number(event?.clientY);
-    if (!Number.isFinite(clientX) || !Number.isFinite(clientY)) return;
-
-    const distance = Math.hypot(clientX - dragState.startX, clientY - dragState.startY);
-
-    if (distance > CLARA_ORB_DRAG_THRESHOLD_PX || dragState.didDrag) {
-      if (!dragState.didDrag) {
-        dragState.didDrag = true;
-        clearLongPressTimer();
-        resetClaraOrbTapState();
-        setIsClaraOrbDragging(true);
-        setIsClaraOrbSnapping(false);
-      }
-
-      event?.preventDefault?.();
-      event?.stopPropagation?.();
-      event?.nativeEvent?.stopImmediatePropagation?.();
-
-      const nextCenterX = clientX - dragState.offsetX;
-      const nextCenterY = clientY - dragState.offsetY;
-      const nextPoint = getSafeClaraOrbDragPoint(nextCenterX, nextCenterY);
-
-      dragState.lastX = nextPoint.x;
-      dragState.lastY = nextPoint.y;
-
-      scheduleClaraOrbDragPoint(nextPoint);
-    }
-  }, [
-    clearLongPressTimer,
-    getSafeClaraOrbDragPoint,
-    resetClaraOrbTapState,
-    scheduleClaraOrbDragPoint,
-  ]);
-
-  const finishCenteredClaraOrbDrag = useCallback((event, shouldSnap = true) => {
-    const dragState = claraOrbDragStateRef.current;
-    if (!dragState) return false;
-
-    const didDrag = Boolean(dragState.didDrag);
-    clearLongPressTimer();
-
-    if (didDrag) {
-      event?.preventDefault?.();
-      event?.stopPropagation?.();
-      event?.nativeEvent?.stopImmediatePropagation?.();
-
-      const releasePoint = getSafeClaraOrbDragPoint(
-        Number.isFinite(dragState.lastX) ? dragState.lastX : dragState.startX,
-        Number.isFinite(dragState.lastY) ? dragState.lastY : dragState.startY
-      );
-      const nearest = shouldSnap ? getNearestClaraOrbDock(releasePoint, dragState.cardRect) : null;
-
-      claraOrbSuppressClickRef.current = true;
-      longPressTriggeredRef.current = false;
-      resetClaraOrbTapState();
-
-      if (nearest?.dock) {
-        saveClaraOrbDock(nearest.dock);
-        setIsClaraOrbSnapping(true);
-        setIsClaraOrbDragging(true);
-        setClaraOrbDragPoint(nearest.point);
-
-        clearClaraOrbSnapTimer();
-        claraOrbSnapTimeoutRef.current = window.setTimeout(() => {
-          setIsClaraOrbDragging(false);
-          setIsClaraOrbSnapping(false);
-          setClaraOrbDragPoint(null);
-          claraOrbSnapTimeoutRef.current = null;
-        }, 230);
-      } else {
-        setIsClaraOrbDragging(false);
-        setIsClaraOrbSnapping(false);
-        setClaraOrbDragPoint(null);
-      }
-    } else {
-      setIsClaraOrbDragging(false);
-      setIsClaraOrbSnapping(false);
-      setClaraOrbDragPoint(null);
-    }
-
-    claraOrbDragStateRef.current = null;
-    claraOrbPendingPointRef.current = null;
-
-    try {
-      event?.currentTarget?.releasePointerCapture?.(event.pointerId);
-    } catch {}
-
-    return didDrag;
-  }, [
-    clearClaraOrbSnapTimer,
-    clearLongPressTimer,
-    getNearestClaraOrbDock,
-    getSafeClaraOrbDragPoint,
-    resetClaraOrbTapState,
-    saveClaraOrbDock,
-  ]);
-
-  const endCenteredClaraOrbPress = useCallback((event) => {
-    event?.stopPropagation?.();
-    event?.nativeEvent?.stopImmediatePropagation?.();
-
-    if (finishCenteredClaraOrbDrag(event, true)) return;
-    clearLongPressTimer();
-    claraOrbDragStateRef.current = null;
-  }, [clearLongPressTimer, finishCenteredClaraOrbDrag]);
-
-  const leaveCenteredClaraOrbPress = useCallback((event) => {
-    const dragState = claraOrbDragStateRef.current;
-    if (dragState?.didDrag) return;
-
-    event?.stopPropagation?.();
-    event?.nativeEvent?.stopImmediatePropagation?.();
-    clearLongPressTimer();
-  }, [clearLongPressTimer]);
-
-  const cancelCenteredClaraOrbPress = useCallback((event) => {
-    event?.stopPropagation?.();
-    event?.nativeEvent?.stopImmediatePropagation?.();
-
-    finishCenteredClaraOrbDrag(event, false);
-    clearLongPressTimer();
-    resetClaraOrbTapState();
-    claraOrbDragStateRef.current = null;
-    claraOrbSuppressClickRef.current = false;
-  }, [clearLongPressTimer, finishCenteredClaraOrbDrag, resetClaraOrbTapState]);
-
-  const handleCenteredClaraOrbClick = useCallback((event) => {
     event?.preventDefault?.();
     event?.stopPropagation?.();
     event?.nativeEvent?.stopImmediatePropagation?.();
 
-    if (claraOrbSuppressClickRef.current) {
-      claraOrbSuppressClickRef.current = false;
-      longPressTriggeredRef.current = false;
-      resetClaraOrbTapState();
-      return;
-    }
-
     if (longPressTriggeredRef.current) {
       longPressTriggeredRef.current = false;
-      resetClaraOrbTapState();
-      return;
+      return true;
     }
 
-    claraOrbTapCountRef.current += 1;
-
-    if (claraOrbTapCountRef.current >= 2) {
-      openTransactionsFromClaraOrb();
-      return;
-    }
-
-    clearClaraOrbTapTimer();
-    claraOrbTapTimerRef.current = window.setTimeout(() => {
-      resetClaraOrbTapState();
-      openManualExpenseModal();
-    }, 300);
-  }, [
-    clearClaraOrbTapTimer,
-    openManualExpenseModal,
-    openTransactionsFromClaraOrb,
-    resetClaraOrbTapState,
-  ]);
-
-  const claraOrbDockClass =
-    claraOrbDock === "left"
-      ? "top-4 left-[25%] -translate-x-1/2"
-      : claraOrbDock === "right"
-        ? "top-4 left-[75%] -translate-x-1/2"
-        : "top-4 left-1/2 -translate-x-1/2";
-
-  const claraOrbDragStyle =
-    isClaraOrbDragging && claraOrbDragPoint
-      ? {
-          left: `${claraOrbDragPoint.x}px`,
-          top: `${claraOrbDragPoint.y}px`,
-          transform: "translate(-50%, -50%)",
-        }
-      : undefined;
+    openManualExpenseModal();
+    return true;
+  }, [isClaraAiOrbEvent, openManualExpenseModal]);
 
   useEffect(() => {
-    return () => {
-      clearLongPressTimer();
-      clearClaraOrbTapTimer();
-      clearClaraOrbSnapTimer();
-
-      if (claraOrbRafRef.current) {
-        window.cancelAnimationFrame(claraOrbRafRef.current);
-        claraOrbRafRef.current = null;
-      }
-
-      claraOrbDragStateRef.current = null;
-      claraOrbPendingPointRef.current = null;
-      claraOrbSuppressClickRef.current = false;
-    };
-  }, [clearClaraOrbSnapTimer, clearClaraOrbTapTimer, clearLongPressTimer]);
+    return () => clearLongPressTimer();
+  }, [clearLongPressTimer]);
 
   useEffect(() => {
     const handleOpenAssistant = (event) => {
@@ -10149,11 +9763,6 @@ export default function Dashboard() {
 
         {!!user && (
           <div className={`${dashboardScale.financeWrap} ${hasBillboardContent ? "mt-[clamp(16px,2.6dvh,24px)]" : ""}`}>
-            <style>{`
-              [data-emergency-card="true"] button[aria-label*="Tap to log expense"] {
-                display: none !important;
-              }
-            `}</style>
             <FinanceInlineAlert notice={financeNotice} onClose={closeFinanceNotice} />
             <div className={`overflow-hidden ${dashboardScale.financeClip}`}>
               <div
@@ -10331,50 +9940,9 @@ export default function Dashboard() {
                 />
               ))}
             </div>
-
           </div>
         )}
 
-        <div ref={claraSummaryCardRef} data-clara-summary-card="true" className="relative z-30">
-          <button
-            ref={claraOrbButtonRef}
-            type="button"
-            onPointerDown={startCenteredClaraOrbPress}
-            onPointerMove={moveCenteredClaraOrbPress}
-            onPointerUp={endCenteredClaraOrbPress}
-            onPointerCancel={cancelCenteredClaraOrbPress}
-            onPointerLeave={leaveCenteredClaraOrbPress}
-            onClick={handleCenteredClaraOrbClick}
-            style={claraOrbDragStyle}
-            className={`group ${
-              isClaraOrbDragging
-                ? `fixed cursor-grabbing ${
-                    isClaraOrbSnapping
-                      ? "transition-[left,top,transform,box-shadow] duration-[230ms] ease-[cubic-bezier(0.2,0.85,0.25,1)]"
-                      : "scale-[1.04] transition-none"
-                  }`
-                : `absolute ${claraOrbDockClass} transition-[transform,box-shadow] duration-200 ease-out hover:scale-[1.03]`
-            } z-40 flex h-[58px] w-[58px] touch-none select-none items-center justify-center rounded-full border border-cyan-200/20 bg-[#071827]/90 text-cyan-50 ${
-              isClaraOrbDragging
-                ? "shadow-[0_20px_58px_rgba(34,211,238,0.34),0_0_0_1px_rgba(255,255,255,0.08)]"
-                : "shadow-[0_16px_46px_rgba(34,211,238,0.24),0_0_0_1px_rgba(255,255,255,0.04)]"
-            } backdrop-blur-2xl active:scale-95 sm:h-16 sm:w-16`}
-            aria-label="CLARA orb: tap to log expense, double tap to open transactions, long press to open CLARA AI, or drag to reposition"
-            title="Tap: Log expense • Double tap: Transactions • Long press: CLARA AI • Drag: Reposition"
-          >
-            <span
-              className={`pointer-events-none absolute inset-[-8px] rounded-full blur-xl transition ${
-                isClaraOrbDragging ? "bg-cyan-300/32" : "bg-cyan-300/20 group-active:bg-cyan-300/30"
-              }`}
-            />
-            <span
-              className={`pointer-events-none absolute inset-0 rounded-full bg-[radial-gradient(circle_at_top,rgba(255,255,255,0.22),transparent_42%),linear-gradient(135deg,rgba(34,211,238,0.22),rgba(16,185,129,0.14))] transition ${
-                isClaraOrbDragging ? "opacity-95" : "opacity-100"
-              }`}
-            />
-            <span className="pointer-events-none absolute inset-[7px] rounded-full border border-white/10 bg-white/[0.055]" />
-            <MessageCircle className="relative z-10 h-5 w-5 text-cyan-100 drop-shadow-[0_0_12px_rgba(103,232,249,0.45)]" />
-          </button>
         <div
           className={`grid grid-cols-2 overflow-hidden border backdrop-blur-sm ${dashboardScale.summaryGrid}`}
           style={{
@@ -10424,7 +9992,6 @@ export default function Dashboard() {
               </h2>
             </div>
           </div>
-        </div>
         </div>
 
         
