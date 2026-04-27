@@ -5747,6 +5747,8 @@ export default function Dashboard() {
   const isPaidRef = useRef(isPaid);
   const longPressTimerRef = useRef(null);
   const longPressTriggeredRef = useRef(false);
+  const claraOrbTapTimerRef = useRef(null);
+  const claraOrbTapCountRef = useRef(0);
 
   const hydrateFromCache = useCallback((nextCache) => {
     setTasks(nextCache.tasks);
@@ -7573,9 +7575,27 @@ export default function Dashboard() {
     }
   }, []);
 
-  const openClaraAiFromLongPress = useCallback(() => {
-    setShowAiAssistant(true);
+  const clearClaraOrbTapTimer = useCallback(() => {
+    if (claraOrbTapTimerRef.current) {
+      window.clearTimeout(claraOrbTapTimerRef.current);
+      claraOrbTapTimerRef.current = null;
+    }
   }, []);
+
+  const resetClaraOrbTapState = useCallback(() => {
+    claraOrbTapCountRef.current = 0;
+    clearClaraOrbTapTimer();
+  }, [clearClaraOrbTapTimer]);
+
+  const openClaraAiFromLongPress = useCallback(() => {
+    resetClaraOrbTapState();
+    setShowAiAssistant(true);
+  }, [resetClaraOrbTapState]);
+
+  const openTransactionsFromClaraOrb = useCallback(() => {
+    resetClaraOrbTapState();
+    navigate("/expenses");
+  }, [navigate, resetClaraOrbTapState]);
 
   const startClaraAiLongPress = useCallback((event) => {
     if (!isClaraAiOrbEvent(event)) return;
@@ -7602,16 +7622,94 @@ export default function Dashboard() {
 
     if (longPressTriggeredRef.current) {
       longPressTriggeredRef.current = false;
+      resetClaraOrbTapState();
       return true;
     }
 
-    openManualExpenseModal();
+    claraOrbTapCountRef.current += 1;
+
+    if (claraOrbTapCountRef.current >= 2) {
+      openTransactionsFromClaraOrb();
+      return true;
+    }
+
+    clearClaraOrbTapTimer();
+    claraOrbTapTimerRef.current = window.setTimeout(() => {
+      resetClaraOrbTapState();
+      openManualExpenseModal();
+    }, 300);
+
     return true;
-  }, [isClaraAiOrbEvent, openManualExpenseModal]);
+  }, [
+    clearClaraOrbTapTimer,
+    isClaraAiOrbEvent,
+    openManualExpenseModal,
+    openTransactionsFromClaraOrb,
+    resetClaraOrbTapState,
+  ]);
+
+  const startCenteredClaraOrbPress = useCallback((event) => {
+    event?.stopPropagation?.();
+    event?.nativeEvent?.stopImmediatePropagation?.();
+
+    longPressTriggeredRef.current = false;
+    clearLongPressTimer();
+
+    longPressTimerRef.current = window.setTimeout(() => {
+      longPressTriggeredRef.current = true;
+      openClaraAiFromLongPress();
+    }, 550);
+  }, [clearLongPressTimer, openClaraAiFromLongPress]);
+
+  const endCenteredClaraOrbPress = useCallback((event) => {
+    event?.stopPropagation?.();
+    event?.nativeEvent?.stopImmediatePropagation?.();
+    clearLongPressTimer();
+  }, [clearLongPressTimer]);
+
+  const cancelCenteredClaraOrbPress = useCallback((event) => {
+    event?.stopPropagation?.();
+    event?.nativeEvent?.stopImmediatePropagation?.();
+    clearLongPressTimer();
+    resetClaraOrbTapState();
+  }, [clearLongPressTimer, resetClaraOrbTapState]);
+
+  const handleCenteredClaraOrbClick = useCallback((event) => {
+    event?.preventDefault?.();
+    event?.stopPropagation?.();
+    event?.nativeEvent?.stopImmediatePropagation?.();
+
+    if (longPressTriggeredRef.current) {
+      longPressTriggeredRef.current = false;
+      resetClaraOrbTapState();
+      return;
+    }
+
+    claraOrbTapCountRef.current += 1;
+
+    if (claraOrbTapCountRef.current >= 2) {
+      openTransactionsFromClaraOrb();
+      return;
+    }
+
+    clearClaraOrbTapTimer();
+    claraOrbTapTimerRef.current = window.setTimeout(() => {
+      resetClaraOrbTapState();
+      openManualExpenseModal();
+    }, 300);
+  }, [
+    clearClaraOrbTapTimer,
+    openManualExpenseModal,
+    openTransactionsFromClaraOrb,
+    resetClaraOrbTapState,
+  ]);
 
   useEffect(() => {
-    return () => clearLongPressTimer();
-  }, [clearLongPressTimer]);
+    return () => {
+      clearLongPressTimer();
+      clearClaraOrbTapTimer();
+    };
+  }, [clearClaraOrbTapTimer, clearLongPressTimer]);
 
   useEffect(() => {
     const handleOpenAssistant = (event) => {
@@ -9763,6 +9861,11 @@ export default function Dashboard() {
 
         {!!user && (
           <div className={`${dashboardScale.financeWrap} ${hasBillboardContent ? "mt-[clamp(16px,2.6dvh,24px)]" : ""}`}>
+            <style>{`
+              [data-emergency-card="true"] button[aria-label*="Tap to log expense"] {
+                display: none !important;
+              }
+            `}</style>
             <FinanceInlineAlert notice={financeNotice} onClose={closeFinanceNotice} />
             <div className={`overflow-hidden ${dashboardScale.financeClip}`}>
               <div
@@ -9939,6 +10042,25 @@ export default function Dashboard() {
                   }`}
                 />
               ))}
+            </div>
+
+            <div className="relative z-30 -mt-1 mb-[clamp(8px,1.6dvh,14px)] flex items-center justify-center">
+              <button
+                type="button"
+                onPointerDown={startCenteredClaraOrbPress}
+                onPointerUp={endCenteredClaraOrbPress}
+                onPointerCancel={cancelCenteredClaraOrbPress}
+                onPointerLeave={endCenteredClaraOrbPress}
+                onClick={handleCenteredClaraOrbClick}
+                className="group relative flex h-[58px] w-[58px] touch-none select-none items-center justify-center rounded-full border border-cyan-200/20 bg-[#071827]/90 text-cyan-50 shadow-[0_16px_46px_rgba(34,211,238,0.24),0_0_0_1px_rgba(255,255,255,0.04)] backdrop-blur-2xl transition hover:scale-[1.03] active:scale-95 sm:h-16 sm:w-16"
+                aria-label="CLARA orb: tap to log expense, double tap to open transactions, long press to open CLARA AI"
+                title="Tap: Log expense • Double tap: Transactions • Long press: CLARA AI"
+              >
+                <span className="pointer-events-none absolute inset-[-8px] rounded-full bg-cyan-300/20 blur-xl transition group-active:bg-cyan-300/30" />
+                <span className="pointer-events-none absolute inset-0 rounded-full bg-[radial-gradient(circle_at_top,rgba(255,255,255,0.22),transparent_42%),linear-gradient(135deg,rgba(34,211,238,0.22),rgba(16,185,129,0.14))]" />
+                <span className="pointer-events-none absolute inset-[7px] rounded-full border border-white/10 bg-white/[0.055]" />
+                <MessageCircle className="relative z-10 h-5 w-5 text-cyan-100 drop-shadow-[0_0_12px_rgba(103,232,249,0.45)]" />
+              </button>
             </div>
           </div>
         )}
