@@ -2,19 +2,21 @@
  * CLARA Finance Repository
  *
  * Phase 2C — Finance Repository Layer Only
+ * Phase 2D-2A — Supabase Legacy addExpense Preparation Only
  *
  * This file creates a dormant finance repository abstraction that will later
  * become the single access point for CLARA finance data.
  *
  * It is intentionally not imported into Dashboard, Expenses, Wallets, Budgets,
- * SavingsGoals, or any runtime app page yet.
+ * SavingsGoals, useFinancialData, or any runtime app page/hook yet.
  *
  * This module does not:
  * - redesign UI
  * - change dashboard behavior
  * - migrate Supabase data
- * - replace existing Supabase reads/writes in app pages
+ * - replace existing Supabase reads/writes in app pages/hooks
  * - connect IndexedDB to the live dashboard
+ * - make live expense writes local
  * - implement Private Sync
  * - implement encryption
  * - implement backup/export/import
@@ -24,6 +26,7 @@
  * - src/lib/localFinanceStore.js
  */
 
+import { supabase as defaultSupabaseClient } from "./supabaseClient.js";
 import {
   LOCAL_FINANCE_STORES,
   getLocalRecords,
@@ -64,6 +67,214 @@ function normalizeOptions(options = {}) {
   }
 
   return options;
+}
+
+function normalizeString(value) {
+  return String(value ?? "").trim();
+}
+
+function normalizeLower(value) {
+  return normalizeString(value).toLowerCase();
+}
+
+function defaultToNumber(value) {
+  if (typeof value === "number") return Number.isFinite(value) ? value : 0;
+
+  if (typeof value === "string") {
+    const cleaned = value.replace(/[₱,\s]/g, "");
+    const num = Number(cleaned);
+    return Number.isFinite(num) ? num : 0;
+  }
+
+  const num = Number(value);
+  return Number.isFinite(num) ? num : 0;
+}
+
+function defaultGetSafeDate(value) {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return new Date().toISOString();
+  return date.toISOString();
+}
+
+function defaultGenerateId() {
+  if (typeof crypto !== "undefined" && crypto.randomUUID) {
+    return crypto.randomUUID();
+  }
+
+  return `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+}
+
+function defaultNormalizePlanningStatus(value) {
+  const normalized = String(value || "planned").trim().toLowerCase();
+  return ["planned", "unplanned", "undocumented"].includes(normalized)
+    ? normalized
+    : "planned";
+}
+
+function isMissingColumnError(error) {
+  const message = normalizeLower(error?.message || error?.details || error?.hint);
+
+  return (
+    error?.code === "PGRST204" ||
+    error?.code === "PGRST200" ||
+    error?.code === "42703" ||
+    message.includes("column") ||
+    message.includes("schema cache") ||
+    message.includes("does not exist") ||
+    message.includes("could not find") ||
+    message.includes("unknown")
+  );
+}
+
+async function defaultSafeInsert(supabaseClient, table, payload) {
+  const { error } = await supabaseClient.from(table).insert([payload]);
+  if (!error) return payload;
+
+  if (isMissingColumnError(error)) {
+    const fallbackPayload = { ...payload };
+    delete fallbackPayload.updated_at;
+    delete fallbackPayload.user_email;
+    delete fallbackPayload.owner_email;
+    delete fallbackPayload.owner_id;
+    delete fallbackPayload.profile_id;
+
+    const { error: fallbackError } = await supabaseClient
+      .from(table)
+      .insert([fallbackPayload]);
+
+    if (fallbackError) throw fallbackError;
+    return fallbackPayload;
+  }
+
+  throw error;
+}
+
+async function defaultSafeUpdateById(supabaseClient, table, id, payload) {
+  const { error } = await supabaseClient.from(table).update(payload).eq("id", id);
+
+  if (!error) return payload;
+
+  if (payload?.updated_at && isMissingColumnError(error)) {
+    const fallbackPayload = { ...payload };
+    delete fallbackPayload.updated_at;
+
+    const { error: fallbackError } = await supabaseClient
+      .from(table)
+      .update(fallbackPayload)
+      .eq("id", id);
+
+    if (fallbackError) throw fallbackError;
+    return fallbackPayload;
+  }
+
+  throw error;
+}
+
+function getSupabaseLegacyContext(repositoryOptions = {}, callOptions = {}) {
+  const merged = {
+    ...repositoryOptions,
+    ...callOptions,
+  };
+
+  return {
+    supabaseClient: merged.supabase || merged.supabaseClient || defaultSupabaseClient,
+    user: merged.user || repositoryOptions.user || {},
+    wallets: Array.isArray(merged.wallets)
+      ? merged.wallets
+      : Array.isArray(repositoryOptions.wallets)
+        ? repositoryOptions.wallets
+        : [],
+    generateId:
+      typeof merged.generateId === "function" ? merged.generateId : defaultGenerateId,
+    toNumber: typeof merged.toNumber === "function" ? merged.toNumber : defaultToNumber,
+    getSafeDate:
+      typeof merged.getSafeDate === "function" ? merged.getSafeDate : defaultGetSafeDate,
+    normalizePlanningStatus:
+      typeof merged.normalizePlanningStatus === "function"
+        ? merged.normalizePlanningStatus
+        : defaultNormalizePlanningStatus,
+    safeInsert: typeof merged.safeInsert === "function" ? merged.safeInsert : null,
+    safeUpdateById:
+      typeof merged.safeUpdateById === "function" ? merged.safeUpdateById : null,
+  };
+}
+
+async function runSupabaseLegacyInsert({ context, table, payload }) {
+  if (context.safeInsert) {
+    const result = await context.safeInsert(table, payload);
+    return result || payload;
+  }
+
+  return defaultSafeInsert(context.supabaseClient, table, payload);
+}
+
+async function runSupabaseLegacyUpdateById({ context, table, id, payload }) {
+  if (context.safeUpdateById) {
+    const result = await context.safeUpdateById(table, id, payload);
+    return result || payload;
+  }
+
+  return defaultSafeUpdateById(context.supabaseClient, table, id, payload);
+}
+
+function getSupabaseLegacyUser(localUserId, context) {
+  const safeLocalUserId = requireLocalUserId(localUserId);
+
+  return {
+    id: context.user?.id || safeLocalUserId || null,
+    email: context.user?.email || null,
+  };
+}
+
+async function insertSupabaseLegacyWalletTransaction({ context, payload, user }) {
+  const now = new Date().toISOString();
+
+  return runSupabaseLegacyInsert({
+    context,
+    table: "wallet_transactions",
+    payload: {
+      id: payload.id || context.generateId(),
+      wallet_id: payload.wallet_id ? String(payload.wallet_id) : null,
+      amount: context.toNumber(payload.amount),
+      type: payload.type,
+      category: payload.category || null,
+      need_type: payload.need_type || null,
+      planning_status: payload.planning_status || null,
+      unplanned_reason: payload.unplanned_reason || null,
+      expense_id: payload.expense_id || null,
+      transfer_group_id: payload.transfer_group_id || null,
+      related_wallet_id: payload.related_wallet_id || null,
+      source_type: payload.source_type || null,
+      tag: payload.tag || null,
+      notes: payload.notes || "",
+      created_at: payload.created_at || now,
+      updated_at: now,
+      user_id: user?.id || null,
+      user_email: user?.email || null,
+      created_by: user?.email || null,
+    },
+  });
+}
+
+async function updateSupabaseLegacyWalletBalance({ context, walletId, amountChange }) {
+  const wallet = (context.wallets || []).find(
+    (item) => String(item.id) === String(walletId)
+  );
+
+  if (!wallet) return null;
+
+  const updatedBalance =
+    context.toNumber(wallet?.derived_balance ?? wallet?.balance) + context.toNumber(amountChange);
+
+  return runSupabaseLegacyUpdateById({
+    context,
+    table: "wallets",
+    id: walletId,
+    payload: {
+      balance: updatedBalance,
+      updated_at: new Date().toISOString(),
+    },
+  });
 }
 
 function applyReadOptions(records, options = {}) {
@@ -321,6 +532,109 @@ function createLocalFinanceRepository() {
   };
 }
 
+function createNotImplementedRepositoryMethod(methodName, mode) {
+  return async () => {
+    throw new Error(`${methodName} is not implemented yet for finance repository mode '${mode}'.`);
+  };
+}
+
+function createSupabaseLegacyFinanceRepository(repositoryOptions = {}) {
+  const mode = FINANCE_REPOSITORY_MODE_SUPABASE_LEGACY;
+
+  return {
+    getExpenses: createNotImplementedRepositoryMethod("getExpenses", mode),
+
+    async addExpense(localUserId, expense, callOptions = {}) {
+      const context = getSupabaseLegacyContext(repositoryOptions, callOptions);
+      const user = getSupabaseLegacyUser(localUserId, context);
+
+      assertObjectPayload(expense, "Expense");
+
+      const amount = context.toNumber(expense.amount);
+      if (!amount || amount <= 0) {
+        throw new Error("Enter a valid expense amount.");
+      }
+
+      const planningStatus = context.normalizePlanningStatus(expense.planning_status);
+
+      if (planningStatus === "unplanned" && !String(expense.unplanned_reason || "").trim()) {
+        throw new Error("Reason is required for unplanned expenses.");
+      }
+
+      const payload = {
+        ...expense,
+        id: expense.id || context.generateId(),
+        user_id: user?.id || null,
+        user_email: user?.email || null,
+        created_by: user?.email || null,
+        amount,
+        date: context.getSafeDate(expense.date),
+        planning_status: planningStatus,
+        unplanned_reason:
+          planningStatus === "unplanned"
+            ? String(expense.unplanned_reason || "").trim()
+            : null,
+      };
+
+      const insertedExpense = await runSupabaseLegacyInsert({
+        context,
+        table: "expenses",
+        payload,
+      });
+
+      let walletUpdate = null;
+      let walletTransaction = null;
+
+      if (expense.wallet_id) {
+        walletUpdate = await updateSupabaseLegacyWalletBalance({
+          context,
+          walletId: expense.wallet_id,
+          amountChange: -amount,
+        });
+
+        walletTransaction = await insertSupabaseLegacyWalletTransaction({
+          context,
+          user,
+          payload: {
+            wallet_id: expense.wallet_id,
+            amount,
+            type: "expense",
+            category: expense.category,
+            need_type: expense.need_type,
+            planning_status: planningStatus,
+            unplanned_reason: payload.unplanned_reason,
+            expense_id: payload.id,
+            notes: expense.notes,
+            created_at: payload.date,
+          },
+        });
+      }
+
+      return {
+        expense: insertedExpense,
+        walletUpdate,
+        walletTransaction,
+      };
+    },
+
+    updateExpense: createNotImplementedRepositoryMethod("updateExpense", mode),
+    deleteExpense: createNotImplementedRepositoryMethod("deleteExpense", mode),
+    getWallets: createNotImplementedRepositoryMethod("getWallets", mode),
+    addWallet: createNotImplementedRepositoryMethod("addWallet", mode),
+    updateWallet: createNotImplementedRepositoryMethod("updateWallet", mode),
+    deleteWallet: createNotImplementedRepositoryMethod("deleteWallet", mode),
+    getWalletTransactions: createNotImplementedRepositoryMethod("getWalletTransactions", mode),
+    insertWalletTransaction: createNotImplementedRepositoryMethod("insertWalletTransaction", mode),
+    transferBetweenWallets: createNotImplementedRepositoryMethod("transferBetweenWallets", mode),
+    getBudgets: createNotImplementedRepositoryMethod("getBudgets", mode),
+    upsertBudget: createNotImplementedRepositoryMethod("upsertBudget", mode),
+    getSavingsGoals: createNotImplementedRepositoryMethod("getSavingsGoals", mode),
+    upsertSavingsGoal: createNotImplementedRepositoryMethod("upsertSavingsGoal", mode),
+    getEmergencyFund: createNotImplementedRepositoryMethod("getEmergencyFund", mode),
+    upsertEmergencyFund: createNotImplementedRepositoryMethod("upsertEmergencyFund", mode),
+  };
+}
+
 function createUnsupportedModeRepository(mode) {
   const createReservedMethod = (methodName) => async () => {
     throw new Error(
@@ -356,19 +670,23 @@ export function createFinanceRepository(options = {}) {
     return createLocalFinanceRepository();
   }
 
+  if (mode === FINANCE_REPOSITORY_MODE_SUPABASE_LEGACY) {
+    return createSupabaseLegacyFinanceRepository(options);
+  }
+
   return createUnsupportedModeRepository(mode);
 }
 
 // Dormant default repository export for future phases.
-// Do not import into runtime app pages until Phase 2D or later.
+// Do not import into runtime app pages/hooks until Phase 2D-2B or later.
 export const financeRepository = createFinanceRepository();
 
 export async function getExpenses(localUserId, options) {
   return financeRepository.getExpenses(localUserId, options);
 }
 
-export async function addExpense(localUserId, expense) {
-  return financeRepository.addExpense(localUserId, expense);
+export async function addExpense(localUserId, expense, options) {
+  return financeRepository.addExpense(localUserId, expense, options);
 }
 
 export async function updateExpense(localUserId, expenseId, patch) {
