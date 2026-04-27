@@ -8062,7 +8062,6 @@ export default function Dashboard() {
       setFinanceActionLoading(true);
 
       const nowIso = new Date().toISOString();
-      const expenseId = createFinanceId("expense");
       const budgetCategory = isUnplanned
         ? "Unplanned Spending"
         : isUndocumented
@@ -8073,7 +8072,6 @@ export default function Dashboard() {
       const notesValue = isUnplanned ? reason : isUndocumented ? undocumentedFallbackNote : "";
 
       const expensePayload = {
-        id: expenseId,
         amount,
         wallet_id: wallet.id,
         category: budgetCategory,
@@ -8093,23 +8091,35 @@ export default function Dashboard() {
         created_by: user?.email || null,
       };
 
-      const { error: expenseError } = await supabase.from("expenses").insert([expensePayload]);
+      const { error: expenseError, data: insertedExpense } = await supabase
+        .from("expenses")
+        .insert([expensePayload])
+        .select("*")
+        .single();
 
       if (expenseError) throw expenseError;
 
+      const insertedExpenseId = insertedExpense?.id || null;
+
       const { error: historyError } = await supabase.from("wallet_transactions").insert([
         {
-          id: createFinanceId("txn"),
           wallet_id: wallet.id,
           type: "expense",
           amount,
-          expense_id: expenseId,
+          expense_id: insertedExpenseId,
           category: budgetCategory,
-          budget_category: budgetCategory,
+          need_type: needType,
+          planning_status: planningStatus,
+          unplanned_reason: expensePayload.unplanned_reason,
+          source_type: "Manual Log Expense",
           notes: notesValue,
-          transaction_date: nowIso,
-          date: nowIso,
+          details: {
+            budget_category: budgetCategory,
+            previous_balance: getWalletDisplayBalance(wallet),
+            next_balance: getWalletDisplayBalance(wallet) - amount,
+          },
           created_at: nowIso,
+          updated_at: nowIso,
           user_id: user?.id || null,
           user_email: user?.email || null,
           created_by: user?.email || null,
