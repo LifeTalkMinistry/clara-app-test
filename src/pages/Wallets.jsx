@@ -156,6 +156,77 @@ const getHistoryAmountPrefix = (type) => {
   return "+";
 };
 
+const isMissingColumnError = (error) => {
+  const message = String(
+    error?.message || error?.details || error?.hint || ""
+  ).toLowerCase();
+
+  return (
+    error?.code === "PGRST204" ||
+    error?.code === "PGRST200" ||
+    error?.code === "42703" ||
+    message.includes("column") ||
+    message.includes("schema cache") ||
+    message.includes("does not exist") ||
+    message.includes("could not find")
+  );
+};
+
+const isInvalidUuidTxnDefaultError = (error) => {
+  const message = String(
+    error?.message || error?.details || error?.hint || ""
+  ).toLowerCase();
+
+  return (
+    message.includes("invalid input syntax for type uuid") &&
+    message.includes("txn_")
+  );
+};
+
+const withWalletTransactionUuidFields = (row) => {
+  const safeId = generateId();
+
+  return {
+    ...row,
+    id: row?.id || safeId,
+    transaction_id: row?.transaction_id || safeId,
+  };
+};
+
+const stripOptionalTransactionColumns = (row) => {
+  const nextRow = { ...row };
+  delete nextRow.transaction_id;
+  return nextRow;
+};
+
+const insertWalletTransactionRows = async (rows) => {
+  const safeRows = (Array.isArray(rows) ? rows : [rows]).map(
+    withWalletTransactionUuidFields
+  );
+
+  const { error } = await supabase.from("wallet_transactions").insert(safeRows);
+
+  if (!error) return;
+
+  if (isMissingColumnError(error)) {
+    const fallbackRows = safeRows.map(stripOptionalTransactionColumns);
+    const { error: fallbackError } = await supabase
+      .from("wallet_transactions")
+      .insert(fallbackRows);
+
+    if (!fallbackError) return;
+    throw fallbackError;
+  }
+
+  if (isInvalidUuidTxnDefaultError(error)) {
+    throw new Error(
+      'Wallet transaction UUID error: the database is still generating a "txn_" value for a UUID column. The app now sends valid UUIDs for id and transaction_id, so please check the wallet_transactions table default/trigger.'
+    );
+  }
+
+  throw error;
+};
+
 export default function Wallets() {
   const { user, loading: accessLoading } = useUserRole();
   const financial = useFinancialData(user);
@@ -455,7 +526,6 @@ export default function Wallets() {
       if (walletError) throw walletError;
 
       const historyPayload = {
-        id: generateId(),
         wallet_id: selectedWallet.id,
         type: "income",
         amount,
@@ -469,11 +539,7 @@ export default function Wallets() {
         created_by: user?.email || null,
       };
 
-      const { error: historyError } = await supabase
-        .from("wallet_transactions")
-        .insert([historyPayload]);
-
-      if (historyError) throw historyError;
+      await insertWalletTransactionRows(historyPayload);
 
       setAddMoneyOpen(false);
       resetAddMoneyForm();
@@ -551,7 +617,6 @@ export default function Wallets() {
 
       const historyRows = [
         {
-          id: generateId(),
           wallet_id: fromId,
           type: "transfer_out",
           amount,
@@ -565,7 +630,6 @@ export default function Wallets() {
           created_by: user?.email || null,
         },
         {
-          id: generateId(),
           wallet_id: toId,
           type: "transfer_in",
           amount,
@@ -580,11 +644,7 @@ export default function Wallets() {
         },
       ];
 
-      const { error: historyError } = await supabase
-        .from("wallet_transactions")
-        .insert(historyRows);
-
-      if (historyError) throw historyError;
+      await insertWalletTransactionRows(historyRows);
 
       const { error: transferError } = await supabase.from("transfers").insert([
         {
