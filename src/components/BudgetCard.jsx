@@ -106,9 +106,6 @@ const getBudgetThemeClasses = (theme) => {
   const title = isLight ? "text-slate-900" : "text-white";
   const body = isLight ? "text-slate-700" : "text-white/82";
   const muted = isLight ? "text-slate-500" : "text-white/60";
-  const action = isLight
-    ? "border-slate-300/45 bg-white/70 text-slate-800 hover:bg-white"
-    : "border-white/10 bg-white/5 text-white/85 hover:bg-white/10 hover:text-white";
 
   return {
     isLight,
@@ -121,7 +118,6 @@ const getBudgetThemeClasses = (theme) => {
     title,
     body,
     muted,
-    action,
   };
 };
 
@@ -166,9 +162,10 @@ function getBudgetStatus(progress) {
   };
 }
 
-function getBudgetMessage(hasBudget, progress, remaining) {
-  if (!hasBudget) return "Create this month’s spending plan.";
-  if (remaining <= 0) return "You’ve fully used this month’s planned budget.";
+function getBudgetMessage(hasDeclaredBudget, hasCategories, progress, remaining) {
+  if (!hasDeclaredBudget) return "Declare this month’s spending amount first.";
+  if (!hasCategories) return "Now distribute your declared budget into categories.";
+  if (remaining <= 0) return "You’ve fully used this month’s allocated budget.";
   if (progress <= 50) return "You still have strong room left this month.";
   if (progress <= 80) return "You’re doing fine. Just stay intentional from here.";
   if (progress < 100) return "You’re close to the limit. Spend carefully now.";
@@ -187,6 +184,8 @@ function ActionModal({
   const themeClasses = getBudgetThemeClasses(theme);
   if (!open) return null;
 
+  const hasDeclaredBudget = safeNumber(activeBudget?.declared_budget ?? activeBudget?.declared_amount) > 0;
+
   return (
     <div className="fixed inset-0 z-[120] flex items-center justify-center p-4">
       <div
@@ -198,7 +197,7 @@ function ActionModal({
           <div>
             <p className={`text-base font-semibold ${themeClasses.title}`}>Budget Actions</p>
             <p className={`mt-0.5 text-xs ${themeClasses.muted}`}>
-              Manage this month’s spending plan categories
+              Build this month’s spending plan
             </p>
           </div>
 
@@ -222,7 +221,7 @@ function ActionModal({
             className="flex w-full items-center justify-center gap-2 rounded-2xl border border-fuchsia-400/30 bg-fuchsia-500/15 px-4 py-3 text-sm font-semibold text-fuchsia-200 transition hover:bg-fuchsia-500/20 disabled:opacity-50"
           >
             <Plus className="h-4 w-4" />
-            Add Category
+            {hasDeclaredBudget ? "Add Category" : "Declare Monthly Budget"}
           </button>
 
           {!!activeBudget?.category_count && (
@@ -248,6 +247,8 @@ function ActionModal({
 export default function BudgetCard({
   activeBudget = null,
   budgetCategories = [],
+  declaredBudget = 0,
+  unallocatedAmount = 0,
   unplannedSpent = 0,
   undocumentedSpent = 0,
   expanded = false,
@@ -271,14 +272,21 @@ export default function BudgetCard({
     [activeBudget?.categories, budgetCategories]
   );
 
-  const total = Number(
-    activeBudget?.total_budget ??
-      activeBudget?.budget ??
-      activeBudget?.budget_amount ??
+  const declared = safeNumber(
+    declaredBudget ||
+      activeBudget?.declared_budget ||
+      activeBudget?.declared_amount ||
+      activeBudget?.monthly_budget_amount
+  );
+
+  const allocated = safeNumber(
+    activeBudget?.allocated_amount ??
+      activeBudget?.allocated_total ??
+      activeBudget?.total_budget ??
       categories.reduce((sum, item) => sum + safeNumber(item?.allocated ?? item?.allocated_amount), 0)
   );
 
-  const spent = Number(
+  const spent = safeNumber(
     activeBudget?.spent ??
       activeBudget?.spent_amount ??
       activeBudget?.total_spent ??
@@ -286,22 +294,32 @@ export default function BudgetCard({
   );
 
   const remaining = Math.max(
-    Number(
+    safeNumber(
       activeBudget?.remaining ??
         activeBudget?.remaining_amount ??
-        total - spent
-    ) || 0,
+        allocated - spent
+    ),
+    0
+  );
+
+  const unallocated = Math.max(
+    safeNumber(
+      unallocatedAmount ??
+        activeBudget?.unallocated_amount ??
+        declared - allocated
+    ),
     0
   );
 
   const progress = useMemo(
-    () => (total > 0 ? Math.min(100, (spent / total) * 100) : 0),
-    [spent, total]
+    () => (allocated > 0 ? Math.min(100, (spent / allocated) * 100) : 0),
+    [spent, allocated]
   );
 
-  const hasBudget = categories.length > 0 && total > 0;
+  const hasDeclaredBudget = declared > 0;
+  const hasCategories = categories.length > 0 && allocated > 0;
   const status = getBudgetStatus(progress);
-  const message = getBudgetMessage(hasBudget, progress, remaining);
+  const message = getBudgetMessage(hasDeclaredBudget, hasCategories, progress, remaining);
   const themeClasses = getBudgetThemeClasses(theme);
   const monthKey = activeBudget?.month || new Date().toISOString().slice(0, 7);
 
@@ -345,7 +363,7 @@ export default function BudgetCard({
                 <span
                   className={`shrink-0 rounded-full px-2.5 py-1 text-[11px] font-semibold backdrop-blur-sm ${status.badge}`}
                 >
-                  {hasBudget ? status.label : "No Plan"}
+                  {hasDeclaredBudget ? status.label : "No Plan"}
                 </span>
               </div>
             </div>
@@ -354,10 +372,10 @@ export default function BudgetCard({
           <div className="mb-3">
             <p
               className={`text-[32px] font-bold leading-none ${
-                hasBudget ? status.text : "text-white/95"
+                hasDeclaredBudget ? status.text : "text-white/95"
               }`}
             >
-              {fmt(total)}
+              {fmt(declared)}
             </p>
 
             <p className={`mt-2 max-w-[28rem] text-xs font-medium leading-relaxed ${themeClasses.body}`}>
@@ -365,9 +383,9 @@ export default function BudgetCard({
             </p>
 
             <p className={`mt-1 text-[11px] ${themeClasses.muted}`}>
-              {hasBudget
-                ? `${fmt(remaining)} left across ${categories.length} planned ${categories.length === 1 ? "category" : "categories"}.`
-                : "Create this month’s spending plan before logging planned expenses."}
+              {hasDeclaredBudget
+                ? `${fmt(unallocated)} still unallocated from your declared budget.`
+                : "Your money needs a monthly plan before it disappears."}
             </p>
           </div>
 
@@ -388,7 +406,7 @@ export default function BudgetCard({
 
             <div className="mt-2 flex items-center justify-between text-[11px] font-medium text-white/70">
               <span>{fmt(spent)}</span>
-              <span>{fmt(total)}</span>
+              <span>{fmt(allocated)}</span>
             </div>
           </div>
 
@@ -409,7 +427,14 @@ export default function BudgetCard({
 
           {expanded && (
             <div className="mt-3 space-y-3 rounded-2xl border border-white/10 bg-black/15 p-3 backdrop-blur-[2px] shadow-[inset_0_1px_0_rgba(255,255,255,0.05)]">
-              <div className="grid grid-cols-3 gap-2 text-center text-sm text-white">
+              <div className="grid grid-cols-2 gap-2 text-center text-sm text-white">
+                <div className="rounded-2xl border border-white/10 bg-black/20 px-2.5 py-2.5 backdrop-blur-[2px] shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]">
+                  <p className="mb-1 text-[10px] font-semibold uppercase tracking-[0.16em] text-white/70">
+                    Declared
+                  </p>
+                  <p className={`text-sm font-bold ${themeClasses.title}`}>{fmt(declared)}</p>
+                </div>
+
                 <div className="rounded-2xl border border-white/10 bg-black/20 px-2.5 py-2.5 backdrop-blur-[2px] shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]">
                   <p className="mb-1 text-[10px] font-semibold uppercase tracking-[0.16em] text-white/70">
                     Spent
@@ -432,6 +457,22 @@ export default function BudgetCard({
                   </p>
                   <p className={`text-sm font-bold ${themeClasses.title}`}>
                     {categories.length}
+                  </p>
+                </div>
+
+                <div className="rounded-2xl border border-emerald-400/15 bg-emerald-500/10 px-2.5 py-2.5">
+                  <p className="mb-1 text-[10px] font-semibold uppercase tracking-[0.16em] text-emerald-100/65">
+                    Unallocated
+                  </p>
+                  <p className="text-sm font-bold text-emerald-100">{fmt(unallocated)}</p>
+                </div>
+
+                <div className="rounded-2xl border border-white/10 bg-black/20 px-2.5 py-2.5 backdrop-blur-[2px] shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]">
+                  <p className="mb-1 text-[10px] font-semibold uppercase tracking-[0.16em] text-white/70">
+                    Allocated
+                  </p>
+                  <p className={`text-sm font-bold ${themeClasses.title}`}>
+                    {fmt(allocated)}
                   </p>
                 </div>
               </div>
@@ -463,17 +504,17 @@ export default function BudgetCard({
                     className="inline-flex items-center gap-1 rounded-full border border-emerald-300/20 bg-emerald-500/10 px-2.5 py-1 text-[11px] font-semibold text-emerald-100 transition hover:bg-emerald-500/15 disabled:opacity-50"
                   >
                     <Plus className="h-3 w-3" />
-                    Add
+                    {hasDeclaredBudget ? "Add" : "Start"}
                   </button>
                 </div>
 
                 {categories.length ? (
                   <div className="space-y-2">
                     {categories.map((item) => {
-                      const allocated = safeNumber(item.allocated ?? item.allocated_amount);
+                      const categoryAllocated = safeNumber(item.allocated ?? item.allocated_amount);
                       const categorySpent = safeNumber(item.spent ?? item.spent_amount);
-                      const categoryRemaining = Math.max(allocated - categorySpent, 0);
-                      const categoryProgress = allocated > 0 ? Math.min(100, (categorySpent / allocated) * 100) : 0;
+                      const categoryRemaining = Math.max(categoryAllocated - categorySpent, 0);
+                      const categoryProgress = categoryAllocated > 0 ? Math.min(100, (categorySpent / categoryAllocated) * 100) : 0;
 
                       return (
                         <div
@@ -520,7 +561,7 @@ export default function BudgetCard({
 
                           <div className="mt-1.5 flex items-center justify-between text-[10px] font-semibold text-white/55">
                             <span>{Math.round(categoryProgress)}%</span>
-                            <span>{fmt(allocated)}</span>
+                            <span>{fmt(categoryAllocated)}</span>
                           </div>
                         </div>
                       );
@@ -529,10 +570,12 @@ export default function BudgetCard({
                 ) : (
                   <div className="rounded-2xl border border-emerald-300/15 bg-emerald-500/10 p-4">
                     <p className="text-sm font-semibold text-emerald-50">
-                      Create this month’s spending plan.
+                      {hasDeclaredBudget ? "Add your budget categories next." : "Create this month’s spending plan."}
                     </p>
                     <p className="mt-1 text-xs leading-5 text-emerald-50/70">
-                      Add categories like Bills, Food, Transportation, Family Support, or Personal. These become the Budget List when logging expenses.
+                      {hasDeclaredBudget
+                        ? "Distribute your declared budget into categories like Bills, Food, Transportation, Family Support, or Personal."
+                        : "Start by declaring your total monthly spending amount, then distribute it into categories."}
                     </p>
                   </div>
                 )}
