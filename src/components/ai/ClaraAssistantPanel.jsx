@@ -4,6 +4,7 @@ import { Send, X } from "lucide-react";
 const DEBUG_CLARA_CONTEXT = false;
 const INITIAL_MESSAGE = "I’m here. Ask me before you act.";
 const FALLBACK_REPLY = "Got it. I’ll help you think through that.";
+const LOADING_REPLY = "Dashboard data is still loading. Try again in a second.";
 
 function makeMessage(role, text) {
   return {
@@ -47,6 +48,7 @@ function formatMoney(value) {
 
 function getMoneyLeft(context = {}) {
   return getNumber(
+    context?.totalAvailableMoney,
     context?.totalMoneyLeft,
     context?.moneyLeftThisMonth,
     context?.walletMoney,
@@ -56,11 +58,19 @@ function getMoneyLeft(context = {}) {
 
 function getMonthlySpent(context = {}) {
   return getNumber(
+    context?.monthlySpent,
     context?.totalExpensesThisMonth,
     context?.thisMonthSpent,
-    context?.monthlyExpenses,
-    context?.monthlySpent
+    context?.monthlyExpenses
   );
+}
+
+function getWallets(context = {}) {
+  return Array.isArray(context?.wallets) ? context.wallets : [];
+}
+
+function hasUsableContext(context = {}) {
+  return getMoneyLeft(context) !== null || getMonthlySpent(context) !== null || getWallets(context).length > 0;
 }
 
 function getWalletName(wallet) {
@@ -78,10 +88,10 @@ function getWalletBalance(wallet) {
 }
 
 function getWalletSummary(context = {}) {
-  const wallets = Array.isArray(context?.wallets) ? context.wallets : [];
+  const wallets = getWallets(context);
 
   if (wallets.length === 0) {
-    return "I don’t see wallet details loaded yet.";
+    return hasUsableContext(context) ? "I don’t see wallet details loaded yet." : LOADING_REPLY;
   }
 
   const readableBalances = wallets
@@ -92,6 +102,7 @@ function getWalletSummary(context = {}) {
   const totalWalletBalance = getNumber(
     context?.totalWalletBalance,
     context?.walletMoney,
+    context?.totalAvailableMoney,
     context?.totalMoneyLeft,
     context?.moneyLeftThisMonth,
     readableBalances.length ? fallbackTotal : null
@@ -121,7 +132,7 @@ function getEmergencySummary(context = {}) {
   const hasEmergencySection = Boolean(emergencyFund) || hasValue(context?.survivalExpense);
 
   if (!hasEmergencySection) {
-    return "I need your emergency fund section before I can answer that clearly.";
+    return hasUsableContext(context) ? "I need your emergency fund section before I can answer that clearly." : LOADING_REPLY;
   }
 
   if (emergencyFund?.summary) return emergencyFund.summary;
@@ -170,7 +181,7 @@ function getSavingsSummary(context = {}) {
   const savings = context?.savings;
   const hasSavingsSection = Boolean(savings) || hasValue(context?.totalSavingsSaved) || hasValue(context?.totalSavingsTarget);
 
-  if (!hasSavingsSection) return "I need your savings section before I can answer that clearly.";
+  if (!hasSavingsSection) return hasUsableContext(context) ? "I need your savings section before I can answer that clearly." : LOADING_REPLY;
   if (savings?.summary) return savings.summary;
 
   const savedAmount = getNumber(savings?.saved, savings?.current, context?.totalSavingsSaved);
@@ -190,7 +201,7 @@ function getBudgetSummary(context = {}) {
   const budget = context?.budget;
   const hasBudgetSection = Boolean(budget) || hasValue(context?.budgetAllocated) || hasValue(context?.budgetSpent);
 
-  if (!hasBudgetSection) return "I need your budget section before I can answer that clearly.";
+  if (!hasBudgetSection) return hasUsableContext(context) ? "I need your budget section before I can answer that clearly." : LOADING_REPLY;
   if (budget?.summary) return budget.summary;
 
   const allocatedAmount = getNumber(budget?.allocated, budget?.total, context?.budgetAllocated);
@@ -211,6 +222,7 @@ function getLocalReply(question, context = {}) {
 
   const moneyLeft = getMoneyLeft(context);
   const monthlySpent = getMonthlySpent(context);
+  const contextReady = hasUsableContext(context);
 
   const asksWallet = text.includes("wallet");
   const asksEmergency = text.includes("emergency");
@@ -231,7 +243,7 @@ function getLocalReply(question, context = {}) {
 
   if (asksSpending) {
     if (monthlySpent === null) {
-      return "I need your monthly spending value before I can answer that clearly.";
+      return contextReady ? "I need your monthly spending value before I can answer that clearly." : LOADING_REPLY;
     }
 
     if (monthlySpent === 0) {
@@ -249,7 +261,7 @@ function getLocalReply(question, context = {}) {
     if (left) return `Today, protect your remaining ${left}. Pause before non-essential spending.`;
     if (spent) return `Today, be mindful: you’ve already spent ${spent} this month.`;
 
-    return "I need your money-left or monthly spending value before I can answer that clearly.";
+    return contextReady ? "I need your money-left or monthly spending value before I can answer that clearly." : LOADING_REPLY;
   }
 
   if (asksMoneyLeft) {
@@ -257,32 +269,32 @@ function getLocalReply(question, context = {}) {
       return `You currently have ${formatMoney(moneyLeft)} available.`;
     }
 
-    return "I need your money-left value before I can answer that clearly.";
+    return contextReady ? "I need your money-left value before I can answer that clearly." : LOADING_REPLY;
   }
 
   return FALLBACK_REPLY;
 }
 
 function getContextStatus(context = {}) {
-  const wallets = Array.isArray(context?.wallets) ? context.wallets : [];
-  const connected =
-    getMoneyLeft(context) !== null ||
-    getMonthlySpent(context) !== null ||
-    wallets.length > 0;
-
-  return connected ? "connected" : "missing";
+  return hasUsableContext(context) ? "connected" : "loading";
 }
 
 export default function ClaraAssistantPanel({ open, onClose, context = {} }) {
-  if (DEBUG_CLARA_CONTEXT) {
-    console.log("CLARA received context:", context);
-  }
+  const latestContextRef = useRef(context || {});
+
+  useEffect(() => {
+    latestContextRef.current = context || {};
+
+    if (DEBUG_CLARA_CONTEXT) {
+      console.log("CLARA received latest context:", latestContextRef.current);
+    }
+  }, [context]);
 
   const [draft, setDraft] = useState("");
   const [messages, setMessages] = useState(() => [makeMessage("clara", INITIAL_MESSAGE)]);
   const inputRef = useRef(null);
   const bottomRef = useRef(null);
-  const contextStatus = getContextStatus(context);
+  const contextStatus = getContextStatus(latestContextRef.current);
 
   useEffect(() => {
     if (!open) return;
@@ -299,10 +311,12 @@ export default function ClaraAssistantPanel({ open, onClose, context = {} }) {
     const text = draft.trim();
     if (!text) return;
 
+    const currentContext = latestContextRef.current || {};
+
     setMessages((current) => [
       ...current,
       makeMessage("user", text),
-      makeMessage("clara", getLocalReply(text, context)),
+      makeMessage("clara", getLocalReply(text, currentContext)),
     ]);
     setDraft("");
   };
