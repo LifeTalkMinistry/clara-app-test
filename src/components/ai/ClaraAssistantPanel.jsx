@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { Send, X } from "lucide-react";
 
+const DEBUG_CLARA_CONTEXT = false;
 const INITIAL_MESSAGE = "I’m here. Ask me before you act.";
 const FALLBACK_REPLY = "Got it. I’ll help you think through that.";
 const MISSING_CONTEXT_REPLY = "I need more dashboard data before I can answer that clearly.";
@@ -17,67 +18,211 @@ function hasValue(value) {
   return value !== undefined && value !== null && value !== "";
 }
 
+function hasFiniteNumber(value) {
+  return hasValue(value) && Number.isFinite(Number(value));
+}
+
 function firstKnownValue(...values) {
   return values.find((value) => hasValue(value));
 }
 
+function firstKnownNumber(...values) {
+  return values.find((value) => hasFiniteNumber(value));
+}
+
 function formatMoney(value) {
-  if (!hasValue(value)) return null;
+  if (!hasFiniteNumber(value)) return null;
   const number = Number(value);
-  if (!Number.isFinite(number)) return null;
   return `₱${number.toLocaleString("en-PH", { maximumFractionDigits: 2 })}`;
+}
+
+function getWalletName(wallet) {
+  return String(
+    firstKnownValue(wallet?.name, wallet?.wallet_name, wallet?.title, "Wallet")
+  ).trim();
+}
+
+function getWalletBalance(wallet) {
+  return firstKnownNumber(
+    wallet?.balance,
+    wallet?.current_balance,
+    wallet?.amount,
+    wallet?.available_balance,
+    wallet?.wallet_balance
+  );
+}
+
+function getWalletSummary(context = {}) {
+  const wallets = Array.isArray(context?.wallets) ? context.wallets : [];
+  if (wallets.length === 0) {
+    return "I don’t see wallet details yet, but that can also mean no wallets are loaded in this dashboard view.";
+  }
+
+  const totalWalletBalance = firstKnownNumber(
+    context?.totalWalletBalance,
+    context?.walletMoney,
+    context?.totalMoneyLeft,
+    context?.moneyLeftThisMonth,
+    wallets.reduce((sum, wallet) => sum + Number(getWalletBalance(wallet) || 0), 0)
+  );
+
+  const topWallets = wallets
+    .slice(0, 3)
+    .map((wallet) => {
+      const name = getWalletName(wallet);
+      const balance = formatMoney(getWalletBalance(wallet));
+      return balance ? `${name} (${balance})` : name;
+    })
+    .filter(Boolean);
+
+  const totalText = formatMoney(totalWalletBalance);
+  const walletCountText = `You have ${wallets.length} wallet${wallets.length === 1 ? "" : "s"} loaded.`;
+  const balanceText = totalText ? ` Your total wallet balance is ${totalText}.` : "";
+  const namesText = topWallets.length
+    ? ` Your main wallets include ${topWallets.join(", ")}.`
+    : "";
+
+  return `${walletCountText}${balanceText}${namesText}`.trim();
+}
+
+function getEmergencySummary(context = {}) {
+  const emergencyFund = context?.emergencyFund;
+
+  if (!emergencyFund && !hasValue(context?.survivalExpense)) {
+    return MISSING_CONTEXT_REPLY;
+  }
+
+  if (emergencyFund?.summary) return emergencyFund.summary;
+
+  const monthsCovered = firstKnownNumber(
+    emergencyFund?.monthsCovered,
+    emergencyFund?.months
+  );
+  const currentValue = firstKnownNumber(
+    emergencyFund?.currentAmount,
+    emergencyFund?.saved,
+    emergencyFund?.current,
+    emergencyFund?.amount,
+    emergencyFund?.progress,
+    emergencyFund?.saved_amount,
+    context?.emergencyFundSaved
+  );
+  const targetValue = firstKnownNumber(
+    emergencyFund?.targetAmount,
+    emergencyFund?.target,
+    emergencyFund?.goal,
+    emergencyFund?.goal_amount,
+    context?.survivalExpense,
+    context?.emergencyFundTarget
+  );
+  const percentageValue = firstKnownNumber(
+    emergencyFund?.percentage,
+    emergencyFund?.percent,
+    emergencyFund?.progressPercent
+  );
+
+  const current = formatMoney(currentValue);
+  const target = formatMoney(targetValue);
+  const percentage = hasFiniteNumber(percentageValue)
+    ? `${Number(percentageValue).toFixed(0)}%`
+    : null;
+
+  if (current && target && hasFiniteNumber(monthsCovered)) {
+    return `Your emergency fund is at ${current} out of ${target}, covering about ${Number(monthsCovered)} month${Number(monthsCovered) === 1 ? "" : "s"}.`;
+  }
+
+  if (current && target) return `Your emergency fund is at ${current} out of ${target}.`;
+  if (current) return `Your emergency fund currently has ${current}.`;
+  if (target) return `Your emergency fund target is ${target}.`;
+  if (percentage) return `Your emergency fund progress is around ${percentage}.`;
+  if (hasFiniteNumber(monthsCovered)) {
+    return `Your emergency fund covers about ${Number(monthsCovered)} month${Number(monthsCovered) === 1 ? "" : "s"}.`;
+  }
+
+  return "I can see your emergency fund section, but I need the fund amount fields to explain it clearly.";
+}
+
+function getSavingsSummary(context = {}) {
+  const savings = context?.savings;
+  if (!savings && !hasValue(context?.totalSavingsSaved) && !hasValue(context?.totalSavingsTarget)) {
+    return MISSING_CONTEXT_REPLY;
+  }
+
+  if (savings?.summary) return savings.summary;
+
+  const savedValue = firstKnownNumber(savings?.saved, savings?.current, context?.totalSavingsSaved);
+  const targetValue = firstKnownNumber(savings?.target, savings?.goal, context?.totalSavingsTarget);
+  const saved = formatMoney(savedValue);
+  const target = formatMoney(targetValue);
+
+  if (saved && target) return `Your savings progress is ${saved} out of ${target}.`;
+  if (saved) return `Your saved amount is ${saved}.`;
+  if (target) return `Your savings target is ${target}.`;
+  return "I can see the savings section, but the detailed values are not complete yet.";
+}
+
+function getBudgetSummary(context = {}) {
+  const budget = context?.budget;
+  if (!budget && !hasValue(context?.budgetAllocated) && !hasValue(context?.budgetSpent)) {
+    return MISSING_CONTEXT_REPLY;
+  }
+
+  if (budget?.summary) return budget.summary;
+
+  const allocatedValue = firstKnownNumber(budget?.allocated, budget?.total, context?.budgetAllocated);
+  const spentValue = firstKnownNumber(budget?.spent, budget?.used, context?.budgetSpent);
+  const allocated = formatMoney(allocatedValue);
+  const spent = formatMoney(spentValue);
+
+  if (allocated && spent) return `Your current budget context shows ${spent} spent out of ${allocated} allocated.`;
+  if (allocated) return `Your current budget allocation is ${allocated}.`;
+  if (spent) return `Your current budget spending is ${spent}.`;
+  return "I can see the budget section, but the detailed values are not complete yet.";
 }
 
 function getLocalReply(question, context = {}) {
   const text = String(question || "").toLowerCase();
 
-  const totalMoneyLeft = firstKnownValue(
+  const totalMoneyLeft = firstKnownNumber(
     context?.totalMoneyLeft,
     context?.moneyLeftThisMonth,
     context?.walletMoney,
     context?.totalWalletBalance
   );
 
-  const totalExpensesThisMonth = firstKnownValue(
+  const totalExpensesThisMonth = firstKnownNumber(
     context?.totalExpensesThisMonth,
     context?.thisMonthSpent,
     context?.monthlyExpenses,
     context?.monthlySpent
   );
 
-  if (text.includes("money") || text.includes("left") || text.includes("balance")) {
-    const amount = formatMoney(totalMoneyLeft);
-    return amount ? `You currently have ${amount} available across your dashboard context.` : MISSING_CONTEXT_REPLY;
-  }
+  const asksWallet = text.includes("wallet");
+  const asksEmergency = text.includes("emergency");
+  const asksSavings = text.includes("saving") || text.includes("savings") || text.includes("goal");
+  const asksBudget = text.includes("budget");
+  const asksSpending = text.includes("spend") || text.includes("spent") || text.includes("expense");
+  const asksWatch = text.includes("watch") || text.includes("careful") || text.includes("today");
+  const asksMoneyLeft =
+    text.includes("money") ||
+    text.includes("left") ||
+    text.includes("balance") ||
+    text.includes("available");
 
-  if (text.includes("spend") || text.includes("spent") || text.includes("expense")) {
+  if (asksWallet) return getWalletSummary(context);
+  if (asksEmergency) return getEmergencySummary(context);
+  if (asksSavings) return getSavingsSummary(context);
+  if (asksBudget) return getBudgetSummary(context);
+
+  if (asksSpending) {
     const amount = formatMoney(totalExpensesThisMonth);
     if (!amount) return MISSING_CONTEXT_REPLY;
     const numeric = Number(totalExpensesThisMonth);
-    if (numeric === 0) return "You have not logged spending this month yet.";
-    return `You have spent ${amount} this month so far.`;
+    if (numeric === 0) return "You haven’t logged spending this month yet.";
+    return `You’ve spent ${amount} this month so far.`;
   }
 
-  if (text.includes("emergency")) {
-    if (context?.emergencyFund?.summary) return context.emergencyFund.summary;
-    const savedValue = firstKnownValue(
-      context?.emergencyFund?.saved,
-      context?.emergencyFund?.current,
-      context?.emergencyFundSaved
-    );
-    const targetValue = firstKnownValue(
-      context?.emergencyFund?.target,
-      context?.survivalExpense,
-      context?.emergencyFundTarget
-    );
-    const saved = formatMoney(savedValue);
-    const target = formatMoney(targetValue);
-    if (saved && target) return `Your emergency fund is at ${saved} out of ${target}.`;
-    if (saved) return `Your emergency fund currently has ${saved}.`;
-    return MISSING_CONTEXT_REPLY;
-  }
-
-  if (text.includes("watch") || text.includes("careful") || text.includes("today")) {
+  if (asksWatch) {
     const spent = formatMoney(totalExpensesThisMonth);
     const left = formatMoney(totalMoneyLeft);
     if (spent && left) return `Today, watch impulse spending. You have ${left} left and ${spent} spent this month.`;
@@ -85,40 +230,18 @@ function getLocalReply(question, context = {}) {
     return MISSING_CONTEXT_REPLY;
   }
 
-  if (text.includes("wallet")) {
-    const wallets = Array.isArray(context?.wallets) ? context.wallets : [];
-    if (!wallets.length) return "I don’t see wallet details yet, but that can also mean no wallets are loaded in this dashboard view.";
-    return `I can see ${wallets.length} wallet${wallets.length === 1 ? "" : "s"}: ${wallets
-      .slice(0, 3)
-      .map((wallet) => `${wallet.name || "Wallet"} ${formatMoney(wallet.balance) || "₱0"}`.trim())
-      .join(", ")}.`;
-  }
-
-  if (text.includes("saving") || text.includes("goal")) {
-    if (context?.savings?.summary) return context.savings.summary;
-    const savedValue = firstKnownValue(context?.savings?.saved, context?.totalSavingsSaved);
-    const targetValue = firstKnownValue(context?.savings?.target, context?.totalSavingsTarget);
-    const saved = formatMoney(savedValue);
-    const target = formatMoney(targetValue);
-    if (saved && target) return `Your savings progress is ${saved} out of ${target}.`;
-    return MISSING_CONTEXT_REPLY;
-  }
-
-  if (text.includes("budget")) {
-    if (context?.budget?.summary) return context.budget.summary;
-    const allocatedValue = firstKnownValue(context?.budget?.allocated, context?.budgetAllocated);
-    const spentValue = firstKnownValue(context?.budget?.spent, context?.budgetSpent);
-    const allocated = formatMoney(allocatedValue);
-    const spent = formatMoney(spentValue);
-    if (allocated && spent) return `Your current budget context shows ${spent} spent out of ${allocated} allocated.`;
-    return MISSING_CONTEXT_REPLY;
+  if (asksMoneyLeft) {
+    const amount = formatMoney(totalMoneyLeft);
+    return amount ? `You currently have ${amount} available.` : MISSING_CONTEXT_REPLY;
   }
 
   return FALLBACK_REPLY;
 }
 
 export default function ClaraAssistantPanel({ open, onClose, context = {} }) {
-  console.log("CLARA received context:", context);
+  if (DEBUG_CLARA_CONTEXT) {
+    console.log("CLARA received context:", context);
+  }
 
   const [draft, setDraft] = useState("");
   const [messages, setMessages] = useState(() => [makeMessage("clara", INITIAL_MESSAGE)]);
