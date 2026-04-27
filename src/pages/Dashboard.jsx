@@ -10047,7 +10047,7 @@ export default function Dashboard() {
           </div>
         )}
 
-        <div className="relative z-30 mt-[clamp(18px,3.2dvh,24px)]">
+        <div className="relative z-30">
           <button
             type="button"
             onPointerDown={startCenteredClaraOrbPress}
