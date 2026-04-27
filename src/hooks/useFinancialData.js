@@ -771,21 +771,17 @@ export default function useFinancialData(user) {
   };
 
   const addWallet = async (wallet) => {
-    const repository = createFinanceRepository({
-      mode: FINANCE_REPOSITORY_MODE_SUPABASE_LEGACY,
-      supabase,
-      user,
-      wallets,
-      walletTransactions,
-      generateId,
-      toNumber,
-      getSafeDate,
-      normalizePlanningStatus,
-      safeInsert,
-      safeUpdateById,
-    });
+    const starting = toNumber(wallet.balance ?? wallet.starting_balance ?? 0);
 
-    await repository.addWallet(user?.id, wallet);
+    await safeInsert("wallets", {
+      ...wallet,
+      id: wallet.id || generateId(),
+      balance: starting,
+      starting_balance: starting,
+      user_id: user?.id || null,
+      user_email: user?.email || null,
+      created_by: user?.email || null,
+    });
 
     await loadAll();
   };
