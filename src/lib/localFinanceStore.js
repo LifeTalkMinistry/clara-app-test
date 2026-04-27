@@ -1,43 +1,31 @@
 /**
  * CLARA Local Finance Store
  *
- * Phase 2 foundation only.
- * This file creates the local-first IndexedDB boundary for private finance data.
- * It does not migrate existing Supabase data, does not enable sync, and does not
- * replace any current app read/write behavior yet.
+ * Phase 2B — Local IndexedDB Foundation Only
+ *
+ * This file creates CLARA's dormant local-first IndexedDB foundation for
+ * private finance data. It is intentionally not connected to app pages yet.
+ *
+ * This module does not:
+ * - redesign UI
+ * - change dashboard behavior
+ * - migrate Supabase data
+ * - replace Supabase reads/writes
+ * - implement Private Sync
+ * - implement encryption
+ * - implement backup/export/import
+ *
+ * Architecture reference: docs/clara-data-boundary.md
  */
 
 export const LOCAL_FINANCE_DB_NAME = "clara_local_finance";
-export const LOCAL_FINANCE_SCHEMA_VERSION = 1;
 
-export const LOCAL_FIRST_PRIVATE_DATA_TYPES = Object.freeze([
-  "expenses",
-  "wallets",
-  "wallet_transactions",
-  "transfers",
-  "budgets",
-  "savings_goals",
-  "emergency_fund",
-  "survival_expense",
-  "life_profile",
-  "ai_financial_memory",
-  "spending_behavior_patterns",
-  "private_preferences",
-]);
-
-export const SUPABASE_SERVER_DATA_TYPES = Object.freeze([
-  "authentication_account_identity",
-  "subscription_tier",
-  "google_play_billing_status",
-  "activation_status",
-  "admin_access",
-  "feed_community",
-  "messaging",
-  "coaching_access",
-  "optional_encrypted_backup_package_storage_only",
-]);
+// Version 2 safely adds the missing private_preferences store/index contract
+// from the earlier partial Phase 2B foundation.
+export const LOCAL_FINANCE_SCHEMA_VERSION = 2;
 
 export const LOCAL_FINANCE_STORES = Object.freeze({
+  metadata: "metadata",
   expenses: "expenses",
   wallets: "wallets",
   walletTransactions: "wallet_transactions",
@@ -47,10 +35,10 @@ export const LOCAL_FINANCE_STORES = Object.freeze({
   emergencyFund: "emergency_fund",
   lifeProfile: "life_profile",
   aiFinancialMemory: "ai_financial_memory",
-  metadata: "metadata",
+  privatePreferences: "private_preferences",
 });
 
-const SOFT_DELETE_STORES = new Set([
+export const LOCAL_FINANCE_PRIVATE_STORES = Object.freeze([
   LOCAL_FINANCE_STORES.expenses,
   LOCAL_FINANCE_STORES.wallets,
   LOCAL_FINANCE_STORES.walletTransactions,
@@ -60,169 +48,102 @@ const SOFT_DELETE_STORES = new Set([
   LOCAL_FINANCE_STORES.emergencyFund,
   LOCAL_FINANCE_STORES.lifeProfile,
   LOCAL_FINANCE_STORES.aiFinancialMemory,
+  LOCAL_FINANCE_STORES.privatePreferences,
+]);
+
+const REQUIRED_PRIVATE_INDEXES = Object.freeze([
+  ["localUserId", "localUserId", { unique: false }],
+  ["updatedAt", "updatedAt", { unique: false }],
+  ["deletedAt", "deletedAt", { unique: false }],
+  ["syncStatus", "syncStatus", { unique: false }],
+]);
+
+const METADATA_INDEXES = Object.freeze([
+  ["localUserId", "localUserId", { unique: false }],
+  ["updatedAt", "updatedAt", { unique: false }],
 ]);
 
 const STORE_DEFINITIONS = Object.freeze([
   {
-    name: LOCAL_FINANCE_STORES.expenses,
-    keyPath: "id",
-    indexes: [
-      ["localUserId", "localUserId", { unique: false }],
-      ["walletId", "walletId", { unique: false }],
-      ["date", "date", { unique: false }],
-      ["createdAt", "createdAt", { unique: false }],
-      ["updatedAt", "updatedAt", { unique: false }],
-      ["deletedAt", "deletedAt", { unique: false }],
-      ["syncStatus", "syncStatus", { unique: false }],
-    ],
-  },
-  {
-    name: LOCAL_FINANCE_STORES.wallets,
-    keyPath: "id",
-    indexes: [
-      ["localUserId", "localUserId", { unique: false }],
-      ["sortOrder", "sortOrder", { unique: false }],
-      ["createdAt", "createdAt", { unique: false }],
-      ["updatedAt", "updatedAt", { unique: false }],
-      ["deletedAt", "deletedAt", { unique: false }],
-      ["syncStatus", "syncStatus", { unique: false }],
-    ],
-  },
-  {
-    name: LOCAL_FINANCE_STORES.walletTransactions,
-    keyPath: "id",
-    indexes: [
-      ["localUserId", "localUserId", { unique: false }],
-      ["walletId", "walletId", { unique: false }],
-      ["expenseId", "expenseId", { unique: false }],
-      ["transferId", "transferId", { unique: false }],
-      ["type", "type", { unique: false }],
-      ["createdAt", "createdAt", { unique: false }],
-      ["updatedAt", "updatedAt", { unique: false }],
-      ["deletedAt", "deletedAt", { unique: false }],
-      ["syncStatus", "syncStatus", { unique: false }],
-    ],
-  },
-  {
-    name: LOCAL_FINANCE_STORES.transfers,
-    keyPath: "id",
-    indexes: [
-      ["localUserId", "localUserId", { unique: false }],
-      ["fromWalletId", "fromWalletId", { unique: false }],
-      ["toWalletId", "toWalletId", { unique: false }],
-      ["createdAt", "createdAt", { unique: false }],
-      ["updatedAt", "updatedAt", { unique: false }],
-      ["deletedAt", "deletedAt", { unique: false }],
-      ["syncStatus", "syncStatus", { unique: false }],
-    ],
-  },
-  {
-    name: LOCAL_FINANCE_STORES.budgets,
-    keyPath: "id",
-    indexes: [
-      ["localUserId", "localUserId", { unique: false }],
-      ["month", "month", { unique: false }],
-      ["category", "category", { unique: false }],
-      ["createdAt", "createdAt", { unique: false }],
-      ["updatedAt", "updatedAt", { unique: false }],
-      ["deletedAt", "deletedAt", { unique: false }],
-      ["syncStatus", "syncStatus", { unique: false }],
-    ],
-  },
-  {
-    name: LOCAL_FINANCE_STORES.savingsGoals,
-    keyPath: "id",
-    indexes: [
-      ["localUserId", "localUserId", { unique: false }],
-      ["walletId", "walletId", { unique: false }],
-      ["priority", "priority", { unique: false }],
-      ["createdAt", "createdAt", { unique: false }],
-      ["updatedAt", "updatedAt", { unique: false }],
-      ["deletedAt", "deletedAt", { unique: false }],
-      ["syncStatus", "syncStatus", { unique: false }],
-    ],
-  },
-  {
-    name: LOCAL_FINANCE_STORES.emergencyFund,
-    keyPath: "id",
-    indexes: [
-      ["localUserId", "localUserId", { unique: false }],
-      ["createdAt", "createdAt", { unique: false }],
-      ["updatedAt", "updatedAt", { unique: false }],
-      ["deletedAt", "deletedAt", { unique: false }],
-      ["syncStatus", "syncStatus", { unique: false }],
-    ],
-  },
-  {
-    name: LOCAL_FINANCE_STORES.lifeProfile,
-    keyPath: "id",
-    indexes: [
-      ["localUserId", "localUserId", { unique: false }],
-      ["createdAt", "createdAt", { unique: false }],
-      ["updatedAt", "updatedAt", { unique: false }],
-      ["deletedAt", "deletedAt", { unique: false }],
-      ["syncStatus", "syncStatus", { unique: false }],
-    ],
-  },
-  {
-    name: LOCAL_FINANCE_STORES.aiFinancialMemory,
-    keyPath: "id",
-    indexes: [
-      ["localUserId", "localUserId", { unique: false }],
-      ["memoryType", "memoryType", { unique: false }],
-      ["createdAt", "createdAt", { unique: false }],
-      ["updatedAt", "updatedAt", { unique: false }],
-      ["deletedAt", "deletedAt", { unique: false }],
-      ["syncStatus", "syncStatus", { unique: false }],
-    ],
-  },
-  {
     name: LOCAL_FINANCE_STORES.metadata,
-    keyPath: "key",
-    indexes: [
-      ["localUserId", "localUserId", { unique: false }],
-      ["updatedAt", "updatedAt", { unique: false }],
-    ],
+    keyPath: "id",
+    indexes: METADATA_INDEXES,
   },
+  ...LOCAL_FINANCE_PRIVATE_STORES.map((storeName) => ({
+    name: storeName,
+    keyPath: "id",
+    indexes: REQUIRED_PRIVATE_INDEXES,
+  })),
 ]);
 
 let dbPromise = null;
 
-function assertIndexedDbAvailable() {
-  if (typeof window === "undefined" || !window.indexedDB) {
+function getIndexedDb() {
+  if (typeof globalThis === "undefined" || !globalThis.indexedDB) {
     throw new Error("IndexedDB is not available in this environment.");
   }
+
+  return globalThis.indexedDB;
+}
+
+function getIdbKeyRange() {
+  if (typeof globalThis === "undefined" || !globalThis.IDBKeyRange) {
+    throw new Error("IDBKeyRange is not available in this environment.");
+  }
+
+  return globalThis.IDBKeyRange;
 }
 
 function normalizeLocalUserId(localUserId) {
-  const value = String(localUserId || "").trim();
-  if (!value) {
-    throw new Error("localUserId is required for local finance data.");
+  const safeLocalUserId = String(localUserId || "").trim();
+
+  if (!safeLocalUserId) {
+    throw new Error(
+      "localUserId is required for private local finance data. Refusing to use a guest/global fallback key."
+    );
   }
-  return value;
+
+  return safeLocalUserId;
 }
 
-function createLocalId(prefix = "local") {
-  const safePrefix = String(prefix || "local").replace(/[^a-zA-Z0-9_-]/g, "_");
-  const randomPart =
-    typeof crypto !== "undefined" && crypto.randomUUID
-      ? crypto.randomUUID()
-      : `${Date.now()}_${Math.random().toString(36).slice(2, 12)}`;
-  return `${safePrefix}_${randomPart}`;
+function assertKnownStore(storeName) {
+  const storeNames = Object.values(LOCAL_FINANCE_STORES);
+
+  if (!storeNames.includes(storeName)) {
+    throw new Error(`Unknown CLARA local finance store: ${storeName}`);
+  }
+}
+
+function assertPrivateStore(storeName) {
+  assertKnownStore(storeName);
+
+  if (!LOCAL_FINANCE_PRIVATE_STORES.includes(storeName)) {
+    throw new Error(`${storeName} is not a private finance record store.`);
+  }
 }
 
 function nowIso() {
   return new Date().toISOString();
 }
 
-function toRequestPromise(request) {
+function createLocalRecordId(storeName) {
+  const safeStoreName = String(storeName || "record").replace(/[^a-zA-Z0-9_-]/g, "_");
+
+  if (globalThis?.crypto?.randomUUID) {
+    return `${safeStoreName}_${globalThis.crypto.randomUUID()}`;
+  }
+
+  return `${safeStoreName}_${Date.now()}_${Math.random().toString(36).slice(2, 12)}`;
+}
+
+function requestToPromise(request) {
   return new Promise((resolve, reject) => {
     request.onsuccess = () => resolve(request.result);
     request.onerror = () => reject(request.error || new Error("IndexedDB request failed."));
   });
 }
 
-function toTransactionPromise(transaction) {
+function transactionToPromise(transaction) {
   return new Promise((resolve, reject) => {
     transaction.oncomplete = () => resolve(true);
     transaction.onerror = () => reject(transaction.error || new Error("IndexedDB transaction failed."));
@@ -230,57 +151,133 @@ function toTransactionPromise(transaction) {
   });
 }
 
-function createMissingStore(db, definition) {
-  if (db.objectStoreNames.contains(definition.name)) return null;
-
-  const store = db.createObjectStore(definition.name, {
-    keyPath: definition.keyPath,
-  });
-
-  definition.indexes.forEach(([indexName, keyPath, options]) => {
+function createIndexIfMissing(store, indexName, keyPath, options) {
+  if (!store.indexNames.contains(indexName)) {
     store.createIndex(indexName, keyPath, options);
-  });
-
-  return store;
+  }
 }
 
-function ensureIndexes(store, definition) {
+function createOrUpdateStore(db, transaction, definition) {
+  const store = db.objectStoreNames.contains(definition.name)
+    ? transaction.objectStore(definition.name)
+    : db.createObjectStore(definition.name, { keyPath: definition.keyPath });
+
   definition.indexes.forEach(([indexName, keyPath, options]) => {
-    if (!store.indexNames.contains(indexName)) {
-      store.createIndex(indexName, keyPath, options);
-    }
+    createIndexIfMissing(store, indexName, keyPath, options);
+  });
+}
+
+function validateDatabaseShape(db) {
+  const missingStores = STORE_DEFINITIONS.filter(
+    (definition) => !db.objectStoreNames.contains(definition.name)
+  ).map((definition) => definition.name);
+
+  if (missingStores.length > 0) {
+    throw new Error(
+      `CLARA local finance database is missing object stores: ${missingStores.join(", ")}.`
+    );
+  }
+}
+
+function normalizeRecordForWrite(storeName, record, localUserId, existingRecord = null) {
+  const safeLocalUserId = normalizeLocalUserId(localUserId);
+
+  if (!record || typeof record !== "object" || Array.isArray(record)) {
+    throw new Error("A local finance record object is required.");
+  }
+
+  if (record.localUserId && String(record.localUserId).trim() !== safeLocalUserId) {
+    throw new Error("Record localUserId does not match the provided localUserId.");
+  }
+
+  if (existingRecord?.localUserId && existingRecord.localUserId !== safeLocalUserId) {
+    throw new Error("Cannot update a local finance record owned by another local user.");
+  }
+
+  const timestamp = nowIso();
+  const id = record.id || existingRecord?.id || createLocalRecordId(storeName);
+  const createdAt = record.createdAt || existingRecord?.createdAt || timestamp;
+  const updatedAt = timestamp;
+
+  return {
+    ...existingRecord,
+    ...record,
+    id,
+    localUserId: safeLocalUserId,
+    createdAt,
+    updatedAt,
+    deletedAt: record.deletedAt ?? existingRecord?.deletedAt ?? null,
+    syncStatus: record.syncStatus ?? existingRecord?.syncStatus ?? "local_only",
+    source: record.source ?? existingRecord?.source ?? "local",
+  };
+}
+
+function normalizeDeleteLocalUserId(localUserIdOrOptions) {
+  if (
+    localUserIdOrOptions &&
+    typeof localUserIdOrOptions === "object" &&
+    !Array.isArray(localUserIdOrOptions)
+  ) {
+    return normalizeLocalUserId(localUserIdOrOptions.localUserId);
+  }
+
+  return normalizeLocalUserId(localUserIdOrOptions);
+}
+
+function deleteRecordsForLocalUser(store, localUserId) {
+  const KeyRange = getIdbKeyRange();
+  const request = store.index("localUserId").openCursor(KeyRange.only(localUserId));
+
+  return new Promise((resolve, reject) => {
+    request.onsuccess = () => {
+      const cursor = request.result;
+
+      if (!cursor) {
+        resolve(true);
+        return;
+      }
+
+      cursor.delete();
+      cursor.continue();
+    };
+
+    request.onerror = () => reject(request.error || new Error("Failed to clear local user vault."));
   });
 }
 
 export function openLocalFinanceDb() {
   if (dbPromise) return dbPromise;
 
-  assertIndexedDbAvailable();
+  const indexedDb = getIndexedDb();
 
   dbPromise = new Promise((resolve, reject) => {
-    const request = window.indexedDB.open(
-      LOCAL_FINANCE_DB_NAME,
-      LOCAL_FINANCE_SCHEMA_VERSION
-    );
+    const request = indexedDb.open(LOCAL_FINANCE_DB_NAME, LOCAL_FINANCE_SCHEMA_VERSION);
 
     request.onupgradeneeded = () => {
       const db = request.result;
+      const transaction = request.transaction;
 
       STORE_DEFINITIONS.forEach((definition) => {
-        const newStore = createMissingStore(db, definition);
-        if (!newStore) {
-          const transaction = request.transaction;
-          const existingStore = transaction.objectStore(definition.name);
-          ensureIndexes(existingStore, definition);
-        }
+        createOrUpdateStore(db, transaction, definition);
       });
     };
 
-    request.onsuccess = () => resolve(request.result);
+    request.onsuccess = () => {
+      try {
+        validateDatabaseShape(request.result);
+        resolve(request.result);
+      } catch (error) {
+        request.result.close();
+        dbPromise = null;
+        reject(error);
+      }
+    };
+
     request.onerror = () => {
       dbPromise = null;
       reject(request.error || new Error("Failed to open CLARA local finance database."));
     };
+
     request.onblocked = () => {
       dbPromise = null;
       reject(new Error("CLARA local finance database upgrade is blocked by another open tab."));
@@ -292,208 +289,233 @@ export function openLocalFinanceDb() {
 
 export async function closeLocalFinanceDb() {
   if (!dbPromise) return;
+
   const db = await dbPromise;
   db.close();
   dbPromise = null;
 }
 
-function assertKnownStore(storeName) {
-  const names = Object.values(LOCAL_FINANCE_STORES);
-  if (!names.includes(storeName)) {
-    throw new Error(`Unknown local finance store: ${storeName}`);
-  }
-}
-
-function decorateRecord(record, localUserId, options = {}) {
-  const timestamp = nowIso();
-  const idPrefix = options.idPrefix || options.storeName || "local";
-  const existingCreatedAt = record?.createdAt || record?.created_at;
-  const existingUpdatedAt = record?.updatedAt || record?.updated_at;
-
-  return {
-    ...record,
-    id: record?.id || createLocalId(idPrefix),
-    localUserId: normalizeLocalUserId(localUserId),
-    createdAt: existingCreatedAt || timestamp,
-    updatedAt: existingUpdatedAt || timestamp,
-    deletedAt: record?.deletedAt || record?.deleted_at || null,
-    isDeleted: Boolean(record?.isDeleted || record?.deletedAt || record?.deleted_at),
-    syncStatus: record?.syncStatus || "local_only",
-  };
-}
-
-export async function putLocalRecord(storeName, record, { localUserId, idPrefix } = {}) {
-  assertKnownStore(storeName);
-  const db = await openLocalFinanceDb();
-  const transaction = db.transaction(storeName, "readwrite");
-  const store = transaction.objectStore(storeName);
-  const payload = decorateRecord(record, localUserId, { storeName, idPrefix });
-
-  store.put(payload);
-  await toTransactionPromise(transaction);
-  return payload;
-}
-
-export async function getLocalRecord(storeName, id) {
-  assertKnownStore(storeName);
-  const db = await openLocalFinanceDb();
-  const transaction = db.transaction(storeName, "readonly");
-  const store = transaction.objectStore(storeName);
-  return toRequestPromise(store.get(id));
-}
-
-export async function getLocalRecordsByUser(
-  storeName,
-  { localUserId, includeDeleted = false } = {}
-) {
-  assertKnownStore(storeName);
+export async function getLocalRecords(storeName, localUserId) {
+  assertPrivateStore(storeName);
   const safeLocalUserId = normalizeLocalUserId(localUserId);
   const db = await openLocalFinanceDb();
   const transaction = db.transaction(storeName, "readonly");
   const store = transaction.objectStore(storeName);
-  const index = store.index("localUserId");
-  const rows = await toRequestPromise(index.getAll(safeLocalUserId));
+  const records = await requestToPromise(store.index("localUserId").getAll(safeLocalUserId));
 
-  if (includeDeleted) return rows || [];
-  return (rows || []).filter((row) => !row?.isDeleted && !row?.deletedAt);
+  return (records || []).filter((record) => !record.deletedAt);
 }
 
-export async function softDeleteLocalRecord(storeName, id, { localUserId } = {}) {
-  assertKnownStore(storeName);
+export async function getLocalRecordById(storeName, id, localUserId) {
+  assertPrivateStore(storeName);
+  const safeLocalUserId = normalizeLocalUserId(localUserId);
 
-  if (!SOFT_DELETE_STORES.has(storeName)) {
-    throw new Error(`${storeName} does not support soft delete.`);
+  if (!id) {
+    throw new Error("Record id is required.");
   }
 
   const db = await openLocalFinanceDb();
-  const transaction = db.transaction(storeName, "readwrite");
+  const transaction = db.transaction(storeName, "readonly");
   const store = transaction.objectStore(storeName);
-  const existing = await toRequestPromise(store.get(id));
+  const record = await requestToPromise(store.get(id));
 
-  if (!existing) {
-    await toTransactionPromise(transaction);
+  if (!record || record.localUserId !== safeLocalUserId || record.deletedAt) {
     return null;
   }
 
-  if (localUserId && existing.localUserId !== normalizeLocalUserId(localUserId)) {
-    transaction.abort();
-    throw new Error("Cannot delete local finance record owned by another local user.");
-  }
-
-  const timestamp = nowIso();
-  const payload = {
-    ...existing,
-    isDeleted: true,
-    deletedAt: timestamp,
-    updatedAt: timestamp,
-    syncStatus: existing.syncStatus === "synced" ? "pending_delete" : "local_deleted",
-  };
-
-  store.put(payload);
-  await toTransactionPromise(transaction);
-  return payload;
+  return record;
 }
 
-export async function hardDeleteLocalRecord(storeName, id, { localUserId } = {}) {
-  assertKnownStore(storeName);
+export async function upsertLocalRecord(storeName, record, localUserId) {
+  assertPrivateStore(storeName);
+  const safeLocalUserId = normalizeLocalUserId(localUserId);
   const db = await openLocalFinanceDb();
   const transaction = db.transaction(storeName, "readwrite");
   const store = transaction.objectStore(storeName);
-  const existing = await toRequestPromise(store.get(id));
+  const existingRecord = record?.id ? await requestToPromise(store.get(record.id)) : null;
+  const normalizedRecord = normalizeRecordForWrite(storeName, record, safeLocalUserId, existingRecord);
 
-  if (!existing) {
-    await toTransactionPromise(transaction);
+  store.put(normalizedRecord);
+  await transactionToPromise(transaction);
+
+  return normalizedRecord;
+}
+
+export async function softDeleteLocalRecord(storeName, id, localUserId) {
+  assertPrivateStore(storeName);
+  const safeLocalUserId = normalizeDeleteLocalUserId(localUserId);
+
+  if (!id) {
+    throw new Error("Record id is required.");
+  }
+
+  const db = await openLocalFinanceDb();
+  const transaction = db.transaction(storeName, "readwrite");
+  const store = transaction.objectStore(storeName);
+  const existingRecord = await requestToPromise(store.get(id));
+
+  if (!existingRecord || existingRecord.localUserId !== safeLocalUserId) {
+    await transactionToPromise(transaction);
+    return null;
+  }
+
+  const timestamp = nowIso();
+  const deletedRecord = {
+    ...existingRecord,
+    deletedAt: timestamp,
+    updatedAt: timestamp,
+    syncStatus: existingRecord.syncStatus === "synced" ? "pending_delete" : "local_deleted",
+    source: existingRecord.source || "local",
+  };
+
+  store.put(deletedRecord);
+  await transactionToPromise(transaction);
+
+  return deletedRecord;
+}
+
+export async function hardDeleteLocalRecord(storeName, id, localUserId) {
+  assertPrivateStore(storeName);
+  const safeLocalUserId = normalizeDeleteLocalUserId(localUserId);
+
+  if (!id) {
+    throw new Error("Record id is required.");
+  }
+
+  const db = await openLocalFinanceDb();
+  const transaction = db.transaction(storeName, "readwrite");
+  const store = transaction.objectStore(storeName);
+  const existingRecord = await requestToPromise(store.get(id));
+
+  if (!existingRecord || existingRecord.localUserId !== safeLocalUserId) {
+    await transactionToPromise(transaction);
     return false;
   }
 
-  if (localUserId && existing.localUserId !== normalizeLocalUserId(localUserId)) {
-    transaction.abort();
-    throw new Error("Cannot hard delete local finance record owned by another local user.");
-  }
-
   store.delete(id);
-  await toTransactionPromise(transaction);
+  await transactionToPromise(transaction);
+
   return true;
 }
 
-export async function updateLocalRecord(storeName, id, patch, { localUserId } = {}) {
-  assertKnownStore(storeName);
+export async function clearLocalUserVault(localUserId) {
+  const safeLocalUserId = normalizeLocalUserId(localUserId);
   const db = await openLocalFinanceDb();
-  const transaction = db.transaction(storeName, "readwrite");
-  const store = transaction.objectStore(storeName);
-  const existing = await toRequestPromise(store.get(id));
+  const storeNames = [LOCAL_FINANCE_STORES.metadata, ...LOCAL_FINANCE_PRIVATE_STORES];
+  const transaction = db.transaction(storeNames, "readwrite");
 
-  if (!existing) {
-    transaction.abort();
-    throw new Error(`Local finance record not found: ${storeName}/${id}`);
-  }
+  await Promise.all(
+    storeNames.map((storeName) => {
+      const store = transaction.objectStore(storeName);
+      return deleteRecordsForLocalUser(store, safeLocalUserId);
+    })
+  );
 
-  if (localUserId && existing.localUserId !== normalizeLocalUserId(localUserId)) {
-    transaction.abort();
-    throw new Error("Cannot update local finance record owned by another local user.");
-  }
+  await transactionToPromise(transaction);
 
-  const timestamp = nowIso();
-  const payload = {
-    ...existing,
-    ...patch,
-    id: existing.id,
-    localUserId: existing.localUserId,
-    createdAt: existing.createdAt,
-    updatedAt: timestamp,
-    syncStatus: patch?.syncStatus || (existing.syncStatus === "synced" ? "pending_update" : existing.syncStatus || "local_only"),
-  };
-
-  store.put(payload);
-  await toTransactionPromise(transaction);
-  return payload;
+  return true;
 }
 
-export async function getLocalMetadata(key, { localUserId } = {}) {
+export async function getLocalMetadata(localUserId) {
+  const safeLocalUserId = normalizeLocalUserId(localUserId);
   const db = await openLocalFinanceDb();
   const transaction = db.transaction(LOCAL_FINANCE_STORES.metadata, "readonly");
   const store = transaction.objectStore(LOCAL_FINANCE_STORES.metadata);
-  const id = localUserId ? `${normalizeLocalUserId(localUserId)}:${key}` : String(key || "");
-  return toRequestPromise(store.get(id));
+
+  return requestToPromise(store.get(`metadata:${safeLocalUserId}`));
 }
 
-export async function setLocalMetadata(key, value, { localUserId } = {}) {
+export async function setLocalMetadata(localUserId, metadata) {
+  const safeLocalUserId = normalizeLocalUserId(localUserId);
+
+  if (!metadata || typeof metadata !== "object" || Array.isArray(metadata)) {
+    throw new Error("Metadata must be an object.");
+  }
+
   const db = await openLocalFinanceDb();
   const transaction = db.transaction(LOCAL_FINANCE_STORES.metadata, "readwrite");
   const store = transaction.objectStore(LOCAL_FINANCE_STORES.metadata);
+  const existingMetadata = await requestToPromise(store.get(`metadata:${safeLocalUserId}`));
   const timestamp = nowIso();
-  const safeLocalUserId = localUserId ? normalizeLocalUserId(localUserId) : "system";
-  const payload = {
-    key: `${safeLocalUserId}:${key}`,
+  const metadataRecord = {
+    id: `metadata:${safeLocalUserId}`,
     localUserId: safeLocalUserId,
-    value,
+    createdAt: existingMetadata?.createdAt || timestamp,
     updatedAt: timestamp,
+    metadata,
   };
 
-  store.put(payload);
-  await toTransactionPromise(transaction);
-  return payload;
+  store.put(metadataRecord);
+  await transactionToPromise(transaction);
+
+  return metadataRecord;
 }
 
-export async function initializeLocalFinanceStore({ localUserId } = {}) {
-  const safeLocalUserId = normalizeLocalUserId(localUserId);
+// Compatibility aliases from the earlier partial Phase 2B attempt.
+// They remain exported but are not connected to the app yet.
+export async function putLocalRecord(storeName, record, options = {}) {
+  return upsertLocalRecord(storeName, record, options.localUserId);
+}
+
+export async function getLocalRecord(storeName, id, options = {}) {
+  const localUserId = options?.localUserId;
+
+  if (localUserId) {
+    return getLocalRecordById(storeName, id, localUserId);
+  }
+
+  assertPrivateStore(storeName);
+  const db = await openLocalFinanceDb();
+  const transaction = db.transaction(storeName, "readonly");
+  const store = transaction.objectStore(storeName);
+  return requestToPromise(store.get(id));
+}
+
+export async function getLocalRecordsByUser(storeName, options = {}) {
+  const records = await getLocalRecords(storeName, options.localUserId);
+
+  if (options.includeDeleted) {
+    assertPrivateStore(storeName);
+    const safeLocalUserId = normalizeLocalUserId(options.localUserId);
+    const db = await openLocalFinanceDb();
+    const transaction = db.transaction(storeName, "readonly");
+    const store = transaction.objectStore(storeName);
+    return requestToPromise(store.index("localUserId").getAll(safeLocalUserId));
+  }
+
+  return records;
+}
+
+export async function updateLocalRecord(storeName, id, patch, options = {}) {
+  assertPrivateStore(storeName);
+  const safeLocalUserId = normalizeLocalUserId(options.localUserId);
+  const existingRecord = await getLocalRecordById(storeName, id, safeLocalUserId);
+
+  if (!existingRecord) {
+    throw new Error(`Local finance record not found: ${storeName}/${id}`);
+  }
+
+  return upsertLocalRecord(storeName, { ...existingRecord, ...patch, id }, safeLocalUserId);
+}
+
+export async function initializeLocalFinanceStore(options = {}) {
+  const safeLocalUserId = normalizeLocalUserId(options.localUserId);
+
   await openLocalFinanceDb();
-  await setLocalMetadata("schema", {
+
+  return setLocalMetadata(safeLocalUserId, {
     dbName: LOCAL_FINANCE_DB_NAME,
     schemaVersion: LOCAL_FINANCE_SCHEMA_VERSION,
     initializedAt: nowIso(),
-    localFirstPrivateDataTypes: LOCAL_FIRST_PRIVATE_DATA_TYPES,
-    serverDataTypes: SUPABASE_SERVER_DATA_TYPES,
-  }, { localUserId: safeLocalUserId });
-
-  return {
-    dbName: LOCAL_FINANCE_DB_NAME,
-    schemaVersion: LOCAL_FINANCE_SCHEMA_VERSION,
-    localUserId: safeLocalUserId,
-    stores: LOCAL_FINANCE_STORES,
-  };
+    stores: Object.values(LOCAL_FINANCE_STORES),
+    privateStores: LOCAL_FINANCE_PRIVATE_STORES,
+  });
 }
 
-export function makeLocalFinanceRecord(record, { localUserId, idPrefix } = {}) {
-  return decorateRecord(record || {}, localUserId, { idPrefix });
+export function makeLocalFinanceRecord(record = {}, options = {}) {
+  return normalizeRecordForWrite(
+    options.storeName || "local_record",
+    record,
+    options.localUserId || record.localUserId
+  );
 }
