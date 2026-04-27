@@ -85,8 +85,30 @@ const INCOME_TRANSACTION_TYPES = new Set([
   "credit",
 ]);
 
-const createFinanceId = (prefix) =>
-  `${prefix}_${Date.now()}_${Math.random().toString(36).slice(2, 10)}`;
+const createFinanceId = () => {
+  if (typeof crypto !== "undefined" && crypto.randomUUID) {
+    return crypto.randomUUID();
+  }
+
+  if (typeof crypto !== "undefined" && crypto.getRandomValues) {
+    const bytes = crypto.getRandomValues(new Uint8Array(16));
+
+    bytes[6] = (bytes[6] & 0x0f) | 0x40;
+    bytes[8] = (bytes[8] & 0x3f) | 0x80;
+
+    const hex = Array.from(bytes, (byte) =>
+      byte.toString(16).padStart(2, "0")
+    ).join("");
+
+    return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(
+      12,
+      16
+    )}-${hex.slice(16, 20)}-${hex.slice(20)}`;
+  }
+
+  throw new Error("Unable to generate a valid UUID on this device.");
+};
+
 
 const ENROLLMENT_PENDING_STATUSES = new Set([
   "pending",
