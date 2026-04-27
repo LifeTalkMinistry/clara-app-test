@@ -361,7 +361,7 @@ function getBestContext(currentContext = {}, latestContext = {}) {
 
 export default function ClaraAssistantPanel({ open, onClose, context = {} }) {
   const latestContextRef = useRef(context || {});
-  const quickOptionLockRef = useRef(null);
+  const lastTouchSentAtRef = useRef(0);
 
   const activeContext = getBestContext(context || {}, latestContextRef.current || {});
   latestContextRef.current = activeContext;
@@ -405,34 +405,36 @@ export default function ClaraAssistantPanel({ open, onClose, context = {} }) {
     ]);
   };
 
-  const handleQuickOptionPress = (event, option) => {
-    stopAssistantEvent(event);
-
+  const sendQuickOption = (option) => {
     const optionText =
       typeof option === "string" ? option : option?.label || option?.text || "";
 
     if (!optionText) return;
-
-    const lockKey = optionText;
-
-    if (quickOptionLockRef.current === lockKey) return;
-
-    quickOptionLockRef.current = lockKey;
     sendMessageText(optionText);
-
-    window.setTimeout(() => {
-      if (quickOptionLockRef.current === lockKey) {
-        quickOptionLockRef.current = null;
-      }
-    }, 180);
   };
 
-  const handleClose = (event) => {
-    if (event) {
-      event.preventDefault?.();
-      event.stopPropagation?.();
-      event.nativeEvent?.stopImmediatePropagation?.();
-    }
+  const handleQuickOptionTouchEnd = (event, option) => {
+    event.preventDefault();
+    event.stopPropagation();
+    event.nativeEvent?.stopImmediatePropagation?.();
+    lastTouchSentAtRef.current = Date.now();
+    sendQuickOption(option);
+  };
+
+  const handleQuickOptionClick = (event, option) => {
+    event.preventDefault();
+    event.stopPropagation();
+    event.nativeEvent?.stopImmediatePropagation?.();
+
+    if (Date.now() - lastTouchSentAtRef.current < 700) return;
+
+    sendQuickOption(option);
+  };
+
+  const handleCloseClick = (event) => {
+    event.preventDefault();
+    event.stopPropagation();
+    event.nativeEvent?.stopImmediatePropagation?.();
     onClose?.();
   };
 
@@ -462,30 +464,19 @@ export default function ClaraAssistantPanel({ open, onClose, context = {} }) {
   }
 
   return (
-    <div
-      className="fixed inset-0 z-[9999]"
-      onClickCapture={stopAssistantPropagation}
-      onPointerDownCapture={stopAssistantPropagation}
-      onPointerUpCapture={stopAssistantPropagation}
-      onTouchStartCapture={stopAssistantPropagation}
-      onTouchEndCapture={stopAssistantPropagation}
-    >
+    <div className="fixed inset-0 z-[9999]">
       <div
-        className="absolute inset-0 bg-black/45 backdrop-blur-sm"
+        className="absolute inset-0 z-0 bg-black/45 backdrop-blur-sm"
         onClick={absorbShieldEvent}
         onPointerDown={absorbShieldEvent}
-        onPointerUp={absorbShieldEvent}
         onTouchStart={absorbShieldEvent}
-        onTouchEnd={absorbShieldEvent}
       />
 
       <section
-        className="absolute bottom-[calc(12px+env(safe-area-inset-bottom))] left-3 right-3 mx-auto flex h-[78dvh] w-auto max-w-md flex-col overflow-hidden rounded-[30px] border border-cyan-200/10 bg-[#06111f] text-white shadow-2xl sm:bottom-auto sm:left-1/2 sm:right-auto sm:top-1/2 sm:h-[680px] sm:w-full sm:-translate-x-1/2 sm:-translate-y-1/2"
+        className="pointer-events-auto absolute bottom-[calc(12px+env(safe-area-inset-bottom))] left-3 right-3 z-10 mx-auto flex h-[78dvh] w-auto max-w-md flex-col overflow-hidden rounded-[30px] border border-cyan-200/10 bg-[#06111f] text-white shadow-2xl sm:bottom-auto sm:left-1/2 sm:right-auto sm:top-1/2 sm:h-[680px] sm:w-full sm:-translate-x-1/2 sm:-translate-y-1/2"
         onClick={stopAssistantPropagation}
         onPointerDown={stopAssistantPropagation}
-        onPointerUp={stopAssistantPropagation}
         onTouchStart={stopAssistantPropagation}
-        onTouchEnd={stopAssistantPropagation}
       >
         <header className="flex shrink-0 items-center justify-between gap-3 border-b border-white/10 bg-[#081827] px-4 py-4">
           <div className="min-w-0">
@@ -498,7 +489,7 @@ export default function ClaraAssistantPanel({ open, onClose, context = {} }) {
 
           <button
             type="button"
-            onClick={handleClose}
+            onClick={handleCloseClick}
             onPointerDown={(event) => event.stopPropagation()}
             onTouchStart={(event) => event.stopPropagation()}
             className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-white/10 bg-white/10 text-white/75 active:scale-95"
@@ -528,11 +519,10 @@ export default function ClaraAssistantPanel({ open, onClose, context = {} }) {
               <button
                 key={option?.label || option}
                 type="button"
-                onPointerDown={stopAssistantEvent}
-                onPointerUp={(event) => handleQuickOptionPress(event, option)}
-                onTouchStart={stopAssistantEvent}
-                onTouchEnd={(event) => handleQuickOptionPress(event, option)}
-                onClick={stopAssistantEvent}
+                onPointerDown={(event) => event.stopPropagation()}
+                onTouchStart={(event) => event.stopPropagation()}
+                onTouchEnd={(event) => handleQuickOptionTouchEnd(event, option)}
+                onClick={(event) => handleQuickOptionClick(event, option)}
                 className="shrink-0 rounded-full border border-cyan-200/10 bg-white/[0.07] px-3 py-2 text-[11px] font-medium text-white/80 transition active:scale-95"
               >
                 {option?.label || option}
