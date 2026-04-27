@@ -3,6 +3,7 @@
  *
  * Phase 2C — Finance Repository Layer Only
  * Phase 2D-2A — Supabase Legacy addExpense Preparation Only
+ * Phase 2D-3A — Supabase Legacy update/delete Expense Preparation Only
  *
  * This file creates a dormant finance repository abstraction that will later
  * become the single access point for CLARA finance data.
@@ -170,6 +171,12 @@ async function defaultSafeUpdateById(supabaseClient, table, id, payload) {
   throw error;
 }
 
+async function defaultDeleteById(supabaseClient, table, id) {
+  const { error } = await supabaseClient.from(table).delete().eq("id", id);
+  if (error) throw error;
+  return true;
+}
+
 function getSupabaseLegacyContext(repositoryOptions = {}, callOptions = {}) {
   const merged = {
     ...repositoryOptions,
@@ -183,6 +190,16 @@ function getSupabaseLegacyContext(repositoryOptions = {}, callOptions = {}) {
       ? merged.wallets
       : Array.isArray(repositoryOptions.wallets)
         ? repositoryOptions.wallets
+        : [],
+    expenses: Array.isArray(merged.expenses)
+      ? merged.expenses
+      : Array.isArray(repositoryOptions.expenses)
+        ? repositoryOptions.expenses
+        : [],
+    walletTransactions: Array.isArray(merged.walletTransactions)
+      ? merged.walletTransactions
+      : Array.isArray(repositoryOptions.walletTransactions)
+        ? repositoryOptions.walletTransactions
         : [],
     generateId:
       typeof merged.generateId === "function" ? merged.generateId : defaultGenerateId,
@@ -217,6 +234,10 @@ async function runSupabaseLegacyUpdateById({ context, table, id, payload }) {
   return defaultSafeUpdateById(context.supabaseClient, table, id, payload);
 }
 
+async function runSupabaseLegacyDeleteById({ context, table, id }) {
+  return defaultDeleteById(context.supabaseClient, table, id);
+}
+
 function getSupabaseLegacyUser(localUserId, context) {
   const safeLocalUserId = requireLocalUserId(localUserId);
 
@@ -224,6 +245,22 @@ function getSupabaseLegacyUser(localUserId, context) {
     id: context.user?.id || safeLocalUserId || null,
     email: context.user?.email || null,
   };
+}
+
+function findSupabaseLegacyExpense(context, expenseId) {
+  return (context.expenses || []).find((expense) => String(expense?.id) === String(expenseId));
+}
+
+function findSupabaseLegacyLinkedExpenseTransaction(context, expense) {
+  if (!expense) return null;
+
+  return (context.walletTransactions || []).find(
+    (txn) =>
+      String(txn?.expense_id || "") === String(expense.id) ||
+      (String(txn?.type || "").toLowerCase() === "expense" &&
+        String(txn?.wallet_id || "") === String(expense?.wallet_id || "") &&
+        context.toNumber(txn?.amount) === context.toNumber(expense?.amount))
+  );
 }
 
 async function insertSupabaseLegacyWalletTransaction({ context, payload, user }) {
@@ -248,7 +285,7 @@ async function insertSupabaseLegacyWalletTransaction({ context, payload, user })
       tag: payload.tag || null,
       notes: payload.notes || "",
       created_at: payload.created_at || now,
-      updated_at: now,
+      updated_at: payload.updated_at || now,
       user_id: user?.id || null,
       user_email: user?.email || null,
       created_by: user?.email || null,
@@ -617,8 +654,161 @@ function createSupabaseLegacyFinanceRepository(repositoryOptions = {}) {
       };
     },
 
-    updateExpense: createNotImplementedRepositoryMethod("updateExpense", mode),
-    deleteExpense: createNotImplementedRepositoryMethod("deleteExpense", mode),
+    async updateExpense(localUserId, expenseId, patch, callOptions = {}) {
+      const context = getSupabaseLegacyContext(repositoryOptions, callOptions);
+      const user = getSupabaseLegacyUser(localUserId, context);
+      const oldExpense = findSupabaseLegacyExpense(context, expenseId);
+      const normalizedUpdates = { ...(patch || {}) };
+
+      if (!expenseId) {
+        throw new Error("Expense id is required.");
+      }
+
+      assertObjectPayload(normalizedUpdates, "Expense patch");
+
+      if (patch?.amount !== undefined) {
+        normalizedUpdates.amount = context.toNumber(patch.amount);
+      }
+
+      if (patch?.date !== undefined) {
+        normalizedUpdates.date = context.getSafeDate(patch.date);
+      }
+
+      if (patch?.planning_status !== undefined) {
+        normalizedUpdates.planning_status = context.normalizePlanningStatus(patch.planning_status);
+      }
+
+      const nextPlanningStatus =
+        normalizedUpdates.planning_status || oldExpense?.planning_status || "planned";
+
+      if (nextPlanningStatus === "unplanned") {
+        const reason = String(
+          normalizedUpdates.unplanned_reason ?? oldExpense?.unplanned_reason ?? ""
+        ).trim();
+
+        if (!reason) throw new Error("Reason is required for unplanned expenses.");
+        normalizedUpdates.unplanned_reason = reason;
+      } else if (patch?.planning_status !== undefined) {
+        normalizedUpdates.unplanned_reason = null;
+      }
+
+      const updatedExpense = await runSupabaseLegacyUpdateById({
+        context,
+        table: "expenses",
+        id: expenseId,
+        payload: normalizedUpdates,
+      });
+
+      if (oldExpense?.wallet_id) {
+        await updateSupabaseLegacyWalletBalance({
+          context,
+          walletId: oldExpense.wallet_id,
+          amountChange: context.toNumber(oldExpense.amount),
+        });
+      }
+
+      const nextWalletId = normalizedUpdates.wallet_id ?? oldExpense?.wallet_id;
+      const nextAmount =
+        normalizedUpdates.amount !== undefined
+          ? context.toNumber(normalizedUpdates.amount)
+          : context.toNumber(oldExpense?.amount);
+
+      if (nextWalletId) {
+        await updateSupabaseLegacyWalletBalance({
+          context,
+          walletId: nextWalletId,
+          amountChange: -nextAmount,
+        });
+      }
+
+      const linkedTxn = findSupabaseLegacyLinkedExpenseTransaction(context, {
+        ...oldExpense,
+        id: expenseId,
+      });
+
+      const txnPayload = {
+        wallet_id: nextWalletId,
+        amount: nextAmount,
+        category: normalizedUpdates.category ?? oldExpense?.category,
+        need_type: normalizedUpdates.need_type ?? oldExpense?.need_type,
+        planning_status: nextPlanningStatus,
+        unplanned_reason:
+          nextPlanningStatus === "unplanned"
+            ? normalizedUpdates.unplanned_reason ?? oldExpense?.unplanned_reason
+            : null,
+        notes: normalizedUpdates.notes ?? oldExpense?.notes ?? "",
+        updated_at: new Date().toISOString(),
+      };
+
+      if (linkedTxn?.id) {
+        await runSupabaseLegacyUpdateById({
+          context,
+          table: "wallet_transactions",
+          id: linkedTxn.id,
+          payload: txnPayload,
+        });
+      } else if (nextWalletId) {
+        await insertSupabaseLegacyWalletTransaction({
+          context,
+          user,
+          payload: {
+            ...txnPayload,
+            type: "expense",
+            expense_id: expenseId,
+            created_at:
+              normalizedUpdates.date || oldExpense?.date || new Date().toISOString(),
+          },
+        });
+      }
+
+      return {
+        expense: updatedExpense,
+        walletTransaction: linkedTxn || null,
+      };
+    },
+
+    async deleteExpense(localUserId, expenseId, callOptions = {}) {
+      const context = getSupabaseLegacyContext(repositoryOptions, callOptions);
+      getSupabaseLegacyUser(localUserId, context);
+      const expense = findSupabaseLegacyExpense(context, expenseId);
+
+      if (!expenseId) {
+        throw new Error("Expense id is required.");
+      }
+
+      await runSupabaseLegacyDeleteById({
+        context,
+        table: "expenses",
+        id: expenseId,
+      });
+
+      if (expense?.wallet_id) {
+        await updateSupabaseLegacyWalletBalance({
+          context,
+          walletId: expense.wallet_id,
+          amountChange: context.toNumber(expense.amount),
+        });
+      }
+
+      const linkedTxn = findSupabaseLegacyLinkedExpenseTransaction(context, {
+        ...expense,
+        id: expenseId,
+      });
+
+      if (linkedTxn?.id) {
+        await runSupabaseLegacyDeleteById({
+          context,
+          table: "wallet_transactions",
+          id: linkedTxn.id,
+        });
+      }
+
+      return {
+        deletedExpenseId: expenseId,
+        deletedWalletTransactionId: linkedTxn?.id || null,
+      };
+    },
+
     getWallets: createNotImplementedRepositoryMethod("getWallets", mode),
     addWallet: createNotImplementedRepositoryMethod("addWallet", mode),
     updateWallet: createNotImplementedRepositoryMethod("updateWallet", mode),
@@ -689,12 +879,12 @@ export async function addExpense(localUserId, expense, options) {
   return financeRepository.addExpense(localUserId, expense, options);
 }
 
-export async function updateExpense(localUserId, expenseId, patch) {
-  return financeRepository.updateExpense(localUserId, expenseId, patch);
+export async function updateExpense(localUserId, expenseId, patch, options) {
+  return financeRepository.updateExpense(localUserId, expenseId, patch, options);
 }
 
-export async function deleteExpense(localUserId, expenseId) {
-  return financeRepository.deleteExpense(localUserId, expenseId);
+export async function deleteExpense(localUserId, expenseId, options) {
+  return financeRepository.deleteExpense(localUserId, expenseId, options);
 }
 
 export async function getWallets(localUserId, options) {
