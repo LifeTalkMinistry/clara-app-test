@@ -7650,6 +7650,12 @@ export default function Dashboard() {
     return true;
   }, [isClaraAiOrbEvent, openManualExpenseModal]);
 
+  const stopSummaryCardInteraction = useCallback((event) => {
+    event?.preventDefault?.();
+    event?.stopPropagation?.();
+    event?.nativeEvent?.stopImmediatePropagation?.();
+  }, []);
+
   useEffect(() => {
     return () => clearLongPressTimer();
   }, [clearLongPressTimer]);
@@ -9975,6 +9981,12 @@ export default function Dashboard() {
         >
           <div
             className={`relative isolate overflow-hidden ${dashboardScale.summaryCell}`}
+            onClickCapture={stopSummaryCardInteraction}
+            onDoubleClickCapture={stopSummaryCardInteraction}
+            onPointerUpCapture={stopSummaryCardInteraction}
+            onMouseUpCapture={stopSummaryCardInteraction}
+            onTouchEndCapture={stopSummaryCardInteraction}
+            data-clara-summary-card="total-money-left-read-only"
             style={{
               background:
                 selectedDashboardTheme?.tokens?.gradientMoney ||
@@ -9994,6 +10006,12 @@ export default function Dashboard() {
 
           <div
             className={`relative isolate overflow-hidden border-l ${dashboardScale.summaryCell}`}
+            onClickCapture={stopSummaryCardInteraction}
+            onDoubleClickCapture={stopSummaryCardInteraction}
+            onPointerUpCapture={stopSummaryCardInteraction}
+            onMouseUpCapture={stopSummaryCardInteraction}
+            onTouchEndCapture={stopSummaryCardInteraction}
+            data-clara-summary-card="total-expense-read-only"
             style={{
               background:
                 selectedDashboardTheme?.tokens?.gradientExpense ||
