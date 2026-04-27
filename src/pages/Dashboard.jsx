@@ -427,49 +427,6 @@ const formatCompactDate = (value) => {
   }).format(date);
 };
 
-const formatHistoryDate = (value) => {
-  const date = normalizeDateValue(value);
-  if (!date) return "No date";
-  return date.toLocaleString("en-PH", {
-    year: "numeric",
-    month: "short",
-    day: "numeric",
-    hour: "numeric",
-    minute: "2-digit",
-  });
-};
-
-const getHistoryTypeLabel = (type) => {
-  switch (normalizeLower(type)) {
-    case "add":
-      return "Added Money";
-    case "income":
-      return "Income";
-    case "transfer_in":
-      return "Transfer In";
-    case "transfer_out":
-      return "Transfer Out";
-    case "expense":
-      return "Expense";
-    case "reset":
-      return "Reset";
-    case "savings_goal":
-      return "Savings Goal";
-    default:
-      return String(type || "Transaction")
-        .replaceAll("_", " ")
-        .replace(/\b\w/g, (c) => c.toUpperCase());
-  }
-};
-
-const getHistoryAmountPrefix = (type) => {
-  const normalized = normalizeLower(type);
-  if (["transfer_out", "expense", "reset", "savings_goal"].includes(normalized)) {
-    return "-";
-  }
-  return "+";
-};
-
 const getTransactionDate = (item) =>
   normalizeDateValue(
     item?.created_at ||
@@ -478,19 +435,6 @@ const getTransactionDate = (item) =>
       item?.transaction_date ||
       item?.expense_date
   );
-
-const getTransactionTime = (transaction) => {
-  const value =
-    transaction?.created_at ||
-    transaction?.date ||
-    transaction?.updated_at ||
-    transaction?.transaction_date ||
-    transaction?.expense_date ||
-    null;
-
-  const time = new Date(value).getTime();
-  return Number.isFinite(time) ? time : 0;
-};
 
 const getExpenseCategoryKey = (item) => {
   const raw = normalizeLower(
@@ -560,57 +504,6 @@ const getBudgetNeedType = (budget) => {
   if (["other", "savings"].includes(category)) return "other";
 
   return "need";
-};
-
-const getTransactionGroupLabel = (dateValue) => {
-  const date = normalizeDateValue(dateValue);
-  if (!date) return "Older";
-
-  const todayKey = getPHDateKey();
-  const txDateKey = getPHDateKey(date);
-  if (txDateKey === todayKey) return "Today";
-
-  const now = new Date();
-  if (getPHWeekStartKey(date) === getPHWeekStartKey(now)) return "This Week";
-  if (getPHMonthKey(date) === getPHMonthKey(now)) return "This Month";
-
-  return "Older";
-};
-
-const buildUnifiedTransactions = (walletTransactions = [], expenses = []) => {
-  const expenseIdsInLedger = new Set(
-    walletTransactions
-      .filter((txn) => normalizeLower(txn?.type) === "expense" && txn?.expense_id)
-      .map((txn) => String(txn.expense_id))
-  );
-
-  const walletItems = walletTransactions.map((txn) => ({
-    id: `wallet-${txn.id}`,
-    source: "wallet",
-    date: getTransactionDate(txn),
-    type: normalizeLower(txn?.type || "transaction"),
-    title: getHistoryTypeLabel(txn?.type),
-    description: txn?.notes || txn?.category || txn?.details || "",
-    amount: firstValidNumber(txn?.amount),
-    raw: txn,
-  }));
-
-  const orphanExpenseItems = expenses
-    .filter((expense) => !expenseIdsInLedger.has(String(expense.id)))
-    .map((expense) => ({
-      id: `expense-${expense.id}`,
-      source: "expense",
-      date: getTransactionDate(expense),
-      type: "expense",
-      title: "Expense",
-      description: expense?.notes || getExpenseCategoryKey(expense),
-      amount: firstValidNumber(expense?.amount),
-      raw: expense,
-    }));
-
-  return [...walletItems, ...orphanExpenseItems].sort(
-    (a, b) => getTransactionTime(b.raw || b) - getTransactionTime(a.raw || a)
-  );
 };
 
 const getWalletSortOrder = (wallet, index) => {
@@ -5904,12 +5797,6 @@ export default function Dashboard() {
 
   const refreshTimeoutRef = useRef(null);
   const financeCarouselRef = useRef(null);
-  const moneyLeftDoubleTapRef = useRef({
-    lastTapAt: 0,
-    startX: 0,
-    startY: 0,
-    moved: false,
-  });
   const dashboardScrollRef = useRef(null);
   const dashboardContentRef = useRef(null);
   const dashboardScrollTimersRef = useRef([]);
@@ -6713,27 +6600,6 @@ export default function Dashboard() {
   }, [walletTransactions]);
 
   const moneyLeftThisMonth = thisMonthIncome - thisMonthSpent;
-
-  const dashboardTransactions = useMemo(
-    () => buildUnifiedTransactions(walletTransactions, expenses),
-    [walletTransactions, expenses]
-  );
-
-  const groupedDashboardTransactions = useMemo(() => {
-    const groups = {
-      Today: [],
-      "This Week": [],
-      "This Month": [],
-      Older: [],
-    };
-
-    dashboardTransactions.slice(0, 18).forEach((transaction) => {
-      const label = getTransactionGroupLabel(transaction.date);
-      groups[label].push(transaction);
-    });
-
-    return groups;
-  }, [dashboardTransactions]);
 
   const budgetSummaries = useMemo(() => {
     const monthRange = getPHMonthRange();
@@ -9277,45 +9143,6 @@ export default function Dashboard() {
     setActiveDashboardPanel("home");
   }, []);
 
-  const handleMoneyLeftPointerDown = useCallback((event) => {
-    moneyLeftDoubleTapRef.current.startX = Number(event.clientX || 0);
-    moneyLeftDoubleTapRef.current.startY = Number(event.clientY || 0);
-    moneyLeftDoubleTapRef.current.moved = false;
-  }, []);
-
-  const handleMoneyLeftPointerMove = useCallback((event) => {
-    const startX = Number(moneyLeftDoubleTapRef.current.startX || 0);
-    const startY = Number(moneyLeftDoubleTapRef.current.startY || 0);
-    const currentX = Number(event.clientX || 0);
-    const currentY = Number(event.clientY || 0);
-    const moveDistance = Math.hypot(currentX - startX, currentY - startY);
-
-    if (moveDistance > 12) {
-      moneyLeftDoubleTapRef.current.moved = true;
-    }
-  }, []);
-
-  const handleMoneyLeftPointerUp = useCallback((event) => {
-    if (moneyLeftDoubleTapRef.current.moved) {
-      moneyLeftDoubleTapRef.current.lastTapAt = 0;
-      return;
-    }
-
-    const now = Date.now();
-    const previousTapAt = Number(moneyLeftDoubleTapRef.current.lastTapAt || 0);
-    const isDoubleTap = previousTapAt > 0 && now - previousTapAt <= 340;
-
-    if (!isDoubleTap) {
-      moneyLeftDoubleTapRef.current.lastTapAt = now;
-      return;
-    }
-
-    event.preventDefault();
-    event.stopPropagation();
-    moneyLeftDoubleTapRef.current.lastTapAt = 0;
-    navigate("/transactions-hub");
-  }, [navigate]);
-
   const resetDashboardThemeToDefault = useCallback(async () => {
     if (typeof setTheme === "function") {
       await setTheme(DEFAULT_THEME_KEY);
@@ -10147,20 +9974,7 @@ export default function Dashboard() {
           }}
         >
           <div
-            role="button"
-            tabIndex={0}
-            title="Double tap to open Transaction Hub"
-            aria-label="Double tap Total Money Left to open Transaction Hub"
-            onPointerDown={handleMoneyLeftPointerDown}
-            onPointerMove={handleMoneyLeftPointerMove}
-            onPointerUp={handleMoneyLeftPointerUp}
-            onKeyDown={(event) => {
-              if (event.key === "Enter") {
-                event.preventDefault();
-                navigate("/transactions-hub");
-              }
-            }}
-            className={`relative isolate overflow-hidden cursor-pointer select-none ${dashboardScale.summaryCell}`}
+            className={`relative isolate overflow-hidden ${dashboardScale.summaryCell}`}
             style={{
               background:
                 selectedDashboardTheme?.tokens?.gradientMoney ||
