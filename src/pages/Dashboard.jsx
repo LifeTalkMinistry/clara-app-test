@@ -5478,6 +5478,7 @@ export default function Dashboard() {
     wantsPct: "30",
     otherPct: "20",
     title: "",
+    budgetCategoryName: "",
     targetAmount: "",
     savingsWalletId: "",
     category: "",
@@ -6450,8 +6451,11 @@ export default function Dashboard() {
 
         return {
           key: String(keySource),
+          id: budget?.id || null,
           title,
           needType: getBudgetNeedType(budget),
+          allocated: getBudgetTotal(budget),
+          month: normalizeString(budget?.month || budget?.budget_month || budget?.month_key || currentMonthKey),
           sortOrder: firstValidNumber(
             budget?.sort_order,
             budget?.display_order,
@@ -6488,6 +6492,86 @@ export default function Dashboard() {
     Boolean(financeForm.expenseWalletId) &&
     (!manualExpenseIsUnplanned || Boolean(manualExpenseReason)) &&
     (!manualExpenseIsUndocumented || Boolean(manualExpenseUndocumentedReason));
+
+  const monthlyBudgetPlan = useMemo(() => {
+    const monthKey = getPHMonthKey();
+    const monthRange = getPHMonthRange();
+    const categoryRows = manualExpenseBudgetOptions.map((item) => {
+      const spent = expenses.reduce((sum, expense) => {
+        const status = normalizeLower(expense?.planning_status);
+        if (status && status !== "planned") return sum;
+
+        const expenseCategory = normalizeString(
+          expense?.budget_category ||
+            expense?.expense_category ||
+            expense?.category ||
+            ""
+        );
+        const expenseBudgetId = normalizeString(
+          expense?.budget_category_id || expense?.budget_item_id || ""
+        );
+        const itemId = normalizeString(item.id || item.key || "");
+        const matchesId = itemId && expenseBudgetId && expenseBudgetId === itemId;
+        const matchesCategory =
+          normalizeLower(expenseCategory) === normalizeLower(item.title);
+
+        if (!matchesId && !matchesCategory) return sum;
+        if (!isInPHRange(getTransactionDate(expense), monthRange.start, monthRange.end)) {
+          return sum;
+        }
+
+        return sum + firstValidNumber(expense?.amount);
+      }, 0);
+
+      const allocated = firstValidNumber(item.allocated);
+      const remaining = Math.max(allocated - spent, 0);
+      const progress = allocated > 0 ? Math.min((spent / allocated) * 100, 999) : 0;
+
+      return {
+        ...item,
+        allocated,
+        allocated_amount: allocated,
+        spent,
+        spent_amount: spent,
+        remaining,
+        remaining_amount: remaining,
+        progress,
+        progress_pct: progress,
+      };
+    });
+
+    const totalBudget = categoryRows.reduce((sum, item) => sum + firstValidNumber(item.allocated), 0);
+    const totalSpent = categoryRows.reduce((sum, item) => sum + firstValidNumber(item.spent), 0);
+    const unplannedSpent = expenses.reduce((sum, expense) => {
+      if (normalizeLower(expense?.planning_status) !== "unplanned") return sum;
+      if (!isInPHRange(getTransactionDate(expense), monthRange.start, monthRange.end)) return sum;
+      return sum + firstValidNumber(expense?.amount);
+    }, 0);
+    const undocumentedSpent = expenses.reduce((sum, expense) => {
+      if (normalizeLower(expense?.planning_status) !== "undocumented") return sum;
+      if (!isInPHRange(getTransactionDate(expense), monthRange.start, monthRange.end)) return sum;
+      return sum + firstValidNumber(expense?.amount);
+    }, 0);
+
+    return {
+      id: `monthly_plan_${monthKey}`,
+      month: monthKey,
+      is_monthly_plan: true,
+      is_active: true,
+      status: categoryRows.length ? "active" : "empty",
+      categories: categoryRows,
+      category_count: categoryRows.length,
+      total_budget: totalBudget,
+      allocated_amount: totalBudget,
+      spent: totalSpent,
+      spent_amount: totalSpent,
+      total_spent: totalSpent,
+      remaining: Math.max(totalBudget - totalSpent, 0),
+      remaining_amount: Math.max(totalBudget - totalSpent, 0),
+      unplanned_spent: unplannedSpent,
+      undocumented_spent: undocumentedSpent,
+    };
+  }, [expenses, manualExpenseBudgetOptions]);
 
   const programJourney = useMemo(
     () =>
@@ -6885,16 +6969,25 @@ export default function Dashboard() {
     setFinanceModal({ type: "manual_expense", payload: null });
   }, [showFinanceNotice, wallets]);
 
-  const openBudgetModal = useCallback(() => {
+  const openBudgetModal = useCallback((budgetCategory = null) => {
+    const item = budgetCategory?.budget || budgetCategory || null;
     setFinanceForm((prev) => ({
       ...prev,
-      totalBudget: derivedActiveBudget ? String(getBudgetTotal(derivedActiveBudget)) : "",
-      needsPct: String(derivedActiveBudget?.needs_pct ?? derivedActiveBudget?.needs_percent ?? 50),
-      wantsPct: String(derivedActiveBudget?.wants_pct ?? derivedActiveBudget?.wants_percent ?? 30),
-      otherPct: String(derivedActiveBudget?.other_pct ?? derivedActiveBudget?.other_percent ?? 20),
+      title: getBudgetListTitle(item || {}),
+      budgetCategoryName: item ? getBudgetListTitle(item) : "",
+      totalBudget: item ? String(getBudgetTotal(item)) : "",
+      needsPct: String(item?.needs_pct ?? item?.needs_percent ?? 50),
+      wantsPct: String(item?.wants_pct ?? item?.wants_percent ?? 30),
+      otherPct: String(item?.other_pct ?? item?.other_percent ?? 20),
     }));
-    setFinanceModal({ type: "save_budget", payload: activeBudget || null });
-  }, [derivedActiveBudget]);
+    setFinanceModal({ type: "save_budget", payload: item || null });
+  }, []);
+
+  const openDeleteBudgetCategoryModal = useCallback((budgetCategory = null) => {
+    const item = budgetCategory?.budget || budgetCategory || null;
+    if (!item?.id) return;
+    setFinanceModal({ type: "delete_budget_category", payload: item });
+  }, []);
 
   const openResetBudgetModal = useCallback(() => {
     if (!activeBudget?.id) return;
@@ -7166,10 +7259,11 @@ export default function Dashboard() {
       const nowIso = new Date().toISOString();
       const expenseId = createFinanceId("expense");
       const budgetCategory = isUnplanned
-        ? "Unplanned"
+        ? "Unplanned Spending"
         : isUndocumented
           ? "Undocumented Spending"
           : selectedBudget.title;
+      const plannedBudgetId = !isUnplanned && !isUndocumented ? selectedBudget?.id || selectedBudget?.budget?.id || null : null;
       const needType = isUnplanned || isUndocumented ? "other" : selectedBudget.needType || "need";
       const planningStatus = isUnplanned ? "unplanned" : isUndocumented ? "undocumented" : "planned";
       const notesValue = isUnplanned ? reason : isUndocumented ? undocumentedFallbackNote : "";
@@ -7181,6 +7275,8 @@ export default function Dashboard() {
         category: budgetCategory,
         budget_category: budgetCategory,
         expense_category: budgetCategory,
+        budget_category_id: plannedBudgetId,
+        budget_item_id: plannedBudgetId,
         need_type: needType,
         planning_status: planningStatus,
         unplanned_reason: isUnplanned ? reason : null,
@@ -7198,25 +7294,28 @@ export default function Dashboard() {
 
       let { error: expenseError } = await supabase.from("expenses").insert([expensePayload]);
 
-      const undocumentedColumnMissing =
+      const missingOptionalExpenseColumns =
         expenseError &&
-        isUndocumented &&
         (
           String(expenseError?.code || "") === "PGRST204" ||
-          /undocumented_reason|undocumented_note|schema cache|column/i.test(
+          /undocumented_reason|undocumented_note|budget_category_id|budget_item_id|schema cache|column/i.test(
             String(expenseError?.message || "")
           )
         );
 
-      if (undocumentedColumnMissing) {
+      if (missingOptionalExpenseColumns) {
         const fallbackExpensePayload = {
           ...expensePayload,
-          unplanned_reason: undocumentedFallbackNote || "Undocumented Spending",
-          notes: undocumentedFallbackNote || "Undocumented Spending",
+          unplanned_reason: isUndocumented
+            ? undocumentedFallbackNote || "Undocumented Spending"
+            : expensePayload.unplanned_reason,
+          notes: notesValue || (isUndocumented ? undocumentedFallbackNote || "Undocumented Spending" : ""),
         };
 
         delete fallbackExpensePayload.undocumented_reason;
         delete fallbackExpensePayload.undocumented_note;
+        delete fallbackExpensePayload.budget_category_id;
+        delete fallbackExpensePayload.budget_item_id;
 
         const fallbackResult = await supabase.from("expenses").insert([fallbackExpensePayload]);
         expenseError = fallbackResult.error;
@@ -7388,64 +7487,49 @@ export default function Dashboard() {
   ]);
 
   const saveBudgetInline = useCallback(async () => {
-    const totalBudget = Number(financeForm.totalBudget);
-    const needsPct = Number(financeForm.needsPct);
-    const wantsPct = Number(financeForm.wantsPct);
-    const otherPct = Number(financeForm.otherPct);
+    const categoryName = normalizeString(financeForm.budgetCategoryName || financeForm.title);
+    const allocatedAmount = Number(financeForm.totalBudget);
+    const existingCategory = financeModal?.payload || null;
 
-    if (!Number.isFinite(totalBudget) || totalBudget <= 0) {
-      showFinanceNotice("Please enter a valid total budget.");
+    if (!categoryName) {
+      showFinanceNotice("Please enter a budget category name.");
       return;
     }
 
-    if (
-      ![needsPct, wantsPct, otherPct].every(Number.isFinite) ||
-      needsPct + wantsPct + otherPct !== 100
-    ) {
-      showFinanceNotice("Needs, Wants, and Other must total exactly 100%.");
+    if (!Number.isFinite(allocatedAmount) || allocatedAmount <= 0) {
+      showFinanceNotice("Please enter a valid allocated amount.");
       return;
     }
 
     try {
       setFinanceActionLoading(true);
       const nowIso = new Date().toISOString();
-      const monthKey = activeBudget?.month || getPHMonthKey();
-
-      if (user?.id || user?.email) {
-        await supabase
-          .from("budgets")
-          .update({ is_active: false, status: "inactive" })
-          .or(
-            [
-              user?.id ? `user_id.eq.${user.id}` : null,
-              user?.email ? `user_email.eq.${user.email}` : null,
-              user?.email ? `email.eq.${user.email}` : null,
-              user?.email ? `created_by.eq.${user.email}` : null,
-            ]
-              .filter(Boolean)
-              .join(",")
-          );
-      }
+      const monthKey = getPHMonthKey();
 
       const payload = {
         is_active: true,
         status: "active",
-        month: monthKey,
-        total_budget: totalBudget,
-        needs_pct: needsPct,
-        wants_pct: wantsPct,
-        other_pct: otherPct,
-        needs_percent: needsPct,
-        wants_percent: wantsPct,
-        other_percent: otherPct,
-        savings_pct: otherPct,
-        savings_percent: otherPct,
-        updated_at: new Date().toISOString(),
+        month: normalizeString(existingCategory?.month || existingCategory?.budget_month || monthKey) || monthKey,
+        category: categoryName,
+        budget_category: categoryName,
+        title: categoryName,
+        name: categoryName,
+        allocated_amount: allocatedAmount,
+        budget_amount: allocatedAmount,
+        total_budget: allocatedAmount,
+        amount: allocatedAmount,
+        need_type: getBudgetNeedType({ ...existingCategory, category: categoryName }),
+        sort_order: firstValidNumber(existingCategory?.sort_order, existingCategory?.display_order, budgets.length + 1),
+        updated_at: nowIso,
+        user_id: user?.id || existingCategory?.user_id || null,
+        user_email: user?.email || existingCategory?.user_email || existingCategory?.email || null,
+        email: user?.email || existingCategory?.email || null,
+        created_by: user?.email || existingCategory?.created_by || null,
       };
 
       let result;
-      if (activeBudget?.id) {
-        result = await supabase.from("budgets").update(payload).eq("id", activeBudget.id);
+      if (existingCategory?.id) {
+        result = await supabase.from("budgets").update(payload).eq("id", existingCategory.id);
       } else {
         result = await supabase.from("budgets").insert([
           {
@@ -7453,9 +7537,6 @@ export default function Dashboard() {
             tracking_start_date: nowIso,
             range_start: nowIso,
             created_at: nowIso,
-            created_by: user?.email || null,
-            email: user?.email || null,
-            user_id: user?.id || null,
           },
         ]);
       }
@@ -7465,28 +7546,90 @@ export default function Dashboard() {
       await refreshFinanceSection();
       setExpandedFinanceCard("budgets");
       closeFinanceModal();
-      showFinanceNotice("Budget saved successfully.", "success");
+      showFinanceNotice(
+        existingCategory?.id ? "Budget category updated." : "Budget category added to this month’s plan.",
+        "success"
+      );
     } catch (error) {
-      showFinanceNotice(error?.message || "Failed to save budget.");
+      showFinanceNotice(error?.message || "Failed to save budget category.");
     } finally {
       setFinanceActionLoading(false);
     }
   }, [
-    activeBudget,
-    derivedActiveBudget,
+    budgets.length,
     closeFinanceModal,
-    financeForm.needsPct,
-    financeForm.otherPct,
+    financeForm.budgetCategoryName,
+    financeForm.title,
     financeForm.totalBudget,
-    financeForm.wantsPct,
+    financeModal?.payload,
     refreshFinanceSection,
     showFinanceNotice,
     user?.email,
     user?.id,
   ]);
 
+  const deleteBudgetCategoryInline = useCallback(async () => {
+    const item = financeModal?.payload || null;
+    if (!item?.id) return;
+
+    try {
+      setFinanceActionLoading(true);
+      const monthRange = getPHMonthRange();
+      const categoryName = getBudgetListTitle(item);
+      const linkedExpenseCount = expenses.filter((expense) => {
+        const status = normalizeLower(expense?.planning_status);
+        if (status && status !== "planned") return false;
+
+        const expenseBudgetId = normalizeString(expense?.budget_category_id || expense?.budget_item_id || "");
+        const expenseCategory = normalizeString(expense?.budget_category || expense?.expense_category || expense?.category || "");
+        const linkedById = expenseBudgetId && expenseBudgetId === normalizeString(item.id);
+        const linkedByCategory = normalizeLower(expenseCategory) === normalizeLower(categoryName);
+
+        return (linkedById || linkedByCategory) && isInPHRange(getTransactionDate(expense), monthRange.start, monthRange.end);
+      }).length;
+
+      const result = linkedExpenseCount > 0
+        ? await supabase
+            .from("budgets")
+            .update({
+              is_active: false,
+              status: "inactive",
+              updated_at: new Date().toISOString(),
+            })
+            .eq("id", item.id)
+        : await supabase.from("budgets").delete().eq("id", item.id);
+
+      if (result.error) throw result.error;
+
+      await refreshFinanceSection();
+      setExpandedFinanceCard("budgets");
+      closeFinanceModal();
+      showFinanceNotice(
+        linkedExpenseCount > 0
+          ? "Budget category has linked expenses, so it was deactivated."
+          : "Budget category deleted.",
+        "success"
+      );
+    } catch (error) {
+      showFinanceNotice(error?.message || "Failed to remove budget category.");
+    } finally {
+      setFinanceActionLoading(false);
+    }
+  }, [
+    closeFinanceModal,
+    expenses,
+    financeModal?.payload,
+    refreshFinanceSection,
+    showFinanceNotice,
+  ]);
+
   const resetBudgetInline = useCallback(async () => {
-    if (!activeBudget?.id) return;
+    const currentMonthKey = getPHMonthKey();
+    const categoryIds = manualExpenseBudgetOptions
+      .map((item) => item.id)
+      .filter(Boolean);
+
+    if (!categoryIds.length) return;
 
     try {
       setFinanceActionLoading(true);
@@ -7498,18 +7641,18 @@ export default function Dashboard() {
           range_start: nowIso,
           updated_at: nowIso,
         })
-        .eq("id", activeBudget.id);
+        .in("id", categoryIds);
       if (error) throw error;
 
       await refreshFinanceSection();
       closeFinanceModal();
-      showFinanceNotice("Budget tracking has been reset.", "success");
+      showFinanceNotice(`Budget tracking has been reset for ${currentMonthKey}.`, "success");
     } catch (error) {
       showFinanceNotice(error?.message || "Failed to reset budget.");
     } finally {
       setFinanceActionLoading(false);
     }
-  }, [activeBudget, closeFinanceModal, refreshFinanceSection, showFinanceNotice]);
+  }, [closeFinanceModal, manualExpenseBudgetOptions, refreshFinanceSection, showFinanceNotice]);
 
   const saveSavingsGoalInline = useCallback(async () => {
     const goal = financeModal?.payload || null;
@@ -8862,13 +9005,18 @@ export default function Dashboard() {
                 <div className="flex w-full min-w-full shrink-0 snap-center">
                   <div className={getFinanceSlideShellClass("budgets", selectedDashboardTheme, dashboardScale)}>
                     <BudgetCard
-                    activeBudget={derivedActiveBudget}
+                    activeBudget={monthlyBudgetPlan}
+                    budgetCategories={monthlyBudgetPlan.categories}
+                    unplannedSpent={monthlyBudgetPlan.unplanned_spent}
+                    undocumentedSpent={monthlyBudgetPlan.undocumented_spent}
                     theme={selectedDashboardTheme}
                     expanded={false}
                     onExpandedChange={(open) => setExpandedFinanceCard(open ? "budgets" : null)}
                     onToggleDetails={() => setExpandedFinanceCard("budgets")}
                     financeActionLoading={financeActionLoading}
                     onSaveBudget={openBudgetModal}
+                    onEditBudgetCategory={openBudgetModal}
+                    onDeleteBudgetCategory={openDeleteBudgetCategoryModal}
                     onResetBudget={openResetBudgetModal}
                   />
                   </div>
@@ -9876,17 +10024,33 @@ export default function Dashboard() {
 
       <FinanceActionModal
         open={financeModal.type === "save_budget"}
-        title={activeBudget?.id ? "Edit budget" : "Create budget"}
-        description="Keep the same premium card layout while updating your budget inside an in-app modal."
+        title={financeModal.payload?.id ? "Edit budget category" : "Add budget category"}
+        description={`Create this month’s spending plan for ${getPHMonthKey()}. These categories become the Budget List when logging expenses.`}
         onClose={closeFinanceModal}
         onSubmit={(event) => {
           event.preventDefault();
           saveBudgetInline();
         }}
-        submitLabel={activeBudget?.id ? "Save changes" : "Create budget"}
+        submitLabel={financeModal.payload?.id ? "Save category" : "Add category"}
         loading={financeActionLoading}
       >
-        <FinanceField label="Total budget">
+        <FinanceField label="Category name">
+          <input
+            type="text"
+            value={financeForm.budgetCategoryName || ""}
+            onChange={(event) =>
+              setFinanceForm((prev) => ({
+                ...prev,
+                budgetCategoryName: event.target.value,
+                title: event.target.value,
+              }))
+            }
+            placeholder="Bills, Food, Transportation..."
+            className={financeInputClassName}
+          />
+        </FinanceField>
+
+        <FinanceField label="Allocated amount">
           <input
             type="number"
             min="0"
@@ -9903,49 +10067,26 @@ export default function Dashboard() {
           />
         </FinanceField>
 
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-          <FinanceField label="Needs %">
-            <input
-              type="number"
-              min="0"
-              max="100"
-              value={financeForm.needsPct}
-              onChange={(event) =>
-                setFinanceForm((prev) => ({ ...prev, needsPct: event.target.value }))
-              }
-              className={financeInputClassName}
-            />
-          </FinanceField>
-
-          <FinanceField label="Wants %">
-            <input
-              type="number"
-              min="0"
-              max="100"
-              value={financeForm.wantsPct}
-              onChange={(event) =>
-                setFinanceForm((prev) => ({ ...prev, wantsPct: event.target.value }))
-              }
-              className={financeInputClassName}
-            />
-          </FinanceField>
-
-          <FinanceField label="Other %">
-            <input
-              type="number"
-              min="0"
-              max="100"
-              value={financeForm.otherPct}
-              onChange={(event) =>
-                setFinanceForm((prev) => ({ ...prev, otherPct: event.target.value }))
-              }
-              className={financeInputClassName}
-            />
-          </FinanceField>
+        <div className="rounded-2xl border border-emerald-300/15 bg-emerald-500/10 px-4 py-3 text-xs leading-5 text-emerald-50/75">
+          This category will appear automatically in Manual Log Expense as a planned Budget List option.
         </div>
+      </FinanceActionModal>
 
-        <div className="rounded-2xl border border-white/10 bg-white/[0.03] px-4 py-3 text-xs text-white/60">
-          Total allocation must equal exactly 100%.
+      <FinanceActionModal
+        open={financeModal.type === "delete_budget_category"}
+        title="Remove budget category"
+        description="If this category already has linked expenses, CLARA will deactivate it instead of deleting history."
+        onClose={closeFinanceModal}
+        onSubmit={(event) => {
+          event.preventDefault();
+          deleteBudgetCategoryInline();
+        }}
+        submitLabel="Remove category"
+        loading={financeActionLoading}
+        danger
+      >
+        <div className="rounded-2xl border border-amber-400/15 bg-amber-500/10 p-4 text-sm leading-6 text-amber-100">
+          Remove {financeModal.payload ? getBudgetListTitle(financeModal.payload) : "this category"} from this month’s spending plan?
         </div>
       </FinanceActionModal>
 
