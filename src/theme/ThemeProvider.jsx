@@ -23,6 +23,8 @@ import {
 } from "./themes";
 
 const ThemeContext = createContext(null);
+const THEME_PROFILE_FIELD = "theme_key";
+const THEME_PROFILE_SYNC_DISABLED_KEY = "clara_theme_profile_sync_disabled";
 
 function applyThemeToDocument(theme) {
   if (typeof document === "undefined") return;
@@ -46,26 +48,66 @@ function applyThemeToDocument(theme) {
   }
 }
 
-async function persistThemeToProfile(userId, themeKey) {
-  if (!userId) return false;
+function isMissingThemeColumnError(error) {
+  const message = String(error?.message || "");
+  const code = String(error?.code || "");
 
-  const updates = [
-    { app_theme: themeKey, updated_at: new Date().toISOString() },
-    { theme_key: themeKey, updated_at: new Date().toISOString() },
-    { dashboard_theme: themeKey, updated_at: new Date().toISOString() },
-  ];
+  return (
+    code === "PGRST204" ||
+    /schema cache|theme_key|app_theme|dashboard_theme|column/i.test(message)
+  );
+}
 
-  for (const payload of updates) {
-    try {
-      const { error } = await supabase.from("profiles").update(payload).eq("id", userId);
-      if (!error) return true;
-      console.warn("Theme profile field update failed:", error);
-    } catch (error) {
-      console.warn("Theme profile persistence attempt failed:", error);
-    }
+function isThemeProfileSyncDisabled() {
+  if (typeof localStorage === "undefined") return false;
+
+  try {
+    return localStorage.getItem(THEME_PROFILE_SYNC_DISABLED_KEY) === "true";
+  } catch {
+    return false;
   }
+}
 
-  return false;
+function disableThemeProfileSync() {
+  if (typeof localStorage === "undefined") return;
+
+  try {
+    localStorage.setItem(THEME_PROFILE_SYNC_DISABLED_KEY, "true");
+  } catch {
+    // Local theme persistence still works even if localStorage blocks this flag.
+  }
+}
+
+async function persistThemeToProfile(userId, themeKey) {
+  if (!userId || !themeKey || isThemeProfileSyncDisabled()) return false;
+
+  try {
+    const { error } = await supabase
+      .from("profiles")
+      .update({
+        [THEME_PROFILE_FIELD]: themeKey,
+        updated_at: new Date().toISOString(),
+      })
+      .eq("id", userId);
+
+    if (!error) return true;
+
+    if (isMissingThemeColumnError(error)) {
+      disableThemeProfileSync();
+      return false;
+    }
+
+    console.warn("Theme profile save skipped:", error?.message || error);
+    return false;
+  } catch (error) {
+    if (isMissingThemeColumnError(error)) {
+      disableThemeProfileSync();
+      return false;
+    }
+
+    console.warn("Theme profile save skipped:", error?.message || error);
+    return false;
+  }
 }
 
 export function ThemeProvider({ children }) {
@@ -104,7 +146,7 @@ export function ThemeProvider({ children }) {
       setThemeKeyState(nextTheme.key);
       broadcastTheme(nextTheme.key);
 
-      if (user?.id) {
+      if (user?.id && !isThemeProfileSyncDisabled()) {
         pendingRemoteSyncRef.current = nextTheme.key;
         await persistThemeToProfile(user.id, nextTheme.key);
         pendingRemoteSyncRef.current = null;
@@ -140,7 +182,11 @@ export function ThemeProvider({ children }) {
         broadcastTheme(nextThemeKey);
       }
 
-      if (!profileThemeKey && pendingRemoteSyncRef.current !== nextThemeKey) {
+      if (
+        !profileThemeKey &&
+        !isThemeProfileSyncDisabled() &&
+        pendingRemoteSyncRef.current !== nextThemeKey
+      ) {
         pendingRemoteSyncRef.current = nextThemeKey;
         persistThemeToProfile(user.id, nextThemeKey).finally(() => {
           pendingRemoteSyncRef.current = null;
