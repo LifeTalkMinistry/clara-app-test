@@ -5443,8 +5443,8 @@ export default function Dashboard() {
     ? "text-slate-700 hover:bg-slate-900/[0.04] hover:text-slate-900"
     : "text-white/82 hover:bg-white/[0.06] hover:text-white";
   const themeQuickActionIconShellClass = themeIsLight
-    ? "border-slate-300/60 bg-[linear-gradient(180deg,rgba(255,255,255,0.98),rgba(241,245,249,0.90))] text-slate-700 shadow-[inset_0_1px_0_rgba(255,255,255,0.85),0_10px_18px_rgba(148,163,184,0.16)] group-hover:border-slate-400/60 group-hover:bg-white"
-    : "border-white/10 bg-[linear-gradient(180deg,rgba(255,255,255,0.08),rgba(255,255,255,0.03))] text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.08),0_0_18px_rgba(255,255,255,0.04)] group-hover:border-white/20 group-hover:bg-white/[0.10]";
+    ? "clara-theme-nav-icon-shell clara-theme-nav-icon-shell-light border-slate-300/60 bg-[linear-gradient(180deg,rgba(255,255,255,0.98),rgba(241,245,249,0.90))] text-slate-700 shadow-[inset_0_1px_0_rgba(255,255,255,0.85),0_10px_18px_rgba(148,163,184,0.16)] group-hover:border-slate-400/60 group-hover:bg-white"
+    : "clara-theme-nav-icon-shell border-white/10 bg-[linear-gradient(180deg,rgba(255,255,255,0.08),rgba(255,255,255,0.03))] text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.08),0_0_18px_rgba(255,255,255,0.04)] group-hover:border-white/20 group-hover:bg-white/[0.10]";
   const themeDividerClass = themeIsLight ? "via-slate-300/50" : "via-white/10";
   const themeInactiveDotClass = themeIsLight ? "bg-slate-400/35 hover:bg-slate-500/55" : "bg-white/20 hover:bg-white/35";
   const themeQuickActionPanelStyle = {
@@ -7876,6 +7876,79 @@ export default function Dashboard() {
           scroll-padding-bottom: 0;
         }
 
+        .clara-theme-nav-pill-active {
+          background:
+            radial-gradient(circle at top, color-mix(in srgb, var(--theme-glow) 22%, transparent), transparent 58%),
+            color-mix(in srgb, var(--theme-glow) 14%, rgba(255, 255, 255, 0.08)) !important;
+          box-shadow:
+            inset 0 1px 0 rgba(255, 255, 255, 0.10),
+            0 0 18px color-mix(in srgb, var(--theme-glow) 16%, transparent);
+        }
+
+        .clara-theme-nav-icon-shell {
+          --clara-nav-icon-accent: var(--theme-glow, #22d3ee);
+          border-color: color-mix(in srgb, var(--clara-nav-icon-accent) 34%, rgba(255, 255, 255, 0.14)) !important;
+          background:
+            radial-gradient(circle at 32% 20%, rgba(255, 255, 255, 0.20), transparent 34%),
+            radial-gradient(circle at 62% 76%, color-mix(in srgb, var(--clara-nav-icon-accent) 20%, transparent), transparent 48%),
+            linear-gradient(
+              180deg,
+              color-mix(in srgb, var(--clara-nav-icon-accent) 16%, rgba(255, 255, 255, 0.075)),
+              color-mix(in srgb, var(--clara-nav-icon-accent) 9%, rgba(255, 255, 255, 0.035))
+            ) !important;
+          box-shadow:
+            inset 0 1px 0 rgba(255, 255, 255, 0.12),
+            0 0 0 1px color-mix(in srgb, var(--clara-nav-icon-accent) 8%, transparent),
+            0 0 18px color-mix(in srgb, var(--clara-nav-icon-accent) 13%, transparent) !important;
+          color: color-mix(in srgb, var(--clara-nav-icon-accent) 18%, white) !important;
+        }
+
+        .clara-theme-nav-icon-shell-light {
+          border-color: color-mix(in srgb, var(--clara-nav-icon-accent) 32%, rgba(148, 163, 184, 0.38)) !important;
+          background:
+            radial-gradient(circle at 32% 20%, rgba(255, 255, 255, 0.72), transparent 34%),
+            radial-gradient(circle at 62% 76%, color-mix(in srgb, var(--clara-nav-icon-accent) 18%, transparent), transparent 48%),
+            linear-gradient(
+              180deg,
+              color-mix(in srgb, var(--clara-nav-icon-accent) 12%, rgba(255, 255, 255, 0.92)),
+              rgba(248, 250, 252, 0.84)
+            ) !important;
+          box-shadow:
+            inset 0 1px 0 rgba(255, 255, 255, 0.80),
+            0 8px 20px rgba(15, 23, 42, 0.08),
+            0 0 18px color-mix(in srgb, var(--clara-nav-icon-accent) 12%, transparent) !important;
+          color: color-mix(in srgb, var(--clara-nav-icon-accent) 42%, rgb(15, 23, 42)) !important;
+        }
+
+        .group:hover .clara-theme-nav-icon-shell {
+          border-color: color-mix(in srgb, var(--clara-nav-icon-accent) 48%, rgba(255, 255, 255, 0.20)) !important;
+          background:
+            radial-gradient(circle at 32% 20%, rgba(255, 255, 255, 0.24), transparent 34%),
+            radial-gradient(circle at 62% 76%, color-mix(in srgb, var(--clara-nav-icon-accent) 28%, transparent), transparent 50%),
+            linear-gradient(
+              180deg,
+              color-mix(in srgb, var(--clara-nav-icon-accent) 22%, rgba(255, 255, 255, 0.09)),
+              color-mix(in srgb, var(--clara-nav-icon-accent) 12%, rgba(255, 255, 255, 0.045))
+            ) !important;
+          box-shadow:
+            inset 0 1px 0 rgba(255, 255, 255, 0.14),
+            0 0 0 1px color-mix(in srgb, var(--clara-nav-icon-accent) 10%, transparent),
+            0 0 24px color-mix(in srgb, var(--clara-nav-icon-accent) 22%, transparent) !important;
+        }
+
+        .clara-performance-mode .clara-theme-nav-icon-shell {
+          background:
+            linear-gradient(
+              180deg,
+              color-mix(in srgb, var(--theme-glow) 10%, rgba(255, 255, 255, 0.055)),
+              rgba(255, 255, 255, 0.035)
+            ) !important;
+          box-shadow:
+            inset 0 1px 0 rgba(255, 255, 255, 0.08),
+            0 6px 14px rgba(0, 0, 0, 0.16) !important;
+        }
+
+
         [data-emergency-card] button[aria-label*="CLARA AI"] {
           --clara-orb-accent: var(--theme-glow, #22d3ee);
           --clara-orb-border: var(--theme-border, rgba(103, 232, 249, 0.38));
@@ -8118,7 +8191,7 @@ export default function Dashboard() {
                       className="group flex-1"
                       aria-label={item.label}
                     >
-                      <div className={`relative flex w-full flex-col items-center justify-center transition duration-200 hover:-translate-y-[1px] active:scale-[0.985] ${dashboardScale.headerItem} ${themeQuickActionBaseClass} ${activeDashboardPanel === item.key ? "bg-white/10" : ""}`}>
+                      <div className={`relative flex w-full flex-col items-center justify-center transition duration-200 hover:-translate-y-[1px] active:scale-[0.985] ${dashboardScale.headerItem} ${themeQuickActionBaseClass} ${activeDashboardPanel === item.key ? "clara-theme-nav-pill-active" : ""}`}>
                         <div className={`pointer-events-none absolute inset-0 rounded-[16px] opacity-0 transition duration-200 group-hover:opacity-100 ${themeIsLight ? "bg-[radial-gradient(circle_at_top,rgba(148,163,184,0.12),transparent_55%)]" : "bg-[radial-gradient(circle_at_top,rgba(255,255,255,0.08),transparent_55%)]"}`} />
 
                         <div className={`relative flex items-center justify-center rounded-full border transition duration-200 ${dashboardScale.headerIcon} ${themeQuickActionIconShellClass} ${iconHoverGlow}`}>
