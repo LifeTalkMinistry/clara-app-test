@@ -5448,20 +5448,23 @@ export default function Dashboard() {
   const themeDividerClass = themeIsLight ? "via-slate-300/50" : "via-white/10";
   const themeInactiveDotClass = themeIsLight ? "bg-slate-400/35 hover:bg-slate-500/55" : "bg-white/20 hover:bg-white/35";
   const themeQuickActionPanelStyle = {
-    background:
-      selectedDashboardTheme?.tokens?.topNav ||
-      selectedDashboardTheme?.tokens?.gradientHero ||
-      "var(--theme-top-nav)",
+    background: themeIsLight
+      ? `radial-gradient(circle at 18% 0%, color-mix(in srgb, var(--theme-glow) 18%, transparent), transparent 42%),
+         radial-gradient(circle at 82% 100%, color-mix(in srgb, var(--theme-glow) 14%, transparent), transparent 46%),
+         linear-gradient(135deg, color-mix(in srgb, var(--theme-glow) 10%, rgba(255,255,255,0.92)), rgba(248,250,252,0.88) 48%, color-mix(in srgb, var(--theme-glow) 8%, rgba(241,245,249,0.92)))`
+      : `radial-gradient(circle at 18% 0%, color-mix(in srgb, var(--theme-glow) 30%, transparent), transparent 44%),
+         radial-gradient(circle at 82% 100%, color-mix(in srgb, var(--theme-glow) 24%, transparent), transparent 48%),
+         linear-gradient(135deg, color-mix(in srgb, var(--theme-glow) 18%, rgba(7,18,35,0.96)), rgba(8,18,36,0.94) 46%, color-mix(in srgb, var(--theme-glow) 16%, rgba(13,9,30,0.95)))`,
     borderColor: selectedDashboardTheme?.tokens?.border || "var(--theme-border)",
     boxShadow: themeIsLight
-      ? "0 0 0 1px rgba(148,163,184,0.18), 0 18px 40px rgba(15,23,42,0.10)"
-      : "0 0 0 1px rgba(255,255,255,0.03), 0 18px 46px rgba(0,0,0,0.32), 0 0 40px color-mix(in srgb, var(--theme-glow) 18%, transparent)",
+      ? "0 0 0 1px color-mix(in srgb, var(--theme-glow) 14%, rgba(148,163,184,0.18)), 0 18px 40px rgba(15,23,42,0.10), 0 0 28px color-mix(in srgb, var(--theme-glow) 10%, transparent)"
+      : "0 0 0 1px rgba(255,255,255,0.03), 0 18px 46px rgba(0,0,0,0.32), 0 0 42px color-mix(in srgb, var(--theme-glow) 24%, transparent)",
   };
   const themeQuickActionGlowStyle = {
-    background:
-      selectedDashboardTheme?.tokens?.gradientHero ||
-      "var(--theme-gradient-hero)",
-    opacity: themeIsLight ? 0.42 : 0.7,
+    background: `radial-gradient(circle at 20% 18%, color-mix(in srgb, var(--theme-glow) 22%, transparent), transparent 38%),
+      radial-gradient(circle at 76% 78%, color-mix(in srgb, var(--theme-glow) 18%, transparent), transparent 42%),
+      ${selectedDashboardTheme?.tokens?.gradientHero || "var(--theme-gradient-hero)"}`,
+    opacity: themeIsLight ? 0.24 : 0.42,
   };
 
   useEffect(() => {
@@ -7884,6 +7887,36 @@ export default function Dashboard() {
             inset 0 1px 0 rgba(255, 255, 255, 0.10),
             0 0 18px color-mix(in srgb, var(--theme-glow) 16%, transparent);
         }
+
+        .clara-theme-nav-pill-active .clara-theme-nav-icon-shell {
+          border-color: color-mix(in srgb, var(--theme-glow) 58%, rgba(255, 255, 255, 0.18)) !important;
+          background:
+            radial-gradient(circle at 32% 18%, rgba(255, 255, 255, 0.26), transparent 34%),
+            radial-gradient(circle at 64% 78%, color-mix(in srgb, var(--theme-glow) 34%, transparent), transparent 50%),
+            linear-gradient(
+              180deg,
+              color-mix(in srgb, var(--theme-glow) 30%, rgba(255, 255, 255, 0.11)),
+              color-mix(in srgb, var(--theme-glow) 16%, rgba(255, 255, 255, 0.055))
+            ) !important;
+          box-shadow:
+            inset 0 1px 0 rgba(255, 255, 255, 0.16),
+            0 0 0 1px color-mix(in srgb, var(--theme-glow) 14%, transparent),
+            0 0 26px color-mix(in srgb, var(--theme-glow) 28%, transparent) !important;
+          color: color-mix(in srgb, var(--theme-glow) 22%, white) !important;
+        }
+
+        .clara-theme-nav-pill-active .clara-theme-nav-icon-shell-light {
+          background:
+            radial-gradient(circle at 32% 18%, rgba(255, 255, 255, 0.78), transparent 34%),
+            radial-gradient(circle at 64% 78%, color-mix(in srgb, var(--theme-glow) 25%, transparent), transparent 50%),
+            linear-gradient(
+              180deg,
+              color-mix(in srgb, var(--theme-glow) 18%, rgba(255, 255, 255, 0.94)),
+              rgba(248, 250, 252, 0.88)
+            ) !important;
+          color: color-mix(in srgb, var(--theme-glow) 48%, rgb(15, 23, 42)) !important;
+        }
+
 
         .clara-theme-nav-icon-shell {
           --clara-nav-icon-accent: var(--theme-glow, #22d3ee);
