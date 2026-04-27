@@ -7267,11 +7267,40 @@ export default function Dashboard() {
     setFinanceModal({ type: "manual_expense", payload: null });
   }, [showFinanceNotice, wallets]);
 
-  const isClaraAiOrbEvent = useCallback((event) => {
-    return Boolean(
-      event?.target?.closest?.('[data-emergency-card] button[aria-label*="CLARA AI"]')
-    );
+  const getClaraAiOrbButtonFromEvent = useCallback((event) => {
+    const target = event?.target;
+    if (!target?.closest) return null;
+
+    const emergencyCard = target.closest("[data-emergency-card]");
+    if (!emergencyCard) return null;
+
+    const button = target.closest("button");
+    if (!button || !emergencyCard.contains(button)) return null;
+
+    const buttonSignature = [
+      button.getAttribute?.("aria-label"),
+      button.getAttribute?.("title"),
+      button.textContent,
+    ]
+      .map((value) => normalizeLower(value))
+      .filter(Boolean)
+      .join(" ");
+
+    if (
+      buttonSignature.includes("clara ai") ||
+      buttonSignature.includes("clara") ||
+      buttonSignature.includes("assistant") ||
+      buttonSignature.includes("ask")
+    ) {
+      return button;
+    }
+
+    return null;
   }, []);
+
+  const isClaraAiOrbEvent = useCallback((event) => {
+    return Boolean(getClaraAiOrbButtonFromEvent(event));
+  }, [getClaraAiOrbButtonFromEvent]);
 
   const clearLongPressTimer = useCallback(() => {
     if (longPressTimerRef.current) {
@@ -7301,28 +7330,36 @@ export default function Dashboard() {
   }, [clearLongPressTimer]);
 
   const handleClaraAiOrbClickCapture = useCallback((event) => {
-    if (!isClaraAiOrbEvent(event)) return;
+    if (!isClaraAiOrbEvent(event)) return false;
+
+    event?.preventDefault?.();
+    event?.stopPropagation?.();
+    event?.nativeEvent?.stopImmediatePropagation?.();
 
     if (longPressTriggeredRef.current) {
-      event?.preventDefault?.();
-      event?.stopPropagation?.();
       longPressTriggeredRef.current = false;
+      return true;
     }
-  }, [isClaraAiOrbEvent]);
+
+    openManualExpenseModal();
+    return true;
+  }, [isClaraAiOrbEvent, openManualExpenseModal]);
 
   useEffect(() => {
     return () => clearLongPressTimer();
   }, [clearLongPressTimer]);
 
   useEffect(() => {
-    const handleOpenAssistant = () => {
+    const handleOpenAssistant = (event) => {
+      event?.stopPropagation?.();
+      event?.stopImmediatePropagation?.();
       setShowAiAssistant(true);
     };
 
-    window.addEventListener("clara:open-assistant", handleOpenAssistant);
+    window.addEventListener("clara:open-assistant", handleOpenAssistant, true);
 
     return () => {
-      window.removeEventListener("clara:open-assistant", handleOpenAssistant);
+      window.removeEventListener("clara:open-assistant", handleOpenAssistant, true);
     };
   }, []);
 
@@ -9479,14 +9516,10 @@ export default function Dashboard() {
                     onTouchEndCapture={endClaraAiLongPress}
                     onTouchCancelCapture={endClaraAiLongPress}
                     onClickCapture={(event) => {
-                      const blockedByLongPress =
-                        isClaraAiOrbEvent(event) && longPressTriggeredRef.current;
-
-                      handleClaraAiOrbClickCapture(event);
-
-                      if (blockedByLongPress) {
+                      if (handleClaraAiOrbClickCapture(event)) {
                         return;
                       }
+
                       const button = event.target?.closest?.("button");
                       const label = String(button?.textContent || "").toLowerCase();
                       if (label.includes("show details") || label.includes("hide details")) {
