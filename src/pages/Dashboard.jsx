@@ -8068,7 +8068,6 @@ export default function Dashboard() {
         : isUndocumented
           ? "Undocumented Spending"
           : selectedBudget.title;
-      const plannedBudgetId = !isUnplanned && !isUndocumented ? selectedBudget?.id || selectedBudget?.budget?.id || null : null;
       const needType = isUnplanned || isUndocumented ? "other" : selectedBudget.needType || "need";
       const planningStatus = isUnplanned ? "unplanned" : isUndocumented ? "undocumented" : "planned";
       const notesValue = isUnplanned ? reason : isUndocumented ? undocumentedFallbackNote : "";
@@ -8078,18 +8077,15 @@ export default function Dashboard() {
         amount,
         wallet_id: wallet.id,
         category: budgetCategory,
-        budget_category: budgetCategory,
-        expense_category: budgetCategory,
-        budget_category_id: plannedBudgetId,
-        budget_item_id: plannedBudgetId,
         need_type: needType,
         planning_status: planningStatus,
-        unplanned_reason: isUnplanned ? reason : null,
-        undocumented_reason: isUndocumented ? undocumentedReason : null,
-        undocumented_note: isUndocumented ? undocumentedNote : null,
+        unplanned_reason: isUnplanned
+          ? reason
+          : isUndocumented
+            ? undocumentedFallbackNote || "Undocumented Spending"
+            : null,
         notes: notesValue,
         date: nowIso,
-        expense_date: nowIso,
         created_at: nowIso,
         updated_at: nowIso,
         user_id: user?.id || null,
@@ -8097,34 +8093,7 @@ export default function Dashboard() {
         created_by: user?.email || null,
       };
 
-      let { error: expenseError } = await supabase.from("expenses").insert([expensePayload]);
-
-      const missingOptionalExpenseColumns =
-        expenseError &&
-        (
-          String(expenseError?.code || "") === "PGRST204" ||
-          /undocumented_reason|undocumented_note|budget_category_id|budget_item_id|schema cache|column/i.test(
-            String(expenseError?.message || "")
-          )
-        );
-
-      if (missingOptionalExpenseColumns) {
-        const fallbackExpensePayload = {
-          ...expensePayload,
-          unplanned_reason: isUndocumented
-            ? undocumentedFallbackNote || "Undocumented Spending"
-            : expensePayload.unplanned_reason,
-          notes: notesValue || (isUndocumented ? undocumentedFallbackNote || "Undocumented Spending" : ""),
-        };
-
-        delete fallbackExpensePayload.undocumented_reason;
-        delete fallbackExpensePayload.undocumented_note;
-        delete fallbackExpensePayload.budget_category_id;
-        delete fallbackExpensePayload.budget_item_id;
-
-        const fallbackResult = await supabase.from("expenses").insert([fallbackExpensePayload]);
-        expenseError = fallbackResult.error;
-      }
+      const { error: expenseError } = await supabase.from("expenses").insert([expensePayload]);
 
       if (expenseError) throw expenseError;
 
