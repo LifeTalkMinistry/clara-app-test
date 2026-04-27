@@ -1252,6 +1252,32 @@ const FinanceField = ({ label, children, helper }) => (
 const financeInputClassName =
   "w-full rounded-2xl border border-white/10 bg-white/[0.04] px-4 py-3 text-sm text-white outline-none transition placeholder:text-white/35 focus:border-emerald-400/30 focus:bg-white/[0.06]";
 
+const blockSummaryCardInteraction = (event) => {
+  event?.stopPropagation?.();
+
+  if (
+    event?.type === "click" ||
+    event?.type === "dblclick" ||
+    event?.type === "mouseup" ||
+    event?.type === "touchend" ||
+    event?.type === "keydown"
+  ) {
+    event?.preventDefault?.();
+  }
+};
+
+const summaryCardBlockerHandlers = {
+  onClickCapture: blockSummaryCardInteraction,
+  onDoubleClickCapture: blockSummaryCardInteraction,
+  onPointerDownCapture: blockSummaryCardInteraction,
+  onPointerUpCapture: blockSummaryCardInteraction,
+  onMouseDownCapture: blockSummaryCardInteraction,
+  onMouseUpCapture: blockSummaryCardInteraction,
+  onTouchStartCapture: blockSummaryCardInteraction,
+  onTouchEndCapture: blockSummaryCardInteraction,
+  onKeyDownCapture: blockSummaryCardInteraction,
+};
+
 const UNDOCUMENTED_SPENDING_REASONS = [
   "Forgot to log it immediately",
   "Cannot remember the exact item",
@@ -7650,12 +7676,6 @@ export default function Dashboard() {
     return true;
   }, [isClaraAiOrbEvent, openManualExpenseModal]);
 
-  const stopSummaryCardInteraction = useCallback((event) => {
-    event?.preventDefault?.();
-    event?.stopPropagation?.();
-    event?.nativeEvent?.stopImmediatePropagation?.();
-  }, []);
-
   useEffect(() => {
     return () => clearLongPressTimer();
   }, [clearLongPressTimer]);
@@ -9970,7 +9990,9 @@ export default function Dashboard() {
         )}
 
         <div
-          className={`grid grid-cols-2 overflow-hidden border backdrop-blur-sm ${dashboardScale.summaryGrid}`}
+          {...summaryCardBlockerHandlers}
+          aria-label="Financial summary"
+          className={`grid cursor-default select-none grid-cols-2 overflow-hidden border backdrop-blur-sm ${dashboardScale.summaryGrid}`}
           style={{
             borderColor:
               selectedDashboardTheme?.tokens?.border || "var(--theme-border)",
@@ -9980,21 +10002,22 @@ export default function Dashboard() {
           }}
         >
           <div
-            className={`relative isolate overflow-hidden ${dashboardScale.summaryCell}`}
-            onClickCapture={stopSummaryCardInteraction}
-            onDoubleClickCapture={stopSummaryCardInteraction}
-            onPointerUpCapture={stopSummaryCardInteraction}
-            onMouseUpCapture={stopSummaryCardInteraction}
-            onTouchEndCapture={stopSummaryCardInteraction}
-            data-clara-summary-card="total-money-left-read-only"
+            {...summaryCardBlockerHandlers}
+            data-clara-summary-card="money-left"
+            className={`relative isolate cursor-default overflow-hidden ${dashboardScale.summaryCell}`}
             style={{
               background:
                 selectedDashboardTheme?.tokens?.gradientMoney ||
                 "var(--theme-gradient-money)",
             }}
           >
+            <div
+              {...summaryCardBlockerHandlers}
+              aria-hidden="true"
+              className="absolute inset-0 z-20 cursor-default"
+            />
             <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(255,255,255,0.08),transparent_42%)]" />
-            <div className="relative flex min-h-full min-w-0 flex-col justify-center">
+            <div className="relative z-10 flex min-h-full min-w-0 flex-col justify-center">
               <p className={`uppercase ${dashboardScale.summaryLabel} ${themeSoftTextClass}`}>
                 Total Money Left
               </p>
@@ -10005,13 +10028,9 @@ export default function Dashboard() {
           </div>
 
           <div
-            className={`relative isolate overflow-hidden border-l ${dashboardScale.summaryCell}`}
-            onClickCapture={stopSummaryCardInteraction}
-            onDoubleClickCapture={stopSummaryCardInteraction}
-            onPointerUpCapture={stopSummaryCardInteraction}
-            onMouseUpCapture={stopSummaryCardInteraction}
-            onTouchEndCapture={stopSummaryCardInteraction}
-            data-clara-summary-card="total-expense-read-only"
+            {...summaryCardBlockerHandlers}
+            data-clara-summary-card="total-expense"
+            className={`relative isolate cursor-default overflow-hidden border-l ${dashboardScale.summaryCell}`}
             style={{
               background:
                 selectedDashboardTheme?.tokens?.gradientExpense ||
@@ -10020,8 +10039,13 @@ export default function Dashboard() {
                 selectedDashboardTheme?.tokens?.border || "var(--theme-border)",
             }}
           >
+            <div
+              {...summaryCardBlockerHandlers}
+              aria-hidden="true"
+              className="absolute inset-0 z-20 cursor-default"
+            />
             <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_bottom_right,rgba(255,255,255,0.08),transparent_42%)]" />
-            <div className="relative flex min-h-full min-w-0 flex-col justify-center">
+            <div className="relative z-10 flex min-h-full min-w-0 flex-col justify-center">
               <p className={`uppercase ${dashboardScale.summaryLabel} ${themeSoftTextClass}`}>
                 Total Expense
               </p>
