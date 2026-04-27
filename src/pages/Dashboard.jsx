@@ -61,7 +61,7 @@ const normalizeString = (value) => String(value ?? "").trim();
 const normalizeLower = (value) => normalizeString(value).toLowerCase();
 const PH_TIME_ZONE = "Asia/Manila";
 const PH_OFFSET_MINUTES = 8 * 60;
-const DEBUG_FINANCE_DIAGNOSTICS = true;
+const DEBUG_FINANCE_DIAGNOSTICS = false;
 
 const FINANCE_CATEGORIES = [
   "food",
