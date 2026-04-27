@@ -673,7 +673,9 @@ function createSupabaseLegacyFinanceRepository(repositoryOptions = {}) {
       }
 
       if (patch?.planning_status !== undefined) {
-        normalizedUpdates.planning_status = context.normalizePlanningStatus(patch.planning_status);
+        normalizedUpdates.planning_status = context.normalizePlanningStatus(
+          patch.planning_status
+        );
       }
 
       const nextPlanningStatus =
@@ -690,20 +692,7 @@ function createSupabaseLegacyFinanceRepository(repositoryOptions = {}) {
         normalizedUpdates.unplanned_reason = null;
       }
 
-      const updatedExpense = await runSupabaseLegacyUpdateById({
-        context,
-        table: "expenses",
-        id: expenseId,
-        payload: normalizedUpdates,
-      });
-
-      if (oldExpense?.wallet_id) {
-        await updateSupabaseLegacyWalletBalance({
-          context,
-          walletId: oldExpense.wallet_id,
-          amountChange: context.toNumber(oldExpense.amount),
-        });
-      }
+      const oldWalletId = String(oldExpense?.wallet_id || "").trim() || null;
 
       const rawNextWalletId =
         normalizedUpdates.wallet_id !== undefined
@@ -716,17 +705,58 @@ function createSupabaseLegacyFinanceRepository(repositoryOptions = {}) {
         normalizedUpdates.wallet_id = nextWalletId;
       }
 
+      const oldAmount = context.toNumber(oldExpense?.amount);
+
       const nextAmount =
         normalizedUpdates.amount !== undefined
           ? context.toNumber(normalizedUpdates.amount)
-          : context.toNumber(oldExpense?.amount);
+          : oldAmount;
 
-      if (nextWalletId) {
-        await updateSupabaseLegacyWalletBalance({
-          context,
-          walletId: nextWalletId,
-          amountChange: -nextAmount,
-        });
+      const updatedExpense = await runSupabaseLegacyUpdateById({
+        context,
+        table: "expenses",
+        id: expenseId,
+        payload: normalizedUpdates,
+      });
+
+      /*
+       * Wallet balance repair:
+       * If the wallet stays the same, do only one net adjustment.
+       * Current wallet balance already includes the old expense deduction.
+       *
+       * Example:
+       * Old expense: ₱100
+       * New expense: ₱150
+       * Net change: -₱50
+       *
+       * This avoids restore/subtract using the same stale wallet snapshot.
+       */
+      if (oldWalletId && nextWalletId && oldWalletId === nextWalletId) {
+        const netAmountChange = oldAmount - nextAmount;
+
+        if (netAmountChange !== 0) {
+          await updateSupabaseLegacyWalletBalance({
+            context,
+            walletId: oldWalletId,
+            amountChange: netAmountChange,
+          });
+        }
+      } else {
+        if (oldWalletId) {
+          await updateSupabaseLegacyWalletBalance({
+            context,
+            walletId: oldWalletId,
+            amountChange: oldAmount,
+          });
+        }
+
+        if (nextWalletId) {
+          await updateSupabaseLegacyWalletBalance({
+            context,
+            walletId: nextWalletId,
+            amountChange: -nextAmount,
+          });
+        }
       }
 
       const linkedTxn = findSupabaseLegacyLinkedExpenseTransaction(context, {
