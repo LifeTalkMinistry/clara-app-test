@@ -110,6 +110,8 @@ const getWalletTransactions = (wallet, transactions = [], transfers = []) => {
 };
 
 const getLatestTransactionNextBalance = (wallet, transactions = [], transfers = []) => {
+  const walletUpdatedAt = parseDateValue(wallet?.updated_at)?.getTime() ?? 0;
+
   const latestTransaction = getWalletTransactions(wallet, transactions, transfers)
     .map((transaction) => ({
       transaction,
@@ -117,6 +119,20 @@ const getLatestTransactionNextBalance = (wallet, transactions = [], transfers = 
       details: getTransactionDetails(transaction),
     }))
     .filter((item) => hasValue(item.details?.next_balance))
+    .filter((item) => {
+      if (!walletUpdatedAt) return true;
+
+      /*
+       * Important:
+       * Do not let an older transaction details.next_balance override the wallet's
+       * newly stored balance.
+       *
+       * This fixes transfer display cases where the source wallet balance was
+       * updated correctly in Supabase but the UI still showed an older balance
+       * from a previous transaction's details.next_balance.
+       */
+      return item.time >= walletUpdatedAt;
+    })
     .sort((a, b) => b.time - a.time)[0];
 
   if (!latestTransaction) return null;
