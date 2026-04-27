@@ -1252,30 +1252,32 @@ const FinanceField = ({ label, children, helper }) => (
 const financeInputClassName =
   "w-full rounded-2xl border border-white/10 bg-white/[0.04] px-4 py-3 text-sm text-white outline-none transition placeholder:text-white/35 focus:border-emerald-400/30 focus:bg-white/[0.06]";
 
-const blockSummaryCardInteraction = (event) => {
+const stopFinancialSummaryInteraction = (event) => {
+  event?.preventDefault?.();
   event?.stopPropagation?.();
-
-  if (
-    event?.type === "click" ||
-    event?.type === "dblclick" ||
-    event?.type === "mouseup" ||
-    event?.type === "touchend" ||
-    event?.type === "keydown"
-  ) {
-    event?.preventDefault?.();
-  }
+  event?.nativeEvent?.stopImmediatePropagation?.();
+  return false;
 };
 
-const summaryCardBlockerHandlers = {
-  onClickCapture: blockSummaryCardInteraction,
-  onDoubleClickCapture: blockSummaryCardInteraction,
-  onPointerDownCapture: blockSummaryCardInteraction,
-  onPointerUpCapture: blockSummaryCardInteraction,
-  onMouseDownCapture: blockSummaryCardInteraction,
-  onMouseUpCapture: blockSummaryCardInteraction,
-  onTouchStartCapture: blockSummaryCardInteraction,
-  onTouchEndCapture: blockSummaryCardInteraction,
-  onKeyDownCapture: blockSummaryCardInteraction,
+const financialSummaryInertHandlers = {
+  onClickCapture: stopFinancialSummaryInteraction,
+  onClick: stopFinancialSummaryInteraction,
+  onDoubleClickCapture: stopFinancialSummaryInteraction,
+  onDoubleClick: stopFinancialSummaryInteraction,
+  onPointerDownCapture: stopFinancialSummaryInteraction,
+  onPointerDown: stopFinancialSummaryInteraction,
+  onPointerUpCapture: stopFinancialSummaryInteraction,
+  onPointerUp: stopFinancialSummaryInteraction,
+  onMouseDownCapture: stopFinancialSummaryInteraction,
+  onMouseDown: stopFinancialSummaryInteraction,
+  onMouseUpCapture: stopFinancialSummaryInteraction,
+  onMouseUp: stopFinancialSummaryInteraction,
+  onTouchStartCapture: stopFinancialSummaryInteraction,
+  onTouchStart: stopFinancialSummaryInteraction,
+  onTouchEndCapture: stopFinancialSummaryInteraction,
+  onTouchEnd: stopFinancialSummaryInteraction,
+  onKeyDownCapture: stopFinancialSummaryInteraction,
+  onKeyDown: stopFinancialSummaryInteraction,
 };
 
 const UNDOCUMENTED_SPENDING_REASONS = [
@@ -9990,7 +9992,7 @@ export default function Dashboard() {
         )}
 
         <div
-          {...summaryCardBlockerHandlers}
+          {...financialSummaryInertHandlers}
           aria-label="Financial summary"
           className={`grid cursor-default select-none grid-cols-2 overflow-hidden border backdrop-blur-sm ${dashboardScale.summaryGrid}`}
           style={{
@@ -9999,25 +10001,31 @@ export default function Dashboard() {
             boxShadow: themeIsLight
               ? "0 18px 44px rgba(15,23,42,0.10)"
               : "0 22px 65px rgba(0,0,0,0.26)",
+            WebkitTapHighlightColor: "transparent",
+            touchAction: "none",
           }}
         >
           <div
-            {...summaryCardBlockerHandlers}
+            {...financialSummaryInertHandlers}
+            aria-hidden="true"
             data-clara-summary-card="money-left"
-            className={`relative isolate cursor-default overflow-hidden ${dashboardScale.summaryCell}`}
+            className={`pointer-events-auto relative isolate cursor-default overflow-hidden ${dashboardScale.summaryCell}`}
             style={{
               background:
                 selectedDashboardTheme?.tokens?.gradientMoney ||
                 "var(--theme-gradient-money)",
+              WebkitTapHighlightColor: "transparent",
+              touchAction: "none",
             }}
           >
             <div
-              {...summaryCardBlockerHandlers}
+              {...financialSummaryInertHandlers}
               aria-hidden="true"
-              className="absolute inset-0 z-20 cursor-default"
+              className="absolute inset-0 z-30 cursor-default bg-transparent"
+              style={{ touchAction: "none", WebkitTapHighlightColor: "transparent" }}
             />
             <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(255,255,255,0.08),transparent_42%)]" />
-            <div className="relative z-10 flex min-h-full min-w-0 flex-col justify-center">
+            <div className="pointer-events-none relative flex min-h-full min-w-0 flex-col justify-center">
               <p className={`uppercase ${dashboardScale.summaryLabel} ${themeSoftTextClass}`}>
                 Total Money Left
               </p>
@@ -10028,24 +10036,28 @@ export default function Dashboard() {
           </div>
 
           <div
-            {...summaryCardBlockerHandlers}
+            {...financialSummaryInertHandlers}
+            aria-hidden="true"
             data-clara-summary-card="total-expense"
-            className={`relative isolate cursor-default overflow-hidden border-l ${dashboardScale.summaryCell}`}
+            className={`pointer-events-auto relative isolate cursor-default overflow-hidden border-l ${dashboardScale.summaryCell}`}
             style={{
               background:
                 selectedDashboardTheme?.tokens?.gradientExpense ||
                 "var(--theme-gradient-expense)",
               borderColor:
                 selectedDashboardTheme?.tokens?.border || "var(--theme-border)",
+              WebkitTapHighlightColor: "transparent",
+              touchAction: "none",
             }}
           >
             <div
-              {...summaryCardBlockerHandlers}
+              {...financialSummaryInertHandlers}
               aria-hidden="true"
-              className="absolute inset-0 z-20 cursor-default"
+              className="absolute inset-0 z-30 cursor-default bg-transparent"
+              style={{ touchAction: "none", WebkitTapHighlightColor: "transparent" }}
             />
             <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_bottom_right,rgba(255,255,255,0.08),transparent_42%)]" />
-            <div className="relative z-10 flex min-h-full min-w-0 flex-col justify-center">
+            <div className="pointer-events-none relative flex min-h-full min-w-0 flex-col justify-center">
               <p className={`uppercase ${dashboardScale.summaryLabel} ${themeSoftTextClass}`}>
                 Total Expense
               </p>
