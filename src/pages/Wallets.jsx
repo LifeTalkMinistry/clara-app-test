@@ -73,21 +73,6 @@ const getToday = () => {
   return `${yyyy}-${mm}-${dd}`;
 };
 
-const buildCreatedAtFromDate = (dateValue) => {
-  if (!dateValue) return new Date().toISOString();
-  const [year, month, day] = String(dateValue).split("-").map(Number);
-  if (!year || !month || !day) return new Date().toISOString();
-  const now = new Date();
-  return new Date(
-    year,
-    month - 1,
-    day,
-    now.getHours(),
-    now.getMinutes(),
-    now.getSeconds()
-  ).toISOString();
-};
-
 const generateId = () => {
   if (typeof crypto !== "undefined" && crypto.randomUUID) {
     return crypto.randomUUID();
@@ -423,12 +408,29 @@ export default function Wallets() {
     try {
       setIsAddingMoney(true);
 
+      const operationTime = new Date().toISOString();
+
       const currentBalance = getBalance(selectedWallet);
       const newBalance = currentBalance + amount;
 
+      const detailText = String(addMoneyForm.details || "").trim();
+      const noteText = String(addMoneyForm.notes || "").trim();
+      const dateText = String(addMoneyForm.date || "").trim();
+
+      const mergedNotes = [
+        noteText,
+        detailText ? `Details: ${detailText}` : "",
+        dateText ? `Recorded date: ${dateText}` : "",
+      ]
+        .filter(Boolean)
+        .join(" • ");
+
       const { error: walletError } = await supabase
         .from("wallets")
-        .update({ balance: newBalance })
+        .update({
+          balance: newBalance,
+          updated_at: operationTime,
+        })
         .eq("id", String(selectedWallet.id));
 
       if (walletError) throw walletError;
@@ -439,10 +441,9 @@ export default function Wallets() {
         amount,
         source_type: addMoneyForm.source_type,
         tag: addMoneyForm.tag,
-        details: addMoneyForm.details || null,
-        notes: addMoneyForm.notes || null,
-        created_at: buildCreatedAtFromDate(addMoneyForm.date),
-        updated_at: new Date().toISOString(),
+        notes: mergedNotes || null,
+        created_at: operationTime,
+        updated_at: operationTime,
         user_id: user?.id || null,
         user_email: user?.email || null,
         created_by: user?.email || null,
@@ -503,20 +504,28 @@ export default function Wallets() {
     try {
       setIsTransferringMoney(true);
 
+      const operationTime = new Date().toISOString();
+
       const nextFromBalance = fromBalance - amount;
       const nextToBalance = toBalance + amount;
       const transferGroupId = generateId();
 
       const { error: fromError } = await supabase
         .from("wallets")
-        .update({ balance: nextFromBalance })
+        .update({
+          balance: nextFromBalance,
+          updated_at: operationTime,
+        })
         .eq("id", fromId);
 
       if (fromError) throw fromError;
 
       const { error: toError } = await supabase
         .from("wallets")
-        .update({ balance: nextToBalance })
+        .update({
+          balance: nextToBalance,
+          updated_at: operationTime,
+        })
         .eq("id", toId);
 
       if (toError) throw toError;
@@ -529,6 +538,8 @@ export default function Wallets() {
           transfer_group_id: transferGroupId,
           related_wallet_id: toId,
           notes: transferForm.notes || null,
+          created_at: operationTime,
+          updated_at: operationTime,
           user_id: user?.id || null,
           user_email: user?.email || null,
           created_by: user?.email || null,
@@ -540,6 +551,8 @@ export default function Wallets() {
           transfer_group_id: transferGroupId,
           related_wallet_id: fromId,
           notes: transferForm.notes || null,
+          created_at: operationTime,
+          updated_at: operationTime,
           user_id: user?.id || null,
           user_email: user?.email || null,
           created_by: user?.email || null,
@@ -562,8 +575,8 @@ export default function Wallets() {
           user_id: user?.id || null,
           user_email: user?.email || null,
           created_by: user?.email || null,
-          created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString(),
+          created_at: operationTime,
+          updated_at: operationTime,
         },
       ]);
 
