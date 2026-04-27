@@ -77,7 +77,24 @@ const generateId = () => {
   if (typeof crypto !== "undefined" && crypto.randomUUID) {
     return crypto.randomUUID();
   }
-  return `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+
+  if (typeof crypto !== "undefined" && crypto.getRandomValues) {
+    const bytes = crypto.getRandomValues(new Uint8Array(16));
+
+    bytes[6] = (bytes[6] & 0x0f) | 0x40;
+    bytes[8] = (bytes[8] & 0x3f) | 0x80;
+
+    const hex = Array.from(bytes, (byte) =>
+      byte.toString(16).padStart(2, "0")
+    ).join("");
+
+    return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(
+      12,
+      16
+    )}-${hex.slice(16, 20)}-${hex.slice(20)}`;
+  }
+
+  throw new Error("Unable to generate a valid UUID on this device.");
 };
 
 const getWalletSortOrder = (wallet, index) => {
@@ -147,6 +164,7 @@ export default function Wallets() {
     () => (Array.isArray(financial?.wallets) ? financial.wallets : []),
     [financial?.wallets]
   );
+
   const walletTransactions = useMemo(
     () =>
       Array.isArray(financial?.walletTransactions)
@@ -154,10 +172,12 @@ export default function Wallets() {
         : [],
     [financial?.walletTransactions]
   );
+
   const refreshData =
     typeof financial?.refreshData === "function"
       ? financial.refreshData
       : async () => {};
+
   const loading = Boolean(financial?.loading);
 
   const [addOpen, setAddOpen] = useState(false);
@@ -409,7 +429,6 @@ export default function Wallets() {
       setIsAddingMoney(true);
 
       const operationTime = new Date().toISOString();
-
       const currentBalance = getBalance(selectedWallet);
       const newBalance = currentBalance + amount;
 
@@ -436,6 +455,7 @@ export default function Wallets() {
       if (walletError) throw walletError;
 
       const historyPayload = {
+        id: generateId(),
         wallet_id: selectedWallet.id,
         type: "income",
         amount,
@@ -505,7 +525,6 @@ export default function Wallets() {
       setIsTransferringMoney(true);
 
       const operationTime = new Date().toISOString();
-
       const nextFromBalance = fromBalance - amount;
       const nextToBalance = toBalance + amount;
       const transferGroupId = generateId();
@@ -532,6 +551,7 @@ export default function Wallets() {
 
       const historyRows = [
         {
+          id: generateId(),
           wallet_id: fromId,
           type: "transfer_out",
           amount,
@@ -545,6 +565,7 @@ export default function Wallets() {
           created_by: user?.email || null,
         },
         {
+          id: generateId(),
           wallet_id: toId,
           type: "transfer_in",
           amount,
