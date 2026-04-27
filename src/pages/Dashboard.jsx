@@ -10044,27 +10044,26 @@ export default function Dashboard() {
               ))}
             </div>
 
-            <div className="relative z-30 -mt-1 mb-[clamp(8px,1.6dvh,14px)] flex items-center justify-center">
-              <button
-                type="button"
-                onPointerDown={startCenteredClaraOrbPress}
-                onPointerUp={endCenteredClaraOrbPress}
-                onPointerCancel={cancelCenteredClaraOrbPress}
-                onPointerLeave={endCenteredClaraOrbPress}
-                onClick={handleCenteredClaraOrbClick}
-                className="group relative flex h-[58px] w-[58px] touch-none select-none items-center justify-center rounded-full border border-cyan-200/20 bg-[#071827]/90 text-cyan-50 shadow-[0_16px_46px_rgba(34,211,238,0.24),0_0_0_1px_rgba(255,255,255,0.04)] backdrop-blur-2xl transition hover:scale-[1.03] active:scale-95 sm:h-16 sm:w-16"
-                aria-label="CLARA orb: tap to log expense, double tap to open transactions, long press to open CLARA AI"
-                title="Tap: Log expense • Double tap: Transactions • Long press: CLARA AI"
-              >
-                <span className="pointer-events-none absolute inset-[-8px] rounded-full bg-cyan-300/20 blur-xl transition group-active:bg-cyan-300/30" />
-                <span className="pointer-events-none absolute inset-0 rounded-full bg-[radial-gradient(circle_at_top,rgba(255,255,255,0.22),transparent_42%),linear-gradient(135deg,rgba(34,211,238,0.22),rgba(16,185,129,0.14))]" />
-                <span className="pointer-events-none absolute inset-[7px] rounded-full border border-white/10 bg-white/[0.055]" />
-                <MessageCircle className="relative z-10 h-5 w-5 text-cyan-100 drop-shadow-[0_0_12px_rgba(103,232,249,0.45)]" />
-              </button>
-            </div>
           </div>
         )}
 
+        <div className="relative z-30 mt-[clamp(18px,3.2dvh,24px)]">
+          <button
+            type="button"
+            onPointerDown={startCenteredClaraOrbPress}
+            onPointerUp={endCenteredClaraOrbPress}
+            onPointerCancel={cancelCenteredClaraOrbPress}
+            onPointerLeave={endCenteredClaraOrbPress}
+            onClick={handleCenteredClaraOrbClick}
+            className="group absolute left-1/2 top-0 z-40 flex h-[58px] w-[58px] -translate-x-1/2 -translate-y-1/2 touch-none select-none items-center justify-center rounded-full border border-cyan-200/20 bg-[#071827]/90 text-cyan-50 shadow-[0_16px_46px_rgba(34,211,238,0.24),0_0_0_1px_rgba(255,255,255,0.04)] backdrop-blur-2xl transition hover:scale-[1.03] active:scale-95 sm:h-16 sm:w-16"
+            aria-label="CLARA orb: tap to log expense, double tap to open transactions, long press to open CLARA AI"
+            title="Tap: Log expense • Double tap: Transactions • Long press: CLARA AI"
+          >
+            <span className="pointer-events-none absolute inset-[-8px] rounded-full bg-cyan-300/20 blur-xl transition group-active:bg-cyan-300/30" />
+            <span className="pointer-events-none absolute inset-0 rounded-full bg-[radial-gradient(circle_at_top,rgba(255,255,255,0.22),transparent_42%),linear-gradient(135deg,rgba(34,211,238,0.22),rgba(16,185,129,0.14))]" />
+            <span className="pointer-events-none absolute inset-[7px] rounded-full border border-white/10 bg-white/[0.055]" />
+            <MessageCircle className="relative z-10 h-5 w-5 text-cyan-100 drop-shadow-[0_0_12px_rgba(103,232,249,0.45)]" />
+          </button>
         <div
           className={`grid grid-cols-2 overflow-hidden border backdrop-blur-sm ${dashboardScale.summaryGrid}`}
           style={{
@@ -10114,6 +10113,7 @@ export default function Dashboard() {
               </h2>
             </div>
           </div>
+        </div>
         </div>
 
         
