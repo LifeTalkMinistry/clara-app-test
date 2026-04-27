@@ -317,9 +317,10 @@ const getWalletDisplayBalance = (wallet) =>
 
 const getBudgetTotal = (budget) =>
   firstValidNumber(
-    budget?.budget,
-    budget?.total_budget,
+    budget?.allocated_amount,
     budget?.budget_amount,
+    budget?.total_budget,
+    budget?.budget,
     budget?.amount,
     budget?.target_amount
   );
@@ -6864,6 +6865,8 @@ export default function Dashboard() {
     [budgetPlanIsComplete, manualExpenseBudgetOptions]
   );
 
+  const currentMonthBudget = monthlyBudgetPlan;
+
   const programJourney = useMemo(
     () =>
       buildProgramJourney(tasks, submissions, {
@@ -7717,6 +7720,7 @@ export default function Dashboard() {
     financeModal?.payload,
     refreshFinanceSection,
     showFinanceNotice,
+    upsertBudgetRowsInState,
     user?.email,
     user?.id,
   ]);
@@ -7793,6 +7797,48 @@ export default function Dashboard() {
     user?.id,
     wallets,
   ]);
+
+  const upsertBudgetRowsInState = useCallback((rows = []) => {
+    const safeRows = rows.filter(Boolean);
+    if (!safeRows.length) return;
+
+    setBudgets((prev) => {
+      const next = [...prev];
+
+      safeRows.forEach((row) => {
+        const rowId = normalizeString(row?.id);
+        const rowSignature = [
+          normalizeString(row?.month || row?.budget_month || row?.month_key || getPHMonthKey()),
+          normalizeLower(row?.plan_type || row?.type || ""),
+          normalizeLower(row?.category || row?.budget_category || row?.title || row?.name || ""),
+        ].join("::");
+
+        const existingIndex = next.findIndex((item) => {
+          const itemId = normalizeString(item?.id);
+          if (rowId && itemId && rowId === itemId) return true;
+
+          const itemSignature = [
+            normalizeString(item?.month || item?.budget_month || item?.month_key || getPHMonthKey()),
+            normalizeLower(item?.plan_type || item?.type || ""),
+            normalizeLower(item?.category || item?.budget_category || item?.title || item?.name || ""),
+          ].join("::");
+
+          return itemSignature === rowSignature;
+        });
+
+        if (existingIndex >= 0) {
+          next[existingIndex] = {
+            ...next[existingIndex],
+            ...row,
+          };
+        } else {
+          next.unshift(row);
+        }
+      });
+
+      return sortByNewestDate(next);
+    });
+  }, []);
 
   const saveBudgetInline = useCallback(async ({ finish = false, exitAfterSave = false, saveCategory = true } = {}) => {
     const categoryName = normalizeString(financeForm.budgetCategoryName || financeForm.title);
@@ -7871,17 +7917,36 @@ export default function Dashboard() {
       };
 
       const headerResult = monthlyBudgetHeader?.id
-        ? await supabase.from("budgets").update(headerPayload).eq("id", monthlyBudgetHeader.id)
-        : await supabase.from("budgets").insert([
-            {
-              ...headerPayload,
-              tracking_start_date: nowIso,
-              range_start: nowIso,
-              created_at: nowIso,
-            },
-          ]);
+        ? await supabase
+            .from("budgets")
+            .update(headerPayload)
+            .eq("id", monthlyBudgetHeader.id)
+            .select("*")
+            .maybeSingle()
+        : await supabase
+            .from("budgets")
+            .insert([
+              {
+                ...headerPayload,
+                tracking_start_date: nowIso,
+                range_start: nowIso,
+                created_at: nowIso,
+              },
+            ])
+            .select("*")
+            .maybeSingle();
 
       if (headerResult.error) throw headerResult.error;
+
+      const savedHeader =
+        headerResult.data ||
+        {
+          ...(monthlyBudgetHeader || {}),
+          ...headerPayload,
+          id: monthlyBudgetHeader?.id || `local_header_${monthKey}`,
+          created_at: monthlyBudgetHeader?.created_at || nowIso,
+        };
+      const savedRows = [savedHeader];
 
       if (shouldSaveCategory) {
         const payload = {
@@ -7911,21 +7976,42 @@ export default function Dashboard() {
         };
 
         const result = existingCategory?.id
-          ? await supabase.from("budgets").update(payload).eq("id", existingCategory.id)
-          : await supabase.from("budgets").insert([
-              {
-                ...payload,
-                tracking_start_date: nowIso,
-                range_start: nowIso,
-                created_at: nowIso,
-              },
-            ]);
+          ? await supabase
+              .from("budgets")
+              .update(payload)
+              .eq("id", existingCategory.id)
+              .select("*")
+              .maybeSingle()
+          : await supabase
+              .from("budgets")
+              .insert([
+                {
+                  ...payload,
+                  tracking_start_date: nowIso,
+                  range_start: nowIso,
+                  created_at: nowIso,
+                },
+              ])
+              .select("*")
+              .maybeSingle();
 
         if (result.error) throw result.error;
+
+        savedRows.push(
+          result.data ||
+            {
+              ...(existingCategory || {}),
+              ...payload,
+              id: existingCategory?.id || `local_category_${Date.now()}`,
+              created_at: existingCategory?.created_at || nowIso,
+            }
+        );
       }
 
-      if (complete && monthlyBudgetPlan.categories.length) {
-        const categoryIds = monthlyBudgetPlan.categories.map((item) => item.id).filter(Boolean);
+      upsertBudgetRowsInState(savedRows);
+
+      if (complete && currentMonthBudget.categories.length) {
+        const categoryIds = currentMonthBudget.categories.map((item) => item.id).filter(Boolean);
         if (categoryIds.length) {
           await supabase
             .from("budgets")
@@ -7935,6 +8021,19 @@ export default function Dashboard() {
               updated_at: nowIso,
             })
             .in("id", categoryIds);
+
+          setBudgets((prev) =>
+            prev.map((budget) =>
+              categoryIds.includes(budget?.id)
+                ? {
+                    ...budget,
+                    status: "active",
+                    is_complete: true,
+                    updated_at: nowIso,
+                  }
+                : budget
+            )
+          );
         }
       }
 
@@ -7978,12 +8077,13 @@ export default function Dashboard() {
     financeForm.title,
     financeForm.totalBudget,
     financeModal?.payload,
+    currentMonthBudget.categories,
     monthlyBudgetHeader,
     monthlyBudgetPlan?.allocated_amount,
     monthlyBudgetPlan?.allocated_total,
-    monthlyBudgetPlan.categories,
     refreshFinanceSection,
     showFinanceNotice,
+    upsertBudgetRowsInState,
     user?.email,
     user?.id,
   ]);
@@ -8042,6 +8142,21 @@ export default function Dashboard() {
         : await supabase.from("budgets").delete().eq("id", item.id);
 
       if (result.error) throw result.error;
+
+      setBudgets((prev) =>
+        linkedExpenseCount > 0
+          ? prev.map((budget) =>
+              String(budget?.id) === String(item.id)
+                ? {
+                    ...budget,
+                    is_active: false,
+                    status: "inactive",
+                    updated_at: new Date().toISOString(),
+                  }
+                : budget
+            )
+          : prev.filter((budget) => String(budget?.id) !== String(item.id))
+      );
 
       await refreshFinanceSection();
       setExpandedFinanceCard("budgets");
@@ -9447,14 +9562,14 @@ export default function Dashboard() {
                 <div className="flex w-full min-w-full shrink-0 snap-center">
                   <div className={getFinanceSlideShellClass("budgets", selectedDashboardTheme, dashboardScale)}>
                     <BudgetCard
-                    activeBudget={monthlyBudgetPlan}
-                    budgetCategories={monthlyBudgetPlan.categories}
-                    declaredBudget={monthlyBudgetPlan.declared_budget}
-                    unallocatedAmount={monthlyBudgetPlan.unallocated_amount}
-                    budgetStatus={monthlyBudgetPlan.status}
-                    isComplete={monthlyBudgetPlan.is_complete}
-                    unplannedSpent={monthlyBudgetPlan.unplanned_spent}
-                    undocumentedSpent={monthlyBudgetPlan.undocumented_spent}
+                    activeBudget={currentMonthBudget}
+                    budgetCategories={currentMonthBudget.categories}
+                    declaredBudget={currentMonthBudget.declared_budget}
+                    unallocatedAmount={currentMonthBudget.unallocated_amount}
+                    budgetStatus={currentMonthBudget.status}
+                    isComplete={currentMonthBudget.is_complete}
+                    unplannedSpent={currentMonthBudget.unplanned_spent}
+                    undocumentedSpent={currentMonthBudget.undocumented_spent}
                     theme={selectedDashboardTheme}
                     expanded={false}
                     onExpandedChange={(open) => setExpandedFinanceCard(open ? "budgets" : null)}
@@ -9717,7 +9832,14 @@ export default function Dashboard() {
               {expandedFinanceCard === "budgets" && (
                 <div className="[&>*]:!mb-0 [&>*]:!min-h-0">
                   <BudgetCard
-                    activeBudget={derivedActiveBudget}
+                    activeBudget={currentMonthBudget}
+                    budgetCategories={currentMonthBudget.categories}
+                    declaredBudget={currentMonthBudget.declared_budget}
+                    unallocatedAmount={currentMonthBudget.unallocated_amount}
+                    budgetStatus={currentMonthBudget.status}
+                    isComplete={currentMonthBudget.is_complete}
+                    unplannedSpent={currentMonthBudget.unplanned_spent}
+                    undocumentedSpent={currentMonthBudget.undocumented_spent}
                     theme={selectedDashboardTheme}
                     expanded={true}
                     onToggleDetails={() => setExpandedFinanceCard(null)}
@@ -9725,6 +9847,14 @@ export default function Dashboard() {
                     onSaveBudget={() => {
                       setExpandedFinanceCard(null);
                       window.requestAnimationFrame(() => openBudgetModal());
+                    }}
+                    onEditBudgetCategory={(item) => {
+                      setExpandedFinanceCard(null);
+                      window.requestAnimationFrame(() => openBudgetModal(item));
+                    }}
+                    onDeleteBudgetCategory={(item) => {
+                      setExpandedFinanceCard(null);
+                      window.requestAnimationFrame(() => openDeleteBudgetCategoryModal(item));
                     }}
                     onResetBudget={() => {
                       setExpandedFinanceCard(null);
@@ -10599,13 +10729,13 @@ export default function Dashboard() {
           <div className="mb-3 flex items-center justify-between gap-3">
             <p className="text-sm font-bold text-white">Added categories</p>
             <span className="rounded-full border border-white/10 bg-white/[0.05] px-2.5 py-1 text-[11px] font-semibold text-white/60">
-              {monthlyBudgetPlan.categories.length}
+              {currentMonthBudget.categories.length}
             </span>
           </div>
 
-          {monthlyBudgetPlan.categories.length ? (
+          {currentMonthBudget.categories.length ? (
             <div className="space-y-2">
-              {monthlyBudgetPlan.categories.map((item) => (
+              {currentMonthBudget.categories.map((item) => (
                 <div
                   key={item.key || item.id || item.title}
                   className="flex items-center justify-between gap-3 rounded-2xl border border-white/10 bg-black/15 px-3 py-3"
