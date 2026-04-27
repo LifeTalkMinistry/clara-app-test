@@ -292,22 +292,53 @@ async function insertSupabaseLegacyWalletTransaction({ context, payload, user })
 }
 
 async function updateSupabaseLegacyWalletBalance({ context, walletId, amountChange }) {
-  const wallet = (context.wallets || []).find(
-    (item) => String(item.id) === String(walletId)
+  const safeWalletId = String(walletId || "").trim();
+
+  if (!safeWalletId) return null;
+
+  let liveWallet = null;
+
+  try {
+    const { data, error } = await context.supabaseClient
+      .from("wallets")
+      .select("*")
+      .eq("id", safeWalletId)
+      .limit(1);
+
+    if (!error && Array.isArray(data) && data[0]) {
+      liveWallet = data[0];
+    }
+  } catch {
+    liveWallet = null;
+  }
+
+  const fallbackWallet = (context.wallets || []).find(
+    (item) => String(item.id) === safeWalletId
   );
+
+  const wallet = liveWallet || fallbackWallet;
 
   if (!wallet) return null;
 
-  const updatedBalance =
-    context.toNumber(wallet?.derived_balance ?? wallet?.balance) + context.toNumber(amountChange);
+  const currentBalance = context.toNumber(
+    wallet?.balance ??
+      wallet?.current_balance ??
+      wallet?.wallet_balance ??
+      wallet?.available_balance ??
+      wallet?.starting_balance ??
+      0
+  );
+
+  const updatedBalance = currentBalance + context.toNumber(amountChange);
+  const operationTime = new Date().toISOString();
 
   return runSupabaseLegacyUpdateById({
     context,
     table: "wallets",
-    id: walletId,
+    id: safeWalletId,
     payload: {
       balance: updatedBalance,
-      updated_at: new Date().toISOString(),
+      updated_at: operationTime,
     },
   });
 }
@@ -729,7 +760,9 @@ function createSupabaseLegacyFinanceRepository(repositoryOptions = {}) {
        * New expense: ₱150
        * Net change: -₱50
        *
-       * This avoids restore/subtract using the same stale wallet snapshot.
+       * The helper below now fetches the latest wallet row before applying
+       * this net change, so lowering an edited expense can correctly add the
+       * difference back to the wallet.
        */
       if (oldWalletId && nextWalletId && oldWalletId === nextWalletId) {
         const netAmountChange = oldAmount - nextAmount;
