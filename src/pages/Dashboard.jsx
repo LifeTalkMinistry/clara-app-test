@@ -5171,13 +5171,13 @@ function DashboardSettingsPanel({
     <div className="space-y-4">
       <DetailHeader
         title="About CLARA"
-        subtitle="Financial clarity, daily discipline, and guided progress."
+        subtitle="Understand CLARA’s purpose, direction, and the principles behind the app."
       />
 
       <div className="rounded-[30px] border border-white/10 bg-white/[0.045] p-5 shadow-[0_18px_50px_rgba(0,0,0,0.18)] backdrop-blur-xl">
         <p className="text-2xl font-black text-white">CLARA</p>
         <p className="mt-2 text-sm leading-6 text-white/60">
-          A financial companion for tracking money, building discipline, and guiding users through financial progress.
+          Built to help users see where their money goes, understand why they spend, and build better financial discipline one decision at a time.
         </p>
 
         <div className="mt-4 grid grid-cols-2 gap-2 text-center">
