@@ -45,37 +45,38 @@ const AI_FEATURE_OPTIONS = [
   {
     label: "Predict My Future",
     description: "Forecast where your money is going.",
-    message: "Predict my financial future based on my current dashboard.",
+    message: "Predict my future",
   },
   {
     label: "Check My Spending",
     description: "Understand this month’s spending.",
-    message: "Check my spending this month.",
+    message: "Check my spending",
   },
   {
     label: "Savings Check",
     description: "See if my savings are on track.",
-    message: "Check my savings progress.",
+    message: "Savings check",
   },
   {
     label: "Budget Check",
     description: "Review my budget health.",
-    message: "Check my budget.",
+    message: "Budget check",
   },
   {
     label: "Before I Buy This",
     description: "Help me decide before spending.",
-    message: "Help me decide before I buy something.",
+    message: "",
+    mode: "purchase_decision",
   },
   {
     label: "Wallet Health",
     description: "Review my wallet balances.",
-    message: "Check my wallet health.",
+    message: "Wallet health",
   },
   {
     label: "Emergency Fund",
     description: "Check my survival buffer.",
-    message: "Check my emergency fund.",
+    message: "Emergency fund",
   },
   {
     label: "Ask CLARA",
@@ -255,10 +256,15 @@ function getWalletSummary(context = {}) {
 
 function getEmergencySummary(context = {}) {
   const emergencyFund = context?.emergencyFund;
-  const hasEmergencySection = Boolean(emergencyFund) || hasValue(context?.survivalExpense);
+  const moneyLeft = getMoneyLeft(context);
+  const survivalExpense = getNumber(context?.survivalExpense);
+  const hasEmergencySection = Boolean(emergencyFund) || survivalExpense !== null || hasValue(context?.emergencyFundSaved) || hasValue(context?.emergencyFundTarget);
 
   if (!hasEmergencySection) {
-    return hasUsableContext(context) ? "I need your emergency fund section before I can answer that clearly." : LOADING_REPLY;
+    if (moneyLeft !== null) {
+      return `I don’t see a dedicated emergency fund loaded here. Based only on available money, you have ${formatMoney(moneyLeft)} visible, so treat that as a cash buffer — not guaranteed emergency savings.`;
+    }
+    return hasUsableContext(context) ? "I don’t see emergency fund details loaded yet." : LOADING_REPLY;
   }
 
   if (emergencyFund?.summary) return emergencyFund.summary;
@@ -278,8 +284,8 @@ function getEmergencySummary(context = {}) {
     emergencyFund?.target,
     emergencyFund?.goal,
     emergencyFund?.goal_amount,
-    context?.survivalExpense,
-    context?.emergencyFundTarget
+    context?.emergencyFundTarget,
+    context?.survivalExpense
   );
   const percentage = getNumber(
     emergencyFund?.percentage,
@@ -291,56 +297,133 @@ function getEmergencySummary(context = {}) {
   const target = targetAmount !== null ? formatMoney(targetAmount) : null;
 
   if (current && target && monthsCovered !== null) {
-    return `Your emergency fund is at ${current} out of ${target}, covering about ${monthsCovered} month${monthsCovered === 1 ? "" : "s"}. That’s your safety layer, so protect it from wants and use it only for real emergencies.`;
+    return `Your emergency fund shows ${current} out of ${target}, covering about ${monthsCovered} month${monthsCovered === 1 ? "" : "s"}. Keep this protected from wants.`;
   }
 
-  if (current && target) return `Your emergency fund is at ${current} out of ${target}. Keep building this before increasing lifestyle spending.`;
-  if (current) return `Your emergency fund currently has ${current}. Treat that as protection money, not extra spending money.`;
-  if (target) return `Your emergency fund target is ${target}. The next smart move is to keep small, consistent deposits going.`;
-  if (percentage !== null) return `Your emergency fund progress is around ${percentage.toFixed(0)}%. Keep protecting this section before adding new wants.`;
-  if (monthsCovered !== null) return `Your emergency fund covers about ${monthsCovered} month${monthsCovered === 1 ? "" : "s"}. That gives you breathing room, but it still needs protection.`;
+  if (current && target) return `Your emergency fund shows ${current} out of ${target}. Keep building this before increasing lifestyle spending.`;
+  if (current) return `Your emergency fund currently shows ${current}. Treat that as protection money, not extra spending money.`;
+  if (target) return `Your survival buffer target appears to be ${target}. I don’t see the saved amount clearly yet, so I won’t overstate your emergency savings.`;
+  if (percentage !== null) return `Your emergency fund progress is around ${percentage.toFixed(0)}%. Keep protecting this layer first.`;
+  if (monthsCovered !== null) return `Your emergency fund covers about ${monthsCovered} month${monthsCovered === 1 ? "" : "s"}. That gives breathing room, but keep it protected.`;
+  if (moneyLeft !== null) return `I see limited emergency fund details. Based only on available money, you have ${formatMoney(moneyLeft)} visible, so use that carefully as a buffer.`;
 
-  return "I can see your emergency fund section, but I need clearer fund values before I can explain it confidently.";
+  return "I can see the emergency section, but the details are limited right now.";
 }
 
 function getSavingsSummary(context = {}) {
   const savings = context?.savings;
   const hasSavingsSection = Boolean(savings) || hasValue(context?.totalSavingsSaved) || hasValue(context?.totalSavingsTarget);
 
-  if (!hasSavingsSection) return hasUsableContext(context) ? "I need your savings section before I can answer that clearly." : LOADING_REPLY;
+  if (!hasSavingsSection) {
+    return "I don’t see savings progress yet, but that can simply mean no savings goal is loaded in this dashboard view.";
+  }
+
   if (savings?.summary) return savings.summary;
 
-  const savedAmount = getNumber(savings?.saved, savings?.current, context?.totalSavingsSaved);
-  const targetAmount = getNumber(savings?.target, savings?.goal, context?.totalSavingsTarget);
+  const savedAmount = getNumber(savings?.saved, savings?.current, savings?.saved_amount, context?.totalSavingsSaved);
+  const targetAmount = getNumber(savings?.target, savings?.goal, savings?.target_amount, context?.totalSavingsTarget);
 
   const saved = savedAmount !== null ? formatMoney(savedAmount) : null;
   const target = targetAmount !== null ? formatMoney(targetAmount) : null;
 
-  if (saved && target) return `Your savings progress is ${saved} out of ${target}. Keep this moving slowly and consistently; the goal is momentum, not pressure.`;
-  if (saved) return `Your saved amount is ${saved}. That’s progress worth protecting from impulse spending.`;
-  if (target) return `Your savings target is ${target}. Break it into smaller checkpoints so it feels easier to reach.`;
+  if (savedAmount !== null && targetAmount !== null) {
+    const remaining = Math.max(targetAmount - savedAmount, 0);
+    const percent = targetAmount > 0 ? Math.min((savedAmount / targetAmount) * 100, 100) : null;
+    const progressText = percent !== null ? ` That’s about ${percent.toFixed(0)}% complete.` : "";
+    return `Your savings progress is ${saved} out of ${target}.${progressText} Keep it consistent; small deposits still count.`;
+  }
 
-  return "I can see your savings section, but the detailed savings values are not complete yet.";
+  if (savedAmount !== null) return `Your saved amount is ${saved}. That’s progress worth protecting from impulse spending.`;
+  if (targetAmount !== null) return `Your savings target is ${target}. I don’t see saved progress yet, so start with a small first deposit.`;
+
+  return "I don’t see savings progress yet, but that can simply mean no savings goal is loaded in this dashboard view.";
 }
 
 function getBudgetSummary(context = {}) {
   const budget = context?.budget;
-  const hasBudgetSection = Boolean(budget) || hasValue(context?.budgetAllocated) || hasValue(context?.budgetSpent);
+  const hasBudgetSection = Boolean(budget) || hasValue(context?.budgetAllocated) || hasValue(context?.budgetSpent) || hasValue(context?.budgetRemaining);
 
-  if (!hasBudgetSection) return hasUsableContext(context) ? "I need your budget section before I can answer that clearly." : LOADING_REPLY;
+  if (!hasBudgetSection) return "I don’t see a budget loaded in this dashboard view yet. That’s okay — use your available money as the temporary boundary for now.";
   if (budget?.summary) return budget.summary;
 
-  const allocatedAmount = getNumber(budget?.allocated, budget?.total, context?.budgetAllocated);
-  const spentAmount = getNumber(budget?.spent, budget?.used, context?.budgetSpent);
+  const allocatedAmount = getNumber(budget?.allocated, budget?.total, budget?.allocated_amount, context?.budgetAllocated);
+  const spentAmount = getNumber(budget?.spent, budget?.used, budget?.spent_amount, context?.budgetSpent);
+  const explicitRemaining = getNumber(budget?.remaining, budget?.remaining_amount, context?.budgetRemaining);
+  const remainingAmount = explicitRemaining !== null
+    ? explicitRemaining
+    : allocatedAmount !== null && spentAmount !== null
+      ? Math.max(allocatedAmount - spentAmount, 0)
+      : null;
 
   const allocated = allocatedAmount !== null ? formatMoney(allocatedAmount) : null;
   const spent = spentAmount !== null ? formatMoney(spentAmount) : null;
+  const remaining = remainingAmount !== null ? formatMoney(remainingAmount) : null;
 
-  if (allocated && spent) return `Your current budget context shows ${spent} spent out of ${allocated} allocated. Use the budget as a boundary, not a punishment.`;
+  if (allocated && spent && remaining) {
+    const pressure = remainingAmount <= 0
+      ? "You’re at or beyond the safe budget line, so pause wants first."
+      : remainingAmount < allocatedAmount * 0.2
+        ? "You still have room, but the margin is getting thin."
+        : "Your budget still has breathing room, but keep spending intentional.";
+    return `Budget check: ${spent} spent out of ${allocated}, with ${remaining} remaining. ${pressure}`;
+  }
+
+  if (allocated && spent) return `Budget check: ${spent} spent out of ${allocated}. Use that as your boundary before adding new wants.`;
   if (allocated) return `Your current budget allocation is ${allocated}. Before spending, check which category this decision belongs to.`;
-  if (spent) return `Your current budget spending is ${spent}. The next step is to compare it against your declared limits.`;
+  if (spent) return `Your current budget spending is ${spent}. The next step is to compare it against your declared limit.`;
+  if (remaining) return `Your budget remaining shows ${remaining}. Keep this protected for the rest of the period.`;
 
-  return "I can see your budget section, but I need clearer budget values before I can explain it confidently.";
+  return "I can see a budget section, but the values are limited right now.";
+}
+
+function getForecastSummary(context = {}) {
+  const moneyLeft = getMoneyLeft(context);
+  const monthlySpent = getMonthlySpent(context);
+  const walletCount = getWallets(context).length;
+  const savings = getNumber(context?.savings?.saved, context?.savings?.current, context?.totalSavingsSaved);
+  const budgetSpent = getNumber(context?.budget?.spent, context?.budget?.used, context?.budgetSpent);
+  const emergencySaved = getNumber(context?.emergencyFund?.saved, context?.emergencyFund?.currentAmount, context?.emergencyFundSaved);
+
+  if (moneyLeft === null && monthlySpent === null && walletCount === 0) {
+    return LOADING_REPLY;
+  }
+
+  const parts = [];
+  if (moneyLeft !== null) parts.push(`available money: ${formatMoney(moneyLeft)}`);
+  if (monthlySpent !== null) parts.push(`month spending: ${formatMoney(monthlySpent)}`);
+  if (walletCount > 0) parts.push(`${walletCount} wallet${walletCount === 1 ? "" : "s"}`);
+  if (savings !== null) parts.push(`savings: ${formatMoney(savings)}`);
+  if (budgetSpent !== null) parts.push(`budget spent: ${formatMoney(budgetSpent)}`);
+  if (emergencySaved !== null) parts.push(`emergency fund: ${formatMoney(emergencySaved)}`);
+
+  const risk = moneyLeft !== null && monthlySpent !== null && monthlySpent > moneyLeft
+    ? "spending may overtake your remaining money if nothing changes"
+    : moneyLeft !== null && moneyLeft < 1000
+      ? "your buffer is thin, so small leaks matter"
+      : "you still have room, but consistency will decide the outcome";
+
+  return `Based on your current money and spending pattern, here’s what may happen if nothing changes: ${risk}. I’m only forecasting from this dashboard — ${parts.join(", ")}.`;
+}
+
+function getPurchaseDecisionReply(question, context = {}) {
+  const moneyLeft = getMoneyLeft(context);
+  const monthlySpent = getMonthlySpent(context);
+  const priceMatch = String(question || "").replace(/,/g, "").match(/(?:₱|php\s*)?(\d+(?:\.\d{1,2})?)/i);
+  const price = priceMatch ? Number(priceMatch[1]) : null;
+
+  const priceText = price !== null ? ` This looks around ${formatMoney(price)}.` : "";
+  const leftText = moneyLeft !== null ? ` You still have ${formatMoney(moneyLeft)} available.` : "";
+  const spentText = monthlySpent !== null ? ` You’ve already spent ${formatMoney(monthlySpent)} this month.` : "";
+
+  if (price !== null && moneyLeft !== null && price > moneyLeft) {
+    return `I’d pause this purchase.${priceText}${leftText}${spentText} It may put pressure on your current money unless it’s truly urgent.`;
+  }
+
+  if (price !== null && moneyLeft !== null && price > moneyLeft * 0.15) {
+    return `This is a noticeable spend.${priceText}${leftText}${spentText} If it’s a need, it may be okay. If it’s a want, wait and protect your budget first.`;
+  }
+
+  return `If this is a need, it may be okay. If it’s a want, pause first.${priceText}${leftText}${spentText} Protect your budget before buying.`.trim();
 }
 
 function getLocalReply(question, context = {}) {
@@ -350,6 +433,7 @@ function getLocalReply(question, context = {}) {
   const monthlySpent = getMonthlySpent(context);
   const contextReady = hasUsableContext(context);
 
+  const asksForecast = text.includes("predict my future") || text.includes("financial future") || text.includes("forecast");
   const asksBeforeBuy =
     text.includes("before i buy") ||
     text.includes("before buying") ||
@@ -367,8 +451,10 @@ function getLocalReply(question, context = {}) {
     text.includes("balance") ||
     text.includes("available");
 
+  if (asksForecast) return getForecastSummary(context);
+
   if (asksBeforeBuy) {
-    return "What are you planning to buy, and how much will it cost?";
+    return "What are you planning to buy, and how much is it?";
   }
 
   if (asksWallet) return getWalletSummary(context);
@@ -445,6 +531,7 @@ export default function ClaraAssistantPanel({ open, onClose, context = {} }) {
   const [draft, setDraft] = useState("");
   const [messages, setMessages] = useState(() => [makeMessage("clara", INITIAL_MESSAGE)]);
   const [showFeatureMenu, setShowFeatureMenu] = useState(true);
+  const [activeMode, setActiveMode] = useState(null);
   const inputRef = useRef(null);
   const bottomRef = useRef(null);
   const contextStatus = getContextStatus(activeContext);
@@ -452,6 +539,9 @@ export default function ClaraAssistantPanel({ open, onClose, context = {} }) {
   useEffect(() => {
     if (!open) return;
     setShowFeatureMenu(true);
+    setActiveMode(null);
+    setMessages([makeMessage("clara", INITIAL_MESSAGE)]);
+    setDraft("");
   }, [open]);
 
   useEffect(() => {
@@ -472,11 +562,19 @@ export default function ClaraAssistantPanel({ open, onClose, context = {} }) {
     const currentContext = getBestContext(context || {}, latestContextRef.current || {});
     latestContextRef.current = currentContext;
 
+    const reply = activeMode === "purchase_decision"
+      ? getPurchaseDecisionReply(text, currentContext)
+      : getLocalReply(text, currentContext);
+
     setMessages((current) => [
       ...current,
       makeMessage("user", text),
-      makeMessage("clara", getLocalReply(text, currentContext)),
+      makeMessage("clara", reply),
     ]);
+
+    if (activeMode === "purchase_decision") {
+      setActiveMode(null);
+    }
   };
 
   const sendQuickOption = (option) => {
@@ -484,6 +582,11 @@ export default function ClaraAssistantPanel({ open, onClose, context = {} }) {
       typeof option === "string" ? option : option?.message || option?.label || option?.text || "";
 
     if (!optionText) return;
+
+    if (String(optionText).toLowerCase().includes("before i buy")) {
+      setActiveMode("purchase_decision");
+    }
+
     sendMessageText(optionText);
   };
 
@@ -507,6 +610,15 @@ export default function ClaraAssistantPanel({ open, onClose, context = {} }) {
 
   const openAssistantWithPrompt = (option) => {
     setShowFeatureMenu(false);
+
+    if (option?.mode === "purchase_decision") {
+      setActiveMode("purchase_decision");
+      setMessages((current) => [
+        ...current,
+        makeMessage("clara", "What are you planning to buy, and how much is it?"),
+      ]);
+      return;
+    }
 
     const prompt = String(option?.message || "").trim();
     if (prompt) {
