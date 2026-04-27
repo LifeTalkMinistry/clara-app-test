@@ -477,6 +477,53 @@ const getBudgetCategoryKey = (budget) => {
   return FINANCE_CATEGORIES.includes(raw) ? raw : "all";
 };
 
+const formatBudgetLabel = (value) => {
+  const normalized = normalizeString(value);
+  if (!normalized) return "Budget";
+  return normalized
+    .replaceAll("_", " ")
+    .replace(/\b\w/g, (char) => char.toUpperCase());
+};
+
+const getBudgetListTitle = (budget) =>
+  formatBudgetLabel(
+    budget?.title ||
+      budget?.name ||
+      budget?.budget_name ||
+      budget?.label ||
+      budget?.category ||
+      budget?.budget_category ||
+      budget?.expense_category ||
+      budget?.classification ||
+      budget?.type ||
+      "Budget"
+  );
+
+const getBudgetNeedType = (budget) => {
+  const raw = normalizeLower(
+    budget?.need_type ||
+      budget?.needType ||
+      budget?.spending_type ||
+      budget?.budget_type ||
+      budget?.category_type ||
+      budget?.classification_type ||
+      ""
+  );
+
+  if (["need", "needs", "essential", "necessity"].includes(raw)) return "need";
+  if (["want", "wants", "non_essential", "non-essential", "lifestyle"].includes(raw)) return "want";
+  if (["other", "savings", "goal", "misc", "miscellaneous"].includes(raw)) return "other";
+
+  const category = normalizeLower(
+    budget?.category || budget?.budget_category || budget?.expense_category || ""
+  );
+
+  if (["entertainment", "shopping", "personal"].includes(category)) return "want";
+  if (["other", "savings"].includes(category)) return "other";
+
+  return "need";
+};
+
 const getTransactionGroupLabel = (dateValue) => {
   const date = normalizeDateValue(dateValue);
   if (!date) return "Older";
@@ -5408,6 +5455,9 @@ export default function Dashboard() {
     startingBalance: "0",
     amount: "",
     destinationWalletId: "",
+    expenseWalletId: "",
+    budgetListKey: "",
+    unplannedReason: "",
     totalBudget: "",
     needsPct: "50",
     wantsPct: "30",
@@ -6362,6 +6412,65 @@ export default function Dashboard() {
       .slice(0, 4);
   }, [budgets, expenses]);
 
+  const manualExpenseBudgetOptions = useMemo(() => {
+    const currentMonthKey = getPHMonthKey();
+    const seen = new Set();
+
+    return budgets
+      .filter((budget) => {
+        const month = normalizeString(budget?.month || budget?.budget_month || budget?.month_key);
+        const status = normalizeLower(budget?.status);
+        const isActive = budget?.is_active !== false && budget?.active !== false;
+        const isClosed = ["inactive", "archived", "deleted", "closed"].includes(status);
+        return isActive && !isClosed && (!month || month === currentMonthKey);
+      })
+      .map((budget, index) => {
+        const title = getBudgetListTitle(budget);
+        const keySource =
+          budget?.id ||
+          budget?.section_key ||
+          budget?.category ||
+          budget?.budget_category ||
+          title;
+
+        return {
+          key: String(keySource),
+          title,
+          needType: getBudgetNeedType(budget),
+          sortOrder: firstValidNumber(
+            budget?.sort_order,
+            budget?.display_order,
+            budget?.position,
+            index
+          ),
+          budget,
+        };
+      })
+      .filter((item) => {
+        const signature = normalizeLower(item.title);
+        if (!signature || seen.has(signature)) return false;
+        seen.add(signature);
+        return true;
+      })
+      .sort((a, b) => a.sortOrder - b.sortOrder || a.title.localeCompare(b.title));
+  }, [budgets]);
+
+  const selectedManualExpenseBudget = useMemo(
+    () =>
+      manualExpenseBudgetOptions.find(
+        (item) => String(item.key) === String(financeForm.budgetListKey)
+      ) || null,
+    [financeForm.budgetListKey, manualExpenseBudgetOptions]
+  );
+
+  const manualExpenseIsUnplanned = financeForm.budgetListKey === "__unplanned__";
+  const manualExpenseReason = normalizeString(financeForm.unplannedReason || financeForm.notes);
+  const manualExpenseCanSubmit =
+    Number(financeForm.amount) > 0 &&
+    Boolean(financeForm.budgetListKey) &&
+    Boolean(financeForm.expenseWalletId) &&
+    (!manualExpenseIsUnplanned || Boolean(manualExpenseReason));
+
   const programJourney = useMemo(
     () =>
       buildProgramJourney(tasks, submissions, {
@@ -6739,6 +6848,23 @@ export default function Dashboard() {
     setFinanceModal({ type: "transfer_money", payload: fromWallet });
   }, [wallets, showFinanceNotice]);
 
+  const openManualExpenseModal = useCallback(() => {
+    if (!wallets.length) {
+      showFinanceNotice("Create or fund a wallet first before logging an expense.");
+      return;
+    }
+
+    setFinanceForm((prev) => ({
+      ...prev,
+      amount: "",
+      budgetListKey: "",
+      expenseWalletId: String(wallets[0]?.id || ""),
+      unplannedReason: "",
+      notes: "",
+    }));
+    setFinanceModal({ type: "manual_expense", payload: null });
+  }, [showFinanceNotice, wallets]);
+
   const openBudgetModal = useCallback(() => {
     setFinanceForm((prev) => ({
       ...prev,
@@ -6796,6 +6922,11 @@ export default function Dashboard() {
     }));
     setFinanceModal({ type: "add_savings", payload: goal });
   }, [wallets, showFinanceNotice]);
+
+  useEffect(() => {
+    window.addEventListener("clara:open-manual-expense", openManualExpenseModal);
+    return () => window.removeEventListener("clara:open-manual-expense", openManualExpenseModal);
+  }, [openManualExpenseModal]);
 
   useEffect(() => {
     const container = financeCarouselRef.current;
@@ -6956,6 +7087,122 @@ export default function Dashboard() {
       setFinanceActionLoading(false);
     }
   }, [closeFinanceModal, financeModal?.payload?.id, refreshFinanceSection, showFinanceNotice]);
+
+  const saveManualExpenseInline = useCallback(async () => {
+    const amount = Number(financeForm.amount);
+    const wallet = wallets.find(
+      (item) => String(item.id) === String(financeForm.expenseWalletId)
+    );
+    const isUnplanned = financeForm.budgetListKey === "__unplanned__";
+    const selectedBudget = manualExpenseBudgetOptions.find(
+      (item) => String(item.key) === String(financeForm.budgetListKey)
+    );
+    const reason = normalizeString(financeForm.unplannedReason || financeForm.notes);
+
+    if (!Number.isFinite(amount) || amount <= 0) {
+      showFinanceNotice("Please enter a valid expense amount.");
+      return;
+    }
+
+    if (!financeForm.budgetListKey) {
+      showFinanceNotice("Please select a budget list item.");
+      return;
+    }
+
+    if (!wallet) {
+      showFinanceNotice("Please select a valid wallet.");
+      return;
+    }
+
+    if (getWalletDisplayBalance(wallet) < amount) {
+      showFinanceNotice("Insufficient balance in the selected wallet.");
+      return;
+    }
+
+    if (isUnplanned && !reason) {
+      showFinanceNotice("Please explain the purpose before logging this unplanned expense.");
+      return;
+    }
+
+    if (!isUnplanned && !selectedBudget) {
+      showFinanceNotice("Please select a valid budget list item.");
+      return;
+    }
+
+    try {
+      setFinanceActionLoading(true);
+
+      const nowIso = new Date().toISOString();
+      const expenseId = createFinanceId("expense");
+      const budgetCategory = isUnplanned ? "Unplanned" : selectedBudget.title;
+      const needType = isUnplanned ? "other" : selectedBudget.needType || "need";
+      const planningStatus = isUnplanned ? "unplanned" : "planned";
+
+      const expensePayload = {
+        id: expenseId,
+        amount,
+        wallet_id: wallet.id,
+        category: budgetCategory,
+        budget_category: budgetCategory,
+        expense_category: budgetCategory,
+        need_type: needType,
+        planning_status: planningStatus,
+        unplanned_reason: isUnplanned ? reason : null,
+        notes: isUnplanned ? reason : "",
+        date: nowIso,
+        expense_date: nowIso,
+        created_at: nowIso,
+        updated_at: nowIso,
+        user_id: user?.id || null,
+        user_email: user?.email || null,
+        created_by: user?.email || null,
+      };
+
+      const { error: expenseError } = await supabase.from("expenses").insert([expensePayload]);
+      if (expenseError) throw expenseError;
+
+      const { error: historyError } = await supabase.from("wallet_transactions").insert([
+        {
+          id: createFinanceId("txn"),
+          wallet_id: wallet.id,
+          type: "expense",
+          amount,
+          expense_id: expenseId,
+          category: budgetCategory,
+          budget_category: budgetCategory,
+          notes: isUnplanned ? reason : "",
+          transaction_date: nowIso,
+          date: nowIso,
+          created_at: nowIso,
+          user_id: user?.id || null,
+          user_email: user?.email || null,
+          created_by: user?.email || null,
+        },
+      ]);
+      if (historyError) throw historyError;
+
+      await refreshFinanceSection();
+      closeFinanceModal();
+      showFinanceNotice("Expense logged successfully.", "success");
+    } catch (error) {
+      showFinanceNotice(error?.message || "Failed to log expense.");
+    } finally {
+      setFinanceActionLoading(false);
+    }
+  }, [
+    closeFinanceModal,
+    financeForm.amount,
+    financeForm.budgetListKey,
+    financeForm.expenseWalletId,
+    financeForm.notes,
+    financeForm.unplannedReason,
+    manualExpenseBudgetOptions,
+    refreshFinanceSection,
+    showFinanceNotice,
+    user?.email,
+    user?.id,
+    wallets,
+  ]);
 
   const addMoneyInline = useCallback(async () => {
     const wallet = financeModal?.payload;
@@ -8480,7 +8727,9 @@ export default function Dashboard() {
                           readStoredSurvivalExpense(user?.id)
                         ) > 0
                       }
-                      onSurvivalSaved={async (val) => {
+                      onQuickExpense={openManualExpenseModal}
+                      onQuickExpense={openManualExpenseModal}
+                    onSurvivalSaved={async (val) => {
                         const nextValue = firstPositiveNumber(val);
                         if (nextValue <= 0) return;
 
@@ -9399,6 +9648,108 @@ export default function Dashboard() {
             className={financeInputClassName}
           />
         </FinanceField>
+      </FinanceActionModal>
+
+      <FinanceActionModal
+        open={financeModal.type === "manual_expense"}
+        title="Log expense"
+        description="Connect this expense to your monthly budget list."
+        onClose={closeFinanceModal}
+        onSubmit={(event) => {
+          event.preventDefault();
+          saveManualExpenseInline();
+        }}
+        submitLabel="Add Expense"
+        submitDisabled={!manualExpenseCanSubmit}
+        loading={financeActionLoading}
+      >
+        <FinanceField label="Amount">
+          <input
+            type="number"
+            min="0"
+            step="0.01"
+            value={financeForm.amount}
+            onChange={(event) =>
+              setFinanceForm((prev) => ({ ...prev, amount: event.target.value }))
+            }
+            placeholder="0"
+            className={financeInputClassName}
+          />
+        </FinanceField>
+
+        <FinanceField
+          label="Budget List"
+          helper="Choose where this expense belongs in your active monthly budget."
+        >
+          <select
+            value={financeForm.budgetListKey}
+            onChange={(event) =>
+              setFinanceForm((prev) => ({
+                ...prev,
+                budgetListKey: event.target.value,
+                unplannedReason:
+                  event.target.value === "__unplanned__" ? prev.unplannedReason : "",
+                notes: event.target.value === "__unplanned__" ? prev.notes : "",
+              }))
+            }
+            className={financeInputClassName}
+          >
+            <option value="">Select budget list</option>
+            {manualExpenseBudgetOptions.map((budgetItem) => (
+              <option key={budgetItem.key} value={budgetItem.key}>
+                {budgetItem.title}
+              </option>
+            ))}
+            <option value="__unplanned__">Unplanned</option>
+          </select>
+        </FinanceField>
+
+        <FinanceField label="Wallet">
+          <select
+            value={financeForm.expenseWalletId}
+            onChange={(event) =>
+              setFinanceForm((prev) => ({
+                ...prev,
+                expenseWalletId: event.target.value,
+              }))
+            }
+            className={financeInputClassName}
+          >
+            <option value="">Select wallet</option>
+            {wallets.map((wallet) => (
+              <option key={wallet.id} value={String(wallet.id)}>
+                {getWalletDisplayName(wallet)} • {fmt(getWalletDisplayBalance(wallet))}
+              </option>
+            ))}
+          </select>
+        </FinanceField>
+
+        {manualExpenseIsUnplanned ? (
+          <div className="rounded-2xl border border-amber-300/18 bg-amber-500/10 p-4">
+            <p className="mb-3 text-xs leading-5 text-amber-50/80">
+              This is outside your monthly budget. Please explain the purpose before logging.
+            </p>
+            <FinanceField label="Purpose / Reason">
+              <textarea
+                rows={3}
+                value={financeForm.unplannedReason || ""}
+                onChange={(event) =>
+                  setFinanceForm((prev) => ({
+                    ...prev,
+                    unplannedReason: event.target.value,
+                    notes: event.target.value,
+                  }))
+                }
+                placeholder="What is this for?"
+                className={`${financeInputClassName} min-h-[96px] resize-none`}
+              />
+            </FinanceField>
+          </div>
+        ) : selectedManualExpenseBudget ? (
+          <div className="rounded-2xl border border-emerald-300/15 bg-emerald-500/10 px-4 py-3 text-xs leading-5 text-emerald-50/75">
+            This will be saved as a planned expense under {selectedManualExpenseBudget.title}.
+          </div>
+        ) : null}
       </FinanceActionModal>
 
       <FinanceActionModal
