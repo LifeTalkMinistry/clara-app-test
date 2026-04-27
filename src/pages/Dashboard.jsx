@@ -317,9 +317,10 @@ const getWalletDisplayBalance = (wallet) =>
 
 const getBudgetTotal = (budget) =>
   firstValidNumber(
-    budget?.budget,
-    budget?.total_budget,
+    budget?.allocated_amount,
     budget?.budget_amount,
+    budget?.total_budget,
+    budget?.budget,
     budget?.amount,
     budget?.target_amount
   );
@@ -7794,6 +7795,49 @@ export default function Dashboard() {
     wallets,
   ]);
 
+  const syncBudgetRowsIntoState = useCallback((rows = []) => {
+    const safeRows = Array.isArray(rows) ? rows.filter(Boolean) : [];
+    if (!safeRows.length) return;
+
+    setBudgets((previousBudgets) => {
+      const safeBudgets = Array.isArray(previousBudgets) ? previousBudgets : [];
+      const nextBudgets = [...safeBudgets];
+
+      safeRows.forEach((row) => {
+        const rowId = normalizeString(row?.id);
+        const rowMonth = normalizeString(row?.month || row?.budget_month || row?.month_key || getPHMonthKey());
+        const rowPlanType = normalizeLower(row?.plan_type || row?.type || "");
+        const rowCategory = normalizeLower(row?.category || row?.budget_category || row?.title || row?.name || "");
+
+        const existingIndex = nextBudgets.findIndex((budget) => {
+          const budgetId = normalizeString(budget?.id);
+          if (rowId && budgetId && rowId === budgetId) return true;
+
+          const budgetMonth = normalizeString(budget?.month || budget?.budget_month || budget?.month_key || getPHMonthKey());
+          const budgetPlanType = normalizeLower(budget?.plan_type || budget?.type || "");
+          const budgetCategory = normalizeLower(budget?.category || budget?.budget_category || budget?.title || budget?.name || "");
+
+          return (
+            rowMonth === budgetMonth &&
+            rowPlanType === budgetPlanType &&
+            rowCategory === budgetCategory
+          );
+        });
+
+        if (existingIndex >= 0) {
+          nextBudgets[existingIndex] = {
+            ...nextBudgets[existingIndex],
+            ...row,
+          };
+        } else {
+          nextBudgets.unshift(row);
+        }
+      });
+
+      return nextBudgets;
+    });
+  }, []);
+
   const saveBudgetInline = useCallback(async ({ finish = false, exitAfterSave = false, saveCategory = true } = {}) => {
     const categoryName = normalizeString(financeForm.budgetCategoryName || financeForm.title);
     const categoryAmount = Number(financeForm.totalBudget);
@@ -7883,6 +7927,15 @@ export default function Dashboard() {
 
       if (headerResult.error) throw headerResult.error;
 
+      const optimisticBudgetRows = [
+        {
+          ...(monthlyBudgetHeader || {}),
+          ...headerPayload,
+          id: monthlyBudgetHeader?.id || `local_monthly_budget_${monthKey}`,
+          created_at: monthlyBudgetHeader?.created_at || nowIso,
+        },
+      ];
+
       if (shouldSaveCategory) {
         const payload = {
           is_active: true,
@@ -7922,7 +7975,16 @@ export default function Dashboard() {
             ]);
 
         if (result.error) throw result.error;
+
+        optimisticBudgetRows.push({
+          ...(existingCategory || {}),
+          ...payload,
+          id: existingCategory?.id || `local_budget_category_${Date.now()}`,
+          created_at: existingCategory?.created_at || nowIso,
+        });
       }
+
+      syncBudgetRowsIntoState(optimisticBudgetRows);
 
       if (complete && monthlyBudgetPlan.categories.length) {
         const categoryIds = monthlyBudgetPlan.categories.map((item) => item.id).filter(Boolean);
@@ -7984,6 +8046,7 @@ export default function Dashboard() {
     monthlyBudgetPlan.categories,
     refreshFinanceSection,
     showFinanceNotice,
+    syncBudgetRowsIntoState,
     user?.email,
     user?.id,
   ]);
@@ -9717,7 +9780,14 @@ export default function Dashboard() {
               {expandedFinanceCard === "budgets" && (
                 <div className="[&>*]:!mb-0 [&>*]:!min-h-0">
                   <BudgetCard
-                    activeBudget={derivedActiveBudget}
+                    activeBudget={monthlyBudgetPlan}
+                    budgetCategories={Array.isArray(monthlyBudgetPlan?.categories) ? monthlyBudgetPlan.categories : []}
+                    declaredBudget={Number(monthlyBudgetPlan?.declared_budget || monthlyBudgetPlan?.declared_amount || 0)}
+                    unallocatedAmount={Number(monthlyBudgetPlan?.unallocated_amount || 0)}
+                    budgetStatus={monthlyBudgetPlan?.status || ""}
+                    isComplete={monthlyBudgetPlan?.is_complete === true}
+                    unplannedSpent={Number(monthlyBudgetPlan?.unplanned_spent || 0)}
+                    undocumentedSpent={Number(monthlyBudgetPlan?.undocumented_spent || 0)}
                     theme={selectedDashboardTheme}
                     expanded={true}
                     onToggleDetails={() => setExpandedFinanceCard(null)}
@@ -9725,6 +9795,14 @@ export default function Dashboard() {
                     onSaveBudget={() => {
                       setExpandedFinanceCard(null);
                       window.requestAnimationFrame(() => openBudgetModal());
+                    }}
+                    onEditBudgetCategory={(item) => {
+                      setExpandedFinanceCard(null);
+                      window.requestAnimationFrame(() => openBudgetModal(item));
+                    }}
+                    onDeleteBudgetCategory={(item) => {
+                      setExpandedFinanceCard(null);
+                      window.requestAnimationFrame(() => openDeleteBudgetCategoryModal(item));
                     }}
                     onResetBudget={() => {
                       setExpandedFinanceCard(null);
