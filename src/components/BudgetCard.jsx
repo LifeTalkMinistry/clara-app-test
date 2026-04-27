@@ -249,6 +249,8 @@ export default function BudgetCard({
   budgetCategories = [],
   declaredBudget = 0,
   unallocatedAmount = 0,
+  budgetStatus = "",
+  isComplete = false,
   unplannedSpent = 0,
   undocumentedSpent = 0,
   expanded = false,
@@ -318,10 +320,13 @@ export default function BudgetCard({
 
   const hasDeclaredBudget = declared > 0;
   const hasCategories = categories.length > 0 && allocated > 0;
+  const planIsComplete = isComplete === true || activeBudget?.is_complete === true || (hasDeclaredBudget && unallocated === 0 && allocated === declared);
+  const normalizedBudgetStatus = hasDeclaredBudget ? (planIsComplete ? "active" : "draft") : "empty";
   const status = getBudgetStatus(progress);
   const message = getBudgetMessage(hasDeclaredBudget, hasCategories, progress, remaining);
   const themeClasses = getBudgetThemeClasses(theme);
   const monthKey = activeBudget?.month || new Date().toISOString().slice(0, 7);
+  const badgeLabel = normalizedBudgetStatus === "active" ? "Active" : normalizedBudgetStatus === "draft" ? "Draft" : "No Plan";
 
   return (
     <>
@@ -363,7 +368,7 @@ export default function BudgetCard({
                 <span
                   className={`shrink-0 rounded-full px-2.5 py-1 text-[11px] font-semibold backdrop-blur-sm ${status.badge}`}
                 >
-                  {hasDeclaredBudget ? status.label : "No Plan"}
+                  {badgeLabel}
                 </span>
               </div>
             </div>
@@ -384,7 +389,9 @@ export default function BudgetCard({
 
             <p className={`mt-1 text-[11px] ${themeClasses.muted}`}>
               {hasDeclaredBudget
-                ? `${fmt(unallocated)} still unallocated from your declared budget.`
+                ? planIsComplete
+                  ? "Your monthly budget is fully assigned and ready for planned expense logging."
+                  : `${fmt(unallocated)} still unallocated from your declared budget.`
                 : "Your money needs a monthly plan before it disappears."}
             </p>
           </div>
