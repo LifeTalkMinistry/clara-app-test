@@ -26,8 +26,16 @@ function makeMessage(role, text) {
 }
 
 function stopAssistantEvent(event) {
-  event?.preventDefault?.();
-  event?.stopPropagation?.();
+  if (!event) return;
+  event.preventDefault?.();
+  event.stopPropagation?.();
+  event.nativeEvent?.stopImmediatePropagation?.();
+}
+
+function stopAssistantPropagation(event) {
+  if (!event) return;
+  event.stopPropagation?.();
+  event.nativeEvent?.stopImmediatePropagation?.();
 }
 
 function hasValue(value) {
@@ -341,6 +349,7 @@ function getBestContext(currentContext = {}, latestContext = {}) {
 
 export default function ClaraAssistantPanel({ open, onClose, context = {} }) {
   const latestContextRef = useRef(context || {});
+  const quickOptionLockRef = useRef(false);
 
   const activeContext = getBestContext(context || {}, latestContextRef.current || {});
   latestContextRef.current = activeContext;
@@ -384,9 +393,17 @@ export default function ClaraAssistantPanel({ open, onClose, context = {} }) {
     ]);
   };
 
-  const handleQuickOptionClick = (event, option) => {
+  const handleQuickOptionPress = (event, option) => {
     stopAssistantEvent(event);
+
+    if (quickOptionLockRef.current) return;
+    quickOptionLockRef.current = true;
+
     sendMessageText(option);
+
+    window.setTimeout(() => {
+      quickOptionLockRef.current = false;
+    }, 250);
   };
 
   const sendDraft = () => {
@@ -398,15 +415,13 @@ export default function ClaraAssistantPanel({ open, onClose, context = {} }) {
   };
 
   const handleSubmit = (event) => {
-    event.preventDefault();
-    event.stopPropagation();
+    stopAssistantEvent(event);
     sendDraft();
   };
 
   const handleKeyDown = (event) => {
     if (event.key !== "Enter" || event.shiftKey) return;
-    event.preventDefault();
-    event.stopPropagation();
+    stopAssistantEvent(event);
     sendDraft();
   };
 
@@ -417,14 +432,27 @@ export default function ClaraAssistantPanel({ open, onClose, context = {} }) {
   }
 
   return (
-    <div className="fixed inset-0 z-[120] flex items-end justify-center bg-black/70 px-3 pb-[calc(12px+env(safe-area-inset-bottom))] pt-[calc(12px+env(safe-area-inset-top))] backdrop-blur-md sm:items-center sm:p-4">
+    <div
+      className="fixed inset-0 z-[120] flex items-end justify-center bg-black/70 px-3 pb-[calc(12px+env(safe-area-inset-bottom))] pt-[calc(12px+env(safe-area-inset-top))] backdrop-blur-md sm:items-center sm:p-4"
+      onClickCapture={stopAssistantPropagation}
+      onPointerDownCapture={stopAssistantPropagation}
+      onPointerUpCapture={stopAssistantPropagation}
+      onTouchStartCapture={stopAssistantPropagation}
+      onTouchEndCapture={stopAssistantPropagation}
+      onMouseDownCapture={stopAssistantPropagation}
+      onMouseUpCapture={stopAssistantPropagation}
+    >
       <button type="button" className="absolute inset-0 cursor-default" onClick={onClose} aria-label="Close CLARA assistant overlay" />
 
       <section
         className="relative z-[1] flex h-[78dvh] w-full max-w-md flex-col overflow-hidden rounded-[30px] border border-cyan-200/10 bg-[#06111f] text-white shadow-2xl sm:h-[680px]"
-        onClick={(event) => event.stopPropagation()}
-        onPointerDown={(event) => event.stopPropagation()}
-        onTouchStart={(event) => event.stopPropagation()}
+        onClickCapture={stopAssistantPropagation}
+        onPointerDownCapture={stopAssistantPropagation}
+        onPointerUpCapture={stopAssistantPropagation}
+        onTouchStartCapture={stopAssistantPropagation}
+        onTouchEndCapture={stopAssistantPropagation}
+        onMouseDownCapture={stopAssistantPropagation}
+        onMouseUpCapture={stopAssistantPropagation}
       >
         <header className="flex shrink-0 items-center justify-between gap-3 border-b border-white/10 bg-[#081827] px-4 py-4">
           <div className="min-w-0">
@@ -460,9 +488,13 @@ export default function ClaraAssistantPanel({ open, onClose, context = {} }) {
               <button
                 key={option}
                 type="button"
-                onClick={(event) => handleQuickOptionClick(event, option)}
-                onPointerDown={(event) => event.stopPropagation()}
-                onTouchStart={(event) => event.stopPropagation()}
+                onPointerDown={stopAssistantEvent}
+                onPointerUp={(event) => handleQuickOptionPress(event, option)}
+                onTouchStart={stopAssistantEvent}
+                onTouchEnd={(event) => handleQuickOptionPress(event, option)}
+                onMouseDown={stopAssistantEvent}
+                onMouseUp={(event) => handleQuickOptionPress(event, option)}
+                onClick={stopAssistantEvent}
                 className="shrink-0 rounded-full border border-cyan-200/10 bg-white/[0.07] px-3 py-2 text-[11px] font-medium text-white/80 transition active:scale-95"
               >
                 {option}
