@@ -29,6 +29,7 @@ import {
   Wallet,
   Palette,
   Check,
+  Sparkles,
 } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
 import { createPortal } from "react-dom";
@@ -1174,6 +1175,383 @@ const QuickActionDropdown = ({
         </div>
       ) : null}
     </div>
+  );
+};
+
+const CLARA_SMART_ACTIONS = [
+  {
+    key: "future_forecast",
+    title: "Future Money Forecast",
+    subtitle: "See where your money is heading.",
+    purpose:
+      "Predict your future financial position based on wallet balance, income, spending, budget flow, savings behavior, unplanned spending, undocumented spending, and hidden risk patterns.",
+    empty:
+      "CLARA needs more income and expense history to create a reliable forecast.",
+  },
+  {
+    key: "spending_checkup",
+    title: "Spending Checkup",
+    subtitle: "Understand your past spending behavior.",
+    purpose:
+      "Review where money went, what increased, planned vs unplanned spending, undocumented spending, budget leaks, and behavior patterns.",
+    empty:
+      "Start logging expenses so CLARA can understand your spending pattern.",
+  },
+  {
+    key: "savings_game_plan",
+    title: "Savings Game Plan",
+    subtitle: "Build a realistic path to your savings goal.",
+    purpose:
+      "Analyze savings goals and calculate what you realistically need to save monthly or weekly to reach the goal.",
+    empty:
+      "Create a savings goal first so CLARA can build a realistic plan.",
+  },
+  {
+    key: "emergency_builder",
+    title: "Emergency Fund Builder",
+    subtitle: "Create your financial safety plan.",
+    purpose:
+      "Analyze emergency fund progress and suggest a realistic target and contribution plan based on income and spending.",
+    empty:
+      "Add your emergency fund goal or wallet so CLARA can calculate your protection level.",
+  },
+  {
+    key: "afford_check",
+    title: "Can I Afford This?",
+    subtitle: "Check a purchase before spending.",
+    purpose:
+      "Check whether a purchase is safe based on wallet balance, remaining budget, savings goal impact, emergency fund impact, and upcoming risk.",
+    empty:
+      "Enter the purchase amount so CLARA can check if it is safe.",
+  },
+  {
+    key: "budget_fixer",
+    title: "Budget Fixer",
+    subtitle: "Let CLARA improve your budget allocation.",
+    purpose:
+      "Analyze declared budget, categories, over-budget areas, unused categories, unplanned spending, undocumented spending, and recommend adjustments.",
+    empty:
+      "Create a declared budget first so CLARA can suggest improvements.",
+  },
+  {
+    key: "hidden_risk",
+    title: "Hidden Risk Check",
+    subtitle: "Find ignored areas that may cost you later.",
+    purpose:
+      "Detect ignored or underfunded areas that may create future financial risk, such as health, emergency fund, maintenance, family responsibility, transport, rest, and debt.",
+    empty:
+      "CLARA needs more expense history to detect hidden future risks.",
+  },
+  {
+    key: "monthly_review",
+    title: "Monthly Money Review",
+    subtitle: "Review your month with CLARA.",
+    purpose:
+      "Summarize the month, what went well, biggest spending leak, strongest discipline moment, biggest risk, and next month’s focus.",
+    empty:
+      "CLARA needs this month’s activity before creating a review.",
+  },
+  {
+    key: "next_best_move",
+    title: "Next Best Move",
+    subtitle: "Know what to do next with your money.",
+    purpose:
+      "Give one clear recommended financial action based on your current wallet, budget, expense, savings, and emergency fund situation.",
+    empty:
+      "CLARA needs recent wallet, budget, and expense activity to recommend your next move.",
+  },
+];
+
+const CLARA_FORECAST_MONTH_OPTIONS = [
+  { label: "1 month", value: 1 },
+  { label: "2 months", value: 2 },
+  { label: "3 months", value: 3 },
+  { label: "6 months", value: 6 },
+  { label: "1 year", value: 12 },
+  { label: "2 years", value: 24 },
+  { label: "5 years", value: 60 },
+  { label: "10 years", value: 120 },
+];
+
+const SMART_ACTION_FOLLOW_UPS = [
+  "Why is this risky?",
+  "How can I improve this?",
+  "What should I do today?",
+  "Make this easier for me.",
+  "Give me a stricter plan.",
+];
+
+const SmartMetricCard = ({ label, value, helper, tone = "neutral" }) => {
+  const toneClass =
+    tone === "emerald"
+      ? "border-emerald-300/15 bg-emerald-500/10 text-emerald-50"
+      : tone === "amber"
+        ? "border-amber-300/15 bg-amber-500/10 text-amber-50"
+        : tone === "rose"
+          ? "border-rose-300/15 bg-rose-500/10 text-rose-50"
+          : tone === "cyan"
+            ? "border-cyan-300/15 bg-cyan-500/10 text-cyan-50"
+            : "border-white/10 bg-white/[0.045] text-white";
+
+  return (
+    <div className={`rounded-2xl border p-3 ${toneClass}`}>
+      <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-white/55">
+        {label}
+      </p>
+      <p className="mt-1 break-words text-base font-black">{value}</p>
+      {helper ? <p className="mt-1 text-[11px] leading-5 text-white/55">{helper}</p> : null}
+    </div>
+  );
+};
+
+const ClaraSmartActionsMenu = ({ open, actions, onSelect, onClose }) => {
+  if (!open) return null;
+
+  return createPortal(
+    <div className="fixed inset-0 z-[140] flex items-end justify-center px-4 pb-[calc(5.5rem+env(safe-area-inset-bottom))] pt-[max(1rem,env(safe-area-inset-top))] sm:items-center sm:pb-4">
+      <button
+        type="button"
+        aria-label="Close CLARA Smart Actions"
+        onClick={onClose}
+        className="absolute inset-0 bg-black/35 backdrop-blur-[2px]"
+      />
+
+      <div className="relative w-full max-w-[430px] animate-[claraSmartMenuIn_180ms_ease-out] overflow-hidden rounded-[30px] border border-white/10 bg-[#06111f]/92 shadow-[0_24px_80px_rgba(0,0,0,0.55),0_0_42px_color-mix(in_srgb,var(--theme-glow)_22%,transparent)] backdrop-blur-2xl">
+        <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_20%_0%,color-mix(in_srgb,var(--theme-glow)_24%,transparent),transparent_44%),radial-gradient(circle_at_90%_100%,color-mix(in_srgb,var(--theme-glow)_14%,transparent),transparent_42%)]" />
+        <div className="relative border-b border-white/10 px-5 py-4">
+          <div className="flex items-start justify-between gap-3">
+            <div>
+              <p className="text-[10px] font-bold uppercase tracking-[0.22em] text-cyan-100/55">
+                CLARA
+              </p>
+              <h3 className="mt-1 text-xl font-black text-white">CLARA Smart Actions</h3>
+              <p className="mt-1 text-sm leading-5 text-white/58">
+                Choose what you want CLARA to analyze.
+              </p>
+            </div>
+
+            <button
+              type="button"
+              onClick={onClose}
+              className="flex h-9 w-9 shrink-0 items-center justify-center rounded-2xl border border-white/10 bg-white/[0.055] text-white/70 transition hover:bg-white/10 hover:text-white"
+              aria-label="Close"
+            >
+              <X className="h-4 w-4" />
+            </button>
+          </div>
+        </div>
+
+        <div className="relative max-h-[min(70dvh,560px)] overflow-y-auto p-3">
+          <div className="grid gap-2">
+            {actions.map((action) => (
+              <button
+                key={action.key}
+                type="button"
+                onClick={() => onSelect(action.key)}
+                className="group rounded-3xl border border-white/10 bg-white/[0.045] p-4 text-left transition hover:border-cyan-200/20 hover:bg-white/[0.075] hover:shadow-[0_0_24px_color-mix(in_srgb,var(--theme-glow)_18%,transparent)] active:scale-[0.985]"
+              >
+                <div className="flex items-center gap-3">
+                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl border border-cyan-200/15 bg-cyan-400/10 text-cyan-100 shadow-[0_0_18px_color-mix(in_srgb,var(--theme-glow)_18%,transparent)]">
+                    <Sparkles className="h-4 w-4" />
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-sm font-black text-white">{action.title}</p>
+                    <p className="mt-0.5 text-xs leading-5 text-white/50">{action.subtitle}</p>
+                  </div>
+                  <ChevronRight className="h-4 w-4 shrink-0 text-white/32 transition group-hover:translate-x-0.5 group-hover:text-cyan-100/80" />
+                </div>
+              </button>
+            ))}
+          </div>
+        </div>
+
+        <style>{`
+          @keyframes claraSmartMenuIn {
+            from { opacity: 0; transform: translateY(14px) scale(0.98); }
+            to { opacity: 1; transform: translateY(0) scale(1); }
+          }
+        `}</style>
+      </div>
+    </div>,
+    document.body
+  );
+};
+
+const SmartActionResultPanel = ({
+  action,
+  result,
+  forecastMonths,
+  onForecastMonthsChange,
+  affordForm,
+  onAffordFormChange,
+  onBack,
+  onClose,
+}) => {
+  if (!action) return null;
+
+  return createPortal(
+    <div className="fixed inset-0 z-[145] flex items-end justify-center bg-black/45 px-4 pb-[calc(1rem+env(safe-area-inset-bottom))] pt-[max(1rem,env(safe-area-inset-top))] backdrop-blur-md sm:items-center sm:p-4">
+      <div className="flex max-h-[calc(100dvh-2rem-env(safe-area-inset-top)-env(safe-area-inset-bottom))] w-full max-w-[430px] flex-col overflow-hidden rounded-[30px] border border-white/10 bg-[#06111f]/96 shadow-[0_24px_90px_rgba(0,0,0,0.58),0_0_42px_color-mix(in_srgb,var(--theme-glow)_18%,transparent)]">
+        <div className="shrink-0 border-b border-white/10 bg-white/[0.035] px-5 py-4">
+          <div className="flex items-start justify-between gap-3">
+            <div className="min-w-0">
+              <button
+                type="button"
+                onClick={onBack}
+                className="mb-3 inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/[0.045] px-3 py-1.5 text-[11px] font-bold text-white/65 transition hover:bg-white/10 hover:text-white"
+              >
+                ← Smart Actions
+              </button>
+              <h3 className="break-words text-xl font-black text-white">{action.title}</h3>
+              <p className="mt-1 text-sm leading-5 text-white/58">{action.subtitle}</p>
+            </div>
+            <button
+              type="button"
+              onClick={onClose}
+              className="flex h-9 w-9 shrink-0 items-center justify-center rounded-2xl border border-white/10 bg-white/[0.055] text-white/70 transition hover:bg-white/10 hover:text-white"
+              aria-label="Close result"
+            >
+              <X className="h-4 w-4" />
+            </button>
+          </div>
+        </div>
+
+        <div className="min-h-0 flex-1 space-y-4 overflow-y-auto px-4 py-4">
+          {action.key === "future_forecast" ? (
+            <div className="rounded-3xl border border-white/10 bg-white/[0.04] p-3">
+              <p className="mb-2 text-[11px] font-bold uppercase tracking-[0.16em] text-white/50">
+                Projection period
+              </p>
+              <div className="grid grid-cols-4 gap-2">
+                {CLARA_FORECAST_MONTH_OPTIONS.map((option) => (
+                  <button
+                    key={option.value}
+                    type="button"
+                    onClick={() => onForecastMonthsChange(option.value)}
+                    className={`rounded-2xl border px-2 py-2 text-[11px] font-bold transition ${
+                      forecastMonths === option.value
+                        ? "border-cyan-200/25 bg-cyan-400/15 text-cyan-100"
+                        : "border-white/10 bg-white/[0.035] text-white/60 hover:bg-white/[0.07]"
+                    }`}
+                  >
+                    {option.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+          ) : null}
+
+          {action.key === "afford_check" ? (
+            <div className="rounded-3xl border border-white/10 bg-white/[0.04] p-4">
+              <p className="text-sm font-black text-white">Purchase check</p>
+              <p className="mt-1 text-xs leading-5 text-white/50">
+                Enter the amount first so CLARA can check whether the purchase is safe.
+              </p>
+              <div className="mt-3 grid gap-3">
+                <input
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  value={affordForm.amount}
+                  onChange={(event) => onAffordFormChange({ ...affordForm, amount: event.target.value })}
+                  placeholder="Purchase amount"
+                  className="w-full rounded-2xl border border-white/10 bg-white/[0.045] px-4 py-3 text-sm text-white outline-none transition placeholder:text-white/35 focus:border-cyan-300/35 focus:bg-white/[0.07]"
+                />
+                <input
+                  type="text"
+                  value={affordForm.item}
+                  onChange={(event) => onAffordFormChange({ ...affordForm, item: event.target.value })}
+                  placeholder="Item name, optional"
+                  className="w-full rounded-2xl border border-white/10 bg-white/[0.045] px-4 py-3 text-sm text-white outline-none transition placeholder:text-white/35 focus:border-cyan-300/35 focus:bg-white/[0.07]"
+                />
+              </div>
+            </div>
+          ) : null}
+
+          <div className="rounded-[28px] border border-white/10 bg-white/[0.045] p-5">
+            <div className="mb-3 flex items-center gap-2">
+              <span className={`rounded-full border px-2.5 py-1 text-[11px] font-black ${
+                result.tone === "critical" || result.tone === "rose"
+                  ? "border-rose-300/20 bg-rose-500/10 text-rose-100"
+                  : result.tone === "warning" || result.tone === "amber"
+                    ? "border-amber-300/20 bg-amber-500/10 text-amber-100"
+                    : "border-emerald-300/20 bg-emerald-500/10 text-emerald-100"
+              }`}>
+                {result.status}
+              </span>
+              <span className="text-[11px] text-white/38">Estimate, not a promise</span>
+            </div>
+
+            <p className="text-base font-bold leading-6 text-white">{result.summary}</p>
+            <p className="mt-3 text-sm leading-6 text-white/62">{result.explanation}</p>
+
+            <div className="mt-4 rounded-2xl border border-cyan-200/15 bg-cyan-400/10 p-3">
+              <p className="text-[11px] font-black uppercase tracking-[0.16em] text-cyan-100/60">
+                Key recommendation
+              </p>
+              <p className="mt-1 text-sm leading-6 text-cyan-50/90">{result.recommendation}</p>
+            </div>
+          </div>
+
+          {result.empty ? (
+            <div className="rounded-3xl border border-white/10 bg-white/[0.04] p-4 text-sm leading-6 text-white/62">
+              {result.empty}
+            </div>
+          ) : null}
+
+          {Array.isArray(result.metrics) && result.metrics.length ? (
+            <div className="grid grid-cols-2 gap-2">
+              {result.metrics.map((metric) => (
+                <SmartMetricCard key={metric.label} {...metric} />
+              ))}
+            </div>
+          ) : null}
+
+          {Array.isArray(result.risks) && result.risks.length ? (
+            <div className="rounded-3xl border border-amber-300/15 bg-amber-500/10 p-4">
+              <p className="text-sm font-black text-amber-50">Hidden future risks</p>
+              <div className="mt-3 space-y-2">
+                {result.risks.map((risk) => (
+                  <div key={risk} className="rounded-2xl border border-white/10 bg-black/15 px-3 py-2 text-xs leading-5 text-amber-50/78">
+                    {risk}
+                  </div>
+                ))}
+              </div>
+            </div>
+          ) : null}
+
+          {Array.isArray(result.actions) && result.actions.length ? (
+            <div className="rounded-3xl border border-white/10 bg-white/[0.04] p-4">
+              <p className="text-sm font-black text-white">Suggested actions</p>
+              <div className="mt-3 space-y-2">
+                {result.actions.map((item) => (
+                  <div key={item} className="flex gap-2 rounded-2xl border border-white/10 bg-black/15 px-3 py-2 text-xs leading-5 text-white/66">
+                    <span className="mt-1 h-1.5 w-1.5 shrink-0 rounded-full bg-cyan-200" />
+                    <span>{item}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          ) : null}
+
+          <div className="rounded-3xl border border-white/10 bg-white/[0.035] p-4">
+            <p className="text-sm font-black text-white">Ask about this result</p>
+            <div className="mt-3 flex flex-wrap gap-2">
+              {SMART_ACTION_FOLLOW_UPS.map((chip) => (
+                <button
+                  key={chip}
+                  type="button"
+                  className="rounded-full border border-white/10 bg-white/[0.045] px-3 py-2 text-[11px] font-semibold text-white/62 transition hover:border-cyan-200/20 hover:bg-cyan-400/10 hover:text-cyan-50"
+                >
+                  {chip}
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>,
+    document.body
   );
 };
 
@@ -5597,7 +5975,20 @@ export default function Dashboard() {
   const [financeModal, setFinanceModal] = useState({ type: null, payload: null });
   const [budgetExitConfirm, setBudgetExitConfirm] = useState(false);
   const [budgetListOpen, setBudgetListOpen] = useState(false);
+  const [smartActionsOpen, setSmartActionsOpen] = useState(false);
+  const [activeSmartActionKey, setActiveSmartActionKey] = useState(null);
+  const [smartForecastMonths, setSmartForecastMonths] = useState(3);
+  const [affordCheckForm, setAffordCheckForm] = useState({
+    amount: "",
+    item: "",
+    category: "",
+    needType: "",
+  });
   const budgetListDropdownRef = useRef(null);
+  const quickOrbOverrideRef = useRef({
+    longPressTimer: null,
+    longPressTriggered: false,
+  });
   const [financeForm, setFinanceForm] = useState({
     name: "",
     type: "cash",
@@ -6865,6 +7256,618 @@ export default function Dashboard() {
     [budgetPlanIsComplete, manualExpenseBudgetOptions]
   );
 
+  const smartFinanceContext = useMemo(() => {
+    const safeWallets = Array.isArray(wallets) ? wallets : [];
+    const safeExpenses = Array.isArray(expenses) ? expenses : [];
+    const safeBudgets = Array.isArray(budgets) ? budgets : [];
+    const safeSavingsGoals = Array.isArray(savingsGoals) ? savingsGoals : [];
+    const safeWalletTransactions = Array.isArray(walletTransactions) ? walletTransactions : [];
+    const monthRange = getPHMonthRange();
+    const currentMonthKey = getPHMonthKey();
+
+    const currentWalletBalance = safeWallets.reduce(
+      (sum, wallet) => sum + getWalletDisplayBalance(wallet),
+      0
+    );
+
+    const monthExpenses = safeExpenses.filter((expense) =>
+      isInPHRange(getTransactionDate(expense), monthRange.start, monthRange.end)
+    );
+
+    const monthIncomeEntries = safeWalletTransactions.filter((transaction) => {
+      const type = normalizeLower(transaction?.type || transaction?.transaction_type);
+      const date = getTransactionDate(transaction);
+      return INCOME_TRANSACTION_TYPES.has(type) && date && getPHMonthKey(date) === currentMonthKey;
+    });
+
+    const monthlyIncome = monthIncomeEntries.reduce(
+      (sum, transaction) => sum + firstValidNumber(transaction?.amount),
+      0
+    );
+
+    const monthlyExpenses = monthExpenses.reduce(
+      (sum, expense) => sum + firstValidNumber(expense?.amount),
+      0
+    );
+
+    const plannedExpenses = monthExpenses.filter(
+      (expense) => normalizeLower(expense?.planning_status || "planned") === "planned"
+    );
+    const unplannedExpenses = monthExpenses.filter(
+      (expense) => normalizeLower(expense?.planning_status) === "unplanned"
+    );
+    const undocumentedExpenses = monthExpenses.filter(
+      (expense) => normalizeLower(expense?.planning_status) === "undocumented"
+    );
+
+    const unplannedSpent = unplannedExpenses.reduce(
+      (sum, expense) => sum + firstValidNumber(expense?.amount),
+      0
+    );
+    const undocumentedSpent = undocumentedExpenses.reduce(
+      (sum, expense) => sum + firstValidNumber(expense?.amount),
+      0
+    );
+    const plannedSpent = plannedExpenses.reduce(
+      (sum, expense) => sum + firstValidNumber(expense?.amount),
+      0
+    );
+
+    const categoryTotals = monthExpenses.reduce((map, expense) => {
+      const key = getBudgetListTitle({
+        title:
+          expense?.budget_category ||
+          expense?.expense_category ||
+          expense?.category ||
+          "Other",
+      });
+      map[key] = (map[key] || 0) + firstValidNumber(expense?.amount);
+      return map;
+    }, {});
+
+    const topCategories = Object.entries(categoryTotals)
+      .map(([label, amount]) => ({ label, amount }))
+      .sort((a, b) => b.amount - a.amount)
+      .slice(0, 5);
+
+    const budgetCategories = Array.isArray(monthlyBudgetPlan?.categories)
+      ? monthlyBudgetPlan.categories
+      : [];
+
+    const declaredBudget = firstValidNumber(
+      monthlyBudgetPlan?.declared_budget,
+      monthlyBudgetPlan?.declared_amount,
+      derivedActiveBudget?.total_budget,
+      derivedActiveBudget?.budget_amount
+    );
+
+    const allocatedBudget = budgetCategories.reduce(
+      (sum, item) => sum + firstValidNumber(item?.allocated, item?.allocated_amount, item?.amount),
+      0
+    );
+    const budgetRemaining = budgetCategories.reduce(
+      (sum, item) => sum + firstValidNumber(item?.remaining, item?.remaining_amount),
+      0
+    );
+    const unallocatedBudget = Math.max(declaredBudget - allocatedBudget, 0);
+
+    const overBudgetCategories = budgetCategories
+      .filter((item) => firstValidNumber(item?.spent, item?.spent_amount) > firstValidNumber(item?.allocated, item?.allocated_amount))
+      .map((item) => ({
+        title: item.title || getBudgetListTitle(item),
+        overBy: firstValidNumber(item?.spent, item?.spent_amount) - firstValidNumber(item?.allocated, item?.allocated_amount),
+      }));
+
+    const unusedBudgetCategories = budgetCategories
+      .filter((item) => firstValidNumber(item?.allocated, item?.allocated_amount) > 0 && firstValidNumber(item?.spent, item?.spent_amount) <= 0)
+      .map((item) => item.title || getBudgetListTitle(item))
+      .slice(0, 4);
+
+    const savingsTarget = safeSavingsGoals.reduce((sum, goal) => sum + getSavingsTarget(goal), 0);
+    const savingsSaved = safeSavingsGoals.reduce((sum, goal) => sum + getSavingsSaved(goal), 0);
+    const primaryGoal = safeSavingsGoals[0] || null;
+
+    const emergencyMonthlyNeed = firstPositiveNumber(
+      survivalExpense,
+      profileData?.monthly_survival_expense,
+      profileData?.survival_expense,
+      profileData?.clara_survival_expense
+    );
+    const emergencyMonths = emergencyMonthlyNeed > 0 ? currentWalletBalance / emergencyMonthlyNeed : 0;
+
+    const riskLeakage = undocumentedSpent + unplannedSpent + overBudgetCategories.reduce((sum, item) => sum + item.overBy, 0);
+    const averageMonthlyIncome = monthlyIncome;
+    const averageMonthlyExpenses = monthlyExpenses;
+    const averageMonthlyNetFlow = averageMonthlyIncome - averageMonthlyExpenses - riskLeakage;
+
+    return {
+      currentWalletBalance,
+      monthlyIncome,
+      monthlyExpenses,
+      plannedSpent,
+      unplannedSpent,
+      undocumentedSpent,
+      monthExpenses,
+      monthIncomeEntries,
+      topCategories,
+      budgetCategories,
+      declaredBudget,
+      allocatedBudget,
+      budgetRemaining,
+      unallocatedBudget,
+      overBudgetCategories,
+      unusedBudgetCategories,
+      savingsGoals: safeSavingsGoals,
+      savingsTarget,
+      savingsSaved,
+      primaryGoal,
+      emergencyMonthlyNeed,
+      emergencyMonths,
+      riskLeakage,
+      averageMonthlyIncome,
+      averageMonthlyExpenses,
+      averageMonthlyNetFlow,
+      hasExpenseHistory: monthExpenses.length > 0,
+      hasIncomeHistory: monthIncomeEntries.length > 0 || monthlyIncome > 0,
+      hasBudget: declaredBudget > 0 || allocatedBudget > 0 || budgetCategories.length > 0,
+      hasSavingsGoal: safeSavingsGoals.length > 0 && savingsTarget > 0,
+      hasEmergencyData: emergencyMonthlyNeed > 0 || currentWalletBalance > 0,
+    };
+  }, [
+    budgets,
+    derivedActiveBudget,
+    expenses,
+    monthlyBudgetPlan,
+    profileData,
+    savingsGoals,
+    survivalExpense,
+    walletTransactions,
+    wallets,
+  ]);
+
+  const activeSmartAction = useMemo(
+    () => CLARA_SMART_ACTIONS.find((action) => action.key === activeSmartActionKey) || null,
+    [activeSmartActionKey]
+  );
+
+  const smartActionResult = useMemo(() => {
+    const ctx = smartFinanceContext;
+    const action = activeSmartAction;
+
+    if (!action) {
+      return {
+        status: "Ready",
+        tone: "neutral",
+        summary: "Choose a Smart Action to begin.",
+        explanation: "CLARA will analyze your current money pattern using your latest wallet, budget, expense, savings, and emergency fund data.",
+        recommendation: "Long press the CLARA orb and pick the kind of analysis you need.",
+        metrics: [],
+        risks: [],
+        actions: [],
+      };
+    }
+
+    const money = fmt;
+    const base = {
+      status: "Analyzed",
+      tone: "emerald",
+      summary: "",
+      explanation: "",
+      recommendation: "",
+      metrics: [],
+      risks: [],
+      actions: [],
+      empty: "",
+    };
+
+    if (action.key === "future_forecast") {
+      if (!ctx.hasIncomeHistory && !ctx.hasExpenseHistory) {
+        return {
+          ...base,
+          status: "Needs Data",
+          tone: "amber",
+          summary: "CLARA needs more income and expense history to create a reliable forecast.",
+          explanation: "Start logging income and expenses so the projection can become more useful.",
+          recommendation: "Log your income and daily expenses for this month first.",
+          empty: action.empty,
+        };
+      }
+
+      const projectedBalance = ctx.currentWalletBalance + ctx.averageMonthlyNetFlow * smartForecastMonths;
+      const trajectory =
+        projectedBalance < 0 || ctx.averageMonthlyNetFlow < -1000
+          ? "Critical"
+          : ctx.averageMonthlyNetFlow < 0
+            ? "Risky"
+            : ctx.averageMonthlyNetFlow < 1000
+              ? "Stable"
+              : ctx.averageMonthlyNetFlow < 5000
+                ? "Slow Growth"
+                : "Healthy";
+
+      return {
+        ...base,
+        status: trajectory,
+        tone: trajectory === "Critical" ? "critical" : trajectory === "Risky" ? "warning" : "emerald",
+        summary: `Estimated ${smartForecastMonths}-month balance: ${money(projectedBalance)}.`,
+        explanation: `This estimate uses your current wallet balance plus your estimated monthly net flow. Your current estimated monthly net flow is ${money(ctx.averageMonthlyNetFlow)}.`,
+        recommendation:
+          ctx.averageMonthlyNetFlow < 0
+            ? "Reduce unplanned and undocumented spending first before adding new goals."
+            : "Protect this direction by keeping spending documented and budget categories updated.",
+        metrics: [
+          { label: "Current money", value: money(ctx.currentWalletBalance), tone: "cyan" },
+          { label: "Monthly net flow", value: money(ctx.averageMonthlyNetFlow), tone: ctx.averageMonthlyNetFlow >= 0 ? "emerald" : "rose" },
+          { label: "Risk leakage", value: money(ctx.riskLeakage), tone: ctx.riskLeakage > 0 ? "amber" : "emerald" },
+          { label: "Projection", value: money(projectedBalance), tone: projectedBalance >= 0 ? "emerald" : "rose" },
+        ],
+        risks: [
+          ctx.undocumentedSpent > 0 ? `Undocumented spending is hiding ${money(ctx.undocumentedSpent)} from clear analysis.` : "",
+          ctx.unplannedSpent > 0 ? `Unplanned spending is pulling ${money(ctx.unplannedSpent)} away from the planned budget.` : "",
+          ctx.averageMonthlyNetFlow < 0 ? "Your monthly flow is currently negative." : "",
+        ].filter(Boolean),
+        actions: [
+          "Document missing expenses this week.",
+          "Reduce the biggest unplanned spending category first.",
+          "Review this projection after your next income entry.",
+        ],
+      };
+    }
+
+    if (action.key === "spending_checkup") {
+      if (!ctx.hasExpenseHistory) {
+        return {
+          ...base,
+          status: "Needs Data",
+          tone: "amber",
+          summary: action.empty,
+          explanation: "CLARA cannot review behavior until expenses are logged.",
+          recommendation: "Log at least a few expenses first.",
+          empty: action.empty,
+        };
+      }
+
+      const biggest = ctx.topCategories[0];
+      return {
+        ...base,
+        status: ctx.unplannedSpent + ctx.undocumentedSpent > ctx.monthlyExpenses * 0.25 ? "Watch Closely" : "Readable",
+        tone: ctx.unplannedSpent + ctx.undocumentedSpent > ctx.monthlyExpenses * 0.25 ? "warning" : "emerald",
+        summary: `You spent ${money(ctx.monthlyExpenses)} this month.`,
+        explanation: biggest ? `Your biggest spending area is ${biggest.label} at ${money(biggest.amount)}.` : "Your expenses are logged, but categories are still limited.",
+        recommendation:
+          ctx.unplannedSpent > 0
+            ? "Start by reducing unplanned spending because it is the easiest leak to control."
+            : "Keep documenting expenses so CLARA can continue finding patterns.",
+        metrics: [
+          { label: "Total spent", value: money(ctx.monthlyExpenses), tone: "cyan" },
+          { label: "Planned", value: money(ctx.plannedSpent), tone: "emerald" },
+          { label: "Unplanned", value: money(ctx.unplannedSpent), tone: ctx.unplannedSpent > 0 ? "amber" : "emerald" },
+          { label: "Undocumented", value: money(ctx.undocumentedSpent), tone: ctx.undocumentedSpent > 0 ? "amber" : "emerald" },
+        ],
+        risks: [
+          ctx.undocumentedSpent > 0 ? "Undocumented spending makes it harder to see where money truly went." : "",
+          ctx.unplannedSpent > 0 ? "Unplanned spending can weaken your monthly budget discipline." : "",
+        ].filter(Boolean),
+        actions: [
+          "Review the top spending category.",
+          "Separate planned expenses from unplanned expenses.",
+          "Log undocumented spending reasons consistently.",
+        ],
+      };
+    }
+
+    if (action.key === "savings_game_plan") {
+      if (!ctx.hasSavingsGoal) {
+        return {
+          ...base,
+          status: "Needs Goal",
+          tone: "amber",
+          summary: action.empty,
+          explanation: "A savings goal gives CLARA a target to calculate weekly or monthly contributions.",
+          recommendation: "Create one savings goal first.",
+          empty: action.empty,
+        };
+      }
+
+      const remaining = Math.max(ctx.savingsTarget - ctx.savingsSaved, 0);
+      const requiredMonthly = remaining > 0 ? remaining / 6 : 0;
+      const requiredWeekly = requiredMonthly / 4.345;
+      const feasible = ctx.averageMonthlyNetFlow >= requiredMonthly;
+
+      return {
+        ...base,
+        status: feasible ? "Realistic" : "Needs Adjustment",
+        tone: feasible ? "emerald" : "warning",
+        summary: `You still need ${money(remaining)} to complete your savings goals.`,
+        explanation: `A six-month path requires about ${money(requiredMonthly)} per month or ${money(requiredWeekly)} per week.`,
+        recommendation: feasible
+          ? "Automate or schedule the weekly amount before spending starts."
+          : "Lower the goal pace or reduce spending leakage first.",
+        metrics: [
+          { label: "Target", value: money(ctx.savingsTarget), tone: "cyan" },
+          { label: "Saved", value: money(ctx.savingsSaved), tone: "emerald" },
+          { label: "Monthly need", value: money(requiredMonthly), tone: feasible ? "emerald" : "amber" },
+          { label: "Weekly need", value: money(requiredWeekly), tone: "cyan" },
+        ],
+        risks: [
+          ctx.averageMonthlyNetFlow < requiredMonthly ? "Current monthly surplus may not be enough for this pace." : "",
+          ctx.unplannedSpent > 0 ? "Unplanned spending may compete with your savings contribution." : "",
+        ].filter(Boolean),
+        actions: ["Set a weekly contribution target.", "Review the goal after every payday.", "Protect the goal from unplanned spending."],
+      };
+    }
+
+    if (action.key === "emergency_builder") {
+      if (!ctx.hasEmergencyData) {
+        return {
+          ...base,
+          status: "Needs Setup",
+          tone: "amber",
+          summary: action.empty,
+          explanation: "CLARA needs your monthly survival expense or emergency fund data to estimate protection.",
+          recommendation: "Add your monthly survival expense first.",
+          empty: action.empty,
+        };
+      }
+
+      const starterTarget = ctx.emergencyMonthlyNeed * 3;
+      const idealTarget = ctx.emergencyMonthlyNeed * 6;
+      const contribution = Math.max(500, Math.min(Math.max(ctx.averageMonthlyNetFlow * 0.2, 0), ctx.emergencyMonthlyNeed || 1000));
+      const level = ctx.emergencyMonths >= 6 ? "Strong" : ctx.emergencyMonths >= 3 ? "Starter Protected" : "Building";
+
+      return {
+        ...base,
+        status: level,
+        tone: ctx.emergencyMonths >= 3 ? "emerald" : "warning",
+        summary: `Your estimated protection is ${ctx.emergencyMonths.toFixed(1)} months.`,
+        explanation: `A starter emergency fund target is ${money(starterTarget)}. A stronger target is ${money(idealTarget)}.`,
+        recommendation: `Aim to contribute around ${money(contribution)} per month if your cash flow allows it.`,
+        metrics: [
+          { label: "Protection", value: `${ctx.emergencyMonths.toFixed(1)} months`, tone: ctx.emergencyMonths >= 3 ? "emerald" : "amber" },
+          { label: "Starter target", value: money(starterTarget), tone: "cyan" },
+          { label: "Ideal target", value: money(idealTarget), tone: "cyan" },
+          { label: "Suggested monthly", value: money(contribution), tone: "emerald" },
+        ],
+        risks: [ctx.emergencyMonths < 1 ? "Your protection may be too thin for sudden expenses." : ""].filter(Boolean),
+        actions: ["Build the starter target first.", "Keep this fund separate from daily spending.", "Increase contribution when income improves."],
+      };
+    }
+
+    if (action.key === "afford_check") {
+      const amount = Number(affordCheckForm.amount);
+      if (!Number.isFinite(amount) || amount <= 0) {
+        return {
+          ...base,
+          status: "Waiting",
+          tone: "amber",
+          summary: action.empty,
+          explanation: "Enter a purchase amount and CLARA will check wallet, budget, savings, and emergency fund impact.",
+          recommendation: "Type the amount first.",
+          empty: action.empty,
+        };
+      }
+
+      const budgetImpact = ctx.budgetRemaining - amount;
+      const walletImpact = ctx.currentWalletBalance - amount;
+      const savingsRisk = ctx.hasSavingsGoal && ctx.averageMonthlyNetFlow < amount;
+      const safe = walletImpact >= 0 && budgetImpact >= 0 && !savingsRisk;
+      const risky = walletImpact >= 0 && !safe;
+
+      return {
+        ...base,
+        status: safe ? "Safe" : risky ? "Possible but risky" : "Not recommended right now",
+        tone: safe ? "emerald" : risky ? "warning" : "critical",
+        summary: `${affordCheckForm.item ? affordCheckForm.item : "This purchase"} costs ${money(amount)}.`,
+        explanation: `After this purchase, your estimated wallet position would be ${money(walletImpact)} and planned budget remaining would be ${money(budgetImpact)}.`,
+        recommendation: safe
+          ? "This looks manageable, but still log it immediately if you proceed."
+          : risky
+            ? "Delay it or reduce the amount unless it is truly necessary."
+            : "Do not proceed right now unless this is urgent.",
+        metrics: [
+          { label: "Purchase", value: money(amount), tone: "cyan" },
+          { label: "Wallet after", value: money(walletImpact), tone: walletImpact >= 0 ? "emerald" : "rose" },
+          { label: "Budget after", value: money(budgetImpact), tone: budgetImpact >= 0 ? "emerald" : "amber" },
+          { label: "Savings impact", value: savingsRisk ? "Risk" : "Low", tone: savingsRisk ? "amber" : "emerald" },
+        ],
+        risks: [
+          walletImpact < 0 ? "This may exceed your available wallet balance." : "",
+          budgetImpact < 0 ? "This may push your planned budget negative." : "",
+          savingsRisk ? "This may compete with your savings goal." : "",
+        ].filter(Boolean),
+        actions: ["Check if this is a need or a want.", "Delay 24 hours if it is not urgent.", "Log it immediately if you proceed."],
+      };
+    }
+
+    if (action.key === "budget_fixer") {
+      if (!ctx.hasBudget) {
+        return {
+          ...base,
+          status: "Needs Budget",
+          tone: "amber",
+          summary: action.empty,
+          explanation: "A declared budget helps CLARA compare planned allocation against real behavior.",
+          recommendation: "Create a declared budget and categories first.",
+          empty: action.empty,
+        };
+      }
+
+      return {
+        ...base,
+        status: ctx.overBudgetCategories.length ? "Needs Fix" : "Balanced",
+        tone: ctx.overBudgetCategories.length || ctx.unplannedSpent > 0 ? "warning" : "emerald",
+        summary: `You allocated ${money(ctx.allocatedBudget)} from a declared budget of ${money(ctx.declaredBudget)}.`,
+        explanation: `Unallocated balance is ${money(ctx.unallocatedBudget)}. Planned budget remaining is ${money(ctx.budgetRemaining)}.`,
+        recommendation:
+          ctx.overBudgetCategories.length
+            ? "Move money from unused categories toward the category that is already over budget."
+            : "Keep the current allocation, but monitor unplanned and undocumented spending.",
+        metrics: [
+          { label: "Declared", value: money(ctx.declaredBudget), tone: "cyan" },
+          { label: "Allocated", value: money(ctx.allocatedBudget), tone: "emerald" },
+          { label: "Unallocated", value: money(ctx.unallocatedBudget), tone: ctx.unallocatedBudget > 0 ? "amber" : "emerald" },
+          { label: "Over budget", value: String(ctx.overBudgetCategories.length), tone: ctx.overBudgetCategories.length ? "amber" : "emerald" },
+        ],
+        risks: [
+          ctx.unallocatedBudget > 0 ? `${money(ctx.unallocatedBudget)} is not assigned to any category yet.` : "",
+          ctx.undocumentedSpent > 0 ? "Undocumented spending can make budget fixes less accurate." : "",
+        ].filter(Boolean),
+        actions: [
+          ctx.unusedBudgetCategories.length ? `Review unused categories: ${ctx.unusedBudgetCategories.join(", ")}.` : "Keep categories updated.",
+          "Move allocation toward repeated spending needs.",
+          "Reduce unplanned spending before changing long-term categories.",
+        ],
+      };
+    }
+
+    if (action.key === "hidden_risk") {
+      if (!ctx.hasExpenseHistory) {
+        return {
+          ...base,
+          status: "Needs Data",
+          tone: "amber",
+          summary: action.empty,
+          explanation: "CLARA needs expense activity to spot ignored financial prevention areas.",
+          recommendation: "Log expenses consistently first.",
+          empty: action.empty,
+        };
+      }
+
+      const categories = ctx.topCategories.map((item) => normalizeLower(item.label));
+      const risks = [
+        categories.some((c) => c.includes("health") || c.includes("medicine") || c.includes("dental")) ? "" : "You have little to no health-related spending this month. Basic prevention can protect you from bigger expenses later.",
+        ctx.emergencyMonths < 1 ? "Emergency protection appears thin. A small emergency fund can reduce future borrowing risk." : "",
+        categories.some((c) => c.includes("transport")) ? "" : "Transportation or maintenance spending is not visible. Ignoring it may create surprise costs later.",
+        ctx.undocumentedSpent > 0 ? "Undocumented spending hides details that could reveal future risk." : "",
+      ].filter(Boolean);
+
+      return {
+        ...base,
+        status: risks.length ? "Watch Areas" : "Low Visible Risk",
+        tone: risks.length ? "warning" : "emerald",
+        summary: risks.length ? `CLARA found ${risks.length} area${risks.length === 1 ? "" : "s"} to watch.` : "No major hidden risk is visible yet.",
+        explanation: "This is financial prevention only, not medical or personal diagnosis.",
+        recommendation: risks.length ? "Choose one prevention area to fund lightly this month." : "Keep documenting expenses so hidden risks remain visible.",
+        metrics: [
+          { label: "Visible risks", value: String(risks.length), tone: risks.length ? "amber" : "emerald" },
+          { label: "Emergency months", value: `${ctx.emergencyMonths.toFixed(1)}`, tone: ctx.emergencyMonths >= 3 ? "emerald" : "amber" },
+          { label: "Undocumented", value: money(ctx.undocumentedSpent), tone: ctx.undocumentedSpent > 0 ? "amber" : "emerald" },
+          { label: "Month spent", value: money(ctx.monthlyExpenses), tone: "cyan" },
+        ],
+        risks,
+        actions: ["Set aside a small prevention budget.", "Review ignored categories weekly.", "Keep receipts or note undocumented reasons."],
+      };
+    }
+
+    if (action.key === "monthly_review") {
+      if (!ctx.hasExpenseHistory && !ctx.hasIncomeHistory) {
+        return {
+          ...base,
+          status: "Needs Activity",
+          tone: "amber",
+          summary: action.empty,
+          explanation: "CLARA needs current-month income, expense, budget, or savings activity to create a useful review.",
+          recommendation: "Log this month’s activity first.",
+          empty: action.empty,
+        };
+      }
+
+      const netFlow = ctx.monthlyIncome - ctx.monthlyExpenses;
+      const biggest = ctx.topCategories[0];
+
+      return {
+        ...base,
+        status: netFlow >= 0 ? "Positive Flow" : "Negative Flow",
+        tone: netFlow >= 0 ? "emerald" : "warning",
+        summary: `This month: ${money(ctx.monthlyIncome)} in, ${money(ctx.monthlyExpenses)} out.`,
+        explanation: biggest ? `Your biggest spending area was ${biggest.label}. Net flow is ${money(netFlow)}.` : `Net flow is ${money(netFlow)}.`,
+        recommendation: netFlow >= 0 ? "Protect the positive flow by keeping purchases planned." : "Focus next month on reducing one spending leak.",
+        metrics: [
+          { label: "Income", value: money(ctx.monthlyIncome), tone: "emerald" },
+          { label: "Expenses", value: money(ctx.monthlyExpenses), tone: "cyan" },
+          { label: "Net flow", value: money(netFlow), tone: netFlow >= 0 ? "emerald" : "rose" },
+          { label: "Undocumented", value: money(ctx.undocumentedSpent), tone: ctx.undocumentedSpent > 0 ? "amber" : "emerald" },
+        ],
+        risks: [
+          ctx.unplannedSpent > 0 ? `Unplanned spending reached ${money(ctx.unplannedSpent)}.` : "",
+          ctx.undocumentedSpent > 0 ? `Undocumented spending reached ${money(ctx.undocumentedSpent)}.` : "",
+        ].filter(Boolean),
+        actions: ["Keep the strongest habit next month.", "Reduce one leak, not everything at once.", "Review budget categories before the next income cycle."],
+      };
+    }
+
+    if (action.key === "next_best_move") {
+      if (!ctx.hasExpenseHistory && !ctx.hasBudget && !ctx.hasSavingsGoal && !ctx.currentWalletBalance) {
+        return {
+          ...base,
+          status: "Needs Activity",
+          tone: "amber",
+          summary: action.empty,
+          explanation: "CLARA needs wallet, budget, expense, or savings activity to recommend the next move.",
+          recommendation: "Start with one logged expense or wallet update.",
+          empty: action.empty,
+        };
+      }
+
+      let move = "Review your undocumented spending";
+      let reason = "It improves the accuracy of every future analysis.";
+      if (ctx.emergencyMonths < 1 && ctx.currentWalletBalance > 0) {
+        move = "Build a starter emergency fund";
+        reason = "Your protection appears thin, so even a small buffer helps prevent borrowing.";
+      } else if (ctx.unplannedSpent > 0) {
+        move = "Reduce unplanned spending";
+        reason = "This is the clearest leak affecting your monthly discipline.";
+      } else if (ctx.unallocatedBudget > 0) {
+        move = "Finish allocating your budget";
+        reason = "Unallocated money can disappear without a clear job.";
+      } else if (ctx.hasSavingsGoal && ctx.savingsSaved < ctx.savingsTarget) {
+        move = "Increase savings contribution";
+        reason = "Your goal has a visible gap and needs consistent funding.";
+      }
+
+      return {
+        ...base,
+        status: "Next Move",
+        tone: "emerald",
+        summary: move,
+        explanation: reason,
+        recommendation: "Do this as your next small financial action today.",
+        metrics: [
+          { label: "Money now", value: money(ctx.currentWalletBalance), tone: "cyan" },
+          { label: "Net flow", value: money(ctx.averageMonthlyNetFlow), tone: ctx.averageMonthlyNetFlow >= 0 ? "emerald" : "rose" },
+          { label: "Unplanned", value: money(ctx.unplannedSpent), tone: ctx.unplannedSpent > 0 ? "amber" : "emerald" },
+          { label: "Savings gap", value: money(Math.max(ctx.savingsTarget - ctx.savingsSaved, 0)), tone: "cyan" },
+        ],
+        risks: [ctx.averageMonthlyNetFlow < 0 ? "Your current money flow is negative." : ""].filter(Boolean),
+        actions: [move, "Make the step small enough to complete today.", "Recheck CLARA after logging the action."],
+      };
+    }
+
+    return {
+      ...base,
+      status: "Ready",
+      tone: "neutral",
+      summary: action.title,
+      explanation: action.purpose,
+      recommendation: "Keep logging money activity so CLARA can improve this analysis.",
+    };
+  }, [activeSmartAction, affordCheckForm, fmt, smartFinanceContext, smartForecastMonths]);
+
+  const openSmartActionsMenu = useCallback(() => {
+    setSmartActionsOpen(true);
+    setActiveSmartActionKey(null);
+  }, []);
+
+  const closeSmartActions = useCallback(() => {
+    setSmartActionsOpen(false);
+    setActiveSmartActionKey(null);
+  }, []);
+
+  const selectSmartAction = useCallback((key) => {
+    setActiveSmartActionKey(key);
+    setSmartActionsOpen(false);
+  }, []);
+
   const programJourney = useMemo(
     () =>
       buildProgramJourney(tasks, submissions, {
@@ -7343,6 +8346,85 @@ export default function Dashboard() {
     window.addEventListener("clara:open-manual-expense", openManualExpenseModal);
     return () => window.removeEventListener("clara:open-manual-expense", openManualExpenseModal);
   }, [openManualExpenseModal]);
+
+  useEffect(() => {
+    const card = document.querySelector("[data-emergency-card='true']");
+    const button = card?.querySelector("button[aria-label*='CLARA AI'], button[title*='CLARA AI']");
+    if (!button) return undefined;
+
+    const state = quickOrbOverrideRef.current;
+    button.setAttribute("aria-label", "Tap to log expense, long press for CLARA Smart Actions");
+    button.setAttribute("title", "Tap: Log expense • Long press: CLARA Smart Actions");
+
+    const clearLongPressTimer = () => {
+      if (state.longPressTimer) {
+        window.clearTimeout(state.longPressTimer);
+        state.longPressTimer = null;
+      }
+    };
+
+    const stopNative = (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+      event.stopImmediatePropagation?.();
+    };
+
+    const handlePointerDownCapture = (event) => {
+      stopNative(event);
+      state.longPressTriggered = false;
+      clearLongPressTimer();
+      state.longPressTimer = window.setTimeout(() => {
+        state.longPressTriggered = true;
+        openSmartActionsMenu();
+      }, 520);
+    };
+
+    const handlePointerUpCapture = (event) => {
+      stopNative(event);
+      clearLongPressTimer();
+    };
+
+    const handlePointerCancelCapture = (event) => {
+      stopNative(event);
+      clearLongPressTimer();
+      state.longPressTriggered = false;
+    };
+
+    const handleClickCapture = (event) => {
+      stopNative(event);
+      clearLongPressTimer();
+
+      if (state.longPressTriggered) {
+        state.longPressTriggered = false;
+        return;
+      }
+
+      openManualExpenseModal();
+    };
+
+    const handleDoubleClickCapture = (event) => {
+      stopNative(event);
+      clearLongPressTimer();
+      state.longPressTriggered = false;
+    };
+
+    button.addEventListener("pointerdown", handlePointerDownCapture, true);
+    button.addEventListener("pointerup", handlePointerUpCapture, true);
+    button.addEventListener("pointercancel", handlePointerCancelCapture, true);
+    button.addEventListener("pointerleave", handlePointerUpCapture, true);
+    button.addEventListener("click", handleClickCapture, true);
+    button.addEventListener("dblclick", handleDoubleClickCapture, true);
+
+    return () => {
+      clearLongPressTimer();
+      button.removeEventListener("pointerdown", handlePointerDownCapture, true);
+      button.removeEventListener("pointerup", handlePointerUpCapture, true);
+      button.removeEventListener("pointercancel", handlePointerCancelCapture, true);
+      button.removeEventListener("pointerleave", handlePointerUpCapture, true);
+      button.removeEventListener("click", handleClickCapture, true);
+      button.removeEventListener("dblclick", handleDoubleClickCapture, true);
+    };
+  }, [activeDashboardPanel, expandedFinanceCard, openManualExpenseModal, openSmartActionsMenu]);
 
   useEffect(() => {
     const container = financeCarouselRef.current;
@@ -9441,7 +10523,7 @@ export default function Dashboard() {
                         ) > 0
                       }
                       onQuickExpense={openManualExpenseModal}
-                      onQuickExpense={openManualExpenseModal}
+                      onQuickAI={openSmartActionsMenu}
                     onSurvivalSaved={async (val) => {
                         const nextValue = firstPositiveNumber(val);
                         if (nextValue <= 0) return;
@@ -10386,6 +11468,27 @@ export default function Dashboard() {
           />
         </FinanceField>
       </FinanceActionModal>
+
+      <ClaraSmartActionsMenu
+        open={smartActionsOpen}
+        actions={CLARA_SMART_ACTIONS}
+        onSelect={selectSmartAction}
+        onClose={() => setSmartActionsOpen(false)}
+      />
+
+      <SmartActionResultPanel
+        action={activeSmartAction}
+        result={smartActionResult}
+        forecastMonths={smartForecastMonths}
+        onForecastMonthsChange={setSmartForecastMonths}
+        affordForm={affordCheckForm}
+        onAffordFormChange={setAffordCheckForm}
+        onBack={() => {
+          setActiveSmartActionKey(null);
+          setSmartActionsOpen(true);
+        }}
+        onClose={closeSmartActions}
+      />
 
       <FinanceActionModal
         open={financeModal.type === "manual_expense"}
