@@ -317,7 +317,7 @@ const isInPHRange = (value, start, end) => {
   return date >= start && date <= end;
 };
 
-const sortByNewestDate = (items = [], dateKeys = ["updated_at", "created_at", "date"]) => {
+const sortByNewestDate = (items = [], dateKeys = ["created_at", "date", "updated_at"]) => {
   return [...items].sort((a, b) => {
     const aDate =
       dateKeys.map((key) => normalizeDateValue(a?.[key])).find(Boolean) || null;
@@ -472,12 +472,25 @@ const getHistoryAmountPrefix = (type) => {
 
 const getTransactionDate = (item) =>
   normalizeDateValue(
-    item?.transaction_date ||
+    item?.created_at ||
       item?.date ||
-      item?.created_at ||
       item?.updated_at ||
+      item?.transaction_date ||
       item?.expense_date
   );
+
+const getTransactionTime = (transaction) => {
+  const value =
+    transaction?.created_at ||
+    transaction?.date ||
+    transaction?.updated_at ||
+    transaction?.transaction_date ||
+    transaction?.expense_date ||
+    null;
+
+  const time = new Date(value).getTime();
+  return Number.isFinite(time) ? time : 0;
+};
 
 const getExpenseCategoryKey = (item) => {
   const raw = normalizeLower(
@@ -596,7 +609,7 @@ const buildUnifiedTransactions = (walletTransactions = [], expenses = []) => {
     }));
 
   return [...walletItems, ...orphanExpenseItems].sort(
-    (a, b) => (b.date?.getTime() || 0) - (a.date?.getTime() || 0)
+    (a, b) => getTransactionTime(b.raw || b) - getTransactionTime(a.raw || a)
   );
 };
 
