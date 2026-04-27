@@ -22,6 +22,7 @@ const Profile = lazy(() => import("./pages/Profile"));
 const Login = lazy(() => import("./pages/Login"));
 const Dashboard = lazy(() => import("./pages/Dashboard"));
 const Expenses = lazy(() => import("./pages/Expenses"));
+const TransactionHub = lazy(() => import("./pages/TransactionHub"));
 const AddFunds = lazy(() => import("./pages/AddFunds"));
 const Wallets = lazy(() => import("./pages/Wallets"));
 const Budgets = lazy(() => import("./pages/Budgets"));
@@ -691,6 +692,20 @@ function AppRoutes() {
                             path="/expenses"
                           >
                             <Expenses />
+                          </GuardedRoute>
+                        }
+                      />
+
+                      <Route
+                        path="/transactions-hub"
+                        element={
+                          <GuardedRoute
+                            shouldForceEnroll={forceEnroll}
+                            featureKey={FEATURE_ROUTE_MAP["/expenses"]}
+                            isFeatureAvailable={isFeatureAvailable}
+                            path="/transactions-hub"
+                          >
+                            <TransactionHub />
                           </GuardedRoute>
                         }
                       />
