@@ -5591,6 +5591,7 @@ export default function Dashboard() {
   const [activeDashboardPanel, setActiveDashboardPanel] = useState("home");
   const [dashboardPanelDirection, setDashboardPanelDirection] = useState("forward");
   const [expandedFinanceCard, setExpandedFinanceCard] = useState(null);
+  const [showAiAssistant, setShowAiAssistant] = useState(false);
   const [isDashboardScrollable, setIsDashboardScrollable] = useState(false);
   const [financeActionLoading, setFinanceActionLoading] = useState(false);
   const [financeNotice, setFinanceNotice] = useState(null);
@@ -7315,6 +7316,18 @@ export default function Dashboard() {
   useEffect(() => {
     return () => clearLongPressTimer();
   }, [clearLongPressTimer]);
+
+  useEffect(() => {
+    const handleOpenAssistant = () => {
+      setShowAiAssistant(true);
+    };
+
+    window.addEventListener("clara:open-assistant", handleOpenAssistant);
+
+    return () => {
+      window.removeEventListener("clara:open-assistant", handleOpenAssistant);
+    };
+  }, []);
 
   const openBudgetModal = useCallback((budgetCategory = null) => {
     const item = budgetCategory?.budget || budgetCategory || null;
@@ -11155,6 +11168,34 @@ export default function Dashboard() {
           />
         </FinanceField>
       </FinanceActionModal>
+
+      {showAiAssistant ? (
+        <div className="fixed inset-0 z-[130] flex items-end justify-center bg-black/65 px-3 pb-[calc(1rem+env(safe-area-inset-bottom))] pt-[max(1rem,env(safe-area-inset-top))] backdrop-blur-md sm:items-center sm:p-4">
+          <div className="w-full max-w-md overflow-hidden rounded-[28px] border border-cyan-200/15 bg-[#06111f]/96 shadow-[0_26px_90px_rgba(0,0,0,0.55),0_0_42px_rgba(34,211,238,0.10)]">
+            <div className="flex items-start justify-between gap-4 border-b border-white/10 bg-white/[0.035] px-5 py-4">
+              <div className="min-w-0">
+                <p className="text-lg font-bold text-white">CLARA</p>
+                <p className="mt-1 text-sm text-cyan-100/65">Ask before you act</p>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => setShowAiAssistant(false)}
+                className="shrink-0 rounded-full border border-white/10 bg-white/5 p-2 text-white/70 transition hover:bg-white/10 hover:text-white"
+                aria-label="Close CLARA assistant"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+
+            <div className="px-5 py-5">
+              <div className="rounded-3xl border border-cyan-200/10 bg-cyan-400/[0.06] p-4">
+                <p className="text-sm leading-6 text-white/78">CLARA assistant is ready.</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      ) : null}
 
     </div>
   );
