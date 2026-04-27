@@ -7,14 +7,81 @@ const FALLBACK_REPLY = "Got it. I’ll help you think through that. Tell me what
 const LOADING_REPLY = "Dashboard data is still loading. Try again in a second.";
 
 const QUICK_OPTIONS = [
-  { label: "Check my spending", message: "Check my spending" },
-  { label: "Check my wallets", message: "Check my wallets" },
-  { label: "Available money", message: "How much money do I have left?" },
-  { label: "Before I buy this", message: "Before I buy this" },
-  { label: "What should I watch today?", message: "What should I watch today?" },
-  { label: "Budget check", message: "Budget check" },
-  { label: "Savings check", message: "Savings check" },
-  { label: "Emergency fund", message: "Emergency fund" },
+  {
+    label: "Check my spending",
+    message: "Check my spending",
+  },
+  {
+    label: "Check my wallets",
+    message: "Check my wallets",
+  },
+  {
+    label: "Available money",
+    message: "How much money do I have left?",
+  },
+  {
+    label: "Before I buy this",
+    message: "Before I buy this",
+  },
+  {
+    label: "What should I watch today?",
+    message: "What should I watch today?",
+  },
+  {
+    label: "Budget check",
+    message: "Budget check",
+  },
+  {
+    label: "Savings check",
+    message: "Savings check",
+  },
+  {
+    label: "Emergency fund",
+    message: "Emergency fund",
+  },
+];
+
+const AI_FEATURE_OPTIONS = [
+  {
+    label: "Predict My Future",
+    description: "Forecast where your money is going.",
+    message: "Predict my financial future based on my current dashboard.",
+  },
+  {
+    label: "Check My Spending",
+    description: "Understand this month’s spending.",
+    message: "Check my spending this month.",
+  },
+  {
+    label: "Savings Check",
+    description: "See if my savings are on track.",
+    message: "Check my savings progress.",
+  },
+  {
+    label: "Budget Check",
+    description: "Review my budget health.",
+    message: "Check my budget.",
+  },
+  {
+    label: "Before I Buy This",
+    description: "Help me decide before spending.",
+    message: "Help me decide before I buy something.",
+  },
+  {
+    label: "Wallet Health",
+    description: "Review my wallet balances.",
+    message: "Check my wallet health.",
+  },
+  {
+    label: "Emergency Fund",
+    description: "Check my survival buffer.",
+    message: "Check my emergency fund.",
+  },
+  {
+    label: "Ask CLARA",
+    description: "Open normal chat.",
+    message: "",
+  },
 ];
 
 function makeMessage(role, text) {
@@ -362,6 +429,7 @@ function getBestContext(currentContext = {}, latestContext = {}) {
 export default function ClaraAssistantPanel({ open, onClose, context = {} }) {
   const latestContextRef = useRef(context || {});
   const lastTouchSentAtRef = useRef(0);
+  const lastFeatureTouchSentAtRef = useRef(0);
 
   const activeContext = getBestContext(context || {}, latestContextRef.current || {});
   latestContextRef.current = activeContext;
@@ -376,20 +444,26 @@ export default function ClaraAssistantPanel({ open, onClose, context = {} }) {
 
   const [draft, setDraft] = useState("");
   const [messages, setMessages] = useState(() => [makeMessage("clara", INITIAL_MESSAGE)]);
+  const [showFeatureMenu, setShowFeatureMenu] = useState(true);
   const inputRef = useRef(null);
   const bottomRef = useRef(null);
   const contextStatus = getContextStatus(activeContext);
 
   useEffect(() => {
     if (!open) return;
-    const timer = setTimeout(() => inputRef.current?.focus?.(), 120);
-    return () => clearTimeout(timer);
+    setShowFeatureMenu(true);
   }, [open]);
 
   useEffect(() => {
-    if (!open) return;
+    if (!open || showFeatureMenu) return;
+    const timer = setTimeout(() => inputRef.current?.focus?.(), 120);
+    return () => clearTimeout(timer);
+  }, [open, showFeatureMenu]);
+
+  useEffect(() => {
+    if (!open || showFeatureMenu) return;
     bottomRef.current?.scrollIntoView?.({ behavior: "smooth" });
-  }, [open, messages]);
+  }, [open, showFeatureMenu, messages]);
 
   const sendMessageText = (messageText) => {
     const text = String(messageText || "").trim();
@@ -431,6 +505,33 @@ export default function ClaraAssistantPanel({ open, onClose, context = {} }) {
     sendQuickOption(option);
   };
 
+  const openAssistantWithPrompt = (option) => {
+    setShowFeatureMenu(false);
+
+    const prompt = String(option?.message || "").trim();
+    if (prompt) {
+      sendMessageText(prompt);
+    }
+  };
+
+  const handleFeatureOptionTouchEnd = (event, option) => {
+    event.preventDefault();
+    event.stopPropagation();
+    event.nativeEvent?.stopImmediatePropagation?.();
+    lastFeatureTouchSentAtRef.current = Date.now();
+    openAssistantWithPrompt(option);
+  };
+
+  const handleFeatureOptionClick = (event, option) => {
+    event.preventDefault();
+    event.stopPropagation();
+    event.nativeEvent?.stopImmediatePropagation?.();
+
+    if (Date.now() - lastFeatureTouchSentAtRef.current < 700) return;
+
+    openAssistantWithPrompt(option);
+  };
+
   const handleCloseClick = (event) => {
     event.preventDefault();
     event.stopPropagation();
@@ -461,6 +562,78 @@ export default function ClaraAssistantPanel({ open, onClose, context = {} }) {
 
   if (!hasUsableContext(activeContext)) {
     return null;
+  }
+
+  if (showFeatureMenu) {
+    return (
+      <div className="fixed inset-0 z-[9999]">
+        <div
+          className="absolute inset-0 z-0 bg-black/50 backdrop-blur-md"
+          onClick={absorbShieldEvent}
+          onPointerDown={absorbShieldEvent}
+          onTouchStart={absorbShieldEvent}
+        />
+
+        <section
+          className="pointer-events-auto absolute bottom-[calc(12px+env(safe-area-inset-bottom))] left-3 right-3 z-10 mx-auto max-h-[82dvh] w-auto max-w-md overflow-hidden rounded-[30px] border border-cyan-200/10 bg-[#06111f]/95 text-white shadow-[0_24px_80px_rgba(8,145,178,0.22)] backdrop-blur-2xl sm:bottom-auto sm:left-1/2 sm:right-auto sm:top-1/2 sm:w-full sm:-translate-x-1/2 sm:-translate-y-1/2"
+          onClick={stopAssistantPropagation}
+          onPointerDown={stopAssistantPropagation}
+          onTouchStart={stopAssistantPropagation}
+        >
+          <div className="relative overflow-hidden border-b border-white/10 bg-[#081827]/90 px-4 py-4">
+            <div className="pointer-events-none absolute -right-16 -top-20 h-40 w-40 rounded-full bg-cyan-300/15 blur-3xl" />
+            <div className="pointer-events-none absolute -bottom-20 -left-14 h-36 w-36 rounded-full bg-emerald-300/10 blur-3xl" />
+
+            <div className="relative flex items-start justify-between gap-3">
+              <div className="min-w-0">
+                <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-cyan-100/45">
+                  Long press mode
+                </p>
+                <h2 className="mt-1 text-xl font-bold leading-tight text-white">CLARA AI</h2>
+                <p className="mt-1 text-sm font-medium text-cyan-100/70">
+                  What do you need help with?
+                </p>
+              </div>
+
+              <button
+                type="button"
+                onClick={handleCloseClick}
+                onPointerDown={(event) => event.stopPropagation()}
+                onTouchStart={(event) => event.stopPropagation()}
+                className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-white/10 bg-white/10 text-white/75 active:scale-95"
+                aria-label="Close CLARA AI menu"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+          </div>
+
+          <div className="max-h-[calc(82dvh-116px)] space-y-2 overflow-y-auto px-3 py-3">
+            {AI_FEATURE_OPTIONS.map((option) => (
+              <button
+                key={option.label}
+                type="button"
+                onPointerDown={(event) => event.stopPropagation()}
+                onTouchStart={(event) => event.stopPropagation()}
+                onTouchEnd={(event) => handleFeatureOptionTouchEnd(event, option)}
+                onClick={(event) => handleFeatureOptionClick(event, option)}
+                className="group flex w-full items-center justify-between gap-3 rounded-[22px] border border-white/10 bg-white/[0.055] px-4 py-3 text-left transition hover:bg-white/[0.08] active:scale-[0.99]"
+              >
+                <span className="min-w-0">
+                  <span className="block text-sm font-semibold text-white">{option.label}</span>
+                  <span className="mt-0.5 block text-xs leading-5 text-white/55">
+                    {option.description}
+                  </span>
+                </span>
+                <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-cyan-200/10 bg-cyan-300/10 text-cyan-100 transition group-active:scale-95">
+                  <Send className="h-3.5 w-3.5" />
+                </span>
+              </button>
+            ))}
+          </div>
+        </section>
+      </div>
+    );
   }
 
   return (
@@ -533,9 +706,23 @@ export default function ClaraAssistantPanel({ open, onClose, context = {} }) {
 
         <form onSubmit={handleSubmit} className="shrink-0 bg-[#06111f] px-3 pb-3 pt-0">
           <div className="flex items-end gap-2 rounded-[24px] border border-white/10 bg-white/10 p-2">
-            <textarea ref={inputRef} value={draft} onChange={(event) => setDraft(event.target.value)} onKeyDown={handleKeyDown} rows={1} placeholder="Ask CLARA before you act…" className="max-h-28 min-h-10 flex-1 resize-none bg-transparent px-3 py-2 text-sm leading-6 text-white outline-none placeholder:text-white/35" aria-label="Ask CLARA before you act" />
+            <textarea
+              ref={inputRef}
+              value={draft}
+              onChange={(event) => setDraft(event.target.value)}
+              onKeyDown={handleKeyDown}
+              rows={1}
+              placeholder="Ask CLARA before you act…"
+              className="max-h-28 min-h-10 flex-1 resize-none bg-transparent px-3 py-2 text-sm leading-6 text-white outline-none placeholder:text-white/35"
+              aria-label="Ask CLARA before you act"
+            />
 
-            <button type="submit" disabled={!draft.trim()} className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-cyan-300 text-slate-950 active:scale-95 disabled:cursor-not-allowed disabled:opacity-35" aria-label="Send message">
+            <button
+              type="submit"
+              disabled={!draft.trim()}
+              className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-cyan-300 text-slate-950 active:scale-95 disabled:cursor-not-allowed disabled:opacity-35"
+              aria-label="Send message"
+            >
               <Send className="h-4 w-4" />
             </button>
           </div>
