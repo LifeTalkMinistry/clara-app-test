@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { Send, X } from "lucide-react";
+import { ArrowLeft, Send, X } from "lucide-react";
 
 const DEBUG_CLARA_CONTEXT = false;
 const INITIAL_MESSAGE = "I’m here. Ask me before you act.";
@@ -715,6 +715,7 @@ export default function ClaraAssistantPanel({ open, onClose, context = {} }) {
   const [messages, setMessages] = useState(() => [makeMessage("clara", INITIAL_MESSAGE)]);
   const [showFeatureMenu, setShowFeatureMenu] = useState(true);
   const [activeMode, setActiveMode] = useState(null);
+  const [activeFeatureTitle, setActiveFeatureTitle] = useState("Ask before you act");
   const [isClosing, setIsClosing] = useState(false);
   const inputRef = useRef(null);
   const bottomRef = useRef(null);
@@ -754,6 +755,7 @@ export default function ClaraAssistantPanel({ open, onClose, context = {} }) {
     setIsClosing(false);
     setShowFeatureMenu(true);
     setActiveMode(null);
+    setActiveFeatureTitle("Ask before you act");
     setMessages([makeMessage("clara", INITIAL_MESSAGE)]);
     setDraft("");
   }, [open]);
@@ -780,6 +782,7 @@ export default function ClaraAssistantPanel({ open, onClose, context = {} }) {
   const resetTemporaryUiState = () => {
     setDraft("");
     setActiveMode(null);
+    setActiveFeatureTitle("Ask before you act");
     optionOpenLockRef.current = "";
     featureTapRef.current = {
       pointerId: null,
@@ -875,6 +878,7 @@ export default function ClaraAssistantPanel({ open, onClose, context = {} }) {
     optionOpenLockRef.current = optionKey;
 
     setShowFeatureMenu(false);
+    setActiveFeatureTitle(option?.label || "Ask CLARA");
     setDraft("");
 
     if (option?.mode === "purchase_decision") {
@@ -993,6 +997,19 @@ export default function ClaraAssistantPanel({ open, onClose, context = {} }) {
     if (now - lastFeatureTouchSentAtRef.current < TOUCH_DEDUPE_MS) return;
 
     openAssistantWithPrompt(option);
+  };
+
+  const handleBackToFeatureMenu = (event) => {
+    stopAssistantEvent(event);
+    if (isClosing) return;
+
+    optionOpenLockRef.current = "";
+    resetFeatureTap();
+    featureScrollGuardUntilRef.current = Date.now() + 80;
+    setDraft("");
+    setActiveMode(null);
+    setActiveFeatureTitle("Ask before you act");
+    setShowFeatureMenu(true);
   };
 
   const handleBackdropPointerDown = (event) => {
@@ -1122,20 +1139,33 @@ export default function ClaraAssistantPanel({ open, onClose, context = {} }) {
             </div>
           ) : (
             <div className="relative flex h-[82vh] max-h-[760px] flex-col sm:h-[680px]">
-              <div className="flex items-start justify-between gap-4 border-b border-white/10 p-5 sm:p-6">
-                <div>
-                  <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-emerald-200/75">
+              <div className="flex items-center gap-3 border-b border-white/10 p-4 sm:p-5">
+                <button
+                  aria-label="Back to CLARA AI menu"
+                  className="grid h-11 w-11 shrink-0 place-items-center rounded-full border border-white/10 bg-white/8 text-slate-200 transition hover:bg-white/14 active:scale-95"
+                  type="button"
+                  onClick={handleBackToFeatureMenu}
+                  onPointerDown={stopAssistantPropagation}
+                  onTouchEnd={stopAssistantPropagation}
+                >
+                  <ArrowLeft size={18} />
+                </button>
+
+                <div className="min-w-0 flex-1">
+                  <p className="text-[10px] font-semibold uppercase tracking-[0.22em] text-emerald-200/75">
                     CLARA AI
                   </p>
-                  <h2 className="mt-2 text-xl font-bold tracking-tight text-white">Ask before you act</h2>
-                  <p className="mt-1 text-xs text-slate-300/75">
+                  <h2 className="mt-1 truncate text-base font-bold tracking-tight text-white sm:text-lg">
+                    {activeFeatureTitle || "Ask before you act"}
+                  </h2>
+                  <p className="mt-0.5 text-[11px] text-slate-300/75">
                     Context: {contextStatus === "connected" ? "connected" : "loading"}
                   </p>
                 </div>
 
                 <button
                   aria-label="Close CLARA chat"
-                  className="grid h-10 w-10 shrink-0 place-items-center rounded-full border border-white/10 bg-white/8 text-slate-200 transition hover:bg-white/14 active:scale-95"
+                  className="grid h-11 w-11 shrink-0 place-items-center rounded-full border border-white/10 bg-white/8 text-slate-200 transition hover:bg-white/14 active:scale-95"
                   type="button"
                   onClick={closeAssistantSafely}
                   onPointerDown={stopAssistantPropagation}
