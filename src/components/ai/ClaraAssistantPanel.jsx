@@ -3,7 +3,7 @@ import { Send, X } from "lucide-react";
 
 const DEBUG_CLARA_CONTEXT = false;
 const INITIAL_MESSAGE = "I’m here. Ask me before you act.";
-const FALLBACK_REPLY = "Got it. I’ll help you think through that.";
+const FALLBACK_REPLY = "Got it. I’ll help you think through that. Tell me what decision you’re about to make, and I’ll help you slow it down before you spend.";
 const LOADING_REPLY = "Dashboard data is still loading. Try again in a second.";
 
 function makeMessage(role, text) {
@@ -87,6 +87,26 @@ function getWalletBalance(wallet) {
   );
 }
 
+function getAvailabilityTone(moneyLeft) {
+  if (moneyLeft === null) return "";
+  if (moneyLeft <= 0) return "You’re in a tight zone, so pause any non-essential spending until this is clearer.";
+  if (moneyLeft < 1000) return "That’s a thin buffer, so protect it and avoid small leaks today.";
+  if (moneyLeft < 5000) return "You still have room, but small daily leaks can shrink it quickly.";
+  return "You’re not in danger right now, but keep watching small daily leaks.";
+}
+
+function getSpendingTone(monthlySpent, moneyLeft) {
+  if (monthlySpent === null) return "";
+  if (monthlySpent === 0) return "That’s a clean start. Keep it intentional before the first spend lands.";
+  if (moneyLeft !== null && moneyLeft > monthlySpent) {
+    return "Your available money is still higher than what you’ve spent, so the focus is control, not panic.";
+  }
+  if (moneyLeft !== null && moneyLeft <= monthlySpent) {
+    return "Your spending is catching up to your available money, so today is a good day to tighten wants.";
+  }
+  return "Keep checking whether today’s spending supports your real priorities.";
+}
+
 function getWalletSummary(context = {}) {
   const wallets = getWallets(context);
 
@@ -123,8 +143,11 @@ function getWalletSummary(context = {}) {
   const walletSentence = topWallets.length
     ? ` Your main wallets include ${topWallets.join(", ")}.`
     : "";
+  const guidanceSentence = totalWalletBalance !== null
+    ? ` ${getAvailabilityTone(totalWalletBalance)}`
+    : " Keep your main spending wallet visible so you can decide faster before buying.";
 
-  return `You have ${wallets.length} wallet${wallets.length === 1 ? "" : "s"} loaded.${balanceSentence}${walletSentence}`.trim();
+  return `You have ${wallets.length} wallet${wallets.length === 1 ? "" : "s"} loaded.${balanceSentence}${walletSentence}${guidanceSentence}`.trim();
 }
 
 function getEmergencySummary(context = {}) {
@@ -165,14 +188,14 @@ function getEmergencySummary(context = {}) {
   const target = targetAmount !== null ? formatMoney(targetAmount) : null;
 
   if (current && target && monthsCovered !== null) {
-    return `Your emergency fund is at ${current} out of ${target}, covering about ${monthsCovered} month${monthsCovered === 1 ? "" : "s"}.`;
+    return `Your emergency fund is at ${current} out of ${target}, covering about ${monthsCovered} month${monthsCovered === 1 ? "" : "s"}. That’s your safety layer, so protect it from wants and use it only for real emergencies.`;
   }
 
-  if (current && target) return `Your emergency fund is at ${current} out of ${target}.`;
-  if (current) return `Your emergency fund currently has ${current}.`;
-  if (target) return `Your emergency fund target is ${target}.`;
-  if (percentage !== null) return `Your emergency fund progress is around ${percentage.toFixed(0)}%.`;
-  if (monthsCovered !== null) return `Your emergency fund covers about ${monthsCovered} month${monthsCovered === 1 ? "" : "s"}.`;
+  if (current && target) return `Your emergency fund is at ${current} out of ${target}. Keep building this before increasing lifestyle spending.`;
+  if (current) return `Your emergency fund currently has ${current}. Treat that as protection money, not extra spending money.`;
+  if (target) return `Your emergency fund target is ${target}. The next smart move is to keep small, consistent deposits going.`;
+  if (percentage !== null) return `Your emergency fund progress is around ${percentage.toFixed(0)}%. Keep protecting this section before adding new wants.`;
+  if (monthsCovered !== null) return `Your emergency fund covers about ${monthsCovered} month${monthsCovered === 1 ? "" : "s"}. That gives you breathing room, but it still needs protection.`;
 
   return "I can see your emergency fund section, but I need the fund amount fields to explain it clearly.";
 }
@@ -190,9 +213,9 @@ function getSavingsSummary(context = {}) {
   const saved = savedAmount !== null ? formatMoney(savedAmount) : null;
   const target = targetAmount !== null ? formatMoney(targetAmount) : null;
 
-  if (saved && target) return `Your savings progress is ${saved} out of ${target}.`;
-  if (saved) return `Your saved amount is ${saved}.`;
-  if (target) return `Your savings target is ${target}.`;
+  if (saved && target) return `Your savings progress is ${saved} out of ${target}. Keep this moving slowly and consistently; the goal is momentum, not pressure.`;
+  if (saved) return `Your saved amount is ${saved}. That’s progress worth protecting from impulse spending.`;
+  if (target) return `Your savings target is ${target}. Break it into smaller checkpoints so it feels easier to reach.`;
 
   return "I can see the savings section, but the detailed values are not complete yet.";
 }
@@ -210,9 +233,9 @@ function getBudgetSummary(context = {}) {
   const allocated = allocatedAmount !== null ? formatMoney(allocatedAmount) : null;
   const spent = spentAmount !== null ? formatMoney(spentAmount) : null;
 
-  if (allocated && spent) return `Your current budget context shows ${spent} spent out of ${allocated} allocated.`;
-  if (allocated) return `Your current budget allocation is ${allocated}.`;
-  if (spent) return `Your current budget spending is ${spent}.`;
+  if (allocated && spent) return `Your current budget context shows ${spent} spent out of ${allocated} allocated. Use the budget as a boundary, not a punishment.`;
+  if (allocated) return `Your current budget allocation is ${allocated}. Before spending, check which category this decision belongs to.`;
+  if (spent) return `Your current budget spending is ${spent}. The next step is to compare it against your declared limits.`;
 
   return "I can see the budget section, but the detailed values are not complete yet.";
 }
@@ -247,26 +270,32 @@ function getLocalReply(question, context = {}) {
     }
 
     if (monthlySpent === 0) {
-      return "You haven’t logged spending this month yet.";
+      const leftText = moneyLeft !== null ? ` You still have ${formatMoney(moneyLeft)} available, so keep the first spend intentional.` : "";
+      return `You haven’t logged spending this month yet.${leftText}`;
     }
 
-    return `You’ve spent ${formatMoney(monthlySpent)} this month so far.`;
+    const spentText = formatMoney(monthlySpent);
+    const leftText = moneyLeft !== null ? ` You still have ${formatMoney(moneyLeft)} available.` : "";
+    const tone = getSpendingTone(monthlySpent, moneyLeft);
+    return `You’ve spent ${spentText} this month so far.${leftText} ${tone}`.trim();
   }
 
   if (asksWatch) {
     const spent = monthlySpent !== null ? formatMoney(monthlySpent) : null;
     const left = moneyLeft !== null ? formatMoney(moneyLeft) : null;
 
-    if (spent && left) return `Today, watch impulse spending. You have ${left} left and ${spent} spent this month.`;
-    if (left) return `Today, protect your remaining ${left}. Pause before non-essential spending.`;
-    if (spent) return `Today, be mindful: you’ve already spent ${spent} this month.`;
+    if (spent && left) return `Today, watch small leaks and emotional spending. You have ${left} available and ${spent} spent this month. Before buying, ask: is this a need, a planned want, or just a mood?`;
+    if (left) return `Today, protect your remaining ${left}. Pause before non-essential spending and keep your main wallet clean.`;
+    if (spent) return `Today, be mindful: you’ve already spent ${spent} this month. The safest move is to slow down wants and protect essentials.`;
 
     return contextReady ? "I need your money-left or monthly spending value before I can answer that clearly." : LOADING_REPLY;
   }
 
   if (asksMoneyLeft) {
     if (moneyLeft !== null) {
-      return `You currently have ${formatMoney(moneyLeft)} available.`;
+      const amount = formatMoney(moneyLeft);
+      const spentText = monthlySpent !== null ? ` You’ve spent ${formatMoney(monthlySpent)} this month so far.` : "";
+      return `You currently have ${amount} available.${spentText} ${getAvailabilityTone(moneyLeft)}`.trim();
     }
 
     return contextReady ? "I need your money-left value before I can answer that clearly." : LOADING_REPLY;
