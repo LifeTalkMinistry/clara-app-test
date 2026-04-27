@@ -1252,6 +1252,11 @@ const FinanceField = ({ label, children, helper }) => (
 const financeInputClassName =
   "w-full rounded-2xl border border-white/10 bg-white/[0.04] px-4 py-3 text-sm text-white outline-none transition placeholder:text-white/35 focus:border-emerald-400/30 focus:bg-white/[0.06]";
 
+const isMoneyLeftSummaryEvent = (event) =>
+  Boolean(
+    event?.target?.closest?.('[data-clara-summary-card="money-left"]')
+  );
+
 const stopFinancialSummaryInteraction = (event) => {
   event?.preventDefault?.();
   event?.stopPropagation?.();
@@ -1259,21 +1264,35 @@ const stopFinancialSummaryInteraction = (event) => {
   return false;
 };
 
+const stopFinancialSummaryInteractionUnlessMoneyLeft = (event) => {
+  if (isMoneyLeftSummaryEvent(event)) return undefined;
+  return stopFinancialSummaryInteraction(event);
+};
+
+const financialSummaryParentHandlers = {
+  onClickCapture: stopFinancialSummaryInteractionUnlessMoneyLeft,
+  onClick: stopFinancialSummaryInteractionUnlessMoneyLeft,
+  onDoubleClickCapture: stopFinancialSummaryInteractionUnlessMoneyLeft,
+  onDoubleClick: stopFinancialSummaryInteractionUnlessMoneyLeft,
+  onPointerUpCapture: stopFinancialSummaryInteractionUnlessMoneyLeft,
+  onPointerUp: stopFinancialSummaryInteractionUnlessMoneyLeft,
+  onMouseUpCapture: stopFinancialSummaryInteractionUnlessMoneyLeft,
+  onMouseUp: stopFinancialSummaryInteractionUnlessMoneyLeft,
+  onTouchEndCapture: stopFinancialSummaryInteractionUnlessMoneyLeft,
+  onTouchEnd: stopFinancialSummaryInteractionUnlessMoneyLeft,
+  onKeyDownCapture: stopFinancialSummaryInteractionUnlessMoneyLeft,
+  onKeyDown: stopFinancialSummaryInteractionUnlessMoneyLeft,
+};
+
 const financialSummaryInertHandlers = {
   onClickCapture: stopFinancialSummaryInteraction,
   onClick: stopFinancialSummaryInteraction,
   onDoubleClickCapture: stopFinancialSummaryInteraction,
   onDoubleClick: stopFinancialSummaryInteraction,
-  onPointerDownCapture: stopFinancialSummaryInteraction,
-  onPointerDown: stopFinancialSummaryInteraction,
   onPointerUpCapture: stopFinancialSummaryInteraction,
   onPointerUp: stopFinancialSummaryInteraction,
-  onMouseDownCapture: stopFinancialSummaryInteraction,
-  onMouseDown: stopFinancialSummaryInteraction,
   onMouseUpCapture: stopFinancialSummaryInteraction,
   onMouseUp: stopFinancialSummaryInteraction,
-  onTouchStartCapture: stopFinancialSummaryInteraction,
-  onTouchStart: stopFinancialSummaryInteraction,
   onTouchEndCapture: stopFinancialSummaryInteraction,
   onTouchEnd: stopFinancialSummaryInteraction,
   onKeyDownCapture: stopFinancialSummaryInteraction,
@@ -5691,6 +5710,14 @@ export default function Dashboard() {
   const [budgetExitConfirm, setBudgetExitConfirm] = useState(false);
   const [budgetListOpen, setBudgetListOpen] = useState(false);
   const budgetListDropdownRef = useRef(null);
+  const moneyLeftTapRef = useRef({
+    lastTapAt: 0,
+    lastHandledEventAt: 0,
+    startX: 0,
+    startY: 0,
+    moved: false,
+  });
+  const moneyLeftNavigateLockRef = useRef(0);
   const [financeForm, setFinanceForm] = useState({
     name: "",
     type: "cash",
@@ -5959,6 +5986,108 @@ export default function Dashboard() {
       minimumFractionDigits: 0,
     }).format(Number(n || 0));
   }, []);
+
+
+  const stopMoneyLeftSummaryEvent = useCallback((event) => {
+    event?.preventDefault?.();
+    event?.stopPropagation?.();
+    event?.nativeEvent?.stopImmediatePropagation?.();
+    return false;
+  }, []);
+
+  const openTransactionHubFromMoneyLeft = useCallback(
+    (event) => {
+      stopMoneyLeftSummaryEvent(event);
+
+      const now = Date.now();
+      if (now - moneyLeftNavigateLockRef.current < 450) return;
+
+      moneyLeftNavigateLockRef.current = now;
+      navigate("/transactions-hub");
+    },
+    [navigate, stopMoneyLeftSummaryEvent]
+  );
+
+  const handleMoneyLeftPointerDown = useCallback((event) => {
+    event?.stopPropagation?.();
+    const point = event?.touches?.[0] || event;
+
+    moneyLeftTapRef.current = {
+      ...moneyLeftTapRef.current,
+      startX: Number(point?.clientX || 0),
+      startY: Number(point?.clientY || 0),
+      moved: false,
+    };
+  }, []);
+
+  const handleMoneyLeftPointerMove = useCallback((event) => {
+    const point = event?.touches?.[0] || event;
+    const startX = moneyLeftTapRef.current.startX || 0;
+    const startY = moneyLeftTapRef.current.startY || 0;
+    const dx = Math.abs(Number(point?.clientX || 0) - startX);
+    const dy = Math.abs(Number(point?.clientY || 0) - startY);
+
+    if (dx > 12 || dy > 12) {
+      moneyLeftTapRef.current.moved = true;
+    }
+  }, []);
+
+  const handleMoneyLeftTapEnd = useCallback(
+    (event) => {
+      stopMoneyLeftSummaryEvent(event);
+
+      if (moneyLeftTapRef.current.moved) {
+        moneyLeftTapRef.current.lastTapAt = 0;
+        return;
+      }
+
+      const now = Date.now();
+      const eventStamp = Number(event?.timeStamp || now);
+      const lastHandledEventAt = moneyLeftTapRef.current.lastHandledEventAt || 0;
+
+      if (lastHandledEventAt && Math.abs(eventStamp - lastHandledEventAt) < 120) {
+        return;
+      }
+
+      moneyLeftTapRef.current.lastHandledEventAt = eventStamp;
+
+      const previousTapAt = moneyLeftTapRef.current.lastTapAt || 0;
+
+      if (previousTapAt && now - previousTapAt <= 320) {
+        moneyLeftTapRef.current.lastTapAt = 0;
+        openTransactionHubFromMoneyLeft(event);
+        return;
+      }
+
+      moneyLeftTapRef.current.lastTapAt = now;
+    },
+    [openTransactionHubFromMoneyLeft, stopMoneyLeftSummaryEvent]
+  );
+
+  const moneyLeftSummaryHandlers = useMemo(
+    () => ({
+      onClickCapture: stopMoneyLeftSummaryEvent,
+      onClick: stopMoneyLeftSummaryEvent,
+      onDoubleClickCapture: openTransactionHubFromMoneyLeft,
+      onDoubleClick: openTransactionHubFromMoneyLeft,
+      onPointerDownCapture: handleMoneyLeftPointerDown,
+      onPointerMoveCapture: handleMoneyLeftPointerMove,
+      onPointerUpCapture: handleMoneyLeftTapEnd,
+      onTouchStartCapture: handleMoneyLeftPointerDown,
+      onTouchMoveCapture: handleMoneyLeftPointerMove,
+      onTouchEndCapture: handleMoneyLeftTapEnd,
+      onMouseUpCapture: handleMoneyLeftTapEnd,
+      onKeyDownCapture: stopMoneyLeftSummaryEvent,
+      onKeyDown: stopMoneyLeftSummaryEvent,
+    }),
+    [
+      handleMoneyLeftPointerDown,
+      handleMoneyLeftPointerMove,
+      handleMoneyLeftTapEnd,
+      openTransactionHubFromMoneyLeft,
+      stopMoneyLeftSummaryEvent,
+    ]
+  );
 
   const markOnboardingCompleted = useCallback(async () => {
     if (!user?.id) return;
@@ -9992,7 +10121,7 @@ export default function Dashboard() {
         )}
 
         <div
-          {...financialSummaryInertHandlers}
+          {...financialSummaryParentHandlers}
           aria-label="Financial summary"
           className={`grid cursor-default select-none grid-cols-2 overflow-hidden border backdrop-blur-sm ${dashboardScale.summaryGrid}`}
           style={{
@@ -10002,12 +10131,12 @@ export default function Dashboard() {
               ? "0 18px 44px rgba(15,23,42,0.10)"
               : "0 22px 65px rgba(0,0,0,0.26)",
             WebkitTapHighlightColor: "transparent",
-            touchAction: "none",
+            touchAction: "pan-y",
           }}
         >
           <div
-            {...financialSummaryInertHandlers}
-            aria-hidden="true"
+            {...moneyLeftSummaryHandlers}
+            aria-label="Double tap Total Money Left to open Transaction Hub"
             data-clara-summary-card="money-left"
             className={`pointer-events-auto relative isolate cursor-default overflow-hidden ${dashboardScale.summaryCell}`}
             style={{
@@ -10015,14 +10144,14 @@ export default function Dashboard() {
                 selectedDashboardTheme?.tokens?.gradientMoney ||
                 "var(--theme-gradient-money)",
               WebkitTapHighlightColor: "transparent",
-              touchAction: "none",
+              touchAction: "manipulation",
             }}
           >
             <div
-              {...financialSummaryInertHandlers}
+              {...moneyLeftSummaryHandlers}
               aria-hidden="true"
               className="absolute inset-0 z-30 cursor-default bg-transparent"
-              style={{ touchAction: "none", WebkitTapHighlightColor: "transparent" }}
+              style={{ touchAction: "manipulation", WebkitTapHighlightColor: "transparent" }}
             />
             <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(255,255,255,0.08),transparent_42%)]" />
             <div className="pointer-events-none relative flex min-h-full min-w-0 flex-col justify-center">
@@ -10047,14 +10176,14 @@ export default function Dashboard() {
               borderColor:
                 selectedDashboardTheme?.tokens?.border || "var(--theme-border)",
               WebkitTapHighlightColor: "transparent",
-              touchAction: "none",
+              touchAction: "pan-y",
             }}
           >
             <div
               {...financialSummaryInertHandlers}
               aria-hidden="true"
               className="absolute inset-0 z-30 cursor-default bg-transparent"
-              style={{ touchAction: "none", WebkitTapHighlightColor: "transparent" }}
+              style={{ touchAction: "pan-y", WebkitTapHighlightColor: "transparent" }}
             />
             <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_bottom_right,rgba(255,255,255,0.08),transparent_42%)]" />
             <div className="pointer-events-none relative flex min-h-full min-w-0 flex-col justify-center">
