@@ -5464,6 +5464,8 @@ export default function Dashboard() {
   const [financeNotice, setFinanceNotice] = useState(null);
   const [financeModal, setFinanceModal] = useState({ type: null, payload: null });
   const [budgetExitConfirm, setBudgetExitConfirm] = useState(false);
+  const [budgetListOpen, setBudgetListOpen] = useState(false);
+  const budgetListDropdownRef = useRef(null);
   const [financeForm, setFinanceForm] = useState({
     name: "",
     type: "cash",
@@ -5496,6 +5498,30 @@ export default function Dashboard() {
     flexibility: "flexible",
     notes: "",
   });
+
+  useEffect(() => {
+    if (!budgetListOpen) return;
+
+    const handlePointerDown = (event) => {
+      if (!budgetListDropdownRef.current) return;
+      if (budgetListDropdownRef.current.contains(event.target)) return;
+      setBudgetListOpen(false);
+    };
+
+    const handleKeyDown = (event) => {
+      if (event.key === "Escape") setBudgetListOpen(false);
+    };
+
+    document.addEventListener("mousedown", handlePointerDown);
+    document.addEventListener("touchstart", handlePointerDown, { passive: true });
+    document.addEventListener("keydown", handleKeyDown);
+
+    return () => {
+      document.removeEventListener("mousedown", handlePointerDown);
+      document.removeEventListener("touchstart", handlePointerDown);
+      document.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [budgetListOpen]);
 
   const dailyRemindersEnabled = notificationSettings?.dailyReminders !== false;
   const themeIsLight = selectedDashboardTheme?.isLight === true;
@@ -6532,6 +6558,30 @@ export default function Dashboard() {
     [financeForm.budgetListKey, manualExpenseBudgetOptions]
   );
 
+  const selectedBudgetListLabel = useMemo(() => {
+    if (financeForm.budgetListKey === "__unplanned__") return "Unplanned Spending";
+    if (financeForm.budgetListKey === "__undocumented__") return "Undocumented Spending";
+    return selectedManualExpenseBudget?.title || "Select budget list";
+  }, [financeForm.budgetListKey, selectedManualExpenseBudget?.title]);
+
+  const setManualExpenseBudgetListKey = useCallback((nextValue) => {
+    setFinanceForm((prev) => ({
+      ...prev,
+      budgetListKey: nextValue,
+      unplannedReason:
+        nextValue === "__unplanned__" ? prev.unplannedReason : "",
+      undocumentedReason:
+        nextValue === "__undocumented__" ? prev.undocumentedReason : "",
+      undocumentedNote:
+        nextValue === "__undocumented__" ? prev.undocumentedNote : "",
+      notes:
+        nextValue === "__unplanned__" || nextValue === "__undocumented__"
+          ? prev.notes
+          : "",
+    }));
+    setBudgetListOpen(false);
+  }, []);
+
   const manualExpenseIsUnplanned = financeForm.budgetListKey === "__unplanned__";
   const manualExpenseIsUndocumented = financeForm.budgetListKey === "__undocumented__";
   const manualExpenseReason = normalizeString(financeForm.unplannedReason || financeForm.notes);
@@ -6655,6 +6705,33 @@ export default function Dashboard() {
     budgetFormDeclaredAmount > 0 && budgetProjectedUnallocated > 0
       ? `Assign the remaining ${fmt(budgetProjectedUnallocated)} before completing your budget.`
       : "";
+
+  const manualExpenseBudgetListItems = useMemo(
+    () => [
+      {
+        key: "__unplanned__",
+        title: "Unplanned Spending",
+        subtitle: "Outside your completed monthly budget",
+        tone: "amber",
+        disabled: false,
+      },
+      {
+        key: "__undocumented__",
+        title: "Undocumented Spending",
+        subtitle: "Spent but details are incomplete",
+        tone: "cyan",
+        disabled: false,
+      },
+      ...manualExpenseBudgetOptions.map((budgetItem) => ({
+        key: budgetItem.key,
+        title: budgetItem.title,
+        subtitle: budgetPlanIsComplete ? "Planned monthly budget category" : "Finish budget first",
+        tone: "neutral",
+        disabled: !budgetPlanIsComplete,
+      })),
+    ],
+    [budgetPlanIsComplete, manualExpenseBudgetOptions]
+  );
 
   const programJourney = useMemo(
     () =>
@@ -6971,6 +7048,7 @@ export default function Dashboard() {
 
   const closeFinanceModal = useCallback(() => {
     setBudgetExitConfirm(false);
+    setBudgetListOpen(false);
     setFinanceModal({ type: null, payload: null });
   }, []);
 
@@ -7050,6 +7128,7 @@ export default function Dashboard() {
       undocumentedNote: "",
       notes: "",
     }));
+    setBudgetListOpen(false);
     setFinanceModal({ type: "manual_expense", payload: null });
   }, [showFinanceNotice, wallets]);
 
@@ -10130,39 +10209,75 @@ export default function Dashboard() {
           label="Budget List"
           helper="Choose where this expense belongs in your active monthly budget."
         >
-          <select
-            value={financeForm.budgetListKey}
-            onChange={(event) =>
-              setFinanceForm((prev) => {
-                const nextValue = event.target.value;
+          <div ref={budgetListDropdownRef} className="relative">
+            <button
+              type="button"
+              onClick={() => setBudgetListOpen((open) => !open)}
+              aria-haspopup="listbox"
+              aria-expanded={budgetListOpen}
+              className={`flex w-full items-center justify-between gap-3 rounded-2xl border px-4 py-3 text-left text-sm outline-none transition ${
+                budgetListOpen
+                  ? "border-cyan-300/35 bg-white/[0.075] shadow-[0_0_0_3px_rgba(34,211,238,0.10),0_12px_34px_rgba(0,0,0,0.22)]"
+                  : "border-white/10 bg-white/[0.04] hover:border-white/16 hover:bg-white/[0.06]"
+              }`}
+            >
+              <span className={financeForm.budgetListKey ? "text-white" : "text-white/35"}>
+                {selectedBudgetListLabel}
+              </span>
+              <ArrowDown
+                className={`h-4 w-4 shrink-0 text-cyan-100/70 transition ${
+                  budgetListOpen ? "rotate-180" : ""
+                }`}
+              />
+            </button>
 
-                return {
-                  ...prev,
-                  budgetListKey: nextValue,
-                  unplannedReason:
-                    nextValue === "__unplanned__" ? prev.unplannedReason : "",
-                  undocumentedReason:
-                    nextValue === "__undocumented__" ? prev.undocumentedReason : "",
-                  undocumentedNote:
-                    nextValue === "__undocumented__" ? prev.undocumentedNote : "",
-                  notes:
-                    nextValue === "__unplanned__" || nextValue === "__undocumented__"
-                      ? prev.notes
-                      : "",
-                };
-              })
-            }
-            className={financeInputClassName}
-          >
-            <option value="">Select budget list</option>
-            <option value="__unplanned__">Unplanned Spending</option>
-            <option value="__undocumented__">Undocumented Spending</option>
-            {manualExpenseBudgetOptions.map((budgetItem) => (
-              <option key={budgetItem.key} value={budgetItem.key} disabled={!budgetPlanIsComplete}>
-                {budgetPlanIsComplete ? budgetItem.title : `${budgetItem.title} — Finish budget first`}
-              </option>
-            ))}
-          </select>
+            {budgetListOpen ? (
+              <div
+                role="listbox"
+                className="absolute left-0 right-0 top-[calc(100%+0.5rem)] z-[150] max-h-72 overflow-y-auto rounded-3xl border border-white/10 bg-[#06111f]/95 p-2 shadow-[0_24px_70px_rgba(0,0,0,0.55),0_0_36px_rgba(34,211,238,0.10)] backdrop-blur-2xl"
+              >
+                {manualExpenseBudgetListItems.map((item) => {
+                  const isSelected = String(financeForm.budgetListKey) === String(item.key);
+                  const toneClass =
+                    item.tone === "amber"
+                      ? "border-amber-300/15 bg-amber-500/10 text-amber-50 hover:bg-amber-500/15"
+                      : item.tone === "cyan"
+                        ? "border-cyan-300/15 bg-cyan-500/10 text-cyan-50 hover:bg-cyan-500/15"
+                        : "border-white/8 bg-white/[0.035] text-white hover:bg-white/[0.07]";
+
+                  return (
+                    <button
+                      key={item.key}
+                      type="button"
+                      role="option"
+                      aria-selected={isSelected}
+                      disabled={item.disabled}
+                      onClick={() => {
+                        if (item.disabled) {
+                          showFinanceNotice("You haven’t completed your monthly budgeting plan yet. Finish assigning your budget before logging planned expenses.");
+                          return;
+                        }
+                        setManualExpenseBudgetListKey(item.key);
+                      }}
+                      className={`mb-1 flex w-full items-center justify-between gap-3 rounded-2xl border px-3 py-3 text-left transition last:mb-0 disabled:cursor-not-allowed disabled:opacity-45 ${toneClass} ${
+                        isSelected
+                          ? "ring-1 ring-cyan-300/30 shadow-[0_0_22px_rgba(34,211,238,0.10)]"
+                          : ""
+                      }`}
+                    >
+                      <span className="min-w-0">
+                        <span className="block truncate text-sm font-semibold">{item.title}</span>
+                        <span className="mt-0.5 block truncate text-[11px] text-white/45">
+                          {item.subtitle}
+                        </span>
+                      </span>
+                      {isSelected ? <Check className="h-4 w-4 shrink-0 text-cyan-200" /> : null}
+                    </button>
+                  );
+                })}
+              </div>
+            ) : null}
+          </div>
         </FinanceField>
 
         <FinanceField label="Wallet">
