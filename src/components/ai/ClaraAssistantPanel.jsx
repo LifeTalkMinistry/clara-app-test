@@ -85,6 +85,109 @@ const AI_FEATURE_OPTIONS = [
   },
 ];
 
+
+const CLARA_ASSISTANT_ANIMATION_STYLES = `
+  @keyframes claraAssistantBackdropIn {
+    from {
+      opacity: 0;
+      backdrop-filter: blur(0px);
+      -webkit-backdrop-filter: blur(0px);
+    }
+    to {
+      opacity: 1;
+      backdrop-filter: blur(14px);
+      -webkit-backdrop-filter: blur(14px);
+    }
+  }
+
+  @keyframes claraAssistantSheetIn {
+    from {
+      opacity: 0;
+      transform: translate3d(0, 18px, 0) scale(0.985);
+    }
+    to {
+      opacity: 1;
+      transform: translate3d(0, 0, 0) scale(1);
+    }
+  }
+
+  @keyframes claraAssistantSheetInDesktop {
+    from {
+      opacity: 0;
+      transform: translate3d(-50%, calc(-50% + 18px), 0) scale(0.985);
+    }
+    to {
+      opacity: 1;
+      transform: translate3d(-50%, -50%, 0) scale(1);
+    }
+  }
+
+  @keyframes claraAssistantOptionIn {
+    from {
+      opacity: 0;
+      transform: translate3d(0, 10px, 0) scale(0.985);
+    }
+    to {
+      opacity: 1;
+      transform: translate3d(0, 0, 0) scale(1);
+    }
+  }
+
+  @keyframes claraAssistantGlowPulse {
+    0%, 100% {
+      opacity: 0.72;
+      transform: scale(1);
+    }
+    50% {
+      opacity: 1;
+      transform: scale(1.04);
+    }
+  }
+
+  .clara-ai-backdrop {
+    animation: claraAssistantBackdropIn 180ms ease-out both;
+  }
+
+  .clara-ai-menu-shell {
+    animation: claraAssistantSheetIn 220ms cubic-bezier(0.2, 0.85, 0.25, 1) both;
+    will-change: transform, opacity;
+  }
+
+  .clara-ai-chat-shell {
+    animation: claraAssistantSheetIn 200ms cubic-bezier(0.2, 0.85, 0.25, 1) both;
+    will-change: transform, opacity;
+  }
+
+  .clara-ai-option {
+    animation: claraAssistantOptionIn 240ms cubic-bezier(0.2, 0.85, 0.25, 1) both;
+    will-change: transform, opacity;
+    transform-origin: center;
+  }
+
+  .clara-ai-glow {
+    animation: claraAssistantGlowPulse 3.8s ease-in-out infinite;
+    will-change: transform, opacity;
+  }
+
+  @media (min-width: 640px) {
+    .clara-ai-menu-shell,
+    .clara-ai-chat-shell {
+      animation-name: claraAssistantSheetInDesktop;
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .clara-ai-backdrop,
+    .clara-ai-menu-shell,
+    .clara-ai-chat-shell,
+    .clara-ai-option,
+    .clara-ai-glow {
+      animation: none !important;
+      will-change: auto !important;
+    }
+  }
+`;
+
 function makeMessage(role, text) {
   return {
     id: `${role}-${Date.now()}-${Math.random().toString(36).slice(2)}`,
@@ -679,15 +782,23 @@ export default function ClaraAssistantPanel({ open, onClose, context = {} }) {
   if (showFeatureMenu) {
     return (
       <div className="fixed inset-0 z-[9999]">
+        <style>{CLARA_ASSISTANT_ANIMATION_STYLES}</style>
+
         <div
-          className="absolute inset-0 z-0 bg-black/50 backdrop-blur-md"
+          className="clara-ai-backdrop absolute inset-0 z-0 bg-black/50 backdrop-blur-md"
           onClick={absorbShieldEvent}
           onPointerDown={absorbShieldEvent}
           onTouchStart={absorbShieldEvent}
         />
 
+        <div className="pointer-events-none absolute inset-x-0 bottom-0 z-[1] mx-auto h-[58dvh] max-w-lg overflow-hidden">
+          <div className="clara-ai-glow absolute bottom-10 left-1/2 h-72 w-72 -translate-x-1/2 rounded-full bg-cyan-300/20 blur-3xl" />
+          <div className="clara-ai-glow absolute bottom-24 left-[18%] h-40 w-40 rounded-full bg-emerald-300/15 blur-3xl" />
+          <div className="clara-ai-glow absolute bottom-20 right-[12%] h-44 w-44 rounded-full bg-sky-400/10 blur-3xl" />
+        </div>
+
         <section
-          className="pointer-events-auto absolute bottom-[calc(12px+env(safe-area-inset-bottom))] left-3 right-3 z-10 mx-auto max-h-[82dvh] w-auto max-w-md overflow-hidden rounded-[30px] border border-cyan-200/10 bg-[#06111f]/95 text-white shadow-[0_24px_80px_rgba(8,145,178,0.22)] backdrop-blur-2xl sm:bottom-auto sm:left-1/2 sm:right-auto sm:top-1/2 sm:w-full sm:-translate-x-1/2 sm:-translate-y-1/2"
+          className="clara-ai-menu-shell pointer-events-auto absolute bottom-[calc(12px+env(safe-area-inset-bottom))] left-3 right-3 z-10 mx-auto max-h-[82dvh] w-auto max-w-md overflow-hidden rounded-[30px] border border-cyan-200/10 bg-[#06111f]/95 text-white shadow-[0_24px_80px_rgba(8,145,178,0.24)] backdrop-blur-2xl sm:bottom-auto sm:left-1/2 sm:right-auto sm:top-1/2 sm:w-full sm:-translate-x-1/2 sm:-translate-y-1/2"
           onClick={stopAssistantPropagation}
           onPointerDown={stopAssistantPropagation}
           onTouchStart={stopAssistantPropagation}
@@ -695,6 +806,7 @@ export default function ClaraAssistantPanel({ open, onClose, context = {} }) {
           <div className="relative overflow-hidden border-b border-white/10 bg-[#081827]/90 px-4 py-4">
             <div className="pointer-events-none absolute -right-16 -top-20 h-40 w-40 rounded-full bg-cyan-300/15 blur-3xl" />
             <div className="pointer-events-none absolute -bottom-20 -left-14 h-36 w-36 rounded-full bg-emerald-300/10 blur-3xl" />
+            <div className="pointer-events-none absolute inset-x-6 bottom-0 h-px bg-gradient-to-r from-transparent via-cyan-200/30 to-transparent" />
 
             <div className="relative flex items-start justify-between gap-3">
               <div className="min-w-0">
@@ -712,7 +824,7 @@ export default function ClaraAssistantPanel({ open, onClose, context = {} }) {
                 onClick={handleCloseClick}
                 onPointerDown={(event) => event.stopPropagation()}
                 onTouchStart={(event) => event.stopPropagation()}
-                className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-white/10 bg-white/10 text-white/75 active:scale-95"
+                className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-white/10 bg-white/10 text-white/75 transition active:scale-90 active:bg-white/15"
                 aria-label="Close CLARA AI menu"
               >
                 <X className="h-4 w-4" />
@@ -721,15 +833,16 @@ export default function ClaraAssistantPanel({ open, onClose, context = {} }) {
           </div>
 
           <div className="max-h-[calc(82dvh-116px)] space-y-2 overflow-y-auto px-3 py-3">
-            {AI_FEATURE_OPTIONS.map((option) => (
+            {AI_FEATURE_OPTIONS.map((option, index) => (
               <button
                 key={option.label}
+                style={{ animationDelay: `${70 + index * 34}ms` }}
                 type="button"
                 onPointerDown={(event) => event.stopPropagation()}
                 onTouchStart={(event) => event.stopPropagation()}
                 onTouchEnd={(event) => handleFeatureOptionTouchEnd(event, option)}
                 onClick={(event) => handleFeatureOptionClick(event, option)}
-                className="group flex w-full items-center justify-between gap-3 rounded-[22px] border border-white/10 bg-white/[0.055] px-4 py-3 text-left transition hover:bg-white/[0.08] active:scale-[0.99]"
+                className="clara-ai-option group flex w-full items-center justify-between gap-3 rounded-[22px] border border-white/10 bg-white/[0.055] px-4 py-3 text-left shadow-[inset_0_1px_0_rgba(255,255,255,0.06)] transition duration-150 hover:bg-white/[0.08] active:translate-y-[1px] active:scale-[0.985] active:border-cyan-200/20 active:bg-cyan-200/[0.08]"
               >
                 <span className="min-w-0">
                   <span className="block text-sm font-semibold text-white">{option.label}</span>
@@ -737,7 +850,7 @@ export default function ClaraAssistantPanel({ open, onClose, context = {} }) {
                     {option.description}
                   </span>
                 </span>
-                <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-cyan-200/10 bg-cyan-300/10 text-cyan-100 transition group-active:scale-95">
+                <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-cyan-200/10 bg-cyan-300/10 text-cyan-100 shadow-[0_0_24px_rgba(103,232,249,0.08)] transition duration-150 group-hover:bg-cyan-300/15 group-active:scale-90 group-active:bg-cyan-300/20">
                   <Send className="h-3.5 w-3.5" />
                 </span>
               </button>
@@ -750,15 +863,17 @@ export default function ClaraAssistantPanel({ open, onClose, context = {} }) {
 
   return (
     <div className="fixed inset-0 z-[9999]">
+      <style>{CLARA_ASSISTANT_ANIMATION_STYLES}</style>
+
       <div
-        className="absolute inset-0 z-0 bg-black/45 backdrop-blur-sm"
+        className="clara-ai-backdrop absolute inset-0 z-0 bg-black/45 backdrop-blur-sm"
         onClick={absorbShieldEvent}
         onPointerDown={absorbShieldEvent}
         onTouchStart={absorbShieldEvent}
       />
 
       <section
-        className="pointer-events-auto absolute bottom-[calc(12px+env(safe-area-inset-bottom))] left-3 right-3 z-10 mx-auto flex h-[78dvh] w-auto max-w-md flex-col overflow-hidden rounded-[30px] border border-cyan-200/10 bg-[#06111f] text-white shadow-2xl sm:bottom-auto sm:left-1/2 sm:right-auto sm:top-1/2 sm:h-[680px] sm:w-full sm:-translate-x-1/2 sm:-translate-y-1/2"
+        className="clara-ai-chat-shell pointer-events-auto absolute bottom-[calc(12px+env(safe-area-inset-bottom))] left-3 right-3 z-10 mx-auto flex h-[78dvh] w-auto max-w-md flex-col overflow-hidden rounded-[30px] border border-cyan-200/10 bg-[#06111f] text-white shadow-2xl sm:bottom-auto sm:left-1/2 sm:right-auto sm:top-1/2 sm:h-[680px] sm:w-full sm:-translate-x-1/2 sm:-translate-y-1/2"
         onClick={stopAssistantPropagation}
         onPointerDown={stopAssistantPropagation}
         onTouchStart={stopAssistantPropagation}
@@ -777,7 +892,7 @@ export default function ClaraAssistantPanel({ open, onClose, context = {} }) {
             onClick={handleCloseClick}
             onPointerDown={(event) => event.stopPropagation()}
             onTouchStart={(event) => event.stopPropagation()}
-            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-white/10 bg-white/10 text-white/75 active:scale-95"
+            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-white/10 bg-white/10 text-white/75 transition active:scale-90 active:bg-white/15"
             aria-label="Close CLARA assistant"
           >
             <X className="h-4 w-4" />
@@ -832,7 +947,7 @@ export default function ClaraAssistantPanel({ open, onClose, context = {} }) {
             <button
               type="submit"
               disabled={!draft.trim()}
-              className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-cyan-300 text-slate-950 active:scale-95 disabled:cursor-not-allowed disabled:opacity-35"
+              className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-cyan-300 text-slate-950 transition active:scale-95 disabled:cursor-not-allowed disabled:opacity-35"
               aria-label="Send message"
             >
               <Send className="h-4 w-4" />
