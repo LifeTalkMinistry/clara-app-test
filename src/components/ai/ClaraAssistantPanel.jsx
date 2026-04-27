@@ -10,6 +10,8 @@ const GHOST_CLICK_WINDOW_MS = 520;
 const TOUCH_DEDUPE_MS = 700;
 const FEATURE_SCROLL_GUARD_MS = 350;
 const FEATURE_TAP_MOVE_THRESHOLD_PX = 8;
+const CLARA_ASSISTANT_SINGLETON_KEY = "__claraAssistantActiveInstanceId";
+const CLARA_ASSISTANT_ROOT_SELECTOR = '[data-clara-assistant-root="true"]';
 
 const QUICK_OPTIONS = [
   {
@@ -263,6 +265,33 @@ const CLARA_ASSISTANT_ANIMATION_STYLES = `
     }
   }
 `;
+
+
+function makeAssistantInstanceId() {
+  return `clara-assistant-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+}
+
+function setActiveAssistantInstance(instanceId) {
+  if (typeof window === "undefined" || !instanceId) return;
+  window[CLARA_ASSISTANT_SINGLETON_KEY] = instanceId;
+}
+
+function clearActiveAssistantInstance(instanceId) {
+  if (typeof window === "undefined") return;
+  if (!instanceId || window[CLARA_ASSISTANT_SINGLETON_KEY] === instanceId) {
+    delete window[CLARA_ASSISTANT_SINGLETON_KEY];
+  }
+}
+
+function enforceSingleAssistantRoot(instanceId) {
+  if (typeof document === "undefined" || !instanceId) return;
+
+  document.querySelectorAll(CLARA_ASSISTANT_ROOT_SELECTOR).forEach((node) => {
+    const isCurrent = node.getAttribute("data-clara-assistant-instance") === instanceId;
+    node.style.display = isCurrent ? "" : "none";
+    node.setAttribute("aria-hidden", isCurrent ? "false" : "true");
+  });
+}
 
 function makeMessage(role, text) {
   return {
@@ -692,6 +721,10 @@ function getBestContext(currentContext = {}, latestContext = {}) {
 
 export default function ClaraAssistantPanel({ open, onClose, context = {} }) {
   const latestContextRef = useRef(context || {});
+  const instanceIdRef = useRef(null);
+  if (!instanceIdRef.current) {
+    instanceIdRef.current = makeAssistantInstanceId();
+  }
   const closeTimeoutRef = useRef(null);
   const ghostClickUntilRef = useRef(0);
   const lastBackdropTouchAtRef = useRef(0);
@@ -712,7 +745,6 @@ export default function ClaraAssistantPanel({ open, onClose, context = {} }) {
   latestContextRef.current = activeContext;
 
   const [panelMode, setPanelMode] = useState(null);
-  const [closingPanelMode, setClosingPanelMode] = useState(null);
   const [selectedFeatureTitle, setSelectedFeatureTitle] = useState("Ask CLARA");
   const [draft, setDraft] = useState("");
   const [messages, setMessages] = useState(() => [makeMessage("clara", INITIAL_MESSAGE)]);
@@ -722,7 +754,6 @@ export default function ClaraAssistantPanel({ open, onClose, context = {} }) {
   const inputRef = useRef(null);
   const bottomRef = useRef(null);
   const contextStatus = getContextStatus(activeContext);
-  const renderedMode = panelMode || closingPanelMode;
 
   const resetFeatureTap = () => {
     featureTapRef.current = {
@@ -747,6 +778,23 @@ export default function ClaraAssistantPanel({ open, onClose, context = {} }) {
     ghostClickUntilRef.current = Date.now() + GHOST_CLICK_WINDOW_MS;
   };
 
+
+  const claimAssistantInstance = () => {
+    const instanceId = instanceIdRef.current;
+    setActiveAssistantInstance(instanceId);
+
+    if (typeof window !== "undefined") {
+      const schedule = window.requestAnimationFrame
+        ? window.requestAnimationFrame.bind(window)
+        : window.setTimeout.bind(window);
+      schedule(() => enforceSingleAssistantRoot(instanceId));
+    }
+  };
+
+  const releaseAssistantInstance = () => {
+    clearActiveAssistantInstance(instanceIdRef.current);
+  };
+
   useEffect(() => {
     latestContextRef.current = getBestContext(context || {}, latestContextRef.current || {});
 
@@ -762,12 +810,12 @@ export default function ClaraAssistantPanel({ open, onClose, context = {} }) {
         closeTimeoutRef.current = null;
       }
 
+      claimAssistantInstance();
       resetTemporaryUiState();
       ghostClickUntilRef.current = 0;
       featureScrollGuardUntilRef.current = 0;
       lastBackdropTouchAtRef.current = 0;
       setIsClosing(false);
-      setClosingPanelMode(null);
       setPanelMode("menu");
       setSelectedFeatureTitle("Ask CLARA");
       setMessages([makeMessage("clara", INITIAL_MESSAGE)]);
@@ -776,7 +824,7 @@ export default function ClaraAssistantPanel({ open, onClose, context = {} }) {
 
     if (!isClosing) {
       setPanelMode(null);
-      setClosingPanelMode(null);
+      releaseAssistantInstance();
     }
   }, [open]);
 
@@ -785,8 +833,15 @@ export default function ClaraAssistantPanel({ open, onClose, context = {} }) {
       if (closeTimeoutRef.current) {
         window.clearTimeout(closeTimeoutRef.current);
       }
+      releaseAssistantInstance();
     };
   }, []);
+
+  useEffect(() => {
+    if (!panelMode) return;
+    claimAssistantInstance();
+    enforceSingleAssistantRoot(instanceIdRef.current);
+  }, [panelMode]);
 
   useEffect(() => {
     if (!open || isClosing || panelMode !== "chat") return undefined;
@@ -844,7 +899,6 @@ export default function ClaraAssistantPanel({ open, onClose, context = {} }) {
     setDraft("");
     setActiveMode(nextMode);
     setPanelMode("chat");
-    setClosingPanelMode(null);
 
     if (option?.mode === "purchase_decision") {
       setMessages([
@@ -868,12 +922,9 @@ export default function ClaraAssistantPanel({ open, onClose, context = {} }) {
 
   const closeAssistantSafely = (event) => {
     stopAssistantEvent(event);
-    if (isClosing) return;
+    if (isClosing || !panelMode) return;
 
-    const modeToClose = panelMode || renderedMode || "menu";
     resetTemporaryUiState();
-    setClosingPanelMode(modeToClose);
-    setPanelMode(null);
     setIsClosing(true);
 
     if (closeTimeoutRef.current) {
@@ -883,8 +934,9 @@ export default function ClaraAssistantPanel({ open, onClose, context = {} }) {
     closeTimeoutRef.current = window.setTimeout(() => {
       closeTimeoutRef.current = null;
       setIsClosing(false);
-      setClosingPanelMode(null);
+      setPanelMode(null);
       setSelectedFeatureTitle("Ask CLARA");
+      releaseAssistantInstance();
       onClose?.();
     }, CLOSE_ANIMATION_MS);
   };
@@ -895,7 +947,6 @@ export default function ClaraAssistantPanel({ open, onClose, context = {} }) {
 
     resetTemporaryUiState();
     ghostClickUntilRef.current = Date.now() + 180;
-    setClosingPanelMode(null);
     setPanelMode("menu");
     setSelectedFeatureTitle("Ask CLARA");
   };
@@ -1047,10 +1098,10 @@ export default function ClaraAssistantPanel({ open, onClose, context = {} }) {
     sendMessageText(text);
   };
 
-  if (!renderedMode && !isClosing) return null;
+  if (!panelMode) return null;
 
   const backdropClassName = `clara-ai-backdrop${isClosing ? " clara-ai-backdrop-out" : ""}`;
-  const shellClassName = renderedMode === "menu"
+  const shellClassName = panelMode === "menu"
     ? `clara-ai-menu-shell${isClosing ? " clara-ai-menu-shell-out" : ""}`
     : `clara-ai-chat-shell${isClosing ? " clara-ai-chat-shell-out" : ""}`;
 
@@ -1071,6 +1122,8 @@ export default function ClaraAssistantPanel({ open, onClose, context = {} }) {
 
       <div
         aria-modal="true"
+        data-clara-assistant-root="true"
+        data-clara-assistant-instance={instanceIdRef.current}
         className={`${backdropClassName} fixed inset-0 z-[99990] flex items-end justify-center bg-black/55 px-4 pb-4 pt-16 text-white sm:items-center sm:p-6`}
         role="dialog"
         onClick={handleBackdropClick}
@@ -1088,7 +1141,7 @@ export default function ClaraAssistantPanel({ open, onClose, context = {} }) {
           <div className="clara-ai-glow pointer-events-none absolute -left-24 -top-24 h-52 w-52 rounded-full bg-emerald-400/18 blur-3xl" />
           <div className="clara-ai-glow pointer-events-none absolute -bottom-28 -right-24 h-56 w-56 rounded-full bg-cyan-400/14 blur-3xl" />
 
-          {renderedMode === "menu" && (
+          {panelMode === "menu" && (
             <div className="relative flex max-h-[82vh] flex-col p-5 sm:p-6">
               <div className="mb-5 flex items-start justify-between gap-4">
                 <div>
@@ -1149,7 +1202,7 @@ export default function ClaraAssistantPanel({ open, onClose, context = {} }) {
             </div>
           )}
 
-          {renderedMode === "chat" && (
+          {panelMode === "chat" && (
             <div className="relative flex h-[82vh] max-h-[760px] flex-col sm:h-[680px]">
               <div className="flex items-center justify-between gap-3 border-b border-white/10 p-4 sm:p-5">
                 <button
