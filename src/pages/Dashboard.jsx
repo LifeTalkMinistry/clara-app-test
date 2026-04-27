@@ -1054,6 +1054,19 @@ const FinanceField = ({ label, children, helper }) => (
 const financeInputClassName =
   "w-full rounded-2xl border border-white/10 bg-white/[0.04] px-4 py-3 text-sm text-white outline-none transition placeholder:text-white/35 focus:border-emerald-400/30 focus:bg-white/[0.06]";
 
+const UNDOCUMENTED_SPENDING_REASONS = [
+  "Forgot to log it immediately",
+  "Cannot remember the exact item",
+  "Spent multiple times and forgot the details",
+  "Lost receipt or proof of purchase",
+  "No internet connection at the time",
+  "Paid in cash and forgot to record it",
+  "Someone else used the money",
+  "Emergency or rushed spending",
+  "App was not available at the moment",
+  "Other undocumented reason",
+];
+
 const FINANCE_CARD_KEYS = ["emergency", "wallets", "budgets", "savings"];
 
 const getFinanceThemeAccentClass = (tone = "emerald", isLight = false) => {
@@ -5458,6 +5471,8 @@ export default function Dashboard() {
     expenseWalletId: "",
     budgetListKey: "",
     unplannedReason: "",
+    undocumentedReason: "",
+    undocumentedNote: "",
     totalBudget: "",
     needsPct: "50",
     wantsPct: "30",
@@ -6464,12 +6479,15 @@ export default function Dashboard() {
   );
 
   const manualExpenseIsUnplanned = financeForm.budgetListKey === "__unplanned__";
+  const manualExpenseIsUndocumented = financeForm.budgetListKey === "__undocumented__";
   const manualExpenseReason = normalizeString(financeForm.unplannedReason || financeForm.notes);
+  const manualExpenseUndocumentedReason = normalizeString(financeForm.undocumentedReason);
   const manualExpenseCanSubmit =
     Number(financeForm.amount) > 0 &&
     Boolean(financeForm.budgetListKey) &&
     Boolean(financeForm.expenseWalletId) &&
-    (!manualExpenseIsUnplanned || Boolean(manualExpenseReason));
+    (!manualExpenseIsUnplanned || Boolean(manualExpenseReason)) &&
+    (!manualExpenseIsUndocumented || Boolean(manualExpenseUndocumentedReason));
 
   const programJourney = useMemo(
     () =>
@@ -6860,6 +6878,8 @@ export default function Dashboard() {
       budgetListKey: "",
       expenseWalletId: String(wallets[0]?.id || ""),
       unplannedReason: "",
+      undocumentedReason: "",
+      undocumentedNote: "",
       notes: "",
     }));
     setFinanceModal({ type: "manual_expense", payload: null });
@@ -7094,10 +7114,16 @@ export default function Dashboard() {
       (item) => String(item.id) === String(financeForm.expenseWalletId)
     );
     const isUnplanned = financeForm.budgetListKey === "__unplanned__";
+    const isUndocumented = financeForm.budgetListKey === "__undocumented__";
     const selectedBudget = manualExpenseBudgetOptions.find(
       (item) => String(item.key) === String(financeForm.budgetListKey)
     );
     const reason = normalizeString(financeForm.unplannedReason || financeForm.notes);
+    const undocumentedReason = normalizeString(financeForm.undocumentedReason);
+    const undocumentedNote = normalizeString(financeForm.undocumentedNote);
+    const undocumentedFallbackNote = normalizeString(
+      [undocumentedReason, undocumentedNote].filter(Boolean).join(" — ")
+    );
 
     if (!Number.isFinite(amount) || amount <= 0) {
       showFinanceNotice("Please enter a valid expense amount.");
@@ -7124,7 +7150,12 @@ export default function Dashboard() {
       return;
     }
 
-    if (!isUnplanned && !selectedBudget) {
+    if (isUndocumented && !undocumentedReason) {
+      showFinanceNotice("Please select why this spending is undocumented.");
+      return;
+    }
+
+    if (!isUnplanned && !isUndocumented && !selectedBudget) {
       showFinanceNotice("Please select a valid budget list item.");
       return;
     }
@@ -7134,9 +7165,14 @@ export default function Dashboard() {
 
       const nowIso = new Date().toISOString();
       const expenseId = createFinanceId("expense");
-      const budgetCategory = isUnplanned ? "Unplanned" : selectedBudget.title;
-      const needType = isUnplanned ? "other" : selectedBudget.needType || "need";
-      const planningStatus = isUnplanned ? "unplanned" : "planned";
+      const budgetCategory = isUnplanned
+        ? "Unplanned"
+        : isUndocumented
+          ? "Undocumented Spending"
+          : selectedBudget.title;
+      const needType = isUnplanned || isUndocumented ? "other" : selectedBudget.needType || "need";
+      const planningStatus = isUnplanned ? "unplanned" : isUndocumented ? "undocumented" : "planned";
+      const notesValue = isUnplanned ? reason : isUndocumented ? undocumentedFallbackNote : "";
 
       const expensePayload = {
         id: expenseId,
@@ -7148,7 +7184,9 @@ export default function Dashboard() {
         need_type: needType,
         planning_status: planningStatus,
         unplanned_reason: isUnplanned ? reason : null,
-        notes: isUnplanned ? reason : "",
+        undocumented_reason: isUndocumented ? undocumentedReason : null,
+        undocumented_note: isUndocumented ? undocumentedNote : null,
+        notes: notesValue,
         date: nowIso,
         expense_date: nowIso,
         created_at: nowIso,
@@ -7158,7 +7196,32 @@ export default function Dashboard() {
         created_by: user?.email || null,
       };
 
-      const { error: expenseError } = await supabase.from("expenses").insert([expensePayload]);
+      let { error: expenseError } = await supabase.from("expenses").insert([expensePayload]);
+
+      const undocumentedColumnMissing =
+        expenseError &&
+        isUndocumented &&
+        (
+          String(expenseError?.code || "") === "PGRST204" ||
+          /undocumented_reason|undocumented_note|schema cache|column/i.test(
+            String(expenseError?.message || "")
+          )
+        );
+
+      if (undocumentedColumnMissing) {
+        const fallbackExpensePayload = {
+          ...expensePayload,
+          unplanned_reason: undocumentedFallbackNote || "Undocumented Spending",
+          notes: undocumentedFallbackNote || "Undocumented Spending",
+        };
+
+        delete fallbackExpensePayload.undocumented_reason;
+        delete fallbackExpensePayload.undocumented_note;
+
+        const fallbackResult = await supabase.from("expenses").insert([fallbackExpensePayload]);
+        expenseError = fallbackResult.error;
+      }
+
       if (expenseError) throw expenseError;
 
       const { error: historyError } = await supabase.from("wallet_transactions").insert([
@@ -7170,7 +7233,7 @@ export default function Dashboard() {
           expense_id: expenseId,
           category: budgetCategory,
           budget_category: budgetCategory,
-          notes: isUnplanned ? reason : "",
+          notes: notesValue,
           transaction_date: nowIso,
           date: nowIso,
           created_at: nowIso,
@@ -7195,6 +7258,8 @@ export default function Dashboard() {
     financeForm.budgetListKey,
     financeForm.expenseWalletId,
     financeForm.notes,
+    financeForm.undocumentedNote,
+    financeForm.undocumentedReason,
     financeForm.unplannedReason,
     manualExpenseBudgetOptions,
     refreshFinanceSection,
@@ -9684,23 +9749,35 @@ export default function Dashboard() {
           <select
             value={financeForm.budgetListKey}
             onChange={(event) =>
-              setFinanceForm((prev) => ({
-                ...prev,
-                budgetListKey: event.target.value,
-                unplannedReason:
-                  event.target.value === "__unplanned__" ? prev.unplannedReason : "",
-                notes: event.target.value === "__unplanned__" ? prev.notes : "",
-              }))
+              setFinanceForm((prev) => {
+                const nextValue = event.target.value;
+
+                return {
+                  ...prev,
+                  budgetListKey: nextValue,
+                  unplannedReason:
+                    nextValue === "__unplanned__" ? prev.unplannedReason : "",
+                  undocumentedReason:
+                    nextValue === "__undocumented__" ? prev.undocumentedReason : "",
+                  undocumentedNote:
+                    nextValue === "__undocumented__" ? prev.undocumentedNote : "",
+                  notes:
+                    nextValue === "__unplanned__" || nextValue === "__undocumented__"
+                      ? prev.notes
+                      : "",
+                };
+              })
             }
             className={financeInputClassName}
           >
             <option value="">Select budget list</option>
+            <option value="__unplanned__">Unplanned Spending</option>
+            <option value="__undocumented__">Undocumented Spending</option>
             {manualExpenseBudgetOptions.map((budgetItem) => (
               <option key={budgetItem.key} value={budgetItem.key}>
                 {budgetItem.title}
               </option>
             ))}
-            <option value="__unplanned__">Unplanned</option>
           </select>
         </FinanceField>
 
@@ -9744,6 +9821,51 @@ export default function Dashboard() {
                 className={`${financeInputClassName} min-h-[96px] resize-none`}
               />
             </FinanceField>
+          </div>
+        ) : manualExpenseIsUndocumented ? (
+          <div className="rounded-2xl border border-cyan-300/18 bg-cyan-500/10 p-4">
+            <p className="mb-3 text-xs leading-5 text-cyan-50/80">
+              No worries. Choose the closest reason so CLARA can keep your records clean.
+            </p>
+
+            <FinanceField label="Undocumented Reason">
+              <select
+                value={financeForm.undocumentedReason || ""}
+                onChange={(event) =>
+                  setFinanceForm((prev) => ({
+                    ...prev,
+                    undocumentedReason: event.target.value,
+                  }))
+                }
+                className={financeInputClassName}
+              >
+                <option value="">Why is this undocumented?</option>
+                {UNDOCUMENTED_SPENDING_REASONS.map((reasonOption) => (
+                  <option key={reasonOption} value={reasonOption}>
+                    {reasonOption}
+                  </option>
+                ))}
+              </select>
+            </FinanceField>
+
+            {financeForm.undocumentedReason === "Other undocumented reason" ? (
+              <div className="mt-3">
+                <FinanceField label="Optional note">
+                  <input
+                    type="text"
+                    value={financeForm.undocumentedNote || ""}
+                    onChange={(event) =>
+                      setFinanceForm((prev) => ({
+                        ...prev,
+                        undocumentedNote: event.target.value,
+                      }))
+                    }
+                    placeholder="Add a short note, if needed"
+                    className={financeInputClassName}
+                  />
+                </FinanceField>
+              </div>
+            ) : null}
           </div>
         ) : selectedManualExpenseBudget ? (
           <div className="rounded-2xl border border-emerald-300/15 bg-emerald-500/10 px-4 py-3 text-xs leading-5 text-emerald-50/75">
