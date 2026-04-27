@@ -7875,6 +7875,196 @@ export default function Dashboard() {
           overscroll-behavior-x: auto;
           scroll-padding-bottom: 0;
         }
+
+        [data-emergency-card] button[aria-label*="CLARA AI"] {
+          isolation: isolate;
+          overflow: visible;
+          border-color: rgba(103, 232, 249, 0.38) !important;
+          background:
+            radial-gradient(circle at 30% 18%, rgba(255, 255, 255, 0.30), transparent 27%),
+            radial-gradient(circle at 62% 70%, rgba(45, 212, 191, 0.24), transparent 38%),
+            linear-gradient(135deg, rgba(7, 25, 33, 0.80), rgba(8, 47, 58, 0.62) 46%, rgba(3, 15, 25, 0.82)) !important;
+          box-shadow:
+            0 0 0 1px rgba(255, 255, 255, 0.08) inset,
+            0 0 0 5px rgba(34, 211, 238, 0.045),
+            0 10px 28px rgba(0, 0, 0, 0.34),
+            0 0 22px rgba(34, 211, 238, 0.22) !important;
+          color: rgb(207, 250, 254) !important;
+          transform: translateZ(0);
+          will-change: transform;
+          animation: claraEmergencyOrbBreath 2.8s ease-in-out infinite;
+        }
+
+        [data-emergency-card] button[aria-label*="CLARA AI"]::before {
+          content: "";
+          position: absolute;
+          inset: -6px;
+          z-index: -1;
+          border-radius: 9999px;
+          background:
+            radial-gradient(circle, rgba(34, 211, 238, 0.22), rgba(20, 184, 166, 0.08) 48%, transparent 70%);
+          opacity: 0.72;
+          transform: scale(0.96);
+          animation: claraEmergencyOrbHalo 2.8s ease-in-out infinite;
+          pointer-events: none;
+        }
+
+        [data-emergency-card] button[aria-label*="CLARA AI"]::after {
+          content: "";
+          position: absolute;
+          inset: 2px;
+          border-radius: 9999px;
+          border: 1px solid rgba(255, 255, 255, 0.14);
+          background:
+            linear-gradient(145deg, rgba(255, 255, 255, 0.18), transparent 34%),
+            radial-gradient(circle at 50% 64%, rgba(34, 211, 238, 0.18), transparent 48%);
+          opacity: 0.88;
+          pointer-events: none;
+        }
+
+        [data-emergency-card] button[aria-label*="CLARA AI"] > span:first-of-type {
+          inset: -4px !important;
+          border-radius: 9999px !important;
+          background: radial-gradient(circle, rgba(34, 211, 238, 0.26), transparent 66%) !important;
+          filter: blur(8px) !important;
+          opacity: 0.55 !important;
+          animation: claraEmergencyOrbSoftGlow 2.8s ease-in-out infinite !important;
+        }
+
+        [data-emergency-card] button[aria-label*="CLARA AI"] > span:nth-of-type(2) {
+          inset: 4px !important;
+          border-radius: 9999px !important;
+          background:
+            radial-gradient(circle at 38% 24%, rgba(255, 255, 255, 0.28), transparent 28%),
+            radial-gradient(circle at 56% 64%, rgba(45, 212, 191, 0.22), transparent 46%) !important;
+          opacity: 0.78 !important;
+          animation: claraEmergencyOrbInner 2.8s ease-in-out infinite !important;
+        }
+
+        [data-emergency-card] button[aria-label*="CLARA AI"] svg {
+          color: rgb(207, 250, 254) !important;
+          filter: drop-shadow(0 0 7px rgba(103, 232, 249, 0.72));
+          transform: translateZ(0);
+          animation: claraEmergencyOrbIconGlow 2.8s ease-in-out infinite;
+        }
+
+        [data-emergency-card] button[aria-label*="CLARA AI"]:hover {
+          border-color: rgba(165, 243, 252, 0.52) !important;
+          box-shadow:
+            0 0 0 1px rgba(255, 255, 255, 0.10) inset,
+            0 0 0 5px rgba(34, 211, 238, 0.06),
+            0 12px 30px rgba(0, 0, 0, 0.36),
+            0 0 26px rgba(34, 211, 238, 0.28) !important;
+        }
+
+        [data-emergency-card] button[aria-label*="CLARA AI"]:active {
+          transform: scale(0.94) translateZ(0) !important;
+        }
+
+        .clara-performance-mode [data-emergency-card] button[aria-label*="CLARA AI"],
+        .clara-performance-mode [data-emergency-card] button[aria-label*="CLARA AI"]::before,
+        .clara-performance-mode [data-emergency-card] button[aria-label*="CLARA AI"]::after,
+        .clara-performance-mode [data-emergency-card] button[aria-label*="CLARA AI"] > span,
+        .clara-performance-mode [data-emergency-card] button[aria-label*="CLARA AI"] svg {
+          animation: none !important;
+          transition-duration: 0ms !important;
+        }
+
+        .clara-performance-mode [data-emergency-card] button[aria-label*="CLARA AI"] {
+          border-color: rgba(103, 232, 249, 0.30) !important;
+          background:
+            radial-gradient(circle at 34% 22%, rgba(255, 255, 255, 0.18), transparent 30%),
+            linear-gradient(135deg, rgba(8, 35, 45, 0.72), rgba(5, 22, 32, 0.82)) !important;
+          box-shadow:
+            0 0 0 1px rgba(255, 255, 255, 0.07) inset,
+            0 8px 18px rgba(0, 0, 0, 0.22) !important;
+          backdrop-filter: none !important;
+          -webkit-backdrop-filter: none !important;
+          will-change: auto;
+        }
+
+        .clara-performance-mode [data-emergency-card] button[aria-label*="CLARA AI"]::before {
+          opacity: 0 !important;
+        }
+
+        .clara-performance-mode [data-emergency-card] button[aria-label*="CLARA AI"]::after {
+          opacity: 0.58 !important;
+          background: transparent !important;
+          border-color: rgba(255, 255, 255, 0.10) !important;
+        }
+
+        .clara-performance-mode [data-emergency-card] button[aria-label*="CLARA AI"] > span:first-of-type {
+          opacity: 0 !important;
+          filter: none !important;
+        }
+
+        .clara-performance-mode [data-emergency-card] button[aria-label*="CLARA AI"] > span:nth-of-type(2) {
+          opacity: 0.28 !important;
+          filter: none !important;
+          background: radial-gradient(circle, rgba(34, 211, 238, 0.18), transparent 58%) !important;
+        }
+
+        .clara-performance-mode [data-emergency-card] button[aria-label*="CLARA AI"] svg {
+          filter: none !important;
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+          [data-emergency-card] button[aria-label*="CLARA AI"],
+          [data-emergency-card] button[aria-label*="CLARA AI"]::before,
+          [data-emergency-card] button[aria-label*="CLARA AI"]::after,
+          [data-emergency-card] button[aria-label*="CLARA AI"] > span,
+          [data-emergency-card] button[aria-label*="CLARA AI"] svg {
+            animation: none !important;
+            transition-duration: 0ms !important;
+          }
+
+          [data-emergency-card] button[aria-label*="CLARA AI"] {
+            box-shadow:
+              0 0 0 1px rgba(255, 255, 255, 0.08) inset,
+              0 8px 18px rgba(0, 0, 0, 0.24),
+              0 0 16px rgba(34, 211, 238, 0.14) !important;
+            will-change: auto;
+          }
+        }
+
+        @keyframes claraEmergencyOrbBreath {
+          0%, 100% {
+            transform: scale(1) translateZ(0);
+            box-shadow:
+              0 0 0 1px rgba(255, 255, 255, 0.08) inset,
+              0 0 0 5px rgba(34, 211, 238, 0.045),
+              0 10px 28px rgba(0, 0, 0, 0.34),
+              0 0 20px rgba(34, 211, 238, 0.18);
+          }
+          50% {
+            transform: scale(1.025) translateZ(0);
+            box-shadow:
+              0 0 0 1px rgba(255, 255, 255, 0.10) inset,
+              0 0 0 5px rgba(34, 211, 238, 0.06),
+              0 11px 30px rgba(0, 0, 0, 0.35),
+              0 0 25px rgba(34, 211, 238, 0.26);
+          }
+        }
+
+        @keyframes claraEmergencyOrbHalo {
+          0%, 100% { opacity: 0.46; transform: scale(0.95); }
+          50% { opacity: 0.78; transform: scale(1.05); }
+        }
+
+        @keyframes claraEmergencyOrbSoftGlow {
+          0%, 100% { opacity: 0.38; transform: scale(0.96); }
+          50% { opacity: 0.62; transform: scale(1.06); }
+        }
+
+        @keyframes claraEmergencyOrbInner {
+          0%, 100% { opacity: 0.58; transform: scale(0.98); }
+          50% { opacity: 0.82; transform: scale(1.02); }
+        }
+
+        @keyframes claraEmergencyOrbIconGlow {
+          0%, 100% { opacity: 0.86; transform: scale(1) translateZ(0); }
+          50% { opacity: 1; transform: scale(1.05) translateZ(0); }
+        }
         @keyframes claraDashboardPanelForwardIn {
           0% { opacity: 0; transform: translate3d(32px, 0, 0) scale(0.985); filter: blur(5px); }
           100% { opacity: 1; transform: translate3d(0, 0, 0) scale(1); filter: blur(0); }
