@@ -7281,10 +7281,7 @@ export default function Dashboard() {
   }, []);
 
   const openClaraAiFromLongPress = useCallback(() => {
-    dispatchClaraEvent("clara:open-assistant", {
-      mode: "chat",
-      source: "dashboard-long-press-orb",
-    });
+    setShowAiAssistant(true);
   }, []);
 
   const startClaraAiLongPress = useCallback((event) => {
