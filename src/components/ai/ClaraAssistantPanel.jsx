@@ -6,6 +6,17 @@ const INITIAL_MESSAGE = "I’m here. Ask me before you act.";
 const FALLBACK_REPLY = "Got it. I’ll help you think through that. Tell me what decision you’re about to make, and I’ll help you slow it down before you spend.";
 const LOADING_REPLY = "Dashboard data is still loading. Try again in a second.";
 
+const QUICK_OPTIONS = [
+  "Check my spending",
+  "Check my wallets",
+  "Money left",
+  "Before I buy this",
+  "What should I watch today?",
+  "Budget check",
+  "Savings check",
+  "Emergency fund",
+];
+
 function makeMessage(role, text) {
   return {
     id: `${role}-${Date.now()}-${Math.random().toString(36).slice(2)}`,
@@ -197,7 +208,7 @@ function getEmergencySummary(context = {}) {
   if (percentage !== null) return `Your emergency fund progress is around ${percentage.toFixed(0)}%. Keep protecting this section before adding new wants.`;
   if (monthsCovered !== null) return `Your emergency fund covers about ${monthsCovered} month${monthsCovered === 1 ? "" : "s"}. That gives you breathing room, but it still needs protection.`;
 
-  return "I can see your emergency fund section, but I need the fund amount fields to explain it clearly.";
+  return "I can see your emergency fund section, but I need clearer fund values before I can explain it confidently.";
 }
 
 function getSavingsSummary(context = {}) {
@@ -217,7 +228,7 @@ function getSavingsSummary(context = {}) {
   if (saved) return `Your saved amount is ${saved}. That’s progress worth protecting from impulse spending.`;
   if (target) return `Your savings target is ${target}. Break it into smaller checkpoints so it feels easier to reach.`;
 
-  return "I can see the savings section, but the detailed values are not complete yet.";
+  return "I can see your savings section, but the detailed savings values are not complete yet.";
 }
 
 function getBudgetSummary(context = {}) {
@@ -237,7 +248,7 @@ function getBudgetSummary(context = {}) {
   if (allocated) return `Your current budget allocation is ${allocated}. Before spending, check which category this decision belongs to.`;
   if (spent) return `Your current budget spending is ${spent}. The next step is to compare it against your declared limits.`;
 
-  return "I can see the budget section, but the detailed values are not complete yet.";
+  return "I can see your budget section, but I need clearer budget values before I can explain it confidently.";
 }
 
 function getLocalReply(question, context = {}) {
@@ -247,6 +258,11 @@ function getLocalReply(question, context = {}) {
   const monthlySpent = getMonthlySpent(context);
   const contextReady = hasUsableContext(context);
 
+  const asksBeforeBuy =
+    text.includes("before i buy") ||
+    text.includes("before buying") ||
+    text.includes("before i purchase") ||
+    text.includes("should i buy");
   const asksWallet = text.includes("wallet");
   const asksEmergency = text.includes("emergency");
   const asksSavings = text.includes("saving") || text.includes("savings") || text.includes("goal");
@@ -258,6 +274,10 @@ function getLocalReply(question, context = {}) {
     text.includes("left") ||
     text.includes("balance") ||
     text.includes("available");
+
+  if (asksBeforeBuy) {
+    return "What are you planning to buy, and how much will it cost?";
+  }
 
   if (asksWallet) return getWalletSummary(context);
   if (asksEmergency) return getEmergencySummary(context);
@@ -284,7 +304,7 @@ function getLocalReply(question, context = {}) {
     const spent = monthlySpent !== null ? formatMoney(monthlySpent) : null;
     const left = moneyLeft !== null ? formatMoney(moneyLeft) : null;
 
-    if (spent && left) return `Today, watch small leaks and emotional spending. You have ${left} available and ${spent} spent this month. Before buying, ask: is this a need, a planned want, or just a mood?`;
+    if (spent && left) return `Today, watch small unplanned spending. You have ${left} available and ${spent} spent this month. Your available money is still healthy, but daily leaks can quietly weaken your month.`;
     if (left) return `Today, protect your remaining ${left}. Pause before non-essential spending and keep your main wallet clean.`;
     if (spent) return `Today, be mindful: you’ve already spent ${spent} this month. The safest move is to slow down wants and protect essentials.`;
 
@@ -345,8 +365,8 @@ export default function ClaraAssistantPanel({ open, onClose, context = {} }) {
     bottomRef.current?.scrollIntoView?.({ behavior: "smooth" });
   }, [open, messages]);
 
-  const sendDraft = () => {
-    const text = draft.trim();
+  const sendMessageText = (messageText) => {
+    const text = String(messageText || "").trim();
     if (!text) return;
 
     const currentContext = getBestContext(context || {}, latestContextRef.current || {});
@@ -357,6 +377,13 @@ export default function ClaraAssistantPanel({ open, onClose, context = {} }) {
       makeMessage("user", text),
       makeMessage("clara", getLocalReply(text, currentContext)),
     ]);
+  };
+
+  const sendDraft = () => {
+    const text = draft.trim();
+    if (!text) return;
+
+    sendMessageText(text);
     setDraft("");
   };
 
@@ -410,7 +437,22 @@ export default function ClaraAssistantPanel({ open, onClose, context = {} }) {
           <div ref={bottomRef} />
         </div>
 
-        <form onSubmit={handleSubmit} className="shrink-0 border-t border-white/10 bg-[#06111f] px-3 pb-[calc(12px+env(safe-area-inset-bottom))] pt-3">
+        <div className="shrink-0 border-t border-white/10 bg-[#06111f] px-3 pt-3">
+          <div className="flex gap-2 overflow-x-auto pb-3 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+            {QUICK_OPTIONS.map((option) => (
+              <button
+                key={option}
+                type="button"
+                onClick={() => sendMessageText(option)}
+                className="shrink-0 rounded-full border border-cyan-200/10 bg-white/[0.07] px-3 py-2 text-[11px] font-medium text-white/80 transition active:scale-95"
+              >
+                {option}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        <form onSubmit={handleSubmit} className="shrink-0 bg-[#06111f] px-3 pb-[calc(12px+env(safe-area-inset-bottom))] pt-0">
           <div className="flex items-end gap-2 rounded-[24px] border border-white/10 bg-white/10 p-2">
             <textarea ref={inputRef} value={draft} onChange={(event) => setDraft(event.target.value)} onKeyDown={handleKeyDown} rows={1} placeholder="Ask CLARA before you act…" className="max-h-28 min-h-10 flex-1 resize-none bg-transparent px-3 py-2 text-sm leading-6 text-white outline-none placeholder:text-white/35" aria-label="Ask CLARA before you act" />
 
