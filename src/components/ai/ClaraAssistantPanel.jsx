@@ -8,6 +8,8 @@ const LOADING_REPLY = "Dashboard data is still loading. Try again in a second.";
 const CLOSE_ANIMATION_MS = 190;
 const GHOST_CLICK_WINDOW_MS = 520;
 const TOUCH_DEDUPE_MS = 700;
+const FEATURE_SCROLL_GUARD_MS = 350;
+const FEATURE_TAP_MOVE_THRESHOLD_PX = 8;
 
 const QUICK_OPTIONS = [
   {
