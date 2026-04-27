@@ -8068,7 +8068,7 @@ export default function Dashboard() {
           box-shadow:
             0 0 0 1px rgba(255, 255, 255, 0.07) inset,
             0 8px 18px rgba(0, 0, 0, 0.22),
-            0 0 14px color-mix(in srgb, var(--clara-orb-accent) 16%, transparent) !important;
+            0 0 16px color-mix(in srgb, var(--clara-orb-accent) 18%, transparent) !important;
           backdrop-filter: none !important;
           -webkit-backdrop-filter: none !important;
           will-change: auto;
@@ -8121,30 +8121,76 @@ export default function Dashboard() {
         @keyframes claraEmergencyOrbBreath {
           0%, 100% {
             transform: scale(1) translateZ(0);
+            box-shadow:
+              0 0 0 1px rgba(255, 255, 255, 0.09) inset,
+              0 0 0 5px color-mix(in srgb, var(--clara-orb-accent) 10%, transparent),
+              0 10px 28px rgba(0, 0, 0, 0.34),
+              0 0 18px color-mix(in srgb, var(--clara-orb-accent) 26%, transparent) !important;
           }
-          50% {
-            transform: scale(1.025) translateZ(0);
+          45% {
+            transform: scale(1.028) translateZ(0);
+            box-shadow:
+              0 0 0 1px rgba(255, 255, 255, 0.13) inset,
+              0 0 0 6px color-mix(in srgb, var(--clara-orb-accent) 17%, transparent),
+              0 11px 30px rgba(0, 0, 0, 0.36),
+              0 0 30px color-mix(in srgb, var(--clara-orb-accent) 54%, transparent) !important;
+          }
+          62% {
+            transform: scale(1.012) translateZ(0);
+            box-shadow:
+              0 0 0 1px rgba(255, 255, 255, 0.11) inset,
+              0 0 0 5px color-mix(in srgb, var(--clara-orb-accent) 13%, transparent),
+              0 10px 29px rgba(0, 0, 0, 0.35),
+              0 0 24px color-mix(in srgb, var(--clara-orb-accent) 40%, transparent) !important;
           }
         }
 
         @keyframes claraEmergencyOrbHalo {
-          0%, 100% { opacity: 0.44; transform: scale(0.95); }
-          50% { opacity: 0.74; transform: scale(1.05); }
+          0%, 100% {
+            opacity: 0.42;
+            transform: scale(0.94);
+            filter: blur(0px);
+          }
+          45% {
+            opacity: 0.92;
+            transform: scale(1.13);
+            filter: blur(1px);
+          }
+          62% {
+            opacity: 0.62;
+            transform: scale(1.04);
+            filter: blur(0px);
+          }
         }
 
         @keyframes claraEmergencyOrbSoftGlow {
           0%, 100% { opacity: 0.36; transform: scale(0.96); }
-          50% { opacity: 0.60; transform: scale(1.06); }
+          45% { opacity: 0.78; transform: scale(1.13); }
+          62% { opacity: 0.54; transform: scale(1.04); }
         }
 
         @keyframes claraEmergencyOrbInner {
           0%, 100% { opacity: 0.58; transform: scale(0.98); }
-          50% { opacity: 0.82; transform: scale(1.02); }
+          45% { opacity: 0.92; transform: scale(1.035); }
+          62% { opacity: 0.72; transform: scale(1.01); }
         }
 
         @keyframes claraEmergencyOrbIconGlow {
-          0%, 100% { opacity: 0.86; transform: scale(1) translateZ(0); }
-          50% { opacity: 1; transform: scale(1.05) translateZ(0); }
+          0%, 100% {
+            opacity: 0.86;
+            transform: scale(1) translateZ(0);
+            filter: drop-shadow(0 0 6px color-mix(in srgb, var(--clara-orb-accent) 58%, transparent));
+          }
+          45% {
+            opacity: 1;
+            transform: scale(1.08) translateZ(0);
+            filter: drop-shadow(0 0 12px color-mix(in srgb, var(--clara-orb-accent) 88%, transparent));
+          }
+          62% {
+            opacity: 0.96;
+            transform: scale(1.035) translateZ(0);
+            filter: drop-shadow(0 0 9px color-mix(in srgb, var(--clara-orb-accent) 72%, transparent));
+          }
         }
         @keyframes claraDashboardPanelForwardIn {
           0% { opacity: 0; transform: translate3d(32px, 0, 0) scale(0.985); filter: blur(5px); }
