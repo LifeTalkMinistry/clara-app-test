@@ -144,8 +144,47 @@ const CLARA_ASSISTANT_ANIMATION_STYLES = `
     }
   }
 
+  @keyframes claraAssistantBackdropOut {
+    from {
+      opacity: 1;
+      backdrop-filter: blur(14px);
+      -webkit-backdrop-filter: blur(14px);
+    }
+    to {
+      opacity: 0;
+      backdrop-filter: blur(0px);
+      -webkit-backdrop-filter: blur(0px);
+    }
+  }
+
+  @keyframes claraAssistantSheetOut {
+    from {
+      opacity: 1;
+      transform: translate3d(0, 0, 0) scale(1);
+    }
+    to {
+      opacity: 0;
+      transform: translate3d(0, 16px, 0) scale(0.985);
+    }
+  }
+
+  @keyframes claraAssistantSheetOutDesktop {
+    from {
+      opacity: 1;
+      transform: translate3d(-50%, -50%, 0) scale(1);
+    }
+    to {
+      opacity: 0;
+      transform: translate3d(-50%, calc(-50% + 16px), 0) scale(0.985);
+    }
+  }
+
   .clara-ai-backdrop {
     animation: claraAssistantBackdropIn 180ms ease-out both;
+  }
+
+  .clara-ai-backdrop-out {
+    animation: claraAssistantBackdropOut 170ms ease-in both;
   }
 
   .clara-ai-menu-shell {
@@ -155,6 +194,12 @@ const CLARA_ASSISTANT_ANIMATION_STYLES = `
 
   .clara-ai-chat-shell {
     animation: claraAssistantSheetIn 200ms cubic-bezier(0.2, 0.85, 0.25, 1) both;
+    will-change: transform, opacity;
+  }
+
+  .clara-ai-menu-shell-out,
+  .clara-ai-chat-shell-out {
+    animation: claraAssistantSheetOut 170ms ease-in both;
     will-change: transform, opacity;
   }
 
@@ -174,12 +219,20 @@ const CLARA_ASSISTANT_ANIMATION_STYLES = `
     .clara-ai-chat-shell {
       animation-name: claraAssistantSheetInDesktop;
     }
+
+    .clara-ai-menu-shell-out,
+    .clara-ai-chat-shell-out {
+      animation-name: claraAssistantSheetOutDesktop;
+    }
   }
 
   @media (prefers-reduced-motion: reduce) {
     .clara-ai-backdrop,
+    .clara-ai-backdrop-out,
     .clara-ai-menu-shell,
+    .clara-ai-menu-shell-out,
     .clara-ai-chat-shell,
+    .clara-ai-chat-shell-out,
     .clara-ai-option,
     .clara-ai-glow {
       animation: none !important;
@@ -619,6 +672,8 @@ export default function ClaraAssistantPanel({ open, onClose, context = {} }) {
   const latestContextRef = useRef(context || {});
   const lastTouchSentAtRef = useRef(0);
   const lastFeatureTouchSentAtRef = useRef(0);
+  const lastBackdropTouchAtRef = useRef(0);
+  const closeTimeoutRef = useRef(null);
 
   const activeContext = getBestContext(context || {}, latestContextRef.current || {});
   latestContextRef.current = activeContext;
@@ -635,17 +690,33 @@ export default function ClaraAssistantPanel({ open, onClose, context = {} }) {
   const [messages, setMessages] = useState(() => [makeMessage("clara", INITIAL_MESSAGE)]);
   const [showFeatureMenu, setShowFeatureMenu] = useState(true);
   const [activeMode, setActiveMode] = useState(null);
+  const [isClosing, setIsClosing] = useState(false);
   const inputRef = useRef(null);
   const bottomRef = useRef(null);
   const contextStatus = getContextStatus(activeContext);
 
   useEffect(() => {
     if (!open) return;
+
+    if (closeTimeoutRef.current) {
+      window.clearTimeout(closeTimeoutRef.current);
+      closeTimeoutRef.current = null;
+    }
+
+    setIsClosing(false);
     setShowFeatureMenu(true);
     setActiveMode(null);
     setMessages([makeMessage("clara", INITIAL_MESSAGE)]);
     setDraft("");
   }, [open]);
+
+  useEffect(() => {
+    return () => {
+      if (closeTimeoutRef.current) {
+        window.clearTimeout(closeTimeoutRef.current);
+      }
+    };
+  }, []);
 
   useEffect(() => {
     if (!open || showFeatureMenu) return;
@@ -712,6 +783,8 @@ export default function ClaraAssistantPanel({ open, onClose, context = {} }) {
   };
 
   const openAssistantWithPrompt = (option) => {
+    if (isClosing) return;
+
     setShowFeatureMenu(false);
 
     if (option?.mode === "purchase_decision") {
@@ -733,6 +806,7 @@ export default function ClaraAssistantPanel({ open, onClose, context = {} }) {
     event.preventDefault();
     event.stopPropagation();
     event.nativeEvent?.stopImmediatePropagation?.();
+    if (isClosing) return;
     lastFeatureTouchSentAtRef.current = Date.now();
     openAssistantWithPrompt(option);
   };
@@ -742,16 +816,51 @@ export default function ClaraAssistantPanel({ open, onClose, context = {} }) {
     event.stopPropagation();
     event.nativeEvent?.stopImmediatePropagation?.();
 
+    if (isClosing) return;
     if (Date.now() - lastFeatureTouchSentAtRef.current < 700) return;
 
     openAssistantWithPrompt(option);
+  };
+
+  const requestClose = () => {
+    if (isClosing) return;
+
+    setIsClosing(true);
+
+    closeTimeoutRef.current = window.setTimeout(() => {
+      closeTimeoutRef.current = null;
+      setIsClosing(false);
+      setShowFeatureMenu(true);
+      setActiveMode(null);
+      setMessages([makeMessage("clara", INITIAL_MESSAGE)]);
+      setDraft("");
+      onClose?.();
+    }, 180);
   };
 
   const handleCloseClick = (event) => {
     event.preventDefault();
     event.stopPropagation();
     event.nativeEvent?.stopImmediatePropagation?.();
-    onClose?.();
+    requestClose();
+  };
+
+  const handleMenuBackdropTouchStart = (event) => {
+    event.preventDefault();
+    event.stopPropagation();
+    event.nativeEvent?.stopImmediatePropagation?.();
+    lastBackdropTouchAtRef.current = Date.now();
+    requestClose();
+  };
+
+  const handleMenuBackdropClick = (event) => {
+    event.preventDefault();
+    event.stopPropagation();
+    event.nativeEvent?.stopImmediatePropagation?.();
+
+    if (Date.now() - lastBackdropTouchAtRef.current < 700) return;
+
+    requestClose();
   };
 
   const sendDraft = () => {
@@ -785,10 +894,10 @@ export default function ClaraAssistantPanel({ open, onClose, context = {} }) {
         <style>{CLARA_ASSISTANT_ANIMATION_STYLES}</style>
 
         <div
-          className="clara-ai-backdrop absolute inset-0 z-0 bg-black/50 backdrop-blur-md"
-          onClick={absorbShieldEvent}
+          className={`${isClosing ? "clara-ai-backdrop-out" : "clara-ai-backdrop"} absolute inset-0 z-0 bg-black/50 backdrop-blur-md`}
+          onClick={handleMenuBackdropClick}
           onPointerDown={absorbShieldEvent}
-          onTouchStart={absorbShieldEvent}
+          onTouchStart={handleMenuBackdropTouchStart}
         />
 
         <div className="pointer-events-none absolute inset-x-0 bottom-0 z-[1] mx-auto h-[58dvh] max-w-lg overflow-hidden">
@@ -798,7 +907,7 @@ export default function ClaraAssistantPanel({ open, onClose, context = {} }) {
         </div>
 
         <section
-          className="clara-ai-menu-shell pointer-events-auto absolute bottom-[calc(12px+env(safe-area-inset-bottom))] left-3 right-3 z-10 mx-auto max-h-[82dvh] w-auto max-w-md overflow-hidden rounded-[30px] border border-cyan-200/10 bg-[#06111f]/95 text-white shadow-[0_24px_80px_rgba(8,145,178,0.24)] backdrop-blur-2xl sm:bottom-auto sm:left-1/2 sm:right-auto sm:top-1/2 sm:w-full sm:-translate-x-1/2 sm:-translate-y-1/2"
+          className={`${isClosing ? "clara-ai-menu-shell-out" : "clara-ai-menu-shell"} pointer-events-auto absolute bottom-[calc(12px+env(safe-area-inset-bottom))] left-3 right-3 z-10 mx-auto max-h-[82dvh] w-auto max-w-md overflow-hidden rounded-[30px] border border-cyan-200/10 bg-[#06111f]/95 text-white shadow-[0_24px_80px_rgba(8,145,178,0.24)] backdrop-blur-2xl sm:bottom-auto sm:left-1/2 sm:right-auto sm:top-1/2 sm:w-full sm:-translate-x-1/2 sm:-translate-y-1/2`}
           onClick={stopAssistantPropagation}
           onPointerDown={stopAssistantPropagation}
           onTouchStart={stopAssistantPropagation}
@@ -866,14 +975,14 @@ export default function ClaraAssistantPanel({ open, onClose, context = {} }) {
       <style>{CLARA_ASSISTANT_ANIMATION_STYLES}</style>
 
       <div
-        className="clara-ai-backdrop absolute inset-0 z-0 bg-black/45 backdrop-blur-sm"
+        className={`${isClosing ? "clara-ai-backdrop-out" : "clara-ai-backdrop"} absolute inset-0 z-0 bg-black/45 backdrop-blur-sm`}
         onClick={absorbShieldEvent}
         onPointerDown={absorbShieldEvent}
         onTouchStart={absorbShieldEvent}
       />
 
       <section
-        className="clara-ai-chat-shell pointer-events-auto absolute bottom-[calc(12px+env(safe-area-inset-bottom))] left-3 right-3 z-10 mx-auto flex h-[78dvh] w-auto max-w-md flex-col overflow-hidden rounded-[30px] border border-cyan-200/10 bg-[#06111f] text-white shadow-2xl sm:bottom-auto sm:left-1/2 sm:right-auto sm:top-1/2 sm:h-[680px] sm:w-full sm:-translate-x-1/2 sm:-translate-y-1/2"
+        className={`${isClosing ? "clara-ai-chat-shell-out" : "clara-ai-chat-shell"} pointer-events-auto absolute bottom-[calc(12px+env(safe-area-inset-bottom))] left-3 right-3 z-10 mx-auto flex h-[78dvh] w-auto max-w-md flex-col overflow-hidden rounded-[30px] border border-cyan-200/10 bg-[#06111f] text-white shadow-2xl sm:bottom-auto sm:left-1/2 sm:right-auto sm:top-1/2 sm:h-[680px] sm:w-full sm:-translate-x-1/2 sm:-translate-y-1/2`}
         onClick={stopAssistantPropagation}
         onPointerDown={stopAssistantPropagation}
         onTouchStart={stopAssistantPropagation}
