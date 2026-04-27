@@ -25,6 +25,11 @@ function makeMessage(role, text) {
   };
 }
 
+function stopAssistantEvent(event) {
+  event?.preventDefault?.();
+  event?.stopPropagation?.();
+}
+
 function hasValue(value) {
   return value !== undefined && value !== null && value !== "";
 }
@@ -379,6 +384,11 @@ export default function ClaraAssistantPanel({ open, onClose, context = {} }) {
     ]);
   };
 
+  const handleQuickOptionClick = (event, option) => {
+    stopAssistantEvent(event);
+    sendMessageText(option);
+  };
+
   const sendDraft = () => {
     const text = draft.trim();
     if (!text) return;
@@ -389,12 +399,14 @@ export default function ClaraAssistantPanel({ open, onClose, context = {} }) {
 
   const handleSubmit = (event) => {
     event.preventDefault();
+    event.stopPropagation();
     sendDraft();
   };
 
   const handleKeyDown = (event) => {
     if (event.key !== "Enter" || event.shiftKey) return;
     event.preventDefault();
+    event.stopPropagation();
     sendDraft();
   };
 
@@ -408,7 +420,12 @@ export default function ClaraAssistantPanel({ open, onClose, context = {} }) {
     <div className="fixed inset-0 z-[120] flex items-end justify-center bg-black/70 px-3 pb-[calc(12px+env(safe-area-inset-bottom))] pt-[calc(12px+env(safe-area-inset-top))] backdrop-blur-md sm:items-center sm:p-4">
       <button type="button" className="absolute inset-0 cursor-default" onClick={onClose} aria-label="Close CLARA assistant overlay" />
 
-      <section className="relative z-[1] flex h-[78dvh] w-full max-w-md flex-col overflow-hidden rounded-[30px] border border-cyan-200/10 bg-[#06111f] text-white shadow-2xl sm:h-[680px]">
+      <section
+        className="relative z-[1] flex h-[78dvh] w-full max-w-md flex-col overflow-hidden rounded-[30px] border border-cyan-200/10 bg-[#06111f] text-white shadow-2xl sm:h-[680px]"
+        onClick={(event) => event.stopPropagation()}
+        onPointerDown={(event) => event.stopPropagation()}
+        onTouchStart={(event) => event.stopPropagation()}
+      >
         <header className="flex shrink-0 items-center justify-between gap-3 border-b border-white/10 bg-[#081827] px-4 py-4">
           <div className="min-w-0">
             <h2 className="text-lg font-bold leading-tight text-white">CLARA</h2>
@@ -443,7 +460,9 @@ export default function ClaraAssistantPanel({ open, onClose, context = {} }) {
               <button
                 key={option}
                 type="button"
-                onClick={() => sendMessageText(option)}
+                onClick={(event) => handleQuickOptionClick(event, option)}
+                onPointerDown={(event) => event.stopPropagation()}
+                onTouchStart={(event) => event.stopPropagation()}
                 className="shrink-0 rounded-full border border-cyan-200/10 bg-white/[0.07] px-3 py-2 text-[11px] font-medium text-white/80 transition active:scale-95"
               >
                 {option}
