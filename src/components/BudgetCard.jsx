@@ -6,6 +6,8 @@ import {
   ChevronDown,
   ChevronUp,
   X,
+  Trash2,
+  Plus,
 } from "lucide-react";
 
 const fmt = (n) =>
@@ -15,6 +17,10 @@ const fmt = (n) =>
     minimumFractionDigits: 0,
   }).format(Number(n || 0));
 
+const safeNumber = (value) => {
+  const num = Number(value);
+  return Number.isFinite(num) ? num : 0;
+};
 
 const getBudgetThemeClasses = (theme) => {
   const isLight = theme?.isLight === true;
@@ -119,7 +125,6 @@ const getBudgetThemeClasses = (theme) => {
   };
 };
 
-
 function getBudgetStatus(progress) {
   if (progress <= 50) {
     return {
@@ -162,12 +167,12 @@ function getBudgetStatus(progress) {
 }
 
 function getBudgetMessage(hasBudget, progress, remaining) {
-  if (!hasBudget) return "Set your first budget so your money gets direction.";
-  if (remaining <= 0) return "You’ve fully used this budget. Time to review your plan.";
-  if (progress <= 50) return "You still have strong room left this cycle.";
+  if (!hasBudget) return "Create this month’s spending plan.";
+  if (remaining <= 0) return "You’ve fully used this month’s planned budget.";
+  if (progress <= 50) return "You still have strong room left this month.";
   if (progress <= 80) return "You’re doing fine. Just stay intentional from here.";
   if (progress < 100) return "You’re close to the limit. Spend carefully now.";
-  return "This budget is already fully consumed.";
+  return "This monthly plan is already fully consumed.";
 }
 
 function ActionModal({
@@ -193,7 +198,7 @@ function ActionModal({
           <div>
             <p className={`text-base font-semibold ${themeClasses.title}`}>Budget Actions</p>
             <p className={`mt-0.5 text-xs ${themeClasses.muted}`}>
-              Manage your budget setup and tracking cycle
+              Manage this month’s spending plan categories
             </p>
           </div>
 
@@ -216,11 +221,11 @@ function ActionModal({
             }}
             className="flex w-full items-center justify-center gap-2 rounded-2xl border border-fuchsia-400/30 bg-fuchsia-500/15 px-4 py-3 text-sm font-semibold text-fuchsia-200 transition hover:bg-fuchsia-500/20 disabled:opacity-50"
           >
-            <Edit3 className="h-4 w-4" />
-            {activeBudget ? "Edit Budget" : "Create Budget"}
+            <Plus className="h-4 w-4" />
+            Add Category
           </button>
 
-          {!!activeBudget && (
+          {!!activeBudget?.category_count && (
             <button
               type="button"
               disabled={financeActionLoading}
@@ -242,27 +247,42 @@ function ActionModal({
 
 export default function BudgetCard({
   activeBudget = null,
+  budgetCategories = [],
+  unplannedSpent = 0,
+  undocumentedSpent = 0,
   expanded = false,
   onToggleDetails,
   financeActionLoading = false,
   onSaveBudget,
+  onEditBudgetCategory,
+  onDeleteBudgetCategory,
   onResetBudget,
   theme = null,
 }) {
   const [showModal, setShowModal] = useState(false);
 
+  const categories = useMemo(
+    () =>
+      Array.isArray(budgetCategories)
+        ? budgetCategories
+        : Array.isArray(activeBudget?.categories)
+          ? activeBudget.categories
+          : [],
+    [activeBudget?.categories, budgetCategories]
+  );
+
   const total = Number(
     activeBudget?.total_budget ??
       activeBudget?.budget ??
       activeBudget?.budget_amount ??
-      0
+      categories.reduce((sum, item) => sum + safeNumber(item?.allocated ?? item?.allocated_amount), 0)
   );
 
   const spent = Number(
     activeBudget?.spent ??
       activeBudget?.spent_amount ??
       activeBudget?.total_spent ??
-      0
+      categories.reduce((sum, item) => sum + safeNumber(item?.spent ?? item?.spent_amount), 0)
   );
 
   const remaining = Math.max(
@@ -279,23 +299,11 @@ export default function BudgetCard({
     [spent, total]
   );
 
-  const needsPct = Number(
-    activeBudget?.needs_pct ?? activeBudget?.needs_percent ?? 50
-  );
-  const wantsPct = Number(
-    activeBudget?.wants_pct ?? activeBudget?.wants_percent ?? 30
-  );
-  const otherPct = Number(
-    activeBudget?.other_pct ??
-      activeBudget?.other_percent ??
-      activeBudget?.savings_pct ??
-      20
-  );
-
-  const hasBudget = !!activeBudget && total > 0;
+  const hasBudget = categories.length > 0 && total > 0;
   const status = getBudgetStatus(progress);
   const message = getBudgetMessage(hasBudget, progress, remaining);
   const themeClasses = getBudgetThemeClasses(theme);
+  const monthKey = activeBudget?.month || new Date().toISOString().slice(0, 7);
 
   return (
     <>
@@ -330,14 +338,14 @@ export default function BudgetCard({
                     Budget
                   </p>
                   <p className={`mt-0.5 text-[11px] font-medium ${themeClasses.body}`}>
-                    Stay aligned with your monthly structure
+                    Monthly spending plan • {monthKey}
                   </p>
                 </div>
 
                 <span
                   className={`shrink-0 rounded-full px-2.5 py-1 text-[11px] font-semibold backdrop-blur-sm ${status.badge}`}
                 >
-                  {hasBudget ? status.label : "Not Set"}
+                  {hasBudget ? status.label : "No Plan"}
                 </span>
               </div>
             </div>
@@ -358,14 +366,14 @@ export default function BudgetCard({
 
             <p className={`mt-1 text-[11px] ${themeClasses.muted}`}>
               {hasBudget
-                ? `${fmt(remaining)} left for this cycle.`
-                : "Your money needs a plan before it disappears."}
+                ? `${fmt(remaining)} left across ${categories.length} planned ${categories.length === 1 ? "category" : "categories"}.`
+                : "Create this month’s spending plan before logging planned expenses."}
             </p>
           </div>
 
           <div className="mb-3">
             <div className="mb-1.5 flex items-center justify-between text-[11px] font-medium text-white/75">
-              <span>Spent progress</span>
+              <span>Monthly progress</span>
               <span>{Math.round(progress)}%</span>
             </div>
 
@@ -420,52 +428,114 @@ export default function BudgetCard({
 
                 <div className="rounded-2xl border border-white/10 bg-black/20 px-2.5 py-2.5 backdrop-blur-[2px] shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]">
                   <p className="mb-1 text-[10px] font-semibold uppercase tracking-[0.16em] text-white/70">
-                    Structure
+                    Categories
                   </p>
                   <p className={`text-sm font-bold ${themeClasses.title}`}>
-                    {needsPct}/{wantsPct}/{otherPct}
+                    {categories.length}
                   </p>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-2 text-center">
+                <div className="rounded-2xl border border-amber-400/15 bg-amber-500/10 px-3 py-2.5">
+                  <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-amber-100/65">
+                    Unplanned
+                  </p>
+                  <p className="mt-1 text-sm font-bold text-amber-100">{fmt(unplannedSpent)}</p>
+                </div>
+                <div className="rounded-2xl border border-cyan-400/15 bg-cyan-500/10 px-3 py-2.5">
+                  <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-cyan-100/65">
+                    Undocumented
+                  </p>
+                  <p className="mt-1 text-sm font-bold text-cyan-100">{fmt(undocumentedSpent)}</p>
                 </div>
               </div>
 
               <div>
                 <div className="mb-2 flex items-center justify-between">
                   <span className="text-xs font-semibold text-white/90">
-                    Allocation
+                    Monthly Spending Plan
                   </span>
-                  <span className="text-[11px] font-semibold text-white/70">
-                    Needs / Wants / Other
-                  </span>
+                  <button
+                    type="button"
+                    onClick={() => onSaveBudget?.()}
+                    disabled={financeActionLoading}
+                    className="inline-flex items-center gap-1 rounded-full border border-emerald-300/20 bg-emerald-500/10 px-2.5 py-1 text-[11px] font-semibold text-emerald-100 transition hover:bg-emerald-500/15 disabled:opacity-50"
+                  >
+                    <Plus className="h-3 w-3" />
+                    Add
+                  </button>
                 </div>
 
-                <div className="grid grid-cols-3 gap-2">
-                  <div className="rounded-xl border border-white/10 bg-white/5 px-2 py-2.5 text-center">
-                    <p className={`text-[10px] font-semibold uppercase tracking-[0.14em] ${themeClasses.muted}`}>
-                      Needs
-                    </p>
-                    <p className={`mt-1 text-sm font-bold ${themeClasses.title}`}>
-                      {needsPct}%
-                    </p>
-                  </div>
+                {categories.length ? (
+                  <div className="space-y-2">
+                    {categories.map((item) => {
+                      const allocated = safeNumber(item.allocated ?? item.allocated_amount);
+                      const categorySpent = safeNumber(item.spent ?? item.spent_amount);
+                      const categoryRemaining = Math.max(allocated - categorySpent, 0);
+                      const categoryProgress = allocated > 0 ? Math.min(100, (categorySpent / allocated) * 100) : 0;
 
-                  <div className="rounded-xl border border-white/10 bg-white/5 px-2 py-2.5 text-center">
-                    <p className={`text-[10px] font-semibold uppercase tracking-[0.14em] ${themeClasses.muted}`}>
-                      Wants
-                    </p>
-                    <p className={`mt-1 text-sm font-bold ${themeClasses.title}`}>
-                      {wantsPct}%
-                    </p>
-                  </div>
+                      return (
+                        <div
+                          key={item.key || item.id || item.title}
+                          className="rounded-2xl border border-white/10 bg-white/[0.045] p-3"
+                        >
+                          <div className="mb-2 flex items-start justify-between gap-3">
+                            <div className="min-w-0">
+                              <p className={`truncate text-sm font-bold ${themeClasses.title}`}>
+                                {item.title}
+                              </p>
+                              <p className="mt-0.5 text-[11px] text-white/55">
+                                {fmt(categorySpent)} spent • {fmt(categoryRemaining)} left
+                              </p>
+                            </div>
+                            <div className="flex shrink-0 items-center gap-1">
+                              <button
+                                type="button"
+                                onClick={() => onEditBudgetCategory?.(item)}
+                                disabled={financeActionLoading}
+                                className="flex h-8 w-8 items-center justify-center rounded-xl border border-white/10 bg-white/5 text-white/75 transition hover:bg-white/10 hover:text-white disabled:opacity-50"
+                                aria-label={`Edit ${item.title}`}
+                              >
+                                <Edit3 className="h-3.5 w-3.5" />
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => onDeleteBudgetCategory?.(item)}
+                                disabled={financeActionLoading}
+                                className="flex h-8 w-8 items-center justify-center rounded-xl border border-rose-300/15 bg-rose-500/10 text-rose-100/80 transition hover:bg-rose-500/15 hover:text-rose-100 disabled:opacity-50"
+                                aria-label={`Delete ${item.title}`}
+                              >
+                                <Trash2 className="h-3.5 w-3.5" />
+                              </button>
+                            </div>
+                          </div>
 
-                  <div className="rounded-xl border border-white/10 bg-white/5 px-2 py-2.5 text-center">
-                    <p className={`text-[10px] font-semibold uppercase tracking-[0.14em] ${themeClasses.muted}`}>
-                      Other
+                          <div className="h-2 overflow-hidden rounded-full border border-white/10 bg-black/25">
+                            <div
+                              className="h-full rounded-full bg-gradient-to-r from-emerald-400 via-cyan-300 to-sky-300 transition-all duration-500"
+                              style={{ width: `${categoryProgress}%` }}
+                            />
+                          </div>
+
+                          <div className="mt-1.5 flex items-center justify-between text-[10px] font-semibold text-white/55">
+                            <span>{Math.round(categoryProgress)}%</span>
+                            <span>{fmt(allocated)}</span>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                ) : (
+                  <div className="rounded-2xl border border-emerald-300/15 bg-emerald-500/10 p-4">
+                    <p className="text-sm font-semibold text-emerald-50">
+                      Create this month’s spending plan.
                     </p>
-                    <p className={`mt-1 text-sm font-bold ${themeClasses.title}`}>
-                      {otherPct}%
+                    <p className="mt-1 text-xs leading-5 text-emerald-50/70">
+                      Add categories like Bills, Food, Transportation, Family Support, or Personal. These become the Budget List when logging expenses.
                     </p>
                   </div>
-                </div>
+                )}
               </div>
 
               <div className="grid grid-cols-1 gap-2">
@@ -475,7 +545,7 @@ export default function BudgetCard({
                   className="flex items-center justify-center gap-2 rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm font-semibold text-white/85 transition hover:bg-white/10 hover:text-white"
                 >
                   <Edit3 className="h-4 w-4" />
-                  {activeBudget ? "Edit Budget" : "Create Budget"}
+                  Manage Budget
                 </button>
               </div>
             </div>
