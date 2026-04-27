@@ -344,6 +344,10 @@ export default function ClaraAssistantPanel({ open, onClose, context = {} }) {
 
   if (!open) return null;
 
+  if (!hasUsableContext(activeContext)) {
+    return null;
+  }
+
   return (
     <div className="fixed inset-0 z-[120] flex items-end justify-center bg-black/70 px-3 pb-[calc(12px+env(safe-area-inset-bottom))] pt-[calc(12px+env(safe-area-inset-top))] backdrop-blur-md sm:items-center sm:p-4">
       <button type="button" className="absolute inset-0 cursor-default" onClick={onClose} aria-label="Close CLARA assistant overlay" />
