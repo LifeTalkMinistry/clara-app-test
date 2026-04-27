@@ -29,6 +29,10 @@ import { Label } from "@/components/ui/label";
 import EmptyState from "../components/EmptyState";
 import useUserRole from "../hooks/useUserRole";
 import { getWalletBalance } from "@/utils/financialEngine";
+import {
+  createFinanceRepository,
+  FINANCE_REPOSITORY_MODE_SUPABASE_LEGACY,
+} from "@/lib/financeRepository";
 
 const categories = [
   "food",
@@ -921,60 +925,24 @@ export default function Expenses() {
           updated_at: new Date().toISOString(),
         };
 
-        const { error: expenseUpdateError } = await supabase
-          .from(EXPENSES_TABLE)
-          .update(updatedExpense)
-          .eq("id", oldExpense.id);
+        const repository = createFinanceRepository({
+          mode: FINANCE_REPOSITORY_MODE_SUPABASE_LEGACY,
+          supabase,
+          user,
+          wallets,
+          expenses,
+          walletTransactions: transactions,
+          generateId,
+          toNumber: normalizeNumber,
+          getSafeDate: (value) => {
+            const d = new Date(value);
+            if (Number.isNaN(d.getTime())) return new Date().toISOString();
+            return d.toISOString();
+          },
+          normalizePlanningStatus,
+        });
 
-        if (expenseUpdateError) throw expenseUpdateError;
-
-        const oldTxn = findMatchingExpenseTxn(oldExpense);
-
-        if (oldTxn) {
-          const txnUpdatePayload = {
-            wallet_id: String(form.wallet_id),
-            amount: parsedAmount,
-            category: form.category,
-            need_type: form.need_type,
-            planning_status: planningStatus,
-            unplanned_reason: planningStatus === "unplanned" ? unplannedReason : null,
-            expense_id: oldExpense.id,
-            notes: form.notes || "",
-            created_at: updatedCreatedAt,
-            updated_at: new Date().toISOString(),
-          };
-
-          const { error: txnUpdateError } = await supabase
-            .from(TXN_TABLE)
-            .update(txnUpdatePayload)
-            .eq("id", oldTxn.id);
-
-          if (txnUpdateError) throw txnUpdateError;
-        } else {
-          const newTxn = {
-            id: generateId(),
-            wallet_id: String(form.wallet_id),
-            amount: parsedAmount,
-            type: "expense",
-            category: form.category,
-            need_type: form.need_type,
-            planning_status: planningStatus,
-            unplanned_reason: planningStatus === "unplanned" ? unplannedReason : null,
-            expense_id: oldExpense.id,
-            notes: form.notes || "",
-            created_at: updatedCreatedAt,
-            updated_at: new Date().toISOString(),
-            created_by: user.email ?? "",
-            user_email: user.email ?? "",
-            user_id: user.id ?? "",
-          };
-
-          const { error: txnInsertError } = await supabase
-            .from(TXN_TABLE)
-            .insert([newTxn]);
-
-          if (txnInsertError) throw txnInsertError;
-        }
+        await repository.updateExpense(user?.id, oldExpense.id, updatedExpense);
       } else {
         if (parsedAmount > normalizeNumber(targetWallet.balance)) {
           setError("Not enough wallet balance for this expense.");
