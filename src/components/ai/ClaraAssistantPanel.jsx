@@ -43,6 +43,13 @@ function stopAssistantPropagation(event) {
   event.nativeEvent?.stopPropagation?.();
 }
 
+function absorbShieldEvent(event) {
+  if (!event) return;
+  event.preventDefault?.();
+  event.stopPropagation?.();
+  event.nativeEvent?.stopImmediatePropagation?.();
+}
+
 function hasValue(value) {
   return value !== undefined && value !== null && value !== "";
 }
@@ -420,6 +427,15 @@ export default function ClaraAssistantPanel({ open, onClose, context = {} }) {
     }, 180);
   };
 
+  const handleClose = (event) => {
+    if (event) {
+      event.preventDefault?.();
+      event.stopPropagation?.();
+      event.nativeEvent?.stopImmediatePropagation?.();
+    }
+    onClose?.();
+  };
+
   const sendDraft = () => {
     const text = draft.trim();
     if (!text) return;
@@ -447,22 +463,29 @@ export default function ClaraAssistantPanel({ open, onClose, context = {} }) {
 
   return (
     <div
-      className="fixed inset-0 z-[120] flex items-end justify-center bg-black/70 px-3 pb-[calc(12px+env(safe-area-inset-bottom))] pt-[calc(12px+env(safe-area-inset-top))] backdrop-blur-md sm:items-center sm:p-4"
+      className="fixed inset-0 z-[9999]"
       onClickCapture={stopAssistantPropagation}
       onPointerDownCapture={stopAssistantPropagation}
       onPointerUpCapture={stopAssistantPropagation}
       onTouchStartCapture={stopAssistantPropagation}
       onTouchEndCapture={stopAssistantPropagation}
     >
-      <button type="button" className="absolute inset-0 cursor-default" onClick={onClose} aria-label="Close CLARA assistant overlay" />
+      <div
+        className="absolute inset-0 bg-black/45 backdrop-blur-sm"
+        onClick={absorbShieldEvent}
+        onPointerDown={absorbShieldEvent}
+        onPointerUp={absorbShieldEvent}
+        onTouchStart={absorbShieldEvent}
+        onTouchEnd={absorbShieldEvent}
+      />
 
       <section
-        className="relative z-[1] flex h-[78dvh] w-full max-w-md flex-col overflow-hidden rounded-[30px] border border-cyan-200/10 bg-[#06111f] text-white shadow-2xl sm:h-[680px]"
-        onClickCapture={stopAssistantPropagation}
-        onPointerDownCapture={stopAssistantPropagation}
-        onPointerUpCapture={stopAssistantPropagation}
-        onTouchStartCapture={stopAssistantPropagation}
-        onTouchEndCapture={stopAssistantPropagation}
+        className="absolute bottom-[calc(12px+env(safe-area-inset-bottom))] left-3 right-3 mx-auto flex h-[78dvh] w-auto max-w-md flex-col overflow-hidden rounded-[30px] border border-cyan-200/10 bg-[#06111f] text-white shadow-2xl sm:bottom-auto sm:left-1/2 sm:right-auto sm:top-1/2 sm:h-[680px] sm:w-full sm:-translate-x-1/2 sm:-translate-y-1/2"
+        onClick={stopAssistantPropagation}
+        onPointerDown={stopAssistantPropagation}
+        onPointerUp={stopAssistantPropagation}
+        onTouchStart={stopAssistantPropagation}
+        onTouchEnd={stopAssistantPropagation}
       >
         <header className="flex shrink-0 items-center justify-between gap-3 border-b border-white/10 bg-[#081827] px-4 py-4">
           <div className="min-w-0">
@@ -473,7 +496,14 @@ export default function ClaraAssistantPanel({ open, onClose, context = {} }) {
             </p>
           </div>
 
-          <button type="button" onClick={onClose} className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-white/10 bg-white/10 text-white/75 active:scale-95" aria-label="Close CLARA assistant">
+          <button
+            type="button"
+            onClick={handleClose}
+            onPointerDown={(event) => event.stopPropagation()}
+            onTouchStart={(event) => event.stopPropagation()}
+            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-white/10 bg-white/10 text-white/75 active:scale-95"
+            aria-label="Close CLARA assistant"
+          >
             <X className="h-4 w-4" />
           </button>
         </header>
@@ -492,8 +522,8 @@ export default function ClaraAssistantPanel({ open, onClose, context = {} }) {
           <div ref={bottomRef} />
         </div>
 
-        <div className="shrink-0 border-t border-white/10 bg-[#06111f] px-3 pt-3">
-          <div className="flex gap-2 overflow-x-auto pb-3 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+        <div className="relative z-[1] shrink-0 border-t border-white/10 bg-[#06111f] px-3 pt-3">
+          <div className="pointer-events-auto flex gap-2 overflow-x-auto pb-3 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
             {QUICK_OPTIONS.map((option) => (
               <button
                 key={option?.label || option}
@@ -502,8 +532,6 @@ export default function ClaraAssistantPanel({ open, onClose, context = {} }) {
                 onPointerUp={(event) => handleQuickOptionPress(event, option)}
                 onTouchStart={stopAssistantEvent}
                 onTouchEnd={(event) => handleQuickOptionPress(event, option)}
-                onMouseDown={stopAssistantEvent}
-                onMouseUp={(event) => handleQuickOptionPress(event, option)}
                 onClick={stopAssistantEvent}
                 className="shrink-0 rounded-full border border-cyan-200/10 bg-white/[0.07] px-3 py-2 text-[11px] font-medium text-white/80 transition active:scale-95"
               >
@@ -513,7 +541,7 @@ export default function ClaraAssistantPanel({ open, onClose, context = {} }) {
           </div>
         </div>
 
-        <form onSubmit={handleSubmit} className="shrink-0 bg-[#06111f] px-3 pb-[calc(12px+env(safe-area-inset-bottom))] pt-0">
+        <form onSubmit={handleSubmit} className="shrink-0 bg-[#06111f] px-3 pb-3 pt-0">
           <div className="flex items-end gap-2 rounded-[24px] border border-white/10 bg-white/10 p-2">
             <textarea ref={inputRef} value={draft} onChange={(event) => setDraft(event.target.value)} onKeyDown={handleKeyDown} rows={1} placeholder="Ask CLARA before you act…" className="max-h-28 min-h-10 flex-1 resize-none bg-transparent px-3 py-2 text-sm leading-6 text-white outline-none placeholder:text-white/35" aria-label="Ask CLARA before you act" />
 
