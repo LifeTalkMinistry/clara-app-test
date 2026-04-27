@@ -5,6 +5,9 @@ const DEBUG_CLARA_CONTEXT = false;
 const INITIAL_MESSAGE = "I’m here. Ask me before you act.";
 const FALLBACK_REPLY = "Got it. I’ll help you think through that. Tell me what decision you’re about to make, and I’ll help you slow it down before you spend.";
 const LOADING_REPLY = "Dashboard data is still loading. Try again in a second.";
+const CLOSE_ANIMATION_MS = 190;
+const GHOST_CLICK_WINDOW_MS = 520;
+const TOUCH_DEDUPE_MS = 700;
 
 const QUICK_OPTIONS = [
   {
@@ -85,7 +88,6 @@ const AI_FEATURE_OPTIONS = [
   },
 ];
 
-
 const CLARA_ASSISTANT_ANIMATION_STYLES = `
   @keyframes claraAssistantBackdropIn {
     from {
@@ -100,6 +102,19 @@ const CLARA_ASSISTANT_ANIMATION_STYLES = `
     }
   }
 
+  @keyframes claraAssistantBackdropOut {
+    from {
+      opacity: 1;
+      backdrop-filter: blur(14px);
+      -webkit-backdrop-filter: blur(14px);
+    }
+    to {
+      opacity: 0;
+      backdrop-filter: blur(0px);
+      -webkit-backdrop-filter: blur(0px);
+    }
+  }
+
   @keyframes claraAssistantSheetIn {
     from {
       opacity: 0;
@@ -111,6 +126,17 @@ const CLARA_ASSISTANT_ANIMATION_STYLES = `
     }
   }
 
+  @keyframes claraAssistantSheetOut {
+    from {
+      opacity: 1;
+      transform: translate3d(0, 0, 0) scale(1);
+    }
+    to {
+      opacity: 0;
+      transform: translate3d(0, 16px, 0) scale(0.985);
+    }
+  }
+
   @keyframes claraAssistantSheetInDesktop {
     from {
       opacity: 0;
@@ -119,6 +145,17 @@ const CLARA_ASSISTANT_ANIMATION_STYLES = `
     to {
       opacity: 1;
       transform: translate3d(-50%, -50%, 0) scale(1);
+    }
+  }
+
+  @keyframes claraAssistantSheetOutDesktop {
+    from {
+      opacity: 1;
+      transform: translate3d(-50%, -50%, 0) scale(1);
+    }
+    to {
+      opacity: 0;
+      transform: translate3d(-50%, calc(-50% + 16px), 0) scale(0.985);
     }
   }
 
@@ -144,56 +181,19 @@ const CLARA_ASSISTANT_ANIMATION_STYLES = `
     }
   }
 
-  @keyframes claraAssistantBackdropOut {
-    from {
-      opacity: 1;
-      backdrop-filter: blur(14px);
-      -webkit-backdrop-filter: blur(14px);
-    }
-    to {
-      opacity: 0;
-      backdrop-filter: blur(0px);
-      -webkit-backdrop-filter: blur(0px);
-    }
-  }
-
-  @keyframes claraAssistantSheetOut {
-    from {
-      opacity: 1;
-      transform: translate3d(0, 0, 0) scale(1);
-    }
-    to {
-      opacity: 0;
-      transform: translate3d(0, 16px, 0) scale(0.985);
-    }
-  }
-
-  @keyframes claraAssistantSheetOutDesktop {
-    from {
-      opacity: 1;
-      transform: translate3d(-50%, -50%, 0) scale(1);
-    }
-    to {
-      opacity: 0;
-      transform: translate3d(-50%, calc(-50% + 16px), 0) scale(0.985);
-    }
-  }
-
   .clara-ai-backdrop {
     animation: claraAssistantBackdropIn 180ms ease-out both;
+    touch-action: manipulation;
   }
 
   .clara-ai-backdrop-out {
     animation: claraAssistantBackdropOut 170ms ease-in both;
+    pointer-events: auto;
   }
 
-  .clara-ai-menu-shell {
-    animation: claraAssistantSheetIn 220ms cubic-bezier(0.2, 0.85, 0.25, 1) both;
-    will-change: transform, opacity;
-  }
-
+  .clara-ai-menu-shell,
   .clara-ai-chat-shell {
-    animation: claraAssistantSheetIn 200ms cubic-bezier(0.2, 0.85, 0.25, 1) both;
+    animation: claraAssistantSheetIn 210ms cubic-bezier(0.2, 0.85, 0.25, 1) both;
     will-change: transform, opacity;
   }
 
@@ -201,6 +201,7 @@ const CLARA_ASSISTANT_ANIMATION_STYLES = `
   .clara-ai-chat-shell-out {
     animation: claraAssistantSheetOut 170ms ease-in both;
     will-change: transform, opacity;
+    pointer-events: none;
   }
 
   .clara-ai-option {
@@ -212,6 +213,15 @@ const CLARA_ASSISTANT_ANIMATION_STYLES = `
   .clara-ai-glow {
     animation: claraAssistantGlowPulse 3.8s ease-in-out infinite;
     will-change: transform, opacity;
+  }
+
+  .clara-ai-safe-shield {
+    position: fixed;
+    inset: 0;
+    z-index: 999999;
+    background: transparent;
+    pointer-events: auto;
+    touch-action: none;
   }
 
   @media (min-width: 640px) {
@@ -483,7 +493,6 @@ function getSavingsSummary(context = {}) {
   const target = targetAmount !== null ? formatMoney(targetAmount) : null;
 
   if (savedAmount !== null && targetAmount !== null) {
-    const remaining = Math.max(targetAmount - savedAmount, 0);
     const percent = targetAmount > 0 ? Math.min((savedAmount / targetAmount) * 100, 100) : null;
     const progressText = percent !== null ? ` That’s about ${percent.toFixed(0)}% complete.` : "";
     return `Your savings progress is ${saved} out of ${target}.${progressText} Keep it consistent; small deposits still count.`;
@@ -674,17 +683,11 @@ export default function ClaraAssistantPanel({ open, onClose, context = {} }) {
   const lastFeatureTouchSentAtRef = useRef(0);
   const lastBackdropTouchAtRef = useRef(0);
   const closeTimeoutRef = useRef(null);
+  const ghostClickUntilRef = useRef(0);
+  const optionOpenLockRef = useRef("");
 
   const activeContext = getBestContext(context || {}, latestContextRef.current || {});
   latestContextRef.current = activeContext;
-
-  useEffect(() => {
-    latestContextRef.current = getBestContext(context || {}, latestContextRef.current || {});
-
-    if (DEBUG_CLARA_CONTEXT) {
-      console.log("CLARA received latest context:", latestContextRef.current);
-    }
-  }, [context]);
 
   const [draft, setDraft] = useState("");
   const [messages, setMessages] = useState(() => [makeMessage("clara", INITIAL_MESSAGE)]);
@@ -696,12 +699,26 @@ export default function ClaraAssistantPanel({ open, onClose, context = {} }) {
   const contextStatus = getContextStatus(activeContext);
 
   useEffect(() => {
+    latestContextRef.current = getBestContext(context || {}, latestContextRef.current || {});
+
+    if (DEBUG_CLARA_CONTEXT) {
+      console.log("CLARA received latest context:", latestContextRef.current);
+    }
+  }, [context]);
+
+  useEffect(() => {
     if (!open) return;
 
     if (closeTimeoutRef.current) {
       window.clearTimeout(closeTimeoutRef.current);
       closeTimeoutRef.current = null;
     }
+
+    optionOpenLockRef.current = "";
+    ghostClickUntilRef.current = 0;
+    lastBackdropTouchAtRef.current = 0;
+    lastFeatureTouchSentAtRef.current = 0;
+    lastTouchSentAtRef.current = 0;
 
     setIsClosing(false);
     setShowFeatureMenu(true);
@@ -719,19 +736,49 @@ export default function ClaraAssistantPanel({ open, onClose, context = {} }) {
   }, []);
 
   useEffect(() => {
-    if (!open || showFeatureMenu) return;
-    const timer = setTimeout(() => inputRef.current?.focus?.(), 120);
-    return () => clearTimeout(timer);
-  }, [open, showFeatureMenu]);
+    if (!open || isClosing || showFeatureMenu) return undefined;
+    const timer = window.setTimeout(() => inputRef.current?.focus?.(), 120);
+    return () => window.clearTimeout(timer);
+  }, [open, isClosing, showFeatureMenu]);
 
   useEffect(() => {
-    if (!open || showFeatureMenu) return;
+    if (!open || isClosing || showFeatureMenu) return;
     bottomRef.current?.scrollIntoView?.({ behavior: "smooth" });
-  }, [open, showFeatureMenu, messages]);
+  }, [open, isClosing, showFeatureMenu, messages]);
+
+  const resetTemporaryUiState = () => {
+    setDraft("");
+    setActiveMode(null);
+    optionOpenLockRef.current = "";
+    lastTouchSentAtRef.current = 0;
+    lastFeatureTouchSentAtRef.current = 0;
+    lastBackdropTouchAtRef.current = Date.now();
+    ghostClickUntilRef.current = Date.now() + GHOST_CLICK_WINDOW_MS;
+  };
+
+  const closeAssistantSafely = (event) => {
+    stopAssistantEvent(event);
+
+    if (isClosing) return;
+
+    resetTemporaryUiState();
+    setIsClosing(true);
+
+    if (closeTimeoutRef.current) {
+      window.clearTimeout(closeTimeoutRef.current);
+    }
+
+    closeTimeoutRef.current = window.setTimeout(() => {
+      closeTimeoutRef.current = null;
+      setIsClosing(false);
+      setShowFeatureMenu(true);
+      onClose?.();
+    }, CLOSE_ANIMATION_MS);
+  };
 
   const sendMessageText = (messageText) => {
     const text = String(messageText || "").trim();
-    if (!text) return;
+    if (!text || isClosing) return;
 
     const currentContext = getBestContext(context || {}, latestContextRef.current || {});
     latestContextRef.current = currentContext;
@@ -755,7 +802,7 @@ export default function ClaraAssistantPanel({ open, onClose, context = {} }) {
     const optionText =
       typeof option === "string" ? option : option?.message || option?.label || option?.text || "";
 
-    if (!optionText) return;
+    if (!optionText || isClosing) return;
 
     if (String(optionText).toLowerCase().includes("before i buy")) {
       setActiveMode("purchase_decision");
@@ -765,27 +812,30 @@ export default function ClaraAssistantPanel({ open, onClose, context = {} }) {
   };
 
   const handleQuickOptionTouchEnd = (event, option) => {
-    event.preventDefault();
-    event.stopPropagation();
-    event.nativeEvent?.stopImmediatePropagation?.();
+    stopAssistantEvent(event);
+    if (isClosing) return;
+
     lastTouchSentAtRef.current = Date.now();
     sendQuickOption(option);
   };
 
   const handleQuickOptionClick = (event, option) => {
-    event.preventDefault();
-    event.stopPropagation();
-    event.nativeEvent?.stopImmediatePropagation?.();
-
-    if (Date.now() - lastTouchSentAtRef.current < 700) return;
+    stopAssistantEvent(event);
+    if (isClosing || Date.now() < ghostClickUntilRef.current) return;
+    if (Date.now() - lastTouchSentAtRef.current < TOUCH_DEDUPE_MS) return;
 
     sendQuickOption(option);
   };
 
   const openAssistantWithPrompt = (option) => {
-    if (isClosing) return;
+    if (isClosing || Date.now() < ghostClickUntilRef.current) return;
+
+    const optionKey = `${option?.label || "ask"}-${option?.message || "blank"}-${option?.mode || "normal"}`;
+    if (optionOpenLockRef.current === optionKey) return;
+    optionOpenLockRef.current = optionKey;
 
     setShowFeatureMenu(false);
+    setDraft("");
 
     if (option?.mode === "purchase_decision") {
       setActiveMode("purchase_decision");
@@ -796,6 +846,8 @@ export default function ClaraAssistantPanel({ open, onClose, context = {} }) {
       return;
     }
 
+    setActiveMode(null);
+
     const prompt = String(option?.message || "").trim();
     if (prompt) {
       sendMessageText(prompt);
@@ -803,267 +855,228 @@ export default function ClaraAssistantPanel({ open, onClose, context = {} }) {
   };
 
   const handleFeatureOptionTouchEnd = (event, option) => {
-    event.preventDefault();
-    event.stopPropagation();
-    event.nativeEvent?.stopImmediatePropagation?.();
+    stopAssistantEvent(event);
     if (isClosing) return;
+
     lastFeatureTouchSentAtRef.current = Date.now();
     openAssistantWithPrompt(option);
   };
 
   const handleFeatureOptionClick = (event, option) => {
-    event.preventDefault();
-    event.stopPropagation();
-    event.nativeEvent?.stopImmediatePropagation?.();
-
-    if (isClosing) return;
-    if (Date.now() - lastFeatureTouchSentAtRef.current < 700) return;
+    stopAssistantEvent(event);
+    if (isClosing || Date.now() < ghostClickUntilRef.current) return;
+    if (Date.now() - lastFeatureTouchSentAtRef.current < TOUCH_DEDUPE_MS) return;
 
     openAssistantWithPrompt(option);
   };
 
-  const requestClose = () => {
-    if (isClosing) return;
+  const handleBackdropPointerDown = (event) => {
+    if (event.target !== event.currentTarget) return;
 
-    setIsClosing(true);
-
-    closeTimeoutRef.current = window.setTimeout(() => {
-      closeTimeoutRef.current = null;
-      setIsClosing(false);
-      setShowFeatureMenu(true);
-      setActiveMode(null);
-      setMessages([makeMessage("clara", INITIAL_MESSAGE)]);
-      setDraft("");
-      onClose?.();
-    }, 180);
-  };
-
-  const handleCloseClick = (event) => {
-    event.preventDefault();
-    event.stopPropagation();
-    event.nativeEvent?.stopImmediatePropagation?.();
-    requestClose();
-  };
-
-  const handleMenuBackdropTouchStart = (event) => {
-    event.preventDefault();
-    event.stopPropagation();
-    event.nativeEvent?.stopImmediatePropagation?.();
+    stopAssistantEvent(event);
     lastBackdropTouchAtRef.current = Date.now();
-    requestClose();
+    closeAssistantSafely(event);
   };
 
-  const handleMenuBackdropClick = (event) => {
-    event.preventDefault();
-    event.stopPropagation();
-    event.nativeEvent?.stopImmediatePropagation?.();
+  const handleBackdropClick = (event) => {
+    if (event.target !== event.currentTarget) return;
 
-    if (Date.now() - lastBackdropTouchAtRef.current < 700) return;
-
-    requestClose();
-  };
-
-  const sendDraft = () => {
-    const text = draft.trim();
-    if (!text) return;
-
-    sendMessageText(text);
-    setDraft("");
+    stopAssistantEvent(event);
+    if (Date.now() - lastBackdropTouchAtRef.current < TOUCH_DEDUPE_MS) return;
+    closeAssistantSafely(event);
   };
 
   const handleSubmit = (event) => {
     stopAssistantEvent(event);
-    sendDraft();
+    if (isClosing) return;
+
+    const text = draft.trim();
+    if (!text) return;
+
+    setDraft("");
+    sendMessageText(text);
   };
 
-  const handleKeyDown = (event) => {
-    if (event.key !== "Enter" || event.shiftKey) return;
-    stopAssistantEvent(event);
-    sendDraft();
-  };
+  if (!open && !isClosing) return null;
 
-  if (!open) return null;
-
-  if (!hasUsableContext(activeContext)) {
-    return null;
-  }
-
-  if (showFeatureMenu) {
-    return (
-      <div className="fixed inset-0 z-[9999]">
-        <style>{CLARA_ASSISTANT_ANIMATION_STYLES}</style>
-
-        <div
-          className={`${isClosing ? "clara-ai-backdrop-out" : "clara-ai-backdrop"} absolute inset-0 z-0 bg-black/50 backdrop-blur-md`}
-          onClick={handleMenuBackdropClick}
-          onPointerDown={absorbShieldEvent}
-          onTouchStart={handleMenuBackdropTouchStart}
-        />
-
-        <div className="pointer-events-none absolute inset-x-0 bottom-0 z-[1] mx-auto h-[58dvh] max-w-lg overflow-hidden">
-          <div className="clara-ai-glow absolute bottom-10 left-1/2 h-72 w-72 -translate-x-1/2 rounded-full bg-cyan-300/20 blur-3xl" />
-          <div className="clara-ai-glow absolute bottom-24 left-[18%] h-40 w-40 rounded-full bg-emerald-300/15 blur-3xl" />
-          <div className="clara-ai-glow absolute bottom-20 right-[12%] h-44 w-44 rounded-full bg-sky-400/10 blur-3xl" />
-        </div>
-
-        <section
-          className={`${isClosing ? "clara-ai-menu-shell-out" : "clara-ai-menu-shell"} pointer-events-auto absolute bottom-[calc(12px+env(safe-area-inset-bottom))] left-3 right-3 z-10 mx-auto max-h-[82dvh] w-auto max-w-md overflow-hidden rounded-[30px] border border-cyan-200/10 bg-[#06111f]/95 text-white shadow-[0_24px_80px_rgba(8,145,178,0.24)] backdrop-blur-2xl sm:bottom-auto sm:left-1/2 sm:right-auto sm:top-1/2 sm:w-full sm:-translate-x-1/2 sm:-translate-y-1/2`}
-          onClick={stopAssistantPropagation}
-          onPointerDown={stopAssistantPropagation}
-          onTouchStart={stopAssistantPropagation}
-        >
-          <div className="relative overflow-hidden border-b border-white/10 bg-[#081827]/90 px-4 py-4">
-            <div className="pointer-events-none absolute -right-16 -top-20 h-40 w-40 rounded-full bg-cyan-300/15 blur-3xl" />
-            <div className="pointer-events-none absolute -bottom-20 -left-14 h-36 w-36 rounded-full bg-emerald-300/10 blur-3xl" />
-            <div className="pointer-events-none absolute inset-x-6 bottom-0 h-px bg-gradient-to-r from-transparent via-cyan-200/30 to-transparent" />
-
-            <div className="relative flex items-start justify-between gap-3">
-              <div className="min-w-0">
-                <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-cyan-100/45">
-                  Long press mode
-                </p>
-                <h2 className="mt-1 text-xl font-bold leading-tight text-white">CLARA AI</h2>
-                <p className="mt-1 text-sm font-medium text-cyan-100/70">
-                  What do you need help with?
-                </p>
-              </div>
-
-              <button
-                type="button"
-                onClick={handleCloseClick}
-                onPointerDown={(event) => event.stopPropagation()}
-                onTouchStart={(event) => event.stopPropagation()}
-                className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-white/10 bg-white/10 text-white/75 transition active:scale-90 active:bg-white/15"
-                aria-label="Close CLARA AI menu"
-              >
-                <X className="h-4 w-4" />
-              </button>
-            </div>
-          </div>
-
-          <div className="max-h-[calc(82dvh-116px)] space-y-2 overflow-y-auto px-3 py-3">
-            {AI_FEATURE_OPTIONS.map((option, index) => (
-              <button
-                key={option.label}
-                style={{ animationDelay: `${70 + index * 34}ms` }}
-                type="button"
-                onPointerDown={(event) => event.stopPropagation()}
-                onTouchStart={(event) => event.stopPropagation()}
-                onTouchEnd={(event) => handleFeatureOptionTouchEnd(event, option)}
-                onClick={(event) => handleFeatureOptionClick(event, option)}
-                className="clara-ai-option group flex w-full items-center justify-between gap-3 rounded-[22px] border border-white/10 bg-white/[0.055] px-4 py-3 text-left shadow-[inset_0_1px_0_rgba(255,255,255,0.06)] transition duration-150 hover:bg-white/[0.08] active:translate-y-[1px] active:scale-[0.985] active:border-cyan-200/20 active:bg-cyan-200/[0.08]"
-              >
-                <span className="min-w-0">
-                  <span className="block text-sm font-semibold text-white">{option.label}</span>
-                  <span className="mt-0.5 block text-xs leading-5 text-white/55">
-                    {option.description}
-                  </span>
-                </span>
-                <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-cyan-200/10 bg-cyan-300/10 text-cyan-100 shadow-[0_0_24px_rgba(103,232,249,0.08)] transition duration-150 group-hover:bg-cyan-300/15 group-active:scale-90 group-active:bg-cyan-300/20">
-                  <Send className="h-3.5 w-3.5" />
-                </span>
-              </button>
-            ))}
-          </div>
-        </section>
-      </div>
-    );
-  }
+  const backdropClassName = `clara-ai-backdrop${isClosing ? " clara-ai-backdrop-out" : ""}`;
+  const shellClassName = showFeatureMenu
+    ? `clara-ai-menu-shell${isClosing ? " clara-ai-menu-shell-out" : ""}`
+    : `clara-ai-chat-shell${isClosing ? " clara-ai-chat-shell-out" : ""}`;
 
   return (
-    <div className="fixed inset-0 z-[9999]">
+    <>
       <style>{CLARA_ASSISTANT_ANIMATION_STYLES}</style>
 
+      {isClosing && (
+        <div
+          aria-hidden="true"
+          className="clara-ai-safe-shield"
+          onClick={absorbShieldEvent}
+          onMouseDown={absorbShieldEvent}
+          onPointerDown={absorbShieldEvent}
+          onTouchEnd={absorbShieldEvent}
+        />
+      )}
+
       <div
-        className={`${isClosing ? "clara-ai-backdrop-out" : "clara-ai-backdrop"} absolute inset-0 z-0 bg-black/45 backdrop-blur-sm`}
-        onClick={absorbShieldEvent}
-        onPointerDown={absorbShieldEvent}
-        onTouchStart={absorbShieldEvent}
-      />
-
-      <section
-        className={`${isClosing ? "clara-ai-chat-shell-out" : "clara-ai-chat-shell"} pointer-events-auto absolute bottom-[calc(12px+env(safe-area-inset-bottom))] left-3 right-3 z-10 mx-auto flex h-[78dvh] w-auto max-w-md flex-col overflow-hidden rounded-[30px] border border-cyan-200/10 bg-[#06111f] text-white shadow-2xl sm:bottom-auto sm:left-1/2 sm:right-auto sm:top-1/2 sm:h-[680px] sm:w-full sm:-translate-x-1/2 sm:-translate-y-1/2`}
-        onClick={stopAssistantPropagation}
-        onPointerDown={stopAssistantPropagation}
-        onTouchStart={stopAssistantPropagation}
+        aria-modal="true"
+        className={`${backdropClassName} fixed inset-0 z-[99990] flex items-end justify-center bg-black/55 px-4 pb-4 pt-16 text-white sm:items-center sm:p-6`}
+        role="dialog"
+        onClick={handleBackdropClick}
+        onMouseDown={stopAssistantPropagation}
+        onPointerDown={handleBackdropPointerDown}
+        onTouchEnd={stopAssistantPropagation}
       >
-        <header className="flex shrink-0 items-center justify-between gap-3 border-b border-white/10 bg-[#081827] px-4 py-4">
-          <div className="min-w-0">
-            <h2 className="text-lg font-bold leading-tight text-white">CLARA</h2>
-            <p className="text-xs font-medium text-cyan-100/70">Ask before you act</p>
-            <p className="mt-1 text-[10px] font-medium uppercase tracking-[0.16em] text-white/35">
-              Context status: {contextStatus}
-            </p>
-          </div>
+        <section
+          className={`${shellClassName} relative w-full max-w-[440px] overflow-hidden rounded-[2rem] border border-white/12 bg-slate-950/92 shadow-[0_24px_90px_rgba(0,0,0,0.65)] backdrop-blur-2xl sm:fixed sm:left-1/2 sm:top-1/2`}
+          onClick={stopAssistantPropagation}
+          onMouseDown={stopAssistantPropagation}
+          onPointerDown={stopAssistantPropagation}
+          onTouchEnd={stopAssistantPropagation}
+        >
+          <div className="clara-ai-glow pointer-events-none absolute -left-24 -top-24 h-52 w-52 rounded-full bg-emerald-400/18 blur-3xl" />
+          <div className="clara-ai-glow pointer-events-none absolute -bottom-28 -right-24 h-56 w-56 rounded-full bg-cyan-400/14 blur-3xl" />
 
-          <button
-            type="button"
-            onClick={handleCloseClick}
-            onPointerDown={(event) => event.stopPropagation()}
-            onTouchStart={(event) => event.stopPropagation()}
-            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-white/10 bg-white/10 text-white/75 transition active:scale-90 active:bg-white/15"
-            aria-label="Close CLARA assistant"
-          >
-            <X className="h-4 w-4" />
-          </button>
-        </header>
-
-        <div className="min-h-0 flex-1 space-y-3 overflow-y-auto px-4 py-4">
-          {messages.map((message) => {
-            const isUser = message.role === "user";
-            return (
-              <div key={message.id} className={`flex ${isUser ? "justify-end" : "justify-start"}`}>
-                <div className={`max-w-[82%] rounded-[22px] px-4 py-3 text-sm leading-6 ${isUser ? "rounded-br-md bg-cyan-300 text-slate-950" : "rounded-bl-md border border-white/10 bg-white/10 text-white/90"}`}>
-                  {message.text}
+          {showFeatureMenu ? (
+            <div className="relative flex max-h-[82vh] flex-col p-5 sm:p-6">
+              <div className="mb-5 flex items-start justify-between gap-4">
+                <div>
+                  <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-emerald-200/75">
+                    CLARA AI
+                  </p>
+                  <h2 className="mt-2 text-2xl font-bold tracking-tight text-white">
+                    What do you need help with?
+                  </h2>
+                  <p className="mt-1 text-sm text-slate-300/80">
+                    Choose one assistant mode, or ask CLARA directly.
+                  </p>
                 </div>
+
+                <button
+                  aria-label="Close CLARA AI menu"
+                  className="grid h-10 w-10 shrink-0 place-items-center rounded-full border border-white/10 bg-white/8 text-slate-200 transition hover:bg-white/14 active:scale-95"
+                  type="button"
+                  onClick={closeAssistantSafely}
+                  onPointerDown={stopAssistantPropagation}
+                  onTouchEnd={stopAssistantPropagation}
+                >
+                  <X size={18} />
+                </button>
               </div>
-            );
-          })}
-          <div ref={bottomRef} />
-        </div>
 
-        <div className="relative z-[1] shrink-0 border-t border-white/10 bg-[#06111f] px-3 pt-3">
-          <div className="pointer-events-auto flex gap-2 overflow-x-auto pb-3 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-            {QUICK_OPTIONS.map((option) => (
-              <button
-                key={option?.label || option}
-                type="button"
-                onPointerDown={(event) => event.stopPropagation()}
-                onTouchStart={(event) => event.stopPropagation()}
-                onTouchEnd={(event) => handleQuickOptionTouchEnd(event, option)}
-                onClick={(event) => handleQuickOptionClick(event, option)}
-                className="shrink-0 rounded-full border border-cyan-200/10 bg-white/[0.07] px-3 py-2 text-[11px] font-medium text-white/80 transition active:scale-95"
-              >
-                {option?.label || option}
-              </button>
-            ))}
-          </div>
-        </div>
+              <div className="grid gap-3 overflow-y-auto pr-1">
+                {AI_FEATURE_OPTIONS.map((option, index) => (
+                  <button
+                    key={option.label}
+                    className="clara-ai-option group w-full rounded-2xl border border-white/10 bg-white/[0.055] p-4 text-left transition hover:border-emerald-200/30 hover:bg-white/[0.085] active:scale-[0.985]"
+                    style={{ animationDelay: `${index * 24}ms` }}
+                    type="button"
+                    onClick={(event) => handleFeatureOptionClick(event, option)}
+                    onPointerDown={stopAssistantPropagation}
+                    onTouchEnd={(event) => handleFeatureOptionTouchEnd(event, option)}
+                  >
+                    <div className="flex items-center justify-between gap-3">
+                      <div>
+                        <p className="text-sm font-semibold text-white">{option.label}</p>
+                        <p className="mt-1 text-xs leading-5 text-slate-300/75">{option.description}</p>
+                      </div>
+                      <span className="grid h-8 w-8 shrink-0 place-items-center rounded-full border border-emerald-200/15 bg-emerald-300/10 text-sm text-emerald-100 transition group-hover:bg-emerald-300/16">
+                        →
+                      </span>
+                    </div>
+                  </button>
+                ))}
+              </div>
+            </div>
+          ) : (
+            <div className="relative flex h-[82vh] max-h-[760px] flex-col sm:h-[680px]">
+              <div className="flex items-start justify-between gap-4 border-b border-white/10 p-5 sm:p-6">
+                <div>
+                  <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-emerald-200/75">
+                    CLARA AI
+                  </p>
+                  <h2 className="mt-2 text-xl font-bold tracking-tight text-white">Ask before you act</h2>
+                  <p className="mt-1 text-xs text-slate-300/75">
+                    Context: {contextStatus === "connected" ? "connected" : "loading"}
+                  </p>
+                </div>
 
-        <form onSubmit={handleSubmit} className="shrink-0 bg-[#06111f] px-3 pb-3 pt-0">
-          <div className="flex items-end gap-2 rounded-[24px] border border-white/10 bg-white/10 p-2">
-            <textarea
-              ref={inputRef}
-              value={draft}
-              onChange={(event) => setDraft(event.target.value)}
-              onKeyDown={handleKeyDown}
-              rows={1}
-              placeholder="Ask CLARA before you act…"
-              className="max-h-28 min-h-10 flex-1 resize-none bg-transparent px-3 py-2 text-sm leading-6 text-white outline-none placeholder:text-white/35"
-              aria-label="Ask CLARA before you act"
-            />
+                <button
+                  aria-label="Close CLARA chat"
+                  className="grid h-10 w-10 shrink-0 place-items-center rounded-full border border-white/10 bg-white/8 text-slate-200 transition hover:bg-white/14 active:scale-95"
+                  type="button"
+                  onClick={closeAssistantSafely}
+                  onPointerDown={stopAssistantPropagation}
+                  onTouchEnd={stopAssistantPropagation}
+                >
+                  <X size={18} />
+                </button>
+              </div>
 
-            <button
-              type="submit"
-              disabled={!draft.trim()}
-              className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-cyan-300 text-slate-950 transition active:scale-95 disabled:cursor-not-allowed disabled:opacity-35"
-              aria-label="Send message"
-            >
-              <Send className="h-4 w-4" />
-            </button>
-          </div>
-        </form>
-      </section>
-    </div>
+              <div className="flex-1 space-y-3 overflow-y-auto px-5 py-4 sm:px-6">
+                {messages.map((message) => {
+                  const isUser = message.role === "user";
+                  return (
+                    <div
+                      key={message.id}
+                      className={`flex ${isUser ? "justify-end" : "justify-start"}`}
+                    >
+                      <div
+                        className={`max-w-[84%] rounded-2xl px-4 py-3 text-sm leading-6 shadow-lg ${
+                          isUser
+                            ? "bg-emerald-300 text-slate-950"
+                            : "border border-white/10 bg-white/[0.065] text-slate-100"
+                        }`}
+                      >
+                        {message.text}
+                      </div>
+                    </div>
+                  );
+                })}
+                <div ref={bottomRef} />
+              </div>
+
+              <div className="border-t border-white/10 p-4 sm:p-5">
+                <div className="mb-3 flex gap-2 overflow-x-auto pb-1">
+                  {QUICK_OPTIONS.map((option) => (
+                    <button
+                      key={option.label}
+                      className="shrink-0 rounded-full border border-white/10 bg-white/[0.055] px-3 py-2 text-xs font-medium text-slate-200 transition hover:bg-white/[0.09] active:scale-[0.98]"
+                      type="button"
+                      onClick={(event) => handleQuickOptionClick(event, option)}
+                      onPointerDown={stopAssistantPropagation}
+                      onTouchEnd={(event) => handleQuickOptionTouchEnd(event, option)}
+                    >
+                      {option.label}
+                    </button>
+                  ))}
+                </div>
+
+                <form className="flex items-center gap-2" onSubmit={handleSubmit}>
+                  <input
+                    ref={inputRef}
+                    className="min-w-0 flex-1 rounded-2xl border border-white/10 bg-white/[0.065] px-4 py-3 text-sm text-white outline-none placeholder:text-slate-400/70 focus:border-emerald-200/35 focus:bg-white/[0.085]"
+                    placeholder="Ask CLARA before you act..."
+                    value={draft}
+                    onChange={(event) => setDraft(event.target.value)}
+                    onPointerDown={stopAssistantPropagation}
+                  />
+                  <button
+                    aria-label="Send message"
+                    className="grid h-12 w-12 shrink-0 place-items-center rounded-2xl bg-emerald-300 text-slate-950 shadow-[0_0_22px_rgba(110,231,183,0.24)] transition hover:brightness-110 active:scale-95 disabled:cursor-not-allowed disabled:opacity-50"
+                    disabled={!draft.trim() || isClosing}
+                    type="submit"
+                    onPointerDown={stopAssistantPropagation}
+                  >
+                    <Send size={17} />
+                  </button>
+                </form>
+              </div>
+            </div>
+          )}
+        </section>
+      </div>
+    </>
   );
 }
