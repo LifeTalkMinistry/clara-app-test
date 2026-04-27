@@ -5742,6 +5742,8 @@ export default function Dashboard() {
   const hasLoadedDashboardRef = useRef(false);
   const latestEnrollmentRef = useRef(null);
   const isPaidRef = useRef(isPaid);
+  const longPressTimerRef = useRef(null);
+  const longPressTriggeredRef = useRef(false);
 
   const hydrateFromCache = useCallback((nextCache) => {
     setTasks(nextCache.tasks);
@@ -7263,6 +7265,56 @@ export default function Dashboard() {
     setBudgetListOpen(false);
     setFinanceModal({ type: "manual_expense", payload: null });
   }, [showFinanceNotice, wallets]);
+
+  const isClaraAiOrbEvent = useCallback((event) => {
+    return Boolean(
+      event?.target?.closest?.('[data-emergency-card] button[aria-label*="CLARA AI"]')
+    );
+  }, []);
+
+  const clearLongPressTimer = useCallback(() => {
+    if (longPressTimerRef.current) {
+      clearTimeout(longPressTimerRef.current);
+      longPressTimerRef.current = null;
+    }
+  }, []);
+
+  const openClaraAiFromLongPress = useCallback(() => {
+    dispatchClaraEvent("clara:open-assistant", {
+      mode: "chat",
+      source: "dashboard-long-press-orb",
+    });
+  }, []);
+
+  const startClaraAiLongPress = useCallback((event) => {
+    if (!isClaraAiOrbEvent(event)) return;
+
+    longPressTriggeredRef.current = false;
+    clearLongPressTimer();
+
+    longPressTimerRef.current = setTimeout(() => {
+      longPressTriggeredRef.current = true;
+      openClaraAiFromLongPress();
+    }, 550);
+  }, [clearLongPressTimer, isClaraAiOrbEvent, openClaraAiFromLongPress]);
+
+  const endClaraAiLongPress = useCallback(() => {
+    clearLongPressTimer();
+  }, [clearLongPressTimer]);
+
+  const handleClaraAiOrbClickCapture = useCallback((event) => {
+    if (!isClaraAiOrbEvent(event)) return;
+
+    if (longPressTriggeredRef.current) {
+      event?.preventDefault?.();
+      event?.stopPropagation?.();
+      longPressTriggeredRef.current = false;
+    }
+  }, [isClaraAiOrbEvent]);
+
+  useEffect(() => {
+    return () => clearLongPressTimer();
+  }, [clearLongPressTimer]);
 
   const openBudgetModal = useCallback((budgetCategory = null) => {
     const item = budgetCategory?.budget || budgetCategory || null;
@@ -9410,7 +9462,21 @@ export default function Dashboard() {
                 <div className="flex w-full min-w-full shrink-0 snap-center">
                   <div
                     className={getFinanceSlideShellClass("emergency", selectedDashboardTheme, dashboardScale)}
+                    onMouseDownCapture={startClaraAiLongPress}
+                    onMouseUpCapture={endClaraAiLongPress}
+                    onMouseLeaveCapture={endClaraAiLongPress}
+                    onTouchStartCapture={startClaraAiLongPress}
+                    onTouchEndCapture={endClaraAiLongPress}
+                    onTouchCancelCapture={endClaraAiLongPress}
                     onClickCapture={(event) => {
+                      const blockedByLongPress =
+                        isClaraAiOrbEvent(event) && longPressTriggeredRef.current;
+
+                      handleClaraAiOrbClickCapture(event);
+
+                      if (blockedByLongPress) {
+                        return;
+                      }
                       const button = event.target?.closest?.("button");
                       const label = String(button?.textContent || "").toLowerCase();
                       if (label.includes("show details") || label.includes("hide details")) {
