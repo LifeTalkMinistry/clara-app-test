@@ -29,13 +29,18 @@ function stopAssistantEvent(event) {
   if (!event) return;
   event.preventDefault?.();
   event.stopPropagation?.();
-  event.nativeEvent?.stopImmediatePropagation?.();
+
+  if (event.nativeEvent) {
+    event.nativeEvent.stopImmediatePropagation?.();
+    event.nativeEvent.preventDefault?.();
+    event.nativeEvent.stopPropagation?.();
+  }
 }
 
 function stopAssistantPropagation(event) {
   if (!event) return;
   event.stopPropagation?.();
-  event.nativeEvent?.stopImmediatePropagation?.();
+  event.nativeEvent?.stopPropagation?.();
 }
 
 function hasValue(value) {
@@ -349,7 +354,7 @@ function getBestContext(currentContext = {}, latestContext = {}) {
 
 export default function ClaraAssistantPanel({ open, onClose, context = {} }) {
   const latestContextRef = useRef(context || {});
-  const quickOptionLockRef = useRef(false);
+  const quickOptionLockRef = useRef(null);
 
   const activeContext = getBestContext(context || {}, latestContextRef.current || {});
   latestContextRef.current = activeContext;
@@ -396,14 +401,23 @@ export default function ClaraAssistantPanel({ open, onClose, context = {} }) {
   const handleQuickOptionPress = (event, option) => {
     stopAssistantEvent(event);
 
-    if (quickOptionLockRef.current) return;
-    quickOptionLockRef.current = true;
+    const optionText =
+      typeof option === "string" ? option : option?.label || option?.text || "";
 
-    sendMessageText(option);
+    if (!optionText) return;
+
+    const lockKey = optionText;
+
+    if (quickOptionLockRef.current === lockKey) return;
+
+    quickOptionLockRef.current = lockKey;
+    sendMessageText(optionText);
 
     window.setTimeout(() => {
-      quickOptionLockRef.current = false;
-    }, 250);
+      if (quickOptionLockRef.current === lockKey) {
+        quickOptionLockRef.current = null;
+      }
+    }, 180);
   };
 
   const sendDraft = () => {
@@ -439,8 +453,6 @@ export default function ClaraAssistantPanel({ open, onClose, context = {} }) {
       onPointerUpCapture={stopAssistantPropagation}
       onTouchStartCapture={stopAssistantPropagation}
       onTouchEndCapture={stopAssistantPropagation}
-      onMouseDownCapture={stopAssistantPropagation}
-      onMouseUpCapture={stopAssistantPropagation}
     >
       <button type="button" className="absolute inset-0 cursor-default" onClick={onClose} aria-label="Close CLARA assistant overlay" />
 
@@ -451,8 +463,6 @@ export default function ClaraAssistantPanel({ open, onClose, context = {} }) {
         onPointerUpCapture={stopAssistantPropagation}
         onTouchStartCapture={stopAssistantPropagation}
         onTouchEndCapture={stopAssistantPropagation}
-        onMouseDownCapture={stopAssistantPropagation}
-        onMouseUpCapture={stopAssistantPropagation}
       >
         <header className="flex shrink-0 items-center justify-between gap-3 border-b border-white/10 bg-[#081827] px-4 py-4">
           <div className="min-w-0">
@@ -486,7 +496,7 @@ export default function ClaraAssistantPanel({ open, onClose, context = {} }) {
           <div className="flex gap-2 overflow-x-auto pb-3 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
             {QUICK_OPTIONS.map((option) => (
               <button
-                key={option}
+                key={option?.label || option}
                 type="button"
                 onPointerDown={stopAssistantEvent}
                 onPointerUp={(event) => handleQuickOptionPress(event, option)}
@@ -497,7 +507,7 @@ export default function ClaraAssistantPanel({ open, onClose, context = {} }) {
                 onClick={stopAssistantEvent}
                 className="shrink-0 rounded-full border border-cyan-200/10 bg-white/[0.07] px-3 py-2 text-[11px] font-medium text-white/80 transition active:scale-95"
               >
-                {option}
+                {option?.label || option}
               </button>
             ))}
           </div>
