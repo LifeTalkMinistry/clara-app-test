@@ -8,8 +8,6 @@ const LOADING_REPLY = "Dashboard data is still loading. Try again in a second.";
 const CLOSE_ANIMATION_MS = 190;
 const GHOST_CLICK_WINDOW_MS = 520;
 const TOUCH_DEDUPE_MS = 700;
-const FEATURE_TAP_MOVE_THRESHOLD_PX = 8;
-const FEATURE_SCROLL_GUARD_MS = 420;
 
 const QUICK_OPTIONS = [
   {
@@ -692,11 +690,12 @@ function getBestContext(currentContext = {}, latestContext = {}) {
 
 export default function ClaraAssistantPanel({ open, onClose, context = {} }) {
   const latestContextRef = useRef(context || {});
-  const lastTouchSentAtRef = useRef(0);
-  const lastFeatureTouchSentAtRef = useRef(0);
-  const lastBackdropTouchAtRef = useRef(0);
   const closeTimeoutRef = useRef(null);
   const ghostClickUntilRef = useRef(0);
+  const lastBackdropTouchAtRef = useRef(0);
+  const lastTouchSentAtRef = useRef(0);
+  const lastFeatureTouchSentAtRef = useRef(0);
+  const featureScrollGuardUntilRef = useRef(0);
   const optionOpenLockRef = useRef("");
   const featureTapRef = useRef({
     pointerId: null,
@@ -706,206 +705,22 @@ export default function ClaraAssistantPanel({ open, onClose, context = {} }) {
     moved: false,
     startedAt: 0,
   });
-  const featureScrollGuardUntilRef = useRef(0);
 
   const activeContext = getBestContext(context || {}, latestContextRef.current || {});
   latestContextRef.current = activeContext;
 
+  const [panelMode, setPanelMode] = useState(null);
+  const [closingPanelMode, setClosingPanelMode] = useState(null);
+  const [selectedFeatureTitle, setSelectedFeatureTitle] = useState("Ask CLARA");
   const [draft, setDraft] = useState("");
   const [messages, setMessages] = useState(() => [makeMessage("clara", INITIAL_MESSAGE)]);
-  const [showFeatureMenu, setShowFeatureMenu] = useState(true);
   const [activeMode, setActiveMode] = useState(null);
-  const [activeFeatureTitle, setActiveFeatureTitle] = useState("Ask before you act");
   const [isClosing, setIsClosing] = useState(false);
+
   const inputRef = useRef(null);
   const bottomRef = useRef(null);
   const contextStatus = getContextStatus(activeContext);
-
-  useEffect(() => {
-    latestContextRef.current = getBestContext(context || {}, latestContextRef.current || {});
-
-    if (DEBUG_CLARA_CONTEXT) {
-      console.log("CLARA received latest context:", latestContextRef.current);
-    }
-  }, [context]);
-
-  useEffect(() => {
-    if (!open) return;
-
-    if (closeTimeoutRef.current) {
-      window.clearTimeout(closeTimeoutRef.current);
-      closeTimeoutRef.current = null;
-    }
-
-    optionOpenLockRef.current = "";
-    featureTapRef.current = {
-      pointerId: null,
-      startX: 0,
-      startY: 0,
-      optionKey: "",
-      moved: false,
-      startedAt: 0,
-    };
-    featureScrollGuardUntilRef.current = 0;
-    ghostClickUntilRef.current = 0;
-    lastBackdropTouchAtRef.current = 0;
-    lastFeatureTouchSentAtRef.current = 0;
-    lastTouchSentAtRef.current = 0;
-
-    setIsClosing(false);
-    setShowFeatureMenu(true);
-    setActiveMode(null);
-    setActiveFeatureTitle("Ask before you act");
-    setMessages([makeMessage("clara", INITIAL_MESSAGE)]);
-    setDraft("");
-  }, [open]);
-
-  useEffect(() => {
-    return () => {
-      if (closeTimeoutRef.current) {
-        window.clearTimeout(closeTimeoutRef.current);
-      }
-    };
-  }, []);
-
-  useEffect(() => {
-    if (!open || isClosing || showFeatureMenu) return undefined;
-    const timer = window.setTimeout(() => inputRef.current?.focus?.(), 120);
-    return () => window.clearTimeout(timer);
-  }, [open, isClosing, showFeatureMenu]);
-
-  useEffect(() => {
-    if (!open || isClosing || showFeatureMenu) return;
-    bottomRef.current?.scrollIntoView?.({ behavior: "smooth" });
-  }, [open, isClosing, showFeatureMenu, messages]);
-
-  const resetTemporaryUiState = () => {
-    setDraft("");
-    setActiveMode(null);
-    setActiveFeatureTitle("Ask before you act");
-    optionOpenLockRef.current = "";
-    featureTapRef.current = {
-      pointerId: null,
-      startX: 0,
-      startY: 0,
-      optionKey: "",
-      moved: false,
-      startedAt: 0,
-    };
-    featureScrollGuardUntilRef.current = Date.now() + FEATURE_SCROLL_GUARD_MS;
-    lastTouchSentAtRef.current = 0;
-    lastFeatureTouchSentAtRef.current = 0;
-    lastBackdropTouchAtRef.current = Date.now();
-    ghostClickUntilRef.current = Date.now() + GHOST_CLICK_WINDOW_MS;
-  };
-
-  const closeAssistantSafely = (event) => {
-    stopAssistantEvent(event);
-
-    if (isClosing) return;
-
-    resetTemporaryUiState();
-    setIsClosing(true);
-
-    if (closeTimeoutRef.current) {
-      window.clearTimeout(closeTimeoutRef.current);
-    }
-
-    closeTimeoutRef.current = window.setTimeout(() => {
-      closeTimeoutRef.current = null;
-      setIsClosing(false);
-      setShowFeatureMenu(true);
-      onClose?.();
-    }, CLOSE_ANIMATION_MS);
-  };
-
-  const sendMessageText = (messageText) => {
-    const text = String(messageText || "").trim();
-    if (!text || isClosing) return;
-
-    const currentContext = getBestContext(context || {}, latestContextRef.current || {});
-    latestContextRef.current = currentContext;
-
-    const reply = activeMode === "purchase_decision"
-      ? getPurchaseDecisionReply(text, currentContext)
-      : getLocalReply(text, currentContext);
-
-    setMessages((current) => [
-      ...current,
-      makeMessage("user", text),
-      makeMessage("clara", reply),
-    ]);
-
-    if (activeMode === "purchase_decision") {
-      setActiveMode(null);
-    }
-  };
-
-  const sendQuickOption = (option) => {
-    const optionText =
-      typeof option === "string" ? option : option?.message || option?.label || option?.text || "";
-
-    if (!optionText || isClosing) return;
-
-    if (String(optionText).toLowerCase().includes("before i buy")) {
-      setActiveMode("purchase_decision");
-    }
-
-    sendMessageText(optionText);
-  };
-
-  const handleQuickOptionTouchEnd = (event, option) => {
-    stopAssistantEvent(event);
-    if (isClosing) return;
-
-    lastTouchSentAtRef.current = Date.now();
-    sendQuickOption(option);
-  };
-
-  const handleQuickOptionClick = (event, option) => {
-    stopAssistantEvent(event);
-    if (isClosing || Date.now() < ghostClickUntilRef.current) return;
-    if (Date.now() - lastTouchSentAtRef.current < TOUCH_DEDUPE_MS) return;
-
-    sendQuickOption(option);
-  };
-
-  const openAssistantWithPrompt = (option) => {
-    if (isClosing || Date.now() < ghostClickUntilRef.current) return;
-
-    const optionKey = `${option?.label || "ask"}-${option?.message || "blank"}-${option?.mode || "normal"}`;
-    if (optionOpenLockRef.current === optionKey) return;
-    optionOpenLockRef.current = optionKey;
-
-    setShowFeatureMenu(false);
-    setActiveFeatureTitle(option?.label || "Ask CLARA");
-    setDraft("");
-
-    if (option?.mode === "purchase_decision") {
-      setActiveMode("purchase_decision");
-      setMessages((current) => [
-        ...current,
-        makeMessage("clara", "What are you planning to buy, and how much is it?"),
-      ]);
-      return;
-    }
-
-    setActiveMode(null);
-
-    const prompt = String(option?.message || "").trim();
-    if (prompt) {
-      sendMessageText(prompt);
-    }
-  };
-
-  const getFeatureOptionKey = (option) =>
-    `${option?.label || "ask"}-${option?.message || "blank"}-${option?.mode || "normal"}`;
-
-  const markFeatureScrollGuard = () => {
-    const now = Date.now();
-    featureScrollGuardUntilRef.current = now + FEATURE_SCROLL_GUARD_MS;
-    ghostClickUntilRef.current = Math.max(ghostClickUntilRef.current, now + FEATURE_SCROLL_GUARD_MS);
-  };
+  const renderedMode = panelMode || closingPanelMode;
 
   const resetFeatureTap = () => {
     featureTapRef.current = {
@@ -918,6 +733,210 @@ export default function ClaraAssistantPanel({ open, onClose, context = {} }) {
     };
   };
 
+  const resetTemporaryUiState = () => {
+    setDraft("");
+    setActiveMode(null);
+    optionOpenLockRef.current = "";
+    resetFeatureTap();
+    lastTouchSentAtRef.current = 0;
+    lastFeatureTouchSentAtRef.current = 0;
+    lastBackdropTouchAtRef.current = Date.now();
+    featureScrollGuardUntilRef.current = Date.now() + FEATURE_SCROLL_GUARD_MS;
+    ghostClickUntilRef.current = Date.now() + GHOST_CLICK_WINDOW_MS;
+  };
+
+  useEffect(() => {
+    latestContextRef.current = getBestContext(context || {}, latestContextRef.current || {});
+
+    if (DEBUG_CLARA_CONTEXT) {
+      console.log("CLARA received latest context:", latestContextRef.current);
+    }
+  }, [context]);
+
+  useEffect(() => {
+    if (open) {
+      if (closeTimeoutRef.current) {
+        window.clearTimeout(closeTimeoutRef.current);
+        closeTimeoutRef.current = null;
+      }
+
+      resetTemporaryUiState();
+      ghostClickUntilRef.current = 0;
+      featureScrollGuardUntilRef.current = 0;
+      lastBackdropTouchAtRef.current = 0;
+      setIsClosing(false);
+      setClosingPanelMode(null);
+      setPanelMode("menu");
+      setSelectedFeatureTitle("Ask CLARA");
+      setMessages([makeMessage("clara", INITIAL_MESSAGE)]);
+      return;
+    }
+
+    if (!isClosing) {
+      setPanelMode(null);
+      setClosingPanelMode(null);
+    }
+  }, [open]);
+
+  useEffect(() => {
+    return () => {
+      if (closeTimeoutRef.current) {
+        window.clearTimeout(closeTimeoutRef.current);
+      }
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!open || isClosing || panelMode !== "chat") return undefined;
+    const timer = window.setTimeout(() => inputRef.current?.focus?.(), 120);
+    return () => window.clearTimeout(timer);
+  }, [open, isClosing, panelMode]);
+
+  useEffect(() => {
+    if (!open || isClosing || panelMode !== "chat") return;
+    bottomRef.current?.scrollIntoView?.({ behavior: "smooth" });
+  }, [open, isClosing, panelMode, messages]);
+
+  const getReplyForText = (messageText, forcedMode = activeMode) => {
+    const text = String(messageText || "").trim();
+    const currentContext = getBestContext(context || {}, latestContextRef.current || {});
+    latestContextRef.current = currentContext;
+
+    return forcedMode === "purchase_decision"
+      ? getPurchaseDecisionReply(text, currentContext)
+      : getLocalReply(text, currentContext);
+  };
+
+  const sendMessageText = (messageText, forcedMode = activeMode) => {
+    const text = String(messageText || "").trim();
+    if (!text || isClosing || panelMode !== "chat") return;
+
+    const reply = getReplyForText(text, forcedMode);
+
+    setMessages((current) => [
+      ...current,
+      makeMessage("user", text),
+      makeMessage("clara", reply),
+    ]);
+
+    if (forcedMode === "purchase_decision") {
+      setActiveMode(null);
+    }
+  };
+
+  const getFeatureOptionKey = (option) =>
+    `${option?.label || "ask"}-${option?.message || "blank"}-${option?.mode || "normal"}`;
+
+  const startChatFromFeature = (option) => {
+    if (isClosing || panelMode !== "menu" || Date.now() < ghostClickUntilRef.current) return;
+
+    const optionKey = getFeatureOptionKey(option);
+    if (optionOpenLockRef.current === optionKey) return;
+    optionOpenLockRef.current = optionKey;
+
+    const title = option?.label || "Ask CLARA";
+    const prompt = String(option?.message || "").trim();
+    const nextMode = option?.mode === "purchase_decision" ? "purchase_decision" : null;
+
+    setSelectedFeatureTitle(title);
+    setDraft("");
+    setActiveMode(nextMode);
+    setPanelMode("chat");
+    setClosingPanelMode(null);
+
+    if (option?.mode === "purchase_decision") {
+      setMessages([
+        makeMessage("clara", INITIAL_MESSAGE),
+        makeMessage("clara", "What are you planning to buy, and how much is it?"),
+      ]);
+      return;
+    }
+
+    if (prompt) {
+      setMessages([
+        makeMessage("clara", INITIAL_MESSAGE),
+        makeMessage("user", prompt),
+        makeMessage("clara", getReplyForText(prompt, null)),
+      ]);
+      return;
+    }
+
+    setMessages([makeMessage("clara", INITIAL_MESSAGE)]);
+  };
+
+  const closeAssistantSafely = (event) => {
+    stopAssistantEvent(event);
+    if (isClosing) return;
+
+    const modeToClose = panelMode || renderedMode || "menu";
+    resetTemporaryUiState();
+    setClosingPanelMode(modeToClose);
+    setPanelMode(null);
+    setIsClosing(true);
+
+    if (closeTimeoutRef.current) {
+      window.clearTimeout(closeTimeoutRef.current);
+    }
+
+    closeTimeoutRef.current = window.setTimeout(() => {
+      closeTimeoutRef.current = null;
+      setIsClosing(false);
+      setClosingPanelMode(null);
+      setSelectedFeatureTitle("Ask CLARA");
+      onClose?.();
+    }, CLOSE_ANIMATION_MS);
+  };
+
+  const returnToMenuSafely = (event) => {
+    stopAssistantEvent(event);
+    if (isClosing) return;
+
+    resetTemporaryUiState();
+    ghostClickUntilRef.current = Date.now() + 180;
+    setClosingPanelMode(null);
+    setPanelMode("menu");
+    setSelectedFeatureTitle("Ask CLARA");
+  };
+
+  const sendQuickOption = (option) => {
+    const optionText =
+      typeof option === "string" ? option : option?.message || option?.label || option?.text || "";
+
+    if (!optionText || isClosing || panelMode !== "chat") return;
+
+    const quickMode = String(optionText).toLowerCase().includes("before i buy")
+      ? "purchase_decision"
+      : activeMode;
+
+    if (quickMode === "purchase_decision") {
+      setActiveMode("purchase_decision");
+    }
+
+    sendMessageText(optionText, quickMode);
+  };
+
+  const handleQuickOptionTouchEnd = (event, option) => {
+    stopAssistantEvent(event);
+    if (isClosing || panelMode !== "chat") return;
+
+    lastTouchSentAtRef.current = Date.now();
+    sendQuickOption(option);
+  };
+
+  const handleQuickOptionClick = (event, option) => {
+    stopAssistantEvent(event);
+    if (isClosing || panelMode !== "chat" || Date.now() < ghostClickUntilRef.current) return;
+    if (Date.now() - lastTouchSentAtRef.current < TOUCH_DEDUPE_MS) return;
+
+    sendQuickOption(option);
+  };
+
+  const markFeatureScrollGuard = () => {
+    const now = Date.now();
+    featureScrollGuardUntilRef.current = now + FEATURE_SCROLL_GUARD_MS;
+    ghostClickUntilRef.current = Math.max(ghostClickUntilRef.current, now + FEATURE_SCROLL_GUARD_MS);
+  };
+
   const handleFeatureListScroll = () => {
     markFeatureScrollGuard();
     featureTapRef.current.moved = true;
@@ -925,7 +944,7 @@ export default function ClaraAssistantPanel({ open, onClose, context = {} }) {
 
   const handleFeatureOptionPointerDown = (event, option) => {
     stopAssistantPropagation(event);
-    if (isClosing || Date.now() < ghostClickUntilRef.current) return;
+    if (isClosing || panelMode !== "menu" || Date.now() < ghostClickUntilRef.current) return;
 
     featureTapRef.current = {
       pointerId: event.pointerId ?? null,
@@ -957,18 +976,18 @@ export default function ClaraAssistantPanel({ open, onClose, context = {} }) {
   };
 
   const handleFeatureOptionPointerUp = (event, option) => {
-    const tap = featureTapRef.current;
-    const optionKey = getFeatureOptionKey(option);
-    const now = Date.now();
-
     stopAssistantEvent(event);
 
-    if (isClosing || now < ghostClickUntilRef.current || now < featureScrollGuardUntilRef.current) {
+    const now = Date.now();
+    const tap = featureTapRef.current;
+    const optionKey = getFeatureOptionKey(option);
+
+    if (isClosing || panelMode !== "menu" || now < ghostClickUntilRef.current || now < featureScrollGuardUntilRef.current) {
       resetFeatureTap();
       return;
     }
 
-    if (tap.pointerId !== null && event.pointerId !== tap.pointerId) {
+    if (!tap.startedAt || (tap.pointerId !== null && event.pointerId !== tap.pointerId)) {
       resetFeatureTap();
       return;
     }
@@ -986,30 +1005,17 @@ export default function ClaraAssistantPanel({ open, onClose, context = {} }) {
 
     lastFeatureTouchSentAtRef.current = now;
     resetFeatureTap();
-    openAssistantWithPrompt(option);
+    startChatFromFeature(option);
   };
 
   const handleFeatureOptionClick = (event, option) => {
     stopAssistantEvent(event);
 
     const now = Date.now();
-    if (isClosing || now < ghostClickUntilRef.current || now < featureScrollGuardUntilRef.current) return;
+    if (isClosing || panelMode !== "menu" || now < ghostClickUntilRef.current || now < featureScrollGuardUntilRef.current) return;
     if (now - lastFeatureTouchSentAtRef.current < TOUCH_DEDUPE_MS) return;
 
-    openAssistantWithPrompt(option);
-  };
-
-  const handleBackToFeatureMenu = (event) => {
-    stopAssistantEvent(event);
-    if (isClosing) return;
-
-    optionOpenLockRef.current = "";
-    resetFeatureTap();
-    featureScrollGuardUntilRef.current = Date.now() + 80;
-    setDraft("");
-    setActiveMode(null);
-    setActiveFeatureTitle("Ask before you act");
-    setShowFeatureMenu(true);
+    startChatFromFeature(option);
   };
 
   const handleBackdropPointerDown = (event) => {
@@ -1030,7 +1036,7 @@ export default function ClaraAssistantPanel({ open, onClose, context = {} }) {
 
   const handleSubmit = (event) => {
     stopAssistantEvent(event);
-    if (isClosing) return;
+    if (isClosing || panelMode !== "chat") return;
 
     const text = draft.trim();
     if (!text) return;
@@ -1039,10 +1045,10 @@ export default function ClaraAssistantPanel({ open, onClose, context = {} }) {
     sendMessageText(text);
   };
 
-  if (!open && !isClosing) return null;
+  if (!renderedMode && !isClosing) return null;
 
   const backdropClassName = `clara-ai-backdrop${isClosing ? " clara-ai-backdrop-out" : ""}`;
-  const shellClassName = showFeatureMenu
+  const shellClassName = renderedMode === "menu"
     ? `clara-ai-menu-shell${isClosing ? " clara-ai-menu-shell-out" : ""}`
     : `clara-ai-chat-shell${isClosing ? " clara-ai-chat-shell-out" : ""}`;
 
@@ -1080,7 +1086,7 @@ export default function ClaraAssistantPanel({ open, onClose, context = {} }) {
           <div className="clara-ai-glow pointer-events-none absolute -left-24 -top-24 h-52 w-52 rounded-full bg-emerald-400/18 blur-3xl" />
           <div className="clara-ai-glow pointer-events-none absolute -bottom-28 -right-24 h-56 w-56 rounded-full bg-cyan-400/14 blur-3xl" />
 
-          {showFeatureMenu ? (
+          {renderedMode === "menu" && (
             <div className="relative flex max-h-[82vh] flex-col p-5 sm:p-6">
               <div className="mb-5 flex items-start justify-between gap-4">
                 <div>
@@ -1097,7 +1103,7 @@ export default function ClaraAssistantPanel({ open, onClose, context = {} }) {
 
                 <button
                   aria-label="Close CLARA AI menu"
-                  className="grid h-10 w-10 shrink-0 place-items-center rounded-full border border-white/10 bg-white/8 text-slate-200 transition hover:bg-white/14 active:scale-95"
+                  className="grid h-11 w-11 shrink-0 place-items-center rounded-full border border-white/10 bg-white/8 text-slate-200 shadow-[0_8px_24px_rgba(0,0,0,0.2)] transition hover:bg-white/14 active:scale-95"
                   type="button"
                   onClick={closeAssistantSafely}
                   onPointerDown={stopAssistantPropagation}
@@ -1110,19 +1116,21 @@ export default function ClaraAssistantPanel({ open, onClose, context = {} }) {
               <div
                 className="clara-ai-feature-scroll grid gap-3 overflow-y-auto pr-1"
                 onScroll={handleFeatureListScroll}
+                onWheel={markFeatureScrollGuard}
+                onTouchMove={markFeatureScrollGuard}
               >
                 {AI_FEATURE_OPTIONS.map((option, index) => (
                   <button
                     key={option.label}
-                    className="clara-ai-feature-button clara-ai-option group w-full rounded-2xl border border-white/10 bg-white/[0.055] p-4 text-left transition hover:border-emerald-200/30 hover:bg-white/[0.085] active:scale-[0.985]"
+                    className="clara-ai-option clara-ai-feature-button group w-full rounded-2xl border border-white/10 bg-white/[0.055] p-4 text-left transition hover:border-emerald-200/30 hover:bg-white/[0.085] active:scale-[0.985]"
                     style={{ animationDelay: `${index * 24}ms` }}
                     type="button"
                     onClick={(event) => handleFeatureOptionClick(event, option)}
                     onPointerDown={(event) => handleFeatureOptionPointerDown(event, option)}
                     onPointerMove={handleFeatureOptionPointerMove}
                     onPointerCancel={handleFeatureOptionPointerCancel}
+                    onPointerLeave={handleFeatureOptionPointerCancel}
                     onPointerUp={(event) => handleFeatureOptionPointerUp(event, option)}
-                    onTouchEnd={stopAssistantPropagation}
                   >
                     <div className="flex items-center justify-between gap-3">
                       <div>
@@ -1137,35 +1145,37 @@ export default function ClaraAssistantPanel({ open, onClose, context = {} }) {
                 ))}
               </div>
             </div>
-          ) : (
+          )}
+
+          {renderedMode === "chat" && (
             <div className="relative flex h-[82vh] max-h-[760px] flex-col sm:h-[680px]">
-              <div className="flex items-center gap-3 border-b border-white/10 p-4 sm:p-5">
+              <div className="flex items-center justify-between gap-3 border-b border-white/10 p-4 sm:p-5">
                 <button
                   aria-label="Back to CLARA AI menu"
-                  className="grid h-11 w-11 shrink-0 place-items-center rounded-full border border-white/10 bg-white/8 text-slate-200 transition hover:bg-white/14 active:scale-95"
+                  className="grid h-11 w-11 shrink-0 place-items-center rounded-full border border-white/10 bg-white/8 text-slate-200 shadow-[0_8px_24px_rgba(0,0,0,0.2)] transition hover:bg-white/14 active:scale-95"
                   type="button"
-                  onClick={handleBackToFeatureMenu}
+                  onClick={returnToMenuSafely}
                   onPointerDown={stopAssistantPropagation}
                   onTouchEnd={stopAssistantPropagation}
                 >
                   <ArrowLeft size={18} />
                 </button>
 
-                <div className="min-w-0 flex-1">
-                  <p className="text-[10px] font-semibold uppercase tracking-[0.22em] text-emerald-200/75">
+                <div className="min-w-0 flex-1 text-center">
+                  <p className="text-[10px] font-semibold uppercase tracking-[0.22em] text-emerald-200/70">
                     CLARA AI
                   </p>
-                  <h2 className="mt-1 truncate text-base font-bold tracking-tight text-white sm:text-lg">
-                    {activeFeatureTitle || "Ask before you act"}
+                  <h2 className="mt-1 truncate text-base font-bold tracking-tight text-white">
+                    {selectedFeatureTitle || "Ask CLARA"}
                   </h2>
-                  <p className="mt-0.5 text-[11px] text-slate-300/75">
+                  <p className="mt-0.5 text-[11px] text-slate-300/70">
                     Context: {contextStatus === "connected" ? "connected" : "loading"}
                   </p>
                 </div>
 
                 <button
                   aria-label="Close CLARA chat"
-                  className="grid h-11 w-11 shrink-0 place-items-center rounded-full border border-white/10 bg-white/8 text-slate-200 transition hover:bg-white/14 active:scale-95"
+                  className="grid h-11 w-11 shrink-0 place-items-center rounded-full border border-white/10 bg-white/8 text-slate-200 shadow-[0_8px_24px_rgba(0,0,0,0.2)] transition hover:bg-white/14 active:scale-95"
                   type="button"
                   onClick={closeAssistantSafely}
                   onPointerDown={stopAssistantPropagation}
