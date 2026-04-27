@@ -1,6 +1,10 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { supabase } from "@/lib/supabaseClient";
 import { getWalletBalance } from "@/utils/financialEngine";
+import {
+  createFinanceRepository,
+  FINANCE_REPOSITORY_MODE_SUPABASE_LEGACY,
+} from "@/lib/financeRepository";
 
 const toNumber = (value) => {
   if (typeof value === "number") return Number.isFinite(value) ? value : 0;
@@ -705,45 +709,21 @@ export default function useFinancialData(user) {
   };
 
   const addExpense = async (expense) => {
-    const amount = toNumber(expense.amount);
-    const planningStatus = normalizePlanningStatus(expense.planning_status);
+    const repository = createFinanceRepository({
+      mode: FINANCE_REPOSITORY_MODE_SUPABASE_LEGACY,
+      supabase,
+      user,
+      wallets,
+      walletTransactions,
+      generateId,
+      toNumber,
+      getSafeDate,
+      normalizePlanningStatus,
+      safeInsert,
+      safeUpdateById,
+    });
 
-    if (planningStatus === "unplanned" && !String(expense.unplanned_reason || "").trim()) {
-      throw new Error("Reason is required for unplanned expenses.");
-    }
-
-    const payload = {
-      ...expense,
-      id: expense.id || generateId(),
-      user_id: user?.id || null,
-      user_email: user?.email || null,
-      created_by: user?.email || null,
-      amount,
-      date: getSafeDate(expense.date),
-      planning_status: planningStatus,
-      unplanned_reason:
-        planningStatus === "unplanned"
-          ? String(expense.unplanned_reason || "").trim()
-          : null,
-    };
-
-    await safeInsert("expenses", payload);
-
-    if (expense.wallet_id) {
-      await updateWalletBalance(expense.wallet_id, -amount);
-      await insertWalletTransaction({
-        wallet_id: expense.wallet_id,
-        amount,
-        type: "expense",
-        category: expense.category,
-        need_type: expense.need_type,
-        planning_status: planningStatus,
-        unplanned_reason: payload.unplanned_reason,
-        expense_id: payload.id,
-        notes: expense.notes,
-        created_at: payload.date,
-      });
-    }
+    await repository.addExpense(user?.id, expense);
 
     await loadAll();
   };
