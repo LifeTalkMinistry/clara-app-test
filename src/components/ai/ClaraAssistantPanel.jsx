@@ -279,11 +279,20 @@ function getContextStatus(context = {}) {
   return hasUsableContext(context) ? "connected" : "loading";
 }
 
+function getBestContext(currentContext = {}, latestContext = {}) {
+  if (hasUsableContext(currentContext)) return currentContext;
+  if (hasUsableContext(latestContext)) return latestContext;
+  return currentContext || latestContext || {};
+}
+
 export default function ClaraAssistantPanel({ open, onClose, context = {} }) {
   const latestContextRef = useRef(context || {});
 
+  const activeContext = getBestContext(context || {}, latestContextRef.current || {});
+  latestContextRef.current = activeContext;
+
   useEffect(() => {
-    latestContextRef.current = context || {};
+    latestContextRef.current = getBestContext(context || {}, latestContextRef.current || {});
 
     if (DEBUG_CLARA_CONTEXT) {
       console.log("CLARA received latest context:", latestContextRef.current);
@@ -294,7 +303,7 @@ export default function ClaraAssistantPanel({ open, onClose, context = {} }) {
   const [messages, setMessages] = useState(() => [makeMessage("clara", INITIAL_MESSAGE)]);
   const inputRef = useRef(null);
   const bottomRef = useRef(null);
-  const contextStatus = getContextStatus(latestContextRef.current);
+  const contextStatus = getContextStatus(activeContext);
 
   useEffect(() => {
     if (!open) return;
@@ -311,7 +320,8 @@ export default function ClaraAssistantPanel({ open, onClose, context = {} }) {
     const text = draft.trim();
     if (!text) return;
 
-    const currentContext = latestContextRef.current || {};
+    const currentContext = getBestContext(context || {}, latestContextRef.current || {});
+    latestContextRef.current = currentContext;
 
     setMessages((current) => [
       ...current,
