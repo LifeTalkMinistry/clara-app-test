@@ -7047,6 +7047,119 @@ export default function Dashboard() {
 
   const primarySavingsGoal = useMemo(() => savingsGoals[0] || null, [savingsGoals]);
 
+  const claraAssistantContext = useMemo(() => {
+    const safeWallets = Array.isArray(wallets) ? wallets : [];
+    const safeExpenses = Array.isArray(expenses) ? expenses : [];
+    const safeSavingsGoals = Array.isArray(savingsGoals) ? savingsGoals : [];
+    const walletTotal = safeWallets.reduce(
+      (sum, wallet) => sum + getWalletDisplayBalance(wallet),
+      0
+    );
+    const safeTotalMoneyLeft = firstValidNumber(walletMoney, walletTotal, moneyLeftThisMonth);
+    const safeMonthlyExpenses = firstValidNumber(
+      thisMonthSpent,
+      monthlyBudgetPlan?.spent,
+      monthlyBudgetPlan?.total_spent
+    );
+    const emergencyTarget = firstPositiveNumber(
+      survivalExpense,
+      profileData?.monthly_survival_expense,
+      profileData?.survival_expense,
+      profileData?.clara_survival_expense
+    );
+    const emergencySaved = Math.max(safeTotalMoneyLeft - emergencyTarget, 0);
+    const budgetAllocated = firstValidNumber(
+      monthlyBudgetPlan?.allocated_amount,
+      monthlyBudgetPlan?.allocated_total,
+      monthlyBudgetPlan?.total_budget
+    );
+    const budgetSpent = firstValidNumber(
+      monthlyBudgetPlan?.spent,
+      monthlyBudgetPlan?.spent_amount,
+      monthlyBudgetPlan?.total_spent
+    );
+    const savingsSaved = firstValidNumber(totalSavingsSaved);
+    const savingsTarget = firstValidNumber(totalSavingsTarget);
+
+    return {
+      userName:
+        nickname ||
+        profileData?.full_name ||
+        profileData?.display_name ||
+        profileData?.nickname ||
+        user?.user_metadata?.full_name ||
+        user?.user_metadata?.name ||
+        user?.email?.split("@")?.[0] ||
+        "there",
+      totalMoneyLeft: Number(safeTotalMoneyLeft || 0),
+      totalExpensesThisMonth: Number(safeMonthlyExpenses || 0),
+      wallets: safeWallets.map((wallet) => ({
+        id: wallet?.id || null,
+        name: getWalletDisplayName(wallet),
+        balance: Number(getWalletDisplayBalance(wallet) || 0),
+      })),
+      emergencyFund: {
+        saved: Number(emergencySaved || 0),
+        target: Number(emergencyTarget || 0),
+        summary:
+          emergencyTarget > 0
+            ? `Your emergency baseline is ${fmt(emergencyTarget)}. You currently have ${fmt(
+                safeTotalMoneyLeft
+              )} available.`
+            : "",
+      },
+      budget: {
+        allocated: Number(budgetAllocated || 0),
+        spent: Number(budgetSpent || 0),
+        remaining: Number(Math.max(budgetAllocated - budgetSpent, 0) || 0),
+        summary:
+          budgetAllocated > 0
+            ? `Your current budget shows ${fmt(budgetSpent)} spent out of ${fmt(
+                budgetAllocated
+              )} allocated.`
+            : "",
+        categories: Array.isArray(budgetSummaries) ? budgetSummaries : [],
+      },
+      savings: {
+        saved: Number(savingsSaved || 0),
+        target: Number(savingsTarget || 0),
+        summary:
+          savingsTarget > 0
+            ? `Your savings progress is ${fmt(savingsSaved)} out of ${fmt(savingsTarget)}.`
+            : safeSavingsGoals.length
+              ? `You have ${safeSavingsGoals.length} savings goal${
+                  safeSavingsGoals.length === 1 ? "" : "s"
+                } tracked.`
+              : "",
+      },
+      recentExpenses: safeExpenses
+        .slice(0, 8)
+        .map((expense) => ({
+          id: expense?.id || null,
+          amount: Number(firstValidNumber(expense?.amount) || 0),
+          category: getExpenseCategoryKey(expense),
+          date: expense?.date || expense?.expense_date || expense?.created_at || null,
+          notes: normalizeString(expense?.notes || expense?.description || ""),
+        })),
+    };
+  }, [
+    budgetSummaries,
+    expenses,
+    moneyLeftThisMonth,
+    monthlyBudgetPlan,
+    nickname,
+    profileData,
+    savingsGoals,
+    survivalExpense,
+    thisMonthSpent,
+    totalSavingsSaved,
+    totalSavingsTarget,
+    user,
+    walletMoney,
+    wallets,
+  ]);
+
+
   const scrollFinanceCardsTo = useCallback((nextIndex) => {
     const safeIndex = Math.max(0, Math.min(financeCards.length - 1, nextIndex));
     const container = financeCarouselRef.current;
@@ -11203,6 +11316,7 @@ export default function Dashboard() {
       <ClaraAssistantPanel
         open={showAiAssistant}
         onClose={() => setShowAiAssistant(false)}
+        context={claraAssistantContext}
       />
 
     </div>
