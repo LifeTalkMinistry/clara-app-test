@@ -10055,7 +10055,7 @@ export default function Dashboard() {
             onPointerCancel={cancelCenteredClaraOrbPress}
             onPointerLeave={endCenteredClaraOrbPress}
             onClick={handleCenteredClaraOrbClick}
-            className="group absolute left-1/2 top-0 z-40 flex h-[58px] w-[58px] -translate-x-1/2 -translate-y-1/2 touch-none select-none items-center justify-center rounded-full border border-cyan-200/20 bg-[#071827]/90 text-cyan-50 shadow-[0_16px_46px_rgba(34,211,238,0.24),0_0_0_1px_rgba(255,255,255,0.04)] backdrop-blur-2xl transition hover:scale-[1.03] active:scale-95 sm:h-16 sm:w-16"
+            className="group absolute -top-2 left-1/2 z-40 flex h-[58px] w-[58px] -translate-x-1/2 touch-none select-none items-center justify-center rounded-full border border-cyan-200/20 bg-[#071827]/90 text-cyan-50 shadow-[0_16px_46px_rgba(34,211,238,0.24),0_0_0_1px_rgba(255,255,255,0.04)] backdrop-blur-2xl transition hover:scale-[1.03] active:scale-95 sm:h-16 sm:w-16"
             aria-label="CLARA orb: tap to log expense, double tap to open transactions, long press to open CLARA AI"
             title="Tap: Log expense • Double tap: Transactions • Long press: CLARA AI"
           >
