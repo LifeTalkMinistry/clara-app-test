@@ -7,14 +7,14 @@ const FALLBACK_REPLY = "Got it. I’ll help you think through that. Tell me what
 const LOADING_REPLY = "Dashboard data is still loading. Try again in a second.";
 
 const QUICK_OPTIONS = [
-  "Check my spending",
-  "Check my wallets",
-  "Money left",
-  "Before I buy this",
-  "What should I watch today?",
-  "Budget check",
-  "Savings check",
-  "Emergency fund",
+  { label: "Check my spending", message: "Check my spending" },
+  { label: "Check my wallets", message: "Check my wallets" },
+  { label: "Available money", message: "How much money do I have left?" },
+  { label: "Before I buy this", message: "Before I buy this" },
+  { label: "What should I watch today?", message: "What should I watch today?" },
+  { label: "Budget check", message: "Budget check" },
+  { label: "Savings check", message: "Savings check" },
+  { label: "Emergency fund", message: "Emergency fund" },
 ];
 
 function makeMessage(role, text) {
@@ -407,7 +407,7 @@ export default function ClaraAssistantPanel({ open, onClose, context = {} }) {
 
   const sendQuickOption = (option) => {
     const optionText =
-      typeof option === "string" ? option : option?.label || option?.text || "";
+      typeof option === "string" ? option : option?.message || option?.label || option?.text || "";
 
     if (!optionText) return;
     sendMessageText(optionText);
