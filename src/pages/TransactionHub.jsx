@@ -77,7 +77,7 @@ const getActivityDateValue = (item) =>
 
 const getActivityTime = (item) => parseDate(getActivityDateValue(item))?.getTime() ?? 0;
 
-const formatActivityDate = (value) => {
+const formatActivityDate = (value, compact = false) => {
   const date = parseDate(value);
   if (!date) return "No date";
 
@@ -85,8 +85,8 @@ const formatActivityDate = (value) => {
     month: "short",
     day: "numeric",
     year: "numeric",
-    hour: "numeric",
-    minute: "2-digit",
+    hour: compact ? undefined : "numeric",
+    minute: compact ? undefined : "2-digit",
   });
 };
 
@@ -107,9 +107,7 @@ const getTypeGroup = (rawType) => {
 
   if (EXPENSE_TYPES.has(type)) return "expense";
   if (INCOME_TYPES.has(type)) return "income";
-  if (TRANSFER_OUT_TYPES.has(type) || TRANSFER_IN_TYPES.has(type) || type === "transfer") {
-    return "transfer";
-  }
+  if (TRANSFER_OUT_TYPES.has(type) || TRANSFER_IN_TYPES.has(type) || type === "transfer") return "transfer";
   if (SAVINGS_TYPES.has(type)) return "savings";
   return "wallet";
 };
@@ -133,9 +131,7 @@ const getActivityIcon = (group, type) => {
   if (group === "expense") return ArrowUpRight;
   if (group === "income") return ArrowDownLeft;
   if (group === "savings") return PiggyBank;
-  if (group === "transfer" || TRANSFER_OUT_TYPES.has(normalizedType) || TRANSFER_IN_TYPES.has(normalizedType)) {
-    return ArrowLeftRight;
-  }
+  if (group === "transfer" || TRANSFER_OUT_TYPES.has(normalizedType) || TRANSFER_IN_TYPES.has(normalizedType)) return ArrowLeftRight;
   return WalletCards;
 };
 
@@ -261,6 +257,27 @@ const buildUnifiedActivity = ({ expenses = [], walletTransactions = [], transfer
     .sort((left, right) => getActivityTime(right.raw || right) - getActivityTime(left.raw || left));
 };
 
+const getMetricTone = (tone) => {
+  const tones = {
+    rose: "from-rose-500/13 via-white/[0.045] to-white/[0.025] text-rose-100 shadow-rose-500/10",
+    emerald: "from-emerald-400/14 via-white/[0.045] to-white/[0.025] text-emerald-100 shadow-emerald-500/10",
+    cyan: "from-cyan-400/14 via-white/[0.045] to-white/[0.025] text-cyan-100 shadow-cyan-500/10",
+    slate: "from-white/10 via-white/[0.045] to-white/[0.025] text-white shadow-black/20",
+  };
+  return tones[tone] || tones.slate;
+};
+
+function MetricCard({ label, value, helper, tone = "slate" }) {
+  return (
+    <div className={`relative min-h-[96px] overflow-hidden rounded-[24px] border border-white/10 bg-gradient-to-br ${getMetricTone(tone)} p-4 shadow-[0_20px_55px_rgba(0,0,0,0.20)] backdrop-blur-2xl`}>
+      <div className="pointer-events-none absolute -right-10 -top-10 h-24 w-24 rounded-full bg-white/10 blur-3xl" />
+      <p className="text-[10px] font-black uppercase tracking-[0.22em] text-white/42">{label}</p>
+      <p className="mt-3 truncate text-[clamp(18px,5.2vw,25px)] font-black tracking-tight">{value}</p>
+      {helper ? <p className="mt-1 truncate text-[11px] font-medium text-white/48">{helper}</p> : null}
+    </div>
+  );
+}
+
 export default function TransactionHub() {
   const navigate = useNavigate();
   const { user, loading: userLoading } = useUserRole();
@@ -271,9 +288,7 @@ export default function TransactionHub() {
   const [refreshing, setRefreshing] = useState(false);
 
   const expenses = Array.isArray(financial?.expenses) ? financial.expenses : [];
-  const walletTransactions = Array.isArray(financial?.walletTransactions)
-    ? financial.walletTransactions
-    : [];
+  const walletTransactions = Array.isArray(financial?.walletTransactions) ? financial.walletTransactions : [];
   const transfers = Array.isArray(financial?.transfers) ? financial.transfers : [];
   const wallets = Array.isArray(financial?.wallets) ? financial.wallets : [];
   const loading = userLoading || Boolean(financial?.loading);
@@ -338,55 +353,71 @@ export default function TransactionHub() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-[#020617] px-4 py-6 text-white">
+      <div className="min-h-[100dvh] bg-[#020713] px-4 py-6 text-white">
         <div className="mx-auto flex max-w-4xl flex-col gap-4">
-          <div className="h-24 animate-pulse rounded-3xl border border-white/10 bg-white/5" />
+          <div className="h-32 animate-pulse rounded-[30px] border border-white/10 bg-white/[0.055]" />
           <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
             {[1, 2, 3, 4].map((item) => (
-              <div key={item} className="h-24 animate-pulse rounded-3xl border border-white/10 bg-white/5" />
+              <div key={item} className="h-24 animate-pulse rounded-[24px] border border-white/10 bg-white/[0.055]" />
             ))}
           </div>
-          <div className="h-72 animate-pulse rounded-3xl border border-white/10 bg-white/5" />
+          <div className="h-72 animate-pulse rounded-[30px] border border-white/10 bg-white/[0.055]" />
         </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-[#020617] px-4 pb-28 pt-5 text-white md:px-6">
+    <div className="relative min-h-[100dvh] overflow-x-hidden bg-[#020713] px-4 pb-[calc(7rem+env(safe-area-inset-bottom))] pt-[calc(1rem+env(safe-area-inset-top))] text-white md:px-6">
+      <style>{`
+        .transaction-hub-scrollbar {
+          scrollbar-width: none;
+          -ms-overflow-style: none;
+        }
+        .transaction-hub-scrollbar::-webkit-scrollbar {
+          display: none;
+        }
+      `}</style>
+
       <div className="pointer-events-none fixed inset-0 overflow-hidden">
-        <div className="absolute -top-24 left-1/2 h-72 w-72 -translate-x-1/2 rounded-full bg-emerald-400/10 blur-3xl" />
-        <div className="absolute right-[-120px] top-48 h-72 w-72 rounded-full bg-cyan-400/10 blur-3xl" />
-        <div className="absolute bottom-0 left-[-120px] h-72 w-72 rounded-full bg-blue-500/10 blur-3xl" />
+        <div className="absolute -top-28 left-1/2 h-80 w-80 -translate-x-1/2 rounded-full bg-emerald-400/12 blur-3xl" />
+        <div className="absolute -right-28 top-40 h-72 w-72 rounded-full bg-cyan-400/12 blur-3xl" />
+        <div className="absolute -bottom-20 -left-28 h-80 w-80 rounded-full bg-blue-500/10 blur-3xl" />
+        <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(2,7,19,0.2)_0%,rgba(2,7,19,0.88)_56%,rgba(2,7,19,1)_100%)]" />
       </div>
 
       <div className="relative z-10 mx-auto max-w-4xl space-y-5">
-        <header className="overflow-hidden rounded-3xl border border-white/10 bg-white/[0.06] p-4 shadow-2xl shadow-black/30 backdrop-blur-2xl">
-          <div className="absolute inset-0 bg-gradient-to-br from-emerald-400/10 via-transparent to-cyan-400/10" />
+        <header className="relative overflow-hidden rounded-[32px] border border-white/10 bg-[linear-gradient(135deg,rgba(9,25,37,0.94),rgba(11,26,42,0.82)_50%,rgba(8,18,31,0.94))] p-4 shadow-[0_24px_90px_rgba(0,0,0,0.38)] backdrop-blur-2xl">
+          <div className="pointer-events-none absolute -left-12 -top-16 h-44 w-44 rounded-full bg-emerald-300/16 blur-3xl" />
+          <div className="pointer-events-none absolute -right-12 top-4 h-44 w-44 rounded-full bg-cyan-300/12 blur-3xl" />
+          <div className="pointer-events-none absolute inset-x-6 top-0 h-px bg-gradient-to-r from-transparent via-emerald-200/45 to-transparent" />
+
           <div className="relative flex items-start justify-between gap-3">
             <button
               type="button"
               onClick={() => navigate("/dashboard")}
-              className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border border-white/10 bg-black/20 text-white/80 transition hover:bg-white/10 hover:text-white"
+              className="flex h-12 w-12 shrink-0 items-center justify-center rounded-[20px] border border-white/10 bg-black/20 text-white/80 shadow-[0_12px_32px_rgba(0,0,0,0.22)] transition hover:bg-white/10 hover:text-white active:scale-95"
               aria-label="Back to Dashboard"
             >
               <ArrowLeft className="h-5 w-5" />
             </button>
 
-            <div className="min-w-0 flex-1">
-              <div className="mb-2 inline-flex items-center gap-2 rounded-full border border-emerald-300/20 bg-emerald-400/10 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-emerald-200">
+            <div className="min-w-0 flex-1 pb-1">
+              <div className="mb-2 inline-flex items-center gap-2 rounded-full border border-emerald-300/20 bg-emerald-400/12 px-3 py-1.5 text-[10px] font-black uppercase tracking-[0.2em] text-emerald-100 shadow-[0_0_28px_rgba(16,185,129,0.12)]">
                 <Sparkles className="h-3.5 w-3.5" />
                 Read-only hub
               </div>
-              <h1 className="text-2xl font-bold tracking-tight md:text-3xl">Transaction Hub</h1>
-              <p className="mt-1 text-sm text-white/65">All your money movement in one place.</p>
+              <h1 className="text-[clamp(26px,7vw,36px)] font-black leading-none tracking-tight">Transaction Hub</h1>
+              <p className="mt-2 max-w-[240px] text-sm font-medium leading-6 text-white/64 sm:max-w-none">
+                All your money movement in one place.
+              </p>
             </div>
 
             <button
               type="button"
               onClick={handleRefresh}
               disabled={refreshing}
-              className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border border-white/10 bg-black/20 text-white/80 transition hover:bg-white/10 hover:text-white disabled:opacity-50"
+              className="flex h-12 w-12 shrink-0 items-center justify-center rounded-[20px] border border-white/10 bg-black/20 text-white/80 shadow-[0_12px_32px_rgba(0,0,0,0.22)] transition hover:bg-white/10 hover:text-white disabled:opacity-50 active:scale-95"
               aria-label="Refresh transactions"
             >
               <RefreshCw className={`h-5 w-5 ${refreshing ? "animate-spin" : ""}`} />
@@ -395,28 +426,20 @@ export default function TransactionHub() {
         </header>
 
         <section className="grid grid-cols-2 gap-3 md:grid-cols-4">
-          <div className="rounded-3xl border border-white/10 bg-white/[0.055] p-4 backdrop-blur-2xl">
-            <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-white/45">Total expenses</p>
-            <p className="mt-2 text-lg font-bold text-rose-200">-{formatPeso(summary.totalExpenses)}</p>
-          </div>
-          <div className="rounded-3xl border border-white/10 bg-white/[0.055] p-4 backdrop-blur-2xl">
-            <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-white/45">Total income</p>
-            <p className="mt-2 text-lg font-bold text-emerald-200">+{formatPeso(summary.totalIncome)}</p>
-          </div>
-          <div className="rounded-3xl border border-white/10 bg-white/[0.055] p-4 backdrop-blur-2xl">
-            <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-white/45">Transfers</p>
-            <p className="mt-2 text-lg font-bold text-cyan-200">{summary.transferCount}</p>
-          </div>
-          <div className="rounded-3xl border border-white/10 bg-white/[0.055] p-4 backdrop-blur-2xl">
-            <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-white/45">Latest</p>
-            <p className="mt-2 truncate text-sm font-bold text-white/90">
-              {summary.latestDate ? formatActivityDate(summary.latestDate) : "No activity"}
-            </p>
-          </div>
+          <MetricCard label="Total Expenses" value={`-${formatPeso(summary.totalExpenses)}`} helper="Money out" tone="rose" />
+          <MetricCard label="Total Income" value={`+${formatPeso(summary.totalIncome)}`} helper="Money in" tone="emerald" />
+          <MetricCard label="Transfers" value={summary.transferCount} helper="Wallet moves" tone="cyan" />
+          <MetricCard
+            label="Latest"
+            value={summary.latestDate ? formatActivityDate(summary.latestDate, true) : "None"}
+            helper={summary.latestDate ? "Newest activity" : "No activity yet"}
+            tone="slate"
+          />
         </section>
 
-        <section className="rounded-3xl border border-white/10 bg-white/[0.055] p-3 backdrop-blur-2xl">
-          <div className="flex gap-2 overflow-x-auto pb-2">
+        <section className="relative overflow-hidden rounded-[30px] border border-white/10 bg-white/[0.055] p-3 shadow-[0_20px_70px_rgba(0,0,0,0.24)] backdrop-blur-2xl">
+          <div className="pointer-events-none absolute inset-x-8 top-0 h-16 rounded-full bg-cyan-300/8 blur-3xl" />
+          <div className="transaction-hub-scrollbar relative -mx-1 flex gap-2 overflow-x-auto px-1 pb-3">
             {FILTERS.map((filter) => {
               const active = activeFilter === filter.key;
               return (
@@ -424,10 +447,10 @@ export default function TransactionHub() {
                   key={filter.key}
                   type="button"
                   onClick={() => setActiveFilter(filter.key)}
-                  className={`shrink-0 rounded-full border px-4 py-2 text-sm font-semibold transition ${
+                  className={`min-h-[42px] shrink-0 rounded-full border px-4 py-2 text-sm font-bold transition active:scale-[0.98] ${
                     active
-                      ? "border-emerald-300/35 bg-emerald-400/15 text-emerald-100 shadow-[0_0_24px_rgba(52,211,153,0.14)]"
-                      : "border-white/10 bg-black/20 text-white/65 hover:bg-white/10 hover:text-white"
+                      ? "border-emerald-300/40 bg-emerald-400/16 text-emerald-50 shadow-[0_0_24px_rgba(52,211,153,0.18)]"
+                      : "border-white/10 bg-black/18 text-white/62 hover:border-white/18 hover:bg-white/8 hover:text-white"
                   }`}
                 >
                   {filter.label}
@@ -436,25 +459,25 @@ export default function TransactionHub() {
             })}
           </div>
 
-          <div className="relative mt-2">
-            <Search className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-white/40" />
+          <div className="relative">
+            <Search className="pointer-events-none absolute left-4 top-1/2 h-4.5 w-4.5 -translate-y-1/2 text-white/40" />
             <input
               value={searchQuery}
               onChange={(event) => setSearchQuery(event.target.value)}
               placeholder="Search category, wallet, notes, type, or amount"
-              className="h-12 w-full rounded-2xl border border-white/10 bg-black/20 pl-11 pr-4 text-sm text-white outline-none placeholder:text-white/35 focus:border-emerald-300/40 focus:bg-black/30"
+              className="h-13 min-h-[54px] w-full rounded-[22px] border border-white/10 bg-black/20 pl-11 pr-4 text-[15px] font-medium text-white outline-none transition placeholder:text-white/34 focus:border-emerald-300/38 focus:bg-black/30 focus:shadow-[0_0_0_4px_rgba(16,185,129,0.08)]"
             />
           </div>
         </section>
 
         <section className="space-y-3">
           {!filteredActivity.length ? (
-            <div className="rounded-3xl border border-dashed border-white/15 bg-white/[0.055] p-8 text-center backdrop-blur-2xl">
-              <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl border border-white/10 bg-black/20">
-                <Receipt className="h-7 w-7 text-white/40" />
+            <div className="rounded-[30px] border border-dashed border-white/16 bg-white/[0.055] p-8 text-center shadow-[0_20px_70px_rgba(0,0,0,0.22)] backdrop-blur-2xl">
+              <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-[24px] border border-emerald-300/15 bg-emerald-400/10 shadow-[0_0_32px_rgba(16,185,129,0.12)]">
+                <Receipt className="h-7 w-7 text-emerald-100/70" />
               </div>
-              <h2 className="mt-4 text-lg font-bold">No activity yet</h2>
-              <p className="mx-auto mt-2 max-w-sm text-sm leading-6 text-white/55">
+              <h2 className="mt-4 text-xl font-black tracking-tight">No activity yet</h2>
+              <p className="mx-auto mt-2 max-w-sm text-sm font-medium leading-6 text-white/55">
                 Your transactions will appear here once you start using CLARA.
               </p>
             </div>
@@ -463,59 +486,60 @@ export default function TransactionHub() {
               const Icon = getActivityIcon(item.group, item.type);
               const isNegative = item.signedAmount < 0;
               const isPositive = item.signedAmount > 0;
+              const isNeutralTransfer = item.group === "transfer" && item.signedAmount === 0;
+              const amountText = isNeutralTransfer ? formatPeso(item.amount) : formatSignedPeso(item.signedAmount);
 
               return (
                 <article
                   key={item.id}
-                  className="rounded-3xl border border-white/10 bg-white/[0.055] p-4 shadow-xl shadow-black/20 backdrop-blur-2xl transition duration-200 hover:bg-white/[0.075]"
+                  className="group relative overflow-hidden rounded-[30px] border border-white/10 bg-[linear-gradient(135deg,rgba(255,255,255,0.07),rgba(255,255,255,0.035))] p-4 shadow-[0_20px_70px_rgba(0,0,0,0.24)] backdrop-blur-2xl transition duration-200 hover:border-white/16 hover:bg-white/[0.075]"
                 >
-                  <div className="flex items-start gap-3">
+                  <div className="pointer-events-none absolute -right-16 -top-20 h-32 w-32 rounded-full bg-white/8 blur-3xl transition group-hover:bg-emerald-300/10" />
+                  <div className="relative flex items-start gap-3">
                     <div
-                      className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border ${
+                      className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-[20px] border shadow-[0_14px_36px_rgba(0,0,0,0.20)] ${
                         isNegative
-                          ? "border-rose-300/20 bg-rose-400/10 text-rose-200"
+                          ? "border-rose-300/20 bg-rose-400/12 text-rose-100"
                           : isPositive
-                            ? "border-emerald-300/20 bg-emerald-400/10 text-emerald-200"
-                            : "border-cyan-300/20 bg-cyan-400/10 text-cyan-200"
+                            ? "border-emerald-300/20 bg-emerald-400/12 text-emerald-100"
+                            : "border-cyan-300/20 bg-cyan-400/12 text-cyan-100"
                       }`}
                     >
-                      <Icon className="h-5 w-5" />
+                      <Icon className="h-5.5 w-5.5" />
                     </div>
 
                     <div className="min-w-0 flex-1">
                       <div className="flex items-start justify-between gap-3">
-                        <div className="min-w-0">
-                          <h3 className="truncate text-sm font-bold text-white">{item.title}</h3>
-                          <p className="mt-1 text-xs text-white/50">{formatActivityDate(item.dateValue)}</p>
+                        <div className="min-w-0 flex-1">
+                          <h3 className="truncate text-[15px] font-black leading-5 text-white">{item.title}</h3>
+                          <p className="mt-1 text-xs font-medium text-white/48">{formatActivityDate(item.dateValue)}</p>
                         </div>
                         <p
-                          className={`shrink-0 text-sm font-black ${
-                            isNegative ? "text-rose-200" : isPositive ? "text-emerald-200" : "text-cyan-200"
+                          className={`shrink-0 text-right text-[15px] font-black leading-5 ${
+                            isNegative ? "text-rose-100" : isPositive ? "text-emerald-100" : "text-cyan-100"
                           }`}
                         >
-                          {formatSignedPeso(item.signedAmount)}
+                          {amountText}
                         </p>
                       </div>
 
                       <div className="mt-3 flex flex-wrap gap-2">
-                        <span className="rounded-full border border-white/10 bg-black/20 px-2.5 py-1 text-[11px] font-semibold uppercase tracking-[0.12em] text-white/60">
+                        <span className="rounded-full border border-white/10 bg-black/22 px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.13em] text-white/60">
                           {item.statusLabel}
                         </span>
                         {item.walletName ? (
-                          <span className="rounded-full border border-white/10 bg-black/20 px-2.5 py-1 text-[11px] text-white/65">
+                          <span className="max-w-full truncate rounded-full border border-white/10 bg-black/22 px-2.5 py-1 text-[11px] font-semibold text-white/64">
                             {item.walletName}
                           </span>
                         ) : null}
                         {item.category ? (
-                          <span className="rounded-full border border-white/10 bg-black/20 px-2.5 py-1 text-[11px] text-white/65">
+                          <span className="rounded-full border border-white/10 bg-black/22 px-2.5 py-1 text-[11px] font-semibold text-white/64">
                             {titleCase(item.category)}
                           </span>
                         ) : null}
                       </div>
 
-                      {item.notes ? (
-                        <p className="mt-3 line-clamp-2 text-sm leading-6 text-white/55">{item.notes}</p>
-                      ) : null}
+                      {item.notes ? <p className="mt-3 line-clamp-2 text-sm font-medium leading-6 text-white/52">{item.notes}</p> : null}
                     </div>
                   </div>
                 </article>
