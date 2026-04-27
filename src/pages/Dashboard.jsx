@@ -5463,6 +5463,7 @@ export default function Dashboard() {
   const [financeActionLoading, setFinanceActionLoading] = useState(false);
   const [financeNotice, setFinanceNotice] = useState(null);
   const [financeModal, setFinanceModal] = useState({ type: null, payload: null });
+  const [budgetExitConfirm, setBudgetExitConfirm] = useState(false);
   const [financeForm, setFinanceForm] = useState({
     name: "",
     type: "cash",
@@ -6593,6 +6594,8 @@ export default function Dashboard() {
     const totalSpent = categoryRows.reduce((sum, item) => sum + firstValidNumber(item.spent), 0);
     const declaredBudget = Math.max(declaredMonthlyBudgetAmount, allocatedTotal);
     const unallocated = Math.max(declaredBudget - allocatedTotal, 0);
+    const isComplete = declaredBudget > 0 && allocatedTotal === declaredBudget && unallocated === 0;
+    const isDraft = declaredBudget > 0 && !isComplete;
     const unplannedSpent = expenses.reduce((sum, expense) => {
       if (normalizeLower(expense?.planning_status) !== "unplanned") return sum;
       if (!isInPHRange(getTransactionDate(expense), monthRange.start, monthRange.end)) return sum;
@@ -6609,7 +6612,9 @@ export default function Dashboard() {
       month: monthKey,
       is_monthly_plan: true,
       is_active: true,
-      status: declaredBudget > 0 ? "active" : "empty",
+      is_complete: isComplete,
+      is_draft: isDraft,
+      status: isComplete ? "active" : isDraft ? "draft" : "empty",
       header: monthlyBudgetHeader,
       categories: categoryRows,
       category_count: categoryRows.length,
@@ -6629,6 +6634,27 @@ export default function Dashboard() {
       undocumented_spent: undocumentedSpent,
     };
   }, [declaredMonthlyBudgetAmount, expenses, manualExpenseBudgetOptions, monthlyBudgetHeader]);
+
+  const budgetPlanIsComplete = monthlyBudgetPlan.is_complete === true;
+  const budgetAllocatedSoFar = firstValidNumber(monthlyBudgetPlan.allocated_amount, monthlyBudgetPlan.allocated_total);
+  const budgetCurrentEditAllocation =
+    financeModal.type === "save_budget" && financeModal.payload?.id
+      ? getBudgetTotal(financeModal.payload)
+      : 0;
+  const budgetFormDeclaredAmount = firstValidNumber(financeForm.monthlyBudgetAmount, monthlyBudgetPlan.declared_budget);
+  const budgetFormCategoryAmount = firstValidNumber(financeForm.totalBudget);
+  const budgetAllocatedExcludingCurrent = Math.max(budgetAllocatedSoFar - budgetCurrentEditAllocation, 0);
+  const budgetProjectedAllocated = budgetAllocatedExcludingCurrent + budgetFormCategoryAmount;
+  const budgetProjectedUnallocated = Math.max(budgetFormDeclaredAmount - budgetProjectedAllocated, 0);
+  const budgetCanFinish =
+    financeModal.type === "save_budget" &&
+    budgetFormDeclaredAmount > 0 &&
+    budgetProjectedAllocated === budgetFormDeclaredAmount &&
+    monthlyBudgetPlan.category_count > 0;
+  const budgetFinishHelper =
+    budgetFormDeclaredAmount > 0 && budgetProjectedUnallocated > 0
+      ? `Assign the remaining ${fmt(budgetProjectedUnallocated)} before completing your budget.`
+      : "";
 
   const programJourney = useMemo(
     () =>
@@ -6944,6 +6970,7 @@ export default function Dashboard() {
   }, []);
 
   const closeFinanceModal = useCallback(() => {
+    setBudgetExitConfirm(false);
     setFinanceModal({ type: null, payload: null });
   }, []);
 
@@ -7034,6 +7061,7 @@ export default function Dashboard() {
       declaredMonthlyBudgetAmount
     );
 
+    setBudgetExitConfirm(false);
     setFinanceForm((prev) => ({
       ...prev,
       monthlyBudgetAmount: declaredAmount > 0 ? String(declaredAmount) : "",
@@ -7312,6 +7340,11 @@ export default function Dashboard() {
       return;
     }
 
+    if (!isUnplanned && !isUndocumented && !budgetPlanIsComplete) {
+      showFinanceNotice("You haven’t completed your monthly budgeting plan yet. Finish assigning your budget before logging planned expenses.");
+      return;
+    }
+
     if (!isUnplanned && !isUndocumented && !selectedBudget) {
       showFinanceNotice("Please select a valid budget list item.");
       return;
@@ -7416,6 +7449,7 @@ export default function Dashboard() {
       setFinanceActionLoading(false);
     }
   }, [
+    budgetPlanIsComplete,
     closeFinanceModal,
     financeForm.amount,
     financeForm.budgetListKey,
@@ -7550,50 +7584,64 @@ export default function Dashboard() {
     wallets,
   ]);
 
-  const saveBudgetInline = useCallback(async () => {
+  const saveBudgetInline = useCallback(async ({ finish = false, exitAfterSave = false, saveCategory = true } = {}) => {
     const categoryName = normalizeString(financeForm.budgetCategoryName || financeForm.title);
     const categoryAmount = Number(financeForm.totalBudget);
     const declaredAmount = Number(financeForm.monthlyBudgetAmount);
     const existingCategory = financeModal?.payload || null;
     const monthKey = getPHMonthKey();
-    const isDeclaringOnly = !existingCategory?.id && !categoryName && !financeForm.totalBudget;
+    const shouldSaveCategory = saveCategory && Boolean(categoryName || financeForm.totalBudget || existingCategory?.id);
 
     if (!Number.isFinite(declaredAmount) || declaredAmount <= 0) {
       showFinanceNotice("Please enter a valid declared monthly budget amount.");
-      return;
+      return false;
     }
 
-    if (!isDeclaringOnly && !categoryName) {
+    if (shouldSaveCategory && !categoryName) {
       showFinanceNotice("Please enter a budget category name.");
-      return;
+      return false;
     }
 
-    if (!isDeclaringOnly && (!Number.isFinite(categoryAmount) || categoryAmount <= 0)) {
+    if (shouldSaveCategory && (!Number.isFinite(categoryAmount) || categoryAmount <= 0)) {
       showFinanceNotice("Please enter a valid allocated amount.");
-      return;
+      return false;
     }
 
     const currentAllocated = firstValidNumber(monthlyBudgetPlan?.allocated_amount, monthlyBudgetPlan?.allocated_total);
     const existingAllocation = existingCategory?.id ? getBudgetTotal(existingCategory) : 0;
-    const projectedAllocated = isDeclaringOnly
-      ? currentAllocated
-      : currentAllocated - existingAllocation + categoryAmount;
+    const projectedAllocated = shouldSaveCategory
+      ? currentAllocated - existingAllocation + categoryAmount
+      : currentAllocated;
     const remainingToAllocate = Math.max(declaredAmount - (currentAllocated - existingAllocation), 0);
+    const projectedUnallocated = Math.max(declaredAmount - projectedAllocated, 0);
 
     if (projectedAllocated > declaredAmount) {
       showFinanceNotice(
         `This exceeds your declared monthly budget. You only have ${fmt(remainingToAllocate)} left to allocate.`
       );
-      return;
+      return false;
+    }
+
+    if (finish && projectedUnallocated > 0) {
+      showFinanceNotice(`Assign the remaining ${fmt(projectedUnallocated)} before completing your budget.`);
+      return false;
+    }
+
+    if (finish && projectedAllocated !== declaredAmount) {
+      showFinanceNotice("Finish Budget is only available when your unallocated balance is exactly ₱0.");
+      return false;
     }
 
     try {
       setFinanceActionLoading(true);
       const nowIso = new Date().toISOString();
+      const complete = finish && projectedAllocated === declaredAmount && projectedUnallocated === 0;
+      const nextStatus = complete ? "active" : "draft";
 
       const headerPayload = {
         is_active: true,
-        status: "active",
+        status: nextStatus,
+        is_complete: complete,
         is_plan_header: true,
         plan_type: "monthly_budget",
         month: monthKey,
@@ -7612,26 +7660,24 @@ export default function Dashboard() {
         created_by: user?.email || monthlyBudgetHeader?.created_by || null,
       };
 
-      let headerResult;
-      if (monthlyBudgetHeader?.id) {
-        headerResult = await supabase.from("budgets").update(headerPayload).eq("id", monthlyBudgetHeader.id);
-      } else {
-        headerResult = await supabase.from("budgets").insert([
-          {
-            ...headerPayload,
-            tracking_start_date: nowIso,
-            range_start: nowIso,
-            created_at: nowIso,
-          },
-        ]);
-      }
+      const headerResult = monthlyBudgetHeader?.id
+        ? await supabase.from("budgets").update(headerPayload).eq("id", monthlyBudgetHeader.id)
+        : await supabase.from("budgets").insert([
+            {
+              ...headerPayload,
+              tracking_start_date: nowIso,
+              range_start: nowIso,
+              created_at: nowIso,
+            },
+          ]);
 
       if (headerResult.error) throw headerResult.error;
 
-      if (!isDeclaringOnly) {
+      if (shouldSaveCategory) {
         const payload = {
           is_active: true,
-          status: "active",
+          status: nextStatus,
+          is_complete: complete,
           is_plan_header: false,
           plan_type: "budget_category",
           month: normalizeString(existingCategory?.month || existingCategory?.budget_month || monthKey) || monthKey,
@@ -7668,19 +7714,49 @@ export default function Dashboard() {
         if (result.error) throw result.error;
       }
 
+      if (complete && monthlyBudgetPlan.categories.length) {
+        const categoryIds = monthlyBudgetPlan.categories.map((item) => item.id).filter(Boolean);
+        if (categoryIds.length) {
+          await supabase
+            .from("budgets")
+            .update({
+              status: "active",
+              is_complete: true,
+              updated_at: nowIso,
+            })
+            .in("id", categoryIds);
+        }
+      }
+
       await refreshFinanceSection();
       setExpandedFinanceCard("budgets");
-      closeFinanceModal();
+      setBudgetExitConfirm(false);
+
+      if (exitAfterSave || complete) {
+        closeFinanceModal();
+      } else {
+        setFinanceModal({ type: "save_budget", payload: null });
+        setFinanceForm((prev) => ({
+          ...prev,
+          title: "",
+          budgetCategoryName: "",
+          totalBudget: "",
+          monthlyBudgetAmount: String(declaredAmount),
+        }));
+      }
+
       showFinanceNotice(
-        isDeclaringOnly
-          ? "Declared monthly budget saved. You can now add budget categories."
-          : existingCategory?.id
-            ? "Budget category updated."
-            : "Budget category added to this month’s plan.",
+        complete
+          ? "Budget completed. Planned expense logging is now unlocked."
+          : shouldSaveCategory
+            ? "Category saved as draft. Keep assigning the remaining budget."
+            : "Budget draft saved. You can continue later.",
         "success"
       );
+      return true;
     } catch (error) {
       showFinanceNotice(error?.message || "Failed to save monthly budget plan.");
+      return false;
     } finally {
       setFinanceActionLoading(false);
     }
@@ -7695,10 +7771,33 @@ export default function Dashboard() {
     monthlyBudgetHeader,
     monthlyBudgetPlan?.allocated_amount,
     monthlyBudgetPlan?.allocated_total,
+    monthlyBudgetPlan.categories,
     refreshFinanceSection,
     showFinanceNotice,
     user?.email,
     user?.id,
+  ]);
+
+  const handleBudgetModalClose = useCallback(() => {
+    const declaredAmount = firstValidNumber(financeForm.monthlyBudgetAmount, monthlyBudgetPlan.declared_budget);
+    const isIncomplete =
+      financeModal.type === "save_budget" &&
+      declaredAmount > 0 &&
+      !budgetPlanIsComplete;
+
+    if (isIncomplete && !budgetExitConfirm) {
+      setBudgetExitConfirm(true);
+      return;
+    }
+
+    closeFinanceModal();
+  }, [
+    budgetExitConfirm,
+    budgetPlanIsComplete,
+    closeFinanceModal,
+    financeForm.monthlyBudgetAmount,
+    financeModal.type,
+    monthlyBudgetPlan.declared_budget,
   ]);
 
   const deleteBudgetCategoryInline = useCallback(async () => {
@@ -9142,6 +9241,8 @@ export default function Dashboard() {
                     budgetCategories={monthlyBudgetPlan.categories}
                     declaredBudget={monthlyBudgetPlan.declared_budget}
                     unallocatedAmount={monthlyBudgetPlan.unallocated_amount}
+                    budgetStatus={monthlyBudgetPlan.status}
+                    isComplete={monthlyBudgetPlan.is_complete}
                     unplannedSpent={monthlyBudgetPlan.unplanned_spent}
                     undocumentedSpent={monthlyBudgetPlan.undocumented_spent}
                     theme={selectedDashboardTheme}
@@ -10057,8 +10158,8 @@ export default function Dashboard() {
             <option value="__unplanned__">Unplanned Spending</option>
             <option value="__undocumented__">Undocumented Spending</option>
             {manualExpenseBudgetOptions.map((budgetItem) => (
-              <option key={budgetItem.key} value={budgetItem.key}>
-                {budgetItem.title}
+              <option key={budgetItem.key} value={budgetItem.key} disabled={!budgetPlanIsComplete}>
+                {budgetPlanIsComplete ? budgetItem.title : `${budgetItem.title} — Finish budget first`}
               </option>
             ))}
           </select>
@@ -10164,27 +10265,48 @@ export default function Dashboard() {
             ? "Declare monthly budget"
             : financeModal.payload?.id
               ? "Edit budget category"
-              : "Add budget category"
+              : "Budget discipline mode"
         }
         description={
           !monthlyBudgetPlan.declared_budget && !financeModal.payload?.id
             ? "Start by declaring the total money you plan to spend this month."
-            : `Distribute your declared monthly budget into spending categories for ${getPHMonthKey()}.`
+            : `Assign every peso from your ${getPHMonthKey()} budget into categories.`
         }
-        onClose={closeFinanceModal}
+        onClose={handleBudgetModalClose}
         onSubmit={(event) => {
           event.preventDefault();
-          saveBudgetInline();
+          saveBudgetInline({ exitAfterSave: true, saveCategory: false });
         }}
-        submitLabel={
-          !monthlyBudgetPlan.declared_budget && !financeModal.payload?.id
-            ? "Save declared budget"
-            : financeModal.payload?.id
-              ? "Save category"
-              : "Add category"
-        }
+        submitLabel="Save Draft"
         loading={financeActionLoading}
       >
+        {budgetExitConfirm ? (
+          <div className="rounded-3xl border border-amber-300/20 bg-amber-500/10 p-4">
+            <p className="text-sm font-bold text-amber-50">Your budget is not fully assigned yet.</p>
+            <p className="mt-2 text-xs leading-5 text-amber-50/75">
+              Save as draft before leaving so you can continue later.
+            </p>
+
+            <div className="mt-4 grid grid-cols-1 gap-2">
+              <button
+                type="button"
+                disabled={financeActionLoading}
+                onClick={() => saveBudgetInline({ exitAfterSave: true, saveCategory: false })}
+                className="rounded-2xl bg-gradient-to-r from-emerald-400 via-emerald-500 to-green-600 px-4 py-3 text-sm font-semibold text-white shadow-[0_10px_30px_rgba(16,185,129,0.22)] disabled:opacity-60"
+              >
+                Save Draft and Exit
+              </button>
+              <button
+                type="button"
+                onClick={() => setBudgetExitConfirm(false)}
+                className="rounded-2xl border border-white/10 bg-white/[0.04] px-4 py-3 text-sm font-medium text-white/75 transition hover:bg-white/[0.08] hover:text-white"
+              >
+                Continue Budgeting
+              </button>
+            </div>
+          </div>
+        ) : null}
+
         <FinanceField
           label="Declared monthly budget amount"
           helper="This is the total money you plan to spend for the month."
@@ -10200,93 +10322,155 @@ export default function Dashboard() {
                 monthlyBudgetAmount: event.target.value,
               }))
             }
-            placeholder="15000"
+            placeholder="25000"
             className={financeInputClassName}
           />
         </FinanceField>
 
-        {Number(financeForm.monthlyBudgetAmount) > 0 ? (
-          <div className="rounded-2xl border border-white/10 bg-white/[0.04] p-4 text-xs leading-5 text-white/70">
+        {budgetFormDeclaredAmount > 0 ? (
+          <div className="rounded-3xl border border-white/10 bg-white/[0.04] p-4 text-xs leading-5 text-white/70">
             <div className="flex items-center justify-between gap-3">
               <span>Declared budget</span>
-              <strong className="text-white">{fmt(Number(financeForm.monthlyBudgetAmount))}</strong>
+              <strong className="text-white">{fmt(budgetFormDeclaredAmount)}</strong>
             </div>
             <div className="mt-2 flex items-center justify-between gap-3">
               <span>Allocated so far</span>
-              <strong className="text-white">
-                {fmt(
-                  Math.max(
-                    0,
-                    firstValidNumber(monthlyBudgetPlan.allocated_amount, monthlyBudgetPlan.allocated_total) -
-                      (financeModal.payload?.id ? getBudgetTotal(financeModal.payload) : 0)
-                  )
-                )}
-              </strong>
+              <strong className="text-white">{fmt(budgetProjectedAllocated)}</strong>
             </div>
             <div className="mt-2 flex items-center justify-between gap-3">
               <span>Unallocated balance</span>
-              <strong className="text-emerald-200">
-                {fmt(
-                  Math.max(
-                    Number(financeForm.monthlyBudgetAmount || 0) -
-                      Math.max(
-                        0,
-                        firstValidNumber(monthlyBudgetPlan.allocated_amount, monthlyBudgetPlan.allocated_total) -
-                          (financeModal.payload?.id ? getBudgetTotal(financeModal.payload) : 0)
-                      ) -
-                      Number(financeForm.totalBudget || 0),
-                    0
-                  )
-                )}
+              <strong className={budgetProjectedUnallocated === 0 ? "text-emerald-200" : "text-amber-100"}>
+                {fmt(budgetProjectedUnallocated)}
               </strong>
+            </div>
+
+            {budgetFinishHelper ? (
+              <p className="mt-3 rounded-2xl border border-amber-300/15 bg-amber-500/10 px-3 py-2 text-[11px] leading-5 text-amber-50/80">
+                {budgetFinishHelper}
+              </p>
+            ) : null}
+          </div>
+        ) : null}
+
+        {budgetFormDeclaredAmount > 0 ? (
+          <div className="rounded-3xl border border-white/10 bg-white/[0.035] p-4">
+            <p className="mb-3 text-xs font-bold uppercase tracking-[0.16em] text-white/55">
+              Add budget category
+            </p>
+
+            <div className="space-y-4">
+              <FinanceField label="Category name">
+                <input
+                  type="text"
+                  value={financeForm.budgetCategoryName || ""}
+                  onChange={(event) =>
+                    setFinanceForm((prev) => ({
+                      ...prev,
+                      budgetCategoryName: event.target.value,
+                      title: event.target.value,
+                    }))
+                  }
+                  placeholder="Bills, Food, Transportation..."
+                  className={financeInputClassName}
+                />
+              </FinanceField>
+
+              <FinanceField label="Allocated amount">
+                <input
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  value={financeForm.totalBudget}
+                  onChange={(event) =>
+                    setFinanceForm((prev) => ({
+                      ...prev,
+                      totalBudget: event.target.value,
+                    }))
+                  }
+                  placeholder="0"
+                  className={financeInputClassName}
+                />
+              </FinanceField>
+
+              <button
+                type="button"
+                disabled={financeActionLoading}
+                onClick={() => saveBudgetInline({ exitAfterSave: false, saveCategory: true })}
+                className="w-full rounded-2xl border border-emerald-300/20 bg-emerald-500/12 px-4 py-3 text-sm font-semibold text-emerald-50 transition hover:bg-emerald-500/18 disabled:opacity-60"
+              >
+                {financeModal.payload?.id ? "Update Category" : "Add Category"}
+              </button>
             </div>
           </div>
         ) : null}
 
-        {(monthlyBudgetPlan.declared_budget > 0 || Number(financeForm.monthlyBudgetAmount) > 0 || financeModal.payload?.id) ? (
-          <>
-            <FinanceField label="Category name">
-              <input
-                type="text"
-                value={financeForm.budgetCategoryName || ""}
-                onChange={(event) =>
-                  setFinanceForm((prev) => ({
-                    ...prev,
-                    budgetCategoryName: event.target.value,
-                    title: event.target.value,
-                  }))
-                }
-                placeholder="Bills, Food, Transportation..."
-                className={financeInputClassName}
-              />
-            </FinanceField>
-
-            <FinanceField label="Allocated amount">
-              <input
-                type="number"
-                min="0"
-                step="0.01"
-                value={financeForm.totalBudget}
-                onChange={(event) =>
-                  setFinanceForm((prev) => ({
-                    ...prev,
-                    totalBudget: event.target.value,
-                  }))
-                }
-                placeholder="0"
-                className={financeInputClassName}
-              />
-            </FinanceField>
-
-            <div className="rounded-2xl border border-emerald-300/15 bg-emerald-500/10 px-4 py-3 text-xs leading-5 text-emerald-50/75">
-              This category will appear automatically in Manual Log Expense as a planned Budget List option.
-            </div>
-          </>
-        ) : (
-          <div className="rounded-2xl border border-emerald-300/15 bg-emerald-500/10 px-4 py-3 text-xs leading-5 text-emerald-50/75">
-            After saving your declared monthly budget, open this again to add categories and allocate the amount.
+        <div className="rounded-3xl border border-white/10 bg-white/[0.035] p-4">
+          <div className="mb-3 flex items-center justify-between gap-3">
+            <p className="text-sm font-bold text-white">Added categories</p>
+            <span className="rounded-full border border-white/10 bg-white/[0.05] px-2.5 py-1 text-[11px] font-semibold text-white/60">
+              {monthlyBudgetPlan.categories.length}
+            </span>
           </div>
-        )}
+
+          {monthlyBudgetPlan.categories.length ? (
+            <div className="space-y-2">
+              {monthlyBudgetPlan.categories.map((item) => (
+                <div
+                  key={item.key || item.id || item.title}
+                  className="flex items-center justify-between gap-3 rounded-2xl border border-white/10 bg-black/15 px-3 py-3"
+                >
+                  <div className="min-w-0">
+                    <p className="truncate text-sm font-semibold text-white">{item.title}</p>
+                    <p className="mt-0.5 text-xs text-white/50">{fmt(item.allocated)} allocated</p>
+                  </div>
+
+                  <div className="flex shrink-0 items-center gap-1">
+                    <button
+                      type="button"
+                      onClick={() => openBudgetModal(item)}
+                      className="flex h-8 w-8 items-center justify-center rounded-xl border border-white/10 bg-white/5 text-white/70 transition hover:bg-white/10 hover:text-white"
+                      aria-label={`Edit ${item.title}`}
+                    >
+                      <Edit className="h-3.5 w-3.5" />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => openDeleteBudgetCategoryModal(item)}
+                      className="flex h-8 w-8 items-center justify-center rounded-xl border border-rose-300/15 bg-rose-500/10 text-rose-100/80 transition hover:bg-rose-500/15 hover:text-rose-100"
+                      aria-label={`Remove ${item.title}`}
+                    >
+                      <Trash2 className="h-3.5 w-3.5" />
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="rounded-2xl border border-white/10 bg-black/15 px-4 py-4 text-sm text-white/55">
+              No categories added yet.
+            </div>
+          )}
+        </div>
+
+        <div className="grid grid-cols-1 gap-2">
+          <button
+            type="button"
+            disabled={financeActionLoading}
+            onClick={() => saveBudgetInline({ exitAfterSave: true, saveCategory: false })}
+            className="rounded-2xl border border-white/10 bg-white/[0.04] px-4 py-3 text-sm font-semibold text-white/75 transition hover:bg-white/[0.08] hover:text-white disabled:opacity-60"
+          >
+            Save Draft
+          </button>
+
+          <button
+            type="button"
+            disabled={!budgetCanFinish || financeActionLoading}
+            onClick={() => saveBudgetInline({ finish: true, exitAfterSave: true, saveCategory: false })}
+            className="rounded-2xl bg-gradient-to-r from-emerald-400 via-emerald-500 to-green-600 px-4 py-3 text-sm font-semibold text-white shadow-[0_10px_30px_rgba(16,185,129,0.24)] transition disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            Finish Budget
+          </button>
+        </div>
       </FinanceActionModal>
 
       <FinanceActionModal
