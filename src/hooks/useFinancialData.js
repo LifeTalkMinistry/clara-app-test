@@ -701,7 +701,7 @@ export default function useFinancialData(user) {
       tag: payload.tag || null,
       notes: payload.notes || "",
       created_at: payload.created_at || now,
-      updated_at: now,
+      updated_at: payload.updated_at || now,
       user_id: user?.id || null,
       user_email: user?.email || null,
       created_by: user?.email || null,
@@ -811,18 +811,41 @@ export default function useFinancialData(user) {
   const addIncome = async (income) => {
     const amount = toNumber(income.amount);
 
-    if (income.wallet_id) {
-      await updateWalletBalance(income.wallet_id, amount);
-      await insertWalletTransaction({
-        wallet_id: income.wallet_id,
-        amount,
-        type: "income",
-        source_type: income.source_type || income.source,
-        tag: income.tag,
-        notes: income.notes,
-        created_at: getSafeDate(income.date),
-      });
+    if (amount <= 0) {
+      throw new Error("Enter a valid amount.");
     }
+
+    if (!income.wallet_id) {
+      throw new Error("Wallet is required to add money.");
+    }
+
+    const wallet = wallets.find((w) => String(w.id) === String(income.wallet_id));
+
+    if (!wallet) {
+      throw new Error("Wallet not found.");
+    }
+
+    const operationTime = new Date().toISOString();
+    const currentBalance = toNumber(
+      wallet?.derived_balance ?? wallet?.balance ?? wallet?.current_balance
+    );
+    const nextBalance = currentBalance + amount;
+
+    await safeUpdateById("wallets", wallet.id, {
+      balance: nextBalance,
+      updated_at: operationTime,
+    });
+
+    await insertWalletTransaction({
+      wallet_id: wallet.id,
+      amount,
+      type: "income",
+      source_type: income.source_type || income.source,
+      tag: income.tag,
+      notes: income.notes,
+      created_at: operationTime,
+      updated_at: operationTime,
+    });
 
     await loadAll();
   };
@@ -837,29 +860,44 @@ export default function useFinancialData(user) {
     const fromWallet = wallets.find((w) => String(w.id) === String(from_wallet_id));
     const toWallet = wallets.find((w) => String(w.id) === String(to_wallet_id));
 
-    if (!fromWallet || !toWallet) throw new Error("Wallet not found.");
+    if (!fromWallet || !toWallet) {
+      throw new Error("Wallet not found.");
+    }
+
     if (String(fromWallet.id) === String(toWallet.id)) {
       throw new Error("Source and destination wallets must be different.");
     }
-    if (parsedAmount <= 0) throw new Error("Enter a valid transfer amount.");
 
-    const fromBalance = toNumber(fromWallet.balance ?? fromWallet.current_balance);
-    const toBalance = toNumber(toWallet.balance ?? toWallet.current_balance);
+    if (parsedAmount <= 0) {
+      throw new Error("Enter a valid transfer amount.");
+    }
+
+    const fromBalance = toNumber(
+      fromWallet?.derived_balance ?? fromWallet?.balance ?? fromWallet?.current_balance
+    );
+
+    const toBalance = toNumber(
+      toWallet?.derived_balance ?? toWallet?.balance ?? toWallet?.current_balance
+    );
 
     if (fromBalance < parsedAmount) {
       throw new Error("Insufficient balance in source wallet.");
     }
 
+    const operationTime = new Date().toISOString();
     const transferGroupId = generateId();
 
+    const nextFromBalance = fromBalance - parsedAmount;
+    const nextToBalance = toBalance + parsedAmount;
+
     await safeUpdateById("wallets", fromWallet.id, {
-      balance: fromBalance - parsedAmount,
-      updated_at: new Date().toISOString(),
+      balance: nextFromBalance,
+      updated_at: operationTime,
     });
 
     await safeUpdateById("wallets", toWallet.id, {
-      balance: toBalance + parsedAmount,
-      updated_at: new Date().toISOString(),
+      balance: nextToBalance,
+      updated_at: operationTime,
     });
 
     await insertWalletTransaction({
@@ -869,6 +907,8 @@ export default function useFinancialData(user) {
       transfer_group_id: transferGroupId,
       related_wallet_id: toWallet.id,
       notes,
+      created_at: operationTime,
+      updated_at: operationTime,
     });
 
     await insertWalletTransaction({
@@ -878,6 +918,8 @@ export default function useFinancialData(user) {
       transfer_group_id: transferGroupId,
       related_wallet_id: fromWallet.id,
       notes,
+      created_at: operationTime,
+      updated_at: operationTime,
     });
 
     await loadAll();
