@@ -7718,7 +7718,6 @@ export default function Dashboard() {
     financeModal?.payload,
     refreshFinanceSection,
     showFinanceNotice,
-    syncBudgetRowsIntoState,
     user?.email,
     user?.id,
   ]);
@@ -8047,6 +8046,7 @@ export default function Dashboard() {
     monthlyBudgetPlan.categories,
     refreshFinanceSection,
     showFinanceNotice,
+    syncBudgetRowsIntoState,
     user?.email,
     user?.id,
   ]);
