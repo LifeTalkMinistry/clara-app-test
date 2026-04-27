@@ -5904,6 +5904,12 @@ export default function Dashboard() {
 
   const refreshTimeoutRef = useRef(null);
   const financeCarouselRef = useRef(null);
+  const moneyLeftDoubleTapRef = useRef({
+    lastTapAt: 0,
+    startX: 0,
+    startY: 0,
+    moved: false,
+  });
   const dashboardScrollRef = useRef(null);
   const dashboardContentRef = useRef(null);
   const dashboardScrollTimersRef = useRef([]);
@@ -9271,6 +9277,45 @@ export default function Dashboard() {
     setActiveDashboardPanel("home");
   }, []);
 
+  const handleMoneyLeftPointerDown = useCallback((event) => {
+    moneyLeftDoubleTapRef.current.startX = Number(event.clientX || 0);
+    moneyLeftDoubleTapRef.current.startY = Number(event.clientY || 0);
+    moneyLeftDoubleTapRef.current.moved = false;
+  }, []);
+
+  const handleMoneyLeftPointerMove = useCallback((event) => {
+    const startX = Number(moneyLeftDoubleTapRef.current.startX || 0);
+    const startY = Number(moneyLeftDoubleTapRef.current.startY || 0);
+    const currentX = Number(event.clientX || 0);
+    const currentY = Number(event.clientY || 0);
+    const moveDistance = Math.hypot(currentX - startX, currentY - startY);
+
+    if (moveDistance > 12) {
+      moneyLeftDoubleTapRef.current.moved = true;
+    }
+  }, []);
+
+  const handleMoneyLeftPointerUp = useCallback((event) => {
+    if (moneyLeftDoubleTapRef.current.moved) {
+      moneyLeftDoubleTapRef.current.lastTapAt = 0;
+      return;
+    }
+
+    const now = Date.now();
+    const previousTapAt = Number(moneyLeftDoubleTapRef.current.lastTapAt || 0);
+    const isDoubleTap = previousTapAt > 0 && now - previousTapAt <= 340;
+
+    if (!isDoubleTap) {
+      moneyLeftDoubleTapRef.current.lastTapAt = now;
+      return;
+    }
+
+    event.preventDefault();
+    event.stopPropagation();
+    moneyLeftDoubleTapRef.current.lastTapAt = 0;
+    navigate("/transactions-hub");
+  }, [navigate]);
+
   const resetDashboardThemeToDefault = useCallback(async () => {
     if (typeof setTheme === "function") {
       await setTheme(DEFAULT_THEME_KEY);
@@ -10102,7 +10147,20 @@ export default function Dashboard() {
           }}
         >
           <div
-            className={`relative isolate overflow-hidden ${dashboardScale.summaryCell}`}
+            role="button"
+            tabIndex={0}
+            title="Double tap to open Transaction Hub"
+            aria-label="Double tap Total Money Left to open Transaction Hub"
+            onPointerDown={handleMoneyLeftPointerDown}
+            onPointerMove={handleMoneyLeftPointerMove}
+            onPointerUp={handleMoneyLeftPointerUp}
+            onKeyDown={(event) => {
+              if (event.key === "Enter") {
+                event.preventDefault();
+                navigate("/transactions-hub");
+              }
+            }}
+            className={`relative isolate overflow-hidden cursor-pointer select-none ${dashboardScale.summaryCell}`}
             style={{
               background:
                 selectedDashboardTheme?.tokens?.gradientMoney ||
