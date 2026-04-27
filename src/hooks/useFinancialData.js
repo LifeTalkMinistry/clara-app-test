@@ -729,114 +729,43 @@ export default function useFinancialData(user) {
   };
 
   const updateExpense = async (id, updates) => {
-    const oldExpense = expenses.find((e) => String(e.id) === String(id));
+    const repository = createFinanceRepository({
+      mode: FINANCE_REPOSITORY_MODE_SUPABASE_LEGACY,
+      supabase,
+      user,
+      wallets,
+      expenses,
+      walletTransactions,
+      generateId,
+      toNumber,
+      getSafeDate,
+      normalizePlanningStatus,
+      safeInsert,
+      safeUpdateById,
+    });
 
-    const normalizedUpdates = { ...updates };
-
-    if (updates.amount !== undefined) {
-      normalizedUpdates.amount = toNumber(updates.amount);
-    }
-
-    if (updates.date !== undefined) {
-      normalizedUpdates.date = getSafeDate(updates.date);
-    }
-
-    if (updates.planning_status !== undefined) {
-      normalizedUpdates.planning_status = normalizePlanningStatus(updates.planning_status);
-    }
-
-    const nextPlanningStatus =
-      normalizedUpdates.planning_status || oldExpense?.planning_status || "planned";
-
-    if (nextPlanningStatus === "unplanned") {
-      const reason = String(
-        normalizedUpdates.unplanned_reason ?? oldExpense?.unplanned_reason ?? ""
-      ).trim();
-
-      if (!reason) throw new Error("Reason is required for unplanned expenses.");
-      normalizedUpdates.unplanned_reason = reason;
-    } else if (updates.planning_status !== undefined) {
-      normalizedUpdates.unplanned_reason = null;
-    }
-
-    await safeUpdateById("expenses", id, normalizedUpdates);
-
-    if (oldExpense?.wallet_id) {
-      await updateWalletBalance(oldExpense.wallet_id, toNumber(oldExpense.amount));
-    }
-
-    const nextWalletId = normalizedUpdates.wallet_id ?? oldExpense?.wallet_id;
-    const nextAmount =
-      normalizedUpdates.amount !== undefined
-        ? toNumber(normalizedUpdates.amount)
-        : toNumber(oldExpense?.amount);
-
-    if (nextWalletId) {
-      await updateWalletBalance(nextWalletId, -nextAmount);
-    }
-
-    const linkedTxn = walletTransactions.find(
-      (txn) =>
-        String(txn?.expense_id || "") === String(id) ||
-        (String(txn?.type || "").toLowerCase() === "expense" &&
-          String(txn?.wallet_id || "") === String(oldExpense?.wallet_id || "") &&
-          toNumber(txn?.amount) === toNumber(oldExpense?.amount))
-    );
-
-    const txnPayload = {
-      wallet_id: nextWalletId,
-      amount: nextAmount,
-      category: normalizedUpdates.category ?? oldExpense?.category,
-      need_type: normalizedUpdates.need_type ?? oldExpense?.need_type,
-      planning_status: nextPlanningStatus,
-      unplanned_reason:
-        nextPlanningStatus === "unplanned"
-          ? normalizedUpdates.unplanned_reason ?? oldExpense?.unplanned_reason
-          : null,
-      notes: normalizedUpdates.notes ?? oldExpense?.notes ?? "",
-      updated_at: new Date().toISOString(),
-    };
-
-    if (linkedTxn?.id) {
-      await safeUpdateById("wallet_transactions", linkedTxn.id, txnPayload);
-    } else if (nextWalletId) {
-      await insertWalletTransaction({
-        ...txnPayload,
-        type: "expense",
-        expense_id: id,
-        created_at: normalizedUpdates.date || oldExpense?.date || new Date().toISOString(),
-      });
-    }
+    await repository.updateExpense(user?.id, id, updates);
 
     await loadAll();
   };
 
   const deleteExpense = async (id) => {
-    const expense = expenses.find((e) => String(e.id) === String(id));
+    const repository = createFinanceRepository({
+      mode: FINANCE_REPOSITORY_MODE_SUPABASE_LEGACY,
+      supabase,
+      user,
+      wallets,
+      expenses,
+      walletTransactions,
+      generateId,
+      toNumber,
+      getSafeDate,
+      normalizePlanningStatus,
+      safeInsert,
+      safeUpdateById,
+    });
 
-    const { error } = await supabase.from("expenses").delete().eq("id", id);
-    if (error) throw error;
-
-    if (expense?.wallet_id) {
-      await updateWalletBalance(expense.wallet_id, toNumber(expense.amount));
-    }
-
-    const linkedTxn = walletTransactions.find(
-      (txn) =>
-        String(txn?.expense_id || "") === String(id) ||
-        (String(txn?.type || "").toLowerCase() === "expense" &&
-          String(txn?.wallet_id || "") === String(expense?.wallet_id || "") &&
-          toNumber(txn?.amount) === toNumber(expense?.amount))
-    );
-
-    if (linkedTxn?.id) {
-      const { error: txnError } = await supabase
-        .from("wallet_transactions")
-        .delete()
-        .eq("id", linkedTxn.id);
-
-      if (txnError) throw txnError;
-    }
+    await repository.deleteExpense(user?.id, id);
 
     await loadAll();
   };
