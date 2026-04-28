@@ -5,6 +5,7 @@
  * Phase 2D-2A — Supabase Legacy addExpense Preparation Only
  * Phase 2D-3A — Supabase Legacy update/delete Expense Preparation Only
  * Phase 2D-4B — Supabase Legacy wallet CRUD Preparation Only
+ * Phase LOCAL-1 — Dormant Local Finance Transaction Engine Only
  *
  * This file creates a dormant finance repository abstraction that will later
  * become the single access point for CLARA finance data.
@@ -32,6 +33,7 @@ import {
   getLocalRecordById,
   upsertLocalRecord,
   softDeleteLocalRecord,
+  runLocalFinanceTransaction,
 } from "./localFinanceStore.js";
 
 export const FINANCE_REPOSITORY_MODE_LOCAL = "local";
@@ -95,12 +97,14 @@ function defaultGetSafeDate(value) {
   return date.toISOString();
 }
 
-function defaultGenerateId() {
+function defaultGenerateId(prefix = "finance") {
+  const safePrefix = String(prefix || "finance").replace(/[^a-zA-Z0-9_-]/g, "_");
+
   if (typeof crypto !== "undefined" && crypto.randomUUID) {
-    return crypto.randomUUID();
+    return `${safePrefix}_${crypto.randomUUID()}`;
   }
 
-  return `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+  return `${safePrefix}_${Date.now()}_${Math.random().toString(36).slice(2)}`;
 }
 
 function defaultNormalizePlanningStatus(value) {
@@ -268,7 +272,7 @@ async function insertSupabaseLegacyWalletTransaction({ context, payload, user })
     context,
     table: "wallet_transactions",
     payload: {
-      id: payload.id || context.generateId(),
+      id: payload.id || context.generateId("wallet_transaction"),
       wallet_id: payload.wallet_id ? String(payload.wallet_id) : null,
       amount: context.toNumber(payload.amount),
       type: payload.type,
@@ -387,6 +391,108 @@ function makeRepositoryRecord(payload, source = "finance_repository") {
   };
 }
 
+function makeLocalOperationRecord({
+  storeName,
+  localUserId,
+  payload,
+  existingRecord = null,
+  operationTime,
+  idPrefix,
+}) {
+  assertObjectPayload(payload, "Local finance operation payload");
+
+  const safeLocalUserId = requireLocalUserId(localUserId);
+  const id =
+    payload.id ||
+    existingRecord?.id ||
+    defaultGenerateId(idPrefix || storeName || "local_finance_record");
+
+  if (payload.localUserId && String(payload.localUserId).trim() !== safeLocalUserId) {
+    throw new Error("Local finance operation localUserId does not match the current local user.");
+  }
+
+  if (existingRecord?.localUserId && existingRecord.localUserId !== safeLocalUserId) {
+    throw new Error("Cannot update a local finance record owned by another local user.");
+  }
+
+  return {
+    ...existingRecord,
+    ...payload,
+    id,
+    localUserId: safeLocalUserId,
+    createdAt: payload.createdAt || existingRecord?.createdAt || operationTime,
+    updatedAt: operationTime,
+    deletedAt: payload.deletedAt ?? existingRecord?.deletedAt ?? null,
+    syncStatus: payload.syncStatus || "local_only",
+    source: "local",
+  };
+}
+
+function getWalletBalance(wallet) {
+  return defaultToNumber(
+    wallet?.balance ??
+      wallet?.current_balance ??
+      wallet?.wallet_balance ??
+      wallet?.available_balance ??
+      wallet?.starting_balance ??
+      0
+  );
+}
+
+function makeLocalWalletBalancePatch(wallet, nextBalance, operationTime) {
+  return {
+    ...wallet,
+    balance: nextBalance,
+    updatedAt: operationTime,
+    updated_at: operationTime,
+    syncStatus: "local_only",
+    source: "local",
+  };
+}
+
+function normalizeAmountOrThrow(value, label = "Amount") {
+  const amount = defaultToNumber(value);
+
+  if (!Number.isFinite(amount) || amount <= 0) {
+    throw new Error(`${label} must be greater than zero.`);
+  }
+
+  return amount;
+}
+
+function getExpenseWalletId(expense) {
+  return normalizeString(expense?.wallet_id ?? expense?.walletId);
+}
+
+function getTransferSourceWalletId(transferPayload) {
+  return normalizeString(
+    transferPayload?.from_wallet_id ??
+      transferPayload?.fromWalletId ??
+      transferPayload?.source_wallet_id ??
+      transferPayload?.sourceWalletId ??
+      transferPayload?.wallet_id
+  );
+}
+
+function getTransferDestinationWalletId(transferPayload) {
+  return normalizeString(
+    transferPayload?.to_wallet_id ??
+      transferPayload?.toWalletId ??
+      transferPayload?.destination_wallet_id ??
+      transferPayload?.destinationWalletId ??
+      transferPayload?.related_wallet_id
+  );
+}
+
+function findLocalLinkedExpenseTransaction(walletTransactions, expenseId) {
+  return (walletTransactions || []).find(
+    (txn) =>
+      !txn?.deletedAt &&
+      (String(txn?.expense_id || "") === String(expenseId) ||
+        String(txn?.expenseId || "") === String(expenseId))
+  );
+}
+
 async function getLocalStoreRecords(storeName, localUserId, options = {}) {
   const safeLocalUserId = requireLocalUserId(localUserId);
   const records = await getLocalRecords(storeName, safeLocalUserId);
@@ -448,30 +554,381 @@ function createLocalFinanceRepository() {
     },
 
     async addExpense(localUserId, expense) {
-      return addLocalStoreRecord(
-        LOCAL_FINANCE_STORES.expenses,
-        localUserId,
-        expense,
-        "Expense"
+      const safeLocalUserId = requireLocalUserId(localUserId);
+      assertObjectPayload(expense, "Expense");
+
+      const operationTime = new Date().toISOString();
+      const amount = normalizeAmountOrThrow(expense.amount, "Expense amount");
+      const walletId = getExpenseWalletId(expense);
+      const expenseId = expense.id || defaultGenerateId("expense");
+      const expenseDate = defaultGetSafeDate(
+        expense.date || expense.created_at || expense.createdAt || operationTime
+      );
+
+      return runLocalFinanceTransaction(
+        [
+          LOCAL_FINANCE_STORES.expenses,
+          LOCAL_FINANCE_STORES.wallets,
+          LOCAL_FINANCE_STORES.walletTransactions,
+        ],
+        safeLocalUserId,
+        async (tx) => {
+          let walletUpdate = null;
+          let walletTransaction = null;
+
+          if (walletId) {
+            const wallet = await tx.get(LOCAL_FINANCE_STORES.wallets, walletId);
+
+            if (!wallet) {
+              throw new Error("Wallet not found for this local user.");
+            }
+
+            walletUpdate = makeLocalWalletBalancePatch(
+              wallet,
+              getWalletBalance(wallet) - amount,
+              operationTime
+            );
+
+            await tx.putRaw(LOCAL_FINANCE_STORES.wallets, walletUpdate);
+          }
+
+          const expenseRecord = makeLocalOperationRecord({
+            storeName: LOCAL_FINANCE_STORES.expenses,
+            localUserId: safeLocalUserId,
+            operationTime,
+            idPrefix: "expense",
+            payload: {
+              ...expense,
+              id: expenseId,
+              wallet_id: walletId || null,
+              amount,
+              date: expenseDate,
+              created_at: expense.created_at || expenseDate,
+              updated_at: operationTime,
+              deletedAt: null,
+              syncStatus: "local_only",
+              source: "local",
+            },
+          });
+
+          await tx.putRaw(LOCAL_FINANCE_STORES.expenses, expenseRecord);
+
+          if (walletId) {
+            walletTransaction = makeLocalOperationRecord({
+              storeName: LOCAL_FINANCE_STORES.walletTransactions,
+              localUserId: safeLocalUserId,
+              operationTime,
+              idPrefix: "wallet_transaction",
+              payload: {
+                id: expense.wallet_transaction_id || defaultGenerateId("wallet_transaction"),
+                wallet_id: walletId,
+                amount,
+                type: "expense",
+                category: expense.category || null,
+                need_type: expense.need_type || null,
+                planning_status: defaultNormalizePlanningStatus(expense.planning_status),
+                unplanned_reason: expense.unplanned_reason || null,
+                expense_id: expenseId,
+                notes: expense.notes || "",
+                created_at: expenseDate,
+                updated_at: operationTime,
+                deletedAt: null,
+                syncStatus: "local_only",
+                source: "local",
+              },
+            });
+
+            await tx.putRaw(LOCAL_FINANCE_STORES.walletTransactions, walletTransaction);
+          }
+
+          return {
+            expense: expenseRecord,
+            walletUpdate,
+            walletTransaction,
+          };
+        }
       );
     },
 
     async updateExpense(localUserId, expenseId, patch) {
-      return updateLocalStoreRecord(
-        LOCAL_FINANCE_STORES.expenses,
-        localUserId,
-        expenseId,
-        patch,
-        "Expense"
+      const safeLocalUserId = requireLocalUserId(localUserId);
+
+      if (!expenseId) {
+        throw new Error("Expense id is required.");
+      }
+
+      assertObjectPayload(patch, "Expense patch");
+
+      const operationTime = new Date().toISOString();
+
+      return runLocalFinanceTransaction(
+        [
+          LOCAL_FINANCE_STORES.expenses,
+          LOCAL_FINANCE_STORES.wallets,
+          LOCAL_FINANCE_STORES.walletTransactions,
+        ],
+        safeLocalUserId,
+        async (tx) => {
+          const oldExpense = await tx.get(LOCAL_FINANCE_STORES.expenses, expenseId);
+
+          if (!oldExpense) {
+            throw new Error("Expense not found for this local user.");
+          }
+
+          const oldAmount = defaultToNumber(oldExpense.amount);
+          const nextAmount =
+            patch.amount !== undefined
+              ? normalizeAmountOrThrow(patch.amount, "Expense amount")
+              : oldAmount;
+
+          const oldWalletId = getExpenseWalletId(oldExpense);
+          const nextWalletId =
+            patch.wallet_id !== undefined || patch.walletId !== undefined
+              ? getExpenseWalletId(patch)
+              : oldWalletId;
+
+          const walletUpdates = [];
+
+          if (oldWalletId && nextWalletId && oldWalletId === nextWalletId) {
+            const netAmountChange = oldAmount - nextAmount;
+
+            if (netAmountChange !== 0) {
+              const wallet = await tx.get(LOCAL_FINANCE_STORES.wallets, oldWalletId);
+
+              if (!wallet) {
+                throw new Error("Wallet not found for this local user.");
+              }
+
+              const walletUpdate = makeLocalWalletBalancePatch(
+                wallet,
+                getWalletBalance(wallet) + netAmountChange,
+                operationTime
+              );
+
+              await tx.putRaw(LOCAL_FINANCE_STORES.wallets, walletUpdate);
+              walletUpdates.push(walletUpdate);
+            }
+          } else {
+            if (oldWalletId) {
+              const oldWallet = await tx.get(LOCAL_FINANCE_STORES.wallets, oldWalletId);
+
+              if (!oldWallet) {
+                throw new Error("Old wallet not found for this local user.");
+              }
+
+              const oldWalletUpdate = makeLocalWalletBalancePatch(
+                oldWallet,
+                getWalletBalance(oldWallet) + oldAmount,
+                operationTime
+              );
+
+              await tx.putRaw(LOCAL_FINANCE_STORES.wallets, oldWalletUpdate);
+              walletUpdates.push(oldWalletUpdate);
+            }
+
+            if (nextWalletId) {
+              const nextWallet = await tx.get(LOCAL_FINANCE_STORES.wallets, nextWalletId);
+
+              if (!nextWallet) {
+                throw new Error("New wallet not found for this local user.");
+              }
+
+              const nextWalletUpdate = makeLocalWalletBalancePatch(
+                nextWallet,
+                getWalletBalance(nextWallet) - nextAmount,
+                operationTime
+              );
+
+              await tx.putRaw(LOCAL_FINANCE_STORES.wallets, nextWalletUpdate);
+              walletUpdates.push(nextWalletUpdate);
+            }
+          }
+
+          const nextPlanningStatus =
+            patch.planning_status !== undefined
+              ? defaultNormalizePlanningStatus(patch.planning_status)
+              : defaultNormalizePlanningStatus(oldExpense.planning_status);
+
+          const nextExpenseDate = defaultGetSafeDate(
+            patch.date ||
+              patch.created_at ||
+              oldExpense.date ||
+              oldExpense.created_at ||
+              oldExpense.createdAt ||
+              operationTime
+          );
+
+          const updatedExpense = makeLocalOperationRecord({
+            storeName: LOCAL_FINANCE_STORES.expenses,
+            localUserId: safeLocalUserId,
+            existingRecord: oldExpense,
+            operationTime,
+            idPrefix: "expense",
+            payload: {
+              ...oldExpense,
+              ...patch,
+              id: oldExpense.id,
+              localUserId: safeLocalUserId,
+              wallet_id: nextWalletId || null,
+              amount: nextAmount,
+              date: nextExpenseDate,
+              planning_status: nextPlanningStatus,
+              updated_at: operationTime,
+              syncStatus: "local_only",
+              source: "local",
+            },
+          });
+
+          await tx.putRaw(LOCAL_FINANCE_STORES.expenses, updatedExpense);
+
+          const walletTransactions = await tx.getAllForUser(
+            LOCAL_FINANCE_STORES.walletTransactions,
+            true
+          );
+          const linkedTxn = findLocalLinkedExpenseTransaction(walletTransactions, expenseId);
+
+          let walletTransaction = null;
+
+          if (nextWalletId) {
+            walletTransaction = makeLocalOperationRecord({
+              storeName: LOCAL_FINANCE_STORES.walletTransactions,
+              localUserId: safeLocalUserId,
+              existingRecord: linkedTxn || null,
+              operationTime,
+              idPrefix: "wallet_transaction",
+              payload: {
+                ...(linkedTxn || {}),
+                id: linkedTxn?.id || defaultGenerateId("wallet_transaction"),
+                wallet_id: nextWalletId,
+                amount: nextAmount,
+                type: "expense",
+                category: updatedExpense.category || null,
+                need_type: updatedExpense.need_type || null,
+                planning_status: nextPlanningStatus,
+                unplanned_reason: updatedExpense.unplanned_reason || null,
+                expense_id: expenseId,
+                notes: updatedExpense.notes || "",
+                created_at:
+                  linkedTxn?.created_at ||
+                  updatedExpense.date ||
+                  updatedExpense.created_at ||
+                  operationTime,
+                updated_at: operationTime,
+                deletedAt: null,
+                syncStatus: "local_only",
+                source: "local",
+              },
+            });
+
+            await tx.putRaw(LOCAL_FINANCE_STORES.walletTransactions, walletTransaction);
+          } else if (linkedTxn) {
+            walletTransaction = {
+              ...linkedTxn,
+              deletedAt: operationTime,
+              updatedAt: operationTime,
+              updated_at: operationTime,
+              syncStatus: "local_deleted",
+              source: "local",
+            };
+
+            await tx.putRaw(LOCAL_FINANCE_STORES.walletTransactions, walletTransaction);
+          }
+
+          return {
+            expense: updatedExpense,
+            walletUpdates,
+            walletTransaction,
+          };
+        }
       );
     },
 
     async deleteExpense(localUserId, expenseId) {
-      return deleteLocalStoreRecord(
-        LOCAL_FINANCE_STORES.expenses,
-        localUserId,
-        expenseId,
-        "Expense"
+      const safeLocalUserId = requireLocalUserId(localUserId);
+
+      if (!expenseId) {
+        throw new Error("Expense id is required.");
+      }
+
+      const operationTime = new Date().toISOString();
+
+      return runLocalFinanceTransaction(
+        [
+          LOCAL_FINANCE_STORES.expenses,
+          LOCAL_FINANCE_STORES.wallets,
+          LOCAL_FINANCE_STORES.walletTransactions,
+        ],
+        safeLocalUserId,
+        async (tx) => {
+          const expense = await tx.get(LOCAL_FINANCE_STORES.expenses, expenseId);
+
+          if (!expense) {
+            return {
+              deletedExpenseId: null,
+              walletUpdate: null,
+              deletedWalletTransactionId: null,
+            };
+          }
+
+          const amount = defaultToNumber(expense.amount);
+          const walletId = getExpenseWalletId(expense);
+          let walletUpdate = null;
+
+          if (walletId) {
+            const wallet = await tx.get(LOCAL_FINANCE_STORES.wallets, walletId);
+
+            if (!wallet) {
+              throw new Error("Wallet not found for this local user.");
+            }
+
+            walletUpdate = makeLocalWalletBalancePatch(
+              wallet,
+              getWalletBalance(wallet) + amount,
+              operationTime
+            );
+
+            await tx.putRaw(LOCAL_FINANCE_STORES.wallets, walletUpdate);
+          }
+
+          const deletedExpense = {
+            ...expense,
+            deletedAt: operationTime,
+            updatedAt: operationTime,
+            updated_at: operationTime,
+            syncStatus: "local_deleted",
+            source: "local",
+          };
+
+          await tx.putRaw(LOCAL_FINANCE_STORES.expenses, deletedExpense);
+
+          const walletTransactions = await tx.getAllForUser(
+            LOCAL_FINANCE_STORES.walletTransactions,
+            true
+          );
+          const linkedTxn = findLocalLinkedExpenseTransaction(walletTransactions, expenseId);
+          let deletedWalletTransaction = null;
+
+          if (linkedTxn) {
+            deletedWalletTransaction = {
+              ...linkedTxn,
+              deletedAt: operationTime,
+              updatedAt: operationTime,
+              updated_at: operationTime,
+              syncStatus: "local_deleted",
+              source: "local",
+            };
+
+            await tx.putRaw(LOCAL_FINANCE_STORES.walletTransactions, deletedWalletTransaction);
+          }
+
+          return {
+            deletedExpenseId: expenseId,
+            expense: deletedExpense,
+            walletUpdate,
+            deletedWalletTransactionId: deletedWalletTransaction?.id || null,
+            walletTransaction: deletedWalletTransaction,
+          };
+        }
       );
     },
 
@@ -487,7 +944,13 @@ function createLocalFinanceRepository() {
       return addLocalStoreRecord(
         LOCAL_FINANCE_STORES.wallets,
         localUserId,
-        wallet,
+        {
+          ...wallet,
+          balance: defaultToNumber(wallet?.balance ?? wallet?.starting_balance ?? 0),
+          starting_balance: defaultToNumber(wallet?.starting_balance ?? wallet?.balance ?? 0),
+          syncStatus: wallet?.syncStatus || "local_only",
+          source: wallet?.source || "local",
+        },
         "Wallet"
       );
     },
@@ -497,7 +960,17 @@ function createLocalFinanceRepository() {
         LOCAL_FINANCE_STORES.wallets,
         localUserId,
         walletId,
-        patch,
+        {
+          ...patch,
+          ...(patch?.balance !== undefined
+            ? { balance: defaultToNumber(patch.balance) }
+            : {}),
+          ...(patch?.starting_balance !== undefined
+            ? { starting_balance: defaultToNumber(patch.starting_balance) }
+            : {}),
+          syncStatus: patch?.syncStatus || "local_only",
+          source: patch?.source || "local",
+        },
         "Wallet"
       );
     },
@@ -523,17 +996,222 @@ function createLocalFinanceRepository() {
       return addLocalStoreRecord(
         LOCAL_FINANCE_STORES.walletTransactions,
         localUserId,
-        transaction,
+        {
+          ...transaction,
+          amount: defaultToNumber(transaction?.amount),
+          syncStatus: transaction?.syncStatus || "local_only",
+          source: transaction?.source || "local",
+        },
         "Wallet transaction"
       );
     },
 
+    async addIncome(localUserId, incomePayload) {
+      const safeLocalUserId = requireLocalUserId(localUserId);
+      assertObjectPayload(incomePayload, "Income payload");
+
+      const operationTime = new Date().toISOString();
+      const amount = normalizeAmountOrThrow(incomePayload.amount, "Income amount");
+      const walletId = normalizeString(incomePayload.wallet_id ?? incomePayload.walletId);
+
+      if (!walletId) {
+        throw new Error("wallet_id is required for local income.");
+      }
+
+      return runLocalFinanceTransaction(
+        [LOCAL_FINANCE_STORES.wallets, LOCAL_FINANCE_STORES.walletTransactions],
+        safeLocalUserId,
+        async (tx) => {
+          const wallet = await tx.get(LOCAL_FINANCE_STORES.wallets, walletId);
+
+          if (!wallet) {
+            throw new Error("Wallet not found for this local user.");
+          }
+
+          const walletUpdate = makeLocalWalletBalancePatch(
+            wallet,
+            getWalletBalance(wallet) + amount,
+            operationTime
+          );
+
+          await tx.putRaw(LOCAL_FINANCE_STORES.wallets, walletUpdate);
+
+          const walletTransaction = makeLocalOperationRecord({
+            storeName: LOCAL_FINANCE_STORES.walletTransactions,
+            localUserId: safeLocalUserId,
+            operationTime,
+            idPrefix: "wallet_transaction",
+            payload: {
+              id: incomePayload.id || defaultGenerateId("wallet_transaction"),
+              wallet_id: walletId,
+              amount,
+              type: "income",
+              category: incomePayload.category || null,
+              source_type: incomePayload.source_type || incomePayload.sourceType || "income",
+              tag: incomePayload.tag || null,
+              notes: incomePayload.notes || "",
+              created_at:
+                incomePayload.created_at ||
+                incomePayload.date ||
+                incomePayload.createdAt ||
+                operationTime,
+              updated_at: operationTime,
+              deletedAt: null,
+              syncStatus: "local_only",
+              source: "local",
+            },
+          });
+
+          await tx.putRaw(LOCAL_FINANCE_STORES.walletTransactions, walletTransaction);
+
+          return {
+            walletUpdate,
+            walletTransaction,
+          };
+        }
+      );
+    },
+
     async transferBetweenWallets(localUserId, transferPayload) {
-      return addLocalStoreRecord(
-        LOCAL_FINANCE_STORES.transfers,
-        localUserId,
-        transferPayload,
-        "Transfer payload"
+      const safeLocalUserId = requireLocalUserId(localUserId);
+      assertObjectPayload(transferPayload, "Transfer payload");
+
+      const operationTime = new Date().toISOString();
+      const amount = normalizeAmountOrThrow(transferPayload.amount, "Transfer amount");
+      const fromWalletId = getTransferSourceWalletId(transferPayload);
+      const toWalletId = getTransferDestinationWalletId(transferPayload);
+
+      if (!fromWalletId) {
+        throw new Error("Source wallet id is required for local transfer.");
+      }
+
+      if (!toWalletId) {
+        throw new Error("Destination wallet id is required for local transfer.");
+      }
+
+      if (fromWalletId === toWalletId) {
+        throw new Error("Source and destination wallets must be different.");
+      }
+
+      const transferGroupId =
+        transferPayload.transfer_group_id ||
+        transferPayload.transferGroupId ||
+        transferPayload.id ||
+        defaultGenerateId("transfer_group");
+
+      return runLocalFinanceTransaction(
+        [
+          LOCAL_FINANCE_STORES.wallets,
+          LOCAL_FINANCE_STORES.walletTransactions,
+          LOCAL_FINANCE_STORES.transfers,
+        ],
+        safeLocalUserId,
+        async (tx) => {
+          const fromWallet = await tx.get(LOCAL_FINANCE_STORES.wallets, fromWalletId);
+          const toWallet = await tx.get(LOCAL_FINANCE_STORES.wallets, toWalletId);
+
+          if (!fromWallet) {
+            throw new Error("Source wallet not found for this local user.");
+          }
+
+          if (!toWallet) {
+            throw new Error("Destination wallet not found for this local user.");
+          }
+
+          const fromWalletUpdate = makeLocalWalletBalancePatch(
+            fromWallet,
+            getWalletBalance(fromWallet) - amount,
+            operationTime
+          );
+
+          const toWalletUpdate = makeLocalWalletBalancePatch(
+            toWallet,
+            getWalletBalance(toWallet) + amount,
+            operationTime
+          );
+
+          await tx.putRaw(LOCAL_FINANCE_STORES.wallets, fromWalletUpdate);
+          await tx.putRaw(LOCAL_FINANCE_STORES.wallets, toWalletUpdate);
+
+          const transferOutTransaction = makeLocalOperationRecord({
+            storeName: LOCAL_FINANCE_STORES.walletTransactions,
+            localUserId: safeLocalUserId,
+            operationTime,
+            idPrefix: "wallet_transaction",
+            payload: {
+              id: defaultGenerateId("wallet_transaction"),
+              wallet_id: fromWalletId,
+              related_wallet_id: toWalletId,
+              amount,
+              type: "transfer_out",
+              transfer_group_id: transferGroupId,
+              notes: transferPayload.notes || "",
+              created_at: transferPayload.created_at || transferPayload.date || operationTime,
+              updated_at: operationTime,
+              deletedAt: null,
+              syncStatus: "local_only",
+              source: "local",
+            },
+          });
+
+          const transferInTransaction = makeLocalOperationRecord({
+            storeName: LOCAL_FINANCE_STORES.walletTransactions,
+            localUserId: safeLocalUserId,
+            operationTime,
+            idPrefix: "wallet_transaction",
+            payload: {
+              id: defaultGenerateId("wallet_transaction"),
+              wallet_id: toWalletId,
+              related_wallet_id: fromWalletId,
+              amount,
+              type: "transfer_in",
+              transfer_group_id: transferGroupId,
+              notes: transferPayload.notes || "",
+              created_at: transferPayload.created_at || transferPayload.date || operationTime,
+              updated_at: operationTime,
+              deletedAt: null,
+              syncStatus: "local_only",
+              source: "local",
+            },
+          });
+
+          const transferSummary = makeLocalOperationRecord({
+            storeName: LOCAL_FINANCE_STORES.transfers,
+            localUserId: safeLocalUserId,
+            operationTime,
+            idPrefix: "transfer",
+            payload: {
+              ...transferPayload,
+              id: transferPayload.id || transferGroupId,
+              transfer_group_id: transferGroupId,
+              from_wallet_id: fromWalletId,
+              to_wallet_id: toWalletId,
+              amount,
+              notes: transferPayload.notes || "",
+              created_at: transferPayload.created_at || transferPayload.date || operationTime,
+              updated_at: operationTime,
+              deletedAt: null,
+              syncStatus: "local_only",
+              source: "local",
+            },
+          });
+
+          await tx.putRaw(LOCAL_FINANCE_STORES.walletTransactions, transferOutTransaction);
+          await tx.putRaw(LOCAL_FINANCE_STORES.walletTransactions, transferInTransaction);
+          await tx.putRaw(LOCAL_FINANCE_STORES.transfers, transferSummary);
+
+          return {
+            transfer: transferSummary,
+            walletUpdates: {
+              fromWallet: fromWalletUpdate,
+              toWallet: toWalletUpdate,
+            },
+            walletTransactions: {
+              transferOut: transferOutTransaction,
+              transferIn: transferInTransaction,
+            },
+          };
+        }
       );
     },
 
@@ -549,7 +1227,11 @@ function createLocalFinanceRepository() {
       return addLocalStoreRecord(
         LOCAL_FINANCE_STORES.budgets,
         localUserId,
-        budget,
+        {
+          ...budget,
+          syncStatus: budget?.syncStatus || "local_only",
+          source: budget?.source || "local",
+        },
         "Budget"
       );
     },
@@ -566,7 +1248,11 @@ function createLocalFinanceRepository() {
       return addLocalStoreRecord(
         LOCAL_FINANCE_STORES.savingsGoals,
         localUserId,
-        goal,
+        {
+          ...goal,
+          syncStatus: goal?.syncStatus || "local_only",
+          source: goal?.source || "local",
+        },
         "Savings goal"
       );
     },
@@ -584,14 +1270,19 @@ function createLocalFinanceRepository() {
 
       return upsertLocalRecord(
         LOCAL_FINANCE_STORES.emergencyFund,
-        makeRepositoryRecord({
-          ...existingEmergencyFund,
-          ...emergencyFund,
-          id:
-            emergencyFund.id ||
-            existingEmergencyFund?.id ||
-            `emergency_fund:${safeLocalUserId}`,
-        }),
+        makeRepositoryRecord(
+          {
+            ...existingEmergencyFund,
+            ...emergencyFund,
+            id:
+              emergencyFund.id ||
+              existingEmergencyFund?.id ||
+              `emergency_fund:${safeLocalUserId}`,
+            syncStatus: emergencyFund.syncStatus || "local_only",
+            source: emergencyFund.source || "local",
+          },
+          "local"
+        ),
         safeLocalUserId
       );
     },
@@ -629,7 +1320,7 @@ function createSupabaseLegacyFinanceRepository(repositoryOptions = {}) {
 
       const payload = {
         ...expense,
-        id: expense.id || context.generateId(),
+        id: expense.id || context.generateId("expense"),
         user_id: user?.id || null,
         user_email: user?.email || null,
         created_by: user?.email || null,
@@ -750,20 +1441,6 @@ function createSupabaseLegacyFinanceRepository(repositoryOptions = {}) {
         payload: normalizedUpdates,
       });
 
-      /*
-       * Wallet balance repair:
-       * If the wallet stays the same, do only one net adjustment.
-       * Current wallet balance already includes the old expense deduction.
-       *
-       * Example:
-       * Old expense: ₱100
-       * New expense: ₱150
-       * Net change: -₱50
-       *
-       * The helper below now fetches the latest wallet row before applying
-       * this net change, so lowering an edited expense can correctly add the
-       * difference back to the wallet.
-       */
       if (oldWalletId && nextWalletId && oldWalletId === nextWalletId) {
         const netAmountChange = oldAmount - nextAmount;
 
@@ -895,7 +1572,7 @@ function createSupabaseLegacyFinanceRepository(repositoryOptions = {}) {
 
       const payload = {
         ...wallet,
-        id: wallet.id || context.generateId(),
+        id: wallet.id || context.generateId("wallet"),
         balance: starting,
         starting_balance: starting,
         user_id: user?.id || null,
@@ -966,6 +1643,7 @@ function createSupabaseLegacyFinanceRepository(repositoryOptions = {}) {
 
     getWalletTransactions: createNotImplementedRepositoryMethod("getWalletTransactions", mode),
     insertWalletTransaction: createNotImplementedRepositoryMethod("insertWalletTransaction", mode),
+    addIncome: createNotImplementedRepositoryMethod("addIncome", mode),
     transferBetweenWallets: createNotImplementedRepositoryMethod("transferBetweenWallets", mode),
     getBudgets: createNotImplementedRepositoryMethod("getBudgets", mode),
     upsertBudget: createNotImplementedRepositoryMethod("upsertBudget", mode),
@@ -994,6 +1672,7 @@ function createUnsupportedModeRepository(mode) {
     deleteWallet: createReservedMethod("deleteWallet"),
     getWalletTransactions: createReservedMethod("getWalletTransactions"),
     insertWalletTransaction: createReservedMethod("insertWalletTransaction"),
+    addIncome: createReservedMethod("addIncome"),
     transferBetweenWallets: createReservedMethod("transferBetweenWallets"),
     getBudgets: createReservedMethod("getBudgets"),
     upsertBudget: createReservedMethod("upsertBudget"),
@@ -1060,6 +1739,14 @@ export async function getWalletTransactions(localUserId, options) {
 
 export async function insertWalletTransaction(localUserId, transaction) {
   return financeRepository.insertWalletTransaction(localUserId, transaction);
+}
+
+export async function addIncome(localUserId, incomePayload) {
+  return financeRepository.addIncome(localUserId, incomePayload);
+}
+
+export async function addMoney(localUserId, incomePayload) {
+  return financeRepository.addIncome(localUserId, incomePayload);
 }
 
 export async function transferBetweenWallets(localUserId, transferPayload) {
