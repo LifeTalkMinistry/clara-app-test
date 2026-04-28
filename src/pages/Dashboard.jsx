@@ -5440,6 +5440,8 @@ export default function Dashboard() {
     loading: financeDataLoading = false,
     error: financeDataError = null,
     addExpense: addExpenseData,
+    updateExpense: updateExpenseData,
+    deleteExpense: deleteExpenseData,
     addWallet: addWalletData,
     updateWallet: updateWalletData,
     deleteWallet: deleteWalletData,
@@ -8402,18 +8404,16 @@ export default function Dashboard() {
         created_by: user?.email || monthlyBudgetHeader?.created_by || null,
       };
 
-      const headerResult = monthlyBudgetHeader?.id
-        ? await supabase.from("budgets").update(headerPayload).eq("id", monthlyBudgetHeader.id)
-        : await supabase.from("budgets").insert([
-            {
-              ...headerPayload,
-              tracking_start_date: nowIso,
-              range_start: nowIso,
-              created_at: nowIso,
-            },
-          ]);
-
-      if (headerResult.error) throw headerResult.error;
+      if (monthlyBudgetHeader?.id) {
+        await updateBudgetData?.(String(monthlyBudgetHeader.id), headerPayload);
+      } else {
+        await addBudgetData?.({
+          ...headerPayload,
+          tracking_start_date: nowIso,
+          range_start: nowIso,
+          created_at: nowIso,
+        });
+      }
 
       const optimisticBudgetRows = [
         {
@@ -8451,18 +8451,16 @@ export default function Dashboard() {
           created_by: user?.email || existingCategory?.created_by || null,
         };
 
-        const result = existingCategory?.id
-          ? await supabase.from("budgets").update(payload).eq("id", existingCategory.id)
-          : await supabase.from("budgets").insert([
-              {
-                ...payload,
-                tracking_start_date: nowIso,
-                range_start: nowIso,
-                created_at: nowIso,
-              },
-            ]);
-
-        if (result.error) throw result.error;
+        if (existingCategory?.id) {
+          await updateBudgetData?.(String(existingCategory.id), payload);
+        } else {
+          await addBudgetData?.({
+            ...payload,
+            tracking_start_date: nowIso,
+            range_start: nowIso,
+            created_at: nowIso,
+          });
+        }
 
         optimisticBudgetRows.push({
           ...(existingCategory || {}),
@@ -8477,14 +8475,15 @@ export default function Dashboard() {
       if (complete && monthlyBudgetPlan.categories.length) {
         const categoryIds = monthlyBudgetPlan.categories.map((item) => item.id).filter(Boolean);
         if (categoryIds.length) {
-          await supabase
-            .from("budgets")
-            .update({
-              status: "active",
-              is_complete: true,
-              updated_at: nowIso,
-            })
-            .in("id", categoryIds);
+          await Promise.all(
+            categoryIds.map((id) =>
+              updateBudgetData?.(String(id), {
+                status: "active",
+                is_complete: true,
+                updated_at: nowIso,
+              })
+            )
+          );
         }
       }
 
@@ -8535,6 +8534,8 @@ export default function Dashboard() {
     refreshFinanceSection,
     showFinanceNotice,
     syncBudgetRowsIntoState,
+    addBudgetData,
+    updateBudgetData,
     user?.email,
     user?.id,
   ]);
