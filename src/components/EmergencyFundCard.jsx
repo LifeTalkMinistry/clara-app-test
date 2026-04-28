@@ -12,6 +12,7 @@ import {
   Sparkles,
   Plus,
 } from "lucide-react";
+
 import SurvivalExpenseModal from "./SurvivalExpenseModal";
 import useFinancialData from "../hooks/useFinancialData";
 
@@ -20,7 +21,7 @@ const fmt = (n) =>
     style: "currency",
     currency: "PHP",
     minimumFractionDigits: 0,
-  }).format(n || 0);
+  }).format(Number(n) || 0);
 
 const MILESTONES = [
   { months: 3, label: "Basic Safety" },
@@ -57,6 +58,7 @@ function storeAnalyticsTransitionOrigin(element) {
   try {
     const card = element.closest?.("[data-emergency-card]") || element;
     const rect = card.getBoundingClientRect();
+
     const payload = JSON.stringify({
       x: rect.left,
       y: rect.top,
@@ -140,20 +142,15 @@ function getProgression(months, targetMonths) {
 
 function getEmergencyThemeClasses(theme) {
   const isLight = theme?.isLight === true;
-  const border = isLight ? "border-slate-300/45" : "border-white/10";
-  const title = isLight ? "text-slate-950" : "text-white";
-  const body = isLight ? "text-slate-700" : "text-white/82";
-  const muted = isLight ? "text-slate-500" : "text-white/60";
-  const glass = isLight
-    ? "border-slate-300/45 bg-white/70 text-slate-800"
-    : "border-white/10 bg-black/15 text-white/85";
 
   return {
-    border,
-    title,
-    body,
-    muted,
-    glass,
+    border: isLight ? "border-slate-300/45" : "border-white/10",
+    title: isLight ? "text-slate-950" : "text-white",
+    body: isLight ? "text-slate-700" : "text-white/82",
+    muted: isLight ? "text-slate-500" : "text-white/60",
+    glass: isLight
+      ? "border-slate-300/45 bg-white/70 text-slate-800"
+      : "border-white/10 bg-black/15 text-white/85",
     iconShell: isLight
       ? "border-cyan-300/40 bg-cyan-500/10 shadow-[0_0_18px_rgba(14,165,233,0.10)]"
       : "border-cyan-400/20 bg-cyan-400/10 shadow-[0_0_18px_rgba(34,211,238,0.12)]",
@@ -230,12 +227,7 @@ export default function EmergencyFundCard({
   const emergencySurvivalExpense = Number(
     getEmergencyValue(
       emergencyFund,
-      [
-        "survivalExpense",
-        "survival_expense",
-        "monthlyExpense",
-        "monthly_expense",
-      ],
+      ["survivalExpense", "survival_expense", "monthlyExpense", "monthly_expense"],
       survivalExpense
     )
   );
@@ -511,17 +503,20 @@ export default function EmergencyFundCard({
     if (!file) return;
 
     const reader = new FileReader();
+
     reader.onload = () => {
       const result = reader.result;
       if (typeof result === "string") {
         setDraftWallpaper(result);
       }
     };
+
     reader.readAsDataURL(file);
   };
 
   const handleWallpaperSave = async () => {
     const safeOpacity = clampOpacity(draftOpacity);
+
     setWallpaper(draftWallpaper || "");
     setWallpaperOpacity(safeOpacity);
 
@@ -700,6 +695,7 @@ export default function EmergencyFundCard({
             className="absolute inset-0 bg-black/70 backdrop-blur-sm"
             onClick={() => setShowWallpaperModal(false)}
           />
+
           <div className="theme-modal-card relative z-10 w-full max-w-md overflow-hidden rounded-3xl shadow-2xl">
             <div className="flex items-center justify-between border-b border-white/10 p-4">
               <div>
