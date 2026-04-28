@@ -254,6 +254,61 @@ function safeObject(value) {
   return value && typeof value === "object" && !Array.isArray(value) ? value : {};
 }
 
+function getFirstObject(...values) {
+  return values.find((value) => value && typeof value === "object" && !Array.isArray(value)) || null;
+}
+
+function normalizeFinanceUserFromContext(context = {}) {
+  const safeContext = safeObject(context);
+
+  const candidateUser = getFirstObject(
+    safeContext.user,
+    safeContext.currentUser,
+    safeContext.authUser,
+    safeContext.session?.user,
+    safeContext.session?.currentUser,
+    safeContext.profile?.user,
+    safeContext.profile?.authUser
+  );
+
+  const candidateProfile = getFirstObject(
+    safeContext.profile,
+    safeContext.userProfile,
+    safeContext.account,
+    safeContext.member
+  );
+
+  const directId =
+    safeContext.userId ||
+    safeContext.user_id ||
+    safeContext.uid ||
+    safeContext.ownerId ||
+    safeContext.owner_id ||
+    safeContext.profileId ||
+    safeContext.profile_id ||
+    null;
+
+  const userId =
+    candidateUser?.id ||
+    candidateUser?.user_id ||
+    candidateUser?.uid ||
+    candidateProfile?.user_id ||
+    candidateProfile?.userId ||
+    candidateProfile?.id ||
+    directId ||
+    null;
+
+  if (!userId && !candidateUser && !candidateProfile) return null;
+
+  return {
+    ...(candidateProfile || {}),
+    ...(candidateUser || {}),
+    id: userId || candidateUser?.id || candidateProfile?.id || null,
+    user_id: userId || candidateProfile?.user_id || candidateUser?.user_id || null,
+    profile: candidateProfile || undefined,
+  };
+}
+
 function makeAssistantInstanceId() {
   return `clara-assistant-${Date.now()}-${Math.random().toString(36).slice(2)}`;
 }
@@ -328,6 +383,11 @@ function getBestContext(currentContext = {}, latestContext = {}) {
 }
 
 export default function ClaraAssistantPanel({ open, onClose, context = {} }) {
+  const normalizedFinanceUser = useMemo(
+    () => normalizeFinanceUserFromContext(context),
+    [context]
+  );
+
   const {
     expenses = [],
     wallets = [],
@@ -336,11 +396,19 @@ export default function ClaraAssistantPanel({ open, onClose, context = {} }) {
     budgets = [],
     savingsGoals = [],
     emergencyFund = {},
-  } = useFinancialData();
+  } = useFinancialData(normalizedFinanceUser || undefined);
 
   const offlineFinanceContext = useMemo(
     () => ({
       ...(context || {}),
+      user: normalizedFinanceUser || context?.user || null,
+      profile: context?.profile || normalizedFinanceUser?.profile || null,
+      userId:
+        normalizedFinanceUser?.id ||
+        normalizedFinanceUser?.user_id ||
+        context?.userId ||
+        context?.user_id ||
+        null,
       expenses: safeArray(expenses),
       wallets: safeArray(wallets),
       walletTransactions: safeArray(walletTransactions),
@@ -351,6 +419,7 @@ export default function ClaraAssistantPanel({ open, onClose, context = {} }) {
     }),
     [
       context,
+      normalizedFinanceUser,
       expenses,
       wallets,
       walletTransactions,
