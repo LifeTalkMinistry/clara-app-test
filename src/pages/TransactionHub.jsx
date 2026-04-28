@@ -20,11 +20,6 @@ import {
 
 import useUserRole from "../hooks/useUserRole";
 import useFinancialData from "../hooks/useFinancialData";
-import {
-  getLocalExpenses,
-  getPendingExpenses,
-  isClaraOnline,
-} from "@/lib/clara-offline-finance";
 
 const FILTERS = [
   ["all", "All Transactions"],
@@ -88,8 +83,10 @@ const isJsonLike = (value) => {
 
 const getLast12Months = () => {
   const now = new Date();
+
   return Array.from({ length: 12 }, (_, index) => {
     const d = new Date(now.getFullYear(), now.getMonth() - index, 1);
+
     return {
       key: `${d.getFullYear()}-${d.getMonth() + 1}`,
       label: d.toLocaleDateString("en-PH", {
@@ -103,23 +100,38 @@ const getLast12Months = () => {
 const getGroup = (item) => {
   const type = String(item.type || "").toLowerCase();
   const category = String(item.category || "").toLowerCase();
+  const sourceType = String(item.source_type || "").toLowerCase();
 
-  if (type.includes("transfer")) return "transfer";
-  if (type.includes("saving") || category.includes("saving")) return "savings";
+  if (type.includes("transfer") || sourceType.includes("transfer")) return "transfer";
+
+  if (
+    type.includes("saving") ||
+    category.includes("saving") ||
+    sourceType.includes("saving")
+  ) {
+    return "savings";
+  }
+
   if (
     type.includes("income") ||
     type.includes("deposit") ||
     type.includes("credit") ||
-    type.includes("add")
-  )
+    type.includes("add") ||
+    sourceType.includes("income") ||
+    sourceType.includes("deposit")
+  ) {
     return "income";
+  }
+
   if (
     type.includes("expense") ||
     type.includes("debit") ||
     type.includes("cashout") ||
-    type.includes("withdraw")
-  )
+    type.includes("withdraw") ||
+    sourceType.includes("expense")
+  ) {
     return "expense";
+  }
 
   return "wallet";
 };
@@ -168,7 +180,8 @@ const getToneClasses = (group, signedAmount = 0) => {
     return {
       glow: "bg-cyan-400/14",
       border: "border-cyan-300/20",
-      icon: "bg-cyan-400/12 text-cyan-100 shadow-[0_0_28px_rgba(34,211,238,0.16)]",
+      icon:
+        "bg-cyan-400/12 text-cyan-100 shadow-[0_0_28px_rgba(34,211,238,0.16)]",
       amount: "text-cyan-100",
       rail: "bg-cyan-300/45",
     };
@@ -203,14 +216,17 @@ const startOfDay = (dateValue) => {
 const daysBetween = (dateValue) => {
   const today = startOfDay(new Date());
   const target = startOfDay(dateValue);
+
   return Math.floor((today.getTime() - target.getTime()) / 86400000);
 };
 
 const getTimelineKey = (dateValue) => {
   const diff = daysBetween(dateValue);
+
   if (diff === 0) return "today";
   if (diff === 1) return "yesterday";
   if (diff >= 2 && diff <= 6) return "thisWeek";
+
   return "earlier";
 };
 
@@ -669,80 +685,70 @@ export default function TransactionHub() {
   const [filter, setFilter] = useState("all");
   const [search, setSearch] = useState("");
   const [refreshing, setRefreshing] = useState(false);
-  const [localExpenses, setLocalExpenses] = useState([]);
-  const [online, setOnline] = useState(() => isClaraOnline());
   const [openGroup, setOpenGroup] = useState(null);
-
-  const ownerKey = user?.id || user?.email || "guest";
-
-  useEffect(() => {
-    if (typeof window === "undefined") return undefined;
-
-    const syncOnline = () => setOnline(isClaraOnline());
-    window.addEventListener("online", syncOnline);
-    window.addEventListener("offline", syncOnline);
-    syncOnline();
-
-    return () => {
-      window.removeEventListener("online", syncOnline);
-      window.removeEventListener("offline", syncOnline);
-    };
-  }, []);
-
-  useEffect(() => {
-    let active = true;
-
-    (async () => {
-      try {
-        const [saved] = await Promise.all([
-          getLocalExpenses(ownerKey),
-          getPendingExpenses(ownerKey),
-        ]);
-        if (active) setLocalExpenses(Array.isArray(saved) ? saved : []);
-      } catch {
-        if (active) setLocalExpenses([]);
-      }
-    })();
-
-    return () => {
-      active = false;
-    };
-  }, [ownerKey]);
 
   const walletMap = useMemo(() => {
     const map = new Map();
+
     (financial.wallets || []).forEach((wallet) => {
       if (wallet?.id) map.set(String(wallet.id), wallet);
+      if (wallet?.local_id) map.set(String(wallet.local_id), wallet);
+      if (wallet?.wallet_id) map.set(String(wallet.wallet_id), wallet);
     });
+
     return map;
   }, [financial.wallets]);
 
   const activity = useMemo(() => {
     const all = [
       ...(financial.expenses || []),
-      ...localExpenses,
       ...(financial.walletTransactions || []),
       ...(financial.transfers || []),
     ];
 
+    const seen = new Set();
+
     return all
       .map((item, index) => {
-        const date = item.created_at || item.date || item.updated_at || new Date();
+        const date =
+          item.created_at ||
+          item.createdAt ||
+          item.date ||
+          item.transaction_date ||
+          item.updated_at ||
+          item.updatedAt ||
+          new Date();
+
         const group = getGroup(item);
+
         const wallet =
           walletMap.get(String(item.wallet_id || "")) ||
+          walletMap.get(String(item.walletId || "")) ||
           walletMap.get(String(item.from_wallet_id || "")) ||
-          walletMap.get(String(item.to_wallet_id || ""));
+          walletMap.get(String(item.fromWalletId || "")) ||
+          walletMap.get(String(item.to_wallet_id || "")) ||
+          walletMap.get(String(item.toWalletId || ""));
 
         const note = item.notes || item.note || item.description || "";
+        const stableId =
+          item.id ||
+          item.local_id ||
+          item.localId ||
+          item.transaction_id ||
+          `${group}-${date}-${item.amount}-${item.category || item.type || index}`;
+
+        const dedupeKey = String(stableId);
+
+        if (seen.has(dedupeKey)) return null;
+        seen.add(dedupeKey);
 
         return {
-          id: item.id || item.local_id || `${date}-${index}`,
+          id: dedupeKey,
           raw: item,
           date,
           monthKey: dateKey(date),
           group,
-          type: item.type || group,
+          type: item.type || item.source_type || group,
           title: titleCase(
             item.title ||
               item.name ||
@@ -762,8 +768,14 @@ export default function TransactionHub() {
           note: isJsonLike(note) ? "" : String(note || "").trim(),
         };
       })
+      .filter(Boolean)
       .sort((a, b) => parseDate(b.date).getTime() - parseDate(a.date).getTime());
-  }, [financial, localExpenses, walletMap]);
+  }, [
+    financial.expenses,
+    financial.walletTransactions,
+    financial.transfers,
+    walletMap,
+  ]);
 
   const monthlyActivity = useMemo(
     () => activity.filter((item) => item.monthKey === month),
@@ -830,7 +842,7 @@ export default function TransactionHub() {
   }, [monthlyActivity, filtered.length]);
 
   const refresh = async () => {
-    if (!online || typeof financial.refreshData !== "function") return;
+    if (typeof financial.refreshData !== "function") return;
 
     try {
       setRefreshing(true);
@@ -853,11 +865,18 @@ export default function TransactionHub() {
   const selectedMonthLabel =
     months.find((item) => item.key === month)?.label || "This month";
 
+  const hasOfflineReadyData =
+    Boolean(activity.length) ||
+    Boolean((financial.wallets || []).length) ||
+    Boolean((financial.expenses || []).length) ||
+    Boolean((financial.walletTransactions || []).length) ||
+    Boolean((financial.transfers || []).length);
+
   if (userLoading || financial.loading) {
     return <LoadingState />;
   }
 
-  if (financial.error) {
+  if (financial.error && !hasOfflineReadyData) {
     return (
       <ErrorState
         onBack={() => navigate("/dashboard")}
@@ -882,6 +901,7 @@ export default function TransactionHub() {
             type="button"
             onClick={() => navigate("/dashboard")}
             className="flex h-11 w-11 shrink-0 items-center justify-center rounded-[18px] border border-cyan-200/20 bg-cyan-100/10 text-white/85 shadow-[0_0_28px_rgba(34,211,238,0.13)] backdrop-blur-2xl transition duration-200 active:scale-[0.96]"
+            aria-label="Back to dashboard"
           >
             <ArrowLeft className="h-5 w-5" />
           </button>
@@ -898,8 +918,9 @@ export default function TransactionHub() {
           <button
             type="button"
             onClick={refresh}
-            disabled={refreshing || !online}
+            disabled={refreshing || typeof financial.refreshData !== "function"}
             className="flex h-11 w-11 shrink-0 items-center justify-center rounded-[18px] border border-cyan-200/20 bg-cyan-100/10 text-white/85 shadow-[0_0_28px_rgba(34,211,238,0.13)] backdrop-blur-2xl transition duration-200 disabled:opacity-45 active:scale-[0.96]"
+            aria-label="Refresh transactions"
           >
             <RefreshCw className={`h-4.5 w-4.5 ${refreshing ? "animate-spin" : ""}`} />
           </button>
@@ -946,7 +967,12 @@ export default function TransactionHub() {
             helper={summary.netFlow >= 0 ? "Positive month" : "Needs attention"}
             tone={summary.netFlow >= 0 ? "emerald" : "rose"}
           />
-          <SummaryCard label="Shown" value={summary.count} helper="Current view" tone="cyan" />
+          <SummaryCard
+            label="Shown"
+            value={summary.count}
+            helper="Current view"
+            tone="cyan"
+          />
         </section>
 
         <section className="relative overflow-hidden rounded-[24px] border border-white/10 bg-white/[0.052] p-2.5 shadow-[0_18px_58px_rgba(0,0,0,0.24)] backdrop-blur-2xl">
