@@ -13,6 +13,9 @@ import {
   addIncome as repoAddIncome,
   transferBetweenWallets as repoTransferBetweenWallets,
   getBudgets,
+  addBudget as repoAddBudget,
+  updateBudget as repoUpdateBudget,
+  deleteBudget as repoDeleteBudget,
 } from "@/lib/financeRepository";
 import {
   LOCAL_FINANCE_STORES,
@@ -202,7 +205,7 @@ export default function useFinancialData(user) {
     }
 
     await repoAddExpense(localUserId, expense);
-    await loadAll();
+    await refreshData();
   };
 
   const updateExpense = async (id, updates) => {
@@ -211,7 +214,7 @@ export default function useFinancialData(user) {
     }
 
     await repoUpdateExpense(localUserId, id, updates);
-    await loadAll();
+    await refreshData();
   };
 
   const deleteExpense = async (id) => {
@@ -220,7 +223,7 @@ export default function useFinancialData(user) {
     }
 
     await repoDeleteExpense(localUserId, id);
-    await loadAll();
+    await refreshData();
   };
 
   const addWallet = async (wallet) => {
@@ -229,7 +232,7 @@ export default function useFinancialData(user) {
     }
 
     await repoAddWallet(localUserId, wallet);
-    await loadAll();
+    await refreshData();
   };
 
   const updateWallet = async (id, updates) => {
@@ -238,7 +241,7 @@ export default function useFinancialData(user) {
     }
 
     await repoUpdateWallet(localUserId, id, updates);
-    await loadAll();
+    await refreshData();
   };
 
   const deleteWallet = async (id) => {
@@ -247,7 +250,7 @@ export default function useFinancialData(user) {
     }
 
     await repoDeleteWallet(localUserId, id);
-    await loadAll();
+    await refreshData();
   };
 
   const addIncome = async (income) => {
@@ -256,7 +259,7 @@ export default function useFinancialData(user) {
     }
 
     await repoAddIncome(localUserId, income);
-    await loadAll();
+    await refreshData();
   };
 
   const transferBetweenWallets = async (payload) => {
@@ -265,7 +268,34 @@ export default function useFinancialData(user) {
     }
 
     await repoTransferBetweenWallets(localUserId, payload);
-    await loadAll();
+    await refreshData();
+  };
+
+  const addBudget = async (budget) => {
+    if (!localUserId) {
+      throw new Error("User is required to add a budget.");
+    }
+
+    await repoAddBudget(localUserId, budget);
+    await refreshData();
+  };
+
+  const updateBudget = async (id, updates) => {
+    if (!localUserId) {
+      throw new Error("User is required to update a budget.");
+    }
+
+    await repoUpdateBudget(localUserId, id, updates);
+    await refreshData();
+  };
+
+  const deleteBudget = async (id) => {
+    if (!localUserId) {
+      throw new Error("User is required to delete a budget.");
+    }
+
+    await repoDeleteBudget(localUserId, id);
+    await refreshData();
   };
 
   const totalExpenses = useMemo(
@@ -325,5 +355,8 @@ export default function useFinancialData(user) {
     deleteWallet,
     addIncome,
     transferBetweenWallets,
+    addBudget,
+    updateBudget,
+    deleteBudget,
   };
 }
