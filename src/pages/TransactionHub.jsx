@@ -689,25 +689,29 @@ export default function TransactionHub() {
   const [refreshing, setRefreshing] = useState(false);
   const [openGroup, setOpenGroup] = useState(null);
 
+  const safeWallets = Array.isArray(financial.wallets) ? financial.wallets : [];
+  const safeExpenses = Array.isArray(financial.expenses) ? financial.expenses : [];
+  const safeWalletTransactions = Array.isArray(financial.walletTransactions)
+    ? financial.walletTransactions
+    : [];
+  const safeTransfers = Array.isArray(financial.transfers) ? financial.transfers : [];
+
   const walletMap = useMemo(() => {
     const map = new Map();
 
-    (financial.wallets || []).forEach((wallet) => {
+    safeWallets.forEach((wallet) => {
       if (wallet?.id) map.set(String(wallet.id), wallet);
       if (wallet?.local_id) map.set(String(wallet.local_id), wallet);
+      if (wallet?.localId) map.set(String(wallet.localId), wallet);
       if (wallet?.wallet_id) map.set(String(wallet.wallet_id), wallet);
+      if (wallet?.walletId) map.set(String(wallet.walletId), wallet);
     });
 
     return map;
-  }, [financial.wallets]);
+  }, [safeWallets]);
 
   const activity = useMemo(() => {
-    const all = [
-      ...(financial.expenses || []),
-      ...(financial.walletTransactions || []),
-      ...(financial.transfers || []),
-    ];
-
+    const all = [...safeExpenses, ...safeWalletTransactions, ...safeTransfers];
     const seen = new Set();
 
     return all
@@ -717,6 +721,7 @@ export default function TransactionHub() {
           item.createdAt ||
           item.date ||
           item.transaction_date ||
+          item.transactionDate ||
           item.updated_at ||
           item.updatedAt ||
           new Date();
@@ -729,7 +734,19 @@ export default function TransactionHub() {
           walletMap.get(String(item.from_wallet_id || "")) ||
           walletMap.get(String(item.fromWalletId || "")) ||
           walletMap.get(String(item.to_wallet_id || "")) ||
-          walletMap.get(String(item.toWalletId || ""));
+          walletMap.get(String(item.toWalletId || "")) ||
+          walletMap.get(String(item.source_wallet_id || "")) ||
+          walletMap.get(String(item.destination_wallet_id || ""));
+
+        const fromWallet =
+          walletMap.get(String(item.from_wallet_id || "")) ||
+          walletMap.get(String(item.fromWalletId || "")) ||
+          walletMap.get(String(item.source_wallet_id || ""));
+
+        const toWallet =
+          walletMap.get(String(item.to_wallet_id || "")) ||
+          walletMap.get(String(item.toWalletId || "")) ||
+          walletMap.get(String(item.destination_wallet_id || ""));
 
         const note = item.notes || item.note || item.description || "";
         const stableId =
@@ -737,6 +754,7 @@ export default function TransactionHub() {
           item.local_id ||
           item.localId ||
           item.transaction_id ||
+          item.transactionId ||
           `${group}-${date}-${item.amount}-${item.category || item.type || index}`;
 
         const dedupeKey = String(stableId);
@@ -744,24 +762,37 @@ export default function TransactionHub() {
         if (seen.has(dedupeKey)) return null;
         seen.add(dedupeKey);
 
+        const transferWalletLabel =
+          group === "transfer" && (fromWallet || toWallet)
+            ? `${fromWallet?.name || fromWallet?.wallet_name || "Wallet"} → ${
+                toWallet?.name || toWallet?.wallet_name || "Wallet"
+              }`
+            : "";
+
         return {
           id: dedupeKey,
           raw: item,
           date,
           monthKey: dateKey(date),
           group,
-          type: item.type || item.source_type || group,
+          type: item.type || item.source_type || item.sourceType || group,
           title: titleCase(
             item.title ||
               item.name ||
               item.merchant ||
               item.category ||
               item.source_type ||
+              item.sourceType ||
               item.type ||
               group
           ),
-          category: item.category || item.source_type || item.tag || "",
-          walletName: wallet?.name || wallet?.wallet_name || wallet?.title || "",
+          category: item.category || item.source_type || item.sourceType || item.tag || "",
+          walletName:
+            transferWalletLabel ||
+            wallet?.name ||
+            wallet?.wallet_name ||
+            wallet?.title ||
+            "",
           amount: cleanNumber(item.amount),
           signedAmount: getSignedAmount(item),
           needType: item.need_type || item.needType || "",
@@ -772,12 +803,7 @@ export default function TransactionHub() {
       })
       .filter(Boolean)
       .sort((a, b) => parseDate(b.date).getTime() - parseDate(a.date).getTime());
-  }, [
-    financial.expenses,
-    financial.walletTransactions,
-    financial.transfers,
-    walletMap,
-  ]);
+  }, [safeExpenses, safeWalletTransactions, safeTransfers, walletMap]);
 
   const monthlyActivity = useMemo(
     () => activity.filter((item) => item.monthKey === month),
@@ -869,10 +895,10 @@ export default function TransactionHub() {
 
   const hasOfflineReadyData =
     Boolean(activity.length) ||
-    Boolean((financial.wallets || []).length) ||
-    Boolean((financial.expenses || []).length) ||
-    Boolean((financial.walletTransactions || []).length) ||
-    Boolean((financial.transfers || []).length);
+    Boolean(safeWallets.length) ||
+    Boolean(safeExpenses.length) ||
+    Boolean(safeWalletTransactions.length) ||
+    Boolean(safeTransfers.length);
 
   if (userLoading || financial.loading) {
     return <LoadingState />;
@@ -882,9 +908,7 @@ export default function TransactionHub() {
     return (
       <ErrorState
         onBack={() => navigate("/dashboard")}
-        onRefresh={() => {
-          if (typeof financial.refreshData === "function") financial.refreshData();
-        }}
+        onRefresh={refresh}
       />
     );
   }
