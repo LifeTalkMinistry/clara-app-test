@@ -14,7 +14,6 @@ import { Label } from "@/components/ui/label";
 import EmptyState from "../components/EmptyState";
 import FeaturePageLoader from "../components/FeaturePageLoader";
 import useUserRole from "../hooks/useUserRole";
-import { supabase } from "../lib/supabaseClient";
 
 const PH_TIME_ZONE = "Asia/Manila";
 const PH_OFFSET_MINUTES = 8 * 60;
@@ -273,207 +272,235 @@ const monthKeyToRange = (monthKey) => {
   };
 };
 
-const isOwnedByUser = (item, user) => {
-  if (!item || !user) return false;
 
-  const userEmail = normalizeText(user.email);
-  const userId = normalizeText(user.id);
+const LOCAL_FINANCE_VERSION = 1;
+const LOCAL_FINANCE_PREFIX = "clara_local_finance_v1";
+const LOCAL_FINANCE_LAST_KEY = `${LOCAL_FINANCE_PREFIX}:last`;
+const LOCAL_BUDGETS_PREFIX = "clara_local_budgets_v1";
+const LOCAL_BUDGETS_LAST_KEY = `${LOCAL_BUDGETS_PREFIX}:last`;
 
-  const values = [
-    item?.created_by,
-    item?.email,
-    item?.user_email,
-    item?.userEmail,
-    item?.owner_email,
-    item?.user_id,
-    item?.userId,
-    item?.created_by_id,
-    item?.owner_id,
-  ]
-    .filter(Boolean)
-    .map(normalizeText);
+const isBrowser = () =>
+  typeof window !== "undefined" && typeof window.localStorage !== "undefined";
 
-  return values.includes(userEmail) || values.includes(userId);
+const safeJsonParse = (value, fallback = null) => {
+  try {
+    return value ? JSON.parse(value) : fallback;
+  } catch {
+    return fallback;
+  }
 };
 
-const getItemDate = (item) => {
-  const exactRaw =
-    item?.created_at ||
-    item?.timestamp ||
-    item?.datetime ||
-    item?.transaction_date ||
-    item?.expense_date;
+const getLocalFinanceKey = (userKey) =>
+  `${LOCAL_FINANCE_PREFIX}:${normalizeText(userKey || "guest") || "guest"}`;
 
-  if (exactRaw) {
-    const exactDate = new Date(exactRaw);
-    if (!Number.isNaN(exactDate.getTime())) return exactDate;
+const getLocalBudgetsKey = (userKey) =>
+  `${LOCAL_BUDGETS_PREFIX}:${normalizeText(userKey || "guest") || "guest"}`;
+
+const generateId = () => {
+  if (typeof crypto !== "undefined" && crypto.randomUUID) {
+    return crypto.randomUUID();
+  }
+  return `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+};
+
+const sortByDateDesc = (a, b) => {
+  const aTime = new Date(a?.updated_at || a?.created_at || a?.date || 0).getTime() || 0;
+  const bTime = new Date(b?.updated_at || b?.created_at || b?.date || 0).getTime() || 0;
+  return bTime - aTime;
+};
+
+const isNeedsCategory = (category) =>
+  ["housing", "food", "transport", "utilities", "health", "education"].includes(category);
+
+const isWantsCategory = (category) =>
+  ["entertainment", "shopping", "personal"].includes(category);
+
+const normalizeExpenseRow = (expense) => ({
+  ...expense,
+  id: String(expense?.id || generateId()),
+  wallet_id: expense?.wallet_id ? String(expense.wallet_id) : "",
+  amount: getExpenseAmount(expense),
+  category: getExpenseCategory(expense),
+  date: expense?.date || "",
+  need_type: expense?.need_type || expense?.type || null,
+  planning_status: expense?.planning_status || null,
+  created_at: expense?.created_at || expense?.date || new Date().toISOString(),
+  updated_at: expense?.updated_at || expense?.created_at || new Date().toISOString(),
+  local_only: expense?.local_only ?? true,
+});
+
+const normalizeBudgetRow = (budget) => {
+  const category = getBudgetCategory(budget);
+  const totalBudget = toNumber(budget?.allocated_amount ?? budget?.total_budget);
+  const fallbackRange = monthKeyToRange(budget?.month || getPHMonthKey());
+  const createdAt = budget?.created_at || new Date().toISOString();
+
+  return {
+    ...budget,
+    id: String(budget?.id || generateId()),
+    month: budget?.month || getPHMonthKey(createdAt),
+    category,
+    budget_category: budget?.budget_category || category,
+    allocated_amount: totalBudget,
+    total_budget: totalBudget,
+    needs_pct: toNumber(budget?.needs_pct ?? budget?.needs_percent ?? (isNeedsCategory(category) ? 100 : 0)),
+    wants_pct: toNumber(budget?.wants_pct ?? budget?.wants_percent ?? (isWantsCategory(category) ? 100 : 0)),
+    other_pct: toNumber(
+      budget?.other_pct ??
+        budget?.other_percent ??
+        budget?.savings_pct ??
+        budget?.savings_percent ??
+        (category === "other" ? 100 : 0)
+    ),
+    needs_percent: toNumber(budget?.needs_percent ?? budget?.needs_pct ?? (isNeedsCategory(category) ? 100 : 0)),
+    wants_percent: toNumber(budget?.wants_percent ?? budget?.wants_pct ?? (isWantsCategory(category) ? 100 : 0)),
+    other_percent: toNumber(
+      budget?.other_percent ??
+        budget?.other_pct ??
+        budget?.savings_percent ??
+        budget?.savings_pct ??
+        (category === "other" ? 100 : 0)
+    ),
+    savings_pct: toNumber(budget?.savings_pct ?? budget?.savings_percent ?? (category === "other" ? 100 : 0)),
+    savings_percent: toNumber(budget?.savings_percent ?? budget?.savings_pct ?? (category === "other" ? 100 : 0)),
+    tracking_start_date: getBudgetStart(budget, fallbackRange.start),
+    tracking_end_date: getBudgetEnd(budget, fallbackRange.end),
+    range_start: getBudgetStart(budget, fallbackRange.start),
+    range_end: getBudgetEnd(budget, fallbackRange.end),
+    is_manual_range: budget?.is_manual_range ?? true,
+    created_at: createdAt,
+    updated_at: budget?.updated_at || createdAt,
+    local_only: budget?.local_only ?? true,
+  };
+};
+
+const readLocalArrayFallback = (keys = []) => {
+  if (!isBrowser()) return [];
+
+  for (const key of keys) {
+    const parsed = safeJsonParse(window.localStorage.getItem(key), null);
+    if (Array.isArray(parsed)) return parsed;
+    if (Array.isArray(parsed?.items)) return parsed.items;
+    if (Array.isArray(parsed?.data)) return parsed.data;
   }
 
-  const plainDate = item?.date;
-  if (plainDate && /^\d{4}-\d{2}-\d{2}$/.test(String(plainDate))) {
-    return parsePHDateOnlyToUtcDate(String(plainDate), false);
+  return [];
+};
+
+const readLocalFinanceSnapshot = (key = null) => {
+  if (!isBrowser()) {
+    return {
+      key,
+      loaded: true,
+      version: LOCAL_FINANCE_VERSION,
+      updatedAt: new Date().toISOString(),
+      expenses: [],
+      wallets: [],
+      transactions: [],
+      transfers: [],
+    };
   }
 
-  const fallbackRaw = item?.range_start || item?.range_end;
-  if (fallbackRaw) {
-    const fallbackDate = new Date(fallbackRaw);
-    if (!Number.isNaN(fallbackDate.getTime())) return fallbackDate;
-  }
+  const normalizedKey = key || "guest";
+  const stored = safeJsonParse(window.localStorage.getItem(getLocalFinanceKey(normalizedKey)), null);
+  const last = safeJsonParse(window.localStorage.getItem(LOCAL_FINANCE_LAST_KEY), null);
+  const source = stored || (last?.key === normalizedKey ? last : null) || {};
+  const suffix = normalizeText(normalizedKey);
 
-  return null;
+  const legacyExpenses = readLocalArrayFallback([
+    `clara_expenses:${suffix}`,
+    `clara_local_expenses:${suffix}`,
+    "clara_expenses",
+    "clara_local_expenses",
+    "expenses",
+  ]);
+
+  return {
+    key: normalizedKey,
+    loaded: true,
+    version: LOCAL_FINANCE_VERSION,
+    updatedAt: source.updatedAt || source.updated_at || new Date().toISOString(),
+    expenses: (Array.isArray(source.expenses) ? source.expenses : legacyExpenses)
+      .map(normalizeExpenseRow)
+      .sort(sortByDateDesc),
+    wallets: Array.isArray(source.wallets) ? source.wallets : [],
+    transactions: Array.isArray(source.transactions) ? source.transactions : [],
+    transfers: Array.isArray(source.transfers) ? source.transfers : [],
+    budgets: Array.isArray(source.budgets) ? source.budgets : [],
+  };
 };
 
-const getExpenseAmount = (item) => {
-  return Math.abs(
-    toNumber(
-      item?.amount ??
-        item?.value ??
-        item?.spent ??
-        item?.expense_amount ??
-        item?.transaction_amount ??
-        item?.total ??
-        0
-    )
-  );
+const readLocalBudgets = (key = null) => {
+  if (!isBrowser()) return [];
+
+  const normalizedKey = key || "guest";
+  const stored = safeJsonParse(window.localStorage.getItem(getLocalBudgetsKey(normalizedKey)), null);
+  const last = safeJsonParse(window.localStorage.getItem(LOCAL_BUDGETS_LAST_KEY), null);
+  const finance = readLocalFinanceSnapshot(normalizedKey);
+  const suffix = normalizeText(normalizedKey);
+  const legacyBudgets = readLocalArrayFallback([
+    `clara_budgets:${suffix}`,
+    `clara_local_budgets:${suffix}`,
+    "clara_budgets",
+    "clara_local_budgets",
+    "budgets",
+  ]);
+
+  const sourceBudgets = Array.isArray(stored?.budgets)
+    ? stored.budgets
+    : Array.isArray(last?.budgets) && last?.key === normalizedKey
+      ? last.budgets
+      : Array.isArray(finance?.budgets)
+        ? finance.budgets
+        : legacyBudgets;
+
+  return sourceBudgets.map(normalizeBudgetRow).sort(sortByDateDesc);
 };
 
-const getExpenseCategory = (item) => {
-  const raw = normalizeText(
-    item?.category ||
-      item?.budget_category ||
-      item?.expense_category ||
-      item?.classification ||
-      item?.type ||
-      "other"
-  );
+const writeLocalBudgets = (key, budgets = []) => {
+  if (!isBrowser()) return budgets;
 
-  return BUDGET_CATEGORIES.includes(raw) ? raw : "other";
+  const normalizedKey = key || "guest";
+  const normalizedBudgets = budgets.map(normalizeBudgetRow).sort(sortByDateDesc);
+  const payload = {
+    key: normalizedKey,
+    version: LOCAL_FINANCE_VERSION,
+    updatedAt: new Date().toISOString(),
+    budgets: normalizedBudgets,
+  };
+
+  window.localStorage.setItem(getLocalBudgetsKey(normalizedKey), JSON.stringify(payload));
+  window.localStorage.setItem(LOCAL_BUDGETS_LAST_KEY, JSON.stringify(payload));
+
+  const finance = readLocalFinanceSnapshot(normalizedKey);
+  const nextFinance = {
+    ...finance,
+    key: normalizedKey,
+    version: LOCAL_FINANCE_VERSION,
+    updatedAt: new Date().toISOString(),
+    budgets: normalizedBudgets,
+  };
+
+  window.localStorage.setItem(getLocalFinanceKey(normalizedKey), JSON.stringify(nextFinance));
+  window.localStorage.setItem(LOCAL_FINANCE_LAST_KEY, JSON.stringify(nextFinance));
+
+  return normalizedBudgets;
 };
 
-const getBudgetCategory = (item) => {
-  const raw = normalizeText(
-    item?.category ||
-      item?.budget_category ||
-      item?.expense_category ||
-      item?.classification ||
-      item?.type ||
-      "other"
-  );
+const dispatchBudgetEvents = () => {
+  if (typeof window === "undefined") return;
 
-  return BUDGET_CATEGORIES.includes(raw) ? raw : "other";
-};
-
-const extractExpenseSignals = (item) => {
-  return [
-    item?.type,
-    item?.category,
-    item?.category_type,
-    item?.classification,
-    item?.expense_type,
-    item?.bucket,
-    item?.budget_type,
-    item?.label,
-    item?.need_type,
-    item?.main_category,
-    item?.sub_category,
-    item?.expense_category,
-    item?.title,
-    item?.name,
-    item?.description,
-    item?.notes,
-  ]
-    .filter(Boolean)
-    .map(normalizeText);
-};
-
-const includesKeyword = (signals, keywords) => {
-  return signals.some((signal) =>
-    keywords.some((keyword) => signal === keyword || signal.includes(keyword))
-  );
-};
-
-const getBudgetBucket = (item) => {
-  const signals = extractExpenseSignals(item);
-
-  if (!signals.length) return "other";
-
-  if (includesKeyword(signals, NEEDS_KEYWORDS)) return "needs";
-  if (includesKeyword(signals, WANTS_KEYWORDS)) return "wants";
-  if (includesKeyword(signals, OTHER_KEYWORDS)) return "other";
-
-  const rawPrimary =
-    normalizeText(item?.type) ||
-    normalizeText(item?.classification) ||
-    normalizeText(item?.budget_type) ||
-    normalizeText(item?.bucket);
-
-  if (rawPrimary === "needs" || rawPrimary === "need") return "needs";
-  if (rawPrimary === "wants" || rawPrimary === "want") return "wants";
-  if (rawPrimary === "other" || rawPrimary === "others") return "other";
-
-  return "other";
-};
-
-const formatRangeText = (start, end) => {
-  const startDate = start ? new Date(start) : null;
-  const endDate = end ? new Date(end) : null;
-
-  if (
-    !startDate ||
-    !endDate ||
-    Number.isNaN(startDate.getTime()) ||
-    Number.isNaN(endDate.getTime())
-  ) {
-    return "No range selected";
-  }
-
-  const formatter = new Intl.DateTimeFormat("en-PH", {
-    timeZone: PH_TIME_ZONE,
-    year: "numeric",
-    month: "numeric",
-    day: "numeric",
-    hour: "numeric",
-    minute: "2-digit",
-  });
-
-  return `${formatter.format(startDate)} → ${formatter.format(endDate)} (PH)`;
-};
-
-const getBudgetStart = (budget, fallback) =>
-  budget?.tracking_start_date ||
-  budget?.range_start_datetime ||
-  budget?.range_start ||
-  fallback;
-
-const getBudgetEnd = (budget, fallback) =>
-  budget?.tracking_end_date ||
-  budget?.range_end_datetime ||
-  budget?.range_end ||
-  fallback;
-
-const isMissingBudgetsTableError = (error) => {
-  const message = String(error?.message || "").toLowerCase();
-  const details = String(error?.details || "").toLowerCase();
-  const code = String(error?.code || "").toLowerCase();
-
-  return (
-    code === "pgrst205" ||
-    message.includes("could not find the table") ||
-    message.includes("schema cache") ||
-    message.includes("public.budgets") ||
-    details.includes("public.budgets")
-  );
-};
-
-const showBudgetsTableMissingAlert = () => {
-  alert(
-    "Supabase table 'budgets' does not exist yet. Please create the public.budgets table first in your Supabase SQL Editor."
-  );
+  [
+    "clara-budgets-updated",
+    "clara-finance-updated",
+    "clara-local-finance-updated",
+  ].forEach((eventName) => window.dispatchEvent(new Event(eventName)));
 };
 
 export default function Budgets() {
   const { user, access, loading: accessLoading } = useUserRole();
-  const canUseBudgets = access.budgets;
+  const cacheKey = user?.id || user?.email || "guest";
+  const canUseBudgets = access?.budgets ?? true;
 
   const [open, setOpen] = useState(false);
   const [budgets, setBudgets] = useState([]);
@@ -496,94 +523,54 @@ export default function Budgets() {
     range_end: toPHDateTimeLocalValue(defaultRange.end),
   });
 
-  const refreshPageData = useCallback(async () => {
-    if (!user) {
-      setBudgets([]);
-      setExpenses([]);
-      setLoading(false);
-      return;
-    }
+  const refreshPageData = useCallback(() => {
+    const finance = readLocalFinanceSnapshot(cacheKey);
+    const localBudgets = readLocalBudgets(cacheKey);
 
-    try {
-      setLoading(true);
-
-      const [budgetRes, expenseRes] = await Promise.all([
-        supabase.from("budgets").select("*").order("created_at", { ascending: false }),
-        supabase.from("expenses").select("*").order("created_at", { ascending: false }),
-      ]);
-
-      if (budgetRes.error) {
-        if (isMissingBudgetsTableError(budgetRes.error)) {
-          console.error("Missing budgets table:", budgetRes.error);
-          setBudgets([]);
-        } else {
-          throw budgetRes.error;
-        }
-      } else {
-        const safeBudgets = (budgetRes.data || []).filter((item) => isOwnedByUser(item, user));
-        setBudgets(safeBudgets);
-      }
-
-      if (expenseRes.error) {
-        console.error("Failed to load expenses:", expenseRes.error);
-        setExpenses([]);
-      } else {
-        const safeExpenses = (expenseRes.data || []).filter((item) => isOwnedByUser(item, user));
-        setExpenses(safeExpenses);
-      }
-    } catch (error) {
-      console.error("Failed to load budgets page data:", error);
-      setBudgets([]);
-      setExpenses([]);
-    } finally {
-      setLoading(false);
-    }
-  }, [user]);
+    setBudgets(localBudgets);
+    setExpenses(finance.expenses || []);
+    setLoading(false);
+  }, [cacheKey]);
 
   useEffect(() => {
     refreshPageData();
   }, [refreshPageData]);
 
   useEffect(() => {
-    if (!user) return;
-
-    const budgetsChannel = supabase
-      .channel(`budgets-page-budgets-${user.id || user.email}`)
-      .on("postgres_changes", { event: "*", schema: "public", table: "budgets" }, () => {
-        refreshPageData();
-      })
-      .subscribe();
-
-    const expensesChannel = supabase
-      .channel(`budgets-page-expenses-${user.id || user.email}`)
-      .on("postgres_changes", { event: "*", schema: "public", table: "expenses" }, () => {
-        refreshPageData();
-      })
-      .subscribe();
-
     const onRefresh = () => refreshPageData();
     const onVisibility = () => {
       if (document.visibilityState === "visible") {
         refreshPageData();
       }
     };
+    const onStorage = (event) => {
+      if (
+        !event?.key ||
+        event.key.includes(LOCAL_FINANCE_PREFIX) ||
+        event.key.includes(LOCAL_BUDGETS_PREFIX)
+      ) {
+        refreshPageData();
+      }
+    };
 
     window.addEventListener("focus", onRefresh);
+    window.addEventListener("storage", onStorage);
     window.addEventListener("clara-expenses-updated", onRefresh);
     window.addEventListener("clara-budgets-updated", onRefresh);
     window.addEventListener("clara-finance-updated", onRefresh);
+    window.addEventListener("clara-local-finance-updated", onRefresh);
     document.addEventListener("visibilitychange", onVisibility);
 
     return () => {
       window.removeEventListener("focus", onRefresh);
+      window.removeEventListener("storage", onStorage);
       window.removeEventListener("clara-expenses-updated", onRefresh);
       window.removeEventListener("clara-budgets-updated", onRefresh);
       window.removeEventListener("clara-finance-updated", onRefresh);
+      window.removeEventListener("clara-local-finance-updated", onRefresh);
       document.removeEventListener("visibilitychange", onVisibility);
-      supabase.removeChannel(budgetsChannel);
-      supabase.removeChannel(expensesChannel);
     };
-  }, [refreshPageData, user]);
+  }, [refreshPageData]);
 
   const currentBudget = useMemo(() => {
     const exactMonth = budgets.find(
@@ -726,7 +713,7 @@ export default function Budgets() {
   };
 
   const handleSubmit = async () => {
-    if (!form.total_budget || !canUseBudgets || !user?.email) return;
+    if (!form.total_budget || !canUseBudgets) return;
 
     const totalBudget = toNumber(form.total_budget);
     const category = BUDGET_CATEGORIES.includes(form.category) ? form.category : "other";
@@ -761,19 +748,21 @@ export default function Budgets() {
         (b) => b.month === form.month && getBudgetCategory(b) === category
       );
 
-      const payload = {
+      const nowIso = new Date().toISOString();
+      const payload = normalizeBudgetRow({
+        id: existing?.id || generateId(),
         month: form.month,
         category,
         budget_category: category,
         allocated_amount: totalBudget,
         total_budget: totalBudget,
 
-        needs_pct: category === "housing" || category === "food" || category === "transport" || category === "utilities" || category === "health" || category === "education" ? 100 : 0,
-        wants_pct: category === "entertainment" || category === "shopping" || category === "personal" ? 100 : 0,
+        needs_pct: isNeedsCategory(category) ? 100 : 0,
+        wants_pct: isWantsCategory(category) ? 100 : 0,
         other_pct: category === "other" ? 100 : 0,
 
-        needs_percent: category === "housing" || category === "food" || category === "transport" || category === "utilities" || category === "health" || category === "education" ? 100 : 0,
-        wants_percent: category === "entertainment" || category === "shopping" || category === "personal" ? 100 : 0,
+        needs_percent: isNeedsCategory(category) ? 100 : 0,
+        wants_percent: isWantsCategory(category) ? 100 : 0,
         other_percent: category === "other" ? 100 : 0,
 
         savings_pct: category === "other" ? 100 : 0,
@@ -786,55 +775,31 @@ export default function Budgets() {
         range_end: rangeEnd.toISOString(),
 
         is_manual_range: true,
-        updated_at: new Date().toISOString(),
-      };
+        created_at: existing?.created_at || nowIso,
+        updated_at: nowIso,
+        created_by: user?.email || null,
+        email: user?.email || null,
+        user_id: user?.id || null,
+      });
 
-      let result;
+      const nextBudgets = existing?.id
+        ? budgets.map((budget) => (String(budget.id) === String(existing.id) ? payload : budget))
+        : [payload, ...budgets];
 
-      if (existing?.id) {
-        result = await supabase.from("budgets").update(payload).eq("id", existing.id);
-      } else {
-        result = await supabase.from("budgets").insert([
-          {
-            ...payload,
-            created_at: new Date().toISOString(),
-            created_by: user.email,
-            email: user.email,
-            user_id: user.id || null,
-          },
-        ]);
-      }
-
-      if (result.error) {
-        console.error("Budget save error:", result.error);
-
-        if (isMissingBudgetsTableError(result.error)) {
-          showBudgetsTableMissingAlert();
-        } else {
-          alert(result.error.message || "Failed to save budget to Supabase.");
-        }
-        return;
-      }
-
-      await refreshPageData();
-      window.dispatchEvent(new Event("clara-budgets-updated"));
-      window.dispatchEvent(new Event("clara-finance-updated"));
+      const savedBudgets = writeLocalBudgets(cacheKey, nextBudgets);
+      setBudgets(savedBudgets);
+      dispatchBudgetEvents();
       setOpen(false);
     } catch (error) {
-      console.error("Failed to save budget:", error);
-
-      if (isMissingBudgetsTableError(error)) {
-        showBudgetsTableMissingAlert();
-      } else {
-        alert("Failed to save budget to Supabase.");
-      }
+      console.error("Failed to save local budget:", error);
+      alert("Failed to save budget locally.");
     } finally {
       setSaving(false);
     }
   };
 
   const handleReset = async () => {
-    if (!currentBudget || !user?.email || resetting) return;
+    if (!currentBudget || resetting) return;
 
     const confirmReset = window.confirm(
       "Reset tracking start to right now? Expenses before this exact date and time will no longer count."
@@ -854,41 +819,26 @@ export default function Budgets() {
           ? endDate.toISOString()
           : new Date(new Date(nowIso).getTime() + 60 * 60 * 1000).toISOString();
 
-      const result = await supabase
-        .from("budgets")
-        .update({
-          tracking_start_date: nowIso,
-          tracking_end_date: safeEnd,
-          range_start: nowIso,
-          range_end: safeEnd,
-          is_manual_range: true,
-          updated_at: new Date().toISOString(),
-        })
-        .eq("id", currentBudget.id);
+      const nextBudgets = budgets.map((budget) =>
+        String(budget.id) === String(currentBudget.id)
+          ? normalizeBudgetRow({
+              ...budget,
+              tracking_start_date: nowIso,
+              tracking_end_date: safeEnd,
+              range_start: nowIso,
+              range_end: safeEnd,
+              is_manual_range: true,
+              updated_at: nowIso,
+            })
+          : budget
+      );
 
-      if (result.error) {
-        console.error("Budget reset error:", result.error);
-
-        if (isMissingBudgetsTableError(result.error)) {
-          showBudgetsTableMissingAlert();
-        } else {
-          alert(result.error.message || "Failed to reset budget tracking.");
-        }
-        return;
-      }
-
-      await refreshPageData();
-      window.dispatchEvent(new Event("clara-budgets-updated"));
-      window.dispatchEvent(new Event("clara-expenses-updated"));
-      window.dispatchEvent(new Event("clara-finance-updated"));
+      const savedBudgets = writeLocalBudgets(cacheKey, nextBudgets);
+      setBudgets(savedBudgets);
+      dispatchBudgetEvents();
     } catch (error) {
-      console.error("Failed to reset budget tracking:", error);
-
-      if (isMissingBudgetsTableError(error)) {
-        showBudgetsTableMissingAlert();
-      } else {
-        alert("Failed to reset budget tracking.");
-      }
+      console.error("Failed to reset local budget tracking:", error);
+      alert("Failed to reset budget tracking locally.");
     } finally {
       setTimeout(() => setResetting(false), 150);
     }
@@ -931,251 +881,7 @@ export default function Budgets() {
   if (accessLoading) {
     return <FeaturePageLoader label="Preparing budgets..." />;
   }
-
   return (
-    <div className="p-4 md:p-6 max-w-4xl mx-auto">
-      <div className="flex items-center justify-between gap-3 mb-4">
-        <div>
-          <h1 className="text-2xl md:text-3xl font-bold tracking-tight">Budgets</h1>
-        </div>
-
-        {!canUseBudgets ? (
-          <div className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-muted text-muted-foreground text-xs font-medium">
-            <Lock className="w-3.5 h-3.5" /> Upgrade to use budgets
-          </div>
-        ) : (
-          <div className="flex gap-2">
-            <Dialog open={open} onOpenChange={setOpen}>
-              <DialogTrigger asChild>
-                <Button size="sm">
-                  <Plus className="w-4 h-4 mr-1" />
-                  {currentBudget ? "Edit Budget" : "Set Budget"}
-                </Button>
-              </DialogTrigger>
-
-              <DialogContent>
-                <DialogHeader>
-                  <DialogTitle>{currentBudget ? "Edit" : "Set"} Budget</DialogTitle>
-                  <DialogDescription>
-                    Set your total budget, category split, and exact clickable date/time range in
-                    Philippine time.
-                  </DialogDescription>
-                </DialogHeader>
-
-                <div className="space-y-4">
-                  <div>
-                    <Label>Month</Label>
-                    <Input
-                      type="month"
-                      value={form.month}
-                      onChange={(e) => handleMonthChange(e.target.value)}
-                    />
-                  </div>
-
-                  <div>
-                    <Label>Category</Label>
-                    <select
-                      value={form.category}
-                      onChange={(e) =>
-                        setForm((prev) => ({
-                          ...prev,
-                          category: e.target.value,
-                        }))
-                      }
-                      className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background"
-                    >
-                      {BUDGET_CATEGORIES.map((category) => (
-                        <option key={category} value={category}>
-                          {CATEGORY_LABELS[category]}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-
-                  <div>
-                    <Label>Total Budget (₱)</Label>
-                    <Input
-                      type="number"
-                      placeholder="0.00"
-                      value={form.total_budget}
-                      onChange={(e) =>
-                        setForm((prev) => ({
-                          ...prev,
-                          total_budget: e.target.value,
-                        }))
-                      }
-                    />
-                  </div>
-
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                    <div>
-                      <Label>From</Label>
-                      <Input
-                        type="datetime-local"
-                        value={form.range_start}
-                        onChange={(e) =>
-                          setForm((prev) => ({
-                            ...prev,
-                            range_start: e.target.value,
-                          }))
-                        }
-                      />
-                    </div>
-
-                    <div>
-                      <Label>To</Label>
-                      <Input
-                        type="datetime-local"
-                        value={form.range_end}
-                        onChange={(e) =>
-                          setForm((prev) => ({
-                            ...prev,
-                            range_end: e.target.value,
-                          }))
-                        }
-                      />
-                    </div>
-                  </div>
-
-                  <div className="hidden">
-                    <p className="text-xs font-medium mb-3">50 / 30 / 20 SPLIT</p>
-
-                    <div className="grid grid-cols-3 gap-3">
-                      <div>
-                        <Label className="text-xs">Needs %</Label>
-                        <Input
-                          type="number"
-                          value={form.needs_pct}
-                          onChange={(e) =>
-                            setForm((prev) => ({
-                              ...prev,
-                              needs_pct: e.target.value,
-                            }))
-                          }
-                        />
-                      </div>
-
-                      <div>
-                        <Label className="text-xs">Wants %</Label>
-                        <Input
-                          type="number"
-                          value={form.wants_pct}
-                          onChange={(e) =>
-                            setForm((prev) => ({
-                              ...prev,
-                              wants_pct: e.target.value,
-                            }))
-                          }
-                        />
-                      </div>
-
-                      <div>
-                        <Label className="text-xs">Other %</Label>
-                        <Input
-                          type="number"
-                          value={form.other_pct}
-                          onChange={(e) =>
-                            setForm((prev) => ({
-                              ...prev,
-                              other_pct: e.target.value,
-                            }))
-                          }
-                        />
-                      </div>
-                    </div>
-
-                    <p className="text-[11px] text-muted-foreground mt-3">
-                      Total must equal 100%
-                    </p>
-                  </div>
-
-                  <Button
-                    onClick={handleSubmit}
-                    className="w-full"
-                    disabled={!form.total_budget || saving}
-                  >
-                    {saving ? "Saving..." : "Save Budget"}
-                  </Button>
-                </div>
-              </DialogContent>
-            </Dialog>
-
-            {currentBudget && (
-              <Button size="sm" variant="outline" onClick={handleReset} disabled={resetting}>
-                <RotateCcw className={`w-4 h-4 mr-1 ${resetting ? "animate-spin" : ""}`} />
-                {resetting ? "Resetting..." : "Reset"}
-              </Button>
-            )}
-          </div>
-        )}
-      </div>
-
-      {canUseBudgets && !loading && !currentBudget && (
-        <EmptyState
-          icon={Target}
-          title="No budget set"
-          description="Set your budget and exact calculation range to start tracking."
-        />
-      )}
-
-      {canUseBudgets && currentBudget && (
-        <div className="space-y-4">
-          <div className="bg-card rounded-xl border border-border p-4">
-            <div className="flex items-start justify-between gap-4 mb-4">
-              <div>
-                <p className="text-xs text-muted-foreground">BUDGET</p>
-                <p className="font-heading text-2xl font-bold">{fmt(totalBudget)}</p>
-              </div>
-
-              <div className="text-right">
-                <p className="text-xs text-muted-foreground">SPENT</p>
-                <p className="font-heading text-2xl font-bold text-destructive">
-                  {fmt(totalSpent)}
-                </p>
-              </div>
-            </div>
-
-            <div className="flex items-start gap-2 rounded-lg border border-border/60 bg-muted/30 px-3 py-2 mb-4">
-              <CalendarRange className="w-4 h-4 mt-0.5 text-muted-foreground" />
-              <div>
-                <p className="text-[11px] uppercase tracking-wide text-muted-foreground">
-                  Active Calculation Range
-                </p>
-                <p className="text-sm font-medium">
-                  {formatRangeText(
-                    activeRangeStart?.toISOString(),
-                    activeRangeEnd?.toISOString()
-                  )}
-                </p>
-              </div>
-            </div>
-
-            <div className="h-3 bg-muted rounded-full overflow-hidden">
-              <div
-                className={`h-full rounded-full ${
-                  totalSpent > totalBudget ? "bg-destructive" : "bg-primary"
-                }`}
-                style={{
-                  width: `${Math.min(
-                    totalBudget > 0 ? (totalSpent / totalBudget) * 100 : 0,
-                    100
-                  )}%`,
-                }}
-              />
-            </div>
-
-            <p className="text-xs text-muted-foreground mt-2">
-              {fmt(Math.max(0, totalBudget - totalSpent))} remaining
-            </p>
-          </div>
-
-          {categoryBudgetCards.length > 0 && (
-            <div className="space-y-3">
-              {categoryBudgetCards.map((item) => {
-                const warning = item.pct >= 80 && item.pct < 100;
-                const exceeded = item.pct >= 100;
-
-                return (
                   <div key={item.category} className="bg-card rounded-xl border border-border p-4">
                     <div className="flex justify-between gap-3 mb-2">
                       <div>
