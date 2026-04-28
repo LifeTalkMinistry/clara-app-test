@@ -14,6 +14,8 @@ import { Label } from "@/components/ui/label";
 import EmptyState from "../components/EmptyState";
 import FeaturePageLoader from "../components/FeaturePageLoader";
 import useUserRole from "../hooks/useUserRole";
+import useFinancialData from "../hooks/useFinancialData";
+import * as financeRepository from "@/lib/financeRepository";
 
 const PH_TIME_ZONE = "Asia/Manila";
 const PH_OFFSET_MINUTES = 8 * 60;
@@ -131,6 +133,14 @@ const CATEGORY_LABELS = {
 };
 
 const toNumber = (value) => {
+  if (typeof value === "number") return Number.isFinite(value) ? value : 0;
+
+  if (typeof value === "string") {
+    const cleaned = value.replace(/[₱,\s]/g, "");
+    const n = Number(cleaned);
+    return Number.isFinite(n) ? n : 0;
+  }
+
   const n = Number(value);
   return Number.isFinite(n) ? n : 0;
 };
@@ -138,6 +148,26 @@ const toNumber = (value) => {
 const normalizeText = (value) => String(value || "").trim().toLowerCase();
 
 const pad = (n) => String(n).padStart(2, "0");
+
+const generateId = () => {
+  if (typeof crypto !== "undefined" && crypto.randomUUID) {
+    return crypto.randomUUID();
+  }
+
+  return `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+};
+
+const sortByDateDesc = (a, b) => {
+  const aTime =
+    new Date(a?.updated_at || a?.updatedAt || a?.created_at || a?.createdAt || a?.date || 0)
+      .getTime() || 0;
+
+  const bTime =
+    new Date(b?.updated_at || b?.updatedAt || b?.created_at || b?.createdAt || b?.date || 0)
+      .getTime() || 0;
+
+  return bTime - aTime;
+};
 
 const getPHParts = (value = new Date()) => {
   const date = value instanceof Date ? value : new Date(value);
@@ -272,219 +302,245 @@ const monthKeyToRange = (monthKey) => {
   };
 };
 
-
-const LOCAL_FINANCE_VERSION = 1;
-const LOCAL_FINANCE_PREFIX = "clara_local_finance_v1";
-const LOCAL_FINANCE_LAST_KEY = `${LOCAL_FINANCE_PREFIX}:last`;
-const LOCAL_BUDGETS_PREFIX = "clara_local_budgets_v1";
-const LOCAL_BUDGETS_LAST_KEY = `${LOCAL_BUDGETS_PREFIX}:last`;
-
-const isBrowser = () =>
-  typeof window !== "undefined" && typeof window.localStorage !== "undefined";
-
-const safeJsonParse = (value, fallback = null) => {
-  try {
-    return value ? JSON.parse(value) : fallback;
-  } catch {
-    return fallback;
-  }
-};
-
-const getLocalFinanceKey = (userKey) =>
-  `${LOCAL_FINANCE_PREFIX}:${normalizeText(userKey || "guest") || "guest"}`;
-
-const getLocalBudgetsKey = (userKey) =>
-  `${LOCAL_BUDGETS_PREFIX}:${normalizeText(userKey || "guest") || "guest"}`;
-
-const generateId = () => {
-  if (typeof crypto !== "undefined" && crypto.randomUUID) {
-    return crypto.randomUUID();
-  }
-  return `${Date.now()}-${Math.random().toString(36).slice(2)}`;
-};
-
-const sortByDateDesc = (a, b) => {
-  const aTime = new Date(a?.updated_at || a?.created_at || a?.date || 0).getTime() || 0;
-  const bTime = new Date(b?.updated_at || b?.created_at || b?.date || 0).getTime() || 0;
-  return bTime - aTime;
-};
-
 const isNeedsCategory = (category) =>
   ["housing", "food", "transport", "utilities", "health", "education"].includes(category);
 
 const isWantsCategory = (category) =>
   ["entertainment", "shopping", "personal"].includes(category);
 
+const getExpenseAmount = (expense) => {
+  const raw =
+    expense?.amount ??
+    expense?.expense_amount ??
+    expense?.total ??
+    expense?.value ??
+    expense?.price ??
+    0;
+
+  return Math.abs(toNumber(raw));
+};
+
+const getExpenseCategory = (expense) => {
+  const raw =
+    expense?.category ??
+    expense?.budget_category ??
+    expense?.expense_category ??
+    expense?.type ??
+    expense?.label ??
+    "";
+
+  const normalized = normalizeText(raw);
+
+  if (BUDGET_CATEGORIES.includes(normalized)) return normalized;
+
+  if (normalized.includes("food") || normalized.includes("grocery")) return "food";
+  if (normalized.includes("transport") || normalized.includes("fare")) return "transport";
+  if (normalized.includes("rent") || normalized.includes("house")) return "housing";
+  if (normalized.includes("bill") || normalized.includes("util")) return "utilities";
+  if (normalized.includes("entertain") || normalized.includes("fun")) return "entertainment";
+  if (normalized.includes("shop")) return "shopping";
+  if (normalized.includes("health") || normalized.includes("medical")) return "health";
+  if (normalized.includes("school") || normalized.includes("education")) return "education";
+  if (normalized.includes("personal")) return "personal";
+
+  return "other";
+};
+
+const getBudgetCategory = (budget) => {
+  const category = normalizeText(
+    budget?.category ??
+      budget?.budget_category ??
+      budget?.expense_category ??
+      budget?.name ??
+      budget?.label ??
+      "other"
+  );
+
+  return BUDGET_CATEGORIES.includes(category) ? category : "other";
+};
+
+const getBudgetStart = (budget, fallback) =>
+  budget?.tracking_start_date ||
+  budget?.trackingStartDate ||
+  budget?.range_start ||
+  budget?.rangeStart ||
+  budget?.start_date ||
+  budget?.startDate ||
+  budget?.created_at ||
+  budget?.createdAt ||
+  fallback;
+
+const getBudgetEnd = (budget, fallback) =>
+  budget?.tracking_end_date ||
+  budget?.trackingEndDate ||
+  budget?.range_end ||
+  budget?.rangeEnd ||
+  budget?.end_date ||
+  budget?.endDate ||
+  fallback;
+
 const normalizeExpenseRow = (expense) => ({
   ...expense,
   id: String(expense?.id || generateId()),
-  wallet_id: expense?.wallet_id ? String(expense.wallet_id) : "",
+  wallet_id: expense?.wallet_id ? String(expense.wallet_id) : expense?.walletId || "",
   amount: getExpenseAmount(expense),
   category: getExpenseCategory(expense),
-  date: expense?.date || "",
-  need_type: expense?.need_type || expense?.type || null,
-  planning_status: expense?.planning_status || null,
-  created_at: expense?.created_at || expense?.date || new Date().toISOString(),
-  updated_at: expense?.updated_at || expense?.created_at || new Date().toISOString(),
-  local_only: expense?.local_only ?? true,
+  date: expense?.date || expense?.created_at || expense?.createdAt || new Date().toISOString(),
+  need_type: expense?.need_type || expense?.needType || expense?.type || null,
+  planning_status: expense?.planning_status || expense?.planningStatus || null,
+  created_at: expense?.created_at || expense?.createdAt || expense?.date || new Date().toISOString(),
+  updated_at: expense?.updated_at || expense?.updatedAt || expense?.created_at || new Date().toISOString(),
 });
 
 const normalizeBudgetRow = (budget) => {
   const category = getBudgetCategory(budget);
-  const totalBudget = toNumber(budget?.allocated_amount ?? budget?.total_budget);
+  const totalBudget = toNumber(budget?.allocated_amount ?? budget?.allocatedAmount ?? budget?.total_budget ?? budget?.totalBudget);
   const fallbackRange = monthKeyToRange(budget?.month || getPHMonthKey());
-  const createdAt = budget?.created_at || new Date().toISOString();
+  const createdAt = budget?.created_at || budget?.createdAt || new Date().toISOString();
 
   return {
     ...budget,
     id: String(budget?.id || generateId()),
     month: budget?.month || getPHMonthKey(createdAt),
     category,
-    budget_category: budget?.budget_category || category,
+    budget_category: budget?.budget_category || budget?.budgetCategory || category,
     allocated_amount: totalBudget,
+    allocatedAmount: totalBudget,
     total_budget: totalBudget,
-    needs_pct: toNumber(budget?.needs_pct ?? budget?.needs_percent ?? (isNeedsCategory(category) ? 100 : 0)),
-    wants_pct: toNumber(budget?.wants_pct ?? budget?.wants_percent ?? (isWantsCategory(category) ? 100 : 0)),
+    totalBudget: totalBudget,
+    needs_pct: toNumber(
+      budget?.needs_pct ?? budget?.needsPercent ?? budget?.needs_percent ?? (isNeedsCategory(category) ? 100 : 0)
+    ),
+    wants_pct: toNumber(
+      budget?.wants_pct ?? budget?.wantsPercent ?? budget?.wants_percent ?? (isWantsCategory(category) ? 100 : 0)
+    ),
     other_pct: toNumber(
       budget?.other_pct ??
+        budget?.otherPercent ??
         budget?.other_percent ??
         budget?.savings_pct ??
+        budget?.savingsPercent ??
         budget?.savings_percent ??
         (category === "other" ? 100 : 0)
     ),
-    needs_percent: toNumber(budget?.needs_percent ?? budget?.needs_pct ?? (isNeedsCategory(category) ? 100 : 0)),
-    wants_percent: toNumber(budget?.wants_percent ?? budget?.wants_pct ?? (isWantsCategory(category) ? 100 : 0)),
+    needs_percent: toNumber(
+      budget?.needs_percent ?? budget?.needsPercent ?? budget?.needs_pct ?? (isNeedsCategory(category) ? 100 : 0)
+    ),
+    wants_percent: toNumber(
+      budget?.wants_percent ?? budget?.wantsPercent ?? budget?.wants_pct ?? (isWantsCategory(category) ? 100 : 0)
+    ),
     other_percent: toNumber(
       budget?.other_percent ??
+        budget?.otherPercent ??
         budget?.other_pct ??
         budget?.savings_percent ??
+        budget?.savingsPercent ??
         budget?.savings_pct ??
         (category === "other" ? 100 : 0)
     ),
-    savings_pct: toNumber(budget?.savings_pct ?? budget?.savings_percent ?? (category === "other" ? 100 : 0)),
-    savings_percent: toNumber(budget?.savings_percent ?? budget?.savings_pct ?? (category === "other" ? 100 : 0)),
+    savings_pct: toNumber(
+      budget?.savings_pct ?? budget?.savingsPercent ?? budget?.savings_percent ?? (category === "other" ? 100 : 0)
+    ),
+    savings_percent: toNumber(
+      budget?.savings_percent ?? budget?.savingsPercent ?? budget?.savings_pct ?? (category === "other" ? 100 : 0)
+    ),
     tracking_start_date: getBudgetStart(budget, fallbackRange.start),
+    trackingStartDate: getBudgetStart(budget, fallbackRange.start),
     tracking_end_date: getBudgetEnd(budget, fallbackRange.end),
+    trackingEndDate: getBudgetEnd(budget, fallbackRange.end),
     range_start: getBudgetStart(budget, fallbackRange.start),
+    rangeStart: getBudgetStart(budget, fallbackRange.start),
     range_end: getBudgetEnd(budget, fallbackRange.end),
-    is_manual_range: budget?.is_manual_range ?? true,
+    rangeEnd: getBudgetEnd(budget, fallbackRange.end),
+    is_manual_range: budget?.is_manual_range ?? budget?.isManualRange ?? true,
+    isManualRange: budget?.isManualRange ?? budget?.is_manual_range ?? true,
     created_at: createdAt,
-    updated_at: budget?.updated_at || createdAt,
-    local_only: budget?.local_only ?? true,
+    createdAt,
+    updated_at: budget?.updated_at || budget?.updatedAt || createdAt,
+    updatedAt: budget?.updatedAt || budget?.updated_at || createdAt,
   };
 };
 
-const readLocalArrayFallback = (keys = []) => {
-  if (!isBrowser()) return [];
+const getItemDate = (item) => {
+  const raw =
+    item?.date ||
+    item?.spent_at ||
+    item?.spentAt ||
+    item?.transaction_date ||
+    item?.transactionDate ||
+    item?.created_at ||
+    item?.createdAt ||
+    item?.updated_at ||
+    item?.updatedAt;
 
-  for (const key of keys) {
-    const parsed = safeJsonParse(window.localStorage.getItem(key), null);
-    if (Array.isArray(parsed)) return parsed;
-    if (Array.isArray(parsed?.items)) return parsed.items;
-    if (Array.isArray(parsed?.data)) return parsed.data;
+  if (!raw) return null;
+
+  const date = new Date(raw);
+  return Number.isNaN(date.getTime()) ? null : date;
+};
+
+const textIncludesAny = (text, keywords) => {
+  const normalized = normalizeText(text);
+  return keywords.some((keyword) => normalized.includes(keyword));
+};
+
+const getBudgetBucket = (expense) => {
+  const needType = normalizeText(
+    expense?.need_type ??
+      expense?.needType ??
+      expense?.bucket ??
+      expense?.budget_bucket ??
+      expense?.budgetBucket ??
+      expense?.expense_type ??
+      expense?.expenseType ??
+      expense?.type
+  );
+
+  if (["need", "needs"].includes(needType)) return "needs";
+  if (["want", "wants"].includes(needType)) return "wants";
+  if (["other", "others", "saving", "savings"].includes(needType)) return "other";
+
+  const category = getExpenseCategory(expense);
+
+  if (isNeedsCategory(category)) return "needs";
+  if (isWantsCategory(category)) return "wants";
+
+  const haystack = [
+    expense?.category,
+    expense?.budget_category,
+    expense?.budgetCategory,
+    expense?.title,
+    expense?.name,
+    expense?.description,
+    expense?.note,
+    expense?.merchant,
+  ].join(" ");
+
+  if (textIncludesAny(haystack, NEEDS_KEYWORDS)) return "needs";
+  if (textIncludesAny(haystack, WANTS_KEYWORDS)) return "wants";
+  if (textIncludesAny(haystack, OTHER_KEYWORDS)) return "other";
+
+  return "other";
+};
+
+const formatRangeText = (startValue, endValue) => {
+  const start = startValue ? new Date(startValue) : null;
+  const end = endValue ? new Date(endValue) : null;
+
+  if (!start || !end || Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) {
+    return "No active range";
   }
 
-  return [];
-};
+  const formatter = new Intl.DateTimeFormat("en-PH", {
+    timeZone: PH_TIME_ZONE,
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+  });
 
-const readLocalFinanceSnapshot = (key = null) => {
-  if (!isBrowser()) {
-    return {
-      key,
-      loaded: true,
-      version: LOCAL_FINANCE_VERSION,
-      updatedAt: new Date().toISOString(),
-      expenses: [],
-      wallets: [],
-      transactions: [],
-      transfers: [],
-    };
-  }
-
-  const normalizedKey = key || "guest";
-  const stored = safeJsonParse(window.localStorage.getItem(getLocalFinanceKey(normalizedKey)), null);
-  const last = safeJsonParse(window.localStorage.getItem(LOCAL_FINANCE_LAST_KEY), null);
-  const source = stored || (last?.key === normalizedKey ? last : null) || {};
-  const suffix = normalizeText(normalizedKey);
-
-  const legacyExpenses = readLocalArrayFallback([
-    `clara_expenses:${suffix}`,
-    `clara_local_expenses:${suffix}`,
-    "clara_expenses",
-    "clara_local_expenses",
-    "expenses",
-  ]);
-
-  return {
-    key: normalizedKey,
-    loaded: true,
-    version: LOCAL_FINANCE_VERSION,
-    updatedAt: source.updatedAt || source.updated_at || new Date().toISOString(),
-    expenses: (Array.isArray(source.expenses) ? source.expenses : legacyExpenses)
-      .map(normalizeExpenseRow)
-      .sort(sortByDateDesc),
-    wallets: Array.isArray(source.wallets) ? source.wallets : [],
-    transactions: Array.isArray(source.transactions) ? source.transactions : [],
-    transfers: Array.isArray(source.transfers) ? source.transfers : [],
-    budgets: Array.isArray(source.budgets) ? source.budgets : [],
-  };
-};
-
-const readLocalBudgets = (key = null) => {
-  if (!isBrowser()) return [];
-
-  const normalizedKey = key || "guest";
-  const stored = safeJsonParse(window.localStorage.getItem(getLocalBudgetsKey(normalizedKey)), null);
-  const last = safeJsonParse(window.localStorage.getItem(LOCAL_BUDGETS_LAST_KEY), null);
-  const finance = readLocalFinanceSnapshot(normalizedKey);
-  const suffix = normalizeText(normalizedKey);
-  const legacyBudgets = readLocalArrayFallback([
-    `clara_budgets:${suffix}`,
-    `clara_local_budgets:${suffix}`,
-    "clara_budgets",
-    "clara_local_budgets",
-    "budgets",
-  ]);
-
-  const sourceBudgets = Array.isArray(stored?.budgets)
-    ? stored.budgets
-    : Array.isArray(last?.budgets) && last?.key === normalizedKey
-      ? last.budgets
-      : Array.isArray(finance?.budgets)
-        ? finance.budgets
-        : legacyBudgets;
-
-  return sourceBudgets.map(normalizeBudgetRow).sort(sortByDateDesc);
-};
-
-const writeLocalBudgets = (key, budgets = []) => {
-  if (!isBrowser()) return budgets;
-
-  const normalizedKey = key || "guest";
-  const normalizedBudgets = budgets.map(normalizeBudgetRow).sort(sortByDateDesc);
-  const payload = {
-    key: normalizedKey,
-    version: LOCAL_FINANCE_VERSION,
-    updatedAt: new Date().toISOString(),
-    budgets: normalizedBudgets,
-  };
-
-  window.localStorage.setItem(getLocalBudgetsKey(normalizedKey), JSON.stringify(payload));
-  window.localStorage.setItem(LOCAL_BUDGETS_LAST_KEY, JSON.stringify(payload));
-
-  const finance = readLocalFinanceSnapshot(normalizedKey);
-  const nextFinance = {
-    ...finance,
-    key: normalizedKey,
-    version: LOCAL_FINANCE_VERSION,
-    updatedAt: new Date().toISOString(),
-    budgets: normalizedBudgets,
-  };
-
-  window.localStorage.setItem(getLocalFinanceKey(normalizedKey), JSON.stringify(nextFinance));
-  window.localStorage.setItem(LOCAL_FINANCE_LAST_KEY, JSON.stringify(nextFinance));
-
-  return normalizedBudgets;
+  return `${formatter.format(start)} - ${formatter.format(end)}`;
 };
 
 const dispatchBudgetEvents = () => {
@@ -497,16 +553,54 @@ const dispatchBudgetEvents = () => {
   ].forEach((eventName) => window.dispatchEvent(new Event(eventName)));
 };
 
+const callBudgetCreate = async (userKey, payload) => {
+  if (typeof financeRepository.addBudget === "function") {
+    return financeRepository.addBudget(userKey, payload);
+  }
+
+  if (typeof financeRepository.createBudget === "function") {
+    return financeRepository.createBudget(userKey, payload);
+  }
+
+  if (typeof financeRepository.upsertBudget === "function") {
+    return financeRepository.upsertBudget(userKey, payload);
+  }
+
+  throw new Error("No budget create function found in financeRepository.");
+};
+
+const callBudgetUpdate = async (userKey, id, payload) => {
+  if (typeof financeRepository.updateBudget === "function") {
+    return financeRepository.updateBudget(userKey, id, payload);
+  }
+
+  if (typeof financeRepository.saveBudget === "function") {
+    return financeRepository.saveBudget(userKey, id, payload);
+  }
+
+  if (typeof financeRepository.upsertBudget === "function") {
+    return financeRepository.upsertBudget(userKey, payload);
+  }
+
+  throw new Error("No budget update function found in financeRepository.");
+};
+
 export default function Budgets() {
   const { user, access, loading: accessLoading } = useUserRole();
-  const cacheKey = user?.id || user?.email || "guest";
+
+  const localUserId = user?.id || user?.email || "";
   const canUseBudgets = access?.budgets ?? true;
 
+  const {
+    loading: financeLoading,
+    budgets: financeBudgets = [],
+    expenses: financeExpenses = [],
+    wallets: financeWallets = [],
+    refreshData,
+  } = useFinancialData(user);
+
   const [open, setOpen] = useState(false);
-  const [budgets, setBudgets] = useState([]);
-  const [expenses, setExpenses] = useState([]);
   const [resetting, setResetting] = useState(false);
-  const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
 
   const currentMonth = getPHMonthKey(new Date());
@@ -523,14 +617,29 @@ export default function Budgets() {
     range_end: toPHDateTimeLocalValue(defaultRange.end),
   });
 
-  const refreshPageData = useCallback(() => {
-    const finance = readLocalFinanceSnapshot(cacheKey);
-    const localBudgets = readLocalBudgets(cacheKey);
+  const budgets = useMemo(() => {
+    return Array.isArray(financeBudgets)
+      ? financeBudgets.map(normalizeBudgetRow).sort(sortByDateDesc)
+      : [];
+  }, [financeBudgets]);
 
-    setBudgets(localBudgets);
-    setExpenses(finance.expenses || []);
-    setLoading(false);
-  }, [cacheKey]);
+  const expenses = useMemo(() => {
+    return Array.isArray(financeExpenses)
+      ? financeExpenses.map(normalizeExpenseRow).sort(sortByDateDesc)
+      : [];
+  }, [financeExpenses]);
+
+  const wallets = useMemo(() => {
+    return Array.isArray(financeWallets) ? financeWallets : [];
+  }, [financeWallets]);
+
+  const refreshPageData = useCallback(async () => {
+    if (typeof refreshData === "function") {
+      await refreshData();
+    }
+
+    dispatchBudgetEvents();
+  }, [refreshData]);
 
   useEffect(() => {
     refreshPageData();
@@ -538,23 +647,14 @@ export default function Budgets() {
 
   useEffect(() => {
     const onRefresh = () => refreshPageData();
+
     const onVisibility = () => {
       if (document.visibilityState === "visible") {
         refreshPageData();
       }
     };
-    const onStorage = (event) => {
-      if (
-        !event?.key ||
-        event.key.includes(LOCAL_FINANCE_PREFIX) ||
-        event.key.includes(LOCAL_BUDGETS_PREFIX)
-      ) {
-        refreshPageData();
-      }
-    };
 
     window.addEventListener("focus", onRefresh);
-    window.addEventListener("storage", onStorage);
     window.addEventListener("clara-expenses-updated", onRefresh);
     window.addEventListener("clara-budgets-updated", onRefresh);
     window.addEventListener("clara-finance-updated", onRefresh);
@@ -563,7 +663,6 @@ export default function Budgets() {
 
     return () => {
       window.removeEventListener("focus", onRefresh);
-      window.removeEventListener("storage", onStorage);
       window.removeEventListener("clara-expenses-updated", onRefresh);
       window.removeEventListener("clara-budgets-updated", onRefresh);
       window.removeEventListener("clara-finance-updated", onRefresh);
@@ -576,6 +675,7 @@ export default function Budgets() {
     const exactMonth = budgets.find(
       (b) => b.month === currentMonth && getBudgetCategory(b) === form.category
     );
+
     if (exactMonth) return exactMonth;
 
     return (
@@ -583,8 +683,8 @@ export default function Budgets() {
         .filter((budget) => budget.month === currentMonth)
         .slice()
         .sort((a, b) => {
-          const aTime = new Date(a.updated_at || a.created_at || 0).getTime();
-          const bTime = new Date(b.updated_at || b.created_at || 0).getTime();
+          const aTime = new Date(a.updated_at || a.updatedAt || a.created_at || a.createdAt || 0).getTime();
+          const bTime = new Date(b.updated_at || b.updatedAt || b.created_at || b.createdAt || 0).getTime();
           return bTime - aTime;
         })[0] || null
     );
@@ -597,7 +697,7 @@ export default function Budgets() {
       setForm({
         month: currentBudget.month || currentMonth,
         category: getBudgetCategory(currentBudget),
-        total_budget: String(currentBudget.total_budget ?? ""),
+        total_budget: String(currentBudget.total_budget ?? currentBudget.totalBudget ?? currentBudget.allocated_amount ?? ""),
         needs_pct: String(currentBudget.needs_pct ?? currentBudget.needs_percent ?? 50),
         wants_pct: String(currentBudget.wants_pct ?? currentBudget.wants_percent ?? 30),
         other_pct: String(
@@ -715,6 +815,11 @@ export default function Budgets() {
   const handleSubmit = async () => {
     if (!form.total_budget || !canUseBudgets) return;
 
+    if (!localUserId) {
+      alert("Please sign in before saving a budget.");
+      return;
+    }
+
     const totalBudget = toNumber(form.total_budget);
     const category = BUDGET_CATEGORIES.includes(form.category) ? form.category : "other";
 
@@ -749,6 +854,7 @@ export default function Budgets() {
       );
 
       const nowIso = new Date().toISOString();
+
       const payload = normalizeBudgetRow({
         id: existing?.id || generateId(),
         month: form.month,
@@ -775,24 +881,25 @@ export default function Budgets() {
         range_end: rangeEnd.toISOString(),
 
         is_manual_range: true,
-        created_at: existing?.created_at || nowIso,
+        created_at: existing?.created_at || existing?.createdAt || nowIso,
         updated_at: nowIso,
         created_by: user?.email || null,
         email: user?.email || null,
         user_id: user?.id || null,
       });
 
-      const nextBudgets = existing?.id
-        ? budgets.map((budget) => (String(budget.id) === String(existing.id) ? payload : budget))
-        : [payload, ...budgets];
+      if (existing?.id) {
+        await callBudgetUpdate(localUserId, existing.id, payload);
+      } else {
+        await callBudgetCreate(localUserId, payload);
+      }
 
-      const savedBudgets = writeLocalBudgets(cacheKey, nextBudgets);
-      setBudgets(savedBudgets);
+      await refreshPageData();
       dispatchBudgetEvents();
       setOpen(false);
     } catch (error) {
-      console.error("Failed to save local budget:", error);
-      alert("Failed to save budget locally.");
+      console.error("Failed to save budget:", error);
+      alert("Failed to save budget.");
     } finally {
       setSaving(false);
     }
@@ -801,9 +908,15 @@ export default function Budgets() {
   const handleReset = async () => {
     if (!currentBudget || resetting) return;
 
+    if (!localUserId) {
+      alert("Please sign in before resetting a budget.");
+      return;
+    }
+
     const confirmReset = window.confirm(
       "Reset tracking start to right now? Expenses before this exact date and time will no longer count."
     );
+
     if (!confirmReset) return;
 
     try {
@@ -819,26 +932,22 @@ export default function Budgets() {
           ? endDate.toISOString()
           : new Date(new Date(nowIso).getTime() + 60 * 60 * 1000).toISOString();
 
-      const nextBudgets = budgets.map((budget) =>
-        String(budget.id) === String(currentBudget.id)
-          ? normalizeBudgetRow({
-              ...budget,
-              tracking_start_date: nowIso,
-              tracking_end_date: safeEnd,
-              range_start: nowIso,
-              range_end: safeEnd,
-              is_manual_range: true,
-              updated_at: nowIso,
-            })
-          : budget
-      );
+      const payload = normalizeBudgetRow({
+        ...currentBudget,
+        tracking_start_date: nowIso,
+        tracking_end_date: safeEnd,
+        range_start: nowIso,
+        range_end: safeEnd,
+        is_manual_range: true,
+        updated_at: nowIso,
+      });
 
-      const savedBudgets = writeLocalBudgets(cacheKey, nextBudgets);
-      setBudgets(savedBudgets);
+      await callBudgetUpdate(localUserId, currentBudget.id, payload);
+      await refreshPageData();
       dispatchBudgetEvents();
     } catch (error) {
-      console.error("Failed to reset local budget tracking:", error);
-      alert("Failed to reset budget tracking locally.");
+      console.error("Failed to reset budget tracking:", error);
+      alert("Failed to reset budget tracking.");
     } finally {
       setTimeout(() => setResetting(false), 150);
     }
@@ -851,13 +960,16 @@ export default function Budgets() {
       minimumFractionDigits: 0,
     }).format(toNumber(n));
 
-  const totalBudget = toNumber(currentBudget?.total_budget);
+  const totalBudget = toNumber(currentBudget?.total_budget ?? currentBudget?.totalBudget ?? currentBudget?.allocated_amount);
+
   const needsBudget = currentBudget
     ? (totalBudget * toNumber(currentBudget.needs_pct ?? currentBudget.needs_percent ?? 50)) / 100
     : 0;
+
   const wantsBudget = currentBudget
     ? (totalBudget * toNumber(currentBudget.wants_pct ?? currentBudget.wants_percent ?? 30)) / 100
     : 0;
+
   const otherBudget = currentBudget
     ? (totalBudget *
         toNumber(
@@ -866,7 +978,8 @@ export default function Budgets() {
             currentBudget.savings_pct ??
             currentBudget.savings_percent ??
             20
-        )) / 100
+        )) /
+      100
     : 0;
 
   const totalSpent = toNumber(financials.totalSpent);
@@ -874,13 +987,14 @@ export default function Budgets() {
   const wantsSpent = toNumber(financials.wantsSpent);
   const otherSpent = toNumber(financials.otherSpent);
 
-  if (loading) {
+  if (financeLoading) {
     return <FeaturePageLoader label="Preparing budgets..." />;
   }
 
   if (accessLoading) {
     return <FeaturePageLoader label="Preparing budgets..." />;
   }
+
   return (
     <div className="p-4 md:p-6 max-w-4xl mx-auto">
       <div className="flex items-center justify-between gap-3 mb-4">
@@ -1059,7 +1173,7 @@ export default function Budgets() {
         )}
       </div>
 
-      {canUseBudgets && !loading && !currentBudget && (
+      {canUseBudgets && !financeLoading && !currentBudget && (
         <EmptyState
           icon={Target}
           title="No budget set"
@@ -1141,6 +1255,7 @@ export default function Budgets() {
                           </p>
                         )}
                       </div>
+
                       <span className="text-sm text-muted-foreground">
                         {fmt(item.used)} / {fmt(item.allocated)}
                       </span>
