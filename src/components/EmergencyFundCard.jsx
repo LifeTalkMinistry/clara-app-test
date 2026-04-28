@@ -10,8 +10,10 @@ import {
   ChevronDown,
   ChevronUp,
   Sparkles,
+  Plus,
 } from "lucide-react";
 import SurvivalExpenseModal from "./SurvivalExpenseModal";
+import { useFinancialData } from "../hooks/useFinancialData";
 
 const fmt = (n) =>
   new Intl.NumberFormat("en-PH", {
@@ -30,27 +32,23 @@ const VALID_TARGET_MONTHS = [3, 6, 12];
 const ORB_LONG_PRESS_MS = 520;
 const ORB_DOUBLE_TAP_DELAY_MS = 340;
 
-const EMERGENCY_TARGET_MONTHS_KEY = "clara_emergency_target_months";
-const EMERGENCY_WALLPAPER_KEY = "clara_wallpaper";
-const EMERGENCY_WALLPAPER_OPACITY_KEY = "clara_wallpaper_opacity";
 const MOTION_TRANSITION_KEY = "clara_motion_transition_origin";
 const TRANSACTION_TRANSITION_KEY = "clara_transactions_transition_origin";
 const MOTION_TARGET_KEY = "clara_motion_target_path";
 
-function getStoredTargetMonths() {
-  try {
-    const saved = Number(localStorage.getItem(EMERGENCY_TARGET_MONTHS_KEY));
-    if (VALID_TARGET_MONTHS.includes(saved)) return saved;
-    return 3;
-  } catch {
-    return 3;
-  }
+function clampOpacity(value) {
+  return Math.max(0, Math.min(Number(value) || 0.3, 0.5));
 }
 
-function setStoredTargetMonths(value) {
-  try {
-    localStorage.setItem(EMERGENCY_TARGET_MONTHS_KEY, String(value));
-  } catch {}
+function getEmergencyValue(emergencyFund, keys, fallback = 0) {
+  for (const key of keys) {
+    const value = emergencyFund?.[key];
+    if (value !== undefined && value !== null && value !== "") {
+      return value;
+    }
+  }
+
+  return fallback;
 }
 
 function storeAnalyticsTransitionOrigin(element) {
@@ -140,39 +138,6 @@ function getProgression(months, targetMonths) {
   return "Start building your protection today.";
 }
 
-function getStoredWallpaper() {
-  try {
-    return localStorage.getItem(EMERGENCY_WALLPAPER_KEY) || "";
-  } catch {
-    return "";
-  }
-}
-
-function getStoredWallpaperOpacity() {
-  try {
-    const saved = Number(localStorage.getItem(EMERGENCY_WALLPAPER_OPACITY_KEY));
-    if (Number.isNaN(saved)) return 0.3;
-    return Math.max(0, Math.min(saved, 0.5));
-  } catch {
-    return 0.3;
-  }
-}
-
-function saveWallpaperToStorage(url, opacity) {
-  try {
-    if (url) {
-      localStorage.setItem(EMERGENCY_WALLPAPER_KEY, url);
-    } else {
-      localStorage.removeItem(EMERGENCY_WALLPAPER_KEY);
-    }
-
-    localStorage.setItem(
-      EMERGENCY_WALLPAPER_OPACITY_KEY,
-      String(Math.max(0, Math.min(Number(opacity) || 0.3, 0.5)))
-    );
-  } catch {}
-}
-
 function getEmergencyThemeClasses(theme) {
   const isLight = theme?.isLight === true;
   const border = isLight ? "border-slate-300/45" : "border-white/10";
@@ -193,7 +158,8 @@ function getEmergencyThemeClasses(theme) {
       ? "border-cyan-300/40 bg-cyan-500/10 shadow-[0_0_18px_rgba(14,165,233,0.10)]"
       : "border-cyan-400/20 bg-cyan-400/10 shadow-[0_0_18px_rgba(34,211,238,0.12)]",
     iconColor: isLight ? "text-cyan-700" : "text-cyan-300",
-    background: theme?.tokens?.gradientEmergency || "var(--theme-gradient-emergency)",
+    background:
+      theme?.tokens?.gradientEmergency || "var(--theme-gradient-emergency)",
     outline: theme?.tokens?.border || "var(--theme-border)",
   };
 }
@@ -211,19 +177,32 @@ export default function EmergencyFundCard({
 }) {
   const navigate = useNavigate();
 
+  const {
+    emergencyFund,
+    wallets = [],
+    walletTransactions = [],
+    transfers = [],
+    updateEmergencyFund,
+    refreshData,
+  } = useFinancialData();
+
   const [expanded, setExpanded] = useState(false);
   const [editing, setEditing] = useState(false);
   const [showModal, setShowModal] = useState(false);
-  const [targetMonths, setTargetMonths] = useState(getStoredTargetMonths());
+  const [targetMonths, setTargetMonths] = useState(3);
 
-  const [wallpaper, setWallpaper] = useState(getStoredWallpaper());
-  const [wallpaperOpacity, setWallpaperOpacity] = useState(
-    getStoredWallpaperOpacity()
-  );
+  const [wallpaper, setWallpaper] = useState("");
+  const [wallpaperOpacity, setWallpaperOpacity] = useState(0.3);
 
   const [showWallpaperModal, setShowWallpaperModal] = useState(false);
-  const [draftWallpaper, setDraftWallpaper] = useState(getStoredWallpaper());
-  const [draftOpacity, setDraftOpacity] = useState(getStoredWallpaperOpacity());
+  const [draftWallpaper, setDraftWallpaper] = useState("");
+  const [draftOpacity, setDraftOpacity] = useState(0.3);
+
+  const [showTopUpModal, setShowTopUpModal] = useState(false);
+  const [topUpAmount, setTopUpAmount] = useState("");
+  const [topUpWalletId, setTopUpWalletId] = useState("");
+  const [topUpError, setTopUpError] = useState("");
+  const [saving, setSaving] = useState(false);
 
   const hasPrompted = useRef(false);
   const autoPromptTimeoutRef = useRef(null);
@@ -232,13 +211,58 @@ export default function EmergencyFundCard({
   const orbTapTimeoutRef = useRef(null);
   const orbTapCountRef = useRef(0);
 
-  const propExpense = Number(survivalExpense) || 0;
-  const effectiveExpense = propExpense;
-  const safeMoneyLeft = Number(moneyLeft) || 0;
+  const emergencyTargetMonths = Number(
+    getEmergencyValue(
+      emergencyFund,
+      ["targetMonths", "target_months", "months_target"],
+      3
+    )
+  );
+
+  const emergencySavedAmount = Number(
+    getEmergencyValue(
+      emergencyFund,
+      ["savedAmount", "saved_amount", "amount", "balance", "moneyLeft"],
+      moneyLeft
+    )
+  );
+
+  const emergencySurvivalExpense = Number(
+    getEmergencyValue(
+      emergencyFund,
+      ["survivalExpense", "survival_expense", "monthlyExpense", "monthly_expense"],
+      survivalExpense
+    )
+  );
+
+  const emergencyWallpaper =
+    getEmergencyValue(emergencyFund, ["wallpaper", "background", "image"], "") ||
+    "";
+
+  const emergencyWallpaperOpacity = clampOpacity(
+    getEmergencyValue(
+      emergencyFund,
+      ["wallpaperOpacity", "wallpaper_opacity", "backgroundOpacity"],
+      0.3
+    )
+  );
 
   useEffect(() => {
-    setStoredTargetMonths(targetMonths);
-  }, [targetMonths]);
+    if (VALID_TARGET_MONTHS.includes(emergencyTargetMonths)) {
+      setTargetMonths(emergencyTargetMonths);
+    } else {
+      setTargetMonths(3);
+    }
+
+    setWallpaper(emergencyWallpaper);
+    setWallpaperOpacity(emergencyWallpaperOpacity);
+  }, [emergencyTargetMonths, emergencyWallpaper, emergencyWallpaperOpacity]);
+
+  useEffect(() => {
+    if (!topUpWalletId && wallets.length > 0) {
+      setTopUpWalletId(String(wallets[0]?.id || wallets[0]?.wallet_id || ""));
+    }
+  }, [topUpWalletId, wallets]);
 
   useEffect(() => {
     return () => {
@@ -258,6 +282,10 @@ export default function EmergencyFundCard({
       }
     };
   }, []);
+
+  const propExpense = Number(survivalExpense) || 0;
+  const effectiveExpense = emergencySurvivalExpense || propExpense;
+  const safeMoneyLeft = Number(emergencySavedAmount) || Number(moneyLeft) || 0;
 
   useEffect(() => {
     if (autoPromptTimeoutRef.current) {
@@ -306,25 +334,71 @@ export default function EmergencyFundCard({
     [safeMoneyLeft, target]
   );
 
+  const selectedWallet = useMemo(() => {
+    return wallets.find((wallet) => {
+      const id = String(wallet?.id || wallet?.wallet_id || "");
+      return id === String(topUpWalletId);
+    });
+  }, [topUpWalletId, wallets]);
+
+  const selectedWalletBalance = Number(
+    selectedWallet?.balance ??
+      selectedWallet?.current_balance ??
+      selectedWallet?.amount ??
+      0
+  );
+
   const status = getStatus(months, targetMonths);
   const progression = getProgression(months, targetMonths);
   const milestone = MILESTONES.find((m) => m.months === targetMonths);
   const themeClasses = getEmergencyThemeClasses(theme);
 
-  const handleSaved = (val) => {
+  const persistEmergencyFund = async (patch) => {
+    if (typeof updateEmergencyFund !== "function") return;
+
+    setSaving(true);
+
+    try {
+      await updateEmergencyFund({
+        ...(emergencyFund || {}),
+        ...patch,
+      });
+
+      if (typeof refreshData === "function") {
+        await refreshData();
+      }
+    } catch (error) {
+      console.error("Unable to update emergency fund:", error);
+      throw error;
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleSaved = async (val) => {
     const num = Number(val) || 0;
 
     setEditing(false);
     setShowModal(false);
     hasPrompted.current = true;
 
+    await persistEmergencyFund({
+      survivalExpense: num,
+      survival_expense: num,
+    });
+
     onSurvivalSaved?.(num);
   };
 
-  const changeTargetMonths = (next) => {
+  const changeTargetMonths = async (next) => {
     if (!VALID_TARGET_MONTHS.includes(next)) return;
+
     setTargetMonths(next);
-    setStoredTargetMonths(next);
+
+    await persistEmergencyFund({
+      targetMonths: next,
+      target_months: next,
+    });
   };
 
   const clearOrbTapTimer = () => {
@@ -419,16 +493,11 @@ export default function EmergencyFundCard({
     }, ORB_DOUBLE_TAP_DELAY_MS);
   };
 
-  const resolvedWallpaperOpacity = Math.max(
-    0,
-    Math.min(Number(wallpaperOpacity) || 0.3, 0.5)
-  );
+  const resolvedWallpaperOpacity = clampOpacity(wallpaperOpacity);
 
   const openWallpaperModal = () => {
     setDraftWallpaper(wallpaper || "");
-    setDraftOpacity(
-      Math.max(0, Math.min(Number(wallpaperOpacity) || 0.3, 0.5))
-    );
+    setDraftOpacity(clampOpacity(wallpaperOpacity));
     setShowWallpaperModal(true);
   };
 
@@ -446,17 +515,66 @@ export default function EmergencyFundCard({
     reader.readAsDataURL(file);
   };
 
-  const handleWallpaperSave = () => {
-    const safeOpacity = Math.max(0, Math.min(Number(draftOpacity) || 0.3, 0.5));
+  const handleWallpaperSave = async () => {
+    const safeOpacity = clampOpacity(draftOpacity);
     setWallpaper(draftWallpaper || "");
     setWallpaperOpacity(safeOpacity);
-    saveWallpaperToStorage(draftWallpaper || "", safeOpacity);
+
+    await persistEmergencyFund({
+      wallpaper: draftWallpaper || "",
+      wallpaperOpacity: safeOpacity,
+      wallpaper_opacity: safeOpacity,
+    });
+
     setShowWallpaperModal(false);
   };
 
   const handleWallpaperRemove = () => {
     setDraftWallpaper("");
     setDraftOpacity(0.3);
+  };
+
+  const openTopUpModal = () => {
+    setTopUpAmount("");
+    setTopUpError("");
+    setShowTopUpModal(true);
+  };
+
+  const handleTopUpSave = async () => {
+    const amount = Number(topUpAmount);
+
+    if (!amount || amount <= 0) {
+      setTopUpError("Enter a valid amount.");
+      return;
+    }
+
+    if (!topUpWalletId) {
+      setTopUpError("Choose a wallet first.");
+      return;
+    }
+
+    if (selectedWalletBalance < amount) {
+      setTopUpError("This wallet does not have enough balance.");
+      return;
+    }
+
+    const nextSavedAmount = safeMoneyLeft + amount;
+
+    await persistEmergencyFund({
+      savedAmount: nextSavedAmount,
+      saved_amount: nextSavedAmount,
+      amount: nextSavedAmount,
+      lastTopUpAmount: amount,
+      last_top_up_amount: amount,
+      lastTopUpWalletId: topUpWalletId,
+      last_top_up_wallet_id: topUpWalletId,
+      walletTransactions,
+      transfers,
+    });
+
+    setShowTopUpModal(false);
+    setTopUpAmount("");
+    setTopUpError("");
   };
 
   return (
@@ -472,6 +590,104 @@ export default function EmergencyFundCard({
           }
         }}
       />
+
+      {showTopUpModal && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+          <div
+            className="absolute inset-0 bg-black/70 backdrop-blur-sm"
+            onClick={() => setShowTopUpModal(false)}
+          />
+
+          <div className="theme-modal-card relative z-10 w-full max-w-md overflow-hidden rounded-3xl shadow-2xl">
+            <div className="flex items-center justify-between border-b border-white/10 p-4">
+              <div>
+                <p className={`text-base font-semibold ${themeClasses.title}`}>
+                  Add Emergency Fund
+                </p>
+                <p className={`mt-0.5 text-xs ${themeClasses.muted}`}>
+                  Move money from a wallet into your protection fund
+                </p>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => setShowTopUpModal(false)}
+                className="flex h-9 w-9 items-center justify-center rounded-xl border border-white/10 bg-white/5 text-white/70 transition hover:bg-white/10 hover:text-white"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+
+            <div className="space-y-4 p-4">
+              <div>
+                <label className="mb-2 block text-[11px] font-semibold uppercase tracking-[0.16em] text-white/55">
+                  Source Wallet
+                </label>
+
+                <select
+                  value={topUpWalletId}
+                  onChange={(e) => {
+                    setTopUpWalletId(e.target.value);
+                    setTopUpError("");
+                  }}
+                  className="w-full rounded-2xl border border-white/10 bg-black/25 px-4 py-3 text-sm font-semibold text-white outline-none transition focus:border-emerald-400/40"
+                >
+                  {wallets.map((wallet) => {
+                    const id = String(wallet?.id || wallet?.wallet_id || "");
+                    const name = wallet?.name || wallet?.title || "Wallet";
+                    const balance = Number(
+                      wallet?.balance ??
+                        wallet?.current_balance ??
+                        wallet?.amount ??
+                        0
+                    );
+
+                    return (
+                      <option key={id} value={id} className="bg-slate-950">
+                        {name} — {fmt(balance)}
+                      </option>
+                    );
+                  })}
+                </select>
+              </div>
+
+              <div>
+                <label className="mb-2 block text-[11px] font-semibold uppercase tracking-[0.16em] text-white/55">
+                  Amount
+                </label>
+
+                <input
+                  type="number"
+                  min="0"
+                  value={topUpAmount}
+                  onChange={(e) => {
+                    setTopUpAmount(e.target.value);
+                    setTopUpError("");
+                  }}
+                  placeholder="0"
+                  className="w-full rounded-2xl border border-white/10 bg-black/25 px-4 py-3 text-sm font-semibold text-white outline-none transition placeholder:text-white/35 focus:border-emerald-400/40"
+                />
+              </div>
+
+              {topUpError && (
+                <div className="rounded-2xl border border-rose-400/20 bg-rose-500/10 px-4 py-3 text-xs font-semibold text-rose-200">
+                  {topUpError}
+                </div>
+              )}
+
+              <button
+                type="button"
+                onClick={handleTopUpSave}
+                disabled={saving}
+                className="flex w-full items-center justify-center gap-2 rounded-2xl border border-emerald-400/30 bg-emerald-500/15 px-4 py-3 text-sm font-semibold text-emerald-300 transition hover:bg-emerald-500/20 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                <Check className="h-4 w-4" />
+                {saving ? "Saving..." : "Add to Emergency Fund"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {showWallpaperModal && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
@@ -509,10 +725,7 @@ export default function EmergencyFundCard({
                       className="absolute inset-0 bg-cover bg-center bg-no-repeat"
                       style={{
                         backgroundImage: `url("${draftWallpaper}")`,
-                        opacity: Math.max(
-                          0,
-                          Math.min(Number(draftOpacity) || 0.3, 0.5)
-                        ),
+                        opacity: clampOpacity(draftOpacity),
                       }}
                     />
                   ) : (
@@ -579,10 +792,11 @@ export default function EmergencyFundCard({
                 <button
                   type="button"
                   onClick={handleWallpaperSave}
-                  className="flex items-center justify-center gap-2 rounded-2xl border border-emerald-400/30 bg-emerald-500/15 px-4 py-3 text-sm font-semibold text-emerald-300 transition hover:bg-emerald-500/20"
+                  disabled={saving}
+                  className="flex items-center justify-center gap-2 rounded-2xl border border-emerald-400/30 bg-emerald-500/15 px-4 py-3 text-sm font-semibold text-emerald-300 transition hover:bg-emerald-500/20 disabled:cursor-not-allowed disabled:opacity-60"
                 >
                   <Check className="h-4 w-4" />
-                  Save
+                  {saving ? "Saving..." : "Save"}
                 </button>
               </div>
             </div>
@@ -699,7 +913,9 @@ export default function EmergencyFundCard({
                 Start your fund
               </p>
             ) : (
-              <p className={`text-[32px] font-bold leading-none ${status.text}`}>
+              <p
+                className={`text-[32px] font-bold leading-none ${status.text}`}
+              >
                 {months.toFixed(1)}
                 <span className="ml-1.5 text-base font-semibold text-white/85">
                   months
@@ -777,7 +993,8 @@ export default function EmergencyFundCard({
                         key={m}
                         type="button"
                         onClick={() => changeTargetMonths(m)}
-                        className={`relative rounded-xl border px-2 py-2.5 text-xs font-semibold transition-all duration-200 ${
+                        disabled={saving}
+                        className={`relative rounded-xl border px-2 py-2.5 text-xs font-semibold transition-all duration-200 disabled:cursor-not-allowed disabled:opacity-70 ${
                           active
                             ? "border-emerald-400/40 bg-emerald-500/15 text-emerald-300 shadow-[0_0_18px_rgba(52,211,153,0.25)]"
                             : "border-white/10 bg-white/5 text-white/80 hover:bg-white/10 hover:text-white"
@@ -846,6 +1063,15 @@ export default function EmergencyFundCard({
                   Background
                 </button>
               </div>
+
+              <button
+                type="button"
+                onClick={openTopUpModal}
+                className="flex w-full items-center justify-center gap-2 rounded-2xl border border-emerald-400/25 bg-emerald-500/10 px-4 py-3 text-sm font-semibold text-emerald-300 transition hover:bg-emerald-500/15"
+              >
+                <Plus className="h-4 w-4" />
+                Add Fund
+              </button>
             </div>
           )}
         </div>
