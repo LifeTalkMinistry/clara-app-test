@@ -2,6 +2,7 @@
  * CLARA Local Finance Store
  *
  * Phase 2B — Local IndexedDB Foundation Only
+ * Phase LOCAL-1 — Dormant Local Multi-Store Transaction Helper
  *
  * This file creates CLARA's dormant local-first IndexedDB foundation for
  * private finance data. It is intentionally not connected to app pages yet.
@@ -122,6 +123,18 @@ function assertPrivateStore(storeName) {
   }
 }
 
+function normalizeStoreNames(storeNames) {
+  const list = Array.isArray(storeNames) ? storeNames : [storeNames];
+  const uniqueStoreNames = [...new Set(list.map((storeName) => String(storeName || "").trim()))];
+
+  if (!uniqueStoreNames.length || uniqueStoreNames.some((storeName) => !storeName)) {
+    throw new Error("At least one local finance store name is required.");
+  }
+
+  uniqueStoreNames.forEach(assertKnownStore);
+  return uniqueStoreNames;
+}
+
 function nowIso() {
   return new Date().toISOString();
 }
@@ -146,8 +159,10 @@ function requestToPromise(request) {
 function transactionToPromise(transaction) {
   return new Promise((resolve, reject) => {
     transaction.oncomplete = () => resolve(true);
-    transaction.onerror = () => reject(transaction.error || new Error("IndexedDB transaction failed."));
-    transaction.onabort = () => reject(transaction.error || new Error("IndexedDB transaction aborted."));
+    transaction.onerror = () =>
+      reject(transaction.error || new Error("IndexedDB transaction failed."));
+    transaction.onabort = () =>
+      reject(transaction.error || new Error("IndexedDB transaction aborted."));
   });
 }
 
@@ -295,6 +310,183 @@ export async function closeLocalFinanceDb() {
   dbPromise = null;
 }
 
+/**
+ * Runs multiple local finance store operations inside one IndexedDB transaction.
+ *
+ * This is dormant foundation only. It does not connect IndexedDB to live pages.
+ *
+ * Usage example:
+ * await runLocalFinanceTransaction(
+ *   [LOCAL_FINANCE_STORES.wallets, LOCAL_FINANCE_STORES.expenses],
+ *   localUserId,
+ *   async ({ get, put }) => {
+ *     const wallet = await get(LOCAL_FINANCE_STORES.wallets, walletId);
+ *     await put(LOCAL_FINANCE_STORES.wallets, { ...wallet, balance: wallet.balance - 100 });
+ *   }
+ * );
+ */
+export async function runLocalFinanceTransaction(
+  storeNames,
+  localUserId,
+  callback,
+  options = {}
+) {
+  const safeLocalUserId = normalizeLocalUserId(localUserId);
+  const safeStoreNames = normalizeStoreNames(storeNames);
+  const mode = options.mode === "readonly" ? "readonly" : "readwrite";
+
+  if (typeof callback !== "function") {
+    throw new Error("A local finance transaction callback is required.");
+  }
+
+  const db = await openLocalFinanceDb();
+  const transaction = db.transaction(safeStoreNames, mode);
+  const transactionDone = transactionToPromise(transaction);
+
+  const getStore = (storeName) => {
+    assertKnownStore(storeName);
+
+    if (!safeStoreNames.includes(storeName)) {
+      throw new Error(
+        `Store ${storeName} was not included in this local finance transaction.`
+      );
+    }
+
+    return transaction.objectStore(storeName);
+  };
+
+  const helpers = {
+    localUserId: safeLocalUserId,
+    transaction,
+    storeNames: safeStoreNames,
+
+    store(storeName) {
+      return getStore(storeName);
+    },
+
+    async get(storeName, id) {
+      if (!id) return null;
+      const record = await requestToPromise(getStore(storeName).get(id));
+
+      if (!record || record.localUserId !== safeLocalUserId || record.deletedAt) {
+        return null;
+      }
+
+      return record;
+    },
+
+    async getAny(storeName, id) {
+      if (!id) return null;
+      return requestToPromise(getStore(storeName).get(id));
+    },
+
+    async getAllForUser(storeName, includeDeleted = false) {
+      const records = await requestToPromise(
+        getStore(storeName).index("localUserId").getAll(safeLocalUserId)
+      );
+
+      return includeDeleted ? records || [] : (records || []).filter((record) => !record.deletedAt);
+    },
+
+    async put(storeName, record, existingRecord = null) {
+      assertPrivateStore(storeName);
+      const normalizedRecord = normalizeRecordForWrite(
+        storeName,
+        record,
+        safeLocalUserId,
+        existingRecord
+      );
+
+      getStore(storeName).put(normalizedRecord);
+      return normalizedRecord;
+    },
+
+    async putRaw(storeName, record) {
+      assertKnownStore(storeName);
+
+      if (!record || typeof record !== "object" || Array.isArray(record)) {
+        throw new Error("A local finance record object is required.");
+      }
+
+      getStore(storeName).put(record);
+      return record;
+    },
+
+    async softDelete(storeName, id, patch = {}) {
+      assertPrivateStore(storeName);
+
+      if (!id) {
+        throw new Error("Record id is required.");
+      }
+
+      const existingRecord = await requestToPromise(getStore(storeName).get(id));
+
+      if (!existingRecord || existingRecord.localUserId !== safeLocalUserId) {
+        return null;
+      }
+
+      const timestamp = nowIso();
+      const deletedRecord = {
+        ...existingRecord,
+        ...patch,
+        id: existingRecord.id,
+        localUserId: safeLocalUserId,
+        deletedAt: patch.deletedAt || timestamp,
+        updatedAt: patch.updatedAt || timestamp,
+        syncStatus:
+          patch.syncStatus ||
+          (existingRecord.syncStatus === "synced" ? "pending_delete" : "local_deleted"),
+        source: patch.source || existingRecord.source || "local",
+      };
+
+      getStore(storeName).put(deletedRecord);
+      return deletedRecord;
+    },
+
+    async delete(storeName, id) {
+      assertPrivateStore(storeName);
+
+      if (!id) {
+        throw new Error("Record id is required.");
+      }
+
+      const existingRecord = await requestToPromise(getStore(storeName).get(id));
+
+      if (!existingRecord || existingRecord.localUserId !== safeLocalUserId) {
+        return false;
+      }
+
+      getStore(storeName).delete(id);
+      return true;
+    },
+
+    makeRecord(storeName, record, existingRecord = null) {
+      return normalizeRecordForWrite(storeName, record, safeLocalUserId, existingRecord);
+    },
+
+    createId(storeName) {
+      assertKnownStore(storeName);
+      return createLocalRecordId(storeName);
+    },
+
+    nowIso,
+  };
+
+  try {
+    const result = await callback(helpers);
+    await transactionDone;
+    return result;
+  } catch (error) {
+    try {
+      transaction.abort();
+    } catch {
+      // Transaction may already be completed or aborted.
+    }
+
+    throw error;
+  }
+}
+
 export async function getLocalRecords(storeName, localUserId) {
   assertPrivateStore(storeName);
   const safeLocalUserId = normalizeLocalUserId(localUserId);
@@ -333,7 +525,12 @@ export async function upsertLocalRecord(storeName, record, localUserId) {
   const transaction = db.transaction(storeName, "readwrite");
   const store = transaction.objectStore(storeName);
   const existingRecord = record?.id ? await requestToPromise(store.get(record.id)) : null;
-  const normalizedRecord = normalizeRecordForWrite(storeName, record, safeLocalUserId, existingRecord);
+  const normalizedRecord = normalizeRecordForWrite(
+    storeName,
+    record,
+    safeLocalUserId,
+    existingRecord
+  );
 
   store.put(normalizedRecord);
   await transactionToPromise(transaction);
