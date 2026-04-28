@@ -32,7 +32,6 @@ import FeaturePageLoader from "../components/FeaturePageLoader";
 import useUserRole from "../hooks/useUserRole";
 import useFinancialData from "../hooks/useFinancialData";
 import { getWalletBalance } from "@/utils/financialEngine";
-import { supabase } from "@/lib/supabaseClient";
 
 const CATEGORIES = {
   "Celebrations & Gifts": [
@@ -84,8 +83,10 @@ const EMPTY_FORM = {
 
 const inputDarkClass =
   "h-10 rounded-xl bg-[#0b1a2f] border-white/10 text-white placeholder:text-white/40 focus-visible:ring-1 focus-visible:ring-green-500/60";
+
 const selectDarkTriggerClass =
   "h-10 rounded-xl bg-[#0b1a2f] border-white/10 text-white";
+
 const labelDarkClass =
   "text-[11px] font-semibold uppercase tracking-[0.08em] text-white/70 mb-1.5 block";
 
@@ -105,17 +106,46 @@ const toNumber = (value) => {
 
 const normalizeGoal = (goal) => ({
   ...goal,
-  id: String(goal.id),
+  id: String(goal.id || generateId()),
   wallet_id: goal.wallet_id != null ? String(goal.wallet_id) : "",
   target_amount: toNumber(goal.target_amount),
   saved_amount: toNumber(goal.saved_amount),
   reasons: Array.isArray(goal.reasons) ? goal.reasons : ["", "", ""],
 });
 
+const getOfflineUserKey = (user) =>
+  String(user?.id || user?.email || "guest").replace(/[^a-zA-Z0-9_-]/g, "_");
+
+const getGoalsStorageKey = (user) =>
+  `clara_offline_savings_goals_${getOfflineUserKey(user)}`;
+
+const getWalletTxStorageKey = (user) =>
+  `clara_offline_wallet_transactions_${getOfflineUserKey(user)}`;
+
+const readJson = (key, fallback = []) => {
+  try {
+    const raw = localStorage.getItem(key);
+    if (!raw) return fallback;
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) ? parsed : fallback;
+  } catch {
+    return fallback;
+  }
+};
+
+const writeJson = (key, value) => {
+  try {
+    localStorage.setItem(key, JSON.stringify(value));
+  } catch (error) {
+    console.error("Failed to write offline data:", error);
+  }
+};
+
 export default function SavingsGoals() {
   const navigate = useNavigate();
   const location = useLocation();
   const routeActionHandledRef = useRef(false);
+
   const { user, loading: accessLoading } = useUserRole();
   const data = useFinancialData(user);
   const { wallets, walletTransactions, transfers, refreshData } = data;
@@ -128,31 +158,33 @@ export default function SavingsGoals() {
   const [editId, setEditId] = useState(null);
   const [form, setForm] = useState(EMPTY_FORM);
 
-  const loadGoals = async (preferredGoalId = null) => {
-    if (!user?.id && !user?.email) {
-      setGoals([]);
-      setLoading(false);
-      return;
-    }
+  const storageKey = useMemo(() => getGoalsStorageKey(user), [user]);
 
+  const persistGoals = (nextGoals, preferredGoalId = null) => {
+    const normalized = (nextGoals || []).map(normalizeGoal);
+    writeJson(storageKey, normalized);
+    setGoals(normalized);
+
+    const targetId = preferredGoalId || detailGoal?.id;
+    if (targetId) {
+      const freshGoal =
+        normalized.find((g) => String(g.id) === String(targetId)) || null;
+      setDetailGoal(freshGoal);
+    }
+  };
+
+  const loadGoals = (preferredGoalId = null) => {
     try {
       setLoading(true);
+      const stored = readJson(storageKey, []);
+      const normalized = stored
+        .map(normalizeGoal)
+        .sort((a, b) => {
+          const aTime = new Date(a.created_date || 0).getTime();
+          const bTime = new Date(b.created_date || 0).getTime();
+          return bTime - aTime;
+        });
 
-      let query = supabase
-        .from("savings_goals")
-        .select("*")
-        .order("created_date", { ascending: false });
-
-      if (user?.id) {
-        query = query.eq("user_id", user.id);
-      } else if (user?.email) {
-        query = query.eq("created_by", user.email);
-      }
-
-      const { data: rows, error } = await query;
-      if (error) throw error;
-
-      const normalized = (rows || []).map(normalizeGoal);
       setGoals(normalized);
 
       const targetId = preferredGoalId || detailGoal?.id;
@@ -162,7 +194,7 @@ export default function SavingsGoals() {
         setDetailGoal(freshGoal);
       }
     } catch (error) {
-      console.error("Failed to load savings goals:", error);
+      console.error("Failed to load offline savings goals:", error);
       setGoals([]);
     } finally {
       setLoading(false);
@@ -172,7 +204,7 @@ export default function SavingsGoals() {
   useEffect(() => {
     loadGoals();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user?.id, user?.email]);
+  }, [storageKey]);
 
   useEffect(() => {
     if (loading || routeActionHandledRef.current) return;
@@ -287,11 +319,6 @@ export default function SavingsGoals() {
   const handleSave = async () => {
     if (saving) return;
 
-    if (!user?.email && !user?.id) {
-      alert("No user found. Please log in again.");
-      return;
-    }
-
     if (!form.title?.trim()) {
       alert("Please enter a goal title.");
       return;
@@ -305,48 +332,55 @@ export default function SavingsGoals() {
     try {
       setSaving(true);
 
-      const payload = {
+      const now = new Date().toISOString();
+
+      const payload = normalizeGoal({
         title: form.title.trim(),
         category: form.category || "",
         subcategory: form.subcategory || "",
         target_amount: parseFloat(form.target_amount) || 0,
         saved_amount: Math.max(0, parseFloat(form.saved_amount) || 0),
-        planned_use_date: form.planned_use_date || null,
+        planned_use_date: form.planned_use_date || "",
         reasons: Array.isArray(form.reasons) ? form.reasons : ["", "", ""],
         emotional_value: form.emotional_value || "joy",
         flexibility: form.flexibility || "flexible",
         priority: form.priority || "medium",
         notes: form.notes || "",
-        wallet_id: form.wallet_id || null,
+        wallet_id: form.wallet_id || "",
         created_by: user?.email || null,
         user_email: user?.email || null,
         user_id: user?.id || null,
-        updated_date: new Date().toISOString(),
-      };
+        updated_date: now,
+      });
+
+      let nextGoals;
 
       if (editId) {
-        const { error } = await supabase
-          .from("savings_goals")
-          .update(payload)
-          .eq("id", editId);
-
-        if (error) throw error;
+        nextGoals = goals.map((goal) =>
+          String(goal.id) === String(editId)
+            ? normalizeGoal({
+                ...goal,
+                ...payload,
+                id: goal.id,
+                created_date: goal.created_date || now,
+              })
+            : goal
+        );
       } else {
-        const { error } = await supabase.from("savings_goals").insert([
-          {
+        nextGoals = [
+          normalizeGoal({
             id: generateId(),
             ...payload,
-            created_date: new Date().toISOString(),
-          },
-        ]);
-
-        if (error) throw error;
+            created_date: now,
+          }),
+          ...goals,
+        ];
       }
 
+      persistGoals(nextGoals, editId || null);
       closeFormModal();
-      await loadGoals(editId || null);
     } catch (error) {
-      console.error("Failed to save savings goal:", error);
+      console.error("Failed to save offline savings goal:", error);
       alert(error?.message || "Failed to save goal.");
     } finally {
       setSaving(false);
@@ -355,17 +389,11 @@ export default function SavingsGoals() {
 
   const handleDelete = async (id) => {
     try {
-      const { error } = await supabase
-        .from("savings_goals")
-        .delete()
-        .eq("id", id);
-
-      if (error) throw error;
-
-      setDetailGoal((prev) => (prev?.id === id ? null : prev));
-      await loadGoals();
+      const nextGoals = goals.filter((goal) => String(goal.id) !== String(id));
+      persistGoals(nextGoals);
+      setDetailGoal((prev) => (String(prev?.id) === String(id) ? null : prev));
     } catch (error) {
-      console.error("Failed to delete savings goal:", error);
+      console.error("Failed to delete offline savings goal:", error);
       alert(error?.message || "Failed to delete goal.");
     }
   };
@@ -373,6 +401,7 @@ export default function SavingsGoals() {
   const handleAddSavings = async (goal, amount) => {
     try {
       const safeAmount = parseFloat(amount);
+
       if (!safeAmount || safeAmount <= 0) {
         alert("Please enter a valid amount.");
         return;
@@ -394,6 +423,7 @@ export default function SavingsGoals() {
 
       const currentWalletBalance =
         walletBalances[String(sourceWallet.id)] ?? Number(sourceWallet.balance || 0);
+
       const currentGoalSaved = Number(goal.saved_amount) || 0;
       const targetAmount = Number(goal.target_amount) || 0;
       const remaining = Math.max(targetAmount - currentGoalSaved, 0);
@@ -410,49 +440,47 @@ export default function SavingsGoals() {
         return;
       }
 
-      const nextWalletBalance = currentWalletBalance - finalAmount;
       const nextGoalSaved = Math.min(currentGoalSaved + finalAmount, targetAmount);
+      const now = new Date().toISOString();
 
-      const { error: walletError } = await supabase
-        .from("wallets")
-        .update({ balance: nextWalletBalance })
-        .eq("id", String(sourceWallet.id));
+      const nextGoals = goals.map((item) =>
+        String(item.id) === String(goal.id)
+          ? normalizeGoal({
+              ...item,
+              saved_amount: nextGoalSaved,
+              updated_date: now,
+            })
+          : item
+      );
 
-      if (walletError) throw walletError;
+      persistGoals(nextGoals, goal.id);
 
-      const { error: txnError } = await supabase
-        .from("wallet_transactions")
-        .insert([
-          {
-            wallet_id: String(sourceWallet.id),
-            type: "savings_goal",
-            amount: finalAmount,
-            notes: `Moved to savings goal: ${goal.title}`,
-            source_type: "Savings Goal",
-            source_details: goal.title || null,
-            tag: "Savings Top Up",
-            user_id: user?.id || null,
-            user_email: user?.email || null,
-            created_by: user?.email || null,
-          },
-        ]);
+      const txKey = getWalletTxStorageKey(user);
+      const existingTx = readJson(txKey, []);
+      const offlineTx = {
+        id: `wallet_tx_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`,
+        wallet_id: String(sourceWallet.id),
+        type: "savings_goal",
+        amount: finalAmount,
+        notes: `Moved to savings goal: ${goal.title}`,
+        source_type: "Savings Goal",
+        source_details: goal.title || null,
+        tag: "Savings Top Up",
+        user_id: user?.id || null,
+        user_email: user?.email || null,
+        created_by: user?.email || null,
+        created_date: now,
+        created_at: now,
+        offline_only: true,
+      };
 
-      if (txnError) throw txnError;
+      writeJson(txKey, [offlineTx, ...existingTx]);
 
-      const { error: goalError } = await supabase
-        .from("savings_goals")
-        .update({
-          saved_amount: nextGoalSaved,
-          updated_date: new Date().toISOString(),
-        })
-        .eq("id", String(goal.id));
-
-      if (goalError) throw goalError;
-
-      await refreshData();
-      await loadGoals(goal.id);
+      if (typeof refreshData === "function") {
+        await refreshData();
+      }
     } catch (error) {
-      console.error("Failed to add savings:", error);
+      console.error("Failed to add offline savings:", error);
       alert(error?.message || "Failed to add savings.");
     }
   };
@@ -519,8 +547,8 @@ export default function SavingsGoals() {
         <div className="flex items-start gap-3 p-3 rounded-xl bg-orange-50 border border-orange-200 mb-4 text-sm">
           <AlertTriangle className="w-4 h-4 text-orange-500 flex-shrink-0 mt-0.5" />
           <p className="text-orange-700">
-            Your leftover rate is below 15%. Save when your rate improves —
-            your goals are aspirational for now.
+            Your leftover rate is below 15%. Save when your rate improves — your
+            goals are aspirational for now.
           </p>
         </div>
       )}
@@ -558,6 +586,7 @@ export default function SavingsGoals() {
                         </span>
                       )}
                     </div>
+
                     <p className="text-xs text-muted-foreground">
                       {goal.category}
                       {goal.subcategory ? ` • ${goal.subcategory}` : ""}
@@ -913,7 +942,9 @@ function GoalDetail({
   const remaining = Math.max(target - saved, 0);
 
   const now = new Date();
-  const plannedDate = goal.planned_use_date ? new Date(goal.planned_use_date) : null;
+  const plannedDate = goal.planned_use_date
+    ? new Date(goal.planned_use_date)
+    : null;
 
   const weeksLeft =
     plannedDate && !Number.isNaN(plannedDate.getTime())
@@ -1049,6 +1080,7 @@ function GoalDetail({
                     className="flex-1 h-10 rounded-xl bg-[#081427] border-white/10 text-white placeholder:text-white/35 focus-visible:ring-1 focus-visible:ring-green-500/60"
                     disabled={!assignedWallet}
                   />
+
                   <Button
                     type="button"
                     className="h-10 rounded-xl bg-green-500 hover:bg-green-600 text-white px-5 disabled:opacity-50 sm:min-w-[92px]"
