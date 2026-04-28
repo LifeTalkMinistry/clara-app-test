@@ -12,6 +12,8 @@ import {
   getWalletTransactions,
   addIncome as repoAddIncome,
   addMoney as repoAddMoney,
+  updateWalletTransaction as repoUpdateWalletTransaction,
+  deleteWalletTransaction as repoDeleteWalletTransaction,
   transferBetweenWallets as repoTransferBetweenWallets,
   getTransfers,
   getBudgets,
@@ -362,6 +364,49 @@ function useFinancialData(user) {
     [localUserId, refreshData]
   );
 
+  const updateWalletTransaction = useCallback(
+    async (id, updates = {}) => {
+      if (typeof repoUpdateWalletTransaction !== "function") {
+        throw new Error(
+          "updateWalletTransaction is not available in financeRepository."
+        );
+      }
+
+      const result = await repoUpdateWalletTransaction(localUserId, id, {
+        ...(updates || {}),
+        updatedAt: new Date().toISOString(),
+      });
+
+      await refreshData();
+      return result;
+    },
+    [localUserId, refreshData]
+  );
+
+  const deleteWalletTransaction = useCallback(
+    async (id) => {
+      if (typeof repoDeleteWalletTransaction !== "function") {
+        throw new Error(
+          "deleteWalletTransaction is not available in financeRepository."
+        );
+      }
+
+      const result = await repoDeleteWalletTransaction(localUserId, id);
+      await refreshData();
+      return result;
+    },
+    [localUserId, refreshData]
+  );
+
+  const deleteIncome = useCallback(
+    async (id) => {
+      const result = await deleteWalletTransaction(id);
+      await refreshData();
+      return result;
+    },
+    [deleteWalletTransaction, refreshData]
+  );
+
   const transferBetweenWallets = useCallback(
     async (payload) => {
       const result = await repoTransferBetweenWallets(localUserId, payload);
@@ -545,6 +590,9 @@ function useFinancialData(user) {
 
     addIncome,
     addMoney,
+    updateWalletTransaction,
+    deleteWalletTransaction,
+    deleteIncome,
     transferBetweenWallets,
 
     addBudget,
