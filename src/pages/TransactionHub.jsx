@@ -1,16 +1,22 @@
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import {
+  AlertTriangle,
   ArrowDownLeft,
   ArrowLeft,
   ArrowLeftRight,
   ArrowUpRight,
   CalendarDays,
+  CheckCircle2,
+  CircleDot,
+  Clock3,
+  Loader2,
   PiggyBank,
   Receipt,
   RefreshCw,
   Search,
   Sparkles,
+  Tag,
   WalletCards,
 } from "lucide-react";
 
@@ -58,6 +64,12 @@ const formatDate = (value) =>
     month: "short",
     day: "numeric",
     year: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+  });
+
+const formatTime = (value) =>
+  parseDate(value).toLocaleTimeString("en-PH", {
     hour: "numeric",
     minute: "2-digit",
   });
@@ -141,6 +153,61 @@ const getIcon = (group) => {
   return WalletCards;
 };
 
+const getToneClasses = (group, signedAmount = 0) => {
+  if (group === "expense") {
+    return {
+      glow: "bg-rose-400/14",
+      border: "border-rose-300/20",
+      icon: "bg-rose-400/12 text-rose-100",
+      amount: "text-rose-100",
+      badge: "border-rose-300/20 bg-rose-400/10 text-rose-50/80",
+      rail: "bg-rose-300/45",
+    };
+  }
+
+  if (group === "income") {
+    return {
+      glow: "bg-emerald-400/14",
+      border: "border-emerald-300/20",
+      icon: "bg-emerald-400/12 text-emerald-100",
+      amount: "text-emerald-100",
+      badge: "border-emerald-300/20 bg-emerald-400/10 text-emerald-50/80",
+      rail: "bg-emerald-300/45",
+    };
+  }
+
+  if (group === "transfer") {
+    return {
+      glow: "bg-cyan-400/14",
+      border: "border-cyan-300/20",
+      icon: "bg-cyan-400/12 text-cyan-100",
+      amount: "text-cyan-100",
+      badge: "border-cyan-300/20 bg-cyan-400/10 text-cyan-50/80",
+      rail: "bg-cyan-300/45",
+    };
+  }
+
+  if (group === "savings") {
+    return {
+      glow: "bg-violet-400/14",
+      border: "border-violet-300/20",
+      icon: "bg-violet-400/12 text-violet-100",
+      amount: "text-violet-100",
+      badge: "border-violet-300/20 bg-violet-400/10 text-violet-50/80",
+      rail: "bg-violet-300/45",
+    };
+  }
+
+  return {
+    glow: signedAmount >= 0 ? "bg-white/10" : "bg-rose-400/10",
+    border: "border-white/10",
+    icon: "bg-white/10 text-white/80",
+    amount: signedAmount >= 0 ? "text-white" : "text-rose-100",
+    badge: "border-white/10 bg-white/[0.06] text-white/65",
+    rail: "bg-white/25",
+  };
+};
+
 function SummaryCard({ label, value, helper, tone = "slate" }) {
   const toneClass =
     tone === "rose"
@@ -169,24 +236,41 @@ function SummaryCard({ label, value, helper, tone = "slate" }) {
   );
 }
 
-function TransactionCard({ item }) {
-  const Icon = getIcon(item.group);
-  const negative = item.signedAmount < 0;
-  const positive = item.signedAmount > 0;
+function StatusBadge({ children, icon: Icon = CircleDot, tone = "neutral" }) {
+  const toneClass =
+    tone === "good"
+      ? "border-emerald-300/20 bg-emerald-400/10 text-emerald-50/80"
+      : tone === "warn"
+        ? "border-amber-300/20 bg-amber-400/10 text-amber-50/80"
+        : tone === "bad"
+          ? "border-rose-300/20 bg-rose-400/10 text-rose-50/80"
+          : "border-white/10 bg-black/22 text-white/60";
 
   return (
-    <article className="group relative overflow-hidden rounded-[28px] border border-white/10 bg-[linear-gradient(135deg,rgba(255,255,255,0.075),rgba(255,255,255,0.035))] p-4 shadow-[0_20px_70px_rgba(0,0,0,0.24)] backdrop-blur-2xl">
-      <div className="pointer-events-none absolute -right-16 -top-20 h-32 w-32 rounded-full bg-white/8 blur-3xl group-hover:bg-emerald-300/10" />
+    <span
+      className={`inline-flex max-w-full items-center gap-1.5 rounded-full border px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.12em] ${toneClass}`}
+    >
+      <Icon className="h-3 w-3 shrink-0" />
+      <span className="truncate">{children}</span>
+    </span>
+  );
+}
+
+function TransactionCard({ item }) {
+  const Icon = getIcon(item.group);
+  const tone = getToneClasses(item.group, item.signedAmount);
+  const sign = item.signedAmount > 0 ? "+" : item.signedAmount < 0 ? "-" : "";
+
+  return (
+    <article className="group relative overflow-hidden rounded-[28px] border border-white/10 bg-[linear-gradient(135deg,rgba(255,255,255,0.082),rgba(255,255,255,0.035))] p-4 shadow-[0_20px_70px_rgba(0,0,0,0.24)] backdrop-blur-2xl transition duration-300 active:scale-[0.99]">
+      <div
+        className={`pointer-events-none absolute -right-16 -top-20 h-36 w-36 rounded-full ${tone.glow} blur-3xl transition duration-300 group-hover:opacity-90`}
+      />
+      <div className={`absolute left-0 top-6 h-14 w-1 rounded-r-full ${tone.rail}`} />
 
       <div className="relative flex items-start gap-3">
         <div
-          className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-[20px] border ${
-            negative
-              ? "border-rose-300/20 bg-rose-400/12 text-rose-100"
-              : positive
-                ? "border-emerald-300/20 bg-emerald-400/12 text-emerald-100"
-                : "border-cyan-300/20 bg-cyan-400/12 text-cyan-100"
-          }`}
+          className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-[20px] border ${tone.border} ${tone.icon}`}
         >
           <Icon className="h-5 w-5" />
         </div>
@@ -194,54 +278,148 @@ function TransactionCard({ item }) {
         <div className="min-w-0 flex-1">
           <div className="flex items-start justify-between gap-3">
             <div className="min-w-0">
-              <h3 className="truncate text-[15px] font-black text-white">
+              <h3 className="truncate text-[15px] font-black leading-tight text-white">
                 {item.title}
               </h3>
-              <p className="mt-1 text-xs font-medium text-white/48">
-                {formatDate(item.date)}
-              </p>
+
+              <div className="mt-1.5 flex flex-wrap items-center gap-x-2 gap-y-1 text-[11px] font-semibold text-white/48">
+                <span className="inline-flex items-center gap-1.5">
+                  <Clock3 className="h-3.5 w-3.5" />
+                  {formatTime(item.date)}
+                </span>
+
+                {item.walletName ? (
+                  <span className="inline-flex min-w-0 items-center gap-1.5">
+                    <WalletCards className="h-3.5 w-3.5 shrink-0" />
+                    <span className="truncate">{item.walletName}</span>
+                  </span>
+                ) : null}
+              </div>
             </div>
 
-            <p
-              className={`shrink-0 text-right text-[15px] font-black ${
-                negative
-                  ? "text-rose-100"
-                  : positive
-                    ? "text-emerald-100"
-                    : "text-cyan-100"
-              }`}
-            >
-              {item.signedAmount > 0 ? "+" : item.signedAmount < 0 ? "-" : ""}
-              {peso(Math.abs(item.signedAmount))}
-            </p>
+            <div className="shrink-0 text-right">
+              <p className={`text-[15px] font-black leading-tight ${tone.amount}`}>
+                {sign}
+                {peso(Math.abs(item.signedAmount))}
+              </p>
+              <p className="mt-1 text-[10px] font-bold uppercase tracking-[0.14em] text-white/34">
+                {titleCase(item.group)}
+              </p>
+            </div>
           </div>
 
           <div className="mt-3 flex flex-wrap gap-2">
-            <span className="rounded-full border border-white/10 bg-black/22 px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.13em] text-white/60">
-              {titleCase(item.group)}
-            </span>
+            <StatusBadge icon={Tag} tone="neutral">
+              {item.category ? titleCase(item.category) : titleCase(item.group)}
+            </StatusBadge>
 
-            {item.category ? (
-              <span className="rounded-full border border-emerald-300/15 bg-emerald-400/10 px-2.5 py-1 text-[11px] font-semibold text-emerald-50/75">
-                {titleCase(item.category)}
-              </span>
+            {item.needType ? (
+              <StatusBadge
+                tone={String(item.needType).toLowerCase() === "need" ? "good" : "warn"}
+              >
+                {titleCase(item.needType)}
+              </StatusBadge>
             ) : null}
 
-            {item.walletName ? (
-              <span className="max-w-full truncate rounded-full border border-white/10 bg-black/22 px-2.5 py-1 text-[11px] font-semibold text-white/64">
-                {item.walletName}
-              </span>
+            {item.planningStatus ? (
+              <StatusBadge
+                icon={CheckCircle2}
+                tone={
+                  String(item.planningStatus).toLowerCase().includes("planned")
+                    ? "good"
+                    : "warn"
+                }
+              >
+                {titleCase(item.planningStatus)}
+              </StatusBadge>
             ) : null}
           </div>
 
           {item.note ? (
-            <p className="mt-3 line-clamp-2 text-sm font-medium leading-6 text-white/55">
+            <p className="mt-3 line-clamp-2 rounded-[18px] border border-white/10 bg-black/16 px-3 py-2 text-sm font-medium leading-6 text-white/55">
               {item.note}
             </p>
           ) : null}
         </div>
       </div>
     </article>
+  );
+}
+
+function LoadingState() {
+  return (
+    <div className="min-h-[100dvh] bg-[#020713] px-4 py-6 text-white">
+      <div className="mx-auto max-w-4xl space-y-4">
+        <div className="relative overflow-hidden rounded-[32px] border border-white/10 bg-white/[0.055] p-5 shadow-[0_24px_90px_rgba(0,0,0,0.34)] backdrop-blur-2xl">
+          <div className="flex items-center gap-3">
+            <div className="flex h-12 w-12 items-center justify-center rounded-[20px] border border-emerald-300/20 bg-emerald-400/10">
+              <Loader2 className="h-5 w-5 animate-spin text-emerald-100" />
+            </div>
+            <div>
+              <p className="text-sm font-black text-white">Loading transactions</p>
+              <p className="text-xs font-medium text-white/48">
+                Preparing your activity timeline...
+              </p>
+            </div>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-2 gap-3">
+          {[1, 2, 3, 4].map((x) => (
+            <div
+              key={x}
+              className="h-24 animate-pulse rounded-[24px] border border-white/10 bg-white/[0.055]"
+            />
+          ))}
+        </div>
+
+        {[1, 2, 3].map((x) => (
+          <div
+            key={x}
+            className="h-28 animate-pulse rounded-[28px] border border-white/10 bg-white/[0.055]"
+          />
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function ErrorState({ onBack, onRefresh }) {
+  return (
+    <div className="relative min-h-[100dvh] overflow-hidden bg-[#020713] px-4 py-6 text-white">
+      <div className="pointer-events-none absolute -top-28 left-1/2 h-80 w-80 -translate-x-1/2 rounded-full bg-rose-400/12 blur-3xl" />
+      <div className="relative mx-auto flex min-h-[80dvh] max-w-lg items-center">
+        <div className="w-full rounded-[34px] border border-rose-300/15 bg-white/[0.055] p-6 text-center shadow-[0_24px_90px_rgba(0,0,0,0.34)] backdrop-blur-2xl">
+          <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-[24px] border border-rose-300/20 bg-rose-400/10">
+            <AlertTriangle className="h-7 w-7 text-rose-100" />
+          </div>
+          <h2 className="mt-5 text-2xl font-black tracking-tight">
+            Transaction history could not load
+          </h2>
+          <p className="mx-auto mt-2 max-w-sm text-sm font-medium leading-6 text-white/55">
+            CLARA could not prepare your activity timeline right now. Your finance data
+            was not changed.
+          </p>
+
+          <div className="mt-5 grid grid-cols-2 gap-3">
+            <button
+              type="button"
+              onClick={onBack}
+              className="min-h-[48px] rounded-[20px] border border-white/10 bg-black/20 text-sm font-black text-white/75 transition active:scale-95"
+            >
+              Back
+            </button>
+            <button
+              type="button"
+              onClick={onRefresh}
+              className="min-h-[48px] rounded-[20px] border border-emerald-300/25 bg-emerald-400/14 text-sm font-black text-emerald-50 transition active:scale-95"
+            >
+              Try Again
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
   );
 }
 
@@ -328,11 +506,22 @@ export default function TransactionHub() {
           monthKey: dateKey(date),
           group,
           type: item.type || group,
-          title: titleCase(item.category || item.source_type || item.type || group),
+          title: titleCase(
+            item.title ||
+              item.name ||
+              item.merchant ||
+              item.category ||
+              item.source_type ||
+              item.type ||
+              group
+          ),
           category: item.category || item.source_type || item.tag || "",
           walletName: wallet?.name || wallet?.wallet_name || wallet?.title || "",
           amount: cleanNumber(item.amount),
           signedAmount: getSignedAmount(item),
+          needType: item.need_type || item.needType || "",
+          planningStatus:
+            item.planning_status || item.planningStatus || item.status || "",
           note: isJsonLike(note) ? "" : String(note || "").trim(),
         };
       })
@@ -357,6 +546,8 @@ export default function TransactionHub() {
           item.walletName,
           item.type,
           item.note,
+          item.needType,
+          item.planningStatus,
           item.amount,
           item.signedAmount,
         ]
@@ -412,17 +603,17 @@ export default function TransactionHub() {
     months.find((item) => item.key === month)?.label || "This month";
 
   if (userLoading || financial.loading) {
+    return <LoadingState />;
+  }
+
+  if (financial.error) {
     return (
-      <div className="min-h-[100dvh] bg-[#020713] px-4 py-6 text-white">
-        <div className="mx-auto max-w-4xl space-y-4">
-          <div className="h-36 animate-pulse rounded-[32px] bg-white/[0.06]" />
-          <div className="grid grid-cols-2 gap-3">
-            {[1, 2, 3, 4].map((x) => (
-              <div key={x} className="h-24 animate-pulse rounded-[24px] bg-white/[0.06]" />
-            ))}
-          </div>
-        </div>
-      </div>
+      <ErrorState
+        onBack={() => navigate("/dashboard")}
+        onRefresh={() => {
+          if (typeof financial.refreshData === "function") financial.refreshData();
+        }}
+      />
     );
   }
 
@@ -456,7 +647,7 @@ export default function TransactionHub() {
             <div className="min-w-0 flex-1">
               <div className="mb-2 inline-flex items-center gap-2 rounded-full border border-emerald-300/20 bg-emerald-400/12 px-3 py-1.5 text-[10px] font-black uppercase tracking-[0.2em] text-emerald-100">
                 <Sparkles className="h-3.5 w-3.5" />
-                Read-only hub
+                Premium timeline
               </div>
 
               <h1 className="text-[clamp(28px,7vw,38px)] font-black leading-none tracking-tight">
@@ -505,15 +696,32 @@ export default function TransactionHub() {
         </section>
 
         <section className="grid grid-cols-2 gap-3 md:grid-cols-4">
-          <SummaryCard label="Money Out" value={`-${peso(summary.moneyOut)}`} helper="Monthly expenses" tone="rose" />
-          <SummaryCard label="Money In" value={`+${peso(summary.moneyIn)}`} helper="Monthly income" tone="emerald" />
+          <SummaryCard
+            label="Money Out"
+            value={`-${peso(summary.moneyOut)}`}
+            helper="Monthly expenses"
+            tone="rose"
+          />
+          <SummaryCard
+            label="Money In"
+            value={`+${peso(summary.moneyIn)}`}
+            helper="Monthly income"
+            tone="emerald"
+          />
           <SummaryCard
             label="Net Flow"
-            value={`${summary.netFlow >= 0 ? "+" : "-"}${peso(Math.abs(summary.netFlow))}`}
+            value={`${summary.netFlow >= 0 ? "+" : "-"}${peso(
+              Math.abs(summary.netFlow)
+            )}`}
             helper={summary.netFlow >= 0 ? "Positive month" : "Needs attention"}
             tone={summary.netFlow >= 0 ? "emerald" : "rose"}
           />
-          <SummaryCard label="Shown" value={summary.count} helper="Current view" tone="cyan" />
+          <SummaryCard
+            label="Shown"
+            value={summary.count}
+            helper="Current view"
+            tone="cyan"
+          />
         </section>
 
         <section className="relative overflow-hidden rounded-[30px] border border-white/10 bg-white/[0.055] p-3 shadow-[0_20px_70px_rgba(0,0,0,0.24)] backdrop-blur-2xl">
@@ -525,7 +733,7 @@ export default function TransactionHub() {
                 onClick={() => setFilter(key)}
                 className={`min-h-[42px] shrink-0 rounded-full border px-4 py-2 text-sm font-bold transition active:scale-[0.98] ${
                   filter === key
-                    ? "border-cyan-300/40 bg-cyan-400/16 text-cyan-50"
+                    ? "border-cyan-300/40 bg-cyan-400/16 text-cyan-50 shadow-[0_0_24px_rgba(34,211,238,0.14)]"
                     : "border-white/10 bg-black/18 text-white/62"
                 }`}
               >
@@ -540,7 +748,7 @@ export default function TransactionHub() {
               value={search}
               onChange={(event) => setSearch(event.target.value)}
               placeholder="Search title, category, wallet, note, or amount"
-              className="min-h-[54px] w-full rounded-[22px] border border-white/10 bg-black/20 pl-11 pr-4 text-[15px] font-medium text-white outline-none placeholder:text-white/34 focus:border-emerald-300/38"
+              className="min-h-[54px] w-full rounded-[22px] border border-white/10 bg-black/20 pl-11 pr-4 text-[15px] font-medium text-white outline-none transition placeholder:text-white/34 focus:border-emerald-300/38 focus:bg-black/28"
             />
           </div>
         </section>
@@ -555,7 +763,8 @@ export default function TransactionHub() {
                 No activity for this view
               </h2>
               <p className="mx-auto mt-2 max-w-sm text-sm font-medium leading-6 text-white/55">
-                Try another month, clear search, or switch filters.
+                Try another month, clear search, or switch filters. Once you log
+                activity, CLARA will show it here as a clean financial timeline.
               </p>
             </div>
           ) : (
