@@ -1,5 +1,6 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { ArrowLeft, Send, X } from "lucide-react";
+import { useFinancialData } from "../../hooks/useFinancialData";
 import {
   buildClaraFinanceSnapshot,
   generateClaraLocalReply,
@@ -17,38 +18,14 @@ const CLARA_ASSISTANT_SINGLETON_KEY = "__claraAssistantActiveInstanceId";
 const CLARA_ASSISTANT_ROOT_SELECTOR = '[data-clara-assistant-root="true"]';
 
 const QUICK_OPTIONS = [
-  {
-    label: "Check my spending",
-    message: "Check my spending",
-  },
-  {
-    label: "Check my wallets",
-    message: "Check my wallets",
-  },
-  {
-    label: "Available money",
-    message: "How much money do I have left?",
-  },
-  {
-    label: "Before I buy this",
-    message: "Before I buy this",
-  },
-  {
-    label: "What should I watch today?",
-    message: "What should I watch today?",
-  },
-  {
-    label: "Budget check",
-    message: "Budget check",
-  },
-  {
-    label: "Savings check",
-    message: "Savings check",
-  },
-  {
-    label: "Emergency fund",
-    message: "Emergency fund",
-  },
+  { label: "Check my spending", message: "Check my spending" },
+  { label: "Check my wallets", message: "Check my wallets" },
+  { label: "Available money", message: "How much money do I have left?" },
+  { label: "Before I buy this", message: "Before I buy this" },
+  { label: "What should I watch today?", message: "What should I watch today?" },
+  { label: "Budget check", message: "Budget check" },
+  { label: "Savings check", message: "Savings check" },
+  { label: "Emergency fund", message: "Emergency fund" },
 ];
 
 const AI_FEATURE_OPTIONS = [
@@ -269,6 +246,13 @@ const CLARA_ASSISTANT_ANIMATION_STYLES = `
   }
 `;
 
+function safeArray(value) {
+  return Array.isArray(value) ? value : [];
+}
+
+function safeObject(value) {
+  return value && typeof value === "object" && !Array.isArray(value) ? value : {};
+}
 
 function makeAssistantInstanceId() {
   return `clara-assistant-${Date.now()}-${Math.random().toString(36).slice(2)}`;
@@ -344,11 +328,46 @@ function getBestContext(currentContext = {}, latestContext = {}) {
 }
 
 export default function ClaraAssistantPanel({ open, onClose, context = {} }) {
-  const latestContextRef = useRef(context || {});
+  const {
+    expenses = [],
+    wallets = [],
+    walletTransactions = [],
+    transfers = [],
+    budgets = [],
+    savingsGoals = [],
+    emergencyFund = {},
+  } = useFinancialData();
+
+  const offlineFinanceContext = useMemo(
+    () => ({
+      ...(context || {}),
+      expenses: safeArray(expenses),
+      wallets: safeArray(wallets),
+      walletTransactions: safeArray(walletTransactions),
+      transfers: safeArray(transfers),
+      budgets: safeArray(budgets),
+      savingsGoals: safeArray(savingsGoals),
+      emergencyFund: safeObject(emergencyFund),
+    }),
+    [
+      context,
+      expenses,
+      wallets,
+      walletTransactions,
+      transfers,
+      budgets,
+      savingsGoals,
+      emergencyFund,
+    ]
+  );
+
+  const latestContextRef = useRef(offlineFinanceContext || {});
   const instanceIdRef = useRef(null);
+
   if (!instanceIdRef.current) {
     instanceIdRef.current = makeAssistantInstanceId();
   }
+
   const closeTimeoutRef = useRef(null);
   const ghostClickUntilRef = useRef(0);
   const lastBackdropTouchAtRef = useRef(0);
@@ -365,7 +384,11 @@ export default function ClaraAssistantPanel({ open, onClose, context = {} }) {
     startedAt: 0,
   });
 
-  const activeContext = getBestContext(context || {}, latestContextRef.current || {});
+  const activeContext = getBestContext(
+    offlineFinanceContext || {},
+    latestContextRef.current || {}
+  );
+
   latestContextRef.current = activeContext;
 
   const [panelMode, setPanelMode] = useState(null);
@@ -402,7 +425,6 @@ export default function ClaraAssistantPanel({ open, onClose, context = {} }) {
     ghostClickUntilRef.current = Date.now() + GHOST_CLICK_WINDOW_MS;
   };
 
-
   const claimAssistantInstance = () => {
     const instanceId = instanceIdRef.current;
     setActiveAssistantInstance(instanceId);
@@ -420,12 +442,15 @@ export default function ClaraAssistantPanel({ open, onClose, context = {} }) {
   };
 
   useEffect(() => {
-    latestContextRef.current = getBestContext(context || {}, latestContextRef.current || {});
+    latestContextRef.current = getBestContext(
+      offlineFinanceContext || {},
+      latestContextRef.current || {}
+    );
 
     if (DEBUG_CLARA_CONTEXT) {
-      console.log("CLARA received latest context:", latestContextRef.current);
+      console.log("CLARA received latest offline-first context:", latestContextRef.current);
     }
-  }, [context]);
+  }, [offlineFinanceContext]);
 
   useEffect(() => {
     if (open) {
@@ -480,7 +505,11 @@ export default function ClaraAssistantPanel({ open, onClose, context = {} }) {
 
   const getReplyForText = (messageText, forcedMode = activeMode) => {
     const text = String(messageText || "").trim();
-    const currentContext = getBestContext(context || {}, latestContextRef.current || {});
+    const currentContext = getBestContext(
+      offlineFinanceContext || {},
+      latestContextRef.current || {}
+    );
+
     latestContextRef.current = currentContext;
 
     const localMessage =
@@ -662,7 +691,12 @@ export default function ClaraAssistantPanel({ open, onClose, context = {} }) {
     const tap = featureTapRef.current;
     const optionKey = getFeatureOptionKey(option);
 
-    if (isClosing || panelMode !== "menu" || now < ghostClickUntilRef.current || now < featureScrollGuardUntilRef.current) {
+    if (
+      isClosing ||
+      panelMode !== "menu" ||
+      now < ghostClickUntilRef.current ||
+      now < featureScrollGuardUntilRef.current
+    ) {
       resetFeatureTap();
       return;
     }
@@ -674,7 +708,10 @@ export default function ClaraAssistantPanel({ open, onClose, context = {} }) {
 
     const deltaX = Math.abs((event.clientX ?? 0) - tap.startX);
     const deltaY = Math.abs((event.clientY ?? 0) - tap.startY);
-    const moved = tap.moved || deltaX > FEATURE_TAP_MOVE_THRESHOLD_PX || deltaY > FEATURE_TAP_MOVE_THRESHOLD_PX;
+    const moved =
+      tap.moved ||
+      deltaX > FEATURE_TAP_MOVE_THRESHOLD_PX ||
+      deltaY > FEATURE_TAP_MOVE_THRESHOLD_PX;
     const sameOption = tap.optionKey === optionKey;
 
     if (moved || !sameOption) {
@@ -692,7 +729,15 @@ export default function ClaraAssistantPanel({ open, onClose, context = {} }) {
     stopAssistantEvent(event);
 
     const now = Date.now();
-    if (isClosing || panelMode !== "menu" || now < ghostClickUntilRef.current || now < featureScrollGuardUntilRef.current) return;
+    if (
+      isClosing ||
+      panelMode !== "menu" ||
+      now < ghostClickUntilRef.current ||
+      now < featureScrollGuardUntilRef.current
+    ) {
+      return;
+    }
+
     if (now - lastFeatureTouchSentAtRef.current < TOUCH_DEDUPE_MS) return;
 
     startChatFromFeature(option);
@@ -728,9 +773,10 @@ export default function ClaraAssistantPanel({ open, onClose, context = {} }) {
   if (!panelMode) return null;
 
   const backdropClassName = `clara-ai-backdrop${isClosing ? " clara-ai-backdrop-out" : ""}`;
-  const shellClassName = panelMode === "menu"
-    ? `clara-ai-menu-shell${isClosing ? " clara-ai-menu-shell-out" : ""}`
-    : `clara-ai-chat-shell${isClosing ? " clara-ai-chat-shell-out" : ""}`;
+  const shellClassName =
+    panelMode === "menu"
+      ? `clara-ai-menu-shell${isClosing ? " clara-ai-menu-shell-out" : ""}`
+      : `clara-ai-chat-shell${isClosing ? " clara-ai-chat-shell-out" : ""}`;
 
   return (
     <>
@@ -817,7 +863,9 @@ export default function ClaraAssistantPanel({ open, onClose, context = {} }) {
                     <div className="flex items-center justify-between gap-3">
                       <div>
                         <p className="text-sm font-semibold text-white">{option.label}</p>
-                        <p className="mt-1 text-xs leading-5 text-slate-300/75">{option.description}</p>
+                        <p className="mt-1 text-xs leading-5 text-slate-300/75">
+                          {option.description}
+                        </p>
                       </div>
                       <span className="grid h-8 w-8 shrink-0 place-items-center rounded-full border border-emerald-200/15 bg-emerald-300/10 text-sm text-emerald-100 transition group-hover:bg-emerald-300/16">
                         →
