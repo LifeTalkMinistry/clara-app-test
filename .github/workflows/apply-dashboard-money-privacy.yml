@@ -119,4 +119,4 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          npx gh-pages -d dist -u "github-actions[bot] <41898282+github-actions[bot]@users.noreply.github.com>" -r "https://x-access-token:${GH_TOKEN}@github.com/${GITHUB_REPOSITORY}.git"
+          npx gh-pages -d dist -u "GitHub Actions <actions@github.com>" -r "https://x-access-token:${GH_TOKEN}@github.com/${GITHUB_REPOSITORY}.git"
