@@ -33,6 +33,16 @@ import {
 import { Link, useNavigate } from "react-router-dom";
 import { createPortal } from "react-dom";
 import { supabase } from "@/lib/supabaseClient";
+import {
+  getCachedFinanceSnapshot,
+  getLocalExpenses,
+  getPendingExpenses,
+  isClaraOnline,
+  mergeRemoteAndLocalFinanceData,
+  saveCachedFinanceSnapshot,
+  saveLocalExpense,
+  syncPendingExpenses,
+} from "@/lib/clara-offline-finance";
 import EmergencyFundCard from "../components/EmergencyFundCard";
 import WalletCard from "../components/WalletCard";
 import BudgetCard from "../components/BudgetCard";
@@ -2083,6 +2093,8 @@ const createEmptyDashboardCache = (key = null) => ({
   budgets: [],
   savingsGoals: [],
   expenses: [],
+  pendingExpenses: [],
+  offlineReady: false,
   profileData: null,
   latestEnrollment: null,
   guardChecked: false,
@@ -5676,6 +5688,8 @@ export default function Dashboard() {
   const [budgets, setBudgets] = useState(initialCache.budgets);
   const [savingsGoals, setSavingsGoals] = useState(initialCache.savingsGoals);
   const [expenses, setExpenses] = useState(initialCache.expenses);
+  const [pendingExpenses, setPendingExpenses] = useState(initialCache.pendingExpenses || []);
+  const [offlineReady, setOfflineReady] = useState(Boolean(initialCache.offlineReady));
   const [loading, setLoading] = useState(!initialCache.loaded);
 
   const [profileData, setProfileData] = useState(initialCache.profileData);
@@ -5877,6 +5891,8 @@ export default function Dashboard() {
     setBudgets(nextCache.budgets);
     setSavingsGoals(nextCache.savingsGoals);
     setExpenses(nextCache.expenses);
+    setPendingExpenses(nextCache.pendingExpenses || []);
+    setOfflineReady(Boolean(nextCache.offlineReady));
     setProfileData(nextCache.profileData);
     setLatestEnrollment(nextCache.latestEnrollment);
     setGuardChecked(nextCache.guardChecked);
@@ -5903,6 +5919,58 @@ export default function Dashboard() {
     hasLoadedDashboardRef.current = false;
     setGuardChecked(false);
     setLoading(true);
+  }, [cacheKey, hydrateFromCache]);
+
+  useEffect(() => {
+    let isMounted = true;
+
+    const loadCachedFinanceData = async () => {
+      if (!cacheKey) return;
+
+      try {
+        const cachedSnapshot = await getCachedFinanceSnapshot(cacheKey);
+        const localExpenses = await getLocalExpenses(cacheKey);
+        const localPendingExpenses = await getPendingExpenses(cacheKey);
+
+        if (!isMounted) return;
+        if (!cachedSnapshot && !localExpenses.length) return;
+
+        const mergedFinanceData = mergeRemoteAndLocalFinanceData(cachedSnapshot || {}, {
+          expenses: localExpenses,
+          pendingExpenses: localPendingExpenses,
+          offlineReady: true,
+        });
+
+        const nextCache = {
+          ...createEmptyDashboardCache(cacheKey),
+          ...(cachedSnapshot || {}),
+          ...mergedFinanceData,
+          key: cacheKey,
+          loaded: true,
+          guardChecked: cachedSnapshot?.guardChecked ?? true,
+          offlineReady: true,
+          pendingExpenses: localPendingExpenses,
+        };
+
+        dashboardPageCache = nextCache;
+        hydrateFromCache(nextCache);
+
+        if (!isClaraOnline()) {
+          setFinanceNotice({
+            message: "You’re offline. CLARA is using saved data.",
+            type: "success",
+          });
+        }
+      } catch (error) {
+        console.warn("CLARA could not load cached finance data:", error);
+      }
+    };
+
+    loadCachedFinanceData();
+
+    return () => {
+      isMounted = false;
+    };
   }, [cacheKey, hydrateFromCache]);
 
   useEffect(() => {
@@ -6173,6 +6241,58 @@ export default function Dashboard() {
         return;
       }
 
+      const ownerKey = cacheKey || currentUser.id || currentUser.email || "guest";
+
+      if (!isClaraOnline()) {
+        try {
+          const cachedSnapshot = await getCachedFinanceSnapshot(ownerKey);
+          const localExpenses = await getLocalExpenses(ownerKey);
+          const localPendingExpenses = await getPendingExpenses(ownerKey);
+          const fallbackCache =
+            dashboardPageCache?.key === ownerKey
+              ? dashboardPageCache
+              : createEmptyDashboardCache(ownerKey);
+          const mergedFinanceData = mergeRemoteAndLocalFinanceData(cachedSnapshot || fallbackCache, {
+            expenses: localExpenses,
+            pendingExpenses: localPendingExpenses,
+            offlineReady: true,
+          });
+          const nextCache = {
+            ...fallbackCache,
+            ...(cachedSnapshot || {}),
+            ...mergedFinanceData,
+            key: ownerKey,
+            loaded: true,
+            guardChecked: true,
+            offlineReady: true,
+            pendingExpenses: localPendingExpenses,
+          };
+
+          dashboardPageCache = nextCache;
+          hydrateFromCache(nextCache);
+          setFinanceNotice({
+            message: "You’re offline. CLARA is using saved data.",
+            type: "success",
+          });
+          return nextCache;
+        } catch (error) {
+          console.warn("CLARA offline dashboard load failed:", error);
+          const emptyCache = {
+            ...createEmptyDashboardCache(ownerKey),
+            loaded: true,
+            guardChecked: true,
+            offlineReady: true,
+          };
+          dashboardPageCache = emptyCache;
+          hydrateFromCache(emptyCache);
+          setFinanceNotice({
+            message: "You’re offline. Start by logging an expense and CLARA will save it locally.",
+            type: "success",
+          });
+          return emptyCache;
+        }
+      }
+
       if (dashboardPageInFlight?.key === cacheKey) {
         return dashboardPageInFlight.promise;
       }
@@ -6183,6 +6303,8 @@ export default function Dashboard() {
 
       try {
         const promise = (async () => {
+          await syncPendingExpenses(currentUser.id, supabase, ownerKey);
+
           const [
             tasksRes,
             submissionsRes,
@@ -6347,6 +6469,24 @@ export default function Dashboard() {
               item?.is_active === undefined
           );
 
+          const localExpenses = await getLocalExpenses(ownerKey);
+          const localPendingExpenses = await getPendingExpenses(ownerKey);
+          const mergedFinanceData = mergeRemoteAndLocalFinanceData(
+            {
+              walletMoney: totalWalletMoney,
+              wallets: sortedWallets,
+              walletTransactions: userWalletTransactions,
+              budgets: userBudgets,
+              savingsGoals: userSavingsGoals,
+              expenses: userExpenses,
+            },
+            {
+              expenses: localExpenses,
+              pendingExpenses: localPendingExpenses,
+              offlineReady: localExpenses.length > 0 || localPendingExpenses.length > 0,
+            }
+          );
+
           const storedPrefs = readDashboardPrefs(currentUser.id);
           const nextNickname = normalizeString(
             userProfile?.display_name ||
@@ -6396,12 +6536,18 @@ export default function Dashboard() {
               survivalExpense,
               dashboardPageCache.survivalExpense
             ),
-            walletMoney: totalWalletMoney,
-            wallets: sortedWallets,
-            walletTransactions: userWalletTransactions,
-            budgets: userBudgets,
-            savingsGoals: userSavingsGoals,
-            expenses: userExpenses,
+            walletMoney: firstValidNumber(mergedFinanceData.walletMoney, totalWalletMoney),
+            wallets: Array.isArray(mergedFinanceData.wallets) ? mergedFinanceData.wallets : sortedWallets,
+            walletTransactions: Array.isArray(mergedFinanceData.walletTransactions)
+              ? mergedFinanceData.walletTransactions
+              : userWalletTransactions,
+            budgets: Array.isArray(mergedFinanceData.budgets) ? mergedFinanceData.budgets : userBudgets,
+            savingsGoals: Array.isArray(mergedFinanceData.savingsGoals)
+              ? mergedFinanceData.savingsGoals
+              : userSavingsGoals,
+            expenses: Array.isArray(mergedFinanceData.expenses) ? mergedFinanceData.expenses : userExpenses,
+            pendingExpenses: localPendingExpenses,
+            offlineReady: true,
             profileData: userProfile,
             latestEnrollment: enrollmentRecord,
             guardChecked: true,
@@ -6412,6 +6558,15 @@ export default function Dashboard() {
 
           dashboardPageCache = nextCache;
           hydrateFromCache(nextCache);
+          await saveCachedFinanceSnapshot(nextCache, ownerKey);
+
+          if (localPendingExpenses.length > 0) {
+            setFinanceNotice({
+              message: "Saved offline data is still protected. CLARA will keep trying to sync it.",
+              type: "success",
+            });
+          }
+
           return nextCache;
         })();
 
@@ -6571,6 +6726,33 @@ export default function Dashboard() {
 
   useEffect(() => {
     loadDashboardData();
+  }, [loadDashboardData]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return undefined;
+
+    const handleOffline = () => {
+      setFinanceNotice({
+        message: "You’re offline. CLARA is using saved data.",
+        type: "success",
+      });
+    };
+
+    const handleOnline = () => {
+      setFinanceNotice({
+        message: "You’re back online. CLARA is syncing saved data.",
+        type: "success",
+      });
+      loadDashboardData({ background: true });
+    };
+
+    window.addEventListener("offline", handleOffline);
+    window.addEventListener("online", handleOnline);
+
+    return () => {
+      window.removeEventListener("offline", handleOffline);
+      window.removeEventListener("online", handleOnline);
+    };
   }, [loadDashboardData]);
 
   useEffect(() => {
@@ -7251,246 +7433,87 @@ export default function Dashboard() {
     const safeExpenses = Array.isArray(expenses) ? expenses : [];
     const safeBudgets = Array.isArray(budgets) ? budgets : [];
     const safeSavingsGoals = Array.isArray(savingsGoals) ? savingsGoals : [];
-    const safeWalletTransactions = Array.isArray(walletTransactions)
-      ? walletTransactions
-      : [];
-    const currentMonthKey = getPHMonthKey();
+    const safeWalletTransactions = Array.isArray(walletTransactions) ? walletTransactions : [];
+    const safePendingExpenses = Array.isArray(pendingExpenses) ? pendingExpenses : [];
 
-    const readNumber = (...values) => {
-      for (const value of values) {
-        if (value === null || value === undefined || value === "") continue;
-        const number =
-          typeof value === "number"
-            ? value
-            : Number(String(value).replace(/[₱,\s]/g, ""));
-
-        if (Number.isFinite(number)) return number;
-      }
-
-      return null;
-    };
-
-    const sumNumbers = (items, getValue) =>
-      items.reduce((sum, item) => sum + (readNumber(getValue(item)) ?? 0), 0);
-
-    const isCurrentMonthItem = (item) => {
-      const itemDate = getTransactionDate(item);
-      return Boolean(itemDate && getPHMonthKey(itemDate) === currentMonthKey);
-    };
-
-    const getExpensePlanningStatus = (expense) =>
-      normalizeLower(
-        expense?.planning_status ||
-          expense?.planningStatus ||
-          expense?.status ||
-          ""
-      );
-
-    const getExpenseNeedType = (expense) =>
-      normalizeLower(
-        expense?.need_type ||
-          expense?.needType ||
-          expense?.spending_type ||
-          expense?.type ||
-          ""
-      );
-
-    const currentMonthExpenses = safeExpenses.filter(isCurrentMonthItem);
-    const safeMonthlySpent = readNumber(thisMonthSpent) ?? sumNumbers(
-      currentMonthExpenses,
-      (expense) => expense?.amount
+    const walletTotal = safeWallets.reduce(
+      (sum, wallet) => sum + getWalletDisplayBalance(wallet),
+      0
     );
-    const recentExpenseRows = sortByNewestDate(safeExpenses).slice(0, 8);
-
-    const plannedExpenseRows = currentMonthExpenses.filter((expense) => {
-      const status = getExpensePlanningStatus(expense);
-      return status === "planned";
-    });
-    const unplannedExpenseRows = currentMonthExpenses.filter((expense) => {
-      const status = getExpensePlanningStatus(expense);
-      return status === "unplanned";
-    });
-    const undocumentedExpenseRows = currentMonthExpenses.filter((expense) => {
-      const status = getExpensePlanningStatus(expense);
-      return status === "undocumented";
-    });
-    const needsExpenseRows = currentMonthExpenses.filter((expense) => {
-      const type = getExpenseNeedType(expense);
-      return type === "need" || type === "needs" || type === "essential";
-    });
-    const wantsExpenseRows = currentMonthExpenses.filter((expense) => {
-      const type = getExpenseNeedType(expense);
-      return type === "want" || type === "wants" || type === "lifestyle";
-    });
-
-    const walletTotalFromRows = safeWallets.length
-      ? sumNumbers(safeWallets, getWalletDisplayBalance)
-      : null;
-    const walletMoneyValue = readNumber(walletMoney);
-    const safeTotalWalletBalance =
-      walletTotalFromRows ?? (walletMoneyValue !== 0 ? walletMoneyValue : null);
-    const safeTotalMoneyLeft =
-      safeTotalWalletBalance ??
-      readNumber(moneyLeftThisMonth) ??
-      null;
-
-    const incomeTransactionRows = safeWalletTransactions.filter((transaction) => {
-      const type = normalizeLower(
-        transaction?.type || transaction?.transaction_type || transaction?.kind
-      );
-      return INCOME_TRANSACTION_TYPES.has(type);
-    });
-    const currentMonthIncomeRows = incomeTransactionRows.filter(isCurrentMonthItem);
-    const monthlyIncomeValue =
-      currentMonthIncomeRows.length > 0
-        ? sumNumbers(currentMonthIncomeRows, (transaction) => transaction?.amount)
-        : readNumber(thisMonthIncome);
-    const totalIncomeValue = incomeTransactionRows.length
-      ? sumNumbers(incomeTransactionRows, (transaction) => transaction?.amount)
-      : null;
-
-    const declaredBudgetAmount = readNumber(
-      monthlyBudgetPlan?.declared_budget,
-      monthlyBudgetPlan?.declared_amount,
-      monthlyBudgetPlan?.monthly_budget_amount
+    const safeTotalMoneyLeft = firstValidNumber(walletMoney, walletTotal, moneyLeftThisMonth);
+    const safeMonthlyExpenses = firstValidNumber(
+      thisMonthSpent,
+      monthlyBudgetPlan?.spent,
+      monthlyBudgetPlan?.total_spent
     );
-    const hasBudgetData =
-      safeBudgets.length > 0 ||
-      Number(monthlyBudgetPlan?.category_count || 0) > 0 ||
-      (declaredBudgetAmount !== null && declaredBudgetAmount > 0) ||
-      Boolean(derivedActiveBudget);
-
-    const budgetAllocated = hasBudgetData
-      ? readNumber(
-          monthlyBudgetPlan?.allocated_amount,
-          monthlyBudgetPlan?.allocated_total,
-          monthlyBudgetPlan?.total_budget,
-          derivedActiveBudget?.allocated_amount,
-          derivedActiveBudget?.total_budget,
-          derivedActiveBudget ? getBudgetTotal(derivedActiveBudget) : null
-        )
-      : null;
-    const budgetSpent = hasBudgetData
-      ? readNumber(
-          monthlyBudgetPlan?.spent,
-          monthlyBudgetPlan?.spent_amount,
-          monthlyBudgetPlan?.total_spent,
-          derivedActiveBudget?.spent,
-          derivedActiveBudget?.spent_amount,
-          derivedActiveBudget?.total_spent,
-          derivedActiveBudget ? getBudgetSpent(derivedActiveBudget) : null
-        )
-      : null;
-    const budgetRemaining = hasBudgetData
-      ? readNumber(
-          monthlyBudgetPlan?.remaining,
-          monthlyBudgetPlan?.remaining_amount,
-          derivedActiveBudget?.remaining,
-          derivedActiveBudget?.remaining_amount,
-          derivedActiveBudget?.amount_left,
-          derivedActiveBudget ? getBudgetRemaining(derivedActiveBudget) : null
-        )
-      : null;
-
-    const savingsSaved = safeSavingsGoals.length
-      ? readNumber(totalSavingsSaved) ?? sumNumbers(safeSavingsGoals, getSavingsSaved)
-      : null;
-    const savingsTarget = safeSavingsGoals.length
-      ? readNumber(totalSavingsTarget) ?? sumNumbers(safeSavingsGoals, getSavingsTarget)
-      : null;
-
     const emergencyTarget = firstPositiveNumber(
       survivalExpense,
       profileData?.monthly_survival_expense,
       profileData?.survival_expense,
-      profileData?.clara_survival_expense,
-      profileData?.emergency_fund_target,
-      profileData?.emergencyFundTarget
+      profileData?.clara_survival_expense
     );
-    const emergencySaved = readNumber(
-      profileData?.emergency_fund_saved,
-      profileData?.emergencyFundSaved,
-      profileData?.current_emergency_fund,
-      profileData?.emergency_fund_amount,
-      profileData?.emergency_saved
+    const emergencySaved = Math.max(safeTotalMoneyLeft - emergencyTarget, 0);
+    const budgetAllocated = firstValidNumber(
+      monthlyBudgetPlan?.allocated_amount,
+      monthlyBudgetPlan?.allocated_total,
+      monthlyBudgetPlan?.total_budget
+    );
+    const budgetSpent = firstValidNumber(
+      monthlyBudgetPlan?.spent,
+      monthlyBudgetPlan?.spent_amount,
+      monthlyBudgetPlan?.total_spent
+    );
+    const budgetRemaining = Math.max(budgetAllocated - budgetSpent, 0);
+    const savingsSaved = firstValidNumber(totalSavingsSaved);
+    const savingsTarget = firstValidNumber(totalSavingsTarget);
+    const currentMonthKey = getPHMonthKey();
+    const currentMonthExpenses = safeExpenses.filter((expense) => {
+      const expenseDate = getTransactionDate(expense);
+      return expenseDate && getPHMonthKey(expenseDate) === currentMonthKey;
+    });
+
+    const needsSpending = currentMonthExpenses.reduce((sum, expense) => {
+      const type = normalizeLower(expense?.need_type || expense?.needType || expense?.spending_type);
+      return type === "need" || type === "needs" ? sum + firstValidNumber(expense?.amount) : sum;
+    }, 0);
+
+    const wantsSpending = currentMonthExpenses.reduce((sum, expense) => {
+      const type = normalizeLower(expense?.need_type || expense?.needType || expense?.spending_type);
+      return type === "want" || type === "wants" ? sum + firstValidNumber(expense?.amount) : sum;
+    }, 0);
+
+    const plannedExpenses = currentMonthExpenses.filter(
+      (expense) => normalizeLower(expense?.planning_status || expense?.planningStatus) === "planned"
+    );
+    const unplannedExpenses = currentMonthExpenses.filter(
+      (expense) => normalizeLower(expense?.planning_status || expense?.planningStatus) === "unplanned"
+    );
+    const undocumentedExpenses = currentMonthExpenses.filter(
+      (expense) => normalizeLower(expense?.planning_status || expense?.planningStatus) === "undocumented"
     );
 
-    const categoryTotals = currentMonthExpenses.reduce((acc, expense) => {
+    const categoryTotals = currentMonthExpenses.reduce((map, expense) => {
       const category = getExpenseCategoryKey(expense);
-      acc[category] = (acc[category] || 0) + (readNumber(expense?.amount) ?? 0);
-      return acc;
-    }, {});
-    const topSpendingCategory =
-      Object.entries(categoryTotals).sort((a, b) => b[1] - a[1])[0]?.[0] || null;
+      map.set(category, (map.get(category) || 0) + firstValidNumber(expense?.amount));
+      return map;
+    }, new Map());
 
-    const normalizedWallets = safeWallets.map((wallet) => ({
-      ...(wallet || {}),
-      id: wallet?.id || null,
-      name: getWalletDisplayName(wallet),
-      balance: readNumber(getWalletDisplayBalance(wallet)),
-    }));
+    const topSpendingCategoryEntry = Array.from(categoryTotals.entries()).sort(
+      (a, b) => b[1] - a[1]
+    )[0];
+    const topSpendingCategory = topSpendingCategoryEntry
+      ? { category: topSpendingCategoryEntry[0], amount: topSpendingCategoryEntry[1] }
+      : null;
 
-    const normalizedExpenses = safeExpenses.map((expense) => ({
-      ...(expense || {}),
-      id: expense?.id || null,
-      amount: readNumber(expense?.amount),
-      category: getExpenseCategoryKey(expense),
-      date: expense?.date || expense?.expense_date || expense?.created_at || null,
-      need_type:
-        expense?.need_type ||
-        expense?.needType ||
-        expense?.spending_type ||
-        null,
-      planning_status:
-        expense?.planning_status ||
-        expense?.planningStatus ||
-        expense?.status ||
-        null,
-      unplanned_reason: expense?.unplanned_reason || null,
-      notes: normalizeString(expense?.notes || expense?.description || ""),
-    }));
-
-    const normalizedBudgets = safeBudgets.map((budget) => ({
-      ...(budget || {}),
-      id: budget?.id || null,
-      name: getBudgetListTitle(budget),
-      allocated: readNumber(getBudgetTotal(budget)),
-      allocated_amount: readNumber(getBudgetTotal(budget)),
-      spent: readNumber(getBudgetSpent(budget)),
-      spent_amount: readNumber(getBudgetSpent(budget)),
-      remaining: readNumber(getBudgetRemaining(budget)),
-      remaining_amount: readNumber(getBudgetRemaining(budget)),
-      need_type: getBudgetNeedType(budget),
-    }));
-
-    const normalizedSavingsGoals = safeSavingsGoals.map((goal) => ({
-      ...(goal || {}),
-      id: goal?.id || null,
-      name: getSavingsGoalTitle(goal),
-      title: getSavingsGoalTitle(goal),
-      saved: readNumber(getSavingsSaved(goal)),
-      saved_amount: readNumber(getSavingsSaved(goal)),
-      target: readNumber(getSavingsTarget(goal)),
-      target_amount: readNumber(getSavingsTarget(goal)),
-    }));
-
-    const normalizeExpenseList = (rows) =>
-      rows.map((expense) => ({
-        ...(expense || {}),
-        id: expense?.id || null,
-        amount: readNumber(expense?.amount),
-        category: getExpenseCategoryKey(expense),
+    const recentExpenses = safeExpenses
+      .slice(0, 12)
+      .map((expense) => ({
+        ...expense,
+        id: expense?.id || expense?.local_id || null,
+        local_id: expense?.local_id || null,
+        amount: Number(firstValidNumber(expense?.amount) || 0),
+        category: expense?.category || getExpenseCategoryKey(expense),
         date: expense?.date || expense?.expense_date || expense?.created_at || null,
-        need_type:
-          expense?.need_type ||
-          expense?.needType ||
-          expense?.spending_type ||
-          null,
-        planning_status:
-          expense?.planning_status ||
-          expense?.planningStatus ||
-          expense?.status ||
-          null,
         notes: normalizeString(expense?.notes || expense?.description || ""),
       }));
 
@@ -7504,123 +7527,99 @@ export default function Dashboard() {
         user?.user_metadata?.name ||
         user?.email?.split("@")?.[0] ||
         "there",
-
-      wallets: normalizedWallets,
-      expenses: normalizedExpenses,
-      budgets: normalizedBudgets,
-      savingsGoals: normalizedSavingsGoals,
+      offlineReady,
+      pendingExpenses: safePendingExpenses,
+      wallets: safeWallets.map((wallet) => ({
+        ...wallet,
+        id: wallet?.id || null,
+        name: getWalletDisplayName(wallet),
+        balance: Number(getWalletDisplayBalance(wallet) || 0),
+      })),
+      expenses: safeExpenses,
+      budgets: safeBudgets,
+      savingsGoals: safeSavingsGoals,
       emergencyFund: {
-        saved: emergencySaved,
-        current: emergencySaved,
-        current_amount: emergencySaved,
-        target: emergencyTarget > 0 ? emergencyTarget : null,
-        target_amount: emergencyTarget > 0 ? emergencyTarget : null,
+        saved: Number(emergencySaved || 0),
+        target: Number(emergencyTarget || 0),
         summary:
           emergencyTarget > 0
-            ? `Your emergency baseline is ${fmt(emergencyTarget)}.`
+            ? `Your emergency baseline is ${fmt(emergencyTarget)}. You currently have ${fmt(
+                safeTotalMoneyLeft
+              )} available.`
             : "",
       },
       walletTransactions: safeWalletTransactions,
       transfers: [],
-
-      totalWalletBalance: safeTotalWalletBalance,
-      totalAvailableMoney: safeTotalMoneyLeft,
-      availableMoney: safeTotalMoneyLeft,
-      totalMoneyLeft: safeTotalMoneyLeft,
-      moneyLeftThisMonth: readNumber(moneyLeftThisMonth),
-
-      monthlySpent: safeMonthlySpent,
-      totalExpensesThisMonth: safeMonthlySpent,
-      thisMonthSpent: safeMonthlySpent,
-      monthlyExpenses: safeMonthlySpent,
-      currentMonthExpenses: normalizeExpenseList(currentMonthExpenses),
-
-      monthlyIncome: monthlyIncomeValue,
-      totalIncome: totalIncomeValue,
-      addedFunds: totalIncomeValue,
-
-      budgetAllocated,
-      budgetSpent,
-      budgetRemaining,
+      totalWalletBalance: Number(walletTotal || 0),
+      totalAvailableMoney: Number(safeTotalMoneyLeft || 0),
+      availableMoney: Number(safeTotalMoneyLeft || 0),
+      totalMoneyLeft: Number(safeTotalMoneyLeft || 0),
+      moneyLeftThisMonth: Number(moneyLeftThisMonth || 0),
+      monthlySpent: Number(safeMonthlyExpenses || 0),
+      totalExpensesThisMonth: Number(safeMonthlyExpenses || 0),
+      thisMonthSpent: Number(thisMonthSpent || 0),
+      monthlyExpenses: Number(safeMonthlyExpenses || 0),
+      currentMonthExpenses,
+      monthlyIncome: Number(thisMonthIncome || 0),
+      totalIncome: Number(thisMonthIncome || 0),
+      addedFunds: Number(thisMonthIncome || 0),
+      budgetAllocated: Number(budgetAllocated || 0),
+      budgetSpent: Number(budgetSpent || 0),
+      budgetRemaining: Number(budgetRemaining || 0),
+      totalSavingsSaved: Number(savingsSaved || 0),
+      totalSavingsTarget: Number(savingsTarget || 0),
+      emergencyFundSaved: Number(emergencySaved || 0),
+      emergencyFundTarget: Number(emergencyTarget || 0),
+      needsSpending: Number(needsSpending || 0),
+      wantsSpending: Number(wantsSpending || 0),
+      plannedExpenses,
+      unplannedExpenses,
+      undocumentedExpenses,
+      plannedSpent: plannedExpenses.reduce((sum, expense) => sum + firstValidNumber(expense?.amount), 0),
+      unplannedSpent: unplannedExpenses.reduce((sum, expense) => sum + firstValidNumber(expense?.amount), 0),
+      undocumentedSpent: undocumentedExpenses.reduce((sum, expense) => sum + firstValidNumber(expense?.amount), 0),
+      topSpendingCategory,
+      recentExpenses,
       budget: {
-        ...(monthlyBudgetPlan || {}),
-        allocated: budgetAllocated,
-        allocated_amount: budgetAllocated,
-        spent: budgetSpent,
-        spent_amount: budgetSpent,
-        remaining: budgetRemaining,
-        remaining_amount: budgetRemaining,
+        allocated: Number(budgetAllocated || 0),
+        spent: Number(budgetSpent || 0),
+        remaining: Number(budgetRemaining || 0),
         summary:
-          budgetAllocated !== null
-            ? `Your current budget shows ${fmt(budgetSpent || 0)} spent out of ${fmt(
+          budgetAllocated > 0
+            ? `Your current budget shows ${fmt(budgetSpent)} spent out of ${fmt(
                 budgetAllocated
               )} allocated.`
             : "",
         categories: Array.isArray(budgetSummaries) ? budgetSummaries : [],
       },
-
-      totalSavingsSaved: savingsSaved,
-      totalSavingsTarget: savingsTarget,
       savings: {
-        saved: savingsSaved,
-        saved_amount: savingsSaved,
-        target: savingsTarget,
-        target_amount: savingsTarget,
+        saved: Number(savingsSaved || 0),
+        target: Number(savingsTarget || 0),
         summary:
-          savingsTarget !== null
-            ? `Your savings progress is ${fmt(savingsSaved || 0)} out of ${fmt(
-                savingsTarget
-              )}.`
+          savingsTarget > 0
+            ? `Your savings progress is ${fmt(savingsSaved)} out of ${fmt(savingsTarget)}.`
             : safeSavingsGoals.length
               ? `You have ${safeSavingsGoals.length} savings goal${
                   safeSavingsGoals.length === 1 ? "" : "s"
                 } tracked.`
               : "",
       },
-
-      emergencyFundSaved: emergencySaved,
-      emergencyFundTarget: emergencyTarget > 0 ? emergencyTarget : null,
-
-      needsSpending: needsExpenseRows.length
-        ? sumNumbers(needsExpenseRows, (expense) => expense?.amount)
-        : null,
-      wantsSpending: wantsExpenseRows.length
-        ? sumNumbers(wantsExpenseRows, (expense) => expense?.amount)
-        : null,
-      plannedExpenses: normalizeExpenseList(plannedExpenseRows),
-      unplannedExpenses: normalizeExpenseList(unplannedExpenseRows),
-      undocumentedExpenses: normalizeExpenseList(undocumentedExpenseRows),
-
-      plannedSpent: plannedExpenseRows.length
-        ? sumNumbers(plannedExpenseRows, (expense) => expense?.amount)
-        : null,
-      unplannedSpent:
-        readNumber(monthlyBudgetPlan?.unplanned_spent) ??
-        (unplannedExpenseRows.length
-          ? sumNumbers(unplannedExpenseRows, (expense) => expense?.amount)
-          : null),
-      undocumentedSpent:
-        readNumber(monthlyBudgetPlan?.undocumented_spent) ??
-        (undocumentedExpenseRows.length
-          ? sumNumbers(undocumentedExpenseRows, (expense) => expense?.amount)
-          : null),
-
-      topSpendingCategory,
-      recentExpenses: normalizeExpenseList(recentExpenseRows),
-      budgetCategories: Array.isArray(budgetSummaries) ? budgetSummaries : [],
-      manualExpenseBudgetOptions: Array.isArray(manualExpenseBudgetOptions)
-        ? manualExpenseBudgetOptions
+      budgetCategories: Array.isArray(monthlyBudgetPlan?.categories)
+        ? monthlyBudgetPlan.categories
         : [],
+      manualExpenseBudgetOptions,
     };
   }, [
     budgetSummaries,
     budgets,
-    derivedActiveBudget,
     expenses,
+    fmt,
     manualExpenseBudgetOptions,
     moneyLeftThisMonth,
     monthlyBudgetPlan,
     nickname,
+    offlineReady,
+    pendingExpenses,
     profileData,
     savingsGoals,
     survivalExpense,
@@ -7628,694 +7627,11 @@ export default function Dashboard() {
     thisMonthSpent,
     totalSavingsSaved,
     totalSavingsTarget,
-    user,
-    walletMoney,
-    walletTransactions,
-    wallets,
-  ]);
-
-  useEffect(() => {
-    if (!DEBUG_FINANCE_DIAGNOSTICS) return;
-
-    const toFinanceNumber = (value) => {
-      if (typeof value === "number") return Number.isFinite(value) ? value : 0;
-      const cleaned = String(value ?? "").replace(/[₱,\s]/g, "");
-      const number = Number(cleaned);
-      return Number.isFinite(number) ? number : 0;
-    };
-
-    const getSignedLedgerAmount = (transaction) => {
-      const type = normalizeLower(
-        transaction?.type || transaction?.transaction_type || transaction?.kind
-      );
-      const amount = toFinanceNumber(transaction?.amount);
-
-      if (
-        [
-          "expense",
-          "transfer_out",
-          "savings_goal",
-          "savings_transfer",
-          "reset",
-          "debit",
-          "withdrawal",
-        ].includes(type)
-      ) {
-        return -amount;
-      }
-
-      if (
-        [
-          "income",
-          "add",
-          "cash_in",
-          "deposit",
-          "transfer_in",
-          "opening_balance",
-          "credit",
-        ].includes(type)
-      ) {
-        return amount;
-      }
-
-      return 0;
-    };
-
-    const isExpenseType = (transaction) =>
-      normalizeLower(transaction?.type || transaction?.transaction_type || transaction?.kind) ===
-      "expense";
-
-    const currentMonthKey = getPHMonthKey();
-    const normalizedWalletBalanceSum = wallets.reduce(
-      (sum, wallet) => sum + toFinanceNumber(getWalletDisplayBalance(wallet)),
-      0
-    );
-    const walletLedgerNetTotal = walletTransactions.reduce(
-      (sum, transaction) => sum + getSignedLedgerAmount(transaction),
-      0
-    );
-    const expenseTableMonthlyRows = expenses.filter((expense) => {
-      const expenseDate = getTransactionDate(expense);
-      return expenseDate && getPHMonthKey(expenseDate) === currentMonthKey;
-    });
-    const expenseTableMonthlySum = expenseTableMonthlyRows.reduce(
-      (sum, expense) => sum + toFinanceNumber(expense?.amount),
-      0
-    );
-    const walletTransactionExpenseMonthlyRows = walletTransactions.filter((transaction) => {
-      const transactionDate = getTransactionDate(transaction);
-      return (
-        isExpenseType(transaction) &&
-        transactionDate &&
-        getPHMonthKey(transactionDate) === currentMonthKey
-      );
-    });
-    const walletTransactionExpenseMonthlySum = walletTransactionExpenseMonthlyRows.reduce(
-      (sum, transaction) => sum + toFinanceNumber(transaction?.amount),
-      0
-    );
-    const tolerance = 0.01;
-    const differs = (a, b) => Math.abs(toFinanceNumber(a) - toFinanceNumber(b)) > tolerance;
-
-    const walletSummaries = Array.isArray(claraAssistantContext?.wallets)
-      ? claraAssistantContext.wallets.map((wallet) => ({
-          id: wallet?.id,
-          name: wallet?.name,
-          balance: wallet?.balance,
-        }))
-      : [];
-
-    const diagnostics = {
-      walletTotals: {
-        dashboardWalletMoney: toFinanceNumber(walletMoney),
-        dashboardTotalMoneyLeft: toFinanceNumber(claraAssistantContext?.totalMoneyLeft),
-        normalizedWalletBalanceSum,
-        walletLedgerNetTotal,
-        walletsLoaded: wallets.length,
-      },
-      monthlySpending: {
-        dashboardThisMonthSpent: toFinanceNumber(thisMonthSpent),
-        expenseTableMonthlySum,
-        walletTransactionExpenseMonthlySum,
-        expenseRowsThisMonth: expenseTableMonthlyRows.length,
-        walletTransactionExpenseRowsThisMonth: walletTransactionExpenseMonthlyRows.length,
-      },
-      claraContext: {
-        totalAvailableMoney: toFinanceNumber(claraAssistantContext?.totalMoneyLeft),
-        monthlySpent: toFinanceNumber(claraAssistantContext?.totalExpensesThisMonth),
-        walletCount: walletSummaries.length,
-        walletSummaries,
-        cashFlowRemaining: toFinanceNumber(moneyLeftThisMonth),
-      },
-      mismatchFlags: {
-        walletMoneyDiffersFromWalletBalanceSum: differs(walletMoney, normalizedWalletBalanceSum),
-        dashboardMonthlySpentDiffersFromExpenseTableMonthlySum: differs(
-          thisMonthSpent,
-          expenseTableMonthlySum
-        ),
-        walletTransactionExpenseTotalDiffersFromExpensesTableTotal: differs(
-          walletTransactionExpenseMonthlySum,
-          expenseTableMonthlySum
-        ),
-      },
-    };
-
-    console.groupCollapsed("CLARA Finance Diagnostics");
-    console.table([diagnostics.walletTotals]);
-    console.table([diagnostics.monthlySpending]);
-    console.log("CLARA context:", diagnostics.claraContext);
-    console.table([diagnostics.mismatchFlags]);
-
-    Object.entries(diagnostics.mismatchFlags).forEach(([key, value]) => {
-      if (value) {
-        console.warn(`CLARA Finance Diagnostics mismatch: ${key}`, diagnostics);
-      }
-    });
-
-    console.groupEnd();
-  }, [
-    claraAssistantContext,
-    expenses,
-    moneyLeftThisMonth,
-    thisMonthSpent,
-    walletMoney,
-    walletTransactions,
-    wallets,
-  ]);
-
-
-  const scrollFinanceCardsTo = useCallback((nextIndex) => {
-    const safeIndex = Math.max(0, Math.min(financeCards.length - 1, nextIndex));
-    const container = financeCarouselRef.current;
-
-    setFinanceCardIndex(safeIndex);
-
-    if (!container) return;
-
-    const slideWidth =
-      financeCards.length > 0
-        ? container.scrollWidth / financeCards.length
-        : container.clientWidth || 0;
-
-    container.scrollTo({
-      left: slideWidth * safeIndex,
-      behavior: "smooth",
-    });
-  }, [financeCards.length]);
-
-  const clearDashboardScrollTimers = useCallback(() => {
-    dashboardScrollTimersRef.current.forEach((timerId) => {
-      window.clearTimeout(timerId);
-    });
-    dashboardScrollTimersRef.current = [];
-  }, []);
-
-  const measureDashboardScrollability = useCallback(() => {
-    if (activeDashboardPanel !== "home" || !expandedFinanceCard) {
-      setIsDashboardScrollable(false);
-      return false;
-    }
-
-    const scrollNode = dashboardScrollRef.current;
-    const contentNode = dashboardContentRef.current;
-    if (!scrollNode || !contentNode || typeof window === "undefined") {
-      setIsDashboardScrollable(false);
-      return false;
-    }
-
-    const viewportHeight = Math.max(window.innerHeight || 0, scrollNode.clientHeight || 0);
-    const contentHeight = Math.max(
-      scrollNode.scrollHeight || 0,
-      contentNode.scrollHeight || 0,
-      contentNode.getBoundingClientRect?.().height || 0
-    );
-    const shouldScroll = contentHeight > viewportHeight + 8;
-
-    setIsDashboardScrollable(shouldScroll);
-    return shouldScroll;
-  }, [activeDashboardPanel, expandedFinanceCard]);
-
-  const scheduleDashboardScrollMeasure = useCallback(() => {
-    if (typeof window === "undefined") return;
-
-    clearDashboardScrollTimers();
-    window.requestAnimationFrame(() => {
-      measureDashboardScrollability();
-    });
-
-    [120, 280, 380].forEach((delay) => {
-      const timerId = window.setTimeout(() => {
-        measureDashboardScrollability();
-      }, delay);
-      dashboardScrollTimersRef.current.push(timerId);
-    });
-  }, [clearDashboardScrollTimers, measureDashboardScrollability]);
-
-  const toggleFinanceDetails = useCallback((cardKey) => {
-    setExpandedFinanceCard((prev) => {
-      const next = prev === cardKey ? null : cardKey;
-      if (!next) {
-        setIsDashboardScrollable(false);
-        window.requestAnimationFrame(() => {
-          dashboardScrollRef.current?.scrollTo?.({ top: 0, behavior: "smooth" });
-        });
-      }
-      return next;
-    });
-  }, []);
-
-  const handleFinanceCarouselScroll = useCallback(() => {
-    const container = financeCarouselRef.current;
-    if (!container || financeCards.length <= 0) return;
-
-    const slideWidth = Math.max(
-      1,
-      container.scrollWidth / financeCards.length || container.clientWidth || 1
-    );
-
-    const index = Math.round(container.scrollLeft / slideWidth);
-    setFinanceCardIndex(Math.max(0, Math.min(financeCards.length - 1, index)));
-  }, [financeCards.length]);
-
-  useEffect(() => {
-    scheduleDashboardScrollMeasure();
-
-    if (!expandedFinanceCard) {
-      setIsDashboardScrollable(false);
-      dashboardScrollRef.current?.scrollTo?.({ top: 0, behavior: "smooth" });
-    }
-
-    return clearDashboardScrollTimers;
-  }, [
-    activeDashboardPanel,
-    expandedFinanceCard,
-    financeCardIndex,
-    dashboardViewportMode,
-    scheduleDashboardScrollMeasure,
-    clearDashboardScrollTimers,
-  ]);
-
-  useEffect(() => {
-    if (typeof window === "undefined") return undefined;
-
-    const handleResize = () => {
-      scheduleDashboardScrollMeasure();
-    };
-
-    window.addEventListener("resize", handleResize, { passive: true });
-    window.addEventListener("orientationchange", handleResize, { passive: true });
-
-    return () => {
-      window.removeEventListener("resize", handleResize);
-      window.removeEventListener("orientationchange", handleResize);
-    };
-  }, [scheduleDashboardScrollMeasure]);
-
-  const showFinanceNotice = useCallback((message, type = "error") => {
-    setFinanceNotice({ message, type });
-  }, []);
-
-  const closeFinanceNotice = useCallback(() => {
-    setFinanceNotice(null);
-  }, []);
-
-  const closeFinanceModal = useCallback(() => {
-    setBudgetExitConfirm(false);
-    setBudgetListOpen(false);
-    setFinanceModal({ type: null, payload: null });
-  }, []);
-
-  const openCreateWalletModal = useCallback(() => {
-    setFinanceForm({
-      name: "",
-      type: "cash",
-      customWalletType: "",
-      startingBalance: "0",
-      amount: "",
-      destinationWalletId: "",
-      totalBudget: "",
-      needsPct: "50",
-      wantsPct: "30",
-      otherPct: "20",
-      title: "",
-      targetAmount: "",
-      savingsWalletId: "",
-      category: "",
-      subcategory: "",
-      plannedUseDate: "",
-      reasonOne: "",
-      reasonTwo: "",
-      reasonThree: "",
-      emotionalValue: "joy",
-      priority: "medium",
-      flexibility: "flexible",
-      notes: "",
-    });
-    setFinanceModal({ type: "create_wallet", payload: null });
-  }, []);
-
-  const openDeleteWalletModal = useCallback((walletId) => {
-    const wallet = wallets.find((item) => String(item.id) === String(walletId)) || null;
-    setFinanceModal({ type: "delete_wallet", payload: wallet });
-  }, [wallets]);
-
-  const openAddMoneyModal = useCallback((wallet) => {
-    setFinanceForm((prev) => ({
-      ...prev,
-      amount: "",
-    }));
-    setFinanceModal({ type: "add_money", payload: wallet });
-  }, []);
-
-  const openTransferMoneyModal = useCallback((fromWallet) => {
-    const destinationOptions = wallets.filter(
-      (wallet) => String(wallet.id) !== String(fromWallet?.id)
-    );
-
-    if (destinationOptions.length < 1) {
-      showFinanceNotice("Create another wallet first before transferring.");
-      return;
-    }
-
-    setFinanceForm((prev) => ({
-      ...prev,
-      amount: "",
-      destinationWalletId: String(destinationOptions[0]?.id || ""),
-    }));
-    setFinanceModal({ type: "transfer_money", payload: fromWallet });
-  }, [wallets, showFinanceNotice]);
-
-  const openManualExpenseModal = useCallback(() => {
-    if (!wallets.length) {
-      showFinanceNotice("Create or fund a wallet first before logging an expense.");
-      return;
-    }
-
-    setFinanceForm((prev) => ({
-      ...prev,
-      amount: "",
-      budgetListKey: "",
-      expenseWalletId: String(wallets[0]?.id || ""),
-      unplannedReason: "",
-      undocumentedReason: "",
-      undocumentedNote: "",
-      notes: "",
-    }));
-    setBudgetListOpen(false);
-    setFinanceModal({ type: "manual_expense", payload: null });
-  }, [showFinanceNotice, wallets]);
-
-  const getClaraAiOrbButtonFromEvent = useCallback((event) => {
-    const target = event?.target;
-    if (!target?.closest) return null;
-
-    const emergencyCard = target.closest("[data-emergency-card]");
-    if (!emergencyCard) return null;
-
-    const button = target.closest("button");
-    if (!button || !emergencyCard.contains(button)) return null;
-
-    const buttonSignature = [
-      button.getAttribute?.("aria-label"),
-      button.getAttribute?.("title"),
-      button.textContent,
-    ]
-      .map((value) => normalizeLower(value))
-      .filter(Boolean)
-      .join(" ");
-
-    if (
-      buttonSignature.includes("clara ai") ||
-      buttonSignature.includes("clara") ||
-      buttonSignature.includes("assistant") ||
-      buttonSignature.includes("ask")
-    ) {
-      return button;
-    }
-
-    return null;
-  }, []);
-
-  const isClaraAiOrbEvent = useCallback((event) => {
-    return Boolean(getClaraAiOrbButtonFromEvent(event));
-  }, [getClaraAiOrbButtonFromEvent]);
-
-  const clearLongPressTimer = useCallback(() => {
-    if (longPressTimerRef.current) {
-      clearTimeout(longPressTimerRef.current);
-      longPressTimerRef.current = null;
-    }
-  }, []);
-
-  const openClaraAiFromLongPress = useCallback(() => {
-    setShowAiAssistant(true);
-  }, []);
-
-  const startClaraAiLongPress = useCallback((event) => {
-    if (!isClaraAiOrbEvent(event)) return;
-
-    longPressTriggeredRef.current = false;
-    clearLongPressTimer();
-
-    longPressTimerRef.current = setTimeout(() => {
-      longPressTriggeredRef.current = true;
-      openClaraAiFromLongPress();
-    }, 550);
-  }, [clearLongPressTimer, isClaraAiOrbEvent, openClaraAiFromLongPress]);
-
-  const endClaraAiLongPress = useCallback(() => {
-    clearLongPressTimer();
-  }, [clearLongPressTimer]);
-
-  const handleClaraAiOrbClickCapture = useCallback((event) => {
-    if (!isClaraAiOrbEvent(event)) return false;
-
-    event?.preventDefault?.();
-    event?.stopPropagation?.();
-    event?.nativeEvent?.stopImmediatePropagation?.();
-
-    if (longPressTriggeredRef.current) {
-      longPressTriggeredRef.current = false;
-      return true;
-    }
-
-    openManualExpenseModal();
-    return true;
-  }, [isClaraAiOrbEvent, openManualExpenseModal]);
-
-  useEffect(() => {
-    return () => clearLongPressTimer();
-  }, [clearLongPressTimer]);
-
-  useEffect(() => {
-    const handleOpenAssistant = (event) => {
-      event?.stopPropagation?.();
-      event?.stopImmediatePropagation?.();
-      setShowAiAssistant(true);
-    };
-
-    window.addEventListener("clara:open-assistant", handleOpenAssistant, true);
-
-    return () => {
-      window.removeEventListener("clara:open-assistant", handleOpenAssistant, true);
-    };
-  }, []);
-
-  const openBudgetModal = useCallback((budgetCategory = null) => {
-    const item = budgetCategory?.budget || budgetCategory || null;
-    const declaredAmount = firstValidNumber(
-      monthlyBudgetPlan?.declared_budget,
-      monthlyBudgetPlan?.declared_amount,
-      declaredMonthlyBudgetAmount
-    );
-
-    setBudgetExitConfirm(false);
-    setFinanceForm((prev) => ({
-      ...prev,
-      monthlyBudgetAmount: declaredAmount > 0 ? String(declaredAmount) : "",
-      title: item ? getBudgetListTitle(item) : "",
-      budgetCategoryName: item ? getBudgetListTitle(item) : "",
-      totalBudget: item ? String(getBudgetTotal(item)) : "",
-      needsPct: String(item?.needs_pct ?? item?.needs_percent ?? 50),
-      wantsPct: String(item?.wants_pct ?? item?.wants_percent ?? 30),
-      otherPct: String(item?.other_pct ?? item?.other_percent ?? 20),
-    }));
-    setFinanceModal({ type: "save_budget", payload: item || null });
-  }, [declaredMonthlyBudgetAmount, monthlyBudgetPlan?.declared_amount, monthlyBudgetPlan?.declared_budget]);
-
-  const openDeleteBudgetCategoryModal = useCallback((budgetCategory = null) => {
-    const item = budgetCategory?.budget || budgetCategory || null;
-    if (!item?.id) return;
-    setFinanceModal({ type: "delete_budget_category", payload: item });
-  }, []);
-
-  const openResetBudgetModal = useCallback(() => {
-    if (!activeBudget?.id) return;
-    setFinanceModal({ type: "reset_budget", payload: activeBudget });
-  }, [activeBudget]);
-
-  const openSavingsGoalModal = useCallback(
-    (goal = null) => {
-      if (goal?.id) {
-        navigate("/savings-goals", {
-          state: {
-            editGoalId: String(goal.id),
-            focusGoalId: String(goal.id),
-          },
-        });
-        return;
-      }
-
-      navigate("/savings-goals", {
-        state: {
-          openCreateSavingsGoal: true,
-        },
-      });
-    },
-    [navigate]
-  );
-
-  const openDeleteSavingsGoalModal = useCallback((goalId) => {
-    const goal = savingsGoals.find((item) => String(item.id) === String(goalId)) || null;
-    setFinanceModal({ type: "delete_savings_goal", payload: goal });
-  }, [savingsGoals]);
-
-  const openAddSavingsModal = useCallback((goal) => {
-    const compatibleWallets = wallets.filter((wallet) => getWalletDisplayBalance(wallet) > 0);
-
-    if (!compatibleWallets.length) {
-      showFinanceNotice("Add balance to a wallet first before funding a goal.");
-      return;
-    }
-
-    setFinanceForm((prev) => ({
-      ...prev,
-      amount: "",
-      savingsWalletId: String(compatibleWallets[0]?.id || ""),
-    }));
-    setFinanceModal({ type: "add_savings", payload: goal });
-  }, [wallets, showFinanceNotice]);
-
-  useEffect(() => {
-    window.addEventListener("clara:open-manual-expense", openManualExpenseModal);
-    return () => window.removeEventListener("clara:open-manual-expense", openManualExpenseModal);
-  }, [openManualExpenseModal]);
-
-  useEffect(() => {
-    const container = financeCarouselRef.current;
-    if (!container) return undefined;
-
-    let frame = null;
-
-    const onScroll = () => {
-      if (frame) cancelAnimationFrame(frame);
-      frame = requestAnimationFrame(handleFinanceCarouselScroll);
-    };
-
-    container.addEventListener("scroll", onScroll, { passive: true });
-    handleFinanceCarouselScroll();
-
-    return () => {
-      container.removeEventListener("scroll", onScroll);
-      if (frame) cancelAnimationFrame(frame);
-    };
-  }, [handleFinanceCarouselScroll, user?.id, activeDashboardPanel, financeCards.length]);
-
-
-  const refreshFinanceSection = useCallback(async () => {
-    await loadDashboardData({ background: true });
-    dispatchClaraEvent("clara-finance-updated");
-  }, [loadDashboardData]);
-
-  const moveWalletInline = useCallback(
-    async (walletId, direction) => {
-      if (financeActionLoading) return;
-
-      const orderedWallets = [...wallets].sort((a, b) => {
-        const aIndex = wallets.findIndex((wallet) => String(wallet.id) === String(a.id));
-        const bIndex = wallets.findIndex((wallet) => String(wallet.id) === String(b.id));
-        return getWalletSortOrder(a, aIndex) - getWalletSortOrder(b, bIndex);
-      });
-
-      const fromIndex = orderedWallets.findIndex(
-        (wallet) => String(wallet.id) === String(walletId)
-      );
-
-      if (fromIndex === -1) return;
-
-      const toIndex = fromIndex + direction;
-      if (toIndex < 0 || toIndex >= orderedWallets.length) return;
-
-      [orderedWallets[fromIndex], orderedWallets[toIndex]] = [
-        orderedWallets[toIndex],
-        orderedWallets[fromIndex],
-      ];
-
-      try {
-        setFinanceActionLoading(true);
-
-        const results = await Promise.all(
-          orderedWallets.map((wallet, index) =>
-            supabase
-              .from("wallets")
-              .update({ sort_order: index })
-              .eq("id", String(wallet.id))
-          )
-        );
-
-        const failed = results.find((result) => result?.error);
-        if (failed?.error) throw failed.error;
-
-        await refreshFinanceSection();
-      } catch (error) {
-        showFinanceNotice(error?.message || "Failed to reorder wallets.");
-      } finally {
-        setFinanceActionLoading(false);
-      }
-    },
-    [financeActionLoading, refreshFinanceSection, showFinanceNotice, wallets]
-  );
-
-  const createWalletInline = useCallback(async () => {
-    const name = normalizeString(financeForm.name);
-    const selectedWalletType = normalizeString(financeForm.type) || "cash";
-    const customWalletType = normalizeString(financeForm.customWalletType);
-    const type =
-      selectedWalletType === "custom" ? customWalletType || "other" : selectedWalletType;
-    const startingBalance = Number(financeForm.startingBalance);
-
-    if (!name) {
-      showFinanceNotice("Please enter a wallet name.");
-      return;
-    }
-
-    if (!type) {
-      showFinanceNotice("Please enter a wallet type.");
-      return;
-    }
-
-    if (!Number.isFinite(startingBalance) || startingBalance < 0) {
-      showFinanceNotice("Please enter a valid starting balance.");
-      return;
-    }
-
-    try {
-      setFinanceActionLoading(true);
-      const { error } = await supabase.from("wallets").insert([
-        {
-          name,
-          type,
-          balance: startingBalance,
-          starting_balance: startingBalance,
-          sort_order: wallets.length,
-          user_id: user?.id || null,
-          user_email: user?.email || null,
-          created_by: user?.email || null,
-        },
-      ]);
-
-      if (error) throw error;
-
-      await refreshFinanceSection();
-      setExpandedFinanceCard("wallets");
-      closeFinanceModal();
-      showFinanceNotice("Wallet created successfully.", "success");
-    } catch (error) {
-      showFinanceNotice(error?.message || "Failed to create wallet.");
-    } finally {
-      setFinanceActionLoading(false);
-    }
-  }, [
-    closeFinanceModal,
-    financeForm.customWalletType,
-    financeForm.name,
-    financeForm.startingBalance,
-    financeForm.type,
-    refreshFinanceSection,
-    showFinanceNotice,
     user?.email,
     user?.id,
-    wallets.length,
+    walletMoney,
+    walletTransactions,
+    wallets,
   ]);
 
   const deleteWalletInline = useCallback(async () => {
@@ -8398,38 +7714,139 @@ export default function Dashboard() {
       return;
     }
 
+    const nowIso = new Date().toISOString();
+    const ownerKey = cacheKey || user?.id || user?.email || "guest";
+    const budgetCategory = isUnplanned
+      ? "Unplanned Spending"
+      : isUndocumented
+        ? "Undocumented Spending"
+        : selectedBudget.title;
+    const needType = isUnplanned || isUndocumented ? "other" : selectedBudget.needType || "need";
+    const planningStatus = isUnplanned ? "unplanned" : isUndocumented ? "undocumented" : "planned";
+    const notesValue = isUnplanned ? reason : isUndocumented ? undocumentedFallbackNote : "";
+    const previousBalance = getWalletDisplayBalance(wallet);
+    const nextBalance = previousBalance - amount;
+
+    const expensePayload = {
+      amount,
+      wallet_id: wallet.id,
+      category: budgetCategory,
+      need_type: needType,
+      planning_status: planningStatus,
+      unplanned_reason: isUnplanned
+        ? reason
+        : isUndocumented
+          ? undocumentedFallbackNote || "Undocumented Spending"
+          : null,
+      notes: notesValue,
+      date: nowIso,
+      created_at: nowIso,
+      updated_at: nowIso,
+      user_id: user?.id || null,
+      user_email: user?.email || null,
+      created_by: user?.email || null,
+    };
+
+    const walletTransactionPayload = {
+      wallet_id: wallet.id,
+      type: "expense",
+      amount,
+      category: budgetCategory,
+      need_type: needType,
+      planning_status: planningStatus,
+      unplanned_reason: expensePayload.unplanned_reason,
+      source_type: "Manual Log Expense",
+      notes: notesValue,
+      details: {
+        budget_category: budgetCategory,
+        previous_balance: previousBalance,
+        next_balance: nextBalance,
+      },
+      created_at: nowIso,
+      updated_at: nowIso,
+      user_id: user?.id || null,
+      user_email: user?.email || null,
+      created_by: user?.email || null,
+    };
+
+    const saveExpenseOffline = async () => {
+      const localExpense = await saveLocalExpense(
+        {
+          ...expensePayload,
+          wallet_transaction: walletTransactionPayload,
+        },
+        ownerKey
+      );
+
+      const localTransaction = {
+        ...walletTransactionPayload,
+        id: localExpense.local_id ? `txn_${localExpense.local_id}` : createFinanceId(),
+        local_id: localExpense.local_id ? `txn_${localExpense.local_id}` : createFinanceId(),
+        expense_id: localExpense.local_id || localExpense.id,
+        local_only: true,
+        pending_sync: true,
+        sync_status: "pending",
+      };
+
+      const nextWallets = wallets.map((item) => {
+        if (String(item.id) !== String(wallet.id)) return item;
+        return {
+          ...item,
+          balance: nextBalance,
+          derived_balance: nextBalance,
+          current_balance: nextBalance,
+        };
+      });
+      const nextExpenses = [localExpense, ...expenses];
+      const nextWalletTransactions = [localTransaction, ...walletTransactions];
+      const nextPendingExpenses = [localExpense, ...pendingExpenses.filter(
+        (item) => String(item.local_id) !== String(localExpense.local_id)
+      )];
+      const nextWalletMoney = nextWallets.reduce(
+        (sum, item) => sum + getWalletDisplayBalance(item),
+        0
+      );
+      const nextCache = {
+        ...dashboardPageCache,
+        key: ownerKey,
+        loaded: true,
+        guardChecked: true,
+        offlineReady: true,
+        walletMoney: nextWalletMoney,
+        wallets: nextWallets,
+        expenses: nextExpenses,
+        walletTransactions: nextWalletTransactions,
+        pendingExpenses: nextPendingExpenses,
+        budgets,
+        savingsGoals,
+        survivalExpense,
+        profileData,
+        latestEnrollment,
+        nickname,
+        reminderTime,
+        financialGoal,
+      };
+
+      setExpenses(nextExpenses);
+      setWalletTransactions(nextWalletTransactions);
+      setPendingExpenses(nextPendingExpenses);
+      setOfflineReady(true);
+      setWallets(nextWallets);
+      setWalletMoney(nextWalletMoney);
+      dashboardPageCache = nextCache;
+      await saveCachedFinanceSnapshot(nextCache, ownerKey);
+      closeFinanceModal();
+      showFinanceNotice("Saved offline. CLARA will sync this when you’re back online.", "success");
+      dispatchClaraEvent("clara-expenses-updated", { offline: true, expense: localExpense });
+    };
+
     try {
       setFinanceActionLoading(true);
 
-      const nowIso = new Date().toISOString();
-      const budgetCategory = isUnplanned
-        ? "Unplanned Spending"
-        : isUndocumented
-          ? "Undocumented Spending"
-          : selectedBudget.title;
-      const needType = isUnplanned || isUndocumented ? "other" : selectedBudget.needType || "need";
-      const planningStatus = isUnplanned ? "unplanned" : isUndocumented ? "undocumented" : "planned";
-      const notesValue = isUnplanned ? reason : isUndocumented ? undocumentedFallbackNote : "";
-
-      const expensePayload = {
-        amount,
-        wallet_id: wallet.id,
-        category: budgetCategory,
-        need_type: needType,
-        planning_status: planningStatus,
-        unplanned_reason: isUnplanned
-          ? reason
-          : isUndocumented
-            ? undocumentedFallbackNote || "Undocumented Spending"
-            : null,
-        notes: notesValue,
-        date: nowIso,
-        created_at: nowIso,
-        updated_at: nowIso,
-        user_id: user?.id || null,
-        user_email: user?.email || null,
-        created_by: user?.email || null,
-      };
+      if (!isClaraOnline()) {
+        await saveExpenseOffline();
+        return;
+      }
 
       const { error: expenseError, data: insertedExpense } = await supabase
         .from("expenses")
@@ -8443,26 +7860,8 @@ export default function Dashboard() {
 
       const { error: historyError } = await supabase.from("wallet_transactions").insert([
         {
-          wallet_id: wallet.id,
-          type: "expense",
-          amount,
+          ...walletTransactionPayload,
           expense_id: insertedExpenseId,
-          category: budgetCategory,
-          need_type: needType,
-          planning_status: planningStatus,
-          unplanned_reason: expensePayload.unplanned_reason,
-          source_type: "Manual Log Expense",
-          notes: notesValue,
-          details: {
-            budget_category: budgetCategory,
-            previous_balance: getWalletDisplayBalance(wallet),
-            next_balance: getWalletDisplayBalance(wallet) - amount,
-          },
-          created_at: nowIso,
-          updated_at: nowIso,
-          user_id: user?.id || null,
-          user_email: user?.email || null,
-          created_by: user?.email || null,
         },
       ]);
       if (historyError) throw historyError;
@@ -8471,13 +7870,27 @@ export default function Dashboard() {
       closeFinanceModal();
       showFinanceNotice("Expense logged successfully.", "success");
     } catch (error) {
-      showFinanceNotice(error?.message || "Failed to log expense.");
+      const errorMessage = String(error?.message || "").toLowerCase();
+      const networkIssue =
+        !isClaraOnline() ||
+        errorMessage.includes("failed to fetch") ||
+        errorMessage.includes("network") ||
+        errorMessage.includes("offline");
+
+      if (networkIssue) {
+        await saveExpenseOffline();
+      } else {
+        showFinanceNotice(error?.message || "Failed to log expense.");
+      }
     } finally {
       setFinanceActionLoading(false);
     }
   }, [
     budgetPlanIsComplete,
+    budgets,
+    cacheKey,
     closeFinanceModal,
+    expenses,
     financeForm.amount,
     financeForm.budgetListKey,
     financeForm.expenseWalletId,
@@ -8485,11 +7898,20 @@ export default function Dashboard() {
     financeForm.undocumentedNote,
     financeForm.undocumentedReason,
     financeForm.unplannedReason,
+    financialGoal,
+    latestEnrollment,
     manualExpenseBudgetOptions,
+    nickname,
+    pendingExpenses,
+    profileData,
     refreshFinanceSection,
+    reminderTime,
+    savingsGoals,
     showFinanceNotice,
+    survivalExpense,
     user?.email,
     user?.id,
+    walletTransactions,
     wallets,
   ]);
 
