@@ -9,7 +9,6 @@ import {
   ArrowUpRight,
   ArrowLeftRight,
 } from "lucide-react";
-import { supabase } from "@/lib/supabaseClient";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -29,10 +28,6 @@ import { Label } from "@/components/ui/label";
 import EmptyState from "../components/EmptyState";
 import useUserRole from "../hooks/useUserRole";
 import { getWalletBalance } from "@/utils/financialEngine";
-import {
-  createFinanceRepository,
-  FINANCE_REPOSITORY_MODE_SUPABASE_LEGACY,
-} from "@/lib/financeRepository";
 
 const categories = [
   "food",
@@ -50,9 +45,10 @@ const categories = [
 const needTypes = ["need", "want", "savings"];
 const planningStatuses = ["planned", "unplanned", "undocumented"];
 
-const EXPENSES_TABLE = "expenses";
-const WALLETS_TABLE = "wallets";
-const TXN_TABLE = "wallet_transactions";
+const LOCAL_FINANCE_VERSION = 1;
+const LOCAL_FINANCE_PREFIX = "clara_local_finance_v1";
+const LOCAL_FINANCE_LAST_KEY = `${LOCAL_FINANCE_PREFIX}:last`;
+
 
 const PH_TIME_ZONE = "Asia/Manila";
 const PH_OFFSET_MINUTES = 8 * 60;
@@ -354,6 +350,177 @@ const getTransactionGroupLabel = (txn) => {
   return "Older";
 };
 
+
+const isBrowser = () =>
+  typeof window !== "undefined" && typeof window.localStorage !== "undefined";
+
+const safeJsonParse = (value, fallback = null) => {
+  try {
+    return value ? JSON.parse(value) : fallback;
+  } catch {
+    return fallback;
+  }
+};
+
+const getLocalFinanceKey = (userKey) =>
+  `${LOCAL_FINANCE_PREFIX}:${normalizeString(userKey || "guest").toLowerCase() || "guest"}`;
+
+const normalizeExpenseRow = (expense) => ({
+  ...expense,
+  id: String(expense?.id || generateId()),
+  wallet_id: expense?.wallet_id ? String(expense.wallet_id) : "",
+  amount: normalizeNumber(expense?.amount),
+  date: toDateInputValue(expense?.date || expense?.created_at),
+  category: expense?.category || "food",
+  notes: expense?.notes || "",
+  need_type: expense?.need_type || "need",
+  planning_status: normalizePlanningStatus(expense?.planning_status),
+  unplanned_reason: expense?.unplanned_reason || "",
+  created_at: expense?.created_at || buildCreatedAtFromDate(expense?.date || getToday()),
+  updated_at: expense?.updated_at || expense?.created_at || new Date().toISOString(),
+  local_only: expense?.local_only ?? true,
+});
+
+const normalizeTransactionRow = (txn) => ({
+  ...txn,
+  id: String(txn?.id || generateId()),
+  wallet_id: txn?.wallet_id ? String(txn.wallet_id) : "",
+  amount: normalizeNumber(txn?.amount),
+  type: normalizeTxnType(txn?.type),
+  category: txn?.category || "other",
+  notes: txn?.notes || "",
+  need_type: txn?.need_type || null,
+  planning_status: txn?.planning_status ? normalizePlanningStatus(txn.planning_status) : null,
+  unplanned_reason: txn?.unplanned_reason || "",
+  created_at: txn?.created_at || buildCreatedAtFromDate(txn?.date || getToday()),
+  updated_at: txn?.updated_at || txn?.created_at || new Date().toISOString(),
+  local_only: txn?.local_only ?? true,
+});
+
+const normalizeWalletRow = (wallet) => ({
+  ...wallet,
+  id: String(wallet?.id || generateId()),
+  name: wallet?.name || wallet?.wallet_name || "Untitled Wallet",
+  wallet_name: wallet?.wallet_name || wallet?.name || "Untitled Wallet",
+  starting_balance: normalizeNumber(wallet?.starting_balance ?? wallet?.initial_balance ?? wallet?.balance),
+  balance: normalizeNumber(wallet?.balance ?? wallet?.starting_balance ?? wallet?.initial_balance),
+  created_at: wallet?.created_at || new Date().toISOString(),
+  updated_at: wallet?.updated_at || wallet?.created_at || new Date().toISOString(),
+  local_only: wallet?.local_only ?? true,
+});
+
+const readLocalArrayFallback = (keys = []) => {
+  if (!isBrowser()) return [];
+
+  for (const key of keys) {
+    const parsed = safeJsonParse(window.localStorage.getItem(key), null);
+    if (Array.isArray(parsed)) return parsed;
+    if (Array.isArray(parsed?.items)) return parsed.items;
+    if (Array.isArray(parsed?.data)) return parsed.data;
+  }
+
+  return [];
+};
+
+const readLocalFinanceSnapshot = (key = null) => {
+  if (!isBrowser()) {
+    return createEmptyExpensesCache(key);
+  }
+
+  const storageKey = getLocalFinanceKey(key);
+  const stored = safeJsonParse(window.localStorage.getItem(storageKey), null);
+  const last = safeJsonParse(window.localStorage.getItem(LOCAL_FINANCE_LAST_KEY), null);
+  const source = stored || (last?.key === key ? last : null) || {};
+
+  const fallbackSuffix = normalizeString(key || "guest").toLowerCase();
+  const legacyExpenses = readLocalArrayFallback([
+    `clara_expenses:${fallbackSuffix}`,
+    `clara_local_expenses:${fallbackSuffix}`,
+    "clara_expenses",
+    "clara_local_expenses",
+  ]);
+  const legacyWallets = readLocalArrayFallback([
+    `clara_wallets:${fallbackSuffix}`,
+    `clara_local_wallets:${fallbackSuffix}`,
+    "clara_wallets",
+    "clara_local_wallets",
+  ]);
+  const legacyTransactions = readLocalArrayFallback([
+    `clara_wallet_transactions:${fallbackSuffix}`,
+    `clara_transactions:${fallbackSuffix}`,
+    `clara_local_transactions:${fallbackSuffix}`,
+    "clara_wallet_transactions",
+    "clara_transactions",
+    "clara_local_transactions",
+  ]);
+
+  const expenses = (Array.isArray(source.expenses) ? source.expenses : legacyExpenses)
+    .map(normalizeExpenseRow)
+    .sort(sortByDateDesc);
+  const transactions = (Array.isArray(source.transactions) ? source.transactions : legacyTransactions)
+    .map(normalizeTransactionRow)
+    .sort(sortByDateDesc);
+  const wallets = normalizeWallets(
+    (Array.isArray(source.wallets) ? source.wallets : legacyWallets).map(normalizeWalletRow),
+    transactions
+  );
+
+  return {
+    key,
+    loaded: true,
+    version: LOCAL_FINANCE_VERSION,
+    updatedAt: source.updatedAt || source.updated_at || new Date().toISOString(),
+    expenses,
+    wallets,
+    transactions,
+  };
+};
+
+const writeLocalFinanceSnapshot = (key, snapshot) => {
+  if (!isBrowser() || !key) return snapshot;
+
+  const normalizedTransactions = (snapshot.transactions || [])
+    .map(normalizeTransactionRow)
+    .sort(sortByDateDesc);
+  const normalizedExpenses = (snapshot.expenses || [])
+    .map(normalizeExpenseRow)
+    .sort(sortByDateDesc);
+  const normalizedWallets = normalizeWallets(
+    (snapshot.wallets || []).map(normalizeWalletRow),
+    normalizedTransactions
+  );
+
+  const nextSnapshot = {
+    key,
+    loaded: true,
+    version: LOCAL_FINANCE_VERSION,
+    updatedAt: new Date().toISOString(),
+    expenses: normalizedExpenses,
+    wallets: normalizedWallets,
+    transactions: normalizedTransactions,
+  };
+
+  window.localStorage.setItem(getLocalFinanceKey(key), JSON.stringify(nextSnapshot));
+  window.localStorage.setItem(LOCAL_FINANCE_LAST_KEY, JSON.stringify(nextSnapshot));
+
+  return nextSnapshot;
+};
+
+const upsertById = (items = [], item) => {
+  const next = [...items];
+  const index = next.findIndex((entry) => String(entry?.id) === String(item?.id));
+
+  if (index >= 0) {
+    next[index] = item;
+    return next;
+  }
+
+  return [item, ...next];
+};
+
+const removeById = (items = [], id) =>
+  items.filter((item) => String(item?.id) !== String(id));
+
 const normalizeWallets = (wallets, transactions = []) => {
   return (wallets || []).map((wallet) => ({
     ...wallet,
@@ -362,54 +529,6 @@ const normalizeWallets = (wallets, transactions = []) => {
     derived_balance: getWalletBalance(wallet, transactions),
     name: wallet?.name || wallet?.wallet_name || "Untitled Wallet",
   }));
-};
-
-const fetchRowsForUser = async (table, user, orderColumn = "created_at", ascending = false) => {
-  if (!user?.id && !user?.email) return [];
-
-  const allRows = [];
-
-  if (user?.id) {
-    const { data, error } = await supabase
-      .from(table)
-      .select("*")
-      .eq("user_id", user.id)
-      .order(orderColumn, { ascending });
-
-    if (error) {
-      console.error(`Failed loading ${table} by user_id`, error);
-    } else if (Array.isArray(data)) {
-      allRows.push(...data);
-    }
-  }
-
-  if (user?.email) {
-    const emailColumns = ["user_email", "created_by", "owner_email", "email"];
-
-    for (const column of emailColumns) {
-      const { data, error } = await supabase
-        .from(table)
-        .select("*")
-        .eq(column, user.email)
-        .order(orderColumn, { ascending });
-
-      if (error) continue;
-      if (Array.isArray(data)) {
-        allRows.push(...data);
-      }
-    }
-  }
-
-  const map = new Map();
-
-  allRows.forEach((row) => {
-    const key = String(row?.id ?? `${table}-${Math.random().toString(36).slice(2)}`);
-    if (!map.has(key) && isOwnedByUser(row, user)) {
-      map.set(key, row);
-    }
-  });
-
-  return Array.from(map.values()).sort(sortByDateDesc);
 };
 
 const normalizeTxnType = (type) => {
@@ -516,7 +635,6 @@ const createEmptyExpensesCache = (key = null) => ({
 });
 
 let expensesPageCache = createEmptyExpensesCache();
-let expensesPageInFlight = null;
 
 export default function Expenses() {
   const { user } = useUserRole();
@@ -547,7 +665,6 @@ export default function Expenses() {
   const [customStartDate, setCustomStartDate] = useState("");
   const [customEndDate, setCustomEndDate] = useState("");
 
-  const refreshTimeoutRef = useRef(null);
   const hasLoadedRef = useRef(false);
 
   const hydrateFromCache = useCallback((nextCache) => {
@@ -587,123 +704,71 @@ export default function Expenses() {
     return walletMap.get(String(form.wallet_id)) || null;
   }, [walletMap, form.wallet_id]);
 
-  const loadData = useCallback(async ({ background = false } = {}) => {
-    const currentUser = { id: userId, email: userEmail };
+  const commitFinanceState = useCallback(
+    (nextSnapshot, { emitEvents = true } = {}) => {
+      const savedSnapshot = writeLocalFinanceSnapshot(cacheKey, nextSnapshot);
+      expensesPageCache = savedSnapshot;
+      hydrateFromCache(savedSnapshot);
 
-    if (!currentUser.id && !currentUser.email) {
+      if (emitEvents && typeof window !== "undefined") {
+        window.dispatchEvent(new Event("clara-expenses-updated"));
+        window.dispatchEvent(new Event("clara-finance-updated"));
+        window.dispatchEvent(new Event("clara-wallets-updated"));
+        window.dispatchEvent(new Event("clara-wallet-transactions-updated"));
+        window.dispatchEvent(new Event("clara-local-finance-updated"));
+      }
+
+      return savedSnapshot;
+    },
+    [cacheKey, hydrateFromCache]
+  );
+
+  const loadData = useCallback(async () => {
+    if (!cacheKey) {
       const emptyCache = createEmptyExpensesCache();
       expensesPageCache = emptyCache;
       hydrateFromCache(emptyCache);
-      return;
-    }
-
-    if (expensesPageInFlight?.key === cacheKey) {
-      return expensesPageInFlight.promise;
+      return emptyCache;
     }
 
     try {
-      if (!hasLoadedRef.current && !background) {
-        setLoading(true);
-      }
-
-      const promise = Promise.all([
-        fetchRowsForUser(EXPENSES_TABLE, currentUser, "created_at", false),
-        fetchRowsForUser(WALLETS_TABLE, currentUser, "created_at", false),
-        fetchRowsForUser(TXN_TABLE, currentUser, "created_at", false),
-      ]).then(([expenseRows, walletRows, transactionRows]) => {
-
-        const normalizedExpenses = (expenseRows || [])
-          .map((expense) => ({
-            ...expense,
-            id: String(expense.id),
-            wallet_id: expense.wallet_id ? String(expense.wallet_id) : "",
-            amount: normalizeNumber(expense.amount),
-            date: toDateInputValue(expense?.date || expense?.created_at),
-            planning_status: normalizePlanningStatus(expense?.planning_status),
-            unplanned_reason: expense?.unplanned_reason || "",
-          }))
-          .sort(sortByDateDesc);
-
-        const normalizedTransactions = (transactionRows || [])
-          .map((txn) => ({
-            ...txn,
-            id: String(txn.id),
-            wallet_id: txn.wallet_id ? String(txn.wallet_id) : "",
-            amount: normalizeNumber(txn.amount),
-            type: normalizeTxnType(txn.type),
-            planning_status: txn?.planning_status
-              ? normalizePlanningStatus(txn.planning_status)
-              : null,
-            unplanned_reason: txn?.unplanned_reason || "",
-          }))
-          .sort(sortByDateDesc);
-        const normalizedWalletRows = normalizeWallets(walletRows || [], normalizedTransactions);
-
-        const nextCache = {
-          key: cacheKey,
-          loaded: true,
-          expenses: normalizedExpenses,
-          wallets: normalizedWalletRows,
-          transactions: normalizedTransactions,
-        };
-
-        expensesPageCache = nextCache;
-        hydrateFromCache(nextCache);
-        return nextCache;
-      });
-
-      expensesPageInFlight = {
-        key: cacheKey,
-        promise,
-      };
-
-      await promise;
+      setLoading(!hasLoadedRef.current);
+      const localSnapshot = readLocalFinanceSnapshot(cacheKey);
+      expensesPageCache = localSnapshot;
+      hydrateFromCache(localSnapshot);
+      return localSnapshot;
     } catch (err) {
-      console.error("Failed to load transactions page data:", err);
-      if (!hasLoadedRef.current) {
-        const emptyCache = createEmptyExpensesCache(cacheKey);
-        expensesPageCache = emptyCache;
-        hydrateFromCache(emptyCache);
-      }
+      console.error("Failed to load local transactions page data:", err);
+      const emptyCache = createEmptyExpensesCache(cacheKey);
+      expensesPageCache = emptyCache;
+      hydrateFromCache(emptyCache);
+      return emptyCache;
     } finally {
-      if (expensesPageInFlight?.key === cacheKey) {
-        expensesPageInFlight = null;
-      }
       setLoading(false);
     }
-  }, [cacheKey, hydrateFromCache, userEmail, userId]);
+  }, [cacheKey, hydrateFromCache]);
 
   useEffect(() => {
     loadData();
   }, [loadData]);
 
   useEffect(() => {
-    if (!userId && !userEmail) return;
+    if (!cacheKey || typeof window === "undefined") return undefined;
 
-    const scheduleRefresh = () => {
-      if (refreshTimeoutRef.current) {
-        clearTimeout(refreshTimeoutRef.current);
-      }
-
-      refreshTimeoutRef.current = setTimeout(() => {
-        loadData({ background: true });
-      }, 120);
+    const refreshLocalFinance = () => {
+      loadData();
     };
 
-    const channel = supabase
-      .channel(`transactions-page-${userId || userEmail || "guest"}`)
-      .on("postgres_changes", { event: "*", schema: "public", table: EXPENSES_TABLE }, scheduleRefresh)
-      .on("postgres_changes", { event: "*", schema: "public", table: WALLETS_TABLE }, scheduleRefresh)
-      .on("postgres_changes", { event: "*", schema: "public", table: TXN_TABLE }, scheduleRefresh)
-      .subscribe();
+    window.addEventListener("storage", refreshLocalFinance);
+    window.addEventListener("clara-wallets-updated", refreshLocalFinance);
+    window.addEventListener("clara-finance-imported", refreshLocalFinance);
 
     return () => {
-      if (refreshTimeoutRef.current) {
-        clearTimeout(refreshTimeoutRef.current);
-      }
-      supabase.removeChannel(channel);
+      window.removeEventListener("storage", refreshLocalFinance);
+      window.removeEventListener("clara-wallets-updated", refreshLocalFinance);
+      window.removeEventListener("clara-finance-imported", refreshLocalFinance);
     };
-  }, [loadData, userEmail, userId]);
+  }, [cacheKey, loadData]);
 
   const findMatchingExpenseTxn = useCallback(
     (expense) => {
@@ -856,6 +921,10 @@ export default function Expenses() {
     try {
       setSaving(true);
 
+      let nextExpenses = [...expenses];
+      let nextTransactions = [...transactions];
+      const nextWallets = [...wallets];
+
       if (editId && editMode === "income") {
         const existingTxn = transactions.find((t) => String(t.id) === String(editId));
         if (!existingTxn) {
@@ -863,25 +932,22 @@ export default function Expenses() {
           return;
         }
 
-        const newAmount = parsedAmount;
-
         const updatedCreatedAt = buildCreatedAtFromDate(
           form.date,
           existingTxn.created_at || new Date()
         );
 
-        const { error: txnUpdateError } = await supabase
-          .from(TXN_TABLE)
-          .update({
-            wallet_id: String(form.wallet_id),
-            amount: newAmount,
-            notes: form.notes || "",
-            created_at: updatedCreatedAt,
-            updated_at: new Date().toISOString(),
-          })
-          .eq("id", existingTxn.id);
+        const updatedTxn = normalizeTransactionRow({
+          ...existingTxn,
+          wallet_id: String(form.wallet_id),
+          amount: parsedAmount,
+          notes: form.notes || "",
+          created_at: updatedCreatedAt,
+          updated_at: new Date().toISOString(),
+          local_only: true,
+        });
 
-        if (txnUpdateError) throw txnUpdateError;
+        nextTransactions = upsertById(nextTransactions, updatedTxn);
       } else if (editId && editMode === "expense") {
         const oldExpense = expenses.find((e) => String(e.id) === String(editId));
         if (!oldExpense) {
@@ -896,8 +962,8 @@ export default function Expenses() {
         }
 
         const sameWallet = String(oldExpense.wallet_id) === String(form.wallet_id);
-
         let availableBalance = normalizeNumber(targetWallet.balance);
+
         if (sameWallet) {
           availableBalance += normalizeNumber(oldExpense.amount);
         }
@@ -912,7 +978,8 @@ export default function Expenses() {
           oldExpense.created_at || new Date()
         );
 
-        const updatedExpense = {
+        const updatedExpense = normalizeExpenseRow({
+          ...oldExpense,
           amount: parsedAmount,
           category: form.category,
           wallet_id: String(form.wallet_id),
@@ -920,29 +987,35 @@ export default function Expenses() {
           notes: form.notes || "",
           need_type: form.need_type,
           planning_status: planningStatus,
-          unplanned_reason: planningStatus === "unplanned" ? unplannedReason : null,
+          unplanned_reason: planningStatus === "unplanned" ? unplannedReason : "",
           created_at: updatedCreatedAt,
           updated_at: new Date().toISOString(),
-        };
-
-        const repository = createFinanceRepository({
-          mode: FINANCE_REPOSITORY_MODE_SUPABASE_LEGACY,
-          supabase,
-          user,
-          wallets,
-          expenses,
-          walletTransactions: transactions,
-          generateId,
-          toNumber: normalizeNumber,
-          getSafeDate: (value) => {
-            const d = new Date(value);
-            if (Number.isNaN(d.getTime())) return new Date().toISOString();
-            return d.toISOString();
-          },
-          normalizePlanningStatus,
+          local_only: true,
         });
 
-        await repository.updateExpense(user?.id, oldExpense.id, updatedExpense);
+        const matchingTxn = findMatchingExpenseTxn(oldExpense);
+        const updatedTxn = normalizeTransactionRow({
+          ...(matchingTxn || {}),
+          id: matchingTxn?.id || generateId(),
+          wallet_id: String(form.wallet_id),
+          amount: parsedAmount,
+          type: "expense",
+          category: form.category,
+          need_type: form.need_type,
+          planning_status: planningStatus,
+          unplanned_reason: planningStatus === "unplanned" ? unplannedReason : "",
+          expense_id: updatedExpense.id,
+          notes: form.notes || "",
+          created_at: updatedCreatedAt,
+          updated_at: new Date().toISOString(),
+          created_by: user.email ?? "",
+          user_email: user.email ?? "",
+          user_id: user.id ?? "",
+          local_only: true,
+        });
+
+        nextExpenses = upsertById(nextExpenses, updatedExpense);
+        nextTransactions = upsertById(nextTransactions, updatedTxn);
       } else {
         if (parsedAmount > normalizeNumber(targetWallet.balance)) {
           setError("Not enough wallet balance for this expense.");
@@ -951,7 +1024,7 @@ export default function Expenses() {
 
         const createdAt = buildCreatedAtFromDate(form.date);
 
-        const newExpense = {
+        const newExpense = normalizeExpenseRow({
           id: generateId(),
           amount: parsedAmount,
           category: form.category,
@@ -960,15 +1033,16 @@ export default function Expenses() {
           notes: form.notes || "",
           need_type: form.need_type,
           planning_status: planningStatus,
-          unplanned_reason: planningStatus === "unplanned" ? unplannedReason : null,
+          unplanned_reason: planningStatus === "unplanned" ? unplannedReason : "",
           created_by: user.email ?? "",
           user_email: user.email ?? "",
           user_id: user.id ?? "",
           created_at: createdAt,
           updated_at: createdAt,
-        };
+          local_only: true,
+        });
 
-        const newTxn = {
+        const newTxn = normalizeTransactionRow({
           id: generateId(),
           wallet_id: String(form.wallet_id),
           amount: parsedAmount,
@@ -976,7 +1050,7 @@ export default function Expenses() {
           category: form.category,
           need_type: form.need_type,
           planning_status: planningStatus,
-          unplanned_reason: planningStatus === "unplanned" ? unplannedReason : null,
+          unplanned_reason: planningStatus === "unplanned" ? unplannedReason : "",
           expense_id: newExpense.id,
           notes: form.notes || "",
           created_at: createdAt,
@@ -984,32 +1058,25 @@ export default function Expenses() {
           created_by: user.email ?? "",
           user_email: user.email ?? "",
           user_id: user.id ?? "",
-        };
+          local_only: true,
+        });
 
-        const { error: expenseInsertError } = await supabase
-          .from(EXPENSES_TABLE)
-          .insert([newExpense]);
-
-        if (expenseInsertError) throw expenseInsertError;
-
-        const { error: txnInsertError } = await supabase
-          .from(TXN_TABLE)
-          .insert([newTxn]);
-
-        if (txnInsertError) throw txnInsertError;
-
+        nextExpenses = upsertById(nextExpenses, newExpense);
+        nextTransactions = upsertById(nextTransactions, newTxn);
       }
 
-      window.dispatchEvent(new Event("clara-expenses-updated"));
-      window.dispatchEvent(new Event("clara-finance-updated"));
-      window.dispatchEvent(new Event("clara-wallets-updated"));
-      window.dispatchEvent(new Event("clara-wallet-transactions-updated"));
+      commitFinanceState({
+        key: cacheKey,
+        loaded: true,
+        expenses: nextExpenses,
+        wallets: nextWallets,
+        transactions: nextTransactions,
+      });
 
-      await loadData({ background: true });
       closeModal();
     } catch (err) {
-      console.error("Failed to save transaction:", err);
-      setError(err?.message || "Failed to save transaction.");
+      console.error("Failed to save local transaction:", err);
+      setError(err?.message || "Failed to save transaction locally.");
     } finally {
       setSaving(false);
     }
@@ -1031,32 +1098,21 @@ export default function Expenses() {
       }
 
       const matchingTxn = findMatchingExpenseTxn(expenseToDelete);
+      const nextExpenses = removeById(expenses, expenseToDelete.id);
+      const nextTransactions = matchingTxn
+        ? removeById(transactions, matchingTxn.id)
+        : transactions;
 
-      const { error: expenseDeleteError } = await supabase
-        .from(EXPENSES_TABLE)
-        .delete()
-        .eq("id", expenseToDelete.id);
-
-      if (expenseDeleteError) throw expenseDeleteError;
-
-      if (matchingTxn) {
-        const { error: txnDeleteError } = await supabase
-          .from(TXN_TABLE)
-          .delete()
-          .eq("id", matchingTxn.id);
-
-        if (txnDeleteError) throw txnDeleteError;
-      }
-
-      window.dispatchEvent(new Event("clara-expenses-updated"));
-      window.dispatchEvent(new Event("clara-finance-updated"));
-      window.dispatchEvent(new Event("clara-wallets-updated"));
-      window.dispatchEvent(new Event("clara-wallet-transactions-updated"));
-
-      await loadData({ background: true });
+      commitFinanceState({
+        key: cacheKey,
+        loaded: true,
+        expenses: nextExpenses,
+        wallets,
+        transactions: nextTransactions,
+      });
     } catch (err) {
-      console.error("Failed to delete expense:", err);
-      setError(err?.message || "Failed to delete expense.");
+      console.error("Failed to delete local expense:", err);
+      setError(err?.message || "Failed to delete expense locally.");
     } finally {
       setSaving(false);
     }
@@ -1077,22 +1133,18 @@ export default function Expenses() {
         return;
       }
 
-      const { error: txnDeleteError } = await supabase
-        .from(TXN_TABLE)
-        .delete()
-        .eq("id", incomeTxn.id);
+      const nextTransactions = removeById(transactions, incomeTxn.id);
 
-      if (txnDeleteError) throw txnDeleteError;
-
-      window.dispatchEvent(new Event("clara-expenses-updated"));
-      window.dispatchEvent(new Event("clara-finance-updated"));
-      window.dispatchEvent(new Event("clara-wallets-updated"));
-      window.dispatchEvent(new Event("clara-wallet-transactions-updated"));
-
-      await loadData({ background: true });
+      commitFinanceState({
+        key: cacheKey,
+        loaded: true,
+        expenses,
+        wallets,
+        transactions: nextTransactions,
+      });
     } catch (err) {
-      console.error("Failed to delete income:", err);
-      setError(err?.message || "Failed to delete income.");
+      console.error("Failed to delete local income:", err);
+      setError(err?.message || "Failed to delete income locally.");
     } finally {
       setSaving(false);
     }
