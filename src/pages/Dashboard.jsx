@@ -10743,6 +10743,24 @@ export default function Dashboard() {
             touchAction: "pan-y",
           }}
         >
+          <button
+            type="button"
+            data-clara-summary-privacy-toggle="true"
+            onClick={toggleMoneySummaryVisibility}
+            onPointerUp={(event) => event.stopPropagation()}
+            onMouseUp={(event) => event.stopPropagation()}
+            onTouchEnd={(event) => event.stopPropagation()}
+            className="absolute right-2.5 top-2.5 z-50 flex h-7 w-7 items-center justify-center rounded-full border border-white/10 bg-white/[0.08] text-white/55 shadow-[0_0_14px_rgba(255,255,255,0.08)] backdrop-blur-xl transition hover:bg-white/[0.13] hover:text-white/85 active:scale-95"
+            aria-label={moneySummaryVisible ? "Hide financial summary amounts" : "Show financial summary amounts"}
+            title={moneySummaryVisible ? "Hide amounts" : "Show amounts"}
+          >
+            {moneySummaryVisible ? (
+              <Eye className="h-3.5 w-3.5" />
+            ) : (
+              <EyeOff className="h-3.5 w-3.5" />
+            )}
+          </button>
+
           <div
             {...moneyLeftSummaryHandlers}
             aria-label="Double tap Total Money Left to open Transaction Hub"
