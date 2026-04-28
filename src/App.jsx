@@ -1,6 +1,6 @@
-import { Suspense, lazy, useEffect, useMemo, useRef, useState } from "react";
+import { Suspense, lazy, useEffect, useMemo, useState } from "react";
 import { Routes, Route, Navigate, useLocation } from "react-router-dom";
-import { Toaster, toast } from "sonner";
+import { Toaster } from "sonner";
 
 import { useAuth } from "@/context/AuthContext";
 import ThemePicker from "@/components/ThemePicker";
@@ -383,7 +383,6 @@ function AppRoutes() {
   const [isOffline, setIsOffline] = useState(() => isAccessNetworkOffline());
   const [onlineRefreshTick, setOnlineRefreshTick] = useState(0);
   const [cachedAccessSnapshot, setCachedAccessSnapshot] = useState(() => getAccessSnapshot());
-  const offlineNoticeShownRef = useRef(false);
 
   const profileReady = user ? profile !== null : true;
 
@@ -407,7 +406,6 @@ function AppRoutes() {
       setIsOffline(nextOffline);
 
       if (!nextOffline) {
-        offlineNoticeShownRef.current = false;
         setOnlineRefreshTick((value) => value + 1);
         refreshProfile?.().catch((error) => {
           console.error("CLARA access refresh failed:", error);
@@ -448,17 +446,6 @@ function AppRoutes() {
         profile?.offline_limited_access ||
         offlineFallback.flow === "limited_offline")
   );
-
-  useEffect(() => {
-    if (!offlineAccessActive || offlineNoticeShownRef.current) return;
-
-    offlineNoticeShownRef.current = true;
-    toast.info(
-      isAccessSnapshotUsable(cachedAccessSnapshot)
-        ? "You’re offline. CLARA is using your saved access state."
-        : "Connect to the internet later to finish account setup."
-    );
-  }, [cachedAccessSnapshot, offlineAccessActive]);
 
   useEffect(() => {
     let isMounted = true;
