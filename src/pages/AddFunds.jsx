@@ -55,6 +55,9 @@ const formatDate = (value) => {
   });
 };
 
+const ADD_FUNDS_UNAVAILABLE_MESSAGE = "Add money is temporarily unavailable.";
+const DELETE_FUNDS_UNAVAILABLE_MESSAGE = "This fund entry is temporarily unavailable.";
+
 export default function AddFunds() {
   const { user, loading: accessLoading } = useUserRole();
   const financial = useFinancialData(user);
@@ -133,7 +136,7 @@ export default function AddFunds() {
       window.dispatchEvent(new Event("clara-wallet-transactions-updated"));
     } catch (err) {
       console.error("Failed to add funds:", err);
-      setError(err?.message || "Failed to add funds.");
+      setError(ADD_FUNDS_UNAVAILABLE_MESSAGE);
     } finally {
       setSaving(false);
     }
@@ -145,6 +148,7 @@ export default function AddFunds() {
 
     try {
       setSaving(true);
+      setError("");
       const nextBalance = toNumber(wallet.balance) - toNumber(txn.amount);
 
       const { error: walletError } = await supabase
@@ -164,7 +168,7 @@ export default function AddFunds() {
       await financial.refreshData();
     } catch (err) {
       console.error("Failed to delete funds:", err);
-      setError(err?.message || "Failed to delete funds.");
+      setError(DELETE_FUNDS_UNAVAILABLE_MESSAGE);
     } finally {
       setSaving(false);
     }
