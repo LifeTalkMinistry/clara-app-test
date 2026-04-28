@@ -12,8 +12,6 @@ import {
   getWalletTransactions,
   addIncome as repoAddIncome,
   addMoney as repoAddMoney,
-  updateWalletTransaction as repoUpdateWalletTransaction,
-  deleteWalletTransaction as repoDeleteWalletTransaction,
   transferBetweenWallets as repoTransferBetweenWallets,
   getTransfers,
   getBudgets,
@@ -26,6 +24,12 @@ import {
   getEmergencyFund,
   upsertEmergencyFund as repoUpsertEmergencyFund,
 } from "@/lib/financeRepository";
+import {
+  LOCAL_FINANCE_STORES,
+  getLocalRecordById,
+  upsertLocalRecord,
+  softDeleteLocalRecord,
+} from "@/lib/localFinanceStore";
 
 const FINANCE_INCOME_TYPES = new Set([
   "income",
@@ -35,6 +39,9 @@ const FINANCE_INCOME_TYPES = new Set([
   "opening_balance",
   "credit",
 ]);
+
+const WALLET_TRANSACTION_STORE =
+  LOCAL_FINANCE_STORES?.walletTransactions || "wallet_transactions";
 
 const toNumber = (value) => {
   if (typeof value === "number") return Number.isFinite(value) ? value : 0;
@@ -366,16 +373,34 @@ function useFinancialData(user) {
 
   const updateWalletTransaction = useCallback(
     async (id, updates = {}) => {
-      if (typeof repoUpdateWalletTransaction !== "function") {
-        throw new Error(
-          "updateWalletTransaction is not available in financeRepository."
-        );
+      if (!id) throw new Error("Wallet transaction id is required.");
+
+      const existing = await getLocalRecordById(
+        WALLET_TRANSACTION_STORE,
+        id,
+        localUserId
+      );
+
+      if (!existing) {
+        throw new Error("Wallet transaction not found for this local user.");
       }
 
-      const result = await repoUpdateWalletTransaction(localUserId, id, {
-        ...(updates || {}),
-        updatedAt: new Date().toISOString(),
-      });
+      const now = new Date().toISOString();
+      const result = await upsertLocalRecord(
+        WALLET_TRANSACTION_STORE,
+        {
+          ...existing,
+          ...(updates || {}),
+          id: existing.id,
+          localUserId,
+          createdAt: existing.createdAt,
+          updatedAt: now,
+          updated_at: now,
+          syncStatus: updates?.syncStatus || existing.syncStatus || "local_only",
+          source: updates?.source || existing.source || "local",
+        },
+        localUserId
+      );
 
       await refreshData();
       return result;
@@ -385,13 +410,14 @@ function useFinancialData(user) {
 
   const deleteWalletTransaction = useCallback(
     async (id) => {
-      if (typeof repoDeleteWalletTransaction !== "function") {
-        throw new Error(
-          "deleteWalletTransaction is not available in financeRepository."
-        );
-      }
+      if (!id) throw new Error("Wallet transaction id is required.");
 
-      const result = await repoDeleteWalletTransaction(localUserId, id);
+      const result = await softDeleteLocalRecord(
+        WALLET_TRANSACTION_STORE,
+        id,
+        localUserId
+      );
+
       await refreshData();
       return result;
     },
