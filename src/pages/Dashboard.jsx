@@ -10768,7 +10768,7 @@ export default function Dashboard() {
                 Total Money Left
               </p>
               <h2 className={`font-bold leading-none ${dashboardScale.summaryAmount} ${themePrimaryTextClass}`}>
-                {fmt(walletMoney)}
+                {moneySummaryVisible ? fmt(walletMoney) : "₱••••••"}
               </h2>
             </div>
           </div>
@@ -10800,7 +10800,7 @@ export default function Dashboard() {
                 Total Expense
               </p>
               <h2 className={`font-bold leading-none ${dashboardScale.summaryAmount} ${themePrimaryTextClass}`}>
-                {fmt(thisMonthSpent)}
+                {moneySummaryVisible ? fmt(thisMonthSpent) : "₱•••••"}
               </h2>
             </div>
           </div>
