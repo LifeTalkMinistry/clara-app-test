@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   AlertTriangle,
@@ -10,12 +10,10 @@ import {
   CheckCircle2,
   ChevronDown,
   CircleDot,
-  Clock3,
   PiggyBank,
   Receipt,
   RefreshCw,
   Search,
-  Sparkles,
   Tag,
   WalletCards,
 } from "lucide-react";
@@ -29,7 +27,7 @@ import {
 } from "@/lib/clara-offline-finance";
 
 const FILTERS = [
-  ["all", "All"],
+  ["all", "All Transactions"],
   ["expense", "Expenses"],
   ["income", "Income"],
   ["transfer", "Transfers"],
@@ -217,10 +215,10 @@ const getTimelineKey = (dateValue) => {
 };
 
 const TIMELINE_GROUPS = [
-  { key: "today", label: "Today", helper: "Latest activity" },
-  { key: "yesterday", label: "Yesterday", helper: "Recent movement" },
-  { key: "thisWeek", label: "This Week", helper: "Last 7 days" },
-  { key: "earlier", label: "Earlier", helper: "Older activity" },
+  { key: "today", label: "Today" },
+  { key: "yesterday", label: "Yesterday" },
+  { key: "thisWeek", label: "This Week" },
+  { key: "earlier", label: "Earlier" },
 ];
 
 function getTimelineStats(items) {
@@ -232,50 +230,155 @@ function getTimelineStats(items) {
     .filter((item) => item.group === "income")
     .reduce((sum, item) => sum + Math.abs(item.signedAmount), 0);
 
-  const categoryTotals = items
-    .filter((item) => item.group === "expense")
-    .reduce((map, item) => {
-      const key = item.category ? titleCase(item.category) : "Uncategorized";
-      map.set(key, (map.get(key) || 0) + Math.abs(item.signedAmount));
-      return map;
-    }, new Map());
-
-  const topCategory = Array.from(categoryTotals.entries()).sort(
-    (a, b) => b[1] - a[1]
-  )[0]?.[0];
+  const total = income - spent;
 
   return {
     spent,
     income,
+    total,
     count: items.length,
-    insight: topCategory ? `Most spent on ${topCategory}` : "No spending pattern yet",
   };
+}
+
+function useClickOutside(ref, onClose) {
+  useEffect(() => {
+    const handleClick = (event) => {
+      if (!ref.current || ref.current.contains(event.target)) return;
+      onClose();
+    };
+
+    const handleEscape = (event) => {
+      if (event.key === "Escape") onClose();
+    };
+
+    document.addEventListener("mousedown", handleClick);
+    document.addEventListener("touchstart", handleClick);
+    document.addEventListener("keydown", handleEscape);
+
+    return () => {
+      document.removeEventListener("mousedown", handleClick);
+      document.removeEventListener("touchstart", handleClick);
+      document.removeEventListener("keydown", handleEscape);
+    };
+  }, [ref, onClose]);
+}
+
+function GlassDropdown({
+  label,
+  icon: Icon,
+  value,
+  options,
+  onChange,
+  onAfterChange,
+}) {
+  const [open, setOpen] = useState(false);
+  const dropdownRef = useRef(null);
+  const selected = options.find((item) => item.key === value) || options[0];
+
+  useClickOutside(dropdownRef, () => setOpen(false));
+
+  return (
+    <div ref={dropdownRef} className="relative min-w-0 flex-1">
+      <button
+        type="button"
+        onClick={() => setOpen((current) => !current)}
+        className={`relative flex min-h-[50px] w-full items-center justify-between gap-3 overflow-hidden rounded-[22px] border px-4 text-left shadow-[0_16px_42px_rgba(0,0,0,0.24)] backdrop-blur-2xl transition duration-300 active:scale-[0.985] ${
+          open
+            ? "border-emerald-300/35 bg-emerald-400/12 shadow-[0_0_30px_rgba(52,211,153,0.13)]"
+            : "border-white/10 bg-white/[0.055]"
+        }`}
+      >
+        <span className="pointer-events-none absolute -right-8 -top-10 h-20 w-20 rounded-full bg-cyan-400/10 blur-2xl" />
+
+        <span className="relative flex min-w-0 items-center gap-3">
+          {Icon ? (
+            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-[16px] border border-white/10 bg-black/20 text-emerald-100/75">
+              <Icon className="h-4 w-4" />
+            </span>
+          ) : null}
+
+          <span className="min-w-0">
+            <span className="block text-[9px] font-black uppercase tracking-[0.18em] text-white/35">
+              {label}
+            </span>
+            <span className="mt-0.5 block truncate text-sm font-black text-white/88">
+              {selected?.label}
+            </span>
+          </span>
+        </span>
+
+        <ChevronDown
+          className={`relative h-4 w-4 shrink-0 text-white/52 transition duration-300 ${
+            open ? "rotate-180 text-emerald-100" : ""
+          }`}
+        />
+      </button>
+
+      <div
+        className={`absolute left-0 right-0 top-[calc(100%+8px)] z-30 grid overflow-hidden rounded-[24px] border border-white/10 bg-[#06101f]/95 shadow-[0_24px_70px_rgba(0,0,0,0.45)] backdrop-blur-2xl transition-all duration-300 ${
+          open
+            ? "grid-rows-[1fr] opacity-100"
+            : "pointer-events-none grid-rows-[0fr] opacity-0"
+        }`}
+      >
+        <div className="max-h-72 overflow-y-auto">
+          <div className="p-2">
+            {options.map((item) => {
+              const active = item.key === value;
+
+              return (
+                <button
+                  key={item.key}
+                  type="button"
+                  onClick={() => {
+                    onChange(item.key);
+                    onAfterChange?.();
+                    setOpen(false);
+                  }}
+                  className={`flex min-h-[42px] w-full items-center justify-between rounded-[18px] px-3 text-left text-sm font-black transition duration-200 active:scale-[0.985] ${
+                    active
+                      ? "bg-emerald-400/14 text-emerald-50 shadow-[0_0_22px_rgba(52,211,153,0.12)]"
+                      : "text-white/62 hover:bg-white/[0.055]"
+                  }`}
+                >
+                  <span>{item.label}</span>
+                  {active ? (
+                    <span className="h-2 w-2 rounded-full bg-emerald-300 shadow-[0_0_16px_rgba(52,211,153,0.7)]" />
+                  ) : null}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
 }
 
 function SummaryCard({ label, value, helper, tone = "slate" }) {
   const toneClass =
     tone === "rose"
-      ? "from-rose-500/18 text-rose-100 shadow-rose-500/10"
+      ? "from-rose-500/16 text-rose-100 shadow-rose-500/10"
       : tone === "emerald"
-        ? "from-emerald-400/18 text-emerald-100 shadow-emerald-500/10"
+        ? "from-emerald-400/16 text-emerald-100 shadow-emerald-500/10"
         : tone === "cyan"
-          ? "from-cyan-400/18 text-cyan-100 shadow-cyan-500/10"
+          ? "from-cyan-400/16 text-cyan-100 shadow-cyan-500/10"
           : "from-white/10 text-white shadow-black/20";
 
   return (
     <div
-      className={`relative min-h-[106px] overflow-hidden rounded-[26px] border border-white/10 bg-gradient-to-br ${toneClass} via-white/[0.05] to-white/[0.025] p-4 shadow-[0_22px_60px_rgba(0,0,0,0.28)] backdrop-blur-2xl`}
+      className={`relative min-h-[82px] overflow-hidden rounded-[22px] border border-white/10 bg-gradient-to-br ${toneClass} via-white/[0.045] to-white/[0.025] p-3 shadow-[0_18px_46px_rgba(0,0,0,0.25)] backdrop-blur-2xl`}
     >
-      <div className="pointer-events-none absolute -right-10 -top-10 h-24 w-24 rounded-full bg-white/10 blur-3xl" />
+      <div className="pointer-events-none absolute -right-10 -top-10 h-20 w-20 rounded-full bg-white/10 blur-3xl" />
       <div className="pointer-events-none absolute inset-x-4 top-0 h-px bg-gradient-to-r from-transparent via-white/25 to-transparent" />
 
-      <p className="text-[10px] font-black uppercase tracking-[0.22em] text-white/42">
+      <p className="text-[9px] font-black uppercase tracking-[0.17em] text-white/40">
         {label}
       </p>
-      <p className="mt-3 truncate text-[clamp(18px,5vw,25px)] font-black tracking-tight">
+      <p className="mt-2 truncate text-[clamp(15px,4.5vw,22px)] font-black tracking-tight">
         {value}
       </p>
-      <p className="mt-1 truncate text-[11px] font-medium text-white/48">
+      <p className="mt-0.5 truncate text-[10px] font-semibold text-white/42">
         {helper}
       </p>
     </div>
@@ -294,7 +397,7 @@ function StatusBadge({ children, icon: Icon = CircleDot, tone = "neutral" }) {
 
   return (
     <span
-      className={`inline-flex max-w-full items-center gap-1.5 rounded-full border px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.12em] ${toneClass}`}
+      className={`inline-flex max-w-full items-center gap-1.5 rounded-full border px-2 py-0.5 text-[9px] font-black uppercase tracking-[0.1em] ${toneClass}`}
     >
       <Icon className="h-3 w-3 shrink-0" />
       <span className="truncate">{children}</span>
@@ -308,33 +411,35 @@ function TransactionCard({ item }) {
   const sign = item.signedAmount > 0 ? "+" : item.signedAmount < 0 ? "-" : "";
 
   return (
-    <article className="group relative overflow-hidden rounded-[24px] border border-white/10 bg-[linear-gradient(135deg,rgba(255,255,255,0.085),rgba(255,255,255,0.035))] p-3.5 shadow-[0_18px_55px_rgba(0,0,0,0.24)] backdrop-blur-2xl transition duration-300 active:scale-[0.985]">
+    <article className="group relative overflow-hidden rounded-[22px] border border-white/10 bg-[linear-gradient(135deg,rgba(255,255,255,0.08),rgba(255,255,255,0.032))] p-3 shadow-[0_16px_48px_rgba(0,0,0,0.22)] backdrop-blur-2xl transition duration-300 active:scale-[0.985]">
       <div
-        className={`pointer-events-none absolute -right-16 -top-20 h-36 w-36 rounded-full ${tone.glow} blur-3xl`}
+        className={`pointer-events-none absolute -right-16 -top-20 h-32 w-32 rounded-full ${tone.glow} blur-3xl`}
       />
-      <div className="pointer-events-none absolute inset-x-5 top-0 h-px bg-gradient-to-r from-transparent via-white/25 to-transparent" />
-      <div className={`absolute left-0 top-5 h-12 w-1 rounded-r-full ${tone.rail}`} />
+      <div className="pointer-events-none absolute inset-x-5 top-0 h-px bg-gradient-to-r from-transparent via-white/20 to-transparent" />
+      <div className={`absolute left-0 top-5 h-10 w-1 rounded-r-full ${tone.rail}`} />
 
       <div className="relative flex items-start gap-3">
         <div
-          className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-[18px] border ${tone.border} ${tone.icon}`}
+          className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-[17px] border ${tone.border} ${tone.icon}`}
         >
-          <Icon className="h-5 w-5" />
+          <Icon className="h-4.5 w-4.5" />
         </div>
 
         <div className="min-w-0 flex-1">
           <div className="flex items-start justify-between gap-3">
             <div className="min-w-0">
-              <h3 className="truncate text-[14px] font-black leading-tight text-white">
+              <h3 className="truncate text-[13px] font-black leading-tight text-white">
                 {item.title}
               </h3>
 
-              <div className="mt-1.5 flex flex-wrap items-center gap-x-2 gap-y-1 text-[11px] font-semibold text-white/48">
-                <span>{item.category ? titleCase(item.category) : titleCase(item.group)}</span>
+              <div className="mt-1.5 flex flex-wrap items-center gap-x-2 gap-y-1 text-[10px] font-semibold text-white/45">
+                <span>
+                  {item.category ? titleCase(item.category) : titleCase(item.group)}
+                </span>
 
                 {item.walletName ? (
                   <span className="inline-flex min-w-0 items-center gap-1.5">
-                    <WalletCards className="h-3.5 w-3.5 shrink-0" />
+                    <WalletCards className="h-3 w-3 shrink-0" />
                     <span className="truncate">{item.walletName}</span>
                   </span>
                 ) : null}
@@ -342,17 +447,17 @@ function TransactionCard({ item }) {
             </div>
 
             <div className="shrink-0 text-right">
-              <p className={`text-[14px] font-black leading-tight ${tone.amount}`}>
+              <p className={`text-[13px] font-black leading-tight ${tone.amount}`}>
                 {sign}
                 {peso(Math.abs(item.signedAmount))}
               </p>
-              <p className="mt-1 text-[10px] font-bold text-white/34">
+              <p className="mt-1 text-[9px] font-bold text-white/32">
                 {formatTime(item.date)}
               </p>
             </div>
           </div>
 
-          <div className="mt-3 flex flex-wrap gap-2">
+          <div className="mt-2.5 flex flex-wrap gap-1.5">
             <StatusBadge icon={Tag}>{titleCase(item.group)}</StatusBadge>
 
             {item.needType ? (
@@ -378,7 +483,7 @@ function TransactionCard({ item }) {
           </div>
 
           {item.note ? (
-            <p className="mt-3 line-clamp-2 rounded-[18px] border border-white/10 bg-black/16 px-3 py-2 text-sm font-medium leading-6 text-white/55">
+            <p className="mt-2.5 line-clamp-2 rounded-[16px] border border-white/10 bg-black/16 px-3 py-2 text-xs font-medium leading-5 text-white/52">
               {item.note}
             </p>
           ) : null}
@@ -394,67 +499,54 @@ function TimelineDropdown({ group, items, isOpen, onToggle }) {
 
   return (
     <article
-      className={`relative overflow-hidden rounded-[28px] border bg-white/[0.055] shadow-[0_20px_65px_rgba(0,0,0,0.28)] backdrop-blur-2xl transition duration-300 ${
+      className={`relative overflow-hidden rounded-[24px] border bg-white/[0.052] shadow-[0_18px_58px_rgba(0,0,0,0.24)] backdrop-blur-2xl transition duration-300 ${
         isOpen
-          ? "border-emerald-300/24 shadow-[0_0_38px_rgba(52,211,153,0.1)]"
+          ? "border-emerald-300/24 shadow-[0_0_36px_rgba(52,211,153,0.1)]"
           : "border-white/10"
       }`}
     >
-      <div className="pointer-events-none absolute -right-16 -top-16 h-36 w-36 rounded-full bg-emerald-400/10 blur-3xl" />
-      <div className="pointer-events-none absolute -left-20 bottom-0 h-32 w-32 rounded-full bg-cyan-400/8 blur-3xl" />
-      <div className="pointer-events-none absolute inset-x-6 top-0 h-px bg-gradient-to-r from-transparent via-white/25 to-transparent" />
+      <div className="pointer-events-none absolute -right-16 -top-16 h-32 w-32 rounded-full bg-emerald-400/10 blur-3xl" />
+      <div className="pointer-events-none absolute -left-20 bottom-0 h-28 w-28 rounded-full bg-cyan-400/8 blur-3xl" />
+      <div className="pointer-events-none absolute inset-x-6 top-0 h-px bg-gradient-to-r from-transparent via-white/22 to-transparent" />
 
       <button
         type="button"
         onClick={onToggle}
-        className="relative flex w-full items-center justify-between gap-3 p-4 text-left transition duration-200 active:scale-[0.99]"
+        className="relative flex w-full items-center justify-between gap-3 p-3.5 text-left transition duration-200 active:scale-[0.99]"
       >
         <div className="min-w-0 flex-1">
-          <div className="flex items-center gap-2">
-            <h2 className="truncate text-[18px] font-black tracking-tight text-white">
+          <div className="flex min-w-0 items-center gap-2">
+            <h2 className="truncate text-[16px] font-black tracking-tight text-white">
               {group.label}
             </h2>
-            <span className="shrink-0 rounded-full border border-white/10 bg-black/20 px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.12em] text-white/48">
-              {stats.count} item{stats.count === 1 ? "" : "s"}
+            <span className="shrink-0 rounded-full border border-white/10 bg-black/20 px-2 py-0.5 text-[9px] font-black uppercase tracking-[0.1em] text-white/45">
+              {stats.count}
             </span>
           </div>
 
-          <p className="mt-1 text-xs font-semibold text-white/42">{group.helper}</p>
-
-          <div className="mt-3 grid grid-cols-2 gap-2">
-            <div className="rounded-[18px] border border-rose-300/12 bg-rose-400/8 px-3 py-2">
-              <p className="text-[9px] font-black uppercase tracking-[0.16em] text-white/35">
-                Spent
-              </p>
-              <p className="mt-1 truncate text-sm font-black text-rose-100">
-                {peso(stats.spent)}
-              </p>
-            </div>
-
-            <div className="rounded-[18px] border border-emerald-300/12 bg-emerald-400/8 px-3 py-2">
-              <p className="text-[9px] font-black uppercase tracking-[0.16em] text-white/35">
-                Income
-              </p>
-              <p className="mt-1 truncate text-sm font-black text-emerald-100">
-                {peso(stats.income)}
-              </p>
-            </div>
+          <div className="mt-2 flex items-center gap-2 overflow-hidden">
+            <span className="truncate text-xs font-black text-white/70">
+              {stats.total >= 0 ? "+" : "-"}
+              {peso(Math.abs(stats.total))}
+            </span>
+            <span className="h-1 w-1 shrink-0 rounded-full bg-white/25" />
+            <span className="truncate text-[11px] font-semibold text-white/38">
+              Out {peso(stats.spent)} · In {peso(stats.income)}
+            </span>
           </div>
-
-          <p className="mt-3 line-clamp-1 text-[11px] font-semibold text-cyan-100/62">
-            {hasItems ? stats.insight : "No transactions in this section yet"}
-          </p>
         </div>
 
         <div
-          className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-[18px] border transition duration-300 ${
+          className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-[17px] border transition duration-300 ${
             isOpen
               ? "border-emerald-300/30 bg-emerald-400/14 text-emerald-50"
-              : "border-white/10 bg-black/20 text-white/55"
+              : "border-white/10 bg-black/20 text-white/50"
           }`}
         >
           <ChevronDown
-            className={`h-5 w-5 transition duration-300 ${isOpen ? "rotate-180" : ""}`}
+            className={`h-4.5 w-4.5 transition duration-300 ${
+              isOpen ? "rotate-180" : ""
+            }`}
           />
         </div>
       </button>
@@ -465,12 +557,12 @@ function TimelineDropdown({ group, items, isOpen, onToggle }) {
         }`}
       >
         <div className="overflow-hidden">
-          <div className="space-y-3 border-t border-white/10 p-3.5 pt-4">
+          <div className="space-y-2.5 border-t border-white/10 p-3 pt-3.5">
             {hasItems ? (
               items.map((item) => <TransactionCard key={item.id} item={item} />)
             ) : (
-              <div className="rounded-[22px] border border-white/10 bg-black/16 px-4 py-5 text-center text-sm font-semibold text-white/45">
-                Nothing to show here yet.
+              <div className="rounded-[20px] border border-white/10 bg-black/16 px-4 py-4 text-center text-sm font-semibold text-white/42">
+                Nothing here yet.
               </div>
             )}
           </div>
@@ -505,16 +597,16 @@ function LoadingState() {
       </div>
 
       <div className="relative mx-auto max-w-4xl space-y-4">
-        <SkeletonBlock className="h-36 rounded-[32px]" />
+        <SkeletonBlock className="h-16 rounded-[26px]" />
 
-        <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
+        <div className="grid grid-cols-2 gap-2 md:grid-cols-4">
           {[1, 2, 3, 4].map((x) => (
-            <SkeletonBlock key={x} className="h-24 rounded-[26px]" />
+            <SkeletonBlock key={x} className="h-20 rounded-[22px]" />
           ))}
         </div>
 
         {[1, 2, 3, 4].map((x) => (
-          <SkeletonBlock key={x} className="h-28 rounded-[28px]" />
+          <SkeletonBlock key={x} className="h-20 rounded-[24px]" />
         ))}
       </div>
     </div>
@@ -695,6 +787,7 @@ export default function TransactionHub() {
           item.planningStatus,
           item.amount,
           item.signedAmount,
+          formatDateOnly(item.date),
         ]
           .join(" ")
           .toLowerCase()
@@ -747,6 +840,16 @@ export default function TransactionHub() {
     }
   };
 
+  const monthOptions = useMemo(
+    () => months.map((item) => ({ key: item.key, label: item.label })),
+    [months]
+  );
+
+  const filterOptions = useMemo(
+    () => FILTERS.map(([key, label]) => ({ key, label })),
+    []
+  );
+
   const selectedMonthLabel =
     months.find((item) => item.key === month)?.label || "This month";
 
@@ -766,89 +869,63 @@ export default function TransactionHub() {
   }
 
   return (
-    <div className="relative min-h-[100dvh] overflow-x-hidden bg-[#020713] px-4 pb-[calc(7rem+env(safe-area-inset-bottom))] pt-[calc(1rem+env(safe-area-inset-top))] text-white md:px-6">
-      <style>{`
-        .no-scrollbar { scrollbar-width: none; -ms-overflow-style: none; }
-        .no-scrollbar::-webkit-scrollbar { display: none; }
-      `}</style>
-
+    <div className="relative min-h-[100dvh] overflow-x-hidden bg-[#020713] px-4 pb-[calc(7rem+env(safe-area-inset-bottom))] pt-[calc(0.85rem+env(safe-area-inset-top))] text-white md:px-6">
       <div className="pointer-events-none fixed inset-0 overflow-hidden">
         <div className="absolute -top-28 left-1/2 h-80 w-80 -translate-x-1/2 rounded-full bg-emerald-400/12 blur-3xl" />
         <div className="absolute -right-28 top-40 h-72 w-72 rounded-full bg-cyan-400/12 blur-3xl" />
         <div className="absolute -bottom-20 -left-28 h-80 w-80 rounded-full bg-blue-500/10 blur-3xl" />
       </div>
 
-      <div className="relative z-10 mx-auto max-w-4xl space-y-5">
-        <header className="relative overflow-hidden rounded-[32px] border border-cyan-300/18 bg-[linear-gradient(135deg,rgba(7,23,36,0.96),rgba(12,34,52,0.84)_48%,rgba(11,19,43,0.96))] p-4 shadow-[0_24px_90px_rgba(0,0,0,0.42)] backdrop-blur-2xl">
-          <div className="pointer-events-none absolute -left-12 -top-16 h-44 w-44 rounded-full bg-emerald-300/16 blur-3xl" />
-          <div className="pointer-events-none absolute -right-12 top-4 h-44 w-44 rounded-full bg-cyan-300/12 blur-3xl" />
-          <div className="pointer-events-none absolute inset-x-6 top-0 h-px bg-gradient-to-r from-transparent via-cyan-200/35 to-transparent" />
+      <div className="relative z-10 mx-auto max-w-4xl space-y-3.5">
+        <header className="flex items-center justify-between gap-3">
+          <button
+            type="button"
+            onClick={() => navigate("/dashboard")}
+            className="flex h-11 w-11 shrink-0 items-center justify-center rounded-[18px] border border-cyan-200/20 bg-cyan-100/10 text-white/85 shadow-[0_0_28px_rgba(34,211,238,0.13)] backdrop-blur-2xl transition duration-200 active:scale-[0.96]"
+          >
+            <ArrowLeft className="h-5 w-5" />
+          </button>
 
-          <div className="relative flex items-start justify-between gap-3">
-            <button
-              type="button"
-              onClick={() => navigate("/dashboard")}
-              className="flex h-12 w-12 shrink-0 items-center justify-center rounded-[20px] border border-cyan-200/20 bg-cyan-100/10 text-white/85 shadow-[0_0_28px_rgba(34,211,238,0.13)] transition duration-200 active:scale-[0.96]"
-            >
-              <ArrowLeft className="h-5 w-5" />
-            </button>
-
-            <div className="min-w-0 flex-1">
-              <div className="mb-2 inline-flex items-center gap-2 rounded-full border border-emerald-300/22 bg-emerald-400/12 px-3 py-1.5 text-[10px] font-black uppercase tracking-[0.2em] text-emerald-100 shadow-[0_0_24px_rgba(52,211,153,0.12)]">
-                <Sparkles className="h-3.5 w-3.5" />
-                One-glance timeline
-              </div>
-
-              <h1 className="text-[clamp(28px,7vw,38px)] font-black leading-none tracking-tight">
-                Transaction Hub
-              </h1>
-
-              <p className="mt-2 max-w-[270px] text-sm font-medium leading-6 text-white/64 sm:max-w-none">
-                {selectedMonthLabel} · grouped into Today, Yesterday, This Week, and Earlier
-              </p>
-            </div>
-
-            <button
-              type="button"
-              onClick={refresh}
-              disabled={refreshing || !online}
-              className="flex h-12 w-12 shrink-0 items-center justify-center rounded-[20px] border border-cyan-200/20 bg-cyan-100/10 text-white/85 shadow-[0_0_28px_rgba(34,211,238,0.13)] transition duration-200 disabled:opacity-45 active:scale-[0.96]"
-            >
-              <RefreshCw className={`h-5 w-5 ${refreshing ? "animate-spin" : ""}`} />
-            </button>
+          <div className="min-w-0 flex-1 text-center">
+            <p className="truncate text-[13px] font-black tracking-tight text-white/85">
+              Transaction Hub
+            </p>
+            <p className="truncate text-[10px] font-semibold text-white/36">
+              {selectedMonthLabel}
+            </p>
           </div>
+
+          <button
+            type="button"
+            onClick={refresh}
+            disabled={refreshing || !online}
+            className="flex h-11 w-11 shrink-0 items-center justify-center rounded-[18px] border border-cyan-200/20 bg-cyan-100/10 text-white/85 shadow-[0_0_28px_rgba(34,211,238,0.13)] backdrop-blur-2xl transition duration-200 disabled:opacity-45 active:scale-[0.96]"
+          >
+            <RefreshCw className={`h-4.5 w-4.5 ${refreshing ? "animate-spin" : ""}`} />
+          </button>
         </header>
 
-        <section className="relative overflow-hidden rounded-[30px] border border-white/10 bg-white/[0.055] p-3 shadow-[0_22px_70px_rgba(0,0,0,0.26)] backdrop-blur-2xl">
-          <div className="pointer-events-none absolute -right-16 -top-16 h-32 w-32 rounded-full bg-emerald-400/10 blur-3xl" />
+        <section className="grid grid-cols-2 gap-2">
+          <GlassDropdown
+            label="Month"
+            icon={CalendarDays}
+            value={month}
+            options={monthOptions}
+            onChange={setMonth}
+            onAfterChange={() => setOpenGroup(null)}
+          />
 
-          <div className="relative mb-3 flex items-center gap-2 px-1 text-xs font-black uppercase tracking-[0.18em] text-white/40">
-            <CalendarDays className="h-4 w-4 text-emerald-100/60" />
-            12-month tracker
-          </div>
-
-          <div className="no-scrollbar relative -mx-1 flex gap-2 overflow-x-auto px-1 pb-1">
-            {months.map((item) => (
-              <button
-                key={item.key}
-                type="button"
-                onClick={() => {
-                  setMonth(item.key);
-                  setOpenGroup(null);
-                }}
-                className={`min-h-[44px] shrink-0 rounded-full border px-4 py-2 text-sm font-black transition duration-200 active:scale-[0.98] ${
-                  month === item.key
-                    ? "border-emerald-300/45 bg-emerald-400/18 text-emerald-50 shadow-[0_0_28px_rgba(52,211,153,0.2)]"
-                    : "border-white/10 bg-black/18 text-white/58"
-                }`}
-              >
-                {item.label}
-              </button>
-            ))}
-          </div>
+          <GlassDropdown
+            label="Filter"
+            icon={Receipt}
+            value={filter}
+            options={filterOptions}
+            onChange={setFilter}
+            onAfterChange={() => setOpenGroup(null)}
+          />
         </section>
 
-        <section className="grid grid-cols-2 gap-3 md:grid-cols-4">
+        <section className="grid grid-cols-2 gap-2 md:grid-cols-4">
           <SummaryCard
             label="Money Out"
             value={`-${peso(summary.moneyOut)}`}
@@ -872,59 +949,38 @@ export default function TransactionHub() {
           <SummaryCard label="Shown" value={summary.count} helper="Current view" tone="cyan" />
         </section>
 
-        <section className="relative overflow-hidden rounded-[30px] border border-white/10 bg-white/[0.055] p-3 shadow-[0_22px_70px_rgba(0,0,0,0.26)] backdrop-blur-2xl">
+        <section className="relative overflow-hidden rounded-[24px] border border-white/10 bg-white/[0.052] p-2.5 shadow-[0_18px_58px_rgba(0,0,0,0.24)] backdrop-blur-2xl">
           <div className="pointer-events-none absolute -left-20 -top-20 h-36 w-36 rounded-full bg-cyan-400/10 blur-3xl" />
-
-          <div className="no-scrollbar relative -mx-1 flex gap-2 overflow-x-auto px-1 pb-3">
-            {FILTERS.map(([key, label]) => (
-              <button
-                key={key}
-                type="button"
-                onClick={() => {
-                  setFilter(key);
-                  setOpenGroup(null);
-                }}
-                className={`min-h-[42px] shrink-0 rounded-full border px-4 py-2 text-sm font-bold transition duration-200 active:scale-[0.98] ${
-                  filter === key
-                    ? "border-cyan-300/40 bg-cyan-400/16 text-cyan-50 shadow-[0_0_24px_rgba(34,211,238,0.14)]"
-                    : "border-white/10 bg-black/18 text-white/62"
-                }`}
-              >
-                {label}
-              </button>
-            ))}
-          </div>
-
           <div className="relative">
-            <Search className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-white/40" />
+            <Search className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-white/35" />
             <input
               value={search}
               onChange={(event) => {
                 setSearch(event.target.value);
                 setOpenGroup(null);
               }}
-              placeholder="Search title, category, wallet, note, or amount"
-              className="min-h-[54px] w-full rounded-[22px] border border-white/10 bg-black/20 pl-11 pr-4 text-[15px] font-medium text-white outline-none transition duration-200 placeholder:text-white/34 focus:border-emerald-300/38 focus:bg-black/28 focus:shadow-[0_0_24px_rgba(52,211,153,0.1)]"
+              placeholder="Search transactions"
+              className="min-h-[50px] w-full rounded-[20px] border border-white/10 bg-black/18 pl-11 pr-4 text-sm font-medium text-white outline-none transition duration-200 placeholder:text-white/30 focus:border-emerald-300/34 focus:bg-black/26 focus:shadow-[0_0_24px_rgba(52,211,153,0.1)]"
             />
           </div>
         </section>
 
-        <section className="space-y-3">
+        <section className="space-y-2.5">
           {!filtered.length ? (
-            <div className="relative overflow-hidden rounded-[30px] border border-dashed border-emerald-300/18 bg-white/[0.055] p-8 text-center shadow-[0_22px_70px_rgba(0,0,0,0.26)] backdrop-blur-2xl">
+            <div className="relative overflow-hidden rounded-[28px] border border-dashed border-emerald-300/18 bg-white/[0.055] p-7 text-center shadow-[0_22px_70px_rgba(0,0,0,0.26)] backdrop-blur-2xl">
               <div className="pointer-events-none absolute -right-14 -top-14 h-32 w-32 rounded-full bg-emerald-400/12 blur-3xl" />
               <div className="pointer-events-none absolute -left-14 bottom-0 h-32 w-32 rounded-full bg-cyan-400/10 blur-3xl" />
 
-              <div className="relative mx-auto flex h-16 w-16 items-center justify-center rounded-[24px] border border-emerald-300/18 bg-emerald-400/10 shadow-[0_0_30px_rgba(52,211,153,0.14)]">
-                <Receipt className="h-7 w-7 text-emerald-100/70" />
+              <div className="relative mx-auto flex h-14 w-14 items-center justify-center rounded-[22px] border border-emerald-300/18 bg-emerald-400/10 shadow-[0_0_30px_rgba(52,211,153,0.14)]">
+                <Receipt className="h-6 w-6 text-emerald-100/70" />
               </div>
 
-              <h2 className="relative mt-4 text-xl font-black tracking-tight">
+              <h2 className="relative mt-4 text-lg font-black tracking-tight">
                 No transactions yet
               </h2>
 
-              <p className="relative mx-auto mt-2 max-w-sm text-sm font-medium leading-6 text-white/55">
-                Start by logging your first expense. CLARA will organize your activity here.
+              <p className="relative mx-auto mt-2 max-w-sm text-sm font-medium leading-6 text-white/52">
+                Start logging expenses and CLARA will organize your financial timeline here.
               </p>
             </div>
           ) : (
