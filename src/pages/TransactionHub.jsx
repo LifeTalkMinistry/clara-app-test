@@ -8,6 +8,7 @@ import {
   ArrowUpRight,
   CalendarDays,
   CheckCircle2,
+  ChevronDown,
   CircleDot,
   Clock3,
   PiggyBank,
@@ -195,6 +196,62 @@ const getToneClasses = (group, signedAmount = 0) => {
   };
 };
 
+const startOfDay = (dateValue) => {
+  const d = parseDate(dateValue);
+  d.setHours(0, 0, 0, 0);
+  return d;
+};
+
+const daysBetween = (dateValue) => {
+  const today = startOfDay(new Date());
+  const target = startOfDay(dateValue);
+  return Math.floor((today.getTime() - target.getTime()) / 86400000);
+};
+
+const getTimelineKey = (dateValue) => {
+  const diff = daysBetween(dateValue);
+  if (diff === 0) return "today";
+  if (diff === 1) return "yesterday";
+  if (diff >= 2 && diff <= 6) return "thisWeek";
+  return "earlier";
+};
+
+const TIMELINE_GROUPS = [
+  { key: "today", label: "Today", helper: "Latest activity" },
+  { key: "yesterday", label: "Yesterday", helper: "Recent movement" },
+  { key: "thisWeek", label: "This Week", helper: "Last 7 days" },
+  { key: "earlier", label: "Earlier", helper: "Older activity" },
+];
+
+function getTimelineStats(items) {
+  const spent = items
+    .filter((item) => item.group === "expense" || item.group === "savings")
+    .reduce((sum, item) => sum + Math.abs(item.signedAmount), 0);
+
+  const income = items
+    .filter((item) => item.group === "income")
+    .reduce((sum, item) => sum + Math.abs(item.signedAmount), 0);
+
+  const categoryTotals = items
+    .filter((item) => item.group === "expense")
+    .reduce((map, item) => {
+      const key = item.category ? titleCase(item.category) : "Uncategorized";
+      map.set(key, (map.get(key) || 0) + Math.abs(item.signedAmount));
+      return map;
+    }, new Map());
+
+  const topCategory = Array.from(categoryTotals.entries()).sort(
+    (a, b) => b[1] - a[1]
+  )[0]?.[0];
+
+  return {
+    spent,
+    income,
+    count: items.length,
+    insight: topCategory ? `Most spent on ${topCategory}` : "No spending pattern yet",
+  };
+}
+
 function SummaryCard({ label, value, helper, tone = "slate" }) {
   const toneClass =
     tone === "rose"
@@ -251,16 +308,16 @@ function TransactionCard({ item }) {
   const sign = item.signedAmount > 0 ? "+" : item.signedAmount < 0 ? "-" : "";
 
   return (
-    <article className="group relative overflow-hidden rounded-[28px] border border-white/10 bg-[linear-gradient(135deg,rgba(255,255,255,0.085),rgba(255,255,255,0.035))] p-4 shadow-[0_22px_70px_rgba(0,0,0,0.28)] backdrop-blur-2xl transition duration-300 active:scale-[0.985]">
+    <article className="group relative overflow-hidden rounded-[24px] border border-white/10 bg-[linear-gradient(135deg,rgba(255,255,255,0.085),rgba(255,255,255,0.035))] p-3.5 shadow-[0_18px_55px_rgba(0,0,0,0.24)] backdrop-blur-2xl transition duration-300 active:scale-[0.985]">
       <div
-        className={`pointer-events-none absolute -right-16 -top-20 h-36 w-36 rounded-full ${tone.glow} blur-3xl transition duration-300 group-active:opacity-100`}
+        className={`pointer-events-none absolute -right-16 -top-20 h-36 w-36 rounded-full ${tone.glow} blur-3xl`}
       />
       <div className="pointer-events-none absolute inset-x-5 top-0 h-px bg-gradient-to-r from-transparent via-white/25 to-transparent" />
-      <div className={`absolute left-0 top-6 h-14 w-1 rounded-r-full ${tone.rail}`} />
+      <div className={`absolute left-0 top-5 h-12 w-1 rounded-r-full ${tone.rail}`} />
 
       <div className="relative flex items-start gap-3">
         <div
-          className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-[20px] border ${tone.border} ${tone.icon}`}
+          className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-[18px] border ${tone.border} ${tone.icon}`}
         >
           <Icon className="h-5 w-5" />
         </div>
@@ -268,15 +325,12 @@ function TransactionCard({ item }) {
         <div className="min-w-0 flex-1">
           <div className="flex items-start justify-between gap-3">
             <div className="min-w-0">
-              <h3 className="truncate text-[15px] font-black leading-tight text-white">
+              <h3 className="truncate text-[14px] font-black leading-tight text-white">
                 {item.title}
               </h3>
 
               <div className="mt-1.5 flex flex-wrap items-center gap-x-2 gap-y-1 text-[11px] font-semibold text-white/48">
-                <span className="inline-flex items-center gap-1.5">
-                  <Clock3 className="h-3.5 w-3.5" />
-                  {formatTime(item.date)}
-                </span>
+                <span>{item.category ? titleCase(item.category) : titleCase(item.group)}</span>
 
                 {item.walletName ? (
                   <span className="inline-flex min-w-0 items-center gap-1.5">
@@ -288,20 +342,18 @@ function TransactionCard({ item }) {
             </div>
 
             <div className="shrink-0 text-right">
-              <p className={`text-[15px] font-black leading-tight ${tone.amount}`}>
+              <p className={`text-[14px] font-black leading-tight ${tone.amount}`}>
                 {sign}
                 {peso(Math.abs(item.signedAmount))}
               </p>
-              <p className="mt-1 text-[10px] font-bold uppercase tracking-[0.14em] text-white/34">
-                {titleCase(item.group)}
+              <p className="mt-1 text-[10px] font-bold text-white/34">
+                {formatTime(item.date)}
               </p>
             </div>
           </div>
 
           <div className="mt-3 flex flex-wrap gap-2">
-            <StatusBadge icon={Tag}>
-              {item.category ? titleCase(item.category) : titleCase(item.group)}
-            </StatusBadge>
+            <StatusBadge icon={Tag}>{titleCase(item.group)}</StatusBadge>
 
             {item.needType ? (
               <StatusBadge
@@ -330,6 +382,98 @@ function TransactionCard({ item }) {
               {item.note}
             </p>
           ) : null}
+        </div>
+      </div>
+    </article>
+  );
+}
+
+function TimelineDropdown({ group, items, isOpen, onToggle }) {
+  const stats = getTimelineStats(items);
+  const hasItems = items.length > 0;
+
+  return (
+    <article
+      className={`relative overflow-hidden rounded-[28px] border bg-white/[0.055] shadow-[0_20px_65px_rgba(0,0,0,0.28)] backdrop-blur-2xl transition duration-300 ${
+        isOpen
+          ? "border-emerald-300/24 shadow-[0_0_38px_rgba(52,211,153,0.1)]"
+          : "border-white/10"
+      }`}
+    >
+      <div className="pointer-events-none absolute -right-16 -top-16 h-36 w-36 rounded-full bg-emerald-400/10 blur-3xl" />
+      <div className="pointer-events-none absolute -left-20 bottom-0 h-32 w-32 rounded-full bg-cyan-400/8 blur-3xl" />
+      <div className="pointer-events-none absolute inset-x-6 top-0 h-px bg-gradient-to-r from-transparent via-white/25 to-transparent" />
+
+      <button
+        type="button"
+        onClick={onToggle}
+        className="relative flex w-full items-center justify-between gap-3 p-4 text-left transition duration-200 active:scale-[0.99]"
+      >
+        <div className="min-w-0 flex-1">
+          <div className="flex items-center gap-2">
+            <h2 className="truncate text-[18px] font-black tracking-tight text-white">
+              {group.label}
+            </h2>
+            <span className="shrink-0 rounded-full border border-white/10 bg-black/20 px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.12em] text-white/48">
+              {stats.count} item{stats.count === 1 ? "" : "s"}
+            </span>
+          </div>
+
+          <p className="mt-1 text-xs font-semibold text-white/42">{group.helper}</p>
+
+          <div className="mt-3 grid grid-cols-2 gap-2">
+            <div className="rounded-[18px] border border-rose-300/12 bg-rose-400/8 px-3 py-2">
+              <p className="text-[9px] font-black uppercase tracking-[0.16em] text-white/35">
+                Spent
+              </p>
+              <p className="mt-1 truncate text-sm font-black text-rose-100">
+                {peso(stats.spent)}
+              </p>
+            </div>
+
+            <div className="rounded-[18px] border border-emerald-300/12 bg-emerald-400/8 px-3 py-2">
+              <p className="text-[9px] font-black uppercase tracking-[0.16em] text-white/35">
+                Income
+              </p>
+              <p className="mt-1 truncate text-sm font-black text-emerald-100">
+                {peso(stats.income)}
+              </p>
+            </div>
+          </div>
+
+          <p className="mt-3 line-clamp-1 text-[11px] font-semibold text-cyan-100/62">
+            {hasItems ? stats.insight : "No transactions in this section yet"}
+          </p>
+        </div>
+
+        <div
+          className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-[18px] border transition duration-300 ${
+            isOpen
+              ? "border-emerald-300/30 bg-emerald-400/14 text-emerald-50"
+              : "border-white/10 bg-black/20 text-white/55"
+          }`}
+        >
+          <ChevronDown
+            className={`h-5 w-5 transition duration-300 ${isOpen ? "rotate-180" : ""}`}
+          />
+        </div>
+      </button>
+
+      <div
+        className={`grid transition-all duration-300 ease-out ${
+          isOpen ? "grid-rows-[1fr] opacity-100" : "grid-rows-[0fr] opacity-0"
+        }`}
+      >
+        <div className="overflow-hidden">
+          <div className="space-y-3 border-t border-white/10 p-3.5 pt-4">
+            {hasItems ? (
+              items.map((item) => <TransactionCard key={item.id} item={item} />)
+            ) : (
+              <div className="rounded-[22px] border border-white/10 bg-black/16 px-4 py-5 text-center text-sm font-semibold text-white/45">
+                Nothing to show here yet.
+              </div>
+            )}
+          </div>
         </div>
       </div>
     </article>
@@ -369,9 +513,7 @@ function LoadingState() {
           ))}
         </div>
 
-        <SkeletonBlock className="h-28 rounded-[30px]" />
-
-        {[1, 2, 3].map((x) => (
+        {[1, 2, 3, 4].map((x) => (
           <SkeletonBlock key={x} className="h-28 rounded-[28px]" />
         ))}
       </div>
@@ -386,7 +528,7 @@ function ErrorState({ onBack, onRefresh }) {
       <div className="pointer-events-none absolute -right-28 top-36 h-72 w-72 rounded-full bg-cyan-400/10 blur-3xl" />
 
       <div className="relative mx-auto flex min-h-[80dvh] max-w-lg items-center">
-        <div className="w-full overflow-hidden rounded-[34px] border border-rose-300/15 bg-white/[0.055] p-6 text-center shadow-[0_24px_90px_rgba(0,0,0,0.34)] backdrop-blur-2xl">
+        <div className="relative w-full overflow-hidden rounded-[34px] border border-rose-300/15 bg-white/[0.055] p-6 text-center shadow-[0_24px_90px_rgba(0,0,0,0.34)] backdrop-blur-2xl">
           <div className="pointer-events-none absolute inset-x-8 top-0 h-px bg-gradient-to-r from-transparent via-white/25 to-transparent" />
 
           <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-[24px] border border-rose-300/20 bg-rose-400/10">
@@ -437,6 +579,7 @@ export default function TransactionHub() {
   const [refreshing, setRefreshing] = useState(false);
   const [localExpenses, setLocalExpenses] = useState([]);
   const [online, setOnline] = useState(() => isClaraOnline());
+  const [openGroup, setOpenGroup] = useState(null);
 
   const ownerKey = user?.id || user?.email || "guest";
 
@@ -561,16 +704,19 @@ export default function TransactionHub() {
     });
   }, [monthlyActivity, filter, search]);
 
-  const grouped = useMemo(() => {
-    const map = new Map();
+  const timelineGroups = useMemo(() => {
+    const map = new Map(TIMELINE_GROUPS.map((item) => [item.key, []]));
 
     filtered.forEach((item) => {
-      const key = formatDateOnly(item.date);
+      const key = getTimelineKey(item.date);
       if (!map.has(key)) map.set(key, []);
       map.get(key).push(item);
     });
 
-    return Array.from(map.entries());
+    return TIMELINE_GROUPS.map((group) => ({
+      ...group,
+      items: map.get(group.key) || [],
+    }));
   }, [filtered]);
 
   const summary = useMemo(() => {
@@ -650,7 +796,7 @@ export default function TransactionHub() {
             <div className="min-w-0 flex-1">
               <div className="mb-2 inline-flex items-center gap-2 rounded-full border border-emerald-300/22 bg-emerald-400/12 px-3 py-1.5 text-[10px] font-black uppercase tracking-[0.2em] text-emerald-100 shadow-[0_0_24px_rgba(52,211,153,0.12)]">
                 <Sparkles className="h-3.5 w-3.5" />
-                Financial Timeline
+                One-glance timeline
               </div>
 
               <h1 className="text-[clamp(28px,7vw,38px)] font-black leading-none tracking-tight">
@@ -658,8 +804,7 @@ export default function TransactionHub() {
               </h1>
 
               <p className="mt-2 max-w-[270px] text-sm font-medium leading-6 text-white/64 sm:max-w-none">
-                {selectedMonthLabel} · {filtered.length} transaction
-                {filtered.length === 1 ? "" : "s"}
+                {selectedMonthLabel} · grouped into Today, Yesterday, This Week, and Earlier
               </p>
             </div>
 
@@ -687,7 +832,10 @@ export default function TransactionHub() {
               <button
                 key={item.key}
                 type="button"
-                onClick={() => setMonth(item.key)}
+                onClick={() => {
+                  setMonth(item.key);
+                  setOpenGroup(null);
+                }}
                 className={`min-h-[44px] shrink-0 rounded-full border px-4 py-2 text-sm font-black transition duration-200 active:scale-[0.98] ${
                   month === item.key
                     ? "border-emerald-300/45 bg-emerald-400/18 text-emerald-50 shadow-[0_0_28px_rgba(52,211,153,0.2)]"
@@ -721,12 +869,7 @@ export default function TransactionHub() {
             helper={summary.netFlow >= 0 ? "Positive month" : "Needs attention"}
             tone={summary.netFlow >= 0 ? "emerald" : "rose"}
           />
-          <SummaryCard
-            label="Shown"
-            value={summary.count}
-            helper="Current view"
-            tone="cyan"
-          />
+          <SummaryCard label="Shown" value={summary.count} helper="Current view" tone="cyan" />
         </section>
 
         <section className="relative overflow-hidden rounded-[30px] border border-white/10 bg-white/[0.055] p-3 shadow-[0_22px_70px_rgba(0,0,0,0.26)] backdrop-blur-2xl">
@@ -737,7 +880,10 @@ export default function TransactionHub() {
               <button
                 key={key}
                 type="button"
-                onClick={() => setFilter(key)}
+                onClick={() => {
+                  setFilter(key);
+                  setOpenGroup(null);
+                }}
                 className={`min-h-[42px] shrink-0 rounded-full border px-4 py-2 text-sm font-bold transition duration-200 active:scale-[0.98] ${
                   filter === key
                     ? "border-cyan-300/40 bg-cyan-400/16 text-cyan-50 shadow-[0_0_24px_rgba(34,211,238,0.14)]"
@@ -753,14 +899,17 @@ export default function TransactionHub() {
             <Search className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-white/40" />
             <input
               value={search}
-              onChange={(event) => setSearch(event.target.value)}
+              onChange={(event) => {
+                setSearch(event.target.value);
+                setOpenGroup(null);
+              }}
               placeholder="Search title, category, wallet, note, or amount"
               className="min-h-[54px] w-full rounded-[22px] border border-white/10 bg-black/20 pl-11 pr-4 text-[15px] font-medium text-white outline-none transition duration-200 placeholder:text-white/34 focus:border-emerald-300/38 focus:bg-black/28 focus:shadow-[0_0_24px_rgba(52,211,153,0.1)]"
             />
           </div>
         </section>
 
-        <section className="space-y-5">
+        <section className="space-y-3">
           {!filtered.length ? (
             <div className="relative overflow-hidden rounded-[30px] border border-dashed border-emerald-300/18 bg-white/[0.055] p-8 text-center shadow-[0_22px_70px_rgba(0,0,0,0.26)] backdrop-blur-2xl">
               <div className="pointer-events-none absolute -right-14 -top-14 h-32 w-32 rounded-full bg-emerald-400/12 blur-3xl" />
@@ -775,23 +924,20 @@ export default function TransactionHub() {
               </h2>
 
               <p className="relative mx-auto mt-2 max-w-sm text-sm font-medium leading-6 text-white/55">
-                Start by logging your first expense. CLARA will organize your activity
-                here.
+                Start by logging your first expense. CLARA will organize your activity here.
               </p>
             </div>
           ) : (
-            grouped.map(([date, items]) => (
-              <div key={date} className="space-y-3">
-                <div className="sticky top-3 z-20 inline-flex rounded-full border border-cyan-200/14 bg-[#07111f]/88 px-3 py-1.5 text-[11px] font-black uppercase tracking-[0.18em] text-white/64 shadow-[0_12px_32px_rgba(0,0,0,0.32)] backdrop-blur-2xl">
-                  {date}
-                </div>
-
-                <div className="space-y-3">
-                  {items.map((item) => (
-                    <TransactionCard key={item.id} item={item} />
-                  ))}
-                </div>
-              </div>
+            timelineGroups.map((group) => (
+              <TimelineDropdown
+                key={group.key}
+                group={group}
+                items={group.items}
+                isOpen={openGroup === group.key}
+                onToggle={() =>
+                  setOpenGroup((current) => (current === group.key ? null : group.key))
+                }
+              />
             ))
           )}
         </section>
