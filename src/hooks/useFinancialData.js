@@ -42,7 +42,7 @@ const FINANCE_INCOME_TYPES = new Set([
 ]);
 
 const getLocalUserId = (user) => {
-  const value = user?.id || user?.email || "";
+  const value = user?.id || user?.email || "local-user";
   return String(value).trim();
 };
 
@@ -73,9 +73,9 @@ const createEmptyFinancialCache = (key = null) => ({
 
 let financialDataCache = createEmptyFinancialCache();
 
-export function useFinancialData(user) {
+function useFinancialData(user) {
   const localUserId = getLocalUserId(user);
-  const cacheKey = localUserId || null;
+  const cacheKey = localUserId || "local-user";
 
   const initialCache =
     financialDataCache.loaded && financialDataCache.key === cacheKey
@@ -121,23 +121,6 @@ export function useFinancialData(user) {
   }, []);
 
   const loadAll = useCallback(async () => {
-    if (!localUserId) {
-      const emptyCache = {
-        ...createEmptyFinancialCache(),
-        loaded: true,
-      };
-
-      financialDataCache = emptyCache;
-      hydrateFromCache(emptyCache);
-
-      if (mountedRef.current) {
-        setLoading(false);
-        setError(null);
-      }
-
-      return emptyCache;
-    }
-
     if (mountedRef.current) {
       setLoading(true);
       setError(null);
@@ -246,104 +229,93 @@ export function useFinancialData(user) {
 
   const refreshData = useCallback(() => loadAll(), [loadAll]);
 
-  const addExpense = async (expense) => {
-    if (!localUserId) {
-      throw new Error("User is required to add an expense.");
-    }
+  const addExpense = useCallback(
+    async (expense) => {
+      await repoAddExpense(localUserId, expense);
+      await refreshData();
+    },
+    [localUserId, refreshData]
+  );
 
-    await repoAddExpense(localUserId, expense);
-    await refreshData();
-  };
+  const updateExpense = useCallback(
+    async (id, updates) => {
+      await repoUpdateExpense(localUserId, id, updates);
+      await refreshData();
+    },
+    [localUserId, refreshData]
+  );
 
-  const updateExpense = async (id, updates) => {
-    if (!localUserId) {
-      throw new Error("User is required to update an expense.");
-    }
+  const deleteExpense = useCallback(
+    async (id) => {
+      await repoDeleteExpense(localUserId, id);
+      await refreshData();
+    },
+    [localUserId, refreshData]
+  );
 
-    await repoUpdateExpense(localUserId, id, updates);
-    await refreshData();
-  };
+  const addWallet = useCallback(
+    async (wallet) => {
+      await repoAddWallet(localUserId, wallet);
+      await refreshData();
+    },
+    [localUserId, refreshData]
+  );
 
-  const deleteExpense = async (id) => {
-    if (!localUserId) {
-      throw new Error("User is required to delete an expense.");
-    }
+  const updateWallet = useCallback(
+    async (id, updates) => {
+      await repoUpdateWallet(localUserId, id, updates);
+      await refreshData();
+    },
+    [localUserId, refreshData]
+  );
 
-    await repoDeleteExpense(localUserId, id);
-    await refreshData();
-  };
+  const deleteWallet = useCallback(
+    async (id) => {
+      await repoDeleteWallet(localUserId, id);
+      await refreshData();
+    },
+    [localUserId, refreshData]
+  );
 
-  const addWallet = async (wallet) => {
-    if (!localUserId) {
-      throw new Error("User is required to add a wallet.");
-    }
+  const addIncome = useCallback(
+    async (income) => {
+      await repoAddIncome(localUserId, income);
+      await refreshData();
+    },
+    [localUserId, refreshData]
+  );
 
-    await repoAddWallet(localUserId, wallet);
-    await refreshData();
-  };
+  const transferBetweenWallets = useCallback(
+    async (payload) => {
+      await repoTransferBetweenWallets(localUserId, payload);
+      await refreshData();
+    },
+    [localUserId, refreshData]
+  );
 
-  const updateWallet = async (id, updates) => {
-    if (!localUserId) {
-      throw new Error("User is required to update a wallet.");
-    }
+  const addBudget = useCallback(
+    async (budget) => {
+      await repoAddBudget(localUserId, budget);
+      await refreshData();
+    },
+    [localUserId, refreshData]
+  );
 
-    await repoUpdateWallet(localUserId, id, updates);
-    await refreshData();
-  };
+  const updateBudget = useCallback(
+    async (id, updates) => {
+      await repoUpdateBudget(localUserId, id, updates);
+      await refreshData();
+    },
+    [localUserId, refreshData]
+  );
 
-  const deleteWallet = async (id) => {
-    if (!localUserId) {
-      throw new Error("User is required to delete a wallet.");
-    }
-
-    await repoDeleteWallet(localUserId, id);
-    await refreshData();
-  };
-
-  const addIncome = async (income) => {
-    if (!localUserId) {
-      throw new Error("User is required to add income.");
-    }
-
-    await repoAddIncome(localUserId, income);
-    await refreshData();
-  };
-
-  const transferBetweenWallets = async (payload) => {
-    if (!localUserId) {
-      throw new Error("User is required to transfer between wallets.");
-    }
-
-    await repoTransferBetweenWallets(localUserId, payload);
-    await refreshData();
-  };
-
-  const addBudget = async (budget) => {
-    if (!localUserId) {
-      throw new Error("User is required to add a budget.");
-    }
-
-    await repoAddBudget(localUserId, budget);
-    await refreshData();
-  };
-
-  const updateBudget = async (id, updates) => {
-    if (!localUserId) {
-      throw new Error("User is required to update a budget.");
-    }
-
-    await repoUpdateBudget(localUserId, id, updates);
-    await refreshData();
-  };
-
-  const deleteBudget = async (id) => {
-    if (!localUserId) {
-      throw new Error("User is required to delete a budget.");
-    }
-
-    await repoDeleteBudget(localUserId, id);
-    await refreshData();
-  };
+  const deleteBudget = useCallback(
+    async (id) => {
+      await repoDeleteBudget(localUserId, id);
+      await refreshData();
+    },
+    [localUserId, refreshData]
+  );
 
   const safeExpenses = Array.isArray(expenses) ? expenses : [];
   const safeIncomes = Array.isArray(incomes) ? incomes : [];
@@ -425,4 +397,5 @@ export function useFinancialData(user) {
   };
 }
 
+export { useFinancialData };
 export default useFinancialData;
