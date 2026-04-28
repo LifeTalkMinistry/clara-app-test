@@ -102,7 +102,9 @@ const getGroup = (item) => {
   const category = String(item.category || "").toLowerCase();
   const sourceType = String(item.source_type || "").toLowerCase();
 
-  if (type.includes("transfer") || sourceType.includes("transfer")) return "transfer";
+  if (type.includes("transfer") || sourceType.includes("transfer")) {
+    return "transfer";
+  }
 
   if (
     type.includes("saving") ||
