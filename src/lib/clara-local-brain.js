@@ -34,7 +34,6 @@ function cleanText(value) {
 function getNumber(...values) {
   for (const value of values) {
     if (!hasValue(value)) continue;
-
     if (typeof value === "number" && Number.isFinite(value)) return value;
 
     const cleaned = String(value)
@@ -187,9 +186,11 @@ function normalizeWallet(wallet = {}) {
 function normalizeExpense(expense = {}) {
   const amount = getExpenseAmount(expense);
   const date = getExpenseDate(expense);
+
   const planningStatus = cleanText(
     getText(expense.planning_status, expense.planningStatus, expense.status)
   );
+
   const needType = cleanText(
     getText(expense.need_type, expense.needType, expense.type, expense.spending_type)
   );
@@ -308,6 +309,7 @@ function normalizeBudget(budget = {}, expenses = []) {
           cleanText(expense.category) === cleanText(category) ||
           cleanText(category) === "budget" ||
           cleanText(category) === "monthly budget";
+
         return sameMonth && sameCategory;
       })
       .map((expense) => expense.amount)
@@ -431,6 +433,7 @@ function buildEmergencyFund(context = {}) {
 
 function getPurchasePrice(message = "") {
   const normalized = String(message || "").replace(/,/g, "");
+
   const matches = [...normalized.matchAll(/(?:₱|php\s*)?(\d+(?:\.\d{1,2})?)/gi)]
     .map((match) => Number(match[1]))
     .filter((number) => Number.isFinite(number) && number > 0);
@@ -443,6 +446,7 @@ function getPurchasePrice(message = "") {
 function buildSpendingBreakdown(expenses = [], currentMonthKey = getCurrentMonthKey()) {
   const safeExpenses = asArray(expenses);
   const datedExpenses = safeExpenses.filter((expense) => expense.monthKey);
+
   const currentMonthExpenses =
     datedExpenses.length > 0
       ? safeExpenses.filter((expense) => expense.monthKey === currentMonthKey)
@@ -482,9 +486,10 @@ function buildSpendingBreakdown(expenses = [], currentMonthKey = getCurrentMonth
     return map;
   }, {});
 
-  const topCategory = Object.entries(spendingByCategory)
-    .sort((a, b) => b[1] - a[1])
-    .map(([category, amount]) => ({ category, amount }))[0] || null;
+  const topCategory =
+    Object.entries(spendingByCategory)
+      .sort((a, b) => b[1] - a[1])
+      .map(([category, amount]) => ({ category, amount }))[0] || null;
 
   return {
     currentMonthExpenses,
@@ -503,6 +508,7 @@ function buildSpendingBreakdown(expenses = [], currentMonthKey = getCurrentMonth
 
 function getBudgetPressure(snapshot = {}) {
   if (snapshot.budgetRemaining !== null && snapshot.budgetRemaining <= 0) return "high";
+
   if (
     snapshot.budgetAllocated !== null &&
     snapshot.budgetAllocated > 0 &&
@@ -511,6 +517,7 @@ function getBudgetPressure(snapshot = {}) {
   ) {
     return "medium";
   }
+
   return "low";
 }
 
@@ -628,6 +635,16 @@ export function buildClaraFinanceSnapshot(context = {}) {
 
   const emergencyFund = buildEmergencyFund(source);
 
+  const transactionIncome = sumNumbers(
+    walletTransactions
+      .filter((transaction) =>
+        ["income", "add", "deposit", "fund", "funds", "add_money"].some((word) =>
+          transaction.type.includes(word)
+        )
+      )
+      .map((transaction) => transaction.amount)
+  );
+
   const income =
     getFirstNumber(source, [
       "income",
@@ -638,17 +655,7 @@ export function buildClaraFinanceSnapshot(context = {}) {
       "addFunds",
       "fundsAdded",
       "finance.income",
-    ]) ??
-    sumNumbers(
-      walletTransactions
-        .filter((transaction) =>
-          ["income", "add", "deposit", "fund", "funds", "add_money"].some((word) =>
-            transaction.type.includes(word)
-          )
-        )
-        .map((transaction) => transaction.amount)
-    ) ||
-    null;
+    ]) ?? (transactionIncome || null);
 
   const resolvedAvailableMoney = availableMoney ?? totalWalletBalance;
 
@@ -896,6 +903,7 @@ export function generateAvailableMoneyReply(snapshot = {}) {
   }
 
   const available = formatMoney(snapshot.availableMoney);
+
   const spent =
     snapshot.monthlySpent !== null
       ? `You have already spent ${formatMoney(snapshot.monthlySpent)} in ${snapshot.monthlySpentLabel || "this period"}.`
@@ -989,6 +997,7 @@ export function generateEmergencyFundCheck(snapshot = {}) {
           : null;
 
     const percentText = percent !== null ? ` That is about ${percent.toFixed(0)}%.` : "";
+
     return `Emergency fund: ${saved} out of ${target}.${percentText} Build this before lifestyle upgrades.`;
   }
 
