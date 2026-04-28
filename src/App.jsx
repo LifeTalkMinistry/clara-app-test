@@ -1,6 +1,6 @@
-import { Suspense, lazy, useEffect, useMemo, useState } from "react";
-import { Routes, Route, Navigate } from "react-router-dom";
-import { Toaster } from "sonner";
+import { Suspense, lazy, useEffect, useMemo, useRef, useState } from "react";
+import { Routes, Route, Navigate, useLocation } from "react-router-dom";
+import { Toaster, toast } from "sonner";
 
 import { useAuth } from "@/context/AuthContext";
 import ThemePicker from "@/components/ThemePicker";
@@ -11,6 +11,14 @@ import {
   hasCompletedProgramOnboarding,
   resolveAppFlow,
 } from "./lib/access-control";
+import {
+  buildAccessSnapshot,
+  getAccessSnapshot,
+  getOfflineFallbackFlow,
+  isAccessNetworkOffline,
+  isAccessSnapshotUsable,
+  saveAccessSnapshot,
+} from "./lib/offline-access-cache";
 import { FEATURE_ROUTE_MAP } from "./lib/plan-config";
 
 // Layout
@@ -289,7 +297,8 @@ function getSafeFlow(resolvedFlow, enrollment) {
   return resolvedFlow;
 }
 
-function getHomeRedirectPath({ isAdvertiser, flow, forceEnroll }) {
+function getHomeRedirectPath({ isAdvertiser, flow, forceEnroll, offlineAccessActive }) {
+  if (offlineAccessActive) return "/dashboard";
   if (isAdvertiser) return "/advertiser";
   if (flow === "universal_onboarding") return "/onboarding";
   if (flow === "payment_pending") return "/pending";
@@ -304,7 +313,12 @@ function GuardedRoute({
   featureKey = "",
   isFeatureAvailable = () => true,
   path,
+  offlineAccessActive = false,
 }) {
+  if (offlineAccessActive && path === "/dashboard") {
+    return children;
+  }
+
   if (featureKey && !isFeatureAvailable(featureKey)) {
     return <Navigate to="/enroll" replace state={{ from: path }} />;
   }
@@ -349,7 +363,14 @@ function AdminRescueButton({ show }) {
 }
 
 function AppRoutes() {
-  const { user, profile, loading, authReady } = useAuth();
+  const location = useLocation();
+  const {
+    user,
+    profile,
+    loading,
+    authReady,
+    refreshProfile,
+  } = useAuth();
   const {
     role: normalizedRole,
     isFeatureAvailable,
@@ -359,6 +380,10 @@ function AppRoutes() {
   const [enrollment, setEnrollment] = useState(null);
   const [enrollmentLoading, setEnrollmentLoading] = useState(true);
   const [forceLogoutProcessing, setForceLogoutProcessing] = useState(false);
+  const [isOffline, setIsOffline] = useState(() => isAccessNetworkOffline());
+  const [onlineRefreshTick, setOnlineRefreshTick] = useState(0);
+  const [cachedAccessSnapshot, setCachedAccessSnapshot] = useState(() => getAccessSnapshot());
+  const offlineNoticeShownRef = useRef(false);
 
   const profileReady = user ? profile !== null : true;
 
@@ -375,6 +400,67 @@ function AppRoutes() {
   );
 
   useEffect(() => {
+    if (typeof window === "undefined") return undefined;
+
+    const refreshOnlineState = () => {
+      const nextOffline = isAccessNetworkOffline();
+      setIsOffline(nextOffline);
+
+      if (!nextOffline) {
+        offlineNoticeShownRef.current = false;
+        setOnlineRefreshTick((value) => value + 1);
+        refreshProfile?.().catch((error) => {
+          console.error("CLARA access refresh failed:", error);
+        });
+        return;
+      }
+
+      const snapshot = getAccessSnapshot(user?.id || user?.email || null);
+      setCachedAccessSnapshot(snapshot);
+    };
+
+    window.addEventListener("online", refreshOnlineState);
+    window.addEventListener("offline", refreshOnlineState);
+
+    refreshOnlineState();
+
+    return () => {
+      window.removeEventListener("online", refreshOnlineState);
+      window.removeEventListener("offline", refreshOnlineState);
+    };
+  }, [refreshProfile, user?.email, user?.id]);
+
+  useEffect(() => {
+    const snapshot = getAccessSnapshot(user?.id || user?.email || null);
+    setCachedAccessSnapshot(snapshot);
+  }, [user?.email, user?.id]);
+
+  const offlineFallback = useMemo(
+    () => getOfflineFallbackFlow(cachedAccessSnapshot || profile?.offline_access_snapshot || null),
+    [cachedAccessSnapshot, profile?.offline_access_snapshot]
+  );
+
+  const offlineAccessActive = Boolean(
+    isOffline &&
+      user &&
+      (isAccessSnapshotUsable(cachedAccessSnapshot) ||
+        profile?.offline_access ||
+        profile?.offline_limited_access ||
+        offlineFallback.flow === "limited_offline")
+  );
+
+  useEffect(() => {
+    if (!offlineAccessActive || offlineNoticeShownRef.current) return;
+
+    offlineNoticeShownRef.current = true;
+    toast.info(
+      isAccessSnapshotUsable(cachedAccessSnapshot)
+        ? "You’re offline. CLARA is using your saved access state."
+        : "Connect to the internet later to finish account setup."
+    );
+  }, [cachedAccessSnapshot, offlineAccessActive]);
+
+  useEffect(() => {
     let isMounted = true;
 
     const clearEnrollmentState = () => {
@@ -386,6 +472,12 @@ function AppRoutes() {
     const fetchEnrollment = async () => {
       if (!user?.id) {
         clearEnrollmentState();
+        return;
+      }
+
+      if (isOffline && offlineAccessActive) {
+        setEnrollment(cachedAccessSnapshot?.enrollment || null);
+        setEnrollmentLoading(false);
         return;
       }
 
@@ -401,12 +493,16 @@ function AppRoutes() {
         if (error) throw error;
         if (!isMounted) return;
 
-        setEnrollment(pickBestEnrollment(data));
+        const bestEnrollment = pickBestEnrollment(data);
+        setEnrollment(bestEnrollment);
       } catch (error) {
         console.error("App enrollment fetch error:", error);
 
         if (!isMounted) return;
-        setEnrollment(null);
+
+        const snapshot = getAccessSnapshot(user.id) || getAccessSnapshot(user.email);
+        setCachedAccessSnapshot(snapshot);
+        setEnrollment(snapshot?.enrollment || null);
       } finally {
         if (isMounted) {
           setEnrollmentLoading(false);
@@ -419,13 +515,14 @@ function AppRoutes() {
     return () => {
       isMounted = false;
     };
-  }, [user?.id]);
+  }, [cachedAccessSnapshot?.enrollment, isOffline, offlineAccessActive, onlineRefreshTick, user?.email, user?.id]);
 
   useEffect(() => {
     let isMounted = true;
 
     const runForceReauth = async () => {
       if (!user?.id || !profile || forceLogoutProcessing) return;
+      if (offlineAccessActive || profile?.offline_access || profile?.offline_limited_access) return;
       if (!profile?.force_reauth) return;
 
       try {
@@ -479,7 +576,7 @@ function AppRoutes() {
     return () => {
       isMounted = false;
     };
-  }, [user?.id, profile, forceLogoutProcessing]);
+  }, [user?.id, profile, forceLogoutProcessing, offlineAccessActive]);
 
   const resolvedAccess = useMemo(() => {
     if (!profile) {
@@ -503,6 +600,10 @@ function AppRoutes() {
   const flow = useMemo(() => {
     if (!user || !profileReady || enrollmentLoading) return "loading";
 
+    if (offlineAccessActive) {
+      return offlineFallback.flow === "limited_offline" ? "normal" : "active";
+    }
+
     const resolvedFlow = resolveAppFlow(
       {
         ...profile,
@@ -512,15 +613,17 @@ function AppRoutes() {
     );
 
     return getSafeFlow(resolvedFlow, enrollment);
-  }, [user, profileReady, enrollmentLoading, profile, normalizedRole, enrollment, isAdmin]);
+  }, [user, profileReady, enrollmentLoading, offlineAccessActive, offlineFallback.flow, profile, normalizedRole, enrollment, isAdmin]);
 
   const forceEnroll = useMemo(() => {
+    if (offlineAccessActive) return false;
     if (!user || !profileReady || enrollmentLoading) return false;
     if (isAdmin) return false;
     if (enrollmentPaid) return false;
     if (!profile) return false;
     return resolvedAccess.forceEnroll;
   }, [
+    offlineAccessActive,
     user,
     profileReady,
     enrollmentLoading,
@@ -531,11 +634,13 @@ function AppRoutes() {
   ]);
 
   const homeRedirectPath = useMemo(
-    () => getHomeRedirectPath({ isAdvertiser, flow, forceEnroll }),
-    [isAdvertiser, flow, forceEnroll]
+    () => getHomeRedirectPath({ isAdvertiser, flow, forceEnroll, offlineAccessActive }),
+    [isAdvertiser, flow, forceEnroll, offlineAccessActive]
   );
 
   const welcomeRedirectPath = useMemo(() => {
+    if (offlineAccessActive) return "/dashboard";
+
     if (
       flow === "program_onboarding" &&
       hasCompletedProgramOnboarding(profile || {})
@@ -543,7 +648,34 @@ function AppRoutes() {
       return "/dashboard";
     }
     return homeRedirectPath;
-  }, [flow, homeRedirectPath, profile]);
+  }, [flow, homeRedirectPath, profile, offlineAccessActive]);
+
+  useEffect(() => {
+    if (!user?.id || !profile || isOffline) return;
+    if (flow === "loading") return;
+
+    const snapshot = buildAccessSnapshot({
+      user,
+      profile,
+      enrollment,
+      accessState: resolvedAccess,
+      flow,
+      homeRedirectPath,
+      currentPath: location.pathname,
+    });
+
+    const saved = saveAccessSnapshot(snapshot);
+    setCachedAccessSnapshot(saved);
+  }, [
+    enrollment,
+    flow,
+    homeRedirectPath,
+    isOffline,
+    location.pathname,
+    profile,
+    resolvedAccess,
+    user,
+  ]);
 
   const displayName =
     profile?.full_name ||
@@ -557,7 +689,7 @@ function AppRoutes() {
     loading ||
     roleLoading ||
     (user && !profileReady) ||
-    (user && enrollmentLoading)
+    (user && enrollmentLoading && !offlineAccessActive)
   ) {
     return <FullScreenLoader />;
   }
@@ -586,13 +718,21 @@ function AppRoutes() {
 
         <Route
           path="/onboarding"
-          element={user ? <UniversalOnboarding /> : <Navigate to="/login" replace />}
+          element={
+            user ? (
+              offlineAccessActive ? <Navigate to="/dashboard" replace /> : <UniversalOnboarding />
+            ) : (
+              <Navigate to="/login" replace />
+            )
+          }
         />
 
         <Route
           path="/pending"
           element={
-            user && flow === "payment_pending" ? (
+            offlineAccessActive ? (
+              <Navigate to="/dashboard" replace />
+            ) : user && flow === "payment_pending" ? (
               <PendingScreen />
             ) : (
               <Navigate to={homeRedirectPath} replace />
@@ -603,7 +743,9 @@ function AppRoutes() {
         <Route
           path="/program-onboarding"
           element={
-            user && flow === "program_onboarding" ? (
+            offlineAccessActive ? (
+              <Navigate to="/dashboard" replace />
+            ) : user && flow === "program_onboarding" ? (
               <ProgramOnboarding />
             ) : (
               <Navigate to={homeRedirectPath} replace />
@@ -634,6 +776,7 @@ function AppRoutes() {
                             featureKey={FEATURE_ROUTE_MAP["/dashboard"]}
                             isFeatureAvailable={isFeatureAvailable}
                             path="/dashboard"
+                            offlineAccessActive={offlineAccessActive}
                           >
                             <Dashboard />
                           </GuardedRoute>
@@ -648,6 +791,7 @@ function AppRoutes() {
                             featureKey={FEATURE_ROUTE_MAP["/feed"]}
                             isFeatureAvailable={isFeatureAvailable}
                             path="/feed"
+                            offlineAccessActive={offlineAccessActive}
                           >
                             <Feed />
                           </GuardedRoute>
@@ -662,6 +806,7 @@ function AppRoutes() {
                             featureKey={FEATURE_ROUTE_MAP["/feed"]}
                             isFeatureAvailable={isFeatureAvailable}
                             path="/people"
+                            offlineAccessActive={offlineAccessActive}
                           >
                             <ClaraPeople />
                           </GuardedRoute>
@@ -676,6 +821,7 @@ function AppRoutes() {
                             featureKey={FEATURE_ROUTE_MAP["/feed"]}
                             isFeatureAvailable={isFeatureAvailable}
                             path="/user/:id"
+                            offlineAccessActive={offlineAccessActive}
                           >
                             <UserProfile />
                           </GuardedRoute>
@@ -690,6 +836,7 @@ function AppRoutes() {
                             featureKey={FEATURE_ROUTE_MAP["/expenses"]}
                             isFeatureAvailable={isFeatureAvailable}
                             path="/expenses"
+                            offlineAccessActive={offlineAccessActive}
                           >
                             <Expenses />
                           </GuardedRoute>
@@ -704,6 +851,7 @@ function AppRoutes() {
                             featureKey={FEATURE_ROUTE_MAP["/expenses"]}
                             isFeatureAvailable={isFeatureAvailable}
                             path="/transactions-hub"
+                            offlineAccessActive={offlineAccessActive}
                           >
                             <TransactionHub />
                           </GuardedRoute>
@@ -718,6 +866,7 @@ function AppRoutes() {
                             featureKey={FEATURE_ROUTE_MAP["/add-funds"]}
                             isFeatureAvailable={isFeatureAvailable}
                             path="/add-funds"
+                            offlineAccessActive={offlineAccessActive}
                           >
                             <AddFunds />
                           </GuardedRoute>
@@ -732,6 +881,7 @@ function AppRoutes() {
                             featureKey={FEATURE_ROUTE_MAP["/wallets"]}
                             isFeatureAvailable={isFeatureAvailable}
                             path="/wallets"
+                            offlineAccessActive={offlineAccessActive}
                           >
                             <Wallets />
                           </GuardedRoute>
@@ -746,6 +896,7 @@ function AppRoutes() {
                             featureKey={FEATURE_ROUTE_MAP["/budgets"]}
                             isFeatureAvailable={isFeatureAvailable}
                             path="/budgets"
+                            offlineAccessActive={offlineAccessActive}
                           >
                             <Budgets />
                           </GuardedRoute>
@@ -760,6 +911,7 @@ function AppRoutes() {
                             featureKey={FEATURE_ROUTE_MAP["/analytics"]}
                             isFeatureAvailable={isFeatureAvailable}
                             path="/analytics"
+                            offlineAccessActive={offlineAccessActive}
                           >
                             <Analytics />
                           </GuardedRoute>
@@ -774,6 +926,7 @@ function AppRoutes() {
                             featureKey={FEATURE_ROUTE_MAP["/ai"]}
                             isFeatureAvailable={isFeatureAvailable}
                             path="/ai"
+                            offlineAccessActive={offlineAccessActive}
                           >
                             <AiInsights />
                           </GuardedRoute>
@@ -782,8 +935,18 @@ function AppRoutes() {
 
                       <Route path="/activation" element={<Activation />} />
 
-                      <Route path="/enroll" element={<Enroll />} />
-                      <Route path="/tier-select" element={<TierSelect />} />
+                      <Route
+                        path="/enroll"
+                        element={
+                          offlineAccessActive ? <Navigate to="/dashboard" replace /> : <Enroll />
+                        }
+                      />
+                      <Route
+                        path="/tier-select"
+                        element={
+                          offlineAccessActive ? <Navigate to="/dashboard" replace /> : <TierSelect />
+                        }
+                      />
 
                       <Route
                         path="/news"
@@ -793,6 +956,7 @@ function AppRoutes() {
                             featureKey={FEATURE_ROUTE_MAP["/news"]}
                             isFeatureAvailable={isFeatureAvailable}
                             path="/news"
+                            offlineAccessActive={offlineAccessActive}
                           >
                             <News />
                           </GuardedRoute>
@@ -809,6 +973,7 @@ function AppRoutes() {
                             featureKey={FEATURE_ROUTE_MAP["/modules"]}
                             isFeatureAvailable={isFeatureAvailable}
                             path="/modules"
+                            offlineAccessActive={offlineAccessActive}
                           >
                             <Modules />
                           </GuardedRoute>
@@ -823,6 +988,7 @@ function AppRoutes() {
                             featureKey={FEATURE_ROUTE_MAP["/community"]}
                             isFeatureAvailable={isFeatureAvailable}
                             path="/community"
+                            offlineAccessActive={offlineAccessActive}
                           >
                             <Community />
                           </GuardedRoute>
@@ -837,6 +1003,7 @@ function AppRoutes() {
                             featureKey={FEATURE_ROUTE_MAP["/messages"]}
                             isFeatureAvailable={isFeatureAvailable}
                             path="/messages"
+                            offlineAccessActive={offlineAccessActive}
                           >
                             <Messages />
                           </GuardedRoute>
@@ -851,6 +1018,7 @@ function AppRoutes() {
                             featureKey={FEATURE_ROUTE_MAP["/savings-goals"]}
                             isFeatureAvailable={isFeatureAvailable}
                             path="/savings-goals"
+                            offlineAccessActive={offlineAccessActive}
                           >
                             <SavingsGoals />
                           </GuardedRoute>
@@ -865,6 +1033,7 @@ function AppRoutes() {
                             featureKey={FEATURE_ROUTE_MAP["/referrals"]}
                             isFeatureAvailable={isFeatureAvailable}
                             path="/referrals"
+                            offlineAccessActive={offlineAccessActive}
                           >
                             <Referrals />
                           </GuardedRoute>
