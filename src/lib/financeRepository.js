@@ -1215,6 +1215,14 @@ function createLocalFinanceRepository() {
       );
     },
 
+    async getTransfers(localUserId, options = {}) {
+      return getLocalStoreRecords(LOCAL_FINANCE_STORES.transfers, localUserId, {
+        sortBy: "createdAt",
+        sortDirection: SORT_DESC,
+        ...options,
+      });
+    },
+
     async getBudgets(localUserId, options = {}) {
       return getLocalStoreRecords(LOCAL_FINANCE_STORES.budgets, localUserId, {
         sortBy: "updatedAt",
@@ -1691,6 +1699,7 @@ function createSupabaseLegacyFinanceRepository(repositoryOptions = {}) {
     insertWalletTransaction: createNotImplementedRepositoryMethod("insertWalletTransaction", mode),
     addIncome: createNotImplementedRepositoryMethod("addIncome", mode),
     transferBetweenWallets: createNotImplementedRepositoryMethod("transferBetweenWallets", mode),
+    getTransfers: createNotImplementedRepositoryMethod("getTransfers", mode),
     getBudgets: createNotImplementedRepositoryMethod("getBudgets", mode),
     addBudget: createNotImplementedRepositoryMethod("addBudget", mode),
     updateBudget: createNotImplementedRepositoryMethod("updateBudget", mode),
@@ -1723,6 +1732,7 @@ function createUnsupportedModeRepository(mode) {
     insertWalletTransaction: createReservedMethod("insertWalletTransaction"),
     addIncome: createReservedMethod("addIncome"),
     transferBetweenWallets: createReservedMethod("transferBetweenWallets"),
+    getTransfers: createReservedMethod("getTransfers"),
     getBudgets: createReservedMethod("getBudgets"),
     addBudget: createReservedMethod("addBudget"),
     updateBudget: createReservedMethod("updateBudget"),
@@ -1803,6 +1813,10 @@ export async function addMoney(localUserId, incomePayload) {
 
 export async function transferBetweenWallets(localUserId, transferPayload) {
   return financeRepository.transferBetweenWallets(localUserId, transferPayload);
+}
+
+export async function getTransfers(localUserId, options) {
+  return financeRepository.getTransfers(localUserId, options);
 }
 
 export async function getBudgets(localUserId, options) {
