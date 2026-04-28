@@ -113,27 +113,18 @@ const createFinanceId = () => {
 };
 
 
-const getCachedFinanceSnapshot = async () => null;
-const getLocalExpenses = async () => [];
-const getPendingExpenses = async () => [];
-const isClaraOnline = () => (typeof navigator === "undefined" ? true : navigator.onLine !== false);
-const mergeRemoteAndLocalFinanceData = (remote = {}, local = {}) => ({
-  ...remote,
-  expenses: Array.isArray(local.expenses) && local.expenses.length ? local.expenses : remote.expenses,
-  pendingExpenses: Array.isArray(local.pendingExpenses) ? local.pendingExpenses : [],
-  offlineReady: true,
-});
-const saveCachedFinanceSnapshot = async () => null;
-const saveLocalExpense = async (payload) => ({
+const isClaraOnline = () =>
+  typeof navigator === "undefined" ? true : navigator.onLine !== false;
+
+const createLocalOnlyExpenseRecord = (payload) => ({
   ...payload,
   id: payload?.id || createFinanceId(),
   local_id: payload?.local_id || createFinanceId(),
   local_only: true,
-  pending_sync: true,
-  sync_status: "pending",
+  sync_status: payload?.sync_status || "local_only",
+  syncStatus: payload?.syncStatus || "local_only",
+  source: payload?.source || "local",
 });
-const syncPendingExpenses = async () => null;
-
 const ENROLLMENT_PENDING_STATUSES = new Set([
   "pending",
   "under_review",
@@ -543,72 +534,38 @@ const getToday = () => {
   return `${yyyy}-${mm}-${dd}`;
 };
 
+const dashboardRuntimePrefs = new Map();
+const dashboardRuntimeNotifications = new Map();
+const dashboardRuntimeMoneySummaryVisibility = new Map();
+
 const getDashboardPrefsStorageKey = (userId) =>
   `clara_dashboard_prefs_${userId || "guest"}`;
 
 const MONEY_SUMMARY_PRIVACY_KEY = "clara_dashboard_money_summary_visible";
 
-function readMoneySummaryVisibility() {
-  if (typeof localStorage === "undefined") return false;
-
-  try {
-    return localStorage.getItem(MONEY_SUMMARY_PRIVACY_KEY) === "true";
-  } catch (error) {
-    console.error("Failed to read money summary privacy setting:", error);
-    return false;
-  }
+function readMoneySummaryVisibility(userId = "guest") {
+  return dashboardRuntimeMoneySummaryVisibility.get(userId || "guest") === true;
 }
 
-function persistMoneySummaryVisibility(visible) {
-  if (typeof localStorage === "undefined") return;
-
-  try {
-    localStorage.setItem(MONEY_SUMMARY_PRIVACY_KEY, String(Boolean(visible)));
-  } catch (error) {
-    console.error("Failed to save money summary privacy setting:", error);
-  }
+function persistMoneySummaryVisibility(visible, userId = "guest") {
+  dashboardRuntimeMoneySummaryVisibility.set(userId || "guest", Boolean(visible));
 }
 
 function readDashboardPrefs(userId) {
-  if (!userId) {
-    return {
-      reminderTime: "",
-      financialGoal: "",
-    };
-  }
+  const key = getDashboardPrefsStorageKey(userId);
+  const parsed = dashboardRuntimePrefs.get(key) || {};
 
-  try {
-    const raw = localStorage.getItem(getDashboardPrefsStorageKey(userId));
-    const parsed = raw ? JSON.parse(raw) : {};
-
-    return {
-      reminderTime: normalizeString(parsed?.reminderTime || ""),
-      financialGoal: normalizeString(parsed?.financialGoal || ""),
-    };
-  } catch (error) {
-    console.error("Failed to read dashboard prefs:", error);
-    return {
-      reminderTime: "",
-      financialGoal: "",
-    };
-  }
+  return {
+    reminderTime: normalizeString(parsed?.reminderTime || ""),
+    financialGoal: normalizeString(parsed?.financialGoal || ""),
+  };
 }
 
 function persistDashboardPrefs(userId, updates) {
   if (!userId) return;
-
-  try {
-    const current = readDashboardPrefs(userId);
-    localStorage.setItem(
-      getDashboardPrefsStorageKey(userId),
-      JSON.stringify({
-        ...current,
-        ...updates,
-      })
-    );
-  } catch (error) {
-    console.error("Failed to save dashboard prefs:", error);
-  }
+  const key = getDashboardPrefsStorageKey(userId);
+  const current = readDashboardPrefs(userId);
+  dashboardRuntimePrefs.set(key, { ...current, ...(updates || {}) });
 }
 
 function getSettingsStorageKey(userId) {
@@ -620,25 +577,23 @@ function readStoredNotificationSettings(userId) {
     dailyReminders: true,
     productUpdates: true,
     coachingAlerts: true,
+    budgetAlerts: true,
   };
-
-  if (!userId) return defaults;
-
-  try {
-    const raw = localStorage.getItem(getSettingsStorageKey(userId));
-    const parsed = raw ? JSON.parse(raw) : {};
-    return {
-      ...defaults,
-      ...(parsed?.notifications || {}),
-    };
-  } catch (error) {
-    console.error("Failed to read notification settings:", error);
-    return defaults;
-  }
+  const saved = dashboardRuntimeNotifications.get(getSettingsStorageKey(userId)) || {};
+  return { ...defaults, ...saved };
 }
 
-const CLARA_VISUAL_PERFORMANCE_GLOBAL_KEY = "clara_visual_performance_mode";
+function persistStoredNotificationSettings(userId, updates = {}) {
+  const key = getSettingsStorageKey(userId);
+  const current = readStoredNotificationSettings(userId);
+  const next = { ...current, ...(updates || {}) };
+  dashboardRuntimeNotifications.set(key, next);
+  dispatchClaraEvent("clara:settings-updated", { type: "notifications", notifications: next });
+  return next;
+}
+
 const CLARA_VISUAL_PERFORMANCE_STYLE_ID = "clara-visual-performance-mode-style";
+const dashboardRuntimePerformanceMode = new Map();
 
 const getVisualPerformanceStorageKey = (userId) =>
   `clara_visual_performance_${userId || "guest"}`;
@@ -646,190 +601,67 @@ const getVisualPerformanceStorageKey = (userId) =>
 const ensureClaraVisualPerformanceStyles = () => {
   if (typeof document === "undefined") return;
   if (document.getElementById(CLARA_VISUAL_PERFORMANCE_STYLE_ID)) return;
-
   const style = document.createElement("style");
   style.id = CLARA_VISUAL_PERFORMANCE_STYLE_ID;
   style.textContent = `
-    .clara-premium-mode {
-      --clara-motion-duration: 220ms;
-      --clara-glow-strength: 1;
-      --clara-blur-strength: 1;
-    }
-
-    .clara-performance-mode {
-      --clara-motion-duration: 0ms;
-      --clara-glow-strength: 0;
-      --clara-blur-strength: 0;
-    }
-
-    .clara-performance-mode *,
-    .clara-performance-mode *::before,
-    .clara-performance-mode *::after {
-      animation: none !important;
-      transition: none !important;
-      transition-duration: 0ms !important;
-      scroll-behavior: auto !important;
-      text-shadow: none !important;
-    }
-
-    .clara-performance-mode .theme-shell-card,
-    .clara-performance-mode .theme-panel-card,
-    .clara-performance-mode .theme-soft-card,
-    .clara-performance-mode .theme-modal-card,
-    .clara-performance-mode .clara-card,
-    .clara-performance-mode .clara-card-soft,
-    .clara-performance-mode [class*="backdrop-blur"] {
-      backdrop-filter: none !important;
-      -webkit-backdrop-filter: none !important;
-    }
-
-    .clara-performance-mode [class*="shadow-"],
-    .clara-performance-mode [style*="box-shadow"] {
-      box-shadow: none !important;
-    }
-
-    .clara-performance-mode [class*="blur-"],
-    .clara-performance-mode [style*="filter"] {
-      filter: none !important;
-    }
-
-    .clara-performance-mode [class*="before:blur"]::before,
-    .clara-performance-mode [class*="after:blur"]::after,
-    .clara-performance-mode [class*="before:bg-white"]::before,
-    .clara-performance-mode [class*="after:bg-white"]::after {
-      opacity: 0 !important;
-      filter: none !important;
-    }
-
-    .clara-performance-mode [class*="animate-"],
-    .clara-performance-mode [style*="animation"] {
-      animation: none !important;
-      animation-duration: 0ms !important;
-      animation-iteration-count: 1 !important;
-    }
-
-    .clara-performance-mode [class*="hover:-translate"],
-    .clara-performance-mode [class*="hover:scale"],
-    .clara-performance-mode [class*="active:scale"],
-    .clara-performance-mode [class*="group-hover:-translate"],
-    .clara-performance-mode [class*="group-active:scale"] {
-      transform: none !important;
-    }
-
-    .clara-performance-mode video,
-    .clara-performance-mode img {
-      filter: none !important;
-    }
-
-    .clara-performance-mode .theme-page-shell,
-    .clara-performance-mode .theme-panel-card,
-    .clara-performance-mode .theme-shell-card,
-    .clara-performance-mode .theme-soft-card,
-    .clara-performance-mode .theme-modal-card {
-      isolation: auto !important;
-    }
+    .clara-premium-mode { --clara-motion-duration: 220ms; --clara-glow-strength: 1; --clara-blur-strength: 1; }
+    .clara-performance-mode { --clara-motion-duration: 0ms; --clara-glow-strength: 0; --clara-blur-strength: 0; }
+    .clara-performance-mode *, .clara-performance-mode *::before, .clara-performance-mode *::after { animation: none !important; transition: none !important; transition-duration: 0ms !important; scroll-behavior: auto !important; text-shadow: none !important; }
+    .clara-performance-mode .theme-shell-card, .clara-performance-mode .theme-panel-card, .clara-performance-mode .theme-soft-card, .clara-performance-mode .theme-modal-card, .clara-performance-mode .clara-card, .clara-performance-mode .clara-card-soft, .clara-performance-mode [class*="backdrop-blur"] { backdrop-filter: none !important; -webkit-backdrop-filter: none !important; }
+    .clara-performance-mode [class*="shadow-"], .clara-performance-mode [style*="box-shadow"] { box-shadow: none !important; }
+    .clara-performance-mode [class*="blur-"], .clara-performance-mode [style*="filter"] { filter: none !important; }
+    .clara-performance-mode [class*="before:blur"]::before, .clara-performance-mode [class*="after:blur"]::after, .clara-performance-mode [class*="before:bg-white"]::before, .clara-performance-mode [class*="after:bg-white"]::after { opacity: 0 !important; filter: none !important; }
+    .clara-performance-mode [class*="animate-"], .clara-performance-mode [style*="animation"] { animation: none !important; animation-duration: 0ms !important; animation-iteration-count: 1 !important; }
+    .clara-performance-mode [class*="hover:-translate"], .clara-performance-mode [class*="hover:scale"], .clara-performance-mode [class*="active:scale"], .clara-performance-mode [class*="group-hover:-translate"], .clara-performance-mode [class*="group-active:scale"] { transform: none !important; }
+    .clara-performance-mode video, .clara-performance-mode img { filter: none !important; }
+    .clara-performance-mode .theme-page-shell, .clara-performance-mode .theme-panel-card, .clara-performance-mode .theme-shell-card, .clara-performance-mode .theme-soft-card, .clara-performance-mode .theme-modal-card { isolation: auto !important; }
   `;
-
-
   document.head.appendChild(style);
 };
 
 const applyVisualPerformanceMode = (enabled) => {
   if (typeof document === "undefined") return;
-
   ensureClaraVisualPerformanceStyles();
-
   document.documentElement.classList.toggle("clara-performance-mode", Boolean(enabled));
   document.documentElement.classList.toggle("clara-premium-mode", !enabled);
   document.body?.classList?.toggle("clara-performance-mode", Boolean(enabled));
   document.body?.classList?.toggle("clara-premium-mode", !enabled);
   document.documentElement.dataset.claraVisualMode = enabled ? "performance" : "premium";
-  if (document.body) {
-    document.body.dataset.claraVisualMode = enabled ? "performance" : "premium";
-  }
+  if (document.body) document.body.dataset.claraVisualMode = enabled ? "performance" : "premium";
 };
 
-const readStoredPerformanceMode = (userId) => {
-  if (typeof localStorage === "undefined") return false;
-
-  try {
-    const userValue = localStorage.getItem(getVisualPerformanceStorageKey(userId));
-    if (userValue !== null) return userValue === "true";
-    return localStorage.getItem(CLARA_VISUAL_PERFORMANCE_GLOBAL_KEY) === "true";
-  } catch (error) {
-    console.error("Failed to read visual performance mode:", error);
-    return false;
-  }
-};
+const readStoredPerformanceMode = (userId) =>
+  dashboardRuntimePerformanceMode.get(getVisualPerformanceStorageKey(userId)) === true;
 
 const saveVisualPerformanceMode = (userId, enabled) => {
   const nextValue = Boolean(enabled);
-
-  try {
-    localStorage.setItem(CLARA_VISUAL_PERFORMANCE_GLOBAL_KEY, String(nextValue));
-    localStorage.setItem(getVisualPerformanceStorageKey(userId), String(nextValue));
-    applyVisualPerformanceMode(nextValue);
-    window.dispatchEvent(
-      new CustomEvent("clara:visual-performance-mode-updated", {
-        detail: {
-          enabled: nextValue,
-          visualMode: nextValue ? "performance" : "premium",
-          userId: userId || null,
-        },
-      })
-    );
-  } catch (error) {
-    console.error("Failed to save visual performance mode:", error);
-  }
-
+  dashboardRuntimePerformanceMode.set(getVisualPerformanceStorageKey(userId), nextValue);
+  applyVisualPerformanceMode(nextValue);
+  dispatchClaraEvent("clara:visual-performance-mode-updated", { enabled: nextValue, visualMode: nextValue ? "performance" : "premium", userId: userId || null });
   return nextValue;
 };
 
+const dashboardRuntimeProgramPrompts = new Set();
+
 const getProgramPromptSessionKey = (userId, bubble) => {
   const safeUserId = normalizeString(userId || "guest");
-  const bubbleSignature = [
-    normalizeString(bubble?.kind),
-    normalizeString(bubble?.action),
-    normalizeString(bubble?.href),
-    normalizeString(bubble?.title),
-    normalizeString(bubble?.body),
-    normalizeString(bubble?.ctaLabel),
-  ]
-    .filter(Boolean)
-    .join("||");
-
+  const bubbleSignature = [normalizeString(bubble?.kind), normalizeString(bubble?.action), normalizeString(bubble?.href), normalizeString(bubble?.title), normalizeString(bubble?.body), normalizeString(bubble?.ctaLabel)].filter(Boolean).join("||");
   return `clara_program_prompt_seen_session_${safeUserId}_${bubbleSignature || "default"}`;
 };
 
 const readProgramPromptSeenThisSession = (userId, bubble) => {
   if (!userId || !bubble) return false;
-
-  try {
-    return sessionStorage.getItem(getProgramPromptSessionKey(userId, bubble)) === "true";
-  } catch (error) {
-    console.error("Failed to read program prompt session state:", error);
-    return false;
-  }
+  return dashboardRuntimeProgramPrompts.has(getProgramPromptSessionKey(userId, bubble));
 };
 
 const persistProgramPromptSeenThisSession = (userId, bubble) => {
   if (!userId || !bubble) return;
-
-  try {
-    sessionStorage.setItem(getProgramPromptSessionKey(userId, bubble), "true");
-  } catch (error) {
-    console.error("Failed to save program prompt session state:", error);
-  }
+  dashboardRuntimeProgramPrompts.add(getProgramPromptSessionKey(userId, bubble));
 };
 
 const clearProgramPromptSeenThisSession = (userId, bubble) => {
   if (!userId || !bubble) return;
-
-  try {
-    sessionStorage.removeItem(getProgramPromptSessionKey(userId, bubble));
-  } catch (error) {
-    console.error("Failed to clear program prompt session state:", error);
-  }
+  dashboardRuntimeProgramPrompts.delete(getProgramPromptSessionKey(userId, bubble));
 };
 
 const isProgramApproved = (profile, isPaid, enrollmentRecord = null) => {
@@ -2010,134 +1842,42 @@ const DASHBOARD_THEME_PRESETS = [
   },
 ];
 
+const dashboardRuntimeThemes = new Map();
+const dashboardRuntimeSurvivalExpenses = new Map();
+
 const getDashboardThemeStorageKey = (userId) =>
   `clara_dashboard_theme_${userId || "guest"}`;
 
 function readStoredDashboardTheme(userId) {
-  try {
-    const raw = localStorage.getItem(getDashboardThemeStorageKey(userId));
-    const exists = DASHBOARD_THEME_PRESETS.some((theme) => theme.key === raw);
-    return exists ? raw : DASHBOARD_THEME_PRESETS[0].key;
-  } catch (error) {
-    console.error("Failed to read dashboard theme:", error);
-    return DASHBOARD_THEME_PRESETS[0].key;
-  }
+  const raw = dashboardRuntimeThemes.get(getDashboardThemeStorageKey(userId));
+  const exists = DASHBOARD_THEME_PRESETS.some((theme) => theme.key === raw);
+  return exists ? raw : DASHBOARD_THEME_PRESETS[0].key;
 }
 
 function persistDashboardTheme(userId, themeKey) {
-  try {
-    localStorage.setItem(getDashboardThemeStorageKey(userId), themeKey);
-
-    if (typeof window !== "undefined") {
-      const detail = {
-        themeKey,
-        key: themeKey,
-        dashboardTheme: themeKey,
-        userId: userId || null,
-      };
-
-      window.dispatchEvent(
-        new CustomEvent("clara-dashboard-theme-updated", { detail })
-      );
-      window.dispatchEvent(new CustomEvent("clara-theme-selected", { detail }));
-      window.dispatchEvent(new CustomEvent("clara-theme-change", { detail }));
-    }
-  } catch (error) {
-    console.error("Failed to save dashboard theme:", error);
-  }
+  dashboardRuntimeThemes.set(getDashboardThemeStorageKey(userId), themeKey);
+  const detail = { themeKey, key: themeKey, dashboardTheme: themeKey, userId: userId || null };
+  dispatchClaraEvent("clara-dashboard-theme-updated", detail);
+  dispatchClaraEvent("clara-theme-selected", detail);
+  dispatchClaraEvent("clara-theme-change", detail);
 }
 
 const dispatchClaraEvent = (name, detail = null) => {
   if (typeof window === "undefined") return;
-
   if (detail && typeof detail === "object") {
     window.dispatchEvent(new CustomEvent(name, { detail }));
     return;
   }
-
   window.dispatchEvent(new Event(name));
 };
 
-const getSurvivalExpenseStorageKeys = (userId) => {
-  const safeUserId = userId || "guest";
-  return [
-    `clara_survival_expense_${safeUserId}`,
-    `clara_survival_number_${safeUserId}`,
-    `survival_expense_${safeUserId}`,
-    "clara_survival_expense",
-    "clara_survival_number",
-    "survival_expense",
-  ];
-};
-
-const readStoredSurvivalExpense = (userId) => {
-  if (typeof window === "undefined") return 0;
-
-  for (const key of getSurvivalExpenseStorageKeys(userId)) {
-    try {
-      const raw = window.localStorage.getItem(key);
-      if (!raw) continue;
-
-      const parsed = (() => {
-        try {
-          return JSON.parse(raw);
-        } catch {
-          return raw;
-        }
-      })();
-
-      const amount = firstPositiveNumber(
-        parsed?.monthlyEssentialExpenses,
-        parsed?.monthly_survival_expense,
-        parsed?.survivalExpense,
-        parsed?.survival_expense,
-        parsed?.amount,
-        parsed
-      );
-
-      if (amount > 0) return amount;
-    } catch (error) {
-      console.error(`Failed to read ${key}:`, error);
-    }
-  }
-
-  return 0;
-};
+const readStoredSurvivalExpense = (userId) => firstPositiveNumber(dashboardRuntimeSurvivalExpenses.get(userId || "guest"));
 
 const persistStoredSurvivalExpense = (userId, value) => {
-  if (typeof window === "undefined") return;
-
   const amount = firstPositiveNumber(value);
   if (amount <= 0) return;
-
-  const payload = JSON.stringify({
-    amount,
-    monthlyEssentialExpenses: amount,
-    monthly_survival_expense: amount,
-    survivalExpense: amount,
-    survival_expense: amount,
-    savedAt: new Date().toISOString(),
-  });
-
-  for (const key of getSurvivalExpenseStorageKeys(userId)) {
-    try {
-      window.localStorage.setItem(key, payload);
-    } catch (error) {
-      console.error(`Failed to save ${key}:`, error);
-    }
-  }
-
-  window.dispatchEvent(
-    new CustomEvent("clara:survival-expense-updated", {
-      detail: {
-        amount,
-        monthlyEssentialExpenses: amount,
-        monthly_survival_expense: amount,
-        survivalExpense: amount,
-        survival_expense: amount,
-      },
-    })
-  );
+  dashboardRuntimeSurvivalExpenses.set(userId || "guest", amount);
+  dispatchClaraEvent("clara:survival-expense-updated", { amount, monthlyEssentialExpenses: amount, monthly_survival_expense: amount, survivalExpense: amount, survival_expense: amount });
 };
 
 const createEmptyDashboardCache = (key = null) => ({
@@ -4268,32 +4008,13 @@ function DashboardSettingsPanel({
 
   const saveNotificationSettings = useCallback((next) => {
     try {
-      const storageKey = getSettingsStorageKey(user?.id || "guest");
-      const raw = localStorage.getItem(storageKey);
-      const parsed = raw ? JSON.parse(raw) : {};
-
-      localStorage.setItem(
-        storageKey,
-        JSON.stringify({
-          ...parsed,
-          notifications: {
-            ...(parsed.notifications || {}),
-            ...next,
-          },
-        })
-      );
-
-      window.dispatchEvent(
-        new CustomEvent("clara:settings-updated", {
-          detail: { type: "notifications", notifications: next },
-        })
-      );
+      const saved = persistStoredNotificationSettings(user?.id || "guest", next);
+      setNotificationSettings(saved);
+      dispatchClaraEvent("clara-settings-updated", { type: "notifications", notifications: saved });
     } catch (error) {
       console.error("Failed to save embedded settings:", error);
     }
-  }, [user?.id]);
-
-  const persistNotificationToggle = useCallback((key) => {
+  }, [user?.id]);  const persistNotificationToggle = useCallback((key) => {
     setLocalNotifications((prev) => {
       const next = {
         ...prev,
@@ -4375,45 +4096,22 @@ function DashboardSettingsPanel({
 
   const clearLocalPreferences = useCallback(async () => {
     try {
-      const prefixesToRemove = [
-        "clara_settings_",
-        "clara_dashboard_prefs_",
-        "clara_program_prompt_seen_session_",
-      ];
+      dashboardRuntimePrefs.clear();
+      dashboardRuntimeNotifications.clear();
+      dashboardRuntimeMoneySummaryVisibility.clear();
+      dashboardRuntimePerformanceMode.clear();
+      dashboardRuntimeProgramPrompts.clear();
+      dashboardRuntimeThemes.clear();
+      dashboardRuntimeSurvivalExpenses.clear();
 
-      const exactKeysToRemove = [
-        "clara_emergency_target_months",
-        "clara_wallpaper",
-        "clara_wallpaper_opacity",
-      ];
+      if (typeof resetThemeToDefault === "function") await resetThemeToDefault();
 
-      for (let index = localStorage.length - 1; index >= 0; index -= 1) {
-        const key = localStorage.key(index);
-        if (!key) continue;
-
-        if (
-          prefixesToRemove.some((prefix) => key.startsWith(prefix)) ||
-          exactKeysToRemove.includes(key)
-        ) {
-          localStorage.removeItem(key);
-        }
-      }
-
-      if (typeof resetThemeToDefault === "function") {
-        await resetThemeToDefault();
-      }
-
-      setSettingsNotice({
-        type: "success",
-        message: "Local preferences were reset and the theme is back to default. Financial data was not touched.",
-      });
+      setSettingsNotice({ type: "success", message: "Local preferences were reset and the theme is back to default. Financial data was not touched." });
     } catch (error) {
       console.error("Local preferences reset failed:", error);
       setSettingsNotice({ type: "error", message: "Unable to reset local preferences." });
     }
-  }, [resetThemeToDefault]);
-
-  const handleSignOut = useCallback(async () => {
+  }, [resetThemeToDefault]);  const handleSignOut = useCallback(async () => {
     setSigningOut(true);
     setSettingsNotice(null);
 
@@ -4508,22 +4206,6 @@ function DashboardSettingsPanel({
         .insert(payloads);
 
       if (messageError) throw messageError;
-
-      try {
-        const storageKey = `clara_support_draft_${user.id}`;
-        localStorage.setItem(
-          storageKey,
-          JSON.stringify({
-            topic: supportTopic,
-            message: trimmed,
-            email: user?.email || "",
-            adminCount: admins.length,
-            sentAt: new Date().toISOString(),
-          })
-        );
-      } catch (storageError) {
-        console.warn("Support message local note skipped:", storageError);
-      }
 
       setSupportSent(true);
       setSupportMessage("");
@@ -5724,7 +5406,7 @@ function DashboardSettingsPanel({
 
 export default function Dashboard() {
   const [moneySummaryVisible, setMoneySummaryVisible] = useState(() =>
-    readMoneySummaryVisibility()
+    readMoneySummaryVisibility("guest")
   );
 
   const toggleMoneySummaryVisibility = useCallback((event) => {
@@ -5734,7 +5416,7 @@ export default function Dashboard() {
 
     setMoneySummaryVisible((current) => {
       const nextVisible = !current;
-      persistMoneySummaryVisibility(nextVisible);
+      persistMoneySummaryVisibility(nextVisible, userId || "guest");
       return nextVisible;
     });
   }, []);
@@ -6087,58 +5769,6 @@ export default function Dashboard() {
   }, [cacheKey, hydrateFromCache]);
 
   useEffect(() => {
-    let isMounted = true;
-
-    const loadCachedFinanceData = async () => {
-      if (!cacheKey) return;
-
-      try {
-        const cachedSnapshot = await getCachedFinanceSnapshot(cacheKey);
-        const localExpenses = await getLocalExpenses(cacheKey);
-        const localPendingExpenses = await getPendingExpenses(cacheKey);
-
-        if (!isMounted) return;
-        if (!cachedSnapshot && !localExpenses.length) return;
-
-        const mergedFinanceData = mergeRemoteAndLocalFinanceData(cachedSnapshot || {}, {
-          expenses: localExpenses,
-          pendingExpenses: localPendingExpenses,
-          offlineReady: true,
-        });
-
-        const nextCache = {
-          ...createEmptyDashboardCache(cacheKey),
-          ...(cachedSnapshot || {}),
-          ...mergedFinanceData,
-          key: cacheKey,
-          loaded: true,
-          guardChecked: cachedSnapshot?.guardChecked ?? true,
-          offlineReady: true,
-          pendingExpenses: localPendingExpenses,
-        };
-
-        dashboardPageCache = nextCache;
-        hydrateFromCache(nextCache);
-
-        if (!isClaraOnline()) {
-          setFinanceNotice({
-            message: "You’re offline. CLARA is using saved data.",
-            type: "success",
-          });
-        }
-      } catch (error) {
-        console.warn("CLARA could not load cached finance data:", error);
-      }
-    };
-
-    loadCachedFinanceData();
-
-    return () => {
-      isMounted = false;
-    };
-  }, [cacheKey, hydrateFromCache]);
-
-  useEffect(() => {
     setNotificationSettings(readStoredNotificationSettings(userId));
   }, [userId]);
 
@@ -6393,325 +6023,76 @@ export default function Dashboard() {
 
   const loadDashboardData = useCallback(
     async ({ background = false } = {}) => {
-      const currentUser = {
-        id: userId,
-        email: userEmail,
-        full_name: user?.full_name || "",
-      };
+      const currentUser = { id: userId, email: userEmail, full_name: user?.full_name || "" };
 
       if (!currentUser.email && !currentUser.id) {
         const emptyCache = createEmptyDashboardCache();
         dashboardPageCache = emptyCache;
         hydrateFromCache(emptyCache);
-        return;
+        return emptyCache;
       }
 
       const ownerKey = cacheKey || currentUser.id || currentUser.email || "guest";
-
-      if (!isClaraOnline()) {
-        try {
-          const cachedSnapshot = await getCachedFinanceSnapshot(ownerKey);
-          const localExpenses = await getLocalExpenses(ownerKey);
-          const localPendingExpenses = await getPendingExpenses(ownerKey);
-          const fallbackCache =
-            dashboardPageCache?.key === ownerKey
-              ? dashboardPageCache
-              : createEmptyDashboardCache(ownerKey);
-          const mergedFinanceData = mergeRemoteAndLocalFinanceData(cachedSnapshot || fallbackCache, {
-            expenses: localExpenses,
-            pendingExpenses: localPendingExpenses,
-            offlineReady: true,
-          });
-          const nextCache = {
-            ...fallbackCache,
-            ...(cachedSnapshot || {}),
-            ...mergedFinanceData,
-            key: ownerKey,
-            loaded: true,
-            guardChecked: true,
-            offlineReady: true,
-            pendingExpenses: localPendingExpenses,
-          };
-
-          dashboardPageCache = nextCache;
-          hydrateFromCache(nextCache);
-          setFinanceNotice({
-            message: "You’re offline. CLARA is using saved data.",
-            type: "success",
-          });
-          return nextCache;
-        } catch (error) {
-          console.warn("CLARA offline dashboard load failed:", error);
-          const emptyCache = {
-            ...createEmptyDashboardCache(ownerKey),
-            loaded: true,
-            guardChecked: true,
-            offlineReady: true,
-          };
-          dashboardPageCache = emptyCache;
-          hydrateFromCache(emptyCache);
-          setFinanceNotice({
-            message: "You’re offline. Start by logging an expense and CLARA will save it locally.",
-            type: "success",
-          });
-          return emptyCache;
-        }
-      }
-
-      if (dashboardPageInFlight?.key === cacheKey) {
-        return dashboardPageInFlight.promise;
-      }
-
-      if (!hasLoadedDashboardRef.current && !background) {
-        setLoading(true);
-      }
+      if (dashboardPageInFlight?.key === ownerKey) return dashboardPageInFlight.promise;
+      if (!hasLoadedDashboardRef.current && !background) setLoading(true);
 
       try {
         const promise = (async () => {
-          await syncPendingExpenses(currentUser.id, supabase, ownerKey);
-
-          const [
-            tasksRes,
-            submissionsRes,
-            userProgramRecord,
-            billboardsRes,
-            expensesRes,
-            profilesRes,
-            walletsRes,
-            walletTransactionsRes,
-            budgetsRes,
-            savingsGoalsRes,
-            enrollmentsRes,
-          ] = await Promise.all([
-            supabase
-              .from("challenge_tasks")
-              .select("*")
-              .order("sort_order", { ascending: true })
-              .order("day", { ascending: true }),
-
+          const [tasksRes, submissionsRes, userProgramRecord, billboardsRes, profilesRes, enrollmentsRes] = await Promise.all([
+            supabase.from("challenge_tasks").select("*").order("sort_order", { ascending: true }).order("day", { ascending: true }),
             supabase.from("task_submissions").select("*"),
-
             fetchUserProgramRecord({ supabase, userId: currentUser.id }),
-
-            supabase
-              .from("billboards")
-              .select("*")
-              .order("sort_order", { ascending: true })
-              .order("created_at", { ascending: false })
-              .limit(10),
-
-            supabase.from("expenses").select("*"),
-
+            supabase.from("billboards").select("*").order("sort_order", { ascending: true }).order("created_at", { ascending: false }).limit(10),
             supabase.from("profiles").select("*"),
-
-            supabase.from("wallets").select("*"),
-
-            supabase
-              .from("wallet_transactions")
-              .select("*")
-              .order("created_at", { ascending: false }),
-
-            supabase.from("budgets").select("*"),
-
-            supabase.from("savings_goals").select("*"),
-
-            supabase
-              .from("enrollments")
-              .select("*")
-              .eq("user_id", currentUser.id)
-              .order("created_at", { ascending: false })
-              .limit(1),
+            supabase.from("enrollments").select("*").eq("user_id", currentUser.id).order("created_at", { ascending: false }).limit(1),
           ]);
 
           if (tasksRes.error) console.error("Failed to load tasks:", tasksRes.error);
-          if (submissionsRes.error) {
-            console.error("Failed to load submissions:", submissionsRes.error);
-          }
-          if (billboardsRes.error) {
-            console.error("Failed to load billboards:", billboardsRes.error);
-          }
-          if (expensesRes.error) {
-            console.error("Failed to load expenses:", expensesRes.error);
-          }
-          if (profilesRes.error) {
-            console.error("Failed to load profiles:", profilesRes.error);
-          }
-          if (walletsRes.error) {
-            console.error("Failed to load wallets:", walletsRes.error);
-          }
-          if (walletTransactionsRes.error) {
-            console.error(
-              "Failed to load wallet transactions:",
-              walletTransactionsRes.error
-            );
-          }
-          if (budgetsRes.error) {
-            console.error("Failed to load budgets:", budgetsRes.error);
-          }
-          if (savingsGoalsRes.error) {
-            console.error("Failed to load savings goals:", savingsGoalsRes.error);
-          }
-          if (enrollmentsRes.error) {
-            console.error("Failed to load enrollments:", enrollmentsRes.error);
-          }
+          if (submissionsRes.error) console.error("Failed to load submissions:", submissionsRes.error);
+          if (billboardsRes.error) console.error("Failed to load billboards:", billboardsRes.error);
+          if (profilesRes.error) console.error("Failed to load profiles:", profilesRes.error);
+          if (enrollmentsRes.error) console.error("Failed to load enrollments:", enrollmentsRes.error);
 
-          const userSubmissions = (submissionsRes.data || []).filter((item) =>
-            isOwnedByUser(item, currentUser)
-          );
-
+          const userSubmissions = (submissionsRes.data || []).filter((item) => isOwnedByUser(item, currentUser));
           const normalizedTasks = (tasksRes.data || []).map(normalizeProgramTask);
-
-          const userExpenses = (expensesRes.data || [])
-            .filter((expense) => isOwnedByUser(expense, currentUser))
-            .map((expense) => ({
-              ...expense,
-              amount: Number(expense.amount) || 0,
-              date: expense.date || expense.created_at || "",
-            }));
-
-          const userProfile =
-            (profilesRes.data || []).find((profile) =>
-              isOwnedByUser(profile, currentUser)
-            ) || null;
-
+          const userProfile = (profilesRes.data || []).find((profile) => isOwnedByUser(profile, currentUser)) || null;
           const enrollmentRecord = (enrollmentsRes.data || [])[0] || null;
+          const activeBillboards = (billboardsRes.data || []).filter((item) => isTruthyActive(item?.is_active) || item?.is_active === null || item?.is_active === undefined);
 
-          const userWallets = (walletsRes.data || []).filter((wallet) =>
-            isOwnedByUser(wallet, currentUser)
-          );
-
-          const userWalletTransactions = sortByNewestDate(
-            (walletTransactionsRes.data || []).filter((item) =>
-              isOwnedByUser(item, currentUser)
-            ),
-            ["transaction_date", "date", "created_at", "updated_at"]
-          );
-
-          const sortedWallets = [...userWallets].sort((a, b) => {
-            const aPosition = firstValidNumber(
-              a?.position,
-              a?.sort_order,
-              a?.display_order,
-              a?.priority,
-              999
-            );
-            const bPosition = firstValidNumber(
-              b?.position,
-              b?.sort_order,
-              b?.display_order,
-              b?.priority,
-              999
-            );
-
-            if (aPosition !== bPosition) return aPosition - bPosition;
-            return getWalletDisplayName(a).localeCompare(getWalletDisplayName(b));
-          }).map((wallet) => {
-            const balance = getWalletBalance(wallet, userWalletTransactions);
-            return {
-              ...wallet,
-              balance,
-              derived_balance: balance,
-            };
-          });
-
-          const userBudgets = sortByNewestDate(
-            (budgetsRes.data || []).filter((budget) => isOwnedByUser(budget, currentUser))
-          );
-
-          const userSavingsGoals = sortByNewestDate(
-            (savingsGoalsRes.data || []).filter((goal) => isOwnedByUser(goal, currentUser)),
-            ["deadline", "due_date", "target_date", "updated_at", "created_at"]
-          );
-
-          const totalWalletMoney = sortedWallets.reduce((sum, wallet) => {
-            return sum + getWalletDisplayBalance(wallet);
-          }, 0);
-
-          const activeBillboards = (billboardsRes.data || []).filter(
-            (item) =>
-              isTruthyActive(item?.is_active) ||
-              item?.is_active === null ||
-              item?.is_active === undefined
-          );
-
-          const localExpenses = await getLocalExpenses(ownerKey);
-          const localPendingExpenses = await getPendingExpenses(ownerKey);
-          const mergedFinanceData = mergeRemoteAndLocalFinanceData(
-            {
-              walletMoney: totalWalletMoney,
-              wallets: sortedWallets,
-              walletTransactions: userWalletTransactions,
-              budgets: userBudgets,
-              savingsGoals: userSavingsGoals,
-              expenses: userExpenses,
-            },
-            {
-              expenses: localExpenses,
-              pendingExpenses: localPendingExpenses,
-              offlineReady: localExpenses.length > 0 || localPendingExpenses.length > 0,
-            }
-          );
+          const safeWallets = Array.isArray(financeWallets) ? financeWallets : [];
+          const safeWalletTransactions = Array.isArray(financeWalletTransactions) ? financeWalletTransactions : [];
+          const safeTransfers = Array.isArray(financeTransfers) ? financeTransfers : [];
+          const safeBudgets = Array.isArray(financeBudgets) ? financeBudgets : [];
+          const safeSavingsGoals = Array.isArray(financeSavingsGoals) ? financeSavingsGoals : [];
+          const safeExpenses = Array.isArray(financeExpenses) ? financeExpenses : [];
+          const safePendingExpenses = safeExpenses.filter((item) => item?.pending_sync || item?.sync_status === "pending" || item?.syncStatus === "pending" || item?.local_only);
+          const nextWalletMoney = safeWallets.reduce((sum, wallet) => sum + getWalletDisplayBalance(wallet), 0);
 
           const storedPrefs = readDashboardPrefs(currentUser.id);
-          const nextNickname = normalizeString(
-            userProfile?.display_name ||
-              userProfile?.nickname ||
-              userProfile?.full_name ||
-              nickname ||
-              dashboardPageCache.nickname ||
-              currentUser.full_name ||
-              ""
-          );
-          const nextReminderTime =
-            reminderTime || dashboardPageCache.reminderTime || storedPrefs.reminderTime;
-          const nextFinancialGoal =
-            financialGoal ||
-            dashboardPageCache.financialGoal ||
-            storedPrefs.financialGoal;
-
+          const nextNickname = normalizeString(userProfile?.display_name || userProfile?.nickname || userProfile?.full_name || nickname || dashboardPageCache.nickname || currentUser.full_name || "");
+          const nextReminderTime = reminderTime || dashboardPageCache.reminderTime || storedPrefs.reminderTime;
+          const nextFinancialGoal = financialGoal || dashboardPageCache.financialGoal || storedPrefs.financialGoal;
           const approved = isProgramApproved(userProfile, isPaid, enrollmentRecord);
           const onboardingDone = hasCompletedProgramOnboarding(userProfile);
-
-          if (!approved || onboardingDone || !dailyRemindersEnabled) {
-            setShowProgramStart(false);
-          }
+          if (!approved || onboardingDone || !dailyRemindersEnabled) setShowProgramStart(false);
 
           const nextCache = {
-            key: cacheKey,
+            key: ownerKey,
             loaded: true,
             tasks: normalizedTasks,
             submissions: userSubmissions,
-            programRecord:
-              userProgramRecord ||
-              (approved
-                ? await ensureUserProgramAccess({
-                    supabase,
-                    user: currentUser,
-                    profile: userProfile,
-                    enrollment: enrollmentRecord,
-                    tasks: normalizedTasks,
-                  })
-                : null),
+            programRecord: userProgramRecord || (approved ? await ensureUserProgramAccess({ supabase, user: currentUser, profile: userProfile, enrollment: enrollmentRecord, tasks: normalizedTasks }) : null),
             billboards: activeBillboards,
-            survivalExpense: firstPositiveNumber(
-              userProfile?.monthly_survival_expense,
-              userProfile?.survival_expense,
-              userProfile?.clara_survival_expense,
-              readStoredSurvivalExpense(currentUser.id),
-              survivalExpense,
-              dashboardPageCache.survivalExpense
-            ),
-            walletMoney: firstValidNumber(mergedFinanceData.walletMoney, totalWalletMoney),
-            wallets: Array.isArray(mergedFinanceData.wallets) ? mergedFinanceData.wallets : sortedWallets,
-            walletTransactions: Array.isArray(mergedFinanceData.walletTransactions)
-              ? mergedFinanceData.walletTransactions
-              : userWalletTransactions,
-            budgets: Array.isArray(mergedFinanceData.budgets) ? mergedFinanceData.budgets : userBudgets,
-            savingsGoals: Array.isArray(mergedFinanceData.savingsGoals)
-              ? mergedFinanceData.savingsGoals
-              : userSavingsGoals,
-            expenses: Array.isArray(mergedFinanceData.expenses) ? mergedFinanceData.expenses : userExpenses,
-            pendingExpenses: localPendingExpenses,
+            survivalExpense: firstPositiveNumber(userProfile?.monthly_survival_expense, userProfile?.survival_expense, userProfile?.clara_survival_expense, readStoredSurvivalExpense(currentUser.id), survivalExpense, dashboardPageCache.survivalExpense),
+            walletMoney: nextWalletMoney,
+            wallets: safeWallets,
+            walletTransactions: safeWalletTransactions,
+            transfers: safeTransfers,
+            budgets: safeBudgets,
+            savingsGoals: safeSavingsGoals,
+            emergencyFund: financeEmergencyFund || null,
+            expenses: safeExpenses,
+            pendingExpenses: safePendingExpenses,
             offlineReady: true,
             profileData: userProfile,
             latestEnrollment: enrollmentRecord,
@@ -6723,49 +6104,24 @@ export default function Dashboard() {
 
           dashboardPageCache = nextCache;
           hydrateFromCache(nextCache);
-          await saveCachedFinanceSnapshot(nextCache, ownerKey);
-
-          if (localPendingExpenses.length > 0) {
-            setFinanceNotice({
-              message: "Saved offline data is still protected. CLARA will keep trying to sync it.",
-              type: "success",
-            });
-          }
-
+          if (!isClaraOnline()) setFinanceNotice({ message: "You’re offline. CLARA is using offline-first finance data.", type: "success" });
           return nextCache;
         })();
 
-        dashboardPageInFlight = {
-          key: cacheKey,
-          promise,
-        };
-
+        dashboardPageInFlight = { key: ownerKey, promise };
         return await promise;
       } catch (error) {
         console.error("Dashboard load error:", error);
+        setFinanceNotice({ message: "Dashboard data could not fully refresh. Finance data remains protected offline.", type: "error" });
+        return dashboardPageCache;
       } finally {
-        if (dashboardPageInFlight?.key === cacheKey) {
-          dashboardPageInFlight = null;
-        }
+        if (dashboardPageInFlight?.key === ownerKey) dashboardPageInFlight = null;
         setLoading(false);
         setGuardChecked(true);
       }
     },
-    [
-      cacheKey,
-      financialGoal,
-      hydrateFromCache,
-      isPaid,
-      dailyRemindersEnabled,
-      nickname,
-      reminderTime,
-      user?.full_name,
-      userEmail,
-      userId,
-    ]
-  );
-
-  const scheduleRefresh = useCallback(() => {
+    [cacheKey, dailyRemindersEnabled, financeBudgets, financeEmergencyFund, financeExpenses, financeSavingsGoals, financeTransfers, financeWalletTransactions, financeWallets, financialGoal, hydrateFromCache, isPaid, nickname, reminderTime, survivalExpense, user?.full_name, userEmail, userId]
+  );  const scheduleRefresh = useCallback(() => {
     if (refreshTimeoutRef.current) {
       clearTimeout(refreshTimeoutRef.current);
     }
