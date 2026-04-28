@@ -33,6 +33,16 @@ import {
 import { Link, useNavigate } from "react-router-dom";
 import { createPortal } from "react-dom";
 import { supabase } from "@/lib/supabaseClient";
+import {
+  getCachedFinanceSnapshot,
+  getLocalExpenses,
+  getPendingExpenses,
+  isClaraOnline,
+  mergeRemoteAndLocalFinanceData,
+  saveCachedFinanceSnapshot,
+  saveLocalExpense,
+  syncPendingExpenses,
+} from "@/lib/clara-offline-finance";
 import EmergencyFundCard from "../components/EmergencyFundCard";
 import WalletCard from "../components/WalletCard";
 import BudgetCard from "../components/BudgetCard";
@@ -2083,6 +2093,8 @@ const createEmptyDashboardCache = (key = null) => ({
   budgets: [],
   savingsGoals: [],
   expenses: [],
+  pendingExpenses: [],
+  offlineReady: false,
   profileData: null,
   latestEnrollment: null,
   guardChecked: false,
@@ -5676,6 +5688,8 @@ export default function Dashboard() {
   const [budgets, setBudgets] = useState(initialCache.budgets);
   const [savingsGoals, setSavingsGoals] = useState(initialCache.savingsGoals);
   const [expenses, setExpenses] = useState(initialCache.expenses);
+  const [pendingExpenses, setPendingExpenses] = useState(initialCache.pendingExpenses || []);
+  const [offlineReady, setOfflineReady] = useState(Boolean(initialCache.offlineReady));
   const [loading, setLoading] = useState(!initialCache.loaded);
 
   const [profileData, setProfileData] = useState(initialCache.profileData);
@@ -5877,6 +5891,8 @@ export default function Dashboard() {
     setBudgets(nextCache.budgets);
     setSavingsGoals(nextCache.savingsGoals);
     setExpenses(nextCache.expenses);
+    setPendingExpenses(nextCache.pendingExpenses || []);
+    setOfflineReady(Boolean(nextCache.offlineReady));
     setProfileData(nextCache.profileData);
     setLatestEnrollment(nextCache.latestEnrollment);
     setGuardChecked(nextCache.guardChecked);
@@ -5903,6 +5919,58 @@ export default function Dashboard() {
     hasLoadedDashboardRef.current = false;
     setGuardChecked(false);
     setLoading(true);
+  }, [cacheKey, hydrateFromCache]);
+
+  useEffect(() => {
+    let isMounted = true;
+
+    const loadCachedFinanceData = async () => {
+      if (!cacheKey) return;
+
+      try {
+        const cachedSnapshot = await getCachedFinanceSnapshot(cacheKey);
+        const localExpenses = await getLocalExpenses(cacheKey);
+        const localPendingExpenses = await getPendingExpenses(cacheKey);
+
+        if (!isMounted) return;
+        if (!cachedSnapshot && !localExpenses.length) return;
+
+        const mergedFinanceData = mergeRemoteAndLocalFinanceData(cachedSnapshot || {}, {
+          expenses: localExpenses,
+          pendingExpenses: localPendingExpenses,
+          offlineReady: true,
+        });
+
+        const nextCache = {
+          ...createEmptyDashboardCache(cacheKey),
+          ...(cachedSnapshot || {}),
+          ...mergedFinanceData,
+          key: cacheKey,
+          loaded: true,
+          guardChecked: cachedSnapshot?.guardChecked ?? true,
+          offlineReady: true,
+          pendingExpenses: localPendingExpenses,
+        };
+
+        dashboardPageCache = nextCache;
+        hydrateFromCache(nextCache);
+
+        if (!isClaraOnline()) {
+          setFinanceNotice({
+            message: "You’re offline. CLARA is using saved data.",
+            type: "success",
+          });
+        }
+      } catch (error) {
+        console.warn("CLARA could not load cached finance data:", error);
+      }
+    };
+
+    loadCachedFinanceData();
+
+    return () => {
+      isMounted = false;
+    };
   }, [cacheKey, hydrateFromCache]);
 
   useEffect(() => {
@@ -6173,6 +6241,58 @@ export default function Dashboard() {
         return;
       }
 
+      const ownerKey = cacheKey || currentUser.id || currentUser.email || "guest";
+
+      if (!isClaraOnline()) {
+        try {
+          const cachedSnapshot = await getCachedFinanceSnapshot(ownerKey);
+          const localExpenses = await getLocalExpenses(ownerKey);
+          const localPendingExpenses = await getPendingExpenses(ownerKey);
+          const fallbackCache =
+            dashboardPageCache?.key === ownerKey
+              ? dashboardPageCache
+              : createEmptyDashboardCache(ownerKey);
+          const mergedFinanceData = mergeRemoteAndLocalFinanceData(cachedSnapshot || fallbackCache, {
+            expenses: localExpenses,
+            pendingExpenses: localPendingExpenses,
+            offlineReady: true,
+          });
+          const nextCache = {
+            ...fallbackCache,
+            ...(cachedSnapshot || {}),
+            ...mergedFinanceData,
+            key: ownerKey,
+            loaded: true,
+            guardChecked: true,
+            offlineReady: true,
+            pendingExpenses: localPendingExpenses,
+          };
+
+          dashboardPageCache = nextCache;
+          hydrateFromCache(nextCache);
+          setFinanceNotice({
+            message: "You’re offline. CLARA is using saved data.",
+            type: "success",
+          });
+          return nextCache;
+        } catch (error) {
+          console.warn("CLARA offline dashboard load failed:", error);
+          const emptyCache = {
+            ...createEmptyDashboardCache(ownerKey),
+            loaded: true,
+            guardChecked: true,
+            offlineReady: true,
+          };
+          dashboardPageCache = emptyCache;
+          hydrateFromCache(emptyCache);
+          setFinanceNotice({
+            message: "You’re offline. Start by logging an expense and CLARA will save it locally.",
+            type: "success",
+          });
+          return emptyCache;
+        }
+      }
+
       if (dashboardPageInFlight?.key === cacheKey) {
         return dashboardPageInFlight.promise;
       }
@@ -6183,6 +6303,8 @@ export default function Dashboard() {
 
       try {
         const promise = (async () => {
+          await syncPendingExpenses(currentUser.id, supabase, ownerKey);
+
           const [
             tasksRes,
             submissionsRes,
@@ -6347,6 +6469,24 @@ export default function Dashboard() {
               item?.is_active === undefined
           );
 
+          const localExpenses = await getLocalExpenses(ownerKey);
+          const localPendingExpenses = await getPendingExpenses(ownerKey);
+          const mergedFinanceData = mergeRemoteAndLocalFinanceData(
+            {
+              walletMoney: totalWalletMoney,
+              wallets: sortedWallets,
+              walletTransactions: userWalletTransactions,
+              budgets: userBudgets,
+              savingsGoals: userSavingsGoals,
+              expenses: userExpenses,
+            },
+            {
+              expenses: localExpenses,
+              pendingExpenses: localPendingExpenses,
+              offlineReady: localExpenses.length > 0 || localPendingExpenses.length > 0,
+            }
+          );
+
           const storedPrefs = readDashboardPrefs(currentUser.id);
           const nextNickname = normalizeString(
             userProfile?.display_name ||
@@ -6396,12 +6536,18 @@ export default function Dashboard() {
               survivalExpense,
               dashboardPageCache.survivalExpense
             ),
-            walletMoney: totalWalletMoney,
-            wallets: sortedWallets,
-            walletTransactions: userWalletTransactions,
-            budgets: userBudgets,
-            savingsGoals: userSavingsGoals,
-            expenses: userExpenses,
+            walletMoney: firstValidNumber(mergedFinanceData.walletMoney, totalWalletMoney),
+            wallets: Array.isArray(mergedFinanceData.wallets) ? mergedFinanceData.wallets : sortedWallets,
+            walletTransactions: Array.isArray(mergedFinanceData.walletTransactions)
+              ? mergedFinanceData.walletTransactions
+              : userWalletTransactions,
+            budgets: Array.isArray(mergedFinanceData.budgets) ? mergedFinanceData.budgets : userBudgets,
+            savingsGoals: Array.isArray(mergedFinanceData.savingsGoals)
+              ? mergedFinanceData.savingsGoals
+              : userSavingsGoals,
+            expenses: Array.isArray(mergedFinanceData.expenses) ? mergedFinanceData.expenses : userExpenses,
+            pendingExpenses: localPendingExpenses,
+            offlineReady: true,
             profileData: userProfile,
             latestEnrollment: enrollmentRecord,
             guardChecked: true,
@@ -6412,6 +6558,15 @@ export default function Dashboard() {
 
           dashboardPageCache = nextCache;
           hydrateFromCache(nextCache);
+          await saveCachedFinanceSnapshot(nextCache, ownerKey);
+
+          if (localPendingExpenses.length > 0) {
+            setFinanceNotice({
+              message: "Saved offline data is still protected. CLARA will keep trying to sync it.",
+              type: "success",
+            });
+          }
+
           return nextCache;
         })();
 
@@ -6571,6 +6726,33 @@ export default function Dashboard() {
 
   useEffect(() => {
     loadDashboardData();
+  }, [loadDashboardData]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return undefined;
+
+    const handleOffline = () => {
+      setFinanceNotice({
+        message: "You’re offline. CLARA is using saved data.",
+        type: "success",
+      });
+    };
+
+    const handleOnline = () => {
+      setFinanceNotice({
+        message: "You’re back online. CLARA is syncing saved data.",
+        type: "success",
+      });
+      loadDashboardData({ background: true });
+    };
+
+    window.addEventListener("offline", handleOffline);
+    window.addEventListener("online", handleOnline);
+
+    return () => {
+      window.removeEventListener("offline", handleOffline);
+      window.removeEventListener("online", handleOnline);
+    };
   }, [loadDashboardData]);
 
   useEffect(() => {
@@ -7254,6 +7436,7 @@ export default function Dashboard() {
     const safeWalletTransactions = Array.isArray(walletTransactions)
       ? walletTransactions
       : [];
+    const safePendingExpenses = Array.isArray(pendingExpenses) ? pendingExpenses : [];
     const currentMonthKey = getPHMonthKey();
 
     const readNumber = (...values) => {
@@ -7504,6 +7687,11 @@ export default function Dashboard() {
         user?.user_metadata?.name ||
         user?.email?.split("@")?.[0] ||
         "there",
+      offlineReady,
+      online: isClaraOnline(),
+      pendingExpenses: safePendingExpenses,
+      localExpenses: normalizedExpenses.filter((expense) => expense?.local_only),
+      pendingLocalExpenses: safePendingExpenses,
 
       wallets: normalizedWallets,
       expenses: normalizedExpenses,
@@ -7621,6 +7809,8 @@ export default function Dashboard() {
     moneyLeftThisMonth,
     monthlyBudgetPlan,
     nickname,
+    offlineReady,
+    pendingExpenses,
     profileData,
     savingsGoals,
     survivalExpense,
@@ -8431,6 +8621,96 @@ export default function Dashboard() {
         created_by: user?.email || null,
       };
 
+      const walletTransactionPayload = {
+        wallet_id: wallet.id,
+        type: "expense",
+        amount,
+        category: budgetCategory,
+        need_type: needType,
+        planning_status: planningStatus,
+        unplanned_reason: expensePayload.unplanned_reason,
+        source_type: "Manual Log Expense",
+        notes: notesValue,
+        details: {
+          budget_category: budgetCategory,
+          previous_balance: getWalletDisplayBalance(wallet),
+          next_balance: getWalletDisplayBalance(wallet) - amount,
+        },
+        created_at: nowIso,
+        updated_at: nowIso,
+        user_id: user?.id || null,
+        user_email: user?.email || null,
+        created_by: user?.email || null,
+      };
+
+      const ownerKey = cacheKey || user?.id || user?.email || "guest";
+
+      const applyOfflineExpenseState = async (localExpense) => {
+        const localWalletTransaction = {
+          ...walletTransactionPayload,
+          id: localExpense.local_id ? String(localExpense.local_id) + "_wallet_tx" : createFinanceId(),
+          local_id: localExpense.local_id ? String(localExpense.local_id) + "_wallet_tx" : createFinanceId(),
+          expense_id: localExpense.local_id || localExpense.id,
+          local_only: true,
+          pending_sync: true,
+          sync_status: "pending",
+        };
+
+        const nextWallets = wallets.map((item) =>
+          String(item.id) === String(wallet.id)
+            ? {
+                ...item,
+                balance: getWalletDisplayBalance(item) - amount,
+                derived_balance: getWalletDisplayBalance(item) - amount,
+              }
+            : item
+        );
+        const nextExpenses = [localExpense, ...expenses];
+        const nextWalletTransactions = [localWalletTransaction, ...walletTransactions];
+        const nextPendingExpenses = [localExpense, ...pendingExpenses];
+        const nextWalletMoney = Math.max(firstValidNumber(walletMoney) - amount, 0);
+
+        setExpenses(nextExpenses);
+        setWallets(nextWallets);
+        setWalletTransactions(nextWalletTransactions);
+        setPendingExpenses(nextPendingExpenses);
+        setOfflineReady(true);
+        setWalletMoney(nextWalletMoney);
+
+        const nextCache = {
+          ...dashboardPageCache,
+          key: ownerKey,
+          loaded: true,
+          expenses: nextExpenses,
+          wallets: nextWallets,
+          walletTransactions: nextWalletTransactions,
+          pendingExpenses: nextPendingExpenses,
+          offlineReady: true,
+          walletMoney: nextWalletMoney,
+        };
+
+        dashboardPageCache = nextCache;
+        await saveCachedFinanceSnapshot(nextCache, ownerKey);
+      };
+
+      if (!isClaraOnline()) {
+        const localExpense = await saveLocalExpense(
+          {
+            ...expensePayload,
+            wallet_transaction: walletTransactionPayload,
+          },
+          ownerKey
+        );
+
+        await applyOfflineExpenseState(localExpense);
+        closeFinanceModal();
+        showFinanceNotice(
+          "Saved offline. CLARA will sync this when you’re back online.",
+          "success"
+        );
+        return;
+      }
+
       const { error: expenseError, data: insertedExpense } = await supabase
         .from("expenses")
         .insert([expensePayload])
@@ -8443,26 +8723,8 @@ export default function Dashboard() {
 
       const { error: historyError } = await supabase.from("wallet_transactions").insert([
         {
-          wallet_id: wallet.id,
-          type: "expense",
-          amount,
+          ...walletTransactionPayload,
           expense_id: insertedExpenseId,
-          category: budgetCategory,
-          need_type: needType,
-          planning_status: planningStatus,
-          unplanned_reason: expensePayload.unplanned_reason,
-          source_type: "Manual Log Expense",
-          notes: notesValue,
-          details: {
-            budget_category: budgetCategory,
-            previous_balance: getWalletDisplayBalance(wallet),
-            next_balance: getWalletDisplayBalance(wallet) - amount,
-          },
-          created_at: nowIso,
-          updated_at: nowIso,
-          user_id: user?.id || null,
-          user_email: user?.email || null,
-          created_by: user?.email || null,
         },
       ]);
       if (historyError) throw historyError;
@@ -8471,7 +8733,8 @@ export default function Dashboard() {
       closeFinanceModal();
       showFinanceNotice("Expense logged successfully.", "success");
     } catch (error) {
-      showFinanceNotice(error?.message || "Failed to log expense.");
+      console.warn("CLARA manual expense save failed:", error);
+      showFinanceNotice("CLARA could not save this expense yet. Please try again.");
     } finally {
       setFinanceActionLoading(false);
     }
@@ -8485,12 +8748,17 @@ export default function Dashboard() {
     financeForm.undocumentedNote,
     financeForm.undocumentedReason,
     financeForm.unplannedReason,
+    cacheKey,
     manualExpenseBudgetOptions,
+    pendingExpenses,
     refreshFinanceSection,
     showFinanceNotice,
     user?.email,
     user?.id,
+    walletMoney,
+    walletTransactions,
     wallets,
+    expenses,
   ]);
 
   const addMoneyInline = useCallback(async () => {
