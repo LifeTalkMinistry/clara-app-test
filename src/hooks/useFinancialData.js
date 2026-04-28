@@ -12,15 +12,12 @@ import {
   getWalletTransactions,
   addIncome as repoAddIncome,
   transferBetweenWallets as repoTransferBetweenWallets,
+  getTransfers,
   getBudgets,
   addBudget as repoAddBudget,
   updateBudget as repoUpdateBudget,
   deleteBudget as repoDeleteBudget,
 } from "@/lib/financeRepository";
-import {
-  LOCAL_FINANCE_STORES,
-  getLocalRecords,
-} from "@/lib/localFinanceStore";
 
 const toNumber = (value) => {
   if (typeof value === "number") return Number.isFinite(value) ? value : 0;
@@ -158,7 +155,7 @@ export default function useFinancialData(user) {
         getWallets(localUserId),
         getBudgets(localUserId),
         getWalletTransactions(localUserId),
-        getLocalRecords(LOCAL_FINANCE_STORES.transfers, localUserId),
+        getTransfers(localUserId),
       ]);
 
       const safeWalletTransactions = sortByNewest(rawWalletTransactions);
