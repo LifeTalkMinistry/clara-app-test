@@ -882,6 +882,249 @@ export default function Budgets() {
     return <FeaturePageLoader label="Preparing budgets..." />;
   }
   return (
+    <div className="p-4 md:p-6 max-w-4xl mx-auto">
+      <div className="flex items-center justify-between gap-3 mb-4">
+        <div>
+          <h1 className="text-2xl md:text-3xl font-bold tracking-tight">Budgets</h1>
+        </div>
+
+        {!canUseBudgets ? (
+          <div className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-muted text-muted-foreground text-xs font-medium">
+            <Lock className="w-3.5 h-3.5" /> Upgrade to use budgets
+          </div>
+        ) : (
+          <div className="flex gap-2">
+            <Dialog open={open} onOpenChange={setOpen}>
+              <DialogTrigger asChild>
+                <Button size="sm">
+                  <Plus className="w-4 h-4 mr-1" />
+                  {currentBudget ? "Edit Budget" : "Set Budget"}
+                </Button>
+              </DialogTrigger>
+
+              <DialogContent>
+                <DialogHeader>
+                  <DialogTitle>{currentBudget ? "Edit" : "Set"} Budget</DialogTitle>
+                  <DialogDescription>
+                    Set your total budget, category split, and exact clickable date/time range in
+                    Philippine time.
+                  </DialogDescription>
+                </DialogHeader>
+
+                <div className="space-y-4">
+                  <div>
+                    <Label>Month</Label>
+                    <Input
+                      type="month"
+                      value={form.month}
+                      onChange={(e) => handleMonthChange(e.target.value)}
+                    />
+                  </div>
+
+                  <div>
+                    <Label>Category</Label>
+                    <select
+                      value={form.category}
+                      onChange={(e) =>
+                        setForm((prev) => ({
+                          ...prev,
+                          category: e.target.value,
+                        }))
+                      }
+                      className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background"
+                    >
+                      {BUDGET_CATEGORIES.map((category) => (
+                        <option key={category} value={category}>
+                          {CATEGORY_LABELS[category]}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div>
+                    <Label>Total Budget (₱)</Label>
+                    <Input
+                      type="number"
+                      placeholder="0.00"
+                      value={form.total_budget}
+                      onChange={(e) =>
+                        setForm((prev) => ({
+                          ...prev,
+                          total_budget: e.target.value,
+                        }))
+                      }
+                    />
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    <div>
+                      <Label>From</Label>
+                      <Input
+                        type="datetime-local"
+                        value={form.range_start}
+                        onChange={(e) =>
+                          setForm((prev) => ({
+                            ...prev,
+                            range_start: e.target.value,
+                          }))
+                        }
+                      />
+                    </div>
+
+                    <div>
+                      <Label>To</Label>
+                      <Input
+                        type="datetime-local"
+                        value={form.range_end}
+                        onChange={(e) =>
+                          setForm((prev) => ({
+                            ...prev,
+                            range_end: e.target.value,
+                          }))
+                        }
+                      />
+                    </div>
+                  </div>
+
+                  <div className="hidden">
+                    <p className="text-xs font-medium mb-3">50 / 30 / 20 SPLIT</p>
+
+                    <div className="grid grid-cols-3 gap-3">
+                      <div>
+                        <Label className="text-xs">Needs %</Label>
+                        <Input
+                          type="number"
+                          value={form.needs_pct}
+                          onChange={(e) =>
+                            setForm((prev) => ({
+                              ...prev,
+                              needs_pct: e.target.value,
+                            }))
+                          }
+                        />
+                      </div>
+
+                      <div>
+                        <Label className="text-xs">Wants %</Label>
+                        <Input
+                          type="number"
+                          value={form.wants_pct}
+                          onChange={(e) =>
+                            setForm((prev) => ({
+                              ...prev,
+                              wants_pct: e.target.value,
+                            }))
+                          }
+                        />
+                      </div>
+
+                      <div>
+                        <Label className="text-xs">Other %</Label>
+                        <Input
+                          type="number"
+                          value={form.other_pct}
+                          onChange={(e) =>
+                            setForm((prev) => ({
+                              ...prev,
+                              other_pct: e.target.value,
+                            }))
+                          }
+                        />
+                      </div>
+                    </div>
+
+                    <p className="text-[11px] text-muted-foreground mt-3">
+                      Total must equal 100%
+                    </p>
+                  </div>
+
+                  <Button
+                    onClick={handleSubmit}
+                    className="w-full"
+                    disabled={!form.total_budget || saving}
+                  >
+                    {saving ? "Saving..." : "Save Budget"}
+                  </Button>
+                </div>
+              </DialogContent>
+            </Dialog>
+
+            {currentBudget && (
+              <Button size="sm" variant="outline" onClick={handleReset} disabled={resetting}>
+                <RotateCcw className={`w-4 h-4 mr-1 ${resetting ? "animate-spin" : ""}`} />
+                {resetting ? "Resetting..." : "Reset"}
+              </Button>
+            )}
+          </div>
+        )}
+      </div>
+
+      {canUseBudgets && !loading && !currentBudget && (
+        <EmptyState
+          icon={Target}
+          title="No budget set"
+          description="Set your budget and exact calculation range to start tracking."
+        />
+      )}
+
+      {canUseBudgets && currentBudget && (
+        <div className="space-y-4">
+          <div className="bg-card rounded-xl border border-border p-4">
+            <div className="flex items-start justify-between gap-4 mb-4">
+              <div>
+                <p className="text-xs text-muted-foreground">BUDGET</p>
+                <p className="font-heading text-2xl font-bold">{fmt(totalBudget)}</p>
+              </div>
+
+              <div className="text-right">
+                <p className="text-xs text-muted-foreground">SPENT</p>
+                <p className="font-heading text-2xl font-bold text-destructive">
+                  {fmt(totalSpent)}
+                </p>
+              </div>
+            </div>
+
+            <div className="flex items-start gap-2 rounded-lg border border-border/60 bg-muted/30 px-3 py-2 mb-4">
+              <CalendarRange className="w-4 h-4 mt-0.5 text-muted-foreground" />
+              <div>
+                <p className="text-[11px] uppercase tracking-wide text-muted-foreground">
+                  Active Calculation Range
+                </p>
+                <p className="text-sm font-medium">
+                  {formatRangeText(
+                    activeRangeStart?.toISOString(),
+                    activeRangeEnd?.toISOString()
+                  )}
+                </p>
+              </div>
+            </div>
+
+            <div className="h-3 bg-muted rounded-full overflow-hidden">
+              <div
+                className={`h-full rounded-full ${
+                  totalSpent > totalBudget ? "bg-destructive" : "bg-primary"
+                }`}
+                style={{
+                  width: `${Math.min(
+                    totalBudget > 0 ? (totalSpent / totalBudget) * 100 : 0,
+                    100
+                  )}%`,
+                }}
+              />
+            </div>
+
+            <p className="text-xs text-muted-foreground mt-2">
+              {fmt(Math.max(0, totalBudget - totalSpent))} remaining
+            </p>
+          </div>
+
+          {categoryBudgetCards.length > 0 && (
+            <div className="space-y-3">
+              {categoryBudgetCards.map((item) => {
+                const warning = item.pct >= 80 && item.pct < 100;
+                const exceeded = item.pct >= 100;
+
+                return (
                   <div key={item.category} className="bg-card rounded-xl border border-border p-4">
                     <div className="flex justify-between gap-3 mb-2">
                       <div>
