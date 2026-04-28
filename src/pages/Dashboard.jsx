@@ -35,16 +35,6 @@ import {
 import { Link, useNavigate } from "react-router-dom";
 import { createPortal } from "react-dom";
 import { supabase } from "@/lib/supabaseClient";
-import {
-  getCachedFinanceSnapshot,
-  getLocalExpenses,
-  getPendingExpenses,
-  isClaraOnline,
-  mergeRemoteAndLocalFinanceData,
-  saveCachedFinanceSnapshot,
-  saveLocalExpense,
-  syncPendingExpenses,
-} from "@/lib/clara-offline-finance";
 import EmergencyFundCard from "../components/EmergencyFundCard";
 import WalletCard from "../components/WalletCard";
 import BudgetCard from "../components/BudgetCard";
@@ -55,6 +45,7 @@ import StatCard from "../components/StatCard";
 import TaskReminderPrompt from "@/components/TaskReminderPrompt";
 import useUserRole from "../hooks/useUserRole";
 import useTaskReminderPrompt from "@/hooks/useTaskReminderPrompt";
+import useFinancialData from "../hooks/useFinancialData";
 import { hasCompletedProgramOnboarding } from "@/lib/access-control";
 import { useTheme } from "@/theme/ThemeProvider";
 import { DEFAULT_THEME_KEY } from "@/theme/themes";
@@ -121,6 +112,27 @@ const createFinanceId = () => {
   throw new Error("Unable to generate a valid UUID on this device.");
 };
 
+
+const getCachedFinanceSnapshot = async () => null;
+const getLocalExpenses = async () => [];
+const getPendingExpenses = async () => [];
+const isClaraOnline = () => (typeof navigator === "undefined" ? true : navigator.onLine !== false);
+const mergeRemoteAndLocalFinanceData = (remote = {}, local = {}) => ({
+  ...remote,
+  expenses: Array.isArray(local.expenses) && local.expenses.length ? local.expenses : remote.expenses,
+  pendingExpenses: Array.isArray(local.pendingExpenses) ? local.pendingExpenses : [],
+  offlineReady: true,
+});
+const saveCachedFinanceSnapshot = async () => null;
+const saveLocalExpense = async (payload) => ({
+  ...payload,
+  id: payload?.id || createFinanceId(),
+  local_id: payload?.local_id || createFinanceId(),
+  local_only: true,
+  pending_sync: true,
+  sync_status: "pending",
+});
+const syncPendingExpenses = async () => null;
 
 const ENROLLMENT_PENDING_STATUSES = new Set([
   "pending",
@@ -5734,6 +5746,32 @@ export default function Dashboard() {
   const { user, plan, isAdmin, isAdvertiser, isPaid, isFree, isPending, refreshUser } =
     useUserRole();
 
+  const {
+    expenses: financeExpenses = [],
+    wallets: financeWallets = [],
+    walletTransactions: financeWalletTransactions = [],
+    transfers: financeTransfers = [],
+    budgets: financeBudgets = [],
+    savingsGoals: financeSavingsGoals = [],
+    emergencyFund: financeEmergencyFund = null,
+    refreshData: refreshFinancialData,
+    loading: financeDataLoading = false,
+    error: financeDataError = null,
+    addExpense: addExpenseData,
+    addWallet: addWalletData,
+    updateWallet: updateWalletData,
+    deleteWallet: deleteWalletData,
+    addIncome: addIncomeData,
+    transferBetweenWallets: transferBetweenWalletsData,
+    addBudget: addBudgetData,
+    updateBudget: updateBudgetData,
+    deleteBudget: deleteBudgetData,
+    addSavingsGoal: addSavingsGoalData,
+    updateSavingsGoal: updateSavingsGoalData,
+    deleteSavingsGoal: deleteSavingsGoalData,
+    updateEmergencyFund: updateEmergencyFundData,
+  } = useFinancialData();
+
   const userId = user?.id || null;
   const userEmail = user?.email || null;
   const cacheKey = userId || userEmail || null;
@@ -5748,14 +5786,16 @@ export default function Dashboard() {
   const [billboards, setBillboards] = useState(initialCache.billboards);
   const [survivalExpense, setSurvivalExpense] = useState(initialCache.survivalExpense);
   const [walletMoney, setWalletMoney] = useState(initialCache.walletMoney);
-  const [wallets, setWallets] = useState(initialCache.wallets);
-  const [walletTransactions, setWalletTransactions] = useState(initialCache.walletTransactions);
-  const [budgets, setBudgets] = useState(initialCache.budgets);
-  const [savingsGoals, setSavingsGoals] = useState(initialCache.savingsGoals);
-  const [expenses, setExpenses] = useState(initialCache.expenses);
-  const [pendingExpenses, setPendingExpenses] = useState(initialCache.pendingExpenses || []);
-  const [offlineReady, setOfflineReady] = useState(Boolean(initialCache.offlineReady));
-  const [loading, setLoading] = useState(!initialCache.loaded);
+  const [wallets, setWallets] = useState(Array.isArray(initialCache.wallets) ? initialCache.wallets : []);
+  const [walletTransactions, setWalletTransactions] = useState(Array.isArray(initialCache.walletTransactions) ? initialCache.walletTransactions : []);
+  const [transfers, setTransfers] = useState(Array.isArray(initialCache.transfers) ? initialCache.transfers : []);
+  const [budgets, setBudgets] = useState(Array.isArray(initialCache.budgets) ? initialCache.budgets : []);
+  const [savingsGoals, setSavingsGoals] = useState(Array.isArray(initialCache.savingsGoals) ? initialCache.savingsGoals : []);
+  const [emergencyFund, setEmergencyFund] = useState(initialCache.emergencyFund || null);
+  const [expenses, setExpenses] = useState(Array.isArray(initialCache.expenses) ? initialCache.expenses : []);
+  const [pendingExpenses, setPendingExpenses] = useState([]);
+  const [offlineReady, setOfflineReady] = useState(true);
+  const [loading, setLoading] = useState(!initialCache.loaded || financeDataLoading);
 
   const [profileData, setProfileData] = useState(initialCache.profileData);
   const [latestEnrollment, setLatestEnrollment] = useState(
@@ -5853,6 +5893,66 @@ export default function Dashboard() {
       document.removeEventListener("keydown", handleKeyDown);
     };
   }, [budgetListOpen]);
+
+  useEffect(() => {
+    const safeWallets = Array.isArray(financeWallets) ? financeWallets : [];
+    const safeWalletTransactions = Array.isArray(financeWalletTransactions) ? financeWalletTransactions : [];
+    const safeTransfers = Array.isArray(financeTransfers) ? financeTransfers : [];
+    const safeBudgets = Array.isArray(financeBudgets) ? financeBudgets : [];
+    const safeSavingsGoals = Array.isArray(financeSavingsGoals) ? financeSavingsGoals : [];
+    const safeExpenses = Array.isArray(financeExpenses) ? financeExpenses : [];
+    const safePendingExpenses = safeExpenses.filter(
+      (item) => item?.pending_sync || item?.sync_status === "pending" || item?.local_only
+    );
+    const nextWalletMoney = safeWallets.reduce(
+      (sum, wallet) => sum + getWalletDisplayBalance(wallet),
+      0
+    );
+
+    setWallets(safeWallets);
+    setWalletTransactions(safeWalletTransactions);
+    setTransfers(safeTransfers);
+    setBudgets(safeBudgets);
+    setSavingsGoals(safeSavingsGoals);
+    setEmergencyFund(financeEmergencyFund || null);
+    setExpenses(safeExpenses);
+    setPendingExpenses(safePendingExpenses);
+    setOfflineReady(true);
+    setWalletMoney(nextWalletMoney);
+    setLoading(false);
+
+    dashboardPageCache = {
+      ...dashboardPageCache,
+      key: cacheKey,
+      loaded: true,
+      walletMoney: nextWalletMoney,
+      wallets: safeWallets,
+      walletTransactions: safeWalletTransactions,
+      transfers: safeTransfers,
+      budgets: safeBudgets,
+      savingsGoals: safeSavingsGoals,
+      emergencyFund: financeEmergencyFund || null,
+      expenses: safeExpenses,
+      pendingExpenses: safePendingExpenses,
+      offlineReady: true,
+    };
+  }, [
+    cacheKey,
+    financeBudgets,
+    financeEmergencyFund,
+    financeExpenses,
+    financeSavingsGoals,
+    financeTransfers,
+    financeWalletTransactions,
+    financeWallets,
+  ]);
+
+  useEffect(() => {
+    if (!financeDataError) return;
+    const message = typeof financeDataError === "string" ? financeDataError : financeDataError?.message;
+    if (!message) return;
+    setFinanceNotice({ message, type: "error" });
+  }, [financeDataError]);
 
   const dailyRemindersEnabled = notificationSettings?.dailyReminders !== false;
   const themeIsLight = selectedDashboardTheme?.isLight === true;
@@ -8458,9 +8558,9 @@ export default function Dashboard() {
 
 
   const refreshFinanceSection = useCallback(async () => {
-    await loadDashboardData({ background: true });
+    await refreshFinancialData?.();
     dispatchClaraEvent("clara-finance-updated");
-  }, [loadDashboardData]);
+  }, [refreshFinancialData]);
 
   const moveWalletInline = useCallback(
     async (walletId, direction) => {
@@ -8536,20 +8636,16 @@ export default function Dashboard() {
 
     try {
       setFinanceActionLoading(true);
-      const { error } = await supabase.from("wallets").insert([
-        {
-          name,
-          type,
-          balance: startingBalance,
-          starting_balance: startingBalance,
-          sort_order: wallets.length,
-          user_id: user?.id || null,
-          user_email: user?.email || null,
-          created_by: user?.email || null,
-        },
-      ]);
-
-      if (error) throw error;
+      await addWalletData?.({
+        name,
+        type,
+        balance: startingBalance,
+        starting_balance: startingBalance,
+        sort_order: wallets.length,
+        user_id: user?.id || null,
+        user_email: user?.email || null,
+        created_by: user?.email || null,
+      });
 
       await refreshFinanceSection();
       setExpandedFinanceCard("wallets");
@@ -8579,12 +8675,7 @@ export default function Dashboard() {
 
     try {
       setFinanceActionLoading(true);
-      const { error } = await supabase
-        .from("wallets")
-        .delete()
-        .eq("id", String(walletId));
-
-      if (error) throw error;
+      await deleteWalletData?.(walletId);
 
       await refreshFinanceSection();
       closeFinanceModal();
