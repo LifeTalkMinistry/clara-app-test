@@ -32,6 +32,12 @@ import FeaturePageLoader from "../components/FeaturePageLoader";
 import useUserRole from "../hooks/useUserRole";
 import useFinancialData from "../hooks/useFinancialData";
 import { getWalletBalance } from "@/utils/financialEngine";
+import {
+  LOCAL_FINANCE_STORES,
+  getLocalRecords,
+  upsertLocalRecord,
+  softDeleteLocalRecord,
+} from "@/lib/localFinanceStore";
 
 const CATEGORIES = {
   "Celebrations & Gifts": [
@@ -99,10 +105,15 @@ const detailDialogClass =
 const generateId = () =>
   `goal_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`;
 
+const generateTransactionId = () =>
+  `wallet_tx_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`;
+
 const toNumber = (value) => {
   const n = Number(value);
   return Number.isFinite(n) ? n : 0;
 };
+
+const getLocalUserId = (user) => String(user?.id || user?.email || "").trim();
 
 const normalizeGoal = (goal) => ({
   ...goal,
@@ -110,36 +121,11 @@ const normalizeGoal = (goal) => ({
   wallet_id: goal.wallet_id != null ? String(goal.wallet_id) : "",
   target_amount: toNumber(goal.target_amount),
   saved_amount: toNumber(goal.saved_amount),
+  planned_use_date: goal.planned_use_date || "",
   reasons: Array.isArray(goal.reasons) ? goal.reasons : ["", "", ""],
+  created_date: goal.created_date || goal.createdAt || new Date().toISOString(),
+  updated_date: goal.updated_date || goal.updatedAt || new Date().toISOString(),
 });
-
-const getOfflineUserKey = (user) =>
-  String(user?.id || user?.email || "guest").replace(/[^a-zA-Z0-9_-]/g, "_");
-
-const getGoalsStorageKey = (user) =>
-  `clara_offline_savings_goals_${getOfflineUserKey(user)}`;
-
-const getWalletTxStorageKey = (user) =>
-  `clara_offline_wallet_transactions_${getOfflineUserKey(user)}`;
-
-const readJson = (key, fallback = []) => {
-  try {
-    const raw = localStorage.getItem(key);
-    if (!raw) return fallback;
-    const parsed = JSON.parse(raw);
-    return Array.isArray(parsed) ? parsed : fallback;
-  } catch {
-    return fallback;
-  }
-};
-
-const writeJson = (key, value) => {
-  try {
-    localStorage.setItem(key, JSON.stringify(value));
-  } catch (error) {
-    console.error("Failed to write offline data:", error);
-  }
-};
 
 export default function SavingsGoals() {
   const navigate = useNavigate();
@@ -158,30 +144,32 @@ export default function SavingsGoals() {
   const [editId, setEditId] = useState(null);
   const [form, setForm] = useState(EMPTY_FORM);
 
-  const storageKey = useMemo(() => getGoalsStorageKey(user), [user]);
+  const localUserId = useMemo(() => getLocalUserId(user), [user]);
 
-  const persistGoals = (nextGoals, preferredGoalId = null) => {
-    const normalized = (nextGoals || []).map(normalizeGoal);
-    writeJson(storageKey, normalized);
-    setGoals(normalized);
-
-    const targetId = preferredGoalId || detailGoal?.id;
-    if (targetId) {
-      const freshGoal =
-        normalized.find((g) => String(g.id) === String(targetId)) || null;
-      setDetailGoal(freshGoal);
-    }
-  };
-
-  const loadGoals = (preferredGoalId = null) => {
+  const loadGoals = async (preferredGoalId = null) => {
     try {
       setLoading(true);
-      const stored = readJson(storageKey, []);
-      const normalized = stored
+
+      if (!localUserId) {
+        setGoals([]);
+        setDetailGoal(null);
+        return;
+      }
+
+      const rows = await getLocalRecords(
+        LOCAL_FINANCE_STORES.savingsGoals,
+        localUserId
+      );
+
+      const normalized = (rows || [])
         .map(normalizeGoal)
         .sort((a, b) => {
-          const aTime = new Date(a.created_date || 0).getTime();
-          const bTime = new Date(b.created_date || 0).getTime();
+          const aTime = new Date(
+            a.createdAt || a.created_date || a.updatedAt || 0
+          ).getTime();
+          const bTime = new Date(
+            b.createdAt || b.created_date || b.updatedAt || 0
+          ).getTime();
           return bTime - aTime;
         });
 
@@ -194,7 +182,7 @@ export default function SavingsGoals() {
         setDetailGoal(freshGoal);
       }
     } catch (error) {
-      console.error("Failed to load offline savings goals:", error);
+      console.error("Failed to load savings goals:", error);
       setGoals([]);
     } finally {
       setLoading(false);
@@ -204,7 +192,7 @@ export default function SavingsGoals() {
   useEffect(() => {
     loadGoals();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [storageKey]);
+  }, [localUserId]);
 
   useEffect(() => {
     if (loading || routeActionHandledRef.current) return;
@@ -319,6 +307,11 @@ export default function SavingsGoals() {
   const handleSave = async () => {
     if (saving) return;
 
+    if (!localUserId) {
+      alert("No user found. Please log in again.");
+      return;
+    }
+
     if (!form.title?.trim()) {
       alert("Please enter a goal title.");
       return;
@@ -334,7 +327,13 @@ export default function SavingsGoals() {
 
       const now = new Date().toISOString();
 
+      const existingGoal = editId
+        ? goals.find((goal) => String(goal.id) === String(editId))
+        : null;
+
       const payload = normalizeGoal({
+        ...(existingGoal || {}),
+        id: editId || generateId(),
         title: form.title.trim(),
         category: form.category || "",
         subcategory: form.subcategory || "",
@@ -350,37 +349,24 @@ export default function SavingsGoals() {
         created_by: user?.email || null,
         user_email: user?.email || null,
         user_id: user?.id || null,
+        created_date: existingGoal?.created_date || now,
         updated_date: now,
+        createdAt: existingGoal?.createdAt || now,
+        updatedAt: now,
+        syncStatus: "local_only",
+        source: "local",
       });
 
-      let nextGoals;
+      await upsertLocalRecord(
+        LOCAL_FINANCE_STORES.savingsGoals,
+        payload,
+        localUserId
+      );
 
-      if (editId) {
-        nextGoals = goals.map((goal) =>
-          String(goal.id) === String(editId)
-            ? normalizeGoal({
-                ...goal,
-                ...payload,
-                id: goal.id,
-                created_date: goal.created_date || now,
-              })
-            : goal
-        );
-      } else {
-        nextGoals = [
-          normalizeGoal({
-            id: generateId(),
-            ...payload,
-            created_date: now,
-          }),
-          ...goals,
-        ];
-      }
-
-      persistGoals(nextGoals, editId || null);
+      await loadGoals(payload.id);
       closeFormModal();
     } catch (error) {
-      console.error("Failed to save offline savings goal:", error);
+      console.error("Failed to save savings goal:", error);
       alert(error?.message || "Failed to save goal.");
     } finally {
       setSaving(false);
@@ -388,17 +374,29 @@ export default function SavingsGoals() {
   };
 
   const handleDelete = async (id) => {
+    if (!localUserId) return;
+
     try {
-      const nextGoals = goals.filter((goal) => String(goal.id) !== String(id));
-      persistGoals(nextGoals);
+      await softDeleteLocalRecord(
+        LOCAL_FINANCE_STORES.savingsGoals,
+        id,
+        localUserId
+      );
+
       setDetailGoal((prev) => (String(prev?.id) === String(id) ? null : prev));
+      await loadGoals();
     } catch (error) {
-      console.error("Failed to delete offline savings goal:", error);
+      console.error("Failed to delete savings goal:", error);
       alert(error?.message || "Failed to delete goal.");
     }
   };
 
   const handleAddSavings = async (goal, amount) => {
+    if (!localUserId) {
+      alert("No user found. Please log in again.");
+      return;
+    }
+
     try {
       const safeAmount = parseFloat(amount);
 
@@ -440,28 +438,23 @@ export default function SavingsGoals() {
         return;
       }
 
-      const nextGoalSaved = Math.min(currentGoalSaved + finalAmount, targetAmount);
       const now = new Date().toISOString();
+      const nextGoalSaved = Math.min(currentGoalSaved + finalAmount, targetAmount);
 
-      const nextGoals = goals.map((item) =>
-        String(item.id) === String(goal.id)
-          ? normalizeGoal({
-              ...item,
-              saved_amount: nextGoalSaved,
-              updated_date: now,
-            })
-          : item
-      );
+      const updatedGoal = normalizeGoal({
+        ...goal,
+        saved_amount: nextGoalSaved,
+        updated_date: now,
+        updatedAt: now,
+        syncStatus: "local_only",
+        source: "local",
+      });
 
-      persistGoals(nextGoals, goal.id);
-
-      const txKey = getWalletTxStorageKey(user);
-      const existingTx = readJson(txKey, []);
-      const offlineTx = {
-        id: `wallet_tx_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`,
+      const transaction = {
+        id: generateTransactionId(),
         wallet_id: String(sourceWallet.id),
-        type: "savings_goal",
         amount: finalAmount,
+        type: "savings_goal",
         notes: `Moved to savings goal: ${goal.title}`,
         source_type: "Savings Goal",
         source_details: goal.title || null,
@@ -471,16 +464,32 @@ export default function SavingsGoals() {
         created_by: user?.email || null,
         created_date: now,
         created_at: now,
-        offline_only: true,
+        createdAt: now,
+        updated_at: now,
+        updatedAt: now,
+        syncStatus: "local_only",
+        source: "local",
       };
 
-      writeJson(txKey, [offlineTx, ...existingTx]);
+      await upsertLocalRecord(
+        LOCAL_FINANCE_STORES.savingsGoals,
+        updatedGoal,
+        localUserId
+      );
+
+      await upsertLocalRecord(
+        LOCAL_FINANCE_STORES.walletTransactions,
+        transaction,
+        localUserId
+      );
+
+      await loadGoals(goal.id);
 
       if (typeof refreshData === "function") {
         await refreshData();
       }
     } catch (error) {
-      console.error("Failed to add offline savings:", error);
+      console.error("Failed to add savings:", error);
       alert(error?.message || "Failed to add savings.");
     }
   };
