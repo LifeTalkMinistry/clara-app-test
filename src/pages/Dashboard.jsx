@@ -5770,7 +5770,7 @@ export default function Dashboard() {
     updateSavingsGoal: updateSavingsGoalData,
     deleteSavingsGoal: deleteSavingsGoalData,
     updateEmergencyFund: updateEmergencyFundData,
-  } = useFinancialData();
+  } = useFinancialData(user);
 
   const userId = user?.id || null;
   const userEmail = user?.email || null;
@@ -6771,9 +6771,10 @@ export default function Dashboard() {
     }
 
     refreshTimeoutRef.current = setTimeout(() => {
+      refreshFinancialData?.();
       loadDashboardData({ background: true });
     }, 350);
-  }, [loadDashboardData]);
+  }, [loadDashboardData, refreshFinancialData]);
 
   useEffect(() => {
     return () => {
@@ -8589,17 +8590,11 @@ export default function Dashboard() {
       try {
         setFinanceActionLoading(true);
 
-        const results = await Promise.all(
+        await Promise.all(
           orderedWallets.map((wallet, index) =>
-            supabase
-              .from("wallets")
-              .update({ sort_order: index })
-              .eq("id", String(wallet.id))
+            updateWalletData?.(String(wallet.id), { sort_order: index })
           )
         );
-
-        const failed = results.find((result) => result?.error);
-        if (failed?.error) throw failed.error;
 
         await refreshFinanceSection();
       } catch (error) {
@@ -8667,6 +8662,7 @@ export default function Dashboard() {
     user?.email,
     user?.id,
     wallets.length,
+    addWalletData,
   ]);
 
   const deleteWalletInline = useCallback(async () => {
@@ -8685,7 +8681,7 @@ export default function Dashboard() {
     } finally {
       setFinanceActionLoading(false);
     }
-  }, [closeFinanceModal, financeModal?.payload?.id, refreshFinanceSection, showFinanceNotice]);
+  }, [closeFinanceModal, financeModal?.payload?.id, refreshFinanceSection, showFinanceNotice, deleteWalletData]);
 
   const saveManualExpenseInline = useCallback(async () => {
     const amount = Number(financeForm.amount);
@@ -8799,91 +8795,7 @@ export default function Dashboard() {
         created_by: user?.email || null,
       };
 
-      const ownerKey = cacheKey || user?.id || user?.email || "guest";
-
-      const applyOfflineExpenseState = async (localExpense) => {
-        const localWalletTransaction = {
-          ...walletTransactionPayload,
-          id: localExpense.local_id ? String(localExpense.local_id) + "_wallet_tx" : createFinanceId(),
-          local_id: localExpense.local_id ? String(localExpense.local_id) + "_wallet_tx" : createFinanceId(),
-          expense_id: localExpense.local_id || localExpense.id,
-          local_only: true,
-          pending_sync: true,
-          sync_status: "pending",
-        };
-
-        const nextWallets = wallets.map((item) =>
-          String(item.id) === String(wallet.id)
-            ? {
-                ...item,
-                balance: getWalletDisplayBalance(item) - amount,
-                derived_balance: getWalletDisplayBalance(item) - amount,
-              }
-            : item
-        );
-        const nextExpenses = [localExpense, ...expenses];
-        const nextWalletTransactions = [localWalletTransaction, ...walletTransactions];
-        const nextPendingExpenses = [localExpense, ...pendingExpenses];
-        const nextWalletMoney = Math.max(firstValidNumber(walletMoney) - amount, 0);
-
-        setExpenses(nextExpenses);
-        setWallets(nextWallets);
-        setWalletTransactions(nextWalletTransactions);
-        setPendingExpenses(nextPendingExpenses);
-        setOfflineReady(true);
-        setWalletMoney(nextWalletMoney);
-
-        const nextCache = {
-          ...dashboardPageCache,
-          key: ownerKey,
-          loaded: true,
-          expenses: nextExpenses,
-          wallets: nextWallets,
-          walletTransactions: nextWalletTransactions,
-          pendingExpenses: nextPendingExpenses,
-          offlineReady: true,
-          walletMoney: nextWalletMoney,
-        };
-
-        dashboardPageCache = nextCache;
-        await saveCachedFinanceSnapshot(nextCache, ownerKey);
-      };
-
-      if (!isClaraOnline()) {
-        const localExpense = await saveLocalExpense(
-          {
-            ...expensePayload,
-            wallet_transaction: walletTransactionPayload,
-          },
-          ownerKey
-        );
-
-        await applyOfflineExpenseState(localExpense);
-        closeFinanceModal();
-        showFinanceNotice(
-          "Saved offline. CLARA will sync this when you’re back online.",
-          "success"
-        );
-        return;
-      }
-
-      const { error: expenseError, data: insertedExpense } = await supabase
-        .from("expenses")
-        .insert([expensePayload])
-        .select("*")
-        .single();
-
-      if (expenseError) throw expenseError;
-
-      const insertedExpenseId = insertedExpense?.id || null;
-
-      const { error: historyError } = await supabase.from("wallet_transactions").insert([
-        {
-          ...walletTransactionPayload,
-          expense_id: insertedExpenseId,
-        },
-      ]);
-      if (historyError) throw historyError;
+      await addExpenseData?.(expensePayload);
 
       await refreshFinanceSection();
       closeFinanceModal();
@@ -8915,6 +8827,7 @@ export default function Dashboard() {
     walletTransactions,
     wallets,
     expenses,
+    addExpenseData,
   ]);
 
   const addMoneyInline = useCallback(async () => {
@@ -8930,19 +8843,14 @@ export default function Dashboard() {
 
     try {
       setFinanceActionLoading(true);
-      const { error: historyError } = await supabase.from("wallet_transactions").insert([
-        {
-          id: createFinanceId("txn"),
-          wallet_id: wallet.id,
-          type: "income",
-          amount,
-          user_id: user?.id || null,
-          user_email: user?.email || null,
-          created_by: user?.email || null,
-        },
-      ]);
-
-      if (historyError) throw historyError;
+      await addIncomeData?.({
+        wallet_id: wallet.id,
+        type: "income",
+        amount,
+        user_id: user?.id || null,
+        user_email: user?.email || null,
+        created_by: user?.email || null,
+      });
 
       await refreshFinanceSection();
       closeFinanceModal();
@@ -8960,6 +8868,7 @@ export default function Dashboard() {
     showFinanceNotice,
     user?.email,
     user?.id,
+    addIncomeData,
   ]);
 
   const transferMoneyInline = useCallback(async () => {
@@ -8988,32 +8897,14 @@ export default function Dashboard() {
 
     try {
       setFinanceActionLoading(true);
-      const transferGroupId = createFinanceId("transfer");
-      const { error: historyError } = await supabase.from("wallet_transactions").insert([
-        {
-          id: createFinanceId("txn"),
-          wallet_id: fromWallet.id,
-          type: "transfer_out",
-          amount,
-          transfer_group_id: transferGroupId,
-          related_wallet_id: String(destinationWallet.id),
-          user_id: user?.id || null,
-          user_email: user?.email || null,
-          created_by: user?.email || null,
-        },
-        {
-          id: createFinanceId("txn"),
-          wallet_id: destinationWallet.id,
-          type: "transfer_in",
-          amount,
-          transfer_group_id: transferGroupId,
-          related_wallet_id: String(fromWallet.id),
-          user_id: user?.id || null,
-          user_email: user?.email || null,
-          created_by: user?.email || null,
-        },
-      ]);
-      if (historyError) throw historyError;
+      await transferBetweenWalletsData?.({
+        from_wallet_id: fromWallet.id,
+        to_wallet_id: destinationWallet.id,
+        amount,
+        user_id: user?.id || null,
+        user_email: user?.email || null,
+        created_by: user?.email || null,
+      });
 
       await refreshFinanceSection();
       closeFinanceModal();
@@ -9033,6 +8924,7 @@ export default function Dashboard() {
     user?.email,
     user?.id,
     wallets,
+    transferBetweenWalletsData,
   ]);
 
   const syncBudgetRowsIntoState = useCallback((rows = []) => {
@@ -9333,18 +9225,15 @@ export default function Dashboard() {
         return (linkedById || linkedByCategory) && isInPHRange(getTransactionDate(expense), monthRange.start, monthRange.end);
       }).length;
 
-      const result = linkedExpenseCount > 0
-        ? await supabase
-            .from("budgets")
-            .update({
-              is_active: false,
-              status: "inactive",
-              updated_at: new Date().toISOString(),
-            })
-            .eq("id", item.id)
-        : await supabase.from("budgets").delete().eq("id", item.id);
-
-      if (result.error) throw result.error;
+      if (linkedExpenseCount > 0) {
+        await updateBudgetData?.(String(item.id), {
+          is_active: false,
+          status: "inactive",
+          updated_at: new Date().toISOString(),
+        });
+      } else {
+        await deleteBudgetData?.(String(item.id));
+      }
 
       await refreshFinanceSection();
       setExpandedFinanceCard("budgets");
@@ -9379,15 +9268,15 @@ export default function Dashboard() {
     try {
       setFinanceActionLoading(true);
       const nowIso = new Date().toISOString();
-      const { error } = await supabase
-        .from("budgets")
-        .update({
-          tracking_start_date: nowIso,
-          range_start: nowIso,
-          updated_at: nowIso,
-        })
-        .in("id", categoryIds);
-      if (error) throw error;
+      await Promise.all(
+        categoryIds.map((id) =>
+          updateBudgetData?.(String(id), {
+            tracking_start_date: nowIso,
+            range_start: nowIso,
+            updated_at: nowIso,
+          })
+        )
+      );
 
       await refreshFinanceSection();
       closeFinanceModal();
@@ -9444,20 +9333,13 @@ export default function Dashboard() {
       };
 
       if (goal?.id) {
-        const { error } = await supabase
-          .from("savings_goals")
-          .update(payload)
-          .eq("id", String(goal.id));
-        if (error) throw error;
+        await updateSavingsGoalData?.(String(goal.id), payload);
       } else {
-        const { error } = await supabase.from("savings_goals").insert([
-          {
-            id: `goal_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`,
-            ...payload,
-            created_date: new Date().toISOString(),
-          },
-        ]);
-        if (error) throw error;
+        await addSavingsGoalData?.({
+          id: `goal_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`,
+          ...payload,
+          created_date: new Date().toISOString(),
+        });
       }
 
       await refreshFinanceSection();
@@ -9490,6 +9372,8 @@ export default function Dashboard() {
     showFinanceNotice,
     user?.email,
     user?.id,
+    addSavingsGoalData,
+    updateSavingsGoalData,
   ]);
 
   const deleteSavingsGoalInline = useCallback(async () => {
@@ -9498,11 +9382,7 @@ export default function Dashboard() {
 
     try {
       setFinanceActionLoading(true);
-      const { error } = await supabase
-        .from("savings_goals")
-        .delete()
-        .eq("id", String(goalId));
-      if (error) throw error;
+      await deleteSavingsGoalData?.(String(goalId));
 
       await refreshFinanceSection();
       closeFinanceModal();
@@ -9512,7 +9392,7 @@ export default function Dashboard() {
     } finally {
       setFinanceActionLoading(false);
     }
-  }, [closeFinanceModal, financeModal?.payload?.id, refreshFinanceSection, showFinanceNotice]);
+  }, [closeFinanceModal, financeModal?.payload?.id, refreshFinanceSection, showFinanceNotice, deleteSavingsGoalData]);
 
   const addSavingsInline = useCallback(async () => {
     const goal = financeModal?.payload;
@@ -9551,29 +9431,27 @@ export default function Dashboard() {
 
     try {
       setFinanceActionLoading(true);
-      const { error: txnError } = await supabase.from("wallet_transactions").insert([
-        {
-          id: createFinanceId("txn"),
-          wallet_id: String(sourceWallet.id),
-          type: "savings_goal",
-          amount: finalAmount,
-          notes: `Moved to savings goal: ${goal.title}`,
-          user_id: user?.id || null,
-          user_email: user?.email || null,
-          created_by: user?.email || null,
-        },
-      ]);
-      if (txnError) throw txnError;
+      await addExpenseData?.({
+        wallet_id: String(sourceWallet.id),
+        type: "savings_goal",
+        amount: finalAmount,
+        category: "Savings Goal",
+        need_type: "other",
+        planning_status: "planned",
+        notes: `Moved to savings goal: ${goal.title}`,
+        date: new Date().toISOString(),
+        created_at: new Date().toISOString(),
+        user_id: user?.id || null,
+        user_email: user?.email || null,
+        created_by: user?.email || null,
+      });
 
-      const { error: goalError } = await supabase
-        .from("savings_goals")
-        .update({
-          saved_amount: Math.min(currentSaved + finalAmount, target),
-          wallet_id: sourceWallet.id,
-          updated_date: new Date().toISOString(),
-        })
-        .eq("id", String(goal.id));
-      if (goalError) throw goalError;
+      await updateSavingsGoalData?.(String(goal.id), {
+        saved_amount: Math.min(currentSaved + finalAmount, target),
+        current_amount: Math.min(currentSaved + finalAmount, target),
+        wallet_id: sourceWallet.id,
+        updated_date: new Date().toISOString(),
+      });
 
       await refreshFinanceSection();
       closeFinanceModal();
@@ -9593,6 +9471,8 @@ export default function Dashboard() {
     user?.email,
     user?.id,
     wallets,
+    addExpenseData,
+    updateSavingsGoalData,
   ]);
 
   const safeSurvivalExpense = Number(survivalExpense) || 0;
