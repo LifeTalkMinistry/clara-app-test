@@ -10691,7 +10691,6 @@ export default function Dashboard() {
                         ) > 0
                       }
                       onQuickExpense={openManualExpenseModal}
-                      onQuickExpense={openManualExpenseModal}
                     onSurvivalSaved={async (val) => {
                         const nextValue = firstPositiveNumber(val);
                         if (nextValue <= 0) return;
