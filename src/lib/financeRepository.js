@@ -7,20 +7,6 @@
  * Phase 2D-4B — Supabase Legacy wallet CRUD Preparation Only
  * Phase LOCAL-1 — Dormant Local Finance Transaction Engine Only
  *
- * This file creates a dormant finance repository abstraction that will later
- * become the single access point for CLARA finance data.
- *
- * This module does not:
- * - redesign UI
- * - change dashboard behavior
- * - migrate Supabase data
- * - replace all existing Supabase reads/writes in app pages/hooks
- * - connect IndexedDB to the live dashboard
- * - make live wallet writes local
- * - implement Private Sync
- * - implement encryption
- * - implement backup/export/import
- *
  * Architecture references:
  * - docs/clara-data-boundary.md
  * - src/lib/localFinanceStore.js
@@ -1299,44 +1285,121 @@ function createLocalFinanceRepository() {
     },
 
     async upsertSavingsGoal(localUserId, goal) {
-      return addLocalStoreRecord(
-        LOCAL_FINANCE_STORES.savingsGoals,
-        localUserId,
-        {
+      const safeLocalUserId = requireLocalUserId(localUserId);
+      assertObjectPayload(goal, "Savings goal");
+
+      const operationTime = new Date().toISOString();
+      const goalId = goal.id || defaultGenerateId("savings_goal");
+      const existingGoal = goal.id
+        ? await getLocalRecordById(
+            LOCAL_FINANCE_STORES.savingsGoals,
+            goal.id,
+            safeLocalUserId
+          )
+        : null;
+
+      const savingsGoalRecord = makeLocalOperationRecord({
+        storeName: LOCAL_FINANCE_STORES.savingsGoals,
+        localUserId: safeLocalUserId,
+        existingRecord: existingGoal || null,
+        operationTime,
+        idPrefix: "savings_goal",
+        payload: {
+          ...(existingGoal || {}),
           ...goal,
-          syncStatus: goal?.syncStatus || "local_only",
-          source: goal?.source || "local",
+          id: goalId,
+          saved_amount: defaultToNumber(
+            goal.saved_amount ?? goal.savedAmount ?? existingGoal?.saved_amount ?? 0
+          ),
+          target_amount: defaultToNumber(
+            goal.target_amount ?? goal.targetAmount ?? existingGoal?.target_amount ?? 0
+          ),
+          updated_at: operationTime,
+          deletedAt: goal.deletedAt ?? existingGoal?.deletedAt ?? null,
+          syncStatus: goal.syncStatus || "local_only",
+          source: "local",
         },
-        "Savings goal"
+      });
+
+      return upsertLocalRecord(
+        LOCAL_FINANCE_STORES.savingsGoals,
+        makeRepositoryRecord(savingsGoalRecord, "local"),
+        safeLocalUserId
       );
     },
 
     async getEmergencyFund(localUserId) {
       const safeLocalUserId = requireLocalUserId(localUserId);
-      const records = await getLocalRecords(LOCAL_FINANCE_STORES.emergencyFund, safeLocalUserId);
-      return records.find((record) => !record.deletedAt) || null;
+      const records = await getLocalRecords(
+        LOCAL_FINANCE_STORES.emergencyFund,
+        safeLocalUserId
+      );
+
+      const safeRecords = Array.isArray(records) ? records : [];
+
+      const activeRecords = safeRecords
+        .filter((record) => !record?.deletedAt)
+        .sort((left, right) => {
+          const leftTime = new Date(left?.updatedAt || left?.updated_at || left?.createdAt || 0)
+            .getTime();
+          const rightTime = new Date(
+            right?.updatedAt || right?.updated_at || right?.createdAt || 0
+          ).getTime();
+
+          return rightTime - leftTime;
+        });
+
+      return activeRecords[0] || null;
     },
 
     async upsertEmergencyFund(localUserId, emergencyFund) {
       const safeLocalUserId = requireLocalUserId(localUserId);
       assertObjectPayload(emergencyFund, "Emergency fund");
+
+      const operationTime = new Date().toISOString();
       const existingEmergencyFund = await this.getEmergencyFund(safeLocalUserId);
+
+      const emergencyFundRecord = makeLocalOperationRecord({
+        storeName: LOCAL_FINANCE_STORES.emergencyFund,
+        localUserId: safeLocalUserId,
+        existingRecord: existingEmergencyFund || null,
+        operationTime,
+        idPrefix: "emergency_fund",
+        payload: {
+          ...(existingEmergencyFund || {}),
+          ...emergencyFund,
+          id:
+            emergencyFund.id ||
+            existingEmergencyFund?.id ||
+            `emergency_fund:${safeLocalUserId}`,
+          target_amount: defaultToNumber(
+            emergencyFund.target_amount ??
+              emergencyFund.targetAmount ??
+              existingEmergencyFund?.target_amount ??
+              0
+          ),
+          saved_amount: defaultToNumber(
+            emergencyFund.saved_amount ??
+              emergencyFund.savedAmount ??
+              existingEmergencyFund?.saved_amount ??
+              0
+          ),
+          monthly_target: defaultToNumber(
+            emergencyFund.monthly_target ??
+              emergencyFund.monthlyTarget ??
+              existingEmergencyFund?.monthly_target ??
+              0
+          ),
+          updated_at: operationTime,
+          deletedAt: emergencyFund.deletedAt ?? existingEmergencyFund?.deletedAt ?? null,
+          syncStatus: emergencyFund.syncStatus || "local_only",
+          source: "local",
+        },
+      });
 
       return upsertLocalRecord(
         LOCAL_FINANCE_STORES.emergencyFund,
-        makeRepositoryRecord(
-          {
-            ...existingEmergencyFund,
-            ...emergencyFund,
-            id:
-              emergencyFund.id ||
-              existingEmergencyFund?.id ||
-              `emergency_fund:${safeLocalUserId}`,
-            syncStatus: emergencyFund.syncStatus || "local_only",
-            source: emergencyFund.source || "local",
-          },
-          "local"
-        ),
+        makeRepositoryRecord(emergencyFundRecord, "local"),
         safeLocalUserId
       );
     },
@@ -1759,8 +1822,6 @@ export function createFinanceRepository(options = {}) {
   return createUnsupportedModeRepository(mode);
 }
 
-// Dormant default repository export for future phases.
-// Do not import into runtime app pages/hooks until specifically routed.
 export const financeRepository = createFinanceRepository();
 
 export async function getExpenses(localUserId, options) {
