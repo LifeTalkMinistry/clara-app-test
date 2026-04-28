@@ -17,6 +17,10 @@ import {
   addBudget as repoAddBudget,
   updateBudget as repoUpdateBudget,
   deleteBudget as repoDeleteBudget,
+  getSavingsGoals,
+  upsertSavingsGoal,
+  getEmergencyFund,
+  upsertEmergencyFund,
 } from "@/lib/financeRepository";
 
 const toNumber = (value) => {
@@ -69,6 +73,8 @@ const createEmptyFinancialCache = (key = null) => ({
   budgets: [],
   walletTransactions: [],
   transfers: [],
+  savingsGoals: [],
+  emergencyFund: null,
 });
 
 let financialDataCache = createEmptyFinancialCache();
@@ -90,6 +96,12 @@ function useFinancialData(user) {
     initialCache.walletTransactions || []
   );
   const [transfers, setTransfers] = useState(initialCache.transfers || []);
+  const [savingsGoals, setSavingsGoals] = useState(
+    initialCache.savingsGoals || []
+  );
+  const [emergencyFund, setEmergencyFund] = useState(
+    initialCache.emergencyFund || null
+  );
   const [loading, setLoading] = useState(!initialCache.loaded);
   const [error, setError] = useState(initialCache.error || null);
 
@@ -108,6 +120,10 @@ function useFinancialData(user) {
         : []
     );
     setTransfers(Array.isArray(nextCache.transfers) ? nextCache.transfers : []);
+    setSavingsGoals(
+      Array.isArray(nextCache.savingsGoals) ? nextCache.savingsGoals : []
+    );
+    setEmergencyFund(nextCache.emergencyFund || null);
     setError(nextCache.error || null);
     setLoading(!nextCache.loaded);
   }, []);
@@ -133,12 +149,16 @@ function useFinancialData(user) {
         rawBudgets,
         rawWalletTransactions,
         rawTransfers,
+        rawSavingsGoals,
+        rawEmergencyFund,
       ] = await Promise.all([
         getExpenses(localUserId),
         getWallets(localUserId),
         getBudgets(localUserId),
         getWalletTransactions(localUserId),
         getTransfers(localUserId),
+        getSavingsGoals(localUserId),
+        getEmergencyFund(localUserId),
       ]);
 
       const safeWalletTransactions = sortByNewest(rawWalletTransactions);
@@ -170,6 +190,10 @@ function useFinancialData(user) {
         budgets: sortByNewest(rawBudgets),
         walletTransactions: safeWalletTransactions,
         transfers: safeTransfers,
+        savingsGoals: sortByNewest(rawSavingsGoals).filter(
+          (goal) => !goal?.deletedAt && !goal?.deleted_at
+        ),
+        emergencyFund: rawEmergencyFund || null,
       };
 
       financialDataCache = nextCache;
@@ -205,6 +229,10 @@ function useFinancialData(user) {
               transfers: Array.isArray(financialDataCache.transfers)
                 ? financialDataCache.transfers
                 : [],
+              savingsGoals: Array.isArray(financialDataCache.savingsGoals)
+                ? financialDataCache.savingsGoals
+                : [],
+              emergencyFund: financialDataCache.emergencyFund || null,
             }
           : {
               ...createEmptyFinancialCache(cacheKey),
@@ -317,6 +345,53 @@ function useFinancialData(user) {
     [localUserId, refreshData]
   );
 
+  const addSavingsGoal = useCallback(
+    async (goal) => {
+      await upsertSavingsGoal(localUserId, {
+        ...goal,
+        deletedAt: null,
+        deleted_at: null,
+      });
+      await refreshData();
+    },
+    [localUserId, refreshData]
+  );
+
+  const updateSavingsGoal = useCallback(
+    async (id, updates) => {
+      await upsertSavingsGoal(localUserId, {
+        ...updates,
+        id,
+        updatedAt: new Date().toISOString(),
+      });
+      await refreshData();
+    },
+    [localUserId, refreshData]
+  );
+
+  const deleteSavingsGoal = useCallback(
+    async (id) => {
+      await upsertSavingsGoal(localUserId, {
+        id,
+        deletedAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      });
+      await refreshData();
+    },
+    [localUserId, refreshData]
+  );
+
+  const updateEmergencyFund = useCallback(
+    async (updates) => {
+      await upsertEmergencyFund(localUserId, {
+        ...(updates || {}),
+        updatedAt: new Date().toISOString(),
+      });
+      await refreshData();
+    },
+    [localUserId, refreshData]
+  );
+
   const safeExpenses = Array.isArray(expenses) ? expenses : [];
   const safeIncomes = Array.isArray(incomes) ? incomes : [];
   const safeWallets = Array.isArray(wallets) ? wallets : [];
@@ -325,6 +400,10 @@ function useFinancialData(user) {
     ? walletTransactions
     : [];
   const safeTransfers = Array.isArray(transfers) ? transfers : [];
+  const safeSavingsGoals = Array.isArray(savingsGoals)
+    ? savingsGoals.filter((goal) => !goal?.deletedAt && !goal?.deleted_at)
+    : [];
+  const safeEmergencyFund = emergencyFund || null;
 
   const totalExpenses = useMemo(
     () => safeExpenses.reduce((sum, expense) => sum + toNumber(expense.amount), 0),
@@ -372,6 +451,8 @@ function useFinancialData(user) {
     budgets: safeBudgets,
     walletTransactions: safeWalletTransactions,
     transfers: safeTransfers,
+    savingsGoals: safeSavingsGoals,
+    emergencyFund: safeEmergencyFund,
 
     totalExpenses,
     totalIncome,
@@ -394,6 +475,12 @@ function useFinancialData(user) {
     addBudget,
     updateBudget,
     deleteBudget,
+
+    addSavingsGoal,
+    updateSavingsGoal,
+    deleteSavingsGoal,
+
+    updateEmergencyFund,
   };
 }
 
