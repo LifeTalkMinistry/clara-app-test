@@ -1,4 +1,4 @@
-import { useState, useMemo, useCallback } from "react";
+import { useState, useEffect, useMemo, useCallback } from "react";
 import {
   Plus,
   Wallet as WalletIcon,
@@ -28,8 +28,7 @@ import {
 import EmptyState from "../components/EmptyState";
 import FeaturePageLoader from "../components/FeaturePageLoader";
 import useUserRole from "../hooks/useUserRole";
-import useFinancialData from "../hooks/useFinancialData";
-import { supabase } from "@/lib/supabaseClient";
+import { getWalletBalance } from "@/utils/financialEngine";
 
 const walletTypes = ["cash", "gcash", "bank", "maya", "credit_card", "other"];
 const fundSourceTypes = [
@@ -156,100 +155,281 @@ const getHistoryAmountPrefix = (type) => {
   return "+";
 };
 
-const isMissingColumnError = (error) => {
-  const message = String(
-    error?.message || error?.details || error?.hint || ""
-  ).toLowerCase();
 
-  return (
-    error?.code === "PGRST204" ||
-    error?.code === "PGRST200" ||
-    error?.code === "42703" ||
-    message.includes("column") ||
-    message.includes("schema cache") ||
-    message.includes("does not exist") ||
-    message.includes("could not find")
-  );
+const LOCAL_FINANCE_VERSION = 1;
+const LOCAL_FINANCE_PREFIX = "clara_local_finance_v1";
+const LOCAL_FINANCE_LAST_KEY = `${LOCAL_FINANCE_PREFIX}:last`;
+
+const isBrowser = () =>
+  typeof window !== "undefined" && typeof window.localStorage !== "undefined";
+
+const safeText = (value) => String(value ?? "").trim();
+
+const safeJsonParse = (value, fallback = null) => {
+  try {
+    return value ? JSON.parse(value) : fallback;
+  } catch {
+    return fallback;
+  }
 };
 
-const isInvalidUuidTxnDefaultError = (error) => {
-  const message = String(
-    error?.message || error?.details || error?.hint || ""
-  ).toLowerCase();
+const getLocalFinanceKey = (userKey) =>
+  `${LOCAL_FINANCE_PREFIX}:${safeText(userKey || "guest").toLowerCase() || "guest"}`;
 
-  return (
-    message.includes("invalid input syntax for type uuid") &&
-    message.includes("txn_")
-  );
+const sortByDateDesc = (a, b) => {
+  const aTime = new Date(a?.created_at || a?.date || 0).getTime() || 0;
+  const bTime = new Date(b?.created_at || b?.date || 0).getTime() || 0;
+  return bTime - aTime;
 };
 
-const withWalletTransactionUuidFields = (row) => {
-  const safeId = generateId();
+const normalizeWalletRow = (wallet) => {
+  const name = wallet?.name || wallet?.wallet_name || "Untitled Wallet";
+  const type = wallet?.type || "other";
+  const startingBalance = toNumber(
+    wallet?.starting_balance ?? wallet?.initial_balance ?? wallet?.balance
+  );
+  const balance = toNumber(
+    wallet?.balance ?? wallet?.current_balance ?? wallet?.starting_balance ?? startingBalance
+  );
 
   return {
-    ...row,
-    id: row?.id || safeId,
-    transaction_id: row?.transaction_id || safeId,
+    ...wallet,
+    id: String(wallet?.id || generateId()),
+    name,
+    wallet_name: wallet?.wallet_name || name,
+    type,
+    balance,
+    starting_balance: startingBalance,
+    icon: wallet?.icon || walletIcons[type] || "💰",
+    sort_order:
+      wallet?.sort_order === null || wallet?.sort_order === undefined
+        ? 0
+        : toNumber(wallet.sort_order),
+    created_at: wallet?.created_at || new Date().toISOString(),
+    updated_at: wallet?.updated_at || wallet?.created_at || new Date().toISOString(),
+    local_only: wallet?.local_only ?? true,
   };
 };
 
-const stripOptionalTransactionColumns = (row) => {
-  const nextRow = { ...row };
-  delete nextRow.transaction_id;
-  return nextRow;
+const normalizeTransactionRow = (transaction) => ({
+  ...transaction,
+  id: String(transaction?.id || generateId()),
+  transaction_id: transaction?.transaction_id || transaction?.id || generateId(),
+  wallet_id: transaction?.wallet_id ? String(transaction.wallet_id) : "",
+  related_wallet_id: transaction?.related_wallet_id
+    ? String(transaction.related_wallet_id)
+    : transaction?.relatedWalletId
+      ? String(transaction.relatedWalletId)
+      : null,
+  amount: toNumber(transaction?.amount),
+  type: String(transaction?.type || "other").trim().toLowerCase(),
+  created_at: transaction?.created_at || transaction?.date || new Date().toISOString(),
+  updated_at:
+    transaction?.updated_at ||
+    transaction?.created_at ||
+    transaction?.date ||
+    new Date().toISOString(),
+  local_only: transaction?.local_only ?? true,
+});
+
+const readLocalArrayFallback = (keys = []) => {
+  if (!isBrowser()) return [];
+
+  for (const key of keys) {
+    const parsed = safeJsonParse(window.localStorage.getItem(key), null);
+    if (Array.isArray(parsed)) return parsed;
+    if (Array.isArray(parsed?.items)) return parsed.items;
+    if (Array.isArray(parsed?.data)) return parsed.data;
+  }
+
+  return [];
 };
 
-const insertWalletTransactionRows = async (rows) => {
-  const safeRows = (Array.isArray(rows) ? rows : [rows]).map(
-    withWalletTransactionUuidFields
-  );
-
-  const { error } = await supabase.from("wallet_transactions").insert(safeRows);
-
-  if (!error) return;
-
-  if (isMissingColumnError(error)) {
-    const fallbackRows = safeRows.map(stripOptionalTransactionColumns);
-    const { error: fallbackError } = await supabase
-      .from("wallet_transactions")
-      .insert(fallbackRows);
-
-    if (!fallbackError) return;
-    throw fallbackError;
+const readLocalFinanceSnapshot = (key = null) => {
+  if (!isBrowser()) {
+    return {
+      key,
+      loaded: true,
+      version: LOCAL_FINANCE_VERSION,
+      updatedAt: new Date().toISOString(),
+      expenses: [],
+      wallets: [],
+      transactions: [],
+      transfers: [],
+    };
   }
 
-  if (isInvalidUuidTxnDefaultError(error)) {
-    throw new Error(
-      'Wallet transaction UUID error: the database is still generating a "txn_" value for a UUID column. The app now sends valid UUIDs for id and transaction_id, so please check the wallet_transactions table default/trigger.'
-    );
-  }
+  const normalizedKey = key || "guest";
+  const storageKey = getLocalFinanceKey(normalizedKey);
+  const stored = safeJsonParse(window.localStorage.getItem(storageKey), null);
+  const last = safeJsonParse(window.localStorage.getItem(LOCAL_FINANCE_LAST_KEY), null);
+  const source = stored || (last?.key === normalizedKey ? last : null) || {};
 
-  throw error;
+  const suffix = safeText(normalizedKey).toLowerCase();
+  const legacyWallets = readLocalArrayFallback([
+    `clara_wallets:${suffix}`,
+    `clara_local_wallets:${suffix}`,
+    "clara_wallets",
+    "clara_local_wallets",
+    "wallets",
+  ]);
+  const legacyTransactions = readLocalArrayFallback([
+    `clara_wallet_transactions:${suffix}`,
+    `clara_transactions:${suffix}`,
+    `clara_local_transactions:${suffix}`,
+    "clara_wallet_transactions",
+    "clara_transactions",
+    "clara_local_transactions",
+    "wallet_transactions",
+  ]);
+  const legacyExpenses = readLocalArrayFallback([
+    `clara_expenses:${suffix}`,
+    `clara_local_expenses:${suffix}`,
+    "clara_expenses",
+    "clara_local_expenses",
+    "expenses",
+  ]);
+
+  const transactions = (Array.isArray(source.transactions)
+    ? source.transactions
+    : legacyTransactions)
+    .map(normalizeTransactionRow)
+    .sort(sortByDateDesc);
+
+  const wallets = (Array.isArray(source.wallets) ? source.wallets : legacyWallets)
+    .map(normalizeWalletRow)
+    .map((wallet) => ({
+      ...wallet,
+      balance: getWalletBalance(wallet, transactions),
+      derived_balance: getWalletBalance(wallet, transactions),
+    }));
+
+  return {
+    key: normalizedKey,
+    loaded: true,
+    version: LOCAL_FINANCE_VERSION,
+    updatedAt: source.updatedAt || source.updated_at || new Date().toISOString(),
+    expenses: Array.isArray(source.expenses) ? source.expenses : legacyExpenses,
+    wallets,
+    transactions,
+    transfers: Array.isArray(source.transfers) ? source.transfers : [],
+  };
+};
+
+const writeLocalFinanceSnapshot = (key, snapshot) => {
+  if (!isBrowser()) return snapshot;
+
+  const normalizedKey = key || "guest";
+  const transactions = (snapshot.transactions || [])
+    .map(normalizeTransactionRow)
+    .sort(sortByDateDesc);
+
+  const wallets = (snapshot.wallets || [])
+    .map(normalizeWalletRow)
+    .map((wallet) => ({
+      ...wallet,
+      balance: getWalletBalance(wallet, transactions),
+      derived_balance: getWalletBalance(wallet, transactions),
+    }));
+
+  const nextSnapshot = {
+    key: normalizedKey,
+    loaded: true,
+    version: LOCAL_FINANCE_VERSION,
+    updatedAt: new Date().toISOString(),
+    expenses: Array.isArray(snapshot.expenses) ? snapshot.expenses : [],
+    wallets,
+    transactions,
+    transfers: Array.isArray(snapshot.transfers) ? snapshot.transfers : [],
+  };
+
+  window.localStorage.setItem(getLocalFinanceKey(normalizedKey), JSON.stringify(nextSnapshot));
+  window.localStorage.setItem(LOCAL_FINANCE_LAST_KEY, JSON.stringify(nextSnapshot));
+
+  return nextSnapshot;
+};
+
+const dispatchLocalFinanceEvents = () => {
+  if (typeof window === "undefined") return;
+
+  [
+    "clara-wallets-updated",
+    "clara-wallet-transactions-updated",
+    "clara-finance-updated",
+    "clara-expenses-updated",
+    "clara-local-finance-updated",
+  ].forEach((eventName) => window.dispatchEvent(new Event(eventName)));
 };
 
 export default function Wallets() {
   const { user, loading: accessLoading } = useUserRole();
-  const financial = useFinancialData(user);
+  const cacheKey = user?.id || user?.email || "guest";
+  const [financeSnapshot, setFinanceSnapshot] = useState(() =>
+    readLocalFinanceSnapshot(cacheKey)
+  );
+
+  useEffect(() => {
+    const refreshLocalFinance = () => {
+      setFinanceSnapshot(readLocalFinanceSnapshot(cacheKey));
+    };
+
+    refreshLocalFinance();
+
+    if (typeof window === "undefined") return undefined;
+
+    window.addEventListener("storage", refreshLocalFinance);
+    window.addEventListener("clara-local-finance-updated", refreshLocalFinance);
+    window.addEventListener("clara-finance-updated", refreshLocalFinance);
+    window.addEventListener("clara-wallets-updated", refreshLocalFinance);
+    window.addEventListener("clara-wallet-transactions-updated", refreshLocalFinance);
+
+    return () => {
+      window.removeEventListener("storage", refreshLocalFinance);
+      window.removeEventListener("clara-local-finance-updated", refreshLocalFinance);
+      window.removeEventListener("clara-finance-updated", refreshLocalFinance);
+      window.removeEventListener("clara-wallets-updated", refreshLocalFinance);
+      window.removeEventListener("clara-wallet-transactions-updated", refreshLocalFinance);
+    };
+  }, [cacheKey]);
+
+  const commitFinanceState = useCallback(
+    (nextPartial) => {
+      const nextSnapshot = writeLocalFinanceSnapshot(cacheKey, {
+        ...financeSnapshot,
+        ...nextPartial,
+      });
+
+      setFinanceSnapshot(nextSnapshot);
+      dispatchLocalFinanceEvents();
+      return nextSnapshot;
+    },
+    [cacheKey, financeSnapshot]
+  );
 
   const wallets = useMemo(
-    () => (Array.isArray(financial?.wallets) ? financial.wallets : []),
-    [financial?.wallets]
+    () => (Array.isArray(financeSnapshot?.wallets) ? financeSnapshot.wallets : []),
+    [financeSnapshot?.wallets]
   );
 
   const walletTransactions = useMemo(
     () =>
-      Array.isArray(financial?.walletTransactions)
-        ? financial.walletTransactions
+      Array.isArray(financeSnapshot?.transactions)
+        ? financeSnapshot.transactions
         : [],
-    [financial?.walletTransactions]
+    [financeSnapshot?.transactions]
   );
 
-  const refreshData =
-    typeof financial?.refreshData === "function"
-      ? financial.refreshData
-      : async () => {};
+  const expenses = useMemo(
+    () => (Array.isArray(financeSnapshot?.expenses) ? financeSnapshot.expenses : []),
+    [financeSnapshot?.expenses]
+  );
 
-  const loading = Boolean(financial?.loading);
+  const transfers = useMemo(
+    () => (Array.isArray(financeSnapshot?.transfers) ? financeSnapshot.transfers : []),
+    [financeSnapshot?.transfers]
+  );
+
+  const loading = false;
 
   const [addOpen, setAddOpen] = useState(false);
   const [addMoneyOpen, setAddMoneyOpen] = useState(false);
@@ -358,21 +538,17 @@ export default function Wallets() {
     });
   };
 
-  const normalizeWalletOrder = async (walletList) => {
-    const updates = walletList.map((wallet, index) =>
-      supabase
-        .from("wallets")
-        .update({ sort_order: index })
-        .eq("id", String(wallet.id))
-    );
-
-    const results = await Promise.all(updates);
-    const failed = results.find((result) => result?.error);
-
-    if (failed?.error) {
-      throw failed.error;
-    }
-  };
+  const normalizeWalletOrder = useCallback(
+    (walletList) =>
+      walletList.map((wallet, index) =>
+        normalizeWalletRow({
+          ...wallet,
+          sort_order: index,
+          updated_at: new Date().toISOString(),
+        })
+      ),
+    []
+  );
 
   const moveWallet = async (walletId, direction) => {
     if (isReorderingWallets) return;
@@ -395,8 +571,13 @@ export default function Wallets() {
 
     try {
       setIsReorderingWallets(true);
-      await normalizeWalletOrder(nextWallets);
-      await refreshData();
+
+      commitFinanceState({
+        wallets: normalizeWalletOrder(nextWallets),
+        transactions: walletTransactions,
+        expenses,
+        transfers,
+      });
     } catch (error) {
       alert(error?.message || "Failed to reorder wallets");
     } finally {
@@ -418,30 +599,38 @@ export default function Wallets() {
     try {
       setIsCreatingWallet(true);
 
+      const operationTime = new Date().toISOString();
       const starting = toNumber(form.starting_balance);
       const nextSortOrder = sortedWallets.length;
 
-      const { error } = await supabase.from("wallets").insert([
-        {
-          name: form.name.trim(),
-          type: form.type,
-          balance: starting,
-          starting_balance: starting,
-          icon: walletIcons[form.type],
-          sort_order: nextSortOrder,
-          user_id: user?.id || null,
-          user_email: user?.email || null,
-          created_by: user?.email || null,
-        },
-      ]);
+      const newWallet = normalizeWalletRow({
+        id: generateId(),
+        name: form.name.trim(),
+        wallet_name: form.name.trim(),
+        type: form.type,
+        balance: starting,
+        starting_balance: starting,
+        icon: walletIcons[form.type],
+        sort_order: nextSortOrder,
+        user_id: user?.id || null,
+        user_email: user?.email || null,
+        created_by: user?.email || null,
+        created_at: operationTime,
+        updated_at: operationTime,
+        local_only: true,
+      });
 
-      if (error) throw error;
+      commitFinanceState({
+        wallets: [...wallets, newWallet],
+        transactions: walletTransactions,
+        expenses,
+        transfers,
+      });
 
       setAddOpen(false);
       resetAddWalletForm();
-      await refreshData();
     } catch (error) {
-      alert(error?.message || "Failed to create wallet");
+      alert(error?.message || "Failed to create wallet locally");
     } finally {
       setIsCreatingWallet(false);
     }
@@ -452,21 +641,18 @@ export default function Wallets() {
     if (!confirmed) return;
 
     try {
-      const { error } = await supabase
-        .from("wallets")
-        .delete()
-        .eq("id", String(id));
-
-      if (error) throw error;
-
       const remainingWallets = sortedWallets.filter(
         (wallet) => String(wallet.id) !== String(id)
       );
 
-      await normalizeWalletOrder(remainingWallets);
-      await refreshData();
+      commitFinanceState({
+        wallets: normalizeWalletOrder(remainingWallets),
+        transactions: walletTransactions,
+        expenses,
+        transfers,
+      });
     } catch (error) {
-      alert(error?.message || "Failed to delete wallet");
+      alert(error?.message || "Failed to delete wallet locally");
     }
   };
 
@@ -515,17 +701,19 @@ export default function Wallets() {
         .filter(Boolean)
         .join(" • ");
 
-      const { error: walletError } = await supabase
-        .from("wallets")
-        .update({
-          balance: newBalance,
-          updated_at: operationTime,
-        })
-        .eq("id", String(selectedWallet.id));
+      const nextWallets = wallets.map((wallet) =>
+        String(wallet.id) === String(selectedWallet.id)
+          ? normalizeWalletRow({
+              ...wallet,
+              balance: newBalance,
+              updated_at: operationTime,
+            })
+          : wallet
+      );
 
-      if (walletError) throw walletError;
-
-      const historyPayload = {
+      const historyPayload = normalizeTransactionRow({
+        id: generateId(),
+        transaction_id: generateId(),
         wallet_id: selectedWallet.id,
         type: "income",
         amount,
@@ -537,15 +725,20 @@ export default function Wallets() {
         user_id: user?.id || null,
         user_email: user?.email || null,
         created_by: user?.email || null,
-      };
+        local_only: true,
+      });
 
-      await insertWalletTransactionRows(historyPayload);
+      commitFinanceState({
+        wallets: nextWallets,
+        transactions: [historyPayload, ...walletTransactions],
+        expenses,
+        transfers,
+      });
 
       setAddMoneyOpen(false);
       resetAddMoneyForm();
-      await refreshData();
     } catch (error) {
-      alert(error?.message || "Failed to add money");
+      alert(error?.message || "Failed to add money locally");
     } finally {
       setIsAddingMoney(false);
     }
@@ -595,28 +788,30 @@ export default function Wallets() {
       const nextToBalance = toBalance + amount;
       const transferGroupId = generateId();
 
-      const { error: fromError } = await supabase
-        .from("wallets")
-        .update({
-          balance: nextFromBalance,
-          updated_at: operationTime,
-        })
-        .eq("id", fromId);
+      const nextWallets = wallets.map((wallet) => {
+        if (String(wallet.id) === fromId) {
+          return normalizeWalletRow({
+            ...wallet,
+            balance: nextFromBalance,
+            updated_at: operationTime,
+          });
+        }
 
-      if (fromError) throw fromError;
+        if (String(wallet.id) === toId) {
+          return normalizeWalletRow({
+            ...wallet,
+            balance: nextToBalance,
+            updated_at: operationTime,
+          });
+        }
 
-      const { error: toError } = await supabase
-        .from("wallets")
-        .update({
-          balance: nextToBalance,
-          updated_at: operationTime,
-        })
-        .eq("id", toId);
-
-      if (toError) throw toError;
+        return wallet;
+      });
 
       const historyRows = [
-        {
+        normalizeTransactionRow({
+          id: generateId(),
+          transaction_id: generateId(),
           wallet_id: fromId,
           type: "transfer_out",
           amount,
@@ -628,8 +823,11 @@ export default function Wallets() {
           user_id: user?.id || null,
           user_email: user?.email || null,
           created_by: user?.email || null,
-        },
-        {
+          local_only: true,
+        }),
+        normalizeTransactionRow({
+          id: generateId(),
+          transaction_id: generateId(),
           wallet_id: toId,
           type: "transfer_in",
           amount,
@@ -641,35 +839,35 @@ export default function Wallets() {
           user_id: user?.id || null,
           user_email: user?.email || null,
           created_by: user?.email || null,
-        },
+          local_only: true,
+        }),
       ];
 
-      await insertWalletTransactionRows(historyRows);
+      const transferSummary = {
+        id: transferGroupId,
+        from_wallet_id: fromId,
+        to_wallet_id: toId,
+        amount,
+        notes: transferForm.notes || null,
+        user_id: user?.id || null,
+        user_email: user?.email || null,
+        created_by: user?.email || null,
+        created_at: operationTime,
+        updated_at: operationTime,
+        local_only: true,
+      };
 
-      const { error: transferError } = await supabase.from("transfers").insert([
-        {
-          id: transferGroupId,
-          from_wallet_id: fromId,
-          to_wallet_id: toId,
-          amount,
-          notes: transferForm.notes || null,
-          user_id: user?.id || null,
-          user_email: user?.email || null,
-          created_by: user?.email || null,
-          created_at: operationTime,
-          updated_at: operationTime,
-        },
-      ]);
-
-      if (transferError) {
-        console.warn("Transfer summary insert failed:", transferError);
-      }
+      commitFinanceState({
+        wallets: nextWallets,
+        transactions: [...historyRows, ...walletTransactions],
+        expenses,
+        transfers: [transferSummary, ...transfers],
+      });
 
       setTransferOpen(false);
       resetTransferForm();
-      await refreshData();
     } catch (error) {
-      alert(error?.message || "Failed to transfer money");
+      alert(error?.message || "Failed to transfer money locally");
     } finally {
       setIsTransferringMoney(false);
     }
