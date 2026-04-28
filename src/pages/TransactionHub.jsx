@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   ArrowDownLeft,
@@ -15,6 +15,11 @@ import {
 
 import useUserRole from "../hooks/useUserRole";
 import useFinancialData from "../hooks/useFinancialData";
+import {
+  getLocalExpenses,
+  getPendingExpenses,
+  isClaraOnline,
+} from "@/lib/clara-offline-finance";
 
 const FILTERS = [
   { key: "all", label: "All" },
@@ -156,12 +161,61 @@ const buildSearchText = (item) =>
     item.walletName,
     item.notes,
     item.statusLabel,
+    item.syncLabel,
     item.amount,
     item.signedAmount,
   ]
     .map((value) => normalizeLower(value))
     .filter(Boolean)
     .join(" ");
+
+const getSyncLabel = (item = {}) => {
+  const status = normalizeLower(item.sync_status);
+  if (status === "failed") return "Will retry";
+  if (status && status !== "synced") return "Pending sync";
+  if (item.pending_sync || item.local_only) return "Pending sync";
+  return "";
+};
+
+const getSyncToneClass = (syncLabel) => {
+  if (syncLabel === "Will retry") return "border-amber-300/20 bg-amber-400/10 text-amber-100";
+  if (syncLabel === "Pending sync") return "border-cyan-300/20 bg-cyan-400/10 text-cyan-100";
+  return "border-white/10 bg-black/22 text-white/60";
+};
+
+const getExpenseMergeSignature = (expense = {}) => {
+  const amount = toNumber(expense.amount);
+  const date = expense.date || expense.created_at || expense.expense_date || "";
+  const walletId = expense.wallet_id || "";
+  const category = normalizeLower(expense.category || "");
+  return `${amount}:${date}:${walletId}:${category}`;
+};
+
+const mergeExpensesWithLocal = (remoteExpenses = [], localExpenses = []) => {
+  const remoteIds = new Set(
+    remoteExpenses
+      .map((expense) => String(expense?.id || expense?.remote_id || ""))
+      .filter(Boolean)
+  );
+  const remoteSignatures = new Set(remoteExpenses.map(getExpenseMergeSignature));
+  const merged = remoteExpenses.map((expense) => ({
+    ...expense,
+    local_only: false,
+    sync_status: expense?.sync_status || "synced",
+  }));
+
+  localExpenses.forEach((expense) => {
+    const remoteId = String(expense?.remote_id || "");
+    const synced = normalizeLower(expense?.sync_status) === "synced";
+
+    if (remoteId && remoteIds.has(remoteId) && synced) return;
+    if (remoteSignatures.has(getExpenseMergeSignature(expense)) && synced) return;
+
+    merged.push(expense);
+  });
+
+  return merged.sort((left, right) => getActivityTime(right) - getActivityTime(left));
+};
 
 const buildUnifiedActivity = ({ expenses = [], walletTransactions = [], transfers = [], walletMap }) => {
   const transactionExpenseIds = new Set(
@@ -181,6 +235,7 @@ const buildUnifiedActivity = ({ expenses = [], walletTransactions = [], transfer
     const signedAmount = getSignedAmount({ type: txn?.type, amount: txn?.amount });
     const walletName = getWalletName(walletMap, txn?.wallet_id);
     const title = getActivityTitle(txn);
+    const syncLabel = getSyncLabel(txn);
 
     return {
       id: `wallet-${txn.id || `${txn.type}-${txn.wallet_id}-${txn.created_at}`}`,
@@ -196,17 +251,22 @@ const buildUnifiedActivity = ({ expenses = [], walletTransactions = [], transfer
       notes: txn?.notes || txn?.details || "",
       dateValue: getActivityDateValue(txn),
       statusLabel: titleCase(txn?.type || group),
+      syncLabel,
     };
   });
 
   const orphanExpenses = expenses
-    .filter((expense) => !transactionExpenseIds.has(String(expense?.id)))
+    .filter((expense) => {
+      if (expense?.local_only || expense?.pending_sync || normalizeLower(expense?.sync_status) !== "synced") return true;
+      return !transactionExpenseIds.has(String(expense?.id));
+    })
     .map((expense) => {
       const walletName = getWalletName(walletMap, expense?.wallet_id);
       const title = titleCase(expense?.category || "Expense");
+      const syncLabel = getSyncLabel(expense);
 
       return {
-        id: `expense-${expense.id}`,
+        id: `expense-${expense.local_id || expense.localId || expense.id || `${expense.amount}-${expense.created_at}`}`,
         source: "expense",
         raw: expense,
         group: "expense",
@@ -216,9 +276,10 @@ const buildUnifiedActivity = ({ expenses = [], walletTransactions = [], transfer
         signedAmount: -Math.abs(toNumber(expense?.amount)),
         walletName,
         category: expense?.category || "",
-        notes: expense?.notes || "",
+        notes: expense?.notes || expense?.note || expense?.description || "",
         dateValue: getActivityDateValue(expense),
-        statusLabel: titleCase(expense?.planning_status || "expense"),
+        statusLabel: syncLabel || titleCase(expense?.planning_status || "expense"),
+        syncLabel,
       };
     });
 
@@ -231,6 +292,7 @@ const buildUnifiedActivity = ({ expenses = [], walletTransactions = [], transfer
       const fromWallet = getWalletName(walletMap, transfer?.from_wallet_id || transfer?.wallet_id);
       const toWallet = getWalletName(walletMap, transfer?.to_wallet_id || transfer?.related_wallet_id);
       const walletName = [fromWallet, toWallet].filter(Boolean).join(" → ");
+      const syncLabel = getSyncLabel(transfer);
 
       return {
         id: `transfer-${transfer.id || transfer.transfer_group_id}`,
@@ -245,7 +307,8 @@ const buildUnifiedActivity = ({ expenses = [], walletTransactions = [], transfer
         category: "Transfer",
         notes: transfer?.notes || "",
         dateValue: getActivityDateValue(transfer),
-        statusLabel: "Transfer Summary",
+        statusLabel: syncLabel || "Transfer Summary",
+        syncLabel,
       };
     });
 
@@ -278,6 +341,16 @@ function MetricCard({ label, value, helper, tone = "slate" }) {
   );
 }
 
+function FriendlyNotice({ message }) {
+  if (!message) return null;
+
+  return (
+    <div className="rounded-[22px] border border-cyan-300/15 bg-cyan-400/10 px-4 py-3 text-sm font-semibold leading-6 text-cyan-50 shadow-[0_14px_36px_rgba(34,211,238,0.08)]">
+      {message}
+    </div>
+  );
+}
+
 export default function TransactionHub() {
   const navigate = useNavigate();
   const { user, loading: userLoading } = useUserRole();
@@ -286,12 +359,63 @@ export default function TransactionHub() {
   const [activeFilter, setActiveFilter] = useState("all");
   const [searchQuery, setSearchQuery] = useState("");
   const [refreshing, setRefreshing] = useState(false);
+  const [localExpenses, setLocalExpenses] = useState([]);
+  const [localPendingExpenses, setLocalPendingExpenses] = useState([]);
+  const [localStorageFailed, setLocalStorageFailed] = useState(false);
+  const [online, setOnline] = useState(() => isClaraOnline());
+
+  const ownerKey = user?.id || user?.email || "guest";
 
   const expenses = Array.isArray(financial?.expenses) ? financial.expenses : [];
   const walletTransactions = Array.isArray(financial?.walletTransactions) ? financial.walletTransactions : [];
   const transfers = Array.isArray(financial?.transfers) ? financial.transfers : [];
   const wallets = Array.isArray(financial?.wallets) ? financial.wallets : [];
   const loading = userLoading || Boolean(financial?.loading);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return undefined;
+
+    const refreshOnlineState = () => setOnline(isClaraOnline());
+    window.addEventListener("online", refreshOnlineState);
+    window.addEventListener("offline", refreshOnlineState);
+    refreshOnlineState();
+
+    return () => {
+      window.removeEventListener("online", refreshOnlineState);
+      window.removeEventListener("offline", refreshOnlineState);
+    };
+  }, []);
+
+  useEffect(() => {
+    let active = true;
+
+    const loadLocalActivity = async () => {
+      try {
+        const [allLocalExpenses, pending] = await Promise.all([
+          getLocalExpenses(ownerKey),
+          getPendingExpenses(ownerKey),
+        ]);
+
+        if (!active) return;
+        setLocalStorageFailed(false);
+        setLocalExpenses(Array.isArray(allLocalExpenses) ? allLocalExpenses : []);
+        setLocalPendingExpenses(Array.isArray(pending) ? pending : []);
+      } catch (error) {
+        console.warn("CLARA local transaction load failed:", error);
+        if (!active) return;
+        setLocalStorageFailed(true);
+        setLocalExpenses([]);
+        setLocalPendingExpenses([]);
+      }
+    };
+
+    loadLocalActivity();
+  }, [ownerKey, expenses.length, walletTransactions.length]);
+
+  const mergedExpenses = useMemo(
+    () => mergeExpensesWithLocal(expenses, localExpenses),
+    [expenses, localExpenses]
+  );
 
   const walletMap = useMemo(() => {
     const map = new Map();
@@ -302,8 +426,8 @@ export default function TransactionHub() {
   }, [wallets]);
 
   const activity = useMemo(
-    () => buildUnifiedActivity({ expenses, walletTransactions, transfers, walletMap }),
-    [expenses, walletTransactions, transfers, walletMap]
+    () => buildUnifiedActivity({ expenses: mergedExpenses, walletTransactions, transfers, walletMap }),
+    [mergedExpenses, walletTransactions, transfers, walletMap]
   );
 
   const filteredActivity = useMemo(() => {
@@ -317,7 +441,7 @@ export default function TransactionHub() {
   }, [activity, activeFilter, searchQuery]);
 
   const summary = useMemo(() => {
-    const totalExpenses = expenses.reduce((sum, expense) => sum + toNumber(expense?.amount), 0);
+    const totalExpenses = mergedExpenses.reduce((sum, expense) => sum + toNumber(expense?.amount), 0);
     const totalIncome = walletTransactions
       .filter((txn) => INCOME_TYPES.has(normalizeLower(txn?.type)))
       .reduce((sum, txn) => sum + toNumber(txn?.amount), 0);
@@ -338,20 +462,36 @@ export default function TransactionHub() {
       transferCount: transferIds.size,
       latestDate: activity[0]?.dateValue || null,
     };
-  }, [activity, expenses, transfers, walletTransactions]);
+  }, [activity, mergedExpenses, transfers, walletTransactions]);
+
+  const noticeMessage = useMemo(() => {
+    if (!online) return "You’re offline. CLARA is showing saved local transactions.";
+    if (localStorageFailed) return "Transactions are unavailable right now. Saved local activity will still appear here.";
+    if (localPendingExpenses.length > 0) return "Some transactions are saved locally and will sync when CLARA is online.";
+    return "";
+  }, [localPendingExpenses.length, localStorageFailed, online]);
 
   const handleRefresh = async () => {
-    if (refreshing || typeof financial?.refreshData !== "function") return;
+    if (refreshing) return;
+
+    if (!online) {
+      setRefreshing(false);
+      return;
+    }
+
+    if (typeof financial?.refreshData !== "function") return;
 
     try {
       setRefreshing(true);
       await financial.refreshData();
+    } catch (error) {
+      console.warn("CLARA transaction refresh failed:", error);
     } finally {
       setRefreshing(false);
     }
   };
 
-  if (loading) {
+  if (loading && !activity.length) {
     return (
       <div className="min-h-[100dvh] bg-[#020713] px-4 py-6 text-white">
         <div className="mx-auto flex max-w-4xl flex-col gap-4">
@@ -416,7 +556,7 @@ export default function TransactionHub() {
             <button
               type="button"
               onClick={handleRefresh}
-              disabled={refreshing}
+              disabled={refreshing || !online}
               className="flex h-12 w-12 shrink-0 items-center justify-center rounded-[20px] border border-white/10 bg-black/20 text-white/80 shadow-[0_12px_32px_rgba(0,0,0,0.22)] transition hover:bg-white/10 hover:text-white disabled:opacity-50 active:scale-95"
               aria-label="Refresh transactions"
             >
@@ -424,6 +564,8 @@ export default function TransactionHub() {
             </button>
           </div>
         </header>
+
+        <FriendlyNotice message={noticeMessage} />
 
         <section className="grid grid-cols-2 gap-3 md:grid-cols-4">
           <MetricCard label="Total Expenses" value={`-${formatPeso(summary.totalExpenses)}`} helper="Money out" tone="rose" />
@@ -478,8 +620,17 @@ export default function TransactionHub() {
               </div>
               <h2 className="mt-4 text-xl font-black tracking-tight">No activity yet</h2>
               <p className="mx-auto mt-2 max-w-sm text-sm font-medium leading-6 text-white/55">
-                Your transactions will appear here once you start using CLARA.
+                {online
+                  ? "Your transactions will appear here once you start using CLARA."
+                  : "You’re offline. CLARA will show saved local transactions here once you log activity."}
               </p>
+              <button
+                type="button"
+                onClick={() => navigate("/dashboard")}
+                className="mt-5 rounded-full border border-white/10 bg-white/[0.06] px-4 py-2 text-sm font-bold text-white/75 transition hover:bg-white/[0.10] hover:text-white"
+              >
+                Back to Dashboard
+              </button>
             </div>
           ) : (
             filteredActivity.map((item) => {
@@ -488,6 +639,7 @@ export default function TransactionHub() {
               const isPositive = item.signedAmount > 0;
               const isNeutralTransfer = item.group === "transfer" && item.signedAmount === 0;
               const amountText = isNeutralTransfer ? formatPeso(item.amount) : formatSignedPeso(item.signedAmount);
+              const syncToneClass = getSyncToneClass(item.syncLabel);
 
               return (
                 <article
@@ -524,8 +676,8 @@ export default function TransactionHub() {
                       </div>
 
                       <div className="mt-3 flex flex-wrap gap-2">
-                        <span className="rounded-full border border-white/10 bg-black/22 px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.13em] text-white/60">
-                          {item.statusLabel}
+                        <span className={`rounded-full border px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.13em] ${syncToneClass}`}>
+                          {item.syncLabel || item.statusLabel}
                         </span>
                         {item.walletName ? (
                           <span className="max-w-full truncate rounded-full border border-white/10 bg-black/22 px-2.5 py-1 text-[11px] font-semibold text-white/64">
