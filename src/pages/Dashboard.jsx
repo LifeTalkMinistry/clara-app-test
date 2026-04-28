@@ -29,6 +29,8 @@ import {
   Wallet,
   Palette,
   Check,
+  Eye,
+  EyeOff,
 } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
 import { createPortal } from "react-dom";
@@ -531,6 +533,29 @@ const getToday = () => {
 
 const getDashboardPrefsStorageKey = (userId) =>
   `clara_dashboard_prefs_${userId || "guest"}`;
+
+const MONEY_SUMMARY_PRIVACY_KEY = "clara_dashboard_money_summary_visible";
+
+function readMoneySummaryVisibility() {
+  if (typeof localStorage === "undefined") return false;
+
+  try {
+    return localStorage.getItem(MONEY_SUMMARY_PRIVACY_KEY) === "true";
+  } catch (error) {
+    console.error("Failed to read money summary privacy setting:", error);
+    return false;
+  }
+}
+
+function persistMoneySummaryVisibility(visible) {
+  if (typeof localStorage === "undefined") return;
+
+  try {
+    localStorage.setItem(MONEY_SUMMARY_PRIVACY_KEY, String(Boolean(visible)));
+  } catch (error) {
+    console.error("Failed to save money summary privacy setting:", error);
+  }
+}
 
 function readDashboardPrefs(userId) {
   if (!userId) {
@@ -1290,8 +1315,16 @@ const stopFinancialSummaryInteraction = (event) => {
   return false;
 };
 
+const isMoneySummaryPrivacyToggleEvent = (event) =>
+  Boolean(
+    event?.target?.closest?.('[data-clara-summary-privacy-toggle="true"]')
+  );
+
 const stopFinancialSummaryInteractionUnlessMoneyLeft = (event) => {
-  if (isMoneyLeftSummaryEvent(event)) return undefined;
+  if (isMoneyLeftSummaryEvent(event) || isMoneySummaryPrivacyToggleEvent(event)) {
+    return undefined;
+  }
+
   return stopFinancialSummaryInteraction(event);
 };
 
@@ -5678,6 +5711,22 @@ function DashboardSettingsPanel({
 
 
 export default function Dashboard() {
+  const [moneySummaryVisible, setMoneySummaryVisible] = useState(() =>
+    readMoneySummaryVisibility()
+  );
+
+  const toggleMoneySummaryVisibility = useCallback((event) => {
+    event?.preventDefault?.();
+    event?.stopPropagation?.();
+    event?.nativeEvent?.stopImmediatePropagation?.();
+
+    setMoneySummaryVisible((current) => {
+      const nextVisible = !current;
+      persistMoneySummaryVisibility(nextVisible);
+      return nextVisible;
+    });
+  }, []);
+
   const navigate = useNavigate();
   const { selectedTheme: selectedDashboardTheme, openThemePicker, setTheme } = useTheme();
   const dashboardViewportMode = useDashboardViewportMode();
@@ -9562,7 +9611,7 @@ export default function Dashboard() {
       return {
         title: "Spending tracked",
         highlight: "",
-        subcopy: `Income not recorded yet. Spent ${fmt(thisMonthSpent)} this month.`,
+        subcopy: `Income not recorded yet. Spent ${moneySummaryVisible ? fmt(thisMonthSpent) : "₱•••••"} this month.`,
       };
     }
 
@@ -9601,7 +9650,7 @@ export default function Dashboard() {
 
   const dailyStrategyCard = useMemo(() => {
     const safeSpendText = moneyLeftHealth?.highlight ||
-      (walletMoney > 0 ? `${fmt(walletMoney)} available.` : "Set up your wallet first.");
+      (walletMoney > 0 ? `${moneySummaryVisible ? fmt(walletMoney) : "₱••••••"} available.` : "Set up your wallet first.");
 
     const income = Math.max(Number(thisMonthIncome) || 0, 0);
     const spent = Math.max(Number(thisMonthSpent) || 0, 0);
@@ -10683,7 +10732,7 @@ export default function Dashboard() {
         <div
           {...financialSummaryParentHandlers}
           aria-label="Financial summary"
-          className={`grid cursor-default select-none grid-cols-2 overflow-hidden border backdrop-blur-sm ${dashboardScale.summaryGrid}`}
+          className={`relative grid cursor-default select-none grid-cols-2 overflow-hidden border backdrop-blur-sm ${dashboardScale.summaryGrid}`}
           style={{
             borderColor:
               selectedDashboardTheme?.tokens?.border || "var(--theme-border)",
