@@ -1,0 +1,109 @@
+name: Apply Dashboard Money Privacy Toggle
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - ".github/workflows/apply-dashboard-money-privacy.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  apply-dashboard-money-privacy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: true
+
+      - name: Patch Dashboard.jsx
+        shell: bash
+        run: |
+          node <<'NODE'
+          const fs = require('fs');
+          const path = 'src/pages/Dashboard.jsx';
+          let s = fs.readFileSync(path, 'utf8');
+          const nl = s.includes('\r\n') ? '\r\n' : '\n';
+          let text = s.replace(/\r\n/g, '\n');
+
+          function replaceOnce(needle, replacement) {
+            if (!text.includes(needle)) {
+              throw new Error(`Missing expected text: ${needle.slice(0, 180)}`);
+            }
+            text = text.replace(needle, replacement);
+          }
+
+          if (!text.includes('  Eye,\n  EyeOff,')) {
+            replaceOnce(
+              '  Palette,\n  Check,\n} from "lucide-react";',
+              '  Palette,\n  Check,\n  Eye,\n  EyeOff,\n} from "lucide-react";'
+            );
+          }
+
+          if (!text.includes('const MONEY_SUMMARY_PRIVACY_KEY = "clara_dashboard_money_summary_visible";')) {
+            replaceOnce(
+              'const getDashboardPrefsStorageKey = (userId) =>\n  `clara_dashboard_prefs_${userId || "guest"}`;\n',
+              'const getDashboardPrefsStorageKey = (userId) =>\n  `clara_dashboard_prefs_${userId || "guest"}`;\n\nconst MONEY_SUMMARY_PRIVACY_KEY = "clara_dashboard_money_summary_visible";\n\nfunction readMoneySummaryVisibility() {\n  if (typeof localStorage === "undefined") return false;\n\n  try {\n    return localStorage.getItem(MONEY_SUMMARY_PRIVACY_KEY) === "true";\n  } catch (error) {\n    console.error("Failed to read money summary privacy setting:", error);\n    return false;\n  }\n}\n\nfunction persistMoneySummaryVisibility(visible) {\n  if (typeof localStorage === "undefined") return;\n\n  try {\n    localStorage.setItem(MONEY_SUMMARY_PRIVACY_KEY, String(Boolean(visible)));\n  } catch (error) {\n    console.error("Failed to save money summary privacy setting:", error);\n  }\n}\n'
+            );
+          }
+
+          if (!text.includes('const isMoneySummaryPrivacyToggleEvent = (event) =>')) {
+            replaceOnce(
+              'const stopFinancialSummaryInteractionUnlessMoneyLeft = (event) => {\n  if (isMoneyLeftSummaryEvent(event)) return undefined;\n  return stopFinancialSummaryInteraction(event);\n};',
+              'const isMoneySummaryPrivacyToggleEvent = (event) =>\n  Boolean(\n    event?.target?.closest?.(\'[data-clara-summary-privacy-toggle="true"]\')\n  );\n\nconst stopFinancialSummaryInteractionUnlessMoneyLeft = (event) => {\n  if (isMoneyLeftSummaryEvent(event) || isMoneySummaryPrivacyToggleEvent(event)) {\n    return undefined;\n  }\n\n  return stopFinancialSummaryInteraction(event);\n};'
+            );
+          }
+
+          if (!text.includes('const [moneySummaryVisible, setMoneySummaryVisible] = useState(() =>')) {
+            replaceOnce(
+              'export default function Dashboard() {\n',
+              'export default function Dashboard() {\n  const [moneySummaryVisible, setMoneySummaryVisible] = useState(() =>\n    readMoneySummaryVisibility()\n  );\n\n  const toggleMoneySummaryVisibility = useCallback((event) => {\n    event?.preventDefault?.();\n    event?.stopPropagation?.();\n    event?.nativeEvent?.stopImmediatePropagation?.();\n\n    setMoneySummaryVisible((current) => {\n      const nextVisible = !current;\n      persistMoneySummaryVisibility(nextVisible);\n      return nextVisible;\n    });\n  }, []);\n\n'
+            );
+          }
+
+          text = text.replace(
+            'className={`grid cursor-default select-none grid-cols-2 overflow-hidden border backdrop-blur-sm ${dashboardScale.summaryGrid}`}',
+            'className={`relative grid cursor-default select-none grid-cols-2 overflow-hidden border backdrop-blur-sm ${dashboardScale.summaryGrid}`}'
+          );
+
+          if (!text.includes('data-clara-summary-privacy-toggle="true"')) {
+            replaceOnce(
+              '        >\n          <div\n            {...moneyLeftSummaryHandlers}',
+              '        >\n          <button\n            type="button"\n            data-clara-summary-privacy-toggle="true"\n            onClick={toggleMoneySummaryVisibility}\n            onPointerUp={(event) => event.stopPropagation()}\n            onMouseUp={(event) => event.stopPropagation()}\n            onTouchEnd={(event) => event.stopPropagation()}\n            className="absolute right-2.5 top-2.5 z-50 flex h-7 w-7 items-center justify-center rounded-full border border-white/10 bg-white/[0.08] text-white/55 shadow-[0_0_14px_rgba(255,255,255,0.08)] backdrop-blur-xl transition hover:bg-white/[0.13] hover:text-white/85 active:scale-95"\n            aria-label={moneySummaryVisible ? "Hide financial summary amounts" : "Show financial summary amounts"}\n            title={moneySummaryVisible ? "Hide amounts" : "Show amounts"}\n          >\n            {moneySummaryVisible ? (\n              <Eye className="h-3.5 w-3.5" />\n            ) : (\n              <EyeOff className="h-3.5 w-3.5" />\n            )}\n          </button>\n\n          <div\n            {...moneyLeftSummaryHandlers}'
+            );
+          }
+
+          text = text.replace('{fmt(walletMoney)}', '{moneySummaryVisible ? fmt(walletMoney) : "₱••••••"}');
+          text = text.replace('{fmt(thisMonthSpent)}', '{moneySummaryVisible ? fmt(thisMonthSpent) : "₱•••••"}');
+
+          if (nl === '\r\n') text = text.replace(/\n/g, '\r\n');
+          fs.writeFileSync(path, text);
+          NODE
+
+      - name: Commit Dashboard.jsx update
+        shell: bash
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add src/pages/Dashboard.jsx
+          if git diff --cached --quiet; then
+            echo "Dashboard.jsx already up to date."
+          else
+            git commit -m "Add dashboard money summary privacy toggle"
+            git push
+          fi
+
+      - name: Install dependencies
+        run: npm ci || npm install
+
+      - name: Build web
+        run: npm run build:web
+
+      - name: Deploy to GitHub Pages
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          npx gh-pages -d dist -u "github-actions[bot] <41898282+github-actions[bot]@users.noreply.github.com>" -r "https://x-access-token:${GH_TOKEN}@github.com/${GITHUB_REPOSITORY}.git"
