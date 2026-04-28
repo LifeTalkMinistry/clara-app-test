@@ -9,6 +9,13 @@ import {
 } from "react";
 import { supabase } from "@/lib/supabaseClient";
 import { normalizePlanKey, PLAN_LABELS } from "@/lib/plan-config";
+import {
+  getAccessSnapshot,
+  getOfflineFallbackFlow,
+  isAccessNetworkOffline,
+  isAccessSnapshotUsable,
+  saveAccessSnapshot,
+} from "@/lib/offline-access-cache";
 
 const AuthContext = createContext(null);
 
@@ -32,7 +39,9 @@ const normalizeProfileAccess = (rawProfile = {}, authUser = null) => {
   const isApproved = enrollmentStatus === "approved";
   const isPaidPlan =
     profilePlan === "pro_99" ||
+    profilePlan === "core_199" ||
     profilePlan === "core_599" ||
+    profilePlan === "life_os_499" ||
     profilePlan === "coaching_1299" ||
     profilePlan === "pro" ||
     profilePlan === "core" ||
@@ -55,7 +64,7 @@ const normalizeProfileAccess = (rawProfile = {}, authUser = null) => {
       ? "free"
       : normalizedPlan === "pro_99"
         ? "pro"
-        : normalizedPlan === "core_599"
+        : normalizedPlan === "core_199"
           ? "core"
           : "life_os";
 
@@ -68,25 +77,26 @@ const normalizeProfileAccess = (rawProfile = {}, authUser = null) => {
       authUser?.user_metadata?.name ||
       "",
     plan: normalizedPlan,
-    subscription_status: subscriptionStatus,
+    subscription_status: rawProfile?.subscription_status || subscriptionStatus,
     activation_status: rawProfile?.activation_status || "not_required",
     is_activated: Boolean(
       rawProfile?.is_activated ||
         rawProfile?.activated_at ||
         ["active", "activated"].includes(
           String(rawProfile?.activation_status || "").toLowerCase()
-        )
+        ) ||
+        rawProfile?.offline_limited_access
     ),
     activated_at: rawProfile?.activated_at || null,
-    subscription_label: PLAN_LABELS[normalizedPlan] || "Free",
+    subscription_label: rawProfile?.subscription_label || PLAN_LABELS[normalizedPlan] || "Free",
     subscription: {
       plan: normalizedPlan,
-      status: subscriptionStatus,
-      label: PLAN_LABELS[normalizedPlan] || "Free",
+      status: rawProfile?.subscription_status || subscriptionStatus,
+      label: rawProfile?.subscription_label || PLAN_LABELS[normalizedPlan] || "Free",
       isPaid: normalizedPlan !== "free" || isPro,
       isPro: isPro || normalizedPlan === "pro_99",
-      isCore: normalizedPlan === "core_599",
-      isLifeOS: normalizedPlan === "coaching_1299",
+      isCore: normalizedPlan === "core_199",
+      isLifeOS: normalizedPlan === "life_os_499",
     },
     role: profileRole || "user",
     enrollment_source: rawProfile?.enrollment_source || null,
@@ -121,8 +131,86 @@ const normalizeProfileAccess = (rawProfile = {}, authUser = null) => {
         rawProfile?.onboarding_completed ??
         false
     ),
+    offline_access: Boolean(rawProfile?.offline_access),
+    offline_limited_access: Boolean(rawProfile?.offline_limited_access),
+    offline_access_notice: rawProfile?.offline_access_notice || "",
+    offline_access_snapshot: rawProfile?.offline_access_snapshot || null,
     isPro,
   };
+};
+
+const buildDefaultOfflineProfile = (authUser, cachedSnapshot = null) => {
+  if (cachedSnapshot && isAccessSnapshotUsable(cachedSnapshot)) {
+    const fallbackFlow = getOfflineFallbackFlow(cachedSnapshot);
+    const cachedProfile = cachedSnapshot.profileBasic || cachedSnapshot.profile || {};
+
+    return normalizeProfileAccess(
+      {
+        ...cachedProfile,
+        id: cachedSnapshot.userId || cachedProfile.id || authUser?.id || null,
+        email: cachedSnapshot.email || cachedProfile.email || authUser?.email || null,
+        role: cachedSnapshot.role || cachedProfile.role || "user",
+        plan: cachedSnapshot.plan || cachedProfile.plan || "free",
+        subscription_status:
+          cachedSnapshot.subscriptionStatus ||
+          cachedProfile.subscription_status ||
+          cachedProfile.status ||
+          "free",
+        subscription_label:
+          cachedSnapshot.planLabel || cachedProfile.subscription_label || "Free",
+        status: cachedSnapshot.accessStatus || cachedProfile.status || "free",
+        onboarding_completed: true,
+        has_completed_universal_onboarding: true,
+        has_seen_universal_onboarding: true,
+        program_onboarding_completed:
+          cachedSnapshot.programOnboardingCompleted ??
+          cachedProfile.program_onboarding_completed ??
+          cachedProfile.has_completed_program_onboarding ??
+          true,
+        has_completed_program_onboarding:
+          cachedSnapshot.programOnboardingCompleted ??
+          cachedProfile.has_completed_program_onboarding ??
+          cachedProfile.program_onboarding_completed ??
+          true,
+        offline_access: true,
+        offline_limited_access: Boolean(fallbackFlow.limited),
+        offline_access_notice: "You’re offline. CLARA is using your saved access state.",
+        offline_access_snapshot: cachedSnapshot,
+      },
+      authUser
+    );
+  }
+
+  return normalizeProfileAccess(
+    {
+      id: authUser?.id || null,
+      email: authUser?.email || null,
+      full_name:
+        authUser?.user_metadata?.full_name ||
+        authUser?.user_metadata?.name ||
+        "",
+      plan: "free",
+      role: "user",
+      enrollment_source: null,
+      enrollment_status: "offline_limited",
+      status: "free",
+      subscription_status: "free",
+      subscription_label: "Free",
+      is_enrolled: false,
+      program_active: false,
+      onboarding_completed: true,
+      onboarding_step: 0,
+      program_onboarding_completed: true,
+      has_completed_program_onboarding: true,
+      has_completed_universal_onboarding: true,
+      has_seen_universal_onboarding: true,
+      offline_access: true,
+      offline_limited_access: true,
+      offline_access_notice: "Connect to the internet later to finish account setup.",
+      offline_access_snapshot: null,
+    },
+    authUser
+  );
 };
 
 export function AuthProvider({ children }) {
@@ -172,6 +260,24 @@ export function AuthProvider({ children }) {
         if (data) {
           const normalized = normalizeProfileAccess(data, authUser);
           setProfile(normalized);
+          saveAccessSnapshot({
+            user: authUser,
+            profile: normalized,
+            role: normalized.role,
+            plan: normalized.plan,
+            planLabel: normalized.subscription_label,
+            subscriptionStatus: normalized.subscription_status,
+            accessStatus: normalized.status,
+            onboardingCompleted:
+              normalized.onboarding_completed ||
+              normalized.has_completed_universal_onboarding ||
+              normalized.has_seen_universal_onboarding,
+            programOnboardingCompleted:
+              normalized.program_onboarding_completed ||
+              normalized.has_completed_program_onboarding,
+            lastResolvedAppFlow: "normal",
+            lastValidRoute: "/dashboard",
+          });
           return normalized;
         }
 
@@ -214,9 +320,35 @@ export function AuthProvider({ children }) {
         );
 
         setProfile(fallbackProfile);
+        saveAccessSnapshot({
+          user: authUser,
+          profile: fallbackProfile,
+          role: fallbackProfile.role,
+          plan: fallbackProfile.plan,
+          planLabel: fallbackProfile.subscription_label,
+          subscriptionStatus: fallbackProfile.subscription_status,
+          accessStatus: fallbackProfile.status,
+          onboardingCompleted:
+            fallbackProfile.onboarding_completed ||
+            fallbackProfile.has_completed_universal_onboarding ||
+            fallbackProfile.has_seen_universal_onboarding,
+          programOnboardingCompleted:
+            fallbackProfile.program_onboarding_completed ||
+            fallbackProfile.has_completed_program_onboarding,
+          lastResolvedAppFlow: "normal",
+          lastValidRoute: "/dashboard",
+        });
         return fallbackProfile;
       } catch (error) {
         console.error("fetchProfile error:", error);
+
+        const cachedSnapshot = getAccessSnapshot(authUser.id) || getAccessSnapshot(authUser.email);
+
+        if (isAccessSnapshotUsable(cachedSnapshot) || isAccessNetworkOffline(error)) {
+          const offlineProfile = buildDefaultOfflineProfile(authUser, cachedSnapshot);
+          setProfile(offlineProfile);
+          return offlineProfile;
+        }
 
         const fallbackProfile = normalizeProfileAccess(
           {
@@ -303,6 +435,28 @@ export function AuthProvider({ children }) {
 
         if (!mounted) return;
 
+        const cachedSnapshot = getAccessSnapshot();
+
+        if (isAccessSnapshotUsable(cachedSnapshot) && isAccessNetworkOffline(error)) {
+          const offlineUser = {
+            id: cachedSnapshot.userId,
+            email: cachedSnapshot.email,
+            user_metadata: {
+              full_name: cachedSnapshot.profileBasic?.full_name || "",
+              name: cachedSnapshot.profileBasic?.full_name || "",
+            },
+          };
+          const offlineProfile = buildDefaultOfflineProfile(offlineUser, cachedSnapshot);
+
+          initializedRef.current = true;
+          setSession(null);
+          setUser(offlineUser);
+          setProfile(offlineProfile);
+          setLoading(false);
+          setAuthReady(true);
+          return;
+        }
+
         initializedRef.current = true;
         setSession(null);
         setUser(null);
@@ -341,6 +495,7 @@ export function AuthProvider({ children }) {
 
   useEffect(() => {
     if (!user?.id) return undefined;
+    if (profile?.offline_access || profile?.offline_limited_access) return undefined;
 
     const channel = supabase
       .channel(`profile-live-${user.id}`)
@@ -362,6 +517,23 @@ export function AuthProvider({ children }) {
 
     return () => {
       supabase.removeChannel(channel);
+    };
+  }, [fetchProfile, user, profile?.offline_access, profile?.offline_limited_access]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return undefined;
+    if (!user?.id) return undefined;
+
+    const handleOnline = () => {
+      fetchProfile(user).catch((error) => {
+        console.error("Profile online refresh error:", error);
+      });
+    };
+
+    window.addEventListener("online", handleOnline);
+
+    return () => {
+      window.removeEventListener("online", handleOnline);
     };
   }, [fetchProfile, user]);
 
