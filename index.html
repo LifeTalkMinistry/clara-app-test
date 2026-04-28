@@ -5,6 +5,18 @@
     <link rel="icon" type="image/svg+xml" href="./favicon.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
     <title>CLARA</title>
+
+    <!-- 🔥 PREVENT THEME FLICKER -->
+    <script>
+      (() => {
+        try {
+          const key = localStorage.getItem("clara_global_theme") || "clara-hero-red-blue";
+          document.documentElement.dataset.theme = key;
+          document.documentElement.classList.add("dark");
+        } catch {}
+      })();
+    </script>
+
     <style>
       html, body, #root {
         min-height: 100%;
@@ -21,7 +33,6 @@
         font-family: sans-serif;
       }
 
-      /* Message thread uses the same screen context as Performance Mode. */
       body.clara-message-context-open {
         overflow: hidden !important;
       }
@@ -66,6 +77,7 @@
     <div id="root">
       <div id="clara-boot">CLARA is starting...</div>
     </div>
+
     <script>
       (() => {
         const CHAT_PLACEHOLDER = "Type a message";
@@ -211,6 +223,7 @@
         scheduleSync();
       })();
     </script>
+
     <script type="module" src="/src/main.jsx"></script>
   </body>
 </html>
