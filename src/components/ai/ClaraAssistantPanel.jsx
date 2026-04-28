@@ -1,10 +1,13 @@
 import { useEffect, useRef, useState } from "react";
 import { ArrowLeft, Send, X } from "lucide-react";
+import {
+  buildClaraFinanceSnapshot,
+  generateClaraLocalReply,
+  hasUsableClaraSnapshot,
+} from "../../lib/clara-local-brain";
 
 const DEBUG_CLARA_CONTEXT = false;
 const INITIAL_MESSAGE = "I’m here. Ask me before you act.";
-const FALLBACK_REPLY = "Got it. I’ll help you think through that. Tell me what decision you’re about to make, and I’ll help you slow it down before you spend.";
-const LOADING_REPLY = "Dashboard data is still loading. Try again in a second.";
 const CLOSE_ANIMATION_MS = 190;
 const GHOST_CLICK_WINDOW_MS = 520;
 const TOUCH_DEDUPE_MS = 700;
@@ -326,396 +329,17 @@ function absorbShieldEvent(event) {
   event.nativeEvent?.stopImmediatePropagation?.();
 }
 
-function hasValue(value) {
-  return value !== undefined && value !== null && value !== "";
-}
-
-function getNumber(...values) {
-  for (const value of values) {
-    if (!hasValue(value)) continue;
-
-    const cleaned = String(value).replace(/[₱,\s]/g, "");
-    const number = Number(cleaned);
-
-    if (Number.isFinite(number)) return number;
-  }
-
-  return null;
-}
-
-function getText(...values) {
-  for (const value of values) {
-    if (hasValue(value)) return String(value).trim();
-  }
-
-  return "";
-}
-
-function formatMoney(value) {
-  const number = getNumber(value);
-  if (number === null) return null;
-
-  return `₱${number.toLocaleString("en-PH", { maximumFractionDigits: 2 })}`;
-}
-
-function getMoneyLeft(context = {}) {
-  return getNumber(
-    context?.totalAvailableMoney,
-    context?.totalMoneyLeft,
-    context?.moneyLeftThisMonth,
-    context?.walletMoney,
-    context?.totalWalletBalance
-  );
-}
-
-function getMonthlySpent(context = {}) {
-  return getNumber(
-    context?.monthlySpent,
-    context?.totalExpensesThisMonth,
-    context?.thisMonthSpent,
-    context?.monthlyExpenses
-  );
-}
-
-function getWallets(context = {}) {
-  return Array.isArray(context?.wallets) ? context.wallets : [];
-}
-
-function hasUsableContext(context = {}) {
-  return getMoneyLeft(context) !== null || getMonthlySpent(context) !== null || getWallets(context).length > 0;
-}
-
-function getWalletName(wallet) {
-  return getText(wallet?.name, wallet?.wallet_name, wallet?.title, "Wallet");
-}
-
-function getWalletBalance(wallet) {
-  return getNumber(
-    wallet?.balance,
-    wallet?.current_balance,
-    wallet?.wallet_balance,
-    wallet?.available_balance,
-    wallet?.amount
-  );
-}
-
-function getAvailabilityTone(moneyLeft) {
-  if (moneyLeft === null) return "";
-  if (moneyLeft <= 0) return "You’re in a tight zone, so pause any non-essential spending until this is clearer.";
-  if (moneyLeft < 1000) return "That’s a thin buffer, so protect it and avoid small leaks today.";
-  if (moneyLeft < 5000) return "You still have room, but small daily leaks can shrink it quickly.";
-  return "You’re not in danger right now, but keep watching small daily leaks.";
-}
-
-function getSpendingTone(monthlySpent, moneyLeft) {
-  if (monthlySpent === null) return "";
-  if (monthlySpent === 0) return "That’s a clean start. Keep it intentional before the first spend lands.";
-  if (moneyLeft !== null && moneyLeft > monthlySpent) {
-    return "Your available money is still higher than what you’ve spent, so the focus is control, not panic.";
-  }
-  if (moneyLeft !== null && moneyLeft <= monthlySpent) {
-    return "Your spending is catching up to your available money, so today is a good day to tighten wants.";
-  }
-  return "Keep checking whether today’s spending supports your real priorities.";
-}
-
-function getWalletSummary(context = {}) {
-  const wallets = getWallets(context);
-
-  if (wallets.length === 0) {
-    return hasUsableContext(context) ? "I don’t see wallet details loaded yet." : LOADING_REPLY;
-  }
-
-  const readableBalances = wallets
-    .map((wallet) => getWalletBalance(wallet))
-    .filter((balance) => balance !== null);
-
-  const fallbackTotal = readableBalances.reduce((sum, balance) => sum + balance, 0);
-  const totalWalletBalance = getNumber(
-    context?.totalWalletBalance,
-    context?.walletMoney,
-    context?.totalAvailableMoney,
-    context?.totalMoneyLeft,
-    context?.moneyLeftThisMonth,
-    readableBalances.length ? fallbackTotal : null
-  );
-
-  const topWallets = wallets
-    .slice(0, 3)
-    .map((wallet) => {
-      const name = getWalletName(wallet);
-      const balance = getWalletBalance(wallet);
-      const formattedBalance = balance !== null ? formatMoney(balance) : null;
-      return formattedBalance ? `${name} (${formattedBalance})` : name;
-    })
-    .filter(Boolean);
-
-  const totalText = totalWalletBalance !== null ? formatMoney(totalWalletBalance) : null;
-  const balanceSentence = totalText ? ` Your total wallet balance is ${totalText}.` : "";
-  const walletSentence = topWallets.length
-    ? ` Your main wallets include ${topWallets.join(", ")}.`
-    : "";
-  const guidanceSentence = totalWalletBalance !== null
-    ? ` ${getAvailabilityTone(totalWalletBalance)}`
-    : " Keep your main spending wallet visible so you can decide faster before buying.";
-
-  return `You have ${wallets.length} wallet${wallets.length === 1 ? "" : "s"} loaded.${balanceSentence}${walletSentence}${guidanceSentence}`.trim();
-}
-
-function getEmergencySummary(context = {}) {
-  const emergencyFund = context?.emergencyFund;
-  const moneyLeft = getMoneyLeft(context);
-  const survivalExpense = getNumber(context?.survivalExpense);
-  const hasEmergencySection = Boolean(emergencyFund) || survivalExpense !== null || hasValue(context?.emergencyFundSaved) || hasValue(context?.emergencyFundTarget);
-
-  if (!hasEmergencySection) {
-    if (moneyLeft !== null) {
-      return `I don’t see a dedicated emergency fund loaded here. Based only on available money, you have ${formatMoney(moneyLeft)} visible, so treat that as a cash buffer — not guaranteed emergency savings.`;
-    }
-    return hasUsableContext(context) ? "I don’t see emergency fund details loaded yet." : LOADING_REPLY;
-  }
-
-  if (emergencyFund?.summary) return emergencyFund.summary;
-
-  const monthsCovered = getNumber(emergencyFund?.monthsCovered, emergencyFund?.months);
-  const currentAmount = getNumber(
-    emergencyFund?.currentAmount,
-    emergencyFund?.saved,
-    emergencyFund?.current,
-    emergencyFund?.amount,
-    emergencyFund?.progress,
-    emergencyFund?.saved_amount,
-    context?.emergencyFundSaved
-  );
-  const targetAmount = getNumber(
-    emergencyFund?.targetAmount,
-    emergencyFund?.target,
-    emergencyFund?.goal,
-    emergencyFund?.goal_amount,
-    context?.emergencyFundTarget,
-    context?.survivalExpense
-  );
-  const percentage = getNumber(
-    emergencyFund?.percentage,
-    emergencyFund?.percent,
-    emergencyFund?.progressPercent
-  );
-
-  const current = currentAmount !== null ? formatMoney(currentAmount) : null;
-  const target = targetAmount !== null ? formatMoney(targetAmount) : null;
-
-  if (current && target && monthsCovered !== null) {
-    return `Your emergency fund shows ${current} out of ${target}, covering about ${monthsCovered} month${monthsCovered === 1 ? "" : "s"}. Keep this protected from wants.`;
-  }
-
-  if (current && target) return `Your emergency fund shows ${current} out of ${target}. Keep building this before increasing lifestyle spending.`;
-  if (current) return `Your emergency fund currently shows ${current}. Treat that as protection money, not extra spending money.`;
-  if (target) return `Your survival buffer target appears to be ${target}. I don’t see the saved amount clearly yet, so I won’t overstate your emergency savings.`;
-  if (percentage !== null) return `Your emergency fund progress is around ${percentage.toFixed(0)}%. Keep protecting this layer first.`;
-  if (monthsCovered !== null) return `Your emergency fund covers about ${monthsCovered} month${monthsCovered === 1 ? "" : "s"}. That gives breathing room, but keep it protected.`;
-  if (moneyLeft !== null) return `I see limited emergency fund details. Based only on available money, you have ${formatMoney(moneyLeft)} visible, so use that carefully as a buffer.`;
-
-  return "I can see the emergency section, but the details are limited right now.";
-}
-
-function getSavingsSummary(context = {}) {
-  const savings = context?.savings;
-  const hasSavingsSection = Boolean(savings) || hasValue(context?.totalSavingsSaved) || hasValue(context?.totalSavingsTarget);
-
-  if (!hasSavingsSection) {
-    return "I don’t see savings progress yet, but that can simply mean no savings goal is loaded in this dashboard view.";
-  }
-
-  if (savings?.summary) return savings.summary;
-
-  const savedAmount = getNumber(savings?.saved, savings?.current, savings?.saved_amount, context?.totalSavingsSaved);
-  const targetAmount = getNumber(savings?.target, savings?.goal, savings?.target_amount, context?.totalSavingsTarget);
-
-  const saved = savedAmount !== null ? formatMoney(savedAmount) : null;
-  const target = targetAmount !== null ? formatMoney(targetAmount) : null;
-
-  if (savedAmount !== null && targetAmount !== null) {
-    const percent = targetAmount > 0 ? Math.min((savedAmount / targetAmount) * 100, 100) : null;
-    const progressText = percent !== null ? ` That’s about ${percent.toFixed(0)}% complete.` : "";
-    return `Your savings progress is ${saved} out of ${target}.${progressText} Keep it consistent; small deposits still count.`;
-  }
-
-  if (savedAmount !== null) return `Your saved amount is ${saved}. That’s progress worth protecting from impulse spending.`;
-  if (targetAmount !== null) return `Your savings target is ${target}. I don’t see saved progress yet, so start with a small first deposit.`;
-
-  return "I don’t see savings progress yet, but that can simply mean no savings goal is loaded in this dashboard view.";
-}
-
-function getBudgetSummary(context = {}) {
-  const budget = context?.budget;
-  const hasBudgetSection = Boolean(budget) || hasValue(context?.budgetAllocated) || hasValue(context?.budgetSpent) || hasValue(context?.budgetRemaining);
-
-  if (!hasBudgetSection) return "I don’t see a budget loaded in this dashboard view yet. That’s okay — use your available money as the temporary boundary for now.";
-  if (budget?.summary) return budget.summary;
-
-  const allocatedAmount = getNumber(budget?.allocated, budget?.total, budget?.allocated_amount, context?.budgetAllocated);
-  const spentAmount = getNumber(budget?.spent, budget?.used, budget?.spent_amount, context?.budgetSpent);
-  const explicitRemaining = getNumber(budget?.remaining, budget?.remaining_amount, context?.budgetRemaining);
-  const remainingAmount = explicitRemaining !== null
-    ? explicitRemaining
-    : allocatedAmount !== null && spentAmount !== null
-      ? Math.max(allocatedAmount - spentAmount, 0)
-      : null;
-
-  const allocated = allocatedAmount !== null ? formatMoney(allocatedAmount) : null;
-  const spent = spentAmount !== null ? formatMoney(spentAmount) : null;
-  const remaining = remainingAmount !== null ? formatMoney(remainingAmount) : null;
-
-  if (allocated && spent && remaining) {
-    const pressure = remainingAmount <= 0
-      ? "You’re at or beyond the safe budget line, so pause wants first."
-      : remainingAmount < allocatedAmount * 0.2
-        ? "You still have room, but the margin is getting thin."
-        : "Your budget still has breathing room, but keep spending intentional.";
-    return `Budget check: ${spent} spent out of ${allocated}, with ${remaining} remaining. ${pressure}`;
-  }
-
-  if (allocated && spent) return `Budget check: ${spent} spent out of ${allocated}. Use that as your boundary before adding new wants.`;
-  if (allocated) return `Your current budget allocation is ${allocated}. Before spending, check which category this decision belongs to.`;
-  if (spent) return `Your current budget spending is ${spent}. The next step is to compare it against your declared limit.`;
-  if (remaining) return `Your budget remaining shows ${remaining}. Keep this protected for the rest of the period.`;
-
-  return "I can see a budget section, but the values are limited right now.";
-}
-
-function getForecastSummary(context = {}) {
-  const moneyLeft = getMoneyLeft(context);
-  const monthlySpent = getMonthlySpent(context);
-  const walletCount = getWallets(context).length;
-  const savings = getNumber(context?.savings?.saved, context?.savings?.current, context?.totalSavingsSaved);
-  const budgetSpent = getNumber(context?.budget?.spent, context?.budget?.used, context?.budgetSpent);
-  const emergencySaved = getNumber(context?.emergencyFund?.saved, context?.emergencyFund?.currentAmount, context?.emergencyFundSaved);
-
-  if (moneyLeft === null && monthlySpent === null && walletCount === 0) {
-    return LOADING_REPLY;
-  }
-
-  const parts = [];
-  if (moneyLeft !== null) parts.push(`available money: ${formatMoney(moneyLeft)}`);
-  if (monthlySpent !== null) parts.push(`month spending: ${formatMoney(monthlySpent)}`);
-  if (walletCount > 0) parts.push(`${walletCount} wallet${walletCount === 1 ? "" : "s"}`);
-  if (savings !== null) parts.push(`savings: ${formatMoney(savings)}`);
-  if (budgetSpent !== null) parts.push(`budget spent: ${formatMoney(budgetSpent)}`);
-  if (emergencySaved !== null) parts.push(`emergency fund: ${formatMoney(emergencySaved)}`);
-
-  const risk = moneyLeft !== null && monthlySpent !== null && monthlySpent > moneyLeft
-    ? "spending may overtake your remaining money if nothing changes"
-    : moneyLeft !== null && moneyLeft < 1000
-      ? "your buffer is thin, so small leaks matter"
-      : "you still have room, but consistency will decide the outcome";
-
-  return `Based on your current money and spending pattern, here’s what may happen if nothing changes: ${risk}. I’m only forecasting from this dashboard — ${parts.join(", ")}.`;
-}
-
-function getPurchaseDecisionReply(question, context = {}) {
-  const moneyLeft = getMoneyLeft(context);
-  const monthlySpent = getMonthlySpent(context);
-  const priceMatch = String(question || "").replace(/,/g, "").match(/(?:₱|php\s*)?(\d+(?:\.\d{1,2})?)/i);
-  const price = priceMatch ? Number(priceMatch[1]) : null;
-
-  const priceText = price !== null ? ` This looks around ${formatMoney(price)}.` : "";
-  const leftText = moneyLeft !== null ? ` You still have ${formatMoney(moneyLeft)} available.` : "";
-  const spentText = monthlySpent !== null ? ` You’ve already spent ${formatMoney(monthlySpent)} this month.` : "";
-
-  if (price !== null && moneyLeft !== null && price > moneyLeft) {
-    return `I’d pause this purchase.${priceText}${leftText}${spentText} It may put pressure on your current money unless it’s truly urgent.`;
-  }
-
-  if (price !== null && moneyLeft !== null && price > moneyLeft * 0.15) {
-    return `This is a noticeable spend.${priceText}${leftText}${spentText} If it’s a need, it may be okay. If it’s a want, wait and protect your budget first.`;
-  }
-
-  return `If this is a need, it may be okay. If it’s a want, pause first.${priceText}${leftText}${spentText} Protect your budget before buying.`.trim();
-}
-
-function getLocalReply(question, context = {}) {
-  const text = String(question || "").toLowerCase();
-
-  const moneyLeft = getMoneyLeft(context);
-  const monthlySpent = getMonthlySpent(context);
-  const contextReady = hasUsableContext(context);
-
-  const asksForecast = text.includes("predict my future") || text.includes("financial future") || text.includes("forecast");
-  const asksBeforeBuy =
-    text.includes("before i buy") ||
-    text.includes("before buying") ||
-    text.includes("before i purchase") ||
-    text.includes("should i buy");
-  const asksWallet = text.includes("wallet");
-  const asksEmergency = text.includes("emergency");
-  const asksSavings = text.includes("saving") || text.includes("savings") || text.includes("goal");
-  const asksBudget = text.includes("budget");
-  const asksSpending = text.includes("spend") || text.includes("spent") || text.includes("expense");
-  const asksWatch = text.includes("watch") || text.includes("careful") || text.includes("today");
-  const asksMoneyLeft =
-    text.includes("money") ||
-    text.includes("left") ||
-    text.includes("balance") ||
-    text.includes("available");
-
-  if (asksForecast) return getForecastSummary(context);
-
-  if (asksBeforeBuy) {
-    return "What are you planning to buy, and how much is it?";
-  }
-
-  if (asksWallet) return getWalletSummary(context);
-  if (asksEmergency) return getEmergencySummary(context);
-  if (asksSavings) return getSavingsSummary(context);
-  if (asksBudget) return getBudgetSummary(context);
-
-  if (asksSpending) {
-    if (monthlySpent === null) {
-      return contextReady ? "I need your monthly spending value before I can answer that clearly." : LOADING_REPLY;
-    }
-
-    if (monthlySpent === 0) {
-      const leftText = moneyLeft !== null ? ` You still have ${formatMoney(moneyLeft)} available, so keep the first spend intentional.` : "";
-      return `You haven’t logged spending this month yet.${leftText}`;
-    }
-
-    const spentText = formatMoney(monthlySpent);
-    const leftText = moneyLeft !== null ? ` You still have ${formatMoney(moneyLeft)} available.` : "";
-    const tone = getSpendingTone(monthlySpent, moneyLeft);
-    return `You’ve spent ${spentText} this month so far.${leftText} ${tone}`.trim();
-  }
-
-  if (asksWatch) {
-    const spent = monthlySpent !== null ? formatMoney(monthlySpent) : null;
-    const left = moneyLeft !== null ? formatMoney(moneyLeft) : null;
-
-    if (spent && left) return `Today, watch small unplanned spending. You have ${left} available and ${spent} spent this month. Your available money is still healthy, but daily leaks can quietly weaken your month.`;
-    if (left) return `Today, protect your remaining ${left}. Pause before non-essential spending and keep your main wallet clean.`;
-    if (spent) return `Today, be mindful: you’ve already spent ${spent} this month. The safest move is to slow down wants and protect essentials.`;
-
-    return contextReady ? "I need your money-left or monthly spending value before I can answer that clearly." : LOADING_REPLY;
-  }
-
-  if (asksMoneyLeft) {
-    if (moneyLeft !== null) {
-      const amount = formatMoney(moneyLeft);
-      const spentText = monthlySpent !== null ? ` You’ve spent ${formatMoney(monthlySpent)} this month so far.` : "";
-      return `You currently have ${amount} available.${spentText} ${getAvailabilityTone(moneyLeft)}`.trim();
-    }
-
-    return contextReady ? "I need your money-left value before I can answer that clearly." : LOADING_REPLY;
-  }
-
-  return FALLBACK_REPLY;
-}
-
 function getContextStatus(context = {}) {
-  return hasUsableContext(context) ? "connected" : "loading";
+  const snapshot = buildClaraFinanceSnapshot(context);
+  return hasUsableClaraSnapshot(snapshot) ? "connected" : "loading";
 }
 
 function getBestContext(currentContext = {}, latestContext = {}) {
-  if (hasUsableContext(currentContext)) return currentContext;
-  if (hasUsableContext(latestContext)) return latestContext;
+  const currentSnapshot = buildClaraFinanceSnapshot(currentContext);
+  const latestSnapshot = buildClaraFinanceSnapshot(latestContext);
+
+  if (hasUsableClaraSnapshot(currentSnapshot)) return currentContext;
+  if (hasUsableClaraSnapshot(latestSnapshot)) return latestContext;
   return currentContext || latestContext || {};
 }
 
@@ -859,9 +483,12 @@ export default function ClaraAssistantPanel({ open, onClose, context = {} }) {
     const currentContext = getBestContext(context || {}, latestContextRef.current || {});
     latestContextRef.current = currentContext;
 
-    return forcedMode === "purchase_decision"
-      ? getPurchaseDecisionReply(text, currentContext)
-      : getLocalReply(text, currentContext);
+    const localMessage =
+      forcedMode === "purchase_decision" && !text.toLowerCase().includes("before")
+        ? `Before I buy this: ${text}`
+        : text;
+
+    return generateClaraLocalReply(localMessage, currentContext);
   };
 
   const sendMessageText = (messageText, forcedMode = activeMode) => {
@@ -876,7 +503,7 @@ export default function ClaraAssistantPanel({ open, onClose, context = {} }) {
       makeMessage("clara", reply),
     ]);
 
-    if (forcedMode === "purchase_decision") {
+    if (forcedMode === "purchase_decision" && /(?:₱|php\s*)?\d/i.test(text)) {
       setActiveMode(null);
     }
   };
@@ -1224,7 +851,7 @@ export default function ClaraAssistantPanel({ open, onClose, context = {} }) {
                     {selectedFeatureTitle || "Ask CLARA"}
                   </h2>
                   <p className="mt-0.5 text-[11px] text-slate-300/70">
-                    Context: {contextStatus === "connected" ? "connected" : "loading"}
+                    Local brain: {contextStatus === "connected" ? "data connected" : "loading data"}
                   </p>
                 </div>
 
