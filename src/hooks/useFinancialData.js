@@ -11,17 +11,28 @@ import {
   deleteWallet as repoDeleteWallet,
   getWalletTransactions,
   addIncome as repoAddIncome,
+  addMoney as repoAddMoney,
   transferBetweenWallets as repoTransferBetweenWallets,
   getTransfers,
   getBudgets,
   addBudget as repoAddBudget,
   updateBudget as repoUpdateBudget,
   deleteBudget as repoDeleteBudget,
+  upsertBudget as repoUpsertBudget,
   getSavingsGoals,
-  upsertSavingsGoal,
+  upsertSavingsGoal as repoUpsertSavingsGoal,
   getEmergencyFund,
-  upsertEmergencyFund,
+  upsertEmergencyFund as repoUpsertEmergencyFund,
 } from "@/lib/financeRepository";
+
+const FINANCE_INCOME_TYPES = new Set([
+  "income",
+  "add",
+  "cash_in",
+  "deposit",
+  "opening_balance",
+  "credit",
+]);
 
 const toNumber = (value) => {
   if (typeof value === "number") return Number.isFinite(value) ? value : 0;
@@ -36,18 +47,9 @@ const toNumber = (value) => {
   return Number.isFinite(num) ? num : 0;
 };
 
-const FINANCE_INCOME_TYPES = new Set([
-  "income",
-  "add",
-  "cash_in",
-  "deposit",
-  "opening_balance",
-  "credit",
-]);
-
 const getLocalUserId = (user) => {
   const value = user?.id || user?.email || "local-user";
-  return String(value).trim();
+  return String(value || "local-user").trim() || "local-user";
 };
 
 const sortByNewest = (rows) =>
@@ -62,6 +64,24 @@ const sortByNewest = (rows) =>
 
     return bTime - aTime;
   });
+
+const sortByOldest = (rows) =>
+  [...(Array.isArray(rows) ? rows : [])].sort((a, b) => {
+    const aTime = new Date(
+      a?.createdAt || a?.created_at || a?.created_date || a?.date || 0
+    ).getTime();
+
+    const bTime = new Date(
+      b?.createdAt || b?.created_at || b?.created_date || b?.date || 0
+    ).getTime();
+
+    return aTime - bTime;
+  });
+
+const removeDeletedRows = (rows) =>
+  (Array.isArray(rows) ? rows : []).filter(
+    (row) => !row?.deletedAt && !row?.deleted_at
+  );
 
 const createEmptyFinancialCache = (key = null) => ({
   key,
@@ -146,25 +166,30 @@ function useFinancialData(user) {
       const [
         rawExpenses,
         rawWallets,
-        rawBudgets,
         rawWalletTransactions,
         rawTransfers,
+        rawBudgets,
         rawSavingsGoals,
         rawEmergencyFund,
       ] = await Promise.all([
         getExpenses(localUserId),
         getWallets(localUserId),
-        getBudgets(localUserId),
         getWalletTransactions(localUserId),
         getTransfers(localUserId),
+        getBudgets(localUserId),
         getSavingsGoals(localUserId),
         getEmergencyFund(localUserId),
       ]);
 
-      const safeWalletTransactions = sortByNewest(rawWalletTransactions);
-      const safeTransfers = sortByNewest(rawTransfers);
+      const safeExpenses = sortByNewest(removeDeletedRows(rawExpenses));
+      const safeWalletTransactions = sortByNewest(
+        removeDeletedRows(rawWalletTransactions)
+      );
+      const safeTransfers = sortByNewest(removeDeletedRows(rawTransfers));
+      const safeBudgets = sortByNewest(removeDeletedRows(rawBudgets));
+      const safeSavingsGoals = sortByOldest(removeDeletedRows(rawSavingsGoals));
 
-      const normalizedWallets = (Array.isArray(rawWallets) ? rawWallets : []).map(
+      const normalizedWallets = sortByOldest(removeDeletedRows(rawWallets)).map(
         (wallet) => {
           const balance = getWalletBalance(
             wallet,
@@ -180,19 +205,23 @@ function useFinancialData(user) {
         }
       );
 
+      const safeIncomes = safeWalletTransactions.filter((transaction) =>
+        FINANCE_INCOME_TYPES.has(
+          String(transaction?.type || "").trim().toLowerCase()
+        )
+      );
+
       const nextCache = {
         key: cacheKey,
         loaded: true,
         error: null,
-        expenses: sortByNewest(rawExpenses),
-        incomes: [],
+        expenses: safeExpenses,
+        incomes: safeIncomes,
         wallets: normalizedWallets,
-        budgets: sortByNewest(rawBudgets),
+        budgets: safeBudgets,
         walletTransactions: safeWalletTransactions,
         transfers: safeTransfers,
-        savingsGoals: sortByNewest(rawSavingsGoals).filter(
-          (goal) => !goal?.deletedAt && !goal?.deleted_at
-        ),
+        savingsGoals: safeSavingsGoals,
         emergencyFund: rawEmergencyFund || null,
       };
 
@@ -201,7 +230,7 @@ function useFinancialData(user) {
 
       return nextCache;
     } catch (loadError) {
-      console.error("IndexedDB finance loadAll error:", loadError);
+      console.error("CLARA offline finance refresh error:", loadError);
 
       const fallbackCache =
         financialDataCache.key === cacheKey
@@ -259,135 +288,180 @@ function useFinancialData(user) {
 
   const addExpense = useCallback(
     async (expense) => {
-      await repoAddExpense(localUserId, expense);
+      const result = await repoAddExpense(localUserId, expense);
       await refreshData();
+      return result;
     },
     [localUserId, refreshData]
   );
 
   const updateExpense = useCallback(
     async (id, updates) => {
-      await repoUpdateExpense(localUserId, id, updates);
+      const result = await repoUpdateExpense(localUserId, id, updates);
       await refreshData();
+      return result;
     },
     [localUserId, refreshData]
   );
 
   const deleteExpense = useCallback(
     async (id) => {
-      await repoDeleteExpense(localUserId, id);
+      const result = await repoDeleteExpense(localUserId, id);
       await refreshData();
+      return result;
     },
     [localUserId, refreshData]
   );
 
   const addWallet = useCallback(
     async (wallet) => {
-      await repoAddWallet(localUserId, wallet);
+      const result = await repoAddWallet(localUserId, wallet);
       await refreshData();
+      return result;
     },
     [localUserId, refreshData]
   );
 
   const updateWallet = useCallback(
     async (id, updates) => {
-      await repoUpdateWallet(localUserId, id, updates);
+      const result = await repoUpdateWallet(localUserId, id, updates);
       await refreshData();
+      return result;
     },
     [localUserId, refreshData]
   );
 
   const deleteWallet = useCallback(
     async (id) => {
-      await repoDeleteWallet(localUserId, id);
+      const result = await repoDeleteWallet(localUserId, id);
       await refreshData();
+      return result;
     },
     [localUserId, refreshData]
   );
 
   const addIncome = useCallback(
     async (income) => {
-      await repoAddIncome(localUserId, income);
+      const result = await repoAddIncome(localUserId, income);
       await refreshData();
+      return result;
+    },
+    [localUserId, refreshData]
+  );
+
+  const addMoney = useCallback(
+    async (income) => {
+      const result =
+        typeof repoAddMoney === "function"
+          ? await repoAddMoney(localUserId, income)
+          : await repoAddIncome(localUserId, income);
+
+      await refreshData();
+      return result;
     },
     [localUserId, refreshData]
   );
 
   const transferBetweenWallets = useCallback(
     async (payload) => {
-      await repoTransferBetweenWallets(localUserId, payload);
+      const result = await repoTransferBetweenWallets(localUserId, payload);
       await refreshData();
+      return result;
     },
     [localUserId, refreshData]
   );
 
   const addBudget = useCallback(
     async (budget) => {
-      await repoAddBudget(localUserId, budget);
+      const result = await repoAddBudget(localUserId, budget);
       await refreshData();
+      return result;
     },
     [localUserId, refreshData]
   );
 
   const updateBudget = useCallback(
     async (id, updates) => {
-      await repoUpdateBudget(localUserId, id, updates);
+      const result = await repoUpdateBudget(localUserId, id, updates);
       await refreshData();
+      return result;
     },
     [localUserId, refreshData]
   );
 
   const deleteBudget = useCallback(
     async (id) => {
-      await repoDeleteBudget(localUserId, id);
+      const result = await repoDeleteBudget(localUserId, id);
       await refreshData();
+      return result;
+    },
+    [localUserId, refreshData]
+  );
+
+  const upsertBudget = useCallback(
+    async (budget) => {
+      const result = await repoUpsertBudget(localUserId, budget);
+      await refreshData();
+      return result;
     },
     [localUserId, refreshData]
   );
 
   const addSavingsGoal = useCallback(
     async (goal) => {
-      await upsertSavingsGoal(localUserId, {
-        ...goal,
+      const result = await repoUpsertSavingsGoal(localUserId, {
+        ...(goal || {}),
         deletedAt: null,
         deleted_at: null,
       });
+
       await refreshData();
+      return result;
     },
     [localUserId, refreshData]
   );
 
   const updateSavingsGoal = useCallback(
-    async (id, updates) => {
-      await upsertSavingsGoal(localUserId, {
-        ...updates,
+    async (id, updates = {}) => {
+      const result = await repoUpsertSavingsGoal(localUserId, {
+        ...(updates || {}),
         id,
         updatedAt: new Date().toISOString(),
       });
+
       await refreshData();
+      return result;
     },
     [localUserId, refreshData]
   );
 
   const deleteSavingsGoal = useCallback(
     async (id) => {
-      await upsertSavingsGoal(localUserId, {
+      const now = new Date().toISOString();
+
+      const result = await repoUpsertSavingsGoal(localUserId, {
         id,
-        deletedAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
+        deletedAt: now,
+        deleted_at: now,
+        updatedAt: now,
+        updated_at: now,
       });
+
       await refreshData();
+      return result;
     },
     [localUserId, refreshData]
   );
 
   const updateEmergencyFund = useCallback(
-    async (updates) => {
-      await upsertEmergencyFund(localUserId, {
+    async (updates = {}) => {
+      const result = await repoUpsertEmergencyFund(localUserId, {
         ...(updates || {}),
         updatedAt: new Date().toISOString(),
       });
+
       await refreshData();
+      return result;
     },
     [localUserId, refreshData]
   );
@@ -470,11 +544,13 @@ function useFinancialData(user) {
     deleteWallet,
 
     addIncome,
+    addMoney,
     transferBetweenWallets,
 
     addBudget,
     updateBudget,
     deleteBudget,
+    upsertBudget,
 
     addSavingsGoal,
     updateSavingsGoal,
