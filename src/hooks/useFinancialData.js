@@ -165,7 +165,7 @@ export default function useFinancialData(user) {
         expenses: sortByNewest(rawExpenses || []),
         incomes: [],
         wallets: normalizedWallets,
-        budgets: rawBudgets || [],
+        budgets: sortByNewest(rawBudgets || []),
         walletTransactions: safeWalletTransactions,
         transfers: safeTransfers,
       };
