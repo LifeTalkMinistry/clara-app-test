@@ -100,7 +100,7 @@ function getFirstArray(source, paths = []) {
 }
 
 function sumNumbers(values = []) {
-  return values.reduce((sum, value) => {
+  return asArray(values).reduce((sum, value) => {
     const number = getNumber(value);
     return number === null ? sum : sum + number;
   }, 0);
@@ -133,7 +133,19 @@ function getExpenseDate(expense = {}) {
     expense.createdAt,
     expense.spent_at,
     expense.logged_at,
-    expense.transaction_date
+    expense.transaction_date,
+    expense.transactionDate
+  );
+}
+
+function getTransactionDate(transaction = {}) {
+  return getText(
+    transaction.date,
+    transaction.created_at,
+    transaction.createdAt,
+    transaction.transaction_date,
+    transaction.transactionDate,
+    transaction.logged_at
   );
 }
 
@@ -165,7 +177,7 @@ function getWalletBalance(wallet = {}) {
 
 function normalizeWallet(wallet = {}) {
   return {
-    id: wallet.id || wallet.wallet_id || getWalletName(wallet),
+    id: wallet.id || wallet.wallet_id || wallet.local_id || getWalletName(wallet),
     name: getWalletName(wallet),
     balance: getWalletBalance(wallet),
     raw: wallet,
@@ -201,12 +213,13 @@ function normalizeExpense(expense = {}) {
         : null;
 
   return {
-    id: expense.id || expense.expense_id || `${date}-${amount}`,
+    id: expense.id || expense.expense_id || expense.local_id || `${date}-${amount}`,
     amount,
     date,
     monthKey: getDateMonthKey(date),
     category: getText(expense.category, expense.category_name, expense.type, "Expense"),
     merchant: getText(expense.merchant, expense.name, expense.title, expense.note),
+    walletId: expense.wallet_id || expense.walletId || expense.wallet,
     planningStatus,
     needType,
     isPlanned,
@@ -215,7 +228,57 @@ function normalizeExpense(expense = {}) {
   };
 }
 
-function normalizeBudget(budget = {}) {
+function normalizeWalletTransaction(transaction = {}) {
+  const amount = getNumber(
+    transaction.amount,
+    transaction.value,
+    transaction.total,
+    transaction.transaction_amount
+  );
+
+  const type = cleanText(
+    getText(transaction.type, transaction.transaction_type, transaction.kind, transaction.action)
+  );
+
+  const date = getTransactionDate(transaction);
+
+  return {
+    id: transaction.id || transaction.transaction_id || transaction.local_id || `${date}-${amount}`,
+    amount,
+    type,
+    date,
+    monthKey: getDateMonthKey(date),
+    walletId: transaction.wallet_id || transaction.walletId || transaction.wallet,
+    title: getText(transaction.title, transaction.name, transaction.note, transaction.description),
+    raw: transaction,
+  };
+}
+
+function normalizeTransfer(transfer = {}) {
+  const amount = getNumber(
+    transfer.amount,
+    transfer.value,
+    transfer.total,
+    transfer.transfer_amount
+  );
+
+  const date = getTransactionDate(transfer);
+
+  return {
+    id: transfer.id || transfer.transfer_id || transfer.local_id || `${date}-${amount}`,
+    amount,
+    date,
+    monthKey: getDateMonthKey(date),
+    fromWalletId: transfer.from_wallet_id || transfer.fromWalletId || transfer.from_wallet,
+    toWalletId: transfer.to_wallet_id || transfer.toWalletId || transfer.to_wallet,
+    title: getText(transfer.title, transfer.name, transfer.note, transfer.description, "Transfer"),
+    raw: transfer,
+  };
+}
+
+function normalizeBudget(budget = {}, expenses = []) {
+  const category = getText(budget.category, budget.category_name, budget.name, budget.title, "Budget");
+
   const allocated = getNumber(
     budget.allocated,
     budget.total,
@@ -225,13 +288,32 @@ function normalizeBudget(budget = {}) {
     budget.budget_amount
   );
 
-  const spent = getNumber(
+  const explicitSpent = getNumber(
     budget.spent,
     budget.used,
     budget.current,
     budget.spent_amount,
     budget.used_amount
   );
+
+  const month = getText(budget.month, budget.month_key, budget.period);
+  const currentMonthKey = getCurrentMonthKey();
+  const budgetMonth = month || currentMonthKey;
+
+  const matchingExpenseSpent = sumNumbers(
+    asArray(expenses)
+      .filter((expense) => {
+        const sameMonth = !expense.monthKey || expense.monthKey === budgetMonth;
+        const sameCategory =
+          cleanText(expense.category) === cleanText(category) ||
+          cleanText(category) === "budget" ||
+          cleanText(category) === "monthly budget";
+        return sameMonth && sameCategory;
+      })
+      .map((expense) => expense.amount)
+  );
+
+  const spent = explicitSpent !== null ? explicitSpent : matchingExpenseSpent || null;
 
   const explicitRemaining = getNumber(
     budget.remaining,
@@ -243,17 +325,18 @@ function normalizeBudget(budget = {}) {
   const remaining =
     explicitRemaining !== null
       ? explicitRemaining
-      : allocated !== null && spent !== null
-        ? allocated - spent
+      : allocated !== null
+        ? allocated - (spent || 0)
         : null;
 
   return {
-    id: budget.id || budget.budget_id || budget.category || "budget",
-    name: getText(budget.name, budget.title, budget.category, "Budget"),
+    id: budget.id || budget.budget_id || budget.local_id || category,
+    name: category,
+    category,
     allocated,
     spent,
     remaining,
-    month: getText(budget.month, budget.month_key, budget.period),
+    month,
     needsPercent: getNumber(budget.needs_percent, budget.needsPercentage, budget.needs),
     wantsPercent: getNumber(budget.wants_percent, budget.wantsPercentage, budget.wants),
     raw: budget,
@@ -279,10 +362,11 @@ function normalizeSavingsGoal(goal = {}) {
   );
 
   return {
-    id: goal.id || goal.goal_id || goal.title || "savings-goal",
+    id: goal.id || goal.goal_id || goal.local_id || goal.title || "savings-goal",
     name: getText(goal.name, goal.title, goal.goal_name, "Savings goal"),
     saved,
     target,
+    percent: saved !== null && target !== null && target > 0 ? clampPercent((saved / target) * 100) : null,
     raw: goal,
   };
 }
@@ -339,6 +423,7 @@ function buildEmergencyFund(context = {}) {
     target,
     monthsCovered,
     percent,
+    remaining: saved !== null && target !== null ? Math.max(target - saved, 0) : null,
     summary: getText(emergencyFund.summary),
     raw: emergencyFund,
   };
@@ -356,14 +441,15 @@ function getPurchasePrice(message = "") {
 }
 
 function buildSpendingBreakdown(expenses = [], currentMonthKey = getCurrentMonthKey()) {
-  const datedExpenses = expenses.filter((expense) => expense.monthKey);
+  const safeExpenses = asArray(expenses);
+  const datedExpenses = safeExpenses.filter((expense) => expense.monthKey);
   const currentMonthExpenses =
     datedExpenses.length > 0
-      ? expenses.filter((expense) => expense.monthKey === currentMonthKey)
-      : expenses;
+      ? safeExpenses.filter((expense) => expense.monthKey === currentMonthKey)
+      : safeExpenses;
 
   const monthlySpent = sumNumbers(currentMonthExpenses.map((expense) => expense.amount));
-  const totalSpent = sumNumbers(expenses.map((expense) => expense.amount));
+  const totalSpent = sumNumbers(safeExpenses.map((expense) => expense.amount));
 
   const plannedSpent = sumNumbers(
     currentMonthExpenses
@@ -389,17 +475,43 @@ function buildSpendingBreakdown(expenses = [], currentMonthKey = getCurrentMonth
       .map((expense) => expense.amount)
   );
 
+  const spendingByCategory = currentMonthExpenses.reduce((map, expense) => {
+    const category = getText(expense.category, "Expense");
+    const amount = getNumber(expense.amount) || 0;
+    map[category] = (map[category] || 0) + amount;
+    return map;
+  }, {});
+
+  const topCategory = Object.entries(spendingByCategory)
+    .sort((a, b) => b[1] - a[1])
+    .map(([category, amount]) => ({ category, amount }))[0] || null;
+
   return {
     currentMonthExpenses,
     monthlySpent: currentMonthExpenses.length ? monthlySpent : null,
     monthlySpentLabel: datedExpenses.length > 0 ? "this month" : "visible expenses",
-    totalSpent: expenses.length ? totalSpent : null,
+    totalSpent: safeExpenses.length ? totalSpent : null,
     plannedSpent: plannedSpent > 0 ? plannedSpent : null,
     unplannedSpent: unplannedSpent > 0 ? unplannedSpent : null,
     needsSpent: needsSpent > 0 ? needsSpent : null,
     wantsSpent: wantsSpent > 0 ? wantsSpent : null,
+    spendingByCategory,
+    topCategory,
     hasDatedExpenses: datedExpenses.length > 0,
   };
+}
+
+function getBudgetPressure(snapshot = {}) {
+  if (snapshot.budgetRemaining !== null && snapshot.budgetRemaining <= 0) return "high";
+  if (
+    snapshot.budgetAllocated !== null &&
+    snapshot.budgetAllocated > 0 &&
+    snapshot.budgetRemaining !== null &&
+    snapshot.budgetRemaining < snapshot.budgetAllocated * 0.2
+  ) {
+    return "medium";
+  }
+  return "low";
 }
 
 export function buildClaraFinanceSnapshot(context = {}) {
@@ -417,18 +529,31 @@ export function buildClaraFinanceSnapshot(context = {}) {
     "expenses",
     "monthlyExpensesList",
     "recentExpenses",
-    "transactions",
     "finance.expenses",
   ]);
 
   const expenses = rawExpenses.map(normalizeExpense);
+
+  const walletTransactions = getFirstArray(source, [
+    "walletTransactions",
+    "wallet_transactions",
+    "transactions",
+    "finance.walletTransactions",
+  ]).map(normalizeWalletTransaction);
+
+  const transfers = getFirstArray(source, [
+    "transfers",
+    "walletTransfers",
+    "wallet_transfers",
+    "finance.transfers",
+  ]).map(normalizeTransfer);
 
   const rawBudgets = [
     ...getFirstArray(source, ["budgets", "budgetList", "finance.budgets"]),
     ...(source.budget ? [source.budget] : []),
   ];
 
-  const budgets = rawBudgets.map(normalizeBudget);
+  const budgets = rawBudgets.map((budget) => normalizeBudget(budget, expenses));
 
   const rawSavingsGoals = [
     ...getFirstArray(source, ["savingsGoals", "savings_goals", "goals", "finance.savingsGoals"]),
@@ -477,7 +602,7 @@ export function buildClaraFinanceSnapshot(context = {}) {
 
   const budgetSpent =
     getFirstNumber(source, ["budgetSpent", "totalBudgetSpent"]) ??
-    (budgets.length ? sumNumbers(budgets.map((budget) => budget.spent)) : null);
+    (budgets.length ? sumNumbers(budgets.map((budget) => budget.spent)) : monthlySpent);
 
   const explicitBudgetRemaining = getFirstNumber(source, [
     "budgetRemaining",
@@ -503,22 +628,35 @@ export function buildClaraFinanceSnapshot(context = {}) {
 
   const emergencyFund = buildEmergencyFund(source);
 
-  const income = getFirstNumber(source, [
-    "income",
-    "monthlyIncome",
-    "incomeThisMonth",
-    "totalIncome",
-    "addedFunds",
-    "addFunds",
-    "fundsAdded",
-    "finance.income",
-  ]);
+  const income =
+    getFirstNumber(source, [
+      "income",
+      "monthlyIncome",
+      "incomeThisMonth",
+      "totalIncome",
+      "addedFunds",
+      "addFunds",
+      "fundsAdded",
+      "finance.income",
+    ]) ??
+    sumNumbers(
+      walletTransactions
+        .filter((transaction) =>
+          ["income", "add", "deposit", "fund", "funds", "add_money"].some((word) =>
+            transaction.type.includes(word)
+          )
+        )
+        .map((transaction) => transaction.amount)
+    ) ||
+    null;
 
   const resolvedAvailableMoney = availableMoney ?? totalWalletBalance;
 
   const hasAnyData = Boolean(
     wallets.length ||
       expenses.length ||
+      walletTransactions.length ||
+      transfers.length ||
       budgets.length ||
       savingsGoals.length ||
       resolvedAvailableMoney !== null ||
@@ -540,6 +678,12 @@ export function buildClaraFinanceSnapshot(context = {}) {
 
     wallets,
     walletCount: wallets.length,
+    walletBalances: wallets.map((wallet) => ({
+      id: wallet.id,
+      name: wallet.name,
+      balance: wallet.balance,
+    })),
+    totalBalance: totalWalletBalance,
     totalWalletBalance,
     availableMoney: resolvedAvailableMoney,
 
@@ -547,21 +691,36 @@ export function buildClaraFinanceSnapshot(context = {}) {
     expenseCount: expenses.length,
     currentMonthExpenses: spendingBreakdown.currentMonthExpenses,
     monthlySpent,
+    totalExpensesCurrentMonth: monthlySpent,
     monthlySpentLabel: spendingBreakdown.monthlySpentLabel,
     totalSpent: spendingBreakdown.totalSpent,
     plannedSpent: spendingBreakdown.plannedSpent,
     unplannedSpent: spendingBreakdown.unplannedSpent,
     needsSpent: spendingBreakdown.needsSpent,
     wantsSpent: spendingBreakdown.wantsSpent,
+    spendingByCategory: spendingBreakdown.spendingByCategory,
+    topSpendingCategory: spendingBreakdown.topCategory,
+
+    walletTransactions,
+    transfers,
 
     budgets,
     budgetAllocated,
     budgetSpent,
     budgetRemaining,
+    remainingBudget: budgetRemaining,
+    budgetPressure: getBudgetPressure({
+      budgetAllocated,
+      budgetRemaining,
+    }),
 
     savingsGoals,
     savingsSaved,
     savingsTarget,
+    savingsProgress:
+      savingsSaved !== null && savingsTarget !== null && savingsTarget > 0
+        ? clampPercent((savingsSaved / savingsTarget) * 100)
+        : null,
 
     emergencyFund,
     income,
@@ -578,7 +737,7 @@ export function detectClaraIntent(message = "") {
   if (!text) return INTENTS.UNKNOWN;
 
   if (
-    /\b(before i buy|before buying|before i purchase|should i buy|can i buy|is it okay to buy|purchase decision|buy this)\b/.test(
+    /\b(before i buy|before buying|before i purchase|before purchasing|should i buy|can i buy|can i afford|afford this|is it okay to buy|purchase decision|buy this)\b/.test(
       text
     )
   ) {
@@ -589,7 +748,11 @@ export function detectClaraIntent(message = "") {
     return INTENTS.FUTURE_FORECAST;
   }
 
-  if (/\b(spending|spent|spend|expenses|expense|leaks|overspend|unplanned|wants|needs)\b/.test(text)) {
+  if (
+    /\b(check my spending|spending check|spending|spent|spend|expenses|expense|leaks|overspend|unplanned|wants|needs)\b/.test(
+      text
+    )
+  ) {
     return INTENTS.SPENDING_CHECK;
   }
 
@@ -597,19 +760,23 @@ export function detectClaraIntent(message = "") {
     return INTENTS.WALLET_HEALTH;
   }
 
-  if (/\b(available money|money left|how much money|left to spend|can spend|remaining money|cash left)\b/.test(text)) {
+  if (
+    /\b(how much do i have|how much money do i have|available money|money left|how much money|left to spend|can spend|remaining money|cash left|total balance|balance)\b/.test(
+      text
+    )
+  ) {
     return INTENTS.AVAILABLE_MONEY;
   }
 
-  if (/\b(budget|budget check|budget health|budget left|budget remaining)\b/.test(text)) {
+  if (/\b(budget|budget check|budget health|budget left|budget remaining|remaining budget)\b/.test(text)) {
     return INTENTS.BUDGET_CHECK;
   }
 
-  if (/\b(savings|saving|save|goal|goals|on track)\b/.test(text)) {
+  if (/\b(savings check|savings|saving|save|goal|goals|on track)\b/.test(text)) {
     return INTENTS.SAVINGS_CHECK;
   }
 
-  if (/\b(emergency|survival buffer|emergency fund|buffer)\b/.test(text)) {
+  if (/\b(emergency fund|emergency|survival buffer|buffer)\b/.test(text)) {
     return INTENTS.EMERGENCY_FUND_CHECK;
   }
 
@@ -661,6 +828,7 @@ export function generateSpendingCheck(snapshot = {}) {
 
   const spent = snapshot.monthlySpent !== null ? formatMoney(snapshot.monthlySpent) : null;
   const available = snapshot.availableMoney !== null ? formatMoney(snapshot.availableMoney) : null;
+  const topCategory = snapshot.topSpendingCategory;
 
   if (!spent && !available) {
     return "I need your spending or wallet data before I can judge your spending clearly.";
@@ -669,7 +837,11 @@ export function generateSpendingCheck(snapshot = {}) {
   const parts = [];
 
   if (spent) {
-    parts.push(`I can see ${spent} spent in ${snapshot.monthlySpentLabel || "this period"}.`);
+    parts.push(`You’ve spent ${spent} in ${snapshot.monthlySpentLabel || "this period"}.`);
+  }
+
+  if (topCategory?.category && topCategory?.amount) {
+    parts.push(`Your biggest category is ${topCategory.category} at ${formatMoney(topCategory.amount)}.`);
   }
 
   if (available) {
@@ -880,33 +1052,49 @@ export function generatePurchaseDecisionReply(message = "", snapshot = {}) {
   const priceText = formatMoney(price);
   const available = snapshot.availableMoney;
   const budgetRemaining = snapshot.budgetRemaining;
+  const savingsSaved = snapshot.savingsSaved;
+  const emergencySaved = snapshot.emergencyFund?.saved;
 
-  const notes = [`This looks around ${priceText}.`];
-
-  if (available !== null) notes.push(`You have ${formatMoney(available)} available.`);
-  if (budgetRemaining !== null) notes.push(`Budget remaining is ${formatMoney(budgetRemaining)}.`);
+  const notes = [];
 
   if (available !== null && price > available) {
-    notes.push("I would pause this. It is bigger than your visible available money.");
+    notes.push(`Not recommended. This is around ${priceText}, but you only have ${formatMoney(available)} available.`);
+    notes.push("Pause this and protect essentials first.");
     return notes.join(" ");
   }
 
   if (budgetRemaining !== null && price > budgetRemaining) {
-    notes.push("I would pause this. It can break your current budget boundary.");
+    notes.push(`Not recommended. This can break your budget because only ${formatMoney(budgetRemaining)} is left.`);
+    notes.push("Buy later or reduce the cost.");
     return notes.join(" ");
   }
 
   if (available !== null && price > available * 0.25) {
-    notes.push("This is a big bite from your current money. Buy only if it is a true need.");
+    notes.push(`Risky. ${priceText} takes a big bite from your available money.`);
+    notes.push("Only proceed if it is a real need and already planned.");
     return notes.join(" ");
   }
 
-  if (available !== null && price > available * 0.1) {
-    notes.push("This is noticeable. If it is a want, wait first and protect your savings.");
+  if (budgetRemaining !== null && price > budgetRemaining * 0.5) {
+    notes.push(`Risky. It fits, but it uses a large part of your remaining budget.`);
+    notes.push("Wait first if this is only a want.");
     return notes.join(" ");
   }
 
-  notes.push("This looks manageable, but still ask: need, planned, and aligned with your goal?");
+  if (savingsSaved !== null && price > savingsSaved * 0.2) {
+    notes.push(`Risky. The price is manageable, but it can slow your savings momentum.`);
+    notes.push("Delay it if it does not support your current goal.");
+    return notes.join(" ");
+  }
+
+  if (emergencySaved !== null && emergencySaved <= 0) {
+    notes.push(`Risky. The purchase may fit, but your emergency buffer is not protected yet.`);
+    notes.push("Build your buffer first before lifestyle upgrades.");
+    return notes.join(" ");
+  }
+
+  notes.push(`Safe. ${priceText} looks manageable based on your loaded data.`);
+  notes.push("Still keep it planned, needed, and aligned with your goal.");
 
   return notes.join(" ");
 }
