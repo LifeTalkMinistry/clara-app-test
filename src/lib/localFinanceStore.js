@@ -1,19 +1,13 @@
 /**
  * CLARA Local Finance Store
  *
- * Phase 2B — Local IndexedDB Foundation Only
- * Phase LOCAL-1 — Dormant Local Multi-Store Transaction Helper
- *
- * Budget helper exports added for offline-first budget wiring.
- *
- * Source checked from uploaded localFinanceStore.js. :contentReference[oaicite:0]{index=0}
+ * Offline-first IndexedDB foundation for CLARA finance data.
+ * Hardened schema for all finance, LIFE OS, AI memory, and private preference stores.
  */
 
 export const LOCAL_FINANCE_DB_NAME = "clara_local_finance";
 
-// Version 2 safely adds the missing private_preferences store/index contract
-// from the earlier partial Phase 2B foundation.
-export const LOCAL_FINANCE_SCHEMA_VERSION = 2;
+export const LOCAL_FINANCE_SCHEMA_VERSION = 3;
 
 export const LOCAL_FINANCE_STORES = Object.freeze({
   metadata: "metadata",
@@ -300,9 +294,6 @@ export async function closeLocalFinanceDb() {
   dbPromise = null;
 }
 
-/**
- * Runs multiple local finance store operations inside one IndexedDB transaction.
- */
 export async function runLocalFinanceTransaction(
   storeNames,
   localUserId,
@@ -325,9 +316,7 @@ export async function runLocalFinanceTransaction(
     assertKnownStore(storeName);
 
     if (!safeStoreNames.includes(storeName)) {
-      throw new Error(
-        `Store ${storeName} was not included in this local finance transaction.`
-      );
+      throw new Error(`Store ${storeName} was not included in this local finance transaction.`);
     }
 
     return transaction.objectStore(storeName);
@@ -368,6 +357,7 @@ export async function runLocalFinanceTransaction(
 
     async put(storeName, record, existingRecord = null) {
       assertPrivateStore(storeName);
+
       const normalizedRecord = normalizeRecordForWrite(
         storeName,
         record,
@@ -467,6 +457,7 @@ export async function runLocalFinanceTransaction(
 
 export async function getLocalRecords(storeName, localUserId) {
   assertPrivateStore(storeName);
+
   const safeLocalUserId = normalizeLocalUserId(localUserId);
   const db = await openLocalFinanceDb();
   const transaction = db.transaction(storeName, "readonly");
@@ -478,6 +469,7 @@ export async function getLocalRecords(storeName, localUserId) {
 
 export async function getLocalRecordById(storeName, id, localUserId) {
   assertPrivateStore(storeName);
+
   const safeLocalUserId = normalizeLocalUserId(localUserId);
 
   if (!id) {
@@ -498,11 +490,13 @@ export async function getLocalRecordById(storeName, id, localUserId) {
 
 export async function upsertLocalRecord(storeName, record, localUserId) {
   assertPrivateStore(storeName);
+
   const safeLocalUserId = normalizeLocalUserId(localUserId);
   const db = await openLocalFinanceDb();
   const transaction = db.transaction(storeName, "readwrite");
   const store = transaction.objectStore(storeName);
   const existingRecord = record?.id ? await requestToPromise(store.get(record.id)) : null;
+
   const normalizedRecord = normalizeRecordForWrite(
     storeName,
     record,
@@ -518,6 +512,7 @@ export async function upsertLocalRecord(storeName, record, localUserId) {
 
 export async function softDeleteLocalRecord(storeName, id, localUserId) {
   assertPrivateStore(storeName);
+
   const safeLocalUserId = normalizeDeleteLocalUserId(localUserId);
 
   if (!id) {
@@ -551,6 +546,7 @@ export async function softDeleteLocalRecord(storeName, id, localUserId) {
 
 export async function hardDeleteLocalRecord(storeName, id, localUserId) {
   assertPrivateStore(storeName);
+
   const safeLocalUserId = normalizeDeleteLocalUserId(localUserId);
 
   if (!id) {
@@ -612,6 +608,7 @@ export async function setLocalMetadata(localUserId, metadata) {
   const store = transaction.objectStore(LOCAL_FINANCE_STORES.metadata);
   const existingMetadata = await requestToPromise(store.get(`metadata:${safeLocalUserId}`));
   const timestamp = nowIso();
+
   const metadataRecord = {
     id: `metadata:${safeLocalUserId}`,
     localUserId: safeLocalUserId,
@@ -626,7 +623,6 @@ export async function setLocalMetadata(localUserId, metadata) {
   return metadataRecord;
 }
 
-// Compatibility aliases from the earlier partial Phase 2B attempt.
 export async function putLocalRecord(storeName, record, options = {}) {
   return upsertLocalRecord(storeName, record, options.localUserId);
 }
@@ -639,29 +635,32 @@ export async function getLocalRecord(storeName, id, options = {}) {
   }
 
   assertPrivateStore(storeName);
+
   const db = await openLocalFinanceDb();
   const transaction = db.transaction(storeName, "readonly");
   const store = transaction.objectStore(storeName);
+
   return requestToPromise(store.get(id));
 }
 
 export async function getLocalRecordsByUser(storeName, options = {}) {
-  const records = await getLocalRecords(storeName, options.localUserId);
-
   if (options.includeDeleted) {
     assertPrivateStore(storeName);
+
     const safeLocalUserId = normalizeLocalUserId(options.localUserId);
     const db = await openLocalFinanceDb();
     const transaction = db.transaction(storeName, "readonly");
     const store = transaction.objectStore(storeName);
+
     return requestToPromise(store.index("localUserId").getAll(safeLocalUserId));
   }
 
-  return records;
+  return getLocalRecords(storeName, options.localUserId);
 }
 
 export async function updateLocalRecord(storeName, id, patch, options = {}) {
   assertPrivateStore(storeName);
+
   const safeLocalUserId = normalizeLocalUserId(options.localUserId);
   const existingRecord = await getLocalRecordById(storeName, id, safeLocalUserId);
 
@@ -694,13 +693,6 @@ export function makeLocalFinanceRecord(record = {}, options = {}) {
   );
 }
 
-/**
- * Budget-specific offline-first helpers.
- *
- * These wrappers keep Budgets.jsx / useFinancialData / financeRepository simple
- * while still using the same IndexedDB localFinanceStore foundation.
- */
-
 export async function getBudgets(localUserIdOrOptions) {
   const localUserId =
     localUserIdOrOptions &&
@@ -719,7 +711,9 @@ export async function addBudget(localUserIdOrOptions, budgetPayload = null) {
     !Array.isArray(localUserIdOrOptions);
 
   const localUserId = isOptionsObject ? localUserIdOrOptions.localUserId : localUserIdOrOptions;
-  const payload = isOptionsObject ? localUserIdOrOptions.budget || localUserIdOrOptions.payload : budgetPayload;
+  const payload = isOptionsObject
+    ? localUserIdOrOptions.budget || localUserIdOrOptions.payload
+    : budgetPayload;
 
   if (!payload || typeof payload !== "object" || Array.isArray(payload)) {
     throw new Error("Budget payload is required.");
