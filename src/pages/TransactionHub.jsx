@@ -169,19 +169,9 @@ const buildSearchText = (item) =>
     .filter(Boolean)
     .join(" ");
 
-const getSyncLabel = (item = {}) => {
-  const status = normalizeLower(item.sync_status);
-  if (status === "failed") return "Will retry";
-  if (status && status !== "synced") return "Pending sync";
-  if (item.pending_sync || item.local_only) return "Pending sync";
-  return "";
-};
+const getSyncLabel = () => "";
 
-const getSyncToneClass = (syncLabel) => {
-  if (syncLabel === "Will retry") return "border-amber-300/20 bg-amber-400/10 text-amber-100";
-  if (syncLabel === "Pending sync") return "border-cyan-300/20 bg-cyan-400/10 text-cyan-100";
-  return "border-white/10 bg-black/22 text-white/60";
-};
+const getSyncToneClass = () => "border-white/10 bg-black/22 text-white/60";
 
 const getExpenseMergeSignature = (expense = {}) => {
   const amount = toNumber(expense.amount);
@@ -465,11 +455,11 @@ export default function TransactionHub() {
   }, [activity, mergedExpenses, transfers, walletTransactions]);
 
   const noticeMessage = useMemo(() => {
-    if (!online) return "You’re offline. CLARA is showing saved local transactions.";
-    if (localStorageFailed) return "Transactions are unavailable right now. Saved local activity will still appear here.";
-    if (localPendingExpenses.length > 0) return "Some transactions are saved locally and will sync when CLARA is online.";
+    if (localStorageFailed && !activity.length) {
+      return "Transactions are temporarily unavailable.";
+    }
     return "";
-  }, [localPendingExpenses.length, localStorageFailed, online]);
+  }, [activity.length, localStorageFailed]);
 
   const handleRefresh = async () => {
     if (refreshing) return;
@@ -620,9 +610,7 @@ export default function TransactionHub() {
               </div>
               <h2 className="mt-4 text-xl font-black tracking-tight">No activity yet</h2>
               <p className="mx-auto mt-2 max-w-sm text-sm font-medium leading-6 text-white/55">
-                {online
-                  ? "Your transactions will appear here once you start using CLARA."
-                  : "You’re offline. CLARA will show saved local transactions here once you log activity."}
+                {"Your transactions will appear here once you log activity."}
               </p>
               <button
                 type="button"
