@@ -44,10 +44,34 @@
         }
       }
 
+      @keyframes clara-route-settle {
+        0% {
+          opacity: 0.985;
+          transform: translate3d(0, 4px, 0) scale(0.9985);
+          filter: saturate(0.98);
+        }
+        100% {
+          opacity: 1;
+          transform: translate3d(0, 0, 0) scale(1);
+          filter: saturate(1);
+        }
+      }
+
       /* Prevent split-second auth/Suspense loader flashes. Real longer loads still appear. */
       .theme-page-shell:has(.animate-spin) {
         opacity: 0;
         animation: clara-loader-reveal 1ms linear 420ms forwards;
+      }
+
+      /* Ultra mode: route changes settle like one continuous app surface, not hard page swaps. */
+      body.clara-route-soft-settle .theme-page-shell main {
+        animation: clara-route-settle 220ms cubic-bezier(.2,.8,.2,1) both;
+        backface-visibility: hidden;
+        will-change: transform, opacity, filter;
+      }
+
+      body.clara-route-soft-settle .theme-page-shell:has(.animate-spin) {
+        animation-delay: 560ms;
       }
 
       /* Final route stability layer: never show a one-frame full-screen loader during route recalculation. */
@@ -56,8 +80,10 @@
       }
 
       @media (prefers-reduced-motion: reduce) {
-        .theme-page-shell:has(.animate-spin) {
+        .theme-page-shell:has(.animate-spin),
+        body.clara-route-soft-settle .theme-page-shell main {
           animation-delay: 0ms;
+          animation-duration: 1ms;
         }
       }
 
@@ -105,6 +131,28 @@
     <div id="root">
       <div id="clara-boot">CLARA is starting...</div>
     </div>
+
+    <script>
+      (() => {
+        let settleTimer = null;
+        const settleRoute = () => {
+          clearTimeout(settleTimer);
+          document.body.classList.remove("clara-route-soft-settle");
+          requestAnimationFrame(() => {
+            document.body.classList.add("clara-route-soft-settle");
+            settleTimer = setTimeout(() => {
+              document.body.classList.remove("clara-route-soft-settle");
+            }, 260);
+          });
+        };
+
+        window.addEventListener("hashchange", settleRoute);
+        window.addEventListener("popstate", settleRoute);
+        document.addEventListener("visibilitychange", () => {
+          if (!document.hidden) settleRoute();
+        });
+      })();
+    </script>
 
     <script>
       (() => {
