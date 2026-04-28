@@ -1,4 +1,4 @@
-import { useState, useMemo, useCallback } from "react";
+import { useState, useMemo } from "react";
 import {
   Receipt,
   Trash2,
@@ -320,7 +320,7 @@ export default function Expenses() {
     refreshData,
     loading,
     error: dataError,
-  } = useFinancialData();
+  } = useFinancialData(user);
 
   const safeExpenses = Array.isArray(expenses) ? expenses : [];
   const safeWallets = Array.isArray(wallets) ? wallets : [];
@@ -346,10 +346,19 @@ export default function Expenses() {
     const map = new Map();
 
     safeWallets.forEach((wallet) => {
+      if (!wallet?.id) return;
+
       map.set(String(wallet.id), {
         ...wallet,
         name: wallet?.name || wallet?.wallet_name || "Untitled Wallet",
-        balance: normalizeNumber(wallet?.balance),
+        balance: normalizeNumber(
+          wallet?.derived_balance ??
+            wallet?.balance ??
+            wallet?.current_balance ??
+            wallet?.wallet_balance ??
+            wallet?.starting_balance ??
+            0
+        ),
       });
     });
 
@@ -429,6 +438,11 @@ export default function Expenses() {
       return;
     }
 
+    if (typeof addExpense !== "function" || typeof updateExpense !== "function") {
+      setError("Expense actions are not ready yet.");
+      return;
+    }
+
     const parsedAmount = normalizeNumber(form.amount);
 
     if (!parsedAmount || parsedAmount <= 0) {
@@ -479,8 +493,10 @@ export default function Expenses() {
 
       const createdAt = buildCreatedAtFromDate(
         form.date,
-        existingExpense?.created_at || new Date()
+        existingExpense?.created_at || existingExpense?.createdAt || new Date()
       );
+
+      const nowIso = new Date().toISOString();
 
       const payload = {
         amount: parsedAmount,
@@ -491,23 +507,31 @@ export default function Expenses() {
         need_type: form.need_type,
         planning_status: planningStatus,
         unplanned_reason: planningStatus === "unplanned" ? unplannedReason : "",
-        created_at: createdAt,
-        updated_at: new Date().toISOString(),
+        created_at: existingExpense?.created_at || createdAt,
+        createdAt: existingExpense?.createdAt || createdAt,
+        updated_at: nowIso,
+        updatedAt: nowIso,
         created_by: user.email ?? "",
         user_email: user.email ?? "",
         user_id: user.id ?? "",
+        syncStatus: "local_only",
+        source: "local",
       };
 
       if (editId) {
         await updateExpense(editId, {
-          ...existingExpense,
+          ...(existingExpense || {}),
           ...payload,
+          id: editId,
         });
       } else {
         await addExpense(payload);
       }
 
-      await refreshData?.();
+      if (typeof refreshData === "function") {
+        await refreshData();
+      }
+
       closeModal();
     } catch (err) {
       console.error("Failed to save expense:", err);
@@ -520,10 +544,23 @@ export default function Expenses() {
   const handleDeleteExpense = async (id) => {
     setError("");
 
+    if (!id) {
+      setError("Expense not found.");
+      return;
+    }
+
+    if (typeof deleteExpense !== "function") {
+      setError("Delete expense action is not ready yet.");
+      return;
+    }
+
     try {
       setSaving(true);
       await deleteExpense(id);
-      await refreshData?.();
+
+      if (typeof refreshData === "function") {
+        await refreshData();
+      }
     } catch (err) {
       console.error("Failed to delete expense:", err);
       setError(err?.message || "Failed to delete expense.");
