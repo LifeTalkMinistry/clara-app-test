@@ -73,7 +73,7 @@ const createEmptyFinancialCache = (key = null) => ({
 
 let financialDataCache = createEmptyFinancialCache();
 
-export default function useFinancialData(user) {
+export function useFinancialData(user) {
   const localUserId = getLocalUserId(user);
   const cacheKey = localUserId || null;
 
@@ -424,3 +424,5 @@ export default function useFinancialData(user) {
     deleteBudget,
   };
 }
+
+export default useFinancialData;
