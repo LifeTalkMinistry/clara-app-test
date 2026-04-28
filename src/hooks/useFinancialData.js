@@ -1,10 +1,5 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from "react";
-import { supabase } from "@/lib/supabaseClient";
 import { getWalletBalance } from "@/utils/financialEngine";
-import {
-  createFinanceRepository,
-  FINANCE_REPOSITORY_MODE_SUPABASE_LEGACY,
-} from "@/lib/financeRepository";
 
 const toNumber = (value) => {
   if (typeof value === "number") return Number.isFinite(value) ? value : 0;
@@ -23,8 +18,12 @@ const getSafeDate = (value) => {
   return d.toISOString();
 };
 
-const normalizeString = (value) => String(value ?? "").trim().toLowerCase();
-const normalizeId = (value) => String(value ?? "").trim();
+const normalizePlanningStatus = (value) => {
+  const normalized = String(value || "planned").trim().toLowerCase();
+  return ["planned", "unplanned", "undocumented"].includes(normalized)
+    ? normalized
+    : "planned";
+};
 
 const FINANCE_INCOME_TYPES = new Set([
   "income",
@@ -35,253 +34,150 @@ const FINANCE_INCOME_TYPES = new Set([
   "credit",
 ]);
 
-const FINANCE_TABLES = ["expenses", "wallets", "wallet_transactions", "transfers", "budgets"];
-const PRIMARY_OWNERSHIP_COLUMN = "user_id";
-
-const logFinanceWarning = (...args) => {
-  if (import.meta.env.DEV) {
-    console.warn(...args);
-  }
-};
-
-const logFinanceError = (...args) => {
-  if (import.meta.env.DEV) {
-    console.error(...args);
-  }
-};
-
-const isMissingColumnError = (error) => {
-  const message = normalizeString(error?.message || error?.details || error?.hint);
-  return (
-    error?.code === "PGRST204" ||
-    error?.code === "PGRST200" ||
-    error?.code === "42703" ||
-    message.includes("column") ||
-    message.includes("schema cache") ||
-    message.includes("does not exist") ||
-    message.includes("could not find") ||
-    message.includes("unknown")
-  );
-};
-
-const isMissingTableError = (error) => {
-  const message = normalizeString(error?.message || error?.details || error?.hint);
-  return (
-    error?.code === "PGRST205" ||
-    error?.code === "42P01" ||
-    message.includes("relation") ||
-    message.includes("table") ||
-    message.includes("does not exist") ||
-    message.includes("not found")
-  );
-};
-
-const isOwnedByUser = (item, user) => {
-  if (!user || !item) return false;
-
-  const userId = normalizeId(user?.id);
-  const userEmail = normalizeString(user?.email);
-
-  const itemIds = [item?.user_id, item?.owner_id, item?.profile_id]
-    .map(normalizeId)
-    .filter(Boolean);
-
-  const itemEmails = [
-    item?.created_by,
-    item?.user_email,
-    item?.owner_email,
-    item?.email,
-  ]
-    .map(normalizeString)
-    .filter(Boolean);
-
-  if (userId && itemIds.includes(userId)) return true;
-  if (userEmail && itemEmails.includes(userEmail)) return true;
-
-  return false;
-};
-
-const hasOwnershipFields = (item) => {
-  if (!item) return false;
-
-  return [
-    item?.user_id,
-    item?.owner_id,
-    item?.profile_id,
-    item?.created_by,
-    item?.user_email,
-    item?.owner_email,
-    item?.email,
-  ].some((value) => normalizeId(value));
-};
-
-const filterOwnedRows = (rows, user) => {
-  const safeRows = rows || [];
-  if (!safeRows.length) return [];
-
-  const ownedRows = safeRows.filter((item) => isOwnedByUser(item, user));
-  if (ownedRows.length > 0) return ownedRows;
-
-  const rowsHaveOwnershipData = safeRows.some(hasOwnershipFields);
-  if (rowsHaveOwnershipData) return [];
-
-  return safeRows;
-};
-
-const createOrderedQuery = (query, orderColumn = "created_at", ascending = false) => {
-  if (!orderColumn) return query;
-  return query.order(orderColumn, { ascending });
-};
-
-const runScopedSelect = async ({ table, column, value, orderColumn, ascending }) => {
-  if (!value) {
-    return { data: [], error: null, skipped: true };
-  }
-
-  try {
-    const query = createOrderedQuery(
-      supabase.from(table).select("*").eq(column, value),
-      orderColumn,
-      ascending
-    );
-
-    return await query;
-  } catch (error) {
-    return { data: null, error, skipped: false };
-  }
-};
-
-const mergeRowsById = (...rowGroups) => {
-  const map = new Map();
-
-  rowGroups.flat().forEach((row) => {
-    if (!row) return;
-    const key = normalizeId(row?.id) || JSON.stringify(row);
-    if (!map.has(key)) map.set(key, row);
-  });
-
-  return Array.from(map.values());
-};
-
-const safeSelect = async (table, user, options = {}) => {
-  if (!user?.id && !user?.email) return [];
-
-  const orderColumn = options.orderColumn || "created_at";
-  const ascending = options.ascending === true;
-
-  if (user?.id) {
-    const primaryResult = await runScopedSelect({
-      table,
-      column: PRIMARY_OWNERSHIP_COLUMN,
-      value: user.id,
-      orderColumn,
-      ascending,
-    });
-
-    if (primaryResult?.error) {
-      if (isMissingTableError(primaryResult.error)) return [];
-
-      if (!isMissingColumnError(primaryResult.error)) {
-        logFinanceWarning(
-          `Primary finance load failed for ${table}. Falling back to legacy ownership lookup.`,
-          primaryResult.error
-        );
-      }
-    } else if (!primaryResult?.skipped) {
-      return filterOwnedRows(primaryResult.data || [], user);
-    }
-  }
-
-  const scopedResults = [];
-  let sawMissingOwnershipColumn = false;
-  let sawUsableOwnershipColumn = false;
-
-  const ownershipQueries = [
-    { column: "owner_id", value: user?.id },
-    { column: "profile_id", value: user?.id },
-    { column: "user_email", value: user?.email },
-    { column: "created_by", value: user?.email },
-    { column: "owner_email", value: user?.email },
-    { column: "email", value: user?.email },
-  ];
-
-  for (const lookup of ownershipQueries) {
-    if (!lookup.value) continue;
-
-    const { data, error, skipped } = await runScopedSelect({
-      table,
-      column: lookup.column,
-      value: lookup.value,
-      orderColumn,
-      ascending,
-    });
-
-    if (skipped) continue;
-
-    if (error) {
-      if (isMissingTableError(error)) return [];
-      if (isMissingColumnError(error)) {
-        sawMissingOwnershipColumn = true;
-        continue;
-      }
-
-      logFinanceWarning(`Failed loading ${table} by ${lookup.column}`, error);
-      continue;
-    }
-
-    sawUsableOwnershipColumn = true;
-
-    if (Array.isArray(data) && data.length > 0) {
-      scopedResults.push(...data);
-    }
-  }
-
-  if (scopedResults.length > 0) {
-    return filterOwnedRows(mergeRowsById(scopedResults), user);
-  }
-
-  if (sawUsableOwnershipColumn) {
-    return [];
-  }
-
-  if (!sawMissingOwnershipColumn) {
-    return [];
-  }
-
-  try {
-    const fallbackQuery = createOrderedQuery(
-      supabase.from(table).select("*"),
-      orderColumn,
-      ascending
-    );
-
-    const { data, error } = await fallbackQuery;
-
-    if (error) {
-      if (isMissingTableError(error)) return [];
-      logFinanceWarning(`Failed loading ${table}`, error);
-      return [];
-    }
-
-    return filterOwnedRows(data || [], user);
-  } catch (error) {
-    logFinanceWarning(`Failed loading ${table}`, error);
-    return [];
-  }
-};
-
 const generateId = () => {
   if (typeof crypto !== "undefined" && crypto.randomUUID) {
     return crypto.randomUUID();
   }
+
   return `${Date.now()}-${Math.random().toString(36).slice(2)}`;
 };
 
-const normalizePlanningStatus = (value) => {
-  const normalized = String(value || "planned").trim().toLowerCase();
-  return ["planned", "unplanned", "undocumented"].includes(normalized)
-    ? normalized
-    : "planned";
+const getOfflineUserKey = (user) =>
+  String(user?.id || user?.email || "guest").replace(/[^a-zA-Z0-9_-]/g, "_");
+
+const getStorageKey = (user, table) =>
+  `clara_offline_${table}_${getOfflineUserKey(user)}`;
+
+const readJson = (key, fallback = []) => {
+  try {
+    const raw = localStorage.getItem(key);
+    if (!raw) return fallback;
+
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) ? parsed : fallback;
+  } catch {
+    return fallback;
+  }
+};
+
+const writeJson = (key, value) => {
+  try {
+    localStorage.setItem(key, JSON.stringify(Array.isArray(value) ? value : []));
+  } catch (error) {
+    console.error("Failed to save offline finance data:", error);
+  }
+};
+
+const sortByNewest = (rows) =>
+  [...(rows || [])].sort((a, b) => {
+    const aTime = new Date(a?.created_at || a?.created_date || a?.date || 0).getTime();
+    const bTime = new Date(b?.created_at || b?.created_date || b?.date || 0).getTime();
+    return bTime - aTime;
+  });
+
+const normalizeExpense = (expense, user) => {
+  const now = new Date().toISOString();
+
+  return {
+    id: expense.id || generateId(),
+    amount: toNumber(expense.amount),
+    category: expense.category || "Uncategorized",
+    description: expense.description || expense.notes || "",
+    notes: expense.notes || expense.description || "",
+    date: expense.date || expense.created_at || expense.created_date || now,
+    created_at: expense.created_at || expense.created_date || now,
+    updated_at: expense.updated_at || now,
+    wallet_id: expense.wallet_id ? String(expense.wallet_id) : null,
+    need_type: expense.need_type || "need",
+    planning_status: normalizePlanningStatus(expense.planning_status),
+    unplanned_reason: expense.unplanned_reason || null,
+    user_id: user?.id || null,
+    user_email: user?.email || null,
+    created_by: user?.email || null,
+    ...expense,
+  };
+};
+
+const normalizeWallet = (wallet, user) => {
+  const starting = toNumber(wallet.balance ?? wallet.starting_balance ?? 0);
+  const now = new Date().toISOString();
+
+  return {
+    id: wallet.id || generateId(),
+    name: wallet.name || "Wallet",
+    icon: wallet.icon || "",
+    type: wallet.type || "cash",
+    balance: starting,
+    starting_balance: toNumber(wallet.starting_balance ?? starting),
+    created_at: wallet.created_at || wallet.created_date || now,
+    updated_at: wallet.updated_at || now,
+    user_id: user?.id || null,
+    user_email: user?.email || null,
+    created_by: user?.email || null,
+    ...wallet,
+  };
+};
+
+const normalizeWalletTransaction = (txn, user) => {
+  const now = new Date().toISOString();
+
+  return {
+    id: txn.id || generateId(),
+    wallet_id: txn.wallet_id ? String(txn.wallet_id) : null,
+    amount: toNumber(txn.amount),
+    type: txn.type || "transaction",
+    category: txn.category || null,
+    need_type: txn.need_type || null,
+    planning_status: txn.planning_status || null,
+    unplanned_reason: txn.unplanned_reason || null,
+    expense_id: txn.expense_id || null,
+    transfer_group_id: txn.transfer_group_id || null,
+    related_wallet_id: txn.related_wallet_id || null,
+    source_type: txn.source_type || null,
+    source_details: txn.source_details || null,
+    tag: txn.tag || null,
+    notes: txn.notes || "",
+    created_at: txn.created_at || txn.created_date || now,
+    updated_at: txn.updated_at || now,
+    user_id: user?.id || null,
+    user_email: user?.email || null,
+    created_by: user?.email || null,
+    ...txn,
+  };
+};
+
+const normalizeTransfer = (transfer, user) => {
+  const now = new Date().toISOString();
+
+  return {
+    id: transfer.id || generateId(),
+    from_wallet_id: transfer.from_wallet_id
+      ? String(transfer.from_wallet_id)
+      : null,
+    to_wallet_id: transfer.to_wallet_id ? String(transfer.to_wallet_id) : null,
+    amount: toNumber(transfer.amount),
+    notes: transfer.notes || "",
+    created_at: transfer.created_at || transfer.created_date || now,
+    updated_at: transfer.updated_at || now,
+    user_id: user?.id || null,
+    user_email: user?.email || null,
+    created_by: user?.email || null,
+    ...transfer,
+  };
+};
+
+const normalizeBudget = (budget, user) => {
+  const now = new Date().toISOString();
+
+  return {
+    id: budget.id || generateId(),
+    created_at: budget.created_at || budget.created_date || now,
+    updated_at: budget.updated_at || now,
+    user_id: user?.id || null,
+    user_email: user?.email || null,
+    created_by: user?.email || null,
+    ...budget,
+  };
 };
 
 const createEmptyFinancialCache = (key = null) => ({
@@ -296,118 +192,11 @@ const createEmptyFinancialCache = (key = null) => ({
 });
 
 let financialDataCache = createEmptyFinancialCache();
-let financialDataInFlight = null;
-
-const safeUpdateById = async (table, id, payload) => {
-  const { error } = await supabase.from(table).update(payload).eq("id", id);
-
-  if (!error) return;
-
-  if (payload?.updated_at && isMissingColumnError(error)) {
-    const fallbackPayload = { ...payload };
-    delete fallbackPayload.updated_at;
-
-    const { error: fallbackError } = await supabase
-      .from(table)
-      .update(fallbackPayload)
-      .eq("id", id);
-
-    if (fallbackError) throw fallbackError;
-    return;
-  }
-
-  throw error;
-};
-
-const safeInsert = async (table, payload) => {
-  const { error } = await supabase.from(table).insert([payload]);
-  if (!error) return;
-
-  if (isMissingColumnError(error)) {
-    const fallbackPayload = { ...payload };
-    delete fallbackPayload.updated_at;
-    delete fallbackPayload.user_email;
-    delete fallbackPayload.owner_email;
-    delete fallbackPayload.owner_id;
-    delete fallbackPayload.profile_id;
-
-    const { error: fallbackError } = await supabase.from(table).insert([fallbackPayload]);
-    if (fallbackError) throw fallbackError;
-    return;
-  }
-
-  throw error;
-};
-
-const getWalletId = (item) => normalizeId(item?.wallet_id || item?.walletId || item?.wallet);
-const getExpenseId = (item) => normalizeId(item?.expense_id || item?.expenseId);
-const getRelatedWalletId = (item) =>
-  normalizeId(item?.related_wallet_id || item?.relatedWalletId);
-
-const isLinkedToWallets = (item, walletIds) => {
-  const walletId = getWalletId(item);
-  const relatedWalletId = getRelatedWalletId(item);
-
-  return (
-    (walletId && walletIds.has(walletId)) ||
-    (relatedWalletId && walletIds.has(relatedWalletId))
-  );
-};
-
-const isLinkedToExpenses = (item, expenseIds) => {
-  const expenseId = getExpenseId(item);
-  return expenseId && expenseIds.has(expenseId);
-};
-
-const normalizeFinanceRows = ({ user, wallets, expenses, budgets, walletTransactions, transfers }) => {
-  const walletIds = new Set((wallets || []).map((wallet) => normalizeId(wallet?.id)).filter(Boolean));
-  const expenseIds = new Set((expenses || []).map((expense) => normalizeId(expense?.id)).filter(Boolean));
-
-  const normalizedExpenses = (expenses || []).filter((expense) => {
-    if (isOwnedByUser(expense, user)) return true;
-    if (isLinkedToWallets(expense, walletIds)) return true;
-    if (!hasOwnershipFields(expense)) return true;
-    return false;
-  });
-
-  const normalizedExpenseIds = new Set(
-    normalizedExpenses.map((expense) => normalizeId(expense?.id)).filter(Boolean)
-  );
-
-  const normalizedWalletTransactions = (walletTransactions || []).filter((txn) => {
-    if (isOwnedByUser(txn, user)) return true;
-    if (isLinkedToWallets(txn, walletIds)) return true;
-    if (isLinkedToExpenses(txn, normalizedExpenseIds)) return true;
-    if (!hasOwnershipFields(txn)) return true;
-    return false;
-  });
-
-  const normalizedTransfers = (transfers || []).filter((transfer) => {
-    if (isOwnedByUser(transfer, user)) return true;
-    if (isLinkedToWallets(transfer, walletIds)) return true;
-    if (!hasOwnershipFields(transfer)) return true;
-    return false;
-  });
-
-  const normalizedBudgets = (budgets || []).filter((budget) => {
-    if (isOwnedByUser(budget, user)) return true;
-    if (!hasOwnershipFields(budget)) return true;
-    return false;
-  });
-
-  return {
-    wallets: wallets || [],
-    expenses: normalizedExpenses,
-    budgets: normalizedBudgets,
-    walletTransactions: normalizedWalletTransactions,
-    transfers: normalizedTransfers,
-  };
-};
 
 export default function useFinancialData(user) {
   const userId = user?.id || null;
   const userEmail = user?.email || null;
-  const cacheKey = userId || userEmail || null;
+  const cacheKey = userId || userEmail || "guest";
 
   const initialCache =
     financialDataCache.loaded && financialDataCache.key === cacheKey
@@ -424,25 +213,164 @@ export default function useFinancialData(user) {
   const [transfers, setTransfers] = useState(initialCache.transfers);
   const [loading, setLoading] = useState(!initialCache.loaded);
 
-  const hasLoadedRef = useRef(initialCache.loaded);
-  const refreshTimeoutRef = useRef(null);
-  const channelRef = useRef(null);
   const mountedRef = useRef(true);
+
+  const keys = useMemo(
+    () => ({
+      expenses: getStorageKey(user, "expenses"),
+      wallets: getStorageKey(user, "wallets"),
+      budgets: getStorageKey(user, "budgets"),
+      walletTransactions: getStorageKey(user, "wallet_transactions"),
+      transfers: getStorageKey(user, "transfers"),
+    }),
+    [user]
+  );
 
   const hydrateFromCache = useCallback((nextCache) => {
     if (!mountedRef.current) return;
 
-    setExpenses((prev) => (prev === nextCache.expenses ? prev : nextCache.expenses || []));
-    setIncomes((prev) => (prev === nextCache.incomes ? prev : nextCache.incomes || []));
-    setWallets((prev) => (prev === nextCache.wallets ? prev : nextCache.wallets || []));
-    setBudgets((prev) => (prev === nextCache.budgets ? prev : nextCache.budgets || []));
-    setWalletTransactions((prev) =>
-      prev === nextCache.walletTransactions ? prev : nextCache.walletTransactions || []
-    );
-    setTransfers((prev) => (prev === nextCache.transfers ? prev : nextCache.transfers || []));
-    hasLoadedRef.current = nextCache.loaded;
+    setExpenses(nextCache.expenses || []);
+    setIncomes(nextCache.incomes || []);
+    setWallets(nextCache.wallets || []);
+    setBudgets(nextCache.budgets || []);
+    setWalletTransactions(nextCache.walletTransactions || []);
+    setTransfers(nextCache.transfers || []);
     setLoading(!nextCache.loaded);
   }, []);
+
+  const persistAll = useCallback(
+    ({
+      nextExpenses = expenses,
+      nextWallets = wallets,
+      nextBudgets = budgets,
+      nextWalletTransactions = walletTransactions,
+      nextTransfers = transfers,
+    }) => {
+      const normalizedWallets = (nextWallets || []).map((wallet) => {
+        const balance = getWalletBalance(
+          wallet,
+          nextWalletTransactions || [],
+          nextTransfers || []
+        );
+
+        return {
+          ...wallet,
+          balance,
+          derived_balance: balance,
+        };
+      });
+
+      const nextCache = {
+        key: cacheKey,
+        loaded: true,
+        expenses: sortByNewest(nextExpenses),
+        incomes: [],
+        wallets: normalizedWallets,
+        budgets: nextBudgets || [],
+        walletTransactions: sortByNewest(nextWalletTransactions),
+        transfers: sortByNewest(nextTransfers),
+      };
+
+      writeJson(keys.expenses, nextCache.expenses);
+      writeJson(keys.wallets, nextCache.wallets);
+      writeJson(keys.budgets, nextCache.budgets);
+      writeJson(keys.walletTransactions, nextCache.walletTransactions);
+      writeJson(keys.transfers, nextCache.transfers);
+
+      financialDataCache = nextCache;
+      hydrateFromCache(nextCache);
+
+      return nextCache;
+    },
+    [
+      budgets,
+      cacheKey,
+      expenses,
+      hydrateFromCache,
+      keys.budgets,
+      keys.expenses,
+      keys.transfers,
+      keys.walletTransactions,
+      keys.wallets,
+      transfers,
+      walletTransactions,
+      wallets,
+    ]
+  );
+
+  const loadAll = useCallback(
+    async () => {
+      setLoading(true);
+
+      try {
+        const rawExpenses = readJson(keys.expenses, []).map((expense) =>
+          normalizeExpense(expense, user)
+        );
+
+        const rawWallets = readJson(keys.wallets, []).map((wallet) =>
+          normalizeWallet(wallet, user)
+        );
+
+        const rawBudgets = readJson(keys.budgets, []).map((budget) =>
+          normalizeBudget(budget, user)
+        );
+
+        const rawWalletTransactions = readJson(
+          keys.walletTransactions,
+          []
+        ).map((txn) => normalizeWalletTransaction(txn, user));
+
+        const rawTransfers = readJson(keys.transfers, []).map((transfer) =>
+          normalizeTransfer(transfer, user)
+        );
+
+        const normalizedWallets = rawWallets.map((wallet) => {
+          const balance = getWalletBalance(
+            wallet,
+            rawWalletTransactions,
+            rawTransfers
+          );
+
+          return {
+            ...wallet,
+            balance,
+            derived_balance: balance,
+          };
+        });
+
+        const nextCache = {
+          key: cacheKey,
+          loaded: true,
+          expenses: sortByNewest(rawExpenses),
+          incomes: [],
+          wallets: normalizedWallets,
+          budgets: rawBudgets,
+          walletTransactions: sortByNewest(rawWalletTransactions),
+          transfers: sortByNewest(rawTransfers),
+        };
+
+        financialDataCache = nextCache;
+        hydrateFromCache(nextCache);
+
+        return nextCache;
+      } catch (error) {
+        console.error("Offline loadAll error:", error);
+
+        const fallbackCache =
+          financialDataCache.key === cacheKey
+            ? { ...financialDataCache, loaded: true }
+            : createEmptyFinancialCache(cacheKey);
+
+        hydrateFromCache(fallbackCache);
+        return fallbackCache;
+      } finally {
+        if (mountedRef.current) {
+          setLoading(false);
+        }
+      }
+    },
+    [cacheKey, hydrateFromCache, keys, user]
+  );
 
   useEffect(() => {
     mountedRef.current = true;
@@ -453,359 +381,218 @@ export default function useFinancialData(user) {
   }, []);
 
   useEffect(() => {
-    if (!cacheKey) {
-      const emptyCache = createEmptyFinancialCache();
-      financialDataCache = emptyCache;
-      hydrateFromCache(emptyCache);
-      return;
-    }
-
-    if (financialDataCache.loaded && financialDataCache.key === cacheKey) {
-      hydrateFromCache(financialDataCache);
-      return;
-    }
-
-    hasLoadedRef.current = false;
-    setLoading(true);
-  }, [cacheKey, hydrateFromCache]);
-
-  const loadAll = useCallback(
-    async ({ background = false } = {}) => {
-      const currentUser = { id: userId, email: userEmail };
-
-      if (!currentUser.id && !currentUser.email) {
-        const emptyCache = createEmptyFinancialCache();
-        financialDataCache = emptyCache;
-        hydrateFromCache(emptyCache);
-        return emptyCache;
-      }
-
-      if (financialDataInFlight?.key === cacheKey) {
-        return financialDataInFlight.promise;
-      }
-
-      if (!hasLoadedRef.current && !background) {
-        setLoading(true);
-      }
-
-      const promise = (async () => {
-        const [rawWallets, rawExpenses, rawBudgets, rawWalletTransactions, rawTransfers] =
-          await Promise.all([
-            safeSelect("wallets", currentUser),
-            safeSelect("expenses", currentUser),
-            safeSelect("budgets", currentUser),
-            safeSelect("wallet_transactions", currentUser),
-            safeSelect("transfers", currentUser),
-          ]);
-
-        const normalized = normalizeFinanceRows({
-          user: currentUser,
-          wallets: rawWallets,
-          expenses: rawExpenses,
-          budgets: rawBudgets,
-          walletTransactions: rawWalletTransactions,
-          transfers: rawTransfers,
-        });
-
-        const nextCache = {
-          key: cacheKey,
-          loaded: true,
-          expenses: normalized.expenses || [],
-          incomes: [],
-          wallets: (normalized.wallets || []).map((wallet) => {
-            const balance = getWalletBalance(
-              wallet,
-              normalized.walletTransactions || [],
-              normalized.transfers || []
-            );
-
-            return {
-              ...wallet,
-              balance,
-              derived_balance: balance,
-            };
-          }),
-          budgets: normalized.budgets || [],
-          walletTransactions: normalized.walletTransactions || [],
-          transfers: normalized.transfers || [],
-        };
-
-        financialDataCache = nextCache;
-        hydrateFromCache(nextCache);
-        return nextCache;
-      })()
-        .catch((err) => {
-          logFinanceError("loadAll error:", err);
-
-          const fallbackCache =
-            financialDataCache.key === cacheKey
-              ? financialDataCache
-              : createEmptyFinancialCache(cacheKey);
-
-          hydrateFromCache({
-            ...fallbackCache,
-            loaded: true,
-          });
-
-          return fallbackCache;
-        })
-        .finally(() => {
-          if (financialDataInFlight?.key === cacheKey) {
-            financialDataInFlight = null;
-          }
-
-          if (mountedRef.current) {
-            setLoading(false);
-          }
-        });
-
-      financialDataInFlight = {
-        key: cacheKey,
-        promise,
-      };
-
-      return promise;
-    },
-    [cacheKey, hydrateFromCache, userEmail, userId]
-  );
-
-  useEffect(() => {
     loadAll();
   }, [loadAll]);
 
-  useEffect(() => {
-    if (!userId && !userEmail) return undefined;
-
-    let isActive = true;
-
-    const scheduleRefresh = () => {
-      if (!isActive) return;
-
-      if (refreshTimeoutRef.current) {
-        clearTimeout(refreshTimeoutRef.current);
-      }
-
-      refreshTimeoutRef.current = setTimeout(() => {
-        if (isActive) {
-          loadAll({ background: true });
-        }
-      }, 350);
-    };
-
-    let channel = null;
-
-    try {
-      if (channelRef.current) {
-        supabase.removeChannel(channelRef.current);
-        channelRef.current = null;
-      }
-
-      const safeUserKey = String(userId || userEmail || "guest").replace(/[^a-zA-Z0-9_-]/g, "_");
-      const channelName = `finance-${safeUserKey}-${Date.now()}-${Math.random()
-        .toString(36)
-        .slice(2, 8)}`;
-
-      channel = supabase.channel(channelName);
-      channelRef.current = channel;
-
-      FINANCE_TABLES.forEach((table) => {
-        try {
-          if (userId) {
-            channel.on(
-              "postgres_changes",
-              {
-                event: "*",
-                schema: "public",
-                table,
-                filter: `user_id=eq.${userId}`,
-              },
-              scheduleRefresh
-            );
-          } else {
-            channel.on(
-              "postgres_changes",
-              {
-                event: "*",
-                schema: "public",
-                table,
-              },
-              scheduleRefresh
-            );
-          }
-        } catch (error) {
-          logFinanceWarning(`Realtime listener skipped for ${table}:`, error);
-        }
-      });
-
-      channel.subscribe((status, error) => {
-        if (error) {
-          logFinanceWarning("Financial realtime subscription warning:", error);
-        }
-
-        if (status === "CHANNEL_ERROR") {
-          logFinanceWarning("Financial realtime channel error. Data will still refresh manually.");
-        }
-      });
-    } catch (error) {
-      logFinanceWarning("Financial realtime setup skipped. Data will still load normally.", error);
-    }
-
-    return () => {
-      isActive = false;
-
-      if (refreshTimeoutRef.current) {
-        clearTimeout(refreshTimeoutRef.current);
-      }
-
-      if (channel) {
-        supabase.removeChannel(channel);
-      }
-
-      if (channelRef.current === channel) {
-        channelRef.current = null;
-      }
-    };
-  }, [userEmail, userId, loadAll]);
-
-  const refreshData = useCallback((options) => loadAll(options), [loadAll]);
-
-  const updateWalletBalance = async (walletId, amountChange) => {
-    const wallet = wallets.find((w) => String(w.id) === String(walletId));
-    if (!wallet) return;
-
-    const updated =
-      toNumber(wallet?.derived_balance ?? wallet?.balance) + toNumber(amountChange);
-
-    await safeUpdateById("wallets", walletId, {
-      balance: updated,
-      updated_at: new Date().toISOString(),
-    });
-  };
-
-  const insertWalletTransaction = async (payload) => {
-    const now = new Date().toISOString();
-
-    await safeInsert("wallet_transactions", {
-      id: payload.id || generateId(),
-      wallet_id: payload.wallet_id ? String(payload.wallet_id) : null,
-      amount: toNumber(payload.amount),
-      type: payload.type,
-      category: payload.category || null,
-      need_type: payload.need_type || null,
-      planning_status: payload.planning_status || null,
-      unplanned_reason: payload.unplanned_reason || null,
-      expense_id: payload.expense_id || null,
-      transfer_group_id: payload.transfer_group_id || null,
-      related_wallet_id: payload.related_wallet_id || null,
-      source_type: payload.source_type || null,
-      tag: payload.tag || null,
-      notes: payload.notes || "",
-      created_at: payload.created_at || now,
-      updated_at: payload.updated_at || now,
-      user_id: user?.id || null,
-      user_email: user?.email || null,
-      created_by: user?.email || null,
-    });
-  };
+  const refreshData = useCallback(() => loadAll(), [loadAll]);
 
   const addExpense = async (expense) => {
-    const repository = createFinanceRepository({
-      mode: FINANCE_REPOSITORY_MODE_SUPABASE_LEGACY,
-      supabase,
-      user,
-      wallets,
-      walletTransactions,
-      generateId,
-      toNumber,
-      getSafeDate,
-      normalizePlanningStatus,
-      safeInsert,
-      safeUpdateById,
+    const now = new Date().toISOString();
+    const walletId = expense.wallet_id ? String(expense.wallet_id) : null;
+    const amount = toNumber(expense.amount);
+
+    if (amount <= 0) {
+      throw new Error("Enter a valid expense amount.");
+    }
+
+    const newExpense = normalizeExpense(
+      {
+        ...expense,
+        id: expense.id || generateId(),
+        amount,
+        wallet_id: walletId,
+        date: expense.date || now,
+        created_at: expense.created_at || now,
+        updated_at: now,
+      },
+      user
+    );
+
+    const newTransaction = walletId
+      ? normalizeWalletTransaction(
+          {
+            wallet_id: walletId,
+            amount,
+            type: "expense",
+            category: newExpense.category,
+            need_type: newExpense.need_type,
+            planning_status: newExpense.planning_status,
+            unplanned_reason: newExpense.unplanned_reason,
+            expense_id: newExpense.id,
+            source_type: "Expense",
+            source_details: newExpense.description || newExpense.notes || null,
+            tag: newExpense.category || null,
+            notes: newExpense.notes || newExpense.description || "",
+            created_at: now,
+            updated_at: now,
+          },
+          user
+        )
+      : null;
+
+    persistAll({
+      nextExpenses: [newExpense, ...expenses],
+      nextWalletTransactions: newTransaction
+        ? [newTransaction, ...walletTransactions]
+        : walletTransactions,
     });
-
-    await repository.addExpense(user?.id, expense);
-
-    await loadAll();
   };
 
   const updateExpense = async (id, updates) => {
-    const repository = createFinanceRepository({
-      mode: FINANCE_REPOSITORY_MODE_SUPABASE_LEGACY,
-      supabase,
-      user,
-      wallets,
-      expenses,
-      walletTransactions,
-      generateId,
-      toNumber,
-      getSafeDate,
-      normalizePlanningStatus,
-      safeInsert,
-      safeUpdateById,
+    const now = new Date().toISOString();
+
+    const nextExpenses = expenses.map((expense) =>
+      String(expense.id) === String(id)
+        ? normalizeExpense(
+            {
+              ...expense,
+              ...updates,
+              amount:
+                updates.amount !== undefined
+                  ? toNumber(updates.amount)
+                  : expense.amount,
+              planning_status:
+                updates.planning_status !== undefined
+                  ? normalizePlanningStatus(updates.planning_status)
+                  : expense.planning_status,
+              updated_at: now,
+            },
+            user
+          )
+        : expense
+    );
+
+    const updatedExpense = nextExpenses.find(
+      (expense) => String(expense.id) === String(id)
+    );
+
+    const nextWalletTransactions = walletTransactions.map((txn) => {
+      if (String(txn.expense_id) !== String(id)) return txn;
+
+      return normalizeWalletTransaction(
+        {
+          ...txn,
+          wallet_id: updatedExpense?.wallet_id || txn.wallet_id,
+          amount: toNumber(updatedExpense?.amount ?? txn.amount),
+          category: updatedExpense?.category || txn.category,
+          need_type: updatedExpense?.need_type || txn.need_type,
+          planning_status:
+            updatedExpense?.planning_status || txn.planning_status,
+          unplanned_reason:
+            updatedExpense?.unplanned_reason || txn.unplanned_reason,
+          source_details:
+            updatedExpense?.description || updatedExpense?.notes || null,
+          tag: updatedExpense?.category || txn.tag,
+          notes:
+            updatedExpense?.notes ||
+            updatedExpense?.description ||
+            txn.notes ||
+            "",
+          updated_at: now,
+        },
+        user
+      );
     });
 
-    await repository.updateExpense(user?.id, id, updates);
-
-    await loadAll();
+    persistAll({
+      nextExpenses,
+      nextWalletTransactions,
+    });
   };
 
   const deleteExpense = async (id) => {
-    const repository = createFinanceRepository({
-      mode: FINANCE_REPOSITORY_MODE_SUPABASE_LEGACY,
-      supabase,
-      user,
-      wallets,
-      expenses,
-      walletTransactions,
-      generateId,
-      toNumber,
-      getSafeDate,
-      normalizePlanningStatus,
-      safeInsert,
-      safeUpdateById,
+    const nextExpenses = expenses.filter(
+      (expense) => String(expense.id) !== String(id)
+    );
+
+    const nextWalletTransactions = walletTransactions.filter(
+      (txn) => String(txn.expense_id) !== String(id)
+    );
+
+    persistAll({
+      nextExpenses,
+      nextWalletTransactions,
     });
-
-    await repository.deleteExpense(user?.id, id);
-
-    await loadAll();
   };
 
   const addWallet = async (wallet) => {
-    const starting = toNumber(wallet.balance ?? wallet.starting_balance ?? 0);
+    const newWallet = normalizeWallet(
+      {
+        ...wallet,
+        id: wallet.id || generateId(),
+        balance: toNumber(wallet.balance ?? wallet.starting_balance ?? 0),
+        starting_balance: toNumber(
+          wallet.starting_balance ?? wallet.balance ?? 0
+        ),
+      },
+      user
+    );
 
-    await safeInsert("wallets", {
-      ...wallet,
-      id: wallet.id || generateId(),
-      balance: starting,
-      starting_balance: starting,
-      user_id: user?.id || null,
-      user_email: user?.email || null,
-      created_by: user?.email || null,
+    persistAll({
+      nextWallets: [newWallet, ...wallets],
     });
-
-    await loadAll();
   };
 
   const updateWallet = async (id, updates) => {
-    const normalizedUpdates = { ...updates };
+    const now = new Date().toISOString();
 
-    if (updates.balance !== undefined) {
-      normalizedUpdates.balance = toNumber(updates.balance);
-    }
+    const nextWallets = wallets.map((wallet) => {
+      if (String(wallet.id) !== String(id)) return wallet;
 
-    if (updates.starting_balance !== undefined) {
-      normalizedUpdates.starting_balance = toNumber(updates.starting_balance);
-    }
+      return normalizeWallet(
+        {
+          ...wallet,
+          ...updates,
+          balance:
+            updates.balance !== undefined
+              ? toNumber(updates.balance)
+              : wallet.balance,
+          starting_balance:
+            updates.starting_balance !== undefined
+              ? toNumber(updates.starting_balance)
+              : wallet.starting_balance,
+          updated_at: now,
+        },
+        user
+      );
+    });
 
-    await safeUpdateById("wallets", id, normalizedUpdates);
-    await loadAll();
+    persistAll({
+      nextWallets,
+    });
   };
 
   const deleteWallet = async (id) => {
-    const { error } = await supabase.from("wallets").delete().eq("id", id);
-    if (error) throw error;
+    const walletId = String(id);
 
-    await loadAll();
+    const nextWallets = wallets.filter(
+      (wallet) => String(wallet.id) !== walletId
+    );
+
+    const nextExpenses = expenses.map((expense) =>
+      String(expense.wallet_id) === walletId
+        ? { ...expense, wallet_id: null }
+        : expense
+    );
+
+    const nextWalletTransactions = walletTransactions.filter(
+      (txn) =>
+        String(txn.wallet_id) !== walletId &&
+        String(txn.related_wallet_id) !== walletId
+    );
+
+    const nextTransfers = transfers.filter(
+      (transfer) =>
+        String(transfer.from_wallet_id) !== walletId &&
+        String(transfer.to_wallet_id) !== walletId
+    );
+
+    persistAll({
+      nextWallets,
+      nextExpenses,
+      nextWalletTransactions,
+      nextTransfers,
+    });
   };
 
   const addIncome = async (income) => {
@@ -819,35 +606,33 @@ export default function useFinancialData(user) {
       throw new Error("Wallet is required to add money.");
     }
 
-    const wallet = wallets.find((w) => String(w.id) === String(income.wallet_id));
+    const wallet = wallets.find(
+      (w) => String(w.id) === String(income.wallet_id)
+    );
 
     if (!wallet) {
       throw new Error("Wallet not found.");
     }
 
-    const operationTime = new Date().toISOString();
-    const currentBalance = toNumber(
-      wallet?.derived_balance ?? wallet?.balance ?? wallet?.current_balance
+    const now = new Date().toISOString();
+
+    const newTransaction = normalizeWalletTransaction(
+      {
+        wallet_id: wallet.id,
+        amount,
+        type: "income",
+        source_type: income.source_type || income.source || "Income",
+        tag: income.tag || null,
+        notes: income.notes || "",
+        created_at: now,
+        updated_at: now,
+      },
+      user
     );
-    const nextBalance = currentBalance + amount;
 
-    await safeUpdateById("wallets", wallet.id, {
-      balance: nextBalance,
-      updated_at: operationTime,
+    persistAll({
+      nextWalletTransactions: [newTransaction, ...walletTransactions],
     });
-
-    await insertWalletTransaction({
-      wallet_id: wallet.id,
-      amount,
-      type: "income",
-      source_type: income.source_type || income.source,
-      tag: income.tag,
-      notes: income.notes,
-      created_at: operationTime,
-      updated_at: operationTime,
-    });
-
-    await loadAll();
   };
 
   const transferBetweenWallets = async ({
@@ -857,7 +642,9 @@ export default function useFinancialData(user) {
     notes = "",
   }) => {
     const parsedAmount = toNumber(amount);
-    const fromWallet = wallets.find((w) => String(w.id) === String(from_wallet_id));
+    const fromWallet = wallets.find(
+      (w) => String(w.id) === String(from_wallet_id)
+    );
     const toWallet = wallets.find((w) => String(w.id) === String(to_wallet_id));
 
     if (!fromWallet || !toWallet) {
@@ -873,56 +660,67 @@ export default function useFinancialData(user) {
     }
 
     const fromBalance = toNumber(
-      fromWallet?.derived_balance ?? fromWallet?.balance ?? fromWallet?.current_balance
-    );
-
-    const toBalance = toNumber(
-      toWallet?.derived_balance ?? toWallet?.balance ?? toWallet?.current_balance
+      fromWallet?.derived_balance ??
+        fromWallet?.balance ??
+        fromWallet?.current_balance
     );
 
     if (fromBalance < parsedAmount) {
       throw new Error("Insufficient balance in source wallet.");
     }
 
-    const operationTime = new Date().toISOString();
+    const now = new Date().toISOString();
     const transferGroupId = generateId();
 
-    const nextFromBalance = fromBalance - parsedAmount;
-    const nextToBalance = toBalance + parsedAmount;
+    const transferRecord = normalizeTransfer(
+      {
+        id: transferGroupId,
+        from_wallet_id: fromWallet.id,
+        to_wallet_id: toWallet.id,
+        amount: parsedAmount,
+        notes,
+        created_at: now,
+        updated_at: now,
+      },
+      user
+    );
 
-    await safeUpdateById("wallets", fromWallet.id, {
-      balance: nextFromBalance,
-      updated_at: operationTime,
+    const transferOut = normalizeWalletTransaction(
+      {
+        wallet_id: fromWallet.id,
+        amount: parsedAmount,
+        type: "transfer_out",
+        transfer_group_id: transferGroupId,
+        related_wallet_id: toWallet.id,
+        notes,
+        created_at: now,
+        updated_at: now,
+      },
+      user
+    );
+
+    const transferIn = normalizeWalletTransaction(
+      {
+        wallet_id: toWallet.id,
+        amount: parsedAmount,
+        type: "transfer_in",
+        transfer_group_id: transferGroupId,
+        related_wallet_id: fromWallet.id,
+        notes,
+        created_at: now,
+        updated_at: now,
+      },
+      user
+    );
+
+    persistAll({
+      nextTransfers: [transferRecord, ...transfers],
+      nextWalletTransactions: [
+        transferOut,
+        transferIn,
+        ...walletTransactions,
+      ],
     });
-
-    await safeUpdateById("wallets", toWallet.id, {
-      balance: nextToBalance,
-      updated_at: operationTime,
-    });
-
-    await insertWalletTransaction({
-      wallet_id: fromWallet.id,
-      amount: parsedAmount,
-      type: "transfer_out",
-      transfer_group_id: transferGroupId,
-      related_wallet_id: toWallet.id,
-      notes,
-      created_at: operationTime,
-      updated_at: operationTime,
-    });
-
-    await insertWalletTransaction({
-      wallet_id: toWallet.id,
-      amount: parsedAmount,
-      type: "transfer_in",
-      transfer_group_id: transferGroupId,
-      related_wallet_id: fromWallet.id,
-      notes,
-      created_at: operationTime,
-      updated_at: operationTime,
-    });
-
-    await loadAll();
   };
 
   const totalExpenses = useMemo(
@@ -932,7 +730,9 @@ export default function useFinancialData(user) {
 
   const totalIncome = useMemo(() => {
     return walletTransactions
-      .filter((t) => FINANCE_INCOME_TYPES.has(String(t?.type || "").trim().toLowerCase()))
+      .filter((t) =>
+        FINANCE_INCOME_TYPES.has(String(t?.type || "").trim().toLowerCase())
+      )
       .reduce((sum, t) => sum + toNumber(t.amount), 0);
   }, [walletTransactions]);
 
@@ -952,6 +752,11 @@ export default function useFinancialData(user) {
     [wallets]
   );
 
+  const retentionRate = useMemo(() => {
+    if (totalIncome <= 0) return 0;
+    return ((totalIncome - totalExpenses) / totalIncome) * 100;
+  }, [totalExpenses, totalIncome]);
+
   return {
     loading,
     expenses,
@@ -963,6 +768,7 @@ export default function useFinancialData(user) {
     totalExpenses,
     totalIncome,
     totalWalletBalance,
+    retentionRate,
     refreshData,
     addExpense,
     updateExpense,
