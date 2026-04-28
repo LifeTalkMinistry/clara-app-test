@@ -894,8 +894,24 @@ const OnboardingActionBar = ({
 };
 
 
+const shouldSilenceNormalOfflineNotice = (message = "") => {
+  const normalized = normalizeLower(message).replace(/[\u2019']/g, "");
+
+  return (
+    normalized.includes("youre offline. clara is using your saved access state") ||
+    normalized.includes("connect to the internet later to finish account setup") ||
+    normalized.includes("youre offline. clara is using saved data") ||
+    normalized.includes("clara is using your saved access state") ||
+    normalized.includes("clara is using saved data")
+  );
+};
+
 const FinanceInlineAlert = ({ notice, onClose }) => {
   if (!notice?.message) return null;
+
+  if (shouldSilenceNormalOfflineNotice(notice.message)) {
+    return null;
+  }
 
   const tone =
     notice.type === "success"
