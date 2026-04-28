@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useCallback } from "react";
+import { useState, useMemo, useCallback } from "react";
 import {
   Plus,
   Wallet as WalletIcon,
@@ -28,9 +28,10 @@ import {
 import EmptyState from "../components/EmptyState";
 import FeaturePageLoader from "../components/FeaturePageLoader";
 import useUserRole from "../hooks/useUserRole";
-import { getWalletBalance } from "@/utils/financialEngine";
+import useFinancialData from "../hooks/useFinancialData";
 
 const walletTypes = ["cash", "gcash", "bank", "maya", "credit_card", "other"];
+
 const fundSourceTypes = [
   "Salary",
   "Business",
@@ -41,6 +42,7 @@ const fundSourceTypes = [
   "Transfer In",
   "Other",
 ];
+
 const fundTags = [
   "Regular Income",
   "Extra Income",
@@ -77,23 +79,7 @@ const generateId = () => {
     return crypto.randomUUID();
   }
 
-  if (typeof crypto !== "undefined" && crypto.getRandomValues) {
-    const bytes = crypto.getRandomValues(new Uint8Array(16));
-
-    bytes[6] = (bytes[6] & 0x0f) | 0x40;
-    bytes[8] = (bytes[8] & 0x3f) | 0x80;
-
-    const hex = Array.from(bytes, (byte) =>
-      byte.toString(16).padStart(2, "0")
-    ).join("");
-
-    return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(
-      12,
-      16
-    )}-${hex.slice(16, 20)}-${hex.slice(20)}`;
-  }
-
-  throw new Error("Unable to generate a valid UUID on this device.");
+  return `${Date.now()}-${Math.random().toString(36).slice(2)}`;
 };
 
 const getWalletSortOrder = (wallet, index) => {
@@ -141,6 +127,8 @@ const getHistoryTypeLabel = (type) => {
       return "Expense";
     case "reset":
       return "Reset";
+    case "savings_goal":
+      return "Savings Goal";
     default:
       return String(type || "Transaction")
         .replaceAll("_", " ")
@@ -149,287 +137,70 @@ const getHistoryTypeLabel = (type) => {
 };
 
 const getHistoryAmountPrefix = (type) => {
-  if (type === "transfer_out" || type === "expense" || type === "reset") {
+  if (
+    type === "transfer_out" ||
+    type === "expense" ||
+    type === "reset" ||
+    type === "savings_goal"
+  ) {
     return "-";
   }
+
   return "+";
 };
 
-
-const LOCAL_FINANCE_VERSION = 1;
-const LOCAL_FINANCE_PREFIX = "clara_local_finance_v1";
-const LOCAL_FINANCE_LAST_KEY = `${LOCAL_FINANCE_PREFIX}:last`;
-
-const isBrowser = () =>
-  typeof window !== "undefined" && typeof window.localStorage !== "undefined";
-
-const safeText = (value) => String(value ?? "").trim();
-
-const safeJsonParse = (value, fallback = null) => {
-  try {
-    return value ? JSON.parse(value) : fallback;
-  } catch {
-    return fallback;
-  }
-};
-
-const getLocalFinanceKey = (userKey) =>
-  `${LOCAL_FINANCE_PREFIX}:${safeText(userKey || "guest").toLowerCase() || "guest"}`;
-
-const sortByDateDesc = (a, b) => {
-  const aTime = new Date(a?.created_at || a?.date || 0).getTime() || 0;
-  const bTime = new Date(b?.created_at || b?.date || 0).getTime() || 0;
-  return bTime - aTime;
-};
-
-const normalizeWalletRow = (wallet) => {
-  const name = wallet?.name || wallet?.wallet_name || "Untitled Wallet";
-  const type = wallet?.type || "other";
-  const startingBalance = toNumber(
-    wallet?.starting_balance ?? wallet?.initial_balance ?? wallet?.balance
+const getBalance = (wallet) =>
+  toNumber(
+    wallet?.derived_balance ??
+      wallet?.balance ??
+      wallet?.current_balance ??
+      wallet?.wallet_balance ??
+      wallet?.starting_balance ??
+      0
   );
-  const balance = toNumber(
-    wallet?.balance ?? wallet?.current_balance ?? wallet?.starting_balance ?? startingBalance
+
+const normalizeWalletPayload = (wallet) => {
+  const type = wallet?.type || "other";
+  const name = wallet?.name || wallet?.wallet_name || "Untitled Wallet";
+  const starting = toNumber(
+    wallet?.starting_balance ?? wallet?.initial_balance ?? wallet?.balance ?? 0
   );
 
   return {
     ...wallet,
-    id: String(wallet?.id || generateId()),
+    id: wallet?.id || generateId(),
     name,
     wallet_name: wallet?.wallet_name || name,
     type,
-    balance,
-    starting_balance: startingBalance,
     icon: wallet?.icon || walletIcons[type] || "💰",
+    balance: toNumber(wallet?.balance ?? starting),
+    starting_balance: starting,
     sort_order:
       wallet?.sort_order === null || wallet?.sort_order === undefined
         ? 0
         : toNumber(wallet.sort_order),
     created_at: wallet?.created_at || new Date().toISOString(),
-    updated_at: wallet?.updated_at || wallet?.created_at || new Date().toISOString(),
-    local_only: wallet?.local_only ?? true,
+    updated_at: wallet?.updated_at || new Date().toISOString(),
+    syncStatus: wallet?.syncStatus || "local_only",
+    source: wallet?.source || "local",
   };
-};
-
-const normalizeTransactionRow = (transaction) => ({
-  ...transaction,
-  id: String(transaction?.id || generateId()),
-  transaction_id: transaction?.transaction_id || transaction?.id || generateId(),
-  wallet_id: transaction?.wallet_id ? String(transaction.wallet_id) : "",
-  related_wallet_id: transaction?.related_wallet_id
-    ? String(transaction.related_wallet_id)
-    : transaction?.relatedWalletId
-      ? String(transaction.relatedWalletId)
-      : null,
-  amount: toNumber(transaction?.amount),
-  type: String(transaction?.type || "other").trim().toLowerCase(),
-  created_at: transaction?.created_at || transaction?.date || new Date().toISOString(),
-  updated_at:
-    transaction?.updated_at ||
-    transaction?.created_at ||
-    transaction?.date ||
-    new Date().toISOString(),
-  local_only: transaction?.local_only ?? true,
-});
-
-const readLocalArrayFallback = (keys = []) => {
-  if (!isBrowser()) return [];
-
-  for (const key of keys) {
-    const parsed = safeJsonParse(window.localStorage.getItem(key), null);
-    if (Array.isArray(parsed)) return parsed;
-    if (Array.isArray(parsed?.items)) return parsed.items;
-    if (Array.isArray(parsed?.data)) return parsed.data;
-  }
-
-  return [];
-};
-
-const readLocalFinanceSnapshot = (key = null) => {
-  if (!isBrowser()) {
-    return {
-      key,
-      loaded: true,
-      version: LOCAL_FINANCE_VERSION,
-      updatedAt: new Date().toISOString(),
-      expenses: [],
-      wallets: [],
-      transactions: [],
-      transfers: [],
-    };
-  }
-
-  const normalizedKey = key || "guest";
-  const storageKey = getLocalFinanceKey(normalizedKey);
-  const stored = safeJsonParse(window.localStorage.getItem(storageKey), null);
-  const last = safeJsonParse(window.localStorage.getItem(LOCAL_FINANCE_LAST_KEY), null);
-  const source = stored || (last?.key === normalizedKey ? last : null) || {};
-
-  const suffix = safeText(normalizedKey).toLowerCase();
-  const legacyWallets = readLocalArrayFallback([
-    `clara_wallets:${suffix}`,
-    `clara_local_wallets:${suffix}`,
-    "clara_wallets",
-    "clara_local_wallets",
-    "wallets",
-  ]);
-  const legacyTransactions = readLocalArrayFallback([
-    `clara_wallet_transactions:${suffix}`,
-    `clara_transactions:${suffix}`,
-    `clara_local_transactions:${suffix}`,
-    "clara_wallet_transactions",
-    "clara_transactions",
-    "clara_local_transactions",
-    "wallet_transactions",
-  ]);
-  const legacyExpenses = readLocalArrayFallback([
-    `clara_expenses:${suffix}`,
-    `clara_local_expenses:${suffix}`,
-    "clara_expenses",
-    "clara_local_expenses",
-    "expenses",
-  ]);
-
-  const transactions = (Array.isArray(source.transactions)
-    ? source.transactions
-    : legacyTransactions)
-    .map(normalizeTransactionRow)
-    .sort(sortByDateDesc);
-
-  const wallets = (Array.isArray(source.wallets) ? source.wallets : legacyWallets)
-    .map(normalizeWalletRow)
-    .map((wallet) => ({
-      ...wallet,
-      balance: getWalletBalance(wallet, transactions),
-      derived_balance: getWalletBalance(wallet, transactions),
-    }));
-
-  return {
-    key: normalizedKey,
-    loaded: true,
-    version: LOCAL_FINANCE_VERSION,
-    updatedAt: source.updatedAt || source.updated_at || new Date().toISOString(),
-    expenses: Array.isArray(source.expenses) ? source.expenses : legacyExpenses,
-    wallets,
-    transactions,
-    transfers: Array.isArray(source.transfers) ? source.transfers : [],
-  };
-};
-
-const writeLocalFinanceSnapshot = (key, snapshot) => {
-  if (!isBrowser()) return snapshot;
-
-  const normalizedKey = key || "guest";
-  const transactions = (snapshot.transactions || [])
-    .map(normalizeTransactionRow)
-    .sort(sortByDateDesc);
-
-  const wallets = (snapshot.wallets || [])
-    .map(normalizeWalletRow)
-    .map((wallet) => ({
-      ...wallet,
-      balance: getWalletBalance(wallet, transactions),
-      derived_balance: getWalletBalance(wallet, transactions),
-    }));
-
-  const nextSnapshot = {
-    key: normalizedKey,
-    loaded: true,
-    version: LOCAL_FINANCE_VERSION,
-    updatedAt: new Date().toISOString(),
-    expenses: Array.isArray(snapshot.expenses) ? snapshot.expenses : [],
-    wallets,
-    transactions,
-    transfers: Array.isArray(snapshot.transfers) ? snapshot.transfers : [],
-  };
-
-  window.localStorage.setItem(getLocalFinanceKey(normalizedKey), JSON.stringify(nextSnapshot));
-  window.localStorage.setItem(LOCAL_FINANCE_LAST_KEY, JSON.stringify(nextSnapshot));
-
-  return nextSnapshot;
-};
-
-const dispatchLocalFinanceEvents = () => {
-  if (typeof window === "undefined") return;
-
-  [
-    "clara-wallets-updated",
-    "clara-wallet-transactions-updated",
-    "clara-finance-updated",
-    "clara-expenses-updated",
-    "clara-local-finance-updated",
-  ].forEach((eventName) => window.dispatchEvent(new Event(eventName)));
 };
 
 export default function Wallets() {
   const { user, loading: accessLoading } = useUserRole();
-  const cacheKey = user?.id || user?.email || "guest";
-  const [financeSnapshot, setFinanceSnapshot] = useState(() =>
-    readLocalFinanceSnapshot(cacheKey)
-  );
 
-  useEffect(() => {
-    const refreshLocalFinance = () => {
-      setFinanceSnapshot(readLocalFinanceSnapshot(cacheKey));
-    };
-
-    refreshLocalFinance();
-
-    if (typeof window === "undefined") return undefined;
-
-    window.addEventListener("storage", refreshLocalFinance);
-    window.addEventListener("clara-local-finance-updated", refreshLocalFinance);
-    window.addEventListener("clara-finance-updated", refreshLocalFinance);
-    window.addEventListener("clara-wallets-updated", refreshLocalFinance);
-    window.addEventListener("clara-wallet-transactions-updated", refreshLocalFinance);
-
-    return () => {
-      window.removeEventListener("storage", refreshLocalFinance);
-      window.removeEventListener("clara-local-finance-updated", refreshLocalFinance);
-      window.removeEventListener("clara-finance-updated", refreshLocalFinance);
-      window.removeEventListener("clara-wallets-updated", refreshLocalFinance);
-      window.removeEventListener("clara-wallet-transactions-updated", refreshLocalFinance);
-    };
-  }, [cacheKey]);
-
-  const commitFinanceState = useCallback(
-    (nextPartial) => {
-      const nextSnapshot = writeLocalFinanceSnapshot(cacheKey, {
-        ...financeSnapshot,
-        ...nextPartial,
-      });
-
-      setFinanceSnapshot(nextSnapshot);
-      dispatchLocalFinanceEvents();
-      return nextSnapshot;
-    },
-    [cacheKey, financeSnapshot]
-  );
-
-  const wallets = useMemo(
-    () => (Array.isArray(financeSnapshot?.wallets) ? financeSnapshot.wallets : []),
-    [financeSnapshot?.wallets]
-  );
-
-  const walletTransactions = useMemo(
-    () =>
-      Array.isArray(financeSnapshot?.transactions)
-        ? financeSnapshot.transactions
-        : [],
-    [financeSnapshot?.transactions]
-  );
-
-  const expenses = useMemo(
-    () => (Array.isArray(financeSnapshot?.expenses) ? financeSnapshot.expenses : []),
-    [financeSnapshot?.expenses]
-  );
-
-  const transfers = useMemo(
-    () => (Array.isArray(financeSnapshot?.transfers) ? financeSnapshot.transfers : []),
-    [financeSnapshot?.transfers]
-  );
-
-  const loading = false;
+  const {
+    loading,
+    wallets = [],
+    walletTransactions = [],
+    transfers = [],
+    addWallet,
+    updateWallet,
+    deleteWallet,
+    addIncome,
+    transferBetweenWallets,
+    refreshData,
+  } = useFinancialData(user);
 
   const [addOpen, setAddOpen] = useState(false);
   const [addMoneyOpen, setAddMoneyOpen] = useState(false);
@@ -466,10 +237,6 @@ export default function Wallets() {
     notes: "",
   });
 
-  const getBalance = useCallback((wallet) => {
-    return toNumber(wallet?.balance);
-  }, []);
-
   const sortedWallets = useMemo(() => {
     return [...wallets].sort((a, b) => {
       const aOrder = getWalletSortOrder(
@@ -483,15 +250,15 @@ export default function Wallets() {
 
       if (aOrder !== bOrder) return aOrder - bOrder;
 
-      const aCreated = new Date(a?.created_at || 0).getTime();
-      const bCreated = new Date(b?.created_at || 0).getTime();
+      const aCreated = new Date(a?.created_at || a?.createdAt || 0).getTime();
+      const bCreated = new Date(b?.created_at || b?.createdAt || 0).getTime();
       return aCreated - bCreated;
     });
   }, [wallets]);
 
   const totalBalance = useMemo(() => {
     return sortedWallets.reduce((sum, wallet) => sum + getBalance(wallet), 0);
-  }, [sortedWallets, getBalance]);
+  }, [sortedWallets]);
 
   const historyItems = useMemo(() => {
     if (!historyWallet?.id) return [];
@@ -499,15 +266,15 @@ export default function Wallets() {
     return [...walletTransactions]
       .filter((t) => String(t?.wallet_id) === String(historyWallet.id))
       .sort((a, b) => {
-        const aTime = new Date(a?.created_at || 0).getTime();
-        const bTime = new Date(b?.created_at || 0).getTime();
+        const aTime = new Date(a?.created_at || a?.createdAt || 0).getTime();
+        const bTime = new Date(b?.created_at || b?.createdAt || 0).getTime();
         return bTime - aTime;
       });
   }, [walletTransactions, historyWallet]);
 
   const projectedBalance = useMemo(() => {
     return getBalance(selectedWallet) + toNumber(addMoneyForm.amount || 0);
-  }, [selectedWallet, addMoneyForm.amount, getBalance]);
+  }, [selectedWallet, addMoneyForm.amount]);
 
   const resetAddWalletForm = () => {
     setForm({
@@ -538,18 +305,6 @@ export default function Wallets() {
     });
   };
 
-  const normalizeWalletOrder = useCallback(
-    (walletList) =>
-      walletList.map((wallet, index) =>
-        normalizeWalletRow({
-          ...wallet,
-          sort_order: index,
-          updated_at: new Date().toISOString(),
-        })
-      ),
-    []
-  );
-
   const moveWallet = async (walletId, direction) => {
     if (isReorderingWallets) return;
 
@@ -564,6 +319,7 @@ export default function Wallets() {
     if (targetIndex < 0 || targetIndex >= sortedWallets.length) return;
 
     const nextWallets = [...sortedWallets];
+
     [nextWallets[currentIndex], nextWallets[targetIndex]] = [
       nextWallets[targetIndex],
       nextWallets[currentIndex],
@@ -572,12 +328,16 @@ export default function Wallets() {
     try {
       setIsReorderingWallets(true);
 
-      commitFinanceState({
-        wallets: normalizeWalletOrder(nextWallets),
-        transactions: walletTransactions,
-        expenses,
-        transfers,
-      });
+      await Promise.all(
+        nextWallets.map((wallet, index) =>
+          updateWallet(wallet.id, {
+            sort_order: index,
+            updated_at: new Date().toISOString(),
+          })
+        )
+      );
+
+      await refreshData();
     } catch (error) {
       alert(error?.message || "Failed to reorder wallets");
     } finally {
@@ -603,29 +363,25 @@ export default function Wallets() {
       const starting = toNumber(form.starting_balance);
       const nextSortOrder = sortedWallets.length;
 
-      const newWallet = normalizeWalletRow({
-        id: generateId(),
-        name: form.name.trim(),
-        wallet_name: form.name.trim(),
-        type: form.type,
-        balance: starting,
-        starting_balance: starting,
-        icon: walletIcons[form.type],
-        sort_order: nextSortOrder,
-        user_id: user?.id || null,
-        user_email: user?.email || null,
-        created_by: user?.email || null,
-        created_at: operationTime,
-        updated_at: operationTime,
-        local_only: true,
-      });
+      await addWallet(
+        normalizeWalletPayload({
+          id: generateId(),
+          name: form.name.trim(),
+          wallet_name: form.name.trim(),
+          type: form.type,
+          balance: starting,
+          starting_balance: starting,
+          icon: walletIcons[form.type],
+          sort_order: nextSortOrder,
+          user_id: user?.id || null,
+          user_email: user?.email || null,
+          created_by: user?.email || null,
+          created_at: operationTime,
+          updated_at: operationTime,
+        })
+      );
 
-      commitFinanceState({
-        wallets: [...wallets, newWallet],
-        transactions: walletTransactions,
-        expenses,
-        transfers,
-      });
+      await refreshData();
 
       setAddOpen(false);
       resetAddWalletForm();
@@ -641,16 +397,8 @@ export default function Wallets() {
     if (!confirmed) return;
 
     try {
-      const remainingWallets = sortedWallets.filter(
-        (wallet) => String(wallet.id) !== String(id)
-      );
-
-      commitFinanceState({
-        wallets: normalizeWalletOrder(remainingWallets),
-        transactions: walletTransactions,
-        expenses,
-        transfers,
-      });
+      await deleteWallet(id);
+      await refreshData();
     } catch (error) {
       alert(error?.message || "Failed to delete wallet locally");
     }
@@ -685,10 +433,6 @@ export default function Wallets() {
     try {
       setIsAddingMoney(true);
 
-      const operationTime = new Date().toISOString();
-      const currentBalance = getBalance(selectedWallet);
-      const newBalance = currentBalance + amount;
-
       const detailText = String(addMoneyForm.details || "").trim();
       const noteText = String(addMoneyForm.notes || "").trim();
       const dateText = String(addMoneyForm.date || "").trim();
@@ -701,39 +445,18 @@ export default function Wallets() {
         .filter(Boolean)
         .join(" • ");
 
-      const nextWallets = wallets.map((wallet) =>
-        String(wallet.id) === String(selectedWallet.id)
-          ? normalizeWalletRow({
-              ...wallet,
-              balance: newBalance,
-              updated_at: operationTime,
-            })
-          : wallet
-      );
-
-      const historyPayload = normalizeTransactionRow({
+      await addIncome({
         id: generateId(),
-        transaction_id: generateId(),
         wallet_id: selectedWallet.id,
-        type: "income",
         amount,
         source_type: addMoneyForm.source_type,
+        source: addMoneyForm.source_type,
         tag: addMoneyForm.tag,
-        notes: mergedNotes || null,
-        created_at: operationTime,
-        updated_at: operationTime,
-        user_id: user?.id || null,
-        user_email: user?.email || null,
-        created_by: user?.email || null,
-        local_only: true,
+        notes: mergedNotes || "",
+        created_at: new Date().toISOString(),
       });
 
-      commitFinanceState({
-        wallets: nextWallets,
-        transactions: [historyPayload, ...walletTransactions],
-        expenses,
-        transfers,
-      });
+      await refreshData();
 
       setAddMoneyOpen(false);
       resetAddMoneyForm();
@@ -772,10 +495,7 @@ export default function Wallets() {
       return;
     }
 
-    const fromBalance = getBalance(fromWallet);
-    const toBalance = getBalance(toWallet);
-
-    if (fromBalance < amount) {
+    if (getBalance(fromWallet) < amount) {
       alert("Insufficient balance in source wallet.");
       return;
     }
@@ -783,86 +503,14 @@ export default function Wallets() {
     try {
       setIsTransferringMoney(true);
 
-      const operationTime = new Date().toISOString();
-      const nextFromBalance = fromBalance - amount;
-      const nextToBalance = toBalance + amount;
-      const transferGroupId = generateId();
-
-      const nextWallets = wallets.map((wallet) => {
-        if (String(wallet.id) === fromId) {
-          return normalizeWalletRow({
-            ...wallet,
-            balance: nextFromBalance,
-            updated_at: operationTime,
-          });
-        }
-
-        if (String(wallet.id) === toId) {
-          return normalizeWalletRow({
-            ...wallet,
-            balance: nextToBalance,
-            updated_at: operationTime,
-          });
-        }
-
-        return wallet;
-      });
-
-      const historyRows = [
-        normalizeTransactionRow({
-          id: generateId(),
-          transaction_id: generateId(),
-          wallet_id: fromId,
-          type: "transfer_out",
-          amount,
-          transfer_group_id: transferGroupId,
-          related_wallet_id: toId,
-          notes: transferForm.notes || null,
-          created_at: operationTime,
-          updated_at: operationTime,
-          user_id: user?.id || null,
-          user_email: user?.email || null,
-          created_by: user?.email || null,
-          local_only: true,
-        }),
-        normalizeTransactionRow({
-          id: generateId(),
-          transaction_id: generateId(),
-          wallet_id: toId,
-          type: "transfer_in",
-          amount,
-          transfer_group_id: transferGroupId,
-          related_wallet_id: fromId,
-          notes: transferForm.notes || null,
-          created_at: operationTime,
-          updated_at: operationTime,
-          user_id: user?.id || null,
-          user_email: user?.email || null,
-          created_by: user?.email || null,
-          local_only: true,
-        }),
-      ];
-
-      const transferSummary = {
-        id: transferGroupId,
+      await transferBetweenWallets({
         from_wallet_id: fromId,
         to_wallet_id: toId,
         amount,
-        notes: transferForm.notes || null,
-        user_id: user?.id || null,
-        user_email: user?.email || null,
-        created_by: user?.email || null,
-        created_at: operationTime,
-        updated_at: operationTime,
-        local_only: true,
-      };
-
-      commitFinanceState({
-        wallets: nextWallets,
-        transactions: [...historyRows, ...walletTransactions],
-        expenses,
-        transfers: [transferSummary, ...transfers],
+        notes: transferForm.notes || "",
       });
+
+      await refreshData();
 
       setTransferOpen(false);
       resetTransferForm();
@@ -991,12 +639,15 @@ export default function Wallets() {
                   <div>
                     <p className="mb-1 text-sm text-white/60">Wallet</p>
                     <p className="text-[17px] font-semibold">
-                      {selectedWallet?.icon || "💰"} {selectedWallet?.name || "—"}
+                      {selectedWallet?.icon || "💰"}{" "}
+                      {selectedWallet?.name || "—"}
                     </p>
                   </div>
 
                   <div className="text-right">
-                    <p className="mb-1 text-sm text-white/60">Current Balance</p>
+                    <p className="mb-1 text-sm text-white/60">
+                      Current Balance
+                    </p>
                     <p className="text-[17px] font-semibold">
                       {formatPeso(getBalance(selectedWallet))}
                     </p>
@@ -1039,7 +690,9 @@ export default function Wallets() {
               </div>
 
               <div>
-                <p className="mb-2 text-sm font-medium text-white">Source Type</p>
+                <p className="mb-2 text-sm font-medium text-white">
+                  Source Type
+                </p>
                 <Select
                   value={addMoneyForm.source_type}
                   onValueChange={(v) =>
@@ -1133,7 +786,8 @@ export default function Wallets() {
               <div className="rounded-2xl border border-emerald-400/10 bg-gradient-to-r from-emerald-900/30 to-emerald-700/10 px-4 py-4">
                 <p className="mb-2 text-sm text-white/70">Projected Balance</p>
                 <p className="text-[16px] font-semibold">
-                  {formatPeso(getBalance(selectedWallet))} → {formatPeso(projectedBalance)}
+                  {formatPeso(getBalance(selectedWallet))} →{" "}
+                  {formatPeso(projectedBalance)}
                 </p>
                 <p className="mt-3 text-sm text-white/55">
                   Every peso you track builds more control.
@@ -1175,7 +829,8 @@ export default function Wallets() {
                 <SelectContent className="border-white/10 bg-[#08152f] text-white">
                   {sortedWallets.map((wallet) => (
                     <SelectItem key={wallet.id} value={String(wallet.id)}>
-                      {(wallet.icon || "💰") + " " + wallet.name} ({formatPeso(getBalance(wallet))})
+                      {(wallet.icon || "💰") + " " + wallet.name} (
+                      {formatPeso(getBalance(wallet))})
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -1197,11 +852,13 @@ export default function Wallets() {
                   {sortedWallets
                     .filter(
                       (wallet) =>
-                        String(wallet.id) !== String(transferForm.from_wallet_id)
+                        String(wallet.id) !==
+                        String(transferForm.from_wallet_id)
                     )
                     .map((wallet) => (
                       <SelectItem key={wallet.id} value={String(wallet.id)}>
-                        {(wallet.icon || "💰") + " " + wallet.name} ({formatPeso(getBalance(wallet))})
+                        {(wallet.icon || "💰") + " " + wallet.name} (
+                        {formatPeso(getBalance(wallet))})
                       </SelectItem>
                     ))}
                 </SelectContent>
@@ -1279,7 +936,9 @@ export default function Wallets() {
 
             {historyItems.length === 0 ? (
               <div className="rounded-2xl border border-white/10 bg-white/[0.03] px-4 py-10 text-center">
-                <p className="text-sm text-white/55">No transaction history yet</p>
+                <p className="text-sm text-white/55">
+                  No transaction history yet
+                </p>
               </div>
             ) : (
               <div className="max-h-[420px] space-y-3 overflow-y-auto rounded-2xl border border-white/10 bg-white/[0.03] p-3">
@@ -1287,7 +946,8 @@ export default function Wallets() {
                   const isNegative =
                     item.type === "transfer_out" ||
                     item.type === "expense" ||
-                    item.type === "reset";
+                    item.type === "reset" ||
+                    item.type === "savings_goal";
 
                   return (
                     <div
@@ -1301,7 +961,9 @@ export default function Wallets() {
                           </p>
 
                           <p className="mt-1 text-xs text-white/55">
-                            {formatHistoryDate(item.created_at)}
+                            {formatHistoryDate(
+                              item.created_at || item.createdAt
+                            )}
                           </p>
 
                           {!!item.notes && (
@@ -1364,7 +1026,8 @@ export default function Wallets() {
               <div className="flex items-start justify-between gap-4">
                 <div className="min-w-0">
                   <p className="text-[18px] font-semibold">
-                    {wallet.icon || walletIcons[wallet.type] || "💰"} {wallet.name}
+                    {wallet.icon || walletIcons[wallet.type] || "💰"}{" "}
+                    {wallet.name}
                   </p>
                   <p className="mt-1 text-sm capitalize text-white/60">
                     {String(wallet.type || "other").replaceAll("_", " ")}
@@ -1392,7 +1055,10 @@ export default function Wallets() {
                     <button
                       type="button"
                       onClick={() => moveWallet(wallet.id, 1)}
-                      disabled={index === sortedWallets.length - 1 || isReorderingWallets}
+                      disabled={
+                        index === sortedWallets.length - 1 ||
+                        isReorderingWallets
+                      }
                       className="flex h-8 w-8 items-center justify-center rounded-full bg-white/5 text-white transition hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-40"
                       title="Move wallet down"
                     >
