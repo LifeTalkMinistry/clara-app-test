@@ -13,7 +13,7 @@ import {
   Plus,
 } from "lucide-react";
 import SurvivalExpenseModal from "./SurvivalExpenseModal";
-import { useFinancialData } from "../hooks/useFinancialData";
+import useFinancialData from "../hooks/useFinancialData";
 
 const fmt = (n) =>
   new Intl.NumberFormat("en-PH", {
@@ -230,7 +230,12 @@ export default function EmergencyFundCard({
   const emergencySurvivalExpense = Number(
     getEmergencyValue(
       emergencyFund,
-      ["survivalExpense", "survival_expense", "monthlyExpense", "monthly_expense"],
+      [
+        "survivalExpense",
+        "survival_expense",
+        "monthlyExpense",
+        "monthly_expense",
+      ],
       survivalExpense
     )
   );
