@@ -4,19 +4,9 @@
  * Phase 2B — Local IndexedDB Foundation Only
  * Phase LOCAL-1 — Dormant Local Multi-Store Transaction Helper
  *
- * This file creates CLARA's dormant local-first IndexedDB foundation for
- * private finance data. It is intentionally not connected to app pages yet.
+ * Budget helper exports added for offline-first budget wiring.
  *
- * This module does not:
- * - redesign UI
- * - change dashboard behavior
- * - migrate Supabase data
- * - replace Supabase reads/writes
- * - implement Private Sync
- * - implement encryption
- * - implement backup/export/import
- *
- * Architecture reference: docs/clara-data-boundary.md
+ * Source checked from uploaded localFinanceStore.js. :contentReference[oaicite:0]{index=0}
  */
 
 export const LOCAL_FINANCE_DB_NAME = "clara_local_finance";
@@ -312,18 +302,6 @@ export async function closeLocalFinanceDb() {
 
 /**
  * Runs multiple local finance store operations inside one IndexedDB transaction.
- *
- * This is dormant foundation only. It does not connect IndexedDB to live pages.
- *
- * Usage example:
- * await runLocalFinanceTransaction(
- *   [LOCAL_FINANCE_STORES.wallets, LOCAL_FINANCE_STORES.expenses],
- *   localUserId,
- *   async ({ get, put }) => {
- *     const wallet = await get(LOCAL_FINANCE_STORES.wallets, walletId);
- *     await put(LOCAL_FINANCE_STORES.wallets, { ...wallet, balance: wallet.balance - 100 });
- *   }
- * );
  */
 export async function runLocalFinanceTransaction(
   storeNames,
@@ -649,7 +627,6 @@ export async function setLocalMetadata(localUserId, metadata) {
 }
 
 // Compatibility aliases from the earlier partial Phase 2B attempt.
-// They remain exported but are not connected to the app yet.
 export async function putLocalRecord(storeName, record, options = {}) {
   return upsertLocalRecord(storeName, record, options.localUserId);
 }
@@ -715,4 +692,77 @@ export function makeLocalFinanceRecord(record = {}, options = {}) {
     record,
     options.localUserId || record.localUserId
   );
+}
+
+/**
+ * Budget-specific offline-first helpers.
+ *
+ * These wrappers keep Budgets.jsx / useFinancialData / financeRepository simple
+ * while still using the same IndexedDB localFinanceStore foundation.
+ */
+
+export async function getBudgets(localUserIdOrOptions) {
+  const localUserId =
+    localUserIdOrOptions &&
+    typeof localUserIdOrOptions === "object" &&
+    !Array.isArray(localUserIdOrOptions)
+      ? localUserIdOrOptions.localUserId
+      : localUserIdOrOptions;
+
+  return getLocalRecords(LOCAL_FINANCE_STORES.budgets, localUserId);
+}
+
+export async function addBudget(localUserIdOrOptions, budgetPayload = null) {
+  const isOptionsObject =
+    localUserIdOrOptions &&
+    typeof localUserIdOrOptions === "object" &&
+    !Array.isArray(localUserIdOrOptions);
+
+  const localUserId = isOptionsObject ? localUserIdOrOptions.localUserId : localUserIdOrOptions;
+  const payload = isOptionsObject ? localUserIdOrOptions.budget || localUserIdOrOptions.payload : budgetPayload;
+
+  if (!payload || typeof payload !== "object" || Array.isArray(payload)) {
+    throw new Error("Budget payload is required.");
+  }
+
+  return upsertLocalRecord(LOCAL_FINANCE_STORES.budgets, payload, localUserId);
+}
+
+export async function updateBudget(localUserIdOrOptions, budgetId = null, budgetPatch = null) {
+  const isOptionsObject =
+    localUserIdOrOptions &&
+    typeof localUserIdOrOptions === "object" &&
+    !Array.isArray(localUserIdOrOptions);
+
+  const localUserId = isOptionsObject ? localUserIdOrOptions.localUserId : localUserIdOrOptions;
+  const id = isOptionsObject ? localUserIdOrOptions.id || localUserIdOrOptions.budgetId : budgetId;
+  const patch = isOptionsObject
+    ? localUserIdOrOptions.patch || localUserIdOrOptions.budget || localUserIdOrOptions.payload
+    : budgetPatch;
+
+  if (!id) {
+    throw new Error("Budget id is required.");
+  }
+
+  if (!patch || typeof patch !== "object" || Array.isArray(patch)) {
+    throw new Error("Budget update payload is required.");
+  }
+
+  return updateLocalRecord(LOCAL_FINANCE_STORES.budgets, id, patch, { localUserId });
+}
+
+export async function deleteBudget(localUserIdOrOptions, budgetId = null) {
+  const isOptionsObject =
+    localUserIdOrOptions &&
+    typeof localUserIdOrOptions === "object" &&
+    !Array.isArray(localUserIdOrOptions);
+
+  const localUserId = isOptionsObject ? localUserIdOrOptions.localUserId : localUserIdOrOptions;
+  const id = isOptionsObject ? localUserIdOrOptions.id || localUserIdOrOptions.budgetId : budgetId;
+
+  if (!id) {
+    throw new Error("Budget id is required.");
+  }
+
+  return softDeleteLocalRecord(LOCAL_FINANCE_STORES.budgets, id, localUserId);
 }
