@@ -1223,12 +1223,58 @@ function createLocalFinanceRepository() {
       });
     },
 
+    async addBudget(localUserId, budget) {
+      const operationTime = new Date().toISOString();
+
+      return addLocalStoreRecord(
+        LOCAL_FINANCE_STORES.budgets,
+        localUserId,
+        {
+          ...budget,
+          id: budget?.id || defaultGenerateId("budget"),
+          createdAt: budget?.createdAt || operationTime,
+          updatedAt: operationTime,
+          syncStatus: budget?.syncStatus || "local_only",
+          source: budget?.source || "local",
+        },
+        "Budget"
+      );
+    },
+
+    async updateBudget(localUserId, budgetId, patch) {
+      const operationTime = new Date().toISOString();
+
+      return updateLocalStoreRecord(
+        LOCAL_FINANCE_STORES.budgets,
+        localUserId,
+        budgetId,
+        {
+          ...patch,
+          updatedAt: operationTime,
+          syncStatus: patch?.syncStatus || "local_only",
+          source: patch?.source || "local",
+        },
+        "Budget"
+      );
+    },
+
+    async deleteBudget(localUserId, budgetId) {
+      return deleteLocalStoreRecord(
+        LOCAL_FINANCE_STORES.budgets,
+        localUserId,
+        budgetId,
+        "Budget"
+      );
+    },
+
     async upsertBudget(localUserId, budget) {
       return addLocalStoreRecord(
         LOCAL_FINANCE_STORES.budgets,
         localUserId,
         {
           ...budget,
+          id: budget?.id || defaultGenerateId("budget"),
+          updatedAt: budget?.updatedAt || new Date().toISOString(),
           syncStatus: budget?.syncStatus || "local_only",
           source: budget?.source || "local",
         },
@@ -1646,6 +1692,9 @@ function createSupabaseLegacyFinanceRepository(repositoryOptions = {}) {
     addIncome: createNotImplementedRepositoryMethod("addIncome", mode),
     transferBetweenWallets: createNotImplementedRepositoryMethod("transferBetweenWallets", mode),
     getBudgets: createNotImplementedRepositoryMethod("getBudgets", mode),
+    addBudget: createNotImplementedRepositoryMethod("addBudget", mode),
+    updateBudget: createNotImplementedRepositoryMethod("updateBudget", mode),
+    deleteBudget: createNotImplementedRepositoryMethod("deleteBudget", mode),
     upsertBudget: createNotImplementedRepositoryMethod("upsertBudget", mode),
     getSavingsGoals: createNotImplementedRepositoryMethod("getSavingsGoals", mode),
     upsertSavingsGoal: createNotImplementedRepositoryMethod("upsertSavingsGoal", mode),
@@ -1675,6 +1724,9 @@ function createUnsupportedModeRepository(mode) {
     addIncome: createReservedMethod("addIncome"),
     transferBetweenWallets: createReservedMethod("transferBetweenWallets"),
     getBudgets: createReservedMethod("getBudgets"),
+    addBudget: createReservedMethod("addBudget"),
+    updateBudget: createReservedMethod("updateBudget"),
+    deleteBudget: createReservedMethod("deleteBudget"),
     upsertBudget: createReservedMethod("upsertBudget"),
     getSavingsGoals: createReservedMethod("getSavingsGoals"),
     upsertSavingsGoal: createReservedMethod("upsertSavingsGoal"),
@@ -1755,6 +1807,18 @@ export async function transferBetweenWallets(localUserId, transferPayload) {
 
 export async function getBudgets(localUserId, options) {
   return financeRepository.getBudgets(localUserId, options);
+}
+
+export async function addBudget(localUserId, budget) {
+  return financeRepository.addBudget(localUserId, budget);
+}
+
+export async function updateBudget(localUserId, budgetId, patch) {
+  return financeRepository.updateBudget(localUserId, budgetId, patch);
+}
+
+export async function deleteBudget(localUserId, budgetId) {
+  return financeRepository.deleteBudget(localUserId, budgetId);
 }
 
 export async function upsertBudget(localUserId, budget) {
