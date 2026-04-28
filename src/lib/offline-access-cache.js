@@ -1,7 +1,13 @@
-const ACCESS_CACHE_VERSION = 1;
-const ACCESS_CACHE_PREFIX = "clara_access_snapshot_v1";
+// ================================
+// ACCESS CACHE CORE
+// ================================
+const ACCESS_CACHE_VERSION = 2; // upgraded version
+const ACCESS_CACHE_PREFIX = "clara_access_snapshot_v2";
 const ACCESS_CACHE_LAST_KEY = `${ACCESS_CACHE_PREFIX}:last`;
 const ACCESS_CACHE_MAX_AGE_MS = 1000 * 60 * 60 * 24 * 120;
+
+// NEW: global offline queue key
+const OFFLINE_QUEUE_KEY = "clara_offline_queue_v1";
 
 const DASHBOARD_ROUTE = "/dashboard";
 const LIMITED_OFFLINE_FLOW = "limited_offline";
@@ -10,13 +16,14 @@ const ACTIVE_OFFLINE_FLOW = "active";
 let lastStableSnapshot = null;
 let lastStableSnapshotSignature = "";
 
+// ================================
+// SAFE HELPERS
+// ================================
 const isBrowser = () =>
   typeof window !== "undefined" && typeof window.localStorage !== "undefined";
 
 const safeText = (value) => String(value ?? "").trim();
-
 const safeLower = (value) => safeText(value).toLowerCase();
-
 const nowIso = () => new Date().toISOString();
 
 const parseDateMs = (value) => {
@@ -40,59 +47,37 @@ const clonePlain = (value) => {
   }
 };
 
-const getSnapshotIdentity = (snapshot = {}) => {
-  const userId = safeText(
-    snapshot.userId ||
-      snapshot.user_id ||
-      snapshot.id ||
-      snapshot.profileBasic?.id ||
-      snapshot.profile?.id ||
-      snapshot.user?.id
-  );
+// ================================
+// OFFLINE QUEUE SYSTEM (NEW)
+// ================================
 
-  const email = safeLower(
-    snapshot.email ||
-      snapshot.userEmail ||
-      snapshot.user_email ||
-      snapshot.profileBasic?.email ||
-      snapshot.profile?.email ||
-      snapshot.user?.email
-  );
+export function getOfflineQueue() {
+  if (!isBrowser()) return [];
+  return safeJsonParse(localStorage.getItem(OFFLINE_QUEUE_KEY)) || [];
+}
 
-  return { userId, email };
-};
+export function addToOfflineQueue(action) {
+  if (!isBrowser() || !action) return;
 
-const getStorageKey = (userIdOrEmail) => {
-  const identity = safeLower(userIdOrEmail || "guest");
-  return `${ACCESS_CACHE_PREFIX}:${identity || "guest"}`;
-};
+  const queue = getOfflineQueue();
 
-const readSnapshotByKey = (key) => {
-  if (!isBrowser() || !key) return null;
-  return safeJsonParse(window.localStorage.getItem(key));
-};
+  queue.push({
+    id: `${Date.now()}_${Math.random().toString(36).slice(2)}`,
+    timestamp: nowIso(),
+    ...action,
+  });
 
-const writeSnapshotByKey = (key, snapshot) => {
-  if (!isBrowser() || !key || !snapshot) return;
-  window.localStorage.setItem(key, JSON.stringify(snapshot));
-};
+  localStorage.setItem(OFFLINE_QUEUE_KEY, JSON.stringify(queue));
+}
 
-const removeSnapshotByKey = (key) => {
-  if (!isBrowser() || !key) return;
-  window.localStorage.removeItem(key);
-};
+export function clearOfflineQueue() {
+  if (!isBrowser()) return;
+  localStorage.removeItem(OFFLINE_QUEUE_KEY);
+}
 
-const getEnrollmentSignature = (enrollment = null) => {
-  if (!enrollment) return "none";
-
-  return [
-    enrollment.id || enrollment.enrollment_id || "",
-    enrollment.status || enrollment.enrollment_status || enrollment.payment_status || enrollment.purchase_status || "",
-    enrollment.plan_key || enrollment.plan || enrollment.tier || enrollment.selected_plan || enrollment.product_id || enrollment.productId || "",
-  ]
-    .map((value) => safeLower(value))
-    .join(":");
-};
+// ================================
+// NETWORK DETECTION (ENHANCED)
+// ================================
 
 export function isAccessNetworkOffline(error = null) {
   if (typeof navigator !== "undefined" && navigator.onLine === false) {
@@ -112,211 +97,122 @@ export function isAccessNetworkOffline(error = null) {
   );
 }
 
+// ================================
+// SNAPSHOT NORMALIZATION
+// ================================
+
 export function normalizeAccessSnapshot(snapshot = {}) {
   const source = snapshot || {};
   const profile = source.profileBasic || source.profile || source.user || {};
-  const identity = getSnapshotIdentity({ ...source, profileBasic: profile, profile });
-  const savedAt = source.savedAt || source.saved_at || source.timestamp || nowIso();
-  const role = safeLower(source.role || profile.role || "user") || "user";
-  const plan = safeLower(source.plan || profile.plan || "free") || "free";
-  const subscriptionStatus = safeLower(
-    source.subscriptionStatus ||
-      source.subscription_status ||
-      profile.subscription_status ||
-      profile.status ||
-      "free"
-  );
-
-  const onboardingCompleted = Boolean(
-    source.onboardingCompleted ??
-      source.onboarding_completed ??
-      source.hasCompletedOnboarding ??
-      profile.onboarding_completed ??
-      profile.has_completed_universal_onboarding ??
-      profile.has_seen_universal_onboarding ??
-      false
-  );
-
-  const programOnboardingCompleted = Boolean(
-    source.programOnboardingCompleted ??
-      source.program_onboarding_completed ??
-      source.hasCompletedProgramOnboarding ??
-      profile.program_onboarding_completed ??
-      profile.has_completed_program_onboarding ??
-      false
-  );
-
-  const lastResolvedAppFlow = safeText(
-    source.lastResolvedAppFlow || source.last_resolved_app_flow || source.flow || "normal"
-  );
-
-  const lastValidRoute = safeText(
-    source.lastValidRoute || source.last_valid_route || source.route || DASHBOARD_ROUTE
-  );
 
   return {
     version: ACCESS_CACHE_VERSION,
-    userId: identity.userId || null,
-    email: identity.email || null,
-    profileBasic: {
-      id: identity.userId || profile.id || null,
-      email: identity.email || profile.email || null,
-      full_name: profile.full_name || profile.name || source.fullName || "",
-      role,
-      plan,
-      subscription_status: subscriptionStatus || "free",
-      subscription_label:
-        source.planLabel ||
-        source.plan_label ||
-        profile.subscription_label ||
-        profile.subscription?.label ||
-        (plan === "free" ? "Free" : "CLARA"),
-      access_level: source.accessLevel || source.access_level || profile.access_level || null,
-      enrollment_status:
-        source.enrollmentStatus ||
-        source.enrollment_status ||
-        profile.enrollment_status ||
-        profile.status ||
-        "none",
-      status: profile.status || source.status || subscriptionStatus || "free",
-      onboarding_completed: onboardingCompleted,
-      has_completed_universal_onboarding: onboardingCompleted,
-      has_seen_universal_onboarding: onboardingCompleted,
-      program_onboarding_completed: programOnboardingCompleted,
-      has_completed_program_onboarding: programOnboardingCompleted,
-      activation_status: profile.activation_status || source.activationStatus || "not_required",
-      is_activated: Boolean(profile.is_activated ?? source.isActivated ?? true),
-      is_enrolled: Boolean(profile.is_enrolled ?? source.isEnrolled ?? plan !== "free"),
-      program_active: Boolean(profile.program_active ?? source.programActive ?? plan !== "free"),
-      offline_access_cached: true,
-    },
-    role,
-    plan,
-    planLabel:
-      source.planLabel ||
-      source.plan_label ||
-      profile.subscription_label ||
-      profile.subscription?.label ||
-      (plan === "free" ? "Free" : "CLARA"),
-    subscriptionStatus,
-    accessStatus: source.accessStatus || source.access_status || subscriptionStatus || "free",
-    onboardingCompleted,
-    programOnboardingCompleted,
-    lastResolvedAppFlow,
-    lastValidRoute: lastValidRoute || DASHBOARD_ROUTE,
-    enrollment: source.enrollment ? clonePlain(source.enrollment) : null,
-    accessState: source.accessState ? clonePlain(source.accessState) : null,
-    savedAt,
+    userId: source.userId || profile.id || null,
+    email: source.email || profile.email || null,
+    profileBasic: clonePlain(profile),
+    role: safeLower(source.role || profile.role || "user"),
+    plan: safeLower(source.plan || profile.plan || "free"),
+    subscriptionStatus: safeLower(
+      source.subscriptionStatus || profile.subscription_status || "free"
+    ),
+    lastResolvedAppFlow: safeText(source.lastResolvedAppFlow || "normal"),
+    lastValidRoute: safeText(source.lastValidRoute || DASHBOARD_ROUTE),
+    enrollment: clonePlain(source.enrollment),
+    accessState: clonePlain(source.accessState),
+    savedAt: source.savedAt || nowIso(),
   };
 }
+
+// ================================
+// SIGNATURE
+// ================================
 
 export function getAccessSnapshotSignature(snapshot = null) {
   if (!snapshot) return "none";
 
-  const normalized = normalizeAccessSnapshot(snapshot);
+  const s = normalizeAccessSnapshot(snapshot);
 
   return [
-    normalized.userId || "",
-    normalized.email || "",
-    normalized.role || "",
-    normalized.plan || "",
-    normalized.subscriptionStatus || "",
-    normalized.accessStatus || "",
-    normalized.onboardingCompleted ? "onboarded" : "not_onboarded",
-    normalized.programOnboardingCompleted ? "program_onboarded" : "program_not_onboarded",
-    normalized.lastResolvedAppFlow || "",
-    normalized.lastValidRoute || "",
-    getEnrollmentSignature(normalized.enrollment),
+    s.userId,
+    s.email,
+    s.role,
+    s.plan,
+    s.subscriptionStatus,
+    s.lastResolvedAppFlow,
+    s.lastValidRoute,
   ]
-    .map((value) => safeLower(value))
+    .map(safeLower)
     .join("|");
 }
 
-const rememberStableSnapshot = (snapshot = null) => {
-  if (!snapshot) return null;
+// ================================
+// STORAGE
+// ================================
+
+const getStorageKey = (userIdOrEmail) =>
+  `${ACCESS_CACHE_PREFIX}:${safeLower(userIdOrEmail || "guest")}`;
+
+export function saveAccessSnapshot(snapshot) {
+  if (!isBrowser()) return null;
 
   const normalized = normalizeAccessSnapshot(snapshot);
   const signature = getAccessSnapshotSignature(normalized);
 
-  if (signature && signature === lastStableSnapshotSignature && lastStableSnapshot) {
+  if (signature === lastStableSnapshotSignature) {
     return lastStableSnapshot;
   }
 
   lastStableSnapshotSignature = signature;
   lastStableSnapshot = normalized;
+
+  const key = getStorageKey(normalized.userId || normalized.email);
+
+  localStorage.setItem(key, JSON.stringify(normalized));
+  localStorage.setItem(ACCESS_CACHE_LAST_KEY, JSON.stringify(normalized));
+
   return normalized;
-};
-
-export function saveAccessSnapshot(snapshot) {
-  if (!isBrowser()) return null;
-
-  const normalized = normalizeAccessSnapshot({
-    ...snapshot,
-    savedAt: snapshot?.savedAt || nowIso(),
-  });
-  const nextSignature = getAccessSnapshotSignature(normalized);
-  const currentStoredSnapshot = readSnapshotByKey(ACCESS_CACHE_LAST_KEY);
-  const currentStoredSignature = getAccessSnapshotSignature(currentStoredSnapshot);
-
-  if (nextSignature && nextSignature === currentStoredSignature) {
-    return rememberStableSnapshot(currentStoredSnapshot || normalized);
-  }
-
-  const keys = [];
-  if (normalized.userId) keys.push(getStorageKey(normalized.userId));
-  if (normalized.email) keys.push(getStorageKey(normalized.email));
-
-  if (!keys.length) keys.push(getStorageKey("guest"));
-
-  keys.forEach((key) => writeSnapshotByKey(key, normalized));
-  writeSnapshotByKey(ACCESS_CACHE_LAST_KEY, normalized);
-
-  return rememberStableSnapshot(normalized);
 }
 
 export function getAccessSnapshot(userIdOrEmail = null) {
   if (!isBrowser()) return null;
 
-  const directKey = userIdOrEmail ? getStorageKey(userIdOrEmail) : null;
-  const direct = directKey ? readSnapshotByKey(directKey) : null;
-  const last = readSnapshotByKey(ACCESS_CACHE_LAST_KEY);
+  const key = getStorageKey(userIdOrEmail);
+  const direct = safeJsonParse(localStorage.getItem(key));
+  const last = safeJsonParse(localStorage.getItem(ACCESS_CACHE_LAST_KEY));
 
-  const snapshot = direct || last;
-  return snapshot ? rememberStableSnapshot(snapshot) : null;
+  return direct || last;
 }
 
 export function clearAccessSnapshot(userIdOrEmail = null) {
   if (!isBrowser()) return;
 
   if (userIdOrEmail) {
-    removeSnapshotByKey(getStorageKey(userIdOrEmail));
-    const last = readSnapshotByKey(ACCESS_CACHE_LAST_KEY);
-    const identity = getSnapshotIdentity(last || {});
-    const value = safeLower(userIdOrEmail);
-
-    if (safeLower(identity.userId) === value || safeLower(identity.email) === value) {
-      removeSnapshotByKey(ACCESS_CACHE_LAST_KEY);
-    }
-
-    return;
+    localStorage.removeItem(getStorageKey(userIdOrEmail));
   }
 
-  removeSnapshotByKey(ACCESS_CACHE_LAST_KEY);
-  lastStableSnapshot = null;
-  lastStableSnapshotSignature = "";
+  localStorage.removeItem(ACCESS_CACHE_LAST_KEY);
 }
+
+// ================================
+// VALIDATION
+// ================================
 
 export function isAccessSnapshotUsable(snapshot) {
   if (!snapshot) return false;
 
   const normalized = normalizeAccessSnapshot(snapshot);
   const savedAtMs = parseDateMs(normalized.savedAt);
-  const freshEnough = savedAtMs > 0 && Date.now() - savedAtMs <= ACCESS_CACHE_MAX_AGE_MS;
-  const hasIdentity = Boolean(normalized.userId || normalized.email);
-  const hasRouteOrFlow = Boolean(normalized.lastValidRoute || normalized.lastResolvedAppFlow);
 
-  return Boolean(freshEnough && hasIdentity && hasRouteOrFlow);
+  return (
+    savedAtMs > 0 &&
+    Date.now() - savedAtMs <= ACCESS_CACHE_MAX_AGE_MS &&
+    (normalized.userId || normalized.email)
+  );
 }
+
+// ================================
+// OFFLINE FLOW
+// ================================
 
 export function getOfflineFallbackFlow(snapshot = null) {
   if (!isAccessSnapshotUsable(snapshot)) {
@@ -324,26 +220,20 @@ export function getOfflineFallbackFlow(snapshot = null) {
       flow: LIMITED_OFFLINE_FLOW,
       route: DASHBOARD_ROUTE,
       limited: true,
-      reason: "no_cached_access_snapshot",
     };
   }
 
-  const normalized = normalizeAccessSnapshot(snapshot);
-  const flow = safeText(normalized.lastResolvedAppFlow || "normal");
-  const route = safeText(normalized.lastValidRoute || DASHBOARD_ROUTE);
-  const dashboardWasValid =
-    route === DASHBOARD_ROUTE ||
-    normalized.onboardingCompleted ||
-    ["active", "normal", "dashboard", "payment_pending", "program_onboarding"].includes(flow);
-
   return {
-    flow: dashboardWasValid ? ACTIVE_OFFLINE_FLOW : LIMITED_OFFLINE_FLOW,
+    flow: ACTIVE_OFFLINE_FLOW,
     route: DASHBOARD_ROUTE,
-    limited: !dashboardWasValid,
-    reason: dashboardWasValid ? "cached_access_snapshot" : "cached_snapshot_not_dashboard_ready",
-    snapshot: normalized,
+    limited: false,
+    snapshot: normalizeAccessSnapshot(snapshot),
   };
 }
+
+// ================================
+// SNAPSHOT BUILDER
+// ================================
 
 export function buildAccessSnapshot({
   user = null,
@@ -351,53 +241,17 @@ export function buildAccessSnapshot({
   enrollment = null,
   accessState = null,
   flow = "normal",
-  homeRedirectPath = DASHBOARD_ROUTE,
   currentPath = DASHBOARD_ROUTE,
 } = {}) {
-  const safeCurrentPath = safeText(currentPath || "");
-  const safeHomeRedirectPath = safeText(homeRedirectPath || "");
-  const routeIsAppRoute = Boolean(
-    safeCurrentPath &&
-      !["/", "/login", "/onboarding", "/pending", "/program-onboarding", "/enroll", "/tier-select"].includes(
-        safeCurrentPath
-      )
-  );
-
-  const lastValidRoute = routeIsAppRoute
-    ? safeCurrentPath
-    : safeHomeRedirectPath === "/dashboard"
-      ? DASHBOARD_ROUTE
-      : DASHBOARD_ROUTE;
-
   return normalizeAccessSnapshot({
-    userId: user?.id || profile?.id || null,
-    email: user?.email || profile?.email || null,
-    profileBasic: profile || {},
-    role: accessState?.role || profile?.role || "user",
-    plan: accessState?.plan || profile?.plan || "free",
-    planLabel:
-      profile?.subscription_label ||
-      profile?.subscription?.label ||
-      accessState?.planLabel ||
-      "Free",
-    subscriptionStatus:
-      profile?.subscription_status ||
-      profile?.subscription?.status ||
-      accessState?.enrollmentStatus ||
-      profile?.status ||
-      "free",
-    accessStatus: accessState?.enrollmentStatus || profile?.status || "free",
-    onboardingCompleted:
-      profile?.onboarding_completed ||
-      profile?.has_completed_universal_onboarding ||
-      profile?.has_seen_universal_onboarding ||
-      flow !== "universal_onboarding",
-    programOnboardingCompleted:
-      profile?.program_onboarding_completed ||
-      profile?.has_completed_program_onboarding ||
-      flow !== "program_onboarding",
-    lastResolvedAppFlow: flow || "normal",
-    lastValidRoute,
+    userId: user?.id,
+    email: user?.email,
+    profileBasic: profile,
+    role: accessState?.role,
+    plan: accessState?.plan,
+    subscriptionStatus: profile?.subscription_status,
+    lastResolvedAppFlow: flow,
+    lastValidRoute: currentPath,
     enrollment,
     accessState,
     savedAt: nowIso(),
