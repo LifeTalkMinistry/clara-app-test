@@ -15,7 +15,6 @@ import EmptyState from "../components/EmptyState";
 import FeaturePageLoader from "../components/FeaturePageLoader";
 import useUserRole from "../hooks/useUserRole";
 import useFinancialData from "../hooks/useFinancialData";
-import * as financeRepository from "@/lib/financeRepository";
 
 const PH_TIME_ZONE = "Asia/Manila";
 const PH_OFFSET_MINUTES = 8 * 60;
@@ -553,38 +552,6 @@ const dispatchBudgetEvents = () => {
   ].forEach((eventName) => window.dispatchEvent(new Event(eventName)));
 };
 
-const callBudgetCreate = async (userKey, payload) => {
-  if (typeof financeRepository.addBudget === "function") {
-    return financeRepository.addBudget(userKey, payload);
-  }
-
-  if (typeof financeRepository.createBudget === "function") {
-    return financeRepository.createBudget(userKey, payload);
-  }
-
-  if (typeof financeRepository.upsertBudget === "function") {
-    return financeRepository.upsertBudget(userKey, payload);
-  }
-
-  throw new Error("No budget create function found in financeRepository.");
-};
-
-const callBudgetUpdate = async (userKey, id, payload) => {
-  if (typeof financeRepository.updateBudget === "function") {
-    return financeRepository.updateBudget(userKey, id, payload);
-  }
-
-  if (typeof financeRepository.saveBudget === "function") {
-    return financeRepository.saveBudget(userKey, id, payload);
-  }
-
-  if (typeof financeRepository.upsertBudget === "function") {
-    return financeRepository.upsertBudget(userKey, payload);
-  }
-
-  throw new Error("No budget update function found in financeRepository.");
-};
-
 export default function Budgets() {
   const { user, access, loading: accessLoading } = useUserRole();
 
@@ -596,6 +563,9 @@ export default function Budgets() {
     budgets: financeBudgets = [],
     expenses: financeExpenses = [],
     wallets: financeWallets = [],
+    addBudget,
+    updateBudget,
+    deleteBudget,
     refreshData,
   } = useFinancialData(user);
 
@@ -820,6 +790,11 @@ export default function Budgets() {
       return;
     }
 
+    if (typeof addBudget !== "function" && typeof updateBudget !== "function") {
+      alert("Budget actions are not ready yet.");
+      return;
+    }
+
     const totalBudget = toNumber(form.total_budget);
     const category = BUDGET_CATEGORIES.includes(form.category) ? form.category : "other";
 
@@ -889,9 +864,9 @@ export default function Budgets() {
       });
 
       if (existing?.id) {
-        await callBudgetUpdate(localUserId, existing.id, payload);
+        await updateBudget(existing.id, payload);
       } else {
-        await callBudgetCreate(localUserId, payload);
+        await addBudget(payload);
       }
 
       await refreshPageData();
@@ -910,6 +885,11 @@ export default function Budgets() {
 
     if (!localUserId) {
       alert("Please sign in before resetting a budget.");
+      return;
+    }
+
+    if (typeof updateBudget !== "function") {
+      alert("Budget actions are not ready yet.");
       return;
     }
 
@@ -942,7 +922,7 @@ export default function Budgets() {
         updated_at: nowIso,
       });
 
-      await callBudgetUpdate(localUserId, currentBudget.id, payload);
+      await updateBudget(currentBudget.id, payload);
       await refreshPageData();
       dispatchBudgetEvents();
     } catch (error) {
@@ -951,6 +931,14 @@ export default function Budgets() {
     } finally {
       setTimeout(() => setResetting(false), 150);
     }
+  };
+
+  const handleDeleteBudget = async (budgetId) => {
+    if (!budgetId || typeof deleteBudget !== "function") return;
+
+    await deleteBudget(budgetId);
+    await refreshPageData();
+    dispatchBudgetEvents();
   };
 
   const fmt = (n) =>
