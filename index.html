@@ -24,6 +24,11 @@
         background: #020617;
       }
 
+      #root {
+        isolation: isolate;
+        background: #020617;
+      }
+
       #clara-boot {
         min-height: 100vh;
         display: flex;
@@ -42,7 +47,12 @@
       /* Prevent split-second auth/Suspense loader flashes. Real longer loads still appear. */
       .theme-page-shell:has(.animate-spin) {
         opacity: 0;
-        animation: clara-loader-reveal 1ms linear 280ms forwards;
+        animation: clara-loader-reveal 1ms linear 420ms forwards;
+      }
+
+      /* Final route stability layer: never show a one-frame full-screen loader during route recalculation. */
+      .theme-page-shell:has(.animate-spin) > div {
+        transform: translateZ(0);
       }
 
       @media (prefers-reduced-motion: reduce) {
