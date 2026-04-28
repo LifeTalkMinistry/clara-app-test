@@ -1,4 +1,4 @@
-import { useState, useMemo, useCallback } from "react";
+import { useState, useMemo } from "react";
 import {
   Plus,
   Wallet as WalletIcon,
@@ -263,14 +263,61 @@ export default function Wallets() {
   const historyItems = useMemo(() => {
     if (!historyWallet?.id) return [];
 
-    return [...walletTransactions]
-      .filter((t) => String(t?.wallet_id) === String(historyWallet.id))
-      .sort((a, b) => {
-        const aTime = new Date(a?.created_at || a?.createdAt || 0).getTime();
-        const bTime = new Date(b?.created_at || b?.createdAt || 0).getTime();
-        return bTime - aTime;
+    const walletId = String(historyWallet.id);
+
+    const transactionItems = [...walletTransactions]
+      .filter((t) => String(t?.wallet_id) === walletId)
+      .map((t) => ({
+        ...t,
+        id: t?.id || generateId(),
+        type: t?.type || t?.transaction_type || "transaction",
+        amount: toNumber(t?.amount),
+        created_at: t?.created_at || t?.createdAt || new Date().toISOString(),
+        notes: t?.notes || t?.description || "",
+        source: "wallet_transaction",
+      }));
+
+    const transferItems = [...transfers]
+      .filter(
+        (transfer) =>
+          String(transfer?.from_wallet_id) === walletId ||
+          String(transfer?.to_wallet_id) === walletId
+      )
+      .map((transfer) => {
+        const isOutgoing = String(transfer?.from_wallet_id) === walletId;
+        const otherWalletId = isOutgoing
+          ? transfer?.to_wallet_id
+          : transfer?.from_wallet_id;
+
+        const otherWallet = sortedWallets.find(
+          (wallet) => String(wallet.id) === String(otherWalletId)
+        );
+
+        return {
+          ...transfer,
+          id: transfer?.id || generateId(),
+          type: isOutgoing ? "transfer_out" : "transfer_in",
+          amount: toNumber(transfer?.amount),
+          created_at:
+            transfer?.created_at ||
+            transfer?.createdAt ||
+            transfer?.date ||
+            new Date().toISOString(),
+          notes:
+            transfer?.notes ||
+            (isOutgoing
+              ? `Transferred to ${otherWallet?.name || "another wallet"}`
+              : `Transferred from ${otherWallet?.name || "another wallet"}`),
+          source: "transfer",
+        };
       });
-  }, [walletTransactions, historyWallet]);
+
+    return [...transactionItems, ...transferItems].sort((a, b) => {
+      const aTime = new Date(a?.created_at || a?.createdAt || 0).getTime();
+      const bTime = new Date(b?.created_at || b?.createdAt || 0).getTime();
+      return bTime - aTime;
+    });
+  }, [walletTransactions, transfers, historyWallet, sortedWallets]);
 
   const projectedBalance = useMemo(() => {
     return getBalance(selectedWallet) + toNumber(addMoneyForm.amount || 0);
@@ -327,6 +374,10 @@ export default function Wallets() {
 
     try {
       setIsReorderingWallets(true);
+
+      if (typeof updateWallet !== "function") {
+        throw new Error("Wallet reorder is not available yet.");
+      }
 
       await Promise.all(
         nextWallets.map((wallet, index) =>
@@ -504,10 +555,12 @@ export default function Wallets() {
       setIsTransferringMoney(true);
 
       await transferBetweenWallets({
+        id: generateId(),
         from_wallet_id: fromId,
         to_wallet_id: toId,
         amount,
         notes: transferForm.notes || "",
+        created_at: new Date().toISOString(),
       });
 
       await refreshData();
@@ -951,7 +1004,7 @@ export default function Wallets() {
 
                   return (
                     <div
-                      key={item.id}
+                      key={`${item.source || "history"}-${item.id}`}
                       className="rounded-2xl border border-white/10 bg-white/5 px-4 py-3"
                     >
                       <div className="flex items-start justify-between gap-3">
@@ -999,9 +1052,18 @@ export default function Wallets() {
 
       <div className="space-y-4">
         {sortedWallets.map((wallet, index) => {
-          const hasActivity = walletTransactions.some(
+          const hasWalletTransactionActivity = walletTransactions.some(
             (t) => String(t?.wallet_id) === String(wallet.id)
           );
+
+          const hasTransferActivity = transfers.some(
+            (transfer) =>
+              String(transfer?.from_wallet_id) === String(wallet.id) ||
+              String(transfer?.to_wallet_id) === String(wallet.id)
+          );
+
+          const hasActivity =
+            hasWalletTransactionActivity || hasTransferActivity;
 
           return (
             <div
