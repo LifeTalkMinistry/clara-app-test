@@ -81,7 +81,7 @@ jobs:
             'className={`relative grid cursor-default select-none grid-cols-2 overflow-hidden border backdrop-blur-sm ${dashboardScale.summaryGrid}`}'
           );
 
-          if (!text.includes('data-clara-summary-privacy-toggle="true"')) {
+          if (!text.includes('Hide financial summary amounts')) {
             replaceOnce(
               '        >\n          <div\n            {...moneyLeftSummaryHandlers}',
               '        >\n          <button\n            type="button"\n            data-clara-summary-privacy-toggle="true"\n            onClick={toggleMoneySummaryVisibility}\n            onPointerUp={(event) => event.stopPropagation()}\n            onMouseUp={(event) => event.stopPropagation()}\n            onTouchEnd={(event) => event.stopPropagation()}\n            className="absolute right-2.5 top-2.5 z-50 flex h-7 w-7 items-center justify-center rounded-full border border-white/10 bg-white/[0.08] text-white/55 shadow-[0_0_14px_rgba(255,255,255,0.08)] backdrop-blur-xl transition hover:bg-white/[0.13] hover:text-white/85 active:scale-95"\n            aria-label={moneySummaryVisible ? "Hide financial summary amounts" : "Show financial summary amounts"}\n            title={moneySummaryVisible ? "Hide amounts" : "Show amounts"}\n          >\n            {moneySummaryVisible ? (\n              <Eye className="h-3.5 w-3.5" />\n            ) : (\n              <EyeOff className="h-3.5 w-3.5" />\n            )}\n          </button>\n\n          <div\n            {...moneyLeftSummaryHandlers}'
@@ -104,7 +104,7 @@ jobs:
           if git diff --cached --quiet; then
             echo "Dashboard.jsx already up to date."
           else
-            git commit -m "Add dashboard money summary privacy toggle"
+            git commit -m "Add dashboard money summary privacy button"
             git pull --rebase origin main
             git push origin main
           fi
