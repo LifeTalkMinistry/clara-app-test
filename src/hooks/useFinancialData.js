@@ -50,7 +50,7 @@ const getLocalUserId = (user) => {
 };
 
 const sortByNewest = (rows) =>
-  [...(rows || [])].sort((a, b) => {
+  [...(Array.isArray(rows) ? rows : [])].sort((a, b) => {
     const aTime = new Date(
       a?.createdAt || a?.created_at || a?.created_date || a?.date || 0
     ).getTime();
@@ -65,6 +65,7 @@ const sortByNewest = (rows) =>
 const createEmptyFinancialCache = (key = null) => ({
   key,
   loaded: false,
+  error: null,
   expenses: [],
   incomes: [],
   wallets: [],
@@ -84,27 +85,33 @@ export default function useFinancialData(user) {
       ? financialDataCache
       : createEmptyFinancialCache(cacheKey);
 
-  const [expenses, setExpenses] = useState(initialCache.expenses);
-  const [incomes, setIncomes] = useState(initialCache.incomes);
-  const [wallets, setWallets] = useState(initialCache.wallets);
-  const [budgets, setBudgets] = useState(initialCache.budgets);
+  const [expenses, setExpenses] = useState(initialCache.expenses || []);
+  const [incomes, setIncomes] = useState(initialCache.incomes || []);
+  const [wallets, setWallets] = useState(initialCache.wallets || []);
+  const [budgets, setBudgets] = useState(initialCache.budgets || []);
   const [walletTransactions, setWalletTransactions] = useState(
-    initialCache.walletTransactions
+    initialCache.walletTransactions || []
   );
-  const [transfers, setTransfers] = useState(initialCache.transfers);
+  const [transfers, setTransfers] = useState(initialCache.transfers || []);
   const [loading, setLoading] = useState(!initialCache.loaded);
+  const [error, setError] = useState(initialCache.error || null);
 
   const mountedRef = useRef(true);
 
   const hydrateFromCache = useCallback((nextCache) => {
     if (!mountedRef.current) return;
 
-    setExpenses(nextCache.expenses || []);
-    setIncomes(nextCache.incomes || []);
-    setWallets(nextCache.wallets || []);
-    setBudgets(nextCache.budgets || []);
-    setWalletTransactions(nextCache.walletTransactions || []);
-    setTransfers(nextCache.transfers || []);
+    setExpenses(Array.isArray(nextCache.expenses) ? nextCache.expenses : []);
+    setIncomes(Array.isArray(nextCache.incomes) ? nextCache.incomes : []);
+    setWallets(Array.isArray(nextCache.wallets) ? nextCache.wallets : []);
+    setBudgets(Array.isArray(nextCache.budgets) ? nextCache.budgets : []);
+    setWalletTransactions(
+      Array.isArray(nextCache.walletTransactions)
+        ? nextCache.walletTransactions
+        : []
+    );
+    setTransfers(Array.isArray(nextCache.transfers) ? nextCache.transfers : []);
+    setError(nextCache.error || null);
     setLoading(!nextCache.loaded);
   }, []);
 
@@ -118,14 +125,26 @@ export default function useFinancialData(user) {
 
   const loadAll = useCallback(async () => {
     if (!localUserId) {
-      const emptyCache = createEmptyFinancialCache();
+      const emptyCache = {
+        ...createEmptyFinancialCache(),
+        loaded: true,
+      };
+
       financialDataCache = emptyCache;
       hydrateFromCache(emptyCache);
-      setLoading(false);
+
+      if (mountedRef.current) {
+        setLoading(false);
+        setError(null);
+      }
+
       return emptyCache;
     }
 
-    setLoading(true);
+    if (mountedRef.current) {
+      setLoading(true);
+      setError(null);
+    }
 
     try {
       const [
@@ -142,30 +161,33 @@ export default function useFinancialData(user) {
         getLocalRecords(LOCAL_FINANCE_STORES.transfers, localUserId),
       ]);
 
-      const safeWalletTransactions = sortByNewest(rawWalletTransactions || []);
-      const safeTransfers = sortByNewest(rawTransfers || []);
+      const safeWalletTransactions = sortByNewest(rawWalletTransactions);
+      const safeTransfers = sortByNewest(rawTransfers);
 
-      const normalizedWallets = (rawWallets || []).map((wallet) => {
-        const balance = getWalletBalance(
-          wallet,
-          safeWalletTransactions,
-          safeTransfers
-        );
+      const normalizedWallets = (Array.isArray(rawWallets) ? rawWallets : []).map(
+        (wallet) => {
+          const balance = getWalletBalance(
+            wallet,
+            safeWalletTransactions,
+            safeTransfers
+          );
 
-        return {
-          ...wallet,
-          balance,
-          derived_balance: balance,
-        };
-      });
+          return {
+            ...wallet,
+            balance,
+            derived_balance: balance,
+          };
+        }
+      );
 
       const nextCache = {
         key: cacheKey,
         loaded: true,
-        expenses: sortByNewest(rawExpenses || []),
+        error: null,
+        expenses: sortByNewest(rawExpenses),
         incomes: [],
         wallets: normalizedWallets,
-        budgets: sortByNewest(rawBudgets || []),
+        budgets: sortByNewest(rawBudgets),
         walletTransactions: safeWalletTransactions,
         transfers: safeTransfers,
       };
@@ -174,13 +196,41 @@ export default function useFinancialData(user) {
       hydrateFromCache(nextCache);
 
       return nextCache;
-    } catch (error) {
-      console.error("IndexedDB finance loadAll error:", error);
+    } catch (loadError) {
+      console.error("IndexedDB finance loadAll error:", loadError);
 
       const fallbackCache =
         financialDataCache.key === cacheKey
-          ? { ...financialDataCache, loaded: true }
-          : createEmptyFinancialCache(cacheKey);
+          ? {
+              ...financialDataCache,
+              loaded: true,
+              error: loadError,
+              expenses: Array.isArray(financialDataCache.expenses)
+                ? financialDataCache.expenses
+                : [],
+              incomes: Array.isArray(financialDataCache.incomes)
+                ? financialDataCache.incomes
+                : [],
+              wallets: Array.isArray(financialDataCache.wallets)
+                ? financialDataCache.wallets
+                : [],
+              budgets: Array.isArray(financialDataCache.budgets)
+                ? financialDataCache.budgets
+                : [],
+              walletTransactions: Array.isArray(
+                financialDataCache.walletTransactions
+              )
+                ? financialDataCache.walletTransactions
+                : [],
+              transfers: Array.isArray(financialDataCache.transfers)
+                ? financialDataCache.transfers
+                : [],
+            }
+          : {
+              ...createEmptyFinancialCache(cacheKey),
+              loaded: true,
+              error: loadError,
+            };
 
       financialDataCache = fallbackCache;
       hydrateFromCache(fallbackCache);
@@ -298,24 +348,33 @@ export default function useFinancialData(user) {
     await refreshData();
   };
 
+  const safeExpenses = Array.isArray(expenses) ? expenses : [];
+  const safeIncomes = Array.isArray(incomes) ? incomes : [];
+  const safeWallets = Array.isArray(wallets) ? wallets : [];
+  const safeBudgets = Array.isArray(budgets) ? budgets : [];
+  const safeWalletTransactions = Array.isArray(walletTransactions)
+    ? walletTransactions
+    : [];
+  const safeTransfers = Array.isArray(transfers) ? transfers : [];
+
   const totalExpenses = useMemo(
-    () => expenses.reduce((sum, expense) => sum + toNumber(expense.amount), 0),
-    [expenses]
+    () => safeExpenses.reduce((sum, expense) => sum + toNumber(expense.amount), 0),
+    [safeExpenses]
   );
 
   const totalIncome = useMemo(() => {
-    return walletTransactions
+    return safeWalletTransactions
       .filter((transaction) =>
         FINANCE_INCOME_TYPES.has(
           String(transaction?.type || "").trim().toLowerCase()
         )
       )
       .reduce((sum, transaction) => sum + toNumber(transaction.amount), 0);
-  }, [walletTransactions]);
+  }, [safeWalletTransactions]);
 
   const totalWalletBalance = useMemo(
     () =>
-      wallets.reduce((sum, wallet) => {
+      safeWallets.reduce((sum, wallet) => {
         const value =
           wallet.derived_balance ??
           wallet.balance ??
@@ -326,7 +385,7 @@ export default function useFinancialData(user) {
 
         return sum + toNumber(value);
       }, 0),
-    [wallets]
+    [safeWallets]
   );
 
   const retentionRate = useMemo(() => {
@@ -336,25 +395,33 @@ export default function useFinancialData(user) {
 
   return {
     loading,
-    expenses,
-    incomes,
-    wallets,
-    budgets,
-    walletTransactions,
-    transfers,
+    error,
+
+    expenses: safeExpenses,
+    incomes: safeIncomes,
+    wallets: safeWallets,
+    budgets: safeBudgets,
+    walletTransactions: safeWalletTransactions,
+    transfers: safeTransfers,
+
     totalExpenses,
     totalIncome,
     totalWalletBalance,
     retentionRate,
+
     refreshData,
+
     addExpense,
     updateExpense,
     deleteExpense,
+
     addWallet,
     updateWallet,
     deleteWallet,
+
     addIncome,
     transferBetweenWallets,
+
     addBudget,
     updateBudget,
     deleteBudget,
