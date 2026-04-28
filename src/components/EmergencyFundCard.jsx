@@ -177,11 +177,11 @@ export default function EmergencyFundCard({
   const {
     emergencyFund,
     wallets = [],
-    walletTransactions = [],
-    transfers = [],
     updateEmergencyFund,
     refreshData,
   } = useFinancialData();
+
+  const safeWallets = Array.isArray(wallets) ? wallets : [];
 
   const [expanded, setExpanded] = useState(false);
   const [editing, setEditing] = useState(false);
@@ -227,7 +227,12 @@ export default function EmergencyFundCard({
   const emergencySurvivalExpense = Number(
     getEmergencyValue(
       emergencyFund,
-      ["survivalExpense", "survival_expense", "monthlyExpense", "monthly_expense"],
+      [
+        "survivalExpense",
+        "survival_expense",
+        "monthlyExpense",
+        "monthly_expense",
+      ],
       survivalExpense
     )
   );
@@ -256,10 +261,12 @@ export default function EmergencyFundCard({
   }, [emergencyTargetMonths, emergencyWallpaper, emergencyWallpaperOpacity]);
 
   useEffect(() => {
-    if (!topUpWalletId && wallets.length > 0) {
-      setTopUpWalletId(String(wallets[0]?.id || wallets[0]?.wallet_id || ""));
+    if (!topUpWalletId && safeWallets.length > 0) {
+      setTopUpWalletId(
+        String(safeWallets[0]?.id || safeWallets[0]?.wallet_id || "")
+      );
     }
-  }, [topUpWalletId, wallets]);
+  }, [topUpWalletId, safeWallets]);
 
   useEffect(() => {
     return () => {
@@ -332,11 +339,11 @@ export default function EmergencyFundCard({
   );
 
   const selectedWallet = useMemo(() => {
-    return wallets.find((wallet) => {
+    return safeWallets.find((wallet) => {
       const id = String(wallet?.id || wallet?.wallet_id || "");
       return id === String(topUpWalletId);
     });
-  }, [topUpWalletId, wallets]);
+  }, [topUpWalletId, safeWallets]);
 
   const selectedWalletBalance = Number(
     selectedWallet?.balance ??
@@ -382,6 +389,8 @@ export default function EmergencyFundCard({
     await persistEmergencyFund({
       survivalExpense: num,
       survival_expense: num,
+      monthlyExpense: num,
+      monthly_expense: num,
     });
 
     onSurvivalSaved?.(num);
@@ -395,6 +404,7 @@ export default function EmergencyFundCard({
     await persistEmergencyFund({
       targetMonths: next,
       target_months: next,
+      months_target: next,
     });
   };
 
@@ -522,8 +532,11 @@ export default function EmergencyFundCard({
 
     await persistEmergencyFund({
       wallpaper: draftWallpaper || "",
+      background: draftWallpaper || "",
+      image: draftWallpaper || "",
       wallpaperOpacity: safeOpacity,
       wallpaper_opacity: safeOpacity,
+      backgroundOpacity: safeOpacity,
     });
 
     setShowWallpaperModal(false);
@@ -564,12 +577,14 @@ export default function EmergencyFundCard({
       savedAmount: nextSavedAmount,
       saved_amount: nextSavedAmount,
       amount: nextSavedAmount,
+      balance: nextSavedAmount,
+      moneyLeft: nextSavedAmount,
       lastTopUpAmount: amount,
       last_top_up_amount: amount,
       lastTopUpWalletId: topUpWalletId,
       last_top_up_wallet_id: topUpWalletId,
-      walletTransactions,
-      transfers,
+      updatedAt: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
     });
 
     setShowTopUpModal(false);
@@ -632,7 +647,7 @@ export default function EmergencyFundCard({
                   }}
                   className="w-full rounded-2xl border border-white/10 bg-black/25 px-4 py-3 text-sm font-semibold text-white outline-none transition focus:border-emerald-400/40"
                 >
-                  {wallets.map((wallet) => {
+                  {safeWallets.map((wallet) => {
                     const id = String(wallet?.id || wallet?.wallet_id || "");
                     const name = wallet?.name || wallet?.title || "Wallet";
                     const balance = Number(
@@ -678,7 +693,7 @@ export default function EmergencyFundCard({
               <button
                 type="button"
                 onClick={handleTopUpSave}
-                disabled={saving}
+                disabled={saving || safeWallets.length === 0}
                 className="flex w-full items-center justify-center gap-2 rounded-2xl border border-emerald-400/30 bg-emerald-500/15 px-4 py-3 text-sm font-semibold text-emerald-300 transition hover:bg-emerald-500/20 disabled:cursor-not-allowed disabled:opacity-60"
               >
                 <Check className="h-4 w-4" />
