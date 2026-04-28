@@ -22,7 +22,6 @@ import EmptyState from "../components/EmptyState";
 import FeaturePageLoader from "../components/FeaturePageLoader";
 import useUserRole from "../hooks/useUserRole";
 import useFinancialData from "../hooks/useFinancialData";
-import { supabase } from "@/lib/supabaseClient";
 
 const currencyFormatter = new Intl.NumberFormat("en-PH", {
   style: "currency",
@@ -48,6 +47,7 @@ const toNumber = (value) => {
 const formatDate = (value) => {
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return "No date";
+
   return date.toLocaleDateString("en-PH", {
     year: "numeric",
     month: "short",
@@ -55,8 +55,23 @@ const formatDate = (value) => {
   });
 };
 
+const getWalletName = (wallet) => {
+  return wallet?.name || wallet?.wallet_name || wallet?.title || "Wallet";
+};
+
+const getTransactionDate = (transaction) => {
+  return (
+    transaction?.date ||
+    transaction?.transaction_date ||
+    transaction?.created_at ||
+    transaction?.updated_at ||
+    new Date().toISOString()
+  );
+};
+
 const ADD_FUNDS_UNAVAILABLE_MESSAGE = "Add money is temporarily unavailable.";
-const DELETE_FUNDS_UNAVAILABLE_MESSAGE = "This fund entry is temporarily unavailable.";
+const DELETE_FUNDS_UNAVAILABLE_MESSAGE =
+  "This fund entry is temporarily unavailable.";
 
 export default function AddFunds() {
   const { user, loading: accessLoading } = useUserRole();
@@ -66,6 +81,7 @@ export default function AddFunds() {
     () => (Array.isArray(financial.wallets) ? financial.wallets : []),
     [financial.wallets]
   );
+
   const transactions = useMemo(
     () =>
       Array.isArray(financial.walletTransactions)
@@ -73,7 +89,9 @@ export default function AddFunds() {
         : [],
     [financial.walletTransactions]
   );
+
   const loading = accessLoading || financial.loading;
+  const pageError = financial.error;
 
   const [open, setOpen] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -82,20 +100,46 @@ export default function AddFunds() {
 
   const walletNameMap = useMemo(() => {
     return wallets.reduce((map, wallet) => {
-      map.set(String(wallet.id), wallet.name || wallet.wallet_name || "Wallet");
+      map.set(String(wallet.id), getWalletName(wallet));
       return map;
     }, new Map());
   }, [wallets]);
 
   const incomeTransactions = useMemo(() => {
     return transactions
-      .filter((txn) => ["income", "add", "cash_in"].includes(String(txn.type).toLowerCase()))
-      .sort((a, b) => new Date(b.created_at || 0) - new Date(a.created_at || 0));
+      .filter((txn) => {
+        const type = String(txn?.type || txn?.transaction_type || "").toLowerCase();
+
+        return (
+          type === "income" ||
+          type === "add" ||
+          type === "cash_in" ||
+          type === "add_income" ||
+          type === "add_funds"
+        );
+      })
+      .filter((txn) => !txn.deletedAt && !txn.deleted_at)
+      .sort((a, b) => {
+        const dateA = new Date(getTransactionDate(a)).getTime();
+        const dateB = new Date(getTransactionDate(b)).getTime();
+
+        return (Number.isFinite(dateB) ? dateB : 0) - (Number.isFinite(dateA) ? dateA : 0);
+      });
   }, [transactions]);
 
   const resetForm = () => {
     setForm(createInitialForm(wallets[0]?.id ? String(wallets[0].id) : ""));
     setError("");
+  };
+
+  const refreshFinance = async () => {
+    if (typeof financial.refreshData === "function") {
+      await financial.refreshData();
+    }
+
+    window.dispatchEvent(new Event("clara-finance-updated"));
+    window.dispatchEvent(new Event("clara-wallets-updated"));
+    window.dispatchEvent(new Event("clara-wallet-transactions-updated"));
   };
 
   const handleSubmit = async () => {
@@ -111,9 +155,17 @@ export default function AddFunds() {
       return;
     }
 
-    const wallet = wallets.find((item) => String(item.id) === String(form.wallet_id));
+    const wallet = wallets.find(
+      (item) => String(item.id) === String(form.wallet_id)
+    );
+
     if (!wallet) {
       setError("Wallet not found.");
+      return;
+    }
+
+    if (typeof financial.addIncome !== "function") {
+      setError(ADD_FUNDS_UNAVAILABLE_MESSAGE);
       return;
     }
 
@@ -124,16 +176,19 @@ export default function AddFunds() {
       await financial.addIncome({
         amount,
         wallet_id: form.wallet_id,
+        walletId: form.wallet_id,
         source_type: form.source.trim(),
+        source: form.source.trim(),
         notes: form.notes.trim() || form.source.trim(),
         date: form.date,
+        transaction_date: form.date,
+        type: "income",
       });
+
+      await refreshFinance();
 
       setOpen(false);
       resetForm();
-      window.dispatchEvent(new Event("clara-finance-updated"));
-      window.dispatchEvent(new Event("clara-wallets-updated"));
-      window.dispatchEvent(new Event("clara-wallet-transactions-updated"));
     } catch (err) {
       console.error("Failed to add funds:", err);
       setError(ADD_FUNDS_UNAVAILABLE_MESSAGE);
@@ -143,29 +198,29 @@ export default function AddFunds() {
   };
 
   const handleDelete = async (txn) => {
-    const wallet = wallets.find((item) => String(item.id) === String(txn.wallet_id));
-    if (!wallet) return;
+    if (!txn?.id) return;
 
     try {
       setSaving(true);
       setError("");
-      const nextBalance = toNumber(wallet.balance) - toNumber(txn.amount);
 
-      const { error: walletError } = await supabase
-        .from("wallets")
-        .update({ balance: nextBalance, updated_at: new Date().toISOString() })
-        .eq("id", String(wallet.id));
+      if (typeof financial.deleteWalletTransaction === "function") {
+        await financial.deleteWalletTransaction(txn.id, txn);
+      } else if (typeof financial.deleteIncome === "function") {
+        await financial.deleteIncome(txn.id, txn);
+      } else if (typeof financial.deleteWalletTransactionById === "function") {
+        await financial.deleteWalletTransactionById(txn.id, txn);
+      } else if (typeof financial.updateWalletTransaction === "function") {
+        await financial.updateWalletTransaction(txn.id, {
+          ...txn,
+          deletedAt: new Date().toISOString(),
+          deleted_at: new Date().toISOString(),
+        });
+      } else {
+        throw new Error("No offline-first delete income wrapper available.");
+      }
 
-      if (walletError) throw walletError;
-
-      const { error: txnError } = await supabase
-        .from("wallet_transactions")
-        .delete()
-        .eq("id", String(txn.id));
-
-      if (txnError) throw txnError;
-
-      await financial.refreshData();
+      await refreshFinance();
     } catch (err) {
       console.error("Failed to delete funds:", err);
       setError(DELETE_FUNDS_UNAVAILABLE_MESSAGE);
@@ -179,9 +234,11 @@ export default function AddFunds() {
       open={open}
       onOpenChange={(nextOpen) => {
         setOpen(nextOpen);
+
         if (nextOpen && !form.wallet_id && wallets[0]?.id) {
           setForm((prev) => ({ ...prev, wallet_id: String(wallets[0].id) }));
         }
+
         if (!nextOpen) resetForm();
       }}
     >
@@ -204,7 +261,9 @@ export default function AddFunds() {
               type="number"
               placeholder="0.00"
               value={form.amount}
-              onChange={(event) => setForm((prev) => ({ ...prev, amount: event.target.value }))}
+              onChange={(event) =>
+                setForm((prev) => ({ ...prev, amount: event.target.value }))
+              }
             />
           </div>
 
@@ -213,7 +272,9 @@ export default function AddFunds() {
             <Input
               placeholder="e.g., Salary, Freelance, Gift"
               value={form.source}
-              onChange={(event) => setForm((prev) => ({ ...prev, source: event.target.value }))}
+              onChange={(event) =>
+                setForm((prev) => ({ ...prev, source: event.target.value }))
+              }
             />
           </div>
 
@@ -221,21 +282,27 @@ export default function AddFunds() {
             <Label>Wallet</Label>
             <Select
               value={form.wallet_id}
-              onValueChange={(value) => setForm((prev) => ({ ...prev, wallet_id: value }))}
+              onValueChange={(value) =>
+                setForm((prev) => ({ ...prev, wallet_id: value }))
+              }
             >
               <SelectTrigger>
                 <SelectValue placeholder="Select wallet" />
               </SelectTrigger>
+
               <SelectContent>
                 {wallets.map((wallet) => (
                   <SelectItem key={wallet.id} value={String(wallet.id)}>
-                    {wallet.name || wallet.wallet_name || "Wallet"}
+                    {getWalletName(wallet)}
                   </SelectItem>
                 ))}
               </SelectContent>
             </Select>
+
             {wallets.length === 0 ? (
-              <p className="mt-1 text-xs text-destructive">Create a wallet first</p>
+              <p className="mt-1 text-xs text-destructive">
+                Create a wallet first
+              </p>
             ) : null}
           </div>
 
@@ -244,7 +311,9 @@ export default function AddFunds() {
             <Input
               type="date"
               value={form.date}
-              onChange={(event) => setForm((prev) => ({ ...prev, date: event.target.value }))}
+              onChange={(event) =>
+                setForm((prev) => ({ ...prev, date: event.target.value }))
+              }
             />
           </div>
 
@@ -253,7 +322,9 @@ export default function AddFunds() {
             <Input
               placeholder="Additional details"
               value={form.notes}
-              onChange={(event) => setForm((prev) => ({ ...prev, notes: event.target.value }))}
+              onChange={(event) =>
+                setForm((prev) => ({ ...prev, notes: event.target.value }))
+              }
             />
           </div>
 
@@ -266,7 +337,13 @@ export default function AddFunds() {
           <Button
             onClick={handleSubmit}
             className="w-full"
-            disabled={saving || !form.amount || !form.wallet_id || !form.source.trim()}
+            disabled={
+              saving ||
+              wallets.length === 0 ||
+              !form.amount ||
+              !form.wallet_id ||
+              !form.source.trim()
+            }
           >
             {saving ? "Saving..." : "Add Funds"}
           </Button>
@@ -287,9 +364,9 @@ export default function AddFunds() {
         action={addFundsAction}
       />
 
-      {error && !open ? (
+      {(error && !open) || pageError ? (
         <div className="mb-3 rounded-lg border border-destructive/20 bg-destructive/10 px-3 py-2 text-sm text-destructive">
-          {error}
+          {error || pageError}
         </div>
       ) : null}
 
@@ -313,17 +390,24 @@ export default function AddFunds() {
               <div className="min-w-0 flex-1">
                 <div className="flex items-center justify-between gap-3">
                   <p className="truncate text-sm font-medium">
-                    {income.source_type || income.notes || "Funds added"}
+                    {income.source_type ||
+                      income.source ||
+                      income.notes ||
+                      "Funds added"}
                   </p>
+
                   <p className="font-heading text-sm font-bold text-primary">
                     +{currencyFormatter.format(toNumber(income.amount))}
                   </p>
                 </div>
 
                 <div className="mt-0.5 flex items-center gap-2 text-xs text-muted-foreground">
-                  <span>{walletNameMap.get(String(income.wallet_id)) || "Unknown"}</span>
+                  <span>
+                    {walletNameMap.get(String(income.wallet_id || income.walletId)) ||
+                      "Unknown"}
+                  </span>
                   <span>-</span>
-                  <span>{formatDate(income.created_at)}</span>
+                  <span>{formatDate(getTransactionDate(income))}</span>
                 </div>
               </div>
 
