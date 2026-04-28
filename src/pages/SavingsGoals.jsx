@@ -146,7 +146,8 @@ export default function SavingsGoals() {
   );
 
   const goals = useMemo(() => {
-    return (savingsGoals || [])
+    return (Array.isArray(savingsGoals) ? savingsGoals : [])
+      .filter((goal) => !goal?.deletedAt && !goal?.deleted_at)
       .map(normalizeGoal)
       .sort((a, b) => {
         const aTime = new Date(
@@ -214,11 +215,11 @@ export default function SavingsGoals() {
 
   const walletBalances = useMemo(() => {
     const map = {};
-    (wallets || []).forEach((wallet) => {
+    (Array.isArray(wallets) ? wallets : []).forEach((wallet) => {
       map[String(wallet.id)] = getWalletBalance(
         wallet,
-        walletTransactions || [],
-        transfers || []
+        Array.isArray(walletTransactions) ? walletTransactions : [],
+        Array.isArray(transfers) ? transfers : []
       );
     });
     return map;
@@ -450,26 +451,6 @@ export default function SavingsGoals() {
       });
 
       await updateSavingsGoal(goal.id, updatedGoal);
-
-      if (typeof data?.addWalletTransaction === "function") {
-        await data.addWalletTransaction({
-          wallet_id: String(sourceWallet.id),
-          amount: finalAmount,
-          type: "savings_goal",
-          notes: `Moved to savings goal: ${goal.title}`,
-          source_type: "Savings Goal",
-          source_details: goal.title || null,
-          tag: "Savings Top Up",
-          user_id: user?.id || null,
-          user_email: user?.email || null,
-          created_by: user?.email || null,
-          created_date: now,
-          created_at: now,
-          updated_at: now,
-          syncStatus: "local_only",
-          source: "local",
-        });
-      }
 
       if (typeof refreshData === "function") {
         await refreshData();
