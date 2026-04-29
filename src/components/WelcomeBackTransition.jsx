@@ -4,7 +4,7 @@ import logo from "../../assets/icon.png";
 
 export const POST_LOGIN_WELCOME_KEY = "clara_post_login_welcome";
 
-const INTRO_DURATION_MS = 7000;
+const INTRO_DURATION_MS = 7200;
 
 function readPendingWelcome() {
   try {
@@ -35,7 +35,7 @@ export default function WelcomeBackTransition({ redirectTo = "/dashboard" }) {
       typeof window !== "undefined" &&
       window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
 
-    if (!pendingWelcome || prefersReducedMotion) {
+    if (prefersReducedMotion) {
       finalize();
       return;
     }
@@ -46,11 +46,9 @@ export default function WelcomeBackTransition({ redirectTo = "/dashboard" }) {
 
   return (
     <div className="fixed inset-0 z-[99999] flex min-h-screen items-center justify-center overflow-hidden bg-[#030609] text-white">
-      {/* minimal background only */}
       <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,rgba(45,212,191,0.12),transparent_45%)]" />
 
-      <div className="relative flex flex-col items-center justify-center animate-[claraIntroStage_7s_cubic-bezier(0.16,1,0.3,1)_both]">
-        {/* pure logo — no background */}
+      <div className="relative flex flex-col items-center justify-center animate-[claraIntroStage_7.2s_cubic-bezier(0.22,1,0.36,1)_both]">
         <img
           src={logo}
           alt="CLARA Logo"
@@ -66,19 +64,28 @@ export default function WelcomeBackTransition({ redirectTo = "/dashboard" }) {
         @keyframes claraIntroStage {
           0% {
             opacity: 0;
-            transform: scale(0.2);
+            transform: scale(0.72);
+            filter: blur(8px);
           }
-          25% {
+          16% {
             opacity: 1;
-            transform: scale(1.2);
+            transform: scale(0.96);
+            filter: blur(0);
           }
-          75% {
+          38% {
             opacity: 1;
-            transform: scale(1.2);
+            transform: scale(1.06);
+            filter: blur(0);
+          }
+          78% {
+            opacity: 1;
+            transform: scale(1.06);
+            filter: blur(0);
           }
           100% {
             opacity: 0;
-            transform: scale(1.1);
+            transform: scale(1.02);
+            filter: blur(2px);
           }
         }
       `}</style>
