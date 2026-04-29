@@ -273,7 +273,8 @@ export default function Login() {
         });
 
         if (typeof window !== "undefined") {
-          window.location.hash = "/welcome-back";
+          const basePath = `${window.location.origin}${window.location.pathname}${window.location.search}`;
+          window.location.replace(`${basePath}#/welcome-back`);
         } else {
           navigate("/welcome-back", { replace: true });
         }
