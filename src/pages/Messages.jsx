@@ -19,18 +19,22 @@ import { supabase } from "../lib/supabaseClient";
 const getInitials = (nameOrEmail = "") => {
   const value = String(nameOrEmail || "").trim();
   if (!value) return "?";
+
   const parts = value.split(" ").filter(Boolean);
   if (parts.length >= 2) {
     return `${parts[0][0]}${parts[1][0]}`.toUpperCase();
   }
+
   return value.slice(0, 2).toUpperCase();
 };
 
 const formatChatTime = (dateString) => {
   if (!dateString) return "";
+
   const date = new Date(dateString);
   const now = new Date();
   const isToday = date.toDateString() === now.toDateString();
+
   const yesterday = new Date();
   yesterday.setDate(now.getDate() - 1);
   const isYesterday = date.toDateString() === yesterday.toDateString();
@@ -52,6 +56,7 @@ const formatChatTime = (dateString) => {
 
 const formatBubbleTime = (dateString) => {
   if (!dateString) return "";
+
   return new Date(dateString).toLocaleTimeString([], {
     hour: "numeric",
     minute: "2-digit",
@@ -88,7 +93,7 @@ export default function Messages() {
 
   const [messages, setMessages] = useState([]);
   const [users, setUsers] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
   const [sending, setSending] = useState(false);
   const [selectedConvo, setSelectedConvo] = useState(null);
   const [newMsg, setNewMsg] = useState("");
@@ -105,46 +110,25 @@ export default function Messages() {
 
     const { data: baseProfiles, error: baseError } = await supabase
       .from("profiles")
-      .select("id,email,full_name");
+      .select("id,email,full_name,role,nickname,display_name");
 
     if (baseError) {
-      console.error("[Messages] base profiles fetch failed:", {
+      console.error("[Messages] profiles fetch failed:", {
         message: baseError.message,
         details: baseError.details,
         hint: baseError.hint,
         code: baseError.code,
       });
+
       setUsers([]);
       return;
     }
 
-    let optionalProfiles = [];
-    const { data: extraProfiles, error: extraError } = await supabase
-      .from("profiles")
-      .select("id,nickname,display_name,role");
-
-    if (extraError) {
-      console.warn("[Messages] optional profile fields unavailable:", {
-        message: extraError.message,
-        details: extraError.details,
-        hint: extraError.hint,
-        code: extraError.code,
-      });
-    } else {
-      optionalProfiles = Array.isArray(extraProfiles) ? extraProfiles : [];
-    }
-
-    const optionalMap = optionalProfiles.reduce((acc, item) => {
-      if (item?.id) acc[item.id] = item;
-      return acc;
-    }, {});
-
     const mergedProfiles = (Array.isArray(baseProfiles) ? baseProfiles : []).map(
       (profile) => {
-        const extra = optionalMap[profile.id] || {};
         const displayName =
-          extra?.nickname ||
-          extra?.display_name ||
+          profile?.nickname ||
+          profile?.display_name ||
           profile?.full_name ||
           profile?.email ||
           "CLARA User";
@@ -153,7 +137,7 @@ export default function Messages() {
           id: profile?.id || null,
           email: profile?.email || "",
           full_name: displayName,
-          role: String(extra?.role || "user").toLowerCase(),
+          role: String(profile?.role || "user").toLowerCase(),
         };
       }
     );
@@ -215,8 +199,6 @@ export default function Messages() {
         return;
       }
 
-      if (mounted) setLoading(true);
-
       try {
         await Promise.all([fetchUsers(), fetchMessages()]);
       } catch (error) {
@@ -234,7 +216,7 @@ export default function Messages() {
   }, [currentUserId, hasMessagingAccess, fetchUsers, fetchMessages]);
 
   useEffect(() => {
-    if (!currentUserId || !hasMessagingAccess) return;
+    if (!currentUserId || !hasMessagingAccess) return undefined;
 
     const channel = supabase
       .channel(`direct-messages-${currentUserId}`)
@@ -264,9 +246,11 @@ export default function Messages() {
 
   const usersById = useMemo(() => {
     const map = {};
+
     users.forEach((u) => {
       if (u?.id) map[u.id] = u;
     });
+
     return map;
   }, [users]);
 
@@ -302,7 +286,9 @@ export default function Messages() {
     });
 
     Object.values(convos).forEach((c) => {
-      c.messages.sort((a, b) => new Date(a.created_at) - new Date(b.created_at));
+      c.messages.sort(
+        (a, b) => new Date(a.created_at) - new Date(b.created_at)
+      );
       c.lastMessage = c.messages[c.messages.length - 1] || null;
     });
 
@@ -336,6 +322,7 @@ export default function Messages() {
       const name = (c.name || "").toLowerCase();
       const email = (c.email || "").toLowerCase();
       const preview = (c.lastMessage?.content || "").toLowerCase();
+
       return name.includes(term) || email.includes(term) || preview.includes(term);
     });
   }, [convoList, search]);
@@ -389,7 +376,9 @@ export default function Messages() {
       }
 
       setMessages((prev) =>
-        prev.map((m) => (unreadIds.includes(m.id) ? { ...m, is_read: true } : m))
+        prev.map((m) =>
+          unreadIds.includes(m.id) ? { ...m, is_read: true } : m
+        )
       );
     };
 
@@ -439,7 +428,8 @@ export default function Messages() {
       sender_name: currentUserName,
       recipient_id: recipientUser.id,
       recipient_email: recipientUser.email || "",
-      recipient_name: recipientUser.full_name || recipientUser.email || "CLARA User",
+      recipient_name:
+        recipientUser.full_name || recipientUser.email || "CLARA User",
       content: newMsg.trim(),
       is_read: false,
     };
@@ -504,14 +494,6 @@ export default function Messages() {
     );
   }
 
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center h-64">
-        <div className="w-6 h-6 border-2 border-primary/20 border-t-primary rounded-full animate-spin" />
-      </div>
-    );
-  }
-
   if (activeConvo) {
     return (
       <div className="fixed inset-0 z-[100] flex h-[100dvh] w-screen flex-col overflow-hidden bg-[radial-gradient(circle_at_top,#0d3b2f_0%,#031b2d_35%,#020817_75%)] text-white">
@@ -534,7 +516,9 @@ export default function Messages() {
             </div>
 
             <div className="min-w-0 flex-1">
-              <p className="truncate font-semibold text-white">{activeConvo.name}</p>
+              <p className="truncate font-semibold text-white">
+                {activeConvo.name}
+              </p>
               <p className="truncate text-xs text-white/55">
                 {messageMode === "admin_only" && !isAdmin
                   ? "CLARA Admin"
@@ -542,13 +526,19 @@ export default function Messages() {
               </p>
             </div>
 
-            <button className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl border border-white/10 bg-white/5 text-white/70">
+            <button
+              type="button"
+              className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl border border-white/10 bg-white/5 text-white/70"
+            >
               <MoreHorizontal className="h-4 w-4" />
             </button>
           </div>
         </div>
 
-        <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 py-4" style={{ WebkitOverflowScrolling: "touch" }}>
+        <div
+          className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 py-4"
+          style={{ WebkitOverflowScrolling: "touch" }}
+        >
           <div className="mx-auto flex min-h-full max-w-3xl flex-col justify-end space-y-3">
             {activeConvo.messages.length === 0 ? (
               <div className="flex min-h-[56dvh] items-center justify-center">
@@ -556,7 +546,9 @@ export default function Messages() {
                   <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-white/8">
                     <MessageSquare className="h-7 w-7 text-white/70" />
                   </div>
-                  <p className="mb-1 font-semibold text-white">Start your conversation</p>
+                  <p className="mb-1 font-semibold text-white">
+                    Start your conversation
+                  </p>
                   <p className="text-sm text-white/45">
                     Send your first message to {activeConvo.name}.
                   </p>
@@ -593,7 +585,11 @@ export default function Messages() {
                         <p className="whitespace-pre-wrap break-words text-[14px] leading-relaxed">
                           {m.content}
                         </p>
-                        <div className={`mt-1.5 text-[10px] ${isMine ? "text-white/70" : "text-white/40"}`}>
+                        <div
+                          className={`mt-1.5 text-[10px] ${
+                            isMine ? "text-white/70" : "text-white/40"
+                          }`}
+                        >
                           {formatBubbleTime(m.created_at)}
                         </div>
                       </div>
@@ -602,6 +598,7 @@ export default function Messages() {
                 );
               })
             )}
+
             <div ref={messagesEndRef} />
           </div>
         </div>
@@ -672,6 +669,7 @@ export default function Messages() {
 
           <div className="no-scrollbar flex gap-3 overflow-x-auto pb-1">
             <button
+              type="button"
               onClick={() => setComposerOpen((prev) => !prev)}
               className="flex w-[76px] shrink-0 flex-col items-center justify-center gap-2 rounded-[24px] border border-dashed border-emerald-300/35 bg-emerald-400/10 px-3 py-3 shadow-lg backdrop-blur-xl"
             >
@@ -687,8 +685,11 @@ export default function Messages() {
 
               return (
                 <button
+                  type="button"
                   key={u.id}
-                  onClick={() => (hasConversation ? openConversation(u.id) : openNewChat(u.id))}
+                  onClick={() =>
+                    hasConversation ? openConversation(u.id) : openNewChat(u.id)
+                  }
                   className={`flex w-[84px] shrink-0 flex-col items-center justify-center gap-2 rounded-[24px] border bg-white/5 px-3 py-3 shadow-lg backdrop-blur-xl transition-all ${
                     isTargetFromUrl
                       ? "border-emerald-400/35 bg-emerald-400/10"
@@ -719,7 +720,9 @@ export default function Messages() {
         {composerOpen ? (
           <div className="mb-5 rounded-[28px] border border-white/10 bg-white/6 p-4 shadow-[0_10px_40px_rgba(0,0,0,0.25)] backdrop-blur-xl">
             <p className="mb-1 font-semibold text-white">Start new chat</p>
-            <p className="mb-4 text-xs text-white/45">Choose who you want to message first</p>
+            <p className="mb-4 text-xs text-white/45">
+              Choose who you want to message first
+            </p>
 
             <div className="grid gap-2">
               {filteredUsers.length === 0 ? (
@@ -729,6 +732,7 @@ export default function Messages() {
               ) : (
                 filteredUsers.map((u) => (
                   <button
+                    type="button"
                     key={u.id}
                     onClick={() => openNewChat(u.id)}
                     className="w-full rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-left transition-all hover:bg-white/10"
@@ -747,7 +751,9 @@ export default function Messages() {
                         </p>
                       </div>
 
-                      <div className="text-xs font-medium text-emerald-300">Chat</div>
+                      <div className="text-xs font-medium text-emerald-300">
+                        Chat
+                      </div>
                     </div>
                   </button>
                 ))
@@ -760,8 +766,14 @@ export default function Messages() {
           <div className="flex items-center justify-between">
             <div>
               <p className="font-semibold text-white">Recent chats</p>
-              <p className="text-xs text-white/45">Your latest private conversations</p>
+              <p className="text-xs text-white/45">
+                Your latest private conversations
+              </p>
             </div>
+
+            {loading ? (
+              <span className="text-[11px] text-white/35">Syncing...</span>
+            ) : null}
           </div>
         </div>
 
@@ -781,6 +793,7 @@ export default function Messages() {
 
               return (
                 <button
+                  type="button"
                   key={c.id}
                   onClick={() => openConversation(c.id)}
                   className="w-full rounded-[28px] border border-white/10 bg-white/5 px-4 py-4 text-left shadow-[0_10px_40px_rgba(0,0,0,0.22)] backdrop-blur-xl transition-all hover:bg-white/8"
@@ -795,11 +808,15 @@ export default function Messages() {
 
                     <div className="min-w-0 flex-1">
                       <div className="mb-1 flex items-center justify-between gap-2">
-                        <p className="truncate text-sm font-semibold text-white">{c.name}</p>
+                        <p className="truncate text-sm font-semibold text-white">
+                          {c.name}
+                        </p>
+
                         <div className="flex shrink-0 items-center gap-2">
                           <span className="text-[11px] text-white/45">
                             {formatChatTime(last?.created_at)}
                           </span>
+
                           {c.unreadCount > 0 ? (
                             <span className="flex h-5 min-w-[20px] items-center justify-center rounded-full bg-emerald-400 px-1.5 text-[10px] font-bold text-slate-950">
                               {c.unreadCount > 9 ? "9+" : c.unreadCount}
@@ -809,8 +826,12 @@ export default function Messages() {
                       </div>
 
                       <div className="flex items-center gap-1 text-xs text-white/50">
-                        {isFromMe ? <span className="text-white/35">You:</span> : null}
-                        <p className="truncate">{last?.content || "Start chatting"}</p>
+                        {isFromMe ? (
+                          <span className="text-white/35">You:</span>
+                        ) : null}
+                        <p className="truncate">
+                          {last?.content || "Start chatting"}
+                        </p>
                       </div>
                     </div>
                   </div>
