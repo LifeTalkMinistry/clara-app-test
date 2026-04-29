@@ -271,6 +271,7 @@ export default function Login() {
             data?.user?.user_metadata?.name ||
             "",
         });
+        navigate("/welcome-back", { replace: true });
       }
     } catch (error) {
       console.error(error);
