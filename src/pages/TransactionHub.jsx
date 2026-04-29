@@ -10,6 +10,7 @@ import {
   CheckCircle2,
   ChevronDown,
   CircleDot,
+  Edit3,
   Flame,
   PiggyBank,
   Receipt,
@@ -32,6 +33,20 @@ const FILTERS = [
   ["savings", "Savings"],
   ["wallet", "Wallet"],
 ];
+
+const DEFAULT_THEME = {
+  primary:
+    "border-[color:var(--clara-theme-border,rgba(52,211,153,0.28))] bg-[color:var(--clara-theme-soft,rgba(52,211,153,0.12))] text-[color:var(--clara-theme-text,rgba(236,253,245,0.92))]",
+  primaryText: "text-[color:var(--clara-theme-text,rgba(236,253,245,0.9))]",
+  border: "border-[color:var(--clara-theme-border,rgba(52,211,153,0.24))]",
+  glow:
+    "shadow-[0_0_28px_var(--clara-theme-glow,rgba(52,211,153,0.14))]",
+  glowSoft:
+    "shadow-[0_0_36px_var(--clara-theme-glow,rgba(52,211,153,0.1))]",
+  orb: "bg-[color:var(--clara-theme-soft,rgba(52,211,153,0.12))]",
+  focus:
+    "focus:border-[color:var(--clara-theme-border,rgba(52,211,153,0.34))] focus:shadow-[0_0_24px_var(--clara-theme-glow,rgba(52,211,153,0.1))]",
+};
 
 const peso = (value) =>
   new Intl.NumberFormat("en-PH", {
@@ -271,23 +286,27 @@ const getToneClasses = (group, signedAmount = 0) => {
 
   if (group === "income") {
     return {
-      glow: "bg-emerald-400/14",
-      border: "border-emerald-300/20",
+      glow:
+        "bg-[color:var(--clara-theme-soft,rgba(52,211,153,0.14))]",
+      border:
+        "border-[color:var(--clara-theme-border,rgba(52,211,153,0.2))]",
       icon:
-        "bg-emerald-400/12 text-emerald-100 shadow-[0_0_28px_rgba(52,211,153,0.16)]",
-      amount: "text-emerald-100",
-      rail: "bg-emerald-300/45",
+        "bg-[color:var(--clara-theme-soft,rgba(52,211,153,0.12))] text-[color:var(--clara-theme-text,rgba(236,253,245,0.92))] shadow-[0_0_28px_var(--clara-theme-glow,rgba(52,211,153,0.16))]",
+      amount: "text-[color:var(--clara-theme-text,rgba(236,253,245,0.92))]",
+      rail: "bg-[color:var(--clara-theme-line,rgba(52,211,153,0.45))]",
     };
   }
 
   if (group === "transfer") {
     return {
-      glow: "bg-cyan-400/14",
-      border: "border-cyan-300/20",
+      glow:
+        "bg-[color:var(--clara-theme-secondary-soft,rgba(34,211,238,0.14))]",
+      border:
+        "border-[color:var(--clara-theme-secondary-border,rgba(34,211,238,0.2))]",
       icon:
-        "bg-cyan-400/12 text-cyan-100 shadow-[0_0_28px_rgba(34,211,238,0.16)]",
+        "bg-[color:var(--clara-theme-secondary-soft,rgba(34,211,238,0.12))] text-cyan-100 shadow-[0_0_28px_var(--clara-theme-secondary-glow,rgba(34,211,238,0.16))]",
       amount: "text-cyan-100",
-      rail: "bg-cyan-300/45",
+      rail: "bg-[color:var(--clara-theme-secondary-line,rgba(34,211,238,0.45))]",
     };
   }
 
@@ -303,7 +322,10 @@ const getToneClasses = (group, signedAmount = 0) => {
   }
 
   return {
-    glow: signedAmount >= 0 ? "bg-cyan-400/10" : "bg-rose-400/10",
+    glow:
+      signedAmount >= 0
+        ? "bg-[color:var(--clara-theme-secondary-soft,rgba(34,211,238,0.1))]"
+        : "bg-rose-400/10",
     border: "border-white/10",
     icon: "bg-white/10 text-white/80",
     amount: signedAmount >= 0 ? "text-white" : "text-rose-100",
@@ -435,6 +457,7 @@ function GlassDropdown({
   options,
   onChange,
   onAfterChange,
+  theme = DEFAULT_THEME,
 }) {
   const [open, setOpen] = useState(false);
   const dropdownRef = useRef(null);
@@ -449,15 +472,19 @@ function GlassDropdown({
         onClick={() => setOpen((current) => !current)}
         className={`relative flex min-h-[50px] w-full items-center justify-between gap-3 overflow-hidden rounded-[22px] border px-4 text-left shadow-[0_16px_42px_rgba(0,0,0,0.24)] backdrop-blur-2xl transition duration-300 active:scale-[0.985] ${
           open
-            ? "border-emerald-300/35 bg-emerald-400/12 shadow-[0_0_30px_rgba(52,211,153,0.13)]"
+            ? `${theme.border} ${theme.orb} ${theme.glow}`
             : "border-white/10 bg-white/[0.055]"
         }`}
       >
-        <span className="pointer-events-none absolute -right-8 -top-10 h-20 w-20 rounded-full bg-cyan-400/10 blur-2xl" />
+        <span
+          className={`pointer-events-none absolute -right-8 -top-10 h-20 w-20 rounded-full ${theme.orb} blur-2xl`}
+        />
 
         <span className="relative flex min-w-0 items-center gap-3">
           {Icon ? (
-            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-[16px] border border-white/10 bg-black/20 text-emerald-100/75">
+            <span
+              className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-[16px] border border-white/10 bg-black/20 ${theme.primaryText}`}
+            >
               <Icon className="h-4 w-4" />
             </span>
           ) : null}
@@ -474,7 +501,7 @@ function GlassDropdown({
 
         <ChevronDown
           className={`relative h-4 w-4 shrink-0 text-white/52 transition duration-300 ${
-            open ? "rotate-180 text-emerald-100" : ""
+            open ? `rotate-180 ${theme.primaryText}` : ""
           }`}
         />
       </button>
@@ -502,13 +529,15 @@ function GlassDropdown({
                   }}
                   className={`flex min-h-[42px] w-full items-center justify-between rounded-[18px] px-3 text-left text-sm font-black transition duration-200 active:scale-[0.985] ${
                     active
-                      ? "bg-emerald-400/14 text-emerald-50 shadow-[0_0_22px_rgba(52,211,153,0.12)]"
+                      ? `${theme.orb} ${theme.primaryText} ${theme.glow}`
                       : "text-white/62 hover:bg-white/[0.055]"
                   }`}
                 >
                   <span>{item.label}</span>
                   {active ? (
-                    <span className="h-2 w-2 rounded-full bg-emerald-300 shadow-[0_0_16px_rgba(52,211,153,0.7)]" />
+                    <span
+                      className={`h-2 w-2 rounded-full ${theme.orb} ${theme.glow}`}
+                    />
                   ) : null}
                 </button>
               );
@@ -525,9 +554,9 @@ function SummaryCard({ label, value, helper, tone = "slate" }) {
     tone === "rose"
       ? "from-rose-500/16 text-rose-100 shadow-rose-500/10"
       : tone === "emerald"
-        ? "from-emerald-400/16 text-emerald-100 shadow-emerald-500/10"
+        ? "from-[color:var(--clara-theme-soft,rgba(52,211,153,0.16))] text-[color:var(--clara-theme-text,rgba(236,253,245,0.92))] shadow-[var(--clara-theme-glow,rgba(52,211,153,0.1))]"
         : tone === "cyan"
-          ? "from-cyan-400/16 text-cyan-100 shadow-cyan-500/10"
+          ? "from-[color:var(--clara-theme-secondary-soft,rgba(34,211,238,0.16))] text-cyan-100 shadow-cyan-500/10"
           : "from-white/10 text-white shadow-black/20";
 
   return (
@@ -553,13 +582,13 @@ function SummaryCard({ label, value, helper, tone = "slate" }) {
 function StatusBadge({ children, icon: Icon = CircleDot, tone = "neutral" }) {
   const toneClass =
     tone === "good"
-      ? "border-emerald-300/20 bg-emerald-400/10 text-emerald-50/80"
+      ? "border-[color:var(--clara-theme-border,rgba(52,211,153,0.2))] bg-[color:var(--clara-theme-soft,rgba(52,211,153,0.1))] text-[color:var(--clara-theme-text,rgba(236,253,245,0.8))]"
       : tone === "warn"
         ? "border-amber-300/20 bg-amber-400/10 text-amber-50/80"
         : tone === "bad"
           ? "border-rose-300/20 bg-rose-400/10 text-rose-50/80"
           : tone === "info"
-            ? "border-cyan-300/20 bg-cyan-400/10 text-cyan-50/80"
+            ? "border-[color:var(--clara-theme-secondary-border,rgba(34,211,238,0.2))] bg-[color:var(--clara-theme-secondary-soft,rgba(34,211,238,0.1))] text-cyan-50/80"
             : "border-white/10 bg-black/22 text-white/60";
 
   return (
@@ -572,20 +601,28 @@ function StatusBadge({ children, icon: Icon = CircleDot, tone = "neutral" }) {
   );
 }
 
-function InsightCard({ insight }) {
+function InsightCard({ insight, theme = DEFAULT_THEME }) {
   return (
-    <section className="relative overflow-hidden rounded-[24px] border border-emerald-300/16 bg-emerald-400/[0.07] p-4 shadow-[0_18px_58px_rgba(0,0,0,0.24)] backdrop-blur-2xl">
-      <div className="pointer-events-none absolute -right-14 -top-16 h-32 w-32 rounded-full bg-emerald-400/14 blur-3xl" />
-      <div className="pointer-events-none absolute -left-16 bottom-0 h-28 w-28 rounded-full bg-cyan-400/10 blur-3xl" />
+    <section
+      className={`relative overflow-hidden rounded-[24px] border ${theme.border} bg-[color:var(--clara-theme-soft,rgba(52,211,153,0.07))] p-4 shadow-[0_18px_58px_rgba(0,0,0,0.24)] backdrop-blur-2xl`}
+    >
+      <div
+        className={`pointer-events-none absolute -right-14 -top-16 h-32 w-32 rounded-full ${theme.orb} blur-3xl`}
+      />
+      <div className="pointer-events-none absolute -left-16 bottom-0 h-28 w-28 rounded-full bg-[color:var(--clara-theme-secondary-soft,rgba(34,211,238,0.1))] blur-3xl" />
       <div className="pointer-events-none absolute inset-x-6 top-0 h-px bg-gradient-to-r from-transparent via-white/22 to-transparent" />
 
       <div className="relative flex items-start gap-3">
-        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-[17px] border border-emerald-300/18 bg-emerald-400/12 text-emerald-50 shadow-[0_0_28px_rgba(52,211,153,0.13)]">
+        <div
+          className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-[17px] border ${theme.border} ${theme.orb} ${theme.primaryText} ${theme.glow}`}
+        >
           <CheckCircle2 className="h-4.5 w-4.5" />
         </div>
 
         <div className="min-w-0">
-          <p className="text-[9px] font-black uppercase tracking-[0.18em] text-emerald-50/45">
+          <p
+            className={`text-[9px] font-black uppercase tracking-[0.18em] ${theme.primaryText} opacity-55`}
+          >
             CLARA Insight
           </p>
           <p className="mt-1 text-sm font-semibold leading-6 text-white/72">
@@ -597,7 +634,7 @@ function InsightCard({ insight }) {
   );
 }
 
-function TransactionCard({ item }) {
+function TransactionCard({ item, onEdit }) {
   const Icon = getIcon(item.group);
   const tone = getToneClasses(item.group, item.signedAmount);
   const sign = item.signedAmount > 0 ? "+" : item.signedAmount < 0 ? "-" : "";
@@ -610,7 +647,19 @@ function TransactionCard({ item }) {
       <div className="pointer-events-none absolute inset-x-5 top-0 h-px bg-gradient-to-r from-transparent via-white/20 to-transparent" />
       <div className={`absolute left-0 top-5 h-10 w-1 rounded-r-full ${tone.rail}`} />
 
-      <div className="relative flex items-start gap-3">
+      <button
+        type="button"
+        onClick={(event) => {
+          event.stopPropagation();
+          onEdit?.(item);
+        }}
+        className="absolute right-3 top-3 z-10 flex h-8 w-8 items-center justify-center rounded-[13px] border border-white/10 bg-black/24 text-white/58 shadow-[0_10px_28px_rgba(0,0,0,0.2)] backdrop-blur-2xl transition duration-200 hover:bg-white/[0.08] hover:text-white active:scale-[0.94]"
+        aria-label={`Edit ${item.title}`}
+      >
+        <Edit3 className="h-3.5 w-3.5" />
+      </button>
+
+      <div className="relative flex items-start gap-3 pr-8">
         <div
           className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-[17px] border ${tone.border} ${tone.icon}`}
         >
@@ -697,20 +746,20 @@ function TransactionCard({ item }) {
   );
 }
 
-function TimelineDropdown({ group, items, isOpen, onToggle }) {
+function TimelineDropdown({ group, items, isOpen, onToggle, onEdit, theme = DEFAULT_THEME }) {
   const stats = getTimelineStats(items);
   const hasItems = items.length > 0;
 
   return (
     <article
       className={`relative overflow-hidden rounded-[24px] border bg-white/[0.052] shadow-[0_18px_58px_rgba(0,0,0,0.24)] backdrop-blur-2xl transition duration-300 ${
-        isOpen
-          ? "border-emerald-300/24 shadow-[0_0_36px_rgba(52,211,153,0.1)]"
-          : "border-white/10"
+        isOpen ? `${theme.border} ${theme.glowSoft}` : "border-white/10"
       }`}
     >
-      <div className="pointer-events-none absolute -right-16 -top-16 h-32 w-32 rounded-full bg-emerald-400/10 blur-3xl" />
-      <div className="pointer-events-none absolute -left-20 bottom-0 h-28 w-28 rounded-full bg-cyan-400/8 blur-3xl" />
+      <div
+        className={`pointer-events-none absolute -right-16 -top-16 h-32 w-32 rounded-full ${theme.orb} blur-3xl`}
+      />
+      <div className="pointer-events-none absolute -left-20 bottom-0 h-28 w-28 rounded-full bg-[color:var(--clara-theme-secondary-soft,rgba(34,211,238,0.08))] blur-3xl" />
       <div className="pointer-events-none absolute inset-x-6 top-0 h-px bg-gradient-to-r from-transparent via-white/22 to-transparent" />
 
       <button
@@ -743,7 +792,7 @@ function TimelineDropdown({ group, items, isOpen, onToggle }) {
         <div
           className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-[17px] border transition duration-300 ${
             isOpen
-              ? "border-emerald-300/30 bg-emerald-400/14 text-emerald-50"
+              ? `${theme.border} ${theme.orb} ${theme.primaryText}`
               : "border-white/10 bg-black/20 text-white/50"
           }`}
         >
@@ -763,7 +812,9 @@ function TimelineDropdown({ group, items, isOpen, onToggle }) {
         <div className="overflow-hidden">
           <div className="space-y-2.5 border-t border-white/10 p-3 pt-3.5">
             {hasItems ? (
-              items.map((item) => <TransactionCard key={item.id} item={item} />)
+              items.map((item) => (
+                <TransactionCard key={item.id} item={item} onEdit={onEdit} />
+              ))
             ) : (
               <div className="rounded-[20px] border border-white/10 bg-black/16 px-4 py-4 text-center text-sm font-semibold text-white/42">
                 Nothing here yet.
@@ -796,8 +847,8 @@ function LoadingState() {
       `}</style>
 
       <div className="pointer-events-none fixed inset-0 overflow-hidden">
-        <div className="absolute -top-28 left-1/2 h-80 w-80 -translate-x-1/2 rounded-full bg-emerald-400/12 blur-3xl" />
-        <div className="absolute -right-28 top-40 h-72 w-72 rounded-full bg-cyan-400/12 blur-3xl" />
+        <div className="absolute -top-28 left-1/2 h-80 w-80 -translate-x-1/2 rounded-full bg-[color:var(--clara-theme-soft,rgba(52,211,153,0.12))] blur-3xl" />
+        <div className="absolute -right-28 top-40 h-72 w-72 rounded-full bg-[color:var(--clara-theme-secondary-soft,rgba(34,211,238,0.12))] blur-3xl" />
       </div>
 
       <div className="relative mx-auto max-w-4xl space-y-4">
@@ -821,7 +872,7 @@ function ErrorState({ onBack, onRefresh }) {
   return (
     <div className="relative min-h-[100dvh] overflow-hidden bg-[#020713] px-4 py-6 text-white">
       <div className="pointer-events-none absolute -top-28 left-1/2 h-80 w-80 -translate-x-1/2 rounded-full bg-rose-400/12 blur-3xl" />
-      <div className="pointer-events-none absolute -right-28 top-36 h-72 w-72 rounded-full bg-cyan-400/10 blur-3xl" />
+      <div className="pointer-events-none absolute -right-28 top-36 h-72 w-72 rounded-full bg-[color:var(--clara-theme-secondary-soft,rgba(34,211,238,0.1))] blur-3xl" />
 
       <div className="relative mx-auto flex min-h-[80dvh] max-w-lg items-center">
         <div className="relative w-full overflow-hidden rounded-[34px] border border-rose-300/15 bg-white/[0.055] p-6 text-center shadow-[0_24px_90px_rgba(0,0,0,0.34)] backdrop-blur-2xl">
@@ -852,7 +903,7 @@ function ErrorState({ onBack, onRefresh }) {
             <button
               type="button"
               onClick={onRefresh}
-              className="min-h-[48px] rounded-[20px] border border-emerald-300/25 bg-emerald-400/14 text-sm font-black text-emerald-50 shadow-[0_0_24px_rgba(52,211,153,0.14)] transition duration-200 active:scale-[0.98]"
+              className="min-h-[48px] rounded-[20px] border border-[color:var(--clara-theme-border,rgba(52,211,153,0.25))] bg-[color:var(--clara-theme-soft,rgba(52,211,153,0.14))] text-sm font-black text-[color:var(--clara-theme-text,rgba(236,253,245,0.92))] shadow-[0_0_24px_var(--clara-theme-glow,rgba(52,211,153,0.14))] transition duration-200 active:scale-[0.98]"
             >
               Try Again
             </button>
@@ -868,12 +919,15 @@ export default function TransactionHub() {
   const { user, loading: userLoading } = useUserRole();
   const financial = useFinancialData(user);
 
+  const theme = DEFAULT_THEME;
+
   const months = useMemo(() => getLast12Months(), []);
   const [month, setMonth] = useState(() => months[0]?.key || monthKey(new Date()));
   const [filter, setFilter] = useState("all");
   const [search, setSearch] = useState("");
   const [refreshing, setRefreshing] = useState(false);
   const [openGroup, setOpenGroup] = useState(null);
+  const [notice, setNotice] = useState("");
 
   const safeWallets = Array.isArray(financial.wallets) ? financial.wallets : [];
   const safeExpenses = Array.isArray(financial.expenses) ? financial.expenses : [];
@@ -1057,7 +1111,8 @@ export default function TransactionHub() {
               item.type ||
               group
           ),
-          category: item.category || item.budget_category || item.budgetCategory || item.tag || "",
+          category:
+            item.category || item.budget_category || item.budgetCategory || item.tag || "",
           walletName:
             transferWalletLabel ||
             wallet?.name ||
@@ -1281,6 +1336,60 @@ export default function TransactionHub() {
     }
   };
 
+  const handleEditTransaction = (item) => {
+    if (!item) return;
+
+    const rawId =
+      item.raw?.id ||
+      item.raw?.local_id ||
+      item.raw?.localId ||
+      item.raw?.transaction_id ||
+      item.raw?.transactionId ||
+      "";
+
+    if (item.group === "expense") {
+      if (rawId) {
+        navigate(`/edit-expense/${rawId}`);
+        return;
+      }
+
+      setNotice("Editing for this transaction type is coming soon.");
+      return;
+    }
+
+    if (item.group === "income") {
+      if (typeof financial.updateWalletTransaction === "function") {
+        setNotice("Income editing is ready in the data layer. Add the edit form route next.");
+        return;
+      }
+
+      setNotice("Editing for this transaction type is coming soon.");
+      return;
+    }
+
+    if (item.group === "transfer") {
+      setNotice("Editing for this transaction type is coming soon.");
+      return;
+    }
+
+    if (item.group === "savings") {
+      setNotice("Editing for this transaction type is coming soon.");
+      return;
+    }
+
+    setNotice("Editing for this transaction type is coming soon.");
+  };
+
+  useEffect(() => {
+    if (!notice) return undefined;
+
+    const timer = window.setTimeout(() => {
+      setNotice("");
+    }, 3200);
+
+    return () => window.clearTimeout(timer);
+  }, [notice]);
+
   const monthOptions = useMemo(
     () => months.map((item) => ({ key: item.key, label: item.label })),
     [months]
@@ -1308,29 +1417,29 @@ export default function TransactionHub() {
   }
 
   return (
-    <div className="relative min-h-[100dvh] overflow-x-hidden bg-[#020713] px-4 pb-[calc(7rem+env(safe-area-inset-bottom))] pt-[calc(0.85rem+env(safe-area-inset-top))] text-white md:px-6">
+    <div className="relative min-h-[100dvh] overflow-x-hidden bg-[#020713] px-4 pb-[calc(7rem+env(safe-area-inset-bottom))] pt-[calc(1rem+env(safe-area-inset-top))] text-white md:px-6">
       <div className="pointer-events-none fixed inset-0 overflow-hidden">
-        <div className="absolute -top-28 left-1/2 h-80 w-80 -translate-x-1/2 rounded-full bg-emerald-400/12 blur-3xl" />
-        <div className="absolute -right-28 top-40 h-72 w-72 rounded-full bg-cyan-400/12 blur-3xl" />
+        <div className="absolute -top-28 left-1/2 h-80 w-80 -translate-x-1/2 rounded-full bg-[color:var(--clara-theme-soft,rgba(52,211,153,0.12))] blur-3xl" />
+        <div className="absolute -right-28 top-40 h-72 w-72 rounded-full bg-[color:var(--clara-theme-secondary-soft,rgba(34,211,238,0.12))] blur-3xl" />
         <div className="absolute -bottom-20 -left-28 h-80 w-80 rounded-full bg-blue-500/10 blur-3xl" />
       </div>
 
       <div className="relative z-10 mx-auto max-w-4xl space-y-3.5">
-        <header className="flex items-center justify-between gap-3">
+        <header className="flex items-center justify-between gap-3 px-1 pt-1">
           <button
             type="button"
             onClick={() => navigate("/dashboard")}
-            className="flex h-11 w-11 shrink-0 items-center justify-center rounded-[18px] border border-cyan-200/20 bg-cyan-100/10 text-white/85 shadow-[0_0_28px_rgba(34,211,238,0.13)] backdrop-blur-2xl transition duration-200 active:scale-[0.96]"
+            className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-[18px] border ${theme.border} ${theme.orb} text-white/85 ${theme.glow} backdrop-blur-2xl transition duration-200 active:scale-[0.96]`}
             aria-label="Back to dashboard"
           >
             <ArrowLeft className="h-5 w-5" />
           </button>
 
-          <div className="min-w-0 flex-1 text-center">
-            <p className="truncate text-[13px] font-black tracking-tight text-white/85">
+          <div className="min-w-0 flex-1 px-2 text-center">
+            <p className="text-[13px] font-black tracking-tight text-white/85">
               Transaction Hub
             </p>
-            <p className="truncate text-[10px] font-semibold text-white/36">
+            <p className="mt-0.5 whitespace-nowrap text-[10px] font-semibold text-white/42">
               {selectedMonthLabel}
             </p>
           </div>
@@ -1339,12 +1448,18 @@ export default function TransactionHub() {
             type="button"
             onClick={refresh}
             disabled={refreshing || typeof financial.refreshData !== "function"}
-            className="flex h-11 w-11 shrink-0 items-center justify-center rounded-[18px] border border-cyan-200/20 bg-cyan-100/10 text-white/85 shadow-[0_0_28px_rgba(34,211,238,0.13)] backdrop-blur-2xl transition duration-200 disabled:opacity-45 active:scale-[0.96]"
+            className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-[18px] border ${theme.border} ${theme.orb} text-white/85 ${theme.glow} backdrop-blur-2xl transition duration-200 disabled:opacity-45 active:scale-[0.96]`}
             aria-label="Refresh transactions"
           >
             <RefreshCw className={`h-4.5 w-4.5 ${refreshing ? "animate-spin" : ""}`} />
           </button>
         </header>
+
+        {notice ? (
+          <div className="rounded-[20px] border border-white/10 bg-white/[0.065] px-4 py-3 text-xs font-semibold leading-5 text-white/68 shadow-[0_16px_42px_rgba(0,0,0,0.2)] backdrop-blur-2xl">
+            {notice}
+          </div>
+        ) : null}
 
         {financial.error && hasOfflineReadyData ? (
           <div className="rounded-[20px] border border-amber-300/15 bg-amber-400/8 px-4 py-3 text-xs font-semibold leading-5 text-amber-50/70">
@@ -1360,6 +1475,7 @@ export default function TransactionHub() {
             options={monthOptions}
             onChange={setMonth}
             onAfterChange={() => setOpenGroup(null)}
+            theme={theme}
           />
 
           <GlassDropdown
@@ -1369,6 +1485,7 @@ export default function TransactionHub() {
             options={filterOptions}
             onChange={setFilter}
             onAfterChange={() => setOpenGroup(null)}
+            theme={theme}
           />
         </section>
 
@@ -1401,12 +1518,12 @@ export default function TransactionHub() {
           />
         </section>
 
-        <InsightCard insight={summary.insight} />
+        <InsightCard insight={summary.insight} theme={theme} />
 
         <section className="relative overflow-hidden rounded-[24px] border border-white/10 bg-white/[0.052] p-2.5 shadow-[0_18px_58px_rgba(0,0,0,0.24)] backdrop-blur-2xl">
-          <div className="pointer-events-none absolute -left-20 -top-20 h-36 w-36 rounded-full bg-cyan-400/10 blur-3xl" />
+          <div className="pointer-events-none absolute -left-20 -top-20 h-36 w-36 rounded-full bg-[color:var(--clara-theme-secondary-soft,rgba(34,211,238,0.1))] blur-3xl" />
           <div className="relative">
-            <Search className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-white/35" />
+            <Search className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-white/38" />
             <input
               value={search}
               onChange={(event) => {
@@ -1414,19 +1531,23 @@ export default function TransactionHub() {
                 setOpenGroup(null);
               }}
               placeholder="Search transactions"
-              className="min-h-[50px] w-full rounded-[20px] border border-white/10 bg-black/18 pl-11 pr-4 text-sm font-medium text-white outline-none transition duration-200 placeholder:text-white/30 focus:border-emerald-300/34 focus:bg-black/26 focus:shadow-[0_0_24px_rgba(52,211,153,0.1)]"
+              className={`min-h-[50px] w-full rounded-[20px] border border-white/10 bg-black/[0.28] pl-11 pr-4 text-sm font-medium text-white shadow-inner shadow-black/20 outline-none backdrop-blur-2xl transition duration-200 placeholder:text-white/32 focus:bg-black/[0.34] ${theme.focus}`}
             />
           </div>
         </section>
 
         <section className="space-y-2.5">
           {!filtered.length ? (
-            <div className="relative overflow-hidden rounded-[28px] border border-dashed border-emerald-300/18 bg-white/[0.055] p-7 text-center shadow-[0_22px_70px_rgba(0,0,0,0.26)] backdrop-blur-2xl">
-              <div className="pointer-events-none absolute -right-14 -top-14 h-32 w-32 rounded-full bg-emerald-400/12 blur-3xl" />
-              <div className="pointer-events-none absolute -left-14 bottom-0 h-32 w-32 rounded-full bg-cyan-400/10 blur-3xl" />
+            <div className={`relative overflow-hidden rounded-[28px] border border-dashed ${theme.border} bg-white/[0.055] p-7 text-center shadow-[0_22px_70px_rgba(0,0,0,0.26)] backdrop-blur-2xl`}>
+              <div
+                className={`pointer-events-none absolute -right-14 -top-14 h-32 w-32 rounded-full ${theme.orb} blur-3xl`}
+              />
+              <div className="pointer-events-none absolute -left-14 bottom-0 h-32 w-32 rounded-full bg-[color:var(--clara-theme-secondary-soft,rgba(34,211,238,0.1))] blur-3xl" />
 
-              <div className="relative mx-auto flex h-14 w-14 items-center justify-center rounded-[22px] border border-emerald-300/18 bg-emerald-400/10 shadow-[0_0_30px_rgba(52,211,153,0.14)]">
-                <Receipt className="h-6 w-6 text-emerald-100/70" />
+              <div
+                className={`relative mx-auto flex h-14 w-14 items-center justify-center rounded-[22px] border ${theme.border} ${theme.orb} ${theme.glow}`}
+              >
+                <Receipt className={`h-6 w-6 ${theme.primaryText} opacity-75`} />
               </div>
 
               <h2 className="relative mt-4 text-lg font-black tracking-tight">
@@ -1444,6 +1565,8 @@ export default function TransactionHub() {
                 group={group}
                 items={group.items}
                 isOpen={openGroup === group.key}
+                onEdit={handleEditTransaction}
+                theme={theme}
                 onToggle={() =>
                   setOpenGroup((current) => (current === group.key ? null : group.key))
                 }
