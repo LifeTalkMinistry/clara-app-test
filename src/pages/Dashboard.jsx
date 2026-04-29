@@ -5505,6 +5505,7 @@ export default function Dashboard() {
   const [activeDashboardPanel, setActiveDashboardPanel] = useState("home");
   const [dashboardPanelDirection, setDashboardPanelDirection] = useState("forward");
   const [expandedFinanceCard, setExpandedFinanceCard] = useState(null);
+  const [expandedFinanceDetailSections, setExpandedFinanceDetailSections] = useState({});
   const [showAiAssistant, setShowAiAssistant] = useState(false);
   const [isDashboardScrollable, setIsDashboardScrollable] = useState(false);
   const [financeActionLoading, setFinanceActionLoading] = useState(false);
@@ -7565,17 +7566,35 @@ export default function Dashboard() {
     });
   }, [clearDashboardScrollTimers, measureDashboardScrollability]);
 
-  const toggleFinanceDetails = useCallback((cardKey) => {
+  const toggleFinanceDetails = useCallback((cardKey, options = {}) => {
+    const { autoExpand = false, forceOpen = false } = options || {};
+
     setExpandedFinanceCard((prev) => {
-      const next = prev === cardKey ? null : cardKey;
+      const next = forceOpen ? cardKey : prev === cardKey ? null : cardKey;
+
+      if (next && autoExpand) {
+        setExpandedFinanceDetailSections((current) => ({
+          ...current,
+          [next]: true,
+        }));
+      }
+
       if (!next) {
         setIsDashboardScrollable(false);
         window.requestAnimationFrame(() => {
           dashboardScrollRef.current?.scrollTo?.({ top: 0, behavior: "smooth" });
         });
       }
+
       return next;
     });
+  }, []);
+
+  const toggleExpandedFinanceDetailSection = useCallback((cardKey) => {
+    setExpandedFinanceDetailSections((current) => ({
+      ...current,
+      [cardKey]: current?.[cardKey] === false ? true : false,
+    }));
   }, []);
 
   const handleFinanceCarouselScroll = useCallback(() => {
@@ -9903,7 +9922,7 @@ export default function Dashboard() {
                       if (label.includes("show details") || label.includes("hide details")) {
                         event.preventDefault();
                         event.stopPropagation();
-                        toggleFinanceDetails("emergency");
+                        toggleFinanceDetails("emergency", { autoExpand: true, forceOpen: true });
                       }
                     }}
                   >
@@ -9913,7 +9932,7 @@ export default function Dashboard() {
                       retentionRate={0}
                       theme={selectedDashboardTheme}
                       expanded={expandedFinanceCard === "emergency"}
-                      onToggleDetails={() => toggleFinanceDetails("emergency")}
+                      onToggleDetails={() => toggleFinanceDetails("emergency", { autoExpand: true, forceOpen: true })}
                       canAutoPrompt={Boolean(user?.id) && guardChecked && !loading}
                       hasSurvivalSetup={
                         Boolean(profileData?.survival_setup_done) ||
@@ -10215,6 +10234,8 @@ export default function Dashboard() {
                     survivalExpense={survivalExpense}
                     retentionRate={0}
                     theme={selectedDashboardTheme}
+                    expanded={expandedFinanceDetailSections?.emergency !== false}
+                    onToggleDetails={() => toggleExpandedFinanceDetailSection("emergency")}
                     canAutoPrompt={false}
                     hasSurvivalSetup={
                       Boolean(profileData?.survival_setup_done) ||
