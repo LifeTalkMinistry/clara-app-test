@@ -1,7 +1,5 @@
 import { useEffect, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
-import { Sparkles } from "lucide-react";
-import { toast } from "sonner";
 import ClaraLogo from "@/components/ClaraLogo";
 
 export const POST_LOGIN_WELCOME_KEY = "clara_post_login_welcome";
@@ -10,8 +8,7 @@ function readPendingWelcome() {
   try {
     const raw = sessionStorage.getItem(POST_LOGIN_WELCOME_KEY);
     return raw ? JSON.parse(raw) : null;
-  } catch (error) {
-    console.error("Failed to read post-login welcome state:", error);
+  } catch {
     return null;
   }
 }
@@ -19,9 +16,7 @@ function readPendingWelcome() {
 function clearPendingWelcome() {
   try {
     sessionStorage.removeItem(POST_LOGIN_WELCOME_KEY);
-  } catch (error) {
-    console.error("Failed to clear post-login welcome state:", error);
-  }
+  } catch {}
 }
 
 export function queuePostLoginWelcome(payload = {}) {
@@ -33,29 +28,16 @@ export function queuePostLoginWelcome(payload = {}) {
         ...payload,
       })
     );
-  } catch (error) {
-    console.error("Failed to queue post-login welcome state:", error);
-  }
+  } catch {}
 }
 
-export default function WelcomeBackTransition({
-  redirectTo = "/dashboard",
-  userName = "",
-}) {
+export default function WelcomeBackTransition({ redirectTo = "/dashboard" }) {
   const navigate = useNavigate();
   const pendingWelcome = useMemo(() => readPendingWelcome(), []);
-  const resolvedName = pendingWelcome?.userName || userName || "";
 
   useEffect(() => {
-    const finalize = ({ showToast = false } = {}) => {
+    const finalize = () => {
       clearPendingWelcome();
-
-      if (showToast) {
-        toast.success(
-          resolvedName ? `Welcome back, ${resolvedName}` : "Welcome back"
-        );
-      }
-
       navigate(redirectTo, { replace: true });
     };
 
@@ -64,41 +46,35 @@ export default function WelcomeBackTransition({
       window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
 
     if (!pendingWelcome || prefersReducedMotion) {
-      finalize({ showToast: true });
-      return undefined;
+      finalize();
+      return;
     }
 
-    const timer = window.setTimeout(() => finalize(), 1600);
-    return () => window.clearTimeout(timer);
-  }, [navigate, pendingWelcome, redirectTo, resolvedName]);
+    const timer = setTimeout(finalize, 1200);
+    return () => clearTimeout(timer);
+  }, [navigate, pendingWelcome, redirectTo]);
 
   return (
-    <div className="relative min-h-screen overflow-hidden bg-[#04070A] text-white">
+    <div className="relative min-h-screen bg-[#04070A] flex items-center justify-center">
+      {/* Glow background */}
       <div className="absolute inset-0">
-        <div className="absolute left-1/2 top-1/2 h-72 w-72 -translate-x-1/2 -translate-y-1/2 rounded-full bg-emerald-500/14 blur-3xl" />
-        <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,rgba(255,255,255,0.05),transparent_32%),linear-gradient(180deg,rgba(10,13,16,0.82)_0%,rgba(4,7,10,1)_100%)]" />
+        <div className="absolute left-1/2 top-1/2 h-64 w-64 -translate-x-1/2 -translate-y-1/2 rounded-full bg-emerald-400/10 blur-3xl" />
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,rgba(255,255,255,0.04),transparent_40%)]" />
       </div>
 
-      <div className="relative flex min-h-screen items-center justify-center px-6">
-        <div className="flex flex-col items-center text-center">
-          <div className="animate-[pulse_2.4s_ease-in-out_infinite] rounded-[32px] border border-white/10 bg-white/[0.04] p-4 shadow-[0_20px_70px_rgba(0,0,0,0.45)] backdrop-blur-xl">
-            <ClaraLogo variant="full" theme="dark" className="gap-3" />
-          </div>
-
-          <div className="mt-8 animate-[fadeIn_.45s_ease]">
-            <p className="text-[11px] font-semibold uppercase tracking-[0.34em] text-emerald-300/70">
-              Welcome back
-            </p>
-            <h1 className="mt-3 text-3xl font-bold text-white">
-              Let&apos;s build your financial stability today
-            </h1>
-            <div className="mt-4 inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/[0.04] px-3 py-1.5 text-sm text-white/60">
-              <Sparkles className="h-4 w-4 text-emerald-300/75" />
-              CLARA is getting your space ready
-            </div>
-          </div>
-        </div>
+      {/* Logo only */}
+      <div className="relative animate-[claraFade_1.1s_ease-in-out_both]">
+        <ClaraLogo variant="full" theme="dark" />
       </div>
+
+      <style>{`
+        @keyframes claraFade {
+          0% { opacity: 0; transform: scale(0.95); filter: blur(8px); }
+          40% { opacity: 1; transform: scale(1); filter: blur(0); }
+          70% { opacity: 1; }
+          100% { opacity: 0; transform: scale(0.98); filter: blur(4px); }
+        }
+      `}</style>
     </div>
   );
 }
