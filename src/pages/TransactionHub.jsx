@@ -10,11 +10,14 @@ import {
   CheckCircle2,
   ChevronDown,
   CircleDot,
+  Flame,
   PiggyBank,
   Receipt,
   RefreshCw,
   Search,
+  ShieldAlert,
   Tag,
+  TrendingUp,
   WalletCards,
 } from "lucide-react";
 
@@ -49,7 +52,6 @@ const hasValue = (value) =>
 
 const parseDate = (value) => {
   if (value instanceof Date && !Number.isNaN(value.getTime())) return value;
-
   if (!hasValue(value)) return new Date();
 
   const text = String(value).trim();
@@ -334,6 +336,54 @@ const TIMELINE_GROUPS = [
   { key: "earlier", label: "Earlier" },
 ];
 
+const getBudgetCategory = (item) =>
+  normalizeText(
+    item?.budget_category ||
+      item?.budgetCategory ||
+      item?.category ||
+      item?.name ||
+      item?.title ||
+      item?.label
+  );
+
+const getBudgetAmount = (budget) =>
+  cleanNumber(
+    budget?.allocated_amount ||
+      budget?.allocatedAmount ||
+      budget?.amount ||
+      budget?.limit ||
+      budget?.budget ||
+      budget?.target_amount ||
+      budget?.targetAmount
+  );
+
+const getBudgetMonthKey = (budget) => {
+  const explicitMonth =
+    budget?.month ||
+    budget?.month_key ||
+    budget?.monthKey ||
+    budget?.period ||
+    budget?.budget_month ||
+    budget?.budgetMonth;
+
+  if (hasValue(explicitMonth)) {
+    const text = String(explicitMonth).trim();
+    if (/^\d{4}-\d{2}$/.test(text)) return text;
+    return monthKey(text);
+  }
+
+  const date =
+    budget?.range_start ||
+    budget?.rangeStart ||
+    budget?.start_date ||
+    budget?.startDate ||
+    budget?.created_at ||
+    budget?.createdAt ||
+    new Date();
+
+  return monthKey(date);
+};
+
 function getTimelineStats(items) {
   const expenses = items
     .filter((item) => item.group === "expense")
@@ -508,7 +558,9 @@ function StatusBadge({ children, icon: Icon = CircleDot, tone = "neutral" }) {
         ? "border-amber-300/20 bg-amber-400/10 text-amber-50/80"
         : tone === "bad"
           ? "border-rose-300/20 bg-rose-400/10 text-rose-50/80"
-          : "border-white/10 bg-black/22 text-white/60";
+          : tone === "info"
+            ? "border-cyan-300/20 bg-cyan-400/10 text-cyan-50/80"
+            : "border-white/10 bg-black/22 text-white/60";
 
   return (
     <span
@@ -517,6 +569,31 @@ function StatusBadge({ children, icon: Icon = CircleDot, tone = "neutral" }) {
       <Icon className="h-3 w-3 shrink-0" />
       <span className="truncate">{children}</span>
     </span>
+  );
+}
+
+function InsightCard({ insight }) {
+  return (
+    <section className="relative overflow-hidden rounded-[24px] border border-emerald-300/16 bg-emerald-400/[0.07] p-4 shadow-[0_18px_58px_rgba(0,0,0,0.24)] backdrop-blur-2xl">
+      <div className="pointer-events-none absolute -right-14 -top-16 h-32 w-32 rounded-full bg-emerald-400/14 blur-3xl" />
+      <div className="pointer-events-none absolute -left-16 bottom-0 h-28 w-28 rounded-full bg-cyan-400/10 blur-3xl" />
+      <div className="pointer-events-none absolute inset-x-6 top-0 h-px bg-gradient-to-r from-transparent via-white/22 to-transparent" />
+
+      <div className="relative flex items-start gap-3">
+        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-[17px] border border-emerald-300/18 bg-emerald-400/12 text-emerald-50 shadow-[0_0_28px_rgba(52,211,153,0.13)]">
+          <CheckCircle2 className="h-4.5 w-4.5" />
+        </div>
+
+        <div className="min-w-0">
+          <p className="text-[9px] font-black uppercase tracking-[0.18em] text-emerald-50/45">
+            CLARA Insight
+          </p>
+          <p className="mt-1 text-sm font-semibold leading-6 text-white/72">
+            {insight}
+          </p>
+        </div>
+      </div>
+    </section>
   );
 }
 
@@ -575,24 +652,36 @@ function TransactionCard({ item }) {
           <div className="mt-2.5 flex flex-wrap gap-1.5">
             <StatusBadge icon={Tag}>{titleCase(item.group)}</StatusBadge>
 
-            {item.needType ? (
+            {item.group === "expense" && item.budgetStatus ? (
               <StatusBadge
-                tone={String(item.needType).toLowerCase() === "need" ? "good" : "warn"}
+                icon={CheckCircle2}
+                tone={item.budgetStatus === "planned" ? "good" : "warn"}
               >
-                {titleCase(item.needType)}
+                {item.budgetStatus === "planned" ? "Planned" : "Unplanned"}
               </StatusBadge>
             ) : null}
 
-            {item.planningStatus ? (
-              <StatusBadge
-                icon={CheckCircle2}
-                tone={
-                  String(item.planningStatus).toLowerCase().includes("planned")
-                    ? "good"
-                    : "warn"
-                }
-              >
-                {titleCase(item.planningStatus)}
+            {item.isBudgetRisk ? (
+              <StatusBadge icon={ShieldAlert} tone="bad">
+                Budget Risk
+              </StatusBadge>
+            ) : null}
+
+            {item.isGoodDecision ? (
+              <StatusBadge icon={CheckCircle2} tone="good">
+                Good Decision
+              </StatusBadge>
+            ) : null}
+
+            {item.isFrequent ? (
+              <StatusBadge icon={Flame} tone="warn">
+                Frequent
+              </StatusBadge>
+            ) : null}
+
+            {item.isHighSpend ? (
+              <StatusBadge icon={TrendingUp} tone="bad">
+                High Spend
               </StatusBadge>
             ) : null}
           </div>
@@ -792,6 +881,7 @@ export default function TransactionHub() {
     ? financial.walletTransactions
     : [];
   const safeTransfers = Array.isArray(financial.transfers) ? financial.transfers : [];
+  const safeBudgets = Array.isArray(financial.budgets) ? financial.budgets : [];
   const safeSavingsTransactions = Array.isArray(financial.savingsTransactions)
     ? financial.savingsTransactions
     : [];
@@ -813,7 +903,30 @@ export default function TransactionHub() {
     return map;
   }, [safeWallets]);
 
-  const activity = useMemo(() => {
+  const budgetMap = useMemo(() => {
+    const map = new Map();
+
+    safeBudgets
+      .filter((item) => !isDeletedRecord(item))
+      .forEach((budget) => {
+        const category = getBudgetCategory(budget);
+        if (!category) return;
+
+        const key = `${getBudgetMonthKey(budget)}:${category}`;
+        const current = map.get(key) || {
+          category,
+          monthKey: getBudgetMonthKey(budget),
+          allocated: 0,
+        };
+
+        current.allocated += getBudgetAmount(budget);
+        map.set(key, current);
+      });
+
+    return map;
+  }, [safeBudgets]);
+
+  const activityBase = useMemo(() => {
     const visibleSources = [
       ...safeExpenses
         .filter((item) => !isDeletedRecord(item))
@@ -944,7 +1057,7 @@ export default function TransactionHub() {
               item.type ||
               group
           ),
-          category: item.category || item.source_type || item.sourceType || item.tag || "",
+          category: item.category || item.budget_category || item.budgetCategory || item.tag || "",
           walletName:
             transferWalletLabel ||
             wallet?.name ||
@@ -953,32 +1066,10 @@ export default function TransactionHub() {
             "",
           amount,
           signedAmount,
-          needType: item.need_type || item.needType || "",
-          planningStatus:
-            item.planning_status || item.planningStatus || item.status || "",
           note: isJsonLike(note) ? "" : String(note || "").trim(),
         };
 
-        return {
-          ...normalized,
-          searchText: [
-            normalized.title,
-            normalized.category,
-            normalized.walletName,
-            normalized.note,
-            normalized.type,
-            normalized.group,
-            normalized.needType,
-            normalized.planningStatus,
-            normalized.amount,
-            normalized.signedAmount,
-            peso(normalized.amount),
-            formatDateOnly(normalized.date),
-            formatTime(normalized.date),
-          ]
-            .join(" ")
-            .toLowerCase(),
-        };
+        return normalized;
       })
       .filter(Boolean)
       .sort((a, b) => parseDate(b.date).getTime() - parseDate(a.date).getTime());
@@ -990,6 +1081,110 @@ export default function TransactionHub() {
     safeEmergencyTransactions,
     walletMap,
   ]);
+
+  const activity = useMemo(() => {
+    const monthlyCategoryStats = new Map();
+
+    activityBase
+      .filter((item) => item.group === "expense")
+      .forEach((item) => {
+        const category = normalizeText(item.category || "uncategorized");
+        const key = `${item.monthKey}:${category}`;
+        const current = monthlyCategoryStats.get(key) || {
+          count: 0,
+          total: 0,
+          amounts: [],
+        };
+
+        current.count += 1;
+        current.total += Math.abs(item.amount);
+        current.amounts.push(Math.abs(item.amount));
+        monthlyCategoryStats.set(key, current);
+      });
+
+    const monthlyCategorySpend = new Map();
+
+    return activityBase.map((item) => {
+      const category = normalizeText(item.category || "uncategorized");
+      const categoryKey = `${item.monthKey}:${category}`;
+      const budget = budgetMap.get(categoryKey);
+      const categoryStats = monthlyCategoryStats.get(categoryKey) || {
+        count: 0,
+        total: 0,
+        amounts: [],
+      };
+
+      const previousSpend = monthlyCategorySpend.get(categoryKey) || 0;
+      const nextSpend = previousSpend + Math.abs(item.amount);
+      if (item.group === "expense") monthlyCategorySpend.set(categoryKey, nextSpend);
+
+      const budgetStatus =
+        item.group === "expense" && budget?.allocated > 0 ? "planned" : "unplanned";
+
+      const averageAmount =
+        categoryStats.count > 0 ? categoryStats.total / categoryStats.count : 0;
+
+      const significantAmount = Math.max(
+        500,
+        cleanNumber(budget?.allocated) * 0.25,
+        averageAmount * 1.5
+      );
+
+      const isBudgetRisk =
+        item.group === "expense" &&
+        budgetStatus === "unplanned" &&
+        Math.abs(item.amount) >= significantAmount;
+
+      const isGoodDecision =
+        item.group === "expense" &&
+        budgetStatus === "planned" &&
+        budget?.allocated > 0 &&
+        nextSpend <= budget.allocated;
+
+      const isFrequent = item.group === "expense" && categoryStats.count >= 3;
+
+      const isHighSpend =
+        item.group === "expense" &&
+        categoryStats.count >= 3 &&
+        averageAmount > 0 &&
+        Math.abs(item.amount) > averageAmount * 1.5;
+
+      const enhanced = {
+        ...item,
+        budgetStatus,
+        budgetLimit: budget?.allocated || 0,
+        budgetCategorySpend: nextSpend,
+        isBudgetRisk,
+        isGoodDecision,
+        isFrequent,
+        isHighSpend,
+      };
+
+      return {
+        ...enhanced,
+        searchText: [
+          enhanced.title,
+          enhanced.category,
+          enhanced.walletName,
+          enhanced.note,
+          enhanced.type,
+          enhanced.group,
+          enhanced.budgetStatus,
+          enhanced.isBudgetRisk ? "budget risk" : "",
+          enhanced.isGoodDecision ? "good decision" : "",
+          enhanced.isFrequent ? "frequent" : "",
+          enhanced.isHighSpend ? "high spend" : "",
+          enhanced.amount,
+          enhanced.signedAmount,
+          peso(enhanced.amount),
+          formatDateOnly(enhanced.date),
+          formatTime(enhanced.date),
+        ]
+          .join(" ")
+          .toLowerCase(),
+      };
+    });
+  }, [activityBase, budgetMap]);
 
   const monthlyActivity = useMemo(
     () => activity.filter((item) => item.monthKey === month),
@@ -1031,11 +1226,39 @@ export default function TransactionHub() {
       .filter((item) => item.group === "income")
       .reduce((sum, item) => sum + Math.abs(item.signedAmount), 0);
 
+    const plannedCount = monthlyActivity.filter(
+      (item) => item.group === "expense" && item.budgetStatus === "planned"
+    ).length;
+
+    const unplannedCount = monthlyActivity.filter(
+      (item) => item.group === "expense" && item.budgetStatus === "unplanned"
+    ).length;
+
+    const budgetRiskCount = monthlyActivity.filter((item) => item.isBudgetRisk).length;
+    const frequentCount = monthlyActivity.filter((item) => item.isFrequent).length;
+    const highSpendCount = monthlyActivity.filter((item) => item.isHighSpend).length;
+
+    let insight = "Your timeline looks stable. Keep your spending connected to your plan.";
+
+    if (budgetRiskCount > 0) {
+      insight =
+        "Some spending is outside your budget plan. Review it before it becomes a pattern.";
+    } else if (frequentCount > 0 || highSpendCount > 0) {
+      insight =
+        "This category is appearing often. Check if your budget still matches your real behavior.";
+    } else if (plannedCount > 0 && unplannedCount === 0) {
+      insight = "Your planned expenses are staying aligned this month.";
+    }
+
     return {
       moneyOut,
       moneyIn,
       netFlow: moneyIn - moneyOut,
       count: filtered.length,
+      plannedCount,
+      unplannedCount,
+      budgetRiskCount,
+      insight,
     };
   }, [monthlyActivity, filtered.length]);
 
@@ -1045,6 +1268,7 @@ export default function TransactionHub() {
     Boolean(safeExpenses.length) ||
     Boolean(safeWalletTransactions.length) ||
     Boolean(safeTransfers.length) ||
+    Boolean(safeBudgets.length) ||
     Boolean(safeSavingsTransactions.length) ||
     Boolean(safeEmergencyTransactions.length);
 
@@ -1178,6 +1402,8 @@ export default function TransactionHub() {
             tone="cyan"
           />
         </section>
+
+        <InsightCard insight={summary.insight} />
 
         <section className="relative overflow-hidden rounded-[24px] border border-white/10 bg-white/[0.052] p-2.5 shadow-[0_18px_58px_rgba(0,0,0,0.24)] backdrop-blur-2xl">
           <div className="pointer-events-none absolute -left-20 -top-20 h-36 w-36 rounded-full bg-cyan-400/10 blur-3xl" />
