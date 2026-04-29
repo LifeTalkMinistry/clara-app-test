@@ -19,7 +19,10 @@ import {
 
 const AuthContext = createContext(null);
 
-const withTimeout = (promise, ms = 15000) => {
+const AUTH_TIMEOUT_MS = 6000;
+const PROFILE_TIMEOUT_MS = 6500;
+
+const withTimeout = (promise, ms = AUTH_TIMEOUT_MS) => {
   return Promise.race([
     promise,
     new Promise((_, reject) =>
@@ -139,6 +142,31 @@ const normalizeProfileAccess = (rawProfile = {}, authUser = null) => {
   };
 };
 
+const buildCachedUser = (cachedSnapshot = null, authUser = null) => {
+  if (!cachedSnapshot || !isAccessSnapshotUsable(cachedSnapshot)) {
+    return authUser || null;
+  }
+
+  return {
+    ...(authUser || {}),
+    id: authUser?.id || cachedSnapshot.userId || cachedSnapshot.profileBasic?.id || null,
+    email: authUser?.email || cachedSnapshot.email || cachedSnapshot.profileBasic?.email || null,
+    user_metadata: {
+      ...(authUser?.user_metadata || {}),
+      full_name:
+        authUser?.user_metadata?.full_name ||
+        cachedSnapshot.profileBasic?.full_name ||
+        cachedSnapshot.profile?.full_name ||
+        "",
+      name:
+        authUser?.user_metadata?.name ||
+        cachedSnapshot.profileBasic?.full_name ||
+        cachedSnapshot.profile?.full_name ||
+        "",
+    },
+  };
+};
+
 const buildDefaultOfflineProfile = (authUser, cachedSnapshot = null) => {
   if (cachedSnapshot && isAccessSnapshotUsable(cachedSnapshot)) {
     const fallbackFlow = getOfflineFallbackFlow(cachedSnapshot);
@@ -222,62 +250,99 @@ export function AuthProvider({ children }) {
 
   const initializedRef = useRef(false);
   const authRunIdRef = useRef(0);
+  const profileRefreshRunIdRef = useRef(0);
+
+  const finishReady = useCallback((runId, markInitialized = false) => {
+    if (authRunIdRef.current !== runId) return;
+
+    if (markInitialized) initializedRef.current = true;
+
+    setLoading(false);
+    setAuthReady(true);
+  }, []);
 
   const ensureBasicProfile = useCallback(async (authUser, fallbackName = "") => {
     if (!authUser?.id) return;
 
     try {
-      await supabase.from("profiles").upsert(
-        {
-          id: authUser.id,
-          email: authUser.email || null,
-          full_name:
-            fallbackName?.trim() ||
-            authUser.user_metadata?.full_name ||
-            authUser.user_metadata?.name ||
-            null,
-        },
-        { onConflict: "id" }
+      await withTimeout(
+        supabase.from("profiles").upsert(
+          {
+            id: authUser.id,
+            email: authUser.email || null,
+            full_name:
+              fallbackName?.trim() ||
+              authUser.user_metadata?.full_name ||
+              authUser.user_metadata?.name ||
+              null,
+          },
+          { onConflict: "id" }
+        ),
+        PROFILE_TIMEOUT_MS
       );
     } catch (error) {
       console.error("ensureBasicProfile error:", error);
     }
   }, []);
 
+  const saveProfileSnapshot = useCallback((authUser, normalizedProfile) => {
+    if (!authUser?.id || !normalizedProfile) return;
+
+    saveAccessSnapshot({
+      user: authUser,
+      profile: normalizedProfile,
+      role: normalizedProfile.role,
+      plan: normalizedProfile.plan,
+      planLabel: normalizedProfile.subscription_label,
+      subscriptionStatus: normalizedProfile.subscription_status,
+      accessStatus: normalizedProfile.status,
+      onboardingCompleted:
+        normalizedProfile.onboarding_completed ||
+        normalizedProfile.has_completed_universal_onboarding ||
+        normalizedProfile.has_seen_universal_onboarding,
+      programOnboardingCompleted:
+        normalizedProfile.program_onboarding_completed ||
+        normalizedProfile.has_completed_program_onboarding,
+      lastResolvedAppFlow: "normal",
+      lastValidRoute: "/dashboard",
+    });
+  }, []);
+
   const fetchProfile = useCallback(
-    async (authUser) => {
+    async (authUser, { silent = false, preferCache = true } = {}) => {
       if (!authUser?.id) return null;
 
+      const cachedSnapshot =
+        preferCache &&
+        (getAccessSnapshot(authUser.id) || getAccessSnapshot(authUser.email));
+
+      if (preferCache && isAccessSnapshotUsable(cachedSnapshot)) {
+        const cachedUser = buildCachedUser(cachedSnapshot, authUser);
+        const offlineProfile = buildDefaultOfflineProfile(cachedUser, cachedSnapshot);
+
+        setProfile(offlineProfile);
+
+        if (!silent) {
+          return offlineProfile;
+        }
+      }
+
       try {
-        const { data, error } = await supabase
-          .from("profiles")
-          .select("*")
-          .eq("id", authUser.id)
-          .maybeSingle();
+        const { data, error } = await withTimeout(
+          supabase
+            .from("profiles")
+            .select("*")
+            .eq("id", authUser.id)
+            .maybeSingle(),
+          PROFILE_TIMEOUT_MS
+        );
 
         if (error) throw error;
 
         if (data) {
           const normalized = normalizeProfileAccess(data, authUser);
           setProfile(normalized);
-          saveAccessSnapshot({
-            user: authUser,
-            profile: normalized,
-            role: normalized.role,
-            plan: normalized.plan,
-            planLabel: normalized.subscription_label,
-            subscriptionStatus: normalized.subscription_status,
-            accessStatus: normalized.status,
-            onboardingCompleted:
-              normalized.onboarding_completed ||
-              normalized.has_completed_universal_onboarding ||
-              normalized.has_seen_universal_onboarding,
-            programOnboardingCompleted:
-              normalized.program_onboarding_completed ||
-              normalized.has_completed_program_onboarding,
-            lastResolvedAppFlow: "normal",
-            lastValidRoute: "/dashboard",
-          });
+          saveProfileSnapshot(authUser, normalized);
           return normalized;
         }
 
@@ -286,11 +351,14 @@ export function AuthProvider({ children }) {
           authUser.user_metadata?.full_name || authUser.user_metadata?.name || ""
         );
 
-        const { data: ensuredProfile, error: retryError } = await supabase
-          .from("profiles")
-          .select("*")
-          .eq("id", authUser.id)
-          .maybeSingle();
+        const { data: ensuredProfile, error: retryError } = await withTimeout(
+          supabase
+            .from("profiles")
+            .select("*")
+            .eq("id", authUser.id)
+            .maybeSingle(),
+          PROFILE_TIMEOUT_MS
+        );
 
         if (retryError) throw retryError;
 
@@ -320,33 +388,17 @@ export function AuthProvider({ children }) {
         );
 
         setProfile(fallbackProfile);
-        saveAccessSnapshot({
-          user: authUser,
-          profile: fallbackProfile,
-          role: fallbackProfile.role,
-          plan: fallbackProfile.plan,
-          planLabel: fallbackProfile.subscription_label,
-          subscriptionStatus: fallbackProfile.subscription_status,
-          accessStatus: fallbackProfile.status,
-          onboardingCompleted:
-            fallbackProfile.onboarding_completed ||
-            fallbackProfile.has_completed_universal_onboarding ||
-            fallbackProfile.has_seen_universal_onboarding,
-          programOnboardingCompleted:
-            fallbackProfile.program_onboarding_completed ||
-            fallbackProfile.has_completed_program_onboarding,
-          lastResolvedAppFlow: "normal",
-          lastValidRoute: "/dashboard",
-        });
+        saveProfileSnapshot(authUser, fallbackProfile);
         return fallbackProfile;
       } catch (error) {
         console.error("fetchProfile error:", error);
 
-        const cachedSnapshot = getAccessSnapshot(authUser.id) || getAccessSnapshot(authUser.email);
+        const latestCachedSnapshot =
+          getAccessSnapshot(authUser.id) || getAccessSnapshot(authUser.email);
 
-        if (isAccessSnapshotUsable(cachedSnapshot) || isAccessNetworkOffline(error)) {
-          const offlineProfile = buildDefaultOfflineProfile(authUser, cachedSnapshot);
-          setProfile(offlineProfile);
+        if (isAccessSnapshotUsable(latestCachedSnapshot) || isAccessNetworkOffline(error)) {
+          const offlineProfile = buildDefaultOfflineProfile(authUser, latestCachedSnapshot);
+          setProfile((currentProfile) => currentProfile || offlineProfile);
           return offlineProfile;
         }
 
@@ -375,61 +427,168 @@ export function AuthProvider({ children }) {
           authUser
         );
 
-        setProfile(fallbackProfile);
+        setProfile((currentProfile) => currentProfile || fallbackProfile);
         return fallbackProfile;
       }
     },
-    [ensureBasicProfile]
+    [ensureBasicProfile, saveProfileSnapshot]
   );
 
+  const refreshProfileSilently = useCallback(
+    async (authUser) => {
+      if (!authUser?.id) return null;
+
+      const refreshRunId = profileRefreshRunIdRef.current + 1;
+      profileRefreshRunIdRef.current = refreshRunId;
+
+      try {
+        const freshProfile = await fetchProfile(authUser, {
+          silent: true,
+          preferCache: false,
+        });
+
+        if (profileRefreshRunIdRef.current !== refreshRunId) return null;
+
+        return freshProfile;
+      } catch (error) {
+        console.error("silent profile refresh error:", error);
+        return null;
+      }
+    },
+    [fetchProfile]
+  );
+
+  const applyCachedSnapshot = useCallback((nextUser, nextSession = null) => {
+    if (!nextUser?.id && !nextUser?.email) return null;
+
+    const cachedSnapshot =
+      getAccessSnapshot(nextUser?.id) || getAccessSnapshot(nextUser?.email);
+
+    if (!isAccessSnapshotUsable(cachedSnapshot)) return null;
+
+    const cachedUser = buildCachedUser(cachedSnapshot, nextUser);
+    const cachedProfile = buildDefaultOfflineProfile(cachedUser, cachedSnapshot);
+
+    setSession(nextSession ?? null);
+    setUser(cachedUser);
+    setProfile(cachedProfile);
+    setLoading(false);
+    setAuthReady(true);
+
+    return { user: cachedUser, profile: cachedProfile, snapshot: cachedSnapshot };
+  }, []);
+
   const applySession = useCallback(
-    async (nextSession, { markInitialized = false } = {}) => {
+    async (nextSession, { markInitialized = false, allowCached = true } = {}) => {
       const runId = authRunIdRef.current + 1;
       authRunIdRef.current = runId;
 
       const nextUser = nextSession?.user ?? null;
 
-      setLoading(true);
       setSession(nextSession ?? null);
       setUser(nextUser);
 
       if (!nextUser?.id) {
         setProfile(null);
-        if (authRunIdRef.current === runId) {
-          if (markInitialized) initializedRef.current = true;
-          setLoading(false);
-          setAuthReady(true);
-        }
+        finishReady(runId, markInitialized);
         return null;
       }
 
-      const nextProfile = await fetchProfile(nextUser);
+      const cachedApplied = allowCached ? applyCachedSnapshot(nextUser, nextSession) : null;
 
-      if (authRunIdRef.current === runId) {
+      if (cachedApplied) {
         if (markInitialized) initializedRef.current = true;
-        setLoading(false);
-        setAuthReady(true);
+
+        refreshProfileSilently(cachedApplied.user).catch((error) => {
+          console.error("background profile refresh error:", error);
+        });
+
+        return cachedApplied.profile;
+      }
+
+      if (!authReady) {
+        setLoading(true);
+      }
+
+      const nextProfile = await fetchProfile(nextUser, {
+        silent: false,
+        preferCache: true,
+      });
+
+      finishReady(runId, markInitialized);
+
+      if (nextProfile?.offline_access || nextProfile?.offline_limited_access) {
+        refreshProfileSilently(nextUser).catch((error) => {
+          console.error("background profile refresh error:", error);
+        });
       }
 
       return nextProfile;
     },
-    [fetchProfile]
+    [
+      applyCachedSnapshot,
+      authReady,
+      fetchProfile,
+      finishReady,
+      refreshProfileSilently,
+    ]
   );
 
   useEffect(() => {
     let mounted = true;
 
     const init = async () => {
+      const runId = authRunIdRef.current + 1;
+      authRunIdRef.current = runId;
+
       try {
-        setLoading(true);
         setAuthReady(false);
+
+        const cachedSnapshot = getAccessSnapshot();
+
+        if (isAccessSnapshotUsable(cachedSnapshot)) {
+          const cachedUser = buildCachedUser(cachedSnapshot);
+          const cachedProfile = buildDefaultOfflineProfile(cachedUser, cachedSnapshot);
+
+          initializedRef.current = true;
+          setSession(null);
+          setUser(cachedUser);
+          setProfile(cachedProfile);
+          setLoading(false);
+          setAuthReady(true);
+        } else {
+          setLoading(true);
+        }
 
         const {
           data: { session: currentSession },
-        } = await withTimeout(supabase.auth.getSession());
+        } = await withTimeout(supabase.auth.getSession(), AUTH_TIMEOUT_MS);
 
         if (!mounted) return;
-        await applySession(currentSession, { markInitialized: true });
+
+        if (currentSession?.user?.id) {
+          await applySession(currentSession, {
+            markInitialized: true,
+            allowCached: true,
+          });
+          return;
+        }
+
+        if (isAccessSnapshotUsable(cachedSnapshot)) {
+          initializedRef.current = true;
+          setLoading(false);
+          setAuthReady(true);
+          return;
+        }
+
+        if (authRunIdRef.current === runId) {
+          initializedRef.current = true;
+          setSession(null);
+          setUser(null);
+          setProfile(null);
+          setLoading(false);
+          setAuthReady(true);
+        }
       } catch (error) {
         console.error("init auth error:", error);
 
@@ -437,15 +596,8 @@ export function AuthProvider({ children }) {
 
         const cachedSnapshot = getAccessSnapshot();
 
-        if (isAccessSnapshotUsable(cachedSnapshot) && isAccessNetworkOffline(error)) {
-          const offlineUser = {
-            id: cachedSnapshot.userId,
-            email: cachedSnapshot.email,
-            user_metadata: {
-              full_name: cachedSnapshot.profileBasic?.full_name || "",
-              name: cachedSnapshot.profileBasic?.full_name || "",
-            },
-          };
+        if (isAccessSnapshotUsable(cachedSnapshot)) {
+          const offlineUser = buildCachedUser(cachedSnapshot);
           const offlineProfile = buildDefaultOfflineProfile(offlineUser, cachedSnapshot);
 
           initializedRef.current = true;
@@ -479,7 +631,10 @@ export function AuthProvider({ children }) {
 
       window.setTimeout(() => {
         if (!mounted) return;
-        applySession(nextSession).catch((error) => {
+
+        applySession(nextSession, {
+          allowCached: true,
+        }).catch((error) => {
           console.error("auth state change error:", error);
           setLoading(false);
           setAuthReady(true);
@@ -508,7 +663,7 @@ export function AuthProvider({ children }) {
           filter: `id=eq.${user.id}`,
         },
         () => {
-          fetchProfile(user).catch((error) => {
+          refreshProfileSilently(user).catch((error) => {
             console.error("Profile realtime refresh error:", error);
           });
         }
@@ -518,14 +673,19 @@ export function AuthProvider({ children }) {
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [fetchProfile, user, profile?.offline_access, profile?.offline_limited_access]);
+  }, [
+    refreshProfileSilently,
+    user,
+    profile?.offline_access,
+    profile?.offline_limited_access,
+  ]);
 
   useEffect(() => {
     if (typeof window === "undefined") return undefined;
     if (!user?.id) return undefined;
 
     const handleOnline = () => {
-      fetchProfile(user).catch((error) => {
+      refreshProfileSilently(user).catch((error) => {
         console.error("Profile online refresh error:", error);
       });
     };
@@ -535,7 +695,7 @@ export function AuthProvider({ children }) {
     return () => {
       window.removeEventListener("online", handleOnline);
     };
-  }, [fetchProfile, user]);
+  }, [refreshProfileSilently, user]);
 
   const signUp = async ({ email, password, fullName }) => {
     const { data, error } = await supabase.auth.signUp({
@@ -559,7 +719,9 @@ export function AuthProvider({ children }) {
 
     if (error) throw error;
 
-    await applySession(data?.session ?? null);
+    await applySession(data?.session ?? null, {
+      allowCached: true,
+    });
 
     return data;
   };
@@ -581,6 +743,7 @@ export function AuthProvider({ children }) {
   const signOut = async () => {
     await supabase.auth.signOut();
     initializedRef.current = true;
+    profileRefreshRunIdRef.current += 1;
     setUser(null);
     setSession(null);
     setProfile(null);
@@ -590,7 +753,10 @@ export function AuthProvider({ children }) {
 
   const refreshProfile = useCallback(async () => {
     if (!user?.id) return null;
-    return await fetchProfile(user);
+    return await fetchProfile(user, {
+      silent: false,
+      preferCache: true,
+    });
   }, [user, fetchProfile]);
 
   const value = useMemo(() => {
