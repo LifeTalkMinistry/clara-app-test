@@ -1,12 +1,5 @@
 import logo from "../../assets/icon.png";
 
-/**
- * ClaraLogo – reusable brand logo component
- * variant="full"    → logo icon + "CLARA" wordmark
- * variant="icon"    → logo icon only
- * theme="dark"      → white text
- * theme="light"     → dark text
- */
 export default function ClaraLogo({
   variant = "full",
   theme = "dark",
@@ -15,45 +8,43 @@ export default function ClaraLogo({
   const isDark = theme === "dark";
   const textColor = isDark ? "text-white" : "text-[#182028]";
   const shellClass = isDark
-    ? "bg-[#071018]/80 ring-white/10 shadow-[0_0_26px_rgba(45,212,191,0.18)]"
-    : "bg-white/80 ring-slate-900/10 shadow-[0_0_24px_rgba(20,184,166,0.16)]";
+    ? "bg-[#071018]/80 ring-white/10 shadow-[0_0_32px_rgba(45,212,191,0.22)]"
+    : "bg-white/80 ring-slate-900/10 shadow-[0_0_28px_rgba(20,184,166,0.18)]";
   const glowClass = isDark
     ? "from-emerald-400/30 via-cyan-300/20 to-transparent"
     : "from-emerald-400/24 via-cyan-400/16 to-transparent";
   const wordGlow = isDark
-    ? "drop-shadow-[0_0_12px_rgba(45,212,191,0.24)]"
-    : "drop-shadow-[0_0_10px_rgba(20,184,166,0.18)]";
+    ? "drop-shadow-[0_0_14px_rgba(45,212,191,0.28)]"
+    : "drop-shadow-[0_0_12px_rgba(20,184,166,0.22)]";
 
   return (
     <div
-      className={`group flex items-center gap-2.5 ${className}`}
+      className={`group flex items-center gap-3 ${className}`}
       style={{
-        animation: "claraLogoFadeIn 520ms ease-out both",
+        animation: "claraLogoFadeIn 1200ms ease-out both",
       }}
     >
-      <div className="relative flex h-11 w-11 flex-shrink-0 items-center justify-center">
+      <div className="relative flex h-14 w-14 flex-shrink-0 items-center justify-center">
         <div
           aria-hidden="true"
-          className={`absolute inset-[-5px] rounded-[1.15rem] bg-gradient-to-br ${glowClass} blur-xl opacity-80 transition duration-500 group-hover:opacity-100`}
+          className={`absolute inset-[-6px] rounded-[1.3rem] bg-gradient-to-br ${glowClass} blur-2xl opacity-80 transition duration-700 group-hover:opacity-100`}
         />
+
         <div
-          aria-hidden="true"
-          className="absolute inset-0 rounded-2xl bg-gradient-to-br from-white/18 via-white/5 to-transparent opacity-70"
-        />
-        <div
-          className={`relative flex h-10 w-10 items-center justify-center overflow-hidden rounded-xl ring-1 backdrop-blur-md transition duration-500 group-hover:scale-[1.03] ${shellClass}`}
+          className={`relative flex h-12 w-12 items-center justify-center overflow-hidden rounded-2xl ring-1 backdrop-blur-md transition duration-500 group-hover:scale-[1.04] ${shellClass}`}
+          style={{ animation: "claraFloat 3.2s ease-in-out infinite" }}
         >
           <img
             src={logo}
             alt="CLARA Logo"
-            className="h-full w-full object-contain p-[2px] drop-shadow-[0_0_12px_rgba(45,212,191,0.22)]"
+            className="h-full w-full object-contain p-[3px] drop-shadow-[0_0_16px_rgba(45,212,191,0.28)]"
           />
         </div>
       </div>
 
       {variant === "full" && (
         <p
-          className={`font-heading text-lg font-bold leading-tight tracking-wide transition duration-500 ${textColor} ${wordGlow}`}
+          className={`font-heading text-xl font-bold leading-tight tracking-wide transition duration-500 ${textColor} ${wordGlow}`}
         >
           CLARA
         </p>
@@ -61,16 +52,24 @@ export default function ClaraLogo({
 
       <style>{`
         @keyframes claraLogoFadeIn {
-          from {
+          0% {
             opacity: 0;
-            transform: translateY(4px) scale(0.98);
-            filter: blur(4px);
+            transform: translateY(8px) scale(0.94);
+            filter: blur(6px);
           }
-          to {
+          60% {
             opacity: 1;
-            transform: translateY(0) scale(1);
+            transform: translateY(-2px) scale(1.02);
             filter: blur(0);
           }
+          100% {
+            transform: translateY(0) scale(1);
+          }
+        }
+
+        @keyframes claraFloat {
+          0%, 100% { transform: translateY(0px); }
+          50% { transform: translateY(-4px); }
         }
       `}</style>
     </div>
