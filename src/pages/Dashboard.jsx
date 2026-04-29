@@ -1217,6 +1217,17 @@ const UNDOCUMENTED_SPENDING_REASONS = [
 
 const FINANCE_CARD_KEYS = ["emergency", "wallets", "budgets", "savings"];
 
+const hasDashboardFinanceContent = (snapshot = {}) =>
+  Boolean(
+    (Array.isArray(snapshot.wallets) && snapshot.wallets.length > 0) ||
+      (Array.isArray(snapshot.expenses) && snapshot.expenses.length > 0) ||
+      (Array.isArray(snapshot.budgets) && snapshot.budgets.length > 0) ||
+      (Array.isArray(snapshot.savingsGoals) && snapshot.savingsGoals.length > 0) ||
+      (Array.isArray(snapshot.walletTransactions) && snapshot.walletTransactions.length > 0) ||
+      snapshot.emergencyFund ||
+      Number(snapshot.walletMoney || 0) > 0
+  );
+
 const getFinanceThemeAccentClass = (tone = "emerald", isLight = false) => {
   if (isLight) {
     const lightToneMap = {
@@ -5438,6 +5449,7 @@ export default function Dashboard() {
     emergencyFund: financeEmergencyFund = null,
     refreshData: refreshFinancialData,
     loading: financeDataLoading = false,
+    refreshing: financeDataRefreshing = false,
     error: financeDataError = null,
     addExpense: addExpenseData,
     updateExpense: updateExpenseData,
@@ -5463,6 +5475,15 @@ export default function Dashboard() {
     dashboardPageCache.loaded && dashboardPageCache.key === cacheKey
       ? dashboardPageCache
       : createEmptyDashboardCache(cacheKey);
+  const hasInitialFinanceCache = Boolean(
+    initialCache.loaded ||
+      initialCache.offlineReady ||
+      (Array.isArray(initialCache.wallets) && initialCache.wallets.length > 0) ||
+      (Array.isArray(initialCache.expenses) && initialCache.expenses.length > 0) ||
+      (Array.isArray(initialCache.budgets) && initialCache.budgets.length > 0) ||
+      (Array.isArray(initialCache.savingsGoals) && initialCache.savingsGoals.length > 0) ||
+      initialCache.emergencyFund
+  );
 
   const [tasks, setTasks] = useState(initialCache.tasks);
   const [submissions, setSubmissions] = useState(initialCache.submissions);
@@ -5479,7 +5500,9 @@ export default function Dashboard() {
   const [expenses, setExpenses] = useState(Array.isArray(initialCache.expenses) ? initialCache.expenses : []);
   const [pendingExpenses, setPendingExpenses] = useState([]);
   const [offlineReady, setOfflineReady] = useState(true);
-  const [loading, setLoading] = useState(!initialCache.loaded || financeDataLoading);
+  const [loading, setLoading] = useState(
+    !hasInitialFinanceCache && !initialCache.loaded && financeDataLoading
+  );
 
   const [profileData, setProfileData] = useState(initialCache.profileData);
   const [latestEnrollment, setLatestEnrollment] = useState(
@@ -5503,6 +5526,7 @@ export default function Dashboard() {
   const [financeCardIndex, setFinanceCardIndex] = useState(0);
   const [dailyStrategyFlipped, setDailyStrategyFlipped] = useState(false);
   const [activeDashboardPanel, setActiveDashboardPanel] = useState("home");
+  const [dashboardShellReady, setDashboardShellReady] = useState(false);
   const [dashboardPanelDirection, setDashboardPanelDirection] = useState("forward");
   const [expandedFinanceCard, setExpandedFinanceCard] = useState(null);
   const [expandedFinanceDetailSections, setExpandedFinanceDetailSections] = useState({});
@@ -5554,6 +5578,24 @@ export default function Dashboard() {
     flexibility: "flexible",
     notes: "",
   });
+
+  useEffect(() => {
+    let timerId = null;
+    let frameId = null;
+
+    if (typeof window !== "undefined" && window.requestAnimationFrame) {
+      frameId = window.requestAnimationFrame(() => {
+        timerId = window.setTimeout(() => setDashboardShellReady(true), 80);
+      });
+    } else {
+      timerId = setTimeout(() => setDashboardShellReady(true), 80);
+    }
+
+    return () => {
+      if (frameId && typeof window !== "undefined") window.cancelAnimationFrame(frameId);
+      if (timerId) clearTimeout(timerId);
+    };
+  }, []);
 
   useEffect(() => {
     if (!budgetListOpen) return;
@@ -5738,6 +5780,7 @@ export default function Dashboard() {
     setWalletMoney(nextCache.walletMoney);
     setWallets(nextCache.wallets);
     setWalletTransactions(nextCache.walletTransactions);
+    setTransfers(nextCache.transfers || []);
     setBudgets(nextCache.budgets);
     setSavingsGoals(nextCache.savingsGoals);
     setExpenses(nextCache.expenses);
@@ -5750,7 +5793,7 @@ export default function Dashboard() {
     setReminderTime(nextCache.reminderTime);
     setFinancialGoal(nextCache.financialGoal);
     hasLoadedDashboardRef.current = nextCache.loaded;
-    setLoading(!nextCache.loaded);
+    setLoading(!nextCache.loaded && !hasDashboardFinanceContent(nextCache));
   }, []);
 
   useEffect(() => {
@@ -5768,8 +5811,8 @@ export default function Dashboard() {
 
     hasLoadedDashboardRef.current = false;
     setGuardChecked(false);
-    setLoading(true);
-  }, [cacheKey, hydrateFromCache]);
+    setLoading(!hasDashboardFinanceContent(initialCache) && financeDataLoading);
+  }, [cacheKey, financeDataLoading, hydrateFromCache]);
 
   useEffect(() => {
     setNotificationSettings(readStoredNotificationSettings(userId));
@@ -6037,7 +6080,9 @@ export default function Dashboard() {
 
       const ownerKey = cacheKey || currentUser.id || currentUser.email || "guest";
       if (dashboardPageInFlight?.key === ownerKey) return dashboardPageInFlight.promise;
-      if (!hasLoadedDashboardRef.current && !background) setLoading(true);
+      if (!hasLoadedDashboardRef.current && !background && !hasDashboardFinanceContent(dashboardPageCache)) {
+        setLoading(true);
+      }
 
       try {
         const promise = (async () => {
@@ -9277,6 +9322,20 @@ export default function Dashboard() {
         : "max-h-[calc(100svh-132px)] overflow-y-auto overscroll-y-contain touch-pan-y pr-0.5 pb-[calc(env(safe-area-inset-bottom)+14px)] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden";
 
   const dashboardSmartScrollClass = "overflow-y-hidden";
+  const hasVisibleFinanceData = hasDashboardFinanceContent({
+    wallets,
+    expenses,
+    budgets,
+    savingsGoals,
+    walletTransactions,
+    emergencyFund,
+    walletMoney,
+  });
+  const shouldShowBlockingDashboardLoader = loading && !hasVisibleFinanceData;
+  const shouldShowNonBlockingRefresh = Boolean(
+    financeDataRefreshing ||
+      (financeDataLoading && hasVisibleFinanceData)
+  );
   const dashboardSmartContentClass = "";
 
   const headerQuickActions = [
@@ -9312,12 +9371,12 @@ export default function Dashboard() {
     },
   ];
 
-  if (!guardChecked) {
+  if (!guardChecked && shouldShowBlockingDashboardLoader) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-[#061018] text-white">
         <div className="flex flex-col items-center gap-3">
           <div className="h-10 w-10 animate-spin rounded-full border-4 border-white/15 border-t-emerald-400" />
-          <p className="text-sm text-white/75">Checking access...</p>
+          <p className="text-sm text-white/75">Loading dashboard...</p>
         </div>
       </div>
     );
@@ -9897,6 +9956,12 @@ export default function Dashboard() {
         {!!user && (
           <div className={`${dashboardScale.financeWrap} ${hasBillboardContent ? "mt-[clamp(16px,2.6dvh,24px)]" : ""}`}>
             <FinanceInlineAlert notice={financeNotice} onClose={closeFinanceNotice} />
+            {shouldShowNonBlockingRefresh ? (
+              <div className="mb-3 inline-flex items-center gap-2 rounded-full border border-emerald-300/15 bg-emerald-400/10 px-3 py-1.5 text-[11px] font-semibold text-emerald-100/80">
+                <span className="h-2 w-2 animate-pulse rounded-full bg-emerald-300" />
+                Refreshing finance data...
+              </div>
+            ) : null}
             <div className={`overflow-hidden ${dashboardScale.financeClip}`}>
               <div
                 ref={financeCarouselRef}
@@ -11633,11 +11698,13 @@ export default function Dashboard() {
         </FinanceField>
       </FinanceActionModal>
 
-      <ClaraAssistantPanel
-        open={showAiAssistant}
-        onClose={() => setShowAiAssistant(false)}
-        context={claraAssistantContext}
-      />
+      {dashboardShellReady ? (
+        <ClaraAssistantPanel
+          open={showAiAssistant}
+          onClose={() => setShowAiAssistant(false)}
+          context={claraAssistantContext}
+        />
+      ) : null}
 
     </div>
   );
