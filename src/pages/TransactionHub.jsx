@@ -42,14 +42,30 @@ const cleanNumber = (value) => {
   return Number.isFinite(n) ? n : 0;
 };
 
+const normalizeText = (value) => String(value || "").trim().toLowerCase();
+
+const hasValue = (value) =>
+  value !== undefined && value !== null && String(value).trim() !== "";
+
 const parseDate = (value) => {
-  const date = new Date(value);
-  return Number.isNaN(date.getTime()) ? new Date() : date;
+  if (value instanceof Date && !Number.isNaN(value.getTime())) return value;
+
+  if (!hasValue(value)) return new Date();
+
+  const text = String(value).trim();
+
+  if (/^\d{4}-\d{2}-\d{2}$/.test(text)) {
+    const [year, month, day] = text.split("-").map(Number);
+    return new Date(year, month - 1, day, 12, 0, 0, 0);
+  }
+
+  const parsed = new Date(text);
+  return Number.isNaN(parsed.getTime()) ? new Date() : parsed;
 };
 
-const dateKey = (value) => {
+const monthKey = (value) => {
   const d = parseDate(value);
-  return `${d.getFullYear()}-${d.getMonth() + 1}`;
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
 };
 
 const formatTime = (value) =>
@@ -81,11 +97,6 @@ const isJsonLike = (value) => {
   );
 };
 
-const hasValue = (value) =>
-  value !== undefined && value !== null && String(value).trim() !== "";
-
-const normalizeText = (value) => String(value || "").trim().toLowerCase();
-
 const isDeletedRecord = (item) =>
   Boolean(
     item?.deletedAt ||
@@ -99,7 +110,6 @@ const getFirstValue = (item, keys = []) => {
   for (const key of keys) {
     if (hasValue(item?.[key])) return item[key];
   }
-
   return "";
 };
 
@@ -110,7 +120,7 @@ const getLast12Months = () => {
     const d = new Date(now.getFullYear(), now.getMonth() - index, 1);
 
     return {
-      key: `${d.getFullYear()}-${d.getMonth() + 1}`,
+      key: monthKey(d),
       label: d.toLocaleDateString("en-PH", {
         month: "short",
         year: "numeric",
@@ -122,9 +132,9 @@ const getLast12Months = () => {
 const getGroup = (item) => {
   if (item?.__activityGroup) return item.__activityGroup;
 
-  const type = normalizeText(item.type);
-  const category = normalizeText(item.category);
-  const sourceType = normalizeText(item.source_type || item.sourceType);
+  const type = normalizeText(item?.type);
+  const category = normalizeText(item?.category);
+  const sourceType = normalizeText(item?.source_type || item?.sourceType);
 
   if (type.includes("transfer") || sourceType.includes("transfer")) {
     return "transfer";
@@ -133,7 +143,10 @@ const getGroup = (item) => {
   if (
     type.includes("saving") ||
     category.includes("saving") ||
-    sourceType.includes("saving")
+    sourceType.includes("saving") ||
+    type.includes("emergency") ||
+    category.includes("emergency") ||
+    sourceType.includes("emergency")
   ) {
     return "savings";
   }
@@ -174,17 +187,33 @@ const isLinkedExpenseWalletTransaction = (item) => {
   );
 };
 
-const getLinkedDedupeKey = (item, group, fallback) => {
+const getStableDedupeKey = (item, group, source, fallback) => {
   const expenseId = getFirstValue(item, ["expense_id", "expenseId"]);
   if (expenseId) return `expense:${expenseId}`;
 
-  const transferGroupId = getFirstValue(item, [
+  const transferId = getFirstValue(item, [
     "transfer_group_id",
     "transferGroupId",
     "transfer_id",
     "transferId",
   ]);
-  if (transferGroupId) return `transfer:${transferGroupId}`;
+  if (transferId) return `transfer:${transferId}`;
+
+  const savingsId = getFirstValue(item, [
+    "savings_transaction_id",
+    "savingsTransactionId",
+    "savings_goal_id",
+    "savingsGoalId",
+  ]);
+  if (savingsId) return `savings:${savingsId}`;
+
+  const emergencyId = getFirstValue(item, [
+    "emergency_fund_transaction_id",
+    "emergencyFundTransactionId",
+    "emergency_fund_id",
+    "emergencyFundId",
+  ]);
+  if (emergencyId) return `emergency:${emergencyId}`;
 
   const transactionId = getFirstValue(item, [
     "transaction_id",
@@ -198,20 +227,20 @@ const getLinkedDedupeKey = (item, group, fallback) => {
   if (localId) return `${group}:local:${localId}`;
 
   const id = getFirstValue(item, ["id"]);
-  if (id) return `${group}:id:${id}`;
+  if (id) return `${group}:${source}:id:${id}`;
 
   return fallback;
 };
 
-const getSignedAmount = (item) => {
-  const group = getGroup(item);
-  const amount = Math.abs(cleanNumber(item.amount));
+const getSignedAmountByGroup = (group, amount) => {
+  const safeAmount = Math.abs(cleanNumber(amount));
 
-  if (group === "expense" || group === "savings") return -amount;
-  if (group === "income") return amount;
+  if (group === "expense") return -safeAmount;
+  if (group === "savings") return -safeAmount;
+  if (group === "income") return safeAmount;
   if (group === "transfer") return 0;
 
-  return cleanNumber(item.amount);
+  return cleanNumber(amount);
 };
 
 const getIcon = (group) => {
@@ -306,20 +335,22 @@ const TIMELINE_GROUPS = [
 ];
 
 function getTimelineStats(items) {
-  const spent = items
-    .filter((item) => item.group === "expense" || item.group === "savings")
+  const expenses = items
+    .filter((item) => item.group === "expense")
+    .reduce((sum, item) => sum + Math.abs(item.signedAmount), 0);
+
+  const savings = items
+    .filter((item) => item.group === "savings")
     .reduce((sum, item) => sum + Math.abs(item.signedAmount), 0);
 
   const income = items
     .filter((item) => item.group === "income")
     .reduce((sum, item) => sum + Math.abs(item.signedAmount), 0);
 
-  const total = income - spent;
-
   return {
-    spent,
+    spent: expenses + savings,
     income,
-    total,
+    total: income - expenses - savings,
     count: items.length,
   };
 }
@@ -749,7 +780,7 @@ export default function TransactionHub() {
   const financial = useFinancialData(user);
 
   const months = useMemo(() => getLast12Months(), []);
-  const [month, setMonth] = useState(() => months[0]?.key);
+  const [month, setMonth] = useState(() => months[0]?.key || monthKey(new Date()));
   const [filter, setFilter] = useState("all");
   const [search, setSearch] = useState("");
   const [refreshing, setRefreshing] = useState(false);
@@ -840,11 +871,16 @@ export default function TransactionHub() {
           item.date ||
           item.transaction_date ||
           item.transactionDate ||
+          item.paid_at ||
+          item.paidAt ||
+          item.logged_at ||
+          item.loggedAt ||
           item.updated_at ||
           item.updatedAt ||
           new Date();
 
         const group = getGroup(item);
+        const source = item.__activitySource || "source";
 
         const wallet =
           walletMap.get(String(item.wallet_id || "")) ||
@@ -854,25 +890,31 @@ export default function TransactionHub() {
           walletMap.get(String(item.to_wallet_id || "")) ||
           walletMap.get(String(item.toWalletId || "")) ||
           walletMap.get(String(item.source_wallet_id || "")) ||
-          walletMap.get(String(item.destination_wallet_id || ""));
+          walletMap.get(String(item.sourceWalletId || "")) ||
+          walletMap.get(String(item.destination_wallet_id || "")) ||
+          walletMap.get(String(item.destinationWalletId || ""));
 
         const fromWallet =
           walletMap.get(String(item.from_wallet_id || "")) ||
           walletMap.get(String(item.fromWalletId || "")) ||
-          walletMap.get(String(item.source_wallet_id || ""));
+          walletMap.get(String(item.source_wallet_id || "")) ||
+          walletMap.get(String(item.sourceWalletId || ""));
 
         const toWallet =
           walletMap.get(String(item.to_wallet_id || "")) ||
           walletMap.get(String(item.toWalletId || "")) ||
-          walletMap.get(String(item.destination_wallet_id || ""));
+          walletMap.get(String(item.destination_wallet_id || "")) ||
+          walletMap.get(String(item.destinationWalletId || ""));
 
-        const note = item.notes || item.note || item.description || "";
+        const note = item.notes || item.note || item.description || item.memo || "";
+        const amount = Math.abs(cleanNumber(item.amount || item.value || item.total));
+        const signedAmount = getSignedAmountByGroup(group, amount);
 
-        const fallbackKey = `${group}-${item.__activitySource || "source"}-${date}-${
-          item.amount
-        }-${item.category || item.type || index}`;
+        const fallbackKey = `${group}:${source}:${monthKey(date)}:${parseDate(
+          date
+        ).getTime()}:${amount}:${item.category || item.type || index}`;
 
-        const dedupeKey = getLinkedDedupeKey(item, group, fallbackKey);
+        const dedupeKey = getStableDedupeKey(item, group, source, fallbackKey);
 
         if (seen.has(dedupeKey)) return null;
         seen.add(dedupeKey);
@@ -884,17 +926,18 @@ export default function TransactionHub() {
               }`
             : "";
 
-        return {
+        const normalized = {
           id: dedupeKey,
           raw: item,
           date,
-          monthKey: dateKey(date),
+          monthKey: monthKey(date),
           group,
           type: item.type || item.source_type || item.sourceType || group,
           title: titleCase(
             item.title ||
               item.name ||
               item.merchant ||
+              item.payee ||
               item.category ||
               item.source_type ||
               item.sourceType ||
@@ -908,12 +951,33 @@ export default function TransactionHub() {
             wallet?.wallet_name ||
             wallet?.title ||
             "",
-          amount: Math.abs(cleanNumber(item.amount)),
-          signedAmount: getSignedAmount(item),
+          amount,
+          signedAmount,
           needType: item.need_type || item.needType || "",
           planningStatus:
             item.planning_status || item.planningStatus || item.status || "",
           note: isJsonLike(note) ? "" : String(note || "").trim(),
+        };
+
+        return {
+          ...normalized,
+          searchText: [
+            normalized.title,
+            normalized.category,
+            normalized.walletName,
+            normalized.note,
+            normalized.type,
+            normalized.group,
+            normalized.needType,
+            normalized.planningStatus,
+            normalized.amount,
+            normalized.signedAmount,
+            peso(normalized.amount),
+            formatDateOnly(normalized.date),
+            formatTime(normalized.date),
+          ]
+            .join(" ")
+            .toLowerCase(),
         };
       })
       .filter(Boolean)
@@ -933,27 +997,11 @@ export default function TransactionHub() {
   );
 
   const filtered = useMemo(() => {
-    const q = search.toLowerCase();
+    const q = search.trim().toLowerCase();
 
     return monthlyActivity.filter((item) => {
       const matchesFilter = filter === "all" || item.group === filter;
-      const matchesSearch =
-        !q ||
-        [
-          item.title,
-          item.category,
-          item.walletName,
-          item.type,
-          item.note,
-          item.needType,
-          item.planningStatus,
-          item.amount,
-          item.signedAmount,
-          formatDateOnly(item.date),
-        ]
-          .join(" ")
-          .toLowerCase()
-          .includes(q);
+      const matchesSearch = !q || item.searchText.includes(q);
 
       return matchesFilter && matchesSearch;
     });
@@ -991,6 +1039,15 @@ export default function TransactionHub() {
     };
   }, [monthlyActivity, filtered.length]);
 
+  const hasOfflineReadyData =
+    Boolean(activity.length) ||
+    Boolean(safeWallets.length) ||
+    Boolean(safeExpenses.length) ||
+    Boolean(safeWalletTransactions.length) ||
+    Boolean(safeTransfers.length) ||
+    Boolean(safeSavingsTransactions.length) ||
+    Boolean(safeEmergencyTransactions.length);
+
   const refresh = async () => {
     if (typeof financial.refreshData !== "function") return;
 
@@ -1015,14 +1072,7 @@ export default function TransactionHub() {
   const selectedMonthLabel =
     months.find((item) => item.key === month)?.label || "This month";
 
-  const hasOfflineReadyData =
-    Boolean(activity.length) ||
-    Boolean(safeWallets.length) ||
-    Boolean(safeExpenses.length) ||
-    Boolean(safeWalletTransactions.length) ||
-    Boolean(safeTransfers.length);
-
-  if (userLoading || financial.loading) {
+  if ((userLoading || financial.loading) && !hasOfflineReadyData) {
     return <LoadingState />;
   }
 
@@ -1073,6 +1123,12 @@ export default function TransactionHub() {
             <RefreshCw className={`h-4.5 w-4.5 ${refreshing ? "animate-spin" : ""}`} />
           </button>
         </header>
+
+        {financial.error && hasOfflineReadyData ? (
+          <div className="rounded-[20px] border border-amber-300/15 bg-amber-400/8 px-4 py-3 text-xs font-semibold leading-5 text-amber-50/70">
+            Offline data is visible. Live refresh could not complete.
+          </div>
+        ) : null}
 
         <section className="grid grid-cols-2 gap-2">
           <GlassDropdown
