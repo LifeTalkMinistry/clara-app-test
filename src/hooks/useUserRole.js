@@ -13,16 +13,25 @@ import {
 } from "@/lib/plan-config";
 import { deriveEffectiveEntitlements } from "@/lib/clara-entitlements";
 
+const buildFallbackPlanConfig = (plan) => ({
+  plan_key: normalizePlanKey(plan || "free"),
+});
+
 const buildResolvedUser = (authUser, profile, accessState, referralsEnabled) => {
   if (!authUser) return null;
 
+  const safeProfile = profile || {};
+
   const fullName =
-    profile?.full_name ||
+    safeProfile?.full_name ||
     authUser.user_metadata?.full_name ||
     authUser.user_metadata?.name ||
     "";
 
-  const plan = normalizePlanKey(accessState?.plan || profile?.plan || "free");
+  const plan = normalizePlanKey(
+    accessState?.plan || safeProfile?.plan || "free"
+  );
+
   const subscriptionStatus =
     plan === "free"
       ? "free"
@@ -31,16 +40,19 @@ const buildResolvedUser = (authUser, profile, accessState, referralsEnabled) => 
         : plan === "core_599"
           ? "core"
           : "life_os";
+
   const accessLevel = normalizeAccessLevel(
-    profile?.access_level || subscriptionStatus || getAccessLevelForPlan(plan)
+    safeProfile?.access_level ||
+      subscriptionStatus ||
+      getAccessLevelForPlan(plan)
   );
 
   return {
-    ...(profile || {}),
+    ...safeProfile,
     id: authUser.id,
     email: authUser.email,
     full_name: fullName,
-    role: profile?.role || "user",
+    role: safeProfile?.role || accessState?.role || "user",
     plan,
     subscription_status: subscriptionStatus,
     access_level: accessLevel,
@@ -50,38 +62,40 @@ const buildResolvedUser = (authUser, profile, accessState, referralsEnabled) => 
       access_level: accessLevel,
       status: subscriptionStatus,
       label: PLAN_LABELS[plan] || "Free",
-      isPaid: Boolean(accessState.isPaid),
-      isPro: Boolean(accessState.isPaid) || plan === "pro_99",
+      isPaid: Boolean(accessState?.isPaid),
+      isPro: Boolean(accessState?.isPaid) || plan === "pro_99",
       isCore: plan === "core_599",
       isLifeOS: plan === "coaching_1299",
     },
-    enrollment_status: profile?.enrollment_status || "none",
-    status: profile?.status || "free",
-    is_enrolled: profile?.is_enrolled || false,
-    program_active: profile?.program_active || false,
-    entitlement_status: profile?.entitlement_status || "free",
-    challenge_started: profile?.challenge_started || false,
-    active_day_number: Number(profile?.active_day_number || 0),
-    current_day_status: profile?.current_day_status || "not_started",
-    coaching_credits_total: Number(profile?.coaching_credits_total || 0),
-    coaching_credits_used: Number(profile?.coaching_credits_used || 0),
-    coaching_credits_remaining: Number(profile?.coaching_credits_remaining || 0),
-    entitlements: deriveEffectiveEntitlements(profile || {}),
-    onboarding_completed: profile?.onboarding_completed || false,
-    onboarding_step: profile?.onboarding_step || 0,
+    enrollment_status: safeProfile?.enrollment_status || "none",
+    status: safeProfile?.status || "free",
+    is_enrolled: safeProfile?.is_enrolled || false,
+    program_active: safeProfile?.program_active || false,
+    entitlement_status: safeProfile?.entitlement_status || "free",
+    challenge_started: safeProfile?.challenge_started || false,
+    active_day_number: Number(safeProfile?.active_day_number || 0),
+    current_day_status: safeProfile?.current_day_status || "not_started",
+    coaching_credits_total: Number(safeProfile?.coaching_credits_total || 0),
+    coaching_credits_used: Number(safeProfile?.coaching_credits_used || 0),
+    coaching_credits_remaining: Number(
+      safeProfile?.coaching_credits_remaining || 0
+    ),
+    entitlements: deriveEffectiveEntitlements(safeProfile || {}),
+    onboarding_completed: safeProfile?.onboarding_completed || false,
+    onboarding_step: safeProfile?.onboarding_step || 0,
     program_onboarding_completed:
-      profile?.program_onboarding_completed || false,
+      safeProfile?.program_onboarding_completed || false,
     has_completed_program_onboarding:
-      profile?.has_completed_program_onboarding || false,
-    activation_status: profile?.activation_status || "not_required",
-    is_activated: Boolean(accessState.isActivated),
-    is_pre_activation: Boolean(accessState.isPreActivation),
-    activated_at: profile?.activated_at || null,
+      safeProfile?.has_completed_program_onboarding || false,
+    activation_status: safeProfile?.activation_status || "not_required",
+    is_activated: Boolean(accessState?.isActivated),
+    is_pre_activation: Boolean(accessState?.isPreActivation),
+    activated_at: safeProfile?.activated_at || null,
     has_referral_access:
-      accessState.isAdmin ||
-      accessState.isPaid ||
+      accessState?.isAdmin ||
+      accessState?.isPaid ||
       referralsEnabled ||
-      profile?.has_referral_access === true,
+      safeProfile?.has_referral_access === true,
     profile: profile || null,
   };
 };
@@ -94,26 +108,34 @@ export default function useUserRole() {
     authReady,
     refreshProfile,
   } = useAuth();
-  const { plansByKey, loading: plansLoading } = usePlanAccess();
 
-  const loading =
-    !authReady ||
-    (Boolean(authUser) && profile === null) ||
-    authLoading ||
-    plansLoading;
+  const { plansByKey = {} } = usePlanAccess();
+
+  const loading = !authReady || authLoading;
+  const ready = !loading;
 
   const accessState = useMemo(() => {
-    if (!authUser || !profile) {
+    if (!authUser) {
       return deriveAccessState({
-        role: authUser?.user_metadata?.role || "user",
+        role: "user",
+        plan: "free",
+        access_level: "free",
       });
     }
 
-    return deriveAccessState(profile);
+    return deriveAccessState({
+      ...(profile || {}),
+      role: profile?.role || authUser?.user_metadata?.role || "user",
+      plan: profile?.plan || profile?.subscription_plan || "free",
+      access_level:
+        profile?.access_level ||
+        profile?.subscription_status ||
+        getAccessLevelForPlan(profile?.plan || "free"),
+    });
   }, [authUser, profile]);
 
   const role = accessState.role;
-  const plan = accessState.plan;
+  const plan = normalizePlanKey(accessState.plan || "free");
   const isAdmin = accessState.isAdmin;
   const isAdvertiser = accessState.isAdvertiser;
   const isPaid = accessState.isPaid;
@@ -121,7 +143,11 @@ export default function useUserRole() {
   const isFree = accessState.isFree;
   const isPreActivation = accessState.isPreActivation;
   const isActivated = accessState.isActivated;
-  const planConfig = plansByKey[plan] || null;
+
+  const planConfig = useMemo(
+    () => plansByKey?.[plan] || buildFallbackPlanConfig(plan),
+    [plansByKey, plan]
+  );
 
   const planLabel = isAdmin
     ? "Admin"
@@ -130,8 +156,10 @@ export default function useUserRole() {
       : PLAN_LABELS[plan] || "Free";
 
   const featureModes = useMemo(() => {
+    const safePlanConfig = planConfig || buildFallbackPlanConfig(plan);
+
     const baseModes = FEATURE_DEFINITIONS.reduce((acc, feature) => {
-      acc[feature.key] = getFeatureMode(planConfig || { plan_key: plan }, feature.key);
+      acc[feature.key] = getFeatureMode(safePlanConfig, feature.key);
       return acc;
     }, {});
 
@@ -143,14 +171,19 @@ export default function useUserRole() {
       modules: "preview",
       community: "view",
       messages: "admin_only",
-      ai: plan === "coaching_1299" ? "life_os" : plan === "core_599" ? "advanced" : "off",
+      ai:
+        plan === "coaching_1299"
+          ? "life_os"
+          : plan === "core_599"
+            ? "advanced"
+            : "off",
     };
   }, [isPreActivation, plan, planConfig]);
 
   const isFeatureAvailable = useCallback(
     (featureKey) => {
       if (isAdmin || isAdvertiser) return true;
-      return featureModes[featureKey] && featureModes[featureKey] !== "off";
+      return Boolean(featureModes[featureKey] && featureModes[featureKey] !== "off");
     },
     [featureModes, isAdmin, isAdvertiser]
   );
@@ -178,7 +211,7 @@ export default function useUserRole() {
         authUser,
         profile,
         accessState,
-        isFeatureEnabled(planConfig || { plan_key: plan }, "referrals")
+        isFeatureEnabled(planConfig || buildFallbackPlanConfig(plan), "referrals")
       ),
     [accessState, authUser, plan, planConfig, profile]
   );
@@ -222,7 +255,7 @@ export default function useUserRole() {
   return {
     user,
     loading,
-    ready: !loading,
+    ready,
     role,
     plan,
     isAdmin,
