@@ -30,12 +30,11 @@ function getVolume() {
     const saved = Number(window.localStorage?.getItem(CLARA_SOUND_VOLUME_KEY));
     if (Number.isFinite(saved)) return Math.max(0, Math.min(saved, 1));
   } catch {}
-  return 0.9;
+  return 1;
 }
 
-function createTone({ frequency = 900, endFrequency = 520, duration = 0.16, volume = 1, type = "sine" } = {}) {
+function createTone(frequency = 660, duration = 0.22, volume = 1) {
   if (!isEnabled()) return;
-
   const context = getAudioContext();
   if (!context) return;
 
@@ -44,18 +43,17 @@ function createTone({ frequency = 900, endFrequency = 520, duration = 0.16, volu
     const oscillator = context.createOscillator();
     const gain = context.createGain();
 
-    oscillator.type = type;
+    oscillator.type = "square";
     oscillator.frequency.setValueAtTime(frequency, start);
-    oscillator.frequency.exponentialRampToValueAtTime(Math.max(1, endFrequency), start + duration);
 
     gain.gain.setValueAtTime(0.0001, start);
-    gain.gain.exponentialRampToValueAtTime(Math.max(0.0001, getVolume() * volume), start + 0.012);
+    gain.gain.exponentialRampToValueAtTime(Math.max(0.0001, getVolume() * volume), start + 0.01);
     gain.gain.exponentialRampToValueAtTime(0.0001, start + duration);
 
     oscillator.connect(gain);
     gain.connect(context.destination);
     oscillator.start(start);
-    oscillator.stop(start + duration + 0.03);
+    oscillator.stop(start + duration + 0.02);
   };
 
   if (context.state === "suspended") {
@@ -105,44 +103,36 @@ function inferSoundKey(target) {
 function playPattern(key = "bubble") {
   const soundKey = normalize(key) || "bubble";
 
-  switch (soundKey) {
-    case "success":
-    case "saved":
-      createTone({ frequency: 660, endFrequency: 990, duration: 0.12, volume: 0.8 });
-      window.setTimeout(() => createTone({ frequency: 940, endFrequency: 1320, duration: 0.14, volume: 0.5 }), 70);
-      break;
-    case "expense":
-    case "spend":
-      createTone({ frequency: 560, endFrequency: 220, duration: 0.18, volume: 0.8, type: "triangle" });
-      break;
-    case "income":
-    case "funds":
-      createTone({ frequency: 460, endFrequency: 920, duration: 0.17, volume: 0.82 });
-      break;
-    case "warning":
-    case "danger":
-    case "error":
-      createTone({ frequency: 320, endFrequency: 210, duration: 0.2, volume: 0.78, type: "triangle" });
-      break;
-    case "orb":
-    case "ai":
-    case "assistant":
-      createTone({ frequency: 180, endFrequency: 440, duration: 0.22, volume: 0.8, type: "triangle" });
-      break;
-    case "test":
-      createTone({ frequency: 440, endFrequency: 660, duration: 0.13, volume: 1 });
-      window.setTimeout(() => createTone({ frequency: 660, endFrequency: 880, duration: 0.13, volume: 1 }), 140);
-      window.setTimeout(() => createTone({ frequency: 880, endFrequency: 1320, duration: 0.15, volume: 1 }), 280);
-      break;
-    case "transfer":
-    case "navigation":
-    case "nav":
-    case "bubble":
-    default:
-      createTone({ frequency: 980, endFrequency: 520, duration: 0.15, volume: 1 });
-      window.setTimeout(() => createTone({ frequency: 1320, endFrequency: 760, duration: 0.09, volume: 0.4 }), 25);
-      break;
+  if (soundKey === "test") {
+    createTone(440, 0.2, 1);
+    window.setTimeout(() => createTone(660, 0.2, 1), 230);
+    window.setTimeout(() => createTone(880, 0.25, 1), 460);
+    return;
   }
+
+  if (soundKey === "warning" || soundKey === "danger" || soundKey === "error") {
+    createTone(260, 0.26, 1);
+    return;
+  }
+
+  if (soundKey === "income" || soundKey === "success" || soundKey === "saved") {
+    createTone(780, 0.18, 1);
+    window.setTimeout(() => createTone(980, 0.16, 0.8), 120);
+    return;
+  }
+
+  if (soundKey === "orb" || soundKey === "ai" || soundKey === "assistant") {
+    createTone(330, 0.22, 1);
+    window.setTimeout(() => createTone(880, 0.15, 0.7), 120);
+    return;
+  }
+
+  if (soundKey === "expense" || soundKey === "spend") {
+    createTone(360, 0.22, 1);
+    return;
+  }
+
+  createTone(720, 0.16, 1);
 }
 
 export function setClaraSoundEnabled(enabled) {
@@ -204,7 +194,7 @@ export function installClaraGlobalClickSound() {
     setVolume: setClaraSoundVolume,
   };
 
-  console.info("CLARA click sound system installed. Test by clicking inside the app.");
+  console.info("CLARA loud click sound system installed.");
 
   return () => {
     document.removeEventListener("click", handleClick, true);
