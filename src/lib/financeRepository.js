@@ -459,6 +459,10 @@ function getExpenseWalletId(expense) {
   return normalizeString(expense?.wallet_id ?? expense?.walletId);
 }
 
+function getWalletTransactionWalletId(transaction) {
+  return normalizeString(transaction?.wallet_id ?? transaction?.walletId);
+}
+
 function getTransferSourceWalletId(transferPayload) {
   return normalizeString(
     transferPayload?.from_wallet_id ??
@@ -477,6 +481,25 @@ function getTransferDestinationWalletId(transferPayload) {
       transferPayload?.destinationWalletId ??
       transferPayload?.related_wallet_id
   );
+}
+
+function getWalletTransactionBalanceImpact(transaction) {
+  if (!transaction || transaction.deletedAt) return 0;
+
+  const type = normalizeLower(transaction.type);
+  const amount = defaultToNumber(transaction.amount);
+
+  if (!amount) return 0;
+
+  if (["income", "transfer_in", "deposit", "add_funds", "add_money"].includes(type)) {
+    return amount;
+  }
+
+  if (["expense", "transfer_out", "withdrawal", "debit"].includes(type)) {
+    return -amount;
+  }
+
+  return 0;
 }
 
 function findLocalLinkedExpenseTransaction(walletTransactions, expenseId) {
@@ -983,6 +1006,205 @@ function createLocalFinanceRepository() {
         },
         "Wallet transaction"
       );
+    },
+
+    async updateWalletTransaction(localUserId, transactionId, patch) {
+      const safeLocalUserId = requireLocalUserId(localUserId);
+
+      if (!transactionId) {
+        throw new Error("Wallet transaction id is required.");
+      }
+
+      assertObjectPayload(patch, "Wallet transaction patch");
+
+      const existingTransaction = await getLocalRecordById(
+        STORE.walletTransactions,
+        transactionId,
+        safeLocalUserId
+      );
+
+      if (!existingTransaction) {
+        throw new Error("Wallet transaction not found for this local user.");
+      }
+
+      const operationTime = new Date().toISOString();
+      const oldWalletId = getWalletTransactionWalletId(existingTransaction);
+      const nextWalletId =
+        patch.wallet_id !== undefined || patch.walletId !== undefined
+          ? getWalletTransactionWalletId(patch)
+          : oldWalletId;
+
+      const oldImpact = getWalletTransactionBalanceImpact(existingTransaction);
+
+      const updatedTransaction = makeLocalOperationRecord({
+        storeName: STORE.walletTransactions,
+        localUserId: safeLocalUserId,
+        existingRecord: existingTransaction,
+        operationTime,
+        idPrefix: "wallet_transaction",
+        payload: {
+          ...existingTransaction,
+          ...patch,
+          id: existingTransaction.id,
+          wallet_id: nextWalletId || null,
+          amount:
+            patch.amount !== undefined
+              ? defaultToNumber(patch.amount)
+              : defaultToNumber(existingTransaction.amount),
+          type: patch.type || existingTransaction.type || "income",
+          created_at:
+            patch.created_at ||
+            patch.date ||
+            existingTransaction.created_at ||
+            existingTransaction.createdAt ||
+            operationTime,
+          updated_at: operationTime,
+          deletedAt: patch.deletedAt ?? existingTransaction.deletedAt ?? null,
+          syncStatus: patch.syncStatus || "local_only",
+          source: "local",
+        },
+      });
+
+      const nextImpact = getWalletTransactionBalanceImpact(updatedTransaction);
+
+      const walletUpdates = [];
+
+      await runLocalFinanceTransaction(
+        [STORE.wallets],
+        safeLocalUserId,
+        async (tx) => {
+          if (oldWalletId && oldWalletId === nextWalletId) {
+            const netImpact = nextImpact - oldImpact;
+
+            if (netImpact !== 0) {
+              const wallet = await tx.get(STORE.wallets, oldWalletId);
+
+              if (!wallet) {
+                throw new Error("Wallet not found for this local user.");
+              }
+
+              const walletUpdate = makeLocalWalletBalancePatch(
+                wallet,
+                getWalletBalance(wallet) + netImpact,
+                operationTime
+              );
+
+              await tx.putRaw(STORE.wallets, walletUpdate);
+              walletUpdates.push(walletUpdate);
+            }
+
+            return;
+          }
+
+          if (oldWalletId && oldImpact !== 0) {
+            const oldWallet = await tx.get(STORE.wallets, oldWalletId);
+
+            if (!oldWallet) {
+              throw new Error("Old wallet not found for this local user.");
+            }
+
+            const oldWalletUpdate = makeLocalWalletBalancePatch(
+              oldWallet,
+              getWalletBalance(oldWallet) - oldImpact,
+              operationTime
+            );
+
+            await tx.putRaw(STORE.wallets, oldWalletUpdate);
+            walletUpdates.push(oldWalletUpdate);
+          }
+
+          if (nextWalletId && nextImpact !== 0) {
+            const nextWallet = await tx.get(STORE.wallets, nextWalletId);
+
+            if (!nextWallet) {
+              throw new Error("New wallet not found for this local user.");
+            }
+
+            const nextWalletUpdate = makeLocalWalletBalancePatch(
+              nextWallet,
+              getWalletBalance(nextWallet) + nextImpact,
+              operationTime
+            );
+
+            await tx.putRaw(STORE.wallets, nextWalletUpdate);
+            walletUpdates.push(nextWalletUpdate);
+          }
+        }
+      );
+
+      const walletTransaction = await upsertLocalRecord(
+        STORE.walletTransactions,
+        makeRepositoryRecord(updatedTransaction, "local"),
+        safeLocalUserId
+      );
+
+      return {
+        walletTransaction,
+        walletUpdates,
+      };
+    },
+
+    async deleteWalletTransaction(localUserId, transactionId) {
+      const safeLocalUserId = requireLocalUserId(localUserId);
+
+      if (!transactionId) {
+        throw new Error("Wallet transaction id is required.");
+      }
+
+      const existingTransaction = await getLocalRecordById(
+        STORE.walletTransactions,
+        transactionId,
+        safeLocalUserId
+      );
+
+      if (!existingTransaction) {
+        return {
+          deletedWalletTransactionId: null,
+          walletUpdate: null,
+        };
+      }
+
+      const operationTime = new Date().toISOString();
+      const walletId = getWalletTransactionWalletId(existingTransaction);
+      const impact = getWalletTransactionBalanceImpact(existingTransaction);
+      let walletUpdate = null;
+
+      if (walletId && impact !== 0) {
+        await runLocalFinanceTransaction([STORE.wallets], safeLocalUserId, async (tx) => {
+          const wallet = await tx.get(STORE.wallets, walletId);
+
+          if (!wallet) {
+            throw new Error("Wallet not found for this local user.");
+          }
+
+          walletUpdate = makeLocalWalletBalancePatch(
+            wallet,
+            getWalletBalance(wallet) - impact,
+            operationTime
+          );
+
+          await tx.putRaw(STORE.wallets, walletUpdate);
+        });
+      }
+
+      const deletedWalletTransaction = await softDeleteLocalRecord(
+        STORE.walletTransactions,
+        transactionId,
+        safeLocalUserId
+      );
+
+      return {
+        deletedWalletTransactionId: transactionId,
+        walletUpdate,
+        walletTransaction: deletedWalletTransaction || {
+          ...existingTransaction,
+          deletedAt: operationTime,
+          updatedAt: operationTime,
+          updated_at: operationTime,
+          syncStatus: "local_deleted",
+          source: "local",
+        },
+      };
     },
 
     async addIncome(localUserId, incomePayload) {
@@ -1741,6 +1963,8 @@ function createSupabaseLegacyFinanceRepository(repositoryOptions = {}) {
 
     getWalletTransactions: createNotImplementedRepositoryMethod("getWalletTransactions", mode),
     insertWalletTransaction: createNotImplementedRepositoryMethod("insertWalletTransaction", mode),
+    updateWalletTransaction: createNotImplementedRepositoryMethod("updateWalletTransaction", mode),
+    deleteWalletTransaction: createNotImplementedRepositoryMethod("deleteWalletTransaction", mode),
     addIncome: createNotImplementedRepositoryMethod("addIncome", mode),
     transferBetweenWallets: createNotImplementedRepositoryMethod("transferBetweenWallets", mode),
     getTransfers: createNotImplementedRepositoryMethod("getTransfers", mode),
@@ -1774,6 +1998,8 @@ function createUnsupportedModeRepository(mode) {
     deleteWallet: createReservedMethod("deleteWallet"),
     getWalletTransactions: createReservedMethod("getWalletTransactions"),
     insertWalletTransaction: createReservedMethod("insertWalletTransaction"),
+    updateWalletTransaction: createReservedMethod("updateWalletTransaction"),
+    deleteWalletTransaction: createReservedMethod("deleteWalletTransaction"),
     addIncome: createReservedMethod("addIncome"),
     transferBetweenWallets: createReservedMethod("transferBetweenWallets"),
     getTransfers: createReservedMethod("getTransfers"),
@@ -1843,6 +2069,23 @@ export async function getWalletTransactions(localUserId, options) {
 
 export async function insertWalletTransaction(localUserId, transaction, options) {
   return financeRepository.insertWalletTransaction(localUserId, transaction, options);
+}
+
+export async function updateWalletTransaction(localUserId, transactionId, patch, options) {
+  return financeRepository.updateWalletTransaction(
+    localUserId,
+    transactionId,
+    patch,
+    options
+  );
+}
+
+export async function deleteWalletTransaction(localUserId, transactionId, options) {
+  return financeRepository.deleteWalletTransaction(localUserId, transactionId, options);
+}
+
+export async function deleteIncome(localUserId, transactionId, options) {
+  return financeRepository.deleteWalletTransaction(localUserId, transactionId, options);
 }
 
 export async function addIncome(localUserId, incomePayload, options) {
