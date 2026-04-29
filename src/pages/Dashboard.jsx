@@ -9423,15 +9423,6 @@ export default function Dashboard() {
         : "max-h-[calc(100svh-132px)] overflow-y-auto overscroll-y-contain touch-pan-y pr-0.5 pb-[calc(env(safe-area-inset-bottom)+14px)] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden";
 
   const dashboardSmartScrollClass = "overflow-y-hidden";
-  const hasVisibleFinanceData = hasDashboardFinanceContent({
-    wallets,
-    expenses,
-    budgets,
-    savingsGoals,
-    walletTransactions,
-    emergencyFund,
-    walletMoney,
-  });
   const shouldShowBlockingDashboardLoader = loading && !hasVisibleFinanceData;
   const shouldShowNonBlockingRefresh = Boolean(
     financeDataRefreshing ||
