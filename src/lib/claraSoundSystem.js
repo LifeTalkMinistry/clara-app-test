@@ -1,13 +1,20 @@
 const CLARA_SOUND_STORAGE_KEY = "clara:sound-enabled";
 const CLARA_SOUND_VOLUME_KEY = "clara:sound-volume";
 
+let audioContext = null;
 let installed = false;
 let lastPlayedAt = 0;
-let audioPool = [];
-let poolIndex = 0;
 
 function normalize(value) {
   return String(value || "").toLowerCase().replace(/\s+/g, " ").trim();
+}
+
+function getAudioContext() {
+  if (typeof window === "undefined") return null;
+  const AudioCtx = window.AudioContext || window.webkitAudioContext;
+  if (!AudioCtx) return null;
+  if (!audioContext) audioContext = new AudioCtx();
+  return audioContext;
 }
 
 function isEnabled() {
@@ -23,106 +30,42 @@ function getVolume() {
     const saved = Number(window.localStorage?.getItem(CLARA_SOUND_VOLUME_KEY));
     if (Number.isFinite(saved)) return Math.max(0, Math.min(saved, 1));
   } catch {}
-
-  return 1;
+  return 0.9;
 }
 
-function writeString(view, offset, value) {
-  for (let i = 0; i < value.length; i += 1) {
-    view.setUint8(offset + i, value.charCodeAt(i));
-  }
-}
-
-function createBubbleWavDataUri() {
-  const sampleRate = 44100;
-  const duration = 0.18;
-  const sampleCount = Math.floor(sampleRate * duration);
-  const bytesPerSample = 2;
-  const blockAlign = bytesPerSample;
-  const buffer = new ArrayBuffer(44 + sampleCount * bytesPerSample);
-  const view = new DataView(buffer);
-
-  writeString(view, 0, "RIFF");
-  view.setUint32(4, 36 + sampleCount * bytesPerSample, true);
-  writeString(view, 8, "WAVE");
-  writeString(view, 12, "fmt ");
-  view.setUint32(16, 16, true);
-  view.setUint16(20, 1, true);
-  view.setUint16(22, 1, true);
-  view.setUint32(24, sampleRate, true);
-  view.setUint32(28, sampleRate * blockAlign, true);
-  view.setUint16(32, blockAlign, true);
-  view.setUint16(34, 16, true);
-  writeString(view, 36, "data");
-  view.setUint32(40, sampleCount * bytesPerSample, true);
-
-  for (let i = 0; i < sampleCount; i += 1) {
-    const t = i / sampleRate;
-    const progress = i / sampleCount;
-    const envelope = Math.sin(Math.PI * progress) * Math.pow(1 - progress, 0.55);
-    const sweepA = 980 - progress * 470;
-    const sweepB = 1320 - progress * 560;
-    const sample =
-      Math.sin(2 * Math.PI * sweepA * t) * 0.72 +
-      Math.sin(2 * Math.PI * sweepB * t) * 0.28;
-    const value = Math.max(-1, Math.min(1, sample * envelope * 0.85));
-    view.setInt16(44 + i * bytesPerSample, value * 32767, true);
-  }
-
-  let binary = "";
-  const bytes = new Uint8Array(buffer);
-  const chunkSize = 0x8000;
-
-  for (let i = 0; i < bytes.length; i += chunkSize) {
-    const chunk = bytes.subarray(i, i + chunkSize);
-    binary += String.fromCharCode.apply(null, chunk);
-  }
-
-  return `data:audio/wav;base64,${btoa(binary)}`;
-}
-
-function ensureAudioPool() {
-  if (audioPool.length > 0 || typeof Audio === "undefined") return audioPool;
-
-  const src = createBubbleWavDataUri();
-  audioPool = Array.from({ length: 6 }, () => {
-    const audio = new Audio(src);
-    audio.preload = "auto";
-    audio.volume = getVolume();
-    return audio;
-  });
-
-  return audioPool;
-}
-
-function playHtmlBubble() {
+function createTone({ frequency = 900, endFrequency = 520, duration = 0.16, volume = 1, type = "sine" } = {}) {
   if (!isEnabled()) return;
 
-  const pool = ensureAudioPool();
-  if (!pool.length) return;
+  const context = getAudioContext();
+  if (!context) return;
 
-  const audio = pool[poolIndex % pool.length];
-  poolIndex += 1;
+  const startSound = () => {
+    const start = context.currentTime;
+    const oscillator = context.createOscillator();
+    const gain = context.createGain();
 
-  try {
-    audio.pause();
-    audio.currentTime = 0;
-    audio.volume = getVolume();
-    const result = audio.play();
-    if (result?.catch) {
-      result.catch((error) => {
-        console.warn("CLARA sound play blocked:", error?.message || error);
-      });
-    }
-  } catch (error) {
-    console.warn("CLARA sound failed:", error);
+    oscillator.type = type;
+    oscillator.frequency.setValueAtTime(frequency, start);
+    oscillator.frequency.exponentialRampToValueAtTime(Math.max(1, endFrequency), start + duration);
+
+    gain.gain.setValueAtTime(0.0001, start);
+    gain.gain.exponentialRampToValueAtTime(Math.max(0.0001, getVolume() * volume), start + 0.012);
+    gain.gain.exponentialRampToValueAtTime(0.0001, start + duration);
+
+    oscillator.connect(gain);
+    gain.connect(context.destination);
+    oscillator.start(start);
+    oscillator.stop(start + duration + 0.03);
+  };
+
+  if (context.state === "suspended") {
+    context.resume().then(startSound).catch((error) => {
+      console.warn("CLARA sound resume blocked:", error?.message || error);
+    });
+    return;
   }
 
-  if (navigator.vibrate) {
-    try {
-      navigator.vibrate(8);
-    } catch {}
-  }
+  startSound();
 }
 
 function isSilentTarget(target) {
@@ -159,6 +102,49 @@ function inferSoundKey(target) {
   return "bubble";
 }
 
+function playPattern(key = "bubble") {
+  const soundKey = normalize(key) || "bubble";
+
+  switch (soundKey) {
+    case "success":
+    case "saved":
+      createTone({ frequency: 660, endFrequency: 990, duration: 0.12, volume: 0.8 });
+      window.setTimeout(() => createTone({ frequency: 940, endFrequency: 1320, duration: 0.14, volume: 0.5 }), 70);
+      break;
+    case "expense":
+    case "spend":
+      createTone({ frequency: 560, endFrequency: 220, duration: 0.18, volume: 0.8, type: "triangle" });
+      break;
+    case "income":
+    case "funds":
+      createTone({ frequency: 460, endFrequency: 920, duration: 0.17, volume: 0.82 });
+      break;
+    case "warning":
+    case "danger":
+    case "error":
+      createTone({ frequency: 320, endFrequency: 210, duration: 0.2, volume: 0.78, type: "triangle" });
+      break;
+    case "orb":
+    case "ai":
+    case "assistant":
+      createTone({ frequency: 180, endFrequency: 440, duration: 0.22, volume: 0.8, type: "triangle" });
+      break;
+    case "test":
+      createTone({ frequency: 440, endFrequency: 660, duration: 0.13, volume: 1 });
+      window.setTimeout(() => createTone({ frequency: 660, endFrequency: 880, duration: 0.13, volume: 1 }), 140);
+      window.setTimeout(() => createTone({ frequency: 880, endFrequency: 1320, duration: 0.15, volume: 1 }), 280);
+      break;
+    case "transfer":
+    case "navigation":
+    case "nav":
+    case "bubble":
+    default:
+      createTone({ frequency: 980, endFrequency: 520, duration: 0.15, volume: 1 });
+      window.setTimeout(() => createTone({ frequency: 1320, endFrequency: 760, duration: 0.09, volume: 0.4 }), 25);
+      break;
+  }
+}
+
 export function setClaraSoundEnabled(enabled) {
   try {
     window.localStorage?.setItem(CLARA_SOUND_STORAGE_KEY, enabled ? "true" : "false");
@@ -170,24 +156,14 @@ export function setClaraSoundVolume(volume) {
   try {
     window.localStorage?.setItem(CLARA_SOUND_VOLUME_KEY, String(safeVolume));
   } catch {}
-
-  audioPool.forEach((audio) => {
-    audio.volume = safeVolume;
-  });
 }
 
 export function playClaraSound(soundKey = "bubble", options = {}) {
   const now = Date.now();
   const minGap = options.force ? 0 : 45;
-
   if (now - lastPlayedAt < minGap) return;
   lastPlayedAt = now;
-
-  playHtmlBubble();
-
-  if (window.__CLARA_SOUND_DEBUG__) {
-    console.info("CLARA sound played:", soundKey);
-  }
+  playPattern(soundKey);
 }
 
 export function playClaraBubblePop() {
@@ -198,9 +174,7 @@ export function installClaraGlobalClickSound() {
   if (installed || typeof document === "undefined") return () => {};
   installed = true;
 
-  ensureAudioPool();
-
-  const handlePointerDown = (event) => {
+  const handleClick = (event) => {
     if (isSilentTarget(event.target)) return;
     playClaraSound(inferSoundKey(event.target), { force: true });
   };
@@ -211,9 +185,7 @@ export function installClaraGlobalClickSound() {
     playClaraSound(inferSoundKey(event.target), { force: true });
   };
 
-  document.addEventListener("pointerdown", handlePointerDown, true);
-  document.addEventListener("touchstart", handlePointerDown, true);
-  document.addEventListener("mousedown", handlePointerDown, true);
+  document.addEventListener("click", handleClick, true);
   document.addEventListener("keydown", handleKeyDown, true);
 
   window.CLARA_SOUND = {
@@ -227,20 +199,15 @@ export function installClaraGlobalClickSound() {
     warning: () => playClaraSound("warning", { force: true }),
     ai: () => playClaraSound("ai", { force: true }),
     orb: () => playClaraSound("orb", { force: true }),
-    orbRelease: () => playClaraSound("orbRelease", { force: true }),
+    orbRelease: () => playClaraSound("orb", { force: true }),
     setEnabled: setClaraSoundEnabled,
     setVolume: setClaraSoundVolume,
-    enableDebug: () => {
-      window.__CLARA_SOUND_DEBUG__ = true;
-    },
   };
 
-  console.info("CLARA HTMLAudio sound system installed. Test with window.CLARA_SOUND.test().");
+  console.info("CLARA click sound system installed. Test by clicking inside the app.");
 
   return () => {
-    document.removeEventListener("pointerdown", handlePointerDown, true);
-    document.removeEventListener("touchstart", handlePointerDown, true);
-    document.removeEventListener("mousedown", handlePointerDown, true);
+    document.removeEventListener("click", handleClick, true);
     document.removeEventListener("keydown", handleKeyDown, true);
     installed = false;
   };
