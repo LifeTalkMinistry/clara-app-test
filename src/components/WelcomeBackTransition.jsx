@@ -4,6 +4,8 @@ import logo from "../../assets/icon.png";
 
 export const POST_LOGIN_WELCOME_KEY = "clara_post_login_welcome";
 
+const INTRO_DURATION_MS = 7000;
+
 function readPendingWelcome() {
   try {
     const raw = sessionStorage.getItem(POST_LOGIN_WELCOME_KEY);
@@ -50,32 +52,32 @@ export default function WelcomeBackTransition({ redirectTo = "/dashboard" }) {
       return;
     }
 
-    const timer = setTimeout(finalize, 3800);
+    const timer = setTimeout(finalize, INTRO_DURATION_MS);
     return () => clearTimeout(timer);
   }, [navigate, pendingWelcome, redirectTo]);
 
   return (
     <div className="fixed inset-0 z-[99999] flex min-h-screen items-center justify-center overflow-hidden bg-[#030609] text-white">
-      <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,rgba(45,212,191,0.14),transparent_38%),linear-gradient(180deg,rgba(255,255,255,0.04),transparent_42%,rgba(0,0,0,0.35))]" />
-      <div className="absolute left-1/2 top-1/2 h-[32rem] w-[32rem] -translate-x-1/2 -translate-y-1/2 rounded-full bg-emerald-400/10 blur-3xl animate-[claraIntroGlow_3.8s_ease-in-out_both]" />
-      <div className="absolute left-1/2 top-1/2 h-[22rem] w-[22rem] -translate-x-1/2 -translate-y-1/2 rounded-full bg-cyan-300/10 blur-3xl animate-[claraIntroGlow_3.8s_ease-in-out_both]" />
+      <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,rgba(45,212,191,0.16),transparent_42%),linear-gradient(180deg,rgba(255,255,255,0.045),transparent_42%,rgba(0,0,0,0.42))]" />
+      <div className="absolute left-1/2 top-1/2 h-[38rem] w-[38rem] -translate-x-1/2 -translate-y-1/2 rounded-full bg-emerald-400/12 blur-3xl animate-[claraIntroGlow_7s_ease-in-out_both]" />
+      <div className="absolute left-1/2 top-1/2 h-[26rem] w-[26rem] -translate-x-1/2 -translate-y-1/2 rounded-full bg-cyan-300/12 blur-3xl animate-[claraIntroGlow_7s_ease-in-out_both]" />
 
-      <div className="relative flex flex-col items-center justify-center animate-[claraIntroStage_3.8s_cubic-bezier(0.16,1,0.3,1)_both]">
-        <div className="relative flex h-44 w-44 items-center justify-center sm:h-52 sm:w-52">
-          <div className="absolute inset-[-28px] rounded-[3rem] bg-gradient-to-br from-emerald-300/35 via-cyan-300/20 to-transparent blur-3xl" />
-          <div className="absolute inset-0 rounded-[2.2rem] bg-gradient-to-br from-white/16 via-white/5 to-transparent ring-1 ring-white/10 backdrop-blur-xl shadow-[0_0_90px_rgba(45,212,191,0.32)]" />
+      <div className="relative flex flex-col items-center justify-center animate-[claraIntroStage_7s_cubic-bezier(0.16,1,0.3,1)_both]">
+        <div className="relative flex h-56 w-56 items-center justify-center sm:h-64 sm:w-64">
+          <div className="absolute inset-[-34px] rounded-[3.5rem] bg-gradient-to-br from-emerald-300/38 via-cyan-300/22 to-transparent blur-3xl" />
+          <div className="absolute inset-0 rounded-[2.6rem] bg-gradient-to-br from-white/16 via-white/5 to-transparent ring-1 ring-white/10 backdrop-blur-xl shadow-[0_0_110px_rgba(45,212,191,0.36)]" />
           <img
             src={logo}
             alt="CLARA Logo"
-            className="relative h-36 w-36 object-contain drop-shadow-[0_0_32px_rgba(45,212,191,0.42)] sm:h-44 sm:w-44"
+            className="relative h-48 w-48 object-contain drop-shadow-[0_0_42px_rgba(45,212,191,0.48)] sm:h-56 sm:w-56"
           />
         </div>
 
-        <div className="mt-7 text-center animate-[claraIntroText_3.8s_ease-out_both]">
-          <p className="font-heading text-4xl font-bold tracking-[0.22em] text-white drop-shadow-[0_0_24px_rgba(45,212,191,0.28)] sm:text-5xl">
+        <div className="mt-8 text-center animate-[claraIntroText_7s_ease-out_both]">
+          <p className="font-heading text-5xl font-bold tracking-[0.24em] text-white drop-shadow-[0_0_28px_rgba(45,212,191,0.32)] sm:text-6xl">
             CLARA
           </p>
-          <p className="mt-3 text-[0.68rem] font-semibold uppercase tracking-[0.32em] text-emerald-100/70">
+          <p className="mt-4 text-[0.72rem] font-semibold uppercase tracking-[0.34em] text-emerald-100/75">
             Life OS initializing
           </p>
         </div>
@@ -85,48 +87,56 @@ export default function WelcomeBackTransition({ redirectTo = "/dashboard" }) {
         @keyframes claraIntroStage {
           0% {
             opacity: 0;
-            transform: scale(0.34);
-            filter: blur(18px);
+            transform: scale(0.22);
+            filter: blur(20px);
           }
-          18% {
+          16% {
             opacity: 1;
+            transform: scale(1.05);
             filter: blur(0);
           }
-          58% {
+          28% {
             opacity: 1;
-            transform: scale(1.22);
+            transform: scale(1.28);
+            filter: blur(0);
           }
-          78% {
+          72% {
             opacity: 1;
-            transform: scale(1.14);
+            transform: scale(1.28);
+            filter: blur(0);
+          }
+          88% {
+            opacity: 1;
+            transform: scale(1.2);
+            filter: blur(0);
           }
           100% {
             opacity: 0;
-            transform: scale(1.08);
-            filter: blur(8px);
+            transform: scale(1.14);
+            filter: blur(10px);
           }
         }
 
         @keyframes claraIntroText {
           0%, 18% {
             opacity: 0;
-            transform: translateY(12px);
+            transform: translateY(14px);
           }
-          34%, 82% {
+          30%, 76% {
             opacity: 1;
             transform: translateY(0);
           }
           100% {
             opacity: 0;
-            transform: translateY(-6px);
+            transform: translateY(-8px);
           }
         }
 
         @keyframes claraIntroGlow {
-          0% { opacity: 0; transform: translate(-50%, -50%) scale(0.5); }
-          35% { opacity: 1; transform: translate(-50%, -50%) scale(1); }
-          82% { opacity: 0.95; transform: translate(-50%, -50%) scale(1.12); }
-          100% { opacity: 0; transform: translate(-50%, -50%) scale(1.2); }
+          0% { opacity: 0; transform: translate(-50%, -50%) scale(0.45); }
+          25% { opacity: 1; transform: translate(-50%, -50%) scale(1.08); }
+          78% { opacity: 1; transform: translate(-50%, -50%) scale(1.16); }
+          100% { opacity: 0; transform: translate(-50%, -50%) scale(1.28); }
         }
       `}</style>
     </div>
