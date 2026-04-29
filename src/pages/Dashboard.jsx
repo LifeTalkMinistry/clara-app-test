@@ -125,6 +125,39 @@ const createLocalOnlyExpenseRecord = (payload) => ({
   syncStatus: payload?.syncStatus || "local_only",
   source: payload?.source || "local",
 });
+
+const DASHBOARD_FALLBACK_BILLBOARD = {
+  id: "clara-fallback-billboard",
+  is_active: true,
+  title: "CLARA is ready offline",
+  subtitle: "Your wallet, budget, savings, and emergency fund stay available on this phone.",
+  tag: "Offline-first",
+  cta_label: "Keep tracking",
+  media_type: "none",
+  local_fallback: true,
+};
+
+const getSafeBillboards = (items = []) => {
+  const safeItems = Array.isArray(items) ? items.filter(Boolean) : [];
+  const activeItems = safeItems.filter(
+    (item) =>
+      isTruthyActive(item?.is_active) ||
+      item?.is_active === null ||
+      item?.is_active === undefined
+  );
+
+  return activeItems.length > 0 ? activeItems : [DASHBOARD_FALLBACK_BILLBOARD];
+};
+
+const isProtectedFinanceRefreshWarning = (message = "") => {
+  const normalized = normalizeLower(message).replace(/[\u2019']/g, "");
+
+  return (
+    normalized.includes("dashboard data could not fully refresh") ||
+    normalized.includes("finance data remains protected offline") ||
+    normalized.includes("could not fully refresh")
+  );
+};
 const ENROLLMENT_PENDING_STATUSES = new Set([
   "pending",
   "under_review",
@@ -778,7 +811,10 @@ const shouldSilenceNormalOfflineNotice = (message = "") => {
 const FinanceInlineAlert = ({ notice, onClose }) => {
   if (!notice?.message) return null;
 
-  if (shouldSilenceNormalOfflineNotice(notice.message)) {
+  if (
+    shouldSilenceNormalOfflineNotice(notice.message) ||
+    isProtectedFinanceRefreshWarning(notice.message)
+  ) {
     return null;
   }
 
@@ -1897,7 +1933,7 @@ const createEmptyDashboardCache = (key = null) => ({
   tasks: [],
   submissions: [],
   programRecord: null,
-  billboards: [],
+  billboards: getSafeBillboards([]),
   survivalExpense: 0,
   walletMoney: 0,
   wallets: [],
@@ -5488,7 +5524,7 @@ export default function Dashboard() {
   const [tasks, setTasks] = useState(initialCache.tasks);
   const [submissions, setSubmissions] = useState(initialCache.submissions);
   const [programRecord, setProgramRecord] = useState(initialCache.programRecord);
-  const [billboards, setBillboards] = useState(initialCache.billboards);
+  const [billboards, setBillboards] = useState(() => getSafeBillboards(initialCache.billboards));
   const [survivalExpense, setSurvivalExpense] = useState(initialCache.survivalExpense);
   const [walletMoney, setWalletMoney] = useState(initialCache.walletMoney);
   const [wallets, setWallets] = useState(Array.isArray(initialCache.wallets) ? initialCache.wallets : []);
@@ -5674,12 +5710,37 @@ export default function Dashboard() {
     financeWallets,
   ]);
 
+  const hasVisibleFinanceData = useMemo(
+    () =>
+      hasDashboardFinanceContent({
+        wallets,
+        expenses,
+        budgets,
+        savingsGoals,
+        walletTransactions,
+        emergencyFund,
+        walletMoney,
+      }),
+    [budgets, emergencyFund, expenses, savingsGoals, walletMoney, walletTransactions, wallets]
+  );
+
   useEffect(() => {
     if (!financeDataError) return;
-    const message = typeof financeDataError === "string" ? financeDataError : financeDataError?.message;
+
+    const message =
+      typeof financeDataError === "string"
+        ? financeDataError
+        : financeDataError?.message;
+
     if (!message) return;
+
+    if (hasVisibleFinanceData || isProtectedFinanceRefreshWarning(message)) {
+      console.warn("Background finance refresh warning:", message);
+      return;
+    }
+
     setFinanceNotice({ message, type: "error" });
-  }, [financeDataError]);
+  }, [financeDataError, hasVisibleFinanceData]);
 
   const dailyRemindersEnabled = notificationSettings?.dailyReminders !== false;
   const themeIsLight = selectedDashboardTheme?.isLight === true;
@@ -5775,7 +5836,7 @@ export default function Dashboard() {
     setTasks(nextCache.tasks);
     setSubmissions(nextCache.submissions);
     setProgramRecord(nextCache.programRecord);
-    setBillboards(nextCache.billboards);
+    setBillboards(getSafeBillboards(nextCache.billboards));
     setSurvivalExpense(nextCache.survivalExpense);
     setWalletMoney(nextCache.walletMoney);
     setWallets(nextCache.wallets);
@@ -5793,8 +5854,8 @@ export default function Dashboard() {
     setReminderTime(nextCache.reminderTime);
     setFinancialGoal(nextCache.financialGoal);
     hasLoadedDashboardRef.current = nextCache.loaded;
-    setLoading(!nextCache.loaded && !hasDashboardFinanceContent(nextCache));
-  }, []);
+    setLoading(!nextCache.loaded && !hasDashboardFinanceContent(nextCache) && financeDataLoading);
+  }, [financeDataLoading]);
 
   useEffect(() => {
     if (!cacheKey) {
@@ -6105,7 +6166,7 @@ export default function Dashboard() {
           const normalizedTasks = (tasksRes.data || []).map(normalizeProgramTask);
           const userProfile = (profilesRes.data || []).find((profile) => isOwnedByUser(profile, currentUser)) || null;
           const enrollmentRecord = (enrollmentsRes.data || [])[0] || null;
-          const activeBillboards = (billboardsRes.data || []).filter((item) => isTruthyActive(item?.is_active) || item?.is_active === null || item?.is_active === undefined);
+          const activeBillboards = getSafeBillboards(billboardsRes.data);
 
           const safeWallets = Array.isArray(financeWallets) ? financeWallets : [];
           const safeWalletTransactions = Array.isArray(financeWalletTransactions) ? financeWalletTransactions : [];
@@ -6129,7 +6190,7 @@ export default function Dashboard() {
             loaded: true,
             tasks: normalizedTasks,
             submissions: userSubmissions,
-            programRecord: userProgramRecord || (approved ? await ensureUserProgramAccess({ supabase, user: currentUser, profile: userProfile, enrollment: enrollmentRecord, tasks: normalizedTasks }) : null),
+            programRecord: userProgramRecord || dashboardPageCache.programRecord || null,
             billboards: activeBillboards,
             survivalExpense: firstPositiveNumber(userProfile?.monthly_survival_expense, userProfile?.survival_expense, userProfile?.clara_survival_expense, readStoredSurvivalExpense(currentUser.id), survivalExpense, dashboardPageCache.survivalExpense),
             walletMoney: nextWalletMoney,
@@ -6152,15 +6213,47 @@ export default function Dashboard() {
 
           dashboardPageCache = nextCache;
           hydrateFromCache(nextCache);
-          if (!isClaraOnline()) setFinanceNotice({ message: "You’re offline. CLARA is using offline-first finance data.", type: "success" });
+
+          if (approved && !nextCache.programRecord && currentUser.id) {
+            ensureUserProgramAccess({
+              supabase,
+              user: currentUser,
+              profile: userProfile,
+              enrollment: enrollmentRecord,
+              tasks: normalizedTasks,
+            })
+              .then((ensuredRecord) => {
+                if (!ensuredRecord) return;
+                dashboardPageCache = {
+                  ...dashboardPageCache,
+                  programRecord: ensuredRecord,
+                };
+                setProgramRecord(ensuredRecord);
+              })
+              .catch((ensureError) => {
+                console.warn("Program access background refresh failed:", ensureError);
+              });
+          }
+
+          if (!isClaraOnline() && !hasVisibleFinanceData) {
+            setFinanceNotice({
+              message: "You’re offline. CLARA is using offline-first finance data.",
+              type: "success",
+            });
+          }
           return nextCache;
         })();
 
         dashboardPageInFlight = { key: ownerKey, promise };
         return await promise;
       } catch (error) {
-        console.error("Dashboard load error:", error);
-        setFinanceNotice({ message: "Dashboard data could not fully refresh. Finance data remains protected offline.", type: "error" });
+        console.warn("Dashboard background refresh warning:", error);
+        if (!hasVisibleFinanceData && !hasDashboardFinanceContent(dashboardPageCache)) {
+          setFinanceNotice({
+            message: "Dashboard data could not fully refresh. Finance data remains protected offline.",
+            type: "error",
+          });
+        }
         return dashboardPageCache;
       } finally {
         if (dashboardPageInFlight?.key === ownerKey) dashboardPageInFlight = null;
@@ -6168,7 +6261,7 @@ export default function Dashboard() {
         setGuardChecked(true);
       }
     },
-    [cacheKey, dailyRemindersEnabled, financeBudgets, financeEmergencyFund, financeExpenses, financeSavingsGoals, financeTransfers, financeWalletTransactions, financeWallets, financialGoal, hydrateFromCache, isPaid, nickname, reminderTime, survivalExpense, user?.full_name, userEmail, userId]
+    [cacheKey, dailyRemindersEnabled, financeBudgets, financeEmergencyFund, financeExpenses, financeSavingsGoals, financeTransfers, financeWalletTransactions, financeWallets, financialGoal, hasVisibleFinanceData, hydrateFromCache, isPaid, nickname, reminderTime, survivalExpense, user?.full_name, userEmail, userId]
   );  const scheduleRefresh = useCallback(() => {
     if (refreshTimeoutRef.current) {
       clearTimeout(refreshTimeoutRef.current);
@@ -6853,6 +6946,7 @@ export default function Dashboard() {
     dailyRemindersEnabled &&
     hasPaidProgramAccess &&
     !!activeTask &&
+    dashboardShellReady &&
     !onboardingDone &&
     !showOnboarding;
 
@@ -6885,7 +6979,7 @@ export default function Dashboard() {
       clearProgramPromptSeenThisSession(user.id, floatingProgramBubble);
       setProgramPromptSeenThisSession(false);
 
-      if (!showOnboarding && dailyRemindersEnabled && hasPaidProgramAccess) {
+      if (dashboardShellReady && !showOnboarding && dailyRemindersEnabled && hasPaidProgramAccess) {
         setShowProgramStart(true);
       }
     }
@@ -6896,9 +6990,15 @@ export default function Dashboard() {
     showOnboarding,
     dailyRemindersEnabled,
     hasPaidProgramAccess,
+    dashboardShellReady,
   ]);
 
   useEffect(() => {
+    if (!dashboardShellReady) {
+      setShowProgramStart(false);
+      return;
+    }
+
     if (!dailyRemindersEnabled) {
       setShowProgramStart(false);
       return;
@@ -6938,6 +7038,7 @@ export default function Dashboard() {
     showOnboarding,
     user?.id,
     profileData,
+    dashboardShellReady,
   ]);
 
   const financeCards = useMemo(() => FINANCE_CARD_KEYS, []);
@@ -9851,7 +9952,7 @@ export default function Dashboard() {
           </div>
         )}
 
-        {hasBillboardContent && (
+        {dashboardShellReady && hasBillboardContent && (
           <div
             className={`${getDashboardGlowCardClass("teal")} ${
               billboardClickable ? "cursor-pointer" : ""
