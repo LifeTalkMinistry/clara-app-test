@@ -58,13 +58,15 @@ export default function WelcomeBackTransition({ redirectTo = "/dashboard" }) {
 
   return (
     <div className="fixed inset-0 z-[99999] flex min-h-screen items-center justify-center overflow-hidden bg-[#030609] text-white">
-      <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,rgba(45,212,191,0.16),transparent_42%),linear-gradient(180deg,rgba(255,255,255,0.045),transparent_42%,rgba(0,0,0,0.42))]" />
+      {/* minimal background only */}
+      <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,rgba(45,212,191,0.12),transparent_45%)]" />
 
       <div className="relative flex flex-col items-center justify-center animate-[claraIntroStage_7s_cubic-bezier(0.16,1,0.3,1)_both]">
+        {/* pure logo — no background */}
         <img
           src={logo}
           alt="CLARA Logo"
-          className="h-56 w-56 object-contain sm:h-64 sm:w-64"
+          className="h-64 w-64 object-contain sm:h-72 sm:w-72"
         />
 
         <p className="mt-6 font-heading text-5xl font-bold tracking-[0.24em] text-white sm:text-6xl">
