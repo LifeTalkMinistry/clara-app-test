@@ -59,84 +59,37 @@ export default function WelcomeBackTransition({ redirectTo = "/dashboard" }) {
   return (
     <div className="fixed inset-0 z-[99999] flex min-h-screen items-center justify-center overflow-hidden bg-[#030609] text-white">
       <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,rgba(45,212,191,0.16),transparent_42%),linear-gradient(180deg,rgba(255,255,255,0.045),transparent_42%,rgba(0,0,0,0.42))]" />
-      <div className="absolute left-1/2 top-1/2 h-[38rem] w-[38rem] -translate-x-1/2 -translate-y-1/2 rounded-full bg-emerald-400/12 blur-3xl animate-[claraIntroGlow_7s_ease-in-out_both]" />
-      <div className="absolute left-1/2 top-1/2 h-[26rem] w-[26rem] -translate-x-1/2 -translate-y-1/2 rounded-full bg-cyan-300/12 blur-3xl animate-[claraIntroGlow_7s_ease-in-out_both]" />
 
       <div className="relative flex flex-col items-center justify-center animate-[claraIntroStage_7s_cubic-bezier(0.16,1,0.3,1)_both]">
-        <div className="relative flex h-56 w-56 items-center justify-center sm:h-64 sm:w-64">
-          <div className="absolute inset-[-34px] rounded-[3.5rem] bg-gradient-to-br from-emerald-300/38 via-cyan-300/22 to-transparent blur-3xl" />
-          <div className="absolute inset-0 rounded-[2.6rem] bg-gradient-to-br from-white/16 via-white/5 to-transparent ring-1 ring-white/10 backdrop-blur-xl shadow-[0_0_110px_rgba(45,212,191,0.36)]" />
-          <img
-            src={logo}
-            alt="CLARA Logo"
-            className="relative h-48 w-48 object-contain drop-shadow-[0_0_42px_rgba(45,212,191,0.48)] sm:h-56 sm:w-56"
-          />
-        </div>
+        <img
+          src={logo}
+          alt="CLARA Logo"
+          className="h-56 w-56 object-contain sm:h-64 sm:w-64"
+        />
 
-        <div className="mt-8 text-center animate-[claraIntroText_7s_ease-out_both]">
-          <p className="font-heading text-5xl font-bold tracking-[0.24em] text-white drop-shadow-[0_0_28px_rgba(45,212,191,0.32)] sm:text-6xl">
-            CLARA
-          </p>
-          <p className="mt-4 text-[0.72rem] font-semibold uppercase tracking-[0.34em] text-emerald-100/75">
-            Life OS initializing
-          </p>
-        </div>
+        <p className="mt-6 font-heading text-5xl font-bold tracking-[0.24em] text-white sm:text-6xl">
+          CLARA
+        </p>
       </div>
 
       <style>{`
         @keyframes claraIntroStage {
           0% {
             opacity: 0;
-            transform: scale(0.22);
-            filter: blur(20px);
+            transform: scale(0.2);
           }
-          16% {
-            opacity: 1;
-            transform: scale(1.05);
-            filter: blur(0);
-          }
-          28% {
-            opacity: 1;
-            transform: scale(1.28);
-            filter: blur(0);
-          }
-          72% {
-            opacity: 1;
-            transform: scale(1.28);
-            filter: blur(0);
-          }
-          88% {
+          25% {
             opacity: 1;
             transform: scale(1.2);
-            filter: blur(0);
           }
-          100% {
-            opacity: 0;
-            transform: scale(1.14);
-            filter: blur(10px);
-          }
-        }
-
-        @keyframes claraIntroText {
-          0%, 18% {
-            opacity: 0;
-            transform: translateY(14px);
-          }
-          30%, 76% {
+          75% {
             opacity: 1;
-            transform: translateY(0);
+            transform: scale(1.2);
           }
           100% {
             opacity: 0;
-            transform: translateY(-8px);
+            transform: scale(1.1);
           }
-        }
-
-        @keyframes claraIntroGlow {
-          0% { opacity: 0; transform: translate(-50%, -50%) scale(0.45); }
-          25% { opacity: 1; transform: translate(-50%, -50%) scale(1.08); }
-          78% { opacity: 1; transform: translate(-50%, -50%) scale(1.16); }
-          100% { opacity: 0; transform: translate(-50%, -50%) scale(1.28); }
         }
       `}</style>
     </div>
