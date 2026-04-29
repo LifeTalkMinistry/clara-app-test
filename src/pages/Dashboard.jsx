@@ -37,7 +37,7 @@ import { createPortal } from "react-dom";
 import { supabase } from "@/lib/supabaseClient";
 import EmergencyFundCard from "../components/EmergencyFundCard";
 import WalletCard from "../components/WalletCard";
-import BudgetCard from "../components/BudgetCard";
+import BudgetCardBase from "../components/BudgetCard";
 import SavingsCard from "../components/SavingsCard";
 import ClaraAssistantPanel from "@/components/ai/ClaraAssistantPanel";
 import { Button } from "@/components/ui/button";
@@ -517,6 +517,103 @@ const getBudgetRemaining = (budget) => {
   const total = getBudgetTotal(budget);
   const spent = getBudgetSpent(budget);
   return Math.max(total - spent, 0);
+};
+
+const formatBudgetRemainingCurrency = (value) =>
+  new Intl.NumberFormat("en-PH", {
+    style: "currency",
+    currency: "PHP",
+    maximumFractionDigits: 0,
+  }).format(Number.isFinite(Number(value)) ? Number(value) : 0);
+
+const getBudgetRemainingToneClass = (spent = 0, total = 0) => {
+  const safeSpent = Number.isFinite(Number(spent)) ? Number(spent) : 0;
+  const safeTotal = Number.isFinite(Number(total)) ? Number(total) : 0;
+  const usage = safeTotal > 0 ? safeSpent / safeTotal : 0;
+
+  if (usage > 0.85) {
+    return "border-rose-300/15 bg-rose-400/10 text-rose-100 shadow-[0_0_22px_rgba(251,113,133,0.12)]";
+  }
+
+  if (usage >= 0.6) {
+    return "border-amber-300/15 bg-amber-400/10 text-amber-100 shadow-[0_0_22px_rgba(251,191,36,0.10)]";
+  }
+
+  return "border-emerald-300/15 bg-emerald-400/10 text-emerald-100 shadow-[0_0_22px_rgba(52,211,153,0.12)]";
+};
+
+const BudgetCard = ({
+  activeBudget,
+  declaredBudget,
+  budgetCategories = [],
+  remainingAmount,
+  amountLeft,
+  budgetRemaining,
+  spentAmount,
+  totalSpent,
+  ...props
+}) => {
+  const total = firstValidNumber(
+    declaredBudget,
+    activeBudget?.declared_budget,
+    activeBudget?.declared_amount,
+    activeBudget?.monthly_budget_amount,
+    activeBudget?.total_budget,
+    activeBudget?.allocated_amount,
+    activeBudget?.allocated_total
+  );
+  const spent = firstValidNumber(
+    spentAmount,
+    totalSpent,
+    activeBudget?.spent,
+    activeBudget?.spent_amount,
+    activeBudget?.total_spent,
+    budgetCategories.reduce(
+      (sum, item) => sum + firstValidNumber(item?.spent, item?.spent_amount, item?.total_spent),
+      0
+    )
+  );
+  const remaining = Math.max(
+    firstValidNumber(
+      remainingAmount,
+      amountLeft,
+      budgetRemaining,
+      activeBudget?.remaining,
+      activeBudget?.remaining_amount,
+      activeBudget?.amount_left,
+      total - spent
+    ),
+    0
+  );
+  const hasBudgetValue = total > 0 || spent > 0 || remaining > 0;
+  const toneClass = getBudgetRemainingToneClass(spent, total);
+
+  return (
+    <div className="relative isolate">
+      <BudgetCardBase
+        activeBudget={activeBudget}
+        declaredBudget={declaredBudget}
+        budgetCategories={budgetCategories}
+        remainingAmount={remaining}
+        amountLeft={remaining}
+        budgetRemaining={remaining}
+        spentAmount={spent}
+        totalSpent={spent}
+        {...props}
+      />
+
+      {hasBudgetValue ? (
+        <div className="pointer-events-none absolute left-[clamp(18px,5vw,24px)] top-[clamp(84px,12.5dvh,104px)] z-20">
+          <div
+            className={`inline-flex items-center rounded-full border px-3 py-1 text-[12px] font-semibold leading-none tracking-tight backdrop-blur-xl ${toneClass}`}
+            aria-label={`${formatBudgetRemainingCurrency(remaining)} left`}
+          >
+            {formatBudgetRemainingCurrency(remaining)} left
+          </div>
+        </div>
+      ) : null}
+    </div>
+  );
 };
 
 const getBudgetCategoryValue = (budget, keys = []) =>
@@ -10363,6 +10460,10 @@ export default function Dashboard() {
                     isComplete={monthlyBudgetPlan.is_complete}
                     unplannedSpent={monthlyBudgetPlan.unplanned_spent}
                     undocumentedSpent={monthlyBudgetPlan.undocumented_spent}
+                    remainingAmount={monthlyBudgetPlan.remaining_amount}
+                    amountLeft={monthlyBudgetPlan.remaining_amount}
+                    spentAmount={monthlyBudgetPlan.spent_amount}
+                    totalSpent={monthlyBudgetPlan.total_spent}
                     theme={selectedDashboardTheme}
                     expanded={expandedFinanceCard === "budgets"}
                     onToggleDetails={() => toggleFinanceDetails("budgets")}
@@ -10677,6 +10778,10 @@ export default function Dashboard() {
                     isComplete={monthlyBudgetPlan?.is_complete === true}
                     unplannedSpent={Number(monthlyBudgetPlan?.unplanned_spent || 0)}
                     undocumentedSpent={Number(monthlyBudgetPlan?.undocumented_spent || 0)}
+                    remainingAmount={Number(monthlyBudgetPlan?.remaining_amount || monthlyBudgetPlan?.remaining || 0)}
+                    amountLeft={Number(monthlyBudgetPlan?.remaining_amount || monthlyBudgetPlan?.remaining || 0)}
+                    spentAmount={Number(monthlyBudgetPlan?.spent_amount || monthlyBudgetPlan?.spent || monthlyBudgetPlan?.total_spent || 0)}
+                    totalSpent={Number(monthlyBudgetPlan?.total_spent || monthlyBudgetPlan?.spent_amount || monthlyBudgetPlan?.spent || 0)}
                     theme={selectedDashboardTheme}
                     expanded={true}
                     onToggleDetails={() => setExpandedFinanceCard(null)}
