@@ -158,6 +158,108 @@ const isProtectedFinanceRefreshWarning = (message = "") => {
     normalized.includes("could not fully refresh")
   );
 };
+
+const DASHBOARD_BILLBOARD_LOOKUP_VALUES = [
+  "dashboard",
+  "home",
+  "clara-dashboard",
+  "clara-home",
+  "clara-fallback-billboard",
+  "clara-dashboard-billboard",
+];
+
+const DASHBOARD_BILLBOARD_LOOKUP_FIELDS = [
+  "slug",
+  "key",
+  "section_key",
+  "placement",
+  "location",
+];
+
+const UUID_PATTERN =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
+const isValidUuid = (value) => UUID_PATTERN.test(normalizeString(value));
+
+const isLocalFallbackBillboard = (item) =>
+  Boolean(
+    item?.local_fallback ||
+      item?.localFallback ||
+      item?.id === DASHBOARD_FALLBACK_BILLBOARD.id
+  );
+
+const canTrackBillboardAnalytics = (itemOrId) => {
+  const id =
+    typeof itemOrId === "object" && itemOrId !== null ? itemOrId.id : itemOrId;
+
+  if (!id || !isValidUuid(id)) return false;
+  if (typeof itemOrId === "object" && isLocalFallbackBillboard(itemOrId)) return false;
+
+  return true;
+};
+
+const billboardMatchesDashboardPlacement = (item) => {
+  if (!item) return false;
+
+  return DASHBOARD_BILLBOARD_LOOKUP_FIELDS.some((field) => {
+    const value = normalizeLower(item?.[field]);
+    return value && DASHBOARD_BILLBOARD_LOOKUP_VALUES.includes(value);
+  });
+};
+
+const dashboardRuntimeBillboards = new Map();
+
+const getDashboardBillboardRuntimeKey = (user) =>
+  `dashboard_billboards_${normalizeString(user?.id || user?.email || "guest")}`;
+
+const getRuntimeCachedBillboards = (user, fallback = []) => {
+  const key = getDashboardBillboardRuntimeKey(user);
+  const cached = dashboardRuntimeBillboards.get(key);
+  return getSafeBillboards(Array.isArray(cached) && cached.length ? cached : fallback);
+};
+
+const setRuntimeCachedBillboards = (user, items = []) => {
+  const key = getDashboardBillboardRuntimeKey(user);
+  const safeItems = getSafeBillboards(items);
+  dashboardRuntimeBillboards.set(key, safeItems);
+  return safeItems;
+};
+
+const fetchDashboardBillboardsOfflineFirst = async ({ user, fallback = [] } = {}) => {
+  const runtimeFallback = getRuntimeCachedBillboards(user, fallback);
+
+  if (!isClaraOnline()) {
+    return runtimeFallback;
+  }
+
+  try {
+    let response = await supabase
+      .from("billboards")
+      .select("*")
+      .order("sort_order", { ascending: true })
+      .order("created_at", { ascending: false })
+      .limit(20);
+
+    if (response?.error) {
+      response = await supabase.from("billboards").select("*").limit(20);
+    }
+
+    if (response?.error) {
+      return runtimeFallback;
+    }
+
+    const rows = Array.isArray(response?.data) ? response.data.filter(Boolean) : [];
+    const activeRows = getSafeBillboards(rows).filter(
+      (item) => !isLocalFallbackBillboard(item)
+    );
+    const dashboardRows = activeRows.filter(billboardMatchesDashboardPlacement);
+    const selectedRows = dashboardRows.length ? dashboardRows : activeRows;
+
+    return setRuntimeCachedBillboards(user, selectedRows);
+  } catch {
+    return runtimeFallback;
+  }
+};
 const ENROLLMENT_PENDING_STATUSES = new Set([
   "pending",
   "under_review",
@@ -1263,6 +1365,68 @@ const hasDashboardFinanceContent = (snapshot = {}) =>
       snapshot.emergencyFund ||
       Number(snapshot.walletMoney || 0) > 0
   );
+
+const buildPersonalizedFallbackBillboard = ({
+  wallets = [],
+  expenses = [],
+  emergencyFund = null,
+  walletMoney = 0,
+} = {}) => {
+  const safeWallets = Array.isArray(wallets) ? wallets : [];
+  const safeExpenses = Array.isArray(expenses) ? expenses : [];
+  const savedEmergencyFund = firstValidNumber(
+    emergencyFund?.saved_amount,
+    emergencyFund?.current_amount,
+    emergencyFund?.saved,
+    emergencyFund?.balance,
+    emergencyFund?.amount
+  );
+  const emergencyTarget = firstValidNumber(
+    emergencyFund?.target_amount,
+    emergencyFund?.goal_amount,
+    emergencyFund?.target,
+    emergencyFund?.monthly_survival_expense
+  );
+  const emergencyRatio = emergencyTarget > 0 ? savedEmergencyFund / emergencyTarget : 0;
+
+  if (safeWallets.length === 0 && Number(walletMoney || 0) <= 0) {
+    return {
+      ...DASHBOARD_FALLBACK_BILLBOARD,
+      title: "Create your first wallet",
+      subtitle: "Start by adding where your money lives so CLARA can protect your daily decisions.",
+      tag: "Start here",
+      cta_label: "Add wallet",
+    };
+  }
+
+  if (safeExpenses.length === 0) {
+    return {
+      ...DASHBOARD_FALLBACK_BILLBOARD,
+      title: "Log your first expense",
+      subtitle: "One honest expense today gives CLARA the context to guide your budget tomorrow.",
+      tag: "First log",
+      cta_label: "Track spending",
+    };
+  }
+
+  if (!emergencyFund || savedEmergencyFund <= 0 || emergencyRatio < 0.25) {
+    return {
+      ...DASHBOARD_FALLBACK_BILLBOARD,
+      title: "Build your protection fund",
+      subtitle: "Your emergency fund turns stressful moments into planned decisions.",
+      tag: "Protection",
+      cta_label: "Keep building",
+    };
+  }
+
+  return {
+    ...DASHBOARD_FALLBACK_BILLBOARD,
+    title: "Keep your rhythm going",
+    subtitle: "Your finance data is safe on this phone. Stay consistent and let CLARA guide the next move.",
+    tag: "Consistency",
+    cta_label: "Keep tracking",
+  };
+};
 
 const getFinanceThemeAccentClass = (tone = "emerald", isLight = false) => {
   if (isLight) {
@@ -6147,18 +6311,20 @@ export default function Dashboard() {
 
       try {
         const promise = (async () => {
-          const [tasksRes, submissionsRes, userProgramRecord, billboardsRes, profilesRes, enrollmentsRes] = await Promise.all([
+          const [tasksRes, submissionsRes, userProgramRecord, remoteBillboards, profilesRes, enrollmentsRes] = await Promise.all([
             supabase.from("challenge_tasks").select("*").order("sort_order", { ascending: true }).order("day", { ascending: true }),
             supabase.from("task_submissions").select("*"),
             fetchUserProgramRecord({ supabase, userId: currentUser.id }),
-            supabase.from("billboards").select("*").order("sort_order", { ascending: true }).order("created_at", { ascending: false }).limit(10),
+            fetchDashboardBillboardsOfflineFirst({
+              user: currentUser,
+              fallback: dashboardPageCache.billboards,
+            }),
             supabase.from("profiles").select("*"),
             supabase.from("enrollments").select("*").eq("user_id", currentUser.id).order("created_at", { ascending: false }).limit(1),
           ]);
 
           if (tasksRes.error) console.error("Failed to load tasks:", tasksRes.error);
           if (submissionsRes.error) console.error("Failed to load submissions:", submissionsRes.error);
-          if (billboardsRes.error) console.error("Failed to load billboards:", billboardsRes.error);
           if (profilesRes.error) console.error("Failed to load profiles:", profilesRes.error);
           if (enrollmentsRes.error) console.error("Failed to load enrollments:", enrollmentsRes.error);
 
@@ -6166,7 +6332,7 @@ export default function Dashboard() {
           const normalizedTasks = (tasksRes.data || []).map(normalizeProgramTask);
           const userProfile = (profilesRes.data || []).find((profile) => isOwnedByUser(profile, currentUser)) || null;
           const enrollmentRecord = (enrollmentsRes.data || [])[0] || null;
-          const activeBillboards = getSafeBillboards(billboardsRes.data);
+          const activeBillboards = getSafeBillboards(remoteBillboards);
 
           const safeWallets = Array.isArray(financeWallets) ? financeWallets : [];
           const safeWalletTransactions = Array.isArray(financeWalletTransactions) ? financeWalletTransactions : [];
@@ -6283,7 +6449,7 @@ export default function Dashboard() {
 
   const trackBillboardView = useCallback(
     async (billboardId) => {
-      if (!billboardId || !user?.id) return;
+      if (!billboardId || !user?.id || !canTrackBillboardAnalytics(billboardId)) return;
       if (trackedViewIdsRef.current.has(billboardId)) return;
 
       trackedViewIdsRef.current.add(billboardId);
@@ -6316,7 +6482,7 @@ export default function Dashboard() {
 
   const trackBillboardClick = useCallback(
     async (billboardId) => {
-      if (!billboardId || !user?.id) return false;
+      if (!billboardId || !user?.id || !canTrackBillboardAnalytics(billboardId)) return false;
 
       if (trackedClickIdsRef.current.has(billboardId)) {
         return false;
@@ -9244,16 +9410,36 @@ export default function Dashboard() {
         ? "What stays available after your minimum monthly need."
         : "What your wallets still need to fully cover essentials.";
 
-  const activeBillboard =
-    billboards.find((item) => isTruthyActive(item?.is_active)) ||
-    billboards[0] ||
-    null;
+  const personalizedFallbackBillboard = useMemo(
+    () =>
+      buildPersonalizedFallbackBillboard({
+        wallets,
+        expenses,
+        emergencyFund,
+        walletMoney,
+      }),
+    [wallets, expenses, emergencyFund, walletMoney]
+  );
+
+  const activeBillboard = useMemo(() => {
+    const safeBillboards = getSafeBillboards(billboards);
+    const candidate =
+      safeBillboards.find((item) => isTruthyActive(item?.is_active)) ||
+      safeBillboards[0] ||
+      null;
+
+    if (!candidate || isLocalFallbackBillboard(candidate)) {
+      return personalizedFallbackBillboard;
+    }
+
+    return candidate;
+  }, [billboards, personalizedFallbackBillboard]);
 
   useEffect(() => {
-    if (activeBillboard?.id) {
+    if (canTrackBillboardAnalytics(activeBillboard)) {
       trackBillboardView(activeBillboard.id);
     }
-  }, [activeBillboard?.id, trackBillboardView]);
+  }, [activeBillboard, activeBillboard?.id, trackBillboardView]);
 
   const billboardMediaUrl = normalizeString(
     activeBillboard?.media_url ||
@@ -9304,7 +9490,7 @@ export default function Dashboard() {
   const openBillboardTarget = useCallback(async () => {
     if (!billboardTargetUrl) return;
 
-    if (activeBillboard?.id) {
+    if (canTrackBillboardAnalytics(activeBillboard)) {
       await trackBillboardClick(activeBillboard.id);
     }
 
