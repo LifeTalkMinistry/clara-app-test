@@ -174,9 +174,3 @@ jobs:
             git pull --rebase origin main
             git push origin main
           fi
-
-      - name: Install dependencies
-        run: npm ci || npm install
-
-      - name: Build web
-        run: npm run build:web
