@@ -952,13 +952,13 @@ const OnboardingActionBar = ({
   nextClassName = "",
 }) => {
   return (
-    <div className="sticky bottom-0 z-30 mt-6 border-t border-white/10 bg-[#071120]/96 px-4 pb-[calc(1rem+env(safe-area-inset-bottom))] pt-4 backdrop-blur-2xl md:px-6">
+    <div className="sticky bottom-0 z-30 mt-6 border-t border-white/15 bg-[#071120]/96 px-4 pb-[calc(1rem+env(safe-area-inset-bottom))] pt-4 backdrop-blur-2xl md:px-6">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         {onBack ? (
           <button
             type="button"
             onClick={onBack}
-            className="w-full rounded-2xl border border-white/10 bg-white/[0.03] px-5 py-3 text-sm font-medium text-white/80 transition hover:bg-white/[0.06] sm:w-auto sm:min-w-[120px]"
+            className="w-full rounded-2xl border border-white/15 bg-white/[0.03] px-5 py-3 text-sm font-medium text-white/80 transition hover:bg-white/[0.06] sm:w-auto sm:min-w-[120px]"
           >
             {backLabel}
           </button>
@@ -1013,7 +1013,7 @@ const FinanceInlineAlert = ({ notice, onClose }) => {
       <button
         type="button"
         onClick={onClose}
-        className="mt-0.5 shrink-0 rounded-full border border-white/10 bg-white/5 p-1 text-white/70 transition hover:bg-white/10 hover:text-white"
+        className="mt-0.5 shrink-0 rounded-full border border-white/15 bg-white/[0.075] p-1 text-white/70 transition hover:bg-white/10 hover:text-white"
         aria-label="Dismiss message"
       >
         <X className="h-3.5 w-3.5" />
@@ -1038,9 +1038,9 @@ const FinanceActionModal = ({
 
   return (
     <div className="fixed inset-0 z-[120] flex items-start justify-center bg-black/70 px-3 pb-[calc(1rem+env(safe-area-inset-bottom))] pt-[max(1rem,env(safe-area-inset-top))] backdrop-blur-md sm:items-center sm:p-4">
-      <div className="flex w-full max-w-lg max-h-[calc(100dvh-2rem-env(safe-area-inset-top)-env(safe-area-inset-bottom))] overflow-hidden rounded-[28px] border border-white/10 bg-[#071120]/95 shadow-[0_25px_80px_rgba(0,0,0,0.45)] sm:max-h-[calc(100dvh-2rem)]">
+      <div className="flex w-full max-w-lg max-h-[calc(100dvh-2rem-env(safe-area-inset-top)-env(safe-area-inset-bottom))] overflow-hidden rounded-[28px] border border-white/15 bg-[#071120]/95 shadow-[0_25px_80px_rgba(0,0,0,0.45)] sm:max-h-[calc(100dvh-2rem)]">
         <form onSubmit={onSubmit} className="flex min-h-0 w-full flex-col">
-          <div className="shrink-0 border-b border-white/10 bg-white/[0.03] px-5 py-4">
+          <div className="shrink-0 border-b border-white/15 bg-white/[0.03] px-5 py-4">
             <div className="flex items-start justify-between gap-4">
               <div className="min-w-0">
                 <h3 className="text-lg font-semibold text-white">{title}</h3>
@@ -1052,7 +1052,7 @@ const FinanceActionModal = ({
               <button
                 type="button"
                 onClick={onClose}
-                className="shrink-0 rounded-full border border-white/10 bg-white/5 p-2 text-white/70 transition hover:bg-white/10 hover:text-white"
+                className="shrink-0 rounded-full border border-white/15 bg-white/[0.075] p-2 text-white/70 transition hover:bg-white/10 hover:text-white"
                 aria-label="Close modal"
               >
                 <X className="h-4 w-4" />
@@ -1062,12 +1062,12 @@ const FinanceActionModal = ({
 
           <div className="min-h-0 flex-1 space-y-4 overflow-y-auto overscroll-contain px-5 py-5 pb-6">{children}</div>
 
-          <div className="shrink-0 border-t border-white/10 bg-[#071120]/98 px-5 pb-[calc(1rem+env(safe-area-inset-bottom))] pt-4">
+          <div className="shrink-0 border-t border-white/15 bg-[#071120]/98 px-5 pb-[calc(1rem+env(safe-area-inset-bottom))] pt-4">
             <div className="flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
               <button
                 type="button"
                 onClick={onClose}
-                className="rounded-2xl border border-white/10 bg-white/[0.04] px-4 py-3 text-sm font-medium text-white/75 transition hover:bg-white/[0.08] hover:text-white"
+                className="rounded-2xl border border-white/15 bg-white/[0.075] px-4 py-3 text-sm font-medium text-white/75 transition hover:bg-white/[0.08] hover:text-white"
               >
                 Cancel
               </button>
@@ -1148,7 +1148,7 @@ const ManualExpenseFullScreenSheet = ({
         onSubmit={onSubmit}
         className="relative z-10 flex h-[100dvh] min-h-[100dvh] animate-[claraManualExpenseIn_220ms_ease-out] flex-col"
       >
-        <div className="shrink-0 border-b border-white/10 bg-[#06111f]/82 px-5 pb-4 pt-[calc(env(safe-area-inset-top)+1rem)] backdrop-blur-2xl">
+        <div className="shrink-0 border-b border-white/15 bg-[#06111f]/82 px-5 pb-4 pt-[calc(env(safe-area-inset-top)+1rem)] backdrop-blur-2xl">
           <div className="mx-auto flex w-full max-w-[520px] items-start justify-between gap-4">
             <div className="min-w-0 flex-1">
               <div className="inline-flex items-center gap-2 rounded-full border border-emerald-300/15 bg-emerald-400/10 px-3 py-1 text-[10px] font-bold uppercase tracking-[0.18em] text-emerald-100/85">
@@ -1165,7 +1165,7 @@ const ManualExpenseFullScreenSheet = ({
             <button
               type="button"
               onClick={onClose}
-              className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl border border-white/10 bg-white/[0.06] text-white/78 shadow-[0_12px_30px_rgba(0,0,0,0.24)] transition hover:bg-white/[0.10] hover:text-white active:scale-95"
+              className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl border border-white/15 bg-white/[0.06] text-white/78 shadow-[0_12px_30px_rgba(0,0,0,0.24)] transition hover:bg-white/[0.10] hover:text-white active:scale-95"
               aria-label="Close log expense"
             >
               <X className="h-5 w-5" />
@@ -1175,19 +1175,19 @@ const ManualExpenseFullScreenSheet = ({
 
         <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-5 py-5 pb-[calc(150px+env(safe-area-inset-bottom))]">
           <div className="mx-auto w-full max-w-[520px] space-y-5">
-            <div className="relative overflow-visible rounded-[30px] border border-white/10 bg-white/[0.045] p-4 shadow-[0_22px_70px_rgba(0,0,0,0.28)] backdrop-blur-2xl">
+            <div className="relative overflow-visible rounded-[30px] border border-white/15 bg-white/[0.045] p-4 shadow-[0_22px_70px_rgba(0,0,0,0.28)] backdrop-blur-2xl">
               <div className="pointer-events-none absolute inset-x-8 top-0 h-16 rounded-full bg-emerald-300/8 blur-3xl" />
               <div className="relative space-y-5">{children}</div>
             </div>
           </div>
         </div>
 
-        <div className="shrink-0 border-t border-white/10 bg-[#041018]/96 px-5 pb-[calc(1rem+env(safe-area-inset-bottom))] pt-4 shadow-[0_-18px_50px_rgba(0,0,0,0.42)] backdrop-blur-2xl">
+        <div className="shrink-0 border-t border-white/15 bg-[#041018]/96 px-5 pb-[calc(1rem+env(safe-area-inset-bottom))] pt-4 shadow-[0_-18px_50px_rgba(0,0,0,0.42)] backdrop-blur-2xl">
           <div className="mx-auto grid w-full max-w-[520px] grid-cols-1 gap-3 sm:grid-cols-[0.8fr_1.2fr]">
             <button
               type="button"
               onClick={onClose}
-              className="min-h-[54px] rounded-2xl border border-white/10 bg-white/[0.045] px-5 py-4 text-sm font-semibold text-white/78 transition hover:bg-white/[0.08] hover:text-white active:scale-[0.99]"
+              className="min-h-[54px] rounded-2xl border border-white/15 bg-white/[0.045] px-5 py-4 text-sm font-semibold text-white/78 transition hover:bg-white/[0.08] hover:text-white active:scale-[0.99]"
             >
               Cancel
             </button>
@@ -1289,7 +1289,7 @@ const QuickActionDropdown = ({
         className={`flex w-full items-center justify-between gap-3 rounded-2xl border px-4 py-3 text-left text-sm outline-none transition disabled:cursor-not-allowed disabled:opacity-55 ${
           open
             ? "border-cyan-300/35 bg-white/[0.075] shadow-[0_0_0_3px_rgba(34,211,238,0.10),0_12px_34px_rgba(0,0,0,0.22)]"
-            : "border-white/10 bg-white/[0.04] hover:border-white/16 hover:bg-white/[0.06]"
+            : "border-white/15 bg-white/[0.075] hover:border-white/16 hover:bg-white/[0.06]"
         }`}
       >
         <span className={selected ? "min-w-0 text-white" : "min-w-0 text-white/35"}>
@@ -1365,7 +1365,7 @@ const FinanceField = ({ label, children, helper }) => (
 );
 
 const financeInputClassName =
-  "w-full rounded-2xl border border-white/10 bg-white/[0.04] px-4 py-3 text-sm text-white outline-none transition placeholder:text-white/35 focus:border-emerald-400/30 focus:bg-white/[0.06]";
+  "w-full rounded-2xl border border-white/15 bg-white/[0.075] px-4 py-3 text-sm text-white outline-none transition placeholder:text-white/35 focus:border-emerald-400/30 focus:bg-white/[0.06]";
 
 const isMoneyLeftSummaryEvent = (event) =>
   Boolean(
@@ -1527,13 +1527,13 @@ const getFinanceThemeAccentClass = (tone = "emerald", isLight = false) => {
 
   const darkToneMap = {
     emerald:
-      "border-white/10 bg-[radial-gradient(circle_at_top_left,rgba(52,211,153,0.18),transparent_34%),radial-gradient(circle_at_bottom_right,rgba(20,184,166,0.14),transparent_42%),linear-gradient(135deg,rgba(4,25,24,0.96),rgba(6,38,36,0.93)_52%,rgba(3,19,18,0.98))] shadow-[0_28px_85px_rgba(16,185,129,0.16)]",
+      "border-white/15 bg-[radial-gradient(circle_at_top_left,rgba(52,211,153,0.18),transparent_34%),radial-gradient(circle_at_bottom_right,rgba(20,184,166,0.14),transparent_42%),linear-gradient(135deg,rgba(4,25,24,0.96),rgba(6,38,36,0.93)_52%,rgba(3,19,18,0.98))] shadow-[0_28px_85px_rgba(16,185,129,0.16)]",
     blue:
-      "border-white/10 bg-[radial-gradient(circle_at_top_left,rgba(59,130,246,0.18),transparent_34%),radial-gradient(circle_at_bottom_right,rgba(99,102,241,0.14),transparent_42%),linear-gradient(135deg,rgba(8,18,52,0.96),rgba(12,33,80,0.93)_52%,rgba(7,15,38,0.98))] shadow-[0_28px_85px_rgba(59,130,246,0.16)]",
+      "border-white/15 bg-[radial-gradient(circle_at_top_left,rgba(59,130,246,0.18),transparent_34%),radial-gradient(circle_at_bottom_right,rgba(99,102,241,0.14),transparent_42%),linear-gradient(135deg,rgba(8,18,52,0.96),rgba(12,33,80,0.93)_52%,rgba(7,15,38,0.98))] shadow-[0_28px_85px_rgba(59,130,246,0.16)]",
     teal:
-      "border-white/10 bg-[radial-gradient(circle_at_top_left,rgba(45,212,191,0.18),transparent_34%),radial-gradient(circle_at_bottom_right,rgba(34,211,238,0.14),transparent_42%),linear-gradient(135deg,rgba(4,23,30,0.96),rgba(5,40,48,0.93)_52%,rgba(4,17,24,0.98))] shadow-[0_28px_85px_rgba(20,184,166,0.16)]",
+      "border-white/15 bg-[radial-gradient(circle_at_top_left,rgba(45,212,191,0.18),transparent_34%),radial-gradient(circle_at_bottom_right,rgba(34,211,238,0.14),transparent_42%),linear-gradient(135deg,rgba(4,23,30,0.96),rgba(5,40,48,0.93)_52%,rgba(4,17,24,0.98))] shadow-[0_28px_85px_rgba(20,184,166,0.16)]",
     gold:
-      "border-white/10 bg-[radial-gradient(circle_at_top_left,rgba(250,204,21,0.18),transparent_34%),radial-gradient(circle_at_bottom_right,rgba(245,158,11,0.14),transparent_42%),linear-gradient(135deg,rgba(29,18,8,0.96),rgba(43,28,13,0.93)_52%,rgba(18,11,8,0.98))] shadow-[0_28px_85px_rgba(245,158,11,0.16)]",
+      "border-white/15 bg-[radial-gradient(circle_at_top_left,rgba(250,204,21,0.18),transparent_34%),radial-gradient(circle_at_bottom_right,rgba(245,158,11,0.14),transparent_42%),linear-gradient(135deg,rgba(29,18,8,0.96),rgba(43,28,13,0.93)_52%,rgba(18,11,8,0.98))] shadow-[0_28px_85px_rgba(245,158,11,0.16)]",
   };
 
   return darkToneMap[tone] || darkToneMap.emerald;
@@ -1595,7 +1595,7 @@ const DASHBOARD_SCALE = {
     billboardTitle: "mt-0.5 text-[clamp(13px,3.5vw,15px)]",
     billboardText: "mt-0.5 line-clamp-1 text-[11px] leading-snug",
     billboardCta: "mt-1",
-    billboardIcon: "h-10 w-10 rounded-xl",
+    billboardIcon: "h-10 w-10 rounded-2xl",
     financeWrap: "space-y-[clamp(8px,1.4dvh,12px)]",
     financeClip: "rounded-[24px]",
     financeSlide: "min-h-[238px] rounded-[24px] [&>*]:min-h-[236px] [&>*]:rounded-[23px]",
@@ -1710,7 +1710,7 @@ const getFinanceSlideShellClass = (cardKey, theme = null, scale = null) => {
     ? getFinanceThemeAccentClass(toneMap[cardKey] || "emerald", theme?.isLight === true)
     : accentMap[cardKey] || accentMap.emergency;
 
-  const shellBorderClass = theme?.isLight === true ? "border-slate-300/45" : "border-white/10";
+  const shellBorderClass = theme?.isLight === true ? "border-slate-300/45" : "border-white/15";
   const glowCapClass = theme?.isLight === true ? "before:bg-white/70" : "before:bg-white/10";
   const innerRingClass = theme?.isLight === true ? "after:ring-slate-300/40" : "after:ring-white/6";
 
@@ -1731,7 +1731,7 @@ const getDashboardGlowCardClass = (tone = "emerald") => {
       "bg-[radial-gradient(circle_at_top_left,rgba(250,204,21,0.16),transparent_34%),radial-gradient(circle_at_bottom_right,rgba(245,158,11,0.12),transparent_42%),linear-gradient(135deg,rgba(31,19,9,0.95),rgba(46,26,17,0.92)_54%,rgba(16,11,26,0.96))] shadow-[0_22px_65px_rgba(245,158,11,0.15)]",
   };
 
-  return `relative isolate overflow-hidden rounded-[28px] border border-white/10 backdrop-blur-sm before:pointer-events-none before:absolute before:inset-x-8 before:top-0 before:h-16 before:rounded-full before:bg-white/8 before:blur-3xl after:pointer-events-none after:absolute after:inset-0 after:rounded-[28px] after:ring-1 after:ring-inset after:ring-white/6 ${toneMap[tone] || toneMap.emerald}`;
+  return `relative isolate overflow-hidden rounded-[28px] border border-white/15 backdrop-blur-sm before:pointer-events-none before:absolute before:inset-x-8 before:top-0 before:h-16 before:rounded-full before:bg-white/8 before:blur-3xl after:pointer-events-none after:absolute after:inset-0 after:rounded-[28px] after:ring-1 after:ring-inset after:ring-white/6 ${toneMap[tone] || toneMap.emerald}`;
 };
 
 
@@ -1759,14 +1759,14 @@ const DASHBOARD_THEME_PRESETS = [
     chip: "Pure dark",
     pageSurface: "bg-[#05070a]",
     pageGlow: "before:absolute before:inset-x-0 before:top-0 before:-z-10 before:h-[260px] before:bg-[radial-gradient(circle_at_top,rgba(255,255,255,0.04),transparent_58%)] after:absolute after:inset-x-0 after:bottom-0 after:-z-10 after:h-[220px] after:bg-[radial-gradient(circle_at_bottom,rgba(255,255,255,0.03),transparent_58%)]",
-    heroShell: "border-white/10 bg-[#0a0d12] shadow-[0_0_0_1px_rgba(255,255,255,0.02),0_14px_34px_rgba(0,0,0,0.35)]",
+    heroShell: "border-white/15 bg-[#0a0d12] shadow-[0_0_0_1px_rgba(255,255,255,0.02),0_14px_34px_rgba(0,0,0,0.35)]",
     heroGlow: "bg-[radial-gradient(circle_at_top_left,rgba(255,255,255,0.04),transparent_32%),radial-gradient(circle_at_bottom_right,rgba(255,255,255,0.03),transparent_36%)]",
     moneyTone: "blue",
-    moneyOverlay: "border-white/10 bg-[#0c1016]",
+    moneyOverlay: "border-white/15 bg-[#0c1016]",
     monthTone: "blue",
-    monthOverlay: "border-white/10 bg-[#0d1118]",
+    monthOverlay: "border-white/15 bg-[#0d1118]",
     tipTone: "blue",
-    tipOverlay: "border-white/10 bg-[#0d1118]",
+    tipOverlay: "border-white/15 bg-[#0d1118]",
     indicatorActive: "bg-white",
     modalAccent: "from-white/10 via-white/5 to-white/10",
     preview: "bg-[#05070a]",
@@ -2204,7 +2204,7 @@ let dashboardPageInFlight = null;
 const DASHBOARD_PANEL_ORDER = ["home", "feed", "messages", "settings"];
 
 const dashboardPanelCardClass =
-  "rounded-[28px] border border-white/10 bg-white/[0.055] p-4 shadow-[0_18px_50px_rgba(0,0,0,0.20)] backdrop-blur-xl";
+  "rounded-[28px] border border-white/15 bg-white/[0.055] p-4 shadow-[0_18px_50px_rgba(0,0,0,0.20)] backdrop-blur-xl";
 
 const dashboardPanelTextClass = "text-white/65";
 
@@ -2248,9 +2248,9 @@ function DashboardPanelShell({
 }) {
   return (
     <div className="space-y-3">
-      <div className="flex items-center justify-between gap-3 rounded-[28px] border border-white/10 bg-white/[0.05] p-4 shadow-[0_18px_50px_rgba(0,0,0,0.18)] backdrop-blur-xl">
+      <div className="flex items-center justify-between gap-3 rounded-[28px] border border-white/15 bg-white/[0.05] p-4 shadow-[0_18px_50px_rgba(0,0,0,0.18)] backdrop-blur-xl">
         <div className="flex min-w-0 items-center gap-3">
-          <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border border-white/10 bg-white/10 text-white">
+          <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border border-white/15 bg-white/10 text-white">
             <Icon className="h-7 w-7" />
           </div>
           <div className="min-w-0">
@@ -2263,7 +2263,7 @@ function DashboardPanelShell({
           {viewAllTo ? (
             <Link
               to={viewAllTo}
-              className="rounded-full border border-white/10 bg-white/8 px-3 py-2 text-[11px] font-semibold text-white/75 transition hover:bg-white/12"
+              className="rounded-full border border-white/15 bg-white/8 px-3 py-2 text-[11px] font-semibold text-white/75 transition hover:bg-white/12"
             >
               {viewAllLabel}
             </Link>
@@ -2271,7 +2271,7 @@ function DashboardPanelShell({
           <button
             type="button"
             onClick={onBack}
-            className="rounded-full border border-white/10 bg-white/8 px-3 py-2 text-[11px] font-semibold text-white/75 transition hover:bg-white/12"
+            className="rounded-full border border-white/15 bg-white/8 px-3 py-2 text-[11px] font-semibold text-white/75 transition hover:bg-white/12"
           >
             Home
           </button>
@@ -2848,7 +2848,7 @@ function DashboardFeedPanel({ onBack }) {
 
     if (media.type === "image" && media.url) {
       return (
-        <div className="mx-auto mt-3 w-full max-w-full overflow-hidden rounded-[22px] border border-white/10 bg-black/20">
+        <div className="mx-auto mt-3 w-full max-w-full overflow-hidden rounded-[22px] border border-white/15 bg-black/20">
           <img
             src={media.url}
             alt={media.name || "Feed media"}
@@ -2861,7 +2861,7 @@ function DashboardFeedPanel({ onBack }) {
 
     if (media.type === "video" && media.url) {
       return (
-        <div className="mx-auto mt-3 w-full max-w-full overflow-hidden rounded-[22px] border border-white/10 bg-black/30">
+        <div className="mx-auto mt-3 w-full max-w-full overflow-hidden rounded-[22px] border border-white/15 bg-black/30">
           <video
             src={media.url}
             controls
@@ -2881,7 +2881,7 @@ function DashboardFeedPanel({ onBack }) {
           <button
             type="button"
             onClick={() => setActiveYoutubePosts((prev) => ({ ...prev, [post.id]: true }))}
-            className="relative mx-auto mt-3 block w-full max-w-full overflow-hidden rounded-[22px] border border-white/10 bg-black/30 text-left touch-pan-y"
+            className="relative mx-auto mt-3 block w-full max-w-full overflow-hidden rounded-[22px] border border-white/15 bg-black/30 text-left touch-pan-y"
             aria-label="Play YouTube video inline"
           >
             <div className="relative aspect-video w-full bg-black">
@@ -2906,7 +2906,7 @@ function DashboardFeedPanel({ onBack }) {
                 </div>
               </div>
 
-              <div className="absolute bottom-2 left-1/2 -translate-x-1/2 rounded-full border border-white/10 bg-black/45 px-3 py-1.5 text-center text-[10px] font-bold text-white/70 backdrop-blur-md">
+              <div className="absolute bottom-2 left-1/2 -translate-x-1/2 rounded-full border border-white/15 bg-black/45 px-3 py-1.5 text-center text-[10px] font-bold text-white/70 backdrop-blur-md">
                 Tap to load player
               </div>
             </div>
@@ -2915,7 +2915,7 @@ function DashboardFeedPanel({ onBack }) {
       }
 
       return (
-        <div className="mx-auto mt-3 w-full max-w-full overflow-hidden rounded-[22px] border border-white/10 bg-black/30 shadow-[0_12px_35px_rgba(0,0,0,0.22)]">
+        <div className="mx-auto mt-3 w-full max-w-full overflow-hidden rounded-[22px] border border-white/15 bg-black/30 shadow-[0_12px_35px_rgba(0,0,0,0.22)]">
           <div className="relative aspect-video w-full">
             <iframe
               src={`${media.embedUrl}?autoplay=0&playsinline=1&rel=0&modestbranding=1&controls=1&fs=1`}
@@ -2941,7 +2941,7 @@ function DashboardFeedPanel({ onBack }) {
         <button
           type="button"
           onClick={() => setComposerOpen((prev) => !prev)}
-          className={`flex w-full items-center justify-between gap-3 rounded-2xl border border-white/10 bg-white/6 px-3 py-3 text-left transition hover:bg-white/8 ${composerOpen ? "mb-3" : ""}`}
+          className={`flex w-full items-center justify-between gap-3 rounded-2xl border border-white/15 bg-white/6 px-3 py-3 text-left transition hover:bg-white/8 ${composerOpen ? "mb-3" : ""}`}
           aria-expanded={composerOpen}
         >
           <div className="flex items-center gap-3">
@@ -2969,7 +2969,7 @@ function DashboardFeedPanel({ onBack }) {
               onChange={(event) => setNewPost(event.target.value)}
               placeholder={`What's happening, ${currentUserName}?`}
               maxLength={280}
-              className="min-h-[96px] w-full resize-none rounded-[22px] border border-white/10 bg-black/20 px-4 py-3 text-sm text-white outline-none placeholder:text-white/35 focus:border-emerald-300/35"
+              className="min-h-[96px] w-full resize-none rounded-[22px] border border-white/15 bg-black/20 px-4 py-3 text-sm text-white outline-none placeholder:text-white/35 focus:border-emerald-300/35"
             />
 
             <div className="flex gap-2 overflow-x-auto pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
@@ -2981,7 +2981,7 @@ function DashboardFeedPanel({ onBack }) {
                   className={`shrink-0 rounded-full border px-3 py-2 text-[11px] font-bold transition ${
                     selectedCategory === category.key
                       ? "border-emerald-300/35 bg-emerald-400/15 text-emerald-100"
-                      : "border-white/10 bg-white/6 text-white/55"
+                      : "border-white/15 bg-white/6 text-white/55"
                   }`}
                 >
                   {category.label}
@@ -2990,7 +2990,7 @@ function DashboardFeedPanel({ onBack }) {
             </div>
 
             {composerMedia ? (
-              <div className="rounded-[22px] border border-white/10 bg-black/20 p-3">
+              <div className="rounded-[22px] border border-white/15 bg-black/20 p-3">
                 <div className="mb-2 flex items-center justify-between gap-3">
                   <p className="truncate text-xs font-semibold text-white/70">{composerMedia.name || "Attached media"}</p>
                   <button type="button" onClick={() => { setComposerMedia(null); setYoutubeLink(""); }} className="rounded-full bg-white/10 p-1 text-white/70">
@@ -3008,7 +3008,7 @@ function DashboardFeedPanel({ onBack }) {
             ) : null}
 
             <div className="flex items-center gap-2">
-              <label className="flex h-11 w-11 cursor-pointer items-center justify-center rounded-2xl border border-white/10 bg-white/8 text-white/70 transition hover:bg-white/12">
+              <label className="flex h-11 w-11 cursor-pointer items-center justify-center rounded-2xl border border-white/15 bg-white/8 text-white/70 transition hover:bg-white/12">
                 <ImageIcon className="h-5 w-5" />
                 <input
                   type="file"
@@ -3018,7 +3018,7 @@ function DashboardFeedPanel({ onBack }) {
                 />
               </label>
 
-              <div className="flex min-w-0 flex-1 items-center gap-2 rounded-2xl border border-white/10 bg-white/6 px-3 py-2">
+              <div className="flex min-w-0 flex-1 items-center gap-2 rounded-2xl border border-white/15 bg-white/6 px-3 py-2">
                 <input
                   value={youtubeLink}
                   onChange={(event) => {
@@ -3066,11 +3066,11 @@ function DashboardFeedPanel({ onBack }) {
 
       {loading ? (
         <div className="space-y-3">
-          <div className="h-28 animate-pulse rounded-[30px] border border-white/10 bg-white/6" />
-          <div className="h-28 animate-pulse rounded-[30px] border border-white/10 bg-white/6" />
+          <div className="h-28 animate-pulse rounded-[30px] border border-white/15 bg-white/6" />
+          <div className="h-28 animate-pulse rounded-[30px] border border-white/15 bg-white/6" />
         </div>
       ) : posts.length === 0 ? (
-        <div className="rounded-[30px] border border-white/10 bg-white/[0.055] p-8 text-center shadow-[0_18px_50px_rgba(0,0,0,0.20)] backdrop-blur-xl">
+        <div className="rounded-[30px] border border-white/15 bg-white/[0.055] p-8 text-center shadow-[0_18px_50px_rgba(0,0,0,0.20)] backdrop-blur-xl">
           <p className="text-sm font-bold text-white">No posts yet</p>
           <p className="mt-1 text-xs text-white/55">Be the first to share a win or question.</p>
         </div>
@@ -3084,11 +3084,11 @@ function DashboardFeedPanel({ onBack }) {
             return (
               <article
                 key={post.id}
-                className="rounded-[30px] border border-white/10 bg-white/[0.055] p-4 shadow-[0_18px_50px_rgba(0,0,0,0.20)] backdrop-blur-xl"
+                className="rounded-[30px] border border-white/15 bg-white/[0.055] p-4 shadow-[0_18px_50px_rgba(0,0,0,0.20)] backdrop-blur-xl"
               >
                 <div className="flex items-start justify-between gap-3">
                   <div className="flex min-w-0 items-center gap-3">
-                    <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border border-white/10 bg-white/10 text-sm font-black text-white">
+                    <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border border-white/15 bg-white/10 text-sm font-black text-white">
                       {dashboardPanelInitials(post.author_name)}
                     </div>
 
@@ -3104,7 +3104,7 @@ function DashboardFeedPanel({ onBack }) {
                     <button
                       type="button"
                       onClick={() => handleDeletePost(post)}
-                      className="shrink-0 rounded-full border border-white/10 bg-white/6 p-2 text-white/45 transition hover:bg-rose-500/10 hover:text-rose-200"
+                      className="shrink-0 rounded-full border border-white/15 bg-white/6 p-2 text-white/45 transition hover:bg-rose-500/10 hover:text-rose-200"
                       aria-label="Delete post"
                     >
                       <Trash2 className="h-3.5 w-3.5" />
@@ -3126,7 +3126,7 @@ function DashboardFeedPanel({ onBack }) {
                         className={`rounded-2xl border px-3 py-2 text-xs font-bold transition ${
                           liked
                             ? "border-emerald-300/25 bg-emerald-400/15 text-emerald-100"
-                            : "border-white/10 bg-white/6 text-white/60"
+                            : "border-white/15 bg-white/6 text-white/60"
                         }`}
                       >
                         {liked ? "Liked" : "Like"} • {post.likes}
@@ -3134,7 +3134,7 @@ function DashboardFeedPanel({ onBack }) {
                       <button
                         type="button"
                         onClick={() => setOpenComments((prev) => ({ ...prev, [post.id]: !prev[post.id] }))}
-                        className="rounded-2xl border border-white/10 bg-white/6 px-3 py-2 text-xs font-bold text-white/60 transition hover:bg-white/10"
+                        className="rounded-2xl border border-white/15 bg-white/6 px-3 py-2 text-xs font-bold text-white/60 transition hover:bg-white/10"
                       >
                         Comments • {post.comments?.length || 0}
                       </button>
@@ -3145,7 +3145,7 @@ function DashboardFeedPanel({ onBack }) {
                         {(post.comments || []).length > 0 ? (
                           <div className="space-y-2">
                             {post.comments.map((comment) => (
-                              <div key={comment.id} className="rounded-2xl border border-white/10 bg-black/16 px-3 py-2">
+                              <div key={comment.id} className="rounded-2xl border border-white/15 bg-black/16 px-3 py-2">
                                 <div className="flex items-center justify-between gap-2">
                                   <p className="truncate text-[11px] font-bold text-white/75">{comment.author_name}</p>
                                   <span className="shrink-0 text-[10px] text-white/35">{dashboardPanelFormatTime(comment.created_at)}</span>
@@ -3155,12 +3155,12 @@ function DashboardFeedPanel({ onBack }) {
                             ))}
                           </div>
                         ) : (
-                          <p className="rounded-2xl border border-white/10 bg-black/14 px-3 py-3 text-center text-xs text-white/45">
+                          <p className="rounded-2xl border border-white/15 bg-black/14 px-3 py-3 text-center text-xs text-white/45">
                             No comments yet.
                           </p>
                         )}
 
-                        <div className="flex items-center gap-2 rounded-2xl border border-white/10 bg-white/6 px-3 py-2">
+                        <div className="flex items-center gap-2 rounded-2xl border border-white/15 bg-white/6 px-3 py-2">
                           <input
                             value={commentTexts[post.id] || ""}
                             onChange={(event) =>
@@ -3625,7 +3625,7 @@ function DashboardMessagesPanel({ onBack }) {
   if (accessLoading || loading) {
     return (
       <div className="space-y-4">
-        <div className="rounded-[30px] border border-white/10 bg-white/[0.055] p-8 text-center backdrop-blur-xl">
+        <div className="rounded-[30px] border border-white/15 bg-white/[0.055] p-8 text-center backdrop-blur-xl">
           <div className="mx-auto h-6 w-6 animate-spin rounded-full border-2 border-white/15 border-t-emerald-300" />
           <p className="mt-3 text-sm text-white/55">Preparing messages...</p>
         </div>
@@ -3636,7 +3636,7 @@ function DashboardMessagesPanel({ onBack }) {
   if (!currentUserId || !hasMessagingAccess) {
     return (
       <div className="space-y-4">
-        <div className="rounded-[30px] border border-white/10 bg-white/[0.055] p-8 text-center backdrop-blur-xl">
+        <div className="rounded-[30px] border border-white/15 bg-white/[0.055] p-8 text-center backdrop-blur-xl">
           <MessageCircle className="mx-auto h-8 w-8 text-white/55" />
           <p className="mt-3 text-sm font-bold text-white">
             {!currentUserId ? "User session not ready" : "Messages are locked"}
@@ -3692,12 +3692,12 @@ function DashboardMessagesPanel({ onBack }) {
 
         <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(20,184,166,0.20),transparent_34%),radial-gradient(circle_at_bottom_right,rgba(59,130,246,0.10),transparent_42%)]" />
 
-        <header className="relative z-20 shrink-0 border-b border-white/10 bg-[#03151b]/92 px-4 pb-3 pt-[calc(env(safe-area-inset-top)+0.75rem)] backdrop-blur-xl">
+        <header className="relative z-20 shrink-0 border-b border-white/15 bg-[#03151b]/92 px-4 pb-3 pt-[calc(env(safe-area-inset-top)+0.75rem)] backdrop-blur-xl">
           <div className="mx-auto flex max-w-3xl items-center gap-3">
             <button
               type="button"
               onClick={() => setSelectedConvo(null)}
-              className="grid h-10 w-10 shrink-0 place-items-center rounded-full border border-white/10 bg-white/[0.05] text-white/85 transition hover:bg-white/[0.08] active:scale-95"
+              className="grid h-10 w-10 shrink-0 place-items-center rounded-full border border-white/15 bg-white/[0.05] text-white/85 transition hover:bg-white/[0.08] active:scale-95"
               aria-label="Back to inbox"
             >
               <ArrowDown className="h-4 w-4 rotate-90" />
@@ -3758,7 +3758,7 @@ function DashboardMessagesPanel({ onBack }) {
                   <div key={message.id || `message-${index}`}>
                     {showDateSeparator ? (
                       <div className="my-4 flex justify-center">
-                        <span className="rounded-full border border-white/10 bg-white/[0.06] px-3 py-1 text-[10px] font-black uppercase tracking-[0.14em] text-white/45">
+                        <span className="rounded-full border border-white/15 bg-white/[0.06] px-3 py-1 text-[10px] font-black uppercase tracking-[0.14em] text-white/45">
                           {dashboardPanelFormatTime(message.created_at)}
                         </span>
                       </div>
@@ -3772,7 +3772,7 @@ function DashboardMessagesPanel({ onBack }) {
                       <div className={`flex max-w-[86%] items-end gap-2 ${isMine ? "flex-row-reverse" : "flex-row"}`}>
                         {!isMine ? (
                           isFirstInGroup ? (
-                            <div className="grid h-7 w-7 shrink-0 place-items-center rounded-full border border-white/10 bg-white/[0.05] text-[10px] font-black text-white/75">
+                            <div className="grid h-7 w-7 shrink-0 place-items-center rounded-full border border-white/15 bg-white/[0.05] text-[10px] font-black text-white/75">
                               {dashboardPanelInitials(activeConvo.name || "CL")}
                             </div>
                           ) : (
@@ -3785,7 +3785,7 @@ function DashboardMessagesPanel({ onBack }) {
                             className={`break-words px-4 py-3 text-[14px] leading-6 shadow-[0_10px_30px_rgba(0,0,0,0.18)] ${
                               isMine
                                 ? "rounded-[22px] bg-[linear-gradient(135deg,rgba(16,185,129,1),rgba(20,184,166,1))] text-white"
-                                : "rounded-[22px] border border-white/10 bg-white/[0.06] text-white/92"
+                                : "rounded-[22px] border border-white/15 bg-white/[0.06] text-white/92"
                             } ${isMine && isFirstInGroup ? "rounded-tr-md" : ""} ${
                               isMine && isLastInGroup ? "rounded-br-md" : ""
                             } ${!isMine && isFirstInGroup ? "rounded-tl-md" : ""} ${
@@ -3811,13 +3811,13 @@ function DashboardMessagesPanel({ onBack }) {
           </div>
         </main>
 
-        <footer className="relative z-20 shrink-0 border-t border-white/10 bg-[#020817]/94 px-3 pb-[calc(env(safe-area-inset-bottom)+0.7rem)] pt-2 backdrop-blur-xl">
+        <footer className="relative z-20 shrink-0 border-t border-white/15 bg-[#020817]/94 px-3 pb-[calc(env(safe-area-inset-bottom)+0.7rem)] pt-2 backdrop-blur-xl">
           <form
             onSubmit={(event) => {
               event.preventDefault();
               handleSend();
             }}
-            className="mx-auto flex max-w-3xl items-end gap-2 rounded-[28px] border border-white/10 bg-white/[0.05] p-1.5 shadow-[0_14px_40px_rgba(0,0,0,0.22)]"
+            className="mx-auto flex max-w-3xl items-end gap-2 rounded-[28px] border border-white/15 bg-white/[0.05] p-1.5 shadow-[0_14px_40px_rgba(0,0,0,0.22)]"
           >
             <textarea
               value={newMsg}
@@ -3857,7 +3857,7 @@ function DashboardMessagesPanel({ onBack }) {
       >
         <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(20,184,166,0.18),transparent_34%),radial-gradient(circle_at_bottom_right,rgba(59,130,246,0.10),transparent_42%)]" />
 
-        <header className="relative z-20 shrink-0 border-b border-white/10 bg-[#03151b]/92 px-4 pb-3 pt-[calc(env(safe-area-inset-top)+0.75rem)] backdrop-blur-xl">
+        <header className="relative z-20 shrink-0 border-b border-white/15 bg-[#03151b]/92 px-4 pb-3 pt-[calc(env(safe-area-inset-top)+0.75rem)] backdrop-blur-xl">
           <div className="mx-auto flex max-w-3xl items-center gap-3">
             <button
               type="button"
@@ -3865,7 +3865,7 @@ function DashboardMessagesPanel({ onBack }) {
                 setPeopleOpen(false);
                 setNewChatSearch("");
               }}
-              className="grid h-10 w-10 shrink-0 place-items-center rounded-full border border-white/10 bg-white/[0.05] text-white/85 transition hover:bg-white/[0.08] active:scale-95"
+              className="grid h-10 w-10 shrink-0 place-items-center rounded-full border border-white/15 bg-white/[0.05] text-white/85 transition hover:bg-white/[0.08] active:scale-95"
               aria-label="Back to messages"
             >
               <ArrowDown className="h-4 w-4 rotate-90" />
@@ -3878,8 +3878,8 @@ function DashboardMessagesPanel({ onBack }) {
           </div>
         </header>
 
-        <div className="relative z-10 shrink-0 border-b border-white/10 bg-[#020817]/86 px-4 py-3 backdrop-blur-xl">
-          <div className="mx-auto flex max-w-3xl items-center gap-2 rounded-2xl border border-white/10 bg-white/[0.055] px-3 py-2 shadow-[0_12px_34px_rgba(0,0,0,0.18)]">
+        <div className="relative z-10 shrink-0 border-b border-white/15 bg-[#020817]/86 px-4 py-3 backdrop-blur-xl">
+          <div className="mx-auto flex max-w-3xl items-center gap-2 rounded-2xl border border-white/15 bg-white/[0.055] px-3 py-2 shadow-[0_12px_34px_rgba(0,0,0,0.18)]">
             <Search className="h-4 w-4 text-white/45" />
             <input
               value={newChatSearch}
@@ -3897,7 +3897,7 @@ function DashboardMessagesPanel({ onBack }) {
         >
           <div className="mx-auto grid w-full max-w-3xl gap-2 pb-[calc(env(safe-area-inset-bottom)+1rem)]">
             {filteredNewChatPeople.length === 0 ? (
-              <div className="rounded-[30px] border border-white/10 bg-white/[0.055] p-8 text-center shadow-[0_18px_50px_rgba(0,0,0,0.20)] backdrop-blur-xl">
+              <div className="rounded-[30px] border border-white/15 bg-white/[0.055] p-8 text-center shadow-[0_18px_50px_rgba(0,0,0,0.20)] backdrop-blur-xl">
                 <MessageCircle className="mx-auto h-8 w-8 text-white/45" />
                 <p className="mt-3 text-sm font-bold text-white">No people found.</p>
               </div>
@@ -3907,10 +3907,10 @@ function DashboardMessagesPanel({ onBack }) {
                   key={person.id}
                   type="button"
                   onClick={() => openConversation(person.id)}
-                  className="w-full rounded-[24px] border border-white/10 bg-white/[0.055] px-4 py-3 text-left shadow-[0_12px_36px_rgba(0,0,0,0.16)] backdrop-blur-xl transition hover:bg-white/[0.075] active:scale-[0.99]"
+                  className="w-full rounded-[24px] border border-white/15 bg-white/[0.055] px-4 py-3 text-left shadow-[0_12px_36px_rgba(0,0,0,0.16)] backdrop-blur-xl transition hover:bg-white/[0.075] active:scale-[0.99]"
                 >
                   <div className="flex items-center gap-3">
-                    <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-[18px] border border-white/10 bg-white/10 text-sm font-black text-white">
+                    <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-[18px] border border-white/15 bg-white/10 text-sm font-black text-white">
                       {dashboardPanelInitials(person.full_name || person.email || person.username)}
                     </div>
                     <div className="min-w-0 flex-1">
@@ -3936,8 +3936,8 @@ function DashboardMessagesPanel({ onBack }) {
 
   return (
     <div className="space-y-4">
-      <div className="rounded-[30px] border border-white/10 bg-white/[0.055] p-4 shadow-[0_18px_50px_rgba(0,0,0,0.20)] backdrop-blur-xl">
-        <div className="flex items-center gap-2 rounded-2xl border border-white/10 bg-black/15 px-3 py-2">
+      <div className="rounded-[30px] border border-white/15 bg-white/[0.055] p-4 shadow-[0_18px_50px_rgba(0,0,0,0.20)] backdrop-blur-xl">
+        <div className="flex items-center gap-2 rounded-2xl border border-white/15 bg-black/15 px-3 py-2">
           <Search className="h-4 w-4 text-white/45" />
           <input
             value={search}
@@ -3965,7 +3965,7 @@ function DashboardMessagesPanel({ onBack }) {
       </div>
 
       {filteredConversations.length === 0 ? (
-        <div className="rounded-[30px] border border-white/10 bg-white/[0.055] p-8 text-center shadow-[0_18px_50px_rgba(0,0,0,0.20)] backdrop-blur-xl">
+        <div className="rounded-[30px] border border-white/15 bg-white/[0.055] p-8 text-center shadow-[0_18px_50px_rgba(0,0,0,0.20)] backdrop-blur-xl">
           <MessageCircle className="mx-auto h-8 w-8 text-white/45" />
           <p className="mt-3 text-sm font-bold text-white">{search.trim() ? "No conversations found." : "No messages yet"}</p>
           <p className="mt-1 text-xs text-white/55">
@@ -3983,11 +3983,11 @@ function DashboardMessagesPanel({ onBack }) {
                 key={conversation.id}
                 type="button"
                 onClick={() => openConversation(conversation.id)}
-                className="w-full rounded-[30px] border border-white/10 bg-white/[0.055] p-4 text-left shadow-[0_18px_50px_rgba(0,0,0,0.20)] backdrop-blur-xl transition hover:bg-white/[0.075]"
+                className="w-full rounded-[30px] border border-white/15 bg-white/[0.055] p-4 text-left shadow-[0_18px_50px_rgba(0,0,0,0.20)] backdrop-blur-xl transition hover:bg-white/[0.075]"
               >
                 <div className="flex items-center gap-3">
                   <div className="relative shrink-0">
-                    <div className="flex h-14 w-14 items-center justify-center rounded-[20px] border border-white/10 bg-white/10 text-sm font-black text-white">
+                    <div className="flex h-14 w-14 items-center justify-center rounded-[20px] border border-white/15 bg-white/10 text-sm font-black text-white">
                       {dashboardPanelInitials(conversation.name)}
                     </div>
                     {conversation.unreadCount > 0 ? (
@@ -4080,7 +4080,7 @@ function DashboardTasksPanel({ onBack, activeTask, nextTask, tasks = [], submiss
             return (
               <Link key={taskId} to="/tasks" className={`${dashboardPanelCardClass} block transition hover:bg-white/[0.075]`}>
                 <div className="flex items-center gap-3">
-                  <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl border ${done ? "border-emerald-400/25 bg-emerald-400/15 text-emerald-200" : "border-white/10 bg-white/8 text-white/65"}`}>
+                  <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl border ${done ? "border-emerald-400/25 bg-emerald-400/15 text-emerald-200" : "border-white/15 bg-white/8 text-white/65"}`}>
                     {done ? <Check className="h-5 w-5" /> : <span className="text-xs font-bold">{index + 1}</span>}
                   </div>
                   <div className="min-w-0 flex-1">
@@ -4748,7 +4748,7 @@ function DashboardSettingsPanel({
       className={`relative h-7 w-12 shrink-0 rounded-full border transition ${
         enabled
           ? "border-emerald-300/25 bg-emerald-400/30"
-          : "border-white/10 bg-white/8"
+          : "border-white/15 bg-white/8"
       }`}
     >
       <span
@@ -4766,14 +4766,14 @@ function DashboardSettingsPanel({
       className={`group flex w-full items-center gap-3 rounded-[24px] border px-4 py-4 text-left transition ${
         featured
           ? "border-emerald-400/20 bg-[radial-gradient(circle_at_top_left,rgba(16,185,129,0.16),transparent_35%),rgba(16,185,129,0.07)] shadow-[0_16px_40px_rgba(16,185,129,0.08)]"
-          : "border-white/10 bg-white/[0.045] hover:bg-white/[0.07]"
+          : "border-white/15 bg-white/[0.045] hover:bg-white/[0.07]"
       }`}
     >
       <div
         className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border transition ${
           featured
             ? "border-emerald-400/25 bg-emerald-400/15 text-emerald-100"
-            : "border-white/10 bg-white/8 text-white/65 group-hover:text-white"
+            : "border-white/15 bg-white/8 text-white/65 group-hover:text-white"
         }`}
       >
         <Icon className="h-5 w-5" />
@@ -4785,7 +4785,7 @@ function DashboardSettingsPanel({
       </div>
 
       {badge ? (
-        <span className="max-w-[96px] shrink-0 truncate rounded-full border border-white/10 bg-white/8 px-2.5 py-1 text-[10px] font-bold text-white/55">
+        <span className="max-w-[96px] shrink-0 truncate rounded-full border border-white/15 bg-white/8 px-2.5 py-1 text-[10px] font-bold text-white/55">
           {badge}
         </span>
       ) : null}
@@ -4803,13 +4803,13 @@ function DashboardSettingsPanel({
           setActiveAboutInfo(null);
           setSettingsNotice(null);
         }}
-        className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/8 px-3 py-2 text-[11px] font-bold text-white/70 transition hover:bg-white/12"
+        className="inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/8 px-3 py-2 text-[11px] font-bold text-white/70 transition hover:bg-white/12"
       >
         <ArrowDown className="h-3.5 w-3.5 rotate-90" />
         Settings
       </button>
 
-      <div className="rounded-[28px] border border-white/10 bg-white/[0.035] px-4 py-4 shadow-[0_14px_40px_rgba(0,0,0,0.12)] backdrop-blur-xl">
+      <div className="rounded-[28px] border border-white/15 bg-white/[0.035] px-4 py-4 shadow-[0_14px_40px_rgba(0,0,0,0.12)] backdrop-blur-xl">
         <h2 className="text-xl font-black tracking-tight text-white">{title}</h2>
         {subtitle ? <p className="mt-2 max-w-[30ch] text-xs leading-5 text-white/50">{subtitle}</p> : null}
       </div>
@@ -4817,7 +4817,7 @@ function DashboardSettingsPanel({
   );
 
   const InfoTile = ({ label, value }) => (
-    <div className="rounded-2xl border border-white/10 bg-black/15 p-3">
+    <div className="rounded-2xl border border-white/15 bg-black/15 p-3">
       <p className="text-[10px] font-black uppercase tracking-[0.16em] text-white/35">{label}</p>
       <p className="mt-1 truncate text-sm font-black text-white">{value}</p>
     </div>
@@ -4832,9 +4832,9 @@ function DashboardSettingsPanel({
 
       {renderNotice()}
 
-      <div className="rounded-[30px] border border-white/10 bg-white/[0.055] p-4 shadow-[0_18px_50px_rgba(0,0,0,0.20)] backdrop-blur-xl">
+      <div className="rounded-[30px] border border-white/15 bg-white/[0.055] p-4 shadow-[0_18px_50px_rgba(0,0,0,0.20)] backdrop-blur-xl">
         <div className="flex items-center gap-3">
-          <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-[24px] border border-white/10 bg-white/10 text-xl font-black text-white">
+          <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-[24px] border border-white/15 bg-white/10 text-xl font-black text-white">
             {dashboardPanelInitials(displayName)}
           </div>
           <div className="min-w-0">
@@ -4844,18 +4844,18 @@ function DashboardSettingsPanel({
         </div>
       </div>
 
-      <div className="rounded-[28px] border border-white/10 bg-white/[0.045] p-4 backdrop-blur-xl">
+      <div className="rounded-[28px] border border-white/15 bg-white/[0.045] p-4 backdrop-blur-xl">
         <label className="block space-y-2">
           <span className="text-xs font-bold uppercase tracking-[0.14em] text-white/45">Display name</span>
           <input
             value={profileName}
             onChange={(event) => setProfileName(event.target.value)}
             placeholder="Enter your name"
-            className="w-full rounded-2xl border border-white/10 bg-[#071120] px-4 py-3 text-sm font-semibold text-white caret-emerald-300 outline-none placeholder:text-white/35 focus:border-emerald-300/35"
+            className="w-full rounded-2xl border border-white/15 bg-[#071120] px-4 py-3 text-sm font-semibold text-white caret-emerald-300 outline-none placeholder:text-white/35 focus:border-emerald-300/35"
           />
         </label>
 
-        <div className="mt-4 rounded-2xl border border-white/10 bg-black/15 px-4 py-3">
+        <div className="mt-4 rounded-2xl border border-white/15 bg-black/15 px-4 py-3">
           <p className="text-xs font-bold uppercase tracking-[0.14em] text-white/35">Email</p>
           <p className="mt-1 truncate text-sm font-semibold text-white">{user?.email || "No email found"}</p>
           <p className="mt-1 text-[11px] text-white/40">For security, email is read-only inside dashboard settings.</p>
@@ -4889,7 +4889,7 @@ function DashboardSettingsPanel({
             key={row.key}
             type="button"
             onClick={() => persistNotificationToggle(row.key)}
-            className="flex w-full items-center justify-between gap-3 rounded-[24px] border border-white/10 bg-white/[0.045] px-4 py-4 text-left transition hover:bg-white/[0.07]"
+            className="flex w-full items-center justify-between gap-3 rounded-[24px] border border-white/15 bg-white/[0.045] px-4 py-4 text-left transition hover:bg-white/[0.07]"
           >
             <div className="min-w-0">
               <p className="text-sm font-bold text-white">{row.title}</p>
@@ -4901,7 +4901,7 @@ function DashboardSettingsPanel({
         ))}
       </div>
 
-      <div className="rounded-[24px] border border-white/10 bg-white/[0.035] p-4">
+      <div className="rounded-[24px] border border-white/15 bg-white/[0.035] p-4">
         <p className="text-sm font-bold text-white">Delivery behavior</p>
         <p className="mt-1 text-xs leading-5 text-white/45">
           These preferences are saved on this device first. You can later move them to Supabase when you add a shared user settings table.
@@ -4930,13 +4930,13 @@ function DashboardSettingsPanel({
         </div>
       </div>
 
-      <div className="rounded-[24px] border border-white/10 bg-white/[0.04] p-4">
+      <div className="rounded-[24px] border border-white/15 bg-white/[0.075] p-4">
         <p className="text-sm font-black text-white">Plan details</p>
         <div className="mt-3 grid grid-cols-2 gap-2">
           {["Expense tracking", "Wallets", "Budgets", "Analytics", "Emergency fund", "Messages"].map((feature) => (
             <div
               key={feature}
-              className="flex items-center gap-2 rounded-2xl border border-white/10 bg-black/15 px-3 py-2"
+              className="flex items-center gap-2 rounded-2xl border border-white/15 bg-black/15 px-3 py-2"
             >
               <Check className="h-3.5 w-3.5 shrink-0 text-emerald-200" />
               <span className="truncate text-[11px] font-bold text-white/62">{feature}</span>
@@ -4945,7 +4945,7 @@ function DashboardSettingsPanel({
         </div>
       </div>
 
-      <div className="rounded-[24px] border border-white/10 bg-white/[0.035] p-4">
+      <div className="rounded-[24px] border border-white/15 bg-white/[0.035] p-4">
         <p className="text-sm font-black text-white">Simple terms</p>
         <p className="mt-2 text-xs leading-5 text-white/48">
           Access depends on approved enrollment or active payment status. For billing concerns, use Help & support inside Settings.
@@ -4991,7 +4991,7 @@ function DashboardSettingsPanel({
               className={`rounded-[24px] border p-4 ${
                 isCurrent
                   ? "border-emerald-400/25 bg-emerald-400/10"
-                  : "border-white/10 bg-white/[0.045]"
+                  : "border-white/15 bg-white/[0.045]"
               }`}
             >
               <div className="flex items-start justify-between gap-3">
@@ -5011,7 +5011,7 @@ function DashboardSettingsPanel({
         })}
       </div>
 
-      <div className="rounded-[24px] border border-white/10 bg-white/[0.035] p-4">
+      <div className="rounded-[24px] border border-white/15 bg-white/[0.035] p-4">
         <div className="flex items-start justify-between gap-3">
           <div>
             <p className="text-sm font-bold text-white">Billing status</p>
@@ -5020,7 +5020,7 @@ function DashboardSettingsPanel({
             </p>
           </div>
 
-          <span className="shrink-0 rounded-full border border-white/10 bg-white/8 px-3 py-1 text-[10px] font-black text-white/55">
+          <span className="shrink-0 rounded-full border border-white/15 bg-white/8 px-3 py-1 text-[10px] font-black text-white/55">
             {billingStatusLabel}
           </span>
         </div>
@@ -5048,7 +5048,7 @@ function DashboardSettingsPanel({
 
       {renderNotice()}
 
-      <div className="rounded-[30px] border border-white/10 bg-[radial-gradient(circle_at_top_left,rgba(16,185,129,0.12),transparent_34%),rgba(255,255,255,0.045)] p-4 shadow-[0_18px_50px_rgba(0,0,0,0.18)] backdrop-blur-xl">
+      <div className="rounded-[30px] border border-white/15 bg-[radial-gradient(circle_at_top_left,rgba(16,185,129,0.12),transparent_34%),rgba(255,255,255,0.045)] p-4 shadow-[0_18px_50px_rgba(0,0,0,0.18)] backdrop-blur-xl">
         <div className="flex items-start gap-3">
           <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-[22px] border border-emerald-300/20 bg-emerald-400/10 text-emerald-100">
             <ShieldCheck className="h-5 w-5" />
@@ -5069,11 +5069,11 @@ function DashboardSettingsPanel({
             </div>
 
             <div className="mt-4 grid grid-cols-2 gap-2 text-center">
-              <div className="rounded-2xl border border-white/10 bg-black/15 p-3">
+              <div className="rounded-2xl border border-white/15 bg-black/15 p-3">
                 <p className="text-[11px] font-black text-white">Signed in</p>
                 <p className="mt-1 text-[10px] text-white/40">Session</p>
               </div>
-              <div className="rounded-2xl border border-white/10 bg-black/15 p-3">
+              <div className="rounded-2xl border border-white/15 bg-black/15 p-3">
                 <p className="text-[11px] font-black text-white">Protected</p>
                 <p className="mt-1 text-[10px] text-white/40">Account</p>
               </div>
@@ -5082,7 +5082,7 @@ function DashboardSettingsPanel({
         </div>
       </div>
 
-      <div className="rounded-[30px] border border-white/10 bg-white/[0.045] p-4 shadow-[0_18px_50px_rgba(0,0,0,0.18)] backdrop-blur-xl">
+      <div className="rounded-[30px] border border-white/15 bg-white/[0.045] p-4 shadow-[0_18px_50px_rgba(0,0,0,0.18)] backdrop-blur-xl">
         <p className="text-sm font-black text-white">Protected app data</p>
         <p className="mt-2 text-xs leading-5 text-white/48">
           Resetting preferences will not touch your financial records.
@@ -5092,7 +5092,7 @@ function DashboardSettingsPanel({
           {["Wallets", "Expenses", "Budgets", "Enrollments"].map((item) => (
             <div
               key={item}
-              className="flex items-center gap-2 rounded-2xl border border-white/10 bg-black/15 px-3 py-3"
+              className="flex items-center gap-2 rounded-2xl border border-white/15 bg-black/15 px-3 py-3"
             >
               <Check className="h-3.5 w-3.5 shrink-0 text-emerald-200" />
               <span className="truncate text-xs font-bold text-white/68">{item}</span>
@@ -5137,13 +5137,13 @@ function DashboardSettingsPanel({
 
       {renderNotice()}
 
-      <div className="rounded-[28px] border border-white/10 bg-white/[0.045] p-4 backdrop-blur-xl">
+      <div className="rounded-[28px] border border-white/15 bg-white/[0.045] p-4 backdrop-blur-xl">
         <label className="block space-y-2">
           <span className="text-xs font-bold uppercase tracking-[0.14em] text-white/45">Topic</span>
           <select
             value={supportTopic}
             onChange={(event) => setSupportTopic(event.target.value)}
-            className="w-full rounded-2xl border border-white/10 bg-[#071120] px-4 py-3 text-sm font-semibold text-white outline-none focus:border-emerald-300/35"
+            className="w-full rounded-2xl border border-white/15 bg-[#071120] px-4 py-3 text-sm font-semibold text-white outline-none focus:border-emerald-300/35"
           >
             <option>Billing / enrollment</option>
             <option>Technical issue</option>
@@ -5159,7 +5159,7 @@ function DashboardSettingsPanel({
             value={supportMessage}
             onChange={(event) => setSupportMessage(event.target.value)}
             placeholder="Briefly describe what you need help with..."
-            className="min-h-[120px] w-full resize-none rounded-2xl border border-white/10 bg-[#071120] px-4 py-3 text-sm font-semibold text-white outline-none placeholder:text-white/35 focus:border-emerald-300/35"
+            className="min-h-[120px] w-full resize-none rounded-2xl border border-white/15 bg-[#071120] px-4 py-3 text-sm font-semibold text-white outline-none placeholder:text-white/35 focus:border-emerald-300/35"
             disabled={supportSending}
           />
         </label>
@@ -5187,7 +5187,7 @@ function DashboardSettingsPanel({
         </div>
       ) : null}
 
-      <div className="rounded-[24px] border border-white/10 bg-white/[0.035] p-4">
+      <div className="rounded-[24px] border border-white/15 bg-white/[0.035] p-4">
         <p className="text-sm font-bold text-white">Support email</p>
         <p className="mt-1 select-all text-sm font-black text-emerald-100">{supportEmail}</p>
       </div>
@@ -5209,14 +5209,14 @@ function DashboardSettingsPanel({
         className={`flex w-full items-center justify-between gap-4 rounded-[30px] border p-5 text-left transition ${
           localPerformanceMode
             ? "border-emerald-300/25 bg-[radial-gradient(circle_at_top_left,rgba(16,185,129,0.18),transparent_36%),rgba(16,185,129,0.08)] shadow-[0_16px_42px_rgba(16,185,129,0.10)]"
-            : "border-white/10 bg-white/[0.045] hover:bg-white/[0.07]"
+            : "border-white/15 bg-white/[0.045] hover:bg-white/[0.07]"
         }`}
       >
         <div className="flex min-w-0 flex-1 items-center gap-3">
           <div className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl border ${
             localPerformanceMode
               ? "border-emerald-300/25 bg-emerald-400/15 text-emerald-100"
-              : "border-white/10 bg-white/8 text-white/65"
+              : "border-white/15 bg-white/8 text-white/65"
           }`}>
             <Rocket className="h-5 w-5" />
           </div>
@@ -5231,7 +5231,7 @@ function DashboardSettingsPanel({
         <SettingsToggle enabled={localPerformanceMode} />
       </button>
 
-      <div className="rounded-[24px] border border-white/10 bg-white/[0.035] p-4">
+      <div className="rounded-[24px] border border-white/15 bg-white/[0.035] p-4">
         <p className="text-sm font-bold text-white">
           Current visual mode: {localPerformanceMode ? "Performance" : "Premium"}
         </p>
@@ -5429,7 +5429,7 @@ function DashboardSettingsPanel({
     const isOpen = activeAboutInfo === row.section_key;
 
     return (
-      <div className="overflow-hidden rounded-2xl border border-white/10 bg-white/[0.045]">
+      <div className="overflow-hidden rounded-2xl border border-white/15 bg-white/[0.045]">
         <button
           type="button"
           onClick={() => setActiveAboutInfo((current) => (current === row.section_key ? null : row.section_key))}
@@ -5454,7 +5454,7 @@ function DashboardSettingsPanel({
           }`}
         >
           <div className="min-h-0 overflow-hidden">
-            <div className="border-t border-white/10 bg-black/15 px-4 py-4">
+            <div className="border-t border-white/15 bg-black/15 px-4 py-4">
               {row.body
                 .split(/\n{2,}/)
                 .map((paragraph, index) => (
@@ -5473,12 +5473,12 @@ function DashboardSettingsPanel({
   };
 
   const LegalInformationEditField = ({ row, index }) => (
-    <div className="rounded-2xl border border-white/10 bg-white/[0.045] p-4">
+    <div className="rounded-2xl border border-white/15 bg-white/[0.045] p-4">
       <div className="mb-3 flex items-center justify-between gap-3">
         <p className="text-xs font-black uppercase tracking-[0.18em] text-white/50">
           {row.title || defaultAboutClaraRows[index]?.title || "Section"}
         </p>
-        <span className="rounded-full border border-white/10 bg-white/[0.06] px-2.5 py-1 text-[10px] font-bold text-white/45">
+        <span className="rounded-full border border-white/15 bg-white/[0.06] px-2.5 py-1 text-[10px] font-bold text-white/45">
           {index + 1}
         </span>
       </div>
@@ -5490,7 +5490,7 @@ function DashboardSettingsPanel({
             type="text"
             value={row.title}
             onChange={(event) => updateLegalInformationDraft(row.section_key, "title", event.target.value)}
-            className="w-full rounded-2xl border border-white/10 bg-black/20 px-3.5 py-3 text-sm text-white outline-none transition placeholder:text-white/25 focus:border-emerald-300/30 focus:bg-white/[0.06]"
+            className="w-full rounded-2xl border border-white/15 bg-black/20 px-3.5 py-3 text-sm text-white outline-none transition placeholder:text-white/25 focus:border-emerald-300/30 focus:bg-white/[0.06]"
             placeholder="Section title"
           />
         </label>
@@ -5501,7 +5501,7 @@ function DashboardSettingsPanel({
             type="text"
             value={row.subtitle}
             onChange={(event) => updateLegalInformationDraft(row.section_key, "subtitle", event.target.value)}
-            className="w-full rounded-2xl border border-white/10 bg-black/20 px-3.5 py-3 text-sm text-white outline-none transition placeholder:text-white/25 focus:border-emerald-300/30 focus:bg-white/[0.06]"
+            className="w-full rounded-2xl border border-white/15 bg-black/20 px-3.5 py-3 text-sm text-white outline-none transition placeholder:text-white/25 focus:border-emerald-300/30 focus:bg-white/[0.06]"
             placeholder="Short row description"
           />
         </label>
@@ -5512,7 +5512,7 @@ function DashboardSettingsPanel({
             value={row.body}
             onChange={(event) => updateLegalInformationDraft(row.section_key, "body", event.target.value)}
             rows={5}
-            className="min-h-[118px] w-full resize-y rounded-2xl border border-white/10 bg-black/20 px-3.5 py-3 text-sm leading-6 text-white outline-none transition placeholder:text-white/25 focus:border-emerald-300/30 focus:bg-white/[0.06]"
+            className="min-h-[118px] w-full resize-y rounded-2xl border border-white/15 bg-black/20 px-3.5 py-3 text-sm leading-6 text-white outline-none transition placeholder:text-white/25 focus:border-emerald-300/30 focus:bg-white/[0.06]"
             placeholder="Main detail content"
           />
         </label>
@@ -5527,7 +5527,7 @@ function DashboardSettingsPanel({
         subtitle="Understand CLARA’s purpose, direction, and the principles behind the app."
       />
 
-      <div className="rounded-[30px] border border-white/10 bg-white/[0.045] p-5 shadow-[0_18px_50px_rgba(0,0,0,0.18)] backdrop-blur-xl">
+      <div className="rounded-[30px] border border-white/15 bg-white/[0.045] p-5 shadow-[0_18px_50px_rgba(0,0,0,0.18)] backdrop-blur-xl">
         <p className="text-2xl font-black text-white">CLARA</p>
         <p className="mt-2 text-sm leading-6 text-white/60">
           Built to help users see where their money goes, understand why they spend, and build better financial discipline one decision at a time.
@@ -5539,7 +5539,7 @@ function DashboardSettingsPanel({
         </div>
       </div>
 
-      <div className="rounded-[30px] border border-white/10 bg-white/[0.04] p-4 shadow-[0_18px_50px_rgba(0,0,0,0.16)] backdrop-blur-xl">
+      <div className="rounded-[30px] border border-white/15 bg-white/[0.075] p-4 shadow-[0_18px_50px_rgba(0,0,0,0.16)] backdrop-blur-xl">
         <div className="mb-4 flex items-start justify-between gap-3">
           <div className="min-w-0 flex-1">
             <p className="text-sm font-black text-white">Legal & information</p>
@@ -5567,7 +5567,7 @@ function DashboardSettingsPanel({
         ) : null}
 
         {legalInfoLoading && !legalInfoEditMode ? (
-          <div className="mb-3 rounded-2xl border border-white/10 bg-white/[0.04] px-4 py-3 text-xs text-white/45">
+          <div className="mb-3 rounded-2xl border border-white/15 bg-white/[0.075] px-4 py-3 text-xs text-white/45">
             Loading Legal & Information content...
           </div>
         ) : null}
@@ -5585,12 +5585,12 @@ function DashboardSettingsPanel({
               <LegalInformationEditField key={row.section_key} row={row} index={index} />
             ))}
 
-            <div className="sticky bottom-3 z-10 grid grid-cols-2 gap-2 rounded-[22px] border border-white/10 bg-[#071120]/92 p-2 shadow-[0_20px_55px_rgba(0,0,0,0.35)] backdrop-blur-xl">
+            <div className="sticky bottom-3 z-10 grid grid-cols-2 gap-2 rounded-[22px] border border-white/15 bg-[#071120]/92 p-2 shadow-[0_20px_55px_rgba(0,0,0,0.35)] backdrop-blur-xl">
               <button
                 type="button"
                 onClick={cancelLegalInformationEdit}
                 disabled={legalInfoSaving}
-                className="rounded-2xl border border-white/10 bg-white/[0.055] px-4 py-3 text-sm font-bold text-white/70 transition hover:bg-white/[0.08] disabled:cursor-not-allowed disabled:opacity-50"
+                className="rounded-2xl border border-white/15 bg-white/[0.055] px-4 py-3 text-sm font-bold text-white/70 transition hover:bg-white/[0.08] disabled:cursor-not-allowed disabled:opacity-50"
               >
                 Cancel
               </button>
@@ -5638,9 +5638,9 @@ function DashboardSettingsPanel({
     <div className="space-y-5 pb-6">
       {renderNotice()}
 
-      <div className="rounded-[30px] border border-white/10 bg-[radial-gradient(circle_at_top_left,rgba(255,255,255,0.08),transparent_34%),rgba(255,255,255,0.045)] p-4 shadow-[0_18px_50px_rgba(0,0,0,0.20)] backdrop-blur-xl">
+      <div className="rounded-[30px] border border-white/15 bg-[radial-gradient(circle_at_top_left,rgba(255,255,255,0.08),transparent_34%),rgba(255,255,255,0.045)] p-4 shadow-[0_18px_50px_rgba(0,0,0,0.20)] backdrop-blur-xl">
         <div className="flex items-center gap-3">
-          <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-[22px] border border-white/10 bg-white/10 text-lg font-black text-white">
+          <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-[22px] border border-white/15 bg-white/10 text-lg font-black text-white">
             {dashboardPanelInitials(displayName)}
           </div>
 
@@ -5996,16 +5996,16 @@ export default function Dashboard() {
   const themeSoftTextClass = themeIsLight ? "text-slate-500" : "text-white/55";
   const themeGlassButtonClass = themeIsLight
     ? "border-slate-300/60 bg-white/72 text-slate-800 shadow-[0_8px_22px_rgba(148,163,184,0.18)] hover:bg-white/90"
-    : "border-white/10 bg-white/10 text-white hover:bg-white/15";
+    : "border-white/15 bg-white/10 text-white hover:bg-white/15";
   const themeGlassIconButtonClass = themeIsLight
     ? "border-slate-300/60 bg-white/78 text-slate-800 shadow-[0_8px_22px_rgba(148,163,184,0.18)] hover:bg-white/92"
-    : "border-white/10 bg-white/10 text-white hover:bg-white/15";
+    : "border-white/15 bg-white/10 text-white hover:bg-white/15";
   const themeQuickActionBaseClass = themeIsLight
     ? "text-slate-700 hover:bg-slate-900/[0.04] hover:text-slate-900"
     : "text-white/82 hover:bg-white/[0.06] hover:text-white";
   const themeQuickActionIconShellClass = themeIsLight
     ? "clara-theme-nav-icon-shell clara-theme-nav-icon-shell-light border-slate-300/60 bg-[linear-gradient(180deg,rgba(255,255,255,0.98),rgba(241,245,249,0.90))] text-slate-700 shadow-[inset_0_1px_0_rgba(255,255,255,0.85),0_10px_18px_rgba(148,163,184,0.16)] group-hover:border-slate-400/60 group-hover:bg-white"
-    : "clara-theme-nav-icon-shell border-white/10 bg-[linear-gradient(180deg,rgba(255,255,255,0.08),rgba(255,255,255,0.03))] text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.08),0_0_18px_rgba(255,255,255,0.04)] group-hover:border-white/20 group-hover:bg-white/[0.10]";
+    : "clara-theme-nav-icon-shell border-white/15 bg-[linear-gradient(180deg,rgba(255,255,255,0.08),rgba(255,255,255,0.03))] text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.08),0_0_18px_rgba(255,255,255,0.04)] group-hover:border-white/20 group-hover:bg-white/[0.10]";
   const themeDividerClass = themeIsLight ? "via-slate-300/50" : "via-white/10";
   const themeInactiveDotClass = themeIsLight ? "bg-slate-400/35 hover:bg-slate-500/55" : "bg-white/20 hover:bg-white/35";
   const themeQuickActionPanelStyle = {
@@ -10202,7 +10202,7 @@ export default function Dashboard() {
           {activeDashboardPanel === "home" ? (
             <>
         {isPending && (
-          <div className="flex items-center gap-3 rounded-2xl border border-white/10 bg-secondary/20 p-3">
+          <div className="flex items-center gap-3 rounded-2xl border border-white/15 bg-secondary/20 p-3">
             <Clock className="h-5 w-5 shrink-0" />
             <div className="flex-1 text-sm">Enrollment Under Review</div>
             <Link to="/enroll">
@@ -10251,7 +10251,7 @@ export default function Dashboard() {
                   />
                 ) : (
                   <div className="flex h-full w-full items-center justify-center bg-gradient-to-r from-[#141B3A] via-[#251B4A] to-[#0E3A54]">
-                    <div className="flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-3 py-1.5 text-white/85">
+                    <div className="flex items-center gap-2 rounded-full border border-white/15 bg-white/[0.075] px-3 py-1.5 text-white/85">
                       <FileText className="h-4 w-4" />
                       <span className="text-xs font-medium">
                         {billboardMediaType === "pdf" ? "PDF Attached" : "File Attached"}
@@ -10520,7 +10520,7 @@ export default function Dashboard() {
             onPointerUp={(event) => event.stopPropagation()}
             onMouseUp={(event) => event.stopPropagation()}
             onTouchEnd={(event) => event.stopPropagation()}
-            className="absolute right-2.5 top-2.5 z-50 flex h-7 w-7 items-center justify-center rounded-full border border-white/10 bg-white/[0.08] text-white/55 shadow-[0_0_14px_rgba(255,255,255,0.08)] backdrop-blur-xl transition hover:bg-white/[0.13] hover:text-white/85 active:scale-95"
+            className="absolute right-2.5 top-2.5 z-50 flex h-7 w-7 items-center justify-center rounded-full border border-white/15 bg-white/[0.08] text-white/55 shadow-[0_0_14px_rgba(255,255,255,0.08)] backdrop-blur-xl transition hover:bg-white/[0.13] hover:text-white/85 active:scale-95"
             aria-label={moneySummaryVisible ? "Hide financial summary amounts" : "Show financial summary amounts"}
             title={moneySummaryVisible ? "Hide amounts" : "Show amounts"}
           >
@@ -10628,8 +10628,8 @@ export default function Dashboard() {
             onClick={() => setExpandedFinanceCard(null)}
           />
 
-          <div className="relative z-10 flex h-[100dvh] w-full max-w-[430px] flex-col overflow-hidden rounded-t-[32px] border border-white/10 bg-[radial-gradient(circle_at_top,rgba(45,246,222,0.14),transparent_34%),linear-gradient(180deg,rgba(4,17,32,0.98),rgba(3,10,24,0.99))] shadow-[0_-24px_80px_rgba(0,0,0,0.45)] sm:h-[92dvh] sm:rounded-[32px]">
-            <div className="flex shrink-0 items-center justify-between border-b border-white/10 px-4 pb-3 pt-[calc(env(safe-area-inset-top)+14px)]">
+          <div className="relative z-10 flex h-[100dvh] w-full max-w-[430px] flex-col overflow-hidden rounded-t-[32px] border border-white/15 bg-[radial-gradient(circle_at_top,rgba(45,246,222,0.14),transparent_34%),linear-gradient(180deg,rgba(4,17,32,0.98),rgba(3,10,24,0.99))] shadow-[0_-24px_80px_rgba(0,0,0,0.45)] sm:h-[92dvh] sm:rounded-[32px]">
+            <div className="flex shrink-0 items-center justify-between border-b border-white/15 px-4 pb-3 pt-[calc(env(safe-area-inset-top)+14px)]">
               <div>
                 <p className="text-[10px] font-bold uppercase tracking-[0.24em] text-white/45">
                   CLARA Details
@@ -10648,7 +10648,7 @@ export default function Dashboard() {
               <button
                 type="button"
                 onClick={() => setExpandedFinanceCard(null)}
-                className="flex h-10 w-10 items-center justify-center rounded-2xl border border-white/10 bg-white/5 text-white/75 backdrop-blur-xl transition hover:bg-white/10 hover:text-white"
+                className="flex h-10 w-10 items-center justify-center rounded-2xl border border-white/15 bg-white/[0.075] text-white/75 backdrop-blur-xl transition hover:bg-white/10 hover:text-white"
                 aria-label="Close details"
               >
                 <X className="h-5 w-5" />
@@ -10830,7 +10830,7 @@ export default function Dashboard() {
         >
           <div className="flex h-[100dvh] w-full items-end justify-center sm:items-center">
             <div
-              className="relative flex h-[100dvh] w-full flex-col overflow-hidden bg-[radial-gradient(circle_at_top,rgba(16,185,129,0.16),transparent_28%),linear-gradient(180deg,#08111f_0%,#071120_38%,#061018_100%)] text-white sm:h-[94vh] sm:max-h-[920px] sm:w-[min(100%,860px)] sm:rounded-[32px] sm:border sm:border-white/10 sm:shadow-[0_30px_100px_rgba(0,0,0,0.45)]"
+              className="relative flex h-[100dvh] w-full flex-col overflow-hidden bg-[radial-gradient(circle_at_top,rgba(16,185,129,0.16),transparent_28%),linear-gradient(180deg,#08111f_0%,#071120_38%,#061018_100%)] text-white sm:h-[94vh] sm:max-h-[920px] sm:w-[min(100%,860px)] sm:rounded-[32px] sm:border sm:border-white/15 sm:shadow-[0_30px_100px_rgba(0,0,0,0.45)]"
               onClick={(e) => e.stopPropagation()}
             >
               <div className="pointer-events-none absolute inset-0 overflow-hidden">
@@ -10838,7 +10838,7 @@ export default function Dashboard() {
                 <div className="absolute bottom-0 right-0 h-48 w-48 rounded-full bg-cyan-500/10 blur-3xl" />
               </div>
 
-              <div className="relative z-10 border-b border-white/10 bg-black/10 px-4 pb-4 pt-[max(1rem,env(safe-area-inset-top))] md:px-6">
+              <div className="relative z-10 border-b border-white/15 bg-black/10 px-4 pb-4 pt-[max(1rem,env(safe-area-inset-top))] md:px-6">
                 <div className="flex items-start justify-between gap-4">
                   <div className="min-w-0">
                     <div className="inline-flex items-center gap-2 rounded-full border border-emerald-400/15 bg-emerald-500/10 px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.22em] text-emerald-300/85">
@@ -10863,7 +10863,7 @@ export default function Dashboard() {
                   <button
                     type="button"
                     onClick={closeOnboarding}
-                    className="shrink-0 rounded-full border border-white/10 bg-white/[0.04] p-2.5 text-white/60 transition hover:bg-white/[0.08] hover:text-white"
+                    className="shrink-0 rounded-full border border-white/15 bg-white/[0.075] p-2.5 text-white/60 transition hover:bg-white/[0.08] hover:text-white"
                   >
                     <X className="h-4 w-4" />
                   </button>
@@ -10902,14 +10902,14 @@ export default function Dashboard() {
                         </div>
                       </div>
 
-                      <div className="rounded-[28px] border border-white/10 bg-white/[0.04] p-5 md:p-6">
+                      <div className="rounded-[28px] border border-white/15 bg-white/[0.075] p-5 md:p-6">
                         <p className="text-sm leading-7 text-white/80">
                           By continuing, you acknowledge that you are entering a guided
                           financial coaching experience and you are expected to complete
                           your tasks honestly and consistently.
                         </p>
 
-                        <label className="mt-5 flex cursor-pointer items-start gap-3 rounded-3xl border border-white/10 bg-[#091423] px-4 py-4 transition hover:border-emerald-400/25 hover:bg-[#0c1829]">
+                        <label className="mt-5 flex cursor-pointer items-start gap-3 rounded-3xl border border-white/15 bg-[#091423] px-4 py-4 transition hover:border-emerald-400/25 hover:bg-[#0c1829]">
                           <input
                             type="checkbox"
                             className="mt-1 h-4 w-4 shrink-0 rounded border-white/20 bg-transparent accent-emerald-500"
@@ -10934,7 +10934,7 @@ export default function Dashboard() {
                   {onboardingStep === 1 && (
                     <div className="space-y-4">
                       <div className="grid gap-3 md:grid-cols-2">
-                        <div className="rounded-[28px] border border-white/10 bg-white/[0.04] p-5">
+                        <div className="rounded-[28px] border border-white/15 bg-white/[0.075] p-5">
                           <div className="mb-3 inline-flex h-12 w-12 items-center justify-center rounded-2xl bg-white/10 text-emerald-300">
                             <ShieldCheck className="h-6 w-6" />
                           </div>
@@ -10946,7 +10946,7 @@ export default function Dashboard() {
                           </ul>
                         </div>
 
-                        <div className="rounded-[28px] border border-white/10 bg-white/[0.04] p-5">
+                        <div className="rounded-[28px] border border-white/15 bg-white/[0.075] p-5">
                           <div className="mb-3 inline-flex h-12 w-12 items-center justify-center rounded-2xl bg-white/10 text-cyan-300">
                             <CalendarDays className="h-6 w-6" />
                           </div>
@@ -10959,7 +10959,7 @@ export default function Dashboard() {
                         </div>
                       </div>
 
-                      <div className="rounded-[28px] border border-white/10 bg-white/[0.04] p-5">
+                      <div className="rounded-[28px] border border-white/15 bg-white/[0.075] p-5">
                         <p className="text-sm font-semibold text-white">Your commitment matters</p>
                         <p className="mt-2 text-sm leading-7 text-white/75">
                           This program works best when you stop waiting for the perfect mood
@@ -10978,7 +10978,7 @@ export default function Dashboard() {
 
                   {onboardingStep === 2 && (
                     <div className="space-y-4">
-                      <div className="rounded-[28px] border border-white/10 bg-white/[0.04] p-5 md:p-6">
+                      <div className="rounded-[28px] border border-white/15 bg-white/[0.075] p-5 md:p-6">
                         <p className="text-sm font-semibold text-white">
                           Complete your initial setup
                         </p>
@@ -10995,7 +10995,7 @@ export default function Dashboard() {
                               value={nickname}
                               onChange={(e) => setNickname(e.target.value)}
                               placeholder="What should CLARA call you?"
-                              className="w-full rounded-2xl border border-white/10 bg-black/30 px-4 py-3 text-sm text-white outline-none placeholder:text-white/30"
+                              className="w-full rounded-2xl border border-white/15 bg-black/30 px-4 py-3 text-sm text-white outline-none placeholder:text-white/30"
                             />
                           </div>
 
@@ -11007,7 +11007,7 @@ export default function Dashboard() {
                               type="time"
                               value={reminderTime}
                               onChange={(e) => setReminderTime(e.target.value)}
-                              className="w-full rounded-2xl border border-white/10 bg-black/30 px-4 py-3 text-sm text-white outline-none"
+                              className="w-full rounded-2xl border border-white/15 bg-black/30 px-4 py-3 text-sm text-white outline-none"
                             />
                           </div>
 
@@ -11019,7 +11019,7 @@ export default function Dashboard() {
                               value={financialGoal}
                               onChange={(e) => setFinancialGoal(e.target.value)}
                               placeholder="Example: Build emergency fund, stop impulsive spending, save my first ₱50,000."
-                              className="min-h-[110px] w-full rounded-2xl border border-white/10 bg-black/30 px-4 py-3 text-sm text-white outline-none placeholder:text-white/30"
+                              className="min-h-[110px] w-full rounded-2xl border border-white/15 bg-black/30 px-4 py-3 text-sm text-white outline-none placeholder:text-white/30"
                             />
                           </div>
                         </div>
@@ -11046,7 +11046,7 @@ export default function Dashboard() {
                       </div>
 
                       <div className="grid gap-3 md:grid-cols-2">
-                        <div className="rounded-[28px] border border-white/10 bg-white/[0.04] p-5">
+                        <div className="rounded-[28px] border border-white/15 bg-white/[0.075] p-5">
                           <p className="text-sm font-semibold text-white">What happens next</p>
                           <ul className="mt-3 space-y-2 text-sm text-white/70">
                             <li>• Access your first weekly module</li>
@@ -11055,7 +11055,7 @@ export default function Dashboard() {
                           </ul>
                         </div>
 
-                        <div className="rounded-[28px] border border-white/10 bg-white/[0.04] p-5">
+                        <div className="rounded-[28px] border border-white/15 bg-white/[0.075] p-5">
                           <p className="text-sm font-semibold text-white">Coaching users</p>
                           <ul className="mt-3 space-y-2 text-sm text-white/70">
                             <li>• Book your session early</li>
@@ -11077,7 +11077,7 @@ export default function Dashboard() {
                   {onboardingStep === 4 && (
                     <div className="space-y-4">
                       <div className="grid gap-3">
-                        <div className="rounded-[28px] border border-white/10 bg-white/[0.04] p-5">
+                        <div className="rounded-[28px] border border-white/15 bg-white/[0.075] p-5">
                           <p className="text-sm font-semibold text-white">Dashboard</p>
                           <p className="mt-2 text-sm leading-7 text-white/70">
                             This is your main control center for progress, money tracking,
@@ -11085,14 +11085,14 @@ export default function Dashboard() {
                           </p>
                         </div>
 
-                        <div className="rounded-[28px] border border-white/10 bg-white/[0.04] p-5">
+                        <div className="rounded-[28px] border border-white/15 bg-white/[0.075] p-5">
                           <p className="text-sm font-semibold text-white">Day Mission</p>
                           <p className="mt-2 text-sm leading-7 text-white/70">
                             Your next task is always visible so you know exactly what to do next.
                           </p>
                         </div>
 
-                        <div className="rounded-[28px] border border-white/10 bg-white/[0.04] p-5">
+                        <div className="rounded-[28px] border border-white/15 bg-white/[0.075] p-5">
                           <p className="text-sm font-semibold text-white">Finance carousel</p>
                           <p className="mt-2 text-sm leading-7 text-white/70">
                             Use wallets, expenses, budgets, and savings goals to support real
@@ -11112,7 +11112,7 @@ export default function Dashboard() {
 
                   {onboardingStep === 5 && (
                     <div className="space-y-4">
-                      <div className="rounded-[28px] border border-white/10 bg-white/[0.04] p-5">
+                      <div className="rounded-[28px] border border-white/15 bg-white/[0.075] p-5">
                         <div className="mb-3 inline-flex h-12 w-12 items-center justify-center rounded-2xl bg-white/10 text-yellow-300">
                           <Flag className="h-6 w-6" />
                         </div>
@@ -11124,7 +11124,7 @@ export default function Dashboard() {
                         </p>
                       </div>
 
-                      <div className="rounded-[28px] border border-white/10 bg-white/[0.04] p-5">
+                      <div className="rounded-[28px] border border-white/15 bg-white/[0.075] p-5">
                         <p className="text-sm font-semibold text-white">What to remember</p>
                         <ul className="mt-3 space-y-2 text-sm text-white/70">
                           <li>• Progress comes from repetition</li>
@@ -11178,14 +11178,14 @@ export default function Dashboard() {
 
       <FinanceActionModal
         open={financeModal.type === "create_wallet"}
-        title="Create wallet"
-        description="Add a new wallet without leaving the finance carousel."
+        title="Where will your money live?"
+        description="Create a new money container inside your CLARA system."
         onClose={closeFinanceModal}
         onSubmit={(event) => {
           event.preventDefault();
           createWalletInline();
         }}
-        submitLabel="Create wallet"
+        submitLabel="Create wallet →"
         loading={financeActionLoading}
       >
         <FinanceField label="Wallet name">
@@ -11202,7 +11202,7 @@ export default function Dashboard() {
 
         <FinanceField
           label="Wallet type"
-          helper="Choose a default type or create your own custom wallet type."
+          helper="Choose the closest type so CLARA can organize your money clearly."
         >
           <div className="space-y-3">
             <select
@@ -11544,7 +11544,7 @@ export default function Dashboard() {
               <button
                 type="button"
                 onClick={() => setBudgetExitConfirm(false)}
-                className="rounded-2xl border border-white/10 bg-white/[0.04] px-4 py-3 text-sm font-medium text-white/75 transition hover:bg-white/[0.08] hover:text-white"
+                className="rounded-2xl border border-white/15 bg-white/[0.075] px-4 py-3 text-sm font-medium text-white/75 transition hover:bg-white/[0.08] hover:text-white"
               >
                 Continue Budgeting
               </button>
@@ -11573,7 +11573,7 @@ export default function Dashboard() {
         </FinanceField>
 
         {budgetFormDeclaredAmount > 0 ? (
-          <div className="rounded-3xl border border-white/10 bg-white/[0.04] p-4 text-xs leading-5 text-white/70">
+          <div className="rounded-3xl border border-white/15 bg-white/[0.075] p-4 text-xs leading-5 text-white/70">
             <div className="flex items-center justify-between gap-3">
               <span>Declared budget</span>
               <strong className="text-white">{fmt(budgetFormDeclaredAmount)}</strong>
@@ -11598,7 +11598,7 @@ export default function Dashboard() {
         ) : null}
 
         {budgetFormDeclaredAmount > 0 ? (
-          <div className="rounded-3xl border border-white/10 bg-white/[0.035] p-4">
+          <div className="rounded-3xl border border-white/15 bg-white/[0.035] p-4">
             <p className="mb-3 text-xs font-bold uppercase tracking-[0.16em] text-white/55">
               Add budget category
             </p>
@@ -11649,10 +11649,10 @@ export default function Dashboard() {
           </div>
         ) : null}
 
-        <div className="rounded-3xl border border-white/10 bg-white/[0.035] p-4">
+        <div className="rounded-3xl border border-white/15 bg-white/[0.035] p-4">
           <div className="mb-3 flex items-center justify-between gap-3">
             <p className="text-sm font-bold text-white">Added categories</p>
-            <span className="rounded-full border border-white/10 bg-white/[0.05] px-2.5 py-1 text-[11px] font-semibold text-white/60">
+            <span className="rounded-full border border-white/15 bg-white/[0.05] px-2.5 py-1 text-[11px] font-semibold text-white/60">
               {monthlyBudgetPlan.categories.length}
             </span>
           </div>
@@ -11662,7 +11662,7 @@ export default function Dashboard() {
               {monthlyBudgetPlan.categories.map((item) => (
                 <div
                   key={item.key || item.id || item.title}
-                  className="flex items-center justify-between gap-3 rounded-2xl border border-white/10 bg-black/15 px-3 py-3"
+                  className="flex items-center justify-between gap-3 rounded-2xl border border-white/15 bg-black/15 px-3 py-3"
                 >
                   <div className="min-w-0">
                     <p className="truncate text-sm font-semibold text-white">{item.title}</p>
@@ -11673,7 +11673,7 @@ export default function Dashboard() {
                     <button
                       type="button"
                       onClick={() => openBudgetModal(item)}
-                      className="flex h-8 w-8 items-center justify-center rounded-xl border border-white/10 bg-white/5 text-white/70 transition hover:bg-white/10 hover:text-white"
+                      className="flex h-8 w-8 items-center justify-center rounded-2xl border border-white/15 bg-white/[0.075] text-white/70 transition hover:bg-white/10 hover:text-white"
                       aria-label={`Edit ${item.title}`}
                     >
                       <Edit className="h-3.5 w-3.5" />
@@ -11681,7 +11681,7 @@ export default function Dashboard() {
                     <button
                       type="button"
                       onClick={() => openDeleteBudgetCategoryModal(item)}
-                      className="flex h-8 w-8 items-center justify-center rounded-xl border border-rose-300/15 bg-rose-500/10 text-rose-100/80 transition hover:bg-rose-500/15 hover:text-rose-100"
+                      className="flex h-8 w-8 items-center justify-center rounded-2xl border border-rose-300/15 bg-rose-500/10 text-rose-100/80 transition hover:bg-rose-500/15 hover:text-rose-100"
                       aria-label={`Remove ${item.title}`}
                     >
                       <Trash2 className="h-3.5 w-3.5" />
@@ -11691,7 +11691,7 @@ export default function Dashboard() {
               ))}
             </div>
           ) : (
-            <div className="rounded-2xl border border-white/10 bg-black/15 px-4 py-4 text-sm text-white/55">
+            <div className="rounded-2xl border border-white/15 bg-black/15 px-4 py-4 text-sm text-white/55">
               No categories added yet.
             </div>
           )}
@@ -11702,7 +11702,7 @@ export default function Dashboard() {
             type="button"
             disabled={financeActionLoading}
             onClick={() => saveBudgetInline({ exitAfterSave: true, saveCategory: false })}
-            className="rounded-2xl border border-white/10 bg-white/[0.04] px-4 py-3 text-sm font-semibold text-white/75 transition hover:bg-white/[0.08] hover:text-white disabled:opacity-60"
+            className="rounded-2xl border border-white/15 bg-white/[0.075] px-4 py-3 text-sm font-semibold text-white/75 transition hover:bg-white/[0.08] hover:text-white disabled:opacity-60"
           >
             Save Draft
           </button>
@@ -11955,7 +11955,7 @@ export default function Dashboard() {
                 className={`rounded-2xl border px-4 py-3 text-sm font-semibold transition ${
                   (financeForm.flexibility || "flexible") === "flexible"
                     ? "border-emerald-400/30 bg-gradient-to-r from-emerald-400 via-emerald-500 to-green-600 text-white shadow-[0_10px_30px_rgba(16,185,129,0.24)]"
-                    : "border-white/10 bg-white/[0.04] text-white/75 hover:bg-white/[0.08] hover:text-white"
+                    : "border-white/15 bg-white/[0.075] text-white/75 hover:bg-white/[0.08] hover:text-white"
                 }`}
               >
                 Flexible
@@ -11969,7 +11969,7 @@ export default function Dashboard() {
                 className={`rounded-2xl border px-4 py-3 text-sm font-semibold transition ${
                   (financeForm.flexibility || "flexible") === "must_have"
                     ? "border-emerald-400/30 bg-gradient-to-r from-emerald-400 via-emerald-500 to-green-600 text-white shadow-[0_10px_30px_rgba(16,185,129,0.24)]"
-                    : "border-white/10 bg-white/[0.04] text-white/75 hover:bg-white/[0.08] hover:text-white"
+                    : "border-white/15 bg-white/[0.075] text-white/75 hover:bg-white/[0.08] hover:text-white"
                 }`}
               >
                 Must Have
