@@ -3,7 +3,6 @@ import { useNavigate } from "react-router-dom";
 import { ArrowRight, Chrome, Eye, EyeOff, Sparkles, X } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 import ClaraLogo from "@/components/ClaraLogo";
-import { queuePostLoginWelcome } from "@/components/WelcomeBackTransition";
 import { supabase } from "@/lib/supabaseClient";
 
 const MODE_COPY = {
@@ -264,13 +263,7 @@ export default function Login() {
 
         navigate("/onboarding");
       } else {
-        const data = await signIn({ email, password });
-        queuePostLoginWelcome({
-          userName:
-            data?.user?.user_metadata?.full_name ||
-            data?.user?.user_metadata?.name ||
-            "",
-        });
+        await signIn({ email, password });
 
         if (typeof window !== "undefined") {
           const basePath = `${window.location.origin}${window.location.pathname}${window.location.search}`;
