@@ -1,5 +1,6 @@
 import { useState, useEffect, useMemo, useRef } from "react";
 import {
+  ArrowLeft,
   Plus,
   Target,
   AlertTriangle,
@@ -244,6 +245,15 @@ export default function SavingsGoals() {
       minimumFractionDigits: 0,
     }).format(Number(n) || 0);
 
+  const handleBack = () => {
+    if (window.history.length > 1) {
+      navigate(-1);
+      return;
+    }
+
+    navigate("/dashboard", { replace: true });
+  };
+
   const closeFormModal = () => {
     setOpen(false);
     setEditId(null);
@@ -457,9 +467,11 @@ export default function SavingsGoals() {
       }
 
       setDetailGoal(updatedGoal);
+      return updatedGoal;
     } catch (error) {
       console.error("Failed to add savings:", error);
       alert(error?.message || "Failed to add savings.");
+      throw error;
     }
   };
 
@@ -479,6 +491,18 @@ export default function SavingsGoals() {
 
   return (
     <div className="p-4 md:p-6 max-w-4xl mx-auto">
+      <div className="mb-3">
+        <Button
+          type="button"
+          variant="ghost"
+          onClick={handleBack}
+          className="h-9 rounded-xl px-3 text-muted-foreground hover:text-foreground hover:bg-muted/70"
+        >
+          <ArrowLeft className="w-4 h-4 mr-2" />
+          Back
+        </Button>
+      </div>
+
       <PageHeader
         title="Savings Goals"
         subtitle="Plan and track what matters most"
@@ -912,262 +936,322 @@ function GoalDetail({
   totalIncome,
   fmt,
 }) {
-  const [addAmount, setAddAmount] = useState("");
+  const [addSavingsOpen, setAddSavingsOpen] = useState(false);
+  const [amount, setAmount] = useState("");
+  const [savingAmount, setSavingAmount] = useState(false);
 
-  const saved = Number(goal.saved_amount) || 0;
-  const target = Number(goal.target_amount) || 0;
-  const pct = target > 0 ? Math.min((saved / target) * 100, 100) : 0;
+  const saved = Number(goal?.saved_amount) || 0;
+  const target = Number(goal?.target_amount) || 0;
   const remaining = Math.max(target - saved, 0);
+  const pct = target > 0 ? Math.min((saved / target) * 100, 100) : 0;
 
-  const now = new Date();
-  const plannedDate = goal.planned_use_date
-    ? new Date(goal.planned_use_date)
-    : null;
-
-  const weeksLeft =
-    plannedDate && !Number.isNaN(plannedDate.getTime())
-      ? Math.max(
-          1,
-          Math.ceil(
-            (plannedDate.getTime() - now.getTime()) /
-              (7 * 24 * 60 * 60 * 1000)
-          )
-        )
-      : null;
-
-  const weeklyTarget = remaining > 0 && weeksLeft ? remaining / weeksLeft : null;
-  const monthlyTarget = weeklyTarget ? weeklyTarget * 4.3 : null;
-  const impactOnRetention =
-    totalIncome > 0 ? ((remaining / totalIncome) * 100).toFixed(1) : null;
-
-  const emotionEmojis = {
-    joy: "😄",
-    security: "🛡️",
-    experience: "🌟",
-    milestone: "🏆",
-  };
-
-  const assignedWallet = wallets.find(
-    (wallet) => String(wallet.id) === String(goal.wallet_id)
+  const assignedWallet = (wallets || []).find(
+    (wallet) => String(wallet.id) === String(goal?.wallet_id)
   );
 
-  const walletBalance = assignedWallet
-    ? Number(walletBalances[String(assignedWallet.id)] || 0)
+  const assignedWalletBalance = assignedWallet
+    ? walletBalances[String(assignedWallet.id)] ?? Number(assignedWallet.balance || 0)
     : 0;
 
-  const quickAmounts = [500, 1000, 2000];
+  const cleanReasons = Array.isArray(goal?.reasons)
+    ? goal.reasons.filter((reason) => String(reason || "").trim())
+    : [];
+
+  const handleOpenAddSavings = () => {
+    setAmount("");
+    setAddSavingsOpen(true);
+  };
+
+  const handleSubmitAddSavings = async () => {
+    if (savingAmount) return;
+
+    try {
+      setSavingAmount(true);
+      await onAddSavings(goal, amount);
+      setAmount("");
+      setAddSavingsOpen(false);
+    } finally {
+      setSavingAmount(false);
+    }
+  };
 
   return (
-    <Dialog open={true} onOpenChange={onClose}>
-      <DialogContent className={detailDialogClass}>
-        <div className="flex max-h-[inherit] flex-col">
-          <div className="flex-1 overflow-y-auto px-4 sm:px-5 py-4 sm:py-5">
-            <DialogHeader className="mb-4 pr-12">
-              <DialogTitle className="font-heading text-[1.65rem] sm:text-2xl text-white leading-tight">
-                {goal.title}
+    <>
+      <Dialog open={Boolean(goal)} onOpenChange={(value) => !value && onClose()}>
+        <DialogContent className={detailDialogClass}>
+          <div className="flex max-h-[inherit] flex-col">
+            <DialogHeader className="border-b border-white/10 px-4 sm:px-5 py-4 pr-12">
+              <DialogTitle className="text-white text-xl sm:text-2xl leading-tight">
+                {goal?.title || "Savings Goal"}
               </DialogTitle>
-              <p className="text-sm text-white/65 mt-1">
-                {goal.category}
-                {goal.subcategory ? ` • ${goal.subcategory}` : ""}
+              <p className="text-xs text-white/50 mt-1">
+                {goal?.category || "Uncategorized"}
+                {goal?.subcategory ? ` • ${goal.subcategory}` : ""}
               </p>
             </DialogHeader>
 
-            <div className="flex flex-wrap items-center gap-2 mb-4">
-              <Button
-                type="button"
-                variant="ghost"
-                className="h-9 rounded-xl border border-white/10 bg-white/5 px-3 text-white/85 hover:bg-white/10 hover:text-white"
-                onClick={() => {
-                  onClose();
-                  onEdit(goal);
-                }}
-              >
-                <Edit className="w-4 h-4 mr-2" />
-                Edit
-              </Button>
+            <div className="flex-1 overflow-y-auto px-4 sm:px-5 py-4">
+              <div className="space-y-4">
+                <div className="rounded-2xl border border-white/10 bg-white/[0.04] p-4">
+                  <div className="flex items-start justify-between gap-3 mb-3">
+                    <div>
+                      <p className="text-[11px] uppercase tracking-[0.08em] text-white/50 font-semibold">
+                        Progress
+                      </p>
+                      <p className="text-2xl font-heading font-bold text-white">
+                        {pct.toFixed(0)}%
+                      </p>
+                    </div>
 
-              <Button
-                type="button"
-                variant="ghost"
-                className="h-9 rounded-xl border border-red-500/20 bg-red-500/10 px-3 text-red-400 hover:bg-red-500/20 hover:text-red-300"
-                onClick={() => {
-                  onDelete(goal.id);
-                  onClose();
-                }}
-              >
-                <Trash2 className="w-4 h-4 mr-2" />
-                Delete
-              </Button>
-            </div>
-
-            {assignedWallet ? (
-              <div className="rounded-2xl border border-white/10 bg-[#0d1b34] p-4 mb-4">
-                <p className="text-xs font-bold uppercase tracking-wide text-white/55 mb-2">
-                  Source Wallet
-                </p>
-                <div className="flex items-center justify-between gap-3">
-                  <div className="flex items-center gap-2 text-white/90 min-w-0">
-                    <Wallet className="w-4 h-4 text-green-400 shrink-0" />
-                    <span className="font-medium truncate">
-                      {assignedWallet.icon ? `${assignedWallet.icon} ` : ""}
-                      {assignedWallet.name}
-                    </span>
+                    <div className="text-right">
+                      <p className="text-[11px] text-white/50">Saved</p>
+                      <p className="text-lg font-bold text-green-300">
+                        {fmt(saved)}
+                      </p>
+                    </div>
                   </div>
-                  <span className="text-sm font-bold text-green-400 shrink-0">
-                    {fmt(walletBalance)}
-                  </span>
-                </div>
-              </div>
-            ) : null}
 
-            <div className="rounded-2xl border border-white/10 bg-[#0d1b34] p-4 mb-4">
-              <div className="flex justify-between items-center mb-2 gap-3">
-                <span className="text-sm font-semibold text-white">Progress</span>
-                <span className="text-lg font-bold text-green-400">
-                  {pct.toFixed(0)}%
-                </span>
-              </div>
+                  <div className="h-3 rounded-full bg-white/10 overflow-hidden mb-3">
+                    <div
+                      className="h-full rounded-full bg-green-500"
+                      style={{ width: `${pct}%` }}
+                    />
+                  </div>
 
-              <div className="h-3.5 bg-white/10 rounded-full overflow-hidden mb-3">
-                <div
-                  className={`h-full rounded-full transition-all duration-300 ${
-                    pct >= 100 ? "grad-green" : "bg-green-400"
-                  }`}
-                  style={{ width: `${pct}%` }}
-                />
-              </div>
+                  <div className="grid grid-cols-2 gap-3 text-sm">
+                    <div className="rounded-xl bg-black/20 p-3">
+                      <p className="text-[10px] uppercase text-white/45 font-semibold">
+                        Target
+                      </p>
+                      <p className="font-bold text-white">{fmt(target)}</p>
+                    </div>
 
-              <div className="flex justify-between text-sm text-white/75 gap-3">
-                <span>{fmt(saved)} saved</span>
-                <span>{fmt(remaining)} remaining</span>
-              </div>
-            </div>
-
-            {remaining > 0 && (
-              <div className="mb-4 space-y-2">
-                <div className="flex flex-col sm:flex-row gap-2">
-                  <Input
-                    type="number"
-                    placeholder={
-                      assignedWallet
-                        ? "Add savings amount"
-                        : "Assign a wallet first"
-                    }
-                    value={addAmount}
-                    onChange={(e) => setAddAmount(e.target.value)}
-                    className="flex-1 h-10 rounded-xl bg-[#081427] border-white/10 text-white placeholder:text-white/35 focus-visible:ring-1 focus-visible:ring-green-500/60"
-                    disabled={!assignedWallet}
-                  />
-
-                  <Button
-                    type="button"
-                    className="h-10 rounded-xl bg-green-500 hover:bg-green-600 text-white px-5 disabled:opacity-50 sm:min-w-[92px]"
-                    onClick={() => {
-                      if (!addAmount) return;
-                      onAddSavings(goal, parseFloat(addAmount));
-                      setAddAmount("");
-                    }}
-                    disabled={
-                      !addAmount ||
-                      !assignedWallet ||
-                      Number(addAmount) <= 0 ||
-                      Number(addAmount) > walletBalance
-                    }
-                  >
-                    Add
-                  </Button>
+                    <div className="rounded-xl bg-black/20 p-3">
+                      <p className="text-[10px] uppercase text-white/45 font-semibold">
+                        Remaining
+                      </p>
+                      <p className="font-bold text-white">{fmt(remaining)}</p>
+                    </div>
+                  </div>
                 </div>
 
-                {assignedWallet && (
-                  <div className="flex flex-wrap gap-2">
-                    {quickAmounts.map((amount) => (
-                      <button
-                        key={amount}
-                        type="button"
-                        onClick={() => setAddAmount(String(amount))}
-                        className="px-3 py-1.5 rounded-full text-xs border border-white/10 bg-white/5 hover:bg-white/10 transition"
-                      >
-                        {fmt(amount)}
-                      </button>
-                    ))}
+                <div className="rounded-2xl border border-white/10 bg-white/[0.035] p-4">
+                  <p className="text-[11px] uppercase tracking-[0.08em] text-white/50 font-semibold mb-2">
+                    Source Wallet
+                  </p>
+
+                  {assignedWallet ? (
+                    <div className="flex items-center justify-between gap-3">
+                      <div className="flex items-center gap-2 min-w-0">
+                        <div className="h-9 w-9 rounded-xl bg-white/10 flex items-center justify-center shrink-0">
+                          <Wallet className="w-4 h-4 text-green-300" />
+                        </div>
+                        <div className="min-w-0">
+                          <p className="text-sm font-semibold text-white truncate">
+                            {assignedWallet.icon ? `${assignedWallet.icon} ` : ""}
+                            {assignedWallet.name}
+                          </p>
+                          <p className="text-xs text-white/45">
+                            Available balance
+                          </p>
+                        </div>
+                      </div>
+
+                      <p className="text-sm font-bold text-white shrink-0">
+                        {fmt(assignedWalletBalance)}
+                      </p>
+                    </div>
+                  ) : (
+                    <p className="text-sm text-white/55">
+                      No wallet assigned. Edit this goal to assign a wallet before
+                      adding savings.
+                    </p>
+                  )}
+                </div>
+
+                {goal?.planned_use_date && (
+                  <div className="rounded-2xl border border-white/10 bg-white/[0.035] p-4">
+                    <p className="text-[11px] uppercase tracking-[0.08em] text-white/50 font-semibold mb-2">
+                      Planned Use Date
+                    </p>
+                    <p className="text-sm text-white flex items-center gap-2">
+                      <Calendar className="w-4 h-4 text-green-300" />
+                      {goal.planned_use_date}
+                    </p>
+                  </div>
+                )}
+
+                {cleanReasons.length > 0 && (
+                  <div className="rounded-2xl border border-white/10 bg-white/[0.035] p-4">
+                    <p className="text-[11px] uppercase tracking-[0.08em] text-white/50 font-semibold mb-2">
+                      Reasons / Motivations
+                    </p>
+                    <div className="space-y-2">
+                      {cleanReasons.map((reason, index) => (
+                        <div
+                          key={`${reason}_${index}`}
+                          className="rounded-xl bg-black/20 px-3 py-2 text-sm text-white/80"
+                        >
+                          {reason}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {goal?.notes && (
+                  <div className="rounded-2xl border border-white/10 bg-white/[0.035] p-4">
+                    <p className="text-[11px] uppercase tracking-[0.08em] text-white/50 font-semibold mb-2">
+                      Notes
+                    </p>
+                    <p className="text-sm text-white/75 whitespace-pre-wrap">
+                      {goal.notes}
+                    </p>
+                  </div>
+                )}
+
+                {Number(totalIncome) > 0 && (
+                  <div className="rounded-2xl border border-green-400/15 bg-green-400/[0.06] p-4">
+                    <p className="text-[11px] uppercase tracking-[0.08em] text-green-200/80 font-semibold mb-1">
+                      CLARA Note
+                    </p>
+                    <p className="text-sm text-white/70">
+                      Add only what your wallet can safely support. Small,
+                      consistent top-ups are better than forcing a big amount.
+                    </p>
                   </div>
                 )}
               </div>
-            )}
+            </div>
 
-            <div className="space-y-2 mb-4">
-              {weeklyTarget ? (
-                <div className="flex justify-between items-center gap-3 p-3 rounded-xl border border-white/10 bg-[#0d1b34] text-sm">
-                  <span className="text-white/70">Suggested / week</span>
-                  <span className="font-bold text-green-400 shrink-0">
-                    {fmt(weeklyTarget)}
-                  </span>
-                </div>
-              ) : null}
-
-              {monthlyTarget ? (
-                <div className="flex justify-between items-center gap-3 p-3 rounded-xl border border-white/10 bg-[#0d1b34] text-sm">
-                  <span className="text-white/70">Suggested / month</span>
-                  <span className="font-bold text-green-400 shrink-0">
-                    {fmt(monthlyTarget)}
-                  </span>
-                </div>
-              ) : null}
-
-              {impactOnRetention ? (
-                <div
-                  className={`flex justify-between items-center gap-3 p-3 rounded-xl border text-sm ${
-                    parseFloat(impactOnRetention) > 20
-                      ? "bg-orange-500/10 border-orange-400/20"
-                      : "bg-[#0d1b34] border-white/10"
-                  }`}
+            <div className="border-t border-white/10 bg-[#041226]/96 px-4 sm:px-5 py-3 backdrop-blur-xl">
+              <div className="grid grid-cols-2 gap-2">
+                <Button
+                  type="button"
+                  onClick={() => onEdit(goal)}
+                  variant="ghost"
+                  className="h-10 rounded-xl border border-white/10 bg-white/[0.04] text-white/80 hover:bg-white/[0.08] hover:text-white"
                 >
-                  <span className="text-white/70">Impact on leftover %</span>
-                  <span
-                    className={`font-bold shrink-0 ${
-                      parseFloat(impactOnRetention) > 20
-                        ? "text-orange-300"
-                        : "text-white"
-                    }`}
-                  >
-                    {impactOnRetention}% of income
-                  </span>
-                </div>
-              ) : null}
+                  <Edit className="w-4 h-4 mr-2" />
+                  Edit
+                </Button>
+
+                <Button
+                  type="button"
+                  onClick={handleOpenAddSavings}
+                  disabled={remaining <= 0}
+                  className="h-10 rounded-xl bg-green-500 text-white font-semibold hover:bg-green-600 disabled:opacity-50"
+                >
+                  <Plus className="w-4 h-4 mr-2" />
+                  Add Savings
+                </Button>
+
+                <Button
+                  type="button"
+                  onClick={() => onDelete(goal.id)}
+                  variant="ghost"
+                  className="h-10 rounded-xl border border-red-400/20 bg-red-500/10 text-red-200 hover:bg-red-500/15 hover:text-red-100"
+                >
+                  <Trash2 className="w-4 h-4 mr-2" />
+                  Delete
+                </Button>
+
+                <Button
+                  type="button"
+                  onClick={onClose}
+                  variant="ghost"
+                  className="h-10 rounded-xl border border-white/10 bg-white/[0.04] text-white/80 hover:bg-white/[0.08] hover:text-white"
+                >
+                  Close
+                </Button>
+              </div>
             </div>
-
-            <div className="p-4 rounded-2xl bg-[#0d1b34] border border-white/10 mb-4">
-              <p className="text-xs font-bold uppercase tracking-wide text-white/60 mb-3">
-                Why this matters {emotionEmojis[goal.emotional_value] || "✨"}
-              </p>
-
-              {Array.isArray(goal.reasons) &&
-                goal.reasons.filter(Boolean).map((reason, i) => (
-                  <p
-                    key={i}
-                    className="text-sm text-white/90 flex items-start gap-2 mb-2"
-                  >
-                    <span className="text-green-400 font-bold shrink-0">
-                      {i + 1}.
-                    </span>
-                    <span>{reason}</span>
-                  </p>
-                ))}
-
-              {goal.notes ? (
-                <p className="text-sm text-white/65 mt-3 italic">{goal.notes}</p>
-              ) : null}
-            </div>
-
-            {goal.planned_use_date ? (
-              <p className="text-sm text-white/65 flex items-center gap-2">
-                <Calendar className="w-4 h-4 shrink-0" />
-                Planned use: {goal.planned_use_date}
-              </p>
-            ) : null}
           </div>
-        </div>
-      </DialogContent>
-    </Dialog>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={addSavingsOpen} onOpenChange={setAddSavingsOpen}>
+        <DialogContent className={formDialogClass}>
+          <div className="flex max-h-[inherit] flex-col">
+            <DialogHeader className="border-b border-white/10 px-4 sm:px-5 py-4 pr-12">
+              <DialogTitle className="text-white text-xl sm:text-2xl leading-tight">
+                Add Savings
+              </DialogTitle>
+              <p className="text-xs text-white/50 mt-1">
+                {goal?.title || "Savings Goal"}
+              </p>
+            </DialogHeader>
+
+            <div className="flex-1 overflow-y-auto px-4 sm:px-5 py-4">
+              <div className="space-y-4">
+                <div className="rounded-2xl border border-white/10 bg-white/[0.04] p-4">
+                  <div className="flex justify-between gap-3 text-sm">
+                    <div>
+                      <p className="text-white/45 text-[11px] uppercase font-semibold">
+                        Remaining
+                      </p>
+                      <p className="font-bold text-white">{fmt(remaining)}</p>
+                    </div>
+
+                    <div className="text-right">
+                      <p className="text-white/45 text-[11px] uppercase font-semibold">
+                        Wallet Balance
+                      </p>
+                      <p className="font-bold text-white">
+                        {fmt(assignedWalletBalance)}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+                <div>
+                  <Label className={labelDarkClass}>Amount to Add</Label>
+                  <Input
+                    type="number"
+                    placeholder="Enter amount"
+                    className={inputDarkClass}
+                    value={amount}
+                    onChange={(e) => setAmount(e.target.value)}
+                    autoFocus
+                  />
+                </div>
+
+                {assignedWallet ? (
+                  <p className="text-xs text-white/50">
+                    This will add savings from {assignedWallet.name}.
+                  </p>
+                ) : (
+                  <p className="text-xs text-red-200">
+                    No wallet assigned. Edit the goal first and select a wallet.
+                  </p>
+                )}
+              </div>
+            </div>
+
+            <div className="border-t border-white/10 bg-[#061224]/96 px-4 sm:px-5 py-3 backdrop-blur-xl">
+              <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+                <Button
+                  type="button"
+                  onClick={() => setAddSavingsOpen(false)}
+                  variant="ghost"
+                  className="h-10 rounded-xl border border-white/10 bg-white/[0.04] px-4 text-white/80 hover:bg-white/[0.08] hover:text-white"
+                >
+                  Cancel
+                </Button>
+
+                <Button
+                  type="button"
+                  onClick={handleSubmitAddSavings}
+                  disabled={savingAmount || !assignedWallet || remaining <= 0}
+                  className="h-10 rounded-xl bg-green-500 px-4 text-white font-semibold hover:bg-green-600 disabled:opacity-50"
+                >
+                  {savingAmount ? "Adding..." : "Add Savings"}
+                </Button>
+              </div>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+    </>
   );
 }
