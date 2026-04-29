@@ -169,6 +169,8 @@ export default function EmergencyFundCard({
   canAutoPrompt = false,
   hasSurvivalSetup = false,
   theme = null,
+  expanded = false,
+  onToggleDetails,
   onQuickExpense,
   onQuickAI,
 }) {
@@ -183,7 +185,7 @@ export default function EmergencyFundCard({
 
   const safeWallets = Array.isArray(wallets) ? wallets : [];
 
-  const [expanded, setExpanded] = useState(false);
+  const isExpanded = Boolean(expanded);
   const [editing, setEditing] = useState(false);
   const [showModal, setShowModal] = useState(false);
   const [targetMonths, setTargetMonths] = useState(3);
@@ -973,20 +975,20 @@ export default function EmergencyFundCard({
 
           <button
             type="button"
-            onClick={() => setExpanded((prev) => !prev)}
+            onClick={onToggleDetails}
             className={`flex w-full items-center justify-between rounded-2xl border px-3 py-2.5 text-sm backdrop-blur-sm transition hover:bg-white/10 ${themeClasses.glass}`}
           >
             <span className="font-medium">
-              {expanded ? "Hide details" : "Show details"}
+              {isExpanded ? "Hide details" : "Show details"}
             </span>
-            {expanded ? (
+            {isExpanded ? (
               <ChevronUp className="h-4 w-4" />
             ) : (
               <ChevronDown className="h-4 w-4" />
             )}
           </button>
 
-          {expanded && (
+          {isExpanded && (
             <div
               className={`mt-3 space-y-3 rounded-2xl border p-3 backdrop-blur-[2px] shadow-[inset_0_1px_0_rgba(255,255,255,0.05)] ${themeClasses.glass}`}
             >
