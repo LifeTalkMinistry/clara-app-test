@@ -36,16 +36,15 @@ const FILTERS = [
 
 const DEFAULT_THEME = {
   primary:
-    "border-[color:var(--clara-theme-border,rgba(52,211,153,0.28))] bg-[color:var(--clara-theme-soft,rgba(52,211,153,0.12))] text-[color:var(--clara-theme-text,rgba(236,253,245,0.92))]",
-  primaryText: "text-[color:var(--clara-theme-text,rgba(236,253,245,0.9))]",
-  border: "border-[color:var(--clara-theme-border,rgba(52,211,153,0.24))]",
-  glow:
-    "shadow-[0_0_28px_var(--clara-theme-glow,rgba(52,211,153,0.14))]",
+    "border-[color:var(--clara-theme-border,rgba(148,163,184,0.24))] bg-[color:var(--clara-theme-soft,rgba(148,163,184,0.08))] text-[color:var(--clara-theme-text,rgba(241,245,249,0.9))]",
+  primaryText: "text-[color:var(--clara-theme-text,rgba(241,245,249,0.9))]",
+  border: "border-[color:var(--clara-theme-border,rgba(148,163,184,0.2))]",
+  glow: "shadow-[0_0_22px_var(--clara-theme-glow,rgba(148,163,184,0.08))]",
   glowSoft:
-    "shadow-[0_0_36px_var(--clara-theme-glow,rgba(52,211,153,0.1))]",
-  orb: "bg-[color:var(--clara-theme-soft,rgba(52,211,153,0.12))]",
+    "shadow-[0_0_30px_var(--clara-theme-glow,rgba(148,163,184,0.07))]",
+  orb: "bg-[color:var(--clara-theme-soft,rgba(148,163,184,0.08))]",
   focus:
-    "focus:border-[color:var(--clara-theme-border,rgba(52,211,153,0.34))] focus:shadow-[0_0_24px_var(--clara-theme-glow,rgba(52,211,153,0.1))]",
+    "focus:border-[color:var(--clara-theme-border,rgba(148,163,184,0.32))] focus:shadow-[0_0_20px_var(--clara-theme-glow,rgba(148,163,184,0.08))]",
 };
 
 const peso = (value) =>
@@ -276,60 +275,58 @@ const getIcon = (group) => {
 const getToneClasses = (group, signedAmount = 0) => {
   if (group === "expense") {
     return {
-      glow: "bg-rose-400/14",
-      border: "border-rose-300/20",
-      icon: "bg-rose-400/12 text-rose-100 shadow-[0_0_28px_rgba(251,113,133,0.14)]",
-      amount: "text-rose-100",
-      rail: "bg-rose-300/45",
+      glow: "bg-rose-300/8",
+      border: "border-rose-200/14",
+      icon: "bg-rose-300/8 text-rose-50/82 shadow-[0_0_20px_rgba(251,113,133,0.08)]",
+      amount: "text-rose-50/88",
+      rail: "bg-rose-200/35",
     };
   }
 
   if (group === "income") {
     return {
-      glow:
-        "bg-[color:var(--clara-theme-soft,rgba(52,211,153,0.14))]",
-      border:
-        "border-[color:var(--clara-theme-border,rgba(52,211,153,0.2))]",
-      icon:
-        "bg-[color:var(--clara-theme-soft,rgba(52,211,153,0.12))] text-[color:var(--clara-theme-text,rgba(236,253,245,0.92))] shadow-[0_0_28px_var(--clara-theme-glow,rgba(52,211,153,0.16))]",
-      amount: "text-[color:var(--clara-theme-text,rgba(236,253,245,0.92))]",
-      rail: "bg-[color:var(--clara-theme-line,rgba(52,211,153,0.45))]",
+      glow: "bg-[color:var(--clara-theme-soft,rgba(148,163,184,0.08))]",
+      border: "border-[color:var(--clara-theme-border,rgba(148,163,184,0.18))]",
+      icon: "bg-[color:var(--clara-theme-soft,rgba(148,163,184,0.08))] text-[color:var(--clara-theme-text,rgba(241,245,249,0.88))] shadow-[0_0_20px_var(--clara-theme-glow,rgba(148,163,184,0.08))]",
+      amount: "text-[color:var(--clara-theme-text,rgba(241,245,249,0.9))]",
+      rail: "bg-[color:var(--clara-theme-line,rgba(148,163,184,0.34))]",
     };
   }
 
   if (group === "transfer") {
     return {
       glow:
-        "bg-[color:var(--clara-theme-secondary-soft,rgba(34,211,238,0.14))]",
+        "bg-[color:var(--clara-theme-secondary-soft,rgba(125,211,252,0.08))]",
       border:
-        "border-[color:var(--clara-theme-secondary-border,rgba(34,211,238,0.2))]",
+        "border-[color:var(--clara-theme-secondary-border,rgba(125,211,252,0.16))]",
       icon:
-        "bg-[color:var(--clara-theme-secondary-soft,rgba(34,211,238,0.12))] text-cyan-100 shadow-[0_0_28px_var(--clara-theme-secondary-glow,rgba(34,211,238,0.16))]",
-      amount: "text-cyan-100",
-      rail: "bg-[color:var(--clara-theme-secondary-line,rgba(34,211,238,0.45))]",
+        "bg-[color:var(--clara-theme-secondary-soft,rgba(125,211,252,0.08))] text-sky-50/82 shadow-[0_0_20px_var(--clara-theme-secondary-glow,rgba(125,211,252,0.08))]",
+      amount: "text-sky-50/82",
+      rail:
+        "bg-[color:var(--clara-theme-secondary-line,rgba(125,211,252,0.32))]",
     };
   }
 
   if (group === "savings") {
     return {
-      glow: "bg-violet-400/14",
-      border: "border-violet-300/20",
+      glow: "bg-violet-300/8",
+      border: "border-violet-200/14",
       icon:
-        "bg-violet-400/12 text-violet-100 shadow-[0_0_28px_rgba(167,139,250,0.14)]",
-      amount: "text-violet-100",
-      rail: "bg-violet-300/45",
+        "bg-violet-300/8 text-violet-50/82 shadow-[0_0_20px_rgba(167,139,250,0.08)]",
+      amount: "text-violet-50/88",
+      rail: "bg-violet-200/34",
     };
   }
 
   return {
     glow:
       signedAmount >= 0
-        ? "bg-[color:var(--clara-theme-secondary-soft,rgba(34,211,238,0.1))]"
-        : "bg-rose-400/10",
+        ? "bg-[color:var(--clara-theme-secondary-soft,rgba(125,211,252,0.07))]"
+        : "bg-rose-300/7",
     border: "border-white/10",
-    icon: "bg-white/10 text-white/80",
-    amount: signedAmount >= 0 ? "text-white" : "text-rose-100",
-    rail: "bg-white/25",
+    icon: "bg-white/[0.07] text-white/72",
+    amount: signedAmount >= 0 ? "text-white/88" : "text-rose-50/85",
+    rail: "bg-white/22",
   };
 };
 
@@ -470,44 +467,44 @@ function GlassDropdown({
       <button
         type="button"
         onClick={() => setOpen((current) => !current)}
-        className={`relative flex min-h-[50px] w-full items-center justify-between gap-3 overflow-hidden rounded-[22px] border px-4 text-left shadow-[0_16px_42px_rgba(0,0,0,0.24)] backdrop-blur-2xl transition duration-300 active:scale-[0.985] ${
+        className={`relative flex min-h-[50px] w-full items-center justify-between gap-3 overflow-hidden rounded-[22px] border px-4 text-left shadow-[0_14px_36px_rgba(0,0,0,0.22)] backdrop-blur-2xl transition duration-300 active:scale-[0.985] ${
           open
             ? `${theme.border} ${theme.orb} ${theme.glow}`
-            : "border-white/10 bg-white/[0.055]"
+            : "border-white/10 bg-white/[0.045]"
         }`}
       >
         <span
-          className={`pointer-events-none absolute -right-8 -top-10 h-20 w-20 rounded-full ${theme.orb} blur-2xl`}
+          className={`pointer-events-none absolute -right-8 -top-10 h-20 w-20 rounded-full ${theme.orb} blur-2xl opacity-70`}
         />
 
         <span className="relative flex min-w-0 items-center gap-3">
           {Icon ? (
             <span
-              className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-[16px] border border-white/10 bg-black/20 ${theme.primaryText}`}
+              className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-[16px] border border-white/10 bg-black/18 ${theme.primaryText}`}
             >
               <Icon className="h-4 w-4" />
             </span>
           ) : null}
 
           <span className="min-w-0">
-            <span className="block text-[9px] font-black uppercase tracking-[0.18em] text-white/35">
+            <span className="block text-[9px] font-black uppercase tracking-[0.17em] text-white/34">
               {label}
             </span>
-            <span className="mt-0.5 block truncate text-sm font-black text-white/88">
+            <span className="mt-0.5 block truncate text-sm font-black text-white/84">
               {selected?.label}
             </span>
           </span>
         </span>
 
         <ChevronDown
-          className={`relative h-4 w-4 shrink-0 text-white/52 transition duration-300 ${
+          className={`relative h-4 w-4 shrink-0 text-white/48 transition duration-300 ${
             open ? `rotate-180 ${theme.primaryText}` : ""
           }`}
         />
       </button>
 
       <div
-        className={`absolute left-0 right-0 top-[calc(100%+8px)] z-30 grid overflow-hidden rounded-[24px] border border-white/10 bg-[#06101f]/95 shadow-[0_24px_70px_rgba(0,0,0,0.45)] backdrop-blur-2xl transition-all duration-300 ${
+        className={`absolute left-0 right-0 top-[calc(100%+8px)] z-30 grid overflow-hidden rounded-[24px] border border-white/10 bg-[#07101d]/96 shadow-[0_24px_70px_rgba(0,0,0,0.42)] backdrop-blur-2xl transition-all duration-300 ${
           open
             ? "grid-rows-[1fr] opacity-100"
             : "pointer-events-none grid-rows-[0fr] opacity-0"
@@ -529,8 +526,8 @@ function GlassDropdown({
                   }}
                   className={`flex min-h-[42px] w-full items-center justify-between rounded-[18px] px-3 text-left text-sm font-black transition duration-200 active:scale-[0.985] ${
                     active
-                      ? `${theme.orb} ${theme.primaryText} ${theme.glow}`
-                      : "text-white/62 hover:bg-white/[0.055]"
+                      ? `${theme.orb} ${theme.primaryText}`
+                      : "text-white/60 hover:bg-white/[0.05]"
                   }`}
                 >
                   <span>{item.label}</span>
@@ -552,27 +549,27 @@ function GlassDropdown({
 function SummaryCard({ label, value, helper, tone = "slate" }) {
   const toneClass =
     tone === "rose"
-      ? "from-rose-500/16 text-rose-100 shadow-rose-500/10"
+      ? "from-rose-400/10 text-rose-50/88"
       : tone === "emerald"
-        ? "from-[color:var(--clara-theme-soft,rgba(52,211,153,0.16))] text-[color:var(--clara-theme-text,rgba(236,253,245,0.92))] shadow-[var(--clara-theme-glow,rgba(52,211,153,0.1))]"
+        ? "from-[color:var(--clara-theme-soft,rgba(148,163,184,0.1))] text-[color:var(--clara-theme-text,rgba(241,245,249,0.88))]"
         : tone === "cyan"
-          ? "from-[color:var(--clara-theme-secondary-soft,rgba(34,211,238,0.16))] text-cyan-100 shadow-cyan-500/10"
-          : "from-white/10 text-white shadow-black/20";
+          ? "from-[color:var(--clara-theme-secondary-soft,rgba(125,211,252,0.1))] text-sky-50/82"
+          : "from-white/[0.075] text-white/88";
 
   return (
     <div
-      className={`relative min-h-[82px] overflow-hidden rounded-[22px] border border-white/10 bg-gradient-to-br ${toneClass} via-white/[0.045] to-white/[0.025] p-3 shadow-[0_18px_46px_rgba(0,0,0,0.25)] backdrop-blur-2xl`}
+      className={`relative min-h-[82px] overflow-hidden rounded-[22px] border border-white/10 bg-gradient-to-br ${toneClass} via-white/[0.035] to-white/[0.02] p-3 shadow-[0_16px_42px_rgba(0,0,0,0.22)] backdrop-blur-2xl`}
     >
-      <div className="pointer-events-none absolute -right-10 -top-10 h-20 w-20 rounded-full bg-white/10 blur-3xl" />
-      <div className="pointer-events-none absolute inset-x-4 top-0 h-px bg-gradient-to-r from-transparent via-white/25 to-transparent" />
+      <div className="pointer-events-none absolute -right-10 -top-10 h-20 w-20 rounded-full bg-white/[0.055] blur-3xl" />
+      <div className="pointer-events-none absolute inset-x-4 top-0 h-px bg-gradient-to-r from-transparent via-white/18 to-transparent" />
 
-      <p className="text-[9px] font-black uppercase tracking-[0.17em] text-white/40">
+      <p className="text-[9px] font-black uppercase tracking-[0.16em] text-white/38">
         {label}
       </p>
       <p className="mt-2 truncate text-[clamp(15px,4.5vw,22px)] font-black tracking-tight">
         {value}
       </p>
-      <p className="mt-0.5 truncate text-[10px] font-semibold text-white/42">
+      <p className="mt-0.5 truncate text-[10px] font-semibold text-white/40">
         {helper}
       </p>
     </div>
@@ -582,18 +579,18 @@ function SummaryCard({ label, value, helper, tone = "slate" }) {
 function StatusBadge({ children, icon: Icon = CircleDot, tone = "neutral" }) {
   const toneClass =
     tone === "good"
-      ? "border-[color:var(--clara-theme-border,rgba(52,211,153,0.2))] bg-[color:var(--clara-theme-soft,rgba(52,211,153,0.1))] text-[color:var(--clara-theme-text,rgba(236,253,245,0.8))]"
+      ? "border-[color:var(--clara-theme-border,rgba(148,163,184,0.18))] bg-[color:var(--clara-theme-soft,rgba(148,163,184,0.075))] text-[color:var(--clara-theme-text,rgba(241,245,249,0.78))]"
       : tone === "warn"
-        ? "border-amber-300/20 bg-amber-400/10 text-amber-50/80"
+        ? "border-amber-200/16 bg-amber-300/8 text-amber-50/76"
         : tone === "bad"
-          ? "border-rose-300/20 bg-rose-400/10 text-rose-50/80"
+          ? "border-rose-200/16 bg-rose-300/8 text-rose-50/76"
           : tone === "info"
-            ? "border-[color:var(--clara-theme-secondary-border,rgba(34,211,238,0.2))] bg-[color:var(--clara-theme-secondary-soft,rgba(34,211,238,0.1))] text-cyan-50/80"
-            : "border-white/10 bg-black/22 text-white/60";
+            ? "border-[color:var(--clara-theme-secondary-border,rgba(125,211,252,0.16))] bg-[color:var(--clara-theme-secondary-soft,rgba(125,211,252,0.075))] text-sky-50/76"
+            : "border-white/10 bg-black/18 text-white/58";
 
   return (
     <span
-      className={`inline-flex max-w-full items-center gap-1.5 rounded-full border px-2 py-0.5 text-[9px] font-black uppercase tracking-[0.1em] ${toneClass}`}
+      className={`inline-flex max-w-full items-center gap-1.5 rounded-full border px-2 py-0.5 text-[9px] font-black uppercase tracking-[0.095em] ${toneClass}`}
     >
       <Icon className="h-3 w-3 shrink-0" />
       <span className="truncate">{children}</span>
@@ -604,17 +601,17 @@ function StatusBadge({ children, icon: Icon = CircleDot, tone = "neutral" }) {
 function InsightCard({ insight, theme = DEFAULT_THEME }) {
   return (
     <section
-      className={`relative overflow-hidden rounded-[24px] border ${theme.border} bg-[color:var(--clara-theme-soft,rgba(52,211,153,0.07))] p-4 shadow-[0_18px_58px_rgba(0,0,0,0.24)] backdrop-blur-2xl`}
+      className={`relative overflow-hidden rounded-[24px] border ${theme.border} bg-white/[0.045] p-4 shadow-[0_18px_52px_rgba(0,0,0,0.22)] backdrop-blur-2xl`}
     >
       <div
-        className={`pointer-events-none absolute -right-14 -top-16 h-32 w-32 rounded-full ${theme.orb} blur-3xl`}
+        className={`pointer-events-none absolute -right-14 -top-16 h-32 w-32 rounded-full ${theme.orb} blur-3xl opacity-70`}
       />
-      <div className="pointer-events-none absolute -left-16 bottom-0 h-28 w-28 rounded-full bg-[color:var(--clara-theme-secondary-soft,rgba(34,211,238,0.1))] blur-3xl" />
-      <div className="pointer-events-none absolute inset-x-6 top-0 h-px bg-gradient-to-r from-transparent via-white/22 to-transparent" />
+      <div className="pointer-events-none absolute -left-16 bottom-0 h-28 w-28 rounded-full bg-[color:var(--clara-theme-secondary-soft,rgba(125,211,252,0.07))] blur-3xl" />
+      <div className="pointer-events-none absolute inset-x-6 top-0 h-px bg-gradient-to-r from-transparent via-white/18 to-transparent" />
 
       <div className="relative flex items-start gap-3">
         <div
-          className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-[17px] border ${theme.border} ${theme.orb} ${theme.primaryText} ${theme.glow}`}
+          className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-[17px] border ${theme.border} ${theme.orb} ${theme.primaryText}`}
         >
           <CheckCircle2 className="h-4.5 w-4.5" />
         </div>
@@ -625,7 +622,7 @@ function InsightCard({ insight, theme = DEFAULT_THEME }) {
           >
             CLARA Insight
           </p>
-          <p className="mt-1 text-sm font-semibold leading-6 text-white/72">
+          <p className="mt-1 text-sm font-semibold leading-6 text-white/70">
             {insight}
           </p>
         </div>
@@ -640,11 +637,11 @@ function TransactionCard({ item, onEdit }) {
   const sign = item.signedAmount > 0 ? "+" : item.signedAmount < 0 ? "-" : "";
 
   return (
-    <article className="group relative overflow-hidden rounded-[22px] border border-white/10 bg-[linear-gradient(135deg,rgba(255,255,255,0.08),rgba(255,255,255,0.032))] p-3 shadow-[0_16px_48px_rgba(0,0,0,0.22)] backdrop-blur-2xl transition duration-300 active:scale-[0.985]">
+    <article className="group relative overflow-hidden rounded-[22px] border border-white/10 bg-[linear-gradient(135deg,rgba(255,255,255,0.068),rgba(255,255,255,0.028))] p-3 shadow-[0_14px_42px_rgba(0,0,0,0.2)] backdrop-blur-2xl transition duration-300 active:scale-[0.985]">
       <div
         className={`pointer-events-none absolute -right-16 -top-20 h-32 w-32 rounded-full ${tone.glow} blur-3xl`}
       />
-      <div className="pointer-events-none absolute inset-x-5 top-0 h-px bg-gradient-to-r from-transparent via-white/20 to-transparent" />
+      <div className="pointer-events-none absolute inset-x-5 top-0 h-px bg-gradient-to-r from-transparent via-white/16 to-transparent" />
       <div className={`absolute left-0 top-5 h-10 w-1 rounded-r-full ${tone.rail}`} />
 
       <button
@@ -653,7 +650,7 @@ function TransactionCard({ item, onEdit }) {
           event.stopPropagation();
           onEdit?.(item);
         }}
-        className="absolute right-3 top-3 z-10 flex h-8 w-8 items-center justify-center rounded-[13px] border border-white/10 bg-black/24 text-white/58 shadow-[0_10px_28px_rgba(0,0,0,0.2)] backdrop-blur-2xl transition duration-200 hover:bg-white/[0.08] hover:text-white active:scale-[0.94]"
+        className="absolute right-3 top-3 z-10 flex h-8 w-8 items-center justify-center rounded-[13px] border border-white/10 bg-black/20 text-white/52 shadow-[0_10px_26px_rgba(0,0,0,0.18)] backdrop-blur-2xl transition duration-200 hover:bg-white/[0.07] hover:text-white/82 active:scale-[0.94]"
         aria-label={`Edit ${item.title}`}
       >
         <Edit3 className="h-3.5 w-3.5" />
@@ -669,11 +666,11 @@ function TransactionCard({ item, onEdit }) {
         <div className="min-w-0 flex-1">
           <div className="flex items-start justify-between gap-3">
             <div className="min-w-0">
-              <h3 className="truncate text-[13px] font-black leading-tight text-white">
+              <h3 className="truncate text-[13px] font-black leading-tight text-white/92">
                 {item.title}
               </h3>
 
-              <div className="mt-1.5 flex flex-wrap items-center gap-x-2 gap-y-1 text-[10px] font-semibold text-white/45">
+              <div className="mt-1.5 flex flex-wrap items-center gap-x-2 gap-y-1 text-[10px] font-semibold text-white/43">
                 <span>
                   {item.category ? titleCase(item.category) : titleCase(item.group)}
                 </span>
@@ -692,7 +689,7 @@ function TransactionCard({ item, onEdit }) {
                 {sign}
                 {peso(Math.abs(item.signedAmount || item.amount))}
               </p>
-              <p className="mt-1 text-[9px] font-bold text-white/32">
+              <p className="mt-1 text-[9px] font-bold text-white/30">
                 {formatTime(item.date)}
               </p>
             </div>
@@ -736,7 +733,7 @@ function TransactionCard({ item, onEdit }) {
           </div>
 
           {item.note ? (
-            <p className="mt-2.5 line-clamp-2 rounded-[16px] border border-white/10 bg-black/16 px-3 py-2 text-xs font-medium leading-5 text-white/52">
+            <p className="mt-2.5 line-clamp-2 rounded-[16px] border border-white/10 bg-black/14 px-3 py-2 text-xs font-medium leading-5 text-white/50">
               {item.note}
             </p>
           ) : null}
@@ -746,21 +743,28 @@ function TransactionCard({ item, onEdit }) {
   );
 }
 
-function TimelineDropdown({ group, items, isOpen, onToggle, onEdit, theme = DEFAULT_THEME }) {
+function TimelineDropdown({
+  group,
+  items,
+  isOpen,
+  onToggle,
+  onEdit,
+  theme = DEFAULT_THEME,
+}) {
   const stats = getTimelineStats(items);
   const hasItems = items.length > 0;
 
   return (
     <article
-      className={`relative overflow-hidden rounded-[24px] border bg-white/[0.052] shadow-[0_18px_58px_rgba(0,0,0,0.24)] backdrop-blur-2xl transition duration-300 ${
+      className={`relative overflow-hidden rounded-[24px] border bg-white/[0.045] shadow-[0_18px_52px_rgba(0,0,0,0.22)] backdrop-blur-2xl transition duration-300 ${
         isOpen ? `${theme.border} ${theme.glowSoft}` : "border-white/10"
       }`}
     >
       <div
-        className={`pointer-events-none absolute -right-16 -top-16 h-32 w-32 rounded-full ${theme.orb} blur-3xl`}
+        className={`pointer-events-none absolute -right-16 -top-16 h-32 w-32 rounded-full ${theme.orb} blur-3xl opacity-70`}
       />
-      <div className="pointer-events-none absolute -left-20 bottom-0 h-28 w-28 rounded-full bg-[color:var(--clara-theme-secondary-soft,rgba(34,211,238,0.08))] blur-3xl" />
-      <div className="pointer-events-none absolute inset-x-6 top-0 h-px bg-gradient-to-r from-transparent via-white/22 to-transparent" />
+      <div className="pointer-events-none absolute -left-20 bottom-0 h-28 w-28 rounded-full bg-[color:var(--clara-theme-secondary-soft,rgba(125,211,252,0.06))] blur-3xl" />
+      <div className="pointer-events-none absolute inset-x-6 top-0 h-px bg-gradient-to-r from-transparent via-white/18 to-transparent" />
 
       <button
         type="button"
@@ -769,21 +773,21 @@ function TimelineDropdown({ group, items, isOpen, onToggle, onEdit, theme = DEFA
       >
         <div className="min-w-0 flex-1">
           <div className="flex min-w-0 items-center gap-2">
-            <h2 className="truncate text-[16px] font-black tracking-tight text-white">
+            <h2 className="truncate text-[16px] font-black tracking-tight text-white/92">
               {group.label}
             </h2>
-            <span className="shrink-0 rounded-full border border-white/10 bg-black/20 px-2 py-0.5 text-[9px] font-black uppercase tracking-[0.1em] text-white/45">
+            <span className="shrink-0 rounded-full border border-white/10 bg-black/18 px-2 py-0.5 text-[9px] font-black uppercase tracking-[0.1em] text-white/43">
               {stats.count}
             </span>
           </div>
 
           <div className="mt-2 flex items-center gap-2 overflow-hidden">
-            <span className="truncate text-xs font-black text-white/70">
+            <span className="truncate text-xs font-black text-white/68">
               {stats.total >= 0 ? "+" : "-"}
               {peso(Math.abs(stats.total))}
             </span>
-            <span className="h-1 w-1 shrink-0 rounded-full bg-white/25" />
-            <span className="truncate text-[11px] font-semibold text-white/38">
+            <span className="h-1 w-1 shrink-0 rounded-full bg-white/22" />
+            <span className="truncate text-[11px] font-semibold text-white/36">
               Out {peso(stats.spent)} · In {peso(stats.income)}
             </span>
           </div>
@@ -793,7 +797,7 @@ function TimelineDropdown({ group, items, isOpen, onToggle, onEdit, theme = DEFA
           className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-[17px] border transition duration-300 ${
             isOpen
               ? `${theme.border} ${theme.orb} ${theme.primaryText}`
-              : "border-white/10 bg-black/20 text-white/50"
+              : "border-white/10 bg-black/18 text-white/48"
           }`}
         >
           <ChevronDown
@@ -816,7 +820,7 @@ function TimelineDropdown({ group, items, isOpen, onToggle, onEdit, theme = DEFA
                 <TransactionCard key={item.id} item={item} onEdit={onEdit} />
               ))
             ) : (
-              <div className="rounded-[20px] border border-white/10 bg-black/16 px-4 py-4 text-center text-sm font-semibold text-white/42">
+              <div className="rounded-[20px] border border-white/10 bg-black/14 px-4 py-4 text-center text-sm font-semibold text-white/42">
                 Nothing here yet.
               </div>
             )}
@@ -830,9 +834,9 @@ function TimelineDropdown({ group, items, isOpen, onToggle, onEdit, theme = DEFA
 function SkeletonBlock({ className = "" }) {
   return (
     <div
-      className={`relative overflow-hidden border border-white/10 bg-white/[0.055] backdrop-blur-2xl ${className}`}
+      className={`relative overflow-hidden border border-white/10 bg-white/[0.05] backdrop-blur-2xl ${className}`}
     >
-      <div className="absolute inset-0 -translate-x-full animate-[shimmer_1.8s_infinite] bg-gradient-to-r from-transparent via-white/10 to-transparent" />
+      <div className="absolute inset-0 -translate-x-full animate-[shimmer_1.8s_infinite] bg-gradient-to-r from-transparent via-white/8 to-transparent" />
     </div>
   );
 }
@@ -847,8 +851,8 @@ function LoadingState() {
       `}</style>
 
       <div className="pointer-events-none fixed inset-0 overflow-hidden">
-        <div className="absolute -top-28 left-1/2 h-80 w-80 -translate-x-1/2 rounded-full bg-[color:var(--clara-theme-soft,rgba(52,211,153,0.12))] blur-3xl" />
-        <div className="absolute -right-28 top-40 h-72 w-72 rounded-full bg-[color:var(--clara-theme-secondary-soft,rgba(34,211,238,0.12))] blur-3xl" />
+        <div className="absolute -top-28 left-1/2 h-80 w-80 -translate-x-1/2 rounded-full bg-[color:var(--clara-theme-soft,rgba(148,163,184,0.08))] blur-3xl" />
+        <div className="absolute -right-28 top-40 h-72 w-72 rounded-full bg-[color:var(--clara-theme-secondary-soft,rgba(125,211,252,0.08))] blur-3xl" />
       </div>
 
       <div className="relative mx-auto max-w-4xl space-y-4">
@@ -871,15 +875,15 @@ function LoadingState() {
 function ErrorState({ onBack, onRefresh }) {
   return (
     <div className="relative min-h-[100dvh] overflow-hidden bg-[#020713] px-4 py-6 text-white">
-      <div className="pointer-events-none absolute -top-28 left-1/2 h-80 w-80 -translate-x-1/2 rounded-full bg-rose-400/12 blur-3xl" />
-      <div className="pointer-events-none absolute -right-28 top-36 h-72 w-72 rounded-full bg-[color:var(--clara-theme-secondary-soft,rgba(34,211,238,0.1))] blur-3xl" />
+      <div className="pointer-events-none absolute -top-28 left-1/2 h-80 w-80 -translate-x-1/2 rounded-full bg-rose-300/10 blur-3xl" />
+      <div className="pointer-events-none absolute -right-28 top-36 h-72 w-72 rounded-full bg-[color:var(--clara-theme-secondary-soft,rgba(125,211,252,0.07))] blur-3xl" />
 
       <div className="relative mx-auto flex min-h-[80dvh] max-w-lg items-center">
-        <div className="relative w-full overflow-hidden rounded-[34px] border border-rose-300/15 bg-white/[0.055] p-6 text-center shadow-[0_24px_90px_rgba(0,0,0,0.34)] backdrop-blur-2xl">
-          <div className="pointer-events-none absolute inset-x-8 top-0 h-px bg-gradient-to-r from-transparent via-white/25 to-transparent" />
+        <div className="relative w-full overflow-hidden rounded-[34px] border border-rose-200/14 bg-white/[0.05] p-6 text-center shadow-[0_24px_84px_rgba(0,0,0,0.32)] backdrop-blur-2xl">
+          <div className="pointer-events-none absolute inset-x-8 top-0 h-px bg-gradient-to-r from-transparent via-white/18 to-transparent" />
 
-          <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-[24px] border border-rose-300/20 bg-rose-400/10">
-            <AlertTriangle className="h-7 w-7 text-rose-100" />
+          <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-[24px] border border-rose-200/16 bg-rose-300/8">
+            <AlertTriangle className="h-7 w-7 text-rose-50/82" />
           </div>
 
           <h2 className="mt-5 text-2xl font-black tracking-tight">
@@ -895,7 +899,7 @@ function ErrorState({ onBack, onRefresh }) {
             <button
               type="button"
               onClick={onBack}
-              className="min-h-[48px] rounded-[20px] border border-white/10 bg-black/20 text-sm font-black text-white/75 transition duration-200 active:scale-[0.98]"
+              className="min-h-[48px] rounded-[20px] border border-white/10 bg-black/18 text-sm font-black text-white/72 transition duration-200 active:scale-[0.98]"
             >
               Back
             </button>
@@ -903,7 +907,7 @@ function ErrorState({ onBack, onRefresh }) {
             <button
               type="button"
               onClick={onRefresh}
-              className="min-h-[48px] rounded-[20px] border border-[color:var(--clara-theme-border,rgba(52,211,153,0.25))] bg-[color:var(--clara-theme-soft,rgba(52,211,153,0.14))] text-sm font-black text-[color:var(--clara-theme-text,rgba(236,253,245,0.92))] shadow-[0_0_24px_var(--clara-theme-glow,rgba(52,211,153,0.14))] transition duration-200 active:scale-[0.98]"
+              className="min-h-[48px] rounded-[20px] border border-[color:var(--clara-theme-border,rgba(148,163,184,0.22))] bg-[color:var(--clara-theme-soft,rgba(148,163,184,0.1))] text-sm font-black text-[color:var(--clara-theme-text,rgba(241,245,249,0.9))] shadow-[0_0_20px_var(--clara-theme-glow,rgba(148,163,184,0.08))] transition duration-200 active:scale-[0.98]"
             >
               Try Again
             </button>
@@ -1295,10 +1299,10 @@ export default function TransactionHub() {
 
     if (budgetRiskCount > 0) {
       insight =
-        "Some spending is outside your budget plan. Review it before it becomes a pattern.";
+        "Some spending is outside your budget plan. Review it gently before it becomes a pattern.";
     } else if (frequentCount > 0 || highSpendCount > 0) {
       insight =
-        "This category is appearing often. Check if your budget still matches your real behavior.";
+        "One category is appearing often. Check if your budget still matches your real behavior.";
     } else if (plannedCount > 0 && unplannedCount === 0) {
       insight = "Your planned expenses are staying aligned this month.";
     }
@@ -1408,38 +1412,33 @@ export default function TransactionHub() {
   }
 
   if (financial.error && !hasOfflineReadyData) {
-    return (
-      <ErrorState
-        onBack={() => navigate("/dashboard")}
-        onRefresh={refresh}
-      />
-    );
+    return <ErrorState onBack={() => navigate("/dashboard")} onRefresh={refresh} />;
   }
 
   return (
     <div className="relative min-h-[100dvh] overflow-x-hidden bg-[#020713] px-4 pb-[calc(7rem+env(safe-area-inset-bottom))] pt-[calc(1rem+env(safe-area-inset-top))] text-white md:px-6">
       <div className="pointer-events-none fixed inset-0 overflow-hidden">
-        <div className="absolute -top-28 left-1/2 h-80 w-80 -translate-x-1/2 rounded-full bg-[color:var(--clara-theme-soft,rgba(52,211,153,0.12))] blur-3xl" />
-        <div className="absolute -right-28 top-40 h-72 w-72 rounded-full bg-[color:var(--clara-theme-secondary-soft,rgba(34,211,238,0.12))] blur-3xl" />
-        <div className="absolute -bottom-20 -left-28 h-80 w-80 rounded-full bg-blue-500/10 blur-3xl" />
+        <div className="absolute -top-28 left-1/2 h-80 w-80 -translate-x-1/2 rounded-full bg-[color:var(--clara-theme-soft,rgba(148,163,184,0.08))] blur-3xl" />
+        <div className="absolute -right-28 top-40 h-72 w-72 rounded-full bg-[color:var(--clara-theme-secondary-soft,rgba(125,211,252,0.075))] blur-3xl" />
+        <div className="absolute -bottom-20 -left-28 h-80 w-80 rounded-full bg-white/[0.035] blur-3xl" />
       </div>
 
       <div className="relative z-10 mx-auto max-w-4xl space-y-3.5">
-        <header className="flex items-center justify-between gap-3 px-1 pt-1">
+        <header className="flex items-center justify-between gap-3 px-1 pb-0.5 pt-1">
           <button
             type="button"
             onClick={() => navigate("/dashboard")}
-            className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-[18px] border ${theme.border} ${theme.orb} text-white/85 ${theme.glow} backdrop-blur-2xl transition duration-200 active:scale-[0.96]`}
+            className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-[18px] border ${theme.border} ${theme.orb} text-white/82 shadow-[0_14px_34px_rgba(0,0,0,0.22)] backdrop-blur-2xl transition duration-200 active:scale-[0.96]`}
             aria-label="Back to dashboard"
           >
             <ArrowLeft className="h-5 w-5" />
           </button>
 
           <div className="min-w-0 flex-1 px-2 text-center">
-            <p className="text-[13px] font-black tracking-tight text-white/85">
+            <p className="truncate text-[13px] font-black tracking-tight text-white/86">
               Transaction Hub
             </p>
-            <p className="mt-0.5 whitespace-nowrap text-[10px] font-semibold text-white/42">
+            <p className="mx-auto mt-0.5 max-w-[150px] truncate whitespace-nowrap text-[10px] font-semibold text-white/44">
               {selectedMonthLabel}
             </p>
           </div>
@@ -1448,7 +1447,7 @@ export default function TransactionHub() {
             type="button"
             onClick={refresh}
             disabled={refreshing || typeof financial.refreshData !== "function"}
-            className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-[18px] border ${theme.border} ${theme.orb} text-white/85 ${theme.glow} backdrop-blur-2xl transition duration-200 disabled:opacity-45 active:scale-[0.96]`}
+            className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-[18px] border ${theme.border} ${theme.orb} text-white/82 shadow-[0_14px_34px_rgba(0,0,0,0.22)] backdrop-blur-2xl transition duration-200 disabled:opacity-45 active:scale-[0.96]`}
             aria-label="Refresh transactions"
           >
             <RefreshCw className={`h-4.5 w-4.5 ${refreshing ? "animate-spin" : ""}`} />
@@ -1456,13 +1455,13 @@ export default function TransactionHub() {
         </header>
 
         {notice ? (
-          <div className="rounded-[20px] border border-white/10 bg-white/[0.065] px-4 py-3 text-xs font-semibold leading-5 text-white/68 shadow-[0_16px_42px_rgba(0,0,0,0.2)] backdrop-blur-2xl">
+          <div className="rounded-[20px] border border-white/10 bg-white/[0.055] px-4 py-3 text-xs font-semibold leading-5 text-white/66 shadow-[0_14px_34px_rgba(0,0,0,0.18)] backdrop-blur-2xl">
             {notice}
           </div>
         ) : null}
 
         {financial.error && hasOfflineReadyData ? (
-          <div className="rounded-[20px] border border-amber-300/15 bg-amber-400/8 px-4 py-3 text-xs font-semibold leading-5 text-amber-50/70">
+          <div className="rounded-[20px] border border-amber-200/14 bg-amber-300/7 px-4 py-3 text-xs font-semibold leading-5 text-amber-50/68">
             Offline data is visible. Live refresh could not complete.
           </div>
         ) : null}
@@ -1520,8 +1519,8 @@ export default function TransactionHub() {
 
         <InsightCard insight={summary.insight} theme={theme} />
 
-        <section className="relative overflow-hidden rounded-[24px] border border-white/10 bg-white/[0.052] p-2.5 shadow-[0_18px_58px_rgba(0,0,0,0.24)] backdrop-blur-2xl">
-          <div className="pointer-events-none absolute -left-20 -top-20 h-36 w-36 rounded-full bg-[color:var(--clara-theme-secondary-soft,rgba(34,211,238,0.1))] blur-3xl" />
+        <section className="relative overflow-hidden rounded-[24px] border border-white/10 bg-white/[0.045] p-2.5 shadow-[0_18px_52px_rgba(0,0,0,0.22)] backdrop-blur-2xl">
+          <div className="pointer-events-none absolute -left-20 -top-20 h-36 w-36 rounded-full bg-[color:var(--clara-theme-secondary-soft,rgba(125,211,252,0.07))] blur-3xl" />
           <div className="relative">
             <Search className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-white/38" />
             <input
@@ -1531,21 +1530,23 @@ export default function TransactionHub() {
                 setOpenGroup(null);
               }}
               placeholder="Search transactions"
-              className={`min-h-[50px] w-full rounded-[20px] border border-white/10 bg-black/[0.28] pl-11 pr-4 text-sm font-medium text-white shadow-inner shadow-black/20 outline-none backdrop-blur-2xl transition duration-200 placeholder:text-white/32 focus:bg-black/[0.34] ${theme.focus}`}
+              className={`min-h-[50px] w-full rounded-[20px] border border-white/10 bg-black/[0.26] pl-11 pr-4 text-sm font-medium text-white shadow-inner shadow-black/18 outline-none backdrop-blur-2xl transition duration-200 placeholder:text-white/32 focus:bg-black/[0.32] ${theme.focus}`}
             />
           </div>
         </section>
 
         <section className="space-y-2.5">
           {!filtered.length ? (
-            <div className={`relative overflow-hidden rounded-[28px] border border-dashed ${theme.border} bg-white/[0.055] p-7 text-center shadow-[0_22px_70px_rgba(0,0,0,0.26)] backdrop-blur-2xl`}>
+            <div
+              className={`relative overflow-hidden rounded-[28px] border border-dashed ${theme.border} bg-white/[0.045] p-7 text-center shadow-[0_20px_62px_rgba(0,0,0,0.24)] backdrop-blur-2xl`}
+            >
               <div
-                className={`pointer-events-none absolute -right-14 -top-14 h-32 w-32 rounded-full ${theme.orb} blur-3xl`}
+                className={`pointer-events-none absolute -right-14 -top-14 h-32 w-32 rounded-full ${theme.orb} blur-3xl opacity-70`}
               />
-              <div className="pointer-events-none absolute -left-14 bottom-0 h-32 w-32 rounded-full bg-[color:var(--clara-theme-secondary-soft,rgba(34,211,238,0.1))] blur-3xl" />
+              <div className="pointer-events-none absolute -left-14 bottom-0 h-32 w-32 rounded-full bg-[color:var(--clara-theme-secondary-soft,rgba(125,211,252,0.07))] blur-3xl" />
 
               <div
-                className={`relative mx-auto flex h-14 w-14 items-center justify-center rounded-[22px] border ${theme.border} ${theme.orb} ${theme.glow}`}
+                className={`relative mx-auto flex h-14 w-14 items-center justify-center rounded-[22px] border ${theme.border} ${theme.orb}`}
               >
                 <Receipt className={`h-6 w-6 ${theme.primaryText} opacity-75`} />
               </div>
