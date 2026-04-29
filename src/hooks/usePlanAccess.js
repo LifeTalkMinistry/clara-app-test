@@ -15,7 +15,7 @@ const EMPTY_PLANS = CURRENT_PLAN_KEYS.map((planKey) =>
 const PLAN_ACCESS_CHANNEL = "clara-plan-access";
 
 let sharedPlans = EMPTY_PLANS;
-let sharedLoading = true;
+let sharedLoading = false;
 let sharedInitialized = false;
 let sharedChannel = null;
 let sharedFetchPromise = null;
@@ -36,14 +36,16 @@ function notifySubscribers() {
   });
 }
 
-async function fetchPlans() {
+async function fetchPlans({ silent = false } = {}) {
   if (sharedFetchPromise) {
     return sharedFetchPromise;
   }
 
   sharedFetchPromise = (async () => {
-    sharedLoading = true;
-    notifySubscribers();
+    if (!silent && !sharedInitialized) {
+      sharedLoading = true;
+      notifySubscribers();
+    }
 
     try {
       const { data, error } = await supabase
@@ -80,7 +82,7 @@ function ensureRealtimeSubscription() {
         "postgres_changes",
         { event: "*", schema: "public", table: "plans" },
         () => {
-          fetchPlans().catch((error) => {
+          fetchPlans({ silent: true }).catch((error) => {
             console.error("Failed to refresh plan access after realtime event:", error);
           });
         }
@@ -115,7 +117,7 @@ export default function usePlanAccess() {
   });
 
   const refreshPlans = useCallback(async () => {
-    await fetchPlans();
+    await fetchPlans({ silent: true });
   }, []);
 
   useEffect(() => {
@@ -131,12 +133,12 @@ export default function usePlanAccess() {
 
     if (!sharedInitialized) {
       sharedInitialized = true;
-      fetchPlans().catch((error) => {
+      fetchPlans({ silent: true }).catch((error) => {
         console.error("Initial plan access fetch failed:", error);
       });
     }
 
-    // Realtime is best-effort only. UI should already be usable from fetch data.
+    // Realtime is best-effort only. UI should already be usable from default merged plan data.
     ensureRealtimeSubscription();
 
     return () => {
