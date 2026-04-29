@@ -1,4 +1,5 @@
 import { memo } from "react";
+import { compareDashboardSectionProps } from "./dashboardMemoUtils";
 
 function DashboardRecentActivity({ children, className = "", ...props }) {
   return (
@@ -8,4 +9,4 @@ function DashboardRecentActivity({ children, className = "", ...props }) {
   );
 }
 
-export default memo(DashboardRecentActivity);
+export default memo(DashboardRecentActivity, compareDashboardSectionProps);
