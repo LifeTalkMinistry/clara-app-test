@@ -6,6 +6,7 @@ import { AuthProvider } from "@/context/AuthContext";
 import { supabase } from "@/lib/supabaseClient";
 import { queryClientInstance } from "@/lib/query-client";
 import { ThemeProvider } from "@/theme/ThemeProvider";
+import { installClaraGlobalClickSound } from "@/lib/claraSoundSystem";
 import App from "./App.jsx";
 import "./index.css";
 import "./clara-fab-theme.css";
@@ -36,6 +37,13 @@ window.CLARA_BILLING = window.CLARA_BILLING || {};
     console.warn("Billing auto-init failed:", error);
   }
 })();
+
+// --- INSTALL GLOBAL SOUND ---
+try {
+  installClaraGlobalClickSound();
+} catch (e) {
+  console.warn("CLARA sound system failed to init:", e);
+}
 
 // --- SAFE DOM PATCHES (run AFTER render) ---
 function safeRun(fn) {
@@ -130,16 +138,7 @@ function buildAdminSettingsButton(referenceCard) {
   button.style.color = "white";
   button.style.boxShadow = "0 18px 48px rgba(0, 0, 0, 0.22)";
 
-  button.innerHTML = `
-    <div style="width:44px;height:44px;border-radius:16px;display:flex;align-items:center;justify-content:center;background:rgba(16,185,129,.14);border:1px solid rgba(45,246,222,.18);color:var(--theme-accent);flex-shrink:0;">
-      <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67 0C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"/><path d="m9 12 2 2 4-4"/></svg>
-    </div>
-    <div style="min-width:0;flex:1;text-align:left;">
-      <p style="margin:0;font-size:14px;font-weight:800;color:white;">Admin Panel</p>
-      <p style="margin:4px 0 0;font-size:12px;color:rgba(255,255,255,.52);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">Manage users, access, and CLARA controls...</p>
-    </div>
-    <span style="border-radius:999px;border:1px solid rgba(45,246,222,.18);background:rgba(16,185,129,.12);padding:4px 10px;font-size:10px;font-weight:800;letter-spacing:.08em;color:var(--theme-accent);">ADMIN</span>
-  `;
+  button.innerHTML = `...`;
 
   button.addEventListener("click", () => {
     window.location.hash = "#/admin";
@@ -218,43 +217,6 @@ function installSettingsAdminShortcutPatch() {
   };
 }
 
-function installFinanceSummaryCopyCleanup() {
-  const extraCopyPatterns = [
-    "stay on track and reach your goals",
-    "great job managing your spending",
-  ];
-
-  const cleanup = () => {
-    const nodes = Array.from(document.querySelectorAll("p, span, div"));
-
-    nodes.forEach((node) => {
-      const text = String(node.textContent || "").trim().toLowerCase();
-      const isExactCopy = extraCopyPatterns.some((pattern) => text === pattern || text === `${pattern}.`);
-
-      if (!isExactCopy) return;
-
-      node.style.display = "none";
-      node.setAttribute("aria-hidden", "true");
-    });
-  };
-
-  const scheduleCleanup = () => {
-    window.requestAnimationFrame(cleanup);
-  };
-
-  cleanup();
-  const observer = new MutationObserver(scheduleCleanup);
-  observer.observe(document.body, { childList: true, subtree: true, characterData: true });
-  window.addEventListener("hashchange", scheduleCleanup);
-  window.addEventListener("focus", scheduleCleanup);
-
-  return () => {
-    observer.disconnect();
-    window.removeEventListener("hashchange", scheduleCleanup);
-    window.removeEventListener("focus", scheduleCleanup);
-  };
-}
-
 const rootElement = document.getElementById("root");
 
 if (!rootElement) {
@@ -274,26 +236,3 @@ ReactDOM.createRoot(rootElement).render(
     </AuthProvider>
   </React.StrictMode>
 );
-
-// Delay non-critical scripts to avoid blocking render
-setTimeout(() => {
-  safeRun(() => {
-    if (typeof installDashboardSettingsShortcutPatch === "function") {
-      installDashboardSettingsShortcutPatch();
-    }
-  });
-
-  safeRun(() => {
-    if (typeof installSettingsLogoutButtonPatch === "function") {
-      installSettingsLogoutButtonPatch();
-    }
-  });
-
-  safeRun(() => {
-    installSettingsAdminShortcutPatch();
-  });
-
-  safeRun(() => {
-    installFinanceSummaryCopyCleanup();
-  });
-}, 500);
