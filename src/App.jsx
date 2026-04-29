@@ -29,7 +29,6 @@ const Settings = lazy(() => import("./pages/Settings"));
 const Profile = lazy(() => import("./pages/Profile"));
 const Login = lazy(() => import("./pages/Login"));
 const Dashboard = lazy(() => import("./pages/Dashboard"));
-const Expenses = lazy(() => import("./pages/Expenses"));
 const TransactionHub = lazy(() => import("./pages/TransactionHub"));
 const AddFunds = lazy(() => import("./pages/AddFunds"));
 const Wallets = lazy(() => import("./pages/Wallets"));
@@ -281,9 +280,11 @@ function getEnrollmentPriorityScore(enrollment) {
 function pickBestEnrollment(enrollments) {
   if (!Array.isArray(enrollments) || enrollments.length === 0) return null;
 
-  return [...enrollments].sort(
-    (a, b) => getEnrollmentPriorityScore(b) - getEnrollmentPriorityScore(a)
-  )[0] || null;
+  return (
+    [...enrollments].sort(
+      (a, b) => getEnrollmentPriorityScore(b) - getEnrollmentPriorityScore(a)
+    )[0] || null
+  );
 }
 
 function getSafeFlow(resolvedFlow, enrollment) {
@@ -297,7 +298,12 @@ function getSafeFlow(resolvedFlow, enrollment) {
   return resolvedFlow;
 }
 
-function getHomeRedirectPath({ isAdvertiser, flow, forceEnroll, offlineAccessActive }) {
+function getHomeRedirectPath({
+  isAdvertiser,
+  flow,
+  forceEnroll,
+  offlineAccessActive,
+}) {
   if (offlineAccessActive) return "/dashboard";
   if (isAdvertiser) return "/advertiser";
   if (flow === "universal_onboarding") return "/onboarding";
@@ -364,13 +370,7 @@ function AdminRescueButton({ show }) {
 
 function AppRoutes() {
   const location = useLocation();
-  const {
-    user,
-    profile,
-    loading,
-    authReady,
-    refreshProfile,
-  } = useAuth();
+  const { user, profile, loading, authReady, refreshProfile } = useAuth();
   const {
     role: normalizedRole,
     isFeatureAvailable,
@@ -382,7 +382,9 @@ function AppRoutes() {
   const [forceLogoutProcessing, setForceLogoutProcessing] = useState(false);
   const [isOffline, setIsOffline] = useState(() => isAccessNetworkOffline());
   const [onlineRefreshTick, setOnlineRefreshTick] = useState(0);
-  const [cachedAccessSnapshot, setCachedAccessSnapshot] = useState(() => getAccessSnapshot());
+  const [cachedAccessSnapshot, setCachedAccessSnapshot] = useState(() =>
+    getAccessSnapshot()
+  );
 
   const profileReady = user ? profile !== null : true;
 
@@ -393,8 +395,7 @@ function AppRoutes() {
 
   const enrollmentPaid = useMemo(
     () =>
-      isPaidEnrollment(enrollment) &&
-      isSupportedPaidPlanKey(enrollmentPlanKey),
+      isPaidEnrollment(enrollment) && isSupportedPaidPlanKey(enrollmentPlanKey),
     [enrollment, enrollmentPlanKey]
   );
 
@@ -434,7 +435,10 @@ function AppRoutes() {
   }, [user?.email, user?.id]);
 
   const offlineFallback = useMemo(
-    () => getOfflineFallbackFlow(cachedAccessSnapshot || profile?.offline_access_snapshot || null),
+    () =>
+      getOfflineFallbackFlow(
+        cachedAccessSnapshot || profile?.offline_access_snapshot || null
+      ),
     [cachedAccessSnapshot, profile?.offline_access_snapshot]
   );
 
@@ -487,7 +491,8 @@ function AppRoutes() {
 
         if (!isMounted) return;
 
-        const snapshot = getAccessSnapshot(user.id) || getAccessSnapshot(user.email);
+        const snapshot =
+          getAccessSnapshot(user.id) || getAccessSnapshot(user.email);
         setCachedAccessSnapshot(snapshot);
         setEnrollment(snapshot?.enrollment || null);
       } finally {
@@ -502,14 +507,22 @@ function AppRoutes() {
     return () => {
       isMounted = false;
     };
-  }, [cachedAccessSnapshot?.enrollment, isOffline, offlineAccessActive, onlineRefreshTick, user?.email, user?.id]);
+  }, [
+    cachedAccessSnapshot?.enrollment,
+    isOffline,
+    offlineAccessActive,
+    onlineRefreshTick,
+    user?.email,
+    user?.id,
+  ]);
 
   useEffect(() => {
     let isMounted = true;
 
     const runForceReauth = async () => {
       if (!user?.id || !profile || forceLogoutProcessing) return;
-      if (offlineAccessActive || profile?.offline_access || profile?.offline_limited_access) return;
+      if (offlineAccessActive || profile?.offline_access || profile?.offline_limited_access)
+        return;
       if (!profile?.force_reauth) return;
 
       try {
@@ -581,7 +594,8 @@ function AppRoutes() {
     );
   }, [profile, normalizedRole, enrollment]);
 
-  const isAdmin = resolvedAccess.isAdmin || isRecoveryAdminEmail(user?.email || profile?.email);
+  const isAdmin =
+    resolvedAccess.isAdmin || isRecoveryAdminEmail(user?.email || profile?.email);
   const isAdvertiser = resolvedAccess.isAdvertiser;
 
   const flow = useMemo(() => {
@@ -600,7 +614,17 @@ function AppRoutes() {
     );
 
     return getSafeFlow(resolvedFlow, enrollment);
-  }, [user, profileReady, enrollmentLoading, offlineAccessActive, offlineFallback.flow, profile, normalizedRole, enrollment, isAdmin]);
+  }, [
+    user,
+    profileReady,
+    enrollmentLoading,
+    offlineAccessActive,
+    offlineFallback.flow,
+    profile,
+    normalizedRole,
+    enrollment,
+    isAdmin,
+  ]);
 
   const forceEnroll = useMemo(() => {
     if (offlineAccessActive) return false;
@@ -621,7 +645,13 @@ function AppRoutes() {
   ]);
 
   const homeRedirectPath = useMemo(
-    () => getHomeRedirectPath({ isAdvertiser, flow, forceEnroll, offlineAccessActive }),
+    () =>
+      getHomeRedirectPath({
+        isAdvertiser,
+        flow,
+        forceEnroll,
+        offlineAccessActive,
+      }),
     [isAdvertiser, flow, forceEnroll, offlineAccessActive]
   );
 
@@ -707,7 +737,11 @@ function AppRoutes() {
           path="/onboarding"
           element={
             user ? (
-              offlineAccessActive ? <Navigate to="/dashboard" replace /> : <UniversalOnboarding />
+              offlineAccessActive ? (
+                <Navigate to="/dashboard" replace />
+              ) : (
+                <UniversalOnboarding />
+              )
             ) : (
               <Navigate to="/login" replace />
             )
@@ -825,7 +859,7 @@ function AppRoutes() {
                             path="/expenses"
                             offlineAccessActive={offlineAccessActive}
                           >
-                            <Expenses />
+                            <TransactionHub />
                           </GuardedRoute>
                         }
                       />
@@ -925,13 +959,21 @@ function AppRoutes() {
                       <Route
                         path="/enroll"
                         element={
-                          offlineAccessActive ? <Navigate to="/dashboard" replace /> : <Enroll />
+                          offlineAccessActive ? (
+                            <Navigate to="/dashboard" replace />
+                          ) : (
+                            <Enroll />
+                          )
                         }
                       />
                       <Route
                         path="/tier-select"
                         element={
-                          offlineAccessActive ? <Navigate to="/dashboard" replace /> : <TierSelect />
+                          offlineAccessActive ? (
+                            <Navigate to="/dashboard" replace />
+                          ) : (
+                            <TierSelect />
+                          )
                         }
                       />
 
@@ -950,7 +992,10 @@ function AppRoutes() {
                         }
                       />
 
-                      <Route path="/tasks" element={<Navigate to="/dashboard" replace />} />
+                      <Route
+                        path="/tasks"
+                        element={<Navigate to="/dashboard" replace />}
+                      />
 
                       <Route
                         path="/modules"
@@ -1030,7 +1075,10 @@ function AppRoutes() {
                       <Route
                         path="/admin"
                         element={
-                          <AdminRoute isAdmin={isAdmin} redirectTo={homeRedirectPath}>
+                          <AdminRoute
+                            isAdmin={isAdmin}
+                            redirectTo={homeRedirectPath}
+                          >
                             <AdminPanel />
                           </AdminRoute>
                         }
@@ -1039,7 +1087,10 @@ function AppRoutes() {
                       <Route
                         path="/admin/student/:id"
                         element={
-                          <AdminRoute isAdmin={isAdmin} redirectTo={homeRedirectPath}>
+                          <AdminRoute
+                            isAdmin={isAdmin}
+                            redirectTo={homeRedirectPath}
+                          >
                             <StudentProfile />
                           </AdminRoute>
                         }
@@ -1048,7 +1099,10 @@ function AppRoutes() {
                       <Route
                         path="/admin/referral-materials"
                         element={
-                          <AdminRoute isAdmin={isAdmin} redirectTo={homeRedirectPath}>
+                          <AdminRoute
+                            isAdmin={isAdmin}
+                            redirectTo={homeRedirectPath}
+                          >
                             <AdminReferralMaterials />
                           </AdminRoute>
                         }
@@ -1057,7 +1111,10 @@ function AppRoutes() {
                       <Route
                         path="/admin/daily-tips"
                         element={
-                          <AdminRoute isAdmin={isAdmin} redirectTo={homeRedirectPath}>
+                          <AdminRoute
+                            isAdmin={isAdmin}
+                            redirectTo={homeRedirectPath}
+                          >
                             <AdminDailyTips />
                           </AdminRoute>
                         }
