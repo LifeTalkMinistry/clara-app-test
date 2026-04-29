@@ -1,4 +1,5 @@
 import { memo } from "react";
+import { compareDashboardSectionProps } from "./dashboardMemoUtils";
 
 function DashboardFinanceCards({ children, className = "", ...props }) {
   return (
@@ -8,4 +9,4 @@ function DashboardFinanceCards({ children, className = "", ...props }) {
   );
 }
 
-export default memo(DashboardFinanceCards);
+export default memo(DashboardFinanceCards, compareDashboardSectionProps);
