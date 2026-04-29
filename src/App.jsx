@@ -4,7 +4,6 @@ import { Toaster } from "sonner";
 
 import { useAuth } from "@/context/AuthContext";
 import ThemePicker from "@/components/ThemePicker";
-import { POST_LOGIN_WELCOME_KEY } from "@/components/WelcomeBackTransition";
 import { supabase } from "@/lib/supabaseClient";
 import useUserRole from "./hooks/useUserRole";
 import {
@@ -68,56 +67,15 @@ const StudentProfile = lazy(() => import("./pages/admin/StudentProfile"));
 const AdminReferralMaterials = lazy(() =>
   import("./pages/admin/AdminReferralMaterials")
 );
-const AdminDailyTips = lazy(() => import("./pages/admin/AdminDailyTips"));
+const AdminDailyTips = lazy(() => import("./pages/admin/AdminDailyTips");
 
 // Fallback
 const PageNotFound = lazy(() => import("./lib/PageNotFound"));
-
-const SUPPORTED_PAID_PLAN_KEYS = new Set(["pro_99", "core_199", "life_os_499"]);
-
-const PAID_STATUSES = new Set([
-  "approved",
-  "active",
-  "completed",
-  "complete",
-  "paid",
-  "success",
-  "succeeded",
-  "confirmed",
-  "verified",
-  "processing_complete",
-  "purchase_completed",
-  "entitled",
-  "unlocked",
-]);
-
-const PENDING_STATUSES = new Set([
-  "pending",
-  "processing",
-  "under_review",
-  "submitted",
-  "awaiting_review",
-  "awaiting_payment",
-  "payment_pending",
-  "google_play_pending",
-  "google_play_processing",
-  "purchase_pending",
-  "purchase_processing",
-]);
 
 const ADMIN_RECOVERY_EMAILS = new Set([
   "jeromemirabuenos62@gmail.com",
   "lifetalkministry@gmail.com",
 ]);
-
-function hasPendingPostLoginWelcome() {
-  try {
-    return Boolean(sessionStorage.getItem(POST_LOGIN_WELCOME_KEY));
-  } catch (error) {
-    console.error("Failed to check post-login welcome state:", error);
-    return false;
-  }
-}
 
 function FullScreenLoader() {
   return (
@@ -128,184 +86,6 @@ function FullScreenLoader() {
       </div>
     </div>
   );
-}
-
-function normalizeValue(value) {
-  if (value === null || value === undefined) return "";
-  return String(value).trim().toLowerCase().replace(/[\s-]+/g, "_");
-}
-
-function normalizePlanKey(value) {
-  const normalized = normalizeValue(value);
-
-  const aliases = {
-    free: "free",
-
-    pro: "pro_99",
-    pro99: "pro_99",
-    pro_99: "pro_99",
-    pro_tools: "pro_99",
-    protools: "pro_99",
-    clara_pro_99: "pro_99",
-
-    core: "core_199",
-    core199: "core_199",
-    core_199: "core_199",
-    core_599: "core_199",
-    program: "core_199",
-    clara_core_199: "core_199",
-
-    coach: "life_os_499",
-    coaching: "life_os_499",
-    coaching_1299: "life_os_499",
-    lifeos: "life_os_499",
-    life_os: "life_os_499",
-    life_os_499: "life_os_499",
-    lifeos_499: "life_os_499",
-    clara_lifeos_499: "life_os_499",
-  };
-
-  return aliases[normalized] || normalized;
-}
-
-function getEnrollmentTimestamp(enrollment) {
-  return new Date(
-    enrollment?.updated_at ||
-      enrollment?.created_at ||
-      enrollment?.submitted_at ||
-      0
-  ).getTime();
-}
-
-function getEnrollmentPlanKey(enrollment) {
-  return normalizePlanKey(
-    enrollment?.plan_key ||
-      enrollment?.plan ||
-      enrollment?.tier ||
-      enrollment?.selected_plan ||
-      enrollment?.product_id ||
-      enrollment?.productId
-  );
-}
-
-function isSupportedPaidPlanKey(planKey) {
-  return SUPPORTED_PAID_PLAN_KEYS.has(normalizePlanKey(planKey));
-}
-
-function isGooglePlayEnrollment(enrollment) {
-  if (!enrollment) return false;
-
-  const source = normalizeValue(
-    enrollment?.source ||
-      enrollment?.enrollment_source ||
-      enrollment?.payment_source ||
-      enrollment?.provider ||
-      enrollment?.platform ||
-      enrollment?.purchase_source
-  );
-
-  return [
-    "google_play",
-    "googleplay",
-    "play_store",
-    "playstore",
-    "google-play",
-    "google play",
-  ].includes(source);
-}
-
-function isPaidEnrollment(enrollment) {
-  if (!enrollment) return false;
-
-  const status = normalizeValue(
-    enrollment?.status ||
-      enrollment?.enrollment_status ||
-      enrollment?.payment_status ||
-      enrollment?.purchase_status
-  );
-
-  const hasGooglePlaySource = isGooglePlayEnrollment(enrollment);
-
-  if (PAID_STATUSES.has(status)) return true;
-
-  if (hasGooglePlaySource && !PENDING_STATUSES.has(status) && status !== "") {
-    return true;
-  }
-
-  if (
-    hasGooglePlaySource &&
-    (enrollment?.purchase_token ||
-      enrollment?.purchaseToken ||
-      enrollment?.order_id ||
-      enrollment?.orderId ||
-      enrollment?.product_id ||
-      enrollment?.productId)
-  ) {
-    return true;
-  }
-
-  return false;
-}
-
-function isPendingEnrollment(enrollment) {
-  if (!enrollment) return false;
-
-  const status = normalizeValue(
-    enrollment?.status ||
-      enrollment?.enrollment_status ||
-      enrollment?.payment_status ||
-      enrollment?.purchase_status
-  );
-
-  return PENDING_STATUSES.has(status);
-}
-
-function getEnrollmentPriorityScore(enrollment) {
-  if (!enrollment) return -1;
-
-  const planKey = getEnrollmentPlanKey(enrollment);
-  const supportedPaidPlan = isSupportedPaidPlanKey(planKey);
-  const paid = isPaidEnrollment(enrollment);
-  const pending = isPendingEnrollment(enrollment);
-  const timestamp = getEnrollmentTimestamp(enrollment);
-
-  let score = 0;
-
-  if (supportedPaidPlan) score += 1000;
-  if (paid) score += 10000;
-  if (pending) score += 2000;
-  if (isGooglePlayEnrollment(enrollment)) score += 500;
-  if (
-    enrollment?.purchase_token ||
-    enrollment?.purchaseToken ||
-    enrollment?.order_id ||
-    enrollment?.orderId
-  ) {
-    score += 750;
-  }
-
-  return score * 10000000000000 + timestamp;
-}
-
-function pickBestEnrollment(enrollments) {
-  if (!Array.isArray(enrollments) || enrollments.length === 0) return null;
-
-  return (
-    [...enrollments].sort(
-      (a, b) => getEnrollmentPriorityScore(b) - getEnrollmentPriorityScore(a)
-    )[0] || null
-  );
-}
-
-function getSafeFlow(resolvedFlow, enrollment) {
-  if (
-    isPaidEnrollment(enrollment) &&
-    isSupportedPaidPlanKey(getEnrollmentPlanKey(enrollment))
-  ) {
-    return "active";
-  }
-
-  return resolvedFlow;
 }
 
 function getHomeRedirectPath({
@@ -387,27 +167,13 @@ function AppRoutes() {
     loading: roleLoading,
   } = useUserRole();
 
-  const [enrollment, setEnrollment] = useState(null);
-  const [enrollmentLoading, setEnrollmentLoading] = useState(true);
   const [forceLogoutProcessing, setForceLogoutProcessing] = useState(false);
   const [isOffline, setIsOffline] = useState(() => isAccessNetworkOffline());
-  const [onlineRefreshTick, setOnlineRefreshTick] = useState(0);
   const [cachedAccessSnapshot, setCachedAccessSnapshot] = useState(() =>
     getAccessSnapshot()
   );
 
   const profileReady = user ? profile !== null : true;
-
-  const enrollmentPlanKey = useMemo(
-    () => getEnrollmentPlanKey(enrollment),
-    [enrollment]
-  );
-
-  const enrollmentPaid = useMemo(
-    () =>
-      isPaidEnrollment(enrollment) && isSupportedPaidPlanKey(enrollmentPlanKey),
-    [enrollment, enrollmentPlanKey]
-  );
 
   useEffect(() => {
     if (typeof window === "undefined") return undefined;
@@ -417,7 +183,6 @@ function AppRoutes() {
       setIsOffline(nextOffline);
 
       if (!nextOffline) {
-        setOnlineRefreshTick((value) => value + 1);
         refreshProfile?.().catch((error) => {
           console.error("CLARA access refresh failed:", error);
         });
@@ -460,71 +225,6 @@ function AppRoutes() {
         profile?.offline_limited_access ||
         offlineFallback.flow === "limited_offline")
   );
-
-  useEffect(() => {
-    let isMounted = true;
-
-    const clearEnrollmentState = () => {
-      if (!isMounted) return;
-      setEnrollment(null);
-      setEnrollmentLoading(false);
-    };
-
-    const fetchEnrollment = async () => {
-      if (!user?.id) {
-        clearEnrollmentState();
-        return;
-      }
-
-      if (isOffline && offlineAccessActive) {
-        setEnrollment(cachedAccessSnapshot?.enrollment || null);
-        setEnrollmentLoading(false);
-        return;
-      }
-
-      setEnrollmentLoading(true);
-
-      try {
-        const { data, error } = await supabase
-          .from("enrollments")
-          .select("*")
-          .eq("user_id", user.id)
-          .order("created_at", { ascending: false });
-
-        if (error) throw error;
-        if (!isMounted) return;
-
-        const bestEnrollment = pickBestEnrollment(data);
-        setEnrollment(bestEnrollment);
-      } catch (error) {
-        console.error("App enrollment fetch error:", error);
-
-        if (!isMounted) return;
-
-        const snapshot =
-          getAccessSnapshot(user.id) || getAccessSnapshot(user.email);
-        setCachedAccessSnapshot(snapshot);
-        setEnrollment(snapshot?.enrollment || null);
-      } finally {
-        if (isMounted) {
-          setEnrollmentLoading(false);
-        }
-      }
-    };
-
-    fetchEnrollment();
-
-    return () => {
-      isMounted = false;
-    };
-  }, [
-    cachedAccessSnapshot?.enrollment,
-    isOffline,
-    offlineAccessActive,
-    onlineRefreshTick,
-    user?.email,
-    user?.id,
-  ]);
 
   useEffect(() => {
     let isMounted = true;
@@ -599,61 +299,48 @@ function AppRoutes() {
       });
     }
 
-    return deriveAccessState(
-      {
-        ...profile,
-        role: profile?.role || normalizedRole || "user",
-      },
-      enrollment
-    );
-  }, [profile, normalizedRole, enrollment]);
+    return deriveAccessState({
+      ...profile,
+      role: profile?.role || normalizedRole || "user",
+    });
+  }, [profile, normalizedRole]);
 
   const isAdmin =
     resolvedAccess.isAdmin || isRecoveryAdminEmail(user?.email || profile?.email);
   const isAdvertiser = resolvedAccess.isAdvertiser;
 
   const flow = useMemo(() => {
-    if (!user || !profileReady || enrollmentLoading) return "loading";
+    if (!user || !profileReady) return "loading";
 
     if (offlineAccessActive) {
       return offlineFallback.flow === "limited_offline" ? "normal" : "active";
     }
 
-    const resolvedFlow = resolveAppFlow(
-      {
-        ...profile,
-        role: isAdmin ? "admin" : profile?.role || normalizedRole || "user",
-      },
-      enrollment
-    );
-
-    return getSafeFlow(resolvedFlow, enrollment);
+    return resolveAppFlow({
+      ...profile,
+      role: isAdmin ? "admin" : profile?.role || normalizedRole || "user",
+    });
   }, [
     user,
     profileReady,
-    enrollmentLoading,
     offlineAccessActive,
     offlineFallback.flow,
     profile,
     normalizedRole,
-    enrollment,
     isAdmin,
   ]);
 
   const forceEnroll = useMemo(() => {
     if (offlineAccessActive) return false;
-    if (!user || !profileReady || enrollmentLoading) return false;
+    if (!user || !profileReady) return false;
     if (isAdmin) return false;
-    if (enrollmentPaid) return false;
     if (!profile) return false;
     return resolvedAccess.forceEnroll;
   }, [
     offlineAccessActive,
     user,
     profileReady,
-    enrollmentLoading,
     profile,
-    enrollmentPaid,
     resolvedAccess.forceEnroll,
     isAdmin,
   ]);
@@ -688,7 +375,6 @@ function AppRoutes() {
     const snapshot = buildAccessSnapshot({
       user,
       profile,
-      enrollment,
       accessState: resolvedAccess,
       flow,
       homeRedirectPath,
@@ -698,7 +384,6 @@ function AppRoutes() {
     const saved = saveAccessSnapshot(snapshot);
     setCachedAccessSnapshot(saved);
   }, [
-    enrollment,
     flow,
     homeRedirectPath,
     isOffline,
@@ -719,8 +404,7 @@ function AppRoutes() {
     !authReady ||
     loading ||
     roleLoading ||
-    (user && !profileReady) ||
-    (user && enrollmentLoading && !offlineAccessActive)
+    (user && !profileReady)
   ) {
     return <FullScreenLoader />;
   }
@@ -730,17 +414,7 @@ function AppRoutes() {
       <Routes>
         <Route
           path="/login"
-          element={
-            user ? (
-              hasPendingPostLoginWelcome() ? (
-                <Navigate to="/welcome-back" replace />
-              ) : (
-                <Navigate to={homeRedirectPath} replace />
-              )
-            ) : (
-              <Login />
-            )
-          }
+          element={user ? <Navigate to="/welcome-back" replace /> : <Login />}
         />
 
         <Route
@@ -773,7 +447,7 @@ function AppRoutes() {
         />
 
         <Route
-          path="/pending"
+          path="/pending
           element={
             offlineAccessActive ? (
               <Navigate to="/dashboard" replace />
@@ -837,9 +511,9 @@ function AppRoutes() {
                             isFeatureAvailable={isFeatureAvailable}
                             path="/feed"
                             offlineAccessActive={offlineAccessActive}
-                          >
+                        >
                             <Feed />
-                          </GuardedRoute>
+                        </GuardedRoute>
                         }
                       />
 
@@ -852,9 +526,9 @@ function AppRoutes() {
                             isFeatureAvailable={isFeatureAvailable}
                             path="/people"
                             offlineAccessActive={offlineAccessActive}
-                          >
+                        >
                             <ClaraPeople />
-                          </GuardedRoute>
+                        </GuardedRoute>
                         }
                       />
 
@@ -882,9 +556,9 @@ function AppRoutes() {
                             isFeatureAvailable={isFeatureAvailable}
                             path="/expenses"
                             offlineAccessActive={offlineAccessActive}
-                          >
+                        >
                             <TransactionHub />
-                          </GuardedRoute>
+                        </GuardedRoute>
                         }
                       />
 
@@ -897,7 +571,7 @@ function AppRoutes() {
                             isFeatureAvailable={isFeatureAvailable}
                             path="/transactions-hub"
                             offlineAccessActive={offlineAccessActive}
-                          >
+                        >
                             <TransactionHub />
                           </GuardedRoute>
                         }
@@ -912,9 +586,9 @@ function AppRoutes() {
                             isFeatureAvailable={isFeatureAvailable}
                             path="/add-funds"
                             offlineAccessActive={offlineAccessActive}
-                          >
+                        >
                             <AddFunds />
-                          </GuardedRoute>
+                        </GuardedRoute>
                         }
                       />
 
@@ -927,9 +601,9 @@ function AppRoutes() {
                             isFeatureAvailable={isFeatureAvailable}
                             path="/wallets"
                             offlineAccessActive={offlineAccessActive}
-                          >
+                        >
                             <Wallets />
-                          </GuardedRoute>
+                        </GuardedRoute>
                         }
                       />
 
@@ -944,7 +618,7 @@ function AppRoutes() {
                             offlineAccessActive={offlineAccessActive}
                           >
                             <Budgets />
-                          </GuardedRoute>
+                        </GuardedRoute>
                         }
                       />
 
@@ -957,7 +631,7 @@ function AppRoutes() {
                             isFeatureAvailable={isFeatureAvailable}
                             path="/analytics"
                             offlineAccessActive={offlineAccessActive}
-                          >
+                        >
                             <Analytics />
                           </GuardedRoute>
                         }
@@ -972,9 +646,9 @@ function AppRoutes() {
                             isFeatureAvailable={isFeatureAvailable}
                             path="/ai"
                             offlineAccessActive={offlineAccessActive}
-                          >
+                        >
                             <AiInsights />
-                          </GuardedRoute>
+                        </GuardedRoute>
                         }
                       />
 
@@ -1010,9 +684,9 @@ function AppRoutes() {
                             isFeatureAvailable={isFeatureAvailable}
                             path="/news"
                             offlineAccessActive={offlineAccessActive}
-                          >
+                        >
                             <News />
-                          </GuardedRoute>
+                        </GuardedRoute>
                         }
                       />
 
@@ -1032,7 +706,7 @@ function AppRoutes() {
                             offlineAccessActive={offlineAccessActive}
                           >
                             <Modules />
-                          </GuardedRoute>
+                        </GuardedRoute>
                         }
                       />
 
@@ -1045,7 +719,7 @@ function AppRoutes() {
                             isFeatureAvailable={isFeatureAvailable}
                             path="/community"
                             offlineAccessActive={offlineAccessActive}
-                          >
+                        >
                             <Community />
                           </GuardedRoute>
                         }
@@ -1060,9 +734,9 @@ function AppRoutes() {
                             isFeatureAvailable={isFeatureAvailable}
                             path="/messages"
                             offlineAccessActive={offlineAccessActive}
-                          >
+                        >
                             <Messages />
-                          </GuardedRoute>
+                        </GuardedRoute>
                         }
                       />
 
@@ -1075,7 +749,7 @@ function AppRoutes() {
                             isFeatureAvailable={isFeatureAvailable}
                             path="/savings-goals"
                             offlineAccessActive={offlineAccessActive}
-                          >
+                        >
                             <SavingsGoals />
                           </GuardedRoute>
                         }
@@ -1090,7 +764,7 @@ function AppRoutes() {
                             isFeatureAvailable={isFeatureAvailable}
                             path="/referrals"
                             offlineAccessActive={offlineAccessActive}
-                          >
+                        >
                             <Referrals />
                           </GuardedRoute>
                         }
@@ -1128,7 +802,7 @@ function AppRoutes() {
                             redirectTo={homeRedirectPath}
                           >
                             <AdminReferralMaterials />
-                          </AdminRoute>
+                        </AdminRoute>
                         }
                       />
 
