@@ -9903,7 +9903,7 @@ export default function Dashboard() {
                       if (label.includes("show details") || label.includes("hide details")) {
                         event.preventDefault();
                         event.stopPropagation();
-                        setExpandedFinanceCard("emergency");
+                        toggleFinanceDetails("emergency");
                       }
                     }}
                   >
@@ -9912,10 +9912,8 @@ export default function Dashboard() {
                       survivalExpense={survivalExpense}
                       retentionRate={0}
                       theme={selectedDashboardTheme}
-                      expanded={false}
-                      onExpandedChange={(open) => {
-                        setExpandedFinanceCard(open ? "emergency" : null);
-                      }}
+                      expanded={expandedFinanceCard === "emergency"}
+                      onToggleDetails={() => toggleFinanceDetails("emergency")}
                       canAutoPrompt={Boolean(user?.id) && guardChecked && !loading}
                       hasSurvivalSetup={
                         Boolean(profileData?.survival_setup_done) ||
@@ -9980,9 +9978,8 @@ export default function Dashboard() {
                     walletMoney={walletMoney}
                     walletPreviewTransactions={walletPreviewTransactions}
                     theme={selectedDashboardTheme}
-                    expanded={false}
-                    onExpandedChange={(open) => setExpandedFinanceCard(open ? "wallets" : null)}
-                    onToggleDetails={() => setExpandedFinanceCard("wallets")}
+                    expanded={expandedFinanceCard === "wallets"}
+                    onToggleDetails={() => toggleFinanceDetails("wallets")}
                     financeActionLoading={financeActionLoading}
                     onCreateWallet={openCreateWalletModal}
                     onMoveWallet={moveWalletInline}
@@ -10005,9 +10002,8 @@ export default function Dashboard() {
                     unplannedSpent={monthlyBudgetPlan.unplanned_spent}
                     undocumentedSpent={monthlyBudgetPlan.undocumented_spent}
                     theme={selectedDashboardTheme}
-                    expanded={false}
-                    onExpandedChange={(open) => setExpandedFinanceCard(open ? "budgets" : null)}
-                    onToggleDetails={() => setExpandedFinanceCard("budgets")}
+                    expanded={expandedFinanceCard === "budgets"}
+                    onToggleDetails={() => toggleFinanceDetails("budgets")}
                     financeActionLoading={financeActionLoading}
                     onSaveBudget={openBudgetModal}
                     onEditBudgetCategory={openBudgetModal}
@@ -10025,9 +10021,8 @@ export default function Dashboard() {
                     totalSavingsTarget={totalSavingsTarget}
                     primarySavingsGoal={primarySavingsGoal}
                     theme={selectedDashboardTheme}
-                    expanded={false}
-                    onExpandedChange={(open) => setExpandedFinanceCard(open ? "savings" : null)}
-                    onToggleDetails={() => setExpandedFinanceCard("savings")}
+                    expanded={expandedFinanceCard === "savings"}
+                    onToggleDetails={() => toggleFinanceDetails("savings")}
                     financeActionLoading={financeActionLoading}
                     onSaveSavingsGoal={openSavingsGoalModal}
                     onDeleteSavingsGoal={openDeleteSavingsGoalModal}
