@@ -585,34 +585,19 @@ const BudgetCard = ({
     ),
     0
   );
-  const hasBudgetValue = total > 0 || spent > 0 || remaining > 0;
-  const toneClass = getBudgetRemainingToneClass(spent, total);
 
   return (
-    <div className="relative isolate">
-      <BudgetCardBase
-        activeBudget={activeBudget}
-        declaredBudget={declaredBudget}
-        budgetCategories={budgetCategories}
-        remainingAmount={remaining}
-        amountLeft={remaining}
-        budgetRemaining={remaining}
-        spentAmount={spent}
-        totalSpent={spent}
-        {...props}
-      />
-
-      {hasBudgetValue ? (
-        <div className="pointer-events-none absolute left-[clamp(18px,5vw,24px)] top-[clamp(84px,12.5dvh,104px)] z-20">
-          <div
-            className={`inline-flex items-center rounded-full border px-3 py-1 text-[12px] font-semibold leading-none tracking-tight backdrop-blur-xl ${toneClass}`}
-            aria-label={`${formatBudgetRemainingCurrency(remaining)} left`}
-          >
-            {formatBudgetRemainingCurrency(remaining)} left
-          </div>
-        </div>
-      ) : null}
-    </div>
+    <BudgetCardBase
+      activeBudget={activeBudget}
+      declaredBudget={declaredBudget}
+      budgetCategories={budgetCategories}
+      remainingAmount={remaining}
+      amountLeft={remaining}
+      budgetRemaining={remaining}
+      spentAmount={spent}
+      totalSpent={spent}
+      {...props}
+    />
   );
 };
 
