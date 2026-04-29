@@ -4,6 +4,7 @@ import { Toaster } from "sonner";
 
 import { useAuth } from "@/context/AuthContext";
 import ThemePicker from "@/components/ThemePicker";
+import { POST_LOGIN_WELCOME_KEY } from "@/components/WelcomeBackTransition";
 import { supabase } from "@/lib/supabaseClient";
 import useUserRole from "./hooks/useUserRole";
 import {
@@ -108,6 +109,15 @@ const ADMIN_RECOVERY_EMAILS = new Set([
   "jeromemirabuenos62@gmail.com",
   "lifetalkministry@gmail.com",
 ]);
+
+function hasPendingPostLoginWelcome() {
+  try {
+    return Boolean(sessionStorage.getItem(POST_LOGIN_WELCOME_KEY));
+  } catch (error) {
+    console.error("Failed to check post-login welcome state:", error);
+    return false;
+  }
+}
 
 function FullScreenLoader() {
   return (
@@ -521,7 +531,11 @@ function AppRoutes() {
 
     const runForceReauth = async () => {
       if (!user?.id || !profile || forceLogoutProcessing) return;
-      if (offlineAccessActive || profile?.offline_access || profile?.offline_limited_access)
+      if (
+        offlineAccessActive ||
+        profile?.offline_access ||
+        profile?.offline_limited_access
+      )
         return;
       if (!profile?.force_reauth) return;
 
@@ -716,7 +730,17 @@ function AppRoutes() {
       <Routes>
         <Route
           path="/login"
-          element={user ? <Navigate to={homeRedirectPath} replace /> : <Login />}
+          element={
+            user ? (
+              hasPendingPostLoginWelcome() ? (
+                <Navigate to="/welcome-back" replace />
+              ) : (
+                <Navigate to={homeRedirectPath} replace />
+              )
+            ) : (
+              <Login />
+            )
+          }
         />
 
         <Route
