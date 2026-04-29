@@ -1,4 +1,4 @@
-name: Apply Dashboard Money Privacy Toggle
+name: Apply Dashboard Premium Modal Patch
 
 on:
   push:
@@ -10,12 +10,8 @@ on:
 permissions:
   contents: write
 
-concurrency:
-  group: apply-dashboard-money-privacy
-  cancel-in-progress: true
-
 jobs:
-  apply-dashboard-money-privacy:
+  apply-dashboard-premium-modal:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
@@ -31,66 +27,112 @@ jobs:
           git checkout main
           git pull --rebase origin main
 
-      - name: Patch Dashboard.jsx
+      - name: Patch Dashboard.jsx premium finance modal
         shell: bash
         run: |
           node <<'NODE'
           const fs = require('fs');
           const path = 'src/pages/Dashboard.jsx';
-          let s = fs.readFileSync(path, 'utf8');
-          const nl = s.includes('\r\n') ? '\r\n' : '\n';
-          let text = s.replace(/\r\n/g, '\n');
+          let text = fs.readFileSync(path, 'utf8');
+          const nl = text.includes('\r\n') ? '\r\n' : '\n';
+          text = text.replace(/\r\n/g, '\n');
+          const start = text.indexOf('const FinanceActionModal = ({');
+          const end = text.indexOf('const ManualExpenseFullScreenSheet = ({', start);
+          if (start === -1 || end === -1) throw new Error('FinanceActionModal block not found');
+          const replacement = String.raw`const FinanceActionModal = ({
+  open,
+  title,
+  description,
+  children,
+  onClose,
+  onSubmit,
+  submitLabel = "Save",
+  submitDisabled = false,
+  loading = false,
+  danger = false,
+}) => {
+  if (!open) return null;
 
-          function replaceOnce(needle, replacement) {
-            if (!text.includes(needle)) {
-              throw new Error(`Missing expected text: ${needle.slice(0, 180)}`);
-            }
-            text = text.replace(needle, replacement);
-          }
+  const isWalletModal = normalizeLower(title).includes("wallet");
+  const displayTitle = isWalletModal ? "Where will your money live?" : title;
+  const displayDescription = isWalletModal
+    ? "Create a new money container inside your CLARA system."
+    : description;
 
-          if (!text.includes('  Eye,\n  EyeOff,')) {
-            replaceOnce(
-              '  Palette,\n  Check,\n} from "lucide-react";',
-              '  Palette,\n  Check,\n  Eye,\n  EyeOff,\n} from "lucide-react";'
-            );
-          }
+  return (
+    <div className="fixed inset-0 z-[120] flex items-start justify-center overflow-hidden bg-black/80 px-3 pb-[calc(1rem+env(safe-area-inset-bottom))] pt-[max(1rem,env(safe-area-inset-top))] backdrop-blur-2xl sm:items-center sm:p-4">
+      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(16,185,129,0.24),transparent_34%),radial-gradient(circle_at_top_right,rgba(34,211,238,0.14),transparent_30%),radial-gradient(circle_at_bottom,rgba(168,85,247,0.16),transparent_38%),linear-gradient(180deg,rgba(2,6,12,0.32),rgba(2,6,12,0.94))]" />
+      <div className="pointer-events-none absolute -left-24 top-20 h-72 w-72 rounded-full bg-emerald-400/14 blur-3xl" />
+      <div className="pointer-events-none absolute -right-28 bottom-24 h-80 w-80 rounded-full bg-cyan-400/12 blur-3xl" />
+      <div className="pointer-events-none absolute inset-x-6 top-0 h-px bg-gradient-to-r from-transparent via-emerald-200/50 to-transparent" />
 
-          if (!text.includes('const MONEY_SUMMARY_PRIVACY_KEY = "clara_dashboard_money_summary_visible";')) {
-            replaceOnce(
-              'const getDashboardPrefsStorageKey = (userId) =>\n  `clara_dashboard_prefs_${userId || "guest"}`;\n',
-              'const getDashboardPrefsStorageKey = (userId) =>\n  `clara_dashboard_prefs_${userId || "guest"}`;\n\nconst MONEY_SUMMARY_PRIVACY_KEY = "clara_dashboard_money_summary_visible";\n\nfunction readMoneySummaryVisibility() {\n  if (typeof localStorage === "undefined") return false;\n\n  try {\n    return localStorage.getItem(MONEY_SUMMARY_PRIVACY_KEY) === "true";\n  } catch (error) {\n    console.error("Failed to read money summary privacy setting:", error);\n    return false;\n  }\n}\n\nfunction persistMoneySummaryVisibility(visible) {\n  if (typeof localStorage === "undefined") return;\n\n  try {\n    localStorage.setItem(MONEY_SUMMARY_PRIVACY_KEY, String(Boolean(visible)));\n  } catch (error) {\n    console.error("Failed to save money summary privacy setting:", error);\n  }\n}\n'
-            );
-          }
+      <div className="relative flex w-full max-w-lg max-h-[calc(100dvh-2rem-env(safe-area-inset-top)-env(safe-area-inset-bottom))] overflow-hidden rounded-[32px] border border-white/10 bg-[radial-gradient(circle_at_top_left,rgba(52,211,153,0.18),transparent_32%),radial-gradient(circle_at_bottom_right,rgba(34,211,238,0.12),transparent_42%),linear-gradient(145deg,rgba(7,17,32,0.98),rgba(4,12,22,0.99)_52%,rgba(2,7,14,1))] shadow-[0_30px_95px_rgba(0,0,0,0.62),0_0_48px_rgba(16,185,129,0.12)] backdrop-blur-2xl sm:max-h-[calc(100dvh-2rem)]">
+        <form onSubmit={onSubmit} className="flex min-h-0 w-full flex-col">
+          <div className="relative shrink-0 border-b border-white/10 bg-white/[0.035] px-5 py-5">
+            <div className="pointer-events-none absolute inset-x-8 top-0 h-14 rounded-full bg-emerald-300/10 blur-3xl" />
+            <div className="relative flex items-start justify-between gap-4">
+              <div className="min-w-0">
+                {isWalletModal ? (
+                  <div className="mb-3 inline-flex items-center gap-2 rounded-full border border-emerald-300/15 bg-emerald-400/10 px-3 py-1 text-[10px] font-bold uppercase tracking-[0.18em] text-emerald-100/85">
+                    Wallet setup
+                  </div>
+                ) : null}
+                <h3 className="text-xl font-bold tracking-tight text-white">{displayTitle}</h3>
+                {displayDescription ? (
+                  <p className="mt-1.5 text-sm leading-6 text-white/66">{displayDescription}</p>
+                ) : null}
+              </div>
 
-          if (!text.includes('const isMoneySummaryPrivacyToggleEvent = (event) =>')) {
-            replaceOnce(
-              'const stopFinancialSummaryInteractionUnlessMoneyLeft = (event) => {\n  if (isMoneyLeftSummaryEvent(event)) return undefined;\n  return stopFinancialSummaryInteraction(event);\n};',
-              'const isMoneySummaryPrivacyToggleEvent = (event) =>\n  Boolean(\n    event?.target?.closest?.(\'[data-clara-summary-privacy-toggle="true"]\')\n  );\n\nconst stopFinancialSummaryInteractionUnlessMoneyLeft = (event) => {\n  if (isMoneyLeftSummaryEvent(event) || isMoneySummaryPrivacyToggleEvent(event)) {\n    return undefined;\n  }\n\n  return stopFinancialSummaryInteraction(event);\n};'
-            );
-          }
+              <button
+                type="button"
+                onClick={onClose}
+                className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border border-white/10 bg-white/[0.06] text-white/72 shadow-[0_12px_30px_rgba(0,0,0,0.22)] transition hover:bg-white/[0.10] hover:text-white active:scale-95"
+                aria-label="Close modal"
+              >
+                <X className="h-4.5 w-4.5" />
+              </button>
+            </div>
+          </div>
 
-          if (!text.includes('const [moneySummaryVisible, setMoneySummaryVisible] = useState(() =>')) {
-            replaceOnce(
-              'export default function Dashboard() {\n',
-              'export default function Dashboard() {\n  const [moneySummaryVisible, setMoneySummaryVisible] = useState(() =>\n    readMoneySummaryVisibility()\n  );\n\n  const toggleMoneySummaryVisibility = useCallback((event) => {\n    event?.preventDefault?.();\n    event?.stopPropagation?.();\n    event?.nativeEvent?.stopImmediatePropagation?.();\n\n    setMoneySummaryVisible((current) => {\n      const nextVisible = !current;\n      persistMoneySummaryVisibility(nextVisible);\n      return nextVisible;\n    });\n  }, []);\n\n'
-            );
-          }
+          <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-5 py-5 pb-6">
+            <div className="relative overflow-visible rounded-[28px] border border-white/10 bg-white/[0.04] p-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.06),0_18px_50px_rgba(0,0,0,0.20)]">
+              <div className="pointer-events-none absolute inset-x-8 top-0 h-12 rounded-full bg-cyan-300/10 blur-3xl" />
+              <div className="relative space-y-4">{children}</div>
+            </div>
+          </div>
 
-          text = text.replace(
-            'className={`grid cursor-default select-none grid-cols-2 overflow-hidden border backdrop-blur-sm ${dashboardScale.summaryGrid}`}',
-            'className={`relative grid cursor-default select-none grid-cols-2 overflow-hidden border backdrop-blur-sm ${dashboardScale.summaryGrid}`}'
-          );
+          <div className="shrink-0 border-t border-white/10 bg-[#041018]/94 px-5 pb-[calc(1rem+env(safe-area-inset-bottom))] pt-4 shadow-[0_-18px_48px_rgba(0,0,0,0.40)] backdrop-blur-2xl">
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-[0.85fr_1.15fr]">
+              <button
+                type="button"
+                onClick={onClose}
+                className="min-h-[52px] rounded-2xl border border-white/10 bg-white/[0.045] px-5 py-3 text-sm font-semibold text-white/72 transition hover:bg-white/[0.08] hover:text-white active:scale-[0.99]"
+              >
+                Cancel
+              </button>
 
-          if (!text.includes('Hide financial summary amounts')) {
-            replaceOnce(
-              '        >\n          <div\n            {...moneyLeftSummaryHandlers}',
-              '        >\n          <button\n            type="button"\n            data-clara-summary-privacy-toggle="true"\n            onClick={toggleMoneySummaryVisibility}\n            onPointerUp={(event) => event.stopPropagation()}\n            onMouseUp={(event) => event.stopPropagation()}\n            onTouchEnd={(event) => event.stopPropagation()}\n            className="absolute right-2.5 top-2.5 z-50 flex h-7 w-7 items-center justify-center rounded-full border border-white/10 bg-white/[0.08] text-white/55 shadow-[0_0_14px_rgba(255,255,255,0.08)] backdrop-blur-xl transition hover:bg-white/[0.13] hover:text-white/85 active:scale-95"\n            aria-label={moneySummaryVisible ? "Hide financial summary amounts" : "Show financial summary amounts"}\n            title={moneySummaryVisible ? "Hide amounts" : "Show amounts"}\n          >\n            {moneySummaryVisible ? (\n              <Eye className="h-3.5 w-3.5" />\n            ) : (\n              <EyeOff className="h-3.5 w-3.5" />\n            )}\n          </button>\n\n          <div\n            {...moneyLeftSummaryHandlers}'
-            );
-          }
+              <button
+                type="submit"
+                disabled={submitDisabled || loading}
+                className={
+                  "min-h-[54px] rounded-2xl px-5 py-3 text-sm font-bold text-white transition hover:scale-[1.01] disabled:cursor-not-allowed disabled:opacity-60 active:scale-[0.99] " +
+                  (danger
+                    ? "bg-gradient-to-r from-rose-500 to-red-600 shadow-[0_14px_34px_rgba(244,63,94,0.26)]"
+                    : "bg-gradient-to-r from-emerald-400 via-emerald-500 to-green-600 shadow-[0_14px_34px_rgba(16,185,129,0.32)]")
+                }
+              >
+                {loading ? "Saving..." : isWalletModal ? "Create wallet →" : submitLabel}
+              </button>
+            </div>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+};
 
-          text = text.replace('{fmt(walletMoney)}', '{moneySummaryVisible ? fmt(walletMoney) : "₱••••••"}');
-          text = text.replace('{fmt(thisMonthSpent)}', '{moneySummaryVisible ? fmt(thisMonthSpent) : "₱•••••"}');
-
+`;
+          text = text.slice(0, start) + replacement + text.slice(end);
           if (nl === '\r\n') text = text.replace(/\n/g, '\r\n');
           fs.writeFileSync(path, text);
           NODE
@@ -102,21 +144,9 @@ jobs:
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add src/pages/Dashboard.jsx
           if git diff --cached --quiet; then
-            echo "Dashboard.jsx already up to date."
+            echo "Dashboard.jsx already patched."
           else
-            git commit -m "Add dashboard money summary privacy button"
+            git commit -m "Upgrade Dashboard finance modal to CLARA premium system"
             git pull --rebase origin main
             git push origin main
           fi
-
-      - name: Install dependencies
-        run: npm ci || npm install
-
-      - name: Build web
-        run: npm run build:web
-
-      - name: Deploy to GitHub Pages
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          npx gh-pages -d dist -u "GitHub Actions <actions@github.com>" -r "https://x-access-token:${GH_TOKEN}@github.com/${GITHUB_REPOSITORY}.git"
