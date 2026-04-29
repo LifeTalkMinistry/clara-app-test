@@ -45,7 +45,12 @@ const cleanNumber = (value) => {
   return Number.isFinite(n) ? n : 0;
 };
 
-const normalizeText = (value) => String(value || "").trim().toLowerCase();
+const normalizeText = (value) =>
+  String(value || "")
+    .trim()
+    .toLowerCase()
+    .replace(/[_-]+/g, " ")
+    .replace(/\s+/g, " ");
 
 const hasValue = (value) =>
   value !== undefined && value !== null && String(value).trim() !== "";
@@ -338,12 +343,7 @@ const TIMELINE_GROUPS = [
 
 const getBudgetCategory = (item) =>
   normalizeText(
-    item?.budget_category ||
-      item?.budgetCategory ||
-      item?.category ||
-      item?.name ||
-      item?.title ||
-      item?.label
+    item?.category || item?.budget_category || item?.name || item?.title
   );
 
 const getBudgetAmount = (budget) =>
@@ -1039,7 +1039,7 @@ export default function TransactionHub() {
               }`
             : "";
 
-        const normalized = {
+        return {
           id: dedupeKey,
           raw: item,
           date,
@@ -1068,8 +1068,6 @@ export default function TransactionHub() {
           signedAmount,
           note: isJsonLike(note) ? "" : String(note || "").trim(),
         };
-
-        return normalized;
       })
       .filter(Boolean)
       .sort((a, b) => parseDate(b.date).getTime() - parseDate(a.date).getTime());
