@@ -20,11 +20,8 @@ import {
   saveAccessSnapshot,
 } from "./lib/offline-access-cache";
 import { FEATURE_ROUTE_MAP } from "./lib/plan-config";
-
-// Layout
 import Layout from "./components/Layout";
 
-// Pages
 const Settings = lazy(() => import("./pages/Settings"));
 const Profile = lazy(() => import("./pages/Profile"));
 const Login = lazy(() => import("./pages/Login"));
@@ -48,28 +45,14 @@ const Referrals = lazy(() => import("./pages/Referrals"));
 const SavingsGoals = lazy(() => import("./pages/SavingsGoals"));
 const AdvertiserDashboard = lazy(() => import("./pages/AdvertiserDashboard"));
 const Activation = lazy(() => import("./pages/Activation"));
-
-// Onboarding
-const UniversalOnboarding = lazy(() =>
-  import("./pages/onboarding/UniversalOnboarding")
-);
-const ProgramOnboarding = lazy(() =>
-  import("./pages/onboarding/ProgramOnboarding")
-);
+const UniversalOnboarding = lazy(() => import("./pages/onboarding/UniversalOnboarding"));
+const ProgramOnboarding = lazy(() => import("./pages/onboarding/ProgramOnboarding"));
 const PendingScreen = lazy(() => import("./pages/onboarding/PendingScreen"));
-const WelcomeBackTransition = lazy(() =>
-  import("./components/WelcomeBackTransition")
-);
-
-// Admin
+const WelcomeBackTransition = lazy(() => import("./components/WelcomeBackTransition"));
 const AdminPanel = lazy(() => import("./pages/admin/AdminPanel"));
 const StudentProfile = lazy(() => import("./pages/admin/StudentProfile"));
-const AdminReferralMaterials = lazy(() =>
-  import("./pages/admin/AdminReferralMaterials")
-);
-const AdminDailyTips = lazy(() => import("./pages/admin/AdminDailyTips");
-
-// Fallback
+const AdminReferralMaterials = lazy(() => import("./pages/admin/AdminReferralMaterials"));
+const AdminDailyTips = lazy(() => import("./pages/admin/AdminDailyTips"));
 const PageNotFound = lazy(() => import("./lib/PageNotFound"));
 
 const ADMIN_RECOVERY_EMAILS = new Set([
@@ -88,12 +71,7 @@ function FullScreenLoader() {
   );
 }
 
-function getHomeRedirectPath({
-  isAdvertiser,
-  flow,
-  forceEnroll,
-  offlineAccessActive,
-}) {
+function getHomeRedirectPath({ isAdvertiser, flow, forceEnroll, offlineAccessActive }) {
   if (offlineAccessActive) return "/dashboard";
   if (isAdvertiser) return "/advertiser";
   if (flow === "universal_onboarding") return "/onboarding";
@@ -103,35 +81,15 @@ function getHomeRedirectPath({
   return "/dashboard";
 }
 
-function GuardedRoute({
-  children,
-  shouldForceEnroll = false,
-  featureKey = "",
-  isFeatureAvailable = () => true,
-  path,
-  offlineAccessActive = false,
-}) {
-  if (offlineAccessActive && path === "/dashboard") {
-    return children;
-  }
-
-  if (featureKey && !isFeatureAvailable(featureKey)) {
-    return <Navigate to="/enroll" replace state={{ from: path }} />;
-  }
-
-  if (shouldForceEnroll && !featureKey) {
-    return <Navigate to="/enroll" replace state={{ from: path }} />;
-  }
-
+function GuardedRoute({ children, shouldForceEnroll = false, featureKey = "", isFeatureAvailable = () => true, path, offlineAccessActive = false }) {
+  if (offlineAccessActive && path === "/dashboard") return children;
+  if (featureKey && !isFeatureAvailable(featureKey)) return <Navigate to="/enroll" replace state={{ from: path }} />;
+  if (shouldForceEnroll && !featureKey) return <Navigate to="/enroll" replace state={{ from: path }} />;
   return children;
 }
 
 function AdminRoute({ isAdmin, redirectTo = "/dashboard", children }) {
-  if (!isAdmin) {
-    return <Navigate to={redirectTo} replace />;
-  }
-
-  return children;
+  return isAdmin ? children : <Navigate to={redirectTo} replace />;
 }
 
 function getLoginRedirectUrl() {
@@ -146,7 +104,6 @@ function isRecoveryAdminEmail(email) {
 
 function AdminRescueButton({ show }) {
   if (!show) return null;
-
   return (
     <a
       href="#/admin"
@@ -161,17 +118,10 @@ function AdminRescueButton({ show }) {
 function AppRoutes() {
   const location = useLocation();
   const { user, profile, loading, authReady, refreshProfile } = useAuth();
-  const {
-    role: normalizedRole,
-    isFeatureAvailable,
-    loading: roleLoading,
-  } = useUserRole();
-
+  const { role: normalizedRole, isFeatureAvailable, loading: roleLoading } = useUserRole();
   const [forceLogoutProcessing, setForceLogoutProcessing] = useState(false);
   const [isOffline, setIsOffline] = useState(() => isAccessNetworkOffline());
-  const [cachedAccessSnapshot, setCachedAccessSnapshot] = useState(() =>
-    getAccessSnapshot()
-  );
+  const [cachedAccessSnapshot, setCachedAccessSnapshot] = useState(() => getAccessSnapshot());
 
   const profileReady = user ? profile !== null : true;
 
@@ -181,21 +131,15 @@ function AppRoutes() {
     const refreshOnlineState = () => {
       const nextOffline = isAccessNetworkOffline();
       setIsOffline(nextOffline);
-
       if (!nextOffline) {
-        refreshProfile?.().catch((error) => {
-          console.error("CLARA access refresh failed:", error);
-        });
+        refreshProfile?.().catch((error) => console.error("CLARA access refresh failed:", error));
         return;
       }
-
-      const snapshot = getAccessSnapshot(user?.id || user?.email || null);
-      setCachedAccessSnapshot(snapshot);
+      setCachedAccessSnapshot(getAccessSnapshot(user?.id || user?.email || null));
     };
 
     window.addEventListener("online", refreshOnlineState);
     window.addEventListener("offline", refreshOnlineState);
-
     refreshOnlineState();
 
     return () => {
@@ -205,15 +149,11 @@ function AppRoutes() {
   }, [refreshProfile, user?.email, user?.id]);
 
   useEffect(() => {
-    const snapshot = getAccessSnapshot(user?.id || user?.email || null);
-    setCachedAccessSnapshot(snapshot);
+    setCachedAccessSnapshot(getAccessSnapshot(user?.id || user?.email || null));
   }, [user?.email, user?.id]);
 
   const offlineFallback = useMemo(
-    () =>
-      getOfflineFallbackFlow(
-        cachedAccessSnapshot || profile?.offline_access_snapshot || null
-      ),
+    () => getOfflineFallbackFlow(cachedAccessSnapshot || profile?.offline_access_snapshot || null),
     [cachedAccessSnapshot, profile?.offline_access_snapshot]
   );
 
@@ -231,33 +171,19 @@ function AppRoutes() {
 
     const runForceReauth = async () => {
       if (!user?.id || !profile || forceLogoutProcessing) return;
-      if (
-        offlineAccessActive ||
-        profile?.offline_access ||
-        profile?.offline_limited_access
-      )
-        return;
+      if (offlineAccessActive || profile?.offline_access || profile?.offline_limited_access) return;
       if (!profile?.force_reauth) return;
 
       try {
-        if (isMounted) {
-          setForceLogoutProcessing(true);
-        }
-
+        if (isMounted) setForceLogoutProcessing(true);
         const { error: flagResetError } = await supabase
           .from("profiles")
           .update({ force_reauth: false })
           .eq("id", user.id);
-
-        if (flagResetError) {
-          console.error("Force reauth flag reset error:", flagResetError);
-        }
+        if (flagResetError) console.error("Force reauth flag reset error:", flagResetError);
 
         const { error: signOutError } = await supabase.auth.signOut();
-
-        if (signOutError) {
-          console.error("Force sign out error:", signOutError);
-        }
+        if (signOutError) console.error("Force sign out error:", signOutError);
 
         try {
           localStorage.clear();
@@ -265,70 +191,40 @@ function AppRoutes() {
         } catch (storageError) {
           console.error("Storage clear error:", storageError);
         }
-
         window.location.replace(getLoginRedirectUrl());
       } catch (error) {
         console.error("Force reauth process error:", error);
-
         try {
           localStorage.clear();
           sessionStorage.clear();
         } catch (storageError) {
           console.error("Storage clear fallback error:", storageError);
         }
-
         window.location.replace(getLoginRedirectUrl());
       } finally {
-        if (isMounted) {
-          setForceLogoutProcessing(false);
-        }
+        if (isMounted) setForceLogoutProcessing(false);
       }
     };
 
     runForceReauth();
-
     return () => {
       isMounted = false;
     };
   }, [user?.id, profile, forceLogoutProcessing, offlineAccessActive]);
 
   const resolvedAccess = useMemo(() => {
-    if (!profile) {
-      return deriveAccessState({
-        role: normalizedRole || "user",
-      });
-    }
-
-    return deriveAccessState({
-      ...profile,
-      role: profile?.role || normalizedRole || "user",
-    });
+    if (!profile) return deriveAccessState({ role: normalizedRole || "user" });
+    return deriveAccessState({ ...profile, role: profile?.role || normalizedRole || "user" });
   }, [profile, normalizedRole]);
 
-  const isAdmin =
-    resolvedAccess.isAdmin || isRecoveryAdminEmail(user?.email || profile?.email);
+  const isAdmin = resolvedAccess.isAdmin || isRecoveryAdminEmail(user?.email || profile?.email);
   const isAdvertiser = resolvedAccess.isAdvertiser;
 
   const flow = useMemo(() => {
     if (!user || !profileReady) return "loading";
-
-    if (offlineAccessActive) {
-      return offlineFallback.flow === "limited_offline" ? "normal" : "active";
-    }
-
-    return resolveAppFlow({
-      ...profile,
-      role: isAdmin ? "admin" : profile?.role || normalizedRole || "user",
-    });
-  }, [
-    user,
-    profileReady,
-    offlineAccessActive,
-    offlineFallback.flow,
-    profile,
-    normalizedRole,
-    isAdmin,
-  ]);
+    if (offlineAccessActive) return offlineFallback.flow === "limited_offline" ? "normal" : "active";
+    return resolveAppFlow({ ...profile, role: isAdmin ? "admin" : profile?.role || normalizedRole || "user" });
+  }, [user, profileReady, offlineAccessActive, offlineFallback.flow, profile, normalizedRole, isAdmin]);
 
   const forceEnroll = useMemo(() => {
     if (offlineAccessActive) return false;
@@ -336,515 +232,118 @@ function AppRoutes() {
     if (isAdmin) return false;
     if (!profile) return false;
     return resolvedAccess.forceEnroll;
-  }, [
-    offlineAccessActive,
-    user,
-    profileReady,
-    profile,
-    resolvedAccess.forceEnroll,
-    isAdmin,
-  ]);
+  }, [offlineAccessActive, user, profileReady, isAdmin, profile, resolvedAccess.forceEnroll]);
 
   const homeRedirectPath = useMemo(
-    () =>
-      getHomeRedirectPath({
-        isAdvertiser,
-        flow,
-        forceEnroll,
-        offlineAccessActive,
-      }),
+    () => getHomeRedirectPath({ isAdvertiser, flow, forceEnroll, offlineAccessActive }),
     [isAdvertiser, flow, forceEnroll, offlineAccessActive]
   );
 
   const welcomeRedirectPath = useMemo(() => {
     if (offlineAccessActive) return "/dashboard";
-
-    if (
-      flow === "program_onboarding" &&
-      hasCompletedProgramOnboarding(profile || {})
-    ) {
-      return "/dashboard";
-    }
+    if (flow === "program_onboarding" && hasCompletedProgramOnboarding(profile || {})) return "/dashboard";
     return homeRedirectPath;
   }, [flow, homeRedirectPath, profile, offlineAccessActive]);
 
   useEffect(() => {
     if (!user?.id || !profile || isOffline) return;
     if (flow === "loading") return;
+    const snapshot = buildAccessSnapshot({ user, profile, accessState: resolvedAccess, flow, homeRedirectPath, currentPath: location.pathname });
+    setCachedAccessSnapshot(saveAccessSnapshot(snapshot));
+  }, [flow, homeRedirectPath, isOffline, location.pathname, profile, resolvedAccess, user]);
 
-    const snapshot = buildAccessSnapshot({
-      user,
-      profile,
-      accessState: resolvedAccess,
-      flow,
-      homeRedirectPath,
-      currentPath: location.pathname,
-    });
+  const displayName = profile?.full_name || user?.user_metadata?.full_name || user?.user_metadata?.name || "";
 
-    const saved = saveAccessSnapshot(snapshot);
-    setCachedAccessSnapshot(saved);
-  }, [
-    flow,
-    homeRedirectPath,
-    isOffline,
-    location.pathname,
-    profile,
-    resolvedAccess,
-    user,
-  ]);
+  if (forceLogoutProcessing || !authReady || loading || roleLoading || (user && !profileReady)) return <FullScreenLoader />;
 
-  const displayName =
-    profile?.full_name ||
-    user?.user_metadata?.full_name ||
-    user?.user_metadata?.name ||
-    "";
+  const guard = (children, path, shouldForceEnroll = forceEnroll, featurePath = path) => (
+    <GuardedRoute
+      shouldForceEnroll={shouldForceEnroll}
+      featureKey={FEATURE_ROUTE_MAP[featurePath]}
+      isFeatureAvailable={isFeatureAvailable}
+      path={path}
+      offlineAccessActive={offlineAccessActive}
+    >
+      {children}
+    </GuardedRoute>
+  );
 
-  if (
-    forceLogoutProcessing ||
-    !authReady ||
-    loading ||
-    roleLoading ||
-    (user && !profileReady)
-  ) {
-    return <FullScreenLoader />;
-  }
+  const admin = (children) => (
+    <AdminRoute isAdmin={isAdmin} redirectTo={homeRedirectPath}>
+      {children}
+    </AdminRoute>
+  );
 
   return (
     <Suspense fallback={<FullScreenLoader />}>
       <Routes>
-        <Route
-          path="/login"
-          element={user ? <Navigate to="/welcome-back" replace /> : <Login />}
-        />
-
+        <Route path="/login" element={user ? <Navigate to="/welcome-back" replace /> : <Login />} />
         <Route
           path="/welcome-back"
           element={
-            user ? (
-              <WelcomeBackTransition
-                redirectTo={welcomeRedirectPath}
-                userName={displayName}
-              />
-            ) : (
-              <Navigate to="/login" replace />
-            )
+            user ? <WelcomeBackTransition redirectTo={welcomeRedirectPath} userName={displayName} /> : <Navigate to="/login" replace />
           }
         />
-
         <Route
           path="/onboarding"
-          element={
-            user ? (
-              offlineAccessActive ? (
-                <Navigate to="/dashboard" replace />
-              ) : (
-                <UniversalOnboarding />
-              )
-            ) : (
-              <Navigate to="/login" replace />
-            )
-          }
+          element={user ? (offlineAccessActive ? <Navigate to="/dashboard" replace /> : <UniversalOnboarding />) : <Navigate to="/login" replace />}
         />
-
         <Route
-          path="/pending
+          path="/pending"
           element={
-            offlineAccessActive ? (
-              <Navigate to="/dashboard" replace />
-            ) : user && flow === "payment_pending" ? (
-              <PendingScreen />
-            ) : (
-              <Navigate to={homeRedirectPath} replace />
-            )
+            offlineAccessActive ? <Navigate to="/dashboard" replace /> : user && flow === "payment_pending" ? <PendingScreen /> : <Navigate to={homeRedirectPath} replace />
           }
         />
-
         <Route
           path="/program-onboarding"
           element={
-            offlineAccessActive ? (
-              <Navigate to="/dashboard" replace />
-            ) : user && flow === "program_onboarding" ? (
-              <ProgramOnboarding />
-            ) : (
-              <Navigate to={homeRedirectPath} replace />
-            )
+            offlineAccessActive ? <Navigate to="/dashboard" replace /> : user && flow === "program_onboarding" ? <ProgramOnboarding /> : <Navigate to={homeRedirectPath} replace />
           }
         />
-
         <Route
           path="/*"
           element={
             user ? (
               <Layout>
                 <Routes>
-                  <Route
-                    path="/"
-                    element={<Navigate to={homeRedirectPath} replace />}
-                  />
-
+                  <Route path="/" element={<Navigate to={homeRedirectPath} replace />} />
                   <Route path="/advertiser" element={<AdvertiserDashboard />} />
-
                   {!isAdvertiser && (
                     <>
-                      <Route
-                        path="/dashboard"
-                        element={
-                          <GuardedRoute
-                            shouldForceEnroll={forceEnroll}
-                            featureKey={FEATURE_ROUTE_MAP["/dashboard"]}
-                            isFeatureAvailable={isFeatureAvailable}
-                            path="/dashboard"
-                            offlineAccessActive={offlineAccessActive}
-                          >
-                            <Dashboard />
-                          </GuardedRoute>
-                        }
-                      />
-
-                      <Route
-                        path="/feed"
-                        element={
-                          <GuardedRoute
-                            shouldForceEnroll={false}
-                            featureKey={FEATURE_ROUTE_MAP["/feed"]}
-                            isFeatureAvailable={isFeatureAvailable}
-                            path="/feed"
-                            offlineAccessActive={offlineAccessActive}
-                        >
-                            <Feed />
-                        </GuardedRoute>
-                        }
-                      />
-
-                      <Route
-                        path="/people"
-                        element={
-                          <GuardedRoute
-                            shouldForceEnroll={false}
-                            featureKey={FEATURE_ROUTE_MAP["/feed"]}
-                            isFeatureAvailable={isFeatureAvailable}
-                            path="/people"
-                            offlineAccessActive={offlineAccessActive}
-                        >
-                            <ClaraPeople />
-                        </GuardedRoute>
-                        }
-                      />
-
-                      <Route
-                        path="/user/:id"
-                        element={
-                          <GuardedRoute
-                            shouldForceEnroll={false}
-                            featureKey={FEATURE_ROUTE_MAP["/feed"]}
-                            isFeatureAvailable={isFeatureAvailable}
-                            path="/user/:id"
-                            offlineAccessActive={offlineAccessActive}
-                          >
-                            <UserProfile />
-                          </GuardedRoute>
-                        }
-                      />
-
-                      <Route
-                        path="/expenses"
-                        element={
-                          <GuardedRoute
-                            shouldForceEnroll={forceEnroll}
-                            featureKey={FEATURE_ROUTE_MAP["/expenses"]}
-                            isFeatureAvailable={isFeatureAvailable}
-                            path="/expenses"
-                            offlineAccessActive={offlineAccessActive}
-                        >
-                            <TransactionHub />
-                        </GuardedRoute>
-                        }
-                      />
-
-                      <Route
-                        path="/transactions-hub"
-                        element={
-                          <GuardedRoute
-                            shouldForceEnroll={forceEnroll}
-                            featureKey={FEATURE_ROUTE_MAP["/expenses"]}
-                            isFeatureAvailable={isFeatureAvailable}
-                            path="/transactions-hub"
-                            offlineAccessActive={offlineAccessActive}
-                        >
-                            <TransactionHub />
-                          </GuardedRoute>
-                        }
-                      />
-
-                      <Route
-                        path="/add-funds"
-                        element={
-                          <GuardedRoute
-                            shouldForceEnroll={forceEnroll}
-                            featureKey={FEATURE_ROUTE_MAP["/add-funds"]}
-                            isFeatureAvailable={isFeatureAvailable}
-                            path="/add-funds"
-                            offlineAccessActive={offlineAccessActive}
-                        >
-                            <AddFunds />
-                        </GuardedRoute>
-                        }
-                      />
-
-                      <Route
-                        path="/wallets"
-                        element={
-                          <GuardedRoute
-                            shouldForceEnroll={forceEnroll}
-                            featureKey={FEATURE_ROUTE_MAP["/wallets"]}
-                            isFeatureAvailable={isFeatureAvailable}
-                            path="/wallets"
-                            offlineAccessActive={offlineAccessActive}
-                        >
-                            <Wallets />
-                        </GuardedRoute>
-                        }
-                      />
-
-                      <Route
-                        path="/budgets"
-                        element={
-                          <GuardedRoute
-                            shouldForceEnroll={forceEnroll}
-                            featureKey={FEATURE_ROUTE_MAP["/budgets"]}
-                            isFeatureAvailable={isFeatureAvailable}
-                            path="/budgets"
-                            offlineAccessActive={offlineAccessActive}
-                          >
-                            <Budgets />
-                        </GuardedRoute>
-                        }
-                      />
-
-                      <Route
-                        path="/analytics"
-                        element={
-                          <GuardedRoute
-                            shouldForceEnroll={forceEnroll}
-                            featureKey={FEATURE_ROUTE_MAP["/analytics"]}
-                            isFeatureAvailable={isFeatureAvailable}
-                            path="/analytics"
-                            offlineAccessActive={offlineAccessActive}
-                        >
-                            <Analytics />
-                          </GuardedRoute>
-                        }
-                      />
-
-                      <Route
-                        path="/ai"
-                        element={
-                          <GuardedRoute
-                            shouldForceEnroll={forceEnroll}
-                            featureKey={FEATURE_ROUTE_MAP["/ai"]}
-                            isFeatureAvailable={isFeatureAvailable}
-                            path="/ai"
-                            offlineAccessActive={offlineAccessActive}
-                        >
-                            <AiInsights />
-                        </GuardedRoute>
-                        }
-                      />
-
+                      <Route path="/dashboard" element={guard(<Dashboard />, "/dashboard")} />
+                      <Route path="/feed" element={guard(<Feed />, "/feed", false)} />
+                      <Route path="/people" element={guard(<ClaraPeople />, "/people", false, "/feed")} />
+                      <Route path="/user/:id" element={guard(<UserProfile />, "/user/:id", false, "/feed")} />
+                      <Route path="/expenses" element={guard(<TransactionHub />, "/expenses")} />
+                      <Route path="/transactions-hub" element={guard(<TransactionHub />, "/transactions-hub", forceEnroll, "/expenses")} />
+                      <Route path="/add-funds" element={guard(<AddFunds />, "/add-funds")} />
+                      <Route path="/wallets" element={guard(<Wallets />, "/wallets")} />
+                      <Route path="/budgets" element={guard(<Budgets />, "/budgets")} />
+                      <Route path="/analytics" element={guard(<Analytics />, "/analytics")} />
+                      <Route path="/ai" element={guard(<AiInsights />, "/ai")} />
                       <Route path="/activation" element={<Activation />} />
-
-                      <Route
-                        path="/enroll"
-                        element={
-                          offlineAccessActive ? (
-                            <Navigate to="/dashboard" replace />
-                          ) : (
-                            <Enroll />
-                          )
-                        }
-                      />
-                      <Route
-                        path="/tier-select"
-                        element={
-                          offlineAccessActive ? (
-                            <Navigate to="/dashboard" replace />
-                          ) : (
-                            <TierSelect />
-                          )
-                        }
-                      />
-
-                      <Route
-                        path="/news"
-                        element={
-                          <GuardedRoute
-                            shouldForceEnroll={forceEnroll}
-                            featureKey={FEATURE_ROUTE_MAP["/news"]}
-                            isFeatureAvailable={isFeatureAvailable}
-                            path="/news"
-                            offlineAccessActive={offlineAccessActive}
-                        >
-                            <News />
-                        </GuardedRoute>
-                        }
-                      />
-
-                      <Route
-                        path="/tasks"
-                        element={<Navigate to="/dashboard" replace />}
-                      />
-
-                      <Route
-                        path="/modules"
-                        element={
-                          <GuardedRoute
-                            shouldForceEnroll={forceEnroll}
-                            featureKey={FEATURE_ROUTE_MAP["/modules"]}
-                            isFeatureAvailable={isFeatureAvailable}
-                            path="/modules"
-                            offlineAccessActive={offlineAccessActive}
-                          >
-                            <Modules />
-                        </GuardedRoute>
-                        }
-                      />
-
-                      <Route
-                        path="/community"
-                        element={
-                          <GuardedRoute
-                            shouldForceEnroll={forceEnroll}
-                            featureKey={FEATURE_ROUTE_MAP["/community"]}
-                            isFeatureAvailable={isFeatureAvailable}
-                            path="/community"
-                            offlineAccessActive={offlineAccessActive}
-                        >
-                            <Community />
-                          </GuardedRoute>
-                        }
-                      />
-
-                      <Route
-                        path="/messages"
-                        element={
-                          <GuardedRoute
-                            shouldForceEnroll={forceEnroll}
-                            featureKey={FEATURE_ROUTE_MAP["/messages"]}
-                            isFeatureAvailable={isFeatureAvailable}
-                            path="/messages"
-                            offlineAccessActive={offlineAccessActive}
-                        >
-                            <Messages />
-                        </GuardedRoute>
-                        }
-                      />
-
-                      <Route
-                        path="/savings-goals"
-                        element={
-                          <GuardedRoute
-                            shouldForceEnroll={forceEnroll}
-                            featureKey={FEATURE_ROUTE_MAP["/savings-goals"]}
-                            isFeatureAvailable={isFeatureAvailable}
-                            path="/savings-goals"
-                            offlineAccessActive={offlineAccessActive}
-                        >
-                            <SavingsGoals />
-                          </GuardedRoute>
-                        }
-                      />
-
-                      <Route
-                        path="/referrals"
-                        element={
-                          <GuardedRoute
-                            shouldForceEnroll={forceEnroll}
-                            featureKey={FEATURE_ROUTE_MAP["/referrals"]}
-                            isFeatureAvailable={isFeatureAvailable}
-                            path="/referrals"
-                            offlineAccessActive={offlineAccessActive}
-                        >
-                            <Referrals />
-                          </GuardedRoute>
-                        }
-                      />
-
-                      <Route
-                        path="/admin"
-                        element={
-                          <AdminRoute
-                            isAdmin={isAdmin}
-                            redirectTo={homeRedirectPath}
-                          >
-                            <AdminPanel />
-                          </AdminRoute>
-                        }
-                      />
-
-                      <Route
-                        path="/admin/student/:id"
-                        element={
-                          <AdminRoute
-                            isAdmin={isAdmin}
-                            redirectTo={homeRedirectPath}
-                          >
-                            <StudentProfile />
-                          </AdminRoute>
-                        }
-                      />
-
-                      <Route
-                        path="/admin/referral-materials"
-                        element={
-                          <AdminRoute
-                            isAdmin={isAdmin}
-                            redirectTo={homeRedirectPath}
-                          >
-                            <AdminReferralMaterials />
-                        </AdminRoute>
-                        }
-                      />
-
-                      <Route
-                        path="/admin/daily-tips"
-                        element={
-                          <AdminRoute
-                            isAdmin={isAdmin}
-                            redirectTo={homeRedirectPath}
-                          >
-                            <AdminDailyTips />
-                          </AdminRoute>
-                        }
-                      />
+                      <Route path="/enroll" element={offlineAccessActive ? <Navigate to="/dashboard" replace /> : <Enroll />} />
+                      <Route path="/tier-select" element={offlineAccessActive ? <Navigate to="/dashboard" replace /> : <TierSelect />} />
+                      <Route path="/news" element={guard(<News />, "/news")} />
+                      <Route path="/tasks" element={<Navigate to="/dashboard" replace />} />
+                      <Route path="/modules" element={guard(<Modules />, "/modules")} />
+                      <Route path="/community" element={guard(<Community />, "/community")} />
+                      <Route path="/messages" element={guard(<Messages />, "/messages")} />
+                      <Route path="/savings-goals" element={guard(<SavingsGoals />, "/savings-goals")} />
+                      <Route path="/referrals" element={guard(<Referrals />, "/referrals")} />
+                      <Route path="/admin" element={admin(<AdminPanel />)} />
+                      <Route path="/admin/student/:id" element={admin(<StudentProfile />)} />
+                      <Route path="/admin/referral-materials" element={admin(<AdminReferralMaterials />)} />
+                      <Route path="/admin/daily-tips" element={admin(<AdminDailyTips />)} />
                     </>
                   )}
-
                   <Route path="/profile" element={<Profile />} />
-
-                  <Route
-                    path="/settings"
-                    element={<Navigate to="/settings/account" replace />}
-                  />
+                  <Route path="/settings" element={<Navigate to="/settings/account" replace />} />
                   <Route path="/settings/:section" element={<Settings />} />
-
-                  <Route
-                    path="/profile/edit"
-                    element={<Navigate to="/settings/account" replace />}
-                  />
-                  <Route
-                    path="/change-password"
-                    element={<Navigate to="/settings/security" replace />}
-                  />
-                  <Route
-                    path="/notifications"
-                    element={<Navigate to="/settings/notifications" replace />}
-                  />
-                  <Route
-                    path="/billing"
-                    element={<Navigate to="/settings/billing" replace />}
-                  />
-
+                  <Route path="/profile/edit" element={<Navigate to="/settings/account" replace />} />
+                  <Route path="/change-password" element={<Navigate to="/settings/security" replace />} />
+                  <Route path="/notifications" element={<Navigate to="/settings/notifications" replace />} />
+                  <Route path="/billing" element={<Navigate to="/settings/billing" replace />} />
                   <Route path="*" element={<PageNotFound />} />
                 </Routes>
               </Layout>
@@ -853,7 +352,6 @@ function AppRoutes() {
             )
           }
         />
-
         <Route path="*" element={<PageNotFound />} />
       </Routes>
       <AdminRescueButton show={Boolean(user && isAdmin)} />
