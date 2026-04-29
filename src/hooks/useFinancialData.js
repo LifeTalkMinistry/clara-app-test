@@ -95,6 +95,7 @@ const removeDeletedRows = (rows) =>
 const createEmptyFinancialCache = (key = null) => ({
   key,
   loaded: false,
+  hydrated: false,
   error: null,
   expenses: [],
   incomes: [],
@@ -112,10 +113,12 @@ function useFinancialData(user) {
   const localUserId = getLocalUserId(user);
   const cacheKey = localUserId || "local-user";
 
-  const initialCache =
-    financialDataCache.loaded && financialDataCache.key === cacheKey
-      ? financialDataCache
-      : createEmptyFinancialCache(cacheKey);
+  const hasUsableCache =
+    financialDataCache.loaded && financialDataCache.key === cacheKey;
+
+  const initialCache = hasUsableCache
+    ? financialDataCache
+    : createEmptyFinancialCache(cacheKey);
 
   const [expenses, setExpenses] = useState(initialCache.expenses || []);
   const [incomes, setIncomes] = useState(initialCache.incomes || []);
@@ -131,10 +134,14 @@ function useFinancialData(user) {
   const [emergencyFund, setEmergencyFund] = useState(
     initialCache.emergencyFund || null
   );
-  const [loading, setLoading] = useState(!initialCache.loaded);
+
+  const [loading, setLoading] = useState(!hasUsableCache);
+  const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState(initialCache.error || null);
 
   const mountedRef = useRef(true);
+  const hydratedRef = useRef(hasUsableCache);
+  const loadingPromiseRef = useRef(null);
 
   const hydrateFromCache = useCallback((nextCache) => {
     if (!mountedRef.current) return;
@@ -154,42 +161,23 @@ function useFinancialData(user) {
     );
     setEmergencyFund(nextCache.emergencyFund || null);
     setError(nextCache.error || null);
-    setLoading(!nextCache.loaded);
-  }, []);
 
-  useEffect(() => {
-    mountedRef.current = true;
-
-    return () => {
-      mountedRef.current = false;
-    };
-  }, []);
-
-  const loadAll = useCallback(async () => {
-    if (mountedRef.current) {
-      setLoading(true);
-      setError(null);
+    if (nextCache.loaded) {
+      hydratedRef.current = true;
+      setLoading(false);
     }
+  }, []);
 
-    try {
-      const [
-        rawExpenses,
-        rawWallets,
-        rawWalletTransactions,
-        rawTransfers,
-        rawBudgets,
-        rawSavingsGoals,
-        rawEmergencyFund,
-      ] = await Promise.all([
-        getExpenses(localUserId),
-        getWallets(localUserId),
-        getWalletTransactions(localUserId),
-        getTransfers(localUserId),
-        getBudgets(localUserId),
-        getSavingsGoals(localUserId),
-        getEmergencyFund(localUserId),
-      ]);
-
+  const buildSafeCache = useCallback(
+    ({
+      rawExpenses,
+      rawWallets,
+      rawWalletTransactions,
+      rawTransfers,
+      rawBudgets,
+      rawSavingsGoals,
+      rawEmergencyFund,
+    }) => {
       const safeExpenses = sortByNewest(removeDeletedRows(rawExpenses));
       const safeWalletTransactions = sortByNewest(
         removeDeletedRows(rawWalletTransactions)
@@ -220,9 +208,10 @@ function useFinancialData(user) {
         )
       );
 
-      const nextCache = {
+      return {
         key: cacheKey,
         loaded: true,
+        hydrated: true,
         error: null,
         expenses: safeExpenses,
         incomes: safeIncomes,
@@ -233,67 +222,141 @@ function useFinancialData(user) {
         savingsGoals: safeSavingsGoals,
         emergencyFund: rawEmergencyFund || null,
       };
+    },
+    [cacheKey]
+  );
 
-      financialDataCache = nextCache;
-      hydrateFromCache(nextCache);
+  const loadAll = useCallback(
+    async ({ background = false } = {}) => {
+      if (loadingPromiseRef.current) return loadingPromiseRef.current;
 
-      return nextCache;
-    } catch (loadError) {
-      console.error("CLARA offline finance refresh error:", loadError);
+      const shouldShowInitialLoading = !hydratedRef.current && !background;
 
-      const fallbackCache =
-        financialDataCache.key === cacheKey
-          ? {
-              ...financialDataCache,
-              loaded: true,
-              error: loadError,
-              expenses: Array.isArray(financialDataCache.expenses)
-                ? financialDataCache.expenses
-                : [],
-              incomes: Array.isArray(financialDataCache.incomes)
-                ? financialDataCache.incomes
-                : [],
-              wallets: Array.isArray(financialDataCache.wallets)
-                ? financialDataCache.wallets
-                : [],
-              budgets: Array.isArray(financialDataCache.budgets)
-                ? financialDataCache.budgets
-                : [],
-              walletTransactions: Array.isArray(
-                financialDataCache.walletTransactions
-              )
-                ? financialDataCache.walletTransactions
-                : [],
-              transfers: Array.isArray(financialDataCache.transfers)
-                ? financialDataCache.transfers
-                : [],
-              savingsGoals: Array.isArray(financialDataCache.savingsGoals)
-                ? financialDataCache.savingsGoals
-                : [],
-              emergencyFund: financialDataCache.emergencyFund || null,
-            }
-          : {
-              ...createEmptyFinancialCache(cacheKey),
-              loaded: true,
-              error: loadError,
-            };
-
-      financialDataCache = fallbackCache;
-      hydrateFromCache(fallbackCache);
-
-      return fallbackCache;
-    } finally {
       if (mountedRef.current) {
-        setLoading(false);
+        if (shouldShowInitialLoading) {
+          setLoading(true);
+        } else {
+          setRefreshing(true);
+        }
+
+        setError(null);
       }
-    }
-  }, [cacheKey, hydrateFromCache, localUserId]);
+
+      const promise = (async () => {
+        try {
+          const [
+            rawExpenses,
+            rawWallets,
+            rawWalletTransactions,
+            rawTransfers,
+            rawBudgets,
+            rawSavingsGoals,
+            rawEmergencyFund,
+          ] = await Promise.all([
+            getExpenses(localUserId),
+            getWallets(localUserId),
+            getWalletTransactions(localUserId),
+            getTransfers(localUserId),
+            getBudgets(localUserId),
+            getSavingsGoals(localUserId),
+            getEmergencyFund(localUserId),
+          ]);
+
+          const nextCache = buildSafeCache({
+            rawExpenses,
+            rawWallets,
+            rawWalletTransactions,
+            rawTransfers,
+            rawBudgets,
+            rawSavingsGoals,
+            rawEmergencyFund,
+          });
+
+          financialDataCache = nextCache;
+          hydrateFromCache(nextCache);
+
+          return nextCache;
+        } catch (loadError) {
+          console.error("CLARA offline finance refresh error:", loadError);
+
+          const previousCache =
+            financialDataCache.key === cacheKey
+              ? financialDataCache
+              : createEmptyFinancialCache(cacheKey);
+
+          const fallbackCache = {
+            ...previousCache,
+            key: cacheKey,
+            loaded: true,
+            hydrated: true,
+            error: loadError,
+            expenses: Array.isArray(previousCache.expenses)
+              ? previousCache.expenses
+              : [],
+            incomes: Array.isArray(previousCache.incomes)
+              ? previousCache.incomes
+              : [],
+            wallets: Array.isArray(previousCache.wallets)
+              ? previousCache.wallets
+              : [],
+            budgets: Array.isArray(previousCache.budgets)
+              ? previousCache.budgets
+              : [],
+            walletTransactions: Array.isArray(previousCache.walletTransactions)
+              ? previousCache.walletTransactions
+              : [],
+            transfers: Array.isArray(previousCache.transfers)
+              ? previousCache.transfers
+              : [],
+            savingsGoals: Array.isArray(previousCache.savingsGoals)
+              ? previousCache.savingsGoals
+              : [],
+            emergencyFund: previousCache.emergencyFund || null,
+          };
+
+          financialDataCache = fallbackCache;
+          hydrateFromCache(fallbackCache);
+
+          return fallbackCache;
+        } finally {
+          loadingPromiseRef.current = null;
+
+          if (mountedRef.current) {
+            setLoading(false);
+            setRefreshing(false);
+          }
+        }
+      })();
+
+      loadingPromiseRef.current = promise;
+      return promise;
+    },
+    [buildSafeCache, cacheKey, hydrateFromCache, localUserId]
+  );
 
   useEffect(() => {
-    loadAll();
-  }, [loadAll]);
+    mountedRef.current = true;
 
-  const refreshData = useCallback(() => loadAll(), [loadAll]);
+    const cacheIsForCurrentUser =
+      financialDataCache.loaded && financialDataCache.key === cacheKey;
+
+    if (cacheIsForCurrentUser) {
+      hydrateFromCache(financialDataCache);
+      loadAll({ background: true });
+    } else {
+      hydratedRef.current = false;
+      loadAll({ background: false });
+    }
+
+    return () => {
+      mountedRef.current = false;
+    };
+  }, [cacheKey, hydrateFromCache, loadAll]);
+
+  const refreshData = useCallback(
+    () => loadAll({ background: hydratedRef.current }),
+    [loadAll]
+  );
 
   const addExpense = useCallback(
     async (expense) => {
@@ -426,11 +489,9 @@ function useFinancialData(user) {
 
   const deleteIncome = useCallback(
     async (id) => {
-      const result = await deleteWalletTransaction(id);
-      await refreshData();
-      return result;
+      return deleteWalletTransaction(id);
     },
-    [deleteWalletTransaction, refreshData]
+    [deleteWalletTransaction]
   );
 
   const transferBetweenWallets = useCallback(
@@ -551,7 +612,8 @@ function useFinancialData(user) {
   const safeEmergencyFund = emergencyFund || null;
 
   const totalExpenses = useMemo(
-    () => safeExpenses.reduce((sum, expense) => sum + toNumber(expense.amount), 0),
+    () =>
+      safeExpenses.reduce((sum, expense) => sum + toNumber(expense.amount), 0),
     [safeExpenses]
   );
 
@@ -588,6 +650,7 @@ function useFinancialData(user) {
 
   return {
     loading,
+    refreshing,
     error,
 
     expenses: safeExpenses,
