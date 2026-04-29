@@ -21,18 +21,6 @@ function clearPendingWelcome() {
   } catch {}
 }
 
-export function queuePostLoginWelcome(payload = {}) {
-  try {
-    sessionStorage.setItem(
-      POST_LOGIN_WELCOME_KEY,
-      JSON.stringify({
-        queuedAt: Date.now(),
-        ...payload,
-      })
-    );
-  } catch {}
-}
-
 export default function WelcomeBackTransition({ redirectTo = "/dashboard" }) {
   const navigate = useNavigate();
   const pendingWelcome = useMemo(() => readPendingWelcome(), []);
