@@ -162,6 +162,24 @@ function getBudgetStatus(progress) {
   };
 }
 
+function getRemainingAmountColor(progress, isLight) {
+  if (progress < 60) {
+    return isLight
+      ? "text-emerald-700 drop-shadow-[0_0_10px_rgba(16,185,129,0.12)]"
+      : "text-emerald-200 drop-shadow-[0_0_12px_rgba(52,211,153,0.18)]";
+  }
+
+  if (progress <= 85) {
+    return isLight
+      ? "text-amber-700 drop-shadow-[0_0_10px_rgba(245,158,11,0.12)]"
+      : "text-amber-200 drop-shadow-[0_0_12px_rgba(251,191,36,0.18)]";
+  }
+
+  return isLight
+    ? "text-rose-700 drop-shadow-[0_0_10px_rgba(244,63,94,0.12)]"
+    : "text-rose-200 drop-shadow-[0_0_12px_rgba(244,63,94,0.18)]";
+}
+
 function getBudgetMessage(hasDeclaredBudget, hasCategories, progress, remaining) {
   if (!hasDeclaredBudget) return "Declare this month’s spending amount first.";
   if (!hasCategories) return "Now distribute your declared budget into categories.";
@@ -325,6 +343,7 @@ export default function BudgetCard({
   const status = getBudgetStatus(progress);
   const message = getBudgetMessage(hasDeclaredBudget, hasCategories, progress, remaining);
   const themeClasses = getBudgetThemeClasses(theme);
+  const remainingAmountColor = getRemainingAmountColor(progress, themeClasses.isLight);
   const monthKey = activeBudget?.month || new Date().toISOString().slice(0, 7);
   const badgeLabel = normalizedBudgetStatus === "active" ? "Active" : normalizedBudgetStatus === "draft" ? "Draft" : "No Plan";
 
@@ -383,7 +402,13 @@ export default function BudgetCard({
               {fmt(declared)}
             </p>
 
-            <p className={`mt-2 max-w-[28rem] text-xs font-medium leading-relaxed ${themeClasses.body}`}>
+            <p
+              className={`mt-1.5 text-sm font-bold leading-tight ${remainingAmountColor}`}
+            >
+              {fmt(remaining)} left
+            </p>
+
+            <p className={`mt-2.5 max-w-[28rem] text-xs font-medium leading-relaxed ${themeClasses.body}`}>
               {message}
             </p>
 
