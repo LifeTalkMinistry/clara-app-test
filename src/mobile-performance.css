@@ -22,6 +22,11 @@
   --clara-blur-strength: 0;
 }
 
+/* Keep dashboard finance cards compact. Savings actions live inside details/modals, not the main carousel card. */
+main .flex.touch-pan-x.items-stretch.snap-x.snap-mandatory.overflow-x-auto [class~="grid"][class~="grid-cols-2"][class~="gap-2"][class~="mb-3"] {
+  display: none !important;
+}
+
 /* Active conversation view: pull the opened chat out of the dashboard-style
    page container so the chat owns the full viewport, like carousel details. */
 main > div[class^="h-full flex flex-col bg-"] {
