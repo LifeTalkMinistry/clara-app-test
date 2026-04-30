@@ -1,47 +1,52 @@
-export const carouselItems = [
+export const carouselConfig = [
   {
     key: "budget",
     type: "budget",
     label: "Budget",
-    order: 1,
     enabled: true,
-    dashboardKey: "budgets",
+    order: 1,
+    detailKey: "budgets",
+    tone: "emerald",
   },
   {
     key: "emergencyFund",
     type: "emergencyFund",
     label: "Emergency Fund",
-    order: 2,
     enabled: true,
-    dashboardKey: "emergency",
+    order: 2,
+    detailKey: "emergency",
+    tone: "teal",
   },
   {
     key: "savingsGoals",
     type: "savingsGoals",
     label: "Savings Goals",
-    order: 3,
     enabled: true,
-    dashboardKey: "savings",
+    order: 3,
+    detailKey: "savings",
+    tone: "blue",
   },
   {
     key: "investmentFund",
     type: "investmentFund",
     label: "Investment Fund",
-    order: 4,
     enabled: true,
-    dashboardKey: "investmentFund",
+    order: 4,
+    detailKey: "investmentFund",
+    tone: "gold",
   },
   {
     key: "debtObligations",
     type: "debtObligations",
     label: "Debt / Obligations",
-    order: 5,
     enabled: true,
-    dashboardKey: "debtObligations",
+    order: 5,
+    detailKey: "debtObligations",
+    tone: "rose",
   },
 ];
 
 export const getEnabledCarouselItems = () =>
-  carouselItems
+  carouselConfig
     .filter((item) => item.enabled !== false)
     .sort((a, b) => Number(a.order || 0) - Number(b.order || 0));
