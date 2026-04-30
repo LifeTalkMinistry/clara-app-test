@@ -59,6 +59,7 @@ import {
   fetchUserProgramRecord,
 } from "@/lib/program-access";
 import { getWalletBalance } from "@/utils/financialEngine";
+import DashboardFinancialCarousel from "@/components/dashboard/DashboardFinancialCarousel";
 
 const normalizeString = (value) => String(value ?? "").trim();
 const normalizeLower = (value) => normalizeString(value).toLowerCase();
@@ -10315,6 +10316,32 @@ export default function Dashboard() {
 
         {!!user && (
           <div className={`${dashboardScale.financeWrap} ${hasBillboardContent ? "mt-[clamp(16px,2.6dvh,24px)]" : ""}`}>
+            <DashboardFinancialCarousel
+              activeBudget={derivedActiveBudget || activeBudget || monthlyBudgetPlan}
+              declaredBudget={firstValidNumber(
+                monthlyBudgetPlan?.declared_budget,
+                monthlyBudgetPlan?.declared_amount,
+                monthlyBudgetPlan?.monthly_budget_amount,
+                derivedActiveBudget?.declared_budget,
+                activeBudget?.declared_budget
+              )}
+              budgetCategories={budgetSummaries}
+              totalSpent={firstValidNumber(
+                monthlyBudgetPlan?.total_spent,
+                monthlyBudgetPlan?.spent,
+                derivedActiveBudget?.total_spent,
+                thisMonthSpent
+              )}
+              spentAmount={firstValidNumber(
+                monthlyBudgetPlan?.spent_amount,
+                derivedActiveBudget?.spent_amount,
+                thisMonthSpent
+              )}
+              savingsGoals={savingsGoals}
+              emergencyFund={emergencyFund}
+              dashboardScale={dashboardScale}
+              getDashboardGlowCardClass={getDashboardGlowCardClass}
+            />
             <FinanceInlineAlert notice={financeNotice} onClose={closeFinanceNotice} />
             {shouldShowNonBlockingRefresh ? (
               <div className="mb-3 inline-flex items-center gap-2 rounded-full border border-emerald-300/15 bg-emerald-400/10 px-3 py-1.5 text-[11px] font-semibold text-emerald-100/80">
