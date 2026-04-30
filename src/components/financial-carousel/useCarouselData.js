@@ -1,109 +1,150 @@
 import { useMemo } from "react";
+import { getEnabledCarouselItems } from "./carouselConfig";
 
-const toNumber = (value) => {
-  const number = Number(String(value ?? "").replace(/[₱,\s]/g, ""));
-  return Number.isFinite(number) ? number : 0;
+const readNumber = (...values) => {
+  for (const value of values) {
+    if (value === null || value === undefined || value === "") continue;
+
+    const number =
+      typeof value === "number"
+        ? value
+        : Number(String(value).replace(/[₱,\s]/g, ""));
+
+    if (Number.isFinite(number)) return number;
+  }
+
+  return 0;
 };
 
-const sumByKeys = (items = [], keys = []) =>
-  (Array.isArray(items) ? items : []).reduce((sum, item) => {
-    const value = keys.map((key) => toNumber(item?.[key])).find((num) => num > 0) || 0;
-    return sum + value;
-  }, 0);
+const normalizeBudgetPlan = (plan = {}) => {
+  const categories = Array.isArray(plan?.categories) ? plan.categories : [];
+  const declaredBudget = readNumber(
+    plan?.declared_budget,
+    plan?.declared_amount,
+    plan?.monthly_budget_amount,
+    plan?.total_budget,
+    plan?.allocated_amount
+  );
+  const spentAmount = readNumber(
+    plan?.spent_amount,
+    plan?.spent,
+    plan?.total_spent,
+    categories.reduce(
+      (sum, item) => sum + readNumber(item?.spent, item?.spent_amount, item?.total_spent),
+      0
+    )
+  );
+  const remainingAmount = Math.max(
+    readNumber(plan?.remaining_amount, plan?.remaining, plan?.amount_left, declaredBudget - spentAmount),
+    0
+  );
 
-const getFirstPositive = (...values) => values.map(toNumber).find((num) => num > 0) || 0;
+  return {
+    activeBudget: plan || null,
+    budgetCategories: categories,
+    declaredBudget,
+    unallocatedAmount: readNumber(plan?.unallocated_amount),
+    budgetStatus: plan?.status || "",
+    isComplete: plan?.is_complete === true,
+    unplannedSpent: readNumber(plan?.unplanned_spent),
+    undocumentedSpent: readNumber(plan?.undocumented_spent),
+    remainingAmount,
+    amountLeft: remainingAmount,
+    spentAmount,
+    totalSpent: readNumber(plan?.total_spent, spentAmount),
+  };
+};
 
 export default function useCarouselData({
   monthlyBudgetPlan,
   savingsGoals = [],
-  investmentFunds = [],
-  debtObligations = [],
+  totalSavingsSaved = 0,
+  totalSavingsTarget = 0,
+  primarySavingsGoal = null,
+  walletMoney = 0,
+  survivalExpense = 0,
+  user = null,
+  guardChecked = false,
+  loading = false,
+  profileData = null,
+  firstPositiveNumber,
+  readStoredSurvivalExpense,
 } = {}) {
   return useMemo(() => {
-    const budgetTotal = getFirstPositive(
-      monthlyBudgetPlan?.declared_budget,
-      monthlyBudgetPlan?.declared_amount,
-      monthlyBudgetPlan?.monthly_budget_amount,
-      monthlyBudgetPlan?.allocated_amount,
-      monthlyBudgetPlan?.allocated_total
-    );
-    const budgetSpent = getFirstPositive(
-      monthlyBudgetPlan?.spent_amount,
-      monthlyBudgetPlan?.spent,
-      monthlyBudgetPlan?.total_spent
-    );
-    const budgetRemaining = Math.max(
-      getFirstPositive(monthlyBudgetPlan?.remaining_amount, monthlyBudgetPlan?.remaining, budgetTotal - budgetSpent),
-      0
-    );
+    const hasSurvivalSetup =
+      Boolean(profileData?.survival_setup_done) ||
+      (typeof firstPositiveNumber === "function"
+        ? firstPositiveNumber(
+            profileData?.monthly_survival_expense,
+            profileData?.survival_expense,
+            profileData?.clara_survival_expense,
+            survivalExpense,
+            typeof readStoredSurvivalExpense === "function"
+              ? readStoredSurvivalExpense(user?.id)
+              : 0
+          ) > 0
+        : readNumber(
+            profileData?.monthly_survival_expense,
+            profileData?.survival_expense,
+            profileData?.clara_survival_expense,
+            survivalExpense
+          ) > 0);
 
-    const totalSavingsSaved = sumByKeys(savingsGoals, [
-      "saved_amount",
-      "current_amount",
-      "saved",
-      "progress_amount",
-      "amount_saved",
-    ]);
-    const totalSavingsTarget = sumByKeys(savingsGoals, [
-      "target_amount",
-      "goal_amount",
-      "target",
-      "amount",
-      "desired_amount",
-    ]);
+    const budgetData = normalizeBudgetPlan(monthlyBudgetPlan || {});
+    const safeSavingsGoals = Array.isArray(savingsGoals) ? savingsGoals : [];
 
-    const totalInvested = sumByKeys(investmentFunds, [
-      "current_amount",
-      "invested_amount",
-      "saved_amount",
-      "amount",
-      "balance",
-    ]);
-    const investmentTarget = sumByKeys(investmentFunds, [
-      "target_amount",
-      "goal_amount",
-      "target",
-    ]);
-
-    const debtTotal = sumByKeys(debtObligations, [
-      "total_amount",
-      "principal_amount",
-      "amount",
-      "balance",
-    ]);
-    const debtPaid = sumByKeys(debtObligations, [
-      "paid_amount",
-      "settled_amount",
-      "amount_paid",
-    ]);
-    const debtRemaining = Math.max(debtTotal - debtPaid, 0);
-
-    return {
+    const dataByType = {
       budget: {
-        total: budgetTotal,
-        spent: budgetSpent,
-        remaining: budgetRemaining,
-        status: monthlyBudgetPlan?.status || "",
-        isComplete: monthlyBudgetPlan?.is_complete === true,
+        ...budgetData,
+      },
+      emergencyFund: {
+        moneyLeft: walletMoney,
+        survivalExpense,
+        retentionRate: 0,
+        canAutoPrompt: Boolean(user?.id) && guardChecked && !loading,
+        hasSurvivalSetup,
       },
       savingsGoals: {
-        totalSaved: totalSavingsSaved,
-        totalTarget: totalSavingsTarget,
-        count: Array.isArray(savingsGoals) ? savingsGoals.length : 0,
+        savingsGoals: safeSavingsGoals,
+        totalSavingsSaved,
+        totalSavingsTarget,
+        primarySavingsGoal,
       },
       investmentFund: {
-        totalInvested,
-        target: investmentTarget,
-        count: Array.isArray(investmentFunds) ? investmentFunds.length : 0,
-        isEmpty: !Array.isArray(investmentFunds) || investmentFunds.length === 0,
+        title: "Investment Fund",
+        amount: 0,
+        subtitle: "Investment tracking is ready for setup.",
+        description: "This card is reserved for future investment fund data without breaking Dashboard.jsx.",
+        ctaLabel: "Coming soon",
+        state: "comingSoon",
       },
       debtObligations: {
-        total: debtTotal,
-        paid: debtPaid,
-        remaining: debtRemaining,
-        count: Array.isArray(debtObligations) ? debtObligations.length : 0,
-        isEmpty: !Array.isArray(debtObligations) || debtObligations.length === 0,
+        title: "Debt / Obligations",
+        amount: 0,
+        subtitle: "Debt tracking is ready for setup.",
+        description: "This card is reserved for future obligation data without breaking Dashboard.jsx.",
+        ctaLabel: "Coming soon",
+        state: "comingSoon",
       },
     };
-  }, [monthlyBudgetPlan, savingsGoals, investmentFunds, debtObligations]);
+
+    return getEnabledCarouselItems().map((item) => ({
+      ...item,
+      data: dataByType[item.type] || {},
+    }));
+  }, [
+    monthlyBudgetPlan,
+    savingsGoals,
+    totalSavingsSaved,
+    totalSavingsTarget,
+    primarySavingsGoal,
+    walletMoney,
+    survivalExpense,
+    user?.id,
+    guardChecked,
+    loading,
+    profileData,
+    firstPositiveNumber,
+    readStoredSurvivalExpense,
+  ]);
 }
