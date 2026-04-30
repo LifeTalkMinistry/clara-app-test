@@ -10343,7 +10343,7 @@ export default function Dashboard() {
               expandedFinanceCard={expandedFinanceCard}
               toggleFinanceDetails={toggleFinanceDetails}
               financeActionLoading={financeActionLoading}
-              handleQuickExpense={handleQuickExpense}
+              handleQuickExpense={openManualExpenseModal}
               handleSurvivalSaved={handleSurvivalSaved}
               handleSaveBudget={handleSaveBudget}
               handleEditBudgetCategory={handleEditBudgetCategory}
