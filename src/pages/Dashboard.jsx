@@ -10343,15 +10343,69 @@ export default function Dashboard() {
               expandedFinanceCard={expandedFinanceCard}
               toggleFinanceDetails={toggleFinanceDetails}
               financeActionLoading={financeActionLoading}
-              handleQuickExpense={openManualExpenseModal}
-              handleSurvivalSaved={handleSurvivalSaved}
-              handleSaveBudget={handleSaveBudget}
-              handleEditBudgetCategory={handleEditBudgetCategory}
-              handleDeleteBudgetCategory={handleDeleteBudgetCategory}
-              handleResetBudget={handleResetBudget}
-              handleSaveSavingsGoal={handleSaveSavingsGoal}
-              handleDeleteSavingsGoal={handleDeleteSavingsGoal}
-              handleAddSavings={handleAddSavings}
+              onQuickExpense={openManualExpenseModal}
+              onSurvivalSaved={async (val) => {
+                const nextValue = firstPositiveNumber(val);
+                if (nextValue <= 0) return;
+
+                persistStoredSurvivalExpense(user?.id, nextValue);
+                setSurvivalExpense(nextValue);
+
+                const nextProfileData = {
+                  ...(profileData || {}),
+                  monthly_survival_expense: nextValue,
+                  survival_expense: nextValue,
+                  clara_survival_expense: nextValue,
+                  survival_setup_done: true,
+                };
+
+                setProfileData(nextProfileData);
+                dashboardPageCache = {
+                  ...dashboardPageCache,
+                  survivalExpense: nextValue,
+                  profileData: nextProfileData,
+                };
+
+                if (user?.id) {
+                  const { error } = await supabase
+                    .from("profiles")
+                    .update({
+                      monthly_survival_expense: nextValue,
+                      survival_setup_done: true,
+                    })
+                    .eq("id", user.id);
+
+                  if (error) {
+                    console.warn(
+                      "Survival expense was saved locally, but profile sync failed:",
+                      error
+                    );
+                  }
+                }
+
+                await loadDashboardData({ background: true });
+              }}
+              onSaveBudget={() => {
+                window.requestAnimationFrame(() => openBudgetModal());
+              }}
+              onEditBudgetCategory={(item) => {
+                window.requestAnimationFrame(() => openBudgetModal(item));
+              }}
+              onDeleteBudgetCategory={(item) => {
+                window.requestAnimationFrame(() => openDeleteBudgetCategoryModal(item));
+              }}
+              onResetBudget={() => {
+                window.requestAnimationFrame(() => openResetBudgetModal());
+              }}
+              onSaveSavingsGoal={(goal) => {
+                window.requestAnimationFrame(() => openSavingsGoalModal(goal));
+              }}
+              onDeleteSavingsGoal={(goalId) => {
+                window.requestAnimationFrame(() => openDeleteSavingsGoalModal(goalId));
+              }}
+              onAddSavings={(goal) => {
+                window.requestAnimationFrame(() => openAddSavingsModal(goal));
+              }}
               startClaraAiLongPress={startClaraAiLongPress}
               endClaraAiLongPress={endClaraAiLongPress}
               handleClaraAiOrbClickCapture={handleClaraAiOrbClickCapture}
