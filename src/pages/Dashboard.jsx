@@ -10335,48 +10335,6 @@ export default function Dashboard() {
               profileData={profileData}
               firstPositiveNumber={firstPositiveNumber}
               readStoredSurvivalExpense={readStoredSurvivalExpense}
-              onQuickExpense={openManualExpenseModal}
-              onSurvivalSaved={async (val) => {
-                const nextValue = firstPositiveNumber(val);
-                if (nextValue <= 0) return;
-
-                persistStoredSurvivalExpense(user?.id, nextValue);
-                setSurvivalExpense(nextValue);
-
-                const nextProfileData = {
-                  ...(profileData || {}),
-                  monthly_survival_expense: nextValue,
-                  survival_expense: nextValue,
-                  clara_survival_expense: nextValue,
-                  survival_setup_done: true,
-                };
-
-                setProfileData(nextProfileData);
-                dashboardPageCache = {
-                  ...dashboardPageCache,
-                  survivalExpense: nextValue,
-                  profileData: nextProfileData,
-                };
-
-                if (user?.id) {
-                  const { error } = await supabase
-                    .from("profiles")
-                    .update({
-                      monthly_survival_expense: nextValue,
-                      survival_setup_done: true,
-                    })
-                    .eq("id", user.id);
-
-                  if (error) {
-                    console.warn(
-                      "Survival expense was saved locally, but profile sync failed:",
-                      error
-                    );
-                  }
-                }
-
-                await loadDashboardData({ background: true });
-              }}
               monthlyBudgetPlan={monthlyBudgetPlan}
               savingsGoals={savingsGoals}
               totalSavingsSaved={totalSavingsSaved}
@@ -10385,13 +10343,15 @@ export default function Dashboard() {
               expandedFinanceCard={expandedFinanceCard}
               toggleFinanceDetails={toggleFinanceDetails}
               financeActionLoading={financeActionLoading}
-              onSaveBudget={openBudgetModal}
-              onEditBudgetCategory={openBudgetModal}
-              onDeleteBudgetCategory={openDeleteBudgetCategoryModal}
-              onResetBudget={openResetBudgetModal}
-              onSaveSavingsGoal={openSavingsGoalModal}
-              onDeleteSavingsGoal={openDeleteSavingsGoalModal}
-              onAddSavings={openAddSavingsModal}
+              handleQuickExpense={handleQuickExpense}
+              handleSurvivalSaved={handleSurvivalSaved}
+              handleSaveBudget={handleSaveBudget}
+              handleEditBudgetCategory={handleEditBudgetCategory}
+              handleDeleteBudgetCategory={handleDeleteBudgetCategory}
+              handleResetBudget={handleResetBudget}
+              handleSaveSavingsGoal={handleSaveSavingsGoal}
+              handleDeleteSavingsGoal={handleDeleteSavingsGoal}
+              handleAddSavings={handleAddSavings}
               startClaraAiLongPress={startClaraAiLongPress}
               endClaraAiLongPress={endClaraAiLongPress}
               handleClaraAiOrbClickCapture={handleClaraAiOrbClickCapture}
