@@ -1435,7 +1435,7 @@ const UNDOCUMENTED_SPENDING_REASONS = [
   "Other undocumented reason",
 ];
 
-const FINANCE_CARD_KEYS = ["budgets", "emergency", "savings", "investments", "obligations"];
+const FINANCE_CARD_KEYS = ["emergency", "wallets", "budgets", "savings"];
 
 const hasDashboardFinanceContent = (snapshot = {}) =>
   Boolean(
@@ -1697,10 +1697,6 @@ const getFinanceSlideShellClass = (cardKey, theme = null, scale = null) => {
       "bg-[radial-gradient(circle_at_top_left,rgba(250,204,21,0.2),transparent_34%),radial-gradient(circle_at_bottom_right,rgba(245,158,11,0.16),transparent_40%),linear-gradient(135deg,rgba(15,8,30,0.9),rgba(11,10,37,0.96)_42%,rgba(4,6,22,0.98))] shadow-[0_28px_85px_rgba(250,204,21,0.16)]",
     savings:
       "bg-[radial-gradient(circle_at_top_left,rgba(52,211,153,0.2),transparent_34%),radial-gradient(circle_at_bottom_right,rgba(20,184,166,0.16),transparent_40%),linear-gradient(135deg,rgba(4,18,24,0.9),rgba(5,21,31,0.96)_42%,rgba(3,10,24,0.98))] shadow-[0_28px_85px_rgba(52,211,153,0.16)]",
-    investments:
-      "bg-[radial-gradient(circle_at_top_left,rgba(34,211,238,0.18),transparent_34%),radial-gradient(circle_at_bottom_right,rgba(59,130,246,0.16),transparent_40%),linear-gradient(135deg,rgba(5,16,31,0.9),rgba(8,22,44,0.96)_42%,rgba(3,10,24,0.98))] shadow-[0_28px_85px_rgba(34,211,238,0.15)]",
-    obligations:
-      "bg-[radial-gradient(circle_at_top_left,rgba(251,191,36,0.18),transparent_34%),radial-gradient(circle_at_bottom_right,rgba(244,63,94,0.14),transparent_40%),linear-gradient(135deg,rgba(24,15,18,0.92),rgba(34,20,28,0.96)_42%,rgba(12,8,18,0.98))] shadow-[0_28px_85px_rgba(251,191,36,0.13)]",
   };
 
   const toneMap = {
@@ -1708,8 +1704,6 @@ const getFinanceSlideShellClass = (cardKey, theme = null, scale = null) => {
     wallets: theme?.moneyTone || "teal",
     budgets: theme?.monthTone || theme?.moneyTone || "gold",
     savings: theme?.tipTone || theme?.monthTone || "emerald",
-    investments: theme?.moneyTone || "teal",
-    obligations: theme?.monthTone || "gold",
   };
 
   const accentClass = theme
@@ -10335,33 +10329,6 @@ export default function Dashboard() {
                 className="flex touch-pan-x items-stretch snap-x snap-mandatory overflow-x-auto overflow-y-hidden overscroll-x-contain [scrollbar-width:none] [-webkit-overflow-scrolling:touch] [&::-webkit-scrollbar]:hidden"
               >
                 <div className="flex w-full min-w-full shrink-0 snap-center">
-                  <div className={getFinanceSlideShellClass("budgets", selectedDashboardTheme, dashboardScale)}>
-                    <BudgetCard
-                      activeBudget={monthlyBudgetPlan}
-                      budgetCategories={monthlyBudgetPlan.categories}
-                      declaredBudget={monthlyBudgetPlan.declared_budget}
-                      unallocatedAmount={monthlyBudgetPlan.unallocated_amount}
-                      budgetStatus={monthlyBudgetPlan.status}
-                      isComplete={monthlyBudgetPlan.is_complete}
-                      unplannedSpent={monthlyBudgetPlan.unplanned_spent}
-                      undocumentedSpent={monthlyBudgetPlan.undocumented_spent}
-                      remainingAmount={monthlyBudgetPlan.remaining_amount}
-                      amountLeft={monthlyBudgetPlan.remaining_amount}
-                      spentAmount={monthlyBudgetPlan.spent_amount}
-                      totalSpent={monthlyBudgetPlan.total_spent}
-                      theme={selectedDashboardTheme}
-                      expanded={expandedFinanceCard === "budgets"}
-                      onToggleDetails={() => toggleFinanceDetails("budgets")}
-                      financeActionLoading={financeActionLoading}
-                      onSaveBudget={openBudgetModal}
-                      onEditBudgetCategory={openBudgetModal}
-                      onDeleteBudgetCategory={openDeleteBudgetCategoryModal}
-                      onResetBudget={openResetBudgetModal}
-                    />
-                  </div>
-                </div>
-
-                <div className="flex w-full min-w-full shrink-0 snap-center">
                   <div
                     className={getFinanceSlideShellClass("emergency", selectedDashboardTheme, dashboardScale)}
                     onMouseDownCapture={startClaraAiLongPress}
@@ -10403,7 +10370,7 @@ export default function Dashboard() {
                         ) > 0
                       }
                       onQuickExpense={openManualExpenseModal}
-                      onSurvivalSaved={async (val) => {
+                    onSurvivalSaved={async (val) => {
                         const nextValue = firstPositiveNumber(val);
                         if (nextValue <= 0) return;
 
@@ -10444,85 +10411,71 @@ export default function Dashboard() {
 
                         await loadDashboardData({ background: true });
                       }}
-                    />
+                  />
+                  </div>
+                </div>
+
+                <div className="flex w-full min-w-full shrink-0 snap-center">
+                  <div className={getFinanceSlideShellClass("wallets", selectedDashboardTheme, dashboardScale)}>
+                    <WalletCard
+                    wallets={wallets}
+                    walletMoney={walletMoney}
+                    walletPreviewTransactions={walletPreviewTransactions}
+                    theme={selectedDashboardTheme}
+                    expanded={expandedFinanceCard === "wallets"}
+                    onToggleDetails={() => toggleFinanceDetails("wallets")}
+                    financeActionLoading={financeActionLoading}
+                    onCreateWallet={openCreateWalletModal}
+                    onMoveWallet={moveWalletInline}
+                    onDeleteWallet={openDeleteWalletModal}
+                    onAddMoney={openAddMoneyModal}
+                    onTransferMoney={openTransferMoneyModal}
+                  />
+                  </div>
+                </div>
+
+                <div className="flex w-full min-w-full shrink-0 snap-center">
+                  <div className={getFinanceSlideShellClass("budgets", selectedDashboardTheme, dashboardScale)}>
+                    <BudgetCard
+                    activeBudget={monthlyBudgetPlan}
+                    budgetCategories={monthlyBudgetPlan.categories}
+                    declaredBudget={monthlyBudgetPlan.declared_budget}
+                    unallocatedAmount={monthlyBudgetPlan.unallocated_amount}
+                    budgetStatus={monthlyBudgetPlan.status}
+                    isComplete={monthlyBudgetPlan.is_complete}
+                    unplannedSpent={monthlyBudgetPlan.unplanned_spent}
+                    undocumentedSpent={monthlyBudgetPlan.undocumented_spent}
+                    remainingAmount={monthlyBudgetPlan.remaining_amount}
+                    amountLeft={monthlyBudgetPlan.remaining_amount}
+                    spentAmount={monthlyBudgetPlan.spent_amount}
+                    totalSpent={monthlyBudgetPlan.total_spent}
+                    theme={selectedDashboardTheme}
+                    expanded={expandedFinanceCard === "budgets"}
+                    onToggleDetails={() => toggleFinanceDetails("budgets")}
+                    financeActionLoading={financeActionLoading}
+                    onSaveBudget={openBudgetModal}
+                    onEditBudgetCategory={openBudgetModal}
+                    onDeleteBudgetCategory={openDeleteBudgetCategoryModal}
+                    onResetBudget={openResetBudgetModal}
+                  />
                   </div>
                 </div>
 
                 <div className="flex w-full min-w-full shrink-0 snap-center">
                   <div className={getFinanceSlideShellClass("savings", selectedDashboardTheme, dashboardScale)}>
                     <SavingsCard
-                      savingsGoals={savingsGoals}
-                      totalSavingsSaved={totalSavingsSaved}
-                      totalSavingsTarget={totalSavingsTarget}
-                      primarySavingsGoal={primarySavingsGoal}
-                      theme={selectedDashboardTheme}
-                      expanded={expandedFinanceCard === "savings"}
-                      onToggleDetails={() => toggleFinanceDetails("savings")}
-                      financeActionLoading={financeActionLoading}
-                      onSaveSavingsGoal={openSavingsGoalModal}
-                      onDeleteSavingsGoal={openDeleteSavingsGoalModal}
-                      onAddSavings={openAddSavingsModal}
-                    />
-                  </div>
-                </div>
-
-                <div className="flex w-full min-w-full shrink-0 snap-center">
-                  <div className={getFinanceSlideShellClass("investments", selectedDashboardTheme, dashboardScale)}>
-                    <div className="relative flex h-full min-h-full flex-col justify-between overflow-hidden rounded-[inherit] border border-white/10 bg-white/[0.045] p-5 text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.06)] backdrop-blur-xl">
-                      <div className="pointer-events-none absolute -right-16 -top-16 h-36 w-36 rounded-full bg-cyan-300/10 blur-3xl" />
-                      <div className="relative flex items-start justify-between gap-4">
-                        <div>
-                          <p className="text-[10px] font-bold uppercase tracking-[0.22em] text-white/45">
-                            Layer 4
-                          </p>
-                          <h3 className="mt-2 text-xl font-bold tracking-tight text-white">
-                            Investments
-                          </h3>
-                        </div>
-                        <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border border-white/15 bg-white/[0.075] text-cyan-100 shadow-[0_0_22px_rgba(34,211,238,0.12)]">
-                          <Rocket className="h-5 w-5" />
-                        </div>
-                      </div>
-
-                      <div className="relative">
-                        <p className="text-3xl font-black tracking-tight text-white">
-                          Not started yet
-                        </p>
-                        <p className="mt-2 text-sm font-medium leading-5 text-white/62">
-                          Start growing your money
-                        </p>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="flex w-full min-w-full shrink-0 snap-center">
-                  <div className={getFinanceSlideShellClass("obligations", selectedDashboardTheme, dashboardScale)}>
-                    <div className="relative flex h-full min-h-full flex-col justify-between overflow-hidden rounded-[inherit] border border-white/10 bg-white/[0.045] p-5 text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.06)] backdrop-blur-xl">
-                      <div className="pointer-events-none absolute -right-16 -top-16 h-36 w-36 rounded-full bg-amber-300/10 blur-3xl" />
-                      <div className="relative flex items-start justify-between gap-4">
-                        <div>
-                          <p className="text-[10px] font-bold uppercase tracking-[0.22em] text-white/45">
-                            Layer 5
-                          </p>
-                          <h3 className="mt-2 text-xl font-bold tracking-tight text-white">
-                            Obligations
-                          </h3>
-                        </div>
-                        <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border border-white/15 bg-white/[0.075] text-amber-100 shadow-[0_0_22px_rgba(251,191,36,0.12)]">
-                          <Flag className="h-5 w-5" />
-                        </div>
-                      </div>
-
-                      <div className="relative">
-                        <p className="text-3xl font-black tracking-tight text-white">
-                          No record yet
-                        </p>
-                        <p className="mt-2 text-sm font-medium leading-5 text-white/62">
-                          Track what’s holding you back
-                        </p>
-                      </div>
-                    </div>
+                    savingsGoals={savingsGoals}
+                    totalSavingsSaved={totalSavingsSaved}
+                    totalSavingsTarget={totalSavingsTarget}
+                    primarySavingsGoal={primarySavingsGoal}
+                    theme={selectedDashboardTheme}
+                    expanded={expandedFinanceCard === "savings"}
+                    onToggleDetails={() => toggleFinanceDetails("savings")}
+                    financeActionLoading={financeActionLoading}
+                    onSaveSavingsGoal={openSavingsGoalModal}
+                    onDeleteSavingsGoal={openDeleteSavingsGoalModal}
+                    onAddSavings={openAddSavingsModal}
+                  />
                   </div>
                 </div>
               </div>
