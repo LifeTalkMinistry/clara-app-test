@@ -39,6 +39,7 @@ import EmergencyFundCard from "../components/EmergencyFundCard";
 import WalletCard from "../components/WalletCard";
 import BudgetCardBase from "../components/BudgetCard";
 import SavingsCard from "../components/SavingsCard";
+import FinancialCarousel from "@/components/financial-carousel/FinancialCarousel";
 import ClaraAssistantPanel from "@/components/ai/ClaraAssistantPanel";
 import { Button } from "@/components/ui/button";
 import StatCard from "../components/StatCard";
@@ -10322,180 +10323,79 @@ export default function Dashboard() {
                 Refreshing finance data...
               </div>
             ) : null}
-            <div className={`overflow-hidden ${dashboardScale.financeClip}`}>
-              <div
-                ref={financeCarouselRef}
-                onScroll={handleFinanceCarouselScroll}
-                className="flex touch-pan-x items-stretch snap-x snap-mandatory overflow-x-auto overflow-y-hidden overscroll-x-contain [scrollbar-width:none] [-webkit-overflow-scrolling:touch] [&::-webkit-scrollbar]:hidden"
-              >
-                <div className="flex w-full min-w-full shrink-0 snap-center">
-                  <div
-                    className={getFinanceSlideShellClass("emergency", selectedDashboardTheme, dashboardScale)}
-                    onMouseDownCapture={startClaraAiLongPress}
-                    onMouseUpCapture={endClaraAiLongPress}
-                    onMouseLeaveCapture={endClaraAiLongPress}
-                    onTouchStartCapture={startClaraAiLongPress}
-                    onTouchEndCapture={endClaraAiLongPress}
-                    onTouchCancelCapture={endClaraAiLongPress}
-                    onClickCapture={(event) => {
-                      if (handleClaraAiOrbClickCapture(event)) {
-                        return;
-                      }
+            <FinancialCarousel
+              dashboardScale={dashboardScale}
+              selectedDashboardTheme={selectedDashboardTheme}
+              themeInactiveDotClass={themeInactiveDotClass}
+              walletMoney={walletMoney}
+              survivalExpense={survivalExpense}
+              user={user}
+              guardChecked={guardChecked}
+              loading={loading}
+              profileData={profileData}
+              firstPositiveNumber={firstPositiveNumber}
+              readStoredSurvivalExpense={readStoredSurvivalExpense}
+              onQuickExpense={openManualExpenseModal}
+              onSurvivalSaved={async (val) => {
+                const nextValue = firstPositiveNumber(val);
+                if (nextValue <= 0) return;
 
-                      const button = event.target?.closest?.("button");
-                      const label = String(button?.textContent || "").toLowerCase();
-                      if (label.includes("show details") || label.includes("hide details")) {
-                        event.preventDefault();
-                        event.stopPropagation();
-                        toggleFinanceDetails("emergency", { autoExpand: true, forceOpen: true });
-                      }
-                    }}
-                  >
-                    <EmergencyFundCard
-                      moneyLeft={walletMoney}
-                      survivalExpense={survivalExpense}
-                      retentionRate={0}
-                      theme={selectedDashboardTheme}
-                      expanded={expandedFinanceCard === "emergency"}
-                      onToggleDetails={() => toggleFinanceDetails("emergency", { autoExpand: true, forceOpen: true })}
-                      canAutoPrompt={Boolean(user?.id) && guardChecked && !loading}
-                      hasSurvivalSetup={
-                        Boolean(profileData?.survival_setup_done) ||
-                        firstPositiveNumber(
-                          profileData?.monthly_survival_expense,
-                          profileData?.survival_expense,
-                          profileData?.clara_survival_expense,
-                          survivalExpense,
-                          readStoredSurvivalExpense(user?.id)
-                        ) > 0
-                      }
-                      onQuickExpense={openManualExpenseModal}
-                    onSurvivalSaved={async (val) => {
-                        const nextValue = firstPositiveNumber(val);
-                        if (nextValue <= 0) return;
+                persistStoredSurvivalExpense(user?.id, nextValue);
+                setSurvivalExpense(nextValue);
 
-                        persistStoredSurvivalExpense(user?.id, nextValue);
-                        setSurvivalExpense(nextValue);
+                const nextProfileData = {
+                  ...(profileData || {}),
+                  monthly_survival_expense: nextValue,
+                  survival_expense: nextValue,
+                  clara_survival_expense: nextValue,
+                  survival_setup_done: true,
+                };
 
-                        const nextProfileData = {
-                          ...(profileData || {}),
-                          monthly_survival_expense: nextValue,
-                          survival_expense: nextValue,
-                          clara_survival_expense: nextValue,
-                          survival_setup_done: true,
-                        };
+                setProfileData(nextProfileData);
+                dashboardPageCache = {
+                  ...dashboardPageCache,
+                  survivalExpense: nextValue,
+                  profileData: nextProfileData,
+                };
 
-                        setProfileData(nextProfileData);
-                        dashboardPageCache = {
-                          ...dashboardPageCache,
-                          survivalExpense: nextValue,
-                          profileData: nextProfileData,
-                        };
+                if (user?.id) {
+                  const { error } = await supabase
+                    .from("profiles")
+                    .update({
+                      monthly_survival_expense: nextValue,
+                      survival_setup_done: true,
+                    })
+                    .eq("id", user.id);
 
-                        if (user?.id) {
-                          const { error } = await supabase
-                            .from("profiles")
-                            .update({
-                              monthly_survival_expense: nextValue,
-                              survival_setup_done: true,
-                            })
-                            .eq("id", user.id);
+                  if (error) {
+                    console.warn(
+                      "Survival expense was saved locally, but profile sync failed:",
+                      error
+                    );
+                  }
+                }
 
-                          if (error) {
-                            console.warn(
-                              "Survival expense was saved locally, but profile sync failed:",
-                              error
-                            );
-                          }
-                        }
-
-                        await loadDashboardData({ background: true });
-                      }}
-                  />
-                  </div>
-                </div>
-
-                <div className="flex w-full min-w-full shrink-0 snap-center">
-                  <div className={getFinanceSlideShellClass("wallets", selectedDashboardTheme, dashboardScale)}>
-                    <WalletCard
-                    wallets={wallets}
-                    walletMoney={walletMoney}
-                    walletPreviewTransactions={walletPreviewTransactions}
-                    theme={selectedDashboardTheme}
-                    expanded={expandedFinanceCard === "wallets"}
-                    onToggleDetails={() => toggleFinanceDetails("wallets")}
-                    financeActionLoading={financeActionLoading}
-                    onCreateWallet={openCreateWalletModal}
-                    onMoveWallet={moveWalletInline}
-                    onDeleteWallet={openDeleteWalletModal}
-                    onAddMoney={openAddMoneyModal}
-                    onTransferMoney={openTransferMoneyModal}
-                  />
-                  </div>
-                </div>
-
-                <div className="flex w-full min-w-full shrink-0 snap-center">
-                  <div className={getFinanceSlideShellClass("budgets", selectedDashboardTheme, dashboardScale)}>
-                    <BudgetCard
-                    activeBudget={monthlyBudgetPlan}
-                    budgetCategories={monthlyBudgetPlan.categories}
-                    declaredBudget={monthlyBudgetPlan.declared_budget}
-                    unallocatedAmount={monthlyBudgetPlan.unallocated_amount}
-                    budgetStatus={monthlyBudgetPlan.status}
-                    isComplete={monthlyBudgetPlan.is_complete}
-                    unplannedSpent={monthlyBudgetPlan.unplanned_spent}
-                    undocumentedSpent={monthlyBudgetPlan.undocumented_spent}
-                    remainingAmount={monthlyBudgetPlan.remaining_amount}
-                    amountLeft={monthlyBudgetPlan.remaining_amount}
-                    spentAmount={monthlyBudgetPlan.spent_amount}
-                    totalSpent={monthlyBudgetPlan.total_spent}
-                    theme={selectedDashboardTheme}
-                    expanded={expandedFinanceCard === "budgets"}
-                    onToggleDetails={() => toggleFinanceDetails("budgets")}
-                    financeActionLoading={financeActionLoading}
-                    onSaveBudget={openBudgetModal}
-                    onEditBudgetCategory={openBudgetModal}
-                    onDeleteBudgetCategory={openDeleteBudgetCategoryModal}
-                    onResetBudget={openResetBudgetModal}
-                  />
-                  </div>
-                </div>
-
-                <div className="flex w-full min-w-full shrink-0 snap-center">
-                  <div className={getFinanceSlideShellClass("savings", selectedDashboardTheme, dashboardScale)}>
-                    <SavingsCard
-                    savingsGoals={savingsGoals}
-                    totalSavingsSaved={totalSavingsSaved}
-                    totalSavingsTarget={totalSavingsTarget}
-                    primarySavingsGoal={primarySavingsGoal}
-                    theme={selectedDashboardTheme}
-                    expanded={expandedFinanceCard === "savings"}
-                    onToggleDetails={() => toggleFinanceDetails("savings")}
-                    financeActionLoading={financeActionLoading}
-                    onSaveSavingsGoal={openSavingsGoalModal}
-                    onDeleteSavingsGoal={openDeleteSavingsGoalModal}
-                    onAddSavings={openAddSavingsModal}
-                  />
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            <div className={`flex items-center justify-center ${dashboardScale.dots}`}>
-              {financeCards.map((cardKey, index) => (
-                <button
-                  key={cardKey}
-                  type="button"
-                  onClick={() => scrollFinanceCardsTo(index)}
-                  aria-label={`Go to ${cardKey} card`}
-                  className={`h-2 rounded-full transition-all duration-200 ${
-                    financeCardIndex === index
-                      ? `w-5 ${selectedDashboardTheme.indicatorActive || "bg-emerald-400"}`
-                      : `w-2 ${themeInactiveDotClass}`
-                  }`}
-                />
-              ))}
-            </div>
+                await loadDashboardData({ background: true });
+              }}
+              monthlyBudgetPlan={monthlyBudgetPlan}
+              savingsGoals={savingsGoals}
+              totalSavingsSaved={totalSavingsSaved}
+              totalSavingsTarget={totalSavingsTarget}
+              primarySavingsGoal={primarySavingsGoal}
+              expandedFinanceCard={expandedFinanceCard}
+              toggleFinanceDetails={toggleFinanceDetails}
+              financeActionLoading={financeActionLoading}
+              onSaveBudget={openBudgetModal}
+              onEditBudgetCategory={openBudgetModal}
+              onDeleteBudgetCategory={openDeleteBudgetCategoryModal}
+              onResetBudget={openResetBudgetModal}
+              onSaveSavingsGoal={openSavingsGoalModal}
+              onDeleteSavingsGoal={openDeleteSavingsGoalModal}
+              onAddSavings={openAddSavingsModal}
+              startClaraAiLongPress={startClaraAiLongPress}
+              endClaraAiLongPress={endClaraAiLongPress}
+              handleClaraAiOrbClickCapture={handleClaraAiOrbClickCapture}
+            />
           </div>
         )}
 
