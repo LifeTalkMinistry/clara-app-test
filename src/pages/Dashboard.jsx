@@ -6205,15 +6205,27 @@ export default function Dashboard() {
   }, []);
 
 
+  const isManualExpenseOrbEvent = useCallback((event) => {
+    return Boolean(
+      event?.target?.closest?.('[data-clara-manual-expense-orb="true"]')
+    );
+  }, []);
+
   const stopMoneyLeftSummaryEvent = useCallback((event) => {
+    if (isManualExpenseOrbEvent(event)) {
+      return false;
+    }
+
     event?.preventDefault?.();
     event?.stopPropagation?.();
     event?.nativeEvent?.stopImmediatePropagation?.();
     return false;
-  }, []);
+  }, [isManualExpenseOrbEvent]);
 
   const openTransactionHubFromMoneyLeft = useCallback(
     (event) => {
+      if (isManualExpenseOrbEvent(event)) return;
+
       stopMoneyLeftSummaryEvent(event);
 
       const now = Date.now();
@@ -6222,10 +6234,12 @@ export default function Dashboard() {
       moneyLeftNavigateLockRef.current = now;
       navigate("/transactions-hub");
     },
-    [navigate, stopMoneyLeftSummaryEvent]
+    [isManualExpenseOrbEvent, navigate, stopMoneyLeftSummaryEvent]
   );
 
   const handleMoneyLeftPointerDown = useCallback((event) => {
+    if (isManualExpenseOrbEvent(event)) return;
+
     event?.stopPropagation?.();
     const point = event?.touches?.[0] || event;
 
@@ -6235,7 +6249,7 @@ export default function Dashboard() {
       startY: Number(point?.clientY || 0),
       moved: false,
     };
-  }, []);
+  }, [isManualExpenseOrbEvent]);
 
   const handleMoneyLeftPointerMove = useCallback((event) => {
     const point = event?.touches?.[0] || event;
@@ -6251,6 +6265,8 @@ export default function Dashboard() {
 
   const handleMoneyLeftTapEnd = useCallback(
     (event) => {
+      if (isManualExpenseOrbEvent(event)) return;
+
       stopMoneyLeftSummaryEvent(event);
 
       if (moneyLeftTapRef.current.moved) {
@@ -6278,7 +6294,7 @@ export default function Dashboard() {
 
       moneyLeftTapRef.current.lastTapAt = now;
     },
-    [openTransactionHubFromMoneyLeft, stopMoneyLeftSummaryEvent]
+    [isManualExpenseOrbEvent, openTransactionHubFromMoneyLeft, stopMoneyLeftSummaryEvent]
   );
 
   const moneyLeftSummaryHandlers = useMemo(
@@ -10464,12 +10480,33 @@ export default function Dashboard() {
               className="absolute inset-0 z-30 cursor-default bg-transparent"
               style={{ touchAction: "manipulation", WebkitTapHighlightColor: "transparent" }}
             />
+            <button
+              type="button"
+              data-clara-manual-expense-orb="true"
+              onClick={(event) => {
+                event.preventDefault();
+                event.stopPropagation();
+                openManualExpenseModal();
+              }}
+              onPointerDown={(event) => event.stopPropagation()}
+              onPointerUp={(event) => event.stopPropagation()}
+              onMouseUp={(event) => event.stopPropagation()}
+              onTouchEnd={(event) => event.stopPropagation()}
+              className="absolute right-3 top-1/2 z-50 flex h-11 w-11 -translate-y-1/2 items-center justify-center rounded-full border border-white/20 bg-white/[0.10] text-white shadow-[0_0_22px_rgba(147,197,253,0.18)] backdrop-blur-xl transition hover:bg-white/[0.15] active:scale-95"
+              aria-label="Open manual expense"
+              title="Log expense"
+            >
+              <Plus className="h-5 w-5" />
+            </button>
             <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(255,255,255,0.08),transparent_42%)]" />
-            <div className="pointer-events-none relative flex min-h-full min-w-0 flex-col justify-center">
+            <div className="pointer-events-none relative flex min-h-full min-w-0 flex-col justify-center pr-14">
               <p className={`uppercase ${dashboardScale.summaryLabel} ${themeSoftTextClass}`}>
-                Total Money Left
+                Money Left
               </p>
-              <h2 className={`font-bold leading-none ${dashboardScale.summaryAmount} ${themePrimaryTextClass}`}>
+              <h2
+                className={`font-bold leading-none ${dashboardScale.summaryAmount} ${themePrimaryTextClass}`}
+                style={{ marginTop: "clamp(14px, 2.8vw, 20px)" }}
+              >
                 {moneySummaryVisible ? fmt(walletMoney) : "₱••••••"}
               </h2>
             </div>
