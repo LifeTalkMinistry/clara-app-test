@@ -1,6 +1,6 @@
 import { PiggyBank, ReceiptText, TrendingUp } from "lucide-react";
 import EmergencyFundCard from "../EmergencyFundCard";
-import BudgetCard from "../BudgetCard";
+import BudgetCard from "../fresh/main-dashboard/financial-cards/logic/BudgetCard.logic";
 import SavingsCard from "../SavingsCard";
 
 const comingSoonIconMap = {
