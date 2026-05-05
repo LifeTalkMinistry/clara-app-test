@@ -54,7 +54,6 @@
 .ai-fab svg,
 .bottom-nav-fab svg,
 .floating-ai-button svg,
-.floating-quick-button svg,
 .floating-action-button svg,
 .clara-draggable-fab svg {
   width: 28px !important;
@@ -172,25 +171,40 @@ body:has(.theme-page-shell [class*="z-[99980]"][class*="h-[100dvh]"][class*="w-s
 }
 
 .theme-page-shell main [data-clara-summary-card="money-left"]::after {
-  content: "+";
-  position: absolute;
-  right: 16px;
-  top: 50%;
-  z-index: 45;
-  display: grid;
-  width: 58px;
-  height: 58px;
-  place-items: center;
-  transform: translateY(-50%);
-  border-radius: 9999px;
-  border: 1px solid rgba(255, 255, 255, 0.16);
-  background: rgba(2, 6, 23, 0.42);
-  color: var(--theme-text);
-  font-size: 31px;
-  font-weight: 700;
-  line-height: 1;
-  box-shadow: 0 0 0 6px rgba(255,255,255,0.08), 0 18px 36px rgba(0,0,0,0.35), inset 0 0 18px rgba(255,255,255,0.10);
-  backdrop-filter: blur(16px);
-  -webkit-backdrop-filter: blur(16px);
-  pointer-events: none;
+  content: none !important;
+  display: none !important;
+}
+
+.theme-page-shell main [data-clara-summary-card="money-left"] [data-clara-manual-expense-orb="true"] {
+  position: absolute !important;
+  right: 16px !important;
+  top: 50% !important;
+  z-index: 60 !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  width: 58px !important;
+  height: 58px !important;
+  min-width: 58px !important;
+  min-height: 58px !important;
+  padding: 0 !important;
+  transform: translateY(-50%) !important;
+  border-radius: 9999px !important;
+  border: 1px solid rgba(255, 255, 255, 0.16) !important;
+  background: rgba(2, 6, 23, 0.42) !important;
+  color: var(--theme-text) !important;
+  line-height: 1 !important;
+  box-shadow: 0 0 0 6px rgba(255,255,255,0.08), 0 18px 36px rgba(0,0,0,0.35), inset 0 0 18px rgba(255,255,255,0.10) !important;
+  backdrop-filter: blur(16px) !important;
+  -webkit-backdrop-filter: blur(16px) !important;
+}
+
+.theme-page-shell main [data-clara-summary-card="money-left"] [data-clara-manual-expense-orb="true"] svg {
+  position: absolute !important;
+  inset: 50% auto auto 50% !important;
+  display: block !important;
+  width: 20px !important;
+  height: 20px !important;
+  transform: translate(-50%, -50%) !important;
+  margin: 0 !important;
 }
