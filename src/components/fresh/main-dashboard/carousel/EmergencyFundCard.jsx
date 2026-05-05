@@ -11,12 +11,12 @@ import {
   Plus,
 } from "lucide-react";
 
-import SurvivalExpenseModal from "../../../SurvivalExpenseModal";
+import SurvivalExpenseModal from "../../../../SurvivalExpenseModal";
 import useEmergencyFundCard, {
   clampOpacity,
   fmt,
   VALID_TARGET_MONTHS,
-} from "../../../hooks/useEmergencyFundCard";
+} from "../../../../hooks/useEmergencyFundCard";
 
 export default function EmergencyFundCard({
   moneyLeft = 0,
