@@ -1,4 +1,5 @@
-import { TrendingUp } from "lucide-react";
+import { useState } from "react";
+import { ChevronDown, ChevronUp, TrendingUp } from "lucide-react";
 
 const fmt = (value) =>
   new Intl.NumberFormat("en-PH", {
@@ -94,12 +95,14 @@ const getDataValue = (data, keys, fallback = null) => {
 };
 
 export default function InvestmentCard({ item = null }) {
+  const [expanded, setExpanded] = useState(false);
+
   const data = item?.data || {};
   const tone = getInvestmentToneClasses(item?.tone || data.tone || "gold");
 
   const title = data.title || item?.label || "Investment Fund";
   const subtitle =
-    data.subtitle || "Grow your money with a calm, long-term investment plan.";
+    data.subtitle || "Investment tracking is ready for setup.";
   const description =
     data.description ||
     "This card is reserved for future investment fund data without breaking Dashboard.jsx.";
@@ -147,98 +150,125 @@ export default function InvestmentCard({ item = null }) {
 
       <div className="relative z-10 flex h-full min-h-0 flex-col p-4">
         <div className="flex min-h-0 flex-1 flex-col justify-between">
-          <div className="mb-3 flex items-start gap-3">
-            <div
-              className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border backdrop-blur-sm ${tone.iconShell}`}
-            >
-              <TrendingUp className={`h-4 w-4 ${tone.icon}`} />
+          <div>
+            <div className="mb-3 flex items-start gap-3">
+              <div
+                className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border backdrop-blur-sm ${tone.iconShell}`}
+              >
+                <TrendingUp className={`h-4 w-4 ${tone.icon}`} />
+              </div>
+
+              <div className="min-w-0 flex-1">
+                <div className="flex items-start justify-between gap-2">
+                  <div className="min-w-0">
+                    <p className="text-base font-semibold tracking-tight text-white">
+                      {title}
+                    </p>
+                    <p className="mt-0.5 text-[11px] font-medium leading-relaxed text-white/82">
+                      {subtitle}
+                    </p>
+                  </div>
+
+                  <span
+                    className={`shrink-0 rounded-full border px-2.5 py-1 text-[11px] font-semibold backdrop-blur-sm ${tone.status}`}
+                  >
+                    {statusLabel}
+                  </span>
+                </div>
+              </div>
             </div>
 
-            <div className="min-w-0 flex-1">
-              <div className="flex items-start justify-between gap-2">
-                <div className="min-w-0">
-                  <p className="text-base font-semibold tracking-tight text-white">
-                    {title}
-                  </p>
-                  <p className="mt-0.5 text-[11px] font-medium leading-relaxed text-white/82">
-                    {subtitle}
-                  </p>
+            <div className="mb-3 pr-8">
+              <p className={`text-[30px] font-bold leading-none ${tone.value}`}>
+                {mainLabel}
+              </p>
+
+              <p className="mt-2 max-w-[28rem] overflow-hidden text-xs font-medium leading-relaxed text-white/82 [display:-webkit-box] [-webkit-box-orient:vertical] [-webkit-line-clamp:2]">
+                {description}
+              </p>
+            </div>
+
+            <div className="mb-3">
+              <div className="mb-1.5 flex items-center justify-between gap-3 text-[11px] font-medium text-white/75">
+                <span>Growth progress</span>
+                <span className="truncate text-right">{progressLabel}</span>
+              </div>
+
+              <div className="h-2.5 overflow-hidden rounded-full border border-white/10 bg-black/20">
+                <div
+                  className={`relative h-full rounded-full bg-gradient-to-r ${tone.bar} transition-all duration-500`}
+                  style={{ width: `${progress}%` }}
+                >
+                  <div className="absolute inset-0 bg-white/20 opacity-40" />
+                </div>
+              </div>
+
+              <div className="mt-2 flex items-center justify-between text-[11px] font-medium text-white/70">
+                <span>{hasAmount ? fmt(currentAmount) : "₱0"}</span>
+                <span>{targetAmount > 0 ? fmt(targetAmount) : "Future goal"}</span>
+              </div>
+            </div>
+          </div>
+
+          <div className="min-h-0">
+            <button
+              type="button"
+              onClick={() => setExpanded((value) => !value)}
+              className="flex w-full items-center justify-between rounded-2xl border border-white/10 bg-black/15 px-3 py-2.5 text-sm text-white/82 backdrop-blur-sm transition hover:bg-white/10 hover:text-white"
+            >
+              <span className="font-medium">
+                {expanded ? "Hide details" : "Show details"}
+              </span>
+              {expanded ? (
+                <ChevronUp className="h-4 w-4" />
+              ) : (
+                <ChevronDown className="h-4 w-4" />
+              )}
+            </button>
+
+            {expanded && (
+              <div className="mt-3 max-h-[160px] space-y-3 overflow-y-auto rounded-2xl border border-white/10 bg-black/15 p-3 backdrop-blur-sm shadow-[inset_0_1px_0_rgba(255,255,255,0.05)] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+                <div className="grid grid-cols-3 gap-2 text-center text-sm text-white">
+                  <div className="rounded-2xl border border-white/10 bg-white/5 px-2.5 py-2.5 backdrop-blur-[2px]">
+                    <p className="mb-1 text-[10px] font-semibold uppercase tracking-[0.16em] text-white/55">
+                      {statOneLabel}
+                    </p>
+                    <p className="truncate text-sm font-bold text-white">
+                      {statOneValue}
+                    </p>
+                  </div>
+
+                  <div className="rounded-2xl border border-white/10 bg-white/5 px-2.5 py-2.5 backdrop-blur-[2px]">
+                    <p className="mb-1 text-[10px] font-semibold uppercase tracking-[0.16em] text-white/55">
+                      {statTwoLabel}
+                    </p>
+                    <p className="truncate text-sm font-bold text-white">
+                      {statTwoValue}
+                    </p>
+                  </div>
+
+                  <div className="rounded-2xl border border-white/10 bg-white/5 px-2.5 py-2.5 backdrop-blur-[2px]">
+                    <p className="mb-1 text-[10px] font-semibold uppercase tracking-[0.16em] text-white/55">
+                      {statThreeLabel}
+                    </p>
+                    <p className="truncate text-sm font-bold text-white">
+                      {statThreeValue}
+                    </p>
+                  </div>
                 </div>
 
-                <span
-                  className={`shrink-0 rounded-full border px-2.5 py-1 text-[11px] font-semibold backdrop-blur-sm ${tone.status}`}
-                >
-                  {statusLabel}
-                </span>
-              </div>
-            </div>
-          </div>
+                <div className="flex items-center justify-between rounded-2xl border border-white/10 bg-white/5 px-3 py-2.5 text-sm text-white/82">
+                  <span className="font-medium">Investment details</span>
+                  <span className="text-[11px] font-semibold uppercase tracking-[0.16em] text-white/50">
+                    Soon
+                  </span>
+                </div>
 
-          <div className="mb-3 pr-12">
-            <p className={`text-[32px] font-bold leading-none ${tone.value}`}>
-              {mainLabel}
-            </p>
-
-            <p className="mt-2 max-w-[28rem] text-xs font-medium leading-relaxed text-white/82">
-              {description}
-            </p>
-
-            <p className="mt-1 text-[11px] text-white/60">
-              CLARA will keep this space ready for investment insights.
-            </p>
-          </div>
-
-          <div className="mb-3">
-            <div className="mb-1.5 flex items-center justify-between text-[11px] font-medium text-white/75">
-              <span>Growth progress</span>
-              <span>{progressLabel}</span>
-            </div>
-
-            <div className="h-2.5 overflow-hidden rounded-full border border-white/10 bg-black/20">
-              <div
-                className={`relative h-full rounded-full bg-gradient-to-r ${tone.bar} transition-all duration-500`}
-                style={{ width: `${progress}%` }}
-              >
-                <div className="absolute inset-0 bg-white/20 opacity-40" />
-              </div>
-            </div>
-
-            <div className="mt-2 flex items-center justify-between text-[11px] font-medium text-white/70">
-              <span>{hasAmount ? fmt(currentAmount) : "₱0"}</span>
-              <span>{targetAmount > 0 ? fmt(targetAmount) : "Future goal"}</span>
-            </div>
-          </div>
-
-          <div className="rounded-2xl border border-white/10 bg-black/15 p-3 backdrop-blur-sm shadow-[inset_0_1px_0_rgba(255,255,255,0.05)]">
-            <div className="grid grid-cols-3 gap-2 text-center text-sm text-white">
-              <div className="rounded-2xl border border-white/10 bg-white/5 px-2.5 py-2.5 backdrop-blur-[2px]">
-                <p className="mb-1 text-[10px] font-semibold uppercase tracking-[0.16em] text-white/55">
-                  {statOneLabel}
+                <p className="text-[11px] leading-relaxed text-white/60">
+                  CLARA will keep this space ready for investment insights.
                 </p>
-                <p className="truncate text-sm font-bold text-white">{statOneValue}</p>
               </div>
-
-              <div className="rounded-2xl border border-white/10 bg-white/5 px-2.5 py-2.5 backdrop-blur-[2px]">
-                <p className="mb-1 text-[10px] font-semibold uppercase tracking-[0.16em] text-white/55">
-                  {statTwoLabel}
-                </p>
-                <p className="truncate text-sm font-bold text-white">{statTwoValue}</p>
-              </div>
-
-              <div className="rounded-2xl border border-white/10 bg-white/5 px-2.5 py-2.5 backdrop-blur-[2px]">
-                <p className="mb-1 text-[10px] font-semibold uppercase tracking-[0.16em] text-white/55">
-                  {statThreeLabel}
-                </p>
-                <p className="truncate text-sm font-bold text-white">{statThreeValue}</p>
-              </div>
-            </div>
-
-            <div className="mt-3 flex items-center justify-between rounded-2xl border border-white/10 bg-white/5 px-3 py-2.5 text-sm text-white/82">
-              <span className="font-medium">Investment details</span>
-              <span className="text-[11px] font-semibold uppercase tracking-[0.16em] text-white/50">
-                Soon
-              </span>
-            </div>
+            )}
           </div>
         </div>
       </div>
