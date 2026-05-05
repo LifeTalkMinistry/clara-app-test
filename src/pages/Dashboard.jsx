@@ -1599,7 +1599,7 @@ const DASHBOARD_SCALE = {
     billboardIcon: "h-10 w-10 rounded-2xl",
     financeWrap: "space-y-[clamp(8px,1.4dvh,12px)]",
     financeClip: "rounded-[24px]",
-    financeSlide: "h-[238px] min-h-[238px] max-h-[238px] overflow-hidden rounded-[24px] [&>*]:h-full [&>*]:min-h-0 [&>*]:max-h-full [&>*]:rounded-[23px]",
+    financeSlide: "min-h-[238px] rounded-[24px] [&>*]:min-h-[236px] [&>*]:rounded-[23px]",
     dots: "gap-1 pt-1 pb-[clamp(6px,1.2dvh,10px)]",
     summaryGrid: "rounded-[22px]",
     summaryCell: "min-h-[104px] p-[clamp(13px,3.4vw,16px)]",
@@ -1625,7 +1625,7 @@ const DASHBOARD_SCALE = {
     billboardIcon: "h-11 w-11 rounded-[14px]",
     financeWrap: "space-y-[clamp(8px,1.4dvh,12px)]",
     financeClip: "rounded-[26px]",
-    financeSlide: "h-[258px] min-h-[258px] max-h-[258px] overflow-hidden rounded-[26px] [&>*]:h-full [&>*]:min-h-0 [&>*]:max-h-full [&>*]:rounded-[25px]",
+    financeSlide: "min-h-[258px] rounded-[26px] [&>*]:min-h-[256px] [&>*]:rounded-[25px]",
     dots: "gap-1.5 pt-1 pb-[clamp(7px,1.3dvh,12px)]",
     summaryGrid: "rounded-[24px]",
     summaryCell: "min-h-[106px] p-[clamp(13px,3.5vw,16px)]",
@@ -1651,7 +1651,7 @@ const DASHBOARD_SCALE = {
     billboardIcon: "h-12 w-12 rounded-2xl",
     financeWrap: "space-y-[clamp(9px,1.5dvh,14px)]",
     financeClip: "rounded-[28px]",
-    financeSlide: "h-[286px] min-h-[286px] max-h-[286px] overflow-hidden rounded-[28px] [&>*]:h-full [&>*]:min-h-0 [&>*]:max-h-full [&>*]:rounded-[27px]",
+    financeSlide: "min-h-[286px] rounded-[28px] [&>*]:min-h-[284px] [&>*]:rounded-[27px]",
     dots: "gap-1.5 pt-1.5 pb-[clamp(8px,1.4dvh,14px)]",
     summaryGrid: "rounded-[26px]",
     summaryCell: "min-h-[110px] p-[clamp(14px,3.6vw,17px)]",
@@ -1677,7 +1677,7 @@ const DASHBOARD_SCALE = {
     billboardIcon: "h-12 w-12 rounded-2xl",
     financeWrap: "space-y-[clamp(9px,1.5dvh,14px)]",
     financeClip: "rounded-[30px]",
-    financeSlide: "h-[314px] min-h-[314px] max-h-[314px] overflow-hidden rounded-[30px] [&>*]:h-full [&>*]:min-h-0 [&>*]:max-h-full [&>*]:rounded-[29px]",
+    financeSlide: "min-h-[314px] rounded-[30px] [&>*]:min-h-[312px] [&>*]:rounded-[29px]",
     dots: "gap-1.5 pt-1.5 pb-[clamp(8px,1.4dvh,14px)]",
     summaryGrid: "rounded-[28px]",
     summaryCell: "min-h-[112px] p-[clamp(14px,3.8vw,18px)]",
@@ -1715,7 +1715,7 @@ const getFinanceSlideShellClass = (cardKey, theme = null, scale = null) => {
   const glowCapClass = theme?.isLight === true ? "before:bg-white/70" : "before:bg-white/10";
   const innerRingClass = theme?.isLight === true ? "after:ring-slate-300/40" : "after:ring-white/6";
 
-  const scaleSlideClass = scale?.financeSlide || "h-[314px] min-h-[314px] max-h-[314px] overflow-hidden rounded-[30px] [&>*]:h-full [&>*]:min-h-0 [&>*]:max-h-full [&>*]:rounded-[29px]";
+  const scaleSlideClass = scale?.financeSlide || "min-h-[314px] rounded-[30px] [&>*]:min-h-[312px] [&>*]:rounded-[29px]";
 
   return `relative isolate w-full overflow-hidden ${scaleSlideClass} ${shellBorderClass} p-[1px] backdrop-blur-sm before:pointer-events-none before:absolute before:inset-x-5 before:top-0 before:h-20 before:rounded-full ${glowCapClass} before:blur-3xl after:pointer-events-none after:absolute after:inset-0 after:rounded-[inherit] after:ring-1 after:ring-inset ${innerRingClass} [&>*]:mb-0 [&>*]:h-full ${accentClass}`;
 };
@@ -8153,9 +8153,6 @@ export default function Dashboard() {
     const target = event?.target;
     if (!target?.closest) return null;
 
-    const manualExpenseOrb = target.closest('[data-clara-manual-expense-orb="true"]');
-    if (manualExpenseOrb) return manualExpenseOrb;
-
     const emergencyCard = target.closest("[data-emergency-card]");
     if (!emergencyCard) return null;
 
@@ -8229,6 +8226,40 @@ export default function Dashboard() {
     openManualExpenseModal();
     return true;
   }, [isClaraAiOrbEvent, openManualExpenseModal]);
+
+
+  const stopMoneyLeftOrbEvent = useCallback((event) => {
+    event?.preventDefault?.();
+    event?.stopPropagation?.();
+    event?.nativeEvent?.stopImmediatePropagation?.();
+  }, []);
+
+  const startMoneyLeftOrbLongPress = useCallback((event) => {
+    stopMoneyLeftOrbEvent(event);
+    longPressTriggeredRef.current = false;
+    clearLongPressTimer();
+
+    longPressTimerRef.current = setTimeout(() => {
+      longPressTriggeredRef.current = true;
+      openClaraAiFromLongPress();
+    }, 550);
+  }, [clearLongPressTimer, openClaraAiFromLongPress, stopMoneyLeftOrbEvent]);
+
+  const endMoneyLeftOrbLongPress = useCallback((event) => {
+    stopMoneyLeftOrbEvent(event);
+    clearLongPressTimer();
+  }, [clearLongPressTimer, stopMoneyLeftOrbEvent]);
+
+  const handleMoneyLeftOrbClick = useCallback((event) => {
+    stopMoneyLeftOrbEvent(event);
+
+    if (longPressTriggeredRef.current) {
+      longPressTriggeredRef.current = false;
+      return;
+    }
+
+    openManualExpenseModal();
+  }, [openManualExpenseModal, stopMoneyLeftOrbEvent]);
 
   useEffect(() => {
     return () => clearLongPressTimer();
@@ -10483,44 +10514,25 @@ export default function Dashboard() {
               className="absolute inset-0 z-30 cursor-default bg-transparent"
               style={{ touchAction: "manipulation", WebkitTapHighlightColor: "transparent" }}
             />
-            <div className="absolute inset-y-0 right-0 z-50 flex w-[88px] items-center justify-center pr-4 sm:w-[96px] sm:pr-5">
+            <div className="pointer-events-none absolute inset-y-0 right-0 z-50 flex w-[88px] items-center justify-center pr-3">
               <button
                 type="button"
                 data-clara-manual-expense-orb="true"
-                onClickCapture={handleClaraAiOrbClickCapture}
-                onPointerDown={(event) => {
-                  event.stopPropagation();
-                  startClaraAiLongPress(event);
-                }}
-                onPointerUp={(event) => {
-                  event.stopPropagation();
-                  endClaraAiLongPress();
-                }}
-                onPointerCancel={(event) => {
-                  event.stopPropagation();
-                  endClaraAiLongPress();
-                }}
-                onPointerLeave={(event) => {
-                  event.stopPropagation();
-                  endClaraAiLongPress();
-                }}
-                onMouseUp={(event) => {
-                  event.stopPropagation();
-                  endClaraAiLongPress();
-                }}
-                onTouchEnd={(event) => {
-                  event.stopPropagation();
-                  endClaraAiLongPress();
-                }}
-                className="relative flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-white/20 bg-white/[0.10] text-white shadow-[0_0_22px_rgba(147,197,253,0.18)] backdrop-blur-xl transition hover:bg-white/[0.15] active:scale-95"
-                aria-label="Open manual expense. Long press to open CLARA AI."
-                title="Tap to log expense. Long press for CLARA AI."
+                onClick={handleMoneyLeftOrbClick}
+                onPointerDown={startMoneyLeftOrbLongPress}
+                onPointerUp={endMoneyLeftOrbLongPress}
+                onPointerCancel={endMoneyLeftOrbLongPress}
+                onPointerLeave={endMoneyLeftOrbLongPress}
+                onContextMenu={stopMoneyLeftOrbEvent}
+                className="pointer-events-auto flex h-11 w-11 items-center justify-center rounded-full border border-white/20 bg-white/[0.10] text-white shadow-[0_0_22px_rgba(147,197,253,0.18)] backdrop-blur-xl transition hover:bg-white/[0.15] active:scale-95"
+                aria-label="Tap to log expense, long press to open CLARA AI"
+                title="Tap to log expense, long press for CLARA AI"
               >
                 <Plus className="h-5 w-5" />
               </button>
             </div>
             <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(255,255,255,0.08),transparent_42%)]" />
-            <div className="pointer-events-none relative flex min-h-full min-w-0 flex-col justify-center pr-[92px]">
+            <div className="pointer-events-none relative flex min-h-full min-w-0 flex-col justify-center pr-24">
               <p className={`uppercase ${dashboardScale.summaryLabel} ${themeSoftTextClass}`}>
                 Money Left
               </p>
