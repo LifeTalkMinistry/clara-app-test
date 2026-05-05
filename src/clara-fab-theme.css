@@ -113,3 +113,70 @@ body:has(.theme-page-shell [class*="z-[99980]"][class*="h-[100dvh]"][class*="w-s
   display: none !important;
   pointer-events: none !important;
 }
+
+/* Dashboard Money Summary: single-card format using existing theme colors. */
+.theme-page-shell main div:has(> [data-clara-summary-card="money-left"]):has(> [data-clara-summary-card="total-expense"]) {
+  display: block !important;
+  grid-template-columns: 1fr !important;
+  overflow: hidden !important;
+}
+
+.theme-page-shell main [data-clara-summary-card="total-expense"] {
+  display: none !important;
+}
+
+.theme-page-shell main [data-clara-summary-card="money-left"] {
+  min-height: 104px !important;
+  width: 100% !important;
+  padding: clamp(13px, 3.5vw, 16px) 92px clamp(13px, 3.5vw, 16px) clamp(14px, 3.6vw, 17px) !important;
+  border-left: 0 !important;
+}
+
+.theme-page-shell main [data-clara-summary-card="money-left"] > .absolute.inset-0.z-30.cursor-default.bg-transparent {
+  display: none !important;
+}
+
+.theme-page-shell main [data-clara-summary-card="money-left"] p:first-of-type {
+  font-size: 0 !important;
+  line-height: 1 !important;
+}
+
+.theme-page-shell main [data-clara-summary-card="money-left"] p:first-of-type::after {
+  content: "MONEY LEFT";
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.22em;
+  line-height: 1;
+}
+
+.theme-page-shell main [data-clara-summary-privacy-toggle="true"] {
+  left: clamp(112px, 33vw, 132px) !important;
+  right: auto !important;
+  top: clamp(14px, 3.8vw, 18px) !important;
+  width: 24px !important;
+  height: 24px !important;
+}
+
+.theme-page-shell main [data-clara-summary-card="money-left"]::after {
+  content: "+";
+  position: absolute;
+  right: 16px;
+  top: 50%;
+  z-index: 45;
+  display: grid;
+  width: 58px;
+  height: 58px;
+  place-items: center;
+  transform: translateY(-50%);
+  border-radius: 9999px;
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  background: rgba(2, 6, 23, 0.42);
+  color: var(--theme-text);
+  font-size: 31px;
+  font-weight: 700;
+  line-height: 1;
+  box-shadow: 0 0 0 6px rgba(255,255,255,0.08), 0 18px 36px rgba(0,0,0,0.35), inset 0 0 18px rgba(255,255,255,0.10);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  pointer-events: none;
+}
