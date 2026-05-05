@@ -120,7 +120,7 @@ export default function QuickCircle({ onQuickAdd, onOpenAssistant, placement = "
   const shellPositionStyle = isDashboardPlacement
     ? {
         top: "clamp(16.8rem, 47.5dvh, 25rem)",
-        right: "calc((100vw - min(100vw, 430px)) / 2 + clamp(1.35rem, 8.5vw, 2.35rem))",
+        right: "calc((100vw - min(100vw, 430px)) / 2 + 1rem)",
       }
     : undefined;
 
@@ -181,7 +181,7 @@ export default function QuickCircle({ onQuickAdd, onOpenAssistant, placement = "
           onPointerUp={handlePointerUp}
           onPointerCancel={handlePointerCancel}
           onPointerLeave={clearLongPressTimer}
-          className="pointer-events-auto relative flex h-[clamp(2.95rem,10vw,3.35rem)] w-[clamp(2.95rem,10vw,3.35rem)] items-center justify-center rounded-full border border-white/25 bg-[color-mix(in_srgb,var(--theme-surface)_42%,transparent)] backdrop-blur-2xl transition duration-200 hover:scale-[1.04] active:scale-95"
+          className="pointer-events-auto relative flex h-[clamp(2.95rem,10vw,3.35rem)] w-[clamp(2.95rem,10vw,3.35rem)] items-center justify-center overflow-hidden rounded-full border border-white/25 bg-[color-mix(in_srgb,var(--theme-surface)_42%,transparent)] backdrop-blur-2xl transition duration-200 hover:scale-[1.04] active:scale-95"
           style={{
             boxShadow:
               "inset 0 1px 0 rgba(255,255,255,0.24), 0 12px 26px rgba(0,0,0,0.24), 0 0 28px color-mix(in srgb, var(--theme-primary) 42%, transparent)",
@@ -197,11 +197,13 @@ export default function QuickCircle({ onQuickAdd, onOpenAssistant, placement = "
             }}
           />
 
-          <img
-            src={`${import.meta.env.BASE_URL || "/"}clara-icon.png`}
-            alt=""
-            className="relative h-[clamp(2.45rem,8.8vw,2.95rem)] w-[clamp(2.45rem,8.8vw,2.95rem)] object-contain drop-shadow-[0_8px_16px_rgba(0,0,0,0.55)]"
-          />
+          <span className="pointer-events-none absolute inset-0 flex items-center justify-center">
+            <img
+              src={`${import.meta.env.BASE_URL || "/"}clara-icon.png`}
+              alt=""
+              className="h-[clamp(2.45rem,8.8vw,2.95rem)] w-[clamp(2.45rem,8.8vw,2.95rem)] object-contain drop-shadow-[0_8px_16px_rgba(0,0,0,0.55)]"
+            />
+          </span>
         </button>
       </div>
     </div>
