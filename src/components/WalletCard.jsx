@@ -7,6 +7,7 @@ import {
   ArrowDown,
   ChevronDown,
   ChevronUp,
+  Edit3,
 } from "lucide-react";
 
 const fmt = (n) =>
@@ -171,6 +172,7 @@ export default function WalletCard({
   onDeleteWallet,
   onAddMoney,
   onTransferMoney,
+  onEditWallet,
   theme = null,
 }) {
   const topWallet = wallets[0] || null;
@@ -302,9 +304,21 @@ export default function WalletCard({
                         </p>
                       </div>
 
-                      <p className="shrink-0 text-sm font-bold text-white">
-                        {fmt(wallet.balance || 0)}
-                      </p>
+                      <div className="flex shrink-0 items-center gap-2">
+                        <p className="text-sm font-bold text-white">
+                          {fmt(wallet.balance || 0)}
+                        </p>
+
+                        <button
+                          type="button"
+                          onClick={() => onEditWallet?.(wallet)}
+                          disabled={financeActionLoading}
+                          className="flex h-8 w-8 items-center justify-center rounded-xl border border-white/10 bg-white/5 text-white/75 transition hover:bg-white/10 hover:text-white disabled:opacity-50"
+                          aria-label="Edit wallet"
+                        >
+                          <Edit3 className="h-3.5 w-3.5" />
+                        </button>
+                      </div>
                     </div>
 
                     <div className="mt-3 flex flex-wrap gap-2">
