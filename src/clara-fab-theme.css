@@ -128,17 +128,26 @@ body:has(.theme-page-shell [class*="z-[99980]"][class*="h-[100dvh]"][class*="w-s
 .theme-page-shell main [data-clara-summary-card="money-left"] {
   min-height: 104px !important;
   width: 100% !important;
-  padding: clamp(13px, 3.5vw, 16px) 92px clamp(13px, 3.5vw, 16px) clamp(14px, 3.6vw, 17px) !important;
+  padding: clamp(18px, 4.5vw, 22px) 92px clamp(13px, 3.5vw, 16px) clamp(14px, 3.6vw, 17px) !important;
   border-left: 0 !important;
 }
 
 .theme-page-shell main [data-clara-summary-card="money-left"] > .absolute.inset-0.z-30.cursor-default.bg-transparent {
-  display: none !important;
+  display: block !important;
+  left: auto !important;
+  right: 0 !important;
+  top: 0 !important;
+  bottom: 0 !important;
+  width: 92px !important;
+  z-index: 48 !important;
+  cursor: pointer !important;
+  pointer-events: auto !important;
 }
 
 .theme-page-shell main [data-clara-summary-card="money-left"] p:first-of-type {
   font-size: 0 !important;
   line-height: 1 !important;
+  margin-bottom: 10px !important;
 }
 
 .theme-page-shell main [data-clara-summary-card="money-left"] p:first-of-type::after {
@@ -147,6 +156,11 @@ body:has(.theme-page-shell [class*="z-[99980]"][class*="h-[100dvh]"][class*="w-s
   font-weight: 800;
   letter-spacing: 0.22em;
   line-height: 1;
+}
+
+.theme-page-shell main [data-clara-summary-card="money-left"] h2 {
+  margin-top: 8px !important;
+  line-height: 0.92 !important;
 }
 
 .theme-page-shell main [data-clara-summary-privacy-toggle="true"] {
