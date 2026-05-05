@@ -330,6 +330,7 @@ const CarouselItemCard = ({
   onDeleteWallet,
   onAddMoney,
   onTransferMoney,
+  onEditWallet,
   onSaveSavingsGoal,
   onDeleteSavingsGoal,
   onAddSavings,
@@ -357,6 +358,7 @@ const CarouselItemCard = ({
           onDeleteWallet={onDeleteWallet}
           onAddMoney={onAddMoney}
           onTransferMoney={onTransferMoney}
+          onEditWallet={onEditWallet}
         />
       </div>
     );
@@ -506,6 +508,7 @@ export default function FinancialCarousel({
   onDeleteWallet,
   onAddMoney,
   onTransferMoney,
+  onEditWallet,
   onSaveSavingsGoal,
   onDeleteSavingsGoal,
   onAddSavings,
@@ -635,6 +638,7 @@ export default function FinancialCarousel({
                   onDeleteWallet={onDeleteWallet}
                   onAddMoney={onAddMoney}
                   onTransferMoney={onTransferMoney}
+                  onEditWallet={onEditWallet}
                   onSaveSavingsGoal={onSaveSavingsGoal}
                   onDeleteSavingsGoal={onDeleteSavingsGoal}
                   onAddSavings={onAddSavings}
