@@ -4,6 +4,7 @@ import EmergencyFundCard from "../EmergencyFundCard";
 import BudgetCard from "../BudgetCard";
 import SavingsCard from "../SavingsCard";
 import InvestmentCard from "../InvestmentCard";
+import ObligationDebt from "../ObligationDebt";
 
 const carouselConfig = [
   {
@@ -181,10 +182,10 @@ const getCarouselData = ({
     debtObligations: {
       title: "Debt / Obligations",
       amount: 0,
-      subtitle: "Debt tracking is ready for setup.",
-      description: "This card is reserved for future obligation data without breaking Dashboard.jsx.",
-      ctaLabel: "Coming soon",
-      state: "comingSoon",
+      subtitle: "Track and manage what you owe.",
+      description: "No active debt recorded. Keep your cash flow protected.",
+      ctaLabel: "No debt",
+      state: "ready",
     },
   };
 
@@ -400,6 +401,14 @@ const CarouselItemCard = ({
     return (
       <div className="h-full min-h-[inherit] flex flex-col">
         <InvestmentCard item={item} theme={selectedDashboardTheme} />
+      </div>
+    );
+  }
+
+  if (item.type === "debtObligations") {
+    return (
+      <div className="h-full min-h-[inherit] flex flex-col">
+        <ObligationDebt item={item} theme={selectedDashboardTheme} />
       </div>
     );
   }
