@@ -16,7 +16,6 @@ const fmt = (n) =>
     minimumFractionDigits: 0,
   }).format(Number(n || 0));
 
-
 const getWalletThemeClasses = (theme) => {
   const isLight = theme?.isLight === true;
   const tone = theme?.moneyTone || "teal";
@@ -77,7 +76,6 @@ const getWalletThemeClasses = (theme) => {
 
   return { surface: surfaces[tone] || surfaces.teal, overlay: overlays[tone] || overlays.teal, iconShell: iconShells[tone] || iconShells.teal, iconColor: iconColors[tone] || iconColors.teal, glass, softGlass, border, title, body, muted, action };
 };
-
 
 const getHistoryTypeLabel = (type) => {
   switch (String(type || "").toLowerCase()) {
@@ -192,234 +190,236 @@ export default function WalletCard({
 
   return (
     <div
-        className={`relative mb-3 min-h-[280px] overflow-hidden rounded-3xl border shadow-2xl transition-all duration-200 ${themeClasses.border} ${status.ring}`}
-      >
-        <div className={`absolute inset-0 ${themeClasses.surface}`} />
-        <div className={`pointer-events-none absolute inset-0 ${themeClasses.overlay}`} />
-        <div className="pointer-events-none absolute inset-0 bg-gradient-to-b from-black/25 via-black/18 to-black/35" />
-        <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(to_bottom,rgba(255,255,255,0.08),rgba(255,255,255,0.02)_16%,transparent_38%)]" />
+      className={`relative flex h-full min-h-[inherit] flex-col overflow-hidden rounded-3xl border shadow-2xl transition-all duration-200 ${themeClasses.border} ${status.ring}`}
+    >
+      <div className={`absolute inset-0 ${themeClasses.surface}`} />
+      <div className={`pointer-events-none absolute inset-0 ${themeClasses.overlay}`} />
+      <div className="pointer-events-none absolute inset-0 bg-gradient-to-b from-black/25 via-black/18 to-black/35" />
+      <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(to_bottom,rgba(255,255,255,0.08),rgba(255,255,255,0.02)_16%,transparent_38%)]" />
 
-        <div className="relative z-10 flex h-full flex-col p-4">
-          <div className="mb-2 flex items-start gap-3">
-            <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border backdrop-blur-sm ${themeClasses.iconShell}`}>
-              <WalletCards className={`h-4 w-4 ${themeClasses.iconColor}`} />
+      <div className="relative z-10 flex h-full min-h-0 flex-col p-4">
+        <div className="flex min-h-0 flex-1 flex-col justify-between">
+          <div>
+            <div className="mb-3 flex items-start gap-3">
+              <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border backdrop-blur-sm ${themeClasses.iconShell}`}>
+                <WalletCards className={`h-4 w-4 ${themeClasses.iconColor}`} />
+              </div>
+
+              <div className="min-w-0 flex-1">
+                <div className="flex items-start justify-between gap-2">
+                  <div className="min-w-0">
+                    <p className={`text-base font-semibold tracking-tight ${themeClasses.title}`}>
+                      Wallets
+                    </p>
+                    <p className={`mt-0.5 text-[11px] font-medium ${themeClasses.body}`}>
+                      Track your available money across accounts
+                    </p>
+                  </div>
+
+                  <span
+                    className={`shrink-0 rounded-full px-2.5 py-1 text-[11px] font-semibold backdrop-blur-sm ${status.badge}`}
+                  >
+                    {wallets.length} {wallets.length === 1 ? "Wallet" : "Wallets"}
+                  </span>
+                </div>
+              </div>
             </div>
 
-            <div className="min-w-0 flex-1">
-              <div className="flex items-start justify-between gap-2">
-                <div className="min-w-0">
-                  <p className={`text-base font-semibold tracking-tight ${themeClasses.title}`}>
-                    Wallets
-                  </p>
-                  <p className={`mt-0.5 text-[11px] font-medium ${themeClasses.body}`}>
-                    Track your available money across accounts
-                  </p>
-                </div>
+            <div className="mb-3">
+              <p className={`text-[32px] font-bold leading-none ${status.text}`}>
+                {fmt(walletMoney)}
+              </p>
 
-                <span
-                  className={`shrink-0 rounded-full px-2.5 py-1 text-[11px] font-semibold backdrop-blur-sm ${status.badge}`}
-                >
-                  {wallets.length} {wallets.length === 1 ? "Wallet" : "Wallets"}
-                </span>
+              <p className={`mt-2 line-clamp-1 min-h-[20px] max-w-[28rem] text-xs font-medium leading-relaxed ${themeClasses.body}`}>
+                {message}
+              </p>
+
+              <p className={`mt-1 text-[11px] ${themeClasses.muted}`}>
+                Total money spread across your wallet system.
+              </p>
+            </div>
+
+            <div className="mb-3 grid grid-cols-3 gap-2">
+              <div className={`rounded-2xl border px-2.5 py-2 text-center backdrop-blur-[2px] ${themeClasses.glass}`}>
+                <p className={`mb-1 text-[10px] font-semibold uppercase tracking-[0.16em] ${themeClasses.muted}`}>
+                  Wallets
+                </p>
+                <p className={`text-xs font-bold ${themeClasses.title}`}>{wallets.length}</p>
+              </div>
+
+              <div className={`rounded-2xl border px-2.5 py-2 text-center backdrop-blur-[2px] ${themeClasses.glass}`}>
+                <p className={`mb-1 text-[10px] font-semibold uppercase tracking-[0.16em] ${themeClasses.muted}`}>
+                  Top Wallet
+                </p>
+                <p className={`truncate text-xs font-bold ${themeClasses.title}`}>
+                  {topWallet?.name || "None"}
+                </p>
+              </div>
+
+              <div className={`rounded-2xl border px-2.5 py-2 text-center backdrop-blur-[2px] ${themeClasses.glass}`}>
+                <p className={`mb-1 text-[10px] font-semibold uppercase tracking-[0.16em] ${themeClasses.muted}`}>
+                  Activity
+                </p>
+                <p className={`text-xs font-bold ${themeClasses.title}`}>
+                  {walletPreviewTransactions.length}
+                </p>
               </div>
             </div>
           </div>
 
-          <div className="mb-2">
-            <p className={`text-[28px] font-bold leading-none ${status.text}`}>
-              {fmt(walletMoney)}
-            </p>
+          <button
+            type="button"
+            onClick={onToggleDetails}
+            className="flex w-full items-center justify-between rounded-2xl border border-white/10 bg-black/15 px-3 py-2.5 text-sm text-white/85 backdrop-blur-sm transition hover:bg-white/10"
+          >
+            <span className="font-medium">
+              {expanded ? "Hide details" : "Show details"}
+            </span>
+            {expanded ? (
+              <ChevronUp className="h-4 w-4" />
+            ) : (
+              <ChevronDown className="h-4 w-4" />
+            )}
+          </button>
+        </div>
 
-            <p className={`mt-2 line-clamp-1 min-h-[20px] max-w-[28rem] text-xs font-medium leading-relaxed ${themeClasses.body}`}>
-              {message}
-            </p>
+        {expanded && (
+          <div className="mt-3 min-h-0 flex-1 space-y-3 overflow-y-auto rounded-2xl border border-white/10 bg-black/15 p-3 backdrop-blur-[2px] shadow-[inset_0_1px_0_rgba(255,255,255,0.05)] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+            {wallets.length ? (
+              <div className="space-y-2">
+                {visibleWallets.map((wallet, index) => (
+                  <div
+                    key={wallet.id || `${wallet.name}-${index}`}
+                    className="rounded-2xl border border-white/10 bg-black/20 p-3 backdrop-blur-[2px] shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]"
+                  >
+                    <div className="flex items-center justify-between gap-3">
+                      <div className="min-w-0 flex-1">
+                        <p className="truncate text-sm font-semibold text-white">
+                          {wallet.name || "Wallet"}
+                        </p>
+                        <p className="mt-1 text-xs uppercase tracking-[0.16em] text-white/45">
+                          {wallet.type || "wallet"}
+                        </p>
+                      </div>
 
-            <p className={`mt-1 text-[11px] ${themeClasses.muted}`}>
-              Total money spread across your wallet system.
-            </p>
-          </div>
+                      <p className="shrink-0 text-sm font-bold text-white">
+                        {fmt(wallet.balance || 0)}
+                      </p>
+                    </div>
 
-          <div className="mb-2 grid grid-cols-3 gap-2">
-            <div className={`rounded-2xl border px-2.5 py-2 text-center backdrop-blur-[2px] ${themeClasses.glass}`}>
-              <p className={`mb-1 text-[10px] font-semibold uppercase tracking-[0.16em] ${themeClasses.muted}`}>
-                Wallets
-              </p>
-              <p className={`text-xs font-bold ${themeClasses.title}`}>{wallets.length}</p>
-            </div>
-
-            <div className={`rounded-2xl border px-2.5 py-2 text-center backdrop-blur-[2px] ${themeClasses.glass}`}>
-              <p className={`mb-1 text-[10px] font-semibold uppercase tracking-[0.16em] ${themeClasses.muted}`}>
-                Top Wallet
-              </p>
-              <p className="truncate text-xs font-bold text-white">
-                {topWallet?.name || "None"}
-              </p>
-            </div>
-
-            <div className={`rounded-2xl border px-2.5 py-2 text-center backdrop-blur-[2px] ${themeClasses.glass}`}>
-              <p className={`mb-1 text-[10px] font-semibold uppercase tracking-[0.16em] ${themeClasses.muted}`}>
-                Activity
-              </p>
-              <p className={`text-xs font-bold ${themeClasses.title}`}>
-                {walletPreviewTransactions.length}
-              </p>
-            </div>
-          </div>
-
-          <div className="mt-auto">
-            <button
-              type="button"
-              onClick={onToggleDetails}
-              className="flex w-full items-center justify-between rounded-2xl border border-white/10 bg-black/15 px-3 py-2.5 text-sm text-white/85 backdrop-blur-sm transition hover:bg-white/10"
-            >
-              <span className="font-medium">
-                {expanded ? "Hide details" : "Show details"}
-              </span>
-              {expanded ? (
-                <ChevronUp className="h-4 w-4" />
-              ) : (
-                <ChevronDown className="h-4 w-4" />
-              )}
-            </button>
-
-            {expanded && (
-              <div className="mt-3 space-y-3 rounded-2xl border border-white/10 bg-black/15 p-3 backdrop-blur-[2px] shadow-[inset_0_1px_0_rgba(255,255,255,0.05)]">
-                {wallets.length ? (
-                  <div className="space-y-2">
-                    {visibleWallets.map((wallet, index) => (
-                      <div
-                        key={wallet.id || `${wallet.name}-${index}`}
-                        className="rounded-2xl border border-white/10 bg-black/20 p-3 backdrop-blur-[2px] shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]"
+                    <div className="mt-3 flex flex-wrap gap-2">
+                      <button
+                        type="button"
+                        onClick={() => onAddMoney?.(wallet)}
+                        disabled={financeActionLoading}
+                        className="rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-xs font-semibold text-white/85 transition hover:bg-white/10 hover:text-white disabled:opacity-50"
                       >
-                        <div className="flex items-center justify-between gap-3">
+                        Add
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => onTransferMoney?.(wallet)}
+                        disabled={financeActionLoading}
+                        className="rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-xs font-semibold text-white/85 transition hover:bg-white/10 hover:text-white disabled:opacity-50"
+                      >
+                        Transfer
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => onMoveWallet?.(wallet.id, -1)}
+                        disabled={financeActionLoading}
+                        className="rounded-xl border border-white/10 bg-white/5 p-2 text-white/80 transition hover:bg-white/10 disabled:opacity-50"
+                        aria-label="Move wallet up"
+                      >
+                        <ArrowUp className="h-4 w-4" />
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => onMoveWallet?.(wallet.id, 1)}
+                        disabled={financeActionLoading}
+                        className="rounded-xl border border-white/10 bg-white/5 p-2 text-white/80 transition hover:bg-white/10 disabled:opacity-50"
+                        aria-label="Move wallet down"
+                      >
+                        <ArrowDown className="h-4 w-4" />
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => onDeleteWallet?.(wallet.id)}
+                        disabled={financeActionLoading}
+                        className="rounded-xl border border-rose-400/20 bg-rose-500/10 p-2 text-rose-200 transition hover:bg-rose-500/20 disabled:opacity-50"
+                        aria-label="Delete wallet"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </button>
+                    </div>
+                  </div>
+                ))}
+
+                {!!visibleTransactions.length && (
+                  <div className="rounded-2xl border border-white/10 bg-black/20 p-3 backdrop-blur-[2px] shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]">
+                    <p className="text-xs font-semibold uppercase tracking-[0.18em] text-white/70">
+                      Recent activity
+                    </p>
+
+                    <div className="mt-3 space-y-2">
+                      {visibleTransactions.map((item, index) => (
+                        <div
+                          key={item.id || `${item.type}-${index}`}
+                          className="flex items-center justify-between gap-3 rounded-xl border border-white/6 bg-white/[0.03] px-3 py-2"
+                        >
                           <div className="min-w-0 flex-1">
-                            <p className="truncate text-sm font-semibold text-white">
-                              {wallet.name || "Wallet"}
+                            <p className="truncate text-sm font-medium text-white">
+                              {getHistoryTypeLabel(item.type)}
                             </p>
-                            <p className="mt-1 text-xs uppercase tracking-[0.16em] text-white/45">
-                              {wallet.type || "wallet"}
+                            <p className="mt-1 text-xs text-white/45">
+                              {formatHistoryDate(
+                                item.transaction_date ||
+                                  item.date ||
+                                  item.created_at
+                              )}
                             </p>
                           </div>
 
                           <p className="shrink-0 text-sm font-bold text-white">
-                            {fmt(wallet.balance || 0)}
+                            {getHistoryAmountPrefix(item.type)}
+                            {fmt(item.amount || 0)}
                           </p>
                         </div>
-
-                        <div className="mt-3 flex flex-wrap gap-2">
-                          <button
-                            type="button"
-                            onClick={() => onAddMoney?.(wallet)}
-                            disabled={financeActionLoading}
-                            className="rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-xs font-semibold text-white/85 transition hover:bg-white/10 hover:text-white disabled:opacity-50"
-                          >
-                            Add
-                          </button>
-
-                          <button
-                            type="button"
-                            onClick={() => onTransferMoney?.(wallet)}
-                            disabled={financeActionLoading}
-                            className="rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-xs font-semibold text-white/85 transition hover:bg-white/10 hover:text-white disabled:opacity-50"
-                          >
-                            Transfer
-                          </button>
-
-                          <button
-                            type="button"
-                            onClick={() => onMoveWallet?.(wallet.id, -1)}
-                            disabled={financeActionLoading}
-                            className="rounded-xl border border-white/10 bg-white/5 p-2 text-white/80 transition hover:bg-white/10 disabled:opacity-50"
-                            aria-label="Move wallet up"
-                          >
-                            <ArrowUp className="h-4 w-4" />
-                          </button>
-
-                          <button
-                            type="button"
-                            onClick={() => onMoveWallet?.(wallet.id, 1)}
-                            disabled={financeActionLoading}
-                            className="rounded-xl border border-white/10 bg-white/5 p-2 text-white/80 transition hover:bg-white/10 disabled:opacity-50"
-                            aria-label="Move wallet down"
-                          >
-                            <ArrowDown className="h-4 w-4" />
-                          </button>
-
-                          <button
-                            type="button"
-                            onClick={() => onDeleteWallet?.(wallet.id)}
-                            disabled={financeActionLoading}
-                            className="rounded-xl border border-rose-400/20 bg-rose-500/10 p-2 text-rose-200 transition hover:bg-rose-500/20 disabled:opacity-50"
-                            aria-label="Delete wallet"
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </button>
-                        </div>
-                      </div>
-                    ))}
-
-                    {!!visibleTransactions.length && (
-                      <div className="rounded-2xl border border-white/10 bg-black/20 p-3 backdrop-blur-[2px] shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]">
-                        <p className="text-xs font-semibold uppercase tracking-[0.18em] text-white/70">
-                          Recent activity
-                        </p>
-
-                        <div className="mt-3 space-y-2">
-                          {visibleTransactions.map((item, index) => (
-                            <div
-                              key={item.id || `${item.type}-${index}`}
-                              className="flex items-center justify-between gap-3 rounded-xl border border-white/6 bg-white/[0.03] px-3 py-2"
-                            >
-                              <div className="min-w-0 flex-1">
-                                <p className="truncate text-sm font-medium text-white">
-                                  {getHistoryTypeLabel(item.type)}
-                                </p>
-                                <p className="mt-1 text-xs text-white/45">
-                                  {formatHistoryDate(
-                                    item.transaction_date ||
-                                      item.date ||
-                                      item.created_at
-                                  )}
-                                </p>
-                              </div>
-
-                              <p className="shrink-0 text-sm font-bold text-white">
-                                {getHistoryAmountPrefix(item.type)}
-                                {fmt(item.amount || 0)}
-                              </p>
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                ) : (
-                  <div className={`rounded-2xl border border-dashed p-4 text-center ${themeClasses.softGlass}`}>
-                    <WalletCards className="mx-auto h-8 w-8 text-white/30" />
-                    <p className="mt-3 text-sm font-semibold text-white">
-                      No wallets yet
-                    </p>
-                    <p className={`mt-2 text-sm leading-6 ${themeClasses.muted}`}>
-                      Create your first wallet so your money is organized and easier
-                      to track.
-                    </p>
+                      ))}
+                    </div>
                   </div>
                 )}
-
-                <div className="grid grid-cols-1 gap-2">
-                  <button
-                    type="button"
-                    onClick={onCreateWallet}
-                    className={`flex items-center justify-center gap-2 rounded-2xl border px-4 py-3 text-sm font-semibold transition ${themeClasses.action}`}
-                  >
-                    <Plus className="h-4 w-4" />
-                    Create Wallet
-                  </button>
-                </div>
+              </div>
+            ) : (
+              <div className={`rounded-2xl border border-dashed p-4 text-center ${themeClasses.softGlass}`}>
+                <WalletCards className="mx-auto h-8 w-8 text-white/30" />
+                <p className="mt-3 text-sm font-semibold text-white">
+                  No wallets yet
+                </p>
+                <p className={`mt-2 text-sm leading-6 ${themeClasses.muted}`}>
+                  Create your first wallet so your money is organized and easier
+                  to track.
+                </p>
               </div>
             )}
+
+            <div className="grid grid-cols-1 gap-2">
+              <button
+                type="button"
+                onClick={onCreateWallet}
+                className={`flex items-center justify-center gap-2 rounded-2xl border px-4 py-3 text-sm font-semibold transition ${themeClasses.action}`}
+              >
+                <Plus className="h-4 w-4" />
+                Create Wallet
+              </button>
+            </div>
           </div>
-        </div>
+        )}
       </div>
+    </div>
   );
 }
