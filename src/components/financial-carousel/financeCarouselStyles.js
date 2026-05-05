@@ -19,7 +19,8 @@ export const getFinanceSlideShellClass = (cardKey, theme = null, scale = null) =
 
   return [
     "relative w-full overflow-hidden border backdrop-blur-2xl",
-    scale?.financeSlide || "min-h-[286px] rounded-[28px] [&>*]:min-h-[284px] [&>*]:rounded-[27px]",
+    // 🔥 STANDARDIZED HEIGHT BASED ON EMERGENCY FUND CARD
+    scale?.financeSlide || "min-h-[320px] rounded-[28px] [&>*]:min-h-[320px] [&>*]:rounded-[27px]",
     toneClassMap[cardKey] || toneClassMap.budget,
   ].join(" ");
 };
