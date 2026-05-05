@@ -128,29 +128,6 @@ const createLocalOnlyExpenseRecord = (payload) => ({
   source: payload?.source || "local",
 });
 
-const DASHBOARD_FALLBACK_BILLBOARD = {
-  id: "clara-fallback-billboard",
-  is_active: true,
-  title: "CLARA is ready offline",
-  subtitle: "Your wallet, budget, savings, and emergency fund stay available on this phone.",
-  tag: "Offline-first",
-  cta_label: "Keep tracking",
-  media_type: "none",
-  local_fallback: true,
-};
-
-const getSafeBillboards = (items = []) => {
-  const safeItems = Array.isArray(items) ? items.filter(Boolean) : [];
-  const activeItems = safeItems.filter(
-    (item) =>
-      isTruthyActive(item?.is_active) ||
-      item?.is_active === null ||
-      item?.is_active === undefined
-  );
-
-  return activeItems.length > 0 ? activeItems : [DASHBOARD_FALLBACK_BILLBOARD];
-};
-
 const isProtectedFinanceRefreshWarning = (message = "") => {
   const normalized = normalizeLower(message).replace(/[\u2019']/g, "");
 
@@ -161,107 +138,6 @@ const isProtectedFinanceRefreshWarning = (message = "") => {
   );
 };
 
-const DASHBOARD_BILLBOARD_LOOKUP_VALUES = [
-  "dashboard",
-  "home",
-  "clara-dashboard",
-  "clara-home",
-  "clara-fallback-billboard",
-  "clara-dashboard-billboard",
-];
-
-const DASHBOARD_BILLBOARD_LOOKUP_FIELDS = [
-  "slug",
-  "key",
-  "section_key",
-  "placement",
-  "location",
-];
-
-const UUID_PATTERN =
-  /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
-
-const isValidUuid = (value) => UUID_PATTERN.test(normalizeString(value));
-
-const isLocalFallbackBillboard = (item) =>
-  Boolean(
-    item?.local_fallback ||
-      item?.localFallback ||
-      item?.id === DASHBOARD_FALLBACK_BILLBOARD.id
-  );
-
-const canTrackBillboardAnalytics = (itemOrId) => {
-  const id =
-    typeof itemOrId === "object" && itemOrId !== null ? itemOrId.id : itemOrId;
-
-  if (!id || !isValidUuid(id)) return false;
-  if (typeof itemOrId === "object" && isLocalFallbackBillboard(itemOrId)) return false;
-
-  return true;
-};
-
-const billboardMatchesDashboardPlacement = (item) => {
-  if (!item) return false;
-
-  return DASHBOARD_BILLBOARD_LOOKUP_FIELDS.some((field) => {
-    const value = normalizeLower(item?.[field]);
-    return value && DASHBOARD_BILLBOARD_LOOKUP_VALUES.includes(value);
-  });
-};
-
-const dashboardRuntimeBillboards = new Map();
-
-const getDashboardBillboardRuntimeKey = (user) =>
-  `dashboard_billboards_${normalizeString(user?.id || user?.email || "guest")}`;
-
-const getRuntimeCachedBillboards = (user, fallback = []) => {
-  const key = getDashboardBillboardRuntimeKey(user);
-  const cached = dashboardRuntimeBillboards.get(key);
-  return getSafeBillboards(Array.isArray(cached) && cached.length ? cached : fallback);
-};
-
-const setRuntimeCachedBillboards = (user, items = []) => {
-  const key = getDashboardBillboardRuntimeKey(user);
-  const safeItems = getSafeBillboards(items);
-  dashboardRuntimeBillboards.set(key, safeItems);
-  return safeItems;
-};
-
-const fetchDashboardBillboardsOfflineFirst = async ({ user, fallback = [] } = {}) => {
-  const runtimeFallback = getRuntimeCachedBillboards(user, fallback);
-
-  if (!isClaraOnline()) {
-    return runtimeFallback;
-  }
-
-  try {
-    let response = await supabase
-      .from("billboards")
-      .select("*")
-      .order("sort_order", { ascending: true })
-      .order("created_at", { ascending: false })
-      .limit(20);
-
-    if (response?.error) {
-      response = await supabase.from("billboards").select("*").limit(20);
-    }
-
-    if (response?.error) {
-      return runtimeFallback;
-    }
-
-    const rows = Array.isArray(response?.data) ? response.data.filter(Boolean) : [];
-    const activeRows = getSafeBillboards(rows).filter(
-      (item) => !isLocalFallbackBillboard(item)
-    );
-    const dashboardRows = activeRows.filter(billboardMatchesDashboardPlacement);
-    const selectedRows = dashboardRows.length ? dashboardRows : activeRows;
-
-    return setRuntimeCachedBillboards(user, selectedRows);
-  } catch {
-    return runtimeFallback;
-  }
-};
 const ENROLLMENT_PENDING_STATUSES = new Set([
   "pending",
   "under_review",
@@ -326,46 +202,6 @@ const firstPositiveNumber = (...values) => {
 
 const isTruthyActive = (value) => {
   return value === true || value === "true" || value === 1 || value === "1";
-};
-
-const getBillboardMediaType = (item) => {
-  const explicitType = normalizeString(item?.media_type).toLowerCase();
-  if (explicitType) return explicitType;
-
-  const url = normalizeString(
-    item?.media_url ||
-      item?.image_url ||
-      item?.thumbnail_url ||
-      item?.photo_url ||
-      ""
-  ).toLowerCase();
-
-  if (!url) return "none";
-
-  if (
-    url.includes(".mp4") ||
-    url.includes(".webm") ||
-    url.includes(".mov") ||
-    url.includes(".m4v") ||
-    url.includes("video")
-  ) {
-    return "video";
-  }
-
-  if (
-    url.includes(".jpg") ||
-    url.includes(".jpeg") ||
-    url.includes(".png") ||
-    url.includes(".webp") ||
-    url.includes(".gif") ||
-    url.includes(".svg")
-  ) {
-    return "image";
-  }
-
-  if (url.includes(".pdf")) return "pdf";
-
-  return "file";
 };
 
 const normalizeDateValue = (value) => {
@@ -1450,68 +1286,6 @@ const hasDashboardFinanceContent = (snapshot = {}) =>
       Number(snapshot.walletMoney || 0) > 0
   );
 
-const buildPersonalizedFallbackBillboard = ({
-  wallets = [],
-  expenses = [],
-  emergencyFund = null,
-  walletMoney = 0,
-} = {}) => {
-  const safeWallets = Array.isArray(wallets) ? wallets : [];
-  const safeExpenses = Array.isArray(expenses) ? expenses : [];
-  const savedEmergencyFund = firstValidNumber(
-    emergencyFund?.saved_amount,
-    emergencyFund?.current_amount,
-    emergencyFund?.saved,
-    emergencyFund?.balance,
-    emergencyFund?.amount
-  );
-  const emergencyTarget = firstValidNumber(
-    emergencyFund?.target_amount,
-    emergencyFund?.goal_amount,
-    emergencyFund?.target,
-    emergencyFund?.monthly_survival_expense
-  );
-  const emergencyRatio = emergencyTarget > 0 ? savedEmergencyFund / emergencyTarget : 0;
-
-  if (safeWallets.length === 0 && Number(walletMoney || 0) <= 0) {
-    return {
-      ...DASHBOARD_FALLBACK_BILLBOARD,
-      title: "Create your first wallet",
-      subtitle: "Start by adding where your money lives so CLARA can protect your daily decisions.",
-      tag: "Start here",
-      cta_label: "Add wallet",
-    };
-  }
-
-  if (safeExpenses.length === 0) {
-    return {
-      ...DASHBOARD_FALLBACK_BILLBOARD,
-      title: "Log your first expense",
-      subtitle: "One honest expense today gives CLARA the context to guide your budget tomorrow.",
-      tag: "First log",
-      cta_label: "Track spending",
-    };
-  }
-
-  if (!emergencyFund || savedEmergencyFund <= 0 || emergencyRatio < 0.25) {
-    return {
-      ...DASHBOARD_FALLBACK_BILLBOARD,
-      title: "Build your protection fund",
-      subtitle: "Your emergency fund turns stressful moments into planned decisions.",
-      tag: "Protection",
-      cta_label: "Keep building",
-    };
-  }
-
-  return {
-    ...DASHBOARD_FALLBACK_BILLBOARD,
-    title: "Keep your rhythm going",
-    subtitle: "Your finance data is safe on this phone. Stay consistent and let CLARA guide the next move.",
-    tag: "Consistency",
-    cta_label: "Keep tracking",
-  };
-};
-
 const getFinanceThemeAccentClass = (tone = "emerald", isLight = false) => {
   if (isLight) {
     const lightToneMap = {
@@ -1592,12 +1366,6 @@ const DASHBOARD_SCALE = {
     headerIconSvg: "h-4 w-4",
     headerLabel: "text-[10px]",
     content: "mt-1 space-y-[clamp(7px,1.5dvh,10px)] px-[clamp(10px,3vw,14px)] pb-[calc(env(safe-area-inset-bottom)+6px)] md:px-[clamp(10px,3vw,14px)] md:space-y-[clamp(7px,1.5dvh,10px)]",
-    billboard: "h-[clamp(90px,14dvh,108px)]",
-    billboardPad: "gap-2 p-2.5",
-    billboardTitle: "mt-0.5 text-[clamp(13px,3.5vw,15px)]",
-    billboardText: "mt-0.5 line-clamp-1 text-[11px] leading-snug",
-    billboardCta: "mt-1",
-    billboardIcon: "h-10 w-10 rounded-2xl",
     financeWrap: "space-y-[clamp(8px,1.4dvh,12px)]",
     financeClip: "rounded-[24px]",
     financeSlide: "min-h-[238px] rounded-[24px] [&>*]:min-h-[236px] [&>*]:rounded-[23px]",
@@ -1618,12 +1386,6 @@ const DASHBOARD_SCALE = {
     headerIconSvg: "h-[18px] w-[18px]",
     headerLabel: "text-[10.5px]",
     content: "mt-1.5 space-y-[clamp(8px,1.7dvh,12px)] px-[clamp(12px,3.5vw,16px)] pb-[calc(env(safe-area-inset-bottom)+6px)] md:px-[clamp(12px,3.5vw,16px)] md:space-y-[clamp(8px,1.7dvh,12px)]",
-    billboard: "h-[clamp(98px,14.5dvh,116px)]",
-    billboardPad: "gap-2.5 p-3",
-    billboardTitle: "mt-0.5 text-[clamp(14px,3.7vw,16px)]",
-    billboardText: "mt-0.5 line-clamp-1 text-xs leading-snug",
-    billboardCta: "mt-1.5",
-    billboardIcon: "h-11 w-11 rounded-[14px]",
     financeWrap: "space-y-[clamp(8px,1.4dvh,12px)]",
     financeClip: "rounded-[26px]",
     financeSlide: "min-h-[258px] rounded-[26px] [&>*]:min-h-[256px] [&>*]:rounded-[25px]",
@@ -1644,12 +1406,6 @@ const DASHBOARD_SCALE = {
     headerIconSvg: "h-5 w-5",
     headerLabel: "text-[11px]",
     content: "mt-2 space-y-[clamp(10px,1.8dvh,14px)] px-[clamp(14px,4vw,18px)] pb-[calc(env(safe-area-inset-bottom)+6px)] md:px-[clamp(14px,4vw,18px)] md:space-y-[clamp(10px,1.8dvh,14px)]",
-    billboard: "h-[clamp(106px,15dvh,126px)]",
-    billboardPad: "gap-3 p-3.5",
-    billboardTitle: "mt-1 text-base",
-    billboardText: "mt-1 line-clamp-2 text-xs leading-relaxed",
-    billboardCta: "mt-2",
-    billboardIcon: "h-12 w-12 rounded-2xl",
     financeWrap: "space-y-[clamp(9px,1.5dvh,14px)]",
     financeClip: "rounded-[28px]",
     financeSlide: "min-h-[286px] rounded-[28px] [&>*]:min-h-[284px] [&>*]:rounded-[27px]",
@@ -1670,12 +1426,6 @@ const DASHBOARD_SCALE = {
     headerIconSvg: "h-5 w-5",
     headerLabel: "text-[11px]",
     content: "mt-2.5 space-y-[clamp(12px,2dvh,16px)] px-[clamp(16px,4vw,20px)] pb-[calc(env(safe-area-inset-bottom)+6px)] md:px-[clamp(16px,4vw,20px)] md:space-y-[clamp(12px,2dvh,16px)]",
-    billboard: "h-[clamp(112px,15.5dvh,132px)]",
-    billboardPad: "gap-3 p-3.5",
-    billboardTitle: "mt-1 text-base",
-    billboardText: "mt-1 line-clamp-2 text-xs leading-relaxed",
-    billboardCta: "mt-2",
-    billboardIcon: "h-12 w-12 rounded-2xl",
     financeWrap: "space-y-[clamp(9px,1.5dvh,14px)]",
     financeClip: "rounded-[30px]",
     financeSlide: "min-h-[314px] rounded-[30px] [&>*]:min-h-[312px] [&>*]:rounded-[29px]",
@@ -2181,7 +1931,6 @@ const createEmptyDashboardCache = (key = null) => ({
   tasks: [],
   submissions: [],
   programRecord: null,
-  billboards: getSafeBillboards([]),
   survivalExpense: 0,
   walletMoney: 0,
   wallets: [],
@@ -5772,7 +5521,6 @@ export default function Dashboard() {
   const [tasks, setTasks] = useState(initialCache.tasks);
   const [submissions, setSubmissions] = useState(initialCache.submissions);
   const [programRecord, setProgramRecord] = useState(initialCache.programRecord);
-  const [billboards, setBillboards] = useState(() => getSafeBillboards(initialCache.billboards));
   const [survivalExpense, setSurvivalExpense] = useState(initialCache.survivalExpense);
   const [walletMoney, setWalletMoney] = useState(initialCache.walletMoney);
   const [wallets, setWallets] = useState(Array.isArray(initialCache.wallets) ? initialCache.wallets : []);
@@ -6070,9 +5818,6 @@ export default function Dashboard() {
   const dashboardScrollRef = useRef(null);
   const dashboardContentRef = useRef(null);
   const dashboardScrollTimersRef = useRef([]);
-  const trackedViewIdsRef = useRef(new Set());
-  const trackedClickIdsRef = useRef(new Set());
-  const clickInFlightIdsRef = useRef(new Set());
   const approvalTriggeredRef = useRef(false);
   const hasLoadedDashboardRef = useRef(false);
   const latestEnrollmentRef = useRef(null);
@@ -6084,7 +5829,6 @@ export default function Dashboard() {
     setTasks(nextCache.tasks);
     setSubmissions(nextCache.submissions);
     setProgramRecord(nextCache.programRecord);
-    setBillboards(getSafeBillboards(nextCache.billboards));
     setSurvivalExpense(nextCache.survivalExpense);
     setWalletMoney(nextCache.walletMoney);
     setWallets(nextCache.wallets);
@@ -6411,14 +6155,10 @@ export default function Dashboard() {
 
       try {
         const promise = (async () => {
-          const [tasksRes, submissionsRes, userProgramRecord, remoteBillboards, profilesRes, enrollmentsRes] = await Promise.all([
+          const [tasksRes, submissionsRes, userProgramRecord, profilesRes, enrollmentsRes] = await Promise.all([
             supabase.from("challenge_tasks").select("*").order("sort_order", { ascending: true }).order("day", { ascending: true }),
             supabase.from("task_submissions").select("*"),
             fetchUserProgramRecord({ supabase, userId: currentUser.id }),
-            fetchDashboardBillboardsOfflineFirst({
-              user: currentUser,
-              fallback: dashboardPageCache.billboards,
-            }),
             supabase.from("profiles").select("*"),
             supabase.from("enrollments").select("*").eq("user_id", currentUser.id).order("created_at", { ascending: false }).limit(1),
           ]);
@@ -6432,7 +6172,6 @@ export default function Dashboard() {
           const normalizedTasks = (tasksRes.data || []).map(normalizeProgramTask);
           const userProfile = (profilesRes.data || []).find((profile) => isOwnedByUser(profile, currentUser)) || null;
           const enrollmentRecord = (enrollmentsRes.data || [])[0] || null;
-          const activeBillboards = getSafeBillboards(remoteBillboards);
 
           const safeWallets = Array.isArray(financeWallets) ? financeWallets : [];
           const safeWalletTransactions = Array.isArray(financeWalletTransactions) ? financeWalletTransactions : [];
@@ -6457,7 +6196,6 @@ export default function Dashboard() {
             tasks: normalizedTasks,
             submissions: userSubmissions,
             programRecord: userProgramRecord || dashboardPageCache.programRecord || null,
-            billboards: activeBillboards,
             survivalExpense: firstPositiveNumber(userProfile?.monthly_survival_expense, userProfile?.survival_expense, userProfile?.clara_survival_expense, readStoredSurvivalExpense(currentUser.id), survivalExpense, dashboardPageCache.survivalExpense),
             walletMoney: nextWalletMoney,
             wallets: safeWallets,
@@ -6546,104 +6284,6 @@ export default function Dashboard() {
       }
     };
   }, []);
-
-  const trackBillboardView = useCallback(
-    async (billboardId) => {
-      if (!billboardId || !user?.id || !canTrackBillboardAnalytics(billboardId)) return;
-      if (trackedViewIdsRef.current.has(billboardId)) return;
-
-      trackedViewIdsRef.current.add(billboardId);
-
-      try {
-        const { data: existing, error: existingError } = await supabase
-          .from("billboard_views")
-          .select("id")
-          .eq("billboard_id", billboardId)
-          .eq("viewer_user_id", user.id)
-          .maybeSingle();
-
-        if (existingError) throw existingError;
-        if (existing) return;
-
-        const { error: insertError } = await supabase
-          .from("billboard_views")
-          .insert({
-            billboard_id: billboardId,
-            viewer_user_id: user.id,
-          });
-
-        if (insertError) throw insertError;
-      } catch (error) {
-        console.error("View tracking failed:", error);
-      }
-    },
-    [user?.id]
-  );
-
-  const trackBillboardClick = useCallback(
-    async (billboardId) => {
-      if (!billboardId || !user?.id || !canTrackBillboardAnalytics(billboardId)) return false;
-
-      if (trackedClickIdsRef.current.has(billboardId)) {
-        return false;
-      }
-
-      if (clickInFlightIdsRef.current.has(billboardId)) {
-        return false;
-      }
-
-      clickInFlightIdsRef.current.add(billboardId);
-
-      try {
-        const { data: existing, error: existingError } = await supabase
-          .from("billboard_clicks")
-          .select("id")
-          .eq("billboard_id", billboardId)
-          .eq("viewer_user_id", user.id)
-          .maybeSingle();
-
-        if (existingError) throw existingError;
-
-        if (existing) {
-          trackedClickIdsRef.current.add(billboardId);
-          return false;
-        }
-
-        const { error: insertError } = await supabase
-          .from("billboard_clicks")
-          .insert({
-            billboard_id: billboardId,
-            viewer_user_id: user.id,
-          });
-
-        if (insertError) {
-          const message = String(insertError?.message || "").toLowerCase();
-          const details = String(insertError?.details || "").toLowerCase();
-
-          if (
-            message.includes("duplicate") ||
-            message.includes("unique") ||
-            details.includes("duplicate") ||
-            details.includes("unique")
-          ) {
-            trackedClickIdsRef.current.add(billboardId);
-            return false;
-          }
-
-          throw insertError;
-        }
-
-        trackedClickIdsRef.current.add(billboardId);
-        return true;
-      } catch (error) {
-        console.error("Click tracking failed:", error);
-        return false;
-      } finally {
-        clickInFlightIdsRef.current.delete(billboardId);
-      }
-    },
-    [user?.id]
-  );
 
   useEffect(() => {
     latestEnrollmentRef.current = latestEnrollment;
@@ -6754,11 +6394,6 @@ export default function Dashboard() {
       .on(
         "postgres_changes",
         { event: "*", schema: "public", table: "task_submissions" },
-        scheduleRefresh
-      )
-      .on(
-        "postgres_changes",
-        { event: "*", schema: "public", table: "billboards" },
         scheduleRefresh
       )
       .on(
@@ -9544,93 +9179,6 @@ export default function Dashboard() {
         ? "What stays available after your minimum monthly need."
         : "What your wallets still need to fully cover essentials.";
 
-  const personalizedFallbackBillboard = useMemo(
-    () =>
-      buildPersonalizedFallbackBillboard({
-        wallets,
-        expenses,
-        emergencyFund,
-        walletMoney,
-      }),
-    [wallets, expenses, emergencyFund, walletMoney]
-  );
-
-  const activeBillboard = useMemo(() => {
-    const safeBillboards = getSafeBillboards(billboards);
-    const candidate =
-      safeBillboards.find((item) => isTruthyActive(item?.is_active)) ||
-      safeBillboards[0] ||
-      null;
-
-    if (!candidate || isLocalFallbackBillboard(candidate)) {
-      return personalizedFallbackBillboard;
-    }
-
-    return candidate;
-  }, [billboards, personalizedFallbackBillboard]);
-
-  useEffect(() => {
-    if (canTrackBillboardAnalytics(activeBillboard)) {
-      trackBillboardView(activeBillboard.id);
-    }
-  }, [activeBillboard, activeBillboard?.id, trackBillboardView]);
-
-  const billboardMediaUrl = normalizeString(
-    activeBillboard?.media_url ||
-      activeBillboard?.image_url ||
-      activeBillboard?.thumbnail_url ||
-      activeBillboard?.photo_url ||
-      ""
-  );
-
-  const billboardTitle = normalizeString(
-    activeBillboard?.title ||
-      activeBillboard?.headline ||
-      activeBillboard?.name ||
-      ""
-  );
-
-  const billboardSubtitle = normalizeString(
-    activeBillboard?.body ||
-      activeBillboard?.subtitle ||
-      activeBillboard?.description ||
-      activeBillboard?.caption ||
-      ""
-  );
-
-  const billboardTag = normalizeString(
-    activeBillboard?.tag_label ||
-      activeBillboard?.tag ||
-      activeBillboard?.badge ||
-      ""
-  );
-
-  const billboardCta = normalizeString(
-    activeBillboard?.cta_label ||
-      activeBillboard?.button_text ||
-      ""
-  );
-
-  const billboardTargetUrl = normalizeString(
-    activeBillboard?.cta_url || billboardMediaUrl || ""
-  );
-
-  const billboardMediaType = getBillboardMediaType(activeBillboard);
-  const hasBillboardContent =
-    !!billboardMediaUrl || !!billboardTitle || !!billboardSubtitle;
-
-  const billboardClickable = !!billboardTargetUrl;
-
-  const openBillboardTarget = useCallback(async () => {
-    if (!billboardTargetUrl) return;
-
-    if (canTrackBillboardAnalytics(activeBillboard)) {
-      await trackBillboardClick(activeBillboard.id);
-    }
-
-    window.open(billboardTargetUrl, "_blank", "noopener,noreferrer");
-  }, [billboardTargetUrl, activeBillboard?.id, trackBillboardClick]);
-
   const standardPromptTitle =
     floatingProgramBubble?.kind === "onboarding" ? "Complete your setup" : "Today's task";
 
@@ -9700,7 +9248,7 @@ export default function Dashboard() {
     navigate("/tasks");
   };
 
-  const feedHasHighlight = hasBillboardContent || programJourney.accessibleCompletedCount > 0;
+  const feedHasHighlight = programJourney.accessibleCompletedCount > 0;
   const unreadMessagesCount = 0;
   const taskBadgeLabel = activeTask
     ? `Day ${activeTask.day}`
@@ -9761,11 +9309,11 @@ export default function Dashboard() {
       key: "feed",
       label: "Feed",
       icon: Home,
-      badge: hasBillboardContent
+      badge: feedHasHighlight
         ? {
             type: "dot",
             value: "",
-            className: "border-sky-400/25 bg-sky-400 text-sky-100",
+            className: "border-emerald-400/25 bg-emerald-400 text-emerald-100",
           }
         : null,
     },
