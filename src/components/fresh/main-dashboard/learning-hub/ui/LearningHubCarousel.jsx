@@ -8,6 +8,7 @@ const RESUME_AFTER_TOUCH = 6500;
 export default function LearningHubCarousel({ materials = [], onOpenMaterial }) {
   const [activeIndex, setActiveIndex] = useState(0);
   const [isPaused, setIsPaused] = useState(false);
+  const [touchStartX, setTouchStartX] = useState(null);
   const resumeTimerRef = useRef(null);
 
   const safeMaterials = useMemo(() => materials.filter(Boolean), [materials]);
@@ -30,10 +31,33 @@ export default function LearningHubCarousel({ materials = [], onOpenMaterial }) 
     setActiveIndex((current) => (current + 1) % total);
   };
 
+  const moveToPrev = () => {
+    if (!total) return;
+    setActiveIndex((current) => (current - 1 + total) % total);
+  };
+
   const moveToIndex = (index) => {
     if (!total) return;
     pauseCarousel();
     setActiveIndex(index);
+    resumeCarouselSoon();
+  };
+
+  const handleTouchStart = (e) => {
+    pauseCarousel();
+    setTouchStartX(e.touches[0].clientX);
+  };
+
+  const handleTouchEnd = (e) => {
+    if (touchStartX === null) return;
+    const diff = touchStartX - e.changedTouches[0].clientX;
+
+    if (Math.abs(diff) > 50) {
+      if (diff > 0) moveToNext();
+      else moveToPrev();
+    }
+
+    setTouchStartX(null);
     resumeCarouselSoon();
   };
 
@@ -70,8 +94,8 @@ export default function LearningHubCarousel({ materials = [], onOpenMaterial }) 
         className="relative flex h-[190px] items-center justify-center overflow-visible"
         onMouseEnter={pauseCarousel}
         onMouseLeave={resumeCarouselSoon}
-        onTouchStart={pauseCarousel}
-        onTouchEnd={resumeCarouselSoon}
+        onTouchStart={handleTouchStart}
+        onTouchEnd={handleTouchEnd}
       >
         {safeMaterials.map((item, index) => {
           const rawOffset = index - activeIndex;
