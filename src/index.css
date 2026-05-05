@@ -60,38 +60,45 @@ body::after {
   opacity: 0.95;
 }
 
-/* WalletCard-first premium matching layer */
-#root [class*="rounded-3xl"][class*="border"],
-#root [class*="rounded-[2rem]"][class*="border"],
-#root [class*="rounded-[28px]"][class*="border"],
-#root [class*="rounded-[30px]"][class*="border"],
-#root [class*="rounded-[32px]"][class*="border"] {
-  background-color: rgba(5, 17, 35, 0.62) !important;
+/* CLARA unified premium financial card system */
+#root :is([class*="rounded-3xl"], [class*="rounded-[30px]"], [class*="rounded-[32px]"], [class*="rounded-[28px]"])[class*="border"] {
+  border-color: rgba(165, 243, 252, 0.20) !important;
+  background-color: rgba(5, 18, 36, 0.74) !important;
   background-image:
-    radial-gradient(circle at 0% 0%, rgba(0, 255, 220, 0.25), transparent 44%),
-    radial-gradient(circle at 100% 0%, rgba(126, 34, 206, 0.28), transparent 48%),
-    linear-gradient(135deg, rgba(8, 50, 67, 0.72), rgba(8, 18, 42, 0.80) 48%, rgba(32, 12, 70, 0.76)) !important;
-  border-color: rgba(94, 234, 212, 0.24) !important;
+    radial-gradient(circle at 0% 0%, rgba(0, 255, 220, 0.22), transparent 40%),
+    radial-gradient(circle at 100% 0%, rgba(126, 34, 206, 0.24), transparent 44%),
+    radial-gradient(circle at 50% 110%, rgba(59, 130, 246, 0.12), transparent 44%),
+    linear-gradient(135deg, rgba(6, 48, 66, 0.88), rgba(7, 20, 48, 0.88) 48%, rgba(37, 13, 74, 0.88)) !important;
   box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.12),
-    0 20px 60px rgba(0, 0, 0, 0.34),
-    0 0 28px rgba(0, 255, 220, 0.08),
-    0 0 38px rgba(126, 34, 206, 0.10) !important;
-  backdrop-filter: blur(22px) saturate(1.25);
-  -webkit-backdrop-filter: blur(22px) saturate(1.25);
+    inset 0 1px 0 rgba(255, 255, 255, 0.11),
+    0 22px 64px rgba(0, 0, 0, 0.34),
+    0 0 36px rgba(0, 255, 220, 0.08),
+    0 0 50px rgba(126, 34, 206, 0.09) !important;
+  backdrop-filter: blur(22px) saturate(1.18);
+  -webkit-backdrop-filter: blur(22px) saturate(1.18);
 }
 
-#root button[class*="rounded-full"],
-#root a[class*="rounded-full"],
-#root [class*="rounded-full"][class*="border"] {
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.14),
-    0 0 22px rgba(0, 255, 220, 0.12),
-    0 0 30px rgba(126, 34, 206, 0.13);
+#root :is([class*="rounded-2xl"], [class*="rounded-xl"])[class*="border"] {
+  border-color: rgba(165, 243, 252, 0.14) !important;
+  background-color: rgba(255, 255, 255, 0.055) !important;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08), 0 0 18px rgba(0, 255, 220, 0.035);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+}
+
+#root button[class*="rounded"],
+#root a[class*="rounded"] {
+  transition: background-color 160ms ease, border-color 160ms ease, transform 160ms ease, box-shadow 160ms ease;
+}
+
+#root button[class*="rounded"]:hover,
+#root a[class*="rounded"]:hover {
+  border-color: rgba(165, 243, 252, 0.24) !important;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.11), 0 0 22px rgba(0, 255, 220, 0.08), 0 0 26px rgba(126, 34, 206, 0.06);
 }
 
 #root [class*="bg-emerald"],
 #root [class*="bg-cyan"],
 #root [class*="bg-teal"] {
-  box-shadow: 0 0 18px rgba(0, 255, 220, 0.28);
+  box-shadow: 0 0 18px rgba(0, 255, 220, 0.26);
 }
