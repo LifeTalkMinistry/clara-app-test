@@ -98,9 +98,10 @@ export default function LearningHubCarousel({ materials = [], onOpenMaterial }) 
         onTouchStart={handleTouchStart}
         onTouchEnd={handleTouchEnd}
       >
-        <div className="pointer-events-none absolute inset-x-10 top-8 bottom-5 rounded-[34px] bg-[radial-gradient(circle_at_center,rgba(56,189,248,0.20),transparent_62%)] blur-2xl" />
-        <div className="pointer-events-none absolute left-0 top-4 z-[90] h-[212px] w-8 bg-gradient-to-r from-[#020617] to-transparent" />
-        <div className="pointer-events-none absolute right-0 top-4 z-[90] h-[212px] w-8 bg-gradient-to-l from-[#020617] to-transparent" />
+        <div className="pointer-events-none absolute inset-x-8 top-8 bottom-5 rounded-[34px] bg-[radial-gradient(circle_at_center,rgba(56,189,248,0.20),transparent_62%)] blur-2xl" />
+
+        <div className="pointer-events-none absolute left-0 top-4 z-[90] h-[212px] w-6 bg-gradient-to-r from-[#020617] to-transparent" />
+        <div className="pointer-events-none absolute right-0 top-4 z-[90] h-[212px] w-6 bg-gradient-to-l from-[#020617] to-transparent" />
 
         {safeMaterials.map((item, index) => {
           const rawOffset = index - activeIndex;
@@ -112,7 +113,7 @@ export default function LearningHubCarousel({ materials = [], onOpenMaterial }) 
                 : rawOffset;
 
           const isActive = wrappedOffset === 0;
-          const visible = Math.abs(wrappedOffset) <= 1;
+          const visible = Math.abs(wrappedOffset) <= 2;
 
           return (
             <LearningMaterialCard
