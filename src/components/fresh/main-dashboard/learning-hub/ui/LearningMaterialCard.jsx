@@ -1,21 +1,21 @@
 export default function LearningMaterialCard({ item, isActive, offset = 0, visible = true, onClick }) {
   const absOffset = Math.abs(offset);
-  const distance = 108;
+
+  const distance = 142;
   const translateX = `calc(-50% + ${offset * distance}px)`;
 
-  const scale = isActive ? 1 : absOffset === 1 ? 0.88 : 0.76;
-
-  const rotate = isActive ? 0 : offset < 0 ? 12 : -12;
+  const scale = isActive ? 1 : 0.78;
+  const rotate = isActive ? 0 : offset < 0 ? 10 : -10;
   const origin = isActive ? "center center" : offset < 0 ? "right center" : "left center";
 
-  const depth = isActive ? 20 : absOffset === 1 ? -16 : -50;
-  const blur = isActive ? 0 : absOffset === 1 ? 0.1 : 0.5;
+  const depth = isActive ? 20 : -30;
+  const blur = isActive ? 0 : 1.2;
 
-  const opacity = visible ? (isActive ? 1 : absOffset === 1 ? 0.9 : 0.45) : 0;
-  const zIndex = isActive ? 80 : 60 - absOffset;
+  const opacity = visible ? (isActive ? 1 : 0.55) : 0;
+  const zIndex = isActive ? 80 : 40;
 
-  const width = isActive ? 154 : absOffset === 1 ? 124 : 106;
-  const height = isActive ? 205 : absOffset === 1 ? 188 : 174;
+  const width = isActive ? 154 : 112;
+  const height = isActive ? 205 : 180;
 
   return (
     <div
@@ -60,7 +60,7 @@ export default function LearningMaterialCard({ item, isActive, offset = 0, visib
         </div>
 
         <div className="absolute left-4 right-4 top-[64px]">
-          <h3 className={`${isActive ? "text-[18px]" : "text-[15px]"} font-black leading-tight text-white`}>
+          <h3 className={`${isActive ? "text-[18px]" : "text-[14px]"} font-black leading-tight text-white`}>
             {item.title}
           </h3>
           <p className={`${isActive ? "mt-3 text-[11px]" : "mt-2 text-[10px]"} text-white/60`}>
