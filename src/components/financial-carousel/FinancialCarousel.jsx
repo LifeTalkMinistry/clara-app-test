@@ -1,12 +1,24 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { PiggyBank, ReceiptText } from "lucide-react";
+import WalletCard from "../WalletCard";
 import EmergencyFundCard from "../EmergencyFundCard";
 import BudgetCard from "../BudgetCard";
 import SavingsCard from "../SavingsCard";
 import InvestmentCard from "../InvestmentCard";
 import ObligationDebt from "../ObligationDebt";
 
+const DEFAULT_CAROUSEL_CARD_KEY = "budget";
+
 const carouselConfig = [
+  {
+    key: "wallet",
+    type: "wallet",
+    label: "Wallet",
+    enabled: true,
+    order: 0,
+    detailKey: "wallets",
+    tone: "teal",
+  },
   {
     key: "budget",
     type: "budget",
@@ -78,6 +90,11 @@ const getEnabledCarouselItems = () =>
     .filter((item) => item.enabled !== false)
     .sort((a, b) => Number(a.order || 0) - Number(b.order || 0));
 
+const getDefaultCarouselIndex = (items = []) => {
+  const index = items.findIndex((item) => item?.key === DEFAULT_CAROUSEL_CARD_KEY);
+  return index >= 0 ? index : 0;
+};
+
 const normalizeBudgetPlan = (plan = {}) => {
   const categories = Array.isArray(plan?.categories) ? plan.categories : [];
   const declaredBudget = readNumber(
@@ -123,7 +140,9 @@ const getCarouselData = ({
   totalSavingsSaved = 0,
   totalSavingsTarget = 0,
   primarySavingsGoal = null,
+  wallets = [],
   walletMoney = 0,
+  walletPreviewTransactions = [],
   survivalExpense = 0,
   user = null,
   guardChecked = false,
@@ -153,8 +172,17 @@ const getCarouselData = ({
 
   const budgetData = normalizeBudgetPlan(monthlyBudgetPlan || {});
   const safeSavingsGoals = Array.isArray(savingsGoals) ? savingsGoals : [];
+  const safeWallets = Array.isArray(wallets) ? wallets : [];
+  const safeWalletPreviewTransactions = Array.isArray(walletPreviewTransactions)
+    ? walletPreviewTransactions
+    : [];
 
   const dataByType = {
+    wallet: {
+      wallets: safeWallets,
+      walletMoney,
+      walletPreviewTransactions: safeWalletPreviewTransactions,
+    },
     budget: {
       ...budgetData,
     },
@@ -197,6 +225,9 @@ const getCarouselData = ({
 
 const getFinanceSlideShellClass = (cardKey, theme = null, scale = null) => {
   const toneClassMap = {
+    wallet:
+      theme?.tokens?.financeWalletShell ||
+      "border-white/15 bg-[radial-gradient(circle_at_top_left,rgba(45,212,191,0.18),transparent_34%),linear-gradient(135deg,rgba(4,23,30,0.96),rgba(3,14,24,0.98))] shadow-[0_28px_85px_rgba(20,184,166,0.15)]",
     budget:
       theme?.tokens?.financeBudgetShell ||
       "border-white/15 bg-[radial-gradient(circle_at_top_left,rgba(52,211,153,0.18),transparent_34%),linear-gradient(135deg,rgba(4,25,24,0.96),rgba(3,19,18,0.98))] shadow-[0_28px_85px_rgba(16,185,129,0.16)]",
@@ -294,6 +325,11 @@ const CarouselItemCard = ({
   onEditBudgetCategory,
   onDeleteBudgetCategory,
   onResetBudget,
+  onCreateWallet,
+  onMoveWallet,
+  onDeleteWallet,
+  onAddMoney,
+  onTransferMoney,
   onSaveSavingsGoal,
   onDeleteSavingsGoal,
   onAddSavings,
@@ -304,6 +340,27 @@ const CarouselItemCard = ({
   if (!item) return null;
 
   const data = item.data || {};
+
+  if (item.type === "wallet") {
+    return (
+      <div className="h-full min-h-[inherit] flex flex-col">
+        <WalletCard
+          wallets={data.wallets}
+          walletMoney={data.walletMoney}
+          walletPreviewTransactions={data.walletPreviewTransactions}
+          theme={selectedDashboardTheme}
+          expanded={expandedFinanceCard === "wallets"}
+          onToggleDetails={() => toggleFinanceDetails?.("wallets")}
+          financeActionLoading={financeActionLoading}
+          onCreateWallet={onCreateWallet}
+          onMoveWallet={onMoveWallet}
+          onDeleteWallet={onDeleteWallet}
+          onAddMoney={onAddMoney}
+          onTransferMoney={onTransferMoney}
+        />
+      </div>
+    );
+  }
 
   if (item.type === "emergencyFund") {
     return (
@@ -420,7 +477,9 @@ export default function FinancialCarousel({
   dashboardScale = {},
   selectedDashboardTheme = {},
   themeInactiveDotClass = "bg-white/20 hover:bg-white/35",
+  wallets = [],
   walletMoney = 0,
+  walletPreviewTransactions = [],
   survivalExpense = 0,
   user = null,
   guardChecked = false,
@@ -442,6 +501,11 @@ export default function FinancialCarousel({
   onEditBudgetCategory,
   onDeleteBudgetCategory,
   onResetBudget,
+  onCreateWallet,
+  onMoveWallet,
+  onDeleteWallet,
+  onAddMoney,
+  onTransferMoney,
   onSaveSavingsGoal,
   onDeleteSavingsGoal,
   onAddSavings,
@@ -451,7 +515,7 @@ export default function FinancialCarousel({
 }) {
   const carouselRef = useRef(null);
   const scrollFrameRef = useRef(null);
-  const [activeIndex, setActiveIndex] = useState(0);
+  const didSetDefaultSlideRef = useRef(false);
 
   const items = useMemo(
     () =>
@@ -461,7 +525,9 @@ export default function FinancialCarousel({
         totalSavingsSaved,
         totalSavingsTarget,
         primarySavingsGoal,
+        wallets,
         walletMoney,
+        walletPreviewTransactions,
         survivalExpense,
         user,
         guardChecked,
@@ -476,7 +542,9 @@ export default function FinancialCarousel({
       totalSavingsSaved,
       totalSavingsTarget,
       primarySavingsGoal,
+      wallets,
       walletMoney,
+      walletPreviewTransactions,
       survivalExpense,
       user,
       guardChecked,
@@ -487,8 +555,11 @@ export default function FinancialCarousel({
     ]
   );
 
+  const defaultIndex = useMemo(() => getDefaultCarouselIndex(items), [items]);
+  const [activeIndex, setActiveIndex] = useState(defaultIndex);
+
   const scrollToIndex = useCallback(
-    (nextIndex) => {
+    (nextIndex, behavior = "smooth") => {
       const container = carouselRef.current;
       if (!container || items.length <= 0) return;
 
@@ -497,7 +568,7 @@ export default function FinancialCarousel({
 
       container.scrollTo({
         left: slideWidth * safeIndex,
-        behavior: "smooth",
+        behavior,
       });
 
       setActiveIndex(safeIndex);
@@ -519,6 +590,12 @@ export default function FinancialCarousel({
       setActiveIndex(Math.max(0, Math.min(items.length - 1, index)));
     });
   }, [items.length]);
+
+  useEffect(() => {
+    if (!items.length || didSetDefaultSlideRef.current) return;
+    didSetDefaultSlideRef.current = true;
+    window.requestAnimationFrame(() => scrollToIndex(defaultIndex, "auto"));
+  }, [defaultIndex, items.length, scrollToIndex]);
 
   useEffect(() => {
     return () => {
@@ -553,6 +630,11 @@ export default function FinancialCarousel({
                   onEditBudgetCategory={onEditBudgetCategory}
                   onDeleteBudgetCategory={onDeleteBudgetCategory}
                   onResetBudget={onResetBudget}
+                  onCreateWallet={onCreateWallet}
+                  onMoveWallet={onMoveWallet}
+                  onDeleteWallet={onDeleteWallet}
+                  onAddMoney={onAddMoney}
+                  onTransferMoney={onTransferMoney}
                   onSaveSavingsGoal={onSaveSavingsGoal}
                   onDeleteSavingsGoal={onDeleteSavingsGoal}
                   onAddSavings={onAddSavings}
