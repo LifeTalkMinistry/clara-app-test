@@ -117,6 +117,7 @@ function AdminRescueButton({ show }) {
 
 function AppRoutes() {
   const location = useLocation();
+  const isLoginRoute = location.pathname === "/login";
   const { user, profile, loading, authReady, refreshProfile } = useAuth();
   const { role: normalizedRole, isFeatureAvailable, loading: roleLoading } = useUserRole();
   const [forceLogoutProcessing, setForceLogoutProcessing] = useState(false);
@@ -254,7 +255,7 @@ function AppRoutes() {
 
   const displayName = profile?.full_name || user?.user_metadata?.full_name || user?.user_metadata?.name || "";
 
-  if (forceLogoutProcessing || !authReady || loading || roleLoading || (user && !profileReady)) return <FullScreenLoader />;
+  if (!isLoginRoute && (forceLogoutProcessing || !authReady || loading || roleLoading || (user && !profileReady))) return <FullScreenLoader />;
 
   const guard = (children, path, shouldForceEnroll = forceEnroll, featurePath = path) => (
     <GuardedRoute
