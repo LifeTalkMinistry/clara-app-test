@@ -824,7 +824,7 @@ export default function EmergencyFundCard({
 
       <div
         data-emergency-card="true"
-        className={`relative mb-3 overflow-hidden rounded-3xl border shadow-2xl transition-all duration-200 ${themeClasses.border} ${status.ring}`}
+        className={`relative flex h-full min-h-[inherit] flex-col overflow-hidden rounded-3xl border shadow-2xl transition-all duration-200 ${themeClasses.border} ${status.ring}`}
         style={{
           borderColor: themeClasses.outline,
         }}
@@ -891,8 +891,9 @@ export default function EmergencyFundCard({
           }
         `}</style>
 
-        <div className="relative z-10 p-4">
-          <div className="mb-3 flex items-start gap-3">
+        <div className="relative z-10 flex h-full min-h-0 flex-col p-4">
+          <div className="flex min-h-0 flex-1 flex-col justify-between">
+            <div className="mb-3 flex items-start gap-3">
             <div
               className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border backdrop-blur-sm ${themeClasses.iconShell}`}
             >
@@ -987,10 +988,11 @@ export default function EmergencyFundCard({
               <ChevronDown className="h-4 w-4" />
             )}
           </button>
+          </div>
 
           {isExpanded && (
             <div
-              className={`mt-3 space-y-3 rounded-2xl border p-3 backdrop-blur-[2px] shadow-[inset_0_1px_0_rgba(255,255,255,0.05)] ${themeClasses.glass}`}
+              className={`mt-3 min-h-0 flex-1 space-y-3 overflow-y-auto rounded-2xl border p-3 backdrop-blur-[2px] shadow-[inset_0_1px_0_rgba(255,255,255,0.05)] [scrollbar-width:none] ${themeClasses.glass} [&::-webkit-scrollbar]:hidden`}
             >
               <div>
                 <div className="mb-2 flex items-center justify-between">
