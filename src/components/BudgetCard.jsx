@@ -360,15 +360,16 @@ export default function BudgetCard({
       />
 
       <div
-        className={`relative mb-3 overflow-hidden rounded-3xl border shadow-2xl transition-all duration-200 ${themeClasses.border} ${status.ring}`}
+        className={`relative flex h-full min-h-[inherit] flex-col overflow-hidden rounded-3xl border shadow-2xl transition-all duration-200 ${themeClasses.border} ${status.ring}`}
       >
         <div className={`absolute inset-0 ${themeClasses.surface}`} />
         <div className={`pointer-events-none absolute inset-0 ${themeClasses.overlay}`} />
         <div className="pointer-events-none absolute inset-0 bg-gradient-to-b from-black/25 via-black/18 to-black/35" />
         <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(to_bottom,rgba(255,255,255,0.08),rgba(255,255,255,0.02)_16%,transparent_38%)]" />
 
-        <div className="relative z-10 p-4">
-          <div className="mb-3 flex items-start gap-3">
+        <div className="relative z-10 flex h-full min-h-0 flex-col p-4">
+          <div className="flex min-h-0 flex-1 flex-col justify-between">
+            <div className="mb-3 flex items-start gap-3">
             <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border backdrop-blur-sm ${themeClasses.iconShell}`}>
               <PieChart className={`h-4 w-4 ${themeClasses.iconColor}`} />
             </div>
@@ -456,9 +457,10 @@ export default function BudgetCard({
               <ChevronDown className="h-4 w-4" />
             )}
           </button>
+          </div>
 
           {expanded && (
-            <div className="mt-3 space-y-3 rounded-2xl border border-white/10 bg-black/15 p-3 backdrop-blur-[2px] shadow-[inset_0_1px_0_rgba(255,255,255,0.05)]">
+            <div className="mt-3 min-h-0 flex-1 space-y-3 overflow-y-auto rounded-2xl border border-white/10 bg-black/15 p-3 backdrop-blur-[2px] shadow-[inset_0_1px_0_rgba(255,255,255,0.05)] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
               <div className="grid grid-cols-2 gap-2 text-center text-sm text-white">
                 <div className="rounded-2xl border border-white/10 bg-black/20 px-2.5 py-2.5 backdrop-blur-[2px] shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]">
                   <p className="mb-1 text-[10px] font-semibold uppercase tracking-[0.16em] text-white/70">
