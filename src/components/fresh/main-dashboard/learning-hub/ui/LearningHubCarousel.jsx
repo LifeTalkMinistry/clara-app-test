@@ -53,21 +53,21 @@ export default function LearningHubCarousel({ materials = [], onOpenMaterial }) 
   if (!total) return null;
 
   return (
-    <section className="relative w-full overflow-hidden rounded-[26px] border border-cyan-300/10 bg-slate-950/45 px-4 py-4 shadow-[0_18px_50px_rgba(0,0,0,0.35)] backdrop-blur-2xl">
-      <div className="mb-3 flex items-center justify-between">
+    <section className="relative w-full overflow-hidden px-1 py-2">
+      <div className="mb-2 flex items-center justify-between px-3">
         <div className="flex items-center gap-2 text-[11px] font-bold uppercase tracking-[0.24em] text-white/55">
           <BookOpen size={16} className="text-cyan-200/70" />
           Learning Hub
         </div>
 
-        <button className="flex items-center gap-1 rounded-full border border-emerald-300/20 bg-emerald-300/10 px-3 py-1.5 text-xs font-semibold text-emerald-200">
+        <button className="flex items-center gap-1 rounded-full border border-emerald-300/20 bg-emerald-300/10 px-3 py-1.5 text-xs font-semibold text-emerald-200 backdrop-blur-xl">
           See all
           <ChevronRight size={14} />
         </button>
       </div>
 
       <div
-        className="relative flex h-[178px] items-center justify-center overflow-hidden"
+        className="relative flex h-[148px] items-center justify-center overflow-hidden"
         onMouseEnter={pauseCarousel}
         onMouseLeave={resumeCarouselSoon}
         onTouchStart={pauseCarousel}
@@ -103,7 +103,7 @@ export default function LearningHubCarousel({ materials = [], onOpenMaterial }) 
         })}
       </div>
 
-      <div className="mt-3 flex justify-center gap-2">
+      <div className="mt-1 flex justify-center gap-2">
         {safeMaterials.map((item, index) => (
           <button
             key={item.id || index}
