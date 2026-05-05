@@ -1,8 +1,9 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { PiggyBank, ReceiptText, TrendingUp } from "lucide-react";
+import { PiggyBank, ReceiptText } from "lucide-react";
 import EmergencyFundCard from "../EmergencyFundCard";
 import BudgetCard from "../BudgetCard";
 import SavingsCard from "../SavingsCard";
+import InvestmentCard from "../InvestmentCard";
 
 const carouselConfig = [
   {
@@ -53,7 +54,6 @@ const carouselConfig = [
 ];
 
 const comingSoonIconMap = {
-  investmentFund: TrendingUp,
   debtObligations: ReceiptText,
 };
 
@@ -392,6 +392,14 @@ const CarouselItemCard = ({
           onDeleteSavingsGoal={onDeleteSavingsGoal}
           onAddSavings={onAddSavings}
         />
+      </div>
+    );
+  }
+
+  if (item.type === "investmentFund") {
+    return (
+      <div className="h-full min-h-[inherit] flex flex-col">
+        <InvestmentCard item={item} theme={selectedDashboardTheme} />
       </div>
     );
   }
