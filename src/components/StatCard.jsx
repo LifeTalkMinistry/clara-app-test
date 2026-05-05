@@ -179,9 +179,12 @@ export default function StatCard({
           onMouseDown={(event) => event.stopPropagation()}
           onPointerDown={(event) => event.stopPropagation()}
           onTouchStart={(event) => event.stopPropagation()}
-          className="absolute right-4 top-1/2 z-20 grid h-[58px] w-[58px] -translate-y-1/2 place-items-center rounded-full border border-white/15 bg-slate-950/45 text-white shadow-[0_0_0_6px_rgba(255,255,255,0.08),0_18px_36px_rgba(0,0,0,0.35),inset_0_0_18px_rgba(255,255,255,0.10)] backdrop-blur-xl transition active:scale-95"
+          className="absolute right-4 top-1/2 z-20 flex h-[58px] w-[58px] -translate-y-1/2 items-center justify-center overflow-hidden rounded-full border border-white/15 bg-slate-950/45 text-white shadow-[0_0_0_6px_rgba(255,255,255,0.08),0_18px_36px_rgba(0,0,0,0.35),inset_0_0_18px_rgba(255,255,255,0.10)] backdrop-blur-xl transition active:scale-95"
         >
-          <Plus size={27} strokeWidth={2.5} />
+          <span className="pointer-events-none absolute inset-0 rounded-full border border-white/10 bg-white/[0.03]" aria-hidden="true" />
+          <span className="pointer-events-none absolute inset-0 flex items-center justify-center" aria-hidden="true">
+            <Plus className="h-[27px] w-[27px]" strokeWidth={2.5} />
+          </span>
         </button>
       </>
     );
