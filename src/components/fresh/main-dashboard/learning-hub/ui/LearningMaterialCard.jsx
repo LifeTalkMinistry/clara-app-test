@@ -12,7 +12,12 @@ export default function LearningMaterialCard({ item, isActive, offset = 0, visib
   const distance = 108;
   const translateX = `calc(-50% + ${offset * distance}px)`;
   const scale = isActive ? 1 : absOffset === 1 ? 0.86 : 0.74;
-  const rotate = isActive ? 0 : offset < 0 ? -10 : 10;
+
+  // Face side books toward the center book:
+  // left books expose their right side; right books expose their left side.
+  const rotate = isActive ? 0 : offset < 0 ? 14 : -14;
+  const origin = isActive ? "center center" : offset < 0 ? "right center" : "left center";
+
   const depth = isActive ? 32 : absOffset === 1 ? -22 : -70;
   const blur = isActive ? 0 : absOffset === 1 ? 0.15 : 0.8;
   const opacity = visible ? (isActive ? 1 : absOffset === 1 ? 0.82 : 0.38) : 0;
@@ -30,6 +35,7 @@ export default function LearningMaterialCard({ item, isActive, offset = 0, visib
         zIndex,
         filter: `blur(${blur}px)`,
         transform: `translate(${translateX}, -50%) scale(${scale}) rotateY(${rotate}deg) translateZ(${depth}px)`,
+        transformOrigin: origin,
         transformStyle: "preserve-3d",
         pointerEvents: visible ? "auto" : "none",
       }}
