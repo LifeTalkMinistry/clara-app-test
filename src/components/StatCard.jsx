@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Eye, EyeOff } from "lucide-react";
+import { Eye, EyeOff, Plus } from "lucide-react";
 import { useTheme } from "@/theme/ThemeProvider";
 
 const PRIVACY_KEY = "clara_money_summary_visible";
@@ -86,8 +86,10 @@ export default function StatCard({
   const navigate = useNavigate();
   const themeContext = useTheme?.() || {};
   const themeGlow = getThemeGlow(themeContext?.theme || themeContext?.currentTheme || themeContext);
+  const isMoneyLeft = isMoneyLeftLabel(label);
+  const isExpense = isExpenseLabel(label);
   const isMoneySummary = isMoneySummaryLabel(label);
-  const showPrivacyToggle = isExpenseLabel(label);
+  const showPrivacyToggle = isMoneyLeft;
   const [moneyVisible, setMoneyVisible] = useState(() => readPrivacy());
   const isClickable = !isMoneySummary && Boolean(to || onClick);
 
@@ -136,30 +138,76 @@ export default function StatCard({
 
   const v = variants[variant] || variants.default;
   const interaction = isClickable ? "cursor-pointer active:scale-[0.97] hover:scale-[1.01] focus:outline-none focus:ring-2 focus:ring-emerald-400/40" : "cursor-default";
-  const cardClassName = `relative flex h-full flex-col overflow-hidden rounded-2xl p-4 text-left transition-all duration-300 ${interaction} ${highlight ? "ring-1 ring-emerald-400/30 shadow-[0_0_25px_rgba(16,185,129,0.15)]" : ""} ${v.wrapper} ${className}`;
   const DisplayIcon = moneyVisible ? Eye : EyeOff;
   const displayValue = isMoneySummary && !moneyVisible ? hiddenValueFor(label) : value;
+
+  if (isExpense) return null;
+
+  if (isMoneyLeft) {
+    const moneyCardClassName = `relative col-span-2 flex min-h-[104px] w-full flex-col justify-center overflow-hidden rounded-[28px] p-4 pr-[92px] text-left transition-all duration-300 ${interaction} ${highlight ? "ring-1 ring-emerald-400/30 shadow-[0_0_25px_rgba(16,185,129,0.15)]" : ""} ${v.wrapper} ${className}`;
+
+    const moneyContent = (
+      <>
+        <div className="pointer-events-none absolute inset-0 opacity-70" style={{ background: `radial-gradient(circle at 50% 0%, ${themeGlow} 0%, transparent 58%)` }} />
+        <div className="relative flex items-center gap-2">
+          <span className={`text-[11px] font-bold uppercase tracking-[0.22em] ${v.label}`}>Money Left</span>
+          {showPrivacyToggle ? (
+            <button
+              type="button"
+              data-money-privacy-toggle="true"
+              onClick={togglePrivacy}
+              onMouseDown={(event) => event.stopPropagation()}
+              onPointerDown={(event) => event.stopPropagation()}
+              onTouchStart={(event) => event.stopPropagation()}
+              className="flex h-6 w-6 items-center justify-center rounded-full border border-white/10 bg-white/[0.07] text-white/55 shadow-[0_0_14px_rgba(255,255,255,0.08)] backdrop-blur-xl transition hover:bg-white/[0.12] hover:text-white/80 active:scale-95"
+              aria-label={moneyVisible ? "Hide money summary" : "Show money summary"}
+              title={moneyVisible ? "Hide amounts" : "Show amounts"}
+            >
+              <DisplayIcon className="h-3.5 w-3.5" />
+            </button>
+          ) : null}
+        </div>
+        <p className={`relative mt-3 truncate text-[30px] font-black leading-none tracking-[-0.05em] ${v.value}`}>{displayValue}</p>
+        <button
+          type="button"
+          aria-label="Add money"
+          onClick={(event) => {
+            event.preventDefault?.();
+            event.stopPropagation?.();
+            navigate("/add-funds");
+          }}
+          onMouseDown={(event) => event.stopPropagation()}
+          onPointerDown={(event) => event.stopPropagation()}
+          onTouchStart={(event) => event.stopPropagation()}
+          className="absolute right-4 top-1/2 z-20 grid h-[58px] w-[58px] -translate-y-1/2 place-items-center rounded-full border border-white/15 bg-slate-950/45 text-white shadow-[0_0_0_6px_rgba(255,255,255,0.08),0_18px_36px_rgba(0,0,0,0.35),inset_0_0_18px_rgba(255,255,255,0.10)] backdrop-blur-xl transition active:scale-95"
+        >
+          <Plus size={27} strokeWidth={2.5} />
+        </button>
+      </>
+    );
+
+    const displayOnlyProps = {
+      role: "presentation",
+      onClick: stopMoneySummaryEvent,
+      onClickCapture: stopMoneySummaryEvent,
+      onMouseDown: stopMoneySummaryEvent,
+      onMouseDownCapture: stopMoneySummaryEvent,
+      onPointerDown: stopMoneySummaryEvent,
+      onPointerDownCapture: stopMoneySummaryEvent,
+      onTouchStart: stopMoneySummaryEvent,
+      onTouchStartCapture: stopMoneySummaryEvent,
+    };
+
+    return <div className={moneyCardClassName} {...displayOnlyProps}>{moneyContent}</div>;
+  }
+
+  const cardClassName = `relative flex h-full flex-col overflow-hidden rounded-2xl p-4 text-left transition-all duration-300 ${interaction} ${highlight ? "ring-1 ring-emerald-400/30 shadow-[0_0_25px_rgba(16,185,129,0.15)]" : ""} ${v.wrapper} ${className}`;
 
   const content = (
     <>
       <div className="pointer-events-none absolute inset-0 opacity-70" style={{ background: `radial-gradient(circle at 50% 0%, ${themeGlow} 0%, transparent 58%)` }} />
-      {showPrivacyToggle ? (
-        <button
-          type="button"
-          data-money-privacy-toggle="true"
-          onClick={togglePrivacy}
-          onMouseDown={(event) => event.stopPropagation()}
-          onPointerDown={(event) => event.stopPropagation()}
-          onTouchStart={(event) => event.stopPropagation()}
-          className="absolute right-2.5 top-2.5 z-20 flex h-7 w-7 items-center justify-center rounded-full border border-white/10 bg-white/[0.07] text-white/55 shadow-[0_0_14px_rgba(255,255,255,0.08)] backdrop-blur-xl transition hover:bg-white/[0.12] hover:text-white/80 active:scale-95"
-          aria-label={moneyVisible ? "Hide money summary" : "Show money summary"}
-          title={moneyVisible ? "Hide amounts" : "Show amounts"}
-        >
-          <DisplayIcon className="h-3.5 w-3.5" />
-        </button>
-      ) : null}
       <div className="relative mb-3 flex items-center justify-between gap-3">
-        <span className={`text-[11px] font-semibold uppercase tracking-wide ${showPrivacyToggle ? "pr-8" : ""} ${v.label}`}>{label}</span>
+        <span className={`text-[11px] font-semibold uppercase tracking-wide ${v.label}`}>{label}</span>
         {Icon ? <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl ${v.icon}`}><Icon className="h-4 w-4" /></div> : null}
       </div>
       <p className={`relative break-words text-2xl font-bold leading-tight ${v.value}`}>{displayValue}</p>
@@ -167,21 +215,9 @@ export default function StatCard({
     </>
   );
 
-  const displayOnlyProps = isMoneySummary ? {
-    role: "presentation",
-    onClick: stopMoneySummaryEvent,
-    onClickCapture: stopMoneySummaryEvent,
-    onMouseDown: stopMoneySummaryEvent,
-    onMouseDownCapture: stopMoneySummaryEvent,
-    onPointerDown: stopMoneySummaryEvent,
-    onPointerDownCapture: stopMoneySummaryEvent,
-    onTouchStart: stopMoneySummaryEvent,
-    onTouchStartCapture: stopMoneySummaryEvent,
-  } : {};
-
   if (isClickable) {
     return <button type="button" onClick={handleClick} className={cardClassName} aria-label={`Open ${label}`}>{content}</button>;
   }
 
-  return <div className={cardClassName} {...displayOnlyProps}>{content}</div>;
+  return <div className={cardClassName}>{content}</div>;
 }
