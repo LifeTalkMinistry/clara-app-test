@@ -35,11 +35,8 @@ import {
 import { Link, useNavigate } from "react-router-dom";
 import { createPortal } from "react-dom";
 import { supabase } from "@/lib/supabaseClient";
-import EmergencyFundCard from "../components/EmergencyFundCard";
-import WalletCard from "../components/WalletCard";
-import BudgetCardBase from "../components/BudgetCard";
-import SavingsCard from "../components/SavingsCard";
 import FinancialCarousel from "@/components/financial-carousel/FinancialCarousel";
+import DashboardFinanceExpandedSheet from "@/components/fresh/main-dashboard/financial-cards/DashboardFinanceExpandedSheet";
 import LearningHub from "@/components/fresh/main-dashboard/learning-hub/LearningHub";
 import ClaraAssistantPanel from "@/components/ai/ClaraAssistantPanel";
 import { Button } from "@/components/ui/button";
@@ -378,65 +375,6 @@ const getBudgetRemainingToneClass = (spent = 0, total = 0) => {
   }
 
   return "border-emerald-300/15 bg-emerald-400/10 text-emerald-100 shadow-[0_0_22px_rgba(52,211,153,0.12)]";
-};
-
-const BudgetCard = ({
-  activeBudget,
-  declaredBudget,
-  budgetCategories = [],
-  remainingAmount,
-  amountLeft,
-  budgetRemaining,
-  spentAmount,
-  totalSpent,
-  ...props
-}) => {
-  const total = firstValidNumber(
-    declaredBudget,
-    activeBudget?.declared_budget,
-    activeBudget?.declared_amount,
-    activeBudget?.monthly_budget_amount,
-    activeBudget?.total_budget,
-    activeBudget?.allocated_amount,
-    activeBudget?.allocated_total
-  );
-  const spent = firstValidNumber(
-    spentAmount,
-    totalSpent,
-    activeBudget?.spent,
-    activeBudget?.spent_amount,
-    activeBudget?.total_spent,
-    budgetCategories.reduce(
-      (sum, item) => sum + firstValidNumber(item?.spent, item?.spent_amount, item?.total_spent),
-      0
-    )
-  );
-  const remaining = Math.max(
-    firstValidNumber(
-      remainingAmount,
-      amountLeft,
-      budgetRemaining,
-      activeBudget?.remaining,
-      activeBudget?.remaining_amount,
-      activeBudget?.amount_left,
-      total - spent
-    ),
-    0
-  );
-
-  return (
-    <BudgetCardBase
-      activeBudget={activeBudget}
-      declaredBudget={declaredBudget}
-      budgetCategories={budgetCategories}
-      remainingAmount={remaining}
-      amountLeft={remaining}
-      budgetRemaining={remaining}
-      spentAmount={spent}
-      totalSpent={spent}
-      {...props}
-    />
-  );
 };
 
 const getBudgetCategoryValue = (budget, keys = []) =>
@@ -1273,8 +1211,6 @@ const UNDOCUMENTED_SPENDING_REASONS = [
   "Other undocumented reason",
 ];
 
-const FINANCE_CARD_KEYS = ["emergency", "wallets", "budgets", "savings"];
-
 const hasDashboardFinanceContent = (snapshot = {}) =>
   Boolean(
     (Array.isArray(snapshot.wallets) && snapshot.wallets.length > 0) ||
@@ -1285,36 +1221,6 @@ const hasDashboardFinanceContent = (snapshot = {}) =>
       snapshot.emergencyFund ||
       Number(snapshot.walletMoney || 0) > 0
   );
-
-const getFinanceThemeAccentClass = (tone = "emerald", isLight = false) => {
-  if (isLight) {
-    const lightToneMap = {
-      emerald:
-        "border-slate-300/45 bg-[radial-gradient(circle_at_top_left,rgba(255,255,255,0.92),transparent_34%),radial-gradient(circle_at_bottom_right,rgba(134,239,172,0.18),transparent_42%),linear-gradient(135deg,rgba(255,255,255,0.98),rgba(240,253,244,0.94)_52%,rgba(236,253,245,0.96))] shadow-[0_22px_60px_rgba(16,185,129,0.10)]",
-      blue:
-        "border-slate-300/45 bg-[radial-gradient(circle_at_top_left,rgba(255,255,255,0.92),transparent_34%),radial-gradient(circle_at_bottom_right,rgba(96,165,250,0.18),transparent_42%),linear-gradient(135deg,rgba(255,255,255,0.98),rgba(239,246,255,0.94)_52%,rgba(224,231,255,0.96))] shadow-[0_22px_60px_rgba(59,130,246,0.10)]",
-      teal:
-        "border-slate-300/45 bg-[radial-gradient(circle_at_top_left,rgba(255,255,255,0.92),transparent_34%),radial-gradient(circle_at_bottom_right,rgba(45,212,191,0.18),transparent_42%),linear-gradient(135deg,rgba(255,255,255,0.98),rgba(240,253,250,0.94)_52%,rgba(236,254,255,0.96))] shadow-[0_22px_60px_rgba(20,184,166,0.10)]",
-      gold:
-        "border-slate-300/45 bg-[radial-gradient(circle_at_top_left,rgba(255,255,255,0.92),transparent_34%),radial-gradient(circle_at_bottom_right,rgba(250,204,21,0.18),transparent_42%),linear-gradient(135deg,rgba(255,255,255,0.98),rgba(255,251,235,0.94)_52%,rgba(255,247,237,0.96))] shadow-[0_22px_60px_rgba(245,158,11,0.10)]",
-    };
-    return lightToneMap[tone] || lightToneMap.emerald;
-  }
-
-  const darkToneMap = {
-    emerald:
-      "border-white/15 bg-[radial-gradient(circle_at_top_left,rgba(52,211,153,0.18),transparent_34%),radial-gradient(circle_at_bottom_right,rgba(20,184,166,0.14),transparent_42%),linear-gradient(135deg,rgba(4,25,24,0.96),rgba(6,38,36,0.93)_52%,rgba(3,19,18,0.98))] shadow-[0_28px_85px_rgba(16,185,129,0.16)]",
-    blue:
-      "border-white/15 bg-[radial-gradient(circle_at_top_left,rgba(59,130,246,0.18),transparent_34%),radial-gradient(circle_at_bottom_right,rgba(99,102,241,0.14),transparent_42%),linear-gradient(135deg,rgba(8,18,52,0.96),rgba(12,33,80,0.93)_52%,rgba(7,15,38,0.98))] shadow-[0_28px_85px_rgba(59,130,246,0.16)]",
-    teal:
-      "border-white/15 bg-[radial-gradient(circle_at_top_left,rgba(45,212,191,0.18),transparent_34%),radial-gradient(circle_at_bottom_right,rgba(34,211,238,0.14),transparent_42%),linear-gradient(135deg,rgba(4,23,30,0.96),rgba(5,40,48,0.93)_52%,rgba(4,17,24,0.98))] shadow-[0_28px_85px_rgba(20,184,166,0.16)]",
-    gold:
-      "border-white/15 bg-[radial-gradient(circle_at_top_left,rgba(250,204,21,0.18),transparent_34%),radial-gradient(circle_at_bottom_right,rgba(245,158,11,0.14),transparent_42%),linear-gradient(135deg,rgba(29,18,8,0.96),rgba(43,28,13,0.93)_52%,rgba(18,11,8,0.98))] shadow-[0_28px_85px_rgba(245,158,11,0.16)]",
-  };
-
-  return darkToneMap[tone] || darkToneMap.emerald;
-};
-
 
 const getDashboardViewportMode = () => {
   if (typeof window === "undefined") return "normal";
@@ -1437,38 +1343,6 @@ const DASHBOARD_SCALE = {
     summaryCopy: "mt-3 text-sm leading-6",
     summarySubcopy: "mt-2 text-xs leading-5",
   },
-};
-
-const getFinanceSlideShellClass = (cardKey, theme = null, scale = null) => {
-  const accentMap = {
-    emergency:
-      "bg-[radial-gradient(circle_at_top_left,rgba(45,212,191,0.2),transparent_34%),radial-gradient(circle_at_bottom_right,rgba(56,189,248,0.16),transparent_38%),linear-gradient(135deg,rgba(5,16,31,0.88),rgba(6,18,36,0.96)_42%,rgba(3,10,24,0.98))] shadow-[0_28px_85px_rgba(16,185,129,0.16)]",
-    wallets:
-      "bg-[radial-gradient(circle_at_top_left,rgba(34,211,238,0.18),transparent_34%),radial-gradient(circle_at_bottom_right,rgba(16,185,129,0.16),transparent_38%),linear-gradient(135deg,rgba(5,16,31,0.88),rgba(6,18,36,0.96)_42%,rgba(3,10,24,0.98))] shadow-[0_28px_85px_rgba(34,211,238,0.15)]",
-    budgets:
-      "bg-[radial-gradient(circle_at_top_left,rgba(250,204,21,0.2),transparent_34%),radial-gradient(circle_at_bottom_right,rgba(245,158,11,0.16),transparent_40%),linear-gradient(135deg,rgba(15,8,30,0.9),rgba(11,10,37,0.96)_42%,rgba(4,6,22,0.98))] shadow-[0_28px_85px_rgba(250,204,21,0.16)]",
-    savings:
-      "bg-[radial-gradient(circle_at_top_left,rgba(52,211,153,0.2),transparent_34%),radial-gradient(circle_at_bottom_right,rgba(20,184,166,0.16),transparent_40%),linear-gradient(135deg,rgba(4,18,24,0.9),rgba(5,21,31,0.96)_42%,rgba(3,10,24,0.98))] shadow-[0_28px_85px_rgba(52,211,153,0.16)]",
-  };
-
-  const toneMap = {
-    emergency: theme?.moneyTone || "blue",
-    wallets: theme?.moneyTone || "teal",
-    budgets: theme?.monthTone || theme?.moneyTone || "gold",
-    savings: theme?.tipTone || theme?.monthTone || "emerald",
-  };
-
-  const accentClass = theme
-    ? getFinanceThemeAccentClass(toneMap[cardKey] || "emerald", theme?.isLight === true)
-    : accentMap[cardKey] || accentMap.emergency;
-
-  const shellBorderClass = theme?.isLight === true ? "border-slate-300/45" : "border-white/15";
-  const glowCapClass = theme?.isLight === true ? "before:bg-white/70" : "before:bg-white/10";
-  const innerRingClass = theme?.isLight === true ? "after:ring-slate-300/40" : "after:ring-white/6";
-
-  const scaleSlideClass = scale?.financeSlide || "min-h-[314px] rounded-[30px] [&>*]:min-h-[312px] [&>*]:rounded-[29px]";
-
-  return `relative isolate w-full overflow-hidden ${scaleSlideClass} ${shellBorderClass} p-[1px] backdrop-blur-sm before:pointer-events-none before:absolute before:inset-x-5 before:top-0 before:h-20 before:rounded-full ${glowCapClass} before:blur-3xl after:pointer-events-none after:absolute after:inset-0 after:rounded-[inherit] after:ring-1 after:ring-inset ${innerRingClass} [&>*]:mb-0 [&>*]:h-full ${accentClass}`;
 };
 
 const getDashboardGlowCardClass = (tone = "emerald") => {
@@ -2950,7 +2824,6 @@ function DashboardFeedPanel({ onBack }) {
     </div>
   );
 }
-
 
 
 function DashboardMessagesPanel({ onBack }) {
@@ -5555,7 +5428,6 @@ export default function Dashboard() {
   const [notificationSettings, setNotificationSettings] = useState(() =>
     readStoredNotificationSettings(userId)
   );
-  const [financeCardIndex, setFinanceCardIndex] = useState(0);
   const [dailyStrategyFlipped, setDailyStrategyFlipped] = useState(false);
   const [activeDashboardPanel, setActiveDashboardPanel] = useState("home");
   const [dashboardShellReady, setDashboardShellReady] = useState(false);
@@ -5814,7 +5686,6 @@ export default function Dashboard() {
   }, [selectedDashboardTheme, userId]);
 
   const refreshTimeoutRef = useRef(null);
-  const financeCarouselRef = useRef(null);
   const dashboardScrollRef = useRef(null);
   const dashboardContentRef = useRef(null);
   const dashboardScrollTimersRef = useRef([]);
@@ -6942,8 +6813,6 @@ export default function Dashboard() {
     dashboardShellReady,
   ]);
 
-  const financeCards = useMemo(() => FINANCE_CARD_KEYS, []);
-
   const topWallet = useMemo(() => wallets[0] || null, [wallets]);
 
   const walletPreviewTransactions = useMemo(
@@ -7546,25 +7415,6 @@ export default function Dashboard() {
   ]);
 
 
-  const scrollFinanceCardsTo = useCallback((nextIndex) => {
-    const safeIndex = Math.max(0, Math.min(financeCards.length - 1, nextIndex));
-    const container = financeCarouselRef.current;
-
-    setFinanceCardIndex(safeIndex);
-
-    if (!container) return;
-
-    const slideWidth =
-      financeCards.length > 0
-        ? container.scrollWidth / financeCards.length
-        : container.clientWidth || 0;
-
-    container.scrollTo({
-      left: slideWidth * safeIndex,
-      behavior: "smooth",
-    });
-  }, [financeCards.length]);
-
   const clearDashboardScrollTimers = useCallback(() => {
     dashboardScrollTimersRef.current.forEach((timerId) => {
       window.clearTimeout(timerId);
@@ -7644,19 +7494,6 @@ export default function Dashboard() {
     }));
   }, []);
 
-  const handleFinanceCarouselScroll = useCallback(() => {
-    const container = financeCarouselRef.current;
-    if (!container || financeCards.length <= 0) return;
-
-    const slideWidth = Math.max(
-      1,
-      container.scrollWidth / financeCards.length || container.clientWidth || 1
-    );
-
-    const index = Math.round(container.scrollLeft / slideWidth);
-    setFinanceCardIndex(Math.max(0, Math.min(financeCards.length - 1, index)));
-  }, [financeCards.length]);
-
   useEffect(() => {
     scheduleDashboardScrollMeasure();
 
@@ -7669,7 +7506,6 @@ export default function Dashboard() {
   }, [
     activeDashboardPanel,
     expandedFinanceCard,
-    financeCardIndex,
     dashboardViewportMode,
     scheduleDashboardScrollMeasure,
     clearDashboardScrollTimers,
@@ -7994,26 +7830,6 @@ export default function Dashboard() {
     window.addEventListener("clara:open-manual-expense", openManualExpenseModal);
     return () => window.removeEventListener("clara:open-manual-expense", openManualExpenseModal);
   }, [openManualExpenseModal]);
-
-  useEffect(() => {
-    const container = financeCarouselRef.current;
-    if (!container) return undefined;
-
-    let frame = null;
-
-    const onScroll = () => {
-      if (frame) cancelAnimationFrame(frame);
-      frame = requestAnimationFrame(handleFinanceCarouselScroll);
-    };
-
-    container.addEventListener("scroll", onScroll, { passive: true });
-    handleFinanceCarouselScroll();
-
-    return () => {
-      container.removeEventListener("scroll", onScroll);
-      if (frame) cancelAnimationFrame(frame);
-    };
-  }, [handleFinanceCarouselScroll, user?.id, activeDashboardPanel, financeCards.length]);
 
 
   const refreshFinanceSection = useCallback(async () => {
@@ -9828,7 +9644,9 @@ export default function Dashboard() {
               dashboardScale={dashboardScale}
               selectedDashboardTheme={selectedDashboardTheme}
               themeInactiveDotClass={themeInactiveDotClass}
+              wallets={wallets}
               walletMoney={walletMoney}
+              walletPreviewTransactions={walletPreviewTransactions}
               survivalExpense={survivalExpense}
               user={user}
               guardChecked={guardChecked}
@@ -9897,6 +9715,19 @@ export default function Dashboard() {
               }}
               onResetBudget={() => {
                 window.requestAnimationFrame(() => openResetBudgetModal());
+              }}
+              onCreateWallet={() => {
+                window.requestAnimationFrame(() => openCreateWalletModal());
+              }}
+              onMoveWallet={moveWalletInline}
+              onDeleteWallet={(walletId) => {
+                window.requestAnimationFrame(() => openDeleteWalletModal(walletId));
+              }}
+              onAddMoney={(wallet) => {
+                window.requestAnimationFrame(() => openAddMoneyModal(wallet));
+              }}
+              onTransferMoney={(wallet) => {
+                window.requestAnimationFrame(() => openTransferMoneyModal(wallet));
               }}
               onSaveSavingsGoal={(goal) => {
                 window.requestAnimationFrame(() => openSavingsGoalModal(goal));
@@ -10054,208 +9885,80 @@ export default function Dashboard() {
       </div>
 
 
-      {activeDashboardPanel === "home" && expandedFinanceCard && (
-        <div className="fixed inset-0 z-[80] flex items-end justify-center bg-black/72 backdrop-blur-xl sm:items-center">
-          <button
-            type="button"
-            className="absolute inset-0 cursor-default"
-            aria-label="Close finance details"
-            onClick={() => setExpandedFinanceCard(null)}
-          />
+      <DashboardFinanceExpandedSheet
+        activeDashboardPanel={activeDashboardPanel}
+        expandedFinanceCard={expandedFinanceCard}
+        setExpandedFinanceCard={setExpandedFinanceCard}
+        walletMoney={walletMoney}
+        survivalExpense={survivalExpense}
+        selectedDashboardTheme={selectedDashboardTheme}
+        expandedFinanceDetailSections={expandedFinanceDetailSections}
+        toggleExpandedFinanceDetailSection={toggleExpandedFinanceDetailSection}
+        profileData={profileData}
+        firstPositiveNumber={firstPositiveNumber}
+        readStoredSurvivalExpense={readStoredSurvivalExpense}
+        user={user}
+        onSurvivalSaved={async (val) => {
+          const nextValue = firstPositiveNumber(val);
+          if (nextValue <= 0) return;
 
-          <div className="relative z-10 flex h-[100dvh] w-full max-w-[430px] flex-col overflow-hidden rounded-t-[32px] border border-white/15 bg-[radial-gradient(circle_at_top,rgba(45,246,222,0.14),transparent_34%),linear-gradient(180deg,rgba(4,17,32,0.98),rgba(3,10,24,0.99))] shadow-[0_-24px_80px_rgba(0,0,0,0.45)] sm:h-[92dvh] sm:rounded-[32px]">
-            <div className="flex shrink-0 items-center justify-between border-b border-white/15 px-4 pb-3 pt-[calc(env(safe-area-inset-top)+14px)]">
-              <div>
-                <p className="text-[10px] font-bold uppercase tracking-[0.24em] text-white/45">
-                  CLARA Details
-                </p>
-                <h2 className="mt-1 text-lg font-extrabold text-white">
-                  {expandedFinanceCard === "emergency"
-                    ? "Emergency Fund"
-                    : expandedFinanceCard === "wallets"
-                      ? "Wallets"
-                      : expandedFinanceCard === "budgets"
-                        ? "Budget"
-                        : "Savings Goals"}
-                </h2>
-              </div>
+          persistStoredSurvivalExpense(user?.id, nextValue);
+          setSurvivalExpense(nextValue);
 
-              <button
-                type="button"
-                onClick={() => setExpandedFinanceCard(null)}
-                className="flex h-10 w-10 items-center justify-center rounded-2xl border border-white/15 bg-white/[0.075] text-white/75 backdrop-blur-xl transition hover:bg-white/10 hover:text-white"
-                aria-label="Close details"
-              >
-                <X className="h-5 w-5" />
-              </button>
-            </div>
+          const nextProfileData = {
+            ...(profileData || {}),
+            monthly_survival_expense: nextValue,
+            survival_expense: nextValue,
+            clara_survival_expense: nextValue,
+            survival_setup_done: true,
+          };
 
-            <div className="flex-1 overflow-y-auto overflow-x-hidden px-4 py-4 pb-[calc(env(safe-area-inset-bottom)+24px)] [-webkit-overflow-scrolling:touch] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-              {expandedFinanceCard === "emergency" && (
-                <div className="[&>*]:!mb-0">
-                  <EmergencyFundCard
-                    moneyLeft={walletMoney}
-                    survivalExpense={survivalExpense}
-                    retentionRate={0}
-                    theme={selectedDashboardTheme}
-                    expanded={expandedFinanceDetailSections?.emergency !== false}
-                    onToggleDetails={() => toggleExpandedFinanceDetailSection("emergency")}
-                    canAutoPrompt={false}
-                    hasSurvivalSetup={
-                      Boolean(profileData?.survival_setup_done) ||
-                      firstPositiveNumber(
-                        profileData?.monthly_survival_expense,
-                        profileData?.survival_expense,
-                        profileData?.clara_survival_expense,
-                        survivalExpense,
-                        readStoredSurvivalExpense(user?.id)
-                      ) > 0
-                    }
-                    onSurvivalSaved={async (val) => {
-                      const nextValue = firstPositiveNumber(val);
-                      if (nextValue <= 0) return;
+          setProfileData(nextProfileData);
+          dashboardPageCache = {
+            ...dashboardPageCache,
+            survivalExpense: nextValue,
+            profileData: nextProfileData,
+          };
 
-                      persistStoredSurvivalExpense(user?.id, nextValue);
-                      setSurvivalExpense(nextValue);
+          if (user?.id) {
+            const { error } = await supabase
+              .from("profiles")
+              .update({
+                monthly_survival_expense: nextValue,
+                survival_setup_done: true,
+              })
+              .eq("id", user.id);
 
-                      const nextProfileData = {
-                        ...(profileData || {}),
-                        monthly_survival_expense: nextValue,
-                        survival_expense: nextValue,
-                        clara_survival_expense: nextValue,
-                        survival_setup_done: true,
-                      };
+            if (error) {
+              console.warn(
+                "Survival expense was saved locally, but profile sync failed:",
+                error
+              );
+            }
+          }
 
-                      setProfileData(nextProfileData);
-                      dashboardPageCache = {
-                        ...dashboardPageCache,
-                        survivalExpense: nextValue,
-                        profileData: nextProfileData,
-                      };
-
-                      if (user?.id) {
-                        const { error } = await supabase
-                          .from("profiles")
-                          .update({
-                            monthly_survival_expense: nextValue,
-                            survival_setup_done: true,
-                          })
-                          .eq("id", user.id);
-
-                        if (error) {
-                          console.warn(
-                            "Survival expense was saved locally, but profile sync failed:",
-                            error
-                          );
-                        }
-                      }
-
-                      await loadDashboardData({ background: true });
-                    }}
-                  />
-                </div>
-              )}
-
-              {expandedFinanceCard === "wallets" && (
-                <div className="[&>*]:!mb-0 [&>*]:!min-h-0">
-                  <WalletCard
-                    wallets={wallets}
-                    walletMoney={walletMoney}
-                    walletPreviewTransactions={walletPreviewTransactions}
-                    theme={selectedDashboardTheme}
-                    expanded={true}
-                    onToggleDetails={() => setExpandedFinanceCard(null)}
-                    financeActionLoading={financeActionLoading}
-                    onCreateWallet={() => {
-                      setExpandedFinanceCard(null);
-                      window.requestAnimationFrame(() => openCreateWalletModal());
-                    }}
-                    onMoveWallet={moveWalletInline}
-                    onDeleteWallet={(walletId) => {
-                      setExpandedFinanceCard(null);
-                      window.requestAnimationFrame(() => openDeleteWalletModal(walletId));
-                    }}
-                    onAddMoney={(wallet) => {
-                      setExpandedFinanceCard(null);
-                      window.requestAnimationFrame(() => openAddMoneyModal(wallet));
-                    }}
-                    onTransferMoney={(wallet) => {
-                      setExpandedFinanceCard(null);
-                      window.requestAnimationFrame(() => openTransferMoneyModal(wallet));
-                    }}
-                  />
-                </div>
-              )}
-
-              {expandedFinanceCard === "budgets" && (
-                <div className="[&>*]:!mb-0 [&>*]:!min-h-0">
-                  <BudgetCard
-                    activeBudget={monthlyBudgetPlan}
-                    budgetCategories={Array.isArray(monthlyBudgetPlan?.categories) ? monthlyBudgetPlan.categories : []}
-                    declaredBudget={Number(monthlyBudgetPlan?.declared_budget || monthlyBudgetPlan?.declared_amount || 0)}
-                    unallocatedAmount={Number(monthlyBudgetPlan?.unallocated_amount || 0)}
-                    budgetStatus={monthlyBudgetPlan?.status || ""}
-                    isComplete={monthlyBudgetPlan?.is_complete === true}
-                    unplannedSpent={Number(monthlyBudgetPlan?.unplanned_spent || 0)}
-                    undocumentedSpent={Number(monthlyBudgetPlan?.undocumented_spent || 0)}
-                    remainingAmount={Number(monthlyBudgetPlan?.remaining_amount || monthlyBudgetPlan?.remaining || 0)}
-                    amountLeft={Number(monthlyBudgetPlan?.remaining_amount || monthlyBudgetPlan?.remaining || 0)}
-                    spentAmount={Number(monthlyBudgetPlan?.spent_amount || monthlyBudgetPlan?.spent || monthlyBudgetPlan?.total_spent || 0)}
-                    totalSpent={Number(monthlyBudgetPlan?.total_spent || monthlyBudgetPlan?.spent_amount || monthlyBudgetPlan?.spent || 0)}
-                    theme={selectedDashboardTheme}
-                    expanded={true}
-                    onToggleDetails={() => setExpandedFinanceCard(null)}
-                    financeActionLoading={financeActionLoading}
-                    onSaveBudget={() => {
-                      setExpandedFinanceCard(null);
-                      window.requestAnimationFrame(() => openBudgetModal());
-                    }}
-                    onEditBudgetCategory={(item) => {
-                      setExpandedFinanceCard(null);
-                      window.requestAnimationFrame(() => openBudgetModal(item));
-                    }}
-                    onDeleteBudgetCategory={(item) => {
-                      setExpandedFinanceCard(null);
-                      window.requestAnimationFrame(() => openDeleteBudgetCategoryModal(item));
-                    }}
-                    onResetBudget={() => {
-                      setExpandedFinanceCard(null);
-                      window.requestAnimationFrame(() => openResetBudgetModal());
-                    }}
-                  />
-                </div>
-              )}
-
-              {expandedFinanceCard === "savings" && (
-                <div className="[&>*]:!mb-0 [&>*]:!min-h-0">
-                  <SavingsCard
-                    savingsGoals={savingsGoals}
-                    totalSavingsSaved={totalSavingsSaved}
-                    totalSavingsTarget={totalSavingsTarget}
-                    primarySavingsGoal={primarySavingsGoal}
-                    theme={selectedDashboardTheme}
-                    expanded={true}
-                    onToggleDetails={() => setExpandedFinanceCard(null)}
-                    financeActionLoading={financeActionLoading}
-                    onSaveSavingsGoal={(goal) => {
-                      setExpandedFinanceCard(null);
-                      window.requestAnimationFrame(() => openSavingsGoalModal(goal));
-                    }}
-                    onDeleteSavingsGoal={(goalId) => {
-                      setExpandedFinanceCard(null);
-                      window.requestAnimationFrame(() => openDeleteSavingsGoalModal(goalId));
-                    }}
-                    onAddSavings={(goal) => {
-                      setExpandedFinanceCard(null);
-                      window.requestAnimationFrame(() => openAddSavingsModal(goal));
-                    }}
-                  />
-                </div>
-              )}
-            </div>
-          </div>
-        </div>
-      )}
+          await loadDashboardData({ background: true });
+        }}
+        wallets={wallets}
+        walletPreviewTransactions={walletPreviewTransactions}
+        financeActionLoading={financeActionLoading}
+        openCreateWalletModal={openCreateWalletModal}
+        moveWalletInline={moveWalletInline}
+        openDeleteWalletModal={openDeleteWalletModal}
+        openAddMoneyModal={openAddMoneyModal}
+        openTransferMoneyModal={openTransferMoneyModal}
+        monthlyBudgetPlan={monthlyBudgetPlan}
+        openBudgetModal={openBudgetModal}
+        openDeleteBudgetCategoryModal={openDeleteBudgetCategoryModal}
+        openResetBudgetModal={openResetBudgetModal}
+        savingsGoals={savingsGoals}
+        totalSavingsSaved={totalSavingsSaved}
+        totalSavingsTarget={totalSavingsTarget}
+        primarySavingsGoal={primarySavingsGoal}
+        openSavingsGoalModal={openSavingsGoalModal}
+        openDeleteSavingsGoalModal={openDeleteSavingsGoalModal}
+        openAddSavingsModal={openAddSavingsModal}
+      />
 
 
       {showOnboarding && (
