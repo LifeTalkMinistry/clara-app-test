@@ -173,8 +173,8 @@ const getCarouselData = ({
     investmentFund: {
       title: "Investment Fund",
       amount: 0,
-      subtitle: "Investment tracking is ready for setup.",
-      description: "This card is reserved for future investment fund data without breaking Dashboard.jsx.",
+      subtitle: "Decide before you invest.",
+      description: "Build your emergency fund first before investing.",
       ctaLabel: "Coming soon",
       state: "comingSoon",
     },
