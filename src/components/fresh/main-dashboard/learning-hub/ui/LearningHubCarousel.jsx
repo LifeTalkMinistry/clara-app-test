@@ -78,7 +78,7 @@ export default function LearningHubCarousel({ materials = [], onOpenMaterial }) 
 
   return (
     <section className="relative w-full overflow-visible px-1 py-2">
-      <div className="mb-2 flex items-center justify-between px-3">
+      <div className="mb-1 flex items-center justify-between px-3">
         <div className="flex items-center gap-2 text-[11px] font-bold uppercase tracking-[0.24em] text-white/55">
           <BookOpen size={16} className="text-cyan-200/70" />
           Learning Hub
@@ -91,12 +91,17 @@ export default function LearningHubCarousel({ materials = [], onOpenMaterial }) 
       </div>
 
       <div
-        className="relative flex h-[190px] items-center justify-center overflow-visible"
+        className="relative flex h-[232px] items-center justify-center overflow-visible"
+        style={{ perspective: "1200px", transformStyle: "preserve-3d" }}
         onMouseEnter={pauseCarousel}
         onMouseLeave={resumeCarouselSoon}
         onTouchStart={handleTouchStart}
         onTouchEnd={handleTouchEnd}
       >
+        <div className="pointer-events-none absolute inset-x-6 top-8 bottom-4 rounded-[34px] bg-[radial-gradient(circle_at_center,rgba(56,189,248,0.20),transparent_62%)] blur-2xl" />
+        <div className="pointer-events-none absolute left-0 top-5 z-[60] h-[205px] w-12 bg-gradient-to-r from-[#020617] to-transparent" />
+        <div className="pointer-events-none absolute right-0 top-5 z-[60] h-[205px] w-12 bg-gradient-to-l from-[#020617] to-transparent" />
+
         {safeMaterials.map((item, index) => {
           const rawOffset = index - activeIndex;
           const wrappedOffset =
@@ -106,7 +111,7 @@ export default function LearningHubCarousel({ materials = [], onOpenMaterial }) 
                 ? rawOffset + total
                 : rawOffset;
 
-          const visible = Math.abs(wrappedOffset) <= 2;
+          const visible = Math.abs(wrappedOffset) <= 3;
 
           return (
             <LearningMaterialCard
