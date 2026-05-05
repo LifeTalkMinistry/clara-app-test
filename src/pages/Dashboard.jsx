@@ -8153,9 +8153,6 @@ export default function Dashboard() {
     const target = event?.target;
     if (!target?.closest) return null;
 
-    const moneyLeftOrb = target.closest('[data-clara-manual-expense-orb="true"]');
-    if (moneyLeftOrb) return moneyLeftOrb;
-
     const emergencyCard = target.closest("[data-emergency-card]");
     if (!emergencyCard) return null;
 
@@ -8229,6 +8226,40 @@ export default function Dashboard() {
     openManualExpenseModal();
     return true;
   }, [isClaraAiOrbEvent, openManualExpenseModal]);
+
+
+  const stopMoneyLeftOrbEvent = useCallback((event) => {
+    event?.preventDefault?.();
+    event?.stopPropagation?.();
+    event?.nativeEvent?.stopImmediatePropagation?.();
+  }, []);
+
+  const startMoneyLeftOrbLongPress = useCallback((event) => {
+    stopMoneyLeftOrbEvent(event);
+    longPressTriggeredRef.current = false;
+    clearLongPressTimer();
+
+    longPressTimerRef.current = setTimeout(() => {
+      longPressTriggeredRef.current = true;
+      openClaraAiFromLongPress();
+    }, 550);
+  }, [clearLongPressTimer, openClaraAiFromLongPress, stopMoneyLeftOrbEvent]);
+
+  const endMoneyLeftOrbLongPress = useCallback((event) => {
+    stopMoneyLeftOrbEvent(event);
+    clearLongPressTimer();
+  }, [clearLongPressTimer, stopMoneyLeftOrbEvent]);
+
+  const handleMoneyLeftOrbClick = useCallback((event) => {
+    stopMoneyLeftOrbEvent(event);
+
+    if (longPressTriggeredRef.current) {
+      longPressTriggeredRef.current = false;
+      return;
+    }
+
+    openManualExpenseModal();
+  }, [openManualExpenseModal, stopMoneyLeftOrbEvent]);
 
   useEffect(() => {
     return () => clearLongPressTimer();
@@ -10483,42 +10514,25 @@ export default function Dashboard() {
               className="absolute inset-0 z-30 cursor-default bg-transparent"
               style={{ touchAction: "manipulation", WebkitTapHighlightColor: "transparent" }}
             />
-            <button
-              type="button"
-              data-clara-manual-expense-orb="true"
-              onClickCapture={handleClaraAiOrbClickCapture}
-              onPointerDown={(event) => {
-                event.stopPropagation();
-                startClaraAiLongPress(event);
-              }}
-              onPointerUp={(event) => {
-                event.stopPropagation();
-                endClaraAiLongPress();
-              }}
-              onPointerCancel={(event) => {
-                event.stopPropagation();
-                endClaraAiLongPress();
-              }}
-              onPointerLeave={(event) => {
-                event.stopPropagation();
-                endClaraAiLongPress();
-              }}
-              onMouseUp={(event) => {
-                event.stopPropagation();
-                endClaraAiLongPress();
-              }}
-              onTouchEnd={(event) => {
-                event.stopPropagation();
-                endClaraAiLongPress();
-              }}
-              className="absolute right-5 top-1/2 z-50 flex h-11 w-11 -translate-y-1/2 items-center justify-center rounded-full border border-white/20 bg-white/[0.10] text-white shadow-[0_0_22px_rgba(147,197,253,0.18)] backdrop-blur-xl transition hover:bg-white/[0.15] active:scale-95 sm:right-6"
-              aria-label="Open manual expense. Long press to open CLARA AI."
-              title="Tap to log expense. Long press for CLARA AI."
-            >
-              <Plus className="h-5 w-5" />
-            </button>
+            <div className="pointer-events-none absolute inset-y-0 right-0 z-50 flex w-[88px] items-center justify-center pr-3">
+              <button
+                type="button"
+                data-clara-manual-expense-orb="true"
+                onClick={handleMoneyLeftOrbClick}
+                onPointerDown={startMoneyLeftOrbLongPress}
+                onPointerUp={endMoneyLeftOrbLongPress}
+                onPointerCancel={endMoneyLeftOrbLongPress}
+                onPointerLeave={endMoneyLeftOrbLongPress}
+                onContextMenu={stopMoneyLeftOrbEvent}
+                className="pointer-events-auto flex h-11 w-11 items-center justify-center rounded-full border border-white/20 bg-white/[0.10] text-white shadow-[0_0_22px_rgba(147,197,253,0.18)] backdrop-blur-xl transition hover:bg-white/[0.15] active:scale-95"
+                aria-label="Tap to log expense, long press to open CLARA AI"
+                title="Tap to log expense, long press for CLARA AI"
+              >
+                <Plus className="h-5 w-5" />
+              </button>
+            </div>
             <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(255,255,255,0.08),transparent_42%)]" />
-            <div className="pointer-events-none relative flex min-h-full min-w-0 flex-col justify-center pr-14">
+            <div className="pointer-events-none relative flex min-h-full min-w-0 flex-col justify-center pr-24">
               <p className={`uppercase ${dashboardScale.summaryLabel} ${themeSoftTextClass}`}>
                 Money Left
               </p>
