@@ -101,11 +101,10 @@ export default function InvestmentCard({ item = null }) {
   const tone = getInvestmentToneClasses(item?.tone || data.tone || "gold");
 
   const title = data.title || item?.label || "Investment Fund";
-  const subtitle =
-    data.subtitle || "Investment tracking is ready for setup.";
+  const subtitle = data.subtitle || "Prepare your future growth.";
   const description =
     data.description ||
-    "This card is reserved for future investment fund data without breaking Dashboard.jsx.";
+    "Start preparing money for long-term growth. CLARA will help you track investments soon.";
 
   const currentAmount = Number(
     getDataValue(data, ["currentAmount", "savedAmount", "balance", "amount", "value"], 0)
@@ -123,16 +122,17 @@ export default function InvestmentCard({ item = null }) {
   );
 
   const hasAmount = currentAmount > 0;
+  const hasTarget = targetAmount > 0;
   const statusLabel = data.statusLabel || data.ctaLabel || "Coming soon";
-  const mainLabel = hasAmount ? fmt(currentAmount) : "Portfolio setup";
+  const mainLabel = data.mainLabel || (hasAmount ? fmt(currentAmount) : "Portfolio setup");
   const progressLabel =
     data.progressLabel ||
-    (targetAmount > 0 ? `${progress.toFixed(0)}% funded` : "Ready for future tracking");
+    (hasTarget ? `${progress.toFixed(0)}% funded` : "Preview mode");
 
   const statOneLabel = data.statOneLabel || "Current";
-  const statOneValue = data.statOneValue || (hasAmount ? fmt(currentAmount) : "Not set");
+  const statOneValue = data.statOneValue || (hasAmount ? fmt(currentAmount) : "Not started");
   const statTwoLabel = data.statTwoLabel || "Target";
-  const statTwoValue = data.statTwoValue || (targetAmount > 0 ? fmt(targetAmount) : "Pending");
+  const statTwoValue = data.statTwoValue || (hasTarget ? fmt(targetAmount) : "Set soon");
   const statThreeLabel = data.statThreeLabel || "Mode";
   const statThreeValue = data.statThreeValue || data.mode || "Long-term";
 
@@ -204,8 +204,8 @@ export default function InvestmentCard({ item = null }) {
               </div>
 
               <div className="mt-2 flex items-center justify-between text-[11px] font-medium text-white/70">
-                <span>{hasAmount ? fmt(currentAmount) : "₱0"}</span>
-                <span>{targetAmount > 0 ? fmt(targetAmount) : "Future goal"}</span>
+                <span>{hasAmount ? fmt(currentAmount) : "No portfolio yet"}</span>
+                <span>{hasTarget ? fmt(targetAmount) : "Future goal"}</span>
               </div>
             </div>
           </div>
@@ -258,15 +258,19 @@ export default function InvestmentCard({ item = null }) {
                 </div>
 
                 <div className="flex items-center justify-between rounded-2xl border border-white/10 bg-white/5 px-3 py-2.5 text-sm text-white/82">
-                  <span className="font-medium">Investment details</span>
+                  <span className="font-medium">Feature status</span>
                   <span className="text-[11px] font-semibold uppercase tracking-[0.16em] text-white/50">
-                    Soon
+                    Preview
                   </span>
                 </div>
 
-                <p className="text-[11px] leading-relaxed text-white/60">
-                  CLARA will keep this space ready for investment insights.
-                </p>
+                <button
+                  type="button"
+                  disabled
+                  className="flex w-full cursor-not-allowed items-center justify-center rounded-2xl border border-white/10 bg-white/5 px-3 py-2.5 text-sm font-semibold text-white/45"
+                >
+                  Plan my investment goal
+                </button>
               </div>
             )}
           </div>
