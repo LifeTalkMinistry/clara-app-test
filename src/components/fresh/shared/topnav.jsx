@@ -13,7 +13,7 @@ export default function TopNav() {
   const { pathname } = useLocation();
 
   return (
-    <div className="sticky top-0 z-[80] -mx-4 mb-3 px-4 pt-[calc(env(safe-area-inset-top)+0.35rem)]">
+    <div className="sticky top-0 z-[80] mb-3 px-4 pt-[calc(env(safe-area-inset-top)+0.35rem)]">
       <nav
         aria-label="Primary navigation"
         className="mx-auto flex max-w-[390px] items-center justify-between gap-1 rounded-[28px] border border-white/10 bg-white/[0.06] px-3 py-3 shadow-[0_10px_30px_rgba(0,0,0,0.35)] backdrop-blur-[24px]"
