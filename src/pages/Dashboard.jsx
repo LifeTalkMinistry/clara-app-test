@@ -8153,6 +8153,9 @@ export default function Dashboard() {
     const target = event?.target;
     if (!target?.closest) return null;
 
+    const moneyLeftOrb = target.closest('[data-clara-manual-expense-orb="true"]');
+    if (moneyLeftOrb) return moneyLeftOrb;
+
     const emergencyCard = target.closest("[data-emergency-card]");
     if (!emergencyCard) return null;
 
@@ -10483,18 +10486,34 @@ export default function Dashboard() {
             <button
               type="button"
               data-clara-manual-expense-orb="true"
-              onClick={(event) => {
-                event.preventDefault();
+              onClickCapture={handleClaraAiOrbClickCapture}
+              onPointerDown={(event) => {
                 event.stopPropagation();
-                openManualExpenseModal();
+                startClaraAiLongPress(event);
               }}
-              onPointerDown={(event) => event.stopPropagation()}
-              onPointerUp={(event) => event.stopPropagation()}
-              onMouseUp={(event) => event.stopPropagation()}
-              onTouchEnd={(event) => event.stopPropagation()}
-              className="absolute right-3 top-1/2 z-50 flex h-11 w-11 -translate-y-1/2 items-center justify-center rounded-full border border-white/20 bg-white/[0.10] text-white shadow-[0_0_22px_rgba(147,197,253,0.18)] backdrop-blur-xl transition hover:bg-white/[0.15] active:scale-95"
-              aria-label="Open manual expense"
-              title="Log expense"
+              onPointerUp={(event) => {
+                event.stopPropagation();
+                endClaraAiLongPress();
+              }}
+              onPointerCancel={(event) => {
+                event.stopPropagation();
+                endClaraAiLongPress();
+              }}
+              onPointerLeave={(event) => {
+                event.stopPropagation();
+                endClaraAiLongPress();
+              }}
+              onMouseUp={(event) => {
+                event.stopPropagation();
+                endClaraAiLongPress();
+              }}
+              onTouchEnd={(event) => {
+                event.stopPropagation();
+                endClaraAiLongPress();
+              }}
+              className="absolute right-5 top-1/2 z-50 flex h-11 w-11 -translate-y-1/2 items-center justify-center rounded-full border border-white/20 bg-white/[0.10] text-white shadow-[0_0_22px_rgba(147,197,253,0.18)] backdrop-blur-xl transition hover:bg-white/[0.15] active:scale-95 sm:right-6"
+              aria-label="Open manual expense. Long press to open CLARA AI."
+              title="Tap to log expense. Long press for CLARA AI."
             >
               <Plus className="h-5 w-5" />
             </button>
