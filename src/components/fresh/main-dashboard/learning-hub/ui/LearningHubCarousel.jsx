@@ -91,7 +91,7 @@ export default function LearningHubCarousel({ materials = [], onOpenMaterial }) 
       </div>
 
       <div
-        className="relative flex h-[232px] w-full items-center justify-center overflow-hidden"
+        className="relative flex h-[232px] w-full items-center justify-center overflow-hidden rounded-[30px]"
         style={{ perspective: "1200px", transformStyle: "preserve-3d" }}
         onMouseEnter={pauseCarousel}
         onMouseLeave={resumeCarouselSoon}
@@ -100,8 +100,13 @@ export default function LearningHubCarousel({ materials = [], onOpenMaterial }) 
       >
         <div className="pointer-events-none absolute inset-x-8 top-8 bottom-5 rounded-[34px] bg-[radial-gradient(circle_at_center,rgba(56,189,248,0.20),transparent_62%)] blur-2xl" />
 
-        <div className="pointer-events-none absolute left-0 top-4 z-[90] h-[212px] w-6 bg-gradient-to-r from-[#020617] to-transparent" />
-        <div className="pointer-events-none absolute right-0 top-4 z-[90] h-[212px] w-6 bg-gradient-to-l from-[#020617] to-transparent" />
+        <div className="pointer-events-none absolute left-0 top-0 z-[90] h-full w-16 bg-gradient-to-r from-[#020617] via-[#020617]/75 to-transparent" />
+        <div className="pointer-events-none absolute right-0 top-0 z-[90] h-full w-16 bg-gradient-to-l from-[#020617] via-[#020617]/75 to-transparent" />
+        <div className="pointer-events-none absolute inset-x-0 top-0 z-[91] h-8 bg-gradient-to-b from-[#020617] to-transparent" />
+        <div className="pointer-events-none absolute inset-x-0 bottom-0 z-[91] h-8 bg-gradient-to-t from-[#020617] to-transparent" />
+
+        <div className="pointer-events-none absolute left-2 top-8 z-[92] h-[170px] w-10 rounded-full bg-cyan-300/10 blur-2xl" />
+        <div className="pointer-events-none absolute right-2 top-8 z-[92] h-[170px] w-10 rounded-full bg-cyan-300/10 blur-2xl" />
 
         {safeMaterials.map((item, index) => {
           const rawOffset = index - activeIndex;
