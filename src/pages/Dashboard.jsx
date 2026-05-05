@@ -40,6 +40,7 @@ import WalletCard from "../components/WalletCard";
 import BudgetCardBase from "../components/BudgetCard";
 import SavingsCard from "../components/SavingsCard";
 import FinancialCarousel from "@/components/financial-carousel/FinancialCarousel";
+import LearningHub from "@/components/fresh/main-dashboard/learning-hub/LearningHub";
 import ClaraAssistantPanel from "@/components/ai/ClaraAssistantPanel";
 import { Button } from "@/components/ui/button";
 import StatCard from "../components/StatCard";
@@ -10262,110 +10263,12 @@ export default function Dashboard() {
           </div>
         )}
 
-        {dashboardShellReady && hasBillboardContent && (
-          <div
-            className={`${getDashboardGlowCardClass("teal")} ${
-              billboardClickable ? "cursor-pointer" : ""
-            }`}
-            onClick={billboardClickable ? openBillboardTarget : undefined}
-            role={billboardClickable ? "button" : undefined}
-            tabIndex={billboardClickable ? 0 : undefined}
-            onKeyDown={
-              billboardClickable
-                ? (e) => {
-                    if (e.key === "Enter" || e.key === " ") {
-                      e.preventDefault();
-                      openBillboardTarget();
-                    }
-                  }
-                : undefined
-            }
-          >
-            <div className={`relative ${dashboardScale.billboard}`}>
-              {billboardMediaUrl ? (
-                billboardMediaType === "video" ? (
-                  <video
-                    src={billboardMediaUrl}
-                    className="h-full w-full object-cover"
-                    autoPlay
-                    muted
-                    loop
-                    playsInline
-                    controls={false}
-                    onClick={(e) => e.stopPropagation()}
-                  />
-                ) : billboardMediaType === "image" ? (
-                  <img
-                    src={billboardMediaUrl}
-                    alt={billboardTitle || "Billboard"}
-                    className="h-full w-full object-cover"
-                  />
-                ) : (
-                  <div className="flex h-full w-full items-center justify-center bg-gradient-to-r from-[#141B3A] via-[#251B4A] to-[#0E3A54]">
-                    <div className="flex items-center gap-2 rounded-full border border-white/15 bg-white/[0.075] px-3 py-1.5 text-white/85">
-                      <FileText className="h-4 w-4" />
-                      <span className="text-xs font-medium">
-                        {billboardMediaType === "pdf" ? "PDF Attached" : "File Attached"}
-                      </span>
-                    </div>
-                  </div>
-                )
-              ) : (
-                <div className="h-full w-full bg-gradient-to-r from-[#141B3A] via-[#251B4A] to-[#0E3A54]" />
-              )}
-
-              <div className="absolute inset-0 bg-gradient-to-r from-black/75 via-black/35 to-black/10" />
-
-              <div className={`absolute inset-0 flex items-center justify-between ${dashboardScale.billboardPad}`}>
-                <div className="min-w-0 max-w-[72%]">
-                  {!!billboardTag && (
-                    <p className="text-[10px] uppercase tracking-[0.22em] text-white/60">
-                      {billboardTag}
-                    </p>
-                  )}
-
-                  {!!billboardTitle && (
-                    <h3 className={`line-clamp-1 font-bold leading-tight text-white ${dashboardScale.billboardTitle}`}>
-                      {billboardTitle}
-                    </h3>
-                  )}
-
-                  {!!billboardSubtitle && (
-                    <p className={`${dashboardScale.billboardText} text-white/80`}>
-                      {billboardSubtitle}
-                    </p>
-                  )}
-
-                  {!!billboardCta && (
-                    <div className={`flex items-center gap-2 ${dashboardScale.billboardCta}`}>
-                      <span className="inline-flex items-center gap-1 text-[11px] font-medium text-white/90">
-                        <span>{billboardCta}</span>
-                        {billboardClickable && <ExternalLink className="h-3 w-3" />}
-                      </span>
-                    </div>
-                  )}
-                </div>
-
-                <div className="shrink-0">
-                  <div className={`flex items-center justify-center border border-white/15 bg-black/25 backdrop-blur-sm ${dashboardScale.billboardIcon}`}>
-                    {billboardMediaType === "video" ? (
-                      <Play className="h-5 w-5 fill-emerald-300 text-emerald-300" />
-                    ) : billboardMediaType === "image" ? (
-                      <ImageIcon className="h-5 w-5 text-emerald-300" />
-                    ) : billboardMediaType === "pdf" || billboardMediaType === "file" ? (
-                      <FileText className="h-5 w-5 text-emerald-300" />
-                    ) : (
-                      <Play className="h-5 w-5 fill-emerald-300 text-emerald-300" />
-                    )}
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
+        {dashboardShellReady && (
+          <LearningHub />
         )}
 
         {!!user && (
-          <div className={`${dashboardScale.financeWrap} ${hasBillboardContent ? "mt-[clamp(16px,2.6dvh,24px)]" : ""}`}>
+          <div className={`${dashboardScale.financeWrap} ${dashboardShellReady ? "mt-[clamp(16px,2.6dvh,24px)]" : ""}`}>
             <FinanceInlineAlert notice={financeNotice} onClose={closeFinanceNotice} />
             {shouldShowNonBlockingRefresh ? (
               <div className="mb-3 inline-flex items-center gap-2 rounded-full border border-emerald-300/15 bg-emerald-400/10 px-3 py-1.5 text-[11px] font-semibold text-emerald-100/80">
