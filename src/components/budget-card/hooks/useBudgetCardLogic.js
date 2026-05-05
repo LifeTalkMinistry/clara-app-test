@@ -17,8 +17,7 @@ export function getBudgetStatus(progress) {
     return {
       label: "Healthy",
       text: "text-emerald-300",
-      badge:
-        "bg-emerald-500/15 text-emerald-300 border border-emerald-400/25",
+      badge: "bg-emerald-500/15 text-emerald-300 border border-emerald-400/25",
       bar: "from-emerald-400 via-lime-300 to-cyan-300",
       ring: "shadow-[0_0_24px_rgba(52,211,153,0.16)]",
     };
@@ -87,46 +86,30 @@ export function getBudgetThemeClasses(theme) {
 
   const surfaces = isLight
     ? {
-        gold:
-          "bg-[linear-gradient(135deg,rgba(255,251,235,0.98),rgba(255,247,237,0.95),rgba(254,249,195,0.92))]",
-        blue:
-          "bg-[linear-gradient(135deg,rgba(239,246,255,0.98),rgba(224,231,255,0.95),rgba(219,234,254,0.92))]",
-        teal:
-          "bg-[linear-gradient(135deg,rgba(240,253,250,0.98),rgba(236,254,255,0.95),rgba(207,250,254,0.92))]",
-        emerald:
-          "bg-[linear-gradient(135deg,rgba(240,253,244,0.98),rgba(236,253,245,0.95),rgba(220,252,231,0.92))]",
+        gold: "bg-[linear-gradient(135deg,rgba(255,251,235,0.98),rgba(255,247,237,0.95),rgba(254,249,195,0.92))]",
+        blue: "bg-[linear-gradient(135deg,rgba(239,246,255,0.98),rgba(224,231,255,0.95),rgba(219,234,254,0.92))]",
+        teal: "bg-[linear-gradient(135deg,rgba(240,253,250,0.98),rgba(236,254,255,0.95),rgba(207,250,254,0.92))]",
+        emerald: "bg-[linear-gradient(135deg,rgba(240,253,244,0.98),rgba(236,253,245,0.95),rgba(220,252,231,0.92))]",
       }
     : {
-        gold:
-          "bg-[linear-gradient(135deg,rgba(24,15,6,0.98),rgba(42,26,10,0.96),rgba(18,11,8,0.98))]",
-        blue:
-          "bg-[linear-gradient(135deg,rgba(10,20,54,0.98),rgba(18,44,112,0.94),rgba(10,18,40,0.98))]",
-        teal:
-          "bg-[linear-gradient(135deg,rgba(7,24,44,0.98),rgba(7,39,53,0.95),rgba(8,21,31,0.98))]",
-        emerald:
-          "bg-[linear-gradient(135deg,rgba(7,25,24,0.98),rgba(7,31,40,0.95),rgba(5,18,29,0.98))]",
+        gold: "bg-[linear-gradient(135deg,rgba(24,15,6,0.98),rgba(42,26,10,0.96),rgba(18,11,8,0.98))]",
+        blue: "bg-[linear-gradient(135deg,rgba(10,20,54,0.98),rgba(18,44,112,0.94),rgba(10,18,40,0.98))]",
+        teal: "bg-[linear-gradient(135deg,rgba(7,24,44,0.98),rgba(7,39,53,0.95),rgba(8,21,31,0.98))]",
+        emerald: "bg-[linear-gradient(135deg,rgba(7,25,24,0.98),rgba(7,31,40,0.95),rgba(5,18,29,0.98))]",
       };
 
   const overlays = isLight
     ? {
-        gold:
-          "bg-[radial-gradient(circle_at_top_left,rgba(250,204,21,0.18),transparent_28%),radial-gradient(circle_at_top_right,rgba(245,158,11,0.12),transparent_28%),radial-gradient(circle_at_bottom_right,rgba(253,224,71,0.10),transparent_24%),linear-gradient(135deg,rgba(255,255,255,0.55)_0%,rgba(255,255,255,0.00)_35%,rgba(255,255,255,0.16)_100%)]",
-        blue:
-          "bg-[radial-gradient(circle_at_top_left,rgba(59,130,246,0.18),transparent_28%),radial-gradient(circle_at_top_right,rgba(99,102,241,0.12),transparent_28%),radial-gradient(circle_at_bottom_right,rgba(147,197,253,0.10),transparent_24%),linear-gradient(135deg,rgba(255,255,255,0.55)_0%,rgba(255,255,255,0.00)_35%,rgba(255,255,255,0.16)_100%)]",
-        teal:
-          "bg-[radial-gradient(circle_at_top_left,rgba(45,212,191,0.18),transparent_28%),radial-gradient(circle_at_top_right,rgba(34,211,238,0.12),transparent_28%),radial-gradient(circle_at_bottom_right,rgba(125,211,252,0.10),transparent_24%),linear-gradient(135deg,rgba(255,255,255,0.55)_0%,rgba(255,255,255,0.00)_35%,rgba(255,255,255,0.16)_100%)]",
-        emerald:
-          "bg-[radial-gradient(circle_at_top_left,rgba(52,211,153,0.18),transparent_28%),radial-gradient(circle_at_top_right,rgba(16,185,129,0.12),transparent_28%),radial-gradient(circle_at_bottom_right,rgba(134,239,172,0.10),transparent_24%),linear-gradient(135deg,rgba(255,255,255,0.55)_0%,rgba(255,255,255,0.00)_35%,rgba(255,255,255,0.16)_100%)]",
+        gold: "bg-[radial-gradient(circle_at_top_left,rgba(250,204,21,0.18),transparent_28%),radial-gradient(circle_at_top_right,rgba(245,158,11,0.12),transparent_28%),radial-gradient(circle_at_bottom_right,rgba(253,224,71,0.10),transparent_24%),linear-gradient(135deg,rgba(255,255,255,0.55)_0%,rgba(255,255,255,0.00)_35%,rgba(255,255,255,0.16)_100%)]",
+        blue: "bg-[radial-gradient(circle_at_top_left,rgba(59,130,246,0.18),transparent_28%),radial-gradient(circle_at_top_right,rgba(99,102,241,0.12),transparent_28%),radial-gradient(circle_at_bottom_right,rgba(147,197,253,0.10),transparent_24%),linear-gradient(135deg,rgba(255,255,255,0.55)_0%,rgba(255,255,255,0.00)_35%,rgba(255,255,255,0.16)_100%)]",
+        teal: "bg-[radial-gradient(circle_at_top_left,rgba(45,212,191,0.18),transparent_28%),radial-gradient(circle_at_top_right,rgba(34,211,238,0.12),transparent_28%),radial-gradient(circle_at_bottom_right,rgba(125,211,252,0.10),transparent_24%),linear-gradient(135deg,rgba(255,255,255,0.55)_0%,rgba(255,255,255,0.00)_35%,rgba(255,255,255,0.16)_100%)]",
+        emerald: "bg-[radial-gradient(circle_at_top_left,rgba(52,211,153,0.18),transparent_28%),radial-gradient(circle_at_top_right,rgba(16,185,129,0.12),transparent_28%),radial-gradient(circle_at_bottom_right,rgba(134,239,172,0.10),transparent_24%),linear-gradient(135deg,rgba(255,255,255,0.55)_0%,rgba(255,255,255,0.00)_35%,rgba(255,255,255,0.16)_100%)]",
       }
     : {
-        gold:
-          "bg-[radial-gradient(circle_at_top_left,rgba(250,204,21,0.24),transparent_28%),radial-gradient(circle_at_top_right,rgba(245,158,11,0.16),transparent_28%),radial-gradient(circle_at_bottom_right,rgba(253,224,71,0.10),transparent_24%),linear-gradient(135deg,rgba(255,255,255,0.05)_0%,rgba(255,255,255,0.00)_35%,rgba(255,255,255,0.02)_100%)]",
-        blue:
-          "bg-[radial-gradient(circle_at_top_left,rgba(59,130,246,0.24),transparent_28%),radial-gradient(circle_at_top_right,rgba(99,102,241,0.16),transparent_28%),radial-gradient(circle_at_bottom_right,rgba(147,197,253,0.10),transparent_24%),linear-gradient(135deg,rgba(255,255,255,0.05)_0%,rgba(255,255,255,0.00)_35%,rgba(255,255,255,0.02)_100%)]",
-        teal:
-          "bg-[radial-gradient(circle_at_top_left,rgba(45,212,191,0.24),transparent_28%),radial-gradient(circle_at_top_right,rgba(34,211,238,0.16),transparent_28%),radial-gradient(circle_at_bottom_right,rgba(125,211,252,0.10),transparent_24%),linear-gradient(135deg,rgba(255,255,255,0.05)_0%,rgba(255,255,255,0.00)_35%,rgba(255,255,255,0.02)_100%)]",
-        emerald:
-          "bg-[radial-gradient(circle_at_top_left,rgba(52,211,153,0.24),transparent_28%),radial-gradient(circle_at_top_right,rgba(16,185,129,0.16),transparent_28%),radial-gradient(circle_at_bottom_right,rgba(134,239,172,0.10),transparent_24%),linear-gradient(135deg,rgba(255,255,255,0.05)_0%,rgba(255,255,255,0.00)_35%,rgba(255,255,255,0.02)_100%)]",
+        gold: "bg-[radial-gradient(circle_at_top_left,rgba(250,204,21,0.24),transparent_28%),radial-gradient(circle_at_top_right,rgba(245,158,11,0.16),transparent_28%),radial-gradient(circle_at_bottom_right,rgba(253,224,71,0.10),transparent_24%),linear-gradient(135deg,rgba(255,255,255,0.05)_0%,rgba(255,255,255,0.00)_35%,rgba(255,255,255,0.02)_100%)]",
+        blue: "bg-[radial-gradient(circle_at_top_left,rgba(59,130,246,0.24),transparent_28%),radial-gradient(circle_at_top_right,rgba(99,102,241,0.16),transparent_28%),radial-gradient(circle_at_bottom_right,rgba(147,197,253,0.10),transparent_24%),linear-gradient(135deg,rgba(255,255,255,0.05)_0%,rgba(255,255,255,0.00)_35%,rgba(255,255,255,0.02)_100%)]",
+        teal: "bg-[radial-gradient(circle_at_top_left,rgba(45,212,191,0.24),transparent_28%),radial-gradient(circle_at_top_right,rgba(34,211,238,0.16),transparent_28%),radial-gradient(circle_at_bottom_right,rgba(125,211,252,0.10),transparent_24%),linear-gradient(135deg,rgba(255,255,255,0.05)_0%,rgba(255,255,255,0.00)_35%,rgba(255,255,255,0.02)_100%)]",
+        emerald: "bg-[radial-gradient(circle_at_top_left,rgba(52,211,153,0.24),transparent_28%),radial-gradient(circle_at_top_right,rgba(16,185,129,0.16),transparent_28%),radial-gradient(circle_at_bottom_right,rgba(134,239,172,0.10),transparent_24%),linear-gradient(135deg,rgba(255,255,255,0.05)_0%,rgba(255,255,255,0.00)_35%,rgba(255,255,255,0.02)_100%)]",
       };
 
   const iconShells = isLight
@@ -144,18 +127,8 @@ export function getBudgetThemeClasses(theme) {
       };
 
   const iconColors = isLight
-    ? {
-        gold: "text-amber-700",
-        blue: "text-blue-700",
-        teal: "text-teal-700",
-        emerald: "text-emerald-700",
-      }
-    : {
-        gold: "text-amber-300",
-        blue: "text-blue-300",
-        teal: "text-teal-300",
-        emerald: "text-emerald-300",
-      };
+    ? { gold: "text-amber-700", blue: "text-blue-700", teal: "text-teal-700", emerald: "text-emerald-700" }
+    : { gold: "text-amber-300", blue: "text-blue-300", teal: "text-teal-300", emerald: "text-emerald-300" };
 
   return {
     isLight,
@@ -163,9 +136,7 @@ export function getBudgetThemeClasses(theme) {
     overlay: overlays[tone] || overlays.emerald,
     iconShell: iconShells[tone] || iconShells.emerald,
     iconColor: iconColors[tone] || iconColors.emerald,
-    glass: isLight
-      ? "border-slate-300/45 bg-white/55 shadow-[inset_0_1px_0_rgba(255,255,255,0.85)]"
-      : "border-white/10 bg-black/20 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]",
+    glass: isLight ? "border-slate-300/45 bg-white/55 shadow-[inset_0_1px_0_rgba(255,255,255,0.85)]" : "border-white/10 bg-black/20 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]",
     border: isLight ? "border-slate-300/45" : "border-white/10",
     title: isLight ? "text-slate-900" : "text-white",
     body: isLight ? "text-slate-700" : "text-white/82",
@@ -193,11 +164,26 @@ export default function useBudgetCardLogic({
     [activeBudget?.categories, budgetCategories]
   );
 
+  const decoratedCategories = useMemo(
+    () =>
+      categories.map((item) => {
+        const categoryAllocated = safeNumber(item?.allocated ?? item?.allocated_amount);
+        const categorySpent = safeNumber(item?.spent ?? item?.spent_amount);
+        const categoryRemaining = Math.max(categoryAllocated - categorySpent, 0);
+        const categoryProgress = categoryAllocated > 0 ? Math.min(100, (categorySpent / categoryAllocated) * 100) : 0;
+        return {
+          ...item,
+          categoryAllocated,
+          categorySpent,
+          categoryRemaining,
+          categoryProgress,
+        };
+      }),
+    [categories]
+  );
+
   const declared = safeNumber(
-    declaredBudget ||
-      activeBudget?.declared_budget ||
-      activeBudget?.declared_amount ||
-      activeBudget?.monthly_budget_amount
+    declaredBudget || activeBudget?.declared_budget || activeBudget?.declared_amount || activeBudget?.monthly_budget_amount
   );
 
   const allocated = safeNumber(
@@ -214,15 +200,8 @@ export default function useBudgetCardLogic({
       categories.reduce((sum, item) => sum + safeNumber(item?.spent ?? item?.spent_amount), 0)
   );
 
-  const remaining = Math.max(
-    safeNumber(activeBudget?.remaining ?? activeBudget?.remaining_amount ?? allocated - spent),
-    0
-  );
-
-  const unallocated = Math.max(
-    safeNumber(unallocatedAmount ?? activeBudget?.unallocated_amount ?? declared - allocated),
-    0
-  );
+  const remaining = Math.max(safeNumber(activeBudget?.remaining ?? activeBudget?.remaining_amount ?? allocated - spent), 0);
+  const unallocated = Math.max(safeNumber(unallocatedAmount ?? activeBudget?.unallocated_amount ?? declared - allocated), 0);
 
   const progress = useMemo(
     () => (allocated > 0 ? Math.min(100, (spent / allocated) * 100) : 0),
@@ -241,13 +220,15 @@ export default function useBudgetCardLogic({
   const themeClasses = getBudgetThemeClasses(theme);
   const remainingAmountColor = getRemainingAmountColor(progress, themeClasses.isLight);
   const monthKey = activeBudget?.month || new Date().toISOString().slice(0, 7);
-  const badgeLabel =
-    normalizedBudgetStatus === "active" ? "Active" : normalizedBudgetStatus === "draft" ? "Draft" : "No Plan";
+  const badgeLabel = normalizedBudgetStatus === "active" ? "Active" : normalizedBudgetStatus === "draft" ? "Draft" : "No Plan";
 
   return {
+    fmt,
+    safeNumber,
+    getBudgetThemeClasses,
     allocated,
     badgeLabel,
-    categories,
+    categories: decoratedCategories,
     declared,
     hasCategories,
     hasDeclaredBudget,
