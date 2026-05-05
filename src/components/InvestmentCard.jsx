@@ -139,17 +139,13 @@ export default function InvestmentCard({ item = null }) {
     totalExpenses = 0,
     totalIncome = 0,
     totalWalletBalance = 0,
-    retentionRate = 0,
   } = useFinancialData();
 
   const data = item?.data || {};
   const tone = getInvestmentToneClasses(item?.tone || data.tone || "gold");
 
   const title = data.title || item?.label || "Investment Fund";
-  const subtitle = data.subtitle || "Decide where your money can grow.";
-  const description =
-    data.description ||
-    "Use CLARA to check if it is safe to invest before moving your money.";
+  const subtitle = data.subtitle || "Decide before you invest.";
 
   const emergencySaved = toNumber(
     getEmergencyValue(
@@ -185,7 +181,10 @@ export default function InvestmentCard({ item = null }) {
     const walletBase = Math.max(0, toNumber(totalWalletBalance) - emergencyGap);
     const conservativeWalletShare = walletBase * 0.12;
     const conservativeLeftoverShare = monthlyLeftover * 0.4;
-    const estimate = Math.min(conservativeWalletShare, conservativeLeftoverShare || conservativeWalletShare);
+    const estimate = Math.min(
+      conservativeWalletShare,
+      conservativeLeftoverShare || conservativeWalletShare
+    );
 
     return Math.max(0, Math.floor(estimate / 100) * 100);
   }, [data, emergencyGap, monthlyLeftover, totalWalletBalance]);
@@ -197,24 +196,23 @@ export default function InvestmentCard({ item = null }) {
       0
     )
   );
-  const targetAmount = Number(
-    getDataValue(data, ["targetAmount", "target", "goalAmount", "goal"], safeToInvest)
-  );
-  const manualProgress = getDataValue(data, ["progress", "progressPct", "pct"], null);
-  const progress = clampProgress(
-    manualProgress !== null && manualProgress !== undefined
-      ? manualProgress
-      : targetAmount > 0
-        ? (currentAmount / targetAmount) * 100
-        : 0
-  );
 
-  const hasAmount = currentAmount > 0;
-  const hasTarget = targetAmount > 0;
-  const selectedType =
-    INVESTMENT_TYPES.find((type) => type.value === investmentType)?.label || "Business";
   const plannedValue = toNumber(plannedAmount);
   const canSafelyInvest = safeToInvest > 0;
+  const readinessProgress = clampProgress(
+    getDataValue(
+      data,
+      ["readiness", "readinessProgress"],
+      canSafelyInvest
+        ? 100
+        : emergencyTarget > 0
+          ? (emergencySaved / emergencyTarget) * 100
+          : 0
+    )
+  );
+  const selectedType =
+    INVESTMENT_TYPES.find((type) => type.value === investmentType)?.label ||
+    "Business";
   const amountStatus =
     plannedValue > 0 && safeToInvest > 0
       ? plannedValue <= safeToInvest
@@ -223,18 +221,22 @@ export default function InvestmentCard({ item = null }) {
       : canSafelyInvest
         ? "Safe amount available"
         : "Build protection first";
-  const statusLabel = data.statusLabel || data.ctaLabel || (canSafelyInvest ? "Ready to plan" : "Review first");
-  const mainLabel = data.mainLabel || (canSafelyInvest ? fmt(safeToInvest) : "Plan first");
-  const progressLabel =
-    data.progressLabel ||
-    (hasTarget ? `${progress.toFixed(0)}% funded` : "Decision mode");
+  const statusLabel =
+    data.statusLabel || data.ctaLabel || (canSafelyInvest ? "Ready" : "Not ready");
+  const mainLabel =
+    data.mainLabel || (canSafelyInvest ? `${fmt(safeToInvest)} safe` : "Not ready");
+  const description =
+    data.description ||
+    (canSafelyInvest
+      ? "You can start planning an investment based on your current finances."
+      : "Build your emergency fund first before investing.");
 
   const statOneLabel = data.statOneLabel || "Safe";
-  const statOneValue = data.statOneValue || (canSafelyInvest ? fmt(safeToInvest) : "Not ready");
+  const statOneValue = data.statOneValue || (canSafelyInvest ? fmt(safeToInvest) : "₱0");
   const statTwoLabel = data.statTwoLabel || "Type";
   const statTwoValue = data.statTwoValue || selectedType;
-  const statThreeLabel = data.statThreeLabel || "Mode";
-  const statThreeValue = data.statThreeValue || "Decision";
+  const statThreeLabel = data.statThreeLabel || "Status";
+  const statThreeValue = data.statThreeValue || (canSafelyInvest ? "Ready" : "Not ready");
 
   const dispatchInvestmentPrompt = (prompt) => {
     if (typeof window === "undefined") return;
@@ -262,7 +264,9 @@ export default function InvestmentCard({ item = null }) {
 
   const handleAskClara = () => {
     dispatchInvestmentPrompt(
-      `Can I invest ${plannedValue > 0 ? fmt(plannedValue) : "money"} right now in ${selectedType}? Check my budget, wallet balance, emergency fund, and spending behavior first.`
+      `Can I invest ${
+        plannedValue > 0 ? fmt(plannedValue) : "money"
+      } right now in ${selectedType}? Check my budget, wallet balance, emergency fund, and spending behavior first.`
     );
   };
 
@@ -320,22 +324,24 @@ export default function InvestmentCard({ item = null }) {
 
             <div className="mb-3">
               <div className="mb-1.5 flex items-center justify-between gap-3 text-[11px] font-medium text-white/75">
-                <span>Safe to invest</span>
-                <span className="truncate text-right">{progressLabel}</span>
+                <span>Readiness</span>
+                <span className="truncate text-right">
+                  {canSafelyInvest ? "Ready" : "Build protection"}
+                </span>
               </div>
 
               <div className="h-2.5 overflow-hidden rounded-full border border-white/10 bg-black/20">
                 <div
                   className={`relative h-full rounded-full bg-gradient-to-r ${tone.bar} transition-all duration-500`}
-                  style={{ width: `${progress}%` }}
+                  style={{ width: `${readinessProgress}%` }}
                 >
                   <div className="absolute inset-0 bg-white/20 opacity-40" />
                 </div>
               </div>
 
               <div className="mt-2 flex items-center justify-between text-[11px] font-medium text-white/70">
-                <span>{canSafelyInvest ? fmt(safeToInvest) : "No safe amount yet"}</span>
-                <span>{hasAmount ? fmt(currentAmount) : "No portfolio yet"}</span>
+                <span>Safe: {canSafelyInvest ? fmt(safeToInvest) : "₱0"}</span>
+                <span>Status: {canSafelyInvest ? "Ready" : "Not ready"}</span>
               </div>
             </div>
           </div>
