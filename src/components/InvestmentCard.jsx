@@ -1,5 +1,7 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { ChevronDown, ChevronUp, TrendingUp } from "lucide-react";
+
+import useFinancialData from "../hooks/useFinancialData";
 
 const fmt = (value) =>
   new Intl.NumberFormat("en-PH", {
@@ -8,7 +10,28 @@ const fmt = (value) =>
     minimumFractionDigits: 0,
   }).format(Number(value) || 0);
 
+const toNumber = (value) => {
+  if (typeof value === "number") return Number.isFinite(value) ? value : 0;
+
+  if (typeof value === "string") {
+    const cleaned = value.replace(/[₱,\s]/g, "");
+    const num = Number(cleaned);
+    return Number.isFinite(num) ? num : 0;
+  }
+
+  const num = Number(value);
+  return Number.isFinite(num) ? num : 0;
+};
+
 const clampProgress = (value) => Math.max(0, Math.min(Number(value) || 0, 100));
+
+const INVESTMENT_TYPES = [
+  { value: "business", label: "Business" },
+  { value: "stocks", label: "Stocks" },
+  { value: "crypto", label: "Crypto" },
+  { value: "time_deposit", label: "Time Deposit" },
+  { value: "other", label: "Other" },
+];
 
 const getInvestmentToneClasses = (tone = "gold") => {
   const toneMap = {
@@ -94,23 +117,88 @@ const getDataValue = (data, keys, fallback = null) => {
   return fallback;
 };
 
+const getEmergencyValue = (emergencyFund, keys, fallback = 0) => {
+  for (const key of keys) {
+    const value = emergencyFund?.[key];
+
+    if (value !== undefined && value !== null && value !== "") {
+      return value;
+    }
+  }
+
+  return fallback;
+};
+
 export default function InvestmentCard({ item = null }) {
   const [expanded, setExpanded] = useState(false);
+  const [investmentType, setInvestmentType] = useState("business");
+  const [plannedAmount, setPlannedAmount] = useState("");
+
+  const {
+    emergencyFund,
+    totalExpenses = 0,
+    totalIncome = 0,
+    totalWalletBalance = 0,
+    retentionRate = 0,
+  } = useFinancialData();
 
   const data = item?.data || {};
   const tone = getInvestmentToneClasses(item?.tone || data.tone || "gold");
 
   const title = data.title || item?.label || "Investment Fund";
-  const subtitle = data.subtitle || "Prepare your future growth.";
+  const subtitle = data.subtitle || "Decide where your money can grow.";
   const description =
     data.description ||
-    "Start preparing money for long-term growth. CLARA will help you track investments soon.";
+    "Use CLARA to check if it is safe to invest before moving your money.";
+
+  const emergencySaved = toNumber(
+    getEmergencyValue(
+      emergencyFund,
+      ["savedAmount", "saved_amount", "amount", "balance", "moneyLeft"],
+      0
+    )
+  );
+  const emergencyExpense = toNumber(
+    getEmergencyValue(
+      emergencyFund,
+      ["survivalExpense", "survival_expense", "monthlyExpense", "monthly_expense"],
+      0
+    )
+  );
+  const emergencyTargetMonths = toNumber(
+    getEmergencyValue(
+      emergencyFund,
+      ["targetMonths", "target_months", "months_target"],
+      3
+    )
+  );
+
+  const emergencyTarget = emergencyExpense * emergencyTargetMonths;
+  const emergencyGap = Math.max(0, emergencyTarget - emergencySaved);
+  const monthlyLeftover = Math.max(0, toNumber(totalIncome) - toNumber(totalExpenses));
+
+  const safeToInvest = useMemo(() => {
+    const dataOverride = getDataValue(data, ["safeToInvest", "availableToInvest"], null);
+
+    if (dataOverride !== null) return Math.max(0, toNumber(dataOverride));
+
+    const walletBase = Math.max(0, toNumber(totalWalletBalance) - emergencyGap);
+    const conservativeWalletShare = walletBase * 0.12;
+    const conservativeLeftoverShare = monthlyLeftover * 0.4;
+    const estimate = Math.min(conservativeWalletShare, conservativeLeftoverShare || conservativeWalletShare);
+
+    return Math.max(0, Math.floor(estimate / 100) * 100);
+  }, [data, emergencyGap, monthlyLeftover, totalWalletBalance]);
 
   const currentAmount = Number(
-    getDataValue(data, ["currentAmount", "savedAmount", "balance", "amount", "value"], 0)
+    getDataValue(
+      data,
+      ["currentAmount", "savedAmount", "balance", "amount", "value"],
+      0
+    )
   );
   const targetAmount = Number(
-    getDataValue(data, ["targetAmount", "target", "goalAmount", "goal"], 0)
+    getDataValue(data, ["targetAmount", "target", "goalAmount", "goal"], safeToInvest)
   );
   const manualProgress = getDataValue(data, ["progress", "progressPct", "pct"], null);
   const progress = clampProgress(
@@ -123,18 +211,60 @@ export default function InvestmentCard({ item = null }) {
 
   const hasAmount = currentAmount > 0;
   const hasTarget = targetAmount > 0;
-  const statusLabel = data.statusLabel || data.ctaLabel || "Coming soon";
-  const mainLabel = data.mainLabel || (hasAmount ? fmt(currentAmount) : "Portfolio setup");
+  const selectedType =
+    INVESTMENT_TYPES.find((type) => type.value === investmentType)?.label || "Business";
+  const plannedValue = toNumber(plannedAmount);
+  const canSafelyInvest = safeToInvest > 0;
+  const amountStatus =
+    plannedValue > 0 && safeToInvest > 0
+      ? plannedValue <= safeToInvest
+        ? "Within safe range"
+        : "Above safe range"
+      : canSafelyInvest
+        ? "Safe amount available"
+        : "Build protection first";
+  const statusLabel = data.statusLabel || data.ctaLabel || (canSafelyInvest ? "Ready to plan" : "Review first");
+  const mainLabel = data.mainLabel || (canSafelyInvest ? fmt(safeToInvest) : "Plan first");
   const progressLabel =
     data.progressLabel ||
-    (hasTarget ? `${progress.toFixed(0)}% funded` : "Preview mode");
+    (hasTarget ? `${progress.toFixed(0)}% funded` : "Decision mode");
 
-  const statOneLabel = data.statOneLabel || "Current";
-  const statOneValue = data.statOneValue || (hasAmount ? fmt(currentAmount) : "Not started");
-  const statTwoLabel = data.statTwoLabel || "Target";
-  const statTwoValue = data.statTwoValue || (hasTarget ? fmt(targetAmount) : "Set soon");
+  const statOneLabel = data.statOneLabel || "Safe";
+  const statOneValue = data.statOneValue || (canSafelyInvest ? fmt(safeToInvest) : "Not ready");
+  const statTwoLabel = data.statTwoLabel || "Type";
+  const statTwoValue = data.statTwoValue || selectedType;
   const statThreeLabel = data.statThreeLabel || "Mode";
-  const statThreeValue = data.statThreeValue || data.mode || "Long-term";
+  const statThreeValue = data.statThreeValue || "Decision";
+
+  const dispatchInvestmentPrompt = (prompt) => {
+    if (typeof window === "undefined") return;
+
+    window.dispatchEvent(
+      new CustomEvent("clara:open-ai-chat", {
+        detail: {
+          source: "investment-card",
+          prompt,
+          investmentType,
+          plannedAmount: plannedValue,
+          safeToInvest,
+        },
+      })
+    );
+  };
+
+  const handlePlanInvestment = () => {
+    dispatchInvestmentPrompt(
+      `Help me plan an investment. Type: ${selectedType}. Amount I want to invest: ${
+        plannedValue > 0 ? fmt(plannedValue) : "not set yet"
+      }. CLARA says my safe-to-invest amount is ${fmt(safeToInvest)}.`
+    );
+  };
+
+  const handleAskClara = () => {
+    dispatchInvestmentPrompt(
+      `Can I invest ${plannedValue > 0 ? fmt(plannedValue) : "money"} right now in ${selectedType}? Check my budget, wallet balance, emergency fund, and spending behavior first.`
+    );
+  };
 
   return (
     <div
@@ -190,7 +320,7 @@ export default function InvestmentCard({ item = null }) {
 
             <div className="mb-3">
               <div className="mb-1.5 flex items-center justify-between gap-3 text-[11px] font-medium text-white/75">
-                <span>Growth progress</span>
+                <span>Safe to invest</span>
                 <span className="truncate text-right">{progressLabel}</span>
               </div>
 
@@ -204,8 +334,8 @@ export default function InvestmentCard({ item = null }) {
               </div>
 
               <div className="mt-2 flex items-center justify-between text-[11px] font-medium text-white/70">
+                <span>{canSafelyInvest ? fmt(safeToInvest) : "No safe amount yet"}</span>
                 <span>{hasAmount ? fmt(currentAmount) : "No portfolio yet"}</span>
-                <span>{hasTarget ? fmt(targetAmount) : "Future goal"}</span>
               </div>
             </div>
           </div>
@@ -227,7 +357,7 @@ export default function InvestmentCard({ item = null }) {
             </button>
 
             {expanded && (
-              <div className="mt-3 max-h-[160px] space-y-3 overflow-y-auto rounded-2xl border border-white/10 bg-black/15 p-3 backdrop-blur-sm shadow-[inset_0_1px_0_rgba(255,255,255,0.05)] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+              <div className="mt-3 max-h-[230px] space-y-3 overflow-y-auto rounded-2xl border border-white/10 bg-black/15 p-3 backdrop-blur-sm shadow-[inset_0_1px_0_rgba(255,255,255,0.05)] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
                 <div className="grid grid-cols-3 gap-2 text-center text-sm text-white">
                   <div className="rounded-2xl border border-white/10 bg-white/5 px-2.5 py-2.5 backdrop-blur-[2px]">
                     <p className="mb-1 text-[10px] font-semibold uppercase tracking-[0.16em] text-white/55">
@@ -257,20 +387,57 @@ export default function InvestmentCard({ item = null }) {
                   </div>
                 </div>
 
-                <div className="flex items-center justify-between rounded-2xl border border-white/10 bg-white/5 px-3 py-2.5 text-sm text-white/82">
-                  <span className="font-medium">Feature status</span>
-                  <span className="text-[11px] font-semibold uppercase tracking-[0.16em] text-white/50">
-                    Preview
-                  </span>
+                <div>
+                  <label className="mb-1.5 block text-[10px] font-semibold uppercase tracking-[0.16em] text-white/55">
+                    Investment type
+                  </label>
+                  <select
+                    value={investmentType}
+                    onChange={(event) => setInvestmentType(event.target.value)}
+                    className="w-full rounded-2xl border border-white/10 bg-black/25 px-3 py-2.5 text-sm font-semibold text-white outline-none transition focus:border-amber-300/35"
+                  >
+                    {INVESTMENT_TYPES.map((type) => (
+                      <option key={type.value} value={type.value} className="bg-slate-950">
+                        {type.label}
+                      </option>
+                    ))}
+                  </select>
                 </div>
 
-                <button
-                  type="button"
-                  disabled
-                  className="flex w-full cursor-not-allowed items-center justify-center rounded-2xl border border-white/10 bg-white/5 px-3 py-2.5 text-sm font-semibold text-white/45"
-                >
-                  Plan my investment goal
-                </button>
+                <div>
+                  <label className="mb-1.5 block text-[10px] font-semibold uppercase tracking-[0.16em] text-white/55">
+                    Money to invest
+                  </label>
+                  <input
+                    type="number"
+                    min="0"
+                    value={plannedAmount}
+                    onChange={(event) => setPlannedAmount(event.target.value)}
+                    placeholder="0"
+                    className="w-full rounded-2xl border border-white/10 bg-black/25 px-3 py-2.5 text-sm font-semibold text-white outline-none transition placeholder:text-white/35 focus:border-amber-300/35"
+                  />
+                  <p className="mt-1.5 text-[11px] font-medium text-white/60">
+                    {amountStatus}
+                  </p>
+                </div>
+
+                <div className="grid grid-cols-2 gap-2">
+                  <button
+                    type="button"
+                    onClick={handlePlanInvestment}
+                    className="flex items-center justify-center rounded-2xl border border-amber-300/25 bg-amber-500/10 px-3 py-2.5 text-sm font-semibold text-amber-200 transition hover:bg-amber-500/15"
+                  >
+                    Plan Investment
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={handleAskClara}
+                    className="flex items-center justify-center rounded-2xl border border-white/10 bg-white/5 px-3 py-2.5 text-sm font-semibold text-white/82 transition hover:bg-white/10 hover:text-white"
+                  >
+                    Ask CLARA
+                  </button>
+                </div>
               </div>
             )}
           </div>
