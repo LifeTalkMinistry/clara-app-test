@@ -1,4 +1,4 @@
-import MoneyLeftUi from "@/components/fresh/main-dashboard/moneysummary/MoneyLeftUi.jsx";
+import MoneySummaryLogic from "@/components/fresh/main-dashboard/moneysummary/logic/MoneySummary.logic.jsx";
 import useDashboardFinancials from "../hooks/useDashboardFinancials";
 
 export default function DashboardMoneySection() {
@@ -9,7 +9,7 @@ export default function DashboardMoneySection() {
   } = useDashboardFinancials();
 
   return (
-    <MoneyLeftUi
+    <MoneySummaryLogic
       walletMoney={walletMoney}
       totalExpenses={totalExpenses}
       loading={loading}
