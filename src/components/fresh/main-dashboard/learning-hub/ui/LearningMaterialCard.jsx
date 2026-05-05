@@ -1,21 +1,28 @@
 export default function LearningMaterialCard({ item, isActive, offset = 0, visible = true, onClick }) {
   const absOffset = Math.abs(offset);
+  const direction = offset < 0 ? -1 : 1;
 
-  const distance = 142;
-  const translateX = `calc(-50% + ${offset * distance}px)`;
+  const distanceMap = {
+    0: 0,
+    1: 118,
+    2: 202,
+  };
 
-  const scale = isActive ? 1 : 0.78;
-  const rotate = isActive ? 0 : offset < 0 ? 10 : -10;
+  const cardOffset = distanceMap[Math.min(absOffset, 2)] || 0;
+  const translateX = `calc(-50% + ${direction * cardOffset}px)`;
+
+  const scale = isActive ? 1 : absOffset === 1 ? 0.92 : 0.8;
+  const rotate = isActive ? 0 : offset < 0 ? 8 + absOffset * 2 : -8 - absOffset * 2;
   const origin = isActive ? "center center" : offset < 0 ? "right center" : "left center";
 
-  const depth = isActive ? 20 : -30;
-  const blur = isActive ? 0 : 1.2;
+  const depth = isActive ? 24 : absOffset === 1 ? -12 : -42;
+  const blur = isActive ? 0 : absOffset === 1 ? 0.25 : 0.75;
 
-  const opacity = visible ? (isActive ? 1 : 0.55) : 0;
-  const zIndex = isActive ? 80 : 40;
+  const opacity = visible ? (isActive ? 1 : absOffset === 1 ? 0.82 : 0.42) : 0;
+  const zIndex = isActive ? 80 : absOffset === 1 ? 55 : 35;
 
-  const width = isActive ? 154 : 112;
-  const height = isActive ? 205 : 180;
+  const width = isActive ? 156 : absOffset === 1 ? 132 : 116;
+  const height = isActive ? 205 : absOffset === 1 ? 190 : 176;
 
   return (
     <div
@@ -40,7 +47,7 @@ export default function LearningMaterialCard({ item, isActive, offset = 0, visib
         className={`relative w-full overflow-hidden rounded-[18px] border transition-all duration-500 ${
           isActive
             ? "border-cyan-200/60 bg-slate-950 shadow-[0_0_18px_rgba(56,189,248,0.45),0_12px_30px_rgba(0,0,0,0.45)]"
-            : "border-cyan-300/20 bg-slate-950/90 shadow-[0_12px_28px_rgba(0,0,0,0.4)]"
+            : "border-cyan-300/25 bg-slate-950/90 shadow-[0_12px_28px_rgba(0,0,0,0.4)]"
         }`}
         style={{ height }}
       >
@@ -60,7 +67,7 @@ export default function LearningMaterialCard({ item, isActive, offset = 0, visib
         </div>
 
         <div className="absolute left-4 right-4 top-[64px]">
-          <h3 className={`${isActive ? "text-[18px]" : "text-[14px]"} font-black leading-tight text-white`}>
+          <h3 className={`${isActive ? "text-[18px]" : absOffset === 1 ? "text-[15px]" : "text-[13px]"} font-black leading-tight text-white`}>
             {item.title}
           </h3>
           <p className={`${isActive ? "mt-3 text-[11px]" : "mt-2 text-[10px]"} text-white/60`}>
