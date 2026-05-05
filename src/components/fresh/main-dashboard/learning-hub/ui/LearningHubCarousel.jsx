@@ -53,7 +53,7 @@ export default function LearningHubCarousel({ materials = [], onOpenMaterial }) 
   if (!total) return null;
 
   return (
-    <section className="relative w-full overflow-hidden px-1 py-2">
+    <section className="relative w-full overflow-visible px-1 py-2">
       <div className="mb-2 flex items-center justify-between px-3">
         <div className="flex items-center gap-2 text-[11px] font-bold uppercase tracking-[0.24em] text-white/55">
           <BookOpen size={16} className="text-cyan-200/70" />
@@ -67,7 +67,7 @@ export default function LearningHubCarousel({ materials = [], onOpenMaterial }) 
       </div>
 
       <div
-        className="relative flex h-[148px] items-center justify-center overflow-hidden"
+        className="relative flex h-[190px] items-center justify-center overflow-visible"
         onMouseEnter={pauseCarousel}
         onMouseLeave={resumeCarouselSoon}
         onTouchStart={pauseCarousel}
@@ -101,19 +101,6 @@ export default function LearningHubCarousel({ materials = [], onOpenMaterial }) 
             />
           );
         })}
-      </div>
-
-      <div className="mt-1 flex justify-center gap-2">
-        {safeMaterials.map((item, index) => (
-          <button
-            key={item.id || index}
-            onClick={() => moveToIndex(index)}
-            className={`h-2 rounded-full transition-all duration-300 ${
-              activeIndex === index ? "w-6 bg-emerald-300" : "w-2 bg-white/20"
-            }`}
-            aria-label={`Go to ${item.title}`}
-          />
-        ))}
       </div>
     </section>
   );
