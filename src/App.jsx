@@ -277,7 +277,7 @@ function AppRoutes() {
   return (
     <Suspense fallback={<FullScreenLoader />}>
       <Routes>
-        <Route path="/login" element={user ? <Navigate to="/welcome-back" replace /> : <Login />} />
+        <Route path="/login" element={<Login />} />
         <Route
           path="/welcome-back"
           element={
