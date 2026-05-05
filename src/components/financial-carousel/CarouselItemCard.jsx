@@ -137,7 +137,7 @@ export default function CarouselItemCard({
 
   if (item.type === "budget") {
     return (
-      <div className="h-full min-h-[inherit] flex flex-col">
+      <div className="h-full min-h-[inherit] overflow-hidden [&>div]:mb-0 [&>div]:h-full [&>div]:min-h-full">
         <BudgetCard
           activeBudget={data.activeBudget}
           budgetCategories={data.budgetCategories}
