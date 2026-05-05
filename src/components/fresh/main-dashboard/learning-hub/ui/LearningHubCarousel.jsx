@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { BookOpen, ChevronDown } from "lucide-react";
+import DailyTipCard from "../../daily-tip";
 import LearningMaterialCard from "./LearningMaterialCard";
 
 const AUTO_SCROLL_DELAY = 3800;
@@ -95,13 +96,15 @@ export default function LearningHubCarousel({ materials = [], onOpenMaterial }) 
 
   return (
     <section className="relative w-full overflow-hidden px-1 py-2">
+      <DailyTipCard />
+
       <button
         type="button"
         aria-expanded={isExpanded}
         onClick={() => setIsExpanded((current) => !current)}
         onTouchStart={handleHeaderTouchStart}
         onTouchEnd={handleHeaderTouchEnd}
-        className="mx-auto flex w-fit items-center justify-center gap-2 rounded-full border border-white/5 bg-white/[0.02] px-4 py-2 text-[11px] font-bold uppercase tracking-[0.24em] text-white/60 transition-all duration-300 active:scale-[0.98]"
+        className="mx-auto mt-3 flex w-fit items-center justify-center gap-2 rounded-full border border-white/5 bg-white/[0.02] px-4 py-2 text-[11px] font-bold uppercase tracking-[0.24em] text-white/60 transition-all duration-300 active:scale-[0.98]"
       >
         <BookOpen size={16} className="text-cyan-200/75" />
         Learning Hub
