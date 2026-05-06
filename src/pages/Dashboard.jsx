@@ -76,6 +76,12 @@ import {
   DEFAULT_DASHBOARD_THEME_KEY,
   getDashboardGlowCardClass,
 } from "@/components/fresh/main-dashboard/dashboard-theme/dashboardThemeBase";
+import {
+  readStoredDashboardTheme,
+  persistDashboardTheme,
+  readStoredSurvivalExpense,
+  persistStoredSurvivalExpense,
+} from "@/components/fresh/main-dashboard/dashboard-theme/dashboardThemeRuntime";
 import FinanceActionModal from "@/components/fresh/main-dashboard/dashboard-primitives/FinanceActionModal";
 import ManualExpenseFullScreenSheet from "@/components/fresh/main-dashboard/dashboard-primitives/ManualExpenseFullScreenSheet";
 import QuickActionDropdown from "@/components/fresh/main-dashboard/dashboard-primitives/QuickActionDropdown";
@@ -224,24 +230,6 @@ const FinanceInlineAlert = ({ notice, onClose }) => {
   );
 };
 
-const dashboardRuntimeThemes = new Map();
-const dashboardRuntimeSurvivalExpenses = new Map();
-
-const getDashboardThemeStorageKey = (userId) =>
-  `clara_dashboard_theme_${userId || "guest"}`;
-
-function readStoredDashboardTheme(userId) {
-  return dashboardRuntimeThemes.get(getDashboardThemeStorageKey(userId)) || DEFAULT_DASHBOARD_THEME_KEY;
-}
-
-function persistDashboardTheme(userId, themeKey) {
-  dashboardRuntimeThemes.set(getDashboardThemeStorageKey(userId), themeKey);
-  const detail = { themeKey, key: themeKey, dashboardTheme: themeKey, userId: userId || null };
-  dispatchClaraEvent("clara-dashboard-theme-updated", detail);
-  dispatchClaraEvent("clara-theme-selected", detail);
-  dispatchClaraEvent("clara-theme-change", detail);
-}
-
 const dispatchClaraEvent = (name, detail = null) => {
   if (typeof window === "undefined") return;
   if (detail && typeof detail === "object") {
@@ -249,15 +237,6 @@ const dispatchClaraEvent = (name, detail = null) => {
     return;
   }
   window.dispatchEvent(new Event(name));
-};
-
-const readStoredSurvivalExpense = (userId) => firstPositiveNumber(dashboardRuntimeSurvivalExpenses.get(userId || "guest"));
-
-const persistStoredSurvivalExpense = (userId, value) => {
-  const amount = firstPositiveNumber(value);
-  if (amount <= 0) return;
-  dashboardRuntimeSurvivalExpenses.set(userId || "guest", amount);
-  dispatchClaraEvent("clara:survival-expense-updated", { amount, monthlyEssentialExpenses: amount, monthly_survival_expense: amount, survivalExpense: amount, survival_expense: amount });
 };
 
 const createEmptyDashboardCache = (key = null) => ({
