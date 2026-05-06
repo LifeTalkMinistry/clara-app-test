@@ -6,6 +6,7 @@ import {
   dashboardPanelInitials,
 } from "@/components/fresh/dashboard-panels/feed/utils/feedHelpers";
 import { FEED_CATEGORIES } from "@/components/fresh/dashboard-panels/feed/constants/feedCategories";
+import useFeedRealtime from "@/components/fresh/dashboard-panels/feed/hooks/useFeedRealtime";
 import {
   Settings,
   Clock,
@@ -1223,6 +1224,8 @@ function DashboardFeedPanel({ onBack }) {
     }
   }, [mapFeedPost]);
 
+  useFeedRealtime(fetchFeedPosts);
+
   useEffect(() => {
     let mounted = true;
 
@@ -1233,28 +1236,18 @@ function DashboardFeedPanel({ onBack }) {
 
     init();
 
-    const channel = supabase
-      .channel("dashboard-full-feed-panel")
-      .on(
-        "postgres_changes",
-        { event: "*", schema: "public", table: "feed_posts" },
-        () => fetchFeedPosts(false)
-      )
-      .on(
-        "postgres_changes",
-        { event: "*", schema: "public", table: "feed_comments" },
-        () => fetchFeedPosts(false)
-      )
-      .subscribe();
-
     return () => {
       mounted = false;
-      supabase.removeChannel(channel);
+    };
+  }, [fetchFeedPosts, fetchFeedUser]);
+
+  useEffect(() => {
+    return () => {
       if (composerMedia?.previewUrl?.startsWith?.("blob:")) {
         URL.revokeObjectURL(composerMedia.previewUrl);
       }
     };
-  }, [fetchFeedPosts, fetchFeedUser]);
+  }, [composerMedia?.previewUrl]);
 
   const resetComposer = useCallback(() => {
     if (composerMedia?.previewUrl?.startsWith?.("blob:")) {
