@@ -10,6 +10,7 @@ on:
       - ".github/scripts/extract-dashboard-cache-factory.mjs"
       - ".github/scripts/extract-dashboard-panel-constants.mjs"
       - ".github/scripts/extract-dashboard-panel-shell.mjs"
+      - ".github/scripts/extract-finance-inline-alert.mjs"
   workflow_dispatch:
 
 permissions:
@@ -25,7 +26,7 @@ jobs:
           token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Patch Dashboard.jsx
-        run: node .github/scripts/extract-dashboard-panel-shell.mjs
+        run: node .github/scripts/extract-finance-inline-alert.mjs
 
       - name: Install dependencies
         run: npm ci
@@ -43,5 +44,5 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add src/pages/Dashboard.jsx
-          git commit -m "Extract dashboard panel shell"
+          git commit -m "Extract finance inline alert"
           git push
