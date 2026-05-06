@@ -31,7 +31,7 @@ export default function DailyTipCard() {
         />
 
         <div
-          className="absolute inset-0 rounded-2xl transition-transform duration-700 will-change-transform"
+          className="clara-preserve-flip-motion absolute inset-0 rounded-2xl transition-transform duration-700 will-change-transform"
           style={{
             transformStyle: "preserve-3d",
             transitionTimingFunction: "cubic-bezier(0.18, 0.85, 0.28, 1.15)",
@@ -41,7 +41,7 @@ export default function DailyTipCard() {
           }}
         >
           <div
-            className="absolute inset-0 overflow-hidden rounded-2xl border border-white/10 bg-gradient-to-br from-cyan-400/10 via-slate-900/40 to-indigo-500/10 shadow-[0_10px_40px_rgba(0,0,0,0.45)] backdrop-blur-xl"
+            className="clara-preserve-flip-face absolute inset-0 overflow-hidden rounded-2xl border border-white/10 bg-gradient-to-br from-cyan-400/10 via-slate-900/40 to-indigo-500/10 shadow-[0_10px_40px_rgba(0,0,0,0.45)] backdrop-blur-xl"
             style={{
               backfaceVisibility: "hidden",
               transform: "translateZ(1px)",
@@ -67,7 +67,7 @@ export default function DailyTipCard() {
           </div>
 
           <div
-            className="absolute inset-0 overflow-hidden rounded-2xl border border-cyan-300/20 bg-gradient-to-br from-indigo-500/15 via-slate-950/70 to-cyan-400/10 shadow-[0_12px_42px_rgba(34,211,238,0.18),0_10px_40px_rgba(0,0,0,0.45)] backdrop-blur-xl"
+            className="clara-preserve-flip-face absolute inset-0 overflow-hidden rounded-2xl border border-cyan-300/20 bg-gradient-to-br from-indigo-500/15 via-slate-950/70 to-cyan-400/10 shadow-[0_12px_42px_rgba(34,211,238,0.18),0_10px_40px_rgba(0,0,0,0.45)] backdrop-blur-xl"
             style={{
               transform: "rotateY(180deg) translateZ(1px)",
               backfaceVisibility: "hidden",
