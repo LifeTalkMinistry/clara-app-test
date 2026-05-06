@@ -1,0 +1,53 @@
+name: CLARA Inspect Dashboard Messages
+
+on:
+  push:
+    paths:
+      - ".github/workflows/clara-inspect-messages.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  inspect:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Print Dashboard messages snippets
+        run: |
+          node <<'NODE'
+          const fs = require('fs');
+          const path = 'src/pages/Dashboard.jsx';
+          const src = fs.readFileSync(path, 'utf8');
+          const lines = src.split(/\r?\n/);
+          const matches = [];
+          lines.forEach((line, index) => {
+            if (/message|conversation|thread|chat/i.test(line)) matches.push(index + 1);
+          });
+          console.log('FILE:', path);
+          console.log('LINE_COUNT:', lines.length);
+          console.log('MATCH_COUNT:', matches.length);
+          console.log('MATCHES:', matches.join(','));
+
+          const windows = [];
+          for (const lineNo of matches) {
+            const start = Math.max(1, lineNo - 8);
+            const end = Math.min(lines.length, lineNo + 18);
+            const last = windows[windows.length - 1];
+            if (last && start <= last.end + 4) {
+              last.end = Math.max(last.end, end);
+            } else {
+              windows.push({ start, end });
+            }
+          }
+
+          for (const window of windows) {
+            console.log(`\n--- lines ${window.start}-${window.end} ---`);
+            for (let i = window.start; i <= window.end; i += 1) {
+              console.log(String(i).padStart(5, ' ') + ': ' + lines[i - 1]);
+            }
+          }
+          NODE
