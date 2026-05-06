@@ -82,6 +82,7 @@ import {
   readStoredSurvivalExpense,
   persistStoredSurvivalExpense,
 } from "@/components/fresh/main-dashboard/dashboard-theme/dashboardThemeRuntime";
+import { createEmptyDashboardCache } from "@/components/fresh/main-dashboard/dashboard-cache/dashboardCacheFactory";
 import FinanceActionModal from "@/components/fresh/main-dashboard/dashboard-primitives/FinanceActionModal";
 import ManualExpenseFullScreenSheet from "@/components/fresh/main-dashboard/dashboard-primitives/ManualExpenseFullScreenSheet";
 import QuickActionDropdown from "@/components/fresh/main-dashboard/dashboard-primitives/QuickActionDropdown";
@@ -238,29 +239,6 @@ const dispatchClaraEvent = (name, detail = null) => {
   }
   window.dispatchEvent(new Event(name));
 };
-
-const createEmptyDashboardCache = (key = null) => ({
-  key,
-  loaded: false,
-  tasks: [],
-  submissions: [],
-  programRecord: null,
-  survivalExpense: 0,
-  walletMoney: 0,
-  wallets: [],
-  walletTransactions: [],
-  budgets: [],
-  savingsGoals: [],
-  expenses: [],
-  pendingExpenses: [],
-  offlineReady: false,
-  profileData: null,
-  latestEnrollment: null,
-  guardChecked: false,
-  nickname: "",
-  reminderTime: "",
-  financialGoal: "",
-});
 
 let dashboardPageCache = createEmptyDashboardCache();
 let dashboardPageInFlight = null;
