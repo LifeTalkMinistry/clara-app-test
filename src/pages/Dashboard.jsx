@@ -44,6 +44,7 @@ import DashboardMoneySummary from "@/components/fresh/main-dashboard/money-summa
 import FinanceActionModal from "@/components/fresh/main-dashboard/dashboard-primitives/FinanceActionModal";
 import ManualExpenseFullScreenSheet from "@/components/fresh/main-dashboard/dashboard-primitives/ManualExpenseFullScreenSheet";
 import QuickActionDropdown from "@/components/fresh/main-dashboard/dashboard-primitives/QuickActionDropdown";
+import FinanceField from "@/components/fresh/main-dashboard/dashboard-primitives/FinanceField";
 import ClaraAssistantPanel from "@/components/ai/ClaraAssistantPanel";
 import { Button } from "@/components/ui/button";
 import StatCard from "../components/StatCard";
@@ -387,14 +388,6 @@ const FinanceInlineAlert = ({ notice, onClose }) => {
     </div>
   );
 };
-
-const FinanceField = ({ label, children, helper }) => (
-  <label className="block space-y-2">
-    <span className="text-sm font-medium text-white/85">{label}</span>
-    {children}
-    {helper ? <p className="text-xs leading-5 text-white/50">{helper}</p> : null}
-  </label>
-);
 
 const financeInputClassName =
   "w-full rounded-2xl border border-white/15 bg-white/[0.075] px-4 py-3 text-sm text-white outline-none transition placeholder:text-white/35 focus:border-emerald-400/30 focus:bg-white/[0.06]";
