@@ -17,21 +17,8 @@ if (source.includes(noticeRulesImport)) {
   source = source.replace(noticeRulesImport, "");
 }
 
-const protectedWarningImportEntry = '  isProtectedFinanceRefreshWarning,\n';
-if (source.includes(protectedWarningImportEntry)) {
-  const occurrences = countMatches("isProtectedFinanceRefreshWarning");
-  if (occurrences !== 1) {
-    throw new Error(`isProtectedFinanceRefreshWarning still appears outside its import (${occurrences} occurrences).`);
-  }
-  source = source.replace(protectedWarningImportEntry, "");
-}
-
 if (source.includes('shouldSilenceNormalOfflineNotice')) {
   throw new Error("shouldSilenceNormalOfflineNotice remained in Dashboard.jsx after cleanup.");
-}
-
-if (source.includes('isProtectedFinanceRefreshWarning')) {
-  throw new Error("isProtectedFinanceRefreshWarning remained in Dashboard.jsx after cleanup.");
 }
 
 if (!source.includes('import FinanceInlineAlert from "@/components/fresh/main-dashboard/finance-notices/FinanceInlineAlert";')) {
@@ -39,9 +26,9 @@ if (!source.includes('import FinanceInlineAlert from "@/components/fresh/main-da
 }
 
 if (source === original) {
-  console.log("No stale alert imports to clean.");
+  console.log("No stale notice import to clean.");
   process.exit(0);
 }
 
 fs.writeFileSync(dashboardPath, source);
-console.log(`Cleaned stale Dashboard alert imports, reduced Dashboard.jsx by ${original.length - source.length} characters.`);
+console.log(`Cleaned stale Dashboard notice import, reduced Dashboard.jsx by ${original.length - source.length} characters.`);
