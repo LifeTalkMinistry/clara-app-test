@@ -32,6 +32,33 @@ export const INCOME_TRANSACTION_TYPES = new Set([
   "credit",
 ]);
 
+export const createFinanceId = () => {
+  return `finance_${Date.now()}_${Math.random()
+    .toString(36)
+    .slice(2, 10)}`;
+};
+
+export const isClaraOnline = () => {
+  if (typeof navigator === "undefined") return true;
+  return navigator.onLine !== false;
+};
+
+export const createLocalOnlyExpenseRecord = (expense = {}) => ({
+  ...expense,
+  local_only: true,
+  pending_sync: true,
+});
+
+export const isProtectedFinanceRefreshWarning = (message = "") => {
+  const normalized = normalizeLower(message);
+
+  return (
+    normalized.includes("protected finance") ||
+    normalized.includes("refresh blocked") ||
+    normalized.includes("finance refresh warning")
+  );
+};
+
 export const ENROLLMENT_PENDING_STATUSES = new Set([
   "pending",
   "under_review",
@@ -52,6 +79,44 @@ export const ENROLLMENT_BLOCKED_TO_ENROLL_STATUSES = new Set([
   "resubmit_required",
   "cancelled",
 ]);
+
+export const isOwnedByUser = (item, userId) => {
+  if (!item || !userId) return false;
+
+  return (
+    item.user_id === userId ||
+    item.owner_id === userId ||
+    item.created_by === userId
+  );
+};
+
+export const firstValidNumber = (...values) => {
+  for (const value of values) {
+    const parsed = Number(value);
+
+    if (Number.isFinite(parsed)) {
+      return parsed;
+    }
+  }
+
+  return 0;
+};
+
+export const firstPositiveNumber = (...values) => {
+  for (const value of values) {
+    const parsed = Number(value);
+
+    if (Number.isFinite(parsed) && parsed > 0) {
+      return parsed;
+    }
+  }
+
+  return 0;
+};
+
+export const isTruthyActive = (value) => {
+  return [true, 1, "1", "true", "active", "enabled"].includes(value);
+};
 
 export const safeNumber = (value) => {
   const parsed = Number(value);
