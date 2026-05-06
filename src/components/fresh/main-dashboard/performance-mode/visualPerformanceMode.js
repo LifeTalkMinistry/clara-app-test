@@ -1,4 +1,5 @@
 const CLARA_VISUAL_PERFORMANCE_STYLE_ID = "clara-visual-performance-mode-style";
+const CLARA_STANDARD_VISUAL_PERFORMANCE_ENABLED = true;
 const dashboardRuntimePerformanceMode = new Map();
 
 const dispatchClaraVisualPerformanceEvent = (eventName, detail = {}) => {
@@ -44,33 +45,35 @@ export const ensureClaraVisualPerformanceStyles = () => {
   document.head.appendChild(style);
 };
 
-export const applyVisualPerformanceMode = (enabled) => {
+export const applyVisualPerformanceMode = () => {
   if (typeof document === "undefined") return;
 
   ensureClaraVisualPerformanceStyles();
 
-  const nextEnabled = Boolean(enabled);
-  document.documentElement.classList.toggle("clara-performance-mode", nextEnabled);
-  document.documentElement.classList.toggle("clara-premium-mode", !nextEnabled);
-  document.body?.classList?.toggle("clara-performance-mode", nextEnabled);
-  document.body?.classList?.toggle("clara-premium-mode", !nextEnabled);
-  document.documentElement.dataset.claraVisualMode = nextEnabled ? "performance" : "premium";
+  document.documentElement.classList.add("clara-performance-mode");
+  document.documentElement.classList.remove("clara-premium-mode");
+  document.body?.classList?.add("clara-performance-mode");
+  document.body?.classList?.remove("clara-premium-mode");
+  document.documentElement.dataset.claraVisualMode = "performance";
   if (document.body) {
-    document.body.dataset.claraVisualMode = nextEnabled ? "performance" : "premium";
+    document.body.dataset.claraVisualMode = "performance";
   }
 };
 
-export const readStoredPerformanceMode = (userId) =>
-  dashboardRuntimePerformanceMode.get(getVisualPerformanceStorageKey(userId)) === true;
+export const readStoredPerformanceMode = (userId) => {
+  const storageKey = getVisualPerformanceStorageKey(userId);
+  dashboardRuntimePerformanceMode.set(storageKey, CLARA_STANDARD_VISUAL_PERFORMANCE_ENABLED);
+  return CLARA_STANDARD_VISUAL_PERFORMANCE_ENABLED;
+};
 
-export const saveVisualPerformanceMode = (userId, enabled) => {
-  const nextValue = Boolean(enabled);
-  dashboardRuntimePerformanceMode.set(getVisualPerformanceStorageKey(userId), nextValue);
-  applyVisualPerformanceMode(nextValue);
+export const saveVisualPerformanceMode = (userId) => {
+  const storageKey = getVisualPerformanceStorageKey(userId);
+  dashboardRuntimePerformanceMode.set(storageKey, CLARA_STANDARD_VISUAL_PERFORMANCE_ENABLED);
+  applyVisualPerformanceMode();
   dispatchClaraVisualPerformanceEvent("clara:visual-performance-mode-updated", {
-    enabled: nextValue,
-    visualMode: nextValue ? "performance" : "premium",
+    enabled: CLARA_STANDARD_VISUAL_PERFORMANCE_ENABLED,
+    visualMode: "performance",
     userId: userId || null,
   });
-  return nextValue;
+  return CLARA_STANDARD_VISUAL_PERFORMANCE_ENABLED;
 };
