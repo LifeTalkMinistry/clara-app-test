@@ -1,10 +1,10 @@
 import { PiggyBank, ReceiptText } from "lucide-react";
-import SavingsCard from "../../SavingsCard";
-import InvestmentCard from "../../InvestmentCard";
-import ObligationDebt from "../../ObligationDebt";
 import WalletCardView from "../cards/wallet/ui/WalletCardView";
 import BudgetCardView from "../cards/budget/ui/BudgetCardView";
 import EmergencyFundCardView from "../cards/emergency-fund/ui/EmergencyFundCardView";
+import SavingsGoalsCardView from "../cards/savings-goals/ui/SavingsGoalsCardView";
+import InvestmentCardView from "../cards/investment/ui/InvestmentCardView";
+import DebtCardView from "../cards/debt/ui/DebtCardView";
 
 const comingSoonIconMap = {
   debtObligations: ReceiptText,
@@ -155,37 +155,34 @@ export default function CarouselItemCard(props) {
 
   if (item.type === "savingsGoals") {
     return (
-      <div className="h-full min-h-[inherit] flex flex-col">
-        <SavingsCard
-          savingsGoals={data.savingsGoals}
-          totalSavingsSaved={data.totalSavingsSaved}
-          totalSavingsTarget={data.totalSavingsTarget}
-          primarySavingsGoal={data.primarySavingsGoal}
-          theme={selectedDashboardTheme}
-          expanded={expandedFinanceCard === "savings"}
-          onToggleDetails={() => toggleFinanceDetails?.("savings")}
-          financeActionLoading={financeActionLoading}
-          onSaveSavingsGoal={onSaveSavingsGoal}
-          onDeleteSavingsGoal={onDeleteSavingsGoal}
-          onAddSavings={onAddSavings}
-        />
-      </div>
+      <SavingsGoalsCardView
+        data={data}
+        selectedDashboardTheme={selectedDashboardTheme}
+        expandedFinanceCard={expandedFinanceCard}
+        toggleFinanceDetails={toggleFinanceDetails}
+        financeActionLoading={financeActionLoading}
+        onSaveSavingsGoal={onSaveSavingsGoal}
+        onDeleteSavingsGoal={onDeleteSavingsGoal}
+        onAddSavings={onAddSavings}
+      />
     );
   }
 
   if (item.type === "investmentFund") {
     return (
-      <div className="h-full min-h-[inherit] flex flex-col">
-        <InvestmentCard item={item} theme={selectedDashboardTheme} />
-      </div>
+      <InvestmentCardView
+        item={item}
+        selectedDashboardTheme={selectedDashboardTheme}
+      />
     );
   }
 
   if (item.type === "debtObligations") {
     return (
-      <div className="h-full min-h-[inherit] flex flex-col">
-        <ObligationDebt item={item} theme={selectedDashboardTheme} />
-      </div>
+      <DebtCardView
+        item={item}
+        selectedDashboardTheme={selectedDashboardTheme}
+      />
     );
   }
 
