@@ -492,3 +492,48 @@ export const getBudgetRemainingToneClass = (
 
   return "text-emerald-300";
 };
+export const formatBudgetLabel = (budget = {}) => {
+  return (
+    budget?.label ||
+    budget?.title ||
+    budget?.name ||
+    budget?.category ||
+    "Budget"
+  );
+};
+
+export const getBudgetListTitle = (budget = {}) => {
+  return formatBudgetLabel(budget);
+};
+
+export const getBudgetNeedType = (budget = {}) => {
+  const normalized = normalizeLower(
+    budget?.need_type ||
+    budget?.type ||
+    budget?.priority ||
+    ""
+  );
+
+  if (
+    ["need", "needs", "essential"].includes(normalized)
+  ) {
+    return "need";
+  }
+
+  if (
+    ["want", "wants", "lifestyle"].includes(normalized)
+  ) {
+    return "want";
+  }
+
+  return "other";
+};
+
+export const getWalletSortOrder = (wallet = {}) => {
+  return safeNumber(
+    wallet?.sort_order ??
+    wallet?.position ??
+    wallet?.order ??
+    0
+  );
+};
