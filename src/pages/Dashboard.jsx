@@ -8,6 +8,10 @@ import {
 import { FEED_CATEGORIES } from "@/components/fresh/dashboard-panels/feed/constants/feedCategories";
 import useFeedRealtime from "@/components/fresh/dashboard-panels/feed/hooks/useFeedRealtime";
 import {
+  fetchFeedPostsFromDB,
+  fetchFeedComments,
+} from "@/components/fresh/dashboard-panels/feed/services/feedService";
+import {
   Settings,
   Clock,
   Play,
@@ -1184,26 +1188,9 @@ function DashboardFeedPanel({ onBack }) {
     setError("");
 
     try {
-      const { data: postsData, error: postsError } = await supabase
-        .from("feed_posts")
-        .select("*")
-        .order("created_at", { ascending: false });
-
-      if (postsError) throw postsError;
-
-      const postIds = (postsData || []).map((post) => post.id);
-      let commentsData = [];
-
-      if (postIds.length > 0) {
-        const { data, error: commentsError } = await supabase
-          .from("feed_comments")
-          .select("*")
-          .in("post_id", postIds)
-          .order("created_at", { ascending: true });
-
-        if (commentsError) throw commentsError;
-        commentsData = Array.isArray(data) ? data : [];
-      }
+      const postsData = await fetchFeedPostsFromDB();
+      const postIds = postsData.map((post) => post.id);
+      const commentsData = await fetchFeedComments(postIds);
 
       const commentsByPostId = commentsData.reduce((acc, comment) => {
         if (!acc[comment.post_id]) acc[comment.post_id] = [];
@@ -1212,7 +1199,7 @@ function DashboardFeedPanel({ onBack }) {
       }, {});
 
       setPosts(
-        (postsData || []).map((postRow) =>
+        postsData.map((postRow) =>
           mapFeedPost(postRow, commentsByPostId[postRow.id] || [])
         )
       );
