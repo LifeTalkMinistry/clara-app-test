@@ -45,6 +45,11 @@ insertAfter(
 );
 
 insertAfter(
+  '} from "@/components/fresh/main-dashboard/program-prompts/programPromptSession";\n',
+  'import { shouldSilenceNormalOfflineNotice } from "@/components/fresh/main-dashboard/finance-notices/financeNoticeRules";\n'
+);
+
+insertAfter(
   '} from "@/lib/program-access";\n',
   'import {\n  isProgramApproved,\n  shouldForceToEnroll,\n} from "@/components/fresh/main-dashboard/program-access/programAccessRules";\n'
 );
@@ -74,6 +79,15 @@ removeBlock(
 source = source.replace(
   'const OnboardingActionBar = ({',
   'const OnboardingActionBar = ({'
+);
+
+removeBlock(
+  'const shouldSilenceNormalOfflineNotice = (message = "") => {',
+  'const FinanceInlineAlert = ({ notice, onClose }) => {'
+);
+source = source.replace(
+  'const FinanceInlineAlert = ({ notice, onClose }) => {',
+  'const FinanceInlineAlert = ({ notice, onClose }) => {'
 );
 
 removeBlock(
