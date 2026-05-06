@@ -6,6 +6,53 @@ export const normalizeLower = (value) => {
   return normalizeString(value).toLowerCase();
 };
 
+export const PH_TIME_ZONE = "Asia/Manila";
+export const PH_OFFSET_MINUTES = 8 * 60;
+export const DEBUG_FINANCE_DIAGNOSTICS = false;
+
+export const FINANCE_CATEGORIES = [
+  "food",
+  "transport",
+  "housing",
+  "utilities",
+  "entertainment",
+  "shopping",
+  "health",
+  "education",
+  "personal",
+  "other",
+];
+
+export const INCOME_TRANSACTION_TYPES = new Set([
+  "income",
+  "add",
+  "cash_in",
+  "deposit",
+  "opening_balance",
+  "credit",
+]);
+
+export const ENROLLMENT_PENDING_STATUSES = new Set([
+  "pending",
+  "under_review",
+  "payment_pending",
+]);
+
+export const ENROLLMENT_APPROVED_STATUSES = new Set([
+  "approved",
+  "active",
+  "enrolled",
+]);
+
+export const ENROLLMENT_BLOCKED_TO_ENROLL_STATUSES = new Set([
+  "",
+  "none",
+  "free",
+  "rejected",
+  "resubmit_required",
+  "cancelled",
+]);
+
 export const safeNumber = (value) => {
   const parsed = Number(value);
   return Number.isFinite(parsed) ? parsed : 0;
