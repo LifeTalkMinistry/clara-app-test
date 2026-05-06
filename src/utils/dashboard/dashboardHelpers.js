@@ -118,6 +118,98 @@ export const isTruthyActive = (value) => {
   return [true, 1, "1", "true", "active", "enabled"].includes(value);
 };
 
+export const normalizeDateValue = (value) => {
+  if (!value) return null;
+
+  const date = new Date(value);
+
+  return Number.isNaN(date.getTime()) ? null : date;
+};
+
+export const padDatePart = (value) => {
+  return String(value).padStart(2, "0");
+};
+
+export const getPHParts = (date = new Date()) => {
+  const normalized = normalizeDateValue(date) || new Date();
+
+  return {
+    year: normalized.getFullYear(),
+    month: normalized.getMonth() + 1,
+    day: normalized.getDate(),
+  };
+};
+
+export const getPHDateKey = (date = new Date()) => {
+  const { year, month, day } = getPHParts(date);
+
+  return `${year}-${padDatePart(month)}-${padDatePart(day)}`;
+};
+
+export const getPHMonthKey = (date = new Date()) => {
+  const { year, month } = getPHParts(date);
+
+  return `${year}-${padDatePart(month)}`;
+};
+
+export const phLocalPartsToUtcDate = ({ year, month, day }) => {
+  return new Date(Date.UTC(year, month - 1, day));
+};
+
+export const getPHMonthRange = (date = new Date()) => {
+  const normalized = normalizeDateValue(date) || new Date();
+
+  return {
+    start: new Date(normalized.getFullYear(), normalized.getMonth(), 1),
+    end: new Date(normalized.getFullYear(), normalized.getMonth() + 1, 0),
+  };
+};
+
+export const getPHWeekStartKey = (date = new Date()) => {
+  return getPHDateKey(date);
+};
+
+export const isInPHRange = (date, start, end) => {
+  const target = normalizeDateValue(date);
+  if (!target) return false;
+
+  return target >= start && target <= end;
+};
+
+export const sortByNewestDate = (items = [], field = "created_at") => {
+  return [...items].sort((a, b) => {
+    return new Date(b?.[field] || 0) - new Date(a?.[field] || 0);
+  });
+};
+
+export const formatCompactDate = (value) => {
+  const date = normalizeDateValue(value);
+
+  if (!date) return "";
+
+  return new Intl.DateTimeFormat("en-PH", {
+    month: "short",
+    day: "numeric",
+  }).format(date);
+};
+
+export const getTransactionDate = (transaction = {}) => {
+  return (
+    transaction.date ||
+    transaction.created_at ||
+    transaction.updated_at ||
+    new Date().toISOString()
+  );
+};
+
+export const getExpenseCategoryKey = (expense = {}) => {
+  return normalizeLower(expense.category || expense.type || "other");
+};
+
+export const getBudgetCategoryKey = (budget = {}) => {
+  return normalizeLower(budget.category || budget.name || "other");
+};
+
 export const safeNumber = (value) => {
   const parsed = Number(value);
   return Number.isFinite(parsed) ? parsed : 0;
