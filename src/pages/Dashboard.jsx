@@ -12,6 +12,7 @@ import {
   fetchFeedPostsFromDB,
   fetchFeedComments,
 } from "@/components/fresh/dashboard-panels/feed/services/feedService";
+import { uploadFeedMedia } from "@/components/fresh/dashboard-panels/feed/services/feedMediaService";
 import {
   Settings,
   Clock,
@@ -1225,38 +1226,6 @@ function DashboardFeedPanel({ onBack }) {
     setError("");
   }, [composerMedia]);
 
-  const uploadFeedMedia = useCallback(async (file, userId) => {
-    if (!file) return null;
-
-    const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, "_");
-    const fileExt = safeName.includes(".") ? safeName.split(".").pop() : "";
-    const filePath = `${userId}/${Date.now()}-${Math.random()
-      .toString(36)
-      .slice(2, 10)}${fileExt ? `.${fileExt}` : ""}`;
-
-    const { error: uploadError } = await supabase.storage
-      .from(FEED_STORAGE_BUCKET)
-      .upload(filePath, file, {
-        cacheControl: "3600",
-        upsert: false,
-        contentType: file.type || undefined,
-      });
-
-    if (uploadError) throw uploadError;
-
-    const { data: publicUrlData } = supabase.storage
-      .from(FEED_STORAGE_BUCKET)
-      .getPublicUrl(filePath);
-
-    return {
-      path: filePath,
-      url: publicUrlData?.publicUrl || "",
-      name: file.name,
-      mimeType: file.type || "",
-      type: file.type?.startsWith("video/") ? "video" : "image",
-    };
-  }, []);
-
   const handleFileSelect = useCallback((event) => {
     const file = event.target.files?.[0];
     event.target.value = "";
@@ -1349,7 +1318,7 @@ function DashboardFeedPanel({ onBack }) {
       };
 
       if (composerMedia?.type === "image" || composerMedia?.type === "video") {
-        const uploaded = await uploadFeedMedia(composerMedia.file, freshUser.id);
+        const uploaded = await uploadFeedMedia(composerMedia.file, freshUser.id, FEED_STORAGE_BUCKET);
 
         mediaPayload = {
           media_type: uploaded.type,
@@ -1422,7 +1391,6 @@ function DashboardFeedPanel({ onBack }) {
     newPost,
     resetComposer,
     selectedCategory,
-    uploadFeedMedia,
   ]);
 
   const handleLike = useCallback(async (post) => {
