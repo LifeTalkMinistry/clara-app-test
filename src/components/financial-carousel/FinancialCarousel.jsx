@@ -13,9 +13,6 @@ export default function FinancialCarousel({
   dashboardScale = {},
   selectedDashboardTheme = {},
   themeInactiveDotClass = "bg-white/20 hover:bg-white/35",
-  autoMove = true,
-  autoMoveMs = 5200,
-  resumeDelayMs = 4200,
   wallets = [],
   walletMoney = 0,
   walletPreviewTransactions = [],
@@ -102,9 +99,7 @@ export default function FinancialCarousel({
   } = useAutoMovingHorizontalCarousel({
     itemCount: items.length,
     defaultIndex,
-    autoMove,
-    autoMoveMs,
-    resumeDelayMs,
+    autoMove: false,
   });
 
   if (!items.length) return null;
