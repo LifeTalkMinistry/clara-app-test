@@ -50,6 +50,15 @@ import {
   readStoredPerformanceMode,
   saveVisualPerformanceMode,
 } from "@/components/fresh/main-dashboard/performance-mode/visualPerformanceMode";
+import {
+  MONEY_SUMMARY_PRIVACY_KEY,
+  persistDashboardPrefs,
+  persistMoneySummaryVisibility,
+  persistStoredNotificationSettings,
+  readDashboardPrefs,
+  readMoneySummaryVisibility,
+  readStoredNotificationSettings,
+} from "@/components/fresh/main-dashboard/dashboard-settings/dashboardRuntimeSettings";
 import FinanceActionModal from "@/components/fresh/main-dashboard/dashboard-primitives/FinanceActionModal";
 import ManualExpenseFullScreenSheet from "@/components/fresh/main-dashboard/dashboard-primitives/ManualExpenseFullScreenSheet";
 import QuickActionDropdown from "@/components/fresh/main-dashboard/dashboard-primitives/QuickActionDropdown";
@@ -130,64 +139,6 @@ import {
   getWalletSortOrder,
   getToday,
 } from "@/utils/dashboard/dashboardHelpers";
-
-const dashboardRuntimePrefs = new Map();
-const dashboardRuntimeNotifications = new Map();
-const dashboardRuntimeMoneySummaryVisibility = new Map();
-
-const getDashboardPrefsStorageKey = (userId) =>
-  `clara_dashboard_prefs_${userId || "guest"}`;
-
-const MONEY_SUMMARY_PRIVACY_KEY = "clara_dashboard_money_summary_visible";
-
-function readMoneySummaryVisibility(userId = "guest") {
-  return dashboardRuntimeMoneySummaryVisibility.get(userId || "guest") === true;
-}
-
-function persistMoneySummaryVisibility(visible, userId = "guest") {
-  dashboardRuntimeMoneySummaryVisibility.set(userId || "guest", Boolean(visible));
-}
-
-function readDashboardPrefs(userId) {
-  const key = getDashboardPrefsStorageKey(userId);
-  const parsed = dashboardRuntimePrefs.get(key) || {};
-
-  return {
-    reminderTime: normalizeString(parsed?.reminderTime || ""),
-    financialGoal: normalizeString(parsed?.financialGoal || ""),
-  };
-}
-
-function persistDashboardPrefs(userId, updates) {
-  if (!userId) return;
-  const key = getDashboardPrefsStorageKey(userId);
-  const current = readDashboardPrefs(userId);
-  dashboardRuntimePrefs.set(key, { ...current, ...(updates || {}) });
-}
-
-function getSettingsStorageKey(userId) {
-  return `clara_settings_${userId || "guest"}`;
-}
-
-function readStoredNotificationSettings(userId) {
-  const defaults = {
-    dailyReminders: true,
-    productUpdates: true,
-    coachingAlerts: true,
-    budgetAlerts: true,
-  };
-  const saved = dashboardRuntimeNotifications.get(getSettingsStorageKey(userId)) || {};
-  return { ...defaults, ...saved };
-}
-
-function persistStoredNotificationSettings(userId, updates = {}) {
-  const key = getSettingsStorageKey(userId);
-  const current = readStoredNotificationSettings(userId);
-  const next = { ...current, ...(updates || {}) };
-  dashboardRuntimeNotifications.set(key, next);
-  dispatchClaraEvent("clara:settings-updated", { type: "notifications", notifications: next });
-  return next;
-}
 
 const dashboardRuntimeProgramPrompts = new Set();
 
