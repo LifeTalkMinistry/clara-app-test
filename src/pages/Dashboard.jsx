@@ -83,6 +83,11 @@ import {
   persistStoredSurvivalExpense,
 } from "@/components/fresh/main-dashboard/dashboard-theme/dashboardThemeRuntime";
 import { createEmptyDashboardCache } from "@/components/fresh/main-dashboard/dashboard-cache/dashboardCacheFactory";
+import {
+  DASHBOARD_PANEL_ORDER,
+  dashboardPanelCardClass,
+  dashboardPanelTextClass,
+} from "@/components/fresh/main-dashboard/dashboard-panels/dashboardPanelConstants";
 import FinanceActionModal from "@/components/fresh/main-dashboard/dashboard-primitives/FinanceActionModal";
 import ManualExpenseFullScreenSheet from "@/components/fresh/main-dashboard/dashboard-primitives/ManualExpenseFullScreenSheet";
 import QuickActionDropdown from "@/components/fresh/main-dashboard/dashboard-primitives/QuickActionDropdown";
@@ -242,14 +247,6 @@ const dispatchClaraEvent = (name, detail = null) => {
 
 let dashboardPageCache = createEmptyDashboardCache();
 let dashboardPageInFlight = null;
-
-
-const DASHBOARD_PANEL_ORDER = ["home", "feed", "messages", "settings"];
-
-const dashboardPanelCardClass =
-  "rounded-[28px] border border-white/15 bg-white/[0.055] p-4 shadow-[0_18px_50px_rgba(0,0,0,0.20)] backdrop-blur-xl";
-
-const dashboardPanelTextClass = "text-white/65";
 
 
 function DashboardPanelShell({
