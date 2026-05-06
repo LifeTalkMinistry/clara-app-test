@@ -537,3 +537,77 @@ export const getWalletSortOrder = (wallet = {}) => {
     0
   );
 };
+export const isExpenseInsideBudgetWindow = (
+  expense = {},
+  budget = {}
+) => {
+  const expenseDate = normalizeDateValue(
+    expense?.date ||
+    expense?.created_at
+  );
+
+  if (!expenseDate) {
+    return false;
+  }
+
+  const budgetStart = normalizeDateValue(
+    budget?.start_date
+  );
+
+  const budgetEnd = normalizeDateValue(
+    budget?.end_date
+  );
+
+  if (!budgetStart || !budgetEnd) {
+    return true;
+  }
+
+  return (
+    expenseDate >= budgetStart &&
+    expenseDate <= budgetEnd
+  );
+};
+
+export const getBudgetTrackingStart = (
+  budget = {}
+) => {
+  return (
+    budget?.start_date ||
+    budget?.tracking_start ||
+    budget?.created_at ||
+    null
+  );
+};
+
+export const getBudgetCategoryValue = (
+  budget = {}
+) => {
+  return (
+    budget?.category ||
+    budget?.name ||
+    budget?.title ||
+    "other"
+  );
+};
+
+export const getSavingsSaved = (
+  savings = {}
+) => {
+  return safeNumber(
+    savings?.saved ??
+    savings?.current_amount ??
+    savings?.amount ??
+    0
+  );
+};
+
+export const getSavingsTarget = (
+  savings = {}
+) => {
+  return safeNumber(
+    savings?.target ??
+    savings?.goal ??
+    savings?.target_amount ??
+    0
+  );
+};
