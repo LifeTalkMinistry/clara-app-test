@@ -27,6 +27,19 @@ export const ensureClaraVisualPerformanceStyles = () => {
     .clara-performance-mode [class*="hover:-translate"], .clara-performance-mode [class*="hover:scale"], .clara-performance-mode [class*="active:scale"], .clara-performance-mode [class*="group-hover:-translate"], .clara-performance-mode [class*="group-active:scale"] { transform: none !important; }
     .clara-performance-mode video, .clara-performance-mode img { filter: none !important; }
     .clara-performance-mode .theme-page-shell, .clara-performance-mode .theme-panel-card, .clara-performance-mode .theme-shell-card, .clara-performance-mode .theme-soft-card, .clara-performance-mode .theme-modal-card { isolation: auto !important; }
+
+    .clara-performance-mode .clara-preserve-flip-motion {
+      transition-property: transform, opacity !important;
+      transition-duration: var(--clara-flip-duration, 700ms) !important;
+      transition-timing-function: var(--clara-flip-easing, cubic-bezier(0.22, 1, 0.36, 1)) !important;
+      transform-style: preserve-3d !important;
+      will-change: transform !important;
+    }
+
+    .clara-performance-mode .clara-preserve-flip-face {
+      backface-visibility: hidden !important;
+      -webkit-backface-visibility: hidden !important;
+    }
   `;
   document.head.appendChild(style);
 };
