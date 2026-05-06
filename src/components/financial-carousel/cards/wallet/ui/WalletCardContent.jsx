@@ -1,13 +1,10 @@
-import {
-  Plus,
-  ChevronDown,
-  ChevronUp,
-} from 'lucide-react';
+import { Plus } from 'lucide-react';
 import WalletListItem from '@/components/financial-carousel/cards/wallet/ui/WalletListItem';
 import WalletRecentActivity from '@/components/financial-carousel/cards/wallet/ui/WalletRecentActivity';
 import WalletEmptyState from '@/components/financial-carousel/cards/wallet/ui/WalletEmptyState';
 import WalletHeader from '@/components/financial-carousel/cards/wallet/ui/WalletHeader';
 import WalletSummaryStats from '@/components/financial-carousel/cards/wallet/ui/WalletSummaryStats';
+import WalletExpandToggle from '@/components/financial-carousel/cards/wallet/ui/WalletExpandToggle';
 
 export default function WalletCardContent({
   wallets = [],
@@ -53,14 +50,10 @@ export default function WalletCardContent({
             />
           </div>
 
-          <button
-            type='button'
-            onClick={onToggleDetails}
-            className='flex w-full items-center justify-between rounded-2xl border border-cyan-200/15 bg-white/[0.055] px-3 py-2.5 text-sm text-white/88 shadow-[inset_0_1px_0_rgba(255,255,255,0.08)] backdrop-blur-sm transition hover:border-cyan-200/25 hover:bg-white/10'
-          >
-            <span className='font-medium'>{expanded ? 'Hide details' : 'Show details'}</span>
-            {expanded ? <ChevronUp className='h-4 w-4' /> : <ChevronDown className='h-4 w-4' />}
-          </button>
+          <WalletExpandToggle
+            expanded={expanded}
+            onToggleDetails={onToggleDetails}
+          />
         </div>
 
         {expanded && (
