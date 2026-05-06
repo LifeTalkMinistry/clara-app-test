@@ -1,6 +1,7 @@
 import { Trash2 } from "lucide-react";
 
 import { FEED_CATEGORIES } from "@/components/fresh/dashboard-panels/feed/constants/feedCategories";
+import FeedCommentsSection from "@/components/fresh/dashboard-panels/feed/components/FeedCommentsSection";
 import FeedMediaRenderer from "@/components/fresh/dashboard-panels/feed/components/FeedMediaRenderer";
 import {
   dashboardPanelFormatTime,
@@ -99,59 +100,14 @@ export default function FeedPostCard({
         </div>
 
         {commentsOpen ? (
-          <div className="mt-4 space-y-3">
-            {(post.comments || []).length > 0 ? (
-              <div className="space-y-2">
-                {post.comments.map((comment) => (
-                  <div
-                    key={comment.id}
-                    className="rounded-2xl border border-white/15 bg-black/16 px-3 py-2"
-                  >
-                    <div className="flex items-center justify-between gap-2">
-                      <p className="truncate text-[11px] font-bold text-white/75">
-                        {comment.author_name}
-                      </p>
-                      <span className="shrink-0 text-[10px] text-white/35">
-                        {dashboardPanelFormatTime(comment.created_at)}
-                      </span>
-                    </div>
-                    <p className="mt-1 text-xs leading-5 text-white/62">
-                      {comment.content}
-                    </p>
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <p className="rounded-2xl border border-white/15 bg-black/14 px-3 py-3 text-center text-xs text-white/45">
-                No comments yet.
-              </p>
-            )}
-
-            <div className="flex items-center gap-2 rounded-2xl border border-white/15 bg-white/6 px-3 py-2">
-              <input
-                value={commentText}
-                onChange={(event) =>
-                  onCommentTextChange?.(post.id, event.target.value)
-                }
-                placeholder="Write a comment..."
-                className="min-w-0 flex-1 bg-transparent text-xs text-white outline-none placeholder:text-white/35"
-                onKeyDown={(event) => {
-                  if (event.key === "Enter") {
-                    event.preventDefault();
-                    onSubmitComment?.(post.id);
-                  }
-                }}
-              />
-              <button
-                type="button"
-                onClick={() => onSubmitComment?.(post.id)}
-                disabled={savingComment || !commentText.trim()}
-                className="rounded-full bg-emerald-400 px-3 py-1.5 text-[10px] font-black text-slate-950 disabled:opacity-45"
-              >
-                Send
-              </button>
-            </div>
-          </div>
+          <FeedCommentsSection
+            postId={post.id}
+            comments={post.comments || []}
+            commentText={commentText}
+            savingComment={savingComment}
+            onCommentTextChange={onCommentTextChange}
+            onSubmitComment={onSubmitComment}
+          />
         ) : null}
       </div>
     </article>
