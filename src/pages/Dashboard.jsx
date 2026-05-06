@@ -45,6 +45,11 @@ import {
   DASHBOARD_SCALE,
   useDashboardViewportMode,
 } from "@/components/fresh/main-dashboard/dashboard-scale/dashboardScale";
+import {
+  applyVisualPerformanceMode,
+  readStoredPerformanceMode,
+  saveVisualPerformanceMode,
+} from "@/components/fresh/main-dashboard/performance-mode/visualPerformanceMode";
 import FinanceActionModal from "@/components/fresh/main-dashboard/dashboard-primitives/FinanceActionModal";
 import ManualExpenseFullScreenSheet from "@/components/fresh/main-dashboard/dashboard-primitives/ManualExpenseFullScreenSheet";
 import QuickActionDropdown from "@/components/fresh/main-dashboard/dashboard-primitives/QuickActionDropdown";
@@ -183,55 +188,6 @@ function persistStoredNotificationSettings(userId, updates = {}) {
   dispatchClaraEvent("clara:settings-updated", { type: "notifications", notifications: next });
   return next;
 }
-
-const CLARA_VISUAL_PERFORMANCE_STYLE_ID = "clara-visual-performance-mode-style";
-const dashboardRuntimePerformanceMode = new Map();
-
-const getVisualPerformanceStorageKey = (userId) =>
-  `clara_visual_performance_${userId || "guest"}`;
-
-const ensureClaraVisualPerformanceStyles = () => {
-  if (typeof document === "undefined") return;
-  if (document.getElementById(CLARA_VISUAL_PERFORMANCE_STYLE_ID)) return;
-  const style = document.createElement("style");
-  style.id = CLARA_VISUAL_PERFORMANCE_STYLE_ID;
-  style.textContent = `
-    .clara-premium-mode { --clara-motion-duration: 220ms; --clara-glow-strength: 1; --clara-blur-strength: 1; }
-    .clara-performance-mode { --clara-motion-duration: 0ms; --clara-glow-strength: 0; --clara-blur-strength: 0; }
-    .clara-performance-mode *, .clara-performance-mode *::before, .clara-performance-mode *::after { animation: none !important; transition: none !important; transition-duration: 0ms !important; scroll-behavior: auto !important; text-shadow: none !important; }
-    .clara-performance-mode .theme-shell-card, .clara-performance-mode .theme-panel-card, .clara-performance-mode .theme-soft-card, .clara-performance-mode .theme-modal-card, .clara-performance-mode .clara-card, .clara-performance-mode .clara-card-soft, .clara-performance-mode [class*="backdrop-blur"] { backdrop-filter: none !important; -webkit-backdrop-filter: none !important; }
-    .clara-performance-mode [class*="shadow-"], .clara-performance-mode [style*="box-shadow"] { box-shadow: none !important; }
-    .clara-performance-mode [class*="blur-"], .clara-performance-mode [style*="filter"] { filter: none !important; }
-    .clara-performance-mode [class*="before:blur"]::before, .clara-performance-mode [class*="after:blur"]::after, .clara-performance-mode [class*="before:bg-white"]::before, .clara-performance-mode [class*="after:bg-white"]::after { opacity: 0 !important; filter: none !important; }
-    .clara-performance-mode [class*="animate-"], .clara-performance-mode [style*="animation"] { animation: none !important; animation-duration: 0ms !important; animation-iteration-count: 1 !important; }
-    .clara-performance-mode [class*="hover:-translate"], .clara-performance-mode [class*="hover:scale"], .clara-performance-mode [class*="active:scale"], .clara-performance-mode [class*="group-hover:-translate"], .clara-performance-mode [class*="group-active:scale"] { transform: none !important; }
-    .clara-performance-mode video, .clara-performance-mode img { filter: none !important; }
-    .clara-performance-mode .theme-page-shell, .clara-performance-mode .theme-panel-card, .clara-performance-mode .theme-shell-card, .clara-performance-mode .theme-soft-card, .clara-performance-mode .theme-modal-card { isolation: auto !important; }
-  `;
-  document.head.appendChild(style);
-};
-
-const applyVisualPerformanceMode = (enabled) => {
-  if (typeof document === "undefined") return;
-  ensureClaraVisualPerformanceStyles();
-  document.documentElement.classList.toggle("clara-performance-mode", Boolean(enabled));
-  document.documentElement.classList.toggle("clara-premium-mode", !enabled);
-  document.body?.classList?.toggle("clara-performance-mode", Boolean(enabled));
-  document.body?.classList?.toggle("clara-premium-mode", !enabled);
-  document.documentElement.dataset.claraVisualMode = enabled ? "performance" : "premium";
-  if (document.body) document.body.dataset.claraVisualMode = enabled ? "performance" : "premium";
-};
-
-const readStoredPerformanceMode = (userId) =>
-  dashboardRuntimePerformanceMode.get(getVisualPerformanceStorageKey(userId)) === true;
-
-const saveVisualPerformanceMode = (userId, enabled) => {
-  const nextValue = Boolean(enabled);
-  dashboardRuntimePerformanceMode.set(getVisualPerformanceStorageKey(userId), nextValue);
-  applyVisualPerformanceMode(nextValue);
-  dispatchClaraEvent("clara:visual-performance-mode-updated", { enabled: nextValue, visualMode: nextValue ? "performance" : "premium", userId: userId || null });
-  return nextValue;
-};
 
 const dashboardRuntimeProgramPrompts = new Set();
 
