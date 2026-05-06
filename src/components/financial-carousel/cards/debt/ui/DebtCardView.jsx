@@ -5,7 +5,7 @@ export default function DebtCardView({
   selectedDashboardTheme,
 }) {
   return (
-    <div className="h-full min-h-[inherit] flex flex-col">
+    <div className="clara-finance-bubble-card-shell clara-finance-bubble-debt-shell h-full min-h-[inherit] flex flex-col">
       <ObligationDebt
         item={item}
         theme={selectedDashboardTheme}
