@@ -611,3 +611,12 @@ export const getSavingsTarget = (
     0
   );
 };
+export const getSavingsGoalTitle = (savings = {}) => {
+  return (
+    savings?.title ||
+    savings?.name ||
+    savings?.goal_name ||
+    savings?.label ||
+    "Savings Goal"
+  );
+};
