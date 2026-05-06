@@ -1,61 +1,7 @@
-const DEFAULT_CAROUSEL_CARD_KEY = "budget";
-
-export const carouselConfig = [
-  {
-    key: "wallet",
-    type: "wallet",
-    label: "Wallet",
-    enabled: true,
-    order: 0,
-    detailKey: "wallets",
-    tone: "teal",
-  },
-  {
-    key: "budget",
-    type: "budget",
-    label: "Budget",
-    enabled: true,
-    order: 1,
-    detailKey: "budgets",
-    tone: "emerald",
-  },
-  {
-    key: "emergencyFund",
-    type: "emergencyFund",
-    label: "Emergency Fund",
-    enabled: true,
-    order: 2,
-    detailKey: "emergency",
-    tone: "teal",
-  },
-  {
-    key: "savingsGoals",
-    type: "savingsGoals",
-    label: "Savings Goals",
-    enabled: true,
-    order: 3,
-    detailKey: "savings",
-    tone: "blue",
-  },
-  {
-    key: "investmentFund",
-    type: "investmentFund",
-    label: "Investment Fund",
-    enabled: true,
-    order: 4,
-    detailKey: "investmentFund",
-    tone: "gold",
-  },
-  {
-    key: "debtObligations",
-    type: "debtObligations",
-    label: "Debt / Obligations",
-    enabled: true,
-    order: 5,
-    detailKey: "debtObligations",
-    tone: "rose",
-  },
-];
+import {
+  DEFAULT_FINANCIAL_CARD_KEY,
+  getRegisteredFinancialCards,
+} from "./FinancialCardRegistry";
 
 const readNumber = (...values) => {
   for (const value of values) {
@@ -72,18 +18,20 @@ const readNumber = (...values) => {
   return 0;
 };
 
-export const getEnabledCarouselItems = () =>
-  carouselConfig
-    .filter((item) => item.enabled !== false)
-    .sort((a, b) => Number(a.order || 0) - Number(b.order || 0));
+export const getEnabledCarouselItems = (options = {}) =>
+  getRegisteredFinancialCards(options);
 
 export const getDefaultCarouselIndex = (items = []) => {
-  const index = items.findIndex((item) => item?.key === DEFAULT_CAROUSEL_CARD_KEY);
+  const index = items.findIndex(
+    (item) => item?.key === DEFAULT_FINANCIAL_CARD_KEY
+  );
+
   return index >= 0 ? index : 0;
 };
 
 const normalizeBudgetPlan = (plan = {}) => {
   const categories = Array.isArray(plan?.categories) ? plan.categories : [];
+
   const declaredBudget = readNumber(
     plan?.declared_budget,
     plan?.declared_amount,
@@ -91,17 +39,26 @@ const normalizeBudgetPlan = (plan = {}) => {
     plan?.total_budget,
     plan?.allocated_amount
   );
+
   const spentAmount = readNumber(
     plan?.spent_amount,
     plan?.spent,
     plan?.total_spent,
     categories.reduce(
-      (sum, item) => sum + readNumber(item?.spent, item?.spent_amount, item?.total_spent),
+      (sum, item) =>
+        sum +
+        readNumber(item?.spent, item?.spent_amount, item?.total_spent),
       0
     )
   );
+
   const remainingAmount = Math.max(
-    readNumber(plan?.remaining_amount, plan?.remaining, plan?.amount_left, declaredBudget - spentAmount),
+    readNumber(
+      plan?.remaining_amount,
+      plan?.remaining,
+      plan?.amount_left,
+      declaredBudget - spentAmount
+    ),
     0
   );
 
@@ -135,6 +92,8 @@ export const getCarouselData = ({
   guardChecked = false,
   loading = false,
   profileData = null,
+  featureFlags = null,
+  includeLocked = true,
   firstPositiveNumber,
   readStoredSurvivalExpense,
 } = {}) => {
@@ -158,9 +117,16 @@ export const getCarouselData = ({
         ) > 0);
 
   const budgetData = normalizeBudgetPlan(monthlyBudgetPlan || {});
-  const safeSavingsGoals = Array.isArray(savingsGoals) ? savingsGoals : [];
+
+  const safeSavingsGoals = Array.isArray(savingsGoals)
+    ? savingsGoals
+    : [];
+
   const safeWallets = Array.isArray(wallets) ? wallets : [];
-  const safeWalletPreviewTransactions = Array.isArray(walletPreviewTransactions)
+
+  const safeWalletPreviewTransactions = Array.isArray(
+    walletPreviewTransactions
+  )
     ? walletPreviewTransactions
     : [];
 
@@ -170,9 +136,11 @@ export const getCarouselData = ({
       walletMoney,
       walletPreviewTransactions: safeWalletPreviewTransactions,
     },
+
     budget: {
       ...budgetData,
     },
+
     emergencyFund: {
       moneyLeft: walletMoney,
       survivalExpense,
@@ -180,31 +148,42 @@ export const getCarouselData = ({
       canAutoPrompt: Boolean(user?.id) && guardChecked && !loading,
       hasSurvivalSetup,
     },
+
     savingsGoals: {
       savingsGoals: safeSavingsGoals,
       totalSavingsSaved,
       totalSavingsTarget,
       primarySavingsGoal,
     },
+
     investmentFund: {
       title: "Investment Fund",
       amount: 0,
       subtitle: "Decide before you invest.",
-      description: "Build your emergency fund first before investing.",
+      description:
+        "Build your emergency fund first before investing.",
       ctaLabel: "Coming soon",
       state: "comingSoon",
     },
+
     debtObligations: {
       title: "Debt / Obligations",
       amount: 0,
       subtitle: "Track and manage what you owe.",
-      description: "No active debt recorded. Keep your cash flow protected.",
+      description:
+        "No active debt recorded. Keep your cash flow protected.",
       ctaLabel: "No debt",
       state: "ready",
     },
   };
 
-  return getEnabledCarouselItems().map((item) => ({
+  const registeredCards = getEnabledCarouselItems({
+    profileData,
+    featureFlags,
+    includeLocked,
+  });
+
+  return registeredCards.map((item) => ({
     ...item,
     data: dataByType[item.type] || {},
   }));
