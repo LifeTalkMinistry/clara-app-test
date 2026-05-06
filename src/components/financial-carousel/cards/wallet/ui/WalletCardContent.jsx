@@ -7,6 +7,7 @@ import {
 import { fmt } from '@/components/financial-carousel/cards/wallet/logic/useWalletCardLogic';
 import WalletListItem from '@/components/financial-carousel/cards/wallet/ui/WalletListItem';
 import WalletRecentActivity from '@/components/financial-carousel/cards/wallet/ui/WalletRecentActivity';
+import WalletEmptyState from '@/components/financial-carousel/cards/wallet/ui/WalletEmptyState';
 
 const glassPanel = 'border border-cyan-100/15 bg-white/[0.055] shadow-[inset_0_1px_0_rgba(255,255,255,0.10),0_0_24px_rgba(0,255,220,0.045)] backdrop-blur-sm';
 
@@ -116,11 +117,7 @@ export default function WalletCardContent({
                 <WalletRecentActivity transactions={visibleTransactions} />
               </div>
             ) : (
-              <div className='rounded-2xl border border-dashed border-cyan-200/20 bg-white/[0.045] p-4 text-center'>
-                <WalletCards className='mx-auto h-8 w-8 text-cyan-100/35' />
-                <p className='mt-3 text-sm font-semibold text-white'>No wallets yet</p>
-                <p className='mt-2 text-sm leading-6 text-white/58'>Create your first wallet so your money is organized and easier to track.</p>
-              </div>
+              <WalletEmptyState />
             )}
 
             <div className='grid grid-cols-1 gap-2'>
