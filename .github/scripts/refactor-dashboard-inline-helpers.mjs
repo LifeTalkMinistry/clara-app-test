@@ -35,8 +35,22 @@ insertAfter(
 );
 
 insertAfter(
+  '} from "@/components/fresh/main-dashboard/performance-mode/visualPerformanceMode";\n',
+  'import {\n  MONEY_SUMMARY_PRIVACY_KEY,\n  persistDashboardPrefs,\n  persistMoneySummaryVisibility,\n  persistStoredNotificationSettings,\n  readDashboardPrefs,\n  readMoneySummaryVisibility,\n  readStoredNotificationSettings,\n} from "@/components/fresh/main-dashboard/dashboard-settings/dashboardRuntimeSettings";\n'
+);
+
+insertAfter(
   '} from "@/lib/program-access";\n',
   'import {\n  isProgramApproved,\n  shouldForceToEnroll,\n} from "@/components/fresh/main-dashboard/program-access/programAccessRules";\n'
+);
+
+removeBlock(
+  'const dashboardRuntimePrefs = new Map();',
+  'const dashboardRuntimeProgramPrompts = new Set();'
+);
+source = source.replace(
+  'const dashboardRuntimeProgramPrompts = new Set();',
+  'const dashboardRuntimeProgramPrompts = new Set();'
 );
 
 removeBlock(
