@@ -65,6 +65,7 @@ import {
   persistProgramPromptSeenThisSession,
   readProgramPromptSeenThisSession,
 } from "@/components/fresh/main-dashboard/program-prompts/programPromptSession";
+import { shouldSilenceNormalOfflineNotice } from "@/components/fresh/main-dashboard/finance-notices/financeNoticeRules";
 import FinanceActionModal from "@/components/fresh/main-dashboard/dashboard-primitives/FinanceActionModal";
 import ManualExpenseFullScreenSheet from "@/components/fresh/main-dashboard/dashboard-primitives/ManualExpenseFullScreenSheet";
 import QuickActionDropdown from "@/components/fresh/main-dashboard/dashboard-primitives/QuickActionDropdown";
@@ -182,18 +183,6 @@ const OnboardingActionBar = ({
   );
 };
 
-
-const shouldSilenceNormalOfflineNotice = (message = "") => {
-  const normalized = normalizeLower(message).replace(/[\u2019']/g, "");
-
-  return (
-    normalized.includes("youre offline. clara is using your saved access state") ||
-    normalized.includes("connect to the internet later to finish account setup") ||
-    normalized.includes("youre offline. clara is using saved data") ||
-    normalized.includes("clara is using your saved access state") ||
-    normalized.includes("clara is using saved data")
-  );
-};
 
 const FinanceInlineAlert = ({ notice, onClose }) => {
   if (!notice?.message) return null;
