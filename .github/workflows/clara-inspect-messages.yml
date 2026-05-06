@@ -21,12 +21,27 @@ jobs:
           path = Path('src/pages/Dashboard.jsx')
           src = path.read_text()
           marker = 'import DashboardMoneySummary from "@/components/fresh/main-dashboard/money-summary/DashboardMoneySummary";'
+          imports = '\n'.join([
+              marker,
+              'import FinanceActionModal from "@/components/fresh/main-dashboard/dashboard-primitives/FinanceActionModal";',
+              'import ManualExpenseFullScreenSheet from "@/components/fresh/main-dashboard/dashboard-primitives/ManualExpenseFullScreenSheet";',
+              'import QuickActionDropdown from "@/components/fresh/main-dashboard/dashboard-primitives/QuickActionDropdown";',
+          ])
           if 'dashboard-primitives/FinanceActionModal' not in src:
-              src = src.replace(marker, marker + '\nimport FinanceActionModal from "@/components/fresh/main-dashboard/dashboard-primitives/FinanceActionModal";\nimport ManualExpenseFullScreenSheet from "@/components/fresh/main-dashboard/dashboard-primitives/ManualExpenseFullScreenSheet";', 1)
+              src = src.replace(marker, imports, 1)
+          elif 'dashboard-primitives/QuickActionDropdown' not in src:
+              src = src.replace('import ManualExpenseFullScreenSheet from "@/components/fresh/main-dashboard/dashboard-primitives/ManualExpenseFullScreenSheet";', 'import ManualExpenseFullScreenSheet from "@/components/fresh/main-dashboard/dashboard-primitives/ManualExpenseFullScreenSheet";\nimport QuickActionDropdown from "@/components/fresh/main-dashboard/dashboard-primitives/QuickActionDropdown";', 1)
+
           start = src.find('const FinanceActionModal = ({')
           end = src.find('const QuickActionDropdown = ({', start)
           if start != -1 and end != -1:
               src = src[:start] + src[end:]
+
+          start = src.find('const QuickActionDropdown = ({')
+          end = src.find('const FinanceField = ({', start)
+          if start != -1 and end != -1:
+              src = src[:start] + src[end:]
+
           path.write_text(src)
           PY
       - name: Build check
@@ -35,5 +50,5 @@ jobs:
           npm run build
       - uses: stefanzweifel/git-auto-commit-action@v5
         with:
-          commit_message: Extract dashboard primitive usage from Dashboard
+          commit_message: Extract dashboard dropdown primitive from Dashboard
           file_pattern: src/pages/Dashboard.jsx
