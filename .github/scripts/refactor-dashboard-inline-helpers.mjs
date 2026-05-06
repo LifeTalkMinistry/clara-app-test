@@ -55,6 +55,11 @@ insertAfter(
 );
 
 insertAfter(
+  '} from "@/components/fresh/main-dashboard/finance-form/financeFormConstants";\n',
+  'import { hasDashboardFinanceContent } from "@/components/fresh/main-dashboard/finance-content/dashboardFinanceContent";\n'
+);
+
+insertAfter(
   '} from "@/lib/program-access";\n',
   'import {\n  isProgramApproved,\n  shouldForceToEnroll,\n} from "@/components/fresh/main-dashboard/program-access/programAccessRules";\n'
 );
@@ -102,6 +107,15 @@ removeBlock(
 source = source.replace(
   'const hasDashboardFinanceContent = (snapshot = {}) =>',
   'const hasDashboardFinanceContent = (snapshot = {}) =>'
+);
+
+removeBlock(
+  'const hasDashboardFinanceContent = (snapshot = {}) =>',
+  'const DEFAULT_DASHBOARD_THEME_KEY = DEFAULT_THEME_KEY || "obsidian";'
+);
+source = source.replace(
+  'const DEFAULT_DASHBOARD_THEME_KEY = DEFAULT_THEME_KEY || "obsidian";',
+  'const DEFAULT_DASHBOARD_THEME_KEY = DEFAULT_THEME_KEY || "obsidian";'
 );
 
 removeBlock(
