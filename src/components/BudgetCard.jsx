@@ -1,164 +1,22 @@
-import { useMemo, useState } from "react";
 import {
   PieChart,
-  RotateCcw,
   Edit3,
   ChevronDown,
   ChevronUp,
-  X,
   Trash2,
   Plus,
 } from "lucide-react";
-
-const fmt = (n) =>
-  new Intl.NumberFormat("en-PH", {
-    style: "currency",
-    currency: "PHP",
-    minimumFractionDigits: 0,
-  }).format(Number(n || 0));
-
-const safeNumber = (value) => {
-  const num = Number(value);
-  return Number.isFinite(num) ? num : 0;
-};
+import useBudgetCardLogic, {
+  fmt,
+  safeNumber,
+} from "@/components/financial-carousel/cards/budget/logic/useBudgetCardLogic";
+import BudgetActionModal from "@/components/financial-carousel/cards/budget/modal/BudgetActionModal";
 
 const glassPanel =
   "border border-cyan-100/15 bg-white/[0.055] shadow-[inset_0_1px_0_rgba(255,255,255,0.10),0_0_18px_rgba(0,255,220,0.035)] backdrop-blur-sm";
 
 const softButton =
   "rounded-xl border border-cyan-100/15 bg-white/[0.055] text-white/85 transition hover:border-cyan-100/25 hover:bg-white/10 hover:text-white disabled:opacity-50";
-
-function getBudgetStatus(progress) {
-  if (progress <= 50) {
-    return {
-      label: "Healthy",
-      text: "text-emerald-200",
-      badge: "bg-emerald-400/15 text-emerald-100 border border-emerald-300/25",
-      bar: "from-emerald-300 via-teal-300 to-cyan-300",
-      ring: "shadow-[0_0_26px_rgba(0,255,220,0.12)]",
-    };
-  }
-
-  if (progress <= 80) {
-    return {
-      label: "Watching",
-      text: "text-amber-200",
-      badge: "bg-amber-400/15 text-amber-100 border border-amber-300/25",
-      bar: "from-amber-300 via-yellow-300 to-orange-300",
-      ring: "shadow-[0_0_26px_rgba(251,191,36,0.12)]",
-    };
-  }
-
-  if (progress < 100) {
-    return {
-      label: "Tight",
-      text: "text-orange-200",
-      badge: "bg-orange-400/15 text-orange-100 border border-orange-300/25",
-      bar: "from-orange-300 via-amber-300 to-yellow-300",
-      ring: "shadow-[0_0_26px_rgba(251,146,60,0.12)]",
-    };
-  }
-
-  return {
-    label: "Maxed",
-    text: "text-rose-200",
-    badge: "bg-rose-400/15 text-rose-100 border border-rose-300/25",
-    bar: "from-rose-300 via-pink-300 to-fuchsia-300",
-    ring: "shadow-[0_0_26px_rgba(244,63,94,0.12)]",
-  };
-}
-
-function getRemainingAmountColor(progress) {
-  if (progress < 60) {
-    return "text-emerald-200 drop-shadow-[0_0_10px_rgba(52,211,153,0.18)]";
-  }
-
-  if (progress <= 85) {
-    return "text-amber-200 drop-shadow-[0_0_10px_rgba(251,191,36,0.18)]";
-  }
-
-  return "text-rose-200 drop-shadow-[0_0_10px_rgba(244,63,94,0.18)]";
-}
-
-function getBudgetMessage(hasDeclaredBudget, hasCategories, progress, remaining) {
-  if (!hasDeclaredBudget) return "Declare this month’s spending amount first.";
-  if (!hasCategories) return "Now distribute your declared budget into categories.";
-  if (remaining <= 0) return "You’ve fully used this month’s allocated budget.";
-  if (progress <= 50) return "You still have strong room left this month.";
-  if (progress <= 80) return "You’re doing fine. Just stay intentional from here.";
-  if (progress < 100) return "You’re close to the limit. Spend carefully now.";
-  return "This monthly plan is already fully consumed.";
-}
-
-function ActionModal({
-  open,
-  onClose,
-  activeBudget,
-  financeActionLoading,
-  onSaveBudget,
-  onResetBudget,
-}) {
-  if (!open) return null;
-
-  const hasDeclaredBudget =
-    safeNumber(activeBudget?.declared_budget ?? activeBudget?.declared_amount) > 0;
-
-  return (
-    <div className="fixed inset-0 z-[120] flex items-center justify-center p-4">
-      <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" onClick={onClose} />
-      <div className="relative z-10 w-full max-w-md overflow-hidden rounded-3xl border border-cyan-200/15 bg-[linear-gradient(135deg,rgba(6,48,66,0.98),rgba(7,20,48,0.96)_48%,rgba(37,13,74,0.96))] text-white shadow-[0_30px_90px_rgba(0,0,0,0.72),0_0_36px_rgba(0,255,220,0.12)]">
-        <div className="relative border-b border-white/10 px-5 py-5">
-          <button
-            type="button"
-            onClick={onClose}
-            className="absolute right-4 top-4 flex h-10 w-10 items-center justify-center rounded-2xl border border-white/10 bg-white/[0.06] text-white/70 transition hover:bg-white/[0.10] hover:text-white"
-            aria-label="Close budget actions"
-          >
-            <X className="h-4 w-4" />
-          </button>
-
-          <div className="pr-12">
-            <div className="mb-3 inline-flex items-center rounded-full border border-cyan-200/15 bg-cyan-300/10 px-3 py-1 text-[10px] font-bold uppercase tracking-[0.18em] text-cyan-50/85">
-              Budget setup
-            </div>
-            <h3 className="text-xl font-bold tracking-tight text-white">Budget Actions</h3>
-            <p className="mt-2 text-sm leading-6 text-white/65">Build this month’s spending plan.</p>
-          </div>
-        </div>
-
-        <div className="space-y-3 px-5 py-5">
-          <button
-            type="button"
-            disabled={financeActionLoading}
-            onClick={() => {
-              onClose();
-              onSaveBudget?.();
-            }}
-            className="flex min-h-[52px] w-full items-center justify-center gap-2 rounded-2xl border border-cyan-200/20 bg-cyan-300/10 px-4 py-3 text-sm font-semibold text-cyan-50 shadow-[0_0_20px_rgba(0,255,220,0.08)] transition hover:bg-cyan-300/15 disabled:opacity-50"
-          >
-            <Plus className="h-4 w-4" />
-            {hasDeclaredBudget ? "Add Category" : "Declare Monthly Budget"}
-          </button>
-
-          {!!activeBudget?.category_count && (
-            <button
-              type="button"
-              disabled={financeActionLoading}
-              onClick={() => {
-                onClose();
-                onResetBudget?.();
-              }}
-              className={`${softButton} flex min-h-[52px] w-full items-center justify-center gap-2 px-4 py-3 text-sm font-semibold`}
-            >
-              <RotateCcw className="h-4 w-4" />
-              Reset Tracking Start
-            </button>
-          )}
-        </div>
-      </div>
-    </div>
-  );
-}
 
 export default function BudgetCard({
   activeBudget = null,
@@ -176,78 +34,34 @@ export default function BudgetCard({
   onDeleteBudgetCategory,
   onResetBudget,
 }) {
-  const [showModal, setShowModal] = useState(false);
-
-  const categories = useMemo(
-    () =>
-      Array.isArray(budgetCategories)
-        ? budgetCategories
-        : Array.isArray(activeBudget?.categories)
-          ? activeBudget.categories
-          : [],
-    [activeBudget?.categories, budgetCategories]
-  );
-
-  const declared = safeNumber(
-    declaredBudget ||
-      activeBudget?.declared_budget ||
-      activeBudget?.declared_amount ||
-      activeBudget?.monthly_budget_amount
-  );
-
-  const allocated = safeNumber(
-    activeBudget?.allocated_amount ??
-      activeBudget?.allocated_total ??
-      activeBudget?.total_budget ??
-      categories.reduce(
-        (sum, item) => sum + safeNumber(item?.allocated ?? item?.allocated_amount),
-        0
-      )
-  );
-
-  const spent = safeNumber(
-    activeBudget?.spent ??
-      activeBudget?.spent_amount ??
-      activeBudget?.total_spent ??
-      categories.reduce((sum, item) => sum + safeNumber(item?.spent ?? item?.spent_amount), 0)
-  );
-
-  const remaining = Math.max(
-    safeNumber(activeBudget?.remaining ?? activeBudget?.remaining_amount ?? allocated - spent),
-    0
-  );
-
-  const unallocated = Math.max(
-    safeNumber(unallocatedAmount ?? activeBudget?.unallocated_amount ?? declared - allocated),
-    0
-  );
-
-  const progress = useMemo(
-    () => (allocated > 0 ? Math.min(100, (spent / allocated) * 100) : 0),
-    [spent, allocated]
-  );
-
-  const hasDeclaredBudget = declared > 0;
-  const hasCategories = categories.length > 0 && allocated > 0;
-  const planIsComplete =
-    isComplete === true ||
-    activeBudget?.is_complete === true ||
-    (hasDeclaredBudget && unallocated === 0 && allocated === declared);
-  const normalizedBudgetStatus = hasDeclaredBudget ? (planIsComplete ? "active" : "draft") : "empty";
-  const status = getBudgetStatus(progress);
-  const message = getBudgetMessage(hasDeclaredBudget, hasCategories, progress, remaining);
-  const remainingAmountColor = getRemainingAmountColor(progress);
-  const monthKey = activeBudget?.month || new Date().toISOString().slice(0, 7);
-  const badgeLabel =
-    normalizedBudgetStatus === "active"
-      ? "Active"
-      : normalizedBudgetStatus === "draft"
-        ? "Draft"
-        : "No Plan";
+  const {
+    showModal,
+    setShowModal,
+    categories,
+    declared,
+    allocated,
+    spent,
+    remaining,
+    unallocated,
+    progress,
+    hasDeclaredBudget,
+    planIsComplete,
+    status,
+    message,
+    remainingAmountColor,
+    monthKey,
+    badgeLabel,
+  } = useBudgetCardLogic({
+    activeBudget,
+    budgetCategories,
+    declaredBudget,
+    unallocatedAmount,
+    isComplete,
+  });
 
   return (
     <>
-      <ActionModal
+      <BudgetActionModal
         open={showModal}
         onClose={() => setShowModal(false)}
         activeBudget={activeBudget}
