@@ -59,6 +59,12 @@ import {
   readMoneySummaryVisibility,
   readStoredNotificationSettings,
 } from "@/components/fresh/main-dashboard/dashboard-settings/dashboardRuntimeSettings";
+import {
+  clearProgramPromptSeenThisSession,
+  getProgramPromptSessionKey,
+  persistProgramPromptSeenThisSession,
+  readProgramPromptSeenThisSession,
+} from "@/components/fresh/main-dashboard/program-prompts/programPromptSession";
 import FinanceActionModal from "@/components/fresh/main-dashboard/dashboard-primitives/FinanceActionModal";
 import ManualExpenseFullScreenSheet from "@/components/fresh/main-dashboard/dashboard-primitives/ManualExpenseFullScreenSheet";
 import QuickActionDropdown from "@/components/fresh/main-dashboard/dashboard-primitives/QuickActionDropdown";
@@ -139,29 +145,6 @@ import {
   getWalletSortOrder,
   getToday,
 } from "@/utils/dashboard/dashboardHelpers";
-
-const dashboardRuntimeProgramPrompts = new Set();
-
-const getProgramPromptSessionKey = (userId, bubble) => {
-  const safeUserId = normalizeString(userId || "guest");
-  const bubbleSignature = [normalizeString(bubble?.kind), normalizeString(bubble?.action), normalizeString(bubble?.href), normalizeString(bubble?.title), normalizeString(bubble?.body), normalizeString(bubble?.ctaLabel)].filter(Boolean).join("||");
-  return `clara_program_prompt_seen_session_${safeUserId}_${bubbleSignature || "default"}`;
-};
-
-const readProgramPromptSeenThisSession = (userId, bubble) => {
-  if (!userId || !bubble) return false;
-  return dashboardRuntimeProgramPrompts.has(getProgramPromptSessionKey(userId, bubble));
-};
-
-const persistProgramPromptSeenThisSession = (userId, bubble) => {
-  if (!userId || !bubble) return;
-  dashboardRuntimeProgramPrompts.add(getProgramPromptSessionKey(userId, bubble));
-};
-
-const clearProgramPromptSeenThisSession = (userId, bubble) => {
-  if (!userId || !bubble) return;
-  dashboardRuntimeProgramPrompts.delete(getProgramPromptSessionKey(userId, bubble));
-};
 
 const OnboardingActionBar = ({
   onBack,
