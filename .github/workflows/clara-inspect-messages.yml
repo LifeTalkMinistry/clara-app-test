@@ -1,4 +1,4 @@
-name: CLARA Inspect Dashboard Messages
+name: CLARA Extract Dashboard Primitives
 
 on:
   push:
@@ -7,48 +7,33 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
-  inspect:
+  extract:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Print Dashboard messages snippets
+      - uses: actions/checkout@v4
+      - name: Remove extracted dashboard primitive blocks
         run: |
-          node <<'NODE'
-          const fs = require('fs');
-          const path = 'src/pages/Dashboard.jsx';
-          const src = fs.readFileSync(path, 'utf8');
-          const lines = src.split(/\r?\n/);
-          const matches = [];
-          lines.forEach((line, index) => {
-            if (/message|conversation|thread|chat|activePanel/i.test(line)) matches.push(index + 1);
-          });
-          console.log('FILE:', path);
-          console.log('LINE_COUNT:', lines.length);
-          console.log('MATCH_COUNT:', matches.length);
-          console.log('MATCHES:', matches.join(','));
-
-          const windows = [];
-          for (const lineNo of matches) {
-            const start = Math.max(1, lineNo - 10);
-            const end = Math.min(lines.length, lineNo + 25);
-            const last = windows[windows.length - 1];
-            if (last && start <= last.end + 8) {
-              last.end = Math.max(last.end, end);
-            } else {
-              windows.push({ start, end });
-            }
-          }
-
-          for (const window of windows) {
-            console.log(`\n--- lines ${window.start}-${window.end} ---`);
-            for (let i = window.start; i <= window.end; i += 1) {
-              console.log(String(i).padStart(5, ' ') + ': ' + lines[i - 1]);
-            }
-          }
-          NODE
-# trigger: 2
+          python - <<'PY'
+          from pathlib import Path
+          path = Path('src/pages/Dashboard.jsx')
+          src = path.read_text()
+          marker = 'import DashboardMoneySummary from "@/components/fresh/main-dashboard/money-summary/DashboardMoneySummary";'
+          if 'dashboard-primitives/FinanceActionModal' not in src:
+              src = src.replace(marker, marker + '\nimport FinanceActionModal from "@/components/fresh/main-dashboard/dashboard-primitives/FinanceActionModal";\nimport ManualExpenseFullScreenSheet from "@/components/fresh/main-dashboard/dashboard-primitives/ManualExpenseFullScreenSheet";', 1)
+          start = src.find('const FinanceActionModal = ({')
+          end = src.find('const QuickActionDropdown = ({', start)
+          if start != -1 and end != -1:
+              src = src[:start] + src[end:]
+          path.write_text(src)
+          PY
+      - name: Build check
+        run: |
+          npm ci
+          npm run build
+      - uses: stefanzweifel/git-auto-commit-action@v5
+        with:
+          commit_message: Extract dashboard primitive usage from Dashboard
+          file_pattern: src/pages/Dashboard.jsx
