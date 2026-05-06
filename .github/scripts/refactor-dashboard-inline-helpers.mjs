@@ -4,6 +4,8 @@ const dashboardPath = "src/pages/Dashboard.jsx";
 let source = fs.readFileSync(dashboardPath, "utf8");
 const original = source;
 
+const countMatches = (needle) => source.split(needle).length - 1;
+
 const insertAfter = (needle, addition) => {
   if (source.includes(addition.trim())) return;
   const index = source.indexOf(needle);
@@ -22,6 +24,13 @@ const removeBlock = (startNeedle, endNeedle) => {
   }
   source = source.slice(0, start) + source.slice(end);
   return true;
+};
+
+const replaceOnce = (needle, replacement) => {
+  if (!source.includes(needle)) {
+    throw new Error(`Expected text not found: ${needle}`);
+  }
+  source = source.replace(needle, replacement);
 };
 
 insertAfter(
@@ -62,6 +71,11 @@ insertAfter(
 insertAfter(
   'import { hasDashboardFinanceContent } from "@/components/fresh/main-dashboard/finance-content/dashboardFinanceContent";\n',
   'import {\n  dashboardTheme,\n  DEFAULT_DASHBOARD_THEME_KEY,\n  getDashboardGlowCardClass,\n} from "@/components/fresh/main-dashboard/dashboard-theme/dashboardThemeBase";\n'
+);
+
+insertAfter(
+  '} from "@/components/fresh/main-dashboard/dashboard-theme/dashboardThemeBase";\n',
+  'import {\n  readStoredDashboardTheme,\n  persistDashboardTheme,\n  readStoredSurvivalExpense,\n  persistStoredSurvivalExpense,\n} from "@/components/fresh/main-dashboard/dashboard-theme/dashboardThemeRuntime";\n'
 );
 
 insertAfter(
@@ -150,6 +164,20 @@ source = source.replace(
   'const OnboardingActionBar = ({'
 );
 
+if (source.includes('const dashboardRuntimeThemes = new Map();')) {
+  replaceOnce(
+    'const dashboardRuntimeThemes = new Map();\nconst dashboardRuntimeSurvivalExpenses = new Map();\n\nconst getDashboardThemeStorageKey = (userId) =>\n  `clara_dashboard_theme_${userId || "guest"}`;\n\nfunction readStoredDashboardTheme(userId) {\n  return dashboardRuntimeThemes.get(getDashboardThemeStorageKey(userId)) || DEFAULT_DASHBOARD_THEME_KEY;\n}\n\nfunction persistDashboardTheme(userId, themeKey) {\n  dashboardRuntimeThemes.set(getDashboardThemeStorageKey(userId), themeKey);\n  const detail = { themeKey, key: themeKey, dashboardTheme: themeKey, userId: userId || null };\n  dispatchClaraEvent("clara-dashboard-theme-updated", detail);\n  dispatchClaraEvent("clara-theme-selected", detail);\n  dispatchClaraEvent("clara-theme-change", detail);\n}\n\n',
+    ''
+  );
+}
+
+if (source.includes('const readStoredSurvivalExpense = (userId) =>')) {
+  replaceOnce(
+    'const readStoredSurvivalExpense = (userId) => firstPositiveNumber(dashboardRuntimeSurvivalExpenses.get(userId || "guest"));\n\nconst persistStoredSurvivalExpense = (userId, value) => {\n  const amount = firstPositiveNumber(value);\n  if (amount <= 0) return;\n  dashboardRuntimeSurvivalExpenses.set(userId || "guest", amount);\n  dispatchClaraEvent("clara:survival-expense-updated", { amount, monthlyEssentialExpenses: amount, monthly_survival_expense: amount, survivalExpense: amount, survival_expense: amount });\n};\n\n',
+    ''
+  );
+}
+
 source = source.replaceAll(
   'isProgramApproved(profile, isPaid, enrollmentRecord)',
   'isProgramApproved(profile, isPaid, enrollmentRecord, ENROLLMENT_APPROVED_STATUSES)'
@@ -158,6 +186,42 @@ source = source.replaceAll(
   'shouldForceToEnroll(profile, enrollmentRecord, isPaid)',
   'shouldForceToEnroll(\n      profile,\n      enrollmentRecord,\n      isPaid,\n      ENROLLMENT_APPROVED_STATUSES,\n      ENROLLMENT_PENDING_STATUSES,\n      ENROLLMENT_BLOCKED_TO_ENROLL_STATUSES\n    )'
 );
+
+const duplicateChecks = [
+  'function readStoredDashboardTheme',
+  'function persistDashboardTheme',
+  'const readStoredSurvivalExpense =',
+  'const persistStoredSurvivalExpense =',
+  'const dashboardRuntimeThemes = new Map();',
+  'const dashboardRuntimeSurvivalExpenses = new Map();',
+  'const getDashboardThemeStorageKey =',
+];
+
+for (const needle of duplicateChecks) {
+  if (source.includes(needle)) {
+    throw new Error(`Inline dashboard runtime helper still exists: ${needle}`);
+  }
+}
+
+if (countMatches('readStoredDashboardTheme,') !== 1) {
+  throw new Error('Expected exactly one readStoredDashboardTheme import.');
+}
+
+if (countMatches('persistDashboardTheme,') !== 1) {
+  throw new Error('Expected exactly one persistDashboardTheme import.');
+}
+
+if (countMatches('readStoredSurvivalExpense,') !== 1) {
+  throw new Error('Expected exactly one readStoredSurvivalExpense import.');
+}
+
+if (countMatches('persistStoredSurvivalExpense,') !== 1) {
+  throw new Error('Expected exactly one persistStoredSurvivalExpense import.');
+}
+
+if (!source.includes('const dispatchClaraEvent = (name, detail = null) => {')) {
+  throw new Error('dispatchClaraEvent was removed unexpectedly.');
+}
 
 if (source === original) {
   console.log("No changes made to Dashboard.jsx");
