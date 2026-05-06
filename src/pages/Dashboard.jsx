@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo, useCallback, useRef } from "react";
 
 import {
+  createFeedUuid,
   dashboardPanelFormatTime,
   dashboardPanelInitials,
 } from "@/components/fresh/dashboard-panels/feed/utils/feedHelpers";
