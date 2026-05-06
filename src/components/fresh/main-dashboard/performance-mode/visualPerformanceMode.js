@@ -43,6 +43,7 @@ export const ensureClaraVisualPerformanceStyles = () => {
     }
 
     .clara-performance-mode .clara-finance-bubble-card,
+    .clara-performance-mode [data-emergency-card="true"],
     .clara-performance-mode .clara-finance-bubble-card-shell > div:first-child {
       position: relative !important;
       isolation: isolate !important;
@@ -54,7 +55,14 @@ export const ensureClaraVisualPerformanceStyles = () => {
       box-shadow: 0 20px 58px rgba(0,0,0,0.34), inset 0 1px 0 rgba(255,255,255,0.10), 0 0 0 1px rgba(255,255,255,0.04) !important;
     }
 
+    .clara-performance-mode [data-emergency-card="true"] > .absolute.inset-0,
+    .clara-performance-mode [data-emergency-card="true"] > .pointer-events-none.absolute.inset-0 {
+      opacity: 0 !important;
+      background: transparent !important;
+    }
+
     .clara-performance-mode .clara-finance-bubble-card::before,
+    .clara-performance-mode [data-emergency-card="true"]::before,
     .clara-performance-mode .clara-finance-bubble-card-shell > div:first-child::before {
       content: "" !important;
       position: absolute !important;
@@ -70,6 +78,7 @@ export const ensureClaraVisualPerformanceStyles = () => {
     }
 
     .clara-performance-mode .clara-finance-bubble-card::after,
+    .clara-performance-mode [data-emergency-card="true"]::after,
     .clara-performance-mode .clara-finance-bubble-card-shell > div:first-child::after {
       content: "" !important;
       position: absolute !important;
