@@ -1,10 +1,10 @@
 import { PiggyBank, ReceiptText } from "lucide-react";
-import WalletCard from "../../WalletCard";
-import EmergencyFundCard from "../../EmergencyFundCard";
-import BudgetCard from "../../BudgetCard";
 import SavingsCard from "../../SavingsCard";
 import InvestmentCard from "../../InvestmentCard";
 import ObligationDebt from "../../ObligationDebt";
+import WalletCardView from "../cards/wallet/ui/WalletCardView";
+import BudgetCardView from "../cards/budget/ui/BudgetCardView";
+import EmergencyFundCardView from "../cards/emergency-fund/ui/EmergencyFundCardView";
 
 const comingSoonIconMap = {
   debtObligations: ReceiptText,
@@ -51,7 +51,8 @@ const ComingSoonCard = ({ item }) => {
               {data.title || item?.label}
             </h3>
             <p className="mt-2 text-sm leading-6 text-white/62">
-              {data.subtitle || "This card is ready for future finance data."}
+              {data.subtitle ||
+                "This card is ready for future finance data."}
             </p>
           </div>
 
@@ -71,126 +72,84 @@ const ComingSoonCard = ({ item }) => {
   );
 };
 
-export default function CarouselItemCard({
-  item,
-  selectedDashboardTheme,
-  expandedFinanceCard,
-  toggleFinanceDetails,
-  financeActionLoading,
-  onQuickExpense,
-  onSurvivalSaved,
-  onSaveBudget,
-  onEditBudgetCategory,
-  onDeleteBudgetCategory,
-  onResetBudget,
-  onCreateWallet,
-  onMoveWallet,
-  onDeleteWallet,
-  onAddMoney,
-  onTransferMoney,
-  onEditWallet,
-  onSaveSavingsGoal,
-  onDeleteSavingsGoal,
-  onAddSavings,
-  startClaraAiLongPress,
-  endClaraAiLongPress,
-  handleClaraAiOrbClickCapture,
-}) {
+export default function CarouselItemCard(props) {
+  const {
+    item,
+    selectedDashboardTheme,
+    expandedFinanceCard,
+    toggleFinanceDetails,
+    financeActionLoading,
+    onQuickExpense,
+    onSurvivalSaved,
+    onSaveBudget,
+    onEditBudgetCategory,
+    onDeleteBudgetCategory,
+    onResetBudget,
+    onCreateWallet,
+    onMoveWallet,
+    onDeleteWallet,
+    onAddMoney,
+    onTransferMoney,
+    onEditWallet,
+    onSaveSavingsGoal,
+    onDeleteSavingsGoal,
+    onAddSavings,
+    startClaraAiLongPress,
+    endClaraAiLongPress,
+    handleClaraAiOrbClickCapture,
+  } = props;
+
   if (!item) return null;
 
   const data = item.data || {};
 
   if (item.type === "wallet") {
     return (
-      <div className="h-full min-h-[inherit] flex flex-col">
-        <WalletCard
-          wallets={data.wallets}
-          walletMoney={data.walletMoney}
-          walletPreviewTransactions={data.walletPreviewTransactions}
-          theme={selectedDashboardTheme}
-          expanded={expandedFinanceCard === "wallets"}
-          onToggleDetails={() => toggleFinanceDetails?.("wallets")}
-          financeActionLoading={financeActionLoading}
-          onCreateWallet={onCreateWallet}
-          onMoveWallet={onMoveWallet}
-          onDeleteWallet={onDeleteWallet}
-          onAddMoney={onAddMoney}
-          onTransferMoney={onTransferMoney}
-          onEditWallet={onEditWallet}
-        />
-      </div>
+      <WalletCardView
+        data={data}
+        selectedDashboardTheme={selectedDashboardTheme}
+        expandedFinanceCard={expandedFinanceCard}
+        toggleFinanceDetails={toggleFinanceDetails}
+        financeActionLoading={financeActionLoading}
+        onCreateWallet={onCreateWallet}
+        onMoveWallet={onMoveWallet}
+        onDeleteWallet={onDeleteWallet}
+        onAddMoney={onAddMoney}
+        onTransferMoney={onTransferMoney}
+        onEditWallet={onEditWallet}
+      />
     );
   }
 
   if (item.type === "emergencyFund") {
     return (
-      <div
-        className="h-full min-h-[inherit]"
-        onMouseDownCapture={startClaraAiLongPress}
-        onMouseUpCapture={endClaraAiLongPress}
-        onMouseLeaveCapture={endClaraAiLongPress}
-        onTouchStartCapture={startClaraAiLongPress}
-        onTouchEndCapture={endClaraAiLongPress}
-        onTouchCancelCapture={endClaraAiLongPress}
-        onClickCapture={(event) => {
-          if (typeof handleClaraAiOrbClickCapture === "function" && handleClaraAiOrbClickCapture(event)) {
-            return;
-          }
-
-          const button = event.target?.closest?.("button");
-          const label = String(button?.textContent || "").toLowerCase();
-
-          if (label.includes("show details") || label.includes("hide details")) {
-            event.preventDefault();
-            event.stopPropagation();
-            toggleFinanceDetails?.("emergency", { autoExpand: true, forceOpen: true });
-          }
-        }}
-      >
-        <EmergencyFundCard
-          moneyLeft={data.moneyLeft}
-          survivalExpense={data.survivalExpense}
-          retentionRate={data.retentionRate}
-          theme={selectedDashboardTheme}
-          expanded={expandedFinanceCard === "emergency"}
-          onToggleDetails={() =>
-            toggleFinanceDetails?.("emergency", { autoExpand: true, forceOpen: true })
-          }
-          canAutoPrompt={data.canAutoPrompt}
-          hasSurvivalSetup={data.hasSurvivalSetup}
-          onQuickExpense={onQuickExpense}
-          onSurvivalSaved={onSurvivalSaved}
-        />
-      </div>
+      <EmergencyFundCardView
+        data={data}
+        selectedDashboardTheme={selectedDashboardTheme}
+        expandedFinanceCard={expandedFinanceCard}
+        toggleFinanceDetails={toggleFinanceDetails}
+        onQuickExpense={onQuickExpense}
+        onSurvivalSaved={onSurvivalSaved}
+        startClaraAiLongPress={startClaraAiLongPress}
+        endClaraAiLongPress={endClaraAiLongPress}
+        handleClaraAiOrbClickCapture={handleClaraAiOrbClickCapture}
+      />
     );
   }
 
   if (item.type === "budget") {
     return (
-      <div className="h-full min-h-[inherit] flex flex-col">
-        <BudgetCard
-          activeBudget={data.activeBudget}
-          budgetCategories={data.budgetCategories}
-          declaredBudget={data.declaredBudget}
-          unallocatedAmount={data.unallocatedAmount}
-          budgetStatus={data.budgetStatus}
-          isComplete={data.isComplete}
-          unplannedSpent={data.unplannedSpent}
-          undocumentedSpent={data.undocumentedSpent}
-          remainingAmount={data.remainingAmount}
-          amountLeft={data.amountLeft}
-          spentAmount={data.spentAmount}
-          totalSpent={data.totalSpent}
-          theme={selectedDashboardTheme}
-          expanded={expandedFinanceCard === "budgets"}
-          onToggleDetails={() => toggleFinanceDetails?.("budgets")}
-          financeActionLoading={financeActionLoading}
-          onSaveBudget={onSaveBudget}
-          onEditBudgetCategory={onEditBudgetCategory}
-          onDeleteBudgetCategory={onDeleteBudgetCategory}
-          onResetBudget={onResetBudget}
-        />
-      </div>
+      <BudgetCardView
+        data={data}
+        selectedDashboardTheme={selectedDashboardTheme}
+        expandedFinanceCard={expandedFinanceCard}
+        toggleFinanceDetails={toggleFinanceDetails}
+        financeActionLoading={financeActionLoading}
+        onSaveBudget={onSaveBudget}
+        onEditBudgetCategory={onEditBudgetCategory}
+        onDeleteBudgetCategory={onDeleteBudgetCategory}
+        onResetBudget={onResetBudget}
+      />
     );
   }
 
