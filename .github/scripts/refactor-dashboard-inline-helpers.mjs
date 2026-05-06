@@ -40,6 +40,11 @@ insertAfter(
 );
 
 insertAfter(
+  '} from "@/components/fresh/main-dashboard/dashboard-settings/dashboardRuntimeSettings";\n',
+  'import {\n  clearProgramPromptSeenThisSession,\n  getProgramPromptSessionKey,\n  persistProgramPromptSeenThisSession,\n  readProgramPromptSeenThisSession,\n} from "@/components/fresh/main-dashboard/program-prompts/programPromptSession";\n'
+);
+
+insertAfter(
   '} from "@/lib/program-access";\n',
   'import {\n  isProgramApproved,\n  shouldForceToEnroll,\n} from "@/components/fresh/main-dashboard/program-access/programAccessRules";\n'
 );
@@ -60,6 +65,15 @@ removeBlock(
 source = source.replace(
   'const dashboardRuntimeProgramPrompts = new Set();',
   'const dashboardRuntimeProgramPrompts = new Set();'
+);
+
+removeBlock(
+  'const dashboardRuntimeProgramPrompts = new Set();',
+  'const OnboardingActionBar = ({'
+);
+source = source.replace(
+  'const OnboardingActionBar = ({',
+  'const OnboardingActionBar = ({'
 );
 
 removeBlock(
