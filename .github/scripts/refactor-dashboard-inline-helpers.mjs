@@ -79,6 +79,11 @@ insertAfter(
 );
 
 insertAfter(
+  '} from "@/components/fresh/main-dashboard/dashboard-theme/dashboardThemeRuntime";\n',
+  'import { createEmptyDashboardCache } from "@/components/fresh/main-dashboard/dashboard-cache/dashboardCacheFactory";\n'
+);
+
+insertAfter(
   '} from "@/lib/program-access";\n',
   'import {\n  isProgramApproved,\n  shouldForceToEnroll,\n} from "@/components/fresh/main-dashboard/program-access/programAccessRules";\n'
 );
@@ -178,6 +183,13 @@ if (source.includes('const readStoredSurvivalExpense = (userId) =>')) {
   );
 }
 
+if (source.includes('const createEmptyDashboardCache = (key = null) => ({')) {
+  replaceOnce(
+    'const createEmptyDashboardCache = (key = null) => ({\n  key,\n  loaded: false,\n  tasks: [],\n  submissions: [],\n  programRecord: null,\n  survivalExpense: 0,\n  walletMoney: 0,\n  wallets: [],\n  walletTransactions: [],\n  budgets: [],\n  savingsGoals: [],\n  expenses: [],\n  pendingExpenses: [],\n  offlineReady: false,\n  profileData: null,\n  latestEnrollment: null,\n  guardChecked: false,\n  nickname: "",\n  reminderTime: "",\n  financialGoal: "",\n});\n\n',
+    ''
+  );
+}
+
 source = source.replaceAll(
   'isProgramApproved(profile, isPaid, enrollmentRecord)',
   'isProgramApproved(profile, isPaid, enrollmentRecord, ENROLLMENT_APPROVED_STATUSES)'
@@ -195,11 +207,12 @@ const duplicateChecks = [
   'const dashboardRuntimeThemes = new Map();',
   'const dashboardRuntimeSurvivalExpenses = new Map();',
   'const getDashboardThemeStorageKey =',
+  'const createEmptyDashboardCache = (key = null) => ({',
 ];
 
 for (const needle of duplicateChecks) {
   if (source.includes(needle)) {
-    throw new Error(`Inline dashboard runtime helper still exists: ${needle}`);
+    throw new Error(`Inline dashboard helper still exists: ${needle}`);
   }
 }
 
@@ -217,6 +230,10 @@ if (countMatches('readStoredSurvivalExpense,') !== 1) {
 
 if (countMatches('persistStoredSurvivalExpense,') !== 1) {
   throw new Error('Expected exactly one persistStoredSurvivalExpense import.');
+}
+
+if (countMatches('createEmptyDashboardCache } from') !== 1) {
+  throw new Error('Expected exactly one createEmptyDashboardCache import.');
 }
 
 if (!source.includes('const dispatchClaraEvent = (name, detail = null) => {')) {
