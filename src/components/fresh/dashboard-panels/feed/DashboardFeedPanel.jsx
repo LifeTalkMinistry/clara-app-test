@@ -1,94 +1,96 @@
 import { useState, useEffect, useCallback } from "react";
-import {
-  Heart,
-  MessageCircle,
-  Send,
-  Trash2,
-  Play,
-  Image as ImageIcon,
-  Plus,
-} from "lucide-react";
 
+import { createFeedUuid } from "@/components/fresh/dashboard-panels/feed/utils/feedHelpers";
+import { getYoutubeId } from "@/components/fresh/dashboard-panels/feed/utils/youtubeHelpers";
+import useFeedRealtime from "@/components/fresh/dashboard-panels/feed/hooks/useFeedRealtime";
+import {
+  fetchFeedPostsFromDB,
+  fetchFeedComments,
+} from "@/components/fresh/dashboard-panels/feed/services/feedService";
+import { uploadFeedMedia } from "@/components/fresh/dashboard-panels/feed/services/feedMediaService";
+import FeedComposer from "@/components/fresh/dashboard-panels/feed/components/FeedComposer";
+import FeedPostCard from "@/components/fresh/dashboard-panels/feed/components/FeedPostCard";
 import { supabase } from "@/lib/supabaseClient";
 
-const FEED_STORAGE_BUCKET = "feed-media";
+export default function DashboardFeedPanel({ onBack }) {
+  const FEED_STORAGE_BUCKET = "feed-media";
 
-const FEED_CATEGORIES = [
-  { key: "achievement", label: "Achievement" },
-  { key: "testimony", label: "Testimony" },
-  { key: "advice", label: "Advice" },
-  { key: "question", label: "Question" },
-  { key: "motivation", label: "Motivation" },
-  { key: "thought", label: "Thought" },
-];
 
-const createFeedUuid = () => {
-  if (
-    typeof crypto !== "undefined" &&
-    typeof crypto.randomUUID === "function"
-  ) {
-    return crypto.randomUUID();
-  }
-
-  return "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(
-    /[xy]/g,
-    (char) => {
-      const random = Math.floor(Math.random() * 16);
-      const value = char === "x"
-        ? random
-        : (random & 0x3) | 0x8;
-
-      return value.toString(16);
-    }
-  );
-};
-
-const formatFeedTime = (dateString) => {
-  if (!dateString) return "Just now";
-
-  const date = new Date(dateString);
-
-  if (Number.isNaN(date.getTime())) {
-    return "Just now";
-  }
-
-  const diff = Date.now() - date.getTime();
-
-  const minute = 60 * 1000;
-  const hour = 60 * minute;
-  const day = 24 * hour;
-
-  if (diff < minute) return "Just now";
-  if (diff < hour) return `${Math.floor(diff / minute)}m ago`;
-  if (diff < day) return `${Math.floor(diff / hour)}h ago`;
-  if (diff < day * 7) return `${Math.floor(diff / day)}d ago`;
-
-  return date.toLocaleDateString("en-PH", {
-    month: "short",
-    day: "numeric",
-  });
-};
-
-export default function DashboardFeedPanel() {
   const [posts, setPosts] = useState([]);
-
-  const [loading, setLoading] = useState(true);
-  const [posting, setPosting] = useState(false);
-
   const [currentUser, setCurrentUser] = useState(null);
   const [currentUserName, setCurrentUserName] = useState("You");
+  const [loading, setLoading] = useState(true);
+  const [posting, setPosting] = useState(false);
+  const [savingComment, setSavingComment] = useState(false);
+  const [error, setError] = useState("");
 
   const [newPost, setNewPost] = useState("");
-  const [selectedCategory, setSelectedCategory] =
-    useState("achievement");
+  const [selectedCategory, setSelectedCategory] = useState("achievement");
+  const [composerOpen, setComposerOpen] = useState(false);
+  const [composerMedia, setComposerMedia] = useState(null);
+  const [youtubeLink, setYoutubeLink] = useState("");
+  const [commentTexts, setCommentTexts] = useState({});
+  const [openComments, setOpenComments] = useState({});
+  const [activeYoutubePosts, setActiveYoutubePosts] = useState({});
 
-  const [error, setError] = useState("");
+  useEffect(() => {
+    setComposerOpen(false);
+  }, []);
+
+  const mapFeedPost = useCallback((row, comments = []) => {
+    let media = null;
+
+    if (row.media_type === "image" || row.media_type === "video") {
+      media = {
+        type: row.media_type,
+        url: row.media_url,
+        path: row.media_path,
+        name: row.media_name,
+        mimeType: row.media_mime_type,
+      };
+    }
+
+    if (row.media_type === "youtube") {
+      media = {
+        type: "youtube",
+        url: row.youtube_url,
+        embedUrl: row.youtube_embed_url,
+        youtubeId: row.youtube_id,
+        thumbnailUrl: row.youtube_thumbnail_url,
+        name: row.media_name || "YouTube video",
+      };
+    }
+
+    return {
+      id: row.id,
+      author_id: row.author_id || null,
+      author_name: row.author_name || "CLARA User",
+      content: row.content || "",
+      category: row.category || "achievement",
+      likes: Number(row.likes || 0),
+      liked_by: Array.isArray(row.liked_by) ? row.liked_by : [],
+      comments: comments.map((comment) => ({
+        id: comment.id,
+        post_id: comment.post_id,
+        author_id: comment.author_id || null,
+        author_name: comment.author_name || "CLARA User",
+        content: comment.content || "",
+        created_at: comment.created_at || new Date().toISOString(),
+      })),
+      media,
+      created_at: row.created_at || new Date().toISOString(),
+      updated_at: row.updated_at || null,
+    };
+  }, []);
 
   const fetchFeedUser = useCallback(async () => {
     try {
       const {
         data: { user },
+        error: authError,
       } = await supabase.auth.getUser();
+
+      if (authError) throw authError;
 
       setCurrentUser(user || null);
 
@@ -100,324 +102,440 @@ export default function DashboardFeedPanel() {
       const fallbackName =
         user.user_metadata?.display_name ||
         user.user_metadata?.nickname ||
+        user.user_metadata?.full_name ||
+        user.user_metadata?.name ||
         user.email?.split("@")?.[0] ||
         "You";
 
       setCurrentUserName(fallbackName);
 
+      const { data: profileData, error: profileError } = await supabase
+        .from("profiles")
+        .select("id, full_name")
+        .eq("id", user.id)
+        .maybeSingle();
+
+      if (!profileError && profileData) {
+        setCurrentUserName(profileData.full_name || fallbackName);
+      }
+
       return user;
-    } catch (err) {
-      console.error(err);
+    } catch (userError) {
+      console.error("Dashboard feed user fetch failed:", userError);
+      setCurrentUser(null);
+      setCurrentUserName("You");
       return null;
     }
   }, []);
 
-  const mapFeedPost = useCallback((row) => {
-    return {
-      id: row.id,
-      author_id: row.author_id || null,
-      author_name: row.author_name || "CLARA User",
-      content: row.content || "",
-      category: row.category || "thought",
-      likes: Number(row.likes || 0),
-      liked_by: Array.isArray(row.liked_by)
-        ? row.liked_by
-        : [],
-      comments: [],
-      media:
-        row.media_type && row.media_url
-          ? {
-              type: row.media_type,
-              url: row.media_url,
-              path: row.media_path,
-              name: row.media_name,
-            }
-          : null,
-      created_at:
-        row.created_at || new Date().toISOString(),
-    };
-  }, []);
-
-  const fetchFeedPosts = useCallback(async () => {
-    setLoading(true);
+  const fetchFeedPosts = useCallback(async (showLoader = true) => {
+    if (showLoader) setLoading(true);
+    setError("");
 
     try {
-      const { data, error } = await supabase
-        .from("feed_posts")
-        .select("*")
-        .order("created_at", {
-          ascending: false,
-        });
+      const postsData = await fetchFeedPostsFromDB();
+      const postIds = postsData.map((post) => post.id);
+      const commentsData = await fetchFeedComments(postIds);
 
-      if (error) {
-        throw error;
-      }
+      const commentsByPostId = commentsData.reduce((acc, comment) => {
+        if (!acc[comment.post_id]) acc[comment.post_id] = [];
+        acc[comment.post_id].push(comment);
+        return acc;
+      }, {});
 
-      setPosts((data || []).map(mapFeedPost));
-    } catch (err) {
-      console.error(err);
-      setError(
-        err?.message ||
-          "Unable to load feed right now."
+      setPosts(
+        postsData.map((postRow) =>
+          mapFeedPost(postRow, commentsByPostId[postRow.id] || [])
+        )
       );
+    } catch (feedError) {
+      console.error("Dashboard feed fetch failed:", feedError);
+      setError(feedError?.message || "Unable to load the feed right now.");
     } finally {
       setLoading(false);
     }
   }, [mapFeedPost]);
 
   useEffect(() => {
-    fetchFeedUser();
-    fetchFeedPosts();
+    let mounted = true;
 
-    const channel = supabase
-      .channel("dashboard-feed")
-      .on(
-        "postgres_changes",
-        {
-          event: "*",
-          schema: "public",
-          table: "feed_posts",
-        },
-        () => {
-          fetchFeedPosts();
-        }
-      )
-      .subscribe();
+    const init = async () => {
+      await fetchFeedUser();
+      if (mounted) await fetchFeedPosts(true);
+    };
+
+    init();
 
     return () => {
-      supabase.removeChannel(channel);
+      mounted = false;
     };
   }, [fetchFeedPosts, fetchFeedUser]);
 
-  const handlePost = async () => {
+  useFeedRealtime(fetchFeedPosts);
+
+  useEffect(() => {
+    return () => {
+      if (composerMedia?.previewUrl?.startsWith?.("blob:")) {
+        URL.revokeObjectURL(composerMedia.previewUrl);
+      }
+    };
+  }, [composerMedia]);
+
+  const resetComposer = useCallback(() => {
+    if (composerMedia?.previewUrl?.startsWith?.("blob:")) {
+      URL.revokeObjectURL(composerMedia.previewUrl);
+    }
+
+    setNewPost("");
+    setSelectedCategory("achievement");
+    setComposerMedia(null);
+    setYoutubeLink("");
+    setError("");
+  }, [composerMedia]);
+
+  const handleFileSelect = useCallback((event) => {
+    const file = event.target.files?.[0];
+    event.target.value = "";
+
+    if (!file) return;
+
+    setError("");
+    setYoutubeLink("");
+
+    if (composerMedia?.previewUrl?.startsWith?.("blob:")) {
+      URL.revokeObjectURL(composerMedia.previewUrl);
+    }
+
+    const supported =
+      file.type?.startsWith("image/") || file.type?.startsWith("video/");
+
+    if (!supported) {
+      setError("Use an image or video file for the feed.");
+      return;
+    }
+
+    const previewUrl = URL.createObjectURL(file);
+    setComposerMedia({
+      type: file.type.startsWith("video/") ? "video" : "image",
+      url: previewUrl,
+      previewUrl,
+      name: file.name,
+      mimeType: file.type,
+      file,
+    });
+  }, [composerMedia]);
+
+  const applyYoutubeLink = useCallback((rawValue = youtubeLink, options = {}) => {
+    const trimmed = String(rawValue || "").trim();
+    const youtubeId = getYoutubeId(trimmed);
+
+    if (!youtubeId) {
+      if (!options.silent) setError("Paste a valid YouTube video link.");
+      return false;
+    }
+
+    if (composerMedia?.previewUrl?.startsWith?.("blob:")) {
+      URL.revokeObjectURL(composerMedia.previewUrl);
+    }
+
+    setError("");
+    setComposerMedia({
+      type: "youtube",
+      url: trimmed,
+      embedUrl: `https://www.youtube-nocookie.com/embed/${youtubeId}`,
+      youtubeId,
+      thumbnailUrl: `https://img.youtube.com/vi/${youtubeId}/hqdefault.jpg`,
+      name: "YouTube video",
+      file: null,
+    });
+
+    return true;
+  }, [composerMedia, getYoutubeId, youtubeLink]);
+
+  const handlePost = useCallback(async () => {
     const content = newPost.trim();
 
-    if (!content) return;
+    if (!content && !composerMedia) return;
+
+    if (content.length > 280) {
+      setError("Post must be 280 characters or less.");
+      return;
+    }
 
     setPosting(true);
     setError("");
 
     try {
-      const user =
-        currentUser || (await fetchFeedUser());
+      const freshUser = currentUser || (await fetchFeedUser());
 
-      if (!user?.id) {
-        throw new Error(
-          "Please login again before posting."
-        );
+      if (!freshUser?.id) {
+        throw new Error("Please log in again before posting.");
       }
 
-      const payload = {
+      let mediaPayload = {
+        media_type: null,
+        media_url: null,
+        media_path: null,
+        media_name: null,
+        media_mime_type: null,
+        youtube_url: null,
+        youtube_embed_url: null,
+        youtube_id: null,
+        youtube_thumbnail_url: null,
+      };
+
+      if (composerMedia?.type === "image" || composerMedia?.type === "video") {
+        const uploaded = await uploadFeedMedia(composerMedia.file, freshUser.id, FEED_STORAGE_BUCKET);
+
+        mediaPayload = {
+          media_type: uploaded.type,
+          media_url: uploaded.url,
+          media_path: uploaded.path,
+          media_name: uploaded.name,
+          media_mime_type: uploaded.mimeType,
+          youtube_url: null,
+          youtube_embed_url: null,
+          youtube_id: null,
+          youtube_thumbnail_url: null,
+        };
+      }
+
+      if (composerMedia?.type === "youtube") {
+        mediaPayload = {
+          media_type: "youtube",
+          media_url: null,
+          media_path: null,
+          media_name: composerMedia.name || "YouTube video",
+          media_mime_type: null,
+          youtube_url: composerMedia.url || null,
+          youtube_embed_url: composerMedia.embedUrl || null,
+          youtube_id: composerMedia.youtubeId || null,
+          youtube_thumbnail_url: composerMedia.thumbnailUrl || null,
+        };
+      }
+
+      const insertPayload = {
         id: createFeedUuid(),
-        author_id: user.id,
-        author_name:
-          currentUserName ||
-          user.email?.split("@")?.[0] ||
-          "You",
+        author_id: freshUser.id,
+        author_name: currentUserName || freshUser.email?.split("@")?.[0] || "You",
         content,
         category: selectedCategory,
         likes: 0,
         liked_by: [],
+        ...mediaPayload,
       };
 
-      const { data, error } = await supabase
+      const { data: insertedPost, error: insertError } = await supabase
         .from("feed_posts")
-        .insert(payload)
+        .insert(insertPayload)
         .select("*")
         .single();
 
-      if (error) {
-        throw error;
+      if (insertError) throw insertError;
+
+      if (insertedPost) {
+        setPosts((prev) => [mapFeedPost(insertedPost, []), ...prev]);
+      } else {
+        await fetchFeedPosts(false);
       }
 
-      if (data) {
-        setPosts((prev) => [
-          mapFeedPost(data),
-          ...prev,
-        ]);
-      }
-
-      setNewPost("");
-    } catch (err) {
-      console.error(err);
-
-      setError(
-        err?.message ||
-          "Unable to post right now."
-      );
+      resetComposer();
+      setComposerOpen(false);
+    } catch (postError) {
+      console.error("Dashboard feed post failed:", postError);
+      setError(postError?.message || "Unable to post right now.");
     } finally {
       setPosting(false);
     }
-  };
+  }, [
+    composerMedia,
+    createFeedUuid,
+    currentUser,
+    currentUserName,
+    fetchFeedPosts,
+    fetchFeedUser,
+    mapFeedPost,
+    newPost,
+    resetComposer,
+    selectedCategory,
+  ]);
 
-  const handleLike = async (post) => {
+  const handleLike = useCallback(async (post) => {
     const likerId = currentUser?.id;
+    if (!likerId) {
+      setError("Please log in again to like posts.");
+      return;
+    }
 
-    if (!likerId) return;
-
-    const alreadyLiked =
-      Array.isArray(post.liked_by) &&
-      post.liked_by.includes(likerId);
+    const alreadyLiked = Array.isArray(post.liked_by)
+      ? post.liked_by.includes(likerId)
+      : false;
 
     const nextLikedBy = alreadyLiked
-      ? post.liked_by.filter(
-          (id) => id !== likerId
-        )
+      ? post.liked_by.filter((id) => id !== likerId)
       : [...(post.liked_by || []), likerId];
 
     setPosts((prev) =>
       prev.map((item) =>
         item.id === post.id
-          ? {
-              ...item,
-              liked_by: nextLikedBy,
-              likes: nextLikedBy.length,
-            }
+          ? { ...item, liked_by: nextLikedBy, likes: nextLikedBy.length }
           : item
       )
     );
 
-    await supabase
+    const { error: likeError } = await supabase
       .from("feed_posts")
       .update({
         liked_by: nextLikedBy,
         likes: nextLikedBy.length,
+        updated_at: new Date().toISOString(),
       })
       .eq("id", post.id);
-  };
 
-  const handleDelete = async (post) => {
-    if (post.author_id !== currentUser?.id) {
-      return;
+    if (likeError) {
+      console.error("Dashboard feed like failed:", likeError);
+      await fetchFeedPosts(false);
     }
+  }, [currentUser?.id, fetchFeedPosts]);
+
+  const handleComment = useCallback(async (postId) => {
+    const content = commentTexts[postId]?.trim();
+
+    if (!content) return;
+
+    setSavingComment(true);
+    setError("");
 
     try {
-      await supabase
+      const freshUser = currentUser || (await fetchFeedUser());
+
+      if (!freshUser?.id) {
+        throw new Error("Please log in again before commenting.");
+      }
+
+      const commentPayload = {
+        id: createFeedUuid(),
+        post_id: postId,
+        author_id: freshUser.id,
+        author_name: currentUserName || freshUser.email?.split("@")?.[0] || "You",
+        content,
+      };
+
+      const { data: insertedComment, error: commentError } = await supabase
+        .from("feed_comments")
+        .insert(commentPayload)
+        .select("*")
+        .single();
+
+      if (commentError) throw commentError;
+
+      setPosts((prev) =>
+        prev.map((post) =>
+          post.id === postId
+            ? { ...post, comments: [...(post.comments || []), insertedComment] }
+            : post
+        )
+      );
+
+      setCommentTexts((prev) => ({ ...prev, [postId]: "" }));
+      setOpenComments((prev) => ({ ...prev, [postId]: true }));
+    } catch (commentError) {
+      console.error("Dashboard feed comment failed:", commentError);
+      setError(commentError?.message || "Unable to comment right now.");
+    } finally {
+      setSavingComment(false);
+    }
+  }, [commentTexts, currentUser, currentUserName, fetchFeedUser]);
+
+  const handleDeletePost = useCallback(async (post) => {
+    if (!currentUser?.id || post.author_id !== currentUser.id) return;
+
+    try {
+      if (post.media?.path) {
+        await supabase.storage.from(FEED_STORAGE_BUCKET).remove([post.media.path]);
+      }
+
+      await supabase.from("feed_comments").delete().eq("post_id", post.id);
+
+      const { error: deleteError } = await supabase
         .from("feed_posts")
         .delete()
         .eq("id", post.id);
 
-      setPosts((prev) =>
-        prev.filter((item) => item.id !== post.id)
-      );
-    } catch (err) {
-      console.error(err);
+      if (deleteError) throw deleteError;
+
+      setPosts((prev) => prev.filter((item) => item.id !== post.id));
+    } catch (deleteError) {
+      console.error("Dashboard feed delete failed:", deleteError);
+      setError(deleteError?.message || "Unable to delete post.");
     }
-  };
+  }, [currentUser?.id]);
 
   return (
-    <div className="space-y-4">
-      <div className="rounded-[28px] border border-white/15 bg-white/[0.05] p-4 backdrop-blur-xl">
-        <textarea
-          value={newPost}
-          onChange={(e) =>
-            setNewPost(e.target.value)
-          }
-          placeholder="Share something..."
-          maxLength={280}
-          className="min-h-[110px] w-full resize-none rounded-2xl border border-white/10 bg-black/20 p-4 text-sm text-white outline-none"
-        />
+    <div className="space-y-4 touch-pan-y overscroll-y-contain">
 
-        <div className="mt-4 flex items-center justify-between gap-3">
-          <select
-            value={selectedCategory}
-            onChange={(e) =>
-              setSelectedCategory(e.target.value)
-            }
-            className="rounded-2xl border border-white/15 bg-black/30 px-4 py-2 text-sm text-white"
-          >
-            {FEED_CATEGORIES.map((item) => (
-              <option
-                key={item.key}
-                value={item.key}
-              >
-                {item.label}
-              </option>
-            ))}
-          </select>
-
-          <button
-            onClick={handlePost}
-            disabled={posting}
-            className="rounded-2xl bg-emerald-500 px-5 py-2 text-sm font-semibold text-white"
-          >
-            {posting ? "Posting..." : "Post"}
-          </button>
-        </div>
-
-        {error ? (
-          <p className="mt-3 text-sm text-rose-300">
-            {error}
-          </p>
-        ) : null}
-      </div>
+      <FeedComposer
+        composerOpen={composerOpen}
+        onToggleComposer={() => setComposerOpen((prev) => !prev)}
+        currentUserName={currentUserName}
+        newPost={newPost}
+        onNewPostChange={setNewPost}
+        selectedCategory={selectedCategory}
+        onSelectedCategoryChange={setSelectedCategory}
+        composerMedia={composerMedia}
+        onClearMedia={() => {
+          setComposerMedia(null);
+          setYoutubeLink("");
+        }}
+        youtubeLink={youtubeLink}
+        onYoutubeLinkChange={setYoutubeLink}
+        onApplyYoutubeLink={applyYoutubeLink}
+        onFileSelect={handleFileSelect}
+        onPost={handlePost}
+        posting={posting}
+        canPost={Boolean(newPost.trim() || composerMedia)}
+        onResetComposer={resetComposer}
+        error={error}
+      />
 
       {loading ? (
-        <div className="rounded-[28px] border border-white/15 bg-white/[0.05] p-6 text-center text-white/60">
-          Loading feed...
+        <div className="space-y-3">
+          <div className="h-28 animate-pulse rounded-[30px] border border-white/15 bg-white/6" />
+          <div className="h-28 animate-pulse rounded-[30px] border border-white/15 bg-white/6" />
         </div>
-      ) : null}
+      ) : posts.length === 0 ? (
+        <div className="rounded-[30px] border border-white/15 bg-white/[0.055] p-8 text-center shadow-[0_18px_50px_rgba(0,0,0,0.20)] backdrop-blur-xl">
+          <p className="text-sm font-bold text-white">No posts yet</p>
+          <p className="mt-1 text-xs text-white/55">Be the first to share a win or question.</p>
+        </div>
+      ) : (
+        <div className="space-y-4">
+          {posts.map((post) => (
+            <FeedPostCard
+              key={post.id}
+              post={post}
+              currentUser={currentUser}
+              commentText={commentTexts[post.id] || ""}
+              commentsOpen={Boolean(openComments[post.id])}
+              savingComment={savingComment}
+              activeYoutubePosts={activeYoutubePosts}
+              onLike={handleLike}
+              onDeletePost={handleDeletePost}
+              onToggleComments={(postId) =>
+                setOpenComments((prev) => ({ ...prev, [postId]: !prev[postId] }))
+              }
+              onCommentTextChange={(postId, value) =>
+                setCommentTexts((prev) => ({ ...prev, [postId]: value }))
+              }
+              onSubmitComment={handleComment}
+              onActivateYoutubePost={(postId) =>
+                setActiveYoutubePosts((prev) => ({ ...prev, [postId]: true }))
+              }
+            />
+          ))}
+        </div>
+      )}
 
-      {posts.map((post) => {
-        const liked =
-          currentUser?.id &&
-          post.liked_by.includes(currentUser.id);
-
-        return (
-          <div
-            key={post.id}
-            className="rounded-[28px] border border-white/15 bg-white/[0.05] p-4 backdrop-blur-xl"
-          >
-            <div className="flex items-start justify-between gap-3">
-              <div>
-                <p className="text-sm font-semibold text-white">
-                  {post.author_name}
-                </p>
-
-                <p className="mt-1 text-xs text-white/45">
-                  {formatFeedTime(post.created_at)}
-                </p>
-              </div>
-
-              {post.author_id === currentUser?.id ? (
-                <button
-                  onClick={() =>
-                    handleDelete(post)
-                  }
-                  className="text-white/45 transition hover:text-rose-300"
-                >
-                  <Trash2 className="h-4 w-4" />
-                </button>
-              ) : null}
-            </div>
-
-            <p className="mt-4 whitespace-pre-wrap text-sm leading-7 text-white/85">
-              {post.content}
-            </p>
-
-            <div className="mt-4 flex items-center gap-4">
-              <button
-                onClick={() =>
-                  handleLike(post)
-                }
-                className={`flex items-center gap-2 text-sm transition ${
-                  liked
-                    ? "text-rose-300"
-                    : "text-white/60 hover:text-white"
-                }`}
-              >
-                <Heart className="h-4 w-4" />
-                {post.likes}
-              </button>
-
-              <button className="flex items-center gap-2 text-sm text-white/60">
-                <MessageCircle className="h-4 w-4" />
-                {post.comments.length}
-              </button>
-            </div>
-          </div>
-        );
-      })}
     </div>
   );
 }
