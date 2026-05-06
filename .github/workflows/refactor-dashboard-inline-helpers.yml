@@ -7,6 +7,7 @@ on:
     paths:
       - ".github/workflows/refactor-dashboard-inline-helpers.yml"
       - ".github/scripts/refactor-dashboard-inline-helpers.mjs"
+      - ".github/scripts/extract-dashboard-cache-factory.mjs"
   workflow_dispatch:
 
 permissions:
@@ -22,7 +23,7 @@ jobs:
           token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Patch Dashboard.jsx
-        run: node .github/scripts/refactor-dashboard-inline-helpers.mjs
+        run: node .github/scripts/extract-dashboard-cache-factory.mjs
 
       - name: Install dependencies
         run: npm ci
