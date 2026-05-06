@@ -1,6 +1,7 @@
 import { Trash2 } from "lucide-react";
 
 import { FEED_CATEGORIES } from "@/components/fresh/dashboard-panels/feed/constants/feedCategories";
+import FeedMediaRenderer from "@/components/fresh/dashboard-panels/feed/components/FeedMediaRenderer";
 import {
   dashboardPanelFormatTime,
   dashboardPanelInitials,
@@ -25,10 +26,15 @@ export default function FeedPostCard({
 
   const liked = currentUser?.id && post.liked_by?.includes(currentUser.id);
   const canDelete = currentUser?.id && post.author_id === currentUser.id;
-  const mediaNode = renderFeedMedia?.(post, {
-    activeYoutubePosts,
-    onActivateYoutubePost,
-  });
+  const mediaNode = renderFeedMedia ? (
+    renderFeedMedia(post)
+  ) : (
+    <FeedMediaRenderer
+      post={post}
+      activeYoutubePosts={activeYoutubePosts}
+      onActivateYoutubePost={onActivateYoutubePost}
+    />
+  );
 
   return (
     <article className="rounded-[30px] border border-white/15 bg-white/[0.055] p-4 shadow-[0_18px_50px_rgba(0,0,0,0.20)] backdrop-blur-xl">
