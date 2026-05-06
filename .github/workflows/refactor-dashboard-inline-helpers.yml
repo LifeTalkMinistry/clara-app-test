@@ -39,7 +39,7 @@ jobs:
       - name: Commit dashboard refactor
         run: |
           if git diff --quiet; then
-            echo "No dashboard refactor changes needed."
+            echo "No dashboard alert import cleanup changes needed."
             exit 0
           fi
 
