@@ -70,6 +70,7 @@ import {
   financeInputClassName,
   UNDOCUMENTED_SPENDING_REASONS,
 } from "@/components/fresh/main-dashboard/finance-form/financeFormConstants";
+import { hasDashboardFinanceContent } from "@/components/fresh/main-dashboard/finance-content/dashboardFinanceContent";
 import FinanceActionModal from "@/components/fresh/main-dashboard/dashboard-primitives/FinanceActionModal";
 import ManualExpenseFullScreenSheet from "@/components/fresh/main-dashboard/dashboard-primitives/ManualExpenseFullScreenSheet";
 import QuickActionDropdown from "@/components/fresh/main-dashboard/dashboard-primitives/QuickActionDropdown";
@@ -217,17 +218,6 @@ const FinanceInlineAlert = ({ notice, onClose }) => {
     </div>
   );
 };
-
-const hasDashboardFinanceContent = (snapshot = {}) =>
-  Boolean(
-    (Array.isArray(snapshot.wallets) && snapshot.wallets.length > 0) ||
-      (Array.isArray(snapshot.expenses) && snapshot.expenses.length > 0) ||
-      (Array.isArray(snapshot.budgets) && snapshot.budgets.length > 0) ||
-      (Array.isArray(snapshot.savingsGoals) && snapshot.savingsGoals.length > 0) ||
-      (Array.isArray(snapshot.walletTransactions) && snapshot.walletTransactions.length > 0) ||
-      snapshot.emergencyFund ||
-      Number(snapshot.walletMoney || 0) > 0
-  );
 
 const DEFAULT_DASHBOARD_THEME_KEY = DEFAULT_THEME_KEY || "obsidian";
 
