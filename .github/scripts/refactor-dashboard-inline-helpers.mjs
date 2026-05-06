@@ -60,6 +60,11 @@ insertAfter(
 );
 
 insertAfter(
+  'import { hasDashboardFinanceContent } from "@/components/fresh/main-dashboard/finance-content/dashboardFinanceContent";\n',
+  'import {\n  dashboardTheme,\n  DEFAULT_DASHBOARD_THEME_KEY,\n  getDashboardGlowCardClass,\n} from "@/components/fresh/main-dashboard/dashboard-theme/dashboardThemeBase";\n'
+);
+
+insertAfter(
   '} from "@/lib/program-access";\n',
   'import {\n  isProgramApproved,\n  shouldForceToEnroll,\n} from "@/components/fresh/main-dashboard/program-access/programAccessRules";\n'
 );
@@ -116,6 +121,15 @@ removeBlock(
 source = source.replace(
   'const DEFAULT_DASHBOARD_THEME_KEY = DEFAULT_THEME_KEY || "obsidian";',
   'const DEFAULT_DASHBOARD_THEME_KEY = DEFAULT_THEME_KEY || "obsidian";'
+);
+
+removeBlock(
+  'const DEFAULT_DASHBOARD_THEME_KEY = DEFAULT_THEME_KEY || "obsidian";',
+  'const dashboardRuntimeThemes = new Map();'
+);
+source = source.replace(
+  'const dashboardRuntimeThemes = new Map();',
+  'const dashboardRuntimeThemes = new Map();'
 );
 
 removeBlock(
