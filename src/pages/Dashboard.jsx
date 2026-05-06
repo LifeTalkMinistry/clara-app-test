@@ -5,6 +5,7 @@ import {
   dashboardPanelFormatTime,
   dashboardPanelInitials,
 } from "@/components/fresh/dashboard-panels/feed/utils/feedHelpers";
+import { getYoutubeId } from "@/components/fresh/dashboard-panels/feed/utils/youtubeHelpers";
 import { FEED_CATEGORIES } from "@/components/fresh/dashboard-panels/feed/constants/feedCategories";
 import useFeedRealtime from "@/components/fresh/dashboard-panels/feed/hooks/useFeedRealtime";
 import {
@@ -1068,30 +1069,6 @@ function DashboardFeedPanel({ onBack }) {
     setComposerOpen(false);
   }, []);
 
-  const getYoutubeId = useCallback((value = "") => {
-    const text = value.trim();
-    if (!text) return null;
-
-    try {
-      if (text.includes("youtu.be/")) {
-        return text.split("youtu.be/")[1]?.split(/[?&/]/)[0] || null;
-      }
-
-      if (text.includes("/shorts/")) {
-        return text.split("/shorts/")[1]?.split(/[?&/]/)[0] || null;
-      }
-
-      if (text.includes("/embed/")) {
-        return text.split("/embed/")[1]?.split(/[?&/]/)[0] || null;
-      }
-
-      const url = new URL(text);
-      return url.searchParams.get("v");
-    } catch {
-      return null;
-    }
-  }, []);
-
   const mapFeedPost = useCallback((row, comments = []) => {
     let media = null;
 
@@ -1211,8 +1188,6 @@ function DashboardFeedPanel({ onBack }) {
     }
   }, [mapFeedPost]);
 
-  useFeedRealtime(fetchFeedPosts);
-
   useEffect(() => {
     let mounted = true;
 
@@ -1228,13 +1203,15 @@ function DashboardFeedPanel({ onBack }) {
     };
   }, [fetchFeedPosts, fetchFeedUser]);
 
+  useFeedRealtime(fetchFeedPosts);
+
   useEffect(() => {
     return () => {
       if (composerMedia?.previewUrl?.startsWith?.("blob:")) {
         URL.revokeObjectURL(composerMedia.previewUrl);
       }
     };
-  }, [composerMedia?.previewUrl]);
+  }, [composerMedia]);
 
   const resetComposer = useCallback(() => {
     if (composerMedia?.previewUrl?.startsWith?.("blob:")) {
