@@ -1,10 +1,10 @@
-import { Plus } from 'lucide-react';
 import WalletListItem from '@/components/financial-carousel/cards/wallet/ui/WalletListItem';
 import WalletRecentActivity from '@/components/financial-carousel/cards/wallet/ui/WalletRecentActivity';
 import WalletEmptyState from '@/components/financial-carousel/cards/wallet/ui/WalletEmptyState';
 import WalletHeader from '@/components/financial-carousel/cards/wallet/ui/WalletHeader';
 import WalletSummaryStats from '@/components/financial-carousel/cards/wallet/ui/WalletSummaryStats';
 import WalletExpandToggle from '@/components/financial-carousel/cards/wallet/ui/WalletExpandToggle';
+import WalletCreateButton from '@/components/financial-carousel/cards/wallet/ui/WalletCreateButton';
 
 export default function WalletCardContent({
   wallets = [],
@@ -80,12 +80,7 @@ export default function WalletCardContent({
               <WalletEmptyState />
             )}
 
-            <div className='grid grid-cols-1 gap-2'>
-              <button type='button' onClick={onCreateWallet} className='flex items-center justify-center gap-2 rounded-2xl border border-cyan-200/20 bg-cyan-300/10 px-4 py-3 text-sm font-semibold text-cyan-50 shadow-[0_0_24px_rgba(0,255,220,0.10)] transition hover:bg-cyan-300/15'>
-                <Plus className='h-4 w-4' />
-                Create Wallet
-              </button>
-            </div>
+            <WalletCreateButton onCreateWallet={onCreateWallet} />
           </div>
         )}
       </div>
