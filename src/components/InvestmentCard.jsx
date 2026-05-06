@@ -34,6 +34,23 @@ const INVESTMENT_TYPES = [
 ];
 
 const getInvestmentToneClasses = (tone = "gold") => {
+  const claraInvestmentTone = {
+    border: "border-cyan-300/20",
+    iconShell:
+      "border-cyan-300/25 bg-cyan-400/10 shadow-[0_0_18px_rgba(34,211,238,0.12)]",
+    icon: "text-cyan-100",
+    status:
+      "border-cyan-300/25 bg-cyan-400/10 text-cyan-100 shadow-[0_0_18px_rgba(34,211,238,0.10)]",
+    value: "text-cyan-100",
+    bar: "from-cyan-300 via-blue-300 to-violet-300",
+    accent: "bg-blue-300/14",
+    focus: "focus:border-cyan-300/35",
+    primaryButton:
+      "border-cyan-300/25 bg-cyan-400/10 text-cyan-100 transition hover:bg-cyan-400/15",
+    background:
+      "radial-gradient(circle at -16% -22%, rgba(20,184,166,0.22), transparent 46%), radial-gradient(circle at 69% 112%, rgba(99,102,241,0.20), transparent 58%), linear-gradient(135deg, rgba(6,48,66,0.98), rgba(7,20,48,0.96) 48%, rgba(37,13,74,0.96))",
+  };
+
   const toneMap = {
     emerald: {
       border: "border-emerald-300/20",
@@ -44,9 +61,12 @@ const getInvestmentToneClasses = (tone = "gold") => {
         "border-emerald-300/25 bg-emerald-500/15 text-emerald-200 shadow-[0_0_18px_rgba(52,211,153,0.12)]",
       value: "text-emerald-200",
       bar: "from-emerald-300 via-emerald-400 to-green-300",
-      accent: "bg-emerald-300/20",
+      accent: "bg-emerald-300/14",
+      focus: "focus:border-emerald-300/35",
+      primaryButton:
+        "border-emerald-300/25 bg-emerald-500/10 text-emerald-100 transition hover:bg-emerald-500/15",
       background:
-        "radial-gradient(circle at top left, rgba(52,211,153,0.30), transparent 28%), radial-gradient(circle at top right, rgba(45,212,191,0.14), transparent 26%), radial-gradient(circle at bottom right, rgba(250,204,21,0.10), transparent 24%), linear-gradient(135deg, rgba(4,25,24,0.96), rgba(3,14,24,0.99))",
+        "radial-gradient(circle at -16% -22%, rgba(16,185,129,0.22), transparent 46%), radial-gradient(circle at 69% 112%, rgba(20,184,166,0.18), transparent 58%), linear-gradient(135deg, rgba(4,25,24,0.98), rgba(3,14,24,0.99))",
     },
     teal: {
       border: "border-teal-300/20",
@@ -57,52 +77,34 @@ const getInvestmentToneClasses = (tone = "gold") => {
         "border-teal-300/25 bg-teal-500/15 text-teal-200 shadow-[0_0_18px_rgba(45,212,191,0.12)]",
       value: "text-teal-200",
       bar: "from-teal-300 via-cyan-300 to-emerald-300",
-      accent: "bg-teal-300/20",
+      accent: "bg-teal-300/14",
+      focus: "focus:border-teal-300/35",
+      primaryButton:
+        "border-teal-300/25 bg-teal-500/10 text-teal-100 transition hover:bg-teal-500/15",
       background:
-        "radial-gradient(circle at top left, rgba(45,212,191,0.30), transparent 28%), radial-gradient(circle at top right, rgba(56,189,248,0.14), transparent 26%), radial-gradient(circle at bottom right, rgba(52,211,153,0.10), transparent 24%), linear-gradient(135deg, rgba(4,23,30,0.96), rgba(3,14,24,0.99))",
+        "radial-gradient(circle at -16% -22%, rgba(45,212,191,0.22), transparent 46%), radial-gradient(circle at 69% 112%, rgba(56,189,248,0.18), transparent 58%), linear-gradient(135deg, rgba(4,23,30,0.98), rgba(3,14,24,0.99))",
     },
-    blue: {
-      border: "border-blue-300/20",
-      iconShell:
-        "border-blue-300/25 bg-blue-400/10 shadow-[0_0_18px_rgba(96,165,250,0.14)]",
-      icon: "text-blue-200",
-      status:
-        "border-blue-300/25 bg-blue-500/15 text-blue-200 shadow-[0_0_18px_rgba(96,165,250,0.12)]",
-      value: "text-blue-200",
-      bar: "from-blue-300 via-sky-300 to-cyan-300",
-      accent: "bg-blue-300/20",
-      background:
-        "radial-gradient(circle at top left, rgba(96,165,250,0.30), transparent 28%), radial-gradient(circle at top right, rgba(34,211,238,0.13), transparent 26%), radial-gradient(circle at bottom right, rgba(168,85,247,0.10), transparent 24%), linear-gradient(135deg, rgba(8,18,52,0.96), rgba(3,14,24,0.99))",
-    },
-    gold: {
-      border: "border-amber-300/20",
-      iconShell:
-        "border-amber-300/25 bg-amber-400/10 shadow-[0_0_18px_rgba(251,191,36,0.14)]",
-      icon: "text-amber-200",
-      status:
-        "border-amber-300/25 bg-amber-500/15 text-amber-200 shadow-[0_0_18px_rgba(251,191,36,0.12)]",
-      value: "text-amber-200",
-      bar: "from-amber-200 via-yellow-300 to-orange-300",
-      accent: "bg-amber-300/20",
-      background:
-        "radial-gradient(circle at top left, rgba(250,204,21,0.30), transparent 28%), radial-gradient(circle at top right, rgba(251,146,60,0.14), transparent 26%), radial-gradient(circle at bottom right, rgba(52,211,153,0.10), transparent 24%), linear-gradient(135deg, rgba(29,18,8,0.96), rgba(3,14,24,0.99))",
-    },
+    blue: claraInvestmentTone,
+    gold: claraInvestmentTone,
     rose: {
       border: "border-rose-300/20",
       iconShell:
-        "border-rose-300/25 bg-rose-400/10 shadow-[0_0_18px_rgba(251,113,133,0.14)]",
+        "border-rose-300/25 bg-rose-400/10 shadow-[0_0_18px_rgba(251,113,133,0.12)]",
       icon: "text-rose-200",
       status:
-        "border-rose-300/25 bg-rose-500/15 text-rose-200 shadow-[0_0_18px_rgba(251,113,133,0.12)]",
-      value: "text-rose-200",
-      bar: "from-rose-300 via-pink-300 to-orange-300",
-      accent: "bg-rose-300/20",
+        "border-rose-300/25 bg-rose-500/15 text-rose-200 shadow-[0_0_18px_rgba(251,113,133,0.10)]",
+      value: "text-rose-100",
+      bar: "from-rose-300 via-pink-300 to-violet-300",
+      accent: "bg-rose-300/14",
+      focus: "focus:border-rose-300/35",
+      primaryButton:
+        "border-rose-300/25 bg-rose-500/10 text-rose-100 transition hover:bg-rose-500/15",
       background:
-        "radial-gradient(circle at top left, rgba(251,113,133,0.28), transparent 28%), radial-gradient(circle at top right, rgba(244,114,182,0.13), transparent 26%), radial-gradient(circle at bottom right, rgba(250,204,21,0.09), transparent 24%), linear-gradient(135deg, rgba(40,12,18,0.96), rgba(3,14,24,0.99))",
+        "radial-gradient(circle at -16% -22%, rgba(251,113,133,0.18), transparent 46%), radial-gradient(circle at 69% 112%, rgba(124,58,237,0.18), transparent 58%), linear-gradient(135deg, rgba(40,12,18,0.96), rgba(3,14,24,0.99))",
     },
   };
 
-  return toneMap[tone] || toneMap.gold;
+  return toneMap[tone] || claraInvestmentTone;
 };
 
 const getDataValue = (data, keys, fallback = null) => {
@@ -189,14 +191,6 @@ export default function InvestmentCard({ item = null }) {
     return Math.max(0, Math.floor(estimate / 100) * 100);
   }, [data, emergencyGap, monthlyLeftover, totalWalletBalance]);
 
-  const currentAmount = Number(
-    getDataValue(
-      data,
-      ["currentAmount", "savedAmount", "balance", "amount", "value"],
-      0
-    )
-  );
-
   const plannedValue = toNumber(plannedAmount);
   const canSafelyInvest = safeToInvest > 0;
   const readinessProgress = clampProgress(
@@ -272,12 +266,12 @@ export default function InvestmentCard({ item = null }) {
 
   return (
     <div
-      className={`relative flex h-full min-h-[inherit] flex-col overflow-hidden rounded-3xl border text-white shadow-2xl transition-all duration-200 ${tone.border}`}
+      className={`clara-finance-bubble-card clara-finance-bubble-investment relative flex h-full min-h-[inherit] flex-col overflow-hidden rounded-3xl border text-white shadow-2xl transition-all duration-200 ${tone.border}`}
     >
       <div className="absolute inset-0" style={{ background: tone.background }} />
-      <div className="pointer-events-none absolute inset-0 bg-gradient-to-b from-black/24 via-black/16 to-black/38" />
+      <div className="pointer-events-none absolute inset-0 bg-gradient-to-b from-black/18 via-black/12 to-black/32" />
       <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(to_bottom,rgba(255,255,255,0.08),rgba(255,255,255,0.02)_16%,transparent_38%)]" />
-      <div className="pointer-events-none absolute inset-x-8 top-0 h-20 rounded-full bg-white/10 blur-3xl" />
+      <div className="pointer-events-none absolute inset-x-8 top-0 h-20 rounded-full bg-white/8 blur-3xl" />
       <div
         className={`pointer-events-none absolute right-5 top-24 h-24 w-24 rounded-full blur-3xl ${tone.accent}`}
       />
@@ -400,7 +394,7 @@ export default function InvestmentCard({ item = null }) {
                   <select
                     value={investmentType}
                     onChange={(event) => setInvestmentType(event.target.value)}
-                    className="w-full rounded-2xl border border-white/10 bg-black/25 px-3 py-2.5 text-sm font-semibold text-white outline-none transition focus:border-amber-300/35"
+                    className={`w-full rounded-2xl border border-white/10 bg-black/25 px-3 py-2.5 text-sm font-semibold text-white outline-none transition ${tone.focus}`}
                   >
                     {INVESTMENT_TYPES.map((type) => (
                       <option key={type.value} value={type.value} className="bg-slate-950">
@@ -420,7 +414,7 @@ export default function InvestmentCard({ item = null }) {
                     value={plannedAmount}
                     onChange={(event) => setPlannedAmount(event.target.value)}
                     placeholder="0"
-                    className="w-full rounded-2xl border border-white/10 bg-black/25 px-3 py-2.5 text-sm font-semibold text-white outline-none transition placeholder:text-white/35 focus:border-amber-300/35"
+                    className={`w-full rounded-2xl border border-white/10 bg-black/25 px-3 py-2.5 text-sm font-semibold text-white outline-none transition placeholder:text-white/35 ${tone.focus}`}
                   />
                   <p className="mt-1.5 text-[11px] font-medium text-white/60">
                     {amountStatus}
@@ -431,7 +425,7 @@ export default function InvestmentCard({ item = null }) {
                   <button
                     type="button"
                     onClick={handlePlanInvestment}
-                    className="flex items-center justify-center rounded-2xl border border-amber-300/25 bg-amber-500/10 px-3 py-2.5 text-sm font-semibold text-amber-200 transition hover:bg-amber-500/15"
+                    className={`flex items-center justify-center rounded-2xl px-3 py-2.5 text-sm font-semibold ${tone.primaryButton}`}
                   >
                     Plan Investment
                   </button>
