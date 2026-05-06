@@ -57,474 +57,58 @@ import {
   fetchUserProgramRecord,
 } from "@/lib/program-access";
 import { getWalletBalance } from "@/utils/financialEngine";
-
-const normalizeString = (value) => String(value ?? "").trim();
-const normalizeLower = (value) => normalizeString(value).toLowerCase();
-const PH_TIME_ZONE = "Asia/Manila";
-const PH_OFFSET_MINUTES = 8 * 60;
-const DEBUG_FINANCE_DIAGNOSTICS = false;
-
-const FINANCE_CATEGORIES = [
-  "food",
-  "transport",
-  "housing",
-  "utilities",
-  "entertainment",
-  "shopping",
-  "health",
-  "education",
-  "personal",
-  "other",
-];
-
-const INCOME_TRANSACTION_TYPES = new Set([
-  "income",
-  "add",
-  "cash_in",
-  "deposit",
-  "opening_balance",
-  "credit",
-]);
-
-const createFinanceId = () => {
-  if (typeof crypto !== "undefined" && crypto.randomUUID) {
-    return crypto.randomUUID();
-  }
-
-  if (typeof crypto !== "undefined" && crypto.getRandomValues) {
-    const bytes = crypto.getRandomValues(new Uint8Array(16));
-
-    bytes[6] = (bytes[6] & 0x0f) | 0x40;
-    bytes[8] = (bytes[8] & 0x3f) | 0x80;
-
-    const hex = Array.from(bytes, (byte) =>
-      byte.toString(16).padStart(2, "0")
-    ).join("");
-
-    return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(
-      12,
-      16
-    )}-${hex.slice(16, 20)}-${hex.slice(20)}`;
-  }
-
-  throw new Error("Unable to generate a valid UUID on this device.");
-};
-
-
-const isClaraOnline = () =>
-  typeof navigator === "undefined" ? true : navigator.onLine !== false;
-
-const createLocalOnlyExpenseRecord = (payload) => ({
-  ...payload,
-  id: payload?.id || createFinanceId(),
-  local_id: payload?.local_id || createFinanceId(),
-  local_only: true,
-  sync_status: payload?.sync_status || "local_only",
-  syncStatus: payload?.syncStatus || "local_only",
-  source: payload?.source || "local",
-});
-
-const isProtectedFinanceRefreshWarning = (message = "") => {
-  const normalized = normalizeLower(message).replace(/[\u2019']/g, "");
-
-  return (
-    normalized.includes("dashboard data could not fully refresh") ||
-    normalized.includes("finance data remains protected offline") ||
-    normalized.includes("could not fully refresh")
-  );
-};
-
-const ENROLLMENT_PENDING_STATUSES = new Set([
-  "pending",
-  "under_review",
-  "payment_pending",
-]);
-
-const ENROLLMENT_APPROVED_STATUSES = new Set([
-  "approved",
-  "active",
-  "enrolled",
-]);
-
-const ENROLLMENT_BLOCKED_TO_ENROLL_STATUSES = new Set([
-  "",
-  "none",
-  "free",
-  "rejected",
-  "resubmit_required",
-  "cancelled",
-]);
-
-const isOwnedByUser = (item, user) => {
-  if (!user || !item) return false;
-
-  const userId = normalizeString(user?.id);
-  const userEmail = normalizeString(user?.email).toLowerCase();
-
-  const possibleIds = [item?.user_id, item?.owner_id, item?.profile_id, item?.id]
-    .map(normalizeString)
-    .filter(Boolean);
-
-  const possibleEmails = [
-    item?.created_by,
-    item?.user_email,
-    item?.owner_email,
-    item?.email,
-  ]
-    .map((value) => normalizeString(value).toLowerCase())
-    .filter(Boolean);
-
-  if (userId && possibleIds.includes(userId)) return true;
-  if (userEmail && possibleEmails.includes(userEmail)) return true;
-
-  return false;
-};
-
-const firstValidNumber = (...values) => {
-  for (const value of values) {
-    const num = Number(value);
-    if (Number.isFinite(num)) return num;
-  }
-  return 0;
-};
-
-const firstPositiveNumber = (...values) => {
-  for (const value of values) {
-    const num = Number(String(value ?? "").replace(/[₱,\s]/g, ""));
-    if (Number.isFinite(num) && num > 0) return num;
-  }
-  return 0;
-};
-
-const isTruthyActive = (value) => {
-  return value === true || value === "true" || value === 1 || value === "1";
-};
-
-const normalizeDateValue = (value) => {
-  if (!value) return null;
-  const date = new Date(value);
-  return Number.isNaN(date.getTime()) ? null : date;
-};
-
-const padDatePart = (value) => String(value).padStart(2, "0");
-
-const getPHParts = (value = new Date()) => {
-  const date = value instanceof Date ? value : new Date(value);
-  if (Number.isNaN(date.getTime())) return null;
-
-  const formatter = new Intl.DateTimeFormat("en-CA", {
-    timeZone: PH_TIME_ZONE,
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-    hour: "2-digit",
-    minute: "2-digit",
-    second: "2-digit",
-    hourCycle: "h23",
-  });
-
-  const parts = formatter.formatToParts(date);
-  const map = {};
-
-  for (const part of parts) {
-    if (part.type !== "literal") map[part.type] = part.value;
-  }
-
-  return {
-    year: Number(map.year),
-    month: Number(map.month),
-    day: Number(map.day),
-    hour: Number(map.hour),
-    minute: Number(map.minute),
-    second: Number(map.second),
-  };
-};
-
-const getPHDateKey = (value = new Date()) => {
-  const parts = getPHParts(value);
-  if (!parts) return "";
-  return `${parts.year}-${padDatePart(parts.month)}-${padDatePart(parts.day)}`;
-};
-
-const getPHMonthKey = (value = new Date()) => {
-  const parts = getPHParts(value);
-  if (!parts) return "";
-  return `${parts.year}-${padDatePart(parts.month)}`;
-};
-
-const phLocalPartsToUtcDate = ({
-  year,
-  month,
-  day,
-  hour = 0,
-  minute = 0,
-  second = 0,
-  millisecond = 0,
-}) => {
-  const utcMillis =
-    Date.UTC(year, month - 1, day, hour, minute, second, millisecond) -
-    PH_OFFSET_MINUTES * 60 * 1000;
-  return new Date(utcMillis);
-};
-
-const getPHMonthRange = (value = new Date()) => {
-  const parts = getPHParts(value) || getPHParts(new Date());
-  const start = phLocalPartsToUtcDate({
-    year: parts.year,
-    month: parts.month,
-    day: 1,
-  });
-  const nextMonth = phLocalPartsToUtcDate({
-    year: parts.month === 12 ? parts.year + 1 : parts.year,
-    month: parts.month === 12 ? 1 : parts.month + 1,
-    day: 1,
-  });
-
-  return { start, end: new Date(nextMonth.getTime() - 1) };
-};
-
-const getPHWeekStartKey = (value = new Date()) => {
-  const parts = getPHParts(value);
-  if (!parts) return "";
-  const current = new Date(Date.UTC(parts.year, parts.month - 1, parts.day));
-  const dayIndex = current.getUTCDay();
-  const mondayOffset = dayIndex === 0 ? -6 : 1 - dayIndex;
-  current.setUTCDate(current.getUTCDate() + mondayOffset);
-  return `${current.getUTCFullYear()}-${padDatePart(current.getUTCMonth() + 1)}-${padDatePart(
-    current.getUTCDate()
-  )}`;
-};
-
-const isInPHRange = (value, start, end) => {
-  const date = normalizeDateValue(value);
-  if (!date) return false;
-  return date >= start && date <= end;
-};
-
-const sortByNewestDate = (items = [], dateKeys = ["created_at", "date", "updated_at"]) => {
-  return [...items].sort((a, b) => {
-    const aDate =
-      dateKeys.map((key) => normalizeDateValue(a?.[key])).find(Boolean) || null;
-    const bDate =
-      dateKeys.map((key) => normalizeDateValue(b?.[key])).find(Boolean) || null;
-    return (bDate?.getTime() || 0) - (aDate?.getTime() || 0);
-  });
-};
-
-const getWalletDisplayName = (wallet) =>
-  normalizeString(wallet?.name || wallet?.wallet_name || wallet?.title || "Wallet");
-
-const getWalletDisplayBalance = (wallet) =>
-  firstValidNumber(
-    wallet?.balance,
-    wallet?.current_balance,
-    wallet?.wallet_balance,
-    wallet?.available_balance,
-    wallet?.amount
-  );
-
-const getBudgetTotal = (budget) =>
-  firstValidNumber(
-    budget?.allocated_amount,
-    budget?.budget_amount,
-    budget?.total_budget,
-    budget?.budget,
-    budget?.amount,
-    budget?.target_amount
-  );
-
-const getBudgetSpent = (budget) =>
-  firstValidNumber(
-    budget?.spent,
-    budget?.spent_amount,
-    budget?.total_spent,
-    budget?.used_amount
-  );
-
-const getBudgetRemaining = (budget) => {
-  const explicit = firstValidNumber(
-    budget?.remaining,
-    budget?.remaining_amount,
-    budget?.amount_left
-  );
-  if (explicit) return explicit;
-  const total = getBudgetTotal(budget);
-  const spent = getBudgetSpent(budget);
-  return Math.max(total - spent, 0);
-};
-
-const formatBudgetRemainingCurrency = (value) =>
-  new Intl.NumberFormat("en-PH", {
-    style: "currency",
-    currency: "PHP",
-    maximumFractionDigits: 0,
-  }).format(Number.isFinite(Number(value)) ? Number(value) : 0);
-
-const getBudgetRemainingToneClass = (spent = 0, total = 0) => {
-  const safeSpent = Number.isFinite(Number(spent)) ? Number(spent) : 0;
-  const safeTotal = Number.isFinite(Number(total)) ? Number(total) : 0;
-  const usage = safeTotal > 0 ? safeSpent / safeTotal : 0;
-
-  if (usage > 0.85) {
-    return "border-rose-300/15 bg-rose-400/10 text-rose-100 shadow-[0_0_22px_rgba(251,113,133,0.12)]";
-  }
-
-  if (usage >= 0.6) {
-    return "border-amber-300/15 bg-amber-400/10 text-amber-100 shadow-[0_0_22px_rgba(251,191,36,0.10)]";
-  }
-
-  return "border-emerald-300/15 bg-emerald-400/10 text-emerald-100 shadow-[0_0_22px_rgba(52,211,153,0.12)]";
-};
-
-const getBudgetCategoryValue = (budget, keys = []) =>
-  firstValidNumber(...keys.map((key) => budget?.[key]));
-
-const getBudgetTrackingStart = (budget) => {
-  const raw =
-    budget?.tracking_start_date ||
-    budget?.range_start ||
-    budget?.start_date ||
-    budget?.created_at ||
-    budget?.created_date ||
-    null;
-
-  return normalizeDateValue(raw);
-};
-
-const isExpenseInsideBudgetWindow = (expense, budget) => {
-  const expenseDate = normalizeDateValue(
-    expense?.date || expense?.expense_date || expense?.created_at
-  );
-  if (!expenseDate) return false;
-
-  const trackingStart = getBudgetTrackingStart(budget);
-  if (!trackingStart) return true;
-
-  return expenseDate.getTime() >= trackingStart.getTime();
-};
-
-const getSavingsSaved = (goal) =>
-  firstValidNumber(
-    goal?.saved_amount,
-    goal?.current_amount,
-    goal?.saved,
-    goal?.progress_amount,
-    goal?.amount_saved
-  );
-
-const getSavingsTarget = (goal) =>
-  firstValidNumber(
-    goal?.target_amount,
-    goal?.goal_amount,
-    goal?.target,
-    goal?.amount,
-    goal?.desired_amount
-  );
-
-const getSavingsGoalTitle = (goal) =>
-  normalizeString(goal?.title || goal?.name || goal?.goal_name || "Savings Goal");
-
-const formatCompactDate = (value) => {
-  const date = normalizeDateValue(value);
-  if (!date) return "No date";
-  return new Intl.DateTimeFormat("en-PH", {
-    month: "short",
-    day: "numeric",
-    year: "numeric",
-  }).format(date);
-};
-
-const getTransactionDate = (item) =>
-  normalizeDateValue(
-    item?.created_at ||
-      item?.date ||
-      item?.updated_at ||
-      item?.transaction_date ||
-      item?.expense_date
-  );
-
-const getExpenseCategoryKey = (item) => {
-  const raw = normalizeLower(
-    item?.category ||
-      item?.budget_category ||
-      item?.expense_category ||
-      item?.classification ||
-      "other"
-  );
-  return FINANCE_CATEGORIES.includes(raw) ? raw : "other";
-};
-
-const getBudgetCategoryKey = (budget) => {
-  const raw = normalizeLower(
-    budget?.category ||
-      budget?.budget_category ||
-      budget?.expense_category ||
-      budget?.classification ||
-      budget?.type ||
-      "all"
-  );
-  return FINANCE_CATEGORIES.includes(raw) ? raw : "all";
-};
-
-const formatBudgetLabel = (value) => {
-  const normalized = normalizeString(value);
-  if (!normalized) return "Budget";
-  return normalized
-    .replaceAll("_", " ")
-    .replace(/\b\w/g, (char) => char.toUpperCase());
-};
-
-const getBudgetListTitle = (budget) =>
-  formatBudgetLabel(
-    budget?.title ||
-      budget?.name ||
-      budget?.budget_name ||
-      budget?.label ||
-      budget?.category ||
-      budget?.budget_category ||
-      budget?.expense_category ||
-      budget?.classification ||
-      budget?.type ||
-      "Budget"
-  );
-
-const getBudgetNeedType = (budget) => {
-  const raw = normalizeLower(
-    budget?.need_type ||
-      budget?.needType ||
-      budget?.spending_type ||
-      budget?.budget_type ||
-      budget?.category_type ||
-      budget?.classification_type ||
-      ""
-  );
-
-  if (["need", "needs", "essential", "necessity"].includes(raw)) return "need";
-  if (["want", "wants", "non_essential", "non-essential", "lifestyle"].includes(raw)) return "want";
-  if (["other", "savings", "goal", "misc", "miscellaneous"].includes(raw)) return "other";
-
-  const category = normalizeLower(
-    budget?.category || budget?.budget_category || budget?.expense_category || ""
-  );
-
-  if (["entertainment", "shopping", "personal"].includes(category)) return "want";
-  if (["other", "savings"].includes(category)) return "other";
-
-  return "need";
-};
-
-const getWalletSortOrder = (wallet, index) => {
-  const value = Number(wallet?.sort_order);
-  return Number.isFinite(value) ? value : index;
-};
-
-const getToday = () => {
-  const d = new Date();
-  const yyyy = d.getFullYear();
-  const mm = String(d.getMonth() + 1).padStart(2, "0");
-  const dd = String(d.getDate()).padStart(2, "0");
-  return `${yyyy}-${mm}-${dd}`;
-};
+import {
+  normalizeString,
+  normalizeLower,
+  PH_TIME_ZONE,
+  PH_OFFSET_MINUTES,
+  DEBUG_FINANCE_DIAGNOSTICS,
+  FINANCE_CATEGORIES,
+  INCOME_TRANSACTION_TYPES,
+  createFinanceId,
+  isClaraOnline,
+  createLocalOnlyExpenseRecord,
+  isProtectedFinanceRefreshWarning,
+  ENROLLMENT_PENDING_STATUSES,
+  ENROLLMENT_APPROVED_STATUSES,
+  ENROLLMENT_BLOCKED_TO_ENROLL_STATUSES,
+  isOwnedByUser,
+  firstValidNumber,
+  firstPositiveNumber,
+  isTruthyActive,
+  normalizeDateValue,
+  padDatePart,
+  getPHParts,
+  getPHDateKey,
+  getPHMonthKey,
+  phLocalPartsToUtcDate,
+  getPHMonthRange,
+  getPHWeekStartKey,
+  isInPHRange,
+  sortByNewestDate,
+  getWalletDisplayName,
+  getWalletDisplayBalance,
+  getBudgetTotal,
+  getBudgetSpent,
+  getBudgetRemaining,
+  formatBudgetRemainingCurrency,
+  getBudgetRemainingToneClass,
+  getBudgetCategoryValue,
+  getBudgetTrackingStart,
+  isExpenseInsideBudgetWindow,
+  getSavingsSaved,
+  getSavingsTarget,
+  getSavingsGoalTitle,
+  formatCompactDate,
+  getTransactionDate,
+  getExpenseCategoryKey,
+  getBudgetCategoryKey,
+  formatBudgetLabel,
+  getBudgetListTitle,
+  getBudgetNeedType,
+  getWalletSortOrder,
+  getToday,
+} from "@/utils/dashboard/dashboardHelpers";
 
 const dashboardRuntimePrefs = new Map();
 const dashboardRuntimeNotifications = new Map();
