@@ -1,15 +1,13 @@
 import {
-  WalletCards,
   Plus,
   ChevronDown,
   ChevronUp,
 } from 'lucide-react';
-import { fmt } from '@/components/financial-carousel/cards/wallet/logic/useWalletCardLogic';
 import WalletListItem from '@/components/financial-carousel/cards/wallet/ui/WalletListItem';
 import WalletRecentActivity from '@/components/financial-carousel/cards/wallet/ui/WalletRecentActivity';
 import WalletEmptyState from '@/components/financial-carousel/cards/wallet/ui/WalletEmptyState';
-
-const glassPanel = 'border border-cyan-100/15 bg-white/[0.055] shadow-[inset_0_1px_0_rgba(255,255,255,0.10),0_0_24px_rgba(0,255,220,0.045)] backdrop-blur-sm';
+import WalletHeader from '@/components/financial-carousel/cards/wallet/ui/WalletHeader';
+import WalletSummaryStats from '@/components/financial-carousel/cards/wallet/ui/WalletSummaryStats';
 
 export default function WalletCardContent({
   wallets = [],
@@ -43,47 +41,16 @@ export default function WalletCardContent({
       <div className='relative z-10 flex h-full min-h-0 flex-col p-4'>
         <div className='flex min-h-0 flex-1 flex-col justify-between'>
           <div>
-            <div className='mb-3 flex items-start gap-3'>
-              <div className='flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl border border-cyan-200/20 bg-white/[0.07] text-cyan-100 shadow-[inset_0_1px_0_rgba(255,255,255,0.14),0_0_22px_rgba(0,255,220,0.12)] backdrop-blur-sm'>
-                <WalletCards className='h-4 w-4' />
-              </div>
+            <WalletHeader walletCount={wallets.length} />
 
-              <div className='min-w-0 flex-1'>
-                <div className='flex items-start justify-between gap-2'>
-                  <div className='min-w-0'>
-                    <p className='text-base font-semibold tracking-tight text-white'>Wallets</p>
-                    <p className='mt-0.5 text-[11px] font-medium text-white/78'>Track your available money across accounts</p>
-                  </div>
-
-                  <span className='shrink-0 rounded-full border border-cyan-200/15 bg-white/[0.07] px-2.5 py-1 text-[11px] font-semibold text-white/80 backdrop-blur-sm'>
-                    {wallets.length} {wallets.length === 1 ? 'Wallet' : 'Wallets'}
-                  </span>
-                </div>
-              </div>
-            </div>
-
-            <div className='mb-3'>
-              <p className={`text-[32px] font-bold leading-none ${status.text}`}>{fmt(walletMoney)}</p>
-              <p className='mt-2 line-clamp-1 min-h-[20px] max-w-[28rem] text-xs font-medium leading-relaxed text-white/82'>{message}</p>
-              <p className='mt-1 text-[11px] text-white/56'>Total money spread across your wallet system.</p>
-            </div>
-
-            <div className='mb-3 grid grid-cols-3 gap-2'>
-              <div className={`rounded-2xl px-2.5 py-2 text-center ${glassPanel}`}>
-                <p className='mb-1 text-[10px] font-semibold uppercase tracking-[0.16em] text-white/50'>Wallets</p>
-                <p className='text-xs font-bold text-white'>{wallets.length}</p>
-              </div>
-
-              <div className={`rounded-2xl px-2.5 py-2 text-center ${glassPanel}`}>
-                <p className='mb-1 text-[10px] font-semibold uppercase tracking-[0.16em] text-white/50'>Top Wallet</p>
-                <p className='truncate text-xs font-bold text-white'>{topWallet?.name || 'None'}</p>
-              </div>
-
-              <div className={`rounded-2xl px-2.5 py-2 text-center ${glassPanel}`}>
-                <p className='mb-1 text-[10px] font-semibold uppercase tracking-[0.16em] text-white/50'>Activity</p>
-                <p className='text-xs font-bold text-white'>{walletPreviewTransactions.length}</p>
-              </div>
-            </div>
+            <WalletSummaryStats
+              walletMoney={walletMoney}
+              walletCount={wallets.length}
+              walletPreviewTransactions={walletPreviewTransactions}
+              topWallet={topWallet}
+              status={status}
+              message={message}
+            />
           </div>
 
           <button
