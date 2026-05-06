@@ -11,7 +11,7 @@ export default function SavingsGoalsCardView({
   onAddSavings,
 }) {
   return (
-    <div className="h-full min-h-[inherit] flex flex-col">
+    <div className="clara-finance-bubble-card-shell clara-finance-bubble-savings-shell h-full min-h-[inherit] flex flex-col">
       <SavingsCard
         savingsGoals={data.savingsGoals}
         totalSavingsSaved={data.totalSavingsSaved}
