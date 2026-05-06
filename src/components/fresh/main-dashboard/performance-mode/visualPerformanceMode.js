@@ -41,6 +41,59 @@ export const ensureClaraVisualPerformanceStyles = () => {
       backface-visibility: hidden !important;
       -webkit-backface-visibility: hidden !important;
     }
+
+    .clara-performance-mode .clara-finance-bubble-card,
+    .clara-performance-mode .clara-finance-bubble-card-shell > div:first-child {
+      position: relative !important;
+      isolation: isolate !important;
+      border-color: rgba(103,232,249,0.22) !important;
+      background:
+        radial-gradient(circle at -7% -6%, rgba(20,184,166,0.52) 0%, rgba(20,184,166,0.30) 26%, rgba(20,184,166,0.08) 43%, transparent 54%),
+        radial-gradient(circle at 64% 111%, rgba(99,102,241,0.38) 0%, rgba(79,70,229,0.28) 32%, rgba(88,28,135,0.20) 48%, transparent 64%),
+        linear-gradient(135deg, rgba(6,48,66,0.98), rgba(7,20,48,0.96) 48%, rgba(37,13,74,0.96)) !important;
+      box-shadow: 0 20px 58px rgba(0,0,0,0.34), inset 0 1px 0 rgba(255,255,255,0.10), 0 0 0 1px rgba(255,255,255,0.04) !important;
+    }
+
+    .clara-performance-mode .clara-finance-bubble-card::before,
+    .clara-performance-mode .clara-finance-bubble-card-shell > div:first-child::before {
+      content: "" !important;
+      position: absolute !important;
+      left: -92px !important;
+      top: -116px !important;
+      width: 252px !important;
+      height: 252px !important;
+      border-radius: 999px !important;
+      background: rgba(45,212,191,0.24) !important;
+      box-shadow: inset -18px -24px 60px rgba(1,10,24,0.18) !important;
+      pointer-events: none !important;
+      z-index: 1 !important;
+    }
+
+    .clara-performance-mode .clara-finance-bubble-card::after,
+    .clara-performance-mode .clara-finance-bubble-card-shell > div:first-child::after {
+      content: "" !important;
+      position: absolute !important;
+      left: 34% !important;
+      bottom: -135px !important;
+      width: 270px !important;
+      height: 270px !important;
+      border-radius: 999px !important;
+      background: rgba(99,102,241,0.24) !important;
+      box-shadow: inset 24px 28px 76px rgba(255,255,255,0.04) !important;
+      pointer-events: none !important;
+      z-index: 1 !important;
+    }
+
+    .clara-performance-mode .clara-finance-bubble-wallet::before { background: rgba(45,212,191,0.26) !important; }
+    .clara-performance-mode .clara-finance-bubble-wallet::after { background: rgba(59,130,246,0.24) !important; }
+    .clara-performance-mode [data-emergency-card="true"]::before { background: rgba(16,185,129,0.24) !important; }
+    .clara-performance-mode [data-emergency-card="true"]::after { background: rgba(20,184,166,0.22) !important; }
+    .clara-performance-mode .clara-finance-bubble-savings-shell > div:first-child::before { background: rgba(52,211,153,0.23) !important; }
+    .clara-performance-mode .clara-finance-bubble-savings-shell > div:first-child::after { background: rgba(34,211,238,0.20) !important; }
+    .clara-performance-mode .clara-finance-bubble-investment::before { background: rgba(251,191,36,0.22) !important; }
+    .clara-performance-mode .clara-finance-bubble-investment::after { background: rgba(124,58,237,0.22) !important; }
+    .clara-performance-mode .clara-finance-bubble-debt::before { background: rgba(34,211,238,0.24) !important; }
+    .clara-performance-mode .clara-finance-bubble-debt::after { background: rgba(124,58,237,0.24) !important; }
   `;
   document.head.appendChild(style);
 };
