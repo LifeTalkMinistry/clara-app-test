@@ -1,4 +1,5 @@
 import fs from "node:fs";
+import path from "node:path";
 
 const dashboardPath = "src/pages/Dashboard.jsx";
 const componentPath = "src/components/fresh/main-dashboard/dashboard-panels/DashboardMessagesPanel.jsx";
@@ -101,10 +102,14 @@ const findFunctionEnd = (text, functionStart) => {
 
 const end = findFunctionEnd(source, start);
 const rawBlock = source.slice(start, end);
-const extractedBlock = rawBlock.replace(startNeedle, "export default function DashboardMessagesPanel({ onBack }) {");
+const extractedBlock = rawBlock.replace(
+  startNeedle,
+  "export default function DashboardMessagesPanel({ onBack }) {"
+);
 
 const componentHeader = `import { useState, useEffect, useMemo, useCallback, useRef } from "react";\nimport { createPortal } from "react-dom";\nimport { ArrowDown, MessageCircle, Plus, Search, Send } from "lucide-react";\n\nimport { supabase } from "@/lib/supabaseClient";\nimport useUserRole from "@/hooks/useUserRole";\nimport {\n  dashboardPanelFormatTime,\n  dashboardPanelInitials,\n} from "@/components/fresh/dashboard-panels/feed/utils/feedHelpers";\nimport {\n  dashboardPanelCardClass,\n  dashboardPanelTextClass,\n} from "@/components/fresh/main-dashboard/dashboard-panels/dashboardPanelConstants";\nimport { normalizeLower, normalizeString } from "@/utils/dashboard/dashboardHelpers";\n\n`;
 
+fs.mkdirSync(path.dirname(componentPath), { recursive: true });
 fs.writeFileSync(componentPath, `${componentHeader}${extractedBlock}\n`);
 
 source = source.slice(0, start) + source.slice(end);
@@ -121,8 +126,8 @@ if (source.includes(startNeedle)) {
   throw new Error("Inline DashboardMessagesPanel still exists after extraction.");
 }
 
-if (!source.includes('DashboardMessagesPanel')) {
-  throw new Error("DashboardMessagesPanel is not referenced after extraction.");
+if (!source.includes("<DashboardMessagesPanel")) {
+  throw new Error("DashboardMessagesPanel JSX usage is not referenced after extraction.");
 }
 
 const componentSource = fs.readFileSync(componentPath, "utf8");
@@ -138,11 +143,6 @@ for (const required of [
   if (!componentSource.includes(required)) {
     throw new Error(`Extracted component is missing required reference: ${required}`);
   }
-}
-
-if (source === original) {
-  console.log("No DashboardMessagesPanel extraction changes needed.");
-  process.exit(0);
 }
 
 fs.writeFileSync(dashboardPath, source);
