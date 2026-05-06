@@ -30,8 +30,22 @@ insertAfter(
 );
 
 insertAfter(
+  '} from "@/components/fresh/main-dashboard/dashboard-scale/dashboardScale";\n',
+  'import {\n  applyVisualPerformanceMode,\n  readStoredPerformanceMode,\n  saveVisualPerformanceMode,\n} from "@/components/fresh/main-dashboard/performance-mode/visualPerformanceMode";\n'
+);
+
+insertAfter(
   '} from "@/lib/program-access";\n',
   'import {\n  isProgramApproved,\n  shouldForceToEnroll,\n} from "@/components/fresh/main-dashboard/program-access/programAccessRules";\n'
+);
+
+removeBlock(
+  'const CLARA_VISUAL_PERFORMANCE_STYLE_ID = "clara-visual-performance-mode-style";',
+  'const dashboardRuntimeProgramPrompts = new Set();'
+);
+source = source.replace(
+  'const dashboardRuntimeProgramPrompts = new Set();',
+  'const dashboardRuntimeProgramPrompts = new Set();'
 );
 
 removeBlock(
