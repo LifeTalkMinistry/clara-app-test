@@ -65,7 +65,6 @@ import {
   persistProgramPromptSeenThisSession,
   readProgramPromptSeenThisSession,
 } from "@/components/fresh/main-dashboard/program-prompts/programPromptSession";
-import { shouldSilenceNormalOfflineNotice } from "@/components/fresh/main-dashboard/finance-notices/financeNoticeRules";
 import FinanceInlineAlert from "@/components/fresh/main-dashboard/finance-notices/FinanceInlineAlert";
 import OnboardingActionBar from "@/components/fresh/main-dashboard/onboarding/OnboardingActionBar";
 import {
