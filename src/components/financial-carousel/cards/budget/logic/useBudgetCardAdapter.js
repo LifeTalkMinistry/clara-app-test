@@ -1,0 +1,32 @@
+export default function useBudgetCardAdapter({
+  data = {},
+  expandedFinanceCard,
+  toggleFinanceDetails,
+  financeActionLoading,
+  onSaveBudget,
+  onEditBudgetCategory,
+  onDeleteBudgetCategory,
+  onResetBudget,
+} = {}) {
+  return {
+    activeBudget: data.activeBudget,
+    budgetCategories: data.budgetCategories,
+    declaredBudget: data.declaredBudget,
+    unallocatedAmount: data.unallocatedAmount,
+    budgetStatus: data.budgetStatus,
+    isComplete: data.isComplete,
+    unplannedSpent: data.unplannedSpent,
+    undocumentedSpent: data.undocumentedSpent,
+    remainingAmount: data.remainingAmount,
+    amountLeft: data.amountLeft,
+    spentAmount: data.spentAmount,
+    totalSpent: data.totalSpent,
+    expanded: expandedFinanceCard === 'budgets',
+    onToggleDetails: () => toggleFinanceDetails?.('budgets'),
+    financeActionLoading,
+    onSaveBudget,
+    onEditBudgetCategory,
+    onDeleteBudgetCategory,
+    onResetBudget,
+  };
+}
