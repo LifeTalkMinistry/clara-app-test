@@ -1,5 +1,9 @@
 export const normalizeString = (value) => {
-  return String(value || "").trim().toLowerCase();
+  return String(value ?? "").trim();
+};
+
+export const normalizeLower = (value) => {
+  return normalizeString(value).toLowerCase();
 };
 
 export const safeNumber = (value) => {
