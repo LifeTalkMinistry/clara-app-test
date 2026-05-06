@@ -360,3 +360,57 @@ export const calculateTotalSpent = (expenses = []) => {
     return sum + safeNumber(expense?.amount);
   }, 0);
 };
+export const getWalletDisplayName = (wallet = {}) => {
+  return (
+    wallet?.name ||
+    wallet?.wallet_name ||
+    wallet?.title ||
+    "Wallet"
+  );
+};
+
+export const getWalletDisplayBalance = (wallet = {}) => {
+  return safeNumber(
+    wallet?.balance ??
+    wallet?.amount ??
+    wallet?.wallet_balance ??
+    0
+  );
+};
+
+export const getBudgetTotal = (budget = {}) => {
+  return safeNumber(
+    budget?.amount ??
+    budget?.budget ??
+    budget?.total ??
+    0
+  );
+};
+
+export const getBudgetSpent = (budget = {}) => {
+  return safeNumber(
+    budget?.spent ??
+    budget?.used ??
+    budget?.expenses ??
+    0
+  );
+};
+
+export const formatBudgetRemainingCurrency = (remaining = 0) => {
+  return formatCurrency(remaining);
+};
+
+export const getBudgetRemainingToneClass = (remaining = 0, total = 0) => {
+  const percentage =
+    total > 0 ? (remaining / total) * 100 : 0;
+
+  if (percentage <= 15) {
+    return "text-rose-300";
+  }
+
+  if (percentage <= 40) {
+    return "text-amber-300";
+  }
+
+  return "text-emerald-300";
+};
