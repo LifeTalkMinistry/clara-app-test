@@ -5,6 +5,7 @@ import {
   dashboardPanelFormatTime,
   dashboardPanelInitials,
 } from "@/components/fresh/dashboard-panels/feed/utils/feedHelpers";
+import { FEED_CATEGORIES } from "@/components/fresh/dashboard-panels/feed/constants/feedCategories";
 import {
   Settings,
   Clock,
@@ -1040,14 +1041,6 @@ function DashboardPanelShell({
 function DashboardFeedPanel({ onBack }) {
   const FEED_STORAGE_BUCKET = "feed-media";
 
-  const FEED_CATEGORIES = [
-    { key: "achievement", label: "Achievement" },
-    { key: "testimony", label: "Testimony" },
-    { key: "advice", label: "Advice" },
-    { key: "question", label: "Question" },
-    { key: "motivation", label: "Motivation" },
-    { key: "thought", label: "Thought" },
-  ];
 
   const [posts, setPosts] = useState([]);
   const [currentUser, setCurrentUser] = useState(null);
