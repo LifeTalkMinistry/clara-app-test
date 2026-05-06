@@ -107,7 +107,7 @@ const extractedBlock = rawBlock.replace(
   "export default function DashboardMessagesPanel({ onBack }) {"
 );
 
-const componentHeader = `import { useState, useEffect, useMemo, useCallback, useRef } from "react";\nimport { createPortal } from "react-dom";\nimport { ArrowDown, MessageCircle, Plus, Search, Send } from "lucide-react";\n\nimport { supabase } from "@/lib/supabaseClient";\nimport useUserRole from "@/hooks/useUserRole";\nimport {\n  dashboardPanelFormatTime,\n  dashboardPanelInitials,\n} from "@/components/fresh/dashboard-panels/feed/utils/feedHelpers";\nimport {\n  dashboardPanelCardClass,\n  dashboardPanelTextClass,\n} from "@/components/fresh/main-dashboard/dashboard-panels/dashboardPanelConstants";\nimport { normalizeLower, normalizeString } from "@/utils/dashboard/dashboardHelpers";\n\n`;
+const componentHeader = `import { useState, useEffect, useMemo, useCallback, useRef } from "react";\nimport { createPortal } from "react-dom";\nimport { ArrowDown, MessageCircle, Plus, Search, Send, X } from "lucide-react";\n\nimport { supabase } from "@/lib/supabaseClient";\nimport useUserRole from "@/hooks/useUserRole";\nimport {\n  dashboardPanelFormatTime,\n  dashboardPanelInitials,\n} from "@/components/fresh/dashboard-panels/feed/utils/feedHelpers";\nimport {\n  dashboardPanelCardClass,\n  dashboardPanelTextClass,\n} from "@/components/fresh/main-dashboard/dashboard-panels/dashboardPanelConstants";\nimport { normalizeLower, normalizeString } from "@/utils/dashboard/dashboardHelpers";\n\n`;
 
 fs.mkdirSync(path.dirname(componentPath), { recursive: true });
 fs.writeFileSync(componentPath, `${componentHeader}${extractedBlock}\n`);
