@@ -5,7 +5,7 @@ export default function InvestmentCardView({
   selectedDashboardTheme,
 }) {
   return (
-    <div className="h-full min-h-[inherit] flex flex-col">
+    <div className="clara-finance-bubble-card-shell clara-finance-bubble-investment-shell h-full min-h-[inherit] flex flex-col">
       <InvestmentCard
         item={item}
         theme={selectedDashboardTheme}
