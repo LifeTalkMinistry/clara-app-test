@@ -2,7 +2,6 @@ import WalletCard from "@/components/WalletCard";
 
 export default function WalletCardView({
   data = {},
-  selectedDashboardTheme,
   expandedFinanceCard,
   toggleFinanceDetails,
   financeActionLoading,
@@ -19,7 +18,6 @@ export default function WalletCardView({
         wallets={data.wallets}
         walletMoney={data.walletMoney}
         walletPreviewTransactions={data.walletPreviewTransactions}
-        theme={selectedDashboardTheme}
         expanded={expandedFinanceCard === "wallets"}
         onToggleDetails={() => toggleFinanceDetails?.("wallets")}
         financeActionLoading={financeActionLoading}
