@@ -1,5 +1,6 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useMemo } from "react";
 import CarouselItemCard from "./ui/CarouselItemCard";
+import useAutoMovingHorizontalCarousel from "./logic/useAutoMovingHorizontalCarousel";
 import {
   getCarouselData,
   getDefaultCarouselIndex,
@@ -39,6 +40,9 @@ export default function FinancialCarousel({
   dashboardScale = {},
   selectedDashboardTheme = {},
   themeInactiveDotClass = "bg-white/20 hover:bg-white/35",
+  autoMove = true,
+  autoMoveMs = 5200,
+  resumeDelayMs = 4200,
   wallets = [],
   walletMoney = 0,
   walletPreviewTransactions = [],
@@ -76,10 +80,6 @@ export default function FinancialCarousel({
   endClaraAiLongPress,
   handleClaraAiOrbClickCapture,
 }) {
-  const carouselRef = useRef(null);
-  const scrollFrameRef = useRef(null);
-  const didSetDefaultSlideRef = useRef(false);
-
   const items = useMemo(
     () =>
       getCarouselData({
@@ -119,56 +119,19 @@ export default function FinancialCarousel({
   );
 
   const defaultIndex = useMemo(() => getDefaultCarouselIndex(items), [items]);
-  const [activeIndex, setActiveIndex] = useState(defaultIndex);
-
-  const scrollToIndex = useCallback(
-    (nextIndex, behavior = "smooth") => {
-      const container = carouselRef.current;
-      if (!container || items.length <= 0) return;
-
-      const safeIndex = Math.max(0, Math.min(items.length - 1, nextIndex));
-      const slideWidth =
-        container.clientWidth || container.scrollWidth / items.length || 1;
-
-      container.scrollTo({
-        left: slideWidth * safeIndex,
-        behavior,
-      });
-
-      setActiveIndex(safeIndex);
-    },
-    [items.length]
-  );
-
-  const handleScroll = useCallback(() => {
-    const container = carouselRef.current;
-    if (!container || items.length <= 0) return;
-
-    if (scrollFrameRef.current) {
-      window.cancelAnimationFrame(scrollFrameRef.current);
-    }
-
-    scrollFrameRef.current = window.requestAnimationFrame(() => {
-      const slideWidth =
-        container.scrollWidth / items.length || container.clientWidth || 1;
-      const index = Math.round(container.scrollLeft / slideWidth);
-      setActiveIndex(Math.max(0, Math.min(items.length - 1, index)));
-    });
-  }, [items.length]);
-
-  useEffect(() => {
-    if (!items.length || didSetDefaultSlideRef.current) return;
-    didSetDefaultSlideRef.current = true;
-    window.requestAnimationFrame(() => scrollToIndex(defaultIndex, "auto"));
-  }, [defaultIndex, items.length, scrollToIndex]);
-
-  useEffect(() => {
-    return () => {
-      if (scrollFrameRef.current && typeof window !== "undefined") {
-        window.cancelAnimationFrame(scrollFrameRef.current);
-      }
-    };
-  }, []);
+  const {
+    carouselRef,
+    activeIndex,
+    scrollToIndex,
+    handleScroll,
+    interactionHandlers,
+  } = useAutoMovingHorizontalCarousel({
+    itemCount: items.length,
+    defaultIndex,
+    autoMove,
+    autoMoveMs,
+    resumeDelayMs,
+  });
 
   if (!items.length) return null;
 
@@ -178,7 +141,8 @@ export default function FinancialCarousel({
         <div
           ref={carouselRef}
           onScroll={handleScroll}
-          className="flex touch-pan-x items-stretch snap-x snap-mandatory overflow-x-auto overflow-y-hidden overscroll-x-contain [scrollbar-width:none] [-webkit-overflow-scrolling:touch] [&::-webkit-scrollbar]:hidden"
+          {...interactionHandlers}
+          className="flex touch-pan-x cursor-grab items-stretch snap-x snap-mandatory overflow-x-auto overflow-y-hidden overscroll-x-contain active:cursor-grabbing [scrollbar-width:none] [-webkit-overflow-scrolling:touch] [&::-webkit-scrollbar]:hidden"
         >
           {items.map((item) => (
             <div key={item.key} className="flex w-full min-w-full shrink-0 snap-center">
