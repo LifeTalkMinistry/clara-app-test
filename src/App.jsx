@@ -21,6 +21,7 @@ import {
 } from "./lib/offline-access-cache";
 import { FEATURE_ROUTE_MAP } from "./lib/plan-config";
 import Layout from "./components/Layout";
+import { applyVisualPerformanceMode } from "@/components/fresh/main-dashboard/performance-mode/visualPerformanceMode";
 
 const Settings = lazy(() => import("./pages/Settings"));
 const Profile = lazy(() => import("./pages/Profile"));
@@ -125,6 +126,10 @@ function AppRoutes() {
   const [cachedAccessSnapshot, setCachedAccessSnapshot] = useState(() => getAccessSnapshot());
 
   const profileReady = user ? profile !== null : true;
+
+  useEffect(() => {
+    applyVisualPerformanceMode();
+  }, []);
 
   useEffect(() => {
     if (typeof window === "undefined") return undefined;
