@@ -1,0 +1,38 @@
+name: Refactor dashboard inline helpers
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - ".github/workflows/refactor-dashboard-inline-helpers.yml"
+      - ".github/scripts/refactor-dashboard-inline-helpers.mjs"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  refactor-dashboard:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Patch Dashboard.jsx
+        run: node .github/scripts/refactor-dashboard-inline-helpers.mjs
+
+      - name: Commit dashboard refactor
+        run: |
+          if git diff --quiet; then
+            echo "No dashboard refactor changes needed."
+            exit 0
+          fi
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add src/pages/Dashboard.jsx
+          git commit -m "Wire dashboard extracted helpers"
+          git push
