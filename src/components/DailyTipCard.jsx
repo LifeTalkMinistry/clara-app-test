@@ -286,7 +286,7 @@ export default function DailyTipCard({ user, isAdmin }) {
           aria-pressed={revealed}
         >
           <div
-            className="relative min-h-[220px] transform-gpu transition-transform duration-700"
+            className="clara-preserve-flip-motion relative min-h-[220px] transform-gpu transition-transform duration-700"
             style={{
               transformStyle: "preserve-3d",
               transform: revealed ? "rotateY(180deg)" : "rotateY(0deg)",
@@ -295,7 +295,7 @@ export default function DailyTipCard({ user, isAdmin }) {
             }}
           >
             <div
-              className="absolute inset-0 overflow-hidden rounded-[28px] border border-emerald-400/20 bg-[linear-gradient(135deg,rgba(8,19,20,0.98)_0%,rgba(16,52,38,0.96)_55%,rgba(8,31,28,0.98)_100%)] p-5 shadow-[0_18px_45px_rgba(0,0,0,0.28)]"
+              className="clara-preserve-flip-face absolute inset-0 overflow-hidden rounded-[28px] border border-emerald-400/20 bg-[linear-gradient(135deg,rgba(8,19,20,0.98)_0%,rgba(16,52,38,0.96)_55%,rgba(8,31,28,0.98)_100%)] p-5 shadow-[0_18px_45px_rgba(0,0,0,0.28)]"
               style={{ backfaceVisibility: "hidden", WebkitBackfaceVisibility: "hidden" }}
             >
               <div
@@ -359,7 +359,7 @@ export default function DailyTipCard({ user, isAdmin }) {
             </div>
 
             <div
-              className="absolute inset-0 overflow-hidden rounded-[28px] border border-emerald-400/20 bg-[linear-gradient(135deg,rgba(6,15,24,0.98)_0%,rgba(11,32,31,0.98)_55%,rgba(9,25,18,0.98)_100%)] p-5 shadow-[0_18px_45px_rgba(0,0,0,0.28)]"
+              className="clara-preserve-flip-face absolute inset-0 overflow-hidden rounded-[28px] border border-emerald-400/20 bg-[linear-gradient(135deg,rgba(6,15,24,0.98)_0%,rgba(11,32,31,0.98)_55%,rgba(9,25,18,0.98)_100%)] p-5 shadow-[0_18px_45px_rgba(0,0,0,0.28)]"
               style={{
                 transform: "rotateY(180deg)",
                 backfaceVisibility: "hidden",
