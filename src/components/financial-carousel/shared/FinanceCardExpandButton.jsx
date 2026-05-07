@@ -6,6 +6,8 @@ export default function FinanceCardExpandButton({
   onToggleDetails,
   detailKey,
   className = "",
+  collapsedLabel = "Show details",
+  expandedLabel = "Hide details",
 }) {
   const handleClick = (event) => {
     event.preventDefault();
@@ -23,7 +25,7 @@ export default function FinanceCardExpandButton({
       className={[FINANCE_CARD_EXPAND_BUTTON_CLASS, className].filter(Boolean).join(" ")}
     >
       <span className="font-medium">
-        {expanded ? "Hide details" : "Show details"}
+        {expanded ? expandedLabel : collapsedLabel}
       </span>
       {expanded ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
     </button>
