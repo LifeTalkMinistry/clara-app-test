@@ -51,8 +51,8 @@ export default function CarouselSlideShell({
         style={
           isExpanded
             ? {
-                height: "min(620px, calc(100dvh - 210px))",
-                minHeight: "420px",
+                height: "min(560px, calc(100dvh - 178px))",
+                minHeight: "430px",
               }
             : undefined
         }
