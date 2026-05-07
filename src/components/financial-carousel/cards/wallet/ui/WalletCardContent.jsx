@@ -34,7 +34,7 @@ export default function WalletCardContent({
     <div className='relative z-10 flex h-full min-h-0 flex-col p-4 pb-5'>
       <div className={`${expanded ? 'shrink-0' : 'flex-1'} flex min-h-0 flex-col justify-between gap-2`}>
         <div className='min-h-0'>
-          <WalletHeader walletCount={walletCount} />
+          {!expanded && <WalletHeader walletCount={walletCount} />}
 
           {!expanded ? (
             <WalletSummaryStats
@@ -47,7 +47,7 @@ export default function WalletCardContent({
             />
           ) : (
             <div className='mb-3'>
-              <p className={`text-[34px] font-black leading-none tracking-[-0.045em] ${status.text}`}>
+              <p className={`text-[36px] font-black leading-none tracking-[-0.045em] ${status.text}`}>
                 {fmt(walletMoney)}
               </p>
 
