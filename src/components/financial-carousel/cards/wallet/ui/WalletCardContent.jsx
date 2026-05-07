@@ -22,19 +22,22 @@ export default function WalletCardContent({
   topWallet,
   status,
   message,
+  expandedMessage,
   visibleWallets = [],
   visibleTransactions = [],
   openEditWallet,
 }) {
+  const walletCount = visibleWallets.length || wallets.filter((wallet) => !wallet?.is_archived).length;
+
   return (
     <div className='relative z-10 flex h-full min-h-0 flex-col p-4 pb-5'>
       <div className={`${expanded ? 'shrink-0' : 'flex-1'} flex min-h-0 flex-col justify-between gap-2`}>
         <div className='min-h-0'>
-          <WalletHeader walletCount={wallets.length} />
+          <WalletHeader walletCount={walletCount} />
 
           <WalletSummaryStats
             walletMoney={walletMoney}
-            walletCount={wallets.length}
+            walletCount={walletCount}
             walletPreviewTransactions={walletPreviewTransactions}
             topWallet={topWallet}
             status={status}
@@ -47,13 +50,19 @@ export default function WalletCardContent({
             detailKey='wallets'
             expanded={expanded}
             onToggleDetails={onToggleDetails}
+            collapsedLabel='View Wallets'
+            expandedLabel='Hide Wallets'
           />
         </div>
       </div>
 
       {expanded && (
         <FinanceCardExpandedPanel>
-          {wallets.length ? (
+          <div className='mb-3 rounded-2xl border border-cyan-100/15 bg-white/[0.045] px-3 py-2.5 text-xs font-medium leading-5 text-white/68'>
+            {expandedMessage}
+          </div>
+
+          {visibleWallets.length ? (
             <div className='space-y-2'>
               {visibleWallets.map((wallet, index) => (
                 <WalletListItem
