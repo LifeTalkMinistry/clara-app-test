@@ -11,6 +11,20 @@ export default function EmergencyFundCardView({
   endClaraAiLongPress,
   handleClaraAiOrbClickCapture,
 }) {
+  const isExpanded = expandedFinanceCard === "emergency";
+
+  const handleEmergencyToggle = () => {
+    if (isExpanded) {
+      toggleFinanceDetails?.("emergency");
+      return;
+    }
+
+    toggleFinanceDetails?.("emergency", {
+      autoExpand: true,
+      forceOpen: true,
+    });
+  };
+
   return (
     <div
       className="h-full min-h-[inherit]"
@@ -37,10 +51,7 @@ export default function EmergencyFundCardView({
         ) {
           event.preventDefault();
           event.stopPropagation();
-          toggleFinanceDetails?.("emergency", {
-            autoExpand: true,
-            forceOpen: true,
-          });
+          handleEmergencyToggle();
         }
       }}
     >
@@ -49,13 +60,8 @@ export default function EmergencyFundCardView({
         survivalExpense={data.survivalExpense}
         retentionRate={data.retentionRate}
         theme={selectedDashboardTheme}
-        expanded={expandedFinanceCard === "emergency"}
-        onToggleDetails={() =>
-          toggleFinanceDetails?.("emergency", {
-            autoExpand: true,
-            forceOpen: true,
-          })
-        }
+        expanded={isExpanded}
+        onToggleDetails={handleEmergencyToggle}
         canAutoPrompt={data.canAutoPrompt}
         hasSurvivalSetup={data.hasSurvivalSetup}
         onQuickExpense={onQuickExpense}
