@@ -10,7 +10,7 @@ export default function CarouselViewport({
   const viewportClassName = [
     "flex items-stretch snap-x snap-mandatory overscroll-x-contain transition-[overflow] duration-300",
     allowVerticalOverflow
-      ? "overflow-visible touch-pan-y cursor-default active:cursor-default"
+      ? "overflow-x-auto overflow-y-visible touch-pan-x cursor-grab active:cursor-grabbing"
       : "overflow-x-auto overflow-y-hidden touch-pan-x cursor-grab active:cursor-grabbing",
     "[scrollbar-width:none] [-webkit-overflow-scrolling:touch] [&::-webkit-scrollbar]:hidden",
     className,
@@ -25,8 +25,8 @@ export default function CarouselViewport({
     >
       <div
         ref={carouselRef}
-        onScroll={allowVerticalOverflow ? undefined : onScroll}
-        {...(allowVerticalOverflow ? {} : interactionHandlers)}
+        onScroll={onScroll}
+        {...interactionHandlers}
         className={viewportClassName}
       >
         {children}
