@@ -172,7 +172,7 @@ export default function FinancialCarousel({
         onScroll={handleScroll}
         interactionHandlers={interactionHandlers}
         clipClassName={dashboardScale.financeClip || "rounded-[28px]"}
-        allowVerticalOverflow={false}
+        allowVerticalOverflow={isInlineFocusExpanded}
       >
         {items.map((item) => {
           const isInlineExpanded =
