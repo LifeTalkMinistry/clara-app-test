@@ -139,3 +139,19 @@ main > div[class^="h-full flex flex-col bg-"] > div:last-child {
     animation-iteration-count: 1 !important;
   }
 }
+
+/* Learning Hub must not be compressed by Dashboard Fit Mode.
+   It also uses perspective for the 3D books, so protect it separately from Daily Tip. */
+@media (max-width: 430px) {
+  .theme-page-shell main [style*="perspective: 1300px"],
+  .theme-page-shell main [style*="perspective:1300px"] {
+    height: 226px !important;
+    min-height: 226px !important;
+    max-height: 226px !important;
+  }
+
+  .theme-page-shell main [style*="perspective: 1300px"] > *,
+  .theme-page-shell main [style*="perspective:1300px"] > * {
+    max-height: none !important;
+  }
+}
