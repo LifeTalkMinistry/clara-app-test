@@ -1,6 +1,7 @@
 import useBudgetCardLogic from "@/components/financial-carousel/cards/budget/logic/useBudgetCardLogic";
 import BudgetActionModal from "@/components/financial-carousel/cards/budget/modal/BudgetActionModal";
 import BudgetCardContent from "@/components/financial-carousel/cards/budget/ui/BudgetCardContent";
+import FinanceCardShell from "@/components/financial-carousel/shared/FinanceCardShell";
 
 export default function BudgetCard({
   activeBudget = null,
@@ -54,8 +55,12 @@ export default function BudgetCard({
         onResetBudget={onResetBudget}
       />
 
-      <div
-        className={`clara-finance-bubble-card clara-finance-bubble-budget relative flex h-full min-h-[inherit] flex-col overflow-hidden rounded-3xl border border-cyan-100/20 bg-[linear-gradient(135deg,rgba(6,48,66,0.96),rgba(7,20,48,0.94)_48%,rgba(37,13,74,0.94))] shadow-[0_22px_60px_rgba(0,0,0,0.38),0_0_34px_rgba(0,255,220,0.09),0_0_48px_rgba(126,34,206,0.10)] backdrop-blur-2xl transition-all duration-200 ${status.ring}`}
+      <FinanceCardShell
+        cardKey="budget"
+        expanded={expanded}
+        ringClass={status.ring}
+        roundedClass="rounded-3xl"
+        shadowClass="shadow-[0_22px_60px_rgba(0,0,0,0.38),0_0_34px_rgba(0,255,220,0.09),0_0_48px_rgba(126,34,206,0.10)]"
       >
         <BudgetCardContent
           expanded={expanded}
@@ -82,7 +87,7 @@ export default function BudgetCard({
           badgeLabel={badgeLabel}
           openBudgetModal={() => setShowModal(true)}
         />
-      </div>
+      </FinanceCardShell>
     </>
   );
 }
