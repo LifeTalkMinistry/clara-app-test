@@ -104,8 +104,6 @@ export default function FinancialCarousel({
 
   if (!items.length) return null;
 
-  const isBudgetInlineExpanded = expandedFinanceCard === "budgets";
-
   return (
     <div className="relative z-20 mt-0 mb-0">
       <CarouselViewport
@@ -113,7 +111,6 @@ export default function FinancialCarousel({
         onScroll={handleScroll}
         interactionHandlers={interactionHandlers}
         clipClassName={dashboardScale.financeClip || "rounded-[28px]"}
-        allowVerticalOverflow={isBudgetInlineExpanded}
       >
         {items.map((item) => {
           const isInlineExpanded =
