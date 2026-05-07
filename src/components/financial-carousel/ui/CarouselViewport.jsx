@@ -5,15 +5,17 @@ export default function CarouselViewport({
   interactionHandlers = {},
   className = "",
   clipClassName = "",
+  allowVerticalOverflow = false,
 }) {
   const viewportClassName = [
-    "flex touch-pan-x cursor-grab items-stretch snap-x snap-mandatory overflow-x-auto overflow-y-hidden overscroll-x-contain active:cursor-grabbing",
+    "flex touch-pan-x cursor-grab items-stretch snap-x snap-mandatory overscroll-x-contain active:cursor-grabbing",
+    allowVerticalOverflow ? "overflow-x-auto overflow-y-visible" : "overflow-x-auto overflow-y-hidden",
     "[scrollbar-width:none] [-webkit-overflow-scrolling:touch] [&::-webkit-scrollbar]:hidden",
     className,
   ].join(" ");
 
   return (
-    <div className={["overflow-hidden", clipClassName].join(" ")}>
+    <div className={[allowVerticalOverflow ? "overflow-visible" : "overflow-hidden", clipClassName].join(" ")}>
       <div
         ref={carouselRef}
         onScroll={onScroll}
