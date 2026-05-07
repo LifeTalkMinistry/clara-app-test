@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { useEffect, useMemo } from "react";
 import CarouselItemCard from "./ui/CarouselItemCard";
 import CarouselViewport from "./ui/CarouselViewport";
 import CarouselDots from "./ui/CarouselDots";
@@ -102,16 +102,41 @@ export default function FinancialCarousel({
     autoMove: false,
   });
 
-  if (!items.length) return null;
-
   const isBudgetInlineExpanded = expandedFinanceCard === "budgets";
+
+  useEffect(() => {
+    if (typeof document === "undefined") return undefined;
+
+    const root = document.documentElement;
+    root.classList.toggle("clara-budget-focus-mode", isBudgetInlineExpanded);
+
+    return () => {
+      root.classList.remove("clara-budget-focus-mode");
+    };
+  }, [isBudgetInlineExpanded]);
+
+  if (!items.length) return null;
 
   return (
     <div
-      className={`relative transition-all duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] ${
-        isBudgetInlineExpanded ? "z-20 -mt-[204px]" : "z-0"
+      className={`relative transition-all duration-500 ease-[cubic-bezier(0.22,1,0.36,1)] ${
+        isBudgetInlineExpanded ? "z-20 -mt-[224px] mb-[-224px]" : "z-0 mt-0 mb-0"
       }`}
     >
+      <style>{`
+        .clara-budget-focus-shift {
+          transform: translate3d(0, 0, 0);
+          transition: transform 500ms cubic-bezier(0.22, 1, 0.36, 1), opacity 500ms cubic-bezier(0.22, 1, 0.36, 1);
+          will-change: transform, opacity;
+        }
+
+        .clara-budget-focus-mode .clara-budget-focus-shift {
+          transform: translate3d(0, -224px, 0);
+          opacity: 0.58;
+          pointer-events: none;
+        }
+      `}</style>
+
       <CarouselViewport
         carouselRef={carouselRef}
         onScroll={handleScroll}
