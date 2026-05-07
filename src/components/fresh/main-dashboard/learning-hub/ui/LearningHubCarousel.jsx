@@ -129,6 +129,7 @@ export default function LearningHubCarousel({ materials = [], onOpenMaterial }) 
       </button>
 
       <div
+        data-learning-hub-expanded={isExpanded ? "true" : "false"}
         className={`clara-learning-hub-expanded clara-learning-motion grid transition-[grid-template-rows,opacity,margin] duration-500 ease-out ${
           isExpanded ? "mt-0 mb-0 grid-rows-[244px] opacity-100" : "mt-0 mb-0 grid-rows-[0px] opacity-0"
         }`}
