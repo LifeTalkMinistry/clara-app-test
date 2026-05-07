@@ -377,61 +377,63 @@ export default function EmergencyFundCard({
         `}</style>
 
         <div className="relative z-10 flex h-full min-h-0 flex-col p-4">
-          <div className="flex min-h-0 flex-1 flex-col justify-between">
-            <div className="mb-3 flex items-start gap-3">
-              <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border backdrop-blur-sm ${themeClasses.iconShell}`}>
-                <Shield className={`h-4 w-4 ${themeClasses.iconColor}`} />
-              </div>
+          <div className={`${isExpanded ? "shrink-0" : "flex-1"} flex min-h-0 flex-col justify-between`}>
+            <div>
+              <div className="mb-3 flex items-start gap-3">
+                <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border backdrop-blur-sm ${themeClasses.iconShell}`}>
+                  <Shield className={`h-4 w-4 ${themeClasses.iconColor}`} />
+                </div>
 
-              <div className="min-w-0 flex-1">
-                <div className="flex items-start justify-between gap-2">
-                  <div className="min-w-0">
-                    <p className={`text-base font-semibold tracking-tight ${themeClasses.title}`}>
-                      Emergency Fund
-                    </p>
-                    <p className={`mt-0.5 text-[11px] font-medium ${themeClasses.body}`}>
-                      Protection based on your monthly survival expense
-                    </p>
-                  </div>
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="min-w-0">
+                      <p className={`text-base font-semibold tracking-tight ${themeClasses.title}`}>
+                        Emergency Fund
+                      </p>
+                      <p className={`mt-0.5 text-[11px] font-medium ${themeClasses.body}`}>
+                        Protection based on your monthly survival expense
+                      </p>
+                    </div>
 
-                  <div className="flex shrink-0 items-start">
-                    <span className={`shrink-0 rounded-full px-2.5 py-1 text-[11px] font-semibold backdrop-blur-sm ${status.badge}`}>
-                      {status.label}
-                    </span>
+                    <div className="flex shrink-0 items-start">
+                      <span className={`shrink-0 rounded-full px-2.5 py-1 text-[11px] font-semibold backdrop-blur-sm ${status.badge}`}>
+                        {status.label}
+                      </span>
+                    </div>
                   </div>
                 </div>
               </div>
-            </div>
 
-            <div className="mb-3 pr-14">
-              {safeMoneyLeft <= 0 ? (
-                <p className={`text-2xl font-bold ${themeClasses.title}`}>Start your fund</p>
-              ) : (
-                <p className={`text-[32px] font-bold leading-none ${status.text}`}>
-                  {months.toFixed(1)}
-                  <span className="ml-1.5 text-base font-semibold text-white/85">months</span>
-                </p>
-              )}
+              <div className="mb-3 pr-14">
+                {safeMoneyLeft <= 0 ? (
+                  <p className={`text-2xl font-bold ${themeClasses.title}`}>Start your fund</p>
+                ) : (
+                  <p className={`text-[32px] font-bold leading-none ${status.text}`}>
+                    {months.toFixed(1)}
+                    <span className="ml-1.5 text-base font-semibold text-white/85">months</span>
+                  </p>
+                )}
 
-              <p className={`mt-2 max-w-[28rem] text-xs font-medium leading-relaxed ${themeClasses.body}`}>{progression}</p>
-              <p className={`text-[11px] mt-1 ${themeClasses.muted}`}>Your future stability depends on this.</p>
-            </div>
-
-            <div className="mb-3">
-              <div className="mb-1.5 flex items-center justify-between text-[11px] font-medium text-white/75">
-                <span>Protection progress</span>
-                <span>{pct.toFixed(0)}%</span>
+                <p className={`mt-2 max-w-[28rem] text-xs font-medium leading-relaxed ${themeClasses.body}`}>{progression}</p>
+                <p className={`text-[11px] mt-1 ${themeClasses.muted}`}>Your future stability depends on this.</p>
               </div>
 
-              <div className="h-2.5 overflow-hidden rounded-full border border-white/10 bg-black/20">
-                <div className={`relative h-full rounded-full bg-gradient-to-r ${status.bar} transition-all duration-500`} style={{ width: `${pct}%` }}>
-                  <div className="absolute inset-0 bg-white/20 opacity-40" />
+              <div className={`${isExpanded ? "mb-2" : "mb-3"}`}>
+                <div className="mb-1.5 flex items-center justify-between text-[11px] font-medium text-white/75">
+                  <span>Protection progress</span>
+                  <span>{pct.toFixed(0)}%</span>
                 </div>
-              </div>
 
-              <div className="mt-2 flex items-center justify-between text-[11px] font-medium text-white/70">
-                <span>{fmt(safeMoneyLeft)}</span>
-                <span>{fmt(target)}</span>
+                <div className="h-2.5 overflow-hidden rounded-full border border-white/10 bg-black/20">
+                  <div className={`relative h-full rounded-full bg-gradient-to-r ${status.bar} transition-all duration-500`} style={{ width: `${pct}%` }}>
+                    <div className="absolute inset-0 bg-white/20 opacity-40" />
+                  </div>
+                </div>
+
+                <div className="mt-2 flex items-center justify-between text-[11px] font-medium text-white/70">
+                  <span>{fmt(safeMoneyLeft)}</span>
+                  <span>{fmt(target)}</span>
+                </div>
               </div>
             </div>
 
@@ -442,7 +444,7 @@ export default function EmergencyFundCard({
           </div>
 
           {isExpanded && (
-            <div className={`mt-3 min-h-0 flex-1 space-y-3 overflow-y-auto rounded-2xl border p-3 backdrop-blur-[2px] shadow-[inset_0_1px_0_rgba(255,255,255,0.05)] [scrollbar-width:none] ${themeClasses.glass} [&::-webkit-scrollbar]:hidden`}>
+            <div className={`mt-2 min-h-0 flex-1 space-y-2 overflow-y-auto rounded-2xl border p-3 backdrop-blur-[2px] shadow-[inset_0_1px_0_rgba(255,255,255,0.05)] [scrollbar-width:none] ${themeClasses.glass} [&::-webkit-scrollbar]:hidden`}>
               <div>
                 <div className="mb-2 flex items-center justify-between">
                   <span className="text-xs font-semibold text-white/90">Goal</span>
