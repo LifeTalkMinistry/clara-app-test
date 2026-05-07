@@ -53,7 +53,6 @@ export default function CarouselSlideShell({
             ? {
                 height: "min(560px, calc(100dvh - 178px))",
                 minHeight: "430px",
-                transform: "translate3d(0, -224px, 0)",
               }
             : undefined
         }
