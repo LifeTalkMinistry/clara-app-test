@@ -26,7 +26,7 @@ const getFinanceSlideShellClass = (cardKey, theme = null, scale = null, isExpand
       "min-h-[286px] rounded-[28px] [&>*]:min-h-[284px] [&>*]:rounded-[27px]";
 
   return [
-    "relative w-full overflow-hidden border backdrop-blur-2xl transition-all duration-300 ease-[cubic-bezier(0.22,1,0.36,1)]",
+    "relative w-full overflow-hidden border backdrop-blur-2xl transition-all duration-500 ease-[cubic-bezier(0.22,1,0.36,1)]",
     sizeClass,
     toneClassMap[cardKey] || toneClassMap.budget,
   ].join(" ");
@@ -53,6 +53,7 @@ export default function CarouselSlideShell({
             ? {
                 height: "min(560px, calc(100dvh - 178px))",
                 minHeight: "430px",
+                transform: "translate3d(0, -224px, 0)",
               }
             : undefined
         }
