@@ -9,15 +9,6 @@ import {
   getDefaultCarouselIndex,
 } from "./logic/FinancialCarouselLogic";
 
-const INLINE_FOCUS_DETAIL_KEYS = [
-  "budgets",
-  "wallets",
-  "emergency",
-  "investmentFund",
-  "savings",
-  "debtObligations",
-];
-
 const getExpandedCardIndex = (items = [], expandedFinanceCard = null) => {
   if (!expandedFinanceCard) return -1;
 
@@ -181,7 +172,7 @@ export default function FinancialCarousel({
         onScroll={handleScroll}
         interactionHandlers={interactionHandlers}
         clipClassName={dashboardScale.financeClip || "rounded-[28px]"}
-        allowVerticalOverflow={isInlineFocusExpanded}
+        allowVerticalOverflow={false}
       >
         {items.map((item) => {
           const isInlineExpanded =
