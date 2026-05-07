@@ -153,7 +153,7 @@ export default function FinancialCarousel({
   if (!items.length) return null;
 
   return (
-    <div className="relative z-20 mt-0 mb-0">
+    <div className="relative z-20 mt-0 mb-5">
       <style>{`
         .clara-budget-focus-shift {
           transform: translate3d(0, 0, 0);
