@@ -1,4 +1,4 @@
-const getFinanceSlideShellClass = (cardKey, theme = null, scale = null) => {
+const getFinanceSlideShellClass = (cardKey, theme = null, scale = null, isExpanded = false) => {
   const toneClassMap = {
     wallet:
       theme?.tokens?.financeWalletShell ||
@@ -20,10 +20,14 @@ const getFinanceSlideShellClass = (cardKey, theme = null, scale = null) => {
       "border-white/15 bg-[radial-gradient(circle_at_top_left,rgba(251,113,133,0.16),transparent_34%),linear-gradient(135deg,rgba(40,12,18,0.96),rgba(18,8,14,0.98))] shadow-[0_28px_85px_rgba(244,63,94,0.13)]",
   };
 
+  const sizeClass = isExpanded
+    ? "rounded-[28px] [&>*]:min-h-[inherit] [&>*]:rounded-[27px]"
+    : scale?.financeSlide ||
+      "min-h-[286px] rounded-[28px] [&>*]:min-h-[284px] [&>*]:rounded-[27px]";
+
   return [
-    "relative w-full overflow-hidden border backdrop-blur-2xl",
-    scale?.financeSlide ||
-      "min-h-[286px] rounded-[28px] [&>*]:min-h-[284px] [&>*]:rounded-[27px]",
+    "relative w-full overflow-hidden border backdrop-blur-2xl transition-all duration-300 ease-[cubic-bezier(0.22,1,0.36,1)]",
+    sizeClass,
     toneClassMap[cardKey] || toneClassMap.budget,
   ].join(" ");
 };
@@ -32,6 +36,7 @@ export default function CarouselSlideShell({
   item,
   selectedDashboardTheme,
   dashboardScale,
+  isExpanded = false,
   children,
 }) {
   return (
@@ -40,8 +45,17 @@ export default function CarouselSlideShell({
         className={getFinanceSlideShellClass(
           item.key,
           selectedDashboardTheme,
-          dashboardScale
+          dashboardScale,
+          isExpanded
         )}
+        style={
+          isExpanded
+            ? {
+                height: "min(620px, calc(100dvh - 210px))",
+                minHeight: "420px",
+              }
+            : undefined
+        }
       >
         {children}
       </div>
