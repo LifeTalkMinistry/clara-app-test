@@ -17,8 +17,6 @@ const INLINE_FOCUS_DETAIL_KEYS = [
   "savings",
 ];
 
-const INLINE_EXPAND_UP_OFFSET = 210;
-
 export default function FinancialCarousel({
   dashboardScale = {},
   selectedDashboardTheme = {},
@@ -128,13 +126,7 @@ export default function FinancialCarousel({
   if (!items.length) return null;
 
   return (
-    <div
-      className="relative z-20 mb-0"
-      style={{
-        marginTop: isInlineFocusExpanded ? `-${INLINE_EXPAND_UP_OFFSET}px` : "0px",
-        transition: "margin-top 520ms cubic-bezier(0.22, 1, 0.36, 1)",
-      }}
-    >
+    <div className="relative z-20 mt-0 mb-0">
       <style>{`
         .clara-budget-focus-shift {
           transform: translate3d(0, 0, 0);
@@ -160,6 +152,7 @@ export default function FinancialCarousel({
         onScroll={handleScroll}
         interactionHandlers={interactionHandlers}
         clipClassName={dashboardScale.financeClip || "rounded-[28px]"}
+        allowVerticalOverflow={isInlineFocusExpanded}
       >
         {items.map((item) => {
           const isInlineExpanded =
