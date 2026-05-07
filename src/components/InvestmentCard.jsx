@@ -1,9 +1,11 @@
-import { ChevronDown, ChevronUp, TrendingUp } from "lucide-react";
+import { TrendingUp } from "lucide-react";
 
 import useInvestmentCardLogic, {
   fmt,
   INVESTMENT_TYPES,
 } from "@/components/financial-carousel/cards/investment/logic/useInvestmentCardLogic";
+import FinanceCardExpandButton from "@/components/financial-carousel/shared/FinanceCardExpandButton";
+import FinanceCardExpandedPanel from "@/components/financial-carousel/shared/FinanceCardExpandedPanel";
 
 export default function InvestmentCard({
   item = null,
@@ -57,9 +59,9 @@ export default function InvestmentCard({
         className={`pointer-events-none absolute right-5 top-24 h-24 w-24 rounded-full blur-3xl ${tone.accent}`}
       />
 
-      <div className="relative z-10 flex h-full min-h-0 flex-col p-4">
-        <div className={`${isExpanded ? "shrink-0" : "flex-1"} flex min-h-0 flex-col justify-between`}>
-          <div>
+      <div className="relative z-10 flex h-full min-h-0 flex-col p-4 pb-5">
+        <div className={`${isExpanded ? "shrink-0" : "flex-1"} flex min-h-0 flex-col justify-between gap-2`}>
+          <div className="min-h-0">
             <div className="mb-3 flex items-start gap-3">
               <div
                 className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border backdrop-blur-sm ${tone.iconShell}`}
@@ -121,24 +123,17 @@ export default function InvestmentCard({
             </div>
           </div>
 
-          <button
-            type="button"
-            onClick={handleToggleDetails}
-            className="flex w-full items-center justify-between rounded-2xl border border-white/10 bg-black/15 px-3 py-2.5 text-sm text-white/82 backdrop-blur-sm transition hover:bg-white/10 hover:text-white"
-          >
-            <span className="font-medium">
-              {isExpanded ? "Hide details" : "Show details"}
-            </span>
-            {isExpanded ? (
-              <ChevronUp className="h-4 w-4" />
-            ) : (
-              <ChevronDown className="h-4 w-4" />
-            )}
-          </button>
+          <div className="shrink-0 pb-0.5">
+            <FinanceCardExpandButton
+              detailKey="investmentFund"
+              expanded={isExpanded}
+              onToggleDetails={handleToggleDetails}
+            />
+          </div>
         </div>
 
         {isExpanded && (
-          <div className="mt-2 min-h-0 flex-1 space-y-2 overflow-y-auto rounded-2xl border border-white/10 bg-black/15 p-3 backdrop-blur-sm shadow-[inset_0_1px_0_rgba(255,255,255,0.05)] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+          <FinanceCardExpandedPanel>
             <div className="grid grid-cols-3 gap-2 text-center text-sm text-white">
               {[
                 [statOneLabel, statOneValue],
@@ -210,7 +205,7 @@ export default function InvestmentCard({
                 Ask CLARA
               </button>
             </div>
-          </div>
+          </FinanceCardExpandedPanel>
         )}
       </div>
     </div>
