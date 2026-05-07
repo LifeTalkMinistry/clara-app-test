@@ -1,107 +1,33 @@
 import { useMemo, useState } from "react";
 import useUserRole from "@/hooks/useUserRole";
 import useFinancialData from "@/hooks/useFinancialData";
+import { fmt } from "./walletFormatting";
+import {
+  getHistoryAmountPrefix,
+  getHistoryTypeLabel,
+  getWalletIcon,
+  normalizeWalletType,
+  toNumber,
+  walletIcons,
+  walletTypes,
+} from "./walletHelpers";
+import {
+  getExpandedWalletMessage,
+  getTopWallet,
+  getWalletMessage,
+  getWalletStatus,
+} from "./walletCalculations";
 
-export const walletTypes = ["cash", "gcash", "bank", "maya", "credit_card", "other"];
-
-export const walletIcons = {
-  cash: "💵",
-  gcash: "📱",
-  bank: "🏦",
-  maya: "💜",
-  credit_card: "💳",
-  other: "💰",
+export {
+  fmt,
+  getHistoryAmountPrefix,
+  getHistoryTypeLabel,
+  getWalletIcon,
+  normalizeWalletType,
+  toNumber,
+  walletIcons,
+  walletTypes,
 };
-
-export const fmt = (n) =>
-  new Intl.NumberFormat("en-PH", {
-    style: "currency",
-    currency: "PHP",
-    minimumFractionDigits: 0,
-  }).format(Number(n || 0));
-
-export const toNumber = (value) => {
-  const number = Number(value);
-  return Number.isFinite(number) ? number : 0;
-};
-
-export const getHistoryTypeLabel = (type) => {
-  switch (String(type || "").toLowerCase()) {
-    case "add":
-      return "Added Money";
-    case "income":
-      return "Income";
-    case "transfer_in":
-      return "Transfer In";
-    case "transfer_out":
-      return "Transfer Out";
-    case "expense":
-      return "Expense";
-    case "reset":
-      return "Reset";
-    case "savings_goal":
-      return "Savings Goal";
-    default:
-      return String(type || "Transaction")
-        .replaceAll("_", " ")
-        .replace(/\b\w/g, (c) => c.toUpperCase());
-  }
-};
-
-export const getHistoryAmountPrefix = (type) => {
-  const normalized = String(type || "").toLowerCase();
-  return ["transfer_out", "expense", "reset", "savings_goal"].includes(normalized)
-    ? "-"
-    : "+";
-};
-
-export const formatHistoryDate = (value) => {
-  if (!value) return "No date";
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return "No date";
-  return date.toLocaleString("en-PH", {
-    year: "numeric",
-    month: "short",
-    day: "numeric",
-    hour: "numeric",
-    minute: "2-digit",
-  });
-};
-
-export function getWalletStatus(walletCount, walletMoney) {
-  if (walletCount === 0) {
-    return {
-      label: "Empty",
-      text: "text-white/95",
-      badge: "bg-white/8 text-white/75 border border-white/10",
-      ring: "shadow-[0_0_24px_rgba(52,211,153,0.08)]",
-    };
-  }
-
-  if (walletMoney > 0) {
-    return {
-      label: "Active",
-      text: "text-emerald-200",
-      badge: "bg-emerald-400/15 text-emerald-100 border border-emerald-300/25",
-      ring: "shadow-[0_0_34px_rgba(0,255,220,0.14)]",
-    };
-  }
-
-  return {
-    label: "Ready",
-    text: "text-cyan-200",
-    badge: "bg-cyan-400/15 text-cyan-100 border border-cyan-300/25",
-    ring: "shadow-[0_0_34px_rgba(34,211,238,0.13)]",
-  };
-}
-
-export function getWalletMessage(topWallet, walletCount) {
-  if (!walletCount) return "Create your first wallet to organize your money.";
-  if (topWallet) {
-    return `${topWallet.name || "Top wallet"} currently holds ${fmt(topWallet.balance || 0)}.`;
-  }
-  return "Your wallets are ready for tracking and movement.";
-}
 
 export default function useWalletCardLogic({
   wallets = [],
@@ -116,13 +42,19 @@ export default function useWalletCardLogic({
   const [editForm, setEditForm] = useState({ name: "", type: "cash" });
   const [isSavingWalletEdit, setIsSavingWalletEdit] = useState(false);
 
-  const topWallet = wallets[0] || null;
-  const status = getWalletStatus(wallets.length, walletMoney);
-  const message = getWalletMessage(topWallet, wallets.length);
+  const activeWallets = useMemo(
+    () => (Array.isArray(wallets) ? wallets.filter((wallet) => !wallet?.is_archived) : []),
+    [wallets]
+  );
+
+  const topWallet = useMemo(() => getTopWallet(activeWallets), [activeWallets]);
+  const status = getWalletStatus(activeWallets.length, walletMoney);
+  const message = getWalletMessage(activeWallets.length);
+  const expandedMessage = getExpandedWalletMessage(topWallet, activeWallets.length);
 
   const visibleWallets = useMemo(
-    () => (expanded ? wallets : wallets.slice(0, 2)),
-    [wallets, expanded]
+    () => (expanded ? activeWallets : activeWallets.slice(0, 2)),
+    [activeWallets, expanded]
   );
 
   const visibleTransactions = useMemo(
@@ -139,7 +71,7 @@ export default function useWalletCardLogic({
     setEditingWallet(wallet);
     setEditForm({
       name: wallet?.name || wallet?.wallet_name || "",
-      type: wallet?.type || "cash",
+      type: normalizeWalletType(wallet?.type || "cash"),
     });
   };
 
@@ -165,13 +97,13 @@ export default function useWalletCardLogic({
 
     try {
       setIsSavingWalletEdit(true);
-      const nextType = editForm.type || editingWallet?.type || "other";
+      const nextType = normalizeWalletType(editForm.type || editingWallet?.type || "custom");
 
       await updateWallet(editingWallet.id, {
         name: nextName,
         wallet_name: nextName,
         type: nextType,
-        icon: walletIcons[nextType] || editingWallet?.icon || "💰",
+        icon: getWalletIcon(nextType, editingWallet?.icon || "💰"),
         updated_at: new Date().toISOString(),
       });
 
@@ -189,9 +121,11 @@ export default function useWalletCardLogic({
     editForm,
     setEditForm,
     isSavingWalletEdit,
+    activeWallets,
     topWallet,
     status,
     message,
+    expandedMessage,
     visibleWallets,
     visibleTransactions,
     openEditWallet,
