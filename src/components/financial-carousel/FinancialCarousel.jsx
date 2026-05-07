@@ -9,6 +9,8 @@ import {
   getDefaultCarouselIndex,
 } from "./logic/FinancialCarouselLogic";
 
+const INLINE_FOCUS_DETAIL_KEYS = ["budgets", "wallets"];
+
 export default function FinancialCarousel({
   dashboardScale = {},
   selectedDashboardTheme = {},
@@ -102,18 +104,18 @@ export default function FinancialCarousel({
     autoMove: false,
   });
 
-  const isBudgetInlineExpanded = expandedFinanceCard === "budgets";
+  const isInlineFocusExpanded = INLINE_FOCUS_DETAIL_KEYS.includes(expandedFinanceCard);
 
   useEffect(() => {
     if (typeof document === "undefined") return undefined;
 
     const root = document.documentElement;
-    root.classList.toggle("clara-budget-focus-mode", isBudgetInlineExpanded);
+    root.classList.toggle("clara-budget-focus-mode", isInlineFocusExpanded);
 
     return () => {
       root.classList.remove("clara-budget-focus-mode");
     };
-  }, [isBudgetInlineExpanded]);
+  }, [isInlineFocusExpanded]);
 
   if (!items.length) return null;
 
@@ -149,7 +151,8 @@ export default function FinancialCarousel({
       >
         {items.map((item) => {
           const isInlineExpanded =
-            item.detailKey === expandedFinanceCard && expandedFinanceCard === "budgets";
+            item.detailKey === expandedFinanceCard &&
+            INLINE_FOCUS_DETAIL_KEYS.includes(expandedFinanceCard);
 
           return (
             <CarouselSlideShell
