@@ -46,6 +46,12 @@ export const ensureClaraVisualPerformanceStyles = () => {
       will-change: transform, opacity !important;
     }
 
+    .clara-performance-mode [style*="perspective: 1300px"] {
+      height: 226px !important;
+      min-height: 226px !important;
+      max-height: none !important;
+    }
+
     .clara-performance-mode .clara-preserve-flip-face {
       backface-visibility: hidden !important;
       -webkit-backface-visibility: hidden !important;
