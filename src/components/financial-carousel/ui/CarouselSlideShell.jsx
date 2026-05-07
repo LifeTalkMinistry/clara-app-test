@@ -1,6 +1,5 @@
 export const NORMAL_SLIDE_HEIGHT = 286;
 export const EXPANDED_SLIDE_HEIGHT = 516;
-export const EXPANDED_OVERFLOW_OFFSET = EXPANDED_SLIDE_HEIGHT - NORMAL_SLIDE_HEIGHT;
 
 const getFinanceSlideShellClass = (cardKey, theme = null, isExpanded = false) => {
   const toneClassMap = {
@@ -25,7 +24,7 @@ const getFinanceSlideShellClass = (cardKey, theme = null, isExpanded = false) =>
   };
 
   return [
-    "absolute inset-x-0 bottom-0 w-full overflow-hidden rounded-[28px] border backdrop-blur-2xl transition-[height,box-shadow,border-color] duration-500 ease-[cubic-bezier(0.22,1,0.36,1)] [&>*]:min-h-[inherit] [&>*]:rounded-[27px]",
+    "absolute inset-x-0 top-0 w-full overflow-hidden rounded-[28px] border backdrop-blur-2xl transition-[height,box-shadow,border-color] duration-500 ease-[cubic-bezier(0.22,1,0.36,1)] [&>*]:min-h-[inherit] [&>*]:rounded-[27px]",
     isExpanded ? "ring-1 ring-cyan-200/10" : "",
     toneClassMap[cardKey] || toneClassMap.budget,
   ].join(" ");
@@ -41,8 +40,8 @@ export default function CarouselSlideShell({
 
   return (
     <div
-      className="relative flex h-[286px] min-h-[286px] w-full min-w-full shrink-0 snap-center overflow-visible"
-      style={{ height: NORMAL_SLIDE_HEIGHT, minHeight: NORMAL_SLIDE_HEIGHT }}
+      className="relative flex w-full min-w-full shrink-0 snap-center overflow-visible transition-[height] duration-500 ease-[cubic-bezier(0.22,1,0.36,1)]"
+      style={{ height: slideHeight, minHeight: slideHeight }}
     >
       <div
         className={getFinanceSlideShellClass(
