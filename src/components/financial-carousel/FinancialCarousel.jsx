@@ -17,6 +17,8 @@ const INLINE_FOCUS_DETAIL_KEYS = [
   "savings",
 ];
 
+const INLINE_EXPAND_UP_OFFSET = 210;
+
 export default function FinancialCarousel({
   dashboardScale = {},
   selectedDashboardTheme = {},
@@ -126,24 +128,28 @@ export default function FinancialCarousel({
   if (!items.length) return null;
 
   return (
-    <div className="relative z-20 mt-0 mb-0">
+    <div
+      className="relative z-20 mb-0"
+      style={{
+        marginTop: isInlineFocusExpanded ? `-${INLINE_EXPAND_UP_OFFSET}px` : "0px",
+        transition: "margin-top 520ms cubic-bezier(0.22, 1, 0.36, 1)",
+      }}
+    >
       <style>{`
         .clara-budget-focus-shift {
           transform: translate3d(0, 0, 0);
-          transition: transform 520ms cubic-bezier(0.22, 1, 0.36, 1), opacity 520ms cubic-bezier(0.22, 1, 0.36, 1), margin-bottom 520ms cubic-bezier(0.22, 1, 0.36, 1);
-          will-change: transform, opacity, margin-bottom;
+          transition: transform 520ms cubic-bezier(0.22, 1, 0.36, 1), opacity 520ms cubic-bezier(0.22, 1, 0.36, 1);
+          will-change: transform, opacity;
         }
 
         .clara-budget-focus-mode .clara-budget-focus-tip {
           transform: translate3d(0, -196px, 0);
-          margin-bottom: -170px;
           opacity: 0.5;
           pointer-events: none;
         }
 
         .clara-budget-focus-mode .clara-budget-focus-hub {
           transform: translate3d(0, -196px, 0);
-          margin-bottom: -56px;
           opacity: 0.56;
           pointer-events: none;
         }
