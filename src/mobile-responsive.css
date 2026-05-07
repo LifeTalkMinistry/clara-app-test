@@ -377,3 +377,145 @@ main > *:last-child {
   }
 }
 
+/* Dashboard fit mode
+   Goal: latest/tall devices see the first dashboard stack close to one screen;
+   older/shorter devices keep readable sizing and naturally scroll. */
+.theme-page-shell,
+.theme-page-shell main {
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+.theme-page-shell main {
+  height: auto;
+  max-height: 100dvh;
+}
+
+@media (max-width: 430px) {
+  .theme-page-shell main {
+    overflow-y: auto !important;
+    overscroll-behavior-y: contain;
+  }
+
+  .theme-page-shell main > div:first-child {
+    min-height: auto !important;
+  }
+}
+
+@media (max-width: 430px) and (max-height: 820px) {
+  .theme-page-shell main {
+    padding-top: max(0.1rem, calc(var(--clara-safe-top) + 0.04rem)) !important;
+    padding-bottom: calc(0.45rem + var(--clara-safe-bottom)) !important;
+  }
+
+  .clara-performance-mode nav:has(a[href*="/dashboard"]):has(a[href*="/feed"]),
+  .clara-performance-mode nav:has(a[href*="/messages"]):has(a[href*="/settings"]),
+  .clara-performance-mode header nav:has(a[href*="/dashboard"]),
+  .clara-performance-mode header nav:has(a[href*="/settings"]) {
+    top: calc(env(safe-area-inset-top) + 5px) !important;
+    min-height: 72px !important;
+  }
+
+  .theme-page-shell main > div:first-child [style*="perspective"] {
+    height: 136px !important;
+    min-height: 136px !important;
+  }
+
+  .theme-page-shell main > div:first-child [style*="perspective"] > .clara-preserve-flip-motion,
+  .theme-page-shell main > div:first-child [style*="perspective"] .clara-preserve-flip-face {
+    min-height: 136px !important;
+  }
+
+  .clara-learning-motion.relative.isolate.mx-auto {
+    margin-top: 0.55rem !important;
+    margin-bottom: 0 !important;
+    padding-top: 0.42rem !important;
+    padding-bottom: 0.42rem !important;
+  }
+
+  .clara-finance-bubble-card,
+  [data-emergency-card="true"],
+  .clara-finance-bubble-card-shell > div:first-child {
+    min-height: 298px !important;
+  }
+
+  .clara-finance-bubble-card .p-4,
+  [data-emergency-card="true"] .p-4,
+  .clara-finance-bubble-card-shell > div:first-child .p-4 {
+    padding: 0.86rem !important;
+  }
+
+  .theme-page-shell main [data-clara-summary-card="money-left"],
+  .theme-page-shell main [data-clara-summary-card="total-expense"] {
+    min-height: 94px !important;
+  }
+}
+
+@media (max-width: 430px) and (max-height: 760px) {
+  .theme-page-shell main {
+    padding-bottom: calc(0.35rem + var(--clara-safe-bottom)) !important;
+  }
+
+  .clara-performance-mode nav:has(a[href*="/dashboard"]):has(a[href*="/feed"]),
+  .clara-performance-mode nav:has(a[href*="/messages"]):has(a[href*="/settings"]),
+  .clara-performance-mode header nav:has(a[href*="/dashboard"]),
+  .clara-performance-mode header nav:has(a[href*="/settings"]) {
+    min-height: 66px !important;
+  }
+
+  .theme-page-shell main > div:first-child [style*="perspective"] {
+    height: 124px !important;
+    min-height: 124px !important;
+  }
+
+  .theme-page-shell main > div:first-child [style*="perspective"] > .clara-preserve-flip-motion,
+  .theme-page-shell main > div:first-child [style*="perspective"] .clara-preserve-flip-face {
+    min-height: 124px !important;
+  }
+
+  .clara-finance-bubble-card,
+  [data-emergency-card="true"],
+  .clara-finance-bubble-card-shell > div:first-child {
+    min-height: 280px !important;
+  }
+
+  .theme-page-shell main [data-clara-summary-card="money-left"],
+  .theme-page-shell main [data-clara-summary-card="total-expense"] {
+    min-height: 88px !important;
+  }
+}
+
+@media (max-width: 430px) and (max-height: 700px) {
+  .theme-page-shell main {
+    overflow-y: auto !important;
+  }
+
+  .clara-performance-mode nav:has(a[href*="/dashboard"]):has(a[href*="/feed"]),
+  .clara-performance-mode nav:has(a[href*="/messages"]):has(a[href*="/settings"]),
+  .clara-performance-mode header nav:has(a[href*="/dashboard"]),
+  .clara-performance-mode header nav:has(a[href*="/settings"]) {
+    min-height: 62px !important;
+  }
+
+  .theme-page-shell main > div:first-child [style*="perspective"] {
+    height: 116px !important;
+    min-height: 116px !important;
+  }
+
+  .theme-page-shell main > div:first-child [style*="perspective"] > .clara-preserve-flip-motion,
+  .theme-page-shell main > div:first-child [style*="perspective"] .clara-preserve-flip-face {
+    min-height: 116px !important;
+  }
+
+  .clara-finance-bubble-card,
+  [data-emergency-card="true"],
+  .clara-finance-bubble-card-shell > div:first-child {
+    min-height: 268px !important;
+  }
+
+  .theme-page-shell main [data-clara-summary-card="money-left"],
+  .theme-page-shell main [data-clara-summary-card="total-expense"] {
+    min-height: 84px !important;
+  }
+}
+
