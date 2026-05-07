@@ -9,8 +9,6 @@ import {
   getDefaultCarouselIndex,
 } from "./logic/FinancialCarouselLogic";
 
-const EXPANDED_TOP_GAP = 20;
-
 const getExpandedCardIndex = (items = [], expandedFinanceCard = null) => {
   if (!expandedFinanceCard) return -1;
 
@@ -74,10 +72,7 @@ export default function FinancialCarousel(props) {
   if (!items.length) return null;
 
   return (
-    <div
-      className="relative z-20 mb-5 transition-[margin-top] duration-500 ease-[cubic-bezier(0.22,1,0.36,1)]"
-      style={{ marginTop: isInlineFocusExpanded ? EXPANDED_TOP_GAP : 0 }}
-    >
+    <div className="relative z-20 mt-0 mb-5">
       <style>{`
         .clara-budget-focus-shift {
           transform: translate3d(0, 0, 0);
