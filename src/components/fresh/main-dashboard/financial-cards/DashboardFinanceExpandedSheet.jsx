@@ -2,7 +2,17 @@ import { X } from "lucide-react";
 
 import SavingsCard from "@/components/SavingsCard";
 
-const getExpandedTitle = () => "Savings Goals";
+const INLINE_EXPANDED_CARDS = [
+  "budgets",
+  "wallets",
+  "emergency",
+  "investmentFund",
+];
+
+const getExpandedTitle = (expandedFinanceCard) => {
+  if (expandedFinanceCard === "savings") return "Savings Goals";
+  return "CLARA Details";
+};
 
 export default function DashboardFinanceExpandedSheet({
   activeDashboardPanel,
@@ -19,14 +29,9 @@ export default function DashboardFinanceExpandedSheet({
 }) {
   if (activeDashboardPanel !== "home" || !expandedFinanceCard) return null;
 
-  // Budget, Wallet, and Emergency Fund now expand inline inside the financial carousel.
-  if (
-    expandedFinanceCard === "budgets" ||
-    expandedFinanceCard === "wallets" ||
-    expandedFinanceCard === "emergency"
-  ) {
-    return null;
-  }
+  // These cards now expand inline inside the financial carousel.
+  // Do not open the old full-screen sheet for them.
+  if (INLINE_EXPANDED_CARDS.includes(expandedFinanceCard)) return null;
 
   const closeDetails = () => setExpandedFinanceCard(null);
   const closeAndRun = (callback) => {
