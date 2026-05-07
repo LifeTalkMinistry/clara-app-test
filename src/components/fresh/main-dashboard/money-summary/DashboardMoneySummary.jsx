@@ -87,7 +87,7 @@ export default function DashboardMoneySummary({
     <div
       {...financialSummaryParentHandlers}
       aria-label="Financial summary"
-      className={`relative grid cursor-default select-none grid-cols-2 overflow-hidden border ${
+      className={`relative mt-2 grid cursor-default select-none grid-cols-2 overflow-hidden border ${
         dashboardScale.summaryGrid || "rounded-[26px]"
       }`}
       style={{
