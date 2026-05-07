@@ -37,6 +37,15 @@ export const ensureClaraVisualPerformanceStyles = () => {
       will-change: transform !important;
     }
 
+    .clara-performance-mode .clara-learning-motion,
+    .clara-performance-mode .clara-learning-motion * {
+      transition-property: transform, opacity, width, grid-template-rows, margin, background-color, border-color !important;
+      transition-duration: 480ms !important;
+      transition-timing-function: cubic-bezier(0.22, 1, 0.36, 1) !important;
+      transform-style: preserve-3d !important;
+      will-change: transform, opacity !important;
+    }
+
     .clara-performance-mode .clara-preserve-flip-face {
       backface-visibility: hidden !important;
       -webkit-backface-visibility: hidden !important;
