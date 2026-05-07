@@ -1,5 +1,6 @@
-const NORMAL_SLIDE_HEIGHT = 286;
-const EXPANDED_SLIDE_HEIGHT = 516;
+const NORMAL_CARD_HEIGHT = 286;
+const EXPANDED_CARD_HEIGHT = 516;
+const SLIDE_BOTTOM_GAP = 18;
 
 const getFinanceSlideShellClass = (cardKey, theme = null, isExpanded = false) => {
   const toneClassMap = {
@@ -24,7 +25,7 @@ const getFinanceSlideShellClass = (cardKey, theme = null, isExpanded = false) =>
   };
 
   return [
-    "absolute inset-x-0 bottom-0 w-full overflow-hidden rounded-[28px] border backdrop-blur-2xl transition-[height,box-shadow,border-color] duration-500 ease-[cubic-bezier(0.22,1,0.36,1)] [&>*]:min-h-[inherit] [&>*]:rounded-[27px]",
+    "absolute inset-x-0 w-full overflow-hidden rounded-[28px] border backdrop-blur-2xl transition-[height,box-shadow,border-color,bottom] duration-500 ease-[cubic-bezier(0.22,1,0.36,1)] [&>*]:min-h-[inherit] [&>*]:rounded-[27px]",
     isExpanded ? "ring-1 ring-cyan-200/10" : "",
     toneClassMap[cardKey] || toneClassMap.budget,
   ].join(" ");
@@ -36,12 +37,13 @@ export default function CarouselSlideShell({
   isExpanded = false,
   children,
 }) {
-  const slideHeight = isExpanded ? EXPANDED_SLIDE_HEIGHT : NORMAL_SLIDE_HEIGHT;
+  const cardHeight = isExpanded ? EXPANDED_CARD_HEIGHT : NORMAL_CARD_HEIGHT;
+  const slideHeight = cardHeight + SLIDE_BOTTOM_GAP;
 
   return (
     <div
-      className="relative flex h-[286px] min-h-[286px] w-full min-w-full shrink-0 snap-center overflow-visible"
-      style={{ height: NORMAL_SLIDE_HEIGHT, minHeight: NORMAL_SLIDE_HEIGHT }}
+      className="relative flex w-full min-w-full shrink-0 snap-center overflow-visible"
+      style={{ height: slideHeight, minHeight: slideHeight }}
     >
       <div
         className={getFinanceSlideShellClass(
@@ -49,7 +51,11 @@ export default function CarouselSlideShell({
           selectedDashboardTheme,
           isExpanded
         )}
-        style={{ height: slideHeight, minHeight: slideHeight }}
+        style={{
+          bottom: SLIDE_BOTTOM_GAP,
+          height: cardHeight,
+          minHeight: cardHeight,
+        }}
       >
         {children}
       </div>
