@@ -15,7 +15,19 @@ const INLINE_FOCUS_DETAIL_KEYS = [
   "emergency",
   "investmentFund",
   "savings",
+  "debtObligations",
 ];
+
+const getExpandedCardIndex = (items = [], expandedFinanceCard = null) => {
+  if (!expandedFinanceCard) return -1;
+
+  return items.findIndex(
+    (item) =>
+      item?.detailKey === expandedFinanceCard ||
+      item?.key === expandedFinanceCard ||
+      item?.type === expandedFinanceCard
+  );
+};
 
 export default function FinancialCarousel({
   dashboardScale = {},
@@ -110,7 +122,22 @@ export default function FinancialCarousel({
     autoMove: false,
   });
 
-  const isInlineFocusExpanded = INLINE_FOCUS_DETAIL_KEYS.includes(expandedFinanceCard);
+  const expandedCardIndex = useMemo(
+    () => getExpandedCardIndex(items, expandedFinanceCard),
+    [items, expandedFinanceCard]
+  );
+
+  const isInlineFocusExpanded = expandedCardIndex >= 0;
+
+  useEffect(() => {
+    if (expandedCardIndex < 0 || typeof window === "undefined") return undefined;
+
+    const frame = window.requestAnimationFrame(() => {
+      scrollToIndex(expandedCardIndex, "smooth");
+    });
+
+    return () => window.cancelAnimationFrame(frame);
+  }, [expandedCardIndex, scrollToIndex]);
 
   useEffect(() => {
     if (typeof document === "undefined") return undefined;
@@ -158,8 +185,7 @@ export default function FinancialCarousel({
       >
         {items.map((item) => {
           const isInlineExpanded =
-            item.detailKey === expandedFinanceCard &&
-            INLINE_FOCUS_DETAIL_KEYS.includes(expandedFinanceCard);
+            item.detailKey === expandedFinanceCard && expandedCardIndex >= 0;
 
           return (
             <CarouselSlideShell
