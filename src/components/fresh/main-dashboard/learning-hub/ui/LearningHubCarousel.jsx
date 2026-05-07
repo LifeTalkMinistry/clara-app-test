@@ -7,6 +7,14 @@ const AUTO_SCROLL_DELAY = 4200;
 const RESUME_AFTER_TOUCH = 7000;
 const SWIPE_THRESHOLD = 34;
 
+const learningHubToggleSurface = {
+  background:
+    "radial-gradient(circle at -18% -42%, rgba(20,184,166,0.26), transparent 48%), radial-gradient(circle at 112% 132%, rgba(99,102,241,0.20), transparent 54%), linear-gradient(135deg, rgba(6,48,66,0.92), rgba(7,20,48,0.90) 48%, rgba(37,13,74,0.88))",
+  borderColor: "rgba(103,232,249,0.22)",
+  boxShadow:
+    "0 14px 36px rgba(0,0,0,0.26), inset 0 1px 0 rgba(255,255,255,0.10)",
+};
+
 export default function LearningHubCarousel({ materials = [], onOpenMaterial }) {
   const [activeIndex, setActiveIndex] = useState(0);
   const [isPaused, setIsPaused] = useState(false);
@@ -98,21 +106,28 @@ export default function LearningHubCarousel({ materials = [], onOpenMaterial }) 
     <section className="relative w-full overflow-hidden px-1 py-2">
       <DailyTipCard />
 
-      <button
-        type="button"
-        aria-expanded={isExpanded}
-        onClick={() => setIsExpanded((current) => !current)}
-        onTouchStart={handleHeaderTouchStart}
-        onTouchEnd={handleHeaderTouchEnd}
-        className="clara-learning-motion mx-auto mt-3 flex w-fit items-center justify-center gap-2 rounded-full border border-cyan-100/15 bg-white/[0.04] px-4 py-2 text-[11px] font-bold uppercase tracking-[0.24em] text-white/68 transition-[transform,background-color,border-color] duration-300 active:scale-[0.98]"
-      >
-        <BookOpen size={16} className="text-cyan-100/78" />
-        Learning Hub
-        <ChevronDown
-          size={15}
-          className={`text-cyan-100/60 transition-transform duration-300 ${isExpanded ? "rotate-180" : ""}`}
-        />
-      </button>
+      <div className="relative z-10 mx-auto mt-3 flex w-full justify-center px-3">
+        <button
+          type="button"
+          aria-expanded={isExpanded}
+          onClick={() => setIsExpanded((current) => !current)}
+          onTouchStart={handleHeaderTouchStart}
+          onTouchEnd={handleHeaderTouchEnd}
+          className="clara-learning-motion relative isolate flex min-h-[46px] w-full max-w-[280px] items-center justify-center gap-2 overflow-hidden rounded-[999px] border px-5 py-2.5 text-[11px] font-black uppercase tracking-[0.26em] text-white/86 transition-[transform,background-color,border-color] duration-300 active:scale-[0.985]"
+          style={learningHubToggleSurface}
+        >
+          <span className="pointer-events-none absolute -left-16 -top-20 z-0 h-32 w-32 rounded-full bg-cyan-300/[0.10]" />
+          <span className="pointer-events-none absolute -bottom-20 right-0 z-0 h-36 w-36 rounded-full bg-blue-400/[0.12]" />
+          <span className="pointer-events-none absolute inset-0 z-0 rounded-[inherit] bg-gradient-to-b from-white/[0.07] via-transparent to-black/10" />
+
+          <BookOpen size={16} className="relative z-10 text-cyan-100/86" />
+          <span className="relative z-10">Learning Hub</span>
+          <ChevronDown
+            size={15}
+            className={`relative z-10 text-cyan-100/70 transition-transform duration-300 ${isExpanded ? "rotate-180" : ""}`}
+          />
+        </button>
+      </div>
 
       <div
         className={`clara-learning-motion grid transition-[grid-template-rows,opacity,margin] duration-500 ease-out ${
