@@ -40,8 +40,8 @@ export default function CarouselSlideShell({
 
   return (
     <div
-      className="relative flex h-[286px] min-h-[286px] w-full min-w-full shrink-0 snap-center overflow-visible"
-      style={{ height: NORMAL_SLIDE_HEIGHT, minHeight: NORMAL_SLIDE_HEIGHT }}
+      className="relative flex w-full min-w-full shrink-0 snap-center overflow-visible transition-[height] duration-500 ease-[cubic-bezier(0.22,1,0.36,1)]"
+      style={{ height: slideHeight, minHeight: slideHeight }}
     >
       <div
         className={getFinanceSlideShellClass(
