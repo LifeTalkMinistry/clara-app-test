@@ -1,4 +1,7 @@
-const getFinanceSlideShellClass = (cardKey, theme = null, scale = null, isExpanded = false) => {
+const NORMAL_SLIDE_HEIGHT = 286;
+const EXPANDED_SLIDE_HEIGHT = 496;
+
+const getFinanceSlideShellClass = (cardKey, theme = null, isExpanded = false) => {
   const toneClassMap = {
     wallet:
       theme?.tokens?.financeWalletShell ||
@@ -20,14 +23,8 @@ const getFinanceSlideShellClass = (cardKey, theme = null, scale = null, isExpand
       "border-white/15 bg-[radial-gradient(circle_at_top_left,rgba(251,113,133,0.16),transparent_34%),linear-gradient(135deg,rgba(40,12,18,0.96),rgba(18,8,14,0.98))] shadow-[0_28px_85px_rgba(244,63,94,0.13)]",
   };
 
-  const stableHeight = isExpanded
-    ? "h-[496px] min-h-[496px] rounded-[28px] [&>*]:min-h-[496px] [&>*]:rounded-[27px]"
-    : scale?.financeSlide ||
-      "min-h-[286px] rounded-[28px] [&>*]:min-h-[284px] [&>*]:rounded-[27px]";
-
   return [
-    "relative w-full overflow-hidden border backdrop-blur-2xl transition-all duration-300 ease-[cubic-bezier(0.22,1,0.36,1)]",
-    stableHeight,
+    "absolute inset-x-0 bottom-0 w-full overflow-hidden rounded-[28px] border backdrop-blur-2xl transition-[height,box-shadow,border-color] duration-500 ease-[cubic-bezier(0.22,1,0.36,1)] [&>*]:min-h-[inherit] [&>*]:rounded-[27px]",
     isExpanded ? "ring-1 ring-cyan-200/10" : "",
     toneClassMap[cardKey] || toneClassMap.budget,
   ].join(" ");
@@ -36,19 +33,23 @@ const getFinanceSlideShellClass = (cardKey, theme = null, scale = null, isExpand
 export default function CarouselSlideShell({
   item,
   selectedDashboardTheme,
-  dashboardScale,
   isExpanded = false,
   children,
 }) {
+  const slideHeight = isExpanded ? EXPANDED_SLIDE_HEIGHT : NORMAL_SLIDE_HEIGHT;
+
   return (
-    <div className="flex w-full min-w-full shrink-0 snap-center">
+    <div
+      className="relative flex h-[286px] min-h-[286px] w-full min-w-full shrink-0 snap-center overflow-visible"
+      style={{ height: NORMAL_SLIDE_HEIGHT, minHeight: NORMAL_SLIDE_HEIGHT }}
+    >
       <div
         className={getFinanceSlideShellClass(
           item.key,
           selectedDashboardTheme,
-          dashboardScale,
           isExpanded
         )}
+        style={{ height: slideHeight, minHeight: slideHeight }}
       >
         {children}
       </div>
