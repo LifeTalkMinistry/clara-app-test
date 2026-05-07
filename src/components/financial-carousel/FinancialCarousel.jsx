@@ -76,21 +76,25 @@ export default function FinancialCarousel(props) {
       <style>{`
         .clara-budget-focus-shift {
           transform: translate3d(0, 0, 0);
-          transition: transform 520ms cubic-bezier(0.22, 1, 0.36, 1), opacity 520ms cubic-bezier(0.22, 1, 0.36, 1), visibility 520ms cubic-bezier(0.22, 1, 0.36, 1);
-          will-change: transform, opacity;
+          transition:
+            max-height 520ms cubic-bezier(0.22, 1, 0.36, 1),
+            margin 520ms cubic-bezier(0.22, 1, 0.36, 1),
+            padding 520ms cubic-bezier(0.22, 1, 0.36, 1),
+            opacity 320ms ease,
+            visibility 320ms ease;
+          will-change: max-height, margin, padding, opacity;
         }
 
-        .clara-budget-focus-mode .clara-budget-focus-tip {
-          transform: translate3d(0, -218px, 0);
-          opacity: 0;
-          visibility: hidden;
-          pointer-events: none;
-        }
-
+        .clara-budget-focus-mode .clara-budget-focus-tip,
         .clara-budget-focus-mode .clara-budget-focus-hub {
-          transform: translate3d(0, -226px, 0);
+          max-height: 0 !important;
+          margin-top: 0 !important;
+          margin-bottom: 0 !important;
+          padding-top: 0 !important;
+          padding-bottom: 0 !important;
           opacity: 0;
           visibility: hidden;
+          overflow: hidden;
           pointer-events: none;
         }
       `}</style>
