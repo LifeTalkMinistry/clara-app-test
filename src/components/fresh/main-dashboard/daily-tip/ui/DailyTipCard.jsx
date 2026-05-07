@@ -22,37 +22,27 @@ export default function DailyTipCard() {
         type="button"
         onClick={handleFlip}
         className="group relative h-[150px] w-full cursor-pointer bg-transparent text-left transition-transform duration-300 active:scale-[0.98]"
-        style={{ perspective: "1500px" }}
+        style={{ perspective: "1500px", WebkitTapHighlightColor: "transparent" }}
       >
-        <div
-          className={`pointer-events-none absolute inset-x-8 bottom-[-14px] h-6 rounded-full bg-cyan-900/30 blur-xl transition-all duration-700 ${
-            isFlipping ? "opacity-80 scale-x-75" : "opacity-35 scale-x-100"
-          }`}
-        />
-
         <div
           className="clara-preserve-flip-motion absolute inset-0 rounded-2xl transition-transform duration-700 will-change-transform"
           style={{
             transformStyle: "preserve-3d",
             transitionTimingFunction: "cubic-bezier(0.18, 0.85, 0.28, 1.15)",
             transform: flipped
-              ? "translateZ(26px) rotateX(3deg) rotateY(180deg) scale(1.015)"
-              : "translateZ(0px) rotateX(0deg) rotateY(0deg) scale(1)",
+              ? "translateZ(0px) rotateY(180deg)"
+              : "translateZ(0px) rotateY(0deg)",
           }}
         >
           <div
-            className="clara-preserve-flip-face absolute inset-0 overflow-hidden rounded-2xl border border-white/10 bg-gradient-to-br from-cyan-400/10 via-slate-900/40 to-indigo-500/10 shadow-[0_10px_40px_rgba(0,0,0,0.45)] backdrop-blur-xl"
+            className="clara-preserve-flip-face absolute inset-0 overflow-hidden rounded-2xl border border-white/10 bg-gradient-to-br from-cyan-400/10 via-slate-900/40 to-indigo-500/10"
             style={{
               backfaceVisibility: "hidden",
+              WebkitBackfaceVisibility: "hidden",
               transform: "translateZ(1px)",
             }}
           >
-            <div
-              className={`pointer-events-none absolute inset-0 rounded-2xl bg-cyan-400/5 blur-xl transition-all duration-700 ${
-                isFlipping ? "opacity-100 scale-[1.05]" : "opacity-60 scale-100"
-              }`}
-            />
-            <div className="pointer-events-none absolute inset-[1px] rounded-2xl bg-[radial-gradient(circle_at_top_left,rgba(103,232,249,0.16),transparent_42%),radial-gradient(circle_at_bottom_right,rgba(99,102,241,0.16),transparent_46%)]" />
+            <div className="pointer-events-none absolute inset-[1px] rounded-2xl bg-[radial-gradient(circle_at_top_left,rgba(103,232,249,0.10),transparent_44%),radial-gradient(circle_at_bottom_right,rgba(99,102,241,0.12),transparent_48%)]" />
 
             <div className="relative flex h-full items-center justify-center p-5 text-center text-white">
               <div>
@@ -67,14 +57,14 @@ export default function DailyTipCard() {
           </div>
 
           <div
-            className="clara-preserve-flip-face absolute inset-0 overflow-hidden rounded-2xl border border-cyan-300/20 bg-gradient-to-br from-indigo-500/15 via-slate-950/70 to-cyan-400/10 shadow-[0_12px_42px_rgba(34,211,238,0.18),0_10px_40px_rgba(0,0,0,0.45)] backdrop-blur-xl"
+            className="clara-preserve-flip-face absolute inset-0 overflow-hidden rounded-2xl border border-cyan-300/20 bg-gradient-to-br from-indigo-500/15 via-slate-950/70 to-cyan-400/10"
             style={{
               transform: "rotateY(180deg) translateZ(1px)",
               backfaceVisibility: "hidden",
+              WebkitBackfaceVisibility: "hidden",
             }}
           >
-            <div className="pointer-events-none absolute inset-0 rounded-2xl bg-cyan-300/10 blur-xl" />
-            <div className="pointer-events-none absolute inset-[1px] rounded-2xl bg-[radial-gradient(circle_at_top_right,rgba(103,232,249,0.18),transparent_44%),radial-gradient(circle_at_bottom_left,rgba(129,140,248,0.16),transparent_48%)]" />
+            <div className="pointer-events-none absolute inset-[1px] rounded-2xl bg-[radial-gradient(circle_at_top_right,rgba(103,232,249,0.12),transparent_44%),radial-gradient(circle_at_bottom_left,rgba(129,140,248,0.12),transparent_48%)]" />
 
             <div className="relative flex h-full items-center justify-center p-5 text-center text-white">
               <div className="space-y-3">
