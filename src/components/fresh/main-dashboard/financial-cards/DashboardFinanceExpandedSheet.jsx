@@ -1,12 +1,10 @@
 import { X } from "lucide-react";
 
 import EmergencyFundCard from "@/components/EmergencyFundCard";
-import WalletCard from "@/components/WalletCard";
 import SavingsCard from "@/components/SavingsCard";
 
 const getExpandedTitle = (expandedFinanceCard) => {
   if (expandedFinanceCard === "emergency") return "Emergency Fund";
-  if (expandedFinanceCard === "wallets") return "Wallets";
   return "Savings Goals";
 };
 
@@ -24,14 +22,7 @@ export default function DashboardFinanceExpandedSheet({
   readStoredSurvivalExpense,
   user,
   onSurvivalSaved,
-  wallets,
-  walletPreviewTransactions,
   financeActionLoading,
-  openCreateWalletModal,
-  moveWalletInline,
-  openDeleteWalletModal,
-  openAddMoneyModal,
-  openTransferMoneyModal,
   savingsGoals,
   totalSavingsSaved,
   totalSavingsTarget,
@@ -42,8 +33,8 @@ export default function DashboardFinanceExpandedSheet({
 }) {
   if (activeDashboardPanel !== "home" || !expandedFinanceCard) return null;
 
-  // Budget now expands inline inside the financial carousel, not through this full-screen sheet.
-  if (expandedFinanceCard === "budgets") return null;
+  // Budget and Wallet now expand inline inside the financial carousel, not through this full-screen sheet.
+  if (expandedFinanceCard === "budgets" || expandedFinanceCard === "wallets") return null;
 
   const closeDetails = () => setExpandedFinanceCard(null);
   const closeAndRun = (callback) => {
@@ -103,25 +94,6 @@ export default function DashboardFinanceExpandedSheet({
                   ) > 0
                 }
                 onSurvivalSaved={onSurvivalSaved}
-              />
-            </div>
-          )}
-
-          {expandedFinanceCard === "wallets" && (
-            <div className="[&>*]:!mb-0 [&>*]:!min-h-0">
-              <WalletCard
-                wallets={wallets}
-                walletMoney={walletMoney}
-                walletPreviewTransactions={walletPreviewTransactions}
-                theme={selectedDashboardTheme}
-                expanded={true}
-                onToggleDetails={closeDetails}
-                financeActionLoading={financeActionLoading}
-                onCreateWallet={() => closeAndRun(openCreateWalletModal)}
-                onMoveWallet={moveWalletInline}
-                onDeleteWallet={(walletId) => closeAndRun(() => openDeleteWalletModal(walletId))}
-                onAddMoney={(wallet) => closeAndRun(() => openAddMoneyModal(wallet))}
-                onTransferMoney={(wallet) => closeAndRun(() => openTransferMoneyModal(wallet))}
               />
             </div>
           )}
