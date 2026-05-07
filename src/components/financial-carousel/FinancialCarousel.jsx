@@ -2,7 +2,9 @@ import { useEffect, useMemo } from "react";
 import CarouselItemCard from "./ui/CarouselItemCard";
 import CarouselViewport from "./ui/CarouselViewport";
 import CarouselDots from "./ui/CarouselDots";
-import CarouselSlideShell from "./ui/CarouselSlideShell";
+import CarouselSlideShell, {
+  EXPANDED_OVERFLOW_OFFSET,
+} from "./ui/CarouselSlideShell";
 import useAutoMovingHorizontalCarousel from "./logic/useAutoMovingHorizontalCarousel";
 import {
   getCarouselData,
@@ -144,7 +146,10 @@ export default function FinancialCarousel({
   if (!items.length) return null;
 
   return (
-    <div className="relative z-20 mt-0 mb-5">
+    <div
+      className="relative z-20 mt-0 mb-5 transition-[padding-top] duration-500 ease-[cubic-bezier(0.22,1,0.36,1)]"
+      style={{ paddingTop: isInlineFocusExpanded ? EXPANDED_OVERFLOW_OFFSET : 0 }}
+    >
       <style>{`
         .clara-budget-focus-shift {
           transform: translate3d(0, 0, 0);
