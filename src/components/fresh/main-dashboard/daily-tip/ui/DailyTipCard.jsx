@@ -17,7 +17,7 @@ export default function DailyTipCard() {
   };
 
   return (
-    <div className="px-3 mt-1.5">
+    <div className="clara-budget-focus-shift clara-budget-flow-collapse px-3 mt-1.5">
       <button
         type="button"
         onClick={handleFlip}
