@@ -9,7 +9,7 @@ import {
   getDefaultCarouselIndex,
 } from "./logic/FinancialCarouselLogic";
 
-const EXPANDED_TOP_PULL = -18;
+const EXPANDED_TOP_PULL = -22;
 
 const getExpandedCardIndex = (items = [], expandedFinanceCard = null) => {
   if (!expandedFinanceCard) return -1;
