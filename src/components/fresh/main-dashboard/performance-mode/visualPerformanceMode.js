@@ -172,6 +172,75 @@ export const ensureClaraVisualPerformanceStyles = () => {
     .clara-performance-mode .clara-finance-bubble-investment::after { background: rgba(124,58,237,0.14) !important; }
     .clara-performance-mode .clara-finance-bubble-debt::before { background: rgba(34,211,238,0.14) !important; }
     .clara-performance-mode .clara-finance-bubble-debt::after { background: rgba(124,58,237,0.14) !important; }
+
+    .clara-performance-mode nav:has(a[href*="/dashboard"]):has(a[href*="/feed"]),
+    .clara-performance-mode nav:has(a[href*="/messages"]):has(a[href*="/settings"]),
+    .clara-performance-mode header nav:has(a[href*="/dashboard"]),
+    .clara-performance-mode header nav:has(a[href*="/settings"]) {
+      position: sticky !important;
+      top: calc(env(safe-area-inset-top) + 8px) !important;
+      z-index: 80 !important;
+      isolation: isolate !important;
+      overflow: hidden !important;
+      border: 1px solid rgba(103,232,249,0.16) !important;
+      border-radius: 999px !important;
+      background:
+        radial-gradient(circle at -18% -42%, rgba(20,184,166,0.22), transparent 48%),
+        radial-gradient(circle at 108% 132%, rgba(99,102,241,0.16), transparent 54%),
+        linear-gradient(135deg, rgba(6,48,66,0.72), rgba(7,20,48,0.78) 48%, rgba(37,13,74,0.70)) !important;
+      box-shadow: 0 12px 34px rgba(0,0,0,0.22), inset 0 1px 0 rgba(255,255,255,0.08) !important;
+      backdrop-filter: none !important;
+      -webkit-backdrop-filter: none !important;
+    }
+
+    .clara-performance-mode nav:has(a[href*="/dashboard"]):has(a[href*="/feed"])::before,
+    .clara-performance-mode nav:has(a[href*="/messages"]):has(a[href*="/settings"])::before,
+    .clara-performance-mode header nav:has(a[href*="/dashboard"])::before,
+    .clara-performance-mode header nav:has(a[href*="/settings"])::before {
+      content: "" !important;
+      position: absolute !important;
+      inset: 1px !important;
+      border-radius: inherit !important;
+      background: linear-gradient(180deg, rgba(255,255,255,0.055), transparent 62%) !important;
+      pointer-events: none !important;
+      z-index: 0 !important;
+    }
+
+    .clara-performance-mode nav:has(a[href*="/dashboard"]):has(a[href*="/feed"]) > *,
+    .clara-performance-mode nav:has(a[href*="/messages"]):has(a[href*="/settings"]) > *,
+    .clara-performance-mode header nav:has(a[href*="/dashboard"]) > *,
+    .clara-performance-mode header nav:has(a[href*="/settings"]) > * {
+      position: relative !important;
+      z-index: 2 !important;
+    }
+
+    .clara-performance-mode nav a[href*="/dashboard"],
+    .clara-performance-mode nav a[href*="/feed"],
+    .clara-performance-mode nav a[href*="/messages"],
+    .clara-performance-mode nav a[href*="/settings"],
+    .clara-performance-mode header nav a[href*="/dashboard"],
+    .clara-performance-mode header nav a[href*="/feed"],
+    .clara-performance-mode header nav a[href*="/messages"],
+    .clara-performance-mode header nav a[href*="/settings"] {
+      border-radius: 999px !important;
+      color: rgba(255,255,255,0.66) !important;
+      background: transparent !important;
+      box-shadow: none !important;
+    }
+
+    .clara-performance-mode nav a[href*="/dashboard"][aria-current="page"],
+    .clara-performance-mode nav a[href*="/feed"][aria-current="page"],
+    .clara-performance-mode nav a[href*="/messages"][aria-current="page"],
+    .clara-performance-mode nav a[href*="/settings"][aria-current="page"],
+    .clara-performance-mode nav a[href*="/dashboard"].active,
+    .clara-performance-mode nav a[href*="/feed"].active,
+    .clara-performance-mode nav a[href*="/messages"].active,
+    .clara-performance-mode nav a[href*="/settings"].active {
+      color: rgba(255,255,255,0.96) !important;
+      border: 1px solid rgba(103,232,249,0.20) !important;
+      background: rgba(255,255,255,0.075) !important;
+      box-shadow: inset 0 1px 0 rgba(255,255,255,0.08) !important;
+    }
   `;
   document.head.appendChild(style);
 };
