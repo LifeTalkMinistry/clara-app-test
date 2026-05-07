@@ -12,7 +12,7 @@ export default function LearningHub() {
   } = useLearningHub();
 
   return (
-    <section className="w-full">
+    <section className="clara-budget-focus-shift clara-budget-focus-hub w-full">
       <LearningHubCarousel materials={materials} onOpenMaterial={openMaterial} />
 
       <LearningMaterialModal
