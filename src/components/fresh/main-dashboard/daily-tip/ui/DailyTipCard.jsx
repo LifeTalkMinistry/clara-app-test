@@ -17,7 +17,7 @@ export default function DailyTipCard() {
   };
 
   return (
-    <div className="px-3 mt-3">
+    <div className="px-3 mt-1.5">
       <button
         type="button"
         onClick={handleFlip}
