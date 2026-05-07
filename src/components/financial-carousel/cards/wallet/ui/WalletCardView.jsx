@@ -12,14 +12,43 @@ export default function WalletCardView({
   onTransferMoney,
   onEditWallet,
 }) {
+  const isExpanded = expandedFinanceCard === "wallets";
+
+  const handleWalletToggle = () => {
+    if (isExpanded) {
+      toggleFinanceDetails?.("wallets");
+      return;
+    }
+
+    toggleFinanceDetails?.("wallets", {
+      autoExpand: true,
+      forceOpen: true,
+    });
+  };
+
   return (
-    <div className="h-full min-h-[inherit] flex flex-col">
+    <div
+      className="h-full min-h-[inherit] flex flex-col"
+      onClickCapture={(event) => {
+        const button = event.target?.closest?.("button");
+        const label = String(button?.textContent || "").toLowerCase();
+
+        if (
+          label.includes("show details") ||
+          label.includes("hide details")
+        ) {
+          event.preventDefault();
+          event.stopPropagation();
+          handleWalletToggle();
+        }
+      }}
+    >
       <WalletCard
         wallets={data.wallets}
         walletMoney={data.walletMoney}
         walletPreviewTransactions={data.walletPreviewTransactions}
-        expanded={expandedFinanceCard === "wallets"}
-        onToggleDetails={() => toggleFinanceDetails?.("wallets")}
+        expanded={isExpanded}
+        onToggleDetails={handleWalletToggle}
         financeActionLoading={financeActionLoading}
         onCreateWallet={onCreateWallet}
         onMoveWallet={onMoveWallet}
