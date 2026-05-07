@@ -7,6 +7,7 @@ const INLINE_EXPANDED_CARDS = [
   "wallets",
   "emergency",
   "investmentFund",
+  "savings",
 ];
 
 const getExpandedTitle = (expandedFinanceCard) => {
