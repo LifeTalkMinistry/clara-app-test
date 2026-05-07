@@ -4,22 +4,22 @@ export default function LearningMaterialCard({ item, isActive, offset = 0, visib
 
   const distanceMap = {
     0: 0,
-    1: 104,
-    2: 178,
+    1: 108,
+    2: 184,
   };
 
   const cardOffset = distanceMap[Math.min(absOffset, 2)] || 0;
   const translateX = `calc(-50% + ${direction * cardOffset}px)`;
 
-  const scale = isActive ? 1 : absOffset === 1 ? 0.86 : 0.72;
+  const scale = isActive ? 1 : absOffset === 1 ? 0.85 : 0.71;
   const rotate = isActive ? 0 : offset < 0 ? 5 + absOffset : -5 - absOffset;
   const origin = isActive ? "center center" : offset < 0 ? "right center" : "left center";
   const depth = isActive ? 18 : absOffset === 1 ? -18 : -48;
   const opacity = visible ? (isActive ? 1 : absOffset === 1 ? 0.42 : 0.18) : 0;
   const zIndex = isActive ? 70 : absOffset === 1 ? 42 : 24;
 
-  const width = isActive ? 150 : absOffset === 1 ? 122 : 108;
-  const height = isActive ? 196 : absOffset === 1 ? 176 : 158;
+  const width = isActive ? 158 : absOffset === 1 ? 124 : 108;
+  const height = isActive ? 214 : absOffset === 1 ? 184 : 160;
 
   return (
     <div
@@ -51,7 +51,7 @@ export default function LearningMaterialCard({ item, isActive, offset = 0, visib
         <div className="relative z-10 flex h-full flex-col p-3.5 text-white">
           <div>
             {isActive && (
-              <div className="mb-2 inline-flex rounded-full border border-cyan-100/15 bg-white/[0.08] px-2 py-0.5 text-[8px] font-bold uppercase text-cyan-50">
+              <div className="mb-1.5 inline-flex rounded-full border border-cyan-100/15 bg-white/[0.08] px-2 py-0.5 text-[8px] font-bold uppercase text-cyan-50">
                 Featured
               </div>
             )}
@@ -60,11 +60,11 @@ export default function LearningMaterialCard({ item, isActive, offset = 0, visib
             </div>
           </div>
 
-          <div className="mt-auto mb-auto pt-5">
+          <div className="mt-auto mb-auto pt-4">
             <h3 className={`${isActive ? "text-[17px]" : absOffset === 1 ? "text-[14px]" : "text-[12px]"} line-clamp-3 font-black leading-tight text-white`}>
               {item.title}
             </h3>
-            <p className={`${isActive ? "mt-3 text-[10.5px]" : "mt-2 text-[9.5px]"} line-clamp-3 leading-snug text-white/62`}>
+            <p className={`${isActive ? "mt-2 text-[10.5px]" : "mt-2 text-[9.5px]"} line-clamp-2 leading-snug text-white/62`}>
               {item.subtitle || "Read and learn."}
             </p>
           </div>
