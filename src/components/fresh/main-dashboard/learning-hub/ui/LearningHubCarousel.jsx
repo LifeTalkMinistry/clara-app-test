@@ -3,8 +3,8 @@ import { BookOpen, ChevronDown } from "lucide-react";
 import DailyTipCard from "../../daily-tip";
 import LearningMaterialCard from "./LearningMaterialCard";
 
-const AUTO_SCROLL_DELAY = 3800;
-const RESUME_AFTER_TOUCH = 6500;
+const AUTO_SCROLL_DELAY = 4200;
+const RESUME_AFTER_TOUCH = 7000;
 const SWIPE_THRESHOLD = 34;
 
 export default function LearningHubCarousel({ materials = [], onOpenMaterial }) {
@@ -104,39 +104,39 @@ export default function LearningHubCarousel({ materials = [], onOpenMaterial }) 
         onClick={() => setIsExpanded((current) => !current)}
         onTouchStart={handleHeaderTouchStart}
         onTouchEnd={handleHeaderTouchEnd}
-        className="mx-auto mt-3 flex w-fit items-center justify-center gap-2 rounded-full border border-white/5 bg-white/[0.02] px-4 py-2 text-[11px] font-bold uppercase tracking-[0.24em] text-white/60 transition-all duration-300 active:scale-[0.98]"
+        className="clara-learning-motion mx-auto mt-3 flex w-fit items-center justify-center gap-2 rounded-full border border-cyan-100/15 bg-white/[0.04] px-4 py-2 text-[11px] font-bold uppercase tracking-[0.24em] text-white/68 transition-[transform,background-color,border-color] duration-300 active:scale-[0.98]"
       >
-        <BookOpen size={16} className="text-cyan-200/75" />
+        <BookOpen size={16} className="text-cyan-100/78" />
         Learning Hub
         <ChevronDown
           size={15}
-          className={`text-cyan-100/50 transition-transform duration-300 ${isExpanded ? "rotate-180" : ""}`}
+          className={`text-cyan-100/60 transition-transform duration-300 ${isExpanded ? "rotate-180" : ""}`}
         />
       </button>
 
       <div
-        className={`grid transition-all duration-500 ease-out ${
+        className={`clara-learning-motion grid transition-[grid-template-rows,opacity,margin] duration-500 ease-out ${
           isExpanded ? "mt-2 grid-rows-[1fr] opacity-100" : "mt-0 grid-rows-[0fr] opacity-0"
         }`}
       >
         <div className="min-h-0 overflow-hidden">
           <div
-            className="relative flex h-[232px] w-full items-center justify-center overflow-hidden rounded-[30px]"
-            style={{ perspective: "1200px", transformStyle: "preserve-3d" }}
+            className="relative flex h-[226px] w-full items-center justify-center overflow-hidden rounded-[30px] border border-cyan-100/10 bg-[radial-gradient(circle_at_-18%_-28%,rgba(20,184,166,0.22),transparent_48%),radial-gradient(circle_at_78%_118%,rgba(99,102,241,0.18),transparent_58%),linear-gradient(135deg,rgba(6,48,66,0.76),rgba(7,20,48,0.82)_48%,rgba(37,13,74,0.76))]"
+            style={{ perspective: "1300px", transformStyle: "preserve-3d" }}
             onMouseEnter={pauseCarousel}
             onMouseLeave={resumeCarouselSoon}
             onTouchStart={handleTouchStart}
             onTouchEnd={handleTouchEnd}
           >
-            <div className="pointer-events-none absolute inset-x-8 top-8 bottom-5 rounded-[34px] bg-[radial-gradient(circle_at_center,rgba(56,189,248,0.20),transparent_62%)] blur-2xl" />
+            <div className="pointer-events-none absolute -left-[112px] -top-[122px] h-[220px] w-[220px] rounded-full bg-cyan-300/[0.08]" />
+            <div className="pointer-events-none absolute bottom-[-150px] left-[39%] h-[250px] w-[250px] rounded-full bg-blue-400/[0.10]" />
+            <div className="pointer-events-none absolute inset-0 bg-gradient-to-b from-white/[0.055] via-transparent to-black/24" />
+            <div className="pointer-events-none absolute inset-0 rounded-[30px] ring-1 ring-inset ring-white/10" />
 
-            <div className="pointer-events-none absolute left-0 top-0 z-[90] h-full w-16 bg-gradient-to-r from-[#020617] via-[#020617]/75 to-transparent" />
-            <div className="pointer-events-none absolute right-0 top-0 z-[90] h-full w-16 bg-gradient-to-l from-[#020617] via-[#020617]/75 to-transparent" />
-            <div className="pointer-events-none absolute inset-x-0 top-0 z-[91] h-8 bg-gradient-to-b from-[#020617] to-transparent" />
-            <div className="pointer-events-none absolute inset-x-0 bottom-0 z-[91] h-8 bg-gradient-to-t from-[#020617] to-transparent" />
-
-            <div className="pointer-events-none absolute left-2 top-8 z-[92] h-[170px] w-10 rounded-full bg-cyan-300/10 blur-2xl" />
-            <div className="pointer-events-none absolute right-2 top-8 z-[92] h-[170px] w-10 rounded-full bg-cyan-300/10 blur-2xl" />
+            <div className="pointer-events-none absolute left-0 top-0 z-[88] h-full w-11 bg-gradient-to-r from-[#020617] via-[#020617]/56 to-transparent" />
+            <div className="pointer-events-none absolute right-0 top-0 z-[88] h-full w-11 bg-gradient-to-l from-[#020617] via-[#020617]/56 to-transparent" />
+            <div className="pointer-events-none absolute inset-x-0 top-0 z-[89] h-7 bg-gradient-to-b from-[#020617]/82 to-transparent" />
+            <div className="pointer-events-none absolute inset-x-0 bottom-0 z-[89] h-7 bg-gradient-to-t from-[#020617]/82 to-transparent" />
 
             {safeMaterials.map((item, index) => {
               const rawOffset = index - activeIndex;
