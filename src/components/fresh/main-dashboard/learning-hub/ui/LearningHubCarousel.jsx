@@ -6,6 +6,7 @@ import LearningMaterialCard from "./LearningMaterialCard";
 const AUTO_SCROLL_DELAY = 4200;
 const RESUME_AFTER_TOUCH = 7000;
 const SWIPE_THRESHOLD = 34;
+const LEARNING_HUB_STAGE_HEIGHT = 244;
 
 const learningHubToggleSurface = {
   background:
@@ -129,13 +130,18 @@ export default function LearningHubCarousel({ materials = [], onOpenMaterial }) 
 
       <div
         className={`clara-learning-motion grid transition-[grid-template-rows,opacity,margin] duration-500 ease-out ${
-          isExpanded ? "mt-0 mb-1 grid-rows-[1fr] opacity-100" : "mt-0 mb-0 grid-rows-[0fr] opacity-0"
+          isExpanded ? "mt-0 mb-0 grid-rows-[244px] opacity-100" : "mt-0 mb-0 grid-rows-[0px] opacity-0"
         }`}
       >
-        <div className="min-h-0 overflow-hidden">
+        <div className="min-h-0 overflow-visible">
           <div
-            className="relative flex h-[226px] w-full items-center justify-center overflow-hidden rounded-[30px] border border-cyan-100/10 bg-[radial-gradient(circle_at_-18%_-28%,rgba(20,184,166,0.22),transparent_48%),radial-gradient(circle_at_78%_118%,rgba(99,102,241,0.18),transparent_58%),linear-gradient(135deg,rgba(6,48,66,0.76),rgba(7,20,48,0.82)_48%,rgba(37,13,74,0.76))]"
-            style={{ perspective: "1300px", transformStyle: "preserve-3d" }}
+            className="relative flex w-full items-center justify-center overflow-hidden rounded-[30px] border border-cyan-100/10 bg-[radial-gradient(circle_at_-18%_-28%,rgba(20,184,166,0.22),transparent_48%),radial-gradient(circle_at_78%_118%,rgba(99,102,241,0.18),transparent_58%),linear-gradient(135deg,rgba(6,48,66,0.76),rgba(7,20,48,0.82)_48%,rgba(37,13,74,0.76))]"
+            style={{
+              height: `${LEARNING_HUB_STAGE_HEIGHT}px`,
+              minHeight: `${LEARNING_HUB_STAGE_HEIGHT}px`,
+              perspective: "1300px",
+              transformStyle: "preserve-3d",
+            }}
             onMouseEnter={pauseCarousel}
             onMouseLeave={resumeCarouselSoon}
             onTouchStart={handleTouchStart}
