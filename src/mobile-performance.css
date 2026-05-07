@@ -142,7 +142,22 @@ main > div[class^="h-full flex flex-col bg-"] > div:last-child {
 
 /* Learning Hub must not be compressed by Dashboard Fit Mode. */
 @media (max-width: 430px) {
-  .theme-page-shell main .clara-learning-hub-expanded {
+  .theme-page-shell main .clara-learning-hub-expanded[data-learning-hub-expanded="false"] {
+    height: 0 !important;
+    min-height: 0 !important;
+    max-height: 0 !important;
+    grid-template-rows: 0px !important;
+    overflow: hidden !important;
+  }
+
+  .theme-page-shell main .clara-learning-hub-expanded[data-learning-hub-expanded="false"] > .clara-learning-hub-clip {
+    height: 0 !important;
+    min-height: 0 !important;
+    max-height: 0 !important;
+    overflow: hidden !important;
+  }
+
+  .theme-page-shell main .clara-learning-hub-expanded[data-learning-hub-expanded="true"] {
     height: 244px !important;
     min-height: 244px !important;
     max-height: 244px !important;
@@ -150,14 +165,14 @@ main > div[class^="h-full flex flex-col bg-"] > div:last-child {
     overflow: visible !important;
   }
 
-  .theme-page-shell main .clara-learning-hub-expanded > .clara-learning-hub-clip {
+  .theme-page-shell main .clara-learning-hub-expanded[data-learning-hub-expanded="true"] > .clara-learning-hub-clip {
     height: 244px !important;
     min-height: 244px !important;
     max-height: 244px !important;
     overflow: visible !important;
   }
 
-  .theme-page-shell main .clara-learning-hub-stage {
+  .theme-page-shell main .clara-learning-hub-expanded[data-learning-hub-expanded="true"] .clara-learning-hub-stage {
     height: 244px !important;
     min-height: 244px !important;
     max-height: 244px !important;
