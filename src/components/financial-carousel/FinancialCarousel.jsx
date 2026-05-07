@@ -104,8 +104,14 @@ export default function FinancialCarousel({
 
   if (!items.length) return null;
 
+  const isBudgetInlineExpanded = expandedFinanceCard === "budgets";
+
   return (
-    <>
+    <div
+      className={`relative transition-all duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] ${
+        isBudgetInlineExpanded ? "z-20 -mt-[204px]" : "z-0"
+      }`}
+    >
       <CarouselViewport
         carouselRef={carouselRef}
         onScroll={handleScroll}
@@ -164,6 +170,6 @@ export default function FinancialCarousel({
         selectedDashboardTheme={selectedDashboardTheme}
         themeInactiveDotClass={themeInactiveDotClass}
       />
-    </>
+    </div>
   );
 }
