@@ -130,19 +130,21 @@ export default function FinancialCarousel({
       <style>{`
         .clara-budget-focus-shift {
           transform: translate3d(0, 0, 0);
-          transition: transform 520ms cubic-bezier(0.22, 1, 0.36, 1), opacity 520ms cubic-bezier(0.22, 1, 0.36, 1);
+          transition: transform 520ms cubic-bezier(0.22, 1, 0.36, 1), opacity 520ms cubic-bezier(0.22, 1, 0.36, 1), visibility 520ms cubic-bezier(0.22, 1, 0.36, 1);
           will-change: transform, opacity;
         }
 
         .clara-budget-focus-mode .clara-budget-focus-tip {
-          transform: translate3d(0, -196px, 0);
-          opacity: 0.5;
+          transform: translate3d(0, -218px, 0);
+          opacity: 0;
+          visibility: hidden;
           pointer-events: none;
         }
 
         .clara-budget-focus-mode .clara-budget-focus-hub {
-          transform: translate3d(0, -196px, 0);
-          opacity: 0.56;
+          transform: translate3d(0, -226px, 0);
+          opacity: 0;
+          visibility: hidden;
           pointer-events: none;
         }
       `}</style>
