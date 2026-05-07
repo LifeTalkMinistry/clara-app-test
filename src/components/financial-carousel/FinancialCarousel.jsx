@@ -114,40 +114,46 @@ export default function FinancialCarousel({
           dashboardScale.financeClip || "rounded-[28px]"
         }
       >
-        {items.map((item) => (
-          <CarouselSlideShell
-            key={item.key}
-            item={item}
-            selectedDashboardTheme={selectedDashboardTheme}
-            dashboardScale={dashboardScale}
-          >
-            <CarouselItemCard
+        {items.map((item) => {
+          const isInlineExpanded =
+            item.detailKey === expandedFinanceCard && expandedFinanceCard === "budgets";
+
+          return (
+            <CarouselSlideShell
+              key={item.key}
               item={item}
               selectedDashboardTheme={selectedDashboardTheme}
-              expandedFinanceCard={expandedFinanceCard}
-              toggleFinanceDetails={toggleFinanceDetails}
-              financeActionLoading={financeActionLoading}
-              onQuickExpense={onQuickExpense}
-              onSurvivalSaved={onSurvivalSaved}
-              onSaveBudget={onSaveBudget}
-              onEditBudgetCategory={onEditBudgetCategory}
-              onDeleteBudgetCategory={onDeleteBudgetCategory}
-              onResetBudget={onResetBudget}
-              onCreateWallet={onCreateWallet}
-              onMoveWallet={onMoveWallet}
-              onDeleteWallet={onDeleteWallet}
-              onAddMoney={onAddMoney}
-              onTransferMoney={onTransferMoney}
-              onEditWallet={onEditWallet}
-              onSaveSavingsGoal={onSaveSavingsGoal}
-              onDeleteSavingsGoal={onDeleteSavingsGoal}
-              onAddSavings={onAddSavings}
-              startClaraAiLongPress={startClaraAiLongPress}
-              endClaraAiLongPress={endClaraAiLongPress}
-              handleClaraAiOrbClickCapture={handleClaraAiOrbClickCapture}
-            />
-          </CarouselSlideShell>
-        ))}
+              dashboardScale={dashboardScale}
+              isExpanded={isInlineExpanded}
+            >
+              <CarouselItemCard
+                item={item}
+                selectedDashboardTheme={selectedDashboardTheme}
+                expandedFinanceCard={expandedFinanceCard}
+                toggleFinanceDetails={toggleFinanceDetails}
+                financeActionLoading={financeActionLoading}
+                onQuickExpense={onQuickExpense}
+                onSurvivalSaved={onSurvivalSaved}
+                onSaveBudget={onSaveBudget}
+                onEditBudgetCategory={onEditBudgetCategory}
+                onDeleteBudgetCategory={onDeleteBudgetCategory}
+                onResetBudget={onResetBudget}
+                onCreateWallet={onCreateWallet}
+                onMoveWallet={onMoveWallet}
+                onDeleteWallet={onDeleteWallet}
+                onAddMoney={onAddMoney}
+                onTransferMoney={onTransferMoney}
+                onEditWallet={onEditWallet}
+                onSaveSavingsGoal={onSaveSavingsGoal}
+                onDeleteSavingsGoal={onDeleteSavingsGoal}
+                onAddSavings={onAddSavings}
+                startClaraAiLongPress={startClaraAiLongPress}
+                endClaraAiLongPress={endClaraAiLongPress}
+                handleClaraAiOrbClickCapture={handleClaraAiOrbClickCapture}
+              />
+            </CarouselSlideShell>
+          );
+        })}
       </CarouselViewport>
 
       <CarouselDots
