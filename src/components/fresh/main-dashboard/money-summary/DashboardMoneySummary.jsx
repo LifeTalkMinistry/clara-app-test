@@ -51,6 +51,21 @@ const financialSummaryInertHandlers = {
   onKeyDown: stopFinancialSummaryInteraction,
 };
 
+const bubbleSurface = {
+  background:
+    "radial-gradient(circle at -18% -30%, rgba(20,184,166,0.30) 0%, rgba(20,184,166,0.14) 25%, rgba(20,184,166,0.04) 42%, transparent 58%), radial-gradient(circle at 77% 118%, rgba(99,102,241,0.22) 0%, rgba(79,70,229,0.14) 34%, rgba(88,28,135,0.08) 50%, transparent 68%), linear-gradient(135deg, rgba(6,48,66,0.98), rgba(7,20,48,0.96) 48%, rgba(37,13,74,0.96))",
+};
+
+const moneyCellSurface = {
+  background:
+    "radial-gradient(circle at -34% -55%, rgba(45,212,191,0.20), transparent 58%), linear-gradient(135deg, rgba(255,255,255,0.045), rgba(255,255,255,0.015))",
+};
+
+const expenseCellSurface = {
+  background:
+    "radial-gradient(circle at 105% 122%, rgba(99,102,241,0.18), transparent 56%), linear-gradient(135deg, rgba(255,255,255,0.026), rgba(255,255,255,0.012))",
+};
+
 export default function DashboardMoneySummary({
   dashboardScale = {},
   selectedDashboardTheme = {},
@@ -72,19 +87,25 @@ export default function DashboardMoneySummary({
     <div
       {...financialSummaryParentHandlers}
       aria-label="Financial summary"
-      className={`relative grid cursor-default select-none grid-cols-2 overflow-hidden border backdrop-blur-sm ${
+      className={`relative grid cursor-default select-none grid-cols-2 overflow-hidden border ${
         dashboardScale.summaryGrid || "rounded-[26px]"
       }`}
       style={{
+        ...bubbleSurface,
         borderColor:
-          selectedDashboardTheme?.tokens?.border || "var(--theme-border)",
+          selectedDashboardTheme?.tokens?.border || "rgba(103,232,249,0.22)",
         boxShadow: themeIsLight
           ? "0 18px 44px rgba(15,23,42,0.10)"
-          : "0 22px 65px rgba(0,0,0,0.26)",
+          : "0 20px 58px rgba(0,0,0,0.34), inset 0 1px 0 rgba(255,255,255,0.10)",
         WebkitTapHighlightColor: "transparent",
         touchAction: "pan-y",
       }}
     >
+      <div className="pointer-events-none absolute -left-[112px] -top-[140px] z-[1] h-[220px] w-[220px] rounded-full bg-cyan-300/[0.10]" />
+      <div className="pointer-events-none absolute bottom-[-160px] left-[36%] z-[1] h-[250px] w-[250px] rounded-full bg-blue-400/[0.12]" />
+      <div className="pointer-events-none absolute inset-0 z-[2] bg-[linear-gradient(to_bottom,rgba(255,255,255,0.08),rgba(255,255,255,0.018)_36%,rgba(0,0,0,0.10))]" />
+      <div className="pointer-events-none absolute inset-0 z-[3] rounded-[inherit] ring-1 ring-inset ring-white/10" />
+
       <button
         type="button"
         data-clara-summary-privacy-toggle="true"
@@ -92,7 +113,7 @@ export default function DashboardMoneySummary({
         onPointerUp={(event) => event.stopPropagation()}
         onMouseUp={(event) => event.stopPropagation()}
         onTouchEnd={(event) => event.stopPropagation()}
-        className="absolute right-2.5 top-2.5 z-50 flex h-7 w-7 items-center justify-center rounded-full border border-white/15 bg-white/[0.08] text-white/55 shadow-[0_0_14px_rgba(255,255,255,0.08)] backdrop-blur-xl transition hover:bg-white/[0.13] hover:text-white/85 active:scale-95"
+        className="absolute right-2.5 top-2.5 z-50 flex h-7 w-7 items-center justify-center rounded-full border border-cyan-100/15 bg-white/[0.075] text-white/65 transition hover:bg-white/[0.12] hover:text-white/90 active:scale-95"
         aria-label={
           moneySummaryVisible
             ? "Hide financial summary amounts"
@@ -111,13 +132,11 @@ export default function DashboardMoneySummary({
         {...moneyLeftSummaryHandlers}
         aria-label="Double tap Total Money Left to open Transaction Hub"
         data-clara-summary-card="money-left"
-        className={`pointer-events-auto relative isolate cursor-default overflow-hidden ${
+        className={`pointer-events-auto relative isolate z-10 cursor-default overflow-hidden ${
           dashboardScale.summaryCell || "min-h-[110px] p-[clamp(14px,3.6vw,17px)]"
         }`}
         style={{
-          background:
-            selectedDashboardTheme?.tokens?.gradientMoney ||
-            "var(--theme-gradient-money)",
+          ...moneyCellSurface,
           WebkitTapHighlightColor: "transparent",
           touchAction: "manipulation",
         }}
@@ -131,6 +150,10 @@ export default function DashboardMoneySummary({
             WebkitTapHighlightColor: "transparent",
           }}
         />
+
+        <div className="pointer-events-none absolute -left-[88px] -top-[104px] z-[1] h-[174px] w-[174px] rounded-full bg-teal-300/[0.12]" />
+        <div className="pointer-events-none absolute bottom-[-118px] right-[-80px] z-[1] h-[190px] w-[190px] rounded-full bg-cyan-400/[0.08]" />
+
         <div className="pointer-events-none absolute inset-y-0 right-0 z-50 flex w-[88px] items-center justify-center pr-3">
           <button
             type="button"
@@ -141,15 +164,15 @@ export default function DashboardMoneySummary({
             onPointerCancel={endMoneyLeftOrbLongPress}
             onPointerLeave={endMoneyLeftOrbLongPress}
             onContextMenu={stopMoneyLeftOrbEvent}
-            className="pointer-events-auto flex h-11 w-11 items-center justify-center rounded-full border border-white/20 bg-white/[0.10] text-white shadow-[0_0_22px_rgba(147,197,253,0.18)] backdrop-blur-xl transition hover:bg-white/[0.15] active:scale-95"
+            className="pointer-events-auto flex h-11 w-11 items-center justify-center rounded-full border border-cyan-100/20 bg-white/[0.09] text-white transition hover:bg-white/[0.14] active:scale-95"
             aria-label="Tap to log expense, long press to open CLARA AI"
             title="Tap to log expense, long press for CLARA AI"
           >
             <Plus className="h-5 w-5" />
           </button>
         </div>
-        <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(255,255,255,0.08),transparent_42%)]" />
-        <div className="pointer-events-none relative flex min-h-full min-w-0 flex-col justify-center pr-24">
+
+        <div className="pointer-events-none relative z-10 flex min-h-full min-w-0 flex-col justify-center pr-24">
           <p
             className={`uppercase ${
               dashboardScale.summaryLabel || "text-[11px] tracking-[0.22em]"
@@ -172,15 +195,13 @@ export default function DashboardMoneySummary({
         {...financialSummaryInertHandlers}
         aria-hidden="true"
         data-clara-summary-card="total-expense"
-        className={`pointer-events-auto relative isolate cursor-default overflow-hidden border-l ${
+        className={`pointer-events-auto relative isolate z-10 cursor-default overflow-hidden border-l ${
           dashboardScale.summaryCell || "min-h-[110px] p-[clamp(14px,3.6vw,17px)]"
         }`}
         style={{
-          background:
-            selectedDashboardTheme?.tokens?.gradientExpense ||
-            "var(--theme-gradient-expense)",
+          ...expenseCellSurface,
           borderColor:
-            selectedDashboardTheme?.tokens?.border || "var(--theme-border)",
+            selectedDashboardTheme?.tokens?.border || "rgba(103,232,249,0.16)",
           WebkitTapHighlightColor: "transparent",
           touchAction: "pan-y",
         }}
@@ -191,8 +212,11 @@ export default function DashboardMoneySummary({
           className="absolute inset-0 z-30 cursor-default bg-transparent"
           style={{ touchAction: "pan-y", WebkitTapHighlightColor: "transparent" }}
         />
-        <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_bottom_right,rgba(255,255,255,0.08),transparent_42%)]" />
-        <div className="pointer-events-none relative flex min-h-full min-w-0 flex-col justify-center">
+
+        <div className="pointer-events-none absolute -right-[94px] -bottom-[116px] z-[1] h-[198px] w-[198px] rounded-full bg-indigo-400/[0.12]" />
+        <div className="pointer-events-none absolute -left-[84px] top-[-118px] z-[1] h-[176px] w-[176px] rounded-full bg-purple-400/[0.06]" />
+
+        <div className="pointer-events-none relative z-10 flex min-h-full min-w-0 flex-col justify-center">
           <p
             className={`uppercase ${
               dashboardScale.summaryLabel || "text-[11px] tracking-[0.22em]"
