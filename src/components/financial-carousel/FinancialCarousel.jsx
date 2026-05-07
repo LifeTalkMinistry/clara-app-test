@@ -118,11 +118,7 @@ export default function FinancialCarousel({
   if (!items.length) return null;
 
   return (
-    <div
-      className={`relative transition-all duration-500 ease-[cubic-bezier(0.22,1,0.36,1)] ${
-        isBudgetInlineExpanded ? "z-20 -mt-[224px] mb-[-224px]" : "z-0 mt-0 mb-0"
-      }`}
-    >
+    <div className="relative z-20 mt-0 mb-0 transition-all duration-500 ease-[cubic-bezier(0.22,1,0.36,1)]">
       <style>{`
         .clara-budget-focus-shift {
           transform: translate3d(0, 0, 0);
@@ -144,6 +140,7 @@ export default function FinancialCarousel({
         clipClassName={
           dashboardScale.financeClip || "rounded-[28px]"
         }
+        allowVerticalOverflow={isBudgetInlineExpanded}
       >
         {items.map((item) => {
           const isInlineExpanded =
