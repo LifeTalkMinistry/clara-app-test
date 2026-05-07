@@ -2,9 +2,7 @@ import { useEffect, useMemo } from "react";
 import CarouselItemCard from "./ui/CarouselItemCard";
 import CarouselViewport from "./ui/CarouselViewport";
 import CarouselDots from "./ui/CarouselDots";
-import CarouselSlideShell, {
-  EXPANDED_OVERFLOW_OFFSET,
-} from "./ui/CarouselSlideShell";
+import CarouselSlideShell from "./ui/CarouselSlideShell";
 import useAutoMovingHorizontalCarousel from "./logic/useAutoMovingHorizontalCarousel";
 import {
   getCarouselData,
@@ -22,85 +20,15 @@ const getExpandedCardIndex = (items = [], expandedFinanceCard = null) => {
   );
 };
 
-export default function FinancialCarousel({
-  dashboardScale = {},
-  selectedDashboardTheme = {},
-  themeInactiveDotClass = "bg-white/20 hover:bg-white/35",
-  wallets = [],
-  walletMoney = 0,
-  walletPreviewTransactions = [],
-  survivalExpense = 0,
-  user = null,
-  guardChecked = false,
-  loading = false,
-  profileData = null,
-  firstPositiveNumber,
-  readStoredSurvivalExpense,
-  onQuickExpense,
-  onSurvivalSaved,
-  monthlyBudgetPlan,
-  savingsGoals = [],
-  totalSavingsSaved = 0,
-  totalSavingsTarget = 0,
-  primarySavingsGoal = null,
-  expandedFinanceCard,
-  toggleFinanceDetails,
-  financeActionLoading,
-  onSaveBudget,
-  onEditBudgetCategory,
-  onDeleteBudgetCategory,
-  onResetBudget,
-  onCreateWallet,
-  onMoveWallet,
-  onDeleteWallet,
-  onAddMoney,
-  onTransferMoney,
-  onEditWallet,
-  onSaveSavingsGoal,
-  onDeleteSavingsGoal,
-  onAddSavings,
-  startClaraAiLongPress,
-  endClaraAiLongPress,
-  handleClaraAiOrbClickCapture,
-}) {
-  const items = useMemo(
-    () =>
-      getCarouselData({
-        monthlyBudgetPlan,
-        savingsGoals,
-        totalSavingsSaved,
-        totalSavingsTarget,
-        primarySavingsGoal,
-        wallets,
-        walletMoney,
-        walletPreviewTransactions,
-        survivalExpense,
-        user,
-        guardChecked,
-        loading,
-        profileData,
-        firstPositiveNumber,
-        readStoredSurvivalExpense,
-      }),
-    [
-      monthlyBudgetPlan,
-      savingsGoals,
-      totalSavingsSaved,
-      totalSavingsTarget,
-      primarySavingsGoal,
-      wallets,
-      walletMoney,
-      walletPreviewTransactions,
-      survivalExpense,
-      user,
-      guardChecked,
-      loading,
-      profileData,
-      firstPositiveNumber,
-      readStoredSurvivalExpense,
-    ]
-  );
+export default function FinancialCarousel(props) {
+  const {
+    dashboardScale = {},
+    selectedDashboardTheme = {},
+    themeInactiveDotClass = "bg-white/20 hover:bg-white/35",
+    expandedFinanceCard,
+  } = props;
 
+  const items = useMemo(() => getCarouselData(props), [props]);
   const defaultIndex = useMemo(() => getDefaultCarouselIndex(items), [items]);
 
   const {
@@ -138,18 +66,13 @@ export default function FinancialCarousel({
     const root = document.documentElement;
     root.classList.toggle("clara-budget-focus-mode", isInlineFocusExpanded);
 
-    return () => {
-      root.classList.remove("clara-budget-focus-mode");
-    };
+    return () => root.classList.remove("clara-budget-focus-mode");
   }, [isInlineFocusExpanded]);
 
   if (!items.length) return null;
 
   return (
-    <div
-      className="relative z-20 mt-0 mb-5 transition-[padding-top] duration-500 ease-[cubic-bezier(0.22,1,0.36,1)]"
-      style={{ paddingTop: isInlineFocusExpanded ? EXPANDED_OVERFLOW_OFFSET : 0 }}
-    >
+    <div className="relative z-20 mt-0 mb-5">
       <style>{`
         .clara-budget-focus-shift {
           transform: translate3d(0, 0, 0);
@@ -192,29 +115,10 @@ export default function FinancialCarousel({
               isExpanded={isInlineExpanded}
             >
               <CarouselItemCard
+                {...props}
                 item={item}
                 selectedDashboardTheme={selectedDashboardTheme}
                 expandedFinanceCard={expandedFinanceCard}
-                toggleFinanceDetails={toggleFinanceDetails}
-                financeActionLoading={financeActionLoading}
-                onQuickExpense={onQuickExpense}
-                onSurvivalSaved={onSurvivalSaved}
-                onSaveBudget={onSaveBudget}
-                onEditBudgetCategory={onEditBudgetCategory}
-                onDeleteBudgetCategory={onDeleteBudgetCategory}
-                onResetBudget={onResetBudget}
-                onCreateWallet={onCreateWallet}
-                onMoveWallet={onMoveWallet}
-                onDeleteWallet={onDeleteWallet}
-                onAddMoney={onAddMoney}
-                onTransferMoney={onTransferMoney}
-                onEditWallet={onEditWallet}
-                onSaveSavingsGoal={onSaveSavingsGoal}
-                onDeleteSavingsGoal={onDeleteSavingsGoal}
-                onAddSavings={onAddSavings}
-                startClaraAiLongPress={startClaraAiLongPress}
-                endClaraAiLongPress={endClaraAiLongPress}
-                handleClaraAiOrbClickCapture={handleClaraAiOrbClickCapture}
               />
             </CarouselSlideShell>
           );
