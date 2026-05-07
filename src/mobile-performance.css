@@ -154,4 +154,21 @@ main > div[class^="h-full flex flex-col bg-"] > div:last-child {
   .theme-page-shell main [style*="perspective:1300px"] > * {
     max-height: none !important;
   }
+
+  .theme-page-shell main [class*="grid-rows-[1fr]"]:has([style*="perspective: 1300px"]),
+  .theme-page-shell main [class*="grid-rows-[1fr]"]:has([style*="perspective:1300px"]) {
+    height: 226px !important;
+    min-height: 226px !important;
+    max-height: 226px !important;
+    grid-template-rows: 226px !important;
+    overflow: visible !important;
+  }
+
+  .theme-page-shell main [class*="grid-rows-[1fr]"]:has([style*="perspective: 1300px"]) > div,
+  .theme-page-shell main [class*="grid-rows-[1fr]"]:has([style*="perspective:1300px"]) > div {
+    height: 226px !important;
+    min-height: 226px !important;
+    max-height: 226px !important;
+    overflow: visible !important;
+  }
 }
