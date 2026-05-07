@@ -42,6 +42,52 @@ export const ensureClaraVisualPerformanceStyles = () => {
       -webkit-backface-visibility: hidden !important;
     }
 
+    .clara-performance-mode .clara-preserve-flip-face {
+      isolation: isolate !important;
+      border-color: rgba(103,232,249,0.22) !important;
+      background:
+        radial-gradient(circle at -18% -26%, rgba(20,184,166,0.26) 0%, rgba(20,184,166,0.12) 30%, transparent 54%),
+        radial-gradient(circle at 78% 118%, rgba(99,102,241,0.22) 0%, rgba(79,70,229,0.13) 34%, transparent 64%),
+        linear-gradient(135deg, rgba(6,48,66,0.98), rgba(7,20,48,0.96) 48%, rgba(37,13,74,0.96)) !important;
+      box-shadow: 0 18px 46px rgba(0,0,0,0.30), inset 0 1px 0 rgba(255,255,255,0.10) !important;
+    }
+
+    .clara-performance-mode .clara-preserve-flip-face > .pointer-events-none.absolute {
+      opacity: 0 !important;
+      background: transparent !important;
+    }
+
+    .clara-performance-mode .clara-preserve-flip-face::before {
+      content: "" !important;
+      position: absolute !important;
+      left: -128px !important;
+      top: -148px !important;
+      width: 220px !important;
+      height: 220px !important;
+      border-radius: 999px !important;
+      background: rgba(45,212,191,0.11) !important;
+      pointer-events: none !important;
+      z-index: 0 !important;
+    }
+
+    .clara-performance-mode .clara-preserve-flip-face::after {
+      content: "" !important;
+      position: absolute !important;
+      right: -86px !important;
+      bottom: -132px !important;
+      width: 238px !important;
+      height: 238px !important;
+      border-radius: 999px !important;
+      background: rgba(99,102,241,0.13) !important;
+      pointer-events: none !important;
+      z-index: 0 !important;
+    }
+
+    .clara-performance-mode .clara-preserve-flip-face > * {
+      position: relative;
+      z-index: 2;
+    }
+
     .clara-performance-mode .clara-finance-bubble-card,
     .clara-performance-mode [data-emergency-card="true"],
     .clara-performance-mode .clara-finance-bubble-card-shell > div:first-child {
