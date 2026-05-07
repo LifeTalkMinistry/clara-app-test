@@ -9,7 +9,13 @@ import {
   getDefaultCarouselIndex,
 } from "./logic/FinancialCarouselLogic";
 
-const INLINE_FOCUS_DETAIL_KEYS = ["budgets", "wallets", "emergency", "investmentFund"];
+const INLINE_FOCUS_DETAIL_KEYS = [
+  "budgets",
+  "wallets",
+  "emergency",
+  "investmentFund",
+  "savings",
+];
 
 export default function FinancialCarousel({
   dashboardScale = {},
