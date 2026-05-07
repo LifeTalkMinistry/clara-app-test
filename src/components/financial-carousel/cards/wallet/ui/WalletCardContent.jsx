@@ -35,9 +35,9 @@ export default function WalletCardContent({
       <div className='pointer-events-none absolute inset-x-0 top-0 h-24 bg-[linear-gradient(to_bottom,rgba(255,255,255,0.16),rgba(255,255,255,0.04)_35%,transparent_100%)]' />
       <div className='pointer-events-none absolute inset-0 rounded-[30px] ring-1 ring-inset ring-white/10' />
 
-      <div className='relative z-10 flex h-full min-h-0 flex-col p-4'>
-        <div className={`${expanded ? 'shrink-0' : 'flex-1'} flex min-h-0 flex-col justify-between`}>
-          <div>
+      <div className='relative z-10 flex h-full min-h-0 flex-col p-4 pb-5'>
+        <div className={`${expanded ? 'shrink-0' : 'flex-1'} flex min-h-0 flex-col justify-between gap-2`}>
+          <div className='min-h-0'>
             <WalletHeader walletCount={wallets.length} />
 
             <WalletSummaryStats
@@ -50,10 +50,12 @@ export default function WalletCardContent({
             />
           </div>
 
-          <WalletExpandToggle
-            expanded={expanded}
-            onToggleDetails={onToggleDetails}
-          />
+          <div className='shrink-0 pb-0.5'>
+            <WalletExpandToggle
+              expanded={expanded}
+              onToggleDetails={onToggleDetails}
+            />
+          </div>
         </div>
 
         {expanded && (
