@@ -127,16 +127,16 @@ export default function FinancialCarousel({
         }
 
         .clara-budget-focus-mode .clara-budget-focus-tip {
-          transform: translate3d(0, -178px, 0);
-          margin-bottom: -150px;
-          opacity: 0.52;
+          transform: translate3d(0, -196px, 0);
+          margin-bottom: -170px;
+          opacity: 0.5;
           pointer-events: none;
         }
 
         .clara-budget-focus-mode .clara-budget-focus-hub {
-          transform: translate3d(0, -178px, 0);
-          margin-bottom: -46px;
-          opacity: 0.58;
+          transform: translate3d(0, -196px, 0);
+          margin-bottom: -56px;
+          opacity: 0.56;
           pointer-events: none;
         }
       `}</style>
