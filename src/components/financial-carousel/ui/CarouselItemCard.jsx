@@ -173,6 +173,8 @@ export default function CarouselItemCard(props) {
       <InvestmentCardView
         item={item}
         selectedDashboardTheme={selectedDashboardTheme}
+        expandedFinanceCard={expandedFinanceCard}
+        toggleFinanceDetails={toggleFinanceDetails}
       />
     );
   }
