@@ -129,13 +129,13 @@ export default function LearningHubCarousel({ materials = [], onOpenMaterial }) 
       </button>
 
       <div
-        className={`clara-learning-motion grid transition-[grid-template-rows,opacity,margin] duration-500 ease-out ${
+        className={`clara-learning-hub-expanded clara-learning-motion grid transition-[grid-template-rows,opacity,margin] duration-500 ease-out ${
           isExpanded ? "mt-0 mb-0 grid-rows-[244px] opacity-100" : "mt-0 mb-0 grid-rows-[0px] opacity-0"
         }`}
       >
-        <div className="min-h-0 overflow-visible">
+        <div className="clara-learning-hub-clip min-h-0 overflow-visible">
           <div
-            className="relative flex w-full items-center justify-center overflow-hidden rounded-[30px] border border-cyan-100/10 bg-[radial-gradient(circle_at_-18%_-28%,rgba(20,184,166,0.22),transparent_48%),radial-gradient(circle_at_78%_118%,rgba(99,102,241,0.18),transparent_58%),linear-gradient(135deg,rgba(6,48,66,0.76),rgba(7,20,48,0.82)_48%,rgba(37,13,74,0.76))]"
+            className="clara-learning-hub-stage relative flex w-full items-center justify-center overflow-hidden rounded-[30px] border border-cyan-100/10 bg-[radial-gradient(circle_at_-18%_-28%,rgba(20,184,166,0.22),transparent_48%),radial-gradient(circle_at_78%_118%,rgba(99,102,241,0.18),transparent_58%),linear-gradient(135deg,rgba(6,48,66,0.76),rgba(7,20,48,0.82)_48%,rgba(37,13,74,0.76))]"
             style={{
               height: `${LEARNING_HUB_STAGE_HEIGHT}px`,
               minHeight: `${LEARNING_HUB_STAGE_HEIGHT}px`,
