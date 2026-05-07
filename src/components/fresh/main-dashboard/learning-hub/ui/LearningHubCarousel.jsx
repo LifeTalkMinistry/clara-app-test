@@ -103,7 +103,7 @@ export default function LearningHubCarousel({ materials = [], onOpenMaterial }) 
   if (!total) return null;
 
   return (
-    <section className="relative w-full overflow-hidden px-1 py-0">
+    <section className="relative -mb-1 w-full overflow-hidden px-1 py-0">
       <DailyTipCard />
 
       <button
@@ -112,7 +112,7 @@ export default function LearningHubCarousel({ materials = [], onOpenMaterial }) 
         onClick={() => setIsExpanded((current) => !current)}
         onTouchStart={handleHeaderTouchStart}
         onTouchEnd={handleHeaderTouchEnd}
-        className="clara-learning-motion relative isolate mx-auto mt-3 mb-1.5 flex w-fit items-center justify-center gap-2 overflow-hidden rounded-full border px-4 py-2 text-[11px] font-bold uppercase tracking-[0.24em] text-white/72 transition-[transform,background-color,border-color] duration-300 active:scale-[0.98]"
+        className="clara-learning-motion relative isolate mx-auto mt-3 mb-0 flex w-fit items-center justify-center gap-2 overflow-hidden rounded-full border px-4 py-2 text-[11px] font-bold uppercase tracking-[0.24em] text-white/72 transition-[transform,background-color,border-color] duration-300 active:scale-[0.98]"
         style={learningHubToggleSurface}
       >
         <span className="pointer-events-none absolute -left-12 -top-14 z-0 h-24 w-24 rounded-full bg-cyan-300/[0.08]" />
@@ -129,7 +129,7 @@ export default function LearningHubCarousel({ materials = [], onOpenMaterial }) 
 
       <div
         className={`clara-learning-motion grid transition-[grid-template-rows,opacity,margin] duration-500 ease-out ${
-          isExpanded ? "mt-0 mb-1.5 grid-rows-[1fr] opacity-100" : "mt-0 mb-0 grid-rows-[0fr] opacity-0"
+          isExpanded ? "mt-0 mb-1 grid-rows-[1fr] opacity-100" : "mt-0 mb-0 grid-rows-[0fr] opacity-0"
         }`}
       >
         <div className="min-h-0 overflow-hidden">
