@@ -131,10 +131,17 @@ const getEmergencyValue = (emergencyFund, keys, fallback = 0) => {
   return fallback;
 };
 
-export default function InvestmentCard({ item = null }) {
-  const [expanded, setExpanded] = useState(false);
+export default function InvestmentCard({
+  item = null,
+  expanded = false,
+  onToggleDetails,
+}) {
+  const [localExpanded, setLocalExpanded] = useState(false);
   const [investmentType, setInvestmentType] = useState("business");
   const [plannedAmount, setPlannedAmount] = useState("");
+
+  const isControlled = typeof onToggleDetails === "function";
+  const isExpanded = isControlled ? expanded : localExpanded;
 
   const {
     emergencyFund,
@@ -264,6 +271,14 @@ export default function InvestmentCard({ item = null }) {
     );
   };
 
+  const handleToggleDetails = () => {
+    if (isControlled) {
+      onToggleDetails?.();
+      return;
+    }
+    setLocalExpanded((value) => !value);
+  };
+
   return (
     <div
       className={`clara-finance-bubble-card clara-finance-bubble-investment relative flex h-full min-h-[inherit] flex-col overflow-hidden rounded-3xl border text-white shadow-2xl transition-all duration-200 ${tone.border}`}
@@ -277,7 +292,7 @@ export default function InvestmentCard({ item = null }) {
       />
 
       <div className="relative z-10 flex h-full min-h-0 flex-col p-4">
-        <div className="flex min-h-0 flex-1 flex-col justify-between">
+        <div className={`${isExpanded ? "shrink-0" : "flex-1"} flex min-h-0 flex-col justify-between`}>
           <div>
             <div className="mb-3 flex items-start gap-3">
               <div
@@ -316,7 +331,7 @@ export default function InvestmentCard({ item = null }) {
               </p>
             </div>
 
-            <div className="mb-3">
+            <div className={`${isExpanded ? "mb-2" : "mb-3"}`}>
               <div className="mb-1.5 flex items-center justify-between gap-3 text-[11px] font-medium text-white/75">
                 <span>Readiness</span>
                 <span className="truncate text-right">
@@ -340,108 +355,106 @@ export default function InvestmentCard({ item = null }) {
             </div>
           </div>
 
-          <div className="min-h-0">
-            <button
-              type="button"
-              onClick={() => setExpanded((value) => !value)}
-              className="flex w-full items-center justify-between rounded-2xl border border-white/10 bg-black/15 px-3 py-2.5 text-sm text-white/82 backdrop-blur-sm transition hover:bg-white/10 hover:text-white"
-            >
-              <span className="font-medium">
-                {expanded ? "Hide details" : "Show details"}
-              </span>
-              {expanded ? (
-                <ChevronUp className="h-4 w-4" />
-              ) : (
-                <ChevronDown className="h-4 w-4" />
-              )}
-            </button>
-
-            {expanded && (
-              <div className="mt-3 max-h-[230px] space-y-3 overflow-y-auto rounded-2xl border border-white/10 bg-black/15 p-3 backdrop-blur-sm shadow-[inset_0_1px_0_rgba(255,255,255,0.05)] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-                <div className="grid grid-cols-3 gap-2 text-center text-sm text-white">
-                  <div className="rounded-2xl border border-white/10 bg-white/5 px-2.5 py-2.5 backdrop-blur-[2px]">
-                    <p className="mb-1 text-[10px] font-semibold uppercase tracking-[0.16em] text-white/55">
-                      {statOneLabel}
-                    </p>
-                    <p className="truncate text-sm font-bold text-white">
-                      {statOneValue}
-                    </p>
-                  </div>
-
-                  <div className="rounded-2xl border border-white/10 bg-white/5 px-2.5 py-2.5 backdrop-blur-[2px]">
-                    <p className="mb-1 text-[10px] font-semibold uppercase tracking-[0.16em] text-white/55">
-                      {statTwoLabel}
-                    </p>
-                    <p className="truncate text-sm font-bold text-white">
-                      {statTwoValue}
-                    </p>
-                  </div>
-
-                  <div className="rounded-2xl border border-white/10 bg-white/5 px-2.5 py-2.5 backdrop-blur-[2px]">
-                    <p className="mb-1 text-[10px] font-semibold uppercase tracking-[0.16em] text-white/55">
-                      {statThreeLabel}
-                    </p>
-                    <p className="truncate text-sm font-bold text-white">
-                      {statThreeValue}
-                    </p>
-                  </div>
-                </div>
-
-                <div>
-                  <label className="mb-1.5 block text-[10px] font-semibold uppercase tracking-[0.16em] text-white/55">
-                    Investment type
-                  </label>
-                  <select
-                    value={investmentType}
-                    onChange={(event) => setInvestmentType(event.target.value)}
-                    className={`w-full rounded-2xl border border-white/10 bg-black/25 px-3 py-2.5 text-sm font-semibold text-white outline-none transition ${tone.focus}`}
-                  >
-                    {INVESTMENT_TYPES.map((type) => (
-                      <option key={type.value} value={type.value} className="bg-slate-950">
-                        {type.label}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-
-                <div>
-                  <label className="mb-1.5 block text-[10px] font-semibold uppercase tracking-[0.16em] text-white/55">
-                    Money to invest
-                  </label>
-                  <input
-                    type="number"
-                    min="0"
-                    value={plannedAmount}
-                    onChange={(event) => setPlannedAmount(event.target.value)}
-                    placeholder="0"
-                    className={`w-full rounded-2xl border border-white/10 bg-black/25 px-3 py-2.5 text-sm font-semibold text-white outline-none transition placeholder:text-white/35 ${tone.focus}`}
-                  />
-                  <p className="mt-1.5 text-[11px] font-medium text-white/60">
-                    {amountStatus}
-                  </p>
-                </div>
-
-                <div className="grid grid-cols-2 gap-2">
-                  <button
-                    type="button"
-                    onClick={handlePlanInvestment}
-                    className={`flex items-center justify-center rounded-2xl px-3 py-2.5 text-sm font-semibold ${tone.primaryButton}`}
-                  >
-                    Plan Investment
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={handleAskClara}
-                    className="flex items-center justify-center rounded-2xl border border-white/10 bg-white/5 px-3 py-2.5 text-sm font-semibold text-white/82 transition hover:bg-white/10 hover:text-white"
-                  >
-                    Ask CLARA
-                  </button>
-                </div>
-              </div>
+          <button
+            type="button"
+            onClick={handleToggleDetails}
+            className="flex w-full items-center justify-between rounded-2xl border border-white/10 bg-black/15 px-3 py-2.5 text-sm text-white/82 backdrop-blur-sm transition hover:bg-white/10 hover:text-white"
+          >
+            <span className="font-medium">
+              {isExpanded ? "Hide details" : "Show details"}
+            </span>
+            {isExpanded ? (
+              <ChevronUp className="h-4 w-4" />
+            ) : (
+              <ChevronDown className="h-4 w-4" />
             )}
-          </div>
+          </button>
         </div>
+
+        {isExpanded && (
+          <div className="mt-2 min-h-0 flex-1 space-y-2 overflow-y-auto rounded-2xl border border-white/10 bg-black/15 p-3 backdrop-blur-sm shadow-[inset_0_1px_0_rgba(255,255,255,0.05)] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+            <div className="grid grid-cols-3 gap-2 text-center text-sm text-white">
+              <div className="rounded-2xl border border-white/10 bg-white/5 px-2.5 py-2.5 backdrop-blur-[2px]">
+                <p className="mb-1 text-[10px] font-semibold uppercase tracking-[0.16em] text-white/55">
+                  {statOneLabel}
+                </p>
+                <p className="truncate text-sm font-bold text-white">
+                  {statOneValue}
+                </p>
+              </div>
+
+              <div className="rounded-2xl border border-white/10 bg-white/5 px-2.5 py-2.5 backdrop-blur-[2px]">
+                <p className="mb-1 text-[10px] font-semibold uppercase tracking-[0.16em] text-white/55">
+                  {statTwoLabel}
+                </p>
+                <p className="truncate text-sm font-bold text-white">
+                  {statTwoValue}
+                </p>
+              </div>
+
+              <div className="rounded-2xl border border-white/10 bg-white/5 px-2.5 py-2.5 backdrop-blur-[2px]">
+                <p className="mb-1 text-[10px] font-semibold uppercase tracking-[0.16em] text-white/55">
+                  {statThreeLabel}
+                </p>
+                <p className="truncate text-sm font-bold text-white">
+                  {statThreeValue}
+                </p>
+              </div>
+            </div>
+
+            <div>
+              <label className="mb-1.5 block text-[10px] font-semibold uppercase tracking-[0.16em] text-white/55">
+                Investment type
+              </label>
+              <select
+                value={investmentType}
+                onChange={(event) => setInvestmentType(event.target.value)}
+                className={`w-full rounded-2xl border border-white/10 bg-black/25 px-3 py-2.5 text-sm font-semibold text-white outline-none transition ${tone.focus}`}
+              >
+                {INVESTMENT_TYPES.map((type) => (
+                  <option key={type.value} value={type.value} className="bg-slate-950">
+                    {type.label}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div>
+              <label className="mb-1.5 block text-[10px] font-semibold uppercase tracking-[0.16em] text-white/55">
+                Money to invest
+              </label>
+              <input
+                type="number"
+                min="0"
+                value={plannedAmount}
+                onChange={(event) => setPlannedAmount(event.target.value)}
+                placeholder="0"
+                className={`w-full rounded-2xl border border-white/10 bg-black/25 px-3 py-2.5 text-sm font-semibold text-white outline-none transition placeholder:text-white/35 ${tone.focus}`}
+              />
+              <p className="mt-1.5 text-[11px] font-medium text-white/60">
+                {amountStatus}
+              </p>
+            </div>
+
+            <div className="grid grid-cols-2 gap-2">
+              <button
+                type="button"
+                onClick={handlePlanInvestment}
+                className={`flex items-center justify-center rounded-2xl px-3 py-2.5 text-sm font-semibold ${tone.primaryButton}`}
+              >
+                Plan Investment
+              </button>
+
+              <button
+                type="button"
+                onClick={handleAskClara}
+                className="flex items-center justify-center rounded-2xl border border-white/10 bg-white/5 px-3 py-2.5 text-sm font-semibold text-white/82 transition hover:bg-white/10 hover:text-white"
+              >
+                Ask CLARA
+              </button>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );
