@@ -6,6 +6,7 @@ import WalletSummaryStats from '@/components/financial-carousel/cards/wallet/ui/
 import FinanceCardExpandButton from '@/components/financial-carousel/shared/FinanceCardExpandButton';
 import FinanceCardExpandedPanel from '@/components/financial-carousel/shared/FinanceCardExpandedPanel';
 import WalletCreateButton from '@/components/financial-carousel/cards/wallet/ui/WalletCreateButton';
+import { fmt } from '@/components/financial-carousel/cards/wallet/logic/walletFormatting';
 
 export default function WalletCardContent({
   wallets = [],
@@ -35,14 +36,26 @@ export default function WalletCardContent({
         <div className='min-h-0'>
           <WalletHeader walletCount={walletCount} />
 
-          <WalletSummaryStats
-            walletMoney={walletMoney}
-            walletCount={walletCount}
-            walletPreviewTransactions={walletPreviewTransactions}
-            topWallet={topWallet}
-            status={status}
-            message={message}
-          />
+          {!expanded ? (
+            <WalletSummaryStats
+              walletMoney={walletMoney}
+              walletCount={walletCount}
+              walletPreviewTransactions={walletPreviewTransactions}
+              topWallet={topWallet}
+              status={status}
+              message={message}
+            />
+          ) : (
+            <div className='mb-3'>
+              <p className={`text-[34px] font-black leading-none tracking-[-0.045em] ${status.text}`}>
+                {fmt(walletMoney)}
+              </p>
+
+              <p className='mt-2 text-xs font-semibold text-white/76'>
+                Total available across your wallet system.
+              </p>
+            </div>
+          )}
         </div>
 
         <div className='shrink-0 pb-0.5'>
