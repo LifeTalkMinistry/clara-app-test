@@ -2,80 +2,11 @@ import { X } from "lucide-react";
 
 import EmergencyFundCard from "@/components/EmergencyFundCard";
 import WalletCard from "@/components/WalletCard";
-import BudgetCardBase from "@/components/BudgetCard";
 import SavingsCard from "@/components/SavingsCard";
-
-const firstValidNumber = (...values) => {
-  for (const value of values) {
-    const num = Number(value);
-    if (Number.isFinite(num)) return num;
-  }
-  return 0;
-};
-
-const BudgetCard = ({
-  activeBudget,
-  declaredBudget,
-  budgetCategories = [],
-  remainingAmount,
-  amountLeft,
-  budgetRemaining,
-  spentAmount,
-  totalSpent,
-  ...props
-}) => {
-  const total = firstValidNumber(
-    declaredBudget,
-    activeBudget?.declared_budget,
-    activeBudget?.declared_amount,
-    activeBudget?.monthly_budget_amount,
-    activeBudget?.total_budget,
-    activeBudget?.allocated_amount,
-    activeBudget?.allocated_total
-  );
-  const spent = firstValidNumber(
-    spentAmount,
-    totalSpent,
-    activeBudget?.spent,
-    activeBudget?.spent_amount,
-    activeBudget?.total_spent,
-    budgetCategories.reduce(
-      (sum, item) => sum + firstValidNumber(item?.spent, item?.spent_amount, item?.total_spent),
-      0
-    )
-  );
-  const remaining = Math.max(
-    firstValidNumber(
-      remainingAmount,
-      amountLeft,
-      budgetRemaining,
-      activeBudget?.remaining,
-      activeBudget?.remaining_amount,
-      activeBudget?.amount_left,
-      total - spent
-    ),
-    0
-  );
-
-  return (
-    <BudgetCardBase
-      activeBudget={activeBudget}
-      declaredBudget={declaredBudget}
-      budgetCategories={budgetCategories}
-      remainingAmount={remaining}
-      amountLeft={remaining}
-      budgetRemaining={remaining}
-      spentAmount={spent}
-      totalSpent={spent}
-      {...props}
-    />
-  );
-};
 
 const getExpandedTitle = (expandedFinanceCard) => {
   if (expandedFinanceCard === "emergency") return "Emergency Fund";
   if (expandedFinanceCard === "wallets") return "Wallets";
-  if (expandedFinanceCard === "budgets") return "Budget";
   return "Savings Goals";
 };
 
@@ -101,10 +32,6 @@ export default function DashboardFinanceExpandedSheet({
   openDeleteWalletModal,
   openAddMoneyModal,
   openTransferMoneyModal,
-  monthlyBudgetPlan,
-  openBudgetModal,
-  openDeleteBudgetCategoryModal,
-  openResetBudgetModal,
   savingsGoals,
   totalSavingsSaved,
   totalSavingsTarget,
@@ -114,6 +41,9 @@ export default function DashboardFinanceExpandedSheet({
   openAddSavingsModal,
 }) {
   if (activeDashboardPanel !== "home" || !expandedFinanceCard) return null;
+
+  // Budget now expands inline inside the financial carousel, not through this full-screen sheet.
+  if (expandedFinanceCard === "budgets") return null;
 
   const closeDetails = () => setExpandedFinanceCard(null);
   const closeAndRun = (callback) => {
@@ -192,33 +122,6 @@ export default function DashboardFinanceExpandedSheet({
                 onDeleteWallet={(walletId) => closeAndRun(() => openDeleteWalletModal(walletId))}
                 onAddMoney={(wallet) => closeAndRun(() => openAddMoneyModal(wallet))}
                 onTransferMoney={(wallet) => closeAndRun(() => openTransferMoneyModal(wallet))}
-              />
-            </div>
-          )}
-
-          {expandedFinanceCard === "budgets" && (
-            <div className="[&>*]:!mb-0 [&>*]:!min-h-0">
-              <BudgetCard
-                activeBudget={monthlyBudgetPlan}
-                budgetCategories={Array.isArray(monthlyBudgetPlan?.categories) ? monthlyBudgetPlan.categories : []}
-                declaredBudget={Number(monthlyBudgetPlan?.declared_budget || monthlyBudgetPlan?.declared_amount || 0)}
-                unallocatedAmount={Number(monthlyBudgetPlan?.unallocated_amount || 0)}
-                budgetStatus={monthlyBudgetPlan?.status || ""}
-                isComplete={monthlyBudgetPlan?.is_complete === true}
-                unplannedSpent={Number(monthlyBudgetPlan?.unplanned_spent || 0)}
-                undocumentedSpent={Number(monthlyBudgetPlan?.undocumented_spent || 0)}
-                remainingAmount={Number(monthlyBudgetPlan?.remaining_amount || monthlyBudgetPlan?.remaining || 0)}
-                amountLeft={Number(monthlyBudgetPlan?.remaining_amount || monthlyBudgetPlan?.remaining || 0)}
-                spentAmount={Number(monthlyBudgetPlan?.spent_amount || monthlyBudgetPlan?.spent || monthlyBudgetPlan?.total_spent || 0)}
-                totalSpent={Number(monthlyBudgetPlan?.total_spent || monthlyBudgetPlan?.spent_amount || monthlyBudgetPlan?.spent || 0)}
-                theme={selectedDashboardTheme}
-                expanded={true}
-                onToggleDetails={closeDetails}
-                financeActionLoading={financeActionLoading}
-                onSaveBudget={() => closeAndRun(openBudgetModal)}
-                onEditBudgetCategory={(item) => closeAndRun(() => openBudgetModal(item))}
-                onDeleteBudgetCategory={(item) => closeAndRun(() => openDeleteBudgetCategoryModal(item))}
-                onResetBudget={() => closeAndRun(openResetBudgetModal)}
               />
             </div>
           )}
