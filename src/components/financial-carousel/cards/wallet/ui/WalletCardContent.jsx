@@ -36,7 +36,7 @@ export default function WalletCardContent({
       <div className='pointer-events-none absolute inset-0 rounded-[30px] ring-1 ring-inset ring-white/10' />
 
       <div className='relative z-10 flex h-full min-h-0 flex-col p-4'>
-        <div className='flex min-h-0 flex-1 flex-col justify-between'>
+        <div className={`${expanded ? 'shrink-0' : 'flex-1'} flex min-h-0 flex-col justify-between`}>
           <div>
             <WalletHeader walletCount={wallets.length} />
 
@@ -57,7 +57,7 @@ export default function WalletCardContent({
         </div>
 
         {expanded && (
-          <div className='mt-3 min-h-0 flex-1 space-y-3 overflow-y-auto rounded-2xl border border-cyan-200/15 bg-white/[0.055] p-3 shadow-[inset_0_1px_0_rgba(255,255,255,0.08),0_0_22px_rgba(0,255,220,0.04)] backdrop-blur-[2px] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden'>
+          <div className='mt-2 min-h-0 flex-1 space-y-2 overflow-y-auto rounded-2xl border border-cyan-200/15 bg-white/[0.055] p-3 shadow-[inset_0_1px_0_rgba(255,255,255,0.08),0_0_22px_rgba(0,255,220,0.04)] backdrop-blur-[2px] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden'>
             {wallets.length ? (
               <div className='space-y-2'>
                 {visibleWallets.map((wallet, index) => (
