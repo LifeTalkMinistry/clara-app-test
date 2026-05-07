@@ -1,5 +1,6 @@
-const NORMAL_SLIDE_HEIGHT = 286;
-const EXPANDED_SLIDE_HEIGHT = 516;
+export const NORMAL_SLIDE_HEIGHT = 286;
+export const EXPANDED_SLIDE_HEIGHT = 516;
+export const EXPANDED_OVERFLOW_OFFSET = EXPANDED_SLIDE_HEIGHT - NORMAL_SLIDE_HEIGHT;
 
 const getFinanceSlideShellClass = (cardKey, theme = null, isExpanded = false) => {
   const toneClassMap = {
