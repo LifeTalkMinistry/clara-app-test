@@ -1,7 +1,7 @@
 import { useMemo, useState } from "react";
 import useUserRole from "@/hooks/useUserRole";
 import useFinancialData from "@/hooks/useFinancialData";
-import { fmt } from "./walletFormatting";
+import { fmt, formatHistoryDate } from "./walletFormatting";
 import {
   getHistoryAmountPrefix,
   getHistoryTypeLabel,
@@ -20,6 +20,7 @@ import {
 
 export {
   fmt,
+  formatHistoryDate,
   getHistoryAmountPrefix,
   getHistoryTypeLabel,
   getWalletIcon,
