@@ -1,27 +1,13 @@
 import { X } from "lucide-react";
 
-import EmergencyFundCard from "@/components/EmergencyFundCard";
 import SavingsCard from "@/components/SavingsCard";
 
-const getExpandedTitle = (expandedFinanceCard) => {
-  if (expandedFinanceCard === "emergency") return "Emergency Fund";
-  return "Savings Goals";
-};
+const getExpandedTitle = () => "Savings Goals";
 
 export default function DashboardFinanceExpandedSheet({
   activeDashboardPanel,
   expandedFinanceCard,
   setExpandedFinanceCard,
-  walletMoney,
-  survivalExpense,
-  selectedDashboardTheme,
-  expandedFinanceDetailSections,
-  toggleExpandedFinanceDetailSection,
-  profileData,
-  firstPositiveNumber,
-  readStoredSurvivalExpense,
-  user,
-  onSurvivalSaved,
   financeActionLoading,
   savingsGoals,
   totalSavingsSaved,
@@ -33,8 +19,14 @@ export default function DashboardFinanceExpandedSheet({
 }) {
   if (activeDashboardPanel !== "home" || !expandedFinanceCard) return null;
 
-  // Budget and Wallet now expand inline inside the financial carousel, not through this full-screen sheet.
-  if (expandedFinanceCard === "budgets" || expandedFinanceCard === "wallets") return null;
+  // Budget, Wallet, and Emergency Fund now expand inline inside the financial carousel.
+  if (
+    expandedFinanceCard === "budgets" ||
+    expandedFinanceCard === "wallets" ||
+    expandedFinanceCard === "emergency"
+  ) {
+    return null;
+  }
 
   const closeDetails = () => setExpandedFinanceCard(null);
   const closeAndRun = (callback) => {
@@ -73,31 +65,6 @@ export default function DashboardFinanceExpandedSheet({
         </div>
 
         <div className="flex-1 overflow-y-auto overflow-x-hidden px-4 py-4 pb-[calc(env(safe-area-inset-bottom)+24px)] [-webkit-overflow-scrolling:touch] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-          {expandedFinanceCard === "emergency" && (
-            <div className="[&>*]:!mb-0">
-              <EmergencyFundCard
-                moneyLeft={walletMoney}
-                survivalExpense={survivalExpense}
-                retentionRate={0}
-                theme={selectedDashboardTheme}
-                expanded={expandedFinanceDetailSections?.emergency !== false}
-                onToggleDetails={() => toggleExpandedFinanceDetailSection("emergency")}
-                canAutoPrompt={false}
-                hasSurvivalSetup={
-                  Boolean(profileData?.survival_setup_done) ||
-                  firstPositiveNumber(
-                    profileData?.monthly_survival_expense,
-                    profileData?.survival_expense,
-                    profileData?.clara_survival_expense,
-                    survivalExpense,
-                    readStoredSurvivalExpense(user?.id)
-                  ) > 0
-                }
-                onSurvivalSaved={onSurvivalSaved}
-              />
-            </div>
-          )}
-
           {expandedFinanceCard === "savings" && (
             <div className="[&>*]:!mb-0 [&>*]:!min-h-0">
               <SavingsCard
@@ -105,7 +72,6 @@ export default function DashboardFinanceExpandedSheet({
                 totalSavingsSaved={totalSavingsSaved}
                 totalSavingsTarget={totalSavingsTarget}
                 primarySavingsGoal={primarySavingsGoal}
-                theme={selectedDashboardTheme}
                 expanded={true}
                 onToggleDetails={closeDetails}
                 financeActionLoading={financeActionLoading}
