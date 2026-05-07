@@ -22,9 +22,11 @@ export default function WalletCard({
     editForm,
     setEditForm,
     isSavingWalletEdit,
+    activeWallets,
     topWallet,
     status,
     message,
+    expandedMessage,
     visibleWallets,
     visibleTransactions,
     openEditWallet,
@@ -45,7 +47,7 @@ export default function WalletCard({
       ringClass={status.ring}
     >
       <WalletCardContent
-        wallets={wallets}
+        wallets={activeWallets}
         walletMoney={walletMoney}
         walletPreviewTransactions={walletPreviewTransactions}
         expanded={expanded}
@@ -59,6 +61,7 @@ export default function WalletCard({
         topWallet={topWallet}
         status={status}
         message={message}
+        expandedMessage={expandedMessage}
         visibleWallets={visibleWallets}
         visibleTransactions={visibleTransactions}
         openEditWallet={openEditWallet}
