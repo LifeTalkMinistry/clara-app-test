@@ -82,7 +82,7 @@ export default function BudgetCard({
         <div className="pointer-events-none absolute inset-0 rounded-3xl ring-1 ring-inset ring-white/10" />
 
         <div className="relative z-10 flex h-full min-h-0 flex-col p-4">
-          <div className="flex min-h-0 flex-1 flex-col justify-between">
+          <div className={`${expanded ? "shrink-0" : "flex-1"} flex min-h-0 flex-col justify-between`}>
             <div>
               <div className="mb-3 flex items-start gap-3">
                 <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-cyan-200/20 bg-white/[0.07] text-cyan-100 shadow-[inset_0_1px_0_rgba(255,255,255,0.12),0_0_18px_rgba(0,255,220,0.10)] backdrop-blur-sm">
@@ -127,7 +127,7 @@ export default function BudgetCard({
                 </p>
               </div>
 
-              <div className="mb-3">
+              <div className={`${expanded ? "mb-2" : "mb-3"}`}>
                 <div className="mb-1.5 flex items-center justify-between text-[11px] font-medium text-white/75">
                   <span>Monthly progress</span>
                   <span>{Math.round(progress)}%</span>
@@ -160,7 +160,7 @@ export default function BudgetCard({
           </div>
 
           {expanded && (
-            <div className="mt-3 min-h-0 flex-1 space-y-3 overflow-y-auto rounded-2xl border border-cyan-200/15 bg-white/[0.055] p-3 shadow-[inset_0_1px_0_rgba(255,255,255,0.08),0_0_18px_rgba(0,255,220,0.035)] backdrop-blur-[2px] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+            <div className="mt-2 min-h-0 flex-1 space-y-2 overflow-y-auto rounded-2xl border border-cyan-200/15 bg-white/[0.055] p-3 shadow-[inset_0_1px_0_rgba(255,255,255,0.08),0_0_18px_rgba(0,255,220,0.035)] backdrop-blur-[2px] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
               <div className="grid grid-cols-2 gap-2 text-center text-sm text-white">
                 {[
                   ["Declared", fmt(declared)],
