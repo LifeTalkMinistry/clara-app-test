@@ -44,6 +44,7 @@ import FinancialCarousel from "@/components/financial-carousel/FinancialCarousel
 import DashboardFinanceExpandedSheet from "@/components/fresh/main-dashboard/financial-cards/DashboardFinanceExpandedSheet";
 import LearningHub from "@/components/fresh/main-dashboard/learning-hub/LearningHub";
 import DashboardMoneySummary from "@/components/fresh/main-dashboard/money-summary/DashboardMoneySummary";
+import useMoneySummaryVisibility from "@/components/fresh/main-dashboard/money-summary/useMoneySummaryVisibility";
 import useMoneyLeftSummaryHandlers from "@/components/fresh/main-dashboard/money-summary/useMoneyLeftSummaryHandlers";
 import DashboardTopNav from "@/components/fresh/main-dashboard/top-nav/DashboardTopNav";
 import DashboardShell from "@/components/fresh/main-dashboard/shell/DashboardShell";
@@ -64,10 +65,8 @@ import {
 import {
   MONEY_SUMMARY_PRIVACY_KEY,
   persistDashboardPrefs,
-  persistMoneySummaryVisibility,
   persistStoredNotificationSettings,
   readDashboardPrefs,
-  readMoneySummaryVisibility,
   readStoredNotificationSettings,
 } from "@/components/fresh/main-dashboard/dashboard-settings/dashboardRuntimeSettings";
 import useDashboardNotificationSettings from "@/components/fresh/main-dashboard/dashboard-settings/useDashboardNotificationSettings";
@@ -191,22 +190,6 @@ let dashboardPageInFlight = null;
 
 
 export default function Dashboard() {
-  const [moneySummaryVisible, setMoneySummaryVisible] = useState(() =>
-    readMoneySummaryVisibility("guest")
-  );
-
-  const toggleMoneySummaryVisibility = useCallback((event) => {
-    event?.preventDefault?.();
-    event?.stopPropagation?.();
-    event?.nativeEvent?.stopImmediatePropagation?.();
-
-    setMoneySummaryVisible((current) => {
-      const nextVisible = !current;
-      persistMoneySummaryVisibility(nextVisible, userId || "guest");
-      return nextVisible;
-    });
-  }, []);
-
   const navigate = useNavigate();
   const { selectedTheme: selectedDashboardTheme, openThemePicker, setTheme } = useTheme();
   const dashboardViewportMode = useDashboardViewportMode();
@@ -244,6 +227,8 @@ export default function Dashboard() {
   } = useFinancialData(user);
 
   const userId = user?.id || null;
+  const [moneySummaryVisible, toggleMoneySummaryVisibility] =
+    useMoneySummaryVisibility(userId);
   const userEmail = user?.email || null;
   const cacheKey = userId || userEmail || null;
   const initialCache =
