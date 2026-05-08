@@ -16,17 +16,17 @@ export default function FinanceActionModal({
 
   return (
     <div className="fixed inset-0 z-[120] flex items-start justify-center bg-black/10 px-3 pt-[7.4rem] backdrop-blur-[1px] sm:items-center sm:p-4">
-      <div className="flex h-[66dvh] w-full max-w-[380px] overflow-hidden rounded-[32px] border border-cyan-100/15 bg-[linear-gradient(135deg,rgba(5,44,62,0.98),rgba(7,20,48,0.99)_48%,rgba(38,16,77,0.99))] shadow-[0_24px_60px_rgba(0,0,0,0.38),0_0_32px_rgba(0,255,220,0.08)]">
+      <div className="flex h-[56dvh] w-full max-w-[380px] overflow-hidden rounded-[32px] border border-cyan-100/15 bg-[linear-gradient(135deg,rgba(5,44,62,0.98),rgba(7,20,48,0.99)_48%,rgba(38,16,77,0.99))] shadow-[0_24px_60px_rgba(0,0,0,0.38),0_0_32px_rgba(0,255,220,0.08)]">
         <form onSubmit={onSubmit} className="flex min-h-0 w-full flex-col">
-          <div className="shrink-0 border-b border-white/10 bg-white/[0.03] px-5 py-4">
+          <div className="shrink-0 border-b border-white/10 bg-white/[0.03] px-5 py-3.5">
             <div className="flex items-start justify-between gap-4">
               <div className="min-w-0">
-                <h3 className="text-[28px] font-black tracking-[-0.035em] text-white">
+                <h3 className="text-[26px] font-black tracking-[-0.035em] text-white">
                   {title}
                 </h3>
 
                 {description ? (
-                  <p className="mt-1.5 text-sm leading-6 text-white/60">
+                  <p className="mt-1 text-sm leading-6 text-white/60">
                     {description}
                   </p>
                 ) : null}
@@ -43,16 +43,16 @@ export default function FinanceActionModal({
             </div>
           </div>
 
-          <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-5 py-4 pb-3 [scrollbar-width:thin]">
+          <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-5 py-3.5 pb-2 [scrollbar-width:thin]">
             {children}
           </div>
 
-          <div className="shrink-0 border-t border-white/10 bg-[#071120]/92 px-5 pb-[calc(0.9rem+env(safe-area-inset-bottom))] pt-3 backdrop-blur-xl">
+          <div className="shrink-0 border-t border-white/10 bg-[#071120]/92 px-5 pb-[calc(0.8rem+env(safe-area-inset-bottom))] pt-2.5 backdrop-blur-xl">
             <div className="flex flex-col-reverse gap-2.5">
               <button
                 type="button"
                 onClick={onClose}
-                className="rounded-2xl border border-white/15 bg-white/[0.075] px-4 py-3 text-sm font-medium text-white/75 transition hover:bg-white/[0.08] hover:text-white"
+                className="rounded-2xl border border-white/15 bg-white/[0.075] px-4 py-2.5 text-sm font-medium text-white/75 transition hover:bg-white/[0.08] hover:text-white"
               >
                 Cancel
               </button>
@@ -60,7 +60,7 @@ export default function FinanceActionModal({
               <button
                 type="submit"
                 disabled={submitDisabled || loading}
-                className={`rounded-2xl px-4 py-3 text-sm font-semibold text-white transition disabled:cursor-not-allowed disabled:opacity-55 ${
+                className={`rounded-2xl px-4 py-2.5 text-sm font-semibold text-white transition disabled:cursor-not-allowed disabled:opacity-55 ${
                   danger
                     ? "bg-gradient-to-r from-rose-500 to-red-600 shadow-[0_10px_30px_rgba(244,63,94,0.24)]"
                     : submitDisabled
