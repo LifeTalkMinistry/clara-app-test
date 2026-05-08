@@ -82,6 +82,7 @@ import {
   financeInputClassName,
   UNDOCUMENTED_SPENDING_REASONS,
 } from "@/components/fresh/main-dashboard/finance-form/financeFormConstants";
+import useBudgetListDropdownDismiss from "@/components/fresh/main-dashboard/finance-form/useBudgetListDropdownDismiss";
 import { hasDashboardFinanceContent } from "@/components/fresh/main-dashboard/finance-content/dashboardFinanceContent";
 import {
   dashboardTheme,
@@ -359,29 +360,11 @@ export default function Dashboard() {
     };
   }, []);
 
-  useEffect(() => {
-    if (!budgetListOpen) return;
-
-    const handlePointerDown = (event) => {
-      if (!budgetListDropdownRef.current) return;
-      if (budgetListDropdownRef.current.contains(event.target)) return;
-      setBudgetListOpen(false);
-    };
-
-    const handleKeyDown = (event) => {
-      if (event.key === "Escape") setBudgetListOpen(false);
-    };
-
-    document.addEventListener("mousedown", handlePointerDown);
-    document.addEventListener("touchstart", handlePointerDown, { passive: true });
-    document.addEventListener("keydown", handleKeyDown);
-
-    return () => {
-      document.removeEventListener("mousedown", handlePointerDown);
-      document.removeEventListener("touchstart", handlePointerDown);
-      document.removeEventListener("keydown", handleKeyDown);
-    };
-  }, [budgetListOpen]);
+  useBudgetListDropdownDismiss({
+    budgetListOpen,
+    budgetListDropdownRef,
+    setBudgetListOpen,
+  });
 
   useEffect(() => {
     const safeWallets = Array.isArray(financeWallets) ? financeWallets : [];
