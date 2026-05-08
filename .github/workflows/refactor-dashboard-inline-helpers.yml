@@ -15,6 +15,7 @@ on:
       - ".github/scripts/cleanup-dashboard-stale-alert-imports.mjs"
       - ".github/scripts/extract-dashboard-messages-panel.mjs"
       - ".github/scripts/cleanup-unused-dashboard-dispatch-event.mjs"
+      - ".github/scripts/wire-dashboard-shell-atoms.mjs"
   workflow_dispatch:
 
 permissions:
@@ -29,8 +30,8 @@ jobs:
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Patch Dashboard.jsx
-        run: node .github/scripts/cleanup-unused-dashboard-dispatch-event.mjs
+      - name: Wire Dashboard shell atoms
+        run: node .github/scripts/wire-dashboard-shell-atoms.mjs
 
       - name: Install dependencies
         run: npm ci
@@ -38,15 +39,15 @@ jobs:
       - name: Build check
         run: npm run build
 
-      - name: Commit dashboard refactor
+      - name: Commit dashboard shell wiring
         run: |
           if git diff --quiet; then
-            echo "No unused dashboard dispatcher cleanup changes needed."
+            echo "No dashboard shell atom wiring changes needed."
             exit 0
           fi
 
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add src/pages/Dashboard.jsx
-          git commit -m "Clean unused dashboard event dispatcher"
+          git commit -m "Wire dashboard shell atoms into Dashboard"
           git push
