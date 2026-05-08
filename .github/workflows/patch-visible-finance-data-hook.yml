@@ -1,0 +1,99 @@
+name: Patch visible finance data hook
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  patch-visible-finance-data-hook:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Wire useDashboardVisibleFinanceData into Dashboard.jsx
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import re
+
+          target = Path("src/pages/Dashboard.jsx")
+          text = target.read_text()
+
+          import_line = 'import useDashboardVisibleFinanceData from "@/components/fresh/main-dashboard/finance-content/useDashboardVisibleFinanceData";\n'
+          import_anchor = 'import { hasDashboardFinanceContent } from "@/components/fresh/main-dashboard/finance-content/dashboardFinanceContent";\n'
+          fallback_anchor = 'import useBudgetListDropdownDismiss from "@/components/fresh/main-dashboard/finance-form/useBudgetListDropdownDismiss";\n'
+
+          if import_line not in text:
+              if import_anchor in text:
+                  text = text.replace(import_anchor, import_anchor + import_line, 1)
+              elif fallback_anchor in text:
+                  text = text.replace(fallback_anchor, fallback_anchor + import_line, 1)
+              else:
+                  raise SystemExit("Visible finance data import anchor not found. Refusing to patch Dashboard.jsx.")
+
+          if 'useDashboardVisibleFinanceData({' not in text:
+              replacement = (
+                  '  const hasVisibleFinanceData = useDashboardVisibleFinanceData({\n'
+                  '    wallets,\n'
+                  '    expenses,\n'
+                  '    budgets,\n'
+                  '    savingsGoals,\n'
+                  '    walletTransactions,\n'
+                  '    emergencyFund,\n'
+                  '    walletMoney,\n'
+                  '  });\n\n'
+              )
+
+              pattern = re.compile(
+                  r'  const hasVisibleFinanceData = useMemo\(\n'
+                  r'    \(\) =>\n'
+                  r'      hasDashboardFinanceContent\(\{\n'
+                  r'        wallets,\n'
+                  r'        expenses,\n'
+                  r'        budgets,\n'
+                  r'        savingsGoals,\n'
+                  r'        walletTransactions,\n'
+                  r'        emergencyFund,\n'
+                  r'        walletMoney,\n'
+                  r'      \}\),\n'
+                  r'    \[budgets, emergencyFund, expenses, savingsGoals, walletMoney, walletTransactions, wallets\]\n'
+                  r'  \);\n\n',
+                  re.DOTALL,
+              )
+
+              text, count = pattern.subn(replacement, text, count=1)
+              if count != 1:
+                  raise SystemExit("hasVisibleFinanceData useMemo block not found. Refusing to patch Dashboard.jsx.")
+
+          if 'useDashboardVisibleFinanceData({' not in text:
+              raise SystemExit("useDashboardVisibleFinanceData was not wired. Refusing to continue.")
+          if 'const hasVisibleFinanceData = useMemo(' in text:
+              raise SystemExit("Old hasVisibleFinanceData useMemo still exists after patch. Refusing to continue.")
+
+          target.write_text(text)
+          PY
+
+      - name: Remove temporary workflow
+        run: rm -f .github/workflows/patch-visible-finance-data-hook.yml
+
+      - name: Commit and push patch
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add src/pages/Dashboard.jsx .github/workflows/patch-visible-finance-data-hook.yml
+
+          if git diff --cached --quiet; then
+            echo "No changes to commit."
+            exit 0
+          fi
+
+          git commit -m "Wire dashboard visible finance data hook"
+          git push
