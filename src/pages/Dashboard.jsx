@@ -79,6 +79,7 @@ import {
 import FinanceInlineAlert from "@/components/fresh/main-dashboard/finance-notices/FinanceInlineAlert";
 import useFinanceDataErrorNotice from "@/components/fresh/main-dashboard/finance-notices/useFinanceDataErrorNotice";
 import useDashboardOnlineStatusNotice from "@/components/fresh/main-dashboard/finance-notices/useDashboardOnlineStatusNotice";
+import useDashboardFinanceRefreshEvents from "@/components/fresh/main-dashboard/finance-notices/useDashboardFinanceRefreshEvents";
 import useDashboardProfileUpdateListener from "@/components/fresh/main-dashboard/profile/useDashboardProfileUpdateListener";
 import OnboardingActionBar from "@/components/fresh/main-dashboard/onboarding/OnboardingActionBar";
 import useOnboardingPageLock from "@/components/fresh/main-dashboard/onboarding/useOnboardingPageLock";
@@ -740,116 +741,11 @@ export default function Dashboard() {
     scheduleRefresh,
   });
 
-  useEffect(() => {
-    if (!user?.id && !user?.email) return;
+  useDashboardFinanceRefreshEvents({
+    user,
+    scheduleRefresh,
+  });
 
-    window.addEventListener("clara-expenses-updated", scheduleRefresh);
-    window.addEventListener("clara-finance-updated", scheduleRefresh);
-    window.addEventListener("clara-wallets-updated", scheduleRefresh);
-    window.addEventListener("clara-wallet-transactions-updated", scheduleRefresh);
-    window.addEventListener("clara-budgets-updated", scheduleRefresh);
-    window.addEventListener("clara-savings-goals-updated", scheduleRefresh);
-
-    const channel = supabase
-      .channel(`dashboard-live-${user?.id || user?.email}`)
-      .on(
-        "postgres_changes",
-        { event: "*", schema: "public", table: "wallets" },
-        scheduleRefresh
-      )
-      .on(
-        "postgres_changes",
-        { event: "*", schema: "public", table: "wallet_transactions" },
-        scheduleRefresh
-      )
-      .on(
-        "postgres_changes",
-        { event: "*", schema: "public", table: "budgets" },
-        scheduleRefresh
-      )
-      .on(
-        "postgres_changes",
-        { event: "*", schema: "public", table: "savings_goals" },
-        scheduleRefresh
-      )
-      .on(
-        "postgres_changes",
-        { event: "*", schema: "public", table: "challenge_tasks" },
-        scheduleRefresh
-      )
-      .on(
-        "postgres_changes",
-        { event: "*", schema: "public", table: "task_submissions" },
-        scheduleRefresh
-      )
-      .on(
-        "postgres_changes",
-        { event: "*", schema: "public", table: "expenses" },
-        scheduleRefresh
-      )
-      .on(
-        "postgres_changes",
-        { event: "*", schema: "public", table: "enrollments" },
-        scheduleRefresh
-      )
-      .on(
-        "postgres_changes",
-        { event: "UPDATE", schema: "public", table: "profiles" },
-        async (payload) => {
-          scheduleRefresh();
-
-          const newData = payload?.new || {};
-          const oldData = payload?.old || {};
-          const belongsToUser =
-            normalizeString(newData?.id) === normalizeString(user?.id) ||
-            normalizeString(newData?.email).toLowerCase() ===
-              normalizeString(user?.email).toLowerCase();
-
-          if (!belongsToUser) return;
-
-          const currentEnrollment = latestEnrollmentRef.current;
-          const wasApproved = isProgramApproved(oldData, false, currentEnrollment);
-          const nowApproved = isProgramApproved(
-            newData,
-            isPaidRef.current,
-            currentEnrollment
-          );
-
-          if (!wasApproved && nowApproved && !approvalTriggeredRef.current) {
-            approvalTriggeredRef.current = true;
-
-            try {
-              const completed = hasCompletedProgramOnboarding(newData);
-
-              if (!completed) {
-                setOnboardingStep(Number(newData?.onboarding_step) || 0);
-              }
-            } catch (error) {
-              console.error("Failed handling approval transition:", error);
-            }
-          }
-        }
-      )
-      .subscribe();
-
-    return () => {
-      window.removeEventListener("clara-expenses-updated", scheduleRefresh);
-      window.removeEventListener("clara-finance-updated", scheduleRefresh);
-      window.removeEventListener("clara-wallets-updated", scheduleRefresh);
-      window.removeEventListener(
-        "clara-wallet-transactions-updated",
-        scheduleRefresh
-      );
-      window.removeEventListener("clara-budgets-updated", scheduleRefresh);
-      window.removeEventListener("clara-savings-goals-updated", scheduleRefresh);
-
-      if (refreshTimeoutRef.current) {
-        clearTimeout(refreshTimeoutRef.current);
-      }
-
-      supabase.removeChannel(channel);
-    };
-  }, [user?.id, user?.email, scheduleRefresh]);
 
   useEffect(() => {
     if (!guardChecked || !profileData) return;
