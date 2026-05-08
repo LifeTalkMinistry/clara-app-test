@@ -6,19 +6,7 @@ on:
       - main
     paths:
       - ".github/workflows/refactor-dashboard-inline-helpers.yml"
-      - ".github/scripts/refactor-dashboard-inline-helpers.mjs"
-      - ".github/scripts/extract-dashboard-cache-factory.mjs"
-      - ".github/scripts/extract-dashboard-panel-constants.mjs"
-      - ".github/scripts/extract-dashboard-panel-shell.mjs"
-      - ".github/scripts/extract-finance-inline-alert.mjs"
-      - ".github/scripts/extract-onboarding-action-bar.mjs"
-      - ".github/scripts/cleanup-dashboard-stale-alert-imports.mjs"
-      - ".github/scripts/extract-dashboard-messages-panel.mjs"
-      - ".github/scripts/cleanup-unused-dashboard-dispatch-event.mjs"
-      - ".github/scripts/wire-dashboard-shell-atoms.mjs"
-      - ".github/scripts/extract-dashboard-finance-modal-renderer.mjs"
-      - ".github/scripts/extract-dashboard-overlay-renderer.mjs"
-      - ".github/scripts/hotfix-dashboard-finance-renderer-props.mjs"
+      - ".github/scripts/restore-dashboard-stable-shell.mjs"
   workflow_dispatch:
 
 permissions:
@@ -32,15 +20,10 @@ jobs:
         uses: actions/checkout@v4
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
+          fetch-depth: 0
 
-      - name: Wire Dashboard shell atoms
-        run: node .github/scripts/wire-dashboard-shell-atoms.mjs
-
-      - name: Extract Dashboard finance modal renderer
-        run: node .github/scripts/extract-dashboard-finance-modal-renderer.mjs
-
-      - name: Hotfix Dashboard finance renderer props
-        run: node .github/scripts/hotfix-dashboard-finance-renderer-props.mjs
+      - name: Restore stable shell-wired Dashboard
+        run: node .github/scripts/restore-dashboard-stable-shell.mjs
 
       - name: Install dependencies
         run: npm ci
@@ -48,15 +31,15 @@ jobs:
       - name: Build check
         run: npm run build
 
-      - name: Commit dashboard refactor
+      - name: Commit stable dashboard recovery
         run: |
           if git diff --quiet; then
-            echo "No dashboard refactor changes needed."
+            echo "No dashboard recovery changes needed."
             exit 0
           fi
 
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add src/pages/Dashboard.jsx src/components/fresh/main-dashboard/shell/DashboardFinanceModalRenderer.jsx
-          git commit -m "Hotfix dashboard finance renderer props"
+          git add src/pages/Dashboard.jsx .github/workflows/refactor-dashboard-inline-helpers.yml .github/scripts/restore-dashboard-stable-shell.mjs
+          git commit -m "Restore stable shell-wired dashboard"
           git push
