@@ -41,10 +41,6 @@ const rendererProps = [
   "startProgramOnboarding",
   "persistProgramPromptSeenThisSession",
   "programPromptSessionKey",
-  "user",
-  "isApproved",
-  "activeTask",
-  "nextTask",
   "themePickerOpen",
   "closeThemePicker",
   "dashboardTheme",
@@ -77,7 +73,6 @@ if (!alreadyWired) {
   const requiredOverlayTokens = [
     "{showOnboarding && (",
     "<OnboardingActionBar",
-    "<TaskReminderPrompt",
     "{themePickerOpen && (",
   ];
 
@@ -95,7 +90,6 @@ if (!alreadyWired) {
 if (!alreadyWired) {
   const componentSource = `import { Check, X } from "lucide-react";
 import OnboardingActionBar from "@/components/fresh/main-dashboard/onboarding/OnboardingActionBar";
-import TaskReminderPrompt from "@/components/TaskReminderPrompt";
 import { getProgramBubbleContent } from "@/lib/program-journey";
 
 export default function DashboardOverlayRenderer({
@@ -137,7 +131,6 @@ const remainingOverlayArea = source.slice(modalLayerStart, financeRendererIndex)
 const forbiddenRemainingTokens = [
   "{showOnboarding && (",
   "<OnboardingActionBar",
-  "<TaskReminderPrompt",
   "{themePickerOpen && (",
 ];
 
