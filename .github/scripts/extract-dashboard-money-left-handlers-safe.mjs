@@ -142,7 +142,6 @@ const requiredHandlerTokens = [
   "openTransactionHubFromMoneyLeft",
   "handleMoneyLeftPointerDown",
   "handleMoneyLeftPointerMove",
-  "stopMoneyLeftOrbEvent",
   "handleMoneyLeftOrbClick",
   "startMoneyLeftOrbLongPress",
   "endMoneyLeftOrbLongPress",
@@ -154,6 +153,17 @@ for (const token of requiredHandlerTokens) {
     throw new Error(`Extracted Money Left handlers missing token: ${token}`);
   }
 }
+
+const stopMoneyLeftOrbFallback = handlerBlock.includes("stopMoneyLeftOrbEvent")
+  ? ""
+  : `
+  const stopMoneyLeftOrbEvent = useCallback((event) => {
+    event?.preventDefault?.();
+    event?.stopPropagation?.();
+    event?.nativeEvent?.stopImmediatePropagation?.();
+    return false;
+  }, []);
+`;
 
 const hookCall = `  const {
     moneyLeftSummaryHandlers,
@@ -179,6 +189,7 @@ export default function useMoneyLeftSummaryHandlers({
 ${moneyRefsBlock}${longPressRefsBlock}
 
 ${handlerBlock}
+${stopMoneyLeftOrbFallback}
 
   return {
     moneyLeftSummaryHandlers,
@@ -224,6 +235,10 @@ for (const token of requiredHandlerTokens) {
   if (!hookSource.includes(token)) {
     throw new Error(`Hook missing required Money Left token: ${token}`);
   }
+}
+
+if (!hookSource.includes("stopMoneyLeftOrbEvent")) {
+  throw new Error("Hook missing stopMoneyLeftOrbEvent export token.");
 }
 
 fs.mkdirSync(path.dirname(hookPath), { recursive: true });
