@@ -78,6 +78,7 @@ import {
   readProgramPromptSeenThisSession,
 } from "@/components/fresh/main-dashboard/program-prompts/programPromptSession";
 import FinanceInlineAlert from "@/components/fresh/main-dashboard/finance-notices/FinanceInlineAlert";
+import useFinanceDataErrorNotice from "@/components/fresh/main-dashboard/finance-notices/useFinanceDataErrorNotice";
 import OnboardingActionBar from "@/components/fresh/main-dashboard/onboarding/OnboardingActionBar";
 import useOnboardingPageLock from "@/components/fresh/main-dashboard/onboarding/useOnboardingPageLock";
 import {
@@ -144,7 +145,6 @@ import {
   createFinanceId,
   isClaraOnline,
   createLocalOnlyExpenseRecord,
-  isProtectedFinanceRefreshWarning,
   ENROLLMENT_PENDING_STATUSES,
   ENROLLMENT_APPROVED_STATUSES,
   ENROLLMENT_BLOCKED_TO_ENROLL_STATUSES,
@@ -416,23 +416,11 @@ export default function Dashboard() {
     [budgets, emergencyFund, expenses, savingsGoals, walletMoney, walletTransactions, wallets]
   );
 
-  useEffect(() => {
-    if (!financeDataError) return;
-
-    const message =
-      typeof financeDataError === "string"
-        ? financeDataError
-        : financeDataError?.message;
-
-    if (!message) return;
-
-    if (hasVisibleFinanceData || isProtectedFinanceRefreshWarning(message)) {
-      console.warn("Background finance refresh warning:", message);
-      return;
-    }
-
-    setFinanceNotice({ message, type: "error" });
-  }, [financeDataError, hasVisibleFinanceData]);
+  useFinanceDataErrorNotice({
+    financeDataError,
+    hasVisibleFinanceData,
+    setFinanceNotice,
+  });
 
   const dailyRemindersEnabled = notificationSettings?.dailyReminders !== false;
   const {
