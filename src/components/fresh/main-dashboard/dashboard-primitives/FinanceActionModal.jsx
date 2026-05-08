@@ -15,8 +15,8 @@ export default function FinanceActionModal({
   if (!open) return null;
 
   return (
-    <div className="fixed inset-0 z-[120] flex items-end justify-center bg-black/12 px-3 pb-8 pt-[max(6.5rem,env(safe-area-inset-top))] backdrop-blur-[1px] sm:items-center sm:p-4">
-      <div className="flex h-[72dvh] w-full max-w-[380px] overflow-hidden rounded-[32px] border border-cyan-100/15 bg-[linear-gradient(135deg,rgba(5,44,62,0.98),rgba(7,20,48,0.99)_48%,rgba(38,16,77,0.99))] shadow-[0_24px_60px_rgba(0,0,0,0.42),0_0_32px_rgba(0,255,220,0.08)]">
+    <div className="fixed inset-0 z-[120] flex items-start justify-center bg-black/10 px-3 pt-[8.75rem] backdrop-blur-[1px] sm:items-center sm:p-4">
+      <div className="flex h-[72dvh] w-full max-w-[380px] overflow-hidden rounded-[32px] border border-cyan-100/15 bg-[linear-gradient(135deg,rgba(5,44,62,0.98),rgba(7,20,48,0.99)_48%,rgba(38,16,77,0.99))] shadow-[0_24px_60px_rgba(0,0,0,0.38),0_0_32px_rgba(0,255,220,0.08)]">
         <form onSubmit={onSubmit} className="flex min-h-0 w-full flex-col">
           <div className="shrink-0 border-b border-white/10 bg-white/[0.03] px-5 py-5">
             <div className="flex items-start justify-between gap-4">
