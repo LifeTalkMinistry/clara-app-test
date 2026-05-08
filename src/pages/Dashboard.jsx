@@ -97,6 +97,7 @@ import {
 import createInitialFinanceForm from "@/components/fresh/main-dashboard/finance-form/financeFormInitialState";
 import useBudgetListDropdownDismiss from "@/components/fresh/main-dashboard/finance-form/useBudgetListDropdownDismiss";
 import { hasDashboardFinanceContent } from "@/components/fresh/main-dashboard/finance-content/dashboardFinanceContent";
+import useDashboardVisibleFinanceData from "@/components/fresh/main-dashboard/finance-content/useDashboardVisibleFinanceData";
 import {
   dashboardTheme,
   DEFAULT_DASHBOARD_THEME_KEY,
@@ -371,19 +372,15 @@ export default function Dashboard() {
     financeWallets,
   ]);
 
-  const hasVisibleFinanceData = useMemo(
-    () =>
-      hasDashboardFinanceContent({
-        wallets,
-        expenses,
-        budgets,
-        savingsGoals,
-        walletTransactions,
-        emergencyFund,
-        walletMoney,
-      }),
-    [budgets, emergencyFund, expenses, savingsGoals, walletMoney, walletTransactions, wallets]
-  );
+  const hasVisibleFinanceData = useDashboardVisibleFinanceData({
+    wallets,
+    expenses,
+    budgets,
+    savingsGoals,
+    walletTransactions,
+    emergencyFund,
+    walletMoney,
+  });
 
   useFinanceDataErrorNotice({
     financeDataError,
