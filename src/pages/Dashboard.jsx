@@ -44,6 +44,7 @@ import FinancialCarousel from "@/components/financial-carousel/FinancialCarousel
 import DashboardFinanceExpandedSheet from "@/components/fresh/main-dashboard/financial-cards/DashboardFinanceExpandedSheet";
 import LearningHub from "@/components/fresh/main-dashboard/learning-hub/LearningHub";
 import DashboardMoneySummary from "@/components/fresh/main-dashboard/money-summary/DashboardMoneySummary";
+import useMoneyLeftSummaryHandlers from "@/components/fresh/main-dashboard/money-summary/useMoneyLeftSummaryHandlers";
 import DashboardTopNav from "@/components/fresh/main-dashboard/top-nav/DashboardTopNav";
 import DashboardShell from "@/components/fresh/main-dashboard/shell/DashboardShell";
 import DashboardContentArea from "@/components/fresh/main-dashboard/shell/DashboardContentArea";
@@ -306,14 +307,6 @@ export default function Dashboard() {
   const [budgetExitConfirm, setBudgetExitConfirm] = useState(false);
   const [budgetListOpen, setBudgetListOpen] = useState(false);
   const budgetListDropdownRef = useRef(null);
-  const moneyLeftTapRef = useRef({
-    lastTapAt: 0,
-    lastHandledEventAt: 0,
-    startX: 0,
-    startY: 0,
-    moved: false,
-  });
-  const moneyLeftNavigateLockRef = useRef(0);
   const [financeForm, setFinanceForm] = useState({
     name: "",
     type: "cash",
@@ -662,122 +655,7 @@ export default function Dashboard() {
   }, []);
 
 
-  const isManualExpenseOrbEvent = useCallback((event) => {
-    return Boolean(
-      event?.target?.closest?.('[data-clara-manual-expense-orb="true"]')
-    );
-  }, []);
-
-  const stopMoneyLeftSummaryEvent = useCallback((event) => {
-    if (isManualExpenseOrbEvent(event)) {
-      return false;
-    }
-
-    event?.preventDefault?.();
-    event?.stopPropagation?.();
-    event?.nativeEvent?.stopImmediatePropagation?.();
-    return false;
-  }, [isManualExpenseOrbEvent]);
-
-  const openTransactionHubFromMoneyLeft = useCallback(
-    (event) => {
-      if (isManualExpenseOrbEvent(event)) return;
-
-      stopMoneyLeftSummaryEvent(event);
-
-      const now = Date.now();
-      if (now - moneyLeftNavigateLockRef.current < 450) return;
-
-      moneyLeftNavigateLockRef.current = now;
-      navigate("/transactions-hub");
-    },
-    [isManualExpenseOrbEvent, navigate, stopMoneyLeftSummaryEvent]
-  );
-
-  const handleMoneyLeftPointerDown = useCallback((event) => {
-    if (isManualExpenseOrbEvent(event)) return;
-
-    event?.stopPropagation?.();
-    const point = event?.touches?.[0] || event;
-
-    moneyLeftTapRef.current = {
-      ...moneyLeftTapRef.current,
-      startX: Number(point?.clientX || 0),
-      startY: Number(point?.clientY || 0),
-      moved: false,
-    };
-  }, [isManualExpenseOrbEvent]);
-
-  const handleMoneyLeftPointerMove = useCallback((event) => {
-    const point = event?.touches?.[0] || event;
-    const startX = moneyLeftTapRef.current.startX || 0;
-    const startY = moneyLeftTapRef.current.startY || 0;
-    const dx = Math.abs(Number(point?.clientX || 0) - startX);
-    const dy = Math.abs(Number(point?.clientY || 0) - startY);
-
-    if (dx > 12 || dy > 12) {
-      moneyLeftTapRef.current.moved = true;
-    }
-  }, []);
-
-  const handleMoneyLeftTapEnd = useCallback(
-    (event) => {
-      if (isManualExpenseOrbEvent(event)) return;
-
-      stopMoneyLeftSummaryEvent(event);
-
-      if (moneyLeftTapRef.current.moved) {
-        moneyLeftTapRef.current.lastTapAt = 0;
-        return;
-      }
-
-      const now = Date.now();
-      const eventStamp = Number(event?.timeStamp || now);
-      const lastHandledEventAt = moneyLeftTapRef.current.lastHandledEventAt || 0;
-
-      if (lastHandledEventAt && Math.abs(eventStamp - lastHandledEventAt) < 120) {
-        return;
-      }
-
-      moneyLeftTapRef.current.lastHandledEventAt = eventStamp;
-
-      const previousTapAt = moneyLeftTapRef.current.lastTapAt || 0;
-
-      if (previousTapAt && now - previousTapAt <= 320) {
-        moneyLeftTapRef.current.lastTapAt = 0;
-        openTransactionHubFromMoneyLeft(event);
-        return;
-      }
-
-      moneyLeftTapRef.current.lastTapAt = now;
-    },
-    [isManualExpenseOrbEvent, openTransactionHubFromMoneyLeft, stopMoneyLeftSummaryEvent]
-  );
-
-  const moneyLeftSummaryHandlers = useMemo(
-    () => ({
-      onClickCapture: stopMoneyLeftSummaryEvent,
-      onClick: stopMoneyLeftSummaryEvent,
-      onDoubleClickCapture: openTransactionHubFromMoneyLeft,
-      onDoubleClick: openTransactionHubFromMoneyLeft,
-      onPointerDownCapture: handleMoneyLeftPointerDown,
-      onPointerMoveCapture: handleMoneyLeftPointerMove,
-      onPointerUpCapture: handleMoneyLeftTapEnd,
-      onTouchStartCapture: handleMoneyLeftPointerDown,
-      onTouchMoveCapture: handleMoneyLeftPointerMove,
-      onTouchEndCapture: handleMoneyLeftTapEnd,
-      onMouseUpCapture: handleMoneyLeftTapEnd,
-      onKeyDownCapture: stopMoneyLeftSummaryEvent,
-      onKeyDown: stopMoneyLeftSummaryEvent,
-    }),
-    [
-      handleMoneyLeftPointerDown,
-      handleMoneyLeftPointerMove,
-      handleMoneyLeftTapEnd,
-      openTransactionHubFromMoneyLeft,
-      stopMoneyLeftSummaryEvent,
-    ]
-  );
+  const moneyLeftSummaryHandlers = useMoneyLeftSummaryHandlers({ navigate });
 
   const markOnboardingCompleted = useCallback(async () => {
     if (!user?.id) return;
