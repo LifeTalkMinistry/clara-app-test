@@ -142,7 +142,6 @@ const requiredHandlerTokens = [
   "openTransactionHubFromMoneyLeft",
   "handleMoneyLeftPointerDown",
   "handleMoneyLeftPointerMove",
-  "handleMoneyLeftPointerUp",
   "stopMoneyLeftOrbEvent",
   "handleMoneyLeftOrbClick",
   "startMoneyLeftOrbLongPress",
