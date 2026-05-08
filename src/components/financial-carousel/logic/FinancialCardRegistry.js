@@ -1,3 +1,5 @@
+import { meetsFinancialPlanRequirement } from "./financialPlanAccess";
+
 export const DEFAULT_FINANCIAL_CARD_KEY = "budget";
 
 export const FINANCIAL_CARD_REGISTRY = [
@@ -70,32 +72,13 @@ export const FINANCIAL_CARD_REGISTRY = [
   },
 ];
 
-const PLAN_RANK = {
-  free: 0,
-  pro: 1,
-  core: 2,
-  lifeos: 3,
-  life_os: 3,
-  coach: 3,
-  coaching: 3,
-  admin: 99,
-};
-
-const normalizePlan = (plan) =>
-  String(plan || "free")
-    .trim()
-    .toLowerCase()
-    .replace(/[\s-]+/g, "_");
-
-const getPlanRank = (plan) => PLAN_RANK[normalizePlan(plan)] ?? PLAN_RANK.free;
-
 export const canUseFinancialCard = (card, options = {}) => {
   if (!card || card.enabled === false) return false;
 
   const currentPlan = options.plan || options.profileData?.plan || options.profileData?.subscription_label || "free";
   const minimumPlan = card.minimumPlan || "free";
 
-  if (getPlanRank(currentPlan) < getPlanRank(minimumPlan)) {
+  if (!meetsFinancialPlanRequirement(currentPlan, minimumPlan)) {
     return options.includeLocked === true;
   }
 
