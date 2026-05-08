@@ -94,11 +94,11 @@ import {
 } from "@/components/fresh/main-dashboard/dashboard-theme/dashboardThemeBase";
 import {
   readStoredDashboardTheme,
-  persistDashboardTheme,
   readStoredSurvivalExpense,
   persistStoredSurvivalExpense,
 } from "@/components/fresh/main-dashboard/dashboard-theme/dashboardThemeRuntime";
 import useDashboardThemeClasses from "@/components/fresh/main-dashboard/dashboard-theme/useDashboardThemeClasses";
+import useDashboardThemePersistence from "@/components/fresh/main-dashboard/dashboard-theme/useDashboardThemePersistence";
 import { createEmptyDashboardCache } from "@/components/fresh/main-dashboard/dashboard-cache/dashboardCacheFactory";
 import {
   DASHBOARD_PANEL_ORDER,
@@ -439,40 +439,10 @@ export default function Dashboard() {
     themeQuickActionGlowStyle,
   } = useDashboardThemeClasses(selectedDashboardTheme);
 
-  useEffect(() => {
-    const themeKey = normalizeString(
-      selectedDashboardTheme?.key ||
-        selectedDashboardTheme?.id ||
-        selectedDashboardTheme?.value ||
-        selectedDashboardTheme?.name ||
-        selectedDashboardTheme?.label ||
-        ""
-    ).toLowerCase();
-
-    if (!themeKey) return;
-
-    persistDashboardTheme(userId, themeKey);
-
-    const detail = {
-      themeKey,
-      key: themeKey,
-      dashboardTheme: themeKey,
-      selectedTheme: themeKey,
-      userId: userId || null,
-      isLight: selectedDashboardTheme?.isLight === true,
-    };
-
-    dispatchClaraEvent("clara-dashboard-theme-updated", detail);
-    dispatchClaraEvent("clara-theme-selected", detail);
-    dispatchClaraEvent("clara-theme-change", detail);
-
-    if (typeof document !== "undefined") {
-      document.documentElement.dataset.dashboardTheme = themeKey;
-      document.body.dataset.dashboardTheme = themeKey;
-      document.documentElement.dataset.theme = themeKey;
-      document.body.dataset.theme = themeKey;
-    }
-  }, [selectedDashboardTheme, userId]);
+  useDashboardThemePersistence({
+    selectedDashboardTheme,
+    userId,
+  });
 
   const refreshTimeoutRef = useRef(null);
   const dashboardScrollRef = useRef(null);
