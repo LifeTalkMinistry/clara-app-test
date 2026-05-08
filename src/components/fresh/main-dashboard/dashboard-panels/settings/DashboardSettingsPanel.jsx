@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import {
   ArrowDown,
@@ -57,6 +57,33 @@ const dashboardRuntimeProgramPrompts = { clear: () => {} };
 const dashboardRuntimeThemes = { clear: () => {} };
 const dashboardRuntimeSurvivalExpenses = { clear: () => {} };
 
+const firstValidNumber = (...values) => {
+  for (const value of values) {
+    const numberValue = Number(value);
+
+    if (Number.isFinite(numberValue)) {
+      return numberValue;
+    }
+  }
+
+  return 0;
+};
+
+const dashboardPanelInitials = (value = "") => {
+  const cleanValue = String(value || "").trim();
+
+  if (!cleanValue) return "C";
+
+  const words = cleanValue
+    .split(/\s+/)
+    .filter(Boolean)
+    .slice(0, 2);
+
+  return words
+    .map((word) => word.charAt(0).toUpperCase())
+    .join("");
+};
+
 export default function DashboardSettingsPanel({
   onBack,
   user,
@@ -87,6 +114,7 @@ export default function DashboardSettingsPanel({
     coachingAlerts: notificationSettings?.coachingAlerts !== false,
     budgetAlerts: notificationSettings?.budgetAlerts !== false,
   }));
+
   const [localPerformanceMode, setLocalPerformanceMode] = useState(() =>
     readStoredPerformanceMode(user?.id || "guest")
   );
@@ -232,6 +260,7 @@ export default function DashboardSettingsPanel({
 
   const displayName = profileName?.trim() || initialDisplayName || "Your CLARA account";
   const rawCurrentPlan = isPaid ? plan || "Paid" : isFree ? "Free" : plan || "Plan";
+
   const normalizePlanDisplay = useCallback((value) => {
     const normalized = normalizeLower(value);
 
@@ -265,7 +294,9 @@ export default function DashboardSettingsPanel({
     } catch (error) {
       console.error("Failed to save embedded settings:", error);
     }
-  }, [user?.id]);  const persistNotificationToggle = useCallback((key) => {
+  }, [setNotificationSettings, user?.id]);
+
+  const persistNotificationToggle = useCallback((key) => {
     setLocalNotifications((prev) => {
       const next = {
         ...prev,
@@ -357,12 +388,17 @@ export default function DashboardSettingsPanel({
 
       if (typeof resetThemeToDefault === "function") await resetThemeToDefault();
 
-      setSettingsNotice({ type: "success", message: "Local preferences were reset and the theme is back to default. Financial data was not touched." });
+      setSettingsNotice({
+        type: "success",
+        message: "Local preferences were reset and the theme is back to default. Financial data was not touched.",
+      });
     } catch (error) {
       console.error("Local preferences reset failed:", error);
       setSettingsNotice({ type: "error", message: "Unable to reset local preferences." });
     }
-  }, [resetThemeToDefault]);  const handleSignOut = useCallback(async () => {
+  }, [resetThemeToDefault]);
+
+  const handleSignOut = useCallback(async () => {
     setSigningOut(true);
     setSettingsNotice(null);
 
@@ -624,12 +660,15 @@ export default function DashboardSettingsPanel({
     );
 
     if (!rawCycle) return "Not recorded";
+
     if (["month", "monthly", "1 month", "per month", "mo"].includes(rawCycle) || rawCycle.includes("monthly")) {
       return "Monthly";
     }
+
     if (["year", "yearly", "annual", "annually", "12 months"].includes(rawCycle) || rawCycle.includes("annual")) {
       return "Yearly";
     }
+
     if (rawCycle.includes("one") || rawCycle.includes("lifetime")) {
       return "One-time";
     }
@@ -654,9 +693,11 @@ export default function DashboardSettingsPanel({
             "Active"
         )
       : "No record";
+
   const billingStartLabel = billingRecord
     ? resolveBillingDate(billingRecord, ["current_period_start", "billing_start", "started_at", "approved_at", "created_at"])
     : "Not recorded";
+
   const nextBillingLabel = billingRecord
     ? resolveBillingDate(billingRecord, ["next_billing_date", "next_payment_due", "current_period_end", "renewal_date", "expires_at", "valid_until", "end_date"])
     : "Not recorded";
@@ -918,6 +959,7 @@ export default function DashboardSettingsPanel({
         {planOptions.map((option) => {
           const normalizedCurrentPlan = normalizeLower(currentPlan);
           const normalizedRawPlan = normalizeLower(rawCurrentPlan);
+
           const isLifeOsLegacy =
             option.key === "life_os_499" &&
             ["coaching", "coach", "coaching_1299", "life os", "life_os", "lifeos"].some((key) =>
@@ -1082,7 +1124,6 @@ export default function DashboardSettingsPanel({
           Reset preferences and theme
         </button>
       </div>
-
     </div>
   );
 
@@ -1171,11 +1212,13 @@ export default function DashboardSettingsPanel({
         }`}
       >
         <div className="flex min-w-0 flex-1 items-center gap-3">
-          <div className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl border ${
-            localPerformanceMode
-              ? "border-emerald-300/25 bg-emerald-400/15 text-emerald-100"
-              : "border-white/15 bg-white/8 text-white/65"
-          }`}>
+          <div
+            className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl border ${
+              localPerformanceMode
+                ? "border-emerald-300/25 bg-emerald-400/15 text-emerald-100"
+                : "border-white/15 bg-white/8 text-white/65"
+            }`}
+          >
             <Rocket className="h-5 w-5" />
           </div>
           <div className="min-w-0">
@@ -1653,4 +1696,3 @@ export default function DashboardSettingsPanel({
     </div>
   );
 }
-
