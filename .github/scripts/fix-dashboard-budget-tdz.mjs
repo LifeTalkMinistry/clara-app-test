@@ -9,6 +9,17 @@ if (!fs.existsSync(dashboardPath)) {
 
 let source = fs.readFileSync(dashboardPath, "utf8");
 
+const riskyEffectDeps = [
+  "openManualExpenseModal",
+  "showFinanceNotice",
+  "declaredMonthlyBudgetAmount",
+  "monthlyBudgetPlan",
+  "activeBudget",
+  "manualExpenseCanSubmit",
+  "selectedManualExpenseBudget",
+  "selectedBudgetListLabel",
+];
+
 function findMatching(sourceText, openIndex, openChar, closeChar) {
   let depth = 0;
   let quote = null;
@@ -24,7 +35,6 @@ function findMatching(sourceText, openIndex, openChar, closeChar) {
       if (char === "\n") lineComment = false;
       continue;
     }
-
     if (blockComment) {
       if (char === "*" && next === "/") {
         blockComment = false;
@@ -32,7 +42,6 @@ function findMatching(sourceText, openIndex, openChar, closeChar) {
       }
       continue;
     }
-
     if (quote) {
       if (escaped) {
         escaped = false;
@@ -135,33 +144,45 @@ function findTopLevelComma(text) {
   return -1;
 }
 
-const replacements = [];
-const callbackPattern = /useCallback\s*\(/g;
-let match;
+function collectHookDepRemoval(hookNames, shouldRemove) {
+  const escaped = hookNames.join("|");
+  const pattern = new RegExp(`\\b(?:${escaped})\\s*\\(`, "g");
+  const removals = [];
+  let match;
 
-while ((match = callbackPattern.exec(source)) !== null) {
-  const openIndex = callbackPattern.lastIndex - 1;
-  const closeIndex = findMatching(source, openIndex, "(", ")");
-  if (closeIndex === -1) continue;
+  while ((match = pattern.exec(source)) !== null) {
+    const openIndex = pattern.lastIndex - 1;
+    const closeIndex = findMatching(source, openIndex, "(", ")");
+    if (closeIndex === -1) continue;
 
-  const content = source.slice(openIndex + 1, closeIndex);
-  const commaIndex = findTopLevelComma(content);
-  if (commaIndex === -1) continue;
+    const content = source.slice(openIndex + 1, closeIndex);
+    const commaIndex = findTopLevelComma(content);
+    if (commaIndex === -1) continue;
 
-  replacements.push({
-    start: openIndex + 1 + commaIndex,
-    end: closeIndex,
-  });
+    const depsText = content.slice(commaIndex + 1);
+    if (!shouldRemove(depsText)) continue;
+
+    removals.push({ start: openIndex + 1 + commaIndex, end: closeIndex });
+  }
+
+  return removals;
 }
 
-if (replacements.length === 0) {
-  console.log("Dashboard TDZ patch: no useCallback dependency arrays found.");
+const removals = [
+  ...collectHookDepRemoval(["useCallback", "useMemo"], () => true),
+  ...collectHookDepRemoval(["useEffect"], (depsText) =>
+    riskyEffectDeps.some((name) => depsText.includes(name))
+  ),
+].sort((a, b) => b.start - a.start);
+
+if (removals.length === 0) {
+  console.log("Dashboard TDZ patch: no risky dependency arrays found.");
   process.exit(0);
 }
 
-for (const replacement of replacements.reverse()) {
-  source = source.slice(0, replacement.start) + source.slice(replacement.end);
+for (const removal of removals) {
+  source = source.slice(0, removal.start) + source.slice(removal.end);
 }
 
 fs.writeFileSync(dashboardPath, source);
-console.log(`Dashboard TDZ patch removed ${replacements.length} useCallback dependency arrays before build.`);
+console.log(`Dashboard TDZ patch removed ${removals.length} risky dependency arrays before build.`);
