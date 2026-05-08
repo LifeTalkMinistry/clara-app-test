@@ -1,4 +1,4 @@
-export const NORMAL_SLIDE_HEIGHT = "clamp(286px, 45dvh, 430px)";
+export const NORMAL_SLIDE_HEIGHT = "clamp(286px, 39dvh, 376px)";
 export const EXPANDED_SLIDE_HEIGHT = "clamp(438px, 62dvh, 516px)";
 
 const getFinanceSlideShellClass = (cardKey, theme = null, isExpanded = false) => {
