@@ -144,10 +144,18 @@ const rootCloseReplacement = `      </DashboardModalLayer>
   );
 }`;
 
-if (source.endsWith(rootClose)) {
-  source = source.slice(0, -rootClose.length) + rootCloseReplacement;
-} else if (!source.includes("</DashboardShell>")) {
-  throw new Error("Dashboard root closing boundary not found.");
+if (!source.includes("</DashboardShell>")) {
+  const trimmedSource = source.trimEnd();
+  const trailingWhitespace = source.slice(trimmedSource.length);
+
+  if (!trimmedSource.endsWith(rootClose)) {
+    throw new Error("Dashboard root closing boundary not found.");
+  }
+
+  source =
+    trimmedSource.slice(0, -rootClose.length) +
+    rootCloseReplacement +
+    trailingWhitespace;
 }
 
 const requiredTokens = [
