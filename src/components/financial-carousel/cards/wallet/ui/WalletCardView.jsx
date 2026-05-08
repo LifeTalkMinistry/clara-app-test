@@ -1,5 +1,8 @@
 import WalletCard from "@/components/WalletCard";
+import { toggleExpandedFinanceCard } from "../../../shared/financeCardExpansion";
 import { stopCapturedDetailsToggle } from "../../../shared/financeCardInteraction";
+
+const DETAIL_KEY = "wallets";
 
 export default function WalletCardView({
   data = {},
@@ -13,17 +16,13 @@ export default function WalletCardView({
   onTransferMoney,
   onEditWallet,
 }) {
-  const isExpanded = expandedFinanceCard === "wallets";
+  const isExpanded = expandedFinanceCard === DETAIL_KEY;
 
   const handleWalletToggle = () => {
-    if (isExpanded) {
-      toggleFinanceDetails?.("wallets");
-      return;
-    }
-
-    toggleFinanceDetails?.("wallets", {
-      autoExpand: true,
-      forceOpen: true,
+    toggleExpandedFinanceCard({
+      detailKey: DETAIL_KEY,
+      isExpanded,
+      toggleFinanceDetails,
     });
   };
 
