@@ -4,6 +4,7 @@
   "version": "1.0.0",
   "type": "module",
   "scripts": {
+    "prebuild": "node .github/scripts/fix-dashboard-budget-tdz.mjs",
     "dev": "vite",
     "build": "vite build --base=./",
     "build:android": "vite build --base=./",
