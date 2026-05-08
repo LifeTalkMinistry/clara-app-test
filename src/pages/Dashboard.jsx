@@ -80,6 +80,7 @@ import FinanceInlineAlert from "@/components/fresh/main-dashboard/finance-notice
 import useFinanceDataErrorNotice from "@/components/fresh/main-dashboard/finance-notices/useFinanceDataErrorNotice";
 import useDashboardOnlineStatusNotice from "@/components/fresh/main-dashboard/finance-notices/useDashboardOnlineStatusNotice";
 import useDashboardFinanceRefreshEvents from "@/components/fresh/main-dashboard/finance-notices/useDashboardFinanceRefreshEvents";
+import useDashboardScheduledRefresh from "@/components/fresh/main-dashboard/finance-notices/useDashboardScheduledRefresh";
 import useDashboardProfileUpdateListener from "@/components/fresh/main-dashboard/profile/useDashboardProfileUpdateListener";
 import OnboardingActionBar from "@/components/fresh/main-dashboard/onboarding/OnboardingActionBar";
 import useOnboardingPageLock from "@/components/fresh/main-dashboard/onboarding/useOnboardingPageLock";
@@ -432,7 +433,6 @@ export default function Dashboard() {
     userId,
   });
 
-  const refreshTimeoutRef = useRef(null);
   const dashboardScrollRef = useRef(null);
   const dashboardContentRef = useRef(null);
   const dashboardScrollTimersRef = useRef([]);
@@ -697,24 +697,10 @@ export default function Dashboard() {
       }
     },
     [cacheKey, dailyRemindersEnabled, financeBudgets, financeEmergencyFund, financeExpenses, financeSavingsGoals, financeTransfers, financeWalletTransactions, financeWallets, financialGoal, hasVisibleFinanceData, hydrateFromCache, isPaid, nickname, reminderTime, survivalExpense, user?.full_name, userEmail, userId]
-  );  const scheduleRefresh = useCallback(() => {
-    if (refreshTimeoutRef.current) {
-      clearTimeout(refreshTimeoutRef.current);
-    }
-
-    refreshTimeoutRef.current = setTimeout(() => {
-      refreshFinancialData?.();
-      loadDashboardData({ background: true });
-    }, 350);
-  }, [loadDashboardData, refreshFinancialData]);
-
-  useEffect(() => {
-    return () => {
-      if (refreshTimeoutRef.current) {
-        clearTimeout(refreshTimeoutRef.current);
-      }
-    };
-  }, []);
+  );  const scheduleRefresh = useDashboardScheduledRefresh({
+    loadDashboardData,
+    refreshFinancialData,
+  });
 
   useEffect(() => {
     latestEnrollmentRef.current = latestEnrollment;
