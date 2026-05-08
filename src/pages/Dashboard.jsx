@@ -46,6 +46,7 @@ import LearningHub from "@/components/fresh/main-dashboard/learning-hub/Learning
 import DashboardMoneySummary from "@/components/fresh/main-dashboard/money-summary/DashboardMoneySummary";
 import useMoneySummaryVisibility from "@/components/fresh/main-dashboard/money-summary/useMoneySummaryVisibility";
 import useMoneyLeftSummaryHandlers from "@/components/fresh/main-dashboard/money-summary/useMoneyLeftSummaryHandlers";
+import useDashboardMoneyLeftMetrics from "@/components/fresh/main-dashboard/money-summary/useDashboardMoneyLeftMetrics";
 import DashboardTopNav from "@/components/fresh/main-dashboard/top-nav/DashboardTopNav";
 import DashboardShell from "@/components/fresh/main-dashboard/shell/DashboardShell";
 import useDashboardShellReady from "@/components/fresh/main-dashboard/shell/useDashboardShellReady";
@@ -734,34 +735,14 @@ export default function Dashboard() {
     navigate,
   });
 
-  const thisMonthSpent = useMemo(() => {
-    const currentMonthKey = getPHMonthKey();
-
-    return expenses.reduce((sum, expense) => {
-      const expenseDate = getTransactionDate(expense);
-      if (!expenseDate) return sum;
-
-      return getPHMonthKey(expenseDate) === currentMonthKey
-        ? sum + Number(expense.amount || 0)
-        : sum;
-    }, 0);
-  }, [expenses]);
-
-  const thisMonthIncome = useMemo(() => {
-    const currentMonthKey = getPHMonthKey();
-
-    return walletTransactions.reduce((sum, transaction) => {
-      const type = normalizeLower(transaction?.type || transaction?.transaction_type);
-      if (!INCOME_TRANSACTION_TYPES.has(type)) return sum;
-
-      const date = getTransactionDate(transaction);
-      if (!date || getPHMonthKey(date) !== currentMonthKey) return sum;
-
-      return sum + firstValidNumber(transaction?.amount);
-    }, 0);
-  }, [walletTransactions]);
-
-  const moneyLeftThisMonth = thisMonthIncome - thisMonthSpent;
+  const {
+    thisMonthSpent,
+    thisMonthIncome,
+    moneyLeftThisMonth,
+  } = useDashboardMoneyLeftMetrics({
+    expenses,
+    walletTransactions,
+  });
 
   const budgetSummaries = useMemo(() => {
     const monthRange = getPHMonthRange();
