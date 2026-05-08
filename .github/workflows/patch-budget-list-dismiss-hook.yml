@@ -54,13 +54,13 @@ jobs:
               ]
               if not all(token in old_block for token in required_tokens):
                   raise SystemExit("Budget list dismiss block does not match expected content. Refusing to patch Dashboard.jsx.")
-              replacement = '''  useBudgetListDropdownDismiss({
-    budgetListOpen,
-    budgetListDropdownRef,
-    setBudgetListOpen,
-  });
-
-'''
+              replacement = (
+                  "  useBudgetListDropdownDismiss({\n"
+                  "    budgetListOpen,\n"
+                  "    budgetListDropdownRef,\n"
+                  "    setBudgetListOpen,\n"
+                  "  });\n\n"
+              )
               text = text[:start_index] + replacement + text[end_index:]
           elif 'useBudgetListDropdownDismiss({' not in text:
               raise SystemExit("Budget list dismiss block not found and hook is not wired. Refusing to patch Dashboard.jsx.")
