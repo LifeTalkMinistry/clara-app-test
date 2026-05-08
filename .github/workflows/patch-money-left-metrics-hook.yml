@@ -1,0 +1,96 @@
+name: Patch money left metrics hook
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  patch-money-left-metrics-hook:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Wire useDashboardMoneyLeftMetrics into Dashboard.jsx
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import re
+
+          target = Path("src/pages/Dashboard.jsx")
+          text = target.read_text()
+
+          import_line = 'import useDashboardMoneyLeftMetrics from "@/components/fresh/main-dashboard/money-summary/useDashboardMoneyLeftMetrics";\n'
+          import_anchor = 'import useMoneyLeftSummaryHandlers from "@/components/fresh/main-dashboard/money-summary/useMoneyLeftSummaryHandlers";\n'
+          fallback_anchor = 'import useMoneySummaryVisibility from "@/components/fresh/main-dashboard/money-summary/useMoneySummaryVisibility";\n'
+
+          if import_line not in text:
+              if import_anchor in text:
+                  text = text.replace(import_anchor, import_anchor + import_line, 1)
+              elif fallback_anchor in text:
+                  text = text.replace(fallback_anchor, fallback_anchor + import_line, 1)
+              else:
+                  raise SystemExit("Money summary import anchor not found. Refusing to patch Dashboard.jsx.")
+
+          if 'useDashboardMoneyLeftMetrics({' not in text:
+              replacement = (
+                  '  const {\n'
+                  '    thisMonthSpent,\n'
+                  '    thisMonthIncome,\n'
+                  '    moneyLeftThisMonth,\n'
+                  '  } = useDashboardMoneyLeftMetrics({\n'
+                  '    expenses,\n'
+                  '    walletTransactions,\n'
+                  '  });\n\n'
+              )
+
+              pattern = re.compile(
+                  r'  const thisMonthSpent = useMemo\(\(\) => \{\n'
+                  r'    const currentMonthKey = getPHMonthKey\(\);\n\n'
+                  r'    return expenses\.reduce\(\(sum, expense\) => \{.*?'
+                  r'  \}, \[expenses\]\);\n\n'
+                  r'  const thisMonthIncome = useMemo\(\(\) => \{\n'
+                  r'    const currentMonthKey = getPHMonthKey\(\);\n\n'
+                  r'    return walletTransactions\.reduce\(\(sum, transaction\) => \{.*?'
+                  r'  \}, \[walletTransactions\]\);\n\n'
+                  r'  const moneyLeftThisMonth = thisMonthIncome - thisMonthSpent;\n\n',
+                  re.DOTALL,
+              )
+
+              text, count = pattern.subn(replacement, text, count=1)
+              if count != 1:
+                  raise SystemExit("Money left metrics inline block not found. Refusing to patch Dashboard.jsx.")
+
+          if 'useDashboardMoneyLeftMetrics({' not in text:
+              raise SystemExit("useDashboardMoneyLeftMetrics was not wired. Refusing to continue.")
+          if 'const thisMonthSpent = useMemo' in text:
+              raise SystemExit("Old thisMonthSpent useMemo still exists after patch. Refusing to continue.")
+          if 'const thisMonthIncome = useMemo' in text:
+              raise SystemExit("Old thisMonthIncome useMemo still exists after patch. Refusing to continue.")
+
+          target.write_text(text)
+          PY
+
+      - name: Remove temporary workflow
+        run: rm -f .github/workflows/patch-money-left-metrics-hook.yml
+
+      - name: Commit and push patch
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add src/pages/Dashboard.jsx .github/workflows/patch-money-left-metrics-hook.yml
+
+          if git diff --cached --quiet; then
+            echo "No changes to commit."
+            exit 0
+          fi
+
+          git commit -m "Wire dashboard money left metrics hook"
+          git push
