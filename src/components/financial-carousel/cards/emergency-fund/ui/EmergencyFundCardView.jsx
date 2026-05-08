@@ -1,4 +1,5 @@
 import EmergencyFundCard from "@/components/EmergencyFundCard";
+import { stopCapturedDetailsToggle } from "../../../shared/financeCardInteraction";
 
 export default function EmergencyFundCardView({
   data = {},
@@ -42,15 +43,7 @@ export default function EmergencyFundCardView({
           return;
         }
 
-        const button = event.target?.closest?.("button");
-        const label = String(button?.textContent || "").toLowerCase();
-
-        if (
-          label.includes("show details") ||
-          label.includes("hide details")
-        ) {
-          event.preventDefault();
-          event.stopPropagation();
+        if (stopCapturedDetailsToggle(event)) {
           handleEmergencyToggle();
         }
       }}
