@@ -1,5 +1,8 @@
 import EmergencyFundCard from "@/components/EmergencyFundCard";
+import { toggleExpandedFinanceCard } from "../../../shared/financeCardExpansion";
 import { stopCapturedDetailsToggle } from "../../../shared/financeCardInteraction";
+
+const DETAIL_KEY = "emergency";
 
 export default function EmergencyFundCardView({
   data = {},
@@ -12,17 +15,13 @@ export default function EmergencyFundCardView({
   endClaraAiLongPress,
   handleClaraAiOrbClickCapture,
 }) {
-  const isExpanded = expandedFinanceCard === "emergency";
+  const isExpanded = expandedFinanceCard === DETAIL_KEY;
 
   const handleEmergencyToggle = () => {
-    if (isExpanded) {
-      toggleFinanceDetails?.("emergency");
-      return;
-    }
-
-    toggleFinanceDetails?.("emergency", {
-      autoExpand: true,
-      forceOpen: true,
+    toggleExpandedFinanceCard({
+      detailKey: DETAIL_KEY,
+      isExpanded,
+      toggleFinanceDetails,
     });
   };
 
