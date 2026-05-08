@@ -524,11 +524,12 @@ main > *:last-child {
    visual breathing room as the TopNav has from the top edge. */
 @media (max-width: 430px) and (min-height: 821px) {
   .theme-page-shell {
-    --clara-dashboard-edge-gap: clamp(1.15rem, 3.2dvh, 1.65rem);
+    --clara-dashboard-edge-gap: clamp(24px, 3.2dvh, 32px);
   }
 
   .theme-page-shell main {
-    padding-bottom: calc(var(--clara-dashboard-edge-gap) + var(--clara-safe-bottom)) !important;
+    padding-bottom: calc(var(--clara-safe-bottom) + 0.35rem) !important;
+    scroll-padding-bottom: calc(var(--clara-safe-bottom) + var(--clara-dashboard-edge-gap)) !important;
   }
 
   .theme-page-shell main > div:first-child {
@@ -537,13 +538,13 @@ main > *:last-child {
     min-height: calc(
       100dvh
       - max(0.1rem, calc(var(--clara-safe-top) + 0.04rem))
-      - calc(var(--clara-dashboard-edge-gap) + var(--clara-safe-bottom))
+      - calc(var(--clara-safe-bottom) + var(--clara-dashboard-edge-gap))
     ) !important;
   }
 
   .theme-page-shell main [aria-label="Financial summary"] {
     margin-top: auto !important;
-    margin-bottom: 0 !important;
+    margin-bottom: var(--clara-dashboard-edge-gap) !important;
   }
 }
 
