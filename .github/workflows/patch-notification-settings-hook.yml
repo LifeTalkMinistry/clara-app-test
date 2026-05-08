@@ -1,0 +1,107 @@
+name: Patch notification settings hook
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  patch-notification-settings-hook:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Wire useDashboardNotificationSettings into Dashboard.jsx
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          target = Path("src/pages/Dashboard.jsx")
+          text = target.read_text()
+
+          import_line = 'import useDashboardNotificationSettings from "@/components/fresh/main-dashboard/dashboard-settings/useDashboardNotificationSettings";\n'
+          import_anchor = '} from "@/components/fresh/main-dashboard/dashboard-settings/dashboardRuntimeSettings";\n'
+
+          if import_line not in text:
+              anchor_index = text.find(import_anchor)
+              if anchor_index == -1:
+                  raise SystemExit("Dashboard runtime settings import anchor not found. Refusing to patch Dashboard.jsx.")
+              insert_index = anchor_index + len(import_anchor)
+              text = text[:insert_index] + import_line + text[insert_index:]
+
+          state_block = (
+              "  const [notificationSettings, setNotificationSettings] = useState(() =>\n"
+              "    readStoredNotificationSettings(userId)\n"
+              "  );\n"
+          )
+          replacement_state = (
+              "  const [notificationSettings, setNotificationSettings] =\n"
+              "    useDashboardNotificationSettings(userId);\n"
+          )
+
+          if state_block in text:
+              text = text.replace(state_block, replacement_state, 1)
+          elif replacement_state not in text:
+              raise SystemExit("Notification settings state block not found and hook is not wired. Refusing to patch Dashboard.jsx.")
+
+          sync_user_effect = (
+              "  useEffect(() => {\n"
+              "    setNotificationSettings(readStoredNotificationSettings(userId));\n"
+              "  }, [userId]);\n\n"
+          )
+          if sync_user_effect in text:
+              text = text.replace(sync_user_effect, "", 1)
+          elif "setNotificationSettings(readStoredNotificationSettings(userId));" in text:
+              raise SystemExit("Notification user sync effect still exists but exact block was not found. Refusing to patch Dashboard.jsx.")
+
+          listener_start = '  useEffect(() => {\n    const syncNotificationSettings = () => {\n'
+          listener_end = '  useOnboardingPageLock(showOnboarding);\n'
+
+          if listener_start in text:
+              start_index = text.index(listener_start)
+              end_index = text.index(listener_end, start_index)
+              old_block = text[start_index:end_index]
+              required_tokens = [
+                  'document.visibilityState && document.visibilityState === "hidden"',
+                  'window.addEventListener("storage", syncNotificationSettings);',
+                  'window.addEventListener("focus", syncNotificationSettings);',
+                  'window.addEventListener("clara-settings-updated", syncNotificationSettings);',
+                  'document.addEventListener("visibilitychange", syncNotificationSettings);',
+                  'window.removeEventListener("storage", syncNotificationSettings);',
+                  'document.removeEventListener("visibilitychange", syncNotificationSettings);',
+              ]
+              if not all(token in old_block for token in required_tokens):
+                  raise SystemExit("Notification listener effect block does not match expected content. Refusing to patch Dashboard.jsx.")
+              text = text[:start_index] + text[end_index:]
+          elif "syncNotificationSettings" in text:
+              raise SystemExit("syncNotificationSettings still exists but exact listener block was not found. Refusing to patch Dashboard.jsx.")
+
+          if 'useDashboardNotificationSettings(userId)' not in text:
+              raise SystemExit("useDashboardNotificationSettings was not wired. Refusing to continue.")
+          if 'syncNotificationSettings' in text:
+              raise SystemExit("syncNotificationSettings still exists after patch. Refusing to continue.")
+
+          target.write_text(text)
+          PY
+
+      - name: Remove temporary workflow
+        run: rm -f .github/workflows/patch-notification-settings-hook.yml
+
+      - name: Commit and push patch
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add src/pages/Dashboard.jsx .github/workflows/patch-notification-settings-hook.yml
+          if git diff --cached --quiet; then
+            echo "No changes to commit."
+            exit 0
+          fi
+          git commit -m "Wire dashboard notification settings hook"
+          git push
