@@ -47,7 +47,6 @@ if (!fs.existsSync(targetPath)) {
 
   const requiredPanelTokens = [
     "DashboardSettingsPanel",
-    "DashboardPanelShell",
     "Plan & billing",
     "Help & support",
     "About CLARA",
