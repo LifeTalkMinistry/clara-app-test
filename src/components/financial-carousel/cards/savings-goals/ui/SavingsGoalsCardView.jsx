@@ -1,5 +1,8 @@
 import SavingsCard from "@/components/SavingsCard";
+import { toggleExpandedFinanceCard } from "../../../shared/financeCardExpansion";
 import { stopCapturedDetailsToggle } from "../../../shared/financeCardInteraction";
+
+const DETAIL_KEY = "savings";
 
 export default function SavingsGoalsCardView({
   data = {},
@@ -11,17 +14,13 @@ export default function SavingsGoalsCardView({
   onDeleteSavingsGoal,
   onAddSavings,
 }) {
-  const isExpanded = expandedFinanceCard === "savings";
+  const isExpanded = expandedFinanceCard === DETAIL_KEY;
 
   const handleSavingsToggle = () => {
-    if (isExpanded) {
-      toggleFinanceDetails?.("savings");
-      return;
-    }
-
-    toggleFinanceDetails?.("savings", {
-      autoExpand: true,
-      forceOpen: true,
+    toggleExpandedFinanceCard({
+      detailKey: DETAIL_KEY,
+      isExpanded,
+      toggleFinanceDetails,
     });
   };
 
