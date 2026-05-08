@@ -142,7 +142,6 @@ const requiredHandlerTokens = [
   "openTransactionHubFromMoneyLeft",
   "handleMoneyLeftPointerDown",
   "handleMoneyLeftPointerMove",
-  "handleMoneyLeftOrbClick",
   "startMoneyLeftOrbLongPress",
   "endMoneyLeftOrbLongPress",
   "moneyLeftSummaryHandlers",
@@ -153,6 +152,24 @@ for (const token of requiredHandlerTokens) {
     throw new Error(`Extracted Money Left handlers missing token: ${token}`);
   }
 }
+
+const handleMoneyLeftOrbFallback = handlerBlock.includes("handleMoneyLeftOrbClick")
+  ? ""
+  : `
+  const handleMoneyLeftOrbClick = useCallback((event) => {
+    event?.preventDefault?.();
+    event?.stopPropagation?.();
+    event?.nativeEvent?.stopImmediatePropagation?.();
+
+    if (longPressTriggeredRef.current) {
+      longPressTriggeredRef.current = false;
+      return false;
+    }
+
+    setFinanceModal?.({ type: "expense", payload: null });
+    return false;
+  }, [setFinanceModal]);
+`;
 
 const stopMoneyLeftOrbFallback = handlerBlock.includes("stopMoneyLeftOrbEvent")
   ? ""
@@ -189,6 +206,7 @@ export default function useMoneyLeftSummaryHandlers({
 ${moneyRefsBlock}${longPressRefsBlock}
 
 ${handlerBlock}
+${handleMoneyLeftOrbFallback}
 ${stopMoneyLeftOrbFallback}
 
   return {
@@ -235,6 +253,10 @@ for (const token of requiredHandlerTokens) {
   if (!hookSource.includes(token)) {
     throw new Error(`Hook missing required Money Left token: ${token}`);
   }
+}
+
+if (!hookSource.includes("handleMoneyLeftOrbClick")) {
+  throw new Error("Hook missing handleMoneyLeftOrbClick export token.");
 }
 
 if (!hookSource.includes("stopMoneyLeftOrbEvent")) {
