@@ -2,21 +2,10 @@ import {
   DEFAULT_FINANCIAL_CARD_KEY,
   getRegisteredFinancialCards,
 } from "./FinancialCardRegistry";
-
-const readNumber = (...values) => {
-  for (const value of values) {
-    if (value === null || value === undefined || value === "") continue;
-
-    const number =
-      typeof value === "number"
-        ? value
-        : Number(String(value).replace(/[₱,\s]/g, ""));
-
-    if (Number.isFinite(number)) return number;
-  }
-
-  return 0;
-};
+import {
+  normalizeCarouselBudgetPlan,
+  readCarouselNumber,
+} from "./financeCarouselDataHelpers";
 
 export const getEnabledCarouselItems = (options = {}) =>
   getRegisteredFinancialCards(options);
@@ -27,55 +16,6 @@ export const getDefaultCarouselIndex = (items = []) => {
   );
 
   return index >= 0 ? index : 0;
-};
-
-const normalizeBudgetPlan = (plan = {}) => {
-  const categories = Array.isArray(plan?.categories) ? plan.categories : [];
-
-  const declaredBudget = readNumber(
-    plan?.declared_budget,
-    plan?.declared_amount,
-    plan?.monthly_budget_amount,
-    plan?.total_budget,
-    plan?.allocated_amount
-  );
-
-  const spentAmount = readNumber(
-    plan?.spent_amount,
-    plan?.spent,
-    plan?.total_spent,
-    categories.reduce(
-      (sum, item) =>
-        sum +
-        readNumber(item?.spent, item?.spent_amount, item?.total_spent),
-      0
-    )
-  );
-
-  const remainingAmount = Math.max(
-    readNumber(
-      plan?.remaining_amount,
-      plan?.remaining,
-      plan?.amount_left,
-      declaredBudget - spentAmount
-    ),
-    0
-  );
-
-  return {
-    activeBudget: plan || null,
-    budgetCategories: categories,
-    declaredBudget,
-    unallocatedAmount: readNumber(plan?.unallocated_amount),
-    budgetStatus: plan?.status || "",
-    isComplete: plan?.is_complete === true,
-    unplannedSpent: readNumber(plan?.unplanned_spent),
-    undocumentedSpent: readNumber(plan?.undocumented_spent),
-    remainingAmount,
-    amountLeft: remainingAmount,
-    spentAmount,
-    totalSpent: readNumber(plan?.total_spent, spentAmount),
-  };
 };
 
 export const getCarouselData = ({
@@ -109,14 +49,14 @@ export const getCarouselData = ({
             ? readStoredSurvivalExpense(user?.id)
             : 0
         ) > 0
-      : readNumber(
+      : readCarouselNumber(
           profileData?.monthly_survival_expense,
           profileData?.survival_expense,
           profileData?.clara_survival_expense,
           survivalExpense
         ) > 0);
 
-  const budgetData = normalizeBudgetPlan(monthlyBudgetPlan || {});
+  const budgetData = normalizeCarouselBudgetPlan(monthlyBudgetPlan || {});
 
   const safeSavingsGoals = Array.isArray(savingsGoals)
     ? savingsGoals
