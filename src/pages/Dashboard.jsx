@@ -93,6 +93,7 @@ import {
   financeInputClassName,
   UNDOCUMENTED_SPENDING_REASONS,
 } from "@/components/fresh/main-dashboard/finance-form/financeFormConstants";
+import createInitialFinanceForm from "@/components/fresh/main-dashboard/finance-form/financeFormInitialState";
 import useBudgetListDropdownDismiss from "@/components/fresh/main-dashboard/finance-form/useBudgetListDropdownDismiss";
 import { hasDashboardFinanceContent } from "@/components/fresh/main-dashboard/finance-content/dashboardFinanceContent";
 import {
@@ -304,38 +305,7 @@ export default function Dashboard() {
   const [budgetExitConfirm, setBudgetExitConfirm] = useState(false);
   const [budgetListOpen, setBudgetListOpen] = useState(false);
   const budgetListDropdownRef = useRef(null);
-  const [financeForm, setFinanceForm] = useState({
-    name: "",
-    type: "cash",
-    customWalletType: "",
-    startingBalance: "0",
-    amount: "",
-    destinationWalletId: "",
-    expenseWalletId: "",
-    budgetListKey: "",
-    unplannedReason: "",
-    undocumentedReason: "",
-    undocumentedNote: "",
-    totalBudget: "",
-    monthlyBudgetAmount: "",
-    needsPct: "50",
-    wantsPct: "30",
-    otherPct: "20",
-    title: "",
-    budgetCategoryName: "",
-    targetAmount: "",
-    savingsWalletId: "",
-    category: "",
-    subcategory: "",
-    plannedUseDate: "",
-    reasonOne: "",
-    reasonTwo: "",
-    reasonThree: "",
-    emotionalValue: "joy",
-    priority: "medium",
-    flexibility: "flexible",
-    notes: "",
-  });
+  const [financeForm, setFinanceForm] = useState(createInitialFinanceForm);
 
   useBudgetListDropdownDismiss({
     budgetListOpen,
