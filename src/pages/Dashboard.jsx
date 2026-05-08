@@ -47,6 +47,7 @@ import DashboardMoneySummary from "@/components/fresh/main-dashboard/money-summa
 import useMoneyLeftSummaryHandlers from "@/components/fresh/main-dashboard/money-summary/useMoneyLeftSummaryHandlers";
 import DashboardTopNav from "@/components/fresh/main-dashboard/top-nav/DashboardTopNav";
 import DashboardShell from "@/components/fresh/main-dashboard/shell/DashboardShell";
+import useDashboardShellReady from "@/components/fresh/main-dashboard/shell/useDashboardShellReady";
 import DashboardContentArea from "@/components/fresh/main-dashboard/shell/DashboardContentArea";
 import DashboardPanelRenderer from "@/components/fresh/main-dashboard/shell/DashboardPanelRenderer";
 import DashboardModalLayer from "@/components/fresh/main-dashboard/shell/DashboardModalLayer";
@@ -297,7 +298,7 @@ export default function Dashboard() {
   );
   const [dailyStrategyFlipped, setDailyStrategyFlipped] = useState(false);
   const [activeDashboardPanel, setActiveDashboardPanel] = useState("home");
-  const [dashboardShellReady, setDashboardShellReady] = useState(false);
+  const dashboardShellReady = useDashboardShellReady();
   const [dashboardPanelDirection, setDashboardPanelDirection] = useState("forward");
   const [expandedFinanceCard, setExpandedFinanceCard] = useState(null);
   const [expandedFinanceDetailSections, setExpandedFinanceDetailSections] = useState({});
@@ -341,24 +342,6 @@ export default function Dashboard() {
     flexibility: "flexible",
     notes: "",
   });
-
-  useEffect(() => {
-    let timerId = null;
-    let frameId = null;
-
-    if (typeof window !== "undefined" && window.requestAnimationFrame) {
-      frameId = window.requestAnimationFrame(() => {
-        timerId = window.setTimeout(() => setDashboardShellReady(true), 80);
-      });
-    } else {
-      timerId = setTimeout(() => setDashboardShellReady(true), 80);
-    }
-
-    return () => {
-      if (frameId && typeof window !== "undefined") window.cancelAnimationFrame(frameId);
-      if (timerId) clearTimeout(timerId);
-    };
-  }, []);
 
   useBudgetListDropdownDismiss({
     budgetListOpen,
