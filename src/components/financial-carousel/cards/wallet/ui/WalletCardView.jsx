@@ -1,4 +1,5 @@
 import WalletCard from "@/components/WalletCard";
+import { stopCapturedDetailsToggle } from "../../../shared/financeCardInteraction";
 
 export default function WalletCardView({
   data = {},
@@ -30,15 +31,7 @@ export default function WalletCardView({
     <div
       className="h-full min-h-[inherit] flex flex-col"
       onClickCapture={(event) => {
-        const button = event.target?.closest?.("button");
-        const label = String(button?.textContent || "").toLowerCase();
-
-        if (
-          label.includes("show details") ||
-          label.includes("hide details")
-        ) {
-          event.preventDefault();
-          event.stopPropagation();
+        if (stopCapturedDetailsToggle(event)) {
           handleWalletToggle();
         }
       }}
