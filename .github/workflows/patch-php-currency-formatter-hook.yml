@@ -1,0 +1,80 @@
+name: Patch PHP currency formatter hook
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  patch-php-currency-formatter-hook:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Wire usePhpCurrencyFormatter into Dashboard.jsx
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import re
+
+          target = Path("src/pages/Dashboard.jsx")
+          text = target.read_text()
+
+          import_line = 'import usePhpCurrencyFormatter from "@/components/fresh/main-dashboard/hooks/usePhpCurrencyFormatter";\n'
+          import_anchor = 'import useDashboardInitialLoad from "@/components/fresh/main-dashboard/hooks/useDashboardInitialLoad";\n'
+          fallback_anchor = 'import useLatestValueRef from "@/components/fresh/main-dashboard/hooks/useLatestValueRef";\n'
+
+          if import_line not in text:
+              if import_anchor in text:
+                  text = text.replace(import_anchor, import_anchor + import_line, 1)
+              elif fallback_anchor in text:
+                  text = text.replace(fallback_anchor, fallback_anchor + import_line, 1)
+              else:
+                  raise SystemExit("PHP formatter import anchor not found. Refusing to patch Dashboard.jsx.")
+
+          if 'const fmt = usePhpCurrencyFormatter();' not in text:
+              pattern = re.compile(
+                  r'  const fmt = useCallback\(\(n\) => \{\n'
+                  r'    return new Intl\.NumberFormat\("en-PH", \{\n'
+                  r'      style: "currency",\n'
+                  r'      currency: "PHP",\n'
+                  r'      minimumFractionDigits: 0,\n'
+                  r'    \}\)\.format\(Number\(n \|\| 0\)\);\n'
+                  r'  \}, \[\]\);\n\n',
+                  re.DOTALL,
+              )
+              text, count = pattern.subn('  const fmt = usePhpCurrencyFormatter();\n\n', text, count=1)
+              if count != 1:
+                  raise SystemExit("Inline PHP formatter block not found. Refusing to patch Dashboard.jsx.")
+
+          if 'const fmt = usePhpCurrencyFormatter();' not in text:
+              raise SystemExit("usePhpCurrencyFormatter was not wired. Refusing to continue.")
+          if 'new Intl.NumberFormat("en-PH"' in text:
+              raise SystemExit("Old inline PHP formatter still exists after patch. Refusing to continue.")
+
+          target.write_text(text)
+          PY
+
+      - name: Remove temporary workflow
+        run: rm -f .github/workflows/patch-php-currency-formatter-hook.yml
+
+      - name: Commit and push patch
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add src/pages/Dashboard.jsx .github/workflows/patch-php-currency-formatter-hook.yml
+
+          if git diff --cached --quiet; then
+            echo "No changes to commit."
+            exit 0
+          fi
+
+          git commit -m "Wire PHP currency formatter hook"
+          git push
