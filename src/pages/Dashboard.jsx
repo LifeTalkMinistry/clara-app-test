@@ -84,6 +84,7 @@ import useDashboardFinanceRefreshEvents from "@/components/fresh/main-dashboard/
 import useDashboardScheduledRefresh from "@/components/fresh/main-dashboard/finance-notices/useDashboardScheduledRefresh";
 import useLatestValueRef from "@/components/fresh/main-dashboard/hooks/useLatestValueRef";
 import useDashboardInitialLoad from "@/components/fresh/main-dashboard/hooks/useDashboardInitialLoad";
+import usePhpCurrencyFormatter from "@/components/fresh/main-dashboard/hooks/usePhpCurrencyFormatter";
 import useDashboardEnrollmentRedirect from "@/components/fresh/main-dashboard/program-access/useDashboardEnrollmentRedirect";
 import useDashboardProfileUpdateListener from "@/components/fresh/main-dashboard/profile/useDashboardProfileUpdateListener";
 import OnboardingActionBar from "@/components/fresh/main-dashboard/onboarding/OnboardingActionBar";
@@ -491,13 +492,7 @@ export default function Dashboard() {
 
   useOnboardingPageLock(showOnboarding);
 
-  const fmt = useCallback((n) => {
-    return new Intl.NumberFormat("en-PH", {
-      style: "currency",
-      currency: "PHP",
-      minimumFractionDigits: 0,
-    }).format(Number(n || 0));
-  }, []);
+  const fmt = usePhpCurrencyFormatter();
 
 
   const moneyLeftSummaryHandlers = useMoneyLeftSummaryHandlers({ navigate });
