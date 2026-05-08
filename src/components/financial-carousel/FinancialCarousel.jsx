@@ -8,19 +8,12 @@ import {
   getCarouselData,
   getDefaultCarouselIndex,
 } from "./logic/FinancialCarouselLogic";
-
-const EXPANDED_TOP_PULL = -22;
-
-const getExpandedCardIndex = (items = [], expandedFinanceCard = null) => {
-  if (!expandedFinanceCard) return -1;
-
-  return items.findIndex(
-    (item) =>
-      item?.detailKey === expandedFinanceCard ||
-      item?.key === expandedFinanceCard ||
-      item?.type === expandedFinanceCard
-  );
-};
+import {
+  EXPANDED_TOP_PULL,
+  FINANCIAL_CAROUSEL_FOCUS_CLASS,
+  FINANCIAL_CAROUSEL_FOCUS_STYLES,
+  getExpandedCarouselCardIndex,
+} from "./shared/financialCarouselFocus";
 
 export default function FinancialCarousel(props) {
   const {
@@ -46,7 +39,7 @@ export default function FinancialCarousel(props) {
   });
 
   const expandedCardIndex = useMemo(
-    () => getExpandedCardIndex(items, expandedFinanceCard),
+    () => getExpandedCarouselCardIndex(items, expandedFinanceCard),
     [items, expandedFinanceCard]
   );
 
@@ -66,9 +59,9 @@ export default function FinancialCarousel(props) {
     if (typeof document === "undefined") return undefined;
 
     const root = document.documentElement;
-    root.classList.toggle("clara-budget-focus-mode", isInlineFocusExpanded);
+    root.classList.toggle(FINANCIAL_CAROUSEL_FOCUS_CLASS, isInlineFocusExpanded);
 
-    return () => root.classList.remove("clara-budget-focus-mode");
+    return () => root.classList.remove(FINANCIAL_CAROUSEL_FOCUS_CLASS);
   }, [isInlineFocusExpanded]);
 
   if (!items.length) return null;
@@ -78,31 +71,7 @@ export default function FinancialCarousel(props) {
       className="relative z-20 mb-5 transition-[margin-top] duration-500 ease-[cubic-bezier(0.22,1,0.36,1)]"
       style={{ marginTop: isInlineFocusExpanded ? EXPANDED_TOP_PULL : 0 }}
     >
-      <style>{`
-        .clara-budget-focus-shift {
-          transform: translate3d(0, 0, 0);
-          transition:
-            max-height 520ms cubic-bezier(0.22, 1, 0.36, 1),
-            margin 520ms cubic-bezier(0.22, 1, 0.36, 1),
-            padding 520ms cubic-bezier(0.22, 1, 0.36, 1),
-            opacity 320ms ease,
-            visibility 320ms ease;
-          will-change: max-height, margin, padding, opacity;
-        }
-
-        .clara-budget-focus-mode .clara-budget-focus-tip,
-        .clara-budget-focus-mode .clara-budget-focus-hub {
-          max-height: 0 !important;
-          margin-top: 0 !important;
-          margin-bottom: 0 !important;
-          padding-top: 0 !important;
-          padding-bottom: 0 !important;
-          opacity: 0;
-          visibility: hidden;
-          overflow: hidden;
-          pointer-events: none;
-        }
-      `}</style>
+      <style>{FINANCIAL_CAROUSEL_FOCUS_STYLES}</style>
 
       <CarouselViewport
         carouselRef={carouselRef}
