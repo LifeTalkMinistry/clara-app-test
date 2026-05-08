@@ -70,6 +70,7 @@ import {
   readMoneySummaryVisibility,
   readStoredNotificationSettings,
 } from "@/components/fresh/main-dashboard/dashboard-settings/dashboardRuntimeSettings";
+import useDashboardNotificationSettings from "@/components/fresh/main-dashboard/dashboard-settings/useDashboardNotificationSettings";
 import {
   clearProgramPromptSeenThisSession,
   getProgramPromptSessionKey,
@@ -293,9 +294,8 @@ export default function Dashboard() {
   const [nickname, setNickname] = useState(initialCache.nickname);
   const [reminderTime, setReminderTime] = useState(initialCache.reminderTime);
   const [financialGoal, setFinancialGoal] = useState(initialCache.financialGoal);
-  const [notificationSettings, setNotificationSettings] = useState(() =>
-    readStoredNotificationSettings(userId)
-  );
+  const [notificationSettings, setNotificationSettings] =
+    useDashboardNotificationSettings(userId);
   const [dailyStrategyFlipped, setDailyStrategyFlipped] = useState(false);
   const [activeDashboardPanel, setActiveDashboardPanel] = useState("home");
   const dashboardShellReady = useDashboardShellReady();
@@ -538,29 +538,6 @@ export default function Dashboard() {
     setGuardChecked(false);
     setLoading(!hasDashboardFinanceContent(initialCache) && financeDataLoading);
   }, [cacheKey, financeDataLoading, hydrateFromCache]);
-
-  useEffect(() => {
-    setNotificationSettings(readStoredNotificationSettings(userId));
-  }, [userId]);
-
-  useEffect(() => {
-    const syncNotificationSettings = () => {
-      if (document.visibilityState && document.visibilityState === "hidden") return;
-      setNotificationSettings(readStoredNotificationSettings(userId));
-    };
-
-    window.addEventListener("storage", syncNotificationSettings);
-    window.addEventListener("focus", syncNotificationSettings);
-    window.addEventListener("clara-settings-updated", syncNotificationSettings);
-    document.addEventListener("visibilitychange", syncNotificationSettings);
-
-    return () => {
-      window.removeEventListener("storage", syncNotificationSettings);
-      window.removeEventListener("focus", syncNotificationSettings);
-      window.removeEventListener("clara-settings-updated", syncNotificationSettings);
-      document.removeEventListener("visibilitychange", syncNotificationSettings);
-    };
-  }, [userId]);
 
   useOnboardingPageLock(showOnboarding);
 
