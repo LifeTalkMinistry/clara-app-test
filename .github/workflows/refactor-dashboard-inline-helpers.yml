@@ -18,6 +18,7 @@ on:
       - ".github/scripts/wire-dashboard-shell-atoms.mjs"
       - ".github/scripts/extract-dashboard-finance-modal-renderer.mjs"
       - ".github/scripts/extract-dashboard-overlay-renderer.mjs"
+      - ".github/scripts/hotfix-dashboard-finance-renderer-props.mjs"
   workflow_dispatch:
 
 permissions:
@@ -38,8 +39,8 @@ jobs:
       - name: Extract Dashboard finance modal renderer
         run: node .github/scripts/extract-dashboard-finance-modal-renderer.mjs
 
-      - name: Extract Dashboard overlay renderer
-        run: node .github/scripts/extract-dashboard-overlay-renderer.mjs
+      - name: Hotfix Dashboard finance renderer props
+        run: node .github/scripts/hotfix-dashboard-finance-renderer-props.mjs
 
       - name: Install dependencies
         run: npm ci
@@ -56,6 +57,6 @@ jobs:
 
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add src/pages/Dashboard.jsx src/components/fresh/main-dashboard/shell/DashboardFinanceModalRenderer.jsx src/components/fresh/main-dashboard/shell/DashboardOverlayRenderer.jsx
-          git commit -m "Extract dashboard overlay renderer"
+          git add src/pages/Dashboard.jsx src/components/fresh/main-dashboard/shell/DashboardFinanceModalRenderer.jsx
+          git commit -m "Hotfix dashboard finance renderer props"
           git push
