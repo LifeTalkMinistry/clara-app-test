@@ -79,6 +79,7 @@ import {
 import FinanceInlineAlert from "@/components/fresh/main-dashboard/finance-notices/FinanceInlineAlert";
 import useFinanceDataErrorNotice from "@/components/fresh/main-dashboard/finance-notices/useFinanceDataErrorNotice";
 import useDashboardOnlineStatusNotice from "@/components/fresh/main-dashboard/finance-notices/useDashboardOnlineStatusNotice";
+import useDashboardProfileUpdateListener from "@/components/fresh/main-dashboard/profile/useDashboardProfileUpdateListener";
 import OnboardingActionBar from "@/components/fresh/main-dashboard/onboarding/OnboardingActionBar";
 import useOnboardingPageLock from "@/components/fresh/main-dashboard/onboarding/useOnboardingPageLock";
 import {
@@ -733,35 +734,11 @@ export default function Dashboard() {
 
 
 
-  useEffect(() => {
-    const handleProfileUpdated = (event) => {
-      const updated = event?.detail?.profile || {};
-
-      setProfileData((prev) => ({
-        ...(prev || {}),
-        ...updated,
-      }));
-
-      const nextName = normalizeString(
-        updated?.display_name ||
-          updated?.nickname ||
-          updated?.full_name ||
-          ""
-      );
-
-      if (nextName) {
-        setNickname(nextName);
-      }
-
-      scheduleRefresh();
-    };
-
-    window.addEventListener("clara-profile-updated", handleProfileUpdated);
-
-    return () => {
-      window.removeEventListener("clara-profile-updated", handleProfileUpdated);
-    };
-  }, [scheduleRefresh]);
+  useDashboardProfileUpdateListener({
+    setProfileData,
+    setNickname,
+    scheduleRefresh,
+  });
 
   useEffect(() => {
     if (!user?.id && !user?.email) return;
