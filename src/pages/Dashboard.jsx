@@ -81,6 +81,7 @@ import useFinanceDataErrorNotice from "@/components/fresh/main-dashboard/finance
 import useDashboardOnlineStatusNotice from "@/components/fresh/main-dashboard/finance-notices/useDashboardOnlineStatusNotice";
 import useDashboardFinanceRefreshEvents from "@/components/fresh/main-dashboard/finance-notices/useDashboardFinanceRefreshEvents";
 import useDashboardScheduledRefresh from "@/components/fresh/main-dashboard/finance-notices/useDashboardScheduledRefresh";
+import useLatestValueRef from "@/components/fresh/main-dashboard/hooks/useLatestValueRef";
 import useDashboardProfileUpdateListener from "@/components/fresh/main-dashboard/profile/useDashboardProfileUpdateListener";
 import OnboardingActionBar from "@/components/fresh/main-dashboard/onboarding/OnboardingActionBar";
 import useOnboardingPageLock from "@/components/fresh/main-dashboard/onboarding/useOnboardingPageLock";
@@ -438,8 +439,8 @@ export default function Dashboard() {
   const dashboardScrollTimersRef = useRef([]);
   const approvalTriggeredRef = useRef(false);
   const hasLoadedDashboardRef = useRef(false);
-  const latestEnrollmentRef = useRef(null);
-  const isPaidRef = useRef(isPaid);
+  const latestEnrollmentRef = useLatestValueRef(latestEnrollment);
+  const isPaidRef = useLatestValueRef(isPaid);
   const longPressTimerRef = useRef(null);
   const longPressTriggeredRef = useRef(false);
 
@@ -701,14 +702,6 @@ export default function Dashboard() {
     loadDashboardData,
     refreshFinancialData,
   });
-
-  useEffect(() => {
-    latestEnrollmentRef.current = latestEnrollment;
-  }, [latestEnrollment]);
-
-  useEffect(() => {
-    isPaidRef.current = isPaid;
-  }, [isPaid]);
 
   useEffect(() => {
     loadDashboardData();
