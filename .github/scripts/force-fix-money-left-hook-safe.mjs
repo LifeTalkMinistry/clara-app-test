@@ -1,0 +1,218 @@
+import fs from "node:fs";
+
+const hookPath = "src/components/fresh/main-dashboard/money-summary/useMoneyLeftSummaryHandlers.js";
+
+const hookSource = `import { useCallback, useEffect, useMemo, useRef } from "react";
+
+export default function useMoneyLeftSummaryHandlers({
+  navigate,
+  setFinanceModal,
+  setShowAiAssistant,
+} = {}) {
+  const moneyLeftTapRef = useRef({
+    lastTapAt: 0,
+    lastHandledEventAt: 0,
+    startX: 0,
+    startY: 0,
+    moved: false,
+  });
+  const moneyLeftNavigateLockRef = useRef(0);
+  const longPressTimerRef = useRef(null);
+  const longPressTriggeredRef = useRef(false);
+
+  const clearLongPressTimer = useCallback(() => {
+    if (!longPressTimerRef.current) return;
+    clearTimeout(longPressTimerRef.current);
+    longPressTimerRef.current = null;
+  }, []);
+
+  useEffect(() => clearLongPressTimer, [clearLongPressTimer]);
+
+  const isManualExpenseOrbEvent = useCallback((event) => {
+    return Boolean(
+      event?.target?.closest?.('[data-clara-manual-expense-orb="true"]')
+    );
+  }, []);
+
+  const stopMoneyLeftSummaryEvent = useCallback(
+    (event) => {
+      if (isManualExpenseOrbEvent(event)) return false;
+
+      event?.preventDefault?.();
+      event?.stopPropagation?.();
+      event?.nativeEvent?.stopImmediatePropagation?.();
+      return false;
+    },
+    [isManualExpenseOrbEvent]
+  );
+
+  const stopMoneyLeftOrbEvent = useCallback((event) => {
+    event?.preventDefault?.();
+    event?.stopPropagation?.();
+    event?.nativeEvent?.stopImmediatePropagation?.();
+    return false;
+  }, []);
+
+  const openTransactionHubFromMoneyLeft = useCallback(
+    (event) => {
+      if (isManualExpenseOrbEvent(event)) return;
+
+      stopMoneyLeftSummaryEvent(event);
+
+      const now = Date.now();
+      if (now - moneyLeftNavigateLockRef.current < 450) return;
+
+      moneyLeftNavigateLockRef.current = now;
+      navigate?.("/transactions-hub");
+    },
+    [isManualExpenseOrbEvent, navigate, stopMoneyLeftSummaryEvent]
+  );
+
+  const handleMoneyLeftPointerDown = useCallback(
+    (event) => {
+      if (isManualExpenseOrbEvent(event)) return;
+
+      event?.stopPropagation?.();
+      const point = event?.touches?.[0] || event;
+
+      moneyLeftTapRef.current = {
+        ...moneyLeftTapRef.current,
+        startX: Number(point?.clientX || 0),
+        startY: Number(point?.clientY || 0),
+        moved: false,
+      };
+    },
+    [isManualExpenseOrbEvent]
+  );
+
+  const handleMoneyLeftPointerMove = useCallback((event) => {
+    const point = event?.touches?.[0] || event;
+    const startX = moneyLeftTapRef.current.startX || 0;
+    const startY = moneyLeftTapRef.current.startY || 0;
+    const dx = Math.abs(Number(point?.clientX || 0) - startX);
+    const dy = Math.abs(Number(point?.clientY || 0) - startY);
+
+    if (dx > 12 || dy > 12) {
+      moneyLeftTapRef.current.moved = true;
+    }
+  }, []);
+
+  const handleMoneyLeftTapEnd = useCallback(
+    (event) => {
+      if (isManualExpenseOrbEvent(event)) return;
+
+      stopMoneyLeftSummaryEvent(event);
+
+      if (moneyLeftTapRef.current.moved) {
+        moneyLeftTapRef.current.lastTapAt = 0;
+        return;
+      }
+
+      const now = Date.now();
+      const eventStamp = Number(event?.timeStamp || now);
+      const lastHandledEventAt = moneyLeftTapRef.current.lastHandledEventAt || 0;
+
+      if (lastHandledEventAt && Math.abs(eventStamp - lastHandledEventAt) < 120) {
+        return;
+      }
+
+      moneyLeftTapRef.current.lastHandledEventAt = eventStamp;
+
+      const previousTapAt = moneyLeftTapRef.current.lastTapAt || 0;
+
+      if (previousTapAt && now - previousTapAt <= 320) {
+        moneyLeftTapRef.current.lastTapAt = 0;
+        openTransactionHubFromMoneyLeft(event);
+        return;
+      }
+
+      moneyLeftTapRef.current.lastTapAt = now;
+    },
+    [isManualExpenseOrbEvent, openTransactionHubFromMoneyLeft, stopMoneyLeftSummaryEvent]
+  );
+
+  const startMoneyLeftOrbLongPress = useCallback(
+    (event) => {
+      stopMoneyLeftOrbEvent(event);
+      longPressTriggeredRef.current = false;
+      clearLongPressTimer();
+
+      longPressTimerRef.current = setTimeout(() => {
+        longPressTriggeredRef.current = true;
+        setShowAiAssistant?.(true);
+      }, 450);
+
+      return false;
+    },
+    [clearLongPressTimer, setShowAiAssistant, stopMoneyLeftOrbEvent]
+  );
+
+  const endMoneyLeftOrbLongPress = useCallback(
+    (event) => {
+      event?.stopPropagation?.();
+      clearLongPressTimer();
+      return false;
+    },
+    [clearLongPressTimer]
+  );
+
+  const handleMoneyLeftOrbClick = useCallback(
+    (event) => {
+      stopMoneyLeftOrbEvent(event);
+      clearLongPressTimer();
+
+      if (longPressTriggeredRef.current) {
+        longPressTriggeredRef.current = false;
+        return false;
+      }
+
+      setFinanceModal?.({ type: "expense", payload: null });
+      return false;
+    },
+    [clearLongPressTimer, setFinanceModal, stopMoneyLeftOrbEvent]
+  );
+
+  const moneyLeftSummaryHandlers = useMemo(
+    () => ({
+      onClickCapture: stopMoneyLeftSummaryEvent,
+      onClick: stopMoneyLeftSummaryEvent,
+      onDoubleClickCapture: openTransactionHubFromMoneyLeft,
+      onDoubleClick: openTransactionHubFromMoneyLeft,
+      onPointerDownCapture: handleMoneyLeftPointerDown,
+      onPointerMoveCapture: handleMoneyLeftPointerMove,
+      onPointerUpCapture: handleMoneyLeftTapEnd,
+      onTouchStartCapture: handleMoneyLeftPointerDown,
+      onTouchMoveCapture: handleMoneyLeftPointerMove,
+      onTouchEndCapture: handleMoneyLeftTapEnd,
+      onMouseUpCapture: handleMoneyLeftTapEnd,
+      onKeyDownCapture: stopMoneyLeftSummaryEvent,
+      onKeyDown: stopMoneyLeftSummaryEvent,
+    }),
+    [
+      handleMoneyLeftPointerDown,
+      handleMoneyLeftPointerMove,
+      handleMoneyLeftTapEnd,
+      openTransactionHubFromMoneyLeft,
+      stopMoneyLeftSummaryEvent,
+    ]
+  );
+
+  return {
+    moneyLeftSummaryHandlers,
+    handleMoneyLeftOrbClick,
+    startMoneyLeftOrbLongPress,
+    endMoneyLeftOrbLongPress,
+    stopMoneyLeftOrbEvent,
+  };
+}
+`;
+
+const existing = fs.existsSync(hookPath) ? fs.readFileSync(hookPath, "utf8") : "";
+
+if (existing === hookSource) {
+  console.log("Money Left hook already clean.");
+  process.exit(0);
+}
+
+fs.writeFileSync(hookPath, hookSource);
+console.log("Rewrote Money Left hook to clean scoped implementation.");
