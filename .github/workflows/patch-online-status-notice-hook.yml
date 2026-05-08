@@ -22,7 +22,6 @@ jobs:
         run: |
           python - <<'PY'
           from pathlib import Path
-          import re
 
           target = Path("src/pages/Dashboard.jsx")
           text = target.read_text()
@@ -39,34 +38,44 @@ jobs:
               else:
                   raise SystemExit("Finance notice import anchor not found. Refusing to patch Dashboard.jsx.")
 
+          old_block_start = '  useEffect(() => {\n    if (typeof window === "undefined") return undefined;'
+          old_block_end = '  }, [loadDashboardData]);'
+
           if 'useDashboardOnlineStatusNotice({' not in text:
+              start_index = text.find(old_block_start)
+              if start_index == -1:
+                  raise SystemExit("Online status notice effect start not found. Refusing to patch Dashboard.jsx.")
+
+              end_index = text.find(old_block_end, start_index)
+              if end_index == -1:
+                  raise SystemExit("Online status notice effect end not found. Refusing to patch Dashboard.jsx.")
+
+              end_index += len(old_block_end)
+
+              old_block = text[start_index:end_index]
+
+              required_tokens = [
+                  'window.addEventListener("offline", handleOffline);',
+                  'window.addEventListener("online", handleOnline);',
+                  'window.removeEventListener("offline", handleOffline);',
+                  'window.removeEventListener("online", handleOnline);',
+              ]
+
+              if not all(token in old_block for token in required_tokens):
+                  raise SystemExit("Online status notice effect content mismatch. Refusing to patch Dashboard.jsx.")
+
               replacement = (
-                  "  useDashboardOnlineStatusNotice({\n"
-                  "    setFinanceNotice,\n"
-                  "    loadDashboardData,\n"
-                  "  });\n\n"
+                  '  useDashboardOnlineStatusNotice({\n'
+                  '    setFinanceNotice,\n'
+                  '    loadDashboardData,\n'
+                  '  });\n\n'
               )
 
-              pattern = re.compile(
-                  r'  useEffect\(\(\) => \{\n'
-                  r'    if \(typeof window !== "undefined"\) return undefined;\n\n'
-                  r'    const handleOffline = \(\) => \{.*?'
-                  r'    window\.addEventListener\("offline", handleOffline\);\n'
-                  r'    window\.addEventListener\("online", handleOnline\);\n\n'
-                  r'    return \(\) => \{\n'
-                  r'      window\.removeEventListener\("offline", handleOffline\);\n'
-                  r'      window\.removeEventListener\("online", handleOnline\);\n'
-                  r'    \};\n'
-                  r'  \}, \[loadDashboardData\]\);\n\n',
-                  re.DOTALL,
-              )
-
-              text, count = pattern.subn(replacement, text, count=1)
-              if count != 1:
-                  raise SystemExit("Online status notice effect pattern not found. Refusing to patch Dashboard.jsx.")
+              text = text[:start_index] + replacement + text[end_index:]
 
           if 'useDashboardOnlineStatusNotice({' not in text:
               raise SystemExit("useDashboardOnlineStatusNotice was not wired. Refusing to continue.")
+
           if 'window.addEventListener("offline", handleOffline);' in text:
               raise SystemExit("Old offline listener still exists after patch. Refusing to continue.")
 
@@ -81,9 +90,11 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add src/pages/Dashboard.jsx .github/workflows/patch-online-status-notice-hook.yml
+
           if git diff --cached --quiet; then
             echo "No changes to commit."
             exit 0
           fi
+
           git commit -m "Wire dashboard online status notice hook"
           git push
