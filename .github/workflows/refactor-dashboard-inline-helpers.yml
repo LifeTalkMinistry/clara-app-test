@@ -16,6 +16,7 @@ on:
       - ".github/scripts/extract-dashboard-messages-panel.mjs"
       - ".github/scripts/cleanup-unused-dashboard-dispatch-event.mjs"
       - ".github/scripts/wire-dashboard-shell-atoms.mjs"
+      - ".github/scripts/extract-dashboard-finance-modal-renderer.mjs"
   workflow_dispatch:
 
 permissions:
@@ -33,21 +34,24 @@ jobs:
       - name: Wire Dashboard shell atoms
         run: node .github/scripts/wire-dashboard-shell-atoms.mjs
 
+      - name: Extract Dashboard finance modal renderer
+        run: node .github/scripts/extract-dashboard-finance-modal-renderer.mjs
+
       - name: Install dependencies
         run: npm ci
 
       - name: Build check
         run: npm run build
 
-      - name: Commit dashboard shell wiring
+      - name: Commit dashboard refactor
         run: |
           if git diff --quiet; then
-            echo "No dashboard shell atom wiring changes needed."
+            echo "No dashboard refactor changes needed."
             exit 0
           fi
 
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add src/pages/Dashboard.jsx
-          git commit -m "Wire dashboard shell atoms into Dashboard"
+          git add src/pages/Dashboard.jsx src/components/fresh/main-dashboard/shell/DashboardFinanceModalRenderer.jsx
+          git commit -m "Extract dashboard finance modal renderer"
           git push
