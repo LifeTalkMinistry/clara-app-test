@@ -124,15 +124,38 @@ const longPressRefsBlock = longPressMatch[0].slice(1);
 source = source.replace(longPressRefsPattern, "\n");
 
 const handlerStart = source.indexOf("  const isManualExpenseOrbEvent = useCallback");
-const lastHandlerStart = source.indexOf("  const moneyLeftSummaryHandlers = useMemo", handlerStart);
+const summaryHandlersStart = source.indexOf("  const moneyLeftSummaryHandlers = useMemo", handlerStart);
 
-if (handlerStart === -1 || lastHandlerStart === -1) {
+if (handlerStart === -1 || summaryHandlersStart === -1) {
   throw new Error("Money Left handler boundaries not found.");
 }
 
-const handlerEnd = findStatementEnd(source, lastHandlerStart);
+let handlerEnd = findStatementEnd(source, summaryHandlersStart);
 if (handlerEnd === -1) {
   throw new Error("Money Left summary handlers statement end not found.");
+}
+
+const optionalTrailingHandlers = [
+  "stopMoneyLeftOrbEvent",
+  "startMoneyLeftOrbLongPress",
+  "endMoneyLeftOrbLongPress",
+  "handleMoneyLeftOrbClick",
+];
+
+for (const handlerName of optionalTrailingHandlers) {
+  const trailingStart = source.indexOf(
+    `  const ${handlerName} = useCallback`,
+    handlerStart
+  );
+
+  if (trailingStart === -1) continue;
+
+  const trailingEnd = findStatementEnd(source, trailingStart);
+  if (trailingEnd === -1) {
+    throw new Error(`Money Left trailing handler statement end not found: ${handlerName}`);
+  }
+
+  handlerEnd = Math.max(handlerEnd, trailingEnd);
 }
 
 const handlerBlock = source.slice(handlerStart, handlerEnd);
@@ -269,6 +292,10 @@ const forbiddenDashboardTokens = [
   "const handleMoneyLeftPointerDown = useCallback",
   "const moneyLeftTapRef = useRef",
   "const longPressTimerRef = useRef",
+  "const stopMoneyLeftOrbEvent = useCallback",
+  "const startMoneyLeftOrbLongPress = useCallback",
+  "const endMoneyLeftOrbLongPress = useCallback",
+  "const handleMoneyLeftOrbClick = useCallback",
 ];
 
 for (const token of forbiddenDashboardTokens) {
