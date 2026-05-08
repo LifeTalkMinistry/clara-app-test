@@ -1,0 +1,119 @@
+name: Patch finance form initial state
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  patch-finance-form-initial-state:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Wire createInitialFinanceForm into Dashboard.jsx
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          target = Path("src/pages/Dashboard.jsx")
+          text = target.read_text()
+
+          import_line = 'import createInitialFinanceForm from "@/components/fresh/main-dashboard/finance-form/financeFormInitialState";\n'
+          import_anchor = '''import {
+            financeInputClassName,
+            UNDOCUMENTED_SPENDING_REASONS,
+          } from "@/components/fresh/main-dashboard/finance-form/financeFormConstants";
+          '''.replace("          ", "")
+          fallback_anchor = 'import useBudgetListDropdownDismiss from "@/components/fresh/main-dashboard/finance-form/useBudgetListDropdownDismiss";\n'
+
+          if import_line not in text:
+              if import_anchor in text:
+                  text = text.replace(import_anchor, import_anchor + import_line, 1)
+              elif fallback_anchor in text:
+                  text = text.replace(fallback_anchor, import_line + fallback_anchor, 1)
+              else:
+                  raise SystemExit("Finance form import anchor not found. Refusing to patch Dashboard.jsx.")
+
+          replacement = '  const [financeForm, setFinanceForm] = useState(createInitialFinanceForm);\n'
+
+          if replacement not in text:
+              start_token = '  const [financeForm, setFinanceForm] = useState({\n'
+              start = text.find(start_token)
+              if start == -1:
+                  raise SystemExit("Inline financeForm state block not found. Refusing to patch Dashboard.jsx.")
+
+              open_index = text.find('{', start)
+              if open_index == -1:
+                  raise SystemExit("financeForm opening brace not found. Refusing to patch Dashboard.jsx.")
+
+              depth = 0
+              i = open_index
+              end_object_index = -1
+              while i < len(text):
+                  char = text[i]
+                  if char == '{':
+                      depth += 1
+                  elif char == '}':
+                      depth -= 1
+                      if depth == 0:
+                          end_object_index = i
+                          break
+                  i += 1
+
+              if end_object_index == -1:
+                  raise SystemExit("financeForm closing brace not found. Refusing to patch Dashboard.jsx.")
+
+              end_token = ');'
+              end = text.find(end_token, end_object_index)
+              if end == -1:
+                  raise SystemExit("financeForm useState closing token not found. Refusing to patch Dashboard.jsx.")
+              end += len(end_token)
+
+              old_block = text[start:end]
+              required_tokens = [
+                  'name: ""',
+                  'type: "cash"',
+                  'startingBalance: "0"',
+                  'needsPct: "50"',
+                  'wantsPct: "30"',
+                  'emotionalValue: "joy"',
+                  'flexibility: "flexible"',
+                  'notes: ""',
+              ]
+              if not all(token in old_block for token in required_tokens):
+                  raise SystemExit("financeForm block content mismatch. Refusing to patch Dashboard.jsx.")
+
+              text = text[:start] + replacement.rstrip('\n') + text[end:]
+
+          if 'useState(createInitialFinanceForm)' not in text:
+              raise SystemExit("createInitialFinanceForm was not wired. Refusing to continue.")
+          if 'const [financeForm, setFinanceForm] = useState({\n' in text:
+              raise SystemExit("Old inline financeForm object still exists after patch. Refusing to continue.")
+
+          target.write_text(text)
+          PY
+
+      - name: Remove temporary workflow
+        run: rm -f .github/workflows/patch-finance-form-initial-state.yml
+
+      - name: Commit and push patch
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add src/pages/Dashboard.jsx .github/workflows/patch-finance-form-initial-state.yml
+
+          if git diff --cached --quiet; then
+            echo "No changes to commit."
+            exit 0
+          fi
+
+          git commit -m "Wire finance form initial state factory"
+          git push
