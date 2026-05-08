@@ -38,8 +38,9 @@ jobs:
               else:
                   raise SystemExit("Finance state sync import anchor not found. Refusing to patch Dashboard.jsx.")
 
+          block_start = '  useEffect(() => {\n    const safeWallets = Array.isArray(financeWallets) ? financeWallets : [];\n'
+
           if 'useDashboardFinanceStateSync({' not in text:
-              block_start = '  useEffect(() => {\n    const safeWallets = Array.isArray(financeWallets) ? financeWallets : [];\n'
               if block_start not in text:
                   raise SystemExit("Finance state sync useEffect start not found. Refusing to patch Dashboard.jsx.")
 
@@ -114,8 +115,8 @@ jobs:
               raise SystemExit("useDashboardFinanceStateSync was not wired. Refusing to continue.")
           if 'const updateDashboardFinanceCache = useCallback' not in text:
               raise SystemExit("updateDashboardFinanceCache was not added. Refusing to continue.")
-          if 'const safeWallets = Array.isArray(financeWallets) ? financeWallets : [];' in text:
-              raise SystemExit("Old finance state sync block still exists after patch. Refusing to continue.")
+          if block_start in text:
+              raise SystemExit("Old finance state sync effect start still exists after patch. Refusing to continue.")
 
           target.write_text(text)
           PY
