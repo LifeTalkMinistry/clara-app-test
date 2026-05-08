@@ -89,12 +89,10 @@ for (const [localName, moduleName] of defaultImportModules) {
 
 const requiredTokens = [
   "export default function Dashboard",
-  "DashboardMessagesPanel",
-  "DashboardTasksPanel",
-  "DashboardSettingsPanel",
-  "FinanceActionModal",
-  "ManualExpenseFullScreenSheet",
-  "ClaraAssistantPanel",
+  "DashboardPanelRenderer",
+  "DashboardModalLayer",
+  "FinancialCarousel",
+  "DashboardMoneySummary",
 ];
 
 for (const token of requiredTokens) {
