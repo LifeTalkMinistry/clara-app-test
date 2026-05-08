@@ -15,15 +15,20 @@ export default function FinanceActionModal({
   if (!open) return null;
 
   return (
-    <div className="fixed inset-0 z-[120] flex items-end justify-center bg-black/45 px-2 pb-0 pt-[max(1rem,env(safe-area-inset-top))] backdrop-blur-sm sm:items-center sm:p-4">
-      <div className="flex w-full max-w-lg max-h-[min(82dvh,720px)] overflow-hidden rounded-t-[30px] border border-white/15 bg-[linear-gradient(135deg,rgba(5,44,62,0.98),rgba(7,20,48,0.97)_48%,rgba(38,16,77,0.97))] shadow-[0_-18px_70px_rgba(0,0,0,0.55),0_0_38px_rgba(0,255,220,0.10)] sm:rounded-[30px] sm:max-h-[min(86dvh,720px)]">
+    <div className="fixed inset-0 z-[120] flex items-end justify-center bg-black/28 px-3 pb-3 pt-[max(4.5rem,env(safe-area-inset-top))] backdrop-blur-[2px] sm:items-center sm:p-4">
+      <div className="flex w-full max-w-[380px] max-h-[72dvh] overflow-hidden rounded-[30px] border border-cyan-100/15 bg-[linear-gradient(135deg,rgba(5,44,62,0.97),rgba(7,20,48,0.98)_48%,rgba(38,16,77,0.98))] shadow-[0_20px_55px_rgba(0,0,0,0.45),0_0_28px_rgba(0,255,220,0.08)]">
         <form onSubmit={onSubmit} className="flex min-h-0 w-full flex-col">
-          <div className="shrink-0 border-b border-white/15 bg-white/[0.035] px-5 py-4">
+          <div className="shrink-0 border-b border-white/10 bg-white/[0.03] px-5 py-4">
             <div className="flex items-start justify-between gap-4">
               <div className="min-w-0">
-                <h3 className="text-lg font-black tracking-tight text-white">{title}</h3>
+                <h3 className="text-[26px] font-black tracking-[-0.03em] text-white">
+                  {title}
+                </h3>
+
                 {description ? (
-                  <p className="mt-1 text-sm leading-6 text-white/65">{description}</p>
+                  <p className="mt-1 text-sm leading-6 text-white/60">
+                    {description}
+                  </p>
                 ) : null}
               </div>
 
@@ -38,10 +43,12 @@ export default function FinanceActionModal({
             </div>
           </div>
 
-          <div className="min-h-0 flex-1 space-y-4 overflow-y-auto overscroll-contain px-5 py-5 pb-4 [scrollbar-width:thin]">{children}</div>
+          <div className="min-h-0 flex-1 space-y-4 overflow-y-auto overscroll-contain px-5 py-5 pb-4 [scrollbar-width:thin]">
+            {children}
+          </div>
 
-          <div className="shrink-0 border-t border-white/15 bg-[#071120]/92 px-5 pb-[calc(1rem+env(safe-area-inset-bottom))] pt-4 backdrop-blur-xl">
-            <div className="flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
+          <div className="shrink-0 border-t border-white/10 bg-[#071120]/90 px-5 pb-[calc(1rem+env(safe-area-inset-bottom))] pt-4 backdrop-blur-xl">
+            <div className="flex flex-col-reverse gap-3">
               <button
                 type="button"
                 onClick={onClose}
