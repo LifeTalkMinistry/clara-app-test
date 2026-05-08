@@ -59,24 +59,24 @@ jobs:
               if not all(token in old_block for token in required_tokens):
                   raise SystemExit("Inline theme block does not match expected content. Refusing to patch Dashboard.jsx.")
 
-              new_block = '''  const dailyRemindersEnabled = notificationSettings?.dailyReminders !== false;
-  const {
-    themeIsLight,
-    themePrimaryTextClass,
-    themeSecondaryTextClass,
-    themeMutedTextClass,
-    themeSoftTextClass,
-    themeGlassButtonClass,
-    themeGlassIconButtonClass,
-    themeQuickActionBaseClass,
-    themeQuickActionIconShellClass,
-    themeDividerClass,
-    themeInactiveDotClass,
-    themeQuickActionPanelStyle,
-    themeQuickActionGlowStyle,
-  } = useDashboardThemeClasses(selectedDashboardTheme);
-
-'''
+              new_block = (
+                  "  const dailyRemindersEnabled = notificationSettings?.dailyReminders !== false;\n"
+                  "  const {\n"
+                  "    themeIsLight,\n"
+                  "    themePrimaryTextClass,\n"
+                  "    themeSecondaryTextClass,\n"
+                  "    themeMutedTextClass,\n"
+                  "    themeSoftTextClass,\n"
+                  "    themeGlassButtonClass,\n"
+                  "    themeGlassIconButtonClass,\n"
+                  "    themeQuickActionBaseClass,\n"
+                  "    themeQuickActionIconShellClass,\n"
+                  "    themeDividerClass,\n"
+                  "    themeInactiveDotClass,\n"
+                  "    themeQuickActionPanelStyle,\n"
+                  "    themeQuickActionGlowStyle,\n"
+                  "  } = useDashboardThemeClasses(selectedDashboardTheme);\n\n"
+              )
               text = text[:start_index] + new_block + text[end_index:]
 
           target.write_text(text)
