@@ -1,4 +1,5 @@
 import SavingsCard from "@/components/SavingsCard";
+import { stopCapturedDetailsToggle } from "../../../shared/financeCardInteraction";
 
 export default function SavingsGoalsCardView({
   data = {},
@@ -28,15 +29,7 @@ export default function SavingsGoalsCardView({
     <div
       className="clara-finance-bubble-card-shell clara-finance-bubble-savings-shell h-full min-h-[inherit] flex flex-col"
       onClickCapture={(event) => {
-        const button = event.target?.closest?.("button");
-        const label = String(button?.textContent || "").toLowerCase();
-
-        if (
-          label.includes("show details") ||
-          label.includes("hide details")
-        ) {
-          event.preventDefault();
-          event.stopPropagation();
+        if (stopCapturedDetailsToggle(event)) {
           handleSavingsToggle();
         }
       }}
