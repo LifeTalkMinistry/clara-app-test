@@ -42,6 +42,10 @@ import DashboardFinanceExpandedSheet from "@/components/fresh/main-dashboard/fin
 import LearningHub from "@/components/fresh/main-dashboard/learning-hub/LearningHub";
 import DashboardMoneySummary from "@/components/fresh/main-dashboard/money-summary/DashboardMoneySummary";
 import DashboardTopNav from "@/components/fresh/main-dashboard/top-nav/DashboardTopNav";
+import DashboardShell from "@/components/fresh/main-dashboard/shell/DashboardShell";
+import DashboardContentArea from "@/components/fresh/main-dashboard/shell/DashboardContentArea";
+import DashboardPanelRenderer from "@/components/fresh/main-dashboard/shell/DashboardPanelRenderer";
+import DashboardModalLayer from "@/components/fresh/main-dashboard/shell/DashboardModalLayer";
 import {
   DASHBOARD_SCALE,
   useDashboardViewportMode,
@@ -6518,8 +6522,10 @@ export default function Dashboard() {
   }
 
   return (
-    <div
+    <DashboardShell
+      as="div"
       ref={dashboardScrollRef}
+      baseClassName=""
       className={`theme-page-shell relative isolate z-0 w-full max-w-[430px] mx-auto ${dashboardScale.page} overflow-x-hidden ${dashboardSmartScrollClass}`}
       style={{ WebkitOverflowScrolling: "touch" }}
     >
@@ -6898,7 +6904,7 @@ export default function Dashboard() {
         themeIsLight={themeIsLight}
       />
 
-      <div
+      <DashboardContentArea
         ref={dashboardContentRef}
         className={`mx-auto w-full max-w-[430px] ${
           activeDashboardPanel === "messages"
@@ -6910,8 +6916,10 @@ export default function Dashboard() {
           key={activeDashboardPanel}
           className={`${dashboardPanelAnimationClass} ${dashboardPanelViewportClass}`}
         >
-          {activeDashboardPanel === "home" ? (
-            <>
+          <DashboardPanelRenderer
+            activePanel={activeDashboardPanel}
+            renderHome={() => (
+              <>
         {isPending && (
           <div className="flex items-center gap-3 rounded-2xl border border-white/15 bg-secondary/20 p-3">
             <Clock className="h-5 w-5 shrink-0" />
@@ -7060,30 +7068,30 @@ export default function Dashboard() {
 
         
 
-            </>
-          ) : activeDashboardPanel === "feed" ? (
-            <DashboardFeedPanel onBack={closeDashboardPanel} />
-          ) : activeDashboardPanel === "messages" ? (
-            <DashboardMessagesPanel onBack={closeDashboardPanel} />
-          ) : activeDashboardPanel === "settings" ? (
-            <DashboardSettingsPanel
-              onBack={closeDashboardPanel}
-              user={user}
-              plan={plan}
-              isPaid={isPaid}
-              isFree={isFree}
-              isAdmin={isAdmin}
-              notificationSettings={notificationSettings}
-              openThemePicker={openThemePicker}
-              resetThemeToDefault={resetDashboardThemeToDefault}
-              onOpenMessages={() => openDashboardPanel("messages")}
-            />
-          ) : null}
+              </>
+            )}
+            renderFeed={() => <DashboardFeedPanel onBack={closeDashboardPanel} />}
+            renderMessages={() => <DashboardMessagesPanel onBack={closeDashboardPanel} />}
+            renderSettings={() => (
+              <DashboardSettingsPanel
+                onBack={closeDashboardPanel}
+                user={user}
+                plan={plan}
+                isPaid={isPaid}
+                isFree={isFree}
+                isAdmin={isAdmin}
+                notificationSettings={notificationSettings}
+                openThemePicker={openThemePicker}
+                resetThemeToDefault={resetDashboardThemeToDefault}
+                onOpenMessages={() => openDashboardPanel("messages")}
+              />
+            )}
+          />
         </div>
-      </div>
+      </DashboardContentArea>
 
-
-      <DashboardFinanceExpandedSheet
+      <DashboardModalLayer>
+        <DashboardFinanceExpandedSheet
         activeDashboardPanel={activeDashboardPanel}
         expandedFinanceCard={expandedFinanceCard}
         setExpandedFinanceCard={setExpandedFinanceCard}
@@ -8410,6 +8418,7 @@ export default function Dashboard() {
         />
       ) : null}
 
-    </div>
+      </DashboardModalLayer>
+    </DashboardShell>
   );
 }
