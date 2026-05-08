@@ -15,8 +15,8 @@ export default function FinanceActionModal({
   if (!open) return null;
 
   return (
-    <div className="fixed inset-0 z-[120] flex items-end justify-center bg-black/28 px-3 pb-3 pt-[max(4.5rem,env(safe-area-inset-top))] backdrop-blur-[2px] sm:items-center sm:p-4">
-      <div className="flex w-full max-w-[380px] max-h-[72dvh] overflow-hidden rounded-[30px] border border-cyan-100/15 bg-[linear-gradient(135deg,rgba(5,44,62,0.97),rgba(7,20,48,0.98)_48%,rgba(38,16,77,0.98))] shadow-[0_20px_55px_rgba(0,0,0,0.45),0_0_28px_rgba(0,255,220,0.08)]">
+    <div className="fixed inset-0 z-[120] flex items-end justify-center bg-black/24 px-3 pb-14 pt-[max(4.5rem,env(safe-area-inset-top))] backdrop-blur-[2px] sm:items-center sm:p-4">
+      <div className="flex w-full max-w-[380px] max-h-[70dvh] overflow-hidden rounded-[30px] border border-cyan-100/15 bg-[linear-gradient(135deg,rgba(5,44,62,0.97),rgba(7,20,48,0.98)_48%,rgba(38,16,77,0.98))] shadow-[0_20px_55px_rgba(0,0,0,0.45),0_0_28px_rgba(0,255,220,0.08)]">
         <form onSubmit={onSubmit} className="flex min-h-0 w-full flex-col">
           <div className="shrink-0 border-b border-white/10 bg-white/[0.03] px-5 py-4">
             <div className="flex items-start justify-between gap-4">
