@@ -20,8 +20,11 @@ if (!source.includes(importLine.trim())) {
 const startNeedle = "function DashboardSettingsPanel({";
 const endNeedles = [
   "\n\nexport default function Dashboard",
+  "\n\nexport default function DashboardPage",
   "\n\nfunction Dashboard(",
+  "\n\nfunction DashboardPage(",
   "\n\nconst Dashboard =",
+  "\n\nconst DashboardPage =",
 ];
 
 if (!fs.existsSync(targetPath)) {
@@ -79,14 +82,24 @@ import {
   CheckCircle2,
   ChevronRight,
   Clock,
+  Edit,
   ExternalLink,
   FileText,
+  Flag,
   Home,
+  ListChecks,
   MessageCircle,
   Palette,
+  Plus,
   Rocket,
+  RotateCcw,
+  Search,
   Send,
+  Settings,
   ShieldCheck,
+  Target,
+  Trash2,
+  Wallet,
   WalletCards,
   X,
 } from "lucide-react";
@@ -107,6 +120,7 @@ import { dispatchClaraEvent } from "@/components/fresh/main-dashboard/dashboard-
 import {
   formatCompactDate,
   normalizeLower,
+  normalizeString,
 } from "@/utils/dashboard/dashboardHelpers";
 
 const dashboardRuntimePrefs = { clear: () => {} };
