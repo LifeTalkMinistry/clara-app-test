@@ -11,6 +11,7 @@ on:
       - ".github/scripts/extract-dashboard-event-helper-safe.mjs"
       - ".github/scripts/extract-dashboard-settings-panel-safe.mjs"
       - ".github/scripts/extract-dashboard-money-left-handlers-safe.mjs"
+      - ".github/scripts/fix-dashboard-runtime-safe.mjs"
       - ".github/scripts/cleanup-dashboard-unused-imports-safe.mjs"
       - "src/components/fresh/main-dashboard/dashboard-events/dashboardEvents.js"
   workflow_dispatch:
@@ -42,6 +43,9 @@ jobs:
       - name: Extract Dashboard Money Left handlers
         run: node .github/scripts/extract-dashboard-money-left-handlers-safe.mjs
 
+      - name: Fix Dashboard runtime references
+        run: node .github/scripts/fix-dashboard-runtime-safe.mjs
+
       - name: Skip Dashboard unused import cleanup
         run: echo "Dashboard unused import cleanup is temporarily disabled to avoid moving imports into the wrong module."
 
@@ -61,5 +65,5 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add src/pages/Dashboard.jsx src/components/fresh/main-dashboard/dashboard-panels/messages/DashboardMessagesPanel.jsx src/components/fresh/main-dashboard/dashboard-panels/tasks/DashboardTasksPanel.jsx src/components/fresh/main-dashboard/dashboard-events/dashboardEvents.js src/components/fresh/main-dashboard/dashboard-panels/settings/DashboardSettingsPanel.jsx src/components/fresh/main-dashboard/money-summary/useMoneyLeftSummaryHandlers.js
-          git commit -m "Extract dashboard Money Left handlers"
+          git commit -m "Fix dashboard runtime after extraction"
           git push
