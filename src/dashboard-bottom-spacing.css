@@ -17,6 +17,15 @@
     padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 28px) !important;
   }
 
+  .theme-page-shell main nav:has(a[href*="/dashboard"]):has(a[href*="/feed"]),
+  .theme-page-shell main nav:has(a[href*="/messages"]):has(a[href*="/settings"]),
+  .theme-page-shell main header nav:has(a[href*="/dashboard"]),
+  .theme-page-shell main header nav:has(a[href*="/settings"]) {
+    position: relative !important;
+    z-index: 80 !important;
+    isolation: isolate;
+  }
+
   .theme-page-shell main [aria-label="Financial summary"] {
     margin-top: auto !important;
     margin-bottom: 0 !important;
