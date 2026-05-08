@@ -98,6 +98,7 @@ import createInitialFinanceForm from "@/components/fresh/main-dashboard/finance-
 import useBudgetListDropdownDismiss from "@/components/fresh/main-dashboard/finance-form/useBudgetListDropdownDismiss";
 import { hasDashboardFinanceContent } from "@/components/fresh/main-dashboard/finance-content/dashboardFinanceContent";
 import useDashboardVisibleFinanceData from "@/components/fresh/main-dashboard/finance-content/useDashboardVisibleFinanceData";
+import useDashboardFinanceStateSync from "@/components/fresh/main-dashboard/finance-content/useDashboardFinanceStateSync";
 import {
   dashboardTheme,
   DEFAULT_DASHBOARD_THEME_KEY,
@@ -319,58 +320,35 @@ export default function Dashboard() {
     setBudgetListOpen,
   });
 
-  useEffect(() => {
-    const safeWallets = Array.isArray(financeWallets) ? financeWallets : [];
-    const safeWalletTransactions = Array.isArray(financeWalletTransactions) ? financeWalletTransactions : [];
-    const safeTransfers = Array.isArray(financeTransfers) ? financeTransfers : [];
-    const safeBudgets = Array.isArray(financeBudgets) ? financeBudgets : [];
-    const safeSavingsGoals = Array.isArray(financeSavingsGoals) ? financeSavingsGoals : [];
-    const safeExpenses = Array.isArray(financeExpenses) ? financeExpenses : [];
-    const safePendingExpenses = safeExpenses.filter(
-      (item) => item?.pending_sync || item?.sync_status === "pending" || item?.local_only
-    );
-    const nextWalletMoney = safeWallets.reduce(
-      (sum, wallet) => sum + getWalletDisplayBalance(wallet),
-      0
-    );
-
-    setWallets(safeWallets);
-    setWalletTransactions(safeWalletTransactions);
-    setTransfers(safeTransfers);
-    setBudgets(safeBudgets);
-    setSavingsGoals(safeSavingsGoals);
-    setEmergencyFund(financeEmergencyFund || null);
-    setExpenses(safeExpenses);
-    setPendingExpenses(safePendingExpenses);
-    setOfflineReady(true);
-    setWalletMoney(nextWalletMoney);
-    setLoading(false);
-
+  const updateDashboardFinanceCache = useCallback((nextFinanceCache) => {
     dashboardPageCache = {
       ...dashboardPageCache,
-      key: cacheKey,
-      loaded: true,
-      walletMoney: nextWalletMoney,
-      wallets: safeWallets,
-      walletTransactions: safeWalletTransactions,
-      transfers: safeTransfers,
-      budgets: safeBudgets,
-      savingsGoals: safeSavingsGoals,
-      emergencyFund: financeEmergencyFund || null,
-      expenses: safeExpenses,
-      pendingExpenses: safePendingExpenses,
-      offlineReady: true,
+      ...nextFinanceCache,
     };
-  }, [
+  }, []);
+
+  useDashboardFinanceStateSync({
     cacheKey,
-    financeBudgets,
-    financeEmergencyFund,
-    financeExpenses,
-    financeSavingsGoals,
-    financeTransfers,
-    financeWalletTransactions,
     financeWallets,
-  ]);
+    financeWalletTransactions,
+    financeTransfers,
+    financeBudgets,
+    financeSavingsGoals,
+    financeExpenses,
+    financeEmergencyFund,
+    setWallets,
+    setWalletTransactions,
+    setTransfers,
+    setBudgets,
+    setSavingsGoals,
+    setEmergencyFund,
+    setExpenses,
+    setPendingExpenses,
+    setOfflineReady,
+    setWalletMoney,
+    setLoading,
+    onCacheUpdate: updateDashboardFinanceCache,
+  });
 
   const hasVisibleFinanceData = useDashboardVisibleFinanceData({
     wallets,
