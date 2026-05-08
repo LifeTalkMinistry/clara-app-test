@@ -1,0 +1,91 @@
+name: Patch dashboard panel navigation hook
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  patch-dashboard-panel-navigation-hook:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Wire useDashboardPanelNavigation into Dashboard.jsx
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          target = Path("src/pages/Dashboard.jsx")
+          text = target.read_text()
+
+          import_line = 'import useDashboardPanelNavigation from "@/components/fresh/main-dashboard/shell/useDashboardPanelNavigation";\n'
+          import_anchor = 'import useDashboardShellReady from "@/components/fresh/main-dashboard/shell/useDashboardShellReady";\n'
+          fallback_anchor = 'import DashboardShell from "@/components/fresh/main-dashboard/shell/DashboardShell";\n'
+
+          if import_line not in text:
+              if import_anchor in text:
+                  text = text.replace(import_anchor, import_anchor + import_line, 1)
+              elif fallback_anchor in text:
+                  text = text.replace(fallback_anchor, fallback_anchor + import_line, 1)
+              else:
+                  raise SystemExit("Dashboard panel navigation import anchor not found. Refusing to patch Dashboard.jsx.")
+
+          active_state_line = '  const [activeDashboardPanel, setActiveDashboardPanel] = useState("home");\n'
+          shell_ready_line = '  const dashboardShellReady = useDashboardShellReady();\n'
+          direction_state_line = '  const [dashboardPanelDirection, setDashboardPanelDirection] = useState("forward");\n'
+
+          navigation_block = (
+              '  const {\n'
+              '    activeDashboardPanel,\n'
+              '    setActiveDashboardPanel,\n'
+              '    dashboardPanelDirection,\n'
+              '    setDashboardPanelDirection,\n'
+              '  } = useDashboardPanelNavigation();\n'
+          )
+
+          if navigation_block not in text:
+              if active_state_line not in text:
+                  raise SystemExit("activeDashboardPanel state line not found. Refusing to patch Dashboard.jsx.")
+              text = text.replace(active_state_line, navigation_block, 1)
+
+          if direction_state_line in text:
+              text = text.replace(direction_state_line, '', 1)
+          elif 'const [dashboardPanelDirection, setDashboardPanelDirection] = useState("forward");' in text:
+              raise SystemExit("dashboardPanelDirection state still exists but exact line was not removed. Refusing to patch Dashboard.jsx.")
+
+          if shell_ready_line not in text:
+              raise SystemExit("dashboardShellReady line missing after patch. Refusing to continue.")
+          if 'useDashboardPanelNavigation();' not in text:
+              raise SystemExit("useDashboardPanelNavigation was not wired. Refusing to continue.")
+          if active_state_line in text:
+              raise SystemExit("Old activeDashboardPanel state still exists after patch. Refusing to continue.")
+          if direction_state_line in text:
+              raise SystemExit("Old dashboardPanelDirection state still exists after patch. Refusing to continue.")
+
+          target.write_text(text)
+          PY
+
+      - name: Remove temporary workflow
+        run: rm -f .github/workflows/patch-dashboard-panel-navigation-hook.yml
+
+      - name: Commit and push patch
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add src/pages/Dashboard.jsx .github/workflows/patch-dashboard-panel-navigation-hook.yml
+
+          if git diff --cached --quiet; then
+            echo "No changes to commit."
+            exit 0
+          fi
+
+          git commit -m "Wire dashboard panel navigation hook"
+          git push
