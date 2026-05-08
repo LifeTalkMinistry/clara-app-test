@@ -78,6 +78,7 @@ import {
 } from "@/components/fresh/main-dashboard/program-prompts/programPromptSession";
 import FinanceInlineAlert from "@/components/fresh/main-dashboard/finance-notices/FinanceInlineAlert";
 import useFinanceDataErrorNotice from "@/components/fresh/main-dashboard/finance-notices/useFinanceDataErrorNotice";
+import useDashboardOnlineStatusNotice from "@/components/fresh/main-dashboard/finance-notices/useDashboardOnlineStatusNotice";
 import OnboardingActionBar from "@/components/fresh/main-dashboard/onboarding/OnboardingActionBar";
 import useOnboardingPageLock from "@/components/fresh/main-dashboard/onboarding/useOnboardingPageLock";
 import {
@@ -725,32 +726,12 @@ export default function Dashboard() {
     loadDashboardData();
   }, [loadDashboardData]);
 
-  useEffect(() => {
-    if (typeof window === "undefined") return undefined;
+  useDashboardOnlineStatusNotice({
+    setFinanceNotice,
+    loadDashboardData,
+  });
 
-    const handleOffline = () => {
-      setFinanceNotice({
-        message: "You’re offline. CLARA is using saved data.",
-        type: "success",
-      });
-    };
 
-    const handleOnline = () => {
-      setFinanceNotice({
-        message: "You’re back online. CLARA is syncing saved data.",
-        type: "success",
-      });
-      loadDashboardData({ background: true });
-    };
-
-    window.addEventListener("offline", handleOffline);
-    window.addEventListener("online", handleOnline);
-
-    return () => {
-      window.removeEventListener("offline", handleOffline);
-      window.removeEventListener("online", handleOnline);
-    };
-  }, [loadDashboardData]);
 
   useEffect(() => {
     const handleProfileUpdated = (event) => {
