@@ -48,6 +48,7 @@ import DashboardShell from "@/components/fresh/main-dashboard/shell/DashboardShe
 import DashboardContentArea from "@/components/fresh/main-dashboard/shell/DashboardContentArea";
 import DashboardPanelRenderer from "@/components/fresh/main-dashboard/shell/DashboardPanelRenderer";
 import DashboardModalLayer from "@/components/fresh/main-dashboard/shell/DashboardModalLayer";
+import { dispatchClaraEvent } from "@/components/fresh/main-dashboard/dashboard-events/dashboardEvents";
 import {
   DASHBOARD_SCALE,
   useDashboardViewportMode,
@@ -177,15 +178,6 @@ import {
   getWalletSortOrder,
   getToday,
 } from "@/utils/dashboard/dashboardHelpers";
-
-const dispatchClaraEvent = (name, detail = null) => {
-  if (typeof window === "undefined") return;
-  if (detail && typeof detail === "object") {
-    window.dispatchEvent(new CustomEvent(name, { detail }));
-    return;
-  }
-  window.dispatchEvent(new Event(name));
-};
 
 let dashboardPageCache = createEmptyDashboardCache();
 let dashboardPageInFlight = null;
