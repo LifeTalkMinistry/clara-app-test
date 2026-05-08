@@ -687,9 +687,6 @@ export default function Dashboard() {
     setShowAiAssistant,
   });
 
-  useEffect(() => {
-    return () => clearLongPressTimer();
-  }, [clearLongPressTimer]);
 
   useEffect(() => {
     const handleOpenAssistant = (event) => {
