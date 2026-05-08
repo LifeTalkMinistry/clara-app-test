@@ -1,4 +1,8 @@
 import ObligationDebt from "@/components/ObligationDebt";
+import { toggleExpandedFinanceCard } from "../../../shared/financeCardExpansion";
+import { stopCapturedDetailsToggle } from "../../../shared/financeCardInteraction";
+
+const DETAIL_KEY = "debtObligations";
 
 export default function DebtCardView({
   item,
@@ -6,18 +10,13 @@ export default function DebtCardView({
   expandedFinanceCard,
   toggleFinanceDetails,
 }) {
-  const cardKey = "debtObligations";
-  const isExpanded = expandedFinanceCard === cardKey;
+  const isExpanded = expandedFinanceCard === DETAIL_KEY;
 
   const handleToggle = () => {
-    if (isExpanded) {
-      toggleFinanceDetails?.(cardKey);
-      return;
-    }
-
-    toggleFinanceDetails?.(cardKey, {
-      autoExpand: true,
-      forceOpen: true,
+    toggleExpandedFinanceCard({
+      detailKey: DETAIL_KEY,
+      isExpanded,
+      toggleFinanceDetails,
     });
   };
 
@@ -25,15 +24,7 @@ export default function DebtCardView({
     <div
       className="clara-finance-bubble-card-shell clara-finance-bubble-debt-shell h-full min-h-[inherit] flex flex-col"
       onClickCapture={(event) => {
-        const button = event.target?.closest?.("button");
-        const label = String(button?.textContent || "").toLowerCase();
-
-        if (
-          label.includes("show details") ||
-          label.includes("hide details")
-        ) {
-          event.preventDefault();
-          event.stopPropagation();
+        if (stopCapturedDetailsToggle(event)) {
           handleToggle();
         }
       }}
