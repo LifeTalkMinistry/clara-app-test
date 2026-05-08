@@ -82,6 +82,7 @@ import useDashboardOnlineStatusNotice from "@/components/fresh/main-dashboard/fi
 import useDashboardFinanceRefreshEvents from "@/components/fresh/main-dashboard/finance-notices/useDashboardFinanceRefreshEvents";
 import useDashboardScheduledRefresh from "@/components/fresh/main-dashboard/finance-notices/useDashboardScheduledRefresh";
 import useLatestValueRef from "@/components/fresh/main-dashboard/hooks/useLatestValueRef";
+import useDashboardEnrollmentRedirect from "@/components/fresh/main-dashboard/program-access/useDashboardEnrollmentRedirect";
 import useDashboardProfileUpdateListener from "@/components/fresh/main-dashboard/profile/useDashboardProfileUpdateListener";
 import OnboardingActionBar from "@/components/fresh/main-dashboard/onboarding/OnboardingActionBar";
 import useOnboardingPageLock from "@/components/fresh/main-dashboard/onboarding/useOnboardingPageLock";
@@ -726,15 +727,13 @@ export default function Dashboard() {
   });
 
 
-  useEffect(() => {
-    if (!guardChecked || !profileData) return;
-
-    const shouldRedirect = shouldForceToEnroll(profileData, latestEnrollment, isPaid);
-
-    if (shouldRedirect) {
-      navigate("/enroll", { replace: true });
-    }
-  }, [guardChecked, profileData, latestEnrollment, isPaid, navigate]);
+  useDashboardEnrollmentRedirect({
+    guardChecked,
+    profileData,
+    latestEnrollment,
+    isPaid,
+    navigate,
+  });
 
   const thisMonthSpent = useMemo(() => {
     const currentMonthKey = getPHMonthKey();
