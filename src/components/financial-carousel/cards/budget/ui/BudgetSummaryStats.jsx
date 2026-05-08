@@ -15,20 +15,20 @@ export default function BudgetSummaryStats({
 }) {
   return (
     <>
-      <div className="mb-3">
-        <p className={`text-[32px] font-bold leading-none ${hasDeclaredBudget ? status.text : "text-white/95"}`}>
+      <div className="mb-[clamp(8px,1.4dvh,12px)]">
+        <p className={`text-[clamp(29px,7.8vw,32px)] font-bold leading-none ${hasDeclaredBudget ? status.text : "text-white/95"}`}>
           {fmt(declared)}
         </p>
 
-        <p className={`mt-1.5 text-sm font-bold leading-tight ${remainingAmountColor}`}>
+        <p className={`mt-[clamp(4px,0.8dvh,6px)] text-sm font-bold leading-tight ${remainingAmountColor}`}>
           {fmt(remaining)} left
         </p>
 
-        <p className="mt-2.5 max-w-[28rem] text-xs font-medium leading-relaxed text-white/82">
+        <p className="mt-[clamp(6px,1.1dvh,10px)] max-w-[28rem] text-xs font-medium leading-snug text-white/82">
           {message}
         </p>
 
-        <p className="mt-1 text-[11px] text-white/56">
+        <p className="mt-[clamp(2px,0.6dvh,4px)] text-[11px] leading-snug text-white/56">
           {hasDeclaredBudget
             ? planIsComplete
               ? "Your monthly budget is fully assigned and ready for planned expense logging."
@@ -37,8 +37,8 @@ export default function BudgetSummaryStats({
         </p>
       </div>
 
-      <div className="mb-3">
-        <div className="mb-1.5 flex items-center justify-between text-[11px] font-medium text-white/75">
+      <div className="mb-[clamp(8px,1.4dvh,12px)]">
+        <div className="mb-[clamp(5px,0.9dvh,6px)] flex items-center justify-between text-[11px] font-medium text-white/75">
           <span>Monthly progress</span>
           <span>{Math.round(progress)}%</span>
         </div>
@@ -52,7 +52,7 @@ export default function BudgetSummaryStats({
           </div>
         </div>
 
-        <div className="mt-2 flex items-center justify-between text-[11px] font-medium text-white/70">
+        <div className="mt-[clamp(6px,1dvh,8px)] flex items-center justify-between text-[11px] font-medium text-white/70">
           <span>{fmt(spent)}</span>
           <span>{fmt(allocated)}</span>
         </div>
