@@ -142,8 +142,6 @@ const requiredHandlerTokens = [
   "openTransactionHubFromMoneyLeft",
   "handleMoneyLeftPointerDown",
   "handleMoneyLeftPointerMove",
-  "startMoneyLeftOrbLongPress",
-  "endMoneyLeftOrbLongPress",
   "moneyLeftSummaryHandlers",
 ];
 
@@ -152,6 +150,35 @@ for (const token of requiredHandlerTokens) {
     throw new Error(`Extracted Money Left handlers missing token: ${token}`);
   }
 }
+
+const longPressFallback =
+  handlerBlock.includes("startMoneyLeftOrbLongPress") &&
+  handlerBlock.includes("endMoneyLeftOrbLongPress")
+    ? ""
+    : `
+  const startMoneyLeftOrbLongPress = useCallback((event) => {
+    event?.stopPropagation?.();
+    longPressTriggeredRef.current = false;
+
+    if (longPressTimerRef.current) {
+      clearTimeout(longPressTimerRef.current);
+    }
+
+    longPressTimerRef.current = setTimeout(() => {
+      longPressTriggeredRef.current = true;
+      setShowAiAssistant?.(true);
+    }, 450);
+  }, [setShowAiAssistant]);
+
+  const endMoneyLeftOrbLongPress = useCallback((event) => {
+    event?.stopPropagation?.();
+
+    if (longPressTimerRef.current) {
+      clearTimeout(longPressTimerRef.current);
+      longPressTimerRef.current = null;
+    }
+  }, []);
+`;
 
 const handleMoneyLeftOrbFallback = handlerBlock.includes("handleMoneyLeftOrbClick")
   ? ""
@@ -206,6 +233,7 @@ export default function useMoneyLeftSummaryHandlers({
 ${moneyRefsBlock}${longPressRefsBlock}
 
 ${handlerBlock}
+${longPressFallback}
 ${handleMoneyLeftOrbFallback}
 ${stopMoneyLeftOrbFallback}
 
@@ -255,12 +283,15 @@ for (const token of requiredHandlerTokens) {
   }
 }
 
-if (!hookSource.includes("handleMoneyLeftOrbClick")) {
-  throw new Error("Hook missing handleMoneyLeftOrbClick export token.");
-}
-
-if (!hookSource.includes("stopMoneyLeftOrbEvent")) {
-  throw new Error("Hook missing stopMoneyLeftOrbEvent export token.");
+for (const token of [
+  "handleMoneyLeftOrbClick",
+  "startMoneyLeftOrbLongPress",
+  "endMoneyLeftOrbLongPress",
+  "stopMoneyLeftOrbEvent",
+]) {
+  if (!hookSource.includes(token)) {
+    throw new Error(`Hook missing Money Left export token: ${token}`);
+  }
 }
 
 fs.mkdirSync(path.dirname(hookPath), { recursive: true });
