@@ -51,6 +51,7 @@ import DashboardTopNav from "@/components/fresh/main-dashboard/top-nav/Dashboard
 import DashboardShell from "@/components/fresh/main-dashboard/shell/DashboardShell";
 import useDashboardShellReady from "@/components/fresh/main-dashboard/shell/useDashboardShellReady";
 import useDashboardPanelNavigation from "@/components/fresh/main-dashboard/shell/useDashboardPanelNavigation";
+import useDashboardScrollState from "@/components/fresh/main-dashboard/shell/useDashboardScrollState";
 import DashboardContentArea from "@/components/fresh/main-dashboard/shell/DashboardContentArea";
 import DashboardPanelRenderer from "@/components/fresh/main-dashboard/shell/DashboardPanelRenderer";
 import DashboardModalLayer from "@/components/fresh/main-dashboard/shell/DashboardModalLayer";
@@ -305,7 +306,13 @@ export default function Dashboard() {
   const [expandedFinanceCard, setExpandedFinanceCard] = useState(null);
   const [expandedFinanceDetailSections, setExpandedFinanceDetailSections] = useState({});
   const [showAiAssistant, setShowAiAssistant] = useState(false);
-  const [isDashboardScrollable, setIsDashboardScrollable] = useState(false);
+  const {
+    dashboardScrollRef,
+    dashboardContentRef,
+    dashboardScrollTimersRef,
+    isDashboardScrollable,
+    setIsDashboardScrollable,
+  } = useDashboardScrollState();
   const [financeActionLoading, setFinanceActionLoading] = useState(false);
   const [financeNotice, setFinanceNotice] = useState(null);
   const [financeModal, setFinanceModal] = useState({ type: null, payload: null });
@@ -388,9 +395,6 @@ export default function Dashboard() {
     userId,
   });
 
-  const dashboardScrollRef = useRef(null);
-  const dashboardContentRef = useRef(null);
-  const dashboardScrollTimersRef = useRef([]);
   const approvalTriggeredRef = useRef(false);
   const hasLoadedDashboardRef = useRef(false);
   const latestEnrollmentRef = useLatestValueRef(latestEnrollment);
