@@ -96,6 +96,7 @@ import {
   UNDOCUMENTED_SPENDING_REASONS,
 } from "@/components/fresh/main-dashboard/finance-form/financeFormConstants";
 import createInitialFinanceForm from "@/components/fresh/main-dashboard/finance-form/financeFormInitialState";
+import useDashboardFinanceUiState from "@/components/fresh/main-dashboard/finance-form/useDashboardFinanceUiState";
 import useBudgetListDropdownDismiss from "@/components/fresh/main-dashboard/finance-form/useBudgetListDropdownDismiss";
 import { hasDashboardFinanceContent } from "@/components/fresh/main-dashboard/finance-content/dashboardFinanceContent";
 import useDashboardVisibleFinanceData from "@/components/fresh/main-dashboard/finance-content/useDashboardVisibleFinanceData";
@@ -313,11 +314,18 @@ export default function Dashboard() {
     isDashboardScrollable,
     setIsDashboardScrollable,
   } = useDashboardScrollState();
-  const [financeActionLoading, setFinanceActionLoading] = useState(false);
-  const [financeNotice, setFinanceNotice] = useState(null);
-  const [financeModal, setFinanceModal] = useState({ type: null, payload: null });
-  const [budgetExitConfirm, setBudgetExitConfirm] = useState(false);
-  const [budgetListOpen, setBudgetListOpen] = useState(false);
+  const {
+    financeActionLoading,
+    setFinanceActionLoading,
+    financeNotice,
+    setFinanceNotice,
+    financeModal,
+    setFinanceModal,
+    budgetExitConfirm,
+    setBudgetExitConfirm,
+    budgetListOpen,
+    setBudgetListOpen,
+  } = useDashboardFinanceUiState();
   const budgetListDropdownRef = useRef(null);
   const [financeForm, setFinanceForm] = useState(createInitialFinanceForm);
 
