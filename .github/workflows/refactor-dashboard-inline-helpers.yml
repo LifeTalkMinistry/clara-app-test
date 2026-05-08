@@ -9,6 +9,7 @@ on:
       - ".github/scripts/extract-dashboard-messages-panel-safe.mjs"
       - ".github/scripts/extract-dashboard-tasks-panel-safe.mjs"
       - ".github/scripts/extract-dashboard-event-helper-safe.mjs"
+      - ".github/scripts/extract-dashboard-settings-panel-safe.mjs"
       - "src/components/fresh/main-dashboard/dashboard-events/dashboardEvents.js"
   workflow_dispatch:
 
@@ -33,21 +34,24 @@ jobs:
       - name: Extract Dashboard event helper
         run: node .github/scripts/extract-dashboard-event-helper-safe.mjs
 
+      - name: Extract Dashboard settings panel
+        run: node .github/scripts/extract-dashboard-settings-panel-safe.mjs
+
       - name: Install dependencies
         run: npm ci
 
       - name: Build check
         run: npm run build
 
-      - name: Commit Dashboard helper extraction
+      - name: Commit Dashboard settings panel extraction
         run: |
           if git diff --quiet; then
-            echo "No Dashboard helper extraction changes needed."
+            echo "No Dashboard settings panel extraction changes needed."
             exit 0
           fi
 
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add src/pages/Dashboard.jsx src/components/fresh/main-dashboard/dashboard-panels/messages/DashboardMessagesPanel.jsx src/components/fresh/main-dashboard/dashboard-panels/tasks/DashboardTasksPanel.jsx src/components/fresh/main-dashboard/dashboard-events/dashboardEvents.js
-          git commit -m "Use extracted dashboard event helper"
+          git add src/pages/Dashboard.jsx src/components/fresh/main-dashboard/dashboard-panels/messages/DashboardMessagesPanel.jsx src/components/fresh/main-dashboard/dashboard-panels/tasks/DashboardTasksPanel.jsx src/components/fresh/main-dashboard/dashboard-events/dashboardEvents.js src/components/fresh/main-dashboard/dashboard-panels/settings/DashboardSettingsPanel.jsx
+          git commit -m "Extract dashboard settings panel"
           git push
