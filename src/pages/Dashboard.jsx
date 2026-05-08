@@ -7723,7 +7723,6 @@ export default function Dashboard() {
         addMoneyInline={addMoneyInline}
         fmt={fmt}
         transferMoneyInline={transferMoneyInline}
-        saveWalletInline={saveWalletInline}
         budgetFormDeclaredAmount={budgetFormDeclaredAmount}
         budgetCanFinish={budgetCanFinish}
         setBudgetExitConfirm={setBudgetExitConfirm}
