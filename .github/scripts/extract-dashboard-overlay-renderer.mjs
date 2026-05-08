@@ -17,30 +17,10 @@ if (!source.includes(rendererImport.trim())) {
   source = source.replace(importAnchor, `${importAnchor}${rendererImport}`);
 }
 
-const overlayStartNeedle = `      {showOnboarding && (`;
+const overlayStartNeedle = `      {themePickerOpen && (`;
 const overlayEndNeedle = `      <DashboardFinanceModalRenderer`;
 
 const rendererProps = [
-  "showOnboarding",
-  "closeOnboarding",
-  "onboardingStep",
-  "setOnboardingStep",
-  "commitmentChecked",
-  "setCommitmentChecked",
-  "nickname",
-  "setNickname",
-  "reminderTime",
-  "setReminderTime",
-  "financialGoal",
-  "setFinancialGoal",
-  "completeOnboarding",
-  "savingOnboarding",
-  "shouldShowProgramPromptThisSession",
-  "programRecord",
-  "profile",
-  "startProgramOnboarding",
-  "persistProgramPromptSeenThisSession",
-  "programPromptSessionKey",
   "themePickerOpen",
   "closeThemePicker",
   "dashboardTheme",
@@ -60,25 +40,38 @@ let extractedJsx = "";
 if (!alreadyWired) {
   const startIndex = source.indexOf(overlayStartNeedle);
   if (startIndex === -1) {
-    throw new Error("Dashboard onboarding overlay start boundary not found.");
+    throw new Error("Dashboard theme picker overlay start boundary not found.");
   }
 
   const endIndex = source.indexOf(overlayEndNeedle, startIndex);
   if (endIndex === -1) {
-    throw new Error("Dashboard finance modal renderer boundary not found after overlays.");
+    throw new Error("Dashboard finance modal renderer boundary not found after theme picker overlay.");
   }
 
   extractedJsx = source.slice(startIndex, endIndex);
 
   const requiredOverlayTokens = [
-    "{showOnboarding && (",
-    "<OnboardingActionBar",
     "{themePickerOpen && (",
+    "closeThemePicker",
+    "selectedDashboardThemeKey",
+    "applyDashboardTheme",
   ];
 
   for (const token of requiredOverlayTokens) {
     if (!extractedJsx.includes(token)) {
-      throw new Error(`Required overlay token missing from extracted block: ${token}`);
+      throw new Error(`Required theme overlay token missing from extracted block: ${token}`);
+    }
+  }
+
+  const forbiddenBroadTokens = [
+    "{showOnboarding && (",
+    "<OnboardingActionBar",
+    "<TaskReminderPrompt",
+  ];
+
+  for (const token of forbiddenBroadTokens) {
+    if (extractedJsx.includes(token)) {
+      throw new Error(`Theme-only overlay extraction captured a broader block than expected: ${token}`);
     }
   }
 
@@ -89,8 +82,6 @@ if (!alreadyWired) {
 
 if (!alreadyWired) {
   const componentSource = `import { Check, X } from "lucide-react";
-import OnboardingActionBar from "@/components/fresh/main-dashboard/onboarding/OnboardingActionBar";
-import { getProgramBubbleContent } from "@/lib/program-journey";
 
 export default function DashboardOverlayRenderer({
 ${rendererProps.map((name) => `  ${name},`).join("\n")}
@@ -117,7 +108,7 @@ const requiredDashboardTokens = [
 
 for (const token of requiredDashboardTokens) {
   if (!source.includes(token)) {
-    throw new Error(`Required dashboard token missing after overlay extraction: ${token}`);
+    throw new Error(`Required dashboard token missing after theme overlay extraction: ${token}`);
   }
 }
 
@@ -128,16 +119,8 @@ if (modalLayerStart === -1 || financeRendererIndex === -1) {
 }
 
 const remainingOverlayArea = source.slice(modalLayerStart, financeRendererIndex);
-const forbiddenRemainingTokens = [
-  "{showOnboarding && (",
-  "<OnboardingActionBar",
-  "{themePickerOpen && (",
-];
-
-for (const token of forbiddenRemainingTokens) {
-  if (remainingOverlayArea.includes(token)) {
-    throw new Error(`Overlay token still remains in Dashboard modal layer after extraction: ${token}`);
-  }
+if (remainingOverlayArea.includes("{themePickerOpen && (")) {
+  throw new Error("Theme picker overlay still remains in Dashboard modal layer after extraction.");
 }
 
 if (!fs.existsSync(rendererPath)) {
@@ -145,9 +128,9 @@ if (!fs.existsSync(rendererPath)) {
 }
 
 if (source === original && alreadyWired) {
-  console.log("Dashboard overlay renderer is already extracted.");
+  console.log("Dashboard theme overlay renderer is already extracted.");
   process.exit(0);
 }
 
 fs.writeFileSync(dashboardPath, source);
-console.log("Extracted Dashboard overlay renderer safely.");
+console.log("Extracted Dashboard theme overlay renderer safely.");
