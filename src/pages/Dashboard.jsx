@@ -1,6 +1,5 @@
 import { useState, useCallback, useRef } from "react";
 import { useNavigate } from "react-router-dom";
-import { Settings, Home, MessageCircle } from "lucide-react";
 import { supabase } from "@/lib/supabaseClient";
 import DashboardFeedPanel from "@/components/fresh/dashboard-panels/feed/DashboardFeedPanel";
 import DashboardMessagesPanel from "@/components/fresh/main-dashboard/dashboard-panels/messages/DashboardMessagesPanel";
@@ -8,17 +7,15 @@ import DashboardSettingsPanel from "@/components/fresh/main-dashboard/dashboard-
 import DashboardTopNav from "@/components/fresh/main-dashboard/top-nav/DashboardTopNav";
 import DashboardShell from "@/components/fresh/main-dashboard/shell/DashboardShell";
 import DashboardEmbeddedStyles from "@/components/fresh/main-dashboard/shell/DashboardEmbeddedStyles";
-import DashboardContentArea from "@/components/fresh/main-dashboard/shell/DashboardContentArea";
-import DashboardPanelRenderer from "@/components/fresh/main-dashboard/shell/DashboardPanelRenderer";
-import DashboardModalLayer from "@/components/fresh/main-dashboard/shell/DashboardModalLayer";
-import DashboardFinanceModalRenderer from "@/components/fresh/main-dashboard/shell/DashboardFinanceModalRenderer";
-import DashboardHomePanel from "@/components/fresh/main-dashboard/shell/DashboardHomePanel";
-import DashboardFinanceExpandedSheetLayer from "@/components/fresh/main-dashboard/shell/DashboardFinanceExpandedSheetLayer";
 import useDashboardShellReady from "@/components/fresh/main-dashboard/shell/useDashboardShellReady";
 import useDashboardPanelNavigation from "@/components/fresh/main-dashboard/shell/useDashboardPanelNavigation";
 import useDashboardScrollState from "@/components/fresh/main-dashboard/shell/useDashboardScrollState";
 import useDashboardInteractionState from "@/components/fresh/main-dashboard/shell/useDashboardInteractionState";
-import DashboardProgramOnboardingModal from "@/components/fresh/main-dashboard/onboarding/DashboardProgramOnboardingModal";
+import DashboardContentArea from "@/components/fresh/main-dashboard/shell/DashboardContentArea";
+import DashboardPanelRenderer from "@/components/fresh/main-dashboard/shell/DashboardPanelRenderer";
+import useDashboardPanelUiState from "@/components/fresh/main-dashboard/shell/useDashboardPanelUiState";
+import DashboardHomePanel from "@/components/fresh/main-dashboard/shell/DashboardHomePanel";
+import DashboardModalStack from "@/components/fresh/main-dashboard/shell/DashboardModalStack";
 import useMoneySummaryVisibility from "@/components/fresh/main-dashboard/money-summary/useMoneySummaryVisibility";
 import useMoneyLeftSummaryHandlers from "@/components/fresh/main-dashboard/money-summary/useMoneyLeftSummaryHandlers";
 import useDashboardMoneyLeftMetrics from "@/components/fresh/main-dashboard/money-summary/useDashboardMoneyLeftMetrics";
@@ -57,7 +54,8 @@ import useDashboardClaraAssistantContext from "@/components/fresh/main-dashboard
 import useDashboardFinanceActionHandlers from "@/components/fresh/main-dashboard/finance-actions/useDashboardFinanceActionHandlers";
 import useDashboardFinanceDiagnostics from "@/components/fresh/main-dashboard/finance-diagnostics/useDashboardFinanceDiagnostics";
 import useDashboardFinanceCardExpansion from "@/components/fresh/main-dashboard/financial-cards/useDashboardFinanceCardExpansion";
-import { readStoredSurvivalExpense, persistStoredSurvivalExpense } from "@/components/fresh/main-dashboard/dashboard-theme/dashboardThemeRuntime";
+import useDashboardSurvivalExpenseSaver from "@/components/fresh/main-dashboard/financial-cards/useDashboardSurvivalExpenseSaver";
+import { readStoredSurvivalExpense } from "@/components/fresh/main-dashboard/dashboard-theme/dashboardThemeRuntime";
 import useDashboardThemeClasses from "@/components/fresh/main-dashboard/dashboard-theme/useDashboardThemeClasses";
 import useDashboardThemePersistence from "@/components/fresh/main-dashboard/dashboard-theme/useDashboardThemePersistence";
 import { createEmptyDashboardCache } from "@/components/fresh/main-dashboard/dashboard-cache/dashboardCacheFactory";
@@ -65,14 +63,12 @@ import useDashboardHydrateFromCache from "@/components/fresh/main-dashboard/dash
 import useDashboardCacheOwnerSync from "@/components/fresh/main-dashboard/dashboard-cache/useDashboardCacheOwnerSync";
 import useDashboardDataLoader from "@/components/fresh/main-dashboard/dashboard-cache/useDashboardDataLoader";
 import useDashboardDataState from "@/components/fresh/main-dashboard/dashboard-state/useDashboardDataState";
-import { DASHBOARD_PANEL_ORDER } from "@/components/fresh/main-dashboard/dashboard-panels/dashboardPanelConstants";
 import useDashboardProgramPromptFlow from "@/components/fresh/main-dashboard/program-prompts/useDashboardProgramPromptFlow";
 import useUserRole from "../hooks/useUserRole";
 import useTaskReminderPrompt from "@/hooks/useTaskReminderPrompt";
 import useFinancialData from "../hooks/useFinancialData";
 import { hasCompletedProgramOnboarding } from "@/lib/access-control";
 import { useTheme } from "@/theme/ThemeProvider";
-import { DEFAULT_THEME_KEY } from "@/theme/themes";
 import { normalizeString, firstValidNumber, firstPositiveNumber, getBudgetTotal } from "@/utils/dashboard/dashboardHelpers";
 
 let dashboardPageCache = createEmptyDashboardCache();
@@ -841,129 +837,40 @@ export default function Dashboard() {
     walletMoney,
   });
 
-  const saveSurvivalExpenseInline = useCallback(async (val) => {
-    const nextValue = firstPositiveNumber(val);
-    if (nextValue <= 0) return;
-
-    persistStoredSurvivalExpense(user?.id, nextValue);
-    setSurvivalExpense(nextValue);
-
-    const nextProfileData = {
-      ...(profileData || {}),
-      monthly_survival_expense: nextValue,
-      survival_expense: nextValue,
-      clara_survival_expense: nextValue,
-      survival_setup_done: true,
-    };
-
-    setProfileData(nextProfileData);
-    dashboardPageCache = {
-      ...dashboardPageCache,
-      survivalExpense: nextValue,
-      profileData: nextProfileData,
-    };
-
-    if (user?.id) {
-      const { error } = await supabase
-        .from("profiles")
-        .update({
-          monthly_survival_expense: nextValue,
-          survival_setup_done: true,
-        })
-        .eq("id", user.id);
-
-      if (error) {
-        console.warn(
-          "Survival expense was saved locally, but profile sync failed:",
-          error
-        );
-      }
-    }
-
-    await loadDashboardData({ background: true });
-  }, [
-    firstPositiveNumber,
-    loadDashboardData,
+  const saveSurvivalExpenseInline = useDashboardSurvivalExpenseSaver({
+    user,
     profileData,
     setProfileData,
     setSurvivalExpense,
-    user?.id,
-  ]);
+    loadDashboardData,
+    onCacheUpdate: updateDashboardFinanceCache,
+  });
 
-  const openDashboardPanel = useCallback((panelKey) => {
-    const targetPanel = DASHBOARD_PANEL_ORDER.includes(panelKey) ? panelKey : "home";
-    const currentIndex = DASHBOARD_PANEL_ORDER.indexOf(activeDashboardPanel);
-    const nextIndex = DASHBOARD_PANEL_ORDER.indexOf(targetPanel);
 
-    setDashboardPanelDirection(nextIndex >= currentIndex ? "forward" : "backward");
-    setActiveDashboardPanel(targetPanel);
-  }, [activeDashboardPanel]);
+  const {
+    openDashboardPanel,
+    closeDashboardPanel,
+    resetDashboardThemeToDefault,
+    dashboardPanelAnimationClass,
+    dashboardPanelViewportClass,
+    dashboardSmartScrollClass,
+    dashboardSmartContentClass,
+    shouldShowBlockingDashboardLoader,
+    shouldShowNonBlockingRefresh,
+    headerQuickActions,
+  } = useDashboardPanelUiState({
+    activeDashboardPanel,
+    dashboardPanelDirection,
+    setActiveDashboardPanel,
+    setDashboardPanelDirection,
+    setTheme,
+    feedHasHighlight,
+    loading,
+    hasVisibleFinanceData,
+    financeDataLoading,
+    financeDataRefreshing,
+  });
 
-  const closeDashboardPanel = useCallback(() => {
-    setDashboardPanelDirection("backward");
-    setActiveDashboardPanel("home");
-  }, []);
-
-  const resetDashboardThemeToDefault = useCallback(async () => {
-    if (typeof setTheme === "function") {
-      await setTheme(DEFAULT_THEME_KEY);
-    }
-  }, [setTheme]);
-
-  const dashboardPanelAnimationClass =
-    activeDashboardPanel === "home"
-      ? "animate-[claraDashboardPanelReverseIn_320ms_cubic-bezier(.22,1,.36,1)_both]"
-      : dashboardPanelDirection === "forward"
-        ? "animate-[claraDashboardPanelForwardIn_340ms_cubic-bezier(.22,1,.36,1)_both]"
-        : "animate-[claraDashboardPanelReverseIn_340ms_cubic-bezier(.22,1,.36,1)_both]";
-
-  const dashboardPanelViewportClass =
-    activeDashboardPanel === "home"
-      ? ""
-      : activeDashboardPanel === "messages"
-        ? "h-[calc(100svh-132px)] max-h-[calc(100svh-132px)] overflow-hidden pr-0.5 pb-0 [padding-bottom:0!important] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
-        : "max-h-[calc(100svh-132px)] overflow-y-auto overscroll-y-contain touch-pan-y pr-0.5 pb-[calc(env(safe-area-inset-bottom)+14px)] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden";
-
-  const dashboardSmartScrollClass = "overflow-y-hidden";
-  const shouldShowBlockingDashboardLoader = loading && !hasVisibleFinanceData;
-  const shouldShowNonBlockingRefresh = Boolean(
-    financeDataRefreshing ||
-      (financeDataLoading && hasVisibleFinanceData)
-  );
-  const dashboardSmartContentClass = "";
-
-  const headerQuickActions = [
-    {
-      key: "home",
-      label: "Home",
-      icon: Home,
-      badge: null,
-    },
-    {
-      key: "feed",
-      label: "Feed",
-      icon: Home,
-      badge: feedHasHighlight
-        ? {
-            type: "dot",
-            value: "",
-            className: "border-emerald-400/25 bg-emerald-400 text-emerald-100",
-          }
-        : null,
-    },
-    {
-      key: "messages",
-      label: "Message",
-      icon: MessageCircle,
-      badge: null,
-    },
-    {
-      key: "settings",
-      label: "Setting",
-      icon: Settings,
-      badge: null,
-    },
-  ];
 
   if (!guardChecked && shouldShowBlockingDashboardLoader) {
     return (
@@ -986,17 +893,11 @@ export default function Dashboard() {
     >
       <DashboardEmbeddedStyles />
       <DashboardTopNav
-        dashboardScale={dashboardScale}
-        headerQuickActions={headerQuickActions}
-        activeDashboardPanel={activeDashboardPanel}
-        openDashboardPanel={openDashboardPanel}
-        themeQuickActionPanelStyle={themeQuickActionPanelStyle}
-        themeQuickActionGlowStyle={themeQuickActionGlowStyle}
-        themeQuickActionBaseClass={themeQuickActionBaseClass}
-        themeQuickActionIconShellClass={themeQuickActionIconShellClass}
-        themeSecondaryTextClass={themeSecondaryTextClass}
-        themeDividerClass={themeDividerClass}
-        themeIsLight={themeIsLight}
+        {...{
+          dashboardScale, headerQuickActions, activeDashboardPanel, openDashboardPanel,
+          themeQuickActionPanelStyle, themeQuickActionGlowStyle, themeQuickActionBaseClass,
+          themeQuickActionIconShellClass, themeSecondaryTextClass, themeDividerClass, themeIsLight,
+        }}
       />
 
       <DashboardContentArea
@@ -1016,60 +917,23 @@ export default function Dashboard() {
             renderHome={() => (
               <>
         <DashboardHomePanel
-          isPending={isPending}
-          dashboardShellReady={dashboardShellReady}
-          dashboardScale={dashboardScale}
-          financeNotice={financeNotice}
-          closeFinanceNotice={closeFinanceNotice}
-          shouldShowNonBlockingRefresh={shouldShowNonBlockingRefresh}
-          selectedDashboardTheme={selectedDashboardTheme}
-          themeInactiveDotClass={themeInactiveDotClass}
-          wallets={wallets}
-          walletMoney={walletMoney}
-          walletPreviewTransactions={walletPreviewTransactions}
-          survivalExpense={survivalExpense}
-          user={user}
-          guardChecked={guardChecked}
-          loading={loading}
-          profileData={profileData}
-          firstPositiveNumber={firstPositiveNumber}
-          readStoredSurvivalExpense={readStoredSurvivalExpense}
-          monthlyBudgetPlan={monthlyBudgetPlan}
-          savingsGoals={savingsGoals}
-          totalSavingsSaved={totalSavingsSaved}
-          totalSavingsTarget={totalSavingsTarget}
-          primarySavingsGoal={primarySavingsGoal}
-          expandedFinanceCard={expandedFinanceCard}
-          toggleFinanceDetails={toggleFinanceDetails}
-          financeActionLoading={financeActionLoading}
-          openManualExpenseModal={openManualExpenseModal}
-          saveSurvivalExpenseInline={saveSurvivalExpenseInline}
-          openBudgetModal={openBudgetModal}
-          openDeleteBudgetCategoryModal={openDeleteBudgetCategoryModal}
-          openResetBudgetModal={openResetBudgetModal}
-          openCreateWalletModal={openCreateWalletModal}
-          moveWalletInline={moveWalletInline}
-          openDeleteWalletModal={openDeleteWalletModal}
-          openAddMoneyModal={openAddMoneyModal}
-          openTransferMoneyModal={openTransferMoneyModal}
-          openSavingsGoalModal={openSavingsGoalModal}
-          openDeleteSavingsGoalModal={openDeleteSavingsGoalModal}
-          openAddSavingsModal={openAddSavingsModal}
-          startClaraAiLongPress={startClaraAiLongPress}
-          endClaraAiLongPress={endClaraAiLongPress}
-          handleClaraAiOrbClickCapture={handleClaraAiOrbClickCapture}
-          themeIsLight={themeIsLight}
-          themeSoftTextClass={themeSoftTextClass}
-          themePrimaryTextClass={themePrimaryTextClass}
-          moneySummaryVisible={moneySummaryVisible}
-          toggleMoneySummaryVisibility={toggleMoneySummaryVisibility}
-          moneyLeftSummaryHandlers={moneyLeftSummaryHandlers}
-          handleMoneyLeftOrbClick={handleMoneyLeftOrbClick}
-          startMoneyLeftOrbLongPress={startMoneyLeftOrbLongPress}
-          endMoneyLeftOrbLongPress={endMoneyLeftOrbLongPress}
-          stopMoneyLeftOrbEvent={stopMoneyLeftOrbEvent}
-          thisMonthSpent={thisMonthSpent}
-          fmt={fmt}
+          {...{
+            isPending, dashboardShellReady, dashboardScale, financeNotice, closeFinanceNotice,
+            shouldShowNonBlockingRefresh, selectedDashboardTheme, themeInactiveDotClass,
+            wallets, walletMoney, walletPreviewTransactions, survivalExpense, user,
+            guardChecked, loading, profileData, firstPositiveNumber, readStoredSurvivalExpense,
+            monthlyBudgetPlan, savingsGoals, totalSavingsSaved, totalSavingsTarget,
+            primarySavingsGoal, expandedFinanceCard, toggleFinanceDetails, financeActionLoading,
+            openManualExpenseModal, saveSurvivalExpenseInline, openBudgetModal,
+            openDeleteBudgetCategoryModal, openResetBudgetModal, openCreateWalletModal,
+            moveWalletInline, openDeleteWalletModal, openAddMoneyModal, openTransferMoneyModal,
+            openSavingsGoalModal, openDeleteSavingsGoalModal, openAddSavingsModal,
+            startClaraAiLongPress, endClaraAiLongPress, handleClaraAiOrbClickCapture,
+            themeIsLight, themeSoftTextClass, themePrimaryTextClass, moneySummaryVisible,
+            toggleMoneySummaryVisibility, moneyLeftSummaryHandlers, handleMoneyLeftOrbClick,
+            startMoneyLeftOrbLongPress, endMoneyLeftOrbLongPress, stopMoneyLeftOrbEvent,
+            thisMonthSpent, fmt,
+          }}
         />
 
         
@@ -1096,106 +960,38 @@ export default function Dashboard() {
         </div>
       </DashboardContentArea>
 
-      <DashboardModalLayer>
-        <DashboardFinanceExpandedSheetLayer
-          activeDashboardPanel={activeDashboardPanel}
-          expandedFinanceCard={expandedFinanceCard}
-          setExpandedFinanceCard={setExpandedFinanceCard}
-          walletMoney={walletMoney}
-          survivalExpense={survivalExpense}
-          selectedDashboardTheme={selectedDashboardTheme}
-          expandedFinanceDetailSections={expandedFinanceDetailSections}
-          toggleExpandedFinanceDetailSection={toggleExpandedFinanceDetailSection}
-          profileData={profileData}
-          firstPositiveNumber={firstPositiveNumber}
-          readStoredSurvivalExpense={readStoredSurvivalExpense}
-          user={user}
-          saveSurvivalExpenseInline={saveSurvivalExpenseInline}
-          wallets={wallets}
-          walletPreviewTransactions={walletPreviewTransactions}
-          financeActionLoading={financeActionLoading}
-          openCreateWalletModal={openCreateWalletModal}
-          moveWalletInline={moveWalletInline}
-          openDeleteWalletModal={openDeleteWalletModal}
-          openAddMoneyModal={openAddMoneyModal}
-          openTransferMoneyModal={openTransferMoneyModal}
-          monthlyBudgetPlan={monthlyBudgetPlan}
-          openBudgetModal={openBudgetModal}
-          openDeleteBudgetCategoryModal={openDeleteBudgetCategoryModal}
-          openResetBudgetModal={openResetBudgetModal}
-          savingsGoals={savingsGoals}
-          totalSavingsSaved={totalSavingsSaved}
-          totalSavingsTarget={totalSavingsTarget}
-          primarySavingsGoal={primarySavingsGoal}
-          openSavingsGoalModal={openSavingsGoalModal}
-          openDeleteSavingsGoalModal={openDeleteSavingsGoalModal}
-          openAddSavingsModal={openAddSavingsModal}
-        />
-
-
-      <DashboardProgramOnboardingModal
-        showOnboarding={showOnboarding}
-        closeOnboarding={closeOnboarding}
-        onboardingStep={onboardingStep}
-        setOnboardingStep={setOnboardingStep}
-        commitmentChecked={commitmentChecked}
-        setCommitmentChecked={setCommitmentChecked}
-        savingOnboarding={savingOnboarding}
-        goToNextOnboardingStep={goToNextOnboardingStep}
-        nickname={nickname}
-        setNickname={setNickname}
-        reminderTime={reminderTime}
-        setReminderTime={setReminderTime}
-        financialGoal={financialGoal}
-        setFinancialGoal={setFinancialGoal}
-        finishOnboarding={finishOnboarding}
+      <DashboardModalStack
+        expandedSheetLayerProps={{
+          activeDashboardPanel, expandedFinanceCard, setExpandedFinanceCard, walletMoney,
+          survivalExpense, selectedDashboardTheme, expandedFinanceDetailSections,
+          toggleExpandedFinanceDetailSection, profileData, firstPositiveNumber,
+          readStoredSurvivalExpense, user, saveSurvivalExpenseInline, wallets,
+          walletPreviewTransactions, financeActionLoading, openCreateWalletModal,
+          moveWalletInline, openDeleteWalletModal, openAddMoneyModal, openTransferMoneyModal,
+          monthlyBudgetPlan, openBudgetModal, openDeleteBudgetCategoryModal, openResetBudgetModal,
+          savingsGoals, totalSavingsSaved, totalSavingsTarget, primarySavingsGoal,
+          openSavingsGoalModal, openDeleteSavingsGoalModal, openAddSavingsModal,
+        }}
+        onboardingModalProps={{
+          showOnboarding, closeOnboarding, onboardingStep, setOnboardingStep,
+          commitmentChecked, setCommitmentChecked, savingOnboarding, goToNextOnboardingStep,
+          nickname, setNickname, reminderTime, setReminderTime, financialGoal,
+          setFinancialGoal, finishOnboarding,
+        }}
+        financeModalRendererProps={{
+          financeModal, closeFinanceModal, createWalletInline, financeActionLoading,
+          financeForm, setFinanceForm, deleteWalletInline, addMoneyInline, fmt,
+          transferMoneyInline, wallets, saveManualExpenseInline, manualExpenseCanSubmit,
+          manualExpenseBudgetListItems, showFinanceNotice, setManualExpenseBudgetListKey,
+          manualExpenseIsUnplanned, manualExpenseIsUndocumented, selectedManualExpenseBudget,
+          handleBudgetModalClose, monthlyBudgetPlan, budgetExitConfirm, saveBudgetInline,
+          setBudgetExitConfirm, budgetFormDeclaredAmount, budgetProjectedAllocated,
+          budgetProjectedUnallocated, budgetFinishHelper, openBudgetModal,
+          openDeleteBudgetCategoryModal, budgetCanFinish, deleteBudgetCategoryInline,
+          resetBudgetInline, saveSavingsGoalInline, deleteSavingsGoalInline, addSavingsInline,
+          dashboardShellReady, showAiAssistant, setShowAiAssistant, claraAssistantContext,
+        }}
       />
-
-
-      <DashboardFinanceModalRenderer
-        financeModal={financeModal}
-        closeFinanceModal={closeFinanceModal}
-        createWalletInline={createWalletInline}
-        financeActionLoading={financeActionLoading}
-        financeForm={financeForm}
-        setFinanceForm={setFinanceForm}
-        deleteWalletInline={deleteWalletInline}
-        addMoneyInline={addMoneyInline}
-        fmt={fmt}
-        transferMoneyInline={transferMoneyInline}
-        wallets={wallets}
-        saveManualExpenseInline={saveManualExpenseInline}
-        manualExpenseCanSubmit={manualExpenseCanSubmit}
-        manualExpenseBudgetListItems={manualExpenseBudgetListItems}
-        showFinanceNotice={showFinanceNotice}
-        setManualExpenseBudgetListKey={setManualExpenseBudgetListKey}
-        manualExpenseIsUnplanned={manualExpenseIsUnplanned}
-        manualExpenseIsUndocumented={manualExpenseIsUndocumented}
-        selectedManualExpenseBudget={selectedManualExpenseBudget}
-        handleBudgetModalClose={handleBudgetModalClose}
-        monthlyBudgetPlan={monthlyBudgetPlan}
-        budgetExitConfirm={budgetExitConfirm}
-        saveBudgetInline={saveBudgetInline}
-        setBudgetExitConfirm={setBudgetExitConfirm}
-        budgetFormDeclaredAmount={budgetFormDeclaredAmount}
-        budgetProjectedAllocated={budgetProjectedAllocated}
-        budgetProjectedUnallocated={budgetProjectedUnallocated}
-        budgetFinishHelper={budgetFinishHelper}
-        openBudgetModal={openBudgetModal}
-        openDeleteBudgetCategoryModal={openDeleteBudgetCategoryModal}
-        budgetCanFinish={budgetCanFinish}
-        deleteBudgetCategoryInline={deleteBudgetCategoryInline}
-        resetBudgetInline={resetBudgetInline}
-        saveSavingsGoalInline={saveSavingsGoalInline}
-        deleteSavingsGoalInline={deleteSavingsGoalInline}
-        addSavingsInline={addSavingsInline}
-        dashboardShellReady={dashboardShellReady}
-        showAiAssistant={showAiAssistant}
-        setShowAiAssistant={setShowAiAssistant}
-        claraAssistantContext={claraAssistantContext}
-      />
-
-      </DashboardModalLayer>
     </DashboardShell>
   );
 }
