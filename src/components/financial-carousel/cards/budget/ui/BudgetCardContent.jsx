@@ -36,7 +36,7 @@ export default function BudgetCardContent({
 }) {
   return (
     <div className="relative z-10 flex h-full min-h-0 flex-col p-4 pb-4">
-      <div className="flex min-h-0 flex-col gap-2.5">
+      <div className="flex min-h-0 flex-col gap-3">
         <div className="min-h-0">
           <BudgetHeader
             monthKey={monthKey}
@@ -59,14 +59,14 @@ export default function BudgetCardContent({
           />
         </div>
 
-        <div className="shrink-0 pt-0.5">
+        <div className="shrink-0 border-t border-white/6 pt-2">
           <FinanceCardExpandButton
             detailKey="budgets"
             expanded={expanded}
             onToggleDetails={onToggleDetails}
             collapsedLabel="View budget details"
             expandedLabel="Hide budget details"
-            className="border-white/12 bg-white/[0.07] py-3 font-medium shadow-[inset_0_1px_0_rgba(255,255,255,0.08),0_10px_24px_rgba(0,0,0,0.14)]"
+            className="border-white/10 bg-white/[0.055] py-3 font-medium shadow-[inset_0_1px_0_rgba(255,255,255,0.06),0_8px_18px_rgba(0,0,0,0.12)]"
           />
         </div>
       </div>
