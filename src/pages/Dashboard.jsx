@@ -51,6 +51,7 @@ import useDashboardBudgetSummaries from "@/components/fresh/main-dashboard/budge
 import useDashboardMonthlyBudgetHeader from "@/components/fresh/main-dashboard/budget/useDashboardMonthlyBudgetHeader";
 import useDashboardManualExpenseBudgetOptions from "@/components/fresh/main-dashboard/budget/useDashboardManualExpenseBudgetOptions";
 import useDashboardSelectedBudgetState from "@/components/fresh/main-dashboard/budget/useDashboardSelectedBudgetState";
+import useDashboardMonthlyBudgetPlan from "@/components/fresh/main-dashboard/budget/useDashboardMonthlyBudgetPlan";
 import DashboardTopNav from "@/components/fresh/main-dashboard/top-nav/DashboardTopNav";
 import DashboardShell from "@/components/fresh/main-dashboard/shell/DashboardShell";
 import useDashboardShellReady from "@/components/fresh/main-dashboard/shell/useDashboardShellReady";
@@ -759,97 +760,11 @@ export default function Dashboard() {
     financeForm,
   });
 
-  const monthlyBudgetPlan = useMemo(() => {
-    const monthKey = getPHMonthKey();
-    const monthRange = getPHMonthRange();
-    const categoryRows = manualExpenseBudgetOptions.map((item) => {
-      const spent = expenses.reduce((sum, expense) => {
-        const status = normalizeLower(expense?.planning_status);
-        if (status && status !== "planned") return sum;
-
-        const expenseCategory = normalizeString(
-          expense?.budget_category ||
-            expense?.expense_category ||
-            expense?.category ||
-            ""
-        );
-        const expenseBudgetId = normalizeString(
-          expense?.budget_category_id || expense?.budget_item_id || ""
-        );
-        const itemId = normalizeString(item.id || item.key || "");
-        const matchesId = itemId && expenseBudgetId && expenseBudgetId === itemId;
-        const matchesCategory =
-          normalizeLower(expenseCategory) === normalizeLower(item.title);
-
-        if (!matchesId && !matchesCategory) return sum;
-        if (!isInPHRange(getTransactionDate(expense), monthRange.start, monthRange.end)) {
-          return sum;
-        }
-
-        return sum + firstValidNumber(expense?.amount);
-      }, 0);
-
-      const allocated = firstValidNumber(item.allocated);
-      const remaining = Math.max(allocated - spent, 0);
-      const progress = allocated > 0 ? Math.min((spent / allocated) * 100, 999) : 0;
-
-      return {
-        ...item,
-        allocated,
-        allocated_amount: allocated,
-        spent,
-        spent_amount: spent,
-        remaining,
-        remaining_amount: remaining,
-        progress,
-        progress_pct: progress,
-      };
-    });
-
-    const allocatedTotal = categoryRows.reduce((sum, item) => sum + firstValidNumber(item.allocated), 0);
-    const totalSpent = categoryRows.reduce((sum, item) => sum + firstValidNumber(item.spent), 0);
-    const declaredBudget = Math.max(declaredMonthlyBudgetAmount, allocatedTotal);
-    const unallocated = Math.max(declaredBudget - allocatedTotal, 0);
-    const isComplete = declaredBudget > 0 && allocatedTotal === declaredBudget && unallocated === 0;
-    const isDraft = declaredBudget > 0 && !isComplete;
-    const unplannedSpent = expenses.reduce((sum, expense) => {
-      if (normalizeLower(expense?.planning_status) !== "unplanned") return sum;
-      if (!isInPHRange(getTransactionDate(expense), monthRange.start, monthRange.end)) return sum;
-      return sum + firstValidNumber(expense?.amount);
-    }, 0);
-    const undocumentedSpent = expenses.reduce((sum, expense) => {
-      if (normalizeLower(expense?.planning_status) !== "undocumented") return sum;
-      if (!isInPHRange(getTransactionDate(expense), monthRange.start, monthRange.end)) return sum;
-      return sum + firstValidNumber(expense?.amount);
-    }, 0);
-
-    return {
-      id: monthlyBudgetHeader?.id || `monthly_plan_${monthKey}`,
-      month: monthKey,
-      is_monthly_plan: true,
-      is_active: true,
-      is_complete: isComplete,
-      is_draft: isDraft,
-      status: isComplete ? "active" : isDraft ? "draft" : "empty",
-      header: monthlyBudgetHeader,
-      categories: categoryRows,
-      category_count: categoryRows.length,
-      declared_budget: declaredBudget,
-      declared_amount: declaredBudget,
-      monthly_budget_amount: declaredBudget,
-      total_budget: allocatedTotal,
-      allocated_amount: allocatedTotal,
-      allocated_total: allocatedTotal,
-      unallocated_amount: unallocated,
-      spent: totalSpent,
-      spent_amount: totalSpent,
-      total_spent: totalSpent,
-      remaining: Math.max(allocatedTotal - totalSpent, 0),
-      remaining_amount: Math.max(allocatedTotal - totalSpent, 0),
-      unplanned_spent: unplannedSpent,
-      undocumented_spent: undocumentedSpent,
-    };
-  }, [declaredMonthlyBudgetAmount, expenses, manualExpenseBudgetOptions, monthlyBudgetHeader]);
+  const monthlyBudgetPlan = useDashboardMonthlyBudgetPlan({
+    manualExpenseBudgetOptions,
+    expenses,
+    declaredMonthlyBudgetAmount,
+  });
 
   const budgetPlanIsComplete = monthlyBudgetPlan.is_complete === true;
   const budgetAllocatedSoFar = firstValidNumber(monthlyBudgetPlan.allocated_amount, monthlyBudgetPlan.allocated_total);
