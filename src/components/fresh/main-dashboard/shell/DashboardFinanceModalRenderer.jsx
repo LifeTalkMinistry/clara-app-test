@@ -1,4 +1,4 @@
-import { Edit, Trash2, Wallet } from "lucide-react";
+import { Edit, Trash2 } from "lucide-react";
 import ClaraAssistantPanel from "@/components/ai/ClaraAssistantPanel";
 import FinanceActionModal from "@/components/fresh/main-dashboard/dashboard-primitives/FinanceActionModal";
 import ManualExpenseFullScreenSheet from "@/components/fresh/main-dashboard/dashboard-primitives/ManualExpenseFullScreenSheet";
@@ -10,9 +10,8 @@ import {
 } from "@/components/fresh/main-dashboard/finance-form/financeFormConstants";
 import {
   getWalletDisplayName,
-  getBudgetListTitle,
-  getBudgetCategoryKey,
   getWalletDisplayBalance,
+  getBudgetListTitle,
   getSavingsGoalTitle,
   getSavingsTarget,
   getSavingsSaved,
@@ -22,26 +21,35 @@ import {
 export default function DashboardFinanceModalRenderer({
   financeModal,
   closeFinanceModal,
-  saveManualExpenseInline,
+  createWalletInline,
   financeActionLoading,
   financeForm,
   setFinanceForm,
-  wallets,
-  monthlyBudgetPlan,
+  deleteWalletInline,
   addMoneyInline,
   fmt,
   transferMoneyInline,
-  saveWalletInline,
-  budgetFormDeclaredAmount,
-  budgetCanFinish,
-  setBudgetExitConfirm,
+  wallets,
+  saveManualExpenseInline,
+  manualExpenseCanSubmit,
+  manualExpenseBudgetListItems,
+  showFinanceNotice,
+  setManualExpenseBudgetListKey,
+  manualExpenseIsUnplanned,
+  manualExpenseIsUndocumented,
+  selectedManualExpenseBudget,
+  handleBudgetModalClose,
+  monthlyBudgetPlan,
   budgetExitConfirm,
   saveBudgetInline,
+  setBudgetExitConfirm,
+  budgetFormDeclaredAmount,
   budgetProjectedAllocated,
   budgetProjectedUnallocated,
   budgetFinishHelper,
   openBudgetModal,
   openDeleteBudgetCategoryModal,
+  budgetCanFinish,
   deleteBudgetCategoryInline,
   resetBudgetInline,
   saveSavingsGoalInline,
@@ -51,47 +59,202 @@ export default function DashboardFinanceModalRenderer({
   showAiAssistant,
   setShowAiAssistant,
   claraAssistantContext,
-  manualExpenseCanSubmit = true,
-  manualExpenseBudgetListItems = [],
-  showFinanceNotice = () => {},
-  setManualExpenseBudgetListKey = () => {},
-  manualExpenseIsUnplanned = false,
-  manualExpenseIsUndocumented = false,
-  selectedManualExpenseBudget = null,
-  handleBudgetModalClose,
 }) {
-  const safeFinanceModal = financeModal || { type: null, payload: null };
-  const safeFinanceForm = financeForm || {};
-  const safeWallets = Array.isArray(wallets) ? wallets : [];
-  const safeMonthlyBudgetPlan = monthlyBudgetPlan || { categories: [] };
-  const safeBudgetCategories = Array.isArray(safeMonthlyBudgetPlan.categories)
-    ? safeMonthlyBudgetPlan.categories
-    : [];
-  const safeFmt = typeof fmt === "function" ? fmt : (value) => `₱${Number(value || 0).toLocaleString("en-PH")}`;
-  const safeSetFinanceForm =
-    typeof setFinanceForm === "function" ? setFinanceForm : () => {};
-  const safeCloseFinanceModal =
-    typeof closeFinanceModal === "function" ? closeFinanceModal : () => {};
-  const safeHandleBudgetModalClose =
-    typeof handleBudgetModalClose === "function"
-      ? handleBudgetModalClose
-      : safeCloseFinanceModal;
-  const safeShowFinanceNotice =
-    typeof showFinanceNotice === "function" ? showFinanceNotice : () => {};
-  const safeSetManualExpenseBudgetListKey =
-    typeof setManualExpenseBudgetListKey === "function"
-      ? setManualExpenseBudgetListKey
-      : (nextValue) =>
-          safeSetFinanceForm((prev) => ({
-            ...prev,
-            budgetListKey: nextValue,
-          }));
-
   return (
     <>
+      <FinanceActionModal
+        open={financeModal.type === "create_wallet"}
+        title="Where will your money live?"
+        description="Create a new money container inside your CLARA system."
+        onClose={closeFinanceModal}
+        onSubmit={(event) => {
+          event.preventDefault();
+          createWalletInline();
+        }}
+        submitLabel="Create wallet →"
+        loading={financeActionLoading}
+      >
+        <FinanceField label="Wallet name">
+          <input
+            type="text"
+            value={financeForm.name}
+            onChange={(event) =>
+              setFinanceForm((prev) => ({ ...prev, name: event.target.value }))
+            }
+            placeholder="e.g. GCash, Cash, Payroll"
+            className={financeInputClassName}
+          />
+        </FinanceField>
+      
+        <FinanceField
+          label="Wallet type"
+          helper="Choose the closest type so CLARA can organize your money clearly."
+        >
+          <div className="space-y-3">
+            <select
+              value={financeForm.type}
+              onChange={(event) =>
+                setFinanceForm((prev) => ({
+                  ...prev,
+                  type: event.target.value,
+                  customWalletType:
+                    event.target.value === "custom" ? prev.customWalletType : "",
+                }))
+              }
+              className={financeInputClassName}
+            >
+              <option value="cash">Cash</option>
+              <option value="gcash">GCash</option>
+              <option value="maya">Maya</option>
+              <option value="bank">Bank</option>
+              <option value="payroll">Payroll</option>
+              <option value="savings">Savings</option>
+              <option value="allowance">Allowance</option>
+              <option value="business">Business</option>
+              <option value="credit_card">Credit Card</option>
+              <option value="custom">Custom</option>
+            </select>
+      
+            {financeForm.type === "custom" ? (
+              <input
+                type="text"
+                value={financeForm.customWalletType}
+                onChange={(event) =>
+                  setFinanceForm((prev) => ({
+                    ...prev,
+                    customWalletType: event.target.value,
+                  }))
+                }
+                placeholder="e.g. Loan Wallet, Travel Fund, Side Hustle"
+                className={financeInputClassName}
+              />
+            ) : null}
+          </div>
+        </FinanceField>
+      
+        <FinanceField label="Starting balance">
+          <input
+            type="number"
+            min="0"
+            step="0.01"
+            value={financeForm.startingBalance}
+            onChange={(event) =>
+              setFinanceForm((prev) => ({
+                ...prev,
+                startingBalance: event.target.value,
+              }))
+            }
+            placeholder="0"
+            className={financeInputClassName}
+          />
+        </FinanceField>
+      </FinanceActionModal>
+      
+      <FinanceActionModal
+        open={financeModal.type === "delete_wallet"}
+        title="Delete wallet"
+        description={`Remove ${getWalletDisplayName(financeModal.payload)} from your wallet list?`}
+        onClose={closeFinanceModal}
+        onSubmit={(event) => {
+          event.preventDefault();
+          deleteWalletInline();
+        }}
+        submitLabel="Delete wallet"
+        loading={financeActionLoading}
+        danger
+      >
+        <div className="rounded-2xl border border-rose-400/15 bg-rose-500/10 p-4 text-sm leading-6 text-rose-100">
+          This will remove the selected wallet from the dashboard. Use this only when you are sure.
+        </div>
+      </FinanceActionModal>
+      
+      <FinanceActionModal
+        open={financeModal.type === "add_money"}
+        title="Add money"
+        description={`Add funds to ${getWalletDisplayName(financeModal.payload)}.`}
+        onClose={closeFinanceModal}
+        onSubmit={(event) => {
+          event.preventDefault();
+          addMoneyInline();
+        }}
+        submitLabel="Add money"
+        loading={financeActionLoading}
+      >
+        <FinanceField
+          label="Amount"
+          helper={`Current balance: ${fmt(getWalletDisplayBalance(financeModal.payload))}`}
+        >
+          <input
+            type="number"
+            min="0"
+            step="0.01"
+            value={financeForm.amount}
+            onChange={(event) =>
+              setFinanceForm((prev) => ({ ...prev, amount: event.target.value }))
+            }
+            placeholder="0"
+            className={financeInputClassName}
+          />
+        </FinanceField>
+      </FinanceActionModal>
+      
+      <FinanceActionModal
+        open={financeModal.type === "transfer_money"}
+        title="Transfer money"
+        description={`Move funds from ${getWalletDisplayName(financeModal.payload)} to another wallet.`}
+        onClose={closeFinanceModal}
+        onSubmit={(event) => {
+          event.preventDefault();
+          transferMoneyInline();
+        }}
+        submitLabel="Transfer"
+        loading={financeActionLoading}
+      >
+        <FinanceField label="Destination wallet">
+          <select
+            value={financeForm.destinationWalletId}
+            onChange={(event) =>
+              setFinanceForm((prev) => ({
+                ...prev,
+                destinationWalletId: event.target.value,
+              }))
+            }
+            className={financeInputClassName}
+          >
+            {wallets
+              .filter(
+                (wallet) =>
+                  String(wallet.id) !== String(financeModal.payload?.id)
+              )
+              .map((wallet) => (
+                <option key={wallet.id} value={String(wallet.id)}>
+                  {getWalletDisplayName(wallet)} • {fmt(getWalletDisplayBalance(wallet))}
+                </option>
+              ))}
+          </select>
+        </FinanceField>
+      
+        <FinanceField
+          label="Amount"
+          helper={`Available: ${fmt(getWalletDisplayBalance(financeModal.payload))}`}
+        >
+          <input
+            type="number"
+            min="0"
+            step="0.01"
+            value={financeForm.amount}
+            onChange={(event) =>
+              setFinanceForm((prev) => ({ ...prev, amount: event.target.value }))
+            }
+            placeholder="0"
+            className={financeInputClassName}
+          />
+        </FinanceField>
+      </FinanceActionModal>
+      
       <ManualExpenseFullScreenSheet
-        open={safeFinanceModal.type === "manual_expense"}
-        onClose={safeCloseFinanceModal}
+        open={financeModal.type === "manual_expense"}
+        onClose={closeFinanceModal}
         onSubmit={(event) => {
           event.preventDefault();
           saveManualExpenseInline();
@@ -104,21 +267,21 @@ export default function DashboardFinanceModalRenderer({
             type="number"
             min="0"
             step="0.01"
-            value={safeFinanceForm.amount || ""}
+            value={financeForm.amount}
             onChange={(event) =>
-              safeSetFinanceForm((prev) => ({ ...prev, amount: event.target.value }))
+              setFinanceForm((prev) => ({ ...prev, amount: event.target.value }))
             }
             placeholder="0"
             className={`${financeInputClassName} min-h-[68px] rounded-[24px] px-5 text-3xl font-bold tracking-tight placeholder:text-white/25 focus:border-emerald-300/40 focus:shadow-[0_0_0_3px_rgba(16,185,129,0.10)]`}
           />
         </FinanceField>
-
+      
         <FinanceField
           label="Budget List"
           helper="Choose where this expense belongs in your active monthly budget."
         >
           <QuickActionDropdown
-            value={safeFinanceForm.budgetListKey || ""}
+            value={financeForm.budgetListKey}
             placeholder="Select budget list"
             ariaLabel="Select budget list"
             options={manualExpenseBudgetListItems.map((item) => ({
@@ -128,32 +291,32 @@ export default function DashboardFinanceModalRenderer({
               tone: item.tone,
               disabled: item.disabled,
               onDisabledClick: () =>
-                safeShowFinanceNotice("You haven’t completed your monthly budgeting plan yet. Finish assigning your budget before logging planned expenses."),
+                showFinanceNotice("You haven’t completed your monthly budgeting plan yet. Finish assigning your budget before logging planned expenses."),
             }))}
-            onChange={(nextValue) => safeSetManualExpenseBudgetListKey(nextValue)}
+            onChange={(nextValue) => setManualExpenseBudgetListKey(nextValue)}
           />
         </FinanceField>
-
+      
         <FinanceField label="Wallet">
           <QuickActionDropdown
-            value={safeFinanceForm.expenseWalletId || ""}
+            value={financeForm.expenseWalletId}
             placeholder="Select wallet"
             ariaLabel="Select wallet for expense"
-            options={safeWallets.map((wallet) => ({
+            options={wallets.map((wallet) => ({
               value: String(wallet.id),
               label: getWalletDisplayName(wallet),
-              subtitle: `Available • ${safeFmt(getWalletDisplayBalance(wallet))}`,
+              subtitle: `Available • ${fmt(getWalletDisplayBalance(wallet))}`,
               tone: "neutral",
             }))}
             onChange={(nextValue) =>
-              safeSetFinanceForm((prev) => ({
+              setFinanceForm((prev) => ({
                 ...prev,
                 expenseWalletId: nextValue,
               }))
             }
           />
         </FinanceField>
-
+      
         {manualExpenseIsUnplanned ? (
           <div className="rounded-[24px] border border-amber-300/18 bg-amber-500/10 p-4 shadow-[0_14px_34px_rgba(245,158,11,0.08)]">
             <p className="mb-3 text-xs leading-5 text-amber-50/80">
@@ -162,9 +325,9 @@ export default function DashboardFinanceModalRenderer({
             <FinanceField label="Purpose / Reason">
               <textarea
                 rows={3}
-                value={safeFinanceForm.unplannedReason || ""}
+                value={financeForm.unplannedReason || ""}
                 onChange={(event) =>
-                  safeSetFinanceForm((prev) => ({
+                  setFinanceForm((prev) => ({
                     ...prev,
                     unplannedReason: event.target.value,
                     notes: event.target.value,
@@ -180,10 +343,10 @@ export default function DashboardFinanceModalRenderer({
             <p className="mb-3 text-xs leading-5 text-cyan-50/80">
               No worries. Choose the closest reason so CLARA can keep your records clean.
             </p>
-
+      
             <FinanceField label="Undocumented Reason">
               <QuickActionDropdown
-                value={safeFinanceForm.undocumentedReason || ""}
+                value={financeForm.undocumentedReason || ""}
                 placeholder="Why is this undocumented?"
                 ariaLabel="Select undocumented spending reason"
                 options={UNDOCUMENTED_SPENDING_REASONS.map((reasonOption) => ({
@@ -192,22 +355,22 @@ export default function DashboardFinanceModalRenderer({
                   tone: reasonOption === "Other undocumented reason" ? "cyan" : "neutral",
                 }))}
                 onChange={(nextValue) =>
-                  safeSetFinanceForm((prev) => ({
+                  setFinanceForm((prev) => ({
                     ...prev,
                     undocumentedReason: nextValue,
                   }))
                 }
               />
             </FinanceField>
-
-            {safeFinanceForm.undocumentedReason === "Other undocumented reason" ? (
+      
+            {financeForm.undocumentedReason === "Other undocumented reason" ? (
               <div className="mt-3">
                 <FinanceField label="Optional note">
                   <input
                     type="text"
-                    value={safeFinanceForm.undocumentedNote || ""}
+                    value={financeForm.undocumentedNote || ""}
                     onChange={(event) =>
-                      safeSetFinanceForm((prev) => ({
+                      setFinanceForm((prev) => ({
                         ...prev,
                         undocumentedNote: event.target.value,
                       }))
@@ -225,22 +388,22 @@ export default function DashboardFinanceModalRenderer({
           </div>
         ) : null}
       </ManualExpenseFullScreenSheet>
-
+      
       <FinanceActionModal
-        open={safeFinanceModal.type === "save_budget"}
+        open={financeModal.type === "save_budget"}
         title={
-          !safeMonthlyBudgetPlan.declared_budget && !safeFinanceModal.payload?.id
+          !monthlyBudgetPlan.declared_budget && !financeModal.payload?.id
             ? "Declare monthly budget"
-            : safeFinanceModal.payload?.id
+            : financeModal.payload?.id
               ? "Edit budget category"
               : "Budget discipline mode"
         }
         description={
-          !safeMonthlyBudgetPlan.declared_budget && !safeFinanceModal.payload?.id
+          !monthlyBudgetPlan.declared_budget && !financeModal.payload?.id
             ? "Start by declaring the total money you plan to spend this month."
             : `Assign every peso from your ${getPHMonthKey()} budget into categories.`
         }
-        onClose={safeHandleBudgetModalClose}
+        onClose={handleBudgetModalClose}
         onSubmit={(event) => {
           event.preventDefault();
           saveBudgetInline({ exitAfterSave: true, saveCategory: false });
@@ -254,7 +417,7 @@ export default function DashboardFinanceModalRenderer({
             <p className="mt-2 text-xs leading-5 text-amber-50/75">
               Save as draft before leaving so you can continue later.
             </p>
-
+      
             <div className="mt-4 grid grid-cols-1 gap-2">
               <button
                 type="button"
@@ -274,7 +437,7 @@ export default function DashboardFinanceModalRenderer({
             </div>
           </div>
         ) : null}
-
+      
         <FinanceField
           label="Declared monthly budget amount"
           helper="This is the total money you plan to spend for the month."
@@ -283,9 +446,9 @@ export default function DashboardFinanceModalRenderer({
             type="number"
             min="0"
             step="0.01"
-            value={safeFinanceForm.monthlyBudgetAmount || ""}
+            value={financeForm.monthlyBudgetAmount}
             onChange={(event) =>
-              safeSetFinanceForm((prev) => ({
+              setFinanceForm((prev) => ({
                 ...prev,
                 monthlyBudgetAmount: event.target.value,
               }))
@@ -294,24 +457,24 @@ export default function DashboardFinanceModalRenderer({
             className={financeInputClassName}
           />
         </FinanceField>
-
+      
         {budgetFormDeclaredAmount > 0 ? (
           <div className="rounded-3xl border border-white/15 bg-white/[0.075] p-4 text-xs leading-5 text-white/70">
             <div className="flex items-center justify-between gap-3">
               <span>Declared budget</span>
-              <strong className="text-white">{safeFmt(budgetFormDeclaredAmount)}</strong>
+              <strong className="text-white">{fmt(budgetFormDeclaredAmount)}</strong>
             </div>
             <div className="mt-2 flex items-center justify-between gap-3">
               <span>Allocated so far</span>
-              <strong className="text-white">{safeFmt(budgetProjectedAllocated)}</strong>
+              <strong className="text-white">{fmt(budgetProjectedAllocated)}</strong>
             </div>
             <div className="mt-2 flex items-center justify-between gap-3">
               <span>Unallocated balance</span>
               <strong className={budgetProjectedUnallocated === 0 ? "text-emerald-200" : "text-amber-100"}>
-                {safeFmt(budgetProjectedUnallocated)}
+                {fmt(budgetProjectedUnallocated)}
               </strong>
             </div>
-
+      
             {budgetFinishHelper ? (
               <p className="mt-3 rounded-2xl border border-amber-300/15 bg-amber-500/10 px-3 py-2 text-[11px] leading-5 text-amber-50/80">
                 {budgetFinishHelper}
@@ -319,20 +482,20 @@ export default function DashboardFinanceModalRenderer({
             ) : null}
           </div>
         ) : null}
-
+      
         {budgetFormDeclaredAmount > 0 ? (
           <div className="rounded-3xl border border-white/15 bg-white/[0.035] p-4">
             <p className="mb-3 text-xs font-bold uppercase tracking-[0.16em] text-white/55">
               Add budget category
             </p>
-
+      
             <div className="space-y-4">
               <FinanceField label="Category name">
                 <input
                   type="text"
-                  value={safeFinanceForm.budgetCategoryName || ""}
+                  value={financeForm.budgetCategoryName || ""}
                   onChange={(event) =>
-                    safeSetFinanceForm((prev) => ({
+                    setFinanceForm((prev) => ({
                       ...prev,
                       budgetCategoryName: event.target.value,
                       title: event.target.value,
@@ -342,15 +505,15 @@ export default function DashboardFinanceModalRenderer({
                   className={financeInputClassName}
                 />
               </FinanceField>
-
+      
               <FinanceField label="Allocated amount">
                 <input
                   type="number"
                   min="0"
                   step="0.01"
-                  value={safeFinanceForm.totalBudget || ""}
+                  value={financeForm.totalBudget}
                   onChange={(event) =>
-                    safeSetFinanceForm((prev) => ({
+                    setFinanceForm((prev) => ({
                       ...prev,
                       totalBudget: event.target.value,
                     }))
@@ -359,39 +522,39 @@ export default function DashboardFinanceModalRenderer({
                   className={financeInputClassName}
                 />
               </FinanceField>
-
+      
               <button
                 type="button"
                 disabled={financeActionLoading}
                 onClick={() => saveBudgetInline({ exitAfterSave: false, saveCategory: true })}
                 className="w-full rounded-2xl border border-emerald-300/20 bg-emerald-500/12 px-4 py-3 text-sm font-semibold text-emerald-50 transition hover:bg-emerald-500/18 disabled:opacity-60"
               >
-                {safeFinanceModal.payload?.id ? "Update Category" : "Add Category"}
+                {financeModal.payload?.id ? "Update Category" : "Add Category"}
               </button>
             </div>
           </div>
         ) : null}
-
+      
         <div className="rounded-3xl border border-white/15 bg-white/[0.035] p-4">
           <div className="mb-3 flex items-center justify-between gap-3">
             <p className="text-sm font-bold text-white">Added categories</p>
             <span className="rounded-full border border-white/15 bg-white/[0.05] px-2.5 py-1 text-[11px] font-semibold text-white/60">
-              {safeBudgetCategories.length}
+              {monthlyBudgetPlan.categories.length}
             </span>
           </div>
-
-          {safeBudgetCategories.length ? (
+      
+          {monthlyBudgetPlan.categories.length ? (
             <div className="space-y-2">
-              {safeBudgetCategories.map((item) => (
+              {monthlyBudgetPlan.categories.map((item) => (
                 <div
                   key={item.key || item.id || item.title}
                   className="flex items-center justify-between gap-3 rounded-2xl border border-white/15 bg-black/15 px-3 py-3"
                 >
                   <div className="min-w-0">
                     <p className="truncate text-sm font-semibold text-white">{item.title}</p>
-                    <p className="mt-0.5 text-xs text-white/50">{safeFmt(item.allocated)} allocated</p>
+                    <p className="mt-0.5 text-xs text-white/50">{fmt(item.allocated)} allocated</p>
                   </div>
-
+      
                   <div className="flex shrink-0 items-center gap-1">
                     <button
                       type="button"
@@ -419,7 +582,7 @@ export default function DashboardFinanceModalRenderer({
             </div>
           )}
         </div>
-
+      
         <div className="grid grid-cols-1 gap-2">
           <button
             type="button"
@@ -429,7 +592,7 @@ export default function DashboardFinanceModalRenderer({
           >
             Save Draft
           </button>
-
+      
           <button
             type="button"
             disabled={!budgetCanFinish || financeActionLoading}
@@ -440,12 +603,12 @@ export default function DashboardFinanceModalRenderer({
           </button>
         </div>
       </FinanceActionModal>
-
+      
       <FinanceActionModal
-        open={safeFinanceModal.type === "delete_budget_category"}
+        open={financeModal.type === "delete_budget_category"}
         title="Remove budget category"
         description="If this category already has linked expenses, CLARA will deactivate it instead of deleting history."
-        onClose={safeCloseFinanceModal}
+        onClose={closeFinanceModal}
         onSubmit={(event) => {
           event.preventDefault();
           deleteBudgetCategoryInline();
@@ -455,15 +618,15 @@ export default function DashboardFinanceModalRenderer({
         danger
       >
         <div className="rounded-2xl border border-amber-400/15 bg-amber-500/10 p-4 text-sm leading-6 text-amber-100">
-          Remove {safeFinanceModal.payload ? getBudgetListTitle(safeFinanceModal.payload) : "this category"} from this month’s spending plan?
+          Remove {financeModal.payload ? getBudgetListTitle(financeModal.payload) : "this category"} from this month’s spending plan?
         </div>
       </FinanceActionModal>
-
+      
       <FinanceActionModal
-        open={safeFinanceModal.type === "reset_budget"}
+        open={financeModal.type === "reset_budget"}
         title="Reset budget tracking"
         description="Start the active budget tracking window from right now."
-        onClose={safeCloseFinanceModal}
+        onClose={closeFinanceModal}
         onSubmit={(event) => {
           event.preventDefault();
           resetBudgetInline();
@@ -476,64 +639,64 @@ export default function DashboardFinanceModalRenderer({
           This keeps your budget setup, but it resets the tracking start date to now.
         </div>
       </FinanceActionModal>
-
+      
       <FinanceActionModal
-        open={safeFinanceModal.type === "save_savings_goal"}
-        title={safeFinanceModal.payload?.id ? "Edit savings goal" : "New Savings Goal"}
+        open={financeModal.type === "save_savings_goal"}
+        title={financeModal.payload?.id ? "Edit savings goal" : "New Savings Goal"}
         description={null}
-        onClose={safeCloseFinanceModal}
+        onClose={closeFinanceModal}
         onSubmit={(event) => {
           event.preventDefault();
           saveSavingsGoalInline();
         }}
-        submitLabel={safeFinanceModal.payload?.id ? "Save changes" : "Create goal"}
+        submitLabel={financeModal.payload?.id ? "Save changes" : "Create goal"}
         loading={financeActionLoading}
       >
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <FinanceField label="Goal title">
             <input
               type="text"
-              value={safeFinanceForm.title || ""}
+              value={financeForm.title}
               onChange={(event) =>
-                safeSetFinanceForm((prev) => ({ ...prev, title: event.target.value }))
+                setFinanceForm((prev) => ({ ...prev, title: event.target.value }))
               }
               placeholder="e.g., Emergency Fund, Dream Vacation"
               className={financeInputClassName}
             />
           </FinanceField>
-
+      
           <FinanceField label="Category">
             <input
               type="text"
-              value={safeFinanceForm.category || ""}
+              value={financeForm.category || ""}
               onChange={(event) =>
-                safeSetFinanceForm((prev) => ({ ...prev, category: event.target.value }))
+                setFinanceForm((prev) => ({ ...prev, category: event.target.value }))
               }
               placeholder="e.g. Travel, Emergency, Gadget"
               className={financeInputClassName}
             />
           </FinanceField>
-
+      
           <FinanceField label="Subcategory">
             <input
               type="text"
-              value={safeFinanceForm.subcategory || ""}
+              value={financeForm.subcategory || ""}
               onChange={(event) =>
-                safeSetFinanceForm((prev) => ({ ...prev, subcategory: event.target.value }))
+                setFinanceForm((prev) => ({ ...prev, subcategory: event.target.value }))
               }
               placeholder="e.g. Local Trip, Repairs, Phone"
               className={financeInputClassName}
             />
           </FinanceField>
-
+      
           <FinanceField label="Target amount">
             <input
               type="number"
               min="0"
               step="0.01"
-              value={safeFinanceForm.targetAmount || ""}
+              value={financeForm.targetAmount}
               onChange={(event) =>
-                safeSetFinanceForm((prev) => ({
+                setFinanceForm((prev) => ({
                   ...prev,
                   targetAmount: event.target.value,
                 }))
@@ -542,15 +705,15 @@ export default function DashboardFinanceModalRenderer({
               className={financeInputClassName}
             />
           </FinanceField>
-
+      
           <FinanceField label="Already saved">
             <input
               type="number"
               min="0"
               step="0.01"
-              value={safeFinanceForm.amount || ""}
+              value={financeForm.amount}
               onChange={(event) =>
-                safeSetFinanceForm((prev) => ({
+                setFinanceForm((prev) => ({
                   ...prev,
                   amount: event.target.value,
                 }))
@@ -559,12 +722,12 @@ export default function DashboardFinanceModalRenderer({
               className={financeInputClassName}
             />
           </FinanceField>
-
+      
           <FinanceField label="Source wallet">
             <select
-              value={safeFinanceForm.savingsWalletId || ""}
+              value={financeForm.savingsWalletId || ""}
               onChange={(event) =>
-                safeSetFinanceForm((prev) => ({
+                setFinanceForm((prev) => ({
                   ...prev,
                   savingsWalletId: event.target.value,
                 }))
@@ -572,20 +735,20 @@ export default function DashboardFinanceModalRenderer({
               className={financeInputClassName}
             >
               <option value="">Select wallet...</option>
-              {safeWallets.map((wallet) => (
+              {wallets.map((wallet) => (
                 <option key={wallet.id} value={String(wallet.id)}>
                   {getWalletDisplayName(wallet)}
                 </option>
               ))}
             </select>
           </FinanceField>
-
+      
           <FinanceField label="Planned use date">
             <input
               type="date"
-              value={safeFinanceForm.plannedUseDate || ""}
+              value={financeForm.plannedUseDate || ""}
               onChange={(event) =>
-                safeSetFinanceForm((prev) => ({
+                setFinanceForm((prev) => ({
                   ...prev,
                   plannedUseDate: event.target.value,
                 }))
@@ -594,49 +757,49 @@ export default function DashboardFinanceModalRenderer({
             />
           </FinanceField>
         </div>
-
+      
         <div className="space-y-3">
           <p className="text-xs font-semibold uppercase tracking-[0.18em] text-white/72">
             3 reasons / motivations
           </p>
-
+      
           <input
             type="text"
-            value={safeFinanceForm.reasonOne || ""}
+            value={financeForm.reasonOne || ""}
             onChange={(event) =>
-              safeSetFinanceForm((prev) => ({ ...prev, reasonOne: event.target.value }))
+              setFinanceForm((prev) => ({ ...prev, reasonOne: event.target.value }))
             }
             placeholder="Reason 1"
             className={financeInputClassName}
           />
-
+      
           <input
             type="text"
-            value={safeFinanceForm.reasonTwo || ""}
+            value={financeForm.reasonTwo || ""}
             onChange={(event) =>
-              safeSetFinanceForm((prev) => ({ ...prev, reasonTwo: event.target.value }))
+              setFinanceForm((prev) => ({ ...prev, reasonTwo: event.target.value }))
             }
             placeholder="Reason 2"
             className={financeInputClassName}
           />
-
+      
           <input
             type="text"
-            value={safeFinanceForm.reasonThree || ""}
+            value={financeForm.reasonThree || ""}
             onChange={(event) =>
-              safeSetFinanceForm((prev) => ({ ...prev, reasonThree: event.target.value }))
+              setFinanceForm((prev) => ({ ...prev, reasonThree: event.target.value }))
             }
             placeholder="Reason 3"
             className={financeInputClassName}
           />
         </div>
-
+      
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
           <FinanceField label="Emotional value">
             <select
-              value={safeFinanceForm.emotionalValue || "joy"}
+              value={financeForm.emotionalValue || "joy"}
               onChange={(event) =>
-                safeSetFinanceForm((prev) => ({
+                setFinanceForm((prev) => ({
                   ...prev,
                   emotionalValue: event.target.value,
                 }))
@@ -650,12 +813,12 @@ export default function DashboardFinanceModalRenderer({
               <option value="love">Love ❤️</option>
             </select>
           </FinanceField>
-
+      
           <FinanceField label="Priority">
             <select
-              value={safeFinanceForm.priority || "medium"}
+              value={financeForm.priority || "medium"}
               onChange={(event) =>
-                safeSetFinanceForm((prev) => ({
+                setFinanceForm((prev) => ({
                   ...prev,
                   priority: event.target.value,
                 }))
@@ -667,30 +830,30 @@ export default function DashboardFinanceModalRenderer({
               <option value="high">High</option>
             </select>
           </FinanceField>
-
+      
           <FinanceField label="Flexibility">
             <div className="grid grid-cols-2 gap-2">
               <button
                 type="button"
                 onClick={() =>
-                  safeSetFinanceForm((prev) => ({ ...prev, flexibility: "flexible" }))
+                  setFinanceForm((prev) => ({ ...prev, flexibility: "flexible" }))
                 }
                 className={`rounded-2xl border px-4 py-3 text-sm font-semibold transition ${
-                  (safeFinanceForm.flexibility || "flexible") === "flexible"
+                  (financeForm.flexibility || "flexible") === "flexible"
                     ? "border-emerald-400/30 bg-gradient-to-r from-emerald-400 via-emerald-500 to-green-600 text-white shadow-[0_10px_30px_rgba(16,185,129,0.24)]"
                     : "border-white/15 bg-white/[0.075] text-white/75 hover:bg-white/[0.08] hover:text-white"
                 }`}
               >
                 Flexible
               </button>
-
+      
               <button
                 type="button"
                 onClick={() =>
-                  safeSetFinanceForm((prev) => ({ ...prev, flexibility: "must_have" }))
+                  setFinanceForm((prev) => ({ ...prev, flexibility: "must_have" }))
                 }
                 className={`rounded-2xl border px-4 py-3 text-sm font-semibold transition ${
-                  (safeFinanceForm.flexibility || "flexible") === "must_have"
+                  (financeForm.flexibility || "flexible") === "must_have"
                     ? "border-emerald-400/30 bg-gradient-to-r from-emerald-400 via-emerald-500 to-green-600 text-white shadow-[0_10px_30px_rgba(16,185,129,0.24)]"
                     : "border-white/15 bg-white/[0.075] text-white/75 hover:bg-white/[0.08] hover:text-white"
                 }`}
@@ -700,25 +863,25 @@ export default function DashboardFinanceModalRenderer({
             </div>
           </FinanceField>
         </div>
-
+      
         <FinanceField label="Notes">
           <textarea
             rows={4}
-            value={safeFinanceForm.notes || ""}
+            value={financeForm.notes || ""}
             onChange={(event) =>
-              safeSetFinanceForm((prev) => ({ ...prev, notes: event.target.value }))
+              setFinanceForm((prev) => ({ ...prev, notes: event.target.value }))
             }
             placeholder="Add extra context, reminders, or details for this goal."
             className={`${financeInputClassName} resize-none`}
           />
         </FinanceField>
       </FinanceActionModal>
-
+      
       <FinanceActionModal
-        open={safeFinanceModal.type === "delete_savings_goal"}
+        open={financeModal.type === "delete_savings_goal"}
         title="Delete savings goal"
-        description={`Remove ${getSavingsGoalTitle(safeFinanceModal.payload)} from your savings list?`}
-        onClose={safeCloseFinanceModal}
+        description={`Remove ${getSavingsGoalTitle(financeModal.payload)} from your savings list?`}
+        onClose={closeFinanceModal}
         onSubmit={(event) => {
           event.preventDefault();
           deleteSavingsGoalInline();
@@ -731,12 +894,12 @@ export default function DashboardFinanceModalRenderer({
           This deletes the selected goal from the card details section.
         </div>
       </FinanceActionModal>
-
+      
       <FinanceActionModal
-        open={safeFinanceModal.type === "add_savings"}
+        open={financeModal.type === "add_savings"}
         title="Add to savings goal"
-        description={`Move money into ${getSavingsGoalTitle(safeFinanceModal.payload)} using one of your wallets.`}
-        onClose={safeCloseFinanceModal}
+        description={`Move money into ${getSavingsGoalTitle(financeModal.payload)} using one of your wallets.`}
+        onClose={closeFinanceModal}
         onSubmit={(event) => {
           event.preventDefault();
           addSavingsInline();
@@ -746,31 +909,31 @@ export default function DashboardFinanceModalRenderer({
       >
         <FinanceField label="Source wallet">
           <select
-            value={safeFinanceForm.savingsWalletId || ""}
+            value={financeForm.savingsWalletId}
             onChange={(event) =>
-              safeSetFinanceForm((prev) => ({
+              setFinanceForm((prev) => ({
                 ...prev,
                 savingsWalletId: event.target.value,
               }))
             }
             className={financeInputClassName}
           >
-            {safeWallets
+            {wallets
               .filter((wallet) => getWalletDisplayBalance(wallet) > 0)
               .map((wallet) => (
                 <option key={wallet.id} value={String(wallet.id)}>
-                  {getWalletDisplayName(wallet)} • {safeFmt(getWalletDisplayBalance(wallet))}
+                  {getWalletDisplayName(wallet)} • {fmt(getWalletDisplayBalance(wallet))}
                 </option>
               ))}
           </select>
         </FinanceField>
-
+      
         <FinanceField
           label="Amount"
-          helper={`Remaining target: ${safeFmt(
+          helper={`Remaining target: ${fmt(
             Math.max(
-              getSavingsTarget(safeFinanceModal.payload) -
-                getSavingsSaved(safeFinanceModal.payload),
+              getSavingsTarget(financeModal.payload) -
+                getSavingsSaved(financeModal.payload),
               0
             )
           )}`}
@@ -779,16 +942,16 @@ export default function DashboardFinanceModalRenderer({
             type="number"
             min="0"
             step="0.01"
-            value={safeFinanceForm.amount || ""}
+            value={financeForm.amount}
             onChange={(event) =>
-              safeSetFinanceForm((prev) => ({ ...prev, amount: event.target.value }))
+              setFinanceForm((prev) => ({ ...prev, amount: event.target.value }))
             }
             placeholder="0"
             className={financeInputClassName}
           />
         </FinanceField>
       </FinanceActionModal>
-
+      
       {dashboardShellReady ? (
         <ClaraAssistantPanel
           open={showAiAssistant}
