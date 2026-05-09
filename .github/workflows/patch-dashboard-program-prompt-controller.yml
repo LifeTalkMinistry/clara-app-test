@@ -1,99 +1,10 @@
-name: Patch dashboard program prompt controller
+name: Disabled legacy workflow
 
 on:
-  push:
-    branches:
-      - main
   workflow_dispatch:
 
-permissions:
-  contents: write
-
 jobs:
-  patch-dashboard-program-prompt-controller:
+  disabled:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-        with:
-          token: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Wire useDashboardProgramPromptController into Dashboard.jsx
-        run: |
-          python - <<'PY'
-          from pathlib import Path
-
-          target = Path("src/pages/Dashboard.jsx")
-          text = target.read_text()
-
-          import_line = 'import useDashboardProgramPromptController from "@/components/fresh/main-dashboard/program-prompts/useDashboardProgramPromptController";\n'
-          import_anchor = '} from "@/components/fresh/main-dashboard/program-prompts/programPromptSession";\n'
-
-          if import_line not in text:
-              if import_anchor not in text:
-                  raise SystemExit("Program prompt import anchor not found. Refusing to patch Dashboard.jsx.")
-              text = text.replace(import_anchor, import_anchor + import_line, 1)
-
-          hook_call = (
-              '  useDashboardProgramPromptController({\n'
-              '    floatingProgramBubble,\n'
-              '    userId: user?.id,\n'
-              '    profileData,\n'
-              '    dashboardShellReady,\n'
-              '    showOnboarding,\n'
-              '    dailyRemindersEnabled,\n'
-              '    hasPaidProgramAccess,\n'
-              '    setProgramPromptSeenThisSession,\n'
-              '    setShowProgramStart,\n'
-              '  });\n\n'
-          )
-
-          if 'useDashboardProgramPromptController({' not in text:
-              start_token = '  useEffect(() => {\n    if (!floatingProgramBubble || !user?.id) {'
-              end_token = '  const topWallet = useMemo(() => wallets[0] || null, [wallets]);\n'
-              start = text.find(start_token)
-              end = text.find(end_token, start)
-
-              if start == -1:
-                  raise SystemExit("Program prompt effects start not found. Refusing to patch Dashboard.jsx.")
-              if end == -1:
-                  raise SystemExit("Program prompt effects end anchor not found. Refusing to patch Dashboard.jsx.")
-
-              old_block = text[start:end]
-              required_tokens = [
-                  'readProgramPromptSeenThisSession(user.id, floatingProgramBubble)',
-                  'clearProgramPromptSeenThisSession(user.id, floatingProgramBubble)',
-                  'setProgramPromptSeenThisSession(false)',
-                  'setShowProgramStart(true)',
-                  'setShowProgramStart(!seen)',
-              ]
-
-              if not all(token in old_block for token in required_tokens):
-                  raise SystemExit("Program prompt effects content mismatch. Refusing to patch Dashboard.jsx.")
-
-              text = text[:start] + hook_call + text[end:]
-
-          if 'useDashboardProgramPromptController({' not in text:
-              raise SystemExit("Program prompt controller hook was not wired. Refusing to continue.")
-          if 'readProgramPromptSeenThisSession(user.id, floatingProgramBubble)' in text:
-              raise SystemExit("Old program prompt read effect still exists after patch. Refusing to continue.")
-          if 'clearProgramPromptSeenThisSession(user.id, floatingProgramBubble)' in text:
-              raise SystemExit("Old program prompt clear effect still exists after patch. Refusing to continue.")
-
-          Path('.github/workflows/patch-dashboard-program-prompt-controller.yml').unlink(missing_ok=True)
-          target.write_text(text)
-          PY
-
-      - name: Commit and push patch
-        run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add src/pages/Dashboard.jsx .github/workflows/patch-dashboard-program-prompt-controller.yml
-
-          if git diff --cached --quiet; then
-            echo "No changes to commit."
-            exit 0
-          fi
-
-          git commit -m "Wire dashboard program prompt controller"
-          git push
+      - run: echo "Legacy workflow disabled"
