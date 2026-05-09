@@ -13,6 +13,12 @@ export default function BudgetSummaryStats({
   hasDeclaredBudget = false,
   planIsComplete = false,
 }) {
+  const roundedProgress = Math.round(progress);
+  const hasNoSpendingLogged = hasDeclaredBudget && Number(spent || 0) <= 0 && roundedProgress <= 0;
+  const insightMessage = hasNoSpendingLogged
+    ? "No spending logged yet for this budget."
+    : message;
+
   return (
     <>
       <div className="mb-2.5">
@@ -24,18 +30,12 @@ export default function BudgetSummaryStats({
           {fmt(declared)}
         </p>
 
-        <div className="mt-1.5 flex items-center gap-2">
-          <p className={`text-sm font-bold leading-tight ${remainingAmountColor}`}>
-            {fmt(remaining)} left
-          </p>
+        <p className={`mt-1.5 text-sm font-bold leading-tight ${remainingAmountColor}`}>
+          {fmt(remaining)} left
+        </p>
 
-          <span className="rounded-full border border-white/10 bg-white/[0.055] px-2 py-0.5 text-[10px] font-semibold text-white/45">
-            Remaining
-          </span>
-        </div>
-
-        <p className="mt-2 max-w-[28rem] text-xs font-medium leading-relaxed text-white/80">
-          {message}
+        <p className="mt-2 max-w-[28rem] text-xs font-medium leading-relaxed text-white/82">
+          {insightMessage}
         </p>
 
         <p className="mt-1 text-[11px] leading-relaxed text-white/54">
@@ -49,11 +49,15 @@ export default function BudgetSummaryStats({
 
       <div className="mb-2">
         <div className="mb-1.5 flex items-center justify-between text-[11px] font-medium text-white/72">
-          <span>Monthly progress</span>
-          <span>{Math.round(progress)}%</span>
+          <span>Spending progress</span>
+          <span>{roundedProgress}%</span>
         </div>
 
         <div className="relative h-3 overflow-hidden rounded-full border border-cyan-100/14 bg-black/18 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]">
+          {hasDeclaredBudget && roundedProgress <= 0 ? (
+            <span className="absolute left-0.5 top-1/2 h-2 w-2 -translate-y-1/2 rounded-full bg-cyan-100/80 shadow-[0_0_14px_rgba(103,232,249,0.35)]" />
+          ) : null}
+
           <div
             className={`relative h-full rounded-full bg-gradient-to-r ${status.bar} transition-all duration-500`}
             style={{ width: `${progress}%` }}
