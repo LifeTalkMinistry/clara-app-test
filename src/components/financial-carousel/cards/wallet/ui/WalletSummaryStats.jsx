@@ -13,9 +13,9 @@ export default function WalletSummaryStats({
   const activityCount = walletPreviewTransactions.length;
 
   return (
-    <div className='flex h-full min-h-0 flex-col justify-between gap-3'>
+    <div className='flex h-full min-h-0 flex-col justify-between gap-2.5'>
       <div className='shrink-0 pt-1'>
-        <p className={`text-[48px] font-black leading-none tracking-[-0.055em] ${status.text}`}>
+        <p className={`text-[46px] font-black leading-none tracking-[-0.055em] ${status.text}`}>
           {fmt(walletMoney)}
         </p>
 
@@ -25,17 +25,17 @@ export default function WalletSummaryStats({
       </div>
 
       <div className='grid shrink-0 grid-cols-3 gap-2.5'>
-        <div className={`rounded-2xl px-3 py-3 text-center ${glassPanel}`}>
+        <div className={`rounded-2xl px-3 py-2.5 text-center ${glassPanel}`}>
           <p className='text-base font-black leading-none text-white'>{walletCount}</p>
           <p className='mt-1.5 text-[9px] font-bold uppercase tracking-[0.16em] text-white/45'>Wallets</p>
         </div>
 
-        <div className={`rounded-2xl px-3 py-3 text-center ${glassPanel}`}>
+        <div className={`rounded-2xl px-3 py-2.5 text-center ${glassPanel}`}>
           <p className='truncate text-base font-black leading-none text-white'>{topWallet?.name || 'None'}</p>
           <p className='mt-1.5 text-[9px] font-bold uppercase tracking-[0.16em] text-white/45'>Primary</p>
         </div>
 
-        <div className={`rounded-2xl px-3 py-3 text-center ${glassPanel}`}>
+        <div className={`rounded-2xl px-3 py-2.5 text-center ${glassPanel}`}>
           <p className='text-base font-black leading-none text-white'>{activityCount}</p>
           <p className='mt-1.5 text-[9px] font-bold uppercase tracking-[0.16em] text-white/45'>Recent</p>
         </div>
