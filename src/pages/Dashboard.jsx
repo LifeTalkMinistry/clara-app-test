@@ -101,6 +101,7 @@ import {
 } from "@/components/fresh/main-dashboard/finance-form/financeFormConstants";
 import createInitialFinanceForm from "@/components/fresh/main-dashboard/finance-form/financeFormInitialState";
 import useDashboardFinanceUiState from "@/components/fresh/main-dashboard/finance-form/useDashboardFinanceUiState";
+import useDashboardManualExpenseValidation from "@/components/fresh/main-dashboard/finance-form/useDashboardManualExpenseValidation";
 import useBudgetListDropdownDismiss from "@/components/fresh/main-dashboard/finance-form/useBudgetListDropdownDismiss";
 import { hasDashboardFinanceContent } from "@/components/fresh/main-dashboard/finance-content/dashboardFinanceContent";
 import useDashboardVisibleFinanceData from "@/components/fresh/main-dashboard/finance-content/useDashboardVisibleFinanceData";
@@ -748,16 +749,15 @@ export default function Dashboard() {
     setBudgetListOpen(false);
   }, []);
 
-  const manualExpenseIsUnplanned = financeForm.budgetListKey === "__unplanned__";
-  const manualExpenseIsUndocumented = financeForm.budgetListKey === "__undocumented__";
-  const manualExpenseReason = normalizeString(financeForm.unplannedReason || financeForm.notes);
-  const manualExpenseUndocumentedReason = normalizeString(financeForm.undocumentedReason);
-  const manualExpenseCanSubmit =
-    Number(financeForm.amount) > 0 &&
-    Boolean(financeForm.budgetListKey) &&
-    Boolean(financeForm.expenseWalletId) &&
-    (!manualExpenseIsUnplanned || Boolean(manualExpenseReason)) &&
-    (!manualExpenseIsUndocumented || Boolean(manualExpenseUndocumentedReason));
+  const {
+    manualExpenseIsUnplanned,
+    manualExpenseIsUndocumented,
+    manualExpenseReason,
+    manualExpenseUndocumentedReason,
+    manualExpenseCanSubmit,
+  } = useDashboardManualExpenseValidation({
+    financeForm,
+  });
 
   const monthlyBudgetPlan = useMemo(() => {
     const monthKey = getPHMonthKey();
