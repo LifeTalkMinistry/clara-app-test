@@ -1,87 +1,10 @@
-name: Fix program prompt controller wire
+name: Disabled legacy workflow
 
 on:
-  push:
-    branches:
-      - main
   workflow_dispatch:
 
-permissions:
-  contents: write
-
 jobs:
-  fix-program-prompt-controller-wire:
+  disabled:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-        with:
-          token: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Safely wire program prompt controller
-        run: |
-          python - <<'PY'
-          from pathlib import Path
-
-          target = Path('src/pages/Dashboard.jsx')
-          text = target.read_text()
-
-          import_line = 'import useDashboardProgramPromptController from "@/components/fresh/main-dashboard/program-prompts/useDashboardProgramPromptController";\n'
-          anchor = '} from "@/components/fresh/main-dashboard/program-prompts/programPromptSession";\n'
-
-          if import_line not in text:
-              if anchor not in text:
-                  raise SystemExit('Program prompt import anchor not found.')
-              text = text.replace(anchor, anchor + import_line, 1)
-
-          hook_block = '''  useDashboardProgramPromptController({
-    floatingProgramBubble,
-    userId: user?.id,
-    profileData,
-    dashboardShellReady,
-    showOnboarding,
-    dailyRemindersEnabled,
-    hasPaidProgramAccess,
-    setProgramPromptSeenThisSession,
-    setShowProgramStart,
-  });
-
-'''
-
-          if 'useDashboardProgramPromptController({' not in text:
-              insert_anchor = '  const topWallet = useMemo(() => wallets[0] || null, [wallets]);\n'
-              if insert_anchor not in text:
-                  raise SystemExit('topWallet anchor not found.')
-              text = text.replace(insert_anchor, hook_block + insert_anchor, 1)
-
-          stale_patterns = [
-              'readProgramPromptSeenThisSession(user.id, floatingProgramBubble)',
-              'clearProgramPromptSeenThisSession(user.id, floatingProgramBubble)',
-          ]
-
-          # Remove only the strict failure checks from the old workflow scenario.
-          # Dashboard may still legitimately contain supporting logic.
-          for stale in stale_patterns:
-              failure_check = f'raise SystemExit("Old program prompt'
-              if failure_check in text:
-                  text = text.replace(failure_check, '// removed stale failure check')
-
-          Path('.github/workflows/patch-dashboard-program-prompt-controller.yml').unlink(missing_ok=True)
-          Path('.github/workflows/fix-program-prompt-controller-wire.yml').unlink(missing_ok=True)
-
-          target.write_text(text)
-          PY
-
-      - name: Commit and push patch
-        run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add src/pages/Dashboard.jsx .github/workflows/patch-dashboard-program-prompt-controller.yml .github/workflows/fix-program-prompt-controller-wire.yml
-
-          if git diff --cached --quiet; then
-            echo "No changes to commit."
-            exit 0
-          fi
-
-          git commit -m "Fix program prompt controller wiring"
-          git push
+      - run: echo "Legacy workflow disabled"
