@@ -50,6 +50,7 @@ import useDashboardMoneyLeftMetrics from "@/components/fresh/main-dashboard/mone
 import useDashboardBudgetSummaries from "@/components/fresh/main-dashboard/budget/useDashboardBudgetSummaries";
 import useDashboardMonthlyBudgetHeader from "@/components/fresh/main-dashboard/budget/useDashboardMonthlyBudgetHeader";
 import useDashboardManualExpenseBudgetOptions from "@/components/fresh/main-dashboard/budget/useDashboardManualExpenseBudgetOptions";
+import useDashboardSelectedBudgetState from "@/components/fresh/main-dashboard/budget/useDashboardSelectedBudgetState";
 import DashboardTopNav from "@/components/fresh/main-dashboard/top-nav/DashboardTopNav";
 import DashboardShell from "@/components/fresh/main-dashboard/shell/DashboardShell";
 import useDashboardShellReady from "@/components/fresh/main-dashboard/shell/useDashboardShellReady";
@@ -721,19 +722,13 @@ export default function Dashboard() {
       budgets,
     });
 
-  const selectedManualExpenseBudget = useMemo(
-    () =>
-      manualExpenseBudgetOptions.find(
-        (item) => String(item.key) === String(financeForm.budgetListKey)
-      ) || null,
-    [financeForm.budgetListKey, manualExpenseBudgetOptions]
-  );
-
-  const selectedBudgetListLabel = useMemo(() => {
-    if (financeForm.budgetListKey === "__unplanned__") return "Unplanned Spending";
-    if (financeForm.budgetListKey === "__undocumented__") return "Undocumented Spending";
-    return selectedManualExpenseBudget?.title || "Select budget list";
-  }, [financeForm.budgetListKey, selectedManualExpenseBudget?.title]);
+  const {
+    selectedManualExpenseBudget,
+    selectedBudgetListLabel,
+  } = useDashboardSelectedBudgetState({
+    financeForm,
+    manualExpenseBudgetOptions,
+  });
 
   const setManualExpenseBudgetListKey = useCallback((nextValue) => {
     setFinanceForm((prev) => ({
