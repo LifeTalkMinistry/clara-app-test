@@ -1,0 +1,215 @@
+name: Patch dashboard data loader hook
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  patch-dashboard-data-loader-hook:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Wire useDashboardDataLoader into Dashboard.jsx
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          target = Path("src/pages/Dashboard.jsx")
+          text = target.read_text()
+
+          import_line = 'import useDashboardDataLoader from "@/components/fresh/main-dashboard/dashboard-cache/useDashboardDataLoader";\n'
+          import_anchor = 'import useDashboardCacheOwnerSync from "@/components/fresh/main-dashboard/dashboard-cache/useDashboardCacheOwnerSync";\n'
+          fallback_anchor = 'import useDashboardHydrateFromCache from "@/components/fresh/main-dashboard/dashboard-cache/useDashboardHydrateFromCache";\n'
+
+          if import_line not in text:
+              if import_anchor in text:
+                  text = text.replace(import_anchor, import_anchor + import_line, 1)
+              elif fallback_anchor in text:
+                  text = text.replace(fallback_anchor, fallback_anchor + import_line, 1)
+              else:
+                  raise SystemExit("Dashboard data loader import anchor not found. Refusing to patch Dashboard.jsx.")
+
+          def find_statement_end(source, start):
+              paren = brace = bracket = 0
+              quote = None
+              escape = False
+              line_comment = False
+              block_comment = False
+              i = start
+
+              while i < len(source):
+                  ch = source[i]
+                  nxt = source[i + 1] if i + 1 < len(source) else ""
+
+                  if line_comment:
+                      if ch == "\n":
+                          line_comment = False
+                      i += 1
+                      continue
+
+                  if block_comment:
+                      if ch == "*" and nxt == "/":
+                          block_comment = False
+                          i += 2
+                      else:
+                          i += 1
+                      continue
+
+                  if quote:
+                      if escape:
+                          escape = False
+                      elif ch == "\\":
+                          escape = True
+                      elif ch == quote:
+                          quote = None
+                      i += 1
+                      continue
+
+                  if ch == "/" and nxt == "/":
+                      line_comment = True
+                      i += 2
+                      continue
+                  if ch == "/" and nxt == "*":
+                      block_comment = True
+                      i += 2
+                      continue
+                  if ch in ("'", '"', "`"):
+                      quote = ch
+                      i += 1
+                      continue
+
+                  if ch == "(":
+                      paren += 1
+                  elif ch == ")":
+                      paren -= 1
+                  elif ch == "{":
+                      brace += 1
+                  elif ch == "}":
+                      brace -= 1
+                  elif ch == "[":
+                      bracket += 1
+                  elif ch == "]":
+                      bracket -= 1
+                  elif ch == ";" and paren == 0 and brace == 0 and bracket == 0:
+                      return i + 1
+
+                  i += 1
+
+              return -1
+
+          in_flight_block = (
+              '  const getDashboardPageInFlight = useCallback(() => dashboardPageInFlight, []);\n'
+              '  const setDashboardPageInFlight = useCallback((nextInFlight) => {\n'
+              '    dashboardPageInFlight = nextInFlight;\n'
+              '  }, []);\n'
+              '  const clearDashboardPageInFlight = useCallback((ownerKey) => {\n'
+              '    if (dashboardPageInFlight?.key === ownerKey) dashboardPageInFlight = null;\n'
+              '  }, []);\n\n'
+          )
+
+          if 'const getDashboardPageInFlight = useCallback(() => dashboardPageInFlight, []);' not in text:
+              cache_setter = (
+                  '  const setDashboardPageCache = useCallback((nextCache) => {\n'
+                  '    dashboardPageCache = nextCache;\n'
+                  '  }, []);\n\n'
+              )
+              if cache_setter not in text:
+                  raise SystemExit("Dashboard page cache setter block not found. Refusing to insert in-flight callbacks.")
+              text = text.replace(cache_setter, cache_setter + in_flight_block, 1)
+
+          loader_block = (
+              '  const loadDashboardData = useDashboardDataLoader({\n'
+              '    userId,\n'
+              '    userEmail,\n'
+              '    user,\n'
+              '    cacheKey,\n'
+              '    financeWallets,\n'
+              '    financeWalletTransactions,\n'
+              '    financeTransfers,\n'
+              '    financeBudgets,\n'
+              '    financeSavingsGoals,\n'
+              '    financeExpenses,\n'
+              '    financeEmergencyFund,\n'
+              '    nickname,\n'
+              '    reminderTime,\n'
+              '    financialGoal,\n'
+              '    survivalExpense,\n'
+              '    isPaid,\n'
+              '    dailyRemindersEnabled,\n'
+              '    hasVisibleFinanceData,\n'
+              '    hydrateFromCache,\n'
+              '    hasLoadedDashboardRef,\n'
+              '    getDashboardPageCache,\n'
+              '    setDashboardPageCache,\n'
+              '    getDashboardPageInFlight,\n'
+              '    setDashboardPageInFlight,\n'
+              '    clearDashboardPageInFlight,\n'
+              '    setLoading,\n'
+              '    setGuardChecked,\n'
+              '    setFinanceNotice,\n'
+              '    setShowProgramStart,\n'
+              '    setProgramRecord,\n'
+              '  });\n\n'
+          )
+
+          if 'useDashboardDataLoader({' not in text:
+              start_token = '  const loadDashboardData = useCallback(\n'
+              start_index = text.find(start_token)
+              if start_index == -1:
+                  raise SystemExit("loadDashboardData useCallback start not found. Refusing to patch Dashboard.jsx.")
+
+              end_index = find_statement_end(text, start_index)
+              if end_index == -1:
+                  raise SystemExit("loadDashboardData useCallback statement end not found. Refusing to patch Dashboard.jsx.")
+
+              if text[end_index:end_index + 2] == "\n\n":
+                  end_index += 2
+              elif text[end_index:end_index + 1] == "\n":
+                  end_index += 1
+
+              old_block = text[start_index:end_index]
+              required_tokens = [
+                  'supabase.from("challenge_tasks")',
+                  'fetchUserProgramRecord({ supabase, userId: currentUser.id })',
+                  'ensureUserProgramAccess({',
+                  'dashboardPageInFlight',
+                  'hydrateFromCache(nextCache)',
+                  'setFinanceNotice({',
+              ]
+
+              if not all(token in old_block for token in required_tokens):
+                  raise SystemExit("loadDashboardData block content mismatch. Refusing to patch Dashboard.jsx.")
+
+              text = text[:start_index] + loader_block + text[end_index:]
+
+          if 'useDashboardDataLoader({' not in text:
+              raise SystemExit("useDashboardDataLoader was not wired. Refusing to continue.")
+          if 'const loadDashboardData = useCallback(' in text:
+              raise SystemExit("Old loadDashboardData useCallback still exists after patch. Refusing to continue.")
+
+          Path('.github/workflows/patch-dashboard-data-loader-hook.yml').unlink(missing_ok=True)
+          target.write_text(text)
+          PY
+
+      - name: Commit and push patch
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add src/pages/Dashboard.jsx .github/workflows/patch-dashboard-data-loader-hook.yml
+
+          if git diff --cached --quiet; then
+            echo "No changes to commit."
+            exit 0
+          fi
+
+          git commit -m "Wire dashboard data loader hook"
+          git push
