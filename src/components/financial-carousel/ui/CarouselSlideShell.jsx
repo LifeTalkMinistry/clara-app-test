@@ -10,12 +10,13 @@ export default function CarouselSlideShell({
   isExpanded = false,
   children,
 }) {
-  const slideHeight = isExpanded ? EXPANDED_SLIDE_HEIGHT : NORMAL_SLIDE_HEIGHT;
+  const layoutHeight = NORMAL_SLIDE_HEIGHT;
+  const cardHeight = isExpanded ? EXPANDED_SLIDE_HEIGHT : NORMAL_SLIDE_HEIGHT;
 
   return (
     <div
-      className="clara-finance-slide-shell relative flex w-full min-w-full shrink-0 snap-center overflow-visible transition-[height] duration-500 ease-[cubic-bezier(0.22,1,0.36,1)]"
-      style={{ height: slideHeight, minHeight: slideHeight }}
+      className="clara-finance-slide-shell relative flex w-full min-w-full shrink-0 snap-center overflow-visible"
+      style={{ height: layoutHeight, minHeight: layoutHeight }}
     >
       <div
         className={getFinanceSlideShellClass(
@@ -23,7 +24,7 @@ export default function CarouselSlideShell({
           selectedDashboardTheme,
           isExpanded
         )}
-        style={{ height: slideHeight, minHeight: slideHeight }}
+        style={{ height: cardHeight, minHeight: cardHeight }}
       >
         {children}
       </div>
