@@ -97,6 +97,7 @@ import useDashboardEnrollmentRedirect from "@/components/fresh/main-dashboard/pr
 import useDashboardProfileUpdateListener from "@/components/fresh/main-dashboard/profile/useDashboardProfileUpdateListener";
 import OnboardingActionBar from "@/components/fresh/main-dashboard/onboarding/OnboardingActionBar";
 import useOnboardingPageLock from "@/components/fresh/main-dashboard/onboarding/useOnboardingPageLock";
+import useDashboardOnboardingState from "@/components/fresh/main-dashboard/onboarding/useDashboardOnboardingState";
 import {
   financeInputClassName,
   UNDOCUMENTED_SPENDING_REASONS,
@@ -292,16 +293,26 @@ export default function Dashboard() {
   );
   const [guardChecked, setGuardChecked] = useState(initialCache.guardChecked);
 
-  const [showProgramStart, setShowProgramStart] = useState(false);
-  const [programPromptSeenThisSession, setProgramPromptSeenThisSession] =
-    useState(false);
-  const [showOnboarding, setShowOnboarding] = useState(false);
-  const [onboardingStep, setOnboardingStep] = useState(0);
-  const [savingOnboarding, setSavingOnboarding] = useState(false);
-  const [commitmentChecked, setCommitmentChecked] = useState(false);
-  const [nickname, setNickname] = useState(initialCache.nickname);
-  const [reminderTime, setReminderTime] = useState(initialCache.reminderTime);
-  const [financialGoal, setFinancialGoal] = useState(initialCache.financialGoal);
+  const {
+    showProgramStart,
+    setShowProgramStart,
+    programPromptSeenThisSession,
+    setProgramPromptSeenThisSession,
+    showOnboarding,
+    setShowOnboarding,
+    onboardingStep,
+    setOnboardingStep,
+    savingOnboarding,
+    setSavingOnboarding,
+    commitmentChecked,
+    setCommitmentChecked,
+    nickname,
+    setNickname,
+    reminderTime,
+    setReminderTime,
+    financialGoal,
+    setFinancialGoal,
+  } = useDashboardOnboardingState(initialCache);
   const [notificationSettings, setNotificationSettings] =
     useDashboardNotificationSettings(userId);
   const {
