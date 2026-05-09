@@ -87,40 +87,28 @@ function cloneHiddenNumberInput(node) {
 }
 
 function ClaraMoneyAmountHero({ label, helper, value, hiddenInput }) {
-  const hasValue = Boolean(String(value || "").trim());
-
   return (
-    <div className="relative overflow-hidden rounded-[26px] border border-cyan-100/14 bg-[radial-gradient(circle_at_50%_0%,rgba(16,185,129,0.14),transparent_44%),rgba(255,255,255,0.045)] px-3.5 py-3 shadow-[inset_0_1px_0_rgba(255,255,255,0.10),0_16px_38px_rgba(0,0,0,0.18)]">
-      <div
-        className={`pointer-events-none absolute inset-x-8 top-0 h-14 rounded-full blur-2xl transition-opacity duration-200 ${
-          hasValue ? "bg-emerald-300/18 opacity-100" : "bg-cyan-300/10 opacity-60"
-        }`}
-      />
-
+    <div className="relative overflow-hidden rounded-[26px] border border-white/14 bg-[linear-gradient(135deg,rgba(10,48,68,0.96),rgba(19,18,78,0.98))] px-3.5 py-3 shadow-[inset_0_1px_0_rgba(255,255,255,0.08),0_14px_32px_rgba(0,0,0,0.16)]">
       <div className="relative flex items-center justify-between gap-3">
-        <span className="text-[10px] font-black uppercase tracking-[0.18em] text-white/58">
+        <span className="text-[10px] font-black uppercase tracking-[0.18em] text-white/62">
           {label || "Amount"}
         </span>
-        <span className="rounded-full border border-white/10 bg-white/[0.055] px-2.5 py-0.5 text-[8px] font-bold uppercase tracking-[0.16em] text-emerald-100/70">
+
+        <span className="rounded-full border border-white/10 bg-white/[0.05] px-2.5 py-0.5 text-[8px] font-bold uppercase tracking-[0.16em] text-white/48">
           CLARA input
         </span>
       </div>
 
-      <div className="relative mt-1.5 flex min-h-[58px] items-center justify-center rounded-[22px] border border-white/10 bg-black/16 px-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.07)]">
+      <div className="relative mt-2 flex min-h-[62px] items-center justify-center rounded-[22px] border border-white/8 bg-black/10 px-4">
         {hiddenInput}
-        <div
-          className={`max-w-full truncate text-center text-[38px] font-black leading-none tracking-[-0.075em] transition duration-200 ${
-            hasValue
-              ? "scale-[1.01] text-emerald-50 drop-shadow-[0_0_16px_rgba(110,231,183,0.22)]"
-              : "text-white/80"
-          }`}
-        >
+
+        <div className="max-w-full truncate text-center text-[40px] font-black leading-none tracking-[-0.08em] text-white">
           ₱{value || "0"}
         </div>
       </div>
 
       {helper ? (
-        <p className="relative mt-1.5 text-[11px] font-semibold leading-4 text-white/64">
+        <p className="relative mt-2 text-[11px] font-semibold leading-4 text-white/62">
           {helper}
         </p>
       ) : null}
@@ -150,6 +138,7 @@ function ClaraMoneyKeypad({ value, onChange }) {
         <span className="text-[8px] font-bold uppercase tracking-[0.2em] text-white/42">
           Numeric pad
         </span>
+
         <button
           type="button"
           onClick={() => onChange("")}
@@ -189,6 +178,7 @@ export default function FinanceActionModal({
 }) {
   const formRef = useRef(null);
   const [moneyAmount, setMoneyAmount] = useState("");
+  const [selectLiftActive, setSelectLiftActive] = useState(false);
   const usesClaraMoneyKeypad = MONEY_ACTION_TITLES.has(title);
   const displayDescription = getDisplayDescription(title, description);
 
@@ -261,15 +251,67 @@ export default function FinanceActionModal({
     return () => window.cancelAnimationFrame(frame);
   }, [open, usesClaraMoneyKeypad]);
 
+  useEffect(() => {
+    if (!open) {
+      setSelectLiftActive(false);
+      return undefined;
+    }
+
+    const form = formRef.current;
+    if (!form) return undefined;
+
+    const selects = Array.from(form.querySelectorAll("select"));
+    if (!selects.length) return undefined;
+
+    let hideTimer = null;
+
+    const showSpacer = () => {
+      if (hideTimer) window.clearTimeout(hideTimer);
+      setSelectLiftActive(true);
+    };
+
+    const hideSpacer = () => {
+      if (hideTimer) window.clearTimeout(hideTimer);
+      hideTimer = window.setTimeout(() => setSelectLiftActive(false), 160);
+    };
+
+    const handleKeyDown = (event) => {
+      if (event.key === "Escape" || event.key === "Tab") hideSpacer();
+    };
+
+    selects.forEach((select) => {
+      select.addEventListener("pointerdown", showSpacer);
+      select.addEventListener("mousedown", showSpacer);
+      select.addEventListener("touchstart", showSpacer, { passive: true });
+      select.addEventListener("focus", showSpacer);
+      select.addEventListener("change", hideSpacer);
+      select.addEventListener("blur", hideSpacer);
+      select.addEventListener("keydown", handleKeyDown);
+    });
+
+    return () => {
+      if (hideTimer) window.clearTimeout(hideTimer);
+      selects.forEach((select) => {
+        select.removeEventListener("pointerdown", showSpacer);
+        select.removeEventListener("mousedown", showSpacer);
+        select.removeEventListener("touchstart", showSpacer);
+        select.removeEventListener("focus", showSpacer);
+        select.removeEventListener("change", hideSpacer);
+        select.removeEventListener("blur", hideSpacer);
+        select.removeEventListener("keydown", handleKeyDown);
+      });
+    };
+  }, [open, modalChildren]);
+
   if (!open) return null;
 
   return (
     <div className="fixed inset-0 z-[120] flex min-h-[100svh] items-start justify-center overflow-hidden bg-[radial-gradient(circle_at_50%_20%,rgba(15,23,42,0.42),rgba(2,6,23,0.72)_54%,rgba(2,6,23,0.86))] px-1.5 pb-[calc(0.75rem+env(safe-area-inset-bottom))] pt-0 backdrop-blur-[16px]">
-      <div className="flex max-h-[calc(100svh-1.25rem)] w-full max-w-[402px] overflow-hidden rounded-[34px] border border-cyan-100/[0.18] bg-[radial-gradient(circle_at_50%_0%,rgba(20,184,166,0.14),transparent_42%),linear-gradient(135deg,rgba(5,44,62,0.99),rgba(7,20,48,0.995)_48%,rgba(38,16,77,0.995))] shadow-[0_28px_90px_rgba(0,0,0,0.62),0_0_0_1px_rgba(255,255,255,0.08),0_0_54px_rgba(34,211,238,0.12)]">
+      <div className="relative z-[200] flex max-h-[calc(100svh-1.25rem)] w-full max-w-[402px] overflow-visible rounded-[34px] border border-cyan-100/[0.18] bg-[radial-gradient(circle_at_50%_0%,rgba(20,184,166,0.14),transparent_42%),linear-gradient(135deg,rgba(5,44,62,0.99),rgba(7,20,48,0.995)_48%,rgba(38,16,77,0.995))] shadow-[0_28px_90px_rgba(0,0,0,0.62),0_0_0_1px_rgba(255,255,255,0.08),0_0_54px_rgba(34,211,238,0.12)]">
         <form
           ref={formRef}
           onSubmit={onSubmit}
-          className="flex max-h-[calc(100svh-1.25rem)] min-h-0 w-full flex-col"
+          className="flex max-h-[calc(100svh-1.25rem)] min-h-0 w-full flex-col overflow-visible"
         >
           <div className="shrink-0 border-b border-white/10 bg-white/[0.035] px-5 py-3.5">
             <div className="flex items-start justify-between gap-4">
@@ -296,11 +338,18 @@ export default function FinanceActionModal({
             </div>
           </div>
 
-          <div className="min-h-0 max-h-[calc(100svh-10rem)] space-y-2.5 overflow-y-auto overscroll-contain px-5 py-3 pb-3 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+          <div className="relative z-[220] min-h-0 max-h-[calc(100svh-10rem)] space-y-2.5 overflow-y-auto overflow-x-visible overscroll-contain px-5 py-3 pb-3 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
             {modalChildren}
 
             {usesClaraMoneyKeypad ? (
               <>
+                {selectLiftActive && modalChildren.length ? (
+                  <div
+                    aria-hidden="true"
+                    className="h-[58px] rounded-[22px] border border-white/8 bg-black/10 transition-all"
+                  />
+                ) : null}
+
                 <ClaraMoneyAmountHero
                   label={moneyFieldLabel}
                   helper={moneyFieldHelper}
