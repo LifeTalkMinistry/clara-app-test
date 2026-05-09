@@ -48,6 +48,7 @@ import useMoneySummaryVisibility from "@/components/fresh/main-dashboard/money-s
 import useMoneyLeftSummaryHandlers from "@/components/fresh/main-dashboard/money-summary/useMoneyLeftSummaryHandlers";
 import useDashboardMoneyLeftMetrics from "@/components/fresh/main-dashboard/money-summary/useDashboardMoneyLeftMetrics";
 import useDashboardBudgetSummaries from "@/components/fresh/main-dashboard/budget/useDashboardBudgetSummaries";
+import useDashboardMonthlyBudgetHeader from "@/components/fresh/main-dashboard/budget/useDashboardMonthlyBudgetHeader";
 import DashboardTopNav from "@/components/fresh/main-dashboard/top-nav/DashboardTopNav";
 import DashboardShell from "@/components/fresh/main-dashboard/shell/DashboardShell";
 import useDashboardShellReady from "@/components/fresh/main-dashboard/shell/useDashboardShellReady";
@@ -707,38 +708,12 @@ export default function Dashboard() {
     expenses,
   });
 
-  const monthlyBudgetHeader = useMemo(() => {
-    const currentMonthKey = getPHMonthKey();
-
-    return (
-      budgets.find((budget) => {
-        const month = normalizeString(budget?.month || budget?.budget_month || budget?.month_key);
-        const isCurrentMonth = !month || month === currentMonthKey;
-        const status = normalizeLower(budget?.status);
-        const isActive = budget?.is_active !== false && budget?.active !== false;
-        const isHeader =
-          budget?.is_plan_header === true ||
-          budget?.plan_type === "monthly_budget" ||
-          normalizeLower(budget?.category) === "__monthly_budget__" ||
-          normalizeLower(budget?.budget_category) === "__monthly_budget__" ||
-          normalizeLower(budget?.type) === "monthly_budget";
-
-        return isCurrentMonth && isActive && !["inactive", "archived", "deleted", "closed"].includes(status) && isHeader;
-      }) || null
-    );
-  }, [budgets]);
-
-  const declaredMonthlyBudgetAmount = useMemo(() => {
-    return firstValidNumber(
-      monthlyBudgetHeader?.declared_amount,
-      monthlyBudgetHeader?.declared_budget,
-      monthlyBudgetHeader?.monthly_budget_amount,
-      monthlyBudgetHeader?.total_declared_budget,
-      monthlyBudgetHeader?.total_budget,
-      monthlyBudgetHeader?.budget_amount,
-      monthlyBudgetHeader?.amount
-    );
-  }, [monthlyBudgetHeader]);
+  const {
+    monthlyBudgetHeader,
+    declaredMonthlyBudgetAmount,
+  } = useDashboardMonthlyBudgetHeader({
+    budgets,
+  });
 
   const manualExpenseBudgetOptions = useMemo(() => {
     const currentMonthKey = getPHMonthKey();
