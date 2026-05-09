@@ -9,7 +9,6 @@ import {
   getDefaultCarouselIndex,
 } from "./logic/FinancialCarouselLogic";
 import {
-  EXPANDED_TOP_PULL,
   FINANCIAL_CAROUSEL_FOCUS_CLASS,
   FINANCIAL_CAROUSEL_FOCUS_STYLES,
   getExpandedCarouselCardIndex,
@@ -67,10 +66,7 @@ export default function FinancialCarousel(props) {
   if (!items.length) return null;
 
   return (
-    <div
-      className="relative z-20 mb-5 transition-[margin-top] duration-500 ease-[cubic-bezier(0.22,1,0.36,1)]"
-      style={{ marginTop: isInlineFocusExpanded ? EXPANDED_TOP_PULL : 0 }}
-    >
+    <div className="relative z-20 mb-5">
       <style>{FINANCIAL_CAROUSEL_FOCUS_STYLES}</style>
 
       <CarouselViewport
