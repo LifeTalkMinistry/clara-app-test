@@ -1,6 +1,7 @@
 import {
   EXPANDED_SLIDE_HEIGHT,
   NORMAL_SLIDE_HEIGHT,
+  WALLET_EXPANDED_SLIDE_HEIGHT,
   getFinanceSlideShellClass,
 } from "../shared/financeSlideShellTheme";
 
@@ -10,7 +11,12 @@ export default function CarouselSlideShell({
   isExpanded = false,
   children,
 }) {
-  const slideHeight = isExpanded ? EXPANDED_SLIDE_HEIGHT : NORMAL_SLIDE_HEIGHT;
+  const expandedHeight =
+    item?.key === "wallet"
+      ? WALLET_EXPANDED_SLIDE_HEIGHT
+      : EXPANDED_SLIDE_HEIGHT;
+
+  const slideHeight = isExpanded ? expandedHeight : NORMAL_SLIDE_HEIGHT;
 
   return (
     <div
