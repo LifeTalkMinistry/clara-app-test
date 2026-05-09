@@ -31,15 +31,15 @@ export default function WalletCardContent({
   const walletCount = visibleWallets.length || wallets.filter((wallet) => !wallet?.is_archived).length;
 
   return (
-    <div className='relative z-10 flex h-full min-h-0 flex-col p-[clamp(0.875rem,3.5vw,1rem)] pb-[clamp(1rem,2svh,1.25rem)]'>
+    <div className='relative z-10 flex h-full min-h-0 flex-col p-[clamp(0.875rem,3.2vw,1rem)] pb-[clamp(0.9rem,1.8svh,1.1rem)]'>
       <div
         className={`flex min-h-0 flex-col ${
           expanded
             ? 'flex-1 gap-[clamp(0.625rem,1.4svh,0.85rem)]'
-            : 'flex-1 justify-center gap-[clamp(0.875rem,1.8svh,1.05rem)]'
+            : 'flex-1 justify-between gap-[clamp(0.625rem,1.15svh,0.85rem)]'
         }`}
       >
-        <div className='flex min-h-0 flex-col gap-[clamp(0.625rem,1.5svh,0.9rem)]'>
+        <div className='flex min-h-0 flex-col gap-[clamp(0.5rem,1.1svh,0.8rem)]'>
           {!expanded && <WalletHeader walletCount={walletCount} />}
 
           {!expanded ? (
@@ -68,7 +68,7 @@ export default function WalletCardContent({
           )}
         </div>
 
-        <div className='shrink-0'>
+        <div className='shrink-0 pt-[clamp(0.15rem,0.6svh,0.35rem)]'>
           <FinanceCardExpandButton
             detailKey='wallets'
             expanded={expanded}
