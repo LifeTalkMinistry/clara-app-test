@@ -1,4 +1,4 @@
-import { useState, useCallback, useRef } from "react";
+import { useState, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import DashboardFeedPanel from "@/components/fresh/dashboard-panels/feed/DashboardFeedPanel";
 import DashboardMessagesPanel from "@/components/fresh/main-dashboard/dashboard-panels/messages/DashboardMessagesPanel";
@@ -56,19 +56,16 @@ import useDashboardSurvivalExpenseSaver from "@/components/fresh/main-dashboard/
 import { readStoredSurvivalExpense } from "@/components/fresh/main-dashboard/dashboard-theme/dashboardThemeRuntime";
 import useDashboardThemeClasses from "@/components/fresh/main-dashboard/dashboard-theme/useDashboardThemeClasses";
 import useDashboardThemePersistence from "@/components/fresh/main-dashboard/dashboard-theme/useDashboardThemePersistence";
-import { createEmptyDashboardCache } from "@/components/fresh/main-dashboard/dashboard-cache/dashboardCacheFactory";
 import useDashboardHydrateFromCache from "@/components/fresh/main-dashboard/dashboard-cache/useDashboardHydrateFromCache";
 import useDashboardCacheOwnerSync from "@/components/fresh/main-dashboard/dashboard-cache/useDashboardCacheOwnerSync";
 import useDashboardDataLoader from "@/components/fresh/main-dashboard/dashboard-cache/useDashboardDataLoader";
 import useDashboardDataState from "@/components/fresh/main-dashboard/dashboard-state/useDashboardDataState";
+import useDashboardPageCacheController from "@/components/fresh/main-dashboard/dashboard-cache/useDashboardPageCacheController";
 import useDashboardProgramPromptFlow from "@/components/fresh/main-dashboard/program-prompts/useDashboardProgramPromptFlow";
 import useUserRole from "../hooks/useUserRole";
 import useFinancialData from "../hooks/useFinancialData";
 import { useTheme } from "@/theme/ThemeProvider";
 import { firstPositiveNumber } from "@/utils/dashboard/dashboardHelpers";
-
-let dashboardPageCache = createEmptyDashboardCache();
-let dashboardPageInFlight = null;
 
 
 export default function Dashboard() {
@@ -113,19 +110,17 @@ export default function Dashboard() {
     useMoneySummaryVisibility(userId);
   const userEmail = user?.email || null;
   const cacheKey = userId || userEmail || null;
-  const initialCache =
-    dashboardPageCache.loaded && dashboardPageCache.key === cacheKey
-      ? dashboardPageCache
-      : createEmptyDashboardCache(cacheKey);
-  const hasInitialFinanceCache = Boolean(
-    initialCache.loaded ||
-      initialCache.offlineReady ||
-      (Array.isArray(initialCache.wallets) && initialCache.wallets.length > 0) ||
-      (Array.isArray(initialCache.expenses) && initialCache.expenses.length > 0) ||
-      (Array.isArray(initialCache.budgets) && initialCache.budgets.length > 0) ||
-      (Array.isArray(initialCache.savingsGoals) && initialCache.savingsGoals.length > 0) ||
-      initialCache.emergencyFund
-  );
+  const {
+    initialCache,
+    hasInitialFinanceCache,
+    hasLoadedDashboardRef,
+    updateDashboardFinanceCache,
+    getDashboardPageCache,
+    setDashboardPageCache,
+    getDashboardPageInFlight,
+    setDashboardPageInFlight,
+    clearDashboardPageInFlight,
+  } = useDashboardPageCacheController({ cacheKey });
 
   const {
     tasks,
@@ -237,13 +232,6 @@ export default function Dashboard() {
     setBudgetListOpen,
   });
 
-  const updateDashboardFinanceCache = useCallback((nextFinanceCache) => {
-    dashboardPageCache = {
-      ...dashboardPageCache,
-      ...nextFinanceCache,
-    };
-  }, []);
-
   useDashboardFinanceStateSync({
     cacheKey,
     financeWallets,
@@ -305,8 +293,6 @@ export default function Dashboard() {
     userId,
   });
 
-  const hasLoadedDashboardRef = useRef(false);
-
   const hydrateFromCache = useDashboardHydrateFromCache({
     financeDataLoading,
     hasLoadedDashboardRef,
@@ -331,19 +317,6 @@ export default function Dashboard() {
     setFinancialGoal,
     setLoading,
   });
-
-  const getDashboardPageCache = useCallback(() => dashboardPageCache, []);
-  const setDashboardPageCache = useCallback((nextCache) => {
-    dashboardPageCache = nextCache;
-  }, []);
-
-  const getDashboardPageInFlight = useCallback(() => dashboardPageInFlight, []);
-  const setDashboardPageInFlight = useCallback((nextInFlight) => {
-    dashboardPageInFlight = nextInFlight;
-  }, []);
-  const clearDashboardPageInFlight = useCallback((ownerKey) => {
-    if (dashboardPageInFlight?.key === ownerKey) dashboardPageInFlight = null;
-  }, []);
 
   useDashboardCacheOwnerSync({
     cacheKey,
