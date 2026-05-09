@@ -128,6 +128,7 @@ import useDashboardThemePersistence from "@/components/fresh/main-dashboard/dash
 import { createEmptyDashboardCache } from "@/components/fresh/main-dashboard/dashboard-cache/dashboardCacheFactory";
 import useDashboardHydrateFromCache from "@/components/fresh/main-dashboard/dashboard-cache/useDashboardHydrateFromCache";
 import useDashboardCacheOwnerSync from "@/components/fresh/main-dashboard/dashboard-cache/useDashboardCacheOwnerSync";
+import useDashboardDataLoader from "@/components/fresh/main-dashboard/dashboard-cache/useDashboardDataLoader";
 import useDashboardDataState from "@/components/fresh/main-dashboard/dashboard-state/useDashboardDataState";
 import {
   DASHBOARD_PANEL_ORDER,
@@ -490,6 +491,14 @@ export default function Dashboard() {
     dashboardPageCache = nextCache;
   }, []);
 
+  const getDashboardPageInFlight = useCallback(() => dashboardPageInFlight, []);
+  const setDashboardPageInFlight = useCallback((nextInFlight) => {
+    dashboardPageInFlight = nextInFlight;
+  }, []);
+  const clearDashboardPageInFlight = useCallback((ownerKey) => {
+    if (dashboardPageInFlight?.key === ownerKey) dashboardPageInFlight = null;
+  }, []);
+
   useDashboardCacheOwnerSync({
     cacheKey,
     initialCache,
@@ -578,137 +587,40 @@ export default function Dashboard() {
     setOnboardingStep((prev) => prev + 1);
   }, [saveOnboardingDraft]);
 
-  const loadDashboardData = useCallback(
-    async ({ background = false } = {}) => {
-      const currentUser = { id: userId, email: userEmail, full_name: user?.full_name || "" };
+  const loadDashboardData = useDashboardDataLoader({
+    userId,
+    userEmail,
+    user,
+    cacheKey,
+    financeWallets,
+    financeWalletTransactions,
+    financeTransfers,
+    financeBudgets,
+    financeSavingsGoals,
+    financeExpenses,
+    financeEmergencyFund,
+    nickname,
+    reminderTime,
+    financialGoal,
+    survivalExpense,
+    isPaid,
+    dailyRemindersEnabled,
+    hasVisibleFinanceData,
+    hydrateFromCache,
+    hasLoadedDashboardRef,
+    getDashboardPageCache,
+    setDashboardPageCache,
+    getDashboardPageInFlight,
+    setDashboardPageInFlight,
+    clearDashboardPageInFlight,
+    setLoading,
+    setGuardChecked,
+    setFinanceNotice,
+    setShowProgramStart,
+    setProgramRecord,
+  });
 
-      if (!currentUser.email && !currentUser.id) {
-        const emptyCache = createEmptyDashboardCache();
-        dashboardPageCache = emptyCache;
-        hydrateFromCache(emptyCache);
-        return emptyCache;
-      }
-
-      const ownerKey = cacheKey || currentUser.id || currentUser.email || "guest";
-      if (dashboardPageInFlight?.key === ownerKey) return dashboardPageInFlight.promise;
-      if (!hasLoadedDashboardRef.current && !background && !hasDashboardFinanceContent(dashboardPageCache)) {
-        setLoading(true);
-      }
-
-      try {
-        const promise = (async () => {
-          const [tasksRes, submissionsRes, userProgramRecord, profilesRes, enrollmentsRes] = await Promise.all([
-            supabase.from("challenge_tasks").select("*").order("sort_order", { ascending: true }).order("day", { ascending: true }),
-            supabase.from("task_submissions").select("*"),
-            fetchUserProgramRecord({ supabase, userId: currentUser.id }),
-            supabase.from("profiles").select("*"),
-            supabase.from("enrollments").select("*").eq("user_id", currentUser.id).order("created_at", { ascending: false }).limit(1),
-          ]);
-
-          if (tasksRes.error) console.error("Failed to load tasks:", tasksRes.error);
-          if (submissionsRes.error) console.error("Failed to load submissions:", submissionsRes.error);
-          if (profilesRes.error) console.error("Failed to load profiles:", profilesRes.error);
-          if (enrollmentsRes.error) console.error("Failed to load enrollments:", enrollmentsRes.error);
-
-          const userSubmissions = (submissionsRes.data || []).filter((item) => isOwnedByUser(item, currentUser));
-          const normalizedTasks = (tasksRes.data || []).map(normalizeProgramTask);
-          const userProfile = (profilesRes.data || []).find((profile) => isOwnedByUser(profile, currentUser)) || null;
-          const enrollmentRecord = (enrollmentsRes.data || [])[0] || null;
-
-          const safeWallets = Array.isArray(financeWallets) ? financeWallets : [];
-          const safeWalletTransactions = Array.isArray(financeWalletTransactions) ? financeWalletTransactions : [];
-          const safeTransfers = Array.isArray(financeTransfers) ? financeTransfers : [];
-          const safeBudgets = Array.isArray(financeBudgets) ? financeBudgets : [];
-          const safeSavingsGoals = Array.isArray(financeSavingsGoals) ? financeSavingsGoals : [];
-          const safeExpenses = Array.isArray(financeExpenses) ? financeExpenses : [];
-          const safePendingExpenses = safeExpenses.filter((item) => item?.pending_sync || item?.sync_status === "pending" || item?.syncStatus === "pending" || item?.local_only);
-          const nextWalletMoney = safeWallets.reduce((sum, wallet) => sum + getWalletDisplayBalance(wallet), 0);
-
-          const storedPrefs = readDashboardPrefs(currentUser.id);
-          const nextNickname = normalizeString(userProfile?.display_name || userProfile?.nickname || userProfile?.full_name || nickname || dashboardPageCache.nickname || currentUser.full_name || "");
-          const nextReminderTime = reminderTime || dashboardPageCache.reminderTime || storedPrefs.reminderTime;
-          const nextFinancialGoal = financialGoal || dashboardPageCache.financialGoal || storedPrefs.financialGoal;
-          const approved = isProgramApproved(userProfile, isPaid, enrollmentRecord);
-          const onboardingDone = hasCompletedProgramOnboarding(userProfile);
-          if (!approved || onboardingDone || !dailyRemindersEnabled) setShowProgramStart(false);
-
-          const nextCache = {
-            key: ownerKey,
-            loaded: true,
-            tasks: normalizedTasks,
-            submissions: userSubmissions,
-            programRecord: userProgramRecord || dashboardPageCache.programRecord || null,
-            survivalExpense: firstPositiveNumber(userProfile?.monthly_survival_expense, userProfile?.survival_expense, userProfile?.clara_survival_expense, readStoredSurvivalExpense(currentUser.id), survivalExpense, dashboardPageCache.survivalExpense),
-            walletMoney: nextWalletMoney,
-            wallets: safeWallets,
-            walletTransactions: safeWalletTransactions,
-            transfers: safeTransfers,
-            budgets: safeBudgets,
-            savingsGoals: safeSavingsGoals,
-            emergencyFund: financeEmergencyFund || null,
-            expenses: safeExpenses,
-            pendingExpenses: safePendingExpenses,
-            offlineReady: true,
-            profileData: userProfile,
-            latestEnrollment: enrollmentRecord,
-            guardChecked: true,
-            nickname: nextNickname,
-            reminderTime: nextReminderTime,
-            financialGoal: nextFinancialGoal,
-          };
-
-          dashboardPageCache = nextCache;
-          hydrateFromCache(nextCache);
-
-          if (approved && !nextCache.programRecord && currentUser.id) {
-            ensureUserProgramAccess({
-              supabase,
-              user: currentUser,
-              profile: userProfile,
-              enrollment: enrollmentRecord,
-              tasks: normalizedTasks,
-            })
-              .then((ensuredRecord) => {
-                if (!ensuredRecord) return;
-                dashboardPageCache = {
-                  ...dashboardPageCache,
-                  programRecord: ensuredRecord,
-                };
-                setProgramRecord(ensuredRecord);
-              })
-              .catch((ensureError) => {
-                console.warn("Program access background refresh failed:", ensureError);
-              });
-          }
-
-          if (!isClaraOnline() && !hasVisibleFinanceData) {
-            setFinanceNotice({
-              message: "You’re offline. CLARA is using offline-first finance data.",
-              type: "success",
-            });
-          }
-          return nextCache;
-        })();
-
-        dashboardPageInFlight = { key: ownerKey, promise };
-        return await promise;
-      } catch (error) {
-        console.warn("Dashboard background refresh warning:", error);
-        if (!hasVisibleFinanceData && !hasDashboardFinanceContent(dashboardPageCache)) {
-          setFinanceNotice({
-            message: "Dashboard data could not fully refresh. Finance data remains protected offline.",
-            type: "error",
-          });
-        }
-        return dashboardPageCache;
-      } finally {
-        if (dashboardPageInFlight?.key === ownerKey) dashboardPageInFlight = null;
-        setLoading(false);
-        setGuardChecked(true);
-      }
-    },
-    [cacheKey, dailyRemindersEnabled, financeBudgets, financeEmergencyFund, financeExpenses, financeSavingsGoals, financeTransfers, financeWalletTransactions, financeWallets, financialGoal, hasVisibleFinanceData, hydrateFromCache, isPaid, nickname, reminderTime, survivalExpense, user?.full_name, userEmail, userId]
-  );  const scheduleRefresh = useDashboardScheduledRefresh({
+  const scheduleRefresh = useDashboardScheduledRefresh({
     loadDashboardData,
     refreshFinancialData,
   });
