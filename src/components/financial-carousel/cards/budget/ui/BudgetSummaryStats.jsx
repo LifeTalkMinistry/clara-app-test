@@ -1,7 +1,6 @@
 import { fmt } from "@/components/financial-carousel/cards/budget/logic/useBudgetCardLogic";
 
 export default function BudgetSummaryStats({
-  declared = 0,
   remaining = 0,
   spent = 0,
   progress = 0,
@@ -10,19 +9,20 @@ export default function BudgetSummaryStats({
   hasDeclaredBudget = false,
 }) {
   const roundedProgress = Math.round(progress);
-  const hasNoSpendingLogged = hasDeclaredBudget && Number(spent || 0) <= 0;
+  const statusLabel = status?.label || (hasDeclaredBudget ? "Healthy" : "No Plan");
   const summaryTiles = [
     {
       label: "Spent",
       value: fmt(spent),
     },
     {
-      label: "Plan",
-      value: fmt(declared),
-    },
-    {
       label: "Used",
       value: `${roundedProgress}%`,
+      valueClassName: status?.text,
+    },
+    {
+      label: "Status",
+      value: statusLabel,
       valueClassName: status?.text,
     },
   ];
@@ -40,12 +40,6 @@ export default function BudgetSummaryStats({
 
         <p className="mt-2 text-sm font-semibold leading-tight text-white/82">
           Available to spend this month.
-        </p>
-
-        <p className="mt-3 text-[12px] leading-relaxed text-white/68">
-          {hasNoSpendingLogged
-            ? "No spending activity yet."
-            : `${fmt(spent)} already used from your monthly plan.`}
         </p>
       </div>
 
