@@ -24,8 +24,8 @@ export const getFinanceSlideShellClass = (cardKey, theme = null, isExpanded = fa
   };
 
   return [
-    "clara-finance-slide-surface absolute inset-x-0 top-0 w-full overflow-hidden rounded-[28px] border backdrop-blur-2xl transition-[height,box-shadow,border-color] duration-500 ease-[cubic-bezier(0.22,1,0.36,1)] [&>*]:min-h-[inherit] [&>*]:rounded-[27px]",
-    isExpanded ? "ring-1 ring-cyan-200/10" : "",
+    "clara-finance-slide-surface absolute inset-x-0 w-full overflow-hidden rounded-[28px] border backdrop-blur-2xl transition-[height,box-shadow,border-color] duration-500 ease-[cubic-bezier(0.22,1,0.36,1)] [&>*]:min-h-[inherit] [&>*]:rounded-[27px]",
+    isExpanded ? "bottom-0 ring-1 ring-cyan-200/10" : "top-0",
     toneClassMap[cardKey] || toneClassMap.budget,
   ].join(" ");
 };
