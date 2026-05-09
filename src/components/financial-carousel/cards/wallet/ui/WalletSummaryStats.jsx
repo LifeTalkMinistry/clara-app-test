@@ -14,14 +14,14 @@ export default function WalletSummaryStats({
 
   return (
     <div className='grid h-full min-h-0 grid-rows-[minmax(0,1fr)_auto]'>
-      <div className='flex min-h-0 flex-col justify-center pb-[clamp(0.75rem,2.2svh,1.6rem)]'>
+      <div className='flex min-h-0 flex-col justify-end pb-[clamp(0.65rem,1.55svh,1.05rem)]'>
         <p
-          className={`text-[clamp(2.45rem,10vw,3.2rem)] font-black leading-none tracking-[-0.05em] ${status.text}`}
+          className={`text-[clamp(2.6rem,10.8vw,3.45rem)] font-black leading-none tracking-[-0.055em] ${status.text}`}
         >
           {fmt(walletMoney)}
         </p>
 
-        <p className='mt-[clamp(0.45rem,1.15svh,0.8rem)] line-clamp-2 min-h-[18px] max-w-[28rem] text-[clamp(0.75rem,2.35vw,0.9rem)] font-semibold leading-relaxed text-white/84'>
+        <p className='mt-[clamp(0.42rem,1svh,0.68rem)] line-clamp-2 min-h-[18px] max-w-[28rem] text-[clamp(0.76rem,2.45vw,0.92rem)] font-semibold leading-relaxed text-white/84'>
           {message}
         </p>
       </div>
