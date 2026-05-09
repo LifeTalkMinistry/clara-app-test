@@ -1,0 +1,111 @@
+name: Patch manual expense validation hook
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  patch-manual-expense-validation-hook:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Wire useDashboardManualExpenseValidation into Dashboard.jsx
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          target = Path("src/pages/Dashboard.jsx")
+          text = target.read_text()
+
+          import_line = 'import useDashboardManualExpenseValidation from "@/components/fresh/main-dashboard/finance-form/useDashboardManualExpenseValidation";\n'
+          import_anchor = 'import useDashboardFinanceUiState from "@/components/fresh/main-dashboard/finance-form/useDashboardFinanceUiState";\n'
+          fallback_anchor = 'import createInitialFinanceForm from "@/components/fresh/main-dashboard/finance-form/financeFormInitialState";\n'
+
+          if import_line not in text:
+              if import_anchor in text:
+                  text = text.replace(import_anchor, import_anchor + import_line, 1)
+              elif fallback_anchor in text:
+                  text = text.replace(fallback_anchor, fallback_anchor + import_line, 1)
+              else:
+                  raise SystemExit("Manual expense validation import anchor not found. Refusing to patch Dashboard.jsx.")
+
+          if 'useDashboardManualExpenseValidation({' not in text:
+              block_start = '  const manualExpenseIsUnplanned = financeForm.budgetListKey === "__unplanned__";\n'
+              if block_start not in text:
+                  raise SystemExit("manual expense validation block start not found. Refusing to patch Dashboard.jsx.")
+
+              start_index = text.index(block_start)
+              block_end = (
+                  '    (!manualExpenseIsUnplanned || Boolean(manualExpenseReason)) &&\n'
+                  '    (!manualExpenseIsUndocumented || Boolean(manualExpenseUndocumentedReason));\n\n'
+              )
+              end_index = text.find(block_end, start_index)
+              if end_index == -1:
+                  raise SystemExit("manual expense validation block end not found. Refusing to patch Dashboard.jsx.")
+              end_index += len(block_end)
+
+              old_block = text[start_index:end_index]
+              required_tokens = [
+                  'const manualExpenseIsUndocumented = financeForm.budgetListKey === "__undocumented__";',
+                  'const manualExpenseReason = normalizeString(financeForm.unplannedReason || financeForm.notes);',
+                  'const manualExpenseUndocumentedReason = normalizeString(financeForm.undocumentedReason);',
+                  'const manualExpenseCanSubmit =',
+                  'Number(financeForm.amount) > 0',
+                  'Boolean(financeForm.budgetListKey)',
+                  'Boolean(financeForm.expenseWalletId)',
+                  '(!manualExpenseIsUnplanned || Boolean(manualExpenseReason))',
+                  '(!manualExpenseIsUndocumented || Boolean(manualExpenseUndocumentedReason));',
+              ]
+
+              if not all(token in old_block for token in required_tokens):
+                  raise SystemExit("manual expense validation block content mismatch. Refusing to patch Dashboard.jsx.")
+
+              replacement = (
+                  '  const {\n'
+                  '    manualExpenseIsUnplanned,\n'
+                  '    manualExpenseIsUndocumented,\n'
+                  '    manualExpenseReason,\n'
+                  '    manualExpenseUndocumentedReason,\n'
+                  '    manualExpenseCanSubmit,\n'
+                  '  } = useDashboardManualExpenseValidation({\n'
+                  '    financeForm,\n'
+                  '  });\n\n'
+              )
+
+              text = text[:start_index] + replacement + text[end_index:]
+
+          if 'useDashboardManualExpenseValidation({' not in text:
+              raise SystemExit("useDashboardManualExpenseValidation was not wired. Refusing to continue.")
+          if 'const manualExpenseIsUnplanned = financeForm.budgetListKey === "__unplanned__";' in text:
+              raise SystemExit("Old manualExpenseIsUnplanned inline validation still exists after patch. Refusing to continue.")
+          if 'const manualExpenseCanSubmit =' in text and 'useDashboardManualExpenseValidation({' not in text:
+              raise SystemExit("Old manualExpenseCanSubmit validation still exists after patch. Refusing to continue.")
+
+          target.write_text(text)
+          PY
+
+      - name: Remove temporary workflow
+        run: rm -f .github/workflows/patch-manual-expense-validation-hook.yml
+
+      - name: Commit and push patch
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add src/pages/Dashboard.jsx .github/workflows/patch-manual-expense-validation-hook.yml
+
+          if git diff --cached --quiet; then
+            echo "No changes to commit."
+            exit 0
+          fi
+
+          git commit -m "Wire manual expense validation hook"
+          git push
