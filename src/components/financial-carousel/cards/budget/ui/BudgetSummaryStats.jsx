@@ -17,9 +17,8 @@ export default function BudgetSummaryStats({
       value: fmt(spent),
     },
     {
-      label: "Left",
-      value: fmt(remaining),
-      valueClassName: remainingAmountColor,
+      label: "Plan",
+      value: fmt(declared),
     },
     {
       label: "Used",
@@ -33,20 +32,20 @@ export default function BudgetSummaryStats({
       <div className="mb-3">
         <p
           className={`text-[32px] font-bold leading-none tracking-[-0.04em] ${
-            hasDeclaredBudget ? status.text : "text-white/95"
+            hasDeclaredBudget ? remainingAmountColor : "text-white/95"
           }`}
         >
-          {fmt(declared)}
+          {fmt(remaining)}
         </p>
 
-        <p className={`mt-2 text-sm font-semibold leading-tight ${remainingAmountColor}`}>
-          {fmt(remaining)} left this month.
+        <p className="mt-2 text-sm font-semibold leading-tight text-white/82">
+          Available to spend this month.
         </p>
 
         <p className="mt-3 text-[12px] leading-relaxed text-white/68">
           {hasNoSpendingLogged
             ? "No spending activity yet."
-            : `${fmt(spent)} already used from your monthly budget.`}
+            : `${fmt(spent)} already used from your monthly plan.`}
         </p>
       </div>
 
