@@ -103,8 +103,8 @@ export default function FinanceActionModal({ open, title, description, children,
   if (!open) return null;
 
   return (
-    <div className="fixed inset-0 z-[120] flex min-h-[100svh] items-start justify-center overflow-hidden bg-black/10 px-1.5 pb-2 pt-0 backdrop-blur-[1px]">
-      <div className="flex h-[clamp(500px,72svh,620px)] max-h-[calc(100svh-1rem)] w-full max-w-[402px] overflow-hidden rounded-[34px] border border-cyan-100/15 bg-[linear-gradient(135deg,rgba(5,44,62,0.98),rgba(7,20,48,0.99)_48%,rgba(38,16,77,0.99))] shadow-[0_24px_60px_rgba(0,0,0,0.38),0_0_32px_rgba(0,255,220,0.08)]">
+    <div className="fixed inset-0 z-[120] flex min-h-[100svh] items-start justify-center overflow-hidden bg-black/10 px-1.5 pb-2 pt-[4.2rem] backdrop-blur-[1px]">
+      <div className="flex h-[clamp(520px,76svh,690px)] max-h-[calc(100svh-5.2rem)] w-full max-w-[402px] overflow-hidden rounded-[34px] border border-cyan-100/15 bg-[linear-gradient(135deg,rgba(5,44,62,0.98),rgba(7,20,48,0.99)_48%,rgba(38,16,77,0.99))] shadow-[0_24px_60px_rgba(0,0,0,0.38),0_0_32px_rgba(0,255,220,0.08)]">
         <form ref={formRef} onSubmit={onSubmit} className="flex min-h-0 w-full flex-col">
           <div className="shrink-0 border-b border-white/10 bg-white/[0.03] px-5 py-4">
             <div className="flex items-start justify-between gap-4">
@@ -124,29 +124,19 @@ export default function FinanceActionModal({ open, title, description, children,
             </div>
           </div>
 
-          <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-5 py-4 pb-3 [scrollbar-width:thin]">
+          <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-5 py-4 pb-4 [scrollbar-width:none]">
             {children}
             {usesClaraMoneyKeypad ? <ClaraMoneyKeypad value={moneyAmount} onChange={updateAmountInput} /> : null}
           </div>
 
-          <div className="shrink-0 border-t border-white/10 bg-[#071120]/92 px-5 pb-[calc(1rem+env(safe-area-inset-bottom))] pt-3 backdrop-blur-xl">
-            <div className="flex flex-col-reverse gap-3">
-              <button
-                type="button"
-                onClick={onClose}
-                className="rounded-2xl border border-white/15 bg-white/[0.075] px-4 py-3 text-base font-medium text-white/75 transition hover:bg-white/[0.08] hover:text-white"
-              >
-                Cancel
-              </button>
-
-              <button
-                type="submit"
-                disabled={submitDisabled || loading}
-                className={`rounded-2xl px-4 py-3 text-base font-semibold text-white transition disabled:cursor-not-allowed disabled:opacity-55 ${danger ? "bg-gradient-to-r from-rose-500 to-red-600 shadow-[0_10px_30px_rgba(244,63,94,0.24)]" : submitDisabled ? "border border-white/15 bg-white/[0.09] text-white/55 shadow-none" : "bg-gradient-to-r from-emerald-400 via-emerald-500 to-green-600 shadow-[0_10px_30px_rgba(16,185,129,0.24)]"}`}
-              >
-                {loading ? "Saving..." : submitDisabled ? "Insufficient Funds" : submitLabel}
-              </button>
-            </div>
+          <div className="shrink-0 border-t border-white/10 bg-[#071120]/92 px-5 pb-[calc(0.85rem+env(safe-area-inset-bottom))] pt-3 backdrop-blur-xl">
+            <button
+              type="submit"
+              disabled={submitDisabled || loading}
+              className={`w-full rounded-2xl px-4 py-3 text-base font-semibold text-white transition disabled:cursor-not-allowed disabled:opacity-55 ${danger ? "bg-gradient-to-r from-rose-500 to-red-600 shadow-[0_10px_30px_rgba(244,63,94,0.24)]" : submitDisabled ? "border border-white/15 bg-white/[0.09] text-white/55 shadow-none" : "bg-gradient-to-r from-emerald-400 via-emerald-500 to-green-600 shadow-[0_10px_30px_rgba(16,185,129,0.24)]"}`}
+            >
+              {loading ? "Saving..." : submitDisabled ? "Insufficient Funds" : submitLabel}
+            </button>
           </div>
         </form>
       </div>
