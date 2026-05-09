@@ -32,19 +32,21 @@ export default function WalletCardContent({
 
   if (!expanded) {
     return (
-      <div className='relative z-10 h-full min-h-0 p-[clamp(0.875rem,3.2vw,1rem)] pb-[clamp(0.9rem,1.8svh,1.1rem)]'>
-        <div className='grid h-full min-h-0 grid-rows-[auto_minmax(0,1fr)_auto] gap-[clamp(0.45rem,0.95svh,0.7rem)]'>
-          <WalletHeader walletCount={walletCount} />
+      <div className='relative z-10 flex h-full min-h-0 flex-col p-[clamp(0.875rem,3.2vw,1rem)] pb-[clamp(0.9rem,1.8svh,1.1rem)]'>
+        <div className='flex h-full min-h-0 flex-col gap-[clamp(0.45rem,0.95svh,0.7rem)]'>
+          <div className='flex min-h-0 flex-1 flex-col justify-center'>
+            <WalletHeader walletCount={walletCount} />
 
-          <div className='min-h-0'>
-            <WalletSummaryStats
-              walletMoney={walletMoney}
-              walletCount={walletCount}
-              walletPreviewTransactions={walletPreviewTransactions}
-              topWallet={topWallet}
-              status={status}
-              message={message}
-            />
+            <div className='min-h-0 flex-1 pt-[clamp(0.7rem,2.6svh,1.35rem)]'>
+              <WalletSummaryStats
+                walletMoney={walletMoney}
+                walletCount={walletCount}
+                walletPreviewTransactions={walletPreviewTransactions}
+                topWallet={topWallet}
+                status={status}
+                message={message}
+              />
+            </div>
           </div>
 
           <FinanceCardExpandButton
