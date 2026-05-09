@@ -1,0 +1,105 @@
+name: Patch selected budget state hook
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  patch-selected-budget-state-hook:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Wire useDashboardSelectedBudgetState into Dashboard.jsx
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          target = Path("src/pages/Dashboard.jsx")
+          text = target.read_text()
+
+          import_line = 'import useDashboardSelectedBudgetState from "@/components/fresh/main-dashboard/budget/useDashboardSelectedBudgetState";\n'
+          import_anchor = 'import useDashboardManualExpenseBudgetOptions from "@/components/fresh/main-dashboard/budget/useDashboardManualExpenseBudgetOptions";\n'
+          fallback_anchor = 'import useDashboardMonthlyBudgetHeader from "@/components/fresh/main-dashboard/budget/useDashboardMonthlyBudgetHeader";\n'
+
+          if import_line not in text:
+              if import_anchor in text:
+                  text = text.replace(import_anchor, import_anchor + import_line, 1)
+              elif fallback_anchor in text:
+                  text = text.replace(fallback_anchor, fallback_anchor + import_line, 1)
+              else:
+                  raise SystemExit("Selected budget state import anchor not found. Refusing to patch Dashboard.jsx.")
+
+          if 'useDashboardSelectedBudgetState({' not in text:
+              block_start = '  const selectedManualExpenseBudget = useMemo(\n    () =>\n'
+              if block_start not in text:
+                  raise SystemExit("selectedManualExpenseBudget useMemo start not found. Refusing to patch Dashboard.jsx.")
+
+              start_index = text.index(block_start)
+              block_end = '  }, [financeForm.budgetListKey, selectedManualExpenseBudget?.title]);\n\n'
+              end_index = text.find(block_end, start_index)
+              if end_index == -1:
+                  raise SystemExit("selectedBudgetListLabel useMemo end not found. Refusing to patch Dashboard.jsx.")
+              end_index += len(block_end)
+
+              old_block = text[start_index:end_index]
+              required_tokens = [
+                  'manualExpenseBudgetOptions.find(',
+                  'String(item.key) === String(financeForm.budgetListKey)',
+                  'const selectedBudgetListLabel = useMemo(() => {',
+                  'financeForm.budgetListKey === "__unplanned__"',
+                  'return "Unplanned Spending";',
+                  'financeForm.budgetListKey === "__undocumented__"',
+                  'return "Undocumented Spending";',
+                  'selectedManualExpenseBudget?.title || "Select budget list"',
+              ]
+
+              if not all(token in old_block for token in required_tokens):
+                  raise SystemExit("Selected budget state block content mismatch. Refusing to patch Dashboard.jsx.")
+
+              replacement = (
+                  '  const {\n'
+                  '    selectedManualExpenseBudget,\n'
+                  '    selectedBudgetListLabel,\n'
+                  '  } = useDashboardSelectedBudgetState({\n'
+                  '    financeForm,\n'
+                  '    manualExpenseBudgetOptions,\n'
+                  '  });\n\n'
+              )
+
+              text = text[:start_index] + replacement + text[end_index:]
+
+          if 'useDashboardSelectedBudgetState({' not in text:
+              raise SystemExit("useDashboardSelectedBudgetState was not wired. Refusing to continue.")
+          if 'const selectedManualExpenseBudget = useMemo(' in text:
+              raise SystemExit("Old selectedManualExpenseBudget useMemo still exists after patch. Refusing to continue.")
+          if 'const selectedBudgetListLabel = useMemo(() => {' in text:
+              raise SystemExit("Old selectedBudgetListLabel useMemo still exists after patch. Refusing to continue.")
+
+          target.write_text(text)
+          PY
+
+      - name: Remove temporary workflow
+        run: rm -f .github/workflows/patch-selected-budget-state-hook.yml
+
+      - name: Commit and push patch
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add src/pages/Dashboard.jsx .github/workflows/patch-selected-budget-state-hook.yml
+
+          if git diff --cached --quiet; then
+            echo "No changes to commit."
+            exit 0
+          fi
+
+          git commit -m "Wire selected budget state hook"
+          git push
