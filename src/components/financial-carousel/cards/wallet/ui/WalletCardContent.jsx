@@ -62,9 +62,9 @@ export default function WalletCardContent({
   }
 
   return (
-    <div className='relative z-10 flex h-full min-h-0 flex-col p-[clamp(0.875rem,3.2vw,1rem)] pb-[clamp(0.9rem,1.8svh,1.1rem)]'>
+    <div className='relative z-20 flex h-full min-h-0 flex-col justify-end p-[clamp(0.875rem,3.2vw,1rem)] pb-[clamp(0.9rem,1.8svh,1.1rem)]'>
       <div className='flex min-h-0 flex-1 flex-col gap-[clamp(0.625rem,1.4svh,0.85rem)]'>
-        <div className='mb-[clamp(0.5rem,1.5svh,0.85rem)] shrink-0'>
+        <div className='shrink-0'>
           <p
             className={`text-[clamp(2rem,8vw,2.25rem)] font-black leading-none tracking-[-0.045em] ${status.text}`}
           >
@@ -86,7 +86,7 @@ export default function WalletCardContent({
           />
         </div>
 
-        <FinanceCardExpandedPanel>
+        <FinanceCardExpandedPanel className='max-h-[52svh]'>
           <div className='mb-3 rounded-2xl border border-cyan-100/15 bg-white/[0.045] px-3 py-2.5 text-xs font-medium leading-5 text-white/68'>
             {expandedMessage}
           </div>
