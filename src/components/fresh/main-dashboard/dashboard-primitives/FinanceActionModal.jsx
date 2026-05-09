@@ -122,7 +122,7 @@ export default function FinanceActionModal({
   if (!open) return null;
 
   return (
-    <div className="fixed inset-0 z-[120] flex min-h-[100svh] items-center justify-center overflow-hidden bg-black/10 px-3 py-4 backdrop-blur-[1px] sm:p-4">
+    <div className="fixed inset-0 z-[120] flex min-h-[100svh] items-start justify-center overflow-hidden bg-black/10 px-3 pb-4 pt-[clamp(4.75rem,11svh,6.5rem)] backdrop-blur-[1px] sm:items-center sm:p-4">
       <div className="flex max-h-[88svh] w-full max-w-[380px] overflow-hidden rounded-[32px] border border-cyan-100/15 bg-[linear-gradient(135deg,rgba(5,44,62,0.98),rgba(7,20,48,0.99)_48%,rgba(38,16,77,0.99))] shadow-[0_24px_60px_rgba(0,0,0,0.38),0_0_32px_rgba(0,255,220,0.08)]">
         <form ref={formRef} onSubmit={onSubmit} className="flex min-h-0 w-full flex-col">
           <div className="shrink-0 border-b border-white/10 bg-white/[0.03] px-5 py-3.5">
