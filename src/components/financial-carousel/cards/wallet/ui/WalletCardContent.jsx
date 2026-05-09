@@ -30,46 +30,48 @@ export default function WalletCardContent({
 }) {
   const walletCount = visibleWallets.length || wallets.filter((wallet) => !wallet?.is_archived).length;
 
+  if (!expanded) {
+    return (
+      <div className='relative z-10 h-full min-h-0 p-[clamp(0.875rem,3.2vw,1rem)] pb-[clamp(0.9rem,1.8svh,1.1rem)]'>
+        <div className='grid h-full min-h-0 grid-rows-[auto_minmax(0,1fr)_auto] gap-[clamp(0.65rem,1.45svh,0.95rem)]'>
+          <WalletHeader walletCount={walletCount} />
+
+          <div className='min-h-0'>
+            <WalletSummaryStats
+              walletMoney={walletMoney}
+              walletCount={walletCount}
+              walletPreviewTransactions={walletPreviewTransactions}
+              topWallet={topWallet}
+              status={status}
+              message={message}
+            />
+          </div>
+
+          <FinanceCardExpandButton
+            detailKey='wallets'
+            expanded={expanded}
+            onToggleDetails={onToggleDetails}
+            collapsedLabel='View Wallets'
+            expandedLabel='Hide Wallets'
+          />
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className='relative z-10 flex h-full min-h-0 flex-col p-[clamp(0.875rem,3.2vw,1rem)] pb-[clamp(0.9rem,1.8svh,1.1rem)]'>
-      <div
-        className={`flex min-h-0 flex-col ${
-          expanded
-            ? 'flex-1 gap-[clamp(0.625rem,1.4svh,0.85rem)]'
-            : 'flex-1 gap-[clamp(0.625rem,1.15svh,0.85rem)]'
-        }`}
-      >
-        <div
-          className={`flex min-h-0 flex-col gap-[clamp(0.5rem,1.1svh,0.8rem)] ${
-            expanded ? 'shrink-0' : 'flex-1'
-          }`}
-        >
-          {!expanded && <WalletHeader walletCount={walletCount} />}
+      <div className='flex min-h-0 flex-1 flex-col gap-[clamp(0.625rem,1.4svh,0.85rem)]'>
+        <div className='mb-[clamp(0.5rem,1.5svh,0.85rem)] shrink-0'>
+          <p
+            className={`text-[clamp(2rem,8vw,2.25rem)] font-black leading-none tracking-[-0.045em] ${status.text}`}
+          >
+            {fmt(walletMoney)}
+          </p>
 
-          {!expanded ? (
-            <div className='min-h-0 flex-1'>
-              <WalletSummaryStats
-                walletMoney={walletMoney}
-                walletCount={walletCount}
-                walletPreviewTransactions={walletPreviewTransactions}
-                topWallet={topWallet}
-                status={status}
-                message={message}
-              />
-            </div>
-          ) : (
-            <div className='mb-[clamp(0.5rem,1.5svh,0.85rem)]'>
-              <p
-                className={`text-[clamp(2rem,8vw,2.25rem)] font-black leading-none tracking-[-0.045em] ${status.text}`}
-              >
-                {fmt(walletMoney)}
-              </p>
-
-              <p className='mt-[clamp(0.45rem,1svh,0.65rem)] text-xs font-semibold leading-relaxed text-white/76'>
-                Total available across your wallet system.
-              </p>
-            </div>
-          )}
+          <p className='mt-[clamp(0.45rem,1svh,0.65rem)] text-xs font-semibold leading-relaxed text-white/76'>
+            Total available across your wallet system.
+          </p>
         </div>
 
         <div className='shrink-0'>
@@ -81,9 +83,7 @@ export default function WalletCardContent({
             expandedLabel='Hide Wallets'
           />
         </div>
-      </div>
 
-      {expanded && (
         <FinanceCardExpandedPanel>
           <div className='mb-3 rounded-2xl border border-cyan-100/15 bg-white/[0.045] px-3 py-2.5 text-xs font-medium leading-5 text-white/68'>
             {expandedMessage}
@@ -113,7 +113,7 @@ export default function WalletCardContent({
 
           <WalletCreateButton onCreateWallet={onCreateWallet} />
         </FinanceCardExpandedPanel>
-      )}
+      </div>
     </div>
   );
 }
