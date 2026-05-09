@@ -30,8 +30,8 @@ export default function WalletSummaryStats({
           <p className='mt-1.5 text-[9px] font-bold uppercase tracking-[0.16em] text-white/45'>Wallets</p>
         </div>
 
-        <div className={`rounded-2xl px-3 py-2.5 text-center ${glassPanel}`}>
-          <p className='truncate text-base font-black leading-none text-white'>{topWallet?.name || 'None'}</p>
+        <div className={`min-w-0 rounded-2xl px-2.5 py-2.5 text-center ${glassPanel}`}>
+          <p className='truncate text-sm font-black leading-none text-white'>{topWallet?.name || 'None'}</p>
           <p className='mt-1.5 text-[9px] font-bold uppercase tracking-[0.16em] text-white/45'>Primary</p>
         </div>
 
