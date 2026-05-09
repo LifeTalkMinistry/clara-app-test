@@ -385,6 +385,7 @@ export default function Dashboard() {
     setOnboardingStep,
   });
 
+
   const loadDashboardData = useDashboardDataLoader({
     userId,
     userEmail,
