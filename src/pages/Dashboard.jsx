@@ -125,6 +125,7 @@ import {
 import useDashboardThemeClasses from "@/components/fresh/main-dashboard/dashboard-theme/useDashboardThemeClasses";
 import useDashboardThemePersistence from "@/components/fresh/main-dashboard/dashboard-theme/useDashboardThemePersistence";
 import { createEmptyDashboardCache } from "@/components/fresh/main-dashboard/dashboard-cache/dashboardCacheFactory";
+import useDashboardHydrateFromCache from "@/components/fresh/main-dashboard/dashboard-cache/useDashboardHydrateFromCache";
 import useDashboardDataState from "@/components/fresh/main-dashboard/dashboard-state/useDashboardDataState";
 import {
   DASHBOARD_PANEL_ORDER,
@@ -457,29 +458,30 @@ export default function Dashboard() {
   const longPressTimerRef = useRef(null);
   const longPressTriggeredRef = useRef(false);
 
-  const hydrateFromCache = useCallback((nextCache) => {
-    setTasks(nextCache.tasks);
-    setSubmissions(nextCache.submissions);
-    setProgramRecord(nextCache.programRecord);
-    setSurvivalExpense(nextCache.survivalExpense);
-    setWalletMoney(nextCache.walletMoney);
-    setWallets(nextCache.wallets);
-    setWalletTransactions(nextCache.walletTransactions);
-    setTransfers(nextCache.transfers || []);
-    setBudgets(nextCache.budgets);
-    setSavingsGoals(nextCache.savingsGoals);
-    setExpenses(nextCache.expenses);
-    setPendingExpenses(nextCache.pendingExpenses || []);
-    setOfflineReady(Boolean(nextCache.offlineReady));
-    setProfileData(nextCache.profileData);
-    setLatestEnrollment(nextCache.latestEnrollment);
-    setGuardChecked(nextCache.guardChecked);
-    setNickname(nextCache.nickname);
-    setReminderTime(nextCache.reminderTime);
-    setFinancialGoal(nextCache.financialGoal);
-    hasLoadedDashboardRef.current = nextCache.loaded;
-    setLoading(!nextCache.loaded && !hasDashboardFinanceContent(nextCache) && financeDataLoading);
-  }, [financeDataLoading]);
+  const hydrateFromCache = useDashboardHydrateFromCache({
+    financeDataLoading,
+    hasLoadedDashboardRef,
+    setTasks,
+    setSubmissions,
+    setProgramRecord,
+    setSurvivalExpense,
+    setWalletMoney,
+    setWallets,
+    setWalletTransactions,
+    setTransfers,
+    setBudgets,
+    setSavingsGoals,
+    setExpenses,
+    setPendingExpenses,
+    setOfflineReady,
+    setProfileData,
+    setLatestEnrollment,
+    setGuardChecked,
+    setNickname,
+    setReminderTime,
+    setFinancialGoal,
+    setLoading,
+  });
 
   useEffect(() => {
     if (!cacheKey) {
