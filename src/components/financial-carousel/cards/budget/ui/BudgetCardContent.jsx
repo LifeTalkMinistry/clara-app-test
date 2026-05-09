@@ -35,8 +35,8 @@ export default function BudgetCardContent({
   openBudgetModal,
 }) {
   return (
-    <div className="relative z-10 flex h-full min-h-0 flex-col p-4 pb-5">
-      <div className={`${expanded ? "shrink-0" : "flex-1"} flex min-h-0 flex-col justify-between gap-2`}>
+    <div className="relative z-10 flex h-full min-h-0 flex-col p-4 pb-4">
+      <div className="flex min-h-0 flex-col gap-2.5">
         <div className="min-h-0">
           <BudgetHeader
             monthKey={monthKey}
@@ -59,11 +59,14 @@ export default function BudgetCardContent({
           />
         </div>
 
-        <div className="shrink-0 pb-0.5">
+        <div className="shrink-0 pt-0.5">
           <FinanceCardExpandButton
             detailKey="budgets"
             expanded={expanded}
             onToggleDetails={onToggleDetails}
+            collapsedLabel="View budget details"
+            expandedLabel="Hide budget details"
+            className="border-white/12 bg-white/[0.07] py-3 font-medium shadow-[inset_0_1px_0_rgba(255,255,255,0.08),0_10px_24px_rgba(0,0,0,0.14)]"
           />
         </div>
       </div>
@@ -129,11 +132,6 @@ export default function BudgetCardContent({
               <div className="rounded-2xl border border-cyan-200/15 bg-cyan-300/10 p-4 shadow-[0_0_18px_rgba(0,255,220,0.06)]">
                 <p className="text-sm font-semibold text-cyan-50">
                   {hasDeclaredBudget ? "Add your budget categories next." : "Create this month’s spending plan."}
-                </p>
-                <p className="mt-1 text-xs leading-5 text-cyan-50/70">
-                  {hasDeclaredBudget
-                    ? "Distribute your declared budget into categories like Bills, Food, Transportation, Family Support, or Personal."
-                    : "Start by declaring your total monthly spending amount, then distribute it into categories."}
                 </p>
               </div>
             )}
