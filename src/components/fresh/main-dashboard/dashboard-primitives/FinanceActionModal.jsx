@@ -27,8 +27,8 @@ function ClaraMoneyKeypad({ value, onChange }) {
   const keys = ["1", "2", "3", "4", "5", "6", "7", "8", "9", ".", "0", "backspace"];
 
   return (
-    <div className="mt-4 rounded-[26px] border border-cyan-100/12 bg-white/[0.045] p-3 shadow-[inset_0_1px_0_rgba(255,255,255,0.08),0_18px_42px_rgba(0,0,0,0.16)] backdrop-blur-xl">
-      <div className="mb-3 flex items-center justify-between gap-3 rounded-2xl border border-white/10 bg-black/15 px-3 py-2.5">
+    <div className="mt-3 rounded-[26px] border border-cyan-100/12 bg-white/[0.045] p-2.5 shadow-[inset_0_1px_0_rgba(255,255,255,0.08),0_18px_42px_rgba(0,0,0,0.16)] backdrop-blur-xl">
+      <div className="mb-2 flex items-center justify-between gap-3 rounded-2xl border border-white/10 bg-black/15 px-3 py-2.5">
         <span className="text-[10px] font-bold uppercase tracking-[0.18em] text-white/45">CLARA Amount</span>
         <strong className="max-w-[12rem] truncate text-lg font-black tracking-[-0.04em] text-emerald-100">₱{value || "0"}</strong>
       </div>
@@ -39,7 +39,7 @@ function ClaraMoneyKeypad({ value, onChange }) {
             key={key}
             type="button"
             onClick={() => onChange(normalizeMoneyInput(value, key))}
-            className="flex h-11 items-center justify-center rounded-2xl border border-white/12 bg-white/[0.075] text-base font-black text-white/88 shadow-[inset_0_1px_0_rgba(255,255,255,0.08)] transition active:scale-[0.97] active:bg-emerald-400/18"
+            className="flex h-10 items-center justify-center rounded-2xl border border-white/12 bg-white/[0.075] text-base font-black text-white/88 shadow-[inset_0_1px_0_rgba(255,255,255,0.08)] transition active:scale-[0.97] active:bg-emerald-400/18"
           >
             {key === "backspace" ? "⌫" : key}
           </button>
@@ -49,7 +49,7 @@ function ClaraMoneyKeypad({ value, onChange }) {
       <button
         type="button"
         onClick={() => onChange("")}
-        className="mt-2 w-full rounded-2xl border border-white/10 bg-white/[0.045] px-4 py-2.5 text-xs font-semibold text-white/55 transition active:scale-[0.99] active:bg-white/[0.075]"
+        className="mt-1.5 w-full rounded-2xl border border-white/10 bg-white/[0.045] px-4 py-2 text-xs font-semibold text-white/55 transition active:scale-[0.99] active:bg-white/[0.075]"
       >
         Clear amount
       </button>
@@ -103,7 +103,7 @@ export default function FinanceActionModal({ open, title, description, children,
   if (!open) return null;
 
   return (
-    <div className="fixed inset-0 z-[120] flex min-h-[100svh] items-start justify-center overflow-hidden bg-black/10 px-1.5 pb-2 pt-[4.2rem] backdrop-blur-[1px]">
+    <div className="fixed inset-0 z-[120] flex min-h-[100svh] items-start justify-center overflow-hidden bg-black/10 px-1.5 pb-2 pt-2 backdrop-blur-[1px]">
       <div className="flex h-[clamp(520px,76svh,690px)] max-h-[calc(100svh-5.2rem)] w-full max-w-[402px] overflow-hidden rounded-[34px] border border-cyan-100/15 bg-[linear-gradient(135deg,rgba(5,44,62,0.98),rgba(7,20,48,0.99)_48%,rgba(38,16,77,0.99))] shadow-[0_24px_60px_rgba(0,0,0,0.38),0_0_32px_rgba(0,255,220,0.08)]">
         <form ref={formRef} onSubmit={onSubmit} className="flex min-h-0 w-full flex-col">
           <div className="shrink-0 border-b border-white/10 bg-white/[0.03] px-5 py-4">
