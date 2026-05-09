@@ -10,6 +10,7 @@ export default function FinanceCardShell({
   roundedClass = "rounded-[30px]",
   shadowClass = "shadow-[0_24px_70px_rgba(0,0,0,0.42),0_0_42px_rgba(0,255,220,0.10),0_0_62px_rgba(126,34,206,0.12)]",
   surfaceClassName = "",
+  glowLayerClassNames = FINANCE_CARD_GLOW_LAYERS,
   children,
 }) {
   return (
@@ -28,7 +29,7 @@ export default function FinanceCardShell({
         .filter(Boolean)
         .join(" ")}
     >
-      {FINANCE_CARD_GLOW_LAYERS.map((className, index) => (
+      {glowLayerClassNames.map((className, index) => (
         <div key={`${cardKey}-glow-${index}`} className={className} />
       ))}
 
