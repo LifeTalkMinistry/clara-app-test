@@ -32,30 +32,31 @@ export default function WalletCardContent({
 
   if (!expanded) {
     return (
-      <div className='relative z-10 flex h-full min-h-0 flex-col p-[clamp(0.875rem,3.2vw,1rem)] pb-[clamp(0.9rem,1.8svh,1.1rem)]'>
-        <div className='flex h-full min-h-0 flex-col gap-[clamp(0.45rem,0.95svh,0.7rem)]'>
-          <div className='flex min-h-0 flex-1 flex-col justify-center'>
+      <div className='relative z-10 flex h-full min-h-0 flex-col p-4 pb-4'>
+        <div className='flex min-h-0 flex-col gap-3'>
+          <div className='min-h-0'>
             <WalletHeader walletCount={walletCount} />
 
-            <div className='min-h-0 flex-1 pt-[clamp(0.7rem,2.6svh,1.35rem)]'>
-              <WalletSummaryStats
-                walletMoney={walletMoney}
-                walletCount={walletCount}
-                walletPreviewTransactions={walletPreviewTransactions}
-                topWallet={topWallet}
-                status={status}
-                message={message}
-              />
-            </div>
+            <WalletSummaryStats
+              walletMoney={walletMoney}
+              walletCount={walletCount}
+              walletPreviewTransactions={walletPreviewTransactions}
+              topWallet={topWallet}
+              status={status}
+              message={message}
+            />
           </div>
 
-          <FinanceCardExpandButton
-            detailKey='wallets'
-            expanded={expanded}
-            onToggleDetails={onToggleDetails}
-            collapsedLabel='View Wallets'
-            expandedLabel='Hide Wallets'
-          />
+          <div className='shrink-0 border-t border-white/6 pt-2'>
+            <FinanceCardExpandButton
+              detailKey='wallets'
+              expanded={expanded}
+              onToggleDetails={onToggleDetails}
+              collapsedLabel='View Wallets'
+              expandedLabel='Hide Wallets'
+              className='border-white/10 bg-white/[0.055] py-3 font-medium shadow-[inset_0_1px_0_rgba(255,255,255,0.06),0_8px_18px_rgba(0,0,0,0.12)]'
+            />
+          </div>
         </div>
       </div>
     );
@@ -76,13 +77,14 @@ export default function WalletCardContent({
           </p>
         </div>
 
-        <div className='shrink-0'>
+        <div className='shrink-0 border-t border-white/6 pt-2'>
           <FinanceCardExpandButton
             detailKey='wallets'
             expanded={expanded}
             onToggleDetails={onToggleDetails}
             collapsedLabel='View Wallets'
             expandedLabel='Hide Wallets'
+            className='border-white/10 bg-white/[0.055] py-3 font-medium shadow-[inset_0_1px_0_rgba(255,255,255,0.06),0_8px_18px_rgba(0,0,0,0.12)]'
           />
         </div>
       </div>
