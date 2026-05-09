@@ -1,0 +1,116 @@
+name: Patch program journey state hook
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  patch-program-journey-state-hook:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Wire useDashboardProgramJourneyState into Dashboard.jsx
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import re
+
+          target = Path("src/pages/Dashboard.jsx")
+          text = target.read_text()
+
+          import_line = 'import useDashboardProgramJourneyState from "@/components/fresh/main-dashboard/program-journey/useDashboardProgramJourneyState";\n'
+          import_anchor = 'import useDashboardEnrollmentRedirect from "@/components/fresh/main-dashboard/program-access/useDashboardEnrollmentRedirect";\n'
+          fallback_anchor = 'import useDashboardProfileUpdateListener from "@/components/fresh/main-dashboard/profile/useDashboardProfileUpdateListener";\n'
+
+          if import_line not in text:
+              if import_anchor in text:
+                  text = text.replace(import_anchor, import_anchor + import_line, 1)
+              elif fallback_anchor in text:
+                  text = text.replace(fallback_anchor, import_line + fallback_anchor, 1)
+              else:
+                  raise SystemExit("Program journey state import anchor not found. Refusing to patch Dashboard.jsx.")
+
+          replacement = (
+              '  const {\n'
+              '    programJourney,\n'
+              '    activeTask,\n'
+              '    nextTask,\n'
+              '    onboardingDone,\n'
+              '    hasPaidProgramAccess,\n'
+              '  } = useDashboardProgramJourneyState({\n'
+              '    tasks,\n'
+              '    submissions,\n'
+              '    plan,\n'
+              '    profileData,\n'
+              '    user,\n'
+              '    latestEnrollment,\n'
+              '    programRecord,\n'
+              '    isPaid,\n'
+              '    isProgramOnboardingCompleted,\n'
+              '  });\n\n'
+          )
+
+          if 'useDashboardProgramJourneyState({' not in text:
+              pattern = re.compile(
+                  r'  const programJourney = useMemo\(\n'
+                  r'    \(\) =>\n'
+                  r'      buildProgramJourney\(tasks, submissions, \{\n'
+                  r'        plan,\n'
+                  r'        profile: profileData \|\| user,\n'
+                  r'        enrollment: latestEnrollment,\n'
+                  r'        programRecord,\n'
+                  r'      \}\),\n'
+                  r'    \[latestEnrollment, plan, profileData, programRecord, submissions, tasks, user\]\n'
+                  r'  \);\n\n'
+                  r'  const activeTask = programJourney\.todayItem \|\| programJourney\.activeItem;\n'
+                  r'  const nextTask = programJourney\.nextItem;\n'
+                  r'  const onboardingDone = isProgramOnboardingCompleted\(\);\n\n'
+                  r'  const hasPaidProgramAccess = useMemo\(\(\) => \{\n'
+                  r'    const approved = isProgramApproved\(profileData, isPaid, latestEnrollment\);\n'
+                  r'    const nonFreeTier =\n'
+                  r'      normalizeLower\(programJourney\?\.tier\) !== "free" &&\n'
+                  r'      normalizeLower\(profileData\?\.plan \|\| plan\) !== "free";\n'
+                  r'    return approved && nonFreeTier;\n'
+                  r'  \}, \[profileData, latestEnrollment, isPaid, programJourney\?\.tier, plan\]\);\n\n',
+                  re.DOTALL,
+              )
+
+              text, count = pattern.subn(replacement, text, count=1)
+              if count != 1:
+                  raise SystemExit("Program journey state block not found. Refusing to patch Dashboard.jsx.")
+
+          if 'useDashboardProgramJourneyState({' not in text:
+              raise SystemExit("useDashboardProgramJourneyState was not wired. Refusing to continue.")
+          if 'const programJourney = useMemo(' in text:
+              raise SystemExit("Old programJourney useMemo still exists after patch. Refusing to continue.")
+          if 'const hasPaidProgramAccess = useMemo(() => {' in text:
+              raise SystemExit("Old hasPaidProgramAccess useMemo still exists after patch. Refusing to continue.")
+
+          target.write_text(text)
+          PY
+
+      - name: Remove temporary workflow
+        run: rm -f .github/workflows/patch-program-journey-state-hook.yml
+
+      - name: Commit and push patch
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add src/pages/Dashboard.jsx .github/workflows/patch-program-journey-state-hook.yml
+
+          if git diff --cached --quiet; then
+            echo "No changes to commit."
+            exit 0
+          fi
+
+          git commit -m "Wire dashboard program journey state hook"
+          git push
