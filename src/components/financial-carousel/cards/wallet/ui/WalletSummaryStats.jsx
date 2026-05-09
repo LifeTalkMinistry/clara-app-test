@@ -14,7 +14,7 @@ export default function WalletSummaryStats({
 
   return (
     <div className='flex h-full min-h-0 flex-col justify-between gap-2.5'>
-      <div className='flex flex-1 min-h-0 flex-col justify-center pb-2'>
+      <div className='flex min-h-0 flex-1 flex-col justify-start pb-2 pt-[clamp(0.25rem,1svh,0.55rem)]'>
         <p className={`text-[50px] font-black leading-none tracking-[-0.055em] ${status.text}`}>
           {fmt(walletMoney)}
         </p>
