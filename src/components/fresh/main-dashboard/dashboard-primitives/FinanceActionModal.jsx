@@ -90,28 +90,28 @@ function ClaraMoneyAmountHero({ label, helper, value, hiddenInput }) {
   const hasValue = Boolean(String(value || "").trim());
 
   return (
-    <div className="relative overflow-hidden rounded-[28px] border border-cyan-100/14 bg-[radial-gradient(circle_at_50%_0%,rgba(16,185,129,0.16),transparent_46%),rgba(255,255,255,0.045)] px-4 py-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.10),0_20px_48px_rgba(0,0,0,0.20)]">
+    <div className="relative overflow-hidden rounded-[26px] border border-cyan-100/14 bg-[radial-gradient(circle_at_50%_0%,rgba(16,185,129,0.14),transparent_44%),rgba(255,255,255,0.045)] px-3.5 py-3 shadow-[inset_0_1px_0_rgba(255,255,255,0.10),0_16px_38px_rgba(0,0,0,0.18)]">
       <div
-        className={`pointer-events-none absolute inset-x-8 top-0 h-16 rounded-full blur-2xl transition-opacity duration-200 ${
+        className={`pointer-events-none absolute inset-x-8 top-0 h-14 rounded-full blur-2xl transition-opacity duration-200 ${
           hasValue ? "bg-emerald-300/18 opacity-100" : "bg-cyan-300/10 opacity-60"
         }`}
       />
 
       <div className="relative flex items-center justify-between gap-3">
-        <span className="text-[11px] font-black uppercase tracking-[0.18em] text-white/58">
+        <span className="text-[10px] font-black uppercase tracking-[0.18em] text-white/58">
           {label || "Amount"}
         </span>
-        <span className="rounded-full border border-white/10 bg-white/[0.055] px-2.5 py-1 text-[9px] font-bold uppercase tracking-[0.16em] text-emerald-100/70">
+        <span className="rounded-full border border-white/10 bg-white/[0.055] px-2.5 py-0.5 text-[8px] font-bold uppercase tracking-[0.16em] text-emerald-100/70">
           CLARA input
         </span>
       </div>
 
-      <div className="relative mt-2 flex min-h-[70px] items-center justify-center rounded-[24px] border border-white/10 bg-black/16 px-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.07)]">
+      <div className="relative mt-1.5 flex min-h-[58px] items-center justify-center rounded-[22px] border border-white/10 bg-black/16 px-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.07)]">
         {hiddenInput}
         <div
-          className={`max-w-full truncate text-center text-[46px] font-black leading-none tracking-[-0.075em] transition duration-200 ${
+          className={`max-w-full truncate text-center text-[38px] font-black leading-none tracking-[-0.075em] transition duration-200 ${
             hasValue
-              ? "scale-[1.015] text-emerald-50 drop-shadow-[0_0_18px_rgba(110,231,183,0.24)]"
+              ? "scale-[1.01] text-emerald-50 drop-shadow-[0_0_16px_rgba(110,231,183,0.22)]"
               : "text-white/80"
           }`}
         >
@@ -120,7 +120,7 @@ function ClaraMoneyAmountHero({ label, helper, value, hiddenInput }) {
       </div>
 
       {helper ? (
-        <p className="relative mt-2 text-xs font-semibold leading-5 text-white/64">
+        <p className="relative mt-1.5 text-[11px] font-semibold leading-4 text-white/64">
           {helper}
         </p>
       ) : null}
@@ -145,15 +145,15 @@ function ClaraMoneyKeypad({ value, onChange }) {
   ];
 
   return (
-    <div className="mt-2.5 rounded-[24px] border border-cyan-100/12 bg-white/[0.04] p-2 shadow-[inset_0_1px_0_rgba(255,255,255,0.08),0_16px_38px_rgba(0,0,0,0.16)] backdrop-blur-xl">
-      <div className="mb-2 flex items-center justify-between gap-3 px-1">
-        <span className="text-[9px] font-bold uppercase tracking-[0.2em] text-white/42">
+    <div className="mt-2 rounded-[22px] border border-cyan-100/12 bg-white/[0.04] p-2 shadow-[inset_0_1px_0_rgba(255,255,255,0.08),0_14px_30px_rgba(0,0,0,0.15)] backdrop-blur-xl">
+      <div className="mb-1.5 flex items-center justify-between gap-3 px-1">
+        <span className="text-[8px] font-bold uppercase tracking-[0.2em] text-white/42">
           Numeric pad
         </span>
         <button
           type="button"
           onClick={() => onChange("")}
-          className="rounded-full border border-white/10 bg-white/[0.045] px-2.5 py-1 text-[10px] font-semibold text-white/55 transition hover:bg-white/[0.07] active:scale-[0.97]"
+          className="rounded-full border border-white/10 bg-white/[0.045] px-2.5 py-0.5 text-[9px] font-semibold text-white/55 transition hover:bg-white/[0.07] active:scale-[0.97]"
         >
           Clear
         </button>
@@ -165,7 +165,7 @@ function ClaraMoneyKeypad({ value, onChange }) {
             key={key}
             type="button"
             onClick={() => onChange(normalizeMoneyInput(value, key))}
-            className="flex h-[32px] items-center justify-center rounded-[17px] border border-white/12 bg-white/[0.07] text-[15px] font-black text-white/88 shadow-[inset_0_1px_0_rgba(255,255,255,0.08)] transition hover:bg-white/[0.105] active:scale-[0.97] active:bg-emerald-400/18"
+            className="flex h-[28px] items-center justify-center rounded-[16px] border border-white/12 bg-white/[0.07] text-[14px] font-black text-white/88 shadow-[inset_0_1px_0_rgba(255,255,255,0.08)] transition hover:bg-white/[0.105] active:scale-[0.97] active:bg-emerald-400/18"
           >
             {key === "backspace" ? "⌫" : key}
           </button>
@@ -265,21 +265,21 @@ export default function FinanceActionModal({
 
   return (
     <div className="fixed inset-0 z-[120] flex min-h-[100svh] items-start justify-center overflow-hidden bg-[radial-gradient(circle_at_50%_20%,rgba(15,23,42,0.42),rgba(2,6,23,0.72)_54%,rgba(2,6,23,0.86))] px-1.5 pb-[calc(0.75rem+env(safe-area-inset-bottom))] pt-0 backdrop-blur-[16px]">
-      <div className="flex h-[clamp(468px,63svh,536px)] max-h-[calc(100svh-8.25rem)] w-full max-w-[402px] overflow-hidden rounded-[34px] border border-cyan-100/[0.18] bg-[radial-gradient(circle_at_50%_0%,rgba(20,184,166,0.14),transparent_42%),linear-gradient(135deg,rgba(5,44,62,0.99),rgba(7,20,48,0.995)_48%,rgba(38,16,77,0.995))] shadow-[0_28px_90px_rgba(0,0,0,0.62),0_0_0_1px_rgba(255,255,255,0.08),0_0_54px_rgba(34,211,238,0.12)]">
+      <div className="flex h-[min(590px,calc(100svh-1.25rem))] max-h-[calc(100svh-1.25rem)] w-full max-w-[402px] overflow-hidden rounded-[34px] border border-cyan-100/[0.18] bg-[radial-gradient(circle_at_50%_0%,rgba(20,184,166,0.14),transparent_42%),linear-gradient(135deg,rgba(5,44,62,0.99),rgba(7,20,48,0.995)_48%,rgba(38,16,77,0.995))] shadow-[0_28px_90px_rgba(0,0,0,0.62),0_0_0_1px_rgba(255,255,255,0.08),0_0_54px_rgba(34,211,238,0.12)]">
         <form
           ref={formRef}
           onSubmit={onSubmit}
           className="flex min-h-0 w-full flex-col"
         >
-          <div className="shrink-0 border-b border-white/10 bg-white/[0.035] px-5 py-4">
+          <div className="shrink-0 border-b border-white/10 bg-white/[0.035] px-5 py-3.5">
             <div className="flex items-start justify-between gap-4">
               <div className="min-w-0">
-                <h3 className="text-[29px] font-black tracking-[-0.04em] text-white">
+                <h3 className="text-[28px] font-black tracking-[-0.04em] text-white">
                   {title}
                 </h3>
 
                 {displayDescription ? (
-                  <p className="mt-1 max-w-[250px] text-[14px] font-semibold leading-6 text-white/68">
+                  <p className="mt-1 max-w-[250px] text-[14px] font-semibold leading-5 text-white/68">
                     {displayDescription}
                   </p>
                 ) : null}
@@ -296,7 +296,7 @@ export default function FinanceActionModal({
             </div>
           </div>
 
-          <div className="min-h-0 flex-1 space-y-3 overflow-y-auto overscroll-contain px-5 py-3 pb-3 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+          <div className="min-h-0 flex-1 space-y-2.5 overflow-y-auto overscroll-contain px-5 py-3 pb-3 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
             {modalChildren}
 
             {usesClaraMoneyKeypad ? (
@@ -316,7 +316,7 @@ export default function FinanceActionModal({
             ) : null}
           </div>
 
-          <div className="shrink-0 border-t border-white/10 bg-[#071120]/92 px-5 pb-[calc(0.75rem+env(safe-area-inset-bottom))] pt-3 backdrop-blur-xl">
+          <div className="shrink-0 border-t border-white/10 bg-[#071120]/92 px-5 pb-[calc(0.65rem+env(safe-area-inset-bottom))] pt-2.5 backdrop-blur-xl">
             <button
               type="submit"
               disabled={submitDisabled || loading}
