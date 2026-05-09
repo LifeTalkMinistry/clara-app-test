@@ -53,6 +53,7 @@ import useDashboardManualExpenseBudgetOptions from "@/components/fresh/main-dash
 import useDashboardSelectedBudgetState from "@/components/fresh/main-dashboard/budget/useDashboardSelectedBudgetState";
 import useDashboardMonthlyBudgetPlan from "@/components/fresh/main-dashboard/budget/useDashboardMonthlyBudgetPlan";
 import useDashboardBudgetFormProgress from "@/components/fresh/main-dashboard/budget/useDashboardBudgetFormProgress";
+import useDashboardManualExpenseBudgetListItems from "@/components/fresh/main-dashboard/budget/useDashboardManualExpenseBudgetListItems";
 import DashboardTopNav from "@/components/fresh/main-dashboard/top-nav/DashboardTopNav";
 import DashboardShell from "@/components/fresh/main-dashboard/shell/DashboardShell";
 import useDashboardShellReady from "@/components/fresh/main-dashboard/shell/useDashboardShellReady";
@@ -793,32 +794,12 @@ export default function Dashboard() {
     declaredMonthlyBudgetAmount,
   });
 
-  const manualExpenseBudgetListItems = useMemo(
-    () => [
-      {
-        key: "__unplanned__",
-        title: "Unplanned Spending",
-        subtitle: "Outside your completed monthly budget",
-        tone: "amber",
-        disabled: false,
-      },
-      {
-        key: "__undocumented__",
-        title: "Undocumented Spending",
-        subtitle: "Spent but details are incomplete",
-        tone: "cyan",
-        disabled: false,
-      },
-      ...manualExpenseBudgetOptions.map((budgetItem) => ({
-        key: budgetItem.key,
-        title: budgetItem.title,
-        subtitle: budgetPlanIsComplete ? "Planned monthly budget category" : "Finish budget first",
-        tone: "neutral",
-        disabled: !budgetPlanIsComplete,
-      })),
-    ],
-    [budgetPlanIsComplete, manualExpenseBudgetOptions]
-  );
+  const manualExpenseBudgetListItems =
+    useDashboardManualExpenseBudgetListItems({
+      manualExpenseBudgetOptions,
+      monthlyBudgetPlan,
+      fmt,
+    });
 
   const programJourney = useMemo(
     () =>
