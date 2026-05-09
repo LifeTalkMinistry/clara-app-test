@@ -103,6 +103,7 @@ import {
 import createInitialFinanceForm from "@/components/fresh/main-dashboard/finance-form/financeFormInitialState";
 import useDashboardFinanceUiState from "@/components/fresh/main-dashboard/finance-form/useDashboardFinanceUiState";
 import useDashboardManualExpenseValidation from "@/components/fresh/main-dashboard/finance-form/useDashboardManualExpenseValidation";
+import useManualExpenseBudgetListKey from "@/components/fresh/main-dashboard/finance-form/useManualExpenseBudgetListKey";
 import useBudgetListDropdownDismiss from "@/components/fresh/main-dashboard/finance-form/useBudgetListDropdownDismiss";
 import { hasDashboardFinanceContent } from "@/components/fresh/main-dashboard/finance-content/dashboardFinanceContent";
 import useDashboardVisibleFinanceData from "@/components/fresh/main-dashboard/finance-content/useDashboardVisibleFinanceData";
@@ -732,23 +733,10 @@ export default function Dashboard() {
     manualExpenseBudgetOptions,
   });
 
-  const setManualExpenseBudgetListKey = useCallback((nextValue) => {
-    setFinanceForm((prev) => ({
-      ...prev,
-      budgetListKey: nextValue,
-      unplannedReason:
-        nextValue === "__unplanned__" ? prev.unplannedReason : "",
-      undocumentedReason:
-        nextValue === "__undocumented__" ? prev.undocumentedReason : "",
-      undocumentedNote:
-        nextValue === "__undocumented__" ? prev.undocumentedNote : "",
-      notes:
-        nextValue === "__unplanned__" || nextValue === "__undocumented__"
-          ? prev.notes
-          : "",
-    }));
-    setBudgetListOpen(false);
-  }, []);
+  const setManualExpenseBudgetListKey = useManualExpenseBudgetListKey({
+    setFinanceForm,
+    setBudgetListOpen,
+  });
 
   const {
     manualExpenseIsUnplanned,
