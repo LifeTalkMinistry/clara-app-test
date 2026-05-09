@@ -4,7 +4,6 @@ export default function BudgetSummaryStats({
   declared = 0,
   remaining = 0,
   spent = 0,
-  allocated = 0,
   progress = 0,
   status,
   remainingAmountColor,
@@ -12,6 +11,22 @@ export default function BudgetSummaryStats({
 }) {
   const roundedProgress = Math.round(progress);
   const hasNoSpendingLogged = hasDeclaredBudget && Number(spent || 0) <= 0;
+  const summaryTiles = [
+    {
+      label: "Spent",
+      value: fmt(spent),
+    },
+    {
+      label: "Left",
+      value: fmt(remaining),
+      valueClassName: remainingAmountColor,
+    },
+    {
+      label: "Used",
+      value: `${roundedProgress}%`,
+      valueClassName: status?.text,
+    },
+  ];
 
   return (
     <>
@@ -35,27 +50,24 @@ export default function BudgetSummaryStats({
         </p>
       </div>
 
-      <div className="mb-1">
-        <div className="mb-1.5 flex items-center justify-between text-[11px] font-medium text-white/62">
-          <span>Budget usage</span>
-          <span>{roundedProgress}%</span>
-        </div>
-
-        <div className="relative h-2 overflow-hidden rounded-full border border-white/10 bg-black/14 shadow-[inset_0_1px_0_rgba(255,255,255,0.03)]">
-          {hasDeclaredBudget && roundedProgress <= 0 ? (
-            <span className="absolute left-0.5 top-1/2 h-1.5 w-1.5 -translate-y-1/2 rounded-full bg-cyan-100/75 shadow-[0_0_10px_rgba(103,232,249,0.28)]" />
-          ) : null}
-
+      <div className="mb-1 grid grid-cols-3 gap-2">
+        {summaryTiles.map((tile) => (
           <div
-            className={`relative h-full rounded-full bg-gradient-to-r ${status.bar} transition-all duration-500`}
-            style={{ width: `${progress}%` }}
-          />
-        </div>
-
-        <div className="mt-2 flex items-center justify-between text-[10px] font-medium text-white/52">
-          <span>{fmt(spent)} spent</span>
-          <span>{fmt(allocated)} budget</span>
-        </div>
+            key={tile.label}
+            className="rounded-2xl border border-white/10 bg-white/[0.045] px-2.5 py-2.5 text-center shadow-[inset_0_1px_0_rgba(255,255,255,0.06)] backdrop-blur-sm"
+          >
+            <p
+              className={`truncate text-[13px] font-black leading-none tracking-[-0.025em] ${
+                tile.valueClassName || "text-white/92"
+              }`}
+            >
+              {tile.value}
+            </p>
+            <p className="mt-1.5 text-[8px] font-black uppercase tracking-[0.18em] text-white/42">
+              {tile.label}
+            </p>
+          </div>
+        ))}
       </div>
     </>
   );
