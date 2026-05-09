@@ -76,13 +76,13 @@ export default function useDashboardPanelUiState({
     },
     {
       key: "messages",
-      label: "Message",
+      label: "Messages",
       icon: MessageCircle,
       badge: null,
     },
     {
       key: "settings",
-      label: "Setting",
+      label: "Settings",
       icon: Settings,
       badge: null,
     },
