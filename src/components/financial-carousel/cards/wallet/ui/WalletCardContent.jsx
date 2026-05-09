@@ -31,34 +31,44 @@ export default function WalletCardContent({
   const walletCount = visibleWallets.length || wallets.filter((wallet) => !wallet?.is_archived).length;
 
   return (
-    <div className='relative z-10 flex h-full min-h-0 flex-col p-4 pb-5'>
-      <div className={`${expanded ? 'shrink-0' : 'flex-1'} flex min-h-0 flex-col justify-between gap-2`}>
-        <div className='min-h-0'>
+    <div className='relative z-10 flex h-full min-h-0 flex-col p-[clamp(0.875rem,3.5vw,1rem)] pb-[clamp(1rem,2svh,1.25rem)]'>
+      <div
+        className={`flex min-h-0 flex-1 flex-col ${
+          expanded
+            ? 'gap-[clamp(0.625rem,1.4svh,0.85rem)]'
+            : 'justify-between gap-[clamp(0.75rem,1.8svh,1rem)]'
+        }`}
+      >
+        <div className='flex min-h-0 flex-col gap-[clamp(0.625rem,1.5svh,0.9rem)]'>
           {!expanded && <WalletHeader walletCount={walletCount} />}
 
           {!expanded ? (
-            <WalletSummaryStats
-              walletMoney={walletMoney}
-              walletCount={walletCount}
-              walletPreviewTransactions={walletPreviewTransactions}
-              topWallet={topWallet}
-              status={status}
-              message={message}
-            />
+            <div className='min-h-0'>
+              <WalletSummaryStats
+                walletMoney={walletMoney}
+                walletCount={walletCount}
+                walletPreviewTransactions={walletPreviewTransactions}
+                topWallet={topWallet}
+                status={status}
+                message={message}
+              />
+            </div>
           ) : (
-            <div className='mb-3'>
-              <p className={`text-[36px] font-black leading-none tracking-[-0.045em] ${status.text}`}>
+            <div className='mb-[clamp(0.5rem,1.5svh,0.85rem)]'>
+              <p
+                className={`text-[clamp(2rem,8vw,2.25rem)] font-black leading-none tracking-[-0.045em] ${status.text}`}
+              >
                 {fmt(walletMoney)}
               </p>
 
-              <p className='mt-2 text-xs font-semibold text-white/76'>
+              <p className='mt-[clamp(0.45rem,1svh,0.65rem)] text-xs font-semibold leading-relaxed text-white/76'>
                 Total available across your wallet system.
               </p>
             </div>
           )}
         </div>
 
-        <div className='shrink-0 pb-0.5'>
+        <div className='shrink-0'>
           <FinanceCardExpandButton
             detailKey='wallets'
             expanded={expanded}
