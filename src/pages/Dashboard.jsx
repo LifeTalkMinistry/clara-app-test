@@ -14,6 +14,10 @@ import DashboardModalLayer from "@/components/fresh/main-dashboard/shell/Dashboa
 import DashboardFinanceModalRenderer from "@/components/fresh/main-dashboard/shell/DashboardFinanceModalRenderer";
 import DashboardHomePanel from "@/components/fresh/main-dashboard/shell/DashboardHomePanel";
 import DashboardFinanceExpandedSheetLayer from "@/components/fresh/main-dashboard/shell/DashboardFinanceExpandedSheetLayer";
+import useDashboardShellReady from "@/components/fresh/main-dashboard/shell/useDashboardShellReady";
+import useDashboardPanelNavigation from "@/components/fresh/main-dashboard/shell/useDashboardPanelNavigation";
+import useDashboardScrollState from "@/components/fresh/main-dashboard/shell/useDashboardScrollState";
+import useDashboardInteractionState from "@/components/fresh/main-dashboard/shell/useDashboardInteractionState";
 import DashboardProgramOnboardingModal from "@/components/fresh/main-dashboard/onboarding/DashboardProgramOnboardingModal";
 import useMoneySummaryVisibility from "@/components/fresh/main-dashboard/money-summary/useMoneySummaryVisibility";
 import useMoneyLeftSummaryHandlers from "@/components/fresh/main-dashboard/money-summary/useMoneyLeftSummaryHandlers";
