@@ -1,7 +1,6 @@
 import {
   useState,
   useEffect,
-  useMemo,
   useCallback,
   useRef } from "react";
 
@@ -18,8 +17,13 @@ import {
   Clock,
   FileText,
   ExternalLink,
+  Rocket,
+  CheckCircle2,
+  ShieldCheck,
+  CalendarDays,
   Flag,
   Bell,
+  X,
   Home,
   MessageCircle,
   Send,
@@ -34,8 +38,9 @@ import {
   Wallet,
   Palette,
   Check,
-} from "lucide-react";
-import { Link, useNavigate } from "react-router-dom";
+  } from "lucide-react";
+import { Link,
+  useNavigate } from "react-router-dom";
 import { createPortal } from "react-dom";
 import { supabase } from "@/lib/supabaseClient";
 import FinancialCarousel from "@/components/financial-carousel/FinancialCarousel";
@@ -45,6 +50,7 @@ import DashboardMoneySummary from "@/components/fresh/main-dashboard/money-summa
 import useMoneySummaryVisibility from "@/components/fresh/main-dashboard/money-summary/useMoneySummaryVisibility";
 import useMoneyLeftSummaryHandlers from "@/components/fresh/main-dashboard/money-summary/useMoneyLeftSummaryHandlers";
 import useDashboardMoneyLeftMetrics from "@/components/fresh/main-dashboard/money-summary/useDashboardMoneyLeftMetrics";
+import useDashboardMoneyInsightState from "@/components/fresh/main-dashboard/money-summary/useDashboardMoneyInsightState";
 import useDashboardBudgetSummaries from "@/components/fresh/main-dashboard/budget/useDashboardBudgetSummaries";
 import useDashboardMonthlyBudgetHeader from "@/components/fresh/main-dashboard/budget/useDashboardMonthlyBudgetHeader";
 import useDashboardManualExpenseBudgetOptions from "@/components/fresh/main-dashboard/budget/useDashboardManualExpenseBudgetOptions";
@@ -63,31 +69,30 @@ import DashboardContentArea from "@/components/fresh/main-dashboard/shell/Dashbo
 import DashboardPanelRenderer from "@/components/fresh/main-dashboard/shell/DashboardPanelRenderer";
 import DashboardModalLayer from "@/components/fresh/main-dashboard/shell/DashboardModalLayer";
 import DashboardFinanceModalRenderer from "@/components/fresh/main-dashboard/shell/DashboardFinanceModalRenderer";
-import DashboardProgramOnboardingModal from "@/components/fresh/main-dashboard/onboarding/DashboardProgramOnboardingModal";
 import { dispatchClaraEvent } from "@/components/fresh/main-dashboard/dashboard-events/dashboardEvents";
 import {
   DASHBOARD_SCALE,
   useDashboardViewportMode,
-} from "@/components/fresh/main-dashboard/dashboard-scale/dashboardScale";
+  } from "@/components/fresh/main-dashboard/dashboard-scale/dashboardScale";
 import {
   applyVisualPerformanceMode,
   readStoredPerformanceMode,
   saveVisualPerformanceMode,
-} from "@/components/fresh/main-dashboard/performance-mode/visualPerformanceMode";
+  } from "@/components/fresh/main-dashboard/performance-mode/visualPerformanceMode";
 import {
   MONEY_SUMMARY_PRIVACY_KEY,
   persistDashboardPrefs,
   persistStoredNotificationSettings,
   readDashboardPrefs,
   readStoredNotificationSettings,
-} from "@/components/fresh/main-dashboard/dashboard-settings/dashboardRuntimeSettings";
+  } from "@/components/fresh/main-dashboard/dashboard-settings/dashboardRuntimeSettings";
 import useDashboardNotificationSettings from "@/components/fresh/main-dashboard/dashboard-settings/useDashboardNotificationSettings";
 import {
   clearProgramPromptSeenThisSession,
   getProgramPromptSessionKey,
   persistProgramPromptSeenThisSession,
   readProgramPromptSeenThisSession,
-} from "@/components/fresh/main-dashboard/program-prompts/programPromptSession";
+  } from "@/components/fresh/main-dashboard/program-prompts/programPromptSession";
 import FinanceInlineAlert from "@/components/fresh/main-dashboard/finance-notices/FinanceInlineAlert";
 import useFinanceDataErrorNotice from "@/components/fresh/main-dashboard/finance-notices/useFinanceDataErrorNotice";
 import useDashboardOnlineStatusNotice from "@/components/fresh/main-dashboard/finance-notices/useDashboardOnlineStatusNotice";
@@ -99,6 +104,7 @@ import usePhpCurrencyFormatter from "@/components/fresh/main-dashboard/hooks/use
 import useDashboardEnrollmentRedirect from "@/components/fresh/main-dashboard/program-access/useDashboardEnrollmentRedirect";
 import useDashboardProgramJourneyState from "@/components/fresh/main-dashboard/program-journey/useDashboardProgramJourneyState";
 import useDashboardProfileUpdateListener from "@/components/fresh/main-dashboard/profile/useDashboardProfileUpdateListener";
+import OnboardingActionBar from "@/components/fresh/main-dashboard/onboarding/OnboardingActionBar";
 import useOnboardingPageLock from "@/components/fresh/main-dashboard/onboarding/useOnboardingPageLock";
 import useDashboardOnboardingState from "@/components/fresh/main-dashboard/onboarding/useDashboardOnboardingState";
 import createInitialFinanceForm from "@/components/fresh/main-dashboard/finance-form/financeFormInitialState";
@@ -112,16 +118,18 @@ import useDashboardFinanceStateSync from "@/components/fresh/main-dashboard/fina
 import useDashboardFinanceOverviewState from "@/components/fresh/main-dashboard/finance-content/useDashboardFinanceOverviewState";
 import useDashboardClaraAssistantContext from "@/components/fresh/main-dashboard/assistant/useDashboardClaraAssistantContext";
 import useDashboardFinanceActionHandlers from "@/components/fresh/main-dashboard/finance-actions/useDashboardFinanceActionHandlers";
+import useDashboardFinanceDiagnostics from "@/components/fresh/main-dashboard/finance-diagnostics/useDashboardFinanceDiagnostics";
+import useDashboardFinanceCardExpansion from "@/components/fresh/main-dashboard/financial-cards/useDashboardFinanceCardExpansion";
 import {
   dashboardTheme,
   DEFAULT_DASHBOARD_THEME_KEY,
   getDashboardGlowCardClass,
-} from "@/components/fresh/main-dashboard/dashboard-theme/dashboardThemeBase";
+  } from "@/components/fresh/main-dashboard/dashboard-theme/dashboardThemeBase";
 import {
   readStoredDashboardTheme,
   readStoredSurvivalExpense,
   persistStoredSurvivalExpense,
-} from "@/components/fresh/main-dashboard/dashboard-theme/dashboardThemeRuntime";
+  } from "@/components/fresh/main-dashboard/dashboard-theme/dashboardThemeRuntime";
 import useDashboardThemeClasses from "@/components/fresh/main-dashboard/dashboard-theme/useDashboardThemeClasses";
 import useDashboardThemePersistence from "@/components/fresh/main-dashboard/dashboard-theme/useDashboardThemePersistence";
 import { createEmptyDashboardCache } from "@/components/fresh/main-dashboard/dashboard-cache/dashboardCacheFactory";
@@ -133,7 +141,7 @@ import {
   DASHBOARD_PANEL_ORDER,
   dashboardPanelCardClass,
   dashboardPanelTextClass,
-} from "@/components/fresh/main-dashboard/dashboard-panels/dashboardPanelConstants";
+  } from "@/components/fresh/main-dashboard/dashboard-panels/dashboardPanelConstants";
 import DashboardPanelShell from "@/components/fresh/main-dashboard/dashboard-panels/DashboardPanelShell";
 import { Button } from "@/components/ui/button";
 import StatCard from "../components/StatCard";
@@ -148,24 +156,21 @@ import {
   buildProgramJourney,
   getProgramBubbleContent,
   normalizeProgramTask,
-} from "@/lib/program-journey";
+  } from "@/lib/program-journey";
 import {
   ensureUserProgramAccess,
   fetchUserProgramRecord,
-} from "@/lib/program-access";
+  } from "@/lib/program-access";
 import {
   isProgramApproved,
   shouldForceToEnroll,
-} from "@/components/fresh/main-dashboard/program-access/programAccessRules";
+  } from "@/components/fresh/main-dashboard/program-access/programAccessRules";
 import { getWalletBalance } from "@/utils/financialEngine";
 import {
   normalizeString,
-  normalizeLower,
   PH_TIME_ZONE,
   PH_OFFSET_MINUTES,
-  DEBUG_FINANCE_DIAGNOSTICS,
   FINANCE_CATEGORIES,
-  INCOME_TRANSACTION_TYPES,
   createFinanceId,
   isClaraOnline,
   createLocalOnlyExpenseRecord,
@@ -178,16 +183,13 @@ import {
   isTruthyActive,
   normalizeDateValue,
   padDatePart,
-  getPHParts,
   getPHDateKey,
-  getPHMonthKey,
   phLocalPartsToUtcDate,
   getPHMonthRange,
   getPHWeekStartKey,
   isInPHRange,
   sortByNewestDate,
   getWalletDisplayName,
-  getWalletDisplayBalance,
   getBudgetTotal,
   getBudgetSpent,
   getBudgetRemaining,
@@ -200,7 +202,6 @@ import {
   getSavingsTarget,
   getSavingsGoalTitle,
   formatCompactDate,
-  getTransactionDate,
   getExpenseCategoryKey,
   getBudgetCategoryKey,
   formatBudgetLabel,
@@ -894,146 +895,7 @@ export default function Dashboard() {
     wallets,
   });
 
-  useEffect(() => {
-    if (!DEBUG_FINANCE_DIAGNOSTICS) return;
-
-    const toFinanceNumber = (value) => {
-      if (typeof value === "number") return Number.isFinite(value) ? value : 0;
-      const cleaned = String(value ?? "").replace(/[₱,\s]/g, "");
-      const number = Number(cleaned);
-      return Number.isFinite(number) ? number : 0;
-    };
-
-    const getSignedLedgerAmount = (transaction) => {
-      const type = normalizeLower(
-        transaction?.type || transaction?.transaction_type || transaction?.kind
-      );
-      const amount = toFinanceNumber(transaction?.amount);
-
-      if (
-        [
-          "expense",
-          "transfer_out",
-          "savings_goal",
-          "savings_transfer",
-          "reset",
-          "debit",
-          "withdrawal",
-        ].includes(type)
-      ) {
-        return -amount;
-      }
-
-      if (
-        [
-          "income",
-          "add",
-          "cash_in",
-          "deposit",
-          "transfer_in",
-          "opening_balance",
-          "credit",
-        ].includes(type)
-      ) {
-        return amount;
-      }
-
-      return 0;
-    };
-
-    const isExpenseType = (transaction) =>
-      normalizeLower(transaction?.type || transaction?.transaction_type || transaction?.kind) ===
-      "expense";
-
-    const currentMonthKey = getPHMonthKey();
-    const normalizedWalletBalanceSum = wallets.reduce(
-      (sum, wallet) => sum + toFinanceNumber(getWalletDisplayBalance(wallet)),
-      0
-    );
-    const walletLedgerNetTotal = walletTransactions.reduce(
-      (sum, transaction) => sum + getSignedLedgerAmount(transaction),
-      0
-    );
-    const expenseTableMonthlyRows = expenses.filter((expense) => {
-      const expenseDate = getTransactionDate(expense);
-      return expenseDate && getPHMonthKey(expenseDate) === currentMonthKey;
-    });
-    const expenseTableMonthlySum = expenseTableMonthlyRows.reduce(
-      (sum, expense) => sum + toFinanceNumber(expense?.amount),
-      0
-    );
-    const walletTransactionExpenseMonthlyRows = walletTransactions.filter((transaction) => {
-      const transactionDate = getTransactionDate(transaction);
-      return (
-        isExpenseType(transaction) &&
-        transactionDate &&
-        getPHMonthKey(transactionDate) === currentMonthKey
-      );
-    });
-    const walletTransactionExpenseMonthlySum = walletTransactionExpenseMonthlyRows.reduce(
-      (sum, transaction) => sum + toFinanceNumber(transaction?.amount),
-      0
-    );
-    const tolerance = 0.01;
-    const differs = (a, b) => Math.abs(toFinanceNumber(a) - toFinanceNumber(b)) > tolerance;
-
-    const walletSummaries = Array.isArray(claraAssistantContext?.wallets)
-      ? claraAssistantContext.wallets.map((wallet) => ({
-          id: wallet?.id,
-          name: wallet?.name,
-          balance: wallet?.balance,
-        }))
-      : [];
-
-    const diagnostics = {
-      walletTotals: {
-        dashboardWalletMoney: toFinanceNumber(walletMoney),
-        dashboardTotalMoneyLeft: toFinanceNumber(claraAssistantContext?.totalMoneyLeft),
-        normalizedWalletBalanceSum,
-        walletLedgerNetTotal,
-        walletsLoaded: wallets.length,
-      },
-      monthlySpending: {
-        dashboardThisMonthSpent: toFinanceNumber(thisMonthSpent),
-        expenseTableMonthlySum,
-        walletTransactionExpenseMonthlySum,
-        expenseRowsThisMonth: expenseTableMonthlyRows.length,
-        walletTransactionExpenseRowsThisMonth: walletTransactionExpenseMonthlyRows.length,
-      },
-      claraContext: {
-        totalAvailableMoney: toFinanceNumber(claraAssistantContext?.totalMoneyLeft),
-        monthlySpent: toFinanceNumber(claraAssistantContext?.totalExpensesThisMonth),
-        walletCount: walletSummaries.length,
-        walletSummaries,
-        cashFlowRemaining: toFinanceNumber(moneyLeftThisMonth),
-      },
-      mismatchFlags: {
-        walletMoneyDiffersFromWalletBalanceSum: differs(walletMoney, normalizedWalletBalanceSum),
-        dashboardMonthlySpentDiffersFromExpenseTableMonthlySum: differs(
-          thisMonthSpent,
-          expenseTableMonthlySum
-        ),
-        walletTransactionExpenseTotalDiffersFromExpensesTableTotal: differs(
-          walletTransactionExpenseMonthlySum,
-          expenseTableMonthlySum
-        ),
-      },
-    };
-
-    console.groupCollapsed("CLARA Finance Diagnostics");
-    console.table([diagnostics.walletTotals]);
-    console.table([diagnostics.monthlySpending]);
-    console.log("CLARA context:", diagnostics.claraContext);
-    console.table([diagnostics.mismatchFlags]);
-
-    Object.entries(diagnostics.mismatchFlags).forEach(([key, value]) => {
-      if (value) {
-        console.warn(`CLARA Finance Diagnostics mismatch: ${key}`, diagnostics);
-      }
-    });
-
-    console.groupEnd();
-  }, [
+  useDashboardFinanceDiagnostics({
     claraAssistantContext,
     expenses,
     moneyLeftThisMonth,
@@ -1041,120 +903,22 @@ export default function Dashboard() {
     walletMoney,
     walletTransactions,
     wallets,
-  ]);
+  });
 
-
-  const clearDashboardScrollTimers = useCallback(() => {
-    dashboardScrollTimersRef.current.forEach((timerId) => {
-      window.clearTimeout(timerId);
-    });
-    dashboardScrollTimersRef.current = [];
-  }, []);
-
-  const measureDashboardScrollability = useCallback(() => {
-    if (activeDashboardPanel !== "home" || !expandedFinanceCard) {
-      setIsDashboardScrollable(false);
-      return false;
-    }
-
-    const scrollNode = dashboardScrollRef.current;
-    const contentNode = dashboardContentRef.current;
-    if (!scrollNode || !contentNode || typeof window === "undefined") {
-      setIsDashboardScrollable(false);
-      return false;
-    }
-
-    const viewportHeight = Math.max(window.innerHeight || 0, scrollNode.clientHeight || 0);
-    const contentHeight = Math.max(
-      scrollNode.scrollHeight || 0,
-      contentNode.scrollHeight || 0,
-      contentNode.getBoundingClientRect?.().height || 0
-    );
-    const shouldScroll = contentHeight > viewportHeight + 8;
-
-    setIsDashboardScrollable(shouldScroll);
-    return shouldScroll;
-  }, [activeDashboardPanel, expandedFinanceCard]);
-
-  const scheduleDashboardScrollMeasure = useCallback(() => {
-    if (typeof window === "undefined") return;
-
-    clearDashboardScrollTimers();
-    window.requestAnimationFrame(() => {
-      measureDashboardScrollability();
-    });
-
-    [120, 280, 380].forEach((delay) => {
-      const timerId = window.setTimeout(() => {
-        measureDashboardScrollability();
-      }, delay);
-      dashboardScrollTimersRef.current.push(timerId);
-    });
-  }, [clearDashboardScrollTimers, measureDashboardScrollability]);
-
-  const toggleFinanceDetails = useCallback((cardKey, options = {}) => {
-    const { autoExpand = false, forceOpen = false } = options || {};
-
-    setExpandedFinanceCard((prev) => {
-      const next = forceOpen ? cardKey : prev === cardKey ? null : cardKey;
-
-      if (next && autoExpand) {
-        setExpandedFinanceDetailSections((current) => ({
-          ...current,
-          [next]: true,
-        }));
-      }
-
-      if (!next) {
-        setIsDashboardScrollable(false);
-        window.requestAnimationFrame(() => {
-          dashboardScrollRef.current?.scrollTo?.({ top: 0, behavior: "smooth" });
-        });
-      }
-
-      return next;
-    });
-  }, []);
-
-  const toggleExpandedFinanceDetailSection = useCallback((cardKey) => {
-    setExpandedFinanceDetailSections((current) => ({
-      ...current,
-      [cardKey]: current?.[cardKey] === false ? true : false,
-    }));
-  }, []);
-
-  useEffect(() => {
-    scheduleDashboardScrollMeasure();
-
-    if (!expandedFinanceCard) {
-      setIsDashboardScrollable(false);
-      dashboardScrollRef.current?.scrollTo?.({ top: 0, behavior: "smooth" });
-    }
-
-    return clearDashboardScrollTimers;
-  }, [
+  const {
+    toggleFinanceDetails,
+    toggleExpandedFinanceDetailSection,
+  } = useDashboardFinanceCardExpansion({
     activeDashboardPanel,
     expandedFinanceCard,
+    setExpandedFinanceCard,
+    setExpandedFinanceDetailSections,
     dashboardViewportMode,
-    scheduleDashboardScrollMeasure,
-    clearDashboardScrollTimers,
-  ]);
-
-  useEffect(() => {
-    if (typeof window === "undefined") return undefined;
-
-    const handleResize = () => {
-      scheduleDashboardScrollMeasure();
-    };
-
-    window.addEventListener("resize", handleResize, { passive: true });
-    window.addEventListener("orientationchange", handleResize, { passive: true });
-
-    return () => {
-      window.removeEventListener("resize", handleResize);
-      window.removeEventListener("orientationchange", handleResize);
-    };
-  }, [scheduleDashboardScrollMeasure]);
+    dashboardScrollRef,
+    dashboardContentRef,
+    dashboardScrollTimersRef,
+    setIsDashboardScrollable,
+  });
 
   const {
     showFinanceNotice,
@@ -1243,263 +1007,38 @@ export default function Dashboard() {
     walletTransactions
   });
 
-  const safeSurvivalExpense = Number(survivalExpense) || 0;
-
-  const daysLeftInPHMonth = useMemo(() => {
-    const parts = getPHParts(new Date());
-    if (!parts) return 1;
-
-    const lastDay = new Date(Date.UTC(parts.year, parts.month, 0)).getUTCDate();
-    return Math.max(lastDay - parts.day + 1, 1);
-  }, []);
-
-  const moneyLeftHealth = useMemo(() => {
-    const income = Math.max(Number(thisMonthIncome) || 0, 0);
-    const spent = Math.max(Number(thisMonthSpent) || 0, 0);
-    const balance = Math.max(Number(walletMoney) || 0, 0);
-    const survival = Math.max(Number(safeSurvivalExpense) || 0, 0);
-
-    if (income > 0) {
-      const remainingFromIncome = income - spent;
-      const safeDailyFromIncome = Math.max(remainingFromIncome, 0) / daysLeftInPHMonth;
-      const ratio = spent / income;
-
-      if (remainingFromIncome <= 0 || ratio > 1) {
-        return {
-          title: "Pause extra spending",
-          highlight: "",
-          subcopy: "Your spending already passed this month’s income.",
-        };
-      }
-
-      if (ratio >= 0.9) {
-        return {
-          title: "Protect your cash",
-          highlight: `${fmt(remainingFromIncome)} left.`,
-          subcopy: "You’re near your monthly limit.",
-        };
-      }
-
-      if (ratio >= 0.7) {
-        return {
-          title: "Spend carefully",
-          highlight: `${fmt(safeDailyFromIncome)} today.`,
-          subcopy: "Keep your spending pace under control.",
-        };
-      }
-
-      return {
-        title: "You can safely spend",
-        highlight: `${fmt(safeDailyFromIncome)} today.`,
-        subcopy: "Stay on track and reach your goals.",
-      };
-    }
-
-    if (survival > 0) {
-      const moneyAfterEssentials = balance - survival;
-      const safeDailyFromSurvival = Math.max(moneyAfterEssentials, 0) / daysLeftInPHMonth;
-
-      if (balance >= survival) {
-        return {
-          title: "You can safely spend",
-          highlight: `${fmt(safeDailyFromSurvival)} today.`,
-          subcopy: "Stay on track and reach your goals.",
-        };
-      }
-
-      if (balance > survival * 0.5) {
-        return {
-          title: "Spend carefully today",
-          highlight: "",
-          subcopy: "Limit non-essentials and protect your basics.",
-        };
-      }
-
-      return {
-        title: "Pause extra spending today",
-        highlight: "",
-        subcopy: "Focus on essentials until you add more funds.",
-      };
-    }
-
-    if (balance > 0) {
-      return {
-        title: "Cash available",
-        highlight: fmt(balance),
-        subcopy: "Add income or essentials for a smarter daily limit.",
-      };
-    }
-
-    return {
-      title: "No balance yet",
-      highlight: "",
-      subcopy: "Add money to start tracking your spending power.",
-    };
-  }, [daysLeftInPHMonth, safeSurvivalExpense, thisMonthIncome, thisMonthSpent, walletMoney]);
-
-  const expenseHealth = useMemo(() => {
-    if (thisMonthSpent <= 0) {
-      return {
-        title: "No spending yet",
-        highlight: "",
-        subcopy: "Your recorded spending for this month will appear here.",
-      };
-    }
-
-    if (thisMonthIncome <= 0) {
-      return {
-        title: "Spending tracked",
-        highlight: "",
-        subcopy: `Income not recorded yet. Spent ${moneySummaryVisible ? fmt(thisMonthSpent) : "₱•••••"} this month.`,
-      };
-    }
-
-    const ratio = thisMonthSpent / thisMonthIncome;
-
-    if (ratio <= 0.7) {
-      return {
-        title: "You’re",
-        highlight: "within budget 🎉",
-        subcopy: "Great job managing your spending.",
-      };
-    }
-
-    if (ratio <= 0.9) {
-      return {
-        title: "You’re",
-        highlight: "still okay",
-        subcopy: "Keep watching your spending pace.",
-      };
-    }
-
-    if (ratio <= 1) {
-      return {
-        title: "You’re",
-        highlight: "near your limit",
-        subcopy: "Slow down before you exceed your income.",
-      };
-    }
-
-    return {
-      title: "You’re",
-      highlight: "over budget",
-      subcopy: "Pause extras and review your expenses today.",
-    };
-  }, [thisMonthIncome, thisMonthSpent]);
-
-  const dailyStrategyCard = useMemo(() => {
-    const safeSpendText = moneyLeftHealth?.highlight ||
-      (walletMoney > 0 ? `${moneySummaryVisible ? fmt(walletMoney) : "₱••••••"} available.` : "Set up your wallet first.");
-
-    const income = Math.max(Number(thisMonthIncome) || 0, 0);
-    const spent = Math.max(Number(thisMonthSpent) || 0, 0);
-    const balance = Math.max(Number(walletMoney) || 0, 0);
-    const survival = Math.max(Number(safeSurvivalExpense) || 0, 0);
-    const remainingIncome = Math.max(income - spent, 0);
-    const recommendedWantLimit = Math.max(Math.min(remainingIncome * 0.15, balance * 0.08), 0);
-
-    if (moneyLeftHealth?.title?.toLowerCase?.().includes("pause")) {
-      return {
-        safeAmount: safeSpendText,
-        action: "Delay wants and protect essentials today.",
-        backNote: "When money feels tight, CLARA’s safest move is to pause extras first.",
-      };
-    }
-
-    if (moneyLeftHealth?.title?.toLowerCase?.().includes("carefully")) {
-      return {
-        safeAmount: safeSpendText,
-        action: "Limit non-essentials and review before buying.",
-        backNote: "Small pauses prevent emotional spending from becoming a pattern.",
-      };
-    }
-
-    if (recommendedWantLimit > 0) {
-      return {
-        safeAmount: safeSpendText,
-        action: `Keep wants under ${fmt(recommendedWantLimit)} today.`,
-        backNote: "Before buying, ask: is this planned, needed, or emotional?",
-      };
-    }
-
-    if (survival > 0 && balance >= survival) {
-      return {
-        safeAmount: safeSpendText,
-        action: "Spend lightly and keep your emergency fund protected.",
-        backNote: "Your future stability depends on what you protect today.",
-      };
-    }
-
-    return {
-      safeAmount: safeSpendText,
-      action: "Log income and essentials to unlock smarter guidance.",
-      backNote: "The more accurate your records are, the smarter CLARA’s advice becomes.",
-    };
-  }, [moneyLeftHealth, safeSurvivalExpense, thisMonthIncome, thisMonthSpent, walletMoney]);
-
-  const moneyLeftTone =
-    safeSurvivalExpense <= 0
-      ? "from-cyan-500/20 to-emerald-500/20 border-cyan-400/20"
-      : walletMoney >= safeSurvivalExpense
-        ? "from-emerald-500/20 to-teal-500/20 border-emerald-400/20"
-        : walletMoney > safeSurvivalExpense * 0.5
-          ? "from-yellow-500/20 to-amber-500/20 border-yellow-400/20"
-          : "from-rose-500/20 to-red-500/20 border-rose-400/20";
-
-  const moneyLeftBadge =
-    safeSurvivalExpense <= 0
-      ? "Smart Guide"
-      : walletMoney >= safeSurvivalExpense
-        ? "Safe"
-        : walletMoney > safeSurvivalExpense * 0.5
-          ? "Watch"
-          : "Alert";
-
-  const missionLabel = activeTask
-    ? `Week ${activeTask.week} • Day ${activeTask.day}`
-    : programJourney.state === "starter_complete"
-      ? "Starter path complete"
-      : "Program overview";
-
-  const missionTitle = activeTask?.title || "Your guided journey is ready";
-
-  const missionSub = activeTask
-    ? "Start your reset journey."
-    : programJourney.state === "starter_complete"
-      ? "Continue your 30-day reset when you're ready."
-      : `${programJourney.accessibleCompletedCount} of ${
-          programJourney.accessibleTaskCount || programJourney.totalCount
-        } unlocked days complete`;
-
-  const moneyAfterEssentials = walletMoney - safeSurvivalExpense;
-
-  const moneyInsightLabel =
-    safeSurvivalExpense <= 0
-      ? "Smart setup"
-      : moneyAfterEssentials >= 0
-        ? "After essentials"
-        : "Essential gap";
-
-  const moneyInsightValue =
-    safeSurvivalExpense <= 0 ? "Add baseline" : fmt(Math.abs(moneyAfterEssentials));
-
-  const moneyInsightSub =
-    safeSurvivalExpense <= 0
-      ? "Set one monthly number to unlock runway insights."
-      : moneyAfterEssentials >= 0
-        ? "What stays available after your minimum monthly need."
-        : "What your wallets still need to fully cover essentials.";
-
-  const standardPromptTitle =
-    floatingProgramBubble?.kind === "onboarding" ? "Complete your setup" : "Today's task";
-
-  const standardPromptBody =
-    floatingProgramBubble?.kind === "onboarding"
-      ? "Finish your CLARA setup to unlock your guided program properly."
-      : "Open your next step and keep your progress moving.";
-
-  const standardPromptButton =
-    floatingProgramBubble?.kind === "onboarding" ? "Continue" : "Open task";
+  const {
+    safeSurvivalExpense,
+    moneyLeftHealth,
+    expenseHealth,
+    dailyStrategyCard,
+    moneyLeftTone,
+    moneyLeftBadge,
+    missionLabel,
+    missionTitle,
+    missionSub,
+    moneyAfterEssentials,
+    moneyInsightLabel,
+    moneyInsightValue,
+    moneyInsightSub,
+    standardPromptTitle,
+    standardPromptBody,
+    standardPromptButton,
+    feedHasHighlight,
+    unreadMessagesCount,
+    taskBadgeLabel,
+  } = useDashboardMoneyInsightState({
+    activeTask,
+    floatingProgramBubble,
+    fmt,
+    moneySummaryVisible,
+    nextTask,
+    programJourney,
+    survivalExpense,
+    thisMonthIncome,
+    thisMonthSpent,
+    walletMoney,
+  });
 
   const markProgramPromptAsSeen = useCallback(() => {
     if (!user?.id || !floatingProgramBubble) return;
@@ -1558,14 +1097,6 @@ export default function Dashboard() {
     refreshUser?.();
     navigate("/tasks");
   };
-
-  const feedHasHighlight = programJourney.accessibleCompletedCount > 0;
-  const unreadMessagesCount = 0;
-  const taskBadgeLabel = activeTask
-    ? `Day ${activeTask.day}`
-    : nextTask
-      ? `Next ${nextTask.day}`
-      : "";
 
   const openDashboardPanel = useCallback((panelKey) => {
     const targetPanel = DASHBOARD_PANEL_ORDER.includes(panelKey) ? panelKey : "home";
@@ -1939,23 +1470,357 @@ export default function Dashboard() {
       />
 
 
-      <DashboardProgramOnboardingModal
-          showOnboarding={showOnboarding}
-          closeOnboarding={closeOnboarding}
-          onboardingStep={onboardingStep}
-          setOnboardingStep={setOnboardingStep}
-          commitmentChecked={commitmentChecked}
-          setCommitmentChecked={setCommitmentChecked}
-          savingOnboarding={savingOnboarding}
-          goToNextOnboardingStep={goToNextOnboardingStep}
-          nickname={nickname}
-          setNickname={setNickname}
-          reminderTime={reminderTime}
-          setReminderTime={setReminderTime}
-          financialGoal={financialGoal}
-          setFinancialGoal={setFinancialGoal}
-          finishOnboarding={finishOnboarding}
-        />
+      {showOnboarding && (
+        <div
+          className="fixed inset-0 z-[99999] bg-[#020817]/88 backdrop-blur-xl"
+          onClick={closeOnboarding}
+        >
+          <div className="flex h-[100dvh] w-full items-end justify-center sm:items-center">
+            <div
+              className="relative flex h-[100dvh] w-full flex-col overflow-hidden bg-[radial-gradient(circle_at_top,rgba(16,185,129,0.16),transparent_28%),linear-gradient(180deg,#08111f_0%,#071120_38%,#061018_100%)] text-white sm:h-[94vh] sm:max-h-[920px] sm:w-[min(100%,860px)] sm:rounded-[32px] sm:border sm:border-white/15 sm:shadow-[0_30px_100px_rgba(0,0,0,0.45)]"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="pointer-events-none absolute inset-0 overflow-hidden">
+                <div className="absolute -top-20 left-1/2 h-56 w-56 -translate-x-1/2 rounded-full bg-emerald-500/10 blur-3xl" />
+                <div className="absolute bottom-0 right-0 h-48 w-48 rounded-full bg-cyan-500/10 blur-3xl" />
+              </div>
+
+              <div className="relative z-10 border-b border-white/15 bg-black/10 px-4 pb-4 pt-[max(1rem,env(safe-area-inset-top))] md:px-6">
+                <div className="flex items-start justify-between gap-4">
+                  <div className="min-w-0">
+                    <div className="inline-flex items-center gap-2 rounded-full border border-emerald-400/15 bg-emerald-500/10 px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.22em] text-emerald-300/85">
+                      <span>CLARA Program Onboarding</span>
+                    </div>
+
+                    <h2 className="mt-3 text-[1.35rem] font-bold leading-tight md:text-[1.65rem]">
+                      {onboardingStep === 0 && "Commitment Agreement"}
+                      {onboardingStep === 1 && "Rules & Expectations"}
+                      {onboardingStep === 2 && "Initial Setup"}
+                      {onboardingStep === 3 && "Coaching & Support"}
+                      {onboardingStep === 4 && "Dashboard Introduction"}
+                      {onboardingStep === 5 && "How CLARA Helps You Daily"}
+                      {onboardingStep === 6 && "Start Day 1"}
+                    </h2>
+
+                    <p className="mt-1 text-sm text-white/60">
+                      Step {onboardingStep + 1} of 7
+                    </p>
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={closeOnboarding}
+                    className="shrink-0 rounded-full border border-white/15 bg-white/[0.075] p-2.5 text-white/60 transition hover:bg-white/[0.08] hover:text-white"
+                  >
+                    <X className="h-4 w-4" />
+                  </button>
+                </div>
+
+                <div className="mt-4">
+                  <div className="h-2.5 w-full overflow-hidden rounded-full bg-white/10">
+                    <div
+                      className="h-full rounded-full bg-gradient-to-r from-emerald-400 via-emerald-500 to-green-500 transition-all duration-300"
+                      style={{ width: `${((onboardingStep + 1) / 7) * 100}%` }}
+                    />
+                  </div>
+                </div>
+              </div>
+
+              <div className="relative z-10 flex-1 overflow-y-auto px-4 py-4 md:px-6 md:py-6">
+                <div className="mx-auto w-full max-w-3xl">
+                  {onboardingStep === 0 && (
+                    <div className="space-y-5">
+                      <div className="overflow-hidden rounded-[28px] border border-emerald-400/15 bg-gradient-to-br from-emerald-500/14 to-green-600/8 p-5 md:p-6">
+                        <div className="flex items-start gap-4">
+                          <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-3xl bg-emerald-500/18 text-emerald-300 shadow-[0_12px_30px_rgba(16,185,129,0.15)]">
+                            <CheckCircle2 className="h-7 w-7" />
+                          </div>
+
+                          <div>
+                            <h3 className="text-xl font-bold leading-tight">
+                              Welcome to your 30-day transformation
+                            </h3>
+                            <p className="mt-2 text-sm leading-7 text-white/75">
+                              CLARA is not just a tracker. This is a guided behavior-change
+                              program built around structure, consistency, accountability,
+                              and action.
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="rounded-[28px] border border-white/15 bg-white/[0.075] p-5 md:p-6">
+                        <p className="text-sm leading-7 text-white/80">
+                          By continuing, you acknowledge that you are entering a guided
+                          financial coaching experience and you are expected to complete
+                          your tasks honestly and consistently.
+                        </p>
+
+                        <label className="mt-5 flex cursor-pointer items-start gap-3 rounded-3xl border border-white/15 bg-[#091423] px-4 py-4 transition hover:border-emerald-400/25 hover:bg-[#0c1829]">
+                          <input
+                            type="checkbox"
+                            className="mt-1 h-4 w-4 shrink-0 rounded border-white/20 bg-transparent accent-emerald-500"
+                            checked={commitmentChecked}
+                            onChange={(e) => setCommitmentChecked(e.target.checked)}
+                          />
+                          <span className="text-sm leading-6 text-white/82">
+                            I commit to completing the CLARA program, following the daily
+                            process, and taking responsibility for my progress.
+                          </span>
+                        </label>
+                      </div>
+
+                      <OnboardingActionBar
+                        onNext={goToNextOnboardingStep}
+                        nextDisabled={!commitmentChecked || savingOnboarding}
+                        nextLabel="Continue"
+                      />
+                    </div>
+                  )}
+
+                  {onboardingStep === 1 && (
+                    <div className="space-y-4">
+                      <div className="grid gap-3 md:grid-cols-2">
+                        <div className="rounded-[28px] border border-white/15 bg-white/[0.075] p-5">
+                          <div className="mb-3 inline-flex h-12 w-12 items-center justify-center rounded-2xl bg-white/10 text-emerald-300">
+                            <ShieldCheck className="h-6 w-6" />
+                          </div>
+                          <p className="text-sm font-semibold text-white">What CLARA expects</p>
+                          <ul className="mt-3 space-y-2 text-sm text-white/70">
+                            <li>• Complete tasks in sequence</li>
+                            <li>• Show honesty in your submissions</li>
+                            <li>• Treat progress as discipline, not mood</li>
+                          </ul>
+                        </div>
+
+                        <div className="rounded-[28px] border border-white/15 bg-white/[0.075] p-5">
+                          <div className="mb-3 inline-flex h-12 w-12 items-center justify-center rounded-2xl bg-white/10 text-cyan-300">
+                            <CalendarDays className="h-6 w-6" />
+                          </div>
+                          <p className="text-sm font-semibold text-white">How the flow works</p>
+                          <ul className="mt-3 space-y-2 text-sm text-white/70">
+                            <li>• You unlock structure one day at a time</li>
+                            <li>• Modules and tasks support each other</li>
+                            <li>• Your dashboard is your daily control center</li>
+                          </ul>
+                        </div>
+                      </div>
+
+                      <div className="rounded-[28px] border border-white/15 bg-white/[0.075] p-5">
+                        <p className="text-sm font-semibold text-white">Your commitment matters</p>
+                        <p className="mt-2 text-sm leading-7 text-white/75">
+                          This program works best when you stop waiting for the perfect mood
+                          and start moving with structure. Your consistency is the strategy.
+                        </p>
+                      </div>
+
+                      <OnboardingActionBar
+                        onBack={() => setOnboardingStep(0)}
+                        onNext={goToNextOnboardingStep}
+                        nextDisabled={savingOnboarding}
+                        nextLabel="I Understand"
+                      />
+                    </div>
+                  )}
+
+                  {onboardingStep === 2 && (
+                    <div className="space-y-4">
+                      <div className="rounded-[28px] border border-white/15 bg-white/[0.075] p-5 md:p-6">
+                        <p className="text-sm font-semibold text-white">
+                          Complete your initial setup
+                        </p>
+                        <p className="mt-1 text-sm text-white/65">
+                          This helps personalize your coaching journey from Day 1.
+                        </p>
+
+                        <div className="mt-5 grid gap-4">
+                          <div>
+                            <label className="mb-2 block text-xs uppercase tracking-wide text-white/50">
+                              Name or Nickname
+                            </label>
+                            <input
+                              value={nickname}
+                              onChange={(e) => setNickname(e.target.value)}
+                              placeholder="What should CLARA call you?"
+                              className="w-full rounded-2xl border border-white/15 bg-black/30 px-4 py-3 text-sm text-white outline-none placeholder:text-white/30"
+                            />
+                          </div>
+
+                          <div>
+                            <label className="mb-2 block text-xs uppercase tracking-wide text-white/50">
+                              Preferred Reminder Time
+                            </label>
+                            <input
+                              type="time"
+                              value={reminderTime}
+                              onChange={(e) => setReminderTime(e.target.value)}
+                              className="w-full rounded-2xl border border-white/15 bg-black/30 px-4 py-3 text-sm text-white outline-none"
+                            />
+                          </div>
+
+                          <div>
+                            <label className="mb-2 block text-xs uppercase tracking-wide text-white/50">
+                              Main Financial Goal
+                            </label>
+                            <textarea
+                              value={financialGoal}
+                              onChange={(e) => setFinancialGoal(e.target.value)}
+                              placeholder="Example: Build emergency fund, stop impulsive spending, save my first ₱50,000."
+                              className="min-h-[110px] w-full rounded-2xl border border-white/15 bg-black/30 px-4 py-3 text-sm text-white outline-none placeholder:text-white/30"
+                            />
+                          </div>
+                        </div>
+                      </div>
+
+                      <OnboardingActionBar
+                        onBack={() => setOnboardingStep(1)}
+                        onNext={goToNextOnboardingStep}
+                        nextDisabled={savingOnboarding}
+                        nextLabel="Save & Continue"
+                      />
+                    </div>
+                  )}
+
+                  {onboardingStep === 3 && (
+                    <div className="space-y-4">
+                      <div className="rounded-[28px] border border-emerald-400/15 bg-emerald-500/10 p-5">
+                        <p className="text-sm font-semibold text-white">Your support system</p>
+                        <p className="mt-2 text-sm leading-7 text-white/75">
+                          If your tier includes coaching, book your first session within
+                          Day 1 to Day 3. That first session acts as your onboarding
+                          alignment and sets the tone for the rest of the program.
+                        </p>
+                      </div>
+
+                      <div className="grid gap-3 md:grid-cols-2">
+                        <div className="rounded-[28px] border border-white/15 bg-white/[0.075] p-5">
+                          <p className="text-sm font-semibold text-white">What happens next</p>
+                          <ul className="mt-3 space-y-2 text-sm text-white/70">
+                            <li>• Access your first weekly module</li>
+                            <li>• Start completing daily tasks in order</li>
+                            <li>• Track money using your dashboard tools</li>
+                          </ul>
+                        </div>
+
+                        <div className="rounded-[28px] border border-white/15 bg-white/[0.075] p-5">
+                          <p className="text-sm font-semibold text-white">Coaching users</p>
+                          <ul className="mt-3 space-y-2 text-sm text-white/70">
+                            <li>• Book your session early</li>
+                            <li>• Bring your honest money habits</li>
+                            <li>• Use the session for clarity and accountability</li>
+                          </ul>
+                        </div>
+                      </div>
+
+                      <OnboardingActionBar
+                        onBack={() => setOnboardingStep(2)}
+                        onNext={goToNextOnboardingStep}
+                        nextDisabled={savingOnboarding}
+                        nextLabel="Continue"
+                      />
+                    </div>
+                  )}
+
+                  {onboardingStep === 4 && (
+                    <div className="space-y-4">
+                      <div className="grid gap-3">
+                        <div className="rounded-[28px] border border-white/15 bg-white/[0.075] p-5">
+                          <p className="text-sm font-semibold text-white">Dashboard</p>
+                          <p className="mt-2 text-sm leading-7 text-white/70">
+                            This is your main control center for progress, money tracking,
+                            and daily action.
+                          </p>
+                        </div>
+
+                        <div className="rounded-[28px] border border-white/15 bg-white/[0.075] p-5">
+                          <p className="text-sm font-semibold text-white">Day Mission</p>
+                          <p className="mt-2 text-sm leading-7 text-white/70">
+                            Your next task is always visible so you know exactly what to do next.
+                          </p>
+                        </div>
+
+                        <div className="rounded-[28px] border border-white/15 bg-white/[0.075] p-5">
+                          <p className="text-sm font-semibold text-white">Finance carousel</p>
+                          <p className="mt-2 text-sm leading-7 text-white/70">
+                            Use wallets, expenses, budgets, and savings goals to support real
+                            progress without losing momentum.
+                          </p>
+                        </div>
+                      </div>
+
+                      <OnboardingActionBar
+                        onBack={() => setOnboardingStep(3)}
+                        onNext={goToNextOnboardingStep}
+                        nextDisabled={savingOnboarding}
+                        nextLabel="Continue"
+                      />
+                    </div>
+                  )}
+
+                  {onboardingStep === 5 && (
+                    <div className="space-y-4">
+                      <div className="rounded-[28px] border border-white/15 bg-white/[0.075] p-5">
+                        <div className="mb-3 inline-flex h-12 w-12 items-center justify-center rounded-2xl bg-white/10 text-yellow-300">
+                          <Flag className="h-6 w-6" />
+                        </div>
+                        <p className="text-sm font-semibold text-white">How CLARA helps daily</p>
+                        <p className="mt-2 text-sm leading-7 text-white/75">
+                          Your dashboard keeps your priorities visible. Your tasks give you the
+                          next step. Your tools give you the structure to stop drifting and
+                          start building momentum.
+                        </p>
+                      </div>
+
+                      <div className="rounded-[28px] border border-white/15 bg-white/[0.075] p-5">
+                        <p className="text-sm font-semibold text-white">What to remember</p>
+                        <ul className="mt-3 space-y-2 text-sm text-white/70">
+                          <li>• Progress comes from repetition</li>
+                          <li>• Structure protects you from inconsistency</li>
+                          <li>• Small daily action compounds</li>
+                        </ul>
+                      </div>
+
+                      <OnboardingActionBar
+                        onBack={() => setOnboardingStep(4)}
+                        onNext={goToNextOnboardingStep}
+                        nextDisabled={savingOnboarding}
+                        nextLabel="Continue"
+                      />
+                    </div>
+                  )}
+
+                  {onboardingStep === 6 && (
+                    <div className="space-y-4">
+                      <div className="overflow-hidden rounded-[28px] border border-emerald-400/15 bg-gradient-to-br from-emerald-500/16 to-cyan-500/10 p-5 md:p-6">
+                        <div className="flex items-start gap-4">
+                          <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-3xl bg-white/10 text-emerald-300">
+                            <Rocket className="h-7 w-7" />
+                          </div>
+
+                          <div>
+                            <h3 className="text-xl font-bold leading-tight">You are ready to start</h3>
+                            <p className="mt-2 text-sm leading-7 text-white/75">
+                              Your setup is complete. Head into Day 1 and begin your guided
+                              reset with clarity and structure.
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+
+                      <OnboardingActionBar
+                        onBack={() => setOnboardingStep(5)}
+                        onNext={finishOnboarding}
+                        nextDisabled={savingOnboarding}
+                        nextLabel={savingOnboarding ? "Saving..." : "Start Day 1"}
+                      />
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
 
       <DashboardFinanceModalRenderer
