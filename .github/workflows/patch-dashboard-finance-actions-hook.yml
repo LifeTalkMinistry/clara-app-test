@@ -1,0 +1,256 @@
+name: Patch dashboard finance actions hook
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  patch-dashboard-finance-actions-hook:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Wire useDashboardFinanceActions into Dashboard.jsx
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          target = Path("src/pages/Dashboard.jsx")
+          text = target.read_text()
+
+          import_line = 'import useDashboardFinanceActions from "@/components/fresh/main-dashboard/finance-form/useDashboardFinanceActions";\n'
+          import_anchor = 'import useManualExpenseBudgetListKey from "@/components/fresh/main-dashboard/finance-form/useManualExpenseBudgetListKey";\n'
+          fallback_anchor = 'import useDashboardManualExpenseValidation from "@/components/fresh/main-dashboard/finance-form/useDashboardManualExpenseValidation";\n'
+
+          if import_line not in text:
+              if import_anchor in text:
+                  text = text.replace(import_anchor, import_anchor + import_line, 1)
+              elif fallback_anchor in text:
+                  text = text.replace(fallback_anchor, fallback_anchor + import_line, 1)
+              else:
+                  raise SystemExit("Dashboard finance actions import anchor not found. Refusing to patch Dashboard.jsx.")
+
+          def find_statement_end(source, start):
+              paren = brace = bracket = 0
+              in_single = in_double = in_template = False
+              in_line_comment = in_block_comment = False
+              escape = False
+              i = start
+
+              while i < len(source):
+                  ch = source[i]
+                  nxt = source[i + 1] if i + 1 < len(source) else ""
+
+                  if in_line_comment:
+                      if ch == "\n":
+                          in_line_comment = False
+                      i += 1
+                      continue
+
+                  if in_block_comment:
+                      if ch == "*" and nxt == "/":
+                          in_block_comment = False
+                          i += 2
+                          continue
+                      i += 1
+                      continue
+
+                  if in_single or in_double or in_template:
+                      if escape:
+                          escape = False
+                      elif ch == "\\":
+                          escape = True
+                      elif in_single and ch == "'":
+                          in_single = False
+                      elif in_double and ch == '"':
+                          in_double = False
+                      elif in_template and ch == "`":
+                          in_template = False
+                      i += 1
+                      continue
+
+                  if ch == "/" and nxt == "/":
+                      in_line_comment = True
+                      i += 2
+                      continue
+                  if ch == "/" and nxt == "*":
+                      in_block_comment = True
+                      i += 2
+                      continue
+                  if ch == "'":
+                      in_single = True
+                      i += 1
+                      continue
+                  if ch == '"':
+                      in_double = True
+                      i += 1
+                      continue
+                  if ch == "`":
+                      in_template = True
+                      i += 1
+                      continue
+
+                  if ch == "(":
+                      paren += 1
+                  elif ch == ")":
+                      paren -= 1
+                  elif ch == "{":
+                      brace += 1
+                  elif ch == "}":
+                      brace -= 1
+                  elif ch == "[":
+                      bracket += 1
+                  elif ch == "]":
+                      bracket -= 1
+                  elif ch == ";" and paren == 0 and brace == 0 and bracket == 0:
+                      return i + 1
+
+                  i += 1
+
+              return -1
+
+          hook_block = (
+              '  const {\n'
+              '    saveManualExpenseInline,\n'
+              '    addMoneyInline,\n'
+              '    transferMoneyInline,\n'
+              '    saveWalletInline,\n'
+              '    deleteWalletInline,\n'
+              '    saveBudgetInline,\n'
+              '    deleteBudgetCategoryInline,\n'
+              '    resetBudgetInline,\n'
+              '    saveSavingsGoalInline,\n'
+              '    deleteSavingsGoalInline,\n'
+              '    addSavingsInline,\n'
+              '    deleteExpenseInline,\n'
+              '  } = useDashboardFinanceActions({\n'
+              '    financeForm,\n'
+              '    financeModal,\n'
+              '    selectedManualExpenseBudget,\n'
+              '    manualExpenseIsUnplanned,\n'
+              '    manualExpenseIsUndocumented,\n'
+              '    manualExpenseReason,\n'
+              '    manualExpenseUndocumentedReason,\n'
+              '    monthlyBudgetPlan,\n'
+              '    addExpenseData,\n'
+              '    updateExpenseData,\n'
+              '    deleteExpenseData,\n'
+              '    addWalletData,\n'
+              '    updateWalletData,\n'
+              '    deleteWalletData,\n'
+              '    addIncomeData,\n'
+              '    transferBetweenWalletsData,\n'
+              '    addBudgetData,\n'
+              '    updateBudgetData,\n'
+              '    deleteBudgetData,\n'
+              '    addSavingsGoalData,\n'
+              '    updateSavingsGoalData,\n'
+              '    deleteSavingsGoalData,\n'
+              '    refreshFinancialData,\n'
+              '    scheduleRefresh,\n'
+              '    closeFinanceModal,\n'
+              '    showFinanceNotice,\n'
+              '    setFinanceActionLoading,\n'
+              '    setFinanceForm,\n'
+              '    setBudgetExitConfirm,\n'
+              '  });\n\n'
+          )
+
+          action_names = [
+              'saveManualExpenseInline',
+              'addMoneyInline',
+              'transferMoneyInline',
+              'saveWalletInline',
+              'deleteWalletInline',
+              'saveBudgetInline',
+              'deleteBudgetCategoryInline',
+              'resetBudgetInline',
+              'saveSavingsGoalInline',
+              'deleteSavingsGoalInline',
+              'addSavingsInline',
+              'deleteExpenseInline',
+          ]
+
+          if 'useDashboardFinanceActions({' not in text:
+              intervals = []
+
+              for name in action_names:
+                  marker = f'  const {name} = '
+                  start = text.find(marker)
+                  if start == -1:
+                      raise SystemExit(f"{name} declaration not found. Refusing to patch Dashboard.jsx.")
+
+                  end = find_statement_end(text, start)
+                  if end == -1:
+                      raise SystemExit(f"{name} declaration end not found. Refusing to patch Dashboard.jsx.")
+
+                  if text[end:end + 2] == "\n\n":
+                      end += 2
+                  elif text[end:end + 1] == "\n":
+                      end += 1
+
+                  block = text[start:end]
+                  if 'useCallback' not in block:
+                      raise SystemExit(f"{name} declaration is not a useCallback block. Refusing to patch Dashboard.jsx.")
+
+                  intervals.append((start, end, name))
+
+              intervals.sort()
+              for index in range(1, len(intervals)):
+                  previous = intervals[index - 1]
+                  current = intervals[index]
+                  if current[0] < previous[1]:
+                      raise SystemExit("Finance action callback blocks overlap. Refusing to patch Dashboard.jsx.")
+
+              insert_at = intervals[0][0]
+              next_text = []
+              cursor = 0
+              inserted = False
+
+              for start, end, name in intervals:
+                  next_text.append(text[cursor:start])
+                  if not inserted:
+                      next_text.append(hook_block)
+                      inserted = True
+                  cursor = end
+
+              next_text.append(text[cursor:])
+              text = ''.join(next_text)
+
+          if 'useDashboardFinanceActions({' not in text:
+              raise SystemExit("useDashboardFinanceActions was not wired. Refusing to continue.")
+
+          for name in action_names:
+              if f'const {name} = useCallback' in text:
+                  raise SystemExit(f"Old {name} useCallback still exists after patch. Refusing to continue.")
+
+          if 'closeFinanceModal' not in text or 'showFinanceNotice' not in text:
+              raise SystemExit("Required modal/notice callbacks are missing. Refusing to continue.")
+
+          target.write_text(text)
+          PY
+
+      - name: Remove temporary workflow
+        run: rm -f .github/workflows/patch-dashboard-finance-actions-hook.yml
+
+      - name: Commit and push patch
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add src/pages/Dashboard.jsx .github/workflows/patch-dashboard-finance-actions-hook.yml
+
+          if git diff --cached --quiet; then
+            echo "No changes to commit."
+            exit 0
+          fi
+
+          git commit -m "Wire dashboard finance actions hook"
+          git push
