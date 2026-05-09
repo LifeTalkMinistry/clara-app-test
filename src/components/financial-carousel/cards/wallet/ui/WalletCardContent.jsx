@@ -33,10 +33,8 @@ export default function WalletCardContent({
   if (!expanded) {
     return (
       <div className='relative z-10 h-full min-h-0 p-[clamp(0.875rem,3.2vw,1rem)] pb-[clamp(0.9rem,1.8svh,1.1rem)]'>
-        <div className='grid h-full min-h-0 grid-rows-[minmax(0,1.05fr)_minmax(0,1.55fr)_auto] gap-[clamp(0.55rem,1.2svh,0.8rem)]'>
-          <div className='min-h-0'>
-            <WalletHeader walletCount={walletCount} />
-          </div>
+        <div className='grid h-full min-h-0 grid-rows-[auto_minmax(0,1fr)_auto] gap-[clamp(0.45rem,0.95svh,0.7rem)]'>
+          <WalletHeader walletCount={walletCount} />
 
           <div className='min-h-0'>
             <WalletSummaryStats
