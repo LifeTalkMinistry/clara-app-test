@@ -126,6 +126,7 @@ import useDashboardThemeClasses from "@/components/fresh/main-dashboard/dashboar
 import useDashboardThemePersistence from "@/components/fresh/main-dashboard/dashboard-theme/useDashboardThemePersistence";
 import { createEmptyDashboardCache } from "@/components/fresh/main-dashboard/dashboard-cache/dashboardCacheFactory";
 import useDashboardHydrateFromCache from "@/components/fresh/main-dashboard/dashboard-cache/useDashboardHydrateFromCache";
+import useDashboardCacheOwnerSync from "@/components/fresh/main-dashboard/dashboard-cache/useDashboardCacheOwnerSync";
 import useDashboardDataState from "@/components/fresh/main-dashboard/dashboard-state/useDashboardDataState";
 import {
   DASHBOARD_PANEL_ORDER,
@@ -483,23 +484,22 @@ export default function Dashboard() {
     setLoading,
   });
 
-  useEffect(() => {
-    if (!cacheKey) {
-      const emptyCache = createEmptyDashboardCache();
-      dashboardPageCache = emptyCache;
-      hydrateFromCache(emptyCache);
-      return;
-    }
+  const getDashboardPageCache = useCallback(() => dashboardPageCache, []);
+  const setDashboardPageCache = useCallback((nextCache) => {
+    dashboardPageCache = nextCache;
+  }, []);
 
-    if (dashboardPageCache.loaded && dashboardPageCache.key === cacheKey) {
-      hydrateFromCache(dashboardPageCache);
-      return;
-    }
-
-    hasLoadedDashboardRef.current = false;
-    setGuardChecked(false);
-    setLoading(!hasDashboardFinanceContent(initialCache) && financeDataLoading);
-  }, [cacheKey, financeDataLoading, hydrateFromCache]);
+  useDashboardCacheOwnerSync({
+    cacheKey,
+    initialCache,
+    financeDataLoading,
+    hasLoadedDashboardRef,
+    hydrateFromCache,
+    getDashboardPageCache,
+    setDashboardPageCache,
+    setGuardChecked,
+    setLoading,
+  });
 
   useOnboardingPageLock(showOnboarding);
 
