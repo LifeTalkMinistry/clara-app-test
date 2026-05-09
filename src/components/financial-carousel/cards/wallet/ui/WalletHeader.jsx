@@ -2,23 +2,24 @@ import { WalletCards } from 'lucide-react';
 
 export default function WalletHeader({ walletCount = 0 }) {
   return (
-    <div className='mb-0 flex items-start gap-[clamp(0.65rem,2.6vw,0.85rem)]'>
-      <div className='flex h-[clamp(2.5rem,9.5vw,2.9rem)] w-[clamp(2.5rem,9.5vw,2.9rem)] shrink-0 items-center justify-center rounded-2xl border border-cyan-200/20 bg-white/[0.07] text-cyan-100 shadow-[inset_0_1px_0_rgba(255,255,255,0.14),0_0_22px_rgba(0,255,220,0.12)] backdrop-blur-sm'>
-        <WalletCards className='h-[clamp(1rem,3.8vw,1.15rem)] w-[clamp(1rem,3.8vw,1.15rem)]' />
+    <div className='flex min-h-[clamp(4.2rem,13svh,6.2rem)] items-center gap-[clamp(0.7rem,2.8vw,0.95rem)]'>
+      <div className='flex h-[clamp(2.7rem,10.5vw,3.15rem)] w-[clamp(2.7rem,10.5vw,3.15rem)] shrink-0 items-center justify-center rounded-2xl border border-cyan-200/20 bg-white/[0.07] text-cyan-100 shadow-[inset_0_1px_0_rgba(255,255,255,0.14),0_0_22px_rgba(0,255,220,0.12)] backdrop-blur-sm'>
+        <WalletCards className='h-[clamp(1.05rem,4vw,1.2rem)] w-[clamp(1.05rem,4vw,1.2rem)]' />
       </div>
 
       <div className='min-w-0 flex-1'>
         <div className='flex items-start justify-between gap-2'>
-          <div className='min-w-0'>
-            <p className='text-[clamp(1rem,3.5vw,1.12rem)] font-semibold leading-tight tracking-tight text-white'>
+          <div className='min-w-0 flex-1 pr-2'>
+            <p className='text-[clamp(1.02rem,3.8vw,1.18rem)] font-semibold leading-tight tracking-tight text-white'>
               Wallets
             </p>
-            <p className='mt-[clamp(0.15rem,0.55svh,0.3rem)] max-w-[13rem] text-[clamp(0.68rem,2.35vw,0.78rem)] font-medium leading-snug text-white/78'>
+
+            <p className='mt-[clamp(0.18rem,0.65svh,0.38rem)] max-w-[14rem] text-[clamp(0.72rem,2.45vw,0.84rem)] font-medium leading-[1.45] text-white/78'>
               Track your available money across accounts
             </p>
           </div>
 
-          <span className='shrink-0 rounded-full border border-cyan-200/15 bg-white/[0.07] px-[clamp(0.6rem,2.3vw,0.75rem)] py-[clamp(0.25rem,0.8svh,0.35rem)] text-[clamp(0.68rem,2.1vw,0.76rem)] font-semibold text-white/80 backdrop-blur-sm'>
+          <span className='shrink-0 rounded-full border border-cyan-200/15 bg-white/[0.07] px-[clamp(0.62rem,2.4vw,0.82rem)] py-[clamp(0.28rem,0.95svh,0.42rem)] text-[clamp(0.7rem,2.15vw,0.8rem)] font-semibold text-white/80 backdrop-blur-sm'>
             {walletCount} {walletCount === 1 ? 'Wallet' : 'Wallets'}
           </span>
         </div>
