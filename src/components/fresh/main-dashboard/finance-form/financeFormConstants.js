@@ -1,5 +1,5 @@
 export const financeInputClassName =
-  "w-full rounded-2xl border border-white/15 bg-white/[0.075] px-4 py-3 text-sm text-white outline-none transition placeholder:text-white/35 focus:border-emerald-400/30 focus:bg-white/[0.06]";
+  "w-full rounded-2xl border border-white/15 bg-white/[0.075] px-4 py-3 text-sm text-white outline-none transition placeholder:text-white/35 focus:border-emerald-400/30 focus:bg-white/[0.06] [&>option]:bg-[#0b1220] [&>option]:text-white";
 
 export const UNDOCUMENTED_SPENDING_REASONS = [
   "Forgot to log it immediately",
