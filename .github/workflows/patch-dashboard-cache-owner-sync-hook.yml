@@ -1,0 +1,111 @@
+name: Patch dashboard cache owner sync hook
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  patch-dashboard-cache-owner-sync-hook:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Wire useDashboardCacheOwnerSync into Dashboard.jsx
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import re
+
+          target = Path("src/pages/Dashboard.jsx")
+          text = target.read_text()
+
+          import_line = 'import useDashboardCacheOwnerSync from "@/components/fresh/main-dashboard/dashboard-cache/useDashboardCacheOwnerSync";\n'
+          import_anchor = 'import useDashboardHydrateFromCache from "@/components/fresh/main-dashboard/dashboard-cache/useDashboardHydrateFromCache";\n'
+          fallback_anchor = 'import useDashboardDataState from "@/components/fresh/main-dashboard/dashboard-state/useDashboardDataState";\n'
+
+          if import_line not in text:
+              if import_anchor in text:
+                  text = text.replace(import_anchor, import_anchor + import_line, 1)
+              elif fallback_anchor in text:
+                  text = text.replace(fallback_anchor, import_line + fallback_anchor, 1)
+              else:
+                  raise SystemExit("Dashboard cache owner sync import anchor not found. Refusing to patch Dashboard.jsx.")
+
+          replacement = (
+              '  const getDashboardPageCache = useCallback(() => dashboardPageCache, []);\n'
+              '  const setDashboardPageCache = useCallback((nextCache) => {\n'
+              '    dashboardPageCache = nextCache;\n'
+              '  }, []);\n\n'
+              '  useDashboardCacheOwnerSync({\n'
+              '    cacheKey,\n'
+              '    initialCache,\n'
+              '    financeDataLoading,\n'
+              '    hasLoadedDashboardRef,\n'
+              '    hydrateFromCache,\n'
+              '    getDashboardPageCache,\n'
+              '    setDashboardPageCache,\n'
+              '    setGuardChecked,\n'
+              '    setLoading,\n'
+              '  });\n\n'
+          )
+
+          if 'useDashboardCacheOwnerSync({' not in text:
+              pattern = re.compile(
+                  r'  useEffect\(\(\) => \{\n'
+                  r'    if \(!cacheKey\) \{\n'
+                  r'      const emptyCache = createEmptyDashboardCache\(\);\n'
+                  r'      dashboardPageCache = emptyCache;\n'
+                  r'      hydrateFromCache\(emptyCache\);\n'
+                  r'      return;\n'
+                  r'    \}\n\n'
+                  r'    if \(dashboardPageCache\.loaded && dashboardPageCache\.key === cacheKey\) \{\n'
+                  r'      hydrateFromCache\(dashboardPageCache\);\n'
+                  r'      return;\n'
+                  r'    \}\n\n'
+                  r'    hasLoadedDashboardRef\.current = false;\n'
+                  r'    setGuardChecked\(false\);\n'
+                  r'    setLoading\(!hasDashboardFinanceContent\(initialCache\) && financeDataLoading\);\n'
+                  r'  \}, \[cacheKey, financeDataLoading, hydrateFromCache\]\);\n\n',
+                  re.DOTALL,
+              )
+
+              text, count = pattern.subn(replacement, text, count=1)
+              if count != 1:
+                  raise SystemExit("Dashboard cache owner sync useEffect block not found. Refusing to patch Dashboard.jsx.")
+
+          if 'useDashboardCacheOwnerSync({' not in text:
+              raise SystemExit("useDashboardCacheOwnerSync was not wired. Refusing to continue.")
+          if 'const getDashboardPageCache = useCallback(() => dashboardPageCache, []);' not in text:
+              raise SystemExit("Stable getDashboardPageCache callback was not added. Refusing to continue.")
+          if 'const setDashboardPageCache = useCallback((nextCache) => {' not in text:
+              raise SystemExit("Stable setDashboardPageCache callback was not added. Refusing to continue.")
+          if 'if (!cacheKey) {\n      const emptyCache = createEmptyDashboardCache();\n      dashboardPageCache = emptyCache;' in text:
+              raise SystemExit("Old cache owner sync useEffect still exists after patch. Refusing to continue.")
+
+          target.write_text(text)
+          PY
+
+      - name: Remove temporary workflow
+        run: rm -f .github/workflows/patch-dashboard-cache-owner-sync-hook.yml
+
+      - name: Commit and push patch
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add src/pages/Dashboard.jsx .github/workflows/patch-dashboard-cache-owner-sync-hook.yml
+
+          if git diff --cached --quiet; then
+            echo "No changes to commit."
+            exit 0
+          fi
+
+          git commit -m "Wire dashboard cache owner sync hook"
+          git push
