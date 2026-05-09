@@ -57,6 +57,7 @@ import DashboardShell from "@/components/fresh/main-dashboard/shell/DashboardShe
 import useDashboardShellReady from "@/components/fresh/main-dashboard/shell/useDashboardShellReady";
 import useDashboardPanelNavigation from "@/components/fresh/main-dashboard/shell/useDashboardPanelNavigation";
 import useDashboardScrollState from "@/components/fresh/main-dashboard/shell/useDashboardScrollState";
+import useDashboardInteractionState from "@/components/fresh/main-dashboard/shell/useDashboardInteractionState";
 import DashboardContentArea from "@/components/fresh/main-dashboard/shell/DashboardContentArea";
 import DashboardPanelRenderer from "@/components/fresh/main-dashboard/shell/DashboardPanelRenderer";
 import DashboardModalLayer from "@/components/fresh/main-dashboard/shell/DashboardModalLayer";
@@ -303,7 +304,16 @@ export default function Dashboard() {
   const [financialGoal, setFinancialGoal] = useState(initialCache.financialGoal);
   const [notificationSettings, setNotificationSettings] =
     useDashboardNotificationSettings(userId);
-  const [dailyStrategyFlipped, setDailyStrategyFlipped] = useState(false);
+  const {
+    dailyStrategyFlipped,
+    setDailyStrategyFlipped,
+    expandedFinanceCard,
+    setExpandedFinanceCard,
+    expandedFinanceDetailSections,
+    setExpandedFinanceDetailSections,
+    showAiAssistant,
+    setShowAiAssistant,
+  } = useDashboardInteractionState();
   const {
     activeDashboardPanel,
     setActiveDashboardPanel,
@@ -311,9 +321,6 @@ export default function Dashboard() {
     setDashboardPanelDirection,
   } = useDashboardPanelNavigation();
   const dashboardShellReady = useDashboardShellReady();
-  const [expandedFinanceCard, setExpandedFinanceCard] = useState(null);
-  const [expandedFinanceDetailSections, setExpandedFinanceDetailSections] = useState({});
-  const [showAiAssistant, setShowAiAssistant] = useState(false);
   const {
     dashboardScrollRef,
     dashboardContentRef,
