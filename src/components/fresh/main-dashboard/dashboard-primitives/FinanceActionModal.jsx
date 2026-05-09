@@ -24,13 +24,31 @@ function normalizeMoneyInput(currentValue, nextKey) {
 }
 
 function ClaraMoneyKeypad({ value, onChange }) {
-  const keys = ["1", "2", "3", "4", "5", "6", "7", "8", "9", ".", "0", "backspace"];
+  const keys = [
+    "1",
+    "2",
+    "3",
+    "4",
+    "5",
+    "6",
+    "7",
+    "8",
+    "9",
+    ".",
+    "0",
+    "backspace",
+  ];
 
   return (
     <div className="mt-2 rounded-[24px] border border-cyan-100/12 bg-white/[0.045] p-2 shadow-[inset_0_1px_0_rgba(255,255,255,0.08),0_18px_42px_rgba(0,0,0,0.16)] backdrop-blur-xl">
       <div className="mb-2 flex items-center justify-between gap-3 rounded-2xl border border-white/10 bg-black/15 px-3 py-2">
-        <span className="text-[9px] font-bold uppercase tracking-[0.18em] text-white/45">CLARA Amount</span>
-        <strong className="max-w-[12rem] truncate text-base font-black tracking-[-0.04em] text-emerald-100">₱{value || "0"}</strong>
+        <span className="text-[9px] font-bold uppercase tracking-[0.18em] text-white/45">
+          CLARA Amount
+        </span>
+
+        <strong className="max-w-[12rem] truncate text-base font-black tracking-[-0.04em] text-emerald-100">
+          ₱{value || "0"}
+        </strong>
       </div>
 
       <div className="grid grid-cols-3 gap-1.5">
@@ -39,7 +57,7 @@ function ClaraMoneyKeypad({ value, onChange }) {
             key={key}
             type="button"
             onClick={() => onChange(normalizeMoneyInput(value, key))}
-            className="flex h-8.5 items-center justify-center rounded-[18px] border border-white/12 bg-white/[0.075] text-[15px] font-black text-white/88 shadow-[inset_0_1px_0_rgba(255,255,255,0.08)] transition active:scale-[0.97] active:bg-emerald-400/18"
+            className="flex h-[34px] items-center justify-center rounded-[18px] border border-white/12 bg-white/[0.075] text-[15px] font-black text-white/88 shadow-[inset_0_1px_0_rgba(255,255,255,0.08)] transition active:scale-[0.97] active:bg-emerald-400/18"
           >
             {key === "backspace" ? "⌫" : key}
           </button>
@@ -57,7 +75,18 @@ function ClaraMoneyKeypad({ value, onChange }) {
   );
 }
 
-export default function FinanceActionModal({ open, title, description, children, onClose, onSubmit, submitLabel = "Save", submitDisabled = false, loading = false, danger = false }) {
+export default function FinanceActionModal({
+  open,
+  title,
+  description,
+  children,
+  onClose,
+  onSubmit,
+  submitLabel = "Save",
+  submitDisabled = false,
+  loading = false,
+  danger = false,
+}) {
   const formRef = useRef(null);
   const [moneyAmount, setMoneyAmount] = useState("");
   const usesClaraMoneyKeypad = MONEY_ACTION_TITLES.has(title);
@@ -69,7 +98,10 @@ export default function FinanceActionModal({ open, title, description, children,
 
     if (!input) return;
 
-    const nativeSetter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, "value")?.set;
+    const nativeSetter = Object.getOwnPropertyDescriptor(
+      window.HTMLInputElement.prototype,
+      "value"
+    )?.set;
 
     if (nativeSetter) {
       nativeSetter.call(input, nextValue);
@@ -103,14 +135,25 @@ export default function FinanceActionModal({ open, title, description, children,
   if (!open) return null;
 
   return (
-    <div className="fixed inset-0 z-[120] flex min-h-[100svh] items-start justify-center overflow-hidden bg-black/10 px-1.5 pb-2 pt-[3.2rem] backdrop-blur-[1px]">
+    <div className="fixed inset-0 z-[120] flex min-h-[100svh] items-start justify-center overflow-hidden bg-black/10 px-1.5 pb-2 pt-0 backdrop-blur-[1px]">
       <div className="flex h-[clamp(470px,64svh,540px)] max-h-[calc(100svh-8.5rem)] w-full max-w-[402px] overflow-hidden rounded-[34px] border border-cyan-100/15 bg-[linear-gradient(135deg,rgba(5,44,62,0.98),rgba(7,20,48,0.99)_48%,rgba(38,16,77,0.99))] shadow-[0_24px_60px_rgba(0,0,0,0.38),0_0_32px_rgba(0,255,220,0.08)]">
-        <form ref={formRef} onSubmit={onSubmit} className="flex min-h-0 w-full flex-col">
+        <form
+          ref={formRef}
+          onSubmit={onSubmit}
+          className="flex min-h-0 w-full flex-col"
+        >
           <div className="shrink-0 border-b border-white/10 bg-white/[0.03] px-5 py-3">
             <div className="flex items-start justify-between gap-4">
               <div className="min-w-0">
-                <h3 className="text-[30px] font-black tracking-[-0.04em] text-white">{title}</h3>
-                {description ? <p className="mt-1 text-[14px] leading-6 text-white/60">{description}</p> : null}
+                <h3 className="text-[30px] font-black tracking-[-0.04em] text-white">
+                  {title}
+                </h3>
+
+                {description ? (
+                  <p className="mt-1 text-[14px] leading-6 text-white/60">
+                    {description}
+                  </p>
+                ) : null}
               </div>
 
               <button
@@ -126,16 +169,32 @@ export default function FinanceActionModal({ open, title, description, children,
 
           <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-5 py-3 pb-2 [scrollbar-width:none]">
             {children}
-            {usesClaraMoneyKeypad ? <ClaraMoneyKeypad value={moneyAmount} onChange={updateAmountInput} /> : null}
+
+            {usesClaraMoneyKeypad ? (
+              <ClaraMoneyKeypad
+                value={moneyAmount}
+                onChange={updateAmountInput}
+              />
+            ) : null}
           </div>
 
           <div className="shrink-0 border-t border-white/10 bg-[#071120]/92 px-5 pb-[calc(0.55rem+env(safe-area-inset-bottom))] pt-2 backdrop-blur-xl">
             <button
               type="submit"
               disabled={submitDisabled || loading}
-              className={`w-full rounded-2xl px-4 py-3 text-base font-semibold text-white transition disabled:cursor-not-allowed disabled:opacity-55 ${danger ? "bg-gradient-to-r from-rose-500 to-red-600 shadow-[0_10px_30px_rgba(244,63,94,0.24)]" : submitDisabled ? "border border-white/15 bg-white/[0.09] text-white/55 shadow-none" : "bg-gradient-to-r from-emerald-400 via-emerald-500 to-green-600 shadow-[0_10px_30px_rgba(16,185,129,0.24)]"}`}
+              className={`w-full rounded-2xl px-4 py-3 text-base font-semibold text-white transition disabled:cursor-not-allowed disabled:opacity-55 ${
+                danger
+                  ? "bg-gradient-to-r from-rose-500 to-red-600 shadow-[0_10px_30px_rgba(244,63,94,0.24)]"
+                  : submitDisabled
+                    ? "border border-white/15 bg-white/[0.09] text-white/55 shadow-none"
+                    : "bg-gradient-to-r from-emerald-400 via-emerald-500 to-green-600 shadow-[0_10px_30px_rgba(16,185,129,0.24)]"
+              }`}
             >
-              {loading ? "Saving..." : submitDisabled ? "Insufficient Funds" : submitLabel}
+              {loading
+                ? "Saving..."
+                : submitDisabled
+                  ? "Insufficient Funds"
+                  : submitLabel}
             </button>
           </div>
         </form>
