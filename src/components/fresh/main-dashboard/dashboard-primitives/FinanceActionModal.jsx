@@ -275,8 +275,6 @@ export default function FinanceActionModal({
           <div className="relative z-[220] min-h-0 max-h-[calc(100svh-10rem)] space-y-3 overflow-y-auto overflow-x-visible overscroll-contain px-5 py-3 pb-3 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
             {modalChildren}
 
-            {modalChildren.length ? <div aria-hidden="true" className="h-[72px]" /> : null}
-
             {usesClaraMoneyKeypad ? (
               <>
                 <ClaraMoneyAmountHero
