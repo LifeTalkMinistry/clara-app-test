@@ -88,7 +88,7 @@ function cloneHiddenNumberInput(node) {
 
 function ClaraMoneyAmountHero({ label, helper, value, hiddenInput }) {
   return (
-    <div className="relative overflow-hidden rounded-[26px] border border-white/14 bg-[linear-gradient(135deg,rgba(10,48,68,0.96),rgba(19,18,78,0.98))] px-3.5 py-3 shadow-[inset_0_1px_0_rgba(255,255,255,0.08),0_14px_32px_rgba(0,0,0,0.16)]">
+    <div className="relative rounded-[26px] border border-white/14 bg-[linear-gradient(135deg,rgba(10,48,68,0.96),rgba(19,18,78,0.98))] px-3.5 py-3 shadow-[inset_0_1px_0_rgba(255,255,255,0.08),0_14px_32px_rgba(0,0,0,0.16)]">
       <div className="relative flex items-center justify-between gap-3">
         <span className="text-[10px] font-black uppercase tracking-[0.18em] text-white/62">
           {label || "Amount"}
@@ -99,10 +99,10 @@ function ClaraMoneyAmountHero({ label, helper, value, hiddenInput }) {
         </span>
       </div>
 
-      <div className="relative mt-2 flex min-h-[62px] items-center justify-center rounded-[22px] border border-white/8 bg-black/10 px-4">
+      <div className="relative mt-2 flex min-h-[70px] items-center justify-center rounded-[22px] border border-white/8 bg-black/10 px-5 py-1.5">
         {hiddenInput}
 
-        <div className="max-w-full truncate text-center text-[40px] font-black leading-none tracking-[-0.08em] text-white">
+        <div className="max-w-full whitespace-nowrap text-center text-[36px] font-black leading-[1.12] tracking-[-0.035em] text-white antialiased">
           ₱{value || "0"}
         </div>
       </div>
@@ -117,7 +117,7 @@ function ClaraMoneyAmountHero({ label, helper, value, hiddenInput }) {
 }
 
 function ClaraMoneyKeypad({ value, onChange }) {
-  const keys = ["1","2","3","4","5","6","7","8","9",".","0","backspace"];
+  const keys = ["1", "2", "3", "4", "5", "6", "7", "8", "9", ".", "0", "backspace"];
 
   return (
     <div className="mt-2 rounded-[22px] border border-cyan-100/12 bg-white/[0.04] p-2 shadow-[inset_0_1px_0_rgba(255,255,255,0.08),0_14px_30px_rgba(0,0,0,0.15)] backdrop-blur-xl">
@@ -203,7 +203,10 @@ export default function FinanceActionModal({
 
     if (!input) return;
 
-    const nativeSetter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, "value")?.set;
+    const nativeSetter = Object.getOwnPropertyDescriptor(
+      window.HTMLInputElement.prototype,
+      "value"
+    )?.set;
 
     if (nativeSetter) {
       nativeSetter.call(input, nextValue);
@@ -272,9 +275,7 @@ export default function FinanceActionModal({
           <div className="relative z-[220] min-h-0 max-h-[calc(100svh-10rem)] space-y-3 overflow-y-auto overflow-x-visible overscroll-contain px-5 py-3 pb-3 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
             {modalChildren}
 
-            {modalChildren.length ? (
-              <div aria-hidden="true" className="h-[72px]" />
-            ) : null}
+            {modalChildren.length ? <div aria-hidden="true" className="h-[72px]" /> : null}
 
             {usesClaraMoneyKeypad ? (
               <>
@@ -297,7 +298,13 @@ export default function FinanceActionModal({
             <button
               type="submit"
               disabled={submitDisabled || loading}
-              className={`w-full rounded-2xl px-4 py-3 text-base font-semibold text-white transition disabled:cursor-not-allowed disabled:opacity-55 ${danger ? "bg-gradient-to-r from-rose-500 to-red-600 shadow-[0_10px_30px_rgba(244,63,94,0.24)]" : submitDisabled ? "border border-white/15 bg-white/[0.09] text-white/55 shadow-none" : "bg-gradient-to-r from-emerald-400 via-emerald-500 to-green-600 shadow-[0_10px_30px_rgba(16,185,129,0.24)]"}`}
+              className={`w-full rounded-2xl px-4 py-3 text-base font-semibold text-white transition disabled:cursor-not-allowed disabled:opacity-55 ${
+                danger
+                  ? "bg-gradient-to-r from-rose-500 to-red-600 shadow-[0_10px_30px_rgba(244,63,94,0.24)]"
+                  : submitDisabled
+                    ? "border border-white/15 bg-white/[0.09] text-white/55 shadow-none"
+                    : "bg-gradient-to-r from-emerald-400 via-emerald-500 to-green-600 shadow-[0_10px_30px_rgba(16,185,129,0.24)]"
+              }`}
             >
               {loading ? "Saving..." : submitDisabled ? "Insufficient Funds" : submitLabel}
             </button>
