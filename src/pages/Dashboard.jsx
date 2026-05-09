@@ -96,6 +96,7 @@ import useLatestValueRef from "@/components/fresh/main-dashboard/hooks/useLatest
 import useDashboardInitialLoad from "@/components/fresh/main-dashboard/hooks/useDashboardInitialLoad";
 import usePhpCurrencyFormatter from "@/components/fresh/main-dashboard/hooks/usePhpCurrencyFormatter";
 import useDashboardEnrollmentRedirect from "@/components/fresh/main-dashboard/program-access/useDashboardEnrollmentRedirect";
+import useDashboardProgramJourneyState from "@/components/fresh/main-dashboard/program-journey/useDashboardProgramJourneyState";
 import useDashboardProfileUpdateListener from "@/components/fresh/main-dashboard/profile/useDashboardProfileUpdateListener";
 import OnboardingActionBar from "@/components/fresh/main-dashboard/onboarding/OnboardingActionBar";
 import useOnboardingPageLock from "@/components/fresh/main-dashboard/onboarding/useOnboardingPageLock";
@@ -823,28 +824,23 @@ export default function Dashboard() {
       fmt,
     });
 
-  const programJourney = useMemo(
-    () =>
-      buildProgramJourney(tasks, submissions, {
-        plan,
-        profile: profileData || user,
-        enrollment: latestEnrollment,
-        programRecord,
-      }),
-    [latestEnrollment, plan, profileData, programRecord, submissions, tasks, user]
-  );
-
-  const activeTask = programJourney.todayItem || programJourney.activeItem;
-  const nextTask = programJourney.nextItem;
-  const onboardingDone = isProgramOnboardingCompleted();
-
-  const hasPaidProgramAccess = useMemo(() => {
-    const approved = isProgramApproved(profileData, isPaid, latestEnrollment);
-    const nonFreeTier =
-      normalizeLower(programJourney?.tier) !== "free" &&
-      normalizeLower(profileData?.plan || plan) !== "free";
-    return approved && nonFreeTier;
-  }, [profileData, latestEnrollment, isPaid, programJourney?.tier, plan]);
+  const {
+    programJourney,
+    activeTask,
+    nextTask,
+    onboardingDone,
+    hasPaidProgramAccess,
+  } = useDashboardProgramJourneyState({
+    tasks,
+    submissions,
+    plan,
+    profileData,
+    user,
+    latestEnrollment,
+    programRecord,
+    isPaid,
+    isProgramOnboardingCompleted,
+  });
 
   const taskReminder = useTaskReminderPrompt({
     user,
