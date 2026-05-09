@@ -32,7 +32,6 @@ import useFinanceDataErrorNotice from "@/components/fresh/main-dashboard/finance
 import useDashboardOnlineStatusNotice from "@/components/fresh/main-dashboard/finance-notices/useDashboardOnlineStatusNotice";
 import useDashboardFinanceRefreshEvents from "@/components/fresh/main-dashboard/finance-notices/useDashboardFinanceRefreshEvents";
 import useDashboardScheduledRefresh from "@/components/fresh/main-dashboard/finance-notices/useDashboardScheduledRefresh";
-import useLatestValueRef from "@/components/fresh/main-dashboard/hooks/useLatestValueRef";
 import useDashboardInitialLoad from "@/components/fresh/main-dashboard/hooks/useDashboardInitialLoad";
 import usePhpCurrencyFormatter from "@/components/fresh/main-dashboard/hooks/usePhpCurrencyFormatter";
 import useDashboardEnrollmentRedirect from "@/components/fresh/main-dashboard/program-access/useDashboardEnrollmentRedirect";
@@ -64,10 +63,9 @@ import useDashboardDataLoader from "@/components/fresh/main-dashboard/dashboard-
 import useDashboardDataState from "@/components/fresh/main-dashboard/dashboard-state/useDashboardDataState";
 import useDashboardProgramPromptFlow from "@/components/fresh/main-dashboard/program-prompts/useDashboardProgramPromptFlow";
 import useUserRole from "../hooks/useUserRole";
-import useTaskReminderPrompt from "@/hooks/useTaskReminderPrompt";
 import useFinancialData from "../hooks/useFinancialData";
 import { useTheme } from "@/theme/ThemeProvider";
-import { firstValidNumber, firstPositiveNumber, getBudgetTotal } from "@/utils/dashboard/dashboardHelpers";
+import { firstPositiveNumber } from "@/utils/dashboard/dashboardHelpers";
 
 let dashboardPageCache = createEmptyDashboardCache();
 let dashboardPageInFlight = null;
@@ -307,10 +305,7 @@ export default function Dashboard() {
     userId,
   });
 
-  const approvalTriggeredRef = useRef(false);
   const hasLoadedDashboardRef = useRef(false);
-  const latestEnrollmentRef = useLatestValueRef(latestEnrollment);
-  const isPaidRef = useLatestValueRef(isPaid);
 
   const hydrateFromCache = useDashboardHydrateFromCache({
     financeDataLoading,
@@ -481,7 +476,6 @@ export default function Dashboard() {
 
   const {
     selectedManualExpenseBudget,
-    selectedBudgetListLabel,
   } = useDashboardSelectedBudgetState({
     financeForm,
     manualExpenseBudgetOptions,
@@ -495,8 +489,6 @@ export default function Dashboard() {
   const {
     manualExpenseIsUnplanned,
     manualExpenseIsUndocumented,
-    manualExpenseReason,
-    manualExpenseUndocumentedReason,
     manualExpenseCanSubmit,
   } = useDashboardManualExpenseValidation({
     financeForm,
@@ -509,16 +501,10 @@ export default function Dashboard() {
   });
 
   const budgetPlanIsComplete = monthlyBudgetPlan.is_complete === true;
-  const budgetAllocatedSoFar = firstValidNumber(monthlyBudgetPlan.allocated_amount, monthlyBudgetPlan.allocated_total);
-  const budgetCurrentEditAllocation =
-    financeModal.type === "save_budget" && financeModal.payload?.id
-      ? getBudgetTotal(financeModal.payload)
-      : 0;
   const {
     budgetFormDeclaredAmount,
     budgetProjectedAllocated,
     budgetProjectedUnallocated,
-    budgetProjectedOverAllocated,
     budgetCanFinish,
     budgetFinishHelper,
   } = useDashboardBudgetFormProgress({
@@ -553,26 +539,8 @@ export default function Dashboard() {
     isProgramOnboardingCompleted,
   });
 
-  const taskReminder = useTaskReminderPrompt({
-    user,
-    task: activeTask,
-  });
-
-  const canShowTaskReminderPrompt =
-    !!user?.id &&
-    dailyRemindersEnabled &&
-    hasPaidProgramAccess &&
-    !!activeTask &&
-    dashboardShellReady &&
-    !onboardingDone &&
-    !showOnboarding;
-
   const {
-    programBubble,
     floatingProgramBubble,
-    markProgramPromptAsSeen,
-    startProgramFlow,
-    closeProgramStart,
     closeOnboarding,
     finishOnboarding,
   } = useDashboardProgramPromptFlow({
@@ -672,10 +640,6 @@ export default function Dashboard() {
     openAddMoneyModal,
     openTransferMoneyModal,
     openManualExpenseModal,
-    getClaraAiOrbButtonFromEvent,
-    isClaraAiOrbEvent,
-    clearLongPressTimer,
-    openClaraAiFromLongPress,
     startClaraAiLongPress,
     endClaraAiLongPress,
     handleClaraAiOrbClickCapture,
@@ -689,14 +653,12 @@ export default function Dashboard() {
     openSavingsGoalModal,
     openDeleteSavingsGoalModal,
     openAddSavingsModal,
-    refreshFinanceSection,
     moveWalletInline,
     createWalletInline,
     deleteWalletInline,
     saveManualExpenseInline,
     addMoneyInline,
     transferMoneyInline,
-    syncBudgetRowsIntoState,
     saveBudgetInline,
     handleBudgetModalClose,
     deleteBudgetCategoryInline,
@@ -751,25 +713,7 @@ export default function Dashboard() {
   });
 
   const {
-    safeSurvivalExpense,
-    moneyLeftHealth,
-    expenseHealth,
-    dailyStrategyCard,
-    moneyLeftTone,
-    moneyLeftBadge,
-    missionLabel,
-    missionTitle,
-    missionSub,
-    moneyAfterEssentials,
-    moneyInsightLabel,
-    moneyInsightValue,
-    moneyInsightSub,
-    standardPromptTitle,
-    standardPromptBody,
-    standardPromptButton,
     feedHasHighlight,
-    unreadMessagesCount,
-    taskBadgeLabel,
   } = useDashboardMoneyInsightState({
     activeTask,
     floatingProgramBubble,
