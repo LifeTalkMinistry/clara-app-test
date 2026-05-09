@@ -33,10 +33,10 @@ export default function WalletCardContent({
   return (
     <div className='relative z-10 flex h-full min-h-0 flex-col p-[clamp(0.875rem,3.5vw,1rem)] pb-[clamp(1rem,2svh,1.25rem)]'>
       <div
-        className={`flex min-h-0 flex-1 flex-col ${
+        className={`flex min-h-0 flex-col ${
           expanded
-            ? 'gap-[clamp(0.625rem,1.4svh,0.85rem)]'
-            : 'justify-between gap-[clamp(0.75rem,1.8svh,1rem)]'
+            ? 'flex-1 gap-[clamp(0.625rem,1.4svh,0.85rem)]'
+            : 'shrink-0 gap-[clamp(0.875rem,1.8svh,1.05rem)]'
         }`}
       >
         <div className='flex min-h-0 flex-col gap-[clamp(0.625rem,1.5svh,0.9rem)]'>
@@ -78,6 +78,8 @@ export default function WalletCardContent({
           />
         </div>
       </div>
+
+      {!expanded && <div className='min-h-0 flex-1' aria-hidden='true' />}
 
       {expanded && (
         <FinanceCardExpandedPanel>
