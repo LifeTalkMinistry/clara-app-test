@@ -113,6 +113,7 @@ import useBudgetListDropdownDismiss from "@/components/fresh/main-dashboard/fina
 import { hasDashboardFinanceContent } from "@/components/fresh/main-dashboard/finance-content/dashboardFinanceContent";
 import useDashboardVisibleFinanceData from "@/components/fresh/main-dashboard/finance-content/useDashboardVisibleFinanceData";
 import useDashboardFinanceStateSync from "@/components/fresh/main-dashboard/finance-content/useDashboardFinanceStateSync";
+import useDashboardFinanceOverviewState from "@/components/fresh/main-dashboard/finance-content/useDashboardFinanceOverviewState";
 import {
   dashboardTheme,
   DEFAULT_DASHBOARD_THEME_KEY,
@@ -859,61 +860,21 @@ export default function Dashboard() {
     dashboardShellReady,
   ]);
 
-  const topWallet = useMemo(() => wallets[0] || null, [wallets]);
-
-  const walletPreviewTransactions = useMemo(
-    () => walletTransactions.slice(0, 2),
-    [walletTransactions]
-  );
-
-  const activeBudget = useMemo(() => {
-    if (!budgets.length) return null;
-
-    const active =
-      budgets.find(
-        (budget) =>
-          isTruthyActive(budget?.is_active) ||
-          normalizeLower(budget?.status) === "active"
-      ) || budgets[0];
-
-    return active || null;
-  }, [budgets]);
-
-  const derivedActiveBudget = useMemo(() => {
-    if (!activeBudget) return null;
-
-    const spentFromExpenses = expenses.reduce((sum, expense) => {
-      if (!isExpenseInsideBudgetWindow(expense, activeBudget)) return sum;
-      return sum + firstValidNumber(expense?.amount);
-    }, 0);
-
-    const explicitSpent = getBudgetSpent(activeBudget);
-    const spent = spentFromExpenses > 0 ? spentFromExpenses : explicitSpent;
-    const total = getBudgetTotal(activeBudget);
-    const remaining = Math.max(total - spent, 0);
-
-    return {
-      ...activeBudget,
-      spent,
-      spent_amount: spent,
-      total_spent: spent,
-      remaining,
-      remaining_amount: remaining,
-      amount_left: remaining,
-    };
-  }, [activeBudget, expenses]);
-
-  const totalSavingsTarget = useMemo(
-    () => savingsGoals.reduce((sum, goal) => sum + getSavingsTarget(goal), 0),
-    [savingsGoals]
-  );
-
-  const totalSavingsSaved = useMemo(
-    () => savingsGoals.reduce((sum, goal) => sum + getSavingsSaved(goal), 0),
-    [savingsGoals]
-  );
-
-  const primarySavingsGoal = useMemo(() => savingsGoals[0] || null, [savingsGoals]);
+  const {
+    topWallet,
+    walletPreviewTransactions,
+    activeBudget,
+    derivedActiveBudget,
+    totalSavingsTarget,
+    totalSavingsSaved,
+    primarySavingsGoal,
+  } = useDashboardFinanceOverviewState({
+    wallets,
+    walletTransactions,
+    budgets,
+    expenses,
+    savingsGoals,
+  });
 
   const claraAssistantContext = useMemo(() => {
     const safeWallets = Array.isArray(wallets) ? wallets : [];
