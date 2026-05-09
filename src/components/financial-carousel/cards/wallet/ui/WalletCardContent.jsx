@@ -36,14 +36,18 @@ export default function WalletCardContent({
         className={`flex min-h-0 flex-col ${
           expanded
             ? 'flex-1 gap-[clamp(0.625rem,1.4svh,0.85rem)]'
-            : 'flex-1 justify-between gap-[clamp(0.625rem,1.15svh,0.85rem)]'
+            : 'flex-1 gap-[clamp(0.625rem,1.15svh,0.85rem)]'
         }`}
       >
-        <div className='flex min-h-0 flex-col gap-[clamp(0.5rem,1.1svh,0.8rem)]'>
+        <div
+          className={`flex min-h-0 flex-col gap-[clamp(0.5rem,1.1svh,0.8rem)] ${
+            expanded ? 'shrink-0' : 'flex-1'
+          }`}
+        >
           {!expanded && <WalletHeader walletCount={walletCount} />}
 
           {!expanded ? (
-            <div className='min-h-0'>
+            <div className='min-h-0 flex-1'>
               <WalletSummaryStats
                 walletMoney={walletMoney}
                 walletCount={walletCount}
@@ -68,7 +72,7 @@ export default function WalletCardContent({
           )}
         </div>
 
-        <div className='shrink-0 pt-[clamp(0.15rem,0.6svh,0.35rem)]'>
+        <div className='shrink-0'>
           <FinanceCardExpandButton
             detailKey='wallets'
             expanded={expanded}
