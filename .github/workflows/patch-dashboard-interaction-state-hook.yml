@@ -1,0 +1,93 @@
+name: Patch dashboard interaction state hook
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  patch-dashboard-interaction-state-hook:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Wire useDashboardInteractionState into Dashboard.jsx
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          target = Path("src/pages/Dashboard.jsx")
+          text = target.read_text()
+
+          import_line = 'import useDashboardInteractionState from "@/components/fresh/main-dashboard/shell/useDashboardInteractionState";\n'
+          import_anchor = 'import useDashboardScrollState from "@/components/fresh/main-dashboard/shell/useDashboardScrollState";\n'
+          fallback_anchor = 'import useDashboardPanelNavigation from "@/components/fresh/main-dashboard/shell/useDashboardPanelNavigation";\n'
+
+          if import_line not in text:
+              if import_anchor in text:
+                  text = text.replace(import_anchor, import_anchor + import_line, 1)
+              elif fallback_anchor in text:
+                  text = text.replace(fallback_anchor, fallback_anchor + import_line, 1)
+              else:
+                  raise SystemExit("Dashboard interaction state import anchor not found. Refusing to patch Dashboard.jsx.")
+
+          interaction_block = (
+              '  const {\n'
+              '    dailyStrategyFlipped,\n'
+              '    setDailyStrategyFlipped,\n'
+              '    expandedFinanceCard,\n'
+              '    setExpandedFinanceCard,\n'
+              '    expandedFinanceDetailSections,\n'
+              '    setExpandedFinanceDetailSections,\n'
+              '    showAiAssistant,\n'
+              '    setShowAiAssistant,\n'
+              '  } = useDashboardInteractionState();\n'
+          )
+
+          daily_line = '  const [dailyStrategyFlipped, setDailyStrategyFlipped] = useState(false);\n'
+          expanded_card_line = '  const [expandedFinanceCard, setExpandedFinanceCard] = useState(null);\n'
+          expanded_sections_line = '  const [expandedFinanceDetailSections, setExpandedFinanceDetailSections] = useState({});\n'
+          assistant_line = '  const [showAiAssistant, setShowAiAssistant] = useState(false);\n'
+
+          if interaction_block not in text:
+              if daily_line not in text:
+                  raise SystemExit("dailyStrategyFlipped state line not found. Refusing to patch Dashboard.jsx.")
+              text = text.replace(daily_line, interaction_block, 1)
+
+          for old_line in [expanded_card_line, expanded_sections_line, assistant_line]:
+              if old_line in text:
+                  text = text.replace(old_line, '', 1)
+
+          if 'useDashboardInteractionState();' not in text:
+              raise SystemExit("useDashboardInteractionState was not wired. Refusing to continue.")
+
+          for old_line in [daily_line, expanded_card_line, expanded_sections_line, assistant_line]:
+              if old_line in text:
+                  raise SystemExit(f"Old dashboard interaction state line still exists after patch: {old_line.strip()}")
+
+          target.write_text(text)
+          PY
+
+      - name: Remove temporary workflow
+        run: rm -f .github/workflows/patch-dashboard-interaction-state-hook.yml
+
+      - name: Commit and push patch
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add src/pages/Dashboard.jsx .github/workflows/patch-dashboard-interaction-state-hook.yml
+
+          if git diff --cached --quiet; then
+            echo "No changes to commit."
+            exit 0
+          fi
+
+          git commit -m "Wire dashboard interaction state hook"
+          git push
