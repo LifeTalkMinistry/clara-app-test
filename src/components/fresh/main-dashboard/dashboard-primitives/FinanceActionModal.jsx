@@ -265,11 +265,11 @@ export default function FinanceActionModal({
 
   return (
     <div className="fixed inset-0 z-[120] flex min-h-[100svh] items-start justify-center overflow-hidden bg-[radial-gradient(circle_at_50%_20%,rgba(15,23,42,0.42),rgba(2,6,23,0.72)_54%,rgba(2,6,23,0.86))] px-1.5 pb-[calc(0.75rem+env(safe-area-inset-bottom))] pt-0 backdrop-blur-[16px]">
-      <div className="flex h-[min(590px,calc(100svh-1.25rem))] max-h-[calc(100svh-1.25rem)] w-full max-w-[402px] overflow-hidden rounded-[34px] border border-cyan-100/[0.18] bg-[radial-gradient(circle_at_50%_0%,rgba(20,184,166,0.14),transparent_42%),linear-gradient(135deg,rgba(5,44,62,0.99),rgba(7,20,48,0.995)_48%,rgba(38,16,77,0.995))] shadow-[0_28px_90px_rgba(0,0,0,0.62),0_0_0_1px_rgba(255,255,255,0.08),0_0_54px_rgba(34,211,238,0.12)]">
+      <div className="flex max-h-[calc(100svh-1.25rem)] w-full max-w-[402px] overflow-hidden rounded-[34px] border border-cyan-100/[0.18] bg-[radial-gradient(circle_at_50%_0%,rgba(20,184,166,0.14),transparent_42%),linear-gradient(135deg,rgba(5,44,62,0.99),rgba(7,20,48,0.995)_48%,rgba(38,16,77,0.995))] shadow-[0_28px_90px_rgba(0,0,0,0.62),0_0_0_1px_rgba(255,255,255,0.08),0_0_54px_rgba(34,211,238,0.12)]">
         <form
           ref={formRef}
           onSubmit={onSubmit}
-          className="flex min-h-0 w-full flex-col"
+          className="flex max-h-[calc(100svh-1.25rem)] min-h-0 w-full flex-col"
         >
           <div className="shrink-0 border-b border-white/10 bg-white/[0.035] px-5 py-3.5">
             <div className="flex items-start justify-between gap-4">
@@ -296,7 +296,7 @@ export default function FinanceActionModal({
             </div>
           </div>
 
-          <div className="min-h-0 flex-1 space-y-2.5 overflow-y-auto overscroll-contain px-5 py-3 pb-3 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+          <div className="min-h-0 max-h-[calc(100svh-10rem)] space-y-2.5 overflow-y-auto overscroll-contain px-5 py-3 pb-3 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
             {modalChildren}
 
             {usesClaraMoneyKeypad ? (
