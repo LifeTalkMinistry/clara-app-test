@@ -52,6 +52,7 @@ import useDashboardMonthlyBudgetHeader from "@/components/fresh/main-dashboard/b
 import useDashboardManualExpenseBudgetOptions from "@/components/fresh/main-dashboard/budget/useDashboardManualExpenseBudgetOptions";
 import useDashboardSelectedBudgetState from "@/components/fresh/main-dashboard/budget/useDashboardSelectedBudgetState";
 import useDashboardMonthlyBudgetPlan from "@/components/fresh/main-dashboard/budget/useDashboardMonthlyBudgetPlan";
+import useDashboardBudgetFormProgress from "@/components/fresh/main-dashboard/budget/useDashboardBudgetFormProgress";
 import DashboardTopNav from "@/components/fresh/main-dashboard/top-nav/DashboardTopNav";
 import DashboardShell from "@/components/fresh/main-dashboard/shell/DashboardShell";
 import useDashboardShellReady from "@/components/fresh/main-dashboard/shell/useDashboardShellReady";
@@ -778,20 +779,19 @@ export default function Dashboard() {
     financeModal.type === "save_budget" && financeModal.payload?.id
       ? getBudgetTotal(financeModal.payload)
       : 0;
-  const budgetFormDeclaredAmount = firstValidNumber(financeForm.monthlyBudgetAmount, monthlyBudgetPlan.declared_budget);
-  const budgetFormCategoryAmount = firstValidNumber(financeForm.totalBudget);
-  const budgetAllocatedExcludingCurrent = Math.max(budgetAllocatedSoFar - budgetCurrentEditAllocation, 0);
-  const budgetProjectedAllocated = budgetAllocatedExcludingCurrent + budgetFormCategoryAmount;
-  const budgetProjectedUnallocated = Math.max(budgetFormDeclaredAmount - budgetProjectedAllocated, 0);
-  const budgetCanFinish =
-    financeModal.type === "save_budget" &&
-    budgetFormDeclaredAmount > 0 &&
-    budgetProjectedAllocated === budgetFormDeclaredAmount &&
-    monthlyBudgetPlan.category_count > 0;
-  const budgetFinishHelper =
-    budgetFormDeclaredAmount > 0 && budgetProjectedUnallocated > 0
-      ? `Assign the remaining ${fmt(budgetProjectedUnallocated)} before completing your budget.`
-      : "";
+  const {
+    budgetFormDeclaredAmount,
+    budgetProjectedAllocated,
+    budgetProjectedUnallocated,
+    budgetProjectedOverAllocated,
+    budgetCanFinish,
+    budgetFinishHelper,
+  } = useDashboardBudgetFormProgress({
+    financeForm,
+    financeModal,
+    monthlyBudgetPlan,
+    declaredMonthlyBudgetAmount,
+  });
 
   const manualExpenseBudgetListItems = useMemo(
     () => [
