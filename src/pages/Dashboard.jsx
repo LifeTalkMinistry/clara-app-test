@@ -1,6 +1,5 @@
 import { useState, useCallback, useRef } from "react";
 import { useNavigate } from "react-router-dom";
-import { supabase } from "@/lib/supabaseClient";
 import DashboardFeedPanel from "@/components/fresh/dashboard-panels/feed/DashboardFeedPanel";
 import DashboardMessagesPanel from "@/components/fresh/main-dashboard/dashboard-panels/messages/DashboardMessagesPanel";
 import DashboardSettingsPanel from "@/components/fresh/main-dashboard/dashboard-panels/settings/DashboardSettingsPanel";
@@ -28,7 +27,6 @@ import useDashboardMonthlyBudgetPlan from "@/components/fresh/main-dashboard/bud
 import useDashboardBudgetFormProgress from "@/components/fresh/main-dashboard/budget/useDashboardBudgetFormProgress";
 import useDashboardManualExpenseBudgetListItems from "@/components/fresh/main-dashboard/budget/useDashboardManualExpenseBudgetListItems";
 import { DASHBOARD_SCALE, useDashboardViewportMode } from "@/components/fresh/main-dashboard/dashboard-scale/dashboardScale";
-import { persistDashboardPrefs } from "@/components/fresh/main-dashboard/dashboard-settings/dashboardRuntimeSettings";
 import useDashboardNotificationSettings from "@/components/fresh/main-dashboard/dashboard-settings/useDashboardNotificationSettings";
 import useFinanceDataErrorNotice from "@/components/fresh/main-dashboard/finance-notices/useFinanceDataErrorNotice";
 import useDashboardOnlineStatusNotice from "@/components/fresh/main-dashboard/finance-notices/useDashboardOnlineStatusNotice";
@@ -42,6 +40,7 @@ import useDashboardProgramJourneyState from "@/components/fresh/main-dashboard/p
 import useDashboardProfileUpdateListener from "@/components/fresh/main-dashboard/profile/useDashboardProfileUpdateListener";
 import useOnboardingPageLock from "@/components/fresh/main-dashboard/onboarding/useOnboardingPageLock";
 import useDashboardOnboardingState from "@/components/fresh/main-dashboard/onboarding/useDashboardOnboardingState";
+import useDashboardOnboardingActions from "@/components/fresh/main-dashboard/onboarding/useDashboardOnboardingActions";
 import createInitialFinanceForm from "@/components/fresh/main-dashboard/finance-form/financeFormInitialState";
 import useDashboardFinanceUiState from "@/components/fresh/main-dashboard/finance-form/useDashboardFinanceUiState";
 import useDashboardManualExpenseValidation from "@/components/fresh/main-dashboard/finance-form/useDashboardManualExpenseValidation";
@@ -67,9 +66,8 @@ import useDashboardProgramPromptFlow from "@/components/fresh/main-dashboard/pro
 import useUserRole from "../hooks/useUserRole";
 import useTaskReminderPrompt from "@/hooks/useTaskReminderPrompt";
 import useFinancialData from "../hooks/useFinancialData";
-import { hasCompletedProgramOnboarding } from "@/lib/access-control";
 import { useTheme } from "@/theme/ThemeProvider";
-import { normalizeString, firstValidNumber, firstPositiveNumber, getBudgetTotal } from "@/utils/dashboard/dashboardHelpers";
+import { firstValidNumber, firstPositiveNumber, getBudgetTotal } from "@/utils/dashboard/dashboardHelpers";
 
 let dashboardPageCache = createEmptyDashboardCache();
 let dashboardPageInFlight = null;
@@ -371,74 +369,21 @@ export default function Dashboard() {
 
   const moneyLeftSummaryHandlers = useMoneyLeftSummaryHandlers({ navigate });
 
-  const markOnboardingCompleted = useCallback(async () => {
-    if (!user?.id) return;
-
-    try {
-      const updates = {
-        program_onboarding_completed: true,
-        has_completed_program_onboarding: true,
-      };
-
-      const { error } = await supabase
-        .from("profiles")
-        .update(updates)
-        .eq("id", user.id);
-
-      if (error) {
-        console.warn("Profiles table does not accept onboarding fields yet:", error);
-      }
-    } catch (error) {
-      console.error("Failed to save onboarding completion:", error);
-    }
-  }, [user?.id]);
-
-  const isProgramOnboardingCompleted = useCallback(() => {
-    return hasCompletedProgramOnboarding(profileData);
-  }, [profileData]);
-
-  const saveOnboardingDraft = useCallback(async () => {
-    if (!user?.id) return true;
-
-    setSavingOnboarding(true);
-
-    try {
-      const nextName = normalizeString(nickname);
-      persistDashboardPrefs(user.id, {
-        reminderTime,
-        financialGoal,
-      });
-
-      const updates = {
-        onboarding_step: onboardingStep,
-      };
-
-      if (nextName) {
-        updates.full_name = nextName;
-      }
-
-      const { error } = await supabase
-        .from("profiles")
-        .update(updates)
-        .eq("id", user.id);
-
-      if (error) {
-        console.warn("Optional onboarding fields were not saved to DB:", error);
-      }
-
-      return true;
-    } catch (error) {
-      console.error("Failed to save onboarding draft:", error);
-      return false;
-    } finally {
-      setSavingOnboarding(false);
-    }
-  }, [user?.id, nickname, reminderTime, financialGoal, onboardingStep]);
-
-  const goToNextOnboardingStep = useCallback(async () => {
-    await saveOnboardingDraft();
-    setOnboardingStep((prev) => prev + 1);
-  }, [saveOnboardingDraft]);
+  const {
+    markOnboardingCompleted,
+    isProgramOnboardingCompleted,
+    saveOnboardingDraft,
+    goToNextOnboardingStep,
+  } = useDashboardOnboardingActions({
+    user,
+    profileData,
+    nickname,
+    reminderTime,
+    financialGoal,
+    onboardingStep,
+    setSavingOnboarding,
+    setOnboardingStep,
+  });
 
   const loadDashboardData = useDashboardDataLoader({
     userId,
