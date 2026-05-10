@@ -145,7 +145,7 @@ export default function EmergencyFundCard({
           </div>
 
           {isExpanded && (
-            <div className={`mt-3 min-h-0 flex-1 space-y-3 overflow-y-auto rounded-2xl border p-3 backdrop-blur-[2px] shadow-[inset_0_1px_0_rgba(255,255,255,0.05)] [scrollbar-width:none] ${themeClasses.glass} [&::-webkit-scrollbar]:hidden`}>
+            <div className={`mt-3 min-h-0 flex-1 space-y-3 overflow-y-auto overscroll-contain rounded-2xl border p-3 pb-6 backdrop-blur-[2px] shadow-[inset_0_1px_0_rgba(255,255,255,0.05)] [scrollbar-width:none] ${themeClasses.glass} [&::-webkit-scrollbar]:hidden`}>
               <div>
                 <div className="mb-2 flex items-center justify-between">
                   <span className="text-xs font-semibold text-white/90">Goal</span>
@@ -216,6 +216,8 @@ export default function EmergencyFundCard({
                   Add Fund
                 </button>
               </div>
+
+              <div aria-hidden="true" className="h-4 shrink-0" />
             </div>
           )}
         </div>
