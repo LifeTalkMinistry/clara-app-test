@@ -1,487 +1,129 @@
 import { useEffect, useMemo, useState } from "react";
 import { ArrowLeft, CheckCircle2, Edit3, Plus, Trash2 } from "lucide-react";
 import { useLocation, useNavigate } from "react-router-dom";
-
 import useUserRole from "@/hooks/useUserRole";
 import useFinancialData from "@/hooks/useFinancialData";
 import useDashboardManualExpenseBudgetOptions from "@/components/fresh/main-dashboard/budget/useDashboardManualExpenseBudgetOptions";
 import useDashboardMonthlyBudgetHeader from "@/components/fresh/main-dashboard/budget/useDashboardMonthlyBudgetHeader";
 import useDashboardMonthlyBudgetPlan from "@/components/fresh/main-dashboard/budget/useDashboardMonthlyBudgetPlan";
-import {
-  firstValidNumber,
-  getPHMonthKey,
-  normalizeString,
-} from "@/utils/dashboard/dashboardHelpers";
+import { firstValidNumber, getPHMonthKey, normalizeString } from "@/utils/dashboard/dashboardHelpers";
 
-const fmt = (value = 0) =>
-  new Intl.NumberFormat("en-PH", {
-    style: "currency",
-    currency: "PHP",
-    minimumFractionDigits: 0,
-    maximumFractionDigits: 0,
-  }).format(firstValidNumber(value));
+const fmt = (v = 0) => new Intl.NumberFormat("en-PH", { style: "currency", currency: "PHP", minimumFractionDigits: 0, maximumFractionDigits: 0 }).format(firstValidNumber(v));
+const today = () => new Date().toISOString().slice(0, 10);
+const addDays = (date, days) => { const d = new Date(`${date}T00:00:00`); d.setDate(d.getDate() + days); return d.toISOString().slice(0, 10); };
+const card = "rounded-[26px] border border-cyan-100/15 bg-white/[0.055] p-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.08),0_18px_48px_rgba(0,0,0,0.18)] backdrop-blur-2xl";
+const input = "w-full rounded-2xl border border-white/10 bg-black/20 px-4 py-3 text-[15px] font-semibold text-white outline-none placeholder:text-white/35 focus:border-emerald-300/35";
+const btn = "rounded-2xl px-4 py-3 text-sm font-semibold transition disabled:cursor-not-allowed disabled:opacity-50";
 
-const glassPanel =
-  "rounded-[28px] border border-cyan-100/15 bg-white/[0.055] shadow-[inset_0_1px_0_rgba(255,255,255,0.08),0_18px_48px_rgba(0,0,0,0.18)] backdrop-blur-2xl";
-
-const inputClass =
-  "w-full rounded-2xl border border-white/10 bg-black/20 px-4 py-3 text-base font-semibold text-white outline-none transition placeholder:text-white/35 focus:border-emerald-300/35 focus:bg-black/25 focus:shadow-[0_0_0_3px_rgba(16,185,129,0.08)]";
-
-const buttonBase =
-  "rounded-2xl px-4 py-3 text-sm font-semibold transition disabled:cursor-not-allowed disabled:opacity-55";
-
-function dispatchBudgetEvents() {
+function fireBudgetEvents() {
   if (typeof window === "undefined") return;
-
-  [
-    "clara-budgets-updated",
-    "clara-finance-updated",
-    "clara-local-finance-updated",
-  ].forEach((eventName) => window.dispatchEvent(new Event(eventName)));
+  ["clara-budgets-updated", "clara-finance-updated", "clara-local-finance-updated"].forEach((name) => window.dispatchEvent(new Event(name)));
 }
 
-function buildBudgetHeaderPayload({ monthKey, declaredAmount, isComplete, user }) {
-  const now = new Date().toISOString();
+function getCycleWindow(type, start, end) {
+  const safeStart = start || today();
+  if (type === "weekly") return { start: safeStart, end: addDays(safeStart, 6), label: "Weekly" };
+  if (type === "biweekly") return { start: safeStart, end: addDays(safeStart, 13), label: "Bi-weekly" };
+  if (type === "custom") return { start: safeStart, end: end || safeStart, label: "Custom" };
+  const month = getPHMonthKey();
+  return { start: `${month}-01`, end: "", label: "Monthly" };
+}
 
+function headerPayload({ amount, done, user, cycle }) {
+  const now = new Date().toISOString();
+  const title = `${cycle.label} Spending Plan`;
   return {
-    month: monthKey,
-    month_key: monthKey,
-    title: "Monthly Spending Plan",
-    category: "__monthly_budget__",
-    budget_category: "__monthly_budget__",
-    type: "monthly_budget",
-    plan_type: "monthly_budget",
-    is_plan_header: true,
-    declared_amount: declaredAmount,
-    declared_budget: declaredAmount,
-    monthly_budget_amount: declaredAmount,
-    total_declared_budget: declaredAmount,
-    total_budget: declaredAmount,
-    amount: declaredAmount,
-    is_complete: Boolean(isComplete),
-    status: Boolean(isComplete) ? "active" : "draft",
-    is_active: true,
-    active: true,
-    updated_at: now,
-    created_by: user?.email || null,
-    email: user?.email || null,
-    user_id: user?.id || null,
+    month: getPHMonthKey(), month_key: getPHMonthKey(), title, name: title,
+    category: "__monthly_budget__", budget_category: "__monthly_budget__",
+    type: "monthly_budget", plan_type: "monthly_budget", is_plan_header: true,
+    budget_cycle: cycle.label.toLowerCase(), cycle_type: cycle.label.toLowerCase(),
+    cycle_start: cycle.start, cycle_end: cycle.end, period_start: cycle.start, period_end: cycle.end,
+    declared_amount: amount, declared_budget: amount, monthly_budget_amount: amount,
+    total_declared_budget: amount, total_budget: amount, amount,
+    is_complete: Boolean(done), status: done ? "active" : "draft", is_active: true, active: true,
+    updated_at: now, created_by: user?.email || null, email: user?.email || null, user_id: user?.id || null,
   };
 }
 
-function buildBudgetCategoryPayload({ monthKey, title, amount, sortOrder, user }) {
+function categoryPayload({ title, amount, order, user, cycle }) {
   const now = new Date().toISOString();
-  const cleanTitle = normalizeString(title || "Budget Category") || "Budget Category";
-
+  const clean = normalizeString(title) || "Budget Category";
   return {
-    month: monthKey,
-    month_key: monthKey,
-    title: cleanTitle,
-    name: cleanTitle,
-    category: cleanTitle,
-    budget_category: cleanTitle,
-    allocated: amount,
-    allocated_amount: amount,
-    budget_amount: amount,
-    total_budget: amount,
-    amount,
-    sort_order: sortOrder,
-    display_order: sortOrder,
-    position: sortOrder,
-    is_active: true,
-    active: true,
-    status: "active",
-    updated_at: now,
-    created_by: user?.email || null,
-    email: user?.email || null,
-    user_id: user?.id || null,
+    month: getPHMonthKey(), month_key: getPHMonthKey(), title: clean, name: clean,
+    category: clean, budget_category: clean, allocated: amount, allocated_amount: amount,
+    budget_amount: amount, total_budget: amount, amount, sort_order: order, display_order: order, position: order,
+    budget_cycle: cycle.label.toLowerCase(), cycle_type: cycle.label.toLowerCase(),
+    cycle_start: cycle.start, cycle_end: cycle.end, period_start: cycle.start, period_end: cycle.end,
+    is_active: true, active: true, status: "active", updated_at: now,
+    created_by: user?.email || null, email: user?.email || null, user_id: user?.id || null,
   };
+}
+
+function Tile({ label, value, accent }) {
+  return <div className="rounded-2xl border border-white/10 bg-white/[0.045] px-2.5 py-2.5 text-center"><p className={`truncate text-sm font-black ${accent ? "text-emerald-200" : "text-white"}`}>{value}</p><p className="mt-1 text-[8px] font-black uppercase tracking-[0.16em] text-white/42">{label}</p></div>;
 }
 
 export default function MonthlyBudgetPlan() {
   const navigate = useNavigate();
   const location = useLocation();
   const { user } = useUserRole();
-  const {
-    budgets = [],
-    expenses = [],
-    addBudget,
-    updateBudget,
-    deleteBudget,
-    refreshData,
-    loading,
-  } = useFinancialData(user);
-
-  const monthKey = getPHMonthKey();
-  const { monthlyBudgetHeader, declaredMonthlyBudgetAmount } =
-    useDashboardMonthlyBudgetHeader({ budgets });
+  const { budgets = [], expenses = [], addBudget, updateBudget, deleteBudget, refreshData, loading } = useFinancialData(user);
+  const { monthlyBudgetHeader, declaredMonthlyBudgetAmount } = useDashboardMonthlyBudgetHeader({ budgets });
   const budgetOptions = useDashboardManualExpenseBudgetOptions({ budgets });
-  const monthlyBudgetPlan = useDashboardMonthlyBudgetPlan({
-    manualExpenseBudgetOptions: budgetOptions,
-    expenses,
-    declaredMonthlyBudgetAmount,
-  });
+  const plan = useDashboardMonthlyBudgetPlan({ manualExpenseBudgetOptions: budgetOptions, expenses, declaredMonthlyBudgetAmount });
+  const editId = String(location.state?.editCategoryId || "");
+  const editing = useMemo(() => editId ? budgetOptions.find((b) => String(b.id || b.key) === editId) || null : null, [budgetOptions, editId]);
 
-  const editCategoryId = String(location.state?.editCategoryId || "");
-  const editingCategory = useMemo(
-    () =>
-      editCategoryId
-        ? budgetOptions.find((item) => String(item.id || item.key) === editCategoryId) || null
-        : null,
-    [budgetOptions, editCategoryId]
-  );
-
+  const [cycleType, setCycleType] = useState(monthlyBudgetHeader?.cycle_type || monthlyBudgetHeader?.budget_cycle || "monthly");
+  const [cycleStart, setCycleStart] = useState(monthlyBudgetHeader?.cycle_start || today());
+  const [cycleEnd, setCycleEnd] = useState(monthlyBudgetHeader?.cycle_end || addDays(today(), 6));
   const [declaredInput, setDeclaredInput] = useState("");
   const [categoryName, setCategoryName] = useState("");
   const [categoryAmount, setCategoryAmount] = useState("");
   const [saving, setSaving] = useState(false);
   const [notice, setNotice] = useState("");
 
-  useEffect(() => {
-    if (declaredMonthlyBudgetAmount > 0) {
-      setDeclaredInput(String(declaredMonthlyBudgetAmount));
-    }
-  }, [declaredMonthlyBudgetAmount]);
+  useEffect(() => { if (declaredMonthlyBudgetAmount > 0) setDeclaredInput(String(declaredMonthlyBudgetAmount)); }, [declaredMonthlyBudgetAmount]);
+  useEffect(() => { if (editing) { setCategoryName(editing.title || ""); setCategoryAmount(String(editing.allocated || "")); } }, [editing]);
 
-  useEffect(() => {
-    if (!editingCategory) return;
-    setCategoryName(editingCategory.title || "");
-    setCategoryAmount(String(editingCategory.allocated || ""));
-  }, [editingCategory]);
+  const cycle = getCycleWindow(cycleType, cycleStart, cycleEnd);
+  const declared = firstValidNumber(declaredInput, declaredMonthlyBudgetAmount);
+  const allocated = plan.allocated;
+  const left = Math.max(declared - allocated, 0);
+  const canFinish = declared > 0 && budgetOptions.length > 0 && left <= 0;
+  const busy = saving || loading;
+  const helper = canFinish ? "Your plan is ready to activate." : declared <= 0 ? "Enter your budget first." : budgetOptions.length === 0 ? "Add at least one category." : `Assign the remaining ${fmt(left)}.`;
 
-  const declaredAmount = firstValidNumber(declaredInput, declaredMonthlyBudgetAmount);
-  const projectedAllocated = monthlyBudgetPlan.allocated;
-  const projectedUnallocated = Math.max(declaredAmount - projectedAllocated, 0);
-  const canFinish = declaredAmount > 0 && budgetOptions.length > 0 && projectedUnallocated <= 0;
-
-  const refreshBudgetData = async () => {
-    await refreshData?.();
-    dispatchBudgetEvents();
-  };
-
-  const saveHeader = async ({ finish = false } = {}) => {
-    if (typeof addBudget !== "function" && typeof updateBudget !== "function") {
-      throw new Error("Budget actions are not ready yet.");
-    }
-
+  const refresh = async () => { await refreshData?.(); fireBudgetEvents(); };
+  const saveHeader = async (done = false) => {
     const amount = firstValidNumber(declaredInput, declaredMonthlyBudgetAmount);
-    if (amount <= 0) throw new Error("Please enter your monthly budget first.");
-
-    const payload = buildBudgetHeaderPayload({
-      monthKey,
-      declaredAmount: amount,
-      isComplete: finish,
-      user,
-    });
-
-    if (monthlyBudgetHeader?.id && typeof updateBudget === "function") {
-      await updateBudget(monthlyBudgetHeader.id, payload);
-      return;
-    }
-
-    await addBudget(payload);
+    if (amount <= 0) throw new Error("Please enter your budget first.");
+    const payload = headerPayload({ amount, done, user, cycle });
+    if (monthlyBudgetHeader?.id && typeof updateBudget === "function") return updateBudget(monthlyBudgetHeader.id, payload);
+    return addBudget?.(payload);
   };
 
-  const handleSaveDraft = async () => {
-    try {
-      setSaving(true);
-      setNotice("");
-      await saveHeader({ finish: false });
-      await refreshBudgetData();
-      setNotice("Budget draft saved.");
-    } catch (error) {
-      setNotice(error?.message || "CLARA could not save this budget yet.");
-    } finally {
-      setSaving(false);
-    }
+  const saveDraft = async () => { try { setSaving(true); setNotice(""); await saveHeader(false); await refresh(); setNotice("Budget draft saved."); } catch (e) { setNotice(e?.message || "CLARA could not save this budget yet."); } finally { setSaving(false); } };
+  const addCategory = async () => {
+    const title = normalizeString(categoryName); const amount = firstValidNumber(categoryAmount);
+    if (!title) return setNotice("Please enter a category name.");
+    if (amount <= 0) return setNotice("Please enter an amount to assign.");
+    const current = editing ? Math.max(allocated - firstValidNumber(editing.allocated), 0) : allocated;
+    if (declared > 0 && current + amount > declared) return setNotice(`This exceeds your budget. You only have ${fmt(Math.max(declared - current, 0))} left.`);
+    try { setSaving(true); setNotice(""); await saveHeader(false); const payload = categoryPayload({ title, amount, order: editing?.sortOrder ?? budgetOptions.length, user, cycle }); if (editing?.id && typeof updateBudget === "function") await updateBudget(editing.id, payload); else await addBudget?.(payload); setCategoryName(""); setCategoryAmount(""); await refresh(); setNotice(editing ? "Category updated." : "Category added."); if (editing) navigate("/budget-plan", { replace: true }); } catch (e) { setNotice(e?.message || "CLARA could not save this category yet."); } finally { setSaving(false); }
   };
+  const removeCategory = async (item) => { if (!item?.id || typeof deleteBudget !== "function") return; try { setSaving(true); await deleteBudget(item.id); await refresh(); setNotice("Category removed."); } catch (e) { setNotice(e?.message || "CLARA could not remove this category yet."); } finally { setSaving(false); } };
+  const finish = async () => { if (!canFinish) return setNotice(helper); try { setSaving(true); await saveHeader(true); await refresh(); navigate("/dashboard"); } catch (e) { setNotice(e?.message || "CLARA could not activate this budget yet."); } finally { setSaving(false); } };
 
-  const handleAddCategory = async () => {
-    const title = normalizeString(categoryName);
-    const amount = firstValidNumber(categoryAmount);
-
-    if (!title) {
-      setNotice("Please enter a category name.");
-      return;
-    }
-
-    if (amount <= 0) {
-      setNotice("Please enter an allocated amount.");
-      return;
-    }
-
-    try {
-      setSaving(true);
-      setNotice("");
-      await saveHeader({ finish: false });
-
-      const payload = buildBudgetCategoryPayload({
-        monthKey,
-        title,
-        amount,
-        sortOrder: editingCategory?.sortOrder ?? budgetOptions.length,
-        user,
-      });
-
-      if (editingCategory?.id && typeof updateBudget === "function") {
-        await updateBudget(editingCategory.id, payload);
-      } else {
-        await addBudget(payload);
-      }
-
-      setCategoryName("");
-      setCategoryAmount("");
-      await refreshBudgetData();
-      setNotice(editingCategory ? "Budget category updated." : "Budget category added.");
-
-      if (editingCategory) {
-        navigate("/budget-plan", { replace: true });
-      }
-    } catch (error) {
-      setNotice(error?.message || "CLARA could not save this category yet.");
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  const handleDeleteCategory = async (item) => {
-    if (!item?.id || typeof deleteBudget !== "function") return;
-    const confirmed = window.confirm(`Remove ${item.title} from this month’s plan?`);
-    if (!confirmed) return;
-
-    try {
-      setSaving(true);
-      setNotice("");
-      await deleteBudget(item.id);
-      await refreshBudgetData();
-      setNotice("Budget category removed.");
-    } catch (error) {
-      setNotice(error?.message || "CLARA could not remove this category yet.");
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  const handleFinishBudget = async () => {
-    if (!canFinish) {
-      setNotice("Assign your full declared budget before finishing.");
-      return;
-    }
-
-    try {
-      setSaving(true);
-      setNotice("");
-      await saveHeader({ finish: true });
-      await refreshBudgetData();
-      navigate("/dashboard");
-    } catch (error) {
-      setNotice(error?.message || "CLARA could not finish this budget yet.");
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  return (
-    <div className="min-h-[100svh] w-full bg-[radial-gradient(circle_at_top_left,rgba(45,212,191,0.20),transparent_32%),radial-gradient(circle_at_bottom_right,rgba(126,34,206,0.22),transparent_36%),linear-gradient(135deg,#04171e,#071430_50%,#170d36)] px-4 pb-[calc(1.25rem+env(safe-area-inset-bottom))] pt-[calc(0.8rem+env(safe-area-inset-top))] text-white">
-      <div className="mx-auto flex w-full max-w-[430px] flex-col gap-4">
-        <div className="flex items-center justify-between gap-3">
-          <button
-            type="button"
-            onClick={() => navigate("/dashboard")}
-            className="flex h-11 w-11 items-center justify-center rounded-2xl border border-white/10 bg-white/[0.06] text-white/80 shadow-[inset_0_1px_0_rgba(255,255,255,0.08)] backdrop-blur-xl transition hover:bg-white/10"
-            aria-label="Back to dashboard"
-          >
-            <ArrowLeft className="h-4 w-4" />
-          </button>
-
-          <div className="text-right">
-            <p className="text-[10px] font-black uppercase tracking-[0.2em] text-cyan-100/55">
-              Budget setup
-            </p>
-            <p className="text-xs font-semibold text-white/55">{monthKey}</p>
-          </div>
-        </div>
-
-        <section className={`${glassPanel} p-5`}>
-          <p className="text-[11px] font-black uppercase tracking-[0.18em] text-cyan-100/55">
-            Monthly Budget Plan
-          </p>
-          <h1 className="mt-2 text-[32px] font-black leading-[1.02] tracking-[-0.045em] text-white">
-            Give every peso a place.
-          </h1>
-          <p className="mt-2 max-w-sm text-sm font-semibold leading-6 text-white/66">
-            Use this page to think slowly, assign categories, and finish your monthly spending plan with clarity.
-          </p>
-        </section>
-
-        <section className={`${glassPanel} p-4`}>
-          <div className="mb-3 flex items-center justify-between gap-3">
-            <div>
-              <p className="text-sm font-bold text-white">Monthly budget</p>
-              <p className="mt-0.5 text-xs text-white/52">Total money you plan to spend.</p>
-            </div>
-            <span className="rounded-full border border-emerald-300/20 bg-emerald-400/10 px-3 py-1 text-xs font-bold text-emerald-100">
-              {fmt(declaredAmount)}
-            </span>
-          </div>
-
-          <input
-            type="number"
-            min="0"
-            value={declaredInput}
-            onChange={(event) => setDeclaredInput(event.target.value)}
-            placeholder="25000"
-            className={inputClass}
-          />
-
-          <div className="mt-3 grid grid-cols-3 gap-2 text-center">
-            {[
-              ["Allocated", fmt(projectedAllocated)],
-              ["Left", fmt(projectedUnallocated)],
-              ["Categories", budgetOptions.length],
-            ].map(([label, value]) => (
-              <div key={label} className="rounded-2xl border border-white/10 bg-white/[0.045] px-2.5 py-2.5">
-                <p className="truncate text-sm font-black text-white">{value}</p>
-                <p className="mt-1 text-[8px] font-black uppercase tracking-[0.16em] text-white/42">
-                  {label}
-                </p>
-              </div>
-            ))}
-          </div>
-        </section>
-
-        <section className={`${glassPanel} p-4`}>
-          <div className="mb-3 flex items-center justify-between gap-3">
-            <div>
-              <p className="text-sm font-bold text-white">
-                {editingCategory ? "Edit category" : "Add budget category"}
-              </p>
-              <p className="mt-0.5 text-xs text-white/52">Food, bills, transport, savings, or anything you plan.</p>
-            </div>
-            {editingCategory ? (
-              <button
-                type="button"
-                onClick={() => navigate("/budget-plan", { replace: true })}
-                className="rounded-full border border-white/10 bg-white/[0.06] px-3 py-1 text-xs font-semibold text-white/65"
-              >
-                Cancel edit
-              </button>
-            ) : null}
-          </div>
-
-          <div className="space-y-3">
-            <input
-              type="text"
-              value={categoryName}
-              onChange={(event) => setCategoryName(event.target.value)}
-              placeholder="Bills, Food, Transportation..."
-              className={inputClass}
-            />
-            <input
-              type="number"
-              min="0"
-              value={categoryAmount}
-              onChange={(event) => setCategoryAmount(event.target.value)}
-              placeholder="Allocated amount"
-              className={inputClass}
-            />
-            <button
-              type="button"
-              onClick={handleAddCategory}
-              disabled={saving || loading}
-              className={`${buttonBase} flex w-full items-center justify-center gap-2 border border-emerald-300/25 bg-emerald-500/15 text-emerald-50 shadow-[0_10px_30px_rgba(16,185,129,0.16)] hover:bg-emerald-500/22`}
-            >
-              <Plus className="h-4 w-4" />
-              {editingCategory ? "Update Category" : "Add Category"}
-            </button>
-          </div>
-        </section>
-
-        <section className={`${glassPanel} p-4`}>
-          <div className="mb-3 flex items-center justify-between gap-3">
-            <div>
-              <p className="text-sm font-bold text-white">Budget categories</p>
-              <p className="mt-0.5 text-xs text-white/52">Your current monthly plan.</p>
-            </div>
-            <span className="rounded-full border border-white/10 bg-white/[0.05] px-3 py-1 text-xs font-bold text-white/62">
-              {budgetOptions.length}
-            </span>
-          </div>
-
-          {budgetOptions.length ? (
-            <div className="space-y-2">
-              {budgetOptions.map((item) => (
-                <div
-                  key={item.id || item.key}
-                  className="flex items-center justify-between gap-3 rounded-2xl border border-white/10 bg-black/15 px-3 py-3"
-                >
-                  <div className="min-w-0">
-                    <p className="truncate text-sm font-bold text-white">{item.title}</p>
-                    <p className="mt-0.5 text-xs text-white/52">{fmt(item.allocated)} allocated</p>
-                  </div>
-
-                  <div className="flex shrink-0 items-center gap-1.5">
-                    <button
-                      type="button"
-                      onClick={() =>
-                        navigate("/budget-plan", {
-                          replace: true,
-                          state: { editCategoryId: item.id || item.key },
-                        })
-                      }
-                      className="flex h-9 w-9 items-center justify-center rounded-2xl border border-white/10 bg-white/[0.06] text-white/70 transition hover:bg-white/10 hover:text-white"
-                      aria-label={`Edit ${item.title}`}
-                    >
-                      <Edit3 className="h-3.5 w-3.5" />
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => handleDeleteCategory(item)}
-                      disabled={saving || loading}
-                      className="flex h-9 w-9 items-center justify-center rounded-2xl border border-rose-300/20 bg-rose-500/10 text-rose-100 transition hover:bg-rose-500/18 disabled:opacity-55"
-                      aria-label={`Remove ${item.title}`}
-                    >
-                      <Trash2 className="h-3.5 w-3.5" />
-                    </button>
-                  </div>
-                </div>
-              ))}
-            </div>
-          ) : (
-            <div className="rounded-2xl border border-white/10 bg-white/[0.04] px-4 py-5 text-sm font-semibold text-white/58">
-              No categories yet. Start with your biggest fixed expenses first.
-            </div>
-          )}
-        </section>
-
-        {notice ? (
-          <div className="rounded-2xl border border-cyan-100/15 bg-cyan-400/10 px-4 py-3 text-sm font-semibold text-cyan-50">
-            {notice}
-          </div>
-        ) : null}
-
-        <div className="sticky bottom-0 z-20 -mx-4 border-t border-white/10 bg-[#06101d]/88 px-4 pb-[calc(0.9rem+env(safe-area-inset-bottom))] pt-3 backdrop-blur-2xl">
-          <div className="mx-auto grid max-w-[430px] grid-cols-2 gap-2">
-            <button
-              type="button"
-              onClick={handleSaveDraft}
-              disabled={saving || loading}
-              className={`${buttonBase} border border-white/12 bg-white/[0.07] text-white/78 hover:bg-white/10 hover:text-white`}
-            >
-              {saving ? "Saving..." : "Save Draft"}
-            </button>
-            <button
-              type="button"
-              onClick={handleFinishBudget}
-              disabled={saving || loading || !canFinish}
-              className={`${buttonBase} flex items-center justify-center gap-2 bg-gradient-to-r from-emerald-400 via-emerald-500 to-green-600 text-white shadow-[0_10px_30px_rgba(16,185,129,0.24)]`}
-            >
-              <CheckCircle2 className="h-4 w-4" />
-              Finish
-            </button>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
+  return <div className="min-h-[100svh] w-full bg-[radial-gradient(circle_at_top_left,rgba(45,212,191,0.18),transparent_30%),radial-gradient(circle_at_bottom_right,rgba(126,34,206,0.24),transparent_38%),linear-gradient(135deg,#04171e,#071430_48%,#170d36)] px-4 pb-[calc(6.5rem+env(safe-area-inset-bottom))] pt-[calc(0.7rem+env(safe-area-inset-top))] text-white">
+    <div className="mx-auto flex w-full max-w-[430px] flex-col gap-3.5">
+      <header className="sticky top-0 z-30 -mx-4 border-b border-white/8 bg-[#06101d]/75 px-4 pb-2.5 pt-[calc(0.7rem+env(safe-area-inset-top))] backdrop-blur-2xl"><div className="mx-auto flex max-w-[430px] items-center gap-3"><button type="button" onClick={() => navigate("/dashboard")} className="flex h-10 w-10 items-center justify-center rounded-2xl border border-white/10 bg-white/[0.06] text-white/80"><ArrowLeft className="h-4 w-4" /></button><div className="min-w-0 flex-1"><p className="text-[9px] font-black uppercase tracking-[0.2em] text-cyan-100/50">Budget setup</p><h1 className="truncate text-lg font-black tracking-[-0.035em]">{cycle.label} Budget Plan</h1></div><span className={`rounded-full border px-2.5 py-1 text-[10px] font-bold ${canFinish ? "border-emerald-300/25 bg-emerald-400/12 text-emerald-100" : "border-amber-300/20 bg-amber-400/10 text-amber-100"}`}>{canFinish ? "Ready" : "Draft"}</span></div></header>
+      <section className={card}><p className="text-[10px] font-black uppercase tracking-[0.18em] text-cyan-100/50">Budget rhythm</p><div className="mt-3 grid grid-cols-4 gap-1.5">{[["weekly","Weekly"],["biweekly","2 Weeks"],["monthly","Monthly"],["custom","Custom"]].map(([key,label])=><button key={key} type="button" onClick={()=>setCycleType(key)} className={`rounded-2xl border px-2 py-2 text-[11px] font-bold ${cycleType===key?"border-emerald-300/30 bg-emerald-400/15 text-emerald-100":"border-white/10 bg-white/[0.045] text-white/55"}`}>{label}</button>)}</div>{cycleType!=="monthly"?<div className="mt-3 grid grid-cols-2 gap-2"><input type="date" value={cycleStart} onChange={(e)=>setCycleStart(e.target.value)} className={input}/>{cycleType==="custom"?<input type="date" value={cycleEnd} onChange={(e)=>setCycleEnd(e.target.value)} className={input}/>:<div className="rounded-2xl border border-white/10 bg-black/15 px-4 py-3 text-sm font-semibold text-white/65">Ends {cycle.end}</div>}</div>:null}<p className="mt-3 rounded-2xl border border-white/10 bg-black/15 px-3 py-2.5 text-xs font-semibold leading-5 text-white/62">{cycle.label} cycle: {cycle.start}{cycle.end ? ` to ${cycle.end}` : ""}</p></section>
+      <section className={card}><p className="text-[10px] font-black uppercase tracking-[0.18em] text-cyan-100/50">Plan overview</p><div className="mt-2 flex items-end justify-between gap-3"><div><p className="text-[34px] font-black leading-none tracking-[-0.05em] text-emerald-200">{fmt(left)}</p><p className="mt-1.5 text-sm font-semibold text-white/72">Left to assign.</p></div><div className="rounded-2xl border border-white/10 bg-white/[0.045] px-3 py-2 text-right"><p className="text-[10px] font-bold uppercase tracking-[0.14em] text-white/42">Budget</p><p className="mt-1 text-sm font-black">{fmt(declared)}</p></div></div><p className="mt-3 rounded-2xl border border-white/10 bg-black/15 px-3 py-2.5 text-xs font-semibold leading-5 text-white/62">{helper}</p></section>
+      <section className={card}><p className="text-sm font-bold">Budget amount</p><p className="mb-3 mt-0.5 text-xs text-white/52">Money available for this cycle.</p><input type="number" min="0" value={declaredInput} onChange={(e)=>setDeclaredInput(e.target.value)} placeholder="25000" className={input}/><div className="mt-3 grid grid-cols-3 gap-2"><Tile label="Allocated" value={fmt(allocated)}/><Tile label="Left" value={fmt(left)} accent/><Tile label="Categories" value={budgetOptions.length}/></div></section>
+      <section className={card}><div className="mb-3 flex items-start justify-between gap-3"><div><p className="text-sm font-bold">{editing ? "Edit category" : "Add category"}</p><p className="mt-0.5 text-xs leading-5 text-white/52">Start with food, bills, rent, transport, savings.</p></div>{editing?<button type="button" onClick={()=>navigate("/budget-plan",{replace:true})} className="rounded-full border border-white/10 bg-white/[0.06] px-3 py-1 text-xs font-semibold text-white/65">Cancel</button>:null}</div><div className="space-y-2.5"><input type="text" value={categoryName} onChange={(e)=>{setCategoryName(e.target.value);setNotice("");}} placeholder="Example: Food" className={input}/><input type="number" min="0" value={categoryAmount} onChange={(e)=>{setCategoryAmount(e.target.value);setNotice("");}} placeholder="Amount to assign" className={input}/><button type="button" onClick={addCategory} disabled={busy} className={`${btn} flex w-full items-center justify-center gap-2 border border-emerald-300/25 bg-emerald-500/15 text-emerald-50`}><Plus className="h-4 w-4"/>{editing?"Update Category":"Add Category"}</button></div></section>
+      {notice?<div className="rounded-2xl border border-amber-300/20 bg-amber-400/10 px-4 py-3 text-sm font-semibold text-amber-50">{notice}</div>:null}
+      <section className={card}><div className="mb-3 flex items-center justify-between"><div><p className="text-sm font-bold">Budget categories</p><p className="mt-0.5 text-xs text-white/52">Your current plan.</p></div><span className="rounded-full border border-white/10 bg-white/[0.05] px-3 py-1 text-xs font-bold text-white/62">{budgetOptions.length}</span></div>{budgetOptions.length?<div className="space-y-2">{budgetOptions.map((item)=><div key={item.id||item.key} className="flex items-center justify-between gap-3 rounded-2xl border border-white/10 bg-black/15 px-3 py-3"><div className="min-w-0"><p className="truncate text-sm font-bold">{item.title}</p><p className="mt-0.5 text-xs text-white/52">{fmt(item.allocated)} assigned</p></div><div className="flex shrink-0 gap-1.5"><button type="button" onClick={()=>navigate("/budget-plan",{replace:true,state:{editCategoryId:item.id||item.key}})} className="flex h-9 w-9 items-center justify-center rounded-2xl border border-white/10 bg-white/[0.06] text-white/70"><Edit3 className="h-3.5 w-3.5"/></button><button type="button" onClick={()=>removeCategory(item)} disabled={busy} className="flex h-9 w-9 items-center justify-center rounded-2xl border border-rose-300/20 bg-rose-500/10 text-rose-100"><Trash2 className="h-3.5 w-3.5"/></button></div></div>)}</div>:<div className="rounded-2xl border border-white/10 bg-white/[0.04] px-4 py-5 text-sm font-semibold leading-6 text-white/58">No categories yet. Start with the biggest fixed expenses first.</div>}</section>
+    </div><div className="fixed inset-x-0 bottom-0 z-40 border-t border-white/10 bg-[#06101d]/88 px-4 pb-[calc(0.9rem+env(safe-area-inset-bottom))] pt-3 backdrop-blur-2xl"><div className="mx-auto grid max-w-[430px] grid-cols-2 gap-2"><button type="button" onClick={saveDraft} disabled={busy} className={`${btn} border border-white/12 bg-white/[0.07] text-white/78`}>{saving?"Saving...":"Save Draft"}</button><button type="button" onClick={finish} disabled={busy||!canFinish} className={`${btn} flex items-center justify-center gap-2 ${canFinish?"bg-gradient-to-r from-emerald-400 via-emerald-500 to-green-600 text-white":"border border-white/10 bg-white/[0.07] text-white/42"}`}><CheckCircle2 className="h-4 w-4"/>{canFinish?"Activate Budget":"Locked"}</button></div></div>
+  </div>;
 }
