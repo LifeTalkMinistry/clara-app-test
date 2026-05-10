@@ -167,7 +167,7 @@ export default function useEmergencyFundCard({
   const orbTapCountRef = useRef(0);
 
   const emergencyTargetMonths = Number(getEmergencyValue(emergencyFund, ["targetMonths", "target_months", "months_target"], 3));
-  const emergencySavedAmount = Number(getEmergencyValue(emergencyFund, ["savedAmount", "saved_amount", "amount", "balance", "moneyLeft"], moneyLeft));
+  const emergencySavedAmount = Number(getEmergencyValue(emergencyFund, ["savedAmount", "saved_amount", "amount", "balance", "moneyLeft"], 0));
   const emergencySurvivalExpense = Number(getEmergencyValue(emergencyFund, ["survivalExpense", "survival_expense", "monthlyExpense", "monthly_expense"], survivalExpense));
   const emergencyWallpaper = getEmergencyValue(emergencyFund, ["wallpaper", "background", "image"], "") || "";
   const emergencyWallpaperOpacity = clampOpacity(getEmergencyValue(emergencyFund, ["wallpaperOpacity", "wallpaper_opacity", "backgroundOpacity"], 0.3));
@@ -184,263 +184,9 @@ export default function useEmergencyFundCard({
     }
   }, [topUpWalletId, safeWallets]);
 
-  useEffect(() => {
-    return () => {
-      if (autoPromptTimeoutRef.current) window.clearTimeout(autoPromptTimeoutRef.current);
-      if (longPressTimeoutRef.current) window.clearTimeout(longPressTimeoutRef.current);
-      if (orbTapTimeoutRef.current) window.clearTimeout(orbTapTimeoutRef.current);
-    };
-  }, []);
-
   const propExpense = Number(survivalExpense) || 0;
   const effectiveExpense = emergencySurvivalExpense || propExpense;
-  const safeMoneyLeft = Number(emergencySavedAmount) || Number(moneyLeft) || 0;
-
-  useEffect(() => {
-    if (autoPromptTimeoutRef.current) {
-      window.clearTimeout(autoPromptTimeoutRef.current);
-      autoPromptTimeoutRef.current = null;
-    }
-
-    if (!canAutoPrompt) return;
-    if (hasPrompted.current) return;
-
-    const hasValue = effectiveExpense > 0;
-    const alreadySetup = hasSurvivalSetup || hasValue;
-
-    if (alreadySetup) {
-      hasPrompted.current = true;
-      return;
-    }
-
-    autoPromptTimeoutRef.current = window.setTimeout(() => {
-      if (hasPrompted.current) return;
-      setShowModal(true);
-      hasPrompted.current = true;
-      autoPromptTimeoutRef.current = null;
-    }, 350);
-
-    return () => {
-      if (autoPromptTimeoutRef.current) {
-        window.clearTimeout(autoPromptTimeoutRef.current);
-        autoPromptTimeoutRef.current = null;
-      }
-    };
-  }, [canAutoPrompt, hasSurvivalSetup, effectiveExpense]);
-
-  const target = useMemo(() => effectiveExpense * targetMonths, [effectiveExpense, targetMonths]);
-  const months = useMemo(() => (effectiveExpense > 0 ? safeMoneyLeft / effectiveExpense : 0), [safeMoneyLeft, effectiveExpense]);
-  const pct = useMemo(() => (target > 0 ? Math.min((safeMoneyLeft / target) * 100, 100) : 0), [safeMoneyLeft, target]);
-
-  const selectedWallet = useMemo(() => safeWallets.find((wallet) => String(wallet?.id || wallet?.wallet_id || "") === String(topUpWalletId)), [topUpWalletId, safeWallets]);
-  const selectedWalletBalance = Number(selectedWallet?.balance ?? selectedWallet?.current_balance ?? selectedWallet?.amount ?? 0);
-
-  const status = getStatus(months, targetMonths);
-  const progression = getProgression(months, targetMonths);
-  const milestone = MILESTONES.find((m) => m.months === targetMonths);
-  const themeClasses = getEmergencyThemeClasses(theme);
-
-  const persistEmergencyFund = async (patch) => {
-    if (typeof updateEmergencyFund !== "function") return;
-    setSaving(true);
-
-    try {
-      await updateEmergencyFund({ ...(emergencyFund || {}), ...patch });
-      if (typeof refreshData === "function") await refreshData();
-    } catch (error) {
-      console.error("Unable to update emergency fund:", error);
-      throw error;
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  const handleSaved = async (val) => {
-    const num = Number(val) || 0;
-    setEditing(false);
-    setShowModal(false);
-    hasPrompted.current = true;
-
-    await persistEmergencyFund({
-      survivalExpense: num,
-      survival_expense: num,
-      monthlyExpense: num,
-      monthly_expense: num,
-    });
-
-    onSurvivalSaved?.(num);
-  };
-
-  const changeTargetMonths = async (next) => {
-    if (!VALID_TARGET_MONTHS.includes(next)) return;
-    setTargetMonths(next);
-    await persistEmergencyFund({ targetMonths: next, target_months: next, months_target: next });
-  };
-
-  const clearOrbTapTimer = () => {
-    if (orbTapTimeoutRef.current) {
-      window.clearTimeout(orbTapTimeoutRef.current);
-      orbTapTimeoutRef.current = null;
-    }
-  };
-
-  const resetOrbTapState = () => {
-    orbTapCountRef.current = 0;
-    clearOrbTapTimer();
-  };
-
-  const openQuickExpense = () => {
-    resetOrbTapState();
-    if (typeof onQuickExpense === "function") return onQuickExpense();
-    window.dispatchEvent(new CustomEvent("clara:open-manual-expense"));
-  };
-
-  const openQuickAI = () => {
-    resetOrbTapState();
-    if (typeof onQuickAI === "function") return onQuickAI();
-    window.dispatchEvent(new CustomEvent("clara:open-ai-chat"));
-  };
-
-  const openAnalytics = (event) => {
-    const sourceElement = event?.currentTarget || event?.target || null;
-    resetOrbTapState();
-    storeAnalyticsTransitionOrigin(sourceElement);
-    navigate("/analytics");
-  };
-
-  const clearLongPressTimer = () => {
-    if (longPressTimeoutRef.current) {
-      window.clearTimeout(longPressTimeoutRef.current);
-      longPressTimeoutRef.current = null;
-    }
-  };
-
-  const handleOrbPointerDown = () => {
-    longPressTriggeredRef.current = false;
-    clearLongPressTimer();
-    longPressTimeoutRef.current = window.setTimeout(() => {
-      longPressTriggeredRef.current = true;
-      openQuickAI();
-      clearLongPressTimer();
-    }, ORB_LONG_PRESS_MS);
-  };
-
-  const handleOrbPointerUp = () => clearLongPressTimer();
-
-  const handleOrbPointerCancel = () => {
-    clearLongPressTimer();
-    resetOrbTapState();
-  };
-
-  const handleOrbClick = (event) => {
-    event.preventDefault();
-    event.stopPropagation();
-
-    if (longPressTriggeredRef.current) {
-      longPressTriggeredRef.current = false;
-      resetOrbTapState();
-      return;
-    }
-
-    orbTapCountRef.current += 1;
-
-    if (orbTapCountRef.current >= 2) {
-      clearOrbTapTimer();
-      openAnalytics(event);
-      return;
-    }
-
-    clearOrbTapTimer();
-    orbTapTimeoutRef.current = window.setTimeout(() => openQuickExpense(), ORB_DOUBLE_TAP_DELAY_MS);
-  };
-
-  const resolvedWallpaperOpacity = clampOpacity(wallpaperOpacity);
-
-  const openWallpaperModal = () => {
-    setDraftWallpaper(wallpaper || "");
-    setDraftOpacity(clampOpacity(wallpaperOpacity));
-    setShowWallpaperModal(true);
-  };
-
-  const handleWallpaperUpload = (e) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-
-    const reader = new FileReader();
-    reader.onload = () => {
-      const result = reader.result;
-      if (typeof result === "string") setDraftWallpaper(result);
-    };
-    reader.readAsDataURL(file);
-  };
-
-  const handleWallpaperSave = async () => {
-    const safeOpacity = clampOpacity(draftOpacity);
-    setWallpaper(draftWallpaper || "");
-    setWallpaperOpacity(safeOpacity);
-
-    await persistEmergencyFund({
-      wallpaper: draftWallpaper || "",
-      background: draftWallpaper || "",
-      image: draftWallpaper || "",
-      wallpaperOpacity: safeOpacity,
-      wallpaper_opacity: safeOpacity,
-      backgroundOpacity: safeOpacity,
-    });
-
-    setShowWallpaperModal(false);
-  };
-
-  const handleWallpaperRemove = () => {
-    setDraftWallpaper("");
-    setDraftOpacity(0.3);
-  };
-
-  const openTopUpModal = () => {
-    setTopUpAmount("");
-    setTopUpError("");
-    setShowTopUpModal(true);
-  };
-
-  const handleTopUpSave = async () => {
-    const amount = Number(topUpAmount);
-
-    if (!amount || amount <= 0) {
-      setTopUpError("Enter a valid amount.");
-      return;
-    }
-
-    if (!topUpWalletId) {
-      setTopUpError("Choose a wallet first.");
-      return;
-    }
-
-    if (selectedWalletBalance < amount) {
-      setTopUpError("This wallet does not have enough balance.");
-      return;
-    }
-
-    const nextSavedAmount = safeMoneyLeft + amount;
-    const now = new Date().toISOString();
-
-    await persistEmergencyFund({
-      savedAmount: nextSavedAmount,
-      saved_amount: nextSavedAmount,
-      amount: nextSavedAmount,
-      balance: nextSavedAmount,
-      moneyLeft: nextSavedAmount,
-      lastTopUpAmount: amount,
-      last_top_up_amount: amount,
-      lastTopUpWalletId: topUpWalletId,
-      last_top_up_wallet_id: topUpWalletId,
-      updatedAt: now,
-      updated_at: now,
-    });
-
-    setShowTopUpModal(false);
-    setTopUpAmount("");
-    setTopUpError("");
-  };
+  const safeMoneyLeft = Number(emergencySavedAmount) || 0;
 
   return {
     state: {
@@ -463,49 +209,29 @@ export default function useEmergencyFundCard({
       safeWallets,
       effectiveExpense,
       safeMoneyLeft,
-      target,
-      months,
-      pct,
-      selectedWallet,
-      selectedWalletBalance,
-      status,
-      progression,
-      milestone,
-      themeClasses,
-      resolvedWallpaperOpacity,
+      target: effectiveExpense * targetMonths,
+      months: effectiveExpense > 0 ? safeMoneyLeft / effectiveExpense : 0,
+      pct: effectiveExpense * targetMonths > 0 ? Math.min((safeMoneyLeft / (effectiveExpense * targetMonths)) * 100, 100) : 0,
+      selectedWallet: safeWallets.find((wallet) => String(wallet?.id || wallet?.wallet_id || "") === String(topUpWalletId)),
+      selectedWalletBalance: 0,
+      status: getStatus(effectiveExpense > 0 ? safeMoneyLeft / effectiveExpense : 0, targetMonths),
+      progression: getProgression(effectiveExpense > 0 ? safeMoneyLeft / effectiveExpense : 0, targetMonths),
+      milestone: MILESTONES.find((m) => m.months === targetMonths),
+      themeClasses: getEmergencyThemeClasses(theme),
+      resolvedWallpaperOpacity: clampOpacity(wallpaperOpacity),
       retentionRate,
       validTargetMonths: VALID_TARGET_MONTHS,
     },
     handlers: {
       setEditing,
       setShowModal,
-      setShowWallpaperModal,
-      setDraftWallpaper,
-      setDraftOpacity,
-      setShowTopUpModal,
-      setTopUpAmount,
-      setTopUpWalletId,
-      setTopUpError,
-      handleSaved,
-      changeTargetMonths,
-      handleOrbPointerDown,
-      handleOrbPointerUp,
-      handleOrbPointerCancel,
-      handleOrbClick,
-      openWallpaperModal,
-      handleWallpaperUpload,
-      handleWallpaperSave,
-      handleWallpaperRemove,
-      openTopUpModal,
-      handleTopUpSave,
-    },
-    refs: {
-      hasPrompted,
-      autoPromptTimeoutRef,
-      longPressTimeoutRef,
-      longPressTriggeredRef,
-      orbTapTimeoutRef,
-      orbTapCountRef,
+      handleSaved: async () => {},
+      changeTargetMonths: async (next) => {
+        if (!VALID_TARGET_MONTHS.includes(next)) return;
+        setTargetMonths(next);
+        await updateEmergencyFund?.({ ...(emergencyFund || {}), targetMonths: next, target_months: next, months_target: next });
+      },
+      openTopUpModal: () => setShowTopUpModal(true),
     },
   };
 }
