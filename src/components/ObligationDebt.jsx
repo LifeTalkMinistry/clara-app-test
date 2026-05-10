@@ -1,11 +1,15 @@
-import { ShieldAlert } from "lucide-react";
+import { ChevronDown, ChevronUp, ShieldAlert } from "lucide-react";
 
 import useDebtCardLogic, {
   DEBT_TYPES,
   fmt,
 } from "@/components/financial-carousel/cards/debt/logic/useDebtCardLogic";
-import FinanceCardExpandButton from "@/components/financial-carousel/shared/FinanceCardExpandButton";
-import FinanceCardExpandedPanel from "@/components/financial-carousel/shared/FinanceCardExpandedPanel";
+
+const tileClass =
+  "rounded-2xl border border-white/10 bg-white/[0.045] px-2.5 py-2.5 text-center shadow-[inset_0_1px_0_rgba(255,255,255,0.06)] backdrop-blur-sm";
+
+const inputClass =
+  "w-full rounded-2xl border border-white/10 bg-black/25 px-3 py-2.5 text-sm font-semibold text-white outline-none transition placeholder:text-white/35 focus:border-cyan-300/35";
 
 export default function ObligationDebt({
   item = null,
@@ -34,7 +38,6 @@ export default function ObligationDebt({
     riskLevel,
     statusLabel,
     smartFeedback,
-    pressureProgress,
     monthlyLeftover,
     payoffMonths,
     description,
@@ -50,22 +53,47 @@ export default function ObligationDebt({
     handleToggleDetails,
   } = handlers;
 
+  const summaryTiles = [
+    {
+      label: "Monthly",
+      value: fmt(monthlyDebt),
+    },
+    {
+      label: "Ratio",
+      value: `${debtRatio.toFixed(0)}%`,
+      valueClassName:
+        debtRatio >= 50
+          ? "text-rose-300"
+          : debtRatio >= 30
+            ? "text-amber-300"
+            : "text-emerald-300",
+    },
+    {
+      label: "Status",
+      value: riskLevel,
+      valueClassName:
+        riskLevel === "Debt free"
+          ? "text-emerald-300"
+          : riskLevel === "Moderate"
+            ? "text-amber-300"
+            : riskLevel === "High"
+              ? "text-rose-300"
+              : "text-cyan-300",
+    },
+  ];
+
   return (
     <div
-      className={`relative flex h-full min-h-[inherit] flex-col overflow-hidden rounded-3xl border text-white shadow-2xl transition-all duration-200 ${tone.border}`}
+      className={`relative flex h-full min-h-[inherit] flex-col overflow-hidden rounded-3xl border text-white shadow-[0_22px_60px_rgba(0,0,0,0.38),0_0_34px_rgba(0,255,220,0.08),0_0_48px_rgba(126,34,206,0.10)] transition-all duration-200 ${tone.border}`}
     >
       <div className="absolute inset-0" style={{ background: tone.background }} />
-      <div className="pointer-events-none absolute inset-0 bg-gradient-to-b from-black/18 via-black/12 to-black/34" />
-      <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(to_bottom,rgba(255,255,255,0.10),rgba(255,255,255,0.025)_16%,transparent_38%)]" />
-      <div className="pointer-events-none absolute inset-x-8 top-0 h-20 rounded-full bg-cyan-200/12 blur-3xl" />
-      <div className="pointer-events-none absolute -left-10 -top-10 h-32 w-32 rounded-full bg-cyan-300/18 blur-3xl" />
-      <div className="pointer-events-none absolute -right-10 bottom-0 h-36 w-36 rounded-full bg-violet-500/18 blur-3xl" />
-      <div
-        className={`pointer-events-none absolute right-5 top-24 h-24 w-24 rounded-full blur-3xl ${tone.accent}`}
-      />
+      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(16,185,129,0.20),transparent_31%),radial-gradient(circle_at_bottom_right,rgba(126,34,206,0.20),transparent_33%),linear-gradient(135deg,rgba(255,255,255,0.04)_0%,rgba(255,255,255,0.00)_38%,rgba(255,255,255,0.02)_100%)]" />
+      <div className="pointer-events-none absolute inset-0 bg-gradient-to-b from-black/20 via-black/16 to-black/30" />
+      <div className="pointer-events-none absolute bottom-[-135px] right-[-92px] h-[230px] w-[230px] rounded-full bg-violet-400/[0.09] blur-3xl" />
+      <div className="pointer-events-none absolute inset-0 rounded-[inherit] ring-1 ring-inset ring-white/10" />
 
-      <div className="relative z-10 flex h-full min-h-0 flex-col p-4 pb-5">
-        <div className={`${isExpanded ? "shrink-0" : "flex-1"} flex min-h-0 flex-col justify-between gap-2`}>
+      <div className="relative z-10 flex h-full min-h-0 flex-col p-4 pb-4">
+        <div className="flex min-h-0 flex-col gap-3">
           <div className="min-h-0">
             <div className="mb-3 flex items-start gap-3">
               <div
@@ -80,13 +108,13 @@ export default function ObligationDebt({
                     <p className="text-base font-semibold tracking-tight text-white">
                       Debt / Obligations
                     </p>
-                    <p className="mt-0.5 text-[11px] font-medium leading-relaxed text-white/82">
-                      Track and manage what you owe.
+                    <p className="mt-0.5 text-[11px] font-medium text-white/76">
+                      Track what you owe.
                     </p>
                   </div>
 
                   <span
-                    className={`shrink-0 rounded-full border px-2.5 py-1 text-[11px] font-semibold backdrop-blur-sm ${tone.status}`}
+                    className={`shrink-0 rounded-full border px-2.5 py-1 text-[10px] font-semibold backdrop-blur-sm ${tone.status}`}
                   >
                     {statusLabel}
                   </span>
@@ -94,61 +122,60 @@ export default function ObligationDebt({
               </div>
             </div>
 
-            <div className="mb-3 pr-8">
-              <p className={`text-[30px] font-bold leading-none ${tone.value}`}>
+            <div className="mb-3">
+              <p className={`text-[32px] font-bold leading-none tracking-[-0.04em] ${tone.value}`}>
                 {fmt(totalDebt)}
               </p>
 
-              <p className="mt-2 max-w-[28rem] overflow-hidden text-xs font-medium leading-relaxed text-white/82 [display:-webkit-box] [-webkit-box-orient:vertical] [-webkit-line-clamp:2]">
-                {description}
+              <p className="mt-2 text-sm font-semibold leading-tight text-white/82">
+                {totalDebt > 0
+                  ? "Total active obligations."
+                  : "No active debt recorded."}
               </p>
             </div>
 
-            <div className={`${isExpanded ? "mb-2" : "mb-3"}`}>
-              <div className="mb-1.5 flex items-center justify-between gap-3 text-[11px] font-medium text-white/75">
-                <span>Debt pressure</span>
-                <span className="truncate text-right">{riskLevel}</span>
-              </div>
-
-              <div className="h-2.5 overflow-hidden rounded-full border border-white/10 bg-black/20">
-                <div
-                  className={`relative h-full rounded-full bg-gradient-to-r ${tone.bar} transition-all duration-500`}
-                  style={{ width: `${pressureProgress}%` }}
-                >
-                  <div className="absolute inset-0 bg-white/20 opacity-40" />
+            <div className="mb-1 grid grid-cols-3 gap-2">
+              {summaryTiles.map((tile) => (
+                <div key={tile.label} className={tileClass}>
+                  <p
+                    className={`truncate text-[13px] font-black leading-none tracking-[-0.025em] ${tile.valueClassName || "text-white/92"}`}
+                  >
+                    {tile.value}
+                  </p>
+                  <p className="mt-1.5 text-[8px] font-black uppercase tracking-[0.18em] text-white/42">
+                    {tile.label}
+                  </p>
                 </div>
-              </div>
-
-              <div className="mt-2 flex items-center justify-between text-[11px] font-medium text-white/70">
-                <span>Monthly: {fmt(monthlyDebt)}</span>
-                <span>Ratio: {debtRatio.toFixed(0)}%</span>
-              </div>
+              ))}
             </div>
           </div>
 
-          <div className="shrink-0 pb-0.5">
-            <FinanceCardExpandButton
-              detailKey="debtObligations"
-              expanded={isExpanded}
-              onToggleDetails={handleToggleDetails}
-            />
+          <div className="shrink-0 border-t border-white/6 pt-2">
+            <button
+              type="button"
+              onClick={handleToggleDetails}
+              className="flex w-full items-center justify-between rounded-2xl border border-white/10 bg-white/[0.055] px-3 py-3 text-sm font-medium text-white/85 shadow-[inset_0_1px_0_rgba(255,255,255,0.06)] backdrop-blur-sm transition hover:bg-white/10"
+            >
+              <span>{isExpanded ? "Hide details" : "Show details"}</span>
+              {isExpanded ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+            </button>
           </div>
         </div>
 
         {isExpanded && (
-          <FinanceCardExpandedPanel className="space-y-3">
+          <div className="mt-3 min-h-0 flex-1 space-y-3 overflow-y-auto rounded-2xl border border-white/10 bg-black/15 p-3 backdrop-blur-[2px] shadow-[inset_0_1px_0_rgba(255,255,255,0.05)] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
             <div className="grid grid-cols-3 gap-2 text-center text-sm text-white">
-              <div className="rounded-2xl border border-white/10 bg-white/5 px-2.5 py-2.5 backdrop-blur-[2px]">
-                <p className="mb-1 text-[10px] font-semibold uppercase tracking-[0.16em] text-white/55">
-                  Total Debt
+              <div className="rounded-2xl border border-white/10 bg-black/20 px-2.5 py-2.5">
+                <p className="mb-1 text-[10px] font-semibold uppercase tracking-[0.16em] text-white/70">
+                  Debt
                 </p>
                 <p className="truncate text-sm font-bold text-white">
                   {fmt(totalDebt)}
                 </p>
               </div>
 
-              <div className="rounded-2xl border border-white/10 bg-white/5 px-2.5 py-2.5 backdrop-blur-[2px]">
-                <p className="mb-1 text-[10px] font-semibold uppercase tracking-[0.16em] text-white/55">
+              <div className="rounded-2xl border border-white/10 bg-black/20 px-2.5 py-2.5">
+                <p className="mb-1 text-[10px] font-semibold uppercase tracking-[0.16em] text-white/70">
                   Monthly
                 </p>
                 <p className="truncate text-sm font-bold text-white">
@@ -156,9 +183,9 @@ export default function ObligationDebt({
                 </p>
               </div>
 
-              <div className="rounded-2xl border border-white/10 bg-white/5 px-2.5 py-2.5 backdrop-blur-[2px]">
-                <p className="mb-1 text-[10px] font-semibold uppercase tracking-[0.16em] text-white/55">
-                  Status
+              <div className="rounded-2xl border border-white/10 bg-black/20 px-2.5 py-2.5">
+                <p className="mb-1 text-[10px] font-semibold uppercase tracking-[0.16em] text-white/70">
+                  Risk
                 </p>
                 <p className="truncate text-sm font-bold text-white">
                   {riskLevel}
@@ -173,7 +200,7 @@ export default function ObligationDebt({
               <select
                 value={debtType}
                 onChange={(event) => setDebtType(event.target.value)}
-                className="w-full rounded-2xl border border-white/10 bg-black/25 px-3 py-2.5 text-sm font-semibold text-white outline-none transition focus:border-cyan-300/35"
+                className={inputClass}
               >
                 {DEBT_TYPES.map((type) => (
                   <option
@@ -198,7 +225,7 @@ export default function ObligationDebt({
                   value={totalDebtInput}
                   onChange={(event) => setTotalDebtInput(event.target.value)}
                   placeholder="0"
-                  className="w-full rounded-2xl border border-white/10 bg-black/25 px-3 py-2.5 text-sm font-semibold text-white outline-none transition placeholder:text-white/35 focus:border-cyan-300/35"
+                  className={inputClass}
                 />
               </div>
 
@@ -212,7 +239,7 @@ export default function ObligationDebt({
                   value={monthlyDebtInput}
                   onChange={(event) => setMonthlyDebtInput(event.target.value)}
                   placeholder="0"
-                  className="w-full rounded-2xl border border-white/10 bg-black/25 px-3 py-2.5 text-sm font-semibold text-white outline-none transition placeholder:text-white/35 focus:border-cyan-300/35"
+                  className={inputClass}
                 />
               </div>
             </div>
@@ -227,18 +254,19 @@ export default function ObligationDebt({
                 value={interestInput}
                 onChange={(event) => setInterestInput(event.target.value)}
                 placeholder="Optional"
-                className="w-full rounded-2xl border border-white/10 bg-black/25 px-3 py-2.5 text-sm font-semibold text-white outline-none transition placeholder:text-white/35 focus:border-cyan-300/35"
+                className={inputClass}
               />
+
               <p className="mt-1.5 text-[11px] font-medium text-white/60">
                 {smartFeedback}
                 {payoffMonths > 0
-                  ? ` • Around ${payoffMonths} month${payoffMonths === 1 ? "" : "s"} at current payment.`
+                  ? ` • Around ${payoffMonths} month${payoffMonths === 1 ? "" : "s"} remaining.`
                   : ""}
               </p>
             </div>
 
-            <div className="rounded-2xl border border-white/10 bg-white/5 px-3 py-2.5 text-[11px] font-medium leading-relaxed text-white/70">
-              Cash left after expenses:{" "}
+            <div className="rounded-2xl border border-white/10 bg-white/[0.045] px-3 py-2.5 text-[11px] font-medium leading-relaxed text-white/70">
+              Remaining after expenses:{" "}
               <span className="font-semibold text-white">
                 {fmt(monthlyLeftover)}
               </span>
@@ -261,7 +289,7 @@ export default function ObligationDebt({
                 Ask CLARA
               </button>
             </div>
-          </FinanceCardExpandedPanel>
+          </div>
         )}
       </div>
     </div>
