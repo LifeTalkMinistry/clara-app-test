@@ -25,12 +25,13 @@ export default function BudgetCategoryItem({
   return (
     <div className={`rounded-2xl p-3 ${glassPanel}`}>
       <div className="mb-2 flex items-start justify-between gap-3">
-        <div className="min-w-0">
-          <p className="truncate text-sm font-bold text-white">{item.title}</p>
-          <p className="mt-0.5 text-[11px] text-white/55">
+        <div className="min-w-0 flex-1">
+          <p className="truncate text-[15px] font-black leading-tight text-white">{item.title}</p>
+          <p className="mt-1 text-[12px] font-medium leading-relaxed text-white/70">
             {fmt(categorySpent)} spent • {fmt(categoryRemaining)} left
           </p>
         </div>
+
         <div className="flex shrink-0 items-center gap-1">
           <button
             type="button"
@@ -41,6 +42,7 @@ export default function BudgetCategoryItem({
           >
             <Edit3 className="h-3.5 w-3.5" />
           </button>
+
           <button
             type="button"
             onClick={() => onDeleteBudgetCategory?.(item)}
@@ -60,9 +62,9 @@ export default function BudgetCategoryItem({
         />
       </div>
 
-      <div className="mt-1.5 flex items-center justify-between text-[10px] font-semibold text-white/55">
-        <span>{Math.round(categoryProgress)}%</span>
-        <span>{fmt(categoryAllocated)}</span>
+      <div className="mt-2 flex items-center justify-between text-[11px] font-semibold text-white/62">
+        <span>{Math.round(categoryProgress)}% used</span>
+        <span>{fmt(categoryAllocated)} allocated</span>
       </div>
     </div>
   );
