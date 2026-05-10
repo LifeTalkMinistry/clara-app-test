@@ -137,7 +137,7 @@ export default function InvestmentCard({ item = null, expanded = false, onToggle
 
   const summaryTiles = [
     {
-      label: "Safe",
+      label: "Safe Range",
       value: canSafelyInvest ? fmt(safeToInvest) : "₱0",
       valueClassName: canSafelyInvest ? "text-emerald-300" : tone.value,
     },
@@ -170,7 +170,7 @@ export default function InvestmentCard({ item = null, expanded = false, onToggle
                 {mainLabel}
               </p>
               <p className="mt-2 text-sm font-semibold leading-tight text-white/82">
-                {canSafelyInvest ? "Safe amount you may plan." : "Build protection first."}
+                {canSafelyInvest ? "Recommended starter amount." : "Build protection first."}
               </p>
             </div>
           ) : (
@@ -201,7 +201,7 @@ export default function InvestmentCard({ item = null, expanded = false, onToggle
                   {mainLabel}
                 </p>
                 <p className="mt-1.5 text-sm font-semibold leading-tight text-white/82">
-                  {canSafelyInvest ? "Safe amount you may plan." : "Build protection first."}
+                  {canSafelyInvest ? "Recommended starter amount." : "Build protection first."}
                 </p>
               </div>
 
