@@ -1,4 +1,4 @@
-import SavingsCard from "@/components/SavingsCard";
+import SavingsCardRefined from "@/components/SavingsCardRefined";
 import { toggleExpandedFinanceCard } from "../../../shared/financeCardExpansion";
 import { stopCapturedDetailsToggle } from "../../../shared/financeCardInteraction";
 
@@ -9,10 +9,6 @@ export default function SavingsGoalsCardView({
   selectedDashboardTheme,
   expandedFinanceCard,
   toggleFinanceDetails,
-  financeActionLoading,
-  onSaveSavingsGoal,
-  onDeleteSavingsGoal,
-  onAddSavings,
 }) {
   const isExpanded = expandedFinanceCard === DETAIL_KEY;
 
@@ -33,7 +29,7 @@ export default function SavingsGoalsCardView({
         }
       }}
     >
-      <SavingsCard
+      <SavingsCardRefined
         savingsGoals={data.savingsGoals}
         totalSavingsSaved={data.totalSavingsSaved}
         totalSavingsTarget={data.totalSavingsTarget}
@@ -41,10 +37,6 @@ export default function SavingsGoalsCardView({
         theme={selectedDashboardTheme}
         expanded={isExpanded}
         onToggleDetails={handleSavingsToggle}
-        financeActionLoading={financeActionLoading}
-        onSaveSavingsGoal={onSaveSavingsGoal}
-        onDeleteSavingsGoal={onDeleteSavingsGoal}
-        onAddSavings={onAddSavings}
       />
     </div>
   );
