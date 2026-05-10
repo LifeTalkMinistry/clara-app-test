@@ -102,3 +102,89 @@ body::after {
 #root [class*="bg-teal"] {
   box-shadow: 0 0 18px rgba(0, 255, 220, 0.26);
 }
+
+/* CLARA production mobile dialog polish
+   Keeps long finance forms usable on real phones without changing the component logic. */
+#root [role="dialog"][class*="bg-[#061224]"],
+#root [role="dialog"][class*="bg-[#041226]"] {
+  isolation: isolate;
+  border-color: rgba(165, 243, 252, 0.18) !important;
+  background-color: rgba(4, 18, 38, 0.96) !important;
+  background-image:
+    radial-gradient(circle at 0% 0%, rgba(0, 255, 220, 0.18), transparent 38%),
+    radial-gradient(circle at 100% 0%, rgba(126, 34, 206, 0.22), transparent 42%),
+    linear-gradient(135deg, rgba(4, 35, 51, 0.94), rgba(6, 18, 45, 0.96) 48%, rgba(24, 14, 59, 0.96)) !important;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.10),
+    0 28px 90px rgba(0, 0, 0, 0.62),
+    0 0 34px rgba(0, 255, 220, 0.10),
+    0 0 52px rgba(126, 34, 206, 0.12) !important;
+  backdrop-filter: blur(24px) saturate(1.16);
+  -webkit-backdrop-filter: blur(24px) saturate(1.16);
+}
+
+#root [role="dialog"][class*="bg-[#061224]"] > div,
+#root [role="dialog"][class*="bg-[#041226]"] > div {
+  min-height: 0;
+  height: 100%;
+}
+
+#root [role="dialog"][class*="bg-[#061224]"] [class*="overflow-y-auto"],
+#root [role="dialog"][class*="bg-[#041226]"] [class*="overflow-y-auto"] {
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+  scroll-padding-bottom: 96px;
+  scrollbar-width: none;
+}
+
+#root [role="dialog"][class*="bg-[#061224]"] [class*="overflow-y-auto"]::-webkit-scrollbar,
+#root [role="dialog"][class*="bg-[#041226]"] [class*="overflow-y-auto"]::-webkit-scrollbar {
+  display: none;
+}
+
+#root [role="dialog"][class*="bg-[#061224]"] input,
+#root [role="dialog"][class*="bg-[#041226]"] input,
+#root [role="dialog"][class*="bg-[#061224]"] textarea,
+#root [role="dialog"][class*="bg-[#041226]"] textarea,
+#root [role="dialog"][class*="bg-[#061224]"] button,
+#root [role="dialog"][class*="bg-[#041226]"] button {
+  -webkit-tap-highlight-color: transparent;
+}
+
+@media (max-width: 640px) {
+  #root [role="dialog"][class*="bg-[#061224]"],
+  #root [role="dialog"][class*="bg-[#041226]"] {
+    top: calc(env(safe-area-inset-top, 0px) + 0.65rem) !important;
+    right: 0.65rem !important;
+    bottom: calc(env(safe-area-inset-bottom, 0px) + 0.65rem) !important;
+    left: 0.65rem !important;
+    width: auto !important;
+    max-width: none !important;
+    max-height: none !important;
+    height: auto !important;
+    transform: none !important;
+    border-radius: 28px !important;
+  }
+
+  #root [role="dialog"][class*="bg-[#061224]"] [class*="border-b"],
+  #root [role="dialog"][class*="bg-[#041226]"] [class*="border-b"] {
+    padding-top: 1rem;
+    padding-bottom: 0.95rem;
+  }
+
+  #root [role="dialog"][class*="bg-[#061224]"] [class*="border-t"],
+  #root [role="dialog"][class*="bg-[#041226]"] [class*="border-t"] {
+    padding-bottom: max(0.85rem, env(safe-area-inset-bottom, 0px));
+  }
+}
+
+@media (max-width: 390px) {
+  #root [role="dialog"][class*="bg-[#061224]"],
+  #root [role="dialog"][class*="bg-[#041226]"] {
+    top: calc(env(safe-area-inset-top, 0px) + 0.45rem) !important;
+    right: 0.45rem !important;
+    bottom: calc(env(safe-area-inset-bottom, 0px) + 0.45rem) !important;
+    left: 0.45rem !important;
+    border-radius: 24px !important;
+  }
+}
