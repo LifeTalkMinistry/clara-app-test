@@ -162,14 +162,14 @@ export default function EmergencyFundCard({
         <div className="pointer-events-none absolute bottom-[-135px] right-[-92px] h-[230px] w-[230px] rounded-full bg-violet-400/[0.09] blur-3xl" />
         <div className="pointer-events-none absolute inset-0 rounded-[inherit] ring-1 ring-inset ring-white/10" />
 
-        <div className="relative z-10 flex h-full min-h-0 flex-col p-4 pb-4">
+        <div className="relative z-10 flex h-full min-h-0 flex-col p-4 pb-5">
           <div className="flex shrink-0 flex-col gap-3">
             {isExpanded ? (
-              <div className="shrink-0">
+              <div className="shrink-0 pb-1">
                 <p className={`text-[32px] font-bold leading-none tracking-[-0.04em] ${status.text}`}>
                   {coverageLabel}
                 </p>
-                <p className={`mt-2 text-sm font-semibold leading-tight ${themeClasses.body}`}>
+                <p className={`mt-2.5 text-sm font-semibold leading-relaxed ${themeClasses.body}`}>
                   Protection covered right now.
                 </p>
               </div>
@@ -222,7 +222,7 @@ export default function EmergencyFundCard({
               </div>
             )}
 
-            <div className="shrink-0 border-t border-white/6 pt-2">
+            <div className="shrink-0 border-t border-white/6 pt-2.5">
               <button
                 type="button"
                 onClick={onToggleDetails}
@@ -235,9 +235,9 @@ export default function EmergencyFundCard({
           </div>
 
           {isExpanded && (
-            <div className={`mt-3 min-h-0 flex-1 space-y-2.5 overflow-y-auto overscroll-contain rounded-2xl border border-white/8 p-2.5 pb-5 backdrop-blur-[2px] shadow-[inset_0_1px_0_rgba(255,255,255,0.04)] [scrollbar-width:none] ${themeClasses.glass} [&::-webkit-scrollbar]:hidden`}>
+            <div className={`mt-4 min-h-0 flex-1 space-y-3.5 overflow-y-auto overscroll-contain rounded-2xl border border-white/8 p-3.5 pb-7 backdrop-blur-[2px] shadow-[inset_0_1px_0_rgba(255,255,255,0.04)] [scrollbar-width:none] ${themeClasses.glass} [&::-webkit-scrollbar]:hidden`}>
               <div>
-                <div className="mb-1.5 flex items-center justify-between">
+                <div className="mb-2 flex items-center justify-between">
                   <span className="text-[11px] font-semibold text-white/88">Goal</span>
                   <span className="text-[10px] font-semibold text-white/52">{targetLabel}</span>
                 </div>
@@ -251,7 +251,7 @@ export default function EmergencyFundCard({
                         type="button"
                         onClick={() => changeTargetMonths(item)}
                         disabled={saving}
-                        className={`relative rounded-xl border px-2 py-2 text-xs font-semibold transition-all duration-200 disabled:cursor-not-allowed disabled:opacity-70 ${
+                        className={`relative rounded-xl border px-2 py-2.5 text-xs font-semibold transition-all duration-200 disabled:cursor-not-allowed disabled:opacity-70 ${
                           active
                             ? "border-emerald-400/35 bg-emerald-500/14 text-emerald-300 shadow-[0_0_14px_rgba(52,211,153,0.20)]"
                             : "border-white/8 bg-white/[0.045] text-white/72 hover:bg-white/10 hover:text-white"
@@ -265,21 +265,21 @@ export default function EmergencyFundCard({
                 </div>
               </div>
 
-              <div className="relative overflow-hidden rounded-2xl border border-emerald-300/20 bg-[radial-gradient(circle_at_top_left,rgba(52,211,153,0.18),transparent_42%),rgba(16,185,129,0.10)] px-3.5 py-3.5 shadow-[inset_0_1px_0_rgba(255,255,255,0.08),0_0_22px_rgba(16,185,129,0.07)]">
+              <div className="relative overflow-hidden rounded-2xl border border-emerald-300/20 bg-[radial-gradient(circle_at_top_left,rgba(52,211,153,0.18),transparent_42%),rgba(16,185,129,0.10)] px-4 py-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.08),0_0_22px_rgba(16,185,129,0.07)]">
                 <div className="pointer-events-none absolute -right-10 -top-14 h-28 w-28 rounded-full bg-emerald-300/10 blur-2xl" />
                 <p className="relative text-[10px] font-black uppercase tracking-[0.16em] text-emerald-100/56">
                   Next step
                 </p>
-                <p className="relative mt-1.5 text-[15px] font-black leading-snug text-white">
+                <p className="relative mt-2 text-[17px] font-black leading-snug text-white">
                   {nextStepTitle}
                 </p>
-                <p className="relative mt-1.5 text-[12px] font-semibold leading-5 text-white/72">
+                <p className="relative mt-3 text-[12.5px] font-semibold leading-6 text-white/74">
                   {nextStepMessage}
                 </p>
               </div>
 
-              <div className="rounded-2xl border border-white/8 bg-black/10 px-3 py-2.5">
-                <div className="mb-2 flex items-center justify-between gap-3">
+              <div className="rounded-2xl border border-white/8 bg-black/10 px-3.5 py-3">
+                <div className="mb-3 flex items-center justify-between gap-3">
                   <span className="text-[10px] font-black uppercase tracking-[0.16em] text-white/36">
                     Current setup
                   </span>
@@ -288,23 +288,23 @@ export default function EmergencyFundCard({
                   </span>
                 </div>
 
-                <div className="grid grid-cols-2 gap-2 text-[12px] font-semibold text-white/60">
-                  <div className="rounded-xl border border-white/8 bg-white/[0.025] px-3 py-2">
+                <div className="grid grid-cols-2 gap-2.5 text-[12px] font-semibold text-white/60">
+                  <div className="rounded-xl border border-white/8 bg-white/[0.025] px-3 py-3">
                     <p className="text-white/36">Monthly survival cost</p>
-                    <p className="mt-1 text-sm font-black text-white/90">{fmt(effectiveExpense)}</p>
+                    <p className="mt-1.5 text-sm font-black text-white/90">{fmt(effectiveExpense)}</p>
                   </div>
-                  <div className="rounded-xl border border-white/8 bg-white/[0.025] px-3 py-2">
+                  <div className="rounded-xl border border-white/8 bg-white/[0.025] px-3 py-3">
                     <p className="text-white/36">Target amount</p>
-                    <p className="mt-1 text-sm font-black text-white/90">{fmt(target)}</p>
+                    <p className="mt-1.5 text-sm font-black text-white/90">{fmt(target)}</p>
                   </div>
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-2 pt-0.5">
+              <div className="grid grid-cols-2 gap-2.5 pt-1.5">
                 <button
                   type="button"
                   onClick={() => setEditing(true)}
-                  className="flex items-center justify-center gap-2 rounded-2xl border border-white/8 bg-white/[0.045] px-4 py-3 text-sm font-semibold text-white/78 transition hover:bg-white/10 hover:text-white"
+                  className="flex items-center justify-center gap-2 rounded-2xl border border-white/8 bg-white/[0.045] px-4 py-3.5 text-sm font-semibold text-white/78 transition hover:bg-white/10 hover:text-white"
                 >
                   <Edit2 className="h-4 w-4" />
                   Edit Expense
@@ -313,14 +313,14 @@ export default function EmergencyFundCard({
                 <button
                   type="button"
                   onClick={openTopUpModal}
-                  className="flex items-center justify-center gap-2 rounded-2xl border border-emerald-400/25 bg-emerald-500/18 px-4 py-3 text-sm font-black text-emerald-100 shadow-[0_0_20px_rgba(52,211,153,0.13)] transition hover:bg-emerald-500/24"
+                  className="flex items-center justify-center gap-2 rounded-2xl border border-emerald-400/25 bg-emerald-500/18 px-4 py-3.5 text-sm font-black text-emerald-100 shadow-[0_0_20px_rgba(52,211,153,0.13)] transition hover:bg-emerald-500/24"
                 >
                   <Plus className="h-4 w-4" />
                   Add Fund
                 </button>
               </div>
 
-              <div aria-hidden="true" className="h-3 shrink-0" />
+              <div aria-hidden="true" className="h-5 shrink-0" />
             </div>
           )}
         </div>
