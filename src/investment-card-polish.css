@@ -1,0 +1,9 @@
+/* CLARA Investment Fund expanded polish
+   The expanded details panel should wrap its controls naturally instead of
+   stretching into a large empty bordered box. This targets the Investment
+   expanded panel's exact class combination and leaves Savings Goals untouched. */
+#root .mt-4.min-h-0.flex-1.space-y-3\.5.overflow-y-auto.overscroll-contain.rounded-2xl.border.border-white\/10.bg-black\/15.p-3\.5.pb-5.backdrop-blur-\[2px\] {
+  flex: 0 0 auto !important;
+  min-height: auto !important;
+  overflow-y: visible !important;
+}
