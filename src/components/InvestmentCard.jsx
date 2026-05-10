@@ -1,13 +1,9 @@
-import { useEffect, useRef, useState } from "react";
-import { Check, ChevronDown, ChevronUp, TrendingUp } from "lucide-react";
+import { ChevronDown, ChevronUp, TrendingUp } from "lucide-react";
+import { useNavigate } from "react-router-dom";
 
 import useInvestmentCardLogic, {
-  INVESTMENT_TYPES,
   fmt,
 } from "@/components/financial-carousel/cards/investment/logic/useInvestmentCardLogic";
-
-const inputClass =
-  "w-full rounded-2xl border border-white/10 bg-black/25 px-3 py-2.5 text-sm font-semibold text-white outline-none transition placeholder:text-white/35";
 
 function SummaryTile({ label, value, valueClassName = "text-white/92" }) {
   return (
@@ -24,71 +20,15 @@ function SummaryTile({ label, value, valueClassName = "text-white/92" }) {
   );
 }
 
-function InvestmentTypePicker({ value, label, tone, open, onToggle, onSelect, pickerRef }) {
-  return (
-    <div ref={pickerRef} className="relative z-40">
-      <label className="mb-1.5 block text-[10px] font-semibold uppercase tracking-[0.16em] text-white/55">
-        Investment type
-      </label>
-
-      <button
-        type="button"
-        onClick={onToggle}
-        className={`${inputClass} ${tone.focus} relative z-40 flex items-center justify-between gap-3 text-left shadow-[inset_0_1px_0_rgba(255,255,255,0.06)] hover:bg-white/[0.055]`}
-        aria-haspopup="listbox"
-        aria-expanded={open}
-      >
-        <span className="truncate">{label}</span>
-        <ChevronDown
-          className={`h-4 w-4 shrink-0 text-white/62 transition-transform duration-200 ${
-            open ? "rotate-180" : ""
-          }`}
-        />
-      </button>
-
-      {open ? (
-        <div
-          role="listbox"
-          className="relative z-50 mt-2 overflow-hidden rounded-2xl border border-white/12 bg-slate-950/95 p-1.5 shadow-[0_22px_54px_rgba(0,0,0,0.52),inset_0_1px_0_rgba(255,255,255,0.06)] backdrop-blur-2xl"
-        >
-          {INVESTMENT_TYPES.map((type) => {
-            const selected = type.value === value;
-
-            return (
-              <button
-                key={type.value}
-                type="button"
-                role="option"
-                aria-selected={selected}
-                onClick={() => onSelect(type.value)}
-                className={`flex w-full items-center justify-between gap-3 rounded-xl px-3 py-2.5 text-left text-sm font-semibold transition ${
-                  selected
-                    ? "bg-cyan-400/14 text-cyan-100 shadow-[inset_0_1px_0_rgba(255,255,255,0.07)]"
-                    : "text-white/76 hover:bg-white/[0.075] hover:text-white"
-                }`}
-              >
-                <span>{type.label}</span>
-                {selected ? <Check className="h-4 w-4 text-cyan-200" /> : null}
-              </button>
-            );
-          })}
-        </div>
-      ) : null}
-    </div>
-  );
-}
-
 export default function InvestmentCard({ item = null, expanded = false, onToggleDetails }) {
+  const navigate = useNavigate();
   const { state, computed, handlers } = useInvestmentCardLogic({
     item,
     expanded,
     onToggleDetails,
   });
 
-  const typePickerRef = useRef(null);
-  const [typePickerOpen, setTypePickerOpen] = useState(false);
-
-  const { investmentType, plannedAmount, isExpanded } = state;
+  const { isExpanded } = state;
   const {
     tone,
     title,
@@ -99,41 +39,8 @@ export default function InvestmentCard({ item = null, expanded = false, onToggle
     canSafelyInvest,
     safeToInvest,
     selectedType,
-    amountStatus,
   } = computed;
-  const {
-    setInvestmentType,
-    setPlannedAmount,
-    handlePlanInvestment,
-    handleAskClara,
-    handleToggleDetails,
-  } = handlers;
-
-  useEffect(() => {
-    if (!typePickerOpen) return undefined;
-
-    const closeOnOutside = (event) => {
-      if (!typePickerRef.current?.contains(event.target)) setTypePickerOpen(false);
-    };
-    const closeOnEscape = (event) => {
-      if (event.key === "Escape") setTypePickerOpen(false);
-    };
-
-    document.addEventListener("pointerdown", closeOnOutside);
-    document.addEventListener("keydown", closeOnEscape);
-
-    return () => {
-      document.removeEventListener("pointerdown", closeOnOutside);
-      document.removeEventListener("keydown", closeOnEscape);
-    };
-  }, [typePickerOpen]);
-
-  useEffect(() => {
-    if (!isExpanded) setTypePickerOpen(false);
-  }, [isExpanded]);
-
-  const selectedTypeOption =
-    INVESTMENT_TYPES.find((type) => type.value === investmentType) || INVESTMENT_TYPES[0];
+  const { handleAskClara, handleToggleDetails } = handlers;
 
   const summaryTiles = [
     {
@@ -154,13 +61,21 @@ export default function InvestmentCard({ item = null, expanded = false, onToggle
     ? `Based on your budget flow, wallet money, and secured emergency fund, CLARA treats ${fmt(safeToInvest)} as a cautious starter range — not your full available money. You can use it now, let it grow, or ask CLARA to think through your business or investment idea.`
     : "CLARA will suggest a starter range after your emergency protection is secured and there is extra wallet room beyond it.";
 
-  const selectInvestmentType = (nextValue) => {
-    setInvestmentType(nextValue);
-    setTypePickerOpen(false);
+  const openInvestmentPlan = () => {
+    navigate("/investment-plan", {
+      state: {
+        safeToInvest,
+        selectedType,
+        canSafelyInvest,
+        source: "investment-card",
+      },
+    });
   };
 
   return (
-    <div className={`relative flex h-full min-h-[inherit] flex-col overflow-hidden rounded-3xl border text-white shadow-[0_22px_60px_rgba(0,0,0,0.38),0_0_34px_rgba(0,255,220,0.08),0_0_48px_rgba(126,34,206,0.10)] transition-all duration-200 ${tone.border}`}>
+    <div
+      className={`relative flex h-full min-h-[inherit] flex-col overflow-hidden rounded-3xl border text-white shadow-[0_22px_60px_rgba(0,0,0,0.38),0_0_34px_rgba(0,255,220,0.08),0_0_48px_rgba(126,34,206,0.10)] transition-all duration-200 ${tone.border}`}
+    >
       <div className="absolute inset-0" style={{ background: tone.background }} />
       <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(16,185,129,0.20),transparent_31%),radial-gradient(circle_at_bottom_right,rgba(126,34,206,0.20),transparent_33%),linear-gradient(135deg,rgba(255,255,255,0.04)_0%,rgba(255,255,255,0.00)_38%,rgba(255,255,255,0.02)_100%)]" />
       <div className="pointer-events-none absolute inset-0 bg-gradient-to-b from-black/20 via-black/16 to-black/30" />
@@ -237,7 +152,7 @@ export default function InvestmentCard({ item = null, expanded = false, onToggle
         </div>
 
         {isExpanded ? (
-          <div className="relative z-20 mt-5 min-h-0 flex-1 space-y-3.5 overflow-visible rounded-2xl border border-white/10 bg-black/15 p-3.5 pb-5 pt-4 backdrop-blur-[2px] shadow-[inset_0_1px_0_rgba(255,255,255,0.05)]">
+          <div className="relative z-20 mt-5 min-h-0 flex-1 space-y-3.5 overflow-y-auto overscroll-contain rounded-2xl border border-white/10 bg-black/15 p-3.5 pb-5 pt-4 backdrop-blur-[2px] shadow-[inset_0_1px_0_rgba(255,255,255,0.05)] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
             <div className="relative z-10 overflow-hidden rounded-2xl border border-cyan-300/18 bg-cyan-400/[0.075] px-3.5 py-3.5 shadow-[inset_0_1px_0_rgba(255,255,255,0.06)]">
               <p className="text-[10px] font-black uppercase tracking-[0.16em] text-cyan-100/60">
                 {explanationTitle}
@@ -250,42 +165,17 @@ export default function InvestmentCard({ item = null, expanded = false, onToggle
               </p>
             </div>
 
-            <InvestmentTypePicker
-              value={investmentType}
-              label={selectedTypeOption?.label || selectedType}
-              tone={tone}
-              open={typePickerOpen}
-              onToggle={() => setTypePickerOpen((value) => !value)}
-              onSelect={selectInvestmentType}
-              pickerRef={typePickerRef}
-            />
-
-            <div className="relative z-10">
-              <label className="mb-1.5 block text-[10px] font-semibold uppercase tracking-[0.16em] text-white/55">
-                Money to invest
-              </label>
-              <input
-                type="number"
-                min="0"
-                value={plannedAmount}
-                onChange={(event) => setPlannedAmount(event.target.value)}
-                placeholder="0"
-                className={`${inputClass} ${tone.focus}`}
-              />
-              <p className="mt-1.5 text-[11px] font-medium text-white/60">{amountStatus}</p>
-            </div>
-
             <p className="relative z-10 rounded-2xl border border-white/10 bg-white/[0.045] px-3 py-2.5 text-xs font-medium leading-relaxed text-white/62">
               {description}
             </p>
 
-            <div className="relative z-10 grid grid-cols-2 gap-2 pb-0.5">
+            <div className="relative z-10 grid grid-cols-1 gap-2 pb-0.5">
               <button
                 type="button"
-                onClick={handlePlanInvestment}
-                className={`flex min-h-[42px] items-center justify-center rounded-2xl border px-3 py-2.5 text-sm font-semibold ${tone.primaryButton}`}
+                onClick={openInvestmentPlan}
+                className={`flex min-h-[44px] items-center justify-center rounded-2xl border px-3 py-3 text-sm font-black ${tone.primaryButton}`}
               >
-                Plan
+                Start Investment Plan
               </button>
 
               <button
@@ -293,7 +183,7 @@ export default function InvestmentCard({ item = null, expanded = false, onToggle
                 onClick={handleAskClara}
                 className="flex min-h-[42px] items-center justify-center rounded-2xl border border-white/10 bg-white/5 px-3 py-2.5 text-sm font-semibold text-white/82 transition hover:bg-white/10 hover:text-white"
               >
-                Ask CLARA
+                Ask CLARA First
               </button>
             </div>
           </div>
