@@ -1,3 +1,4 @@
+import { useNavigate } from "react-router-dom";
 import useBudgetCardLogic from "@/components/financial-carousel/cards/budget/logic/useBudgetCardLogic";
 import BudgetCardContent from "@/components/financial-carousel/cards/budget/ui/BudgetCardContent";
 import FinanceCardShell from "@/components/financial-carousel/shared/FinanceCardShell";
@@ -24,6 +25,8 @@ export default function BudgetCard({
   onEditBudgetCategory,
   onDeleteBudgetCategory,
 }) {
+  const navigate = useNavigate();
+
   const {
     categories,
     declared,
@@ -47,6 +50,18 @@ export default function BudgetCard({
     isComplete,
   });
 
+  const openBudgetPlanPage = () => {
+    navigate("/budget-plan");
+  };
+
+  const openBudgetCategoryOnPlanPage = (item) => {
+    const id = item?.id || item?.key || item?.budget?.id || null;
+
+    navigate("/budget-plan", {
+      state: id ? { editCategoryId: String(id) } : undefined,
+    });
+  };
+
   return (
     <FinanceCardShell
       cardKey="budget"
@@ -60,8 +75,8 @@ export default function BudgetCard({
         expanded={expanded}
         onToggleDetails={onToggleDetails}
         financeActionLoading={financeActionLoading}
-        onSaveBudget={onSaveBudget}
-        onEditBudgetCategory={onEditBudgetCategory}
+        onSaveBudget={openBudgetPlanPage}
+        onEditBudgetCategory={openBudgetCategoryOnPlanPage}
         onDeleteBudgetCategory={onDeleteBudgetCategory}
         categories={categories}
         declared={declared}
@@ -79,7 +94,7 @@ export default function BudgetCard({
         remainingAmountColor={remainingAmountColor}
         monthKey={monthKey}
         badgeLabel={badgeLabel}
-        openBudgetModal={onSaveBudget}
+        openBudgetModal={openBudgetPlanPage}
       />
     </FinanceCardShell>
   );
