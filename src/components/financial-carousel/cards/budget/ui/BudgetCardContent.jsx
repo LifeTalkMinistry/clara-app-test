@@ -34,29 +34,62 @@ export default function BudgetCardContent({
   badgeLabel,
   openBudgetModal,
 }) {
-  return (
-    <div className="relative z-10 flex h-full min-h-0 flex-col p-4 pb-4">
-      <div className="flex min-h-0 flex-col gap-3">
-        <div className="min-h-0">
-          <BudgetHeader
-            monthKey={monthKey}
-            badgeLabel={badgeLabel}
-            status={status}
-          />
+  if (!expanded) {
+    return (
+      <div className="relative z-10 flex h-full min-h-0 flex-col p-4 pb-4">
+        <div className="flex min-h-0 flex-col gap-3">
+          <div className="min-h-0">
+            <BudgetHeader
+              monthKey={monthKey}
+              badgeLabel={badgeLabel}
+              status={status}
+            />
 
-          <BudgetSummaryStats
-            declared={declared}
-            remaining={remaining}
-            spent={spent}
-            allocated={allocated}
-            unallocated={unallocated}
-            progress={progress}
-            status={status}
-            message={message}
-            remainingAmountColor={remainingAmountColor}
-            hasDeclaredBudget={hasDeclaredBudget}
-            planIsComplete={planIsComplete}
-          />
+            <BudgetSummaryStats
+              declared={declared}
+              remaining={remaining}
+              spent={spent}
+              allocated={allocated}
+              unallocated={unallocated}
+              progress={progress}
+              status={status}
+              message={message}
+              remainingAmountColor={remainingAmountColor}
+              hasDeclaredBudget={hasDeclaredBudget}
+              planIsComplete={planIsComplete}
+            />
+          </div>
+
+          <div className="shrink-0 border-t border-white/6 pt-2">
+            <FinanceCardExpandButton
+              detailKey="budgets"
+              expanded={expanded}
+              onToggleDetails={onToggleDetails}
+              collapsedLabel="View budget details"
+              expandedLabel="Hide budget details"
+              className="border-white/10 bg-white/[0.055] py-3 font-medium shadow-[inset_0_1px_0_rgba(255,255,255,0.06),0_8px_18px_rgba(0,0,0,0.12)]"
+            />
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="relative z-10 flex h-full min-h-0 flex-col overflow-hidden p-[clamp(0.875rem,3.2vw,1rem)] pb-[clamp(0.9rem,1.8svh,1.1rem)]">
+      <div className="flex shrink-0 flex-col gap-[clamp(0.625rem,1.4svh,0.85rem)]">
+        <div className="shrink-0">
+          <p
+            className={`text-[clamp(2rem,8vw,2.25rem)] font-black leading-none tracking-[-0.045em] ${
+              hasDeclaredBudget ? remainingAmountColor : "text-white/95"
+            }`}
+          >
+            {fmt(remaining)}
+          </p>
+
+          <p className="mt-[clamp(0.45rem,1svh,0.65rem)] text-xs font-semibold leading-relaxed text-white/76">
+            Available to spend this month.
+          </p>
         </div>
 
         <div className="shrink-0 border-t border-white/6 pt-2">
@@ -71,8 +104,12 @@ export default function BudgetCardContent({
         </div>
       </div>
 
-      {expanded && (
-        <FinanceCardExpandedPanel>
+      <div className="min-h-0 flex-1 overflow-hidden pt-3">
+        <FinanceCardExpandedPanel className="h-full overflow-y-auto pr-1">
+          <div className="mb-3 rounded-2xl border border-cyan-100/15 bg-white/[0.045] px-3 py-2.5 text-xs font-medium leading-5 text-white/68">
+            {message || "Review your monthly budget details without leaving the dashboard."}
+          </div>
+
           <div className="grid grid-cols-2 gap-2 text-center text-sm text-white">
             {[
               ["Declared", fmt(declared)],
@@ -86,7 +123,7 @@ export default function BudgetCardContent({
                 <p className="mb-1 text-[10px] font-semibold uppercase tracking-[0.16em] text-white/58">
                   {label}
                 </p>
-                <p className="text-sm font-bold text-white">{value}</p>
+                <p className="truncate text-sm font-bold text-white">{value}</p>
               </div>
             ))}
           </div>
@@ -146,7 +183,7 @@ export default function BudgetCardContent({
             Manage Budget
           </button>
         </FinanceCardExpandedPanel>
-      )}
+      </div>
     </div>
   );
 }
