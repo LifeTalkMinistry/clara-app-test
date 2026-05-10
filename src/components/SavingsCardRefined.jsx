@@ -119,8 +119,8 @@ function buildNextStepCopy({ goals = [], mainGoal = null, saved = 0, target = 0 
   const totalRemaining = Math.max(target - saved, 0);
   return {
     title: `Focus on ${focusTitle}`,
-    message: `You need ${fmt(focusRemaining)} more for this goal${totalRemaining > focusRemaining ? ` and ${fmt(totalRemaining)} across all goals` : ""}. Add intentionally when your wallet has room instead of forcing a random amount.`,
-    cta: "Add Savings",
+    message: `You need ${fmt(focusRemaining)} more for this goal${totalRemaining > focusRemaining ? ` and ${fmt(totalRemaining)} across all goals` : ""}. Open the goal and add savings intentionally when your wallet has room.`,
+    cta: "Open Goal",
   };
 }
 
