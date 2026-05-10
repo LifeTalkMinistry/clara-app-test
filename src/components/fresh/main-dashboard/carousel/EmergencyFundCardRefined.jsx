@@ -6,6 +6,15 @@ import useEmergencyFundCard, { fmt, VALID_TARGET_MONTHS } from "../../../../hook
 const tileClass =
   "rounded-2xl border border-white/10 bg-white/[0.045] px-2.5 py-2.5 text-center shadow-[inset_0_1px_0_rgba(255,255,255,0.06)] backdrop-blur-sm";
 
+const getSafetyStage = ({ effectiveExpense, amountNeeded, pct, statusLabel }) => {
+  if (effectiveExpense <= 0) return "Needs setup";
+  if (amountNeeded <= 0) return "Protected";
+  if (pct >= 66) return "Almost safe";
+  if (pct >= 33) return "Building safety";
+  if (statusLabel === "At Risk") return "Early protection";
+  return "Getting started";
+};
+
 export default function EmergencyFundCard({
   moneyLeft = 0,
   survivalExpense = 0,
@@ -55,6 +64,12 @@ export default function EmergencyFundCard({
   const amountNeeded = Math.max(target - safeMoneyLeft, 0);
   const suggestedMonthlyTopUp = amountNeeded > 0 ? Math.ceil(amountNeeded / 6) : 0;
   const targetLabel = milestone?.label || `${targetMonths}-Month Safety`;
+  const safetyStage = getSafetyStage({
+    effectiveExpense,
+    amountNeeded,
+    pct,
+    statusLabel: status.label,
+  });
   const nextStepTitle =
     effectiveExpense <= 0
       ? "Set your monthly survival cost"
@@ -161,11 +176,11 @@ export default function EmergencyFundCard({
           </div>
 
           {isExpanded && (
-            <div className={`mt-3 min-h-0 flex-1 space-y-3 overflow-y-auto overscroll-contain rounded-2xl border p-3 pb-6 backdrop-blur-[2px] shadow-[inset_0_1px_0_rgba(255,255,255,0.05)] [scrollbar-width:none] ${themeClasses.glass} [&::-webkit-scrollbar]:hidden`}>
+            <div className={`mt-3 min-h-0 flex-1 space-y-2.5 overflow-y-auto overscroll-contain rounded-2xl border border-white/8 p-2.5 pb-5 backdrop-blur-[2px] shadow-[inset_0_1px_0_rgba(255,255,255,0.04)] [scrollbar-width:none] ${themeClasses.glass} [&::-webkit-scrollbar]:hidden`}>
               <div>
-                <div className="mb-2 flex items-center justify-between">
-                  <span className="text-xs font-semibold text-white/90">Goal</span>
-                  <span className="text-[11px] font-semibold text-white/70">{targetLabel}</span>
+                <div className="mb-1.5 flex items-center justify-between">
+                  <span className="text-[11px] font-semibold text-white/88">Goal</span>
+                  <span className="text-[10px] font-semibold text-white/52">{targetLabel}</span>
                 </div>
 
                 <div className="grid grid-cols-3 gap-2">
@@ -177,10 +192,10 @@ export default function EmergencyFundCard({
                         type="button"
                         onClick={() => changeTargetMonths(item)}
                         disabled={saving}
-                        className={`relative rounded-xl border px-2 py-2.5 text-xs font-semibold transition-all duration-200 disabled:cursor-not-allowed disabled:opacity-70 ${
+                        className={`relative rounded-xl border px-2 py-2 text-xs font-semibold transition-all duration-200 disabled:cursor-not-allowed disabled:opacity-70 ${
                           active
-                            ? "border-emerald-400/40 bg-emerald-500/15 text-emerald-300 shadow-[0_0_18px_rgba(52,211,153,0.25)]"
-                            : "border-white/10 bg-white/5 text-white/80 hover:bg-white/10 hover:text-white"
+                            ? "border-emerald-400/35 bg-emerald-500/14 text-emerald-300 shadow-[0_0_14px_rgba(52,211,153,0.20)]"
+                            : "border-white/8 bg-white/[0.045] text-white/72 hover:bg-white/10 hover:text-white"
                         }`}
                       >
                         <span className="block">{item} Months</span>
@@ -191,45 +206,46 @@ export default function EmergencyFundCard({
                 </div>
               </div>
 
-              <div className="rounded-2xl border border-emerald-300/18 bg-emerald-400/10 px-3.5 py-3.5 shadow-[inset_0_1px_0_rgba(255,255,255,0.07),0_0_18px_rgba(16,185,129,0.05)]">
-                <p className="text-[10px] font-black uppercase tracking-[0.16em] text-emerald-100/52">
+              <div className="relative overflow-hidden rounded-2xl border border-emerald-300/20 bg-[radial-gradient(circle_at_top_left,rgba(52,211,153,0.18),transparent_42%),rgba(16,185,129,0.10)] px-3.5 py-3.5 shadow-[inset_0_1px_0_rgba(255,255,255,0.08),0_0_22px_rgba(16,185,129,0.07)]">
+                <div className="pointer-events-none absolute -right-10 -top-14 h-28 w-28 rounded-full bg-emerald-300/10 blur-2xl" />
+                <p className="relative text-[10px] font-black uppercase tracking-[0.16em] text-emerald-100/56">
                   Next step
                 </p>
-                <p className="mt-1.5 text-sm font-black leading-snug text-white">
+                <p className="relative mt-1.5 text-[15px] font-black leading-snug text-white">
                   {nextStepTitle}
                 </p>
-                <p className="mt-1.5 text-[12px] font-semibold leading-5 text-white/70">
+                <p className="relative mt-1.5 text-[12px] font-semibold leading-5 text-white/72">
                   {nextStepMessage}
                 </p>
               </div>
 
-              <div className="rounded-2xl border border-white/10 bg-black/15 px-3.5 py-3">
+              <div className="rounded-2xl border border-white/8 bg-black/10 px-3 py-2.5">
                 <div className="mb-2 flex items-center justify-between gap-3">
-                  <span className="text-[10px] font-black uppercase tracking-[0.16em] text-white/42">
+                  <span className="text-[10px] font-black uppercase tracking-[0.16em] text-white/36">
                     Current setup
                   </span>
                   <span className={`text-[11px] font-black ${status.text}`}>
-                    {pct.toFixed(0)}% funded
+                    {safetyStage}
                   </span>
                 </div>
 
-                <div className="grid grid-cols-2 gap-2 text-[12px] font-semibold text-white/68">
-                  <div className="rounded-xl border border-white/10 bg-white/[0.035] px-3 py-2">
-                    <p className="text-white/42">Monthly survival cost</p>
-                    <p className="mt-1 text-sm font-black text-white">{fmt(effectiveExpense)}</p>
+                <div className="grid grid-cols-2 gap-2 text-[12px] font-semibold text-white/60">
+                  <div className="rounded-xl border border-white/8 bg-white/[0.025] px-3 py-2">
+                    <p className="text-white/36">Monthly survival cost</p>
+                    <p className="mt-1 text-sm font-black text-white/90">{fmt(effectiveExpense)}</p>
                   </div>
-                  <div className="rounded-xl border border-white/10 bg-white/[0.035] px-3 py-2">
-                    <p className="text-white/42">Target amount</p>
-                    <p className="mt-1 text-sm font-black text-white">{fmt(target)}</p>
+                  <div className="rounded-xl border border-white/8 bg-white/[0.025] px-3 py-2">
+                    <p className="text-white/36">Target amount</p>
+                    <p className="mt-1 text-sm font-black text-white/90">{fmt(target)}</p>
                   </div>
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-2">
+              <div className="grid grid-cols-2 gap-2 pt-0.5">
                 <button
                   type="button"
                   onClick={() => setEditing(true)}
-                  className="flex items-center justify-center gap-2 rounded-2xl border border-white/10 bg-white/[0.055] px-4 py-3 text-sm font-semibold text-white/85 transition hover:bg-white/10 hover:text-white"
+                  className="flex items-center justify-center gap-2 rounded-2xl border border-white/8 bg-white/[0.045] px-4 py-3 text-sm font-semibold text-white/78 transition hover:bg-white/10 hover:text-white"
                 >
                   <Edit2 className="h-4 w-4" />
                   Edit Expense
@@ -238,14 +254,14 @@ export default function EmergencyFundCard({
                 <button
                   type="button"
                   onClick={openTopUpModal}
-                  className="flex items-center justify-center gap-2 rounded-2xl border border-emerald-400/25 bg-emerald-500/15 px-4 py-3 text-sm font-black text-emerald-200 shadow-[0_0_18px_rgba(52,211,153,0.10)] transition hover:bg-emerald-500/20"
+                  className="flex items-center justify-center gap-2 rounded-2xl border border-emerald-400/25 bg-emerald-500/18 px-4 py-3 text-sm font-black text-emerald-100 shadow-[0_0_20px_rgba(52,211,153,0.13)] transition hover:bg-emerald-500/24"
                 >
                   <Plus className="h-4 w-4" />
                   Add Fund
                 </button>
               </div>
 
-              <div aria-hidden="true" className="h-4 shrink-0" />
+              <div aria-hidden="true" className="h-3 shrink-0" />
             </div>
           )}
         </div>
