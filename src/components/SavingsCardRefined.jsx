@@ -160,7 +160,26 @@ export default function SavingsCardRefined({
     target,
   });
 
-  const openSavingsGoals = () => {
+  const openSavingsGoals = (starterTitle = "") => {
+    if (!goals.length) {
+      navigate("/savings-goals", {
+        state: {
+          openCreateSavingsGoal: true,
+          starterTitle,
+        },
+      });
+      return;
+    }
+
+    if (mainGoal?.id) {
+      navigate("/savings-goals", {
+        state: {
+          focusGoalId: mainGoal.id,
+        },
+      });
+      return;
+    }
+
     navigate("/savings-goals");
   };
 
@@ -283,7 +302,7 @@ export default function SavingsCardRefined({
               </p>
               <button
                 type="button"
-                onClick={openSavingsGoals}
+                onClick={() => openSavingsGoals()}
                 className="relative mt-4 inline-flex w-full items-center justify-center gap-2 rounded-2xl border border-emerald-300/25 bg-emerald-400/15 px-4 py-3 text-sm font-black text-emerald-100 shadow-[0_0_18px_rgba(52,211,153,0.10)] transition hover:bg-emerald-400/22"
               >
                 <Plus className="h-4 w-4" />
@@ -306,7 +325,7 @@ export default function SavingsCardRefined({
                     <button
                       key={idea}
                       type="button"
-                      onClick={openSavingsGoals}
+                      onClick={() => openSavingsGoals(idea)}
                       className="rounded-xl border border-white/8 bg-white/[0.035] px-3 py-2.5 text-left text-[12px] font-black text-white/82 transition hover:bg-white/[0.065]"
                     >
                       {idea}
