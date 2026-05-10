@@ -16,7 +16,8 @@ export default function CarouselSlideShell({
     item?.key === "budget" ||
     item?.key === "emergencyFund" ||
     item?.key === "savingsGoals" ||
-    item?.key === "investmentFund";
+    item?.key === "investmentFund" ||
+    item?.key === "debtObligations";
 
   const expandedHeight = usesTallExpandedLayout
     ? WALLET_EXPANDED_SLIDE_HEIGHT
