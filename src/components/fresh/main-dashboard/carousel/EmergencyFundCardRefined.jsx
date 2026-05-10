@@ -1,4 +1,4 @@
-import { Shield, ChevronDown, ChevronUp, Edit2, Plus } from "lucide-react";
+import { Shield, ChevronDown, ChevronUp, Edit2, Plus, X, Check } from "lucide-react";
 
 import SurvivalExpenseModal from "../../../../SurvivalExpenseModal";
 import useEmergencyFundCard, { fmt, VALID_TARGET_MONTHS } from "../../../../hooks/useEmergencyFundCard";
@@ -69,6 +69,124 @@ function buildNextStepCopy({
   };
 }
 
+function EmergencyTopUpModal({
+  open,
+  onClose,
+  safeWallets,
+  topUpWalletId,
+  setTopUpWalletId,
+  topUpAmount,
+  setTopUpAmount,
+  topUpError,
+  setTopUpError,
+  handleTopUpSave,
+  saving,
+  themeClasses,
+}) {
+  if (!open) return null;
+
+  return (
+    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+      <button
+        type="button"
+        aria-label="Close add emergency fund modal"
+        className="absolute inset-0 bg-black/70 backdrop-blur-sm"
+        onClick={onClose}
+      />
+
+      <div className="theme-modal-card relative z-10 w-full max-w-md overflow-hidden rounded-3xl border border-white/10 bg-[#061224]/95 shadow-2xl backdrop-blur-2xl">
+        <div className="flex items-center justify-between border-b border-white/10 p-4">
+          <div>
+            <p className={`text-base font-semibold ${themeClasses.title}`}>
+              Add Emergency Fund
+            </p>
+            <p className={`mt-0.5 text-xs ${themeClasses.muted}`}>
+              Move money from a wallet into your protection fund
+            </p>
+          </div>
+
+          <button
+            type="button"
+            onClick={onClose}
+            className="flex h-9 w-9 items-center justify-center rounded-xl border border-white/10 bg-white/5 text-white/70 transition hover:bg-white/10 hover:text-white"
+          >
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+
+        <div className="space-y-4 p-4">
+          <div>
+            <label className="mb-2 block text-[11px] font-semibold uppercase tracking-[0.16em] text-white/55">
+              Source Wallet
+            </label>
+
+            <select
+              value={topUpWalletId}
+              onChange={(event) => {
+                setTopUpWalletId(event.target.value);
+                setTopUpError("");
+              }}
+              className="w-full rounded-2xl border border-white/10 bg-black/25 px-4 py-3 text-sm font-semibold text-white outline-none transition focus:border-emerald-400/40"
+            >
+              {safeWallets.length ? (
+                safeWallets.map((wallet) => {
+                  const id = String(wallet?.id || wallet?.wallet_id || "");
+                  const name = wallet?.name || wallet?.title || wallet?.wallet_name || "Wallet";
+                  const balance = Number(wallet?.balance ?? wallet?.current_balance ?? wallet?.amount ?? 0);
+
+                  return (
+                    <option key={id} value={id} className="bg-slate-950">
+                      {name} — {fmt(balance)}
+                    </option>
+                  );
+                })
+              ) : (
+                <option value="" className="bg-slate-950">
+                  No wallet available
+                </option>
+              )}
+            </select>
+          </div>
+
+          <div>
+            <label className="mb-2 block text-[11px] font-semibold uppercase tracking-[0.16em] text-white/55">
+              Amount
+            </label>
+
+            <input
+              type="number"
+              min="0"
+              value={topUpAmount}
+              onChange={(event) => {
+                setTopUpAmount(event.target.value);
+                setTopUpError("");
+              }}
+              placeholder="0"
+              className="w-full rounded-2xl border border-white/10 bg-black/25 px-4 py-3 text-sm font-semibold text-white outline-none transition placeholder:text-white/35 focus:border-emerald-400/40"
+            />
+          </div>
+
+          {topUpError ? (
+            <div className="rounded-2xl border border-rose-400/20 bg-rose-500/10 px-4 py-3 text-xs font-semibold text-rose-200">
+              {topUpError}
+            </div>
+          ) : null}
+
+          <button
+            type="button"
+            onClick={handleTopUpSave}
+            disabled={saving || safeWallets.length === 0}
+            className="flex w-full items-center justify-center gap-2 rounded-2xl border border-emerald-400/30 bg-emerald-500/15 px-4 py-3 text-sm font-semibold text-emerald-300 transition hover:bg-emerald-500/20 disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            <Check className="h-4 w-4" />
+            {saving ? "Saving..." : "Add to Emergency Fund"}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function EmergencyFundCard({
   moneyLeft = 0,
   survivalExpense = 0,
@@ -95,8 +213,19 @@ export default function EmergencyFundCard({
     onQuickAI,
   });
 
-  const { isExpanded, editing, showModal, targetMonths, saving } = state;
   const {
+    isExpanded,
+    editing,
+    showModal,
+    showTopUpModal,
+    topUpAmount,
+    topUpWalletId,
+    topUpError,
+    targetMonths,
+    saving,
+  } = state;
+  const {
+    safeWallets,
     effectiveExpense,
     safeMoneyLeft,
     target,
@@ -110,9 +239,14 @@ export default function EmergencyFundCard({
   const {
     setEditing,
     setShowModal,
+    setShowTopUpModal,
+    setTopUpAmount,
+    setTopUpWalletId,
+    setTopUpError,
     handleSaved,
     changeTargetMonths,
     openTopUpModal,
+    handleTopUpSave,
   } = handlers;
 
   const coverageLabel = effectiveExpense > 0 ? `${months.toFixed(1)} months` : "Set expense";
@@ -137,6 +271,11 @@ export default function EmergencyFundCard({
     { label: "Status", value: status.label, valueClassName: status.text },
   ];
 
+  const closeTopUpModal = () => {
+    setShowTopUpModal(false);
+    setTopUpError("");
+  };
+
   return (
     <>
       <SurvivalExpenseModal
@@ -149,6 +288,21 @@ export default function EmergencyFundCard({
             setShowModal(false);
           }
         }}
+      />
+
+      <EmergencyTopUpModal
+        open={showTopUpModal}
+        onClose={closeTopUpModal}
+        safeWallets={safeWallets}
+        topUpWalletId={topUpWalletId}
+        setTopUpWalletId={setTopUpWalletId}
+        topUpAmount={topUpAmount}
+        setTopUpAmount={setTopUpAmount}
+        topUpError={topUpError}
+        setTopUpError={setTopUpError}
+        handleTopUpSave={handleTopUpSave}
+        saving={saving}
+        themeClasses={themeClasses}
       />
 
       <div
