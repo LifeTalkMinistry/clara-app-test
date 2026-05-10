@@ -1,0 +1,225 @@
+import { Shield, ChevronDown, ChevronUp, Edit2, Plus } from "lucide-react";
+
+import SurvivalExpenseModal from "../../../../SurvivalExpenseModal";
+import useEmergencyFundCard, { fmt, VALID_TARGET_MONTHS } from "../../../../hooks/useEmergencyFundCard";
+
+const tileClass =
+  "rounded-2xl border border-white/10 bg-white/[0.045] px-2.5 py-2.5 text-center shadow-[inset_0_1px_0_rgba(255,255,255,0.06)] backdrop-blur-sm";
+
+export default function EmergencyFundCard({
+  moneyLeft = 0,
+  survivalExpense = 0,
+  retentionRate,
+  onSurvivalSaved,
+  canAutoPrompt = false,
+  hasSurvivalSetup = false,
+  theme = null,
+  expanded = false,
+  onToggleDetails,
+  onQuickExpense,
+  onQuickAI,
+}) {
+  const { state, computed, handlers } = useEmergencyFundCard({
+    moneyLeft,
+    survivalExpense,
+    retentionRate,
+    onSurvivalSaved,
+    canAutoPrompt,
+    hasSurvivalSetup,
+    theme,
+    expanded,
+    onQuickExpense,
+    onQuickAI,
+  });
+
+  const { isExpanded, editing, showModal, targetMonths, saving } = state;
+  const {
+    effectiveExpense,
+    safeMoneyLeft,
+    target,
+    months,
+    pct,
+    status,
+    milestone,
+    themeClasses,
+  } = computed;
+  const {
+    setEditing,
+    setShowModal,
+    handleSaved,
+    changeTargetMonths,
+    openTopUpModal,
+  } = handlers;
+
+  const coverageLabel = effectiveExpense > 0 ? `${months.toFixed(1)} months` : "Set expense";
+  const summaryTiles = [
+    { label: "Saved", value: fmt(safeMoneyLeft), valueClassName: status.text },
+    { label: "Target", value: fmt(target) },
+    { label: "Status", value: status.label, valueClassName: status.text },
+  ];
+
+  return (
+    <>
+      <SurvivalExpenseModal
+        open={showModal || editing}
+        initialValue={effectiveExpense}
+        onSaved={handleSaved}
+        onOpenChange={(open) => {
+          if (!open) {
+            setEditing(false);
+            setShowModal(false);
+          }
+        }}
+      />
+
+      <div
+        data-emergency-card="true"
+        className={`relative flex h-full min-h-[inherit] flex-col overflow-hidden rounded-3xl border shadow-[0_22px_60px_rgba(0,0,0,0.38),0_0_34px_rgba(0,255,220,0.08),0_0_48px_rgba(126,34,206,0.10)] transition-all duration-200 ${themeClasses.border} ${status.ring}`}
+        style={{ borderColor: themeClasses.outline }}
+      >
+        <div className="absolute inset-0" style={{ background: themeClasses.background }} />
+        <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(16,185,129,0.20),transparent_31%),radial-gradient(circle_at_bottom_right,rgba(126,34,206,0.20),transparent_33%),linear-gradient(135deg,rgba(255,255,255,0.04)_0%,rgba(255,255,255,0.00)_38%,rgba(255,255,255,0.02)_100%)]" />
+        <div className="pointer-events-none absolute inset-0 bg-gradient-to-b from-black/20 via-black/16 to-black/30" />
+        <div className="pointer-events-none absolute bottom-[-135px] right-[-92px] h-[230px] w-[230px] rounded-full bg-violet-400/[0.09] blur-3xl" />
+        <div className="pointer-events-none absolute inset-0 rounded-[inherit] ring-1 ring-inset ring-white/10" />
+
+        <div className="relative z-10 flex h-full min-h-0 flex-col p-4 pb-4">
+          <div className="flex min-h-0 flex-col gap-3">
+            <div className="min-h-0">
+              <div className="mb-3 flex items-start gap-3">
+                <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border backdrop-blur-sm ${themeClasses.iconShell}`}>
+                  <Shield className={`h-4 w-4 ${themeClasses.iconColor}`} />
+                </div>
+
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="min-w-0">
+                      <p className={`text-base font-semibold tracking-tight ${themeClasses.title}`}>
+                        Emergency Fund
+                      </p>
+                      <p className={`mt-0.5 text-[11px] font-medium ${themeClasses.body}`}>
+                        Safety buffer for emergencies
+                      </p>
+                    </div>
+
+                    <span className={`shrink-0 rounded-full px-2.5 py-1 text-[10px] font-semibold backdrop-blur-sm ${status.badge}`}>
+                      {status.label}
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              <div className="mb-3">
+                <p className={`text-[32px] font-bold leading-none tracking-[-0.04em] ${status.text}`}>
+                  {coverageLabel}
+                </p>
+                <p className={`mt-2 text-sm font-semibold leading-tight ${themeClasses.body}`}>
+                  Protection covered right now.
+                </p>
+              </div>
+
+              <div className="mb-1 grid grid-cols-3 gap-2">
+                {summaryTiles.map((tile) => (
+                  <div key={tile.label} className={tileClass}>
+                    <p className={`truncate text-[13px] font-black leading-none tracking-[-0.025em] ${tile.valueClassName || "text-white/92"}`}>
+                      {tile.value}
+                    </p>
+                    <p className="mt-1.5 text-[8px] font-black uppercase tracking-[0.18em] text-white/42">
+                      {tile.label}
+                    </p>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <div className="shrink-0 border-t border-white/6 pt-2">
+              <button
+                type="button"
+                onClick={onToggleDetails}
+                className={`flex w-full items-center justify-between rounded-2xl border px-3 py-3 text-sm font-medium backdrop-blur-sm transition hover:bg-white/10 ${themeClasses.glass}`}
+              >
+                <span>{isExpanded ? "Hide details" : "Show details"}</span>
+                {isExpanded ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+              </button>
+            </div>
+          </div>
+
+          {isExpanded && (
+            <div className={`mt-3 min-h-0 flex-1 space-y-3 overflow-y-auto rounded-2xl border p-3 backdrop-blur-[2px] shadow-[inset_0_1px_0_rgba(255,255,255,0.05)] [scrollbar-width:none] ${themeClasses.glass} [&::-webkit-scrollbar]:hidden`}>
+              <div>
+                <div className="mb-2 flex items-center justify-between">
+                  <span className="text-xs font-semibold text-white/90">Goal</span>
+                  <span className="text-[11px] font-semibold text-white/70">{milestone?.label}</span>
+                </div>
+
+                <div className="grid grid-cols-3 gap-2">
+                  {VALID_TARGET_MONTHS.map((item) => {
+                    const active = targetMonths === item;
+                    return (
+                      <button
+                        key={item}
+                        type="button"
+                        onClick={() => changeTargetMonths(item)}
+                        disabled={saving}
+                        className={`relative rounded-xl border px-2 py-2.5 text-xs font-semibold transition-all duration-200 disabled:cursor-not-allowed disabled:opacity-70 ${
+                          active
+                            ? "border-emerald-400/40 bg-emerald-500/15 text-emerald-300 shadow-[0_0_18px_rgba(52,211,153,0.25)]"
+                            : "border-white/10 bg-white/5 text-white/80 hover:bg-white/10 hover:text-white"
+                        }`}
+                      >
+                        <span className="block">{item} Months</span>
+                        {active ? <span className="absolute right-1.5 top-1.5 h-1.5 w-1.5 rounded-full bg-emerald-400 shadow-[0_0_8px_rgba(52,211,153,0.9)]" /> : null}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              <div className="grid grid-cols-3 gap-2 text-center text-sm text-white">
+                <div className="rounded-2xl border border-white/10 bg-black/20 px-2.5 py-2.5">
+                  <p className="mb-1 text-[10px] font-semibold uppercase tracking-[0.16em] text-white/70">Monthly</p>
+                  <p className="text-sm font-bold text-white">{fmt(effectiveExpense)}</p>
+                </div>
+                <div className="rounded-2xl border border-white/10 bg-black/20 px-2.5 py-2.5">
+                  <p className="mb-1 text-[10px] font-semibold uppercase tracking-[0.16em] text-white/70">Progress</p>
+                  <p className="text-sm font-bold text-white">{pct.toFixed(0)}%</p>
+                </div>
+                <div className="rounded-2xl border border-white/10 bg-black/20 px-2.5 py-2.5">
+                  <p className="mb-1 text-[10px] font-semibold uppercase tracking-[0.16em] text-white/70">Target</p>
+                  <p className="text-sm font-bold text-white">{fmt(target)}</p>
+                </div>
+              </div>
+
+              {retentionRate != null ? (
+                <div className="flex items-center justify-between text-xs font-medium text-white/75">
+                  <span>Retention Rate</span>
+                  <span className="text-white/95">{retentionRate}%</span>
+                </div>
+              ) : null}
+
+              <div className="grid grid-cols-2 gap-2">
+                <button
+                  type="button"
+                  onClick={() => setEditing(true)}
+                  className="flex items-center justify-center gap-2 rounded-2xl border border-white/10 bg-white/[0.055] px-4 py-3 text-sm font-semibold text-white/85 transition hover:bg-white/10 hover:text-white"
+                >
+                  <Edit2 className="h-4 w-4" />
+                  Edit Expense
+                </button>
+
+                <button
+                  type="button"
+                  onClick={openTopUpModal}
+                  className="flex items-center justify-center gap-2 rounded-2xl border border-emerald-400/25 bg-emerald-500/10 px-4 py-3 text-sm font-semibold text-emerald-300 transition hover:bg-emerald-500/15"
+                >
+                  <Plus className="h-4 w-4" />
+                  Add Fund
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+    </>
+  );
+}
