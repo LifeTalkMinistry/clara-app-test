@@ -1,4 +1,5 @@
-import { ChevronDown, ChevronUp, PiggyBank, Target } from "lucide-react";
+import { ChevronDown, ChevronUp, PiggyBank, Plus, Target } from "lucide-react";
+import { useNavigate } from "react-router-dom";
 
 const fmt = (value = 0) =>
   new Intl.NumberFormat("en-PH", {
@@ -86,7 +87,8 @@ function buildNextStepCopy({ goals = [], mainGoal = null, saved = 0, target = 0 
     return {
       title: "Create your first goal",
       message:
-        "Start with one clear goal and a realistic target amount. CLARA works better when your savings has a name, a purpose, and a finish line.",
+        "Choose one real-life target first. Savings becomes easier when the money has a name, a reason, and a finish line.",
+      cta: "Create Goal",
     };
   }
 
@@ -100,7 +102,8 @@ function buildNextStepCopy({ goals = [], mainGoal = null, saved = 0, target = 0 
     return {
       title: `Set a target for ${focusTitle}`,
       message:
-        "This goal needs a clear amount. Once the target is set, CLARA can show progress and help you build toward it intentionally.",
+        "This goal needs a clear target amount. Once the amount is set, CLARA can help you track progress and protect it from random spending.",
+      cta: "Set Target",
     };
   }
 
@@ -108,7 +111,8 @@ function buildNextStepCopy({ goals = [], mainGoal = null, saved = 0, target = 0 
     return {
       title: `${focusTitle} is complete`,
       message:
-        "This goal is fully funded. Keep it protected or create the next goal when you are ready to build again.",
+        "This goal is fully funded. Keep it protected or create your next goal when you are ready to build again.",
+      cta: "Open Goals",
     };
   }
 
@@ -116,11 +120,14 @@ function buildNextStepCopy({ goals = [], mainGoal = null, saved = 0, target = 0 
   return {
     title: `Focus on ${focusTitle}`,
     message: `You need ${fmt(focusRemaining)} more for this goal${totalRemaining > focusRemaining ? ` and ${fmt(totalRemaining)} across all goals` : ""}. Add intentionally when your wallet has room instead of forcing a random amount.`,
+    cta: "Add Savings",
   };
 }
 
 const tileClass =
   "rounded-2xl border border-white/10 bg-white/[0.045] px-2.5 py-2.5 text-center shadow-[inset_0_1px_0_rgba(255,255,255,0.06)] backdrop-blur-sm";
+
+const starterIdeas = ["Phone", "Travel", "Emergency", "Gift"];
 
 export default function SavingsCardRefined({
   savingsGoals = [],
@@ -131,6 +138,7 @@ export default function SavingsCardRefined({
   onToggleDetails,
   theme = null,
 }) {
+  const navigate = useNavigate();
   const goals = Array.isArray(savingsGoals)
     ? savingsGoals.filter((goal) => goal && !goal.deleted_at && !goal.deletedAt)
     : [];
@@ -144,12 +152,17 @@ export default function SavingsCardRefined({
   const mainGoal = primarySavingsGoal || goals[0] || null;
   const isLight = theme?.isLight === true;
   const savingsStage = getSavingsStage({ goalCount: goals.length, progress });
-  const { title: nextStepTitle, message: nextStepMessage } = buildNextStepCopy({
+  const remainingTotal = Math.max(target - saved, 0);
+  const { title: nextStepTitle, message: nextStepMessage, cta } = buildNextStepCopy({
     goals,
     mainGoal,
     saved,
     target,
   });
+
+  const openSavingsGoals = () => {
+    navigate("/savings-goals");
+  };
 
   const surfaceStyle = {
     background: theme?.tokens?.gradientCard || "var(--theme-gradient-card)",
@@ -268,29 +281,65 @@ export default function SavingsCardRefined({
               <p className="relative mt-3 text-[12.5px] font-semibold leading-6 text-white/74">
                 {nextStepMessage}
               </p>
+              <button
+                type="button"
+                onClick={openSavingsGoals}
+                className="relative mt-4 inline-flex w-full items-center justify-center gap-2 rounded-2xl border border-emerald-300/25 bg-emerald-400/15 px-4 py-3 text-sm font-black text-emerald-100 shadow-[0_0_18px_rgba(52,211,153,0.10)] transition hover:bg-emerald-400/22"
+              >
+                <Plus className="h-4 w-4" />
+                {cta}
+              </button>
             </div>
 
-            <div className="rounded-2xl border border-white/8 bg-black/10 px-3.5 py-3">
-              <div className="mb-3 flex items-center justify-between gap-3">
-                <span className="text-[10px] font-black uppercase tracking-[0.16em] text-white/36">
-                  Current setup
-                </span>
-                <span className={`text-[11px] font-black ${status.text}`}>
-                  {savingsStage}
-                </span>
+            {!goals.length ? (
+              <div className="rounded-2xl border border-white/8 bg-black/10 px-3.5 py-3">
+                <div className="mb-3 flex items-center justify-between gap-3">
+                  <span className="text-[10px] font-black uppercase tracking-[0.16em] text-white/36">
+                    Starter ideas
+                  </span>
+                  <span className="text-[11px] font-black text-cyan-200">
+                    Pick one
+                  </span>
+                </div>
+                <div className="grid grid-cols-2 gap-2">
+                  {starterIdeas.map((idea) => (
+                    <button
+                      key={idea}
+                      type="button"
+                      onClick={openSavingsGoals}
+                      className="rounded-xl border border-white/8 bg-white/[0.035] px-3 py-2.5 text-left text-[12px] font-black text-white/82 transition hover:bg-white/[0.065]"
+                    >
+                      {idea}
+                      <span className="mt-1 block text-[10px] font-semibold text-white/38">
+                        Create goal
+                      </span>
+                    </button>
+                  ))}
+                </div>
               </div>
+            ) : (
+              <div className="rounded-2xl border border-white/8 bg-black/10 px-3.5 py-3">
+                <div className="mb-3 flex items-center justify-between gap-3">
+                  <span className="text-[10px] font-black uppercase tracking-[0.16em] text-white/36">
+                    Current setup
+                  </span>
+                  <span className={`text-[11px] font-black ${status.text}`}>
+                    {savingsStage}
+                  </span>
+                </div>
 
-              <div className="grid grid-cols-2 gap-2.5 text-[12px] font-semibold text-white/60">
-                <div className="rounded-xl border border-white/8 bg-white/[0.025] px-3 py-3">
-                  <p className="text-white/36">Active goals</p>
-                  <p className="mt-1.5 text-sm font-black text-white/90">{goals.length}</p>
-                </div>
-                <div className="rounded-xl border border-white/8 bg-white/[0.025] px-3 py-3">
-                  <p className="text-white/36">Total target</p>
-                  <p className="mt-1.5 text-sm font-black text-white/90">{fmt(target)}</p>
+                <div className="grid grid-cols-2 gap-2.5 text-[12px] font-semibold text-white/60">
+                  <div className="rounded-xl border border-white/8 bg-white/[0.025] px-3 py-3">
+                    <p className="text-white/36">Remaining</p>
+                    <p className="mt-1.5 text-sm font-black text-white/90">{fmt(remainingTotal)}</p>
+                  </div>
+                  <div className="rounded-xl border border-white/8 bg-white/[0.025] px-3 py-3">
+                    <p className="text-white/36">Total target</p>
+                    <p className="mt-1.5 text-sm font-black text-white/90">{fmt(target)}</p>
+                  </div>
                 </div>
               </div>
-            </div>
+            )}
 
             {mainGoal ? (
               <div className="rounded-2xl border border-white/8 bg-white/[0.035] p-3.5">
