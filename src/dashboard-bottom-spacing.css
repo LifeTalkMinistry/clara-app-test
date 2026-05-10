@@ -39,3 +39,14 @@
     padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 24px) !important;
   }
 }
+
+/* CLARA Investment Fund expanded polish
+   Keeps the expanded planning panel from stretching into a large empty box.
+   Savings Goals is not targeted by this override. */
+@media (max-width: 430px) {
+  #root .mt-4.min-h-0.flex-1.space-y-3\.5.overflow-y-auto.overscroll-contain.rounded-2xl.border.border-white\/10.bg-black\/15.p-3\.5.pb-5.backdrop-blur-\[2px\] {
+    flex: 0 0 auto !important;
+    min-height: auto !important;
+    overflow-y: visible !important;
+  }
+}
