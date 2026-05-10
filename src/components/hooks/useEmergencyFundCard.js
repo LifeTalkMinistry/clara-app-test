@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { useAuth } from "@/context/AuthContext";
 import useFinancialData from "../../hooks/useFinancialData";
 
 export const fmt = (n) =>
@@ -234,6 +235,7 @@ export default function useEmergencyFundCard({
   onQuickAI,
 } = {}) {
   const navigate = useNavigate();
+  const { user } = useAuth();
   const {
     emergencyFund,
     wallets = [],
@@ -241,7 +243,7 @@ export default function useEmergencyFundCard({
     incomes = [],
     updateEmergencyFund,
     refreshData,
-  } = useFinancialData();
+  } = useFinancialData(user);
 
   const safeWallets = useMemo(
     () => (Array.isArray(wallets) ? wallets.map(normalizeWallet).filter((wallet) => wallet.id && !wallet.deletedAt && !wallet.deleted_at) : []),
