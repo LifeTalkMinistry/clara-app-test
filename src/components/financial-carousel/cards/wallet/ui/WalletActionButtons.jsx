@@ -2,7 +2,12 @@ import { Trash2, ArrowUp, ArrowDown } from 'lucide-react';
 
 const softButton = 'relative z-[120] pointer-events-auto rounded-xl border border-cyan-100/15 bg-white/[0.055] text-white/85 transition hover:border-cyan-100/25 hover:bg-white/10 hover:text-white disabled:opacity-50';
 
-function stopWalletActionEvent(event) {
+function stopGestureOnly(event) {
+  event?.stopPropagation?.();
+  event?.nativeEvent?.stopImmediatePropagation?.();
+}
+
+function stopClickAction(event) {
   event?.preventDefault?.();
   event?.stopPropagation?.();
   event?.nativeEvent?.stopImmediatePropagation?.();
@@ -19,21 +24,19 @@ export default function WalletActionButtons({
   const walletId = wallet?.id ?? wallet?.wallet_id ?? wallet?.local_id;
 
   const handleAction = (event, action) => {
-    stopWalletActionEvent(event);
+    stopClickAction(event);
 
     if (financeActionLoading) return;
 
-    requestAnimationFrame(() => {
-      action?.();
-    });
+    action?.();
   };
 
   return (
     <div
-      className='relative z-[120] mt-3 flex flex-wrap gap-2 pointer-events-auto'
-      onPointerDownCapture={stopWalletActionEvent}
-      onMouseDownCapture={stopWalletActionEvent}
-      onTouchStartCapture={stopWalletActionEvent}
+      className='relative z-[120] mt-3 flex flex-wrap gap-2 pointer-events-auto touch-manipulation'
+      onPointerDownCapture={stopGestureOnly}
+      onMouseDownCapture={stopGestureOnly}
+      onTouchStartCapture={stopGestureOnly}
     >
       <button
         type='button'
