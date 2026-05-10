@@ -181,7 +181,6 @@ export default function useInvestmentCardLogic({
   );
 
   const emergencyTarget = emergencyExpense * emergencyTargetMonths;
-  const emergencyGap = Math.max(0, emergencyTarget - emergencySaved);
   const emergencyReady = emergencyTarget > 0 && emergencySaved >= emergencyTarget;
   const monthlyLeftover = Math.max(0, toNumber(totalIncome) - toNumber(totalExpenses));
 
@@ -228,26 +227,26 @@ export default function useInvestmentCardLogic({
   const amountStatus =
     plannedValue > 0 && safeToInvest > 0
       ? plannedValue <= safeToInvest
-        ? "Within safe range"
-        : "Above safe range"
+        ? "Within safe starter range"
+        : "Above recommended starter range"
       : canSafelyInvest
-        ? "Safe amount available"
+        ? "Recommended starter amount available"
         : emergencyReady
           ? "Add extra money before investing"
           : "Build protection first";
   const statusLabel =
     data.statusLabel || data.ctaLabel || (canSafelyInvest ? "Ready" : emergencyReady ? "Protected" : "Not ready");
   const mainLabel =
-    data.mainLabel || (canSafelyInvest ? `${fmt(safeToInvest)} safe` : emergencyReady ? "Protected" : "Not ready");
+    data.mainLabel || (canSafelyInvest ? `${fmt(safeToInvest)} safe to start` : emergencyReady ? "Protected" : "Not ready");
   const description =
     data.description ||
     (canSafelyInvest
-      ? "You can start planning an investment based on your protected emergency fund and current finances."
+      ? "CLARA recommends this as a cautious starter amount, not your full available money. Your emergency fund stays protected."
       : emergencyReady
         ? "Your emergency fund is protected. Add extra wallet room before investing so protection stays untouched."
         : "Build your emergency fund first before investing.");
 
-  const statOneLabel = data.statOneLabel || "Safe";
+  const statOneLabel = data.statOneLabel || "Safe Range";
   const statOneValue = data.statOneValue || (canSafelyInvest ? fmt(safeToInvest) : "₱0");
   const statTwoLabel = data.statTwoLabel || "Type";
   const statTwoValue = data.statTwoValue || selectedType;
@@ -274,7 +273,7 @@ export default function useInvestmentCardLogic({
     dispatchInvestmentPrompt(
       `Help me plan an investment. Type: ${selectedType}. Amount I want to invest: ${
         plannedValue > 0 ? fmt(plannedValue) : "not set yet"
-      }. CLARA says my safe-to-invest amount is ${fmt(safeToInvest)}.`
+      }. CLARA says my recommended safe starter amount is ${fmt(safeToInvest)}.`
     );
   };
 
