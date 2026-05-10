@@ -10,6 +10,11 @@ import {
 import { X } from "lucide-react";
 
 const MONEY_ACTION_TITLES = new Set(["Add money", "Transfer money"]);
+const BUDGET_SETUP_TITLES = new Set([
+  "Declare monthly budget",
+  "Edit budget category",
+  "Budget discipline mode",
+]);
 
 function normalizeMoneyInput(currentValue, nextKey) {
   const current = String(currentValue || "");
@@ -37,8 +42,21 @@ function normalizeHelperText(value) {
     .trim();
 }
 
+function getDisplayTitle(title) {
+  if (title === "Budget discipline mode") return "Monthly Budget Plan";
+  if (title === "Declare monthly budget") return "Monthly Budget";
+  if (title === "Edit budget category") return "Edit Category";
+  return title;
+}
+
 function getDisplayDescription(title, description) {
   const text = String(description || "").trim();
+
+  if (BUDGET_SETUP_TITLES.has(title)) {
+    if (title === "Budget discipline mode") return "Assign your budget into categories.";
+    if (title === "Declare monthly budget") return "Set the money you plan to spend.";
+    if (title === "Edit budget category") return "Update this category allocation.";
+  }
 
   if (!text) return "";
 
@@ -166,6 +184,8 @@ export default function FinanceActionModal({
   const formRef = useRef(null);
   const [moneyAmount, setMoneyAmount] = useState("");
   const usesClaraMoneyKeypad = MONEY_ACTION_TITLES.has(title);
+  const isBudgetSetupModal = BUDGET_SETUP_TITLES.has(title);
+  const displayTitle = getDisplayTitle(title);
   const displayDescription = getDisplayDescription(title, description);
 
   const {
@@ -239,6 +259,22 @@ export default function FinanceActionModal({
 
   if (!open) return null;
 
+  const headerClassName = isBudgetSetupModal
+    ? "shrink-0 border-b border-white/10 bg-white/[0.03] px-5 py-3"
+    : "shrink-0 border-b border-white/10 bg-white/[0.035] px-5 py-3.5";
+
+  const titleClassName = isBudgetSetupModal
+    ? "text-[22px] font-black leading-[1.05] tracking-[-0.035em] text-white"
+    : "text-[28px] font-black tracking-[-0.04em] text-white";
+
+  const closeButtonClassName = isBudgetSetupModal
+    ? "mt-0.5 shrink-0 rounded-full border border-white/15 bg-white/[0.075] p-2.5 text-white/70 transition hover:bg-white/10 hover:text-white"
+    : "mt-1 shrink-0 rounded-full border border-white/15 bg-white/[0.075] p-3 text-white/70 transition hover:bg-white/10 hover:text-white";
+
+  const scrollBodyClassName = isBudgetSetupModal
+    ? "relative z-[220] min-h-0 max-h-[calc(100svh-8rem)] space-y-2.5 overflow-y-auto overflow-x-visible overscroll-contain px-5 py-2.5 pb-3 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+    : "relative z-[220] min-h-0 max-h-[calc(100svh-10rem)] space-y-3 overflow-y-auto overflow-x-visible overscroll-contain px-5 py-3 pb-3 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden";
+
   return (
     <div className="fixed inset-0 z-[120] flex min-h-[100svh] items-start justify-center overflow-hidden bg-[radial-gradient(circle_at_50%_20%,rgba(15,23,42,0.42),rgba(2,6,23,0.72)_54%,rgba(2,6,23,0.86))] px-1.5 pb-[calc(0.75rem+env(safe-area-inset-bottom))] pt-0 backdrop-blur-[16px]">
       <div className="relative z-[200] flex max-h-[calc(100svh-1.25rem)] w-full max-w-[402px] overflow-visible rounded-[34px] border border-cyan-100/[0.18] bg-[radial-gradient(circle_at_50%_0%,rgba(20,184,166,0.14),transparent_42%),linear-gradient(135deg,rgba(5,44,62,0.99),rgba(7,20,48,0.995)_48%,rgba(38,16,77,0.995))] shadow-[0_28px_90px_rgba(0,0,0,0.62),0_0_0_1px_rgba(255,255,255,0.08),0_0_54px_rgba(34,211,238,0.12)]">
@@ -247,15 +283,19 @@ export default function FinanceActionModal({
           onSubmit={onSubmit}
           className="flex max-h-[calc(100svh-1.25rem)] min-h-0 w-full flex-col overflow-visible"
         >
-          <div className="shrink-0 border-b border-white/10 bg-white/[0.035] px-5 py-3.5">
+          <div className={headerClassName}>
             <div className="flex items-start justify-between gap-4">
               <div className="min-w-0">
-                <h3 className="text-[28px] font-black tracking-[-0.04em] text-white">
-                  {title}
-                </h3>
+                {isBudgetSetupModal ? (
+                  <p className="mb-1 text-[9px] font-black uppercase tracking-[0.18em] text-cyan-100/55">
+                    Budget setup
+                  </p>
+                ) : null}
+
+                <h3 className={titleClassName}>{displayTitle}</h3>
 
                 {displayDescription ? (
-                  <p className="mt-1 max-w-[250px] text-[14px] font-semibold leading-5 text-white/68">
+                  <p className="mt-1 max-w-[270px] text-[13px] font-semibold leading-5 text-white/64">
                     {displayDescription}
                   </p>
                 ) : null}
@@ -264,15 +304,15 @@ export default function FinanceActionModal({
               <button
                 type="button"
                 onClick={onClose}
-                className="mt-1 shrink-0 rounded-full border border-white/15 bg-white/[0.075] p-3 text-white/70 transition hover:bg-white/10 hover:text-white"
+                className={closeButtonClassName}
                 aria-label="Close modal"
               >
-                <X className="h-5 w-5" />
+                <X className={isBudgetSetupModal ? "h-4 w-4" : "h-5 w-5"} />
               </button>
             </div>
           </div>
 
-          <div className="relative z-[220] min-h-0 max-h-[calc(100svh-10rem)] space-y-3 overflow-y-auto overflow-x-visible overscroll-contain px-5 py-3 pb-3 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+          <div className={scrollBodyClassName}>
             {modalChildren}
 
             {usesClaraMoneyKeypad ? (
