@@ -22,7 +22,7 @@ export default function SavingsGoalsCardView({
 
   return (
     <div
-      className="clara-finance-bubble-card-shell clara-finance-bubble-savings-shell h-full min-h-[inherit] flex flex-col"
+      className="h-full min-h-[inherit] flex flex-col"
       onClickCapture={(event) => {
         if (stopCapturedDetailsToggle(event)) {
           handleSavingsToggle();
