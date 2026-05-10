@@ -11,8 +11,6 @@ import {
 import { useTheme } from "@/theme/ThemeProvider";
 
 const DASHBOARD_FINANCE_CARD_TEXTS = [
-  "money left",
-  "total expense",
   "total expenses",
   "money out",
 ];
@@ -121,7 +119,7 @@ export default function ThemePicker() {
             <button
               type="button"
               onClick={closeThemePicker}
-              className="absolute right-4 top-4 z-30 flex h-10 w-10 items-center justify-center rounded-full border bg-black/20 text-white/75 backdrop-blur-xl transition hover:bg-white/10 hover:text-white active:scale-95"
+              className="absolute right-4 top-4 z-30 flex h-10 w-10 items-center justify-center rounded-full border bg-black/20 text-white/75 backdrop-blur-xl transition hover:bg-white/10 hover:text-white/90 active:scale-95"
               style={{
                 borderColor:
                   "color-mix(in srgb, var(--theme-border) 40%, transparent)",
@@ -217,7 +215,7 @@ export default function ThemePicker() {
                               </div>
 
                               <div
-                                className="flex h-8 w-8 items-center justify-center rounded-full border border-white/20 bg-black/20 text-white/0 backdrop-blur-xl transition group-hover:text-white/75"
+                                className="flex h-8 w-8 items-center justify-center rounded-full border border-white/20 bg-black/20 text-white/0 backdrop-blur-xl transition group-hover:text-white/60"
                                 style={{
                                   color: active ? "white" : undefined,
                                   background: active
