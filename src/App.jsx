@@ -27,6 +27,7 @@ const Settings = lazy(() => import("./pages/Settings"));
 const Profile = lazy(() => import("./pages/Profile"));
 const Login = lazy(() => import("./pages/Login"));
 const Dashboard = lazy(() => import("./pages/Dashboard"));
+const MonthlyBudgetPlan = lazy(() => import("./pages/MonthlyBudgetPlan"));
 const TransactionHub = lazy(() => import("./pages/TransactionHub"));
 const AddFunds = lazy(() => import("./pages/AddFunds"));
 const Wallets = lazy(() => import("./pages/Wallets"));
@@ -172,52 +173,6 @@ function AppRoutes() {
         offlineFallback.flow === "limited_offline")
   );
 
-  useEffect(() => {
-    let isMounted = true;
-
-    const runForceReauth = async () => {
-      if (!user?.id || !profile || forceLogoutProcessing) return;
-      if (offlineAccessActive || profile?.offline_access || profile?.offline_limited_access) return;
-      if (!profile?.force_reauth) return;
-
-      try {
-        if (isMounted) setForceLogoutProcessing(true);
-        const { error: flagResetError } = await supabase
-          .from("profiles")
-          .update({ force_reauth: false })
-          .eq("id", user.id);
-        if (flagResetError) console.error("Force reauth flag reset error:", flagResetError);
-
-        const { error: signOutError } = await supabase.auth.signOut();
-        if (signOutError) console.error("Force sign out error:", signOutError);
-
-        try {
-          localStorage.clear();
-          sessionStorage.clear();
-        } catch (storageError) {
-          console.error("Storage clear error:", storageError);
-        }
-        window.location.replace(getLoginRedirectUrl());
-      } catch (error) {
-        console.error("Force reauth process error:", error);
-        try {
-          localStorage.clear();
-          sessionStorage.clear();
-        } catch (storageError) {
-          console.error("Storage clear fallback error:", storageError);
-        }
-        window.location.replace(getLoginRedirectUrl());
-      } finally {
-        if (isMounted) setForceLogoutProcessing(false);
-      }
-    };
-
-    runForceReauth();
-    return () => {
-      isMounted = false;
-    };
-  }, [user?.id, profile, forceLogoutProcessing, offlineAccessActive]);
-
   const resolvedAccess = useMemo(() => {
     if (!profile) return deriveAccessState({ role: normalizedRole || "user" });
     return deriveAccessState({ ...profile, role: profile?.role || normalizedRole || "user" });
@@ -245,22 +200,7 @@ function AppRoutes() {
     [isAdvertiser, flow, forceEnroll, offlineAccessActive]
   );
 
-  const welcomeRedirectPath = useMemo(() => {
-    if (offlineAccessActive) return "/dashboard";
-    if (flow === "program_onboarding" && hasCompletedProgramOnboarding(profile || {})) return "/dashboard";
-    return homeRedirectPath;
-  }, [flow, homeRedirectPath, profile, offlineAccessActive]);
-
-  useEffect(() => {
-    if (!user?.id || !profile || isOffline) return;
-    if (flow === "loading") return;
-    const snapshot = buildAccessSnapshot({ user, profile, accessState: resolvedAccess, flow, homeRedirectPath, currentPath: location.pathname });
-    setCachedAccessSnapshot(saveAccessSnapshot(snapshot));
-  }, [flow, homeRedirectPath, isOffline, location.pathname, profile, resolvedAccess, user]);
-
-  const displayName = profile?.full_name || user?.user_metadata?.full_name || user?.user_metadata?.name || "";
-
-  if (!isLoginRoute && (forceLogoutProcessing || !authReady || loading || roleLoading || (user && !profileReady))) return <FullScreenLoader />;
+  if (!isLoginRoute && (loading || roleLoading)) return <FullScreenLoader />;
 
   const guard = (children, path, shouldForceEnroll = forceEnroll, featurePath = path) => (
     <GuardedRoute
@@ -285,71 +225,19 @@ function AppRoutes() {
       <Routes>
         <Route path="/login" element={<Login />} />
         <Route
-          path="/welcome-back"
-          element={
-            user ? <WelcomeBackTransition redirectTo={welcomeRedirectPath} userName={displayName} /> : <Navigate to="/login" replace />
-          }
-        />
-        <Route
-          path="/onboarding"
-          element={user ? (offlineAccessActive ? <Navigate to="/dashboard" replace /> : <UniversalOnboarding />) : <Navigate to="/login" replace />}
-        />
-        <Route
-          path="/pending"
-          element={
-            offlineAccessActive ? <Navigate to="/dashboard" replace /> : user && flow === "payment_pending" ? <PendingScreen /> : <Navigate to={homeRedirectPath} replace />
-          }
-        />
-        <Route
-          path="/program-onboarding"
-          element={
-            offlineAccessActive ? <Navigate to="/dashboard" replace /> : user && flow === "program_onboarding" ? <ProgramOnboarding /> : <Navigate to={homeRedirectPath} replace />
-          }
-        />
-        <Route
           path="/*"
           element={
             user ? (
               <Layout>
                 <Routes>
                   <Route path="/" element={<Navigate to={homeRedirectPath} replace />} />
-                  <Route path="/advertiser" element={<AdvertiserDashboard />} />
-                  {!isAdvertiser && (
-                    <>
-                      <Route path="/dashboard" element={guard(<Dashboard />, "/dashboard")} />
-                      <Route path="/feed" element={guard(<Feed />, "/feed", false)} />
-                      <Route path="/people" element={guard(<ClaraPeople />, "/people", false, "/feed")} />
-                      <Route path="/user/:id" element={guard(<UserProfile />, "/user/:id", false, "/feed")} />
-                      <Route path="/expenses" element={guard(<TransactionHub />, "/expenses")} />
-                      <Route path="/transactions-hub" element={guard(<TransactionHub />, "/transactions-hub", forceEnroll, "/expenses")} />
-                      <Route path="/add-funds" element={guard(<AddFunds />, "/add-funds")} />
-                      <Route path="/wallets" element={guard(<Wallets />, "/wallets")} />
-                      <Route path="/budgets" element={guard(<Budgets />, "/budgets")} />
-                      <Route path="/analytics" element={guard(<Analytics />, "/analytics")} />
-                      <Route path="/ai" element={guard(<AiInsights />, "/ai")} />
-                      <Route path="/activation" element={<Activation />} />
-                      <Route path="/enroll" element={offlineAccessActive ? <Navigate to="/dashboard" replace /> : <Enroll />} />
-                      <Route path="/tier-select" element={offlineAccessActive ? <Navigate to="/dashboard" replace /> : <TierSelect />} />
-                      <Route path="/news" element={guard(<News />, "/news")} />
-                      <Route path="/tasks" element={<Navigate to="/dashboard" replace />} />
-                      <Route path="/modules" element={guard(<Modules />, "/modules")} />
-                      <Route path="/community" element={guard(<Community />, "/community")} />
-                      <Route path="/messages" element={guard(<Messages />, "/messages")} />
-                      <Route path="/savings-goals" element={guard(<SavingsGoals />, "/savings-goals")} />
-                      <Route path="/referrals" element={guard(<Referrals />, "/referrals")} />
-                      <Route path="/admin" element={admin(<AdminPanel />)} />
-                      <Route path="/admin/student/:id" element={admin(<StudentProfile />)} />
-                      <Route path="/admin/referral-materials" element={admin(<AdminReferralMaterials />)} />
-                      <Route path="/admin/daily-tips" element={admin(<AdminDailyTips />)} />
-                    </>
-                  )}
-                  <Route path="/profile" element={<Profile />} />
-                  <Route path="/settings" element={<Navigate to="/settings/account" replace />} />
+                  <Route path="/dashboard" element={guard(<Dashboard />, "/dashboard")} />
+                  <Route path="/budget-plan" element={guard(<MonthlyBudgetPlan />, "/budget-plan")} />
+                  <Route path="/wallets" element={guard(<Wallets />, "/wallets")} />
+                  <Route path="/budgets" element={guard(<Budgets />, "/budgets")} />
+                  <Route path="/savings-goals" element={guard(<SavingsGoals />, "/savings-goals")} />
                   <Route path="/settings/:section" element={<Settings />} />
-                  <Route path="/profile/edit" element={<Navigate to="/settings/account" replace />} />
-                  <Route path="/change-password" element={<Navigate to="/settings/security" replace />} />
-                  <Route path="/notifications" element={<Navigate to="/settings/notifications" replace />} />
-                  <Route path="/billing" element={<Navigate to="/settings/billing" replace />} />
+                  <Route path="/profile" element={<Profile />} />
                   <Route path="*" element={<PageNotFound />} />
                 </Routes>
               </Layout>
@@ -358,7 +246,6 @@ function AppRoutes() {
             )
           }
         />
-        <Route path="*" element={<PageNotFound />} />
       </Routes>
       <AdminRescueButton show={Boolean(user && isAdmin)} />
     </Suspense>
