@@ -15,22 +15,20 @@ function getBudgetDriftState({ outsidePlanSpent = 0, spent = 0, declared = 0 }) 
   const safeSpent = Math.max(Number(spent || 0), 0);
   const base = safeDeclared > 0 ? safeDeclared : safeSpent;
   const rate = base > 0 ? Math.min((safeOutside / base) * 100, 999) : 0;
-  const recentShare = safeSpent > 0 ? Math.min((safeOutside / safeSpent) * 100, 999) : 0;
-  const score = Math.max(0, Math.round(100 - Math.min(rate * 3, 75)));
 
   if (safeOutside <= 0) {
-    return { rate, recentShare, score: 100, label: "On track", title: "Budget discipline looks clean.", message: "No spending outside your plan yet.", tone: "border-emerald-300/18 bg-emerald-400/10 text-emerald-50", valueTone: "text-emerald-200" };
+    return { rate, label: "On track", title: "Budget discipline looks clean.", message: "No spending outside your plan yet.", tone: "border-emerald-300/18 bg-emerald-400/10 text-emerald-50", valueTone: "text-emerald-200" };
   }
   if (rate <= 5) {
-    return { rate, recentShare, score, label: "Minor drift", title: "Small outside-plan spending detected.", message: "Still manageable. Keep asking before spending so it does not become a pattern.", tone: "border-cyan-300/18 bg-cyan-400/10 text-cyan-50", valueTone: "text-cyan-200" };
+    return { rate, label: "Minor drift", title: "Small outside-plan spending detected.", message: "Still manageable. Keep asking before spending so it does not become a pattern.", tone: "border-cyan-300/18 bg-cyan-400/10 text-cyan-50", valueTone: "text-cyan-200" };
   }
   if (rate <= 15) {
-    return { rate, recentShare, score, label: "Watch zone", title: "Some of your budget went outside the plan.", message: "Review these expenses and consider adding a flexible category next cycle.", tone: "border-amber-300/20 bg-amber-400/10 text-amber-50", valueTone: "text-amber-200" };
+    return { rate, label: "Watch zone", title: "Some of your budget went outside the plan.", message: "Review these expenses and consider adding a flexible category next cycle.", tone: "border-amber-300/20 bg-amber-400/10 text-amber-50", valueTone: "text-amber-200" };
   }
   if (rate <= 30) {
-    return { rate, recentShare, score, label: "Drifting", title: "Your budget is drifting from the plan.", message: "Pause before the next expense. Ask CLARA first or adjust your categories intentionally.", tone: "border-orange-300/20 bg-orange-500/10 text-orange-50", valueTone: "text-orange-200" };
+    return { rate, label: "Drifting", title: "Your budget is drifting from the plan.", message: "Pause before the next expense. Ask CLARA first or adjust your categories intentionally.", tone: "border-orange-300/20 bg-orange-500/10 text-orange-50", valueTone: "text-orange-200" };
   }
-  return { rate, recentShare, score, label: "High drift", title: "Too much spending is outside your plan.", message: "This cycle needs attention. Review your plan before logging more unplanned spending.", tone: "border-rose-300/20 bg-rose-500/10 text-rose-50", valueTone: "text-rose-200" };
+  return { rate, label: "High drift", title: "Too much spending is outside your plan.", message: "This cycle needs attention. Review your plan before logging more unplanned spending.", tone: "border-rose-300/20 bg-rose-500/10 text-rose-50", valueTone: "text-rose-200" };
 }
 
 function ExpandButtonRow({ expanded, onToggleDetails }) {
@@ -44,6 +42,15 @@ function ExpandButtonRow({ expanded, onToggleDetails }) {
         expandedLabel="Hide budget details"
         className={expandButtonClass}
       />
+    </div>
+  );
+}
+
+function MetricTile({ label, value }) {
+  return (
+    <div className={`min-w-0 rounded-2xl px-2.5 py-2.5 text-center ${glassPanel}`}>
+      <p className="mb-1 text-[9px] font-semibold uppercase tracking-[0.14em] text-white/56">{label}</p>
+      <p className="whitespace-nowrap text-[13px] font-black leading-tight text-white">{value}</p>
     </div>
   );
 }
@@ -113,7 +120,7 @@ export default function BudgetCardContent({
             {fmt(remaining)}
           </p>
           <p className="mt-[clamp(0.45rem,1svh,0.65rem)] text-xs font-semibold leading-relaxed text-white/76">
-            Available to spend this month.
+            Available for this cycle.
           </p>
         </div>
         <ExpandButtonRow expanded={expanded} onToggleDetails={onToggleDetails} />
@@ -125,20 +132,17 @@ export default function BudgetCardContent({
             {message || "Review your budget details without leaving the dashboard."}
           </div>
 
-          <div className="grid grid-cols-2 gap-2 text-center text-sm text-white">
+          <div className="grid grid-cols-2 gap-2 text-sm text-white">
             {overviewMetrics.map(([label, value]) => (
-              <div key={label} className={`rounded-2xl px-2.5 py-2.5 ${glassPanel}`}>
-                <p className="mb-1 text-[10px] font-semibold uppercase tracking-[0.16em] text-white/58">{label}</p>
-                <p className="truncate text-sm font-bold text-white">{value}</p>
-              </div>
+              <MetricTile key={label} label={label} value={value} />
             ))}
           </div>
 
           <div className={`rounded-2xl border px-3 py-3 ${driftState.tone}`}>
             <div className="flex items-start justify-between gap-3">
-              <div className="min-w-0">
+              <div className="min-w-0 flex-1">
                 <p className="text-[10px] font-black uppercase tracking-[0.16em] text-white/48">Budget discipline</p>
-                <p className="mt-1 text-sm font-black leading-tight text-white">{driftState.title}</p>
+                <p className="mt-1 text-[13px] font-black leading-snug text-white">{driftState.title}</p>
                 <p className="mt-1.5 text-[11px] font-semibold leading-5 text-white/68">{driftState.message}</p>
               </div>
               <div className="shrink-0 rounded-2xl border border-white/10 bg-black/15 px-3 py-2 text-right">
@@ -149,17 +153,21 @@ export default function BudgetCardContent({
 
             <div className="mt-3 grid grid-cols-3 gap-2 text-center">
               <div className="rounded-2xl border border-white/10 bg-black/12 px-2.5 py-2">
-                <p className="truncate text-sm font-black text-white">{fmt(outsidePlanSpent)}</p>
+                <p className="whitespace-nowrap text-[13px] font-black text-white">{fmt(outsidePlanSpent)}</p>
                 <p className="mt-1 text-[8px] font-black uppercase tracking-[0.14em] text-white/42">Outside</p>
               </div>
               <div className="rounded-2xl border border-white/10 bg-black/12 px-2.5 py-2">
-                <p className="truncate text-sm font-black text-white">{driftState.score}</p>
-                <p className="mt-1 text-[8px] font-black uppercase tracking-[0.14em] text-white/42">Score</p>
-              </div>
-              <div className="rounded-2xl border border-white/10 bg-black/12 px-2.5 py-2">
-                <p className={`truncate text-sm font-black ${driftState.valueTone}`}>{driftState.label}</p>
+                <p className={`whitespace-normal text-[12px] font-black leading-tight ${driftState.valueTone}`}>{driftState.label}</p>
                 <p className="mt-1 text-[8px] font-black uppercase tracking-[0.14em] text-white/42">Status</p>
               </div>
+              <button
+                type="button"
+                onClick={openBudgetModal}
+                className="rounded-2xl border border-white/10 bg-black/12 px-2.5 py-2 text-center transition hover:bg-white/[0.06]"
+              >
+                <p className="text-[12px] font-black leading-tight text-white">Adjust</p>
+                <p className="mt-1 text-[8px] font-black uppercase tracking-[0.14em] text-white/42">Plan</p>
+              </button>
             </div>
           </div>
 
@@ -199,7 +207,7 @@ export default function BudgetCardContent({
               {quietMetrics.map(([label, value]) => (
                 <div key={label} className="rounded-2xl border border-white/10 bg-white/[0.035] px-2.5 py-2.5">
                   <p className="mb-1 text-[9px] font-semibold uppercase tracking-[0.14em] text-white/42">{label}</p>
-                  <p className="truncate text-sm font-bold text-white/84">{value}</p>
+                  <p className="whitespace-nowrap text-[13px] font-bold text-white/84">{value}</p>
                 </div>
               ))}
             </div>
