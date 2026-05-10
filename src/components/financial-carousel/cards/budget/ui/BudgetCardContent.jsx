@@ -9,6 +9,58 @@ import { fmt } from "@/components/financial-carousel/cards/budget/logic/useBudge
 const glassPanel =
   "border border-cyan-100/15 bg-white/[0.055] shadow-[inset_0_1px_0_rgba(255,255,255,0.10),0_0_18px_rgba(0,255,220,0.035)] backdrop-blur-sm";
 
+function getBudgetDriftState({ outsidePlanSpent = 0, spent = 0, declared = 0 }) {
+  const base = spent > 0 ? spent : declared;
+  const rate = base > 0 ? Math.min((outsidePlanSpent / base) * 100, 999) : 0;
+  const score = Math.max(0, Math.round(100 - Math.min(rate * 2.4, 70)));
+
+  if (outsidePlanSpent <= 0) {
+    return {
+      rate,
+      score: 100,
+      label: "On track",
+      title: "Budget discipline looks clean.",
+      message: "No spending outside your plan yet.",
+      tone: "border-emerald-300/18 bg-emerald-400/10 text-emerald-50",
+      valueTone: "text-emerald-200",
+    };
+  }
+
+  if (rate <= 5) {
+    return {
+      rate,
+      score,
+      label: "Minor drift",
+      title: "Small spending drift detected.",
+      message: "This is still manageable, but keep logging before it becomes a habit.",
+      tone: "border-cyan-300/18 bg-cyan-400/10 text-cyan-50",
+      valueTone: "text-cyan-200",
+    };
+  }
+
+  if (rate <= 15) {
+    return {
+      rate,
+      score,
+      label: "Watch zone",
+      title: "Your plan is starting to drift.",
+      message: "Review these expenses and consider adding a flexible category next cycle.",
+      tone: "border-amber-300/20 bg-amber-400/10 text-amber-50",
+      valueTone: "text-amber-200",
+    };
+  }
+
+  return {
+    rate,
+    score,
+    label: "Drift warning",
+    title: "Your spending is moving away from the plan.",
+    message: "Pause before the next expense. Ask CLARA first or adjust your budget intentionally.",
+    tone: "border-rose-300/20 bg-rose-500/10 text-rose-50",
+    valueTone: "text-rose-200",
+  };
+}
+
 export default function BudgetCardContent({
   expanded = false,
   onToggleDetails,
@@ -34,6 +86,9 @@ export default function BudgetCardContent({
   badgeLabel,
   openBudgetModal,
 }) {
+  const outsidePlanSpent = Number(unplannedSpent || 0) + Number(undocumentedSpent || 0);
+  const driftState = getBudgetDriftState({ outsidePlanSpent, spent, declared });
+
   if (!expanded) {
     return (
       <div className="relative z-10 flex h-full min-h-0 flex-col p-4 pb-4">
@@ -127,6 +182,46 @@ export default function BudgetCardContent({
                 <p className="truncate text-sm font-bold text-white">{value}</p>
               </div>
             ))}
+          </div>
+
+          <div className={`rounded-2xl border px-3 py-3 ${driftState.tone}`}>
+            <div className="flex items-start justify-between gap-3">
+              <div className="min-w-0">
+                <p className="text-[10px] font-black uppercase tracking-[0.16em] text-white/48">
+                  Budget discipline
+                </p>
+                <p className="mt-1 text-sm font-black leading-tight text-white">
+                  {driftState.title}
+                </p>
+                <p className="mt-1.5 text-[11px] font-semibold leading-5 text-white/68">
+                  {driftState.message}
+                </p>
+              </div>
+
+              <div className="shrink-0 rounded-2xl border border-white/10 bg-black/15 px-3 py-2 text-right">
+                <p className={`text-lg font-black leading-none ${driftState.valueTone}`}>
+                  {Math.round(driftState.rate)}%
+                </p>
+                <p className="mt-1 text-[8px] font-black uppercase tracking-[0.14em] text-white/40">
+                  Drift
+                </p>
+              </div>
+            </div>
+
+            <div className="mt-3 grid grid-cols-3 gap-2 text-center">
+              <div className="rounded-2xl border border-white/10 bg-black/12 px-2.5 py-2">
+                <p className="truncate text-sm font-black text-white">{fmt(outsidePlanSpent)}</p>
+                <p className="mt-1 text-[8px] font-black uppercase tracking-[0.14em] text-white/42">Outside</p>
+              </div>
+              <div className="rounded-2xl border border-white/10 bg-black/12 px-2.5 py-2">
+                <p className="truncate text-sm font-black text-white">{driftState.score}</p>
+                <p className="mt-1 text-[8px] font-black uppercase tracking-[0.14em] text-white/42">Score</p>
+              </div>
+              <div className="rounded-2xl border border-white/10 bg-black/12 px-2.5 py-2">
+                <p className={`truncate text-sm font-black ${driftState.valueTone}`}>{driftState.label}</p>
+                <p className="mt-1 text-[8px] font-black uppercase tracking-[0.14em] text-white/42">Status</p>
+              </div>
+            </div>
           </div>
 
           <div>
