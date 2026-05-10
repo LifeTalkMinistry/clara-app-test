@@ -52,6 +52,22 @@ export default function EmergencyFundCard({
   } = handlers;
 
   const coverageLabel = effectiveExpense > 0 ? `${months.toFixed(1)} months` : "Set expense";
+  const amountNeeded = Math.max(target - safeMoneyLeft, 0);
+  const suggestedMonthlyTopUp = amountNeeded > 0 ? Math.ceil(amountNeeded / 6) : 0;
+  const targetLabel = milestone?.label || `${targetMonths}-Month Safety`;
+  const nextStepTitle =
+    effectiveExpense <= 0
+      ? "Set your monthly survival cost"
+      : amountNeeded > 0
+        ? `You need ${fmt(amountNeeded)} more`
+        : "Goal reached";
+  const nextStepMessage =
+    effectiveExpense <= 0
+      ? "CLARA needs your monthly survival cost to calculate your emergency target."
+      : amountNeeded > 0
+        ? `Add around ${fmt(suggestedMonthlyTopUp)}/month to reach ${targetLabel} in 6 months.`
+        : `You reached ${targetLabel}. Keep this fund protected and avoid using it for non-emergencies.`;
+
   const summaryTiles = [
     { label: "Saved", value: fmt(safeMoneyLeft), valueClassName: status.text },
     { label: "Target", value: fmt(target) },
@@ -149,7 +165,7 @@ export default function EmergencyFundCard({
               <div>
                 <div className="mb-2 flex items-center justify-between">
                   <span className="text-xs font-semibold text-white/90">Goal</span>
-                  <span className="text-[11px] font-semibold text-white/70">{milestone?.label}</span>
+                  <span className="text-[11px] font-semibold text-white/70">{targetLabel}</span>
                 </div>
 
                 <div className="grid grid-cols-3 gap-2">
@@ -175,27 +191,39 @@ export default function EmergencyFundCard({
                 </div>
               </div>
 
-              <div className="grid grid-cols-3 gap-2 text-center text-sm text-white">
-                <div className="rounded-2xl border border-white/10 bg-black/20 px-2.5 py-2.5">
-                  <p className="mb-1 text-[10px] font-semibold uppercase tracking-[0.16em] text-white/70">Monthly</p>
-                  <p className="text-sm font-bold text-white">{fmt(effectiveExpense)}</p>
-                </div>
-                <div className="rounded-2xl border border-white/10 bg-black/20 px-2.5 py-2.5">
-                  <p className="mb-1 text-[10px] font-semibold uppercase tracking-[0.16em] text-white/70">Progress</p>
-                  <p className="text-sm font-bold text-white">{pct.toFixed(0)}%</p>
-                </div>
-                <div className="rounded-2xl border border-white/10 bg-black/20 px-2.5 py-2.5">
-                  <p className="mb-1 text-[10px] font-semibold uppercase tracking-[0.16em] text-white/70">Target</p>
-                  <p className="text-sm font-bold text-white">{fmt(target)}</p>
-                </div>
+              <div className="rounded-2xl border border-emerald-300/18 bg-emerald-400/10 px-3.5 py-3.5 shadow-[inset_0_1px_0_rgba(255,255,255,0.07),0_0_18px_rgba(16,185,129,0.05)]">
+                <p className="text-[10px] font-black uppercase tracking-[0.16em] text-emerald-100/52">
+                  Next step
+                </p>
+                <p className="mt-1.5 text-sm font-black leading-snug text-white">
+                  {nextStepTitle}
+                </p>
+                <p className="mt-1.5 text-[12px] font-semibold leading-5 text-white/70">
+                  {nextStepMessage}
+                </p>
               </div>
 
-              {retentionRate != null ? (
-                <div className="flex items-center justify-between text-xs font-medium text-white/75">
-                  <span>Retention Rate</span>
-                  <span className="text-white/95">{retentionRate}%</span>
+              <div className="rounded-2xl border border-white/10 bg-black/15 px-3.5 py-3">
+                <div className="mb-2 flex items-center justify-between gap-3">
+                  <span className="text-[10px] font-black uppercase tracking-[0.16em] text-white/42">
+                    Current setup
+                  </span>
+                  <span className={`text-[11px] font-black ${status.text}`}>
+                    {pct.toFixed(0)}% funded
+                  </span>
                 </div>
-              ) : null}
+
+                <div className="grid grid-cols-2 gap-2 text-[12px] font-semibold text-white/68">
+                  <div className="rounded-xl border border-white/10 bg-white/[0.035] px-3 py-2">
+                    <p className="text-white/42">Monthly survival cost</p>
+                    <p className="mt-1 text-sm font-black text-white">{fmt(effectiveExpense)}</p>
+                  </div>
+                  <div className="rounded-xl border border-white/10 bg-white/[0.035] px-3 py-2">
+                    <p className="text-white/42">Target amount</p>
+                    <p className="mt-1 text-sm font-black text-white">{fmt(target)}</p>
+                  </div>
+                </div>
+              </div>
 
               <div className="grid grid-cols-2 gap-2">
                 <button
@@ -210,7 +238,7 @@ export default function EmergencyFundCard({
                 <button
                   type="button"
                   onClick={openTopUpModal}
-                  className="flex items-center justify-center gap-2 rounded-2xl border border-emerald-400/25 bg-emerald-500/10 px-4 py-3 text-sm font-semibold text-emerald-300 transition hover:bg-emerald-500/15"
+                  className="flex items-center justify-center gap-2 rounded-2xl border border-emerald-400/25 bg-emerald-500/15 px-4 py-3 text-sm font-black text-emerald-200 shadow-[0_0_18px_rgba(52,211,153,0.10)] transition hover:bg-emerald-500/20"
                 >
                   <Plus className="h-4 w-4" />
                   Add Fund
