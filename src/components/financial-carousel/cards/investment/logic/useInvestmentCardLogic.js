@@ -1,5 +1,6 @@
 import { useMemo, useState } from "react";
 
+import { useAuth } from "@/context/AuthContext";
 import useFinancialData from "@/hooks/useFinancialData";
 
 export const fmt = (value) =>
@@ -143,12 +144,13 @@ export default function useInvestmentCardLogic({
   const isControlled = typeof onToggleDetails === "function";
   const isExpanded = isControlled ? expanded : localExpanded;
 
+  const { user } = useAuth();
   const {
     emergencyFund,
     totalExpenses = 0,
     totalIncome = 0,
     totalWalletBalance = 0,
-  } = useFinancialData();
+  } = useFinancialData(user);
 
   const data = item?.data || {};
   const tone = getInvestmentToneClasses(item?.tone || data.tone || "gold");
@@ -180,31 +182,40 @@ export default function useInvestmentCardLogic({
 
   const emergencyTarget = emergencyExpense * emergencyTargetMonths;
   const emergencyGap = Math.max(0, emergencyTarget - emergencySaved);
+  const emergencyReady = emergencyTarget > 0 && emergencySaved >= emergencyTarget;
   const monthlyLeftover = Math.max(0, toNumber(totalIncome) - toNumber(totalExpenses));
 
   const safeToInvest = useMemo(() => {
     const dataOverride = getDataValue(data, ["safeToInvest", "availableToInvest"], null);
 
     if (dataOverride !== null) return Math.max(0, toNumber(dataOverride));
+    if (!emergencyReady) return 0;
 
-    const walletBase = Math.max(0, toNumber(totalWalletBalance) - emergencyGap);
-    const conservativeWalletShare = walletBase * 0.12;
+    const walletAfterProtection = Math.max(
+      0,
+      toNumber(totalWalletBalance) - Math.max(emergencyTarget, emergencySaved)
+    );
+    const conservativeWalletShare = walletAfterProtection * 0.12;
     const conservativeLeftoverShare = monthlyLeftover * 0.4;
-    const estimate = Math.min(
-      conservativeWalletShare,
-      conservativeLeftoverShare || conservativeWalletShare
+    const fallbackFromReadiness = Math.max(0, emergencySaved - emergencyTarget) * 0.12;
+    const estimate = Math.max(
+      0,
+      Math.min(
+        conservativeWalletShare || fallbackFromReadiness,
+        conservativeLeftoverShare || conservativeWalletShare || fallbackFromReadiness
+      )
     );
 
     return Math.max(0, Math.floor(estimate / 100) * 100);
-  }, [data, emergencyGap, monthlyLeftover, totalWalletBalance]);
+  }, [data, emergencyReady, emergencySaved, emergencyTarget, monthlyLeftover, totalWalletBalance]);
 
   const plannedValue = toNumber(plannedAmount);
-  const canSafelyInvest = safeToInvest > 0;
+  const canSafelyInvest = emergencyReady && safeToInvest > 0;
   const readinessProgress = clampProgress(
     getDataValue(
       data,
       ["readiness", "readinessProgress"],
-      canSafelyInvest
+      emergencyReady
         ? 100
         : emergencyTarget > 0
           ? (emergencySaved / emergencyTarget) * 100
@@ -221,23 +232,27 @@ export default function useInvestmentCardLogic({
         : "Above safe range"
       : canSafelyInvest
         ? "Safe amount available"
-        : "Build protection first";
+        : emergencyReady
+          ? "Add extra money before investing"
+          : "Build protection first";
   const statusLabel =
-    data.statusLabel || data.ctaLabel || (canSafelyInvest ? "Ready" : "Not ready");
+    data.statusLabel || data.ctaLabel || (canSafelyInvest ? "Ready" : emergencyReady ? "Protected" : "Not ready");
   const mainLabel =
-    data.mainLabel || (canSafelyInvest ? `${fmt(safeToInvest)} safe` : "Not ready");
+    data.mainLabel || (canSafelyInvest ? `${fmt(safeToInvest)} safe` : emergencyReady ? "Protected" : "Not ready");
   const description =
     data.description ||
     (canSafelyInvest
-      ? "You can start planning an investment based on your current finances."
-      : "Build your emergency fund first before investing.");
+      ? "You can start planning an investment based on your protected emergency fund and current finances."
+      : emergencyReady
+        ? "Your emergency fund is protected. Add extra wallet room before investing so protection stays untouched."
+        : "Build your emergency fund first before investing.");
 
   const statOneLabel = data.statOneLabel || "Safe";
   const statOneValue = data.statOneValue || (canSafelyInvest ? fmt(safeToInvest) : "₱0");
   const statTwoLabel = data.statTwoLabel || "Type";
   const statTwoValue = data.statTwoValue || selectedType;
   const statThreeLabel = data.statThreeLabel || "Status";
-  const statThreeValue = data.statThreeValue || (canSafelyInvest ? "Ready" : "Not ready");
+  const statThreeValue = data.statThreeValue || (canSafelyInvest ? "Ready" : emergencyReady ? "Protected" : "Not ready");
 
   const dispatchInvestmentPrompt = (prompt) => {
     if (typeof window === "undefined") return;
