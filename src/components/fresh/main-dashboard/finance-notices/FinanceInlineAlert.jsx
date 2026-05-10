@@ -37,16 +37,16 @@ export default function FinanceInlineAlert({ notice, onClose }) {
     <div
       role="status"
       aria-live="polite"
-      className="pointer-events-none fixed inset-x-0 top-[calc(0.85rem+env(safe-area-inset-top))] z-[260] flex justify-center px-4"
+      className="pointer-events-none fixed inset-x-0 top-[calc(6.35rem+env(safe-area-inset-top))] z-[260] flex justify-center px-4"
     >
       <div
-        className={`pointer-events-auto flex max-w-[min(92vw,360px)] items-center gap-3 rounded-full border px-3.5 py-2.5 text-sm font-semibold backdrop-blur-2xl ${tone}`}
+        className={`pointer-events-auto flex max-w-[min(84vw,310px)] items-center gap-2.5 rounded-full border px-3 py-2 text-[13px] font-semibold backdrop-blur-2xl ${tone}`}
       >
-        <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full border border-white/10 bg-white/[0.08]">
-          <Icon className={`h-4 w-4 ${iconTone}`} />
+        <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full border border-white/10 bg-white/[0.08]">
+          <Icon className={`h-3.5 w-3.5 ${iconTone}`} />
         </span>
 
-        <p className="min-w-0 flex-1 truncate leading-5">{message}</p>
+        <p className="min-w-0 flex-1 truncate leading-5 text-center">{message}</p>
 
         <button
           type="button"
@@ -54,7 +54,7 @@ export default function FinanceInlineAlert({ notice, onClose }) {
           className="shrink-0 rounded-full border border-white/10 bg-white/[0.065] p-1 text-white/60 transition hover:bg-white/10 hover:text-white"
           aria-label="Dismiss message"
         >
-          <X className="h-3.5 w-3.5" />
+          <X className="h-3 w-3" />
         </button>
       </div>
     </div>
