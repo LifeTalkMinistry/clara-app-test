@@ -30,6 +30,29 @@ export {
   walletTypes,
 };
 
+function getWalletOrderValue(wallet = {}, fallbackIndex = 0) {
+  const rawOrder = wallet?.sort_order ?? wallet?.position ?? wallet?.order;
+  const parsedOrder = Number(rawOrder);
+
+  return Number.isFinite(parsedOrder) ? parsedOrder : fallbackIndex;
+}
+
+function sortWalletsByDisplayOrder(wallets = []) {
+  return wallets
+    .map((wallet, index) => ({ wallet, index }))
+    .filter(({ wallet }) => wallet && !wallet?.is_archived)
+    .sort((a, b) => {
+      const orderDifference =
+        getWalletOrderValue(a.wallet, a.index) -
+        getWalletOrderValue(b.wallet, b.index);
+
+      if (orderDifference !== 0) return orderDifference;
+
+      return a.index - b.index;
+    })
+    .map(({ wallet }) => wallet);
+}
+
 export default function useWalletCardLogic({
   wallets = [],
   walletMoney = 0,
@@ -44,7 +67,7 @@ export default function useWalletCardLogic({
   const [isSavingWalletEdit, setIsSavingWalletEdit] = useState(false);
 
   const activeWallets = useMemo(
-    () => (Array.isArray(wallets) ? wallets.filter((wallet) => !wallet?.is_archived) : []),
+    () => (Array.isArray(wallets) ? sortWalletsByDisplayOrder(wallets) : []),
     [wallets]
   );
 
