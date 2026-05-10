@@ -39,12 +39,7 @@ export default function BudgetCardContent({
       <div className="relative z-10 flex h-full min-h-0 flex-col p-4 pb-4">
         <div className="flex min-h-0 flex-col gap-3">
           <div className="min-h-0">
-            <BudgetHeader
-              monthKey={monthKey}
-              badgeLabel={badgeLabel}
-              status={status}
-            />
-
+            <BudgetHeader monthKey={monthKey} badgeLabel={badgeLabel} status={status} />
             <BudgetSummaryStats
               declared={declared}
               remaining={remaining}
@@ -75,6 +70,20 @@ export default function BudgetCardContent({
     );
   }
 
+  const overviewMetrics = [
+    ["Declared", fmt(declared)],
+    ["Spent", fmt(spent)],
+    ["Remaining", fmt(remaining)],
+    ["Categories", categories.length],
+  ];
+
+  const quietMetrics = [
+    ["Allocated", fmt(allocated)],
+    ["Unallocated", fmt(unallocated)],
+    ["Unplanned", fmt(unplannedSpent)],
+    ["Undocumented", fmt(undocumentedSpent)],
+  ];
+
   return (
     <div className="relative z-10 flex h-full min-h-0 flex-col overflow-hidden p-[clamp(0.875rem,3.2vw,1rem)] pb-[clamp(0.9rem,1.8svh,1.1rem)]">
       <div className="flex shrink-0 flex-col gap-[clamp(0.625rem,1.4svh,0.85rem)]">
@@ -86,7 +95,6 @@ export default function BudgetCardContent({
           >
             {fmt(remaining)}
           </p>
-
           <p className="mt-[clamp(0.45rem,1svh,0.65rem)] text-xs font-semibold leading-relaxed text-white/76">
             Available to spend this month.
           </p>
@@ -111,14 +119,7 @@ export default function BudgetCardContent({
           </div>
 
           <div className="grid grid-cols-2 gap-2 text-center text-sm text-white">
-            {[
-              ["Declared", fmt(declared)],
-              ["Spent", fmt(spent)],
-              ["Remaining", fmt(remaining)],
-              ["Categories", categories.length],
-              ["Unallocated", fmt(unallocated)],
-              ["Allocated", fmt(allocated)],
-            ].map(([label, value]) => (
+            {overviewMetrics.map(([label, value]) => (
               <div key={label} className={`rounded-2xl px-2.5 py-2.5 ${glassPanel}`}>
                 <p className="mb-1 text-[10px] font-semibold uppercase tracking-[0.16em] text-white/58">
                   {label}
@@ -126,17 +127,6 @@ export default function BudgetCardContent({
                 <p className="truncate text-sm font-bold text-white">{value}</p>
               </div>
             ))}
-          </div>
-
-          <div className="grid grid-cols-2 gap-2 text-center">
-            <div className="rounded-2xl border border-amber-300/20 bg-amber-400/10 px-3 py-2.5 shadow-[0_0_16px_rgba(251,191,36,0.07)]">
-              <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-amber-100/70">Unplanned</p>
-              <p className="mt-1 text-sm font-bold text-amber-100">{fmt(unplannedSpent)}</p>
-            </div>
-            <div className="rounded-2xl border border-cyan-300/20 bg-cyan-400/10 px-3 py-2.5 shadow-[0_0_16px_rgba(0,255,220,0.07)]">
-              <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-cyan-100/70">Undocumented</p>
-              <p className="mt-1 text-sm font-bold text-cyan-100">{fmt(undocumentedSpent)}</p>
-            </div>
           </div>
 
           <div>
@@ -182,6 +172,24 @@ export default function BudgetCardContent({
             <Edit3 className="h-4 w-4" />
             Manage Budget
           </button>
+
+          <div className="rounded-2xl border border-white/10 bg-white/[0.028] p-3">
+            <p className="mb-2 text-[10px] font-semibold uppercase tracking-[0.16em] text-white/48">
+              Budget diagnostics
+            </p>
+            <div className="grid grid-cols-2 gap-2 text-center text-sm text-white">
+              {quietMetrics.map(([label, value]) => (
+                <div key={label} className="rounded-2xl border border-white/10 bg-white/[0.035] px-2.5 py-2.5">
+                  <p className="mb-1 text-[9px] font-semibold uppercase tracking-[0.14em] text-white/42">
+                    {label}
+                  </p>
+                  <p className="truncate text-sm font-bold text-white/84">{value}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          <div aria-hidden="true" className="h-3 shrink-0" />
         </FinanceCardExpandedPanel>
       </div>
     </div>
