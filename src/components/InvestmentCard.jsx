@@ -12,13 +12,11 @@ const glassTile =
 const inputClass =
   "w-full rounded-2xl border border-white/10 bg-black/25 px-3 py-2.5 text-sm font-semibold text-white outline-none transition placeholder:text-white/35";
 
-function InfoTile({ label, value, valueClassName = "text-white/92", compact = false }) {
+function InfoTile({ label, value, valueClassName = "text-white/92" }) {
   return (
-    <div className={`${glassTile} ${compact ? "px-2 py-2" : "px-2.5 py-2.5"}`}>
+    <div className={`${glassTile} px-2.5 py-2.5`}>
       <p
-        className={`${
-          compact ? "min-h-[1.55rem] text-[12px]" : "min-h-[1.65rem] text-[12px]"
-        } flex items-center justify-center text-balance font-black leading-[1.02] tracking-[-0.03em] ${valueClassName}`}
+        className={`flex min-h-[1.65rem] items-center justify-center text-balance text-[12px] font-black leading-[1.02] tracking-[-0.03em] ${valueClassName}`}
       >
         {value}
       </p>
@@ -118,12 +116,6 @@ export default function InvestmentCard({
     safeToInvest,
     selectedType,
     amountStatus,
-    statOneLabel,
-    statOneValue,
-    statTwoLabel,
-    statTwoValue,
-    statThreeLabel,
-    statThreeValue,
   } = computed;
 
   const {
@@ -179,12 +171,6 @@ export default function InvestmentCard({
       value: canSafelyInvest ? "Ready" : "Wait",
       valueClassName: canSafelyInvest ? "text-emerald-300" : tone.value,
     },
-  ];
-
-  const detailTiles = [
-    [statOneLabel, statOneValue],
-    [statTwoLabel, statTwoValue],
-    [statThreeLabel, statThreeValue],
   ];
 
   const handleTypeSelect = (nextValue) => {
@@ -264,12 +250,6 @@ export default function InvestmentCard({
 
         {isExpanded && (
           <div className="mt-2.5 min-h-0 flex-1 space-y-2.5 overflow-y-auto overscroll-contain rounded-2xl border border-white/10 bg-black/15 p-2.5 pb-3 backdrop-blur-[2px] shadow-[inset_0_1px_0_rgba(255,255,255,0.05)] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-            <div className="grid grid-cols-3 gap-2 text-center text-sm text-white">
-              {detailTiles.map(([label, value]) => (
-                <InfoTile key={label} label={label} value={value} compact />
-              ))}
-            </div>
-
             <InvestmentTypePicker
               value={investmentType}
               label={selectedTypeOption?.label || selectedType}
