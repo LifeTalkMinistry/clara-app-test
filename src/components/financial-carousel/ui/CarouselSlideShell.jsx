@@ -11,7 +11,9 @@ export default function CarouselSlideShell({
   isExpanded = false,
   children,
 }) {
-  const usesTallExpandedLayout = item?.key === "wallet" || item?.key === "budget";
+  const usesTallExpandedLayout =
+    item?.key === "wallet" || item?.key === "budget" || item?.key === "emergency";
+
   const expandedHeight = usesTallExpandedLayout
     ? WALLET_EXPANDED_SLIDE_HEIGHT
     : EXPANDED_SLIDE_HEIGHT;
