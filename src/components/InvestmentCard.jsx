@@ -6,11 +6,90 @@ import useInvestmentCardLogic, {
   fmt,
 } from "@/components/financial-carousel/cards/investment/logic/useInvestmentCardLogic";
 
-const tileClass =
-  "rounded-2xl border border-white/10 bg-white/[0.045] px-2.5 py-2.5 text-center shadow-[inset_0_1px_0_rgba(255,255,255,0.06)] backdrop-blur-sm";
+const glassTile =
+  "rounded-2xl border border-white/10 bg-white/[0.045] text-center shadow-[inset_0_1px_0_rgba(255,255,255,0.06)] backdrop-blur-sm";
 
 const inputClass =
   "w-full rounded-2xl border border-white/10 bg-black/25 px-3 py-2.5 text-sm font-semibold text-white outline-none transition placeholder:text-white/35";
+
+function InfoTile({ label, value, valueClassName = "text-white/92", compact = false }) {
+  return (
+    <div className={`${glassTile} ${compact ? "px-2 py-2" : "px-2.5 py-2.5"}`}>
+      <p
+        className={`${
+          compact ? "min-h-[1.55rem] text-[12px]" : "min-h-[1.65rem] text-[12px]"
+        } flex items-center justify-center text-balance font-black leading-[1.02] tracking-[-0.03em] ${valueClassName}`}
+      >
+        {value}
+      </p>
+      <p className="mt-1.5 text-[8px] font-black uppercase tracking-[0.18em] text-white/42">
+        {label}
+      </p>
+    </div>
+  );
+}
+
+function InvestmentTypePicker({
+  value,
+  label,
+  tone,
+  open,
+  onToggle,
+  onSelect,
+  pickerRef,
+}) {
+  return (
+    <div ref={pickerRef}>
+      <label className="mb-1.5 block text-[10px] font-semibold uppercase tracking-[0.16em] text-white/55">
+        Investment type
+      </label>
+
+      <button
+        type="button"
+        onClick={onToggle}
+        className={`${inputClass} ${tone.focus} flex items-center justify-between gap-3 text-left shadow-[inset_0_1px_0_rgba(255,255,255,0.06)] hover:bg-white/[0.055]`}
+        aria-haspopup="listbox"
+        aria-expanded={open}
+      >
+        <span className="truncate">{label}</span>
+        <ChevronDown
+          className={`h-4 w-4 shrink-0 text-white/62 transition-transform duration-200 ${
+            open ? "rotate-180" : ""
+          }`}
+        />
+      </button>
+
+      {open && (
+        <div
+          role="listbox"
+          className="mt-2 overflow-hidden rounded-2xl border border-white/12 bg-slate-950/95 p-1.5 shadow-[0_18px_46px_rgba(0,0,0,0.48),inset_0_1px_0_rgba(255,255,255,0.06)] backdrop-blur-2xl"
+        >
+          {INVESTMENT_TYPES.map((type) => {
+            const selected = type.value === value;
+
+            return (
+              <button
+                key={type.value}
+                type="button"
+                role="option"
+                aria-selected={selected}
+                onClick={() => onSelect(type.value)}
+                className={`flex w-full items-center justify-between gap-3 rounded-xl px-3 py-2.5 text-left text-sm font-semibold transition ${
+                  selected
+                    ? "bg-cyan-400/14 text-cyan-100 shadow-[inset_0_1px_0_rgba(255,255,255,0.07)]"
+                    : "text-white/76 hover:bg-white/[0.075] hover:text-white"
+                }`}
+              >
+                <span>{type.label}</span>
+                {selected && <Check className="h-4 w-4 text-cyan-200" />}
+              </button>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
 
 export default function InvestmentCard({
   item = null,
@@ -65,9 +144,7 @@ export default function InvestmentCard({
     };
 
     const handleKeyDown = (event) => {
-      if (event.key === "Escape") {
-        setTypePickerOpen(false);
-      }
+      if (event.key === "Escape") setTypePickerOpen(false);
     };
 
     document.addEventListener("pointerdown", handlePointerDown);
@@ -80,10 +157,12 @@ export default function InvestmentCard({
   }, [typePickerOpen]);
 
   useEffect(() => {
-    if (!isExpanded) {
-      setTypePickerOpen(false);
-    }
+    if (!isExpanded) setTypePickerOpen(false);
   }, [isExpanded]);
+
+  const selectedTypeOption =
+    INVESTMENT_TYPES.find((type) => type.value === investmentType) ||
+    INVESTMENT_TYPES[0];
 
   const summaryTiles = [
     {
@@ -102,12 +181,14 @@ export default function InvestmentCard({
     },
   ];
 
-  const selectedTypeOption =
-    INVESTMENT_TYPES.find((type) => type.value === investmentType) ||
-    INVESTMENT_TYPES[0];
+  const detailTiles = [
+    [statOneLabel, statOneValue],
+    [statTwoLabel, statTwoValue],
+    [statThreeLabel, statThreeValue],
+  ];
 
-  const handleTypeSelect = (value) => {
-    setInvestmentType(value);
+  const handleTypeSelect = (nextValue) => {
+    setInvestmentType(nextValue);
     setTypePickerOpen(false);
   };
 
@@ -122,9 +203,9 @@ export default function InvestmentCard({
       <div className="pointer-events-none absolute inset-0 rounded-[inherit] ring-1 ring-inset ring-white/10" />
 
       <div className="relative z-10 flex h-full min-h-0 flex-col p-4 pb-4">
-        <div className="flex min-h-0 flex-col gap-3">
+        <div className="flex min-h-0 flex-col gap-2.5">
           <div className="min-h-0">
-            <div className="mb-3 flex items-start gap-3">
+            <div className="mb-2.5 flex items-start gap-3">
               <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border backdrop-blur-sm ${tone.iconShell}`}>
                 <TrendingUp className={`h-4 w-4 ${tone.icon}`} />
               </div>
@@ -147,25 +228,23 @@ export default function InvestmentCard({
               </div>
             </div>
 
-            <div className="mb-3">
-              <p className={`text-[32px] font-bold leading-none tracking-[-0.04em] ${tone.value}`}>
+            <div className="mb-2.5">
+              <p className={`text-[31px] font-bold leading-none tracking-[-0.04em] ${tone.value}`}>
                 {mainLabel}
               </p>
-              <p className="mt-2 text-sm font-semibold leading-tight text-white/82">
+              <p className="mt-1.5 text-sm font-semibold leading-tight text-white/82">
                 {canSafelyInvest ? "Safe amount you may plan." : "Build protection first."}
               </p>
             </div>
 
             <div className="mb-1 grid grid-cols-3 gap-2">
               {summaryTiles.map((tile) => (
-                <div key={tile.label} className={tileClass}>
-                  <p className={`truncate text-[13px] font-black leading-none tracking-[-0.025em] ${tile.valueClassName || "text-white/92"}`}>
-                    {tile.value}
-                  </p>
-                  <p className="mt-1.5 text-[8px] font-black uppercase tracking-[0.18em] text-white/42">
-                    {tile.label}
-                  </p>
-                </div>
+                <InfoTile
+                  key={tile.label}
+                  label={tile.label}
+                  value={tile.value}
+                  valueClassName={tile.valueClassName}
+                />
               ))}
             </div>
           </div>
@@ -174,7 +253,7 @@ export default function InvestmentCard({
             <button
               type="button"
               onClick={handleToggleDetails}
-              className="flex w-full items-center justify-between rounded-2xl border border-white/10 bg-white/[0.055] px-3 py-3 text-sm font-medium text-white/85 shadow-[inset_0_1px_0_rgba(255,255,255,0.06)] backdrop-blur-sm transition hover:bg-white/10"
+              className="flex w-full items-center justify-between rounded-2xl border border-white/10 bg-white/[0.055] px-3 py-2.5 text-sm font-medium text-white/85 shadow-[inset_0_1px_0_rgba(255,255,255,0.06)] backdrop-blur-sm transition hover:bg-white/10"
               aria-expanded={isExpanded}
             >
               <span>{isExpanded ? "Hide details" : "Show details"}</span>
@@ -184,71 +263,22 @@ export default function InvestmentCard({
         </div>
 
         {isExpanded && (
-          <div className="mt-3 min-h-0 flex-1 space-y-3 overflow-y-auto rounded-2xl border border-white/10 bg-black/15 p-3 backdrop-blur-[2px] shadow-[inset_0_1px_0_rgba(255,255,255,0.05)] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+          <div className="mt-2.5 min-h-0 flex-1 space-y-2.5 overflow-y-auto overscroll-contain rounded-2xl border border-white/10 bg-black/15 p-2.5 pb-3 backdrop-blur-[2px] shadow-[inset_0_1px_0_rgba(255,255,255,0.05)] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
             <div className="grid grid-cols-3 gap-2 text-center text-sm text-white">
-              {[
-                [statOneLabel, statOneValue],
-                [statTwoLabel, statTwoValue],
-                [statThreeLabel, statThreeValue],
-              ].map(([label, value]) => (
-                <div key={label} className="rounded-2xl border border-white/10 bg-black/20 px-2.5 py-2.5">
-                  <p className="mb-1 text-[10px] font-semibold uppercase tracking-[0.16em] text-white/70">
-                    {label}
-                  </p>
-                  <p className="truncate text-sm font-bold text-white">{value}</p>
-                </div>
+              {detailTiles.map(([label, value]) => (
+                <InfoTile key={label} label={label} value={value} compact />
               ))}
             </div>
 
-            <div ref={typePickerRef}>
-              <label className="mb-1.5 block text-[10px] font-semibold uppercase tracking-[0.16em] text-white/55">
-                Investment type
-              </label>
-
-              <button
-                type="button"
-                onClick={() => setTypePickerOpen((value) => !value)}
-                className={`${inputClass} ${tone.focus} flex items-center justify-between gap-3 text-left shadow-[inset_0_1px_0_rgba(255,255,255,0.06)] hover:bg-white/[0.055]`}
-                aria-haspopup="listbox"
-                aria-expanded={typePickerOpen}
-              >
-                <span className="truncate">{selectedTypeOption?.label || selectedType}</span>
-                <ChevronDown
-                  className={`h-4 w-4 shrink-0 text-white/62 transition-transform duration-200 ${
-                    typePickerOpen ? "rotate-180" : ""
-                  }`}
-                />
-              </button>
-
-              {typePickerOpen && (
-                <div
-                  role="listbox"
-                  className="mt-2 overflow-hidden rounded-2xl border border-white/12 bg-slate-950/95 p-1.5 shadow-[0_18px_46px_rgba(0,0,0,0.48),inset_0_1px_0_rgba(255,255,255,0.06)] backdrop-blur-2xl"
-                >
-                  {INVESTMENT_TYPES.map((type) => {
-                    const selected = type.value === investmentType;
-
-                    return (
-                      <button
-                        key={type.value}
-                        type="button"
-                        role="option"
-                        aria-selected={selected}
-                        onClick={() => handleTypeSelect(type.value)}
-                        className={`flex w-full items-center justify-between gap-3 rounded-xl px-3 py-2.5 text-left text-sm font-semibold transition ${
-                          selected
-                            ? "bg-cyan-400/14 text-cyan-100 shadow-[inset_0_1px_0_rgba(255,255,255,0.07)]"
-                            : "text-white/76 hover:bg-white/[0.075] hover:text-white"
-                        }`}
-                      >
-                        <span>{type.label}</span>
-                        {selected && <Check className="h-4 w-4 text-cyan-200" />}
-                      </button>
-                    );
-                  })}
-                </div>
-              )}
-            </div>
+            <InvestmentTypePicker
+              value={investmentType}
+              label={selectedTypeOption?.label || selectedType}
+              tone={tone}
+              open={typePickerOpen}
+              onToggle={() => setTypePickerOpen((value) => !value)}
+              onSelect={handleTypeSelect}
+              pickerRef={typePickerRef}
+            />
 
             <div>
               <label className="mb-1.5 block text-[10px] font-semibold uppercase tracking-[0.16em] text-white/55">
@@ -267,15 +297,15 @@ export default function InvestmentCard({
               </p>
             </div>
 
-            <p className="rounded-2xl border border-white/10 bg-white/[0.045] px-3 py-2.5 text-xs font-medium leading-relaxed text-white/62">
+            <p className="rounded-2xl border border-white/10 bg-white/[0.045] px-3 py-2 text-xs font-medium leading-relaxed text-white/62">
               {description}
             </p>
 
-            <div className="grid grid-cols-2 gap-2">
+            <div className="grid grid-cols-2 gap-2 pb-0.5">
               <button
                 type="button"
                 onClick={handlePlanInvestment}
-                className={`flex items-center justify-center rounded-2xl border px-3 py-2.5 text-sm font-semibold ${tone.primaryButton}`}
+                className={`flex min-h-[42px] items-center justify-center rounded-2xl border px-3 py-2.5 text-sm font-semibold ${tone.primaryButton}`}
               >
                 Plan
               </button>
@@ -283,7 +313,7 @@ export default function InvestmentCard({
               <button
                 type="button"
                 onClick={handleAskClara}
-                className="flex items-center justify-center rounded-2xl border border-white/10 bg-white/5 px-3 py-2.5 text-sm font-semibold text-white/82 transition hover:bg-white/10 hover:text-white"
+                className="flex min-h-[42px] items-center justify-center rounded-2xl border border-white/10 bg-white/5 px-3 py-2.5 text-sm font-semibold text-white/82 transition hover:bg-white/10 hover:text-white"
               >
                 Ask CLARA
               </button>
