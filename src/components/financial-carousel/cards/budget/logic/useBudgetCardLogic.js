@@ -5,12 +5,168 @@ export const fmt = (n) =>
     style: "currency",
     currency: "PHP",
     minimumFractionDigits: 0,
+    maximumFractionDigits: 0,
   }).format(Number(n || 0));
 
 export const safeNumber = (value) => {
   const num = Number(value);
   return Number.isFinite(num) ? num : 0;
 };
+
+function toDateOnly(value) {
+  if (!value) return "";
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) return String(value).slice(0, 10);
+  return parsed.toISOString().slice(0, 10);
+}
+
+function todayKey() {
+  return new Date().toISOString().slice(0, 10);
+}
+
+function daysBetween(start, end) {
+  const startDate = new Date(`${start}T00:00:00`);
+  const endDate = new Date(`${end}T00:00:00`);
+  if (Number.isNaN(startDate.getTime()) || Number.isNaN(endDate.getTime())) return 0;
+  return Math.floor((endDate - startDate) / 86400000);
+}
+
+function getMonthRange(monthKey = "") {
+  const safeMonth = /^\d{4}-\d{2}$/.test(monthKey)
+    ? monthKey
+    : new Date().toISOString().slice(0, 7);
+  const [year, month] = safeMonth.split("-").map(Number);
+  const start = `${safeMonth}-01`;
+  const endDate = new Date(Date.UTC(year, month, 0));
+  const end = endDate.toISOString().slice(0, 10);
+  return { start, end };
+}
+
+function getCycleRange(activeBudget, monthKey) {
+  const fallback = getMonthRange(monthKey);
+  const start = toDateOnly(
+    activeBudget?.cycle_start ||
+      activeBudget?.budget_cycle_start ||
+      activeBudget?.period_start ||
+      activeBudget?.range_start ||
+      activeBudget?.monthRange?.start
+  );
+  const end = toDateOnly(
+    activeBudget?.cycle_end ||
+      activeBudget?.budget_cycle_end ||
+      activeBudget?.period_end ||
+      activeBudget?.range_end ||
+      activeBudget?.monthRange?.end
+  );
+
+  return {
+    start: start || fallback.start,
+    end: end || fallback.end,
+  };
+}
+
+function getCycleLabel(activeBudget) {
+  const raw = String(
+    activeBudget?.budget_cycle ||
+      activeBudget?.cycle_type ||
+      activeBudget?.budget_rhythm ||
+      activeBudget?.period_type ||
+      "monthly"
+  ).toLowerCase();
+
+  if (raw.includes("week") && !raw.includes("bi")) return "Weekly";
+  if (raw.includes("bi") || raw.includes("2")) return "Bi-weekly";
+  if (raw.includes("custom")) return "Custom";
+  return "Monthly";
+}
+
+function getPaceState({ declared, spent, remaining, activeBudget, monthKey }) {
+  const cycleRange = getCycleRange(activeBudget, monthKey);
+  const today = todayKey();
+  const totalDays = Math.max(daysBetween(cycleRange.start, cycleRange.end) + 1, 1);
+  const elapsedDays = Math.min(
+    Math.max(daysBetween(cycleRange.start, today) + 1, 1),
+    totalDays
+  );
+  const daysLeft = Math.max(daysBetween(today, cycleRange.end) + 1, 1);
+  const expectedSpend = declared > 0 ? (declared * elapsedDays) / totalDays : 0;
+  const paceRatio = expectedSpend > 0 ? (spent / expectedSpend) * 100 : 0;
+  const safeDailyPace = remaining > 0 ? remaining / daysLeft : 0;
+  const cycleLabel = getCycleLabel(activeBudget);
+
+  if (declared <= 0) {
+    return {
+      cycleLabel,
+      cycleRange,
+      totalDays,
+      elapsedDays,
+      daysLeft,
+      safeDailyPace,
+      paceRatio,
+      label: "No plan yet",
+      message: "Declare a budget to see your safe daily pace.",
+      tone: "border-white/10 bg-white/[0.04] text-white/70",
+      valueTone: "text-white/80",
+    };
+  }
+
+  if (paceRatio > 120) {
+    return {
+      cycleLabel,
+      cycleRange,
+      totalDays,
+      elapsedDays,
+      daysLeft,
+      safeDailyPace,
+      paceRatio,
+      label: "Fast pace",
+      message: "You are spending faster than this cycle allows.",
+      tone: "border-rose-300/20 bg-rose-500/10 text-rose-50",
+      valueTone: "text-rose-200",
+    };
+  }
+
+  if (paceRatio > 100) {
+    return {
+      cycleLabel,
+      cycleRange,
+      totalDays,
+      elapsedDays,
+      daysLeft,
+      safeDailyPace,
+      paceRatio,
+      label: "Slightly fast",
+      message: "You are a little ahead of your planned spending pace.",
+      tone: "border-amber-300/20 bg-amber-400/10 text-amber-50",
+      valueTone: "text-amber-200",
+    };
+  }
+
+  return {
+    cycleLabel,
+    cycleRange,
+    totalDays,
+    elapsedDays,
+    daysLeft,
+    safeDailyPace,
+    paceRatio,
+    label: "Sustainable",
+    message: "Your current pace is sustainable for this cycle.",
+    tone: "border-emerald-300/18 bg-emerald-400/10 text-emerald-50",
+    valueTone: "text-emerald-200",
+  };
+}
+
+function getCategoryRisk(category) {
+  const allocated = safeNumber(category?.allocated ?? category?.allocated_amount);
+  const spent = safeNumber(category?.spent ?? category?.spent_amount ?? category?.used);
+  const progress = allocated > 0 ? Math.min(999, (spent / allocated) * 100) : 0;
+
+  if (progress >= 100) return { level: 4, label: "Limit reached", tone: "rose" };
+  if (progress >= 85) return { level: 3, label: "Danger", tone: "orange" };
+  if (progress >= 60) return { level: 2, label: "Watch", tone: "amber" };
+  return { level: 1, label: "Healthy", tone: "emerald" };
+}
 
 export function getBudgetStatus(progress) {
   if (progress <= 50) {
@@ -65,13 +221,13 @@ export function getRemainingAmountColor(progress) {
 }
 
 export function getBudgetMessage(hasDeclaredBudget, hasCategories, progress, remaining) {
-  if (!hasDeclaredBudget) return "Declare this month’s spending amount first.";
+  if (!hasDeclaredBudget) return "Declare this cycle’s spending amount first.";
   if (!hasCategories) return "Now distribute your declared budget into categories.";
-  if (remaining <= 0) return "You’ve fully used this month’s allocated budget.";
-  if (progress <= 50) return "You still have strong room left this month.";
+  if (remaining <= 0) return "You’ve fully used this cycle’s allocated budget.";
+  if (progress <= 50) return "You still have strong room left this cycle.";
   if (progress <= 80) return "You’re doing fine. Just stay intentional from here.";
   if (progress < 100) return "You’re close to the limit. Spend carefully now.";
-  return "This monthly plan is already fully consumed.";
+  return "This budget cycle is already fully consumed.";
 }
 
 export default function useBudgetCardLogic({
@@ -83,7 +239,7 @@ export default function useBudgetCardLogic({
 } = {}) {
   const [showModal, setShowModal] = useState(false);
 
-  const categories = useMemo(
+  const rawCategories = useMemo(
     () =>
       Array.isArray(budgetCategories)
         ? budgetCategories
@@ -92,6 +248,24 @@ export default function useBudgetCardLogic({
           : [],
     [activeBudget?.categories, budgetCategories]
   );
+
+  const categories = useMemo(() => {
+    return [...rawCategories]
+      .map((item) => ({
+        ...item,
+        risk: getCategoryRisk(item),
+      }))
+      .sort((a, b) => {
+        const aAllocated = safeNumber(a?.allocated ?? a?.allocated_amount);
+        const bAllocated = safeNumber(b?.allocated ?? b?.allocated_amount);
+        const aSpent = safeNumber(a?.spent ?? a?.spent_amount ?? a?.used);
+        const bSpent = safeNumber(b?.spent ?? b?.spent_amount ?? b?.used);
+        const aPct = aAllocated > 0 ? aSpent / aAllocated : 0;
+        const bPct = bAllocated > 0 ? bSpent / bAllocated : 0;
+
+        return bPct - aPct || bSpent - aSpent;
+      });
+  }, [rawCategories]);
 
   const declared = safeNumber(
     declaredBudget ||
@@ -118,7 +292,7 @@ export default function useBudgetCardLogic({
   );
 
   const remaining = Math.max(
-    safeNumber(activeBudget?.remaining ?? activeBudget?.remaining_amount ?? allocated - spent),
+    safeNumber(activeBudget?.remaining ?? activeBudget?.remaining_amount ?? declared - spent),
     0
   );
 
@@ -128,8 +302,8 @@ export default function useBudgetCardLogic({
   );
 
   const progress = useMemo(
-    () => (allocated > 0 ? Math.min(100, (spent / allocated) * 100) : 0),
-    [spent, allocated]
+    () => (declared > 0 ? Math.min(100, (spent / declared) * 100) : allocated > 0 ? Math.min(100, (spent / allocated) * 100) : 0),
+    [spent, allocated, declared]
   );
 
   const hasDeclaredBudget = declared > 0;
@@ -142,7 +316,8 @@ export default function useBudgetCardLogic({
   const status = getBudgetStatus(progress);
   const message = getBudgetMessage(hasDeclaredBudget, hasCategories, progress, remaining);
   const remainingAmountColor = getRemainingAmountColor(progress);
-  const monthKey = activeBudget?.month || new Date().toISOString().slice(0, 7);
+  const monthKey = activeBudget?.month || activeBudget?.month_key || new Date().toISOString().slice(0, 7);
+  const budgetPace = getPaceState({ declared, spent, remaining, activeBudget, monthKey });
   const badgeLabel =
     normalizedBudgetStatus === "active"
       ? "Active"
@@ -169,5 +344,6 @@ export default function useBudgetCardLogic({
     remainingAmountColor,
     monthKey,
     badgeLabel,
+    budgetPace,
   };
 }
