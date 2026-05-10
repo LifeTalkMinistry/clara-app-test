@@ -52,60 +52,7 @@ export const getInvestmentToneClasses = (tone = "gold") => {
       "radial-gradient(circle at -16% -22%, rgba(20,184,166,0.22), transparent 46%), radial-gradient(circle at 69% 112%, rgba(99,102,241,0.20), transparent 58%), linear-gradient(135deg, rgba(6,48,66,0.98), rgba(7,20,48,0.96) 48%, rgba(37,13,74,0.96))",
   };
 
-  const toneMap = {
-    emerald: {
-      border: "border-emerald-300/20",
-      iconShell:
-        "border-emerald-300/25 bg-emerald-400/10 shadow-[0_0_18px_rgba(52,211,153,0.14)]",
-      icon: "text-emerald-200",
-      status:
-        "border-emerald-300/25 bg-emerald-500/15 text-emerald-200 shadow-[0_0_18px_rgba(52,211,153,0.12)]",
-      value: "text-emerald-200",
-      bar: "from-emerald-300 via-emerald-400 to-green-300",
-      accent: "bg-emerald-300/14",
-      focus: "focus:border-emerald-300/35",
-      primaryButton:
-        "border-emerald-300/25 bg-emerald-500/10 text-emerald-100 transition hover:bg-emerald-500/15",
-      background:
-        "radial-gradient(circle at -16% -22%, rgba(16,185,129,0.22), transparent 46%), radial-gradient(circle at 69% 112%, rgba(20,184,166,0.18), transparent 58%), linear-gradient(135deg, rgba(4,25,24,0.98), rgba(3,14,24,0.99))",
-    },
-    teal: {
-      border: "border-teal-300/20",
-      iconShell:
-        "border-teal-300/25 bg-teal-400/10 shadow-[0_0_18px_rgba(45,212,191,0.14)]",
-      icon: "text-teal-200",
-      status:
-        "border-teal-300/25 bg-teal-500/15 text-teal-200 shadow-[0_0_18px_rgba(45,212,191,0.12)]",
-      value: "text-teal-200",
-      bar: "from-teal-300 via-cyan-300 to-emerald-300",
-      accent: "bg-teal-300/14",
-      focus: "focus:border-teal-300/35",
-      primaryButton:
-        "border-teal-300/25 bg-teal-500/10 text-teal-100 transition hover:bg-teal-500/15",
-      background:
-        "radial-gradient(circle at -16% -22%, rgba(45,212,191,0.22), transparent 46%), radial-gradient(circle at 69% 112%, rgba(56,189,248,0.18), transparent 58%), linear-gradient(135deg, rgba(4,23,30,0.98), rgba(3,14,24,0.99))",
-    },
-    blue: claraInvestmentTone,
-    gold: claraInvestmentTone,
-    rose: {
-      border: "border-rose-300/20",
-      iconShell:
-        "border-rose-300/25 bg-rose-400/10 shadow-[0_0_18px_rgba(251,113,133,0.12)]",
-      icon: "text-rose-200",
-      status:
-        "border-rose-300/25 bg-rose-500/15 text-rose-200 shadow-[0_0_18px_rgba(251,113,133,0.10)]",
-      value: "text-rose-100",
-      bar: "from-rose-300 via-pink-300 to-violet-300",
-      accent: "bg-rose-300/14",
-      focus: "focus:border-rose-300/35",
-      primaryButton:
-        "border-rose-300/25 bg-rose-500/10 text-rose-100 transition hover:bg-rose-500/15",
-      background:
-        "radial-gradient(circle at -16% -22%, rgba(251,113,133,0.18), transparent 46%), radial-gradient(circle at 69% 112%, rgba(124,58,237,0.18), transparent 58%), linear-gradient(135deg, rgba(40,12,18,0.96), rgba(3,14,24,0.99))",
-    },
-  };
-
-  return toneMap[tone] || claraInvestmentTone;
+  return claraInvestmentTone;
 };
 
 const getDataValue = (data, keys, fallback = null) => {
@@ -165,6 +112,7 @@ export default function useInvestmentCardLogic({
       0
     )
   );
+
   const emergencyExpense = toNumber(
     getEmergencyValue(
       emergencyFund,
@@ -172,6 +120,7 @@ export default function useInvestmentCardLogic({
       0
     )
   );
+
   const emergencyTargetMonths = toNumber(
     getEmergencyValue(
       emergencyFund,
@@ -194,9 +143,11 @@ export default function useInvestmentCardLogic({
       0,
       toNumber(totalWalletBalance) - Math.max(emergencyTarget, emergencySaved)
     );
+
     const conservativeWalletShare = walletAfterProtection * 0.12;
     const conservativeLeftoverShare = monthlyLeftover * 0.4;
     const fallbackFromReadiness = Math.max(0, emergencySaved - emergencyTarget) * 0.12;
+
     const estimate = Math.max(
       0,
       Math.min(
@@ -210,6 +161,7 @@ export default function useInvestmentCardLogic({
 
   const plannedValue = toNumber(plannedAmount);
   const canSafelyInvest = emergencyReady && safeToInvest > 0;
+
   const readinessProgress = clampProgress(
     getDataValue(
       data,
@@ -221,9 +173,11 @@ export default function useInvestmentCardLogic({
           : 0
     )
   );
+
   const selectedType =
     INVESTMENT_TYPES.find((type) => type.value === investmentType)?.label ||
     "Business";
+
   const amountStatus =
     plannedValue > 0 && safeToInvest > 0
       ? plannedValue <= safeToInvest
@@ -234,24 +188,34 @@ export default function useInvestmentCardLogic({
         : emergencyReady
           ? "Add extra money before investing"
           : "Build protection first";
+
   const statusLabel =
-    data.statusLabel || data.ctaLabel || (canSafelyInvest ? "Ready" : emergencyReady ? "Protected" : "Not ready");
+    data.statusLabel ||
+    data.ctaLabel ||
+    (canSafelyInvest ? "Ready" : emergencyReady ? "Protected" : "Not ready");
+
   const mainLabel =
-    data.mainLabel || (canSafelyInvest ? `${fmt(safeToInvest)} safe to start` : emergencyReady ? "Protected" : "Not ready");
-  const description =
-    data.description ||
+    data.mainLabel ||
     (canSafelyInvest
-      ? "CLARA recommends this as a cautious starter amount, not your full available money. Your emergency fund stays protected."
+      ? `${fmt(safeToInvest)} safe to start`
       : emergencyReady
-        ? "Your emergency fund is protected. Add extra wallet room before investing so protection stays untouched."
-        : "Build your emergency fund first before investing.");
+        ? "Protected"
+        : "Not ready");
+
+  const description = canSafelyInvest
+    ? `You are doing great for prioritizing your emergency protection first. CLARA detected that you now have a safer amount you may slowly risk and potentially grow through investing or business.`
+    : emergencyReady
+      ? "Your protection is secured. Build a little more extra wallet room before taking investment risks."
+      : "Build your emergency protection first before risking money in investments.";
 
   const statOneLabel = data.statOneLabel || "Safe Range";
   const statOneValue = data.statOneValue || (canSafelyInvest ? fmt(safeToInvest) : "₱0");
   const statTwoLabel = data.statTwoLabel || "Type";
   const statTwoValue = data.statTwoValue || selectedType;
   const statThreeLabel = data.statThreeLabel || "Status";
-  const statThreeValue = data.statThreeValue || (canSafelyInvest ? "Ready" : emergencyReady ? "Protected" : "Not ready");
+  const statThreeValue =
+    data.statThreeValue ||
+    (canSafelyInvest ? "Ready" : emergencyReady ? "Protected" : "Not ready");
 
   const dispatchInvestmentPrompt = (prompt) => {
     if (typeof window === "undefined") return;
@@ -290,6 +254,7 @@ export default function useInvestmentCardLogic({
       onToggleDetails?.();
       return;
     }
+
     setLocalExpanded((value) => !value);
   };
 
