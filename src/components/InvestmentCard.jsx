@@ -6,18 +6,13 @@ import useInvestmentCardLogic, {
   fmt,
 } from "@/components/financial-carousel/cards/investment/logic/useInvestmentCardLogic";
 
-const glassTile =
-  "rounded-2xl border border-white/10 bg-white/[0.045] text-center shadow-[inset_0_1px_0_rgba(255,255,255,0.06)] backdrop-blur-sm";
-
 const inputClass =
   "w-full rounded-2xl border border-white/10 bg-black/25 px-3 py-2.5 text-sm font-semibold text-white outline-none transition placeholder:text-white/35";
 
-function InfoTile({ label, value, valueClassName = "text-white/92" }) {
+function SummaryTile({ label, value, valueClassName = "text-white/92" }) {
   return (
-    <div className={`${glassTile} px-2.5 py-2.5`}>
-      <p
-        className={`flex min-h-[1.65rem] items-center justify-center text-balance text-[12px] font-black leading-[1.02] tracking-[-0.03em] ${valueClassName}`}
-      >
+    <div className="rounded-2xl border border-white/10 bg-white/[0.045] px-2.5 py-2.5 text-center shadow-[inset_0_1px_0_rgba(255,255,255,0.06)] backdrop-blur-sm">
+      <p className={`flex min-h-[1.65rem] items-center justify-center text-balance text-[12px] font-black leading-[1.02] tracking-[-0.03em] ${valueClassName}`}>
         {value}
       </p>
       <p className="mt-1.5 text-[8px] font-black uppercase tracking-[0.18em] text-white/42">
@@ -27,15 +22,7 @@ function InfoTile({ label, value, valueClassName = "text-white/92" }) {
   );
 }
 
-function InvestmentTypePicker({
-  value,
-  label,
-  tone,
-  open,
-  onToggle,
-  onSelect,
-  pickerRef,
-}) {
+function InvestmentTypePicker({ value, label, tone, open, onToggle, onSelect, pickerRef }) {
   return (
     <div ref={pickerRef}>
       <label className="mb-1.5 block text-[10px] font-semibold uppercase tracking-[0.16em] text-white/55">
@@ -50,14 +37,10 @@ function InvestmentTypePicker({
         aria-expanded={open}
       >
         <span className="truncate">{label}</span>
-        <ChevronDown
-          className={`h-4 w-4 shrink-0 text-white/62 transition-transform duration-200 ${
-            open ? "rotate-180" : ""
-          }`}
-        />
+        <ChevronDown className={`h-4 w-4 shrink-0 text-white/62 transition-transform duration-200 ${open ? "rotate-180" : ""}`} />
       </button>
 
-      {open && (
+      {open ? (
         <div
           role="listbox"
           className="mt-2 overflow-hidden rounded-2xl border border-white/12 bg-slate-950/95 p-1.5 shadow-[0_18px_46px_rgba(0,0,0,0.48),inset_0_1px_0_rgba(255,255,255,0.06)] backdrop-blur-2xl"
@@ -79,21 +62,17 @@ function InvestmentTypePicker({
                 }`}
               >
                 <span>{type.label}</span>
-                {selected && <Check className="h-4 w-4 text-cyan-200" />}
+                {selected ? <Check className="h-4 w-4 text-cyan-200" /> : null}
               </button>
             );
           })}
         </div>
-      )}
+      ) : null}
     </div>
   );
 }
 
-export default function InvestmentCard({
-  item = null,
-  expanded = false,
-  onToggleDetails,
-}) {
+export default function InvestmentCard({ item = null, expanded = false, onToggleDetails }) {
   const { state, computed, handlers } = useInvestmentCardLogic({
     item,
     expanded,
@@ -104,7 +83,6 @@ export default function InvestmentCard({
   const [typePickerOpen, setTypePickerOpen] = useState(false);
 
   const { investmentType, plannedAmount, isExpanded } = state;
-
   const {
     tone,
     title,
@@ -117,7 +95,6 @@ export default function InvestmentCard({
     selectedType,
     amountStatus,
   } = computed;
-
   const {
     setInvestmentType,
     setPlannedAmount,
@@ -129,22 +106,19 @@ export default function InvestmentCard({
   useEffect(() => {
     if (!typePickerOpen) return undefined;
 
-    const handlePointerDown = (event) => {
-      if (!typePickerRef.current?.contains(event.target)) {
-        setTypePickerOpen(false);
-      }
+    const closeOnOutside = (event) => {
+      if (!typePickerRef.current?.contains(event.target)) setTypePickerOpen(false);
     };
-
-    const handleKeyDown = (event) => {
+    const closeOnEscape = (event) => {
       if (event.key === "Escape") setTypePickerOpen(false);
     };
 
-    document.addEventListener("pointerdown", handlePointerDown);
-    document.addEventListener("keydown", handleKeyDown);
+    document.addEventListener("pointerdown", closeOnOutside);
+    document.addEventListener("keydown", closeOnEscape);
 
     return () => {
-      document.removeEventListener("pointerdown", handlePointerDown);
-      document.removeEventListener("keydown", handleKeyDown);
+      document.removeEventListener("pointerdown", closeOnOutside);
+      document.removeEventListener("keydown", closeOnEscape);
     };
   }, [typePickerOpen]);
 
@@ -153,8 +127,7 @@ export default function InvestmentCard({
   }, [isExpanded]);
 
   const selectedTypeOption =
-    INVESTMENT_TYPES.find((type) => type.value === investmentType) ||
-    INVESTMENT_TYPES[0];
+    INVESTMENT_TYPES.find((type) => type.value === investmentType) || INVESTMENT_TYPES[0];
 
   const summaryTiles = [
     {
@@ -162,10 +135,7 @@ export default function InvestmentCard({
       value: canSafelyInvest ? fmt(safeToInvest) : "₱0",
       valueClassName: canSafelyInvest ? "text-emerald-300" : tone.value,
     },
-    {
-      label: "Type",
-      value: selectedType,
-    },
+    { label: "Type", value: selectedType },
     {
       label: "Status",
       value: canSafelyInvest ? "Ready" : "Wait",
@@ -173,15 +143,13 @@ export default function InvestmentCard({
     },
   ];
 
-  const handleTypeSelect = (nextValue) => {
+  const selectInvestmentType = (nextValue) => {
     setInvestmentType(nextValue);
     setTypePickerOpen(false);
   };
 
   return (
-    <div
-      className={`relative flex h-full min-h-[inherit] flex-col overflow-hidden rounded-3xl border text-white shadow-[0_22px_60px_rgba(0,0,0,0.38),0_0_34px_rgba(0,255,220,0.08),0_0_48px_rgba(126,34,206,0.10)] transition-all duration-200 ${tone.border}`}
-    >
+    <div className={`relative flex h-full min-h-[inherit] flex-col overflow-hidden rounded-3xl border text-white shadow-[0_22px_60px_rgba(0,0,0,0.38),0_0_34px_rgba(0,255,220,0.08),0_0_48px_rgba(126,34,206,0.10)] transition-all duration-200 ${tone.border}`}>
       <div className="absolute inset-0" style={{ background: tone.background }} />
       <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(16,185,129,0.20),transparent_31%),radial-gradient(circle_at_bottom_right,rgba(126,34,206,0.20),transparent_33%),linear-gradient(135deg,rgba(255,255,255,0.04)_0%,rgba(255,255,255,0.00)_38%,rgba(255,255,255,0.02)_100%)]" />
       <div className="pointer-events-none absolute inset-0 bg-gradient-to-b from-black/20 via-black/16 to-black/30" />
@@ -190,56 +158,65 @@ export default function InvestmentCard({
 
       <div className="relative z-10 flex h-full min-h-0 flex-col p-4 pb-4">
         <div className="flex min-h-0 flex-col gap-2.5">
-          <div className="min-h-0">
-            <div className="mb-2.5 flex items-start gap-3">
-              <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border backdrop-blur-sm ${tone.iconShell}`}>
-                <TrendingUp className={`h-4 w-4 ${tone.icon}`} />
-              </div>
-
-              <div className="min-w-0 flex-1">
-                <div className="flex items-start justify-between gap-2">
-                  <div className="min-w-0">
-                    <p className="text-base font-semibold tracking-tight text-white">
-                      {title}
-                    </p>
-                    <p className="mt-0.5 text-[11px] font-medium text-white/76">
-                      {subtitle || "Decide before you invest"}
-                    </p>
-                  </div>
-
-                  <span className={`shrink-0 rounded-full border px-2.5 py-1 text-[10px] font-semibold backdrop-blur-sm ${tone.status}`}>
-                    {statusLabel}
-                  </span>
-                </div>
-              </div>
-            </div>
-
-            <div className="mb-2.5">
+          {isExpanded ? (
+            <div className="shrink-0 pb-1">
               <p className={`text-[31px] font-bold leading-none tracking-[-0.04em] ${tone.value}`}>
                 {mainLabel}
               </p>
-              <p className="mt-1.5 text-sm font-semibold leading-tight text-white/82">
+              <p className="mt-2 text-sm font-semibold leading-tight text-white/82">
                 {canSafelyInvest ? "Safe amount you may plan." : "Build protection first."}
               </p>
             </div>
+          ) : (
+            <div className="min-h-0">
+              <div className="mb-2.5 flex items-start gap-3">
+                <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border backdrop-blur-sm ${tone.iconShell}`}>
+                  <TrendingUp className={`h-4 w-4 ${tone.icon}`} />
+                </div>
 
-            <div className="mb-1 grid grid-cols-3 gap-2">
-              {summaryTiles.map((tile) => (
-                <InfoTile
-                  key={tile.label}
-                  label={tile.label}
-                  value={tile.value}
-                  valueClassName={tile.valueClassName}
-                />
-              ))}
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="min-w-0">
+                      <p className="text-base font-semibold tracking-tight text-white">{title}</p>
+                      <p className="mt-0.5 text-[11px] font-medium text-white/76">
+                        {subtitle || "Decide before you invest"}
+                      </p>
+                    </div>
+
+                    <span className={`shrink-0 rounded-full border px-2.5 py-1 text-[10px] font-semibold backdrop-blur-sm ${tone.status}`}>
+                      {statusLabel}
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              <div className="mb-2.5">
+                <p className={`text-[31px] font-bold leading-none tracking-[-0.04em] ${tone.value}`}>
+                  {mainLabel}
+                </p>
+                <p className="mt-1.5 text-sm font-semibold leading-tight text-white/82">
+                  {canSafelyInvest ? "Safe amount you may plan." : "Build protection first."}
+                </p>
+              </div>
+
+              <div className="mb-1 grid grid-cols-3 gap-2">
+                {summaryTiles.map((tile) => (
+                  <SummaryTile
+                    key={tile.label}
+                    label={tile.label}
+                    value={tile.value}
+                    valueClassName={tile.valueClassName}
+                  />
+                ))}
+              </div>
             </div>
-          </div>
+          )}
 
-          <div className="shrink-0 border-t border-white/6 pt-2">
+          <div className="shrink-0 border-t border-white/6 pt-2.5">
             <button
               type="button"
               onClick={handleToggleDetails}
-              className="flex w-full items-center justify-between rounded-2xl border border-white/10 bg-white/[0.055] px-3 py-2.5 text-sm font-medium text-white/85 shadow-[inset_0_1px_0_rgba(255,255,255,0.06)] backdrop-blur-sm transition hover:bg-white/10"
+              className="flex w-full items-center justify-between rounded-2xl border border-white/10 bg-white/[0.055] px-3 py-3 text-sm font-medium text-white/85 shadow-[inset_0_1px_0_rgba(255,255,255,0.06)] backdrop-blur-sm transition hover:bg-white/10"
               aria-expanded={isExpanded}
             >
               <span>{isExpanded ? "Hide details" : "Show details"}</span>
@@ -248,15 +225,15 @@ export default function InvestmentCard({
           </div>
         </div>
 
-        {isExpanded && (
-          <div className="mt-2.5 min-h-0 flex-1 space-y-2.5 overflow-y-auto overscroll-contain rounded-2xl border border-white/10 bg-black/15 p-2.5 pb-3 backdrop-blur-[2px] shadow-[inset_0_1px_0_rgba(255,255,255,0.05)] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+        {isExpanded ? (
+          <div className="mt-4 min-h-0 flex-1 space-y-3.5 overflow-y-auto overscroll-contain rounded-2xl border border-white/10 bg-black/15 p-3.5 pb-5 backdrop-blur-[2px] shadow-[inset_0_1px_0_rgba(255,255,255,0.05)] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
             <InvestmentTypePicker
               value={investmentType}
               label={selectedTypeOption?.label || selectedType}
               tone={tone}
               open={typePickerOpen}
               onToggle={() => setTypePickerOpen((value) => !value)}
-              onSelect={handleTypeSelect}
+              onSelect={selectInvestmentType}
               pickerRef={typePickerRef}
             />
 
@@ -272,12 +249,10 @@ export default function InvestmentCard({
                 placeholder="0"
                 className={`${inputClass} ${tone.focus}`}
               />
-              <p className="mt-1.5 text-[11px] font-medium text-white/60">
-                {amountStatus}
-              </p>
+              <p className="mt-1.5 text-[11px] font-medium text-white/60">{amountStatus}</p>
             </div>
 
-            <p className="rounded-2xl border border-white/10 bg-white/[0.045] px-3 py-2 text-xs font-medium leading-relaxed text-white/62">
+            <p className="rounded-2xl border border-white/10 bg-white/[0.045] px-3 py-2.5 text-xs font-medium leading-relaxed text-white/62">
               {description}
             </p>
 
@@ -299,7 +274,7 @@ export default function InvestmentCard({
               </button>
             </div>
           </div>
-        )}
+        ) : null}
       </div>
     </div>
   );
