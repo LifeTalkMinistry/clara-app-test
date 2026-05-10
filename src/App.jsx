@@ -4,20 +4,13 @@ import { Toaster } from "sonner";
 
 import { useAuth } from "@/context/AuthContext";
 import ThemePicker from "@/components/ThemePicker";
-import { supabase } from "@/lib/supabaseClient";
 import useUserRole from "./hooks/useUserRole";
+import { deriveAccessState, resolveAppFlow } from "./lib/access-control";
 import {
-  deriveAccessState,
-  hasCompletedProgramOnboarding,
-  resolveAppFlow,
-} from "./lib/access-control";
-import {
-  buildAccessSnapshot,
   getAccessSnapshot,
   getOfflineFallbackFlow,
   isAccessNetworkOffline,
   isAccessSnapshotUsable,
-  saveAccessSnapshot,
 } from "./lib/offline-access-cache";
 import { FEATURE_ROUTE_MAP } from "./lib/plan-config";
 import Layout from "./components/Layout";
@@ -50,7 +43,6 @@ const Activation = lazy(() => import("./pages/Activation"));
 const UniversalOnboarding = lazy(() => import("./pages/onboarding/UniversalOnboarding"));
 const ProgramOnboarding = lazy(() => import("./pages/onboarding/ProgramOnboarding"));
 const PendingScreen = lazy(() => import("./pages/onboarding/PendingScreen"));
-const WelcomeBackTransition = lazy(() => import("./components/WelcomeBackTransition"));
 const AdminPanel = lazy(() => import("./pages/admin/AdminPanel"));
 const StudentProfile = lazy(() => import("./pages/admin/StudentProfile"));
 const AdminReferralMaterials = lazy(() => import("./pages/admin/AdminReferralMaterials"));
@@ -83,21 +75,26 @@ function getHomeRedirectPath({ isAdvertiser, flow, forceEnroll, offlineAccessAct
   return "/dashboard";
 }
 
-function GuardedRoute({ children, shouldForceEnroll = false, featureKey = "", isFeatureAvailable = () => true, path, offlineAccessActive = false }) {
+function GuardedRoute({
+  children,
+  shouldForceEnroll = false,
+  featureKey = "",
+  isFeatureAvailable = () => true,
+  path,
+  offlineAccessActive = false,
+}) {
   if (offlineAccessActive && path === "/dashboard") return children;
-  if (featureKey && !isFeatureAvailable(featureKey)) return <Navigate to="/enroll" replace state={{ from: path }} />;
-  if (shouldForceEnroll && !featureKey) return <Navigate to="/enroll" replace state={{ from: path }} />;
+  if (featureKey && !isFeatureAvailable(featureKey)) {
+    return <Navigate to="/enroll" replace state={{ from: path }} />;
+  }
+  if (shouldForceEnroll && !featureKey) {
+    return <Navigate to="/enroll" replace state={{ from: path }} />;
+  }
   return children;
 }
 
 function AdminRoute({ isAdmin, redirectTo = "/dashboard", children }) {
   return isAdmin ? children : <Navigate to={redirectTo} replace />;
-}
-
-function getLoginRedirectUrl() {
-  const base = import.meta.env.BASE_URL || "/";
-  const normalizedBase = base.endsWith("/") ? base : `${base}/`;
-  return `${window.location.origin}${normalizedBase}#/login`;
 }
 
 function isRecoveryAdminEmail(email) {
@@ -120,9 +117,8 @@ function AdminRescueButton({ show }) {
 function AppRoutes() {
   const location = useLocation();
   const isLoginRoute = location.pathname === "/login";
-  const { user, profile, loading, authReady, refreshProfile } = useAuth();
+  const { user, profile, loading, refreshProfile } = useAuth();
   const { role: normalizedRole, isFeatureAvailable, loading: roleLoading } = useUserRole();
-  const [forceLogoutProcessing, setForceLogoutProcessing] = useState(false);
   const [isOffline, setIsOffline] = useState(() => isAccessNetworkOffline());
   const [cachedAccessSnapshot, setCachedAccessSnapshot] = useState(() => getAccessSnapshot());
 
@@ -184,7 +180,10 @@ function AppRoutes() {
   const flow = useMemo(() => {
     if (!user || !profileReady) return "loading";
     if (offlineAccessActive) return offlineFallback.flow === "limited_offline" ? "normal" : "active";
-    return resolveAppFlow({ ...profile, role: isAdmin ? "admin" : profile?.role || normalizedRole || "user" });
+    return resolveAppFlow({
+      ...profile,
+      role: isAdmin ? "admin" : profile?.role || normalizedRole || "user",
+    });
   }, [user, profileReady, offlineAccessActive, offlineFallback.flow, profile, normalizedRole, isAdmin]);
 
   const forceEnroll = useMemo(() => {
@@ -231,13 +230,44 @@ function AppRoutes() {
               <Layout>
                 <Routes>
                   <Route path="/" element={<Navigate to={homeRedirectPath} replace />} />
+
+                  <Route path="/onboarding" element={<UniversalOnboarding />} />
+                  <Route path="/program-onboarding" element={<ProgramOnboarding />} />
+                  <Route path="/pending" element={<PendingScreen />} />
+                  <Route path="/enroll" element={<Enroll />} />
+                  <Route path="/tier-select" element={<TierSelect />} />
+                  <Route path="/activation" element={<Activation />} />
+                  <Route path="/advertiser" element={<AdvertiserDashboard />} />
+
                   <Route path="/dashboard" element={guard(<Dashboard />, "/dashboard")} />
-                  <Route path="/budget-plan" element={guard(<MonthlyBudgetPlan />, "/budget-plan")} />
+                  <Route path="/budget-plan" element={guard(<MonthlyBudgetPlan />, "/budget-plan", false, "/budgets")} />
+                  <Route path="/expenses" element={guard(<TransactionHub />, "/expenses")} />
+                  <Route path="/transactions" element={guard(<TransactionHub />, "/transactions", forceEnroll, "/expenses")} />
+                  <Route path="/add-funds" element={guard(<AddFunds />, "/add-funds")} />
                   <Route path="/wallets" element={guard(<Wallets />, "/wallets")} />
                   <Route path="/budgets" element={guard(<Budgets />, "/budgets")} />
+                  <Route path="/analytics" element={guard(<Analytics />, "/analytics")} />
+                  <Route path="/ai" element={guard(<AiInsights />, "/ai")} />
+                  <Route path="/modules" element={guard(<Modules />, "/modules")} />
+                  <Route path="/feed" element={guard(<Feed />, "/feed")} />
+                  <Route path="/people" element={guard(<ClaraPeople />, "/people", forceEnroll, "/community")} />
+                  <Route path="/users/:userId" element={guard(<UserProfile />, "/users/:userId", forceEnroll, "/community")} />
+                  <Route path="/community" element={guard(<Community />, "/community")} />
+                  <Route path="/messages" element={guard(<Messages />, "/messages")} />
+                  <Route path="/news" element={guard(<News />, "/news")} />
+                  <Route path="/referrals" element={guard(<Referrals />, "/referrals")} />
                   <Route path="/savings-goals" element={guard(<SavingsGoals />, "/savings-goals")} />
+
+                  <Route path="/settings" element={<Settings />} />
                   <Route path="/settings/:section" element={<Settings />} />
                   <Route path="/profile" element={<Profile />} />
+
+                  <Route path="/admin" element={admin(<AdminPanel />)} />
+                  <Route path="/admin/students/:studentId" element={admin(<StudentProfile />)} />
+                  <Route path="/admin/student/:studentId" element={admin(<StudentProfile />)} />
+                  <Route path="/admin/referral-materials" element={admin(<AdminReferralMaterials />)} />
+                  <Route path="/admin/daily-tips" element={admin(<AdminDailyTips />)} />
+
                   <Route path="*" element={<PageNotFound />} />
                 </Routes>
               </Layout>
