@@ -12,7 +12,9 @@ const inputClass =
 function SummaryTile({ label, value, valueClassName = "text-white/92" }) {
   return (
     <div className="rounded-2xl border border-white/10 bg-white/[0.045] px-2.5 py-2.5 text-center shadow-[inset_0_1px_0_rgba(255,255,255,0.06)] backdrop-blur-sm">
-      <p className={`flex min-h-[1.65rem] items-center justify-center text-balance text-[12px] font-black leading-[1.02] tracking-[-0.03em] ${valueClassName}`}>
+      <p
+        className={`flex min-h-[1.65rem] items-center justify-center text-balance text-[12px] font-black leading-[1.02] tracking-[-0.03em] ${valueClassName}`}
+      >
         {value}
       </p>
       <p className="mt-1.5 text-[8px] font-black uppercase tracking-[0.18em] text-white/42">
@@ -24,7 +26,7 @@ function SummaryTile({ label, value, valueClassName = "text-white/92" }) {
 
 function InvestmentTypePicker({ value, label, tone, open, onToggle, onSelect, pickerRef }) {
   return (
-    <div ref={pickerRef}>
+    <div ref={pickerRef} className="relative z-40">
       <label className="mb-1.5 block text-[10px] font-semibold uppercase tracking-[0.16em] text-white/55">
         Investment type
       </label>
@@ -32,18 +34,22 @@ function InvestmentTypePicker({ value, label, tone, open, onToggle, onSelect, pi
       <button
         type="button"
         onClick={onToggle}
-        className={`${inputClass} ${tone.focus} flex items-center justify-between gap-3 text-left shadow-[inset_0_1px_0_rgba(255,255,255,0.06)] hover:bg-white/[0.055]`}
+        className={`${inputClass} ${tone.focus} relative z-40 flex items-center justify-between gap-3 text-left shadow-[inset_0_1px_0_rgba(255,255,255,0.06)] hover:bg-white/[0.055]`}
         aria-haspopup="listbox"
         aria-expanded={open}
       >
         <span className="truncate">{label}</span>
-        <ChevronDown className={`h-4 w-4 shrink-0 text-white/62 transition-transform duration-200 ${open ? "rotate-180" : ""}`} />
+        <ChevronDown
+          className={`h-4 w-4 shrink-0 text-white/62 transition-transform duration-200 ${
+            open ? "rotate-180" : ""
+          }`}
+        />
       </button>
 
       {open ? (
         <div
           role="listbox"
-          className="mt-2 overflow-hidden rounded-2xl border border-white/12 bg-slate-950/95 p-1.5 shadow-[0_18px_46px_rgba(0,0,0,0.48),inset_0_1px_0_rgba(255,255,255,0.06)] backdrop-blur-2xl"
+          className="relative z-50 mt-2 overflow-hidden rounded-2xl border border-white/12 bg-slate-950/95 p-1.5 shadow-[0_22px_54px_rgba(0,0,0,0.52),inset_0_1px_0_rgba(255,255,255,0.06)] backdrop-blur-2xl"
         >
           {INVESTMENT_TYPES.map((type) => {
             const selected = type.value === value;
@@ -157,7 +163,7 @@ export default function InvestmentCard({ item = null, expanded = false, onToggle
       <div className="pointer-events-none absolute inset-0 rounded-[inherit] ring-1 ring-inset ring-white/10" />
 
       <div className="relative z-10 flex h-full min-h-0 flex-col p-4 pb-4">
-        <div className="flex min-h-0 flex-col gap-2.5">
+        <div className="relative z-30 flex shrink-0 flex-col gap-2.5">
           {isExpanded ? (
             <div className="shrink-0 pb-1">
               <p className={`text-[31px] font-bold leading-none tracking-[-0.04em] ${tone.value}`}>
@@ -212,11 +218,11 @@ export default function InvestmentCard({ item = null, expanded = false, onToggle
             </div>
           )}
 
-          <div className="shrink-0 border-t border-white/6 pt-2.5">
+          <div className="relative z-30 shrink-0 border-t border-white/6 pt-2.5">
             <button
               type="button"
               onClick={handleToggleDetails}
-              className="flex w-full items-center justify-between rounded-2xl border border-white/10 bg-white/[0.055] px-3 py-3 text-sm font-medium text-white/85 shadow-[inset_0_1px_0_rgba(255,255,255,0.06)] backdrop-blur-sm transition hover:bg-white/10"
+              className="relative z-30 flex w-full items-center justify-between rounded-2xl border border-white/10 bg-white/[0.055] px-3 py-3 text-sm font-medium text-white/85 shadow-[inset_0_1px_0_rgba(255,255,255,0.06)] backdrop-blur-sm transition hover:bg-white/10"
               aria-expanded={isExpanded}
             >
               <span>{isExpanded ? "Hide details" : "Show details"}</span>
@@ -226,7 +232,7 @@ export default function InvestmentCard({ item = null, expanded = false, onToggle
         </div>
 
         {isExpanded ? (
-          <div className="mt-4 min-h-0 flex-1 space-y-3.5 overflow-y-auto overscroll-contain rounded-2xl border border-white/10 bg-black/15 p-3.5 pb-5 backdrop-blur-[2px] shadow-[inset_0_1px_0_rgba(255,255,255,0.05)] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+          <div className="relative z-20 mt-5 min-h-0 flex-1 space-y-3.5 overflow-visible rounded-2xl border border-white/10 bg-black/15 p-3.5 pb-5 pt-4 backdrop-blur-[2px] shadow-[inset_0_1px_0_rgba(255,255,255,0.05)]">
             <InvestmentTypePicker
               value={investmentType}
               label={selectedTypeOption?.label || selectedType}
@@ -237,7 +243,7 @@ export default function InvestmentCard({ item = null, expanded = false, onToggle
               pickerRef={typePickerRef}
             />
 
-            <div>
+            <div className="relative z-10">
               <label className="mb-1.5 block text-[10px] font-semibold uppercase tracking-[0.16em] text-white/55">
                 Money to invest
               </label>
@@ -252,11 +258,11 @@ export default function InvestmentCard({ item = null, expanded = false, onToggle
               <p className="mt-1.5 text-[11px] font-medium text-white/60">{amountStatus}</p>
             </div>
 
-            <p className="rounded-2xl border border-white/10 bg-white/[0.045] px-3 py-2.5 text-xs font-medium leading-relaxed text-white/62">
+            <p className="relative z-10 rounded-2xl border border-white/10 bg-white/[0.045] px-3 py-2.5 text-xs font-medium leading-relaxed text-white/62">
               {description}
             </p>
 
-            <div className="grid grid-cols-2 gap-2 pb-0.5">
+            <div className="relative z-10 grid grid-cols-2 gap-2 pb-0.5">
               <button
                 type="button"
                 onClick={handlePlanInvestment}
