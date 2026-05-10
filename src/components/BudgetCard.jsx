@@ -1,5 +1,4 @@
 import useBudgetCardLogic from "@/components/financial-carousel/cards/budget/logic/useBudgetCardLogic";
-import BudgetActionModal from "@/components/financial-carousel/cards/budget/modal/BudgetActionModal";
 import BudgetCardContent from "@/components/financial-carousel/cards/budget/ui/BudgetCardContent";
 import FinanceCardShell from "@/components/financial-carousel/shared/FinanceCardShell";
 
@@ -24,11 +23,8 @@ export default function BudgetCard({
   onSaveBudget,
   onEditBudgetCategory,
   onDeleteBudgetCategory,
-  onResetBudget,
 }) {
   const {
-    showModal,
-    setShowModal,
     categories,
     declared,
     allocated,
@@ -52,50 +48,39 @@ export default function BudgetCard({
   });
 
   return (
-    <>
-      <BudgetActionModal
-        open={showModal}
-        onClose={() => setShowModal(false)}
-        activeBudget={activeBudget}
+    <FinanceCardShell
+      cardKey="budget"
+      expanded={expanded}
+      ringClass={status.ring}
+      roundedClass="rounded-3xl"
+      glowLayerClassNames={BUDGET_GLOW_LAYERS}
+      shadowClass="shadow-[0_22px_60px_rgba(0,0,0,0.38),0_0_34px_rgba(0,255,220,0.09),0_0_48px_rgba(126,34,206,0.10)]"
+    >
+      <BudgetCardContent
+        expanded={expanded}
+        onToggleDetails={onToggleDetails}
         financeActionLoading={financeActionLoading}
         onSaveBudget={onSaveBudget}
-        onResetBudget={onResetBudget}
+        onEditBudgetCategory={onEditBudgetCategory}
+        onDeleteBudgetCategory={onDeleteBudgetCategory}
+        categories={categories}
+        declared={declared}
+        allocated={allocated}
+        spent={spent}
+        remaining={remaining}
+        unallocated={unallocated}
+        progress={progress}
+        hasDeclaredBudget={hasDeclaredBudget}
+        planIsComplete={planIsComplete}
+        unplannedSpent={unplannedSpent}
+        undocumentedSpent={undocumentedSpent}
+        status={status}
+        message={message}
+        remainingAmountColor={remainingAmountColor}
+        monthKey={monthKey}
+        badgeLabel={badgeLabel}
+        openBudgetModal={onSaveBudget}
       />
-
-      <FinanceCardShell
-        cardKey="budget"
-        expanded={expanded}
-        ringClass={status.ring}
-        roundedClass="rounded-3xl"
-        glowLayerClassNames={BUDGET_GLOW_LAYERS}
-        shadowClass="shadow-[0_22px_60px_rgba(0,0,0,0.38),0_0_34px_rgba(0,255,220,0.09),0_0_48px_rgba(126,34,206,0.10)]"
-      >
-        <BudgetCardContent
-          expanded={expanded}
-          onToggleDetails={onToggleDetails}
-          financeActionLoading={financeActionLoading}
-          onSaveBudget={onSaveBudget}
-          onEditBudgetCategory={onEditBudgetCategory}
-          onDeleteBudgetCategory={onDeleteBudgetCategory}
-          categories={categories}
-          declared={declared}
-          allocated={allocated}
-          spent={spent}
-          remaining={remaining}
-          unallocated={unallocated}
-          progress={progress}
-          hasDeclaredBudget={hasDeclaredBudget}
-          planIsComplete={planIsComplete}
-          unplannedSpent={unplannedSpent}
-          undocumentedSpent={undocumentedSpent}
-          status={status}
-          message={message}
-          remainingAmountColor={remainingAmountColor}
-          monthKey={monthKey}
-          badgeLabel={badgeLabel}
-          openBudgetModal={() => setShowModal(true)}
-        />
-      </FinanceCardShell>
-    </>
+    </FinanceCardShell>
   );
 }
