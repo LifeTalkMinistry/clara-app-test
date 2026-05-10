@@ -1,4 +1,4 @@
-import { Edit3, Plus } from "lucide-react";
+import { ChevronDown, Edit3, Plus } from "lucide-react";
 import BudgetHeader from "@/components/financial-carousel/cards/budget/ui/BudgetHeader";
 import BudgetSummaryStats from "@/components/financial-carousel/cards/budget/ui/BudgetSummaryStats";
 import FinanceCardExpandButton from "@/components/financial-carousel/shared/FinanceCardExpandButton";
@@ -173,11 +173,13 @@ export default function BudgetCardContent({
             Manage Budget
           </button>
 
-          <div className="rounded-2xl border border-white/10 bg-white/[0.028] p-3">
-            <p className="mb-2 text-[10px] font-semibold uppercase tracking-[0.16em] text-white/48">
-              Budget diagnostics
-            </p>
-            <div className="grid grid-cols-2 gap-2 text-center text-sm text-white">
+          <details className="group rounded-2xl border border-white/10 bg-white/[0.028] p-3">
+            <summary className="flex cursor-pointer list-none items-center justify-between gap-3 text-[10px] font-semibold uppercase tracking-[0.16em] text-white/48 outline-none transition group-open:text-white/72">
+              <span>Budget diagnostics</span>
+              <ChevronDown className="h-3.5 w-3.5 transition-transform group-open:rotate-180" />
+            </summary>
+
+            <div className="mt-3 grid grid-cols-2 gap-2 text-center text-sm text-white">
               {quietMetrics.map(([label, value]) => (
                 <div key={label} className="rounded-2xl border border-white/10 bg-white/[0.035] px-2.5 py-2.5">
                   <p className="mb-1 text-[9px] font-semibold uppercase tracking-[0.14em] text-white/42">
@@ -187,7 +189,7 @@ export default function BudgetCardContent({
                 </div>
               ))}
             </div>
-          </div>
+          </details>
 
           <div aria-hidden="true" className="h-3 shrink-0" />
         </FinanceCardExpandedPanel>
