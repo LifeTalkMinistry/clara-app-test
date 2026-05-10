@@ -149,6 +149,11 @@ export default function InvestmentCard({ item = null, expanded = false, onToggle
     },
   ];
 
+  const explanationTitle = canSafelyInvest ? "Why this amount?" : "Why not yet?";
+  const explanationText = canSafelyInvest
+    ? `Based on your budget flow, wallet money, and secured emergency fund, CLARA treats ${fmt(safeToInvest)} as a cautious starter range — not your full available money. You can use it now, let it grow, or ask CLARA to think through your business or investment idea.`
+    : "CLARA will suggest a starter range after your emergency protection is secured and there is extra wallet room beyond it.";
+
   const selectInvestmentType = (nextValue) => {
     setInvestmentType(nextValue);
     setTypePickerOpen(false);
@@ -233,6 +238,18 @@ export default function InvestmentCard({ item = null, expanded = false, onToggle
 
         {isExpanded ? (
           <div className="relative z-20 mt-5 min-h-0 flex-1 space-y-3.5 overflow-visible rounded-2xl border border-white/10 bg-black/15 p-3.5 pb-5 pt-4 backdrop-blur-[2px] shadow-[inset_0_1px_0_rgba(255,255,255,0.05)]">
+            <div className="relative z-10 overflow-hidden rounded-2xl border border-cyan-300/18 bg-cyan-400/[0.075] px-3.5 py-3.5 shadow-[inset_0_1px_0_rgba(255,255,255,0.06)]">
+              <p className="text-[10px] font-black uppercase tracking-[0.16em] text-cyan-100/60">
+                {explanationTitle}
+              </p>
+              <p className="mt-2 text-[12.5px] font-semibold leading-6 text-white/76">
+                {explanationText}
+              </p>
+              <p className="mt-2 text-[11px] font-medium leading-5 text-white/45">
+                CLARA can help you think, but for major money decisions, consider asking a qualified professional.
+              </p>
+            </div>
+
             <InvestmentTypePicker
               value={investmentType}
               label={selectedTypeOption?.label || selectedType}
