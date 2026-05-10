@@ -53,7 +53,7 @@ const financialSummaryInertHandlers = {
 
 const bubbleSurface = {
   background:
-    "radial-gradient(circle at -18% -30%, rgba(20,184,166,0.30) 0%, rgba(20,184,166,0.14) 25%, rgba(20,184,166,0.04) 42%, transparent 58%), radial-gradient(circle at 77% 118%, rgba(99,102,241,0.22) 0%, rgba(79,70,229,0.14) 34%, rgba(88,28,135,0.08) 50%, transparent 68%), linear-gradient(135deg, rgba(6,48,66,0.98), rgba(7,20,48,0.96) 48%, rgba(37,13,74,0.96))",
+    "radial-gradient(circle at -18% -30%, rgba(20,184,166,0.30) 0%, rgba(20,184,166,0.14) 25%, rgba(20,184,166,0.04) 42%, transparent 58%), radial-gradient(circle at 77% 118%, rgba(99,102,241,0.22), rgba(79,70,229,0.14) 34%, rgba(88,28,135,0.08) 50%, transparent 68%), linear-gradient(135deg, rgba(6,48,66,0.98), rgba(7,20,48,0.96) 48%, rgba(37,13,74,0.96))",
 };
 
 const moneyCellSurface = {
@@ -113,7 +113,7 @@ export default function DashboardMoneySummary({
         onPointerUp={(event) => event.stopPropagation()}
         onMouseUp={(event) => event.stopPropagation()}
         onTouchEnd={(event) => event.stopPropagation()}
-        className="absolute right-2.5 top-2.5 z-50 flex h-7 w-7 items-center justify-center rounded-full border border-cyan-100/15 bg-white/[0.075] text-white/65 transition hover:bg-white/[0.12] hover:text-white/90 active:scale-95"
+        className="absolute right-2.5 top-2.5 z-50 flex h-7 w-7 items-center justify-center rounded-full border border-cyan-100/15 bg-white/[0.075] text-white/65 transition hover:bg-white/[0.12] active:scale-95"
         aria-label={
           moneySummaryVisible
             ? "Hide financial summary amounts"
@@ -129,8 +129,8 @@ export default function DashboardMoneySummary({
       </button>
 
       <div
-        {...moneyLeftSummaryHandlers}
-        aria-label="Double tap Total Money Left to open Transaction Hub"
+        {...financialSummaryInertHandlers}
+        aria-label="Total Money Left — non-clickable display only"
         data-clara-summary-card="money-left"
         className={`pointer-events-auto relative isolate z-10 cursor-default overflow-hidden ${
           dashboardScale.summaryCell || "min-h-[110px] p-[clamp(14px,3.6vw,17px)]"
@@ -142,7 +142,7 @@ export default function DashboardMoneySummary({
         }}
       >
         <div
-          {...moneyLeftSummaryHandlers}
+          {...financialSummaryInertHandlers}
           aria-hidden="true"
           className="absolute inset-0 z-30 cursor-default bg-transparent"
           style={{
