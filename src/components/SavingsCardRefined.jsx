@@ -89,6 +89,7 @@ function buildNextStepCopy({ goals = [], mainGoal = null, saved = 0, target = 0 
       message:
         "Choose one real-life target first. Savings becomes easier when the money has a name, a reason, and a finish line.",
       cta: "Create Goal",
+      ctaMode: "create",
     };
   }
 
@@ -102,8 +103,9 @@ function buildNextStepCopy({ goals = [], mainGoal = null, saved = 0, target = 0 
     return {
       title: `Set a target for ${focusTitle}`,
       message:
-        "This goal needs a clear target amount. Once the amount is set, CLARA can help you track progress and protect it from random spending.",
-      cta: "Set Target",
+        "Review this goal first, then tap Edit to give it a clear target amount. CLARA can protect the goal better once it has a finish line.",
+      cta: "Review Goal",
+      ctaMode: "review",
     };
   }
 
@@ -111,16 +113,21 @@ function buildNextStepCopy({ goals = [], mainGoal = null, saved = 0, target = 0 
     return {
       title: `${focusTitle} is complete`,
       message:
-        "This goal is fully funded. Keep it protected or create your next goal when you are ready to build again.",
-      cta: "Open Goals",
+        "This goal is fully funded. Review it, keep it protected, or create your next goal when you are ready to build again.",
+      cta: "Review Goal",
+      ctaMode: "review",
     };
   }
 
   const totalRemaining = Math.max(target - saved, 0);
+
   return {
     title: `Focus on ${focusTitle}`,
-    message: `You need ${fmt(focusRemaining)} more for this goal${totalRemaining > focusRemaining ? ` and ${fmt(totalRemaining)} across all goals` : ""}. Open the goal and add savings intentionally when your wallet has room.`,
-    cta: "Open Goal",
+    message: `You need ${fmt(focusRemaining)} more for this goal${
+      totalRemaining > focusRemaining ? ` and ${fmt(totalRemaining)} across all goals` : ""
+    }. Review the goal first, then add savings from its action panel when your wallet has room.`,
+    cta: "Review Goal",
+    ctaMode: "review",
   };
 }
 
@@ -139,21 +146,30 @@ export default function SavingsCardRefined({
   theme = null,
 }) {
   const navigate = useNavigate();
+
   const goals = Array.isArray(savingsGoals)
     ? savingsGoals.filter((goal) => goal && !goal.deleted_at && !goal.deletedAt)
     : [];
 
   const computedSaved = goals.reduce((sum, goal) => sum + getSaved(goal), 0);
   const computedTarget = goals.reduce((sum, goal) => sum + getTarget(goal), 0);
+
   const saved = safeNumber(totalSavingsSaved) || computedSaved;
   const target = safeNumber(totalSavingsTarget) || computedTarget;
   const progress = target > 0 ? Math.min(100, Math.round((saved / target) * 100)) : 0;
+
   const status = getGoalStatus(progress, goals.length);
   const mainGoal = primarySavingsGoal || goals[0] || null;
   const isLight = theme?.isLight === true;
   const savingsStage = getSavingsStage({ goalCount: goals.length, progress });
   const remainingTotal = Math.max(target - saved, 0);
-  const { title: nextStepTitle, message: nextStepMessage, cta } = buildNextStepCopy({
+
+  const {
+    title: nextStepTitle,
+    message: nextStepMessage,
+    cta,
+    ctaMode,
+  } = buildNextStepCopy({
     goals,
     mainGoal,
     saved,
@@ -222,7 +238,11 @@ export default function SavingsCardRefined({
               <p className={`text-[32px] font-bold leading-none tracking-[-0.04em] ${status.text}`}>
                 {fmt(saved)}
               </p>
-              <p className={`mt-2.5 text-sm font-semibold leading-relaxed ${isLight ? "text-slate-800" : "text-white/82"}`}>
+              <p
+                className={`mt-2.5 text-sm font-semibold leading-relaxed ${
+                  isLight ? "text-slate-800" : "text-white/82"
+                }`}
+              >
                 Saved toward your goals.
               </p>
             </div>
@@ -236,15 +256,25 @@ export default function SavingsCardRefined({
                 <div className="min-w-0 flex-1">
                   <div className="flex items-start justify-between gap-2">
                     <div className="min-w-0">
-                      <p className={`text-base font-semibold tracking-tight ${isLight ? "text-slate-950" : "text-white"}`}>
+                      <p
+                        className={`text-base font-semibold tracking-tight ${
+                          isLight ? "text-slate-950" : "text-white"
+                        }`}
+                      >
                         Savings Goals
                       </p>
-                      <p className={`mt-0.5 text-[11px] font-medium ${isLight ? "text-slate-700" : "text-white/76"}`}>
+                      <p
+                        className={`mt-0.5 text-[11px] font-medium ${
+                          isLight ? "text-slate-700" : "text-white/76"
+                        }`}
+                      >
                         Dedicated money for goals
                       </p>
                     </div>
 
-                    <span className={`shrink-0 rounded-full border px-2.5 py-1 text-[10px] font-semibold backdrop-blur-sm ${status.badge}`}>
+                    <span
+                      className={`shrink-0 rounded-full border px-2.5 py-1 text-[10px] font-semibold backdrop-blur-sm ${status.badge}`}
+                    >
                       {goals.length ? `${goals.length} Goal${goals.length > 1 ? "s" : ""}` : "No Goals"}
                     </span>
                   </div>
@@ -255,7 +285,11 @@ export default function SavingsCardRefined({
                 <p className={`text-[32px] font-bold leading-none tracking-[-0.04em] ${status.text}`}>
                   {fmt(saved)}
                 </p>
-                <p className={`mt-2 text-sm font-semibold leading-tight ${isLight ? "text-slate-800" : "text-white/82"}`}>
+                <p
+                  className={`mt-2 text-sm font-semibold leading-tight ${
+                    isLight ? "text-slate-800" : "text-white/82"
+                  }`}
+                >
                   Saved toward your goals.
                 </p>
               </div>
@@ -263,7 +297,11 @@ export default function SavingsCardRefined({
               <div className="mb-1 grid grid-cols-3 gap-2">
                 {summaryTiles.map((tile) => (
                   <div key={tile.label} className={tileClass}>
-                    <p className={`truncate text-[13px] font-black leading-none tracking-[-0.025em] ${tile.valueClassName || "text-white/92"}`}>
+                    <p
+                      className={`truncate text-[13px] font-black leading-none tracking-[-0.025em] ${
+                        tile.valueClassName || "text-white/92"
+                      }`}
+                    >
                       {tile.value}
                     </p>
                     <p className="mt-1.5 text-[8px] font-black uppercase tracking-[0.18em] text-white/42">
@@ -300,12 +338,14 @@ export default function SavingsCardRefined({
               <p className="relative mt-3 text-[12.5px] font-semibold leading-6 text-white/74">
                 {nextStepMessage}
               </p>
+
               <button
                 type="button"
                 onClick={() => openSavingsGoals()}
-                className="relative mt-4 inline-flex w-full items-center justify-center gap-2 rounded-2xl border border-emerald-300/25 bg-emerald-400/15 px-4 py-3 text-sm font-black text-emerald-100 shadow-[0_0_18px_rgba(52,211,153,0.10)] transition hover:bg-emerald-400/22"
+                aria-label={cta}
+                className="relative mt-4 inline-flex w-full items-center justify-center gap-2 rounded-2xl border border-emerald-300/25 bg-emerald-400/15 px-4 py-3 text-sm font-black text-emerald-100 shadow-[0_0_18px_rgba(52,211,153,0.10)] transition hover:bg-emerald-400/22 focus:outline-none focus:ring-2 focus:ring-emerald-300/35"
               >
-                <Plus className="h-4 w-4" />
+                {ctaMode === "create" ? <Plus className="h-4 w-4" /> : <Target className="h-4 w-4" />}
                 {cta}
               </button>
             </div>
@@ -316,17 +356,16 @@ export default function SavingsCardRefined({
                   <span className="text-[10px] font-black uppercase tracking-[0.16em] text-white/36">
                     Starter ideas
                   </span>
-                  <span className="text-[11px] font-black text-cyan-200">
-                    Pick one
-                  </span>
+                  <span className="text-[11px] font-black text-cyan-200">Pick one</span>
                 </div>
+
                 <div className="grid grid-cols-2 gap-2">
                   {starterIdeas.map((idea) => (
                     <button
                       key={idea}
                       type="button"
                       onClick={() => openSavingsGoals(idea)}
-                      className="rounded-xl border border-white/8 bg-white/[0.035] px-3 py-2.5 text-left text-[12px] font-black text-white/82 transition hover:bg-white/[0.065]"
+                      className="rounded-xl border border-white/8 bg-white/[0.035] px-3 py-2.5 text-left text-[12px] font-black text-white/82 transition hover:bg-white/[0.065] focus:outline-none focus:ring-2 focus:ring-cyan-300/25"
                     >
                       {idea}
                       <span className="mt-1 block text-[10px] font-semibold text-white/38">
@@ -350,11 +389,15 @@ export default function SavingsCardRefined({
                 <div className="grid grid-cols-2 gap-2.5 text-[12px] font-semibold text-white/60">
                   <div className="rounded-xl border border-white/8 bg-white/[0.025] px-3 py-3">
                     <p className="text-white/36">Remaining</p>
-                    <p className="mt-1.5 text-sm font-black text-white/90">{fmt(remainingTotal)}</p>
+                    <p className="mt-1.5 text-sm font-black text-white/90">
+                      {fmt(remainingTotal)}
+                    </p>
                   </div>
                   <div className="rounded-xl border border-white/8 bg-white/[0.025] px-3 py-3">
                     <p className="text-white/36">Total target</p>
-                    <p className="mt-1.5 text-sm font-black text-white/90">{fmt(target)}</p>
+                    <p className="mt-1.5 text-sm font-black text-white/90">
+                      {fmt(target)}
+                    </p>
                   </div>
                 </div>
               </div>
@@ -364,7 +407,9 @@ export default function SavingsCardRefined({
               <div className="rounded-2xl border border-white/8 bg-white/[0.035] p-3.5">
                 <div className="flex items-center justify-between gap-3">
                   <div className="min-w-0">
-                    <p className="truncate text-sm font-black text-white">{getTitle(mainGoal)}</p>
+                    <p className="truncate text-sm font-black text-white">
+                      {getTitle(mainGoal)}
+                    </p>
                     <p className="mt-1.5 text-xs font-semibold leading-relaxed text-white/56">
                       {fmt(getSaved(mainGoal))} saved of {fmt(getTarget(mainGoal))}
                     </p>
