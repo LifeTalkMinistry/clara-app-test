@@ -100,10 +100,7 @@ export const getCarouselData = ({
       title: "Investment Fund",
       amount: 0,
       subtitle: "Decide before you invest.",
-      description:
-        "Build your emergency fund first before investing.",
-      ctaLabel: "Coming soon",
-      state: "comingSoon",
+      state: "ready",
     },
 
     debtObligations: {
