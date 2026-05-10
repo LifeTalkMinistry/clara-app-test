@@ -15,6 +15,60 @@ const getSafetyStage = ({ effectiveExpense, amountNeeded, pct, statusLabel }) =>
   return "Getting started";
 };
 
+const getIncomeStabilityLabel = (stability) => {
+  if (stability === "stable") return "stable income pattern";
+  if (stability === "mixed") return "slightly changing income pattern";
+  if (stability === "irregular") return "irregular income pattern";
+  return "limited income history";
+};
+
+function buildNextStepCopy({
+  effectiveExpense,
+  amountNeeded,
+  targetLabel,
+  emergencyAdvisor,
+}) {
+  if (effectiveExpense <= 0) {
+    return {
+      title: "Set your monthly survival cost",
+      message: "CLARA needs your monthly survival cost before it can calculate a realistic emergency target.",
+    };
+  }
+
+  if (amountNeeded <= 0) {
+    return {
+      title: "Goal reached",
+      message: `You reached ${targetLabel}. Keep this fund protected and avoid using it for non-emergencies.`,
+    };
+  }
+
+  const advisor = emergencyAdvisor || {};
+  const hasIncomeSignal = advisor.hasIncomeSignal === true;
+  const recommendedMonthlyAmount = Number(advisor.recommendedMonthlyAmount || 0);
+  const averageMonthlyIncome = Number(advisor.averageMonthlyIncome || 0);
+  const estimatedMonthsToTarget = Number(advisor.estimatedMonthsToTarget || 0);
+  const stabilityLabel = getIncomeStabilityLabel(advisor.stability);
+
+  if (hasIncomeSignal && recommendedMonthlyAmount > 0) {
+    return {
+      title: `You need ${fmt(amountNeeded)} more`,
+      message: `Based on your last 90-day average income of ${fmt(averageMonthlyIncome)}/month and your ${stabilityLabel}, CLARA suggests around ${fmt(recommendedMonthlyAmount)}/month to reach ${targetLabel}${estimatedMonthsToTarget > 0 ? ` in about ${estimatedMonthsToTarget} month${estimatedMonthsToTarget === 1 ? "" : "s"}` : ""}.`,
+    };
+  }
+
+  if (hasIncomeSignal && recommendedMonthlyAmount <= 0) {
+    return {
+      title: `You need ${fmt(amountNeeded)} more`,
+      message: `Based on your last 90-day average income of ${fmt(averageMonthlyIncome)}/month, CLARA does not want to force a fixed amount yet. Add a small amount intentionally when your wallet has breathing room.`,
+    };
+  }
+
+  return {
+    title: `You need ${fmt(amountNeeded)} more`,
+    message: `CLARA needs more income history before suggesting a precise monthly amount. For now, add funds intentionally when possible; your emergency balance only grows when you tap Add Fund.`,
+  };
+}
+
 export default function EmergencyFundCard({
   moneyLeft = 0,
   survivalExpense = 0,
@@ -51,6 +105,7 @@ export default function EmergencyFundCard({
     status,
     milestone,
     themeClasses,
+    emergencyAdvisor,
   } = computed;
   const {
     setEditing,
@@ -62,7 +117,6 @@ export default function EmergencyFundCard({
 
   const coverageLabel = effectiveExpense > 0 ? `${months.toFixed(1)} months` : "Set expense";
   const amountNeeded = Math.max(target - safeMoneyLeft, 0);
-  const suggestedMonthlyTopUp = amountNeeded > 0 ? Math.ceil(amountNeeded / 6) : 0;
   const targetLabel = milestone?.label || `${targetMonths}-Month Safety`;
   const safetyStage = getSafetyStage({
     effectiveExpense,
@@ -70,18 +124,12 @@ export default function EmergencyFundCard({
     pct,
     statusLabel: status.label,
   });
-  const nextStepTitle =
-    effectiveExpense <= 0
-      ? "Set your monthly survival cost"
-      : amountNeeded > 0
-        ? `You need ${fmt(amountNeeded)} more`
-        : "Goal reached";
-  const nextStepMessage =
-    effectiveExpense <= 0
-      ? "CLARA needs your monthly survival cost to calculate your emergency target."
-      : amountNeeded > 0
-        ? `Add around ${fmt(suggestedMonthlyTopUp)}/month to reach ${targetLabel} in 6 months.`
-        : `You reached ${targetLabel}. Keep this fund protected and avoid using it for non-emergencies.`;
+  const { title: nextStepTitle, message: nextStepMessage } = buildNextStepCopy({
+    effectiveExpense,
+    amountNeeded,
+    targetLabel,
+    emergencyAdvisor,
+  });
 
   const summaryTiles = [
     { label: "Saved", value: fmt(safeMoneyLeft), valueClassName: status.text },
