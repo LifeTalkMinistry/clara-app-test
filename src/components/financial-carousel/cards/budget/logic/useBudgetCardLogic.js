@@ -1,5 +1,30 @@
 import { useMemo, useState } from "react";
 
+const PH_TIME_ZONE = "Asia/Manila";
+
+function formatDateKeyInPH(value = new Date()) {
+  const date = value instanceof Date ? value : new Date(value);
+
+  if (Number.isNaN(date.getTime())) return "";
+
+  const parts = new Intl.DateTimeFormat("en-US", {
+    timeZone: PH_TIME_ZONE,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).formatToParts(date);
+
+  const year = parts.find((part) => part.type === "year")?.value || "";
+  const month = parts.find((part) => part.type === "month")?.value || "";
+  const day = parts.find((part) => part.type === "day")?.value || "";
+
+  return year && month && day ? `${year}-${month}-${day}` : "";
+}
+
+function getPHMonthKey(value = new Date()) {
+  return formatDateKeyInPH(value).slice(0, 7);
+}
+
 export const fmt = (n) =>
   new Intl.NumberFormat("en-PH", {
     style: "currency",
@@ -15,13 +40,19 @@ export const safeNumber = (value) => {
 
 function toDateOnly(value) {
   if (!value) return "";
+
+  const raw = String(value).trim();
+  const dateOnly = raw.match(/^(\d{4}-\d{2}-\d{2})/);
+  if (dateOnly) return dateOnly[1];
+
   const parsed = new Date(value);
-  if (Number.isNaN(parsed.getTime())) return String(value).slice(0, 10);
-  return parsed.toISOString().slice(0, 10);
+  if (Number.isNaN(parsed.getTime())) return raw.slice(0, 10);
+
+  return formatDateKeyInPH(parsed);
 }
 
 function todayKey() {
-  return new Date().toISOString().slice(0, 10);
+  return formatDateKeyInPH(new Date());
 }
 
 function daysBetween(start, end) {
@@ -34,11 +65,11 @@ function daysBetween(start, end) {
 function getMonthRange(monthKey = "") {
   const safeMonth = /^\d{4}-\d{2}$/.test(monthKey)
     ? monthKey
-    : new Date().toISOString().slice(0, 7);
+    : getPHMonthKey();
   const [year, month] = safeMonth.split("-").map(Number);
   const start = `${safeMonth}-01`;
-  const endDate = new Date(Date.UTC(year, month, 0));
-  const end = endDate.toISOString().slice(0, 10);
+  const lastDay = new Date(year, month, 0).getDate();
+  const end = `${safeMonth}-${String(lastDay).padStart(2, "0")}`;
   return { start, end };
 }
 
@@ -316,7 +347,7 @@ export default function useBudgetCardLogic({
   const status = getBudgetStatus(progress);
   const message = getBudgetMessage(hasDeclaredBudget, hasCategories, progress, remaining);
   const remainingAmountColor = getRemainingAmountColor(progress);
-  const monthKey = activeBudget?.month || activeBudget?.month_key || new Date().toISOString().slice(0, 7);
+  const monthKey = activeBudget?.month || activeBudget?.month_key || getPHMonthKey();
   const budgetPace = getPaceState({ declared, spent, remaining, activeBudget, monthKey });
   const badgeLabel =
     normalizedBudgetStatus === "active"
