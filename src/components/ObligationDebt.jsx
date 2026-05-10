@@ -40,7 +40,6 @@ export default function ObligationDebt({
     smartFeedback,
     monthlyLeftover,
     payoffMonths,
-    description,
   } = computed;
 
   const {
@@ -92,9 +91,9 @@ export default function ObligationDebt({
       <div className="pointer-events-none absolute bottom-[-135px] right-[-92px] h-[230px] w-[230px] rounded-full bg-violet-400/[0.09] blur-3xl" />
       <div className="pointer-events-none absolute inset-0 rounded-[inherit] ring-1 ring-inset ring-white/10" />
 
-      <div className="relative z-10 flex h-full min-h-0 flex-col p-4 pb-4">
-        <div className="flex min-h-0 flex-col gap-3">
-          <div className="min-h-0">
+      <div className="relative z-10 flex h-full flex-col p-4 pb-4">
+        <div className="flex flex-col gap-3">
+          <div>
             <div className="mb-3 flex items-start gap-3">
               <div
                 className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border backdrop-blur-sm ${tone.iconShell}`}
@@ -163,7 +162,7 @@ export default function ObligationDebt({
         </div>
 
         {isExpanded && (
-          <div className="mt-3 min-h-0 flex-1 space-y-3 overflow-y-auto rounded-2xl border border-white/10 bg-black/15 p-3 backdrop-blur-[2px] shadow-[inset_0_1px_0_rgba(255,255,255,0.05)] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+          <div className="mt-3 space-y-3 rounded-2xl border border-white/10 bg-black/15 p-3 pb-6 backdrop-blur-[2px] shadow-[inset_0_1px_0_rgba(255,255,255,0.05)]">
             <div className="grid grid-cols-3 gap-2 text-center text-sm text-white">
               <div className="rounded-2xl border border-white/10 bg-black/20 px-2.5 py-2.5">
                 <p className="mb-1 text-[10px] font-semibold uppercase tracking-[0.16em] text-white/70">
@@ -191,103 +190,6 @@ export default function ObligationDebt({
                   {riskLevel}
                 </p>
               </div>
-            </div>
-
-            <div>
-              <label className="mb-1.5 block text-[10px] font-semibold uppercase tracking-[0.16em] text-white/55">
-                Debt type
-              </label>
-              <select
-                value={debtType}
-                onChange={(event) => setDebtType(event.target.value)}
-                className={inputClass}
-              >
-                {DEBT_TYPES.map((type) => (
-                  <option
-                    key={type.value}
-                    value={type.value}
-                    className="bg-slate-950"
-                  >
-                    {type.label}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            <div className="grid grid-cols-2 gap-2">
-              <div>
-                <label className="mb-1.5 block text-[10px] font-semibold uppercase tracking-[0.16em] text-white/55">
-                  Total debt
-                </label>
-                <input
-                  type="number"
-                  min="0"
-                  value={totalDebtInput}
-                  onChange={(event) => setTotalDebtInput(event.target.value)}
-                  placeholder="0"
-                  className={inputClass}
-                />
-              </div>
-
-              <div>
-                <label className="mb-1.5 block text-[10px] font-semibold uppercase tracking-[0.16em] text-white/55">
-                  Monthly payment
-                </label>
-                <input
-                  type="number"
-                  min="0"
-                  value={monthlyDebtInput}
-                  onChange={(event) => setMonthlyDebtInput(event.target.value)}
-                  placeholder="0"
-                  className={inputClass}
-                />
-              </div>
-            </div>
-
-            <div>
-              <label className="mb-1.5 block text-[10px] font-semibold uppercase tracking-[0.16em] text-white/55">
-                Interest rate
-              </label>
-              <input
-                type="number"
-                min="0"
-                value={interestInput}
-                onChange={(event) => setInterestInput(event.target.value)}
-                placeholder="Optional"
-                className={inputClass}
-              />
-
-              <p className="mt-1.5 text-[11px] font-medium text-white/60">
-                {smartFeedback}
-                {payoffMonths > 0
-                  ? ` • Around ${payoffMonths} month${payoffMonths === 1 ? "" : "s"} remaining.`
-                  : ""}
-              </p>
-            </div>
-
-            <div className="rounded-2xl border border-white/10 bg-white/[0.045] px-3 py-2.5 text-[11px] font-medium leading-relaxed text-white/70">
-              Remaining after expenses:{" "}
-              <span className="font-semibold text-white">
-                {fmt(monthlyLeftover)}
-              </span>
-            </div>
-
-            <div className="grid grid-cols-2 gap-2">
-              <button
-                type="button"
-                onClick={handlePlanPayoff}
-                className="flex items-center justify-center rounded-2xl border border-cyan-300/25 bg-cyan-400/10 px-3 py-2.5 text-sm font-semibold text-cyan-100 transition hover:bg-cyan-400/15"
-              >
-                Plan payoff
-              </button>
-
-              <button
-                type="button"
-                onClick={handleAskClara}
-                className="flex items-center justify-center rounded-2xl border border-white/10 bg-white/5 px-3 py-2.5 text-sm font-semibold text-white/82 transition hover:bg-white/10 hover:text-white"
-              >
-                Ask CLARA
-              </button>
             </div>
           </div>
         )}
