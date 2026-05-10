@@ -47,7 +47,7 @@ export default function WalletCardContent({
             />
           </div>
 
-          <div className='shrink-0 border-t border-white/6 pt-2'>
+          <div className='mt-1 shrink-0 border-t border-white/6 pt-2'>
             <FinanceCardExpandButton
               detailKey='wallets'
               expanded={expanded}
