@@ -78,6 +78,7 @@ const PROFILE_FIELDS = [
 function getInitials(value = "") {
   const clean = String(value || "").trim();
   if (!clean) return "ME";
+
   return clean
     .split(/\s+/)
     .slice(0, 2)
@@ -118,23 +119,11 @@ function readProfile(user) {
 
   try {
     const latest = window.localStorage.getItem(getStorageKey(user));
-    const legacy = window.localStorage.getItem(
-      `clara_me_profile_v3_${user?.id || user?.email || "guest"}`
-    ) || window.localStorage.getItem(
-      `clara_me_profile_v2_${user?.id || user?.email || "guest"}`
-    );
-
-    const parsed = latest || legacy ? JSON.parse(latest || legacy) : {};
+    const parsed = latest ? JSON.parse(latest) : {};
 
     return {
       ...DEFAULT_ME_PROFILE,
-      personality: parsed.personality || parsed.spendingStyle || DEFAULT_ME_PROFILE.personality,
-      status: parsed.status || DEFAULT_ME_PROFILE.status,
-      age: parsed.age || DEFAULT_ME_PROFILE.age,
-      dependents: parsed.dependents || DEFAULT_ME_PROFILE.dependents,
-      responsibility: parsed.responsibility || DEFAULT_ME_PROFILE.responsibility,
-      incomeRhythm: parsed.incomeRhythm || DEFAULT_ME_PROFILE.incomeRhythm,
-      coachingStyle: parsed.coachingStyle || parsed.strictness || DEFAULT_ME_PROFILE.coachingStyle,
+      ...parsed,
     };
   } catch {
     return DEFAULT_ME_PROFILE;
@@ -167,63 +156,21 @@ function ChoiceButton({ active, children, onClick }) {
   );
 }
 
-function ProfileRow({ field, value, active, onClick }) {
-  const Icon = field.icon;
-
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      className={`group w-full rounded-[22px] border px-4 py-3.5 text-left transition active:scale-[0.99] ${
-        active
-          ? "border-emerald-300/25 bg-emerald-300/[0.075]"
-          : "border-white/12 bg-white/[0.035] hover:bg-white/[0.055]"
-      }`}
-    >
-      <div className="flex items-center gap-3">
-        <div
-          className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl border ${
-            active
-              ? "border-emerald-300/25 bg-emerald-300/12 text-emerald-100"
-              : "border-white/12 bg-white/[0.055] text-white/58"
-          }`}
-        >
-          <Icon className="h-4.5 w-4.5" />
-        </div>
-
-        <div className="min-w-0 flex-1">
-          <p className="truncate text-sm font-black text-white">{field.label}</p>
-          <p className="mt-1 truncate text-xs font-semibold text-emerald-100/68">
-            {value || "Not set"}
-          </p>
-        </div>
-
-        <ChevronRight
-          className={`h-4 w-4 shrink-0 transition ${
-            active ? "rotate-90 text-emerald-100/70" : "text-white/25 group-hover:text-white/50"
-          }`}
-        />
-      </div>
-    </button>
-  );
-}
-
-function FieldEditor({ field, profile, onChange, onClose }) {
+function InlineEditor({ field, value, onChange, onClose }) {
   if (!field) return null;
 
   return (
-    <section className="rounded-[24px] border border-emerald-300/18 bg-white/[0.035] p-4">
+    <div className="mt-2 rounded-[20px] border border-emerald-300/16 bg-white/[0.03] p-4">
       <div className="flex items-start justify-between gap-3">
         <div>
           <p className="text-sm font-black text-white">{field.label}</p>
-          <p className="mt-1 text-xs leading-5 text-white/45">{field.helper}</p>
+          <p className="mt-1 text-xs text-white/45">{field.helper}</p>
         </div>
 
         <button
           type="button"
           onClick={onClose}
-          className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-white/12 bg-white/[0.055] text-white/55"
-          aria-label="Close Me setup"
+          className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-white/12 bg-white/[0.05] text-white/55"
         >
           <X className="h-4 w-4" />
         </button>
@@ -231,7 +178,7 @@ function FieldEditor({ field, profile, onChange, onClose }) {
 
       {field.input === "number" ? (
         <input
-          value={profile[field.key] || ""}
+          value={value || ""}
           onChange={(event) => onChange(field.key, event.target.value)}
           inputMode="numeric"
           type="number"
@@ -245,7 +192,7 @@ function FieldEditor({ field, profile, onChange, onClose }) {
           {field.options.map((option) => (
             <ChoiceButton
               key={option}
-              active={profile[field.key] === option}
+              active={value === option}
               onClick={() => onChange(field.key, option)}
             >
               {option}
@@ -254,10 +201,62 @@ function FieldEditor({ field, profile, onChange, onClose }) {
         </div>
       )}
 
-      <p className="mt-4 rounded-2xl border border-white/10 bg-black/10 px-3 py-2.5 text-xs font-semibold text-white/45">
+      <p className="mt-4 text-[11px] font-semibold text-white/40">
         Saved for CLARA's personal setup.
       </p>
-    </section>
+    </div>
+  );
+}
+
+function ProfileRow({ field, value, active, onClick, onChange, onClose }) {
+  const Icon = field.icon;
+
+  return (
+    <div>
+      <button
+        type="button"
+        onClick={onClick}
+        className={`group w-full rounded-[22px] border px-4 py-3.5 text-left transition active:scale-[0.99] ${
+          active
+            ? "border-emerald-300/25 bg-emerald-300/[0.075]"
+            : "border-white/12 bg-white/[0.035] hover:bg-white/[0.055]"
+        }`}
+      >
+        <div className="flex items-center gap-3">
+          <div
+            className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl border ${
+              active
+                ? "border-emerald-300/25 bg-emerald-300/12 text-emerald-100"
+                : "border-white/12 bg-white/[0.055] text-white/58"
+            }`}
+          >
+            <Icon className="h-4.5 w-4.5" />
+          </div>
+
+          <div className="min-w-0 flex-1">
+            <p className="truncate text-sm font-black text-white">{field.label}</p>
+            <p className="mt-1 truncate text-xs font-semibold text-emerald-100/68">
+              {value || "Not set"}
+            </p>
+          </div>
+
+          <ChevronRight
+            className={`h-4 w-4 shrink-0 transition ${
+              active ? "rotate-90 text-emerald-100/70" : "text-white/25 group-hover:text-white/50"
+            }`}
+          />
+        </div>
+      </button>
+
+      {active ? (
+        <InlineEditor
+          field={field}
+          value={value}
+          onChange={onChange}
+          onClose={onClose}
+        />
+      ) : null}
+    </div>
   );
 }
 
@@ -267,6 +266,7 @@ export default function DashboardMePanel() {
   const email = user?.email || "Private account";
   const initials = getInitials(displayName);
   const planLabel = getPlanLabel({ plan, isPaid, isFree });
+
   const [activeKey, setActiveKey] = useState(null);
   const [profile, setProfile] = useState(() => readProfile(user));
 
@@ -278,10 +278,11 @@ export default function DashboardMePanel() {
     saveProfile(user, profile);
   }, [profile, user]);
 
-  const activeField = PROFILE_FIELDS.find((field) => field.key === activeKey) || null;
-
   const updateProfile = (key, value) => {
-    setProfile((current) => ({ ...current, [key]: value }));
+    setProfile((current) => ({
+      ...current,
+      [key]: value,
+    }));
   };
 
   return (
@@ -299,7 +300,9 @@ export default function DashboardMePanel() {
                 {planLabel}
               </span>
             </div>
+
             <p className="mt-1 truncate text-xs text-white/52">{email}</p>
+
             <p className="mt-1 truncate text-[11px] font-bold text-emerald-100/58">
               {profile.personality} • {profile.status}
             </p>
@@ -308,6 +311,7 @@ export default function DashboardMePanel() {
 
         <div className="mt-4 rounded-[22px] border border-white/10 bg-black/10 px-4 py-3">
           <p className="text-sm font-black text-white">Tell CLARA the basics.</p>
+
           <p className="mt-1 text-xs leading-5 text-white/52">
             Simple details only. LifeOS will handle schedules, plans, and ambitions.
           </p>
@@ -319,6 +323,7 @@ export default function DashboardMePanel() {
           <p className="text-[11px] font-black uppercase tracking-[0.18em] text-white/35">
             Basic profile
           </p>
+
           <p className="mt-1 text-xs text-white/42">Tap any row to edit.</p>
         </div>
 
@@ -330,25 +335,22 @@ export default function DashboardMePanel() {
               value={profile[field.key]}
               active={activeKey === field.key}
               onClick={() => setActiveKey((current) => (current === field.key ? null : field.key))}
+              onChange={updateProfile}
+              onClose={() => setActiveKey(null)}
             />
           ))}
         </div>
       </section>
-
-      <FieldEditor
-        field={activeField}
-        profile={profile}
-        onChange={updateProfile}
-        onClose={() => setActiveKey(null)}
-      />
 
       <section className="rounded-[24px] border border-white/10 bg-white/[0.03] p-4">
         <div className="flex items-start gap-3">
           <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl border border-white/12 bg-white/[0.045] text-white/55">
             <PiggyBank className="h-4 w-4" />
           </div>
+
           <div className="min-w-0 flex-1">
             <p className="text-sm font-black text-white">Why CLARA asks</p>
+
             <p className="mt-1 text-xs leading-5 text-white/45">
               The same purchase can mean different things depending on your age, status, income rhythm, and responsibilities.
             </p>
