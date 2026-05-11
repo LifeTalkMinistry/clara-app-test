@@ -1,19 +1,17 @@
 import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import {
-  BarChart3,
-  CalendarDays,
   Clock3,
-  CreditCard,
-  ListChecks,
   Lock,
   Settings,
   Target,
-  UserRound,
   WalletCards,
 } from "lucide-react";
 
+import LifeOSAreas from "../components/lifeos/LifeOSAreas";
+import LifeOSCalendar from "../components/lifeos/LifeOSCalendar";
 import LifeOSDashboard from "../components/lifeos/LifeOSDashboard";
+import LifeOSProfile from "../components/lifeos/LifeOSProfile";
 import {
   Card,
   Chips,
@@ -25,74 +23,11 @@ import {
   Signal,
 } from "../components/lifeos/LifeOSShared";
 
-function CalendarContent() {
-  return (
-    <div className="space-y-4">
-      <Card>
-        <Kicker>May 2025</Kicker>
-        <div className="mt-4 grid grid-cols-7 gap-2 text-center text-[11px] font-semibold text-white/38">
-          {["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].map((day) => <span key={day}>{day}</span>)}
-        </div>
-        <div className="mt-3 grid grid-cols-7 gap-2 text-center text-sm font-bold text-white/80">
-          {Array.from({ length: 35 }, (_, i) => {
-            const date = i < 3 ? 27 + i : i - 2;
-            return <span key={i} className={date === 8 ? "rounded-full border border-cyan-300/70 bg-cyan-400/10 py-2 text-cyan-100 shadow-[0_0_15px_rgba(34,211,238,.26)]" : "py-2"}>{date}</span>;
-          })}
-        </div>
-      </Card>
-
-      <Card>
-        <Kicker>Upcoming schedule</Kicker>
-        <Row icon={CreditCard} title="Electric bill due in 3 days" right="May 10" />
-        <Row icon={WalletCards} title="Payday on Friday" right="May 9" />
-        <Row icon={Clock3} title="Planned purchase reminder" right="May 30" />
-      </Card>
-    </div>
-  );
-}
-
-function AreasContent() {
-  return (
-    <div className="space-y-4">
-      <Card>
-        <Kicker>Choose life area</Kicker>
-        <div className="mt-4 grid gap-2 md:grid-cols-2">
-          {["Food & Daily Lifestyle", "Work & Career", "Goals & Future Plans", "Health & Wellness", "Friends & Social Life", "Debt & Obligations", "Family Responsibilities", "Values & Giving"].map((item) => (
-            <button key={item} type="button" className="rounded-2xl border border-white/10 bg-white/[.025] px-3 py-3 text-left text-sm font-semibold text-white/68 transition hover:bg-white/[.045]">{item}</button>
-          ))}
-        </div>
-      </Card>
-
-      <Card>
-        <Kicker>Guided check-in</Kicker>
-        <Row icon={Target} title="What happened today?" />
-        <Row icon={ListChecks} title="How did it affect your spending?" />
-      </Card>
-    </div>
-  );
-}
-
-function ProfileContent() {
-  return (
-    <div className="space-y-4">
-      <Card>
-        <Kicker>Why life profile</Kicker>
-        <p className="mt-3 text-sm leading-6 text-white/70">Life Profile helps CLARA understand your situation without making the app feel invasive.</p>
-      </Card>
-
-      <Card>
-        <Kicker>Profile details</Kicker>
-        {["Birthday", "Work status", "Income cycle", "Pay schedule", "Main goals", "Savings priorities", "Debt situation", "Family responsibilities", "Personal values", "Spending boundaries"].map((item) => <Row key={item} icon={UserRound} title={item} />)}
-      </Card>
-    </div>
-  );
-}
-
 function Content({ active }) {
   if (active === "dashboard") return <LifeOSDashboard />;
-  if (active === "calendar") return <CalendarContent />;
-  if (active === "areas") return <AreasContent />;
-  if (active === "profile") return <ProfileContent />;
+  if (active === "calendar") return <LifeOSCalendar />;
+  if (active === "areas") return <LifeOSAreas />;
+  if (active === "profile") return <LifeOSProfile />;
 
   if (active === "history") {
     return (
