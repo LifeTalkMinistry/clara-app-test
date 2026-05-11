@@ -217,6 +217,24 @@ export default function useDebtCardLogic({
     );
   };
 
+  const dispatchDebtUpdatedEvent = (overrides = {}) => {
+    if (typeof window === "undefined") return;
+
+    window.dispatchEvent(
+      new CustomEvent("clara:debt-obligations-updated", {
+        detail: {
+          localUserId,
+          debtType,
+          totalDebt: overrides.totalDebt ?? totalDebt,
+          monthlyDebt: overrides.monthlyDebt ?? monthlyDebt,
+          debtRatio,
+          riskLevel,
+          activeDebtCount,
+        },
+      })
+    );
+  };
+
   const handlePlanPayoff = () => {
     dispatchDebtPrompt(
       `Help me plan a debt payoff strategy. Debt type: ${selectedType}. Total debt: ${fmt(
@@ -268,7 +286,13 @@ export default function useDebtCardLogic({
         interestRate: nextInterest,
       });
 
-      await loadDebtObligations();
+      const refreshed = await loadDebtObligations();
+      const refreshedSummary = summarizeDebtObligations(refreshed, { income });
+
+      dispatchDebtUpdatedEvent({
+        totalDebt: refreshedSummary.totalDebt || nextTotalDebt,
+        monthlyDebt: refreshedSummary.monthlyDebt || nextMonthlyDebt,
+      });
 
       return {
         success: true,
