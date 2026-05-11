@@ -6,9 +6,14 @@ import {
   generateClaraLocalReply,
   hasUsableClaraSnapshot,
 } from "../../lib/clara-local-brain";
+import {
+  generateClaraGeminiReply,
+  hasGeminiConfig,
+} from "../../lib/clara-gemini-client";
 
 const CLOSE_ANIMATION_MS = 160;
 const INITIAL_MESSAGE = "I’m here. Ask me before you spend.";
+const THINKING_MESSAGE = "Reading your finance cards...";
 
 const PRIMARY_OPTIONS = [
   { label: "Before I buy", mode: "purchase_decision", prompt: "", icon: ShieldCheck, featured: true },
@@ -188,6 +193,7 @@ export default function ClaraDecisionDockPanel({ open, onClose, context = {} }) 
   const closeTimeoutRef = useRef(null);
   const inputRef = useRef(null);
   const chatEndRef = useRef(null);
+  const geminiEnabledRef = useRef(hasGeminiConfig());
 
   const activeContext = getBestContext(offlineFinanceContext || {}, latestContextRef.current || {});
   latestContextRef.current = activeContext;
@@ -240,7 +246,15 @@ export default function ClaraDecisionDockPanel({ open, onClose, context = {} }) 
     chatEndRef.current?.scrollIntoView?.({ behavior: "smooth", block: "end" });
   }, [open, isClosing, panelMode, messages]);
 
-  const getReplyForText = (messageText, forcedMode = activeMode) => {
+  const replaceMessageText = (messageId, text) => {
+    setMessages((current) =>
+      current.map((message) =>
+        message.id === messageId ? { ...message, text: String(text || "") } : message
+      )
+    );
+  };
+
+  const getReplyForText = async (messageText, forcedMode = activeMode) => {
     const text = String(messageText || "").trim();
     const currentContext = getBestContext(offlineFinanceContext || {}, latestContextRef.current || {});
     latestContextRef.current = currentContext;
@@ -253,11 +267,31 @@ export default function ClaraDecisionDockPanel({ open, onClose, context = {} }) 
       ? `Before I buy this: ${text}`
       : text;
 
+    let localReply = "I can help you pause first. Tell me the item, price, and why you want it.";
+
     try {
-      return generateClaraLocalReply(localMessage, currentContext);
-    } catch {
-      return "I can help you pause first. Tell me the item, price, and why you want it.";
+      localReply = generateClaraLocalReply(localMessage, currentContext);
+    } catch (error) {
+      console.warn("CLARA local fallback failed:", error);
     }
+
+    if (!geminiEnabledRef.current) return localReply;
+
+    try {
+      return await generateClaraGeminiReply({
+        message: localMessage,
+        context: currentContext,
+        mode: forcedMode,
+      });
+    } catch (error) {
+      console.warn("CLARA Gemini fallback used:", error);
+      return localReply;
+    }
+  };
+
+  const resolveReplyIntoMessage = async (placeholderId, text, mode) => {
+    const reply = await getReplyForText(text, mode);
+    replaceMessageText(placeholderId, reply);
   };
 
   const openChat = ({ title = "Ask CLARA", mode = null, prompt = "", seedMessages = null } = {}) => {
@@ -290,11 +324,13 @@ export default function ClaraDecisionDockPanel({ open, onClose, context = {} }) 
     }
 
     if (cleanPrompt) {
+      const placeholder = makeMessage("clara", THINKING_MESSAGE);
       setMessages([
         makeMessage("clara", INITIAL_MESSAGE),
         makeMessage("user", cleanPrompt),
-        makeMessage("clara", getReplyForText(cleanPrompt, mode)),
+        placeholder,
       ]);
+      resolveReplyIntoMessage(placeholder.id, cleanPrompt, mode);
       return;
     }
 
@@ -316,6 +352,7 @@ export default function ClaraDecisionDockPanel({ open, onClose, context = {} }) 
       return;
     }
 
+    const placeholder = makeMessage("clara", THINKING_MESSAGE);
     setHeroDraft("");
     openChat({
       title: "Before I buy",
@@ -323,20 +360,25 @@ export default function ClaraDecisionDockPanel({ open, onClose, context = {} }) 
       seedMessages: [
         makeMessage("clara", INITIAL_MESSAGE),
         makeMessage("user", text),
-        makeMessage("clara", getReplyForText(text, "purchase_decision")),
+        placeholder,
       ],
     });
+    resolveReplyIntoMessage(placeholder.id, text, "purchase_decision");
   };
 
   const sendMessageText = (messageText, forcedMode = activeMode) => {
     const text = String(messageText || "").trim();
     if (!text || isClosing || panelMode !== "chat") return;
 
+    const placeholder = makeMessage("clara", THINKING_MESSAGE);
+
     setMessages((current) => [
       ...current,
       makeMessage("user", text),
-      makeMessage("clara", getReplyForText(text, forcedMode)),
+      placeholder,
     ]);
+
+    resolveReplyIntoMessage(placeholder.id, text, forcedMode);
 
     if (forcedMode === "purchase_decision" && /(?:₱|php\s*)?\d/i.test(text)) setActiveMode(null);
   };
@@ -507,7 +549,9 @@ export default function ClaraDecisionDockPanel({ open, onClose, context = {} }) 
 
               <div className="mt-2.5 flex items-center justify-between rounded-2xl border border-white/8 bg-white/[.035] px-3 py-2 text-[9px] text-slate-300/72">
                 <span>{contextStatus === "live" ? "Finance memory live" : "Finance memory warming"}</span>
-                <span className="font-semibold text-emerald-100/82">Private by design</span>
+                <span className="font-semibold text-emerald-100/82">
+                  {geminiEnabledRef.current ? "Gemini ready" : "Local fallback"}
+                </span>
               </div>
             </div>
           ) : (
@@ -543,6 +587,7 @@ export default function ClaraDecisionDockPanel({ open, onClose, context = {} }) 
               <div className="clara-dock-scroll flex-1 space-y-3 overflow-y-auto px-3.5 py-3.5">
                 {messages.map((message) => {
                   const isUser = message.role === "user";
+                  const isThinking = message.text === THINKING_MESSAGE;
                   return (
                     <div key={message.id} className={`flex ${isUser ? "justify-end" : "justify-start"}`}>
                       <div
@@ -550,7 +595,7 @@ export default function ClaraDecisionDockPanel({ open, onClose, context = {} }) 
                           isUser
                             ? "bg-emerald-300 text-slate-950"
                             : "border border-white/10 bg-white/[.065] text-slate-100"
-                        }`}
+                        } ${isThinking ? "animate-pulse text-slate-300/80" : ""}`}
                       >
                         {message.text}
                       </div>
