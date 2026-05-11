@@ -36,6 +36,14 @@ export const toDebtNumber = (value) => {
   return Number.isFinite(num) ? num : 0;
 };
 
+export const createDebtObligationId = () => {
+  if (typeof globalThis !== "undefined" && globalThis.crypto?.randomUUID) {
+    return `debt_obligation_${globalThis.crypto.randomUUID()}`;
+  }
+
+  return `debt_obligation_${Date.now()}_${Math.random().toString(36).slice(2, 10)}`;
+};
+
 const normalizeDebtType = (value) => {
   const normalized = normalizeString(value).toLowerCase();
   return normalized || "credit_card";
@@ -58,6 +66,16 @@ const getMonthlyPayment = (record) =>
       record?.payment ??
       0
   );
+
+export const getDebtTitle = (record) =>
+  normalizeString(
+    record?.title ||
+      record?.name ||
+      record?.lender ||
+      record?.creditor ||
+      record?.label ||
+      record?.debtName
+  ) || "Debt obligation";
 
 const isActiveDebtObligation = (record) =>
   record?.recordKind === DEBT_OBLIGATION_RECORD_KIND &&
@@ -96,16 +114,27 @@ export async function upsertDebtObligation(localUserId, payload = {}) {
     payload.interestRate ?? payload.interest_rate ?? payload.interest ?? 0
   );
   const debtType = normalizeDebtType(payload.debtType ?? payload.type);
+  const title =
+    normalizeString(
+      payload.title || payload.name || payload.lender || payload.creditor || payload.label
+    ) || getDebtTitle({ debtType, type: debtType });
 
   if (balance <= 0 && monthlyPayment <= 0) {
     throw new Error("Enter at least the balance or monthly payment first.");
   }
 
+  const recordId = normalizeString(payload.id) || createDebtObligationId();
+  const createdAt = payload.createdAt || payload.created_at || now;
+
   const record = {
     ...(payload || {}),
-    id: normalizeString(payload.id) || DEFAULT_DEBT_OBLIGATION_ID,
+    id: recordId,
     recordKind: DEBT_OBLIGATION_RECORD_KIND,
     localUserId: safeLocalUserId,
+    title,
+    name: title,
+    label: title,
+    lender: normalizeString(payload.lender || payload.creditor) || title,
     type: debtType,
     debtType,
     totalDebt: balance,
@@ -116,9 +145,12 @@ export async function upsertDebtObligation(localUserId, payload = {}) {
     monthly_payment: monthlyPayment,
     interestRate,
     interest_rate: interestRate,
+    dueDate: payload.dueDate || payload.due_date || "",
+    due_date: payload.due_date || payload.dueDate || "",
+    notes: payload.notes || "",
     status: payload.status || "active",
-    createdAt: payload.createdAt || now,
-    created_at: payload.created_at || payload.createdAt || now,
+    createdAt,
+    created_at: createdAt,
     updatedAt: now,
     updated_at: now,
     deletedAt: null,
