@@ -25,6 +25,7 @@ export const clampProgress = (value) =>
 export const DEBT_TYPES = [
   { value: "credit_card", label: "Credit Card" },
   { value: "loan", label: "Loan" },
+  { value: "installment", label: "Installment" },
   { value: "mortgage", label: "Mortgage" },
   { value: "personal_debt", label: "Personal Debt" },
   { value: "other", label: "Other" },
@@ -44,7 +45,7 @@ export const debtTone = {
     "radial-gradient(circle at top left, rgba(34,211,238,0.34), transparent 30%), radial-gradient(circle at 48% 30%, rgba(30,58,138,0.42), transparent 42%), radial-gradient(circle at bottom right, rgba(124,58,237,0.34), transparent 34%), linear-gradient(135deg, rgba(4,24,38,0.98), rgba(6,12,31,0.98) 48%, rgba(30,10,54,0.96))",
 };
 
-const getDebtTypeLabel = (value) =>
+export const getDebtTypeLabel = (value) =>
   DEBT_TYPES.find((type) => type.value === value)?.label || "Credit Card";
 
 export default function useDebtCardLogic({
@@ -60,7 +61,7 @@ export default function useDebtCardLogic({
   } = useFinancialData(authUser);
 
   const [localExpanded, setLocalExpanded] = useState(false);
-  const [debtType, setDebtType] = useState("credit_card");
+  const [debtType, setDebtType] = useState("installment");
   const [totalDebtInput, setTotalDebtInput] = useState("");
   const [monthlyDebtInput, setMonthlyDebtInput] = useState("");
   const [interestInput, setInterestInput] = useState("");
@@ -83,14 +84,12 @@ export default function useDebtCardLogic({
       const primary = records?.[0] || null;
 
       if (primary) {
-        setDebtType(primary.debtType || primary.type || "credit_card");
+        setDebtType(primary.debtType || primary.type || "installment");
         setTotalDebtInput(String(primary.totalDebt || primary.balance || ""));
         setMonthlyDebtInput(
           String(primary.monthlyDebt || primary.monthlyPayment || primary.monthly_payment || "")
         );
-        setInterestInput(
-          String(primary.interestRate || primary.interest_rate || "")
-        );
+        setInterestInput(String(primary.interestRate || primary.interest_rate || ""));
       }
 
       return records || [];
@@ -119,7 +118,7 @@ export default function useDebtCardLogic({
       const primary = records?.[0] || null;
 
       if (primary) {
-        setDebtType(primary.debtType || primary.type || "credit_card");
+        setDebtType(primary.debtType || primary.type || "installment");
         setTotalDebtInput(String(primary.totalDebt || primary.balance || ""));
         setMonthlyDebtInput(
           String(primary.monthlyDebt || primary.monthlyPayment || primary.monthly_payment || "")
@@ -144,20 +143,11 @@ export default function useDebtCardLogic({
     [debtObligations, income]
   );
 
-  const typedTotalDebt = toDebtNumber(totalDebtInput);
-  const typedMonthlyDebt = toDebtNumber(monthlyDebtInput);
-
-  const savedTotalDebt = toDebtNumber(
-    debtSummary.totalDebt || data.totalDebt || data.amount || 0
-  );
-  const savedMonthlyDebt = toDebtNumber(
+  const totalDebt = toDebtNumber(debtSummary.totalDebt || data.totalDebt || data.amount || 0);
+  const monthlyDebt = toDebtNumber(
     debtSummary.monthlyDebt || data.monthlyDebt || data.monthlyPayment || 0
   );
-
-  const totalDebt = typedTotalDebt > 0 ? typedTotalDebt : savedTotalDebt;
-  const monthlyDebt = typedMonthlyDebt > 0 ? typedMonthlyDebt : savedMonthlyDebt;
   const activeDebtCount = debtSummary.activeCount || 0;
-
   const selectedType = getDebtTypeLabel(debtType);
 
   const debtRatio = useMemo(() => {
@@ -239,7 +229,7 @@ export default function useDebtCardLogic({
     dispatchDebtPrompt(
       `Help me plan a debt payoff strategy. Debt type: ${selectedType}. Total debt: ${fmt(
         totalDebt
-      )}. Monthly payment: ${fmt(monthlyDebt)}. Debt ratio: ${debtRatio.toFixed(
+      )}. Monthly payment: ${fmt(monthlyDebt)}. Debt pressure: ${debtRatio.toFixed(
         1
       )}%. Current status: ${riskLevel}.`
     );
