@@ -1,5 +1,13 @@
-import { Brain, CheckCircle2, ChevronDown, ChevronUp, Loader2, Plus, ShieldAlert } from "lucide-react";
-import { useState } from "react";
+import {
+  Brain,
+  CheckCircle2,
+  ChevronDown,
+  ChevronUp,
+  Loader2,
+  Plus,
+  ShieldAlert,
+} from "lucide-react";
+import { useMemo, useState } from "react";
 
 import useDebtCardLogic, {
   DEBT_TYPES,
@@ -22,6 +30,20 @@ function MiniLabel({ children, htmlFor }) {
     </label>
   );
 }
+
+const compactCurrency = (value) => {
+  const safe = Number(value) || 0;
+
+  if (safe >= 1000000) {
+    return `₱${(safe / 1000000).toFixed(1)}M`;
+  }
+
+  if (safe >= 1000) {
+    return `₱${(safe / 1000).toFixed(1)}K`;
+  }
+
+  return fmt(safe);
+};
 
 export default function ObligationDebt({
   item = null,
@@ -53,6 +75,8 @@ export default function ObligationDebt({
     debtRatio,
     riskLevel,
     statusLabel,
+    payoffMonths,
+    monthlyLeftover,
   } = computed;
 
   const {
@@ -67,6 +91,30 @@ export default function ObligationDebt({
 
   const hasActiveDebt = totalDebt > 0;
 
+  const safeMoneyImpactText = useMemo(() => {
+    if (monthlyDebt <= 0) {
+      return "No monthly obligation pressure detected yet.";
+    }
+
+    if (monthlyLeftover <= 0) {
+      return `Your obligations currently consume most of your safe monthly money flow.`;
+    }
+
+    return `This lowers your safe money by ${fmt(monthlyDebt)} every month.`;
+  }, [monthlyDebt, monthlyLeftover]);
+
+  const payoffEstimateText = useMemo(() => {
+    if (!hasActiveDebt || payoffMonths <= 0) {
+      return "Add a monthly payment to estimate payoff time.";
+    }
+
+    if (payoffMonths <= 1) {
+      return "Estimated payoff: less than 1 month.";
+    }
+
+    return `Estimated payoff: around ${payoffMonths} months.`;
+  }, [hasActiveDebt, payoffMonths]);
+
   const handleRecordObligation = async () => {
     const result = await handleSaveDebtObligation();
     setRecordedNotice(result?.message || "");
@@ -75,10 +123,10 @@ export default function ObligationDebt({
   const summaryTiles = [
     {
       label: "Monthly",
-      value: fmt(monthlyDebt),
+      value: compactCurrency(monthlyDebt),
     },
     {
-      label: "Ratio",
+      label: "Pressure",
       value: `${debtRatio.toFixed(0)}%`,
       valueClassName:
         debtRatio >= 50
@@ -142,9 +190,11 @@ export default function ObligationDebt({
               </div>
             </div>
 
-            <div className="mb-3">
-              <p className={`text-[32px] font-bold leading-none tracking-[-0.04em] ${tone.value}`}>
-                {fmt(totalDebt)}
+            <div className="mb-2.5">
+              <p
+                className={`text-[30px] font-black leading-none tracking-[-0.045em] ${tone.value}`}
+              >
+                {compactCurrency(totalDebt)}
               </p>
 
               <p className="mt-2 text-sm font-semibold leading-tight text-white/82">
@@ -154,8 +204,18 @@ export default function ObligationDebt({
               </p>
             </div>
 
+            <div className="rounded-2xl border border-white/8 bg-white/[0.035] px-3 py-2.5 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]">
+              <p className="text-[11px] font-semibold leading-5 text-white/62">
+                {safeMoneyImpactText}
+              </p>
+
+              <p className="mt-1 text-[11px] font-black tracking-[0.01em] text-cyan-100/92">
+                {payoffEstimateText}
+              </p>
+            </div>
+
             {!isExpanded ? (
-              <div className="mb-1 grid grid-cols-3 gap-2">
+              <div className="mt-3 mb-1 grid grid-cols-3 gap-2">
                 {summaryTiles.map((tile) => (
                   <div key={tile.label} className={tileClass}>
                     <p
@@ -298,7 +358,11 @@ export default function ObligationDebt({
                   <CheckCircle2 className="h-4 w-4" />
                 )}
 
-                {savingDebt ? "Saving obligation..." : "Record Obligation"}
+                {savingDebt
+                  ? "Saving obligation..."
+                  : hasActiveDebt
+                    ? "Update Obligation"
+                    : "Record Obligation"}
               </button>
 
               {recordedNotice ? (
