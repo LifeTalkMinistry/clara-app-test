@@ -506,7 +506,29 @@ function buildSpendingBreakdown(expenses = [], currentMonthKey = getCurrentMonth
   };
 }
 
+function hasActiveBudgetPlan(snapshot = {}) {
+  if (snapshot.hasActiveBudgetPlan === true) return true;
+
+  const allocated = getNumber(snapshot.budgetAllocated, snapshot.totalBudgetAllocated);
+  if (allocated !== null && allocated > 0) return true;
+
+  return asArray(snapshot.budgets).some((budget) => {
+    const budgetAllocated = getNumber(
+      budget.allocated,
+      budget.total,
+      budget.limit,
+      budget.amount,
+      budget.allocated_amount,
+      budget.budget_amount
+    );
+
+    return budgetAllocated !== null && budgetAllocated > 0;
+  });
+}
+
 function getBudgetPressure(snapshot = {}) {
+  if (!hasActiveBudgetPlan(snapshot)) return "none";
+
   if (snapshot.budgetRemaining !== null && snapshot.budgetRemaining <= 0) return "high";
 
   if (
@@ -678,10 +700,15 @@ export function buildClaraFinanceSnapshot(context = {}) {
       income !== null
   );
 
+  const hasActiveBudgetPlanValue =
+    (budgetAllocated !== null && budgetAllocated > 0) ||
+    budgets.some((budget) => budget.allocated !== null && budget.allocated > 0);
+
   return {
     rawContext: source,
     hasAnyData,
     dataStatus: hasAnyData ? "ready" : "loading",
+    hasActiveBudgetPlan: hasActiveBudgetPlanValue,
 
     wallets,
     walletCount: wallets.length,
@@ -716,9 +743,12 @@ export function buildClaraFinanceSnapshot(context = {}) {
     budgetSpent,
     budgetRemaining,
     remainingBudget: budgetRemaining,
+    effectiveBudgetRemaining: hasActiveBudgetPlanValue ? budgetRemaining : null,
     budgetPressure: getBudgetPressure({
       budgetAllocated,
       budgetRemaining,
+      budgets,
+      hasActiveBudgetPlan: hasActiveBudgetPlanValue,
     }),
 
     savingsGoals,
@@ -805,14 +835,14 @@ function getAvailabilityTone(amount) {
 function getPressureTone(snapshot = {}) {
   const available = snapshot.availableMoney;
   const spent = snapshot.monthlySpent;
-  const budgetRemaining = snapshot.budgetRemaining;
-
-  if (budgetRemaining !== null && budgetRemaining <= 0) {
-    return "Your budget is already pressured, so pause wants first.";
-  }
+  const budgetRemaining = hasActiveBudgetPlan(snapshot) ? snapshot.budgetRemaining : null;
 
   if (available !== null && available <= 0) {
     return "Your available money is tight, so protect essentials only.";
+  }
+
+  if (budgetRemaining !== null && budgetRemaining <= 0) {
+    return "Your active budget is already pressured, so pause wants first.";
   }
 
   if (available !== null && spent !== null && spent > available) {
@@ -917,13 +947,15 @@ export function generateAvailableMoneyReply(snapshot = {}) {
 export function generateBudgetCheck(snapshot = {}) {
   if (!snapshot.hasAnyData) return CLARA_LOADING_REPLY;
 
-  if (
-    snapshot.budgetAllocated === null &&
-    snapshot.budgetSpent === null &&
-    snapshot.budgetRemaining === null &&
-    !snapshot.budgets.length
-  ) {
-    return "I do not see a budget loaded yet. Use your available money as the temporary spending boundary for now.";
+  const activeBudget = hasActiveBudgetPlan(snapshot);
+
+  if (!activeBudget) {
+    const available =
+      snapshot.availableMoney !== null
+        ? ` You currently have ${formatMoney(snapshot.availableMoney)} available, so use that as the temporary spending boundary.`
+        : "";
+
+    return `I do not see an active budget plan loaded yet.${available} Set a budget before treating any purchase as budget-approved.`;
   }
 
   const allocated = snapshot.budgetAllocated !== null ? formatMoney(snapshot.budgetAllocated) : null;
@@ -933,7 +965,7 @@ export function generateBudgetCheck(snapshot = {}) {
   if (allocated && spent && remaining) {
     const pressure =
       snapshot.budgetRemaining <= 0
-        ? "Stop wants first. You are already at the safe budget line."
+        ? "Stop wants first. Your active budget is already at the safe line."
         : snapshot.budgetAllocated > 0 && snapshot.budgetRemaining < snapshot.budgetAllocated * 0.2
           ? "The margin is thin, so keep today defensive."
           : "There is still breathing room, but do not let wants eat it quietly.";
@@ -941,7 +973,7 @@ export function generateBudgetCheck(snapshot = {}) {
     return `Budget check: ${spent} spent out of ${allocated}. Remaining: ${remaining}. ${pressure}`;
   }
 
-  if (remaining) return `Your budget remaining shows ${remaining}. Keep that protected for essentials first.`;
+  if (remaining) return `Your active budget remaining shows ${remaining}. Keep that protected for essentials first.`;
   if (allocated && spent) return `Budget check: ${spent} spent out of ${allocated}. Use that as your line before adding wants.`;
   if (allocated) return `Your budget allocation is ${allocated}. I need spending data to judge the pressure.`;
   if (spent) return `Your budget spending shows ${spent}. I need the budget limit to judge if it is safe.`;
@@ -1060,11 +1092,15 @@ export function generatePurchaseDecisionReply(message = "", snapshot = {}) {
 
   const priceText = formatMoney(price);
   const available = snapshot.availableMoney;
-  const budgetRemaining = snapshot.budgetRemaining;
+  const activeBudget = hasActiveBudgetPlan(snapshot);
+  const budgetRemaining = activeBudget ? snapshot.budgetRemaining : null;
   const savingsSaved = snapshot.savingsSaved;
   const emergencySaved = snapshot.emergencyFund?.saved;
-
   const notes = [];
+
+  if (available === null && budgetRemaining === null) {
+    return "I need your available money or an active budget before I can judge this purchase clearly.";
+  }
 
   if (available !== null && price > available) {
     notes.push(`Not recommended. This is around ${priceText}, but you only have ${formatMoney(available)} available.`);
@@ -1072,38 +1108,70 @@ export function generatePurchaseDecisionReply(message = "", snapshot = {}) {
     return notes.join(" ");
   }
 
-  if (budgetRemaining !== null && price > budgetRemaining) {
-    notes.push(`Not recommended. This can break your budget because only ${formatMoney(budgetRemaining)} is left.`);
-    notes.push("Buy later or reduce the cost.");
+  if (activeBudget && budgetRemaining !== null && price > budgetRemaining) {
+    notes.push(
+      `Better delay. You have ${available !== null ? formatMoney(available) : "some money"} available, but only ${formatMoney(
+        budgetRemaining
+      )} remains in your active budget.`
+    );
+    notes.push("Rebalance first or reduce the cost.");
     return notes.join(" ");
   }
 
-  if (available !== null && price > available * 0.25) {
-    notes.push(`Risky. ${priceText} takes a big bite from your available money.`);
-    notes.push("Only proceed if it is a real need and already planned.");
-    return notes.join(" ");
+  if (available !== null) {
+    const share = price / available;
+
+    if (!activeBudget) {
+      if (share >= 0.75) {
+        notes.push(`Not recommended. You have ${formatMoney(available)} money left, but ${priceText} would use almost all of it.`);
+        notes.push("No active budget plan is loaded yet, so delay this or set a budget first.");
+        return notes.join(" ");
+      }
+
+      if (share >= 0.12) {
+        notes.push(`Better delay. You have ${formatMoney(available)} money left, but ${priceText} is a noticeable bite without an active budget plan.`);
+        notes.push("Buy only if this is planned, important, and still worth it tomorrow.");
+        return notes.join(" ");
+      }
+
+      notes.push(`Okay with limit. You have ${formatMoney(available)} money left, but no active budget plan is loaded yet.`);
+      notes.push(`${priceText} is affordable, but log it and keep it intentional.`);
+      return notes.join(" ");
+    }
+
+    if (share >= 0.75) {
+      notes.push(`Not recommended. ${priceText} would use most of your ${formatMoney(available)} money left.`);
+      notes.push("Delay this unless it is urgent and already planned.");
+      return notes.join(" ");
+    }
+
+    if (share >= 0.25) {
+      notes.push(`Risky. ${priceText} takes a big bite from your available money.`);
+      notes.push("Only proceed if it is a real need and already planned.");
+      return notes.join(" ");
+    }
+
+    if (share >= 0.12) {
+      notes.push(`Okay with limit. ${priceText} is affordable, but it is still noticeable against your ${formatMoney(available)} money left.`);
+      notes.push("Buy only if it is planned.");
+      return notes.join(" ");
+    }
   }
 
-  if (budgetRemaining !== null && price > budgetRemaining * 0.5) {
-    notes.push(`Risky. It fits, but it uses a large part of your remaining budget.`);
-    notes.push("Wait first if this is only a want.");
-    return notes.join(" ");
-  }
-
-  if (savingsSaved !== null && price > savingsSaved * 0.2) {
+  if (savingsSaved !== null && savingsSaved > 0 && price > savingsSaved * 0.2) {
     notes.push(`Risky. The price is manageable, but it can slow your savings momentum.`);
     notes.push("Delay it if it does not support your current goal.");
     return notes.join(" ");
   }
 
   if (emergencySaved !== null && emergencySaved <= 0) {
-    notes.push(`Risky. The purchase may fit, but your emergency buffer is not protected yet.`);
-    notes.push("Build your buffer first before lifestyle upgrades.");
+    notes.push(`Okay only if necessary. The purchase may fit, but your emergency buffer is not protected yet.`);
+    notes.push("Build your buffer before lifestyle upgrades.");
     return notes.join(" ");
   }
 
-  notes.push(`Safe. ${priceText} looks manageable based on your loaded data.`);
-  notes.push("Still keep it planned, needed, and aligned with your goal.");
+  notes.push(`Safe, but still intentional. ${priceText} looks manageable based on your loaded data.`);
+  notes.push("Log it after buying and keep it aligned with your goal.");
 
   return notes.join(" ");
 }
@@ -1115,8 +1183,8 @@ export function generateDailyWarning(snapshot = {}) {
     return "Today’s warning: protect essentials only. Your available money is already tight.";
   }
 
-  if (snapshot.budgetRemaining !== null && snapshot.budgetRemaining <= 0) {
-    return "Today’s warning: stop wants first. Your budget is already at the danger line.";
+  if (hasActiveBudgetPlan(snapshot) && snapshot.budgetRemaining !== null && snapshot.budgetRemaining <= 0) {
+    return "Today’s warning: stop wants first. Your active budget is already at the danger line.";
   }
 
   if (snapshot.unplannedSpent !== null && snapshot.unplannedSpent > 0) {
@@ -1136,9 +1204,13 @@ export function generateDailyWarning(snapshot = {}) {
   }
 
   if (snapshot.monthlySpent !== null && snapshot.availableMoney !== null) {
+    const budgetNote = hasActiveBudgetPlan(snapshot)
+      ? " Check your active budget before adding wants."
+      : " No active budget plan is loaded yet, so use your money left as the temporary boundary.";
+
     return `Today’s warning: you have ${formatMoney(snapshot.availableMoney)} available and ${formatMoney(
       snapshot.monthlySpent
-    )} spent. You are okay, but do not let small wants quietly pile up.`;
+    )} spent.${budgetNote}`;
   }
 
   return "Today’s warning: stay intentional. Before spending, check if it is planned, needed, and aligned with your goal.";
