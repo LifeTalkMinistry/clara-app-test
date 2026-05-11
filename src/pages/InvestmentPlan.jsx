@@ -206,6 +206,10 @@ export default function InvestmentPlan() {
             <Brain className="h-4 w-4" />
             Ask CLARA to Review This Plan
           </button>
+
+          <div className="rounded-2xl border border-white/10 bg-white/[0.035] px-4 py-3 text-[11px] font-semibold leading-5 text-white/48">
+            CLARA can help you think, compare risks, and slow down impulsive decisions, but it is not a licensed financial adviser. For major investments or financial decisions, consult a qualified professional.
+          </div>
         </section>
       </div>
     </div>
