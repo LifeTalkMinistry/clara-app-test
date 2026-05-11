@@ -30,11 +30,20 @@ export default function useMoneyLeftSummaryHandlers({ navigate } = {}) {
     [isManualExpenseOrbEvent]
   );
 
+  const stopMoneyLeftOrbEvent = useCallback((event) => {
+    event?.preventDefault?.();
+    event?.stopPropagation?.();
+    event?.nativeEvent?.stopImmediatePropagation?.();
+    return false;
+  }, []);
+
   const openTransactionHubFromMoneyLeft = useCallback(
     (event) => {
-      if (isManualExpenseOrbEvent(event)) return;
-
-      stopMoneyLeftSummaryEvent(event);
+      if (isManualExpenseOrbEvent(event)) {
+        stopMoneyLeftOrbEvent(event);
+      } else {
+        stopMoneyLeftSummaryEvent(event);
+      }
 
       const now = Date.now();
       if (now - moneyLeftNavigateLockRef.current < 450) return;
@@ -44,7 +53,7 @@ export default function useMoneyLeftSummaryHandlers({ navigate } = {}) {
         navigate("/transactions-hub");
       }
     },
-    [isManualExpenseOrbEvent, navigate, stopMoneyLeftSummaryEvent]
+    [isManualExpenseOrbEvent, navigate, stopMoneyLeftOrbEvent, stopMoneyLeftSummaryEvent]
   );
 
   const handleMoneyLeftPointerDown = useCallback(
