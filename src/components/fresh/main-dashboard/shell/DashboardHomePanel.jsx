@@ -4,7 +4,6 @@ import FinancialCarousel from "@/components/financial-carousel/FinancialCarousel
 import LearningHub from "@/components/fresh/main-dashboard/learning-hub/LearningHub";
 import DashboardMoneySummary from "@/components/fresh/main-dashboard/money-summary/DashboardMoneySummary";
 import FinanceInlineAlert from "@/components/fresh/main-dashboard/finance-notices/FinanceInlineAlert";
-import ClaraAskBeforeSpendCard from "@/components/fresh/main-dashboard/ask-before-spend/ClaraAskBeforeSpendCard";
 import { Button } from "@/components/ui/button";
 
 export default function DashboardHomePanel({
@@ -92,16 +91,6 @@ export default function DashboardHomePanel({
               Refreshing finance data...
             </div>
           ) : null}
-
-          <ClaraAskBeforeSpendCard
-            monthlyBudgetPlan={monthlyBudgetPlan}
-            walletMoney={walletMoney}
-            thisMonthSpent={thisMonthSpent}
-            loading={loading}
-            onQuickExpense={() =>
-              window.requestAnimationFrame(() => openManualExpenseModal())
-            }
-          />
 
           <FinancialCarousel
             dashboardScale={dashboardScale}
