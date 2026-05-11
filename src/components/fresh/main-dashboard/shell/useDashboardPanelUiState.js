@@ -1,5 +1,5 @@
 import { useCallback, useMemo } from "react";
-import { Home, MessageCircle, Settings } from "lucide-react";
+import { Home, Settings, Sparkles, User } from "lucide-react";
 import { DEFAULT_THEME_KEY } from "@/theme/themes";
 import { DASHBOARD_PANEL_ORDER } from "@/components/fresh/main-dashboard/dashboard-panels/dashboardPanelConstants";
 
@@ -63,9 +63,15 @@ export default function useDashboardPanelUiState({
       badge: null,
     },
     {
-      key: "feed",
-      label: "Feed",
-      icon: Home,
+      key: "me",
+      label: "Me",
+      icon: User,
+      badge: null,
+    },
+    {
+      key: "lifeos",
+      label: "LifeOS",
+      icon: Sparkles,
       badge: feedHasHighlight
         ? {
             type: "dot",
@@ -73,12 +79,6 @@ export default function useDashboardPanelUiState({
             className: "border-emerald-400/25 bg-emerald-400 text-emerald-100",
           }
         : null,
-    },
-    {
-      key: "messages",
-      label: "Messages",
-      icon: MessageCircle,
-      badge: null,
     },
     {
       key: "settings",
