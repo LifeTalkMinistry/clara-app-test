@@ -1,11 +1,5 @@
-import {
-  Brain,
-  ChevronDown,
-  ChevronUp,
-  Plus,
-  ShieldAlert,
-  Sparkles,
-} from "lucide-react";
+import { Brain, CheckCircle2, ChevronDown, ChevronUp, Plus, ShieldAlert } from "lucide-react";
+import { useState } from "react";
 
 import useDebtCardLogic, {
   DEBT_TYPES,
@@ -29,35 +23,13 @@ function MiniLabel({ children, htmlFor }) {
   );
 }
 
-function GuidancePanel({ title, children, icon: Icon }) {
-  return (
-    <div className="relative overflow-hidden rounded-2xl border border-cyan-300/16 bg-cyan-400/[0.065] px-3.5 py-3.5 shadow-[inset_0_1px_0_rgba(255,255,255,0.055)]">
-      <div className="pointer-events-none absolute -right-8 -top-10 h-24 w-24 rounded-full bg-cyan-300/10 blur-2xl" />
-
-      <div className="relative flex items-start gap-3">
-        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-cyan-300/20 bg-cyan-300/10 text-cyan-100 shadow-[0_0_18px_rgba(34,211,238,0.10)]">
-          <Icon className="h-4 w-4" />
-        </div>
-
-        <div className="min-w-0">
-          <p className="text-[10px] font-black uppercase tracking-[0.16em] text-cyan-100/60">
-            {title}
-          </p>
-
-          <div className="mt-2 text-[12.5px] font-semibold leading-5 text-white/72">
-            {children}
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-}
-
 export default function ObligationDebt({
   item = null,
   expanded = false,
   onToggleDetails,
 }) {
+  const [recordedNotice, setRecordedNotice] = useState("");
+
   const { state, computed, handlers } = useDebtCardLogic({
     item,
     expanded,
@@ -79,7 +51,6 @@ export default function ObligationDebt({
     debtRatio,
     riskLevel,
     statusLabel,
-    smartFeedback,
   } = computed;
 
   const {
@@ -92,6 +63,18 @@ export default function ObligationDebt({
   } = handlers;
 
   const hasActiveDebt = totalDebt > 0;
+  const canRecord = totalDebt > 0 || monthlyDebt > 0;
+
+  const handleRecordObligation = () => {
+    if (!canRecord) {
+      setRecordedNotice("Enter at least the balance or monthly payment first.");
+      return;
+    }
+
+    setRecordedNotice(
+      "Obligation recorded on this card. Ask CLARA to review the pressure before adding new spending."
+    );
+  };
 
   const summaryTiles = [
     {
@@ -213,22 +196,6 @@ export default function ObligationDebt({
 
         {isExpanded ? (
           <div className="relative z-20 mt-3 min-h-0 flex-1 space-y-3 overflow-y-auto overscroll-contain rounded-2xl border border-white/10 bg-black/15 p-3.5 pb-5 backdrop-blur-[2px] shadow-[inset_0_1px_0_rgba(255,255,255,0.05)] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-            {hasActiveDebt ? (
-              <GuidancePanel title="CLARA read" icon={ShieldAlert}>
-                <p>{smartFeedback}.</p>
-                <p className="mt-1.5 text-white/52">
-                  Review this before adding another monthly commitment.
-                </p>
-              </GuidancePanel>
-            ) : (
-              <GuidancePanel title="Clear position" icon={Sparkles}>
-                <p>No active obligation is recorded right now.</p>
-                <p className="mt-1.5 text-white/52">
-                  Add your obligation below so CLARA can read your cash flow clearly.
-                </p>
-              </GuidancePanel>
-            )}
-
             <div className="rounded-2xl border border-white/10 bg-white/[0.04] p-3.5 shadow-[inset_0_1px_0_rgba(255,255,255,0.05)]">
               <div className="mb-3 flex items-center gap-2">
                 <div className="flex h-8 w-8 items-center justify-center rounded-xl border border-cyan-300/20 bg-cyan-300/10 text-cyan-100">
@@ -251,7 +218,10 @@ export default function ObligationDebt({
                   <select
                     id="debt-type"
                     value={debtType}
-                    onChange={(event) => setDebtType(event.target.value)}
+                    onChange={(event) => {
+                      setDebtType(event.target.value);
+                      setRecordedNotice("");
+                    }}
                     className={fieldClass}
                   >
                     {DEBT_TYPES.map((type) => (
@@ -275,7 +245,10 @@ export default function ObligationDebt({
                       inputMode="decimal"
                       min="0"
                       value={totalDebtInput}
-                      onChange={(event) => setTotalDebtInput(event.target.value)}
+                      onChange={(event) => {
+                        setTotalDebtInput(event.target.value);
+                        setRecordedNotice("");
+                      }}
                       placeholder="0"
                       className={fieldClass}
                     />
@@ -289,7 +262,10 @@ export default function ObligationDebt({
                       inputMode="decimal"
                       min="0"
                       value={monthlyDebtInput}
-                      onChange={(event) => setMonthlyDebtInput(event.target.value)}
+                      onChange={(event) => {
+                        setMonthlyDebtInput(event.target.value);
+                        setRecordedNotice("");
+                      }}
                       placeholder="0"
                       className={fieldClass}
                     />
@@ -304,12 +280,30 @@ export default function ObligationDebt({
                     inputMode="decimal"
                     min="0"
                     value={interestInput}
-                    onChange={(event) => setInterestInput(event.target.value)}
+                    onChange={(event) => {
+                      setInterestInput(event.target.value);
+                      setRecordedNotice("");
+                    }}
                     placeholder="Example: 3"
                     className={fieldClass}
                   />
                 </div>
               </div>
+
+              <button
+                type="button"
+                onClick={handleRecordObligation}
+                className="mt-3 flex min-h-[44px] w-full items-center justify-center gap-2 rounded-2xl border border-emerald-300/25 bg-emerald-400/10 px-3 py-2.5 text-sm font-black text-emerald-100 shadow-[inset_0_1px_0_rgba(255,255,255,0.08)] transition hover:bg-emerald-400/15 disabled:cursor-not-allowed disabled:opacity-45"
+              >
+                <CheckCircle2 className="h-4 w-4" />
+                Record Obligation
+              </button>
+
+              {recordedNotice ? (
+                <p className="mt-2 text-[11px] font-semibold leading-5 text-white/55">
+                  {recordedNotice}
+                </p>
+              ) : null}
             </div>
 
             <button
