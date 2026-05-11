@@ -1,10 +1,16 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Eye, EyeOff, Plus, Send, X } from "lucide-react";
+import { generateClaraLocalReply } from "@/lib/clara-local-brain";
+import {
+  generateClaraGeminiReply,
+  hasGeminiConfig,
+} from "@/lib/clara-gemini-client";
 
 const SINGLE_TAP_DELAY = 240;
 const DOUBLE_TAP_WINDOW = 280;
 const CLARA_LONG_PRESS_DELAY = 560;
 const CLARA_MONEY_CHAT_EVENT = "clara:money-card-chat";
+const CLARA_THINKING_REPLY = "Reading your finance cards...";
 
 function makeClaraMessage(role, text) {
   return {
@@ -14,7 +20,100 @@ function makeClaraMessage(role, text) {
   };
 }
 
-function buildClaraInlineReply(text, { walletMoney = 0, thisMonthSpent = 0, fmt }) {
+function safeArray(value) {
+  return Array.isArray(value) ? value : [];
+}
+
+function safeNumber(value, fallback = 0) {
+  const numeric = Number(value);
+  return Number.isFinite(numeric) ? numeric : fallback;
+}
+
+function getBudgetRows(monthlyBudgetPlan) {
+  if (Array.isArray(monthlyBudgetPlan?.categories)) return monthlyBudgetPlan.categories;
+  if (Array.isArray(monthlyBudgetPlan?.categoryRows)) return monthlyBudgetPlan.categoryRows;
+  if (Array.isArray(monthlyBudgetPlan?.items)) return monthlyBudgetPlan.items;
+  return [];
+}
+
+function isContextQuestion(text) {
+  return /what exact financial|currently see|what can you see|how much money|money do i currently have|total expense|spent this month|financial information|card data/i.test(
+    String(text || "")
+  );
+}
+
+function isPurchaseQuestion(text) {
+  return /(?:₱|php\s*)?\d/i.test(String(text || "")) || /buy|spend|purchase|afford/i.test(String(text || ""));
+}
+
+function buildClaraInlineContext({
+  walletMoney,
+  thisMonthSpent,
+  monthlyBudgetPlan,
+  savingsGoals,
+  totalSavingsSaved,
+  totalSavingsTarget,
+  primarySavingsGoal,
+  survivalExpense,
+  wallets,
+  walletPreviewTransactions,
+}) {
+  const budgetRows = getBudgetRows(monthlyBudgetPlan);
+  const goalRows = safeArray(savingsGoals).length
+    ? safeArray(savingsGoals)
+    : primarySavingsGoal
+      ? [primarySavingsGoal]
+      : [];
+
+  return {
+    availableMoney: safeNumber(walletMoney),
+    totalAvailableMoney: safeNumber(walletMoney),
+    totalMoneyLeft: safeNumber(walletMoney),
+    moneyLeftThisMonth: safeNumber(walletMoney),
+    walletMoney: safeNumber(walletMoney),
+    totalWalletBalance: safeNumber(walletMoney),
+
+    monthlySpent: safeNumber(thisMonthSpent),
+    thisMonthSpent: safeNumber(thisMonthSpent),
+    totalExpensesThisMonth: safeNumber(thisMonthSpent),
+
+    budgets: budgetRows,
+    budgetAllocated: safeNumber(
+      monthlyBudgetPlan?.allocated ??
+        monthlyBudgetPlan?.totalAllocated ??
+        monthlyBudgetPlan?.allocated_total
+    ),
+    budgetSpent: safeNumber(
+      monthlyBudgetPlan?.spent ??
+        monthlyBudgetPlan?.totalSpent ??
+        monthlyBudgetPlan?.spent_total ??
+        thisMonthSpent
+    ),
+    budgetRemaining: safeNumber(
+      monthlyBudgetPlan?.remaining ??
+        monthlyBudgetPlan?.totalRemaining ??
+        monthlyBudgetPlan?.unallocated_balance ??
+        walletMoney
+    ),
+
+    savingsGoals: goalRows,
+    totalSavingsSaved: safeNumber(totalSavingsSaved),
+    totalSavingsTarget: safeNumber(totalSavingsTarget),
+    savingsSaved: safeNumber(totalSavingsSaved),
+    savingsTarget: safeNumber(totalSavingsTarget),
+
+    survivalExpense: safeNumber(survivalExpense),
+    emergencyFund: {
+      target: safeNumber(survivalExpense),
+      target_amount: safeNumber(survivalExpense),
+    },
+
+    wallets: safeArray(wallets),
+    walletTransactions: safeArray(walletPreviewTransactions),
+  };
+}
+
+function buildClaraInlineFallback(text, { walletMoney = 0, thisMonthSpent = 0, fmt }) {
   const cleanText = String(text || "").trim();
   const hasAmount = /(?:₱|php\s*)?\d/i.test(cleanText);
   const moneyLeftText = fmt(walletMoney || 0);
@@ -24,11 +123,15 @@ function buildClaraInlineReply(text, { walletMoney = 0, thisMonthSpent = 0, fmt 
     return "Tell me what you want to buy and the price, then I’ll help you pause before spending.";
   }
 
-  if (!hasAmount) {
-    return "Good. Add the price too, so I can help you compare it against your money left before you decide.";
+  if (isContextQuestion(cleanText)) {
+    return `I can currently see ${moneyLeftText} money left and ${spentText} total expense this month from your dashboard cards.`;
   }
 
-  return `Pause first. You have ${moneyLeftText} left and ${spentText} already spent this month. Ask yourself: is this planned, needed, and still worth it tomorrow?`;
+  if (!hasAmount) {
+    return `I can see ${moneyLeftText} money left and ${spentText} already spent this month. Add a price only if this is a purchase decision.`;
+  }
+
+  return `Pause first. You have ${moneyLeftText} left and ${spentText} already spent this month. Buy only if it is planned, needed, and still worth it tomorrow.`;
 }
 
 export default function DashboardMoneySummary({
@@ -47,12 +150,50 @@ export default function DashboardMoneySummary({
   walletMoney = 0,
   thisMonthSpent = 0,
   fmt = (value) => String(value ?? 0),
+
+  monthlyBudgetPlan = null,
+  savingsGoals = [],
+  totalSavingsSaved = 0,
+  totalSavingsTarget = 0,
+  primarySavingsGoal = null,
+  survivalExpense = 0,
+  wallets = [],
+  walletPreviewTransactions = [],
 }) {
   const tapTimerRef = useRef(null);
   const longPressTimerRef = useRef(null);
   const lastTapAtRef = useRef(0);
   const claraTriggeredRef = useRef(false);
   const claraInputRef = useRef(null);
+  const geminiReadyRef = useRef(hasGeminiConfig());
+
+  const claraFinanceContext = useMemo(
+    () =>
+      buildClaraInlineContext({
+        walletMoney,
+        thisMonthSpent,
+        monthlyBudgetPlan,
+        savingsGoals,
+        totalSavingsSaved,
+        totalSavingsTarget,
+        primarySavingsGoal,
+        survivalExpense,
+        wallets,
+        walletPreviewTransactions,
+      }),
+    [
+      monthlyBudgetPlan,
+      primarySavingsGoal,
+      savingsGoals,
+      survivalExpense,
+      thisMonthSpent,
+      totalSavingsSaved,
+      totalSavingsTarget,
+      walletMoney,
+      walletPreviewTransactions,
+      wallets,
+    ]
+  );
 
   const [claraMode, setClaraMode] = useState(false);
   const [claraDraft, setClaraDraft] = useState("");
@@ -146,12 +287,13 @@ export default function DashboardMoneySummary({
       stopOrbEvent(event);
       claraTriggeredRef.current = false;
       clearLongPressTimer();
+      startMoneyLeftOrbLongPress?.(event);
 
       longPressTimerRef.current = setTimeout(() => {
         openClaraInline();
       }, CLARA_LONG_PRESS_DELAY);
     },
-    [clearLongPressTimer, openClaraInline, stopOrbEvent]
+    [clearLongPressTimer, openClaraInline, startMoneyLeftOrbLongPress, stopOrbEvent]
   );
 
   const handleOrbPointerUp = useCallback(
@@ -182,7 +324,15 @@ export default function DashboardMoneySummary({
         openManualLog(event);
       }, SINGLE_TAP_DELAY);
     },
-    [claraMode, clearLongPressTimer, clearTapTimer, endMoneyLeftOrbLongPress, openManualLog, openTransactionHub, stopOrbEvent]
+    [
+      claraMode,
+      clearLongPressTimer,
+      clearTapTimer,
+      endMoneyLeftOrbLongPress,
+      openManualLog,
+      openTransactionHub,
+      stopOrbEvent,
+    ]
   );
 
   const handleOrbCancel = useCallback(
@@ -202,6 +352,51 @@ export default function DashboardMoneySummary({
     [stopOrbEvent]
   );
 
+  const replaceClaraMessage = useCallback((messageId, text) => {
+    setClaraMessages((current) =>
+      current.map((message) =>
+        message.id === messageId ? { ...message, text } : message
+      )
+    );
+  }, []);
+
+  const resolveClaraReply = useCallback(
+    async (text) => {
+      const cleanText = String(text || "").trim();
+      const purchaseMode = isPurchaseQuestion(cleanText);
+      const aiMessage = purchaseMode ? `Before I buy this: ${cleanText}` : cleanText;
+
+      let localReply = buildClaraInlineFallback(cleanText, {
+        walletMoney,
+        thisMonthSpent,
+        fmt,
+      });
+
+      // Important: context questions should not be forced into the old local "add the price" behavior.
+      if (!isContextQuestion(cleanText)) {
+        try {
+          localReply = generateClaraLocalReply(aiMessage, claraFinanceContext);
+        } catch (error) {
+          console.warn("CLARA local fallback used:", error);
+        }
+      }
+
+      if (!geminiReadyRef.current) return localReply;
+
+      try {
+        return await generateClaraGeminiReply({
+          message: aiMessage,
+          context: claraFinanceContext,
+          mode: purchaseMode ? "purchase_decision" : "money_context_check",
+        });
+      } catch (error) {
+        console.warn("CLARA Gemini fallback used:", error);
+        return localReply;
+      }
+    },
+    [claraFinanceContext, fmt, thisMonthSpent, walletMoney]
+  );
+
   const handleClaraSubmit = useCallback(
     (event) => {
       event?.preventDefault?.();
@@ -210,16 +405,21 @@ export default function DashboardMoneySummary({
       const text = claraDraft.trim();
       if (!text) return;
 
-      const reply = buildClaraInlineReply(text, { walletMoney, thisMonthSpent, fmt });
+      const pendingMessage = makeClaraMessage("clara", CLARA_THINKING_REPLY);
 
       setClaraMessages((current) => [
         ...current.slice(-3),
         makeClaraMessage("user", text),
-        makeClaraMessage("clara", reply),
+        pendingMessage,
       ]);
+
       setClaraDraft("");
+
+      resolveClaraReply(text).then((reply) => {
+        replaceClaraMessage(pendingMessage.id, reply);
+      });
     },
-    [claraDraft, fmt, thisMonthSpent, walletMoney]
+    [claraDraft, replaceClaraMessage, resolveClaraReply]
   );
 
   useEffect(() => {
@@ -254,7 +454,9 @@ export default function DashboardMoneySummary({
   if (claraMode) {
     return (
       <div
-        className={`relative mt-2 overflow-hidden border ${dashboardScale.summaryGrid || "rounded-[26px]"}`}
+        className={`relative mt-2 overflow-hidden border ${
+          dashboardScale.summaryGrid || "rounded-[26px]"
+        }`}
         style={{
           ...bubbleSurface,
           borderColor: selectedDashboardTheme?.tokens?.border || "rgba(103,232,249,0.24)",
@@ -275,7 +477,11 @@ export default function DashboardMoneySummary({
           <X className="h-3.5 w-3.5" />
         </button>
 
-        <div className={`relative z-10 flex flex-col justify-center ${dashboardScale.summaryCell || "min-h-[110px] p-[clamp(14px,3.6vw,17px)]"}`}>
+        <div
+          className={`relative z-10 flex flex-col justify-center ${
+            dashboardScale.summaryCell || "min-h-[110px] p-[clamp(14px,3.6vw,17px)]"
+          }`}
+        >
           <form
             onSubmit={handleClaraSubmit}
             className="flex items-center gap-2 rounded-[22px] border border-white/14 bg-slate-950/52 p-2 shadow-[inset_0_1px_0_rgba(255,255,255,0.08),0_14px_34px_rgba(0,0,0,0.18)] backdrop-blur-xl"
@@ -320,14 +526,24 @@ export default function DashboardMoneySummary({
         data-clara-summary-privacy-toggle="true"
         onClick={toggleMoneySummaryVisibility}
         className="absolute right-2.5 top-2.5 z-50 flex h-7 w-7 items-center justify-center rounded-full border border-cyan-100/15 bg-white/[0.075] text-white/65 transition hover:bg-white/[0.12] active:scale-95"
-        aria-label={moneySummaryVisible ? "Hide financial summary amounts" : "Show financial summary amounts"}
+        aria-label={
+          moneySummaryVisible
+            ? "Hide financial summary amounts"
+            : "Show financial summary amounts"
+        }
       >
-        {moneySummaryVisible ? <Eye className="h-3.5 w-3.5" /> : <EyeOff className="h-3.5 w-3.5" />}
+        {moneySummaryVisible ? (
+          <Eye className="h-3.5 w-3.5" />
+        ) : (
+          <EyeOff className="h-3.5 w-3.5" />
+        )}
       </button>
 
       <div
         data-clara-summary-card="money-left"
-        className={`relative isolate overflow-hidden ${dashboardScale.summaryCell || "min-h-[110px] p-[clamp(14px,3.6vw,17px)]"}`}
+        className={`relative isolate overflow-hidden ${
+          dashboardScale.summaryCell || "min-h-[110px] p-[clamp(14px,3.6vw,17px)]"
+        }`}
         style={moneyCellSurface}
       >
         <div className="absolute inset-y-0 right-0 z-50 flex w-[88px] items-center justify-center pr-3">
@@ -350,10 +566,18 @@ export default function DashboardMoneySummary({
         </div>
 
         <div className="relative z-10 flex min-h-full min-w-0 flex-col justify-center pr-24">
-          <p className={`uppercase ${dashboardScale.summaryLabel || "text-[11px] tracking-[0.22em]"} ${themeSoftTextClass}`}>
+          <p
+            className={`uppercase ${
+              dashboardScale.summaryLabel || "text-[11px] tracking-[0.22em]"
+            } ${themeSoftTextClass}`}
+          >
             Money Left
           </p>
-          <h2 className={`font-bold leading-none ${dashboardScale.summaryAmount || "mt-2.5 text-[clamp(32px,8.4vw,37px)]"} ${themePrimaryTextClass}`}>
+          <h2
+            className={`font-bold leading-none ${
+              dashboardScale.summaryAmount || "mt-2.5 text-[clamp(32px,8.4vw,37px)]"
+            } ${themePrimaryTextClass}`}
+          >
             {moneySummaryVisible ? fmt(walletMoney) : "₱••••••"}
           </h2>
         </div>
@@ -361,17 +585,27 @@ export default function DashboardMoneySummary({
 
       <div
         data-clara-summary-card="total-expense"
-        className={`relative isolate overflow-hidden border-l ${dashboardScale.summaryCell || "min-h-[110px] p-[clamp(14px,3.6vw,17px)]"}`}
+        className={`relative isolate overflow-hidden border-l ${
+          dashboardScale.summaryCell || "min-h-[110px] p-[clamp(14px,3.6vw,17px)]"
+        }`}
         style={{
           ...expenseCellSurface,
           borderColor: selectedDashboardTheme?.tokens?.border || "rgba(103,232,249,0.16)",
         }}
       >
         <div className="relative z-10 flex min-h-full min-w-0 flex-col justify-center">
-          <p className={`uppercase ${dashboardScale.summaryLabel || "text-[11px] tracking-[0.22em]"} ${themeSoftTextClass}`}>
+          <p
+            className={`uppercase ${
+              dashboardScale.summaryLabel || "text-[11px] tracking-[0.22em]"
+            } ${themeSoftTextClass}`}
+          >
             Total Expense
           </p>
-          <h2 className={`font-bold leading-none ${dashboardScale.summaryAmount || "mt-2.5 text-[clamp(32px,8.4vw,37px)]"} ${themePrimaryTextClass}`}>
+          <h2
+            className={`font-bold leading-none ${
+              dashboardScale.summaryAmount || "mt-2.5 text-[clamp(32px,8.4vw,37px)]"
+            } ${themePrimaryTextClass}`}
+          >
             {moneySummaryVisible ? fmt(thisMonthSpent) : "₱•••••"}
           </h2>
         </div>
