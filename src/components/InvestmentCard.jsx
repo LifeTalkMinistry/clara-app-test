@@ -35,7 +35,6 @@ export default function InvestmentCard({ item = null, expanded = false, onToggle
     subtitle,
     statusLabel,
     mainLabel,
-    description,
     canSafelyInvest,
     safeToInvest,
     selectedType,
@@ -165,9 +164,6 @@ export default function InvestmentCard({ item = null, expanded = false, onToggle
               </p>
               <p className="relative mt-2 text-[12.5px] font-semibold leading-6 text-white/76">
                 {explanationText}
-              </p>
-              <p className="relative mt-2 text-[11px] font-medium leading-5 text-white/45">
-                CLARA can guide your thinking, but major money decisions still deserve professional advice.
               </p>
             </div>
 
