@@ -1,24 +1,49 @@
-import { Brain, ChevronDown, ChevronUp, ShieldAlert, Sparkles } from "lucide-react";
+import {
+  Brain,
+  ChevronDown,
+  ChevronUp,
+  Plus,
+  ShieldAlert,
+  Sparkles,
+} from "lucide-react";
 
 import useDebtCardLogic, {
+  DEBT_TYPES,
   fmt,
 } from "@/components/financial-carousel/cards/debt/logic/useDebtCardLogic";
 
 const tileClass =
   "rounded-2xl border border-white/10 bg-white/[0.045] px-2.5 py-2.5 text-center shadow-[inset_0_1px_0_rgba(255,255,255,0.06)] backdrop-blur-sm";
 
+const fieldClass =
+  "w-full rounded-2xl border border-white/10 bg-black/25 px-3 py-2.5 text-sm font-bold text-white outline-none shadow-[inset_0_1px_0_rgba(255,255,255,0.045)] transition placeholder:text-white/32 focus:border-cyan-300/35 focus:ring-2 focus:ring-cyan-300/10";
+
+function MiniLabel({ children, htmlFor }) {
+  return (
+    <label
+      htmlFor={htmlFor}
+      className="mb-1.5 block text-[9px] font-black uppercase tracking-[0.16em] text-white/42"
+    >
+      {children}
+    </label>
+  );
+}
+
 function GuidancePanel({ title, children, icon: Icon }) {
   return (
     <div className="relative overflow-hidden rounded-2xl border border-cyan-300/16 bg-cyan-400/[0.065] px-3.5 py-3.5 shadow-[inset_0_1px_0_rgba(255,255,255,0.055)]">
       <div className="pointer-events-none absolute -right-8 -top-10 h-24 w-24 rounded-full bg-cyan-300/10 blur-2xl" />
+
       <div className="relative flex items-start gap-3">
         <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-cyan-300/20 bg-cyan-300/10 text-cyan-100 shadow-[0_0_18px_rgba(34,211,238,0.10)]">
           <Icon className="h-4 w-4" />
         </div>
+
         <div className="min-w-0">
           <p className="text-[10px] font-black uppercase tracking-[0.16em] text-cyan-100/60">
             {title}
           </p>
+
           <div className="mt-2 text-[12.5px] font-semibold leading-5 text-white/72">
             {children}
           </div>
@@ -39,7 +64,14 @@ export default function ObligationDebt({
     onToggleDetails,
   });
 
-  const { isExpanded } = state;
+  const {
+    isExpanded,
+    debtType,
+    totalDebtInput,
+    monthlyDebtInput,
+    interestInput,
+  } = state;
+
   const {
     tone,
     totalDebt,
@@ -49,7 +81,15 @@ export default function ObligationDebt({
     statusLabel,
     smartFeedback,
   } = computed;
-  const { handleAskClara, handleToggleDetails } = handlers;
+
+  const {
+    setDebtType,
+    setTotalDebtInput,
+    setMonthlyDebtInput,
+    setInterestInput,
+    handleAskClara,
+    handleToggleDetails,
+  } = handlers;
 
   const hasActiveDebt = totalDebt > 0;
 
@@ -108,6 +148,7 @@ export default function ObligationDebt({
                     <p className="text-base font-semibold tracking-tight text-white">
                       Debt / Obligations
                     </p>
+
                     <p className="mt-0.5 text-[11px] font-medium text-white/76">
                       Track what you owe.
                     </p>
@@ -143,6 +184,7 @@ export default function ObligationDebt({
                     >
                       {tile.value}
                     </p>
+
                     <p className="mt-1.5 text-[8px] font-black uppercase tracking-[0.18em] text-white/42">
                       {tile.label}
                     </p>
@@ -160,7 +202,11 @@ export default function ObligationDebt({
               aria-expanded={isExpanded}
             >
               <span>{isExpanded ? "Hide details" : "Show details"}</span>
-              {isExpanded ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+              {isExpanded ? (
+                <ChevronUp className="h-4 w-4" />
+              ) : (
+                <ChevronDown className="h-4 w-4" />
+              )}
             </button>
           </div>
         </div>
@@ -178,10 +224,93 @@ export default function ObligationDebt({
               <GuidancePanel title="Clear position" icon={Sparkles}>
                 <p>No active obligation is recorded right now.</p>
                 <p className="mt-1.5 text-white/52">
-                  Keep tracking new commitments so CLARA can read your cash flow clearly.
+                  Add your obligation below so CLARA can read your cash flow clearly.
                 </p>
               </GuidancePanel>
             )}
+
+            <div className="rounded-2xl border border-white/10 bg-white/[0.04] p-3.5 shadow-[inset_0_1px_0_rgba(255,255,255,0.05)]">
+              <div className="mb-3 flex items-center gap-2">
+                <div className="flex h-8 w-8 items-center justify-center rounded-xl border border-cyan-300/20 bg-cyan-300/10 text-cyan-100">
+                  <Plus className="h-4 w-4" />
+                </div>
+
+                <div>
+                  <p className="text-sm font-black text-white">
+                    {hasActiveDebt ? "Update obligation" : "Add obligation"}
+                  </p>
+                  <p className="text-[11px] font-semibold text-white/45">
+                    Enter the balance and monthly payment.
+                  </p>
+                </div>
+              </div>
+
+              <div className="space-y-2.5">
+                <div>
+                  <MiniLabel htmlFor="debt-type">Type</MiniLabel>
+                  <select
+                    id="debt-type"
+                    value={debtType}
+                    onChange={(event) => setDebtType(event.target.value)}
+                    className={fieldClass}
+                  >
+                    {DEBT_TYPES.map((type) => (
+                      <option
+                        key={type.value}
+                        value={type.value}
+                        className="bg-slate-950 text-white"
+                      >
+                        {type.label}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div className="grid grid-cols-2 gap-2.5">
+                  <div>
+                    <MiniLabel htmlFor="total-debt">Balance</MiniLabel>
+                    <input
+                      id="total-debt"
+                      type="number"
+                      inputMode="decimal"
+                      min="0"
+                      value={totalDebtInput}
+                      onChange={(event) => setTotalDebtInput(event.target.value)}
+                      placeholder="0"
+                      className={fieldClass}
+                    />
+                  </div>
+
+                  <div>
+                    <MiniLabel htmlFor="monthly-debt">Monthly</MiniLabel>
+                    <input
+                      id="monthly-debt"
+                      type="number"
+                      inputMode="decimal"
+                      min="0"
+                      value={monthlyDebtInput}
+                      onChange={(event) => setMonthlyDebtInput(event.target.value)}
+                      placeholder="0"
+                      className={fieldClass}
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <MiniLabel htmlFor="interest-rate">Interest optional</MiniLabel>
+                  <input
+                    id="interest-rate"
+                    type="number"
+                    inputMode="decimal"
+                    min="0"
+                    value={interestInput}
+                    onChange={(event) => setInterestInput(event.target.value)}
+                    placeholder="Example: 3"
+                    className={fieldClass}
+                  />
+                </div>
+              </div>
+            </div>
 
             <button
               type="button"
