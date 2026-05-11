@@ -1,4 +1,4 @@
-import { ChevronDown, ChevronUp, TrendingUp } from "lucide-react";
+import { CheckCircle2, ChevronDown, ChevronUp, Sparkles, TrendingUp } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 
 import useInvestmentCardLogic, {
@@ -58,8 +58,13 @@ export default function InvestmentCard({ item = null, expanded = false, onToggle
 
   const explanationTitle = canSafelyInvest ? "Why this amount?" : "Why not yet?";
   const explanationText = canSafelyInvest
-    ? `Based on your budget flow, wallet money, and secured emergency fund, CLARA treats ${fmt(safeToInvest)} as a cautious starter range — not your full available money. You can use it now, let it grow, or ask CLARA to think through your business or investment idea.`
+    ? `CLARA looked at your budget flow, wallet money, and secured emergency fund. ${fmt(safeToInvest)} is a cautious starter range — not your full available money.`
     : "CLARA will suggest a starter range after your emergency protection is secured and there is extra wallet room beyond it.";
+
+  const recognitionTitle = canSafelyInvest ? "Protection secured" : "Protection first";
+  const recognitionText = canSafelyInvest
+    ? "You earned room to plan a careful risk. Start small, think clearly, and let CLARA help you test the idea before committing more."
+    : "Build your emergency layer first so investing does not become pressure money.";
 
   const openInvestmentPlan = () => {
     navigate("/investment-plan", {
@@ -152,28 +157,42 @@ export default function InvestmentCard({ item = null, expanded = false, onToggle
         </div>
 
         {isExpanded ? (
-          <div className="relative z-20 mt-5 min-h-0 flex-1 space-y-3.5 overflow-y-auto overscroll-contain rounded-2xl border border-white/10 bg-black/15 p-3.5 pb-5 pt-4 backdrop-blur-[2px] shadow-[inset_0_1px_0_rgba(255,255,255,0.05)] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+          <div className="relative z-20 mt-5 min-h-0 flex-1 space-y-3 overflow-y-auto overscroll-contain rounded-2xl border border-white/10 bg-black/15 p-3.5 pb-5 pt-4 backdrop-blur-[2px] shadow-[inset_0_1px_0_rgba(255,255,255,0.05)] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
             <div className="relative z-10 overflow-hidden rounded-2xl border border-cyan-300/18 bg-cyan-400/[0.075] px-3.5 py-3.5 shadow-[inset_0_1px_0_rgba(255,255,255,0.06)]">
-              <p className="text-[10px] font-black uppercase tracking-[0.16em] text-cyan-100/60">
+              <div className="pointer-events-none absolute -right-8 -top-10 h-24 w-24 rounded-full bg-cyan-300/10 blur-2xl" />
+              <p className="relative text-[10px] font-black uppercase tracking-[0.16em] text-cyan-100/60">
                 {explanationTitle}
               </p>
-              <p className="mt-2 text-[12.5px] font-semibold leading-6 text-white/76">
+              <p className="relative mt-2 text-[12.5px] font-semibold leading-6 text-white/76">
                 {explanationText}
               </p>
-              <p className="mt-2 text-[11px] font-medium leading-5 text-white/45">
-                CLARA can help you think, but for major money decisions, consider asking a qualified professional.
+              <p className="relative mt-2 text-[11px] font-medium leading-5 text-white/45">
+                CLARA can guide your thinking, but major money decisions still deserve professional advice.
               </p>
             </div>
 
-            <p className="relative z-10 rounded-2xl border border-white/10 bg-white/[0.045] px-3 py-2.5 text-xs font-medium leading-relaxed text-white/62">
-              {description}
-            </p>
+            <div className="relative z-10 overflow-hidden rounded-2xl border border-emerald-300/18 bg-[radial-gradient(circle_at_top_left,rgba(52,211,153,0.18),transparent_42%),rgba(16,185,129,0.075)] px-3.5 py-3.5 shadow-[inset_0_1px_0_rgba(255,255,255,0.06)]">
+              <div className="pointer-events-none absolute -right-6 -bottom-10 h-24 w-24 rounded-full bg-emerald-300/10 blur-2xl" />
+              <div className="relative flex items-start gap-3">
+                <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-emerald-300/20 bg-emerald-400/10 text-emerald-200 shadow-[0_0_18px_rgba(52,211,153,0.12)]">
+                  {canSafelyInvest ? <CheckCircle2 className="h-4 w-4" /> : <Sparkles className="h-4 w-4" />}
+                </div>
+                <div className="min-w-0">
+                  <p className="text-sm font-black leading-tight text-white">
+                    {recognitionTitle}
+                  </p>
+                  <p className="mt-1.5 text-[12px] font-semibold leading-5 text-white/68">
+                    {recognitionText}
+                  </p>
+                </div>
+              </div>
+            </div>
 
-            <div className="relative z-10 grid grid-cols-1 gap-2 pb-0.5">
+            <div className="relative z-10 grid grid-cols-1 gap-2 pt-0.5">
               <button
                 type="button"
                 onClick={openInvestmentPlan}
-                className={`flex min-h-[44px] items-center justify-center rounded-2xl border px-3 py-3 text-sm font-black ${tone.primaryButton}`}
+                className={`flex min-h-[46px] items-center justify-center rounded-2xl border px-3 py-3 text-sm font-black shadow-[inset_0_1px_0_rgba(255,255,255,0.08)] ${tone.primaryButton}`}
               >
                 Start Investment Plan
               </button>
@@ -181,7 +200,7 @@ export default function InvestmentCard({ item = null, expanded = false, onToggle
               <button
                 type="button"
                 onClick={handleAskClara}
-                className="flex min-h-[42px] items-center justify-center rounded-2xl border border-white/10 bg-white/5 px-3 py-2.5 text-sm font-semibold text-white/82 transition hover:bg-white/10 hover:text-white"
+                className="flex min-h-[42px] items-center justify-center rounded-2xl border border-white/10 bg-white/[0.045] px-3 py-2.5 text-sm font-semibold text-white/78 transition hover:bg-white/10 hover:text-white"
               >
                 Ask CLARA First
               </button>
