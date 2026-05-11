@@ -85,19 +85,12 @@ export default function ObligationDebt({ item = null, expanded = false, onToggle
     riskLevel,
     statusLabel,
     payoffMonths,
-    monthlyLeftover,
   } = computed;
   const { handleAskClara, handleToggleDetails, reloadDebtObligations } = handlers;
 
   const localUserId = String(user?.id || user?.email || "local-user");
   const actionLoading = saving || savingDebt;
   const hasActiveDebt = totalDebt > 0;
-
-  const safeMoneyImpactText = useMemo(() => {
-    if (monthlyDebt <= 0) return "No monthly obligation pressure detected yet.";
-    if (monthlyLeftover <= 0) return "Your obligations currently consume most of your safe monthly money flow.";
-    return `This lowers your safe money by ${fmt(monthlyDebt)} every month.`;
-  }, [monthlyDebt, monthlyLeftover]);
 
   const payoffEstimateText = useMemo(() => {
     if (!hasActiveDebt || payoffMonths <= 0) return "Add monthly payments to estimate payoff time.";
@@ -140,9 +133,15 @@ export default function ObligationDebt({ item = null, expanded = false, onToggle
     if (typeof window === "undefined") return;
     const nextTotalDebt = records.reduce((sum, record) => sum + getBalance(record), 0);
     const nextMonthlyDebt = records.reduce((sum, record) => sum + getMonthly(record), 0);
+
     window.dispatchEvent(
       new CustomEvent("clara:debt-obligations-updated", {
-        detail: { localUserId, totalDebt: nextTotalDebt, monthlyDebt: nextMonthlyDebt, activeDebtCount: records.length },
+        detail: {
+          localUserId,
+          totalDebt: nextTotalDebt,
+          monthlyDebt: nextMonthlyDebt,
+          activeDebtCount: records.length,
+        },
       })
     );
   };
@@ -152,8 +151,10 @@ export default function ObligationDebt({ item = null, expanded = false, onToggle
     const balance = toDebtNumber(form.totalDebt);
     const monthly = toDebtNumber(form.monthlyDebt);
 
-    if (!title) return setNotice("Name this obligation first, like Home Credit or Credit Card.");
-    if (balance <= 0 && monthly <= 0) return setNotice("Enter at least the balance or monthly payment first.");
+    if (!title) return setNotice("Name this obligation first.");
+    if (balance <= 0 && monthly <= 0) {
+      return setNotice("Enter at least the balance or monthly payment first.");
+    }
 
     setSaving(true);
     setNotice("");
@@ -168,8 +169,10 @@ export default function ObligationDebt({ item = null, expanded = false, onToggle
         interestRate: toDebtNumber(form.interestRate),
         dueDate: form.dueDate || "",
       });
+
       const refreshed = await reloadDebtObligations();
       notifyDebtChanged(refreshed || []);
+
       setNotice(form.id ? "Obligation updated." : "New obligation added.");
       closeForm();
     } catch (error) {
@@ -195,39 +198,46 @@ export default function ObligationDebt({ item = null, expanded = false, onToggle
               <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border backdrop-blur-sm ${tone.iconShell}`}>
                 <ShieldAlert className={`h-4 w-4 ${tone.icon}`} />
               </div>
+
               <div className="min-w-0 flex-1">
                 <div className="flex items-start justify-between gap-2">
                   <div className="min-w-0">
                     <p className="text-base font-semibold tracking-tight text-white">Debt / Obligations</p>
                     <p className="mt-0.5 text-[11px] font-medium text-white/76">Track what you owe.</p>
                   </div>
-                  <span className={`shrink-0 rounded-full border px-2.5 py-1 text-[10px] font-semibold backdrop-blur-sm ${tone.status}`}>{statusLabel}</span>
+
+                  <span className={`shrink-0 rounded-full border px-2.5 py-1 text-[10px] font-semibold backdrop-blur-sm ${tone.status}`}>
+                    {statusLabel}
+                  </span>
                 </div>
               </div>
             </div>
 
-            <div className="mb-2.5">
-              <p className={`text-[30px] font-black leading-none tracking-[-0.045em] ${tone.value}`}>{compactCurrency(totalDebt)}</p>
+            <div className="mb-4">
+              <p className={`text-[30px] font-black leading-none tracking-[-0.045em] ${tone.value}`}>
+                {compactCurrency(totalDebt)}
+              </p>
+
               <p className="mt-2 text-sm font-semibold leading-tight text-white/82">
-                {hasActiveDebt ? `Total active obligations${activeDebtCount > 0 ? ` (${activeDebtCount})` : ""}.` : "No active debt recorded."}
+                {hasActiveDebt
+                  ? `Total active obligations${activeDebtCount > 0 ? ` (${activeDebtCount})` : ""}.`
+                  : "No active debt recorded."}
               </p>
             </div>
 
-            <div className="rounded-2xl border border-white/8 bg-white/[0.035] px-3 py-2.5 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]">
-              <p className="text-[11px] font-semibold leading-5 text-white/62">{safeMoneyImpactText}</p>
-              <p className="mt-1 text-[11px] font-black tracking-[0.01em] text-cyan-100/92">{payoffEstimateText}</p>
-            </div>
+            <div className="grid grid-cols-3 gap-2">
+              {summaryTiles.map((tile) => (
+                <div key={tile.label} className={tileClass}>
+                  <p className={`truncate text-[13px] font-black leading-none tracking-[-0.025em] ${tile.valueClassName || "text-white/92"}`}>
+                    {tile.value}
+                  </p>
 
-            {!isExpanded ? (
-              <div className="mt-3 mb-1 grid grid-cols-3 gap-2">
-                {summaryTiles.map((tile) => (
-                  <div key={tile.label} className={tileClass}>
-                    <p className={`truncate text-[13px] font-black leading-none tracking-[-0.025em] ${tile.valueClassName || "text-white/92"}`}>{tile.value}</p>
-                    <p className="mt-1.5 text-[8px] font-black uppercase tracking-[0.18em] text-white/42">{tile.label}</p>
-                  </div>
-                ))}
-              </div>
-            ) : null}
+                  <p className="mt-1.5 text-[8px] font-black uppercase tracking-[0.18em] text-white/42">
+                    {tile.label}
+                  </p>
+                </div>
+              ))}
+            </div>
           </div>
 
           <div className="shrink-0 border-t border-white/6 pt-2">
@@ -240,28 +250,68 @@ export default function ObligationDebt({ item = null, expanded = false, onToggle
 
         {isExpanded ? (
           <div className="relative z-20 mt-3 min-h-0 flex-1 space-y-3 overflow-y-auto overscroll-contain rounded-2xl border border-white/10 bg-black/15 p-3.5 pb-5 backdrop-blur-[2px] shadow-[inset_0_1px_0_rgba(255,255,255,0.05)] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+            <div className="rounded-2xl border border-white/8 bg-white/[0.035] px-3 py-2.5 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]">
+              <p className="text-[11px] font-semibold leading-5 text-white/62">
+                {payoffEstimateText}
+              </p>
+            </div>
+
             <div className="grid grid-cols-2 gap-2">
-              <button type="button" disabled={actionLoading} onClick={openCreateForm} className="flex min-h-[44px] items-center justify-center gap-2 rounded-2xl border border-emerald-300/25 bg-emerald-400/10 px-3 py-2.5 text-sm font-black text-emerald-100 transition hover:bg-emerald-400/15 disabled:opacity-45"><Plus className="h-4 w-4" />New Obligation</button>
-              <button type="button" onClick={handleAskClara} className="flex min-h-[44px] items-center justify-center gap-2 rounded-2xl border border-cyan-300/25 bg-cyan-400/10 px-3 py-2.5 text-sm font-black text-cyan-100 transition hover:bg-cyan-400/15"><Brain className="h-4 w-4" />Ask CLARA</button>
+              <button type="button" disabled={actionLoading} onClick={openCreateForm} className="flex min-h-[44px] items-center justify-center gap-2 rounded-2xl border border-emerald-300/25 bg-emerald-400/10 px-3 py-2.5 text-sm font-black text-emerald-100 transition hover:bg-emerald-400/15 disabled:opacity-45">
+                <Plus className="h-4 w-4" />
+                New Obligation
+              </button>
+
+              <button type="button" onClick={handleAskClara} className="flex min-h-[44px] items-center justify-center gap-2 rounded-2xl border border-cyan-300/25 bg-cyan-400/10 px-3 py-2.5 text-sm font-black text-cyan-100 transition hover:bg-cyan-400/15">
+                <Brain className="h-4 w-4" />
+                Ask CLARA
+              </button>
             </div>
 
             {formOpen ? (
               <div className="rounded-2xl border border-white/10 bg-white/[0.04] p-3.5 shadow-[inset_0_1px_0_rgba(255,255,255,0.05)]">
                 <div className="mb-3 flex items-center justify-between gap-2">
-                  <div><p className="text-sm font-black text-white">{form.id ? "Edit obligation" : "Add obligation"}</p><p className="text-[11px] font-semibold text-white/45">Name it like Home Credit, Credit Card, or Motor Loan.</p></div>
-                  <button type="button" onClick={closeForm} className="flex h-8 w-8 items-center justify-center rounded-xl border border-white/10 bg-white/5 text-white/65" aria-label="Close obligation form"><X className="h-4 w-4" /></button>
+                  <div>
+                    <p className="text-sm font-black text-white">
+                      {form.id ? "Edit obligation" : "Add obligation"}
+                    </p>
+                    <p className="text-[11px] font-semibold text-white/45">
+                      Name it like Home Credit or Credit Card.
+                    </p>
+                  </div>
+
+                  <button type="button" onClick={closeForm} className="flex h-8 w-8 items-center justify-center rounded-xl border border-white/10 bg-white/5 text-white/65" aria-label="Close obligation form">
+                    <X className="h-4 w-4" />
+                  </button>
                 </div>
 
                 <div className="space-y-2.5">
-                  <div><MiniLabel htmlFor="debt-title">Name</MiniLabel><input id="debt-title" value={form.title} onChange={(event) => setForm((current) => ({ ...current, title: event.target.value }))} placeholder="Example: Home Credit" className={fieldClass} /></div>
-                  <div><MiniLabel htmlFor="debt-type">Type</MiniLabel><select id="debt-type" value={form.debtType} onChange={(event) => setForm((current) => ({ ...current, debtType: event.target.value }))} className={fieldClass}>{DEBT_TYPES.map((type) => <option key={type.value} value={type.value} className="bg-slate-950 text-white">{type.label}</option>)}</select></div>
-                  <div className="grid grid-cols-2 gap-2.5">
-                    <div><MiniLabel htmlFor="total-debt">Balance</MiniLabel><input id="total-debt" type="number" inputMode="decimal" min="0" value={form.totalDebt} onChange={(event) => setForm((current) => ({ ...current, totalDebt: event.target.value }))} placeholder="0" className={fieldClass} /></div>
-                    <div><MiniLabel htmlFor="monthly-debt">Monthly</MiniLabel><input id="monthly-debt" type="number" inputMode="decimal" min="0" value={form.monthlyDebt} onChange={(event) => setForm((current) => ({ ...current, monthlyDebt: event.target.value }))} placeholder="0" className={fieldClass} /></div>
+                  <div>
+                    <MiniLabel htmlFor="debt-title">Name</MiniLabel>
+                    <input id="debt-title" value={form.title} onChange={(event) => setForm((current) => ({ ...current, title: event.target.value }))} placeholder="Example: Home Credit" className={fieldClass} />
                   </div>
+
+                  <div>
+                    <MiniLabel htmlFor="debt-type">Type</MiniLabel>
+                    <select id="debt-type" value={form.debtType} onChange={(event) => setForm((current) => ({ ...current, debtType: event.target.value }))} className={fieldClass}>
+                      {DEBT_TYPES.map((type) => (
+                        <option key={type.value} value={type.value} className="bg-slate-950 text-white">
+                          {type.label}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
                   <div className="grid grid-cols-2 gap-2.5">
-                    <div><MiniLabel htmlFor="interest-rate">Interest</MiniLabel><input id="interest-rate" type="number" inputMode="decimal" min="0" value={form.interestRate} onChange={(event) => setForm((current) => ({ ...current, interestRate: event.target.value }))} placeholder="Optional" className={fieldClass} /></div>
-                    <div><MiniLabel htmlFor="due-date">Due date</MiniLabel><input id="due-date" value={form.dueDate} onChange={(event) => setForm((current) => ({ ...current, dueDate: event.target.value }))} placeholder="Example: 15th" className={fieldClass} /></div>
+                    <div>
+                      <MiniLabel htmlFor="total-debt">Balance</MiniLabel>
+                      <input id="total-debt" type="number" inputMode="decimal" min="0" value={form.totalDebt} onChange={(event) => setForm((current) => ({ ...current, totalDebt: event.target.value }))} placeholder="0" className={fieldClass} />
+                    </div>
+
+                    <div>
+                      <MiniLabel htmlFor="monthly-debt">Monthly</MiniLabel>
+                      <input id="monthly-debt" type="number" inputMode="decimal" min="0" value={form.monthlyDebt} onChange={(event) => setForm((current) => ({ ...current, monthlyDebt: event.target.value }))} placeholder="0" className={fieldClass} />
+                    </div>
                   </div>
                 </div>
 
@@ -278,23 +328,69 @@ export default function ObligationDebt({ item = null, expanded = false, onToggle
                 const monthly = getMonthly(record);
                 const interest = getInterest(record);
                 const months = monthly > 0 && balance > 0 ? Math.ceil(balance / monthly) : 0;
+
                 return (
                   <div key={record.id} className="rounded-2xl border border-white/10 bg-black/20 p-3 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]">
                     <div className="flex items-start justify-between gap-3">
-                      <div className="min-w-0"><p className="truncate text-sm font-black text-white">{getDebtTitle(record)}</p><p className="mt-1 text-[11px] font-semibold text-white/48">{getDebtTypeLabel(record.debtType || record.type)}{record.dueDate || record.due_date ? ` • Due ${record.dueDate || record.due_date}` : ""}</p></div>
-                      <button type="button" onClick={() => openEditForm(record)} className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl border border-white/10 bg-white/5 text-white/70 transition hover:bg-white/10" aria-label="Edit obligation"><Edit3 className="h-3.5 w-3.5" /></button>
+                      <div className="min-w-0">
+                        <p className="truncate text-sm font-black text-white">
+                          {getDebtTitle(record)}
+                        </p>
+
+                        <p className="mt-1 text-[11px] font-semibold text-white/48">
+                          {getDebtTypeLabel(record.debtType || record.type)}
+                          {record.dueDate || record.due_date ? ` • Due ${record.dueDate || record.due_date}` : ""}
+                        </p>
+                      </div>
+
+                      <button type="button" onClick={() => openEditForm(record)} className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl border border-white/10 bg-white/5 text-white/70 transition hover:bg-white/10" aria-label="Edit obligation">
+                        <Edit3 className="h-3.5 w-3.5" />
+                      </button>
                     </div>
+
                     <div className="mt-3 grid grid-cols-2 gap-2">
-                      <div className="rounded-2xl border border-white/8 bg-white/[0.035] px-3 py-2"><p className="text-[8px] font-black uppercase tracking-[0.16em] text-white/38">Balance</p><p className="mt-1 text-sm font-black text-white">{fmt(balance)}</p></div>
-                      <div className="rounded-2xl border border-white/8 bg-white/[0.035] px-3 py-2"><p className="text-[8px] font-black uppercase tracking-[0.16em] text-white/38">Monthly</p><p className="mt-1 text-sm font-black text-cyan-100">{fmt(monthly)}</p></div>
+                      <div className="rounded-2xl border border-white/8 bg-white/[0.035] px-3 py-2">
+                        <p className="text-[8px] font-black uppercase tracking-[0.16em] text-white/38">
+                          Balance
+                        </p>
+
+                        <p className="mt-1 text-sm font-black text-white">
+                          {fmt(balance)}
+                        </p>
+                      </div>
+
+                      <div className="rounded-2xl border border-white/8 bg-white/[0.035] px-3 py-2">
+                        <p className="text-[8px] font-black uppercase tracking-[0.16em] text-white/38">
+                          Monthly
+                        </p>
+
+                        <p className="mt-1 text-sm font-black text-cyan-100">
+                          {fmt(monthly)}
+                        </p>
+                      </div>
                     </div>
-                    <div className="mt-2 flex flex-wrap items-center gap-2 text-[11px] font-semibold text-white/50">{interest > 0 ? <span>{interest}% interest</span> : null}{months > 0 ? <span>• around {months} months left</span> : null}</div>
+
+                    <div className="mt-2 flex flex-wrap items-center gap-2 text-[11px] font-semibold text-white/50">
+                      {interest > 0 ? <span>{interest}% interest</span> : null}
+                      {months > 0 ? <span>• around {months} months left</span> : null}
+                    </div>
                   </div>
                 );
-              }) : <div className="rounded-2xl border border-dashed border-white/12 bg-black/20 p-4 text-center"><p className="text-sm font-black text-white">No obligations yet</p><p className="mt-1 text-[11px] font-semibold leading-5 text-white/50">Add installments, loans, cards, or personal balances one by one.</p></div>}
+              }) : (
+                <div className="rounded-2xl border border-dashed border-white/12 bg-black/20 p-4 text-center">
+                  <p className="text-sm font-black text-white">No obligations yet</p>
+                  <p className="mt-1 text-[11px] font-semibold leading-5 text-white/50">
+                    Add installments, loans, cards, or personal balances one by one.
+                  </p>
+                </div>
+              )}
             </div>
 
-            {notice ? <p className="text-[11px] font-semibold leading-5 text-white/58">{notice}</p> : null}
+            {notice ? (
+              <p className="text-[11px] font-semibold leading-5 text-white/58">
+                {notice}
+              </p>
+            ) : null}
           </div>
         ) : null}
       </div>
