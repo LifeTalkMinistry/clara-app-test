@@ -1,4 +1,4 @@
-import { Brain, CheckCircle2, ChevronDown, ChevronUp, Plus, ShieldAlert } from "lucide-react";
+import { Brain, CheckCircle2, ChevronDown, ChevronUp, Loader2, Plus, ShieldAlert } from "lucide-react";
 import { useState } from "react";
 
 import useDebtCardLogic, {
@@ -42,6 +42,8 @@ export default function ObligationDebt({
     totalDebtInput,
     monthlyDebtInput,
     interestInput,
+    activeDebtCount,
+    savingDebt,
   } = state;
 
   const {
@@ -60,20 +62,14 @@ export default function ObligationDebt({
     setInterestInput,
     handleAskClara,
     handleToggleDetails,
+    handleSaveDebtObligation,
   } = handlers;
 
   const hasActiveDebt = totalDebt > 0;
-  const canRecord = totalDebt > 0 || monthlyDebt > 0;
 
-  const handleRecordObligation = () => {
-    if (!canRecord) {
-      setRecordedNotice("Enter at least the balance or monthly payment first.");
-      return;
-    }
-
-    setRecordedNotice(
-      "Obligation recorded on this card. Ask CLARA to review the pressure before adding new spending."
-    );
+  const handleRecordObligation = async () => {
+    const result = await handleSaveDebtObligation();
+    setRecordedNotice(result?.message || "");
   };
 
   const summaryTiles = [
@@ -92,14 +88,14 @@ export default function ObligationDebt({
             : "text-emerald-300",
     },
     {
-      label: "Status",
-      value: riskLevel,
+      label: activeDebtCount > 0 ? "Accounts" : "Status",
+      value: activeDebtCount > 0 ? String(activeDebtCount) : riskLevel,
       valueClassName:
         riskLevel === "Debt free"
           ? "text-emerald-300"
           : riskLevel === "Moderate"
             ? "text-amber-300"
-            : riskLevel === "High"
+            : riskLevel === "Risk"
               ? "text-rose-300"
               : "text-cyan-300",
     },
@@ -153,7 +149,7 @@ export default function ObligationDebt({
 
               <p className="mt-2 text-sm font-semibold leading-tight text-white/82">
                 {hasActiveDebt
-                  ? "Total active obligations."
+                  ? `Total active obligations${activeDebtCount > 0 ? ` (${activeDebtCount})` : ""}.`
                   : "No active debt recorded."}
               </p>
             </div>
@@ -293,10 +289,16 @@ export default function ObligationDebt({
               <button
                 type="button"
                 onClick={handleRecordObligation}
+                disabled={savingDebt}
                 className="mt-3 flex min-h-[44px] w-full items-center justify-center gap-2 rounded-2xl border border-emerald-300/25 bg-emerald-400/10 px-3 py-2.5 text-sm font-black text-emerald-100 shadow-[inset_0_1px_0_rgba(255,255,255,0.08)] transition hover:bg-emerald-400/15 disabled:cursor-not-allowed disabled:opacity-45"
               >
-                <CheckCircle2 className="h-4 w-4" />
-                Record Obligation
+                {savingDebt ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <CheckCircle2 className="h-4 w-4" />
+                )}
+
+                {savingDebt ? "Saving obligation..." : "Record Obligation"}
               </button>
 
               {recordedNotice ? (
