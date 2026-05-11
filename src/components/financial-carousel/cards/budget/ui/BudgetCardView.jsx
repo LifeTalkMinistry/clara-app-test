@@ -14,7 +14,7 @@ const FALLBACK_MESSAGES = [
 function ClaraBudgetDecisionScreen({ selectedDashboardTheme }) {
   return (
     <div
-      className="relative flex h-full min-h-[inherit] flex-col overflow-hidden rounded-3xl border border-cyan-200/18 bg-slate-950/88 backdrop-blur-2xl"
+      className="relative flex h-full min-h-[inherit] flex-col overflow-hidden rounded-3xl border border-cyan-200/18 bg-slate-950/88 p-4 text-white backdrop-blur-2xl"
       style={{
         borderColor: selectedDashboardTheme?.tokens?.border || "rgba(103,232,249,0.18)",
         boxShadow:
@@ -25,6 +25,21 @@ function ClaraBudgetDecisionScreen({ selectedDashboardTheme }) {
       <div className="pointer-events-none absolute bottom-[-185px] right-[-125px] h-[250px] w-[250px] rounded-full bg-violet-400/[0.08] blur-3xl" />
       <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(to_bottom,rgba(255,255,255,0.05),rgba(255,255,255,0.01)_38%,rgba(0,0,0,0.06))]" />
       <div className="pointer-events-none absolute inset-0 rounded-[inherit] ring-1 ring-inset ring-white/8" />
+
+      <div className="relative z-10 w-full max-w-[230px]">
+        <div className="mb-2 inline-flex items-center gap-2 rounded-full border border-emerald-300/15 bg-emerald-300/10 px-2.5 py-1 text-[9px] font-semibold uppercase tracking-[0.18em] text-emerald-100/85 shadow-[0_10px_24px_rgba(0,0,0,0.18)] backdrop-blur-xl">
+          <span className="h-1.5 w-1.5 rounded-full bg-emerald-300 shadow-[0_0_14px_rgba(110,231,183,0.82)]" />
+          CLARA Budget Lens
+        </div>
+
+        <h3 className="text-[1.18rem] font-black leading-none tracking-tight text-white drop-shadow-[0_1px_12px_rgba(0,0,0,0.45)]">
+          Ask before you spend.
+        </h3>
+
+        <p className="mt-1 text-[11px] leading-4 text-slate-300/78">
+          Your budget is ready to think with you.
+        </p>
+      </div>
     </div>
   );
 }
