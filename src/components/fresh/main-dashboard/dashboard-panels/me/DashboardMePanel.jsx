@@ -1,104 +1,85 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import {
-  CalendarDays,
-  Check,
+  Briefcase,
   ChevronRight,
   HeartHandshake,
+  PiggyBank,
   ShieldCheck,
-  SlidersHorizontal,
-  Sparkles,
-  Target,
+  Smile,
   UserRound,
+  Users,
   WalletCards,
   X,
 } from "lucide-react";
 import useUserRole from "@/hooks/useUserRole";
 
 const DEFAULT_ME_PROFILE = {
-  tone: "Calm coach",
-  decisionStyle: "Pause first",
-  spendingStyle: "Balanced spender",
-  trigger: "Small treats",
-  strictness: "Balanced",
-  protectedPriority: "Essentials first",
-  responsibility: "Bills and family needs",
-  defaultGoal: "Protect monthly money",
+  personality: "Balanced spender",
+  status: "Employee",
+  age: "",
+  dependents: "Just me",
+  responsibility: "Bills and essentials",
+  incomeRhythm: "Monthly salary",
+  coachingStyle: "Balanced",
 };
 
-const EDITOR_CONFIG = {
-  defaults: {
-    title: "Personal defaults",
-    subtitle: "How CLARA should speak and guide you by default.",
-    fields: [
-      {
-        key: "tone",
-        label: "CLARA tone",
-        options: ["Calm coach", "Straight talk", "Gentle friend", "Strict mentor"],
-      },
-      {
-        key: "decisionStyle",
-        label: "Default decision style",
-        options: ["Pause first", "Encourage wisely", "Protect budget", "Challenge wants"],
-      },
-    ],
+const PROFILE_FIELDS = [
+  {
+    key: "personality",
+    label: "Money personality",
+    helper: "How you usually handle spending.",
+    icon: Smile,
+    options: ["Careful spender", "Balanced spender", "Impulse spender", "Goal-driven", "Generous spender"],
   },
-  personality: {
-    title: "Money personality",
-    subtitle: "Your usual spending behavior and temptation pattern.",
-    fields: [
-      {
-        key: "spendingStyle",
-        label: "Spending style",
-        options: ["Balanced spender", "Careful saver", "Impulse spender", "Goal-driven"],
-      },
-      {
-        key: "trigger",
-        label: "Common trigger",
-        options: ["Small treats", "Stress spending", "Online deals", "Social pressure"],
-      },
-    ],
+  {
+    key: "status",
+    label: "Current status",
+    helper: "Your current life stage.",
+    icon: Briefcase,
+    options: ["Student", "Working student", "Employee", "Freelancer", "Business owner", "Parent", "Single parent", "Between jobs"],
   },
-  responsibilities: {
-    title: "Responsibilities",
-    subtitle: "The obligations CLARA should protect before lifestyle spending.",
-    fields: [
-      {
-        key: "responsibility",
-        label: "Main responsibility",
-        options: ["Bills and family needs", "Debt payments", "School/work costs", "Health needs"],
-      },
-      {
-        key: "protectedPriority",
-        label: "Protected priority",
-        options: ["Essentials first", "Emergency buffer", "Savings goal", "Upcoming commitments"],
-      },
-    ],
+  {
+    key: "age",
+    label: "Age",
+    helper: "Optional, but helps CLARA adjust tone.",
+    icon: UserRound,
+    input: "number",
   },
-  boundaries: {
-    title: "Decision boundaries",
-    subtitle: "How firm CLARA should be when a purchase feels risky.",
-    fields: [
-      {
-        key: "strictness",
-        label: "Coach strictness",
-        options: ["Gentle", "Balanced", "Firm", "Very strict"],
-      },
-      {
-        key: "defaultGoal",
-        label: "Default money goal",
-        options: ["Protect monthly money", "Build savings", "Avoid impulse buys", "Stay under budget"],
-      },
-    ],
+  {
+    key: "dependents",
+    label: "Who depends on me?",
+    helper: "People CLARA should consider before spending advice.",
+    icon: Users,
+    options: ["Just me", "Parents", "Partner / spouse", "Children", "Siblings", "Family household", "Others"],
   },
-};
+  {
+    key: "responsibility",
+    label: "Protect first",
+    helper: "The priority CLARA should protect before wants.",
+    icon: ShieldCheck,
+    options: ["Bills and essentials", "Food at home", "Family support", "Rent", "Debt payment", "Medical needs", "Savings goal", "Emergency fund"],
+  },
+  {
+    key: "incomeRhythm",
+    label: "Income rhythm",
+    helper: "When money usually comes in.",
+    icon: WalletCards,
+    options: ["Daily income", "Weekly income", "Twice a month", "Monthly salary", "Irregular income", "No active income yet"],
+  },
+  {
+    key: "coachingStyle",
+    label: "Guide me like this",
+    helper: "How firm CLARA should sound.",
+    icon: HeartHandshake,
+    options: ["Gentle", "Balanced", "Straightforward", "Strict"],
+  },
+];
 
 function getInitials(value = "") {
-  const cleaned = String(value || "").trim();
-  if (!cleaned) return "ME";
-
-  return cleaned
+  const clean = String(value || "").trim();
+  if (!clean) return "ME";
+  return clean
     .split(/\s+/)
-    .filter(Boolean)
     .slice(0, 2)
     .map((word) => word.charAt(0).toUpperCase())
     .join("");
@@ -112,7 +93,7 @@ function getDisplayName(user) {
     user?.user_metadata?.full_name ||
     user?.user_metadata?.name ||
     user?.email?.split("@")?.[0] ||
-    "Your CLARA self"
+    "Your CLARA profile"
   );
 }
 
@@ -120,7 +101,7 @@ function getPlanLabel({ plan, isPaid, isFree }) {
   if (isPaid && plan) {
     return String(plan)
       .replaceAll("_", " ")
-      .replace(/\b\w/g, (letter) => letter.toUpperCase());
+      .replace(/\b\w/g, (char) => char.toUpperCase());
   }
 
   if (isPaid) return "Unlocked";
@@ -129,134 +110,153 @@ function getPlanLabel({ plan, isPaid, isFree }) {
 }
 
 function getStorageKey(user) {
-  return `clara_me_profile_v2_${user?.id || user?.email || "guest"}`;
+  return `clara_me_basic_profile_${user?.id || user?.email || "guest"}`;
 }
 
-function readStoredProfile(user) {
+function readProfile(user) {
   if (typeof window === "undefined") return DEFAULT_ME_PROFILE;
 
   try {
-    const raw = window.localStorage.getItem(getStorageKey(user));
-    if (!raw) return DEFAULT_ME_PROFILE;
+    const latest = window.localStorage.getItem(getStorageKey(user));
+    const legacy = window.localStorage.getItem(
+      `clara_me_profile_v3_${user?.id || user?.email || "guest"}`
+    ) || window.localStorage.getItem(
+      `clara_me_profile_v2_${user?.id || user?.email || "guest"}`
+    );
+
+    const parsed = latest || legacy ? JSON.parse(latest || legacy) : {};
 
     return {
       ...DEFAULT_ME_PROFILE,
-      ...JSON.parse(raw),
+      personality: parsed.personality || parsed.spendingStyle || DEFAULT_ME_PROFILE.personality,
+      status: parsed.status || DEFAULT_ME_PROFILE.status,
+      age: parsed.age || DEFAULT_ME_PROFILE.age,
+      dependents: parsed.dependents || DEFAULT_ME_PROFILE.dependents,
+      responsibility: parsed.responsibility || DEFAULT_ME_PROFILE.responsibility,
+      incomeRhythm: parsed.incomeRhythm || DEFAULT_ME_PROFILE.incomeRhythm,
+      coachingStyle: parsed.coachingStyle || parsed.strictness || DEFAULT_ME_PROFILE.coachingStyle,
     };
-  } catch (error) {
-    console.warn("CLARA Me profile fallback used:", error);
+  } catch {
     return DEFAULT_ME_PROFILE;
   }
 }
 
-function saveStoredProfile(user, profile) {
+function saveProfile(user, profile) {
   if (typeof window === "undefined") return;
 
   try {
     window.localStorage.setItem(getStorageKey(user), JSON.stringify(profile));
-  } catch (error) {
-    console.warn("CLARA Me profile save skipped:", error);
+  } catch {
+    // Personal setup saving is optional.
   }
 }
 
-function MePill({ children, active = false, onClick }) {
-  const Tag = onClick ? "button" : "span";
-
-  return (
-    <Tag
-      type={onClick ? "button" : undefined}
-      onClick={onClick}
-      className={`rounded-full border px-3 py-1.5 text-[11px] font-bold transition ${
-        active
-          ? "border-emerald-300/30 bg-emerald-300/15 text-emerald-100"
-          : "border-white/15 bg-white/[0.06] text-white/65"
-      }`}
-    >
-      {children}
-    </Tag>
-  );
-}
-
-function MeActionCard({ icon: Icon, title, value, description, badge, onClick }) {
+function ChoiceButton({ active, children, onClick }) {
   return (
     <button
       type="button"
       onClick={onClick}
-      className="group w-full rounded-[24px] border border-white/15 bg-white/[0.045] p-4 text-left shadow-[0_14px_34px_rgba(0,0,0,0.14)] backdrop-blur-xl transition hover:bg-white/[0.07] active:scale-[0.99]"
+      className={`rounded-full border px-3 py-2 text-[12px] font-bold transition active:scale-[0.98] ${
+        active
+          ? "border-emerald-300/35 bg-emerald-300/15 text-emerald-50"
+          : "border-white/12 bg-white/[0.045] text-white/58 hover:bg-white/[0.07]"
+      }`}
     >
-      <div className="flex items-start gap-3">
-        <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border border-white/15 bg-white/8 text-white/70 transition group-hover:text-white">
-          <Icon className="h-5 w-5" />
+      {children}
+    </button>
+  );
+}
+
+function ProfileRow({ field, value, active, onClick }) {
+  const Icon = field.icon;
+
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={`group w-full rounded-[22px] border px-4 py-3.5 text-left transition active:scale-[0.99] ${
+        active
+          ? "border-emerald-300/25 bg-emerald-300/[0.075]"
+          : "border-white/12 bg-white/[0.035] hover:bg-white/[0.055]"
+      }`}
+    >
+      <div className="flex items-center gap-3">
+        <div
+          className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl border ${
+            active
+              ? "border-emerald-300/25 bg-emerald-300/12 text-emerald-100"
+              : "border-white/12 bg-white/[0.055] text-white/58"
+          }`}
+        >
+          <Icon className="h-4.5 w-4.5" />
         </div>
 
         <div className="min-w-0 flex-1">
-          <div className="flex items-center justify-between gap-2">
-            <p className="truncate text-sm font-black text-white">{title}</p>
-            <div className="flex shrink-0 items-center gap-2">
-              {badge ? (
-                <span className="rounded-full border border-emerald-300/20 bg-emerald-400/10 px-2 py-1 text-[9px] font-black uppercase tracking-[0.12em] text-emerald-100/80">
-                  {badge}
-                </span>
-              ) : null}
-              <ChevronRight className="h-4 w-4 text-white/30 transition group-hover:translate-x-0.5 group-hover:text-white/55" />
-            </div>
-          </div>
-
-          <p className="mt-1 truncate text-xs font-bold text-emerald-100/75">{value}</p>
-          <p className="mt-1 line-clamp-2 text-xs leading-5 text-white/48">{description}</p>
+          <p className="truncate text-sm font-black text-white">{field.label}</p>
+          <p className="mt-1 truncate text-xs font-semibold text-emerald-100/68">
+            {value || "Not set"}
+          </p>
         </div>
+
+        <ChevronRight
+          className={`h-4 w-4 shrink-0 transition ${
+            active ? "rotate-90 text-emerald-100/70" : "text-white/25 group-hover:text-white/50"
+          }`}
+        />
       </div>
     </button>
   );
 }
 
-function MeEditor({ activeEditor, profile, onChange, onClose }) {
-  const config = EDITOR_CONFIG[activeEditor];
-  if (!config) return null;
+function FieldEditor({ field, profile, onChange, onClose }) {
+  if (!field) return null;
 
   return (
-    <section className="rounded-[28px] border border-emerald-300/20 bg-[radial-gradient(circle_at_top_left,rgba(16,185,129,0.14),transparent_34%),rgba(255,255,255,0.045)] p-4 shadow-[0_18px_50px_rgba(0,0,0,0.18)] backdrop-blur-xl">
+    <section className="rounded-[24px] border border-emerald-300/18 bg-white/[0.035] p-4">
       <div className="flex items-start justify-between gap-3">
         <div>
-          <p className="text-sm font-black text-white">{config.title}</p>
-          <p className="mt-1 text-xs leading-5 text-white/48">{config.subtitle}</p>
+          <p className="text-sm font-black text-white">{field.label}</p>
+          <p className="mt-1 text-xs leading-5 text-white/45">{field.helper}</p>
         </div>
 
         <button
           type="button"
           onClick={onClose}
-          className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-white/15 bg-white/8 text-white/65 transition hover:bg-white/12"
-          aria-label="Close Me editor"
+          className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-white/12 bg-white/[0.055] text-white/55"
+          aria-label="Close Me setup"
         >
           <X className="h-4 w-4" />
         </button>
       </div>
 
-      <div className="mt-4 space-y-4">
-        {config.fields.map((field) => (
-          <div key={field.key}>
-            <p className="mb-2 text-[10px] font-black uppercase tracking-[0.16em] text-white/35">
-              {field.label}
-            </p>
-            <div className="flex flex-wrap gap-2">
-              {field.options.map((option) => (
-                <MePill
-                  key={option}
-                  active={profile[field.key] === option}
-                  onClick={() => onChange(field.key, option)}
-                >
-                  {option}
-                </MePill>
-              ))}
-            </div>
-          </div>
-        ))}
-      </div>
+      {field.input === "number" ? (
+        <input
+          value={profile[field.key] || ""}
+          onChange={(event) => onChange(field.key, event.target.value)}
+          inputMode="numeric"
+          type="number"
+          min="1"
+          max="120"
+          placeholder="Enter age"
+          className="mt-4 w-full rounded-2xl border border-white/12 bg-black/15 px-4 py-3 text-sm font-bold text-white outline-none placeholder:text-white/30 focus:border-emerald-300/35"
+        />
+      ) : (
+        <div className="mt-4 flex flex-wrap gap-2">
+          {field.options.map((option) => (
+            <ChoiceButton
+              key={option}
+              active={profile[field.key] === option}
+              onClick={() => onChange(field.key, option)}
+            >
+              {option}
+            </ChoiceButton>
+          ))}
+        </div>
+      )}
 
-      <div className="mt-4 flex items-center gap-2 rounded-2xl border border-white/10 bg-black/15 px-3 py-2.5 text-xs font-semibold text-white/50">
-        <Check className="h-4 w-4 text-emerald-200/75" />
-        Saved on this device for CLARA's personal context layer.
-      </div>
+      <p className="mt-4 rounded-2xl border border-white/10 bg-black/10 px-3 py-2.5 text-xs font-semibold text-white/45">
+        Saved for CLARA's personal setup.
+      </p>
     </section>
   );
 }
@@ -267,166 +267,93 @@ export default function DashboardMePanel() {
   const email = user?.email || "Private account";
   const initials = getInitials(displayName);
   const planLabel = getPlanLabel({ plan, isPaid, isFree });
-  const [activeEditor, setActiveEditor] = useState(null);
-  const [profile, setProfile] = useState(() => readStoredProfile(user));
+  const [activeKey, setActiveKey] = useState(null);
+  const [profile, setProfile] = useState(() => readProfile(user));
 
   useEffect(() => {
-    setProfile(readStoredProfile(user));
+    setProfile(readProfile(user));
   }, [user?.id, user?.email]);
 
   useEffect(() => {
-    saveStoredProfile(user, profile);
+    saveProfile(user, profile);
   }, [profile, user]);
 
-  const identitySummary = useMemo(
-    () => [profile.tone, profile.decisionStyle, profile.strictness].filter(Boolean).join(" • "),
-    [profile.decisionStyle, profile.strictness, profile.tone]
-  );
+  const activeField = PROFILE_FIELDS.find((field) => field.key === activeKey) || null;
 
-  const updateProfileValue = (key, value) => {
-    setProfile((current) => ({
-      ...current,
-      [key]: value,
-    }));
+  const updateProfile = (key, value) => {
+    setProfile((current) => ({ ...current, [key]: value }));
   };
 
   return (
     <div className="space-y-4">
-      <section className="relative overflow-hidden rounded-[32px] border border-white/15 bg-[radial-gradient(circle_at_0%_0%,rgba(45,212,191,0.24),transparent_36%),radial-gradient(circle_at_100%_100%,rgba(124,58,237,0.30),transparent_42%),linear-gradient(135deg,rgba(8,47,73,0.86),rgba(15,23,42,0.92)_48%,rgba(46,16,101,0.88))] p-4 shadow-[0_22px_60px_rgba(0,0,0,0.26)] backdrop-blur-xl">
-        <div className="pointer-events-none absolute -left-16 -top-16 h-44 w-44 rounded-full bg-cyan-300/10 blur-3xl" />
-        <div className="pointer-events-none absolute -bottom-20 right-0 h-52 w-52 rounded-full bg-violet-400/10 blur-3xl" />
-
-        <div className="relative z-10 flex items-center gap-4">
-          <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-[24px] border border-white/20 bg-white/10 text-xl font-black tracking-tight text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.14)]">
+      <section className="rounded-[30px] border border-white/12 bg-[linear-gradient(135deg,rgba(13,65,78,0.72),rgba(16,24,55,0.86)_48%,rgba(55,24,100,0.78))] p-4 shadow-[0_18px_44px_rgba(0,0,0,0.22)]">
+        <div className="flex items-center gap-3">
+          <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-[22px] border border-white/16 bg-white/10 text-lg font-black text-white">
             {initials}
           </div>
 
           <div className="min-w-0 flex-1">
             <div className="flex items-center gap-2">
-              <p className="truncate text-lg font-black tracking-tight text-white">{displayName}</p>
-              <span className="shrink-0 rounded-full border border-emerald-300/25 bg-emerald-400/10 px-2.5 py-1 text-[10px] font-black text-emerald-100">
+              <p className="truncate text-base font-black text-white">{displayName}</p>
+              <span className="shrink-0 rounded-full border border-emerald-300/20 bg-emerald-300/10 px-2.5 py-1 text-[10px] font-black text-emerald-100">
                 {planLabel}
               </span>
             </div>
-            <p className="mt-1 truncate text-xs font-medium text-white/55">{email}</p>
-            <p className="mt-1 truncate text-[11px] font-bold text-emerald-100/55">{identitySummary}</p>
+            <p className="mt-1 truncate text-xs text-white/52">{email}</p>
+            <p className="mt-1 truncate text-[11px] font-bold text-emerald-100/58">
+              {profile.personality} • {profile.status}
+            </p>
           </div>
         </div>
 
-        <div className="relative z-10 mt-4 rounded-[24px] border border-white/12 bg-black/15 p-3">
-          <p className="text-[10px] font-black uppercase tracking-[0.18em] text-emerald-100/60">
-            Me is your default identity
-          </p>
-          <p className="mt-1 text-xs leading-5 text-white/62">
-            Your stable personal context. Schedules and ambitions belong in LifeOS.
+        <div className="mt-4 rounded-[22px] border border-white/10 bg-black/10 px-4 py-3">
+          <p className="text-sm font-black text-white">Tell CLARA the basics.</p>
+          <p className="mt-1 text-xs leading-5 text-white/52">
+            Simple details only. LifeOS will handle schedules, plans, and ambitions.
           </p>
         </div>
       </section>
-
-      {activeEditor ? (
-        <MeEditor
-          activeEditor={activeEditor}
-          profile={profile}
-          onChange={updateProfileValue}
-          onClose={() => setActiveEditor(null)}
-        />
-      ) : null}
 
       <section className="space-y-3">
         <div>
           <p className="text-[11px] font-black uppercase tracking-[0.18em] text-white/35">
-            Identity Core
+            Basic profile
           </p>
-          <p className="mt-1 text-xs leading-5 text-white/45">
-            Tap a card to shape how CLARA understands you.
-          </p>
+          <p className="mt-1 text-xs text-white/42">Tap any row to edit.</p>
         </div>
 
-        <div className="grid grid-cols-1 gap-3">
-          <MeActionCard
-            icon={UserRound}
-            title="Personal defaults"
-            value={`${profile.tone} • ${profile.decisionStyle}`}
-            badge="Edit"
-            description="Set CLARA's voice and default advice style."
-            onClick={() => setActiveEditor("defaults")}
-          />
-          <MeActionCard
-            icon={WalletCards}
-            title="Money personality"
-            value={`${profile.spendingStyle} • ${profile.trigger}`}
-            badge="Edit"
-            description="Tell CLARA what usually triggers spending."
-            onClick={() => setActiveEditor("personality")}
-          />
-          <MeActionCard
-            icon={HeartHandshake}
-            title="Responsibilities"
-            value={`${profile.responsibility} • ${profile.protectedPriority}`}
-            badge="Edit"
-            description="Protect the obligations that matter before wants."
-            onClick={() => setActiveEditor("responsibilities")}
-          />
+        <div className="space-y-2.5">
+          {PROFILE_FIELDS.map((field) => (
+            <ProfileRow
+              key={field.key}
+              field={field}
+              value={profile[field.key]}
+              active={activeKey === field.key}
+              onClick={() => setActiveKey((current) => (current === field.key ? null : field.key))}
+            />
+          ))}
         </div>
       </section>
 
-      <section className="rounded-[28px] border border-white/15 bg-white/[0.04] p-4 shadow-[0_18px_50px_rgba(0,0,0,0.16)] backdrop-blur-xl">
-        <button
-          type="button"
-          onClick={() => setActiveEditor("boundaries")}
-          className="group flex w-full items-start gap-3 text-left"
-        >
-          <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border border-cyan-300/20 bg-cyan-300/10 text-cyan-100">
-            <ShieldCheck className="h-5 w-5" />
+      <FieldEditor
+        field={activeField}
+        profile={profile}
+        onChange={updateProfile}
+        onClose={() => setActiveKey(null)}
+      />
+
+      <section className="rounded-[24px] border border-white/10 bg-white/[0.03] p-4">
+        <div className="flex items-start gap-3">
+          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl border border-white/12 bg-white/[0.045] text-white/55">
+            <PiggyBank className="h-4 w-4" />
           </div>
           <div className="min-w-0 flex-1">
-            <div className="flex items-center justify-between gap-2">
-              <p className="text-sm font-black text-white">Decision boundaries</p>
-              <ChevronRight className="h-4 w-4 text-white/30 transition group-hover:translate-x-0.5 group-hover:text-white/55" />
-            </div>
-            <p className="mt-1 text-xs leading-5 text-white/48">
-              {profile.strictness} guidance • {profile.defaultGoal}
+            <p className="text-sm font-black text-white">Why CLARA asks</p>
+            <p className="mt-1 text-xs leading-5 text-white/45">
+              The same purchase can mean different things depending on your age, status, income rhythm, and responsibilities.
             </p>
           </div>
-        </button>
-
-        <div className="mt-4 flex flex-wrap gap-2">
-          <MePill active={profile.protectedPriority === "Essentials first"}>Protect essentials</MePill>
-          <MePill active={profile.defaultGoal === "Avoid impulse buys"}>Pause wants</MePill>
-          <MePill active={profile.decisionStyle === "Pause first"}>Ask before spending</MePill>
-          <MePill active={profile.tone === "Calm coach"}>Keep advice personal</MePill>
         </div>
-      </section>
-
-      <section className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-        <MeActionCard
-          icon={Target}
-          title="Default goals"
-          value={profile.defaultGoal}
-          description="Your stable money priority before LifeOS breaks it into a plan."
-          onClick={() => setActiveEditor("boundaries")}
-        />
-        <MeActionCard
-          icon={CalendarDays}
-          title="Commitment hints"
-          value="Connects to LifeOS later"
-          description="Upcoming obligations will influence future spending decisions."
-          onClick={() => setActiveEditor("responsibilities")}
-        />
-        <MeActionCard
-          icon={SlidersHorizontal}
-          title="Coach strictness"
-          value={profile.strictness}
-          description="Controls how firm CLARA should sound when spending is risky."
-          onClick={() => setActiveEditor("boundaries")}
-        />
-        <MeActionCard
-          icon={Sparkles}
-          title="Personal patterns"
-          value="Learning layer"
-          description="Behavior signals that will help CLARA feel aware, not repetitive."
-          onClick={() => setActiveEditor("personality")}
-        />
       </section>
     </div>
   );
