@@ -31,6 +31,9 @@ export const DEBT_TYPES = [
   { value: "other", label: "Other" },
 ];
 
+export const getDebtTypeLabel = (value) =>
+  DEBT_TYPES.find((type) => type.value === value)?.label || "Credit Card";
+
 export const debtTone = {
   border: "border-cyan-300/25",
   iconShell:
@@ -44,9 +47,6 @@ export const debtTone = {
   background:
     "radial-gradient(circle at top left, rgba(34,211,238,0.34), transparent 30%), radial-gradient(circle at 48% 30%, rgba(30,58,138,0.42), transparent 42%), radial-gradient(circle at bottom right, rgba(124,58,237,0.34), transparent 34%), linear-gradient(135deg, rgba(4,24,38,0.98), rgba(6,12,31,0.98) 48%, rgba(30,10,54,0.96))",
 };
-
-export const getDebtTypeLabel = (value) =>
-  DEBT_TYPES.find((type) => type.value === value)?.label || "Credit Card";
 
 export default function useDebtCardLogic({
   item = null,
@@ -80,18 +80,6 @@ export default function useDebtCardLogic({
       const records = await getDebtObligations(localUserId);
       setDebtObligations(records || []);
       setDebtLoadError(null);
-
-      const primary = records?.[0] || null;
-
-      if (primary) {
-        setDebtType(primary.debtType || primary.type || "installment");
-        setTotalDebtInput(String(primary.totalDebt || primary.balance || ""));
-        setMonthlyDebtInput(
-          String(primary.monthlyDebt || primary.monthlyPayment || primary.monthly_payment || "")
-        );
-        setInterestInput(String(primary.interestRate || primary.interest_rate || ""));
-      }
-
       return records || [];
     } catch (error) {
       console.error("Failed to load CLARA debt obligations:", error);
@@ -101,38 +89,8 @@ export default function useDebtCardLogic({
   }, [localUserId]);
 
   useEffect(() => {
-    let active = true;
-
-    const run = async () => {
-      const records = await getDebtObligations(localUserId).catch((error) => {
-        console.error("Failed to load CLARA debt obligations:", error);
-        if (active) setDebtLoadError(error);
-        return [];
-      });
-
-      if (!active) return;
-
-      setDebtObligations(records || []);
-      setDebtLoadError(null);
-
-      const primary = records?.[0] || null;
-
-      if (primary) {
-        setDebtType(primary.debtType || primary.type || "installment");
-        setTotalDebtInput(String(primary.totalDebt || primary.balance || ""));
-        setMonthlyDebtInput(
-          String(primary.monthlyDebt || primary.monthlyPayment || primary.monthly_payment || "")
-        );
-        setInterestInput(String(primary.interestRate || primary.interest_rate || ""));
-      }
-    };
-
-    run();
-
-    return () => {
-      active = false;
-    };
-  }, [localUserId]);
+    loadDebtObligations();
+  }, [loadDebtObligations]);
 
   const income = toDebtNumber(totalIncome);
   const expenses = toDebtNumber(totalExpenses);
@@ -143,12 +101,9 @@ export default function useDebtCardLogic({
     [debtObligations, income]
   );
 
-  const totalDebt = toDebtNumber(debtSummary.totalDebt || data.totalDebt || data.amount || 0);
-  const monthlyDebt = toDebtNumber(
-    debtSummary.monthlyDebt || data.monthlyDebt || data.monthlyPayment || 0
-  );
+  const totalDebt = toDebtNumber(debtSummary.totalDebt || data.totalDebt || 0);
+  const monthlyDebt = toDebtNumber(debtSummary.monthlyDebt || data.monthlyDebt || 0);
   const activeDebtCount = debtSummary.activeCount || 0;
-  const selectedType = getDebtTypeLabel(debtType);
 
   const debtRatio = useMemo(() => {
     if (income <= 0) return monthlyDebt > 0 ? 100 : 0;
@@ -188,120 +143,6 @@ export default function useDebtCardLogic({
         ? "Debt pressure is high. Build a payoff plan before adding new spending."
         : "Your obligations are trackable. Keep payments aligned with income.";
 
-  const dispatchDebtPrompt = (prompt) => {
-    if (typeof window === "undefined") return;
-
-    window.dispatchEvent(
-      new CustomEvent("clara:open-ai-chat", {
-        detail: {
-          source: "obligation-debt-card",
-          prompt,
-          debtType,
-          totalDebt,
-          monthlyDebt,
-          debtRatio,
-          riskLevel,
-          activeDebtCount,
-        },
-      })
-    );
-  };
-
-  const dispatchDebtUpdatedEvent = (overrides = {}) => {
-    if (typeof window === "undefined") return;
-
-    window.dispatchEvent(
-      new CustomEvent("clara:debt-obligations-updated", {
-        detail: {
-          localUserId,
-          debtType,
-          totalDebt: overrides.totalDebt ?? totalDebt,
-          monthlyDebt: overrides.monthlyDebt ?? monthlyDebt,
-          debtRatio,
-          riskLevel,
-          activeDebtCount,
-        },
-      })
-    );
-  };
-
-  const handlePlanPayoff = () => {
-    dispatchDebtPrompt(
-      `Help me plan a debt payoff strategy. Debt type: ${selectedType}. Total debt: ${fmt(
-        totalDebt
-      )}. Monthly payment: ${fmt(monthlyDebt)}. Debt pressure: ${debtRatio.toFixed(
-        1
-      )}%. Current status: ${riskLevel}.`
-    );
-  };
-
-  const handleAskClara = () => {
-    dispatchDebtPrompt(
-      `Review my debt situation. I owe ${fmt(totalDebt)} with a monthly obligation of ${fmt(
-        monthlyDebt
-      )}. My income is ${fmt(income)}, expenses are ${fmt(
-        expenses
-      )}, and wallet balance is ${fmt(walletBalance)}. Tell me if this is safe.`
-    );
-  };
-
-  const handleToggleDetails = () => {
-    if (isControlled) {
-      onToggleDetails?.();
-      return;
-    }
-    setLocalExpanded((value) => !value);
-  };
-
-  const handleSaveDebtObligation = async () => {
-    const nextTotalDebt = toDebtNumber(totalDebtInput);
-    const nextMonthlyDebt = toDebtNumber(monthlyDebtInput);
-    const nextInterest = toDebtNumber(interestInput);
-
-    if (nextTotalDebt <= 0 && nextMonthlyDebt <= 0) {
-      return {
-        success: false,
-        message: "Enter at least the balance or monthly payment first.",
-      };
-    }
-
-    setSavingDebt(true);
-
-    try {
-      await upsertDebtObligation(localUserId, {
-        id: DEFAULT_DEBT_OBLIGATION_ID,
-        debtType,
-        totalDebt: nextTotalDebt,
-        monthlyDebt: nextMonthlyDebt,
-        interestRate: nextInterest,
-      });
-
-      const refreshed = await loadDebtObligations();
-      const refreshedSummary = summarizeDebtObligations(refreshed, { income });
-
-      dispatchDebtUpdatedEvent({
-        totalDebt: refreshedSummary.totalDebt || nextTotalDebt,
-        monthlyDebt: refreshedSummary.monthlyDebt || nextMonthlyDebt,
-      });
-
-      return {
-        success: true,
-        message:
-          "Obligation saved. CLARA will now include this pressure in your review.",
-      };
-    } catch (error) {
-      console.error("Failed to save CLARA debt obligation:", error);
-
-      return {
-        success: false,
-        message:
-          error?.message || "Failed to save debt obligation. Please try again.",
-      };
-    } finally {
-      setSavingDebt(false);
-    }
-  };
-
   return {
     state: {
       isExpanded,
@@ -332,11 +173,53 @@ export default function useDebtCardLogic({
       setTotalDebtInput,
       setMonthlyDebtInput,
       setInterestInput,
-      handlePlanPayoff,
-      handleAskClara,
-      handleToggleDetails,
-      handleSaveDebtObligation,
+      handleToggleDetails: () => {
+        if (isControlled) {
+          onToggleDetails?.();
+          return;
+        }
+        setLocalExpanded((value) => !value);
+      },
+      handleAskClara: () => {
+        if (typeof window === "undefined") return;
+
+        window.dispatchEvent(
+          new CustomEvent("clara:open-ai-chat", {
+            detail: {
+              source: "obligation-debt-card",
+              prompt: `Review my debt situation. I owe ${fmt(totalDebt)} with a monthly obligation of ${fmt(monthlyDebt)}. My income is ${fmt(income)}, expenses are ${fmt(expenses)}, and wallet balance is ${fmt(walletBalance)}. Tell me if this is safe.`,
+            },
+          })
+        );
+      },
       reloadDebtObligations: loadDebtObligations,
+      handleSaveDebtObligation: async () => {
+        setSavingDebt(true);
+
+        try {
+          await upsertDebtObligation(localUserId, {
+            id: DEFAULT_DEBT_OBLIGATION_ID,
+            debtType,
+            totalDebt: toDebtNumber(totalDebtInput),
+            monthlyDebt: toDebtNumber(monthlyDebtInput),
+            interestRate: toDebtNumber(interestInput),
+          });
+
+          await loadDebtObligations();
+
+          return {
+            success: true,
+            message: "Obligation saved successfully.",
+          };
+        } catch (error) {
+          return {
+            success: false,
+            message: error?.message || "Failed to save obligation.",
+          };
+        } finally {
+          setSavingDebt(false);
+        }
+      },
     },
   };
 }
