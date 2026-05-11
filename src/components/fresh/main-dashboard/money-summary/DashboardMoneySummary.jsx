@@ -128,15 +128,18 @@ export default function DashboardMoneySummary({
     }, 120);
   }, [clearTapTimer, endMoneyLeftOrbLongPress]);
 
-  const closeClaraInline = useCallback((event) => {
-    stopOrbEvent(event);
-    clearTapTimer();
-    clearLongPressTimer();
-    claraTriggeredRef.current = false;
-    setClaraMode(false);
-    setClaraDraft("");
-    setClaraMessages([makeClaraMessage("clara", "What are you thinking of buying?")]);
-  }, [clearLongPressTimer, clearTapTimer, stopOrbEvent]);
+  const closeClaraInline = useCallback(
+    (event) => {
+      stopOrbEvent(event);
+      clearTapTimer();
+      clearLongPressTimer();
+      claraTriggeredRef.current = false;
+      setClaraMode(false);
+      setClaraDraft("");
+      setClaraMessages([makeClaraMessage("clara", "What are you thinking of buying?")]);
+    },
+    [clearLongPressTimer, clearTapTimer, stopOrbEvent]
+  );
 
   const handleOrbPointerDown = useCallback(
     (event) => {
@@ -199,22 +202,25 @@ export default function DashboardMoneySummary({
     [stopOrbEvent]
   );
 
-  const handleClaraSubmit = useCallback((event) => {
-    event?.preventDefault?.();
-    event?.stopPropagation?.();
+  const handleClaraSubmit = useCallback(
+    (event) => {
+      event?.preventDefault?.();
+      event?.stopPropagation?.();
 
-    const text = claraDraft.trim();
-    if (!text) return;
+      const text = claraDraft.trim();
+      if (!text) return;
 
-    const reply = buildClaraInlineReply(text, { walletMoney, thisMonthSpent, fmt });
+      const reply = buildClaraInlineReply(text, { walletMoney, thisMonthSpent, fmt });
 
-    setClaraMessages((current) => [
-      ...current.slice(-3),
-      makeClaraMessage("user", text),
-      makeClaraMessage("clara", reply),
-    ]);
-    setClaraDraft("");
-  }, [claraDraft, fmt, thisMonthSpent, walletMoney]);
+      setClaraMessages((current) => [
+        ...current.slice(-3),
+        makeClaraMessage("user", text),
+        makeClaraMessage("clara", reply),
+      ]);
+      setClaraDraft("");
+    },
+    [claraDraft, fmt, thisMonthSpent, walletMoney]
+  );
 
   useEffect(() => {
     return () => {
@@ -224,7 +230,8 @@ export default function DashboardMoneySummary({
   }, [clearLongPressTimer, clearTapTimer]);
 
   useEffect(() => {
-    if (!claraMode) return;
+    if (!claraMode) return undefined;
+
     const timer = window.setTimeout(() => claraInputRef.current?.focus?.(), 120);
     return () => window.clearTimeout(timer);
   }, [claraMode]);
@@ -253,7 +260,7 @@ export default function DashboardMoneySummary({
           borderColor: selectedDashboardTheme?.tokens?.border || "rgba(103,232,249,0.24)",
           boxShadow: themeIsLight
             ? "0 18px 44px rgba(15,23,42,0.10)"
-            : "0 24px 70px rgba(0,0,0,0.40), inset 0 1px 0 rgba(255,255,255,0.10)",
+            : "0 20px 58px rgba(0,0,0,0.34), inset 0 1px 0 rgba(255,255,255,0.10)",
         }}
       >
         <div className="pointer-events-none absolute -left-16 -top-20 h-44 w-44 rounded-full bg-cyan-300/10 blur-3xl" />
@@ -268,52 +275,23 @@ export default function DashboardMoneySummary({
           <X className="h-3.5 w-3.5" />
         </button>
 
-        <div className="relative z-10 min-h-[184px] p-[clamp(14px,3.8vw,18px)] pr-[clamp(14px,3.8vw,18px)]">
-          <div className="mb-3 pr-8">
-            <div className="mb-1.5 inline-flex items-center gap-2 rounded-full border border-emerald-300/15 bg-emerald-300/10 px-2.5 py-1 text-[9px] font-semibold uppercase tracking-[0.18em] text-emerald-100/85">
-              <span className="h-1.5 w-1.5 rounded-full bg-emerald-300 shadow-[0_0_14px_rgba(110,231,183,0.82)]" />
-              CLARA Money Chat
-            </div>
-            <h2 className="text-[1.15rem] font-black leading-none tracking-tight text-white">
-              Ask before you spend.
-            </h2>
-          </div>
-
-          <div className="mb-3 max-h-[76px] space-y-2 overflow-y-auto pr-1">
-            {claraMessages.slice(-3).map((message) => {
-              const isUser = message.role === "user";
-              return (
-                <div key={message.id} className={`flex ${isUser ? "justify-end" : "justify-start"}`}>
-                  <div
-                    className={`max-w-[86%] rounded-2xl px-3 py-2 text-[11px] leading-4 ${
-                      isUser
-                        ? "bg-emerald-300 text-slate-950"
-                        : "border border-white/10 bg-white/[0.075] text-white/82"
-                    }`}
-                  >
-                    {message.text}
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-
+        <div className={`relative z-10 flex flex-col justify-center ${dashboardScale.summaryCell || "min-h-[110px] p-[clamp(14px,3.6vw,17px)]"}`}>
           <form
             onSubmit={handleClaraSubmit}
-            className="flex items-center gap-2 rounded-[20px] border border-white/12 bg-slate-950/55 p-2 shadow-[inset_0_1px_0_rgba(255,255,255,0.07)] backdrop-blur-xl"
+            className="flex items-center gap-2 rounded-[22px] border border-white/14 bg-slate-950/52 p-2 shadow-[inset_0_1px_0_rgba(255,255,255,0.08),0_14px_34px_rgba(0,0,0,0.18)] backdrop-blur-xl"
           >
             <input
               ref={claraInputRef}
               value={claraDraft}
               onChange={(event) => setClaraDraft(event.target.value)}
-              className="min-w-0 flex-1 bg-transparent px-2 text-[13px] font-medium text-white outline-none placeholder:text-slate-400/70"
+              className="min-w-0 flex-1 bg-transparent px-2.5 text-[13px] font-medium text-white outline-none placeholder:text-slate-400/70"
               placeholder="Item + price, e.g. shoes ₱1,200"
               inputMode="text"
             />
             <button
               type="submit"
               disabled={!claraDraft.trim()}
-              className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-emerald-300 text-slate-950 shadow-[0_0_22px_rgba(110,231,183,0.22)] transition disabled:opacity-45 active:scale-95"
+              className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-emerald-300 text-slate-950 shadow-[0_0_22px_rgba(110,231,183,0.22)] transition disabled:opacity-45 active:scale-95"
               aria-label="Send to CLARA"
             >
               <Send className="h-4 w-4" />
