@@ -1,15 +1,11 @@
 import { ChevronDown, ChevronUp, ShieldAlert } from "lucide-react";
 
 import useDebtCardLogic, {
-  DEBT_TYPES,
   fmt,
 } from "@/components/financial-carousel/cards/debt/logic/useDebtCardLogic";
 
 const tileClass =
   "rounded-2xl border border-white/10 bg-white/[0.045] px-2.5 py-2.5 text-center shadow-[inset_0_1px_0_rgba(255,255,255,0.06)] backdrop-blur-sm";
-
-const inputClass =
-  "w-full rounded-2xl border border-white/10 bg-black/25 px-3 py-2.5 text-sm font-semibold text-white outline-none transition placeholder:text-white/35 focus:border-cyan-300/35";
 
 export default function ObligationDebt({
   item = null,
@@ -22,14 +18,7 @@ export default function ObligationDebt({
     onToggleDetails,
   });
 
-  const {
-    isExpanded,
-    debtType,
-    totalDebtInput,
-    monthlyDebtInput,
-    interestInput,
-  } = state;
-
+  const { isExpanded } = state;
   const {
     tone,
     totalDebt,
@@ -37,20 +26,8 @@ export default function ObligationDebt({
     debtRatio,
     riskLevel,
     statusLabel,
-    smartFeedback,
-    monthlyLeftover,
-    payoffMonths,
   } = computed;
-
-  const {
-    setDebtType,
-    setTotalDebtInput,
-    setMonthlyDebtInput,
-    setInterestInput,
-    handlePlanPayoff,
-    handleAskClara,
-    handleToggleDetails,
-  } = handlers;
+  const { handleToggleDetails } = handlers;
 
   const summaryTiles = [
     {
@@ -156,45 +133,13 @@ export default function ObligationDebt({
               type="button"
               onClick={handleToggleDetails}
               className="flex w-full items-center justify-between rounded-2xl border border-white/10 bg-white/[0.055] px-3 py-3 text-sm font-medium text-white/85 shadow-[inset_0_1px_0_rgba(255,255,255,0.06)] backdrop-blur-sm transition hover:bg-white/10"
+              aria-expanded={isExpanded}
             >
               <span>{isExpanded ? "Hide details" : "Show details"}</span>
               {isExpanded ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
             </button>
           </div>
         </div>
-
-        {isExpanded && (
-          <div className="mt-3 space-y-3 rounded-2xl border border-white/10 bg-black/15 p-3 pb-6 backdrop-blur-[2px] shadow-[inset_0_1px_0_rgba(255,255,255,0.05)]">
-            <div className="grid grid-cols-3 gap-2 text-center text-sm text-white">
-              <div className="rounded-2xl border border-white/10 bg-black/20 px-2.5 py-2.5">
-                <p className="mb-1 text-[10px] font-semibold uppercase tracking-[0.16em] text-white/70">
-                  Debt
-                </p>
-                <p className="truncate text-sm font-bold text-white">
-                  {fmt(totalDebt)}
-                </p>
-              </div>
-
-              <div className="rounded-2xl border border-white/10 bg-black/20 px-2.5 py-2.5">
-                <p className="mb-1 text-[10px] font-semibold uppercase tracking-[0.16em] text-white/70">
-                  Monthly
-                </p>
-                <p className="truncate text-sm font-bold text-white">
-                  {fmt(monthlyDebt)}
-                </p>
-              </div>
-
-              <div className="rounded-2xl border border-white/10 bg-black/20 px-2.5 py-2.5">
-                <p className="mb-1 text-[10px] font-semibold uppercase tracking-[0.16em] text-white/70">
-                  Risk
-                </p>
-                <p className="truncate text-sm font-bold text-white">
-                  {riskLevel}
-                </p>
-              </div>
-            </div>
-          </div>
-        )}
       </div>
     </div>
   );
