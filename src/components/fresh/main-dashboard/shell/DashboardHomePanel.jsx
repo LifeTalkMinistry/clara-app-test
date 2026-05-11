@@ -167,6 +167,14 @@ export default function DashboardHomePanel({
         stopMoneyLeftOrbEvent={stopMoneyLeftOrbEvent}
         walletMoney={walletMoney}
         thisMonthSpent={thisMonthSpent}
+        monthlyBudgetPlan={monthlyBudgetPlan}
+        savingsGoals={savingsGoals}
+        totalSavingsSaved={totalSavingsSaved}
+        totalSavingsTarget={totalSavingsTarget}
+        primarySavingsGoal={primarySavingsGoal}
+        survivalExpense={survivalExpense}
+        wallets={wallets}
+        walletPreviewTransactions={walletPreviewTransactions}
         fmt={fmt}
       />
     </>
