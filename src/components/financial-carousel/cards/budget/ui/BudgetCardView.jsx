@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import BudgetCard from "@/components/BudgetCard";
 
 const CLARA_MONEY_CHAT_EVENT = "clara:money-card-chat";
@@ -11,7 +11,12 @@ const FALLBACK_MESSAGES = [
   },
 ];
 
-function ClaraBudgetDecisionScreen({ selectedDashboardTheme }) {
+function ClaraBudgetDecisionScreen({ messages = FALLBACK_MESSAGES, selectedDashboardTheme }) {
+  const visibleMessages = useMemo(() => {
+    const source = Array.isArray(messages) && messages.length ? messages : FALLBACK_MESSAGES;
+    return source.slice(-5);
+  }, [messages]);
+
   return (
     <div
       className="relative flex h-full min-h-[inherit] flex-col overflow-hidden rounded-3xl border border-cyan-200/18 bg-slate-950/88 p-4 text-white backdrop-blur-2xl"
@@ -26,7 +31,7 @@ function ClaraBudgetDecisionScreen({ selectedDashboardTheme }) {
       <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(to_bottom,rgba(255,255,255,0.05),rgba(255,255,255,0.01)_38%,rgba(0,0,0,0.06))]" />
       <div className="pointer-events-none absolute inset-0 rounded-[inherit] ring-1 ring-inset ring-white/8" />
 
-      <div className="relative z-10 w-full max-w-[230px]">
+      <div className="relative z-10 w-full max-w-[230px] shrink-0">
         <div className="mb-2 inline-flex items-center gap-2 rounded-full border border-emerald-300/15 bg-emerald-300/10 px-2.5 py-1 text-[9px] font-semibold uppercase tracking-[0.18em] text-emerald-100/85 shadow-[0_10px_24px_rgba(0,0,0,0.18)] backdrop-blur-xl">
           <span className="h-1.5 w-1.5 rounded-full bg-emerald-300 shadow-[0_0_14px_rgba(110,231,183,0.82)]" />
           CLARA Budget Lens
@@ -39,6 +44,29 @@ function ClaraBudgetDecisionScreen({ selectedDashboardTheme }) {
         <p className="mt-1 text-[11px] leading-4 text-slate-300/78">
           Your budget is ready to think with you.
         </p>
+      </div>
+
+      <div className="relative z-10 mt-4 flex min-h-0 flex-1 flex-col justify-end gap-2 overflow-y-auto pr-1">
+        {visibleMessages.map((message) => {
+          const isUser = message.role === "user";
+
+          return (
+            <div
+              key={message.id}
+              className={`flex ${isUser ? "justify-end" : "justify-start"}`}
+            >
+              <div
+                className={`max-w-[88%] rounded-2xl px-3 py-2 text-[11px] font-medium leading-4 shadow-[0_10px_24px_rgba(0,0,0,0.18)] ${
+                  isUser
+                    ? "bg-emerald-300 text-slate-950"
+                    : "border border-white/10 bg-white/[0.075] text-white/86"
+                }`}
+              >
+                {message.text}
+              </div>
+            </div>
+          );
+        })}
       </div>
     </div>
   );
@@ -83,6 +111,7 @@ export default function BudgetCardView({
     return (
       <div className="h-full min-h-[inherit] flex flex-col">
         <ClaraBudgetDecisionScreen
+          messages={claraChatState.messages}
           selectedDashboardTheme={selectedDashboardTheme}
         />
       </div>
