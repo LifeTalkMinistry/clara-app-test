@@ -1,6 +1,14 @@
-import { useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 
+import { useAuth } from "@/context/AuthContext";
 import useFinancialData from "@/hooks/useFinancialData";
+import {
+  DEFAULT_DEBT_OBLIGATION_ID,
+  getDebtObligations,
+  summarizeDebtObligations,
+  toDebtNumber,
+  upsertDebtObligation,
+} from "@/lib/debtObligationStore";
 
 export const fmt = (value) =>
   new Intl.NumberFormat("en-PH", {
@@ -9,18 +17,7 @@ export const fmt = (value) =>
     minimumFractionDigits: 0,
   }).format(Number(value) || 0);
 
-export const toNumber = (value) => {
-  if (typeof value === "number") return Number.isFinite(value) ? value : 0;
-
-  if (typeof value === "string") {
-    const cleaned = value.replace(/[₱,\s]/g, "");
-    const num = Number(cleaned);
-    return Number.isFinite(num) ? num : 0;
-  }
-
-  const num = Number(value);
-  return Number.isFinite(num) ? num : 0;
-};
+export const toNumber = toDebtNumber;
 
 export const clampProgress = (value) =>
   Math.max(0, Math.min(Number(value) || 0, 100));
@@ -47,38 +44,121 @@ export const debtTone = {
     "radial-gradient(circle at top left, rgba(34,211,238,0.34), transparent 30%), radial-gradient(circle at 48% 30%, rgba(30,58,138,0.42), transparent 42%), radial-gradient(circle at bottom right, rgba(124,58,237,0.34), transparent 34%), linear-gradient(135deg, rgba(4,24,38,0.98), rgba(6,12,31,0.98) 48%, rgba(30,10,54,0.96))",
 };
 
+const getDebtTypeLabel = (value) =>
+  DEBT_TYPES.find((type) => type.value === value)?.label || "Credit Card";
+
 export default function useDebtCardLogic({
   item = null,
   expanded = false,
   onToggleDetails,
 } = {}) {
+  const { user: authUser } = useAuth();
+  const {
+    totalIncome = 0,
+    totalExpenses = 0,
+    totalWalletBalance = 0,
+  } = useFinancialData(authUser);
+
   const [localExpanded, setLocalExpanded] = useState(false);
   const [debtType, setDebtType] = useState("credit_card");
   const [totalDebtInput, setTotalDebtInput] = useState("");
   const [monthlyDebtInput, setMonthlyDebtInput] = useState("");
   const [interestInput, setInterestInput] = useState("");
+  const [debtObligations, setDebtObligations] = useState([]);
+  const [savingDebt, setSavingDebt] = useState(false);
+  const [debtLoadError, setDebtLoadError] = useState(null);
 
   const isControlled = typeof onToggleDetails === "function";
   const isExpanded = isControlled ? expanded : localExpanded;
 
-  const {
-    totalIncome = 0,
-    totalExpenses = 0,
-    totalWalletBalance = 0,
-  } = useFinancialData();
-
   const data = item?.data || {};
+  const localUserId = String(authUser?.id || authUser?.email || "local-user");
 
-  const totalDebt = toNumber(totalDebtInput || data.totalDebt || data.amount || 0);
-  const monthlyDebt = toNumber(
-    monthlyDebtInput || data.monthlyDebt || data.monthlyPayment || 0
+  const loadDebtObligations = useCallback(async () => {
+    try {
+      const records = await getDebtObligations(localUserId);
+      setDebtObligations(records || []);
+      setDebtLoadError(null);
+
+      const primary = records?.[0] || null;
+
+      if (primary) {
+        setDebtType(primary.debtType || primary.type || "credit_card");
+        setTotalDebtInput(String(primary.totalDebt || primary.balance || ""));
+        setMonthlyDebtInput(
+          String(primary.monthlyDebt || primary.monthlyPayment || primary.monthly_payment || "")
+        );
+        setInterestInput(
+          String(primary.interestRate || primary.interest_rate || "")
+        );
+      }
+
+      return records || [];
+    } catch (error) {
+      console.error("Failed to load CLARA debt obligations:", error);
+      setDebtLoadError(error);
+      return [];
+    }
+  }, [localUserId]);
+
+  useEffect(() => {
+    let active = true;
+
+    const run = async () => {
+      const records = await getDebtObligations(localUserId).catch((error) => {
+        console.error("Failed to load CLARA debt obligations:", error);
+        if (active) setDebtLoadError(error);
+        return [];
+      });
+
+      if (!active) return;
+
+      setDebtObligations(records || []);
+      setDebtLoadError(null);
+
+      const primary = records?.[0] || null;
+
+      if (primary) {
+        setDebtType(primary.debtType || primary.type || "credit_card");
+        setTotalDebtInput(String(primary.totalDebt || primary.balance || ""));
+        setMonthlyDebtInput(
+          String(primary.monthlyDebt || primary.monthlyPayment || primary.monthly_payment || "")
+        );
+        setInterestInput(String(primary.interestRate || primary.interest_rate || ""));
+      }
+    };
+
+    run();
+
+    return () => {
+      active = false;
+    };
+  }, [localUserId]);
+
+  const income = toDebtNumber(totalIncome);
+  const expenses = toDebtNumber(totalExpenses);
+  const walletBalance = toDebtNumber(totalWalletBalance);
+
+  const debtSummary = useMemo(
+    () => summarizeDebtObligations(debtObligations, { income }),
+    [debtObligations, income]
   );
-  const income = toNumber(totalIncome);
-  const expenses = toNumber(totalExpenses);
-  const walletBalance = toNumber(totalWalletBalance);
 
-  const selectedType =
-    DEBT_TYPES.find((type) => type.value === debtType)?.label || "Credit Card";
+  const typedTotalDebt = toDebtNumber(totalDebtInput);
+  const typedMonthlyDebt = toDebtNumber(monthlyDebtInput);
+
+  const savedTotalDebt = toDebtNumber(
+    debtSummary.totalDebt || data.totalDebt || data.amount || 0
+  );
+  const savedMonthlyDebt = toDebtNumber(
+    debtSummary.monthlyDebt || data.monthlyDebt || data.monthlyPayment || 0
+  );
+
+  const totalDebt = typedTotalDebt > 0 ? typedTotalDebt : savedTotalDebt;
+  const monthlyDebt = typedMonthlyDebt > 0 ? typedMonthlyDebt : savedMonthlyDebt;
+  const activeDebtCount = debtSummary.activeCount || 0;
+
+  const selectedType = getDebtTypeLabel(debtType);
 
   const debtRatio = useMemo(() => {
     if (income <= 0) return monthlyDebt > 0 ? 100 : 0;
@@ -107,7 +187,7 @@ export default function useDebtCardLogic({
           : "Controlled";
 
   const pressureProgress = clampProgress(totalDebt <= 0 ? 0 : debtRatio);
-  const monthlyLeftover = Math.max(0, income - expenses);
+  const monthlyLeftover = Math.max(0, income - expenses - monthlyDebt);
   const payoffMonths =
     monthlyDebt > 0 && totalDebt > 0 ? Math.ceil(totalDebt / monthlyDebt) : 0;
 
@@ -131,6 +211,7 @@ export default function useDebtCardLogic({
           monthlyDebt,
           debtRatio,
           riskLevel,
+          activeDebtCount,
         },
       })
     );
@@ -164,6 +245,49 @@ export default function useDebtCardLogic({
     setLocalExpanded((value) => !value);
   };
 
+  const handleSaveDebtObligation = async () => {
+    const nextTotalDebt = toDebtNumber(totalDebtInput);
+    const nextMonthlyDebt = toDebtNumber(monthlyDebtInput);
+    const nextInterest = toDebtNumber(interestInput);
+
+    if (nextTotalDebt <= 0 && nextMonthlyDebt <= 0) {
+      return {
+        success: false,
+        message: "Enter at least the balance or monthly payment first.",
+      };
+    }
+
+    setSavingDebt(true);
+
+    try {
+      await upsertDebtObligation(localUserId, {
+        id: DEFAULT_DEBT_OBLIGATION_ID,
+        debtType,
+        totalDebt: nextTotalDebt,
+        monthlyDebt: nextMonthlyDebt,
+        interestRate: nextInterest,
+      });
+
+      await loadDebtObligations();
+
+      return {
+        success: true,
+        message:
+          "Obligation saved. CLARA will now include this pressure in your review.",
+      };
+    } catch (error) {
+      console.error("Failed to save CLARA debt obligation:", error);
+
+      return {
+        success: false,
+        message:
+          error?.message || "Failed to save debt obligation. Please try again.",
+      };
+    } finally {
+      setSavingDebt(false);
+    }
+  };
+
   return {
     state: {
       isExpanded,
@@ -171,6 +295,10 @@ export default function useDebtCardLogic({
       totalDebtInput,
       monthlyDebtInput,
       interestInput,
+      debtObligations,
+      activeDebtCount,
+      savingDebt,
+      debtLoadError,
     },
     computed: {
       tone: debtTone,
@@ -193,6 +321,8 @@ export default function useDebtCardLogic({
       handlePlanPayoff,
       handleAskClara,
       handleToggleDetails,
+      handleSaveDebtObligation,
+      reloadDebtObligations: loadDebtObligations,
     },
   };
 }
