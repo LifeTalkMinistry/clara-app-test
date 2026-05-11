@@ -19,6 +19,18 @@ import {
   normalizeString,
 } from "@/utils/dashboard/dashboardHelpers";
 
+const LOCAL_AUTH_FALLBACK_USER_ID = "local-dev-user";
+
+function isLocalAuthFallbackUser(currentUser = {}, authUser = {}) {
+  return (
+    currentUser?.id === LOCAL_AUTH_FALLBACK_USER_ID ||
+    authUser?.id === LOCAL_AUTH_FALLBACK_USER_ID ||
+    authUser?.profile?.id === LOCAL_AUTH_FALLBACK_USER_ID ||
+    authUser?.email === "local@clara.app" ||
+    currentUser?.email === "local@clara.app"
+  );
+}
+
 export default function useDashboardDataLoader({
   userId,
   userEmail,
@@ -87,8 +99,128 @@ export default function useDashboardDataLoader({
         setLoading(true);
       }
 
+      const localAuthFallbackActive = isLocalAuthFallbackUser(currentUser, user);
+
       try {
         const promise = (async () => {
+          const dashboardCacheSnapshot =
+            typeof getDashboardPageCache === "function"
+              ? getDashboardPageCache()
+              : null;
+
+          const safeWallets = Array.isArray(financeWallets) ? financeWallets : [];
+          const safeWalletTransactions = Array.isArray(financeWalletTransactions)
+            ? financeWalletTransactions
+            : [];
+          const safeTransfers = Array.isArray(financeTransfers) ? financeTransfers : [];
+          const safeBudgets = Array.isArray(financeBudgets) ? financeBudgets : [];
+          const safeSavingsGoals = Array.isArray(financeSavingsGoals)
+            ? financeSavingsGoals
+            : [];
+          const safeExpenses = Array.isArray(financeExpenses) ? financeExpenses : [];
+          const safePendingExpenses = safeExpenses.filter(
+            (item) =>
+              item?.pending_sync ||
+              item?.sync_status === "pending" ||
+              item?.syncStatus === "pending" ||
+              item?.local_only
+          );
+          const nextWalletMoney = safeWallets.reduce(
+            (sum, wallet) => sum + getWalletDisplayBalance(wallet),
+            0
+          );
+
+          const storedPrefs = readDashboardPrefs(currentUser.id);
+
+          // TEMP AUTH BYPASS: Used while Supabase project is restricted. Remove or disable when Supabase Auth is restored.
+          if (localAuthFallbackActive) {
+            const localProfile = {
+              ...(user?.profile || {}),
+              id: currentUser.id,
+              email: currentUser.email,
+              display_name:
+                user?.display_name ||
+                user?.full_name ||
+                currentUser.full_name ||
+                "CLARA User",
+              full_name: user?.full_name || currentUser.full_name || "CLARA User",
+              plan: "life_os_499",
+              plan_key: "life_os_499",
+              access_level: "life_os",
+              subscription_status: "active",
+              subscription_label: "Life OS",
+              status: "active",
+              enrollment_status: "approved",
+              is_enrolled: true,
+              program_active: true,
+              onboarding_completed: true,
+              has_completed_universal_onboarding: true,
+              has_seen_universal_onboarding: true,
+              program_onboarding_completed: true,
+              has_completed_program_onboarding: true,
+              activation_status: "active",
+              is_activated: true,
+            };
+
+            const nextNickname = normalizeString(
+              localProfile.display_name ||
+                localProfile.nickname ||
+                localProfile.full_name ||
+                nickname ||
+                dashboardCacheSnapshot?.nickname ||
+                "CLARA User"
+            );
+            const nextReminderTime =
+              reminderTime || dashboardCacheSnapshot?.reminderTime || storedPrefs.reminderTime;
+            const nextFinancialGoal =
+              financialGoal || dashboardCacheSnapshot?.financialGoal || storedPrefs.financialGoal;
+
+            const nextCache = {
+              key: ownerKey,
+              loaded: true,
+              tasks: dashboardCacheSnapshot?.tasks || [],
+              submissions: dashboardCacheSnapshot?.submissions || [],
+              programRecord: dashboardCacheSnapshot?.programRecord || null,
+              survivalExpense: firstPositiveNumber(
+                localProfile?.monthly_survival_expense,
+                localProfile?.survival_expense,
+                localProfile?.clara_survival_expense,
+                readStoredSurvivalExpense(currentUser.id),
+                survivalExpense,
+                dashboardCacheSnapshot?.survivalExpense
+              ),
+              walletMoney: nextWalletMoney,
+              wallets: safeWallets,
+              walletTransactions: safeWalletTransactions,
+              transfers: safeTransfers,
+              budgets: safeBudgets,
+              savingsGoals: safeSavingsGoals,
+              emergencyFund: financeEmergencyFund || null,
+              expenses: safeExpenses,
+              pendingExpenses: safePendingExpenses,
+              offlineReady: true,
+              profileData: localProfile,
+              latestEnrollment: null,
+              guardChecked: true,
+              nickname: nextNickname,
+              reminderTime: nextReminderTime,
+              financialGoal: nextFinancialGoal,
+            };
+
+            if (typeof setDashboardPageCache === "function") {
+              setDashboardPageCache(nextCache);
+            }
+            hydrateFromCache(nextCache);
+            setShowProgramStart(false);
+            setProgramRecord(nextCache.programRecord);
+
+            if (!hasVisibleFinanceData) {
+              setFinanceNotice(null);
+            }
+
+            return nextCache;
+          }
+
           const [
             tasksRes,
             submissionsRes,
@@ -123,10 +255,6 @@ export default function useDashboardDataLoader({
             console.error("Failed to load enrollments:", enrollmentsRes.error);
           }
 
-          const dashboardCacheSnapshot =
-            typeof getDashboardPageCache === "function"
-              ? getDashboardPageCache()
-              : null;
           const userSubmissions = (submissionsRes.data || []).filter((item) =>
             isOwnedByUser(item, currentUser)
           );
@@ -136,29 +264,6 @@ export default function useDashboardDataLoader({
             null;
           const enrollmentRecord = (enrollmentsRes.data || [])[0] || null;
 
-          const safeWallets = Array.isArray(financeWallets) ? financeWallets : [];
-          const safeWalletTransactions = Array.isArray(financeWalletTransactions)
-            ? financeWalletTransactions
-            : [];
-          const safeTransfers = Array.isArray(financeTransfers) ? financeTransfers : [];
-          const safeBudgets = Array.isArray(financeBudgets) ? financeBudgets : [];
-          const safeSavingsGoals = Array.isArray(financeSavingsGoals)
-            ? financeSavingsGoals
-            : [];
-          const safeExpenses = Array.isArray(financeExpenses) ? financeExpenses : [];
-          const safePendingExpenses = safeExpenses.filter(
-            (item) =>
-              item?.pending_sync ||
-              item?.sync_status === "pending" ||
-              item?.syncStatus === "pending" ||
-              item?.local_only
-          );
-          const nextWalletMoney = safeWallets.reduce(
-            (sum, wallet) => sum + getWalletDisplayBalance(wallet),
-            0
-          );
-
-          const storedPrefs = readDashboardPrefs(currentUser.id);
           const nextNickname = normalizeString(
             userProfile?.display_name ||
               userProfile?.nickname ||
