@@ -23,6 +23,19 @@ const AuthContext = createContext(null);
 const AUTH_TIMEOUT_MS = 6000;
 const PROFILE_TIMEOUT_MS = 6500;
 
+// TEMP AUTH BYPASS: Used while Supabase project is restricted. Remove or disable when Supabase Auth is restored.
+const TEMP_AUTH_BYPASS_ENABLED = true;
+
+const LOCAL_DEV_AUTH_USER = {
+  id: "local-dev-user",
+  email: "local@clara.app",
+  display_name: "CLARA User",
+  role: "user",
+  subscription_status: "active",
+  subscription_label: "Life OS",
+  plan_key: "lifeos",
+};
+
 const withTimeout = (promise, ms = AUTH_TIMEOUT_MS) => {
   return Promise.race([
     promise,
@@ -32,10 +45,25 @@ const withTimeout = (promise, ms = AUTH_TIMEOUT_MS) => {
   ]);
 };
 
+const buildLocalFallbackUser = () => ({
+  ...LOCAL_DEV_AUTH_USER,
+  app_metadata: {},
+  user_metadata: {
+    full_name: LOCAL_DEV_AUTH_USER.display_name,
+    name: LOCAL_DEV_AUTH_USER.display_name,
+    display_name: LOCAL_DEV_AUTH_USER.display_name,
+    role: LOCAL_DEV_AUTH_USER.role,
+    plan_key: LOCAL_DEV_AUTH_USER.plan_key,
+    subscription_label: LOCAL_DEV_AUTH_USER.subscription_label,
+  },
+});
+
+const isLocalFallbackUser = (authUser) => authUser?.id === LOCAL_DEV_AUTH_USER.id;
+
 const normalizeProfileAccess = (rawProfile = {}, authUser = null) => {
   const enrollmentStatus = String(rawProfile?.enrollment_status || "none").toLowerCase();
   const enrollmentSource = String(rawProfile?.enrollment_source || "").toLowerCase();
-  const profilePlan = String(rawProfile?.plan || "").toLowerCase();
+  const profilePlan = String(rawProfile?.plan || rawProfile?.plan_key || "").toLowerCase();
   const profileStatus = String(rawProfile?.status || "").toLowerCase();
   const profileRole = String(rawProfile?.role || "user").toLowerCase();
 
@@ -62,7 +90,7 @@ const normalizeProfileAccess = (rawProfile = {}, authUser = null) => {
 
   const isPro = Boolean(isApproved || isGooglePlay || isPaidPlan || isPaidStatus);
 
-  const normalizedPlan = normalizePlanKey(rawProfile?.plan || (isPro ? "pro" : "free"));
+  const normalizedPlan = normalizePlanKey(rawProfile?.plan || rawProfile?.plan_key || (isPro ? "pro" : "free"));
   const subscriptionStatus =
     normalizedPlan === "free"
       ? "free"
@@ -72,15 +100,21 @@ const normalizeProfileAccess = (rawProfile = {}, authUser = null) => {
           ? "core"
           : "life_os";
 
+  const fullName =
+    rawProfile?.full_name ||
+    rawProfile?.display_name ||
+    authUser?.user_metadata?.full_name ||
+    authUser?.user_metadata?.name ||
+    "";
+
   return {
     id: rawProfile?.id || authUser?.id || null,
     email: rawProfile?.email || authUser?.email || null,
-    full_name:
-      rawProfile?.full_name ||
-      authUser?.user_metadata?.full_name ||
-      authUser?.user_metadata?.name ||
-      "",
+    display_name: rawProfile?.display_name || fullName,
+    full_name: fullName,
     plan: normalizedPlan,
+    plan_key: normalizedPlan,
+    access_level: rawProfile?.access_level || subscriptionStatus,
     subscription_status: rawProfile?.subscription_status || subscriptionStatus,
     activation_status: rawProfile?.activation_status || "not_required",
     is_activated: Boolean(
@@ -142,6 +176,42 @@ const normalizeProfileAccess = (rawProfile = {}, authUser = null) => {
     isPro,
   };
 };
+
+const buildLocalFallbackProfile = (authUser = buildLocalFallbackUser()) =>
+  normalizeProfileAccess(
+    {
+      id: LOCAL_DEV_AUTH_USER.id,
+      email: LOCAL_DEV_AUTH_USER.email,
+      full_name: LOCAL_DEV_AUTH_USER.display_name,
+      display_name: LOCAL_DEV_AUTH_USER.display_name,
+      role: LOCAL_DEV_AUTH_USER.role,
+      plan: "life_os_499",
+      plan_key: LOCAL_DEV_AUTH_USER.plan_key,
+      access_level: "life_os",
+      subscription_status: LOCAL_DEV_AUTH_USER.subscription_status,
+      subscription_label: LOCAL_DEV_AUTH_USER.subscription_label,
+      activation_status: "active",
+      is_activated: true,
+      activated_at: new Date(0).toISOString(),
+      enrollment_source: "local_auth_fallback",
+      enrollment_status: "approved",
+      status: "active",
+      is_enrolled: true,
+      program_active: true,
+      onboarding_completed: true,
+      onboarding_step: 0,
+      program_onboarding_completed: true,
+      has_completed_program_onboarding: true,
+      has_completed_universal_onboarding: true,
+      has_seen_universal_onboarding: true,
+      offline_access: true,
+      offline_limited_access: false,
+      offline_access_notice:
+        "CLARA is using temporary local access while Supabase Auth is unavailable.",
+      offline_access_snapshot: null,
+    },
+    authUser
+  );
 
 const buildCachedUser = (cachedSnapshot = null, authUser = null) => {
   if (!cachedSnapshot || !isAccessSnapshotUsable(cachedSnapshot)) {
@@ -263,7 +333,7 @@ export function AuthProvider({ children }) {
   }, []);
 
   const ensureBasicProfile = useCallback(async (authUser, fallbackName = "") => {
-    if (!authUser?.id) return;
+    if (!authUser?.id || isLocalFallbackUser(authUser)) return;
 
     try {
       await withTimeout(
@@ -287,7 +357,7 @@ export function AuthProvider({ children }) {
   }, []);
 
   const saveProfileSnapshot = useCallback((authUser, normalizedProfile) => {
-    if (!authUser?.id || !normalizedProfile) return;
+    if (!authUser?.id || !normalizedProfile || isLocalFallbackUser(authUser)) return;
 
     saveAccessSnapshot({
       user: authUser,
@@ -312,6 +382,12 @@ export function AuthProvider({ children }) {
   const fetchProfile = useCallback(
     async (authUser, { silent = false, preferCache = true } = {}) => {
       if (!authUser?.id) return null;
+
+      if (TEMP_AUTH_BYPASS_ENABLED && isLocalFallbackUser(authUser)) {
+        const localProfile = buildLocalFallbackProfile(authUser);
+        setProfile(localProfile);
+        return localProfile;
+      }
 
       const cachedSnapshot =
         preferCache &&
@@ -393,6 +469,17 @@ export function AuthProvider({ children }) {
         return fallbackProfile;
       } catch (error) {
         console.error("fetchProfile error:", error);
+
+        if (TEMP_AUTH_BYPASS_ENABLED) {
+          const localUser = buildLocalFallbackUser();
+          const localProfile = buildLocalFallbackProfile(localUser);
+          setSession(null);
+          setUser(localUser);
+          setProfile(localProfile);
+          setLoading(false);
+          setAuthReady(true);
+          return localProfile;
+        }
 
         const latestCachedSnapshot =
           getAccessSnapshot(authUser.id) || getAccessSnapshot(authUser.email);
@@ -479,12 +566,35 @@ export function AuthProvider({ children }) {
     return { user: cachedUser, profile: cachedProfile, snapshot: cachedSnapshot };
   }, []);
 
+  const applyLocalAuthBypass = useCallback(() => {
+    if (!TEMP_AUTH_BYPASS_ENABLED) return null;
+
+    const localUser = buildLocalFallbackUser();
+    const localProfile = buildLocalFallbackProfile(localUser);
+
+    initializedRef.current = true;
+    profileRefreshRunIdRef.current += 1;
+    setSession(null);
+    setUser(localUser);
+    setProfile(localProfile);
+    setLoading(false);
+    setAuthReady(true);
+
+    return { user: localUser, profile: localProfile };
+  }, []);
+
   const applySession = useCallback(
     async (nextSession, { markInitialized = false, allowCached = true } = {}) => {
       const runId = authRunIdRef.current + 1;
       authRunIdRef.current = runId;
 
       const nextUser = nextSession?.user ?? null;
+
+      if (!nextUser?.id && TEMP_AUTH_BYPASS_ENABLED) {
+        const bypassResult = applyLocalAuthBypass();
+        if (markInitialized) initializedRef.current = true;
+        return bypassResult?.profile || null;
+      }
 
       setSession(nextSession ?? null);
       setUser(nextUser);
@@ -528,6 +638,7 @@ export function AuthProvider({ children }) {
     },
     [
       applyCachedSnapshot,
+      applyLocalAuthBypass,
       authReady,
       fetchProfile,
       finishReady,
@@ -557,6 +668,8 @@ export function AuthProvider({ children }) {
           setProfile(cachedProfile);
           setLoading(false);
           setAuthReady(true);
+        } else if (TEMP_AUTH_BYPASS_ENABLED) {
+          applyLocalAuthBypass();
         } else {
           setLoading(true);
         }
@@ -579,6 +692,11 @@ export function AuthProvider({ children }) {
           initializedRef.current = true;
           setLoading(false);
           setAuthReady(true);
+          return;
+        }
+
+        if (TEMP_AUTH_BYPASS_ENABLED) {
+          applyLocalAuthBypass();
           return;
         }
 
@@ -610,6 +728,11 @@ export function AuthProvider({ children }) {
           return;
         }
 
+        if (TEMP_AUTH_BYPASS_ENABLED) {
+          applyLocalAuthBypass();
+          return;
+        }
+
         initializedRef.current = true;
         setSession(null);
         setUser(null);
@@ -630,6 +753,11 @@ export function AuthProvider({ children }) {
         return;
       }
 
+      if (TEMP_AUTH_BYPASS_ENABLED && !nextSession?.user?.id) {
+        applyLocalAuthBypass();
+        return;
+      }
+
       window.setTimeout(() => {
         if (!mounted) return;
 
@@ -647,7 +775,7 @@ export function AuthProvider({ children }) {
       mounted = false;
       subscription.unsubscribe();
     };
-  }, [applySession]);
+  }, [applyLocalAuthBypass, applySession]);
 
   useEffect(() => {
     if (!user?.id) return undefined;
@@ -750,6 +878,11 @@ export function AuthProvider({ children }) {
       clearAccessSnapshot(previousUserKey);
     } catch (error) {
       console.warn("Failed to clear CLARA offline access snapshot:", error);
+    }
+
+    if (TEMP_AUTH_BYPASS_ENABLED) {
+      applyLocalAuthBypass();
+      return;
     }
 
     initializedRef.current = true;
