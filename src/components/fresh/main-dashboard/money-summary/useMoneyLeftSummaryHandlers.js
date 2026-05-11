@@ -50,7 +50,7 @@ export default function useMoneyLeftSummaryHandlers({ navigate } = {}) {
 
       moneyLeftNavigateLockRef.current = now;
       if (typeof navigate === "function") {
-        navigate("/transactions-hub");
+        navigate("/transactions");
       }
     },
     [isManualExpenseOrbEvent, navigate, stopMoneyLeftOrbEvent, stopMoneyLeftSummaryEvent]
