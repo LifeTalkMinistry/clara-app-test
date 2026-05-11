@@ -1,4 +1,4 @@
-import { ChevronDown, ChevronUp, ShieldAlert } from "lucide-react";
+import { Brain, ChevronDown, ChevronUp, ShieldAlert, Sparkles } from "lucide-react";
 
 import useDebtCardLogic, {
   fmt,
@@ -6,6 +6,27 @@ import useDebtCardLogic, {
 
 const tileClass =
   "rounded-2xl border border-white/10 bg-white/[0.045] px-2.5 py-2.5 text-center shadow-[inset_0_1px_0_rgba(255,255,255,0.06)] backdrop-blur-sm";
+
+function GuidancePanel({ title, children, icon: Icon }) {
+  return (
+    <div className="relative overflow-hidden rounded-2xl border border-cyan-300/16 bg-cyan-400/[0.065] px-3.5 py-3.5 shadow-[inset_0_1px_0_rgba(255,255,255,0.055)]">
+      <div className="pointer-events-none absolute -right-8 -top-10 h-24 w-24 rounded-full bg-cyan-300/10 blur-2xl" />
+      <div className="relative flex items-start gap-3">
+        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-cyan-300/20 bg-cyan-300/10 text-cyan-100 shadow-[0_0_18px_rgba(34,211,238,0.10)]">
+          <Icon className="h-4 w-4" />
+        </div>
+        <div className="min-w-0">
+          <p className="text-[10px] font-black uppercase tracking-[0.16em] text-cyan-100/60">
+            {title}
+          </p>
+          <div className="mt-2 text-[12.5px] font-semibold leading-5 text-white/72">
+            {children}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
 
 export default function ObligationDebt({
   item = null,
@@ -26,8 +47,11 @@ export default function ObligationDebt({
     debtRatio,
     riskLevel,
     statusLabel,
+    smartFeedback,
   } = computed;
-  const { handleToggleDetails } = handlers;
+  const { handleAskClara, handleToggleDetails } = handlers;
+
+  const hasActiveDebt = totalDebt > 0;
 
   const summaryTiles = [
     {
@@ -68,8 +92,8 @@ export default function ObligationDebt({
       <div className="pointer-events-none absolute bottom-[-135px] right-[-92px] h-[230px] w-[230px] rounded-full bg-violet-400/[0.09] blur-3xl" />
       <div className="pointer-events-none absolute inset-0 rounded-[inherit] ring-1 ring-inset ring-white/10" />
 
-      <div className="relative z-10 flex h-full flex-col p-4 pb-4">
-        <div className="flex flex-col gap-3">
+      <div className="relative z-10 flex h-full min-h-0 flex-col p-4 pb-4">
+        <div className="flex shrink-0 flex-col gap-3">
           <div>
             <div className="mb-3 flex items-start gap-3">
               <div
@@ -104,7 +128,7 @@ export default function ObligationDebt({
               </p>
 
               <p className="mt-2 text-sm font-semibold leading-tight text-white/82">
-                {totalDebt > 0
+                {hasActiveDebt
                   ? "Total active obligations."
                   : "No active debt recorded."}
               </p>
@@ -140,6 +164,35 @@ export default function ObligationDebt({
             </button>
           </div>
         </div>
+
+        {isExpanded ? (
+          <div className="relative z-20 mt-3 min-h-0 flex-1 space-y-3 overflow-y-auto overscroll-contain rounded-2xl border border-white/10 bg-black/15 p-3.5 pb-5 backdrop-blur-[2px] shadow-[inset_0_1px_0_rgba(255,255,255,0.05)] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+            {hasActiveDebt ? (
+              <GuidancePanel title="CLARA read" icon={ShieldAlert}>
+                <p>{smartFeedback}.</p>
+                <p className="mt-1.5 text-white/52">
+                  Review this before adding another monthly commitment.
+                </p>
+              </GuidancePanel>
+            ) : (
+              <GuidancePanel title="Clear position" icon={Sparkles}>
+                <p>No active obligation is recorded right now.</p>
+                <p className="mt-1.5 text-white/52">
+                  Keep tracking new commitments so CLARA can read your cash flow clearly.
+                </p>
+              </GuidancePanel>
+            )}
+
+            <button
+              type="button"
+              onClick={handleAskClara}
+              className="flex min-h-[44px] items-center justify-center gap-2 rounded-2xl border border-cyan-300/25 bg-cyan-400/10 px-3 py-2.5 text-sm font-black text-cyan-100 shadow-[inset_0_1px_0_rgba(255,255,255,0.08)] transition hover:bg-cyan-400/15"
+            >
+              <Brain className="h-4 w-4" />
+              Ask CLARA to Review
+            </button>
+          </div>
+        ) : null}
       </div>
     </div>
   );
