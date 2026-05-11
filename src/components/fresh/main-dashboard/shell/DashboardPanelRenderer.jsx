@@ -1,5 +1,6 @@
 import { Link } from "react-router-dom";
 import { MessageCircle, Newspaper } from "lucide-react";
+import DashboardMePanel from "@/components/fresh/main-dashboard/dashboard-panels/me/DashboardMePanel";
 
 function SettingsSocialCommunityShortcuts() {
   const shortcutClass =
@@ -76,7 +77,7 @@ export default function DashboardPanelRenderer({
   fallback = null,
 }) {
   if (activePanel === "me") {
-    return renderMe?.() ?? renderSettings?.() ?? fallback;
+    return renderMe?.() ?? <DashboardMePanel />;
   }
 
   if (activePanel === "lifeos") {
