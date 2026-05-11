@@ -4,6 +4,7 @@ import { Eye, EyeOff, Plus, Send, X } from "lucide-react";
 const SINGLE_TAP_DELAY = 240;
 const DOUBLE_TAP_WINDOW = 280;
 const CLARA_LONG_PRESS_DELAY = 560;
+const CLARA_MONEY_CHAT_EVENT = "clara:money-card-chat";
 
 function makeClaraMessage(role, text) {
   return {
@@ -58,6 +59,17 @@ export default function DashboardMoneySummary({
   const [claraMessages, setClaraMessages] = useState(() => [
     makeClaraMessage("clara", "What are you thinking of buying?"),
   ]);
+
+  useEffect(() => {
+    window.dispatchEvent(
+      new CustomEvent(CLARA_MONEY_CHAT_EVENT, {
+        detail: {
+          active: claraMode,
+          messages: claraMessages,
+        },
+      })
+    );
+  }, [claraMode, claraMessages]);
 
   const clearTapTimer = useCallback(() => {
     if (tapTimerRef.current) {
