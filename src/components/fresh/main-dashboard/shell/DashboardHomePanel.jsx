@@ -57,6 +57,7 @@ export default function DashboardHomePanel({
   moneyLeftSummaryHandlers,
   handleMoneyLeftOrbClick,
   startMoneyLeftOrbLongPress,
+  moveMoneyLeftOrbLongPress,
   endMoneyLeftOrbLongPress,
   stopMoneyLeftOrbEvent,
   thisMonthSpent,
@@ -161,6 +162,7 @@ export default function DashboardHomePanel({
         moneyLeftSummaryHandlers={moneyLeftSummaryHandlers}
         handleMoneyLeftOrbClick={handleMoneyLeftOrbClick}
         startMoneyLeftOrbLongPress={startMoneyLeftOrbLongPress}
+        moveMoneyLeftOrbLongPress={moveMoneyLeftOrbLongPress}
         endMoneyLeftOrbLongPress={endMoneyLeftOrbLongPress}
         stopMoneyLeftOrbEvent={stopMoneyLeftOrbEvent}
         walletMoney={walletMoney}
