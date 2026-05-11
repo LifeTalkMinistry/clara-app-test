@@ -1,3 +1,3 @@
-export default function ClaraDecisionCoachPanel() {
-  return null;
-}
+import ClaraDecisionDockPanel from "./ClaraDecisionDockPanel";
+
+export default ClaraDecisionDockPanel;
