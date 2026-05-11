@@ -134,6 +134,100 @@ function buildClaraInlineFallback(text, { walletMoney = 0, thisMonthSpent = 0, f
   return `Pause first. You have ${moneyLeftText} left and ${spentText} already spent this month. Buy only if it is planned, needed, and still worth it tomorrow.`;
 }
 
+function extractPurchaseAmount(text) {
+  const matches = String(text || "")
+    .replace(/,/g, "")
+    .match(/(?:₱|php\s*)?\d+(?:\.\d{1,2})?/gi);
+
+  if (!matches?.length) return null;
+
+  const amounts = matches
+    .map((match) => Number(match.replace(/php/gi, "").replace(/₱/g, "").trim()))
+    .filter((amount) => Number.isFinite(amount) && amount > 0);
+
+  return amounts.length ? Math.max(...amounts) : null;
+}
+
+function hasActiveBudgetPlan(context = {}) {
+  const allocated = safeNumber(context?.budgetAllocated, 0);
+  const rows = safeArray(context?.budgets);
+
+  return (
+    allocated > 0 ||
+    rows.some((row) =>
+      safeNumber(
+        row?.allocated ?? row?.total ?? row?.limit ?? row?.amount ?? row?.allocated_amount,
+        0
+      ) > 0
+    )
+  );
+}
+
+function buildPremiumPurchaseReply(text, { claraFinanceContext = {}, fmt }) {
+  const amount = extractPurchaseAmount(text);
+  if (!amount) return null;
+
+  const available = safeNumber(
+    claraFinanceContext?.availableMoney ??
+      claraFinanceContext?.walletMoney ??
+      claraFinanceContext?.totalMoneyLeft ??
+      claraFinanceContext?.totalWalletBalance,
+    0
+  );
+  const activeBudget = hasActiveBudgetPlan(claraFinanceContext);
+  const budgetRemaining = activeBudget
+    ? safeNumber(claraFinanceContext?.budgetRemaining, 0)
+    : null;
+
+  const amountText = fmt(amount);
+  const availableText = fmt(available);
+  const budgetText = budgetRemaining !== null ? fmt(budgetRemaining) : null;
+
+  if (available <= 0) {
+    return `Not recommended. I can’t confirm available money right now, so don’t treat ${amountText} as safe yet. Refresh your wallet first.`;
+  }
+
+  if (amount > available) {
+    return `Not recommended. ${amountText} is higher than your visible money left of ${availableText}. Delay it or lower the cost.`;
+  }
+
+  const share = amount / available;
+
+  if (!activeBudget) {
+    if (share >= 0.75) {
+      return `Not recommended. You have ${availableText} money left, but ${amountText} would use almost all of it. No active budget plan is loaded yet, so delay this and set a spending plan first.`;
+    }
+
+    if (share >= 0.03) {
+      return `Okay only if planned. You have ${availableText} money left and no active budget plan yet, so ${amountText} deserves a pause. Buy it only if it was already planned, then log it right away.`;
+    }
+
+    return `Okay, but keep it intentional. You have ${availableText} money left and no active budget plan yet. ${amountText} is affordable, but log it after buying so small spending doesn’t disappear unnoticed.`;
+  }
+
+  if (budgetRemaining !== null && amount > budgetRemaining) {
+    return `Better delay. You have ${availableText} money left, but only ${budgetText} remains in your active budget. Rebalance first or reduce the cost.`;
+  }
+
+  if (share >= 0.75) {
+    return `Not recommended. ${amountText} would use most of your ${availableText} money left. Delay this unless it is urgent and already planned.`;
+  }
+
+  if (share >= 0.12) {
+    return `Okay only if planned. ${amountText} is affordable, but it is still noticeable against your ${availableText} money left. Buy it only if it fits your active budget and current priorities.`;
+  }
+
+  return `Safe, but still intentional. ${amountText} fits within your ${availableText} money left and active budget. Log it after buying.`;
+}
+
+function polishClaraReply(reply, text, options) {
+  if (isPurchaseQuestion(text)) {
+    return buildPremiumPurchaseReply(text, options) || reply;
+  }
+
+  return reply;
+}
+
 export default function DashboardMoneySummary({
   dashboardScale = {},
   selectedDashboardTheme = {},
@@ -372,7 +466,6 @@ export default function DashboardMoneySummary({
         fmt,
       });
 
-      // Important: context questions should not be forced into the old local "add the price" behavior.
       if (!isContextQuestion(cleanText)) {
         try {
           localReply = generateClaraLocalReply(aiMessage, claraFinanceContext);
@@ -381,17 +474,22 @@ export default function DashboardMoneySummary({
         }
       }
 
-      if (!geminiReadyRef.current) return localReply;
+      const polishOptions = { claraFinanceContext, fmt };
+      const polishedLocalReply = polishClaraReply(localReply, cleanText, polishOptions);
+
+      if (!geminiReadyRef.current) return polishedLocalReply;
 
       try {
-        return await generateClaraGeminiReply({
+        const geminiReply = await generateClaraGeminiReply({
           message: aiMessage,
           context: claraFinanceContext,
           mode: purchaseMode ? "purchase_decision" : "money_context_check",
         });
+
+        return polishClaraReply(geminiReply, cleanText, polishOptions);
       } catch (error) {
         console.warn("CLARA Gemini fallback used:", error);
-        return localReply;
+        return polishedLocalReply;
       }
     },
     [claraFinanceContext, fmt, thisMonthSpent, walletMoney]
