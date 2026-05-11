@@ -112,6 +112,7 @@ export default function useMoneyLeftSummaryHandlers({ navigate } = {}) {
 
   return useMemo(
     () => ({
+      openTransactionHubFromMoneyLeft,
       onClickCapture: stopMoneyLeftSummaryEvent,
       onClick: stopMoneyLeftSummaryEvent,
       onDoubleClickCapture: openTransactionHubFromMoneyLeft,
