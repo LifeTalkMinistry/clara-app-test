@@ -133,20 +133,22 @@ export default function ObligationDebt({
               </p>
             </div>
 
-            <div className="mb-1 grid grid-cols-3 gap-2">
-              {summaryTiles.map((tile) => (
-                <div key={tile.label} className={tileClass}>
-                  <p
-                    className={`truncate text-[13px] font-black leading-none tracking-[-0.025em] ${tile.valueClassName || "text-white/92"}`}
-                  >
-                    {tile.value}
-                  </p>
-                  <p className="mt-1.5 text-[8px] font-black uppercase tracking-[0.18em] text-white/42">
-                    {tile.label}
-                  </p>
-                </div>
-              ))}
-            </div>
+            {!isExpanded ? (
+              <div className="mb-1 grid grid-cols-3 gap-2">
+                {summaryTiles.map((tile) => (
+                  <div key={tile.label} className={tileClass}>
+                    <p
+                      className={`truncate text-[13px] font-black leading-none tracking-[-0.025em] ${tile.valueClassName || "text-white/92"}`}
+                    >
+                      {tile.value}
+                    </p>
+                    <p className="mt-1.5 text-[8px] font-black uppercase tracking-[0.18em] text-white/42">
+                      {tile.label}
+                    </p>
+                  </div>
+                ))}
+              </div>
+            ) : null}
           </div>
 
           <div className="shrink-0 border-t border-white/6 pt-2">
