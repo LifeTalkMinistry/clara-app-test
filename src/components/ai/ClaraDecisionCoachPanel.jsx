@@ -1,5 +1,14 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { ArrowLeft, Keyboard, Mic, Send, ShieldCheck, Sparkles, X } from "lucide-react";
+import {
+  ArrowLeft,
+  Keyboard,
+  Mic,
+  Send,
+  ShieldCheck,
+  Sparkles,
+  TrendingUp,
+  X,
+} from "lucide-react";
 import { useFinancialData } from "../../hooks/useFinancialData";
 import {
   buildClaraFinanceSnapshot,
@@ -8,7 +17,7 @@ import {
 } from "../../lib/clara-local-brain";
 
 const INITIAL_MESSAGE = "I’m here. Ask me before you spend.";
-const CLOSE_ANIMATION_MS = 190;
+const CLOSE_ANIMATION_MS = 170;
 
 const INTENT_OPTIONS = [
   {
@@ -20,7 +29,14 @@ const INTENT_OPTIONS = [
     featured: true,
   },
   {
-    label: "Check my budget",
+    label: "Predict future",
+    description: "See where your money is heading.",
+    mode: "predict_future",
+    prompt: "Predict my future",
+    icon: TrendingUp,
+  },
+  {
+    label: "Check budget",
     description: "See what your plan allows.",
     mode: "budget_check",
     prompt: "Budget check",
@@ -44,45 +60,42 @@ const INTENT_OPTIONS = [
 
 const CHAT_QUICK_OPTIONS = [
   { label: "Before I buy this", message: "Before I buy this", mode: "purchase_decision" },
+  { label: "Predict future", message: "Predict my future" },
   { label: "Budget check", message: "Budget check" },
   { label: "Spending review", message: "Check my spending" },
   { label: "Wallets", message: "Check my wallets" },
 ];
 
 const CLARA_DECISION_STYLES = `
-  @keyframes claraDecisionBackdropIn {
-    from { opacity: 0; backdrop-filter: blur(0px); -webkit-backdrop-filter: blur(0px); }
-    to { opacity: 1; backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px); }
+  @keyframes claraDecisionDockIn {
+    from {
+      opacity: 0;
+      transform: translate3d(18px, 28px, 0) scale(0.92);
+      filter: blur(4px);
+    }
+    to {
+      opacity: 1;
+      transform: translate3d(0, 0, 0) scale(1);
+      filter: blur(0px);
+    }
   }
 
-  @keyframes claraDecisionBackdropOut {
-    from { opacity: 1; backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px); }
-    to { opacity: 0; backdrop-filter: blur(0px); -webkit-backdrop-filter: blur(0px); }
-  }
-
-  @keyframes claraDecisionSheetIn {
-    from { opacity: 0; transform: translate3d(0, 18px, 0) scale(0.985); }
-    to { opacity: 1; transform: translate3d(0, 0, 0) scale(1); }
-  }
-
-  @keyframes claraDecisionSheetOut {
-    from { opacity: 1; transform: translate3d(0, 0, 0) scale(1); }
-    to { opacity: 0; transform: translate3d(0, 16px, 0) scale(0.985); }
-  }
-
-  @keyframes claraDecisionSheetInDesktop {
-    from { opacity: 0; transform: translate3d(-50%, calc(-50% + 18px), 0) scale(0.985); }
-    to { opacity: 1; transform: translate3d(-50%, -50%, 0) scale(1); }
-  }
-
-  @keyframes claraDecisionSheetOutDesktop {
-    from { opacity: 1; transform: translate3d(-50%, -50%, 0) scale(1); }
-    to { opacity: 0; transform: translate3d(-50%, calc(-50% + 16px), 0) scale(0.985); }
+  @keyframes claraDecisionDockOut {
+    from {
+      opacity: 1;
+      transform: translate3d(0, 0, 0) scale(1);
+      filter: blur(0px);
+    }
+    to {
+      opacity: 0;
+      transform: translate3d(16px, 24px, 0) scale(0.94);
+      filter: blur(3px);
+    }
   }
 
   @keyframes claraDecisionGlowPulse {
-    0%, 100% { opacity: 0.62; transform: scale(1); }
-    50% { opacity: 0.95; transform: scale(1.04); }
+    0%, 100% { opacity: 0.58; transform: scale(1); }
+    50% { opacity: 0.9; transform: scale(1.04); }
   }
 
   @keyframes claraDecisionOptionIn {
@@ -90,22 +103,18 @@ const CLARA_DECISION_STYLES = `
     to { opacity: 1; transform: translate3d(0, 0, 0) scale(1); }
   }
 
-  .clara-decision-backdrop {
-    animation: claraDecisionBackdropIn 180ms ease-out both;
-    padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 1rem);
-  }
-
-  .clara-decision-backdrop-out {
-    animation: claraDecisionBackdropOut 170ms ease-in both;
+  .clara-decision-dock {
+    pointer-events: none;
   }
 
   .clara-decision-sheet {
-    animation: claraDecisionSheetIn 220ms cubic-bezier(0.2, 0.85, 0.25, 1) both;
-    will-change: transform, opacity;
+    animation: claraDecisionDockIn 220ms cubic-bezier(0.2, 0.85, 0.25, 1) both;
+    transform-origin: calc(100% - 42px) calc(100% - 18px);
+    will-change: transform, opacity, filter;
   }
 
   .clara-decision-sheet-out {
-    animation: claraDecisionSheetOut 170ms ease-in both;
+    animation: claraDecisionDockOut 160ms ease-in both;
     pointer-events: none;
   }
 
@@ -115,7 +124,7 @@ const CLARA_DECISION_STYLES = `
   }
 
   .clara-decision-option {
-    animation: claraDecisionOptionIn 240ms cubic-bezier(0.2, 0.85, 0.25, 1) both;
+    animation: claraDecisionOptionIn 220ms cubic-bezier(0.2, 0.85, 0.25, 1) both;
   }
 
   .clara-decision-scroll {
@@ -123,14 +132,25 @@ const CLARA_DECISION_STYLES = `
     -webkit-overflow-scrolling: touch;
   }
 
+  .clara-decision-tail {
+    position: absolute;
+    right: 38px;
+    bottom: -9px;
+    width: 18px;
+    height: 18px;
+    transform: rotate(45deg);
+    border-right: 1px solid rgba(255,255,255,0.12);
+    border-bottom: 1px solid rgba(255,255,255,0.12);
+    background: rgba(2, 6, 23, 0.94);
+  }
+
   @media (min-width: 640px) {
-    .clara-decision-sheet { animation-name: claraDecisionSheetInDesktop; }
-    .clara-decision-sheet-out { animation-name: claraDecisionSheetOutDesktop; }
+    .clara-decision-sheet {
+      transform-origin: calc(100% - 48px) calc(100% - 18px);
+    }
   }
 
   @media (prefers-reduced-motion: reduce) {
-    .clara-decision-backdrop,
-    .clara-decision-backdrop-out,
     .clara-decision-sheet,
     .clara-decision-sheet-out,
     .clara-decision-glow,
@@ -326,7 +346,7 @@ export default function ClaraDecisionCoachPanel({ open, onClose, context = {} })
     }
 
     if (!isClosing) setPanelMode(null);
-  }, [open]);
+  }, [open, isClosing]);
 
   useEffect(() => {
     return () => {
@@ -351,7 +371,7 @@ export default function ClaraDecisionCoachPanel({ open, onClose, context = {} })
     latestContextRef.current = currentContext;
 
     if (forcedMode === "private_mode") {
-      return "Private mode is for quiet money reflection. You can type safely here first; voice can stay optional for home use only.";
+      return "Private mode is your quiet money space. You can type here safely first; voice should stay optional for home or private moments.";
     }
 
     const localMessage =
@@ -392,7 +412,7 @@ export default function ClaraDecisionCoachPanel({ open, onClose, context = {} })
         makeMessage("clara", INITIAL_MESSAGE),
         makeMessage(
           "clara",
-          "Private mode is your quiet space for deeper money reflection. Type here for now; voice should stay optional for home or private moments."
+          "Private mode is your quiet money space. Type here for now; voice should stay optional for home or private moments."
         ),
       ]);
       return;
@@ -514,75 +534,68 @@ export default function ClaraDecisionCoachPanel({ open, onClose, context = {} })
     }, CLOSE_ANIMATION_MS);
   };
 
-  const handleBackdropPointerDown = (event) => {
-    if (event.target !== event.currentTarget) return;
-    closeAssistant(event);
-  };
-
   if (!panelMode) return null;
 
   const shellClassName = `clara-decision-sheet${isClosing ? " clara-decision-sheet-out" : ""}`;
-  const backdropClassName = `clara-decision-backdrop${isClosing ? " clara-decision-backdrop-out" : ""}`;
 
   return (
     <>
       <style>{CLARA_DECISION_STYLES}</style>
 
       <div
-        aria-modal="true"
-        className={`${backdropClassName} fixed inset-0 z-[99990] flex items-end justify-center bg-black/58 px-4 pt-16 text-white sm:items-center sm:p-6`}
-        role="dialog"
-        onClick={handleBackdropPointerDown}
-        onMouseDown={handleBackdropPointerDown}
-        onPointerDown={handleBackdropPointerDown}
+        aria-live="polite"
+        className="clara-decision-dock fixed bottom-[calc(env(safe-area-inset-bottom,0px)+92px)] right-4 z-[99990] w-[min(calc(100vw-2rem),360px)] text-white sm:right-[max(1.5rem,calc((100vw-440px)/2+1.5rem))]"
       >
         <section
-          className={`${shellClassName} relative w-full max-w-[440px] overflow-hidden rounded-[2rem] border border-white/12 bg-slate-950/92 shadow-[0_26px_100px_rgba(0,0,0,0.7)] backdrop-blur-2xl sm:fixed sm:left-1/2 sm:top-1/2`}
+          aria-modal="false"
+          className={`${shellClassName} pointer-events-auto relative overflow-hidden rounded-[1.75rem] border border-white/12 bg-slate-950/88 shadow-[0_22px_70px_rgba(0,0,0,0.54),0_0_0_1px_rgba(255,255,255,0.04)] backdrop-blur-2xl`}
+          role="dialog"
           onClick={stopAssistantPropagation}
           onMouseDown={stopAssistantPropagation}
           onPointerDown={stopAssistantPropagation}
         >
-          <div className="clara-decision-glow pointer-events-none absolute -left-24 -top-24 h-56 w-56 rounded-full bg-emerald-400/16 blur-3xl" />
-          <div className="clara-decision-glow pointer-events-none absolute -bottom-28 -right-20 h-64 w-64 rounded-full bg-cyan-400/14 blur-3xl" />
+          <div className="clara-decision-tail" />
+          <div className="clara-decision-glow pointer-events-none absolute -left-20 -top-20 h-44 w-44 rounded-full bg-emerald-400/16 blur-3xl" />
+          <div className="clara-decision-glow pointer-events-none absolute -bottom-20 -right-16 h-48 w-48 rounded-full bg-cyan-400/14 blur-3xl" />
           <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-white/30 to-transparent" />
 
           {panelMode === "menu" ? (
-            <div className="relative p-5 sm:p-6">
-              <div className="mb-5 flex items-start justify-between gap-4">
+            <div className="relative p-4">
+              <div className="mb-3 flex items-start justify-between gap-3">
                 <div className="min-w-0">
-                  <div className="mb-3 inline-flex items-center gap-2 rounded-full border border-emerald-300/15 bg-emerald-300/8 px-3 py-1.5 text-[11px] font-semibold uppercase tracking-[0.22em] text-emerald-100/85">
+                  <div className="mb-2 inline-flex items-center gap-2 rounded-full border border-emerald-300/15 bg-emerald-300/8 px-2.5 py-1 text-[9px] font-semibold uppercase tracking-[0.2em] text-emerald-100/85">
                     <span className="h-1.5 w-1.5 rounded-full bg-emerald-300 shadow-[0_0_16px_rgba(110,231,183,0.9)]" />
                     CLARA
                   </div>
-                  <h2 className="text-[1.7rem] font-black leading-[1.05] tracking-tight text-white">
+                  <h2 className="text-[1.28rem] font-black leading-[1.08] tracking-tight text-white">
                     Ask before you spend.
                   </h2>
-                  <p className="mt-2 max-w-[20rem] text-sm leading-5 text-slate-300/82">
-                    A private money pause before the decision becomes regret.
+                  <p className="mt-1.5 max-w-[18rem] text-xs leading-5 text-slate-300/82">
+                    Private text-first money pause attached to your Money Left orb.
                   </p>
                 </div>
 
                 <button
                   aria-label="Close CLARA"
-                  className="grid h-11 w-11 shrink-0 place-items-center rounded-full border border-white/10 bg-white/8 text-slate-200 shadow-[0_8px_24px_rgba(0,0,0,0.22)] transition hover:bg-white/14 active:scale-95"
+                  className="grid h-9 w-9 shrink-0 place-items-center rounded-full border border-white/10 bg-white/8 text-slate-200 shadow-[0_8px_24px_rgba(0,0,0,0.22)] transition hover:bg-white/14 active:scale-95"
                   type="button"
                   onClick={closeAssistant}
                   onPointerDown={stopAssistantPropagation}
                 >
-                  <X size={18} />
+                  <X size={16} />
                 </button>
               </div>
 
               <form
-                className="rounded-[1.65rem] border border-emerald-200/16 bg-gradient-to-br from-white/[0.105] to-white/[0.045] p-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.08),0_18px_55px_rgba(0,0,0,0.28)]"
+                className="rounded-[1.35rem] border border-emerald-200/16 bg-gradient-to-br from-white/[0.105] to-white/[0.045] p-3 shadow-[inset_0_1px_0_rgba(255,255,255,0.08),0_14px_40px_rgba(0,0,0,0.22)]"
                 onSubmit={handleHeroSubmit}
               >
-                <label className="mb-3 block text-xs font-semibold uppercase tracking-[0.18em] text-emerald-100/70">
+                <label className="mb-2 block text-[10px] font-semibold uppercase tracking-[0.16em] text-emerald-100/70">
                   Decision check
                 </label>
-                <div className="flex items-center gap-3 rounded-[1.35rem] border border-white/10 bg-slate-950/55 px-4 py-3.5">
+                <div className="flex items-center gap-2 rounded-[1.1rem] border border-white/10 bg-slate-950/55 px-3 py-2.5">
                   <input
-                    className="min-w-0 flex-1 bg-transparent text-[15px] font-medium text-white outline-none placeholder:text-slate-400/70"
+                    className="min-w-0 flex-1 bg-transparent text-sm font-medium text-white outline-none placeholder:text-slate-400/70"
                     inputMode="text"
                     placeholder="What are you thinking of buying?"
                     type="text"
@@ -591,37 +604,34 @@ export default function ClaraDecisionCoachPanel({ open, onClose, context = {} })
                   />
                   <button
                     aria-label="Ask CLARA"
-                    className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-emerald-300 text-slate-950 shadow-[0_0_28px_rgba(110,231,183,0.32)] transition active:scale-95"
+                    className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-emerald-300 text-slate-950 shadow-[0_0_24px_rgba(110,231,183,0.28)] transition active:scale-95"
                     type="submit"
                   >
-                    <Send size={17} />
+                    <Send size={15} />
                   </button>
                 </div>
-                <p className="mt-3 text-xs leading-5 text-slate-300/72">
-                  Public mode is silent and text-first. Voice stays optional for private moments.
-                </p>
               </form>
 
-              <div className="mt-4 grid grid-cols-2 gap-3">
+              <div className="mt-3 grid grid-cols-2 gap-2">
                 {INTENT_OPTIONS.map((option, index) => {
                   const Icon = option.icon;
                   return (
                     <button
                       key={option.label}
-                      className={`clara-decision-option group rounded-[1.35rem] border p-3.5 text-left transition active:scale-[0.985] ${
+                      className={`clara-decision-option group rounded-[1.1rem] border p-3 text-left transition active:scale-[0.985] ${
                         option.featured
-                          ? "border-emerald-200/20 bg-emerald-300/[0.105] shadow-[0_12px_34px_rgba(16,185,129,0.12)]"
+                          ? "border-emerald-200/20 bg-emerald-300/[0.105] shadow-[0_10px_26px_rgba(16,185,129,0.10)]"
                           : "border-white/10 bg-white/[0.055] hover:bg-white/[0.085]"
                       }`}
-                      style={{ animationDelay: `${index * 28}ms` }}
+                      style={{ animationDelay: `${index * 24}ms` }}
                       type="button"
                       onClick={() => startFromOption(option)}
                     >
-                      <span className="mb-3 grid h-9 w-9 place-items-center rounded-full border border-white/10 bg-white/8 text-emerald-100">
-                        <Icon size={17} />
+                      <span className="mb-2 grid h-8 w-8 place-items-center rounded-full border border-white/10 bg-white/8 text-emerald-100">
+                        <Icon size={15} />
                       </span>
-                      <span className="block text-sm font-bold text-white">{option.label}</span>
-                      <span className="mt-1 block text-[11px] leading-4 text-slate-300/70">
+                      <span className="block text-xs font-bold text-white">{option.label}</span>
+                      <span className="mt-0.5 block text-[10px] leading-4 text-slate-300/70">
                         {option.description}
                       </span>
                     </button>
@@ -629,26 +639,26 @@ export default function ClaraDecisionCoachPanel({ open, onClose, context = {} })
                 })}
               </div>
 
-              <div className="mt-4 flex items-center justify-between rounded-2xl border border-white/8 bg-white/[0.04] px-4 py-3 text-xs text-slate-300/76">
-                <span>{contextStatus === "live" ? "Finance memory live" : "Finance memory warming up"}</span>
+              <div className="mt-3 flex items-center justify-between rounded-2xl border border-white/8 bg-white/[0.04] px-3 py-2.5 text-[10px] text-slate-300/76">
+                <span>{contextStatus === "live" ? "Finance memory live" : "Finance memory warming"}</span>
                 <span className="font-semibold text-emerald-100/85">Private by design</span>
               </div>
             </div>
           ) : (
-            <div className="relative flex max-h-[84vh] min-h-[520px] flex-col sm:max-h-[760px]">
-              <div className="flex items-center justify-between gap-3 border-b border-white/8 px-4 py-4 sm:px-5">
-                <div className="flex min-w-0 items-center gap-3">
+            <div className="relative flex max-h-[62vh] min-h-[420px] flex-col">
+              <div className="flex items-center justify-between gap-3 border-b border-white/8 px-3.5 py-3.5">
+                <div className="flex min-w-0 items-center gap-2.5">
                   <button
                     aria-label="Back to CLARA options"
-                    className="grid h-10 w-10 shrink-0 place-items-center rounded-full border border-white/10 bg-white/8 text-slate-200 transition hover:bg-white/12 active:scale-95"
+                    className="grid h-9 w-9 shrink-0 place-items-center rounded-full border border-white/10 bg-white/8 text-slate-200 transition hover:bg-white/12 active:scale-95"
                     type="button"
                     onClick={returnToMenu}
                   >
-                    <ArrowLeft size={18} />
+                    <ArrowLeft size={16} />
                   </button>
                   <div className="min-w-0">
                     <p className="truncate text-sm font-bold text-white">{selectedTitle}</p>
-                    <p className="truncate text-xs text-slate-300/70">
+                    <p className="truncate text-[11px] text-slate-300/70">
                       {activeMode === "purchase_decision" ? "Decision check active" : "Ask before you spend"}
                     </p>
                   </div>
@@ -656,15 +666,15 @@ export default function ClaraDecisionCoachPanel({ open, onClose, context = {} })
 
                 <button
                   aria-label="Close CLARA"
-                  className="grid h-10 w-10 shrink-0 place-items-center rounded-full border border-white/10 bg-white/8 text-slate-200 transition hover:bg-white/12 active:scale-95"
+                  className="grid h-9 w-9 shrink-0 place-items-center rounded-full border border-white/10 bg-white/8 text-slate-200 transition hover:bg-white/12 active:scale-95"
                   type="button"
                   onClick={closeAssistant}
                 >
-                  <X size={18} />
+                  <X size={16} />
                 </button>
               </div>
 
-              <div className="clara-decision-scroll flex-1 space-y-3 overflow-y-auto px-4 py-4 sm:px-5">
+              <div className="clara-decision-scroll flex-1 space-y-3 overflow-y-auto px-3.5 py-3.5">
                 {messages.map((message) => {
                   const isUser = message.role === "user";
                   return (
@@ -673,7 +683,7 @@ export default function ClaraDecisionCoachPanel({ open, onClose, context = {} })
                       className={`flex ${isUser ? "justify-end" : "justify-start"}`}
                     >
                       <div
-                        className={`max-w-[84%] rounded-[1.3rem] px-4 py-3 text-sm leading-5 shadow-[0_12px_30px_rgba(0,0,0,0.18)] ${
+                        className={`max-w-[86%] rounded-[1.1rem] px-3.5 py-2.5 text-xs leading-5 shadow-[0_10px_26px_rgba(0,0,0,0.16)] ${
                           isUser
                             ? "bg-emerald-300 text-slate-950"
                             : "border border-white/10 bg-white/[0.065] text-slate-100"
@@ -687,12 +697,12 @@ export default function ClaraDecisionCoachPanel({ open, onClose, context = {} })
                 <div ref={chatEndRef} />
               </div>
 
-              <div className="border-t border-white/8 px-4 py-3 sm:px-5">
-                <div className="mb-3 flex gap-2 overflow-x-auto pb-1">
+              <div className="border-t border-white/8 px-3.5 py-3">
+                <div className="mb-2.5 flex gap-2 overflow-x-auto pb-1">
                   {CHAT_QUICK_OPTIONS.map((option) => (
                     <button
                       key={option.label}
-                      className="shrink-0 rounded-full border border-white/10 bg-white/[0.055] px-3 py-2 text-xs font-semibold text-slate-200 transition hover:bg-white/[0.085] active:scale-95"
+                      className="shrink-0 rounded-full border border-white/10 bg-white/[0.055] px-3 py-2 text-[11px] font-semibold text-slate-200 transition hover:bg-white/[0.085] active:scale-95"
                       type="button"
                       onClick={() => sendQuickOption(option)}
                     >
@@ -702,7 +712,7 @@ export default function ClaraDecisionCoachPanel({ open, onClose, context = {} })
                 </div>
 
                 <form
-                  className="flex items-center gap-3 rounded-[1.4rem] border border-white/10 bg-slate-950/62 p-2.5"
+                  className="flex items-center gap-2 rounded-[1.2rem] border border-white/10 bg-slate-950/62 p-2"
                   onSubmit={handleChatSubmit}
                 >
                   <input
@@ -719,11 +729,11 @@ export default function ClaraDecisionCoachPanel({ open, onClose, context = {} })
                   />
                   <button
                     aria-label="Send message"
-                    className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-emerald-300 text-slate-950 shadow-[0_0_28px_rgba(110,231,183,0.26)] transition disabled:opacity-45 active:scale-95"
+                    className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-emerald-300 text-slate-950 shadow-[0_0_24px_rgba(110,231,183,0.24)] transition disabled:opacity-45 active:scale-95"
                     disabled={!chatDraft.trim()}
                     type="submit"
                   >
-                    <Send size={17} />
+                    <Send size={15} />
                   </button>
                 </form>
               </div>
