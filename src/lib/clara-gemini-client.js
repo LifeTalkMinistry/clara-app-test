@@ -35,11 +35,44 @@ function isPositiveNumber(value) {
   return Number.isFinite(number) && number > 0;
 }
 
+function shortList(items = [], formatter, empty = "none loaded") {
+  const rows = Array.isArray(items) ? items : [];
+  const text = rows
+    .slice(0, 5)
+    .map((item) => formatter(item))
+    .filter(Boolean)
+    .join("; ");
+
+  return text || empty;
+}
+
 function summarizeSnapshot(context = {}) {
   const snapshot = buildClaraFinanceSnapshot(context);
   const budgetList = Array.isArray(snapshot.budgets) ? snapshot.budgets : [];
+  const savingsList = Array.isArray(snapshot.savingsGoals) ? snapshot.savingsGoals : [];
+  const walletList = Array.isArray(snapshot.wallets) ? snapshot.wallets : [];
+  const walletTransactionList = Array.isArray(snapshot.walletTransactions)
+    ? snapshot.walletTransactions
+    : [];
   const activeBudgetRows = budgetList.filter((budget) => isPositiveNumber(budget?.allocated));
   const hasActiveBudgetPlan = isPositiveNumber(snapshot.budgetAllocated) || activeBudgetRows.length > 0;
+  const hasEmergencyData =
+    isPositiveNumber(snapshot.emergencyFund?.saved) ||
+    isPositiveNumber(snapshot.emergencyFund?.target) ||
+    isPositiveNumber(snapshot.emergencyFund?.monthsCovered);
+  const hasSavingsData =
+    savingsList.length > 0 ||
+    isPositiveNumber(snapshot.savingsSaved) ||
+    isPositiveNumber(snapshot.savingsTarget);
+
+  const cardInventory = [
+    `Wallet: ${walletList.length ? `${walletList.length} wallet(s) loaded` : snapshot.availableMoney !== null ? "total money loaded only" : "not loaded"}`,
+    `Budget: ${hasActiveBudgetPlan ? "active budget loaded" : "no active budget loaded"}`,
+    `Emergency: ${hasEmergencyData ? "emergency/survival data loaded" : "not loaded"}`,
+    `Savings: ${hasSavingsData ? "savings data loaded" : "not loaded"}`,
+    "Debt: not connected to live card data yet",
+    "Investment: not connected to live card data yet",
+  ].join(" | ");
 
   return {
     hasAnyData: snapshot.hasAnyData,
@@ -53,8 +86,37 @@ function summarizeSnapshot(context = {}) {
     unplannedSpent: snapshot.unplannedSpent,
     wantsSpent: snapshot.wantsSpent,
     needsSpent: snapshot.needsSpent,
+    wallets: walletList,
+    walletCount: walletList.length,
+    walletTransactions: walletTransactionList,
+    walletTransactionCount: walletTransactionList.length,
+    walletsSummary: shortList(
+      walletList,
+      (wallet) => `${wallet.name || "Wallet"}: ${money(wallet.balance)}`,
+      snapshot.availableMoney !== null ? `Total visible money: ${money(snapshot.availableMoney)}` : "none loaded"
+    ),
     budgets: budgetList,
+    budgetSummary: shortList(
+      budgetList,
+      (budget) => {
+        const name = budget.name || budget.category || "Budget";
+        return `${name}: set ${money(budget.allocated)}, spent ${money(budget.spent)}, left ${money(budget.remaining)}`;
+      },
+      hasActiveBudgetPlan ? "active budget loaded" : "no active budget loaded"
+    ),
+    savingsGoals: savingsList,
+    savingsSaved: snapshot.savingsSaved,
+    savingsTarget: snapshot.savingsTarget,
+    savingsSummary: shortList(
+      savingsList,
+      (goal) => `${goal.name || "Goal"}: saved ${money(goal.saved)} of ${money(goal.target)}`,
+      hasSavingsData
+        ? `Savings total: ${money(snapshot.savingsSaved)} of ${money(snapshot.savingsTarget)}`
+        : "none loaded"
+    ),
     emergencyFund: snapshot.emergencyFund,
+    hasEmergencyData,
+    cardInventory,
   };
 }
 
@@ -83,6 +145,12 @@ Speak like a caring friend the user checks with before spending. Be warm, simple
 
 Use daily words only. Avoid jargon and corporate words like financial flexibility, liquidity, allocation, optimize, strategy, framework, and behavioral insight.
 
+Grounding rule:
+- Use only the finance context below.
+- Do not invent wallet names, savings goals, debt, investment, income, or budget categories.
+- If a card is not connected or not loaded, say that simply.
+- If the user asks what cards you can see, answer with the card inventory and mention what still looks disconnected.
+
 Wallet thinking:
 - Total money is not the same as free money.
 - Money has jobs: bills, food, transport, debt, savings, emergency, family, or fun.
@@ -102,21 +170,54 @@ Emotional spending style:
 Vary your opening. Do not start every answer with the same phrase. You may naturally use: Hmm, I get why you want it, I would slow down on this one, If this comes from fun money, or Not yet, friend.
 
 Small card output:
-- Write 2 complete sentences.
-- 28 to 50 words total.
-- Sentence 1 answers the decision using simple money words.
-- Sentence 2 gives one human reason and one simple next step.
+- For purchase decisions, write 2 complete sentences and keep it short.
+- For card visibility or dashboard-data questions, you may write up to 4 short sentences so the answer is complete.
 - End with punctuation.
 - No markdown, bullets, headings, emojis, or quotes.
 
 User message: ${message}
 Mode: ${mode || "normal_chat"}
 
-Context:
-- Money left: ${money(summary.availableMoney)}
-- Monthly spent: ${money(summary.monthlySpent)}
-- Budget remaining: ${money(summary.budgetRemaining)}
+Finance card inventory:
+- ${summary.cardInventory}
+
+Wallet card:
+- Money left / visible total: ${money(summary.availableMoney)}
+- Wallet count: ${summary.walletCount}
+- Wallet details: ${summary.walletsSummary}
+- Recent wallet activity count: ${summary.walletTransactionCount}
+
+Budget card:
 - Active budget: ${yesNo(summary.hasActiveBudgetPlan)}
+- Budget set: ${money(summary.budgetAllocated)}
+- Budget spent: ${money(summary.budgetSpent)}
+- Budget left: ${money(summary.budgetRemaining)}
+- Budget details: ${summary.budgetSummary}
+
+Emergency fund card:
+- Has emergency data: ${yesNo(summary.hasEmergencyData)}
+- Saved: ${money(summary.emergencyFund?.saved)}
+- Target / survival number: ${money(summary.emergencyFund?.target)}
+- Months covered: ${summary.emergencyFund?.monthsCovered ?? "unknown"}
+
+Savings goals card:
+- Savings goals count: ${summary.savingsGoals.length}
+- Savings saved total: ${money(summary.savingsSaved)}
+- Savings target total: ${money(summary.savingsTarget)}
+- Savings details: ${summary.savingsSummary}
+
+Spending context:
+- Monthly spent: ${money(summary.monthlySpent)}
+- Planned spent: ${money(summary.plannedSpent)}
+- Unplanned spent: ${money(summary.unplannedSpent)}
+- Needs spent: ${money(summary.needsSpent)}
+- Wants spent: ${money(summary.wantsSpent)}
+
+Cards not yet live:
+- Debt card: no live debt/obligation data is passed to CLARA yet.
+- Investment card: no live investment data is passed to CLARA yet.
+
+Purchase signal:
 - Emotional spending signal: ${yesNo(signals.emotional)}
 - Optional purchase: ${yesNo(signals.optional)}
 - Essential purchase: ${yesNo(signals.essential)}
@@ -158,9 +259,9 @@ export async function generateClaraGeminiReply({ message, context = {}, mode = n
       body: JSON.stringify({
         contents: [{ role: "user", parts: [{ text: prompt }] }],
         generationConfig: {
-          temperature: 0.64,
+          temperature: 0.62,
           topP: 0.9,
-          maxOutputTokens: 300,
+          maxOutputTokens: 420,
           thinkingConfig: {
             thinkingBudget: 0,
           },
