@@ -136,8 +136,20 @@ Reply as CLARA:`;
 }
 
 function looksIncompleteReply(text) {
-  const clean = String(text || "").trim();
-  return clean.length < 20 || !/[.!?]$/.test(clean) || /\b(and|but|because|so|to|for|with|of|the|a|an|is|are|can|should|let)$/i.test(clean);
+  const clean = String(text || "")
+    .replace(/[💚🫶✨⚠️✅🧠🛡️🙂]/g, "")
+    .trim();
+
+  if (clean.length < 20) return true;
+
+  const sentenceCount = clean
+    .split(/[.!?]/)
+    .map((part) => part.trim())
+    .filter(Boolean).length;
+
+  if (sentenceCount >= 2) return false;
+
+  return /\b(and|but|because|so|to|for|with|of|the|a|an|is|are|can|should|let)$/i.test(clean);
 }
 
 export function hasGeminiConfig() {
@@ -148,19 +160,41 @@ export async function generateClaraGeminiReply({ message, context = {}, mode = n
   const apiKey = getGeminiApiKey();
   if (!apiKey) throw new Error("Gemini API key is not configured.");
   const model = getGeminiModel();
+
   const response = await fetch(`${GEMINI_ENDPOINT_BASE}/${encodeURIComponent(model)}:generateContent?key=${encodeURIComponent(apiKey)}`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     signal,
     body: JSON.stringify({
       contents: [{ role: "user", parts: [{ text: buildPrompt({ message, context, mode }) }] }],
-      generationConfig: { temperature: 0.62, topP: 0.9, maxOutputTokens: 520, thinkingConfig: { thinkingBudget: 0 } },
+      generationConfig: {
+        temperature: 0.62,
+        topP: 0.9,
+        maxOutputTokens: 520,
+        thinkingConfig: { thinkingBudget: 0 },
+      },
     }),
   });
-  if (!response.ok) throw new Error(`Gemini request failed: ${response.status} ${await response.text().catch(() => "")}`);
+
+  if (!response.ok) {
+    throw new Error(`Gemini request failed: ${response.status} ${await response.text().catch(() => "")}`);
+  }
+
   const data = await response.json();
-  const text = (data?.candidates?.[0]?.content?.parts || []).map((part) => part?.text || "").join(" ").replace(/\s+/g, " ").trim();
-  if (!text) throw new Error("Gemini returned an empty response.");
-  if (looksIncompleteReply(text)) throw new Error(`Gemini returned an incomplete response: ${text}`);
+
+  const text = (data?.candidates?.[0]?.content?.parts || [])
+    .map((part) => part?.text || "")
+    .join(" ")
+    .replace(/\s+/g, " ")
+    .trim();
+
+  if (!text) {
+    throw new Error("Gemini returned an empty response.");
+  }
+
+  if (looksIncompleteReply(text)) {
+    throw new Error(`Gemini returned an incomplete response: ${text}`);
+  }
+
   return text;
 }
