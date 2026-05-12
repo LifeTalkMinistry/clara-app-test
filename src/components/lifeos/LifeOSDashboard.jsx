@@ -3,71 +3,367 @@ import {
   AlertTriangle,
   CalendarDays,
   CheckCircle2,
+  HeartHandshake,
   MessageCircle,
   ShieldCheck,
+  Sparkles,
   Target,
   WalletCards,
   X,
 } from "lucide-react";
+import { useAuth } from "../../context/AuthContext";
+import useFinancialData from "../../hooks/useFinancialData";
 import { Card, Kicker } from "./LifeOSShared";
 
-const detailContent = {
-  climate: {
-    kicker: "Decision climate",
-    title: "Lower flexibility detected today",
-    body: "CLARA is reading today as a lower-flexibility day because your short-term pressure is higher than usual.",
-    points: [
-      "A bill is close enough to affect today’s decisions.",
-      "Emergency protection should stay untouched unless necessary.",
-      "Optional spending may feel riskier because timing is tight.",
-    ],
-    action: "Avoid unplanned spending today unless it protects your priority.",
-  },
-  focus: {
-    kicker: "Current focus",
-    title: "Pay debt",
-    body: "Today’s focus is about protecting progress. Debt payment should stay ahead of comfort spending.",
-    points: [
-      "Debt pressure quietly reduces future flexibility.",
-      "Small optional spending can delay bigger recovery.",
-      "Protecting the payment first keeps momentum stable.",
-    ],
-    action: "Protect your debt payment before optional spending.",
-  },
-  protect: {
-    kicker: "Protection priority",
-    title: "Emergency fund",
-    body: "Your emergency fund is not extra money. It is your safety layer when life becomes unpredictable.",
-    points: [
-      "Emergency money protects you from borrowing under pressure.",
-      "Keeping it untouched gives CLARA more room to guide decisions safely.",
-      "Protection matters more when bills or timing pressure are close.",
-    ],
-    action: "Keep emergency money untouched unless necessary.",
-  },
-  timing: {
-    kicker: "Timing awareness",
-    title: "Bill in 3 days",
-    body: "The bill is close enough that today’s spending should already respect it.",
-    points: [
-      "Upcoming payments reduce real spendable flexibility.",
-      "Spending before the bill arrives can create false confidence.",
-      "CLARA should treat the bill as already reserved.",
-    ],
-    action: "Spend as if the bill already exists.",
-  },
-  action: {
-    kicker: "Next best action",
-    title: "Protect your focus today",
-    body: "The dashboard is already tracking the numbers. LifeOS only needs to guide the next behavior.",
-    points: [
-      "Keep today simple and intentional.",
-      "Delay optional spending when the reason is unclear.",
-      "Ask CLARA before making a decision that can disturb your priority.",
-    ],
-    action: "Ask CLARA before spending outside the plan.",
-  },
+const peso = (value = 0) => `₱${Math.round(Math.abs(Number(value) || 0)).toLocaleString("en-PH")}`;
+
+const toNumber = (value) => {
+  if (typeof value === "number") return Number.isFinite(value) ? value : 0;
+  if (typeof value === "string") {
+    const cleaned = value.replace(/[₱,\s]/g, "");
+    const parsed = Number(cleaned);
+    return Number.isFinite(parsed) ? parsed : 0;
+  }
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : 0;
 };
+
+const getExpenseDate = (expense) => {
+  const value =
+    expense?.date ||
+    expense?.transaction_date ||
+    expense?.transactionDate ||
+    expense?.createdAt ||
+    expense?.created_at ||
+    expense?.loggedAt ||
+    expense?.logged_at ||
+    expense?.updatedAt ||
+    expense?.updated_at;
+
+  const date = new Date(value || Date.now());
+  return Number.isNaN(date.getTime()) ? new Date() : date;
+};
+
+const monthKey = (date) => `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`;
+
+const titleCase = (value) =>
+  String(value || "")
+    .replace(/[_-]+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim()
+    .replace(/\b\w/g, (char) => char.toUpperCase());
+
+const normalizeCategory = (expense) =>
+  titleCase(
+    expense?.category ||
+      expense?.budget_category ||
+      expense?.budgetCategory ||
+      expense?.tag ||
+      expense?.type ||
+      expense?.title ||
+      "General spending"
+  );
+
+function readScheduleEvents() {
+  if (typeof window === "undefined") return [];
+
+  try {
+    const raw = window.localStorage.getItem("clara_lifeos_schedule_events_v1");
+    const parsed = raw ? JSON.parse(raw) : [];
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+}
+
+function getSignalVisitIndex(totalSignals) {
+  if (typeof window === "undefined" || totalSignals <= 1) return 0;
+
+  try {
+    const key = "clara_lifeos_signal_visit_index_v1";
+    const current = Number(window.localStorage.getItem(key) || "0");
+    const next = Number.isFinite(current) ? current + 1 : 1;
+    window.localStorage.setItem(key, String(next));
+    return next % totalSignals;
+  } catch {
+    return Math.floor(Math.random() * totalSignals);
+  }
+}
+
+function summarizeMonthlyTrend(expenses = []) {
+  const now = new Date();
+  const currentMonth = monthKey(now);
+  const previousMonth = monthKey(new Date(now.getFullYear(), now.getMonth() - 1, 1));
+  const current = new Map();
+  const previous = new Map();
+
+  expenses.forEach((expense) => {
+    const amount = Math.abs(toNumber(expense?.amount || expense?.value || expense?.total));
+    if (!amount) return;
+
+    const key = monthKey(getExpenseDate(expense));
+    if (key !== currentMonth && key !== previousMonth) return;
+
+    const category = normalizeCategory(expense);
+    const target = key === currentMonth ? current : previous;
+    const existing = target.get(category) || { category, total: 0, count: 0, unplanned: 0 };
+    const isUnplanned =
+      String(expense?.planning_status || expense?.budgetStatus || "").toLowerCase() === "unplanned" ||
+      Boolean(expense?.unplanned_reason || expense?.unplannedReason);
+
+    existing.total += amount;
+    existing.count += 1;
+    existing.unplanned += isUnplanned ? 1 : 0;
+    target.set(category, existing);
+  });
+
+  const ranked = [...current.values()]
+    .map((item) => {
+      const lastMonth = previous.get(item.category)?.total || 0;
+      const growth = lastMonth > 0 ? ((item.total - lastMonth) / lastMonth) * 100 : item.total > 0 ? 100 : 0;
+      const score = item.total + item.count * 180 + Math.max(growth, 0) * 12 + item.unplanned * 250;
+      return {
+        ...item,
+        lastMonth,
+        growth,
+        repeated: item.count >= 3,
+        unplannedHeavy: item.unplanned >= 2,
+        score,
+      };
+    })
+    .sort((a, b) => b.score - a.score);
+
+  return {
+    top: ranked[0] || null,
+    all: ranked,
+    totalThisMonth: [...current.values()].reduce((sum, item) => sum + item.total, 0),
+  };
+}
+
+function buildLifeOsSignals({ expenses = [], loading = false, totalWalletBalance = 0 }) {
+  const scheduleEvents = readScheduleEvents();
+  const trend = summarizeMonthlyTrend(expenses);
+  const top = trend.top;
+  const balance = Math.max(0, toNumber(totalWalletBalance));
+  const hasFlexibleRoom = balance >= 500;
+  const signals = [];
+
+  if (loading) {
+    return [
+      {
+        key: "loading",
+        type: "AI reading",
+        icon: Sparkles,
+        severity: "Scanning",
+        title: "CLARA is reading your monthly pattern.",
+        body: "LifeOS will show one useful signal once your local finance trend is ready.",
+        focus: "Read the pattern",
+        protect: "Decision quality",
+        timing: "This visit",
+        action: "Let CLARA finish reading before making a bigger money decision.",
+        points: [
+          "The main dashboard still owns the numbers.",
+          "LifeOS only chooses the most useful behavior signal.",
+          "The signal can change every visit depending on what CLARA detects.",
+        ],
+      },
+    ];
+  }
+
+  if (top) {
+    const categoryLower = top.category.toLowerCase();
+    const isFood = ["food", "dining", "coffee", "snack", "restaurant", "meal"].some((word) => categoryLower.includes(word));
+    const isShopping = ["shop", "clothes", "online", "shopee", "lazada", "mall"].some((word) => categoryLower.includes(word));
+    const isTransport = ["transport", "ride", "fare", "grab", "gas"].some((word) => categoryLower.includes(word));
+
+    const riskName = isFood
+      ? "comfort food spending"
+      : isShopping
+        ? "optional shopping momentum"
+        : isTransport
+          ? "transport convenience spending"
+          : `${top.category} spending`;
+
+    const reason = top.unplannedHeavy
+      ? "unplanned repeats are building momentum"
+      : top.repeated
+        ? "the pattern is repeating this month"
+        : top.growth > 25
+          ? "this category is rising compared with last month"
+          : "this is currently the strongest spending pressure";
+
+    signals.push({
+      key: "damage-warning",
+      type: "Damage watchout",
+      icon: AlertTriangle,
+      severity: top.unplannedHeavy || top.growth > 40 ? "High attention" : "Watch closely",
+      title: `Watch out for ${riskName}.`,
+      body: `CLARA noticed ${reason}. If it continues quietly, it may shrink your flexibility this month.`,
+      focus: `Reduce ${top.category}`,
+      protect: "Budget flexibility",
+      timing: "This month",
+      action: `Pause before your next ${top.category.toLowerCase()} expense and ask if it protects your priority.`,
+      points: [
+        `${top.category} is the strongest monthly watchout right now.`,
+        `${top.count} transaction${top.count === 1 ? "" : "s"} detected this month, totaling about ${peso(top.total)}.`,
+        top.lastMonth > 0
+          ? `Last month was around ${peso(top.lastMonth)}, so CLARA is watching the change.`
+          : "There is little or no same-category activity from last month, so CLARA is watching it carefully.",
+      ],
+    });
+
+    if (isFood) {
+      signals.push({
+        key: "health-alignment",
+        type: "Value alignment",
+        icon: ShieldCheck,
+        severity: "Identity check",
+        title: "Your food choices may affect how you want to feel today.",
+        body: `CLARA can see ${top.category.toLowerCase()} spending showing up. If your goal today is to feel healthy, choose the option that supports that version of you.`,
+        focus: "Feel healthier today",
+        protect: "Energy and budget",
+        timing: "Next meal",
+        action: "Before buying food, ask: will this help me feel better after I eat it?",
+        points: [
+          "This is not about guilt. It is about alignment.",
+          "Food spending can affect both money and energy.",
+          "A planned healthy choice can still fit the budget without feeling restrictive.",
+        ],
+      });
+    }
+  }
+
+  const relationshipKeywords = ["date", "girlfriend", "boyfriend", "partner", "wife", "husband", "anniversary", "family", "relationship"];
+  const recentRelationshipSpend = expenses.some((expense) => {
+    const date = getExpenseDate(expense);
+    const daysAgo = (Date.now() - date.getTime()) / (1000 * 60 * 60 * 24);
+    const text = `${expense?.title || ""} ${expense?.category || ""} ${expense?.note || ""} ${expense?.description || ""}`.toLowerCase();
+    return daysAgo <= 21 && relationshipKeywords.some((word) => text.includes(word));
+  });
+
+  const relationshipSchedule = scheduleEvents.some((event) => {
+    const text = `${event?.title || ""} ${event?.detail || ""} ${event?.type || ""}`.toLowerCase();
+    return relationshipKeywords.some((word) => text.includes(word));
+  });
+
+  if (hasFlexibleRoom && (!recentRelationshipSpend || relationshipSchedule)) {
+    signals.push({
+      key: "relationship-permission",
+      type: "Healthy permission",
+      icon: HeartHandshake,
+      severity: "Allowed if planned",
+      title: "You may have room for a meaningful relationship moment.",
+      body: relationshipSchedule
+        ? "CLARA noticed a relationship or family schedule. A simple planned treat may be okay if it stays intentional."
+        : "CLARA does not see much recent relationship/treat spending. If someone matters to you, a simple planned moment may be worth considering.",
+      focus: "Spend with intention",
+      protect: "Relationship and budget",
+      timing: "This week",
+      action: `Keep it simple. Set a limit first, then enjoy it without turning it into impulse spending.`,
+      points: [
+        "CLARA should not always say no.",
+        `Your visible wallet flexibility is around ${peso(balance)} right now.`,
+        "A meaningful planned expense can be healthier than random comfort spending.",
+      ],
+    });
+  }
+
+  if (!top) {
+    signals.push({
+      key: "no-trend-yet",
+      type: "Build memory",
+      icon: Sparkles,
+      severity: "Low signal",
+      title: "No clear damage pattern yet.",
+      body: "Keep logging your spending so CLARA can detect the behavior that may quietly hurt you this month.",
+      focus: "Build spending memory",
+      protect: "Awareness",
+      timing: "This month",
+      action: "Log honestly for a few more days so CLARA can learn the real pattern.",
+      points: [
+        "There is not enough monthly spending data yet.",
+        "LifeOS needs repeated behavior before it can warn responsibly.",
+        "Once patterns appear, CLARA will surface only the strongest signal here.",
+      ],
+    });
+  }
+
+  signals.push({
+    key: "momentum-check",
+    type: "Momentum check",
+    icon: Target,
+    severity: "Steady move",
+    title: "Choose one move that protects future you.",
+    body: "For this visit, CLARA is keeping the dashboard light: one action, one direction, no clutter.",
+    focus: "One smart decision",
+    protect: "Future flexibility",
+    timing: "Today",
+    action: "Before your next spend, pause once and choose the option your future self would respect.",
+    points: [
+      "Not every visit needs a warning.",
+      "Sometimes the best guidance is one clean decision.",
+      "LifeOS should feel alive without becoming crowded.",
+    ],
+  });
+
+  return signals;
+}
+
+function getDetailContent(signal) {
+  return {
+    climate: {
+      kicker: signal.type,
+      title: signal.title,
+      body: signal.body,
+      points: signal.points,
+      action: signal.action,
+    },
+    focus: {
+      kicker: "Current focus",
+      title: signal.focus,
+      body: "LifeOS keeps the dashboard simple by showing only the most useful focus for this visit.",
+      points: [
+        "The main dashboard already tracks the numbers.",
+        "This focus exists to guide the next behavior.",
+        "CLARA can change the focus on another visit if a different signal matters more.",
+      ],
+      action: signal.action,
+    },
+    protect: {
+      kicker: "Protect first",
+      title: signal.protect,
+      body: "CLARA is not trying to stop life. It is trying to protect what matters from quiet damage.",
+      points: [
+        "Some spending is healthy when planned.",
+        "Some spending becomes damaging when it repeats unconsciously.",
+        "Protection means choosing with intention before the pattern grows.",
+      ],
+      action: signal.action,
+    },
+    timing: {
+      kicker: "Timing awareness",
+      title: signal.timing,
+      body: "This signal is shown for this visit because CLARA thinks it fits the current timing best.",
+      points: [
+        "LifeOS can rotate between warning, permission, alignment, and encouragement.",
+        "The goal is one useful signal, not a crowded report.",
+        "Calendar and spending context can make this smarter over time.",
+      ],
+      action: signal.action,
+    },
+    action: {
+      kicker: "Next best action",
+      title: "Ask CLARA before acting",
+      body: "The best use of LifeOS is catching the next decision before it becomes automatic.",
+      points: [
+        "Pause before repeating the pattern.",
+        "Ask whether the decision supports your priority or only gives short comfort.",
+        "Spend in a way that matches your life, not just your balance.",
+      ],
+      action: signal.action,
+    },
+  };
+}
 
 function PressableShell({ children, className = "", onClick, ariaLabel }) {
   return (
@@ -86,31 +382,39 @@ function PressableShell({ children, className = "", onClick, ariaLabel }) {
   );
 }
 
-function HeroClimateCard({ onOpen }) {
+function DynamicSignalCard({ signal, onOpen }) {
+  const Icon = signal.icon || Sparkles;
+
   return (
     <PressableShell
       onClick={() => onOpen("climate")}
-      ariaLabel="Open decision climate details"
+      ariaLabel="Open CLARA signal details"
       className="border-cyan-300/24 bg-[linear-gradient(135deg,rgba(8,83,93,.42),rgba(25,22,78,.58)_50%,rgba(72,12,105,.46))] p-5 shadow-[0_16px_52px_rgba(0,0,0,.30),0_0_32px_rgba(34,211,238,.09),0_0_30px_rgba(236,72,153,.06),inset_0_1px_0_rgba(255,255,255,.065)]"
     >
       <div className="pointer-events-none absolute -right-16 -top-16 h-40 w-40 rounded-full bg-pink-400/12 blur-3xl" />
       <div className="pointer-events-none absolute -left-16 bottom-0 h-40 w-40 rounded-full bg-cyan-300/12 blur-3xl" />
 
-      <Kicker>Today&apos;s decision climate</Kicker>
+      <div className="flex items-center justify-between gap-3">
+        <Kicker>CLARA noticed</Kicker>
+        <span className="rounded-full border border-pink-400/18 bg-pink-400/[.055] px-2.5 py-1 text-[10px] font-black uppercase tracking-[.14em] text-pink-100/70">
+          {signal.severity}
+        </span>
+      </div>
+
       <div className="mt-5 flex items-start gap-4">
         <div className="grid h-16 w-16 shrink-0 place-items-center rounded-[24px] border border-pink-400/22 bg-pink-400/[.08] text-pink-200 shadow-[0_0_26px_rgba(236,72,153,.16)] transition duration-200 group-hover:scale-105 group-hover:shadow-[0_0_32px_rgba(236,72,153,.22)]">
-          <AlertTriangle className="h-7 w-7" />
+          <Icon className="h-7 w-7" />
         </div>
 
         <div className="min-w-0 flex-1">
           <h2 className="text-[22px] font-black leading-tight text-white md:text-2xl">
-            Lower flexibility detected today.
+            {signal.title}
           </h2>
           <p className="mt-2 max-w-[520px] text-sm leading-6 text-white/68">
-            Upcoming bill pressure + emergency fund protection means optional spending may feel riskier right now.
+            {signal.body}
           </p>
           <p className="mt-4 inline-flex items-center gap-2 text-xs font-black uppercase tracking-[.16em] text-cyan-100/68">
-            Understand why
+            Understand this signal
             <CheckCircle2 className="h-3.5 w-3.5" />
           </p>
         </div>
@@ -143,7 +447,7 @@ function LifeStateRow({ icon: Icon, title, value, onClick }) {
   );
 }
 
-function NextBestAction({ onOpen }) {
+function NextBestAction({ signal, onOpen }) {
   return (
     <PressableShell
       onClick={() => onOpen("action")}
@@ -155,10 +459,10 @@ function NextBestAction({ onOpen }) {
         <div>
           <Kicker>Next best action</Kicker>
           <h2 className="mt-3 text-xl font-black leading-tight text-white">
-            Protect your focus today.
+            Ask before you act.
           </h2>
           <p className="mt-2 text-sm leading-6 text-white/62">
-            Avoid unplanned spending unless it supports your priority.
+            {signal.action}
           </p>
         </div>
 
@@ -251,46 +555,66 @@ function DetailSheet({ detail, onClose }) {
 }
 
 export default function LifeOSDashboard() {
+  const { user } = useAuth();
+  const financial = useFinancialData(user);
   const [activeDetailKey, setActiveDetailKey] = useState(null);
+  const [visitIndex, setVisitIndex] = useState(0);
+
+  const signals = useMemo(
+    () =>
+      buildLifeOsSignals({
+        expenses: financial.expenses,
+        loading: financial.loading,
+        totalWalletBalance: financial.totalWalletBalance,
+      }),
+    [financial.expenses, financial.loading, financial.totalWalletBalance]
+  );
+
+  useEffect(() => {
+    setVisitIndex(getSignalVisitIndex(signals.length));
+  }, [signals.length]);
+
+  const signal = signals[visitIndex % Math.max(signals.length, 1)] || signals[0];
+  const detailContent = useMemo(() => getDetailContent(signal), [signal]);
 
   const activeDetail = useMemo(() => {
     if (!activeDetailKey) return null;
     return detailContent[activeDetailKey] || null;
-  }, [activeDetailKey]);
+  }, [activeDetailKey, detailContent]);
 
   return (
     <div className="space-y-5">
-      <HeroClimateCard onOpen={setActiveDetailKey} />
+      <DynamicSignalCard signal={signal} onOpen={setActiveDetailKey} />
 
       <Card className="border-white/12 bg-[#060b1d]/62 p-4 shadow-[0_12px_36px_rgba(0,0,0,.22),inset_0_1px_0_rgba(255,255,255,.045)]">
-        <Kicker>Today&apos;s life state</Kicker>
+        <Kicker>This visit&apos;s life state</Kicker>
         <p className="mt-2 text-sm leading-5 text-white/52">
-          Quick context CLARA should consider before giving advice.
+          One AI-selected signal, not another finance report.
         </p>
 
         <div className="mt-4 space-y-2.5">
           <LifeStateRow
             icon={Target}
             title="Focus"
-            value="Pay debt"
+            value={signal.focus}
             onClick={() => setActiveDetailKey("focus")}
           />
           <LifeStateRow
-            icon={WalletCards}
+            icon={ShieldCheck}
             title="Protect"
-            value="Emergency fund"
+            value={signal.protect}
             onClick={() => setActiveDetailKey("protect")}
           />
           <LifeStateRow
             icon={CalendarDays}
             title="Timing"
-            value="Bill in 3 days"
+            value={signal.timing}
             onClick={() => setActiveDetailKey("timing")}
           />
         </div>
       </Card>
 
-      <NextBestAction onOpen={setActiveDetailKey} />
+      <NextBestAction signal={signal} onOpen={setActiveDetailKey} />
 
       <DetailSheet detail={activeDetail} onClose={() => setActiveDetailKey(null)} />
     </div>
