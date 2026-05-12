@@ -155,10 +155,10 @@ const MONEY_PERSONALITY_QUESTIONS = [
 
 const FIELDS = [
   { key: "personality", label: "Money personality", helper: "Answer real situations so CLARA can understand your spending pattern.", icon: Smile, kind: "quiz" },
-  { key: "responsibility", label: "Protect first", helper: "The priority CLARA should protect before wants.", icon: ShieldCheck, options: ["Bills and essentials", "Food at home", "Family support", "Rent", "Debt payment", "Savings goal", "Emergency fund"] },
-  { key: "incomeRhythm", label: "Income rhythm", helper: "When money usually comes in.", icon: WalletCards, options: ["Daily income", "Weekly income", "Twice a month", "Monthly salary", "Irregular income"] },
-  { key: "status", label: "Current status", helper: "Your current life stage.", icon: Briefcase, options: ["Student", "Working student", "Employee", "Freelancer", "Business owner", "Parent", "Between jobs"] },
-  { key: "dependents", label: "Who depends on me?", helper: "People CLARA should consider before spending advice.", icon: Users, options: ["Just me", "Parents", "Partner / spouse", "Children", "Family household"] },
+  { key: "responsibility", label: "Protect first", helper: "The priority CLARA should protect before wants.", icon: ShieldCheck, allowCustom: true, customPlaceholder: "Example: tuition, medicine, parents, rent deposit", options: ["Bills and essentials", "Food at home", "Family support", "Rent", "Debt payment", "Savings goal", "Emergency fund"] },
+  { key: "incomeRhythm", label: "Income rhythm", helper: "When money usually comes in.", icon: WalletCards, allowCustom: true, customPlaceholder: "Example: every project, commission, mixed income", options: ["Daily income", "Weekly income", "Twice a month", "Monthly salary", "Irregular income"] },
+  { key: "status", label: "Current status", helper: "Your current life stage.", icon: Briefcase, allowCustom: true, customPlaceholder: "Example: OFW, part-time, caregiver", options: ["Student", "Working student", "Employee", "Freelancer", "Business owner", "Parent", "Between jobs"] },
+  { key: "dependents", label: "Who depends on me?", helper: "People CLARA should consider before spending advice.", icon: Users, allowCustom: true, customPlaceholder: "Example: grandparents, niece, church family", options: ["Just me", "Parents", "Partner / spouse", "Children", "Family household"] },
   { key: "age", label: "Age", helper: "Optional, but helps CLARA adjust tone.", icon: UserRound, input: "number" },
   { key: "coachingStyle", label: "Guidance tone", helper: "How firm CLARA should sound.", icon: HeartHandshake, options: ["Gentle", "Balanced", "Straightforward", "Strict"] },
 ];
@@ -271,6 +271,78 @@ function MoneyPersonalityQuiz({ profile, setProfile }) {
   );
 }
 
+function OptionSelector({ field, profile, selectOption }) {
+  const [customOpen, setCustomOpen] = useState(false);
+  const [customValue, setCustomValue] = useState("");
+
+  useEffect(() => {
+    setCustomOpen(false);
+    setCustomValue("");
+  }, [field.key]);
+
+  const saveCustom = () => {
+    const value = customValue.trim();
+    if (!value) return;
+    selectOption(field.key, value);
+    setCustomOpen(false);
+    setCustomValue("");
+  };
+
+  return (
+    <div className="mt-5 space-y-3">
+      <div className="grid grid-cols-2 gap-2.5">
+        {field.options.map((option) => {
+          const active = profile[field.key] === option;
+          return (
+            <button
+              key={option}
+              type="button"
+              onClick={() => selectOption(field.key, option)}
+              className={`min-h-[46px] rounded-[18px] border px-3 py-3 text-left text-[12px] font-black leading-4 transition active:scale-[0.98] ${
+                active
+                  ? "border-cyan-300/40 bg-cyan-300/15 text-cyan-50 shadow-[0_0_16px_rgba(34,211,238,.10)]"
+                  : "border-white/12 bg-white/[0.04] text-white/62 hover:bg-white/[0.06]"
+              }`}
+            >
+              {option}
+            </button>
+          );
+        })}
+
+        {field.allowCustom ? (
+          <button
+            type="button"
+            onClick={() => setCustomOpen(true)}
+            className="min-h-[46px] rounded-[18px] border border-dashed border-cyan-200/22 bg-cyan-300/[0.035] px-3 py-3 text-left text-[12px] font-black leading-4 text-cyan-50/72 transition active:scale-[0.98]"
+          >
+            Other / custom
+          </button>
+        ) : null}
+      </div>
+
+      {customOpen ? (
+        <div className="rounded-[20px] border border-white/10 bg-white/[0.035] p-3">
+          <p className="text-[10px] font-black uppercase tracking-[0.16em] text-white/34">Write your own</p>
+          <input
+            value={customValue}
+            onChange={(event) => setCustomValue(event.target.value)}
+            placeholder={field.customPlaceholder || "Type your own answer"}
+            className="mt-2 w-full rounded-2xl border border-white/10 bg-black/10 px-3 py-3 text-sm font-bold text-white outline-none placeholder:text-white/28 focus:border-cyan-300/35"
+          />
+          <div className="mt-3 flex gap-2">
+            <button type="button" onClick={saveCustom} className="rounded-2xl border border-cyan-300/24 bg-cyan-300/[0.10] px-4 py-2 text-xs font-black text-cyan-50 transition active:scale-[0.98]">
+              Save custom
+            </button>
+            <button type="button" onClick={() => { setCustomOpen(false); setCustomValue(""); }} className="rounded-2xl border border-white/10 bg-white/[0.035] px-4 py-2 text-xs font-black text-white/48 transition active:scale-[0.98]">
+              Cancel
+            </button>
+          </div>
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
 function EditContextPanel({ profile, setProfile }) {
   const [fieldKey, setFieldKey] = useState(null);
   const field = FIELDS.find((item) => item.key === fieldKey);
@@ -305,13 +377,7 @@ function EditContextPanel({ profile, setProfile }) {
           ) : field.input === "number" ? (
             <input value={profile.age || ""} onChange={(event) => setProfile((current) => ({ ...current, age: event.target.value }))} inputMode="numeric" type="number" min="1" max="120" placeholder="Not set" className="mt-5 w-full rounded-2xl border border-white/12 bg-white/[0.035] px-4 py-3 text-sm font-bold text-white outline-none placeholder:text-white/30 focus:border-cyan-300/35" />
           ) : (
-            <div className="mt-5 flex flex-wrap gap-2">
-              {field.options.map((option) => (
-                <button key={option} type="button" onClick={() => selectOption(field.key, option)} className={`rounded-full border px-3 py-2 text-[12px] font-bold transition active:scale-[0.98] ${profile[field.key] === option ? "border-cyan-300/35 bg-cyan-300/15 text-cyan-50" : "border-white/12 bg-white/[0.045] text-white/58"}`}>
-                  {option}
-                </button>
-              ))}
-            </div>
+            <OptionSelector field={field} profile={profile} selectOption={selectOption} />
           )
         ) : (
           <div className="mt-5 space-y-2.5">
