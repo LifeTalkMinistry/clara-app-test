@@ -1,7 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import {
   AlertTriangle,
-  CalendarDays,
   CheckCircle2,
   HeartHandshake,
   MessageCircle,
@@ -12,7 +11,7 @@ import {
 } from "lucide-react";
 import { useAuth } from "../../context/AuthContext";
 import useFinancialData from "../../hooks/useFinancialData";
-import { Card, Kicker } from "./LifeOSShared";
+import { Kicker } from "./LifeOSShared";
 
 const peso = (value = 0) => `₱${Math.round(Math.abs(Number(value) || 0)).toLocaleString("en-PH")}`;
 
@@ -317,39 +316,6 @@ function getDetailContent(signal) {
       points: signal.points,
       action: signal.action,
     },
-    focus: {
-      kicker: "Current focus",
-      title: signal.focus,
-      body: "LifeOS keeps the dashboard simple by showing only the most useful focus for this visit.",
-      points: [
-        "The main dashboard already tracks the numbers.",
-        "This focus exists to guide the next behavior.",
-        "CLARA can change the focus on another visit if a different signal matters more.",
-      ],
-      action: signal.action,
-    },
-    protect: {
-      kicker: "Protect first",
-      title: signal.protect,
-      body: "CLARA is not trying to stop life. It is trying to protect what matters from quiet damage.",
-      points: [
-        "Some spending is healthy when planned.",
-        "Some spending becomes damaging when it repeats unconsciously.",
-        "Protection means choosing with intention before the pattern grows.",
-      ],
-      action: signal.action,
-    },
-    timing: {
-      kicker: "Timing awareness",
-      title: signal.timing,
-      body: "This signal is shown for this visit because CLARA thinks it fits the current timing best.",
-      points: [
-        "LifeOS can rotate between warning, permission, alignment, and encouragement.",
-        "The goal is one useful signal, not a crowded report.",
-        "Calendar and spending context can make this smarter over time.",
-      ],
-      action: signal.action,
-    },
     action: {
       kicker: "Next best action",
       title: "Ask CLARA before acting",
@@ -419,30 +385,6 @@ function DynamicSignalCard({ signal, onOpen }) {
         </div>
       </div>
     </PressableShell>
-  );
-}
-
-function LifeStateRow({ icon: Icon, title, value, onClick }) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      aria-label={`Open ${title} details`}
-      className="group flex w-full items-center gap-3 rounded-2xl border border-white/8 bg-white/[.026] px-3.5 py-3 text-left transition duration-200 hover:border-cyan-300/20 hover:bg-white/[.045] active:scale-[.99] focus:outline-none focus-visible:ring-2 focus-visible:ring-cyan-200/70"
-    >
-      <div className="grid h-10 w-10 shrink-0 place-items-center rounded-2xl border border-cyan-300/12 bg-cyan-300/[.04] text-cyan-100/74 transition duration-200 group-hover:text-cyan-100">
-        <Icon className="h-4.5 w-4.5" />
-      </div>
-
-      <div className="min-w-0 flex-1">
-        <p className="text-[10px] font-black uppercase tracking-[.18em] text-white/35">{title}</p>
-        <p className="mt-0.5 truncate text-sm font-black text-white">{value}</p>
-      </div>
-
-      <span className="text-[11px] font-bold text-white/32 transition duration-200 group-hover:text-cyan-100/62">
-        View
-      </span>
-    </button>
   );
 }
 
@@ -584,37 +526,7 @@ export default function LifeOSDashboard() {
   return (
     <div className="space-y-5">
       <DynamicSignalCard signal={signal} onOpen={setActiveDetailKey} />
-
-      <Card className="border-white/12 bg-[#060b1d]/62 p-4 shadow-[0_12px_36px_rgba(0,0,0,.22),inset_0_1px_0_rgba(255,255,255,.045)]">
-        <Kicker>This visit&apos;s life state</Kicker>
-        <p className="mt-2 text-sm leading-5 text-white/52">
-          One AI-selected signal, not another finance report.
-        </p>
-
-        <div className="mt-4 space-y-2.5">
-          <LifeStateRow
-            icon={Target}
-            title="Focus"
-            value={signal.focus}
-            onClick={() => setActiveDetailKey("focus")}
-          />
-          <LifeStateRow
-            icon={ShieldCheck}
-            title="Protect"
-            value={signal.protect}
-            onClick={() => setActiveDetailKey("protect")}
-          />
-          <LifeStateRow
-            icon={CalendarDays}
-            title="Timing"
-            value={signal.timing}
-            onClick={() => setActiveDetailKey("timing")}
-          />
-        </div>
-      </Card>
-
       <NextBestAction signal={signal} onOpen={setActiveDetailKey} />
-
       <DetailSheet detail={activeDetail} onClose={() => setActiveDetailKey(null)} />
     </div>
   );
