@@ -54,6 +54,49 @@ jobs:
             exit 1
           fi
 
+      - name: Patch Ask CLARA env lookup for Vite
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          path = Path("src/lib/clara-gemini-client.js")
+          source = path.read_text()
+          source = source.replace(
+          '''function getGeminiApiKey() {
+  const env = import.meta?.env || {};
+  return (
+    env.VITE_GEMINI_API_KEY ||
+    env.VITE_GOOGLE_GEMINI_API_KEY ||
+    env.VITE_GOOGLE_AI_API_KEY ||
+    env.VITE_GOOGLE_GENERATIVE_AI_API_KEY ||
+    env.VITE_CLARA_GEMINI_API_KEY ||
+    env.VITE_AI_API_KEY ||
+    ""
+  );
+}
+
+function getGeminiModel() {
+  const env = import.meta?.env || {};
+  return env.VITE_GEMINI_MODEL || env.VITE_CLARA_GEMINI_MODEL || DEFAULT_GEMINI_MODEL;
+}''',
+          '''function getGeminiApiKey() {
+  return (
+    import.meta.env.VITE_GEMINI_API_KEY ||
+    import.meta.env.VITE_GOOGLE_GEMINI_API_KEY ||
+    import.meta.env.VITE_GOOGLE_AI_API_KEY ||
+    import.meta.env.VITE_GOOGLE_GENERATIVE_AI_API_KEY ||
+    import.meta.env.VITE_CLARA_GEMINI_API_KEY ||
+    import.meta.env.VITE_AI_API_KEY ||
+    ""
+  );
+}
+
+function getGeminiModel() {
+  return import.meta.env.VITE_GEMINI_MODEL || import.meta.env.VITE_CLARA_GEMINI_MODEL || DEFAULT_GEMINI_MODEL;
+}'''
+          )
+          path.write_text(source)
+          PY
+
       - name: Build
         run: npm run build
         env:
