@@ -2,7 +2,7 @@ import { buildClaraFinanceSnapshot } from "./clara-local-brain";
 import { buildContextForGeminiPrompt } from "./clara-contextual-decision-engine";
 
 const GEMINI_ENDPOINT_BASE = "https://generativelanguage.googleapis.com/v1beta/models";
-const DEFAULT_GEMINI_MODEL = "gemini-1.5-flash";
+const DEFAULT_GEMINI_MODEL = "gemini-2.0-flash";
 
 function getGeminiApiKey() {
   return (
