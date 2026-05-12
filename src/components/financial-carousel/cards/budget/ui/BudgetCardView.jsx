@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import BudgetCard from "@/components/BudgetCard";
 
 const CLARA_MONEY_CHAT_EVENT = "clara:money-card-chat";
@@ -12,10 +12,18 @@ const FALLBACK_MESSAGES = [
 ];
 
 function ClaraBudgetDecisionScreen({ messages = FALLBACK_MESSAGES, selectedDashboardTheme }) {
+  const messagesEndRef = useRef(null);
   const visibleMessages = useMemo(() => {
     const source = Array.isArray(messages) && messages.length ? messages : FALLBACK_MESSAGES;
-    return source.slice(-5);
+    return source;
   }, [messages]);
+
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({
+      behavior: "smooth",
+      block: "end",
+    });
+  }, [visibleMessages]);
 
   return (
     <div
@@ -46,7 +54,11 @@ function ClaraBudgetDecisionScreen({ messages = FALLBACK_MESSAGES, selectedDashb
         </p>
       </div>
 
-      <div className="relative z-10 mt-4 flex min-h-0 flex-1 flex-col justify-end gap-2 overflow-y-auto pr-1">
+      <div className="pointer-events-none absolute inset-x-4 top-[112px] z-20 h-7 bg-gradient-to-b from-slate-950/75 to-transparent" />
+      <div className="pointer-events-none absolute inset-x-4 bottom-4 z-20 h-8 bg-gradient-to-t from-slate-950/78 to-transparent" />
+
+      <div className="relative z-10 mt-4 flex min-h-0 flex-1 flex-col gap-2 overflow-y-auto overscroll-contain pr-1 scroll-smooth [scrollbar-color:rgba(148,163,184,0.38)_transparent] [scrollbar-width:thin]">
+        <div className="mt-auto" />
         {visibleMessages.map((message) => {
           const isUser = message.role === "user";
 
@@ -67,6 +79,7 @@ function ClaraBudgetDecisionScreen({ messages = FALLBACK_MESSAGES, selectedDashb
             </div>
           );
         })}
+        <div ref={messagesEndRef} className="h-1 shrink-0" />
       </div>
     </div>
   );
