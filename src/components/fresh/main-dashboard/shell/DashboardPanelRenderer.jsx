@@ -1,6 +1,6 @@
 import { Link } from "react-router-dom";
 import { MessageCircle, Newspaper } from "lucide-react";
-import DashboardMePanel from "@/components/fresh/main-dashboard/dashboard-panels/me/DashboardMePanel";
+import DashboardMeSimplePanel from "@/components/fresh/main-dashboard/dashboard-panels/me/DashboardMeSimplePanel";
 import DashboardSchedulePanel from "@/components/fresh/main-dashboard/dashboard-panels/schedule/DashboardSchedulePanel";
 
 function SettingsSocialCommunityShortcuts() {
@@ -77,7 +77,7 @@ export default function DashboardPanelRenderer({
   fallback = null,
 }) {
   if (activePanel === "me") {
-    return renderMe?.() ?? <DashboardMePanel />;
+    return renderMe?.() ?? <DashboardMeSimplePanel />;
   }
 
   if (activePanel === "schedule") {
