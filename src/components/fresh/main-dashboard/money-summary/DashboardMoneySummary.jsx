@@ -477,18 +477,20 @@ export default function DashboardMoneySummary({
       const polishOptions = { claraFinanceContext, fmt };
       const polishedLocalReply = polishClaraReply(localReply, cleanText, polishOptions);
 
-      if (!geminiReadyRef.current) return polishedLocalReply;
-
       try {
+        console.log("Calling Gemini...");
+
         const geminiReply = await generateClaraGeminiReply({
           message: aiMessage,
           context: claraFinanceContext,
           mode: purchaseMode ? "purchase_decision" : "money_context_check",
         });
 
-        return polishClaraReply(geminiReply, cleanText, polishOptions);
+        console.log("Gemini success");
+        return geminiReply;
       } catch (error) {
-        console.warn("CLARA Gemini fallback used:", error);
+        console.error("Gemini failed:", error);
+        console.log("Gemini failed");
         return polishedLocalReply;
       }
     },
