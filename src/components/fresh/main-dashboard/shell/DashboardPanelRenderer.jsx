@@ -14,7 +14,7 @@ function SettingsSocialCommunityShortcuts() {
           Social & Community
         </p>
         <p className="mt-1 text-xs leading-5 text-white/45">
-          Messages and community activity are safely stored here so Home, Me, and LifeOS stay focused.
+          Messages and community activity are safely stored here so Home, Me, and Schedule stay focused.
         </p>
       </div>
 
@@ -81,7 +81,7 @@ export default function DashboardPanelRenderer({
     return renderMe?.() ?? <DashboardMePanel />;
   }
 
-  if (activePanel === "lifeos") {
+  if (activePanel === "schedule") {
     return renderLifeOS?.() ?? <DashboardLifeOSPanel />;
   }
 
