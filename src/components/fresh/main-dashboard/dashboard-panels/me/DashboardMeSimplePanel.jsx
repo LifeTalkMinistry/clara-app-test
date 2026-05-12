@@ -1,27 +1,28 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   Briefcase,
   ChevronLeft,
   ChevronRight,
+  Compass,
+  Heart,
   HeartHandshake,
+  Lightbulb,
+  LockKeyhole,
   ShieldCheck,
   Smile,
+  Sparkles,
+  Target,
   UserRound,
   Users,
   WalletCards,
 } from "lucide-react";
 import useUserRole from "@/hooks/useUserRole";
-
-const DEFAULT_PROFILE = {
-  personality: "Balanced spender",
-  status: "Employee",
-  age: "",
-  dependents: "Just me",
-  responsibility: "Bills and essentials",
-  incomeRhythm: "Monthly salary",
-  coachingStyle: "Balanced",
-  personalityQuizAnswers: {},
-};
+import {
+  DEFAULT_CLARA_LIFE_PROFILE,
+  normalizeClaraLifeProfile,
+  readClaraLifeProfile,
+  saveClaraLifeProfile,
+} from "@/lib/clara-life-profile";
 
 const PERSONALITY_RESULTS = {
   balanced: {
@@ -154,36 +155,21 @@ const MONEY_PERSONALITY_QUESTIONS = [
 ];
 
 const FIELDS = [
-  { key: "personality", label: "Money personality", helper: "Answer real situations so CLARA can understand your spending pattern.", icon: Smile, kind: "quiz" },
-  { key: "responsibility", label: "Protect first", helper: "The priority CLARA should protect before wants.", icon: ShieldCheck, allowCustom: true, customPlaceholder: "Example: tuition, medicine, parents, rent deposit", options: ["Bills and essentials", "Food at home", "Family support", "Rent", "Debt payment", "Savings goal", "Emergency fund"] },
-  { key: "incomeRhythm", label: "Income rhythm", helper: "When money usually comes in.", icon: WalletCards, allowCustom: true, customPlaceholder: "Example: every project, commission, mixed income", options: ["Daily income", "Weekly income", "Twice a month", "Monthly salary", "Irregular income"] },
-  { key: "status", label: "Current status", helper: "Your current life stage.", icon: Briefcase, allowCustom: true, customPlaceholder: "Example: OFW, part-time, caregiver", options: ["Student", "Working student", "Employee", "Freelancer", "Business owner", "Parent", "Between jobs"] },
-  { key: "dependents", label: "Who depends on me?", helper: "People CLARA should consider before spending advice.", icon: Users, allowCustom: true, customPlaceholder: "Example: grandparents, niece, church family", options: ["Just me", "Parents", "Partner / spouse", "Children", "Family household"] },
-  { key: "age", label: "Age", helper: "Optional, but helps CLARA adjust tone.", icon: UserRound, input: "number" },
-  { key: "coachingStyle", label: "Guidance tone", helper: "How firm CLARA should sound.", icon: HeartHandshake, options: ["Gentle", "Balanced", "Straightforward", "Strict"] },
+  { section: "Money Pattern", key: "personality", label: "Money personality", helper: "Answer real situations so CLARA can understand your spending pattern.", icon: Smile, kind: "quiz" },
+  { section: "Money Pattern", key: "responsibility", label: "Protect first", helper: "The priority CLARA should protect before wants.", icon: ShieldCheck, allowCustom: true, customPlaceholder: "Example: tuition, medicine, parents, rent deposit", options: ["Bills and essentials", "Food at home", "Family support", "Rent", "Debt payment", "Savings goal", "Emergency fund"] },
+  { section: "Money Pattern", key: "incomeRhythm", label: "Income rhythm", helper: "When money usually comes in.", icon: WalletCards, allowCustom: true, customPlaceholder: "Example: every project, commission, mixed income", options: ["Daily income", "Weekly income", "Twice a month", "Monthly salary", "Irregular income"] },
+  { section: "Life Context", key: "status", label: "Current status", helper: "Your current life stage.", icon: Briefcase, allowCustom: true, customPlaceholder: "Example: OFW, part-time, caregiver", options: ["Student", "Working student", "Employee", "Freelancer", "Business owner", "Parent", "Between jobs"] },
+  { section: "Life Context", key: "dependents", label: "Who depends on me?", helper: "People CLARA should consider before spending advice.", icon: Users, allowCustom: true, customPlaceholder: "Example: grandparents, niece, church family", options: ["Just me", "Parents", "Partner / spouse", "Children", "Family household"] },
+  { section: "Life Context", key: "age", label: "Age", helper: "Optional, but helps CLARA adjust tone.", icon: UserRound, input: "number" },
+  { section: "Life Context", key: "coachingStyle", label: "Guidance tone", helper: "How firm CLARA should sound.", icon: HeartHandshake, options: ["Gentle", "Balanced", "Straightforward", "Strict"] },
+  { section: "Life Identity", key: "currentFocus", label: "What are you building right now?", helper: "This becomes CLARA's main reminder when you ask about big wants.", icon: Compass, input: "textarea", placeholder: "Example: I am building my emergency fund and trying to stop living paycheck to paycheck." },
+  { section: "Life Identity", key: "topValues", label: "What matters most right now?", helper: "Values help CLARA protect the life you actually want.", icon: Heart, input: "textarea", placeholder: "Example: peace, family, stability, freedom, health, faith, independence." },
+  { section: "Life Identity", key: "meaningfulGoal", label: "What goal should CLARA protect?", helper: "Use this for the dream or purchase that matters more than random wants.", icon: Target, input: "textarea", placeholder: "Example: Save ₱5,000 for my laptop, build ₱20,000 emergency fund, help my parents." },
+  { section: "Life Identity", key: "financialFear", label: "What situation do you never want again?", helper: "CLARA can remind you of this gently during risky spending moments.", icon: LockKeyhole, input: "textarea", placeholder: "Example: I never want to borrow money again just to survive before payday." },
+  { section: "Life Identity", key: "spendingTrigger", label: "What makes spending harder to control?", helper: "This helps CLARA spot comfort spending before it becomes regret.", icon: Lightbulb, input: "textarea", placeholder: "Example: stress, tired nights, Shopee sales, eating out after work, comparison." },
+  { section: "Life Identity", key: "nonNegotiable", label: "What money should CLARA protect no matter what?", helper: "This gives CLARA a boundary when a tempting want appears.", icon: ShieldCheck, input: "textarea", placeholder: "Example: rent, medicines, school money, emergency fund, savings for family." },
+  { section: "Life Identity", key: "identityStatement", label: "Who are you becoming?", helper: "A short future-self line CLARA can remind you of.", icon: Sparkles, input: "textarea", placeholder: "Example: I am becoming someone who has peace with money and does not panic before payday." },
 ];
-
-function storageKey(user) {
-  return `clara_me_basic_profile_${user?.id || user?.email || "guest"}`;
-}
-
-function readProfile(user) {
-  if (typeof window === "undefined") return DEFAULT_PROFILE;
-  try {
-    return { ...DEFAULT_PROFILE, ...JSON.parse(window.localStorage.getItem(storageKey(user)) || "{}") };
-  } catch {
-    return DEFAULT_PROFILE;
-  }
-}
-
-function saveProfile(user, profile) {
-  if (typeof window === "undefined") return;
-  try {
-    window.localStorage.setItem(storageKey(user), JSON.stringify(profile));
-  } catch {
-    // optional local profile memory
-  }
-}
 
 function getMoneyPersonalityResult(answers = {}) {
   const scores = Object.keys(PERSONALITY_RESULTS).reduce((acc, key) => ({ ...acc, [key]: 0 }), {});
@@ -294,27 +280,14 @@ function OptionSelector({ field, profile, selectOption }) {
         {field.options.map((option) => {
           const active = profile[field.key] === option;
           return (
-            <button
-              key={option}
-              type="button"
-              onClick={() => selectOption(field.key, option)}
-              className={`min-h-[46px] rounded-[18px] border px-3 py-3 text-left text-[12px] font-black leading-4 transition active:scale-[0.98] ${
-                active
-                  ? "border-cyan-300/40 bg-cyan-300/15 text-cyan-50 shadow-[0_0_16px_rgba(34,211,238,.10)]"
-                  : "border-white/12 bg-white/[0.04] text-white/62 hover:bg-white/[0.06]"
-              }`}
-            >
+            <button key={option} type="button" onClick={() => selectOption(field.key, option)} className={`min-h-[46px] rounded-[18px] border px-3 py-3 text-left text-[12px] font-black leading-4 transition active:scale-[0.98] ${active ? "border-cyan-300/40 bg-cyan-300/15 text-cyan-50 shadow-[0_0_16px_rgba(34,211,238,.10)]" : "border-white/12 bg-white/[0.04] text-white/62 hover:bg-white/[0.06]"}`}>
               {option}
             </button>
           );
         })}
 
         {field.allowCustom ? (
-          <button
-            type="button"
-            onClick={() => setCustomOpen(true)}
-            className="min-h-[46px] rounded-[18px] border border-dashed border-cyan-200/22 bg-cyan-300/[0.035] px-3 py-3 text-left text-[12px] font-black leading-4 text-cyan-50/72 transition active:scale-[0.98]"
-          >
+          <button type="button" onClick={() => setCustomOpen(true)} className="min-h-[46px] rounded-[18px] border border-dashed border-cyan-200/22 bg-cyan-300/[0.035] px-3 py-3 text-left text-[12px] font-black leading-4 text-cyan-50/72 transition active:scale-[0.98]">
             Other / custom
           </button>
         ) : null}
@@ -323,19 +296,10 @@ function OptionSelector({ field, profile, selectOption }) {
       {customOpen ? (
         <div className="rounded-[20px] border border-white/10 bg-white/[0.035] p-3">
           <p className="text-[10px] font-black uppercase tracking-[0.16em] text-white/34">Write your own</p>
-          <input
-            value={customValue}
-            onChange={(event) => setCustomValue(event.target.value)}
-            placeholder={field.customPlaceholder || "Type your own answer"}
-            className="mt-2 w-full rounded-2xl border border-white/10 bg-black/10 px-3 py-3 text-sm font-bold text-white outline-none placeholder:text-white/28 focus:border-cyan-300/35"
-          />
+          <input value={customValue} onChange={(event) => setCustomValue(event.target.value)} placeholder={field.customPlaceholder || "Type your own answer"} className="mt-2 w-full rounded-2xl border border-white/10 bg-black/10 px-3 py-3 text-sm font-bold text-white outline-none placeholder:text-white/28 focus:border-cyan-300/35" />
           <div className="mt-3 flex gap-2">
-            <button type="button" onClick={saveCustom} className="rounded-2xl border border-cyan-300/24 bg-cyan-300/[0.10] px-4 py-2 text-xs font-black text-cyan-50 transition active:scale-[0.98]">
-              Save custom
-            </button>
-            <button type="button" onClick={() => { setCustomOpen(false); setCustomValue(""); }} className="rounded-2xl border border-white/10 bg-white/[0.035] px-4 py-2 text-xs font-black text-white/48 transition active:scale-[0.98]">
-              Cancel
-            </button>
+            <button type="button" onClick={saveCustom} className="rounded-2xl border border-cyan-300/24 bg-cyan-300/[0.10] px-4 py-2 text-xs font-black text-cyan-50 transition active:scale-[0.98]">Save custom</button>
+            <button type="button" onClick={() => { setCustomOpen(false); setCustomValue(""); }} className="rounded-2xl border border-white/10 bg-white/[0.035] px-4 py-2 text-xs font-black text-white/48 transition active:scale-[0.98]">Cancel</button>
           </div>
         </div>
       ) : null}
@@ -343,7 +307,28 @@ function OptionSelector({ field, profile, selectOption }) {
   );
 }
 
-function EditContextPanel({ profile, setProfile }) {
+function TextIdentityEditor({ field, profile, setProfile }) {
+  const value = profile[field.key] || "";
+
+  return (
+    <div className="mt-5 rounded-[24px] border border-white/10 bg-white/[0.035] p-4">
+      <textarea
+        value={value}
+        onChange={(event) => setProfile((current) => ({ ...current, [field.key]: event.target.value }))}
+        placeholder={field.placeholder || "Tell CLARA in your own words."}
+        rows={7}
+        maxLength={360}
+        className="min-h-[150px] w-full resize-none rounded-[20px] border border-white/10 bg-black/10 px-4 py-3 text-sm font-bold leading-6 text-white outline-none placeholder:text-white/28 focus:border-cyan-300/35"
+      />
+      <div className="mt-3 flex items-center justify-between gap-3 text-[10px] font-black uppercase tracking-[0.14em] text-white/34">
+        <span>Private on this device</span>
+        <span>{value.length}/360</span>
+      </div>
+    </div>
+  );
+}
+
+function EditContextPanel({ profile, setProfile, savingState }) {
   const [fieldKey, setFieldKey] = useState(null);
   const field = FIELDS.find((item) => item.key === fieldKey);
 
@@ -351,6 +336,15 @@ function EditContextPanel({ profile, setProfile }) {
     setProfile((current) => ({ ...current, [key]: value }));
     setFieldKey(null);
   };
+
+  const sections = useMemo(() => {
+    return FIELDS.reduce((acc, item) => {
+      const key = item.section || "Context";
+      acc[key] = acc[key] || [];
+      acc[key].push(item);
+      return acc;
+    }, {});
+  }, []);
 
   return (
     <section className="relative overflow-hidden rounded-[30px] border border-cyan-300/18 bg-[linear-gradient(135deg,rgba(9,62,76,.96),rgba(16,24,55,.97)_46%,rgba(55,24,100,.96))] p-5 shadow-[0_22px_80px_rgba(0,0,0,.24),0_0_38px_rgba(34,211,238,.08)]">
@@ -360,9 +354,10 @@ function EditContextPanel({ profile, setProfile }) {
       <div className="relative">
         <div className="flex items-start justify-between gap-4">
           <div>
-            <p className="text-[11px] font-black uppercase tracking-[0.22em] text-cyan-100/70">Edit context</p>
-            <h3 className="mt-3 text-2xl font-black leading-tight text-white">{field ? field.label : "What should CLARA know about you?"}</h3>
-            <p className="mt-2 text-sm leading-6 text-white/72">{field ? field.helper : "These details help CLARA guide your spending with your real life in mind."}</p>
+            <p className="text-[11px] font-black uppercase tracking-[0.22em] text-cyan-100/70">Life Context</p>
+            <h3 className="mt-3 text-2xl font-black leading-tight text-white">{field ? field.label : "What should CLARA know about your life?"}</h3>
+            <p className="mt-2 text-sm leading-6 text-white/72">{field ? field.helper : "These details help CLARA guide your spending with your real life, values, and goals in mind."}</p>
+            {!field ? <p className="mt-2 text-[11px] font-bold text-white/38">{savingState}</p> : null}
           </div>
           {field ? (
             <button type="button" onClick={() => setFieldKey(null)} className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl border border-white/10 bg-white/[0.04] text-white/60" aria-label="Back to context list">
@@ -376,24 +371,34 @@ function EditContextPanel({ profile, setProfile }) {
             <MoneyPersonalityQuiz profile={profile} setProfile={setProfile} />
           ) : field.input === "number" ? (
             <input value={profile.age || ""} onChange={(event) => setProfile((current) => ({ ...current, age: event.target.value }))} inputMode="numeric" type="number" min="1" max="120" placeholder="Not set" className="mt-5 w-full rounded-2xl border border-white/12 bg-white/[0.035] px-4 py-3 text-sm font-bold text-white outline-none placeholder:text-white/30 focus:border-cyan-300/35" />
+          ) : field.input === "textarea" ? (
+            <TextIdentityEditor field={field} profile={profile} setProfile={setProfile} />
           ) : (
             <OptionSelector field={field} profile={profile} selectOption={selectOption} />
           )
         ) : (
-          <div className="mt-5 space-y-2.5">
-            {FIELDS.map((item) => {
-              const Icon = item.icon;
-              return (
-                <button key={item.key} type="button" onClick={() => setFieldKey(item.key)} className="group flex w-full items-center gap-3 rounded-[20px] border border-white/10 bg-white/[0.035] px-3.5 py-3 text-left transition hover:bg-white/[0.055] active:scale-[0.99]">
-                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl border border-white/10 bg-white/[0.045] text-cyan-100/64"><Icon className="h-4 w-4" /></div>
-                  <div className="min-w-0 flex-1">
-                    <p className="truncate text-sm font-black text-white">{item.label}</p>
-                    <p className="mt-0.5 truncate text-xs font-semibold text-white/44">{profile[item.key] || "Not set"}</p>
-                  </div>
-                  <ChevronRight className="h-4 w-4 shrink-0 text-white/70" />
-                </button>
-              );
-            })}
+          <div className="mt-5 space-y-5">
+            {Object.entries(sections).map(([sectionName, items]) => (
+              <div key={sectionName}>
+                <p className="mb-2.5 text-[10px] font-black uppercase tracking-[0.18em] text-white/34">{sectionName}</p>
+                <div className="space-y-2.5">
+                  {items.map((item) => {
+                    const Icon = item.icon;
+                    const value = profile[item.key] || "Not set";
+                    return (
+                      <button key={item.key} type="button" onClick={() => setFieldKey(item.key)} className="group flex w-full items-center gap-3 rounded-[20px] border border-white/10 bg-white/[0.035] px-3.5 py-3 text-left transition hover:bg-white/[0.055] active:scale-[0.99]">
+                        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl border border-white/10 bg-white/[0.045] text-cyan-100/64"><Icon className="h-4 w-4" /></div>
+                        <div className="min-w-0 flex-1">
+                          <p className="truncate text-sm font-black text-white">{item.label}</p>
+                          <p className="mt-0.5 line-clamp-1 text-xs font-semibold text-white/44">{value}</p>
+                        </div>
+                        <ChevronRight className="h-4 w-4 shrink-0 text-white/70" />
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            ))}
           </div>
         )}
       </div>
@@ -403,10 +408,60 @@ function EditContextPanel({ profile, setProfile }) {
 
 export default function DashboardMeSimplePanel() {
   const { user } = useUserRole() || {};
-  const [profile, setProfile] = useState(() => readProfile(user));
+  const [profile, setProfile] = useState(() => normalizeClaraLifeProfile(DEFAULT_CLARA_LIFE_PROFILE));
+  const [loaded, setLoaded] = useState(false);
+  const [savingState, setSavingState] = useState("Private profile saved on this device.");
+  const saveTimerRef = useRef(null);
 
-  useEffect(() => setProfile(readProfile(user)), [user?.id, user?.email]);
-  useEffect(() => saveProfile(user, profile), [profile, user]);
+  useEffect(() => {
+    let mounted = true;
 
-  return <EditContextPanel profile={profile} setProfile={setProfile} />;
+    const loadProfile = async () => {
+      try {
+        const storedProfile = await readClaraLifeProfile(user);
+        if (!mounted) return;
+        setProfile(storedProfile);
+        setSavingState("Private profile saved on this device.");
+      } catch (error) {
+        console.warn("CLARA life profile load failed:", error);
+        if (!mounted) return;
+        setProfile(normalizeClaraLifeProfile(DEFAULT_CLARA_LIFE_PROFILE));
+        setSavingState("Private profile ready on this device.");
+      } finally {
+        if (mounted) setLoaded(true);
+      }
+    };
+
+    setLoaded(false);
+    loadProfile();
+
+    return () => {
+      mounted = false;
+      if (saveTimerRef.current) window.clearTimeout(saveTimerRef.current);
+    };
+  }, [user?.id, user?.email]);
+
+  useEffect(() => {
+    if (!loaded) return undefined;
+
+    if (saveTimerRef.current) window.clearTimeout(saveTimerRef.current);
+    setSavingState("Saving private context...");
+
+    saveTimerRef.current = window.setTimeout(async () => {
+      try {
+        await saveClaraLifeProfile(user, profile);
+        setSavingState("Private profile saved on this device.");
+        window.dispatchEvent(new CustomEvent("clara:life-profile-updated", { detail: { profile } }));
+      } catch (error) {
+        console.warn("CLARA life profile save failed:", error);
+        setSavingState("Could not save yet. Try again in a moment.");
+      }
+    }, 450);
+
+    return () => {
+      if (saveTimerRef.current) window.clearTimeout(saveTimerRef.current);
+    };
+  }, [loaded, profile, user]);
+
+  return <EditContextPanel profile={profile} setProfile={setProfile} savingState={savingState} />;
 }
