@@ -1,5 +1,4 @@
 import { useCallback, useMemo } from "react";
-import { useNavigate } from "react-router-dom";
 import { CalendarDays, Home, Settings, User } from "lucide-react";
 import { DEFAULT_THEME_KEY } from "@/theme/themes";
 import { DASHBOARD_PANEL_ORDER } from "@/components/fresh/main-dashboard/dashboard-panels/dashboardPanelConstants";
@@ -16,21 +15,14 @@ export default function useDashboardPanelUiState({
   financeDataLoading,
   financeDataRefreshing,
 }) {
-  const navigate = useNavigate();
-
   const openDashboardPanel = useCallback((panelKey) => {
-    if (panelKey === "schedule") {
-      navigate("/lifeos");
-      return;
-    }
-
     const targetPanel = DASHBOARD_PANEL_ORDER.includes(panelKey) ? panelKey : "home";
     const currentIndex = DASHBOARD_PANEL_ORDER.indexOf(activeDashboardPanel);
     const nextIndex = DASHBOARD_PANEL_ORDER.indexOf(targetPanel);
 
     setDashboardPanelDirection(nextIndex >= currentIndex ? "forward" : "backward");
     setActiveDashboardPanel(targetPanel);
-  }, [activeDashboardPanel, navigate, setActiveDashboardPanel, setDashboardPanelDirection]);
+  }, [activeDashboardPanel, setActiveDashboardPanel, setDashboardPanelDirection]);
 
   const closeDashboardPanel = useCallback(() => {
     setDashboardPanelDirection("backward");
@@ -64,18 +56,8 @@ export default function useDashboardPanelUiState({
   );
 
   const headerQuickActions = useMemo(() => [
-    {
-      key: "home",
-      label: "Home",
-      icon: Home,
-      badge: null,
-    },
-    {
-      key: "me",
-      label: "Me",
-      icon: User,
-      badge: null,
-    },
+    { key: "home", label: "Home", icon: Home, badge: null },
+    { key: "me", label: "Me", icon: User, badge: null },
     {
       key: "schedule",
       label: "Schedule",
@@ -88,12 +70,7 @@ export default function useDashboardPanelUiState({
           }
         : null,
     },
-    {
-      key: "settings",
-      label: "Settings",
-      icon: Settings,
-      badge: null,
-    },
+    { key: "settings", label: "Settings", icon: Settings, badge: null },
   ], [feedHasHighlight]);
 
   return {
