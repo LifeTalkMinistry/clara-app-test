@@ -6,7 +6,6 @@ import {
   CreditCard,
   Plus,
   Trash2,
-  WalletCards,
   X,
 } from "lucide-react";
 import useUserRole from "@/hooks/useUserRole";
@@ -166,11 +165,13 @@ function getSelectedAgenda({ selectedDate, todayKey, events }) {
   const moneyEvent = events.find(isMoneyEvent);
   const firstEvent = events[0];
   const isToday = selectedDate === todayKey;
+  const dateLabel = isToday ? `Today • ${formatDate(selectedDate)}` : formatDate(selectedDate);
 
   if (moneyEvent) {
     return {
       event: moneyEvent,
       label: isToday ? "Today impact" : "Money impact",
+      dateLabel,
       badge: "Watch",
       title: displayTitle(moneyEvent),
       body: impactMessage(moneyEvent),
@@ -183,6 +184,7 @@ function getSelectedAgenda({ selectedDate, todayKey, events }) {
     return {
       event: firstEvent,
       label: isToday ? "Today agenda" : "Selected agenda",
+      dateLabel,
       badge: "Planned",
       title: displayTitle(firstEvent),
       body: "This schedule has no money impact yet. Add a ₱ impact if CLARA should watch it financially.",
@@ -194,6 +196,7 @@ function getSelectedAgenda({ selectedDate, todayKey, events }) {
   return {
     event: null,
     label: isToday ? "Today agenda" : "Selected day",
+    dateLabel,
     badge: "Clear",
     title: isToday ? "No agenda today." : "No agenda on this day.",
     body: isToday
@@ -266,7 +269,8 @@ function AgendaCard({ agenda, onOpen }) {
               {agenda.badge}
             </span>
           </div>
-          <h3 className="mt-3 text-lg font-black leading-tight text-white">{agenda.title}</h3>
+          <p className="mt-1 text-[11px] font-bold text-cyan-100/52">{agenda.dateLabel}</p>
+          <h3 className="mt-2 text-lg font-black leading-tight text-white">{agenda.title}</h3>
           <p className="mt-2 text-sm leading-6 text-white/60">{agenda.body}</p>
         </div>
       </div>
@@ -331,9 +335,9 @@ function CalendarMonth({ monthDate, cells, selectedDate, todayKey, byDate, onSel
               key={cell.key}
               type="button"
               onClick={() => onSelect(cell.key)}
-              className={`relative flex min-h-[48px] flex-col items-center justify-center rounded-2xl border text-sm font-black transition active:scale-[.96] ${
+              className={`relative flex min-h-[48px] flex-col items-center justify-center rounded-2xl border text-sm font-black transition duration-200 active:scale-[.96] ${
                 selected
-                  ? "border-cyan-300/55 bg-cyan-300/[.11] text-white shadow-[0_0_18px_rgba(34,211,238,.15)]"
+                  ? "z-10 scale-[1.04] border-cyan-200/70 bg-cyan-300/[.16] text-white shadow-[0_0_0_1px_rgba(103,232,249,.20),0_0_24px_rgba(34,211,238,.28),inset_0_0_18px_rgba(34,211,238,.12)]"
                   : today
                     ? "border-cyan-300/30 bg-cyan-300/[.07] text-white"
                     : hasMoney
@@ -344,7 +348,13 @@ function CalendarMonth({ monthDate, cells, selectedDate, todayKey, byDate, onSel
               }`}
               aria-label={`Select ${cell.key}`}
             >
-              {cell.day}
+              {selected ? (
+                <span className="pointer-events-none absolute inset-[-2px] rounded-[18px] border border-cyan-200/25" />
+              ) : null}
+              <span className="relative z-10">{cell.day}</span>
+              {selected ? (
+                <span className="absolute top-1.5 h-1 w-5 rounded-full bg-cyan-100/70 shadow-[0_0_10px_rgba(103,232,249,.55)]" />
+              ) : null}
               {hasAny ? (
                 <span className={`absolute bottom-1.5 h-1.5 w-1.5 rounded-full ${hasMoney ? "bg-fuchsia-200" : "bg-cyan-200/75"}`} />
               ) : null}
