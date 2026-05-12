@@ -219,8 +219,8 @@ function getMonthlyInsight({ sortedEvents, monthDate, todayKey }) {
     return {
       icon: CreditCard,
       badge: "Heavy month",
-      title: "This month has several money-impact moments.",
-      body: `CLARA sees ${moneyEvents.length} money-sensitive schedule${moneyEvents.length === 1 ? "" : "s"} this month. Give bills, payday, and expected costs enough space before optional spending.`,
+      title: "Several money-impact moments.",
+      body: `CLARA sees ${moneyEvents.length} money-sensitive schedules. Give them space before optional spending.`,
     };
   }
 
@@ -229,7 +229,7 @@ function getMonthlyInsight({ sortedEvents, monthDate, todayKey }) {
       icon: CreditCard,
       badge: "Prepare early",
       title: `Next pressure: ${displayTitle(nextMoneyEvent)}.`,
-      body: `It is scheduled for ${formatDate(nextMoneyEvent.date)}. Keep this in mind before casual spending so the date does not surprise you later.`,
+      body: `Scheduled for ${formatDate(nextMoneyEvent.date)}. Keep it in mind before casual spending.`,
     };
   }
 
@@ -238,7 +238,7 @@ function getMonthlyInsight({ sortedEvents, monthDate, todayKey }) {
       icon: WalletCards,
       badge: "Payday rhythm",
       title: "Payday is part of this month.",
-      body: "Plan the first move before confidence spending starts. CLARA works best when payday already has a direction.",
+      body: "Plan the first move before confidence spending starts.",
     };
   }
 
@@ -246,8 +246,8 @@ function getMonthlyInsight({ sortedEvents, monthDate, todayKey }) {
     return {
       icon: CalendarDays,
       badge: "Intentional time",
-      title: "You have a meaningful schedule this month.",
-      body: "Make it intentional, not impulsive. A planned moment can protect both your relationships and your budget.",
+      title: "Meaningful schedule detected.",
+      body: "Make it intentional, not impulsive.",
     };
   }
 
@@ -256,7 +256,7 @@ function getMonthlyInsight({ sortedEvents, monthDate, todayKey }) {
       icon: CalendarDays,
       badge: "Busy month",
       title: "This month may feel crowded.",
-      body: "Your schedule has several moving parts. Keep money decisions slower on busy weeks so stress does not turn into spending.",
+      body: "Slow money decisions on busy weeks.",
     };
   }
 
@@ -264,16 +264,16 @@ function getMonthlyInsight({ sortedEvents, monthDate, todayKey }) {
     return {
       icon: Sparkles,
       badge: "Breathing room",
-      title: "Your month looks financially breathable right now.",
-      body: "No visible schedule pressure yet. Add bills, payday, and expected costs so CLARA can protect the month before it gets crowded.",
+      title: "Your month looks breathable.",
+      body: "Add bills, payday, or expected costs when ready.",
     };
   }
 
   return {
     icon: Sparkles,
     badge: "Light month",
-    title: "Your schedule looks manageable so far.",
-    body: "Nothing looks financially heavy right now. Keep the calendar updated so CLARA can warn you before pressure appears.",
+    title: "Your schedule looks manageable.",
+    body: "Nothing financially heavy right now.",
   };
 }
 
@@ -401,24 +401,22 @@ function MonthlyInsightCard({ insight }) {
   const Icon = insight.icon;
 
   return (
-    <section className="relative overflow-hidden rounded-[26px] border border-white/10 bg-[linear-gradient(135deg,rgba(8,83,93,.18),rgba(18,24,63,.60)_52%,rgba(70,22,104,.34))] p-4 shadow-[0_14px_34px_rgba(0,0,0,.16)]">
-      <div className="pointer-events-none absolute -right-14 -bottom-16 h-40 w-40 rounded-full bg-fuchsia-400/10 blur-3xl" />
-      <div className="pointer-events-none absolute -left-14 -top-16 h-36 w-36 rounded-full bg-cyan-300/10 blur-3xl" />
-
-      <div className="relative flex gap-3.5">
-        <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-[18px] border border-white/12 bg-white/[.045] text-cyan-100/75 shadow-[0_0_18px_rgba(34,211,238,.09)]">
-          <Icon className="h-5 w-5" />
+    <section className="rounded-[20px] border border-white/8 bg-white/[.022] px-3 py-2.5 shadow-[0_10px_24px_rgba(0,0,0,.10)]">
+      <div className="flex items-start gap-2.5">
+        <div className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-xl border border-white/10 bg-white/[.035] text-cyan-100/62">
+          <Icon className="h-3.5 w-3.5" />
         </div>
 
         <div className="min-w-0 flex-1">
-          <div className="flex items-center justify-between gap-3">
-            <p className="text-[10px] font-black uppercase tracking-[.22em] text-white/40">CLARA observation</p>
-            <span className="rounded-full border border-white/10 bg-white/[.045] px-3 py-1 text-[10px] font-black uppercase tracking-[.13em] text-white/45">
+          <div className="flex flex-wrap items-center gap-1.5">
+            <p className="text-[9px] font-black uppercase tracking-[.18em] text-white/34">CLARA observation</p>
+            <span className="rounded-full border border-white/8 bg-white/[.035] px-2 py-0.5 text-[9px] font-black uppercase tracking-[.1em] text-white/38">
               {insight.badge}
             </span>
           </div>
-          <h3 className="mt-3 text-lg font-black leading-tight text-white">{insight.title}</h3>
-          <p className="mt-2 text-sm leading-6 text-white/58">{insight.body}</p>
+          <p className="mt-1 line-clamp-2 text-[12px] font-semibold leading-5 text-white/58">
+            <span className="font-black text-white/78">{insight.title}</span> {insight.body}
+          </p>
         </div>
       </div>
     </section>
