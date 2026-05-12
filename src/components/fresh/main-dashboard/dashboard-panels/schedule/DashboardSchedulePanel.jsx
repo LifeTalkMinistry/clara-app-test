@@ -163,40 +163,6 @@ function TypeIcon({ event }) {
   return <Icon className="h-4 w-4" />;
 }
 
-function Header({ monthLabel, onAdd }) {
-  return (
-    <section className="relative overflow-hidden rounded-[28px] border border-white/12 bg-[linear-gradient(135deg,rgba(13,65,78,.74),rgba(16,24,55,.86)_48%,rgba(55,24,100,.78))] p-3.5 shadow-[0_16px_38px_rgba(0,0,0,.20)]">
-      <div className="pointer-events-none absolute -left-16 -top-16 h-36 w-36 rounded-full bg-cyan-300/12 blur-3xl" />
-      <div className="pointer-events-none absolute -right-14 -bottom-14 h-40 w-40 rounded-full bg-fuchsia-400/12 blur-3xl" />
-
-      <div className="relative flex items-start justify-between gap-3">
-        <div className="min-w-0 flex-1">
-          <p className="text-[10px] font-black uppercase tracking-[.22em] text-cyan-100/70">Schedule</p>
-          <h2 className="mt-2 text-xl font-black leading-tight text-white">Your time affects your money.</h2>
-          <p className="mt-1.5 max-w-[270px] text-xs leading-5 text-white/58">
-            One month view. See what is coming before it becomes spending pressure.
-          </p>
-        </div>
-
-        <div className="shrink-0 text-right">
-          <div className="inline-flex items-center gap-2 rounded-2xl border border-cyan-300/18 bg-white/[.055] px-2.5 py-1.5 text-[11px] font-black text-white/70">
-            <span className="h-1.5 w-1.5 rounded-full bg-cyan-200 shadow-[0_0_12px_rgba(103,232,249,.65)]" />
-            {monthLabel}
-          </div>
-          <button
-            type="button"
-            onClick={onAdd}
-            className="mt-2 inline-flex h-9 w-9 items-center justify-center rounded-2xl border border-cyan-300/20 bg-cyan-300/[.08] text-cyan-50 shadow-[0_0_18px_rgba(34,211,238,.12)] transition active:scale-95"
-            aria-label="Add schedule"
-          >
-            <Plus className="h-4 w-4" />
-          </button>
-        </div>
-      </div>
-    </section>
-  );
-}
-
 function ImpactCard({ event, onOpen }) {
   return (
     <button
@@ -228,7 +194,7 @@ function ImpactCard({ event, onOpen }) {
   );
 }
 
-function CalendarMonth({ monthDate, cells, selectedDate, todayKey, byDate, onSelect, onPrev, onNext }) {
+function CalendarMonth({ monthDate, cells, selectedDate, todayKey, byDate, onSelect, onPrev, onNext, onAdd }) {
   return (
     <section className="rounded-[28px] border border-white/12 bg-white/[.03] p-3.5 shadow-[0_14px_34px_rgba(0,0,0,.16)]">
       <div className="mb-4 flex items-center justify-between gap-3">
@@ -239,9 +205,14 @@ function CalendarMonth({ monthDate, cells, selectedDate, todayKey, byDate, onSel
           <p className="text-sm font-black text-white">{formatMonth(monthDate)}</p>
           <p className="mt-1 text-[10px] font-bold text-white/38">Tap a day to view or add</p>
         </div>
-        <button type="button" onClick={onNext} className="flex h-9 w-9 items-center justify-center rounded-2xl border border-white/10 bg-white/[.035] text-white/56 transition active:scale-95" aria-label="Next month">
-          <ChevronRight className="h-4 w-4" />
-        </button>
+        <div className="flex gap-2">
+          <button type="button" onClick={onAdd} className="flex h-9 w-9 items-center justify-center rounded-2xl border border-cyan-300/18 bg-cyan-300/[.07] text-cyan-50 transition active:scale-95" aria-label="Add schedule">
+            <Plus className="h-4 w-4" />
+          </button>
+          <button type="button" onClick={onNext} className="flex h-9 w-9 items-center justify-center rounded-2xl border border-white/10 bg-white/[.035] text-white/56 transition active:scale-95" aria-label="Next month">
+            <ChevronRight className="h-4 w-4" />
+          </button>
+        </div>
       </div>
 
       <div className="grid grid-cols-7 gap-1.5 text-center text-[9px] font-black uppercase tracking-[.08em] text-white/34">
@@ -459,7 +430,6 @@ export default function DashboardSchedulePanel() {
 
   return (
     <div className="space-y-3.5">
-      <Header monthLabel={formatMonth(monthDate)} onAdd={() => openAdd()} />
       <ImpactCard event={nextMoneyEvent} onOpen={openEvent} />
       <CalendarMonth
         monthDate={monthDate}
@@ -468,6 +438,7 @@ export default function DashboardSchedulePanel() {
         todayKey={today}
         byDate={byDate}
         onSelect={setSelectedDate}
+        onAdd={() => openAdd(selectedDate)}
         onPrev={() => setMonthDate((current) => new Date(current.getFullYear(), current.getMonth() - 1, 1))}
         onNext={() => setMonthDate((current) => new Date(current.getFullYear(), current.getMonth() + 1, 1))}
       />
