@@ -5,21 +5,23 @@ const GEMINI_ENDPOINT_BASE = "https://generativelanguage.googleapis.com/v1beta/m
 const DEFAULT_GEMINI_MODEL = "gemini-1.5-flash";
 
 function getGeminiApiKey() {
-  const env = import.meta?.env || {};
   return (
-    env.VITE_GEMINI_API_KEY ||
-    env.VITE_GOOGLE_GEMINI_API_KEY ||
-    env.VITE_GOOGLE_AI_API_KEY ||
-    env.VITE_GOOGLE_GENERATIVE_AI_API_KEY ||
-    env.VITE_CLARA_GEMINI_API_KEY ||
-    env.VITE_AI_API_KEY ||
+    import.meta.env.VITE_GEMINI_API_KEY ||
+    import.meta.env.VITE_GOOGLE_GEMINI_API_KEY ||
+    import.meta.env.VITE_GOOGLE_AI_API_KEY ||
+    import.meta.env.VITE_GOOGLE_GENERATIVE_AI_API_KEY ||
+    import.meta.env.VITE_CLARA_GEMINI_API_KEY ||
+    import.meta.env.VITE_AI_API_KEY ||
     ""
   );
 }
 
 function getGeminiModel() {
-  const env = import.meta?.env || {};
-  return env.VITE_GEMINI_MODEL || env.VITE_CLARA_GEMINI_MODEL || DEFAULT_GEMINI_MODEL;
+  return (
+    import.meta.env.VITE_GEMINI_MODEL ||
+    import.meta.env.VITE_CLARA_GEMINI_MODEL ||
+    DEFAULT_GEMINI_MODEL
+  );
 }
 
 function money(value) {
