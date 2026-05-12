@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import {
   Briefcase,
+  ChevronLeft,
   ChevronRight,
   HeartHandshake,
   ShieldCheck,
@@ -8,7 +9,6 @@ import {
   UserRound,
   Users,
   WalletCards,
-  X,
 } from "lucide-react";
 import useUserRole from "@/hooks/useUserRole";
 
@@ -73,38 +73,32 @@ function Chip({ children }) {
   return <span className="rounded-full border border-white/10 bg-white/[0.045] px-3 py-1.5 text-[11px] font-bold text-white/62">{children}</span>;
 }
 
-function EditSheet({ profile, setProfile, onClose }) {
+function EditSheet({ profile, setProfile }) {
   const [fieldKey, setFieldKey] = useState(null);
   const field = FIELDS.find((item) => item.key === fieldKey);
 
   useEffect(() => {
     const onKeyDown = (event) => {
-      if (event.key === "Escape") {
-        if (field) setFieldKey(null);
-        else onClose();
-      }
+      if (event.key === "Escape" && field) setFieldKey(null);
     };
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, [field, onClose]);
-
-  const closeOrBack = () => {
-    if (field) setFieldKey(null);
-    else onClose();
-  };
+  }, [field]);
 
   return (
-    <div role="dialog" aria-modal="true" className="fixed inset-0 z-[80] flex items-end justify-center bg-black/55 px-4 pb-[calc(env(safe-area-inset-bottom)+1rem)] backdrop-blur-sm" onClick={onClose}>
-      <div className="w-full max-w-[520px] rounded-[30px] border border-cyan-300/18 bg-[linear-gradient(135deg,rgba(9,62,76,.96),rgba(16,24,55,.97)_46%,rgba(55,24,100,.96))] p-5 shadow-[0_22px_80px_rgba(0,0,0,.55),0_0_38px_rgba(34,211,238,.10)] backdrop-blur-2xl" onClick={(event) => event.stopPropagation()}>
+    <div role="dialog" aria-modal="true" className="fixed inset-0 z-[80] flex items-end justify-center bg-black/55 px-4 pb-[calc(env(safe-area-inset-bottom)+1rem)] backdrop-blur-sm">
+      <div className="w-full max-w-[520px] rounded-[30px] border border-cyan-300/18 bg-[linear-gradient(135deg,rgba(9,62,76,.96),rgba(16,24,55,.97)_46%,rgba(55,24,100,.96))] p-5 shadow-[0_22px_80px_rgba(0,0,0,.55),0_0_38px_rgba(34,211,238,.10)] backdrop-blur-2xl">
         <div className="flex items-start justify-between gap-4">
           <div>
             <p className="text-[11px] font-black uppercase tracking-[0.22em] text-cyan-100/70">Edit context</p>
             <h3 className="mt-3 text-2xl font-black leading-tight text-white">{field ? field.label : "What should CLARA remember?"}</h3>
             <p className="mt-2 text-sm leading-6 text-white/72">{field ? field.helper : "Keep it simple. Change only what matters today."}</p>
           </div>
-          <button type="button" onClick={closeOrBack} className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl border border-white/10 bg-white/[0.04] text-white/60" aria-label="Close">
-            <X className="h-4 w-4" />
-          </button>
+          {field ? (
+            <button type="button" onClick={() => setFieldKey(null)} className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl border border-white/10 bg-white/[0.04] text-white/60" aria-label="Back to context list">
+              <ChevronLeft className="h-4 w-4" />
+            </button>
+          ) : null}
         </div>
 
         {field ? (
@@ -113,7 +107,7 @@ function EditSheet({ profile, setProfile, onClose }) {
           ) : (
             <div className="mt-5 flex flex-wrap gap-2">
               {field.options.map((option) => (
-                <button key={option} type="button" onClick={() => setProfile((current) => ({ ...current, [field.key]: option }))} className={`rounded-full border px-3 py-2 text-[12px] font-bold transition active:scale-[0.98] ${profile[field.key] === option ? "border-cyan-300/35 bg-cyan-300/15 text-cyan-50" : "border-white/12 bg-white/[0.045] text-white/58"}`}>
+                <button key={option} type="button" onClick={() => { setProfile((current) => ({ ...current, [field.key]: option })); setFieldKey(null); }} className={`rounded-full border px-3 py-2 text-[12px] font-bold transition active:scale-[0.98] ${profile[field.key] === option ? "border-cyan-300/35 bg-cyan-300/15 text-cyan-50" : "border-white/12 bg-white/[0.045] text-white/58"}`}>
                   {option}
                 </button>
               ))}
@@ -145,7 +139,6 @@ export default function DashboardMeSimplePanel() {
   const { user, plan, isPaid, isFree } = useUserRole() || {};
   const name = getName(user);
   const [profile, setProfile] = useState(() => readProfile(user));
-  const [editing, setEditing] = useState(true);
 
   useEffect(() => setProfile(readProfile(user)), [user?.id, user?.email]);
   useEffect(() => saveProfile(user, profile), [profile, user]);
@@ -157,9 +150,9 @@ export default function DashboardMeSimplePanel() {
         <div className="pointer-events-none absolute -right-16 -bottom-16 h-44 w-44 rounded-full bg-fuchsia-400/10 blur-3xl" />
 
         <div className="relative flex items-center gap-3">
-          <button type="button" onClick={() => setEditing(true)} className="flex h-14 w-14 shrink-0 items-center justify-center rounded-[20px] border border-cyan-300/18 bg-white/10 text-base font-black text-white transition active:scale-[0.98]" aria-label="Edit profile context">
+          <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-[20px] border border-cyan-300/18 bg-white/10 text-base font-black text-white">
             {getInitials(name)}
-          </button>
+          </div>
           <div className="min-w-0 flex-1">
             <div className="flex items-center gap-2">
               <p className="truncate text-base font-black text-white">{name}</p>
@@ -178,7 +171,7 @@ export default function DashboardMeSimplePanel() {
         </div>
       </section>
 
-      {editing ? <EditSheet profile={profile} setProfile={setProfile} onClose={() => setEditing(false)} /> : null}
+      <EditSheet profile={profile} setProfile={setProfile} />
     </div>
   );
 }
