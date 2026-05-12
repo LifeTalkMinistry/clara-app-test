@@ -3,11 +3,9 @@ import {
   AlertTriangle,
   CalendarDays,
   CheckCircle2,
-  Clock3,
+  MessageCircle,
   ShieldCheck,
-  Sparkles,
   Target,
-  TrendingUp,
   WalletCards,
   X,
 } from "lucide-react";
@@ -17,11 +15,11 @@ const detailContent = {
   climate: {
     kicker: "Decision climate",
     title: "Lower flexibility detected today",
-    body: "CLARA is reading today as a lower-flexibility day because your short-term financial pressure is higher than usual.",
+    body: "CLARA is reading today as a lower-flexibility day because your short-term pressure is higher than usual.",
     points: [
-      "Upcoming bill pressure is close enough to affect today’s decisions.",
-      "Emergency fund protection should stay untouched unless necessary.",
-      "Optional spending may feel riskier right now because timing is tight.",
+      "A bill is close enough to affect today’s decisions.",
+      "Emergency protection should stay untouched unless necessary.",
+      "Optional spending may feel riskier because timing is tight.",
     ],
     action: "Avoid unplanned spending today unless it protects your priority.",
   },
@@ -58,6 +56,17 @@ const detailContent = {
     ],
     action: "Spend as if the bill already exists.",
   },
+  action: {
+    kicker: "Next best action",
+    title: "Protect your focus today",
+    body: "The dashboard is already tracking the numbers. LifeOS only needs to guide the next behavior.",
+    points: [
+      "Keep today simple and intentional.",
+      "Delay optional spending when the reason is unclear.",
+      "Ask CLARA before making a decision that can disturb your priority.",
+    ],
+    action: "Ask CLARA before spending outside the plan.",
+  },
 };
 
 function PressableShell({ children, className = "", onClick, ariaLabel }) {
@@ -66,7 +75,7 @@ function PressableShell({ children, className = "", onClick, ariaLabel }) {
       type="button"
       onClick={onClick}
       aria-label={ariaLabel}
-      className={`group relative w-full cursor-pointer overflow-hidden rounded-[26px] border border-white/10 bg-[#061026]/68 p-4 text-left shadow-[0_14px_42px_rgba(0,0,0,.24),inset_0_1px_0_rgba(255,255,255,.045)] backdrop-blur-xl transition duration-200 hover:-translate-y-0.5 hover:border-cyan-300/28 hover:bg-[#0a1430]/78 hover:shadow-[0_18px_48px_rgba(0,0,0,.28),0_0_24px_rgba(34,211,238,.09),inset_0_1px_0_rgba(255,255,255,.06)] active:translate-y-0 active:scale-[.985] focus:outline-none focus-visible:ring-2 focus-visible:ring-cyan-200/70 ${className}`}
+      className={`group relative w-full cursor-pointer overflow-hidden rounded-[26px] border border-white/10 bg-[#061026]/68 p-4 text-left shadow-[0_14px_42px_rgba(0,0,0,.22),inset_0_1px_0_rgba(255,255,255,.045)] backdrop-blur-xl transition duration-200 hover:-translate-y-0.5 hover:border-cyan-300/28 hover:bg-[#0a1430]/78 hover:shadow-[0_18px_48px_rgba(0,0,0,.26),0_0_24px_rgba(34,211,238,.08),inset_0_1px_0_rgba(255,255,255,.06)] active:translate-y-0 active:scale-[.985] focus:outline-none focus-visible:ring-2 focus-visible:ring-cyan-200/70 ${className}`}
     >
       <div className="pointer-events-none absolute inset-0 opacity-0 transition duration-200 group-hover:opacity-100">
         <div className="absolute -right-10 -top-10 h-28 w-28 rounded-full bg-cyan-300/10 blur-2xl" />
@@ -77,122 +86,91 @@ function PressableShell({ children, className = "", onClick, ariaLabel }) {
   );
 }
 
-function DayScoreRing() {
-  return (
-    <div className="relative grid h-[84px] w-[84px] shrink-0 place-items-center rounded-full bg-[conic-gradient(from_160deg,#22d3ee_0deg,#2563eb_105deg,#a855f7_215deg,#ec4899_282deg,rgba(255,255,255,.08)_282deg)] p-[3px] shadow-[0_0_26px_rgba(34,211,238,.22),0_0_30px_rgba(236,72,153,.18)]">
-      <div className="absolute inset-0 rounded-full bg-cyan-300/10 blur-xl motion-safe:animate-pulse" />
-      <div className="relative grid h-full w-full place-items-center rounded-full border border-white/10 bg-[#050713]/92 text-center">
-        <div>
-          <p className="text-2xl font-black leading-none text-white">78<span className="text-sm text-white/70">%</span></p>
-          <p className="mt-1 text-[10px] font-bold text-white/55">Day score</p>
-        </div>
-      </div>
-    </div>
-  );
-}
-
 function HeroClimateCard({ onOpen }) {
   return (
     <PressableShell
       onClick={() => onOpen("climate")}
       ariaLabel="Open decision climate details"
-      className="min-h-[188px] border-cyan-300/30 bg-[linear-gradient(135deg,rgba(8,83,93,.46),rgba(25,22,78,.62)_48%,rgba(72,12,105,.50))] p-5 shadow-[0_18px_60px_rgba(0,0,0,.34),0_0_36px_rgba(34,211,238,.11),0_0_34px_rgba(236,72,153,.08),inset_0_1px_0_rgba(255,255,255,.075)]"
+      className="border-cyan-300/24 bg-[linear-gradient(135deg,rgba(8,83,93,.42),rgba(25,22,78,.58)_50%,rgba(72,12,105,.46))] p-5 shadow-[0_16px_52px_rgba(0,0,0,.30),0_0_32px_rgba(34,211,238,.09),0_0_30px_rgba(236,72,153,.06),inset_0_1px_0_rgba(255,255,255,.065)]"
     >
-      <div className="pointer-events-none absolute -right-16 -top-16 h-44 w-44 rounded-full bg-pink-400/14 blur-3xl motion-safe:animate-pulse" />
-      <div className="pointer-events-none absolute -left-16 bottom-0 h-44 w-44 rounded-full bg-cyan-300/13 blur-3xl" />
+      <div className="pointer-events-none absolute -right-16 -top-16 h-40 w-40 rounded-full bg-pink-400/12 blur-3xl" />
+      <div className="pointer-events-none absolute -left-16 bottom-0 h-40 w-40 rounded-full bg-cyan-300/12 blur-3xl" />
 
-      <div className="flex items-start justify-between gap-4">
-        <Kicker>Today's decision climate</Kicker>
-        <span className="rounded-full border border-cyan-300/20 bg-cyan-300/[.055] px-3 py-1 text-[10px] font-black uppercase tracking-[.14em] text-cyan-100/70">
-          Primary signal
-        </span>
-      </div>
-
+      <Kicker>Today&apos;s decision climate</Kicker>
       <div className="mt-5 flex items-start gap-4">
-        <div className="grid h-16 w-16 shrink-0 place-items-center rounded-[24px] border border-pink-400/22 bg-pink-400/[.08] text-pink-200 shadow-[0_0_28px_rgba(236,72,153,.17)] transition duration-200 group-hover:scale-105 group-hover:shadow-[0_0_34px_rgba(236,72,153,.25)]">
+        <div className="grid h-16 w-16 shrink-0 place-items-center rounded-[24px] border border-pink-400/22 bg-pink-400/[.08] text-pink-200 shadow-[0_0_26px_rgba(236,72,153,.16)] transition duration-200 group-hover:scale-105 group-hover:shadow-[0_0_32px_rgba(236,72,153,.22)]">
           <AlertTriangle className="h-7 w-7" />
         </div>
 
         <div className="min-w-0 flex-1">
-          <div className="flex items-start justify-between gap-4">
-            <div>
-              <h2 className="text-[22px] font-black leading-tight text-white md:text-2xl">
-                Lower flexibility detected today.
-              </h2>
-              <p className="mt-2 max-w-[520px] text-sm leading-6 text-white/68">
-                Upcoming bill pressure + emergency fund protection means optional spending may feel riskier right now.
-              </p>
-            </div>
-            <div className="hidden sm:block">
-              <DayScoreRing />
-            </div>
-          </div>
-
-          <div className="mt-4 grid gap-2 sm:grid-cols-3">
-            <div className="rounded-2xl border border-white/10 bg-white/[.035] px-3 py-2">
-              <p className="text-[10px] font-black uppercase tracking-[.14em] text-white/35">Money pressure</p>
-              <p className="mt-1 flex items-center gap-1.5 text-sm font-black text-emerald-200">
-                <TrendingUp className="h-3.5 w-3.5" /> Low
-              </p>
-            </div>
-            <div className="rounded-2xl border border-white/10 bg-white/[.035] px-3 py-2">
-              <p className="text-[10px] font-black uppercase tracking-[.14em] text-white/35">Decision risk</p>
-              <p className="mt-1 flex items-center gap-1.5 text-sm font-black text-amber-200">
-                <ShieldCheck className="h-3.5 w-3.5" /> Moderate
-              </p>
-            </div>
-            <div className="rounded-2xl border border-cyan-300/16 bg-cyan-300/[.045] px-3 py-2">
-              <p className="text-[10px] font-black uppercase tracking-[.14em] text-white/35">Guidance</p>
-              <p className="mt-1 inline-flex items-center gap-1.5 text-sm font-black text-cyan-100/80">
-                Tap for why <Sparkles className="h-3.5 w-3.5" />
-              </p>
-            </div>
-          </div>
+          <h2 className="text-[22px] font-black leading-tight text-white md:text-2xl">
+            Lower flexibility detected today.
+          </h2>
+          <p className="mt-2 max-w-[520px] text-sm leading-6 text-white/68">
+            Upcoming bill pressure + emergency fund protection means optional spending may feel riskier right now.
+          </p>
+          <p className="mt-4 inline-flex items-center gap-2 text-xs font-black uppercase tracking-[.16em] text-cyan-100/68">
+            Understand why
+            <CheckCircle2 className="h-3.5 w-3.5" />
+          </p>
         </div>
       </div>
     </PressableShell>
   );
 }
 
-function LifeStateButton({ icon: Icon, title, value, onClick }) {
+function LifeStateRow({ icon: Icon, title, value, onClick }) {
   return (
     <button
       type="button"
       onClick={onClick}
       aria-label={`Open ${title} details`}
-      className="group rounded-[22px] border border-white/9 bg-white/[.028] p-4 text-left transition duration-200 hover:-translate-y-0.5 hover:border-cyan-300/22 hover:bg-white/[.05] hover:shadow-[0_0_20px_rgba(34,211,238,.08)] active:translate-y-0 active:scale-[.98] focus:outline-none focus-visible:ring-2 focus-visible:ring-cyan-200/70"
+      className="group flex w-full items-center gap-3 rounded-2xl border border-white/8 bg-white/[.026] px-3.5 py-3 text-left transition duration-200 hover:border-cyan-300/20 hover:bg-white/[.045] active:scale-[.99] focus:outline-none focus-visible:ring-2 focus-visible:ring-cyan-200/70"
     >
-      <Icon className="h-5 w-5 text-cyan-100/72 transition duration-200 group-hover:scale-110 group-hover:text-cyan-100" />
-      <p className="mt-3 text-[11px] font-black uppercase tracking-[.18em] text-white/34">
-        {title}
-      </p>
-      <p className="mt-1 text-sm font-black text-white">{value}</p>
-      <p className="mt-3 text-[11px] font-bold text-white/34 transition duration-200 group-hover:text-cyan-100/60">
-        Tap for guidance
-      </p>
+      <div className="grid h-10 w-10 shrink-0 place-items-center rounded-2xl border border-cyan-300/12 bg-cyan-300/[.04] text-cyan-100/74 transition duration-200 group-hover:text-cyan-100">
+        <Icon className="h-4.5 w-4.5" />
+      </div>
+
+      <div className="min-w-0 flex-1">
+        <p className="text-[10px] font-black uppercase tracking-[.18em] text-white/35">{title}</p>
+        <p className="mt-0.5 truncate text-sm font-black text-white">{value}</p>
+      </div>
+
+      <span className="text-[11px] font-bold text-white/32 transition duration-200 group-hover:text-cyan-100/62">
+        View
+      </span>
     </button>
   );
 }
 
-function AwarenessCard() {
+function NextBestAction({ onOpen }) {
   return (
-    <Card className="border-white/12 bg-[#060b1d]/58 shadow-[0_12px_34px_rgba(0,0,0,.20),inset_0_1px_0_rgba(255,255,255,.04)]">
-      <Kicker>LifeOS awareness</Kicker>
-      <div className="mt-4 space-y-3">
-        {[
-          "Stress increases convenience spending.",
-          "Payday boosts confidence purchases.",
-          "Evenings trigger impulsive browsing.",
-        ].map((item) => (
-          <div
-            key={item}
-            className="rounded-2xl border border-white/8 bg-white/[.025] px-4 py-3 text-sm font-medium text-white/68"
-          >
-            • {item}
-          </div>
-        ))}
+    <PressableShell
+      onClick={() => onOpen("action")}
+      ariaLabel="Open next best action"
+      className="border-pink-400/20 bg-[linear-gradient(135deg,rgba(8,83,93,.22),rgba(36,17,78,.52),rgba(72,12,105,.34))] p-5"
+    >
+      <div className="pointer-events-none absolute -right-10 -bottom-12 h-36 w-36 rounded-full bg-pink-400/12 blur-3xl" />
+      <div className="flex items-center justify-between gap-4">
+        <div>
+          <Kicker>Next best action</Kicker>
+          <h2 className="mt-3 text-xl font-black leading-tight text-white">
+            Protect your focus today.
+          </h2>
+          <p className="mt-2 text-sm leading-6 text-white/62">
+            Avoid unplanned spending unless it supports your priority.
+          </p>
+        </div>
+
+        <div className="grid h-14 w-14 shrink-0 place-items-center rounded-full border border-cyan-300/20 bg-cyan-300/[.055] text-cyan-100 shadow-[0_0_26px_rgba(34,211,238,.14)]">
+          <MessageCircle className="h-6 w-6" />
+        </div>
       </div>
-    </Card>
+
+      <div className="mt-5 inline-flex rounded-2xl border border-cyan-300/24 bg-cyan-300/[.075] px-4 py-2.5 text-sm font-black text-cyan-50 shadow-[0_0_18px_rgba(34,211,238,.10)]">
+        Ask CLARA
+      </div>
+    </PressableShell>
   );
 }
 
@@ -284,34 +262,26 @@ export default function LifeOSDashboard() {
     <div className="space-y-5">
       <HeroClimateCard onOpen={setActiveDetailKey} />
 
-      <Card className="border-white/12 bg-[#060b1d]/62 shadow-[0_12px_36px_rgba(0,0,0,.22),inset_0_1px_0_rgba(255,255,255,.045)]">
-        <div className="flex items-center justify-between gap-4">
-          <div>
-            <Kicker>Today&apos;s life state</Kicker>
-            <p className="mt-2 text-sm leading-5 text-white/52">
-              The current life context CLARA should consider before giving advice.
-            </p>
-          </div>
+      <Card className="border-white/12 bg-[#060b1d]/62 p-4 shadow-[0_12px_36px_rgba(0,0,0,.22),inset_0_1px_0_rgba(255,255,255,.045)]">
+        <Kicker>Today&apos;s life state</Kicker>
+        <p className="mt-2 text-sm leading-5 text-white/52">
+          Quick context CLARA should consider before giving advice.
+        </p>
 
-          <div className="hidden rounded-full border border-cyan-300/16 bg-cyan-300/[.045] px-3 py-1 text-[11px] font-black uppercase tracking-[.18em] text-cyan-100/65 md:block">
-            Connected intelligence
-          </div>
-        </div>
-
-        <div className="mt-5 grid gap-3 md:grid-cols-3">
-          <LifeStateButton
+        <div className="mt-4 space-y-2.5">
+          <LifeStateRow
             icon={Target}
             title="Focus"
             value="Pay debt"
             onClick={() => setActiveDetailKey("focus")}
           />
-          <LifeStateButton
+          <LifeStateRow
             icon={WalletCards}
             title="Protect"
             value="Emergency fund"
             onClick={() => setActiveDetailKey("protect")}
           />
-          <LifeStateButton
+          <LifeStateRow
             icon={CalendarDays}
             title="Timing"
             value="Bill in 3 days"
@@ -320,37 +290,7 @@ export default function LifeOSDashboard() {
         </div>
       </Card>
 
-      <PressableShell
-        onClick={() => setActiveDetailKey("timing")}
-        ariaLabel="Open timing risk details"
-        className="border-pink-400/24 bg-[linear-gradient(135deg,rgba(24,13,34,.72),rgba(22,10,42,.64))] shadow-[0_14px_42px_rgba(0,0,0,.26),0_0_26px_rgba(236,72,153,.07),inset_0_1px_0_rgba(255,255,255,.05)]"
-      >
-        <div className="pointer-events-none absolute -right-10 -top-10 h-28 w-28 rounded-full bg-pink-400/10 blur-3xl motion-safe:animate-pulse" />
-        <Kicker>Timing risk</Kicker>
-        <p className="mt-3 text-lg font-bold leading-7 text-white/90">
-          Your electric bill is approaching, so non-essential spending may quietly hurt next week&apos;s flexibility.
-        </p>
-        <div className="mt-4 flex items-center gap-2 text-sm text-white/54">
-          <Clock3 className="h-4 w-4 text-pink-100/70" />
-          Review before spending.
-        </div>
-      </PressableShell>
-
-      <AwarenessCard />
-
-      <Card className="border-white/12 bg-[#060b1d]/60 shadow-[0_12px_34px_rgba(0,0,0,.20),inset_0_1px_0_rgba(255,255,255,.04)]">
-        <div className="flex items-center gap-3">
-          <div className="grid h-11 w-11 shrink-0 place-items-center rounded-2xl border border-cyan-300/16 bg-cyan-300/[.045] text-cyan-100">
-            <Sparkles className="h-5 w-5" />
-          </div>
-          <div>
-            <Kicker>CLARA Insight</Kicker>
-            <p className="mt-1 text-sm leading-5 text-white/62">
-              LifeOS now feels connected instead of isolated — timing, pressure, patterns, and priorities work together before money decisions happen.
-            </p>
-          </div>
-        </div>
-      </Card>
+      <NextBestAction onOpen={setActiveDetailKey} />
 
       <DetailSheet detail={activeDetail} onClose={() => setActiveDetailKey(null)} />
     </div>
