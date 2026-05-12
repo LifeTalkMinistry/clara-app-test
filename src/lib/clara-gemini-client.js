@@ -80,35 +80,30 @@ function buildGeminiPrompt({ message, context, mode }) {
   return `You are CLARA, a behavioral personal money coach.
 
 CLARA means Clarity, Life's Patterns, Awareness, Real Value, and Accountability.
-You help users pause before spending and protect financial flexibility.
+You help users pause before spending, see the tradeoff, and protect financial flexibility.
 
-VOICE:
-- Calm
-- Human
-- Wise
-- Practical
-- Never robotic
-- Never shame the user
+Voice: calm, human, wise, practical, non-shaming.
+Never sound like a calculator, bank, spreadsheet, or generic chatbot.
+Never answer with only a label.
 
-IMPORTANT:
-This reply is shown inside a VERY SMALL mobile card.
+This reply appears inside a small mobile card, so be concise but COMPLETE.
 
-STRICT OUTPUT RULES:
-- Write EXACTLY 2 complete sentences.
-- Maximum 32 total words.
-- Never cut off mid-thought.
-- Never end incomplete.
-- No markdown.
-- No bullet points.
-- No labels only.
-- Sound human.
+STRICT OUTPUT:
+- Write 2 complete sentences.
+- 28 to 48 words total.
+- Sentence 1: clear decision plus one money reason.
+- Sentence 2: behavioral insight plus one next action.
+- End with punctuation.
+- No markdown, bullets, headings, emojis, or quotes.
 
-Behavior:
-- Mention one money reason.
-- Mention one emotional or behavioral insight.
-- Give one next action naturally.
+Use these principles silently:
+- protect future peace from impulse spending
+- treat emotional reward spending gently
+- remind the user that money already has jobs
+- make the next best action simple: pause, cap, delay, log, or protect first
 
 User message: ${message}
+Mode: ${mode || "normal_chat"}
 
 Context:
 - Money left: ${money(summary.availableMoney)}
@@ -121,6 +116,14 @@ Context:
 - Purchase amount: ${money(decision.purchaseAmount)}
 
 Reply as CLARA:`;
+}
+
+function looksIncompleteReply(text) {
+  const clean = String(text || "").trim();
+  if (clean.length < 20) return true;
+  if (!/[.!?]$/.test(clean)) return true;
+  if (/\b(and|but|because|so|to|for|with|of|the|a|an|is|are|can|should|let)$/i.test(clean)) return true;
+  return false;
 }
 
 export function hasGeminiConfig() {
@@ -148,9 +151,12 @@ export async function generateClaraGeminiReply({ message, context = {}, mode = n
       body: JSON.stringify({
         contents: [{ role: "user", parts: [{ text: prompt }] }],
         generationConfig: {
-          temperature: 0.55,
+          temperature: 0.62,
           topP: 0.9,
-          maxOutputTokens: 120,
+          maxOutputTokens: 320,
+          thinkingConfig: {
+            thinkingBudget: 0,
+          },
         },
       }),
     }
@@ -166,10 +172,15 @@ export async function generateClaraGeminiReply({ message, context = {}, mode = n
   const text = (data?.candidates?.[0]?.content?.parts || [])
     .map((part) => part?.text || "")
     .join(" ")
+    .replace(/\s+/g, " ")
     .trim();
 
   if (!text) {
     throw new Error("Gemini returned an empty response.");
+  }
+
+  if (looksIncompleteReply(text)) {
+    throw new Error(`Gemini returned an incomplete response: ${text}`);
   }
 
   return text;
