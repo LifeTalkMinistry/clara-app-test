@@ -1,10 +1,21 @@
 import { useEffect, useState } from "react";
-import { Briefcase, HeartHandshake, ShieldCheck, Smile, Users, WalletCards, X } from "lucide-react";
+import {
+  Briefcase,
+  ChevronRight,
+  HeartHandshake,
+  ShieldCheck,
+  Smile,
+  UserRound,
+  Users,
+  WalletCards,
+  X,
+} from "lucide-react";
 import useUserRole from "@/hooks/useUserRole";
 
 const DEFAULT_PROFILE = {
   personality: "Balanced spender",
   status: "Employee",
+  age: "",
   dependents: "Just me",
   responsibility: "Bills and essentials",
   incomeRhythm: "Monthly salary",
@@ -12,12 +23,13 @@ const DEFAULT_PROFILE = {
 };
 
 const FIELDS = [
-  { key: "personality", label: "Money personality", icon: Smile, options: ["Careful spender", "Balanced spender", "Impulse spender", "Goal-driven", "Generous spender"] },
-  { key: "responsibility", label: "Protect first", icon: ShieldCheck, options: ["Bills and essentials", "Food at home", "Family support", "Rent", "Debt payment", "Savings goal", "Emergency fund"] },
-  { key: "incomeRhythm", label: "Income rhythm", icon: WalletCards, options: ["Daily income", "Weekly income", "Twice a month", "Monthly salary", "Irregular income"] },
-  { key: "status", label: "Current status", icon: Briefcase, options: ["Student", "Working student", "Employee", "Freelancer", "Business owner", "Parent", "Between jobs"] },
-  { key: "dependents", label: "Dependents", icon: Users, options: ["Just me", "Parents", "Partner / spouse", "Children", "Family household"] },
-  { key: "coachingStyle", label: "Guidance tone", icon: HeartHandshake, options: ["Gentle", "Balanced", "Straightforward", "Strict"] },
+  { key: "personality", label: "Money personality", helper: "How you usually handle spending.", icon: Smile, options: ["Careful spender", "Balanced spender", "Impulse spender", "Goal-driven", "Generous spender"] },
+  { key: "responsibility", label: "Protect first", helper: "The priority CLARA should protect before wants.", icon: ShieldCheck, options: ["Bills and essentials", "Food at home", "Family support", "Rent", "Debt payment", "Savings goal", "Emergency fund"] },
+  { key: "incomeRhythm", label: "Income rhythm", helper: "When money usually comes in.", icon: WalletCards, options: ["Daily income", "Weekly income", "Twice a month", "Monthly salary", "Irregular income"] },
+  { key: "status", label: "Current status", helper: "Your current life stage.", icon: Briefcase, options: ["Student", "Working student", "Employee", "Freelancer", "Business owner", "Parent", "Between jobs"] },
+  { key: "dependents", label: "Who depends on me?", helper: "People CLARA should consider before spending advice.", icon: Users, options: ["Just me", "Parents", "Partner / spouse", "Children", "Family household"] },
+  { key: "age", label: "Age", helper: "Optional, but helps CLARA adjust tone.", icon: UserRound, input: "number" },
+  { key: "coachingStyle", label: "Guidance tone", helper: "How firm CLARA should sound.", icon: HeartHandshake, options: ["Gentle", "Balanced", "Straightforward", "Strict"] },
 ];
 
 function storageKey(user) {
@@ -66,44 +78,59 @@ function EditSheet({ profile, setProfile, onClose }) {
   const field = FIELDS.find((item) => item.key === fieldKey);
 
   useEffect(() => {
-    const onKeyDown = (event) => event.key === "Escape" && (field ? setFieldKey(null) : onClose());
+    const onKeyDown = (event) => {
+      if (event.key === "Escape") {
+        if (field) setFieldKey(null);
+        else onClose();
+      }
+    };
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
   }, [field, onClose]);
 
+  const closeOrBack = () => {
+    if (field) setFieldKey(null);
+    else onClose();
+  };
+
   return (
     <div role="dialog" aria-modal="true" className="fixed inset-0 z-[80] flex items-end justify-center bg-black/55 px-4 pb-[calc(env(safe-area-inset-bottom)+1rem)] backdrop-blur-sm" onClick={onClose}>
-      <div className="w-full max-w-[520px] rounded-[30px] border border-cyan-300/18 bg-[#071026]/96 p-5 shadow-[0_22px_80px_rgba(0,0,0,.55),0_0_38px_rgba(34,211,238,.10)] backdrop-blur-2xl" onClick={(event) => event.stopPropagation()}>
+      <div className="w-full max-w-[520px] rounded-[30px] border border-cyan-300/18 bg-[linear-gradient(135deg,rgba(9,62,76,.96),rgba(16,24,55,.97)_46%,rgba(55,24,100,.96))] p-5 shadow-[0_22px_80px_rgba(0,0,0,.55),0_0_38px_rgba(34,211,238,.10)] backdrop-blur-2xl" onClick={(event) => event.stopPropagation()}>
         <div className="flex items-start justify-between gap-4">
           <div>
             <p className="text-[11px] font-black uppercase tracking-[0.22em] text-cyan-100/70">Edit context</p>
             <h3 className="mt-3 text-2xl font-black leading-tight text-white">{field ? field.label : "What should CLARA remember?"}</h3>
-            <p className="mt-2 text-sm leading-6 text-white/52">Keep it simple. Change only what matters today.</p>
+            <p className="mt-2 text-sm leading-6 text-white/72">{field ? field.helper : "Keep it simple. Change only what matters today."}</p>
           </div>
-          <button type="button" onClick={field ? () => setFieldKey(null) : onClose} className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl border border-white/10 bg-white/[0.04] text-white/60" aria-label="Close">
+          <button type="button" onClick={closeOrBack} className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl border border-white/10 bg-white/[0.04] text-white/60" aria-label="Close">
             <X className="h-4 w-4" />
           </button>
         </div>
 
         {field ? (
-          <div className="mt-5 flex flex-wrap gap-2">
-            {field.options.map((option) => (
-              <button key={option} type="button" onClick={() => setProfile((current) => ({ ...current, [field.key]: option }))} className={`rounded-full border px-3 py-2 text-[12px] font-bold transition active:scale-[0.98] ${profile[field.key] === option ? "border-cyan-300/35 bg-cyan-300/15 text-cyan-50" : "border-white/12 bg-white/[0.045] text-white/58"}`}>
-                {option}
-              </button>
-            ))}
-          </div>
+          field.input === "number" ? (
+            <input value={profile.age || ""} onChange={(event) => setProfile((current) => ({ ...current, age: event.target.value }))} inputMode="numeric" type="number" min="1" max="120" placeholder="Not set" className="mt-5 w-full rounded-2xl border border-white/12 bg-white/[0.035] px-4 py-3 text-sm font-bold text-white outline-none placeholder:text-white/30 focus:border-cyan-300/35" />
+          ) : (
+            <div className="mt-5 flex flex-wrap gap-2">
+              {field.options.map((option) => (
+                <button key={option} type="button" onClick={() => setProfile((current) => ({ ...current, [field.key]: option }))} className={`rounded-full border px-3 py-2 text-[12px] font-bold transition active:scale-[0.98] ${profile[field.key] === option ? "border-cyan-300/35 bg-cyan-300/15 text-cyan-50" : "border-white/12 bg-white/[0.045] text-white/58"}`}>
+                  {option}
+                </button>
+              ))}
+            </div>
+          )
         ) : (
           <div className="mt-5 space-y-2.5">
             {FIELDS.map((item) => {
               const Icon = item.icon;
               return (
-                <button key={item.key} type="button" onClick={() => setFieldKey(item.key)} className="flex w-full items-center gap-3 rounded-[20px] border border-white/10 bg-white/[0.035] px-3.5 py-3 text-left transition active:scale-[0.99]">
+                <button key={item.key} type="button" onClick={() => setFieldKey(item.key)} className="group flex w-full items-center gap-3 rounded-[20px] border border-white/10 bg-white/[0.035] px-3.5 py-3 text-left transition hover:bg-white/[0.055] active:scale-[0.99]">
                   <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl border border-white/10 bg-white/[0.045] text-cyan-100/64"><Icon className="h-4 w-4" /></div>
                   <div className="min-w-0 flex-1">
                     <p className="truncate text-sm font-black text-white">{item.label}</p>
-                    <p className="mt-0.5 truncate text-xs font-semibold text-white/44">{profile[item.key]}</p>
+                    <p className="mt-0.5 truncate text-xs font-semibold text-white/44">{profile[item.key] || "Not set"}</p>
                   </div>
+                  <ChevronRight className="h-4 w-4 shrink-0 text-white/70" />
                 </button>
               );
             })}
@@ -118,7 +145,7 @@ export default function DashboardMeSimplePanel() {
   const { user, plan, isPaid, isFree } = useUserRole() || {};
   const name = getName(user);
   const [profile, setProfile] = useState(() => readProfile(user));
-  const [editing, setEditing] = useState(false);
+  const [editing, setEditing] = useState(true);
 
   useEffect(() => setProfile(readProfile(user)), [user?.id, user?.email]);
   useEffect(() => saveProfile(user, profile), [profile, user]);
