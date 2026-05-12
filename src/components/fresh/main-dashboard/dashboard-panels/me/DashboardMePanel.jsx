@@ -1,7 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import {
   Briefcase,
-  ChevronRight,
   HeartHandshake,
   PiggyBank,
   ShieldCheck,
@@ -27,20 +26,15 @@ const PROFILE_FIELDS = [
   {
     key: "personality",
     label: "Money personality",
+    shortLabel: "Personality",
     helper: "How you usually handle spending.",
     icon: Smile,
     options: ["Careful spender", "Balanced spender", "Impulse spender", "Goal-driven", "Generous spender"],
   },
   {
-    key: "status",
-    label: "Current status",
-    helper: "Your current life stage.",
-    icon: Briefcase,
-    options: ["Student", "Working student", "Employee", "Freelancer", "Business owner", "Parent", "Single parent", "Between jobs"],
-  },
-  {
     key: "responsibility",
     label: "Protect first",
+    shortLabel: "Protect",
     helper: "The priority CLARA should protect before wants.",
     icon: ShieldCheck,
     options: ["Bills and essentials", "Food at home", "Family support", "Rent", "Debt payment", "Medical needs", "Savings goal", "Emergency fund"],
@@ -48,13 +42,23 @@ const PROFILE_FIELDS = [
   {
     key: "incomeRhythm",
     label: "Income rhythm",
+    shortLabel: "Income",
     helper: "When money usually comes in.",
     icon: WalletCards,
     options: ["Daily income", "Weekly income", "Twice a month", "Monthly salary", "Irregular income", "No active income yet"],
   },
   {
+    key: "status",
+    label: "Current status",
+    shortLabel: "Status",
+    helper: "Your current life stage.",
+    icon: Briefcase,
+    options: ["Student", "Working student", "Employee", "Freelancer", "Business owner", "Parent", "Single parent", "Between jobs"],
+  },
+  {
     key: "dependents",
     label: "Who depends on me?",
+    shortLabel: "Depends",
     helper: "People CLARA should consider before spending advice.",
     icon: Users,
     options: ["Just me", "Parents", "Partner / spouse", "Children", "Siblings", "Family household", "Others"],
@@ -62,6 +66,7 @@ const PROFILE_FIELDS = [
   {
     key: "age",
     label: "Age",
+    shortLabel: "Age",
     helper: "Optional, but helps CLARA adjust tone.",
     icon: UserRound,
     input: "number",
@@ -69,14 +74,15 @@ const PROFILE_FIELDS = [
   {
     key: "coachingStyle",
     label: "Guide me like this",
+    shortLabel: "Tone",
     helper: "How firm CLARA should sound.",
     icon: HeartHandshake,
     options: ["Gentle", "Balanced", "Straightforward", "Strict"],
   },
 ];
 
-const CORE_KEYS = ["personality", "responsibility", "incomeRhythm", "status"];
-const DETAIL_KEYS = ["dependents", "age", "coachingStyle"];
+const MAIN_KEYS = ["personality", "responsibility", "incomeRhythm", "status"];
+const EXTRA_KEYS = ["dependents", "age", "coachingStyle"];
 
 function getInitials(value = "") {
   const clean = String(value || "").trim();
@@ -153,11 +159,11 @@ function getGuidanceIdentity(profile) {
   const dependents = profile.dependents || "your responsibilities";
 
   if (String(profile.personality).toLowerCase().includes("impulse")) {
-    return `CLARA will slow down optional spending and protect ${responsibility.toLowerCase()} before quick purchases.`;
+    return `CLARA will slow down optional spending and protect ${responsibility.toLowerCase()} first.`;
   }
 
   if (String(profile.incomeRhythm).toLowerCase().includes("irregular")) {
-    return `Irregular income means CLARA should protect flexibility before lifestyle upgrades.`;
+    return "CLARA will protect flexibility before lifestyle upgrades.";
   }
 
   if (String(profile.dependents).toLowerCase() !== "just me") {
@@ -272,7 +278,7 @@ function IdentitySnapshot({ displayName, email, initials, planLabel, profile, on
         <button
           type="button"
           onClick={onEdit}
-          className="flex h-16 w-16 shrink-0 items-center justify-center rounded-[22px] border border-cyan-300/18 bg-white/10 text-lg font-black text-white transition active:scale-[0.98]"
+          className="flex h-14 w-14 shrink-0 items-center justify-center rounded-[20px] border border-cyan-300/18 bg-white/10 text-base font-black text-white transition active:scale-[0.98]"
           aria-label="Edit profile basics"
         >
           {initials}
@@ -287,8 +293,8 @@ function IdentitySnapshot({ displayName, email, initials, planLabel, profile, on
           </div>
 
           <p className="mt-1 truncate text-xs text-white/52">{email}</p>
-          <p className="mt-2 text-[11px] font-bold text-cyan-100/58">
-            This is how CLARA understands your life before giving advice.
+          <p className="mt-1.5 text-[11px] font-bold leading-4 text-cyan-100/58">
+            How CLARA understands you before advice.
           </p>
         </div>
       </div>
@@ -303,56 +309,74 @@ function IdentitySnapshot({ displayName, email, initials, planLabel, profile, on
   );
 }
 
-function ContextCard({ field, value, onClick }) {
+function ContextTile({ field, value, onClick, compact = false }) {
   const Icon = field.icon;
 
   return (
     <button
       type="button"
       onClick={onClick}
-      className="group w-full rounded-[24px] border border-white/12 bg-white/[0.035] p-4 text-left transition hover:border-cyan-300/18 hover:bg-white/[0.055] active:scale-[0.99]"
+      className={`group rounded-[20px] border border-white/10 bg-white/[0.032] text-left transition hover:border-cyan-300/18 hover:bg-white/[0.052] active:scale-[0.99] ${
+        compact ? "px-3 py-2.5" : "p-3.5"
+      }`}
     >
-      <div className="flex items-center gap-3">
-        <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border border-white/12 bg-white/[0.055] text-cyan-100/66 transition group-hover:text-cyan-100">
-          <Icon className="h-5 w-5" />
+      <div className="flex items-center gap-2.5">
+        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-2xl border border-white/10 bg-white/[0.045] text-cyan-100/62 transition group-hover:text-cyan-100">
+          <Icon className="h-4 w-4" />
         </div>
 
         <div className="min-w-0 flex-1">
-          <p className="truncate text-[11px] font-black uppercase tracking-[0.14em] text-white/35">{field.label}</p>
-          <p className="mt-1 truncate text-sm font-black text-white">{value || "Not set"}</p>
+          <p className="truncate text-[9px] font-black uppercase tracking-[0.14em] text-white/32">{field.shortLabel || field.label}</p>
+          <p className="mt-1 truncate text-xs font-black text-white/82">{value || "Not set"}</p>
         </div>
-
-        <ChevronRight className="h-4 w-4 shrink-0 text-white/24 transition group-hover:text-cyan-100/55" />
       </div>
     </button>
   );
 }
 
-function DetailPill({ field, value, onClick }) {
+function MeContextCard({ profile, onEdit }) {
   return (
-    <button
-      type="button"
-      onClick={onClick}
-      className="rounded-[18px] border border-white/10 bg-white/[0.03] px-3 py-2 text-left transition active:scale-[0.98]"
-    >
-      <p className="text-[9px] font-black uppercase tracking-[0.14em] text-white/30">{field.label}</p>
-      <p className="mt-1 max-w-[145px] truncate text-xs font-black text-white/70">{value || "Not set"}</p>
-    </button>
-  );
-}
-
-function GuidanceIdentity({ profile }) {
-  return (
-    <section className="rounded-[24px] border border-white/10 bg-white/[0.028] p-4 shadow-[0_12px_28px_rgba(0,0,0,0.12)]">
-      <div className="flex items-start gap-3">
-        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl border border-white/12 bg-white/[0.045] text-cyan-100/62">
-          <PiggyBank className="h-4 w-4" />
+    <section className="rounded-[28px] border border-white/12 bg-white/[0.03] p-4 shadow-[0_14px_34px_rgba(0,0,0,0.14)]">
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <p className="text-[11px] font-black uppercase tracking-[0.18em] text-white/35">Life context</p>
+          <p className="mt-1 text-xs leading-5 text-white/45">Tap any detail to adjust how CLARA guides you.</p>
         </div>
+      </div>
 
-        <div className="min-w-0 flex-1">
-          <p className="text-sm font-black text-white">CLARA guidance identity</p>
-          <p className="mt-1 text-xs leading-5 text-white/48">{getGuidanceIdentity(profile)}</p>
-        </div>
+      <div className="mt-3 grid grid-cols-2 gap-2.5">
+        {MAIN_KEYS.map((key) => {
+          const field = getField(key);
+          return (
+            <ContextTile
+              key={key}
+              field={field}
+              value={profile[key]}
+              onClick={() => onEdit(key)}
+            />
+          );
+        })}
+      </div>
+
+      <div className="mt-3 grid grid-cols-3 gap-2">
+        {EXTRA_KEYS.map((key) => {
+          const field = getField(key);
+          return (
+            <ContextTile
+              key={key}
+              compact
+              field={field}
+              value={profile[key]}
+              onClick={() => onEdit(key)}
+            />
+          );
+        })}
+      </div>
+
+      <div className="mt-3 rounded-[20px] border border-white/8 bg-black/10 px-3 py-2.5">
+        <p className="text-xs font-semibold leading-5 text-white/50">
+          {getGuidanceIdentity(profile)}
+        </p>
       </div>
     </section>
   );
@@ -386,7 +410,7 @@ export default function DashboardMePanel() {
   };
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-3.5">
       <IdentitySnapshot
         displayName={displayName}
         email={email}
@@ -396,49 +420,7 @@ export default function DashboardMePanel() {
         onEdit={() => setActiveKey("personality")}
       />
 
-      <section className="space-y-3">
-        <div>
-          <p className="text-[11px] font-black uppercase tracking-[0.18em] text-white/35">Life context</p>
-          <p className="mt-1 text-xs text-white/42">The few details CLARA should remember before giving money advice.</p>
-        </div>
-
-        <div className="grid grid-cols-1 gap-2.5">
-          {CORE_KEYS.map((key) => {
-            const field = getField(key);
-            return (
-              <ContextCard
-                key={key}
-                field={field}
-                value={profile[key]}
-                onClick={() => setActiveKey(key)}
-              />
-            );
-          })}
-        </div>
-      </section>
-
-      <section className="space-y-3 rounded-[24px] border border-white/10 bg-white/[0.025] p-4">
-        <div>
-          <p className="text-[11px] font-black uppercase tracking-[0.18em] text-white/35">Quiet details</p>
-          <p className="mt-1 text-xs leading-5 text-white/42">Optional context. Keep it simple and change anytime.</p>
-        </div>
-
-        <div className="flex flex-wrap gap-2">
-          {DETAIL_KEYS.map((key) => {
-            const field = getField(key);
-            return (
-              <DetailPill
-                key={key}
-                field={field}
-                value={profile[key]}
-                onClick={() => setActiveKey(key)}
-              />
-            );
-          })}
-        </div>
-      </section>
-
-      <GuidanceIdentity profile={profile} />
+      <MeContextCard profile={profile} onEdit={setActiveKey} />
 
       <EditSheet
         field={activeField}
