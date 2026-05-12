@@ -8,7 +8,6 @@ import {
   ShieldCheck,
   Sparkles,
   Target,
-  WalletCards,
   X,
 } from "lucide-react";
 import { useAuth } from "../../context/AuthContext";
@@ -271,17 +270,17 @@ function buildLifeOsSignals({ expenses = [], loading = false, totalWalletBalance
   if (!top) {
     signals.push({
       key: "no-trend-yet",
-      type: "Build memory",
+      type: "Spending memory",
       icon: Sparkles,
-      severity: "Low signal",
-      title: "No clear damage pattern yet.",
-      body: "Keep logging your spending so CLARA can detect the behavior that may quietly hurt you this month.",
-      focus: "Build spending memory",
+      severity: "No leak yet",
+      title: "No major leak detected yet.",
+      body: "Keep logging your spending so CLARA can spot what may quietly hurt your month.",
+      focus: "Keep building CLARA's memory",
       protect: "Awareness",
       timing: "This month",
-      action: "Log honestly for a few more days so CLARA can learn the real pattern.",
+      action: "Keep logging honestly so CLARA can learn the pattern before it becomes a leak.",
       points: [
-        "There is not enough monthly spending data yet.",
+        "There is not enough monthly spending data yet for a strong warning.",
         "LifeOS needs repeated behavior before it can warn responsibly.",
         "Once patterns appear, CLARA will surface only the strongest signal here.",
       ],
