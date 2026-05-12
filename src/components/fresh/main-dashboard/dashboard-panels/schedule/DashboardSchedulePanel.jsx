@@ -5,7 +5,6 @@ import {
   ChevronRight,
   CreditCard,
   Plus,
-  Sparkles,
   Trash2,
   WalletCards,
   X,
@@ -216,65 +215,30 @@ function getMonthlyInsight({ sortedEvents, monthDate, todayKey }) {
   });
 
   if (moneyEvents.length >= 3) {
-    return {
-      icon: CreditCard,
-      badge: "Heavy month",
-      title: "Several money-impact moments.",
-      body: `CLARA sees ${moneyEvents.length} money-sensitive schedules. Give them space before optional spending.`,
-    };
+    return `Several money-impact moments this month. Give them space before optional spending.`;
   }
 
   if (nextMoneyEvent) {
-    return {
-      icon: CreditCard,
-      badge: "Prepare early",
-      title: `Next pressure: ${displayTitle(nextMoneyEvent)}.`,
-      body: `Scheduled for ${formatDate(nextMoneyEvent.date)}. Keep it in mind before casual spending.`,
-    };
+    return `Next pressure: ${displayTitle(nextMoneyEvent)} on ${formatDate(nextMoneyEvent.date)}. Keep it in mind before casual spending.`;
   }
 
   if (paydayEvent) {
-    return {
-      icon: WalletCards,
-      badge: "Payday rhythm",
-      title: "Payday is part of this month.",
-      body: "Plan the first move before confidence spending starts.",
-    };
+    return "Payday is part of this month. Plan the first move before confidence spending starts.";
   }
 
   if (relationshipEvent) {
-    return {
-      icon: CalendarDays,
-      badge: "Intentional time",
-      title: "Meaningful schedule detected.",
-      body: "Make it intentional, not impulsive.",
-    };
+    return "Meaningful schedule detected. Make it intentional, not impulsive.";
   }
 
   if (monthEvents.length >= 6) {
-    return {
-      icon: CalendarDays,
-      badge: "Busy month",
-      title: "This month may feel crowded.",
-      body: "Slow money decisions on busy weeks.",
-    };
+    return "This month may feel crowded. Slow money decisions on busy weeks.";
   }
 
   if (monthEvents.length === 0) {
-    return {
-      icon: Sparkles,
-      badge: "Breathing room",
-      title: "Your month looks breathable.",
-      body: "Add bills, payday, or expected costs when ready.",
-    };
+    return "Your month looks breathable. Add bills, payday, or expected costs when ready.";
   }
 
-  return {
-    icon: Sparkles,
-    badge: "Light month",
-    title: "Your schedule looks manageable.",
-    body: "Nothing financially heavy right now.",
-  };
+  return "Your schedule looks manageable. Nothing financially heavy right now.";
 }
 
 function AgendaCard({ agenda, onOpen }) {
@@ -398,28 +362,10 @@ function CalendarMonth({ monthDate, cells, selectedDate, todayKey, byDate, onSel
 }
 
 function MonthlyInsightCard({ insight }) {
-  const Icon = insight.icon;
-
   return (
-    <section className="rounded-[20px] border border-white/8 bg-white/[.022] px-3 py-2.5 shadow-[0_10px_24px_rgba(0,0,0,.10)]">
-      <div className="flex items-start gap-2.5">
-        <div className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-xl border border-white/10 bg-white/[.035] text-cyan-100/62">
-          <Icon className="h-3.5 w-3.5" />
-        </div>
-
-        <div className="min-w-0 flex-1">
-          <div className="flex flex-wrap items-center gap-1.5">
-            <p className="text-[9px] font-black uppercase tracking-[.18em] text-white/34">CLARA observation</p>
-            <span className="rounded-full border border-white/8 bg-white/[.035] px-2 py-0.5 text-[9px] font-black uppercase tracking-[.1em] text-white/38">
-              {insight.badge}
-            </span>
-          </div>
-          <p className="mt-1 line-clamp-2 text-[12px] font-semibold leading-5 text-white/58">
-            <span className="font-black text-white/78">{insight.title}</span> {insight.body}
-          </p>
-        </div>
-      </div>
-    </section>
+    <p className="px-1 pb-1 text-[12px] font-semibold leading-5 text-white/48">
+      {insight}
+    </p>
   );
 }
 
