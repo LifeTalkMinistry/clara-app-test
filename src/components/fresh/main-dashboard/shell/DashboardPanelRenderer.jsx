@@ -1,7 +1,7 @@
 import { Link } from "react-router-dom";
 import { MessageCircle, Newspaper } from "lucide-react";
 import DashboardMePanel from "@/components/fresh/main-dashboard/dashboard-panels/me/DashboardMePanel";
-import DashboardLifeOSPanel from "@/components/fresh/main-dashboard/dashboard-panels/lifeos/DashboardLifeOSPanel";
+import DashboardSchedulePanel from "@/components/fresh/main-dashboard/dashboard-panels/schedule/DashboardSchedulePanel";
 
 function SettingsSocialCommunityShortcuts() {
   const shortcutClass =
@@ -74,7 +74,6 @@ export default function DashboardPanelRenderer({
   renderTask,
   renderSettings,
   renderMe,
-  renderLifeOS,
   fallback = null,
 }) {
   if (activePanel === "me") {
@@ -82,7 +81,7 @@ export default function DashboardPanelRenderer({
   }
 
   if (activePanel === "schedule") {
-    return renderLifeOS?.() ?? <DashboardLifeOSPanel />;
+    return <DashboardSchedulePanel />;
   }
 
   if (activePanel === "feed") return renderFeed?.() ?? fallback;
