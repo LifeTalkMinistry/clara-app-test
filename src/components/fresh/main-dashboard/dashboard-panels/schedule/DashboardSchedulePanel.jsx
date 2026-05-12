@@ -5,6 +5,7 @@ import {
   ChevronRight,
   CreditCard,
   Plus,
+  Sparkles,
   Trash2,
   WalletCards,
   X,
@@ -157,6 +158,11 @@ function buildMonthCells(monthDate) {
   return cells;
 }
 
+function isSameMonth(event, monthDate) {
+  const eventDate = fromDateKey(event?.date);
+  return eventDate.getFullYear() === monthDate.getFullYear() && eventDate.getMonth() === monthDate.getMonth();
+}
+
 function getSelectedAgenda({ selectedDate, todayKey, events }) {
   const moneyEvent = events.find(isMoneyEvent);
   const firstEvent = events[0];
@@ -196,6 +202,78 @@ function getSelectedAgenda({ selectedDate, todayKey, events }) {
       : "No schedule is attached here yet. Add one if this day may affect your money or plans.",
     icon: CalendarDays,
     clickable: false,
+  };
+}
+
+function getMonthlyInsight({ sortedEvents, monthDate, todayKey }) {
+  const monthEvents = sortedEvents.filter((event) => isSameMonth(event, monthDate));
+  const moneyEvents = monthEvents.filter(isMoneyEvent);
+  const nextMoneyEvent = sortedEvents.find((event) => event.date >= todayKey && isMoneyEvent(event));
+  const paydayEvent = monthEvents.find((event) => String(event?.type || "").toLowerCase() === "payday");
+  const relationshipEvent = monthEvents.find((event) => {
+    const text = `${event?.title || ""} ${event?.type || ""} ${event?.note || ""}`.toLowerCase();
+    return text.includes("date") || text.includes("relationship") || text.includes("partner") || text.includes("family");
+  });
+
+  if (moneyEvents.length >= 3) {
+    return {
+      icon: CreditCard,
+      badge: "Heavy month",
+      title: "This month has several money-impact moments.",
+      body: `CLARA sees ${moneyEvents.length} money-sensitive schedule${moneyEvents.length === 1 ? "" : "s"} this month. Give bills, payday, and expected costs enough space before optional spending.`,
+    };
+  }
+
+  if (nextMoneyEvent) {
+    return {
+      icon: CreditCard,
+      badge: "Prepare early",
+      title: `Next pressure: ${displayTitle(nextMoneyEvent)}.`,
+      body: `It is scheduled for ${formatDate(nextMoneyEvent.date)}. Keep this in mind before casual spending so the date does not surprise you later.`,
+    };
+  }
+
+  if (paydayEvent) {
+    return {
+      icon: WalletCards,
+      badge: "Payday rhythm",
+      title: "Payday is part of this month.",
+      body: "Plan the first move before confidence spending starts. CLARA works best when payday already has a direction.",
+    };
+  }
+
+  if (relationshipEvent) {
+    return {
+      icon: CalendarDays,
+      badge: "Intentional time",
+      title: "You have a meaningful schedule this month.",
+      body: "Make it intentional, not impulsive. A planned moment can protect both your relationships and your budget.",
+    };
+  }
+
+  if (monthEvents.length >= 6) {
+    return {
+      icon: CalendarDays,
+      badge: "Busy month",
+      title: "This month may feel crowded.",
+      body: "Your schedule has several moving parts. Keep money decisions slower on busy weeks so stress does not turn into spending.",
+    };
+  }
+
+  if (monthEvents.length === 0) {
+    return {
+      icon: Sparkles,
+      badge: "Breathing room",
+      title: "Your month looks financially breathable right now.",
+      body: "No visible schedule pressure yet. Add bills, payday, and expected costs so CLARA can protect the month before it gets crowded.",
+    };
+  }
+
+  return {
+    icon: Sparkles,
+    badge: "Light month",
+    title: "Your schedule looks manageable so far.",
+    body: "Nothing looks financially heavy right now. Keep the calendar updated so CLARA can warn you before pressure appears.",
   };
 }
 
@@ -314,6 +392,34 @@ function CalendarMonth({ monthDate, cells, selectedDate, todayKey, byDate, onSel
       <div className="mt-4 flex items-center gap-3 text-[10px] font-bold text-white/38">
         <span className="inline-flex items-center gap-1.5"><span className="h-1.5 w-1.5 rounded-full bg-fuchsia-200" /> Money impact</span>
         <span className="inline-flex items-center gap-1.5"><span className="h-1.5 w-1.5 rounded-full bg-cyan-200/75" /> Schedule</span>
+      </div>
+    </section>
+  );
+}
+
+function MonthlyInsightCard({ insight }) {
+  const Icon = insight.icon;
+
+  return (
+    <section className="relative overflow-hidden rounded-[26px] border border-white/10 bg-[linear-gradient(135deg,rgba(8,83,93,.18),rgba(18,24,63,.60)_52%,rgba(70,22,104,.34))] p-4 shadow-[0_14px_34px_rgba(0,0,0,.16)]">
+      <div className="pointer-events-none absolute -right-14 -bottom-16 h-40 w-40 rounded-full bg-fuchsia-400/10 blur-3xl" />
+      <div className="pointer-events-none absolute -left-14 -top-16 h-36 w-36 rounded-full bg-cyan-300/10 blur-3xl" />
+
+      <div className="relative flex gap-3.5">
+        <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-[18px] border border-white/12 bg-white/[.045] text-cyan-100/75 shadow-[0_0_18px_rgba(34,211,238,.09)]">
+          <Icon className="h-5 w-5" />
+        </div>
+
+        <div className="min-w-0 flex-1">
+          <div className="flex items-center justify-between gap-3">
+            <p className="text-[10px] font-black uppercase tracking-[.22em] text-white/40">CLARA observation</p>
+            <span className="rounded-full border border-white/10 bg-white/[.045] px-3 py-1 text-[10px] font-black uppercase tracking-[.13em] text-white/45">
+              {insight.badge}
+            </span>
+          </div>
+          <h3 className="mt-3 text-lg font-black leading-tight text-white">{insight.title}</h3>
+          <p className="mt-2 text-sm leading-6 text-white/58">{insight.body}</p>
+        </div>
       </div>
     </section>
   );
@@ -469,6 +575,10 @@ export default function DashboardSchedulePanel() {
     () => getSelectedAgenda({ selectedDate, todayKey: today, events: selectedEvents }),
     [selectedDate, selectedEvents, today]
   );
+  const monthlyInsight = useMemo(
+    () => getMonthlyInsight({ sortedEvents: sorted, monthDate, todayKey: today }),
+    [sorted, monthDate, today]
+  );
 
   const openAdd = (date = selectedDate) => {
     setForm({ title: "", date, time: "", type: "Personal", amount: "", note: "" });
@@ -525,6 +635,7 @@ export default function DashboardSchedulePanel() {
         onPrev={() => setMonthDate((current) => new Date(current.getFullYear(), current.getMonth() - 1, 1))}
         onNext={() => setMonthDate((current) => new Date(current.getFullYear(), current.getMonth() + 1, 1))}
       />
+      <MonthlyInsightCard insight={monthlyInsight} />
       <Sheet event={selectedEvent} mode={mode} form={form} setForm={setForm} onSave={save} onRemove={remove} onClose={close} />
     </div>
   );
