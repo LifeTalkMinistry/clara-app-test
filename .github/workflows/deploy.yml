@@ -34,6 +34,7 @@ jobs:
         env:
           VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
           VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY }}
+          VITE_GEMINI_API_KEY: ${{ secrets.VITE_GEMINI_API_KEY }}
         run: |
           missing=0
           if [ -z "$VITE_SUPABASE_URL" ]; then
@@ -44,8 +45,12 @@ jobs:
             echo "::error::Missing repository secret: VITE_SUPABASE_ANON_KEY"
             missing=1
           fi
+          if [ -z "$VITE_GEMINI_API_KEY" ]; then
+            echo "::error::Missing repository secret: VITE_GEMINI_API_KEY"
+            missing=1
+          fi
           if [ "$missing" -ne 0 ]; then
-            echo "Configure both secrets in GitHub: Settings -> Secrets and variables -> Actions."
+            echo "Configure required secrets in GitHub: Settings -> Secrets and variables -> Actions."
             exit 1
           fi
 
@@ -54,6 +59,7 @@ jobs:
         env:
           VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
           VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY }}
+          VITE_GEMINI_API_KEY: ${{ secrets.VITE_GEMINI_API_KEY }}
 
       - name: Deploy dist to gh-pages
         uses: peaceiris/actions-gh-pages@v3
