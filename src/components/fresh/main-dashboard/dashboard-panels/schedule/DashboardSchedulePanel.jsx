@@ -52,15 +52,6 @@ function seedEvents() {
 
   return [
     {
-      id: "sample-reset",
-      title: "Spending reset",
-      date: toDateKey(today),
-      time: "",
-      type: "Personal",
-      amount: "",
-      note: "Simple check-in. Keep today intentional.",
-    },
-    {
       id: "sample-bill",
       title: "Bill protection",
       date: toDateKey(addDays(today, 3)),
@@ -90,7 +81,14 @@ function readEvents(user) {
     const parsed = raw ? JSON.parse(raw) : legacy ? JSON.parse(legacy) : null;
 
     if (!Array.isArray(parsed) || parsed.length === 0) return seedEvents();
-    return parsed.filter((event) => event?.id && event?.title && event?.date);
+
+    const cleaned = parsed.filter((event) => {
+      const title = String(event?.title || "").toLowerCase();
+      const isOldSampleCheckin = event?.id === "sample-reset" || event?.id === "sample-checkin" || title.includes("lifeos check-in");
+      return event?.id && event?.title && event?.date && !isOldSampleCheckin;
+    });
+
+    return cleaned.length ? cleaned : seedEvents();
   } catch {
     return seedEvents();
   }
@@ -120,7 +118,6 @@ function displayTitle(event) {
   const lower = title.toLowerCase();
   const type = String(event?.type || "").toLowerCase();
 
-  if (lower.includes("lifeos check")) return "Spending reset";
   if (lower.includes("bill reminder")) return "Bill protection";
   if (lower.includes("rent")) return "Rent protection";
   if (lower.includes("payday")) return "Payday planning";
@@ -133,11 +130,11 @@ function displayTitle(event) {
 
 function impactMessage(event) {
   if (!event) {
-    return "No upcoming money-impact schedule yet. Add bills, payday, or expected costs so CLARA can warn you ahead.";
+    return "Nothing money-sensitive is attached to this day yet.";
   }
 
   const amountText = event.amount ? ` Around ₱${event.amount} may be involved.` : "";
-  return `${displayTitle(event)} is coming on ${formatDate(event.date)}.${amountText} Prepare before it affects optional spending.`;
+  return `${displayTitle(event)} is scheduled on ${formatDate(event.date)}.${amountText} Prepare before it affects optional spending.`;
 }
 
 function buildMonthCells(monthDate) {
@@ -163,31 +160,74 @@ function TypeIcon({ event }) {
   return <Icon className="h-4 w-4" />;
 }
 
-function ImpactCard({ event, onOpen }) {
+function getSelectedAgenda({ selectedDate, todayKey, events }) {
+  const moneyEvent = events.find(isMoneyEvent);
+  const firstEvent = events[0];
+  const isToday = selectedDate === todayKey;
+
+  if (moneyEvent) {
+    return {
+      event: moneyEvent,
+      label: isToday ? "Today impact" : "Money impact",
+      badge: "Watch",
+      title: displayTitle(moneyEvent),
+      body: impactMessage(moneyEvent),
+      icon: CreditCard,
+      clickable: true,
+    };
+  }
+
+  if (firstEvent) {
+    return {
+      event: firstEvent,
+      label: isToday ? "Today agenda" : "Selected agenda",
+      badge: "Planned",
+      title: displayTitle(firstEvent),
+      body: "This schedule has no money impact yet. Add a ₱ impact if CLARA should watch it financially.",
+      icon: CalendarDays,
+      clickable: true,
+    };
+  }
+
+  return {
+    event: null,
+    label: isToday ? "Today agenda" : "Selected day",
+    badge: "Clear",
+    title: isToday ? "No agenda today." : "No agenda on this day.",
+    body: isToday
+      ? "Nothing to watch out for today. You can breathe and keep your spending simple."
+      : "No schedule is attached here yet. Add one if this day may affect your money or plans.",
+    icon: CalendarDays,
+    clickable: false,
+  };
+}
+
+function AgendaCard({ agenda, onOpen }) {
+  const Icon = agenda.icon;
+
   return (
     <button
       type="button"
-      onClick={() => event && onOpen(event)}
-      className="relative w-full overflow-hidden rounded-[26px] border border-cyan-300/18 bg-[linear-gradient(135deg,rgba(8,83,93,.28),rgba(18,24,63,.68)_50%,rgba(70,22,104,.42))] p-4 text-left shadow-[0_14px_34px_rgba(0,0,0,.18)] transition active:scale-[.99]"
+      onClick={() => agenda.event && onOpen(agenda.event)}
+      className="relative w-full overflow-hidden rounded-[26px] border border-cyan-300/18 bg-[linear-gradient(135deg,rgba(8,83,93,.28),rgba(18,24,63,.68)_50%,rgba(70,22,104,.42))] p-4 text-left shadow-[0_14px_34px_rgba(0,0,0,.18)] transition active:scale-[.99] disabled:cursor-default"
+      disabled={!agenda.clickable}
     >
       <div className="pointer-events-none absolute -bottom-20 -left-20 h-40 w-40 rounded-full bg-cyan-300/11 blur-3xl" />
       <div className="pointer-events-none absolute -right-16 -top-16 h-40 w-40 rounded-full bg-fuchsia-400/11 blur-3xl" />
 
       <div className="relative flex gap-3.5">
         <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-[20px] border border-cyan-300/18 bg-cyan-300/[.055] text-cyan-100 shadow-[0_0_20px_rgba(34,211,238,.11)]">
-          <CreditCard className="h-5 w-5" />
+          <Icon className="h-5 w-5" />
         </div>
         <div className="min-w-0 flex-1">
           <div className="flex items-center justify-between gap-3">
-            <p className="text-[10px] font-black uppercase tracking-[.22em] text-cyan-100/70">Money impact</p>
+            <p className="text-[10px] font-black uppercase tracking-[.22em] text-cyan-100/70">{agenda.label}</p>
             <span className="rounded-full border border-white/12 bg-white/[.055] px-3 py-1 text-[10px] font-black uppercase tracking-[.13em] text-white/52">
-              {event ? "Upcoming" : "Clear"}
+              {agenda.badge}
             </span>
           </div>
-          <h3 className="mt-3 text-lg font-black leading-tight text-white">
-            {event ? displayTitle(event) : "No money-impact schedule ahead."}
-          </h3>
-          <p className="mt-2 text-sm leading-6 text-white/60">{impactMessage(event)}</p>
+          <h3 className="mt-3 text-lg font-black leading-tight text-white">{agenda.title}</h3>
+          <p className="mt-2 text-sm leading-6 text-white/60">{agenda.body}</p>
         </div>
       </div>
     </button>
@@ -385,7 +425,10 @@ export default function DashboardSchedulePanel() {
   }, [sorted]);
   const cells = useMemo(() => buildMonthCells(monthDate), [monthDate]);
   const selectedEvents = byDate[selectedDate] || [];
-  const nextMoneyEvent = useMemo(() => sorted.find((event) => event.date >= today && isMoneyEvent(event)), [sorted, today]);
+  const selectedAgenda = useMemo(
+    () => getSelectedAgenda({ selectedDate, todayKey: today, events: selectedEvents }),
+    [selectedDate, selectedEvents, today]
+  );
 
   const openAdd = (date = selectedDate) => {
     setForm({ title: "", date, time: "", type: "Personal", amount: "", note: "" });
@@ -430,7 +473,7 @@ export default function DashboardSchedulePanel() {
 
   return (
     <div className="space-y-3.5">
-      <ImpactCard event={nextMoneyEvent} onOpen={openEvent} />
+      <AgendaCard agenda={selectedAgenda} onOpen={openEvent} />
       <CalendarMonth
         monthDate={monthDate}
         cells={cells}
