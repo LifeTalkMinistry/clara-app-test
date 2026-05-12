@@ -72,8 +72,8 @@ function EditContextPanel({ profile, setProfile }) {
         <div className="flex items-start justify-between gap-4">
           <div>
             <p className="text-[11px] font-black uppercase tracking-[0.22em] text-cyan-100/70">Edit context</p>
-            <h3 className="mt-3 text-2xl font-black leading-tight text-white">{field ? field.label : "What should CLARA remember?"}</h3>
-            <p className="mt-2 text-sm leading-6 text-white/72">{field ? field.helper : "Keep it simple. Change only what matters today."}</p>
+            <h3 className="mt-3 text-2xl font-black leading-tight text-white">{field ? field.label : "What should CLARA know about you?"}</h3>
+            <p className="mt-2 text-sm leading-6 text-white/72">{field ? field.helper : "These details help CLARA guide your spending with your real life in mind."}</p>
           </div>
           {field ? (
             <button type="button" onClick={() => setFieldKey(null)} className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl border border-white/10 bg-white/[0.04] text-white/60" aria-label="Back to context list">
