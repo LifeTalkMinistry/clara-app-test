@@ -35,6 +35,34 @@ function isPositiveNumber(value) {
   return Number.isFinite(number) && number > 0;
 }
 
+function extractMoneyAmounts(text = "") {
+  return [...String(text || "").replace(/,/g, "").matchAll(/(?:₱|php\s*)?\d+(?:\.\d{1,2})?/gi)]
+    .map((match) => Number(String(match[0]).replace(/php/gi, "").replace(/₱/g, "").trim()))
+    .filter((number) => Number.isFinite(number) && number > 0);
+}
+
+function extractUserClaimedTotalMoney(text = "") {
+  const clean = String(text || "").replace(/,/g, "");
+  const patterns = [
+    /(?:i\s*(?:still\s*)?have|i\s*currently\s*have|my\s*wallet\s*(?:has|have)|total\s*(?:money|wallets?|balance)|money\s*left)\D{0,40}(?:₱|php\s*)?(\d+(?:\.\d{1,2})?)/i,
+    /(?:₱|php\s*)?(\d+(?:\.\d{1,2})?)\D{0,28}(?:total|across\s+my\s+wallets|in\s+my\s+wallets|money\s+left)/i,
+  ];
+
+  for (const pattern of patterns) {
+    const match = clean.match(pattern);
+    const amount = match ? Number(match[1]) : null;
+    if (Number.isFinite(amount) && amount > 0) return amount;
+  }
+
+  return null;
+}
+
+function isMeaningfulMoneyMismatch(claimedAmount, actualAmount) {
+  if (!isPositiveNumber(claimedAmount) || !isPositiveNumber(actualAmount)) return false;
+  const difference = Math.abs(Number(claimedAmount) - Number(actualAmount));
+  return difference >= 500 && difference / Math.max(Number(actualAmount), 1) >= 0.15;
+}
+
 function shortList(items = [], formatter, empty = "none loaded") {
   const rows = Array.isArray(items) ? items : [];
   const text = rows
@@ -138,6 +166,11 @@ function buildGeminiPrompt({ message, context, mode }) {
   const summary = summarizeSnapshot(context);
   const decision = summarizeDecisionContext(message, context);
   const signals = decision.purchaseSignals || {};
+  const claimedTotalMoney = extractUserClaimedTotalMoney(message);
+  const moneyClaimMismatch = isMeaningfulMoneyMismatch(
+    claimedTotalMoney,
+    summary.availableMoney
+  );
 
   return `You are CLARA, the user's private money buddy.
 
@@ -150,6 +183,14 @@ Grounding rule:
 - Do not invent wallet names, savings goals, debt, investment, income, or budget categories.
 - If a card is not connected or not loaded, say that simply.
 - If the user asks what cards you can see, answer with the card inventory and mention what still looks disconnected.
+
+Sync rule:
+- Trust the app wallet/card data first, not the user's claimed amount.
+- If the user claims they have more money than CLARA currently sees, gently correct it before giving spending advice.
+- Say something like: Hmm, I only see ₱X in your wallet right now. If you really have ₱Y, update your wallet first so we stay synced.
+- Remind the user to update wallets, expenses, transfers, and budget changes before asking for spending approval.
+- Never approve a purchase based only on money the user says they have if it is not visible in CLARA.
+- Keep this reminder friendly, not scolding.
 
 Wallet thinking:
 - Total money is not the same as free money.
@@ -172,11 +213,17 @@ Vary your opening. Do not start every answer with the same phrase. You may natur
 Small card output:
 - For purchase decisions, write 2 complete sentences and keep it short.
 - For card visibility or dashboard-data questions, you may write up to 4 short sentences so the answer is complete.
+- If the user's claimed money does not match CLARA's visible wallet data, the FIRST sentence must mention the mismatch and syncing reminder.
 - End with punctuation.
 - No markdown, bullets, headings, emojis, or quotes.
 
 User message: ${message}
 Mode: ${mode || "normal_chat"}
+
+User claimed total money:
+- Claimed visible/total money: ${money(claimedTotalMoney)}
+- Current CLARA visible wallet money: ${money(summary.availableMoney)}
+- Claim mismatch with app data: ${yesNo(moneyClaimMismatch)}
 
 Finance card inventory:
 - ${summary.cardInventory}
