@@ -56,6 +56,10 @@ function formatTimelineDate(dateKey) {
   });
 }
 
+function formatDayLabel(date) {
+  return date.toLocaleDateString("en-US", { weekday: "short" }).slice(0, 1);
+}
+
 function getStorageKey(user) {
   return `${STORAGE_PREFIX}_${user?.id || user?.email || "guest"}`;
 }
@@ -131,7 +135,35 @@ function saveSchedule(user, events) {
 
 function isMoneyEvent(event) {
   const type = String(event?.type || "").toLowerCase();
-  return Boolean(event?.amount) || ["bill", "payday"].includes(type);
+  return Boolean(event?.amount) || ["bill", "payday", "money"].includes(type);
+}
+
+function getDisplayEventTitle(event) {
+  const title = String(event?.title || "Schedule").trim();
+  const lower = title.toLowerCase();
+  const type = String(event?.type || "").toLowerCase();
+
+  if (lower.includes("lifeos check")) return "Spending reset";
+  if (lower.includes("bill reminder")) return "Bill protection";
+  if (lower.includes("rent")) return "Rent protection";
+  if (lower.includes("payday")) return "Payday planning";
+  if (lower.includes("grocery")) return "Grocery reset";
+  if (lower.includes("rest")) return "Rest & recovery";
+  if (type === "bill") return `${title} protection`;
+  if (type === "payday") return `${title} planning`;
+
+  return title;
+}
+
+function getEventMeaning(event) {
+  const type = String(event?.type || "").toLowerCase();
+  if (type === "bill" || type === "money") return "Protect money before this date.";
+  if (type === "payday") return "Plan before confidence spending starts.";
+  if (type === "health") return "Energy affects spending choices.";
+  if (type === "relationship") return "Make it meaningful, not impulsive.";
+  if (type === "family") return "Responsibility may affect flexibility.";
+  if (event?.amount) return `Prepare around ₱${event.amount}.`;
+  return event?.note || "A future moment CLARA should consider.";
 }
 
 function getScheduleClimate({ todayEvents, nextSevenDays }) {
@@ -143,7 +175,7 @@ function getScheduleClimate({ todayEvents, nextSevenDays }) {
       label: "High Spending Risk",
       tone: "Pressure nearby",
       icon: CreditCard,
-      body: "Your schedule has money-sensitive moments close together. Keep decisions planned, not emotional.",
+      body: "Money-sensitive moments are close together. Keep decisions planned, not emotional.",
       detail: [
         "Multiple commitments can make small spending feel harmless.",
         "Money-sensitive events deserve space before optional purchases.",
@@ -157,7 +189,7 @@ function getScheduleClimate({ todayEvents, nextSevenDays }) {
       label: "Steady Day",
       tone: "Calm timing",
       icon: Sparkles,
-      body: "Your schedule looks light today. This is a good day to keep your money rhythm simple.",
+      body: "Your schedule looks light today. Keep your money rhythm simple.",
       detail: [
         "No heavy schedule pressure is visible today.",
         "Calm days are good for reviewing plans before stress arrives.",
@@ -170,7 +202,7 @@ function getScheduleClimate({ todayEvents, nextSevenDays }) {
     label: "Focused Day",
     tone: "Stay aware",
     icon: CalendarDays,
-    body: "There are upcoming moments to watch, but nothing needs to feel heavy right now.",
+    body: "There are moments to watch, but nothing needs to feel heavy right now.",
     detail: [
       "Your schedule has activity, but not enough to call it high pressure.",
       "This is a good time to reserve money calmly.",
@@ -181,7 +213,7 @@ function getScheduleClimate({ todayEvents, nextSevenDays }) {
 
 function getGuidance({ climate, nextMoneyEvent }) {
   if (nextMoneyEvent) {
-    return `Prepare for ${nextMoneyEvent.title}. Keep money intentional before ${formatShortDate(nextMoneyEvent.date)}.`;
+    return `Prepare for ${getDisplayEventTitle(nextMoneyEvent)}. Keep money intentional before ${formatShortDate(nextMoneyEvent.date)}.`;
   }
 
   if (climate.label === "High Spending Risk") {
@@ -197,7 +229,7 @@ function getGuidance({ climate, nextMoneyEvent }) {
 
 function TypeIcon({ type, className = "h-4 w-4" }) {
   const normalized = String(type || "").toLowerCase();
-  const Icon = normalized === "bill"
+  const Icon = normalized === "bill" || normalized === "money"
     ? CreditCard
     : normalized === "payday"
       ? WalletCards
@@ -214,28 +246,28 @@ function TypeIcon({ type, className = "h-4 w-4" }) {
 
 function ScheduleHeader({ monthLabel, onAdd }) {
   return (
-    <section className="relative overflow-hidden rounded-[30px] border border-white/12 bg-[linear-gradient(135deg,rgba(13,65,78,0.76),rgba(16,24,55,0.88)_48%,rgba(55,24,100,0.80))] p-4 shadow-[0_18px_44px_rgba(0,0,0,0.22)]">
-      <div className="pointer-events-none absolute -left-16 -top-16 h-40 w-40 rounded-full bg-cyan-300/12 blur-3xl" />
-      <div className="pointer-events-none absolute -right-14 -bottom-14 h-44 w-44 rounded-full bg-fuchsia-400/12 blur-3xl" />
+    <section className="relative overflow-hidden rounded-[28px] border border-white/12 bg-[linear-gradient(135deg,rgba(13,65,78,0.74),rgba(16,24,55,0.86)_48%,rgba(55,24,100,0.78))] p-3.5 shadow-[0_16px_38px_rgba(0,0,0,0.20)]">
+      <div className="pointer-events-none absolute -left-16 -top-16 h-36 w-36 rounded-full bg-cyan-300/12 blur-3xl" />
+      <div className="pointer-events-none absolute -right-14 -bottom-14 h-38 w-38 rounded-full bg-fuchsia-400/12 blur-3xl" />
 
-      <div className="relative flex items-start justify-between gap-4">
+      <div className="relative flex items-start justify-between gap-3">
         <div className="min-w-0 flex-1">
-          <p className="text-[11px] font-black uppercase tracking-[0.22em] text-cyan-100/70">Schedule</p>
-          <h2 className="mt-3 text-2xl font-black leading-tight text-white">Your time affects your money.</h2>
-          <p className="mt-2 text-sm leading-6 text-white/58">
-            CLARA helps you see upcoming moments that may affect spending, stress, and priorities.
+          <p className="text-[10px] font-black uppercase tracking-[0.22em] text-cyan-100/70">Schedule</p>
+          <h2 className="mt-2 text-xl font-black leading-tight text-white">Your time affects your money.</h2>
+          <p className="mt-1.5 max-w-[260px] text-xs leading-5 text-white/58">
+            See upcoming moments before they become spending pressure.
           </p>
         </div>
 
         <div className="shrink-0 text-right">
-          <div className="inline-flex items-center gap-2 rounded-2xl border border-cyan-300/18 bg-white/[0.055] px-3 py-2 text-xs font-black text-white/70">
-            <span className="h-2 w-2 rounded-full bg-cyan-200 shadow-[0_0_12px_rgba(103,232,249,.65)]" />
+          <div className="inline-flex items-center gap-2 rounded-2xl border border-cyan-300/18 bg-white/[0.055] px-2.5 py-1.5 text-[11px] font-black text-white/70">
+            <span className="h-1.5 w-1.5 rounded-full bg-cyan-200 shadow-[0_0_12px_rgba(103,232,249,.65)]" />
             {monthLabel}
           </div>
           <button
             type="button"
             onClick={onAdd}
-            className="mt-3 inline-flex h-10 w-10 items-center justify-center rounded-2xl border border-cyan-300/20 bg-cyan-300/[0.08] text-cyan-50 shadow-[0_0_18px_rgba(34,211,238,.12)] transition active:scale-95"
+            className="mt-2 inline-flex h-9 w-9 items-center justify-center rounded-2xl border border-cyan-300/20 bg-cyan-300/[0.08] text-cyan-50 shadow-[0_0_18px_rgba(34,211,238,.12)] transition active:scale-95"
             aria-label="Add schedule"
           >
             <Plus className="h-4 w-4" />
@@ -248,7 +280,7 @@ function ScheduleHeader({ monthLabel, onAdd }) {
 
 function ScheduleTabs({ activeTab, setActiveTab }) {
   return (
-    <div className="grid grid-cols-2 rounded-[24px] border border-white/12 bg-white/[0.035] p-1 shadow-[0_14px_34px_rgba(0,0,0,0.14)]">
+    <div className="grid grid-cols-2 rounded-[22px] border border-white/12 bg-white/[0.03] p-0.5 shadow-[0_12px_28px_rgba(0,0,0,0.12)]">
       {["today", "upcoming"].map((tab) => {
         const active = activeTab === tab;
         return (
@@ -256,10 +288,10 @@ function ScheduleTabs({ activeTab, setActiveTab }) {
             key={tab}
             type="button"
             onClick={() => setActiveTab(tab)}
-            className={`rounded-[20px] px-4 py-3 text-sm font-black capitalize transition active:scale-[0.99] ${
+            className={`rounded-[18px] px-4 py-2 text-xs font-black capitalize transition active:scale-[0.99] ${
               active
-                ? "border border-cyan-300/24 bg-cyan-300/[0.10] text-white shadow-[0_0_22px_rgba(34,211,238,0.12),0_0_18px_rgba(236,72,153,0.08)]"
-                : "text-white/45 hover:bg-white/[0.04] hover:text-white/70"
+                ? "border border-cyan-300/22 bg-cyan-300/[0.095] text-white shadow-[0_0_18px_rgba(34,211,238,0.11),0_0_14px_rgba(236,72,153,0.07)]"
+                : "text-white/42 hover:bg-white/[0.04] hover:text-white/70"
             }`}
           >
             {tab}
@@ -270,6 +302,51 @@ function ScheduleTabs({ activeTab, setActiveTab }) {
   );
 }
 
+function MiniCalendarStrip({ days, eventsByDate, todayKey, onSelectDate }) {
+  return (
+    <section className="rounded-[24px] border border-white/10 bg-white/[0.028] p-3 shadow-[0_12px_28px_rgba(0,0,0,0.12)]">
+      <div className="mb-3 flex items-center justify-between gap-3">
+        <p className="text-[10px] font-black uppercase tracking-[0.18em] text-white/35">7-day view</p>
+        <p className="text-[11px] font-bold text-white/38">Dots mean something is coming</p>
+      </div>
+
+      <div className="grid grid-cols-7 gap-1.5">
+        {days.map((date) => {
+          const dateKey = toDateKey(date);
+          const isToday = dateKey === todayKey;
+          const count = eventsByDate[dateKey] || 0;
+
+          return (
+            <button
+              key={dateKey}
+              type="button"
+              onClick={() => onSelectDate(dateKey)}
+              className={`relative flex min-h-[58px] flex-col items-center justify-center rounded-2xl border transition active:scale-[0.96] ${
+                isToday
+                  ? "border-cyan-300/32 bg-cyan-300/[0.08] text-white shadow-[0_0_16px_rgba(34,211,238,.11)]"
+                  : count
+                    ? "border-fuchsia-300/18 bg-fuchsia-300/[0.045] text-white/72"
+                    : "border-white/8 bg-white/[0.02] text-white/42 hover:bg-white/[0.04]"
+              }`}
+              aria-label={`Open ${dateKey}`}
+            >
+              <span className="text-[10px] font-black uppercase tracking-[0.08em]">{formatDayLabel(date)}</span>
+              <span className="mt-1 text-sm font-black">{date.getDate()}</span>
+              {count ? (
+                <span className="absolute bottom-1.5 flex gap-0.5">
+                  {Array.from({ length: Math.min(count, 3) }).map((_, index) => (
+                    <span key={index} className="h-1 w-1 rounded-full bg-cyan-200/80" />
+                  ))}
+                </span>
+              ) : null}
+            </button>
+          );
+        })}
+      </div>
+    </section>
+  );
+}
+
 function TodayClimateCard({ climate, onOpen }) {
   const Icon = climate.icon;
 
@@ -277,27 +354,27 @@ function TodayClimateCard({ climate, onOpen }) {
     <button
       type="button"
       onClick={onOpen}
-      className="group relative w-full overflow-hidden rounded-[28px] border border-cyan-300/20 bg-[linear-gradient(135deg,rgba(8,83,93,.36),rgba(18,24,63,.72)_50%,rgba(70,22,104,.48))] p-5 text-left shadow-[0_18px_44px_rgba(0,0,0,0.24)] transition hover:border-cyan-300/32 hover:bg-white/[0.04] active:scale-[0.99]"
+      className="group relative w-full overflow-hidden rounded-[26px] border border-cyan-300/18 bg-[linear-gradient(135deg,rgba(8,83,93,.32),rgba(18,24,63,.70)_50%,rgba(70,22,104,.44))] p-4 text-left shadow-[0_16px_38px_rgba(0,0,0,0.22)] transition hover:border-cyan-300/30 hover:bg-white/[0.04] active:scale-[0.99]"
     >
-      <div className="pointer-events-none absolute -bottom-20 -left-20 h-44 w-44 rounded-full bg-cyan-300/12 blur-3xl" />
-      <div className="pointer-events-none absolute -right-16 -top-16 h-44 w-44 rounded-full bg-fuchsia-400/12 blur-3xl motion-safe:animate-pulse" />
+      <div className="pointer-events-none absolute -bottom-20 -left-20 h-40 w-40 rounded-full bg-cyan-300/11 blur-3xl" />
+      <div className="pointer-events-none absolute -right-16 -top-16 h-40 w-40 rounded-full bg-fuchsia-400/11 blur-3xl motion-safe:animate-pulse" />
 
       <div className="relative flex items-center justify-between gap-4">
-        <p className="text-[11px] font-black uppercase tracking-[0.22em] text-cyan-100/70">Today climate</p>
+        <p className="text-[10px] font-black uppercase tracking-[0.22em] text-cyan-100/70">Today climate</p>
         <span className="rounded-full border border-white/12 bg-white/[0.055] px-3 py-1 text-[10px] font-black uppercase tracking-[0.13em] text-white/52">
           {climate.tone}
         </span>
       </div>
 
-      <div className="relative mt-5 flex items-start gap-4">
-        <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-[22px] border border-cyan-300/20 bg-cyan-300/[0.06] text-cyan-100 shadow-[0_0_22px_rgba(34,211,238,.12)] transition group-hover:scale-105">
-          <Icon className="h-6 w-6" />
+      <div className="relative mt-4 flex items-start gap-3.5">
+        <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-[20px] border border-cyan-300/18 bg-cyan-300/[0.055] text-cyan-100 shadow-[0_0_20px_rgba(34,211,238,.11)] transition group-hover:scale-105">
+          <Icon className="h-5 w-5" />
         </div>
 
         <div className="min-w-0 flex-1">
-          <h3 className="text-xl font-black leading-tight text-white">{climate.label}</h3>
-          <p className="mt-2 text-sm leading-6 text-white/60">{climate.body}</p>
-          <p className="mt-4 inline-flex items-center gap-2 text-xs font-black uppercase tracking-[0.16em] text-cyan-100/64">
+          <h3 className="text-lg font-black leading-tight text-white">{climate.label}</h3>
+          <p className="mt-2 text-sm leading-6 text-white/58">{climate.body}</p>
+          <p className="mt-3 inline-flex items-center gap-2 text-[11px] font-black uppercase tracking-[0.16em] text-cyan-100/62">
             Understand timing
             <ChevronRight className="h-3.5 w-3.5" />
           </p>
@@ -311,7 +388,7 @@ function EventStrip({ events, onOpen, onAdd }) {
   return (
     <section className="space-y-3">
       <div className="flex items-center justify-between gap-3">
-        <p className="text-[11px] font-black uppercase tracking-[0.18em] text-white/35">Coming up</p>
+        <p className="text-[10px] font-black uppercase tracking-[0.18em] text-white/35">Coming up</p>
         <button type="button" onClick={onAdd} className="text-xs font-black text-cyan-100/62">Add</button>
       </div>
 
@@ -322,16 +399,16 @@ function EventStrip({ events, onOpen, onAdd }) {
               key={event.id}
               type="button"
               onClick={() => onOpen(event)}
-              className="min-w-[154px] rounded-[24px] border border-white/10 bg-white/[0.035] p-4 text-left shadow-[0_14px_30px_rgba(0,0,0,0.14)] transition hover:border-cyan-300/22 hover:bg-white/[0.055] active:scale-[0.98]"
+              className="min-w-[146px] rounded-[22px] border border-white/10 bg-white/[0.033] p-3.5 text-left shadow-[0_12px_26px_rgba(0,0,0,0.13)] transition hover:border-cyan-300/22 hover:bg-white/[0.052] active:scale-[0.98]"
             >
               <div className="flex items-center justify-between gap-2">
-                <div className="flex h-10 w-10 items-center justify-center rounded-2xl border border-white/12 bg-white/[0.045] text-cyan-100/75">
+                <div className="flex h-9 w-9 items-center justify-center rounded-2xl border border-white/12 bg-white/[0.045] text-cyan-100/75">
                   <TypeIcon type={event.type} />
                 </div>
                 <span className="text-[10px] font-black uppercase tracking-[0.12em] text-white/35">{formatShortDate(event.date)}</span>
               </div>
-              <p className="mt-3 truncate text-sm font-black text-white">{event.title}</p>
-              <p className="mt-1 truncate text-xs font-semibold text-white/42">{event.amount ? `₱${event.amount}` : event.type}</p>
+              <p className="mt-3 truncate text-sm font-black text-white">{getDisplayEventTitle(event)}</p>
+              <p className="mt-1 truncate text-xs font-semibold text-white/42">{event.amount ? `₱${event.amount} impact` : getEventMeaning(event)}</p>
             </button>
           ))}
 
@@ -352,23 +429,23 @@ function EventStrip({ events, onOpen, onAdd }) {
 
 function GuidanceCard({ guidance, onAsk }) {
   return (
-    <section className="relative overflow-hidden rounded-[28px] border border-fuchsia-400/16 bg-[linear-gradient(135deg,rgba(8,83,93,.20),rgba(36,17,78,.54),rgba(72,12,105,.34))] p-5 shadow-[0_16px_40px_rgba(0,0,0,0.20)]">
-      <div className="pointer-events-none absolute -right-12 -bottom-16 h-40 w-40 rounded-full bg-fuchsia-400/12 blur-3xl" />
+    <section className="relative overflow-hidden rounded-[26px] border border-fuchsia-400/16 bg-[linear-gradient(135deg,rgba(8,83,93,.18),rgba(36,17,78,.50),rgba(72,12,105,.32))] p-4 shadow-[0_14px_34px_rgba(0,0,0,0.18)]">
+      <div className="pointer-events-none absolute -right-12 -bottom-16 h-36 w-36 rounded-full bg-fuchsia-400/12 blur-3xl" />
       <div className="relative flex items-start justify-between gap-4">
         <div className="min-w-0 flex-1">
-          <p className="text-[11px] font-black uppercase tracking-[0.22em] text-white/42">Daily guidance</p>
-          <h3 className="mt-3 text-xl font-black leading-tight text-white">Prepare before pressure.</h3>
+          <p className="text-[10px] font-black uppercase tracking-[0.22em] text-white/42">Daily guidance</p>
+          <h3 className="mt-2.5 text-lg font-black leading-tight text-white">Prepare before pressure.</h3>
           <p className="mt-2 text-sm leading-6 text-white/60">{guidance}</p>
         </div>
-        <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-full border border-cyan-300/20 bg-cyan-300/[0.055] text-cyan-100 shadow-[0_0_24px_rgba(34,211,238,.14)]">
-          <MessageCircle className="h-6 w-6" />
+        <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full border border-cyan-300/20 bg-cyan-300/[0.055] text-cyan-100 shadow-[0_0_22px_rgba(34,211,238,.12)]">
+          <MessageCircle className="h-5 w-5" />
         </div>
       </div>
 
       <button
         type="button"
         onClick={onAsk}
-        className="relative mt-5 rounded-2xl border border-cyan-300/22 bg-cyan-300/[0.075] px-4 py-2.5 text-sm font-black text-cyan-50 shadow-[0_0_18px_rgba(34,211,238,.10)] transition active:scale-[0.98]"
+        className="relative mt-4 rounded-2xl border border-cyan-300/22 bg-cyan-300/[0.075] px-4 py-2.5 text-sm font-black text-cyan-50 shadow-[0_0_18px_rgba(34,211,238,.10)] transition active:scale-[0.98]"
       >
         Ask CLARA
       </button>
@@ -381,7 +458,7 @@ function Timeline({ events, onOpen, onAdd }) {
     <section className="space-y-4">
       <div className="flex items-center justify-between gap-3">
         <div>
-          <p className="text-[11px] font-black uppercase tracking-[0.18em] text-white/35">Upcoming timeline</p>
+          <p className="text-[10px] font-black uppercase tracking-[0.18em] text-white/35">Upcoming timeline</p>
           <p className="mt-1 text-xs text-white/42">Future moments that may affect spending.</p>
         </div>
         <button
@@ -401,7 +478,7 @@ function Timeline({ events, onOpen, onAdd }) {
             key={event.id}
             type="button"
             onClick={() => onOpen(event)}
-            className="group relative w-full rounded-[24px] border border-white/10 bg-white/[0.035] p-4 text-left shadow-[0_14px_30px_rgba(0,0,0,0.14)] transition hover:border-cyan-300/22 hover:bg-white/[0.055] active:scale-[0.99]"
+            className="group relative w-full rounded-[24px] border border-white/10 bg-white/[0.033] p-4 text-left shadow-[0_14px_30px_rgba(0,0,0,0.14)] transition hover:border-cyan-300/22 hover:bg-white/[0.055] active:scale-[0.99]"
           >
             <span className="absolute -left-[21px] top-6 h-3.5 w-3.5 rounded-full border border-cyan-200/60 bg-cyan-300 shadow-[0_0_14px_rgba(34,211,238,.45)]" />
             <div className="flex items-start gap-3">
@@ -410,19 +487,30 @@ function Timeline({ events, onOpen, onAdd }) {
               </div>
               <div className="min-w-0 flex-1">
                 <div className="flex items-center justify-between gap-3">
-                  <p className="truncate text-sm font-black text-white">{event.title}</p>
+                  <p className="truncate text-sm font-black text-white">{getDisplayEventTitle(event)}</p>
                   <ChevronRight className="h-4 w-4 shrink-0 text-white/25 transition group-hover:text-cyan-100/65" />
                 </div>
                 <p className="mt-1 text-xs font-bold text-cyan-100/58">
                   {formatTimelineDate(event.date)} {event.time ? `• ${event.time}` : ""}
                 </p>
                 <p className="mt-2 line-clamp-2 text-xs leading-5 text-white/45">
-                  {event.note || (event.amount ? `Prepare around ₱${event.amount}.` : "Add a note so CLARA can guide better.")}
+                  {event.note || getEventMeaning(event)}
                 </p>
               </div>
             </div>
           </button>
         ))}
+
+        {events.length === 0 ? (
+          <button
+            type="button"
+            onClick={onAdd}
+            className="relative w-full rounded-[24px] border border-dashed border-white/12 bg-white/[0.025] p-4 text-left text-sm leading-6 text-white/50"
+          >
+            <span className="absolute -left-[21px] top-6 h-3.5 w-3.5 rounded-full border border-white/20 bg-white/20" />
+            Add one upcoming moment to begin your schedule awareness.
+          </button>
+        ) : null}
       </div>
     </section>
   );
@@ -442,7 +530,7 @@ function DetailSheet({ event, climate, mode, form, setForm, onSave, onDelete, on
 
   const isAdd = mode === "add";
   const isClimate = mode === "climate";
-  const title = isAdd ? "Add schedule" : isClimate ? climate.label : event?.title;
+  const title = isAdd ? "Add schedule" : isClimate ? climate.label : getDisplayEventTitle(event);
 
   return (
     <div
@@ -529,7 +617,7 @@ function DetailSheet({ event, climate, mode, form, setForm, onSave, onDelete, on
           <div className="mt-5 space-y-4">
             <div className="rounded-2xl border border-white/8 bg-white/[0.035] px-4 py-3">
               <p className="text-xs font-bold text-cyan-100/60">{formatTimelineDate(event.date)} {event.time ? `• ${event.time}` : ""}</p>
-              <p className="mt-2 text-sm leading-6 text-white/62">{event.note || "No detail yet. Add context later so CLARA can guide better."}</p>
+              <p className="mt-2 text-sm leading-6 text-white/62">{event.note || getEventMeaning(event)}</p>
             </div>
             {event.amount ? (
               <div className="rounded-2xl border border-fuchsia-400/14 bg-fuchsia-400/[0.055] px-4 py-3">
@@ -582,15 +670,32 @@ export default function DashboardLifeOSPanel() {
     const endKey = toDateKey(addDays(new Date(), 7));
     return upcomingEvents.filter((event) => event.date <= endKey);
   }, [upcomingEvents]);
+  const visibleDays = useMemo(() => Array.from({ length: 7 }, (_, index) => addDays(new Date(), index)), []);
+  const eventsByDate = useMemo(() => {
+    return sortedEvents.reduce((acc, event) => {
+      acc[event.date] = (acc[event.date] || 0) + 1;
+      return acc;
+    }, {});
+  }, [sortedEvents]);
 
   const climate = useMemo(() => getScheduleClimate({ todayEvents, nextSevenDays }), [todayEvents, nextSevenDays]);
   const nextMoneyEvent = useMemo(() => upcomingEvents.find(isMoneyEvent), [upcomingEvents]);
   const guidance = useMemo(() => getGuidance({ climate, nextMoneyEvent }), [climate, nextMoneyEvent]);
 
-  const openAddSheet = () => {
-    setForm({ title: "", date: todayKey, time: "", type: "Personal", amount: "", note: "" });
+  const openAddSheet = (dateKey = todayKey) => {
+    setForm({ title: "", date: dateKey, time: "", type: "Personal", amount: "", note: "" });
     setSelectedEvent(null);
     setSheetMode("add");
+  };
+
+  const openDateFromStrip = (dateKey) => {
+    const firstEvent = sortedEvents.find((event) => event.date === dateKey);
+    if (firstEvent) {
+      setSelectedEvent(firstEvent);
+      setSheetMode("event");
+      return;
+    }
+    openAddSheet(dateKey);
   };
 
   const openEventSheet = (event) => {
@@ -629,18 +734,19 @@ export default function DashboardLifeOSPanel() {
   };
 
   return (
-    <div className="space-y-4">
-      <ScheduleHeader monthLabel={formatMonth(new Date())} onAdd={openAddSheet} />
+    <div className="space-y-3.5">
+      <ScheduleHeader monthLabel={formatMonth(new Date())} onAdd={() => openAddSheet()} />
       <ScheduleTabs activeTab={activeTab} setActiveTab={setActiveTab} />
+      <MiniCalendarStrip days={visibleDays} eventsByDate={eventsByDate} todayKey={todayKey} onSelectDate={openDateFromStrip} />
 
       {activeTab === "today" ? (
         <div className="space-y-4">
           <TodayClimateCard climate={climate} onOpen={() => setSheetMode("climate")} />
-          <EventStrip events={upcomingEvents} onOpen={openEventSheet} onAdd={openAddSheet} />
+          <EventStrip events={upcomingEvents} onOpen={openEventSheet} onAdd={() => openAddSheet()} />
           <GuidanceCard guidance={guidance} onAsk={() => setSheetMode("climate")} />
         </div>
       ) : (
-        <Timeline events={upcomingEvents} onOpen={openEventSheet} onAdd={openAddSheet} />
+        <Timeline events={upcomingEvents} onOpen={openEventSheet} onAdd={() => openAddSheet()} />
       )}
 
       <DetailSheet
