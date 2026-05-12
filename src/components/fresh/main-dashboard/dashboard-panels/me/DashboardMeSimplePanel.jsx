@@ -54,57 +54,6 @@ function saveProfile(user, profile) {
   }
 }
 
-function getName(user) {
-  return user?.full_name || user?.display_name || user?.user_metadata?.full_name || user?.user_metadata?.name || user?.email?.split("@")?.[0] || "CLARA User";
-}
-
-function getInitials(name) {
-  return String(name || "CU").split(/\s+/).slice(0, 2).map((word) => word[0]?.toUpperCase()).join("") || "CU";
-}
-
-function getPlanLabel({ plan, isPaid, isFree }) {
-  if (isPaid && plan) return String(plan).replaceAll("_", " ").replace(/\b\w/g, (c) => c.toUpperCase());
-  if (isPaid) return "Unlocked";
-  if (isFree) return "Free";
-  return "CLARA";
-}
-
-function Chip({ children }) {
-  return <span className="rounded-full border border-white/10 bg-white/[0.045] px-3 py-1.5 text-[11px] font-bold text-white/62">{children}</span>;
-}
-
-function ProfileCard({ user, plan, isPaid, isFree, profile }) {
-  const name = getName(user);
-
-  return (
-    <section className="relative overflow-hidden rounded-[30px] border border-white/12 bg-[linear-gradient(135deg,rgba(13,65,78,0.72),rgba(16,24,55,0.86)_48%,rgba(55,24,100,0.78))] p-4 shadow-[0_18px_44px_rgba(0,0,0,0.22)]">
-      <div className="pointer-events-none absolute -left-16 -top-16 h-36 w-36 rounded-full bg-cyan-300/12 blur-3xl" />
-      <div className="pointer-events-none absolute -right-16 -bottom-16 h-44 w-44 rounded-full bg-fuchsia-400/10 blur-3xl" />
-
-      <div className="relative flex items-center gap-3">
-        <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-[20px] border border-cyan-300/18 bg-white/10 text-base font-black text-white">
-          {getInitials(name)}
-        </div>
-        <div className="min-w-0 flex-1">
-          <div className="flex items-center gap-2">
-            <p className="truncate text-base font-black text-white">{name}</p>
-            <span className="shrink-0 rounded-full border border-cyan-300/20 bg-cyan-300/10 px-2.5 py-1 text-[10px] font-black text-cyan-100">{getPlanLabel({ plan, isPaid, isFree })}</span>
-          </div>
-          <p className="mt-1 truncate text-xs text-white/52">{user?.email || "Private account"}</p>
-          <p className="mt-1.5 text-[11px] font-bold leading-4 text-cyan-100/58">How CLARA understands you before advice.</p>
-        </div>
-      </div>
-
-      <div className="relative mt-4 flex flex-wrap gap-2">
-        <Chip>{profile.personality}</Chip>
-        <Chip>{profile.status}</Chip>
-        <Chip>{profile.incomeRhythm}</Chip>
-        <Chip>{profile.responsibility}</Chip>
-      </div>
-    </section>
-  );
-}
-
 function EditContextPanel({ profile, setProfile }) {
   const [fieldKey, setFieldKey] = useState(null);
   const field = FIELDS.find((item) => item.key === fieldKey);
@@ -168,16 +117,11 @@ function EditContextPanel({ profile, setProfile }) {
 }
 
 export default function DashboardMeSimplePanel() {
-  const { user, plan, isPaid, isFree } = useUserRole() || {};
+  const { user } = useUserRole() || {};
   const [profile, setProfile] = useState(() => readProfile(user));
 
   useEffect(() => setProfile(readProfile(user)), [user?.id, user?.email]);
   useEffect(() => saveProfile(user, profile), [profile, user]);
 
-  return (
-    <div className="space-y-3.5">
-      <ProfileCard user={user} plan={plan} isPaid={isPaid} isFree={isFree} profile={profile} />
-      <EditContextPanel profile={profile} setProfile={setProfile} />
-    </div>
-  );
+  return <EditContextPanel profile={profile} setProfile={setProfile} />;
 }
