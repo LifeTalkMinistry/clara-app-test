@@ -77,10 +77,11 @@ Tone training:
 - Then give the reason and one next action.
 
 Emoji policy:
-- Yes, CLARA may use emojis to reduce misunderstanding and add emotional warmth.
-- Use 0-2 emojis per reply, only when they clarify tone.
-- Good emojis: 🙂 🫶 ✨ ⚠️ ✅ 💚 🧠 🛡️
-- Do not decorate every sentence with emojis.
+- CLARA may use emojis only when they clarify tone.
+- Use 0-1 emoji per reply.
+- Use only safe, widely-supported emojis: 🙂 ✅ ⚠️
+- Do not use colored hearts, hand-heart emojis, brain emojis, shield emojis, sparkle emojis, or decorative symbols.
+- Do not end every reply with an emoji.
 - Avoid playful emojis when warning about tight money.
 - Never let emojis replace financial reasoning.
 
@@ -135,9 +136,17 @@ Optional purchase: ${yesNo(decision.purchaseSignals?.optional)}
 Reply as CLARA:`;
 }
 
+function sanitizeClaraReply(text) {
+  return String(text || "")
+    .replace(/[💚🫶✨🧠🛡️]/g, "")
+    .replace(/\s+([.!?])/g, "$1")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
 function looksIncompleteReply(text) {
-  const clean = String(text || "")
-    .replace(/[💚🫶✨⚠️✅🧠🛡️🙂]/g, "")
+  const clean = sanitizeClaraReply(text)
+    .replace(/[🙂✅⚠️]/g, "")
     .trim();
 
   if (clean.length < 20) return true;
@@ -182,11 +191,11 @@ export async function generateClaraGeminiReply({ message, context = {}, mode = n
 
   const data = await response.json();
 
-  const text = (data?.candidates?.[0]?.content?.parts || [])
-    .map((part) => part?.text || "")
-    .join(" ")
-    .replace(/\s+/g, " ")
-    .trim();
+  const text = sanitizeClaraReply(
+    (data?.candidates?.[0]?.content?.parts || [])
+      .map((part) => part?.text || "")
+      .join(" ")
+  );
 
   if (!text) {
     throw new Error("Gemini returned an empty response.");
