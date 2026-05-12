@@ -1,34 +1,22 @@
 import {
-  BarChart3,
   CalendarDays,
   ChevronRight,
-  Clock3,
   Home,
   LayoutDashboard,
   ListChecks,
-  Settings,
   Sparkles,
-  UserRound,
 } from "lucide-react";
 
 export const lifeOsTabs = [
   { key: "dashboard", label: "Dashboard", short: "Dashboard", icon: LayoutDashboard },
   { key: "calendar", label: "Calendar", short: "Calendar", icon: CalendarDays },
   { key: "areas", label: "Life Areas", short: "Life Areas", icon: ListChecks },
-  { key: "profile", label: "Life Profile", short: "Life Profile", icon: UserRound },
-  { key: "history", label: "Decision History", short: "History", icon: Clock3 },
-  { key: "insights", label: "Insights", short: "Insights", icon: BarChart3 },
-  { key: "settings", label: "Settings", short: "Settings", icon: Settings },
 ];
 
 export const lifeOsSubtitles = {
-  dashboard: "Your life context for today's money decisions.",
-  calendar: "Your timing shapes your money decisions.",
-  areas: "Track the life context behind money behavior.",
-  profile: "Stable information CLARA can use for better advice.",
-  history: "Review what CLARA learned over time.",
-  insights: "See patterns and behavior signals.",
-  settings: "Control what CLARA can use and protect.",
+  dashboard: "Simple guidance for today's money behavior.",
+  calendar: "Upcoming timing pressure before decisions happen.",
+  areas: "Life context that helps CLARA guide decisions better.",
 };
 
 export function Orb({ compact = false }) {
@@ -119,7 +107,7 @@ export function Header({ active }) {
         </div>
         <button className="hidden items-center gap-3 rounded-[22px] border border-cyan-300/28 bg-white/[.045] px-4 py-3 text-sm font-bold text-white/78 md:flex">
           <Icon className="h-5 w-5 text-cyan-100" />
-          {active === "calendar" ? "May 2025" : "LifeOS"}
+          {active === "calendar" ? "Timing map" : "LifeOS"}
           <ChevronRight className="h-4 w-4 text-white/45" />
         </button>
       </div>
