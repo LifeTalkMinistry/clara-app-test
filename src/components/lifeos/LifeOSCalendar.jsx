@@ -1,61 +1,89 @@
-import { Clock3, CreditCard, WalletCards } from "lucide-react";
-import { Card, Kicker, Row } from "./LifeOSShared";
+import { CalendarDays, Clock3, CreditCard, Sparkles, WalletCards } from "lucide-react";
+import { Card, Kicker } from "./LifeOSShared";
 
-const weekDays = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
-const eventDots = {
-  6: "bg-pink-400",
-  8: "bg-cyan-300",
-  9: "bg-emerald-400",
-  15: "bg-indigo-400",
-  21: "bg-orange-400",
-  30: "bg-emerald-400",
-};
+const pressureCards = [
+  {
+    icon: CreditCard,
+    title: "Bill in 3 days",
+    detail: "CLARA should treat this bill as already reserved before optional spending.",
+    badge: "Pressure soon",
+  },
+  {
+    icon: WalletCards,
+    title: "Salary window",
+    detail: "This is where CLARA will help plan confidence spending before money arrives.",
+    badge: "Coming up",
+  },
+  {
+    icon: Clock3,
+    title: "Risky weekend",
+    detail: "Weekends can create social, convenience, and emotional spending pressure.",
+    badge: "Behavior signal",
+  },
+];
 
 export default function LifeOSCalendar() {
   return (
     <div className="space-y-4">
-      <Card>
-        <div className="flex items-center justify-between gap-3">
-          <Kicker>May 2025</Kicker>
-          <span className="rounded-full border border-cyan-300/18 bg-cyan-300/[.055] px-3 py-1 text-[11px] font-black text-cyan-100/70">
-            Timing map
-          </span>
-        </div>
+      <Card className="overflow-hidden border-cyan-300/22 bg-[linear-gradient(135deg,rgba(17,94,89,.24),rgba(59,7,100,.32))]">
+        <div className="flex items-start gap-4">
+          <div className="grid h-12 w-12 shrink-0 place-items-center rounded-3xl border border-cyan-300/18 bg-cyan-300/[.06] text-cyan-100 shadow-[0_0_25px_rgba(34,211,238,.12)]">
+            <CalendarDays className="h-6 w-6" />
+          </div>
 
-        <div className="mt-4 grid grid-cols-7 gap-2 text-center text-[11px] font-semibold text-white/38">
-          {weekDays.map((day) => (
-            <span key={day}>{day}</span>
-          ))}
-        </div>
-
-        <div className="mt-3 grid grid-cols-7 gap-2 text-center text-sm font-bold text-white/80">
-          {Array.from({ length: 35 }, (_, index) => {
-            const date = index < 3 ? 27 + index : index - 2;
-            const active = date === 8;
-            return (
-              <span
-                key={`${date}-${index}`}
-                className={`relative rounded-full py-2 ${
-                  active
-                    ? "border border-cyan-300/70 bg-cyan-400/10 text-cyan-100 shadow-[0_0_15px_rgba(34,211,238,.26)]"
-                    : ""
-                }`}
-              >
-                {date}
-                {eventDots[date] ? (
-                  <span className={`absolute bottom-0 left-1/2 h-1.5 w-1.5 -translate-x-1/2 rounded-full ${eventDots[date]}`} />
-                ) : null}
-              </span>
-            );
-          })}
+          <div>
+            <Kicker>Calendar pressure view</Kicker>
+            <h2 className="mt-3 text-xl font-black leading-tight text-white">
+              Map what is coming before money decisions happen.
+            </h2>
+            <p className="mt-2 text-sm leading-6 text-white/62">
+              Calendar pressure view is where CLARA will map bills, salary dates, risky weekends, and upcoming financial pressure.
+            </p>
+          </div>
         </div>
       </Card>
 
+      <div className="grid gap-3 md:grid-cols-3">
+        {pressureCards.map((item) => {
+          const Icon = item.icon;
+
+          return (
+            <button
+              key={item.title}
+              type="button"
+              aria-label={`View ${item.title}`}
+              className="group rounded-[24px] border border-white/10 bg-white/[.035] p-4 text-left transition duration-200 hover:-translate-y-0.5 hover:border-cyan-300/24 hover:bg-white/[.055] hover:shadow-[0_0_22px_rgba(34,211,238,.10)] active:translate-y-0 active:scale-[.985] focus:outline-none focus-visible:ring-2 focus-visible:ring-cyan-200/70"
+            >
+              <div className="flex items-start justify-between gap-3">
+                <div className="grid h-11 w-11 place-items-center rounded-2xl border border-cyan-300/14 bg-cyan-300/[.045] text-cyan-100/78 transition duration-200 group-hover:scale-105 group-hover:text-cyan-100">
+                  <Icon className="h-5 w-5" />
+                </div>
+
+                <span className="rounded-full border border-white/10 bg-white/[.04] px-2.5 py-1 text-[10px] font-black uppercase tracking-[.14em] text-white/42">
+                  {item.badge}
+                </span>
+              </div>
+
+              <h3 className="mt-4 text-base font-black text-white">{item.title}</h3>
+              <p className="mt-2 text-sm leading-6 text-white/56">{item.detail}</p>
+            </button>
+          );
+        })}
+      </div>
+
       <Card>
-        <Kicker>Upcoming schedule</Kicker>
-        <Row icon={CreditCard} title="Electric bill due in 3 days" detail="Review before optional spending." right="May 10" />
-        <Row icon={WalletCards} title="Payday on Friday" detail="Plan before confidence spending." right="May 9" />
-        <Row icon={Clock3} title="Planned purchase reminder" detail="Check if this still fits the week." right="May 30" />
+        <div className="flex items-center gap-3">
+          <div className="grid h-11 w-11 shrink-0 place-items-center rounded-2xl border border-pink-400/18 bg-pink-400/[.055] text-pink-100">
+            <Sparkles className="h-5 w-5" />
+          </div>
+
+          <div>
+            <Kicker>Next phase</Kicker>
+            <p className="mt-1 text-sm leading-5 text-white/62">
+              Later, this can connect to real bills, salary dates, subscriptions, events, and spending-risk windows.
+            </p>
+          </div>
+        </div>
       </Card>
     </div>
   );
