@@ -1,6 +1,6 @@
 import { useCallback, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
-import { Home, Settings, Sparkles, User } from "lucide-react";
+import { CalendarDays, Home, Settings, User } from "lucide-react";
 import { DEFAULT_THEME_KEY } from "@/theme/themes";
 import { DASHBOARD_PANEL_ORDER } from "@/components/fresh/main-dashboard/dashboard-panels/dashboardPanelConstants";
 
@@ -19,7 +19,7 @@ export default function useDashboardPanelUiState({
   const navigate = useNavigate();
 
   const openDashboardPanel = useCallback((panelKey) => {
-    if (panelKey === "lifeos") {
+    if (panelKey === "schedule") {
       navigate("/lifeos");
       return;
     }
@@ -77,9 +77,9 @@ export default function useDashboardPanelUiState({
       badge: null,
     },
     {
-      key: "lifeos",
-      label: "LifeOS",
-      icon: Sparkles,
+      key: "schedule",
+      label: "Schedule",
+      icon: CalendarDays,
       badge: feedHasHighlight
         ? {
             type: "dot",
