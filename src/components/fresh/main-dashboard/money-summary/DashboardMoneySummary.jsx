@@ -6,6 +6,7 @@ import {
   hasGeminiConfig,
 } from "@/lib/clara-gemini-client";
 import { readLatestClaraLifeProfileOnDevice } from "@/lib/clara-life-profile";
+import { addExpense as repoAddExpense } from "@/lib/financeRepository";
 
 const SINGLE_TAP_DELAY = 240;
 const DOUBLE_TAP_WINDOW = 280;
@@ -13,6 +14,7 @@ const CLARA_LONG_PRESS_DELAY = 560;
 const CLARA_MONEY_CHAT_EVENT = "clara:money-card-chat";
 const CLARA_MONEY_CHAT_REQUEST_EVENT = "clara:money-card-chat-request";
 const CLARA_THINKING_REPLY = "Reading your finance cards...";
+const CLARA_LOGGING_REPLY = "Logging your expense...";
 const CLARA_WELCOME_PROMPT = "What are you thinking of buying?";
 
 const CLARA_FEATURE_PROMPTS = {
@@ -37,6 +39,140 @@ function safeArray(value) {
 function safeNumber(value, fallback = 0) {
   const numeric = Number(value);
   return Number.isFinite(numeric) ? numeric : fallback;
+}
+
+function normalizeMatchText(value) {
+  return String(value || "")
+    .toLowerCase()
+    .replace(/[₱,]/g, "")
+    .replace(/[^a-z0-9]+/g, " ")
+    .trim();
+}
+
+function getWalletName(wallet = {}) {
+  return String(
+    wallet.name ||
+      wallet.wallet_name ||
+      wallet.title ||
+      wallet.label ||
+      wallet.type ||
+      "Wallet"
+  ).trim();
+}
+
+function getWalletVisibleBalance(wallet = {}) {
+  return safeNumber(
+    wallet.derived_balance ??
+      wallet.balance ??
+      wallet.current_balance ??
+      wallet.wallet_balance ??
+      wallet.available_balance ??
+      wallet.starting_balance
+  );
+}
+
+function getLocalUserIdFromWallets(wallets = []) {
+  const wallet = safeArray(wallets).find(Boolean) || {};
+  return String(
+    wallet.localUserId ||
+      wallet.local_user_id ||
+      wallet.user_id ||
+      wallet.userId ||
+      wallet.owner_id ||
+      "local-user"
+  ).trim() || "local-user";
+}
+
+function findWalletByName(wallets = [], name = "") {
+  const safeWallets = safeArray(wallets);
+  const normalizedName = normalizeMatchText(name);
+  if (!normalizedName) return null;
+
+  return (
+    safeWallets.find((wallet) => normalizeMatchText(getWalletName(wallet)) === normalizedName) ||
+    safeWallets.find((wallet) => normalizeMatchText(getWalletName(wallet)).includes(normalizedName)) ||
+    safeWallets.find((wallet) => normalizedName.includes(normalizeMatchText(getWalletName(wallet)))) ||
+    null
+  );
+}
+
+function guessExpenseCategory(item = "") {
+  const text = normalizeMatchText(item);
+
+  if (/milk ?tea|coffee|tea|drink|food|meal|snack|rice|lunch|dinner|breakfast/.test(text)) {
+    return "Food";
+  }
+
+  if (/grab|jeep|bus|taxi|fare|gas|fuel|transport/.test(text)) {
+    return "Transportation";
+  }
+
+  if (/grocery|groceries|market|vegetable|meat/.test(text)) {
+    return "Groceries";
+  }
+
+  if (/bill|electric|water|internet|rent|load|subscription/.test(text)) {
+    return "Bills";
+  }
+
+  return "AI Logged Expense";
+}
+
+function parseExpenseLogCommand(text = "", wallets = []) {
+  const rawText = String(text || "").trim();
+  if (!rawText) return null;
+
+  const intentPattern = /\b(i\s+)?(bought|spent|paid|purchased|ordered|got|had|logged|log|recorded|record)\b/i;
+  if (!intentPattern.test(rawText)) return null;
+
+  const amountMatch = rawText.match(/(?:₱|php\s*)?(\d[\d,]*(?:\.\d{1,2})?)\s*(?:pesos?|php)?/i);
+  if (!amountMatch) return null;
+
+  const amount = Number(String(amountMatch[1] || "").replace(/,/g, ""));
+  if (!Number.isFinite(amount) || amount <= 0) return null;
+
+  const walletMatch = rawText.match(/\b(?:using|from|via|with)\s+(.+?)\s*$/i);
+  const walletName = String(walletMatch?.[1] || "")
+    .replace(/[.!?]+$/g, "")
+    .trim();
+
+  const wallet = walletName ? findWalletByName(wallets, walletName) : null;
+  const fallbackWallet = !wallet && safeArray(wallets).length === 1 ? safeArray(wallets)[0] : null;
+  const selectedWallet = wallet || fallbackWallet;
+
+  if (!selectedWallet) {
+    return {
+      ok: false,
+      reason: "wallet_not_found",
+      rawText,
+      amount,
+      walletName,
+    };
+  }
+
+  const beforeAmount = rawText.slice(0, amountMatch.index).trim();
+  let item = beforeAmount
+    .replace(/^\s*i\s+/i, "")
+    .replace(/^(bought|spent|paid|purchased|ordered|got|had|logged|log|recorded|record)\s+/i, "")
+    .replace(/^(for|on)\s+/i, "")
+    .trim();
+
+  if (!item && /\b(on|for)\b/i.test(rawText)) {
+    const afterFor = rawText.match(/\b(?:on|for)\s+(.+?)\s+(?:₱|php\s*)?\d/i);
+    item = String(afterFor?.[1] || "").trim();
+  }
+
+  item = item || "Expense";
+
+  return {
+    ok: true,
+    rawText,
+    item,
+    amount,
+    wallet: selectedWallet,
+    walletName: getWalletName(selectedWallet),
+    category: guessExpenseCategory(item),
+  };
 }
 
 function getBudgetRows(monthlyBudgetPlan) {
@@ -464,6 +600,54 @@ export default function DashboardMoneySummary({
     );
   }, []);
 
+  const logExpenseFromChat = useCallback(
+    async (command) => {
+      if (!command?.ok) {
+        if (command?.reason === "wallet_not_found") {
+          return command.walletName
+            ? `I found the expense amount, but I couldn’t find “${command.walletName}” in your wallets. Please use the exact wallet name so I can log it safely.`
+            : "I can log that, but tell me which wallet to use first.";
+        }
+
+        return "I can log expenses now, but I need the item, amount, and wallet name.";
+      }
+
+      const walletBalance = getWalletVisibleBalance(command.wallet);
+      if (walletBalance < command.amount) {
+        return `${command.walletName} only has ${fmt(walletBalance)} available, so I didn’t log the ${fmt(command.amount)} ${command.item} expense. Choose another wallet or add money first.`;
+      }
+
+      const nowIso = new Date().toISOString();
+      const localUserId = getLocalUserIdFromWallets(wallets);
+
+      await repoAddExpense(localUserId, {
+        amount: command.amount,
+        wallet_id: command.wallet.id,
+        category: command.category,
+        need_type: "other",
+        planning_status: "unplanned",
+        unplanned_reason: `Logged through CLARA chat: ${command.rawText}`,
+        notes: command.item,
+        source_type: "CLARA Chat Expense Log",
+        date: nowIso,
+        created_at: nowIso,
+        updated_at: nowIso,
+        user_id: command.wallet.user_id || null,
+        user_email: command.wallet.user_email || command.wallet.email || null,
+        created_by: command.wallet.created_by || command.wallet.user_email || null,
+      });
+
+      window.dispatchEvent(new CustomEvent("clara-expenses-updated"));
+      window.dispatchEvent(new CustomEvent("clara-wallets-updated"));
+      window.dispatchEvent(new CustomEvent("clara-wallet-transactions-updated"));
+      window.dispatchEvent(new CustomEvent("clara-finance-updated"));
+
+      const nextBalance = Math.max(walletBalance - command.amount, 0);
+      return `Logged ✅ ${fmt(command.amount)} for ${command.item} from ${command.walletName}. That wallet should now be around ${fmt(nextBalance)}. Small spends count too, so good job recording it right away.`;
+    },
+    [fmt, wallets]
+  );
+
   const resolveClaraReply = useCallback(
     async (text) => {
       const cleanText = String(text || "").trim();
@@ -526,7 +710,11 @@ export default function DashboardMoneySummary({
       const text = String(rawText || "").trim();
       if (!text) return;
 
-      const pendingMessage = makeClaraMessage("clara", CLARA_THINKING_REPLY);
+      const expenseCommand = parseExpenseLogCommand(text, wallets);
+      const pendingMessage = makeClaraMessage(
+        "clara",
+        expenseCommand ? CLARA_LOGGING_REPLY : CLARA_THINKING_REPLY
+      );
 
       setClaraMode(true);
 
@@ -544,11 +732,24 @@ export default function DashboardMoneySummary({
 
       setClaraDraft("");
 
+      if (expenseCommand) {
+        logExpenseFromChat(expenseCommand)
+          .then((reply) => replaceClaraMessage(pendingMessage.id, reply))
+          .catch((error) => {
+            console.warn("CLARA chat expense log failed:", error);
+            replaceClaraMessage(
+              pendingMessage.id,
+              "I understood the expense, but I couldn’t save it yet. Please try again or use the manual expense button."
+            );
+          });
+        return;
+      }
+
       resolveClaraReply(text).then((reply) => {
         replaceClaraMessage(pendingMessage.id, reply);
       });
     },
-    [replaceClaraMessage, resolveClaraReply]
+    [logExpenseFromChat, replaceClaraMessage, resolveClaraReply, wallets]
   );
 
   const handleClaraSubmit = useCallback(
