@@ -12,17 +12,19 @@ const GUIDE_GROUPS = [
     key: "cards",
     label: "Core Features",
     Icon: Box,
-    iconClassName: "text-cyan-200",
+    iconClassName: "text-cyan-100",
+    cardClassName: "min-h-[80px] -mt-1",
     activeClassName:
-      "border-cyan-100/28 bg-cyan-300/[0.095] text-white shadow-[0_0_22px_rgba(34,211,238,0.10),inset_0_1px_0_rgba(255,255,255,0.09)]",
+      "border-cyan-100/36 bg-cyan-300/[0.12] text-white shadow-[0_0_26px_rgba(34,211,238,0.13),inset_0_1px_0_rgba(255,255,255,0.11)]",
     inactiveClassName:
-      "border-white/10 bg-white/[0.045] text-white/78 shadow-[inset_0_1px_0_rgba(255,255,255,0.055)]",
+      "border-cyan-100/16 bg-white/[0.06] text-white/84 shadow-[0_0_16px_rgba(34,211,238,0.055),inset_0_1px_0_rgba(255,255,255,0.07)]",
   },
   {
     key: "smart_actions",
     label: "Smart Actions",
     Icon: Sparkles,
     iconClassName: "text-violet-200",
+    cardClassName: "min-h-[74px]",
     activeClassName:
       "border-violet-100/28 bg-violet-300/[0.09] text-white shadow-[0_0_18px_rgba(196,181,253,0.10),inset_0_1px_0_rgba(255,255,255,0.085)]",
     inactiveClassName:
@@ -33,6 +35,7 @@ const GUIDE_GROUPS = [
     label: "Ask Advice",
     Icon: MessageCircle,
     iconClassName: "text-fuchsia-200",
+    cardClassName: "min-h-[74px]",
     activeClassName:
       "border-fuchsia-100/26 bg-fuchsia-300/[0.085] text-white shadow-[0_0_16px_rgba(217,70,239,0.09),inset_0_1px_0_rgba(255,255,255,0.08)]",
     inactiveClassName:
@@ -57,7 +60,7 @@ function GuideActionCard({ active, group, onClick }) {
       type="button"
       onClick={onClick}
       aria-pressed={active}
-      className={`flex min-h-[74px] min-w-0 flex-1 flex-col items-center justify-center gap-2 rounded-[22px] border px-2.5 text-center backdrop-blur-xl transition duration-200 hover:bg-white/[0.07] hover:text-white active:scale-[0.98] ${
+      className={`flex min-w-0 flex-1 flex-col items-center justify-center gap-2 rounded-[22px] border px-2.5 text-center backdrop-blur-xl transition duration-200 hover:bg-white/[0.07] hover:text-white active:scale-[0.98] ${group.cardClassName || "min-h-[74px]"} ${
         active ? group.activeClassName : group.inactiveClassName
       }`}
     >
@@ -75,14 +78,14 @@ function ClaraQuickActions({ activeGroup, onSelectGroup }) {
   return (
     <div className="w-full">
       <div className="mb-3 flex items-center gap-3 px-1">
-        <div className="h-px flex-1 bg-white/9" />
-        <p className="text-[10.5px] font-bold tracking-wide text-white/36">
+        <div className="h-px flex-1 bg-white/[0.045]" />
+        <p className="text-[10.5px] font-bold tracking-wide text-white/30">
           Quick actions
         </p>
-        <div className="h-px flex-1 bg-white/9" />
+        <div className="h-px flex-1 bg-white/[0.045]" />
       </div>
 
-      <div className="grid grid-cols-3 gap-2.5">
+      <div className="grid grid-cols-3 items-end gap-2.5">
         {GUIDE_GROUPS.map((group) => (
           <GuideActionCard
             key={group.key}
@@ -144,7 +147,7 @@ function ClaraBudgetDecisionScreen({
 
       {!hasActiveConversation && (
         <div className="relative z-10 mt-6 flex min-h-0 flex-1 flex-col justify-end gap-5 pb-1">
-          <div className="flex items-center gap-3">
+          <div className="flex -translate-y-1 items-center gap-3">
             <ClaraIdentityMark />
             <div className="min-w-0 flex-1 rounded-[24px] border border-white/10 bg-white/[0.065] px-4 py-3 text-[11px] font-semibold leading-5 text-white/78 shadow-[inset_0_1px_0_rgba(255,255,255,0.06)] backdrop-blur-xl">
               <p className="text-white/88">CLARA is here to think with you 🙂</p>
