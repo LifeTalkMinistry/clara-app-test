@@ -87,7 +87,8 @@ export async function saveClaraLifeProfile(user, profile) {
 export function hasMeaningfulLifeProfile(profile = {}) {
   const normalized = normalizeClaraLifeProfile(profile);
   return Boolean(
-    normalized.currentFocus ||
+    normalized.age ||
+      normalized.currentFocus ||
       normalized.topValues ||
       normalized.meaningfulGoal ||
       normalized.financialFear ||
@@ -103,6 +104,7 @@ export function summarizeLifeProfileForClara(profile = {}) {
   return {
     personality: normalized.personality,
     status: normalized.status,
+    age: normalized.age,
     dependents: normalized.dependents,
     responsibility: normalized.responsibility,
     incomeRhythm: normalized.incomeRhythm,
