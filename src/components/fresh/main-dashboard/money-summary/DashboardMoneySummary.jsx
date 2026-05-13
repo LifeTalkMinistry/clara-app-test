@@ -5,6 +5,7 @@ import {
   generateClaraGeminiReply,
   hasGeminiConfig,
 } from "@/lib/clara-gemini-client";
+import { readLatestClaraLifeProfileOnDevice } from "@/lib/clara-life-profile";
 
 const SINGLE_TAP_DELAY = 240;
 const DOUBLE_TAP_WINDOW = 280;
@@ -460,6 +461,18 @@ export default function DashboardMoneySummary({
       const purchaseMode = isPurchaseQuestion(cleanText);
       const aiMessage = purchaseMode ? `Before I buy this: ${cleanText}` : cleanText;
 
+      let liveLifeProfile = null;
+      try {
+        liveLifeProfile = await readLatestClaraLifeProfileOnDevice();
+        console.log("CLARA live Life Profile loaded:", liveLifeProfile);
+      } catch (error) {
+        console.warn("CLARA live Life Profile not available:", error);
+      }
+
+      const claraConversationContext = liveLifeProfile
+        ? { ...claraFinanceContext, lifeProfile: liveLifeProfile }
+        : claraFinanceContext;
+
       let localReply = buildClaraInlineFallback(cleanText, {
         walletMoney,
         thisMonthSpent,
@@ -468,13 +481,13 @@ export default function DashboardMoneySummary({
 
       if (!isContextQuestion(cleanText)) {
         try {
-          localReply = generateClaraLocalReply(aiMessage, claraFinanceContext);
+          localReply = generateClaraLocalReply(aiMessage, claraConversationContext);
         } catch (error) {
           console.warn("CLARA local fallback used:", error);
         }
       }
 
-      const polishOptions = { claraFinanceContext, fmt };
+      const polishOptions = { claraFinanceContext: claraConversationContext, fmt };
       const polishedLocalReply = polishClaraReply(localReply, cleanText, polishOptions);
 
       try {
@@ -482,7 +495,7 @@ export default function DashboardMoneySummary({
 
         const geminiReply = await generateClaraGeminiReply({
           message: aiMessage,
-          context: claraFinanceContext,
+          context: claraConversationContext,
           mode: purchaseMode ? "purchase_decision" : "money_context_check",
         });
 
