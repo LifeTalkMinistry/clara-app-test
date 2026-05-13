@@ -32,24 +32,17 @@ function ClaraGuideLauncher({ activeGroup, onSelectGroup }) {
   const currentGroup = activeGroup || "cards";
 
   return (
-    <div className="relative z-30 mt-5">
-      <div className="rounded-[22px] border border-white/10 bg-white/[0.035] p-3 shadow-[inset_0_1px_0_rgba(255,255,255,0.06)] backdrop-blur-xl">
-        <p className="text-[9px] font-black uppercase tracking-[0.20em] text-cyan-100/50">
-          CLARA shortcuts
-        </p>
-
-        <div className="mt-3 flex gap-2 overflow-x-auto pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-          {GUIDE_GROUPS.map((group) => (
-            <GuideChip
-              key={group.key}
-              active={currentGroup === group.key}
-              onClick={() => onSelectGroup(group.key)}
-            >
-              {group.label}
-            </GuideChip>
-          ))}
-        </div>
-      </div>
+    <div className="pointer-events-auto absolute bottom-0 right-0 z-30 flex flex-col items-end gap-2">
+      {GUIDE_GROUPS.map((group) => (
+        <GuideChip
+          key={group.key}
+          active={currentGroup === group.key}
+          onClick={() => onSelectGroup(group.key)}
+          className="min-w-[104px] justify-center text-center"
+        >
+          {group.label}
+        </GuideChip>
+      ))}
     </div>
   );
 }
@@ -102,11 +95,8 @@ function ClaraBudgetDecisionScreen({
 
       {!hasActiveConversation && (
         <div className="relative z-10 mt-6 flex min-h-0 flex-1 flex-col justify-end pb-1">
-          <div className="max-w-[92%] rounded-[24px] border border-white/10 bg-white/[0.065] px-4 py-3 text-[11px] font-semibold leading-5 text-white/78 shadow-[inset_0_1px_0_rgba(255,255,255,0.06)] backdrop-blur-xl">
+          <div className="max-w-[68%] rounded-[24px] border border-white/10 bg-white/[0.065] px-4 py-3 text-[11px] font-semibold leading-5 text-white/78 shadow-[inset_0_1px_0_rgba(255,255,255,0.06)] backdrop-blur-xl">
             <p className="text-white/88">CLARA is here to think with you 🙂</p>
-            <p className="mt-1 text-white/58">
-              Choose a category below, or ask about something you want to buy.
-            </p>
           </div>
 
           <ClaraGuideLauncher
