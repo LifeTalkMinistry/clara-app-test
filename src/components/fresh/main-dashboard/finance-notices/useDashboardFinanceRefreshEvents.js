@@ -1,4 +1,5 @@
 import { useEffect } from "react";
+import { ensureClaraBudgetCommandCenterAutoRun } from "@/lib/clara-budget-command-center";
 
 const DASHBOARD_FINANCE_REFRESH_EVENTS = [
   "clara-expenses-updated",
@@ -15,6 +16,10 @@ export default function useDashboardFinanceRefreshEvents({
   user,
   scheduleRefresh,
 }) {
+  useEffect(() => {
+    ensureClaraBudgetCommandCenterAutoRun();
+  }, []);
+
   useEffect(() => {
     if (typeof window === "undefined") return undefined;
     if (!user?.id && !user?.email) return undefined;
