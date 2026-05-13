@@ -3,6 +3,7 @@ import { Box, MessageCircle, Sparkles } from "lucide-react";
 import BudgetCard from "@/components/BudgetCard";
 
 const CLARA_MONEY_CHAT_EVENT = "clara:money-card-chat";
+const CLARA_MONEY_CHAT_REQUEST_EVENT = "clara:money-card-chat-request";
 
 const FALLBACK_MESSAGES = [];
 const HIDDEN_WELCOME_TEXT = "What are you thinking of buying?";
@@ -84,145 +85,6 @@ const GUIDE_BUBBLE_CAROUSELS = {
     "What's hurting my budget?",
   ],
 };
-
-function makeClaraMessage(role, text) {
-  return {
-    id: `${role}-${Date.now()}-${Math.random().toString(36).slice(2)}`,
-    role,
-    text,
-  };
-}
-
-function safeNumber(value, fallback = 0) {
-  const numeric = Number(value);
-  return Number.isFinite(numeric) ? numeric : fallback;
-}
-
-function fmtPHP(value) {
-  return new Intl.NumberFormat("en-PH", {
-    style: "currency",
-    currency: "PHP",
-    minimumFractionDigits: 0,
-    maximumFractionDigits: 0,
-  }).format(safeNumber(value));
-}
-
-function getCategoryName(category = {}) {
-  return (
-    category.name ||
-    category.category_name ||
-    category.label ||
-    category.title ||
-    category.key ||
-    "Unnamed category"
-  );
-}
-
-function getCategoryAllocated(category = {}) {
-  return safeNumber(
-    category.allocated ??
-      category.allocated_amount ??
-      category.amount ??
-      category.budget_amount ??
-      category.limit
-  );
-}
-
-function getCategorySpent(category = {}) {
-  return safeNumber(
-    category.spent ?? category.spent_amount ?? category.used ?? category.total_spent
-  );
-}
-
-function getBudgetCategories(data = {}) {
-  if (Array.isArray(data.budgetCategories)) return data.budgetCategories;
-  if (Array.isArray(data.activeBudget?.categories)) return data.activeBudget.categories;
-  return [];
-}
-
-function buildBudgetPlanReply(data = {}) {
-  const categories = getBudgetCategories(data);
-  const declared = safeNumber(
-    data.declaredBudget ??
-      data.activeBudget?.declared_budget ??
-      data.activeBudget?.declared_amount ??
-      data.activeBudget?.monthly_budget_amount
-  );
-  const allocated = safeNumber(
-    data.activeBudget?.allocated_amount ??
-      data.activeBudget?.allocated_total ??
-      data.activeBudget?.total_budget ??
-      categories.reduce((sum, item) => sum + getCategoryAllocated(item), 0)
-  );
-  const spent = safeNumber(
-    data.spentAmount ??
-      data.totalSpent ??
-      data.activeBudget?.spent ??
-      data.activeBudget?.spent_amount ??
-      data.activeBudget?.total_spent ??
-      categories.reduce((sum, item) => sum + getCategorySpent(item), 0)
-  );
-  const remaining = Math.max(
-    safeNumber(data.remainingAmount ?? data.activeBudget?.remaining ?? data.activeBudget?.remaining_amount ?? declared - spent),
-    0
-  );
-  const unallocated = Math.max(
-    safeNumber(data.unallocatedAmount ?? data.activeBudget?.unallocated_amount ?? declared - allocated),
-    0
-  );
-  const progress = declared > 0 ? Math.round(Math.min(999, (spent / declared) * 100)) : 0;
-  const unplanned = safeNumber(data.unplannedSpent);
-  const planComplete = data.isComplete === true || data.activeBudget?.is_complete === true || (declared > 0 && allocated === declared && unallocated === 0);
-
-  const categoryByAllocation = [...categories]
-    .filter((item) => getCategoryAllocated(item) > 0)
-    .sort((a, b) => getCategoryAllocated(b) - getCategoryAllocated(a))[0];
-
-  const categoryByPressure = [...categories]
-    .filter((item) => getCategoryAllocated(item) > 0 || getCategorySpent(item) > 0)
-    .sort((a, b) => {
-      const aAllocated = getCategoryAllocated(a);
-      const bAllocated = getCategoryAllocated(b);
-      const aPressure = aAllocated > 0 ? getCategorySpent(a) / aAllocated : getCategorySpent(a) > 0 ? 99 : 0;
-      const bPressure = bAllocated > 0 ? getCategorySpent(b) / bAllocated : getCategorySpent(b) > 0 ? 99 : 0;
-      return bPressure - aPressure || getCategorySpent(b) - getCategorySpent(a);
-    })[0];
-
-  if (declared <= 0) {
-    return "Budget Plan: you don’t have a declared budget yet. The main job here is to decide where your money should go before emotions spend it. Start by setting this month’s spending amount, then split it into categories.";
-  }
-
-  if (!categories.length || allocated <= 0) {
-    return `Budget Plan: you declared ${fmtPHP(declared)}, but it is not distributed into categories yet. The main concern is allocation clarity: give every peso a job before the month gets messy.`;
-  }
-
-  if (!planComplete || unallocated > 0) {
-    return `Budget Plan: you declared ${fmtPHP(declared)} and assigned ${fmtPHP(allocated)}. You still have ${fmtPHP(unallocated)} unassigned. Fix that first so this money does not quietly become casual spending.`;
-  }
-
-  if (progress >= 100) {
-    const pressureText = categoryByPressure
-      ? ` The strongest pressure is ${getCategoryName(categoryByPressure)}.`
-      : "";
-    return `Budget Plan: your plan is fully allocated, but spending has already reached ${progress}% of the declared budget. The main concern now is control: pause flexible spending and protect the remaining categories.${pressureText}`;
-  }
-
-  if (progress >= 80) {
-    const pressureText = categoryByPressure
-      ? ` Watch ${getCategoryName(categoryByPressure)} first.`
-      : "";
-    return `Budget Plan: your plan is active, but you are already at ${progress}% used with ${fmtPHP(remaining)} remaining. The main concern is pace: slow down unplanned spending before the budget gets tight.${pressureText}`;
-  }
-
-  const biggestText = categoryByAllocation
-    ? ` Your biggest planned area is ${getCategoryName(categoryByAllocation)}.`
-    : "";
-  const unplannedText = unplanned > 0
-    ? ` You also have ${fmtPHP(unplanned)} unplanned spending, so keep checking if purchases are still aligned with the plan.`
-    : "";
-
-  return `Budget Plan: your plan is active and ${progress}% used. You still have ${fmtPHP(remaining)} remaining this cycle.${biggestText}${unplannedText} The main job now is simple: follow the plan before emotions create new spending.`;
-}
 
 function GuideActionCard({ active, group, onClick }) {
   const Icon = group.Icon;
@@ -313,7 +175,9 @@ function ClaraBudgetDecisionScreen({
 
   const visibleMessages = useMemo(() => {
     const source = Array.isArray(messages) && messages.length ? messages : FALLBACK_MESSAGES;
-    return source.filter((message) => String(message?.text || "").trim() !== HIDDEN_WELCOME_TEXT);
+    return source.filter(
+      (message) => String(message?.text || "").trim() !== HIDDEN_WELCOME_TEXT
+    );
   }, [messages]);
 
   const hasActiveConversation = visibleMessages.length > 0;
@@ -435,26 +299,12 @@ export default function BudgetCardView({
   const selectFeature = (featureName) => {
     if (featureName !== BUDGET_PLAN_FEATURE) return;
 
-    const nextMessages = [
-      makeClaraMessage("user", featureName),
-      makeClaraMessage("clara", buildBudgetPlanReply(data)),
-    ];
-
-    setClaraChatState((current) => ({
-      ...current,
-      active: true,
-      messages: nextMessages,
-      activeGuideGroup: "cards",
-    }));
-
     window.dispatchEvent(
-      new CustomEvent(CLARA_MONEY_CHAT_EVENT, {
+      new CustomEvent(CLARA_MONEY_CHAT_REQUEST_EVENT, {
         detail: {
-          active: true,
-          messages: nextMessages,
-          activeGuideGroup: "cards",
-          source: "budget_lens_feature",
           feature: featureName,
+          prompt: featureName,
+          source: "budget_lens_feature",
         },
       })
     );
