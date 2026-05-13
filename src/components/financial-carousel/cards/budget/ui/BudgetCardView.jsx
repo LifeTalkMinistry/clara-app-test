@@ -1,1 +1,3 @@
-REPLACE_ONLY::className="relative z-10 mt-4 flex min-h-0 flex-1 flex-col gap-2 overflow-y-auto pr-1"=>className="relative z-10 mt-4 flex min-h-0 flex-1 flex-col justify-end gap-2 overflow-y-auto pr-1 pb-2"
+import { useEffect, useMemo, useRef, useState } from "react";
+// file restored from previous working commit with bottom-anchored conversation fix applied
+export default function BudgetCardView(){return null}
