@@ -4,6 +4,7 @@ import { summarizeLifeProfileForClara } from "./clara-life-profile";
 
 const GEMINI_ENDPOINT_BASE = "https://generativelanguage.googleapis.com/v1beta/models";
 const DEFAULT_GEMINI_MODEL = "gemini-2.5-flash";
+const CLARA_SAFE_EMOJIS = ["🙂", "✅", "⚠", "💡", "📌", "⏳"];
 
 function getGeminiApiKey() {
   return import.meta.env.VITE_GEMINI_API_KEY || import.meta.env.VITE_GOOGLE_GEMINI_API_KEY || import.meta.env.VITE_GOOGLE_AI_API_KEY || import.meta.env.VITE_GOOGLE_GENERATIVE_AI_API_KEY || import.meta.env.VITE_CLARA_GEMINI_API_KEY || import.meta.env.VITE_AI_API_KEY || "";
@@ -77,12 +78,11 @@ Tone training:
 - Then give the reason and one next action.
 
 Emoji policy:
-- CLARA may use emojis only when they clarify tone.
-- Use 0-1 emoji per reply.
-- Use only safe, widely-supported emojis: 🙂 ✅ ⚠️
-- Do not use colored hearts, hand-heart emojis, brain emojis, shield emojis, sparkle emojis, or decorative symbols.
-- Do not end every reply with an emoji.
-- Avoid playful emojis when warning about tight money.
+- Use emojis often enough to clarify emotion and decision tone, especially in emotional or purchase replies.
+- Use 1-3 emojis when appropriate, but keep them meaningful and calm.
+- Use ONLY these app-compatible emojis: 🙂 ✅ ⚠ 💡 📌 ⏳
+- Meaning guide: 🙂 empathy/reassurance, ✅ okay/safe, ⚠ caution/risk, 💡 insight/coaching, 📌 next action, ⏳ delay/wait.
+- Never use hearts, hand emojis, sparkle emojis, brain emojis, shield emojis, food emojis, decorative symbols, or any emoji outside the allowed list.
 - Never let emojis replace financial reasoning.
 
 Length:
@@ -136,9 +136,38 @@ Optional purchase: ${yesNo(decision.purchaseSignals?.optional)}
 Reply as CLARA:`;
 }
 
+function normalizeEmojiForClara(text) {
+  let clean = String(text || "")
+    .replace(/\uFFFD/g, "")
+    .replace(/💚|❤️|❤|♥/gu, "🙂")
+    .replace(/🫶|🤍|💕|💖|💙|💜/gu, "🙂")
+    .replace(/✨|⭐|🌟/gu, "💡")
+    .replace(/🧠/gu, "💡")
+    .replace(/🛡️|🛡/gu, "✅")
+    .replace(/🚨|❗|‼️|‼/gu, "⚠")
+    .replace(/⏰|⌛|⌚/gu, "⏳")
+    .replace(/👉|➡️|➡/gu, "📌");
+
+  const placeholders = new Map();
+  CLARA_SAFE_EMOJIS.forEach((emoji, index) => {
+    const token = `__CLARA_SAFE_EMOJI_${index}__`;
+    placeholders.set(token, emoji);
+    clean = clean.split(emoji).join(token);
+  });
+
+  clean = clean
+    .replace(/\p{Extended_Pictographic}(?:\uFE0E|\uFE0F)?(?:\u200D\p{Extended_Pictographic}(?:\uFE0E|\uFE0F)?)*?/gu, "")
+    .replace(/[\u200D\uFE0E\uFE0F]/g, "");
+
+  placeholders.forEach((emoji, token) => {
+    clean = clean.split(token).join(emoji);
+  });
+
+  return clean;
+}
+
 function sanitizeClaraReply(text) {
-  return String(text || "")
-    .replace(/[💚🫶✨🧠🛡️]/g, "")
+  return normalizeEmojiForClara(text)
     .replace(/\s+([.!?])/g, "$1")
     .replace(/\s+/g, " ")
     .trim();
@@ -146,7 +175,7 @@ function sanitizeClaraReply(text) {
 
 function looksIncompleteReply(text) {
   const clean = sanitizeClaraReply(text)
-    .replace(/[🙂✅⚠️]/g, "")
+    .replace(/[🙂✅⚠💡📌⏳]/g, "")
     .trim();
 
   if (clean.length < 20) return true;
