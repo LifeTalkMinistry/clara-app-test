@@ -8,6 +8,8 @@ const CLARA_MONEY_CHAT_REQUEST_EVENT = "clara:money-card-chat-request";
 const FALLBACK_MESSAGES = [];
 const HIDDEN_WELCOME_TEXT = "What are you thinking of buying?";
 const BUDGET_PLAN_FEATURE = "Budget Plan";
+const WALLETS_FEATURE = "Wallets";
+const ENABLED_FEATURES = new Set([BUDGET_PLAN_FEATURE, WALLETS_FEATURE]);
 
 const GUIDE_GROUPS = [
   {
@@ -140,7 +142,7 @@ function ClaraGuideBubbleCarousel({ activeGroup, onSelectFeature }) {
     <div className="min-w-0 flex-1 overflow-hidden">
       <div className="flex snap-x gap-2 overflow-x-auto scroll-smooth [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
         {items.map((item) => {
-          const isEnabled = item === BUDGET_PLAN_FEATURE;
+          const isEnabled = ENABLED_FEATURES.has(item);
 
           return (
             <button
@@ -297,7 +299,7 @@ export default function BudgetCardView({
   };
 
   const selectFeature = (featureName) => {
-    if (featureName !== BUDGET_PLAN_FEATURE) return;
+    if (!ENABLED_FEATURES.has(featureName)) return;
 
     window.dispatchEvent(
       new CustomEvent(CLARA_MONEY_CHAT_REQUEST_EVENT, {
