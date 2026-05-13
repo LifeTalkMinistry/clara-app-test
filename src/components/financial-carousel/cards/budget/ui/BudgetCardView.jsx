@@ -8,9 +8,9 @@ const FALLBACK_MESSAGES = [];
 const HIDDEN_WELCOME_TEXT = "What are you thinking of buying?";
 
 const GUIDE_GROUPS = [
-  { key: "cards", label: "5 Cards", position: "right-0 top-0 min-w-[86px]" },
-  { key: "smart_actions", label: "Smart Actions", position: "right-[22px] top-[39px] min-w-[112px]" },
-  { key: "advice", label: "Ask Advice", position: "right-[6px] top-[78px] min-w-[92px]" },
+  { key: "cards", label: "Core Features", position: "right-0 top-0 min-w-[112px]" },
+  { key: "smart_actions", label: "Smart Actions", position: "right-[26px] top-[42px] min-w-[112px]" },
+  { key: "advice", label: "Ask Advice", position: "right-[10px] top-[84px] min-w-[92px]" },
 ];
 
 const GUIDE_OPTIONS = {
@@ -66,7 +66,7 @@ function ClaraGuideLauncher({ activeGroup, activeGuide, onSelectGroup, onSelectG
 
   return (
     <div className="pointer-events-none absolute inset-x-4 bottom-8 z-30 h-[166px]">
-      <div className="pointer-events-auto absolute right-0 top-0 h-[110px] w-[150px]">
+      <div className="pointer-events-auto absolute right-0 top-0 h-[116px] w-[166px]">
         {GUIDE_GROUPS.map((group) => (
           <GuideChip
             key={group.key}
