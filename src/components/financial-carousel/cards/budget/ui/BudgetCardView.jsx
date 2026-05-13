@@ -10,29 +10,29 @@ const GUIDE_GROUPS = [
   {
     key: "cards",
     label: "Core Features",
-    className: "min-w-[116px] px-4 py-[7px] text-[10.5px]",
+    className: "min-w-[132px] px-4.5 py-2 text-[11px] translate-x-0",
     activeClassName:
-      "border-emerald-100/55 bg-emerald-300/24 text-white shadow-[0_0_24px_rgba(110,231,183,0.16),inset_0_1px_0_rgba(255,255,255,0.12)]",
+      "border-emerald-100/65 bg-emerald-300/26 text-white shadow-[0_0_30px_rgba(110,231,183,0.22),inset_0_1px_0_rgba(255,255,255,0.15)] scale-[1.03]",
     inactiveClassName:
-      "border-emerald-100/20 bg-white/[0.085] text-white/82 shadow-[0_0_14px_rgba(110,231,183,0.06),inset_0_1px_0_rgba(255,255,255,0.07)]",
+      "border-emerald-100/26 bg-white/[0.095] text-white/86 shadow-[0_0_18px_rgba(110,231,183,0.09),inset_0_1px_0_rgba(255,255,255,0.08)]",
   },
   {
     key: "smart_actions",
     label: "Smart Actions",
-    className: "min-w-[104px] px-3.5 py-1.5 text-[10px]",
+    className: "min-w-[114px] px-3.5 py-[7px] text-[10px] translate-x-2",
     activeClassName:
-      "border-cyan-100/42 bg-cyan-200/16 text-cyan-50 shadow-[0_0_18px_rgba(125,211,252,0.11),inset_0_1px_0_rgba(255,255,255,0.10)]",
+      "border-cyan-100/48 bg-cyan-200/18 text-cyan-50 shadow-[0_0_20px_rgba(125,211,252,0.13),inset_0_1px_0_rgba(255,255,255,0.11)] scale-[1.01]",
     inactiveClassName:
-      "border-white/14 bg-white/[0.062] text-white/72 shadow-[inset_0_1px_0_rgba(255,255,255,0.055)]",
+      "border-white/15 bg-white/[0.062] text-white/73 shadow-[inset_0_1px_0_rgba(255,255,255,0.055)]",
   },
   {
     key: "advice",
     label: "Ask Advice",
-    className: "min-w-[92px] px-3 py-[5px] text-[9.5px]",
+    className: "min-w-[98px] px-3 py-1.5 text-[9.5px] translate-x-4",
     activeClassName:
-      "border-violet-100/36 bg-violet-200/13 text-white/90 shadow-[0_0_14px_rgba(196,181,253,0.09),inset_0_1px_0_rgba(255,255,255,0.08)]",
+      "border-violet-100/38 bg-violet-200/14 text-white/90 shadow-[0_0_14px_rgba(196,181,253,0.10),inset_0_1px_0_rgba(255,255,255,0.08)]",
     inactiveClassName:
-      "border-white/12 bg-white/[0.045] text-white/64 shadow-[inset_0_1px_0_rgba(255,255,255,0.045)]",
+      "border-white/12 bg-white/[0.042] text-white/62 shadow-[inset_0_1px_0_rgba(255,255,255,0.045)]",
   },
 ];
 
@@ -48,11 +48,10 @@ function GuideChip({
     <button
       type="button"
       onClick={onClick}
-      className={`shrink-0 rounded-full border font-bold tracking-[0.02em] backdrop-blur-xl transition duration-200 hover:bg-white/[0.10] hover:text-white active:scale-95 ${
-        active
-          ? "border-emerald-200/45 bg-emerald-300/20 text-emerald-50 shadow-[0_0_18px_rgba(110,231,183,0.10)]"
-          : "border-white/12 bg-white/[0.065] text-white/72"
-      } ${active ? activeClassName : inactiveClassName} ${className}`}
+      aria-pressed={active}
+      className={`shrink-0 origin-right rounded-full border font-bold tracking-[0.02em] backdrop-blur-xl transition duration-200 hover:bg-white/[0.10] hover:text-white hover:shadow-[0_0_18px_rgba(255,255,255,0.08),inset_0_1px_0_rgba(255,255,255,0.08)] active:scale-95 ${
+        active ? activeClassName : inactiveClassName
+      } ${className}`}
     >
       {children}
     </button>
@@ -63,7 +62,7 @@ function ClaraGuideLauncher({ activeGroup, onSelectGroup }) {
   const currentGroup = activeGroup || "cards";
 
   return (
-    <div className="pointer-events-auto absolute right-3 top-1/2 z-30 flex -translate-y-1/2 flex-col items-end gap-2.5">
+    <div className="pointer-events-auto absolute right-8 top-[52%] z-30 flex -translate-y-1/2 flex-col items-end gap-2.5">
       {GUIDE_GROUPS.map((group) => (
         <GuideChip
           key={group.key}
