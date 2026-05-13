@@ -42,7 +42,7 @@ const GUIDE_OPTIONS = {
   ],
 };
 
-function GuideChip({ active, children, onClick }) {
+function GuideChip({ active, children, onClick, className = "" }) {
   return (
     <button
       type="button"
@@ -51,7 +51,7 @@ function GuideChip({ active, children, onClick }) {
         active
           ? "border-emerald-200/45 bg-emerald-300/20 text-emerald-50 shadow-[0_0_18px_rgba(110,231,183,0.14)]"
           : "border-white/12 bg-white/[0.065] text-white/72 hover:bg-white/[0.10]"
-      }`}
+      } ${className}`}
     >
       {children}
     </button>
@@ -65,27 +65,30 @@ function ClaraGuideLauncher({ activeGroup, activeGuide, onSelectGroup, onSelectG
   if (activeGuide) return null;
 
   return (
-    <div className="relative z-10 mt-auto ml-auto w-full max-w-[315px] space-y-2 pb-2 pt-3">
-      <div className="flex justify-end gap-2 overflow-x-auto pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+    <div className="relative z-10 mt-auto grid w-full grid-cols-[1fr_auto] items-end gap-3 pb-2 pt-3">
+      <div className="min-w-0 overflow-hidden">
+        <div className="flex gap-2 overflow-x-auto pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+          {options.map((option) => (
+            <GuideChip
+              key={option.key}
+              active={activeGuide?.key === option.key}
+              onClick={() => onSelectGuide(currentGroup, option)}
+            >
+              {option.label}
+            </GuideChip>
+          ))}
+        </div>
+      </div>
+
+      <div className="flex shrink-0 flex-col items-end gap-1.5 pb-1">
         {GUIDE_GROUPS.map((group) => (
           <GuideChip
             key={group.key}
             active={currentGroup === group.key}
             onClick={() => onSelectGroup(group.key)}
+            className="min-w-[88px] justify-center text-center"
           >
             {group.label}
-          </GuideChip>
-        ))}
-      </div>
-
-      <div className="flex justify-end gap-2 overflow-x-auto pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-        {options.map((option) => (
-          <GuideChip
-            key={option.key}
-            active={activeGuide?.key === option.key}
-            onClick={() => onSelectGuide(currentGroup, option)}
-          >
-            {option.label}
           </GuideChip>
         ))}
       </div>
