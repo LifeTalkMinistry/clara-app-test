@@ -1,4 +1,15 @@
+import {
+  LOCAL_FINANCE_STORES,
+  addBudget,
+  openLocalFinanceDb,
+} from "./localFinanceStore";
+
 const MONEY_PATTERN = /(?:₱|php\s*)?\d[\d,]*(?:\.\d{1,2})?/i;
+const CLARA_MONEY_CHAT_EVENT = "clara:money-card-chat";
+const CLARA_BUDGET_EVENTS = ["clara-budgets-updated", "clara-finance-updated"];
+
+let autoRunStarted = false;
+const processedBudgetCommands = new Set();
 
 function toNumber(value) {
   const cleaned = String(value || "")
@@ -86,6 +97,136 @@ function looksLikeBudgetSetup(text = "") {
   );
 }
 
+function getRecordTime(record = {}) {
+  return new Date(
+    record.updatedAt ||
+      record.updated_at ||
+      record.createdAt ||
+      record.created_at ||
+      record.date ||
+      0
+  ).getTime();
+}
+
+async function readAllStoreRecords(storeName) {
+  const db = await openLocalFinanceDb();
+  const transaction = db.transaction(storeName, "readonly");
+  const store = transaction.objectStore(storeName);
+
+  return new Promise((resolve, reject) => {
+    const request = store.getAll();
+    request.onsuccess = () => resolve(request.result || []);
+    request.onerror = () => reject(request.error || new Error(`Failed to read ${storeName}.`));
+  });
+}
+
+async function inferActiveLocalUserId() {
+  const storesToCheck = [
+    LOCAL_FINANCE_STORES.wallets,
+    LOCAL_FINANCE_STORES.budgets,
+    LOCAL_FINANCE_STORES.expenses,
+    LOCAL_FINANCE_STORES.walletTransactions,
+    LOCAL_FINANCE_STORES.savingsGoals,
+    LOCAL_FINANCE_STORES.lifeProfile,
+  ].filter(Boolean);
+
+  const records = [];
+
+  for (const storeName of storesToCheck) {
+    try {
+      const rows = await readAllStoreRecords(storeName);
+      records.push(
+        ...rows.filter((row) => row?.localUserId && !row?.deletedAt && !row?.deleted_at)
+      );
+    } catch {
+      // Keep the command center resilient if one optional store is unavailable.
+    }
+  }
+
+  const newestRecord = records.sort((a, b) => getRecordTime(b) - getRecordTime(a))[0];
+  return newestRecord?.localUserId || "local-user";
+}
+
+function commandSignature(command) {
+  return [
+    command.declaredAmount,
+    command.allocatedTotal,
+    command.categories.map((item) => `${item.slug}:${item.amount}`).join(";"),
+  ].join("|");
+}
+
+function dispatchBudgetRefresh(command, localUserId) {
+  if (typeof window === "undefined") return;
+
+  window.__claraLastBudgetCommandResult = {
+    status: "saved",
+    localUserId,
+    declaredAmount: command.declaredAmount,
+    allocatedTotal: command.allocatedTotal,
+    categoryCount: command.categoryCount,
+    savedAt: new Date().toISOString(),
+  };
+
+  CLARA_BUDGET_EVENTS.forEach((eventName) => {
+    window.dispatchEvent(
+      new CustomEvent(eventName, {
+        detail: window.__claraLastBudgetCommandResult,
+      })
+    );
+  });
+}
+
+async function executeBudgetSetupCommand(command) {
+  if (!command?.isBalanced) return null;
+
+  const signature = commandSignature(command);
+  if (processedBudgetCommands.has(signature)) return null;
+  processedBudgetCommands.add(signature);
+
+  const localUserId = await inferActiveLocalUserId();
+  const records = buildClaraBudgetRecords(command);
+
+  for (const record of records) {
+    await addBudget(localUserId, record);
+  }
+
+  dispatchBudgetRefresh(command, localUserId);
+
+  console.log("CLARA budget command saved:", {
+    localUserId,
+    declaredAmount: command.declaredAmount,
+    categoryCount: command.categoryCount,
+  });
+
+  return {
+    localUserId,
+    records,
+  };
+}
+
+async function handleMoneyChatEvent(event) {
+  const messages = Array.isArray(event?.detail?.messages) ? event.detail.messages : [];
+  const latestUserMessage = [...messages].reverse().find((message) => message?.role === "user");
+  const text = latestUserMessage?.text || "";
+  const command = parseClaraBudgetSetupCommand(text);
+
+  if (!command?.isBalanced) return;
+
+  try {
+    await executeBudgetSetupCommand(command);
+  } catch (error) {
+    console.warn("CLARA budget command failed:", error);
+
+    if (typeof window !== "undefined") {
+      window.__claraLastBudgetCommandResult = {
+        status: "failed",
+        error: error?.message || "Budget command failed.",
+        failedAt: new Date().toISOString(),
+      };
+    }
+  }
+}
+
 export function parseClaraBudgetSetupCommand(text = "") {
   if (!looksLikeBudgetSetup(text)) return null;
 
@@ -127,7 +268,7 @@ export function buildClaraBudgetCommandPreviewReply(command) {
     return `I can read the budget, but it is ${formatMoney(Math.abs(command.difference))} ${direction} your declared amount ⚠ Declared: ${formatMoney(command.declaredAmount)}. Categories total: ${formatMoney(command.allocatedTotal)}. Fix that difference first, then I can set it up.`;
   }
 
-  return `I can read this budget perfectly ✅ Declared ${formatMoney(command.declaredAmount)} and ${command.categoryCount} categories total ${formatMoney(command.allocatedTotal)}. Phase 1 passed: parser + validation are ready. Top rows: ${topCategories}.`;
+  return `I can read this budget perfectly ✅ Declared ${formatMoney(command.declaredAmount)} and ${command.categoryCount} categories total ${formatMoney(command.allocatedTotal)}. I’m setting this up as your active monthly budget now.`;
 }
 
 export function buildClaraBudgetRecords(command, { monthKey, monthRange } = {}) {
@@ -186,8 +327,17 @@ export function buildClaraBudgetRecords(command, { monthKey, monthRange } = {}) 
   return [header, ...categoryRows];
 }
 
+export function ensureClaraBudgetCommandCenterAutoRun() {
+  if (autoRunStarted) return;
+  if (typeof window === "undefined") return;
+
+  autoRunStarted = true;
+  window.addEventListener(CLARA_MONEY_CHAT_EVENT, handleMoneyChatEvent);
+}
+
 export const claraBudgetCommandCenterUtils = {
   parseClaraBudgetSetupCommand,
   buildClaraBudgetCommandPreviewReply,
   buildClaraBudgetRecords,
+  ensureClaraBudgetCommandCenterAutoRun,
 };
