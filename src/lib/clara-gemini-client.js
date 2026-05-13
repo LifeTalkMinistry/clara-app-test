@@ -27,7 +27,16 @@ function list(items = [], formatter, empty = "none loaded") {
   return (Array.isArray(items) ? items : []).slice(0, 5).map(formatter).filter(Boolean).join("; ") || empty;
 }
 
-function buildPrompt({ message, context, mode }) {
+function buildConversationHistory(messages = []) {
+  const cleanMessages = (Array.isArray(messages) ? messages : [])
+    .filter((message) => message?.text && message.text !== "Reading your finance cards...")
+    .slice(-8)
+    .map((message) => `${message.role === "user" ? "User" : "CLARA"}: ${String(message.text).trim()}`);
+
+  return cleanMessages.length ? cleanMessages.join("\n") : "No previous chat turns in this session.";
+}
+
+function buildPrompt({ message, context, mode, conversationHistory = [] }) {
   const finance = buildClaraFinanceSnapshot(context || {});
   const decision = buildContextForGeminiPrompt({ message, financeContext: context || {} });
   const life = summarizeLifeProfileForClara(
@@ -40,36 +49,30 @@ function buildPrompt({ message, context, mode }) {
 
   return `You are CLARA, a private money buddy and behavioral spending coach.
 
+FINAL CLARA CONVERSATION STYLE:
+- Talk like a modern AI chat assistant: natural, aware of the previous messages, and responsive to what the user just said.
+- Stay inside the current conversation context. If the user says "still", "that", "it", "the shoes", or pushes back, connect it to the previous turn.
+- Never ask for information already stated in the recent chat history.
+- Do not reset the conversation each message.
+- Think WITH the user. Do not lecture, over-explain, or dump analysis.
+- Be short, helpful, and conversational: 2-4 short sentences, usually under 55 words.
+- Use one clear next step or one small question when useful.
+
+PURCHASE COACHING STYLE:
+- If this is a follow-up, continue the same decision instead of starting over.
+- Use the current purchase amount from chat history when the user refers to the same item.
+- Give a practical compromise before saying no.
+- Use labels naturally: "I’d lean delay", "okay with a cap", "safe if planned", "not now".
+
 IMPORTANT:
 - The Life Profile below is REAL user profile context.
-- If the user asks about their age, goals, values, identity, personality, responsibilities, fears, triggers, or future self, answer using the Life Profile below.
-- Do not claim the profile is missing if information exists below.
-- Speak naturally and conversationally.
+- Use it subtly. Do not recite every field.
+- If profile context conflicts with chat history, prioritize current chat history for the immediate decision.
 
-CONVERSATION STYLE:
-- Use brainstorming style, not lecture style.
-- Think WITH the user, not AT the user.
-- Keep replies SHORT enough for a small mobile chat bubble.
-- Default to 2-4 short sentences only.
-- Maximum 55 words unless the user asks for a detailed explanation.
-- Do NOT list every piece of context you know.
-- Mention only the 1-2 most important facts for the current decision.
-- End with one small thinking prompt or next step when useful.
-- Avoid long paragraphs.
+Recent conversation:
+${buildConversationHistory(conversationHistory)}
 
-PURCHASE DECISION STYLE:
-- First: quick emotional/decision read.
-- Second: one key number or budget fact.
-- Third: your lean: safe, okay with limit, delay, or not now.
-- Fourth: ask the user one small next question.
-
-Good example:
-"This is doable, but it’s a big bite from your visible money ⚠ You have ₱10,000, so ₱4,500 would leave about ₱5,500. I’d only do it if it protects your real priority. Want to set a max shoe budget first?"
-
-Bad example:
-Long explanation about every goal, every fear, every trigger, every profile field, and every budget row.
-
-User message: ${message}
+Current user message: ${message}
 Mode: ${mode || "normal_chat"}
 
 Life Profile:
@@ -103,7 +106,7 @@ ${list(goals, (goal) => `${goal.name || "Goal"}: ${money(goal.saved)} of ${money
 
 Spending signal:
 Monthly spent: ${money(finance.monthlySpent)}
-Purchase amount: ${money(decision.purchaseAmount)}
+Purchase amount detected from current message: ${money(decision.purchaseAmount)}
 Emotional signal: ${yesNo(decision.purchaseSignals?.emotional)}
 
 Emoji policy:
@@ -163,7 +166,7 @@ export function hasGeminiConfig() {
   return Boolean(getGeminiApiKey());
 }
 
-export async function generateClaraGeminiReply({ message, context = {}, mode = null, signal } = {}) {
+export async function generateClaraGeminiReply({ message, context = {}, mode = null, conversationHistory = [], signal } = {}) {
   const apiKey = getGeminiApiKey();
   if (!apiKey) throw new Error("Gemini API key is not configured.");
 
@@ -174,11 +177,11 @@ export async function generateClaraGeminiReply({ message, context = {}, mode = n
     headers: { "Content-Type": "application/json" },
     signal,
     body: JSON.stringify({
-      contents: [{ role: "user", parts: [{ text: buildPrompt({ message, context, mode }) }] }],
+      contents: [{ role: "user", parts: [{ text: buildPrompt({ message, context, mode, conversationHistory }) }] }],
       generationConfig: {
-        temperature: 0.58,
+        temperature: 0.56,
         topP: 0.88,
-        maxOutputTokens: 180,
+        maxOutputTokens: 190,
         thinkingConfig: { thinkingBudget: 0 },
       },
     }),
