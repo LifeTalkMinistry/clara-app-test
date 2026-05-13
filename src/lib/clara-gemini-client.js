@@ -23,11 +23,6 @@ function yesNo(value) {
   return value ? "yes" : "no";
 }
 
-function positive(value) {
-  const number = Number(value);
-  return Number.isFinite(number) && number > 0;
-}
-
 function list(items = [], formatter, empty = "none loaded") {
   return (Array.isArray(items) ? items : []).slice(0, 5).map(formatter).filter(Boolean).join("; ") || empty;
 }
@@ -50,6 +45,29 @@ IMPORTANT:
 - If the user asks about their age, goals, values, identity, personality, responsibilities, fears, triggers, or future self, answer using the Life Profile below.
 - Do not claim the profile is missing if information exists below.
 - Speak naturally and conversationally.
+
+CONVERSATION STYLE:
+- Use brainstorming style, not lecture style.
+- Think WITH the user, not AT the user.
+- Keep replies SHORT enough for a small mobile chat bubble.
+- Default to 2-4 short sentences only.
+- Maximum 55 words unless the user asks for a detailed explanation.
+- Do NOT list every piece of context you know.
+- Mention only the 1-2 most important facts for the current decision.
+- End with one small thinking prompt or next step when useful.
+- Avoid long paragraphs.
+
+PURCHASE DECISION STYLE:
+- First: quick emotional/decision read.
+- Second: one key number or budget fact.
+- Third: your lean: safe, okay with limit, delay, or not now.
+- Fourth: ask the user one small next question.
+
+Good example:
+"This is doable, but it’s a big bite from your visible money ⚠ You have ₱10,000, so ₱4,500 would leave about ₱5,500. I’d only do it if it protects your real priority. Want to set a max shoe budget first?"
+
+Bad example:
+Long explanation about every goal, every fear, every trigger, every profile field, and every budget row.
 
 User message: ${message}
 Mode: ${mode || "normal_chat"}
@@ -158,9 +176,9 @@ export async function generateClaraGeminiReply({ message, context = {}, mode = n
     body: JSON.stringify({
       contents: [{ role: "user", parts: [{ text: buildPrompt({ message, context, mode }) }] }],
       generationConfig: {
-        temperature: 0.62,
-        topP: 0.9,
-        maxOutputTokens: 520,
+        temperature: 0.58,
+        topP: 0.88,
+        maxOutputTokens: 180,
         thinkingConfig: { thinkingBudget: 0 },
       },
     }),
