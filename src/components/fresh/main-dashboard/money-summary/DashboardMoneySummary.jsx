@@ -18,6 +18,8 @@ const CLARA_WELCOME_PROMPT = "What are you thinking of buying?";
 const CLARA_FEATURE_PROMPTS = {
   "Budget Plan":
     "Review my current Budget Plan like CLARA. Use my real budget context, categories, spending pace, remaining money, unplanned spending, and risks. Tell me the main concern I need to solve right now. Keep it short, conversational, and decision-focused.",
+  Wallets:
+    "Review my current Wallets like CLARA. Use my real wallet balances, total available money, wallet transaction movement, and money location. Give me a mini financial reality check so I immediately understand where my money is sitting, which wallet needs attention, and what I should be careful about next. Do not ask a random purchase question. Keep it short, conversational, and decision-focused.",
 };
 
 function makeClaraMessage(role, text) {
