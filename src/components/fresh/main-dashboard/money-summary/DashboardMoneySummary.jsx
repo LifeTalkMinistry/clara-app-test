@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Eye, EyeOff, Plus, Send, X } from "lucide-react";
+import { Eye, EyeOff, Plus, Send } from "lucide-react";
 import { generateClaraLocalReply } from "@/lib/clara-local-brain";
 import {
   generateClaraGeminiReply,
@@ -581,15 +581,6 @@ export default function DashboardMoneySummary({
       >
         <div className="pointer-events-none absolute -left-16 -top-20 h-44 w-44 rounded-full bg-cyan-300/10 blur-3xl" />
         <div className="pointer-events-none absolute -bottom-20 right-0 h-48 w-48 rounded-full bg-indigo-400/12 blur-3xl" />
-
-        <button
-          type="button"
-          onClick={closeClaraInline}
-          className="absolute right-2.5 top-2.5 z-50 flex h-7 w-7 items-center justify-center rounded-full border border-cyan-100/15 bg-white/[0.075] text-white/70 transition hover:bg-white/[0.12] active:scale-95"
-          aria-label="Close CLARA money chat"
-        >
-          <X className="h-3.5 w-3.5" />
-        </button>
 
         <div
           className={`relative z-10 flex flex-col justify-center ${
