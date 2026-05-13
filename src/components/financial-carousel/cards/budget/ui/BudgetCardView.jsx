@@ -47,7 +47,7 @@ function GuideChip({ active, children, onClick, className = "" }) {
     <button
       type="button"
       onClick={onClick}
-      className={`shrink-0 rounded-full border px-3 py-1.5 text-[10px] font-bold tracking-[0.02em] transition active:scale-95 ${
+      className={`shrink-0 rounded-full border px-3 py-1.5 text-[10px] font-bold tracking-[0.02em] shadow-[0_10px_22px_rgba(0,0,0,0.18)] backdrop-blur-xl transition active:scale-95 ${
         active
           ? "border-emerald-200/45 bg-emerald-300/20 text-emerald-50 shadow-[0_0_18px_rgba(110,231,183,0.14)]"
           : "border-white/12 bg-white/[0.065] text-white/72 hover:bg-white/[0.10]"
@@ -65,8 +65,8 @@ function ClaraGuideLauncher({ activeGroup, activeGuide, onSelectGroup, onSelectG
   if (activeGuide) return null;
 
   return (
-    <div className="relative z-10 mt-auto min-h-[112px] w-full pb-2 pt-3">
-      <div className="absolute right-0 top-0 flex w-[104px] flex-col items-end gap-1.5">
+    <div className="pointer-events-none absolute inset-x-4 bottom-8 z-30 h-[132px]">
+      <div className="pointer-events-auto absolute right-0 top-0 flex flex-col items-end gap-1.5">
         {GUIDE_GROUPS.map((group) => (
           <GuideChip
             key={group.key}
@@ -79,8 +79,8 @@ function ClaraGuideLauncher({ activeGroup, activeGuide, onSelectGroup, onSelectG
         ))}
       </div>
 
-      <div className="absolute bottom-1 left-0 right-[114px] overflow-hidden pr-1">
-        <div className="flex gap-2 overflow-x-auto pb-1 pl-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+      <div className="pointer-events-auto absolute bottom-0 left-0 right-0 overflow-visible">
+        <div className="flex gap-2 overflow-x-auto pb-1 pl-1 pr-[116px] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
           {options.map((option) => (
             <GuideChip
               key={option.key}
@@ -141,16 +141,16 @@ function ClaraBudgetDecisionScreen({
         </p>
       </div>
 
+      <ClaraGuideLauncher
+        activeGroup={activeGuideGroup}
+        activeGuide={activeGuide}
+        onSelectGroup={onSelectGuideGroup}
+        onSelectGuide={onSelectGuide}
+      />
+
       <div className="pointer-events-none absolute inset-x-4 bottom-4 z-20 h-8 bg-gradient-to-t from-slate-950/78 to-transparent" />
 
       <div className="relative z-10 mt-4 flex min-h-0 flex-1 flex-col gap-2 overflow-y-auto overscroll-contain pr-1 scroll-smooth [scrollbar-color:rgba(148,163,184,0.38)_transparent] [scrollbar-width:thin]">
-        <ClaraGuideLauncher
-          activeGroup={activeGuideGroup}
-          activeGuide={activeGuide}
-          onSelectGroup={onSelectGuideGroup}
-          onSelectGuide={onSelectGuide}
-        />
-
         {visibleMessages.map((message) => {
           const isUser = message.role === "user";
 
