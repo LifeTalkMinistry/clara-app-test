@@ -65,8 +65,8 @@ function ClaraGuideLauncher({ activeGroup, activeGuide, onSelectGroup, onSelectG
   if (activeGuide) return null;
 
   return (
-    <div className="relative z-10 mt-auto space-y-2 pb-2 pt-3">
-      <div className="flex gap-2 overflow-x-auto pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+    <div className="relative z-10 mt-auto ml-auto w-full max-w-[315px] space-y-2 pb-2 pt-3">
+      <div className="flex justify-end gap-2 overflow-x-auto pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
         {GUIDE_GROUPS.map((group) => (
           <GuideChip
             key={group.key}
@@ -78,7 +78,7 @@ function ClaraGuideLauncher({ activeGroup, activeGuide, onSelectGroup, onSelectG
         ))}
       </div>
 
-      <div className="flex gap-2 overflow-x-auto pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+      <div className="flex justify-end gap-2 overflow-x-auto pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
         {options.map((option) => (
           <GuideChip
             key={option.key}
