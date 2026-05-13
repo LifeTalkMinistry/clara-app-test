@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import { Box, MessageCircle, Sparkles } from "lucide-react";
 import BudgetCard from "@/components/BudgetCard";
 
 const CLARA_MONEY_CHAT_EVENT = "clara:money-card-chat";
@@ -10,71 +11,87 @@ const GUIDE_GROUPS = [
   {
     key: "cards",
     label: "Core Features",
-    className: "min-w-[132px] px-4.5 py-2 text-[11px] translate-x-0",
+    Icon: Box,
+    iconClassName: "text-cyan-200",
     activeClassName:
-      "border-emerald-100/62 bg-emerald-300/22 text-white shadow-[0_0_24px_rgba(110,231,183,0.16),inset_0_1px_0_rgba(255,255,255,0.13)] scale-[1.02]",
+      "border-cyan-100/28 bg-cyan-300/[0.095] text-white shadow-[0_0_22px_rgba(34,211,238,0.10),inset_0_1px_0_rgba(255,255,255,0.09)]",
     inactiveClassName:
-      "border-emerald-100/24 bg-white/[0.082] text-white/84 shadow-[0_0_14px_rgba(110,231,183,0.07),inset_0_1px_0_rgba(255,255,255,0.07)]",
+      "border-white/10 bg-white/[0.045] text-white/78 shadow-[inset_0_1px_0_rgba(255,255,255,0.055)]",
   },
   {
     key: "smart_actions",
     label: "Smart Actions",
-    className: "min-w-[114px] px-3.5 py-[7px] text-[10px] translate-x-2",
+    Icon: Sparkles,
+    iconClassName: "text-violet-200",
     activeClassName:
-      "border-cyan-100/44 bg-cyan-200/16 text-cyan-50 shadow-[0_0_17px_rgba(125,211,252,0.10),inset_0_1px_0_rgba(255,255,255,0.10)] scale-[1.01]",
+      "border-violet-100/28 bg-violet-300/[0.09] text-white shadow-[0_0_18px_rgba(196,181,253,0.10),inset_0_1px_0_rgba(255,255,255,0.085)]",
     inactiveClassName:
-      "border-white/15 bg-white/[0.058] text-white/72 shadow-[inset_0_1px_0_rgba(255,255,255,0.052)]",
+      "border-white/10 bg-white/[0.04] text-white/72 shadow-[inset_0_1px_0_rgba(255,255,255,0.048)]",
   },
   {
     key: "advice",
     label: "Ask Advice",
-    className: "min-w-[98px] px-3 py-1.5 text-[9.5px] translate-x-4",
+    Icon: MessageCircle,
+    iconClassName: "text-fuchsia-200",
     activeClassName:
-      "border-violet-100/34 bg-violet-200/12 text-white/88 shadow-[0_0_12px_rgba(196,181,253,0.08),inset_0_1px_0_rgba(255,255,255,0.07)]",
+      "border-fuchsia-100/26 bg-fuchsia-300/[0.085] text-white shadow-[0_0_16px_rgba(217,70,239,0.09),inset_0_1px_0_rgba(255,255,255,0.08)]",
     inactiveClassName:
-      "border-white/12 bg-white/[0.04] text-white/62 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]",
+      "border-white/10 bg-white/[0.035] text-white/66 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]",
   },
 ];
 
-function GuideChip({
-  active,
-  children,
-  onClick,
-  className = "",
-  activeClassName = "",
-  inactiveClassName = "",
-}) {
+function ClaraIdentityMark() {
+  return (
+    <div className="relative grid h-11 w-11 shrink-0 place-items-center rounded-full border border-cyan-100/12 bg-white/[0.045] text-[21px] font-medium text-cyan-200/90 shadow-[inset_0_1px_0_rgba(255,255,255,0.06)] backdrop-blur-xl">
+      C
+      <span className="absolute -bottom-0.5 -right-0.5 h-3.5 w-3.5 rounded-full border border-slate-950/70 bg-cyan-300 shadow-[0_0_10px_rgba(45,212,191,0.26)]" />
+    </div>
+  );
+}
+
+function GuideActionCard({ active, group, onClick }) {
+  const Icon = group.Icon;
+
   return (
     <button
       type="button"
       onClick={onClick}
       aria-pressed={active}
-      className={`shrink-0 origin-right rounded-full border font-bold tracking-[0.02em] backdrop-blur-xl transition duration-200 hover:bg-white/[0.10] hover:text-white hover:shadow-[0_0_16px_rgba(255,255,255,0.07),inset_0_1px_0_rgba(255,255,255,0.07)] active:scale-95 ${
-        active ? activeClassName : inactiveClassName
-      } ${className}`}
+      className={`flex min-h-[74px] min-w-0 flex-1 flex-col items-center justify-center gap-2 rounded-[22px] border px-2.5 text-center backdrop-blur-xl transition duration-200 hover:bg-white/[0.07] hover:text-white active:scale-[0.98] ${
+        active ? group.activeClassName : group.inactiveClassName
+      }`}
     >
-      {children}
+      <Icon className={`h-5 w-5 ${group.iconClassName}`} strokeWidth={1.8} />
+      <span className="whitespace-nowrap text-[10.5px] font-black leading-none tracking-tight">
+        {group.label}
+      </span>
     </button>
   );
 }
 
-function ClaraGuideLauncher({ activeGroup, onSelectGroup }) {
+function ClaraQuickActions({ activeGroup, onSelectGroup }) {
   const currentGroup = activeGroup || "cards";
 
   return (
-    <div className="pointer-events-auto absolute right-4 top-[55%] z-30 flex -translate-y-1/2 flex-col items-end gap-2.5">
-      {GUIDE_GROUPS.map((group) => (
-        <GuideChip
-          key={group.key}
-          active={currentGroup === group.key}
-          onClick={() => onSelectGroup(group.key)}
-          className={`${group.className} justify-center text-center`}
-          activeClassName={group.activeClassName}
-          inactiveClassName={group.inactiveClassName}
-        >
-          {group.label}
-        </GuideChip>
-      ))}
+    <div className="w-full">
+      <div className="mb-3 flex items-center gap-3 px-1">
+        <div className="h-px flex-1 bg-white/9" />
+        <p className="text-[10.5px] font-bold tracking-wide text-white/36">
+          Quick actions
+        </p>
+        <div className="h-px flex-1 bg-white/9" />
+      </div>
+
+      <div className="grid grid-cols-3 gap-2.5">
+        {GUIDE_GROUPS.map((group) => (
+          <GuideActionCard
+            key={group.key}
+            group={group}
+            active={currentGroup === group.key}
+            onClick={() => onSelectGroup(group.key)}
+          />
+        ))}
+      </div>
     </div>
   );
 }
@@ -126,12 +143,15 @@ function ClaraBudgetDecisionScreen({
       </div>
 
       {!hasActiveConversation && (
-        <div className="relative z-10 mt-6 flex min-h-0 flex-1 flex-col justify-end pb-1">
-          <div className="max-w-[68%] rounded-[24px] border border-white/10 bg-white/[0.065] px-4 py-3 text-[11px] font-semibold leading-5 text-white/78 shadow-[inset_0_1px_0_rgba(255,255,255,0.06)] backdrop-blur-xl">
-            <p className="text-white/88">CLARA is here to think with you 🙂</p>
+        <div className="relative z-10 mt-6 flex min-h-0 flex-1 flex-col justify-end gap-5 pb-1">
+          <div className="flex items-center gap-3">
+            <ClaraIdentityMark />
+            <div className="min-w-0 flex-1 rounded-[24px] border border-white/10 bg-white/[0.065] px-4 py-3 text-[11px] font-semibold leading-5 text-white/78 shadow-[inset_0_1px_0_rgba(255,255,255,0.06)] backdrop-blur-xl">
+              <p className="text-white/88">CLARA is here to think with you 🙂</p>
+            </div>
           </div>
 
-          <ClaraGuideLauncher
+          <ClaraQuickActions
             activeGroup={activeGuideGroup}
             onSelectGroup={onSelectGuideGroup}
           />
