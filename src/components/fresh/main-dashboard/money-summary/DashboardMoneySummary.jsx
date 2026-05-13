@@ -11,7 +11,14 @@ const SINGLE_TAP_DELAY = 240;
 const DOUBLE_TAP_WINDOW = 280;
 const CLARA_LONG_PRESS_DELAY = 560;
 const CLARA_MONEY_CHAT_EVENT = "clara:money-card-chat";
+const CLARA_MONEY_CHAT_REQUEST_EVENT = "clara:money-card-chat-request";
 const CLARA_THINKING_REPLY = "Reading your finance cards...";
+const CLARA_WELCOME_PROMPT = "What are you thinking of buying?";
+
+const CLARA_FEATURE_PROMPTS = {
+  "Budget Plan":
+    "Review my current Budget Plan like CLARA. Use my real budget context, categories, spending pace, remaining money, unplanned spending, and risks. Tell me the main concern I need to solve right now. Keep it short, conversational, and decision-focused.",
+};
 
 function makeClaraMessage(role, text) {
   return {
@@ -293,7 +300,7 @@ export default function DashboardMoneySummary({
   const [claraMode, setClaraMode] = useState(false);
   const [claraDraft, setClaraDraft] = useState("");
   const [claraMessages, setClaraMessages] = useState(() => [
-    makeClaraMessage("clara", "What are you thinking of buying?"),
+    makeClaraMessage("clara", CLARA_WELCOME_PROMPT),
   ]);
 
   useEffect(() => {
@@ -357,7 +364,7 @@ export default function DashboardMoneySummary({
     claraTriggeredRef.current = true;
     endMoneyLeftOrbLongPress?.();
     setClaraMode(true);
-    setClaraMessages([makeClaraMessage("clara", "What are you thinking of buying?")]);
+    setClaraMessages([makeClaraMessage("clara", CLARA_WELCOME_PROMPT)]);
 
     window.setTimeout(() => {
       claraInputRef.current?.focus?.();
@@ -372,7 +379,7 @@ export default function DashboardMoneySummary({
       claraTriggeredRef.current = false;
       setClaraMode(false);
       setClaraDraft("");
-      setClaraMessages([makeClaraMessage("clara", "What are you thinking of buying?")]);
+      setClaraMessages([makeClaraMessage("clara", CLARA_WELCOME_PROMPT)]);
     },
     [clearLongPressTimer, clearTapTimer, stopOrbEvent]
   );
@@ -458,8 +465,9 @@ export default function DashboardMoneySummary({
   const resolveClaraReply = useCallback(
     async (text) => {
       const cleanText = String(text || "").trim();
-      const purchaseMode = isPurchaseQuestion(cleanText);
-      const aiMessage = purchaseMode ? `Before I buy this: ${cleanText}` : cleanText;
+      const featurePrompt = CLARA_FEATURE_PROMPTS[cleanText];
+      const purchaseMode = !featurePrompt && isPurchaseQuestion(cleanText);
+      const aiMessage = featurePrompt || (purchaseMode ? `Before I buy this: ${cleanText}` : cleanText);
 
       let liveLifeProfile = null;
       try {
@@ -496,7 +504,7 @@ export default function DashboardMoneySummary({
         const geminiReply = await generateClaraGeminiReply({
           message: aiMessage,
           context: claraConversationContext,
-          mode: purchaseMode ? "purchase_decision" : "money_context_check",
+          mode: featurePrompt ? "feature_review" : purchaseMode ? "purchase_decision" : "money_context_check",
           conversationHistory: claraMessages,
         });
 
@@ -511,21 +519,26 @@ export default function DashboardMoneySummary({
     [claraFinanceContext, claraMessages, fmt, thisMonthSpent, walletMoney]
   );
 
-  const handleClaraSubmit = useCallback(
-    (event) => {
-      event?.preventDefault?.();
-      event?.stopPropagation?.();
-
-      const text = claraDraft.trim();
+  const submitClaraPrompt = useCallback(
+    (rawText) => {
+      const text = String(rawText || "").trim();
       if (!text) return;
 
       const pendingMessage = makeClaraMessage("clara", CLARA_THINKING_REPLY);
 
-      setClaraMessages((current) => [
-        ...current,
-        makeClaraMessage("user", text),
-        pendingMessage,
-      ]);
+      setClaraMode(true);
+
+      setClaraMessages((current) => {
+        const cleanedCurrent = current.filter(
+          (message) => String(message?.text || "").trim() !== CLARA_WELCOME_PROMPT
+        );
+
+        return [
+          ...cleanedCurrent,
+          makeClaraMessage("user", text),
+          pendingMessage,
+        ];
+      });
 
       setClaraDraft("");
 
@@ -533,8 +546,35 @@ export default function DashboardMoneySummary({
         replaceClaraMessage(pendingMessage.id, reply);
       });
     },
-    [claraDraft, replaceClaraMessage, resolveClaraReply]
+    [replaceClaraMessage, resolveClaraReply]
   );
+
+  const handleClaraSubmit = useCallback(
+    (event) => {
+      event?.preventDefault?.();
+      event?.stopPropagation?.();
+
+      submitClaraPrompt(claraDraft);
+    },
+    [claraDraft, submitClaraPrompt]
+  );
+
+  useEffect(() => {
+    const handleFeaturePromptRequest = (event) => {
+      const detail = event?.detail || {};
+      const prompt = String(detail.prompt || detail.feature || "").trim();
+
+      if (!prompt) return;
+
+      submitClaraPrompt(prompt);
+    };
+
+    window.addEventListener(CLARA_MONEY_CHAT_REQUEST_EVENT, handleFeaturePromptRequest);
+
+    return () => {
+      window.removeEventListener(CLARA_MONEY_CHAT_REQUEST_EVENT, handleFeaturePromptRequest);
+    };
+  }, [submitClaraPrompt]);
 
   useEffect(() => {
     return () => {
