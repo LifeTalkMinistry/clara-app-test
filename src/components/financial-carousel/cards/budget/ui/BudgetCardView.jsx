@@ -4,18 +4,13 @@ import BudgetCard from "@/components/BudgetCard";
 const CLARA_MONEY_CHAT_EVENT = "clara:money-card-chat";
 const CLARA_MONEY_GUIDE_EVENT = "clara:money-guide-selected";
 
-const FALLBACK_MESSAGES = [
-  {
-    id: "clara-budget-welcome",
-    role: "clara",
-    text: "What are you thinking of buying?",
-  },
-];
+const FALLBACK_MESSAGES = [];
+const HIDDEN_WELCOME_TEXT = "What are you thinking of buying?";
 
 const GUIDE_GROUPS = [
   { key: "cards", label: "5 Cards" },
-  { key: "smart_actions", label: "Other features" },
-  { key: "advice", label: "Ask advice" },
+  { key: "smart_actions", label: "Smart Actions" },
+  { key: "advice", label: "Ask Advice" },
 ];
 
 const GUIDE_OPTIONS = {
@@ -109,7 +104,7 @@ function ClaraBudgetDecisionScreen({
   const messagesEndRef = useRef(null);
   const visibleMessages = useMemo(() => {
     const source = Array.isArray(messages) && messages.length ? messages : FALLBACK_MESSAGES;
-    return source;
+    return source.filter((message) => String(message?.text || "").trim() !== HIDDEN_WELCOME_TEXT);
   }, [messages]);
 
   useEffect(() => {
@@ -133,12 +128,7 @@ function ClaraBudgetDecisionScreen({
       <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(to_bottom,rgba(255,255,255,0.05),rgba(255,255,255,0.01)_38%,rgba(0,0,0,0.06))]" />
       <div className="pointer-events-none absolute inset-0 rounded-[inherit] ring-1 ring-inset ring-white/8" />
 
-      <div className="relative z-10 w-full max-w-[230px] shrink-0">
-        <div className="mb-2 inline-flex items-center gap-2 rounded-full border border-emerald-300/15 bg-emerald-300/10 px-2.5 py-1 text-[9px] font-semibold uppercase tracking-[0.18em] text-emerald-100/85 shadow-[0_10px_24px_rgba(0,0,0,0.18)] backdrop-blur-xl">
-          <span className="h-1.5 w-1.5 rounded-full bg-emerald-300 shadow-[0_0_14px_rgba(110,231,183,0.82)]" />
-          CLARA Budget Lens
-        </div>
-
+      <div className="relative z-10 w-full max-w-[230px] shrink-0 pt-1">
         <h3 className="text-[1.18rem] font-black leading-none tracking-tight text-white drop-shadow-[0_1px_12px_rgba(0,0,0,0.45)]">
           Ask before you spend.
         </h3>
@@ -148,7 +138,6 @@ function ClaraBudgetDecisionScreen({
         </p>
       </div>
 
-      <div className="pointer-events-none absolute inset-x-4 top-[112px] z-20 h-7 bg-gradient-to-b from-slate-950/75 to-transparent" />
       <div className="pointer-events-none absolute inset-x-4 bottom-4 z-20 h-8 bg-gradient-to-t from-slate-950/78 to-transparent" />
 
       <div className="relative z-10 mt-4 flex min-h-0 flex-1 flex-col gap-2 overflow-y-auto overscroll-contain pr-1 scroll-smooth [scrollbar-color:rgba(148,163,184,0.38)_transparent] [scrollbar-width:thin]">
