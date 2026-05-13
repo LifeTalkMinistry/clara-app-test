@@ -209,6 +209,12 @@ export default function BudgetCardView({
   };
 
   const minimizeClaraChat = () => {
+    setClaraChatState((current) => ({
+      ...current,
+      active: false,
+      messages: FALLBACK_MESSAGES,
+    }));
+
     window.dispatchEvent(
       new CustomEvent(CLARA_MONEY_CHAT_EVENT, {
         detail: {
@@ -217,6 +223,10 @@ export default function BudgetCardView({
         },
       })
     );
+
+    if (expandedFinanceCard === "budgets") {
+      toggleFinanceDetails?.("budgets");
+    }
   };
 
   if (claraChatState.active) {
