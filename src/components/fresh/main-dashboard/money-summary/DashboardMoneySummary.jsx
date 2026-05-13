@@ -522,7 +522,7 @@ export default function DashboardMoneySummary({
       const pendingMessage = makeClaraMessage("clara", CLARA_THINKING_REPLY);
 
       setClaraMessages((current) => [
-        ...current.slice(-3),
+        ...current,
         makeClaraMessage("user", text),
         pendingMessage,
       ]);
