@@ -1,6 +1,7 @@
 import {
   LOCAL_FINANCE_STORES,
   getLocalRecordsByUser,
+  openLocalFinanceDb,
   upsertLocalRecord,
 } from "./localFinanceStore";
 
@@ -48,22 +49,39 @@ export function normalizeClaraLifeProfile(profile = {}) {
   };
 }
 
+function newestActiveProfile(records = []) {
+  const activeRecords = (Array.isArray(records) ? records : [])
+    .filter((record) => record && !record.deletedAt && !record.deleted_at)
+    .sort((a, b) => {
+      const aTime = new Date(a.updatedAt || a.updated_at || a.createdAt || 0).getTime();
+      const bTime = new Date(b.updatedAt || b.updated_at || b.createdAt || 0).getTime();
+      return bTime - aTime;
+    });
+
+  return activeRecords.find((record) => record.id === CLARA_LIFE_PROFILE_ID) || activeRecords[0] || null;
+}
+
 export async function readClaraLifeProfile(user) {
   const localUserId = getClaraLocalUserId(user);
   const records = await getLocalRecordsByUser(LOCAL_FINANCE_STORES.lifeProfile, {
     localUserId,
   });
 
-  const directProfile = records.find((record) => record.id === CLARA_LIFE_PROFILE_ID);
-  const newestProfile = records
-    .filter((record) => !record.deletedAt && !record.deleted_at)
-    .sort((a, b) => {
-      const aTime = new Date(a.updatedAt || a.updated_at || a.createdAt || 0).getTime();
-      const bTime = new Date(b.updatedAt || b.updated_at || b.createdAt || 0).getTime();
-      return bTime - aTime;
-    })[0];
+  return normalizeClaraLifeProfile(newestActiveProfile(records) || {});
+}
 
-  return normalizeClaraLifeProfile(directProfile || newestProfile || {});
+export async function readLatestClaraLifeProfileOnDevice() {
+  const db = await openLocalFinanceDb();
+  const transaction = db.transaction(LOCAL_FINANCE_STORES.lifeProfile, "readonly");
+  const store = transaction.objectStore(LOCAL_FINANCE_STORES.lifeProfile);
+
+  const records = await new Promise((resolve, reject) => {
+    const request = store.getAll();
+    request.onsuccess = () => resolve(request.result || []);
+    request.onerror = () => reject(request.error || new Error("Failed to read CLARA life profile."));
+  });
+
+  return normalizeClaraLifeProfile(newestActiveProfile(records) || {});
 }
 
 export async function saveClaraLifeProfile(user, profile) {
@@ -88,6 +106,12 @@ export function hasMeaningfulLifeProfile(profile = {}) {
   const normalized = normalizeClaraLifeProfile(profile);
   return Boolean(
     normalized.age ||
+      normalized.personality ||
+      normalized.status ||
+      normalized.dependents ||
+      normalized.responsibility ||
+      normalized.incomeRhythm ||
+      normalized.coachingStyle ||
       normalized.currentFocus ||
       normalized.topValues ||
       normalized.meaningfulGoal ||
