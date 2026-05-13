@@ -2,7 +2,6 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import BudgetCard from "@/components/BudgetCard";
 
 const CLARA_MONEY_CHAT_EVENT = "clara:money-card-chat";
-const CLARA_MONEY_GUIDE_EVENT = "clara:money-guide-selected";
 
 const FALLBACK_MESSAGES = [];
 const HIDDEN_WELCOME_TEXT = "What are you thinking of buying?";
@@ -12,26 +11,6 @@ const GUIDE_GROUPS = [
   { key: "smart_actions", label: "Smart Actions" },
   { key: "advice", label: "Ask Advice" },
 ];
-
-const GUIDE_OPTIONS = {
-  cards: [
-    { key: "wallets", label: "Wallets" },
-    { key: "budgets", label: "Budgets" },
-    { key: "emergency", label: "Emergency Fund" },
-    { key: "savings", label: "Savings Goals" },
-    { key: "investments", label: "Investment" },
-    { key: "debt", label: "Debt/Obligation" },
-  ],
-  smart_actions: [
-    { key: "future_forecast", label: "Future Money Forecast" },
-    { key: "spending_checkup", label: "Spending Checkup" },
-    { key: "savings_game_plan", label: "Savings Game Plan" },
-  ],
-  advice: [
-    { key: "stress_spending", label: "Stress spending" },
-    { key: "family_support", label: "Family support" },
-  ],
-};
 
 function GuideChip({ active, children, onClick, className = "" }) {
   return (
@@ -49,14 +28,11 @@ function GuideChip({ active, children, onClick, className = "" }) {
   );
 }
 
-function ClaraGuideLauncher({ activeGroup, activeGuide, onSelectGroup, onSelectGuide }) {
+function ClaraGuideLauncher({ activeGroup, onSelectGroup }) {
   const currentGroup = activeGroup || "cards";
-  const options = GUIDE_OPTIONS[currentGroup] || GUIDE_OPTIONS.cards;
-
-  if (activeGuide) return null;
 
   return (
-    <div className="relative z-30 mt-5 space-y-3">
+    <div className="relative z-30 mt-5">
       <div className="rounded-[22px] border border-white/10 bg-white/[0.035] p-3 shadow-[inset_0_1px_0_rgba(255,255,255,0.06)] backdrop-blur-xl">
         <p className="text-[9px] font-black uppercase tracking-[0.20em] text-cyan-100/50">
           CLARA shortcuts
@@ -73,19 +49,6 @@ function ClaraGuideLauncher({ activeGroup, activeGuide, onSelectGroup, onSelectG
             </GuideChip>
           ))}
         </div>
-
-        <div className="mt-3 flex gap-2 overflow-x-auto pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-          {options.map((option) => (
-            <GuideChip
-              key={option.key}
-              active={activeGuide?.key === option.key}
-              onClick={() => onSelectGuide(currentGroup, option)}
-              className="border-cyan-100/16 bg-slate-950/22"
-            >
-              {option.label}
-            </GuideChip>
-          ))}
-        </div>
       </div>
     </div>
   );
@@ -94,10 +57,8 @@ function ClaraGuideLauncher({ activeGroup, activeGuide, onSelectGroup, onSelectG
 function ClaraBudgetDecisionScreen({
   messages = FALLBACK_MESSAGES,
   selectedDashboardTheme,
-  activeGuide = null,
   activeGuideGroup = "cards",
   onSelectGuideGroup,
-  onSelectGuide,
   onMinimize,
 }) {
   const messagesEndRef = useRef(null);
@@ -144,15 +105,13 @@ function ClaraBudgetDecisionScreen({
           <div className="max-w-[92%] rounded-[24px] border border-white/10 bg-white/[0.065] px-4 py-3 text-[11px] font-semibold leading-5 text-white/78 shadow-[inset_0_1px_0_rgba(255,255,255,0.06)] backdrop-blur-xl">
             <p className="text-white/88">CLARA is here to think with you 🙂</p>
             <p className="mt-1 text-white/58">
-              Pick a shortcut below, or ask about something you want to buy.
+              Choose a category below, or ask about something you want to buy.
             </p>
           </div>
 
           <ClaraGuideLauncher
             activeGroup={activeGuideGroup}
-            activeGuide={activeGuide}
             onSelectGroup={onSelectGuideGroup}
-            onSelectGuide={onSelectGuide}
           />
         </div>
       )}
@@ -197,7 +156,6 @@ export default function BudgetCardView({
   const [claraChatState, setClaraChatState] = useState({
     active: false,
     messages: FALLBACK_MESSAGES,
-    activeGuide: null,
     activeGuideGroup: "cards",
   });
 
@@ -210,7 +168,6 @@ export default function BudgetCardView({
         messages: Array.isArray(detail.messages) && detail.messages.length
           ? detail.messages
           : FALLBACK_MESSAGES,
-        activeGuide: detail.activeGuide || current.activeGuide || null,
         activeGuideGroup: detail.activeGuideGroup || current.activeGuideGroup || "cards",
       }));
     };
@@ -227,20 +184,6 @@ export default function BudgetCardView({
       ...current,
       activeGuideGroup: groupKey,
     }));
-  };
-
-  const selectGuide = (groupKey, guide) => {
-    setClaraChatState((current) => ({
-      ...current,
-      activeGuideGroup: groupKey,
-      activeGuide: guide,
-    }));
-
-    window.dispatchEvent(
-      new CustomEvent(CLARA_MONEY_GUIDE_EVENT, {
-        detail: { groupKey, guide },
-      })
-    );
   };
 
   const minimizeClaraChat = () => {
@@ -260,10 +203,8 @@ export default function BudgetCardView({
         <ClaraBudgetDecisionScreen
           messages={claraChatState.messages}
           selectedDashboardTheme={selectedDashboardTheme}
-          activeGuide={claraChatState.activeGuide}
           activeGuideGroup={claraChatState.activeGuideGroup}
           onSelectGuideGroup={selectGuideGroup}
-          onSelectGuide={selectGuide}
           onMinimize={minimizeClaraChat}
         />
       </div>
