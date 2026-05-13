@@ -8,9 +8,9 @@ const FALLBACK_MESSAGES = [];
 const HIDDEN_WELCOME_TEXT = "What are you thinking of buying?";
 
 const GUIDE_GROUPS = [
-  { key: "cards", label: "5 Cards" },
-  { key: "smart_actions", label: "Smart Actions" },
-  { key: "advice", label: "Ask Advice" },
+  { key: "cards", label: "5 Cards", position: "right-0 top-0 min-w-[86px]" },
+  { key: "smart_actions", label: "Smart Actions", position: "right-[22px] top-[39px] min-w-[112px]" },
+  { key: "advice", label: "Ask Advice", position: "right-[6px] top-[78px] min-w-[92px]" },
 ];
 
 const GUIDE_OPTIONS = {
@@ -65,14 +65,14 @@ function ClaraGuideLauncher({ activeGroup, activeGuide, onSelectGroup, onSelectG
   if (activeGuide) return null;
 
   return (
-    <div className="pointer-events-none absolute inset-x-4 bottom-8 z-30 h-[132px]">
-      <div className="pointer-events-auto absolute right-0 top-0 flex flex-col items-end gap-1.5">
+    <div className="pointer-events-none absolute inset-x-4 bottom-8 z-30 h-[166px]">
+      <div className="pointer-events-auto absolute right-0 top-0 h-[110px] w-[150px]">
         {GUIDE_GROUPS.map((group) => (
           <GuideChip
             key={group.key}
             active={currentGroup === group.key}
             onClick={() => onSelectGroup(group.key)}
-            className="min-w-[92px] justify-center text-center"
+            className={`absolute justify-center text-center ${group.position}`}
           >
             {group.label}
           </GuideChip>
@@ -80,7 +80,7 @@ function ClaraGuideLauncher({ activeGroup, activeGuide, onSelectGroup, onSelectG
       </div>
 
       <div className="pointer-events-auto absolute bottom-0 left-0 right-0 overflow-visible">
-        <div className="flex gap-2 overflow-x-auto pb-1 pl-1 pr-[116px] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+        <div className="flex gap-2 overflow-x-auto pb-1 pl-2 pr-4 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
           {options.map((option) => (
             <GuideChip
               key={option.key}
