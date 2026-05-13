@@ -182,6 +182,129 @@ function getBudgetRows(monthlyBudgetPlan) {
   return [];
 }
 
+function getBudgetRowName(row = {}) {
+  return String(
+    row.name ||
+      row.category ||
+      row.category_name ||
+      row.label ||
+      row.title ||
+      row.budget_name ||
+      ""
+  ).trim();
+}
+
+function getBudgetRowAllocated(row = {}) {
+  return safeNumber(
+    row.allocated ??
+      row.allocated_amount ??
+      row.amount ??
+      row.limit ??
+      row.total ??
+      row.budget
+  );
+}
+
+function extractExplicitReason(text = "") {
+  const raw = String(text || "").trim();
+  const match = raw.match(/\b(?:because|bec|cause|since|kasi|dahil|due to|needed because)\b\s+(.+)$/i);
+
+  return String(match?.[1] || "")
+    .replace(/[.!?]+$/g, "")
+    .trim();
+}
+
+function hasUnexpectedSignal(text = "") {
+  return /\b(unexpected|unexpectedly|emergency|urgent|bigla|biglaan|medicine|meds|hospital|clinic|doctor|repair|broken|accident)\b/i.test(
+    String(text || "")
+  );
+}
+
+function matchExpenseToBudget(command = {}, monthlyBudgetPlan = null) {
+  const rows = getBudgetRows(monthlyBudgetPlan).filter((row) => getBudgetRowName(row));
+  const hasRows = rows.length > 0;
+  const itemText = normalizeMatchText(command.item);
+  const categoryText = normalizeMatchText(command.category);
+
+  const matchedRow = rows.find((row) => {
+    const rowText = normalizeMatchText(getBudgetRowName(row));
+    if (!rowText) return false;
+
+    return (
+      rowText === categoryText ||
+      rowText === itemText ||
+      rowText.includes(categoryText) ||
+      categoryText.includes(rowText) ||
+      itemText.includes(rowText) ||
+      rowText.includes(itemText)
+    );
+  });
+
+  return {
+    hasBudgetList: hasRows,
+    row: matchedRow || null,
+    name: matchedRow ? getBudgetRowName(matchedRow) : "",
+  };
+}
+
+function classifyExpenseAgainstBudget(command = {}, monthlyBudgetPlan = null) {
+  const budgetMatch = matchExpenseToBudget(command, monthlyBudgetPlan);
+  const explicitReason = extractExplicitReason(command.rawText);
+  const unexpected = hasUnexpectedSignal(command.rawText);
+
+  if (budgetMatch.row) {
+    return {
+      planningStatus: "planned",
+      category: budgetMatch.name || command.category,
+      budgetCategory: budgetMatch.name,
+      budgetMatched: true,
+      requiresReason: false,
+      reason: null,
+    };
+  }
+
+  if (!budgetMatch.hasBudgetList) {
+    return {
+      planningStatus: "unplanned",
+      category: command.category || "Unplanned Spending",
+      budgetCategory: null,
+      budgetMatched: false,
+      requiresReason: false,
+      reason: "No active budget category was matched when CLARA logged this expense.",
+    };
+  }
+
+  if (explicitReason || unexpected) {
+    return {
+      planningStatus: "unplanned",
+      category: "Unplanned Spending",
+      budgetCategory: null,
+      budgetMatched: false,
+      requiresReason: false,
+      reason:
+        explicitReason ||
+        `Unexpected expense detected from CLARA chat: ${command.rawText}`,
+    };
+  }
+
+  return {
+    planningStatus: "unplanned",
+    category: "Unplanned Spending",
+    budgetCategory: null,
+    budgetMatched: false,
+    requiresReason: true,
+    reason: "",
+  };
+}
+
+function buildBudgetReasonQuestion(command = {}) {
+  const amountText = command.amount
+    ? `₱${Number(command.amount).toLocaleString("en-PH", { maximumFractionDigits: 0 })}`
+    : "this amount";
+
+  return `I can see ${command.item} is not part of your current budget list. Why did you need to spend ${amountText} on it? I’ll log it as unplanned after your reason.`;
+}
+
 function isContextQuestion(text) {
   return /what exact financial|currently see|what can you see|how much money|money do i currently have|total expense|spent this month|financial information|card data/i.test(
     String(text || "")
@@ -437,6 +560,7 @@ export default function DashboardMoneySummary({
 
   const [claraMode, setClaraMode] = useState(false);
   const [claraDraft, setClaraDraft] = useState("");
+  const [pendingExpenseReview, setPendingExpenseReview] = useState(null);
   const [claraMessages, setClaraMessages] = useState(() => [
     makeClaraMessage("clara", CLARA_WELCOME_PROMPT),
   ]);
@@ -502,6 +626,7 @@ export default function DashboardMoneySummary({
     claraTriggeredRef.current = true;
     endMoneyLeftOrbLongPress?.();
     setClaraMode(true);
+    setPendingExpenseReview(null);
     setClaraMessages([makeClaraMessage("clara", CLARA_WELCOME_PROMPT)]);
 
     window.setTimeout(() => {
@@ -517,6 +642,7 @@ export default function DashboardMoneySummary({
       claraTriggeredRef.current = false;
       setClaraMode(false);
       setClaraDraft("");
+      setPendingExpenseReview(null);
       setClaraMessages([makeClaraMessage("clara", CLARA_WELCOME_PROMPT)]);
     },
     [clearLongPressTimer, clearTapTimer, stopOrbEvent]
@@ -600,8 +726,26 @@ export default function DashboardMoneySummary({
     );
   }, []);
 
+  const appendUserAndPendingMessage = useCallback((text, pendingMessage) => {
+    setClaraMode(true);
+
+    setClaraMessages((current) => {
+      const cleanedCurrent = current.filter(
+        (message) => String(message?.text || "").trim() !== CLARA_WELCOME_PROMPT
+      );
+
+      return [
+        ...cleanedCurrent,
+        makeClaraMessage("user", text),
+        pendingMessage,
+      ];
+    });
+
+    setClaraDraft("");
+  }, []);
+
   const logExpenseFromChat = useCallback(
-    async (command) => {
+    async (command, budgetReview = null) => {
       if (!command?.ok) {
         if (command?.reason === "wallet_not_found") {
           return command.walletName
@@ -612,6 +756,12 @@ export default function DashboardMoneySummary({
         return "I can log expenses now, but I need the item, amount, and wallet name.";
       }
 
+      const review = budgetReview || classifyExpenseAgainstBudget(command, monthlyBudgetPlan);
+
+      if (review.requiresReason) {
+        return buildBudgetReasonQuestion(command);
+      }
+
       const walletBalance = getWalletVisibleBalance(command.wallet);
       if (walletBalance < command.amount) {
         return `${command.walletName} only has ${fmt(walletBalance)} available, so I didn’t log the ${fmt(command.amount)} ${command.item} expense. Choose another wallet or add money first.`;
@@ -619,14 +769,20 @@ export default function DashboardMoneySummary({
 
       const nowIso = new Date().toISOString();
       const localUserId = getLocalUserIdFromWallets(wallets);
+      const isPlanned = review.planningStatus === "planned";
+      const reason = isPlanned ? null : review.reason || `Outside budget list: ${command.rawText}`;
 
       await repoAddExpense(localUserId, {
         amount: command.amount,
         wallet_id: command.wallet.id,
-        category: command.category,
+        category: review.category || command.category,
+        budget_category: review.budgetCategory || null,
+        budget_category_name: review.budgetCategory || null,
+        budget_list_match: Boolean(review.budgetMatched),
         need_type: "other",
-        planning_status: "unplanned",
-        unplanned_reason: `Logged through CLARA chat: ${command.rawText}`,
+        planning_status: review.planningStatus,
+        unplanned_reason: reason,
+        unexpected_reason: isPlanned ? null : reason,
         notes: command.item,
         source_type: "CLARA Chat Expense Log",
         date: nowIso,
@@ -643,9 +799,14 @@ export default function DashboardMoneySummary({
       window.dispatchEvent(new CustomEvent("clara-finance-updated"));
 
       const nextBalance = Math.max(walletBalance - command.amount, 0);
-      return `Logged ✅ ${fmt(command.amount)} for ${command.item} from ${command.walletName}. That wallet should now be around ${fmt(nextBalance)}. Small spends count too, so good job recording it right away.`;
+
+      if (isPlanned) {
+        return `Logged ✅ ${fmt(command.amount)} for ${command.item} from ${command.walletName}. I matched it under your ${review.budgetCategory} budget, so it stays budget-focused. That wallet should now be around ${fmt(nextBalance)}.`;
+      }
+
+      return `Logged ✅ ${fmt(command.amount)} for ${command.item} from ${command.walletName} as unplanned. I saved the reason: “${reason}”. That wallet should now be around ${fmt(nextBalance)}.`;
     },
-    [fmt, wallets]
+    [fmt, monthlyBudgetPlan, wallets]
   );
 
   const resolveClaraReply = useCallback(
@@ -711,29 +872,58 @@ export default function DashboardMoneySummary({
       if (!text) return;
 
       const expenseCommand = parseExpenseLogCommand(text, wallets);
+
+      if (pendingExpenseReview && !expenseCommand) {
+        const pendingMessage = makeClaraMessage("clara", CLARA_LOGGING_REPLY);
+        appendUserAndPendingMessage(text, pendingMessage);
+
+        const reason = text.replace(/[.!?]+$/g, "").trim();
+        const reviewWithReason = {
+          ...pendingExpenseReview.budgetReview,
+          planningStatus: "unplanned",
+          category: "Unplanned Spending",
+          budgetMatched: false,
+          requiresReason: false,
+          reason,
+        };
+        const pendingCommand = pendingExpenseReview.command;
+
+        setPendingExpenseReview(null);
+
+        logExpenseFromChat(pendingCommand, reviewWithReason)
+          .then((reply) => replaceClaraMessage(pendingMessage.id, reply))
+          .catch((error) => {
+            console.warn("CLARA chat expense log failed:", error);
+            replaceClaraMessage(
+              pendingMessage.id,
+              "I understood the reason, but I couldn’t save it yet. Please try again or use the manual expense button."
+            );
+          });
+
+        return;
+      }
+
       const pendingMessage = makeClaraMessage(
         "clara",
         expenseCommand ? CLARA_LOGGING_REPLY : CLARA_THINKING_REPLY
       );
 
-      setClaraMode(true);
-
-      setClaraMessages((current) => {
-        const cleanedCurrent = current.filter(
-          (message) => String(message?.text || "").trim() !== CLARA_WELCOME_PROMPT
-        );
-
-        return [
-          ...cleanedCurrent,
-          makeClaraMessage("user", text),
-          pendingMessage,
-        ];
-      });
-
-      setClaraDraft("");
+      appendUserAndPendingMessage(text, pendingMessage);
 
       if (expenseCommand) {
-        logExpenseFromChat(expenseCommand)
+        const budgetReview = expenseCommand.ok
+          ? classifyExpenseAgainstBudget(expenseCommand, monthlyBudgetPlan)
+          : null;
+
+        if (budgetReview?.requiresReason) {
+          setPendingExpenseReview({ command: expenseCommand, budgetReview });
+          replaceClaraMessage(pendingMessage.id, buildBudgetReasonQuestion(expenseCommand));
+          return;
+        }
+
+        setPendingExpenseReview(null);
+
+        logExpenseFromChat(expenseCommand, budgetReview)
           .then((reply) => replaceClaraMessage(pendingMessage.id, reply))
           .catch((error) => {
             console.warn("CLARA chat expense log failed:", error);
@@ -742,14 +932,25 @@ export default function DashboardMoneySummary({
               "I understood the expense, but I couldn’t save it yet. Please try again or use the manual expense button."
             );
           });
+
         return;
       }
+
+      setPendingExpenseReview(null);
 
       resolveClaraReply(text).then((reply) => {
         replaceClaraMessage(pendingMessage.id, reply);
       });
     },
-    [logExpenseFromChat, replaceClaraMessage, resolveClaraReply, wallets]
+    [
+      appendUserAndPendingMessage,
+      logExpenseFromChat,
+      monthlyBudgetPlan,
+      pendingExpenseReview,
+      replaceClaraMessage,
+      resolveClaraReply,
+      wallets,
+    ]
   );
 
   const handleClaraSubmit = useCallback(
