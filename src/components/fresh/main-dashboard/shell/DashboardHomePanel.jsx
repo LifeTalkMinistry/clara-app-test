@@ -1,3 +1,4 @@
+import { useEffect, useState } from "react";
 import { Clock } from "lucide-react";
 import { Link } from "react-router-dom";
 import FinancialCarousel from "@/components/financial-carousel/FinancialCarousel";
@@ -5,6 +6,8 @@ import LearningHub from "@/components/fresh/main-dashboard/learning-hub/Learning
 import DashboardMoneySummary from "@/components/fresh/main-dashboard/money-summary/DashboardMoneySummary";
 import FinanceInlineAlert from "@/components/fresh/main-dashboard/finance-notices/FinanceInlineAlert";
 import { Button } from "@/components/ui/button";
+
+const CLARA_MONEY_CHAT_EVENT = "clara:money-card-chat";
 
 export default function DashboardHomePanel({
   isPending,
@@ -63,6 +66,30 @@ export default function DashboardHomePanel({
   thisMonthSpent,
   fmt,
 }) {
+  const [moneySummaryResetKey, setMoneySummaryResetKey] = useState(0);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return undefined;
+
+    const handleMoneySummaryReset = (event) => {
+      const detail = event?.detail || {};
+      const isBudgetLensClose =
+        detail.active === false &&
+        Array.isArray(detail.messages) &&
+        detail.messages.length === 0;
+
+      if (!isBudgetLensClose) return;
+
+      setMoneySummaryResetKey((current) => current + 1);
+    };
+
+    window.addEventListener(CLARA_MONEY_CHAT_EVENT, handleMoneySummaryReset);
+
+    return () => {
+      window.removeEventListener(CLARA_MONEY_CHAT_EVENT, handleMoneySummaryReset);
+    };
+  }, []);
+
   return (
     <>
       {isPending && (
@@ -152,6 +179,7 @@ export default function DashboardHomePanel({
       )}
 
       <DashboardMoneySummary
+        key={moneySummaryResetKey}
         dashboardScale={dashboardScale}
         selectedDashboardTheme={selectedDashboardTheme}
         themeIsLight={themeIsLight}
