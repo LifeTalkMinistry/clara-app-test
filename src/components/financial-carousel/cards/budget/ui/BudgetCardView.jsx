@@ -9,7 +9,12 @@ const FALLBACK_MESSAGES = [];
 const HIDDEN_WELCOME_TEXT = "What are you thinking of buying?";
 const BUDGET_PLAN_FEATURE = "Budget Plan";
 const WALLETS_FEATURE = "Wallets";
-const ENABLED_FEATURES = new Set([BUDGET_PLAN_FEATURE, WALLETS_FEATURE]);
+const SAVINGS_GOALS_FEATURE = "Savings Goals";
+const ENABLED_FEATURES = new Set([
+  BUDGET_PLAN_FEATURE,
+  WALLETS_FEATURE,
+  SAVINGS_GOALS_FEATURE,
+]);
 
 const GUIDE_GROUPS = [
   {
