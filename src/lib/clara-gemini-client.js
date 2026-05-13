@@ -28,26 +28,6 @@ function positive(value) {
   return Number.isFinite(number) && number > 0;
 }
 
-function readClaimedTotal(text = "") {
-  const clean = String(text || "").replace(/,/g, "");
-  const patterns = [
-    /(?:i\s*(?:still\s*)?have|my\s*wallet\s*(?:has|have)|total\s*(?:money|wallets?|balance)|money\s*left)\D{0,40}(?:₱|php\s*)?(\d+(?:\.\d{1,2})?)/i,
-    /(?:₱|php\s*)?(\d+(?:\.\d{1,2})?)\D{0,28}(?:total|across\s+my\s+wallets|in\s+my\s+wallets|money\s+left)/i,
-  ];
-  for (const pattern of patterns) {
-    const match = clean.match(pattern);
-    const amount = match ? Number(match[1]) : null;
-    if (positive(amount)) return amount;
-  }
-  return null;
-}
-
-function mismatch(claimed, actual) {
-  if (!positive(claimed) || !positive(actual)) return false;
-  const diff = Math.abs(Number(claimed) - Number(actual));
-  return diff >= 500 && diff / Math.max(Number(actual), 1) >= 0.15;
-}
-
 function list(items = [], formatter, empty = "none loaded") {
   return (Array.isArray(items) ? items : []).slice(0, 5).map(formatter).filter(Boolean).join("; ") || empty;
 }
@@ -55,68 +35,33 @@ function list(items = [], formatter, empty = "none loaded") {
 function buildPrompt({ message, context, mode }) {
   const finance = buildClaraFinanceSnapshot(context || {});
   const decision = buildContextForGeminiPrompt({ message, financeContext: context || {} });
-  const life = summarizeLifeProfileForClara(context?.lifeProfile || context?.profile?.lifeProfile || context?.profile || {});
+  const life = summarizeLifeProfileForClara(
+    context?.lifeProfile || context?.profile?.lifeProfile || context?.profile || {}
+  );
+
   const wallets = Array.isArray(finance.wallets) ? finance.wallets : [];
   const budgets = Array.isArray(finance.budgets) ? finance.budgets : [];
   const goals = Array.isArray(finance.savingsGoals) ? finance.savingsGoals : [];
-  const claimed = readClaimedTotal(message);
 
-  return `You are CLARA, a private money buddy and behavioral spending coach. Be warm, simple, direct, protective, and emotionally intelligent.
+  return `You are CLARA, a private money buddy and behavioral spending coach.
 
-Core job:
-- Use the wallet, budget, savings, emergency, spending-pattern, and Life Profile context below.
-- Do not invent missing data.
-- Total money is not free money.
-- If the user claims more money than CLARA sees, tell them to update the wallet first.
-- For tempting, comfort, emotional, or expensive wants, do not give a shallow permission reply. Read the emotional trigger, budget flexibility, pattern risk, and future-self impact.
-
-Tone training:
-- Sound like a caring coach, not a spreadsheet and not a generic chatbot.
-- Acknowledge emotion first when the user sounds stressed, tired, sad, pressured, excited, bored, or tempted.
-- Be gentle but honest. Avoid guilt, shame, or fear-based language.
-- Give one clear decision when enough context exists: safe, okay with limit, delay, or not now.
-- Then give the reason and one next action.
-
-Emoji policy:
-- Use emojis often enough to clarify emotion and decision tone, especially in emotional or purchase replies.
-- Use 1-3 emojis when appropriate, but keep them meaningful and calm.
-- Use ONLY these app-compatible emojis: 🙂 ✅ ⚠ 💡 📌 ⏳
-- Meaning guide: 🙂 empathy/reassurance, ✅ okay/safe, ⚠ caution/risk, 💡 insight/coaching, 📌 next action, ⏳ delay/wait.
-- Never use hearts, hand emojis, sparkle emojis, brain emojis, shield emojis, food emojis, decorative symbols, or any emoji outside the allowed list.
-- Never let emojis replace financial reasoning.
-
-Length:
-- Purchase or emotional-spending replies should be 2-4 short sentences.
-- Context-check replies can be 2-5 short sentences.
-- Keep the answer mobile-friendly.
+IMPORTANT:
+- The Life Profile below is REAL user profile context.
+- If the user asks about their age, goals, values, identity, personality, responsibilities, fears, triggers, or future self, answer using the Life Profile below.
+- Do not claim the profile is missing if information exists below.
+- Speak naturally and conversationally.
 
 User message: ${message}
 Mode: ${mode || "normal_chat"}
 
-Wallet truth:
-Visible wallet money: ${money(finance.availableMoney)}
-User claimed total: ${money(claimed)}
-Mismatch: ${yesNo(mismatch(claimed, finance.availableMoney))}
-Wallets: ${list(wallets, (wallet) => `${wallet.name || "Wallet"}: ${money(wallet.balance)}`, finance.availableMoney !== null ? `Total visible money: ${money(finance.availableMoney)}` : "none loaded")}
-
-Budget:
-Allocated: ${money(finance.budgetAllocated)}
-Spent: ${money(finance.budgetSpent)}
-Left: ${money(finance.budgetRemaining)}
-Rows: ${list(budgets, (budget) => `${budget.name || budget.category || "Budget"}: left ${money(budget.remaining)} of ${money(budget.allocated)}`)}
-
-Savings and emergency:
-Savings: ${list(goals, (goal) => `${goal.name || "Goal"}: ${money(goal.saved)} of ${money(goal.target)}`)}
-Emergency saved: ${money(finance.emergencyFund?.saved)}
-Emergency target: ${money(finance.emergencyFund?.target)}
-
 Life Profile:
-Loaded: ${yesNo(life.hasMeaningfulProfile)}
-Personality: ${life.personality || "not set"}
+Age: ${life.age || "not set"}
+Money personality: ${life.personality || "not set"}
 Status: ${life.status || "not set"}
 Dependents: ${life.dependents || "not set"}
 Protect first: ${life.responsibility || "not set"}
-Tone: ${life.coachingStyle || "not set"}
+Income rhythm: ${life.incomeRhythm || "not set"}
+Guidance tone: ${life.coachingStyle || "not set"}
 Current focus: ${life.currentFocus || "not set"}
 Values: ${life.topValues || "not set"}
 Protected goal: ${life.meaningfulGoal || "not set"}
@@ -125,13 +70,26 @@ Spending trigger: ${life.spendingTrigger || "not set"}
 Non-negotiable money: ${life.nonNegotiable || "not set"}
 Future identity: ${life.identityStatement || "not set"}
 
+Wallet truth:
+Visible wallet money: ${money(finance.availableMoney)}
+Wallets: ${list(wallets, (wallet) => `${wallet.name || "Wallet"}: ${money(wallet.balance)}`, finance.availableMoney !== null ? `Total visible money: ${money(finance.availableMoney)}` : "none loaded")}
+
+Budget:
+Allocated: ${money(finance.budgetAllocated)}
+Spent: ${money(finance.budgetSpent)}
+Left: ${money(finance.budgetRemaining)}
+Rows: ${list(budgets, (budget) => `${budget.name || budget.category || "Budget"}: left ${money(budget.remaining)} of ${money(budget.allocated)}`)}
+
+Savings:
+${list(goals, (goal) => `${goal.name || "Goal"}: ${money(goal.saved)} of ${money(goal.target)}`)}
+
 Spending signal:
 Monthly spent: ${money(finance.monthlySpent)}
-Unplanned spent: ${money(finance.unplannedSpent)}
-Wants spent: ${money(finance.wantsSpent)}
 Purchase amount: ${money(decision.purchaseAmount)}
 Emotional signal: ${yesNo(decision.purchaseSignals?.emotional)}
-Optional purchase: ${yesNo(decision.purchaseSignals?.optional)}
+
+Emoji policy:
+Use ONLY these emojis if needed: 🙂 ✅ ⚠ 💡 📌 ⏳
 
 Reply as CLARA:`;
 }
@@ -180,14 +138,7 @@ function looksIncompleteReply(text) {
 
   if (clean.length < 20) return true;
 
-  const sentenceCount = clean
-    .split(/[.!?]/)
-    .map((part) => part.trim())
-    .filter(Boolean).length;
-
-  if (sentenceCount >= 2) return false;
-
-  return /\b(and|but|because|so|to|for|with|of|the|a|an|is|are|can|should|let)$/i.test(clean);
+  return false;
 }
 
 export function hasGeminiConfig() {
@@ -197,6 +148,7 @@ export function hasGeminiConfig() {
 export async function generateClaraGeminiReply({ message, context = {}, mode = null, signal } = {}) {
   const apiKey = getGeminiApiKey();
   if (!apiKey) throw new Error("Gemini API key is not configured.");
+
   const model = getGeminiModel();
 
   const response = await fetch(`${GEMINI_ENDPOINT_BASE}/${encodeURIComponent(model)}:generateContent?key=${encodeURIComponent(apiKey)}`, {
@@ -215,7 +167,7 @@ export async function generateClaraGeminiReply({ message, context = {}, mode = n
   });
 
   if (!response.ok) {
-    throw new Error(`Gemini request failed: ${response.status} ${await response.text().catch(() => "")}`);
+    throw new Error(`Gemini request failed: ${response.status}`);
   }
 
   const data = await response.json();
