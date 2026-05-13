@@ -65,9 +65,22 @@ function ClaraGuideLauncher({ activeGroup, activeGuide, onSelectGroup, onSelectG
   if (activeGuide) return null;
 
   return (
-    <div className="relative z-10 mt-auto grid w-full grid-cols-[1fr_auto] items-end gap-3 pb-2 pt-3">
-      <div className="min-w-0 overflow-hidden">
-        <div className="flex gap-2 overflow-x-auto pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+    <div className="relative z-10 mt-auto min-h-[112px] w-full pb-2 pt-3">
+      <div className="absolute right-0 top-0 flex w-[104px] flex-col items-end gap-1.5">
+        {GUIDE_GROUPS.map((group) => (
+          <GuideChip
+            key={group.key}
+            active={currentGroup === group.key}
+            onClick={() => onSelectGroup(group.key)}
+            className="min-w-[92px] justify-center text-center"
+          >
+            {group.label}
+          </GuideChip>
+        ))}
+      </div>
+
+      <div className="absolute bottom-1 left-0 right-[114px] overflow-hidden pr-1">
+        <div className="flex gap-2 overflow-x-auto pb-1 pl-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
           {options.map((option) => (
             <GuideChip
               key={option.key}
@@ -78,19 +91,6 @@ function ClaraGuideLauncher({ activeGroup, activeGuide, onSelectGroup, onSelectG
             </GuideChip>
           ))}
         </div>
-      </div>
-
-      <div className="flex shrink-0 flex-col items-end gap-1.5 pb-1">
-        {GUIDE_GROUPS.map((group) => (
-          <GuideChip
-            key={group.key}
-            active={currentGroup === group.key}
-            onClick={() => onSelectGroup(group.key)}
-            className="min-w-[88px] justify-center text-center"
-          >
-            {group.label}
-          </GuideChip>
-        ))}
       </div>
     </div>
   );
