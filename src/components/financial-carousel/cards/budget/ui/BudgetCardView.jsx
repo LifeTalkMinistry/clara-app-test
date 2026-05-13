@@ -12,19 +12,17 @@ const GUIDE_GROUPS = [
     key: "cards",
     label: "Core Features",
     Icon: Box,
-    iconClassName: "text-cyan-100",
-    cardClassName: "min-h-[80px] -mt-1",
+    iconClassName: "text-cyan-200",
     activeClassName:
-      "border-cyan-100/36 bg-cyan-300/[0.12] text-white shadow-[0_0_26px_rgba(34,211,238,0.13),inset_0_1px_0_rgba(255,255,255,0.11)]",
+      "border-cyan-100/28 bg-cyan-300/[0.095] text-white shadow-[0_0_22px_rgba(34,211,238,0.10),inset_0_1px_0_rgba(255,255,255,0.09)]",
     inactiveClassName:
-      "border-cyan-100/16 bg-white/[0.06] text-white/84 shadow-[0_0_16px_rgba(34,211,238,0.055),inset_0_1px_0_rgba(255,255,255,0.07)]",
+      "border-white/10 bg-white/[0.045] text-white/78 shadow-[inset_0_1px_0_rgba(255,255,255,0.055)]",
   },
   {
     key: "smart_actions",
     label: "Smart Actions",
     Icon: Sparkles,
     iconClassName: "text-violet-200",
-    cardClassName: "min-h-[74px]",
     activeClassName:
       "border-violet-100/28 bg-violet-300/[0.09] text-white shadow-[0_0_18px_rgba(196,181,253,0.10),inset_0_1px_0_rgba(255,255,255,0.085)]",
     inactiveClassName:
@@ -35,22 +33,12 @@ const GUIDE_GROUPS = [
     label: "Ask Advice",
     Icon: MessageCircle,
     iconClassName: "text-fuchsia-200",
-    cardClassName: "min-h-[74px]",
     activeClassName:
       "border-fuchsia-100/26 bg-fuchsia-300/[0.085] text-white shadow-[0_0_16px_rgba(217,70,239,0.09),inset_0_1px_0_rgba(255,255,255,0.08)]",
     inactiveClassName:
       "border-white/10 bg-white/[0.035] text-white/66 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]",
   },
 ];
-
-function ClaraIdentityMark() {
-  return (
-    <div className="relative grid h-11 w-11 shrink-0 place-items-center rounded-full border border-cyan-100/12 bg-white/[0.045] text-[21px] font-medium text-cyan-200/90 shadow-[inset_0_1px_0_rgba(255,255,255,0.06)] backdrop-blur-xl">
-      C
-      <span className="absolute -bottom-0.5 -right-0.5 h-3.5 w-3.5 rounded-full border border-slate-950/70 bg-cyan-300 shadow-[0_0_10px_rgba(45,212,191,0.26)]" />
-    </div>
-  );
-}
 
 function GuideActionCard({ active, group, onClick }) {
   const Icon = group.Icon;
@@ -60,7 +48,7 @@ function GuideActionCard({ active, group, onClick }) {
       type="button"
       onClick={onClick}
       aria-pressed={active}
-      className={`flex min-w-0 flex-1 flex-col items-center justify-center gap-2 rounded-[22px] border px-2.5 text-center backdrop-blur-xl transition duration-200 hover:bg-white/[0.07] hover:text-white active:scale-[0.98] ${group.cardClassName || "min-h-[74px]"} ${
+      className={`flex min-h-[74px] min-w-0 flex-1 flex-col items-center justify-center gap-2 rounded-[22px] border px-2.5 text-center backdrop-blur-xl transition duration-200 hover:bg-white/[0.07] hover:text-white active:scale-[0.98] ${
         active ? group.activeClassName : group.inactiveClassName
       }`}
     >
@@ -85,7 +73,7 @@ function ClaraQuickActions({ activeGroup, onSelectGroup }) {
         <div className="h-px flex-1 bg-white/[0.045]" />
       </div>
 
-      <div className="grid grid-cols-3 items-end gap-2.5">
+      <div className="grid grid-cols-3 gap-2.5">
         {GUIDE_GROUPS.map((group) => (
           <GuideActionCard
             key={group.key}
@@ -129,10 +117,6 @@ function ClaraBudgetDecisionScreen({
           <h3 className="text-[1.18rem] font-black leading-none tracking-tight text-white">
             Ask before you spend.
           </h3>
-
-          <p className="mt-1 text-[11px] leading-4 text-slate-300/78">
-            Your budget is ready to think with you.
-          </p>
         </div>
 
         <button
@@ -147,8 +131,7 @@ function ClaraBudgetDecisionScreen({
 
       {!hasActiveConversation && (
         <div className="relative z-10 mt-6 flex min-h-0 flex-1 flex-col justify-end gap-5 pb-1">
-          <div className="flex -translate-y-1 items-center gap-3">
-            <ClaraIdentityMark />
+          <div className="flex items-center">
             <div className="min-w-0 flex-1 rounded-[24px] border border-white/10 bg-white/[0.065] px-4 py-3 text-[11px] font-semibold leading-5 text-white/78 shadow-[inset_0_1px_0_rgba(255,255,255,0.06)] backdrop-blur-xl">
               <p className="text-white/88">CLARA is here to think with you 🙂</p>
             </div>
