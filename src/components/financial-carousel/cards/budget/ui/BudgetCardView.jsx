@@ -40,19 +40,61 @@ const GUIDE_GROUPS = [
   },
 ];
 
-const GUIDE_CAROUSEL_MESSAGES = {
-  cards: {
-    title: "Core Features",
-    copy: "Open your main CLARA money tools.",
-  },
-  smart_actions: {
-    title: "Smart Actions",
-    copy: "Move faster with guided money decisions.",
-  },
-  advice: {
-    title: "Ask Advice",
-    copy: "Ask CLARA before spending or deciding.",
-  },
+const GUIDE_BUBBLE_CAROUSELS = {
+  cards: [
+    {
+      title: "Core Features",
+      copy: "Open your main CLARA money tools.",
+    },
+    {
+      title: "Budget Plan",
+      copy: "See your monthly spending map.",
+    },
+    {
+      title: "Wallets",
+      copy: "Check where your money is sitting.",
+    },
+    {
+      title: "Savings",
+      copy: "Protect goals before spending.",
+    },
+  ],
+  smart_actions: [
+    {
+      title: "Smart Actions",
+      copy: "Move faster with guided money decisions.",
+    },
+    {
+      title: "Log Expense",
+      copy: "Record spending before it disappears.",
+    },
+    {
+      title: "Rebalance",
+      copy: "Adjust categories before drift grows.",
+    },
+    {
+      title: "Review Today",
+      copy: "Spot patterns while they are still small.",
+    },
+  ],
+  advice: [
+    {
+      title: "Ask Advice",
+      copy: "Ask CLARA before spending or deciding.",
+    },
+    {
+      title: "Should I buy this?",
+      copy: "Pause the impulse before it wins.",
+    },
+    {
+      title: "Can I afford it?",
+      copy: "Compare the choice with your money left.",
+    },
+    {
+      title: "Delay or buy?",
+      copy: "Turn hesitation into a smarter decision.",
+    },
+  ],
 };
 
 function GuideActionCard({ active, group, onClick }) {
@@ -102,16 +144,25 @@ function ClaraQuickActions({ activeGroup, onSelectGroup }) {
   );
 }
 
-function ClaraGuideBubble({ activeGroup }) {
-  const message = GUIDE_CAROUSEL_MESSAGES[activeGroup] || GUIDE_CAROUSEL_MESSAGES.cards;
+function ClaraGuideBubbleCarousel({ activeGroup }) {
+  const items = GUIDE_BUBBLE_CAROUSELS[activeGroup] || GUIDE_BUBBLE_CAROUSELS.cards;
 
   return (
-    <div className="min-w-0 flex-1 rounded-[24px] border border-white/10 bg-white/[0.065] px-4 py-3 text-[11px] font-semibold leading-5 text-white/78 shadow-[inset_0_1px_0_rgba(255,255,255,0.06)] backdrop-blur-xl transition duration-200">
-      <p className="text-white/92">
-        <span className="font-black">{message.title}</span>
-        <span className="text-white/42"> — </span>
-        <span className="text-white/72">{message.copy}</span>
-      </p>
+    <div className="min-w-0 flex-1 overflow-hidden rounded-[24px] border border-white/10 bg-white/[0.065] px-2.5 py-2.5 text-[11px] font-semibold leading-5 text-white/78 shadow-[inset_0_1px_0_rgba(255,255,255,0.06)] backdrop-blur-xl transition duration-200">
+      <div className="flex snap-x gap-2 overflow-x-auto scroll-smooth [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+        {items.map((item) => (
+          <div
+            key={item.title}
+            className="min-w-[76%] snap-start rounded-[20px] border border-white/[0.07] bg-white/[0.035] px-3 py-2 shadow-[inset_0_1px_0_rgba(255,255,255,0.045)]"
+          >
+            <p className="truncate text-white/92">
+              <span className="font-black">{item.title}</span>
+              <span className="text-white/42"> — </span>
+              <span className="text-white/70">{item.copy}</span>
+            </p>
+          </div>
+        ))}
+      </div>
     </div>
   );
 }
@@ -161,7 +212,7 @@ function ClaraBudgetDecisionScreen({
       {!hasActiveConversation && (
         <div className="relative z-10 mt-6 flex min-h-0 flex-1 flex-col justify-end gap-5 pb-1">
           <div className="flex items-center">
-            <ClaraGuideBubble activeGroup={activeGuideGroup} />
+            <ClaraGuideBubbleCarousel activeGroup={activeGuideGroup} />
           </div>
 
           <ClaraQuickActions
