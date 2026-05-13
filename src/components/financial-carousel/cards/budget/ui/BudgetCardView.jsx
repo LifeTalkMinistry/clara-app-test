@@ -103,6 +103,7 @@ function ClaraBudgetDecisionScreen({
   activeGuideGroup = "cards",
   onSelectGuideGroup,
   onSelectGuide,
+  onMinimize,
 }) {
   const messagesEndRef = useRef(null);
   const visibleMessages = useMemo(() => {
@@ -131,7 +132,17 @@ function ClaraBudgetDecisionScreen({
       <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(to_bottom,rgba(255,255,255,0.05),rgba(255,255,255,0.01)_38%,rgba(0,0,0,0.06))]" />
       <div className="pointer-events-none absolute inset-0 rounded-[inherit] ring-1 ring-inset ring-white/8" />
 
-      <div className="relative z-10 w-full max-w-[230px] shrink-0 pt-1">
+      <button
+        type="button"
+        onClick={onMinimize}
+        className="absolute right-4 top-3 z-40 flex h-5 min-w-[38px] items-center justify-center rounded-full border border-white/10 bg-white/[0.045] text-[15px] font-semibold leading-none text-white/58 shadow-[0_8px_20px_rgba(0,0,0,0.16)] backdrop-blur-xl transition hover:border-cyan-100/20 hover:bg-white/[0.075] hover:text-white/78 active:scale-95"
+        aria-label="Minimize CLARA chat"
+        title="Minimize CLARA"
+      >
+        <span className="-mt-1">⌄</span>
+      </button>
+
+      <div className="relative z-10 w-full max-w-[230px] shrink-0 pt-1 pr-12">
         <h3 className="text-[1.18rem] font-black leading-none tracking-tight text-white drop-shadow-[0_1px_12px_rgba(0,0,0,0.45)]">
           Ask before you spend.
         </h3>
@@ -249,6 +260,28 @@ export default function BudgetCardView({
     );
   };
 
+  const minimizeClaraChat = () => {
+    if (typeof window === "undefined") return;
+
+    const inlineCloseButton = window.document.querySelector(
+      'button[aria-label="Close CLARA money chat"]'
+    );
+
+    if (inlineCloseButton) {
+      inlineCloseButton.click();
+      return;
+    }
+
+    window.dispatchEvent(
+      new CustomEvent(CLARA_MONEY_CHAT_EVENT, {
+        detail: {
+          active: false,
+          messages: FALLBACK_MESSAGES,
+        },
+      })
+    );
+  };
+
   if (claraChatState.active) {
     return (
       <div className="h-full min-h-[inherit] flex flex-col">
@@ -259,6 +292,7 @@ export default function BudgetCardView({
           activeGuideGroup={claraChatState.activeGuideGroup}
           onSelectGuideGroup={selectGuideGroup}
           onSelectGuide={selectGuide}
+          onMinimize={minimizeClaraChat}
         />
       </div>
     );
