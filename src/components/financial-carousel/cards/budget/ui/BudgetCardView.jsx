@@ -97,12 +97,12 @@ function ClaraGuideBubbleCarousel({ activeGroup }) {
   const items = GUIDE_BUBBLE_CAROUSELS[activeGroup] || GUIDE_BUBBLE_CAROUSELS.cards;
 
   return (
-    <div className="min-w-0 flex-1 overflow-hidden rounded-[24px] border border-white/10 bg-white/[0.065] px-2.5 py-2.5 text-[11px] font-semibold leading-5 text-white/78 shadow-[inset_0_1px_0_rgba(255,255,255,0.06)] backdrop-blur-xl transition duration-200">
+    <div className="min-w-0 flex-1 overflow-hidden">
       <div className="flex snap-x gap-2 overflow-x-auto scroll-smooth [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
         {items.map((item) => (
           <div
             key={item}
-            className="min-w-fit snap-start rounded-[20px] border border-white/[0.07] bg-white/[0.035] px-4 py-2 shadow-[inset_0_1px_0_rgba(255,255,255,0.045)]"
+            className="min-w-fit snap-start rounded-[20px] border border-white/[0.07] bg-white/[0.035] px-4 py-2 text-[11px] font-semibold leading-5 text-white/78 shadow-[inset_0_1px_0_rgba(255,255,255,0.045)] backdrop-blur-xl"
           >
             <p className="whitespace-nowrap font-black text-white/92">{item}</p>
           </div>
