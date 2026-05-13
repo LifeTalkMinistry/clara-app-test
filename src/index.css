@@ -103,6 +103,42 @@ body::after {
   box-shadow: 0 0 18px rgba(0, 255, 220, 0.26);
 }
 
+/* CLARA inline chat minimize control polish */
+#root button[aria-label="Close CLARA money chat"] {
+  top: 0.35rem !important;
+  right: 1rem !important;
+  width: 42px !important;
+  min-width: 42px !important;
+  height: 18px !important;
+  border-radius: 9999px !important;
+  border-color: rgba(255, 255, 255, 0.10) !important;
+  background: rgba(255, 255, 255, 0.045) !important;
+  color: rgba(255, 255, 255, 0.58) !important;
+  box-shadow: 0 8px 22px rgba(0, 0, 0, 0.16), inset 0 1px 0 rgba(255, 255, 255, 0.08) !important;
+  backdrop-filter: blur(18px) saturate(1.12) !important;
+  -webkit-backdrop-filter: blur(18px) saturate(1.12) !important;
+}
+
+#root button[aria-label="Close CLARA money chat"] svg {
+  display: none !important;
+}
+
+#root button[aria-label="Close CLARA money chat"]::before {
+  content: "⌄";
+  display: block;
+  margin-top: -4px;
+  font-size: 17px;
+  font-weight: 700;
+  line-height: 1;
+  letter-spacing: 0;
+}
+
+#root button[aria-label="Close CLARA money chat"]:hover {
+  background: rgba(255, 255, 255, 0.075) !important;
+  color: rgba(255, 255, 255, 0.78) !important;
+  border-color: rgba(165, 243, 252, 0.18) !important;
+}
+
 /* CLARA production mobile dialog polish
    Keeps long finance forms usable on real phones without changing the component logic. */
 #root [role="dialog"][class*="bg-[#061224]"],
