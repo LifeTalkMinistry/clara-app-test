@@ -7,21 +7,52 @@ const FALLBACK_MESSAGES = [];
 const HIDDEN_WELCOME_TEXT = "What are you thinking of buying?";
 
 const GUIDE_GROUPS = [
-  { key: "cards", label: "Core Features" },
-  { key: "smart_actions", label: "Smart Actions" },
-  { key: "advice", label: "Ask Advice" },
+  {
+    key: "cards",
+    label: "Core Features",
+    className: "min-w-[116px] px-4 py-[7px] text-[10.5px]",
+    activeClassName:
+      "border-emerald-100/55 bg-emerald-300/24 text-white shadow-[0_0_24px_rgba(110,231,183,0.16),inset_0_1px_0_rgba(255,255,255,0.12)]",
+    inactiveClassName:
+      "border-emerald-100/20 bg-white/[0.085] text-white/82 shadow-[0_0_14px_rgba(110,231,183,0.06),inset_0_1px_0_rgba(255,255,255,0.07)]",
+  },
+  {
+    key: "smart_actions",
+    label: "Smart Actions",
+    className: "min-w-[104px] px-3.5 py-1.5 text-[10px]",
+    activeClassName:
+      "border-cyan-100/42 bg-cyan-200/16 text-cyan-50 shadow-[0_0_18px_rgba(125,211,252,0.11),inset_0_1px_0_rgba(255,255,255,0.10)]",
+    inactiveClassName:
+      "border-white/14 bg-white/[0.062] text-white/72 shadow-[inset_0_1px_0_rgba(255,255,255,0.055)]",
+  },
+  {
+    key: "advice",
+    label: "Ask Advice",
+    className: "min-w-[92px] px-3 py-[5px] text-[9.5px]",
+    activeClassName:
+      "border-violet-100/36 bg-violet-200/13 text-white/90 shadow-[0_0_14px_rgba(196,181,253,0.09),inset_0_1px_0_rgba(255,255,255,0.08)]",
+    inactiveClassName:
+      "border-white/12 bg-white/[0.045] text-white/64 shadow-[inset_0_1px_0_rgba(255,255,255,0.045)]",
+  },
 ];
 
-function GuideChip({ active, children, onClick, className = "" }) {
+function GuideChip({
+  active,
+  children,
+  onClick,
+  className = "",
+  activeClassName = "",
+  inactiveClassName = "",
+}) {
   return (
     <button
       type="button"
       onClick={onClick}
-      className={`shrink-0 rounded-full border px-3 py-1.5 text-[10px] font-bold tracking-[0.02em] backdrop-blur-xl transition hover:bg-white/[0.10] active:scale-95 ${
+      className={`shrink-0 rounded-full border font-bold tracking-[0.02em] backdrop-blur-xl transition duration-200 hover:bg-white/[0.10] hover:text-white active:scale-95 ${
         active
           ? "border-emerald-200/45 bg-emerald-300/20 text-emerald-50 shadow-[0_0_18px_rgba(110,231,183,0.10)]"
           : "border-white/12 bg-white/[0.065] text-white/72"
-      } ${className}`}
+      } ${active ? activeClassName : inactiveClassName} ${className}`}
     >
       {children}
     </button>
@@ -32,13 +63,15 @@ function ClaraGuideLauncher({ activeGroup, onSelectGroup }) {
   const currentGroup = activeGroup || "cards";
 
   return (
-    <div className="pointer-events-auto absolute right-0 top-1/2 z-30 flex -translate-y-1/2 flex-col items-end gap-2">
+    <div className="pointer-events-auto absolute right-3 top-1/2 z-30 flex -translate-y-1/2 flex-col items-end gap-2.5">
       {GUIDE_GROUPS.map((group) => (
         <GuideChip
           key={group.key}
           active={currentGroup === group.key}
           onClick={() => onSelectGroup(group.key)}
-          className="min-w-[104px] justify-center text-center"
+          className={`${group.className} justify-center text-center`}
+          activeClassName={group.activeClassName}
+          inactiveClassName={group.inactiveClassName}
         >
           {group.label}
         </GuideChip>
