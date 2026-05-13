@@ -306,11 +306,16 @@ export default function BudgetCardView({
   const selectFeature = (featureName) => {
     if (!ENABLED_FEATURES.has(featureName)) return;
 
+    const prompt =
+      featureName === SAVINGS_GOALS_FEATURE
+        ? "Review my Savings Goals"
+        : featureName;
+
     window.dispatchEvent(
       new CustomEvent(CLARA_MONEY_CHAT_REQUEST_EVENT, {
         detail: {
           feature: featureName,
-          prompt: featureName,
+          prompt,
           source: "budget_lens_feature",
         },
       })
