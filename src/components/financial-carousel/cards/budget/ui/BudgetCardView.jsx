@@ -133,9 +133,9 @@ function ClaraBudgetDecisionScreen({
           type="button"
           onClick={onMinimize}
           className="flex h-8 shrink-0 items-center justify-center rounded-full border border-cyan-100/14 bg-white/[0.065] px-3 text-[10px] font-black uppercase tracking-[0.10em] text-white/68 shadow-[inset_0_1px_0_rgba(255,255,255,0.08)] backdrop-blur-xl transition hover:bg-white/[0.10] active:scale-95"
-          aria-label="Minimize CLARA budget lens"
+          aria-label="Close CLARA budget lens"
         >
-          CLARA <span className="ml-1 text-white/44">⌄</span>
+          Close <span className="ml-1 text-white/44">⌄</span>
         </button>
       </div>
 
