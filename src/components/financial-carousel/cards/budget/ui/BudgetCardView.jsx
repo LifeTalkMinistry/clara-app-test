@@ -32,7 +32,7 @@ function ClaraGuideLauncher({ activeGroup, onSelectGroup }) {
   const currentGroup = activeGroup || "cards";
 
   return (
-    <div className="pointer-events-auto absolute bottom-0 right-0 z-30 flex flex-col items-end gap-2">
+    <div className="pointer-events-auto absolute right-0 top-1/2 z-30 flex -translate-y-1/2 flex-col items-end gap-2">
       {GUIDE_GROUPS.map((group) => (
         <GuideChip
           key={group.key}
