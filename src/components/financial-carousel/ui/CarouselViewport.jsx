@@ -6,12 +6,15 @@ export default function CarouselViewport({
   className = "",
   clipClassName = "",
   allowVerticalOverflow = false,
+  locked = false,
 }) {
   const viewportClassName = [
     "flex items-stretch snap-x snap-mandatory overscroll-x-contain transition-[overflow] duration-300",
-    allowVerticalOverflow
-      ? "overflow-x-auto overflow-y-visible touch-pan-x cursor-grab active:cursor-grabbing"
-      : "overflow-x-auto overflow-y-hidden touch-pan-x cursor-grab active:cursor-grabbing",
+    locked
+      ? "overflow-x-hidden overflow-y-visible touch-pan-y cursor-default"
+      : allowVerticalOverflow
+        ? "overflow-x-auto overflow-y-visible touch-pan-x cursor-grab active:cursor-grabbing"
+        : "overflow-x-auto overflow-y-hidden touch-pan-x cursor-grab active:cursor-grabbing",
     "[scrollbar-width:none] [-webkit-overflow-scrolling:touch] [&::-webkit-scrollbar]:hidden",
     className,
   ].join(" ");
@@ -19,14 +22,14 @@ export default function CarouselViewport({
   return (
     <div
       className={[
-        allowVerticalOverflow ? "overflow-visible" : "overflow-hidden",
+        allowVerticalOverflow || locked ? "overflow-visible" : "overflow-hidden",
         clipClassName,
       ].join(" ")}
     >
       <div
         ref={carouselRef}
-        onScroll={onScroll}
-        {...interactionHandlers}
+        onScroll={locked ? undefined : onScroll}
+        {...(locked ? {} : interactionHandlers)}
         className={viewportClassName}
       >
         {children}
