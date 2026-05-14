@@ -10,11 +10,26 @@ const HIDDEN_WELCOME_TEXT = "What are you thinking of buying?";
 const BUDGET_PLAN_FEATURE = "Budget Plan";
 const WALLETS_FEATURE = "Wallets";
 const SAVINGS_GOALS_FEATURE = "Savings Goals";
-const ENABLED_FEATURES = new Set([
-  BUDGET_PLAN_FEATURE,
-  WALLETS_FEATURE,
-  SAVINGS_GOALS_FEATURE,
-]);
+const EMERGENCY_FUND_FEATURE = "Emergency Fund";
+const TRANSACTIONS_FEATURE = "Transactions";
+const MONTHLY_SPENDING_FEATURE = "Monthly Spending";
+
+const FEATURE_PROMPTS = {
+  [BUDGET_PLAN_FEATURE]:
+    "Review my current Budget Plan like CLARA. Use my real budget context, categories, spending pace, remaining money, unplanned spending, and risks. Tell me the main concern I need to solve right now. Keep it short, conversational, and decision-focused.",
+  [WALLETS_FEATURE]:
+    "Review my current Wallets like CLARA. Use my real wallet balances, total available money, wallet transaction movement, and money location. Give me a mini financial reality check so I immediately understand where my money is sitting, which wallet needs attention, and what I should be careful about next. Do not ask a random purchase question. Keep it short, conversational, and decision-focused.",
+  [SAVINGS_GOALS_FEATURE]:
+    "Review my Savings Goals like CLARA. Use my savings goal progress, total saved, total target, emotional purpose, and possible delay risks. Tell me what goal needs attention and what small top-up or protection move makes sense next. Keep it short, warm, and action-focused.",
+  [EMERGENCY_FUND_FEATURE]:
+    "Review my Emergency Fund like CLARA. Use my survival expense, emergency fund status, available money, and current spending pressure. Tell me how protected I am right now, what risk I should notice, and the next safest top-up or protection move. Keep it short, calm, protective, and practical.",
+  [TRANSACTIONS_FEATURE]:
+    "Review my Transactions like CLARA. Use my visible transaction history, wallet movement, recent spending, planned/unplanned behavior, repeated spending, and budget-risk signals. Tell me what pattern I should notice and what behavior to adjust next. Keep it short, observational, and non-judgmental.",
+  [MONTHLY_SPENDING_FEATURE]:
+    "Review my Monthly Spending like CLARA. Use my total spent this month, money left, active budget, remaining budget, and spending pace. Tell me if the month is safe, tight, or risky, then give one next best move. Keep it short, strategic, and decision-focused.",
+};
+
+const ENABLED_FEATURES = new Set(Object.keys(FEATURE_PROMPTS));
 
 const GUIDE_GROUPS = [
   {
@@ -304,12 +319,8 @@ export default function BudgetCardView({
   };
 
   const selectFeature = (featureName) => {
-    if (!ENABLED_FEATURES.has(featureName)) return;
-
-    const prompt =
-      featureName === SAVINGS_GOALS_FEATURE
-        ? "Review my Savings Goals"
-        : featureName;
+    const prompt = FEATURE_PROMPTS[featureName];
+    if (!prompt) return;
 
     window.dispatchEvent(
       new CustomEvent(CLARA_MONEY_CHAT_REQUEST_EVENT, {
