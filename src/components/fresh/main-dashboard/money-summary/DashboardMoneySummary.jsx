@@ -1440,6 +1440,15 @@ Reply as CLARA only.`;
             onSubmit={handleClaraSubmit}
             className="flex items-center gap-2 rounded-[22px] border border-white/14 bg-slate-950/52 p-2 shadow-[inset_0_1px_0_rgba(255,255,255,0.08),0_14px_34px_rgba(0,0,0,0.18)] backdrop-blur-xl"
           >
+            <button
+              type="button"
+              onClick={() => claraInputRef.current?.focus?.()}
+              className="grid h-10 w-10 shrink-0 place-items-center rounded-full border border-white/14 bg-white/[0.06] text-white/70 transition hover:bg-white/[0.10] hover:text-white active:scale-95"
+              aria-label="Start expense log"
+            >
+              <Plus className="h-4 w-4" />
+            </button>
+
             <input
               ref={claraInputRef}
               value={claraDraft}
