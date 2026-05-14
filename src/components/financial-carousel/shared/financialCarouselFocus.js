@@ -26,13 +26,13 @@ export const FINANCIAL_CAROUSEL_FOCUS_STYLES = `
   }
 
   .clara-budget-focus-mode:not(.clara-ai-keyboard-focus-mode) div:has(> div > .clara-finance-slide-shell) {
-    margin-top: 0 !important;
+    margin-top: 18px !important;
   }
 
   .clara-budget-focus-mode:not(.clara-ai-keyboard-focus-mode) .clara-finance-slide-shell,
   .clara-budget-focus-mode:not(.clara-ai-keyboard-focus-mode) .clara-finance-slide-surface {
-    height: clamp(286px, 45dvh, 430px) !important;
-    min-height: clamp(286px, 45dvh, 430px) !important;
+    height: clamp(320px, 52dvh, 480px) !important;
+    min-height: clamp(320px, 52dvh, 480px) !important;
   }
 
   .clara-ai-keyboard-focus-mode .clara-budget-focus-tip,
