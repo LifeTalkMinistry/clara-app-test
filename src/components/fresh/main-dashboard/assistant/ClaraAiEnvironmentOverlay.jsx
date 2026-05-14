@@ -1,8 +1,83 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { ArrowUp, Sparkles, X } from "lucide-react";
 
+const SMART_ACTIONS = [
+  {
+    id: "future-money-forecast",
+    title: "Future Money Forecast",
+    shortTitle: "Forecast",
+    description: "Predict where your money is heading based on income, expenses, budgets, savings, wallets, and hidden risks.",
+    prompt: "Run my Future Money Forecast. Predict where my money is heading based on income, expenses, budgets, savings, wallets, unplanned spending, undocumented spending, and hidden risks. Keep it practical and decision-focused.",
+  },
+  {
+    id: "spending-checkup",
+    title: "Spending Checkup",
+    shortTitle: "Checkup",
+    description: "Explain past spending behavior, leaks, planned vs unplanned spending, and undocumented spending.",
+    prompt: "Run my Spending Checkup. Explain my past spending behavior, biggest money leaks, planned vs unplanned spending, and undocumented spending. Give me the clearest issue I should fix first.",
+  },
+  {
+    id: "savings-game-plan",
+    title: "Savings Game Plan",
+    shortTitle: "Savings Plan",
+    description: "Show how I can realistically reach my declared savings goal.",
+    prompt: "Create my Savings Game Plan. Check how I can realistically reach my declared savings goal based on my current money, spending, and budget behavior.",
+  },
+  {
+    id: "emergency-fund-builder",
+    title: "Emergency Fund Builder",
+    shortTitle: "Emergency Fund",
+    description: "Build a realistic safety fund plan based on expenses, income, and survival needs.",
+    prompt: "Build my Emergency Fund plan. Use my expenses, income, survival needs, savings, and wallet situation to create a realistic safety fund strategy.",
+  },
+  {
+    id: "can-i-afford-this",
+    title: "Can I Afford This?",
+    shortTitle: "Afford Check",
+    description: "Enter an amount and CLARA checks whether the purchase is safe.",
+    prompt: "Help me check if I can afford a purchase. Ask me for the item and amount if I have not provided them yet, then judge if it is safe based on my money and budget context.",
+  },
+  {
+    id: "budget-fixer",
+    title: "Budget Fixer",
+    shortTitle: "Budget Fixer",
+    description: "Suggest better budget allocation based on real spending behavior.",
+    prompt: "Run my Budget Fixer. Suggest better budget allocation based on my real spending behavior, recurring expenses, unplanned spending, and current budget risk.",
+  },
+  {
+    id: "hidden-risk-check",
+    title: "Hidden Risk Check",
+    shortTitle: "Risk Check",
+    description: "Detect ignored money risks like health, maintenance, family support, debt, rest, and transportation.",
+    prompt: "Run my Hidden Risk Check. Detect ignored areas that may cost money later, including health, checkups, emergencies, maintenance, family support, transportation, rest, and debt.",
+  },
+  {
+    id: "monthly-money-review",
+    title: "Monthly Money Review",
+    shortTitle: "Monthly Review",
+    description: "Summarize what went well, what hurt the budget, biggest risk, and next focus.",
+    prompt: "Run my Monthly Money Review. Summarize what went well, what hurt my budget, my biggest risk, and my next money focus.",
+  },
+  {
+    id: "next-best-move",
+    title: "Next Best Move",
+    shortTitle: "Next Move",
+    description: "Give one clear recommended action based on my current money situation.",
+    prompt: "Give me my Next Best Move. Based on my current money situation, give me one clear action I should take next.",
+  },
+];
+
 function isWelcomeMessage(message = {}) {
   return String(message?.text || "").trim() === "What are you thinking of buying?";
+}
+
+function makeLocalMessage(role, text, meta = {}) {
+  return {
+    id: `${role}-${Date.now()}-${Math.random().toString(36).slice(2)}`,
+    role,
+    text,
+    ...meta,
+  };
 }
 
 export default function ClaraAiEnvironmentOverlay({
@@ -12,16 +87,24 @@ export default function ClaraAiEnvironmentOverlay({
   onClose,
 }) {
   const [draft, setDraft] = useState("");
+  const [localMessages, setLocalMessages] = useState([]);
   const inputRef = useRef(null);
   const messagesEndRef = useRef(null);
 
-  const visibleMessages = useMemo(
-    () => (Array.isArray(messages) ? messages.filter((message) => !isWelcomeMessage(message)) : []),
-    [messages]
-  );
+  const visibleMessages = useMemo(() => {
+    const externalMessages = Array.isArray(messages)
+      ? messages.filter((message) => !isWelcomeMessage(message))
+      : [];
+
+    return [...externalMessages, ...localMessages];
+  }, [messages, localMessages]);
 
   useEffect(() => {
-    if (!isActive) return undefined;
+    if (!isActive) {
+      setDraft("");
+      setLocalMessages([]);
+      return undefined;
+    }
 
     const focusTimer = window.setTimeout(() => {
       inputRef.current?.focus?.();
@@ -50,13 +133,39 @@ export default function ClaraAiEnvironmentOverlay({
 
   if (!isActive) return null;
 
+  const submitPrompt = (text) => {
+    const cleanText = String(text || "").trim();
+    if (!cleanText) return;
+
+    setLocalMessages((current) => [
+      ...current,
+      makeLocalMessage("user", cleanText),
+      makeLocalMessage(
+        "clara",
+        "I’m setting up the right CLARA check for that. This smart action layer is now ready visually; the next step is wiring each action to the real finance brain."
+      ),
+    ]);
+
+    requestFeaturePrompt?.(cleanText);
+  };
+
   const handleSubmit = (event) => {
     event.preventDefault();
     const cleanDraft = draft.trim();
     if (!cleanDraft) return;
 
-    requestFeaturePrompt?.(cleanDraft);
+    submitPrompt(cleanDraft);
     setDraft("");
+  };
+
+  const handleSmartAction = (action) => {
+    setLocalMessages((current) => [
+      ...current,
+      makeLocalMessage("user", action.title),
+      makeLocalMessage("clara", action.description, { smartAction: action }),
+    ]);
+
+    requestFeaturePrompt?.(action.prompt);
   };
 
   return (
@@ -92,16 +201,44 @@ export default function ClaraAiEnvironmentOverlay({
           <div className="flex min-h-full flex-col justify-end gap-3 pb-2">
             {visibleMessages.map((message) => {
               const isUser = message.role === "user";
+              const action = message.smartAction;
+
               return (
                 <div key={message.id} className={`flex ${isUser ? "justify-end" : "justify-start"}`}>
                   <div
-                    className={`max-w-[86%] rounded-[24px] px-4 py-3 text-[13px] leading-5 shadow-[0_14px_34px_rgba(0,0,0,0.20)] ${
+                    className={`max-w-[88%] rounded-[24px] px-4 py-3 text-[13px] leading-5 shadow-[0_14px_34px_rgba(0,0,0,0.20)] ${
                       isUser
                         ? "bg-emerald-300 text-slate-950"
                         : "border border-white/12 bg-white/[0.075] text-white/86 backdrop-blur-xl"
                     }`}
                   >
-                    {message.text}
+                    {action ? (
+                      <div>
+                        <p className="text-[10px] font-black uppercase tracking-[0.22em] text-cyan-100/55">
+                          Smart Action
+                        </p>
+                        <h4 className="mt-1 text-[15px] font-black text-white">{action.title}</h4>
+                        <p className="mt-2 text-[12px] leading-5 text-slate-300/80">{message.text}</p>
+                        <div className="mt-3 flex flex-wrap gap-2">
+                          <button
+                            type="button"
+                            onClick={() => submitPrompt(action.prompt)}
+                            className="rounded-full border border-emerald-200/20 bg-emerald-300/10 px-3 py-1.5 text-[11px] font-bold text-emerald-100 active:scale-95"
+                          >
+                            Run this
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setDraft(action.prompt)}
+                            className="rounded-full border border-white/12 bg-white/[0.06] px-3 py-1.5 text-[11px] font-bold text-white/70 active:scale-95"
+                          >
+                            Edit prompt
+                          </button>
+                        </div>
+                      </div>
+                    ) : (
+                      message.text
+                    )}
                   </div>
                 </div>
               );
@@ -109,16 +246,47 @@ export default function ClaraAiEnvironmentOverlay({
             <div ref={messagesEndRef} />
           </div>
         ) : (
-          <div className="flex h-full min-h-[42dvh] flex-col justify-center rounded-[30px] border border-white/10 bg-white/[0.045] p-5 text-center shadow-[inset_0_1px_0_rgba(255,255,255,0.08)] backdrop-blur-xl">
-            <p className="text-[11px] font-black uppercase tracking-[0.24em] text-cyan-100/55">
-              Decision space
-            </p>
-            <h3 className="mt-3 text-2xl font-black leading-tight tracking-tight text-white">
-              What are you thinking of buying?
-            </h3>
-            <p className="mx-auto mt-3 max-w-[280px] text-sm leading-6 text-slate-300/75">
-              Type the item, amount, or question. CLARA will use your real wallet and budget context.
-            </p>
+          <div className="flex min-h-full flex-col justify-center gap-4 pb-2">
+            <div className="rounded-[30px] border border-white/10 bg-white/[0.045] p-5 text-center shadow-[inset_0_1px_0_rgba(255,255,255,0.08)] backdrop-blur-xl">
+              <p className="text-[11px] font-black uppercase tracking-[0.24em] text-cyan-100/55">
+                Decision space
+              </p>
+              <h3 className="mt-3 text-2xl font-black leading-tight tracking-tight text-white">
+                What do you want CLARA to check?
+              </h3>
+              <p className="mx-auto mt-3 max-w-[280px] text-sm leading-6 text-slate-300/75">
+                Choose a smart action or ask your own money question.
+              </p>
+            </div>
+
+            <div className="rounded-[30px] border border-white/10 bg-white/[0.04] p-3 shadow-[inset_0_1px_0_rgba(255,255,255,0.08)] backdrop-blur-xl">
+              <div className="mb-3 flex items-center justify-between px-1">
+                <p className="text-[10px] font-black uppercase tracking-[0.24em] text-cyan-100/55">
+                  Smart Actions
+                </p>
+                <span className="rounded-full border border-white/10 bg-white/[0.055] px-2 py-1 text-[10px] font-bold text-white/45">
+                  {SMART_ACTIONS.length} tools
+                </span>
+              </div>
+
+              <div className="grid grid-cols-2 gap-2">
+                {SMART_ACTIONS.map((action) => (
+                  <button
+                    key={action.id}
+                    type="button"
+                    onClick={() => handleSmartAction(action)}
+                    className="group min-h-[86px] rounded-[22px] border border-white/10 bg-white/[0.055] p-3 text-left shadow-[0_12px_26px_rgba(0,0,0,0.14)] transition hover:bg-white/[0.085] active:scale-[0.98]"
+                  >
+                    <p className="text-[12px] font-black leading-tight text-white group-active:text-emerald-100">
+                      {action.shortTitle}
+                    </p>
+                    <p className="mt-1.5 line-clamp-3 text-[10.5px] leading-4 text-slate-300/66">
+                      {action.description}
+                    </p>
+                  </button>
+                ))}
+              </div>
+            </div>
           </div>
         )}
       </main>
@@ -133,7 +301,7 @@ export default function ClaraAiEnvironmentOverlay({
             value={draft}
             onChange={(event) => setDraft(event.target.value)}
             className="min-w-0 flex-1 bg-transparent py-2 text-[14px] font-medium text-white outline-none placeholder:text-slate-400/70"
-            placeholder="Item + price, e.g. shoes ₱1,200"
+            placeholder="Ask CLARA or enter item + price"
             inputMode="text"
           />
           <button
