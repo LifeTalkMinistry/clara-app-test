@@ -9,7 +9,18 @@ import {
   hasGeminiConfig,
 } from "@/lib/clara-gemini-client";
 
-const CLARA_AI_BRAIN_VERSION = "connected-brain-v2";
+const CLARA_AI_BRAIN_VERSION = "connected-brain-v3-presentation";
+
+const CLARA_PRESENTATION_INSTRUCTION = `
+Format your answer for the CLARA mobile AI screen.
+Use plain text only. Do not use markdown, asterisks, bold syntax, numbered essays, or long paragraphs.
+Use short labeled sections when helpful:
+Money Signal:
+Risk:
+Next Move:
+Question:
+Keep it practical, calm, and decision-focused.
+`;
 
 const SMART_ACTIONS = [
   {
@@ -102,6 +113,13 @@ const LEGACY_PLACEHOLDER_PATTERNS = [
   "next step is wiring each action",
 ];
 
+const SECTION_TONES = {
+  good: "border-emerald-200/18 bg-emerald-300/[0.055] shadow-[inset_0_1px_0_rgba(255,255,255,0.07),0_10px_28px_rgba(16,185,129,0.08)]",
+  risk: "border-amber-200/18 bg-amber-300/[0.055] shadow-[inset_0_1px_0_rgba(255,255,255,0.07),0_10px_28px_rgba(245,158,11,0.08)]",
+  action: "border-cyan-200/18 bg-cyan-300/[0.055] shadow-[inset_0_1px_0_rgba(255,255,255,0.07),0_10px_28px_rgba(34,211,238,0.08)]",
+  neutral: "border-white/10 bg-white/[0.045] shadow-[inset_0_1px_0_rgba(255,255,255,0.06)]",
+};
+
 function getMessageText(message = {}) {
   return String(message?.text || "").trim();
 }
@@ -130,6 +148,186 @@ function formatMoney(value) {
   return `₱${number.toLocaleString("en-PH", { maximumFractionDigits: 0 })}`;
 }
 
+function stripMarkdown(text = "") {
+  return String(text || "")
+    .replace(/\*\*([^*]+)\*\*/g, "$1")
+    .replace(/__([^_]+)__/g, "$1")
+    .replace(/`([^`]+)`/g, "$1")
+    .replace(/^\s*[-•]\s+/gm, "")
+    .replace(/\s+([,.!?])/g, "$1")
+    .replace(/[ \t]{2,}/g, " ")
+    .trim();
+}
+
+function titleCase(value = "") {
+  return String(value || "")
+    .replace(/[_-]+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim()
+    .replace(/\w\S*/g, (word) => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase());
+}
+
+function normalizeSectionTitle(title = "") {
+  const cleanTitle = stripMarkdown(title)
+    .replace(/possible\s+/i, "")
+    .replace(/potential\s+/i, "")
+    .replace(/current\s+/i, "")
+    .replace(/action\s+focus/i, "Next Move")
+    .replace(/forecast/i, "Money Signal")
+    .trim();
+
+  if (/positive|good|healthy|safe|strength|win|breathing/i.test(cleanTitle)) return "Good Signal";
+  if (/risk|concern|warning|danger|pressure|tight|problem/i.test(cleanTitle)) return "Risk Signal";
+  if (/action|next|move|focus|recommendation|step/i.test(cleanTitle)) return "Next Move";
+  if (/question|ask|clarify/i.test(cleanTitle)) return "Question";
+  if (/wallet|money|budget|saving|emergency|income|spending/i.test(cleanTitle)) return titleCase(cleanTitle);
+
+  return titleCase(cleanTitle || "CLARA Note");
+}
+
+function getSectionTone(title = "", body = "") {
+  const text = `${title} ${body}`.toLowerCase();
+
+  if (/risk|concern|warning|danger|tight|hard|not recommended|delay|pause|pressure/.test(text)) {
+    return SECTION_TONES.risk;
+  }
+
+  if (/action|next|move|focus|recommendation|step|do this|question/.test(text)) {
+    return SECTION_TONES.action;
+  }
+
+  if (/good|positive|healthy|safe|breathing|well|progress|okay/.test(text)) {
+    return SECTION_TONES.good;
+  }
+
+  return SECTION_TONES.neutral;
+}
+
+function splitReadableBlocks(text = "") {
+  const clean = stripMarkdown(text);
+  if (!clean) return [];
+
+  const paragraphs = clean
+    .split(/\n+/)
+    .map((line) => line.trim())
+    .filter(Boolean);
+
+  if (paragraphs.length > 1) return paragraphs;
+
+  const sentences = clean
+    .split(/(?<=[.!?])\s+(?=[A-Z₱0-9])/)
+    .map((sentence) => sentence.trim())
+    .filter(Boolean);
+
+  if (sentences.length <= 2) return [clean];
+
+  const blocks = [];
+  let current = "";
+
+  sentences.forEach((sentence) => {
+    const next = current ? `${current} ${sentence}` : sentence;
+    if (next.length > 145 && current) {
+      blocks.push(current);
+      current = sentence;
+    } else {
+      current = next;
+    }
+  });
+
+  if (current) blocks.push(current);
+  return blocks;
+}
+
+function buildInsightSections(rawText = "") {
+  const raw = String(rawText || "").trim();
+  if (!raw) return { intro: "", sections: [] };
+
+  let prepared = raw
+    .replace(/\*\*([^*:\n]{2,70}):\*\*/g, "\n@@$1@@\n")
+    .replace(/\*\*([^*:\n]{2,70})\*\*:/g, "\n@@$1@@\n")
+    .replace(
+      /(?:^|\n|\s)(Money Signal|Good Signal|Positive Signal|Possible Positive|Risk Signal|Potential Risk|Risk|Concern|Warning|Next Move|Action Focus|Action|Recommendation|Question|Budget|Wallet|Savings|Emergency Fund|Spending Signal|Forecast):/gi,
+      "\n@@$1@@\n"
+    );
+
+  prepared = prepared.replace(/\n{3,}/g, "\n\n").trim();
+
+  const parts = prepared.split(/@@([^@]+)@@/g).map((part) => part.trim()).filter(Boolean);
+  const sections = [];
+  let intro = "";
+
+  if (parts.length >= 3) {
+    if (!prepared.startsWith("@@")) {
+      intro = stripMarkdown(parts.shift() || "");
+    }
+
+    for (let index = 0; index < parts.length; index += 2) {
+      const title = normalizeSectionTitle(parts[index]);
+      const body = stripMarkdown(parts[index + 1] || "");
+      if (title && body) sections.push({ title, body });
+    }
+  }
+
+  if (!sections.length) {
+    const blocks = splitReadableBlocks(raw);
+    if (blocks.length <= 1) return { intro: blocks[0] || stripMarkdown(raw), sections: [] };
+
+    intro = blocks.shift() || "";
+    blocks.slice(0, 4).forEach((block, index) => {
+      const title = index === blocks.length - 1 ? "Next Move" : index === 0 ? "Money Signal" : "CLARA Note";
+      sections.push({ title, body: block });
+    });
+  }
+
+  return { intro, sections };
+}
+
+function ClaraInsightPresentation({ text, action }) {
+  const { intro, sections } = buildInsightSections(text);
+  const shouldUseCards = Boolean(action || sections.length || String(text || "").length > 130);
+
+  if (!shouldUseCards) {
+    return <p className="whitespace-pre-wrap text-[13px] leading-5 text-white/88">{stripMarkdown(text)}</p>;
+  }
+
+  return (
+    <div className="space-y-3">
+      {action ? (
+        <div>
+          <p className="text-[10px] font-black uppercase tracking-[0.22em] text-cyan-100/55">
+            Smart Action
+          </p>
+          <h4 className="mt-1 text-[15px] font-black text-white">{action.title}</h4>
+        </div>
+      ) : null}
+
+      {intro ? (
+        <p className="text-[13px] leading-5 text-slate-200/88">{intro}</p>
+      ) : null}
+
+      {sections.length ? (
+        <div className="space-y-2.5">
+          {sections.slice(0, 5).map((section, index) => (
+            <div
+              key={`${section.title}-${index}`}
+              className={`rounded-[18px] border px-3 py-2.5 ${getSectionTone(section.title, section.body)}`}
+            >
+              <p className="text-[10px] font-black uppercase tracking-[0.18em] text-white/48">
+                {section.title}
+              </p>
+              <div className="mt-1.5 space-y-1.5 text-[12px] leading-5 text-slate-200/86">
+                {splitReadableBlocks(section.body).map((block, blockIndex) => (
+                  <p key={`${section.title}-${blockIndex}`}>{block}</p>
+                ))}
+              </div>
+            </div>
+          ))}
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
 function buildUnsupportedActionReply(action, snapshot = {}) {
   const available = formatMoney(snapshot.availableMoney);
   const spent = formatMoney(snapshot.monthlySpent);
@@ -138,47 +336,47 @@ function buildUnsupportedActionReply(action, snapshot = {}) {
   const topCategory = snapshot.topSpendingCategory?.category;
 
   if (!snapshot.hasAnyData) {
-    return "I need more finance data before I can give a clear answer. Add or refresh your wallets, expenses, budgets, savings, or emergency fund first.";
+    return "Money Signal: I need more finance data before I can give a clear answer. Next Move: Add or refresh your wallets, expenses, budgets, savings, or emergency fund first.";
   }
 
   switch (action?.id) {
     case "hidden-risk-check":
       return [
-        "Here’s the risk I’d watch first: hidden future costs, not just today’s spending.",
-        available ? `You have ${available} visible money.` : null,
-        emergencySaved ? `Emergency protection shows ${emergencySaved}.` : "I don’t see a strong emergency buffer yet.",
-        "Check health, transportation, family support, maintenance, and debt before treating extra cash as spendable.",
+        "Money Signal: Hidden future costs are the first thing I’d watch, not just today’s spending.",
+        available ? `Wallet: You have ${available} visible money.` : null,
+        emergencySaved ? `Emergency Fund: Emergency protection shows ${emergencySaved}.` : "Risk: I don’t see a strong emergency buffer yet.",
+        "Next Move: Check health, transportation, family support, maintenance, and debt before treating extra cash as spendable.",
       ].filter(Boolean).join(" ");
 
     case "monthly-money-review":
       return [
-        spent ? `This month, your visible spending is ${spent}.` : "I don’t see enough monthly spending yet.",
-        available ? `You still have ${available} visible.` : null,
-        topCategory ? `The category to review first is ${topCategory}.` : null,
-        "Next focus: protect essentials, reduce unplanned spending, and avoid adding new wants until the budget feels stable.",
+        spent ? `Spending Signal: This month, your visible spending is ${spent}.` : "Spending Signal: I don’t see enough monthly spending yet.",
+        available ? `Wallet: You still have ${available} visible.` : null,
+        topCategory ? `Risk Signal: The category to review first is ${topCategory}.` : null,
+        "Next Move: Protect essentials, reduce unplanned spending, and avoid adding new wants until the budget feels stable.",
       ].filter(Boolean).join(" ");
 
     case "next-best-move":
       if (snapshot.availableMoney !== null && snapshot.availableMoney < 1000) {
-        return `Your next best move is defensive: protect your remaining ${available} and pause non-essential spending first.`;
+        return `Risk Signal: Your remaining money is thin at ${available}. Next Move: Protect essentials and pause non-essential spending first.`;
       }
       if (snapshot.emergencyFund?.saved === null || snapshot.emergencyFund?.saved <= 0) {
-        return "Your next best move is to start a small emergency buffer before increasing lifestyle spending.";
+        return "Risk Signal: Your emergency buffer does not look protected yet. Next Move: Start a small emergency buffer before increasing lifestyle spending.";
       }
       if (snapshot.unplannedSpent !== null && snapshot.unplannedSpent > 0) {
-        return "Your next best move is to reduce unplanned spending first. That leak matters more than finding a new budget trick right now.";
+        return "Risk Signal: Unplanned spending is the leak to watch first. Next Move: Reduce unplanned purchases before looking for another budget trick.";
       }
-      return "Your next best move is simple: keep spending planned, protect savings, and only buy what still makes sense tomorrow.";
+      return "Good Signal: Your situation does not look like panic mode. Next Move: Keep spending planned, protect savings, and only buy what still makes sense tomorrow.";
 
     case "budget-fixer":
       return [
-        budgetLeft ? `Your budget remaining shows ${budgetLeft}.` : "I need a clearer active budget to fully fix the allocation.",
-        spent ? `Spending already shows ${spent}.` : null,
-        "Start by increasing categories that repeat in real life and shrinking categories that look good on paper but never survive actual behavior.",
+        budgetLeft ? `Budget: Your budget remaining shows ${budgetLeft}.` : "Budget: I need a clearer active budget to fully fix the allocation.",
+        spent ? `Spending Signal: Spending already shows ${spent}.` : null,
+        "Next Move: Increase categories that repeat in real life and shrink categories that look good on paper but never survive actual behavior.",
       ].filter(Boolean).join(" ");
 
     default:
-      return "I can help with that. I’ll use your loaded wallets, expenses, budgets, savings, and emergency fund to keep the answer practical and decision-focused.";
+      return "Money Signal: I can help with that using your loaded wallets, expenses, budgets, savings, and emergency fund. Next Move: Keep the decision practical and aligned with your current money pressure.";
   }
 }
 
@@ -223,7 +421,6 @@ export default function ClaraAiEnvironmentOverlay({
       return undefined;
     }
 
-    // Drop any messages preserved by a hot reload or an old bundle before this brain-connected mode.
     setLocalMessages((current) => current.filter((message) => !isLegacyPlaceholderMessage(message)));
 
     const focusTimer = window.setTimeout(() => {
@@ -278,7 +475,7 @@ export default function ClaraAiEnvironmentOverlay({
       if (hasGeminiConfig()) {
         try {
           reply = await generateClaraGeminiReply({
-            message: cleanPrompt,
+            message: `${cleanPrompt}\n\n${CLARA_PRESENTATION_INSTRUCTION}`,
             context: claraAssistantContext,
             mode: action?.id || "ai_environment",
             conversationHistory: [...visibleMessages, makeLocalMessage("user", cleanDisplay)],
@@ -355,22 +552,21 @@ export default function ClaraAiEnvironmentOverlay({
               return (
                 <div key={message.id} className={`flex ${isUser ? "justify-end" : "justify-start"}`}>
                   <div
-                    className={`max-w-[88%] rounded-[24px] px-4 py-3 text-[13px] leading-5 shadow-[0_14px_34px_rgba(0,0,0,0.20)] ${
+                    className={`rounded-[24px] px-4 py-3 text-[13px] leading-5 shadow-[0_14px_34px_rgba(0,0,0,0.20)] ${
                       isUser
-                        ? "bg-emerald-300 text-slate-950"
-                        : "border border-white/12 bg-white/[0.075] text-white/86 backdrop-blur-xl"
+                        ? "max-w-[88%] bg-emerald-300 text-slate-950"
+                        : "max-w-[94%] border border-white/12 bg-white/[0.075] text-white/86 backdrop-blur-xl"
                     }`}
                   >
-                    {action && !isUser ? (
-                      <div>
-                        <p className="text-[10px] font-black uppercase tracking-[0.22em] text-cyan-100/55">
-                          Smart Action
-                        </p>
-                        <h4 className="mt-1 text-[15px] font-black text-white">{action.title}</h4>
-                        <p className="mt-2 text-[12px] leading-5 text-slate-300/85">{message.text}</p>
-                        {action.question ? (
-                          <p className="mt-3 text-[12px] leading-5 text-emerald-100/85">{action.question}</p>
-                        ) : null}
+                    {isUser ? (
+                      stripMarkdown(message.text)
+                    ) : (
+                      <ClaraInsightPresentation text={message.text} action={action} />
+                    )}
+
+                    {action && !isUser && action.question ? (
+                      <div className="mt-3 border-t border-white/10 pt-3">
+                        <p className="text-[12px] leading-5 text-emerald-100/85">{action.question}</p>
                         <div className="mt-3 flex flex-wrap gap-2">
                           {action.chips?.map((chip) => (
                             <button
@@ -391,9 +587,7 @@ export default function ClaraAiEnvironmentOverlay({
                           ))}
                         </div>
                       </div>
-                    ) : (
-                      message.text
-                    )}
+                    ) : null}
                   </div>
                 </div>
               );
