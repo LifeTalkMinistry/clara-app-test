@@ -3,6 +3,7 @@ import ClaraAiEnvironmentOverlay from "@/components/fresh/main-dashboard/assista
 import useClaraAiEnvironment from "@/components/fresh/main-dashboard/assistant/useClaraAiEnvironment";
 
 const LONG_PRESS_DELAY = 520;
+const DASHBOARD_DEFAULT_GUARD_VERSION = "dashboard-default-ai-mode-v2";
 
 const CLARA_AI_ENVIRONMENT_STYLES = `
   .clara-ai-environment-active [data-clara-ai-background="true"] {
@@ -29,6 +30,8 @@ export default function ClaraAiEnvironmentBridge() {
   const claraAiEnvironment = useClaraAiEnvironment();
   const [overlayVisible, setOverlayVisible] = useState(false);
   const longPressTimerRef = useRef(null);
+
+  // Dashboard must always be the default state. Only this local bridge state can show the fullscreen AI layer.
   const isActive = overlayVisible;
 
   useEffect(() => {
@@ -39,19 +42,23 @@ export default function ClaraAiEnvironmentBridge() {
 
     root.classList.toggle("clara-ai-environment-active", isActive);
     root.dataset.claraAiMode = isActive ? "active" : "idle";
+    root.dataset.claraAiGuard = DASHBOARD_DEFAULT_GUARD_VERSION;
 
     if (body) {
       body.classList.toggle("clara-ai-environment-active", isActive);
       body.dataset.claraAiMode = isActive ? "active" : "idle";
+      body.dataset.claraAiGuard = DASHBOARD_DEFAULT_GUARD_VERSION;
     }
 
     return () => {
       root.classList.remove("clara-ai-environment-active");
       delete root.dataset.claraAiMode;
+      delete root.dataset.claraAiGuard;
 
       if (body) {
         body.classList.remove("clara-ai-environment-active");
         delete body.dataset.claraAiMode;
+        delete body.dataset.claraAiGuard;
       }
     };
   }, [isActive]);
