@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { ArrowUp, Sparkles } from "lucide-react";
+import { ArrowUp, Sparkles, X } from "lucide-react";
 
 function isWelcomeMessage(message = {}) {
   return String(message?.text || "").trim() === "What are you thinking of buying?";
@@ -9,6 +9,7 @@ export default function ClaraAiEnvironmentOverlay({
   isActive = false,
   messages = [],
   requestFeaturePrompt,
+  onClose,
 }) {
   const [draft, setDraft] = useState("");
   const inputRef = useRef(null);
@@ -28,6 +29,19 @@ export default function ClaraAiEnvironmentOverlay({
 
     return () => window.clearTimeout(focusTimer);
   }, [isActive]);
+
+  useEffect(() => {
+    if (!isActive) return undefined;
+
+    const handleEscape = (event) => {
+      if (event.key === "Escape") {
+        onClose?.();
+      }
+    };
+
+    window.addEventListener("keydown", handleEscape);
+    return () => window.removeEventListener("keydown", handleEscape);
+  }, [isActive, onClose]);
 
   useEffect(() => {
     if (!isActive) return;
@@ -62,9 +76,14 @@ export default function ClaraAiEnvironmentOverlay({
               Ask before you spend.
             </h2>
           </div>
-          <span className="rounded-full border border-emerald-300/20 bg-emerald-300/10 px-2.5 py-1 text-[10px] font-bold text-emerald-100/80">
-            Live
-          </span>
+          <button
+            type="button"
+            onClick={onClose}
+            className="grid h-9 w-9 shrink-0 place-items-center rounded-full border border-white/12 bg-white/[0.075] text-white/72 transition hover:bg-white/[0.12] active:scale-95"
+            aria-label="Close CLARA AI mode"
+          >
+            <X className="h-4 w-4" />
+          </button>
         </div>
       </header>
 
