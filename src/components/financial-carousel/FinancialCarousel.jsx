@@ -18,7 +18,7 @@ import {
 import { DEFAULT_FINANCIAL_CARD_KEY } from "./logic/FinancialCardRegistry";
 
 const CLARA_MONEY_CHAT_EVENT = "clara:money-card-chat";
-const CLARA_AI_TOP_PULL = "clamp(-260px, -30dvh, -120px)";
+const CLARA_AI_TOP_PULL = "clamp(-178px, -21dvh, -68px)";
 const KEYBOARD_THRESHOLD = 140;
 
 export default function FinancialCarousel(props) {
