@@ -24,6 +24,19 @@ const CLARA_FEATURE_PROMPTS = {
     "Review my current Wallets like CLARA. Use my real wallet balances, total available money, wallet transaction movement, and money location. Give me a mini financial reality check so I immediately understand where my money is sitting, which wallet needs attention, and what I should be careful about next. Do not ask a random purchase question. Keep it short, conversational, and decision-focused.",
 };
 
+function hasExpenseIntentVerb(text = "") {
+  return /\b(i\s+)?(bought|spent|paid|purchased|ordered|got|had|logged|log|recorded|record)\b/i.test(
+    String(text || "")
+  );
+}
+
+function normalizeExpenseLogModeText(text = "") {
+  const cleanText = String(text || "").trim();
+  if (!cleanText) return "";
+
+  return hasExpenseIntentVerb(cleanText) ? cleanText : `log ${cleanText}`;
+}
+
 function makeClaraMessage(role, text) {
   return {
     id: `${role}-${Date.now()}-${Math.random().toString(36).slice(2)}`,
@@ -664,6 +677,7 @@ export default function DashboardMoneySummary({
   );
 
   const [claraMode, setClaraMode] = useState(false);
+  const [expenseLogMode, setExpenseLogMode] = useState(false);
   const [claraDraft, setClaraDraft] = useState("");
   const [pendingExpenseReview, setPendingExpenseReview] = useState(null);
   const [pendingExpenseDraft, setPendingExpenseDraft] = useState(null);
@@ -734,6 +748,7 @@ export default function DashboardMoneySummary({
     claraTriggeredRef.current = true;
     endMoneyLeftOrbLongPress?.();
     setClaraMode(true);
+    setExpenseLogMode(false);
     setPendingExpenseReview(null);
     setPendingExpenseDraft(null);
     setPendingBudgetConfirmation(null);
@@ -752,6 +767,7 @@ export default function DashboardMoneySummary({
       clearLongPressTimer();
       claraTriggeredRef.current = false;
       setClaraMode(false);
+      setExpenseLogMode(false);
       setClaraDraft("");
       setPendingExpenseReview(null);
       setPendingExpenseDraft(null);
@@ -1023,6 +1039,8 @@ Visible wallets: ${visibleWallets}
 User's last reply: ${flowContext.userReply || ""}
 
 WHAT TO DO BY STEP:
+- expense_log_mode_start: tell the user expense log mode is on, then ask for the item and price first. Mention that you will ask the wallet after.
+- expense_log_mode_need_item_price: the user did not give a clear item and price yet. Ask for item + price in one short sentence.
 - ask_wallet: acknowledge the purchase naturally and ask which wallet was used.
 - wallet_not_found: politely say that wallet did not match and ask which visible wallet to use.
 - budget_match_confirmation: say the item seems closest to the budget/category and ask if it should be logged there.
@@ -1059,6 +1077,41 @@ Reply as CLARA only.`;
       });
     },
     [replaceClaraMessage, resolveExpenseFlowReply]
+  );
+
+  const startExpenseLogMode = useCallback(
+    (event) => {
+      event?.preventDefault?.();
+      event?.stopPropagation?.();
+
+      const pendingMessage = makeClaraMessage("clara", CLARA_THINKING_REPLY);
+
+      setClaraMode(true);
+      setExpenseLogMode(true);
+      setClaraDraft("");
+      setPendingExpenseReview(null);
+      setPendingExpenseDraft(null);
+      setPendingBudgetConfirmation(null);
+      setPendingFinalExpenseConfirmation(null);
+
+      setClaraMessages((current) => {
+        const cleanedCurrent = current.filter(
+          (message) => String(message?.text || "").trim() !== CLARA_WELCOME_PROMPT
+        );
+
+        return [...cleanedCurrent, pendingMessage];
+      });
+
+      replaceWithExpenseFlowReply(pendingMessage.id, {
+        step: "expense_log_mode_start",
+        visibleWallets: formatWalletChoices(wallets),
+      });
+
+      window.setTimeout(() => {
+        claraInputRef.current?.focus?.();
+      }, 80);
+    },
+    [replaceWithExpenseFlowReply, wallets]
   );
 
   const submitClaraPrompt = useCallback(
@@ -1140,6 +1193,7 @@ Reply as CLARA only.`;
 
           logExpenseFromChat(command, review)
             .then(() => {
+              setExpenseLogMode(false);
               replaceWithExpenseFlowReply(pendingMessage.id, {
                 step: "done_saved",
                 command,
@@ -1171,6 +1225,7 @@ Reply as CLARA only.`;
             }
           );
           setPendingFinalExpenseConfirmation(null);
+          setExpenseLogMode(false);
           return;
         }
 
@@ -1286,7 +1341,10 @@ Reply as CLARA only.`;
         return;
       }
 
-      const expenseCommand = parseExpenseLogCommand(text, wallets);
+      const expenseCommand = parseExpenseLogCommand(
+        expenseLogMode ? normalizeExpenseLogModeText(text) : text,
+        wallets
+      );
 
       if (pendingExpenseReview && !expenseCommand) {
         const pendingMessage = makeClaraMessage("clara", CLARA_THINKING_REPLY);
@@ -1305,6 +1363,18 @@ Reply as CLARA only.`;
 
         setPendingExpenseReview(null);
         askFinalConfirmation(pendingCommand, reviewWithReason, pendingMessage.id);
+        return;
+      }
+
+      if (expenseLogMode && !expenseCommand) {
+        const pendingMessage = makeClaraMessage("clara", CLARA_THINKING_REPLY);
+        appendUserAndPendingMessage(text, pendingMessage);
+
+        replaceWithExpenseFlowReply(pendingMessage.id, {
+          step: "expense_log_mode_need_item_price",
+          userReply: text,
+          visibleWallets: formatWalletChoices(wallets),
+        });
         return;
       }
 
@@ -1344,6 +1414,7 @@ Reply as CLARA only.`;
     },
     [
       appendUserAndPendingMessage,
+      expenseLogMode,
       fmt,
       logExpenseFromChat,
       monthlyBudgetPlan,
@@ -1442,9 +1513,14 @@ Reply as CLARA only.`;
           >
             <button
               type="button"
-              onClick={() => claraInputRef.current?.focus?.()}
-              className="grid h-10 w-10 shrink-0 place-items-center rounded-full border border-white/14 bg-white/[0.06] text-white/70 transition hover:bg-white/[0.10] hover:text-white active:scale-95"
-              aria-label="Start expense log"
+              onClick={startExpenseLogMode}
+              className={`grid h-10 w-10 shrink-0 place-items-center rounded-full border transition active:scale-95 ${
+                expenseLogMode
+                  ? "border-emerald-200/50 bg-emerald-300 text-slate-950 shadow-[0_0_22px_rgba(110,231,183,0.24)]"
+                  : "border-white/12 bg-white/[0.075] text-white/75 hover:bg-white/[0.12]"
+              }`}
+              aria-label="Start expense log mode"
+              title="Start expense log mode"
             >
               <Plus className="h-4 w-4" />
             </button>
@@ -1454,7 +1530,11 @@ Reply as CLARA only.`;
               value={claraDraft}
               onChange={(event) => setClaraDraft(event.target.value)}
               className="min-w-0 flex-1 bg-transparent px-2.5 text-[13px] font-medium text-white outline-none placeholder:text-slate-400/70"
-              placeholder="Item + price, e.g. shoes ₱1,200"
+              placeholder={
+                expenseLogMode
+                  ? "Item + price first, e.g. buko juice ₱100"
+                  : "Item + price, e.g. shoes ₱1,200"
+              }
               inputMode="text"
             />
             <button
