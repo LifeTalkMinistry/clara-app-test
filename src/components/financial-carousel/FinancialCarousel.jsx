@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import CarouselItemCard from "./ui/CarouselItemCard";
 import CarouselViewport from "./ui/CarouselViewport";
 import CarouselDots from "./ui/CarouselDots";
@@ -17,6 +17,7 @@ import {
 import { DEFAULT_FINANCIAL_CARD_KEY } from "./logic/FinancialCardRegistry";
 
 const CLARA_MONEY_CHAT_EVENT = "clara:money-card-chat";
+const CLARA_AI_TOP_PULL = "clamp(-190px, -22dvh, -82px)";
 
 export default function FinancialCarousel(props) {
   const {
@@ -26,6 +27,7 @@ export default function FinancialCarousel(props) {
     expandedFinanceCard,
   } = props;
 
+  const rootRef = useRef(null);
   const [isClaraConversationActive, setIsClaraConversationActive] = useState(false);
 
   const items = useMemo(() => getCarouselData(props), [props]);
@@ -57,6 +59,7 @@ export default function FinancialCarousel(props) {
   }, [items]);
 
   const isInlineFocusExpanded = expandedCardIndex >= 0;
+  const isFinanceFocusMode = isInlineFocusExpanded || isClaraConversationActive;
 
   useEffect(() => {
     const handleClaraMoneyChat = (event) => {
@@ -68,6 +71,7 @@ export default function FinancialCarousel(props) {
       if (active) {
         window.requestAnimationFrame(() => {
           scrollToIndex(budgetCardIndex, "smooth");
+          rootRef.current?.scrollIntoView?.({ behavior: "smooth", block: "start" });
         });
       }
     };
@@ -99,17 +103,24 @@ export default function FinancialCarousel(props) {
     if (typeof document === "undefined") return undefined;
 
     const root = document.documentElement;
-    root.classList.toggle(FINANCIAL_CAROUSEL_FOCUS_CLASS, isInlineFocusExpanded);
+    root.classList.toggle(FINANCIAL_CAROUSEL_FOCUS_CLASS, isFinanceFocusMode);
 
     return () => root.classList.remove(FINANCIAL_CAROUSEL_FOCUS_CLASS);
-  }, [isInlineFocusExpanded]);
+  }, [isFinanceFocusMode]);
 
   if (!items.length) return null;
 
   return (
     <div
+      ref={rootRef}
       className="relative z-20 mb-5 transition-[margin-top] duration-500 ease-[cubic-bezier(0.22,1,0.36,1)]"
-      style={{ marginTop: isInlineFocusExpanded ? EXPANDED_TOP_PULL : 0 }}
+      style={{
+        marginTop: isClaraConversationActive
+          ? CLARA_AI_TOP_PULL
+          : isInlineFocusExpanded
+            ? EXPANDED_TOP_PULL
+            : 0,
+      }}
     >
       <style>{FINANCIAL_CAROUSEL_FOCUS_STYLES}</style>
 
@@ -118,12 +129,13 @@ export default function FinancialCarousel(props) {
         onScroll={handleScroll}
         interactionHandlers={interactionHandlers}
         clipClassName={dashboardScale.financeClip || "rounded-[28px]"}
-        allowVerticalOverflow={isInlineFocusExpanded}
+        allowVerticalOverflow={isFinanceFocusMode}
         locked={isClaraConversationActive}
       >
         {items.map((item) => {
-          const isInlineExpanded =
-            item.detailKey === expandedFinanceCard && expandedCardIndex >= 0;
+          const isInlineExpanded = isClaraConversationActive
+            ? item?.key === DEFAULT_FINANCIAL_CARD_KEY
+            : item.detailKey === expandedFinanceCard && expandedCardIndex >= 0;
 
           return (
             <CarouselSlideShell
