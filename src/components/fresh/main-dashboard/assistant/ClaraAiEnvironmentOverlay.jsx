@@ -8,6 +8,11 @@ const SMART_ACTIONS = [
     shortTitle: "Forecast",
     description: "Predict where your money is heading based on income, expenses, budgets, savings, wallets, and hidden risks.",
     prompt: "Run my Future Money Forecast. Predict where my money is heading based on income, expenses, budgets, savings, wallets, unplanned spending, undocumented spending, and hidden risks. Keep it practical and decision-focused.",
+    claraIntro:
+      "Got it. I’ll forecast where your money is heading next by checking your wallets, spending pace, budget pressure, savings progress, and hidden risks.",
+    question:
+      "Do you want the forecast to focus on this week, this month, or your next payday?",
+    chips: ["This week", "This month", "Next payday"],
   },
   {
     id: "spending-checkup",
@@ -15,6 +20,10 @@ const SMART_ACTIONS = [
     shortTitle: "Checkup",
     description: "Explain past spending behavior, leaks, planned vs unplanned spending, and undocumented spending.",
     prompt: "Run my Spending Checkup. Explain my past spending behavior, biggest money leaks, planned vs unplanned spending, and undocumented spending. Give me the clearest issue I should fix first.",
+    claraIntro:
+      "Sure. I’ll look for the spending pattern that is quietly draining your budget — especially unplanned, repeated, and undocumented spending.",
+    question: "Should I be direct and strict, or gentle but honest?",
+    chips: ["Be direct", "Gentle but honest", "Show biggest leak"],
   },
   {
     id: "savings-game-plan",
@@ -22,6 +31,10 @@ const SMART_ACTIONS = [
     shortTitle: "Savings Plan",
     description: "Show how I can realistically reach my declared savings goal.",
     prompt: "Create my Savings Game Plan. Check how I can realistically reach my declared savings goal based on my current money, spending, and budget behavior.",
+    claraIntro:
+      "Okay. I’ll turn your savings goal into a realistic game plan using your current money, spending behavior, and how much flexibility you actually have.",
+    question: "Do you want a safe plan or a faster but tighter plan?",
+    chips: ["Safe plan", "Faster plan", "Small daily steps"],
   },
   {
     id: "emergency-fund-builder",
@@ -29,6 +42,10 @@ const SMART_ACTIONS = [
     shortTitle: "Emergency Fund",
     description: "Build a realistic safety fund plan based on expenses, income, and survival needs.",
     prompt: "Build my Emergency Fund plan. Use my expenses, income, survival needs, savings, and wallet situation to create a realistic safety fund strategy.",
+    claraIntro:
+      "Let’s build your safety cushion. I’ll estimate what you need to survive emergencies without destroying your normal budget.",
+    question: "Should we start with a small starter fund or a full survival fund?",
+    chips: ["Starter fund", "Full fund", "Monthly target"],
   },
   {
     id: "can-i-afford-this",
@@ -36,6 +53,10 @@ const SMART_ACTIONS = [
     shortTitle: "Afford Check",
     description: "Enter an amount and CLARA checks whether the purchase is safe.",
     prompt: "Help me check if I can afford a purchase. Ask me for the item and amount if I have not provided them yet, then judge if it is safe based on my money and budget context.",
+    claraIntro:
+      "Yes. Tell me the item and price, then I’ll check if it is safe, risky, or better delayed based on your current money situation.",
+    question: "What are you thinking of buying, and how much is it?",
+    chips: ["₱500", "₱1,000", "₱2,500"],
   },
   {
     id: "budget-fixer",
@@ -43,6 +64,10 @@ const SMART_ACTIONS = [
     shortTitle: "Budget Fixer",
     description: "Suggest better budget allocation based on real spending behavior.",
     prompt: "Run my Budget Fixer. Suggest better budget allocation based on my real spending behavior, recurring expenses, unplanned spending, and current budget risk.",
+    claraIntro:
+      "I’ll check where your budget is too tight, too loose, or unrealistic compared to your actual spending behavior.",
+    question: "Should I fix the budget for survival, savings, or spending control first?",
+    chips: ["Survival first", "Savings first", "Control spending"],
   },
   {
     id: "hidden-risk-check",
@@ -50,6 +75,10 @@ const SMART_ACTIONS = [
     shortTitle: "Risk Check",
     description: "Detect ignored money risks like health, maintenance, family support, debt, rest, and transportation.",
     prompt: "Run my Hidden Risk Check. Detect ignored areas that may cost money later, including health, checkups, emergencies, maintenance, family support, transportation, rest, and debt.",
+    claraIntro:
+      "Good move. I’ll look for the money risks that are easy to ignore now but expensive later.",
+    question: "Should I check personal risks, family risks, or bills and maintenance first?",
+    chips: ["Personal risks", "Family risks", "Bills & maintenance"],
   },
   {
     id: "monthly-money-review",
@@ -57,6 +86,10 @@ const SMART_ACTIONS = [
     shortTitle: "Monthly Review",
     description: "Summarize what went well, what hurt the budget, biggest risk, and next focus.",
     prompt: "Run my Monthly Money Review. Summarize what went well, what hurt my budget, my biggest risk, and my next money focus.",
+    claraIntro:
+      "I’ll review your month like a money coach: what went well, what hurt your budget, what risk is growing, and what to focus on next.",
+    question: "Do you want a quick review or a deeper breakdown?",
+    chips: ["Quick review", "Deep breakdown", "Next focus only"],
   },
   {
     id: "next-best-move",
@@ -64,6 +97,10 @@ const SMART_ACTIONS = [
     shortTitle: "Next Move",
     description: "Give one clear recommended action based on my current money situation.",
     prompt: "Give me my Next Best Move. Based on my current money situation, give me one clear action I should take next.",
+    claraIntro:
+      "I’ll narrow everything down to one practical move so you don’t overthink your finances today.",
+    question: "Should the move focus on spending, saving, budgeting, or emergency safety?",
+    chips: ["Spending", "Saving", "Budgeting", "Emergency"],
   },
 ];
 
@@ -78,6 +115,24 @@ function makeLocalMessage(role, text, meta = {}) {
     text,
     ...meta,
   };
+}
+
+function buildDraftReply(text = "") {
+  const cleanText = String(text || "").trim();
+
+  if (/\b(afford|buy|spend|purchase|worth|price|₱|php|peso)\b/i.test(cleanText)) {
+    return "Let’s pause before spending. I need the item, amount, and wallet you plan to use so I can judge if this is safe, risky, or better delayed.";
+  }
+
+  if (/\b(save|savings|goal)\b/i.test(cleanText)) {
+    return "Good. I’ll treat this as a savings question. I’ll check what you can realistically set aside without making your daily budget fragile.";
+  }
+
+  if (/\b(budget|allocate|category)\b/i.test(cleanText)) {
+    return "I’ll look at this as a budget decision. The goal is not just to balance numbers, but to make the budget match your real behavior.";
+  }
+
+  return "I’m listening. Tell me a little more, and I’ll turn this into a clear money decision instead of just a generic answer.";
 }
 
 export default function ClaraAiEnvironmentOverlay({
@@ -140,10 +195,7 @@ export default function ClaraAiEnvironmentOverlay({
     setLocalMessages((current) => [
       ...current,
       makeLocalMessage("user", cleanText),
-      makeLocalMessage(
-        "clara",
-        "I’m setting up the right CLARA check for that. This smart action layer is now ready visually; the next step is wiring each action to the real finance brain."
-      ),
+      makeLocalMessage("clara", buildDraftReply(cleanText)),
     ]);
 
     requestFeaturePrompt?.(cleanText);
@@ -162,7 +214,7 @@ export default function ClaraAiEnvironmentOverlay({
     setLocalMessages((current) => [
       ...current,
       makeLocalMessage("user", action.title),
-      makeLocalMessage("clara", action.description, { smartAction: action }),
+      makeLocalMessage("clara", action.claraIntro, { smartAction: action }),
     ]);
 
     requestFeaturePrompt?.(action.prompt);
@@ -218,22 +270,19 @@ export default function ClaraAiEnvironmentOverlay({
                           Smart Action
                         </p>
                         <h4 className="mt-1 text-[15px] font-black text-white">{action.title}</h4>
-                        <p className="mt-2 text-[12px] leading-5 text-slate-300/80">{message.text}</p>
+                        <p className="mt-2 text-[12px] leading-5 text-slate-300/85">{message.text}</p>
+                        <p className="mt-3 text-[12px] leading-5 text-emerald-100/85">{action.question}</p>
                         <div className="mt-3 flex flex-wrap gap-2">
-                          <button
-                            type="button"
-                            onClick={() => submitPrompt(action.prompt)}
-                            className="rounded-full border border-emerald-200/20 bg-emerald-300/10 px-3 py-1.5 text-[11px] font-bold text-emerald-100 active:scale-95"
-                          >
-                            Run this
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => setDraft(action.prompt)}
-                            className="rounded-full border border-white/12 bg-white/[0.06] px-3 py-1.5 text-[11px] font-bold text-white/70 active:scale-95"
-                          >
-                            Edit prompt
-                          </button>
+                          {action.chips?.map((chip) => (
+                            <button
+                              key={chip}
+                              type="button"
+                              onClick={() => submitPrompt(`${action.title}: ${chip}`)}
+                              className="rounded-full border border-emerald-200/20 bg-emerald-300/10 px-3 py-1.5 text-[11px] font-bold text-emerald-100 active:scale-95"
+                            >
+                              {chip}
+                            </button>
+                          ))}
                         </div>
                       </div>
                     ) : (
