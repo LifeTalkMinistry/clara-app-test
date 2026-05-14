@@ -25,32 +25,20 @@ const CLARA_AI_ENVIRONMENT_STYLES = `
       filter 360ms cubic-bezier(0.22, 1, 0.36, 1),
       transform 360ms cubic-bezier(0.22, 1, 0.36, 1);
   }
-
-  .clara-ai-environment-active [data-clara-ai-focus-anchor="money-summary"] {
-    position: relative;
-    z-index: 70;
-    transform: translate3d(0, -4px, 0);
-    transition: transform 360ms cubic-bezier(0.22, 1, 0.36, 1);
-  }
-
-  [data-clara-ai-focus-anchor="money-summary"] {
-    transition: transform 360ms cubic-bezier(0.22, 1, 0.36, 1);
-  }
 `;
 
-function hasInlineClaraInput() {
-  if (typeof document === "undefined") return false;
-
+function isMoneyLeftOrbTarget(target) {
   return Boolean(
-    document.querySelector('input[placeholder*="Item + price"], input[placeholder*="shoes ₱1,200"]')
+    target?.closest?.(
+      '[data-clara-manual-expense-orb="true"], [aria-label*="Tap to log expense"], [aria-label*="ask CLARA"]'
+    )
   );
 }
 
 export default function ClaraAiEnvironmentBridge() {
   const claraAiEnvironment = useClaraAiEnvironment();
-  const [forceActive, setForceActive] = useState(false);
-
-  const isActive = Boolean(claraAiEnvironment.isActive || forceActive);
+  const [orbActive, setOrbActive] = useState(false);
+  const isActive = Boolean(claraAiEnvironment.isActive || orbActive);
 
   useEffect(() => {
     if (typeof document === "undefined") return undefined;
@@ -78,48 +66,65 @@ export default function ClaraAiEnvironmentBridge() {
   }, [isActive]);
 
   useEffect(() => {
-    if (typeof window === "undefined") return undefined;
+    if (typeof document === "undefined") return undefined;
 
-    const activateOverlay = () => {
-      setForceActive(true);
-      claraAiEnvironment.activateOverlay?.("forced-overlay");
+    const activateFromOrb = (event) => {
+      if (!isMoneyLeftOrbTarget(event.target)) return;
+
+      event.preventDefault?.();
+      event.stopPropagation?.();
+      event.stopImmediatePropagation?.();
+
+      setOrbActive(true);
+      claraAiEnvironment.activateOverlay?.("money-left-orb");
     };
 
-    window.addEventListener(CLARA_MONEY_CHAT_EVENT, activateOverlay);
-    window.addEventListener(CLARA_MONEY_CHAT_REQUEST_EVENT, activateOverlay);
+    document.addEventListener("pointerdown", activateFromOrb, true);
+    document.addEventListener("touchstart", activateFromOrb, true);
+    document.addEventListener("click", activateFromOrb, true);
 
     return () => {
-      window.removeEventListener(CLARA_MONEY_CHAT_EVENT, activateOverlay);
-      window.removeEventListener(CLARA_MONEY_CHAT_REQUEST_EVENT, activateOverlay);
+      document.removeEventListener("pointerdown", activateFromOrb, true);
+      document.removeEventListener("touchstart", activateFromOrb, true);
+      document.removeEventListener("click", activateFromOrb, true);
     };
   }, [claraAiEnvironment]);
 
   useEffect(() => {
-    if (typeof document === "undefined") return undefined;
+    if (typeof window === "undefined") return undefined;
 
-    const observer = new MutationObserver(() => {
-      if (!hasInlineClaraInput()) return;
+    const syncLegacyClaraMode = (event) => {
+      if (event?.detail?.active) {
+        setOrbActive(true);
+      }
+    };
 
-      setForceActive(true);
-      claraAiEnvironment.activateOverlay?.("inline-detected");
-    });
+    const syncPromptRequest = () => {
+      setOrbActive(true);
+    };
 
-    observer.observe(document.body, {
-      childList: true,
-      subtree: true,
-    });
+    window.addEventListener(CLARA_MONEY_CHAT_EVENT, syncLegacyClaraMode);
+    window.addEventListener(CLARA_MONEY_CHAT_REQUEST_EVENT, syncPromptRequest);
 
-    return () => observer.disconnect();
-  }, [claraAiEnvironment]);
+    return () => {
+      window.removeEventListener(CLARA_MONEY_CHAT_EVENT, syncLegacyClaraMode);
+      window.removeEventListener(CLARA_MONEY_CHAT_REQUEST_EVENT, syncPromptRequest);
+    };
+  }, []);
+
+  const closeOverlay = () => {
+    setOrbActive(false);
+    claraAiEnvironment.clearEnvironment?.();
+  };
 
   return (
     <>
       <style>{CLARA_AI_ENVIRONMENT_STYLES}</style>
-
       <ClaraAiEnvironmentOverlay
         isActive={isActive}
         messages={claraAiEnvironment.messages}
         requestFeaturePrompt={claraAiEnvironment.requestFeaturePrompt}
+        onClose={closeOverlay}
       />
     </>
   );
