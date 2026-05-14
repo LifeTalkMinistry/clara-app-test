@@ -4,7 +4,8 @@ export const CLARA_AI_KEYBOARD_FOCUS_CLASS = "clara-ai-keyboard-focus-mode";
 
 export const FINANCIAL_CAROUSEL_FOCUS_STYLES = `
   .clara-budget-focus-shift,
-  .clara-ai-focus-top-nav {
+  .clara-ai-focus-top-nav,
+  .clara-ai-focus-carousel {
     transform: translate3d(0, 0, 0);
     transition:
       max-height 520ms cubic-bezier(0.22, 1, 0.36, 1),
@@ -40,6 +41,10 @@ export const FINANCIAL_CAROUSEL_FOCUS_STYLES = `
     overflow: hidden;
     pointer-events: none;
     transform: translate3d(0, -36px, 0);
+  }
+
+  .clara-ai-keyboard-focus-mode .theme-page-shell {
+    overscroll-behavior: contain;
   }
 `;
 
