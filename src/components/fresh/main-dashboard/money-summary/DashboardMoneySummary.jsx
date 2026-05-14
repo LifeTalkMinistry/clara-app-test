@@ -99,7 +99,7 @@ function findWalletByName(wallets = [], name = "") {
 function guessExpenseCategory(item = "") {
   const text = normalizeMatchText(item);
 
-  if (/milk ?tea|coffee|tea|drink|food|meal|snack|rice|lunch|dinner|breakfast/.test(text)) {
+  if (/buko|juice|milk ?tea|coffee|tea|drink|food|meal|snack|rice|lunch|dinner|breakfast/.test(text)) {
     return "Food";
   }
 
@@ -131,25 +131,6 @@ function parseExpenseLogCommand(text = "", wallets = []) {
   const amount = Number(String(amountMatch[1] || "").replace(/,/g, ""));
   if (!Number.isFinite(amount) || amount <= 0) return null;
 
-  const walletMatch = rawText.match(/\b(?:using|from|via|with)\s+(.+?)\s*$/i);
-  const walletName = String(walletMatch?.[1] || "")
-    .replace(/[.!?]+$/g, "")
-    .trim();
-
-  const wallet = walletName ? findWalletByName(wallets, walletName) : null;
-  const fallbackWallet = !wallet && safeArray(wallets).length === 1 ? safeArray(wallets)[0] : null;
-  const selectedWallet = wallet || fallbackWallet;
-
-  if (!selectedWallet) {
-    return {
-      ok: false,
-      reason: "wallet_not_found",
-      rawText,
-      amount,
-      walletName,
-    };
-  }
-
   const beforeAmount = rawText.slice(0, amountMatch.index).trim();
   let item = beforeAmount
     .replace(/^\s*i\s+/i, "")
@@ -164,13 +145,49 @@ function parseExpenseLogCommand(text = "", wallets = []) {
 
   item = item || "Expense";
 
+  const walletMatch = rawText.match(/\b(?:using|from|via|with)\s+(.+?)\s*$/i);
+  const walletName = String(walletMatch?.[1] || "")
+    .replace(/[.!?]+$/g, "")
+    .trim();
+
+  const wallet = walletName ? findWalletByName(wallets, walletName) : null;
+
+  if (!walletName) {
+    return {
+      ok: false,
+      reason: "wallet_missing",
+      rawText,
+      item,
+      amount,
+      wallet: null,
+      walletName: "",
+      requestedWalletName: "",
+      category: guessExpenseCategory(item),
+    };
+  }
+
+  if (!wallet) {
+    return {
+      ok: false,
+      reason: "wallet_not_found",
+      rawText,
+      item,
+      amount,
+      wallet: null,
+      walletName,
+      requestedWalletName: walletName,
+      category: guessExpenseCategory(item),
+    };
+  }
+
   return {
     ok: true,
     rawText,
     item,
     amount,
-    wallet: selectedWallet,
-    walletName: getWalletName(selectedWallet),
+    wallet,
+    walletName: getWalletName(wallet),
+    requestedWalletName: walletName,
     category: guessExpenseCategory(item),
   };
 }
@@ -305,7 +322,6 @@ function buildBudgetReasonQuestion(command = {}) {
   return `I can see ${command.item} is not part of your current budget list. Why did you need to spend ${amountText} on it? I’ll log it as unplanned after your reason.`;
 }
 
-
 function isYesConfirmation(text = "") {
   return /^(yes|y|yeah|yep|ok|okay|sure|please|go ahead|log it|log there|confirm|confirmed)(\b|[.!?]|$)/i.test(
     String(text || "").trim()
@@ -313,7 +329,7 @@ function isYesConfirmation(text = "") {
 }
 
 function isNoConfirmation(text = "") {
-  return /^(no|n|nope|not there|do not|dont|don't|wrong|unplanned)(\b|[.!?]|$)/i.test(
+  return /^(no|n|nope|not there|do not|dont|don't|wrong|unplanned|put it under unplanned|mark as unplanned)(\b|[.!?]|$)/i.test(
     String(text || "").trim()
   );
 }
@@ -325,6 +341,67 @@ function buildBudgetMatchQuestion(command = {}, budgetReview = {}) {
     : "this amount";
 
   return `I detected ${command.item} is closest to your "${budgetName}" budget. Should I log the ${amountText} there?`;
+}
+
+function formatWalletChoices(wallets = []) {
+  const names = safeArray(wallets)
+    .map((wallet) => getWalletName(wallet))
+    .filter(Boolean)
+    .slice(0, 5);
+
+  return names.length ? names.join(", ") : "No wallets are visible right now";
+}
+
+function buildWalletQuestion(command = {}, wallets = []) {
+  const amountText = command.amount
+    ? `₱${Number(command.amount).toLocaleString("en-PH", { maximumFractionDigits: 0 })}`
+    : "this expense";
+
+  if (command.reason === "wallet_not_found" && command.requestedWalletName) {
+    return `I couldn’t find “${command.requestedWalletName}” in your wallets. Which wallet should I use for the ${amountText} ${command.item}? Visible wallets: ${formatWalletChoices(wallets)}.`;
+  }
+
+  return `May I know which wallet you used for the ${amountText} ${command.item}?`;
+}
+
+function buildFinalExpenseQuestion(command = {}, review = {}, fmt = (value) => String(value ?? 0)) {
+  const statusText =
+    review.planningStatus === "planned"
+      ? `Planned under ${review.budgetCategory || review.category || "your budget"}`
+      : "Unplanned spending";
+  const reasonText = review.reason ? `\nReason: “${review.reason}”` : "";
+
+  return `All set. Should I log this now?\n${fmt(command.amount)} • ${command.item} • ${command.walletName}\n${statusText}${reasonText}`;
+}
+
+function detectBehaviorFromReason(reason = "", command = {}) {
+  const text = normalizeMatchText(`${reason} ${command.item || ""}`);
+
+  if (/stress|stressed|tired|pagod|bad day|burnout|pressure/.test(text)) {
+    return { behaviorTag: "stress_spending", emotionalTrigger: "stress_or_fatigue" };
+  }
+
+  if (/thirst|thirsty|uhaw|hungry|gutom|skipped|craving/.test(text)) {
+    return { behaviorTag: "body_need_or_craving", emotionalTrigger: "hunger_or_thirst" };
+  }
+
+  if (/reward|deserve|treat|celebrate|comfort/.test(text)) {
+    return { behaviorTag: "reward_spending", emotionalTrigger: "comfort_or_reward" };
+  }
+
+  if (/sale|discount|promo|limited|deal/.test(text)) {
+    return { behaviorTag: "promo_trigger", emotionalTrigger: "urgency_or_discount" };
+  }
+
+  if (/friend|friends|family|peer|hiya|nakakahiya|invited/.test(text)) {
+    return { behaviorTag: "social_spending", emotionalTrigger: "social_pressure" };
+  }
+
+  if (/emergency|urgent|medicine|doctor|hospital|repair|broken|accident/.test(text)) {
+    return { behaviorTag: "unexpected_need", emotionalTrigger: "urgent_need" };
+  }
+
+  return { behaviorTag: "unplanned_decision", emotionalTrigger: "unspecified_trigger" };
 }
 
 function isContextQuestion(text) {
@@ -583,7 +660,9 @@ export default function DashboardMoneySummary({
   const [claraMode, setClaraMode] = useState(false);
   const [claraDraft, setClaraDraft] = useState("");
   const [pendingExpenseReview, setPendingExpenseReview] = useState(null);
+  const [pendingExpenseDraft, setPendingExpenseDraft] = useState(null);
   const [pendingBudgetConfirmation, setPendingBudgetConfirmation] = useState(null);
+  const [pendingFinalExpenseConfirmation, setPendingFinalExpenseConfirmation] = useState(null);
   const [claraMessages, setClaraMessages] = useState(() => [
     makeClaraMessage("clara", CLARA_WELCOME_PROMPT),
   ]);
@@ -650,7 +729,9 @@ export default function DashboardMoneySummary({
     endMoneyLeftOrbLongPress?.();
     setClaraMode(true);
     setPendingExpenseReview(null);
+    setPendingExpenseDraft(null);
     setPendingBudgetConfirmation(null);
+    setPendingFinalExpenseConfirmation(null);
     setClaraMessages([makeClaraMessage("clara", CLARA_WELCOME_PROMPT)]);
 
     window.setTimeout(() => {
@@ -667,7 +748,9 @@ export default function DashboardMoneySummary({
       setClaraMode(false);
       setClaraDraft("");
       setPendingExpenseReview(null);
+      setPendingExpenseDraft(null);
       setPendingBudgetConfirmation(null);
+      setPendingFinalExpenseConfirmation(null);
       setClaraMessages([makeClaraMessage("clara", CLARA_WELCOME_PROMPT)]);
     },
     [clearLongPressTimer, clearTapTimer, stopOrbEvent]
@@ -796,6 +879,7 @@ export default function DashboardMoneySummary({
       const localUserId = getLocalUserIdFromWallets(wallets);
       const isPlanned = review.planningStatus === "planned";
       const reason = isPlanned ? null : review.reason || `Outside budget list: ${command.rawText}`;
+      const behavior = isPlanned ? {} : detectBehaviorFromReason(reason, command);
 
       await repoAddExpense(localUserId, {
         amount: command.amount,
@@ -808,6 +892,9 @@ export default function DashboardMoneySummary({
         planning_status: review.planningStatus,
         unplanned_reason: reason,
         unexpected_reason: isPlanned ? null : reason,
+        behavior_reason: reason,
+        behavior_tag: behavior.behaviorTag || null,
+        emotional_trigger: behavior.emotionalTrigger || null,
         notes: command.item,
         source_type: "CLARA Chat Expense Log",
         date: nowIso,
@@ -826,10 +913,10 @@ export default function DashboardMoneySummary({
       const nextBalance = Math.max(walletBalance - command.amount, 0);
 
       if (isPlanned) {
-        return `Logged ✅ ${fmt(command.amount)} for ${command.item} from ${command.walletName}. I matched it under your ${review.budgetCategory} budget, so it stays budget-focused. That wallet should now be around ${fmt(nextBalance)}.`;
+        return `Done ✅ Logged ${fmt(command.amount)} for ${command.item} from ${command.walletName} under your ${review.budgetCategory} budget. That wallet should now be around ${fmt(nextBalance)}.`;
       }
 
-      return `Logged ✅ ${fmt(command.amount)} for ${command.item} from ${command.walletName} as unplanned. I saved the reason: “${reason}”. That wallet should now be around ${fmt(nextBalance)}.`;
+      return `Done ✅ Logged ${fmt(command.amount)} for ${command.item} from ${command.walletName} as unplanned. I saved the reason: “${reason}”. That wallet should now be around ${fmt(nextBalance)}.`;
     },
     [fmt, monthlyBudgetPlan, wallets]
   );
@@ -896,9 +983,120 @@ export default function DashboardMoneySummary({
       const text = String(rawText || "").trim();
       if (!text) return;
 
-      if (pendingBudgetConfirmation) {
+      const askFinalConfirmation = (command, review, sourceMessageId = null) => {
+        setPendingFinalExpenseConfirmation({ command, review });
+        setPendingExpenseDraft(null);
+        setPendingExpenseReview(null);
+        setPendingBudgetConfirmation(null);
+
+        const question = buildFinalExpenseQuestion(command, review, fmt);
+
+        if (sourceMessageId) {
+          replaceClaraMessage(sourceMessageId, question);
+          return;
+        }
+
+        const pendingMessage = makeClaraMessage("clara", question);
+        appendUserAndPendingMessage(text, pendingMessage);
+      };
+
+      const continueWithCompletedCommand = (command, pendingMessageId) => {
+        const budgetReview = command.ok
+          ? classifyExpenseAgainstBudget(command, monthlyBudgetPlan)
+          : null;
+
+        if (budgetReview?.budgetMatched && budgetReview?.budgetCategory) {
+          setPendingBudgetConfirmation({ command, review: budgetReview });
+          setPendingExpenseDraft(null);
+          setPendingExpenseReview(null);
+          setPendingFinalExpenseConfirmation(null);
+          replaceClaraMessage(pendingMessageId, buildBudgetMatchQuestion(command, budgetReview));
+          return;
+        }
+
+        if (budgetReview?.requiresReason) {
+          setPendingExpenseReview({ command, budgetReview });
+          setPendingExpenseDraft(null);
+          setPendingBudgetConfirmation(null);
+          setPendingFinalExpenseConfirmation(null);
+          replaceClaraMessage(pendingMessageId, buildBudgetReasonQuestion(command));
+          return;
+        }
+
+        askFinalConfirmation(command, budgetReview, pendingMessageId);
+      };
+
+      if (pendingFinalExpenseConfirmation) {
         if (isYesConfirmation(text)) {
           const pendingMessage = makeClaraMessage("clara", CLARA_LOGGING_REPLY);
+          appendUserAndPendingMessage(text, pendingMessage);
+
+          const { command, review } = pendingFinalExpenseConfirmation;
+          setPendingFinalExpenseConfirmation(null);
+
+          logExpenseFromChat(command, review)
+            .then((reply) => replaceClaraMessage(pendingMessage.id, reply))
+            .catch((error) => {
+              console.warn("CLARA chat expense log failed:", error);
+              replaceClaraMessage(
+                pendingMessage.id,
+                "I confirmed everything, but I couldn’t save the expense yet. Please try again or use the manual expense button."
+              );
+            });
+          return;
+        }
+
+        if (isNoConfirmation(text)) {
+          const pendingMessage = makeClaraMessage(
+            "clara",
+            "No problem. I didn’t log it. You can send the expense again if you want to change anything."
+          );
+          appendUserAndPendingMessage(text, pendingMessage);
+          setPendingFinalExpenseConfirmation(null);
+          return;
+        }
+
+        const pendingMessage = makeClaraMessage(
+          "clara",
+          "Please answer yes to log it now, or no to cancel."
+        );
+        appendUserAndPendingMessage(text, pendingMessage);
+        return;
+      }
+
+      if (pendingExpenseDraft) {
+        const wallet = findWalletByName(wallets, text);
+        const pendingMessage = makeClaraMessage("clara", CLARA_THINKING_REPLY);
+        appendUserAndPendingMessage(text, pendingMessage);
+
+        if (!wallet) {
+          replaceClaraMessage(
+            pendingMessage.id,
+            `I couldn’t find “${text}” in your wallets. Which wallet should I use? Visible wallets: ${formatWalletChoices(wallets)}.`
+          );
+          return;
+        }
+
+        const completedCommand = {
+          ...pendingExpenseDraft,
+          ok: true,
+          reason: null,
+          wallet,
+          walletName: getWalletName(wallet),
+          requestedWalletName: getWalletName(wallet),
+        };
+
+        setPendingExpenseDraft(null);
+        continueWithCompletedCommand(completedCommand, pendingMessage.id);
+        return;
+      }
+
+      if (pendingBudgetConfirmation) {
+        if (
+          isYesConfirmation(text) ||
+          normalizeMatchText(text).includes(normalizeMatchText(pendingBudgetConfirmation.review?.budgetCategory))
+        ) {
+          const pendingMessage = makeClaraMessage("clara", CLARA_THINKING_REPLY);
           appendUserAndPendingMessage(text, pendingMessage);
 
           const confirmedReview = {
@@ -912,17 +1110,7 @@ export default function DashboardMoneySummary({
 
           setPendingBudgetConfirmation(null);
           setPendingExpenseReview(null);
-
-          logExpenseFromChat(pendingCommand, confirmedReview)
-            .then((reply) => replaceClaraMessage(pendingMessage.id, reply))
-            .catch((error) => {
-              console.warn("CLARA chat expense log failed:", error);
-              replaceClaraMessage(
-                pendingMessage.id,
-                "I confirmed the budget, but I couldn’t save the expense yet. Please try again or use the manual expense button."
-              );
-            });
-
+          askFinalConfirmation(pendingCommand, confirmedReview, pendingMessage.id);
           return;
         }
 
@@ -962,7 +1150,7 @@ export default function DashboardMoneySummary({
       const expenseCommand = parseExpenseLogCommand(text, wallets);
 
       if (pendingExpenseReview && !expenseCommand) {
-        const pendingMessage = makeClaraMessage("clara", CLARA_LOGGING_REPLY);
+        const pendingMessage = makeClaraMessage("clara", CLARA_THINKING_REPLY);
         appendUserAndPendingMessage(text, pendingMessage);
 
         const reason = text.replace(/[.!?]+$/g, "").trim();
@@ -977,67 +1165,32 @@ export default function DashboardMoneySummary({
         const pendingCommand = pendingExpenseReview.command;
 
         setPendingExpenseReview(null);
-
-        logExpenseFromChat(pendingCommand, reviewWithReason)
-          .then((reply) => replaceClaraMessage(pendingMessage.id, reply))
-          .catch((error) => {
-            console.warn("CLARA chat expense log failed:", error);
-            replaceClaraMessage(
-              pendingMessage.id,
-              "I understood the reason, but I couldn’t save it yet. Please try again or use the manual expense button."
-            );
-          });
-
+        askFinalConfirmation(pendingCommand, reviewWithReason, pendingMessage.id);
         return;
       }
 
-      const pendingMessage = makeClaraMessage(
-        "clara",
-        expenseCommand ? CLARA_LOGGING_REPLY : CLARA_THINKING_REPLY
-      );
+      const pendingMessage = makeClaraMessage("clara", CLARA_THINKING_REPLY);
 
       appendUserAndPendingMessage(text, pendingMessage);
 
       if (expenseCommand) {
-        const budgetReview = expenseCommand.ok
-          ? classifyExpenseAgainstBudget(expenseCommand, monthlyBudgetPlan)
-          : null;
-
-        if (budgetReview?.budgetMatched && budgetReview?.budgetCategory) {
-          setPendingBudgetConfirmation({ command: expenseCommand, review: budgetReview });
+        if (expenseCommand.reason === "wallet_missing" || expenseCommand.reason === "wallet_not_found") {
+          setPendingExpenseDraft(expenseCommand);
           setPendingExpenseReview(null);
-          replaceClaraMessage(
-            pendingMessage.id,
-            buildBudgetMatchQuestion(expenseCommand, budgetReview)
-          );
-          return;
-        }
-
-        if (budgetReview?.requiresReason) {
-          setPendingExpenseReview({ command: expenseCommand, budgetReview });
           setPendingBudgetConfirmation(null);
-          replaceClaraMessage(pendingMessage.id, buildBudgetReasonQuestion(expenseCommand));
+          setPendingFinalExpenseConfirmation(null);
+          replaceClaraMessage(pendingMessage.id, buildWalletQuestion(expenseCommand, wallets));
           return;
         }
 
-        setPendingExpenseReview(null);
-        setPendingBudgetConfirmation(null);
-
-        logExpenseFromChat(expenseCommand, budgetReview)
-          .then((reply) => replaceClaraMessage(pendingMessage.id, reply))
-          .catch((error) => {
-            console.warn("CLARA chat expense log failed:", error);
-            replaceClaraMessage(
-              pendingMessage.id,
-              "I understood the expense, but I couldn’t save it yet. Please try again or use the manual expense button."
-            );
-          });
-
+        continueWithCompletedCommand(expenseCommand, pendingMessage.id);
         return;
       }
 
       setPendingExpenseReview(null);
+      setPendingExpenseDraft(null);
       setPendingBudgetConfirmation(null);
+      setPendingFinalExpenseConfirmation(null);
 
       resolveClaraReply(text).then((reply) => {
         replaceClaraMessage(pendingMessage.id, reply);
@@ -1045,10 +1198,13 @@ export default function DashboardMoneySummary({
     },
     [
       appendUserAndPendingMessage,
+      fmt,
       logExpenseFromChat,
       monthlyBudgetPlan,
       pendingBudgetConfirmation,
+      pendingExpenseDraft,
       pendingExpenseReview,
+      pendingFinalExpenseConfirmation,
       replaceClaraMessage,
       resolveClaraReply,
       wallets,
