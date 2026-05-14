@@ -323,14 +323,28 @@ function buildBudgetReasonQuestion(command = {}) {
 }
 
 function isYesConfirmation(text = "") {
-  return /^(yes|y|yeah|yep|ok|okay|sure|please|go ahead|log it|log there|confirm|confirmed)(\b|[.!?]|$)/i.test(
-    String(text || "").trim()
+  const clean = normalizeMatchText(text);
+  return (
+    /^(yes|y|yeah|yep|yeh|yup|ok|okay|sure|please|go ahead|confirm|confirmed)/i.test(
+      String(text || "").trim()
+    ) ||
+    clean.includes("log it") ||
+    clean.includes("log there") ||
+    clean.includes("put it there") ||
+    clean.includes("save it")
   );
 }
 
 function isNoConfirmation(text = "") {
-  return /^(no|n|nope|not there|do not|dont|don't|wrong|unplanned|put it under unplanned|mark as unplanned)(\b|[.!?]|$)/i.test(
-    String(text || "").trim()
+  const clean = normalizeMatchText(text);
+  return (
+    /^(no|n|nope|nah|noh|not there|do not|dont|don't|wrong)/i.test(
+      String(text || "").trim()
+    ) ||
+    clean.includes("unplanned") ||
+    clean.includes("not budget") ||
+    clean.includes("dont log there") ||
+    clean.includes("do not log there")
   );
 }
 
@@ -978,6 +992,55 @@ export default function DashboardMoneySummary({
     [claraFinanceContext, claraMessages, fmt, thisMonthSpent, walletMoney]
   );
 
+
+  const resolveExpenseFlowReply = useCallback(
+    async (fallbackReply, flowContext = {}) => {
+      const fallback = String(fallbackReply || "").trim();
+      if (!fallback) return "";
+
+      try {
+        const flowPrompt = `You are CLARA inside an expense-logging conversation.
+
+Your job is NOT to decide the finance action. The app already decided the next safe step.
+Rewrite the required meaning below as a natural CLARA reply.
+
+Rules:
+- Keep the same meaning, amount, wallet, item, budget category, and required question.
+- Do not invent a new wallet, amount, category, or conclusion.
+- Be conversational and forgiving of user typos/misspellings.
+- Keep it short: 1-3 sentences.
+- If asking a question, ask only that one question.
+- Do not sound robotic or static.
+
+Required meaning:
+${fallback}
+
+Current expense-flow context:
+${JSON.stringify(flowContext, null, 2)}`;
+
+        return await generateClaraGeminiReply({
+          message: flowPrompt,
+          context: claraFinanceContext,
+          mode: "expense_logging_flow",
+          conversationHistory: claraMessages,
+        });
+      } catch (error) {
+        console.warn("CLARA Gemini expense-flow wording fallback used:", error);
+        return fallback;
+      }
+    },
+    [claraFinanceContext, claraMessages]
+  );
+
+  const replaceWithExpenseFlowReply = useCallback(
+    (messageId, fallbackReply, flowContext = {}) => {
+      resolveExpenseFlowReply(fallbackReply, flowContext).then((reply) => {
+        replaceClaraMessage(messageId, reply || fallbackReply);
+      });
+    },
+    [replaceClaraMessage, resolveExpenseFlowReply]
+  );
+
   const submitClaraPrompt = useCallback(
     (rawText) => {
       const text = String(rawText || "").trim();
@@ -992,7 +1055,11 @@ export default function DashboardMoneySummary({
         const question = buildFinalExpenseQuestion(command, review, fmt);
 
         if (sourceMessageId) {
-          replaceClaraMessage(sourceMessageId, question);
+          replaceWithExpenseFlowReply(sourceMessageId, question, {
+            step: "final_confirmation",
+            command,
+            review,
+          });
           return;
         }
 
@@ -1010,7 +1077,15 @@ export default function DashboardMoneySummary({
           setPendingExpenseDraft(null);
           setPendingExpenseReview(null);
           setPendingFinalExpenseConfirmation(null);
-          replaceClaraMessage(pendingMessageId, buildBudgetMatchQuestion(command, budgetReview));
+          replaceWithExpenseFlowReply(
+            pendingMessageId,
+            buildBudgetMatchQuestion(command, budgetReview),
+            {
+              step: "budget_match_confirmation",
+              command,
+              review: budgetReview,
+            }
+          );
           return;
         }
 
@@ -1019,7 +1094,15 @@ export default function DashboardMoneySummary({
           setPendingExpenseDraft(null);
           setPendingBudgetConfirmation(null);
           setPendingFinalExpenseConfirmation(null);
-          replaceClaraMessage(pendingMessageId, buildBudgetReasonQuestion(command));
+          replaceWithExpenseFlowReply(
+            pendingMessageId,
+            buildBudgetReasonQuestion(command),
+            {
+              step: "ask_unplanned_reason",
+              command,
+              review: budgetReview,
+            }
+          );
           return;
         }
 
@@ -1038,29 +1121,45 @@ export default function DashboardMoneySummary({
             .then((reply) => replaceClaraMessage(pendingMessage.id, reply))
             .catch((error) => {
               console.warn("CLARA chat expense log failed:", error);
-              replaceClaraMessage(
+              replaceWithExpenseFlowReply(
                 pendingMessage.id,
-                "I confirmed everything, but I couldn’t save the expense yet. Please try again or use the manual expense button."
+                "I confirmed everything, but I couldn’t save the expense yet. Please try again or use the manual expense button.",
+                {
+                  step: "save_failed",
+                  error: String(error?.message || error),
+                }
               );
             });
           return;
         }
 
         if (isNoConfirmation(text)) {
-          const pendingMessage = makeClaraMessage(
-            "clara",
-            "No problem. I didn’t log it. You can send the expense again if you want to change anything."
-          );
+          const pendingMessage = makeClaraMessage("clara", CLARA_THINKING_REPLY);
           appendUserAndPendingMessage(text, pendingMessage);
+          replaceWithExpenseFlowReply(
+            pendingMessage.id,
+            "No problem. I didn’t log it. You can send the expense again if you want to change anything.",
+            {
+              step: "cancel_log",
+              userReply: text,
+              pending: pendingFinalExpenseConfirmation,
+            }
+          );
           setPendingFinalExpenseConfirmation(null);
           return;
         }
 
-        const pendingMessage = makeClaraMessage(
-          "clara",
-          "Please answer yes to log it now, or no to cancel."
-        );
+        const pendingMessage = makeClaraMessage("clara", CLARA_THINKING_REPLY);
         appendUserAndPendingMessage(text, pendingMessage);
+        replaceWithExpenseFlowReply(
+          pendingMessage.id,
+          "Please answer yes to log it now, or no to cancel.",
+          {
+            step: "clarify_final_confirmation",
+            userReply: text,
+            pending: pendingFinalExpenseConfirmation,
+          }
+        );
         return;
       }
 
@@ -1070,9 +1169,14 @@ export default function DashboardMoneySummary({
         appendUserAndPendingMessage(text, pendingMessage);
 
         if (!wallet) {
-          replaceClaraMessage(
+          replaceWithExpenseFlowReply(
             pendingMessage.id,
-            `I couldn’t find “${text}” in your wallets. Which wallet should I use? Visible wallets: ${formatWalletChoices(wallets)}.`
+            `I couldn’t find “${text}” in your wallets. Which wallet should I use? Visible wallets: ${formatWalletChoices(wallets)}.`,
+            {
+              step: "wallet_not_found",
+              userReply: text,
+              visibleWallets: formatWalletChoices(wallets),
+            }
           );
           return;
         }
@@ -1115,12 +1219,19 @@ export default function DashboardMoneySummary({
         }
 
         if (isNoConfirmation(text)) {
-          const pendingMessage = makeClaraMessage(
-            "clara",
-            "Alright. I’ll treat this as unplanned spending. What made this purchase necessary?"
-          );
+          const pendingMessage = makeClaraMessage("clara", CLARA_THINKING_REPLY);
 
           appendUserAndPendingMessage(text, pendingMessage);
+          replaceWithExpenseFlowReply(
+            pendingMessage.id,
+            "Alright. I’ll treat this as unplanned spending. What made this purchase necessary?",
+            {
+              step: "ask_unplanned_reason_after_budget_rejection",
+              command: pendingBudgetConfirmation.command,
+              review: pendingBudgetConfirmation.review,
+              userReply: text,
+            }
+          );
 
           setPendingExpenseReview({
             command: pendingBudgetConfirmation.command,
@@ -1139,11 +1250,18 @@ export default function DashboardMoneySummary({
           return;
         }
 
-        const pendingMessage = makeClaraMessage(
-          "clara",
-          "Please answer yes if I should log it under that budget, or no if this should be treated as unplanned."
-        );
+        const pendingMessage = makeClaraMessage("clara", CLARA_THINKING_REPLY);
         appendUserAndPendingMessage(text, pendingMessage);
+        replaceWithExpenseFlowReply(
+          pendingMessage.id,
+          "Please answer yes if I should log it under that budget, or no if this should be treated as unplanned.",
+          {
+            step: "clarify_budget_confirmation",
+            command: pendingBudgetConfirmation.command,
+            review: pendingBudgetConfirmation.review,
+            userReply: text,
+          }
+        );
         return;
       }
 
@@ -1179,7 +1297,15 @@ export default function DashboardMoneySummary({
           setPendingExpenseReview(null);
           setPendingBudgetConfirmation(null);
           setPendingFinalExpenseConfirmation(null);
-          replaceClaraMessage(pendingMessage.id, buildWalletQuestion(expenseCommand, wallets));
+          replaceWithExpenseFlowReply(
+            pendingMessage.id,
+            buildWalletQuestion(expenseCommand, wallets),
+            {
+              step: expenseCommand.reason === "wallet_not_found" ? "wallet_not_found" : "ask_wallet",
+              command: expenseCommand,
+              visibleWallets: formatWalletChoices(wallets),
+            }
+          );
           return;
         }
 
@@ -1206,6 +1332,7 @@ export default function DashboardMoneySummary({
       pendingExpenseReview,
       pendingFinalExpenseConfirmation,
       replaceClaraMessage,
+      replaceWithExpenseFlowReply,
       resolveClaraReply,
       wallets,
     ]
