@@ -4,88 +4,46 @@ import BudgetCard from "@/components/BudgetCard";
 
 const CLARA_MONEY_CHAT_EVENT = "clara:money-card-chat";
 const CLARA_MONEY_CHAT_REQUEST_EVENT = "clara:money-card-chat-request";
-
 const FALLBACK_MESSAGES = [];
 const HIDDEN_WELCOME_TEXT = "What are you thinking of buying?";
+
 const FEATURE_PROMPTS = {
-  "Budget Plan":
-    "Review my current Budget Plan like CLARA. Use my real budget context, categories, spending pace, remaining money, unplanned spending, and risks. Tell me the main concern I need to solve right now. Keep it short, conversational, and decision-focused.",
-  Wallets:
-    "Review my current Wallets like CLARA. Use my real wallet balances, total available money, wallet transaction movement, and money location. Give me a mini financial reality check so I immediately understand where my money is sitting, which wallet needs attention, and what I should be careful about next. Do not ask a random purchase question. Keep it short, conversational, and decision-focused.",
-  "Savings Goals":
-    "Review my Savings Goals like CLARA. Use my savings goal progress, total saved, total target, emotional purpose, and possible delay risks. Tell me what goal needs attention and what small top-up or protection move makes sense next. Keep it short, warm, and action-focused.",
-  "Emergency Fund":
-    "Review my Emergency Fund like CLARA. Use my survival expense, emergency fund status, available money, and current spending pressure. Tell me how protected I am right now, what risk I should notice, and the next safest top-up or protection move. Keep it short, calm, protective, and practical.",
-  Transactions:
-    "Review my Transactions like CLARA. Use my visible transaction history, wallet movement, recent spending, planned/unplanned behavior, repeated spending, and budget-risk signals. Tell me what pattern I should notice and what behavior to adjust next. Keep it short, observational, and non-judgmental.",
-  "Monthly Spending":
-    "Review my Monthly Spending like CLARA. Use my total spent this month, money left, active budget, remaining budget, and spending pace. Tell me if the month is safe, tight, or risky, then give one next best move. Keep it short, strategic, and decision-focused.",
-  Transfers:
-    "Review my Transfers like CLARA. Use my wallet movement and transfer behavior if available. Tell me whether my money movement looks organized or scattered, and what transfer habit would make my wallet system cleaner. Keep it short and practical.",
-  "Financial Calendar":
-    "Review my Financial Calendar like CLARA. Use bills, due dates, upcoming spending pressure, and the current month context if available. Tell me what date or money event I should prepare for next. Keep it short and calendar-focused.",
-  "Income Tracking":
-    "Review my Income Tracking like CLARA. Use my visible income, wallet inflows, and spending pressure. Tell me if my income is being directed clearly or disappearing too quickly, then give one simple next move. Keep it short and direct.",
-  "Budget Categories":
-    "Review my Budget Categories like CLARA. Use my category list, allocation, spending pace, and unmatched expenses. Tell me which category needs clearer boundaries or adjustment. Keep it short and category-focused.",
-  "Planned vs Unplanned":
-    "Review my Planned vs Unplanned spending like CLARA. Use my expense behavior, planned spending, unplanned spending, unexpected necessary spending, and repeated reasons. Tell me what pattern I should notice without guilt. Keep it short, behavioral, and practical.",
-  "Subscription Tracking":
-    "Review my Subscription Tracking like CLARA. Use recurring payments, subscriptions, bills, and repeated wallet deductions if visible. Tell me what recurring cost may quietly drain the month and what to verify next. Keep it short and practical.",
-  "Debt Tracking":
-    "Review my Debt Tracking like CLARA. Use debt, obligations, recurring payments, and spending pressure if visible. Tell me the safest next payment or caution point. Keep it short, calm, and non-shaming.",
-  "Bills & Due Dates":
-    "Review my Bills & Due Dates like CLARA. Use upcoming bills, utilities, due dates, wallet readiness, and current money left if visible. Tell me what bill risk to prepare for first. Keep it short and protective.",
-  "Survival Days":
-    "Review my Survival Days like CLARA. Use my available money, survival expense, emergency fund, and monthly spending pressure. Estimate how much breathing room I have and what to protect first. Keep it short, calm, and realistic.",
-
-  "Future Money Forecast":
-    "Forecast my money like CLARA. Use my current money left, monthly spending pace, budget status, wallets, and savings pressure. Predict whether my month is safe, tight, or risky and give one next best move. Keep it short and practical.",
-  "Spending Checkup":
-    "Run a Spending Checkup like CLARA. Use my recent spending, planned/unplanned behavior, top categories, repeated purchases, and wallet movement. Tell me what spending pattern needs attention today. Keep it short and non-judgmental.",
-  "Savings Game Plan":
-    "Build a Savings Game Plan like CLARA. Use my savings goals, available money, budget pressure, and spending behavior. Give one realistic savings move that does not break essentials. Keep it short and encouraging.",
-  "Emergency Fund Builder":
-    "Build my Emergency Fund plan like CLARA. Use my survival expense, emergency fund status, available money, and current spending pressure. Suggest a safe top-up amount or protection habit. Keep it short and protective.",
-  "Affordability Check":
-    "Run an Affordability Check like CLARA. Use my money left, budget status, spending pace, and current commitments. Tell me how to decide before buying and what amount would be safer. Keep it short and decision-focused.",
-  "Budget Fixer":
-    "Act as my Budget Fixer like CLARA. Use my current budget, category pressure, unplanned spending, and money left. Tell me the simplest budget adjustment to make now. Keep it short and actionable.",
-  "Hidden Risk Check":
-    "Run a Hidden Risk Check like CLARA. Use my wallets, budget, spending pace, repeated expenses, bills, and savings pressure. Tell me the quiet financial risk I may not be noticing. Keep it short and practical.",
-  "Monthly Money Review":
-    "Run my Monthly Money Review like CLARA. Use my total spent, money left, budget progress, wallets, savings goals, and behavior patterns. Tell me what went well, what is risky, and one next move. Keep it short and useful.",
-  "Next Best Move":
-    "Tell me my Next Best Move like CLARA. Use my real finance context across wallets, budget, spending, savings, emergency fund, and behavior signals. Give one prioritized action only. Keep it short and confident.",
-
-  "Can I buy this?":
-    "Help me decide if I can buy something like CLARA. Use my money left, budget status, savings goals, emergency fund, and spending behavior. Ask for the item and price if missing. Keep it short and decision-focused.",
-  "Predict my month":
-    "Predict my month like CLARA. Use my current spending pace, budget remaining, wallet balances, bills, savings pressure, and emergency fund. Tell me if the month is safe, tight, or risky. Keep it short and practical.",
-  "What if I overspend?":
-    "Explain what happens if I overspend like CLARA. Use my budget, money left, savings goals, emergency fund, and current spending behavior. Tell me the likely tradeoff and how to reduce damage. Keep it short and calm.",
-  "Am I doing okay?":
-    "Answer whether I am doing okay financially like CLARA. Use my real finance context and behavior signals. Be honest, encouraging, and specific about one thing to protect or improve. Keep it short.",
-  "Future me":
-    "Talk to me from the perspective of Future Me like CLARA. Use my current money choices, savings goals, emergency fund, and spending pattern. Give a short future-focused reminder that helps me choose wisely now.",
-  "Survive until payday":
-    "Help me survive until payday like CLARA. Use my money left, spending pace, budget, emergency fund, and upcoming pressure. Give a simple survival plan and what to avoid. Keep it short and realistic.",
-  "Delay or buy?":
-    "Help me decide delay or buy like CLARA. Use my money left, budget, savings goals, emergency fund, and spending behavior. Ask for item and price if missing. Keep it short and clear.",
-  "Where did my money go?":
-    "Explain where my money went like CLARA. Use my spending categories, transaction patterns, wallets, planned/unplanned behavior, and repeated purchases. Tell me the biggest visible reason. Keep it short and non-judgmental.",
-  "Is this impulsive?":
-    "Help me check if a purchase is impulsive like CLARA. Use my spending behavior, budget status, savings goals, emergency fund, and emotional trigger signals. Ask for the item and price if missing. Keep it short and gentle.",
-  "What should I avoid?":
-    "Tell me what I should avoid financially like CLARA. Use my real spending patterns, budget pressure, wallets, savings, and emergency fund. Give one or two avoidance rules for today. Keep it short and practical.",
-  "What's hurting my budget?":
-    "Tell me what's hurting my budget like CLARA. Use my categories, unplanned spending, repeated purchases, high spends, wallet movement, and current budget pressure. Give the main culprit and one fix. Keep it short and direct.",
+  "Budget Plan": "Review my current Budget Plan like CLARA. Use my real budget context, categories, spending pace, remaining money, unplanned spending, and risks. Tell me the main concern I need to solve right now. Keep it short, conversational, and decision-focused.",
+  Wallets: "Review my current Wallets like CLARA. Use my real wallet balances, total available money, wallet transaction movement, and money location. Give me a mini financial reality check so I immediately understand where my money is sitting, which wallet needs attention, and what I should be careful about next. Do not ask a random purchase question. Keep it short, conversational, and decision-focused.",
+  "Savings Goals": "Review my Savings Goals like CLARA. Use my savings goal progress, total saved, total target, emotional purpose, and possible delay risks. Tell me what goal needs attention and what small top-up or protection move makes sense next. Keep it short, warm, and action-focused.",
+  "Emergency Fund": "Review my Emergency Fund like CLARA. Use my survival expense, emergency fund status, available money, and current spending pressure. Tell me how protected I am right now, what risk I should notice, and the next safest top-up or protection move. Keep it short, calm, protective, and practical.",
+  Transactions: "Review my Transactions like CLARA. Use my visible transaction history, wallet movement, recent spending, planned/unplanned behavior, repeated spending, and budget-risk signals. Tell me what pattern I should notice and what behavior to adjust next. Keep it short, observational, and non-judgmental.",
+  "Monthly Spending": "Review my Monthly Spending like CLARA. Use my total spent this month, money left, active budget, remaining budget, and spending pace. Tell me if the month is safe, tight, or risky, then give one next best move. Keep it short, strategic, and decision-focused.",
+  Transfers: "Review my Transfers like CLARA. Use my wallet movement and transfer behavior if available. Tell me whether my money movement looks organized or scattered, and what transfer habit would make my wallet system cleaner. Keep it short and practical.",
+  "Financial Calendar": "Review my Financial Calendar like CLARA. Use bills, due dates, upcoming spending pressure, and the current month context if available. Tell me what date or money event I should prepare for next. Keep it short and calendar-focused.",
+  "Income Tracking": "Review my Income Tracking like CLARA. Use my visible income, wallet inflows, and spending pressure. Tell me if my income is being directed clearly or disappearing too quickly, then give one simple next move. Keep it short and direct.",
+  "Budget Categories": "Review my Budget Categories like CLARA. Use my category list, allocation, spending pace, and unmatched expenses. Tell me which category needs clearer boundaries or adjustment. Keep it short and category-focused.",
+  "Planned vs Unplanned": "Review my Planned vs Unplanned spending like CLARA. Use my expense behavior, planned spending, unplanned spending, unexpected necessary spending, and repeated reasons. Tell me what pattern I should notice without guilt. Keep it short, behavioral, and practical.",
+  "Subscription Tracking": "Review my Subscription Tracking like CLARA. Use recurring payments, subscriptions, bills, and repeated wallet deductions if visible. Tell me what recurring cost may quietly drain the month and what to verify next. Keep it short and practical.",
+  "Debt Tracking": "Review my Debt Tracking like CLARA. Use debt, obligations, recurring payments, and spending pressure if visible. Tell me the safest next payment or caution point. Keep it short, calm, and non-shaming.",
+  "Bills & Due Dates": "Review my Bills & Due Dates like CLARA. Use upcoming bills, utilities, due dates, wallet readiness, and current money left if visible. Tell me what bill risk to prepare for first. Keep it short and protective.",
+  "Survival Days": "Review my Survival Days like CLARA. Use my available money, survival expense, emergency fund, and monthly spending pressure. Estimate how much breathing room I have and what to protect first. Keep it short, calm, and realistic.",
+  "Future Money Forecast": "Forecast my money like CLARA. Use my current money left, monthly spending pace, budget status, wallets, and savings pressure. Predict whether my month is safe, tight, or risky and give one next best move. Keep it short and practical.",
+  "Spending Checkup": "Run a Spending Checkup like CLARA. Use my recent spending, planned/unplanned behavior, top categories, repeated purchases, and wallet movement. Tell me what spending pattern needs attention today. Keep it short and non-judgmental.",
+  "Savings Game Plan": "Build a Savings Game Plan like CLARA. Use my savings goals, available money, budget pressure, and spending behavior. Give one realistic savings move that does not break essentials. Keep it short and encouraging.",
+  "Emergency Fund Builder": "Build my Emergency Fund plan like CLARA. Use my survival expense, emergency fund status, available money, and current spending pressure. Suggest a safe top-up amount or protection habit. Keep it short and protective.",
+  "Affordability Check": "Run an Affordability Check like CLARA. Use my money left, budget status, spending pace, and current commitments. Tell me how to decide before buying and what amount would be safer. Keep it short and decision-focused.",
+  "Budget Fixer": "Act as my Budget Fixer like CLARA. Use my current budget, category pressure, unplanned spending, and money left. Tell me the simplest budget adjustment to make now. Keep it short and actionable.",
+  "Hidden Risk Check": "Run a Hidden Risk Check like CLARA. Use my wallets, budget, spending pace, repeated expenses, bills, and savings pressure. Tell me the quiet financial risk I may not be noticing. Keep it short and practical.",
+  "Monthly Money Review": "Run my Monthly Money Review like CLARA. Use my total spent, money left, budget progress, wallets, savings goals, and behavior patterns. Tell me what went well, what is risky, and one next move. Keep it short and useful.",
+  "Next Best Move": "Tell me my Next Best Move like CLARA. Use my real finance context across wallets, budget, spending, savings, emergency fund, and behavior signals. Give one prioritized action only. Keep it short and confident.",
+  "Can I buy this?": "Help me decide if I can buy something like CLARA. Use my money left, budget status, savings goals, emergency fund, and spending behavior. Ask for the item and price if missing. Keep it short and decision-focused.",
+  "Predict my month": "Predict my month like CLARA. Use my current spending pace, budget remaining, wallet balances, bills, savings pressure, and emergency fund. Tell me if the month is safe, tight, or risky. Keep it short and practical.",
+  "What if I overspend?": "Explain what happens if I overspend like CLARA. Use my budget, money left, savings goals, emergency fund, and current spending behavior. Tell me the likely tradeoff and how to reduce damage. Keep it short and calm.",
+  "Am I doing okay?": "Answer whether I am doing okay financially like CLARA. Use my real finance context and behavior signals. Be honest, encouraging, and specific about one thing to protect or improve. Keep it short.",
+  "Future me": "Talk to me from the perspective of Future Me like CLARA. Use my current money choices, savings goals, emergency fund, and spending pattern. Give a short future-focused reminder that helps me choose wisely now.",
+  "Survive until payday": "Help me survive until payday like CLARA. Use my money left, spending pace, budget, emergency fund, and upcoming pressure. Give a simple survival plan and what to avoid. Keep it short and realistic.",
+  "Delay or buy?": "Help me decide delay or buy like CLARA. Use my money left, budget, savings goals, emergency fund, and spending behavior. Ask for item and price if missing. Keep it short and clear.",
+  "Where did my money go?": "Explain where my money went like CLARA. Use my spending categories, transaction patterns, wallets, planned/unplanned behavior, and repeated purchases. Tell me the biggest visible reason. Keep it short and non-judgmental.",
+  "Is this impulsive?": "Help me check if a purchase is impulsive like CLARA. Use my spending behavior, budget status, savings goals, emergency fund, and emotional trigger signals. Ask for the item and price if missing. Keep it short and gentle.",
+  "What should I avoid?": "Tell me what I should avoid financially like CLARA. Use my real spending patterns, budget pressure, wallets, savings, and emergency fund. Give one or two avoidance rules for today. Keep it short and practical.",
+  "What's hurting my budget?": "Tell me what's hurting my budget like CLARA. Use my categories, unplanned spending, repeated purchases, high spends, wallet movement, and current budget pressure. Give the main culprit and one fix. Keep it short and direct.",
 };
-
-function getFeatureDisplayMessage(featureName = "") {
-  if (/\?$/.test(featureName)) return featureName;
-  return `Review my ${featureName}`;
-}
 
 const ENABLED_FEATURES = new Set(Object.keys(FEATURE_PROMPTS));
 
@@ -166,6 +124,11 @@ const GUIDE_BUBBLE_CAROUSELS = {
   ],
 };
 
+function getFeatureDisplayMessage(featureName = "") {
+  if (/\?$/.test(featureName)) return featureName;
+  return `Review my ${featureName}`;
+}
+
 function GuideActionCard({ active, group, onClick }) {
   const Icon = group.Icon;
 
@@ -245,7 +208,6 @@ function ClaraGuideBubbleCarousel({ activeGroup, onSelectFeature }) {
 
 function ClaraBudgetDecisionScreen({
   messages = FALLBACK_MESSAGES,
-  selectedDashboardTheme,
   activeGuideGroup = "cards",
   onSelectGuideGroup,
   onSelectFeature,
@@ -377,15 +339,15 @@ export default function BudgetCardView({
   };
 
   const selectFeature = (featureName) => {
-    const prompt = FEATURE_PROMPTS[featureName];
-    if (!prompt) return;
+    const aiPrompt = FEATURE_PROMPTS[featureName];
+    if (!aiPrompt) return;
 
     window.dispatchEvent(
       new CustomEvent(CLARA_MONEY_CHAT_REQUEST_EVENT, {
         detail: {
           feature: featureName,
-          prompt,
-          aiPrompt: prompt,
+          prompt: featureName,
+          aiPrompt,
           displayMessage: getFeatureDisplayMessage(featureName),
           source: "budget_lens_feature",
         },
