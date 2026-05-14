@@ -305,6 +305,28 @@ function buildBudgetReasonQuestion(command = {}) {
   return `I can see ${command.item} is not part of your current budget list. Why did you need to spend ${amountText} on it? I’ll log it as unplanned after your reason.`;
 }
 
+
+function isYesConfirmation(text = "") {
+  return /^(yes|y|yeah|yep|ok|okay|sure|please|go ahead|log it|log there|confirm|confirmed)(\b|[.!?]|$)/i.test(
+    String(text || "").trim()
+  );
+}
+
+function isNoConfirmation(text = "") {
+  return /^(no|n|nope|not there|do not|dont|don't|wrong|unplanned)(\b|[.!?]|$)/i.test(
+    String(text || "").trim()
+  );
+}
+
+function buildBudgetMatchQuestion(command = {}, budgetReview = {}) {
+  const budgetName = budgetReview.budgetCategory || budgetReview.category || "this budget";
+  const amountText = command.amount
+    ? `₱${Number(command.amount).toLocaleString("en-PH", { maximumFractionDigits: 0 })}`
+    : "this amount";
+
+  return `I detected ${command.item} is closest to your "${budgetName}" budget. Should I log the ${amountText} there?`;
+}
+
 function isContextQuestion(text) {
   return /what exact financial|currently see|what can you see|how much money|money do i currently have|total expense|spent this month|financial information|card data/i.test(
     String(text || "")
@@ -561,6 +583,7 @@ export default function DashboardMoneySummary({
   const [claraMode, setClaraMode] = useState(false);
   const [claraDraft, setClaraDraft] = useState("");
   const [pendingExpenseReview, setPendingExpenseReview] = useState(null);
+  const [pendingBudgetConfirmation, setPendingBudgetConfirmation] = useState(null);
   const [claraMessages, setClaraMessages] = useState(() => [
     makeClaraMessage("clara", CLARA_WELCOME_PROMPT),
   ]);
@@ -627,6 +650,7 @@ export default function DashboardMoneySummary({
     endMoneyLeftOrbLongPress?.();
     setClaraMode(true);
     setPendingExpenseReview(null);
+    setPendingBudgetConfirmation(null);
     setClaraMessages([makeClaraMessage("clara", CLARA_WELCOME_PROMPT)]);
 
     window.setTimeout(() => {
@@ -643,6 +667,7 @@ export default function DashboardMoneySummary({
       setClaraMode(false);
       setClaraDraft("");
       setPendingExpenseReview(null);
+      setPendingBudgetConfirmation(null);
       setClaraMessages([makeClaraMessage("clara", CLARA_WELCOME_PROMPT)]);
     },
     [clearLongPressTimer, clearTapTimer, stopOrbEvent]
@@ -871,6 +896,69 @@ export default function DashboardMoneySummary({
       const text = String(rawText || "").trim();
       if (!text) return;
 
+      if (pendingBudgetConfirmation) {
+        if (isYesConfirmation(text)) {
+          const pendingMessage = makeClaraMessage("clara", CLARA_LOGGING_REPLY);
+          appendUserAndPendingMessage(text, pendingMessage);
+
+          const confirmedReview = {
+            ...pendingBudgetConfirmation.review,
+            planningStatus: "planned",
+            budgetMatched: true,
+            requiresReason: false,
+            reason: null,
+          };
+          const pendingCommand = pendingBudgetConfirmation.command;
+
+          setPendingBudgetConfirmation(null);
+          setPendingExpenseReview(null);
+
+          logExpenseFromChat(pendingCommand, confirmedReview)
+            .then((reply) => replaceClaraMessage(pendingMessage.id, reply))
+            .catch((error) => {
+              console.warn("CLARA chat expense log failed:", error);
+              replaceClaraMessage(
+                pendingMessage.id,
+                "I confirmed the budget, but I couldn’t save the expense yet. Please try again or use the manual expense button."
+              );
+            });
+
+          return;
+        }
+
+        if (isNoConfirmation(text)) {
+          const pendingMessage = makeClaraMessage(
+            "clara",
+            "Alright. I’ll treat this as unplanned spending. What made this purchase necessary?"
+          );
+
+          appendUserAndPendingMessage(text, pendingMessage);
+
+          setPendingExpenseReview({
+            command: pendingBudgetConfirmation.command,
+            budgetReview: {
+              ...pendingBudgetConfirmation.review,
+              planningStatus: "unplanned",
+              category: "Unplanned Spending",
+              budgetCategory: null,
+              budgetMatched: false,
+              requiresReason: true,
+              reason: "",
+            },
+          });
+          setPendingBudgetConfirmation(null);
+
+          return;
+        }
+
+        const pendingMessage = makeClaraMessage(
+          "clara",
+          "Please answer yes if I should log it under that budget, or no if this should be treated as unplanned."
+        );
+        appendUserAndPendingMessage(text, pendingMessage);
+        return;
+      }
+
       const expenseCommand = parseExpenseLogCommand(text, wallets);
 
       if (pendingExpenseReview && !expenseCommand) {
@@ -915,13 +1003,25 @@ export default function DashboardMoneySummary({
           ? classifyExpenseAgainstBudget(expenseCommand, monthlyBudgetPlan)
           : null;
 
+        if (budgetReview?.budgetMatched && budgetReview?.budgetCategory) {
+          setPendingBudgetConfirmation({ command: expenseCommand, review: budgetReview });
+          setPendingExpenseReview(null);
+          replaceClaraMessage(
+            pendingMessage.id,
+            buildBudgetMatchQuestion(expenseCommand, budgetReview)
+          );
+          return;
+        }
+
         if (budgetReview?.requiresReason) {
           setPendingExpenseReview({ command: expenseCommand, budgetReview });
+          setPendingBudgetConfirmation(null);
           replaceClaraMessage(pendingMessage.id, buildBudgetReasonQuestion(expenseCommand));
           return;
         }
 
         setPendingExpenseReview(null);
+        setPendingBudgetConfirmation(null);
 
         logExpenseFromChat(expenseCommand, budgetReview)
           .then((reply) => replaceClaraMessage(pendingMessage.id, reply))
@@ -937,6 +1037,7 @@ export default function DashboardMoneySummary({
       }
 
       setPendingExpenseReview(null);
+      setPendingBudgetConfirmation(null);
 
       resolveClaraReply(text).then((reply) => {
         replaceClaraMessage(pendingMessage.id, reply);
@@ -946,6 +1047,7 @@ export default function DashboardMoneySummary({
       appendUserAndPendingMessage,
       logExpenseFromChat,
       monthlyBudgetPlan,
+      pendingBudgetConfirmation,
       pendingExpenseReview,
       replaceClaraMessage,
       resolveClaraReply,
