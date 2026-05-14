@@ -19,20 +19,25 @@ export const FINANCIAL_CAROUSEL_FOCUS_STYLES = `
 
   .clara-budget-focus-mode:not(.clara-ai-keyboard-focus-mode) .clara-budget-focus-tip,
   .clara-budget-focus-mode:not(.clara-ai-keyboard-focus-mode) .clara-budget-focus-hub {
-    max-height: inherit !important;
+    max-height: 999px !important;
     opacity: 1 !important;
     visibility: visible !important;
+    overflow: visible !important;
     pointer-events: auto !important;
   }
 
-  .clara-budget-focus-mode:not(.clara-ai-keyboard-focus-mode) div:has(> div > .clara-finance-slide-shell) {
-    margin-top: 18px !important;
+  .clara-budget-focus-mode:not(.clara-ai-keyboard-focus-mode) div:has(.clara-finance-slide-shell) {
+    margin-top: 0 !important;
   }
 
   .clara-budget-focus-mode:not(.clara-ai-keyboard-focus-mode) .clara-finance-slide-shell,
   .clara-budget-focus-mode:not(.clara-ai-keyboard-focus-mode) .clara-finance-slide-surface {
-    height: clamp(320px, 52dvh, 480px) !important;
-    min-height: clamp(320px, 52dvh, 480px) !important;
+    height: clamp(286px, 45dvh, 430px) !important;
+    min-height: clamp(286px, 45dvh, 430px) !important;
+  }
+
+  .clara-budget-focus-mode:not(.clara-ai-keyboard-focus-mode) .clara-finance-slide-surface > * {
+    min-height: clamp(286px, 45dvh, 430px) !important;
   }
 
   .clara-ai-keyboard-focus-mode .clara-budget-focus-tip,
