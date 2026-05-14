@@ -17,7 +17,8 @@ import {
 import { DEFAULT_FINANCIAL_CARD_KEY } from "./logic/FinancialCardRegistry";
 
 const CLARA_MONEY_CHAT_EVENT = "clara:money-card-chat";
-const CLARA_AI_TOP_PULL = "clamp(-190px, -22dvh, -82px)";
+const CLARA_AI_TOP_PULL = "clamp(-260px, -30dvh, -120px)";
+const KEYBOARD_THRESHOLD = 140;
 
 export default function FinancialCarousel(props) {
   const {
@@ -28,7 +29,14 @@ export default function FinancialCarousel(props) {
   } = props;
 
   const rootRef = useRef(null);
+  const initialViewportHeight = useRef(
+    typeof window !== "undefined"
+      ? window.visualViewport?.height || window.innerHeight
+      : 0
+  );
+
   const [isClaraConversationActive, setIsClaraConversationActive] = useState(false);
+  const [isKeyboardVisible, setIsKeyboardVisible] = useState(false);
 
   const items = useMemo(() => getCarouselData(props), [props]);
   const defaultIndex = useMemo(() => getDefaultCarouselIndex(items), [items]);
@@ -62,6 +70,37 @@ export default function FinancialCarousel(props) {
   const isFinanceFocusMode = isInlineFocusExpanded || isClaraConversationActive;
 
   useEffect(() => {
+    if (typeof window === "undefined") return undefined;
+
+    const viewport = window.visualViewport;
+
+    const handleViewportResize = () => {
+      const currentHeight = viewport?.height || window.innerHeight;
+      const keyboardOpen =
+        initialViewportHeight.current - currentHeight > KEYBOARD_THRESHOLD;
+
+      setIsKeyboardVisible(keyboardOpen);
+
+      if (!keyboardOpen && isClaraConversationActive) {
+        window.requestAnimationFrame(() => {
+          rootRef.current?.scrollIntoView?.({
+            behavior: "smooth",
+            block: "start",
+          });
+        });
+      }
+    };
+
+    viewport?.addEventListener("resize", handleViewportResize);
+    window.addEventListener("resize", handleViewportResize);
+
+    return () => {
+      viewport?.removeEventListener("resize", handleViewportResize);
+      window.removeEventListener("resize", handleViewportResize);
+    };
+  }, [isClaraConversationActive]);
+
+  useEffect(() => {
     const handleClaraMoneyChat = (event) => {
       const detail = event?.detail || {};
       const active = Boolean(detail.active);
@@ -71,7 +110,10 @@ export default function FinancialCarousel(props) {
       if (active) {
         window.requestAnimationFrame(() => {
           scrollToIndex(budgetCardIndex, "smooth");
-          rootRef.current?.scrollIntoView?.({ behavior: "smooth", block: "start" });
+          rootRef.current?.scrollIntoView?.({
+            behavior: "smooth",
+            block: "start",
+          });
         });
       }
     };
@@ -116,7 +158,9 @@ export default function FinancialCarousel(props) {
       className="relative z-20 mb-5 transition-[margin-top] duration-500 ease-[cubic-bezier(0.22,1,0.36,1)]"
       style={{
         marginTop: isClaraConversationActive
-          ? CLARA_AI_TOP_PULL
+          ? isKeyboardVisible
+            ? CLARA_AI_TOP_PULL
+            : "clamp(-170px, -18dvh, -70px)"
           : isInlineFocusExpanded
             ? EXPANDED_TOP_PULL
             : 0,
@@ -150,6 +194,7 @@ export default function FinancialCarousel(props) {
                 item={item}
                 selectedDashboardTheme={selectedDashboardTheme}
                 expandedFinanceCard={expandedFinanceCard}
+                isKeyboardVisible={isKeyboardVisible}
               />
             </CarouselSlideShell>
           );
