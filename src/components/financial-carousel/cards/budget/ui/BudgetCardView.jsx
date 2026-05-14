@@ -289,30 +289,28 @@ function ClaraBudgetDecisionScreen({
       </div>
 
       {!hasActiveConversation && (
-        <div
-          className="relative z-10 mt-6 min-h-0 flex-1 overflow-y-auto pr-1 overscroll-contain pb-32"
-          style={{ WebkitOverflowScrolling: "touch" }}
-        >
-          <div className="flex min-h-full flex-col justify-end gap-5 pb-1">
-            <div className="flex items-center">
-              <ClaraGuideBubbleCarousel
-                activeGroup={activeGuideGroup}
-                onSelectFeature={onSelectFeature}
-              />
-            </div>
-
-            <ClaraQuickActions
+        <div className="relative z-10 mt-6 flex min-h-0 flex-1 flex-col justify-end gap-5 pb-1">
+          <div className="flex items-center">
+            <ClaraGuideBubbleCarousel
               activeGroup={activeGuideGroup}
-              onSelectGroup={onSelectGuideGroup}
+              onSelectFeature={onSelectFeature}
             />
           </div>
+
+          <ClaraQuickActions
+            activeGroup={activeGuideGroup}
+            onSelectGroup={onSelectGuideGroup}
+          />
         </div>
       )}
 
       {hasActiveConversation && (
         <div
-          className="relative z-10 mt-4 min-h-0 flex-1 overflow-y-auto pr-1 overscroll-contain pb-32"
-          style={{ WebkitOverflowScrolling: "touch" }}
+          className="relative z-10 mt-4 min-h-0 flex-1 overflow-y-auto pr-1 overscroll-contain"
+          style={{
+            WebkitOverflowScrolling: "touch",
+            paddingBottom: keyboardInset > 80 ? 128 : 24,
+          }}
         >
           <div className="flex min-h-full flex-col justify-end gap-2 pb-6">
             {visibleMessages.map((message) => {
