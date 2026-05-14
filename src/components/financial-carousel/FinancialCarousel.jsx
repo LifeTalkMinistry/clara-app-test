@@ -1,4 +1,4 @@
-import { useEffect, useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import CarouselItemCard from "./ui/CarouselItemCard";
 import CarouselViewport from "./ui/CarouselViewport";
 import CarouselDots from "./ui/CarouselDots";
@@ -14,6 +14,9 @@ import {
   FINANCIAL_CAROUSEL_FOCUS_STYLES,
   getExpandedCarouselCardIndex,
 } from "./shared/financialCarouselFocus";
+import { DEFAULT_FINANCIAL_CARD_KEY } from "./logic/FinancialCardRegistry";
+
+const CLARA_MONEY_CHAT_EVENT = "clara:money-card-chat";
 
 export default function FinancialCarousel(props) {
   const {
@@ -22,6 +25,8 @@ export default function FinancialCarousel(props) {
     themeInactiveDotClass = "bg-white/20 hover:bg-white/35",
     expandedFinanceCard,
   } = props;
+
+  const [isClaraConversationActive, setIsClaraConversationActive] = useState(false);
 
   const items = useMemo(() => getCarouselData(props), [props]);
   const defaultIndex = useMemo(() => getDefaultCarouselIndex(items), [items]);
@@ -43,17 +48,52 @@ export default function FinancialCarousel(props) {
     [items, expandedFinanceCard]
   );
 
+  const budgetCardIndex = useMemo(() => {
+    const index = items.findIndex(
+      (item) => item?.key === DEFAULT_FINANCIAL_CARD_KEY
+    );
+
+    return index >= 0 ? index : 0;
+  }, [items]);
+
   const isInlineFocusExpanded = expandedCardIndex >= 0;
 
   useEffect(() => {
-    if (expandedCardIndex < 0 || typeof window === "undefined") return undefined;
+    const handleClaraMoneyChat = (event) => {
+      const detail = event?.detail || {};
+      const active = Boolean(detail.active);
+
+      setIsClaraConversationActive(active);
+
+      if (active) {
+        window.requestAnimationFrame(() => {
+          scrollToIndex(budgetCardIndex, "smooth");
+        });
+      }
+    };
+
+    window.addEventListener(CLARA_MONEY_CHAT_EVENT, handleClaraMoneyChat);
+
+    return () => {
+      window.removeEventListener(CLARA_MONEY_CHAT_EVENT, handleClaraMoneyChat);
+    };
+  }, [budgetCardIndex, scrollToIndex]);
+
+  useEffect(() => {
+    if (
+      expandedCardIndex < 0 ||
+      typeof window === "undefined" ||
+      isClaraConversationActive
+    ) {
+      return undefined;
+    }
 
     const frame = window.requestAnimationFrame(() => {
       scrollToIndex(expandedCardIndex, "smooth");
     });
 
     return () => window.cancelAnimationFrame(frame);
-  }, [expandedCardIndex, scrollToIndex]);
+  }, [expandedCardIndex, scrollToIndex, isClaraConversationActive]);
 
   useEffect(() => {
     if (typeof document === "undefined") return undefined;
@@ -79,6 +119,7 @@ export default function FinancialCarousel(props) {
         interactionHandlers={interactionHandlers}
         clipClassName={dashboardScale.financeClip || "rounded-[28px]"}
         allowVerticalOverflow={isInlineFocusExpanded}
+        locked={isClaraConversationActive}
       >
         {items.map((item) => {
           const isInlineExpanded =
@@ -106,7 +147,7 @@ export default function FinancialCarousel(props) {
       <CarouselDots
         items={items}
         activeIndex={activeIndex}
-        onSelect={scrollToIndex}
+        onSelect={isClaraConversationActive ? () => {} : scrollToIndex}
         dashboardScale={dashboardScale}
         selectedDashboardTheme={selectedDashboardTheme}
         themeInactiveDotClass={themeInactiveDotClass}
