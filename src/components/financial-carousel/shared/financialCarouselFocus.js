@@ -17,8 +17,26 @@ export const FINANCIAL_CAROUSEL_FOCUS_STYLES = `
     will-change: max-height, margin, padding, opacity, transform;
   }
 
-  .clara-budget-focus-mode .clara-budget-focus-tip,
-  .clara-budget-focus-mode .clara-budget-focus-hub {
+  .clara-budget-focus-mode:not(.clara-ai-keyboard-focus-mode) .clara-budget-focus-tip,
+  .clara-budget-focus-mode:not(.clara-ai-keyboard-focus-mode) .clara-budget-focus-hub {
+    max-height: inherit !important;
+    opacity: 1 !important;
+    visibility: visible !important;
+    pointer-events: auto !important;
+  }
+
+  .clara-budget-focus-mode:not(.clara-ai-keyboard-focus-mode) div:has(> div > .clara-finance-slide-shell) {
+    margin-top: 0 !important;
+  }
+
+  .clara-budget-focus-mode:not(.clara-ai-keyboard-focus-mode) .clara-finance-slide-shell,
+  .clara-budget-focus-mode:not(.clara-ai-keyboard-focus-mode) .clara-finance-slide-surface {
+    height: clamp(286px, 45dvh, 430px) !important;
+    min-height: clamp(286px, 45dvh, 430px) !important;
+  }
+
+  .clara-ai-keyboard-focus-mode .clara-budget-focus-tip,
+  .clara-ai-keyboard-focus-mode .clara-budget-focus-hub {
     max-height: 0 !important;
     margin-top: 0 !important;
     margin-bottom: 0 !important;
