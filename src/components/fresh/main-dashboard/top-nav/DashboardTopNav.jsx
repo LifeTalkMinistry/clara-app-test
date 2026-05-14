@@ -12,7 +12,7 @@ export default function DashboardTopNav({
   themeIsLight = false,
 }) {
   return (
-    <div className={`relative z-30 shrink-0 ${dashboardScale.headerOuter}`}>
+    <div className={`clara-ai-focus-top-nav relative z-30 shrink-0 ${dashboardScale.headerOuter}`}>
       <div className="mx-auto w-full max-w-[430px] overflow-visible">
         <div
           className={`relative w-full overflow-visible border backdrop-blur-xl ${dashboardScale.headerPanel}`}
