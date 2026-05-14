@@ -1,5 +1,13 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { ArrowUp, Sparkles, X } from "lucide-react";
+import {
+  buildClaraFinanceSnapshot,
+  generateClaraLocalReply,
+} from "@/lib/clara-local-brain";
+import {
+  generateClaraGeminiReply,
+  hasGeminiConfig,
+} from "@/lib/clara-gemini-client";
 
 const SMART_ACTIONS = [
   {
@@ -8,10 +16,7 @@ const SMART_ACTIONS = [
     shortTitle: "Forecast",
     description: "Predict where your money is heading based on income, expenses, budgets, savings, wallets, and hidden risks.",
     prompt: "Run my Future Money Forecast. Predict where my money is heading based on income, expenses, budgets, savings, wallets, unplanned spending, undocumented spending, and hidden risks. Keep it practical and decision-focused.",
-    claraIntro:
-      "Got it. I’ll forecast where your money is heading next by checking your wallets, spending pace, budget pressure, savings progress, and hidden risks.",
-    question:
-      "Do you want the forecast to focus on this week, this month, or your next payday?",
+    question: "Do you want me to focus next on this week, this month, or your next payday?",
     chips: ["This week", "This month", "Next payday"],
   },
   {
@@ -20,10 +25,8 @@ const SMART_ACTIONS = [
     shortTitle: "Checkup",
     description: "Explain past spending behavior, leaks, planned vs unplanned spending, and undocumented spending.",
     prompt: "Run my Spending Checkup. Explain my past spending behavior, biggest money leaks, planned vs unplanned spending, and undocumented spending. Give me the clearest issue I should fix first.",
-    claraIntro:
-      "Sure. I’ll look for the spending pattern that is quietly draining your budget — especially unplanned, repeated, and undocumented spending.",
-    question: "Should I be direct and strict, or gentle but honest?",
-    chips: ["Be direct", "Gentle but honest", "Show biggest leak"],
+    question: "Do you want the next check to be direct, gentle, or focused only on the biggest leak?",
+    chips: ["Be direct", "Gentle", "Biggest leak"],
   },
   {
     id: "savings-game-plan",
@@ -31,10 +34,8 @@ const SMART_ACTIONS = [
     shortTitle: "Savings Plan",
     description: "Show how I can realistically reach my declared savings goal.",
     prompt: "Create my Savings Game Plan. Check how I can realistically reach my declared savings goal based on my current money, spending, and budget behavior.",
-    claraIntro:
-      "Okay. I’ll turn your savings goal into a realistic game plan using your current money, spending behavior, and how much flexibility you actually have.",
-    question: "Do you want a safe plan or a faster but tighter plan?",
-    chips: ["Safe plan", "Faster plan", "Small daily steps"],
+    question: "Should I make the savings plan safe, faster, or easier to follow daily?",
+    chips: ["Safe plan", "Faster plan", "Daily steps"],
   },
   {
     id: "emergency-fund-builder",
@@ -42,9 +43,7 @@ const SMART_ACTIONS = [
     shortTitle: "Emergency Fund",
     description: "Build a realistic safety fund plan based on expenses, income, and survival needs.",
     prompt: "Build my Emergency Fund plan. Use my expenses, income, survival needs, savings, and wallet situation to create a realistic safety fund strategy.",
-    claraIntro:
-      "Let’s build your safety cushion. I’ll estimate what you need to survive emergencies without destroying your normal budget.",
-    question: "Should we start with a small starter fund or a full survival fund?",
+    question: "Should we start with a small starter fund, full survival fund, or monthly target?",
     chips: ["Starter fund", "Full fund", "Monthly target"],
   },
   {
@@ -53,9 +52,7 @@ const SMART_ACTIONS = [
     shortTitle: "Afford Check",
     description: "Enter an amount and CLARA checks whether the purchase is safe.",
     prompt: "Help me check if I can afford a purchase. Ask me for the item and amount if I have not provided them yet, then judge if it is safe based on my money and budget context.",
-    claraIntro:
-      "Yes. Tell me the item and price, then I’ll check if it is safe, risky, or better delayed based on your current money situation.",
-    question: "What are you thinking of buying, and how much is it?",
+    question: "Tell me the item, price, and wallet you plan to use.",
     chips: ["₱500", "₱1,000", "₱2,500"],
   },
   {
@@ -64,10 +61,8 @@ const SMART_ACTIONS = [
     shortTitle: "Budget Fixer",
     description: "Suggest better budget allocation based on real spending behavior.",
     prompt: "Run my Budget Fixer. Suggest better budget allocation based on my real spending behavior, recurring expenses, unplanned spending, and current budget risk.",
-    claraIntro:
-      "I’ll check where your budget is too tight, too loose, or unrealistic compared to your actual spending behavior.",
     question: "Should I fix the budget for survival, savings, or spending control first?",
-    chips: ["Survival first", "Savings first", "Control spending"],
+    chips: ["Survival", "Savings", "Control spending"],
   },
   {
     id: "hidden-risk-check",
@@ -75,10 +70,8 @@ const SMART_ACTIONS = [
     shortTitle: "Risk Check",
     description: "Detect ignored money risks like health, maintenance, family support, debt, rest, and transportation.",
     prompt: "Run my Hidden Risk Check. Detect ignored areas that may cost money later, including health, checkups, emergencies, maintenance, family support, transportation, rest, and debt.",
-    claraIntro:
-      "Good move. I’ll look for the money risks that are easy to ignore now but expensive later.",
     question: "Should I check personal risks, family risks, or bills and maintenance first?",
-    chips: ["Personal risks", "Family risks", "Bills & maintenance"],
+    chips: ["Personal", "Family", "Bills"],
   },
   {
     id: "monthly-money-review",
@@ -86,10 +79,8 @@ const SMART_ACTIONS = [
     shortTitle: "Monthly Review",
     description: "Summarize what went well, what hurt the budget, biggest risk, and next focus.",
     prompt: "Run my Monthly Money Review. Summarize what went well, what hurt my budget, my biggest risk, and my next money focus.",
-    claraIntro:
-      "I’ll review your month like a money coach: what went well, what hurt your budget, what risk is growing, and what to focus on next.",
-    question: "Do you want a quick review or a deeper breakdown?",
-    chips: ["Quick review", "Deep breakdown", "Next focus only"],
+    question: "Do you want a quick review, deeper breakdown, or next focus only?",
+    chips: ["Quick review", "Deep breakdown", "Next focus"],
   },
   {
     id: "next-best-move",
@@ -97,9 +88,7 @@ const SMART_ACTIONS = [
     shortTitle: "Next Move",
     description: "Give one clear recommended action based on my current money situation.",
     prompt: "Give me my Next Best Move. Based on my current money situation, give me one clear action I should take next.",
-    claraIntro:
-      "I’ll narrow everything down to one practical move so you don’t overthink your finances today.",
-    question: "Should the move focus on spending, saving, budgeting, or emergency safety?",
+    question: "Should the next move focus on spending, saving, budgeting, or emergency safety?",
     chips: ["Spending", "Saving", "Budgeting", "Emergency"],
   },
 ];
@@ -117,32 +106,89 @@ function makeLocalMessage(role, text, meta = {}) {
   };
 }
 
-function buildDraftReply(text = "") {
-  const cleanText = String(text || "").trim();
+function formatMoney(value) {
+  const number = Number(value);
+  if (!Number.isFinite(number)) return null;
 
-  if (/\b(afford|buy|spend|purchase|worth|price|₱|php|peso)\b/i.test(cleanText)) {
-    return "Let’s pause before spending. I need the item, amount, and wallet you plan to use so I can judge if this is safe, risky, or better delayed.";
+  return `₱${number.toLocaleString("en-PH", { maximumFractionDigits: 0 })}`;
+}
+
+function buildUnsupportedActionReply(action, snapshot = {}) {
+  const available = formatMoney(snapshot.availableMoney);
+  const spent = formatMoney(snapshot.monthlySpent);
+  const budgetLeft = formatMoney(snapshot.budgetRemaining);
+  const savingsSaved = formatMoney(snapshot.savingsSaved);
+  const emergencySaved = formatMoney(snapshot.emergencyFund?.saved);
+  const topCategory = snapshot.topSpendingCategory?.category;
+
+  if (!snapshot.hasAnyData) {
+    return "I need more finance data before I can give a clear answer. Add or refresh your wallets, expenses, budgets, savings, or emergency fund first.";
   }
 
-  if (/\b(save|savings|goal)\b/i.test(cleanText)) {
-    return "Good. I’ll treat this as a savings question. I’ll check what you can realistically set aside without making your daily budget fragile.";
+  switch (action?.id) {
+    case "hidden-risk-check":
+      return [
+        "Here’s the risk I’d watch first: hidden future costs, not just today’s spending.",
+        available ? `You have ${available} visible money.` : null,
+        emergencySaved ? `Emergency protection shows ${emergencySaved}.` : "I don’t see a strong emergency buffer yet.",
+        "Check health, transportation, family support, maintenance, and debt before treating extra cash as spendable.",
+      ].filter(Boolean).join(" ");
+
+    case "monthly-money-review":
+      return [
+        spent ? `This month, your visible spending is ${spent}.` : "I don’t see enough monthly spending yet.",
+        available ? `You still have ${available} visible.` : null,
+        topCategory ? `The category to review first is ${topCategory}.` : null,
+        "Next focus: protect essentials, reduce unplanned spending, and avoid adding new wants until the budget feels stable.",
+      ].filter(Boolean).join(" ");
+
+    case "next-best-move":
+      if (snapshot.availableMoney !== null && snapshot.availableMoney < 1000) {
+        return `Your next best move is defensive: protect your remaining ${available} and pause non-essential spending first.`;
+      }
+      if (snapshot.emergencyFund?.saved === null || snapshot.emergencyFund?.saved <= 0) {
+        return "Your next best move is to start a small emergency buffer before increasing lifestyle spending.";
+      }
+      if (snapshot.unplannedSpent !== null && snapshot.unplannedSpent > 0) {
+        return `Your next best move is to reduce unplanned spending first. That leak matters more than finding a new budget trick right now.`;
+      }
+      return "Your next best move is simple: keep spending planned, protect savings, and only buy what still makes sense tomorrow.";
+
+    case "budget-fixer":
+      return [
+        budgetLeft ? `Your budget remaining shows ${budgetLeft}.` : "I need a clearer active budget to fully fix the allocation.",
+        spent ? `Spending already shows ${spent}.` : null,
+        "Start by increasing categories that repeat in real life and shrinking categories that look good on paper but never survive actual behavior.",
+      ].filter(Boolean).join(" ");
+
+    default:
+      return "I can help with that. I’ll use your loaded wallets, expenses, budgets, savings, and emergency fund to keep the answer practical and decision-focused.";
+  }
+}
+
+function buildLocalBrainReply(message, context, action = null) {
+  const localReply = generateClaraLocalReply(message, context);
+
+  if (
+    localReply &&
+    !localReply.includes("I can help with money decisions") &&
+    !localReply.includes("What do you want to check?")
+  ) {
+    return localReply;
   }
 
-  if (/\b(budget|allocate|category)\b/i.test(cleanText)) {
-    return "I’ll look at this as a budget decision. The goal is not just to balance numbers, but to make the budget match your real behavior.";
-  }
-
-  return "I’m listening. Tell me a little more, and I’ll turn this into a clear money decision instead of just a generic answer.";
+  return buildUnsupportedActionReply(action, buildClaraFinanceSnapshot(context || {}));
 }
 
 export default function ClaraAiEnvironmentOverlay({
   isActive = false,
   messages = [],
-  requestFeaturePrompt,
+  claraAssistantContext = {},
   onClose,
 }) {
   const [draft, setDraft] = useState("");
   const [localMessages, setLocalMessages] = useState([]);
+  const [isThinking, setIsThinking] = useState(false);
   const inputRef = useRef(null);
   const messagesEndRef = useRef(null);
 
@@ -158,6 +204,7 @@ export default function ClaraAiEnvironmentOverlay({
     if (!isActive) {
       setDraft("");
       setLocalMessages([]);
+      setIsThinking(false);
       return undefined;
     }
 
@@ -184,21 +231,63 @@ export default function ClaraAiEnvironmentOverlay({
   useEffect(() => {
     if (!isActive) return;
     messagesEndRef.current?.scrollIntoView?.({ behavior: "smooth", block: "end" });
-  }, [isActive, visibleMessages.length]);
+  }, [isActive, visibleMessages.length, isThinking]);
 
   if (!isActive) return null;
 
-  const submitPrompt = (text) => {
-    const cleanText = String(text || "").trim();
-    if (!cleanText) return;
+  const updateMessage = (messageId, nextText, meta = {}) => {
+    setLocalMessages((current) =>
+      current.map((message) =>
+        message.id === messageId ? { ...message, text: nextText, ...meta } : message
+      )
+    );
+  };
 
+  const runClaraBrain = async ({ prompt, displayText = prompt, action = null }) => {
+    const cleanPrompt = String(prompt || "").trim();
+    const cleanDisplay = String(displayText || cleanPrompt).trim();
+    if (!cleanPrompt || isThinking) return;
+
+    const pendingMessage = makeLocalMessage(
+      "clara",
+      "Checking your real finance context..."
+    );
+
+    setIsThinking(true);
     setLocalMessages((current) => [
       ...current,
-      makeLocalMessage("user", cleanText),
-      makeLocalMessage("clara", buildDraftReply(cleanText)),
+      makeLocalMessage("user", cleanDisplay),
+      pendingMessage,
     ]);
 
-    requestFeaturePrompt?.(cleanText);
+    try {
+      let reply = "";
+
+      if (hasGeminiConfig()) {
+        try {
+          reply = await generateClaraGeminiReply({
+            message: cleanPrompt,
+            context: claraAssistantContext,
+            mode: action?.id || "ai_environment",
+            conversationHistory: [...visibleMessages, makeLocalMessage("user", cleanDisplay)],
+          });
+        } catch (geminiError) {
+          reply = buildLocalBrainReply(cleanPrompt, claraAssistantContext, action);
+        }
+      } else {
+        reply = buildLocalBrainReply(cleanPrompt, claraAssistantContext, action);
+      }
+
+      updateMessage(pendingMessage.id, reply, action ? { smartAction: action } : {});
+    } catch (error) {
+      updateMessage(
+        pendingMessage.id,
+        buildLocalBrainReply(cleanPrompt, claraAssistantContext, action),
+        action ? { smartAction: action } : {}
+      );
+    } finally {
+      setIsThinking(false);
+    }
   };
 
   const handleSubmit = (event) => {
@@ -206,18 +295,16 @@ export default function ClaraAiEnvironmentOverlay({
     const cleanDraft = draft.trim();
     if (!cleanDraft) return;
 
-    submitPrompt(cleanDraft);
+    runClaraBrain({ prompt: cleanDraft, displayText: cleanDraft });
     setDraft("");
   };
 
   const handleSmartAction = (action) => {
-    setLocalMessages((current) => [
-      ...current,
-      makeLocalMessage("user", action.title),
-      makeLocalMessage("clara", action.claraIntro, { smartAction: action }),
-    ]);
-
-    requestFeaturePrompt?.(action.prompt);
+    runClaraBrain({
+      prompt: action.prompt,
+      displayText: action.title,
+      action,
+    });
   };
 
   return (
@@ -264,21 +351,30 @@ export default function ClaraAiEnvironmentOverlay({
                         : "border border-white/12 bg-white/[0.075] text-white/86 backdrop-blur-xl"
                     }`}
                   >
-                    {action ? (
+                    {action && !isUser ? (
                       <div>
                         <p className="text-[10px] font-black uppercase tracking-[0.22em] text-cyan-100/55">
                           Smart Action
                         </p>
                         <h4 className="mt-1 text-[15px] font-black text-white">{action.title}</h4>
                         <p className="mt-2 text-[12px] leading-5 text-slate-300/85">{message.text}</p>
-                        <p className="mt-3 text-[12px] leading-5 text-emerald-100/85">{action.question}</p>
+                        {action.question ? (
+                          <p className="mt-3 text-[12px] leading-5 text-emerald-100/85">{action.question}</p>
+                        ) : null}
                         <div className="mt-3 flex flex-wrap gap-2">
                           {action.chips?.map((chip) => (
                             <button
                               key={chip}
                               type="button"
-                              onClick={() => submitPrompt(`${action.title}: ${chip}`)}
-                              className="rounded-full border border-emerald-200/20 bg-emerald-300/10 px-3 py-1.5 text-[11px] font-bold text-emerald-100 active:scale-95"
+                              disabled={isThinking}
+                              onClick={() =>
+                                runClaraBrain({
+                                  prompt: `${action.prompt}\nUser selected: ${chip}`,
+                                  displayText: chip,
+                                  action,
+                                })
+                              }
+                              className="rounded-full border border-emerald-200/20 bg-emerald-300/10 px-3 py-1.5 text-[11px] font-bold text-emerald-100 active:scale-95 disabled:opacity-45"
                             >
                               {chip}
                             </button>
@@ -323,8 +419,9 @@ export default function ClaraAiEnvironmentOverlay({
                   <button
                     key={action.id}
                     type="button"
+                    disabled={isThinking}
                     onClick={() => handleSmartAction(action)}
-                    className="group min-h-[86px] rounded-[22px] border border-white/10 bg-white/[0.055] p-3 text-left shadow-[0_12px_26px_rgba(0,0,0,0.14)] transition hover:bg-white/[0.085] active:scale-[0.98]"
+                    className="group min-h-[86px] rounded-[22px] border border-white/10 bg-white/[0.055] p-3 text-left shadow-[0_12px_26px_rgba(0,0,0,0.14)] transition hover:bg-white/[0.085] active:scale-[0.98] disabled:opacity-45"
                   >
                     <p className="text-[12px] font-black leading-tight text-white group-active:text-emerald-100">
                       {action.shortTitle}
@@ -355,7 +452,7 @@ export default function ClaraAiEnvironmentOverlay({
           />
           <button
             type="submit"
-            disabled={!draft.trim()}
+            disabled={!draft.trim() || isThinking}
             className="grid h-11 w-11 shrink-0 place-items-center rounded-full bg-emerald-300 text-slate-950 shadow-[0_0_26px_rgba(110,231,183,0.22)] transition disabled:opacity-45 active:scale-95"
             aria-label="Send to CLARA"
           >
