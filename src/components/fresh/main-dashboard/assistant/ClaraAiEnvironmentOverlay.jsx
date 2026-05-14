@@ -9,6 +9,8 @@ import {
   hasGeminiConfig,
 } from "@/lib/clara-gemini-client";
 
+const CLARA_AI_BRAIN_VERSION = "connected-brain-v2";
+
 const SMART_ACTIONS = [
   {
     id: "future-money-forecast",
@@ -93,8 +95,24 @@ const SMART_ACTIONS = [
   },
 ];
 
+const LEGACY_PLACEHOLDER_PATTERNS = [
+  "i’m setting up the right clara check",
+  "i'm setting up the right clara check",
+  "smart action layer is now ready visually",
+  "next step is wiring each action",
+];
+
+function getMessageText(message = {}) {
+  return String(message?.text || "").trim();
+}
+
 function isWelcomeMessage(message = {}) {
-  return String(message?.text || "").trim() === "What are you thinking of buying?";
+  return getMessageText(message) === "What are you thinking of buying?";
+}
+
+function isLegacyPlaceholderMessage(message = {}) {
+  const text = getMessageText(message).toLowerCase();
+  return LEGACY_PLACEHOLDER_PATTERNS.some((pattern) => text.includes(pattern));
 }
 
 function makeLocalMessage(role, text, meta = {}) {
@@ -109,7 +127,6 @@ function makeLocalMessage(role, text, meta = {}) {
 function formatMoney(value) {
   const number = Number(value);
   if (!Number.isFinite(number)) return null;
-
   return `₱${number.toLocaleString("en-PH", { maximumFractionDigits: 0 })}`;
 }
 
@@ -117,7 +134,6 @@ function buildUnsupportedActionReply(action, snapshot = {}) {
   const available = formatMoney(snapshot.availableMoney);
   const spent = formatMoney(snapshot.monthlySpent);
   const budgetLeft = formatMoney(snapshot.budgetRemaining);
-  const savingsSaved = formatMoney(snapshot.savingsSaved);
   const emergencySaved = formatMoney(snapshot.emergencyFund?.saved);
   const topCategory = snapshot.topSpendingCategory?.category;
 
@@ -150,7 +166,7 @@ function buildUnsupportedActionReply(action, snapshot = {}) {
         return "Your next best move is to start a small emergency buffer before increasing lifestyle spending.";
       }
       if (snapshot.unplannedSpent !== null && snapshot.unplannedSpent > 0) {
-        return `Your next best move is to reduce unplanned spending first. That leak matters more than finding a new budget trick right now.`;
+        return "Your next best move is to reduce unplanned spending first. That leak matters more than finding a new budget trick right now.";
       }
       return "Your next best move is simple: keep spending planned, protect savings, and only buy what still makes sense tomorrow.";
 
@@ -193,11 +209,10 @@ export default function ClaraAiEnvironmentOverlay({
   const messagesEndRef = useRef(null);
 
   const visibleMessages = useMemo(() => {
-    const externalMessages = Array.isArray(messages)
-      ? messages.filter((message) => !isWelcomeMessage(message))
-      : [];
-
-    return [...externalMessages, ...localMessages];
+    const externalMessages = Array.isArray(messages) ? messages : [];
+    return [...externalMessages, ...localMessages].filter(
+      (message) => !isWelcomeMessage(message) && !isLegacyPlaceholderMessage(message)
+    );
   }, [messages, localMessages]);
 
   useEffect(() => {
@@ -207,6 +222,9 @@ export default function ClaraAiEnvironmentOverlay({
       setIsThinking(false);
       return undefined;
     }
+
+    // Drop any messages preserved by a hot reload or an old bundle before this brain-connected mode.
+    setLocalMessages((current) => current.filter((message) => !isLegacyPlaceholderMessage(message)));
 
     const focusTimer = window.setTimeout(() => {
       inputRef.current?.focus?.();
@@ -219,9 +237,7 @@ export default function ClaraAiEnvironmentOverlay({
     if (!isActive) return undefined;
 
     const handleEscape = (event) => {
-      if (event.key === "Escape") {
-        onClose?.();
-      }
+      if (event.key === "Escape") onClose?.();
     };
 
     window.addEventListener("keydown", handleEscape);
@@ -248,21 +264,17 @@ export default function ClaraAiEnvironmentOverlay({
     const cleanDisplay = String(displayText || cleanPrompt).trim();
     if (!cleanPrompt || isThinking) return;
 
-    const pendingMessage = makeLocalMessage(
-      "clara",
-      "Checking your real finance context..."
-    );
+    const pendingMessage = makeLocalMessage("clara", "Checking your real finance context...");
 
     setIsThinking(true);
     setLocalMessages((current) => [
-      ...current,
+      ...current.filter((message) => !isLegacyPlaceholderMessage(message)),
       makeLocalMessage("user", cleanDisplay),
       pendingMessage,
     ]);
 
     try {
       let reply = "";
-
       if (hasGeminiConfig()) {
         try {
           reply = await generateClaraGeminiReply({
@@ -294,21 +306,19 @@ export default function ClaraAiEnvironmentOverlay({
     event.preventDefault();
     const cleanDraft = draft.trim();
     if (!cleanDraft) return;
-
     runClaraBrain({ prompt: cleanDraft, displayText: cleanDraft });
     setDraft("");
   };
 
   const handleSmartAction = (action) => {
-    runClaraBrain({
-      prompt: action.prompt,
-      displayText: action.title,
-      action,
-    });
+    runClaraBrain({ prompt: action.prompt, displayText: action.title, action });
   };
 
   return (
-    <div className="fixed inset-0 z-[250] mx-auto flex w-full max-w-[430px] flex-col overflow-hidden bg-slate-950/72 px-4 pb-[max(env(safe-area-inset-bottom),14px)] pt-[max(env(safe-area-inset-top),18px)] text-white backdrop-blur-[2px]">
+    <div
+      className="fixed inset-0 z-[250] mx-auto flex w-full max-w-[430px] flex-col overflow-hidden bg-slate-950/72 px-4 pb-[max(env(safe-area-inset-bottom),14px)] pt-[max(env(safe-area-inset-top),18px)] text-white backdrop-blur-[2px]"
+      data-clara-ai-brain-version={CLARA_AI_BRAIN_VERSION}
+    >
       <div className="pointer-events-none absolute inset-0 -z-10 bg-[radial-gradient(circle_at_18%_4%,rgba(45,212,191,0.24),transparent_32%),radial-gradient(circle_at_88%_22%,rgba(124,58,237,0.22),transparent_36%),linear-gradient(180deg,rgba(2,6,23,0.88),rgba(2,6,23,0.96))]" />
 
       <header className="shrink-0 pb-3 pt-1">
