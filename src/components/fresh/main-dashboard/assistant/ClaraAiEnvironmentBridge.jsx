@@ -29,8 +29,7 @@ export default function ClaraAiEnvironmentBridge() {
   const claraAiEnvironment = useClaraAiEnvironment();
   const [overlayVisible, setOverlayVisible] = useState(false);
   const longPressTimerRef = useRef(null);
-
-  const isActive = Boolean(claraAiEnvironment.isActive || overlayVisible);
+  const isActive = overlayVisible;
 
   useEffect(() => {
     if (typeof document === "undefined") return undefined;
@@ -56,6 +55,11 @@ export default function ClaraAiEnvironmentBridge() {
       }
     };
   }, [isActive]);
+
+  useEffect(() => {
+    setOverlayVisible(false);
+    claraAiEnvironment.clearEnvironment?.();
+  }, []);
 
   useEffect(() => {
     if (typeof document === "undefined") return undefined;
@@ -104,6 +108,7 @@ export default function ClaraAiEnvironmentBridge() {
   return (
     <>
       <style>{CLARA_AI_ENVIRONMENT_STYLES}</style>
+
       <ClaraAiEnvironmentOverlay
         isActive={isActive}
         messages={claraAiEnvironment.messages}
