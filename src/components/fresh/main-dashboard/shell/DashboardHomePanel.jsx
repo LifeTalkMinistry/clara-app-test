@@ -3,7 +3,7 @@ import { Clock } from "lucide-react";
 import { Link } from "react-router-dom";
 import FinancialCarousel from "@/components/financial-carousel/FinancialCarousel";
 import LearningHub from "@/components/fresh/main-dashboard/learning-hub/LearningHub";
-import DashboardMoneySummary from "@/components/fresh/main-dashboard/money-summary/DashboardMoneySummary";
+import DashboardMoneySummaryStable from "@/components/fresh/main-dashboard/money-summary/DashboardMoneySummaryStable";
 import FinanceInlineAlert from "@/components/fresh/main-dashboard/finance-notices/FinanceInlineAlert";
 import { Button } from "@/components/ui/button";
 
@@ -178,7 +178,7 @@ export default function DashboardHomePanel({
         </div>
       )}
 
-      <DashboardMoneySummary
+      <DashboardMoneySummaryStable
         key={moneySummaryResetKey}
         dashboardScale={dashboardScale}
         selectedDashboardTheme={selectedDashboardTheme}
