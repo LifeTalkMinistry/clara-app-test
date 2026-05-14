@@ -19,7 +19,6 @@ import { DEFAULT_FINANCIAL_CARD_KEY } from "./logic/FinancialCardRegistry";
 
 const CLARA_MONEY_CHAT_EVENT = "clara:money-card-chat";
 const CLARA_AI_TOP_PULL = "clamp(-260px, -30dvh, -120px)";
-const CLARA_AI_IDLE_PULL = "clamp(-120px, -12dvh, -48px)";
 const KEYBOARD_THRESHOLD = 140;
 
 export default function FinancialCarousel(props) {
@@ -61,15 +60,13 @@ export default function FinancialCarousel(props) {
   );
 
   const budgetCardIndex = useMemo(() => {
-    const index = items.findIndex(
-      (item) => item?.key === DEFAULT_FINANCIAL_CARD_KEY
-    );
-
+    const index = items.findIndex((item) => item?.key === DEFAULT_FINANCIAL_CARD_KEY);
     return index >= 0 ? index : 0;
   }, [items]);
 
   const isInlineFocusExpanded = expandedCardIndex >= 0;
-  const isFinanceFocusMode = isInlineFocusExpanded || isClaraConversationActive;
+  const isClaraKeyboardFocusMode = isClaraConversationActive && isKeyboardVisible;
+  const isFinanceFocusMode = isInlineFocusExpanded || isClaraKeyboardFocusMode;
 
   useEffect(() => {
     if (typeof window === "undefined") return undefined;
@@ -83,7 +80,7 @@ export default function FinancialCarousel(props) {
 
       setIsKeyboardVisible(keyboardOpen);
 
-      if (!keyboardOpen && isClaraConversationActive) {
+      if (keyboardOpen && isClaraConversationActive) {
         window.requestAnimationFrame(() => {
           rootRef.current?.scrollIntoView?.({
             behavior: "smooth",
@@ -109,15 +106,14 @@ export default function FinancialCarousel(props) {
 
       setIsClaraConversationActive(active);
 
-      if (active) {
-        window.requestAnimationFrame(() => {
-          scrollToIndex(budgetCardIndex, "smooth");
-          rootRef.current?.scrollIntoView?.({
-            behavior: "smooth",
-            block: "start",
-          });
-        });
+      if (!active) {
+        setIsKeyboardVisible(false);
+        return;
       }
+
+      window.requestAnimationFrame(() => {
+        scrollToIndex(budgetCardIndex, "smooth");
+      });
     };
 
     window.addEventListener(CLARA_MONEY_CHAT_EVENT, handleClaraMoneyChat);
@@ -149,16 +145,13 @@ export default function FinancialCarousel(props) {
     const root = document.documentElement;
 
     root.classList.toggle(FINANCIAL_CAROUSEL_FOCUS_CLASS, isFinanceFocusMode);
-    root.classList.toggle(
-      CLARA_AI_KEYBOARD_FOCUS_CLASS,
-      isClaraConversationActive && isKeyboardVisible
-    );
+    root.classList.toggle(CLARA_AI_KEYBOARD_FOCUS_CLASS, isClaraKeyboardFocusMode);
 
     return () => {
       root.classList.remove(FINANCIAL_CAROUSEL_FOCUS_CLASS);
       root.classList.remove(CLARA_AI_KEYBOARD_FOCUS_CLASS);
     };
-  }, [isFinanceFocusMode, isClaraConversationActive, isKeyboardVisible]);
+  }, [isFinanceFocusMode, isClaraKeyboardFocusMode]);
 
   if (!items.length) return null;
 
@@ -167,10 +160,8 @@ export default function FinancialCarousel(props) {
       ref={rootRef}
       className="relative z-20 mb-5 transition-[margin-top] duration-500 ease-[cubic-bezier(0.22,1,0.36,1)]"
       style={{
-        marginTop: isClaraConversationActive
-          ? isKeyboardVisible
-            ? CLARA_AI_TOP_PULL
-            : CLARA_AI_IDLE_PULL
+        marginTop: isClaraKeyboardFocusMode
+          ? CLARA_AI_TOP_PULL
           : isInlineFocusExpanded
             ? EXPANDED_TOP_PULL
             : 0,
@@ -187,7 +178,7 @@ export default function FinancialCarousel(props) {
         locked={isClaraConversationActive}
       >
         {items.map((item) => {
-          const isInlineExpanded = isClaraConversationActive
+          const isInlineExpanded = isClaraKeyboardFocusMode
             ? item?.key === DEFAULT_FINANCIAL_CARD_KEY
             : item.detailKey === expandedFinanceCard && expandedCardIndex >= 0;
 
