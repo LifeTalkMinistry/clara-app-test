@@ -24,6 +24,17 @@ export default function useClaraAiEnvironment() {
     }, delay);
   }, []);
 
+  const activateOverlay = useCallback((source = "money-summary") => {
+    setEnvironment((current) => ({
+      ...current,
+      active: true,
+      source,
+      lastUpdatedAt: Date.now(),
+    }));
+
+    focusInput();
+  }, [focusInput]);
+
   const syncFromMoneyCard = useCallback((event) => {
     const detail = event?.detail || {};
     const nextMessages = Array.isArray(detail.messages)
@@ -43,19 +54,29 @@ export default function useClaraAiEnvironment() {
     }
   }, [focusInput]);
 
+  const syncOverlayRequest = useCallback((event) => {
+    const detail = event?.detail || {};
+
+    activateOverlay(detail.source || "overlay-request");
+  }, [activateOverlay]);
+
   useEffect(() => {
     if (typeof window === "undefined") return undefined;
 
     window.addEventListener(CLARA_MONEY_CHAT_EVENT, syncFromMoneyCard);
+    window.addEventListener(CLARA_MONEY_CHAT_REQUEST_EVENT, syncOverlayRequest);
 
     return () => {
       window.removeEventListener(CLARA_MONEY_CHAT_EVENT, syncFromMoneyCard);
+      window.removeEventListener(CLARA_MONEY_CHAT_REQUEST_EVENT, syncOverlayRequest);
     };
-  }, [syncFromMoneyCard]);
+  }, [syncFromMoneyCard, syncOverlayRequest]);
 
   const requestFeaturePrompt = useCallback((prompt) => {
     const cleanPrompt = String(prompt || "").trim();
     if (!cleanPrompt || typeof window === "undefined") return;
+
+    activateOverlay("clara-ai-environment");
 
     window.dispatchEvent(
       new CustomEvent(CLARA_MONEY_CHAT_REQUEST_EVENT, {
@@ -65,7 +86,7 @@ export default function useClaraAiEnvironment() {
         },
       })
     );
-  }, []);
+  }, [activateOverlay]);
 
   const clearEnvironment = useCallback(() => {
     setEnvironment(createInitialState());
@@ -79,7 +100,8 @@ export default function useClaraAiEnvironment() {
       focusInput,
       requestFeaturePrompt,
       clearEnvironment,
+      activateOverlay,
     }),
-    [clearEnvironment, environment, focusInput, requestFeaturePrompt]
+    [activateOverlay, clearEnvironment, environment, focusInput, requestFeaturePrompt]
   );
 }
