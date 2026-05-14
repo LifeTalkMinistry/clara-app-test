@@ -615,6 +615,63 @@ function polishClaraReply(reply, text, options) {
   return reply;
 }
 
+function getExpenseSummaryType(review = {}) {
+  if (review.planningStatus === "planned") return "Planned spending";
+  if (/unexpected|emergency|urgent|medicine|hospital|repair|broken|accident/i.test(String(review.reason || ""))) {
+    return "Unexpected necessary spending";
+  }
+  return "Unplanned spending";
+}
+
+function buildExpenseSummaryMessage(command = {}, review = {}, fmt = (value) => String(value ?? 0)) {
+  const item = command.item || "Expense";
+  const amount = command.amount ? fmt(command.amount) : "Amount not set";
+  const wallet = command.walletName || command.requestedWalletName || "Wallet not set";
+  const budget = review.budgetCategory || review.category || command.category || "Unplanned Spending";
+  const type = getExpenseSummaryType(review);
+  const reason = review.planningStatus === "planned" ? "" : String(review.reason || "").trim();
+
+  return [
+    "Here’s the expense summary before I log it:",
+    "",
+    `Item: ${item}`,
+    `Amount: ${amount}`,
+    `Wallet: ${wallet}`,
+    `Budget: ${budget}`,
+    `Type: ${type}`,
+    reason ? `Reason: ${reason}` : "",
+    "",
+    "Should I log this now?",
+  ]
+    .filter((line) => line !== "")
+    .join("\n");
+}
+
+function buildExpenseSavedMessage(command = {}, review = {}, saveResult = {}, fmt = (value) => String(value ?? 0)) {
+  const item = command.item || "Expense";
+  const amount = command.amount ? fmt(command.amount) : "Amount not set";
+  const wallet = command.walletName || command.requestedWalletName || "Wallet";
+  const budget = review.budgetCategory || review.category || command.category || "Unplanned Spending";
+  const type = getExpenseSummaryType(review);
+  const nextBalanceLine = Number.isFinite(Number(saveResult?.nextBalance))
+    ? `Wallet balance now: ${fmt(saveResult.nextBalance)}`
+    : "";
+
+  return [
+    "Logged ✅",
+    "",
+    "Final summary:",
+    `Item: ${item}`,
+    `Amount: ${amount}`,
+    `Wallet: ${wallet}`,
+    `Budget: ${budget}`,
+    `Type: ${type}`,
+    nextBalanceLine,
+  ]
+    .filter((line) => line !== "")
+    .join("\n");
+}
+
 export default function DashboardMoneySummary({
   dashboardScale = {},
   selectedDashboardTheme = {},
@@ -1011,6 +1068,14 @@ export default function DashboardMoneySummary({
       const budgetText = review.budgetCategory || review.category || "";
       const visibleWallets = flowContext.visibleWallets || formatWalletChoices(wallets);
 
+      if (flowContext.step === "final_confirmation") {
+        return buildExpenseSummaryMessage(command, review, fmt);
+      }
+
+      if (flowContext.step === "done_saved") {
+        return buildExpenseSavedMessage(command, review, flowContext.saveResult, fmt);
+      }
+
       const flowPrompt = `You are CLARA, a warm Filipino-friendly personal money coach inside an expense logging chat.
 
 IMPORTANT:
@@ -1192,12 +1257,13 @@ Reply as CLARA only.`;
           setPendingFinalExpenseConfirmation(null);
 
           logExpenseFromChat(command, review)
-            .then(() => {
+            .then((saveResult) => {
               setExpenseLogMode(false);
               replaceWithExpenseFlowReply(pendingMessage.id, {
                 step: "done_saved",
                 command,
                 review,
+                saveResult,
               });
             })
             .catch((error) => {
