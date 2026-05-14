@@ -35,48 +35,38 @@ export default function useClaraAiEnvironment() {
     focusInput();
   }, [focusInput]);
 
-  const syncFromMoneyCard = useCallback((event) => {
+  const syncMessagesOnlyWhenActive = useCallback((event) => {
     const detail = event?.detail || {};
     const nextMessages = Array.isArray(detail.messages)
       ? detail.messages
       : EMPTY_MESSAGES;
 
-    setEnvironment((current) => ({
-      ...current,
-      active: Boolean(detail.active),
-      messages: nextMessages,
-      source: detail.source || "money-summary",
-      lastUpdatedAt: Date.now(),
-    }));
+    setEnvironment((current) => {
+      if (!current.active) return current;
 
-    if (detail.active) {
-      focusInput();
-    }
-  }, [focusInput]);
-
-  const syncOverlayRequest = useCallback((event) => {
-    const detail = event?.detail || {};
-
-    activateOverlay(detail.source || "overlay-request");
-  }, [activateOverlay]);
+      return {
+        ...current,
+        active: detail.active === false ? false : current.active,
+        messages: nextMessages,
+        source: detail.source || current.source || "money-summary",
+        lastUpdatedAt: Date.now(),
+      };
+    });
+  }, []);
 
   useEffect(() => {
     if (typeof window === "undefined") return undefined;
 
-    window.addEventListener(CLARA_MONEY_CHAT_EVENT, syncFromMoneyCard);
-    window.addEventListener(CLARA_MONEY_CHAT_REQUEST_EVENT, syncOverlayRequest);
+    window.addEventListener(CLARA_MONEY_CHAT_EVENT, syncMessagesOnlyWhenActive);
 
     return () => {
-      window.removeEventListener(CLARA_MONEY_CHAT_EVENT, syncFromMoneyCard);
-      window.removeEventListener(CLARA_MONEY_CHAT_REQUEST_EVENT, syncOverlayRequest);
+      window.removeEventListener(CLARA_MONEY_CHAT_EVENT, syncMessagesOnlyWhenActive);
     };
-  }, [syncFromMoneyCard, syncOverlayRequest]);
+  }, [syncMessagesOnlyWhenActive]);
 
   const requestFeaturePrompt = useCallback((prompt) => {
     const cleanPrompt = String(prompt || "").trim();
     if (!cleanPrompt || typeof window === "undefined") return;
-
-    activateOverlay("clara-ai-environment");
 
     window.dispatchEvent(
       new CustomEvent(CLARA_MONEY_CHAT_REQUEST_EVENT, {
@@ -86,7 +76,7 @@ export default function useClaraAiEnvironment() {
         },
       })
     );
-  }, [activateOverlay]);
+  }, []);
 
   const clearEnvironment = useCallback(() => {
     setEnvironment(createInitialState());
