@@ -17,10 +17,53 @@ import {
 } from "../logic/transactionHubUtils";
 import { StatusBadge } from "./TransactionHubPrimitives";
 
+function firstTextValue(...values) {
+  const value = values.find((item) => String(item || "").trim());
+  return String(value || "").trim();
+}
+
+function titleBehaviorLabel(value = "") {
+  return String(value || "")
+    .replace(/[_-]+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim()
+    .replace(/\b\w/g, (match) => match.toUpperCase());
+}
+
 export default function TransactionCard({ item, onEdit }) {
   const Icon = getIcon(item.group);
   const tone = getToneClasses(item.group, item.signedAmount);
   const sign = item.signedAmount > 0 ? "+" : item.signedAmount < 0 ? "-" : "";
+  const raw = item.raw || {};
+  const rawPlanningStatus =
+    raw.planning_status || raw.planningStatus || item.planningStatus || item.budgetStatus;
+  const behaviorReason = firstTextValue(
+    item.unplannedReason,
+    item.unexpectedReason,
+    item.behaviorReason,
+    raw.unplanned_reason,
+    raw.unplannedReason,
+    raw.unexpected_reason,
+    raw.unexpectedReason,
+    raw.behavior_reason,
+    raw.behaviorReason
+  );
+  const behaviorTag = firstTextValue(
+    item.behaviorTag,
+    raw.behavior_tag,
+    raw.behaviorTag,
+    raw.ai_behavior_tag,
+    raw.aiBehaviorTag
+  );
+  const emotionalTrigger = firstTextValue(
+    item.emotionalTrigger,
+    raw.emotional_trigger,
+    raw.emotionalTrigger
+  );
+  const shouldShowBehaviorNote =
+    item.group === "expense" &&
+    (behaviorReason || behaviorTag || emotionalTrigger) &&
+    String(rawPlanningStatus || "").toLowerCase() !== "planned";
 
   return (
     <article className="group relative overflow-hidden rounded-[22px] border border-white/10 bg-[linear-gradient(135deg,rgba(255,255,255,0.068),rgba(255,255,255,0.028))] p-3 shadow-[0_14px_42px_rgba(0,0,0,0.2)] backdrop-blur-2xl transition duration-300 active:scale-[0.985]">
@@ -117,6 +160,37 @@ export default function TransactionCard({ item, onEdit }) {
               </StatusBadge>
             ) : null}
           </div>
+
+          {shouldShowBehaviorNote ? (
+            <div className="mt-2.5 rounded-[16px] border border-amber-200/12 bg-amber-300/[0.055] px-3 py-2 shadow-[inset_0_1px_0_rgba(255,255,255,0.045)]">
+              <div className="flex items-center gap-1.5 text-[9px] font-black uppercase tracking-[0.13em] text-amber-100/62">
+                <ShieldAlert className="h-3 w-3" />
+                Spending Reason
+              </div>
+
+              {behaviorReason ? (
+                <p className="mt-1.5 text-[11.5px] font-semibold leading-5 text-white/68">
+                  {behaviorReason}
+                </p>
+              ) : null}
+
+              {behaviorTag || emotionalTrigger ? (
+                <div className="mt-2 flex flex-wrap gap-1.5">
+                  {behaviorTag ? (
+                    <span className="rounded-full border border-white/10 bg-black/18 px-2 py-1 text-[9px] font-black uppercase tracking-[0.08em] text-white/42">
+                      {titleBehaviorLabel(behaviorTag)}
+                    </span>
+                  ) : null}
+
+                  {emotionalTrigger ? (
+                    <span className="rounded-full border border-white/10 bg-black/18 px-2 py-1 text-[9px] font-black uppercase tracking-[0.08em] text-white/42">
+                      {titleBehaviorLabel(emotionalTrigger)}
+                    </span>
+                  ) : null}
+                </div>
+              ) : null}
+            </div>
+          ) : null}
 
           {item.note ? (
             <p className="mt-2.5 line-clamp-2 rounded-[16px] border border-white/10 bg-black/14 px-3 py-2 text-xs font-medium leading-5 text-white/50">
