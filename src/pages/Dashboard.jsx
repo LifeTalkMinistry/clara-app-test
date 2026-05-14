@@ -49,6 +49,7 @@ import useDashboardVisibleFinanceData from "@/components/fresh/main-dashboard/fi
 import useDashboardFinanceStateSync from "@/components/fresh/main-dashboard/finance-content/useDashboardFinanceStateSync";
 import useDashboardFinanceOverviewState from "@/components/fresh/main-dashboard/finance-content/useDashboardFinanceOverviewState";
 import useDashboardClaraAssistantContext from "@/components/fresh/main-dashboard/assistant/useDashboardClaraAssistantContext";
+import ClaraAiEnvironmentBridge from "@/components/fresh/main-dashboard/assistant/ClaraAiEnvironmentBridge";
 import useDashboardFinanceActionHandlers from "@/components/fresh/main-dashboard/finance-actions/useDashboardFinanceActionHandlers";
 import useDashboardFinanceDiagnostics from "@/components/fresh/main-dashboard/finance-diagnostics/useDashboardFinanceDiagnostics";
 import useDashboardFinanceCardExpansion from "@/components/fresh/main-dashboard/financial-cards/useDashboardFinanceCardExpansion";
@@ -755,6 +756,7 @@ export default function Dashboard() {
       style={{ WebkitOverflowScrolling: "touch" }}
     >
       <DashboardEmbeddedStyles />
+      <ClaraAiEnvironmentBridge />
       <DashboardTopNav
         {...{
           dashboardScale, headerQuickActions, activeDashboardPanel, openDashboardPanel,
