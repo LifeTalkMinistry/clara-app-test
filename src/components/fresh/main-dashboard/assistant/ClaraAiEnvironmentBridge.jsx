@@ -1,4 +1,5 @@
 import { useEffect } from "react";
+import ClaraAiEnvironmentOverlay from "@/components/fresh/main-dashboard/assistant/ClaraAiEnvironmentOverlay";
 import useClaraAiEnvironment from "@/components/fresh/main-dashboard/assistant/useClaraAiEnvironment";
 
 const CLARA_AI_ENVIRONMENT_STYLES = `
@@ -73,5 +74,15 @@ export default function ClaraAiEnvironmentBridge() {
     };
   }, [claraAiEnvironment.isActive]);
 
-  return <style>{CLARA_AI_ENVIRONMENT_STYLES}</style>;
+  return (
+    <>
+      <style>{CLARA_AI_ENVIRONMENT_STYLES}</style>
+
+      <ClaraAiEnvironmentOverlay
+        isActive={claraAiEnvironment.isActive}
+        messages={claraAiEnvironment.messages}
+        requestFeaturePrompt={claraAiEnvironment.requestFeaturePrompt}
+      />
+    </>
+  );
 }
