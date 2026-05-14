@@ -15,8 +15,6 @@ export default function DashboardMoneySummaryStable({
   toggleMoneySummaryVisibility,
   moneyLeftSummaryHandlers = {},
   handleMoneyLeftOrbClick,
-  startMoneyLeftOrbLongPress,
-  endMoneyLeftOrbLongPress,
   stopMoneyLeftOrbEvent,
   walletMoney = 0,
   thisMonthSpent = 0,
@@ -82,21 +80,19 @@ export default function DashboardMoneySummaryStable({
       stopOrbEvent(event);
       longPressTriggeredRef.current = false;
       clearLongPressTimer();
-      startMoneyLeftOrbLongPress?.(event);
 
       longPressTimerRef.current = setTimeout(() => {
         longPressTriggeredRef.current = true;
         clearTapTimer();
       }, LONG_PRESS_DELAY);
     },
-    [clearLongPressTimer, clearTapTimer, startMoneyLeftOrbLongPress, stopOrbEvent]
+    [clearLongPressTimer, clearTapTimer, stopOrbEvent]
   );
 
   const handleOrbPointerUp = useCallback(
     (event) => {
       stopOrbEvent(event);
       clearLongPressTimer();
-      endMoneyLeftOrbLongPress?.(event);
 
       if (longPressTriggeredRef.current) {
         longPressTriggeredRef.current = false;
@@ -123,7 +119,6 @@ export default function DashboardMoneySummaryStable({
     [
       clearLongPressTimer,
       clearTapTimer,
-      endMoneyLeftOrbLongPress,
       openManualLog,
       openTransactionHub,
       stopOrbEvent,
@@ -134,10 +129,9 @@ export default function DashboardMoneySummaryStable({
     (event) => {
       stopOrbEvent(event);
       clearLongPressTimer();
-      endMoneyLeftOrbLongPress?.(event);
       longPressTriggeredRef.current = false;
     },
-    [clearLongPressTimer, endMoneyLeftOrbLongPress, stopOrbEvent]
+    [clearLongPressTimer, stopOrbEvent]
   );
 
   const handleOrbClick = useCallback(
