@@ -345,14 +345,6 @@ function classifyExpenseAgainstBudget(command = {}, monthlyBudgetPlan = null) {
   };
 }
 
-function buildBudgetReasonQuestion(command = {}) {
-  const amountText = command.amount
-    ? `₱${Number(command.amount).toLocaleString("en-PH", { maximumFractionDigits: 0 })}`
-    : "this amount";
-
-  return `I can see ${command.item} is not part of your current budget list. Why did you need to spend ${amountText} on it? I’ll log it as unplanned after your reason.`;
-}
-
 function isYesConfirmation(text = "") {
   const clean = normalizeMatchText(text);
   return (
@@ -379,15 +371,6 @@ function isNoConfirmation(text = "") {
   );
 }
 
-function buildBudgetMatchQuestion(command = {}, budgetReview = {}) {
-  const budgetName = budgetReview.budgetCategory || budgetReview.category || "this budget";
-  const amountText = command.amount
-    ? `₱${Number(command.amount).toLocaleString("en-PH", { maximumFractionDigits: 0 })}`
-    : "this amount";
-
-  return `I detected ${command.item} is closest to your "${budgetName}" budget. Should I log the ${amountText} there?`;
-}
-
 function formatWalletChoices(wallets = []) {
   const names = safeArray(wallets)
     .map((wallet) => getWalletName(wallet))
@@ -395,28 +378,6 @@ function formatWalletChoices(wallets = []) {
     .slice(0, 5);
 
   return names.length ? names.join(", ") : "No wallets are visible right now";
-}
-
-function buildWalletQuestion(command = {}, wallets = []) {
-  const amountText = command.amount
-    ? `₱${Number(command.amount).toLocaleString("en-PH", { maximumFractionDigits: 0 })}`
-    : "this expense";
-
-  if (command.reason === "wallet_not_found" && command.requestedWalletName) {
-    return `I couldn’t find “${command.requestedWalletName}” in your wallets. Which wallet should I use for the ${amountText} ${command.item}? Visible wallets: ${formatWalletChoices(wallets)}.`;
-  }
-
-  return `May I know which wallet you used for the ${amountText} ${command.item}?`;
-}
-
-function buildFinalExpenseQuestion(command = {}, review = {}, fmt = (value) => String(value ?? 0)) {
-  const statusText =
-    review.planningStatus === "planned"
-      ? `Planned under ${review.budgetCategory || review.category || "your budget"}`
-      : "Unplanned spending";
-  const reasonText = review.reason ? `\nReason: “${review.reason}”` : "";
-
-  return `All set. Should I log this now?\n${fmt(command.amount)} • ${command.item} • ${command.walletName}\n${statusText}${reasonText}`;
 }
 
 function detectBehaviorFromReason(reason = "", command = {}) {
@@ -912,7 +873,7 @@ export default function DashboardMoneySummary({
       const review = budgetReview || classifyExpenseAgainstBudget(command, monthlyBudgetPlan);
 
       if (review.requiresReason) {
-        return buildBudgetReasonQuestion(command);
+        throw new Error("CLARA expense reason is required before logging.");
       }
 
       const walletBalance = getWalletVisibleBalance(command.wallet);
@@ -957,11 +918,12 @@ export default function DashboardMoneySummary({
 
       const nextBalance = Math.max(walletBalance - command.amount, 0);
 
-      if (isPlanned) {
-        return `Done ✅ Logged ${fmt(command.amount)} for ${command.item} from ${command.walletName} under your ${review.budgetCategory} budget. That wallet should now be around ${fmt(nextBalance)}.`;
-      }
-
-      return `Done ✅ Logged ${fmt(command.amount)} for ${command.item} from ${command.walletName} as unplanned. I saved the reason: “${reason}”. That wallet should now be around ${fmt(nextBalance)}.`;
+      return {
+        saved: true,
+        nextBalance,
+        isPlanned,
+        reason,
+      };
     },
     [fmt, monthlyBudgetPlan, wallets]
   );
@@ -1023,70 +985,59 @@ export default function DashboardMoneySummary({
     [claraFinanceContext, claraMessages, fmt, thisMonthSpent, walletMoney]
   );
 
-
-  const humanizeExpenseFlowFallback = useCallback(
-    (flowContext = {}) => {
+  const resolveExpenseFlowReply = useCallback(
+    async (flowContext = {}) => {
       const command = flowContext.command || {};
       const review = flowContext.review || {};
-      const amountText = command.amount ? fmt(command.amount) : "that expense";
-      const itemText = command.item || "that";
-      const walletText = command.walletName || command.requestedWalletName || "that wallet";
-      const budgetText = review.budgetCategory || review.category || "that budget";
+      const amountText = command.amount ? fmt(command.amount) : "the amount";
+      const itemText = command.item || "the item";
+      const walletText = command.walletName || command.requestedWalletName || "";
+      const budgetText = review.budgetCategory || review.category || "";
       const visibleWallets = flowContext.visibleWallets || formatWalletChoices(wallets);
 
-      switch (flowContext.step) {
-        case "ask_wallet":
-          return `Got it — ${amountText} for ${itemText}. Which wallet did you use?`;
-        case "wallet_not_found":
-          return `I couldn’t match that wallet yet. Which one should I use? I can see: ${visibleWallets}.`;
-        case "budget_match_confirmation":
-          return `This looks closest to your ${budgetText} budget. Should I log ${amountText} for ${itemText} there?`;
-        case "ask_unplanned_reason":
-        case "ask_unplanned_reason_after_budget_rejection":
-          return `Okay, I’ll mark this as unplanned. What was the reason for buying ${itemText}?`;
-        case "final_confirmation":
-          return `Ready to save this? ${amountText} for ${itemText} from ${walletText}${review.planningStatus === "planned" ? ` under ${budgetText}` : " as unplanned"}.`;
-        case "clarify_budget_confirmation":
-          return `Should I place this under ${budgetText}, or mark it as unplanned?`;
-        case "clarify_final_confirmation":
-          return "Should I log it now, or cancel it?";
-        case "cancel_log":
-          return "No problem — I won’t log it.";
-        case "save_failed":
-          return "I understood it, but I couldn’t save it yet. Please try again.";
-        default:
-          return "Got it. What should we do next?";
-      }
-    },
-    [fmt, wallets]
-  );
+      const flowPrompt = `You are CLARA, a warm Filipino-friendly personal money coach inside an expense logging chat.
 
-  const resolveExpenseFlowReply = useCallback(
-    async (fallbackReply, flowContext = {}) => {
-      const fallback = String(fallbackReply || "").trim();
-      const naturalFallback = humanizeExpenseFlowFallback(flowContext);
-      if (!fallback && !naturalFallback) return "";
+IMPORTANT:
+You fully manage the conversation wording.
+Do not sound like a static template.
+Do not say "I can see..." unless it sounds natural.
+Acknowledge what the user bought in a human way when helpful.
+If the item is a drink or food, you may naturally say it sounds refreshing or nice, but do not overdo it.
+Ask only the next required question.
+Keep it short: 1-2 sentences.
+Understand user typos and casual replies.
+Do not invent a wallet, amount, category, or reason.
+Do not log the expense yourself in the text unless the step is done_saved.
+
+CURRENT STEP:
+${flowContext.step}
+
+KNOWN EXPENSE DATA:
+Item: ${itemText}
+Amount: ${amountText}
+Wallet: ${walletText || "not chosen yet"}
+Closest budget/category: ${budgetText || "none yet"}
+Planning status: ${review.planningStatus || "not decided yet"}
+Reason if any: ${review.reason || "none yet"}
+Visible wallets: ${visibleWallets}
+User's last reply: ${flowContext.userReply || ""}
+
+WHAT TO DO BY STEP:
+- ask_wallet: acknowledge the purchase naturally and ask which wallet was used.
+- wallet_not_found: politely say that wallet did not match and ask which visible wallet to use.
+- budget_match_confirmation: say the item seems closest to the budget/category and ask if it should be logged there.
+- ask_unplanned_reason: say you'll treat it as unplanned and ask the reason.
+- ask_unplanned_reason_after_budget_rejection: acknowledge their correction, say you'll mark it unplanned, then ask why.
+- final_confirmation: summarize the expense naturally and ask if you should log it now.
+- clarify_budget_confirmation: ask them to choose budget/category or unplanned.
+- clarify_final_confirmation: ask if they want to log it now or cancel.
+- cancel_log: confirm you did not log it.
+- save_failed: say you understood it but saving failed.
+- done_saved: confirm it was logged.
+
+Reply as CLARA only.`;
 
       try {
-        const flowPrompt = `You are CLARA inside a real expense-logging conversation.
-
-The app already decided the safe next step. You must turn that step into a natural reply.
-Do NOT output the exact required meaning. Rewrite it like a human money coach.
-
-Rules:
-- Keep the same item, amount, wallet, budget category, and required question.
-- Understand casual wording and misspellings from the user's last reply.
-- Do not invent a new wallet, amount, category, reason, or decision.
-- Keep it short: 1-2 natural sentences.
-- Ask only one question.
-- Never sound like a template.
-
-Required next step:
-${fallback || naturalFallback}
-
-Expense-flow state:
-${JSON.stringify(flowContext, null, 2)}`;
-
         return await generateClaraGeminiReply({
           message: flowPrompt,
           context: claraFinanceContext,
@@ -1094,17 +1045,17 @@ ${JSON.stringify(flowContext, null, 2)}`;
           conversationHistory: claraMessages,
         });
       } catch (error) {
-        console.warn("CLARA Gemini expense-flow wording fallback used:", error);
-        return naturalFallback || fallback;
+        console.warn("CLARA Gemini expense-flow reply failed:", error);
+        return "I’m having trouble with my AI reply right now. Please try again in a moment.";
       }
     },
-    [claraFinanceContext, claraMessages, humanizeExpenseFlowFallback]
+    [claraFinanceContext, claraMessages, fmt, wallets]
   );
 
   const replaceWithExpenseFlowReply = useCallback(
-    (messageId, fallbackReply, flowContext = {}) => {
-      resolveExpenseFlowReply(fallbackReply, flowContext).then((reply) => {
-        replaceClaraMessage(messageId, reply || fallbackReply);
+    (messageId, flowContext = {}) => {
+      resolveExpenseFlowReply(flowContext).then((reply) => {
+        replaceClaraMessage(messageId, reply);
       });
     },
     [replaceClaraMessage, resolveExpenseFlowReply]
@@ -1121,10 +1072,8 @@ ${JSON.stringify(flowContext, null, 2)}`;
         setPendingExpenseReview(null);
         setPendingBudgetConfirmation(null);
 
-        const question = buildFinalExpenseQuestion(command, review, fmt);
-
         if (sourceMessageId) {
-          replaceWithExpenseFlowReply(sourceMessageId, question, {
+          replaceWithExpenseFlowReply(sourceMessageId, {
             step: "final_confirmation",
             command,
             review,
@@ -1132,8 +1081,13 @@ ${JSON.stringify(flowContext, null, 2)}`;
           return;
         }
 
-        const pendingMessage = makeClaraMessage("clara", question);
+        const pendingMessage = makeClaraMessage("clara", CLARA_THINKING_REPLY);
         appendUserAndPendingMessage(text, pendingMessage);
+        replaceWithExpenseFlowReply(pendingMessage.id, {
+          step: "final_confirmation",
+          command,
+          review,
+        });
       };
 
       const continueWithCompletedCommand = (command, pendingMessageId) => {
@@ -1148,7 +1102,6 @@ ${JSON.stringify(flowContext, null, 2)}`;
           setPendingFinalExpenseConfirmation(null);
           replaceWithExpenseFlowReply(
             pendingMessageId,
-            buildBudgetMatchQuestion(command, budgetReview),
             {
               step: "budget_match_confirmation",
               command,
@@ -1165,7 +1118,6 @@ ${JSON.stringify(flowContext, null, 2)}`;
           setPendingFinalExpenseConfirmation(null);
           replaceWithExpenseFlowReply(
             pendingMessageId,
-            buildBudgetReasonQuestion(command),
             {
               step: "ask_unplanned_reason",
               command,
@@ -1187,12 +1139,17 @@ ${JSON.stringify(flowContext, null, 2)}`;
           setPendingFinalExpenseConfirmation(null);
 
           logExpenseFromChat(command, review)
-            .then((reply) => replaceClaraMessage(pendingMessage.id, reply))
+            .then(() => {
+              replaceWithExpenseFlowReply(pendingMessage.id, {
+                step: "done_saved",
+                command,
+                review,
+              });
+            })
             .catch((error) => {
               console.warn("CLARA chat expense log failed:", error);
               replaceWithExpenseFlowReply(
                 pendingMessage.id,
-                "I confirmed everything, but I couldn’t save the expense yet. Please try again or use the manual expense button.",
                 {
                   step: "save_failed",
                   error: String(error?.message || error),
@@ -1207,7 +1164,6 @@ ${JSON.stringify(flowContext, null, 2)}`;
           appendUserAndPendingMessage(text, pendingMessage);
           replaceWithExpenseFlowReply(
             pendingMessage.id,
-            "No problem. I didn’t log it. You can send the expense again if you want to change anything.",
             {
               step: "cancel_log",
               userReply: text,
@@ -1222,7 +1178,6 @@ ${JSON.stringify(flowContext, null, 2)}`;
         appendUserAndPendingMessage(text, pendingMessage);
         replaceWithExpenseFlowReply(
           pendingMessage.id,
-          "Please answer yes to log it now, or no to cancel.",
           {
             step: "clarify_final_confirmation",
             userReply: text,
@@ -1240,7 +1195,6 @@ ${JSON.stringify(flowContext, null, 2)}`;
         if (!wallet) {
           replaceWithExpenseFlowReply(
             pendingMessage.id,
-            `I couldn’t find “${text}” in your wallets. Which wallet should I use? Visible wallets: ${formatWalletChoices(wallets)}.`,
             {
               step: "wallet_not_found",
               userReply: text,
@@ -1293,7 +1247,6 @@ ${JSON.stringify(flowContext, null, 2)}`;
           appendUserAndPendingMessage(text, pendingMessage);
           replaceWithExpenseFlowReply(
             pendingMessage.id,
-            "Alright. I’ll treat this as unplanned spending. What made this purchase necessary?",
             {
               step: "ask_unplanned_reason_after_budget_rejection",
               command: pendingBudgetConfirmation.command,
@@ -1323,7 +1276,6 @@ ${JSON.stringify(flowContext, null, 2)}`;
         appendUserAndPendingMessage(text, pendingMessage);
         replaceWithExpenseFlowReply(
           pendingMessage.id,
-          "Please answer yes if I should log it under that budget, or no if this should be treated as unplanned.",
           {
             step: "clarify_budget_confirmation",
             command: pendingBudgetConfirmation.command,
@@ -1368,7 +1320,6 @@ ${JSON.stringify(flowContext, null, 2)}`;
           setPendingFinalExpenseConfirmation(null);
           replaceWithExpenseFlowReply(
             pendingMessage.id,
-            buildWalletQuestion(expenseCommand, wallets),
             {
               step: expenseCommand.reason === "wallet_not_found" ? "wallet_not_found" : "ask_wallet",
               command: expenseCommand,
