@@ -1,6 +1,8 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import ClaraAiEnvironmentOverlay from "@/components/fresh/main-dashboard/assistant/ClaraAiEnvironmentOverlay";
 import useClaraAiEnvironment from "@/components/fresh/main-dashboard/assistant/useClaraAiEnvironment";
+import useFinancialData from "@/hooks/useFinancialData";
+import useUserRole from "@/hooks/useUserRole";
 
 const LONG_PRESS_DELAY = 520;
 const DASHBOARD_DEFAULT_GUARD_VERSION = "dashboard-default-ai-mode-v2";
@@ -28,10 +30,50 @@ function isMoneyLeftOrbTarget(target) {
 
 export default function ClaraAiEnvironmentBridge() {
   const claraAiEnvironment = useClaraAiEnvironment();
+  const { user } = useUserRole();
+
+  const {
+    expenses = [],
+    wallets = [],
+    walletTransactions = [],
+    transfers = [],
+    budgets = [],
+    savingsGoals = [],
+    emergencyFund = null,
+    loading = false,
+    refreshing = false,
+  } = useFinancialData(user);
+
+  const claraAssistantContext = useMemo(
+    () => ({
+      user,
+      expenses,
+      wallets,
+      walletTransactions,
+      transfers,
+      budgets,
+      savingsGoals,
+      emergencyFund,
+      loading,
+      refreshing,
+    }),
+    [
+      user,
+      expenses,
+      wallets,
+      walletTransactions,
+      transfers,
+      budgets,
+      savingsGoals,
+      emergencyFund,
+      loading,
+      refreshing,
+    ]
+  );
+
   const [overlayVisible, setOverlayVisible] = useState(false);
   const longPressTimerRef = useRef(null);
 
-  // Dashboard must always be the default state. Only this local bridge state can show the fullscreen AI layer.
   const isActive = overlayVisible;
 
   useEffect(() => {
@@ -119,6 +161,7 @@ export default function ClaraAiEnvironmentBridge() {
       <ClaraAiEnvironmentOverlay
         isActive={isActive}
         messages={claraAiEnvironment.messages}
+        claraAssistantContext={claraAssistantContext}
         requestFeaturePrompt={claraAiEnvironment.requestFeaturePrompt}
         onClose={closeOverlay}
       />
