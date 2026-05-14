@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { Send, ShieldCheck, Sparkles } from "lucide-react";
+import { Plus, Send, ShieldCheck, Sparkles } from "lucide-react";
 import {
   CLARA_DECISION_STYLES,
   evaluateClaraPurchaseDecision,
@@ -121,12 +121,21 @@ export default function ClaraAskBeforeSpendCard({
 
           <form onSubmit={handleSubmit} className="mt-3">
             <div className="flex items-center gap-2 rounded-[23px] border border-white/12 bg-[#050b17]/78 px-3 py-2.5 shadow-[inset_0_1px_0_rgba(255,255,255,0.07)]">
+              <button
+                type="button"
+                className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-white/10 bg-white/[0.06] text-white/70 transition duration-200 hover:bg-white/[0.10] active:scale-95"
+                aria-label="Start expense log"
+              >
+                <Plus className="h-4 w-4" />
+              </button>
+
               <input
                 value={prompt}
                 onChange={(event) => setPrompt(event.target.value)}
                 placeholder="Coffee ₱180, shoes ₱1,200..."
                 className="min-w-0 flex-1 bg-transparent text-sm font-bold text-white outline-none placeholder:text-white/35"
               />
+
               <button
                 type="submit"
                 disabled={!canAsk}
