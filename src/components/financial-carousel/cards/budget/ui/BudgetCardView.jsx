@@ -214,6 +214,8 @@ function ClaraBudgetDecisionScreen({
   onMinimize,
 }) {
   const messagesEndRef = useRef(null);
+  const screenRef = useRef(null);
+  const [keyboardInset, setKeyboardInset] = useState(0);
 
   const visibleMessages = useMemo(() => {
     const source = Array.isArray(messages) && messages.length ? messages : FALLBACK_MESSAGES;
@@ -228,8 +230,44 @@ function ClaraBudgetDecisionScreen({
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
   }, [visibleMessages]);
 
+  useEffect(() => {
+    const visualViewport = window.visualViewport;
+    if (!visualViewport) return undefined;
+
+    const updateKeyboardInset = () => {
+      const inset = Math.max(
+        0,
+        window.innerHeight - visualViewport.height - visualViewport.offsetTop
+      );
+
+      setKeyboardInset(inset);
+
+      if (inset > 80) {
+        window.requestAnimationFrame(() => {
+          screenRef.current?.scrollIntoView?.({ behavior: "smooth", block: "start" });
+        });
+      }
+    };
+
+    updateKeyboardInset();
+    visualViewport.addEventListener("resize", updateKeyboardInset);
+    visualViewport.addEventListener("scroll", updateKeyboardInset);
+
+    return () => {
+      visualViewport.removeEventListener("resize", updateKeyboardInset);
+      visualViewport.removeEventListener("scroll", updateKeyboardInset);
+    };
+  }, []);
+
   return (
-    <div className="relative flex h-full min-h-[inherit] flex-col overflow-hidden rounded-3xl border border-cyan-200/18 bg-slate-950/88 p-4 text-white backdrop-blur-2xl">
+    <div
+      ref={screenRef}
+      className="relative flex h-full max-h-[100dvh] min-h-0 flex-col overflow-hidden rounded-3xl border border-cyan-200/18 bg-slate-950/88 p-4 text-white backdrop-blur-2xl"
+      style={{
+        maxHeight: keyboardInset > 80 ? "calc(100dvh - 12px)" : "100%",
+        paddingBottom: keyboardInset > 80 ? "calc(env(safe-area-inset-bottom) + 10px)" : "env(safe-area-inset-bottom)",
+      }}
+    >
       <div className="pointer-events-none absolute -left-16 -top-16 h-40 w-40 rounded-full bg-cyan-300/12 blur-3xl" />
       <div className="pointer-events-none absolute -bottom-20 right-0 h-48 w-48 rounded-full bg-indigo-400/12 blur-3xl" />
 
@@ -251,24 +289,32 @@ function ClaraBudgetDecisionScreen({
       </div>
 
       {!hasActiveConversation && (
-        <div className="relative z-10 mt-6 flex min-h-0 flex-1 flex-col justify-end gap-5 pb-1">
-          <div className="flex items-center">
-            <ClaraGuideBubbleCarousel
+        <div
+          className="relative z-10 mt-6 min-h-0 flex-1 overflow-y-auto pr-1 overscroll-contain pb-32"
+          style={{ WebkitOverflowScrolling: "touch" }}
+        >
+          <div className="flex min-h-full flex-col justify-end gap-5 pb-1">
+            <div className="flex items-center">
+              <ClaraGuideBubbleCarousel
+                activeGroup={activeGuideGroup}
+                onSelectFeature={onSelectFeature}
+              />
+            </div>
+
+            <ClaraQuickActions
               activeGroup={activeGuideGroup}
-              onSelectFeature={onSelectFeature}
+              onSelectGroup={onSelectGuideGroup}
             />
           </div>
-
-          <ClaraQuickActions
-            activeGroup={activeGuideGroup}
-            onSelectGroup={onSelectGuideGroup}
-          />
         </div>
       )}
 
       {hasActiveConversation && (
-        <div className="relative z-10 mt-4 min-h-0 flex-1 overflow-y-auto pr-1 overscroll-contain">
-          <div className="flex min-h-full flex-col justify-end gap-2 pb-2">
+        <div
+          className="relative z-10 mt-4 min-h-0 flex-1 overflow-y-auto pr-1 overscroll-contain pb-32"
+          style={{ WebkitOverflowScrolling: "touch" }}
+        >
+          <div className="flex min-h-full flex-col justify-end gap-2 pb-6">
             {visibleMessages.map((message) => {
               const isUser = message.role === "user";
 
@@ -378,7 +424,7 @@ export default function BudgetCardView({
 
   if (claraChatState.active) {
     return (
-      <div className="flex h-full min-h-[inherit] flex-col">
+      <div className="flex h-full max-h-[100dvh] min-h-0 flex-col overflow-y-auto pb-[env(safe-area-inset-bottom)]">
         <ClaraBudgetDecisionScreen
           messages={claraChatState.messages}
           selectedDashboardTheme={selectedDashboardTheme}
