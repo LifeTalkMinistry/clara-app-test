@@ -1,5 +1,9 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import ClaraAiEnvironmentOverlay from "@/components/fresh/main-dashboard/assistant/ClaraAiEnvironmentOverlay";
+import {
+  CLARA_MONEY_CHAT_EVENT,
+  CLARA_MONEY_CHAT_REQUEST_EVENT,
+} from "@/components/fresh/main-dashboard/assistant/useClaraAiEnvironment";
 import useClaraAiEnvironment from "@/components/fresh/main-dashboard/assistant/useClaraAiEnvironment";
 
 const CLARA_AI_ENVIRONMENT_STYLES = `
@@ -32,28 +36,27 @@ const CLARA_AI_ENVIRONMENT_STYLES = `
   [data-clara-ai-focus-anchor="money-summary"] {
     transition: transform 360ms cubic-bezier(0.22, 1, 0.36, 1);
   }
-
-  @media (prefers-reduced-motion: reduce) {
-    .clara-ai-environment-active [data-clara-ai-background="true"],
-    [data-clara-ai-background="true"],
-    .clara-ai-environment-active [data-clara-ai-focus-anchor="money-summary"],
-    [data-clara-ai-focus-anchor="money-summary"] {
-      transition-duration: 0ms !important;
-      transform: none !important;
-      will-change: auto !important;
-    }
-  }
 `;
+
+function hasInlineClaraInput() {
+  if (typeof document === "undefined") return false;
+
+  return Boolean(
+    document.querySelector('input[placeholder*="Item + price"], input[placeholder*="shoes ₱1,200"]')
+  );
+}
 
 export default function ClaraAiEnvironmentBridge() {
   const claraAiEnvironment = useClaraAiEnvironment();
+  const [forceActive, setForceActive] = useState(false);
+
+  const isActive = Boolean(claraAiEnvironment.isActive || forceActive);
 
   useEffect(() => {
     if (typeof document === "undefined") return undefined;
 
     const root = document.documentElement;
     const body = document.body;
-    const isActive = Boolean(claraAiEnvironment.isActive);
 
     root.classList.toggle("clara-ai-environment-active", isActive);
     root.dataset.claraAiMode = isActive ? "active" : "idle";
@@ -72,34 +75,41 @@ export default function ClaraAiEnvironmentBridge() {
         delete body.dataset.claraAiMode;
       }
     };
-  }, [claraAiEnvironment.isActive]);
+  }, [isActive]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return undefined;
+
+    const activateOverlay = () => {
+      setForceActive(true);
+      claraAiEnvironment.activateOverlay?.("forced-overlay");
+    };
+
+    window.addEventListener(CLARA_MONEY_CHAT_EVENT, activateOverlay);
+    window.addEventListener(CLARA_MONEY_CHAT_REQUEST_EVENT, activateOverlay);
+
+    return () => {
+      window.removeEventListener(CLARA_MONEY_CHAT_EVENT, activateOverlay);
+      window.removeEventListener(CLARA_MONEY_CHAT_REQUEST_EVENT, activateOverlay);
+    };
+  }, [claraAiEnvironment]);
 
   useEffect(() => {
     if (typeof document === "undefined") return undefined;
 
-    const activateFromMoneyOrb = (event) => {
-      const target = event.target;
-      const orb = target?.closest?.('[data-clara-manual-expense-orb="true"]');
+    const observer = new MutationObserver(() => {
+      if (!hasInlineClaraInput()) return;
 
-      if (!orb) return;
+      setForceActive(true);
+      claraAiEnvironment.activateOverlay?.("inline-detected");
+    });
 
-      event.preventDefault?.();
-      event.stopPropagation?.();
-      event.stopImmediatePropagation?.();
-      event.nativeEvent?.stopImmediatePropagation?.();
+    observer.observe(document.body, {
+      childList: true,
+      subtree: true,
+    });
 
-      claraAiEnvironment.activateOverlay?.("money-left-orb");
-    };
-
-    document.addEventListener("pointerdown", activateFromMoneyOrb, true);
-    document.addEventListener("click", activateFromMoneyOrb, true);
-    document.addEventListener("touchstart", activateFromMoneyOrb, true);
-
-    return () => {
-      document.removeEventListener("pointerdown", activateFromMoneyOrb, true);
-      document.removeEventListener("click", activateFromMoneyOrb, true);
-      document.removeEventListener("touchstart", activateFromMoneyOrb, true);
-    };
+    return () => observer.disconnect();
   }, [claraAiEnvironment]);
 
   return (
@@ -107,7 +117,7 @@ export default function ClaraAiEnvironmentBridge() {
       <style>{CLARA_AI_ENVIRONMENT_STYLES}</style>
 
       <ClaraAiEnvironmentOverlay
-        isActive={claraAiEnvironment.isActive}
+        isActive={isActive}
         messages={claraAiEnvironment.messages}
         requestFeaturePrompt={claraAiEnvironment.requestFeaturePrompt}
       />
