@@ -74,6 +74,34 @@ export default function ClaraAiEnvironmentBridge() {
     };
   }, [claraAiEnvironment.isActive]);
 
+  useEffect(() => {
+    if (typeof document === "undefined") return undefined;
+
+    const activateFromMoneyOrb = (event) => {
+      const target = event.target;
+      const orb = target?.closest?.('[data-clara-manual-expense-orb="true"]');
+
+      if (!orb) return;
+
+      event.preventDefault?.();
+      event.stopPropagation?.();
+      event.stopImmediatePropagation?.();
+      event.nativeEvent?.stopImmediatePropagation?.();
+
+      claraAiEnvironment.activateOverlay?.("money-left-orb");
+    };
+
+    document.addEventListener("pointerdown", activateFromMoneyOrb, true);
+    document.addEventListener("click", activateFromMoneyOrb, true);
+    document.addEventListener("touchstart", activateFromMoneyOrb, true);
+
+    return () => {
+      document.removeEventListener("pointerdown", activateFromMoneyOrb, true);
+      document.removeEventListener("click", activateFromMoneyOrb, true);
+      document.removeEventListener("touchstart", activateFromMoneyOrb, true);
+    };
+  }, [claraAiEnvironment]);
+
   return (
     <>
       <style>{CLARA_AI_ENVIRONMENT_STYLES}</style>
