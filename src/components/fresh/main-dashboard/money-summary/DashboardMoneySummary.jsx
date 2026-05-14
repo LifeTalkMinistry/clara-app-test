@@ -49,6 +49,20 @@ function normalizeMatchText(value) {
     .trim();
 }
 
+function normalizeWalletCandidate(value) {
+  return normalizeMatchText(value)
+    .replace(/\b(walet|walllet|wallett)\b/g, "wallet")
+    .replace(/\b(pls|please|po|lang|na|naman|use|using|from|via|with)\b/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function looksLikeOnlyExpenseVerb(value = "") {
+  return /^(i\s+)?(bought|spent|paid|purchased|ordered|got|had|logged|log|recorded|record)$/i.test(
+    String(value || "").trim()
+  );
+}
+
 function getWalletName(wallet = {}) {
   return String(
     wallet.name ||
@@ -85,13 +99,20 @@ function getLocalUserIdFromWallets(wallets = []) {
 
 function findWalletByName(wallets = [], name = "") {
   const safeWallets = safeArray(wallets);
-  const normalizedName = normalizeMatchText(name);
+  const normalizedName = normalizeWalletCandidate(name);
   if (!normalizedName) return null;
 
+  const normalizedTokens = normalizedName.split(" ").filter(Boolean);
+
   return (
-    safeWallets.find((wallet) => normalizeMatchText(getWalletName(wallet)) === normalizedName) ||
-    safeWallets.find((wallet) => normalizeMatchText(getWalletName(wallet)).includes(normalizedName)) ||
-    safeWallets.find((wallet) => normalizedName.includes(normalizeMatchText(getWalletName(wallet)))) ||
+    safeWallets.find((wallet) => normalizeWalletCandidate(getWalletName(wallet)) === normalizedName) ||
+    safeWallets.find((wallet) => normalizeWalletCandidate(getWalletName(wallet)).includes(normalizedName)) ||
+    safeWallets.find((wallet) => normalizedName.includes(normalizeWalletCandidate(getWalletName(wallet)))) ||
+    safeWallets.find((wallet) => {
+      const walletName = normalizeWalletCandidate(getWalletName(wallet));
+      const walletTokens = walletName.split(" ").filter(Boolean);
+      return walletTokens.length > 0 && walletTokens.every((token) => normalizedTokens.includes(token));
+    }) ||
     null
   );
 }
@@ -141,6 +162,16 @@ function parseExpenseLogCommand(text = "", wallets = []) {
   if (!item && /\b(on|for)\b/i.test(rawText)) {
     const afterFor = rawText.match(/\b(?:on|for)\s+(.+?)\s+(?:₱|php\s*)?\d/i);
     item = String(afterFor?.[1] || "").trim();
+  }
+
+  const afterAmount = rawText
+    .slice(amountMatch.index + amountMatch[0].length)
+    .replace(/\b(?:using|from|via|with)\s+.+$/i, "")
+    .replace(/^(for|on)\s+/i, "")
+    .trim();
+
+  if (!item || looksLikeOnlyExpenseVerb(item)) {
+    item = afterAmount || item;
   }
 
   item = item || "Expense";
@@ -993,29 +1024,67 @@ export default function DashboardMoneySummary({
   );
 
 
+  const humanizeExpenseFlowFallback = useCallback(
+    (flowContext = {}) => {
+      const command = flowContext.command || {};
+      const review = flowContext.review || {};
+      const amountText = command.amount ? fmt(command.amount) : "that expense";
+      const itemText = command.item || "that";
+      const walletText = command.walletName || command.requestedWalletName || "that wallet";
+      const budgetText = review.budgetCategory || review.category || "that budget";
+      const visibleWallets = flowContext.visibleWallets || formatWalletChoices(wallets);
+
+      switch (flowContext.step) {
+        case "ask_wallet":
+          return `Got it — ${amountText} for ${itemText}. Which wallet did you use?`;
+        case "wallet_not_found":
+          return `I couldn’t match that wallet yet. Which one should I use? I can see: ${visibleWallets}.`;
+        case "budget_match_confirmation":
+          return `This looks closest to your ${budgetText} budget. Should I log ${amountText} for ${itemText} there?`;
+        case "ask_unplanned_reason":
+        case "ask_unplanned_reason_after_budget_rejection":
+          return `Okay, I’ll mark this as unplanned. What was the reason for buying ${itemText}?`;
+        case "final_confirmation":
+          return `Ready to save this? ${amountText} for ${itemText} from ${walletText}${review.planningStatus === "planned" ? ` under ${budgetText}` : " as unplanned"}.`;
+        case "clarify_budget_confirmation":
+          return `Should I place this under ${budgetText}, or mark it as unplanned?`;
+        case "clarify_final_confirmation":
+          return "Should I log it now, or cancel it?";
+        case "cancel_log":
+          return "No problem — I won’t log it.";
+        case "save_failed":
+          return "I understood it, but I couldn’t save it yet. Please try again.";
+        default:
+          return "Got it. What should we do next?";
+      }
+    },
+    [fmt, wallets]
+  );
+
   const resolveExpenseFlowReply = useCallback(
     async (fallbackReply, flowContext = {}) => {
       const fallback = String(fallbackReply || "").trim();
-      if (!fallback) return "";
+      const naturalFallback = humanizeExpenseFlowFallback(flowContext);
+      if (!fallback && !naturalFallback) return "";
 
       try {
-        const flowPrompt = `You are CLARA inside an expense-logging conversation.
+        const flowPrompt = `You are CLARA inside a real expense-logging conversation.
 
-Your job is NOT to decide the finance action. The app already decided the next safe step.
-Rewrite the required meaning below as a natural CLARA reply.
+The app already decided the safe next step. You must turn that step into a natural reply.
+Do NOT output the exact required meaning. Rewrite it like a human money coach.
 
 Rules:
-- Keep the same meaning, amount, wallet, item, budget category, and required question.
-- Do not invent a new wallet, amount, category, or conclusion.
-- Be conversational and forgiving of user typos/misspellings.
-- Keep it short: 1-3 sentences.
-- If asking a question, ask only that one question.
-- Do not sound robotic or static.
+- Keep the same item, amount, wallet, budget category, and required question.
+- Understand casual wording and misspellings from the user's last reply.
+- Do not invent a new wallet, amount, category, reason, or decision.
+- Keep it short: 1-2 natural sentences.
+- Ask only one question.
+- Never sound like a template.
 
-Required meaning:
-${fallback}
+Required next step:
+${fallback || naturalFallback}
 
-Current expense-flow context:
+Expense-flow state:
 ${JSON.stringify(flowContext, null, 2)}`;
 
         return await generateClaraGeminiReply({
@@ -1026,10 +1095,10 @@ ${JSON.stringify(flowContext, null, 2)}`;
         });
       } catch (error) {
         console.warn("CLARA Gemini expense-flow wording fallback used:", error);
-        return fallback;
+        return naturalFallback || fallback;
       }
     },
-    [claraFinanceContext, claraMessages]
+    [claraFinanceContext, claraMessages, humanizeExpenseFlowFallback]
   );
 
   const replaceWithExpenseFlowReply = useCallback(
