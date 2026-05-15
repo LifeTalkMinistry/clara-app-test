@@ -97,6 +97,9 @@ export default function EmergencyFundCard({
     handleTopUpSave,
   } = handlers;
 
+  const premiumActionClass =
+    "border-white/[0.045] bg-black/[0.105] text-white/84 shadow-[inset_0_1px_0_rgba(255,255,255,0.026),0_10px_22px_rgba(0,0,0,0.14)] backdrop-blur-sm hover:border-white/[0.07] hover:bg-white/[0.04]";
+
   return (
     <>
       <SurvivalExpenseModal
@@ -250,11 +253,11 @@ export default function EmergencyFundCard({
                       }}
                     />
                   ) : (
-                    <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(16,185,129,0.30),transparent_28%),radial-gradient(circle_at_top_right,rgba(59,130,246,0.18),transparent_28%),radial-gradient(circle_at_bottom_right,rgba(234,179,8,0.12),transparent_24%),linear-gradient(135deg,rgba(255,255,255,0.05)_0%,rgba(255,255,255,0.00)_35%,rgba(255,255,255,0.02)_100%)]" />
+                    <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(34,211,238,0.12),transparent_30%),radial-gradient(circle_at_top_right,rgba(124,58,237,0.14),transparent_32%),radial-gradient(circle_at_bottom_right,rgba(16,185,129,0.08),transparent_26%),linear-gradient(135deg,rgba(255,255,255,0.035)_0%,rgba(255,255,255,0.00)_40%,rgba(255,255,255,0.014)_100%)]" />
                   )}
 
-                  <div className="absolute inset-0 bg-gradient-to-b from-black/25 via-black/18 to-black/35" />
-                  <div className="absolute inset-0 bg-[linear-gradient(to_bottom,rgba(255,255,255,0.08),rgba(255,255,255,0.02)_16%,transparent_38%)]" />
+                  <div className="absolute inset-0 bg-gradient-to-b from-black/35 via-black/24 to-black/42" />
+                  <div className="absolute inset-0 bg-[linear-gradient(to_bottom,rgba(255,255,255,0.055),rgba(255,255,255,0.014)_18%,transparent_42%)]" />
 
                   <div className="relative z-10 flex h-full items-end p-4">
                     <div>
@@ -327,7 +330,7 @@ export default function EmergencyFundCard({
 
       <div
         data-emergency-card="true"
-        className={`relative flex h-full min-h-[inherit] flex-col overflow-hidden rounded-3xl border shadow-2xl transition-all duration-200 ${themeClasses.border} ${status.ring}`}
+        className={`relative flex h-full min-h-[inherit] flex-col overflow-hidden rounded-3xl border shadow-[0_26px_70px_rgba(0,0,0,0.48),0_0_28px_rgba(16,185,129,0.05),0_0_56px_rgba(88,28,135,0.10)] transition-all duration-200 ${themeClasses.border} ${status.ring}`}
         style={{ borderColor: themeClasses.outline }}
       >
         <div className="absolute inset-0" style={{ background: themeClasses.background }} />
@@ -341,11 +344,12 @@ export default function EmergencyFundCard({
             }}
           />
         ) : (
-          <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(16,185,129,0.30),transparent_28%),radial-gradient(circle_at_top_right,rgba(59,130,246,0.18),transparent_28%),radial-gradient(circle_at_bottom_right,rgba(234,179,8,0.12),transparent_24%),linear-gradient(135deg,rgba(255,255,255,0.05)_0%,rgba(255,255,255,0.00)_35%,rgba(255,255,255,0.02)_100%)]" />
+          <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_12%_0%,rgba(34,211,238,0.085),transparent_32%),radial-gradient(circle_at_90%_100%,rgba(124,58,237,0.15),transparent_48%),radial-gradient(circle_at_88%_14%,rgba(16,185,129,0.07),transparent_28%),linear-gradient(180deg,rgba(255,255,255,0.035),rgba(255,255,255,0.007)_38%,rgba(0,0,0,0.18)_100%)]" />
         )}
 
-        <div className="pointer-events-none absolute inset-0 bg-gradient-to-b from-black/25 via-black/18 to-black/35" />
-        <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(to_bottom,rgba(255,255,255,0.08),rgba(255,255,255,0.02)_16%,transparent_38%)]" />
+        <div className="pointer-events-none absolute inset-0 bg-gradient-to-b from-black/34 via-black/24 to-black/46" />
+        <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(to_bottom,rgba(255,255,255,0.052),rgba(255,255,255,0.012)_18%,transparent_42%)]" />
+        <div className="pointer-events-none absolute inset-0 rounded-[inherit] ring-1 ring-inset ring-white/[0.052]" />
 
         <div className="absolute right-4 top-[112px] z-20 sm:right-5 sm:top-[116px]">
           <button
@@ -359,27 +363,27 @@ export default function EmergencyFundCard({
             aria-label="Tap to log expense, double tap to open analytics, long press to open CLARA AI"
             title="Tap: Log expense • Double tap: Analytics • Long press: CLARA AI"
           >
-            <span className="absolute inset-[-5px] rounded-full bg-emerald-400/20 blur-md animate-[emergencyOrbPulse_1.8s_ease-in-out_infinite]" />
-            <span className="absolute inset-0 rounded-full bg-white/10 animate-[emergencyOrbBeat_1.8s_ease-in-out_infinite]" />
+            <span className="absolute inset-[-5px] rounded-full bg-emerald-400/14 blur-md animate-[emergencyOrbPulse_1.8s_ease-in-out_infinite]" />
+            <span className="absolute inset-0 rounded-full bg-white/[0.07] animate-[emergencyOrbBeat_1.8s_ease-in-out_infinite]" />
             <Sparkles className="relative z-10 h-4 w-4" />
           </button>
         </div>
 
         <style>{`
           @keyframes emergencyOrbPulse {
-            0%, 100% { opacity: 0.35; transform: scale(0.96); }
-            50% { opacity: 0.78; transform: scale(1.12); }
+            0%, 100% { opacity: 0.30; transform: scale(0.96); }
+            50% { opacity: 0.68; transform: scale(1.12); }
           }
           @keyframes emergencyOrbBeat {
-            0%, 100% { opacity: 0.45; transform: scale(0.98); }
-            45% { opacity: 0.95; transform: scale(1.04); }
+            0%, 100% { opacity: 0.40; transform: scale(0.98); }
+            45% { opacity: 0.82; transform: scale(1.04); }
           }
         `}</style>
 
-        <div className="relative z-10 flex h-full min-h-0 flex-col p-4">
+        <div className="relative z-10 flex h-full min-h-0 flex-col px-4 pb-4 pt-5">
           <div className={`${isExpanded ? "shrink-0" : "flex-1"} flex min-h-0 flex-col justify-between`}>
             <div>
-              <div className="mb-3 flex items-start gap-3">
+              <div className="mb-4 flex items-start gap-3">
                 <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border backdrop-blur-sm ${themeClasses.iconShell}`}>
                   <Shield className={`h-4 w-4 ${themeClasses.iconColor}`} />
                 </div>
@@ -404,51 +408,51 @@ export default function EmergencyFundCard({
                 </div>
               </div>
 
-              <div className="mb-3 pr-14">
+              <div className="mb-4 pr-14">
                 {safeMoneyLeft <= 0 ? (
                   <p className={`text-2xl font-bold ${themeClasses.title}`}>Start your fund</p>
                 ) : (
-                  <p className={`text-[32px] font-bold leading-none ${status.text}`}>
+                  <p className={`text-[32px] font-bold leading-none tracking-[-0.045em] ${status.text}`}>
                     {months.toFixed(1)}
-                    <span className="ml-1.5 text-base font-semibold text-white/85">months</span>
+                    <span className="ml-1.5 text-base font-semibold text-white/76">months</span>
                   </p>
                 )}
 
-                <p className={`mt-2 max-w-[28rem] text-xs font-medium leading-relaxed ${themeClasses.body}`}>{progression}</p>
-                <p className={`text-[11px] mt-1 ${themeClasses.muted}`}>Your future stability depends on this.</p>
+                <p className={`mt-2.5 max-w-[28rem] text-xs font-medium leading-relaxed ${themeClasses.body}`}>{progression}</p>
+                <p className={`mt-1 text-[11px] ${themeClasses.muted}`}>Your future stability depends on this.</p>
               </div>
 
-              <div className={`${isExpanded ? "mb-2" : "mb-3"}`}>
-                <div className="mb-1.5 flex items-center justify-between text-[11px] font-medium text-white/75">
+              <div className={`${isExpanded ? "mb-3" : "mb-4"} rounded-[24px] border border-white/[0.05] bg-black/[0.105] p-3 shadow-[inset_0_1px_0_rgba(255,255,255,0.026)] backdrop-blur-sm`}>
+                <div className="mb-2 flex items-center justify-between text-[11px] font-medium text-white/68">
                   <span>Protection progress</span>
                   <span>{pct.toFixed(0)}%</span>
                 </div>
 
-                <div className="h-2.5 overflow-hidden rounded-full border border-white/10 bg-black/20">
+                <div className="h-2.5 overflow-hidden rounded-full border border-white/[0.055] bg-black/[0.22]">
                   <div className={`relative h-full rounded-full bg-gradient-to-r ${status.bar} transition-all duration-500`} style={{ width: `${pct}%` }}>
-                    <div className="absolute inset-0 bg-white/20 opacity-40" />
+                    <div className="absolute inset-0 bg-white/16 opacity-35" />
                   </div>
                 </div>
 
-                <div className="mt-2 flex items-center justify-between text-[11px] font-medium text-white/70">
+                <div className="mt-2 flex items-center justify-between text-[11px] font-medium text-white/58">
                   <span>{fmt(safeMoneyLeft)}</span>
                   <span>{fmt(target)}</span>
                 </div>
               </div>
             </div>
 
-            <button type="button" onClick={onToggleDetails} className={`flex w-full items-center justify-between rounded-2xl border px-3 py-2.5 text-sm backdrop-blur-sm transition hover:bg-white/10 ${themeClasses.glass}`}>
+            <button type="button" onClick={onToggleDetails} className={`flex w-full items-center justify-between rounded-2xl border px-3 py-3 text-sm backdrop-blur-sm transition ${premiumActionClass}`}>
               <span className="font-medium">{isExpanded ? "Hide details" : "Show details"}</span>
               {isExpanded ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
             </button>
           </div>
 
           {isExpanded && (
-            <div className={`mt-2 min-h-0 flex-1 space-y-2 overflow-y-auto rounded-2xl border p-3 backdrop-blur-[2px] shadow-[inset_0_1px_0_rgba(255,255,255,0.05)] [scrollbar-width:none] ${themeClasses.glass} [&::-webkit-scrollbar]:hidden`}>
+            <div className={`mt-3 min-h-0 flex-1 space-y-3 overflow-y-auto rounded-2xl border border-white/[0.045] bg-black/[0.10] p-3 backdrop-blur-[2px] shadow-[inset_0_1px_0_rgba(255,255,255,0.026)] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden`}>
               <div>
-                <div className="mb-2 flex items-center justify-between">
-                  <span className="text-xs font-semibold text-white/90">Goal</span>
-                  <span className="text-[11px] font-semibold text-white/70">{milestone?.label}</span>
+                <div className="mb-2.5 flex items-center justify-between">
+                  <span className="text-xs font-semibold text-white/86">Goal</span>
+                  <span className="text-[11px] font-semibold text-white/60">{milestone?.label}</span>
                 </div>
 
                 <div className="grid grid-cols-3 gap-2">
@@ -460,51 +464,56 @@ export default function EmergencyFundCard({
                         type="button"
                         onClick={() => changeTargetMonths(m)}
                         disabled={saving}
-                        className={`relative rounded-xl border px-2 py-2.5 text-xs font-semibold transition-all duration-200 disabled:cursor-not-allowed disabled:opacity-70 ${active ? "border-emerald-400/40 bg-emerald-500/15 text-emerald-300 shadow-[0_0_18px_rgba(52,211,153,0.25)]" : "border-white/10 bg-white/5 text-white/80 hover:bg-white/10 hover:text-white"}`}
+                        className={`relative rounded-xl border px-2 py-2.5 text-xs font-semibold transition-all duration-200 disabled:cursor-not-allowed disabled:opacity-70 ${active ? "border-emerald-400/30 bg-emerald-500/[0.10] text-emerald-300 shadow-[0_0_18px_rgba(52,211,153,0.16)]" : "border-white/[0.05] bg-black/[0.105] text-white/76 hover:bg-white/[0.04] hover:text-white/90"}`}
                       >
                         <span className="block">{m} Months</span>
-                        {active && <span className="absolute right-1.5 top-1.5 h-1.5 w-1.5 rounded-full bg-emerald-400 shadow-[0_0_8px_rgba(52,211,153,0.9)]" />}
+                        {active && <span className="absolute right-1.5 top-1.5 h-1.5 w-1.5 rounded-full bg-emerald-400 shadow-[0_0_8px_rgba(52,211,153,0.75)]" />}
                       </button>
                     );
                   })}
                 </div>
               </div>
 
-              <div className="grid grid-cols-3 gap-2 text-center text-sm text-white">
-                <div className="rounded-2xl border border-white/10 bg-black/20 px-2.5 py-2.5 backdrop-blur-[2px] shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]">
-                  <p className="mb-1 text-[10px] font-semibold uppercase tracking-[0.16em] text-white/70">Monthly</p>
-                  <p className="text-sm font-bold text-white">{fmt(effectiveExpense)}</p>
-                </div>
-                <div className="rounded-2xl border border-white/10 bg-black/20 px-2.5 py-2.5 backdrop-blur-[2px] shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]">
-                  <p className="mb-1 text-[10px] font-semibold uppercase tracking-[0.16em] text-white/70">Available</p>
-                  <p className="text-sm font-bold text-white">{fmt(safeMoneyLeft)}</p>
-                </div>
-                <div className="rounded-2xl border border-white/10 bg-black/20 px-2.5 py-2.5 backdrop-blur-[2px] shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]">
-                  <p className="mb-1 text-[10px] font-semibold uppercase tracking-[0.16em] text-white/70">Target</p>
-                  <p className="text-sm font-bold text-white">{fmt(target)}</p>
+              <div className="overflow-hidden rounded-[22px] border border-white/[0.05] bg-black/[0.105] shadow-[inset_0_1px_0_rgba(255,255,255,0.026),0_12px_26px_rgba(0,0,0,0.12)] backdrop-blur-sm">
+                <div className="grid grid-cols-3 divide-x divide-white/[0.05] text-center text-sm text-white">
+                  <div className="relative px-2.5 py-2.5">
+                    <div className="pointer-events-none absolute inset-x-2 top-0 h-px bg-gradient-to-r from-transparent via-white/[0.05] to-transparent" />
+                    <p className="mb-1 text-[10px] font-semibold uppercase tracking-[0.16em] text-white/48">Monthly</p>
+                    <p className="text-sm font-bold text-white/86">{fmt(effectiveExpense)}</p>
+                  </div>
+                  <div className="relative px-2.5 py-2.5">
+                    <div className="pointer-events-none absolute inset-x-2 top-0 h-px bg-gradient-to-r from-transparent via-white/[0.05] to-transparent" />
+                    <p className="mb-1 text-[10px] font-semibold uppercase tracking-[0.16em] text-white/48">Available</p>
+                    <p className="text-sm font-bold text-white/86">{fmt(safeMoneyLeft)}</p>
+                  </div>
+                  <div className="relative px-2.5 py-2.5">
+                    <div className="pointer-events-none absolute inset-x-2 top-0 h-px bg-gradient-to-r from-transparent via-white/[0.05] to-transparent" />
+                    <p className="mb-1 text-[10px] font-semibold uppercase tracking-[0.16em] text-white/48">Target</p>
+                    <p className="text-sm font-bold text-white/86">{fmt(target)}</p>
+                  </div>
                 </div>
               </div>
 
               {retentionRate != null && (
-                <div className="flex items-center justify-between text-xs font-medium text-white/75">
+                <div className="flex items-center justify-between text-xs font-medium text-white/68">
                   <span>Retention Rate</span>
-                  <span className="text-white/95">{retentionRate}%</span>
+                  <span className="text-white/88">{retentionRate}%</span>
                 </div>
               )}
 
               <div className="grid grid-cols-2 gap-2">
-                <button type="button" onClick={() => setEditing(true)} className="flex items-center justify-center gap-2 rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm font-semibold text-white/85 transition hover:bg-white/10 hover:text-white">
+                <button type="button" onClick={() => setEditing(true)} className={`flex items-center justify-center gap-2 rounded-2xl border px-4 py-3 text-sm font-semibold transition ${premiumActionClass}`}>
                   <Edit2 className="h-4 w-4" />
                   Edit Expense
                 </button>
 
-                <button type="button" onClick={openWallpaperModal} className="flex items-center justify-center gap-2 rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm font-semibold text-white/85 transition hover:bg-white/10 hover:text-white">
+                <button type="button" onClick={openWallpaperModal} className={`flex items-center justify-center gap-2 rounded-2xl border px-4 py-3 text-sm font-semibold transition ${premiumActionClass}`}>
                   <Camera className="h-4 w-4" />
                   Background
                 </button>
               </div>
 
-              <button type="button" onClick={openTopUpModal} className="flex w-full items-center justify-center gap-2 rounded-2xl border border-emerald-400/25 bg-emerald-500/10 px-4 py-3 text-sm font-semibold text-emerald-300 transition hover:bg-emerald-500/15">
+              <button type="button" onClick={openTopUpModal} className="flex w-full items-center justify-center gap-2 rounded-2xl border border-emerald-400/20 bg-emerald-500/[0.08] px-4 py-3 text-sm font-semibold text-emerald-300 transition hover:bg-emerald-500/[0.12]">
                 <Plus className="h-4 w-4" />
                 Add Fund
               </button>
