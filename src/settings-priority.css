@@ -4,67 +4,75 @@
 
 #root .space-y-5.pb-6 > section:nth-of-type(1) button.group,
 #root .space-y-5.pb-6 > section:nth-of-type(2) button.group:first-child {
-  border-color: rgba(165, 243, 252, 0.15) !important;
+  border-color: rgba(165, 243, 252, 0.18) !important;
   background:
-    radial-gradient(circle at 0% 0%, rgba(45, 212, 191, 0.10), transparent 36%),
-    radial-gradient(circle at 100% 100%, rgba(99, 102, 241, 0.065), transparent 38%),
-    rgba(255, 255, 255, 0.047) !important;
+    radial-gradient(circle at 0% 0%, rgba(45, 212, 191, 0.13), transparent 36%),
+    radial-gradient(circle at 100% 100%, rgba(99, 102, 241, 0.09), transparent 40%),
+    rgba(255, 255, 255, 0.05) !important;
   box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.07),
-    0 14px 34px rgba(0, 0, 0, 0.14),
-    0 0 22px rgba(34, 211, 238, 0.035) !important;
+    inset 0 1px 0 rgba(255, 255, 255, 0.08),
+    0 16px 38px rgba(0, 0, 0, 0.15),
+    0 0 26px rgba(34, 211, 238, 0.055) !important;
 }
 
 #root .space-y-5.pb-6 > section:nth-of-type(1) button.group > div:first-child,
 #root .space-y-5.pb-6 > section:nth-of-type(2) button.group:first-child > div:first-child {
-  border-color: rgba(165, 243, 252, 0.15) !important;
+  border-color: rgba(165, 243, 252, 0.18) !important;
   background:
-    radial-gradient(circle at 22% 0%, rgba(103, 232, 249, 0.13), transparent 55%),
-    rgba(255, 255, 255, 0.06) !important;
-  color: rgba(207, 250, 254, 0.76) !important;
+    radial-gradient(circle at 22% 0%, rgba(103, 232, 249, 0.18), transparent 55%),
+    rgba(255, 255, 255, 0.075) !important;
+  color: rgba(236, 253, 255, 0.84) !important;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.09),
+    0 0 18px rgba(34, 211, 238, 0.08) !important;
 }
 
 #root .space-y-5.pb-6 > section:nth-of-type(3) button.group:first-child {
-  border-color: rgba(129, 140, 248, 0.16) !important;
+  border-color: rgba(129, 140, 248, 0.18) !important;
   background:
-    radial-gradient(circle at 0% 0%, rgba(59, 130, 246, 0.09), transparent 34%),
-    radial-gradient(circle at 100% 100%, rgba(124, 58, 237, 0.075), transparent 38%),
-    rgba(255, 255, 255, 0.04) !important;
+    radial-gradient(circle at 0% 0%, rgba(59, 130, 246, 0.11), transparent 34%),
+    radial-gradient(circle at 100% 100%, rgba(124, 58, 237, 0.09), transparent 40%),
+    rgba(255, 255, 255, 0.045) !important;
   box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.055),
-    0 14px 34px rgba(0, 0, 0, 0.13),
-    0 0 22px rgba(99, 102, 241, 0.035) !important;
+    inset 0 1px 0 rgba(255, 255, 255, 0.065),
+    0 16px 38px rgba(0, 0, 0, 0.14),
+    0 0 24px rgba(99, 102, 241, 0.05) !important;
 }
 
 #root .space-y-5.pb-6 > section:nth-of-type(3) button.group:first-child > div:first-child {
-  border-color: rgba(129, 140, 248, 0.15) !important;
+  border-color: rgba(129, 140, 248, 0.18) !important;
   background:
-    radial-gradient(circle at 22% 0%, rgba(129, 140, 248, 0.13), transparent 55%),
-    rgba(255, 255, 255, 0.05) !important;
-  color: rgba(199, 210, 254, 0.74) !important;
+    radial-gradient(circle at 22% 0%, rgba(129, 140, 248, 0.16), transparent 55%),
+    rgba(255, 255, 255, 0.065) !important;
+  color: rgba(224, 231, 255, 0.82) !important;
 }
 
 #root .space-y-5.pb-6 > section:nth-of-type(2) button.group:not(:first-child),
 #root .space-y-5.pb-6 > section:nth-of-type(3) button.group:not(:first-child) {
-  border-color: rgba(255, 255, 255, 0.095) !important;
+  border-color: rgba(165, 243, 252, 0.11) !important;
   background:
-    radial-gradient(circle at 0% 0%, rgba(103, 232, 249, 0.028), transparent 32%),
-    rgba(255, 255, 255, 0.026) !important;
+    radial-gradient(circle at 0% 0%, rgba(103, 232, 249, 0.05), transparent 32%),
+    radial-gradient(circle at 100% 100%, rgba(124, 58, 237, 0.04), transparent 38%),
+    rgba(255, 255, 255, 0.032) !important;
   box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.036),
-    0 10px 24px rgba(0, 0, 0, 0.09) !important;
+    inset 0 1px 0 rgba(255, 255, 255, 0.042),
+    0 12px 28px rgba(0, 0, 0, 0.10) !important;
 }
 
 #root .space-y-5.pb-6 section button.group span {
-  border-color: rgba(255, 255, 255, 0.10) !important;
-  background-color: rgba(255, 255, 255, 0.045) !important;
-  color: rgba(255, 255, 255, 0.50) !important;
+  border-color: rgba(165, 243, 252, 0.12) !important;
+  background-color: rgba(255, 255, 255, 0.055) !important;
+  color: rgba(236, 253, 255, 0.58) !important;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.05);
 }
 
 #root .space-y-5.pb-6 > section:nth-of-type(1) button.group span,
 #root .space-y-5.pb-6 > section:nth-of-type(2) button.group:first-child span,
 #root .space-y-5.pb-6 > section:nth-of-type(3) button.group:first-child span {
-  border-color: rgba(165, 243, 252, 0.12) !important;
-  background-color: rgba(255, 255, 255, 0.055) !important;
-  color: rgba(236, 253, 255, 0.62) !important;
+  border-color: rgba(165, 243, 252, 0.16) !important;
+  background-color: rgba(255, 255, 255, 0.07) !important;
+  color: rgba(248, 253, 255, 0.72) !important;
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,0.06),
+    0 0 14px rgba(34,211,238,0.04);
 }
