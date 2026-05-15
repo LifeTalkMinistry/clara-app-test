@@ -56,8 +56,8 @@ function EmergencySummaryStats({ coverageLabel, safeMoneyLeft, target, status, t
   ];
 
   return (
-    <div className="flex flex-col gap-3">
-      <div>
+    <>
+      <div className="mb-3">
         <p className={`text-[32px] font-bold leading-none tracking-[-0.045em] ${status.text}`}>
           {coverageLabel}
         </p>
@@ -67,7 +67,7 @@ function EmergencySummaryStats({ coverageLabel, safeMoneyLeft, target, status, t
         </p>
       </div>
 
-      <div className="overflow-hidden rounded-[22px] border border-white/[0.055] bg-black/[0.105] shadow-[inset_0_1px_0_rgba(255,255,255,0.035),0_12px_26px_rgba(0,0,0,0.12)] backdrop-blur-sm">
+      <div className="mb-1 overflow-hidden rounded-[22px] border border-white/[0.055] bg-black/[0.105] shadow-[inset_0_1px_0_rgba(255,255,255,0.035),0_12px_26px_rgba(0,0,0,0.12)] backdrop-blur-sm">
         <div className="grid grid-cols-3 divide-x divide-white/[0.055]">
           {summaryTiles.map((tile) => (
             <div key={tile.label} className="relative px-2.5 py-2.5 text-center">
@@ -86,7 +86,7 @@ function EmergencySummaryStats({ coverageLabel, safeMoneyLeft, target, status, t
           ))}
         </div>
       </div>
-    </div>
+    </>
   );
 }
 
