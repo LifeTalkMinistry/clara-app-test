@@ -7,7 +7,7 @@ function SettingsSocialCommunityShortcuts() {
     "group flex w-full cursor-not-allowed items-center gap-3 rounded-[24px] border border-white/10 bg-white/[0.025] px-4 py-4 text-left opacity-60 shadow-[inset_0_1px_0_rgba(255,255,255,0.035)]";
 
   return (
-    <section className="mt-4 space-y-3 rounded-[28px] border border-cyan-200/10 bg-[radial-gradient(circle_at_top_left,rgba(34,211,238,0.07),transparent_34%),rgba(255,255,255,0.026)] p-4 shadow-[0_18px_50px_rgba(0,0,0,0.14)] backdrop-blur-xl">
+    <section className="settings-social-community-shortcuts mt-4 space-y-3 rounded-[28px] border border-cyan-200/10 bg-[radial-gradient(circle_at_top_left,rgba(34,211,238,0.07),transparent_34%),rgba(255,255,255,0.026)] p-4 shadow-[0_18px_50px_rgba(0,0,0,0.14)] backdrop-blur-xl">
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0 flex-1">
           <p className="text-[11px] font-black uppercase tracking-[0.18em] text-white/30">
