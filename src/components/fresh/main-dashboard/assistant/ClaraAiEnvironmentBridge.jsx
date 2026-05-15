@@ -14,7 +14,7 @@ import {
 
 const LONG_PRESS_DELAY = 520;
 const DASHBOARD_DEFAULT_GUARD_VERSION = "dashboard-default-ai-mode-v2";
-const DEV_TRIPLE_TAP_WINDOW = 1100;
+const DEV_EYE_DOUBLE_TAP_WINDOW = 460;
 
 const CLARA_AI_ENVIRONMENT_STYLES = `
   .clara-ai-environment-active [data-clara-ai-background="true"] {
@@ -35,6 +35,10 @@ function isMoneyLeftOrbTarget(target) {
       '[data-clara-manual-expense-orb="true"], [aria-label*="Tap to log expense"], [aria-label*="ask CLARA"]'
     )
   );
+}
+
+function isMoneyPrivacyEyeTarget(target) {
+  return Boolean(target?.closest?.('[data-clara-summary-privacy-toggle="true"]'));
 }
 
 function ClaraDeveloperPanel({ isVisible, activeScenarioId, onClose, onApplyScenario, onClearScenario }) {
@@ -174,7 +178,7 @@ export default function ClaraAiEnvironmentBridge() {
   );
 
   const longPressTimerRef = useRef(null);
-  const tapTimestampsRef = useRef([]);
+  const lastEyeTapAtRef = useRef(0);
 
   const isActive = overlayVisible;
 
@@ -222,22 +226,6 @@ export default function ClaraAiEnvironmentBridge() {
       }
     };
 
-    const registerOrbTap = () => {
-      const now = Date.now();
-
-      tapTimestampsRef.current = [...tapTimestampsRef.current, now].filter(
-        (timestamp) => now - timestamp < DEV_TRIPLE_TAP_WINDOW
-      );
-
-      if (tapTimestampsRef.current.length >= 3) {
-        tapTimestampsRef.current = [];
-
-        clearLongPressTimer();
-        setOverlayVisible(false);
-        setDeveloperPanelVisible(true);
-      }
-    };
-
     const handlePointerDown = (event) => {
       if (!isMoneyLeftOrbTarget(event.target)) return;
 
@@ -249,18 +237,30 @@ export default function ClaraAiEnvironmentBridge() {
       }, LONG_PRESS_DELAY);
     };
 
-    const handlePointerRelease = (event) => {
-      if (isMoneyLeftOrbTarget(event.target)) {
-        registerOrbTap();
-      }
-
+    const handlePointerRelease = () => {
       clearLongPressTimer();
+    };
+
+    const handleEyeClick = (event) => {
+      if (!isMoneyPrivacyEyeTarget(event.target)) return;
+
+      const now = Date.now();
+      const previousTapAt = lastEyeTapAtRef.current || 0;
+      lastEyeTapAtRef.current = now;
+
+      if (previousTapAt && now - previousTapAt <= DEV_EYE_DOUBLE_TAP_WINDOW) {
+        lastEyeTapAtRef.current = 0;
+        clearLongPressTimer();
+        setOverlayVisible(false);
+        setDeveloperPanelVisible(true);
+      }
     };
 
     document.addEventListener("pointerdown", handlePointerDown, true);
     document.addEventListener("pointerup", handlePointerRelease, true);
     document.addEventListener("pointercancel", handlePointerRelease, true);
     document.addEventListener("touchend", handlePointerRelease, true);
+    document.addEventListener("click", handleEyeClick, true);
 
     return () => {
       clearLongPressTimer();
@@ -268,6 +268,7 @@ export default function ClaraAiEnvironmentBridge() {
       document.removeEventListener("pointerup", handlePointerRelease, true);
       document.removeEventListener("pointercancel", handlePointerRelease, true);
       document.removeEventListener("touchend", handlePointerRelease, true);
+      document.removeEventListener("click", handleEyeClick, true);
     };
   }, [claraAiEnvironment]);
 
