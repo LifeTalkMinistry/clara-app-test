@@ -51,6 +51,8 @@ export function readStoredNotificationSettings(userId) {
     productUpdates: true,
     coachingAlerts: true,
     budgetAlerts: true,
+    decisionNudges: true,
+    goalProgressAlerts: true,
   };
 
   const saved = dashboardRuntimeNotifications.get(getSettingsStorageKey(userId)) || {};
