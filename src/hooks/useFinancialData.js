@@ -30,6 +30,7 @@ import {
   upsertLocalRecord,
   softDeleteLocalRecord,
 } from "@/lib/localFinanceStore";
+import { readClaraDevIdentityOverride } from "@/lib/clara-dev-simulator";
 
 const FINANCE_INCOME_TYPES = new Set([
   "income",
@@ -39,6 +40,8 @@ const FINANCE_INCOME_TYPES = new Set([
   "opening_balance",
   "credit",
 ]);
+
+export const CLARA_DEMO_LOCAL_USER_ID = "clara-demo-user";
 
 const WALLET_TRANSACTION_STORE =
   LOCAL_FINANCE_STORES?.walletTransactions || "wallet_transactions";
@@ -56,7 +59,19 @@ const toNumber = (value) => {
   return Number.isFinite(num) ? num : 0;
 };
 
+const getFinanceIdentityMode = () => {
+  try {
+    return readClaraDevIdentityOverride()?.scenarioId || "real_user";
+  } catch {
+    return "real_user";
+  }
+};
+
 const getLocalUserId = (user) => {
+  if (getFinanceIdentityMode() === "demo_user") {
+    return CLARA_DEMO_LOCAL_USER_ID;
+  }
+
   const value = user?.id || user?.email || "local-user";
   return String(value || "local-user").trim() || "local-user";
 };
@@ -111,7 +126,8 @@ let financialDataCache = createEmptyFinancialCache();
 
 function useFinancialData(user) {
   const localUserId = getLocalUserId(user);
-  const cacheKey = localUserId || "local-user";
+  const identityMode = getFinanceIdentityMode();
+  const cacheKey = `${localUserId || "local-user"}::${identityMode}`;
 
   const hasUsableCache =
     financialDataCache.loaded && financialDataCache.key === cacheKey;
