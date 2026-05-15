@@ -42,16 +42,42 @@ const CLARA_AI_ENVIRONMENT_STYLES = `
   .clara-demo-intro-active [aria-label*="ask CLARA"] {
     position: relative !important;
     z-index: 315 !important;
-    animation: clara-demo-orb-pulse 1.15s ease-in-out infinite;
+    animation: clara-demo-orb-glow 1.1s ease-in-out infinite !important;
+    border-color: rgba(167, 243, 208, 0.82) !important;
+    background:
+      radial-gradient(circle at 35% 28%, rgba(255,255,255,0.34), rgba(110,231,183,0.22) 32%, rgba(20,184,166,0.18) 62%, rgba(88,28,135,0.20) 100%) !important;
     box-shadow:
-      0 0 0 9px rgba(110, 231, 183, 0.12),
-      0 0 0 18px rgba(34, 211, 238, 0.08),
-      0 0 34px rgba(110, 231, 183, 0.34) !important;
+      0 0 0 5px rgba(110, 231, 183, 0.20),
+      0 0 0 12px rgba(34, 211, 238, 0.12),
+      0 0 28px rgba(110, 231, 183, 0.70),
+      0 0 58px rgba(34, 211, 238, 0.36),
+      0 0 82px rgba(168, 85, 247, 0.30),
+      inset 0 1px 0 rgba(255,255,255,0.35) !important;
   }
 
-  @keyframes clara-demo-orb-pulse {
-    0%, 100% { transform: scale(1); }
-    50% { transform: scale(1.08); }
+  @keyframes clara-demo-orb-glow {
+    0%, 100% {
+      transform: scale(1);
+      filter: brightness(1.08) saturate(1.18);
+      box-shadow:
+        0 0 0 5px rgba(110, 231, 183, 0.18),
+        0 0 0 12px rgba(34, 211, 238, 0.10),
+        0 0 24px rgba(110, 231, 183, 0.62),
+        0 0 50px rgba(34, 211, 238, 0.30),
+        0 0 72px rgba(168, 85, 247, 0.24),
+        inset 0 1px 0 rgba(255,255,255,0.35);
+    }
+    50% {
+      transform: scale(1.09);
+      filter: brightness(1.28) saturate(1.35);
+      box-shadow:
+        0 0 0 7px rgba(110, 231, 183, 0.26),
+        0 0 0 17px rgba(34, 211, 238, 0.16),
+        0 0 36px rgba(110, 231, 183, 0.86),
+        0 0 72px rgba(34, 211, 238, 0.44),
+        0 0 104px rgba(168, 85, 247, 0.38),
+        inset 0 1px 0 rgba(255,255,255,0.45);
+    }
   }
 `;
 
@@ -139,8 +165,6 @@ function DemoIntroOverlay({ isVisible, onSkip }) {
           Skip guide for now
         </button>
       </div>
-
-      <div className="pointer-events-none absolute bottom-[31px] right-[17px] h-[82px] w-[82px] rounded-full border border-emerald-200/30 bg-emerald-300/8 shadow-[0_0_0_10px_rgba(110,231,183,0.08),0_0_38px_rgba(110,231,183,0.32)]" />
 
       <div className="pointer-events-none absolute bottom-[62px] right-[14px] flex w-[90px] flex-col items-center gap-1.5 text-emerald-100">
         <div className="rounded-full border border-emerald-200/22 bg-slate-950/72 px-3 py-1.5 text-[10px] font-black uppercase tracking-[0.16em] shadow-[0_14px_34px_rgba(0,0,0,0.24)] backdrop-blur-xl">
