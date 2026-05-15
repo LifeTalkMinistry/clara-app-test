@@ -79,6 +79,22 @@ const CLARA_AI_ENVIRONMENT_STYLES = `
         inset 0 1px 0 rgba(255,255,255,0.45);
     }
   }
+
+  @keyframes clara-demo-pointer-float {
+    0%, 100% {
+      transform: translateY(0);
+      opacity: 0.88;
+    }
+    50% {
+      transform: translateY(10px);
+      opacity: 1;
+    }
+  }
+
+  .clara-demo-pointer-float {
+    animation: clara-demo-pointer-float 1.35s ease-in-out infinite;
+    will-change: transform, opacity;
+  }
 `;
 
 function getLocalUserId(user) {
@@ -132,7 +148,7 @@ function DemoIntroOverlay({ isVisible, onSkip }) {
   if (!isVisible) return null;
 
   return (
-    <div className="pointer-events-none fixed inset-0 z-[260] mx-auto flex w-full max-w-[430px] flex-col justify-end overflow-hidden px-5 pb-[116px] text-white">
+    <div className="pointer-events-none fixed inset-0 z-[260] mx-auto flex w-full max-w-[430px] flex-col justify-end overflow-hidden px-5 pb-[176px] text-white">
       <div className="absolute inset-0 -z-10 bg-slate-950/52 backdrop-blur-[1.5px]" />
 
       <div className="pointer-events-auto rounded-[30px] border border-white/14 bg-slate-950/78 p-5 shadow-[0_24px_80px_rgba(0,0,0,0.42),inset_0_1px_0_rgba(255,255,255,0.10)] backdrop-blur-2xl">
@@ -166,11 +182,11 @@ function DemoIntroOverlay({ isVisible, onSkip }) {
         </button>
       </div>
 
-      <div className="pointer-events-none absolute bottom-[62px] right-[14px] flex w-[90px] flex-col items-center gap-1.5 text-emerald-100">
+      <div className="pointer-events-none absolute bottom-[38px] right-[14px] flex w-[90px] flex-col items-center gap-1.5 text-emerald-100">
         <div className="rounded-full border border-emerald-200/22 bg-slate-950/72 px-3 py-1.5 text-[10px] font-black uppercase tracking-[0.16em] shadow-[0_14px_34px_rgba(0,0,0,0.24)] backdrop-blur-xl">
           Hold here
         </div>
-        <div className="animate-bounce text-5xl leading-none drop-shadow-[0_0_18px_rgba(110,231,183,0.75)]">
+        <div className="clara-demo-pointer-float text-5xl leading-none drop-shadow-[0_0_18px_rgba(110,231,183,0.75)]">
           ↓
         </div>
       </div>
