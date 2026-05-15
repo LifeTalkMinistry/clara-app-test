@@ -20,8 +20,10 @@ function formatBudgetMonth(monthKey) {
 export default function BudgetHeader({ monthKey, badgeLabel, status }) {
   return (
     <div className="mb-3 flex items-start gap-3">
-      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-cyan-200/18 bg-white/[0.065] text-cyan-100 shadow-[inset_0_1px_0_rgba(255,255,255,0.11),0_0_16px_rgba(0,255,220,0.08)] backdrop-blur-sm">
-        <PieChart className="h-4 w-4" />
+      <div className="relative flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-xl border border-teal-100/[0.15] bg-[linear-gradient(145deg,rgba(255,255,255,0.085),rgba(45,212,191,0.05)_42%,rgba(0,0,0,0.045))] text-teal-100 shadow-[inset_0_1px_0_rgba(255,255,255,0.13),inset_0_-1px_0_rgba(45,212,191,0.05),0_0_16px_rgba(45,212,191,0.085),0_8px_18px_rgba(0,0,0,0.16)] backdrop-blur-sm">
+        <div className="pointer-events-none absolute inset-x-1 top-0 h-px bg-gradient-to-r from-transparent via-teal-100/26 to-transparent" />
+        <div className="pointer-events-none absolute -left-3 -top-3 h-8 w-8 rounded-full bg-teal-200/[0.09] blur-xl" />
+        <PieChart className="relative h-4 w-4 drop-shadow-[0_0_8px_rgba(153,246,228,0.14)]" />
       </div>
 
       <div className="min-w-0 flex-1">
@@ -33,8 +35,9 @@ export default function BudgetHeader({ monthKey, badgeLabel, status }) {
             </p>
           </div>
 
-          <span className={`shrink-0 rounded-full px-2.5 py-1 text-[10px] font-semibold backdrop-blur-sm ${status.badge}`}>
-            {badgeLabel}
+          <span className={`relative shrink-0 overflow-hidden rounded-full px-2.5 py-1 text-[10px] font-semibold backdrop-blur-sm shadow-[inset_0_1px_0_rgba(255,255,255,0.10),0_0_14px_rgba(45,212,191,0.05),0_8px_18px_rgba(0,0,0,0.13)] ${status.badge}`}>
+            <span className="pointer-events-none absolute inset-x-1 top-0 h-px bg-gradient-to-r from-transparent via-teal-100/20 to-transparent" />
+            <span className="relative">{badgeLabel}</span>
           </span>
         </div>
       </div>
