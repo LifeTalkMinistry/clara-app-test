@@ -1,0 +1,198 @@
+/* CLARA Notification Settings Polish
+   Adds premium glass depth, stronger hierarchy, and soft interaction to the Settings > Notifications page.
+*/
+
+#root [data-clara-notification-polished="true"] > div:first-child > div:last-child {
+  position: relative;
+  overflow: hidden;
+  border-color: rgba(165, 243, 252, 0.18) !important;
+  background:
+    radial-gradient(circle at 0% 0%, rgba(45, 212, 191, 0.18), transparent 34%),
+    radial-gradient(circle at 100% 0%, rgba(124, 58, 237, 0.25), transparent 42%),
+    linear-gradient(135deg, rgba(255,255,255,0.072), rgba(255,255,255,0.026)) !important;
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,0.095),
+    0 22px 58px rgba(0,0,0,0.22),
+    0 0 40px rgba(34,211,238,0.055) !important;
+}
+
+#root [data-clara-notification-polished="true"] > div:first-child > div:last-child::after {
+  content: "";
+  position: absolute;
+  inset: 1px;
+  pointer-events: none;
+  border-radius: inherit;
+  background: linear-gradient(135deg, rgba(255,255,255,0.08), transparent 44%);
+  opacity: 0.42;
+}
+
+#root [data-clara-notification-polished="true"] h2 {
+  letter-spacing: -0.04em !important;
+  text-shadow: 0 0 22px rgba(236,253,245,0.10);
+}
+
+#root [data-clara-notification-polished="true"] > .space-y-3 > button,
+#root [data-clara-notification-polished="true"] .clara-extra-notification-row {
+  position: relative;
+  min-height: 86px;
+  overflow: hidden;
+  border-color: rgba(165, 243, 252, 0.13) !important;
+  background:
+    radial-gradient(circle at 0% 0%, rgba(45, 212, 191, 0.09), transparent 34%),
+    radial-gradient(circle at 100% 50%, rgba(99, 102, 241, 0.10), transparent 42%),
+    linear-gradient(135deg, rgba(255,255,255,0.052), rgba(255,255,255,0.022)) !important;
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,0.068),
+    0 16px 40px rgba(0,0,0,0.16),
+    0 0 26px rgba(20,184,166,0.045) !important;
+  transform: translateZ(0);
+  transition:
+    transform 180ms ease,
+    border-color 180ms ease,
+    background 180ms ease,
+    box-shadow 180ms ease !important;
+}
+
+#root [data-clara-notification-polished="true"] > .space-y-3 > button::before,
+#root [data-clara-notification-polished="true"] .clara-extra-notification-row::before {
+  content: "";
+  position: absolute;
+  inset: 1px;
+  pointer-events: none;
+  border-radius: inherit;
+  background:
+    linear-gradient(135deg, rgba(255,255,255,0.072), transparent 42%),
+    radial-gradient(circle at 84% 50%, rgba(16,185,129,0.10), transparent 22%);
+  opacity: 0.6;
+}
+
+#root [data-clara-notification-polished="true"] > .space-y-3 > button:hover,
+#root [data-clara-notification-polished="true"] .clara-extra-notification-row:hover {
+  transform: translateY(-1px) scale(1.006);
+  border-color: rgba(165, 243, 252, 0.20) !important;
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,0.09),
+    0 20px 48px rgba(0,0,0,0.20),
+    0 0 34px rgba(34,211,238,0.07) !important;
+}
+
+#root [data-clara-notification-polished="true"] > .space-y-3 > button:active,
+#root [data-clara-notification-polished="true"] .clara-extra-notification-row:active {
+  transform: translateY(0) scale(0.992);
+}
+
+#root [data-clara-notification-polished="true"] > .space-y-3 > button > div:first-child,
+#root [data-clara-notification-polished="true"] .clara-notification-row-copy {
+  position: relative;
+  z-index: 1;
+  padding-right: 0.25rem;
+}
+
+#root [data-clara-notification-polished="true"] > .space-y-3 > button p:first-child,
+#root [data-clara-notification-polished="true"] .clara-notification-row-copy p {
+  color: rgba(255,255,255,0.96) !important;
+  font-size: 0.9rem !important;
+  letter-spacing: -0.025em;
+  text-shadow: 0 0 18px rgba(255,255,255,0.055);
+}
+
+#root [data-clara-notification-polished="true"] > .space-y-3 > button p:nth-child(2),
+#root [data-clara-notification-polished="true"] .clara-notification-row-copy span {
+  display: block;
+  margin-top: 0.35rem;
+  color: rgba(226,232,240,0.52) !important;
+  font-size: 0.76rem !important;
+  line-height: 1.45rem !important;
+}
+
+#root [data-clara-notification-polished="true"] > .space-y-3 > button > span:last-child,
+#root [data-clara-notification-polished="true"] .clara-guidance-toggle {
+  position: relative;
+  z-index: 1;
+  box-shadow:
+    0 0 22px rgba(16,185,129,0.22),
+    inset 0 1px 0 rgba(255,255,255,0.10) !important;
+}
+
+#root [data-clara-notification-polished="true"] .clara-extra-notification-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  gap: 0.75rem;
+  padding: 1rem;
+  text-align: left;
+  border-radius: 24px;
+}
+
+#root [data-clara-notification-polished="true"] .clara-notification-status {
+  position: relative;
+  z-index: 1;
+  margin-left: auto;
+  border: 1px solid rgba(165,243,252,0.13);
+  border-radius: 999px;
+  background: rgba(255,255,255,0.055);
+  padding: 0.28rem 0.55rem;
+  font-size: 0.62rem;
+  font-weight: 900;
+  color: rgba(236,253,245,0.62);
+}
+
+#root [data-clara-notification-polished="true"] .clara-guidance-toggle {
+  display: inline-flex;
+  width: 3rem;
+  height: 1.75rem;
+  flex-shrink: 0;
+  align-items: center;
+  border: 1px solid rgba(110,231,183,0.25);
+  border-radius: 999px;
+  background: rgba(16,185,129,0.30);
+  padding: 0.22rem;
+  transition: 180ms ease;
+}
+
+#root [data-clara-notification-polished="true"] .clara-guidance-toggle > span {
+  width: 1.25rem;
+  height: 1.25rem;
+  margin-left: auto;
+  border-radius: 999px;
+  background: white;
+  box-shadow: 0 8px 20px rgba(0,0,0,0.20);
+  transition: 180ms ease;
+}
+
+#root [data-clara-notification-polished="true"] .clara-extra-notification-row[data-enabled="false"] .clara-guidance-toggle {
+  border-color: rgba(255,255,255,0.14);
+  background: rgba(255,255,255,0.07);
+  box-shadow: none !important;
+}
+
+#root [data-clara-notification-polished="true"] .clara-extra-notification-row[data-enabled="false"] .clara-guidance-toggle > span {
+  margin-left: 0;
+  opacity: 0.75;
+}
+
+#root [data-clara-notification-polished="true"] .clara-extra-notification-row[data-enabled="false"] .clara-notification-status {
+  color: rgba(226,232,240,0.42);
+}
+
+#root [data-clara-notification-polished="true"] > div:last-child:not(.space-y-3) {
+  position: relative;
+  overflow: hidden;
+  border-color: rgba(165,243,252,0.11) !important;
+  background:
+    radial-gradient(circle at 0% 0%, rgba(34,211,238,0.08), transparent 34%),
+    rgba(255,255,255,0.032) !important;
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,0.052),
+    0 14px 36px rgba(0,0,0,0.14) !important;
+}
+
+#root [data-clara-notification-polished="true"] > div:last-child:not(.space-y-3) p:first-child {
+  color: rgba(255,255,255,0.92) !important;
+  letter-spacing: -0.02em;
+}
+
+#root [data-clara-notification-polished="true"] > div:last-child:not(.space-y-3) p:last-child {
+  color: rgba(226,232,240,0.48) !important;
+}
