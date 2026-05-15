@@ -6,6 +6,90 @@ import useEmergencyFundCard, { fmt, VALID_TARGET_MONTHS } from "../../../../hook
 const premiumActionClass =
   "border-white/[0.045] bg-black/[0.105] text-white/84 shadow-[inset_0_1px_0_rgba(255,255,255,0.026),0_10px_22px_rgba(0,0,0,0.14)] backdrop-blur-sm hover:border-white/[0.07] hover:bg-white/[0.04]";
 
+function EmergencyHeader({ status, themeClasses }) {
+  return (
+    <div className="mb-3 flex items-start gap-3">
+      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-cyan-200/18 bg-white/[0.065] text-cyan-100 shadow-[inset_0_1px_0_rgba(255,255,255,0.11),0_0_16px_rgba(0,255,220,0.08)] backdrop-blur-sm">
+        <Shield className="h-4 w-4" />
+      </div>
+
+      <div className="min-w-0 flex-1">
+        <div className="flex items-start justify-between gap-2">
+          <div className="min-w-0">
+            <p className={`text-base font-semibold tracking-tight ${themeClasses.title || "text-white"}`}>
+              Emergency Fund
+            </p>
+            <p className="mt-0.5 text-[11px] font-medium text-white/76">
+              Safety buffer for emergencies
+            </p>
+          </div>
+
+          <span className={`shrink-0 rounded-full px-2.5 py-1 text-[10px] font-semibold backdrop-blur-sm ${status.badge}`}>
+            {status.label}
+          </span>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function EmergencySummaryStats({ coverageLabel, safeMoneyLeft, target, status, themeClasses }) {
+  const summaryTiles = [
+    { label: "Saved", value: fmt(safeMoneyLeft), valueClassName: status.text },
+    { label: "Target", value: fmt(target) },
+    { label: "Status", value: status.label, valueClassName: status.text },
+  ];
+
+  return (
+    <div className="flex flex-col gap-3">
+      <div>
+        <p className={`text-[32px] font-bold leading-none tracking-[-0.045em] ${status.text}`}>
+          {coverageLabel}
+        </p>
+
+        <p className={`mt-2 text-sm font-semibold leading-tight ${themeClasses.body}`}>
+          Protection covered right now.
+        </p>
+      </div>
+
+      <div className="overflow-hidden rounded-[22px] border border-white/[0.055] bg-black/[0.105] shadow-[inset_0_1px_0_rgba(255,255,255,0.035),0_12px_26px_rgba(0,0,0,0.12)] backdrop-blur-sm">
+        <div className="grid grid-cols-3 divide-x divide-white/[0.055]">
+          {summaryTiles.map((tile) => (
+            <div key={tile.label} className="relative px-2.5 py-2.5 text-center">
+              <div className="pointer-events-none absolute inset-x-2 top-0 h-px bg-gradient-to-r from-transparent via-white/[0.055] to-transparent" />
+              <p
+                className={`truncate text-[13px] font-black leading-none tracking-[-0.03em] ${
+                  tile.valueClassName || "text-white/88"
+                }`}
+              >
+                {tile.value}
+              </p>
+              <p className="mt-1.5 text-[8px] font-black uppercase tracking-[0.18em] text-white/34">
+                {tile.label}
+              </p>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function ExpandButtonRow({ expanded, onToggleDetails }) {
+  return (
+    <div className="shrink-0 border-t border-white/[0.035] pt-3">
+      <button
+        type="button"
+        onClick={onToggleDetails}
+        className={`flex w-full items-center justify-between rounded-2xl border px-3 py-3 text-sm font-medium transition ${premiumActionClass}`}
+      >
+        <span>{expanded ? "Hide details" : "Show details"}</span>
+        {expanded ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+      </button>
+    </div>
+  );
+}
+
 const getSafetyStage = ({ effectiveExpense, amountNeeded, pct, statusLabel }) => {
   if (effectiveExpense <= 0) return "Needs setup";
   if (amountNeeded <= 0) return "Protected";
@@ -265,12 +349,6 @@ export default function EmergencyFundCard({
     emergencyAdvisor,
   });
 
-  const summaryTiles = [
-    { label: "Saved", value: fmt(safeMoneyLeft), valueClassName: status.text },
-    { label: "Target", value: fmt(target) },
-    { label: "Status", value: status.label, valueClassName: status.text },
-  ];
-
   const closeTopUpModal = () => {
     setShowTopUpModal(false);
     setTopUpError("");
@@ -317,7 +395,33 @@ export default function EmergencyFundCard({
         <div className="pointer-events-none absolute -left-20 top-[-56px] h-40 w-40 rounded-full bg-cyan-400/[0.055] blur-3xl" />
         <div className="pointer-events-none absolute inset-0 rounded-[inherit] ring-1 ring-inset ring-white/[0.055]" />
 
-        {isExpanded ? (
+        {!isExpanded ? (
+          <div className="relative z-10 flex h-full min-h-0 flex-col overflow-hidden px-4 pb-4 pt-5">
+            <div className="pointer-events-none absolute inset-0 opacity-[0.48]">
+              <div className="absolute -left-20 top-[-58px] h-40 w-40 rounded-full bg-cyan-400/[0.065] blur-3xl" />
+              <div className="absolute bottom-[-104px] right-[-82px] h-48 w-48 rounded-full bg-violet-500/[0.10] blur-3xl" />
+              <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(255,255,255,0.024),transparent_30%,rgba(0,0,0,0.16)_100%)]" />
+            </div>
+
+            <div className="relative flex min-h-0 flex-col gap-4">
+              <div className="min-h-0 rounded-[28px] border border-white/[0.035] bg-black/[0.055] p-3.5 shadow-[inset_0_1px_0_rgba(255,255,255,0.026)] backdrop-blur-[2px]">
+                <EmergencyHeader status={status} themeClasses={themeClasses} />
+
+                <div className="mt-3 rounded-[24px] bg-[linear-gradient(180deg,rgba(255,255,255,0.014),rgba(255,255,255,0.004)_40%,rgba(0,0,0,0.10)_100%)] p-3">
+                  <EmergencySummaryStats
+                    coverageLabel={coverageLabel}
+                    safeMoneyLeft={safeMoneyLeft}
+                    target={target}
+                    status={status}
+                    themeClasses={themeClasses}
+                  />
+                </div>
+              </div>
+
+              <ExpandButtonRow expanded={false} onToggleDetails={onToggleDetails} />
+            </div>
+          </div>
+        ) : (
           <div className="relative z-10 flex h-full min-h-0 flex-col overflow-hidden px-4 pb-4 pt-5">
             <div className="pointer-events-none absolute inset-0 opacity-[0.42]">
               <div className="absolute -left-24 top-[-70px] h-48 w-48 rounded-full bg-cyan-400/[0.06] blur-3xl" />
@@ -334,16 +438,7 @@ export default function EmergencyFundCard({
                 </p>
               </div>
 
-              <div className="shrink-0 border-t border-white/[0.035] pt-3">
-                <button
-                  type="button"
-                  onClick={onToggleDetails}
-                  className={`flex w-full items-center justify-between rounded-2xl border px-3 py-3 text-sm font-medium transition ${premiumActionClass}`}
-                >
-                  <span>Hide details</span>
-                  <ChevronUp className="h-4 w-4" />
-                </button>
-              </div>
+              <ExpandButtonRow expanded={true} onToggleDetails={onToggleDetails} />
 
               <div className="min-h-0 flex-1 overflow-hidden pt-1">
                 <div className="h-full space-y-3 overflow-y-auto overscroll-contain rounded-2xl border border-white/[0.045] bg-black/[0.10] p-3 pb-7 backdrop-blur-[2px] shadow-[inset_0_1px_0_rgba(255,255,255,0.026)] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
@@ -433,79 +528,6 @@ export default function EmergencyFundCard({
 
                   <div aria-hidden="true" className="h-5 shrink-0" />
                 </div>
-              </div>
-            </div>
-          </div>
-        ) : (
-          <div className="relative z-10 flex h-full min-h-0 flex-col overflow-hidden px-4 pb-4 pt-5">
-            <div className="pointer-events-none absolute inset-0 opacity-[0.48]">
-              <div className="absolute -left-20 top-[-58px] h-40 w-40 rounded-full bg-cyan-400/[0.065] blur-3xl" />
-              <div className="absolute bottom-[-104px] right-[-82px] h-48 w-48 rounded-full bg-violet-500/[0.10] blur-3xl" />
-              <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(255,255,255,0.024),transparent_30%,rgba(0,0,0,0.16)_100%)]" />
-            </div>
-
-            <div className="relative flex min-h-0 flex-col gap-4">
-              <div className="min-h-0 rounded-[28px] border border-white/[0.035] bg-black/[0.055] p-3.5 shadow-[inset_0_1px_0_rgba(255,255,255,0.026)] backdrop-blur-[2px]">
-                <div className="flex items-start gap-3">
-                  <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border backdrop-blur-sm ${themeClasses.iconShell}`}>
-                    <Shield className={`h-4 w-4 ${themeClasses.iconColor}`} />
-                  </div>
-
-                  <div className="min-w-0 flex-1">
-                    <div className="flex items-start justify-between gap-2">
-                      <div className="min-w-0">
-                        <p className={`text-base font-semibold tracking-tight ${themeClasses.title}`}>
-                          Emergency Fund
-                        </p>
-                        <p className={`mt-0.5 text-[11px] font-medium ${themeClasses.body}`}>
-                          Safety buffer for emergencies
-                        </p>
-                      </div>
-
-                      <span className={`shrink-0 rounded-full px-2.5 py-1 text-[10px] font-semibold backdrop-blur-sm ${status.badge}`}>
-                        {status.label}
-                      </span>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="mt-3 rounded-[24px] bg-[linear-gradient(180deg,rgba(255,255,255,0.014),rgba(255,255,255,0.004)_40%,rgba(0,0,0,0.10)_100%)] p-3">
-                  <div className="mb-3">
-                    <p className={`text-[32px] font-bold leading-none tracking-[-0.045em] ${status.text}`}>
-                      {coverageLabel}
-                    </p>
-                    <p className={`mt-2 text-sm font-semibold leading-tight ${themeClasses.body}`}>
-                      Protection covered right now.
-                    </p>
-                  </div>
-
-                  <div className="overflow-hidden rounded-[22px] border border-white/[0.055] bg-black/[0.105] shadow-[inset_0_1px_0_rgba(255,255,255,0.035),0_12px_26px_rgba(0,0,0,0.12)] backdrop-blur-sm">
-                    <div className="grid grid-cols-3 divide-x divide-white/[0.055]">
-                      {summaryTiles.map((tile) => (
-                        <div key={tile.label} className="relative px-2.5 py-2.5 text-center">
-                          <div className="pointer-events-none absolute inset-x-2 top-0 h-px bg-gradient-to-r from-transparent via-white/[0.055] to-transparent" />
-                          <p className={`truncate text-[13px] font-black leading-none tracking-[-0.03em] ${tile.valueClassName || "text-white/88"}`}>
-                            {tile.value}
-                          </p>
-                          <p className="mt-1.5 text-[8px] font-black uppercase tracking-[0.18em] text-white/34">
-                            {tile.label}
-                          </p>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              <div className="shrink-0 border-t border-white/[0.035] pt-3">
-                <button
-                  type="button"
-                  onClick={onToggleDetails}
-                  className={`flex w-full items-center justify-between rounded-2xl border px-3 py-3 text-sm font-medium transition ${premiumActionClass}`}
-                >
-                  <span>Show details</span>
-                  <ChevronDown className="h-4 w-4" />
-                </button>
               </div>
             </div>
           </div>
