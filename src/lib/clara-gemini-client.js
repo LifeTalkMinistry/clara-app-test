@@ -283,3 +283,78 @@ Return only the refined email body.`;
 
   return text;
 }
+
+function installSupportComposerGeminiBridge() {
+  if (typeof window === "undefined" || typeof document === "undefined") return;
+  if (window.__claraSupportComposerGeminiBridgeInstalled) return;
+  window.__claraSupportComposerGeminiBridgeInstalled = true;
+
+  const clean = (value) => String(value || "").replace(/\s+/g, " ").trim();
+  const findPage = (button) => {
+    let current = button?.parentElement || null;
+    while (current && current !== document.body) {
+      if (current.querySelector?.("select") && current.querySelector?.("textarea")) return current;
+      current = current.parentElement;
+    }
+    return null;
+  };
+
+  document.addEventListener(
+    "click",
+    async (event) => {
+      const button = event.target?.closest?.("[data-clara-support-refine]");
+      if (!button) return;
+
+      event.preventDefault();
+      event.stopPropagation();
+      event.stopImmediatePropagation();
+
+      const page = findPage(button);
+      const panel = button.closest?.("[data-clara-support-composer='true']");
+      const select = page?.querySelector("select");
+      const input = page?.querySelector("label textarea:not([readonly])") || page?.querySelector("textarea:not([readonly])");
+      const outputWrap = panel?.querySelector(".clara-support-refined-box");
+      const output = panel?.querySelector("[data-clara-support-output]");
+      const copyButton = panel?.querySelector("[data-clara-support-copy]");
+      const helper = panel?.querySelector(".clara-support-helper");
+      const emailLink = panel?.querySelector("[data-clara-support-email]");
+      const rawMessage = clean(input?.value);
+
+      if (!rawMessage) {
+        if (helper) helper.textContent = "Write your concern or feedback first, then click Refine with AI.";
+        input?.focus();
+        return;
+      }
+
+      const originalLabel = button.textContent || "Refine with AI";
+      button.textContent = "Refining...";
+      button.disabled = true;
+      if (copyButton) copyButton.disabled = true;
+      if (helper) helper.textContent = "CLARA AI is refining your message...";
+
+      try {
+        const refined = await refineClaraSupportMessageWithGemini({
+          topic: select?.value || "Feedback & ideas",
+          message: rawMessage,
+        });
+
+        if (output) output.value = refined;
+        if (outputWrap) outputWrap.hidden = false;
+        if (copyButton) copyButton.disabled = false;
+        if (emailLink) {
+          emailLink.href = `mailto:claraprogram2026@gmail.com?subject=${encodeURIComponent(`CLARA ${select?.value || "Feedback"}`)}&body=${encodeURIComponent(refined)}`;
+        }
+        if (helper) helper.textContent = "Message refined by CLARA AI. Copy it, then paste it into the support email below.";
+      } catch (error) {
+        console.warn("CLARA support Gemini refine failed:", error);
+        if (helper) helper.textContent = "AI refine failed. Check the Gemini setup or network, then try again.";
+      } finally {
+        button.textContent = originalLabel;
+        button.disabled = false;
+      }
+    },
+    true
+  );
+}
+
+installSupportComposerGeminiBridge();
