@@ -1,11 +1,20 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import { Sparkles } from "lucide-react";
 import ClaraAiEnvironmentOverlay from "@/components/fresh/main-dashboard/assistant/ClaraAiEnvironmentOverlay";
 import useClaraAiEnvironment from "@/components/fresh/main-dashboard/assistant/useClaraAiEnvironment";
 import useFinancialData from "@/hooks/useFinancialData";
 import useUserRole from "@/hooks/useUserRole";
+import {
+  clearClaraDevIdentityOverride,
+  getDevIdentityScenarios,
+  readClaraDevIdentityOverride,
+  reloadForDevIdentityChange,
+  writeClaraDevIdentityOverride,
+} from "@/lib/clara-dev-simulator";
 
 const LONG_PRESS_DELAY = 520;
 const DASHBOARD_DEFAULT_GUARD_VERSION = "dashboard-default-ai-mode-v2";
+const DEV_TRIPLE_TAP_WINDOW = 1100;
 
 const CLARA_AI_ENVIRONMENT_STYLES = `
   .clara-ai-environment-active [data-clara-ai-background="true"] {
@@ -25,6 +34,93 @@ function isMoneyLeftOrbTarget(target) {
     target?.closest?.(
       '[data-clara-manual-expense-orb="true"], [aria-label*="Tap to log expense"], [aria-label*="ask CLARA"]'
     )
+  );
+}
+
+function ClaraDeveloperPanel({ isVisible, activeScenarioId, onClose, onApplyScenario, onClearScenario }) {
+  const scenarios = getDevIdentityScenarios();
+
+  if (!isVisible) return null;
+
+  return (
+    <div className="fixed inset-0 z-[320] flex items-end justify-center bg-black/40 px-4 pb-5 backdrop-blur-[3px]">
+      <div className="w-full max-w-[430px] overflow-hidden rounded-[32px] border border-white/10 bg-[#071019]/95 shadow-[0_25px_90px_rgba(0,0,0,0.45)] backdrop-blur-2xl">
+        <div className="border-b border-white/8 px-5 pb-4 pt-5">
+          <div className="flex items-center gap-3">
+            <div className="grid h-11 w-11 place-items-center rounded-2xl border border-cyan-200/14 bg-cyan-300/10 text-cyan-100">
+              <Sparkles className="h-5 w-5" />
+            </div>
+
+            <div className="min-w-0 flex-1">
+              <p className="text-[10px] font-black uppercase tracking-[0.24em] text-cyan-100/50">
+                CLARA Developer Access
+              </p>
+
+              <h3 className="mt-1 text-[1rem] font-black text-white">
+                Identity Simulator
+              </h3>
+            </div>
+
+            <button
+              type="button"
+              onClick={onClose}
+              className="rounded-full border border-white/10 bg-white/[0.05] px-3 py-1.5 text-[11px] font-bold text-white/65"
+            >
+              Close
+            </button>
+          </div>
+        </div>
+
+        <div className="max-h-[68vh] overflow-y-auto px-4 py-4">
+          <div className="space-y-2">
+            {scenarios.map((scenario) => {
+              const active = activeScenarioId === scenario.id;
+
+              return (
+                <button
+                  key={scenario.id}
+                  type="button"
+                  onClick={() => onApplyScenario(scenario.id)}
+                  className={`w-full rounded-[24px] border px-4 py-4 text-left transition active:scale-[0.99] ${
+                    active
+                      ? "border-emerald-200/22 bg-emerald-300/12"
+                      : "border-white/8 bg-white/[0.04] hover:bg-white/[0.06]"
+                  }`}
+                >
+                  <div className="flex items-start justify-between gap-3">
+                    <div>
+                      <p className="text-[13px] font-black text-white">
+                        {scenario.label}
+                      </p>
+
+                      <p className="mt-1 text-[11px] leading-5 text-slate-300/62">
+                        {scenario.description}
+                      </p>
+                    </div>
+
+                    {active ? (
+                      <div className="rounded-full border border-emerald-200/18 bg-emerald-300/12 px-2 py-1 text-[9px] font-black uppercase tracking-[0.18em] text-emerald-100">
+                        Active
+                      </div>
+                    ) : null}
+                  </div>
+                </button>
+              );
+            })}
+          </div>
+
+          <div className="mt-4 flex gap-2">
+            <button
+              type="button"
+              onClick={onClearScenario}
+              className="flex-1 rounded-[20px] border border-white/10 bg-white/[0.05] px-4 py-3 text-[12px] font-black text-white/70"
+            >
+              Return To Real State
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
   );
 }
 
@@ -72,7 +168,13 @@ export default function ClaraAiEnvironmentBridge() {
   );
 
   const [overlayVisible, setOverlayVisible] = useState(false);
+  const [developerPanelVisible, setDeveloperPanelVisible] = useState(false);
+  const [activeDevScenario, setActiveDevScenario] = useState(
+    () => readClaraDevIdentityOverride()?.scenarioId || null
+  );
+
   const longPressTimerRef = useRef(null);
+  const tapTimestampsRef = useRef([]);
 
   const isActive = overlayVisible;
 
@@ -120,6 +222,22 @@ export default function ClaraAiEnvironmentBridge() {
       }
     };
 
+    const registerOrbTap = () => {
+      const now = Date.now();
+
+      tapTimestampsRef.current = [...tapTimestampsRef.current, now].filter(
+        (timestamp) => now - timestamp < DEV_TRIPLE_TAP_WINDOW
+      );
+
+      if (tapTimestampsRef.current.length >= 3) {
+        tapTimestampsRef.current = [];
+
+        clearLongPressTimer();
+        setOverlayVisible(false);
+        setDeveloperPanelVisible(true);
+      }
+    };
+
     const handlePointerDown = (event) => {
       if (!isMoneyLeftOrbTarget(event.target)) return;
 
@@ -131,7 +249,11 @@ export default function ClaraAiEnvironmentBridge() {
       }, LONG_PRESS_DELAY);
     };
 
-    const handlePointerRelease = () => {
+    const handlePointerRelease = (event) => {
+      if (isMoneyLeftOrbTarget(event.target)) {
+        registerOrbTap();
+      }
+
       clearLongPressTimer();
     };
 
@@ -154,9 +276,29 @@ export default function ClaraAiEnvironmentBridge() {
     claraAiEnvironment.clearEnvironment?.();
   };
 
+  const applyDeveloperScenario = (scenarioId) => {
+    const override = writeClaraDevIdentityOverride(scenarioId);
+    setActiveDevScenario(override.scenarioId);
+    reloadForDevIdentityChange();
+  };
+
+  const clearDeveloperScenario = () => {
+    clearClaraDevIdentityOverride();
+    setActiveDevScenario(null);
+    reloadForDevIdentityChange();
+  };
+
   return (
     <>
       <style>{CLARA_AI_ENVIRONMENT_STYLES}</style>
+
+      <ClaraDeveloperPanel
+        isVisible={developerPanelVisible}
+        activeScenarioId={activeDevScenario}
+        onClose={() => setDeveloperPanelVisible(false)}
+        onApplyScenario={applyDeveloperScenario}
+        onClearScenario={clearDeveloperScenario}
+      />
 
       <ClaraAiEnvironmentOverlay
         isActive={isActive}
