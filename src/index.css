@@ -267,3 +267,24 @@ body::after {
   color: #ffffff !important;
   outline: none !important;
 }
+
+/* CLARA demo pointer visibility override */
+@keyframes clara-demo-pointer-breathe-strong {
+  0%, 100% {
+    transform: translate3d(0, -6px, 0) scale(1);
+    opacity: 0.78;
+    text-shadow: 0 0 12px rgba(110, 231, 183, 0.45);
+  }
+  50% {
+    transform: translate3d(0, 18px, 0) scale(1.06);
+    opacity: 1;
+    text-shadow: 0 0 24px rgba(110, 231, 183, 0.95), 0 0 34px rgba(34, 211, 238, 0.45);
+  }
+}
+
+.clara-demo-pointer-float {
+  display: block !important;
+  transform-origin: center center !important;
+  animation: clara-demo-pointer-breathe-strong 0.95s ease-in-out infinite !important;
+  will-change: transform, opacity !important;
+}
