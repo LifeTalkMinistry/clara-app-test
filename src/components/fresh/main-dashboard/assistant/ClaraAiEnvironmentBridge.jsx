@@ -11,6 +11,7 @@ import {
   reloadForDevIdentityChange,
   writeClaraDevIdentityOverride,
 } from "@/lib/clara-dev-simulator";
+import { clearClaraDemoAccount, seedClaraDemoAccount } from "@/lib/clara-demo-account";
 
 const LONG_PRESS_DELAY = 520;
 const DASHBOARD_DEFAULT_GUARD_VERSION = "dashboard-default-ai-mode-v2";
@@ -29,6 +30,11 @@ const CLARA_AI_ENVIRONMENT_STYLES = `
   }
 `;
 
+function getLocalUserId(user) {
+  const value = user?.id || user?.email || "local-user";
+  return String(value || "local-user").trim() || "local-user";
+}
+
 function isMoneyLeftOrbTarget(target) {
   return Boolean(
     target?.closest?.(
@@ -41,7 +47,7 @@ function isMoneyPrivacyEyeTarget(target) {
   return Boolean(target?.closest?.('[data-clara-summary-privacy-toggle="true"]'));
 }
 
-function ClaraDeveloperPanel({ isVisible, activeScenarioId, onClose, onApplyScenario, onClearScenario }) {
+function ClaraDeveloperPanel({ isVisible, activeScenarioId, isApplyingScenario, onClose, onApplyScenario, onClearScenario }) {
   const scenarios = getDevIdentityScenarios();
 
   if (!isVisible) return null;
@@ -68,7 +74,8 @@ function ClaraDeveloperPanel({ isVisible, activeScenarioId, onClose, onApplyScen
             <button
               type="button"
               onClick={onClose}
-              className="rounded-full border border-white/10 bg-white/[0.05] px-3 py-1.5 text-[11px] font-bold text-white/65"
+              disabled={isApplyingScenario}
+              className="rounded-full border border-white/10 bg-white/[0.05] px-3 py-1.5 text-[11px] font-bold text-white/65 disabled:opacity-40"
             >
               Close
             </button>
@@ -76,6 +83,12 @@ function ClaraDeveloperPanel({ isVisible, activeScenarioId, onClose, onApplyScen
         </div>
 
         <div className="max-h-[68vh] overflow-y-auto px-4 py-4">
+          {isApplyingScenario ? (
+            <div className="mb-3 rounded-[22px] border border-emerald-200/15 bg-emerald-300/10 px-4 py-3 text-[12px] font-bold text-emerald-100/85">
+              Preparing selected CLARA scenario...
+            </div>
+          ) : null}
+
           <div className="space-y-2">
             {scenarios.map((scenario) => {
               const active = activeScenarioId === scenario.id;
@@ -84,8 +97,9 @@ function ClaraDeveloperPanel({ isVisible, activeScenarioId, onClose, onApplyScen
                 <button
                   key={scenario.id}
                   type="button"
+                  disabled={isApplyingScenario}
                   onClick={() => onApplyScenario(scenario.id)}
-                  className={`w-full rounded-[24px] border px-4 py-4 text-left transition active:scale-[0.99] ${
+                  className={`w-full rounded-[24px] border px-4 py-4 text-left transition active:scale-[0.99] disabled:opacity-55 ${
                     active
                       ? "border-emerald-200/22 bg-emerald-300/12"
                       : "border-white/8 bg-white/[0.04] hover:bg-white/[0.06]"
@@ -116,8 +130,9 @@ function ClaraDeveloperPanel({ isVisible, activeScenarioId, onClose, onApplyScen
           <div className="mt-4 flex gap-2">
             <button
               type="button"
+              disabled={isApplyingScenario}
               onClick={onClearScenario}
-              className="flex-1 rounded-[20px] border border-white/10 bg-white/[0.05] px-4 py-3 text-[12px] font-black text-white/70"
+              className="flex-1 rounded-[20px] border border-white/10 bg-white/[0.05] px-4 py-3 text-[12px] font-black text-white/70 disabled:opacity-45"
             >
               Return To Real State
             </button>
@@ -176,6 +191,7 @@ export default function ClaraAiEnvironmentBridge() {
   const [activeDevScenario, setActiveDevScenario] = useState(
     () => readClaraDevIdentityOverride()?.scenarioId || null
   );
+  const [isApplyingScenario, setIsApplyingScenario] = useState(false);
 
   const longPressTimerRef = useRef(null);
   const lastEyeTapAtRef = useRef(0);
@@ -277,16 +293,43 @@ export default function ClaraAiEnvironmentBridge() {
     claraAiEnvironment.clearEnvironment?.();
   };
 
-  const applyDeveloperScenario = (scenarioId) => {
-    const override = writeClaraDevIdentityOverride(scenarioId);
-    setActiveDevScenario(override.scenarioId);
-    reloadForDevIdentityChange();
+  const applyDeveloperScenario = async (scenarioId) => {
+    if (isApplyingScenario) return;
+
+    const localUserId = getLocalUserId(user);
+    setIsApplyingScenario(true);
+
+    try {
+      if (scenarioId === "demo_user") {
+        await seedClaraDemoAccount(localUserId);
+      } else {
+        await clearClaraDemoAccount(localUserId);
+      }
+
+      const override = writeClaraDevIdentityOverride(scenarioId);
+      setActiveDevScenario(override.scenarioId);
+      reloadForDevIdentityChange();
+    } catch (error) {
+      console.error("CLARA developer scenario failed:", error);
+      setIsApplyingScenario(false);
+    }
   };
 
-  const clearDeveloperScenario = () => {
-    clearClaraDevIdentityOverride();
-    setActiveDevScenario(null);
-    reloadForDevIdentityChange();
+  const clearDeveloperScenario = async () => {
+    if (isApplyingScenario) return;
+
+    const localUserId = getLocalUserId(user);
+    setIsApplyingScenario(true);
+
+    try {
+      await clearClaraDemoAccount(localUserId);
+      clearClaraDevIdentityOverride();
+      setActiveDevScenario(null);
+      reloadForDevIdentityChange();
+    } catch (error) {
+      console.error("CLARA developer scenario reset failed:", error);
+      setIsApplyingScenario(false);
+    }
   };
 
   return (
@@ -296,6 +339,7 @@ export default function ClaraAiEnvironmentBridge() {
       <ClaraDeveloperPanel
         isVisible={developerPanelVisible}
         activeScenarioId={activeDevScenario}
+        isApplyingScenario={isApplyingScenario}
         onClose={() => setDeveloperPanelVisible(false)}
         onApplyScenario={applyDeveloperScenario}
         onClearScenario={clearDeveloperScenario}
