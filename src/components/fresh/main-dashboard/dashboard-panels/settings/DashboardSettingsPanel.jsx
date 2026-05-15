@@ -565,7 +565,7 @@ export default function DashboardSettingsPanel({
         {
           key: "security",
           title: "Security & privacy",
-          description: "Session status and safe preference reset",
+          description: "Local records, AI privacy, and safe reset",
           icon: ShieldCheck,
           badge: "Safe",
           action: () => setActiveSetting("security"),
@@ -1039,93 +1039,219 @@ export default function DashboardSettingsPanel({
     </div>
   );
 
-  const renderSecurityPage = () => (
-    <div className="space-y-4 pb-6">
-      <DetailHeader
-        title="Security & privacy"
-        subtitle="Account session, protected data, and default theme reset."
-      />
+  const renderSecurityPage = () => {
+    const sessionHighlights = ["Offline-first", "Local-first records", "Private finance data"];
+    const protectedDataItems = [
+      "Wallets",
+      "Expenses",
+      "Budgets",
+      "Savings goals",
+      "Emergency fund",
+      "Transfers",
+      "Transaction history",
+      "AI context",
+    ];
+    const aiPrivacyItems = [
+      "Spending patterns are checked locally first",
+      "AI uses only the context needed for guidance",
+      "Decision history stays personal on this device",
+      "No public feed exposes your financial behavior",
+    ];
+    const resetIncludes = [
+      "Theme selection",
+      "Dashboard preferences",
+      "AI visual preferences",
+      "Tutorial state",
+    ];
+    const resetDoesNotTouch = ["Wallet balances", "Expenses", "Budgets", "Savings data"];
+    const futureSecurityFeatures = [
+      "App PIN lock",
+      "Biometric lock",
+      "Private mode",
+      "AI memory reset",
+      "Encrypted backup",
+      "Multi-device sync",
+    ];
 
-      {renderNotice()}
+    return (
+      <div className="space-y-4 pb-6">
+        <DetailHeader
+          title="Security & privacy"
+          subtitle="Protect your financial records, local AI memory, and personal decision environment."
+        />
 
-      <div className="rounded-[30px] border border-white/15 bg-[radial-gradient(circle_at_top_left,rgba(16,185,129,0.12),transparent_34%),rgba(255,255,255,0.045)] p-4 shadow-[0_18px_50px_rgba(0,0,0,0.18)] backdrop-blur-xl">
-        <div className="flex items-start gap-3">
-          <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-[22px] border border-emerald-300/20 bg-emerald-400/10 text-emerald-100">
-            <ShieldCheck className="h-5 w-5" />
+        {renderNotice()}
+
+        <div className="rounded-[30px] border border-emerald-300/18 bg-[radial-gradient(circle_at_top_left,rgba(16,185,129,0.16),transparent_34%),rgba(255,255,255,0.045)] p-4 shadow-[0_18px_50px_rgba(0,0,0,0.18)] backdrop-blur-xl">
+          <div className="flex items-start gap-3">
+            <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-[22px] border border-emerald-300/20 bg-emerald-400/10 text-emerald-100 shadow-[0_14px_34px_rgba(16,185,129,0.12)]">
+              <ShieldCheck className="h-5 w-5" />
+            </div>
+
+            <div className="min-w-0 flex-1">
+              <div className="flex items-start justify-between gap-3">
+                <div className="min-w-0">
+                  <p className="text-sm font-black text-white">Current device</p>
+                  <p className="mt-1 truncate text-xs text-white/50">
+                    {user?.email || "This device acts as your CLARA environment"}
+                  </p>
+                </div>
+
+                <span className="shrink-0 rounded-full border border-emerald-300/20 bg-emerald-400/10 px-3 py-1 text-[10px] font-black text-emerald-100">
+                  Private
+                </span>
+              </div>
+
+              <div className="mt-4 flex flex-wrap gap-2">
+                {sessionHighlights.map((item) => (
+                  <span
+                    key={item}
+                    className="rounded-full border border-white/15 bg-black/15 px-3 py-1.5 text-[10px] font-black text-white/62"
+                  >
+                    {item}
+                  </span>
+                ))}
+              </div>
+            </div>
           </div>
 
-          <div className="min-w-0 flex-1">
-            <div className="flex items-start justify-between gap-3">
-              <div className="min-w-0">
-                <p className="text-sm font-black text-white">Current session</p>
-                <p className="mt-1 truncate text-xs text-white/50">
-                  {user?.email || "Current user session"}
-                </p>
-              </div>
+          <div className="mt-4 grid grid-cols-2 gap-2 text-center">
+            <InfoTile label="Session" value={user?.id ? "Signed in" : "Local"} />
+            <InfoTile label="Storage" value="Device first" />
+            <InfoTile label="Finance data" value="Protected" />
+            <InfoTile label="AI context" value="Private" />
+          </div>
+        </div>
 
-              <span className="shrink-0 rounded-full border border-emerald-300/20 bg-emerald-400/10 px-3 py-1 text-[10px] font-black text-emerald-100">
-                Secure
-              </span>
+        <div className="rounded-[30px] border border-white/15 bg-white/[0.045] p-4 shadow-[0_18px_50px_rgba(0,0,0,0.18)] backdrop-blur-xl">
+          <div className="flex items-start justify-between gap-3">
+            <div>
+              <p className="text-sm font-black text-white">Protected financial records</p>
+              <p className="mt-2 text-xs leading-5 text-white/48">
+                Resetting appearance or preferences will not touch the financial records CLARA uses to coach your decisions.
+              </p>
+            </div>
+            <Wallet className="mt-1 h-5 w-5 shrink-0 text-emerald-100/75" />
+          </div>
+
+          <div className="mt-4 grid grid-cols-2 gap-2">
+            {protectedDataItems.map((item) => (
+              <div
+                key={item}
+                className="flex items-center gap-2 rounded-2xl border border-white/15 bg-black/15 px-3 py-3"
+              >
+                <Check className="h-3.5 w-3.5 shrink-0 text-emerald-200" />
+                <span className="truncate text-xs font-bold text-white/68">{item}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        <div className="rounded-[30px] border border-cyan-300/15 bg-[radial-gradient(circle_at_top_left,rgba(34,211,238,0.13),transparent_34%),rgba(255,255,255,0.04)] p-4 shadow-[0_18px_50px_rgba(0,0,0,0.16)] backdrop-blur-xl">
+          <div className="flex items-start gap-3">
+            <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border border-cyan-300/20 bg-cyan-400/10 text-cyan-100">
+              <MessageCircle className="h-5 w-5" />
             </div>
 
-            <div className="mt-4 grid grid-cols-2 gap-2 text-center">
-              <div className="rounded-2xl border border-white/15 bg-black/15 p-3">
-                <p className="text-[11px] font-black text-white">Signed in</p>
-                <p className="mt-1 text-[10px] text-white/40">Session</p>
+            <div className="min-w-0 flex-1">
+              <p className="text-sm font-black text-white">Private AI environment</p>
+              <p className="mt-1 text-xs leading-5 text-white/48">
+                CLARA can use your financial context for budgeting guidance without making your spending behavior public.
+              </p>
+            </div>
+          </div>
+
+          <div className="mt-4 space-y-2">
+            {aiPrivacyItems.map((item) => (
+              <div
+                key={item}
+                className="flex items-start gap-2 rounded-2xl border border-white/15 bg-black/15 px-3 py-3"
+              >
+                <CheckCircle2 className="mt-0.5 h-3.5 w-3.5 shrink-0 text-cyan-100" />
+                <span className="text-xs font-semibold leading-5 text-white/62">{item}</span>
               </div>
-              <div className="rounded-2xl border border-white/15 bg-black/15 p-3">
-                <p className="text-[11px] font-black text-white">Protected</p>
-                <p className="mt-1 text-[10px] text-white/40">Account</p>
+            ))}
+          </div>
+        </div>
+
+        <div className="rounded-[30px] border border-amber-300/15 bg-[radial-gradient(circle_at_top_left,rgba(251,191,36,0.12),transparent_34%),rgba(255,255,255,0.04)] p-4 shadow-[0_18px_50px_rgba(0,0,0,0.16)] backdrop-blur-xl">
+          <div className="flex items-start gap-3">
+            <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border border-amber-300/20 bg-amber-400/10 text-amber-100">
+              <RotateCcw className="h-5 w-5" />
+            </div>
+
+            <div className="min-w-0 flex-1">
+              <p className="text-sm font-black text-white">Reset appearance & preferences</p>
+              <p className="mt-1 text-xs leading-5 text-white/48">
+                Restore CLARA's default visual setup on this device without deleting your money records.
+              </p>
+            </div>
+          </div>
+
+          <div className="mt-4 grid gap-3 sm:grid-cols-2">
+            <div className="rounded-2xl border border-white/15 bg-black/15 p-3">
+              <p className="text-[10px] font-black uppercase tracking-[0.16em] text-amber-100/65">Reset includes</p>
+              <div className="mt-3 space-y-2">
+                {resetIncludes.map((item) => (
+                  <div key={item} className="flex items-center gap-2 text-xs font-semibold text-white/60">
+                    <RotateCcw className="h-3.5 w-3.5 shrink-0 text-amber-100/80" />
+                    {item}
+                  </div>
+                ))}
               </div>
             </div>
+
+            <div className="rounded-2xl border border-emerald-300/15 bg-emerald-400/10 p-3">
+              <p className="text-[10px] font-black uppercase tracking-[0.16em] text-emerald-100/70">Will not touch</p>
+              <div className="mt-3 space-y-2">
+                {resetDoesNotTouch.map((item) => (
+                  <div key={item} className="flex items-center gap-2 text-xs font-semibold text-white/62">
+                    <Check className="h-3.5 w-3.5 shrink-0 text-emerald-100" />
+                    {item}
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+
+          <button
+            type="button"
+            onClick={clearLocalPreferences}
+            className="mt-4 flex w-full items-center justify-center gap-2 rounded-2xl border border-amber-300/20 bg-amber-400/10 px-4 py-3 text-sm font-black text-amber-100 transition hover:bg-amber-400/15"
+          >
+            <RotateCcw className="h-4 w-4" />
+            Reset preferences and theme
+          </button>
+        </div>
+
+        <div className="rounded-[30px] border border-white/15 bg-white/[0.035] p-4 shadow-[0_18px_50px_rgba(0,0,0,0.14)] backdrop-blur-xl">
+          <div className="flex items-start justify-between gap-3">
+            <div>
+              <p className="text-sm font-black text-white">Future security features</p>
+              <p className="mt-1 text-xs leading-5 text-white/42">
+                Keep these visible as trust signals while they are being prepared.
+              </p>
+            </div>
+            <span className="shrink-0 rounded-full border border-white/15 bg-white/8 px-3 py-1 text-[10px] font-black text-white/45">
+              Coming soon
+            </span>
+          </div>
+
+          <div className="mt-4 grid grid-cols-2 gap-2">
+            {futureSecurityFeatures.map((item) => (
+              <div
+                key={item}
+                className="flex items-center gap-2 rounded-2xl border border-white/10 bg-black/10 px-3 py-3 opacity-70"
+              >
+                <Clock className="h-3.5 w-3.5 shrink-0 text-white/35" />
+                <span className="truncate text-xs font-bold text-white/45">{item}</span>
+              </div>
+            ))}
           </div>
         </div>
       </div>
-
-      <div className="rounded-[30px] border border-white/15 bg-white/[0.045] p-4 shadow-[0_18px_50px_rgba(0,0,0,0.18)] backdrop-blur-xl">
-        <p className="text-sm font-black text-white">Protected app data</p>
-        <p className="mt-2 text-xs leading-5 text-white/48">
-          Resetting preferences will not touch your financial records.
-        </p>
-
-        <div className="mt-4 grid grid-cols-2 gap-2">
-          {["Wallets", "Expenses", "Budgets", "Enrollments"].map((item) => (
-            <div
-              key={item}
-              className="flex items-center gap-2 rounded-2xl border border-white/15 bg-black/15 px-3 py-3"
-            >
-              <Check className="h-3.5 w-3.5 shrink-0 text-emerald-200" />
-              <span className="truncate text-xs font-bold text-white/68">{item}</span>
-            </div>
-          ))}
-        </div>
-      </div>
-
-      <div className="rounded-[30px] border border-amber-300/15 bg-[radial-gradient(circle_at_top_left,rgba(251,191,36,0.12),transparent_34%),rgba(255,255,255,0.04)] p-4 shadow-[0_18px_50px_rgba(0,0,0,0.16)] backdrop-blur-xl">
-        <div className="flex items-start gap-3">
-          <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border border-amber-300/20 bg-amber-400/10 text-amber-100">
-            <RotateCcw className="h-5 w-5" />
-          </div>
-
-          <div className="min-w-0 flex-1">
-            <p className="text-sm font-black text-white">Local preference reset</p>
-            <p className="mt-1 text-xs leading-5 text-white/48">
-              Clears local choices and restores CLARA's default theme on this device.
-            </p>
-          </div>
-        </div>
-
-        <button
-          type="button"
-          onClick={clearLocalPreferences}
-          className="mt-4 flex w-full items-center justify-center gap-2 rounded-2xl border border-amber-300/20 bg-amber-400/10 px-4 py-3 text-sm font-black text-amber-100 transition hover:bg-amber-400/15"
-        >
-          <RotateCcw className="h-4 w-4" />
-          Reset preferences and theme
-        </button>
-      </div>
-    </div>
-  );
+    );
+  };
 
   const renderSupportPage = () => (
     <div className="space-y-4">
