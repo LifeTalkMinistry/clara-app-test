@@ -31,8 +31,10 @@ export default function BudgetSummaryStats({
     <>
       <div className="mb-3">
         <p
-          className={`text-[32px] font-bold leading-none tracking-[-0.045em] ${
-            hasDeclaredBudget ? remainingAmountColor : "text-white/94"
+          className={`text-[32px] font-black leading-none tracking-[-0.05em] ${
+            hasDeclaredBudget
+              ? remainingAmountColor
+              : "text-teal-50 drop-shadow-[0_0_14px_rgba(153,246,228,0.10)]"
           }`}
         >
           {fmt(remaining)}
