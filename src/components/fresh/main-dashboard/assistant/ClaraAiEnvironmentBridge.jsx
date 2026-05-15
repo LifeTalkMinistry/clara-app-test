@@ -140,11 +140,13 @@ function DemoIntroOverlay({ isVisible, onSkip }) {
         </button>
       </div>
 
-      <div className="pointer-events-none absolute bottom-[50px] right-[50px] flex flex-col items-center gap-2 text-emerald-100">
-        <div className="rounded-full border border-emerald-200/20 bg-emerald-300/12 px-3 py-1.5 text-[10px] font-black uppercase tracking-[0.16em] shadow-[0_14px_34px_rgba(0,0,0,0.24)] backdrop-blur-xl">
+      <div className="pointer-events-none absolute bottom-[31px] right-[17px] h-[82px] w-[82px] rounded-full border border-emerald-200/30 bg-emerald-300/8 shadow-[0_0_0_10px_rgba(110,231,183,0.08),0_0_38px_rgba(110,231,183,0.32)]" />
+
+      <div className="pointer-events-none absolute bottom-[62px] right-[14px] flex w-[90px] flex-col items-center gap-1.5 text-emerald-100">
+        <div className="rounded-full border border-emerald-200/22 bg-slate-950/72 px-3 py-1.5 text-[10px] font-black uppercase tracking-[0.16em] shadow-[0_14px_34px_rgba(0,0,0,0.24)] backdrop-blur-xl">
           Hold here
         </div>
-        <div className="animate-bounce text-4xl leading-none drop-shadow-[0_0_18px_rgba(110,231,183,0.75)]">
+        <div className="animate-bounce text-5xl leading-none drop-shadow-[0_0_18px_rgba(110,231,183,0.75)]">
           ↓
         </div>
       </div>
