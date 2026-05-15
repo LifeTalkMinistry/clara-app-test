@@ -18,6 +18,7 @@ const LONG_PRESS_DELAY = 520;
 const DASHBOARD_DEFAULT_GUARD_VERSION = "dashboard-default-ai-mode-v2";
 const DEV_EYE_DOUBLE_TAP_WINDOW = 460;
 const DEMO_INTRO_SEEN_KEY = "clara_demo_intro_seen_at_v1";
+const CLARA_DEMO_LOCAL_USER_ID = "clara-demo-user";
 
 const CLARA_AI_ENVIRONMENT_STYLES = `
   .clara-ai-environment-active [data-clara-ai-background="true"] {
@@ -144,14 +145,41 @@ function isMoneyPrivacyEyeTarget(target) {
   return Boolean(target?.closest?.('[data-clara-summary-privacy-toggle="true"]'));
 }
 
-function DemoIntroOverlay({ isVisible, onSkip }) {
+function DemoIntroOverlay({ isVisible, onStartDemo }) {
+  const holdTimerRef = useRef(null);
+
+  const clearHoldTimer = () => {
+    if (holdTimerRef.current) {
+      window.clearTimeout(holdTimerRef.current);
+      holdTimerRef.current = null;
+    }
+  };
+
+  useEffect(() => clearHoldTimer, []);
+
   if (!isVisible) return null;
 
+  const startHold = (event) => {
+    event.preventDefault();
+    event.stopPropagation();
+    clearHoldTimer();
+    holdTimerRef.current = window.setTimeout(() => {
+      clearHoldTimer();
+      onStartDemo?.();
+    }, LONG_PRESS_DELAY);
+  };
+
+  const cancelHold = (event) => {
+    event.preventDefault();
+    event.stopPropagation();
+    clearHoldTimer();
+  };
+
   return (
-    <div className="pointer-events-none fixed inset-0 z-[260] mx-auto flex w-full max-w-[430px] flex-col justify-end overflow-hidden px-5 pb-[176px] text-white">
+    <div className="pointer-events-auto fixed inset-0 z-[260] mx-auto flex w-full max-w-[430px] flex-col justify-end overflow-hidden px-5 pb-[176px] text-white">
       <div className="absolute inset-0 -z-10 bg-slate-950/52 backdrop-blur-[1.5px]" />
 
-      <div className="pointer-events-auto rounded-[30px] border border-white/14 bg-slate-950/78 p-5 shadow-[0_24px_80px_rgba(0,0,0,0.42),inset_0_1px_0_rgba(255,255,255,0.10)] backdrop-blur-2xl">
+      <div className="pointer-events-none rounded-[30px] border border-white/14 bg-slate-950/78 p-5 shadow-[0_24px_80px_rgba(0,0,0,0.42),inset_0_1px_0_rgba(255,255,255,0.10)] backdrop-blur-2xl">
         <div className="flex items-start gap-3">
           <div className="grid h-11 w-11 shrink-0 place-items-center rounded-2xl border border-cyan-100/20 bg-cyan-300/10 text-cyan-100 shadow-[0_0_24px_rgba(34,211,238,0.16)]">
             <Sparkles className="h-5 w-5" />
@@ -172,14 +200,6 @@ function DemoIntroOverlay({ isVisible, onSkip }) {
             </div>
           </div>
         </div>
-
-        <button
-          type="button"
-          onClick={onSkip}
-          className="mt-4 w-full rounded-[20px] border border-white/10 bg-white/[0.055] px-4 py-3 text-[12px] font-black text-white/70 active:scale-[0.99]"
-        >
-          Skip guide for now
-        </button>
       </div>
 
       <div className="pointer-events-none absolute bottom-[38px] right-[14px] flex w-[90px] flex-col items-center gap-1.5 text-emerald-100">
@@ -190,6 +210,21 @@ function DemoIntroOverlay({ isVisible, onSkip }) {
           ↓
         </div>
       </div>
+
+      <div
+        role="button"
+        aria-label="Hold CLARA orb to start demo"
+        tabIndex={0}
+        onPointerDown={startHold}
+        onPointerUp={cancelHold}
+        onPointerCancel={cancelHold}
+        onPointerLeave={cancelHold}
+        onClick={(event) => {
+          event.preventDefault();
+          event.stopPropagation();
+        }}
+        className="pointer-events-auto absolute bottom-[16px] right-[4px] h-[132px] w-[132px] rounded-full"
+      />
     </div>
   );
 }
@@ -238,7 +273,7 @@ function ClaraDeveloperPanel({ isVisible, activeScenarioId, isApplyingScenario, 
 
           <div className="space-y-2">
             {scenarios.map((scenario) => {
-              const active = activeScenarioId === scenario.id;
+              const active = activeDevScenario === scenario.id;
 
               return (
                 <button
@@ -469,9 +504,11 @@ export default function ClaraAiEnvironmentBridge() {
     claraAiEnvironment.clearEnvironment?.();
   };
 
-  const skipDemoIntro = () => {
+  const startDemoFromIntro = () => {
     setStoredDemoIntroSeenAt(demoIntroSeenToken);
     setDemoIntroVisible(false);
+    setOverlayVisible(true);
+    claraAiEnvironment.activateOverlay?.("demo-intro-hold-orb");
   };
 
   const applyDeveloperScenario = async (scenarioId) => {
@@ -481,11 +518,13 @@ export default function ClaraAiEnvironmentBridge() {
     setIsApplyingScenario(true);
 
     try {
+      clearStoredDemoIntroSeenAt();
+
       if (scenarioId === "demo_user") {
-        clearStoredDemoIntroSeenAt();
-        await seedClaraDemoAccount(localUserId);
+        await clearClaraDemoAccount(CLARA_DEMO_LOCAL_USER_ID);
+        await seedClaraDemoAccount(CLARA_DEMO_LOCAL_USER_ID);
       } else {
-        clearStoredDemoIntroSeenAt();
+        await clearClaraDemoAccount(CLARA_DEMO_LOCAL_USER_ID);
         await clearClaraDemoAccount(localUserId);
       }
 
@@ -506,6 +545,7 @@ export default function ClaraAiEnvironmentBridge() {
 
     try {
       clearStoredDemoIntroSeenAt();
+      await clearClaraDemoAccount(CLARA_DEMO_LOCAL_USER_ID);
       await clearClaraDemoAccount(localUserId);
       clearClaraDevIdentityOverride();
       setActiveDevScenario(null);
@@ -531,7 +571,7 @@ export default function ClaraAiEnvironmentBridge() {
 
       <DemoIntroOverlay
         isVisible={isDemoUserScenario && demoIntroVisible && !isActive && !developerPanelVisible}
-        onSkip={skipDemoIntro}
+        onStartDemo={startDemoFromIntro}
       />
 
       {isDemoUserScenario ? (
