@@ -1,0 +1,119 @@
+/* CLARA Life Context hierarchy polish
+   This keeps the existing component logic intact and only tunes density, hierarchy, and glass depth. */
+
+#root section[class*="rgba(9,62,76"] {
+  isolation: isolate;
+  border-color: rgba(165, 243, 252, 0.14) !important;
+  background-color: rgba(7, 22, 44, 0.86) !important;
+  background-image:
+    radial-gradient(circle at 0% 0%, rgba(45, 212, 191, 0.135), transparent 34%),
+    radial-gradient(circle at 94% 10%, rgba(59, 130, 246, 0.075), transparent 36%),
+    radial-gradient(circle at 100% 92%, rgba(124, 58, 237, 0.105), transparent 44%),
+    linear-gradient(135deg, rgba(7, 48, 62, 0.91), rgba(9, 22, 51, 0.94) 46%, rgba(35, 20, 78, 0.91)) !important;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.075),
+    0 24px 72px rgba(0, 0, 0, 0.30),
+    0 0 28px rgba(34, 211, 238, 0.055),
+    0 0 46px rgba(124, 58, 237, 0.075) !important;
+}
+
+#root section[class*="rgba(9,62,76"] > div.pointer-events-none {
+  opacity: 0.64;
+}
+
+#root section[class*="rgba(9,62,76"] h3 {
+  max-width: 22rem;
+  color: rgba(248, 253, 255, 0.92) !important;
+  font-size: clamp(1.38rem, 5.9vw, 1.68rem) !important;
+  line-height: 1.06 !important;
+  letter-spacing: -0.045em !important;
+  text-wrap: balance;
+  text-shadow: 0 10px 28px rgba(0, 0, 0, 0.22);
+}
+
+#root section[class*="rgba(9,62,76"] h3 + p {
+  max-width: 22.5rem;
+  color: rgba(236, 253, 255, 0.66) !important;
+  font-size: 0.86rem !important;
+  line-height: 1.72 !important;
+}
+
+#root section[class*="rgba(9,62,76"] p[class*="uppercase"] {
+  color: rgba(207, 250, 254, 0.42) !important;
+  letter-spacing: 0.22em !important;
+}
+
+#root section[class*="rgba(9,62,76"] p[class*="text-white/38"] {
+  color: rgba(236, 253, 255, 0.42) !important;
+}
+
+#root section[class*="rgba(9,62,76"] div[class*="mt-5"][class*="space-y-5"] {
+  margin-top: 1.15rem !important;
+}
+
+#root section[class*="rgba(9,62,76"] div[class*="space-y-2.5"] {
+  row-gap: 0.7rem;
+}
+
+#root section[class*="rgba(9,62,76"] button.group {
+  min-height: 4rem;
+  border-color: rgba(165, 243, 252, 0.095) !important;
+  background-color: rgba(255, 255, 255, 0.034) !important;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.052),
+    0 10px 24px rgba(0, 0, 0, 0.12) !important;
+  backdrop-filter: blur(10px) saturate(1.08);
+  -webkit-backdrop-filter: blur(10px) saturate(1.08);
+}
+
+#root section[class*="rgba(9,62,76"] button.group:hover {
+  border-color: rgba(165, 243, 252, 0.155) !important;
+  background-color: rgba(255, 255, 255, 0.048) !important;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.075),
+    0 12px 28px rgba(0, 0, 0, 0.15),
+    0 0 18px rgba(34, 211, 238, 0.045) !important;
+  transform: translateY(-1px);
+}
+
+#root section[class*="rgba(9,62,76"] button.group > div:first-child {
+  border-color: rgba(165, 243, 252, 0.12) !important;
+  background:
+    radial-gradient(circle at 22% 0%, rgba(103, 232, 249, 0.12), transparent 56%),
+    rgba(255, 255, 255, 0.045) !important;
+  color: rgba(207, 250, 254, 0.72) !important;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.08),
+    0 0 14px rgba(34, 211, 238, 0.045) !important;
+}
+
+#root section[class*="rgba(9,62,76"] button.group p:first-child {
+  color: rgba(255, 255, 255, 0.88) !important;
+  letter-spacing: -0.015em;
+}
+
+#root section[class*="rgba(9,62,76"] button.group p[class*="line-clamp-1"] {
+  color: rgba(236, 253, 255, 0.43) !important;
+}
+
+#root section[class*="rgba(9,62,76"] button.group > svg {
+  color: rgba(236, 253, 255, 0.45) !important;
+}
+
+@media (max-width: 420px) {
+  #root section[class*="rgba(9,62,76"] {
+    padding: 1.1rem !important;
+  }
+
+  #root section[class*="rgba(9,62,76"] h3 {
+    font-size: clamp(1.3rem, 6.2vw, 1.52rem) !important;
+  }
+
+  #root section[class*="rgba(9,62,76"] h3 + p {
+    font-size: 0.84rem !important;
+  }
+
+  #root section[class*="rgba(9,62,76"] button.group {
+    min-height: 3.85rem;
+  }
+}
