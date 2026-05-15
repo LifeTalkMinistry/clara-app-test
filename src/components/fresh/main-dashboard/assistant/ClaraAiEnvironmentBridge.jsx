@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Sparkles } from "lucide-react";
 import ClaraAiEnvironmentOverlay from "@/components/fresh/main-dashboard/assistant/ClaraAiEnvironmentOverlay";
+import ClaraDemoGuidedOverlay from "@/components/fresh/main-dashboard/assistant/ClaraDemoGuidedOverlay";
 import useClaraAiEnvironment from "@/components/fresh/main-dashboard/assistant/useClaraAiEnvironment";
 import useFinancialData from "@/hooks/useFinancialData";
 import useUserRole from "@/hooks/useUserRole";
@@ -159,6 +160,9 @@ export default function ClaraAiEnvironmentBridge() {
     refreshing = false,
   } = useFinancialData(user);
 
+  const currentOverride = readClaraDevIdentityOverride();
+  const isDemoUserScenario = currentOverride?.scenarioId === "demo_user";
+
   const claraAssistantContext = useMemo(
     () => ({
       user,
@@ -189,7 +193,7 @@ export default function ClaraAiEnvironmentBridge() {
   const [overlayVisible, setOverlayVisible] = useState(false);
   const [developerPanelVisible, setDeveloperPanelVisible] = useState(false);
   const [activeDevScenario, setActiveDevScenario] = useState(
-    () => readClaraDevIdentityOverride()?.scenarioId || null
+    () => currentOverride?.scenarioId || null
   );
   const [isApplyingScenario, setIsApplyingScenario] = useState(false);
 
@@ -345,13 +349,20 @@ export default function ClaraAiEnvironmentBridge() {
         onClearScenario={clearDeveloperScenario}
       />
 
-      <ClaraAiEnvironmentOverlay
-        isActive={isActive}
-        messages={claraAiEnvironment.messages}
-        claraAssistantContext={claraAssistantContext}
-        requestFeaturePrompt={claraAiEnvironment.requestFeaturePrompt}
-        onClose={closeOverlay}
-      />
+      {isDemoUserScenario ? (
+        <ClaraDemoGuidedOverlay
+          isActive={isActive}
+          onClose={closeOverlay}
+        />
+      ) : (
+        <ClaraAiEnvironmentOverlay
+          isActive={isActive}
+          messages={claraAiEnvironment.messages}
+          claraAssistantContext={claraAssistantContext}
+          requestFeaturePrompt={claraAiEnvironment.requestFeaturePrompt}
+          onClose={closeOverlay}
+        />
+      )}
     </>
   );
 }
