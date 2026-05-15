@@ -1,0 +1,53 @@
+/* CLARA Settings Cleanup
+   Simplifies the settings screen without touching underlying logic.
+*/
+
+/* remove large profile hero card */
+#root .space-y-5.pb-6 > div.rounded-\[30px\].border.border-white\/15.bg-\[radial-gradient\(circle_at_top_left\,rgba\(255\,255\,255\,0\.08\)\,transparent_34\%\)\,rgba\(255\,255\,255\,0\.045\)\].p-4.shadow-\[0_18px_50px_rgba\(0\,0\,0\,0\.20\)\].backdrop-blur-xl {
+  display: none !important;
+}
+
+/* hide performance mode row */
+#root button.group:has(p:textEquals("Performance Mode")) {
+  display: none !important;
+}
+
+/* fallback selector for performance card */
+#root button.group:has(svg.lucide-rocket) {
+  display: none !important;
+}
+
+/* hide logout section */
+#root .space-y-2.pt-1 {
+  display: none !important;
+}
+
+/* cleaner spacing */
+#root .space-y-5.pb-6 {
+  row-gap: 1rem !important;
+}
+
+#root section.space-y-2 {
+  row-gap: 0.55rem !important;
+}
+
+#root section.space-y-2 .space-y-2\.5 {
+  row-gap: 0.6rem !important;
+}
+
+/* soften section labels */
+#root section.space-y-2 > p {
+  color: rgba(255,255,255,0.26) !important;
+  letter-spacing: 0.20em !important;
+}
+
+/* slightly calmer cards */
+#root button.group {
+  min-height: 4.15rem;
+  background: rgba(255,255,255,0.038) !important;
+  border-color: rgba(255,255,255,0.12) !important;
+}
+
+#root button.group:hover {
+  background: rgba(255,255,255,0.055) !important;
+}
