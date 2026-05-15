@@ -3,8 +3,8 @@ import { ArrowUp, Sparkles, X } from "lucide-react";
 import { buildClaraFinanceSnapshot, generateClaraLocalReply } from "@/lib/clara-local-brain";
 import { generateClaraGeminiReply, hasGeminiConfig } from "@/lib/clara-gemini-client";
 
-const CLARA_AI_BRAIN_VERSION = "connected-brain-v6-single-bubble";
-const PRESENTATION_RULES = "Format for a mobile money coach. Plain text only. No markdown. Use short labels like Money Signal, Risk, Next Move, Question. Keep it practical and calm.";
+const CLARA_AI_BRAIN_VERSION = "connected-brain-v7-natural-chat";
+const PRESENTATION_RULES = "Reply like a normal chat message. Plain text only. No markdown. Do not use headings, labels, section titles, bullets, tables, or report format. Give one natural conversational reply in 1-3 short sentences.";
 const SHOW_DEBUG_SOURCE = import.meta.env.DEV || import.meta.env.VITE_CLARA_DEBUG_AI === "true";
 
 const QUICK_QUESTIONS = [
@@ -47,6 +47,14 @@ function clean(text = "") {
     .trim();
 }
 
+function normalizeNaturalChatReply(text = "") {
+  return clean(text)
+    .replace(/\b(Money Signal|Spending Signal|Next Move|Risk|Budget|Wallet|Savings|Emergency Fund|Question|CLARA says|Money Note|Smart Action):\s*/gi, "")
+    .replace(/\s*\|\s*/g, " ")
+    .replace(/\s{2,}/g, " ")
+    .trim();
+}
+
 function hiddenMessage(message = {}) {
   const text = String(message.text || "").toLowerCase();
   return text.includes("what are you thinking of buying") || text.includes("setting up the right clara check") || text.includes("wiring each action");
@@ -59,71 +67,42 @@ function formatMoney(value) {
 
 function fallbackReply(prompt, context) {
   const snapshot = buildClaraFinanceSnapshot(context || {});
-  const local = generateClaraLocalReply(prompt, context);
-  if (local && !local.includes("I can help with money decisions") && !local.includes("What do you want to check?")) return local;
+  const local = normalizeNaturalChatReply(generateClaraLocalReply(prompt, context));
+
+  if (local && !local.includes("I can help with money decisions") && !local.includes("What do you want to check?")) {
+    return local;
+  }
+
   const available = formatMoney(snapshot.availableMoney);
   const spent = formatMoney(snapshot.monthlySpent);
-  if (!snapshot.hasAnyData) return "Money Signal: I need more finance data first. Next Move: Add wallets, expenses, budgets, savings, or emergency fund so I can guide you properly.";
-  return [
-    available ? `Money Signal: You have ${available} visible money.` : "Money Signal: I can read your loaded finance context.",
-    spent ? `Spending Signal: Spending shows ${spent}.` : null,
-    "Next Move: Keep the next decision planned, necessary, and aligned with your current money pressure.",
-  ].filter(Boolean).join(" ");
+
+  if (!snapshot.hasAnyData) {
+    return "I need a little more finance data first. Add your wallet, expenses, budget, savings, or emergency fund, then I can guide you better.";
+  }
+
+  if (available && spent) {
+    return `You have ${available} visible money right now, and your spending shows ${spent}. Keep the next decision planned, necessary, and aligned with your current money pressure.`;
+  }
+
+  if (available) {
+    return `You have ${available} visible money right now. Keep your next spending decision planned and aligned with your current budget.`;
+  }
+
+  return "I can read your loaded finance context now. Keep the next decision planned, necessary, and aligned with your current money pressure.";
 }
 
-function splitIntoBlocks(text = "") {
-  const cleaned = clean(text);
-  if (!cleaned) return [];
-  const labeled = cleaned.replace(/\b(Money Signal|Spending Signal|Risk|Budget|Wallet|Savings|Emergency Fund|Next Move|Question):/g, "\n$1:");
-  const parts = labeled.split(/\n+/).map((part) => part.trim()).filter(Boolean);
-  if (parts.length > 1) return parts;
-  return cleaned.split(/(?<=[.!?])\s+(?=[A-Z₱0-9])/).reduce((blocks, sentence) => {
-    const last = blocks[blocks.length - 1] || "";
-    if (last && `${last} ${sentence}`.length < 150) blocks[blocks.length - 1] = `${last} ${sentence}`;
-    else blocks.push(sentence);
-    return blocks;
-  }, []);
-}
-
-function Insight({ text, action, source }) {
-  const blocks = splitIntoBlocks(text);
+function Insight({ text, source }) {
+  const reply = normalizeNaturalChatReply(text);
 
   return (
-    <div className="space-y-3">
-      {action ? (
-        <div>
-          <p className="text-[10px] font-black uppercase tracking-[0.22em] text-cyan-100/55">Smart Action</p>
-          <h4 className="mt-1 text-[15px] font-black text-white">{action.title}</h4>
-        </div>
-      ) : null}
-
+    <div className="space-y-2">
       {SHOW_DEBUG_SOURCE ? (
-        <div className="inline-flex rounded-full border border-white/10 bg-white/[0.06] px-2 py-1 text-[9px] font-black uppercase tracking-[0.18em] text-white/45">
+        <div className="inline-flex rounded-full bg-white/[0.05] px-2 py-1 text-[9px] font-black uppercase tracking-[0.18em] text-white/35">
           Source: {source === "gemini" ? "Gemini" : "Local fallback"}
         </div>
       ) : null}
 
-      <div className="space-y-2.5">
-        {blocks.slice(0, 5).map((block, index) => {
-          const [rawTitle, ...rest] = block.split(":");
-          const hasLabel = rest.length > 0 && rawTitle.length < 32;
-          const title = hasLabel ? rawTitle : index === 0 ? "CLARA says" : "Money Note";
-          const body = hasLabel ? rest.join(":").trim() : block;
-          const lower = `${title} ${body}`.toLowerCase();
-          const titleTone = lower.includes("risk") || lower.includes("pressure") || lower.includes("delay") || lower.includes("pause")
-            ? "text-amber-100/70"
-            : lower.includes("next") || lower.includes("question")
-              ? "text-cyan-100/70"
-              : "text-white/48";
-
-          return (
-            <div key={`${title}-${index}`} className={`${index > 0 ? "border-t border-white/10 pt-2.5" : ""}`}>
-              <p className={`text-[10px] font-black uppercase tracking-[0.18em] ${titleTone}`}>{title}</p>
-              <p className="mt-1.5 text-[12.5px] leading-5 text-slate-200/88">{body}</p>
-            </div>
-          );
-        })}
-      </div>
+      <p className="whitespace-pre-wrap text-[13px] leading-5 text-slate-100/90">{reply}</p>
     </div>
   );
 }
@@ -190,7 +169,7 @@ export default function ClaraAiEnvironmentOverlay({ isActive = false, messages =
 
     if (!cleanPrompt || isThinking) return;
 
-    const pending = makeMessage("clara", "Checking your real finance context...", {
+    const pending = makeMessage("clara", "Thinking...", {
       source: "system"
     });
 
@@ -236,7 +215,7 @@ export default function ClaraAiEnvironmentOverlay({ isActive = false, messages =
 
         return {
           ...message,
-          text: reply,
+          text: normalizeNaturalChatReply(reply),
           source,
           ...(action ? { smartAction: action } : {})
         };
@@ -287,7 +266,7 @@ export default function ClaraAiEnvironmentOverlay({ isActive = false, messages =
               const action = message.smartAction;
               return (
                 <div key={message.id} className={`flex ${isUser ? "justify-end" : "justify-start"}`}>
-                  <div className={`rounded-[24px] px-4 py-3 text-[13px] leading-5 shadow-[0_14px_34px_rgba(0,0,0,0.20)] ${isUser ? "max-w-[88%] bg-emerald-300 text-slate-950" : "max-w-[94%] border border-white/12 bg-white/[0.075] text-white/86 backdrop-blur-xl"}`}>
+                  <div className={`px-4 py-3 text-[13px] leading-5 shadow-[0_14px_34px_rgba(0,0,0,0.16)] ${isUser ? "max-w-[88%] rounded-[24px] bg-emerald-300 text-slate-950" : "max-w-[88%] rounded-[24px] bg-white/[0.075] text-white/86 backdrop-blur-xl"}`}>
                     {isUser ? clean(message.text) : <Insight text={message.text} action={action} source={message.source} />}
                     {action && !isUser && action.chips?.length ? (
                       <div className="mt-3 border-t border-white/10 pt-3">
