@@ -1,21 +1,115 @@
-import { CheckCircle2, ChevronDown, ChevronUp, Sparkles, TrendingUp } from "lucide-react";
+import { CheckCircle2, Sparkles, TrendingUp, Target } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 
+import FinanceCardShell from "@/components/financial-carousel/shared/FinanceCardShell";
+import FinanceCardExpandButton from "@/components/financial-carousel/shared/FinanceCardExpandButton";
+import FinanceCardExpandedPanel from "@/components/financial-carousel/shared/FinanceCardExpandedPanel";
 import useInvestmentCardLogic, {
   fmt,
 } from "@/components/financial-carousel/cards/investment/logic/useInvestmentCardLogic";
 
-function SummaryTile({ label, value, valueClassName = "text-white/92" }) {
+const premiumActionClass =
+  "border-white/[0.045] bg-black/[0.105] text-white/84 shadow-[inset_0_1px_0_rgba(255,255,255,0.026),0_10px_22px_rgba(0,0,0,0.14)] backdrop-blur-sm hover:border-white/[0.07] hover:bg-white/[0.04]";
+
+const expandButtonClass =
+  "border-white/[0.045] bg-black/[0.105] py-3 font-medium text-white/86 shadow-[inset_0_1px_0_rgba(255,255,255,0.028),0_10px_22px_rgba(0,0,0,0.14)] backdrop-blur-sm hover:border-white/[0.07] hover:bg-white/[0.04]";
+
+const INVESTMENT_GLOW_LAYERS = [
+  "pointer-events-none absolute -left-[132px] -top-[148px] z-[1] h-[270px] w-[270px] rounded-full bg-cyan-400/[0.07] blur-[78px]",
+  "pointer-events-none absolute -right-[132px] -top-[72px] z-[1] h-[270px] w-[270px] rounded-full bg-sky-500/[0.09] blur-[86px]",
+  "pointer-events-none absolute bottom-[-210px] right-[-130px] z-[1] h-[310px] w-[310px] rounded-full bg-purple-700/[0.14] blur-[92px]",
+  "pointer-events-none absolute inset-0 z-[2] bg-[radial-gradient(circle_at_12%_0%,rgba(103,232,249,0.105),transparent_31%),radial-gradient(circle_at_86%_98%,rgba(124,58,237,0.16),transparent_48%),linear-gradient(180deg,rgba(255,255,255,0.055),rgba(255,255,255,0.012)_36%,rgba(0,0,0,0.18)_100%)]",
+  "pointer-events-none absolute inset-x-0 top-0 z-[3] h-24 bg-[linear-gradient(to_bottom,rgba(255,255,255,0.06),rgba(255,255,255,0.012)_42%,transparent)]",
+  "pointer-events-none absolute inset-0 z-[3] rounded-[inherit] ring-1 ring-inset ring-white/[0.055]",
+];
+
+function InvestmentHeader({ title, subtitle, statusLabel, tone }) {
   return (
-    <div className="rounded-2xl border border-white/10 bg-white/[0.045] px-2.5 py-2.5 text-center shadow-[inset_0_1px_0_rgba(255,255,255,0.06)] backdrop-blur-sm">
-      <p
-        className={`flex min-h-[1.65rem] items-center justify-center text-balance text-[12px] font-black leading-[1.02] tracking-[-0.03em] ${valueClassName}`}
-      >
-        {value}
-      </p>
-      <p className="mt-1.5 text-[8px] font-black uppercase tracking-[0.18em] text-white/42">
-        {label}
-      </p>
+    <div className="mb-3 flex items-start gap-3">
+      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-cyan-200/18 bg-white/[0.065] text-cyan-100 shadow-[inset_0_1px_0_rgba(255,255,255,0.11),0_0_16px_rgba(0,255,220,0.08)] backdrop-blur-sm">
+        <TrendingUp className="h-4 w-4" />
+      </div>
+
+      <div className="min-w-0 flex-1">
+        <div className="flex items-start justify-between gap-2">
+          <div className="min-w-0">
+            <p className="text-base font-semibold tracking-tight text-white">
+              {title}
+            </p>
+            <p className="mt-0.5 text-[11px] font-medium text-white/76">
+              {subtitle || "Decide before you invest"}
+            </p>
+          </div>
+
+          <span className={`shrink-0 rounded-full px-2.5 py-1 text-[10px] font-semibold backdrop-blur-sm ${tone.status}`}>
+            {statusLabel}
+          </span>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function InvestmentSummaryStats({ mainLabel, canSafelyInvest, safeToInvest, selectedType, tone }) {
+  const summaryTiles = [
+    {
+      label: "Safe Range",
+      value: canSafelyInvest ? fmt(safeToInvest) : "₱0",
+      valueClassName: canSafelyInvest ? "text-emerald-200" : tone.value,
+    },
+    { label: "Type", value: selectedType },
+    {
+      label: "Status",
+      value: canSafelyInvest ? "Ready" : "Wait",
+      valueClassName: canSafelyInvest ? "text-emerald-200" : tone.value,
+    },
+  ];
+
+  return (
+    <>
+      <div className="mb-3">
+        <p className={`text-[32px] font-bold leading-none tracking-[-0.045em] ${tone.value}`}>
+          {mainLabel}
+        </p>
+        <p className="mt-2 text-sm font-semibold leading-tight text-white/76">
+          {canSafelyInvest ? "Recommended starter amount." : "Build protection first."}
+        </p>
+      </div>
+
+      <div className="mb-1 overflow-hidden rounded-[22px] border border-white/[0.055] bg-black/[0.105] shadow-[inset_0_1px_0_rgba(255,255,255,0.035),0_12px_26px_rgba(0,0,0,0.12)] backdrop-blur-sm">
+        <div className="grid grid-cols-3 divide-x divide-white/[0.055]">
+          {summaryTiles.map((tile) => (
+            <div key={tile.label} className="relative px-2.5 py-2.5 text-center">
+              <div className="pointer-events-none absolute inset-x-2 top-0 h-px bg-gradient-to-r from-transparent via-white/[0.055] to-transparent" />
+              <p
+                className={`flex min-h-[1rem] items-center justify-center truncate text-[13px] font-black leading-none tracking-[-0.03em] ${
+                  tile.valueClassName || "text-white/88"
+                }`}
+              >
+                {tile.value}
+              </p>
+              <p className="mt-1.5 text-[8px] font-black uppercase tracking-[0.18em] text-white/34">
+                {tile.label}
+              </p>
+            </div>
+          ))}
+        </div>
+      </div>
+    </>
+  );
+}
+
+function ExpandButtonRow({ expanded, onToggleDetails }) {
+  return (
+    <div className="shrink-0 border-t border-white/[0.035] pt-3">
+      <FinanceCardExpandButton
+        detailKey="investmentFund"
+        expanded={expanded}
+        onToggleDetails={onToggleDetails}
+        collapsedLabel="View investment details"
+        expandedLabel="Hide investment details"
+        className={expandButtonClass}
+      />
     </div>
   );
 }
@@ -38,22 +132,9 @@ export default function InvestmentCard({ item = null, expanded = false, onToggle
     canSafelyInvest,
     safeToInvest,
     selectedType,
+    amountStatus,
   } = computed;
   const { handleAskClara, handleToggleDetails } = handlers;
-
-  const summaryTiles = [
-    {
-      label: "Safe Range",
-      value: canSafelyInvest ? fmt(safeToInvest) : "₱0",
-      valueClassName: canSafelyInvest ? "text-emerald-300" : tone.value,
-    },
-    { label: "Type", value: selectedType },
-    {
-      label: "Status",
-      value: canSafelyInvest ? "Ready" : "Wait",
-      valueClassName: canSafelyInvest ? "text-emerald-300" : tone.value,
-    },
-  ];
 
   const explanationTitle = canSafelyInvest ? "Why this amount?" : "Why not yet?";
   const explanationText = canSafelyInvest
@@ -77,133 +158,151 @@ export default function InvestmentCard({ item = null, expanded = false, onToggle
   };
 
   return (
-    <div
-      className={`relative flex h-full min-h-[inherit] flex-col overflow-hidden rounded-3xl border text-white shadow-[0_22px_60px_rgba(0,0,0,0.38),0_0_34px_rgba(0,255,220,0.08),0_0_48px_rgba(126,34,206,0.10)] transition-all duration-200 ${tone.border}`}
+    <FinanceCardShell
+      cardKey="investmentFund"
+      expanded={isExpanded}
+      ringClass="shadow-[0_0_24px_rgba(34,211,238,0.08),0_0_46px_rgba(88,28,135,0.07)]"
+      roundedClass="rounded-3xl"
+      glowLayerClassNames={INVESTMENT_GLOW_LAYERS}
+      surfaceClassName="!border-white/[0.075] !bg-[linear-gradient(135deg,rgba(4,28,43,0.90),rgba(5,12,36,0.955)_44%,rgba(22,9,57,0.93))]"
+      shadowClass="shadow-[0_26px_70px_rgba(0,0,0,0.48),0_0_26px_rgba(34,211,238,0.045),0_0_56px_rgba(88,28,135,0.11)]"
     >
-      <div className="absolute inset-0" style={{ background: tone.background }} />
-      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(16,185,129,0.20),transparent_31%),radial-gradient(circle_at_bottom_right,rgba(126,34,206,0.20),transparent_33%),linear-gradient(135deg,rgba(255,255,255,0.04)_0%,rgba(255,255,255,0.00)_38%,rgba(255,255,255,0.02)_100%)]" />
-      <div className="pointer-events-none absolute inset-0 bg-gradient-to-b from-black/20 via-black/16 to-black/30" />
-      <div className="pointer-events-none absolute bottom-[-135px] right-[-92px] h-[230px] w-[230px] rounded-full bg-violet-400/[0.09] blur-3xl" />
-      <div className="pointer-events-none absolute inset-0 rounded-[inherit] ring-1 ring-inset ring-white/10" />
+      {!isExpanded ? (
+        <div className="relative z-10 flex h-full min-h-0 flex-col overflow-hidden px-4 pb-4 pt-5">
+          <div className="pointer-events-none absolute inset-0 opacity-[0.48]">
+            <div className="absolute -left-20 top-[-58px] h-40 w-40 rounded-full bg-cyan-400/[0.065] blur-3xl" />
+            <div className="absolute bottom-[-104px] right-[-82px] h-48 w-48 rounded-full bg-violet-500/[0.10] blur-3xl" />
+            <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(255,255,255,0.024),transparent_30%,rgba(0,0,0,0.16)_100%)]" />
+          </div>
 
-      <div className="relative z-10 flex h-full min-h-0 flex-col p-4 pb-4">
-        <div className="relative z-30 flex shrink-0 flex-col gap-2.5">
-          {isExpanded ? (
-            <div className="shrink-0 pb-1">
-              <p className={`text-[31px] font-bold leading-none tracking-[-0.04em] ${tone.value}`}>
+          <div className="relative flex min-h-0 flex-col gap-4">
+            <div className="min-h-0 rounded-[28px] border border-white/[0.035] bg-black/[0.055] p-3.5 shadow-[inset_0_1px_0_rgba(255,255,255,0.026)] backdrop-blur-[2px]">
+              <InvestmentHeader
+                title={title}
+                subtitle={subtitle}
+                statusLabel={statusLabel}
+                tone={tone}
+              />
+
+              <div className="mt-3 rounded-[24px] bg-[linear-gradient(180deg,rgba(255,255,255,0.014),rgba(255,255,255,0.004)_40%,rgba(0,0,0,0.10)_100%)] p-3">
+                <InvestmentSummaryStats
+                  mainLabel={mainLabel}
+                  canSafelyInvest={canSafelyInvest}
+                  safeToInvest={safeToInvest}
+                  selectedType={selectedType}
+                  tone={tone}
+                />
+              </div>
+            </div>
+
+            <ExpandButtonRow expanded={false} onToggleDetails={handleToggleDetails} />
+          </div>
+        </div>
+      ) : (
+        <div className="relative z-10 flex h-full min-h-0 flex-col overflow-hidden px-4 pb-4 pt-5">
+          <div className="pointer-events-none absolute inset-0 opacity-[0.42]">
+            <div className="absolute -left-24 top-[-70px] h-48 w-48 rounded-full bg-cyan-400/[0.06] blur-3xl" />
+            <div className="absolute bottom-[-130px] right-[-110px] h-60 w-60 rounded-full bg-violet-500/[0.10] blur-3xl" />
+          </div>
+
+          <div className="relative flex min-h-0 flex-1 flex-col gap-4">
+            <div className="shrink-0">
+              <p className={`text-[34px] font-black leading-none tracking-[-0.045em] ${tone.value}`}>
                 {mainLabel}
               </p>
-              <p className="mt-2 text-sm font-semibold leading-tight text-white/82">
+              <p className="mt-2 text-xs font-semibold leading-relaxed text-white/68">
                 {canSafelyInvest ? "Recommended starter amount." : "Build protection first."}
               </p>
             </div>
-          ) : (
-            <div className="min-h-0">
-              <div className="mb-2.5 flex items-start gap-3">
-                <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border backdrop-blur-sm ${tone.iconShell}`}>
-                  <TrendingUp className={`h-4 w-4 ${tone.icon}`} />
+
+            <ExpandButtonRow expanded={true} onToggleDetails={handleToggleDetails} />
+
+            <div className="min-h-0 flex-1 overflow-hidden pt-1">
+              <FinanceCardExpandedPanel className="h-full space-y-3 overflow-y-auto pr-1">
+                <div className="relative overflow-hidden rounded-2xl border border-cyan-300/12 bg-[radial-gradient(circle_at_top_left,rgba(34,211,238,0.10),transparent_42%),rgba(14,165,233,0.055)] px-4 py-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.04),0_0_18px_rgba(14,165,233,0.035)]">
+                  <div className="pointer-events-none absolute -right-10 -top-14 h-28 w-28 rounded-full bg-cyan-300/[0.06] blur-2xl" />
+                  <p className="relative text-[10px] font-black uppercase tracking-[0.16em] text-cyan-100/46">
+                    {explanationTitle}
+                  </p>
+                  <p className="relative mt-2 text-[17px] font-black leading-snug text-white/92">
+                    {canSafelyInvest ? "Start small, not all-in" : "Emergency protection comes first"}
+                  </p>
+                  <p className="relative mt-3 text-[12.5px] font-semibold leading-6 text-white/68">
+                    {explanationText}
+                  </p>
                 </div>
 
-                <div className="min-w-0 flex-1">
-                  <div className="flex items-start justify-between gap-2">
+                <div className="relative overflow-hidden rounded-2xl border border-emerald-300/12 bg-[radial-gradient(circle_at_top_left,rgba(52,211,153,0.10),transparent_42%),rgba(16,185,129,0.055)] px-4 py-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.04),0_0_18px_rgba(16,185,129,0.035)]">
+                  <div className="pointer-events-none absolute -right-10 -bottom-14 h-28 w-28 rounded-full bg-emerald-300/[0.06] blur-2xl" />
+                  <div className="relative flex items-start gap-3">
+                    <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-emerald-300/18 bg-emerald-400/[0.09] text-emerald-200 shadow-[0_0_18px_rgba(52,211,153,0.08)]">
+                      {canSafelyInvest ? <CheckCircle2 className="h-4 w-4" /> : <Sparkles className="h-4 w-4" />}
+                    </div>
                     <div className="min-w-0">
-                      <p className="text-base font-semibold tracking-tight text-white">{title}</p>
-                      <p className="mt-0.5 text-[11px] font-medium text-white/76">
-                        {subtitle || "Decide before you invest"}
+                      <p className="text-sm font-black leading-tight text-white/92">
+                        {recognitionTitle}
+                      </p>
+                      <p className="mt-1.5 text-[12px] font-semibold leading-5 text-white/68">
+                        {recognitionText}
                       </p>
                     </div>
-
-                    <span className={`shrink-0 rounded-full border px-2.5 py-1 text-[10px] font-semibold backdrop-blur-sm ${tone.status}`}>
-                      {statusLabel}
-                    </span>
                   </div>
                 </div>
-              </div>
 
-              <div className="mb-2.5">
-                <p className={`text-[31px] font-bold leading-none tracking-[-0.04em] ${tone.value}`}>
-                  {mainLabel}
-                </p>
-                <p className="mt-1.5 text-sm font-semibold leading-tight text-white/82">
-                  {canSafelyInvest ? "Recommended starter amount." : "Build protection first."}
-                </p>
-              </div>
+                <div className="rounded-2xl border border-white/[0.045] bg-black/[0.105] px-3.5 py-3 shadow-[inset_0_1px_0_rgba(255,255,255,0.026)]">
+                  <div className="mb-3 flex items-center justify-between gap-3">
+                    <span className="text-[10px] font-black uppercase tracking-[0.16em] text-white/34">
+                      Current setup
+                    </span>
+                    <span className={`text-[11px] font-black ${canSafelyInvest ? "text-emerald-200" : tone.value}`}>
+                      {canSafelyInvest ? "Ready" : "Wait"}
+                    </span>
+                  </div>
 
-              <div className="mb-1 grid grid-cols-3 gap-2">
-                {summaryTiles.map((tile) => (
-                  <SummaryTile
-                    key={tile.label}
-                    label={tile.label}
-                    value={tile.value}
-                    valueClassName={tile.valueClassName}
-                  />
-                ))}
-              </div>
+                  <div className="grid grid-cols-2 gap-2.5 text-[12px] font-semibold text-white/58">
+                    <div className="rounded-xl border border-white/[0.045] bg-black/[0.10] px-3 py-3">
+                      <p className="text-white/34">Investment type</p>
+                      <p className="mt-1.5 text-sm font-black text-white/84">{selectedType}</p>
+                    </div>
+                    <div className="rounded-xl border border-white/[0.045] bg-black/[0.10] px-3 py-3">
+                      <p className="text-white/34">Safe range</p>
+                      <p className="mt-1.5 text-sm font-black text-white/84">
+                        {canSafelyInvest ? fmt(safeToInvest) : "₱0"}
+                      </p>
+                    </div>
+                  </div>
+
+                  <p className="mt-3 rounded-xl border border-white/[0.035] bg-black/[0.08] px-3 py-2.5 text-[11.5px] font-semibold leading-5 text-white/54">
+                    {amountStatus}
+                  </p>
+                </div>
+
+                <div className="grid grid-cols-1 gap-2.5 pt-1.5">
+                  <button
+                    type="button"
+                    onClick={openInvestmentPlan}
+                    className="flex items-center justify-center gap-2 rounded-2xl border border-cyan-300/18 bg-cyan-400/[0.09] px-4 py-3.5 text-sm font-black text-cyan-100 shadow-[0_0_18px_rgba(34,211,238,0.08)] transition hover:bg-cyan-400/[0.13]"
+                  >
+                    <Target className="h-4 w-4" />
+                    Start Investment Plan
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={handleAskClara}
+                    className={`flex items-center justify-center gap-2 rounded-2xl border px-4 py-3 text-sm font-semibold transition ${premiumActionClass}`}
+                  >
+                    <Sparkles className="h-4 w-4" />
+                    Ask CLARA First
+                  </button>
+                </div>
+
+                <div aria-hidden="true" className="h-5 shrink-0" />
+              </FinanceCardExpandedPanel>
             </div>
-          )}
-
-          <div className="relative z-30 shrink-0 border-t border-white/6 pt-2.5">
-            <button
-              type="button"
-              onClick={handleToggleDetails}
-              className="relative z-30 flex w-full items-center justify-between rounded-2xl border border-white/10 bg-white/[0.055] px-3 py-3 text-sm font-medium text-white/85 shadow-[inset_0_1px_0_rgba(255,255,255,0.06)] backdrop-blur-sm transition hover:bg-white/10"
-              aria-expanded={isExpanded}
-            >
-              <span>{isExpanded ? "Hide details" : "Show details"}</span>
-              {isExpanded ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
-            </button>
           </div>
         </div>
-
-        {isExpanded ? (
-          <div className="relative z-20 mt-5 min-h-0 flex-1 space-y-3 overflow-y-auto overscroll-contain rounded-2xl border border-white/10 bg-black/15 p-3.5 pb-5 pt-4 backdrop-blur-[2px] shadow-[inset_0_1px_0_rgba(255,255,255,0.05)] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-            <div className="relative z-10 overflow-hidden rounded-2xl border border-cyan-300/18 bg-cyan-400/[0.075] px-3.5 py-3.5 shadow-[inset_0_1px_0_rgba(255,255,255,0.06)]">
-              <div className="pointer-events-none absolute -right-8 -top-10 h-24 w-24 rounded-full bg-cyan-300/10 blur-2xl" />
-              <p className="relative text-[10px] font-black uppercase tracking-[0.16em] text-cyan-100/60">
-                {explanationTitle}
-              </p>
-              <p className="relative mt-2 text-[12.5px] font-semibold leading-6 text-white/76">
-                {explanationText}
-              </p>
-            </div>
-
-            <div className="relative z-10 overflow-hidden rounded-2xl border border-emerald-300/18 bg-[radial-gradient(circle_at_top_left,rgba(52,211,153,0.18),transparent_42%),rgba(16,185,129,0.075)] px-3.5 py-3.5 shadow-[inset_0_1px_0_rgba(255,255,255,0.06)]">
-              <div className="pointer-events-none absolute -right-6 -bottom-10 h-24 w-24 rounded-full bg-emerald-300/10 blur-2xl" />
-              <div className="relative flex items-start gap-3">
-                <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-emerald-300/20 bg-emerald-400/10 text-emerald-200 shadow-[0_0_18px_rgba(52,211,153,0.12)]">
-                  {canSafelyInvest ? <CheckCircle2 className="h-4 w-4" /> : <Sparkles className="h-4 w-4" />}
-                </div>
-                <div className="min-w-0">
-                  <p className="text-sm font-black leading-tight text-white">
-                    {recognitionTitle}
-                  </p>
-                  <p className="mt-1.5 text-[12px] font-semibold leading-5 text-white/68">
-                    {recognitionText}
-                  </p>
-                </div>
-              </div>
-            </div>
-
-            <div className="relative z-10 grid grid-cols-1 gap-2 pt-0.5">
-              <button
-                type="button"
-                onClick={openInvestmentPlan}
-                className={`flex min-h-[46px] items-center justify-center rounded-2xl border px-3 py-3 text-sm font-black shadow-[inset_0_1px_0_rgba(255,255,255,0.08)] ${tone.primaryButton}`}
-              >
-                Start Investment Plan
-              </button>
-
-              <button
-                type="button"
-                onClick={handleAskClara}
-                className="flex min-h-[42px] items-center justify-center rounded-2xl border border-white/10 bg-white/[0.045] px-3 py-2.5 text-sm font-semibold text-white/78 transition hover:bg-white/10 hover:text-white"
-              >
-                Ask CLARA First
-              </button>
-            </div>
-          </div>
-        ) : null}
-      </div>
-    </div>
+      )}
+    </FinanceCardShell>
   );
 }
