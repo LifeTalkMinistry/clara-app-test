@@ -58,15 +58,23 @@ function SettingsSocialCommunityShortcuts() {
   );
 }
 
+function isMainSettingsScreen(settingsContent) {
+  const className = settingsContent?.props?.className;
+
+  if (typeof className !== "string") return false;
+
+  return className.includes("space-y-5") && className.includes("pb-6");
+}
+
 function renderSettingsWithSocialShortcuts(renderSettings, fallback) {
   const settingsContent = renderSettings?.() ?? fallback;
 
-  if (!settingsContent) return <SettingsSocialCommunityShortcuts />;
+  if (!settingsContent) return null;
 
   return (
     <>
       {settingsContent}
-      <SettingsSocialCommunityShortcuts />
+      {isMainSettingsScreen(settingsContent) ? <SettingsSocialCommunityShortcuts /> : null}
     </>
   );
 }
