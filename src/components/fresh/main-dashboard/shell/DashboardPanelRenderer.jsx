@@ -58,14 +58,6 @@ function SettingsSocialCommunityShortcuts() {
   );
 }
 
-function isMainSettingsScreen(settingsContent) {
-  const className = settingsContent?.props?.className;
-
-  if (typeof className !== "string") return false;
-
-  return className.includes("space-y-5") && className.includes("pb-6");
-}
-
 function renderSettingsWithSocialShortcuts(renderSettings, fallback) {
   const settingsContent = renderSettings?.() ?? fallback;
 
@@ -74,7 +66,7 @@ function renderSettingsWithSocialShortcuts(renderSettings, fallback) {
   return (
     <>
       {settingsContent}
-      {isMainSettingsScreen(settingsContent) ? <SettingsSocialCommunityShortcuts /> : null}
+      <SettingsSocialCommunityShortcuts />
     </>
   );
 }
