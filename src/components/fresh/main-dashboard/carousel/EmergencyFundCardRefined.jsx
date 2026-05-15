@@ -77,7 +77,7 @@ function EmergencySummaryStats({ coverageLabel, safeMoneyLeft, target, status, t
 
 function ExpandButtonRow({ expanded, onToggleDetails }) {
   return (
-    <div className="shrink-0 border-t border-white/[0.035] pt-3">
+    <div className={`${expanded ? "" : "mt-2"} shrink-0 border-t border-white/[0.035] pt-3`}>
       <button
         type="button"
         onClick={onToggleDetails}
