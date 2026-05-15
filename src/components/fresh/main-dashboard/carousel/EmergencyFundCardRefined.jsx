@@ -330,7 +330,7 @@ export default function EmergencyFundCard({
               </div>
             ) : (
               <div className="min-h-0 rounded-[28px] border border-white/[0.035] bg-black/[0.055] p-3.5 shadow-[inset_0_1px_0_rgba(255,255,255,0.026)] backdrop-blur-[2px]">
-                <div className="mb-4 flex items-start gap-3">
+                <div className="flex items-start gap-3">
                   <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border backdrop-blur-sm ${themeClasses.iconShell}`}>
                     <Shield className={`h-4 w-4 ${themeClasses.iconColor}`} />
                   </div>
@@ -353,28 +353,30 @@ export default function EmergencyFundCard({
                   </div>
                 </div>
 
-                <div className="mb-3">
-                  <p className={`text-[32px] font-bold leading-none tracking-[-0.045em] ${status.text}`}>
-                    {coverageLabel}
-                  </p>
-                  <p className={`mt-2 text-sm font-semibold leading-tight ${themeClasses.body}`}>
-                    Protection covered right now.
-                  </p>
-                </div>
+                <div className="mt-3 rounded-[24px] bg-[linear-gradient(180deg,rgba(255,255,255,0.014),rgba(255,255,255,0.004)_40%,rgba(0,0,0,0.10)_100%)] p-3">
+                  <div className="mb-3">
+                    <p className={`text-[32px] font-bold leading-none tracking-[-0.045em] ${status.text}`}>
+                      {coverageLabel}
+                    </p>
+                    <p className={`mt-2 text-sm font-semibold leading-tight ${themeClasses.body}`}>
+                      Protection covered right now.
+                    </p>
+                  </div>
 
-                <div className="overflow-hidden rounded-[22px] border border-white/[0.055] bg-black/[0.105] shadow-[inset_0_1px_0_rgba(255,255,255,0.035),0_12px_26px_rgba(0,0,0,0.12)] backdrop-blur-sm">
-                  <div className="grid grid-cols-3 divide-x divide-white/[0.055]">
-                    {summaryTiles.map((tile) => (
-                      <div key={tile.label} className="relative px-2.5 py-2.5 text-center">
-                        <div className="pointer-events-none absolute inset-x-2 top-0 h-px bg-gradient-to-r from-transparent via-white/[0.055] to-transparent" />
-                        <p className={`truncate text-[13px] font-black leading-none tracking-[-0.03em] ${tile.valueClassName || "text-white/88"}`}>
-                          {tile.value}
-                        </p>
-                        <p className="mt-1.5 text-[8px] font-black uppercase tracking-[0.18em] text-white/34">
-                          {tile.label}
-                        </p>
-                      </div>
-                    ))}
+                  <div className="overflow-hidden rounded-[22px] border border-white/[0.055] bg-black/[0.105] shadow-[inset_0_1px_0_rgba(255,255,255,0.035),0_12px_26px_rgba(0,0,0,0.12)] backdrop-blur-sm">
+                    <div className="grid grid-cols-3 divide-x divide-white/[0.055]">
+                      {summaryTiles.map((tile) => (
+                        <div key={tile.label} className="relative px-2.5 py-2.5 text-center">
+                          <div className="pointer-events-none absolute inset-x-2 top-0 h-px bg-gradient-to-r from-transparent via-white/[0.055] to-transparent" />
+                          <p className={`truncate text-[13px] font-black leading-none tracking-[-0.03em] ${tile.valueClassName || "text-white/88"}`}>
+                            {tile.value}
+                          </p>
+                          <p className="mt-1.5 text-[8px] font-black uppercase tracking-[0.18em] text-white/34">
+                            {tile.label}
+                          </p>
+                        </div>
+                      ))}
+                    </div>
                   </div>
                 </div>
               </div>
