@@ -1,10 +1,25 @@
-import { Shield, ChevronDown, ChevronUp, Edit2, Plus, X, Check } from "lucide-react";
+import { Shield, Edit2, Plus, X, Check } from "lucide-react";
 
 import SurvivalExpenseModal from "../../../../SurvivalExpenseModal";
 import useEmergencyFundCard, { fmt, VALID_TARGET_MONTHS } from "../../../../hooks/useEmergencyFundCard";
+import FinanceCardShell from "@/components/financial-carousel/shared/FinanceCardShell";
+import FinanceCardExpandButton from "@/components/financial-carousel/shared/FinanceCardExpandButton";
+import FinanceCardExpandedPanel from "@/components/financial-carousel/shared/FinanceCardExpandedPanel";
 
 const premiumActionClass =
   "border-white/[0.045] bg-black/[0.105] text-white/84 shadow-[inset_0_1px_0_rgba(255,255,255,0.026),0_10px_22px_rgba(0,0,0,0.14)] backdrop-blur-sm hover:border-white/[0.07] hover:bg-white/[0.04]";
+
+const expandButtonClass =
+  "border-white/[0.045] bg-black/[0.105] py-3 font-medium text-white/86 shadow-[inset_0_1px_0_rgba(255,255,255,0.028),0_10px_22px_rgba(0,0,0,0.14)] backdrop-blur-sm hover:border-white/[0.07] hover:bg-white/[0.04]";
+
+const EMERGENCY_GLOW_LAYERS = [
+  "pointer-events-none absolute -left-[132px] -top-[148px] z-[1] h-[270px] w-[270px] rounded-full bg-cyan-400/[0.07] blur-[78px]",
+  "pointer-events-none absolute -right-[132px] -top-[72px] z-[1] h-[270px] w-[270px] rounded-full bg-emerald-500/[0.08] blur-[86px]",
+  "pointer-events-none absolute bottom-[-210px] right-[-130px] z-[1] h-[310px] w-[310px] rounded-full bg-purple-700/[0.14] blur-[92px]",
+  "pointer-events-none absolute inset-0 z-[2] bg-[radial-gradient(circle_at_12%_0%,rgba(103,232,249,0.105),transparent_31%),radial-gradient(circle_at_86%_98%,rgba(124,58,237,0.16),transparent_48%),linear-gradient(180deg,rgba(255,255,255,0.055),rgba(255,255,255,0.012)_36%,rgba(0,0,0,0.18)_100%)]",
+  "pointer-events-none absolute inset-x-0 top-0 z-[3] h-24 bg-[linear-gradient(to_bottom,rgba(255,255,255,0.06),rgba(255,255,255,0.012)_42%,transparent)]",
+  "pointer-events-none absolute inset-0 z-[3] rounded-[inherit] ring-1 ring-inset ring-white/[0.055]",
+];
 
 function EmergencyHeader({ status, themeClasses }) {
   return (
@@ -47,7 +62,7 @@ function EmergencySummaryStats({ coverageLabel, safeMoneyLeft, target, status, t
           {coverageLabel}
         </p>
 
-        <p className={`mt-2 text-sm font-semibold leading-tight ${themeClasses.body}`}>
+        <p className={`mt-2 text-sm font-semibold leading-tight ${themeClasses.body || "text-white/76"}`}>
           Protection covered right now.
         </p>
       </div>
@@ -77,15 +92,15 @@ function EmergencySummaryStats({ coverageLabel, safeMoneyLeft, target, status, t
 
 function ExpandButtonRow({ expanded, onToggleDetails }) {
   return (
-    <div className={`${expanded ? "" : "mt-2"} shrink-0 border-t border-white/[0.035] pt-3`}>
-      <button
-        type="button"
-        onClick={onToggleDetails}
-        className={`flex w-full items-center justify-between rounded-2xl border px-3 py-3 text-sm font-medium transition ${premiumActionClass}`}
-      >
-        <span>{expanded ? "Hide details" : "Show details"}</span>
-        {expanded ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
-      </button>
+    <div className="shrink-0 border-t border-white/[0.035] pt-3">
+      <FinanceCardExpandButton
+        detailKey="emergency"
+        expanded={expanded}
+        onToggleDetails={onToggleDetails}
+        collapsedLabel="View emergency details"
+        expandedLabel="Hide emergency details"
+        className={expandButtonClass}
+      />
     </div>
   );
 }
@@ -383,18 +398,15 @@ export default function EmergencyFundCard({
         themeClasses={themeClasses}
       />
 
-      <div
-        data-emergency-card="true"
-        className={`relative flex h-full min-h-[inherit] flex-col overflow-hidden rounded-3xl border shadow-[0_26px_70px_rgba(0,0,0,0.48),0_0_26px_rgba(34,211,238,0.045),0_0_56px_rgba(88,28,135,0.11)] transition-all duration-200 ${themeClasses.border} ${status.ring}`}
-        style={{ borderColor: themeClasses.outline }}
+      <FinanceCardShell
+        cardKey="emergencyFund"
+        expanded={isExpanded}
+        ringClass={status.ring}
+        roundedClass="rounded-3xl"
+        glowLayerClassNames={EMERGENCY_GLOW_LAYERS}
+        surfaceClassName="!border-white/[0.075] !bg-[linear-gradient(135deg,rgba(4,28,43,0.90),rgba(5,12,36,0.955)_44%,rgba(22,9,57,0.93))]"
+        shadowClass="shadow-[0_26px_70px_rgba(0,0,0,0.48),0_0_26px_rgba(34,211,238,0.045),0_0_56px_rgba(88,28,135,0.11)]"
       >
-        <div className="absolute inset-0" style={{ background: themeClasses.background }} />
-        <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_12%_0%,rgba(103,232,249,0.085),transparent_32%),radial-gradient(circle_at_88%_100%,rgba(124,58,237,0.16),transparent_48%),linear-gradient(180deg,rgba(255,255,255,0.035),rgba(255,255,255,0.007)_38%,rgba(0,0,0,0.18)_100%)]" />
-        <div className="pointer-events-none absolute inset-0 bg-gradient-to-b from-black/28 via-black/20 to-black/42" />
-        <div className="pointer-events-none absolute bottom-[-150px] right-[-98px] h-[250px] w-[250px] rounded-full bg-violet-500/[0.105] blur-3xl" />
-        <div className="pointer-events-none absolute -left-20 top-[-56px] h-40 w-40 rounded-full bg-cyan-400/[0.055] blur-3xl" />
-        <div className="pointer-events-none absolute inset-0 rounded-[inherit] ring-1 ring-inset ring-white/[0.055]" />
-
         {!isExpanded ? (
           <div className="relative z-10 flex h-full min-h-0 flex-col overflow-hidden px-4 pb-4 pt-5">
             <div className="pointer-events-none absolute inset-0 opacity-[0.48]">
@@ -433,7 +445,7 @@ export default function EmergencyFundCard({
                 <p className={`text-[34px] font-black leading-none tracking-[-0.045em] ${status.text}`}>
                   {coverageLabel}
                 </p>
-                <p className={`mt-2 text-xs font-semibold leading-relaxed ${themeClasses.body}`}>
+                <p className={`mt-2 text-xs font-semibold leading-relaxed ${themeClasses.body || "text-white/68"}`}>
                   Protection covered right now.
                 </p>
               </div>
@@ -441,11 +453,16 @@ export default function EmergencyFundCard({
               <ExpandButtonRow expanded={true} onToggleDetails={onToggleDetails} />
 
               <div className="min-h-0 flex-1 overflow-hidden pt-1">
-                <div className="h-full space-y-3 overflow-y-auto overscroll-contain rounded-2xl border border-white/[0.045] bg-black/[0.10] p-3 pb-7 backdrop-blur-[2px] shadow-[inset_0_1px_0_rgba(255,255,255,0.026)] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+                <FinanceCardExpandedPanel className="h-full space-y-3 overflow-y-auto pr-1">
                   <div>
-                    <div className="mb-2.5 flex items-center justify-between">
-                      <span className="text-[11px] font-semibold text-white/84">Goal</span>
-                      <span className="text-[10px] font-semibold text-white/48">{targetLabel}</span>
+                    <div className="mb-2.5 flex items-center justify-between gap-3">
+                      <div className="min-w-0">
+                        <span className="text-xs font-semibold text-white/84">Goal</span>
+                        <p className="mt-0.5 text-[11px] font-medium leading-relaxed text-white/46">
+                          Choose how many months CLARA should protect.
+                        </p>
+                      </div>
+                      <span className="shrink-0 text-[10px] font-semibold text-white/48">{targetLabel}</span>
                     </div>
 
                     <div className="grid grid-cols-3 gap-2">
@@ -527,12 +544,12 @@ export default function EmergencyFundCard({
                   </div>
 
                   <div aria-hidden="true" className="h-5 shrink-0" />
-                </div>
+                </FinanceCardExpandedPanel>
               </div>
             </div>
           </div>
         )}
-      </div>
+      </FinanceCardShell>
     </>
   );
 }
