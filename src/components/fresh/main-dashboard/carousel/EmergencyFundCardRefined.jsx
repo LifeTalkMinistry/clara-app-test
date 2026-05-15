@@ -317,18 +317,134 @@ export default function EmergencyFundCard({
         <div className="pointer-events-none absolute -left-20 top-[-56px] h-40 w-40 rounded-full bg-cyan-400/[0.055] blur-3xl" />
         <div className="pointer-events-none absolute inset-0 rounded-[inherit] ring-1 ring-inset ring-white/[0.055]" />
 
-        <div className="relative z-10 flex h-full min-h-0 flex-col px-4 pb-4 pt-5">
-          <div className="flex shrink-0 flex-col gap-4">
-            {isExpanded ? (
-              <div className="shrink-0 pb-1">
-                <p className={`text-[32px] font-bold leading-none tracking-[-0.045em] ${status.text}`}>
+        {isExpanded ? (
+          <div className="relative z-10 flex h-full min-h-0 flex-col overflow-hidden px-4 pb-4 pt-5">
+            <div className="pointer-events-none absolute inset-0 opacity-[0.42]">
+              <div className="absolute -left-24 top-[-70px] h-48 w-48 rounded-full bg-cyan-400/[0.06] blur-3xl" />
+              <div className="absolute bottom-[-130px] right-[-110px] h-60 w-60 rounded-full bg-violet-500/[0.10] blur-3xl" />
+            </div>
+
+            <div className="relative flex min-h-0 flex-1 flex-col gap-4">
+              <div className="shrink-0">
+                <p className={`text-[34px] font-black leading-none tracking-[-0.045em] ${status.text}`}>
                   {coverageLabel}
                 </p>
-                <p className={`mt-2.5 text-sm font-semibold leading-relaxed ${themeClasses.body}`}>
+                <p className={`mt-2 text-xs font-semibold leading-relaxed ${themeClasses.body}`}>
                   Protection covered right now.
                 </p>
               </div>
-            ) : (
+
+              <div className="shrink-0 border-t border-white/[0.035] pt-3">
+                <button
+                  type="button"
+                  onClick={onToggleDetails}
+                  className={`flex w-full items-center justify-between rounded-2xl border px-3 py-3 text-sm font-medium transition ${premiumActionClass}`}
+                >
+                  <span>Hide details</span>
+                  <ChevronUp className="h-4 w-4" />
+                </button>
+              </div>
+
+              <div className="min-h-0 flex-1 overflow-hidden pt-1">
+                <div className="h-full space-y-3 overflow-y-auto overscroll-contain rounded-2xl border border-white/[0.045] bg-black/[0.10] p-3 pb-7 backdrop-blur-[2px] shadow-[inset_0_1px_0_rgba(255,255,255,0.026)] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+                  <div>
+                    <div className="mb-2.5 flex items-center justify-between">
+                      <span className="text-[11px] font-semibold text-white/84">Goal</span>
+                      <span className="text-[10px] font-semibold text-white/48">{targetLabel}</span>
+                    </div>
+
+                    <div className="grid grid-cols-3 gap-2">
+                      {VALID_TARGET_MONTHS.map((item) => {
+                        const active = targetMonths === item;
+                        return (
+                          <button
+                            key={item}
+                            type="button"
+                            onClick={() => changeTargetMonths(item)}
+                            disabled={saving}
+                            className={`relative rounded-xl border px-2 py-2.5 text-xs font-semibold transition-all duration-200 disabled:cursor-not-allowed disabled:opacity-70 ${
+                              active
+                                ? "border-emerald-300/22 bg-emerald-400/[0.09] text-emerald-200 shadow-[0_0_14px_rgba(52,211,153,0.12)]"
+                                : "border-white/[0.05] bg-black/[0.105] text-white/72 hover:bg-white/[0.04] hover:text-white/88"
+                            }`}
+                          >
+                            <span className="block">{item} Months</span>
+                            {active ? <span className="absolute right-1.5 top-1.5 h-1.5 w-1.5 rounded-full bg-emerald-300 shadow-[0_0_8px_rgba(52,211,153,0.70)]" /> : null}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+
+                  <div className="relative overflow-hidden rounded-2xl border border-emerald-300/12 bg-[radial-gradient(circle_at_top_left,rgba(52,211,153,0.10),transparent_42%),rgba(16,185,129,0.055)] px-4 py-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.04),0_0_18px_rgba(16,185,129,0.035)]">
+                    <div className="pointer-events-none absolute -right-10 -top-14 h-28 w-28 rounded-full bg-emerald-300/[0.06] blur-2xl" />
+                    <p className="relative text-[10px] font-black uppercase tracking-[0.16em] text-emerald-100/46">
+                      Next step
+                    </p>
+                    <p className="relative mt-2 text-[17px] font-black leading-snug text-white/92">
+                      {nextStepTitle}
+                    </p>
+                    <p className="relative mt-3 text-[12.5px] font-semibold leading-6 text-white/68">
+                      {nextStepMessage}
+                    </p>
+                  </div>
+
+                  <div className="rounded-2xl border border-white/[0.045] bg-black/[0.105] px-3.5 py-3 shadow-[inset_0_1px_0_rgba(255,255,255,0.026)]">
+                    <div className="mb-3 flex items-center justify-between gap-3">
+                      <span className="text-[10px] font-black uppercase tracking-[0.16em] text-white/34">
+                        Current setup
+                      </span>
+                      <span className={`text-[11px] font-black ${status.text}`}>
+                        {safetyStage}
+                      </span>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-2.5 text-[12px] font-semibold text-white/58">
+                      <div className="rounded-xl border border-white/[0.045] bg-black/[0.10] px-3 py-3">
+                        <p className="text-white/34">Monthly survival cost</p>
+                        <p className="mt-1.5 text-sm font-black text-white/84">{fmt(effectiveExpense)}</p>
+                      </div>
+                      <div className="rounded-xl border border-white/[0.045] bg-black/[0.10] px-3 py-3">
+                        <p className="text-white/34">Target amount</p>
+                        <p className="mt-1.5 text-sm font-black text-white/84">{fmt(target)}</p>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-2.5 pt-1.5">
+                    <button
+                      type="button"
+                      onClick={() => setEditing(true)}
+                      className={`flex items-center justify-center gap-2 rounded-2xl border px-4 py-3.5 text-sm font-semibold transition ${premiumActionClass}`}
+                    >
+                      <Edit2 className="h-4 w-4" />
+                      Edit Expense
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={openTopUpModal}
+                      className="flex items-center justify-center gap-2 rounded-2xl border border-emerald-300/18 bg-emerald-400/[0.09] px-4 py-3.5 text-sm font-black text-emerald-200 shadow-[0_0_18px_rgba(52,211,153,0.08)] transition hover:bg-emerald-400/[0.13]"
+                    >
+                      <Plus className="h-4 w-4" />
+                      Add Fund
+                    </button>
+                  </div>
+
+                  <div aria-hidden="true" className="h-5 shrink-0" />
+                </div>
+              </div>
+            </div>
+          </div>
+        ) : (
+          <div className="relative z-10 flex h-full min-h-0 flex-col overflow-hidden px-4 pb-4 pt-5">
+            <div className="pointer-events-none absolute inset-0 opacity-[0.48]">
+              <div className="absolute -left-20 top-[-58px] h-40 w-40 rounded-full bg-cyan-400/[0.065] blur-3xl" />
+              <div className="absolute bottom-[-104px] right-[-82px] h-48 w-48 rounded-full bg-violet-500/[0.10] blur-3xl" />
+              <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(255,255,255,0.024),transparent_30%,rgba(0,0,0,0.16)_100%)]" />
+            </div>
+
+            <div className="relative flex min-h-0 flex-col gap-4">
               <div className="min-h-0 rounded-[28px] border border-white/[0.035] bg-black/[0.055] p-3.5 shadow-[inset_0_1px_0_rgba(255,255,255,0.026)] backdrop-blur-[2px]">
                 <div className="flex items-start gap-3">
                   <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border backdrop-blur-sm ${themeClasses.iconShell}`}>
@@ -380,110 +496,20 @@ export default function EmergencyFundCard({
                   </div>
                 </div>
               </div>
-            )}
 
-            <div className="shrink-0 border-t border-white/[0.035] pt-3">
-              <button
-                type="button"
-                onClick={onToggleDetails}
-                className={`flex w-full items-center justify-between rounded-2xl border px-3 py-3 text-sm font-medium transition ${premiumActionClass}`}
-              >
-                <span>{isExpanded ? "Hide details" : "Show details"}</span>
-                {isExpanded ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
-              </button>
+              <div className="shrink-0 border-t border-white/[0.035] pt-3">
+                <button
+                  type="button"
+                  onClick={onToggleDetails}
+                  className={`flex w-full items-center justify-between rounded-2xl border px-3 py-3 text-sm font-medium transition ${premiumActionClass}`}
+                >
+                  <span>Show details</span>
+                  <ChevronDown className="h-4 w-4" />
+                </button>
+              </div>
             </div>
           </div>
-
-          {isExpanded && (
-            <div className="mt-3 min-h-0 flex-1 space-y-3 overflow-y-auto overscroll-contain rounded-2xl border border-white/[0.045] bg-black/[0.10] p-3 pb-7 backdrop-blur-[2px] shadow-[inset_0_1px_0_rgba(255,255,255,0.026)] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-              <div>
-                <div className="mb-2.5 flex items-center justify-between">
-                  <span className="text-[11px] font-semibold text-white/84">Goal</span>
-                  <span className="text-[10px] font-semibold text-white/48">{targetLabel}</span>
-                </div>
-
-                <div className="grid grid-cols-3 gap-2">
-                  {VALID_TARGET_MONTHS.map((item) => {
-                    const active = targetMonths === item;
-                    return (
-                      <button
-                        key={item}
-                        type="button"
-                        onClick={() => changeTargetMonths(item)}
-                        disabled={saving}
-                        className={`relative rounded-xl border px-2 py-2.5 text-xs font-semibold transition-all duration-200 disabled:cursor-not-allowed disabled:opacity-70 ${
-                          active
-                            ? "border-emerald-300/22 bg-emerald-400/[0.09] text-emerald-200 shadow-[0_0_14px_rgba(52,211,153,0.12)]"
-                            : "border-white/[0.05] bg-black/[0.105] text-white/72 hover:bg-white/[0.04] hover:text-white/88"
-                        }`}
-                      >
-                        <span className="block">{item} Months</span>
-                        {active ? <span className="absolute right-1.5 top-1.5 h-1.5 w-1.5 rounded-full bg-emerald-300 shadow-[0_0_8px_rgba(52,211,153,0.70)]" /> : null}
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
-
-              <div className="relative overflow-hidden rounded-2xl border border-emerald-300/12 bg-[radial-gradient(circle_at_top_left,rgba(52,211,153,0.10),transparent_42%),rgba(16,185,129,0.055)] px-4 py-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.04),0_0_18px_rgba(16,185,129,0.035)]">
-                <div className="pointer-events-none absolute -right-10 -top-14 h-28 w-28 rounded-full bg-emerald-300/[0.06] blur-2xl" />
-                <p className="relative text-[10px] font-black uppercase tracking-[0.16em] text-emerald-100/46">
-                  Next step
-                </p>
-                <p className="relative mt-2 text-[17px] font-black leading-snug text-white/92">
-                  {nextStepTitle}
-                </p>
-                <p className="relative mt-3 text-[12.5px] font-semibold leading-6 text-white/68">
-                  {nextStepMessage}
-                </p>
-              </div>
-
-              <div className="rounded-2xl border border-white/[0.045] bg-black/[0.105] px-3.5 py-3 shadow-[inset_0_1px_0_rgba(255,255,255,0.026)]">
-                <div className="mb-3 flex items-center justify-between gap-3">
-                  <span className="text-[10px] font-black uppercase tracking-[0.16em] text-white/34">
-                    Current setup
-                  </span>
-                  <span className={`text-[11px] font-black ${status.text}`}>
-                    {safetyStage}
-                  </span>
-                </div>
-
-                <div className="grid grid-cols-2 gap-2.5 text-[12px] font-semibold text-white/58">
-                  <div className="rounded-xl border border-white/[0.045] bg-black/[0.10] px-3 py-3">
-                    <p className="text-white/34">Monthly survival cost</p>
-                    <p className="mt-1.5 text-sm font-black text-white/84">{fmt(effectiveExpense)}</p>
-                  </div>
-                  <div className="rounded-xl border border-white/[0.045] bg-black/[0.10] px-3 py-3">
-                    <p className="text-white/34">Target amount</p>
-                    <p className="mt-1.5 text-sm font-black text-white/84">{fmt(target)}</p>
-                  </div>
-                </div>
-              </div>
-
-              <div className="grid grid-cols-2 gap-2.5 pt-1.5">
-                <button
-                  type="button"
-                  onClick={() => setEditing(true)}
-                  className={`flex items-center justify-center gap-2 rounded-2xl border px-4 py-3.5 text-sm font-semibold transition ${premiumActionClass}`}
-                >
-                  <Edit2 className="h-4 w-4" />
-                  Edit Expense
-                </button>
-
-                <button
-                  type="button"
-                  onClick={openTopUpModal}
-                  className="flex items-center justify-center gap-2 rounded-2xl border border-emerald-300/18 bg-emerald-400/[0.09] px-4 py-3.5 text-sm font-black text-emerald-200 shadow-[0_0_18px_rgba(52,211,153,0.08)] transition hover:bg-emerald-400/[0.13]"
-                >
-                  <Plus className="h-4 w-4" />
-                  Add Fund
-                </button>
-              </div>
-
-              <div aria-hidden="true" className="h-5 shrink-0" />
-            </div>
-          )}
-        </div>
+        )}
       </div>
     </>
   );
