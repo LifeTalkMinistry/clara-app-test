@@ -3,7 +3,8 @@ import { buildContextForGeminiPrompt } from "./clara-contextual-decision-engine"
 import { summarizeLifeProfileForClara } from "./clara-life-profile";
 
 const GEMINI_ENDPOINT_BASE = "https://generativelanguage.googleapis.com/v1beta/models";
-const DEFAULT_GEMINI_MODEL = "gemini-1.5-flash";
+const DEFAULT_GEMINI_MODEL = "gemini-2.5-flash";
+const FALLBACK_GEMINI_MODELS = [DEFAULT_GEMINI_MODEL, "gemini-2.0-flash", "gemini-1.5-flash"];
 const CLARA_SAFE_EMOJIS = ["🙂", "✅", "⚠", "💡", "📌", "⏳"];
 
 function getGeminiApiKey() {
@@ -12,6 +13,13 @@ function getGeminiApiKey() {
 
 function getGeminiModel() {
   return import.meta.env.VITE_GEMINI_MODEL || import.meta.env.VITE_CLARA_GEMINI_MODEL || DEFAULT_GEMINI_MODEL;
+}
+
+function getGeminiModelCandidates() {
+  return [getGeminiModel(), ...FALLBACK_GEMINI_MODELS]
+    .map((model) => String(model || "").trim())
+    .filter(Boolean)
+    .filter((model, index, models) => models.indexOf(model) === index);
 }
 
 function money(value) {
@@ -29,7 +37,7 @@ function list(items = [], formatter, empty = "none loaded") {
 
 function buildConversationHistory(messages = []) {
   const cleanMessages = (Array.isArray(messages) ? messages : [])
-    .filter((message) => message?.text && message.text !== "Reading your finance cards...")
+    .filter((message) => message?.text && message.text !== "Reading your finance cards..." && message.text !== "Checking your real finance context...")
     .slice(-8)
     .map((message) => `${message.role === "user" ? "User" : "CLARA"}: ${String(message.text).trim()}`);
 
@@ -169,22 +177,37 @@ function looksIncompleteReply(text) {
   return false;
 }
 
-export function hasGeminiConfig() {
-  return Boolean(getGeminiApiKey());
+function getGeminiErrorMessage(payload, response) {
+  return payload?.error?.message || response?.statusText || "Gemini request failed.";
 }
 
-export async function generateClaraGeminiReply({ message, context = {}, mode = null, conversationHistory = [], signal } = {}) {
-  const apiKey = getGeminiApiKey();
-  if (!apiKey) throw new Error("Gemini API key is not configured.");
+function shouldRetryWithNextModel(error) {
+  const message = String(error?.message || error?.geminiMessage || "").toLowerCase();
+  if (message.includes("api key") || message.includes("permission denied") || message.includes("quota")) return false;
+  return [400, 404].includes(Number(error?.status)) && (
+    message.includes("model") ||
+    message.includes("not found") ||
+    message.includes("not supported") ||
+    message.includes("deprecated") ||
+    message.includes("invalid")
+  );
+}
 
-  const model = getGeminiModel();
+async function requestGeminiContent({ apiKey, model, prompt, signal, logContext }) {
+  console.info("[CLARA AI] Gemini request started", {
+    model,
+    mode: logContext?.mode || "normal_chat",
+    hasMessage: Boolean(logContext?.message),
+    hasContext: Boolean(logContext?.context),
+    historyCount: logContext?.historyCount || 0,
+  });
 
   const response = await fetch(`${GEMINI_ENDPOINT_BASE}/${encodeURIComponent(model)}:generateContent?key=${encodeURIComponent(apiKey)}`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     signal,
     body: JSON.stringify({
-      contents: [{ role: "user", parts: [{ text: buildPrompt({ message, context, mode, conversationHistory }) }] }],
+      contents: [{ role: "user", parts: [{ text: prompt }] }],
       generationConfig: {
         temperature: 0.56,
         topP: 0.88,
@@ -193,27 +216,91 @@ export async function generateClaraGeminiReply({ message, context = {}, mode = n
     })
   });
 
+  const data = await response.json().catch(() => ({}));
+
   if (!response.ok) {
-    throw new Error(`Gemini request failed: ${response.status}`);
+    const geminiMessage = getGeminiErrorMessage(data, response);
+    console.error("[CLARA AI] Gemini request failed", {
+      status: response.status,
+      model,
+      message: geminiMessage,
+      payload: data,
+    });
+
+    const error = new Error(`Gemini request failed (${response.status}): ${geminiMessage}`);
+    error.status = response.status;
+    error.geminiMessage = geminiMessage;
+    error.payload = data;
+    error.model = model;
+    throw error;
   }
 
-  const data = await response.json();
+  console.info("[CLARA AI] Gemini success", {
+    model,
+    candidateCount: data?.candidates?.length || 0,
+  });
 
-  const text = sanitizeClaraReply(
-    (data?.candidates?.[0]?.content?.parts || [])
-      .map((part) => part?.text || "")
-      .join(" ")
-  );
+  return data;
+}
 
-  if (!text) {
-    throw new Error("Gemini returned an empty response.");
+export function hasGeminiConfig() {
+  return Boolean(getGeminiApiKey());
+}
+
+export async function generateClaraGeminiReply({ message, context = {}, mode = null, conversationHistory = [], signal } = {}) {
+  const apiKey = getGeminiApiKey();
+  if (!apiKey) throw new Error("Gemini API key is not configured.");
+
+  const prompt = buildPrompt({ message, context, mode, conversationHistory });
+  const modelCandidates = getGeminiModelCandidates();
+  let lastError = null;
+
+  for (const model of modelCandidates) {
+    try {
+      const data = await requestGeminiContent({
+        apiKey,
+        model,
+        prompt,
+        signal,
+        logContext: {
+          mode,
+          message,
+          context,
+          historyCount: Array.isArray(conversationHistory) ? conversationHistory.length : 0,
+        },
+      });
+
+      const text = sanitizeClaraReply(
+        (data?.candidates?.[0]?.content?.parts || [])
+          .map((part) => part?.text || "")
+          .join(" ")
+      );
+
+      if (!text) {
+        throw new Error("Gemini returned an empty response.");
+      }
+
+      if (looksIncompleteReply(text)) {
+        throw new Error(`Gemini returned an incomplete response: ${text}`);
+      }
+
+      return text;
+    } catch (error) {
+      lastError = error;
+
+      if (!shouldRetryWithNextModel(error)) {
+        throw error;
+      }
+
+      console.warn("[CLARA AI] Gemini model failed, trying fallback model", {
+        failedModel: model,
+        status: error?.status,
+        message: error?.geminiMessage || error?.message,
+      });
+    }
   }
 
-  if (looksIncompleteReply(text)) {
-    throw new Error(`Gemini returned an incomplete response: ${text}`);
-  }
-
-  return text;
+  throw lastError || new Error("Gemini request failed.");
 }
 
 export async function refineClaraSupportMessageWithGemini({ topic, message, userEmail = "", signal } = {}) {
@@ -264,11 +351,19 @@ Return only the refined email body.`;
     })
   });
 
+  const data = await response.json().catch(() => ({}));
+
   if (!response.ok) {
-    throw new Error(`Gemini support refine failed: ${response.status}`);
+    const geminiMessage = getGeminiErrorMessage(data, response);
+    console.error("[CLARA AI] Gemini support refine failed", {
+      status: response.status,
+      model,
+      message: geminiMessage,
+      payload: data,
+    });
+    throw new Error(`Gemini support refine failed (${response.status}): ${geminiMessage}`);
   }
 
-  const data = await response.json();
   const text = sanitizeSupportDraft(
     (data?.candidates?.[0]?.content?.parts || [])
       .map((part) => part?.text || "")
