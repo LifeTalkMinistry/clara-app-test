@@ -3,8 +3,9 @@ import { ArrowUp, Sparkles, X } from "lucide-react";
 import { buildClaraFinanceSnapshot, generateClaraLocalReply } from "@/lib/clara-local-brain";
 import { generateClaraGeminiReply, hasGeminiConfig } from "@/lib/clara-gemini-client";
 
-const CLARA_AI_BRAIN_VERSION = "connected-brain-v4-daily-decision";
+const CLARA_AI_BRAIN_VERSION = "connected-brain-v5-gemini-truth";
 const PRESENTATION_RULES = "Format for a mobile money coach. Plain text only. No markdown. Use short labels like Money Signal, Risk, Next Move, Question. Keep it practical and calm.";
+const SHOW_DEBUG_SOURCE = import.meta.env.DEV || import.meta.env.VITE_CLARA_DEBUG_AI === "true";
 
 const QUICK_QUESTIONS = [
   { label: "Can I buy this?", prompt: "Help me decide if I can buy something. Ask for item, price, and wallet if missing, then say if it is safe, risky, or better delayed." },
@@ -84,7 +85,7 @@ function splitIntoBlocks(text = "") {
   }, []);
 }
 
-function Insight({ text, action }) {
+function Insight({ text, action, source }) {
   const blocks = splitIntoBlocks(text);
   return (
     <div className="space-y-3">
@@ -94,6 +95,13 @@ function Insight({ text, action }) {
           <h4 className="mt-1 text-[15px] font-black text-white">{action.title}</h4>
         </div>
       ) : null}
+
+      {SHOW_DEBUG_SOURCE ? (
+        <div className="inline-flex rounded-full border border-white/10 bg-white/[0.06] px-2 py-1 text-[9px] font-black uppercase tracking-[0.18em] text-white/45">
+          Source: {source === "gemini" ? "Gemini" : "Local fallback"}
+        </div>
+      ) : null}
+
       {blocks.slice(0, 5).map((block, index) => {
         const [rawTitle, ...rest] = block.split(":");
         const hasLabel = rest.length > 0 && rawTitle.length < 32;
@@ -175,12 +183,25 @@ export default function ClaraAiEnvironmentOverlay({ isActive = false, messages =
   const runClara = async ({ prompt, displayText = prompt, action = null }) => {
     const cleanPrompt = String(prompt || "").trim();
     const cleanDisplay = String(displayText || cleanPrompt).trim();
+
     if (!cleanPrompt || isThinking) return;
-    const pending = makeMessage("clara", "Checking your real finance context...");
+
+    const pending = makeMessage("clara", "Checking your real finance context...", {
+      source: "system"
+    });
+
     setIsThinking(true);
-    setLocalMessages((current) => [...current.filter((message) => !hiddenMessage(message)), makeMessage("user", cleanDisplay), pending]);
+
+    setLocalMessages((current) => [
+      ...current.filter((message) => !hiddenMessage(message)),
+      makeMessage("user", cleanDisplay),
+      pending
+    ]);
+
     try {
       let reply = "";
+      let source = "local_fallback";
+
       if (hasGeminiConfig()) {
         try {
           reply = await generateClaraGeminiReply({
@@ -189,15 +210,46 @@ export default function ClaraAiEnvironmentOverlay({ isActive = false, messages =
             mode: action?.id || "ai_environment",
             conversationHistory: [...visibleMessages, makeMessage("user", cleanDisplay)],
           });
-        } catch {
+
+          source = "gemini";
+        } catch (error) {
+          console.warn("[CLARA AI] Gemini failed, using local fallback", {
+            message: error?.message,
+            status: error?.status,
+            payload: error?.payload,
+          });
+
           reply = fallbackReply(cleanPrompt, claraAssistantContext);
+          source = "local_fallback";
         }
       } else {
+        console.warn("[CLARA AI] Gemini configuration missing, using local fallback");
         reply = fallbackReply(cleanPrompt, claraAssistantContext);
       }
-      setLocalMessages((current) => current.map((message) => message.id === pending.id ? { ...message, text: reply, ...(action ? { smartAction: action } : {}) } : message));
-    } catch {
-      setLocalMessages((current) => current.map((message) => message.id === pending.id ? { ...message, text: fallbackReply(cleanPrompt, claraAssistantContext), ...(action ? { smartAction: action } : {}) } : message));
+
+      setLocalMessages((current) => current.map((message) => {
+        if (message.id !== pending.id) return message;
+
+        return {
+          ...message,
+          text: reply,
+          source,
+          ...(action ? { smartAction: action } : {})
+        };
+      }));
+    } catch (error) {
+      console.error("[CLARA AI] Fatal assistant modal error", error);
+
+      setLocalMessages((current) => current.map((message) => {
+        if (message.id !== pending.id) return message;
+
+        return {
+          ...message,
+          text: fallbackReply(cleanPrompt, claraAssistantContext),
+          source: "local_fallback",
+          ...(action ? { smartAction: action } : {})
+        };
+      }));
     } finally {
       setIsThinking(false);
     }
@@ -232,7 +284,7 @@ export default function ClaraAiEnvironmentOverlay({ isActive = false, messages =
               return (
                 <div key={message.id} className={`flex ${isUser ? "justify-end" : "justify-start"}`}>
                   <div className={`rounded-[24px] px-4 py-3 text-[13px] leading-5 shadow-[0_14px_34px_rgba(0,0,0,0.20)] ${isUser ? "max-w-[88%] bg-emerald-300 text-slate-950" : "max-w-[94%] border border-white/12 bg-white/[0.075] text-white/86 backdrop-blur-xl"}`}>
-                    {isUser ? clean(message.text) : <Insight text={message.text} action={action} />}
+                    {isUser ? clean(message.text) : <Insight text={message.text} action={action} source={message.source} />}
                     {action && !isUser && action.chips?.length ? (
                       <div className="mt-3 border-t border-white/10 pt-3">
                         <p className="text-[12px] leading-5 text-emerald-100/85">What should we narrow down next?</p>
