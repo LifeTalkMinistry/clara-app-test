@@ -13,6 +13,11 @@
   display: none !important;
 }
 
+/* hide social/community section when user enters detail setting pages */
+#root .space-y-4 .settings-social-community-shortcuts {
+  display: none !important;
+}
+
 /* hide performance mode row inside Settings only */
 #root .space-y-5.pb-6 section button.group:has(svg.lucide-rocket) {
   display: none !important;
