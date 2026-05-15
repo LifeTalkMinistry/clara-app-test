@@ -3,7 +3,7 @@ import { buildContextForGeminiPrompt } from "./clara-contextual-decision-engine"
 import { summarizeLifeProfileForClara } from "./clara-life-profile";
 
 const GEMINI_ENDPOINT_BASE = "https://generativelanguage.googleapis.com/v1beta/models";
-const DEFAULT_GEMINI_MODEL = "gemini-2.5-flash";
+const DEFAULT_GEMINI_MODEL = "gemini-1.5-flash";
 const CLARA_SAFE_EMOJIS = ["🙂", "✅", "⚠", "💡", "📌", "⏳"];
 
 function getGeminiApiKey() {
@@ -188,10 +188,9 @@ export async function generateClaraGeminiReply({ message, context = {}, mode = n
       generationConfig: {
         temperature: 0.56,
         topP: 0.88,
-        maxOutputTokens: 190,
-        thinkingConfig: { thinkingBudget: 0 },
-      },
-    }),
+        maxOutputTokens: 190
+      }
+    })
   });
 
   if (!response.ok) {
@@ -260,10 +259,9 @@ Return only the refined email body.`;
       generationConfig: {
         temperature: 0.35,
         topP: 0.82,
-        maxOutputTokens: 360,
-        thinkingConfig: { thinkingBudget: 0 },
-      },
-    }),
+        maxOutputTokens: 360
+      }
+    })
   });
 
   if (!response.ok) {
@@ -335,7 +333,7 @@ function installSupportComposerGeminiBridge() {
       try {
         const refined = await refineClaraSupportMessageWithGemini({
           topic: select?.value || "Feedback & ideas",
-          message: rawMessage,
+          message: rawMessage
         });
 
         if (output) output.value = refined;
