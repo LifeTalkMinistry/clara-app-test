@@ -152,6 +152,13 @@ function sanitizeClaraReply(text) {
     .trim();
 }
 
+function sanitizeSupportDraft(text) {
+  return normalizeEmojiForClara(text)
+    .replace(/[ \t]+\n/g, "\n")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
+}
+
 function looksIncompleteReply(text) {
   const clean = sanitizeClaraReply(text)
     .replace(/[🙂✅⚠💡📌⏳]/g, "")
@@ -205,6 +212,73 @@ export async function generateClaraGeminiReply({ message, context = {}, mode = n
 
   if (looksIncompleteReply(text)) {
     throw new Error(`Gemini returned an incomplete response: ${text}`);
+  }
+
+  return text;
+}
+
+export async function refineClaraSupportMessageWithGemini({ topic, message, userEmail = "", signal } = {}) {
+  const apiKey = getGeminiApiKey();
+  if (!apiKey) throw new Error("Gemini API key is not configured.");
+
+  const cleanTopic = String(topic || "General concern").trim() || "General concern";
+  const cleanMessage = String(message || "").trim();
+
+  if (!cleanMessage) throw new Error("Support message is empty.");
+
+  const model = getGeminiModel();
+  const prompt = `You are CLARA's support message writing assistant.
+
+Task:
+Rewrite the user's raw concern into a clear, professional, email-ready support message for the CLARA team.
+
+Rules:
+- Do not invent technical details.
+- Preserve the user's main issue.
+- If the user sounds frustrated, make the tone calm and professional.
+- If the message is short, make it clearer but do not overdo it.
+- If the message is Taglish or casual, rewrite it in professional English.
+- Format the output as an email body only.
+- Include a concise subject-style topic line inside the body.
+- Do not add markdown bullets unless useful for clarity.
+- Do not mention Gemini, AI, or automation.
+
+Support email recipient: CLARA Team
+Selected topic: ${cleanTopic}
+User email if needed: ${userEmail || "not provided"}
+Raw user message:
+${cleanMessage}
+
+Return only the refined email body.`;
+
+  const response = await fetch(`${GEMINI_ENDPOINT_BASE}/${encodeURIComponent(model)}:generateContent?key=${encodeURIComponent(apiKey)}`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    signal,
+    body: JSON.stringify({
+      contents: [{ role: "user", parts: [{ text: prompt }] }],
+      generationConfig: {
+        temperature: 0.35,
+        topP: 0.82,
+        maxOutputTokens: 360,
+        thinkingConfig: { thinkingBudget: 0 },
+      },
+    }),
+  });
+
+  if (!response.ok) {
+    throw new Error(`Gemini support refine failed: ${response.status}`);
+  }
+
+  const data = await response.json();
+  const text = sanitizeSupportDraft(
+    (data?.candidates?.[0]?.content?.parts || [])
+      .map((part) => part?.text || "")
+      .join("\n")
+  );
+
+  if (!text || text.length < 30) {
+    throw new Error("Gemini returned an incomplete support draft.");
   }
 
   return text;
