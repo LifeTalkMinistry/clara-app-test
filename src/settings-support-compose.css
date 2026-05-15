@@ -23,19 +23,17 @@
   display: flex !important;
   align-items: center;
   justify-content: center;
-  min-height: 54px;
-  border-radius: 1.1rem;
+  min-height: 56px;
+  border-radius: 1rem;
   border: 1px solid rgba(165,243,252,0.14);
-  font-size: 0.78rem;
+  font-size: 0.8rem;
   font-weight: 900;
   letter-spacing: -0.02em;
   transition: 180ms ease;
 }
 
 #root .clara-support-compose-actions button:first-child {
-  background:
-    radial-gradient(circle at 0% 0%, rgba(16,185,129,0.22), transparent 45%),
-    rgba(16,185,129,0.18);
+  background: linear-gradient(135deg, rgba(16,185,129,0.30), rgba(20,184,166,0.18));
   color: rgba(236,253,245,0.95);
   box-shadow:
     0 14px 34px rgba(16,185,129,0.18),
@@ -44,7 +42,7 @@
 
 #root .clara-support-compose-actions button:last-child {
   background: rgba(255,255,255,0.05);
-  color: rgba(236,253,245,0.85);
+  color: rgba(236,253,245,0.88);
 }
 
 #root .clara-support-compose-actions button:disabled {
@@ -54,7 +52,7 @@
 #root .clara-support-refined-box {
   margin-top: 1rem;
   border: 1px solid rgba(165,243,252,0.12);
-  border-radius: 1.3rem;
+  border-radius: 1.2rem;
   background: rgba(2,6,23,0.44);
   padding: 1rem;
 }
@@ -73,7 +71,7 @@
   min-height: 170px;
   resize: none;
   border: 1px solid rgba(165,243,252,0.12);
-  border-radius: 1.1rem;
+  border-radius: 1rem;
   background: rgba(255,255,255,0.03);
   padding: 1rem;
   font-size: 0.76rem;
@@ -98,11 +96,15 @@
 }
 
 #root .clara-support-helper {
-  margin-top: 0.85rem;
+  margin-top: 0.9rem;
   text-align: center;
   font-size: 0.72rem;
-  line-height: 1.45rem;
-  color: rgba(226,232,240,0.58);
+  line-height: 1.5rem;
+  color: rgba(226,232,240,0.62);
+}
+
+#root .clara-support-helper::before {
+  content: "Copy the refined message then paste it into the support email below.";
 }
 
 #root .min-h-full.space-y-4.pb-6 > .space-y-4 > .mb-4 > div:last-child {
