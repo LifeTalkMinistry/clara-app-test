@@ -14,6 +14,7 @@ import "./mobile-performance.css";
 import "./dashboard-bottom-spacing.css";
 import "./life-context-polish.css";
 import "./settings-cleanup.css";
+import "./settings-priority.css";
 
 // --- SAFE BILLING INIT (non-blocking, crash-proof) ---
 window.CLARA_BILLING = window.CLARA_BILLING || {};
