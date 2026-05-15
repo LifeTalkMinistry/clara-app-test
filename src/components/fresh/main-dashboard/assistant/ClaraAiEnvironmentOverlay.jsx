@@ -3,7 +3,7 @@ import { ArrowUp, Sparkles, X } from "lucide-react";
 import { buildClaraFinanceSnapshot, generateClaraLocalReply } from "@/lib/clara-local-brain";
 import { generateClaraGeminiReply, hasGeminiConfig } from "@/lib/clara-gemini-client";
 
-const CLARA_AI_BRAIN_VERSION = "connected-brain-v5-gemini-truth";
+const CLARA_AI_BRAIN_VERSION = "connected-brain-v6-single-bubble";
 const PRESENTATION_RULES = "Format for a mobile money coach. Plain text only. No markdown. Use short labels like Money Signal, Risk, Next Move, Question. Keep it practical and calm.";
 const SHOW_DEBUG_SOURCE = import.meta.env.DEV || import.meta.env.VITE_CLARA_DEBUG_AI === "true";
 
@@ -87,6 +87,7 @@ function splitIntoBlocks(text = "") {
 
 function Insight({ text, action, source }) {
   const blocks = splitIntoBlocks(text);
+
   return (
     <div className="space-y-3">
       {action ? (
@@ -102,24 +103,27 @@ function Insight({ text, action, source }) {
         </div>
       ) : null}
 
-      {blocks.slice(0, 5).map((block, index) => {
-        const [rawTitle, ...rest] = block.split(":");
-        const hasLabel = rest.length > 0 && rawTitle.length < 32;
-        const title = hasLabel ? rawTitle : index === 0 ? "CLARA says" : "Money Note";
-        const body = hasLabel ? rest.join(":").trim() : block;
-        const lower = `${title} ${body}`.toLowerCase();
-        const tone = lower.includes("risk") || lower.includes("pressure") || lower.includes("delay") || lower.includes("pause")
-          ? "border-amber-200/18 bg-amber-300/[0.055]"
-          : lower.includes("next") || lower.includes("question")
-            ? "border-cyan-200/18 bg-cyan-300/[0.055]"
-            : "border-white/10 bg-white/[0.045]";
-        return (
-          <div key={`${title}-${index}`} className={`rounded-[18px] border px-3 py-2.5 ${tone}`}>
-            <p className="text-[10px] font-black uppercase tracking-[0.18em] text-white/48">{title}</p>
-            <p className="mt-1.5 text-[12px] leading-5 text-slate-200/86">{body}</p>
-          </div>
-        );
-      })}
+      <div className="space-y-2.5">
+        {blocks.slice(0, 5).map((block, index) => {
+          const [rawTitle, ...rest] = block.split(":");
+          const hasLabel = rest.length > 0 && rawTitle.length < 32;
+          const title = hasLabel ? rawTitle : index === 0 ? "CLARA says" : "Money Note";
+          const body = hasLabel ? rest.join(":").trim() : block;
+          const lower = `${title} ${body}`.toLowerCase();
+          const titleTone = lower.includes("risk") || lower.includes("pressure") || lower.includes("delay") || lower.includes("pause")
+            ? "text-amber-100/70"
+            : lower.includes("next") || lower.includes("question")
+              ? "text-cyan-100/70"
+              : "text-white/48";
+
+          return (
+            <div key={`${title}-${index}`} className={`${index > 0 ? "border-t border-white/10 pt-2.5" : ""}`}>
+              <p className={`text-[10px] font-black uppercase tracking-[0.18em] ${titleTone}`}>{title}</p>
+              <p className="mt-1.5 text-[12.5px] leading-5 text-slate-200/88">{body}</p>
+            </div>
+          );
+        })}
+      </div>
     </div>
   );
 }
