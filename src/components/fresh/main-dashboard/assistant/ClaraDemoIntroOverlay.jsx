@@ -4,7 +4,7 @@ export default function ClaraDemoIntroOverlay({ isVisible, onSkip }) {
   if (!isVisible) return null;
 
   return (
-    <div className="pointer-events-none fixed inset-0 z-[260] mx-auto flex w-full max-w-[430px] flex-col justify-end overflow-hidden px-5 pb-[190px] text-white">
+    <div className="pointer-events-none fixed inset-0 z-[260] mx-auto flex w-full max-w-[430px] flex-col justify-end overflow-hidden px-5 pb-[176px] text-white">
       <div className="absolute inset-0 -z-10 bg-slate-950/52 backdrop-blur-[1.5px]" />
 
       <div className="pointer-events-auto rounded-[30px] border border-white/14 bg-slate-950/78 p-5 shadow-[0_24px_80px_rgba(0,0,0,0.42),inset_0_1px_0_rgba(255,255,255,0.10)] backdrop-blur-2xl">
@@ -38,13 +38,11 @@ export default function ClaraDemoIntroOverlay({ isVisible, onSkip }) {
         </button>
       </div>
 
-      <div className="pointer-events-none absolute bottom-[28px] right-[17px] h-[84px] w-[84px] rounded-full border border-emerald-200/30 bg-emerald-300/8 shadow-[0_0_0_10px_rgba(110,231,183,0.08),0_0_38px_rgba(110,231,183,0.32)]" />
-
-      <div className="pointer-events-none absolute bottom-[90px] right-[17px] flex w-[84px] flex-col items-center gap-1.5 text-emerald-100">
+      <div className="pointer-events-none absolute bottom-[58px] right-[14px] flex w-[90px] flex-col items-center gap-1.5 text-emerald-100">
         <div className="rounded-full border border-emerald-200/22 bg-slate-950/72 px-3 py-1.5 text-[10px] font-black uppercase tracking-[0.16em] shadow-[0_14px_34px_rgba(0,0,0,0.24)] backdrop-blur-xl">
           Hold here
         </div>
-        <div className="animate-bounce text-5xl leading-none drop-shadow-[0_0_18px_rgba(110,231,183,0.75)]">
+        <div className="clara-demo-pointer-float text-5xl leading-none drop-shadow-[0_0_18px_rgba(110,231,183,0.75)]">
           ↓
         </div>
       </div>
