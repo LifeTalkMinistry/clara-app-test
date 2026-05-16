@@ -10,6 +10,7 @@ export default function QuickActionDropdown({
   onChange,
   disabled = false,
   ariaLabel = "Select option",
+  inlineMenu = false,
 }) {
   const [open, setOpen] = useState(false);
   const dropdownRef = useRef(null);
@@ -105,6 +106,10 @@ export default function QuickActionDropdown({
     setOpen(false);
   };
 
+  const menuClassName = inlineMenu
+    ? "relative z-[999] mt-2 max-h-[min(18rem,42vh)] touch-pan-y overflow-y-auto overscroll-contain rounded-3xl border border-cyan-200/18 bg-[#06111f]/[0.995] p-2 shadow-[0_18px_58px_rgba(0,0,0,0.46),0_0_34px_rgba(34,211,238,0.12)] backdrop-blur-2xl [-webkit-overflow-scrolling:touch]"
+    : "absolute left-0 right-0 top-[calc(100%+0.5rem)] z-[999] max-h-[min(20rem,48vh)] touch-pan-y overflow-y-auto overscroll-contain rounded-3xl border border-cyan-200/18 bg-[#06111f]/[0.995] p-2 shadow-[0_28px_86px_rgba(0,0,0,0.64),0_0_42px_rgba(34,211,238,0.14)] backdrop-blur-2xl [-webkit-overflow-scrolling:touch]";
+
   return (
     <div ref={dropdownRef} className={`relative ${open ? "z-[360]" : "z-0"}`}>
       <button
@@ -144,7 +149,7 @@ export default function QuickActionDropdown({
           onTouchMove={(event) => event.stopPropagation()}
           onPointerDown={(event) => event.stopPropagation()}
           onWheel={(event) => event.stopPropagation()}
-          className="absolute left-0 right-0 top-[calc(100%+0.5rem)] z-[999] max-h-[min(20rem,48vh)] touch-pan-y overflow-y-auto overscroll-contain rounded-3xl border border-cyan-200/18 bg-[#06111f]/[0.995] p-2 shadow-[0_28px_86px_rgba(0,0,0,0.64),0_0_42px_rgba(34,211,238,0.14)] backdrop-blur-2xl [-webkit-overflow-scrolling:touch]"
+          className={menuClassName}
           style={{ WebkitOverflowScrolling: "touch", touchAction: "pan-y" }}
         >
           {options.map((item) => {
