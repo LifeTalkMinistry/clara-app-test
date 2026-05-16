@@ -1,5 +1,14 @@
 import { useState } from "react";
-import { Shield, Edit2, Plus, X, Check, RotateCcw, AlertTriangle } from "lucide-react";
+import {
+  Shield,
+  Edit2,
+  Plus,
+  X,
+  Check,
+  RotateCcw,
+  AlertTriangle,
+  MinusCircle,
+} from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 import useFinancialData from "@/hooks/useFinancialData";
 
@@ -38,6 +47,40 @@ const fallbackStatus = {
   badge: "bg-emerald-400/12 text-emerald-100 border border-emerald-300/15",
   ring: "",
 };
+
+function toNumber(value) {
+  if (typeof value === "number") return Number.isFinite(value) ? value : 0;
+  if (typeof value === "string") {
+    const parsed = Number(value.replace(/[₱,\s]/g, ""));
+    return Number.isFinite(parsed) ? parsed : 0;
+  }
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : 0;
+}
+
+function getEmergencyActivityLog(emergencyFund) {
+  const source =
+    emergencyFund?.emergencyActivityLog ||
+    emergencyFund?.emergency_activity_log ||
+    emergencyFund?.activityLog ||
+    emergencyFund?.activity_log ||
+    emergencyFund?.usageLog ||
+    emergencyFund?.usage_log ||
+    [];
+
+  return Array.isArray(source) ? source.filter(Boolean) : [];
+}
+
+function getActivityDateLabel(value) {
+  try {
+    return new Date(value).toLocaleDateString("en-PH", {
+      month: "short",
+      day: "numeric",
+    });
+  } catch {
+    return "Today";
+  }
+}
 
 function EmergencyTopUpModal({
   open,
@@ -157,6 +200,141 @@ function EmergencyTopUpModal({
   );
 }
 
+function EmergencyUseModal({
+  open,
+  onClose,
+  onUse,
+  amount,
+  setAmount,
+  reason,
+  setReason,
+  note,
+  setNote,
+  error = "",
+  usingFund = false,
+  currentReserve = 0,
+  monthlySurvival = 0,
+  themeClasses = fallbackThemeClasses,
+}) {
+  if (!open) return null;
+
+  const numericAmount = toNumber(amount);
+  const nextReserve = Math.max(toNumber(currentReserve) - numericAmount, 0);
+  const currentMonths = monthlySurvival > 0 ? toNumber(currentReserve) / monthlySurvival : 0;
+  const nextMonths = monthlySurvival > 0 ? nextReserve / monthlySurvival : 0;
+
+  return (
+    <div className="fixed inset-0 z-[111] flex items-center justify-center p-4">
+      <button
+        type="button"
+        aria-label="Close use emergency fund modal"
+        className="absolute inset-0 bg-black/75 backdrop-blur-sm"
+        onClick={onClose}
+      />
+
+      <div className="theme-modal-card relative z-10 w-full max-w-md overflow-hidden rounded-3xl border border-white/[0.07] bg-[#061224]/95 shadow-2xl backdrop-blur-2xl">
+        <div className="flex items-center justify-between border-b border-white/[0.06] p-4">
+          <div>
+            <p className={`text-base font-semibold ${themeClasses.title || "text-white"}`}>
+              Use Emergency Fund
+            </p>
+            <p className={`mt-0.5 text-xs ${themeClasses.muted || "text-white/45"}`}>
+              Log protected money without touching normal wallet logic.
+            </p>
+          </div>
+
+          <button
+            type="button"
+            onClick={onClose}
+            disabled={usingFund}
+            className="flex h-9 w-9 items-center justify-center rounded-xl border border-white/[0.06] bg-black/[0.12] text-white/70 transition hover:bg-white/[0.05] hover:text-white disabled:opacity-60"
+          >
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+
+        <div className="space-y-4 p-4">
+          <div className="rounded-2xl border border-amber-300/18 bg-amber-400/[0.08] px-4 py-3 text-xs font-semibold leading-5 text-amber-50/82">
+            <div className="mb-2 flex items-center gap-2 text-amber-100">
+              <AlertTriangle className="h-4 w-4" />
+              <span className="font-bold">Protected reserve warning</span>
+            </div>
+            This will reduce your emergency buffer from {fmt(currentReserve)} to {fmt(nextReserve)}
+            {monthlySurvival > 0 ? ` (${currentMonths.toFixed(1)} months → ${nextMonths.toFixed(1)} months).` : "."}
+          </div>
+
+          <div>
+            <label className="mb-2 block text-[11px] font-semibold uppercase tracking-[0.16em] text-white/45">
+              Amount used
+            </label>
+            <input
+              type="number"
+              min="0"
+              value={amount}
+              onChange={(event) => setAmount(event.target.value)}
+              placeholder="0"
+              className="w-full rounded-2xl border border-white/[0.07] bg-black/[0.18] px-4 py-3 text-sm font-semibold text-white outline-none transition placeholder:text-white/30 focus:border-amber-300/24"
+            />
+          </div>
+
+          <div>
+            <label className="mb-2 block text-[11px] font-semibold uppercase tracking-[0.16em] text-white/45">
+              Emergency reason
+            </label>
+            <input
+              type="text"
+              value={reason}
+              onChange={(event) => setReason(event.target.value)}
+              placeholder="e.g. medicine, urgent repair, family emergency"
+              className="w-full rounded-2xl border border-white/[0.07] bg-black/[0.18] px-4 py-3 text-sm font-semibold text-white outline-none transition placeholder:text-white/30 focus:border-amber-300/24"
+            />
+          </div>
+
+          <div>
+            <label className="mb-2 block text-[11px] font-semibold uppercase tracking-[0.16em] text-white/45">
+              Optional note
+            </label>
+            <textarea
+              rows={3}
+              value={note}
+              onChange={(event) => setNote(event.target.value)}
+              placeholder="Add a short context if needed"
+              className="min-h-[92px] w-full resize-none rounded-2xl border border-white/[0.07] bg-black/[0.18] px-4 py-3 text-sm font-semibold text-white outline-none transition placeholder:text-white/30 focus:border-amber-300/24"
+            />
+          </div>
+
+          {error ? (
+            <div className="rounded-2xl border border-rose-300/16 bg-rose-400/[0.075] px-4 py-3 text-xs font-semibold text-rose-200">
+              {error}
+            </div>
+          ) : null}
+
+          <div className="grid grid-cols-2 gap-2">
+            <button
+              type="button"
+              onClick={onClose}
+              disabled={usingFund}
+              className="rounded-2xl border border-white/[0.06] bg-black/[0.12] px-4 py-3 text-sm font-semibold text-white/78 transition hover:bg-white/[0.05] hover:text-white disabled:opacity-60"
+            >
+              Cancel
+            </button>
+
+            <button
+              type="button"
+              onClick={onUse}
+              disabled={usingFund}
+              className="flex items-center justify-center gap-2 rounded-2xl border border-amber-300/22 bg-amber-400/[0.10] px-4 py-3 text-sm font-black text-amber-100 transition hover:bg-amber-400/[0.15] disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              <MinusCircle className="h-4 w-4" />
+              {usingFund ? "Logging..." : "Use Fund"}
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function EmergencyResetModal({
   open,
   onClose,
@@ -203,7 +381,7 @@ function EmergencyResetModal({
               <AlertTriangle className="h-4 w-4" />
               <span className="font-bold">Master reset warning</span>
             </div>
-            This clears the emergency fund amount, survival number, target, and reserve wallet link. It will not return money back to any wallet.
+            This clears the emergency fund amount, survival number, target, reserve wallet link, and emergency activity log. It will not return money back to any wallet.
           </div>
 
           {resetError ? (
@@ -320,6 +498,48 @@ function ExpandButtonRow({ expanded, onToggleDetails }) {
   );
 }
 
+function EmergencyActivityList({ activity = [] }) {
+  const latest = activity.slice(0, 4);
+
+  if (!latest.length) {
+    return (
+      <div className="rounded-2xl border border-white/[0.045] bg-black/[0.08] px-3.5 py-3 text-[12px] font-semibold leading-5 text-white/42">
+        No emergency usage yet. CLARA will keep a private log here when you use this reserve.
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-2">
+      {latest.map((item) => {
+        const type = String(item?.type || "use").toLowerCase();
+        const isUse = type.includes("use") || type.includes("withdraw") || type.includes("expense");
+        const amount = toNumber(item?.amount);
+        const createdAt = item?.createdAt || item?.created_at || item?.date || new Date().toISOString();
+
+        return (
+          <div
+            key={item?.id || `${createdAt}-${amount}`}
+            className="flex items-center justify-between gap-3 rounded-2xl border border-white/[0.045] bg-black/[0.09] px-3.5 py-3"
+          >
+            <div className="min-w-0">
+              <p className="truncate text-[12px] font-black text-white/84">
+                {item?.reason || item?.title || (isUse ? "Emergency usage" : "Emergency deposit")}
+              </p>
+              <p className="mt-1 text-[10px] font-semibold text-white/38">
+                {getActivityDateLabel(createdAt)}{item?.note ? ` • ${item.note}` : ""}
+              </p>
+            </div>
+            <p className={`shrink-0 text-[12px] font-black ${isUse ? "text-amber-100" : "text-emerald-200"}`}>
+              {isUse ? "-" : "+"}{fmt(amount)}
+            </p>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
 export default function EmergencyFundCard({
   moneyLeft = 0,
   survivalExpense = 0,
@@ -339,9 +559,16 @@ export default function EmergencyFundCard({
     updateEmergencyFund = null,
     refreshData = null,
   } = useFinancialData(user);
+
   const [showResetModal, setShowResetModal] = useState(false);
   const [resetError, setResetError] = useState("");
   const [resetting, setResetting] = useState(false);
+  const [showUseModal, setShowUseModal] = useState(false);
+  const [useAmount, setUseAmount] = useState("");
+  const [useReason, setUseReason] = useState("");
+  const [useNote, setUseNote] = useState("");
+  const [useError, setUseError] = useState("");
+  const [usingFund, setUsingFund] = useState(false);
 
   const { state = {}, computed = {}, handlers = {} } = useEmergencyFundCard({
     moneyLeft,
@@ -394,6 +621,7 @@ export default function EmergencyFundCard({
     handleTopUpSave = noop,
   } = handlers;
 
+  const emergencyActivity = getEmergencyActivityLog(liveEmergencyFund);
   const coverageLabel = effectiveExpense > 0 ? `${Number(months || 0).toFixed(1)} months` : "Set expense";
   const amountNeeded = Math.max(Number(target || 0) - Number(safeMoneyLeft || 0), 0);
   const targetLabel = milestone?.label || `${targetMonths}-Month Safety`;
@@ -414,6 +642,97 @@ export default function EmergencyFundCard({
     if (resetting) return;
     setShowResetModal(false);
     setResetError("");
+  };
+
+  const closeUseModal = () => {
+    if (usingFund) return;
+    setShowUseModal(false);
+    setUseAmount("");
+    setUseReason("");
+    setUseNote("");
+    setUseError("");
+  };
+
+  const useEmergencyFund = async () => {
+    if (typeof updateEmergencyFund !== "function") {
+      setUseError("Emergency usage log is not available yet.");
+      return;
+    }
+
+    const amount = toNumber(useAmount);
+    const currentReserve = toNumber(safeMoneyLeft);
+    const reason = String(useReason || "").trim();
+    const note = String(useNote || "").trim();
+
+    if (!Number.isFinite(amount) || amount <= 0) {
+      setUseError("Enter a valid emergency amount.");
+      return;
+    }
+
+    if (amount > currentReserve) {
+      setUseError("This is higher than your current emergency reserve.");
+      return;
+    }
+
+    if (!reason) {
+      setUseError("Add a short emergency reason before using the fund.");
+      return;
+    }
+
+    const now = new Date().toISOString();
+    const nextReserve = Math.max(currentReserve - amount, 0);
+    const nextActivity = [
+      {
+        id: `emergency_use_${Date.now()}`,
+        type: "use",
+        amount,
+        reason,
+        note,
+        balanceBefore: currentReserve,
+        balanceAfter: nextReserve,
+        createdAt: now,
+        created_at: now,
+      },
+      ...emergencyActivity,
+    ].slice(0, 60);
+
+    setUsingFund(true);
+    setUseError("");
+
+    try {
+      await updateEmergencyFund({
+        ...(liveEmergencyFund || {}),
+        savedAmount: nextReserve,
+        saved_amount: nextReserve,
+        amount: nextReserve,
+        balance: nextReserve,
+        moneyLeft: nextReserve,
+        protectedBalance: nextReserve,
+        protected_balance: nextReserve,
+        reserveBalance: nextReserve,
+        reserve_balance: nextReserve,
+        emergencyActivityLog: nextActivity,
+        emergency_activity_log: nextActivity,
+        usageLog: nextActivity,
+        usage_log: nextActivity,
+        lastEmergencySpendAmount: amount,
+        last_emergency_spend_amount: amount,
+        lastEmergencySpendReason: reason,
+        last_emergency_spend_reason: reason,
+        lastEmergencySpendAt: now,
+        last_emergency_spend_at: now,
+        updatedAt: now,
+        updated_at: now,
+      });
+
+      if (typeof refreshData === "function") await refreshData();
+      closeUseModal();
+    } catch (error) {
+      console.error("Unable to log emergency fund usage:", error);
+      setUseError("CLARA could not log this emergency usage yet. Try again.");
+    } finally {
+      setUsingFund(false);
+    }
   };
 
   const resetEmergencyFund = async () => {
@@ -463,6 +782,10 @@ export default function EmergencyFundCard({
         last_reserve_transfer_at: null,
         lastEmergencySpendAmount: null,
         last_emergency_spend_amount: null,
+        emergencyActivityLog: [],
+        emergency_activity_log: [],
+        usageLog: [],
+        usage_log: [],
         resetAt: now,
         reset_at: now,
         updatedAt: now,
@@ -506,6 +829,29 @@ export default function EmergencyFundCard({
         setTopUpError={setTopUpError}
         handleTopUpSave={handleTopUpSave}
         saving={saving}
+        themeClasses={themeClasses}
+      />
+
+      <EmergencyUseModal
+        open={showUseModal}
+        onClose={closeUseModal}
+        onUse={useEmergencyFund}
+        amount={useAmount}
+        setAmount={(value) => {
+          setUseAmount(value);
+          setUseError("");
+        }}
+        reason={useReason}
+        setReason={(value) => {
+          setUseReason(value);
+          setUseError("");
+        }}
+        note={useNote}
+        setNote={setUseNote}
+        error={useError}
+        usingFund={usingFund}
+        currentReserve={safeMoneyLeft}
+        monthlySurvival={effectiveExpense}
         themeClasses={themeClasses}
       />
 
@@ -645,7 +991,19 @@ export default function EmergencyFundCard({
                     </div>
                   </div>
 
-                  <div className="grid grid-cols-3 gap-2 pt-1.5">
+                  <div className="rounded-2xl border border-white/[0.045] bg-black/[0.105] px-3.5 py-3 shadow-[inset_0_1px_0_rgba(255,255,255,0.026)]">
+                    <div className="mb-3 flex items-center justify-between gap-3">
+                      <span className="text-[10px] font-black uppercase tracking-[0.16em] text-white/34">
+                        Emergency activity
+                      </span>
+                      <span className="text-[10px] font-semibold text-white/38">
+                        Private log
+                      </span>
+                    </div>
+                    <EmergencyActivityList activity={emergencyActivity} />
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-2 pt-1.5">
                     <button
                       type="button"
                       onClick={() => setEditing(true)}
@@ -662,6 +1020,16 @@ export default function EmergencyFundCard({
                     >
                       <Plus className="h-4 w-4" />
                       Add
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => setShowUseModal(true)}
+                      disabled={toNumber(safeMoneyLeft) <= 0}
+                      className="flex items-center justify-center gap-1.5 rounded-2xl border border-amber-300/18 bg-amber-400/[0.08] px-2 py-3.5 text-[12px] font-black text-amber-100/90 shadow-[0_0_18px_rgba(251,191,36,0.06)] transition hover:bg-amber-400/[0.13] disabled:cursor-not-allowed disabled:opacity-45"
+                    >
+                      <MinusCircle className="h-4 w-4" />
+                      Use
                     </button>
 
                     <button
