@@ -1,5 +1,6 @@
 import {
   LOCAL_FINANCE_STORES,
+  runLocalFinanceTransaction,
   upsertLocalRecord,
   softDeleteLocalRecord,
 } from "@/lib/localFinanceStore";
@@ -7,10 +8,11 @@ import { upsertDebtObligation } from "@/lib/debtObligationStore";
 import { upsertInvestment } from "@/lib/investmentStore";
 import { CLARA_LIFE_PROFILE_ID } from "@/lib/clara-life-profile";
 
-export const CLARA_DEMO_ACCOUNT_VERSION = "demo-minimum-earner-v2";
+export const CLARA_DEMO_ACCOUNT_VERSION = "demo-minimum-earner-v3";
 
 const DEMO_PREFIX = "clara_demo";
 const DEMO_LOCAL_USER_FALLBACK = "local-user";
+const DEMO_MAINTENANCE_LOCAL_USER_ID = "clara-demo-maintenance";
 
 const normalizeLocalUserId = (localUserId) =>
   String(localUserId || DEMO_LOCAL_USER_FALLBACK).trim() || DEMO_LOCAL_USER_FALLBACK;
@@ -292,8 +294,15 @@ export function buildClaraDemoAccountRecords(localUserIdInput) {
     current_amount: 4000,
     monthly_target: 1000,
     monthlyTarget: 1000,
+    survivalExpense: 18000,
+    survival_expense: 18000,
+    monthlyExpense: 18000,
+    monthly_expense: 18000,
     monthly_survival_expense: 18000,
     survival_months_target: 3,
+    targetMonths: 3,
+    target_months: 3,
+    months_target: 3,
     status: "building",
     notes: "Demo user wants a 3-month emergency fund but is still inconsistent with impulse spending.",
   });
@@ -379,51 +388,6 @@ async function upsertMany(storeName, records, localUserId) {
   }
 }
 
-export async function seedClaraDemoAccount(localUserIdInput) {
-  const localUserId = normalizeLocalUserId(localUserIdInput);
-  const data = buildClaraDemoAccountRecords(localUserId);
-
-  await upsertMany(LOCAL_FINANCE_STORES.wallets, data.wallets, localUserId);
-  await upsertMany(LOCAL_FINANCE_STORES.budgets, data.budgets, localUserId);
-  await upsertMany(LOCAL_FINANCE_STORES.expenses, data.expenses, localUserId);
-  await upsertMany(LOCAL_FINANCE_STORES.walletTransactions, data.walletTransactions, localUserId);
-  await upsertMany(LOCAL_FINANCE_STORES.savingsGoals, data.savingsGoals, localUserId);
-  await upsertLocalRecord(LOCAL_FINANCE_STORES.emergencyFund, data.emergencyFund, localUserId);
-  await upsertLocalRecord(LOCAL_FINANCE_STORES.lifeProfile, data.lifeProfile, localUserId);
-
-  for (const debt of data.debts) {
-    await upsertDebtObligation(localUserId, {
-      ...debt,
-      demoAccount: true,
-      demo_account: true,
-      demoVersion: CLARA_DEMO_ACCOUNT_VERSION,
-      demo_version: CLARA_DEMO_ACCOUNT_VERSION,
-    });
-  }
-
-  for (const investment of data.investments) {
-    await upsertInvestment(localUserId, {
-      ...investment,
-      demoAccount: true,
-      demo_account: true,
-      demoVersion: CLARA_DEMO_ACCOUNT_VERSION,
-      demo_version: CLARA_DEMO_ACCOUNT_VERSION,
-    });
-  }
-
-  if (typeof window !== "undefined") {
-    window.dispatchEvent(new CustomEvent("clara-finance-updated"));
-    window.dispatchEvent(new CustomEvent("clara-wallets-updated"));
-    window.dispatchEvent(new CustomEvent("clara-expenses-updated"));
-    window.dispatchEvent(new CustomEvent("clara-wallet-transactions-updated"));
-    window.dispatchEvent(new CustomEvent("clara:life-profile-updated", { detail: { profile: data.lifeProfile.profile } }));
-    window.dispatchEvent(new CustomEvent("clara:debt-obligations-updated"));
-    window.dispatchEvent(new CustomEvent("clara:investments-updated"));
-  }
-
-  return data;
-}
-
 const DEMO_RECORD_IDS_BY_STORE = {
   [LOCAL_FINANCE_STORES.wallets]: [
     `${DEMO_PREFIX}_wallet_payroll`,
@@ -476,11 +440,86 @@ const DEMO_RECORD_IDS_BY_STORE = {
     `${DEMO_PREFIX}_goal_christmas`,
   ],
   [LOCAL_FINANCE_STORES.emergencyFund]: [`${DEMO_PREFIX}_emergency_fund`],
-  [LOCAL_FINANCE_STORES.lifeProfile]: [CLARA_LIFE_PROFILE_ID],
+  [LOCAL_FINANCE_STORES.privatePreferences]: [
+    `${DEMO_PREFIX}_debt_credit_card`,
+    `${DEMO_PREFIX}_debt_motorcycle`,
+    `${DEMO_PREFIX}_debt_family_loan`,
+    `${DEMO_PREFIX}_investment_mp2`,
+  ],
 };
+
+async function hardDeleteKnownDemoRecords() {
+  const storeNames = Object.keys(DEMO_RECORD_IDS_BY_STORE);
+
+  await runLocalFinanceTransaction(
+    storeNames,
+    DEMO_MAINTENANCE_LOCAL_USER_ID,
+    async ({ store }) => {
+      for (const [storeName, ids] of Object.entries(DEMO_RECORD_IDS_BY_STORE)) {
+        const objectStore = store(storeName);
+
+        for (const id of ids) {
+          objectStore.delete(id);
+        }
+      }
+    }
+  );
+}
+
+export async function seedClaraDemoAccount(localUserIdInput) {
+  const localUserId = normalizeLocalUserId(localUserIdInput);
+
+  await hardDeleteKnownDemoRecords();
+
+  const data = buildClaraDemoAccountRecords(localUserId);
+
+  await upsertMany(LOCAL_FINANCE_STORES.wallets, data.wallets, localUserId);
+  await upsertMany(LOCAL_FINANCE_STORES.budgets, data.budgets, localUserId);
+  await upsertMany(LOCAL_FINANCE_STORES.expenses, data.expenses, localUserId);
+  await upsertMany(LOCAL_FINANCE_STORES.walletTransactions, data.walletTransactions, localUserId);
+  await upsertMany(LOCAL_FINANCE_STORES.savingsGoals, data.savingsGoals, localUserId);
+  await upsertLocalRecord(LOCAL_FINANCE_STORES.emergencyFund, data.emergencyFund, localUserId);
+
+  // Do not write the fixed life-profile id into IndexedDB for demo mode.
+  // That id is shared by the real user profile store, so writing it for demo can collide with real data.
+
+  for (const debt of data.debts) {
+    await upsertDebtObligation(localUserId, {
+      ...debt,
+      demoAccount: true,
+      demo_account: true,
+      demoVersion: CLARA_DEMO_ACCOUNT_VERSION,
+      demo_version: CLARA_DEMO_ACCOUNT_VERSION,
+    });
+  }
+
+  for (const investment of data.investments) {
+    await upsertInvestment(localUserId, {
+      ...investment,
+      demoAccount: true,
+      demo_account: true,
+      demoVersion: CLARA_DEMO_ACCOUNT_VERSION,
+      demo_version: CLARA_DEMO_ACCOUNT_VERSION,
+    });
+  }
+
+  if (typeof window !== "undefined") {
+    window.dispatchEvent(new CustomEvent("clara-finance-updated"));
+    window.dispatchEvent(new CustomEvent("clara-wallets-updated"));
+    window.dispatchEvent(new CustomEvent("clara-expenses-updated"));
+    window.dispatchEvent(new CustomEvent("clara-wallet-transactions-updated"));
+    window.dispatchEvent(new CustomEvent("clara:life-profile-updated", { detail: { profile: data.lifeProfile.profile } }));
+    window.dispatchEvent(new CustomEvent("clara:debt-obligations-updated"));
+    window.dispatchEvent(new CustomEvent("clara:investments-updated"));
+  }
+
+  return data;
+}
 
 export async function clearClaraDemoAccount(localUserIdInput) {
   const localUserId = normalizeLocalUserId(localUserIdInput);
+
+  await hardDeleteKnownDemoRecords();
 
   for (const [storeName, ids] of Object.entries(DEMO_RECORD_IDS_BY_STORE)) {
     for (const id of ids) {
@@ -489,21 +528,6 @@ export async function clearClaraDemoAccount(localUserIdInput) {
       } catch {
         // Missing demo records are safe to ignore.
       }
-    }
-  }
-
-  const privatePreferenceIds = [
-    `${DEMO_PREFIX}_debt_credit_card`,
-    `${DEMO_PREFIX}_debt_motorcycle`,
-    `${DEMO_PREFIX}_debt_family_loan`,
-    `${DEMO_PREFIX}_investment_mp2`,
-  ];
-
-  for (const id of privatePreferenceIds) {
-    try {
-      await softDeleteLocalRecord(LOCAL_FINANCE_STORES.privatePreferences, id, localUserId);
-    } catch {
-      // Missing demo records are safe to ignore.
     }
   }
 
