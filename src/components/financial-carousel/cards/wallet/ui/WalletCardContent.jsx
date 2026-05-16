@@ -8,6 +8,18 @@ import FinanceCardExpandedPanel from '@/components/financial-carousel/shared/Fin
 import WalletCreateButton from '@/components/financial-carousel/cards/wallet/ui/WalletCreateButton';
 import { fmt } from '@/components/financial-carousel/cards/wallet/logic/walletFormatting';
 
+function getRegisteredWalletCount(wallets = []) {
+  return (Array.isArray(wallets) ? wallets : []).filter(
+    (wallet) =>
+      wallet &&
+      !wallet?.is_archived &&
+      !wallet?.deletedAt &&
+      !wallet?.deleted_at &&
+      !wallet?.isEmergencyReserveWallet &&
+      !wallet?.protected_reserve
+  ).length;
+}
+
 export default function WalletCardContent({
   wallets = [],
   walletMoney = 0,
@@ -28,7 +40,10 @@ export default function WalletCardContent({
   visibleTransactions = [],
   openEditWallet,
 }) {
-  const walletCount = visibleWallets.length || wallets.filter((wallet) => !wallet?.is_archived).length;
+  // Do not use visibleWallets here.
+  // In collapsed mode visibleWallets is intentionally sliced for preview, so using it
+  // makes the summary tile say "2 wallets" even when the user registered more.
+  const walletCount = getRegisteredWalletCount(wallets);
 
   if (!expanded) {
     return (
