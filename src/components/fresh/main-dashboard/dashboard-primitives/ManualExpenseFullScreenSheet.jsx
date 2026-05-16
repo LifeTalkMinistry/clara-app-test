@@ -88,9 +88,6 @@ export default function ManualExpenseFullScreenSheet({
               <h2 className="mt-2 text-[21px] font-black tracking-tight text-white">
                 Log expense
               </h2>
-              <p className="mt-1 text-[12px] font-semibold leading-5 text-white/58">
-                Amount, budget, and wallet — clean and simple.
-              </p>
             </div>
 
             <button
