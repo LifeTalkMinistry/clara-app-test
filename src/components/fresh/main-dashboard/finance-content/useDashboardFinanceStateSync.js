@@ -1,5 +1,58 @@
 import { useEffect } from "react";
 import { getWalletDisplayBalance } from "@/utils/dashboard/dashboardHelpers";
+import { CLARA_EMERGENCY_RESERVE_WALLET_ID } from "@/hooks/useFinancialData";
+
+function toNumber(value) {
+  if (typeof value === "number") return Number.isFinite(value) ? value : 0;
+  if (typeof value === "string") {
+    const cleaned = value.replace(/[₱,\s]/g, "");
+    const parsed = Number(cleaned);
+    return Number.isFinite(parsed) ? parsed : 0;
+  }
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : 0;
+}
+
+function getEmergencyReserveBalance(emergencyFund) {
+  return toNumber(
+    emergencyFund?.protectedBalance ??
+      emergencyFund?.protected_balance ??
+      emergencyFund?.reserveBalance ??
+      emergencyFund?.reserve_balance ??
+      emergencyFund?.savedAmount ??
+      emergencyFund?.saved_amount ??
+      emergencyFund?.amount ??
+      emergencyFund?.balance ??
+      emergencyFund?.moneyLeft ??
+      0
+  );
+}
+
+function buildEmergencyReserveWallet(emergencyFund) {
+  const balance = getEmergencyReserveBalance(emergencyFund);
+  if (!emergencyFund || balance <= 0) return null;
+
+  return {
+    id: CLARA_EMERGENCY_RESERVE_WALLET_ID,
+    wallet_id: CLARA_EMERGENCY_RESERVE_WALLET_ID,
+    name: "Emergency Fund 🔒",
+    title: "Emergency Fund 🔒",
+    label: "Emergency Fund 🔒",
+    type: "protected_reserve",
+    wallet_type: "protected_reserve",
+    protected_reserve: true,
+    isEmergencyReserveWallet: true,
+    balance,
+    current_balance: balance,
+    wallet_balance: balance,
+    available_balance: balance,
+    starting_balance: balance,
+    emergencyFundId: emergencyFund?.id || null,
+    emergency_fund_id: emergencyFund?.id || null,
+    source: "clara_protected_reserve",
+    sort_order: 9999,
+  };
+}
 
 export default function useDashboardFinanceStateSync({
   cacheKey,
@@ -41,8 +94,12 @@ export default function useDashboardFinanceStateSync({
       (sum, wallet) => sum + getWalletDisplayBalance(wallet),
       0
     );
+    const emergencyReserveWallet = buildEmergencyReserveWallet(financeEmergencyFund);
+    const visibleWallets = emergencyReserveWallet
+      ? [...safeWallets, emergencyReserveWallet]
+      : safeWallets;
 
-    setWallets(safeWallets);
+    setWallets(visibleWallets);
     setWalletTransactions(safeWalletTransactions);
     setTransfers(safeTransfers);
     setBudgets(safeBudgets);
@@ -59,7 +116,7 @@ export default function useDashboardFinanceStateSync({
         key: cacheKey,
         loaded: true,
         walletMoney: nextWalletMoney,
-        wallets: safeWallets,
+        wallets: visibleWallets,
         walletTransactions: safeWalletTransactions,
         transfers: safeTransfers,
         budgets: safeBudgets,
