@@ -1,6 +1,8 @@
 import { useEffect, useRef, useState } from "react";
 import { ArrowDown, Check } from "lucide-react";
 
+const SCROLL_TAP_THRESHOLD = 8;
+
 export default function QuickActionDropdown({
   value,
   placeholder = "Select option",
@@ -11,6 +13,8 @@ export default function QuickActionDropdown({
 }) {
   const [open, setOpen] = useState(false);
   const dropdownRef = useRef(null);
+  const menuRef = useRef(null);
+  const pointerStartRef = useRef({ x: 0, y: 0, moved: false });
   const selected = options.find((item) => String(item.value) === String(value));
 
   useEffect(() => {
@@ -19,6 +23,7 @@ export default function QuickActionDropdown({
     const handlePointerDown = (event) => {
       if (!dropdownRef.current) return;
       if (dropdownRef.current.contains(event.target)) return;
+      if (menuRef.current?.contains(event.target)) return;
       setOpen(false);
     };
 
@@ -53,6 +58,39 @@ export default function QuickActionDropdown({
     return "border-white/8 bg-white/[0.035] text-white hover:bg-white/[0.07]";
   };
 
+  const handleOptionPointerDown = (event) => {
+    pointerStartRef.current = {
+      x: event.clientX || 0,
+      y: event.clientY || 0,
+      moved: false,
+    };
+  };
+
+  const handleOptionPointerMove = (event) => {
+    const start = pointerStartRef.current;
+    const distanceX = Math.abs((event.clientX || 0) - start.x);
+    const distanceY = Math.abs((event.clientY || 0) - start.y);
+
+    if (distanceX > SCROLL_TAP_THRESHOLD || distanceY > SCROLL_TAP_THRESHOLD) {
+      pointerStartRef.current = { ...start, moved: true };
+    }
+  };
+
+  const handleOptionClick = (item) => {
+    if (pointerStartRef.current.moved) {
+      pointerStartRef.current = { x: 0, y: 0, moved: false };
+      return;
+    }
+
+    if (item.disabled) {
+      item.onDisabledClick?.();
+      return;
+    }
+
+    onChange?.(item.value, item);
+    setOpen(false);
+  };
+
   return (
     <div ref={dropdownRef} className="relative">
       <button
@@ -85,8 +123,12 @@ export default function QuickActionDropdown({
 
       {open ? (
         <div
+          ref={menuRef}
           role="listbox"
-          className="absolute left-0 right-0 top-[calc(100%+0.5rem)] z-[150] max-h-60 overflow-y-auto rounded-3xl border border-cyan-200/10 bg-[#06111f]/95 p-2 shadow-[0_24px_70px_rgba(0,0,0,0.55),0_0_36px_rgba(34,211,238,0.10)] backdrop-blur-2xl"
+          onMouseDown={(event) => event.stopPropagation()}
+          onTouchStart={(event) => event.stopPropagation()}
+          onWheel={(event) => event.stopPropagation()}
+          className="absolute left-0 right-0 top-[calc(100%+0.5rem)] z-[220] max-h-[min(18rem,44vh)] overflow-y-auto overscroll-contain rounded-3xl border border-cyan-200/10 bg-[#06111f]/98 p-2 shadow-[0_24px_70px_rgba(0,0,0,0.55),0_0_36px_rgba(34,211,238,0.10)] backdrop-blur-2xl [-webkit-overflow-scrolling:touch]"
         >
           {options.map((item) => {
             const isSelected = String(value) === String(item.value);
@@ -99,15 +141,9 @@ export default function QuickActionDropdown({
                 role="option"
                 aria-selected={isSelected}
                 disabled={item.disabled}
-                onClick={() => {
-                  if (item.disabled) {
-                    item.onDisabledClick?.();
-                    return;
-                  }
-
-                  onChange?.(item.value, item);
-                  setOpen(false);
-                }}
+                onPointerDown={handleOptionPointerDown}
+                onPointerMove={handleOptionPointerMove}
+                onClick={() => handleOptionClick(item)}
                 className={`mb-1 flex min-h-[48px] w-full items-center justify-between gap-3 rounded-2xl border px-3 py-3 text-left transition last:mb-0 disabled:cursor-not-allowed disabled:opacity-45 ${toneClass} ${
                   isSelected
                     ? "ring-1 ring-cyan-300/30 shadow-[0_0_22px_rgba(34,211,238,0.10)]"
