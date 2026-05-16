@@ -1,3 +1,4 @@
+import { useState } from "react";
 import {
   Shield,
   Edit2,
@@ -9,7 +10,11 @@ import {
   ChevronUp,
   Sparkles,
   Plus,
+  RotateCcw,
+  AlertTriangle,
 } from "lucide-react";
+import { useAuth } from "@/context/AuthContext";
+import useFinancialData from "@/hooks/useFinancialData";
 
 import SurvivalExpenseModal from "../../../../SurvivalExpenseModal";
 import useEmergencyFundCard, {
@@ -31,6 +36,15 @@ export default function EmergencyFundCard({
   onQuickExpense,
   onQuickAI,
 }) {
+  const { user } = useAuth();
+  const {
+    emergencyFund: liveEmergencyFund = null,
+    updateEmergencyFund: resetEmergencyFundData,
+    refreshData: refreshEmergencyFundData,
+  } = useFinancialData(user);
+  const [showResetModal, setShowResetModal] = useState(false);
+  const [resetError, setResetError] = useState("");
+
   const { state, computed, handlers } = useEmergencyFundCard({
     moneyLeft,
     survivalExpense,
@@ -100,6 +114,76 @@ export default function EmergencyFundCard({
   const premiumActionClass =
     "border-white/[0.045] bg-black/[0.105] text-white/84 shadow-[inset_0_1px_0_rgba(255,255,255,0.026),0_10px_22px_rgba(0,0,0,0.14)] backdrop-blur-sm hover:border-white/[0.07] hover:bg-white/[0.04]";
 
+  const handleMasterResetEmergencyFund = async () => {
+    if (typeof resetEmergencyFundData !== "function") return;
+
+    const now = new Date().toISOString();
+    setResetError("");
+
+    try {
+      await resetEmergencyFundData({
+        ...(liveEmergencyFund || {}),
+        savedAmount: 0,
+        saved_amount: 0,
+        amount: 0,
+        balance: 0,
+        moneyLeft: 0,
+        protectedBalance: 0,
+        protected_balance: 0,
+        reserveBalance: 0,
+        reserve_balance: 0,
+        targetAmount: 0,
+        target_amount: 0,
+        target: 0,
+        monthlyTarget: 0,
+        monthly_target: 0,
+        survivalExpense: 0,
+        survival_expense: 0,
+        monthlyExpense: 0,
+        monthly_expense: 0,
+        monthly_survival_expense: 0,
+        targetMonths: 3,
+        target_months: 3,
+        months_target: 3,
+        survival_months_target: 3,
+        reserveWalletId: null,
+        reserve_wallet_id: null,
+        reserveWalletName: null,
+        reserve_wallet_name: null,
+        lastTopUpAmount: null,
+        last_top_up_amount: null,
+        lastTopUpWalletId: null,
+        last_top_up_wallet_id: null,
+        lastReserveTransferAt: null,
+        last_reserve_transfer_at: null,
+        lastEmergencySpendAmount: null,
+        last_emergency_spend_amount: null,
+        wallpaper: "",
+        background: "",
+        image: "",
+        wallpaperOpacity: 0.3,
+        wallpaper_opacity: 0.3,
+        backgroundOpacity: 0.3,
+        status: "reset",
+        notes: "",
+        resetAt: now,
+        reset_at: now,
+        updatedAt: now,
+        updated_at: now,
+      });
+
+      if (typeof refreshEmergencyFundData === "function") {
+        await refreshEmergencyFundData();
+      }
+
+      onSurvivalSaved?.(0);
+      setShowResetModal(false);
+    } catch (error) {
+      console.error("Unable to reset emergency fund:", error);
+      setResetError("CLARA could not reset the emergency fund yet. Try again.");
+    }
+  };
+
   return (
     <>
       <SurvivalExpenseModal
@@ -113,6 +197,72 @@ export default function EmergencyFundCard({
           }
         }}
       />
+
+      {showResetModal && (
+        <div className="fixed inset-0 z-[110] flex items-center justify-center p-4">
+          <div
+            className="absolute inset-0 bg-black/75 backdrop-blur-sm"
+            onClick={() => setShowResetModal(false)}
+          />
+
+          <div className="theme-modal-card relative z-10 w-full max-w-md overflow-hidden rounded-3xl shadow-2xl">
+            <div className="flex items-center justify-between border-b border-white/10 p-4">
+              <div>
+                <p className={`text-base font-semibold ${themeClasses.title}`}>
+                  Reset Emergency Fund
+                </p>
+                <p className={`mt-0.5 text-xs ${themeClasses.muted}`}>
+                  Clear the emergency fund setup and protected amount
+                </p>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => setShowResetModal(false)}
+                className="flex h-9 w-9 items-center justify-center rounded-xl border border-white/10 bg-white/5 text-white/70 transition hover:bg-white/10 hover:text-white"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+
+            <div className="space-y-4 p-4">
+              <div className="rounded-2xl border border-amber-300/20 bg-amber-500/10 px-4 py-3 text-xs font-semibold leading-5 text-amber-50/82">
+                <div className="mb-2 flex items-center gap-2 text-amber-100">
+                  <AlertTriangle className="h-4 w-4" />
+                  <span className="font-bold">Master reset warning</span>
+                </div>
+                This clears the emergency fund amount, survival number, goal, reserve wallet link, and card background. It will not restore money back to any source wallet.
+              </div>
+
+              {resetError ? (
+                <div className="rounded-2xl border border-rose-400/20 bg-rose-500/10 px-4 py-3 text-xs font-semibold text-rose-200">
+                  {resetError}
+                </div>
+              ) : null}
+
+              <div className="grid grid-cols-2 gap-2">
+                <button
+                  type="button"
+                  onClick={() => setShowResetModal(false)}
+                  className="rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm font-semibold text-white/80 transition hover:bg-white/10 hover:text-white"
+                >
+                  Cancel
+                </button>
+
+                <button
+                  type="button"
+                  onClick={handleMasterResetEmergencyFund}
+                  disabled={saving}
+                  className="flex items-center justify-center gap-2 rounded-2xl border border-rose-300/25 bg-rose-500/14 px-4 py-3 text-sm font-semibold text-rose-100 transition hover:bg-rose-500/20 disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  <RotateCcw className="h-4 w-4" />
+                  {saving ? "Resetting..." : "Reset All"}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {showTopUpModal && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
@@ -516,6 +666,11 @@ export default function EmergencyFundCard({
               <button type="button" onClick={openTopUpModal} className="flex w-full items-center justify-center gap-2 rounded-2xl border border-emerald-400/20 bg-emerald-500/[0.08] px-4 py-3 text-sm font-semibold text-emerald-300 transition hover:bg-emerald-500/[0.12]">
                 <Plus className="h-4 w-4" />
                 Add Fund
+              </button>
+
+              <button type="button" onClick={() => setShowResetModal(true)} className="flex w-full items-center justify-center gap-2 rounded-2xl border border-rose-300/16 bg-rose-500/[0.07] px-4 py-3 text-sm font-semibold text-rose-100/86 transition hover:bg-rose-500/[0.11]">
+                <RotateCcw className="h-4 w-4" />
+                Reset Emergency Fund
               </button>
             </div>
           )}
