@@ -242,6 +242,7 @@ export default function useEmergencyFundCard({
     walletTransactions = [],
     incomes = [],
     updateEmergencyFund,
+    updateWallet,
     refreshData,
   } = useFinancialData(user);
 
@@ -280,7 +281,7 @@ export default function useEmergencyFundCard({
   const orbTapCountRef = useRef(0);
 
   const emergencyTargetMonths = Number(getEmergencyValue(emergencyFund, ["targetMonths", "target_months", "months_target"], 3));
-  const emergencySavedAmount = Number(getEmergencyValue(emergencyFund, ["savedAmount", "saved_amount", "amount", "balance", "moneyLeft"], 0));
+  const emergencySavedAmount = Number(getEmergencyValue(emergencyFund, ["protectedBalance", "protected_balance", "reserveBalance", "reserve_balance", "savedAmount", "saved_amount", "amount", "balance", "moneyLeft"], 0));
   const emergencySurvivalExpense = Number(getEmergencyValue(emergencyFund, ["survivalExpense", "survival_expense", "monthlyExpense", "monthly_expense"], survivalExpense));
   const emergencyWallpaper = getEmergencyValue(emergencyFund, ["wallpaper", "background", "image"], "") || "";
   const emergencyWallpaperOpacity = clampOpacity(getEmergencyValue(emergencyFund, ["wallpaperOpacity", "wallpaper_opacity", "backgroundOpacity"], 0.3));
@@ -512,20 +513,77 @@ export default function useEmergencyFundCard({
       return;
     }
     if (!topUpWalletId) {
-      setTopUpError("Choose a wallet first.");
+      setTopUpError("Choose one source wallet first.");
+      return;
+    }
+    if (!selectedWallet) {
+      setTopUpError("This source wallet was not found. Refresh and try again.");
+      return;
+    }
+    if (typeof updateWallet !== "function" || typeof updateEmergencyFund !== "function") {
+      setTopUpError("Emergency reserve transfer is not ready yet. Try again after refresh.");
       return;
     }
     if (selectedWalletBalance < amount) {
-      setTopUpError("This wallet does not have enough balance.");
+      setTopUpError("This wallet does not have enough spendable balance.");
       return;
     }
 
+    const nextWalletBalance = Math.max(selectedWalletBalance - amount, 0);
     const nextSavedAmount = safeMoneyLeft + amount;
     const now = new Date().toISOString();
-    await persistEmergencyFund({ savedAmount: nextSavedAmount, saved_amount: nextSavedAmount, amount: nextSavedAmount, balance: nextSavedAmount, moneyLeft: nextSavedAmount, lastTopUpAmount: amount, last_top_up_amount: amount, lastTopUpWalletId: topUpWalletId, last_top_up_wallet_id: topUpWalletId, updatedAt: now, updated_at: now });
-    setShowTopUpModal(false);
-    setTopUpAmount("");
-    setTopUpError("");
+    const reserveWalletName = selectedWallet?.name || selectedWallet?.title || "Wallet";
+
+    setSaving(true);
+    try {
+      await updateWallet(topUpWalletId, {
+        balance: nextWalletBalance,
+        current_balance: nextWalletBalance,
+        wallet_balance: nextWalletBalance,
+        available_balance: nextWalletBalance,
+        updatedAt: now,
+        updated_at: now,
+        lastProtectedReserveAmount: amount,
+        last_protected_reserve_amount: amount,
+        lastProtectedReserveAt: now,
+        last_protected_reserve_at: now,
+      });
+
+      await updateEmergencyFund({
+        ...(emergencyFund || {}),
+        savedAmount: nextSavedAmount,
+        saved_amount: nextSavedAmount,
+        amount: nextSavedAmount,
+        balance: nextSavedAmount,
+        moneyLeft: nextSavedAmount,
+        protectedBalance: nextSavedAmount,
+        protected_balance: nextSavedAmount,
+        reserveBalance: nextSavedAmount,
+        reserve_balance: nextSavedAmount,
+        reserveWalletId: topUpWalletId,
+        reserve_wallet_id: topUpWalletId,
+        reserveWalletName,
+        reserve_wallet_name: reserveWalletName,
+        lastTopUpAmount: amount,
+        last_top_up_amount: amount,
+        lastTopUpWalletId: topUpWalletId,
+        last_top_up_wallet_id: topUpWalletId,
+        lastReserveTransferAt: now,
+        last_reserve_transfer_at: now,
+        updatedAt: now,
+        updated_at: now,
+      });
+
+      if (typeof refreshData === "function") await refreshData();
+      setShowTopUpModal(false);
+      setTopUpAmount("");
+      setTopUpError("");
+    } catch (error) {
+      console.error("Unable to reserve emergency fund top-up:", error);
+      setTopUpError("CLARA could not move this money into protected reserve yet. Try again.");
+    } finally {
+      setSaving(false);
+    }
   };
 
   return {
