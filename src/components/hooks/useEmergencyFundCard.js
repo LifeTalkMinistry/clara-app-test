@@ -1,7 +1,9 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/context/AuthContext";
-import useFinancialData from "../../hooks/useFinancialData";
+import useFinancialData, { CLARA_DEMO_LOCAL_USER_ID } from "../../hooks/useFinancialData";
+import { insertWalletTransaction } from "@/lib/financeRepository";
+import { readClaraDevIdentityOverride } from "@/lib/clara-dev-simulator";
 
 export const fmt = (n) =>
   new Intl.NumberFormat("en-PH", {
@@ -41,6 +43,33 @@ function toNumber(value) {
   }
   const parsed = Number(value);
   return Number.isFinite(parsed) ? parsed : 0;
+}
+
+function getFinanceIdentityMode() {
+  try {
+    return readClaraDevIdentityOverride()?.scenarioId || "real_user";
+  } catch {
+    return "real_user";
+  }
+}
+
+function getLocalUserId(user) {
+  if (getFinanceIdentityMode() === "demo_user") return CLARA_DEMO_LOCAL_USER_ID;
+  const value = user?.id || user?.email || "local-user";
+  return String(value || "local-user").trim() || "local-user";
+}
+
+function getEmergencyActivityLog(emergencyFund) {
+  const source =
+    emergencyFund?.emergencyActivityLog ||
+    emergencyFund?.emergency_activity_log ||
+    emergencyFund?.activityLog ||
+    emergencyFund?.activity_log ||
+    emergencyFund?.usageLog ||
+    emergencyFund?.usage_log ||
+    [];
+
+  return Array.isArray(source) ? source.filter(Boolean) : [];
 }
 
 function getEmergencyValue(emergencyFund, keys, fallback = 0) {
@@ -236,6 +265,7 @@ export default function useEmergencyFundCard({
 } = {}) {
   const navigate = useNavigate();
   const { user } = useAuth();
+  const localUserId = getLocalUserId(user);
   const {
     emergencyFund,
     wallets = [],
@@ -533,6 +563,27 @@ export default function useEmergencyFundCard({
     const nextSavedAmount = safeMoneyLeft + amount;
     const now = new Date().toISOString();
     const reserveWalletName = selectedWallet?.name || selectedWallet?.title || "Wallet";
+    const activityId = `emergency_deposit_${Date.now()}`;
+    const emergencyActivityLog = getEmergencyActivityLog(emergencyFund);
+    const nextActivity = [
+      {
+        id: activityId,
+        type: "deposit",
+        amount,
+        reason: "Emergency Fund Deposit",
+        title: "Emergency Fund Deposit",
+        note: `Moved from ${reserveWalletName}`,
+        sourceWalletId: topUpWalletId,
+        source_wallet_id: topUpWalletId,
+        sourceWalletName: reserveWalletName,
+        source_wallet_name: reserveWalletName,
+        balanceBefore: safeMoneyLeft,
+        balanceAfter: nextSavedAmount,
+        createdAt: now,
+        created_at: now,
+      },
+      ...emergencyActivityLog,
+    ].slice(0, 60);
 
     setSaving(true);
     try {
@@ -547,6 +598,31 @@ export default function useEmergencyFundCard({
         last_protected_reserve_amount: amount,
         lastProtectedReserveAt: now,
         last_protected_reserve_at: now,
+      });
+
+      await insertWalletTransaction(localUserId, {
+        id: activityId,
+        wallet_id: topUpWalletId,
+        walletId: topUpWalletId,
+        amount,
+        type: "emergency_reserve_deposit",
+        category: "Emergency Fund",
+        source_type: "emergency_fund_deposit",
+        sourceType: "emergency_fund_deposit",
+        tag: "protected_reserve",
+        notes: `Moved ${fmt(amount)} from ${reserveWalletName} into Emergency Fund.`,
+        note: `Moved from ${reserveWalletName}`,
+        emergency_fund_transaction_id: activityId,
+        emergencyFundTransactionId: activityId,
+        emergency_fund_id: emergencyFund?.id || `emergency_fund:${localUserId}`,
+        emergencyFundId: emergencyFund?.id || `emergency_fund:${localUserId}`,
+        created_at: now,
+        createdAt: now,
+        updated_at: now,
+        updatedAt: now,
+        deletedAt: null,
+        syncStatus: "local_only",
+        source: "local",
       });
 
       await updateEmergencyFund({
@@ -564,6 +640,10 @@ export default function useEmergencyFundCard({
         reserve_wallet_id: topUpWalletId,
         reserveWalletName,
         reserve_wallet_name: reserveWalletName,
+        emergencyActivityLog: nextActivity,
+        emergency_activity_log: nextActivity,
+        activityLog: nextActivity,
+        activity_log: nextActivity,
         lastTopUpAmount: amount,
         last_top_up_amount: amount,
         lastTopUpWalletId: topUpWalletId,
