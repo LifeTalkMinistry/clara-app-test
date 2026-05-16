@@ -31,7 +31,10 @@ function getEmergencyReserveBalance(emergencyFund) {
 
 function buildEmergencyReserveWallet(emergencyFund) {
   const balance = getEmergencyReserveBalance(emergencyFund);
-  if (!emergencyFund || balance <= 0) return null;
+
+  if (!emergencyFund || balance <= 0) {
+    return null;
+  }
 
   return {
     id: CLARA_EMERGENCY_RESERVE_WALLET_ID,
@@ -78,27 +81,42 @@ export default function useDashboardFinanceStateSync({
   onCacheUpdate,
 }) {
   useEffect(() => {
-    const safeWallets = Array.isArray(financeWallets) ? financeWallets : [];
+    const baseWallets = Array.isArray(financeWallets)
+      ? financeWallets.filter(
+          (wallet) =>
+            wallet?.id !== CLARA_EMERGENCY_RESERVE_WALLET_ID &&
+            wallet?.wallet_id !== CLARA_EMERGENCY_RESERVE_WALLET_ID &&
+            !wallet?.isEmergencyReserveWallet
+        )
+      : [];
+
     const safeWalletTransactions = Array.isArray(financeWalletTransactions)
       ? financeWalletTransactions
       : [];
+
     const safeTransfers = Array.isArray(financeTransfers) ? financeTransfers : [];
     const safeBudgets = Array.isArray(financeBudgets) ? financeBudgets : [];
+
     const safeSavingsGoals = Array.isArray(financeSavingsGoals)
       ? financeSavingsGoals
       : [];
+
     const safeExpenses = Array.isArray(financeExpenses) ? financeExpenses : [];
+
     const safePendingExpenses = safeExpenses.filter(
       (item) => item?.pending_sync || item?.sync_status === "pending" || item?.local_only
     );
-    const nextWalletMoney = safeWallets.reduce(
+
+    const nextWalletMoney = baseWallets.reduce(
       (sum, wallet) => sum + getWalletDisplayBalance(wallet),
       0
     );
+
     const emergencyReserveWallet = buildEmergencyReserveWallet(financeEmergencyFund);
+
     const visibleWallets = emergencyReserveWallet
-      ? [...safeWallets, emergencyReserveWallet]
-      : safeWallets;
+      ? [...baseWallets, emergencyReserveWallet]
+      : baseWallets;
 
     setWallets(visibleWallets);
     setWalletTransactions(safeWalletTransactions);
