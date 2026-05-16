@@ -50,7 +50,7 @@ export default function DailyTipCard() {
                   Daily Money Tip
                 </div>
                 <div className="text-sm font-semibold text-white/75">
-                  {hasSeenToday ? "Tap to revisit" : "Tap to reveal"}
+                  Tap to flip
                 </div>
               </div>
             </div>
@@ -72,10 +72,8 @@ export default function DailyTipCard() {
                   {tip}
                 </div>
 
-                <div className="flex items-center justify-center gap-4 text-[11px] font-semibold text-cyan-300/80">
-                  <span className="opacity-80">Got it</span>
-                  <span className="opacity-40">•</span>
-                  <span className="opacity-80">Ask CLARA</span>
+                <div className="flex items-center justify-center text-[11px] font-semibold text-cyan-300/80">
+                  <span className="opacity-90">Ask CLARA</span>
                 </div>
               </div>
             </div>
