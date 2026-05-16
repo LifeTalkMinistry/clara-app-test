@@ -273,7 +273,7 @@ function ClaraDeveloperPanel({ isVisible, activeScenarioId, isApplyingScenario, 
 
           <div className="space-y-2">
             {scenarios.map((scenario) => {
-              const active = activeDevScenario === scenario.id;
+              const active = activeScenarioId === scenario.id;
 
               return (
                 <button
