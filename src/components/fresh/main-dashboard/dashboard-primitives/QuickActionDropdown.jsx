@@ -10,7 +10,7 @@ export default function QuickActionDropdown({
   onChange,
   disabled = false,
   ariaLabel = "Select option",
-  inlineMenu = false,
+  inlineMenu = true,
 }) {
   const [open, setOpen] = useState(false);
   const dropdownRef = useRef(null);
