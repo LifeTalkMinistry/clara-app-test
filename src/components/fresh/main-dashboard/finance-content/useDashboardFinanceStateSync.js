@@ -1,6 +1,7 @@
 import { useEffect } from "react";
 import { getWalletDisplayBalance } from "@/utils/dashboard/dashboardHelpers";
-import { CLARA_EMERGENCY_RESERVE_WALLET_ID } from "@/hooks/useFinancialData";
+
+export const CLARA_EMERGENCY_RESERVE_WALLET_ID = "clara-emergency-reserve-wallet";
 
 function toNumber(value) {
   if (typeof value === "number") return Number.isFinite(value) ? value : 0;
