@@ -1,6 +1,6 @@
 import { useEffect } from "react";
 import { createPortal } from "react-dom";
-import { CheckCircle2, X } from "lucide-react";
+import { X } from "lucide-react";
 
 export default function ManualExpenseFullScreenSheet({
   open,
@@ -105,27 +105,9 @@ export default function ManualExpenseFullScreenSheet({
         </div>
 
         <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-1 pb-[calc(118px+env(safe-area-inset-bottom))] pt-1.5">
-          <div className="flex flex-col gap-3">
-            <div className="relative overflow-visible rounded-[28px] border border-white/12 bg-white/[0.045] p-4 shadow-[0_18px_54px_rgba(0,0,0,0.24),inset_0_1px_0_rgba(255,255,255,0.07)] backdrop-blur-2xl">
-              <div className="pointer-events-none absolute inset-x-10 top-0 h-14 rounded-full bg-emerald-300/8 blur-3xl" />
-              <div className="relative space-y-4">{children}</div>
-            </div>
-
-            <div className="rounded-[22px] border border-white/10 bg-white/[0.035] px-4 py-3 shadow-[inset_0_1px_0_rgba(255,255,255,0.06)] backdrop-blur-xl">
-              <div className="flex items-start gap-3">
-                <div className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-full border border-cyan-200/16 bg-cyan-300/10 text-cyan-100">
-                  <CheckCircle2 className="h-3.5 w-3.5" />
-                </div>
-                <div>
-                  <p className="text-[10px] font-black uppercase tracking-[0.14em] text-cyan-50/68">
-                    Before saving
-                  </p>
-                  <p className="mt-1 text-[12px] font-semibold leading-5 text-white/52">
-                    CLARA will connect this expense to your wallet and monthly budget.
-                  </p>
-                </div>
-              </div>
-            </div>
+          <div className="relative overflow-visible rounded-[28px] border border-white/12 bg-white/[0.045] p-4 shadow-[0_18px_54px_rgba(0,0,0,0.24),inset_0_1px_0_rgba(255,255,255,0.07)] backdrop-blur-2xl">
+            <div className="pointer-events-none absolute inset-x-10 top-0 h-14 rounded-full bg-emerald-300/8 blur-3xl" />
+            <div className="relative space-y-4">{children}</div>
           </div>
         </div>
 
