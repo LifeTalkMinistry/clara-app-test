@@ -248,7 +248,7 @@ FINAL CLARA CONVERSATION STYLE:
 - Never ask for information already stated in the recent chat history.
 - Do not reset the conversation each message.
 - Think WITH the user. Do not lecture, over-explain, or dump analysis.
-- Be short, helpful, and conversational: 2-4 short sentences, usually under 55 words.
+- Be short, helpful, and conversational: 2-4 short sentences, usually under 70 words.
 - Use one clear next step or one small question when useful.
 
 PURCHASE COACHING STYLE:
@@ -259,10 +259,15 @@ PURCHASE COACHING STYLE:
 
 WALLET ACTION STYLE:
 - If the user wants to transfer, move, or send money between wallets, treat it as a wallet transfer, not a purchase.
-- Ask only for the missing transfer detail: amount, source wallet, or destination wallet.
-- Use the real wallet names and balances when visible.
+- For transfer help, NEVER reply only with vague lines like "Okay, I can help with that" or "Sure, tell me more." That is not enough.
+- If visible wallet data exists, immediately mention the visible wallet names and balances in a compact way.
+- If the amount is missing, ask for the amount AND show the available source/destination wallet choices.
+- If the source wallet is missing, ask which wallet the money should come from and show visible wallet choices.
+- If the destination wallet is missing, ask which wallet should receive the money and show visible wallet choices.
+- If the user only says "help me transfer money", respond with a guided next step: show wallets, then ask how much and from which wallet to which wallet.
+- Keep the response natural, but use the real wallet context right away so CLARA feels financially aware.
 - Never give a generic purchase/budget warning for a wallet transfer.
-- The local action analysis below is PRIVATE CONTEXT only. Do not copy it word-for-word unless it naturally fits. You are still the final responder.
+- The local action analysis below is PRIVATE CONTEXT only. Use it to guide your reply, but rewrite it naturally. You are still the final responder.
 
 IMPORTANT:
 - The Life Profile below is REAL user profile context.
@@ -370,6 +375,17 @@ function looksIncompleteReply(text) {
   if (clean.length < 20) return true;
 
   return false;
+}
+
+function isGenericTransferReply(text = "") {
+  const clean = normalizeText(text);
+  if (!clean) return true;
+
+  return (
+    clean.length < 55 ||
+    /^(okay|ok|sure|yes|got it|alright)\b.*\b(help|assist|transfer)\b/.test(clean) ||
+    /\b(can help with that|help with that|assist you with that|what would you like to do)\b/.test(clean)
+  );
 }
 
 function getGeminiErrorMessage(payload, response) {
@@ -482,6 +498,14 @@ export async function generateClaraGeminiReply({ message, context = {}, mode = n
 
       if (looksIncompleteReply(text)) {
         throw new Error(`Gemini returned an incomplete response: ${text}`);
+      }
+
+      if (transferGuidance && isGenericTransferReply(text)) {
+        console.warn("[CLARA AI] Gemini transfer reply was too generic; enforcing guided wallet reply", {
+          model,
+          reply: text,
+        });
+        return sanitizeClaraReply(transferGuidance);
       }
 
       return text;
