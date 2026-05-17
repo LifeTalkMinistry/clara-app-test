@@ -17,7 +17,14 @@ function formatBudgetMonth(monthKey) {
   }).format(date);
 }
 
-export default function BudgetHeader({ monthKey, badgeLabel, status }) {
+function formatCycleLabel(cycleLabel = "Monthly") {
+  const safeLabel = String(cycleLabel || "Monthly").trim();
+  return safeLabel || "Monthly";
+}
+
+export default function BudgetHeader({ monthKey, badgeLabel, status, cycleLabel = "Monthly" }) {
+  const displayCycleLabel = formatCycleLabel(cycleLabel);
+
   return (
     <div className="mb-3 flex items-start gap-3">
       <div className="relative flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-xl border border-teal-100/[0.15] bg-[linear-gradient(145deg,rgba(255,255,255,0.085),rgba(45,212,191,0.05)_42%,rgba(0,0,0,0.045))] text-teal-100 shadow-[inset_0_1px_0_rgba(255,255,255,0.13),inset_0_-1px_0_rgba(45,212,191,0.05),0_0_16px_rgba(45,212,191,0.085),0_8px_18px_rgba(0,0,0,0.16)] backdrop-blur-sm">
@@ -31,7 +38,7 @@ export default function BudgetHeader({ monthKey, badgeLabel, status }) {
           <div className="min-w-0">
             <p className="text-base font-semibold tracking-tight text-white">Budget</p>
             <p className="mt-0.5 text-[11px] font-medium text-white/76">
-              Monthly plan • {formatBudgetMonth(monthKey)}
+              {displayCycleLabel} plan • {formatBudgetMonth(monthKey)}
             </p>
           </div>
 
