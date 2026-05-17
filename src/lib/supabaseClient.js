@@ -87,6 +87,78 @@ const createConfiguredSupabaseProxy = (client) =>
     },
   });
 
+const missingConfigResponse = async () => ({
+  data: null,
+  error: new Error("Supabase is not configured."),
+});
+
+const createMissingConfigQueryBuilder = () => {
+  const builder = {};
+  const chain = () => builder;
+  const terminal = () => missingConfigResponse();
+
+  Object.assign(builder, {
+    select: chain,
+    insert: chain,
+    update: chain,
+    delete: chain,
+    upsert: chain,
+    eq: chain,
+    neq: chain,
+    gt: chain,
+    gte: chain,
+    lt: chain,
+    lte: chain,
+    is: chain,
+    in: chain,
+    contains: chain,
+    containedBy: chain,
+    overlaps: chain,
+    like: chain,
+    ilike: chain,
+    match: chain,
+    not: chain,
+    or: chain,
+    filter: chain,
+    order: chain,
+    limit: chain,
+    range: chain,
+    abortSignal: chain,
+    throwOnError: chain,
+    rollback: chain,
+    returns: chain,
+    single: terminal,
+    maybeSingle: terminal,
+    csv: terminal,
+    geojson: terminal,
+    explain: terminal,
+    then: (onFulfilled, onRejected) => terminal().then(onFulfilled, onRejected),
+    catch: (onRejected) => terminal().catch(onRejected),
+    finally: (onFinally) => terminal().finally(onFinally),
+  });
+
+  return builder;
+};
+
+const createMissingConfigChannel = () => {
+  const channel = {
+    on: () => channel,
+    subscribe: (callback) => {
+      if (typeof callback === "function") {
+        window.setTimeout?.(() => callback("SUBSCRIBED"), 0);
+      }
+
+      return channel;
+    },
+    unsubscribe: async () => ({ error: null }),
+    send: async () => ({ error: null }),
+    track: async () => ({ error: null }),
+    untrack: async () => ({ error: null }),
+  };
+
+  return channel;
+};
+
 const createMissingConfigProxy = () =>
   new Proxy(
     {},
@@ -130,27 +202,23 @@ const createMissingConfigProxy = () =>
         }
 
         if (prop === "from") {
-          return () => {
-            const response = async () => ({
-              data: null,
-              error: new Error("Supabase is not configured."),
-            });
+          return () => createMissingConfigQueryBuilder();
+        }
 
-            return {
-              select: response,
-              insert: response,
-              update: response,
-              delete: response,
-              upsert: response,
-              eq: () => ({
-                select: response,
-                update: response,
-                delete: response,
-                order: response,
-              }),
-              order: response,
-            };
-          };
+        if (prop === "channel") {
+          return () => createMissingConfigChannel();
+        }
+
+        if (prop === "removeChannel") {
+          return async () => ({ error: null });
+        }
+
+        if (prop === "removeAllChannels") {
+          return async () => ({ error: null });
+        }
+
+        if (prop === "getChannels") {
+          return () => [];
         }
 
         return undefined;
