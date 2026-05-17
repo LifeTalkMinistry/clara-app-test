@@ -4,7 +4,7 @@ import { buildClaraFinanceSnapshot, generateClaraLocalReply } from "@/lib/clara-
 import { generateClaraGeminiReply, hasGeminiConfig } from "@/lib/clara-gemini-client";
 import { buildContextualFinanceReply } from "@/lib/clara-direct-finance-reply";
 
-const CLARA_AI_BRAIN_VERSION = "connected-brain-v15-focused-followup";
+const CLARA_AI_BRAIN_VERSION = "connected-brain-v16-audit-progress-fix";
 const PRESENTATION_RULES = "Reply like a natural mobile chat message. Plain text only. Use short readable paragraphs separated by blank lines. Keep it warm, practical, and easy to read. Ask only one question at the end when a question is needed.";
 const SHOW_DEBUG_SOURCE = import.meta.env.DEV || import.meta.env.VITE_CLARA_DEBUG_AI === "true";
 const DEFAULT_CHAT_INPUT_PLACEHOLDER = "Ask CLARA or enter item + price";
@@ -122,9 +122,84 @@ function profileDisplayName(profile = {}) { return profile.name || profile.pendi
 function createEmptyBehaviorAudit() { return BEHAVIOR_AUDIT_CATEGORIES.reduce((audit, category) => ({ ...audit, [category.id]: { score: 0, evidence: [] } }), {}); }
 function getCategoryScore(audit, id) { return Number(audit?.[id]?.score || 0); }
 function getWeakAuditCategories(audit, limit = 8) { return BEHAVIOR_AUDIT_CATEGORIES.filter((category) => getCategoryScore(audit, category.id) < BEHAVIOR_CONFIDENCE_TARGET).sort((a, b) => a.level - b.level || a.priority - b.priority).slice(0, limit); }
-function estimateAnswerQuality(text = "", isFocus = false) { const words = String(text || "").trim().split(/\s+/).filter(Boolean).length; if (!words || isProceedChoice(normalizeChoice(text))) return 8; let score = words >= 35 ? 82 : words >= 18 ? 65 : words >= 9 ? 50 : words >= 4 ? 35 : 20; if (/because|usually|madalas|kapag|when|monthly|weekly|after|before|kasi|goal|save|family|stress|debt|utang|emergency/i.test(text)) score += 10; if (isFocus) score += 8; return Math.min(95, score); }
-function updateBehaviorAuditFromUserText(audit, text, focusId) { const next = { ...(audit || createEmptyBehaviorAudit()) }; const snippet = String(text || "").trim().slice(0, 140); const focus = categoryById(focusId); for (const category of BEHAVIOR_AUDIT_CATEGORIES) { const matched = category.id === focusId || normalizeChoice(text).includes(normalizeChoice(category.label)) || normalizeChoice(text).includes(normalizeChoice(category.id)); if (!matched) continue; const previous = next[category.id] || { score: 0, evidence: [] }; next[category.id] = { score: Math.max(previous.score || 0, estimateAnswerQuality(text, category.id === focus?.id)), evidence: snippet ? [...(previous.evidence || []), snippet].slice(-3) : previous.evidence || [] }; } return next; }
-function chooseNextAuditFocus(audit, currentFocusId, userText = "") { const current = categoryById(currentFocusId); const currentScore = current ? getCategoryScore(audit, current.id) : 0; if (current && currentScore < BEHAVIOR_CONFIDENCE_TARGET && !isProceedChoice(normalizeChoice(userText))) return current.id; return getWeakAuditCategories(audit, 1)[0]?.id || "complete"; }
+function looksLikeConcreteBehaviorAnswer(text = "", categoryId = "") {
+  const raw = String(text || "").trim();
+  const choice = normalizeChoice(raw);
+  const words = choice.split(/\s+/).filter(Boolean);
+  const hasNumber = /\b\d{1,2}(?:st|nd|rd|th)?\b|\b\d+(?:,\d{3})*(?:\.\d+)?\b/i.test(raw);
+  const hasAny = (phrases = []) => phrases.some((phrase) => choice.includes(phrase));
+  if (!choice || isProceedChoice(choice) || isQuestionLike(raw)) return false;
+
+  switch (categoryId) {
+    case "incomePattern":
+    case "paydayCycle":
+      return (hasNumber && hasAny(["every", "month", "cut off", "cutoff", "payday", "pay day", "salary", "sweldo", "sahod"])) || hasAny(["stable", "monthly", "weekly", "biweekly", "twice a month", "every month", "cutoff", "cut off", "extra work", "commission"]);
+    case "livingSituation":
+      return hasAny(["alone", "family", "parents", "partner", "spouse", "wife", "husband", "rent", "boarding", "dorm", "roommate", "house"]);
+    case "responsibilities":
+    case "dependents":
+      return hasAny(["none", "no one", "parents", "family", "child", "kids", "sibling", "partner", "bills", "rent", "utang", "debt", "tuition"]);
+    case "workType":
+      return hasAny(["bpo", "call center", "freelance", "freelancer", "student", "office", "agent", "work", "job", "business", "teacher", "driver", "night shift"]);
+    case "relationshipStatus":
+    case "relationshipConflicts":
+      return hasAny(["single", "married", "relationship", "partner", "girlfriend", "boyfriend", "wife", "husband", "breakup", "conflict", "none", "no"]);
+    case "survivalPressureLevel":
+      return hasAny(["light", "manageable", "tight", "heavy", "really heavy", "okay", "hard", "difficult", "kulang"]);
+    case "mainFinancialGoal":
+    case "savingsGoals":
+      return hasAny(["save", "savings", "emergency", "fund", "debt", "utang", "business", "invest", "phone", "laptop", "house", "rent", "travel", "goal"]);
+    case "emotionalStateTrend":
+    case "emotionalTriggers":
+    case "stressSpendingHabits":
+    case "rewardSystem":
+    case "commonImpulsivePurchases":
+    case "biggestSpendingWeakness":
+    case "copingMechanisms":
+    case "guiltPatterns":
+    case "socialPressureTriggers":
+      return hasAny(["stress", "stressed", "sad", "happy", "bored", "tired", "pressure", "reward", "food", "coffee", "shopping", "online", "shopee", "lazada", "guilt", "regret", "friends", "family", "coworkers", "cope", "none"]);
+    case "motivationStyle":
+      return hasAny(["gentle", "direct", "honest", "strong", "accountability", "reminder", "reminders", "strict"]);
+    case "financialFear":
+      return hasAny(["fear", "broke", "poor", "utang", "debt", "emergency", "short", "kulang", "fail", "family"]);
+    case "scheduleRoutine":
+    case "sleepPattern":
+    case "workExhaustion":
+    case "energyLevelTrends":
+    case "burnoutIndicators":
+      return hasAny(["morning", "night", "shift", "sleep", "tired", "exhausted", "burnout", "burned", "work", "routine", "schedule", "after work", "before work", "weekend", "daily"]);
+    case "socialEnvironment":
+      return hasAny(["friends", "family", "coworkers", "partner", "people", "office", "team", "pressure", "support"]);
+    case "hobbyPatterns":
+      return hasAny(["music", "guitar", "basketball", "game", "gaming", "read", "reading", "walk", "exercise", "gym", "church", "podcast", "content", "none"]);
+    case "wallets":
+    case "transfers":
+      return hasAny(["cash", "gcash", "maya", "bank", "security bank", "bpi", "bdo", "wallet", "transfer", "send", "move"]);
+    case "budgets":
+      return hasAny(["budget", "category", "categories", "planned", "envelope", "percent", "percentage", "track", "tracking", "none"]);
+    case "emergencyFund":
+      return hasAny(["yes", "no", "none", "starting", "start", "emergency", "fund", "saved", "saving"]);
+    case "recurringExpenses":
+      return hasAny(["rent", "bill", "bills", "internet", "electric", "water", "food", "loan", "debt", "subscription", "monthly", "none"]);
+    case "debt":
+    case "subscriptions":
+      return hasAny(["yes", "no", "none", "utang", "debt", "loan", "netflix", "spotify", "subscription", "monthly"]);
+    default:
+      return words.length >= 4 && (hasNumber || hasAny(["usually", "because", "kasi", "every", "monthly", "weekly", "family", "work", "stress", "goal", "save", "none"]));
+  }
+}
+function estimateAnswerQuality(text = "", isFocus = false, categoryId = "") {
+  const words = String(text || "").trim().split(/\s+/).filter(Boolean).length;
+  if (!words || isProceedChoice(normalizeChoice(text))) return 8;
+  let score = words >= 35 ? 82 : words >= 18 ? 65 : words >= 9 ? 50 : words >= 4 ? 35 : 20;
+  if (/because|usually|madalas|kapag|when|monthly|weekly|month|payday|pay day|cutoff|cut off|after|before|kasi|goal|save|family|stress|debt|utang|emergency/i.test(text)) score += 10;
+  if (looksLikeConcreteBehaviorAnswer(text, categoryId)) score = Math.max(score, 82);
+  if (isFocus) score += 8;
+  return Math.min(95, score);
+}
+function updateBehaviorAuditFromUserText(audit, text, focusId) { const next = { ...(audit || createEmptyBehaviorAudit()) }; const snippet = String(text || "").trim().slice(0, 140); const focus = categoryById(focusId); for (const category of BEHAVIOR_AUDIT_CATEGORIES) { const matched = category.id === focusId || normalizeChoice(text).includes(normalizeChoice(category.label)) || normalizeChoice(text).includes(normalizeChoice(category.id)); if (!matched) continue; const previous = next[category.id] || { score: 0, evidence: [] }; next[category.id] = { score: Math.max(previous.score || 0, estimateAnswerQuality(text, category.id === focus?.id, category.id)), evidence: snippet ? [...(previous.evidence || []), snippet].slice(-3) : previous.evidence || [] }; } return next; }
+function chooseNextAuditFocus(audit, currentFocusId, userText = "") { const current = categoryById(currentFocusId); const currentScore = current ? getCategoryScore(audit, current.id) : 0; if (current && currentScore < BEHAVIOR_CONFIDENCE_TARGET && !isProceedChoice(normalizeChoice(userText)) && !looksLikeConcreteBehaviorAnswer(userText, current.id)) return current.id; return getWeakAuditCategories(audit, 1)[0]?.id || "complete"; }
 function auditProgressSummary(audit) { const weak = getWeakAuditCategories(audit, 12).map((category) => `${category.label} (${getCategoryScore(audit, category.id)}%)`); return { weak: weak.length ? weak.join(", ") : "none" }; }
 function titleCaseName(value = "") { return String(value || "").trim().split(/\s+/).filter(Boolean).slice(0, 3).map((part) => part.charAt(0).toUpperCase() + part.slice(1).toLowerCase()).join(" "); }
 function extractLikelyName(value = "") { const raw = String(value || "").trim(); const choice = normalizeChoice(raw); if (!raw || isProceedChoice(choice) || isNoChoice(choice) || isQuestionLike(raw)) return ""; const cleaned = raw.replace(/^(my name is|i am|i'm|im|call me|you can call me|it is|it's|its)\s+/i, "").replace(/[^a-zA-ZÀ-ÿ\s.-]/g, " ").replace(/\s+/g, " ").trim(); return cleaned && cleaned.split(/\s+/).length <= 3 && cleaned.length <= 32 ? titleCaseName(cleaned) : ""; }
@@ -154,6 +229,8 @@ Rules:
 - If the user only said yes, sure, okay, go, or continue, start the required final question immediately.
 - If the answer is shallow, ask a probing follow-up for the same focus.
 - If the answer gives enough context, acknowledge it briefly and move to the recommended next missing focus.
+- Do not repeat the exact same question after the user gave a concrete answer like a payday date, yes/no, "with family", "none", or a clear routine.
+- If Recommended next focus differs from Current focus, ask only the Recommended next focus question.
 - If the user shares an urgent money or life issue, help with that issue first, then ask one practical next question.
 - Keep it warm and human. No checklist. No survey tone.`;
 }
