@@ -30,11 +30,10 @@ export function getWalletStatus(walletCount, walletMoney) {
 export function getTopWallet(wallets = []) {
   if (!Array.isArray(wallets) || wallets.length === 0) return null;
 
-  return [...wallets].sort((first, second) => {
-    const firstBalance = Number(first?.balance || 0);
-    const secondBalance = Number(second?.balance || 0);
-    return secondBalance - firstBalance;
-  })[0];
+  // In CLARA, "Primary" means the first wallet in the user's displayed wallet order,
+  // not the wallet with the highest balance. The list is already sorted by display
+  // order before it reaches this calculation layer.
+  return wallets.find((wallet) => wallet && !wallet?.is_archived && !wallet?.deletedAt && !wallet?.deleted_at) || null;
 }
 
 export function getWalletMessage(walletCount) {
@@ -45,5 +44,5 @@ export function getWalletMessage(walletCount) {
 export function getExpandedWalletMessage(topWallet, walletCount) {
   if (!walletCount) return "Create a wallet to start tracking money movement.";
   if (!topWallet) return "Your wallets are ready for tracking and movement.";
-  return `${topWallet.name || "Top wallet"} currently holds ${fmt(topWallet.balance || 0)}.`;
+  return `${topWallet.name || "Primary wallet"} is your primary wallet and currently holds ${fmt(topWallet.balance || 0)}.`;
 }
