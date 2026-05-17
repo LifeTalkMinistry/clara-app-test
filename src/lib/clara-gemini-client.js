@@ -43,8 +43,22 @@ function normalizeText(value) {
     .trim();
 }
 
+function extractUserFacingMessage(message = "") {
+  const raw = String(message || "").trim();
+  if (!raw) return "";
+
+  const currentUserMessage = raw.match(/Current user message:\s*([\s\S]*?)(?:\nMode:|\n\n|$)/i);
+  if (currentUserMessage?.[1]) return currentUserMessage[1].trim();
+
+  const userLines = [...raw.matchAll(/(?:^|\n)User:\s*(.+)/gi)];
+  if (userLines.length) return String(userLines[userLines.length - 1]?.[1] || "").trim();
+
+  return raw;
+}
+
 function extractCommandAmount(text = "") {
-  const match = String(text || "").replace(/,/g, "").match(/(?:₱|php\s*)?(\d+(?:\.\d{1,2})?)/i);
+  const userText = extractUserFacingMessage(text);
+  const match = userText.replace(/,/g, "").match(/(?:₱|php\s*)?(\d+(?:\.\d{1,2})?)/i);
   const amount = Number(match?.[1]);
   return Number.isFinite(amount) && amount > 0 ? amount : null;
 }
@@ -94,38 +108,55 @@ function getTransferWallets(context = {}) {
     .filter((wallet) => wallet.name);
 }
 
-function extractTransferRoute(text = "") {
-  const raw = String(text || "").trim();
+function cleanTransferWalletName(value = "") {
+  return String(value || "")
+    .replace(/[“”"']/g, "")
+    .replace(/[.!?]+$/g, "")
+    .replace(/^\s*(wallet|account)\s+/i, "")
+    .replace(/\s+(wallet|account)\s*$/i, "")
+    .replace(/\s+/g, " ")
+    .trim();
+}
 
-  const explicit = raw.match(/\bfrom\s+(.+?)\s+(?:to|into)\s+(.+?)(?:[.!?]|$)/i);
+function extractTransferRoute(text = "") {
+  const rawUserText = extractUserFacingMessage(text);
+  const raw = rawUserText.split("\n")[0].trim().slice(0, 220);
+
+  if (!/\b(transfer|move|send)\b/i.test(raw)) {
+    return { fromName: "", toName: "" };
+  }
+
+  const explicit = raw.match(/\b(?:transfer|move|send)(?:\s+(?:money|funds|balance))?(?:\s+(?:₱|php\s*)?\d[\d,]*(?:\.\d{1,2})?)?\s+from\s+(.+?)\s+(?:to|into)\s+(.+?)(?:[.!?]|$)/i);
   if (explicit) {
     return {
-      fromName: String(explicit[1] || "").replace(/[.!?]+$/g, "").trim(),
-      toName: String(explicit[2] || "").replace(/[.!?]+$/g, "").trim(),
+      fromName: cleanTransferWalletName(explicit[1]),
+      toName: cleanTransferWalletName(explicit[2]),
     };
   }
 
-  const dash = raw.match(/\bfrom\s+(.+?)\s*[-–—>]+\s*(.+?)(?:[.!?]|$)/i);
-  if (dash) {
+  const fromDash = raw.match(/\bfrom\s+(.+?)\s*[-–—>]+\s*(.+?)(?:[.!?]|$)/i);
+  if (fromDash) {
     return {
-      fromName: String(dash[1] || "").replace(/[.!?]+$/g, "").trim(),
-      toName: String(dash[2] || "").replace(/[.!?]+$/g, "").trim(),
+      fromName: cleanTransferWalletName(fromDash[1]),
+      toName: cleanTransferWalletName(fromDash[2]),
     };
   }
 
-  const shortDash = raw.match(/\btransfer(?:\s+money)?\s+(.+?)\s*[-–—>]+\s*(.+?)(?:[.!?]|$)/i);
+  const shortDash = raw.match(/\b(?:transfer|move|send)(?:\s+(?:money|funds|balance))?(?:\s+(?:₱|php\s*)?\d[\d,]*(?:\.\d{1,2})?)?\s+(.+?)\s*[-–—>]+\s*(.+?)(?:[.!?]|$)/i);
   if (shortDash) {
-    return {
-      fromName: String(shortDash[1] || "").replace(/[.!?]+$/g, "").trim(),
-      toName: String(shortDash[2] || "").replace(/[.!?]+$/g, "").trim(),
-    };
+    const fromName = cleanTransferWalletName(shortDash[1]);
+    const toName = cleanTransferWalletName(shortDash[2]);
+
+    if (!/\b(help|can|you|please|money|funds|balance|transfer|move|send)\b/i.test(fromName)) {
+      return { fromName, toName };
+    }
   }
 
   return { fromName: "", toName: "" };
 }
 
 function isTransferIntent(message = "") {
-  const text = normalizeText(message);
+  const text = normalizeText(extractUserFacingMessage(message));
   if (!text) return false;
 
   return (
@@ -135,7 +166,7 @@ function isTransferIntent(message = "") {
 }
 
 function buildTransferGuidanceReply({ message, context = {} } = {}) {
-  const raw = String(message || "").trim();
+  const raw = extractUserFacingMessage(message);
   if (!isTransferIntent(raw)) return null;
 
   const wallets = getTransferWallets(context);
