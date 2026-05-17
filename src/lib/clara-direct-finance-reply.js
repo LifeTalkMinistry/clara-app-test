@@ -79,6 +79,8 @@ function findRequestedWallet(prompt = "", wallets = []) {
 
 export function buildContextualFinanceReply(prompt, context) {
   const text = normalizeText(prompt);
+
+  if (text.includes("talk to clara context mode is active")) return "";
   if (!isBalanceQuestion(text)) return "";
 
   const snapshot = buildClaraFinanceSnapshot(context || {});
