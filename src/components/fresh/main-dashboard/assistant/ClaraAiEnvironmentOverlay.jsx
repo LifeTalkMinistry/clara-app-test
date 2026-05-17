@@ -47,10 +47,10 @@ const PANEL_COPY = {
   talk: {
     label: "Talk to CLARA",
     eyebrow: "TALK TO CLARA",
-    heading: "What money decision are we checking today?",
+    heading: "Tell CLARA what’s really happening in your life.",
     body: [
-      "Talk naturally with CLARA about purchases, budgeting, savings, financial stress, or life situations that affect your spending.",
-      "CLARA listens first, understands your context, then guides you before you act.",
+      "Share anything that may affect your spending — habits, emotions, routines, goals, stress, relationships, or daily situations.",
+      "When you choose to save it, CLARA can use that context to guide future decisions based on your personality, not just your numbers.",
     ],
   },
   smart: {
