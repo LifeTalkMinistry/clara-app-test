@@ -4,7 +4,7 @@ import { buildClaraFinanceSnapshot, generateClaraLocalReply } from "@/lib/clara-
 import { generateClaraGeminiReply, hasGeminiConfig } from "@/lib/clara-gemini-client";
 import { buildContextualFinanceReply } from "@/lib/clara-direct-finance-reply";
 
-const CLARA_AI_BRAIN_VERSION = "connected-brain-v16-audit-progress-fix";
+const CLARA_AI_BRAIN_VERSION = "connected-brain-v17-pressure-question-fix";
 const PRESENTATION_RULES = "Reply like a natural mobile chat message. Plain text only. Use short readable paragraphs separated by blank lines. Keep it warm, practical, and easy to read. Ask only one question at the end when a question is needed.";
 const SHOW_DEBUG_SOURCE = import.meta.env.DEV || import.meta.env.VITE_CLARA_DEBUG_AI === "true";
 const DEFAULT_CHAT_INPUT_PLACEHOLDER = "Ask CLARA or enter item + price";
@@ -43,11 +43,11 @@ const BEHAVIOR_AUDIT_CATEGORIES = [
   ["incomePattern", 1, "income pattern", "How does your income usually come in — stable every month, changing, or depending on cutoff or extra work?"],
   ["livingSituation", 1, "living situation", "What is your living situation right now — do you live alone, with family, or with someone else?"],
   ["responsibilities", 1, "responsibilities", "Who or what are you financially responsible for right now?"],
-  ["workType", 1, "work type", "What kind of work or daily role do you have, and does it affect your spending or energy?"],
+  ["workType", 1, "work type", "What is your work right now, and does your job schedule or energy affect your spending?"],
   ["relationshipStatus", 1, "relationship status", "Is there any relationship situation that affects your emotions or spending lately?"],
   ["dependents", 1, "dependents", "Is anyone depending on your money or care right now?"],
   ["currentFinancialPressure", 1, "current financial pressure", "What money pressure do you feel the most right now?"],
-  ["survivalPressureLevel", 1, "survival pressure level", "How heavy is your survival pressure right now — light, manageable, tight, or really heavy?"],
+  ["survivalPressureLevel", 1, "survival pressure level", "How heavy does that money pressure feel right now — light, manageable, tight, or really heavy?"],
   ["mainFinancialGoal", 1, "main financial goal", "What is your main financial goal right now?"],
   ["emotionalStateTrend", 1, "current emotional state trend", "How have you been feeling lately, especially around money decisions?"],
   ["emotionalTriggers", 2, "emotional triggers", "What emotion usually makes you want to spend?"],
@@ -138,12 +138,14 @@ function looksLikeConcreteBehaviorAnswer(text = "", categoryId = "") {
       return hasAny(["alone", "family", "parents", "partner", "spouse", "wife", "husband", "rent", "boarding", "dorm", "roommate", "house"]);
     case "responsibilities":
     case "dependents":
-      return hasAny(["none", "no one", "parents", "family", "child", "kids", "sibling", "partner", "bills", "rent", "utang", "debt", "tuition"]);
+      return hasAny(["none", "no one", "parents", "family", "child", "kids", "sibling", "partner", "bills", "rent", "utang", "debt", "tuition", "food", "foods", "groceries", "house"]);
     case "workType":
       return hasAny(["bpo", "call center", "freelance", "freelancer", "student", "office", "agent", "work", "job", "business", "teacher", "driver", "night shift"]);
     case "relationshipStatus":
     case "relationshipConflicts":
-      return hasAny(["single", "married", "relationship", "partner", "girlfriend", "boyfriend", "wife", "husband", "breakup", "conflict", "none", "no"]);
+      return hasAny(["single", "married", "relationship", "partner", "girlfriend", "boyfriend", "wife", "husband", "breakup", "conflict", "none", "no", "nothing", "cant think", "can't think", "not that"]);
+    case "currentFinancialPressure":
+      return hasAny(["bill", "bills", "monthly bill", "monthly bills", "rent", "house rent", "food", "foods", "groceries", "electric", "electricity", "water", "internet", "tuition", "loan", "debt", "utang", "family", "budget", "short", "kulang", "expense", "expenses", "payment", "payments", "due", "payable", "payables", "obligation", "obligations"]);
     case "survivalPressureLevel":
       return hasAny(["light", "manageable", "tight", "heavy", "really heavy", "okay", "hard", "difficult", "kulang"]);
     case "mainFinancialGoal":
@@ -181,7 +183,7 @@ function looksLikeConcreteBehaviorAnswer(text = "", categoryId = "") {
     case "emergencyFund":
       return hasAny(["yes", "no", "none", "starting", "start", "emergency", "fund", "saved", "saving"]);
     case "recurringExpenses":
-      return hasAny(["rent", "bill", "bills", "internet", "electric", "water", "food", "loan", "debt", "subscription", "monthly", "none"]);
+      return hasAny(["rent", "bill", "bills", "internet", "electric", "electricity", "water", "food", "foods", "loan", "debt", "subscription", "monthly", "none"]);
     case "debt":
     case "subscriptions":
       return hasAny(["yes", "no", "none", "utang", "debt", "loan", "netflix", "spotify", "subscription", "monthly"]);
@@ -193,7 +195,7 @@ function estimateAnswerQuality(text = "", isFocus = false, categoryId = "") {
   const words = String(text || "").trim().split(/\s+/).filter(Boolean).length;
   if (!words || isProceedChoice(normalizeChoice(text))) return 8;
   let score = words >= 35 ? 82 : words >= 18 ? 65 : words >= 9 ? 50 : words >= 4 ? 35 : 20;
-  if (/because|usually|madalas|kapag|when|monthly|weekly|month|payday|pay day|cutoff|cut off|after|before|kasi|goal|save|family|stress|debt|utang|emergency/i.test(text)) score += 10;
+  if (/because|usually|madalas|kapag|when|monthly|weekly|month|payday|pay day|cutoff|cut off|after|before|kasi|goal|save|family|stress|debt|utang|emergency|bill|bills|rent|food|groceries|payment|due/i.test(text)) score += 10;
   if (looksLikeConcreteBehaviorAnswer(text, categoryId)) score = Math.max(score, 82);
   if (isFocus) score += 8;
   return Math.min(95, score);
@@ -229,8 +231,9 @@ Rules:
 - If the user only said yes, sure, okay, go, or continue, start the required final question immediately.
 - If the answer is shallow, ask a probing follow-up for the same focus.
 - If the answer gives enough context, acknowledge it briefly and move to the recommended next missing focus.
-- Do not repeat the exact same question after the user gave a concrete answer like a payday date, yes/no, "with family", "none", or a clear routine.
+- Do not repeat the exact same question after the user gave a concrete answer like a payday date, yes/no, "with family", "none", "monthly bill", a work type, or a clear routine.
 - If Recommended next focus differs from Current focus, ask only the Recommended next focus question.
+- If the user asks what your question means, rephrase it in simpler words instead of repeating the same wording.
 - If the user shares an urgent money or life issue, help with that issue first, then ask one practical next question.
 - Keep it warm and human. No checklist. No survey tone.`;
 }
