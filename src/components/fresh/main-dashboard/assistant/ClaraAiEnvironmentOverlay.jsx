@@ -2,8 +2,9 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { ArrowUp, Sparkles, X } from "lucide-react";
 import { buildClaraFinanceSnapshot, generateClaraLocalReply } from "@/lib/clara-local-brain";
 import { generateClaraGeminiReply, hasGeminiConfig } from "@/lib/clara-gemini-client";
+import { buildContextualFinanceReply } from "@/lib/clara-direct-finance-reply";
 
-const CLARA_AI_BRAIN_VERSION = "connected-brain-v8-direct-finance";
+const CLARA_AI_BRAIN_VERSION = "connected-brain-v9-context-wallets";
 const PRESENTATION_RULES = "Reply like a normal chat message. Plain text only. No markdown. Do not use headings, labels, section titles, bullets, tables, or report format. Give one natural conversational reply in 1-3 short sentences.";
 const SHOW_DEBUG_SOURCE = import.meta.env.DEV || import.meta.env.VITE_CLARA_DEBUG_AI === "true";
 
@@ -65,42 +66,8 @@ function formatMoney(value) {
   return Number.isFinite(number) ? `₱${number.toLocaleString("en-PH", { maximumFractionDigits: 0 })}` : null;
 }
 
-function normalizePrompt(value = "") {
-  return String(value || "").toLowerCase().replace(/[^a-z0-9\s]/g, " ").replace(/\s+/g, " ").trim();
-}
-
-function isDirectBalanceQuestion(prompt = "") {
-  const text = normalizePrompt(prompt);
-  return (
-    /\b(how much|what is|what s|check|show)\b.*\b(money|balance|wallet|funds|cash|have)\b/.test(text) ||
-    /\b(total balance|wallet balance|available money|money left|current balance|currently have)\b/.test(text)
-  );
-}
-
-function buildDirectBalanceReply(prompt, context) {
-  if (!isDirectBalanceQuestion(prompt)) return "";
-
-  const snapshot = buildClaraFinanceSnapshot(context || {});
-  const amount = snapshot.availableMoney ?? snapshot.totalWalletBalance ?? snapshot.totalBalance;
-  const amountText = formatMoney(amount);
-
-  if (!amountText) {
-    return snapshot.hasAnyData
-      ? "I can see your finance data, but I cannot calculate the wallet total clearly yet. Open your wallet card and refresh once."
-      : "I do not see wallet data yet. Add a wallet first, then I can answer your current money accurately.";
-  }
-
-  const wallets = (snapshot.walletBalances || [])
-    .filter((wallet) => wallet && wallet.name && wallet.balance !== null && wallet.balance !== undefined)
-    .slice(0, 5)
-    .map((wallet) => `${wallet.name}: ${formatMoney(wallet.balance)}`)
-    .join(", ");
-
-  return `You currently have ${amountText} available across your wallets.${wallets ? ` That includes ${wallets}.` : ""}`;
-}
-
 function fallbackReply(prompt, context) {
-  const direct = buildDirectBalanceReply(prompt, context);
+  const direct = buildContextualFinanceReply(prompt, context);
   if (direct) return direct;
 
   const snapshot = buildClaraFinanceSnapshot(context || {});
@@ -221,7 +188,7 @@ export default function ClaraAiEnvironmentOverlay({ isActive = false, messages =
     try {
       let reply = "";
       let source = "local_fallback";
-      const directFinanceReply = buildDirectBalanceReply(cleanPrompt, claraAssistantContext);
+      const directFinanceReply = buildContextualFinanceReply(cleanPrompt, claraAssistantContext);
 
       if (directFinanceReply) {
         reply = directFinanceReply;
