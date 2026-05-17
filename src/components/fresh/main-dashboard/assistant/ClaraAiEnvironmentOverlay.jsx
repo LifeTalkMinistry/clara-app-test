@@ -55,6 +55,18 @@ const CHAT_INPUT_PLACEHOLDERS = [
   "Share anything CLARA should know...",
 ];
 
+const TALK_TO_CLARA_CONTEXT_ACTION = {
+  id: "talk_to_clara_context",
+  title: "Talk to CLARA",
+  shortTitle: "Talk to CLARA",
+  prompt: `Continue the Talk to CLARA context conversation.
+CLARA's job is to understand the user's real life context before giving future spending guidance.
+If the user chose to share more context, ask one gentle follow-up question about the part of life that seems most relevant.
+If the user chose to focus on the current issue, help with the issue directly while still being aware of behavior, emotion, and spending context.
+Never interrogate. Never ask multiple questions at once. Do not claim anything has been permanently saved unless the user explicitly uses a save feature.`,
+  chips: ["Share more context", "Focus on the issue"],
+};
+
 const PANEL_COPY = {
   talk: {
     label: "Talk to CLARA",
@@ -114,6 +126,33 @@ function pickDefaultGreeting() {
 
 function pickChatInputPlaceholder() {
   return pickRandomItem(CHAT_INPUT_PLACEHOLDERS);
+}
+
+function buildTalkToClaraPrompt(userText = "") {
+  return `Talk to CLARA context mode is active.
+
+Actual user message:
+${String(userText || "").trim()}
+
+How CLARA should respond:
+- Acknowledge the user's message warmly and naturally.
+- Do not behave like a generic assistant saying only "How can I help you today?"
+- Treat this mode as life-context discovery for better future spending guidance.
+- CLARA is trying to understand the person behind the spending, not just the transaction.
+- If the user only greets CLARA, warmly invite them to share any life context that may affect spending.
+- If the user shares an issue, acknowledge it first, then ask permission before going deeper.
+- Use this pattern when useful: "I can help with this right away, but understanding this part of your life a little more could help me guide you better. Would you like to share more context first, or should we focus directly on the current issue?"
+- Ask only one gentle question at a time.
+- Never interrogate, diagnose, shame, or lecture.
+- Do not claim information was permanently saved. You may say CLARA can use it as context in this conversation, or that it can help future guidance when the user chooses to save it.
+
+Behavioral intelligence CLARA should gradually learn over time:
+Level 1 Core Identity: income pattern, living situation, responsibilities, work type, relationship status, dependents, current financial pressure, survival pressure level, main financial goal, emotional state trend.
+Level 2 Behavioral Spending Profile: emotional triggers, stress spending habits, reward system, impulsive purchases, spending weakness, coping mechanisms, motivation style, financial fear, guilt patterns, social pressure triggers.
+Level 3 Life Pattern Intelligence: routine, sleep, work exhaustion, social environment, relationship conflicts, hobbies, energy trends, burnout indicators.
+Level 4 Financial Infrastructure: wallets, budgets, emergency fund, savings goals, recurring expenses, debt, subscriptions, transfers, payday cycle.
+
+Reply as CLARA in 1-3 short sentences.`;
 }
 
 function makeMessage(role, text, meta = {}) {
@@ -363,7 +402,12 @@ export default function ClaraAiEnvironmentOverlay({ isActive = false, messages =
     event.preventDefault();
     const text = draft.trim();
     if (!text) return;
-    runClara({ prompt: text, displayText: text });
+    const isTalkToClaraMode = panel === "talk";
+    runClara({
+      prompt: isTalkToClaraMode ? buildTalkToClaraPrompt(text) : text,
+      displayText: text,
+      action: isTalkToClaraMode ? TALK_TO_CLARA_CONTEXT_ACTION : null,
+    });
     setDraft("");
   };
 
