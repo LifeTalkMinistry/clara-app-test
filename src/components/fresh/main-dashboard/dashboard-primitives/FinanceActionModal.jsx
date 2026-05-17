@@ -9,6 +9,7 @@ import {
 } from "react";
 import { X } from "lucide-react";
 import WalletProviderPicker from "@/components/financial-carousel/cards/wallet/ui/WalletProviderPicker";
+import { getWalletProvider } from "@/components/financial-carousel/cards/wallet/logic/walletProviderRegistry";
 
 const MONEY_ACTION_TITLES = new Set(["Add money", "Transfer money"]);
 const BUDGET_SETUP_TITLES = new Set([
@@ -124,6 +125,38 @@ function findFirstElement(node, predicate) {
   return null;
 }
 
+function walletNeedsCustomName(provider) {
+  return provider?.key === "custom";
+}
+
+function makeFieldHidden(element, hidden, helper) {
+  if (!isValidElement(element)) return element;
+
+  return cloneElement(element, {
+    hidden,
+    helper,
+  });
+}
+
+function setWalletNameInput(formElement, value) {
+  const input = formElement?.querySelector?.('input[type="text"]');
+  if (!input) return;
+
+  const nativeSetter = Object.getOwnPropertyDescriptor(
+    window.HTMLInputElement.prototype,
+    "value"
+  )?.set;
+
+  if (nativeSetter) {
+    nativeSetter.call(input, value);
+  } else {
+    input.value = value;
+  }
+
+  input.dispatchEvent(new Event("input", { bubbles: true }));
+  input.dispatchEvent(new Event("change", { bubbles: true }));
+}
+
 function ClaraMoneyAmountHero({ label, helper, value, hiddenInput }) {
   return (
     <div className="relative rounded-[26px] border border-white/14 bg-[linear-gradient(135deg,rgba(10,48,68,0.96),rgba(19,18,78,0.98))] px-3.5 py-3 shadow-[inset_0_1px_0_rgba(255,255,255,0.08),0_14px_32px_rgba(0,0,0,0.16)]">
@@ -218,29 +251,54 @@ export default function FinanceActionModal({
     const childItems = Children.toArray(children);
 
     if (isCreateWalletModal) {
+      const walletTypeField = childItems.find(
+        (child) => isValidElement(child) && child.props?.label === "Wallet type"
+      );
+      const selectElement = findFirstElement(walletTypeField, (node) => node.type === "select");
+      const selectedValue = selectElement?.props?.value || "cash";
+      const selectedProvider = getWalletProvider(selectedValue, selectedValue);
+      const showWalletName = walletNeedsCustomName(selectedProvider);
+
       return {
         modalChildren: childItems.map((child) => {
-          if (!isValidElement(child) || child.props?.label !== "Wallet type") return child;
+          if (!isValidElement(child)) return child;
 
-          const selectElement = findFirstElement(child, (node) => node.type === "select");
-          const selectedValue = selectElement?.props?.value || "cash";
+          if (child.props?.label === "Wallet name") {
+            return makeFieldHidden(
+              child,
+              !showWalletName,
+              showWalletName ? "Name this custom wallet." : ""
+            );
+          }
+
+          if (child.props?.label !== "Wallet type") return child;
 
           return cloneElement(
             child,
             {
               label: "Choose wallet identity",
-              helper: "Pick the bank, digital bank, e-wallet, or custom wallet this represents.",
+              helper: showWalletName
+                ? "Custom wallets need a name before creating."
+                : "CLARA will name this wallet automatically from your selection.",
             },
             <WalletProviderPicker
               selectedProviderKey={selectedValue}
               disabled={loading}
               compact
-              onSelect={(provider) =>
+              onSelect={(provider) => {
                 selectElement?.props?.onChange?.({
                   target: { value: provider.key },
                   currentTarget: { value: provider.key },
-                })
-              }
+                });
+
+                const nextName = walletNeedsCustomName(provider)
+                  ? ""
+                  : provider.defaultWalletName || provider.label || "Wallet";
+
+                window.requestAnimationFrame(() => {
+                  setWalletNameInput(formRef.current, nextName);
+                });
+              }}
             />
           );
         }),
@@ -291,6 +349,24 @@ export default function FinanceActionModal({
     input.dispatchEvent(new Event("input", { bubbles: true }));
     input.dispatchEvent(new Event("change", { bubbles: true }));
   };
+
+  useEffect(() => {
+    if (!open || !isCreateWalletModal) return undefined;
+
+    const frame = window.requestAnimationFrame(() => {
+      const select = formRef.current?.querySelector("select");
+      const selectedProvider = getWalletProvider(select?.value || "cash", select?.value || "cash");
+
+      if (!walletNeedsCustomName(selectedProvider)) {
+        setWalletNameInput(
+          formRef.current,
+          selectedProvider.defaultWalletName || selectedProvider.label || "Wallet"
+        );
+      }
+    });
+
+    return () => window.cancelAnimationFrame(frame);
+  }, [open, isCreateWalletModal]);
 
   useEffect(() => {
     if (!open || !usesClaraMoneyKeypad) return undefined;
