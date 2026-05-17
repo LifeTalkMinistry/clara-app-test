@@ -92,16 +92,18 @@ const PANEL_COPY = {
     heading: "Your financial system in one place.",
     body: [
       "Core Features are the foundations CLARA uses to understand your money.",
-      "Manage wallets, budgets, savings goals, emergency funds, and transactions so CLARA can give better guidance.",
+      "Manage wallets, budgets, emergency funds, savings goals, investments, and debt or obligations so CLARA can give better guidance.",
     ],
   },
 };
 
 const CORE_FEATURES = [
   { id: "wallets", title: "Wallets", description: "Visible money and wallet pressure.", prompt: "Check my wallet health and tell me what money is safe to use today." },
-  { id: "budget", title: "Budget", description: "Budget pressure and remaining room.", prompt: "Check my budget health and tell me what is pressured or still safe." },
-  { id: "savings", title: "Savings", description: "Savings progress and goal protection.", prompt: "Check my savings progress and tell me what spending could slow my goal." },
+  { id: "budgets", title: "Budgets", description: "Budget pressure and remaining room.", prompt: "Check my budget health and tell me what is pressured or still safe." },
   { id: "emergency", title: "Emergency Fund", description: "Safety buffer and protection.", prompt: "Check my emergency fund and tell me the next safest step." },
+  { id: "savings-goals", title: "Savings Goals", description: "Savings progress and goal protection.", prompt: "Check my savings goals and tell me what spending could slow my goal." },
+  { id: "investment", title: "Investment", description: "Growth money and future direction.", prompt: "Check my investment situation and tell me how it should fit my current money priorities." },
+  { id: "debt-obligations", title: "Debt/Obligations", description: "Payables, pressure, and commitments.", prompt: "Check my debt and obligations pressure and tell me what I should prioritize next." },
 ];
 
 const SMART_ACTIONS = [
@@ -447,8 +449,8 @@ export default function ClaraAiEnvironmentOverlay({ isActive = false, messages =
             <div className="rounded-[26px] border border-white/10 bg-white/[0.035] p-3 shadow-[inset_0_1px_0_rgba(255,255,255,0.06)] backdrop-blur-xl">
               <div className="grid grid-cols-3 gap-2">
                 <PanelButton active={panel === "talk"} onClick={() => { setPanel("talk"); setChatInputPlaceholder(pickChatInputPlaceholder()); }}>Talk to CLARA</PanelButton>
-                <PanelButton active={panel === "smart"} onClick={() => setPanel("smart")}>Smart Actions</PanelButton>
                 <PanelButton active={panel === "core"} onClick={() => setPanel("core")}>Core Features</PanelButton>
+                <PanelButton active={panel === "smart"} onClick={() => setPanel("smart")}>Smart Actions</PanelButton>
               </div>
 
               {panel === "smart" ? <div className="mt-3 grid grid-cols-2 gap-2">{SMART_ACTIONS.map((action) => <OptionCard key={action.id} item={action} disabled={isThinking} onClick={() => runClara({ prompt: action.prompt, displayText: action.title, action })} />)}</div> : null}
