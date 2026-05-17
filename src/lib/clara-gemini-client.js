@@ -35,6 +35,159 @@ function list(items = [], formatter, empty = "none loaded") {
   return (Array.isArray(items) ? items : []).slice(0, 5).map(formatter).filter(Boolean).join("; ") || empty;
 }
 
+function normalizeText(value) {
+  return String(value || "")
+    .toLowerCase()
+    .replace(/[₱,]/g, "")
+    .replace(/[^a-z0-9]+/g, " ")
+    .trim();
+}
+
+function extractCommandAmount(text = "") {
+  const match = String(text || "").replace(/,/g, "").match(/(?:₱|php\s*)?(\d+(?:\.\d{1,2})?)/i);
+  const amount = Number(match?.[1]);
+  return Number.isFinite(amount) && amount > 0 ? amount : null;
+}
+
+function getWalletName(wallet = {}) {
+  return String(wallet.name || wallet.wallet_name || wallet.title || wallet.label || wallet.type || "Wallet").trim();
+}
+
+function getWalletBalance(wallet = {}) {
+  const amount = Number(
+    wallet.derived_balance ??
+      wallet.balance ??
+      wallet.current_balance ??
+      wallet.wallet_balance ??
+      wallet.available_balance ??
+      wallet.starting_balance ??
+      0
+  );
+
+  return Number.isFinite(amount) ? amount : 0;
+}
+
+function findWalletByLooseName(wallets = [], name = "") {
+  const requested = normalizeText(name);
+  if (!requested) return null;
+
+  return (
+    wallets.find((wallet) => normalizeText(getWalletName(wallet)) === requested) ||
+    wallets.find((wallet) => normalizeText(getWalletName(wallet)).includes(requested)) ||
+    wallets.find((wallet) => requested.includes(normalizeText(getWalletName(wallet)))) ||
+    null
+  );
+}
+
+function getTransferWallets(context = {}) {
+  const finance = buildClaraFinanceSnapshot(context || {});
+  const financeWallets = Array.isArray(finance.wallets) ? finance.wallets : [];
+  const rawWallets = Array.isArray(context?.wallets) ? context.wallets : [];
+  const wallets = financeWallets.length ? financeWallets : rawWallets;
+
+  return wallets
+    .map((wallet) => ({
+      ...wallet,
+      name: getWalletName(wallet),
+      balance: getWalletBalance(wallet),
+    }))
+    .filter((wallet) => wallet.name);
+}
+
+function extractTransferRoute(text = "") {
+  const raw = String(text || "").trim();
+
+  const explicit = raw.match(/\bfrom\s+(.+?)\s+(?:to|into)\s+(.+?)(?:[.!?]|$)/i);
+  if (explicit) {
+    return {
+      fromName: String(explicit[1] || "").replace(/[.!?]+$/g, "").trim(),
+      toName: String(explicit[2] || "").replace(/[.!?]+$/g, "").trim(),
+    };
+  }
+
+  const dash = raw.match(/\bfrom\s+(.+?)\s*[-–—>]+\s*(.+?)(?:[.!?]|$)/i);
+  if (dash) {
+    return {
+      fromName: String(dash[1] || "").replace(/[.!?]+$/g, "").trim(),
+      toName: String(dash[2] || "").replace(/[.!?]+$/g, "").trim(),
+    };
+  }
+
+  const shortDash = raw.match(/\btransfer(?:\s+money)?\s+(.+?)\s*[-–—>]+\s*(.+?)(?:[.!?]|$)/i);
+  if (shortDash) {
+    return {
+      fromName: String(shortDash[1] || "").replace(/[.!?]+$/g, "").trim(),
+      toName: String(shortDash[2] || "").replace(/[.!?]+$/g, "").trim(),
+    };
+  }
+
+  return { fromName: "", toName: "" };
+}
+
+function isTransferIntent(message = "") {
+  const text = normalizeText(message);
+  if (!text) return false;
+
+  return (
+    /\b(transfer|move|send)\b/.test(text) &&
+    /\b(money|funds|balance|wallet|cash|gcash|maya|from|to|into)\b/.test(text)
+  );
+}
+
+function buildTransferGuidanceReply({ message, context = {} } = {}) {
+  const raw = String(message || "").trim();
+  if (!isTransferIntent(raw)) return null;
+
+  const wallets = getTransferWallets(context);
+  const walletList = wallets.length
+    ? wallets.slice(0, 6).map((wallet) => `${wallet.name} (${money(wallet.balance)})`).join(", ")
+    : "no visible wallets loaded yet";
+  const amount = extractCommandAmount(raw);
+  const { fromName, toName } = extractTransferRoute(raw);
+  const fromWallet = findWalletByLooseName(wallets, fromName);
+  const toWallet = findWalletByLooseName(wallets, toName);
+
+  if (!wallets.length) {
+    return "I can help with a wallet transfer, but I can’t see your wallet list yet. Open or refresh Wallets first, then tell me the amount, source wallet, and destination wallet.";
+  }
+
+  if (!amount && !fromName && !toName) {
+    return `Yes — I can help you transfer money between wallets. Tell me the amount, source wallet, and destination wallet. Example: “Transfer ₱500 from Cash to GCash.” Visible wallets: ${walletList}.`;
+  }
+
+  if (!amount && (fromName || toName)) {
+    const routeText = fromWallet && toWallet
+      ? `from ${fromWallet.name} to ${toWallet.name}`
+      : `from “${fromName || "source wallet"}” to “${toName || "destination wallet"}”`;
+
+    return `Got it — you want to move money ${routeText}. How much should I transfer? Visible wallets: ${walletList}.`;
+  }
+
+  if (amount && (!fromName || !toName)) {
+    return `Got the amount: ${money(amount)}. Now tell me the source and destination wallet. Example: “from Cash to GCash.” Visible wallets: ${walletList}.`;
+  }
+
+  if (!fromWallet || !toWallet) {
+    const missing = !fromWallet && !toWallet
+      ? `“${fromName}” and “${toName}”`
+      : !fromWallet
+        ? `“${fromName}”`
+        : `“${toName}”`;
+
+    return `I understand the transfer, but I can’t match ${missing} to your wallet names. Use the exact wallet name. Visible wallets: ${walletList}.`;
+  }
+
+  if (fromWallet.name === toWallet.name) {
+    return `That’s the same wallet. Choose two different wallets. Visible wallets: ${walletList}.`;
+  }
+
+  if (fromWallet.balance < amount) {
+    return `${fromWallet.name} only has ${money(fromWallet.balance)}, so ${money(amount)} cannot be transferred from there. Pick a smaller amount or another source wallet.`;
+  }
+
+  return `Ready to prepare this transfer: ${money(amount)} from ${fromWallet.name} to ${toWallet.name}. This is not an expense; it only moves balance between wallets. ${fromWallet.name} would become ${money(fromWallet.balance - amount)}, and ${toWallet.name} would become ${money(toWallet.balance + amount)}.`;
+}
+
 function buildConversationHistory(messages = []) {
   const cleanMessages = (Array.isArray(messages) ? messages : [])
     .filter((message) => message?.text && message.text !== "Reading your finance cards..." && message.text !== "Checking your real finance context...")
@@ -71,6 +224,12 @@ PURCHASE COACHING STYLE:
 - Use the current purchase amount from chat history when the user refers to the same item.
 - Give a practical compromise before saying no.
 - Use labels naturally: "I’d lean delay", "okay with a cap", "safe if planned", "not now".
+
+WALLET ACTION STYLE:
+- If the user wants to transfer, move, or send money between wallets, treat it as a wallet transfer, not a purchase.
+- Ask only for the missing transfer detail: amount, source wallet, or destination wallet.
+- Use the real wallet names and balances when visible.
+- Never give a generic purchase/budget warning for a wallet transfer.
 
 IMPORTANT:
 - The Life Profile below is REAL user profile context.
@@ -211,7 +370,7 @@ async function requestGeminiContent({ apiKey, model, prompt, signal, logContext 
       generationConfig: {
         temperature: 0.56,
         topP: 0.88,
-        maxOutputTokens: 190
+        maxOutputTokens: 220
       }
     })
   });
@@ -248,6 +407,12 @@ export function hasGeminiConfig() {
 }
 
 export async function generateClaraGeminiReply({ message, context = {}, mode = null, conversationHistory = [], signal } = {}) {
+  const transferGuidance = buildTransferGuidanceReply({ message, context });
+  if (transferGuidance) {
+    console.info("[CLARA AI] Local transfer guidance used", { mode, hasContext: Boolean(context) });
+    return transferGuidance;
+  }
+
   const apiKey = getGeminiApiKey();
   if (!apiKey) throw new Error("Gemini API key is not configured.");
 
