@@ -63,6 +63,30 @@ const TALK_TO_CLARA_CONTEXT_ACTION = {
   chips: [],
 };
 
+const TALK_TO_CLARA_INTRO_EN = `Hi 🙂 I’m CLARA. Before we continue, I want to quickly explain what this space is for.
+
+Talk to CLARA is where you can share the real situations behind your spending — your habits, routines, pressure, goals, emotions, experiences, or anything happening in your life that may affect your financial decisions.
+
+Why does this matter? Because good financial guidance is not only about numbers. Your environment, personality, stress, responsibilities, and daily experiences affect the way you spend money.
+
+The more I understand your real-life situation, the more personal and accurate my future guidance becomes. You can share slowly over time. No pressure.
+
+If you understand how this feature works now, type "Yes".
+Or if you want the explanation in Tagalog, type "Tagalog".`;
+
+const TALK_TO_CLARA_INTRO_TL = `Hi 🙂 Ako si CLARA. Bago tayo magpatuloy, gusto ko munang ipaliwanag kung para saan ang space na ito.
+
+Ang Talk to CLARA ay lugar kung saan puwede mong ikuwento ang totoong nangyayari sa buhay mo na maaaring makaapekto sa spending mo — habits, routines, pressure, goals, emotions, experiences, o mga sitwasyon sa araw-araw.
+
+Bakit mahalaga ito? Kasi ang magandang financial advice ay hindi lang tungkol sa numbers. Apektado ng environment, personality, stress, responsibilities, at daily experiences mo ang paraan ng paggastos mo.
+
+Habang mas naiintindihan ko ang real-life situation mo, mas magiging personal at accurate ang future guidance ko. Puwede mong i-share ito paunti-unti. Walang pressure.
+
+Kung naiintindihan mo na kung paano gumagana ang feature na ito, type "Yes".`;
+
+const TALK_TO_CLARA_ACKNOWLEDGED_REPLY = "Great 🙂 Let’s start simple — what should I call you?";
+const TALK_TO_CLARA_REMINDER_REPLY = "Before we continue, I just want to make sure this space is clear. Type \"Yes\" if you understand, or type \"Tagalog\" if you want the explanation in Tagalog.";
+
 const PANEL_COPY = {
   talk: {
     label: "Talk to CLARA",
@@ -126,6 +150,15 @@ function pickChatInputPlaceholder() {
   return pickRandomItem(CHAT_INPUT_PLACEHOLDERS);
 }
 
+function normalizeChoice(value = "") {
+  return String(value || "")
+    .toLowerCase()
+    .replace(/[“”"'`]/g, "")
+    .replace(/[^a-z\s]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
 function buildTalkToClaraPrompt(userText = "") {
   return `Talk to CLARA context mode is active.
 
@@ -133,11 +166,10 @@ Actual user message:
 ${String(userText || "").trim()}
 
 How CLARA should respond:
-- First understand what happened in the message: greeting only, reply to a previous question, current money issue, life update, or request for advice.
+- First understand what happened in the message: reply to a previous question, current money issue, life update, or request for advice.
 - Acknowledge warmly and naturally.
 - Do not show or mention buttons, chips, options, workflows, modes, or categories.
 - Do not reply with only "How can I help you today?"
-- If the user only greets CLARA and CLARA does not know what to call them yet, start simple by asking what CLARA should call them.
 - If the user gives a name after CLARA asked what to call them, confirm if CLARA should use that name moving forward.
 - If the user confirms the name, continue gently with one basic profile question.
 - After each answer, ask only one next foundation question at a time.
@@ -217,7 +249,7 @@ function Insight({ text, source }) {
     <div className="space-y-2">
       {SHOW_DEBUG_SOURCE ? (
         <div className="inline-flex rounded-full bg-white/[0.05] px-2 py-1 text-[9px] font-black uppercase tracking-[0.18em] text-white/35">
-          Source: {source === "gemini" ? "Gemini" : source === "local_finance" ? "Local finance" : "Local fallback"}
+          Source: {source === "gemini" ? "Gemini" : source === "local_context" ? "Local context" : source === "local_finance" ? "Local finance" : "Local fallback"}
         </div>
       ) : null}
 
@@ -275,6 +307,7 @@ export default function ClaraAiEnvironmentOverlay({ isActive = false, messages =
   const [panel, setPanel] = useState(null);
   const [greeting, setGreeting] = useState(() => pickDefaultGreeting());
   const [chatInputPlaceholder, setChatInputPlaceholder] = useState(() => pickChatInputPlaceholder());
+  const [talkIntroState, setTalkIntroState] = useState("not_shown");
   const inputRef = useRef(null);
   const messagesEndRef = useRef(null);
 
@@ -289,9 +322,11 @@ export default function ClaraAiEnvironmentOverlay({ isActive = false, messages =
       setLocalMessages([]);
       setIsThinking(false);
       setPanel(null);
+      setTalkIntroState("not_shown");
       return undefined;
     }
     setPanel(null);
+    setTalkIntroState("not_shown");
     setGreeting(pickDefaultGreeting());
     setChatInputPlaceholder(pickChatInputPlaceholder());
     setLocalMessages((current) => current.filter((message) => !hiddenMessage(message)));
@@ -311,6 +346,17 @@ export default function ClaraAiEnvironmentOverlay({ isActive = false, messages =
   }, [isActive, visibleMessages.length, isThinking]);
 
   if (!isActive) return null;
+
+  const pushLocalClaraReply = ({ userText, reply, action = null, source = "local_context" }) => {
+    setLocalMessages((current) => [
+      ...current.filter((message) => !hiddenMessage(message)),
+      makeMessage("user", userText),
+      makeMessage("clara", reply, {
+        source,
+        ...(action ? { smartAction: action } : {})
+      })
+    ]);
+  };
 
   const runClara = async ({ prompt, displayText = prompt, action = null }) => {
     const cleanPrompt = String(prompt || "").trim();
@@ -396,6 +442,27 @@ export default function ClaraAiEnvironmentOverlay({ isActive = false, messages =
     const text = draft.trim();
     if (!text) return;
     const isTalkToClaraMode = panel === "talk";
+
+    if (isTalkToClaraMode && talkIntroState !== "confirmed") {
+      const choice = normalizeChoice(text);
+      let reply = TALK_TO_CLARA_INTRO_EN;
+      let nextState = "awaiting_ack";
+
+      if (choice === "tagalog") {
+        reply = TALK_TO_CLARA_INTRO_TL;
+      } else if (choice === "yes" && talkIntroState === "awaiting_ack") {
+        reply = TALK_TO_CLARA_ACKNOWLEDGED_REPLY;
+        nextState = "confirmed";
+      } else if (talkIntroState === "awaiting_ack") {
+        reply = TALK_TO_CLARA_REMINDER_REPLY;
+      }
+
+      pushLocalClaraReply({ userText: text, reply, action: TALK_TO_CLARA_CONTEXT_ACTION });
+      setTalkIntroState(nextState);
+      setDraft("");
+      return;
+    }
+
     runClara({
       prompt: isTalkToClaraMode ? buildTalkToClaraPrompt(text) : text,
       displayText: text,
@@ -439,7 +506,7 @@ export default function ClaraAiEnvironmentOverlay({ isActive = false, messages =
 
             <div className="rounded-[26px] border border-white/10 bg-white/[0.035] p-3 shadow-[inset_0_1px_0_rgba(255,255,255,0.06)] backdrop-blur-xl">
               <div className="grid grid-cols-3 gap-2">
-                <PanelButton active={panel === "talk"} onClick={() => { setPanel("talk"); setChatInputPlaceholder(pickChatInputPlaceholder()); }}>Talk to CLARA</PanelButton>
+                <PanelButton active={panel === "talk"} onClick={() => { setPanel("talk"); setTalkIntroState("not_shown"); setChatInputPlaceholder(pickChatInputPlaceholder()); }}>Talk to CLARA</PanelButton>
                 <PanelButton active={panel === "core"} onClick={() => setPanel("core")}>Core Features</PanelButton>
                 <PanelButton active={panel === "smart"} onClick={() => setPanel("smart")}>Smart Actions</PanelButton>
               </div>
