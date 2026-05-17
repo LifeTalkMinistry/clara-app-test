@@ -4,8 +4,8 @@ import { buildClaraFinanceSnapshot, generateClaraLocalReply } from "@/lib/clara-
 import { generateClaraGeminiReply, hasGeminiConfig } from "@/lib/clara-gemini-client";
 import { buildContextualFinanceReply } from "@/lib/clara-direct-finance-reply";
 
-const CLARA_AI_BRAIN_VERSION = "connected-brain-v10-talk-intro-ai";
-const PRESENTATION_RULES = "Reply like a normal chat message. Plain text only. No markdown. Do not use headings, labels, section titles, bullets, tables, or report format. Give one natural conversational reply in 1-3 short sentences.";
+const CLARA_AI_BRAIN_VERSION = "connected-brain-v11-readable-chat";
+const PRESENTATION_RULES = "Reply like a natural chat message. Plain text only. Use short, readable paragraphs separated by blank lines when there is more than one thought. Bullets are allowed only when they make the answer easier to scan. Do not use heavy headings, tables, or report format. Keep it warm, mobile-friendly, and easy to read.";
 const SHOW_DEBUG_SOURCE = import.meta.env.DEV || import.meta.env.VITE_CLARA_DEBUG_AI === "true";
 const DEFAULT_CHAT_INPUT_PLACEHOLDER = "Ask CLARA or enter item + price";
 
@@ -63,7 +63,9 @@ const TALK_TO_CLARA_CONTEXT_ACTION = {
   chips: [],
 };
 
-const TALK_TO_CLARA_LANGUAGE_PROMPT = `Hi 👩 I’m CLARA. Before we continue, I want to quickly explain what this space is for.
+const TALK_TO_CLARA_LANGUAGE_PROMPT = `Hi 👩 I’m CLARA.
+
+Before we continue, I want to quickly explain what this space is for.
 
 Would you like me to explain it in English or Tagalog?`;
 
@@ -79,7 +81,7 @@ Ginagamit ko ang context na iyon para mas maging personal ang future money guida
 
 Pwede na ba tayo mag-proceed sa next part, o may tanong ka muna tungkol dito?`;
 
-const TALK_TO_CLARA_ACKNOWLEDGED_REPLY = "Great 🙂 Let’s start simple — what should I call you?";
+const TALK_TO_CLARA_ACKNOWLEDGED_REPLY = "Great 🙂\n\nLet’s start simple — what should I call you?";
 const TALK_TO_CLARA_LANGUAGE_REMINDER_REPLY = "Please type \"English\" or \"Tagalog\" first, so I can explain it clearly.";
 const TALK_TO_CLARA_PROCEED_REMINDER_REPLY = "Please type \"continue\" if you want to proceed, or ask me any question about this first.";
 
@@ -173,10 +175,10 @@ function buildTalkIntroQuestionPrompt(userText = "") {
 User question or response:
 ${String(userText || "").trim()}
 
-Answer the user's question naturally as CLARA in 1-3 short sentences.
+Answer the user's question naturally as CLARA.
+Use clean mobile chat formatting: short paragraphs, blank lines between different thoughts, and simple bullets only if they make the answer clearer.
 Keep it brief, warm, and practical.
 Do not restart the full explanation.
-Do not use bullets or headings.
 End by asking: "Can we proceed to the next part, or do you have another question?"`;
 }
 
@@ -189,6 +191,7 @@ ${String(userText || "").trim()}
 How CLARA should respond:
 - First understand what happened in the message: reply to a previous question, current money issue, life update, or request for advice.
 - Acknowledge warmly and naturally.
+- Use clean mobile chat formatting: short paragraphs, blank lines between different thoughts, and simple bullets only if they improve clarity.
 - Do not show or mention buttons, chips, options, workflows, modes, or categories.
 - Do not reply with only "How can I help you today?"
 - If the user gives a name after CLARA asked what to call them, confirm if CLARA should use that name moving forward.
@@ -198,7 +201,7 @@ How CLARA should respond:
 - Keep the tone respectful, calm, and practical.
 - Do not claim information was permanently saved. You may say CLARA can use it as context in this conversation, or that it can help future guidance when the user chooses to save it.
 
-Reply as CLARA in 1-3 short sentences.`;
+Reply as CLARA in a clean, easy-to-read chat format.`;
 }
 
 function makeMessage(role, text, meta = {}) {
@@ -210,17 +213,20 @@ function clean(text = "") {
     .replace(/\*\*([^*]+)\*\*/g, "$1")
     .replace(/__([^_]+)__/g, "$1")
     .replace(/`([^`]+)`/g, "$1")
-    .replace(/^\s*[-•]\s+/gm, "")
-    .replace(/\s+([,.!?])/g, "$1")
+    .replace(/^\s*[-•]\s+/gm, "• ")
+    .replace(/[ \t]+([,.!?])/g, "$1")
     .replace(/[ \t]{2,}/g, " ")
+    .replace(/[ \t]*\n[ \t]*/g, "\n")
+    .replace(/\n{3,}/g, "\n\n")
     .trim();
 }
 
 function normalizeNaturalChatReply(text = "") {
   return clean(text)
     .replace(/\b(Money Signal|Spending Signal|Next Move|Risk|Budget|Wallet|Savings|Emergency Fund|Question|CLARA says|Money Note|Smart Action):\s*/gi, "")
-    .replace(/\s*\|\s*/g, " ")
-    .replace(/\s{2,}/g, " ")
+    .replace(/[ \t]*\|[ \t]*/g, "\n\n")
+    .replace(/[ \t]{2,}/g, " ")
+    .replace(/\n{3,}/g, "\n\n")
     .trim();
 }
 
@@ -249,40 +255,62 @@ function fallbackReply(prompt, context) {
   const spent = formatMoney(snapshot.monthlySpent);
 
   if (!snapshot.hasAnyData) {
-    return "I need a little more finance data first. Add your wallet, expenses, budget, savings, or emergency fund, then I can guide you better.";
+    return "I need a little more finance data first.\n\nAdd your wallet, expenses, budget, savings, or emergency fund, then I can guide you better.";
   }
 
   if (available && spent) {
-    return `You have ${available} visible money right now, and your spending shows ${spent}. Keep the next decision planned, necessary, and aligned with your current money pressure.`;
+    return `You have ${available} visible money right now, and your spending shows ${spent}.\n\nKeep the next decision planned, necessary, and aligned with your current money pressure.`;
   }
 
   if (available) {
-    return `You have ${available} visible money right now. Keep your next spending decision planned and aligned with your current budget.`;
+    return `You have ${available} visible money right now.\n\nKeep your next spending decision planned and aligned with your current budget.`;
   }
 
-  return "I can read your loaded finance context now. Keep the next decision planned, necessary, and aligned with your current money pressure.";
+  return "I can read your loaded finance context now.\n\nKeep the next decision planned, necessary, and aligned with your current money pressure.";
 }
 
 function getFallbackReplyForAction(prompt, context, action) {
   if (action?.id === "talk_to_clara_context") {
-    return "Good question. This space helps me understand the story behind your spending, not only the numbers. Can we proceed to the next part, or do you have another question?";
+    return "Good question. This space helps me understand the story behind your spending, not only the numbers.\n\nCan we proceed to the next part, or do you have another question?";
   }
 
   return fallbackReply(prompt, context);
 }
 
-function Insight({ text, source }) {
+function MessageText({ text }) {
   const reply = normalizeNaturalChatReply(text);
+  const blocks = reply.split(/\n{2,}/).map((block) => block.trim()).filter(Boolean);
 
   return (
-    <div className="space-y-2">
+    <div className="space-y-3 text-[13px] leading-[1.65] text-slate-100/90">
+      {blocks.map((block, index) => {
+        const lines = block.split("\n").map((line) => line.trim()).filter(Boolean);
+        const isBulletList = lines.length > 1 && lines.every((line) => line.startsWith("• "));
+
+        if (isBulletList) {
+          return (
+            <ul key={`${block}-${index}`} className="list-disc space-y-1 pl-4">
+              {lines.map((line) => <li key={line}>{line.replace(/^•\s*/, "")}</li>)}
+            </ul>
+          );
+        }
+
+        return <p key={`${block}-${index}`} className="whitespace-pre-wrap">{block}</p>;
+      })}
+    </div>
+  );
+}
+
+function Insight({ text, source }) {
+  return (
+    <div className="space-y-2.5">
       {SHOW_DEBUG_SOURCE ? (
         <div className="inline-flex rounded-full bg-white/[0.05] px-2 py-1 text-[9px] font-black uppercase tracking-[0.18em] text-white/35">
           Source: {source === "gemini" ? "Gemini" : source === "local_context" ? "Local context" : source === "local_finance" ? "Local finance" : "Local fallback"}
         </div>
       ) : null}
 
-      <p className="whitespace-pre-wrap text-[13px] leading-5 text-slate-100/90">{reply}</p>
+      <MessageText text={text} />
     </div>
   );
 }
@@ -532,7 +560,7 @@ export default function ClaraAiEnvironmentOverlay({ isActive = false, messages =
               const action = message.smartAction;
               return (
                 <div key={message.id} className={`flex ${isUser ? "justify-end" : "justify-start"}`}>
-                  <div className={`px-4 py-3 text-[13px] leading-5 shadow-[0_14px_34px_rgba(0,0,0,0.16)] ${isUser ? "max-w-[88%] rounded-[24px] bg-emerald-300 text-slate-950" : "max-w-[88%] rounded-[24px] bg-white/[0.075] text-white/86 backdrop-blur-xl"}`}>
+                  <div className={`px-4 py-3.5 text-[13px] leading-5 shadow-[0_14px_34px_rgba(0,0,0,0.16)] ${isUser ? "max-w-[88%] rounded-[24px] bg-emerald-300 text-slate-950" : "max-w-[88%] rounded-[24px] bg-white/[0.075] text-white/86 backdrop-blur-xl"}`}>
                     {isUser ? clean(message.text) : <Insight text={message.text} source={message.source} />}
                     {action && !isUser && action.chips?.length ? (
                       <div className="mt-3 border-t border-white/10 pt-3">
