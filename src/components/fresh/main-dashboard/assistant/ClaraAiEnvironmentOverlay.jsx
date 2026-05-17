@@ -4,8 +4,8 @@ import { buildClaraFinanceSnapshot, generateClaraLocalReply } from "@/lib/clara-
 import { generateClaraGeminiReply, hasGeminiConfig } from "@/lib/clara-gemini-client";
 import { buildContextualFinanceReply } from "@/lib/clara-direct-finance-reply";
 
-const CLARA_AI_BRAIN_VERSION = "connected-brain-v12-static-profile-path";
-const PRESENTATION_RULES = "Reply like a natural chat message. Plain text only. Use short, readable paragraphs separated by blank lines when there is more than one thought. Bullets are allowed only when they make the answer easier to scan. Do not use heavy headings, tables, or report format. Keep it warm, mobile-friendly, and easy to read.";
+const CLARA_AI_BRAIN_VERSION = "connected-brain-v13-hybrid-profile-ai";
+const PRESENTATION_RULES = "Reply like a natural mobile chat message. Plain text only. Use short readable paragraphs separated by blank lines when there is more than one thought. Bullets are allowed only when they make the answer easier to scan. No heavy headings, tables, or report format. Keep it warm, practical, and easy to read.";
 const SHOW_DEBUG_SOURCE = import.meta.env.DEV || import.meta.env.VITE_CLARA_DEBUG_AI === "true";
 const DEFAULT_CHAT_INPUT_PLACEHOLDER = "Ask CLARA or enter item + price";
 
@@ -98,6 +98,20 @@ const EMPTY_TALK_PROFILE = {
   routineEnergy: "",
 };
 
+const PROFILE_STEP_LABELS = {
+  ask_name: "preferred name",
+  confirm_name: "name confirmation",
+  ask_age: "age",
+  ask_work: "work or daily role",
+  ask_income_pattern: "income pattern",
+  ask_responsibilities: "financial responsibilities",
+  ask_money_pressure: "current money pressure",
+  ask_main_goal: "main financial goal",
+  ask_spending_trigger: "emotional spending trigger",
+  ask_routine_energy: "routine or energy pattern",
+  complete: "profile starting point complete",
+};
+
 const PROFILE_STEP_QUESTIONS = {
   ask_name: "what should I call you?",
   confirm_name: "should I use that name moving forward?",
@@ -109,6 +123,28 @@ const PROFILE_STEP_QUESTIONS = {
   ask_main_goal: "what is your main financial goal right now?",
   ask_spending_trigger: "when stress or emotions hit, what do you usually spend on or feel tempted to spend on?",
   ask_routine_energy: "what part of your routine or energy level affects your spending the most?",
+};
+
+const STEP_FIELD_MAP = {
+  ask_age: "age",
+  ask_work: "work",
+  ask_income_pattern: "incomePattern",
+  ask_responsibilities: "responsibilities",
+  ask_money_pressure: "moneyPressure",
+  ask_main_goal: "mainGoal",
+  ask_spending_trigger: "spendingTrigger",
+  ask_routine_energy: "routineEnergy",
+};
+
+const NEXT_PROFILE_STEP = {
+  ask_age: "ask_work",
+  ask_work: "ask_income_pattern",
+  ask_income_pattern: "ask_responsibilities",
+  ask_responsibilities: "ask_money_pressure",
+  ask_money_pressure: "ask_main_goal",
+  ask_main_goal: "ask_spending_trigger",
+  ask_spending_trigger: "ask_routine_energy",
+  ask_routine_energy: "complete",
 };
 
 const PANEL_COPY = {
@@ -223,7 +259,9 @@ function looksLikeUrgentIssue(value = "") {
     text.includes("issue") ||
     text.includes("debt") ||
     text.includes("overspend") ||
-    text.includes("overspending")
+    text.includes("overspending") ||
+    text.includes("worried") ||
+    text.includes("pressure")
   );
 }
 
@@ -261,6 +299,20 @@ function profileDisplayName(profile = {}) {
   return profile.name || profile.pendingName || "there";
 }
 
+function getMissingProfileFields(profile = {}) {
+  const fields = [
+    ["age", "age"],
+    ["work", "work or daily role"],
+    ["incomePattern", "income pattern"],
+    ["responsibilities", "financial responsibilities"],
+    ["moneyPressure", "current money pressure"],
+    ["mainGoal", "main financial goal"],
+    ["spendingTrigger", "emotional spending trigger"],
+    ["routineEnergy", "routine or energy pattern"],
+  ];
+  return fields.filter(([key]) => !String(profile[key] || "").trim()).map(([, label]) => label);
+}
+
 function buildTalkIntroQuestionPrompt(userText = "") {
   return `The user is still in the short Talk to CLARA introduction.
 
@@ -278,11 +330,12 @@ function buildProfileSetupQuestionPrompt(userText = "", profileStep = "ask_name"
   const currentQuestion = PROFILE_STEP_QUESTIONS[profileStep] || "what should I understand next?";
   const knownName = profileDisplayName(profile);
 
-  return `The user is in Talk to CLARA's simple profile setup.
+  return `The user is in Talk to CLARA's profile setup.
 
 Current setup step: ${profileStep}
 Current question CLARA was asking: ${currentQuestion}
 Known temporary profile so far: ${JSON.stringify(profile)}
+Missing context still needed later: ${getMissingProfileFields(profile).join(", ") || "none"}
 
 User message:
 ${String(userText || "").trim()}
@@ -291,6 +344,34 @@ If the user is asking a question about CLARA, privacy, why the information matte
 If the user is raising a real money or life issue, help with that issue first and do not force the profile setup.
 Do not claim anything is permanently saved.
 End gently by returning to the current setup question when appropriate, for example: "After that, we can continue — ${knownName !== "there" ? knownName + ", " : ""}${currentQuestion}"`;
+}
+
+function buildHybridProfileFollowupPrompt({ userText = "", completedStep = "", nextStep = "", profile = {} }) {
+  const completedLabel = PROFILE_STEP_LABELS[completedStep] || completedStep;
+  const nextLabel = PROFILE_STEP_LABELS[nextStep] || nextStep;
+  const nextQuestion = PROFILE_STEP_QUESTIONS[nextStep] || "what should I understand next?";
+  const name = profileDisplayName(profile);
+
+  return `The user is not in a generic chatbot flow. They are in CLARA's Talk to CLARA profile-building conversation.
+
+The static layer already captured this answer for: ${completedLabel}
+User answer: ${String(userText || "").trim()}
+Temporary profile so far: ${JSON.stringify(profile)}
+Next missing profile focus: ${nextLabel}
+Exact next information CLARA still needs: ${nextQuestion}
+Other missing context later: ${getMissingProfileFields(profile).join(", ") || "none"}
+
+Your job:
+- Do NOT act like a form.
+- Acknowledge the user's answer with human context.
+- If the answer implies something meaningful, briefly reflect it. Example: if the user says BPO agent, notice possible shifting schedule, work exhaustion, call pressure, or stress spending — without assuming too much.
+- Then ask exactly ONE follow-up question that collects the next missing profile focus.
+- The question must still be easy to answer.
+- If the user raised a real urgent money/life issue, pause onboarding and help that issue first.
+- Do not claim anything is permanently saved.
+- Keep it to 1-3 short mobile-friendly paragraphs.
+
+Address the user as ${name !== "there" ? name : "the user"} when natural.`;
 }
 
 function buildTalkToClaraPrompt(userText = "") {
@@ -313,22 +394,18 @@ How CLARA should respond:
 Reply as CLARA in a clean, easy-to-read chat format.`;
 }
 
-function handleStaticProfileStep({ text = "", step = "idle", profile = EMPTY_TALK_PROFILE }) {
+function handleHybridProfileStep({ text = "", step = "idle", profile = EMPTY_TALK_PROFILE }) {
   const choice = normalizeChoice(text);
-  const name = profileDisplayName(profile);
+  const currentStep = step === "idle" ? "ask_name" : step;
 
-  if (looksLikeUrgentIssue(text) || (isQuestionLike(text) && step !== "ask_name")) {
-    return { useAi: true, profile, nextStep: step };
+  if (looksLikeUrgentIssue(text) || (isQuestionLike(text) && currentStep !== "ask_name")) {
+    return { useAi: true, aiPrompt: buildProfileSetupQuestionPrompt(text, currentStep, profile), profile, nextStep: currentStep };
   }
 
-  if (step === "idle" || step === "ask_name") {
+  if (currentStep === "ask_name") {
     const extractedName = extractLikelyName(text);
     if (!extractedName) {
-      return {
-        reply: "No rush.\n\nWhat should I call you?",
-        profile,
-        nextStep: "ask_name",
-      };
+      return { reply: "No rush.\n\nWhat should I call you?", profile, nextStep: "ask_name" };
     }
 
     return {
@@ -338,7 +415,7 @@ function handleStaticProfileStep({ text = "", step = "idle", profile = EMPTY_TAL
     };
   }
 
-  if (step === "confirm_name") {
+  if (currentStep === "confirm_name") {
     if (isProceedChoice(choice)) {
       const confirmedName = profile.pendingName || profile.name || "there";
       return {
@@ -349,172 +426,81 @@ function handleStaticProfileStep({ text = "", step = "idle", profile = EMPTY_TAL
     }
 
     if (isNoChoice(choice)) {
-      return {
-        reply: "Got it.\n\nWhat name would you prefer me to use?",
-        profile: { ...profile, pendingName: "" },
-        nextStep: "ask_name",
-      };
+      return { reply: "Got it.\n\nWhat name would you prefer me to use?", profile: { ...profile, pendingName: "" }, nextStep: "ask_name" };
     }
 
     const newName = extractLikelyName(text);
     if (newName) {
-      return {
-        reply: `Okay, ${newName} 🙂\n\nShould I call you ${newName} moving forward?`,
-        profile: { ...profile, pendingName: newName },
-        nextStep: "confirm_name",
-      };
+      return { reply: `Okay, ${newName} 🙂\n\nShould I call you ${newName} moving forward?`, profile: { ...profile, pendingName: newName }, nextStep: "confirm_name" };
     }
 
-    return {
-      reply: `Just to confirm — should I call you ${profile.pendingName || profile.name || "that"} moving forward?`,
-      profile,
-      nextStep: "confirm_name",
-    };
+    return { reply: `Just to confirm — should I call you ${profile.pendingName || profile.name || "that"} moving forward?`, profile, nextStep: "confirm_name" };
   }
 
-  if (step === "ask_age") {
+  if (currentStep === "ask_age") {
     if (isSkipChoice(choice)) {
+      const nextProfile = { ...profile, age: "skipped" };
       return {
-        reply: `No problem${name !== "there" ? `, ${name}` : ""}.\n\nWhat kind of work or daily role do you have right now?`,
-        profile,
+        useAi: true,
+        aiPrompt: buildHybridProfileFollowupPrompt({ userText: text, completedStep: "ask_age", nextStep: "ask_work", profile: nextProfile }),
+        profile: nextProfile,
         nextStep: "ask_work",
       };
     }
 
     const age = extractAge(text);
     if (!age) {
-      return {
-        reply: "Got it.\n\nYou can tell me your age as a number, or type \"skip\" if you prefer not to answer yet.",
-        profile,
-        nextStep: "ask_age",
-      };
+      return { reply: "Got it.\n\nYou can tell me your age as a number, or type \"skip\" if you prefer not to answer yet.", profile, nextStep: "ask_age" };
     }
 
+    const nextProfile = { ...profile, age };
     return {
-      reply: `Got it, ${name}.\n\nWhat kind of work or daily role do you have right now?`,
-      profile: { ...profile, age },
+      useAi: true,
+      aiPrompt: buildHybridProfileFollowupPrompt({ userText: text, completedStep: "ask_age", nextStep: "ask_work", profile: nextProfile }),
+      profile: nextProfile,
       nextStep: "ask_work",
     };
   }
 
-  if (step === "ask_work") {
+  const fieldKey = STEP_FIELD_MAP[currentStep];
+  const nextStep = NEXT_PROFILE_STEP[currentStep] || "complete";
+
+  if (fieldKey) {
     if (isProceedChoice(choice)) {
       return {
-        reply: "Sure — before we move on, tell me your current work or daily role in a simple way.",
+        reply: `Before we continue, I still need this part.\n\n${PROFILE_STEP_QUESTIONS[currentStep]}`,
         profile,
-        nextStep: "ask_work",
+        nextStep: currentStep,
       };
     }
 
-    return {
-      reply: "Thanks.\n\nIs your income usually stable every month, or does it change?",
-      profile: { ...profile, work: text.trim() },
-      nextStep: "ask_income_pattern",
-    };
-  }
-
-  if (step === "ask_income_pattern") {
-    if (isProceedChoice(choice)) {
+    if (isSkipChoice(choice)) {
+      const nextProfile = { ...profile, [fieldKey]: "skipped" };
       return {
-        reply: "Before we continue, is your income usually stable every month, or does it change?",
-        profile,
-        nextStep: "ask_income_pattern",
+        useAi: nextStep !== "complete",
+        aiPrompt: nextStep !== "complete" ? buildHybridProfileFollowupPrompt({ userText: text, completedStep: currentStep, nextStep, profile: nextProfile }) : "",
+        reply: nextStep === "complete" ? buildProfileCompleteReply(nextProfile) : "",
+        profile: nextProfile,
+        nextStep,
       };
     }
 
+    const nextProfile = { ...profile, [fieldKey]: text.trim() };
     return {
-      reply: "Understood.\n\nWho or what are you financially responsible for right now?",
-      profile: { ...profile, incomePattern: text.trim() },
-      nextStep: "ask_responsibilities",
+      useAi: nextStep !== "complete",
+      aiPrompt: nextStep !== "complete" ? buildHybridProfileFollowupPrompt({ userText: text, completedStep: currentStep, nextStep, profile: nextProfile }) : "",
+      reply: nextStep === "complete" ? buildProfileCompleteReply(nextProfile) : "",
+      profile: nextProfile,
+      nextStep,
     };
   }
 
-  if (step === "ask_responsibilities") {
-    if (isProceedChoice(choice)) {
-      return {
-        reply: "Just a quick one first — who or what are you financially responsible for right now?",
-        profile,
-        nextStep: "ask_responsibilities",
-      };
-    }
+  return { reply: "I’m ready.\n\nTell me what’s happening today, or ask about a money decision before you act.", profile, nextStep: "complete" };
+}
 
-    return {
-      reply: "Got it.\n\nWhat money pressure are you dealing with most right now?",
-      profile: { ...profile, responsibilities: text.trim() },
-      nextStep: "ask_money_pressure",
-    };
-  }
-
-  if (step === "ask_money_pressure") {
-    if (isProceedChoice(choice)) {
-      return {
-        reply: "Before we move forward, what money pressure are you dealing with most right now?",
-        profile,
-        nextStep: "ask_money_pressure",
-      };
-    }
-
-    return {
-      reply: "Thank you for sharing that.\n\nWhat is your main financial goal right now?",
-      profile: { ...profile, moneyPressure: text.trim() },
-      nextStep: "ask_main_goal",
-    };
-  }
-
-  if (step === "ask_main_goal") {
-    if (isProceedChoice(choice)) {
-      return {
-        reply: "Let’s name your direction first.\n\nWhat is your main financial goal right now?",
-        profile,
-        nextStep: "ask_main_goal",
-      };
-    }
-
-    return {
-      reply: "Good.\n\nWhen stress or emotions hit, what do you usually spend on or feel tempted to spend on?",
-      profile: { ...profile, mainGoal: text.trim() },
-      nextStep: "ask_spending_trigger",
-    };
-  }
-
-  if (step === "ask_spending_trigger") {
-    if (isProceedChoice(choice)) {
-      return {
-        reply: "This one matters for future guidance.\n\nWhen stress or emotions hit, what do you usually spend on or feel tempted to spend on?",
-        profile,
-        nextStep: "ask_spending_trigger",
-      };
-    }
-
-    return {
-      reply: "That helps me understand your spending pattern better.\n\nWhat part of your routine or energy level affects your spending the most?",
-      profile: { ...profile, spendingTrigger: text.trim() },
-      nextStep: "ask_routine_energy",
-    };
-  }
-
-  if (step === "ask_routine_energy") {
-    if (isProceedChoice(choice)) {
-      return {
-        reply: "One last context question first.\n\nWhat part of your routine or energy level affects your spending the most?",
-        profile,
-        nextStep: "ask_routine_energy",
-      };
-    }
-
-    return {
-      reply: `Thanks, ${name}.\n\nThis gives me a starting picture of you — not just your money.\n
-From here, you can tell me about your day, a spending concern, or a purchase before you act.`,
-      profile: { ...profile, routineEnergy: text.trim() },
-      nextStep: "complete",
-    };
-  }
-
-  return {
-    reply: "I’m ready.\n\nTell me what’s happening today, or ask about a money decision before you act.",
-    profile,
-    nextStep: "complete",
-  };
+function buildProfileCompleteReply(profile = {}) {
+  const name = profileDisplayName(profile);
+  return `Thanks, ${name}.\n\nThis gives me a starting picture of you — not just your money.\n\nFrom here, you can tell me about your day, a spending concern, or a purchase before you act.`;
 }
 
 function makeMessage(role, text, meta = {}) {
@@ -560,30 +546,25 @@ function fallbackReply(prompt, context) {
   const snapshot = buildClaraFinanceSnapshot(context || {});
   const local = normalizeNaturalChatReply(generateClaraLocalReply(prompt, context));
 
-  if (local && !local.includes("I can help with money decisions") && !local.includes("What do you want to check?")) {
-    return local;
-  }
+  if (local && !local.includes("I can help with money decisions") && !local.includes("What do you want to check?")) return local;
 
   const available = formatMoney(snapshot.availableMoney);
   const spent = formatMoney(snapshot.monthlySpent);
 
-  if (!snapshot.hasAnyData) {
-    return "I need a little more finance data first.\n\nAdd your wallet, expenses, budget, savings, or emergency fund, then I can guide you better.";
-  }
-
-  if (available && spent) {
-    return `You have ${available} visible money right now, and your spending shows ${spent}.\n\nKeep the next decision planned, necessary, and aligned with your current money pressure.`;
-  }
-
-  if (available) {
-    return `You have ${available} visible money right now.\n\nKeep your next spending decision planned and aligned with your current budget.`;
-  }
+  if (!snapshot.hasAnyData) return "I need a little more finance data first.\n\nAdd your wallet, expenses, budget, savings, or emergency fund, then I can guide you better.";
+  if (available && spent) return `You have ${available} visible money right now, and your spending shows ${spent}.\n\nKeep the next decision planned, necessary, and aligned with your current money pressure.`;
+  if (available) return `You have ${available} visible money right now.\n\nKeep your next spending decision planned and aligned with your current budget.`;
 
   return "I can read your loaded finance context now.\n\nKeep the next decision planned, necessary, and aligned with your current money pressure.";
 }
 
 function getFallbackReplyForAction(prompt, context, action) {
   if (action?.id === "talk_to_clara_context") {
+    if (prompt.includes("Next missing profile focus")) {
+      const match = prompt.match(/Exact next information CLARA still needs: (.+)/);
+      return `That helps me understand you better.\n\n${match?.[1] || "What should I understand next?"}`;
+    }
+
     return "Good question. This space helps me understand the story behind your spending, not only the numbers.\n\nCan we proceed to the next part, or do you have another question?";
   }
 
@@ -699,6 +680,7 @@ export default function ClaraAiEnvironmentOverlay({ isActive = false, messages =
       setTalkProfile(EMPTY_TALK_PROFILE);
       return undefined;
     }
+
     setPanel(null);
     setTalkIntroState("not_shown");
     setTalkProfileStep("idle");
@@ -741,7 +723,6 @@ export default function ClaraAiEnvironmentOverlay({ isActive = false, messages =
     if (!cleanPrompt || isThinking) return;
 
     const pending = makeMessage("clara", "Thinking...", { source: "system" });
-
     setIsThinking(true);
 
     setLocalMessages((current) => [
@@ -844,11 +825,7 @@ export default function ClaraAiEnvironmentOverlay({ isActive = false, messages =
         } else if (choice.length < 2) {
           reply = TALK_TO_CLARA_PROCEED_REMINDER_REPLY;
         } else {
-          runClara({
-            prompt: buildTalkIntroQuestionPrompt(text),
-            displayText: text,
-            action: TALK_TO_CLARA_CONTEXT_ACTION,
-          });
+          runClara({ prompt: buildTalkIntroQuestionPrompt(text), displayText: text, action: TALK_TO_CLARA_CONTEXT_ACTION });
           setDraft("");
           return;
         }
@@ -862,15 +839,18 @@ export default function ClaraAiEnvironmentOverlay({ isActive = false, messages =
     }
 
     if (isTalkToClaraMode && talkProfileStep !== "complete") {
-      const profileResult = handleStaticProfileStep({
+      const profileResult = handleHybridProfileStep({
         text,
         step: talkProfileStep === "idle" ? "ask_name" : talkProfileStep,
         profile: talkProfile,
       });
 
+      setTalkProfile(profileResult.profile || talkProfile);
+      setTalkProfileStep(profileResult.nextStep || talkProfileStep);
+
       if (profileResult.useAi) {
         runClara({
-          prompt: buildProfileSetupQuestionPrompt(text, talkProfileStep, talkProfile),
+          prompt: profileResult.aiPrompt || buildProfileSetupQuestionPrompt(text, talkProfileStep, profileResult.profile || talkProfile),
           displayText: text,
           action: TALK_TO_CLARA_CONTEXT_ACTION,
         });
@@ -878,13 +858,7 @@ export default function ClaraAiEnvironmentOverlay({ isActive = false, messages =
         return;
       }
 
-      setTalkProfile(profileResult.profile || talkProfile);
-      setTalkProfileStep(profileResult.nextStep || talkProfileStep);
-      pushLocalClaraReply({
-        userText: text,
-        reply: profileResult.reply,
-        action: TALK_TO_CLARA_CONTEXT_ACTION,
-      });
+      pushLocalClaraReply({ userText: text, reply: profileResult.reply, action: TALK_TO_CLARA_CONTEXT_ACTION });
       setDraft("");
       return;
     }
