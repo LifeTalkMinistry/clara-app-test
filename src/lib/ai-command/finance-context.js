@@ -1,6 +1,14 @@
-import { supabase } from "@/lib/supabaseClient";
 import { getWalletBalance } from "@/utils/financialEngine";
 import { getDateScopeMeta, getPHMonthKey, getTodayPHDateString } from "@/lib/ai-command/time";
+import {
+  getBudgets,
+  getExpenses,
+  getSavingsGoals,
+  getTransfers,
+  getWallets,
+  getWalletTransactions,
+} from "@/lib/financeRepository";
+import { readClaraDevIdentityOverride } from "@/lib/clara-dev-simulator";
 
 const DEFAULT_CATEGORIES = [
   "food",
@@ -15,6 +23,8 @@ const DEFAULT_CATEGORIES = [
   "other",
 ];
 
+const CLARA_DEMO_LOCAL_USER_ID = "clara-demo-user";
+
 function toNumber(value) {
   if (typeof value === "number") return Number.isFinite(value) ? value : 0;
   const parsed = Number(String(value ?? "").replace(/[₱,\s]/g, ""));
@@ -25,34 +35,36 @@ function normalize(value) {
   return String(value ?? "").trim().toLowerCase();
 }
 
-function ownsRow(row, user) {
-  const userId = String(user?.id || "");
-  const email = normalize(user?.email);
-  return (
-    (userId && [row?.user_id, row?.owner_id, row?.profile_id].map(String).includes(userId)) ||
-    (email &&
-      [row?.user_email, row?.created_by, row?.owner_email, row?.email]
-        .map(normalize)
-        .includes(email))
-  );
+function getFinanceIdentityMode() {
+  try {
+    return readClaraDevIdentityOverride()?.scenarioId || "real_user";
+  } catch {
+    return "real_user";
+  }
 }
 
-async function safeRows(table, user) {
+export function getFinanceLocalUserId(user) {
+  if (getFinanceIdentityMode() === "demo_user") return CLARA_DEMO_LOCAL_USER_ID;
+  const value = user?.id || user?.email || "local-user";
+  return String(value || "local-user").trim() || "local-user";
+}
+
+async function safeLocalRows(label, loader, user) {
   try {
-    const { data, error } = await supabase.from(table).select("*");
-    if (error) {
-      console.warn(`CLARA AI could not load ${table}:`, error);
-      return [];
-    }
-    return (data || []).filter((row) => ownsRow(row, user));
+    const localUserId = getFinanceLocalUserId(user);
+    return await loader(localUserId);
   } catch (error) {
-    console.warn(`CLARA AI ${table} snapshot failed:`, error);
+    console.warn(`CLARA AI could not load local ${label}:`, error);
     return [];
   }
 }
 
+function removeDeleted(rows = []) {
+  return (Array.isArray(rows) ? rows : []).filter((row) => !row?.deletedAt && !row?.deleted_at);
+}
+
 export function dateValue(row) {
-  return row?.date || row?.created_at || row?.created_date || row?.updated_at || "";
+  return row?.date || row?.created_at || row?.created_date || row?.createdAt || row?.updated_at || row?.updatedAt || "";
 }
 
 function getDateKey(row) {
@@ -71,17 +83,15 @@ export function computeFinanceSummary(snapshot = {}) {
   const walletTransactions = snapshot.walletTransactions || [];
   const budgets = snapshot.budgets || [];
   const savingsGoals = snapshot.savingsGoals || [];
+  const transfers = snapshot.transfers || [];
 
   const normalizedWallets = wallets.map((wallet) => ({
     ...wallet,
     name: wallet.name || wallet.wallet_name || "Wallet",
-    balance: getWalletBalance(wallet, walletTransactions, snapshot.transfers || []),
+    balance: getWalletBalance(wallet, walletTransactions, transfers),
   }));
 
-  const totalBalance = normalizedWallets.reduce(
-    (sum, wallet) => sum + toNumber(wallet.balance),
-    0
-  );
+  const totalBalance = normalizedWallets.reduce((sum, wallet) => sum + toNumber(wallet.balance), 0);
   const thisMonthKey = getPHMonthKey();
   const todayKey = getTodayPHDateString();
   const monthExpenses = expenses.filter((expense) => getMonthKey(expense) === thisMonthKey);
@@ -91,18 +101,12 @@ export function computeFinanceSummary(snapshot = {}) {
     .filter(
       (txn) =>
         getMonthKey(txn) === thisMonthKey &&
-        ["income", "add", "cash_in", "deposit"].includes(normalize(txn.type))
+        ["income", "add", "cash_in", "deposit", "add_funds", "add_money", "opening_balance"].includes(normalize(txn.type))
     )
     .reduce((sum, txn) => sum + toNumber(txn.amount), 0);
 
-  const spentThisMonth = monthExpenses.reduce(
-    (sum, expense) => sum + toNumber(expense.amount),
-    0
-  );
-  const spentToday = todayExpenses.reduce(
-    (sum, expense) => sum + toNumber(expense.amount),
-    0
-  );
+  const spentThisMonth = monthExpenses.reduce((sum, expense) => sum + toNumber(expense.amount), 0);
+  const spentToday = todayExpenses.reduce((sum, expense) => sum + toNumber(expense.amount), 0);
 
   const categoryTotals = monthExpenses.reduce((acc, expense) => {
     const category = normalize(expense.category || "other") || "other";
@@ -110,22 +114,10 @@ export function computeFinanceSummary(snapshot = {}) {
     return acc;
   }, {});
 
-  const topCategory = Object.entries(categoryTotals).sort((a, b) => b[1] - a[1])[0] || [
-    "none",
-    0,
-  ];
-  const savingsTarget = savingsGoals.reduce(
-    (sum, goal) => sum + toNumber(goal.target_amount),
-    0
-  );
-  const savingsSaved = savingsGoals.reduce(
-    (sum, goal) => sum + toNumber(goal.saved_amount ?? goal.current_amount),
-    0
-  );
-  const budgetTotal = budgets.reduce(
-    (sum, budget) => sum + toNumber(budget.allocated_amount ?? budget.total_budget),
-    0
-  );
+  const topCategory = Object.entries(categoryTotals).sort((a, b) => b[1] - a[1])[0] || ["none", 0];
+  const savingsTarget = savingsGoals.reduce((sum, goal) => sum + toNumber(goal.target_amount), 0);
+  const savingsSaved = savingsGoals.reduce((sum, goal) => sum + toNumber(goal.saved_amount ?? goal.current_amount), 0);
+  const budgetTotal = budgets.reduce((sum, budget) => sum + toNumber(budget.allocated_amount ?? budget.total_budget), 0);
 
   return {
     totalBalance,
@@ -145,24 +137,30 @@ export function computeFinanceSummary(snapshot = {}) {
 }
 
 export async function loadFinanceSnapshot(user) {
-  const [expenses, wallets, walletTransactions, budgets, savingsGoals, transfers] =
-    await Promise.all([
-      safeRows("expenses", user),
-      safeRows("wallets", user),
-      safeRows("wallet_transactions", user),
-      safeRows("budgets", user),
-      safeRows("savings_goals", user),
-      safeRows("transfers", user),
-    ]);
+  const [expenses, wallets, walletTransactions, budgets, savingsGoals, transfers] = await Promise.all([
+    safeLocalRows("expenses", getExpenses, user),
+    safeLocalRows("wallets", getWallets, user),
+    safeLocalRows("wallet transactions", getWalletTransactions, user),
+    safeLocalRows("budgets", getBudgets, user),
+    safeLocalRows("savings goals", getSavingsGoals, user),
+    safeLocalRows("transfers", getTransfers, user),
+  ]);
 
-  const normalizedWallets = (wallets || []).map((wallet) => ({
+  const activeExpenses = removeDeleted(expenses);
+  const activeWallets = removeDeleted(wallets);
+  const activeTransactions = removeDeleted(walletTransactions);
+  const activeBudgets = removeDeleted(budgets);
+  const activeSavingsGoals = removeDeleted(savingsGoals);
+  const activeTransfers = removeDeleted(transfers);
+
+  const normalizedWallets = activeWallets.map((wallet) => ({
     ...wallet,
     id: String(wallet.id),
     name: wallet.name || wallet.wallet_name || "Wallet",
-    balance: getWalletBalance(wallet, walletTransactions || [], transfers || []),
+    balance: getWalletBalance(wallet, activeTransactions || [], activeTransfers || []),
   }));
 
-  const normalizedExpenses = (expenses || [])
+  const normalizedExpenses = activeExpenses
     .map((expense) => ({
       ...expense,
       id: String(expense.id),
@@ -172,7 +170,7 @@ export async function loadFinanceSnapshot(user) {
     }))
     .sort((a, b) => String(dateValue(b)).localeCompare(String(dateValue(a))));
 
-  const normalizedTransactions = (walletTransactions || [])
+  const normalizedTransactions = activeTransactions
     .map((txn) => ({
       ...txn,
       id: String(txn.id),
@@ -182,19 +180,27 @@ export async function loadFinanceSnapshot(user) {
     }))
     .sort((a, b) => String(dateValue(b)).localeCompare(String(dateValue(a))));
 
-  const normalizedBudgets = (budgets || []).map((budget) => ({
+  const normalizedBudgets = activeBudgets.map((budget) => ({
     ...budget,
     id: String(budget.id),
     category: normalize(budget.category || budget.budget_category || "other") || "other",
     allocated_amount: toNumber(budget.allocated_amount ?? budget.total_budget),
   }));
 
-  const normalizedSavingsGoals = (savingsGoals || []).map((goal) => ({
+  const normalizedSavingsGoals = activeSavingsGoals.map((goal) => ({
     ...goal,
     id: String(goal.id),
     title: goal.title || goal.name || "Savings Goal",
     target_amount: toNumber(goal.target_amount),
     saved_amount: toNumber(goal.saved_amount ?? goal.current_amount),
+  }));
+
+  const normalizedTransfers = activeTransfers.map((transfer) => ({
+    ...transfer,
+    id: String(transfer.id),
+    from_wallet_id: transfer.from_wallet_id ? String(transfer.from_wallet_id) : "",
+    to_wallet_id: transfer.to_wallet_id ? String(transfer.to_wallet_id) : "",
+    amount: toNumber(transfer.amount),
   }));
 
   const snapshot = {
@@ -203,7 +209,7 @@ export async function loadFinanceSnapshot(user) {
     walletTransactions: normalizedTransactions,
     budgets: normalizedBudgets,
     savingsGoals: normalizedSavingsGoals,
-    transfers: transfers || [],
+    transfers: normalizedTransfers,
   };
 
   return {
@@ -259,22 +265,12 @@ export function summarizeSpendForScope(snapshot = {}, scope = "today") {
   const expenses = snapshot.expenses || [];
 
   if (meta.scope === "this_month" || meta.scope === "last_month") {
-    const amount = expenses
-      .filter((expense) => getMonthKey(expense) === meta.month)
-      .reduce((sum, expense) => sum + toNumber(expense.amount), 0);
-    return {
-      ...meta,
-      amount,
-      expenseCount: expenses.filter((expense) => getMonthKey(expense) === meta.month).length,
-    };
+    const scopedExpenses = expenses.filter((expense) => getMonthKey(expense) === meta.month);
+    const amount = scopedExpenses.reduce((sum, expense) => sum + toNumber(expense.amount), 0);
+    return { ...meta, amount, expenseCount: scopedExpenses.length };
   }
 
-  const amount = expenses
-    .filter((expense) => getDateKey(expense) === meta.date)
-    .reduce((sum, expense) => sum + toNumber(expense.amount), 0);
-  return {
-    ...meta,
-    amount,
-    expenseCount: expenses.filter((expense) => getDateKey(expense) === meta.date).length,
-  };
+  const scopedExpenses = expenses.filter((expense) => getDateKey(expense) === meta.date);
+  const amount = scopedExpenses.reduce((sum, expense) => sum + toNumber(expense.amount), 0);
+  return { ...meta, amount, expenseCount: scopedExpenses.length };
 }
