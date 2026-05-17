@@ -4,7 +4,7 @@ import { buildClaraFinanceSnapshot, generateClaraLocalReply } from "@/lib/clara-
 import { generateClaraGeminiReply, hasGeminiConfig } from "@/lib/clara-gemini-client";
 import { buildContextualFinanceReply } from "@/lib/clara-direct-finance-reply";
 
-const CLARA_AI_BRAIN_VERSION = "connected-brain-v9-context-wallets";
+const CLARA_AI_BRAIN_VERSION = "connected-brain-v10-talk-intro-ai";
 const PRESENTATION_RULES = "Reply like a normal chat message. Plain text only. No markdown. Do not use headings, labels, section titles, bullets, tables, or report format. Give one natural conversational reply in 1-3 short sentences.";
 const SHOW_DEBUG_SOURCE = import.meta.env.DEV || import.meta.env.VITE_CLARA_DEBUG_AI === "true";
 const DEFAULT_CHAT_INPUT_PLACEHOLDER = "Ask CLARA or enter item + price";
@@ -59,7 +59,7 @@ const TALK_TO_CLARA_CONTEXT_ACTION = {
   id: "talk_to_clara_context",
   title: "Talk to CLARA",
   shortTitle: "Talk to CLARA",
-  prompt: `Continue the Talk to CLARA conversation naturally.`,
+  prompt: "Continue the Talk to CLARA conversation naturally.",
   chips: [],
 };
 
@@ -67,25 +67,21 @@ const TALK_TO_CLARA_LANGUAGE_PROMPT = `Hi 👩 I’m CLARA. Before we continue, 
 
 Would you like me to explain it in English or Tagalog?`;
 
-const TALK_TO_CLARA_INTRO_EN = `Talk to CLARA is where you can share the real situations behind your spending — your habits, routines, pressure, goals, emotions, experiences, or anything happening in your life that may affect your financial decisions.
+const TALK_TO_CLARA_INTRO_EN = `Talk to CLARA is where you can share the real situations behind your spending — habits, stress, goals, routines, emotions, or daily life situations.
 
-The more I understand your real-life situation, the more personal and accurate my future guidance becomes.
+I use that context to make future money guidance more personal, not just based on numbers.
 
-You can share slowly over time. No pressure.
+Can we proceed to the next part, or do you have a question about that?`;
 
-Does that make sense now? Type "Yes" to continue.`;
+const TALK_TO_CLARA_INTRO_TL = `Ang Talk to CLARA ay space kung saan puwede mong ikuwento ang totoong sitwasyon sa likod ng spending mo — habits, stress, goals, routines, emotions, o daily life situations.
 
-const TALK_TO_CLARA_INTRO_TL = `Ang Talk to CLARA ay space kung saan puwede mong ikuwento ang totoong nangyayari sa buhay mo na maaaring makaapekto sa spending mo — habits, routines, pressure, goals, emotions, experiences, o daily situations.
+Ginagamit ko ang context na iyon para mas maging personal ang future money guidance ko, hindi lang based sa numbers.
 
-Habang mas naiintindihan ko ang real-life situation mo, mas magiging personal at accurate ang future guidance ko.
-
-Puwede mong i-share paunti-unti. Walang pressure.
-
-Naiintindihan mo na ba? Type "Yes" para magpatuloy.`;
+Pwede na ba tayo mag-proceed sa next part, o may tanong ka muna tungkol dito?`;
 
 const TALK_TO_CLARA_ACKNOWLEDGED_REPLY = "Great 🙂 Let’s start simple — what should I call you?";
 const TALK_TO_CLARA_LANGUAGE_REMINDER_REPLY = "Please type \"English\" or \"Tagalog\" first, so I can explain it clearly.";
-const TALK_TO_CLARA_ACK_REMINDER_REPLY = "Before we continue, please type \"Yes\" if the explanation makes sense. You can also type \"English\" or \"Tagalog\" if you want me to explain it again.";
+const TALK_TO_CLARA_PROCEED_REMINDER_REPLY = "Please type \"continue\" if you want to proceed, or ask me any question about this first.";
 
 const PANEL_COPY = {
   talk: {
@@ -167,8 +163,21 @@ function isTagalogChoice(choice = "") {
   return ["tagalog", "tl", "filipino", "taglish"].includes(choice);
 }
 
-function isYesChoice(choice = "") {
-  return ["yes", "y", "yeah", "yep", "oo", "opo", "sige", "okay", "ok"].includes(choice);
+function isProceedChoice(choice = "") {
+  return ["yes", "y", "yeah", "yep", "continue", "proceed", "next", "go", "go ahead", "oo", "opo", "sige", "okay", "ok"].includes(choice);
+}
+
+function buildTalkIntroQuestionPrompt(userText = "") {
+  return `The user is still in the short Talk to CLARA introduction.
+
+User question or response:
+${String(userText || "").trim()}
+
+Answer the user's question naturally as CLARA in 1-3 short sentences.
+Keep it brief, warm, and practical.
+Do not restart the full explanation.
+Do not use bullets or headings.
+End by asking: "Can we proceed to the next part, or do you have another question?"`;
 }
 
 function buildTalkToClaraPrompt(userText = "") {
@@ -252,6 +261,14 @@ function fallbackReply(prompt, context) {
   }
 
   return "I can read your loaded finance context now. Keep the next decision planned, necessary, and aligned with your current money pressure.";
+}
+
+function getFallbackReplyForAction(prompt, context, action) {
+  if (action?.id === "talk_to_clara_context") {
+    return "Good question. This space helps me understand the story behind your spending, not only the numbers. Can we proceed to the next part, or do you have another question?";
+  }
+
+  return fallbackReply(prompt, context);
 }
 
 function Insight({ text, source }) {
@@ -376,9 +393,7 @@ export default function ClaraAiEnvironmentOverlay({ isActive = false, messages =
 
     if (!cleanPrompt || isThinking) return;
 
-    const pending = makeMessage("clara", "Thinking...", {
-      source: "system"
-    });
+    const pending = makeMessage("clara", "Thinking...", { source: "system" });
 
     setIsThinking(true);
 
@@ -391,7 +406,7 @@ export default function ClaraAiEnvironmentOverlay({ isActive = false, messages =
     try {
       let reply = "";
       let source = "local_fallback";
-      const directFinanceReply = buildContextualFinanceReply(cleanPrompt, claraAssistantContext);
+      const directFinanceReply = action?.id === "talk_to_clara_context" ? "" : buildContextualFinanceReply(cleanPrompt, claraAssistantContext);
 
       if (directFinanceReply) {
         reply = directFinanceReply;
@@ -404,7 +419,6 @@ export default function ClaraAiEnvironmentOverlay({ isActive = false, messages =
             mode: action?.id || "ai_environment",
             conversationHistory: [...visibleMessages, makeMessage("user", cleanDisplay)],
           });
-
           source = "gemini";
         } catch (error) {
           console.warn("[CLARA AI] Gemini failed, using local fallback", {
@@ -412,18 +426,17 @@ export default function ClaraAiEnvironmentOverlay({ isActive = false, messages =
             status: error?.status,
             payload: error?.payload,
           });
-
-          reply = fallbackReply(cleanPrompt, claraAssistantContext);
-          source = "local_fallback";
+          reply = getFallbackReplyForAction(cleanPrompt, claraAssistantContext, action);
+          source = action?.id === "talk_to_clara_context" ? "local_context" : "local_fallback";
         }
       } else {
         console.warn("[CLARA AI] Gemini configuration missing, using local fallback");
-        reply = fallbackReply(cleanPrompt, claraAssistantContext);
+        reply = getFallbackReplyForAction(cleanPrompt, claraAssistantContext, action);
+        source = action?.id === "talk_to_clara_context" ? "local_context" : "local_fallback";
       }
 
       setLocalMessages((current) => current.map((message) => {
         if (message.id !== pending.id) return message;
-
         return {
           ...message,
           text: normalizeNaturalChatReply(reply),
@@ -436,11 +449,10 @@ export default function ClaraAiEnvironmentOverlay({ isActive = false, messages =
 
       setLocalMessages((current) => current.map((message) => {
         if (message.id !== pending.id) return message;
-
         return {
           ...message,
-          text: fallbackReply(cleanPrompt, claraAssistantContext),
-          source: "local_fallback",
+          text: getFallbackReplyForAction(cleanPrompt, claraAssistantContext, action),
+          source: action?.id === "talk_to_clara_context" ? "local_context" : "local_fallback",
           ...(action ? { smartAction: action } : {})
         };
       }));
@@ -463,25 +475,33 @@ export default function ClaraAiEnvironmentOverlay({ isActive = false, messages =
       if (talkIntroState === "awaiting_language") {
         if (isEnglishChoice(choice)) {
           reply = TALK_TO_CLARA_INTRO_EN;
-          nextState = "awaiting_ack";
+          nextState = "awaiting_continue_or_question";
         } else if (isTagalogChoice(choice)) {
           reply = TALK_TO_CLARA_INTRO_TL;
-          nextState = "awaiting_ack";
+          nextState = "awaiting_continue_or_question";
         } else {
           reply = TALK_TO_CLARA_LANGUAGE_REMINDER_REPLY;
         }
-      } else if (talkIntroState === "awaiting_ack") {
-        if (isYesChoice(choice)) {
+      } else if (talkIntroState === "awaiting_continue_or_question") {
+        if (isProceedChoice(choice)) {
           reply = TALK_TO_CLARA_ACKNOWLEDGED_REPLY;
           nextState = "confirmed";
         } else if (isEnglishChoice(choice)) {
           reply = TALK_TO_CLARA_INTRO_EN;
-          nextState = "awaiting_ack";
+          nextState = "awaiting_continue_or_question";
         } else if (isTagalogChoice(choice)) {
           reply = TALK_TO_CLARA_INTRO_TL;
-          nextState = "awaiting_ack";
+          nextState = "awaiting_continue_or_question";
+        } else if (choice.length < 2) {
+          reply = TALK_TO_CLARA_PROCEED_REMINDER_REPLY;
         } else {
-          reply = TALK_TO_CLARA_ACK_REMINDER_REPLY;
+          runClara({
+            prompt: buildTalkIntroQuestionPrompt(text),
+            displayText: text,
+            action: TALK_TO_CLARA_CONTEXT_ACTION,
+          });
+          setDraft("");
+          return;
         }
       }
 
@@ -513,7 +533,7 @@ export default function ClaraAiEnvironmentOverlay({ isActive = false, messages =
               return (
                 <div key={message.id} className={`flex ${isUser ? "justify-end" : "justify-start"}`}>
                   <div className={`px-4 py-3 text-[13px] leading-5 shadow-[0_14px_34px_rgba(0,0,0,0.16)] ${isUser ? "max-w-[88%] rounded-[24px] bg-emerald-300 text-slate-950" : "max-w-[88%] rounded-[24px] bg-white/[0.075] text-white/86 backdrop-blur-xl"}`}>
-                    {isUser ? clean(message.text) : <Insight text={message.text} action={action} source={message.source} />}
+                    {isUser ? clean(message.text) : <Insight text={message.text} source={message.source} />}
                     {action && !isUser && action.chips?.length ? (
                       <div className="mt-3 border-t border-white/10 pt-3">
                         <p className="text-[12px] leading-5 text-emerald-100/85">What should we narrow down next?</p>
