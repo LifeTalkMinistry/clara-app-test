@@ -4,7 +4,7 @@ import { buildClaraFinanceSnapshot, generateClaraLocalReply } from "@/lib/clara-
 import { generateClaraGeminiReply, hasGeminiConfig } from "@/lib/clara-gemini-client";
 import { buildContextualFinanceReply } from "@/lib/clara-direct-finance-reply";
 
-const CLARA_AI_BRAIN_VERSION = "connected-brain-v11-readable-chat";
+const CLARA_AI_BRAIN_VERSION = "connected-brain-v12-static-profile-path";
 const PRESENTATION_RULES = "Reply like a natural chat message. Plain text only. Use short, readable paragraphs separated by blank lines when there is more than one thought. Bullets are allowed only when they make the answer easier to scan. Do not use heavy headings, tables, or report format. Keep it warm, mobile-friendly, and easy to read.";
 const SHOW_DEBUG_SOURCE = import.meta.env.DEV || import.meta.env.VITE_CLARA_DEBUG_AI === "true";
 const DEFAULT_CHAT_INPUT_PLACEHOLDER = "Ask CLARA or enter item + price";
@@ -85,6 +85,32 @@ const TALK_TO_CLARA_ACKNOWLEDGED_REPLY = "Great 🙂\n\nLet’s start simple —
 const TALK_TO_CLARA_LANGUAGE_REMINDER_REPLY = "Please type \"English\" or \"Tagalog\" first, so I can explain it clearly.";
 const TALK_TO_CLARA_PROCEED_REMINDER_REPLY = "Please type \"continue\" if you want to proceed, or ask me any question about this first.";
 
+const EMPTY_TALK_PROFILE = {
+  pendingName: "",
+  name: "",
+  age: "",
+  work: "",
+  incomePattern: "",
+  responsibilities: "",
+  moneyPressure: "",
+  mainGoal: "",
+  spendingTrigger: "",
+  routineEnergy: "",
+};
+
+const PROFILE_STEP_QUESTIONS = {
+  ask_name: "what should I call you?",
+  confirm_name: "should I use that name moving forward?",
+  ask_age: "how old are you?",
+  ask_work: "what kind of work or daily role do you have right now?",
+  ask_income_pattern: "is your income usually stable every month, or does it change?",
+  ask_responsibilities: "who or what are you financially responsible for right now?",
+  ask_money_pressure: "what money pressure are you dealing with most right now?",
+  ask_main_goal: "what is your main financial goal right now?",
+  ask_spending_trigger: "when stress or emotions hit, what do you usually spend on or feel tempted to spend on?",
+  ask_routine_energy: "what part of your routine or energy level affects your spending the most?",
+};
+
 const PANEL_COPY = {
   talk: {
     label: "Talk to CLARA",
@@ -152,7 +178,7 @@ function normalizeChoice(value = "") {
   return String(value || "")
     .toLowerCase()
     .replace(/[“”"'`]/g, "")
-    .replace(/[^a-z\s]/g, " ")
+    .replace(/[^a-z0-9\s]/g, " ")
     .replace(/\s+/g, " ")
     .trim();
 }
@@ -169,6 +195,72 @@ function isProceedChoice(choice = "") {
   return ["yes", "y", "yeah", "yep", "continue", "proceed", "next", "go", "go ahead", "oo", "opo", "sige", "okay", "ok"].includes(choice);
 }
 
+function isNoChoice(choice = "") {
+  return ["no", "nope", "nah", "not", "hindi", "di", "hinde"].includes(choice);
+}
+
+function isSkipChoice(choice = "") {
+  return ["skip", "pass", "later", "not now", "next", "i dont know", "idk"].includes(choice);
+}
+
+function isQuestionLike(value = "") {
+  const raw = String(value || "").trim();
+  const text = normalizeChoice(raw);
+  if (raw.includes("?")) return true;
+  return /^(why|how|what|where|when|can|could|should|would|do|does|is|are|will|may)\b/i.test(text);
+}
+
+function looksLikeUrgentIssue(value = "") {
+  const text = normalizeChoice(value);
+  return (
+    text.includes("can i buy") ||
+    text.includes("should i buy") ||
+    text.includes("i want to buy") ||
+    text.includes("i bought") ||
+    text.includes("stress") ||
+    text.includes("stressed") ||
+    text.includes("problem") ||
+    text.includes("issue") ||
+    text.includes("debt") ||
+    text.includes("overspend") ||
+    text.includes("overspending")
+  );
+}
+
+function titleCaseName(value = "") {
+  return String(value || "")
+    .trim()
+    .split(/\s+/)
+    .filter(Boolean)
+    .slice(0, 3)
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1).toLowerCase())
+    .join(" ");
+}
+
+function extractLikelyName(value = "") {
+  const raw = String(value || "").trim();
+  const choice = normalizeChoice(raw);
+  if (!raw || isProceedChoice(choice) || isSkipChoice(choice) || isNoChoice(choice) || isQuestionLike(raw)) return "";
+
+  const cleaned = raw
+    .replace(/^(my name is|i am|i'm|im|call me|you can call me|it is|it's|its)\s+/i, "")
+    .replace(/[^a-zA-ZÀ-ÿ\s.-]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+
+  if (!cleaned || cleaned.split(/\s+/).length > 3 || cleaned.length > 32) return "";
+  return titleCaseName(cleaned);
+}
+
+function extractAge(value = "") {
+  const match = String(value || "").match(/\b(1[3-9]|[2-9][0-9]|10[0-9]|110)\b/);
+  return match ? match[1] : "";
+}
+
+function profileDisplayName(profile = {}) {
+  return profile.name || profile.pendingName || "there";
+}
+
 function buildTalkIntroQuestionPrompt(userText = "") {
   return `The user is still in the short Talk to CLARA introduction.
 
@@ -180,6 +272,25 @@ Use clean mobile chat formatting: short paragraphs, blank lines between differen
 Keep it brief, warm, and practical.
 Do not restart the full explanation.
 End by asking: "Can we proceed to the next part, or do you have another question?"`;
+}
+
+function buildProfileSetupQuestionPrompt(userText = "", profileStep = "ask_name", profile = {}) {
+  const currentQuestion = PROFILE_STEP_QUESTIONS[profileStep] || "what should I understand next?";
+  const knownName = profileDisplayName(profile);
+
+  return `The user is in Talk to CLARA's simple profile setup.
+
+Current setup step: ${profileStep}
+Current question CLARA was asking: ${currentQuestion}
+Known temporary profile so far: ${JSON.stringify(profile)}
+
+User message:
+${String(userText || "").trim()}
+
+If the user is asking a question about CLARA, privacy, why the information matters, or how this feature works, answer naturally in 1-3 short mobile-friendly paragraphs.
+If the user is raising a real money or life issue, help with that issue first and do not force the profile setup.
+Do not claim anything is permanently saved.
+End gently by returning to the current setup question when appropriate, for example: "After that, we can continue — ${knownName !== "there" ? knownName + ", " : ""}${currentQuestion}"`;
 }
 
 function buildTalkToClaraPrompt(userText = "") {
@@ -194,14 +305,216 @@ How CLARA should respond:
 - Use clean mobile chat formatting: short paragraphs, blank lines between different thoughts, and simple bullets only if they improve clarity.
 - Do not show or mention buttons, chips, options, workflows, modes, or categories.
 - Do not reply with only "How can I help you today?"
-- If the user gives a name after CLARA asked what to call them, confirm if CLARA should use that name moving forward.
-- If the user confirms the name, continue gently with one basic profile question.
-- After each answer, ask only one next foundation question at a time.
-- If the user shares a real issue at any point, pause the profile questions and help with that issue first.
+- If the user shares a real issue, help with that issue first.
+- Ask only one gentle question at a time.
 - Keep the tone respectful, calm, and practical.
 - Do not claim information was permanently saved. You may say CLARA can use it as context in this conversation, or that it can help future guidance when the user chooses to save it.
 
 Reply as CLARA in a clean, easy-to-read chat format.`;
+}
+
+function handleStaticProfileStep({ text = "", step = "idle", profile = EMPTY_TALK_PROFILE }) {
+  const choice = normalizeChoice(text);
+  const name = profileDisplayName(profile);
+
+  if (looksLikeUrgentIssue(text) || (isQuestionLike(text) && step !== "ask_name")) {
+    return { useAi: true, profile, nextStep: step };
+  }
+
+  if (step === "idle" || step === "ask_name") {
+    const extractedName = extractLikelyName(text);
+    if (!extractedName) {
+      return {
+        reply: "No rush.\n\nWhat should I call you?",
+        profile,
+        nextStep: "ask_name",
+      };
+    }
+
+    return {
+      reply: `Nice to meet you, ${extractedName} 🙂\n\nShould I call you ${extractedName} moving forward?`,
+      profile: { ...profile, pendingName: extractedName },
+      nextStep: "confirm_name",
+    };
+  }
+
+  if (step === "confirm_name") {
+    if (isProceedChoice(choice)) {
+      const confirmedName = profile.pendingName || profile.name || "there";
+      return {
+        reply: `Perfect, ${confirmedName}.\n\nLet’s continue slowly — how old are you?`,
+        profile: { ...profile, name: confirmedName },
+        nextStep: "ask_age",
+      };
+    }
+
+    if (isNoChoice(choice)) {
+      return {
+        reply: "Got it.\n\nWhat name would you prefer me to use?",
+        profile: { ...profile, pendingName: "" },
+        nextStep: "ask_name",
+      };
+    }
+
+    const newName = extractLikelyName(text);
+    if (newName) {
+      return {
+        reply: `Okay, ${newName} 🙂\n\nShould I call you ${newName} moving forward?`,
+        profile: { ...profile, pendingName: newName },
+        nextStep: "confirm_name",
+      };
+    }
+
+    return {
+      reply: `Just to confirm — should I call you ${profile.pendingName || profile.name || "that"} moving forward?`,
+      profile,
+      nextStep: "confirm_name",
+    };
+  }
+
+  if (step === "ask_age") {
+    if (isSkipChoice(choice)) {
+      return {
+        reply: `No problem${name !== "there" ? `, ${name}` : ""}.\n\nWhat kind of work or daily role do you have right now?`,
+        profile,
+        nextStep: "ask_work",
+      };
+    }
+
+    const age = extractAge(text);
+    if (!age) {
+      return {
+        reply: "Got it.\n\nYou can tell me your age as a number, or type \"skip\" if you prefer not to answer yet.",
+        profile,
+        nextStep: "ask_age",
+      };
+    }
+
+    return {
+      reply: `Got it, ${name}.\n\nWhat kind of work or daily role do you have right now?`,
+      profile: { ...profile, age },
+      nextStep: "ask_work",
+    };
+  }
+
+  if (step === "ask_work") {
+    if (isProceedChoice(choice)) {
+      return {
+        reply: "Sure — before we move on, tell me your current work or daily role in a simple way.",
+        profile,
+        nextStep: "ask_work",
+      };
+    }
+
+    return {
+      reply: "Thanks.\n\nIs your income usually stable every month, or does it change?",
+      profile: { ...profile, work: text.trim() },
+      nextStep: "ask_income_pattern",
+    };
+  }
+
+  if (step === "ask_income_pattern") {
+    if (isProceedChoice(choice)) {
+      return {
+        reply: "Before we continue, is your income usually stable every month, or does it change?",
+        profile,
+        nextStep: "ask_income_pattern",
+      };
+    }
+
+    return {
+      reply: "Understood.\n\nWho or what are you financially responsible for right now?",
+      profile: { ...profile, incomePattern: text.trim() },
+      nextStep: "ask_responsibilities",
+    };
+  }
+
+  if (step === "ask_responsibilities") {
+    if (isProceedChoice(choice)) {
+      return {
+        reply: "Just a quick one first — who or what are you financially responsible for right now?",
+        profile,
+        nextStep: "ask_responsibilities",
+      };
+    }
+
+    return {
+      reply: "Got it.\n\nWhat money pressure are you dealing with most right now?",
+      profile: { ...profile, responsibilities: text.trim() },
+      nextStep: "ask_money_pressure",
+    };
+  }
+
+  if (step === "ask_money_pressure") {
+    if (isProceedChoice(choice)) {
+      return {
+        reply: "Before we move forward, what money pressure are you dealing with most right now?",
+        profile,
+        nextStep: "ask_money_pressure",
+      };
+    }
+
+    return {
+      reply: "Thank you for sharing that.\n\nWhat is your main financial goal right now?",
+      profile: { ...profile, moneyPressure: text.trim() },
+      nextStep: "ask_main_goal",
+    };
+  }
+
+  if (step === "ask_main_goal") {
+    if (isProceedChoice(choice)) {
+      return {
+        reply: "Let’s name your direction first.\n\nWhat is your main financial goal right now?",
+        profile,
+        nextStep: "ask_main_goal",
+      };
+    }
+
+    return {
+      reply: "Good.\n\nWhen stress or emotions hit, what do you usually spend on or feel tempted to spend on?",
+      profile: { ...profile, mainGoal: text.trim() },
+      nextStep: "ask_spending_trigger",
+    };
+  }
+
+  if (step === "ask_spending_trigger") {
+    if (isProceedChoice(choice)) {
+      return {
+        reply: "This one matters for future guidance.\n\nWhen stress or emotions hit, what do you usually spend on or feel tempted to spend on?",
+        profile,
+        nextStep: "ask_spending_trigger",
+      };
+    }
+
+    return {
+      reply: "That helps me understand your spending pattern better.\n\nWhat part of your routine or energy level affects your spending the most?",
+      profile: { ...profile, spendingTrigger: text.trim() },
+      nextStep: "ask_routine_energy",
+    };
+  }
+
+  if (step === "ask_routine_energy") {
+    if (isProceedChoice(choice)) {
+      return {
+        reply: "One last context question first.\n\nWhat part of your routine or energy level affects your spending the most?",
+        profile,
+        nextStep: "ask_routine_energy",
+      };
+    }
+
+    return {
+      reply: `Thanks, ${name}.\n\nThis gives me a starting picture of you — not just your money.\n
+From here, you can tell me about your day, a spending concern, or a purchase before you act.`,
+      profile: { ...profile, routineEnergy: text.trim() },
+      nextStep: "complete",
+    };
+  }
+
+  return {
+    reply: "I’m ready.\n\nTell me what’s happening today, or ask about a money decision before you act.",
+    profile,
+    nextStep: "complete",
+  };
 }
 
 function makeMessage(role, text, meta = {}) {
@@ -365,6 +678,8 @@ export default function ClaraAiEnvironmentOverlay({ isActive = false, messages =
   const [greeting, setGreeting] = useState(() => pickDefaultGreeting());
   const [chatInputPlaceholder, setChatInputPlaceholder] = useState(() => pickChatInputPlaceholder());
   const [talkIntroState, setTalkIntroState] = useState("not_shown");
+  const [talkProfileStep, setTalkProfileStep] = useState("idle");
+  const [talkProfile, setTalkProfile] = useState(EMPTY_TALK_PROFILE);
   const inputRef = useRef(null);
   const messagesEndRef = useRef(null);
 
@@ -380,10 +695,14 @@ export default function ClaraAiEnvironmentOverlay({ isActive = false, messages =
       setIsThinking(false);
       setPanel(null);
       setTalkIntroState("not_shown");
+      setTalkProfileStep("idle");
+      setTalkProfile(EMPTY_TALK_PROFILE);
       return undefined;
     }
     setPanel(null);
     setTalkIntroState("not_shown");
+    setTalkProfileStep("idle");
+    setTalkProfile(EMPTY_TALK_PROFILE);
     setGreeting(pickDefaultGreeting());
     setChatInputPlaceholder(pickChatInputPlaceholder());
     setLocalMessages((current) => current.filter((message) => !hiddenMessage(message)));
@@ -499,6 +818,7 @@ export default function ClaraAiEnvironmentOverlay({ isActive = false, messages =
       const choice = normalizeChoice(text);
       let reply = TALK_TO_CLARA_LANGUAGE_PROMPT;
       let nextState = "awaiting_language";
+      let nextProfileStep = talkProfileStep;
 
       if (talkIntroState === "awaiting_language") {
         if (isEnglishChoice(choice)) {
@@ -514,6 +834,7 @@ export default function ClaraAiEnvironmentOverlay({ isActive = false, messages =
         if (isProceedChoice(choice)) {
           reply = TALK_TO_CLARA_ACKNOWLEDGED_REPLY;
           nextState = "confirmed";
+          nextProfileStep = "ask_name";
         } else if (isEnglishChoice(choice)) {
           reply = TALK_TO_CLARA_INTRO_EN;
           nextState = "awaiting_continue_or_question";
@@ -535,6 +856,35 @@ export default function ClaraAiEnvironmentOverlay({ isActive = false, messages =
 
       pushLocalClaraReply({ userText: text, reply, action: TALK_TO_CLARA_CONTEXT_ACTION });
       setTalkIntroState(nextState);
+      setTalkProfileStep(nextProfileStep);
+      setDraft("");
+      return;
+    }
+
+    if (isTalkToClaraMode && talkProfileStep !== "complete") {
+      const profileResult = handleStaticProfileStep({
+        text,
+        step: talkProfileStep === "idle" ? "ask_name" : talkProfileStep,
+        profile: talkProfile,
+      });
+
+      if (profileResult.useAi) {
+        runClara({
+          prompt: buildProfileSetupQuestionPrompt(text, talkProfileStep, talkProfile),
+          displayText: text,
+          action: TALK_TO_CLARA_CONTEXT_ACTION,
+        });
+        setDraft("");
+        return;
+      }
+
+      setTalkProfile(profileResult.profile || talkProfile);
+      setTalkProfileStep(profileResult.nextStep || talkProfileStep);
+      pushLocalClaraReply({
+        userText: text,
+        reply: profileResult.reply,
+        action: TALK_TO_CLARA_CONTEXT_ACTION,
+      });
       setDraft("");
       return;
     }
@@ -582,7 +932,7 @@ export default function ClaraAiEnvironmentOverlay({ isActive = false, messages =
 
             <div className="rounded-[26px] border border-white/10 bg-white/[0.035] p-3 shadow-[inset_0_1px_0_rgba(255,255,255,0.06)] backdrop-blur-xl">
               <div className="grid grid-cols-3 gap-2">
-                <PanelButton active={panel === "talk"} onClick={() => { setPanel("talk"); setTalkIntroState("not_shown"); setChatInputPlaceholder(pickChatInputPlaceholder()); }}>Talk to CLARA</PanelButton>
+                <PanelButton active={panel === "talk"} onClick={() => { setPanel("talk"); setTalkIntroState("not_shown"); setTalkProfileStep("idle"); setTalkProfile(EMPTY_TALK_PROFILE); setChatInputPlaceholder(pickChatInputPlaceholder()); }}>Talk to CLARA</PanelButton>
                 <PanelButton active={panel === "core"} onClick={() => setPanel("core")}>Core Features</PanelButton>
                 <PanelButton active={panel === "smart"} onClick={() => setPanel("smart")}>Smart Actions</PanelButton>
               </div>
