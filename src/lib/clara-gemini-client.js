@@ -234,6 +234,7 @@ function buildPrompt({ message, context, mode, conversationHistory = [] }) {
   const life = summarizeLifeProfileForClara(
     context?.lifeProfile || context?.profile?.lifeProfile || context?.profile || {}
   );
+  const transferAnalysis = buildTransferGuidanceReply({ message, context });
 
   const wallets = Array.isArray(finance.wallets) ? finance.wallets : [];
   const budgets = Array.isArray(finance.budgets) ? finance.budgets : [];
@@ -261,6 +262,7 @@ WALLET ACTION STYLE:
 - Ask only for the missing transfer detail: amount, source wallet, or destination wallet.
 - Use the real wallet names and balances when visible.
 - Never give a generic purchase/budget warning for a wallet transfer.
+- The local action analysis below is PRIVATE CONTEXT only. Do not copy it word-for-word unless it naturally fits. You are still the final responder.
 
 IMPORTANT:
 - The Life Profile below is REAL user profile context.
@@ -306,6 +308,9 @@ Spending signal:
 Monthly spent: ${money(finance.monthlySpent)}
 Purchase amount detected from current message: ${money(decision.purchaseAmount)}
 Emotional signal: ${yesNo(decision.purchaseSignals?.emotional)}
+
+Local action analysis:
+${transferAnalysis || "No wallet transfer intent detected by local analysis."}
 
 Emoji policy:
 Use ONLY these emojis if needed: 🙂 ✅ ⚠ 💡 📌 ⏳
@@ -440,8 +445,7 @@ export function hasGeminiConfig() {
 export async function generateClaraGeminiReply({ message, context = {}, mode = null, conversationHistory = [], signal } = {}) {
   const transferGuidance = buildTransferGuidanceReply({ message, context });
   if (transferGuidance) {
-    console.info("[CLARA AI] Local transfer guidance used", { mode, hasContext: Boolean(context) });
-    return transferGuidance;
+    console.info("[CLARA AI] Transfer guidance sent to Gemini", { mode, hasContext: Boolean(context) });
   }
 
   const apiKey = getGeminiApiKey();
