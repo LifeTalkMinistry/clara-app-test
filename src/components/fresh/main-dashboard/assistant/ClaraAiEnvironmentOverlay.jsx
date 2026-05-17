@@ -4,7 +4,7 @@ import { buildClaraFinanceSnapshot, generateClaraLocalReply } from "@/lib/clara-
 import { generateClaraGeminiReply, hasGeminiConfig } from "@/lib/clara-gemini-client";
 import { buildContextualFinanceReply } from "@/lib/clara-direct-finance-reply";
 
-const CLARA_AI_BRAIN_VERSION = "connected-brain-v19-guided-choice-buttons";
+const CLARA_AI_BRAIN_VERSION = "connected-brain-v20-complete-behavioral-framework";
 const PRESENTATION_RULES = "Reply like a natural mobile chat message. Plain text only. Use short readable paragraphs separated by blank lines. Keep it warm, practical, and easy to read. Ask only one question at the end when a question is needed.";
 const SHOW_DEBUG_SOURCE = import.meta.env.DEV || import.meta.env.VITE_CLARA_DEBUG_AI === "true";
 const DEFAULT_CHAT_INPUT_PLACEHOLDER = "Ask CLARA or enter item + price";
@@ -28,11 +28,13 @@ I use that context to make future money guidance more personal, not just based o
 const TALK_TO_CLARA_INTRO_TL = `Ang Talk to CLARA ay space kung saan puwede mong ikuwento ang totoong sitwasyon sa likod ng spending mo — habits, stress, goals, routines, emotions, o daily life situations.
 
 Ginagamit ko ang context na iyon para mas maging personal ang future money guidance ko, hindi lang based sa numbers.`;
+
 const PANEL_COPY = {
   talk: { label: "Talk to CLARA", eyebrow: "TALK TO CLARA", heading: "Tell CLARA what’s really happening in your life.", body: ["Share anything that may affect your spending — habits, routines, goals, pressure, feelings, or daily situations.", "When you choose to save it, CLARA can use that context to guide future decisions based on you, not just your numbers."] },
   smart: { label: "Smart Actions", eyebrow: "SMART ACTIONS", heading: "Choose a guided money action.", body: ["Smart Actions are structured CLARA flows for faster financial decisions.", "Use them to check affordability, review spending leaks, plan savings, fix budget pressure, or decide your next best move."] },
   core: { label: "Core Features", eyebrow: "CORE FEATURES", heading: "Your financial system in one place.", body: ["Core Features are the foundations CLARA uses to understand your money.", "Manage wallets, budgets, emergency funds, savings goals, investments, and obligations so CLARA can give better guidance."] },
 };
+
 const CORE_FEATURES = [
   { id: "wallets", title: "Wallets", description: "Visible money and wallet pressure.", prompt: "Check my wallet health and tell me what money is safe to use today." },
   { id: "budgets", title: "Budgets", description: "Budget pressure and remaining room.", prompt: "Check my budget health and tell me what is pressured or still safe." },
@@ -41,6 +43,7 @@ const CORE_FEATURES = [
   { id: "investment", title: "Investment", description: "Growth money and future direction.", prompt: "Check my investment situation and tell me how it should fit my current money priorities." },
   { id: "debt-obligations", title: "Debt/Obligations", description: "Payables and commitments.", prompt: "Check my debt and obligations pressure and tell me what I should prioritize next." },
 ];
+
 const SMART_ACTIONS = [
   { id: "forecast", title: "Future Money Forecast", shortTitle: "Forecast", description: "Predict where your money is heading.", prompt: "Run my Future Money Forecast using income, expenses, budgets, savings, wallets, unplanned spending, and hidden risks.", chips: ["This week", "This month", "Next payday"] },
   { id: "checkup", title: "Spending Checkup", shortTitle: "Checkup", description: "Find spending leaks and patterns.", prompt: "Run my Spending Checkup. Explain my biggest spending leak and what to fix first.", chips: ["Be direct", "Gentle", "Biggest leak"] },
@@ -49,26 +52,51 @@ const SMART_ACTIONS = [
   { id: "budget-fixer", title: "Budget Fixer", shortTitle: "Budget Fixer", description: "Improve budget allocation.", prompt: "Run my Budget Fixer and suggest better allocation based on my real spending behavior.", chips: ["Survival", "Savings", "Control"] },
   { id: "next-move", title: "Next Best Move", shortTitle: "Next Move", description: "One clear action for today.", prompt: "Give me my Next Best Move based on my current money situation.", chips: ["Spending", "Saving", "Budgeting"] },
 ];
+
 const PROFILE_STEPS = [
-  { id: "incomePattern", question: "How does your income usually come in?", choices: ["Stable monthly", "Every cutoff", "Changing", "Extra work", "Not sure"] },
-  { id: "livingSituation", question: "What is your living situation right now?", choices: ["Alone", "With family", "With partner", "Other", "Skip"] },
-  { id: "responsibilities", question: "Who or what are you financially responsible for right now?", choices: ["Family", "Rent/Bills", "Food", "Debt", "None"] },
-  { id: "workType", question: "Does your work schedule or energy affect your spending?", choices: ["Yes, a lot", "Sometimes", "Not really", "Not sure for now"] },
-  { id: "relationshipStatus", question: "Is there any personal situation affecting your emotions or spending lately?", choices: ["Yes", "Not really", "Not sure", "Skip"] },
-  { id: "currentFinancialPressure", question: "What money pressure do you feel the most right now?", choices: ["Monthly bills", "Rent", "Food", "Debt", "No major pressure"] },
-  { id: "survivalPressureLevel", question: "How heavy does that money pressure feel right now?", choices: ["Light", "Manageable", "Tight", "Really heavy"] },
-  { id: "mainFinancialGoal", question: "What is your main financial goal right now?", choices: ["Emergency fund", "Save more", "Pay debt", "Control spending", "Not sure"] },
-  { id: "emotionalStateTrend", question: "How have you been feeling lately around money decisions?", choices: ["Confident", "Slight leak", "Stressed", "Tempted", "Okay"] },
-  { id: "spendingTriggers", question: "What usually triggers unplanned spending for you?", choices: ["Stress", "Reward", "Boredom", "Friends/social", "Not sure"] },
-  { id: "rewardSystem", question: "How do you usually reward yourself after a hard day?", choices: ["Food/drinks", "Shopping", "Entertainment", "Rest", "Not sure"] },
-  { id: "spendingWeakness", question: "What feels like your biggest spending weakness right now?", choices: ["Food", "Online shopping", "Small leaks", "Impulse buys", "Not sure"] },
-  { id: "routine", question: "What does your usual routine look like?", choices: ["Day shift", "Night shift", "Mixed schedule", "Flexible", "Skip"] },
-  { id: "supportSystem", question: "How do people around you affect your spending?", choices: ["They help", "They pressure me", "No effect", "Not sure"] },
-  { id: "hobbies", question: "What gives you fulfillment without overspending?", choices: ["Music", "Sports", "Content creation", "Rest", "Still finding it"] },
-  { id: "wallets", question: "What money source do you usually use?", choices: ["Cash", "GCash", "Maya", "Bank", "Multiple"] },
-  { id: "budgeting", question: "How do you currently budget your money?", choices: ["Strict budget", "Rough plan", "I track only", "Not yet"] },
-  { id: "recurringExpenses", question: "What recurring expense hits you most every month?", choices: ["Rent", "Bills", "Food", "Debt", "None"] },
+  { level: 1, id: "incomePattern", question: "How does your income usually come in?", choices: ["Stable monthly", "Every cutoff", "Changing", "Extra work", "Project-based"] },
+  { level: 1, id: "livingSituation", question: "What is your living situation right now?", choices: ["Alone", "With family", "With partner", "Renting", "Shared place"] },
+  { level: 1, id: "responsibilities", question: "Who or what are you financially responsible for right now?", choices: ["Family", "Rent/Bills", "Food", "Debt", "Self only"] },
+  { level: 1, id: "workType", question: "What best describes your work or daily role?", choices: ["BPO/Call center", "Office work", "Freelance", "Student", "Business"] },
+  { level: 1, id: "relationshipStatus", question: "Does your relationship situation affect your emotions or spending lately?", choices: ["Single/no effect", "Relationship", "Family conflict", "Breakup/healing", "Complicated"] },
+  { level: 1, id: "dependents", question: "Is anyone depending on your money or care right now?", choices: ["No dependents", "Parents", "Child/kids", "Sibling", "Partner"] },
+  { level: 1, id: "currentFinancialPressure", question: "What money pressure do you feel the most right now?", choices: ["Monthly bills", "Rent", "Food", "Debt", "Low savings"] },
+  { level: 1, id: "survivalPressureLevel", question: "How heavy does that money pressure feel right now?", choices: ["Light", "Manageable", "Tight", "Really heavy", "Changing"] },
+  { level: 1, id: "mainFinancialGoal", question: "What is your main financial goal right now?", choices: ["Emergency fund", "Save more", "Pay debt", "Control spending", "Increase income"] },
+  { level: 1, id: "emotionalStateTrend", question: "How have you been feeling lately around money decisions?", choices: ["Confident", "Slight leak", "Stressed", "Tempted", "Unclear"] },
+
+  { level: 2, id: "emotionalTriggers", question: "What emotion usually makes you want to spend?", choices: ["Stress", "Sadness", "Boredom", "Loneliness", "Excitement"] },
+  { level: 2, id: "stressSpendingHabits", question: "When you are stressed, what do you usually spend on?", choices: ["Food/drinks", "Online shopping", "Transport/convenience", "Entertainment", "I avoid spending"] },
+  { level: 2, id: "rewardSystem", question: "How do you usually reward yourself after work or after a hard day?", choices: ["Food/drinks", "Shopping", "Games/entertainment", "Rest", "Going out"] },
+  { level: 2, id: "commonImpulsivePurchases", question: "What do you commonly buy impulsively?", choices: ["Food", "Coffee/drinks", "Shopee/Lazada", "Gadgets", "Small random items"] },
+  { level: 2, id: "biggestSpendingWeakness", question: "What feels like your biggest spending weakness right now?", choices: ["Food", "Online shopping", "Small leaks", "Impulse buys", "Giving money"] },
+  { level: 2, id: "copingMechanisms", question: "When life feels heavy, what do you usually do to cope?", choices: ["Eat", "Sleep/rest", "Scroll online", "Buy something", "Talk to someone"] },
+  { level: 2, id: "motivationStyle", question: "What kind of guidance works better for you?", choices: ["Gentle reminders", "Direct honesty", "Strong accountability", "Encouragement", "Step-by-step"] },
+  { level: 2, id: "financialFear", question: "What money fear do you carry the most?", choices: ["Running out", "Emergency", "Debt growing", "Family needs", "Losing income"] },
+  { level: 2, id: "guiltPatterns", question: "What spending usually makes you feel guilty afterward?", choices: ["Food", "Online shopping", "Wants/luxury", "Helping others", "No guilt pattern"] },
+  { level: 2, id: "socialPressureTriggers", question: "What social pressure makes you spend?", choices: ["Friends", "Family", "Coworkers", "Social media", "Dates/relationship"] },
+
+  { level: 3, id: "scheduleRoutine", question: "What does your usual schedule or routine look like?", choices: ["Day shift", "Night shift", "Mixed schedule", "Flexible", "Very busy"] },
+  { level: 3, id: "sleepPattern", question: "How is your sleep lately?", choices: ["Good", "Irregular", "Short sleep", "Night shift sleep", "Poor"] },
+  { level: 3, id: "workExhaustion", question: "How exhausted do you usually feel from work or daily life?", choices: ["Low", "Manageable", "Tired often", "Drained", "Burned out"] },
+  { level: 3, id: "socialEnvironment", question: "How do the people around you affect your spending?", choices: ["They help", "They pressure me", "No effect", "Mixed", "I hide spending"] },
+  { level: 3, id: "relationshipConflicts", question: "Do conflicts or relationship stress affect your spending lately?", choices: ["No", "Sometimes", "Family conflict", "Partner conflict", "Friend/coworker issue"] },
+  { level: 3, id: "hobbyPatterns", question: "What gives you fulfillment without overspending?", choices: ["Music", "Sports", "Content creation", "Learning", "Rest"] },
+  { level: 3, id: "energyLevelTrends", question: "When does your energy usually drop?", choices: ["Morning", "Afternoon", "After work", "Late night", "Random"] },
+  { level: 3, id: "burnoutIndicators", question: "What signs tell you that burnout might be close?", choices: ["Overspending", "Low energy", "Irritable", "Avoiding tasks", "Sleep problems"] },
+
+  { level: 4, id: "wallets", question: "What wallets or money sources do you usually use?", choices: ["Cash", "GCash", "Maya", "Bank", "Multiple"] },
+  { level: 4, id: "budgets", question: "How do you currently budget your money?", choices: ["Strict budget", "Rough plan", "I track only", "Not yet", "Per cutoff"] },
+  { level: 4, id: "emergencyFund", question: "Where are you with your emergency fund?", choices: ["Not started", "Starting", "Partly built", "Good progress", "Already okay"] },
+  { level: 4, id: "savingsGoals", question: "What savings goal are you trying to protect right now?", choices: ["Emergency fund", "Device/gadget", "Travel", "Business", "Family goal"] },
+  { level: 4, id: "recurringExpenses", question: "What recurring expense hits you most every month?", choices: ["Rent", "Bills", "Food", "Debt", "Subscriptions"] },
+  { level: 4, id: "debt", question: "Is debt or utang creating pressure for you right now?", choices: ["No debt", "Small debt", "Manageable", "Heavy", "Family-related"] },
+  { level: 4, id: "subscriptions", question: "Do subscriptions quietly reduce your money every month?", choices: ["None", "A few", "Streaming", "Apps/tools", "Not sure"] },
+  { level: 4, id: "transfers", question: "Do you often transfer money between wallets, banks, or people?", choices: ["Rarely", "Sometimes", "Every cutoff", "For family", "For bills"] },
+  { level: 4, id: "paydayCycle", question: "When is your usual payday cycle?", choices: ["Once a month", "Every 10 and 25", "15 and 30", "Weekly", "Irregular"] },
 ];
+
+const NONE_CHOICE_LABEL = "None of these";
 
 function pickRandomItem(items = []) { return items[Math.floor(Math.random() * items.length)] || items[0]; }
 function normalizeChoice(value = "") { return String(value || "").toLowerCase().replace(/[“”"'`]/g, "").replace(/[^a-z0-9\s]/g, " ").replace(/\s+/g, " ").trim(); }
@@ -88,6 +116,7 @@ function fallbackReply(prompt, context) { const direct = buildContextualFinanceR
 function buildTalkIntroQuestionPrompt(text = "") { return `The user is still in the short Talk to CLARA introduction. User said: ${text}\n\nAnswer briefly and naturally. End by asking if they want to continue setup.\n\n${PRESENTATION_RULES}`; }
 function buildTalkToClaraPrompt(text = "", profile = {}) { return `Talk to CLARA is active. User said: ${text}\nKnown user name: ${profile.name || "there"}\n\nRespond naturally as CLARA. Ask only one gentle question if needed. Do not reveal internal categories or scores.\n\n${PRESENTATION_RULES}`; }
 function profileQuestionText(step, name = "") { return `${name ? `${name}, ` : ""}${step?.question || "What else should CLARA understand about you?"}`; }
+function inferStrategicTags(answer = "", step = {}) { const text = normalizeChoice(answer); const tags = [step?.id, `level_${step?.level || "unknown"}`].filter(Boolean); if (/stress|stressed|pressure|anxious|worried/.test(text)) tags.push("stress_related"); if (/tired|exhaust|burnout|sleep|drain/.test(text)) tags.push("energy_related"); if (/food|eat|coffee|drink/.test(text)) tags.push("food_spending"); if (/family|parent|sibling|partner|child/.test(text)) tags.push("relationship_or_family_context"); if (/debt|utang|loan/.test(text)) tags.push("debt_pressure"); if (/save|saving|emergency|goal/.test(text)) tags.push("goal_protection"); if (/shop|shopee|lazada|buy|impulse|random/.test(text)) tags.push("impulse_pattern"); return [...new Set(tags)]; }
 
 function MessageText({ text }) { const blocks = normalizeNaturalChatReply(text).split(/\n{2,}/).map((block) => block.trim()).filter(Boolean); return <div className="space-y-3 text-[13px] leading-[1.65] text-slate-100/90">{blocks.map((block, index) => <p key={`${block}-${index}`} className="whitespace-pre-wrap">{block}</p>)}</div>; }
 function QuickChoices({ choices = [], disabled, onSelect }) { if (!choices.length) return null; return <div className="mt-3 flex flex-wrap gap-2 border-t border-white/10 pt-3">{choices.map((choice) => <button key={`${choice.value || choice.label}`} type="button" disabled={disabled} onClick={() => onSelect(choice)} className="rounded-full border border-emerald-200/20 bg-emerald-300/10 px-3 py-1.5 text-[11px] font-bold text-emerald-100 transition active:scale-95 disabled:opacity-45">{choice.label}</button>)}</div>; }
@@ -108,16 +137,18 @@ export default function ClaraAiEnvironmentOverlay({ isActive = false, messages =
   const [talkProfile, setTalkProfile] = useState({ pendingName: "", name: "" });
   const [talkPhase, setTalkPhase] = useState("intro");
   const [profileStepIndex, setProfileStepIndex] = useState(0);
+  const [profileAnswers, setProfileAnswers] = useState({});
+  const [pendingCustomStep, setPendingCustomStep] = useState(null);
   const inputRef = useRef(null);
   const messagesEndRef = useRef(null);
   const visibleMessages = useMemo(() => [...(Array.isArray(messages) ? messages : []), ...localMessages].filter((message) => !hiddenMessage(message)), [messages, localMessages]);
 
-  useEffect(() => { if (!isActive) { setDraft(""); setLocalMessages([]); setIsThinking(false); setPanel(null); setTalkIntroState("not_shown"); setTalkProfile({ pendingName: "", name: "" }); setTalkPhase("intro"); setProfileStepIndex(0); return undefined; } setPanel(null); setTalkIntroState("not_shown"); setTalkProfile({ pendingName: "", name: "" }); setTalkPhase("intro"); setProfileStepIndex(0); setGreeting(pickRandomItem(DEFAULT_CLARA_GREETINGS)); setChatInputPlaceholder(pickRandomItem(CHAT_INPUT_PLACEHOLDERS)); setLocalMessages((current) => current.filter((message) => !hiddenMessage(message))); const timer = window.setTimeout(() => inputRef.current?.focus?.(), 180); return () => window.clearTimeout(timer); }, [isActive]);
+  useEffect(() => { if (!isActive) { setDraft(""); setLocalMessages([]); setIsThinking(false); setPanel(null); setTalkIntroState("not_shown"); setTalkProfile({ pendingName: "", name: "" }); setTalkPhase("intro"); setProfileStepIndex(0); setProfileAnswers({}); setPendingCustomStep(null); return undefined; } setPanel(null); setTalkIntroState("not_shown"); setTalkProfile({ pendingName: "", name: "" }); setTalkPhase("intro"); setProfileStepIndex(0); setProfileAnswers({}); setPendingCustomStep(null); setGreeting(pickRandomItem(DEFAULT_CLARA_GREETINGS)); setChatInputPlaceholder(pickRandomItem(CHAT_INPUT_PLACEHOLDERS)); setLocalMessages((current) => current.filter((message) => !hiddenMessage(message))); const timer = window.setTimeout(() => inputRef.current?.focus?.(), 180); return () => window.clearTimeout(timer); }, [isActive]);
   useEffect(() => { if (!isActive) return undefined; const handleEscape = (event) => event.key === "Escape" && onClose?.(); window.addEventListener("keydown", handleEscape); return () => window.removeEventListener("keydown", handleEscape); }, [isActive, onClose]);
   useEffect(() => { if (isActive) messagesEndRef.current?.scrollIntoView?.({ behavior: "smooth", block: "end" }); }, [isActive, visibleMessages.length, isThinking]);
   if (!isActive) return null;
 
-  const addClaraOnlyMessage = (text, choices = [], source = "local_context") => setLocalMessages((current) => [...current.filter((message) => !hiddenMessage(message)), makeMessage("clara", text, { source, quickChoices: choices })]);
+  const saveProfileAnswer = (step, value, meta = {}) => { if (!step?.id) return; setProfileAnswers((current) => ({ ...current, [step.id]: { id: step.id, level: step.level, question: step.question, value, tags: inferStrategicTags(value, step), updatedAt: new Date().toISOString(), ...meta } })); };
   const addExchange = (userText, claraText, choices = [], source = "local_context") => setLocalMessages((current) => [...current.filter((message) => !hiddenMessage(message)), makeMessage("user", userText), makeMessage("clara", claraText, { source, quickChoices: choices })]);
   const runClara = async ({ prompt, displayText = prompt, action = null }) => {
     const cleanPrompt = String(prompt || "").trim(); const cleanDisplay = String(displayText || cleanPrompt).trim(); if (!cleanPrompt || isThinking) return;
@@ -125,16 +156,17 @@ export default function ClaraAiEnvironmentOverlay({ isActive = false, messages =
     try {
       let reply = ""; let source = "local_fallback"; const directFinanceReply = action?.id === "talk_to_clara_context" ? "" : buildContextualFinanceReply(cleanPrompt, claraAssistantContext);
       if (directFinanceReply) { reply = directFinanceReply; source = "local_finance"; }
-      else if (hasGeminiConfig()) { try { reply = await generateClaraGeminiReply({ message: cleanPrompt, context: claraAssistantContext, mode: action?.id || "ai_environment", conversationHistory: [...visibleMessages, makeMessage("user", cleanDisplay)] }); source = "gemini"; } catch (error) { console.warn("[CLARA AI] Gemini failed, using local fallback", { message: error?.message, status: error?.status, payload: error?.payload }); reply = action?.id === "talk_to_clara_context" ? "Got it. Let’s continue step by step.\n\nWhat else should CLARA understand about you?" : fallbackReply(cleanPrompt, claraAssistantContext); source = action?.id === "talk_to_clara_context" ? "local_context" : "local_fallback"; } }
-      else { reply = action?.id === "talk_to_clara_context" ? "Got it. Let’s continue step by step.\n\nWhat else should CLARA understand about you?" : fallbackReply(cleanPrompt, claraAssistantContext); source = action?.id === "talk_to_clara_context" ? "local_context" : "local_fallback"; }
+      else if (hasGeminiConfig()) { try { reply = await generateClaraGeminiReply({ message: cleanPrompt, context: claraAssistantContext, mode: action?.id || "ai_environment", conversationHistory: [...visibleMessages, makeMessage("user", cleanDisplay)] }); source = "gemini"; } catch (error) { console.warn("[CLARA AI] Gemini failed, using local fallback", { message: error?.message, status: error?.status, payload: error?.payload }); reply = action?.id === "talk_to_clara_context" ? "Got it. I’ll keep that in mind for this session.\n\nLet’s continue." : fallbackReply(cleanPrompt, claraAssistantContext); source = action?.id === "talk_to_clara_context" ? "local_context" : "local_fallback"; } }
+      else { reply = action?.id === "talk_to_clara_context" ? "Got it. I’ll keep that in mind for this session.\n\nLet’s continue." : fallbackReply(cleanPrompt, claraAssistantContext); source = action?.id === "talk_to_clara_context" ? "local_context" : "local_fallback"; }
       setLocalMessages((current) => current.map((message) => message.id !== pending.id ? message : { ...message, text: normalizeNaturalChatReply(reply), source, ...(action ? { smartAction: action } : {}) }));
     } catch (error) { console.error("[CLARA AI] Fatal assistant modal error", error); setLocalMessages((current) => current.map((message) => message.id !== pending.id ? message : { ...message, text: fallbackReply(cleanPrompt, claraAssistantContext), source: "local_fallback", ...(action ? { smartAction: action } : {}) })); }
     finally { setIsThinking(false); }
   };
-  const stepChoices = (step) => (step?.choices || []).map((choice) => ({ label: choice, value: choice, kind: "profile_answer" }));
-  const askStep = (index, userText = "Continue") => { const step = PROFILE_STEPS[index]; if (!step) { addExchange(userText, "Thanks. I have enough starter context for now. You can keep chatting naturally, or save this profile context later when the save system is connected.", [{ label: "Continue chatting", value: "continue_chat", kind: "continue_chat" }]); setTalkPhase("free_chat"); return; } setProfileStepIndex(index); addExchange(userText, profileQuestionText(step, talkProfile.name), stepChoices(step)); };
-  const handleProfileAnswer = (answer) => { const nextIndex = profileStepIndex + 1; askStep(nextIndex, answer); };
-  const startTalkFlow = () => { setPanel("talk"); setTalkIntroState("awaiting_language"); setTalkProfile({ pendingName: "", name: "" }); setTalkPhase("intro"); setProfileStepIndex(0); setChatInputPlaceholder(pickRandomItem(CHAT_INPUT_PLACEHOLDERS)); setLocalMessages([makeMessage("clara", TALK_TO_CLARA_LANGUAGE_PROMPT, { source: "local_context", quickChoices: [{ label: "English", value: "English", kind: "language" }, { label: "Tagalog", value: "Tagalog", kind: "language" }] })]); };
+  const stepChoices = (step) => [...(step?.choices || []).map((choice) => ({ label: choice, value: choice, kind: "profile_answer" })), { label: NONE_CHOICE_LABEL, value: NONE_CHOICE_LABEL, kind: "profile_none" }];
+  const askStep = (index, userText = "Continue") => { const step = PROFILE_STEPS[index]; if (!step) { const answeredCount = Object.keys(profileAnswers).length; addExchange(userText, `Thanks. I captured ${answeredCount} starter memory points for this session.\n\nPermanent save is the next system we’ll connect, but this guided flow now covers the full CLARA Behavioral Intelligence Framework.`, [{ label: "Continue chatting", value: "continue_chat", kind: "continue_chat" }, { label: "Review captured context", value: "review_context", kind: "review_context" }]); setTalkPhase("free_chat"); return; } setProfileStepIndex(index); addExchange(userText, profileQuestionText(step, talkProfile.name), stepChoices(step)); };
+  const handleProfileAnswer = (answer) => { const step = PROFILE_STEPS[profileStepIndex]; saveProfileAnswer(step, answer, { source: "guided_choice" }); askStep(profileStepIndex + 1, answer); };
+  const handleCustomAnswer = async (answer) => { const step = pendingCustomStep || PROFILE_STEPS[profileStepIndex]; if (!step) return; saveProfileAnswer(step, answer, { source: "custom_ai_interpreted", aiAnalyzed: true }); setPendingCustomStep(null); setTalkPhase("behavioral_audit"); const nextStep = PROFILE_STEPS[profileStepIndex + 1]; const pending = makeMessage("clara", "Analyzing that context...", { source: "system" }); setIsThinking(true); setLocalMessages((current) => [...current.filter((message) => !hiddenMessage(message)), makeMessage("user", answer), pending]); try { let reply = `Got it. That answer is more specific, so I’ll treat it as your own pattern instead of forcing it into the buttons.`; if (hasGeminiConfig()) { reply = await generateClaraGeminiReply({ message: `CLARA is analyzing a custom behavioral profile answer.\nFramework level: ${step.level}\nCategory: ${step.id}\nQuestion: ${step.question}\nUser answer: ${answer}\n\nReply in 1-2 short sentences. Acknowledge the pattern and say CLARA will use it as custom context. Do not mention database, JSON, or internal tags.\n\n${PRESENTATION_RULES}`, context: claraAssistantContext, mode: "talk_to_clara_custom_profile", conversationHistory: visibleMessages }); } const nextText = nextStep ? `${normalizeNaturalChatReply(reply)}\n\n${profileQuestionText(nextStep, talkProfile.name)}` : `${normalizeNaturalChatReply(reply)}\n\nThanks. I have enough starter context for now.`; setLocalMessages((current) => current.map((message) => message.id !== pending.id ? message : { ...message, text: nextText, source: hasGeminiConfig() ? "gemini" : "local_context", quickChoices: nextStep ? stepChoices(nextStep) : [{ label: "Continue chatting", value: "continue_chat", kind: "continue_chat" }, { label: "Review captured context", value: "review_context", kind: "review_context" }] })); if (nextStep) setProfileStepIndex(profileStepIndex + 1); else setTalkPhase("free_chat"); } catch (error) { console.warn("[CLARA AI] Custom profile analysis failed", error); const nextText = nextStep ? `Got it. I’ll keep that as custom context.\n\n${profileQuestionText(nextStep, talkProfile.name)}` : "Got it. I’ll keep that as custom context."; setLocalMessages((current) => current.map((message) => message.id !== pending.id ? message : { ...message, text: nextText, source: "local_context", quickChoices: nextStep ? stepChoices(nextStep) : [] })); if (nextStep) setProfileStepIndex(profileStepIndex + 1); } finally { setIsThinking(false); } };
+  const startTalkFlow = () => { setPanel("talk"); setTalkIntroState("awaiting_language"); setTalkProfile({ pendingName: "", name: "" }); setTalkPhase("intro"); setProfileStepIndex(0); setProfileAnswers({}); setPendingCustomStep(null); setChatInputPlaceholder(pickRandomItem(CHAT_INPUT_PLACEHOLDERS)); setLocalMessages([makeMessage("clara", TALK_TO_CLARA_LANGUAGE_PROMPT, { source: "local_context", quickChoices: [{ label: "English", value: "English", kind: "language" }, { label: "Tagalog", value: "Tagalog", kind: "language" }] })]); };
   const handleQuickChoice = (choice) => {
     const label = choice?.label || choice?.value || "Continue";
     if (choice?.kind === "language") { const intro = isTagalogChoice(label) ? TALK_TO_CLARA_INTRO_TL : TALK_TO_CLARA_INTRO_EN; setTalkIntroState("awaiting_continue_or_question"); addExchange(label, `${intro}\n\nCan we proceed to the next part?`, [{ label: "Continue", value: "Continue", kind: "continue_intro" }, { label: "Ask question", value: "Ask question", kind: "ask_intro_question" }]); return; }
@@ -143,12 +175,15 @@ export default function ClaraAiEnvironmentOverlay({ isActive = false, messages =
     if (choice?.kind === "confirm_name_yes") { const name = talkProfile.pendingName || "there"; setTalkProfile({ pendingName: name, name }); setTalkPhase("behavioral_audit"); setProfileStepIndex(0); const firstStep = PROFILE_STEPS[0]; addExchange(label, profileQuestionText(firstStep, name), stepChoices(firstStep)); return; }
     if (choice?.kind === "change_name") { setTalkProfile({ pendingName: "", name: "" }); setTalkPhase("ask_name"); addExchange(label, "No problem. What name would you prefer me to use?"); return; }
     if (choice?.kind === "profile_answer") { handleProfileAnswer(label); return; }
-    if (choice?.kind === "continue_chat") { addExchange(label, "Sure. You can now talk to me naturally about anything affecting your spending."); setTalkPhase("free_chat"); }
+    if (choice?.kind === "profile_none") { const step = PROFILE_STEPS[profileStepIndex]; setPendingCustomStep(step); setTalkPhase("awaiting_custom_profile"); addExchange(label, `No problem. Can you tell me specifically your answer for this?\n\n${step?.question || "What should CLARA understand?"}\n\nI’ll let AI interpret it and keep it as custom context for this session.`); return; }
+    if (choice?.kind === "continue_chat") { addExchange(label, "Sure. You can now talk to me naturally about anything affecting your spending."); setTalkPhase("free_chat"); return; }
+    if (choice?.kind === "review_context") { const summary = Object.values(profileAnswers).slice(-12).map((item) => `• ${item.id}: ${item.value}`).join("\n") || "No captured context yet."; addExchange(label, `Here’s the latest captured context from this session:\n\n${summary}\n\nPermanent saving comes next when we connect the memory store.`, [{ label: "Continue chatting", value: "continue_chat", kind: "continue_chat" }]); }
   };
   const submitDraft = (event) => {
     event.preventDefault(); const text = draft.trim(); if (!text) return; const isTalkToClaraMode = panel === "talk";
-    if (isTalkToClaraMode && talkIntroState === "awaiting_language") { if (isEnglishChoice(text) || isTagalogChoice(text)) { handleQuickChoice({ label: text, value: text, kind: "language" }); } else addExchange(text, "Choose one first so I can explain clearly.", [{ label: "English", value: "English", kind: "language" }, { label: "Tagalog", value: "Tagalog", kind: "language" }]); setDraft(""); return; }
-    if (isTalkToClaraMode && talkIntroState === "awaiting_continue_or_question") { if (isProceedChoice(text)) { handleQuickChoice({ label: "Continue", value: "Continue", kind: "continue_intro" }); } else { runClara({ prompt: buildTalkIntroQuestionPrompt(text), displayText: text, action: TALK_TO_CLARA_CONTEXT_ACTION }); } setDraft(""); return; }
+    if (isTalkToClaraMode && talkPhase === "awaiting_custom_profile") { handleCustomAnswer(text); setDraft(""); return; }
+    if (isTalkToClaraMode && talkIntroState === "awaiting_language") { if (isEnglishChoice(text) || isTagalogChoice(text)) handleQuickChoice({ label: text, value: text, kind: "language" }); else addExchange(text, "Choose one first so I can explain clearly.", [{ label: "English", value: "English", kind: "language" }, { label: "Tagalog", value: "Tagalog", kind: "language" }]); setDraft(""); return; }
+    if (isTalkToClaraMode && talkIntroState === "awaiting_continue_or_question") { if (isProceedChoice(text)) handleQuickChoice({ label: "Continue", value: "Continue", kind: "continue_intro" }); else runClara({ prompt: buildTalkIntroQuestionPrompt(text), displayText: text, action: TALK_TO_CLARA_CONTEXT_ACTION }); setDraft(""); return; }
     if (isTalkToClaraMode && talkPhase === "ask_name") { const name = extractLikelyName(text); if (!name || isQuestionLike(text) || looksLikeUrgentIssue(text)) { runClara({ prompt: `CLARA is trying to learn what to call the user. The user said: ${text}\n\nIf this is a question or issue, answer naturally. Then gently ask what CLARA should call them. Keep it short.`, displayText: text, action: TALK_TO_CLARA_CONTEXT_ACTION }); setDraft(""); return; } setTalkProfile({ pendingName: name, name: "" }); setTalkPhase("confirm_name"); addExchange(text, `Got it, ${name}. Should I call you ${name} from now on?`, [{ label: "Yes", value: "Yes", kind: "confirm_name_yes" }, { label: "Change name", value: "Change name", kind: "change_name" }]); setDraft(""); return; }
     if (isTalkToClaraMode && talkPhase === "confirm_name") { if (isProceedChoice(text)) handleQuickChoice({ label: "Yes", value: "Yes", kind: "confirm_name_yes" }); else if (isNoChoice(text)) handleQuickChoice({ label: "Change name", value: "Change name", kind: "change_name" }); else { const newName = extractLikelyName(text); if (newName) { setTalkProfile({ pendingName: newName, name: "" }); addExchange(text, `Got it, ${newName}. Should I call you ${newName} from now on?`, [{ label: "Yes", value: "Yes", kind: "confirm_name_yes" }, { label: "Change name", value: "Change name", kind: "change_name" }]); } } setDraft(""); return; }
     if (isTalkToClaraMode && talkPhase === "behavioral_audit") { handleProfileAnswer(text); setDraft(""); return; }
