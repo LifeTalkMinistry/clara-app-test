@@ -63,29 +63,29 @@ const TALK_TO_CLARA_CONTEXT_ACTION = {
   chips: [],
 };
 
-const TALK_TO_CLARA_INTRO_EN = `Hi 🙂 I’m CLARA. Before we continue, I want to quickly explain what this space is for.
+const TALK_TO_CLARA_LANGUAGE_PROMPT = `Hi 👩 I’m CLARA. Before we continue, I want to quickly explain what this space is for.
 
-Talk to CLARA is where you can share the real situations behind your spending — your habits, routines, pressure, goals, emotions, experiences, or anything happening in your life that may affect your financial decisions.
+Would you like me to explain it in English or Tagalog?`;
 
-Why does this matter? Because good financial guidance is not only about numbers. Your environment, personality, stress, responsibilities, and daily experiences affect the way you spend money.
+const TALK_TO_CLARA_INTRO_EN = `Talk to CLARA is where you can share the real situations behind your spending — your habits, routines, pressure, goals, emotions, experiences, or anything happening in your life that may affect your financial decisions.
 
-The more I understand your real-life situation, the more personal and accurate my future guidance becomes. You can share slowly over time. No pressure.
+The more I understand your real-life situation, the more personal and accurate my future guidance becomes.
 
-If you understand how this feature works now, type "Yes".
-Or if you want the explanation in Tagalog, type "Tagalog".`;
+You can share slowly over time. No pressure.
 
-const TALK_TO_CLARA_INTRO_TL = `Hi 🙂 Ako si CLARA. Bago tayo magpatuloy, gusto ko munang ipaliwanag kung para saan ang space na ito.
+Does that make sense now? Type "Yes" to continue.`;
 
-Ang Talk to CLARA ay lugar kung saan puwede mong ikuwento ang totoong nangyayari sa buhay mo na maaaring makaapekto sa spending mo — habits, routines, pressure, goals, emotions, experiences, o mga sitwasyon sa araw-araw.
+const TALK_TO_CLARA_INTRO_TL = `Ang Talk to CLARA ay space kung saan puwede mong ikuwento ang totoong nangyayari sa buhay mo na maaaring makaapekto sa spending mo — habits, routines, pressure, goals, emotions, experiences, o daily situations.
 
-Bakit mahalaga ito? Kasi ang magandang financial advice ay hindi lang tungkol sa numbers. Apektado ng environment, personality, stress, responsibilities, at daily experiences mo ang paraan ng paggastos mo.
+Habang mas naiintindihan ko ang real-life situation mo, mas magiging personal at accurate ang future guidance ko.
 
-Habang mas naiintindihan ko ang real-life situation mo, mas magiging personal at accurate ang future guidance ko. Puwede mong i-share ito paunti-unti. Walang pressure.
+Puwede mong i-share paunti-unti. Walang pressure.
 
-Kung naiintindihan mo na kung paano gumagana ang feature na ito, type "Yes".`;
+Naiintindihan mo na ba? Type "Yes" para magpatuloy.`;
 
 const TALK_TO_CLARA_ACKNOWLEDGED_REPLY = "Great 🙂 Let’s start simple — what should I call you?";
-const TALK_TO_CLARA_REMINDER_REPLY = "Before we continue, I just want to make sure this space is clear. Type \"Yes\" if you understand, or type \"Tagalog\" if you want the explanation in Tagalog.";
+const TALK_TO_CLARA_LANGUAGE_REMINDER_REPLY = "Please type \"English\" or \"Tagalog\" first, so I can explain it clearly.";
+const TALK_TO_CLARA_ACK_REMINDER_REPLY = "Before we continue, please type \"Yes\" if the explanation makes sense. You can also type \"English\" or \"Tagalog\" if you want me to explain it again.";
 
 const PANEL_COPY = {
   talk: {
@@ -157,6 +157,18 @@ function normalizeChoice(value = "") {
     .replace(/[^a-z\s]/g, " ")
     .replace(/\s+/g, " ")
     .trim();
+}
+
+function isEnglishChoice(choice = "") {
+  return ["english", "eng", "en"].includes(choice);
+}
+
+function isTagalogChoice(choice = "") {
+  return ["tagalog", "tl", "filipino", "taglish"].includes(choice);
+}
+
+function isYesChoice(choice = "") {
+  return ["yes", "y", "yeah", "yep", "oo", "opo", "sige", "okay", "ok"].includes(choice);
 }
 
 function buildTalkToClaraPrompt(userText = "") {
@@ -445,16 +457,32 @@ export default function ClaraAiEnvironmentOverlay({ isActive = false, messages =
 
     if (isTalkToClaraMode && talkIntroState !== "confirmed") {
       const choice = normalizeChoice(text);
-      let reply = TALK_TO_CLARA_INTRO_EN;
-      let nextState = "awaiting_ack";
+      let reply = TALK_TO_CLARA_LANGUAGE_PROMPT;
+      let nextState = "awaiting_language";
 
-      if (choice === "tagalog") {
-        reply = TALK_TO_CLARA_INTRO_TL;
-      } else if (choice === "yes" && talkIntroState === "awaiting_ack") {
-        reply = TALK_TO_CLARA_ACKNOWLEDGED_REPLY;
-        nextState = "confirmed";
+      if (talkIntroState === "awaiting_language") {
+        if (isEnglishChoice(choice)) {
+          reply = TALK_TO_CLARA_INTRO_EN;
+          nextState = "awaiting_ack";
+        } else if (isTagalogChoice(choice)) {
+          reply = TALK_TO_CLARA_INTRO_TL;
+          nextState = "awaiting_ack";
+        } else {
+          reply = TALK_TO_CLARA_LANGUAGE_REMINDER_REPLY;
+        }
       } else if (talkIntroState === "awaiting_ack") {
-        reply = TALK_TO_CLARA_REMINDER_REPLY;
+        if (isYesChoice(choice)) {
+          reply = TALK_TO_CLARA_ACKNOWLEDGED_REPLY;
+          nextState = "confirmed";
+        } else if (isEnglishChoice(choice)) {
+          reply = TALK_TO_CLARA_INTRO_EN;
+          nextState = "awaiting_ack";
+        } else if (isTagalogChoice(choice)) {
+          reply = TALK_TO_CLARA_INTRO_TL;
+          nextState = "awaiting_ack";
+        } else {
+          reply = TALK_TO_CLARA_ACK_REMINDER_REPLY;
+        }
       }
 
       pushLocalClaraReply({ userText: text, reply, action: TALK_TO_CLARA_CONTEXT_ACTION });
