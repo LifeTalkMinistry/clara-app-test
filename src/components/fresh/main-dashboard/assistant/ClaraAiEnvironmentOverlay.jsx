@@ -8,6 +8,41 @@ const CLARA_AI_BRAIN_VERSION = "connected-brain-v9-context-wallets";
 const PRESENTATION_RULES = "Reply like a normal chat message. Plain text only. No markdown. Do not use headings, labels, section titles, bullets, tables, or report format. Give one natural conversational reply in 1-3 short sentences.";
 const SHOW_DEBUG_SOURCE = import.meta.env.DEV || import.meta.env.VITE_CLARA_DEBUG_AI === "true";
 
+const DEFAULT_CLARA_GREETINGS = [
+  {
+    eyebrow: "ASK BEFORE YOU SPEND",
+    heading: "Hi, any spending concern today?",
+    body: [
+      "Tell CLARA what you are thinking of buying, changing, or checking before you act.",
+      "You can also choose a guided path below if you want more structure.",
+    ],
+  },
+  {
+    eyebrow: "CLARA IS READY",
+    heading: "What money situation are we figuring out?",
+    body: [
+      "Start with what is on your mind: a purchase, a budget concern, a savings goal, or a money pressure today.",
+      "CLARA can talk naturally or guide you through a specific action when you choose one.",
+    ],
+  },
+  {
+    eyebrow: "BEFORE YOU ACT",
+    heading: "Anything tempting your wallet today?",
+    body: [
+      "Share the item, amount, reason, or situation so CLARA can help you think clearly first.",
+      "Choose a category below only when you want the screen to become more specific.",
+    ],
+  },
+  {
+    eyebrow: "MONEY CHECK-IN",
+    heading: "Need help thinking through a decision?",
+    body: [
+      "You can ask freely, or select Smart Actions and Core Features when you need a more guided check.",
+      "No rush. CLARA is here to help you pause before spending.",
+    ],
+  },
+];
+
 const PANEL_COPY = {
   talk: {
     label: "Talk to CLARA",
@@ -38,13 +73,6 @@ const PANEL_COPY = {
   },
 };
 
-const TALK_TO_CLARA_GUIDES = [
-  { id: "natural-chat", title: "Natural Chat", description: "Type like you normally talk. CLARA can help you think through a money decision." },
-  { id: "decision-context", title: "Context First", description: "Share the item, price, reason, wallet, or pressure behind the decision." },
-  { id: "behavior-guidance", title: "Behavior Guidance", description: "CLARA connects money decisions with habits, emotions, goals, and timing." },
-  { id: "before-you-act", title: "Before You Act", description: "Use this space before buying, changing a budget, or making a risky move." },
-];
-
 const CORE_FEATURES = [
   { id: "wallets", title: "Wallets", description: "Visible money and wallet pressure.", prompt: "Check my wallet health and tell me what money is safe to use today." },
   { id: "budget", title: "Budget", description: "Budget pressure and remaining room.", prompt: "Check my budget health and tell me what is pressured or still safe." },
@@ -63,6 +91,10 @@ const SMART_ACTIONS = [
   { id: "monthly-review", title: "Monthly Money Review", shortTitle: "Monthly Review", description: "Review wins, leaks, and next focus.", prompt: "Run my Monthly Money Review. Summarize what went well, what hurt my budget, biggest risk, and next focus.", chips: ["Quick", "Deep", "Next focus"] },
   { id: "next-move", title: "Next Best Move", shortTitle: "Next Move", description: "One clear action for today.", prompt: "Give me my Next Best Move based on my current money situation.", chips: ["Spending", "Saving", "Budgeting"] },
 ];
+
+function pickDefaultGreeting() {
+  return DEFAULT_CLARA_GREETINGS[Math.floor(Math.random() * DEFAULT_CLARA_GREETINGS.length)] || DEFAULT_CLARA_GREETINGS[0];
+}
 
 function makeMessage(role, text, meta = {}) {
   return { id: `${role}-${Date.now()}-${Math.random().toString(36).slice(2)}`, role, text, ...meta };
@@ -159,17 +191,8 @@ function OptionCard({ item, disabled, onClick }) {
   );
 }
 
-function TalkGuideCard({ item }) {
-  return (
-    <div className="min-h-[82px] rounded-[22px] border border-white/10 bg-white/[0.045] p-3 text-left shadow-[0_12px_26px_rgba(0,0,0,0.12)]">
-      <p className="text-[12px] font-black leading-tight text-white">{item.title}</p>
-      <p className="mt-1.5 line-clamp-3 text-[10.5px] leading-4 text-slate-300/66">{item.description}</p>
-    </div>
-  );
-}
-
-function PanelInstructionBoard({ panel, onClose }) {
-  const copy = PANEL_COPY[panel] || PANEL_COPY.talk;
+function PanelInstructionBoard({ panel, greeting, onClose }) {
+  const copy = panel ? PANEL_COPY[panel] : greeting;
 
   return (
     <div className="relative rounded-[30px] border border-white/10 bg-white/[0.045] px-5 pb-5 pt-8 text-center shadow-[inset_0_1px_0_rgba(255,255,255,0.08)] backdrop-blur-xl transition-all duration-300">
@@ -197,7 +220,8 @@ export default function ClaraAiEnvironmentOverlay({ isActive = false, messages =
   const [draft, setDraft] = useState("");
   const [localMessages, setLocalMessages] = useState([]);
   const [isThinking, setIsThinking] = useState(false);
-  const [panel, setPanel] = useState("talk");
+  const [panel, setPanel] = useState(null);
+  const [greeting, setGreeting] = useState(() => pickDefaultGreeting());
   const inputRef = useRef(null);
   const messagesEndRef = useRef(null);
 
@@ -211,9 +235,11 @@ export default function ClaraAiEnvironmentOverlay({ isActive = false, messages =
       setDraft("");
       setLocalMessages([]);
       setIsThinking(false);
-      setPanel("talk");
+      setPanel(null);
       return undefined;
     }
+    setPanel(null);
+    setGreeting(pickDefaultGreeting());
     setLocalMessages((current) => current.filter((message) => !hiddenMessage(message)));
     const timer = window.setTimeout(() => inputRef.current?.focus?.(), 180);
     return () => window.clearTimeout(timer);
@@ -350,7 +376,7 @@ export default function ClaraAiEnvironmentOverlay({ isActive = false, messages =
           </div>
         ) : (
           <div className="flex min-h-full flex-col justify-center gap-4 pb-2">
-            <PanelInstructionBoard panel={panel} onClose={onClose} />
+            <PanelInstructionBoard panel={panel} greeting={greeting} onClose={onClose} />
 
             <div className="rounded-[26px] border border-white/10 bg-white/[0.035] p-3 shadow-[inset_0_1px_0_rgba(255,255,255,0.06)] backdrop-blur-xl">
               <div className="grid grid-cols-3 gap-2">
@@ -359,7 +385,6 @@ export default function ClaraAiEnvironmentOverlay({ isActive = false, messages =
                 <PanelButton active={panel === "core"} onClick={() => setPanel("core")}>Core Features</PanelButton>
               </div>
 
-              {panel === "talk" ? <div className="mt-3 grid grid-cols-2 gap-2">{TALK_TO_CLARA_GUIDES.map((item) => <TalkGuideCard key={item.id} item={item} />)}</div> : null}
               {panel === "smart" ? <div className="mt-3 grid grid-cols-2 gap-2">{SMART_ACTIONS.map((action) => <OptionCard key={action.id} item={action} disabled={isThinking} onClick={() => runClara({ prompt: action.prompt, displayText: action.title, action })} />)}</div> : null}
               {panel === "core" ? <div className="mt-3 grid grid-cols-2 gap-2">{CORE_FEATURES.map((feature) => <OptionCard key={feature.id} item={feature} disabled={isThinking} onClick={() => runClara({ prompt: feature.prompt, displayText: feature.title, action: { ...feature, chips: ["Can I buy this?", "Next move", "Check risk"] } })} />)}</div> : null}
             </div>
