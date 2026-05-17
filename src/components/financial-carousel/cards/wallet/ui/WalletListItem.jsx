@@ -1,53 +1,82 @@
 import { useState } from 'react';
-import { Edit3, MoreHorizontal, ArrowUpDown, Trash2, Wallet } from 'lucide-react';
+import {
+  ArrowDown,
+  ArrowUp,
+  Edit3,
+  MoreHorizontal,
+  Plus,
+  Repeat2,
+  Trash2,
+  Wallet,
+} from 'lucide-react';
 import { fmt } from '@/components/financial-carousel/cards/wallet/logic/useWalletCardLogic';
 
 const cardStyle =
-  'relative overflow-hidden rounded-[28px] border border-[#d9d39f]/45 bg-[#4b493f]/92 px-4 py-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.06)] backdrop-blur-xl';
+  'relative rounded-[24px] border border-white/[0.08] bg-black/[0.13] px-3.5 py-3.5 shadow-[inset_0_1px_0_rgba(255,255,255,0.045),0_10px_26px_rgba(0,0,0,0.16)] backdrop-blur-xl';
 
 const menuButton =
-  'flex h-9 w-9 items-center justify-center rounded-full border border-[#d9d39f]/18 bg-white/[0.04] text-[#ece6b2] transition hover:bg-white/[0.08]';
+  'relative z-[120] flex h-8 w-8 items-center justify-center rounded-full border border-white/18 bg-white/[0.055] text-white/78 transition hover:border-white/28 hover:bg-white/[0.10] hover:text-white disabled:opacity-50';
 
 const actionButton =
-  'flex w-full items-center gap-2 rounded-2xl px-3 py-2 text-left text-sm font-semibold text-white/82 transition hover:bg-white/[0.08]';
+  'flex w-full items-center gap-2 rounded-2xl px-3 py-2 text-left text-xs font-semibold text-white/82 transition hover:bg-white/[0.08]';
+
+function stopWalletGesture(event) {
+  event?.stopPropagation?.();
+  event?.nativeEvent?.stopImmediatePropagation?.();
+}
+
+function stopWalletAction(event) {
+  event?.preventDefault?.();
+  event?.stopPropagation?.();
+  event?.nativeEvent?.stopImmediatePropagation?.();
+}
 
 export default function WalletListItem({
   wallet,
   index,
   financeActionLoading = false,
   openEditWallet,
+  onAddMoney,
+  onTransferMoney,
   onMoveWallet,
   onDeleteWallet,
 }) {
   const [showMenu, setShowMenu] = useState(false);
+  const walletId = wallet?.id ?? wallet?.wallet_id ?? wallet?.local_id;
+
+  const handleAction = (event, action) => {
+    stopWalletAction(event);
+    setShowMenu(false);
+
+    if (financeActionLoading) return;
+
+    action?.();
+  };
 
   return (
     <div
-      key={wallet.id || `${wallet.name}-${index}`}
-      className={cardStyle}
+      key={walletId || wallet?.name || `wallet-${index}`}
+      className={`${cardStyle} ${showMenu ? 'z-[90]' : 'z-0'}`}
     >
-      <div className='absolute inset-0 bg-[linear-gradient(180deg,rgba(255,255,255,0.03),transparent_30%,rgba(0,0,0,0.08)_100%)]' />
+      <div className='pointer-events-none absolute inset-0 rounded-[inherit] bg-[linear-gradient(180deg,rgba(255,255,255,0.025),transparent_36%,rgba(0,0,0,0.10)_100%)]' />
 
       <div className='relative flex items-center justify-between gap-3'>
         <div className='flex min-w-0 items-center gap-3'>
-          <div className='flex h-[74px] w-[74px] shrink-0 items-center justify-center rounded-[22px] border border-[#d9d39f]/40 bg-[#f1eedf] shadow-[inset_0_1px_0_rgba(255,255,255,0.7)]'>
-            <Wallet className='h-10 w-10 text-slate-500' />
+          <div className='flex h-[52px] w-[52px] shrink-0 items-center justify-center rounded-[18px] border border-white/12 bg-[#f3f0df] shadow-[inset_0_1px_0_rgba(255,255,255,0.72),0_8px_20px_rgba(0,0,0,0.16)]'>
+            <Wallet className='h-7 w-7 text-slate-500' />
           </div>
 
           <div className='min-w-0'>
-            <p className='truncate text-[15px] font-bold tracking-[-0.02em] text-[#f6efb8]'>
+            <p className='truncate text-[14px] font-black tracking-[-0.02em] text-white/90'>
               {wallet.name || 'Wallet'}
             </p>
 
-            <div className='mt-1 flex items-center gap-2'>
-              <span className='text-[14px] font-bold text-[#f6efb8]'>
-                Balance:
-              </span>
-
-              <span className='text-[16px] font-black tracking-[-0.03em] text-[#7ce08e]'>
+            <p className='mt-1 text-[12px] font-bold leading-none text-white/58'>
+              Balance:{' '}
+              <span className='text-[14px] font-black tracking-[-0.025em] text-emerald-200'>
                 {fmt(wallet.balance || 0)}
               </span>
-            </div>
+            </p>
           </div>
         </div>
 
@@ -55,50 +84,85 @@ export default function WalletListItem({
           <button
             type='button'
             disabled={financeActionLoading}
-            onClick={() => setShowMenu((prev) => !prev)}
+            onPointerDownCapture={stopWalletGesture}
+            onMouseDownCapture={stopWalletGesture}
+            onTouchStartCapture={stopWalletGesture}
+            onClick={(event) => {
+              stopWalletAction(event);
+              setShowMenu((prev) => !prev);
+            }}
             className={menuButton}
+            aria-expanded={showMenu}
             aria-label='Wallet options'
           >
-            <MoreHorizontal className='h-5 w-5' />
+            <MoreHorizontal className='h-4.5 w-4.5' />
           </button>
 
           {showMenu ? (
-            <div className='absolute right-0 top-11 z-20 w-52 rounded-[24px] border border-white/10 bg-[#22211d]/96 p-2 shadow-[0_18px_40px_rgba(0,0,0,0.45)] backdrop-blur-2xl'>
+            <div
+              className='absolute right-0 top-10 z-[140] w-48 rounded-[22px] border border-white/12 bg-[#0b1326]/96 p-1.5 shadow-[0_18px_44px_rgba(0,0,0,0.48)] backdrop-blur-2xl'
+              onPointerDownCapture={stopWalletGesture}
+              onMouseDownCapture={stopWalletGesture}
+              onTouchStartCapture={stopWalletGesture}
+            >
               <button
                 type='button'
-                onClick={(event) => {
-                  event.preventDefault();
-                  event.stopPropagation();
-                  setShowMenu(false);
-                  openEditWallet(wallet);
-                }}
+                onClick={(event) => handleAction(event, () => openEditWallet?.(wallet))}
                 className={actionButton}
               >
-                <Edit3 className='h-4 w-4 text-cyan-200' />
+                <Edit3 className='h-3.5 w-3.5 text-cyan-200' />
                 Edit / Rename
               </button>
 
               <button
                 type='button'
-                onClick={() => {
-                  setShowMenu(false);
-                  onMoveWallet?.(wallet, 'up');
-                }}
+                onClick={(event) => handleAction(event, () => onAddMoney?.(wallet))}
                 className={actionButton}
               >
-                <ArrowUpDown className='h-4 w-4 text-amber-200' />
-                Move Priority
+                <Plus className='h-3.5 w-3.5 text-emerald-200' />
+                Add Money
               </button>
 
               <button
                 type='button'
-                onClick={() => {
-                  setShowMenu(false);
-                  onDeleteWallet?.(wallet);
-                }}
-                className='flex w-full items-center gap-2 rounded-2xl px-3 py-2 text-left text-sm font-semibold text-rose-200 transition hover:bg-rose-500/10'
+                onClick={(event) => handleAction(event, () => onTransferMoney?.(wallet))}
+                className={actionButton}
               >
-                <Trash2 className='h-4 w-4' />
+                <Repeat2 className='h-3.5 w-3.5 text-sky-200' />
+                Transfer
+              </button>
+
+              <div className='my-1 h-px bg-white/8' />
+
+              <button
+                type='button'
+                disabled={!walletId}
+                onClick={(event) => handleAction(event, () => onMoveWallet?.(walletId, -1))}
+                className={actionButton}
+              >
+                <ArrowUp className='h-3.5 w-3.5 text-amber-200' />
+                Move Up
+              </button>
+
+              <button
+                type='button'
+                disabled={!walletId}
+                onClick={(event) => handleAction(event, () => onMoveWallet?.(walletId, 1))}
+                className={actionButton}
+              >
+                <ArrowDown className='h-3.5 w-3.5 text-amber-200' />
+                Move Down
+              </button>
+
+              <div className='my-1 h-px bg-white/8' />
+
+              <button
+                type='button'
+                disabled={!walletId}
+                onClick={(event) => handleAction(event, () => onDeleteWallet?.(walletId))}
+                className='flex w-full items-center gap-2 rounded-2xl px-3 py-2 text-left text-xs font-semibold text-rose-200 transition hover:bg-rose-500/10 disabled:opacity-50'
+              >
+                <Trash2 className='h-3.5 w-3.5' />
                 Delete Wallet
               </button>
             </div>
