@@ -1,11 +1,12 @@
-import { useCallback } from "react";
+const PHP_CURRENCY_FORMATTER = new Intl.NumberFormat("en-PH", {
+  style: "currency",
+  currency: "PHP",
+  minimumFractionDigits: 0,
+});
+
+export const formatPhpCurrency = (value) =>
+  PHP_CURRENCY_FORMATTER.format(Number(value || 0));
 
 export default function usePhpCurrencyFormatter() {
-  return useCallback((value) => {
-    return new Intl.NumberFormat("en-PH", {
-      style: "currency",
-      currency: "PHP",
-      minimumFractionDigits: 0,
-    }).format(Number(value || 0));
-  }, []);
+  return formatPhpCurrency;
 }
