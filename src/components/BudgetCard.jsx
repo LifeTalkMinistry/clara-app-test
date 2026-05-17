@@ -44,6 +44,7 @@ export default function BudgetCard({
     remainingAmountColor,
     monthKey,
     badgeLabel,
+    budgetPace,
   } = useBudgetCardLogic({
     activeBudget,
     budgetCategories,
@@ -97,6 +98,7 @@ export default function BudgetCard({
         remainingAmountColor={remainingAmountColor}
         monthKey={monthKey}
         badgeLabel={badgeLabel}
+        budgetPace={budgetPace}
         openBudgetModal={openBudgetPlanPage}
       />
     </FinanceCardShell>
