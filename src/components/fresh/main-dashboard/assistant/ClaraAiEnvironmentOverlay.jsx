@@ -43,6 +43,17 @@ const DEFAULT_CLARA_GREETINGS = [
   },
 ];
 
+const CHAT_INPUT_PLACEHOLDERS = [
+  "Tell CLARA what’s happening today...",
+  "Share what’s affecting your spending...",
+  "Tell CLARA about your current situation...",
+  "What’s been going on lately?",
+  "Share a habit, feeling, or concern...",
+  "Tell CLARA before you decide...",
+  "What should CLARA understand about you?",
+  "Share anything CLARA should know...",
+];
+
 const PANEL_COPY = {
   talk: {
     label: "Talk to CLARA",
@@ -92,8 +103,16 @@ const SMART_ACTIONS = [
   { id: "next-move", title: "Next Best Move", shortTitle: "Next Move", description: "One clear action for today.", prompt: "Give me my Next Best Move based on my current money situation.", chips: ["Spending", "Saving", "Budgeting"] },
 ];
 
+function pickRandomItem(items = []) {
+  return items[Math.floor(Math.random() * items.length)] || items[0];
+}
+
 function pickDefaultGreeting() {
-  return DEFAULT_CLARA_GREETINGS[Math.floor(Math.random() * DEFAULT_CLARA_GREETINGS.length)] || DEFAULT_CLARA_GREETINGS[0];
+  return pickRandomItem(DEFAULT_CLARA_GREETINGS);
+}
+
+function pickChatInputPlaceholder() {
+  return pickRandomItem(CHAT_INPUT_PLACEHOLDERS);
 }
 
 function makeMessage(role, text, meta = {}) {
@@ -222,6 +241,7 @@ export default function ClaraAiEnvironmentOverlay({ isActive = false, messages =
   const [isThinking, setIsThinking] = useState(false);
   const [panel, setPanel] = useState(null);
   const [greeting, setGreeting] = useState(() => pickDefaultGreeting());
+  const [chatInputPlaceholder, setChatInputPlaceholder] = useState(() => pickChatInputPlaceholder());
   const inputRef = useRef(null);
   const messagesEndRef = useRef(null);
 
@@ -240,6 +260,7 @@ export default function ClaraAiEnvironmentOverlay({ isActive = false, messages =
     }
     setPanel(null);
     setGreeting(pickDefaultGreeting());
+    setChatInputPlaceholder(pickChatInputPlaceholder());
     setLocalMessages((current) => current.filter((message) => !hiddenMessage(message)));
     const timer = window.setTimeout(() => inputRef.current?.focus?.(), 180);
     return () => window.clearTimeout(timer);
@@ -394,7 +415,7 @@ export default function ClaraAiEnvironmentOverlay({ isActive = false, messages =
 
       <form onSubmit={submitDraft} className="shrink-0 rounded-[28px] border border-white/16 bg-slate-950/68 p-2.5 shadow-[0_-18px_50px_rgba(0,0,0,0.22),inset_0_1px_0_rgba(255,255,255,0.10)] backdrop-blur-2xl">
         <div className="flex items-center gap-2 rounded-[22px] border border-white/10 bg-white/[0.055] px-3 py-2">
-          <input ref={inputRef} value={draft} onChange={(event) => setDraft(event.target.value)} className="min-w-0 flex-1 bg-transparent py-2 text-[14px] font-medium text-white outline-none placeholder:text-slate-400/70" placeholder="Ask CLARA or enter item + price" inputMode="text" />
+          <input ref={inputRef} value={draft} onChange={(event) => setDraft(event.target.value)} className="min-w-0 flex-1 bg-transparent py-2 text-[14px] font-medium text-white outline-none placeholder:text-slate-400/70" placeholder={chatInputPlaceholder} inputMode="text" />
           <button type="submit" disabled={!draft.trim() || isThinking} className="grid h-11 w-11 shrink-0 place-items-center rounded-full bg-emerald-300 text-slate-950 shadow-[0_0_26px_rgba(110,231,183,0.22)] transition disabled:opacity-45 active:scale-95" aria-label="Send to CLARA"><ArrowUp className="h-5 w-5" /></button>
         </div>
       </form>
