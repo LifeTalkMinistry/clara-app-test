@@ -1,4 +1,4 @@
-import { ChevronDown, Edit3, Plus } from "lucide-react";
+import { ChevronDown, Edit3 } from "lucide-react";
 import BudgetHeader from "@/components/financial-carousel/cards/budget/ui/BudgetHeader";
 import BudgetSummaryStats from "@/components/financial-carousel/cards/budget/ui/BudgetSummaryStats";
 import FinanceCardExpandButton from "@/components/financial-carousel/shared/FinanceCardExpandButton";
@@ -102,7 +102,6 @@ export default function BudgetCardContent(props) {
     expanded = false,
     onToggleDetails,
     financeActionLoading = false,
-    onSaveBudget,
     onEditBudgetCategory,
     onDeleteBudgetCategory,
     categories = [],
@@ -200,18 +199,6 @@ export default function BudgetCardContent(props) {
             />
 
             <div>
-              <div className="mb-2 flex justify-end">
-                <button
-                  type="button"
-                  onClick={() => onSaveBudget?.()}
-                  disabled={financeActionLoading}
-                  className="inline-flex shrink-0 items-center gap-1 rounded-full border border-white/[0.05] bg-black/[0.105] px-2.5 py-1 text-[11px] font-semibold text-white/80 transition hover:bg-white/[0.04] disabled:opacity-50"
-                >
-                  <Plus className="h-3 w-3" />
-                  {hasDeclaredBudget ? "Add" : "Start"}
-                </button>
-              </div>
-
               {categories.length ? (
                 <div className="space-y-2">
                   {categories.map((item) => (
