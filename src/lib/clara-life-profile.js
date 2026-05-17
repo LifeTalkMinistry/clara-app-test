@@ -23,12 +23,40 @@ export const DEFAULT_CLARA_LIFE_PROFILE = Object.freeze({
   spendingTrigger: "",
   nonNegotiable: "",
   identityStatement: "",
+  currentLifeSeason: "",
+  emotionalState: "",
+  replacementActivity: "",
+  memoryNotes: [],
   personalityQuizAnswers: {},
 });
 
 export function getClaraLocalUserId(user) {
   const value = user?.id || user?.email || "local-user";
   return String(value || "local-user").trim() || "local-user";
+}
+
+function normalizeMemoryNotes(notes = []) {
+  if (!Array.isArray(notes)) return [];
+
+  return notes
+    .filter((note) => note && typeof note === "object")
+    .map((note, index) => {
+      const timestamp = note.updatedAt || note.updated_at || note.createdAt || note.created_at || new Date().toISOString();
+
+      return {
+        id: String(note.id || `memory-${index}-${timestamp}`),
+        category: String(note.category || "Life Context").trim() || "Life Context",
+        summary: String(note.summary || note.insight || "").trim(),
+        spendingImpact: String(note.spendingImpact || note.spendingRisk || "").trim(),
+        supportStyle: String(note.supportStyle || "").trim(),
+        status: String(note.status || "active").trim() || "active",
+        createdAt: note.createdAt || note.created_at || timestamp,
+        updatedAt: timestamp,
+        userApproved: note.userApproved !== false,
+      };
+    })
+    .filter((note) => note.summary || note.spendingImpact)
+    .sort((a, b) => new Date(b.updatedAt || b.createdAt || 0).getTime() - new Date(a.updatedAt || a.createdAt || 0).getTime());
 }
 
 export function normalizeClaraLifeProfile(profile = {}) {
@@ -42,6 +70,7 @@ export function normalizeClaraLifeProfile(profile = {}) {
     ...DEFAULT_CLARA_LIFE_PROFILE,
     ...embedded,
     id: CLARA_LIFE_PROFILE_ID,
+    memoryNotes: normalizeMemoryNotes(embedded.memoryNotes),
     personalityQuizAnswers:
       embedded.personalityQuizAnswers && typeof embedded.personalityQuizAnswers === "object"
         ? embedded.personalityQuizAnswers
@@ -118,12 +147,27 @@ export function hasMeaningfulLifeProfile(profile = {}) {
       normalized.financialFear ||
       normalized.spendingTrigger ||
       normalized.nonNegotiable ||
-      normalized.identityStatement
+      normalized.identityStatement ||
+      normalized.currentLifeSeason ||
+      normalized.emotionalState ||
+      normalized.replacementActivity ||
+      normalized.memoryNotes?.length
   );
 }
 
 export function summarizeLifeProfileForClara(profile = {}) {
   const normalized = normalizeClaraLifeProfile(profile);
+  const approvedMemoryNotes = normalizeMemoryNotes(normalized.memoryNotes)
+    .filter((note) => note.userApproved !== false)
+    .slice(0, 6)
+    .map((note) => ({
+      category: note.category,
+      summary: note.summary,
+      spendingImpact: note.spendingImpact,
+      supportStyle: note.supportStyle,
+      status: note.status,
+      updatedAt: note.updatedAt,
+    }));
 
   return {
     personality: normalized.personality,
@@ -140,6 +184,10 @@ export function summarizeLifeProfileForClara(profile = {}) {
     spendingTrigger: normalized.spendingTrigger,
     nonNegotiable: normalized.nonNegotiable,
     identityStatement: normalized.identityStatement,
+    currentLifeSeason: normalized.currentLifeSeason,
+    emotionalState: normalized.emotionalState,
+    replacementActivity: normalized.replacementActivity,
+    approvedMemoryNotes,
     hasMeaningfulProfile: hasMeaningfulLifeProfile(normalized),
   };
 }
