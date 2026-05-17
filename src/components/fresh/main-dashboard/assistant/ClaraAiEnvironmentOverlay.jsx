@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { ArrowUp, MessageCircle, ShieldCheck, Sparkles, WalletCards, X } from "lucide-react";
+import { ArrowUp, X } from "lucide-react";
 import { buildClaraFinanceSnapshot, generateClaraLocalReply } from "@/lib/clara-local-brain";
 import { generateClaraGeminiReply, hasGeminiConfig } from "@/lib/clara-gemini-client";
 import { buildContextualFinanceReply } from "@/lib/clara-direct-finance-reply";
@@ -168,17 +168,28 @@ function TalkGuideCard({ item }) {
   );
 }
 
-function PanelInstructionBoard({ panel }) {
+function PanelInstructionBoard({ panel, onClose }) {
   const copy = PANEL_COPY[panel] || PANEL_COPY.talk;
 
   return (
-    <div className="rounded-[30px] border border-white/10 bg-white/[0.045] p-5 text-center shadow-[inset_0_1px_0_rgba(255,255,255,0.08)] backdrop-blur-xl transition-all duration-300">
+    <div className="relative rounded-[30px] border border-white/10 bg-white/[0.045] px-5 pb-5 pt-8 text-center shadow-[inset_0_1px_0_rgba(255,255,255,0.08)] backdrop-blur-xl transition-all duration-300">
+      <button type="button" onClick={onClose} className="absolute right-3 top-3 grid h-8 w-8 place-items-center rounded-full border border-white/12 bg-white/[0.075] text-white/72 transition hover:bg-white/[0.12] active:scale-95" aria-label="Close CLARA AI mode">
+        <X className="h-4 w-4" />
+      </button>
       <p className="text-[11px] font-black uppercase tracking-[0.24em] text-cyan-100/55">{copy.eyebrow}</p>
       <h3 className="mt-3 text-2xl font-black leading-tight tracking-tight text-white">{copy.heading}</h3>
       <div className="mx-auto mt-3 max-w-[300px] space-y-2 text-sm leading-6 text-slate-300/75">
         {copy.body.map((line) => <p key={line}>{line}</p>)}
       </div>
     </div>
+  );
+}
+
+function FloatingCloseButton({ onClose }) {
+  return (
+    <button type="button" onClick={onClose} className="absolute right-4 top-[max(env(safe-area-inset-top),18px)] z-10 grid h-9 w-9 place-items-center rounded-full border border-white/12 bg-white/[0.075] text-white/72 shadow-[0_14px_34px_rgba(0,0,0,0.16)] backdrop-blur-xl transition hover:bg-white/[0.12] active:scale-95" aria-label="Close CLARA AI mode">
+      <X className="h-4 w-4" />
+    </button>
   );
 }
 
@@ -311,18 +322,11 @@ export default function ClaraAiEnvironmentOverlay({ isActive = false, messages =
   return (
     <div className="fixed inset-0 z-[250] mx-auto flex w-full max-w-[430px] flex-col overflow-hidden bg-slate-950/72 px-4 pb-[max(env(safe-area-inset-bottom),14px)] pt-[max(env(safe-area-inset-top),18px)] text-white backdrop-blur-[2px]" data-clara-ai-brain-version={CLARA_AI_BRAIN_VERSION}>
       <div className="pointer-events-none absolute inset-0 -z-10 bg-[radial-gradient(circle_at_18%_4%,rgba(45,212,191,0.24),transparent_32%),radial-gradient(circle_at_88%_22%,rgba(124,58,237,0.22),transparent_36%),linear-gradient(180deg,rgba(2,6,23,0.88),rgba(2,6,23,0.96))]" />
-
-      <header className="shrink-0 pb-3 pt-1">
-        <div className="flex items-center gap-3 rounded-[26px] border border-white/12 bg-white/[0.065] px-3.5 py-3 shadow-[0_18px_50px_rgba(0,0,0,0.22),inset_0_1px_0_rgba(255,255,255,0.10)] backdrop-blur-2xl">
-          <div className="grid h-10 w-10 shrink-0 place-items-center rounded-2xl border border-cyan-100/20 bg-cyan-300/10 text-cyan-100 shadow-[0_0_24px_rgba(34,211,238,0.16)]"><Sparkles className="h-4.5 w-4.5" /></div>
-          <div className="min-w-0 flex-1"><p className="text-[10px] font-black uppercase tracking-[0.24em] text-cyan-100/60">CLARA AI Mode</p><h2 className="truncate text-[1.02rem] font-black leading-tight tracking-tight text-white">Ask before you spend.</h2></div>
-          <button type="button" onClick={onClose} className="grid h-9 w-9 shrink-0 place-items-center rounded-full border border-white/12 bg-white/[0.075] text-white/72 transition hover:bg-white/[0.12] active:scale-95" aria-label="Close CLARA AI mode"><X className="h-4 w-4" /></button>
-        </div>
-      </header>
+      {visibleMessages.length ? <FloatingCloseButton onClose={onClose} /> : null}
 
       <main className="min-h-0 flex-1 overflow-y-auto px-1 py-3 [scrollbar-width:none] [-webkit-overflow-scrolling:touch] [&::-webkit-scrollbar]:hidden">
         {visibleMessages.length ? (
-          <div className="flex min-h-full flex-col justify-end gap-3 pb-2">
+          <div className="flex min-h-full flex-col justify-end gap-3 pb-2 pt-12">
             {visibleMessages.map((message) => {
               const isUser = message.role === "user";
               const action = message.smartAction;
@@ -346,7 +350,7 @@ export default function ClaraAiEnvironmentOverlay({ isActive = false, messages =
           </div>
         ) : (
           <div className="flex min-h-full flex-col justify-center gap-4 pb-2">
-            <PanelInstructionBoard panel={panel} />
+            <PanelInstructionBoard panel={panel} onClose={onClose} />
 
             <div className="rounded-[26px] border border-white/10 bg-white/[0.035] p-3 shadow-[inset_0_1px_0_rgba(255,255,255,0.06)] backdrop-blur-xl">
               <div className="grid grid-cols-3 gap-2">
