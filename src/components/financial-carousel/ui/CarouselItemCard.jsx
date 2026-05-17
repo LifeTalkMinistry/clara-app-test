@@ -45,6 +45,7 @@ export default function CarouselItemCard(props) {
         expandedFinanceCard={expandedFinanceCard}
         toggleFinanceDetails={toggleFinanceDetails}
         financeActionLoading={financeActionLoading}
+        financeDataLoading={Boolean(props.loading)}
         onCreateWallet={onCreateWallet}
         onMoveWallet={onMoveWallet}
         onDeleteWallet={onDeleteWallet}
