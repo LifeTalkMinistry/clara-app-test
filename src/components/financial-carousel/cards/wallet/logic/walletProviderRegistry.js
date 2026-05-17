@@ -84,11 +84,13 @@ export const DEFAULT_WALLET_PROVIDER_KEY = "cash";
 
 export function getWalletProvider(providerKey, fallbackType = "cash") {
   const normalizedKey = String(providerKey || "").trim().toLowerCase();
-  const exact = WALLET_PROVIDERS.find((provider) => provider.key === normalizedKey);
+  const normalizedType = String(fallbackType || "cash").trim().toLowerCase();
+  const exact = WALLET_PROVIDERS.find(
+    (provider) => provider.key === normalizedKey || provider.key === normalizedType
+  );
 
   if (exact) return exact;
 
-  const normalizedType = String(fallbackType || "cash").trim().toLowerCase();
   return (
     WALLET_PROVIDERS.find((provider) => provider.walletType === normalizedType) ||
     WALLET_PROVIDERS.find((provider) => provider.key === DEFAULT_WALLET_PROVIDER_KEY) ||
