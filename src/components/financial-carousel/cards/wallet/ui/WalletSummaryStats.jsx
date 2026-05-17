@@ -30,14 +30,9 @@ const getPrimaryWalletName = (topWallet) => {
 export default function WalletSummaryStats({
   walletMoney = 0,
   walletCount = 0,
-  walletPreviewTransactions = [],
   topWallet,
   status,
 }) {
-  const recentActivityCount = Array.isArray(walletPreviewTransactions)
-    ? walletPreviewTransactions.filter(Boolean).length
-    : 0;
-
   const summaryTiles = [
     {
       label: 'Wallets',
@@ -47,10 +42,6 @@ export default function WalletSummaryStats({
       label: 'Primary',
       value: getPrimaryWalletName(topWallet),
       valueClassName: 'text-cyan-50 text-[12px] tracking-[-0.02em]',
-    },
-    {
-      label: 'Activity',
-      value: recentActivityCount > 99 ? '99+' : recentActivityCount,
     },
   ];
 
@@ -67,7 +58,7 @@ export default function WalletSummaryStats({
       </div>
 
       <div className='overflow-hidden rounded-[22px] border border-white/[0.055] bg-black/[0.105] shadow-[inset_0_1px_0_rgba(255,255,255,0.035),0_12px_26px_rgba(0,0,0,0.12)] backdrop-blur-sm'>
-        <div className='grid grid-cols-3 divide-x divide-white/[0.055]'>
+        <div className='grid grid-cols-2 divide-x divide-white/[0.055]'>
           {summaryTiles.map((tile) => (
             <div key={tile.label} className='relative px-2.5 py-2.5 text-center'>
               <div className='pointer-events-none absolute inset-x-2 top-0 h-px bg-gradient-to-r from-transparent via-white/[0.055] to-transparent' />
