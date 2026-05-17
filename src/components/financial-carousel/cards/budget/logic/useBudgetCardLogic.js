@@ -2,17 +2,26 @@ import { useMemo, useState } from "react";
 
 const PH_TIME_ZONE = "Asia/Manila";
 
+const PH_DATE_KEY_FORMATTER = new Intl.DateTimeFormat("en-US", {
+  timeZone: PH_TIME_ZONE,
+  year: "numeric",
+  month: "2-digit",
+  day: "2-digit",
+});
+
+const PHP_CURRENCY_FORMATTER = new Intl.NumberFormat("en-PH", {
+  style: "currency",
+  currency: "PHP",
+  minimumFractionDigits: 0,
+  maximumFractionDigits: 0,
+});
+
 function formatDateKeyInPH(value = new Date()) {
   const date = value instanceof Date ? value : new Date(value);
 
   if (Number.isNaN(date.getTime())) return "";
 
-  const parts = new Intl.DateTimeFormat("en-US", {
-    timeZone: PH_TIME_ZONE,
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-  }).formatToParts(date);
+  const parts = PH_DATE_KEY_FORMATTER.formatToParts(date);
 
   const year = parts.find((part) => part.type === "year")?.value || "";
   const month = parts.find((part) => part.type === "month")?.value || "";
@@ -26,12 +35,7 @@ function getPHMonthKey(value = new Date()) {
 }
 
 export const fmt = (n) =>
-  new Intl.NumberFormat("en-PH", {
-    style: "currency",
-    currency: "PHP",
-    minimumFractionDigits: 0,
-    maximumFractionDigits: 0,
-  }).format(Number(n || 0));
+  PHP_CURRENCY_FORMATTER.format(Number(n || 0));
 
 export const safeNumber = (value) => {
   const num = Number(value);
