@@ -9,6 +9,7 @@ export default function WalletCardView({
   expandedFinanceCard,
   toggleFinanceDetails,
   financeActionLoading,
+  financeDataLoading = false,
   onCreateWallet,
   onMoveWallet,
   onDeleteWallet,
@@ -29,6 +30,7 @@ export default function WalletCardView({
   return (
     <div
       className="h-full min-h-[inherit] flex flex-col"
+      style={{ minHeight: isExpanded ? "clamp(515px,73dvh,647px)" : "clamp(286px,45dvh,430px)" }}
       onClickCapture={(event) => {
         if (stopCapturedDetailsToggle(event)) {
           handleWalletToggle();
@@ -42,6 +44,7 @@ export default function WalletCardView({
         expanded={isExpanded}
         onToggleDetails={handleWalletToggle}
         financeActionLoading={financeActionLoading}
+        financeDataLoading={financeDataLoading}
         onCreateWallet={onCreateWallet}
         onMoveWallet={onMoveWallet}
         onDeleteWallet={onDeleteWallet}
