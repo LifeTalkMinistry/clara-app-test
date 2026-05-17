@@ -4,10 +4,11 @@ import { buildClaraFinanceSnapshot, generateClaraLocalReply } from "@/lib/clara-
 import { generateClaraGeminiReply, hasGeminiConfig } from "@/lib/clara-gemini-client";
 import { buildContextualFinanceReply } from "@/lib/clara-direct-finance-reply";
 
-const CLARA_AI_BRAIN_VERSION = "connected-brain-v13-hybrid-profile-ai";
+const CLARA_AI_BRAIN_VERSION = "connected-brain-v14-ai-led-behavioral-audit";
 const PRESENTATION_RULES = "Reply like a natural mobile chat message. Plain text only. Use short readable paragraphs separated by blank lines when there is more than one thought. Bullets are allowed only when they make the answer easier to scan. No heavy headings, tables, or report format. Keep it warm, practical, and easy to read.";
 const SHOW_DEBUG_SOURCE = import.meta.env.DEV || import.meta.env.VITE_CLARA_DEBUG_AI === "true";
 const DEFAULT_CHAT_INPUT_PLACEHOLDER = "Ask CLARA or enter item + price";
+const BEHAVIOR_CONFIDENCE_TARGET = 72;
 
 const DEFAULT_CLARA_GREETINGS = [
   {
@@ -81,71 +82,60 @@ Ginagamit ko ang context na iyon para mas maging personal ang future money guida
 
 Pwede na ba tayo mag-proceed sa next part, o may tanong ka muna tungkol dito?`;
 
-const TALK_TO_CLARA_ACKNOWLEDGED_REPLY = "Great 🙂\n\nLet’s start simple — what should I call you?";
 const TALK_TO_CLARA_LANGUAGE_REMINDER_REPLY = "Please type \"English\" or \"Tagalog\" first, so I can explain it clearly.";
 const TALK_TO_CLARA_PROCEED_REMINDER_REPLY = "Please type \"continue\" if you want to proceed, or ask me any question about this first.";
 
 const EMPTY_TALK_PROFILE = {
   pendingName: "",
   name: "",
-  age: "",
-  work: "",
-  incomePattern: "",
-  responsibilities: "",
-  moneyPressure: "",
-  mainGoal: "",
-  spendingTrigger: "",
-  routineEnergy: "",
 };
 
-const PROFILE_STEP_LABELS = {
-  ask_name: "preferred name",
-  confirm_name: "name confirmation",
-  ask_age: "age",
-  ask_work: "work or daily role",
-  ask_income_pattern: "income pattern",
-  ask_responsibilities: "financial responsibilities",
-  ask_money_pressure: "current money pressure",
-  ask_main_goal: "main financial goal",
-  ask_spending_trigger: "emotional spending trigger",
-  ask_routine_energy: "routine or energy pattern",
-  complete: "profile starting point complete",
-};
+const BEHAVIOR_AUDIT_CATEGORIES = [
+  // LEVEL 1 — Core Identity
+  { id: "incomePattern", level: 1, label: "income pattern", priority: 1, question: "how their income usually comes in and whether it is stable or changing", keywords: ["income", "salary", "payday", "commission", "allowance", "stable", "monthly", "weekly", "cutoff", "sweldo"] },
+  { id: "livingSituation", level: 1, label: "living situation", priority: 2, question: "who they live with and what home setup affects their spending", keywords: ["live", "living", "rent", "parents", "family", "apartment", "boarding", "house", "bahay"] },
+  { id: "responsibilities", level: 1, label: "responsibilities", priority: 3, question: "who or what they are financially responsible for", keywords: ["responsible", "support", "family", "parents", "child", "children", "bills", "tuition", "utang", "obligation"] },
+  { id: "workType", level: 1, label: "work type", priority: 4, question: "what kind of work or daily role they have and how it affects spending", keywords: ["work", "job", "bpo", "call center", "student", "business", "freelance", "shift", "night", "agent"] },
+  { id: "relationshipStatus", level: 1, label: "relationship status", priority: 5, question: "whether relationship context affects their emotions or spending", keywords: ["single", "relationship", "boyfriend", "girlfriend", "partner", "married", "breakup", "heartbreak"] },
+  { id: "dependents", level: 1, label: "dependents", priority: 6, question: "whether anyone depends on their money or care", keywords: ["dependent", "child", "kids", "parent", "parents", "sibling", "family", "support"] },
+  { id: "currentFinancialPressure", level: 1, label: "current financial pressure", priority: 7, question: "what money pressure they feel right now", keywords: ["pressure", "short", "kulang", "tight", "struggle", "bills", "rent", "debt", "utang", "worried"] },
+  { id: "survivalPressureLevel", level: 1, label: "survival pressure level", priority: 8, question: "how intense their survival pressure feels right now", keywords: ["survival", "emergency", "food", "rent", "bills", "barely", "can't afford", "panic", "critical"] },
+  { id: "mainFinancialGoal", level: 1, label: "main financial goal", priority: 9, question: "their main financial goal right now", keywords: ["goal", "save", "savings", "emergency fund", "debt free", "pay off", "invest", "budget"] },
+  { id: "emotionalStateTrend", level: 1, label: "current emotional state trend", priority: 10, question: "their current emotional pattern or mood trend", keywords: ["feel", "feeling", "sad", "lonely", "stress", "anxious", "burnout", "tired", "happy", "overwhelmed"] },
 
-const PROFILE_STEP_QUESTIONS = {
-  ask_name: "what should I call you?",
-  confirm_name: "should I use that name moving forward?",
-  ask_age: "how old are you?",
-  ask_work: "what kind of work or daily role do you have right now?",
-  ask_income_pattern: "is your income usually stable every month, or does it change?",
-  ask_responsibilities: "who or what are you financially responsible for right now?",
-  ask_money_pressure: "what money pressure are you dealing with most right now?",
-  ask_main_goal: "what is your main financial goal right now?",
-  ask_spending_trigger: "when stress or emotions hit, what do you usually spend on or feel tempted to spend on?",
-  ask_routine_energy: "what part of your routine or energy level affects your spending the most?",
-};
+  // LEVEL 2 — Behavioral Spending Profile
+  { id: "emotionalTriggers", level: 2, label: "emotional triggers", priority: 11, question: "what emotions usually trigger spending", keywords: ["trigger", "stress", "sad", "lonely", "angry", "bored", "reward", "comfort"] },
+  { id: "stressSpendingHabits", level: 2, label: "stress spending habits", priority: 12, question: "how they spend when stressed", keywords: ["stress spending", "when stressed", "order food", "foodpanda", "grab", "shopping", "impulse"] },
+  { id: "rewardSystem", level: 2, label: "reward system", priority: 13, question: "how they reward themselves and whether spending is part of it", keywords: ["reward", "deserve", "treat", "after work", "payday", "celebrate", "self care"] },
+  { id: "commonImpulsivePurchases", level: 2, label: "common impulsive purchases", priority: 14, question: "what they commonly buy impulsively", keywords: ["impulse", "impulsive", "random", "buy", "checkout", "shopee", "lazada", "food", "coffee", "clothes"] },
+  { id: "biggestSpendingWeakness", level: 2, label: "biggest spending weakness", priority: 15, question: "their biggest spending weakness", keywords: ["weakness", "can't stop", "tempted", "addicted", "always buy", "madalas"] },
+  { id: "copingMechanisms", level: 2, label: "coping mechanisms", priority: 16, question: "what they do to cope when life feels heavy", keywords: ["cope", "coping", "escape", "relax", "unwind", "comfort", "distract"] },
+  { id: "motivationStyle", level: 2, label: "motivation style", priority: 17, question: "what kind of encouragement or accountability works for them", keywords: ["motivate", "motivation", "strict", "gentle", "push", "accountability", "remind"] },
+  { id: "financialFear", level: 2, label: "financial fear", priority: 18, question: "what financial fear they carry", keywords: ["fear", "afraid", "scared", "worry", "bankrupt", "poor", "no money", "maubos"] },
+  { id: "guiltPatterns", level: 2, label: "guilt patterns", priority: 19, question: "whether they feel guilt after spending", keywords: ["guilt", "guilty", "regret", "sayang", "bad", "after buying"] },
+  { id: "socialPressureTriggers", level: 2, label: "social pressure triggers", priority: 20, question: "whether friends, family, or social situations pressure them to spend", keywords: ["friends", "family", "coworker", "social", "pressure", "treat", "libre", "invite"] },
 
-const STEP_FIELD_MAP = {
-  ask_age: "age",
-  ask_work: "work",
-  ask_income_pattern: "incomePattern",
-  ask_responsibilities: "responsibilities",
-  ask_money_pressure: "moneyPressure",
-  ask_main_goal: "mainGoal",
-  ask_spending_trigger: "spendingTrigger",
-  ask_routine_energy: "routineEnergy",
-};
+  // LEVEL 3 — Life Pattern Intelligence
+  { id: "scheduleRoutine", level: 3, label: "schedule/routine", priority: 21, question: "their usual schedule or routine", keywords: ["routine", "schedule", "shift", "day off", "morning", "night", "weekly"] },
+  { id: "sleepPattern", level: 3, label: "sleep pattern", priority: 22, question: "how sleep affects energy and spending", keywords: ["sleep", "puyat", "insomnia", "rest", "tired", "night shift", "nap"] },
+  { id: "workExhaustion", level: 3, label: "work exhaustion", priority: 23, question: "how exhausted they feel from work", keywords: ["exhausted", "tired", "drained", "burnout", "calls", "queue", "shift", "workload"] },
+  { id: "socialEnvironment", level: 3, label: "social environment", priority: 24, question: "how their environment or people around them affect spending", keywords: ["environment", "friends", "coworker", "team", "family", "office", "social"] },
+  { id: "relationshipConflicts", level: 3, label: "relationship conflicts", priority: 25, question: "whether conflict or relationship stress affects their spending", keywords: ["conflict", "fight", "argument", "cheated", "breakup", "friend", "partner", "coworker"] },
+  { id: "hobbyPatterns", level: 3, label: "hobby patterns", priority: 26, question: "what hobbies give fulfillment without unhealthy spending", keywords: ["hobby", "guitar", "basketball", "music", "game", "reading", "exercise"] },
+  { id: "energyLevelTrends", level: 3, label: "energy level trends", priority: 27, question: "when their energy drops and how that affects spending", keywords: ["energy", "tired", "drained", "lazy", "after work", "low energy"] },
+  { id: "burnoutIndicators", level: 3, label: "burnout indicators", priority: 28, question: "what signs show they may be burning out", keywords: ["burnout", "numb", "exhausted", "can't focus", "overwhelmed", "tired"] },
 
-const NEXT_PROFILE_STEP = {
-  ask_age: "ask_work",
-  ask_work: "ask_income_pattern",
-  ask_income_pattern: "ask_responsibilities",
-  ask_responsibilities: "ask_money_pressure",
-  ask_money_pressure: "ask_main_goal",
-  ask_main_goal: "ask_spending_trigger",
-  ask_spending_trigger: "ask_routine_energy",
-  ask_routine_energy: "complete",
-};
+  // LEVEL 4 — Financial Infrastructure
+  { id: "wallets", level: 4, label: "wallets", priority: 29, question: "what wallets or money sources they use", keywords: ["wallet", "cash", "gcash", "bank", "money", "balance"] },
+  { id: "budgets", level: 4, label: "budgets", priority: 30, question: "how they budget money", keywords: ["budget", "category", "allocation", "limit", "planned"] },
+  { id: "emergencyFund", level: 4, label: "emergency fund", priority: 31, question: "whether they have an emergency fund", keywords: ["emergency fund", "safety fund", "buffer", "savings"] },
+  { id: "savingsGoals", level: 4, label: "savings goals", priority: 32, question: "what savings goals they are protecting", keywords: ["savings goal", "goal", "save", "target", "fund"] },
+  { id: "recurringExpenses", level: 4, label: "recurring expenses", priority: 33, question: "what recurring expenses affect them", keywords: ["recurring", "monthly", "bill", "rent", "subscription", "internet", "electric"] },
+  { id: "debt", level: 4, label: "debt", priority: 34, question: "whether debt is creating pressure", keywords: ["debt", "loan", "utang", "credit", "borrow", "pay off"] },
+  { id: "subscriptions", level: 4, label: "subscriptions", priority: 35, question: "what subscriptions silently reduce money", keywords: ["subscription", "netflix", "spotify", "monthly", "premium", "auto debit"] },
+  { id: "transfers", level: 4, label: "transfers", priority: 36, question: "how money moves between wallets or people", keywords: ["transfer", "send", "gcash", "bank", "remit", "padala"] },
+  { id: "paydayCycle", level: 4, label: "payday cycle", priority: 37, question: "when payday happens and how spending changes around it", keywords: ["payday", "sweldo", "cutoff", "15", "30", "salary", "after payday"] },
+];
 
 const PANEL_COPY = {
   talk: {
@@ -248,21 +238,106 @@ function isQuestionLike(value = "") {
 
 function looksLikeUrgentIssue(value = "") {
   const text = normalizeChoice(value);
-  return (
-    text.includes("can i buy") ||
-    text.includes("should i buy") ||
-    text.includes("i want to buy") ||
-    text.includes("i bought") ||
-    text.includes("stress") ||
-    text.includes("stressed") ||
-    text.includes("problem") ||
-    text.includes("issue") ||
-    text.includes("debt") ||
-    text.includes("overspend") ||
-    text.includes("overspending") ||
-    text.includes("worried") ||
-    text.includes("pressure")
-  );
+  return [
+    "can i buy", "should i buy", "i want to buy", "i bought", "stress", "stressed", "problem", "issue",
+    "debt", "overspend", "overspending", "worried", "pressure", "emergency", "short money", "kulang"
+  ].some((phrase) => text.includes(phrase));
+}
+
+function createEmptyBehaviorAudit() {
+  return BEHAVIOR_AUDIT_CATEGORIES.reduce((audit, category) => {
+    audit[category.id] = { score: 0, evidence: [] };
+    return audit;
+  }, {});
+}
+
+function categoryById(id) {
+  return BEHAVIOR_AUDIT_CATEGORIES.find((category) => category.id === id) || null;
+}
+
+function getCategoryScore(audit, id) {
+  return Number(audit?.[id]?.score || 0);
+}
+
+function estimateAnswerQuality(text = "", isFocus = false) {
+  const value = String(text || "").trim();
+  const choice = normalizeChoice(value);
+  const words = value.split(/\s+/).filter(Boolean).length;
+
+  if (!value || isProceedChoice(choice)) return 8;
+  if (isSkipChoice(choice)) return 25;
+
+  let score = 20;
+  if (words >= 4) score = 35;
+  if (words >= 9) score = 50;
+  if (words >= 18) score = 65;
+  if (words >= 35) score = 82;
+
+  if (/\b(because|usually|madalas|kapag|when|every|monthly|weekly|after|before|since|kasi)\b/i.test(value)) score += 8;
+  if (/₱|php|peso|salary|sweldo|family|stress|tired|pressure|goal|save|debt|utang/i.test(value)) score += 8;
+  if (isFocus) score += 8;
+
+  return Math.min(95, score);
+}
+
+function textMatchesCategory(text = "", category = {}) {
+  const normalized = normalizeChoice(text);
+  return (category.keywords || []).some((keyword) => normalized.includes(normalizeChoice(keyword)));
+}
+
+function updateBehaviorAuditFromUserText(audit, text, currentFocusId) {
+  const nextAudit = { ...(audit || createEmptyBehaviorAudit()) };
+  const snippet = String(text || "").trim().slice(0, 140);
+
+  for (const category of BEHAVIOR_AUDIT_CATEGORIES) {
+    const isFocus = category.id === currentFocusId;
+    const matched = isFocus || textMatchesCategory(text, category);
+    if (!matched) continue;
+
+    const previous = nextAudit[category.id] || { score: 0, evidence: [] };
+    const quality = estimateAnswerQuality(text, isFocus);
+    const score = Math.max(previous.score || 0, quality);
+    const evidence = snippet ? [...(previous.evidence || []), snippet].slice(-3) : previous.evidence || [];
+
+    nextAudit[category.id] = { score, evidence };
+  }
+
+  return nextAudit;
+}
+
+function getWeakAuditCategories(audit, limit = 8) {
+  return [...BEHAVIOR_AUDIT_CATEGORIES]
+    .filter((category) => getCategoryScore(audit, category.id) < BEHAVIOR_CONFIDENCE_TARGET)
+    .sort((a, b) => a.level - b.level || a.priority - b.priority)
+    .slice(0, limit);
+}
+
+function chooseNextAuditFocus(audit, currentFocusId, userText = "") {
+  const choice = normalizeChoice(userText);
+  const current = categoryById(currentFocusId);
+  const currentScore = current ? getCategoryScore(audit, current.id) : 0;
+
+  if (current && currentScore < BEHAVIOR_CONFIDENCE_TARGET && !isSkipChoice(choice)) {
+    return current.id;
+  }
+
+  const nextWeak = getWeakAuditCategories(audit, 1)[0];
+  return nextWeak?.id || "complete";
+}
+
+function auditProgressSummary(audit) {
+  const satisfied = BEHAVIOR_AUDIT_CATEGORIES
+    .filter((category) => getCategoryScore(audit, category.id) >= BEHAVIOR_CONFIDENCE_TARGET)
+    .map((category) => `${category.label} (${getCategoryScore(audit, category.id)}%)`)
+    .slice(0, 10);
+
+  const weak = getWeakAuditCategories(audit, 12)
+    .map((category) => `${category.label} (${getCategoryScore(audit, category.id)}%)`);
+
+  return {
+    satisfied: satisfied.length ? satisfied.join(", ") : "none yet",
+    weak: weak.length ? weak.join(", ") : "none",
+  };
 }
 
 function titleCaseName(value = "") {
@@ -290,27 +365,8 @@ function extractLikelyName(value = "") {
   return titleCaseName(cleaned);
 }
 
-function extractAge(value = "") {
-  const match = String(value || "").match(/\b(1[3-9]|[2-9][0-9]|10[0-9]|110)\b/);
-  return match ? match[1] : "";
-}
-
 function profileDisplayName(profile = {}) {
   return profile.name || profile.pendingName || "there";
-}
-
-function getMissingProfileFields(profile = {}) {
-  const fields = [
-    ["age", "age"],
-    ["work", "work or daily role"],
-    ["incomePattern", "income pattern"],
-    ["responsibilities", "financial responsibilities"],
-    ["moneyPressure", "current money pressure"],
-    ["mainGoal", "main financial goal"],
-    ["spendingTrigger", "emotional spending trigger"],
-    ["routineEnergy", "routine or energy pattern"],
-  ];
-  return fields.filter(([key]) => !String(profile[key] || "").trim()).map(([, label]) => label);
 }
 
 function buildTalkIntroQuestionPrompt(userText = "") {
@@ -326,181 +382,84 @@ Do not restart the full explanation.
 End by asking: "Can we proceed to the next part, or do you have another question?"`;
 }
 
-function buildProfileSetupQuestionPrompt(userText = "", profileStep = "ask_name", profile = {}) {
-  const currentQuestion = PROFILE_STEP_QUESTIONS[profileStep] || "what should I understand next?";
-  const knownName = profileDisplayName(profile);
+function buildNameStartPrompt() {
+  return `The user agreed to proceed into Talk to CLARA.
 
-  return `The user is in Talk to CLARA's profile setup.
-
-Current setup step: ${profileStep}
-Current question CLARA was asking: ${currentQuestion}
-Known temporary profile so far: ${JSON.stringify(profile)}
-Missing context still needed later: ${getMissingProfileFields(profile).join(", ") || "none"}
-
-User message:
-${String(userText || "").trim()}
-
-If the user is asking a question about CLARA, privacy, why the information matters, or how this feature works, answer naturally in 1-3 short mobile-friendly paragraphs.
-If the user is raising a real money or life issue, help with that issue first and do not force the profile setup.
-Do not claim anything is permanently saved.
-End gently by returning to the current setup question when appropriate, for example: "After that, we can continue — ${knownName !== "there" ? knownName + ", " : ""}${currentQuestion}"`;
+Start the profile-building conversation naturally.
+Ask only for the user's preferred name first.
+Do not explain the feature again.
+Keep it warm, short, and mobile-friendly.`;
 }
 
-function buildHybridProfileFollowupPrompt({ userText = "", completedStep = "", nextStep = "", profile = {} }) {
-  const completedLabel = PROFILE_STEP_LABELS[completedStep] || completedStep;
-  const nextLabel = PROFILE_STEP_LABELS[nextStep] || nextStep;
-  const nextQuestion = PROFILE_STEP_QUESTIONS[nextStep] || "what should I understand next?";
+function buildNameConfirmationPrompt(name = "") {
+  return `The user gave this preferred name: ${name}.
+
+Reply warmly and ask if CLARA should call them ${name} moving forward.
+Do not ask another profile question yet.
+Keep it short.`;
+}
+
+function buildNameCorrectionPrompt() {
+  return `The user did not confirm the name.
+
+Ask what name they prefer CLARA to use.
+Keep it short and warm.`;
+}
+
+function buildBehavioralAuditPrompt({ userText = "", audit, currentFocusId, nextFocusId, profile = {} }) {
+  const currentFocus = categoryById(currentFocusId);
+  const nextFocus = categoryById(nextFocusId);
+  const summary = auditProgressSummary(audit);
   const name = profileDisplayName(profile);
 
-  return `The user is not in a generic chatbot flow. They are in CLARA's Talk to CLARA profile-building conversation.
+  return `CLARA is in Talk to CLARA behavioral profiling mode.
 
-The static layer already captured this answer for: ${completedLabel}
-User answer: ${String(userText || "").trim()}
-Temporary profile so far: ${JSON.stringify(profile)}
-Next missing profile focus: ${nextLabel}
-Exact next information CLARA still needs: ${nextQuestion}
-Other missing context later: ${getMissingProfileFields(profile).join(", ") || "none"}
+This must FEEL like pure AI conversation to the user, but the local system is silently auditing the user's behavioral finance profile.
+Do NOT reveal category names, confidence scores, audit logic, or internal tracking.
+
+User's latest message:
+${String(userText || "").trim()}
+
+Known user name: ${name}
+Current audit focus: ${currentFocus ? `${currentFocus.label} (${getCategoryScore(audit, currentFocus.id)}%)` : "none"}
+Recommended next focus: ${nextFocus ? `${nextFocus.label} (${getCategoryScore(audit, nextFocus.id)}%)` : "none"}
+Satisfied areas: ${summary.satisfied}
+Weak or missing areas: ${summary.weak}
+
+Behavioral framework CLARA is auditing:
+Level 1 Core Identity: income pattern, living situation, responsibilities, work type, relationship status, dependents, current financial pressure, survival pressure level, main financial goal, emotional state trend.
+Level 2 Behavioral Spending Profile: emotional triggers, stress spending habits, reward system, common impulsive purchases, biggest spending weakness, coping mechanisms, motivation style, financial fear, guilt patterns, social pressure triggers.
+Level 3 Life Pattern Intelligence: schedule/routine, sleep pattern, work exhaustion, social environment, relationship conflicts, hobby patterns, energy trends, burnout indicators.
+Level 4 Financial Infrastructure: wallets, budgets, emergency fund, savings goals, recurring expenses, debt, subscriptions, transfers, payday cycle.
 
 Your job:
-- Do NOT act like a form.
-- Acknowledge the user's answer with human context.
-- If the answer implies something meaningful, briefly reflect it. Example: if the user says BPO agent, notice possible shifting schedule, work exhaustion, call pressure, or stress spending — without assuming too much.
-- Then ask exactly ONE follow-up question that collects the next missing profile focus.
-- The question must still be easy to answer.
-- If the user raised a real urgent money/life issue, pause onboarding and help that issue first.
-- Do not claim anything is permanently saved.
-- Keep it to 1-3 short mobile-friendly paragraphs.
-
-Address the user as ${name !== "there" ? name : "the user"} when natural.`;
+- Judge whether the user's latest answer gives enough depth for the current focus.
+- If the answer is shallow, vague, or only an agreement like "yes/continue", ask a natural probing follow-up for the same focus.
+- If the answer gives enough context, briefly acknowledge what it suggests and move to the recommended next missing focus.
+- If the user reveals a real urgent money/life problem, pause profiling and help with that issue first.
+- Ask exactly ONE question at the end.
+- Keep it conversational, warm, and human. No checklist, no survey tone, no labels.
+- Do not claim anything was permanently saved.
+- Use clean mobile chat formatting with short paragraphs.`;
 }
 
-function buildTalkToClaraPrompt(userText = "") {
-  return `Talk to CLARA context mode is active.
+function buildTalkToClaraPrompt(userText = "", audit, profile = {}) {
+  const summary = auditProgressSummary(audit || createEmptyBehaviorAudit());
+  return `Talk to CLARA is active.
 
 Actual user message:
 ${String(userText || "").trim()}
 
-How CLARA should respond:
-- First understand what happened in the message: reply to a previous question, current money issue, life update, or request for advice.
-- Acknowledge warmly and naturally.
-- Use clean mobile chat formatting: short paragraphs, blank lines between different thoughts, and simple bullets only if they improve clarity.
-- Do not show or mention buttons, chips, options, workflows, modes, or categories.
-- Do not reply with only "How can I help you today?"
-- If the user shares a real issue, help with that issue first.
-- Ask only one gentle question at a time.
-- Keep the tone respectful, calm, and practical.
-- Do not claim information was permanently saved. You may say CLARA can use it as context in this conversation, or that it can help future guidance when the user chooses to save it.
+Known user name: ${profileDisplayName(profile)}
+Internal behavioral context already understood: ${summary.satisfied}
+Internal weak context still useful later: ${summary.weak}
 
-Reply as CLARA in a clean, easy-to-read chat format.`;
-}
-
-function handleHybridProfileStep({ text = "", step = "idle", profile = EMPTY_TALK_PROFILE }) {
-  const choice = normalizeChoice(text);
-  const currentStep = step === "idle" ? "ask_name" : step;
-
-  if (looksLikeUrgentIssue(text) || (isQuestionLike(text) && currentStep !== "ask_name")) {
-    return { useAi: true, aiPrompt: buildProfileSetupQuestionPrompt(text, currentStep, profile), profile, nextStep: currentStep };
-  }
-
-  if (currentStep === "ask_name") {
-    const extractedName = extractLikelyName(text);
-    if (!extractedName) {
-      return { reply: "No rush.\n\nWhat should I call you?", profile, nextStep: "ask_name" };
-    }
-
-    return {
-      reply: `Nice to meet you, ${extractedName} 🙂\n\nShould I call you ${extractedName} moving forward?`,
-      profile: { ...profile, pendingName: extractedName },
-      nextStep: "confirm_name",
-    };
-  }
-
-  if (currentStep === "confirm_name") {
-    if (isProceedChoice(choice)) {
-      const confirmedName = profile.pendingName || profile.name || "there";
-      return {
-        reply: `Perfect, ${confirmedName}.\n\nLet’s continue slowly — how old are you?`,
-        profile: { ...profile, name: confirmedName },
-        nextStep: "ask_age",
-      };
-    }
-
-    if (isNoChoice(choice)) {
-      return { reply: "Got it.\n\nWhat name would you prefer me to use?", profile: { ...profile, pendingName: "" }, nextStep: "ask_name" };
-    }
-
-    const newName = extractLikelyName(text);
-    if (newName) {
-      return { reply: `Okay, ${newName} 🙂\n\nShould I call you ${newName} moving forward?`, profile: { ...profile, pendingName: newName }, nextStep: "confirm_name" };
-    }
-
-    return { reply: `Just to confirm — should I call you ${profile.pendingName || profile.name || "that"} moving forward?`, profile, nextStep: "confirm_name" };
-  }
-
-  if (currentStep === "ask_age") {
-    if (isSkipChoice(choice)) {
-      const nextProfile = { ...profile, age: "skipped" };
-      return {
-        useAi: true,
-        aiPrompt: buildHybridProfileFollowupPrompt({ userText: text, completedStep: "ask_age", nextStep: "ask_work", profile: nextProfile }),
-        profile: nextProfile,
-        nextStep: "ask_work",
-      };
-    }
-
-    const age = extractAge(text);
-    if (!age) {
-      return { reply: "Got it.\n\nYou can tell me your age as a number, or type \"skip\" if you prefer not to answer yet.", profile, nextStep: "ask_age" };
-    }
-
-    const nextProfile = { ...profile, age };
-    return {
-      useAi: true,
-      aiPrompt: buildHybridProfileFollowupPrompt({ userText: text, completedStep: "ask_age", nextStep: "ask_work", profile: nextProfile }),
-      profile: nextProfile,
-      nextStep: "ask_work",
-    };
-  }
-
-  const fieldKey = STEP_FIELD_MAP[currentStep];
-  const nextStep = NEXT_PROFILE_STEP[currentStep] || "complete";
-
-  if (fieldKey) {
-    if (isProceedChoice(choice)) {
-      return {
-        reply: `Before we continue, I still need this part.\n\n${PROFILE_STEP_QUESTIONS[currentStep]}`,
-        profile,
-        nextStep: currentStep,
-      };
-    }
-
-    if (isSkipChoice(choice)) {
-      const nextProfile = { ...profile, [fieldKey]: "skipped" };
-      return {
-        useAi: nextStep !== "complete",
-        aiPrompt: nextStep !== "complete" ? buildHybridProfileFollowupPrompt({ userText: text, completedStep: currentStep, nextStep, profile: nextProfile }) : "",
-        reply: nextStep === "complete" ? buildProfileCompleteReply(nextProfile) : "",
-        profile: nextProfile,
-        nextStep,
-      };
-    }
-
-    const nextProfile = { ...profile, [fieldKey]: text.trim() };
-    return {
-      useAi: nextStep !== "complete",
-      aiPrompt: nextStep !== "complete" ? buildHybridProfileFollowupPrompt({ userText: text, completedStep: currentStep, nextStep, profile: nextProfile }) : "",
-      reply: nextStep === "complete" ? buildProfileCompleteReply(nextProfile) : "",
-      profile: nextProfile,
-      nextStep,
-    };
-  }
-
-  return { reply: "I’m ready.\n\nTell me what’s happening today, or ask about a money decision before you act.", profile, nextStep: "complete" };
-}
-
-function buildProfileCompleteReply(profile = {}) {
-  const name = profileDisplayName(profile);
-  return `Thanks, ${name}.\n\nThis gives me a starting picture of you — not just your money.\n\nFrom here, you can tell me about your day, a spending concern, or a purchase before you act.`;
+Respond naturally as CLARA.
+Use clean mobile chat formatting.
+If the user shares a real issue, help with that issue first.
+If it is natural to ask a follow-up, ask only one gentle question.
+Do not reveal internal categories or scores.
+Do not claim information was permanently saved.`;
 }
 
 function makeMessage(role, text, meta = {}) {
@@ -560,9 +519,8 @@ function fallbackReply(prompt, context) {
 
 function getFallbackReplyForAction(prompt, context, action) {
   if (action?.id === "talk_to_clara_context") {
-    if (prompt.includes("Next missing profile focus")) {
-      const match = prompt.match(/Exact next information CLARA still needs: (.+)/);
-      return `That helps me understand you better.\n\n${match?.[1] || "What should I understand next?"}`;
+    if (prompt.includes("behavioral profiling mode")) {
+      return "That helps me understand you a little better.\n\nCan you tell me more about what usually affects your spending the most lately?";
     }
 
     return "Good question. This space helps me understand the story behind your spending, not only the numbers.\n\nCan we proceed to the next part, or do you have another question?";
@@ -659,8 +617,10 @@ export default function ClaraAiEnvironmentOverlay({ isActive = false, messages =
   const [greeting, setGreeting] = useState(() => pickDefaultGreeting());
   const [chatInputPlaceholder, setChatInputPlaceholder] = useState(() => pickChatInputPlaceholder());
   const [talkIntroState, setTalkIntroState] = useState("not_shown");
-  const [talkProfileStep, setTalkProfileStep] = useState("idle");
   const [talkProfile, setTalkProfile] = useState(EMPTY_TALK_PROFILE);
+  const [behaviorAudit, setBehaviorAudit] = useState(() => createEmptyBehaviorAudit());
+  const [behaviorFocus, setBehaviorFocus] = useState(null);
+  const [talkPhase, setTalkPhase] = useState("intro");
   const inputRef = useRef(null);
   const messagesEndRef = useRef(null);
 
@@ -676,15 +636,19 @@ export default function ClaraAiEnvironmentOverlay({ isActive = false, messages =
       setIsThinking(false);
       setPanel(null);
       setTalkIntroState("not_shown");
-      setTalkProfileStep("idle");
       setTalkProfile(EMPTY_TALK_PROFILE);
+      setBehaviorAudit(createEmptyBehaviorAudit());
+      setBehaviorFocus(null);
+      setTalkPhase("intro");
       return undefined;
     }
 
     setPanel(null);
     setTalkIntroState("not_shown");
-    setTalkProfileStep("idle");
     setTalkProfile(EMPTY_TALK_PROFILE);
+    setBehaviorAudit(createEmptyBehaviorAudit());
+    setBehaviorFocus(null);
+    setTalkPhase("intro");
     setGreeting(pickDefaultGreeting());
     setChatInputPlaceholder(pickChatInputPlaceholder());
     setLocalMessages((current) => current.filter((message) => !hiddenMessage(message)));
@@ -799,7 +763,6 @@ export default function ClaraAiEnvironmentOverlay({ isActive = false, messages =
       const choice = normalizeChoice(text);
       let reply = TALK_TO_CLARA_LANGUAGE_PROMPT;
       let nextState = "awaiting_language";
-      let nextProfileStep = talkProfileStep;
 
       if (talkIntroState === "awaiting_language") {
         if (isEnglishChoice(choice)) {
@@ -813,10 +776,15 @@ export default function ClaraAiEnvironmentOverlay({ isActive = false, messages =
         }
       } else if (talkIntroState === "awaiting_continue_or_question") {
         if (isProceedChoice(choice)) {
-          reply = TALK_TO_CLARA_ACKNOWLEDGED_REPLY;
           nextState = "confirmed";
-          nextProfileStep = "ask_name";
-        } else if (isEnglishChoice(choice)) {
+          setTalkPhase("ask_name");
+          runClara({ prompt: buildNameStartPrompt(), displayText: text, action: TALK_TO_CLARA_CONTEXT_ACTION });
+          setTalkIntroState(nextState);
+          setDraft("");
+          return;
+        }
+
+        if (isEnglishChoice(choice)) {
           reply = TALK_TO_CLARA_INTRO_EN;
           nextState = "awaiting_continue_or_question";
         } else if (isTagalogChoice(choice)) {
@@ -833,24 +801,16 @@ export default function ClaraAiEnvironmentOverlay({ isActive = false, messages =
 
       pushLocalClaraReply({ userText: text, reply, action: TALK_TO_CLARA_CONTEXT_ACTION });
       setTalkIntroState(nextState);
-      setTalkProfileStep(nextProfileStep);
       setDraft("");
       return;
     }
 
-    if (isTalkToClaraMode && talkProfileStep !== "complete") {
-      const profileResult = handleHybridProfileStep({
-        text,
-        step: talkProfileStep === "idle" ? "ask_name" : talkProfileStep,
-        profile: talkProfile,
-      });
+    if (isTalkToClaraMode && talkPhase === "ask_name") {
+      const name = extractLikelyName(text);
 
-      setTalkProfile(profileResult.profile || talkProfile);
-      setTalkProfileStep(profileResult.nextStep || talkProfileStep);
-
-      if (profileResult.useAi) {
+      if (!name || isQuestionLike(text) || looksLikeUrgentIssue(text)) {
         runClara({
-          prompt: profileResult.aiPrompt || buildProfileSetupQuestionPrompt(text, talkProfileStep, profileResult.profile || talkProfile),
+          prompt: `CLARA is trying to learn what to call the user. The user said: ${text}\n\nIf this is a question or issue, answer naturally. Then gently ask what CLARA should call them. Keep it short.`,
           displayText: text,
           action: TALK_TO_CLARA_CONTEXT_ACTION,
         });
@@ -858,13 +818,77 @@ export default function ClaraAiEnvironmentOverlay({ isActive = false, messages =
         return;
       }
 
-      pushLocalClaraReply({ userText: text, reply: profileResult.reply, action: TALK_TO_CLARA_CONTEXT_ACTION });
+      const nextProfile = { ...talkProfile, pendingName: name };
+      setTalkProfile(nextProfile);
+      setTalkPhase("confirm_name");
+      runClara({ prompt: buildNameConfirmationPrompt(name), displayText: text, action: TALK_TO_CLARA_CONTEXT_ACTION });
+      setDraft("");
+      return;
+    }
+
+    if (isTalkToClaraMode && talkPhase === "confirm_name") {
+      const choice = normalizeChoice(text);
+
+      if (isProceedChoice(choice)) {
+        const name = talkProfile.pendingName || "there";
+        const nextProfile = { ...talkProfile, name };
+        const nextFocus = chooseNextAuditFocus(behaviorAudit, null, text);
+
+        setTalkProfile(nextProfile);
+        setBehaviorFocus(nextFocus);
+        setTalkPhase("behavioral_audit");
+        runClara({
+          prompt: buildBehavioralAuditPrompt({ userText: text, audit: behaviorAudit, currentFocusId: null, nextFocusId: nextFocus, profile: nextProfile }),
+          displayText: text,
+          action: TALK_TO_CLARA_CONTEXT_ACTION,
+        });
+        setDraft("");
+        return;
+      }
+
+      if (isNoChoice(choice)) {
+        setTalkProfile({ ...talkProfile, pendingName: "" });
+        setTalkPhase("ask_name");
+        runClara({ prompt: buildNameCorrectionPrompt(), displayText: text, action: TALK_TO_CLARA_CONTEXT_ACTION });
+        setDraft("");
+        return;
+      }
+
+      const newName = extractLikelyName(text);
+      if (newName) {
+        setTalkProfile({ ...talkProfile, pendingName: newName });
+        runClara({ prompt: buildNameConfirmationPrompt(newName), displayText: text, action: TALK_TO_CLARA_CONTEXT_ACTION });
+        setDraft("");
+        return;
+      }
+
+      runClara({
+        prompt: `CLARA is confirming whether to call the user ${talkProfile.pendingName || "by that name"}. The user said: ${text}\n\nRespond naturally and ask for a clear confirmation or the preferred name.`,
+        displayText: text,
+        action: TALK_TO_CLARA_CONTEXT_ACTION,
+      });
+      setDraft("");
+      return;
+    }
+
+    if (isTalkToClaraMode && talkPhase === "behavioral_audit") {
+      const nextAudit = updateBehaviorAuditFromUserText(behaviorAudit, text, behaviorFocus);
+      const nextFocus = chooseNextAuditFocus(nextAudit, behaviorFocus, text);
+
+      setBehaviorAudit(nextAudit);
+      setBehaviorFocus(nextFocus);
+
+      runClara({
+        prompt: buildBehavioralAuditPrompt({ userText: text, audit: nextAudit, currentFocusId: behaviorFocus, nextFocusId: nextFocus, profile: talkProfile }),
+        displayText: text,
+        action: TALK_TO_CLARA_CONTEXT_ACTION,
+      });
       setDraft("");
       return;
     }
 
     runClara({
-      prompt: isTalkToClaraMode ? buildTalkToClaraPrompt(text) : text,
+      prompt: isTalkToClaraMode ? buildTalkToClaraPrompt(text, behaviorAudit, talkProfile) : text,
       displayText: text,
       action: isTalkToClaraMode ? TALK_TO_CLARA_CONTEXT_ACTION : null,
     });
@@ -906,7 +930,7 @@ export default function ClaraAiEnvironmentOverlay({ isActive = false, messages =
 
             <div className="rounded-[26px] border border-white/10 bg-white/[0.035] p-3 shadow-[inset_0_1px_0_rgba(255,255,255,0.06)] backdrop-blur-xl">
               <div className="grid grid-cols-3 gap-2">
-                <PanelButton active={panel === "talk"} onClick={() => { setPanel("talk"); setTalkIntroState("not_shown"); setTalkProfileStep("idle"); setTalkProfile(EMPTY_TALK_PROFILE); setChatInputPlaceholder(pickChatInputPlaceholder()); }}>Talk to CLARA</PanelButton>
+                <PanelButton active={panel === "talk"} onClick={() => { setPanel("talk"); setTalkIntroState("not_shown"); setTalkProfile(EMPTY_TALK_PROFILE); setBehaviorAudit(createEmptyBehaviorAudit()); setBehaviorFocus(null); setTalkPhase("intro"); setChatInputPlaceholder(pickChatInputPlaceholder()); }}>Talk to CLARA</PanelButton>
                 <PanelButton active={panel === "core"} onClick={() => setPanel("core")}>Core Features</PanelButton>
                 <PanelButton active={panel === "smart"} onClick={() => setPanel("smart")}>Smart Actions</PanelButton>
               </div>
