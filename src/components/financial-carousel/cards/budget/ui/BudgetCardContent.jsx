@@ -52,29 +52,6 @@ function ExpandButtonRow({ expanded, onToggleDetails }) {
   );
 }
 
-function BudgetSummaryLine({ declared, spent, categoriesCount }) {
-  return (
-    <div className="rounded-2xl border border-white/[0.045] bg-black/[0.105] px-3.5 py-3 shadow-[inset_0_1px_0_rgba(255,255,255,0.028)] backdrop-blur-sm">
-      <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] font-semibold leading-relaxed text-white/60">
-        <span>
-          <span className="text-white/32">Declared</span>{" "}
-          <span className="font-black text-white/86">{fmt(declared)}</span>
-        </span>
-        <span className="text-white/16">•</span>
-        <span>
-          <span className="text-white/32">Spent</span>{" "}
-          <span className="font-black text-white/86">{fmt(spent)}</span>
-        </span>
-        <span className="text-white/16">•</span>
-        <span>
-          <span className="text-white/32">Categories</span>{" "}
-          <span className="font-black text-white/86">{categoriesCount}</span>
-        </span>
-      </div>
-    </div>
-  );
-}
-
 function BudgetInsightCard({ driftState, outsidePlanSpent, onAdjust }) {
   return (
     <div className={`rounded-2xl border px-3.5 py-3.5 backdrop-blur-sm ${driftState.tone}`}>
@@ -222,21 +199,8 @@ export default function BudgetCardContent(props) {
               onAdjust={openBudgetModal}
             />
 
-            <BudgetSummaryLine
-              declared={declared}
-              spent={spent}
-              categoriesCount={categories.length}
-            />
-
             <div>
-              <div className="mb-2.5 flex items-center justify-between gap-3">
-                <div className="min-w-0">
-                  <span className="text-xs font-semibold text-white/84">Spending Plan</span>
-                  <p className="mt-0.5 text-[11px] font-medium leading-relaxed text-white/46">
-                    Category limits for this cycle.
-                  </p>
-                </div>
-
+              <div className="mb-2 flex justify-end">
                 <button
                   type="button"
                   onClick={() => onSaveBudget?.()}
