@@ -163,6 +163,86 @@
       })();
     </script>
 
+    <script>
+      (() => {
+        if (window.__claraBehavioralMemoryTrainingInstalled) return;
+        window.__claraBehavioralMemoryTrainingInstalled = true;
+
+        const memoryRules = `
+CLARA BEHAVIORAL MEMORY TRAINING:
+- Treat the recent Talk to CLARA conversation as personal behavioral context, not just chat history.
+- When the user asks things like "you know me now?", "what do you know about me?", or "do you remember me?", do NOT answer vaguely. Summarize 4-6 real patterns from the recent conversation in warm human language.
+- Do not expose internal field names such as burnoutIndicators.prevention, wallets.primary, subscriptions.auditNeed, tags, schema IDs, database, JSON, AI, or session.
+- Translate any learned profile fields into natural observations. Example: "wallets.primary: GCash" becomes "GCash seems to be your main spending wallet."
+- If the user talks about a new purchase, stress, debt, payday, pressure, sleep, energy, social situation, or burnout, naturally reference ONE relevant learned pattern when helpful.
+- Use phrases like "Earlier you mentioned...", "From what you shared...", or "That sounds connected to..." only when it genuinely fits.
+- Never overdo memory. Mention one or two patterns, then help with the current decision.
+- If a learned pattern sounds sensitive, be gentle and non-judgmental.
+- If the current conversation is just onboarding, continue the guided flow and avoid long summaries unless the user asks.
+- Keep CLARA emotionally aware: curious, observant, and practical.`;
+
+        const getVisibleClaraContext = () => {
+          try {
+            const root = document.getElementById("root");
+            const text = String(root?.innerText || "")
+              .replace(/\n{3,}/g, "\n\n")
+              .trim();
+            if (!text) return "No visible Talk to CLARA context found.";
+            return text.slice(-5200);
+          } catch {
+            return "No visible Talk to CLARA context found.";
+          }
+        };
+
+        const shouldPatchGemini = (input) => {
+          const url = typeof input === "string" ? input : input?.url || "";
+          return /generativelanguage\.googleapis\.com/i.test(url) && /generateContent/i.test(url);
+        };
+
+        const addMemoryTrainingToBody = (body) => {
+          if (!body?.contents?.[0]?.parts?.[0]?.text) return body;
+          const currentPrompt = String(body.contents[0].parts[0].text || "");
+          if (currentPrompt.includes("CLARA BEHAVIORAL MEMORY TRAINING")) return body;
+          if (!currentPrompt.includes("You are CLARA")) return body;
+
+          const visibleContext = getVisibleClaraContext();
+          const addition = `\n\n${memoryRules}\n\nVISIBLE RECENT TALK TO CLARA CONTEXT, USE ONLY IF RELEVANT:\n${visibleContext}\n\nReminder: reply as CLARA in natural user-facing language, not system language.`;
+
+          return {
+            ...body,
+            contents: body.contents.map((content, index) => {
+              if (index !== 0) return content;
+              return {
+                ...content,
+                parts: content.parts.map((part, partIndex) =>
+                  partIndex === 0 && typeof part.text === "string"
+                    ? { ...part, text: `${part.text}${addition}` }
+                    : part
+                )
+              };
+            })
+          };
+        };
+
+        const originalFetch = window.fetch?.bind(window);
+        if (!originalFetch) return;
+
+        window.fetch = async (input, init = {}) => {
+          if (!shouldPatchGemini(input) || !init?.body || typeof init.body !== "string") {
+            return originalFetch(input, init);
+          }
+
+          try {
+            const parsed = JSON.parse(init.body);
+            const trained = addMemoryTrainingToBody(parsed);
+            return originalFetch(input, { ...init, body: JSON.stringify(trained) });
+          } catch {
+            return originalFetch(input, init);
+          }
+        };
+      })();
+    </script>
+
     <script type="module" src="/src/main.jsx"></script>
   </body>
 </html>
