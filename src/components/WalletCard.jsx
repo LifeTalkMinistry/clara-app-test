@@ -19,6 +19,7 @@ export default function WalletCard({
   expanded = false,
   onToggleDetails,
   financeActionLoading = false,
+  financeDataLoading = false,
   onCreateWallet,
   onMoveWallet,
   onDeleteWallet,
@@ -65,6 +66,7 @@ export default function WalletCard({
         expanded={expanded}
         onToggleDetails={onToggleDetails}
         financeActionLoading={financeActionLoading}
+        financeDataLoading={financeDataLoading}
         onCreateWallet={onCreateWallet}
         onMoveWallet={onMoveWallet}
         onDeleteWallet={onDeleteWallet}
