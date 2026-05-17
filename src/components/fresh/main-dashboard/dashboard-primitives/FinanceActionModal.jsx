@@ -8,6 +8,7 @@ import {
   useState,
 } from "react";
 import { X } from "lucide-react";
+import WalletProviderPicker from "@/components/financial-carousel/cards/wallet/ui/WalletProviderPicker";
 
 const MONEY_ACTION_TITLES = new Set(["Add money", "Transfer money"]);
 const BUDGET_SETUP_TITLES = new Set([
@@ -15,6 +16,7 @@ const BUDGET_SETUP_TITLES = new Set([
   "Edit budget category",
   "Budget discipline mode",
 ]);
+const CREATE_WALLET_TITLE = "Where will your money live?";
 
 function normalizeMoneyInput(currentValue, nextKey) {
   const current = String(currentValue || "");
@@ -58,6 +60,10 @@ function getDisplayDescription(title, description) {
     if (title === "Edit budget category") return "Update this category allocation.";
   }
 
+  if (title === CREATE_WALLET_TITLE) {
+    return "Choose a bank, e-wallet, or custom money container.";
+  }
+
   if (!text) return "";
 
   if (title === "Add money") {
@@ -98,6 +104,20 @@ function cloneHiddenNumberInput(node) {
 
   for (const child of nested) {
     const result = cloneHiddenNumberInput(child);
+    if (result) return result;
+  }
+
+  return null;
+}
+
+function findFirstElement(node, predicate) {
+  if (!isValidElement(node)) return null;
+  if (predicate(node)) return node;
+
+  const nested = Children.toArray(node.props?.children);
+
+  for (const child of nested) {
+    const result = findFirstElement(child, predicate);
     if (result) return result;
   }
 
@@ -185,6 +205,7 @@ export default function FinanceActionModal({
   const [moneyAmount, setMoneyAmount] = useState("");
   const usesClaraMoneyKeypad = MONEY_ACTION_TITLES.has(title);
   const isBudgetSetupModal = BUDGET_SETUP_TITLES.has(title);
+  const isCreateWalletModal = title === CREATE_WALLET_TITLE;
   const displayTitle = getDisplayTitle(title);
   const displayDescription = getDisplayDescription(title, description);
 
@@ -195,6 +216,39 @@ export default function FinanceActionModal({
     hiddenMoneyInput,
   } = useMemo(() => {
     const childItems = Children.toArray(children);
+
+    if (isCreateWalletModal) {
+      return {
+        modalChildren: childItems.map((child) => {
+          if (!isValidElement(child) || child.props?.label !== "Wallet type") return child;
+
+          const selectElement = findFirstElement(child, (node) => node.type === "select");
+          const selectedValue = selectElement?.props?.value || "cash";
+
+          return cloneElement(
+            child,
+            {
+              label: "Choose wallet identity",
+              helper: "Pick the bank, digital bank, e-wallet, or custom wallet this represents.",
+            },
+            <WalletProviderPicker
+              selectedProviderKey={selectedValue}
+              disabled={loading}
+              compact
+              onSelect={(provider) =>
+                selectElement?.props?.onChange?.({
+                  target: { value: provider.key },
+                  currentTarget: { value: provider.key },
+                })
+              }
+            />
+          );
+        }),
+        moneyFieldLabel: "Amount",
+        moneyFieldHelper: "",
+        hiddenMoneyInput: null,
+      };
+    }
 
     if (!usesClaraMoneyKeypad) {
       return {
@@ -214,7 +268,7 @@ export default function FinanceActionModal({
       moneyFieldHelper: normalizeHelperText(moneyField?.props?.helper),
       hiddenMoneyInput: moneyField ? cloneHiddenNumberInput(moneyField) : null,
     };
-  }, [children, usesClaraMoneyKeypad]);
+  }, [children, isCreateWalletModal, loading, usesClaraMoneyKeypad]);
 
   const updateAmountInput = (nextValue) => {
     const input = formRef.current?.querySelector('input[type="number"]');
