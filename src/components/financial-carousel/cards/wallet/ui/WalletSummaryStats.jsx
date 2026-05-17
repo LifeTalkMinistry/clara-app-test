@@ -16,6 +16,17 @@ const shortenWalletName = (value = '') => {
   return `${clean.slice(0, 8)}…`;
 };
 
+const getPrimaryWalletName = (topWallet) => {
+  if (!topWallet) return 'None';
+
+  return shortenWalletName(
+    topWallet?.name ||
+      topWallet?.wallet_name ||
+      topWallet?.label ||
+      'None'
+  );
+};
+
 export default function WalletSummaryStats({
   walletMoney = 0,
   walletCount = 0,
@@ -23,7 +34,9 @@ export default function WalletSummaryStats({
   topWallet,
   status,
 }) {
-  const activityCount = walletPreviewTransactions.length;
+  const recentActivityCount = Array.isArray(walletPreviewTransactions)
+    ? walletPreviewTransactions.filter(Boolean).length
+    : 0;
 
   const summaryTiles = [
     {
@@ -32,12 +45,12 @@ export default function WalletSummaryStats({
     },
     {
       label: 'Primary',
-      value: shortenWalletName(topWallet?.name || 'None'),
+      value: getPrimaryWalletName(topWallet),
       valueClassName: 'text-cyan-50 text-[12px] tracking-[-0.02em]',
     },
     {
-      label: 'Recent',
-      value: activityCount,
+      label: 'Activity',
+      value: recentActivityCount > 99 ? '99+' : recentActivityCount,
     },
   ];
 
