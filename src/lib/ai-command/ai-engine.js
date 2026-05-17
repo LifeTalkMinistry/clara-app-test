@@ -1,9 +1,10 @@
 import { executeAICommand, resolveAuthenticatedUser } from "@/lib/ai-command/command-executor";
-import { loadFinanceSnapshot } from "@/lib/ai-command/finance-context";
+import { computeFinanceSummary, loadFinanceSnapshot } from "@/lib/ai-command/finance-context";
 import {
   AI_INTENTS,
   WRITE_INTENTS,
   buildCommand,
+  formatPeso,
   isCancelText,
   isNoText,
   isYesText,
@@ -11,100 +12,134 @@ import {
 } from "@/lib/ai-command/command-parser";
 import { askGeminiForUnderstanding, getGeminiStatus } from "@/lib/ai-command/gemini-service";
 
-const GEMINI_COOLDOWN_MS = 2500;
-const GEMINI_DAILY_LIMIT = 40;
-const GEMINI_USAGE_KEY = "clara_ai_gemini_usage_v1";
-
-function todayKey() {
-  return new Date().toISOString().slice(0, 10);
-}
-
-function getUserKey(user) {
-  return user?.id || user?.email || "guest";
-}
-
-function getDisplayName(user) {
-  return (
-    user?.user_metadata?.full_name ||
-    user?.user_metadata?.name ||
-    user?.full_name ||
-    user?.name ||
-    user?.email?.split("@")?.[0] ||
-    "there"
-  );
-}
-
-function personalize(message, user) {
-  const name = getDisplayName(user);
-  return String(message || "").replaceAll("{name}", name);
-}
-
-function readGeminiUsage() {
-  if (typeof window === "undefined") return {};
-  try {
-    return JSON.parse(window.localStorage.getItem(GEMINI_USAGE_KEY) || "{}");
-  } catch {
-    return {};
-  }
-}
-
-function writeGeminiUsage(usage) {
-  if (typeof window === "undefined") return;
-  try {
-    window.localStorage.setItem(GEMINI_USAGE_KEY, JSON.stringify(usage));
-  } catch {}
-}
-
-function getGeminiUsageForUser(userKey) {
-  const usage = readGeminiUsage();
-  const day = todayKey();
-
-  if (!usage[userKey] || usage[userKey].day !== day) {
-    return { day, count: 0, lastCallAt: 0 };
-  }
-
-  return usage[userKey];
-}
-
-function saveGeminiUsageForUser(userKey, nextUsage) {
-  const usage = readGeminiUsage();
-  usage[userKey] = nextUsage;
-  writeGeminiUsage(usage);
-}
-
-function canUseGemini(userKey) {
-  const usage = getGeminiUsageForUser(userKey);
-  const now = Date.now();
-
-  if (usage.count >= GEMINI_DAILY_LIMIT) {
-    return { allowed: false, reason: "daily_limit", usage };
-  }
-
-  if (now - Number(usage.lastCallAt || 0) < GEMINI_COOLDOWN_MS) {
-    return { allowed: false, reason: "cooldown", usage };
-  }
-
-  return { allowed: true, reason: null, usage };
-}
-
-function markGeminiUsed(userKey) {
-  const usage = getGeminiUsageForUser(userKey);
-  saveGeminiUsageForUser(userKey, {
-    ...usage,
-    count: Number(usage.count || 0) + 1,
-    lastCallAt: Date.now(),
-  });
-}
+const READ_INTENTS = new Set([
+  AI_INTENTS.GET_LAST_EXPENSE,
+  AI_INTENTS.CHECK_BALANCE,
+  AI_INTENTS.READ_SPENDING,
+  AI_INTENTS.READ_WALLET_HISTORY,
+  AI_INTENTS.READ_BUDGET_STATUS,
+  AI_INTENTS.READ_SAVINGS_STATUS,
+  AI_INTENTS.ANALYZE_SPENDING,
+  AI_INTENTS.SUGGEST_SAVINGS,
+  AI_INTENTS.PLAN_SPENDING,
+  AI_INTENTS.EMERGENCY_FUND_PLAN,
+  AI_INTENTS.DECISION_GUIDANCE,
+]);
 
 function normalizeText(value) {
   return String(value || "").trim().toLowerCase();
 }
 
-/* ===== (ALL YOUR ORIGINAL FUNCTIONS REMAIN UNCHANGED) ===== */
+function getUserKey(user) {
+  return user?.id || user?.email || "local-user";
+}
 
-/* KEEP EVERYTHING ABOVE EXACTLY THE SAME */
+function getDisplayName(user) {
+  return user?.user_metadata?.full_name || user?.user_metadata?.name || user?.name || user?.email?.split("@")?.[0] || "there";
+}
 
-/* SCROLLING DOWN TO MAIN LOGIC */
+function cancelledTurn(message = "Okay, I cancelled that.") {
+  return {
+    command: null,
+    assistantMessage: message,
+    executionResult: null,
+    status: "cancelled",
+    awaitingConfirmation: false,
+    cancellationState: "cancelled",
+  };
+}
+
+async function safeResolveUser(user) {
+  try {
+    return (await resolveAuthenticatedUser(user)) || user || { id: "local-user" };
+  } catch (error) {
+    console.warn("CLARA AI user resolution failed:", error);
+    return user || { id: "local-user" };
+  }
+}
+
+async function safeLoadFinanceSnapshot(user) {
+  try {
+    const snapshot = await loadFinanceSnapshot(user);
+    return {
+      ...(snapshot || {}),
+      summary: snapshot?.summary || computeFinanceSummary(snapshot || {}),
+    };
+  } catch (error) {
+    console.warn("CLARA AI finance snapshot failed:", error);
+    const empty = { expenses: [], wallets: [], walletTransactions: [], budgets: [], savingsGoals: [], transfers: [] };
+    return { ...empty, summary: computeFinanceSummary(empty) };
+  }
+}
+
+function isPureSmallTalk(text) {
+  const input = normalizeText(text).replace(/[!?.]+$/g, "");
+  return /^(hi|hello|hey|yo|good morning|good afternoon|good evening|kumusta|kamusta|how are you|thanks|thank you)$/.test(input);
+}
+
+function buildConversationalFallback(text, user) {
+  const input = normalizeText(text);
+  const name = getDisplayName(user);
+  if (/^(hi|hello|hey|yo|good morning|good afternoon|good evening|kumusta|kamusta)/.test(input)) {
+    return `Hi ${name}! Want to check your wallet, log an expense, or move money today?`;
+  }
+  if (/how are you/.test(input)) return "I’m good — ready to help you stay on top of your money. What do you want to check first?";
+  if (/thank/.test(input)) return "You’re welcome. I’m here when you want to check, log, move, or plan your money.";
+  return "I can help with wallets, expenses, budgets, savings, and spending decisions. What do you want to do?";
+}
+
+function isBalanceQuestion(text) {
+  const input = normalizeText(text);
+  return (
+    /\b(how much|what'?s|what is|show|check)\b.*\b(money|balance|wallet|cash|funds|have)\b/.test(input) ||
+    /\b(total balance|wallet balance|money left|available money|currently have|current balance)\b/.test(input)
+  );
+}
+
+function isLastTransactionRequest(text) {
+  const input = normalizeText(text);
+  return /\b(last|latest|recent|previous)\b.*\b(transaction|activity|wallet activity|movement)\b/.test(input);
+}
+
+function buildLatestTransactionMessage(snapshot = {}) {
+  const latest = (snapshot.walletTransactions || [])[0];
+  if (!latest) return "I do not see wallet activity yet.";
+  const wallet = (snapshot.wallets || []).find((item) => String(item.id) === String(latest.wallet_id));
+  const type = String(latest.type || "transaction").replace(/_/g, " ");
+  const walletName = wallet?.name || wallet?.wallet_name || "a wallet";
+  const note = latest.notes ? ` — ${latest.notes}` : "";
+  return `Your latest wallet activity is ${type} of ${formatPeso(latest.amount)} in ${walletName}${note}.`;
+}
+
+function shouldExecuteImmediately(command) {
+  if (!command?.canExecute) return false;
+  if (command.status === "awaiting_confirmation") return false;
+  if (WRITE_INTENTS.has(command.intent)) return false;
+  return command.status === "ready_to_execute" || READ_INTENTS.has(command.intent);
+}
+
+function shouldPreferLocalCommand(command) {
+  if (!command || command.intent === AI_INTENTS.UNKNOWN) return false;
+  if (WRITE_INTENTS.has(command.intent)) return true;
+  if (READ_INTENTS.has(command.intent)) return true;
+  return Number(command.confidence || 0) >= 0.78;
+}
+
+async function understandInput({ text, session, financeSnapshot }) {
+  const localCommand = parseCommand(text, session?.currentCommand || null);
+  if (shouldPreferLocalCommand(localCommand)) return localCommand;
+
+  try {
+    const geminiCommand = await askGeminiForUnderstanding({ text, session, financeSnapshot });
+    if (geminiCommand?.intent && geminiCommand.intent !== AI_INTENTS.UNKNOWN) return geminiCommand;
+  } catch (error) {
+    console.warn("CLARA Gemini understanding failed:", error);
+  }
+
+  return localCommand.intent === AI_INTENTS.UNKNOWN
+    ? buildCommand(AI_INTENTS.GENERAL_GUIDANCE, { label: text }, 0.45, "I can help with wallets, expenses, budgets, savings, and money decisions. Try asking me to check your balance or log an expense.")
+    : localCommand;
+}
 
 export async function processAssistantTurn({ text, session, user }) {
   const input = String(text || "").trim();
@@ -121,14 +156,13 @@ export async function processAssistantTurn({ text, session, user }) {
 
   if (isCancelText(input)) return cancelledTurn();
 
-  const activeUser = await resolveAuthenticatedUser(user);
-  const userKey = getUserKey(activeUser);
+  const activeUser = await safeResolveUser(user);
   const previous = session?.currentCommand;
 
   if (previous?.status === "awaiting_confirmation" && isYesText(input)) {
     const command = { ...previous, status: "ready_to_execute", canExecute: true };
-    const result = await executeAICommand(command, { user: activeUser });
-
+    const financeSnapshot = await safeLoadFinanceSnapshot(activeUser);
+    const result = await executeAICommand(command, { user: activeUser, financeSnapshot });
     return {
       command: { ...command, status: result.success ? "executed" : "error" },
       assistantMessage: result.message,
@@ -139,10 +173,7 @@ export async function processAssistantTurn({ text, session, user }) {
   }
 
   if (previous?.status === "awaiting_confirmation" && isNoText(input)) {
-    return {
-      ...cancelledTurn(),
-      assistantMessage: "No problem. I paused that action. Tell me what to change, or start a new command.",
-    };
+    return cancelledTurn("No problem. I paused that action. Tell me what to change, or start a new command.");
   }
 
   if (isPureSmallTalk(input)) {
@@ -157,68 +188,32 @@ export async function processAssistantTurn({ text, session, user }) {
 
   const financeSnapshot = await safeLoadFinanceSnapshot(activeUser);
 
-  /* ✅ ADDED LOCAL HANDLER (THIS IS THE FIX) */
-  if (/how much left|remaining|balance left|magkano natira/i.test(input)) {
-    const total = financeSnapshot?.summary?.moneyLeftThisMonth ?? 0;
-
+  if (isBalanceQuestion(input)) {
+    const command = buildCommand(AI_INTENTS.CHECK_BALANCE, { scope: "all" }, 0.98);
+    const result = await executeAICommand(command, { user: activeUser, financeSnapshot });
     return {
-      command: buildCommand(
-        AI_INTENTS.GENERAL_GUIDANCE,
-        { localAction: "money_left" },
-        0.95
-      ),
-      assistantMessage: `You have ${formatPeso(total)} left.`,
-      executionResult: null,
-      status: "detected",
+      command: { ...command, status: result.success ? "executed" : "error" },
+      assistantMessage: result.message,
+      executionResult: result,
+      status: result.success ? "executed" : "error",
       awaitingConfirmation: false,
     };
   }
 
   if (isLastTransactionRequest(input)) {
     return {
-      command: buildCommand(
-        AI_INTENTS.GENERAL_GUIDANCE,
-        { localAction: "latest_transaction" },
-        0.95
-      ),
-      assistantMessage: buildLatestTransactionMessage(financeSnapshot, activeUser),
+      command: buildCommand(AI_INTENTS.READ_WALLET_HISTORY, { localAction: "latest_transaction" }, 0.95),
+      assistantMessage: buildLatestTransactionMessage(financeSnapshot),
       executionResult: null,
       status: "detected",
       awaitingConfirmation: false,
     };
   }
 
-  const command = await understandInput({
-    text: input,
-    session,
-    financeSnapshot,
-    userKey,
-    user: activeUser,
-  });
-
-  if (hasGeminiMessage(command) && isPassiveConversation(command)) {
-    return {
-      command,
-      assistantMessage: command.assistantMessage,
-      executionResult: null,
-      status: command.status || "detected",
-      awaitingConfirmation: false,
-    };
-  }
+  const command = await understandInput({ text: input, session, financeSnapshot, userKey: getUserKey(activeUser), user: activeUser });
 
   if (shouldExecuteImmediately(command)) {
-    if (hasGeminiMessage(command) && command.intent === AI_INTENTS.DECISION_GUIDANCE) {
-      return {
-        command,
-        assistantMessage: command.assistantMessage,
-        executionResult: null,
-        status: command.status || "ready_to_execute",
-        awaitingConfirmation: false,
-      };
-    }
-
     const result = await executeAICommand(command, { user: activeUser, financeSnapshot });
-
     return {
       command: { ...command, status: result.success ? "executed" : "error" },
       assistantMessage: result.message,
@@ -231,11 +226,7 @@ export async function processAssistantTurn({ text, session, user }) {
   const assistantMessage =
     command.status === "awaiting_confirmation"
       ? command.confirmationText
-      : command.assistantMessage ||
-        command.userPrompt ||
-        ([AI_INTENTS.UNKNOWN, AI_INTENTS.GENERAL_GUIDANCE].includes(command.intent)
-          ? buildConversationalFallback(input, activeUser)
-          : "Got it. What should we do next?");
+      : command.assistantMessage || command.userPrompt || buildConversationalFallback(input, activeUser);
 
   return {
     command,
