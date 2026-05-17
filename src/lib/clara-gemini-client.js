@@ -501,11 +501,10 @@ export async function generateClaraGeminiReply({ message, context = {}, mode = n
       }
 
       if (transferGuidance && isGenericTransferReply(text)) {
-        console.warn("[CLARA AI] Gemini transfer reply was too generic; enforcing guided wallet reply", {
+        console.info("[CLARA AI] Gemini transfer reply kept as final reply; local wallet guidance was not forced", {
           model,
           reply: text,
         });
-        return sanitizeClaraReply(transferGuidance);
       }
 
       return text;
