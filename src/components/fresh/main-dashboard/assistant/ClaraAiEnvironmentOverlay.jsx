@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { ArrowUp, Sparkles, X } from "lucide-react";
+import { ArrowUp, MessageCircle, ShieldCheck, Sparkles, WalletCards, X } from "lucide-react";
 import { buildClaraFinanceSnapshot, generateClaraLocalReply } from "@/lib/clara-local-brain";
 import { generateClaraGeminiReply, hasGeminiConfig } from "@/lib/clara-gemini-client";
 import { buildContextualFinanceReply } from "@/lib/clara-direct-finance-reply";
@@ -8,10 +8,41 @@ const CLARA_AI_BRAIN_VERSION = "connected-brain-v9-context-wallets";
 const PRESENTATION_RULES = "Reply like a normal chat message. Plain text only. No markdown. Do not use headings, labels, section titles, bullets, tables, or report format. Give one natural conversational reply in 1-3 short sentences.";
 const SHOW_DEBUG_SOURCE = import.meta.env.DEV || import.meta.env.VITE_CLARA_DEBUG_AI === "true";
 
-const QUICK_QUESTIONS = [
-  { label: "Can I buy this?", prompt: "Help me decide if I can buy something. Ask for item, price, and wallet if missing, then say if it is safe, risky, or better delayed." },
-  { label: "Check my money", prompt: "Check my current money situation. Tell me what is safe, what is pressured, and what I should watch before spending today." },
-  { label: "Next move", prompt: "Based on my current money situation, tell me the clearest next financial move I should take today." },
+const PANEL_COPY = {
+  talk: {
+    label: "Talk to CLARA",
+    eyebrow: "TALK TO CLARA",
+    heading: "What money decision are we checking today?",
+    body: [
+      "Talk naturally with CLARA about purchases, budgeting, savings, financial stress, or life situations that affect your spending.",
+      "CLARA listens first, understands your context, then guides you before you act.",
+    ],
+  },
+  smart: {
+    label: "Smart Actions",
+    eyebrow: "SMART ACTIONS",
+    heading: "Choose a guided money action.",
+    body: [
+      "Smart Actions are structured CLARA flows for faster financial decisions.",
+      "Use them to check affordability, review spending leaks, plan savings, fix budget pressure, or decide your next best move.",
+    ],
+  },
+  core: {
+    label: "Core Features",
+    eyebrow: "CORE FEATURES",
+    heading: "Your financial system in one place.",
+    body: [
+      "Core Features are the foundations CLARA uses to understand your money.",
+      "Manage wallets, budgets, savings goals, emergency funds, and transactions so CLARA can give better guidance.",
+    ],
+  },
+};
+
+const TALK_TO_CLARA_GUIDES = [
+  { id: "natural-chat", title: "Natural Chat", description: "Type like you normally talk. CLARA can help you think through a money decision." },
+  { id: "decision-context", title: "Context First", description: "Share the item, price, reason, wallet, or pressure behind the decision." },
+  { id: "behavior-guidance", title: "Behavior Guidance", description: "CLARA connects money decisions with habits, emotions, goals, and timing." },
+  { id: "before-you-act", title: "Before You Act", description: "Use this space before buying, changing a budget, or making a risky move." },
 ];
 
 const CORE_FEATURES = [
@@ -128,11 +159,34 @@ function OptionCard({ item, disabled, onClick }) {
   );
 }
 
+function TalkGuideCard({ item }) {
+  return (
+    <div className="min-h-[82px] rounded-[22px] border border-white/10 bg-white/[0.045] p-3 text-left shadow-[0_12px_26px_rgba(0,0,0,0.12)]">
+      <p className="text-[12px] font-black leading-tight text-white">{item.title}</p>
+      <p className="mt-1.5 line-clamp-3 text-[10.5px] leading-4 text-slate-300/66">{item.description}</p>
+    </div>
+  );
+}
+
+function PanelInstructionBoard({ panel }) {
+  const copy = PANEL_COPY[panel] || PANEL_COPY.talk;
+
+  return (
+    <div className="rounded-[30px] border border-white/10 bg-white/[0.045] p-5 text-center shadow-[inset_0_1px_0_rgba(255,255,255,0.08)] backdrop-blur-xl transition-all duration-300">
+      <p className="text-[11px] font-black uppercase tracking-[0.24em] text-cyan-100/55">{copy.eyebrow}</p>
+      <h3 className="mt-3 text-2xl font-black leading-tight tracking-tight text-white">{copy.heading}</h3>
+      <div className="mx-auto mt-3 max-w-[300px] space-y-2 text-sm leading-6 text-slate-300/75">
+        {copy.body.map((line) => <p key={line}>{line}</p>)}
+      </div>
+    </div>
+  );
+}
+
 export default function ClaraAiEnvironmentOverlay({ isActive = false, messages = [], claraAssistantContext = {}, onClose }) {
   const [draft, setDraft] = useState("");
   const [localMessages, setLocalMessages] = useState([]);
   const [isThinking, setIsThinking] = useState(false);
-  const [panel, setPanel] = useState("ask");
+  const [panel, setPanel] = useState("talk");
   const inputRef = useRef(null);
   const messagesEndRef = useRef(null);
 
@@ -146,7 +200,7 @@ export default function ClaraAiEnvironmentOverlay({ isActive = false, messages =
       setDraft("");
       setLocalMessages([]);
       setIsThinking(false);
-      setPanel("ask");
+      setPanel("talk");
       return undefined;
     }
     setLocalMessages((current) => current.filter((message) => !hiddenMessage(message)));
@@ -292,22 +346,16 @@ export default function ClaraAiEnvironmentOverlay({ isActive = false, messages =
           </div>
         ) : (
           <div className="flex min-h-full flex-col justify-center gap-4 pb-2">
-            <div className="rounded-[30px] border border-white/10 bg-white/[0.045] p-5 text-center shadow-[inset_0_1px_0_rgba(255,255,255,0.08)] backdrop-blur-xl">
-              <p className="text-[11px] font-black uppercase tracking-[0.24em] text-cyan-100/55">Ask Questions</p>
-              <h3 className="mt-3 text-2xl font-black leading-tight tracking-tight text-white">What money decision are we checking today?</h3>
-              <p className="mx-auto mt-3 max-w-[285px] text-sm leading-6 text-slate-300/75">Start with a normal question. Smart Actions and Core Features are here when you need more structure.</p>
-              <div className="mt-5 flex flex-wrap justify-center gap-2">
-                {QUICK_QUESTIONS.map((item) => <button key={item.label} type="button" disabled={isThinking} onClick={() => runClara({ prompt: item.prompt, displayText: item.label })} className="rounded-full border border-white/12 bg-white/[0.07] px-3 py-2 text-[11px] font-black text-white/74 transition hover:bg-white/[0.10] active:scale-95 disabled:opacity-45">{item.label}</button>)}
-              </div>
-            </div>
+            <PanelInstructionBoard panel={panel} />
 
             <div className="rounded-[26px] border border-white/10 bg-white/[0.035] p-3 shadow-[inset_0_1px_0_rgba(255,255,255,0.06)] backdrop-blur-xl">
-              <div className="flex flex-wrap items-center justify-center gap-2">
-                <PanelButton active={panel === "ask"} onClick={() => setPanel("ask")}>Ask Questions</PanelButton>
-                <PanelButton active={panel === "smart"} onClick={() => setPanel(panel === "smart" ? "ask" : "smart")}>Smart Actions</PanelButton>
-                <PanelButton active={panel === "core"} onClick={() => setPanel(panel === "core" ? "ask" : "core")}>Core Features</PanelButton>
+              <div className="grid grid-cols-3 gap-2">
+                <PanelButton active={panel === "talk"} onClick={() => setPanel("talk")}>Talk to CLARA</PanelButton>
+                <PanelButton active={panel === "smart"} onClick={() => setPanel("smart")}>Smart Actions</PanelButton>
+                <PanelButton active={panel === "core"} onClick={() => setPanel("core")}>Core Features</PanelButton>
               </div>
 
+              {panel === "talk" ? <div className="mt-3 grid grid-cols-2 gap-2">{TALK_TO_CLARA_GUIDES.map((item) => <TalkGuideCard key={item.id} item={item} />)}</div> : null}
               {panel === "smart" ? <div className="mt-3 grid grid-cols-2 gap-2">{SMART_ACTIONS.map((action) => <OptionCard key={action.id} item={action} disabled={isThinking} onClick={() => runClara({ prompt: action.prompt, displayText: action.title, action })} />)}</div> : null}
               {panel === "core" ? <div className="mt-3 grid grid-cols-2 gap-2">{CORE_FEATURES.map((feature) => <OptionCard key={feature.id} item={feature} disabled={isThinking} onClick={() => runClara({ prompt: feature.prompt, displayText: feature.title, action: { ...feature, chips: ["Can I buy this?", "Next move", "Check risk"] } })} />)}</div> : null}
             </div>
