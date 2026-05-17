@@ -1,14 +1,19 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
+  Activity,
+  Archive,
+  Brain,
   Briefcase,
   Check,
   ChevronLeft,
   ChevronRight,
+  Clock3,
   Compass,
   Heart,
   HeartHandshake,
   Lightbulb,
   LockKeyhole,
+  NotebookTabs,
   ShieldCheck,
   Smile,
   Sparkles,
@@ -223,6 +228,34 @@ const FIELDS = [
     options: ["Gentle", "Balanced", "Straightforward", "Strict"],
   },
   {
+    section: "Behavioral Signals",
+    key: "currentLifeSeason",
+    label: "Current life season",
+    helper: "The real-life situation CLARA should remember when giving advice.",
+    icon: Activity,
+    input: "textarea",
+    placeholder: "Example: I am recovering from work stress and trying to rebuild discipline.",
+  },
+  {
+    section: "Behavioral Signals",
+    key: "emotionalState",
+    label: "Emotional state",
+    helper: "This helps CLARA know if advice should be gentle, firm, or protective.",
+    icon: Heart,
+    options: ["Stable", "Stressed", "Healing", "Heartbroken", "Burned out", "Motivated", "Pressured", "Celebrating"],
+    allowCustom: true,
+    customPlaceholder: "Example: anxious after work conflict, lonely, overwhelmed",
+  },
+  {
+    section: "Behavioral Signals",
+    key: "replacementActivity",
+    label: "Healthy spending replacement",
+    helper: "A productive activity CLARA can suggest when spending becomes emotional.",
+    icon: Lightbulb,
+    input: "textarea",
+    placeholder: "Example: play guitar, walk outside, journal, workout, cook at home, pray, clean my room.",
+  },
+  {
     section: "Life Identity",
     key: "currentFocus",
     label: "What are you building right now?",
@@ -295,6 +328,20 @@ function getMoneyPersonalityResult(answers = {}) {
   });
   const winner = Object.entries(scores).sort((a, b) => b[1] - a[1])[0]?.[0] || "balanced";
   return PERSONALITY_RESULTS[winner];
+}
+
+function getDisplayValue(value, fallback = "Not set yet") {
+  const text = String(value || "").trim();
+  return text || fallback;
+}
+
+function formatMemoryDate(value) {
+  if (!value) return "Recently";
+  try {
+    return new Intl.DateTimeFormat("en", { month: "short", day: "numeric" }).format(new Date(value));
+  } catch {
+    return "Recently";
+  }
 }
 
 function MoneyPersonalityQuiz({ profile, setProfile }) {
@@ -406,10 +453,10 @@ function OptionSelector({ field, profile, selectOption }) {
 }
 
 function TextIdentityEditor({ field, profile, setProfile, onAccept }) {
-  const value = profile[field.key] || "";
+  const value = String(profile[field.key] || "");
   const [refining, setRefining] = useState(false);
   const [refineError, setRefineError] = useState("");
-  const canSubmit = Boolean(String(value || "").trim());
+  const canSubmit = Boolean(value.trim());
 
   const updateValue = (nextValue) => {
     setProfile((current) => ({ ...current, [field.key]: nextValue }));
@@ -417,7 +464,7 @@ function TextIdentityEditor({ field, profile, setProfile, onAccept }) {
   };
 
   const handleRefine = async () => {
-    const roughText = String(value || "").trim();
+    const roughText = value.trim();
     if (!roughText) {
       setRefineError("Write a rough answer first, then CLARA can clean it up.");
       return;
@@ -447,7 +494,7 @@ function TextIdentityEditor({ field, profile, setProfile, onAccept }) {
         onChange={(event) => updateValue(event.target.value)}
         placeholder={field.placeholder || "Tell CLARA in your own words."}
         rows={7}
-        maxLength={360}
+        maxLength={420}
         className="min-h-[150px] w-full resize-none rounded-[20px] border border-white/10 bg-black/10 px-4 py-3 text-sm font-bold leading-6 text-white outline-none placeholder:text-white/28 focus:border-cyan-300/35"
       />
 
@@ -475,7 +522,7 @@ function TextIdentityEditor({ field, profile, setProfile, onAccept }) {
 
       <div className="mt-3 flex items-center justify-between gap-3 text-[10px] font-black uppercase tracking-[0.14em] text-white/34">
         <span>Private on this device</span>
-        <span>{value.length}/360</span>
+        <span>{value.length}/420</span>
       </div>
 
       {refineError ? (
@@ -483,6 +530,193 @@ function TextIdentityEditor({ field, profile, setProfile, onAccept }) {
           {refineError}
         </p>
       ) : null}
+    </div>
+  );
+}
+
+function ContextChip({ label, value, icon: Icon, onClick }) {
+  return (
+    <button type="button" onClick={onClick} className="group min-w-0 rounded-[22px] border border-white/10 bg-white/[0.04] p-3 text-left shadow-[inset_0_1px_0_rgba(255,255,255,0.035)] transition hover:bg-white/[0.065] active:scale-[0.99]">
+      <div className="flex items-center gap-2 text-[10px] font-black uppercase tracking-[0.14em] text-white/34">
+        <Icon className="h-3.5 w-3.5 text-cyan-100/58" />
+        <span className="truncate">{label}</span>
+      </div>
+      <p className="mt-2 line-clamp-2 text-sm font-black leading-5 text-white/84">{value}</p>
+    </button>
+  );
+}
+
+function InsightCard({ icon: Icon, label, title, body, onClick }) {
+  return (
+    <button type="button" onClick={onClick} className="group w-full rounded-[24px] border border-white/10 bg-white/[0.035] p-4 text-left shadow-[inset_0_1px_0_rgba(255,255,255,0.035)] transition hover:border-cyan-200/18 hover:bg-white/[0.055] active:scale-[0.99]">
+      <div className="flex items-start gap-3">
+        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl border border-cyan-200/14 bg-cyan-300/[0.07] text-cyan-50/76">
+          <Icon className="h-4 w-4" />
+        </div>
+        <div className="min-w-0 flex-1">
+          <p className="text-[10px] font-black uppercase tracking-[0.16em] text-cyan-100/50">{label}</p>
+          <h4 className="mt-1 text-sm font-black leading-5 text-white">{title}</h4>
+          <p className="mt-1.5 line-clamp-2 text-xs font-semibold leading-5 text-white/48">{body}</p>
+        </div>
+        <ChevronRight className="mt-3 h-4 w-4 shrink-0 text-white/36 transition group-hover:text-cyan-100/70" />
+      </div>
+    </button>
+  );
+}
+
+function MemoryTimeline({ memoryNotes = [] }) {
+  const notes = Array.isArray(memoryNotes) ? memoryNotes.filter((note) => note?.summary || note?.spendingImpact).slice(0, 4) : [];
+
+  if (!notes.length) {
+    return (
+      <div className="rounded-[24px] border border-dashed border-cyan-200/16 bg-cyan-300/[0.035] p-4">
+        <div className="flex items-start gap-3">
+          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl border border-white/10 bg-white/[0.04] text-cyan-100/70">
+            <NotebookTabs className="h-4 w-4" />
+          </div>
+          <div>
+            <p className="text-sm font-black text-white">No approved memories yet</p>
+            <p className="mt-1 text-xs font-semibold leading-5 text-white/46">
+              When Ask CLARA learns something important and the user approves it, the short summary will appear here.
+            </p>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-2.5">
+      {notes.map((note) => (
+        <div key={note.id} className="rounded-[22px] border border-white/10 bg-white/[0.035] p-3.5">
+          <div className="flex items-center justify-between gap-3">
+            <span className="rounded-full border border-cyan-200/14 bg-cyan-300/[0.07] px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.12em] text-cyan-50/70">{note.category || "Life Context"}</span>
+            <span className="inline-flex items-center gap-1.5 text-[10px] font-black uppercase tracking-[0.12em] text-white/30"><Clock3 className="h-3 w-3" />{formatMemoryDate(note.updatedAt || note.createdAt)}</span>
+          </div>
+          <p className="mt-3 text-sm font-bold leading-5 text-white/80">{note.summary}</p>
+          {note.spendingImpact ? <p className="mt-2 text-xs font-semibold leading-5 text-white/44">{note.spendingImpact}</p> : null}
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function UnderstandingDashboard({ profile, savingState, onOpenField }) {
+  const heroChips = [
+    { label: "Pattern", value: getDisplayValue(profile.personality), icon: Brain, fieldKey: "personality" },
+    { label: "Tone", value: getDisplayValue(profile.coachingStyle, "Balanced"), icon: HeartHandshake, fieldKey: "coachingStyle" },
+    { label: "Income", value: getDisplayValue(profile.incomeRhythm), icon: WalletCards, fieldKey: "incomeRhythm" },
+    { label: "Depends", value: getDisplayValue(profile.dependents), icon: Users, fieldKey: "dependents" },
+  ];
+
+  const insights = [
+    {
+      icon: Activity,
+      label: "Current life state",
+      title: getDisplayValue(profile.currentLifeSeason || profile.status, "Tell CLARA what season you are in"),
+      body: profile.currentLifeSeason ? "This gives CLARA a better reason behind current decisions." : "Use this for work stress, heartbreak, transition, recovery, or pressure.",
+      fieldKey: profile.currentLifeSeason ? "currentLifeSeason" : "status",
+    },
+    {
+      icon: Lightbulb,
+      label: "Spending trigger",
+      title: getDisplayValue(profile.spendingTrigger, "No active trigger saved yet"),
+      body: "CLARA can use this to spot comfort spending before it becomes regret.",
+      fieldKey: "spendingTrigger",
+    },
+    {
+      icon: Target,
+      label: "Goal to protect",
+      title: getDisplayValue(profile.meaningfulGoal || profile.currentFocus, "No protected goal yet"),
+      body: "This becomes the reminder when a tempting want appears.",
+      fieldKey: profile.meaningfulGoal ? "meaningfulGoal" : "currentFocus",
+    },
+    {
+      icon: ShieldCheck,
+      label: "Non-negotiable",
+      title: getDisplayValue(profile.nonNegotiable || profile.responsibility, "Choose what CLARA must protect first"),
+      body: "This creates a clear boundary before wants and impulse decisions.",
+      fieldKey: profile.nonNegotiable ? "nonNegotiable" : "responsibility",
+    },
+  ];
+
+  return (
+    <div className="space-y-5">
+      <section className="relative overflow-hidden rounded-[30px] border border-cyan-300/18 bg-[linear-gradient(135deg,rgba(9,62,76,.96),rgba(16,24,55,.97)_46%,rgba(55,24,100,.96))] p-5 shadow-[0_22px_80px_rgba(0,0,0,.24),0_0_38px_rgba(34,211,238,.08)]">
+        <div className="pointer-events-none absolute -left-20 -top-20 h-48 w-48 rounded-full bg-cyan-300/12 blur-3xl" />
+        <div className="pointer-events-none absolute -right-20 -bottom-20 h-56 w-56 rounded-full bg-fuchsia-400/12 blur-3xl" />
+        <div className="pointer-events-none absolute right-7 top-8 h-20 w-20 rounded-full border border-cyan-200/10 bg-white/[0.025] shadow-[0_0_45px_rgba(34,211,238,.12)]" />
+
+        <div className="relative">
+          <div className="flex items-start justify-between gap-4">
+            <div>
+              <p className="text-[11px] font-black uppercase tracking-[0.22em] text-cyan-100/70">Personal Cabinet</p>
+              <h3 className="mt-3 text-3xl font-black leading-none text-white">Me</h3>
+              <p className="mt-3 max-w-[26rem] text-sm leading-6 text-white/72">
+                This is not another AI chat. This is the organized cabinet of what CLARA understands about your life, behavior, and spending context.
+              </p>
+              <p className="mt-2 text-[11px] font-bold text-white/38">{savingState}</p>
+            </div>
+            <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-[22px] border border-cyan-200/16 bg-cyan-300/[0.08] text-cyan-50 shadow-[0_0_28px_rgba(34,211,238,.12)]">
+              <Archive className="h-5 w-5" />
+            </div>
+          </div>
+
+          <div className="mt-5 grid grid-cols-2 gap-2.5">
+            {heroChips.map((chip) => (
+              <ContextChip key={chip.label} {...chip} onClick={() => onOpenField(chip.fieldKey)} />
+            ))}
+          </div>
+        </div>
+      </section>
+
+      <section className="rounded-[28px] border border-white/10 bg-white/[0.028] p-4 shadow-[0_18px_52px_rgba(0,0,0,.16)] backdrop-blur-xl">
+        <div className="flex items-start justify-between gap-3">
+          <div>
+            <p className="text-[11px] font-black uppercase tracking-[0.18em] text-white/34">What CLARA understands</p>
+            <h3 className="mt-1 text-lg font-black text-white">Living profile summary</h3>
+          </div>
+          <span className="rounded-full border border-emerald-200/14 bg-emerald-300/[0.075] px-3 py-1 text-[10px] font-black uppercase tracking-[0.12em] text-emerald-100/70">Compressed</span>
+        </div>
+
+        <div className="mt-4 space-y-2.5">
+          {insights.map((insight) => (
+            <InsightCard key={insight.label} {...insight} onClick={() => onOpenField(insight.fieldKey)} />
+          ))}
+        </div>
+      </section>
+
+      <section className="rounded-[28px] border border-white/10 bg-white/[0.028] p-4 shadow-[0_18px_52px_rgba(0,0,0,.16)] backdrop-blur-xl">
+        <div className="flex items-start justify-between gap-3">
+          <div>
+            <p className="text-[11px] font-black uppercase tracking-[0.18em] text-white/34">Approved memories</p>
+            <h3 className="mt-1 text-lg font-black text-white">What CLARA learned</h3>
+            <p className="mt-1 text-xs font-semibold leading-5 text-white/44">
+              Short summaries only. Full conversations do not need to be sent back every time.
+            </p>
+          </div>
+          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl border border-white/10 bg-white/[0.04] text-white/50">
+            <NotebookTabs className="h-4 w-4" />
+          </div>
+        </div>
+        <div className="mt-4">
+          <MemoryTimeline memoryNotes={profile.memoryNotes} />
+        </div>
+      </section>
+
+      <section className="rounded-[28px] border border-cyan-200/12 bg-[radial-gradient(circle_at_top_left,rgba(34,211,238,.08),transparent_38%),rgba(255,255,255,.025)] p-4 shadow-[0_18px_52px_rgba(0,0,0,.16)] backdrop-blur-xl">
+        <div className="flex items-start gap-3">
+          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl border border-cyan-200/14 bg-cyan-300/[0.07] text-cyan-50/74">
+            <Sparkles className="h-4 w-4" />
+          </div>
+          <div>
+            <p className="text-sm font-black text-white">Ask CLARA is still the conversation.</p>
+            <p className="mt-1 text-xs font-semibold leading-5 text-white/48">
+              The Me page only organizes the approved context, so advice can stay personal without wasting tokens on the full life story every time.
+            </p>
+          </div>
+        </div>
+      </section>
     </div>
   );
 }
@@ -502,46 +736,25 @@ function EditContextPanel({ profile, setProfile, savingState }) {
     setFieldKey(null);
   };
 
-  return (
-    <section className="relative overflow-hidden rounded-[30px] border border-cyan-300/18 bg-[linear-gradient(135deg,rgba(9,62,76,.96),rgba(16,24,55,.97)_46%,rgba(55,24,100,.96))] p-5 shadow-[0_22px_80px_rgba(0,0,0,.24),0_0_38px_rgba(34,211,238,.08)]">
-      <div className="pointer-events-none absolute -left-20 -top-20 h-48 w-48 rounded-full bg-cyan-300/12 blur-3xl" />
-      <div className="pointer-events-none absolute -right-20 -bottom-20 h-56 w-56 rounded-full bg-fuchsia-400/12 blur-3xl" />
+  if (!field) {
+    return (
+      <div className="space-y-5">
+        <UnderstandingDashboard profile={profile} savingState={savingState} onOpenField={setFieldKey} />
 
-      <div className="relative">
-        <div className="flex items-start justify-between gap-4">
-          <div>
-            <p className="text-[11px] font-black uppercase tracking-[0.22em] text-cyan-100/70">Life Context</p>
-            <h3 className="mt-3 text-2xl font-black leading-tight text-white">
-              {field ? field.label : "What should CLARA know about your life?"}
-            </h3>
-            <p className="mt-2 text-sm leading-6 text-white/72">
-              {field ? field.helper : "These details help CLARA guide your spending with your real life, values, and goals in mind."}
-            </p>
-            {!field ? <p className="mt-2 text-[11px] font-bold text-white/38">{savingState}</p> : null}
-          </div>
-          {field ? (
-            <button type="button" onClick={() => setFieldKey(null)} className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl border border-white/10 bg-white/[0.04] text-white/60" aria-label="Back to context list">
-              <ChevronLeft className="h-4 w-4" />
-            </button>
-          ) : null}
-        </div>
-
-        {field ? (
-          field.kind === "quiz" ? (
-            <MoneyPersonalityQuiz profile={profile} setProfile={setProfile} />
-          ) : field.input === "number" ? (
-            <div className="mt-5 space-y-3">
-              <input value={profile.age || ""} onChange={(event) => setProfile((current) => ({ ...current, age: event.target.value }))} inputMode="numeric" type="number" min="1" max="120" placeholder="Not set" className="w-full rounded-2xl border border-white/12 bg-white/[0.035] px-4 py-3 text-sm font-bold text-white outline-none placeholder:text-white/30 focus:border-cyan-300/35" />
-              <button type="button" onClick={() => setFieldKey(null)} className="w-full rounded-2xl border border-emerald-300/30 bg-emerald-300/[0.14] px-4 py-3 text-[11px] font-black uppercase tracking-[0.12em] text-emerald-50 transition active:scale-[0.98]">
-                Accept
-              </button>
+        <section className="relative overflow-hidden rounded-[30px] border border-white/10 bg-white/[0.026] p-4 shadow-[0_18px_52px_rgba(0,0,0,.16)] backdrop-blur-xl">
+          <div className="flex items-start justify-between gap-3">
+            <div>
+              <p className="text-[11px] font-black uppercase tracking-[0.18em] text-white/34">Cabinet categories</p>
+              <h3 className="mt-1 text-lg font-black text-white">Update what CLARA knows</h3>
+              <p className="mt-1 text-xs font-semibold leading-5 text-white/44">
+                These are still editable, but they now behave like organized memory drawers instead of a one-time form.
+              </p>
             </div>
-          ) : field.input === "textarea" ? (
-            <TextIdentityEditor field={field} profile={profile} setProfile={setProfile} onAccept={() => setFieldKey(null)} />
-          ) : (
-            <OptionSelector field={field} profile={profile} selectOption={selectOption} />
-          )
-        ) : (
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl border border-white/10 bg-white/[0.04] text-white/50">
+              <Archive className="h-4 w-4" />
+            </div>
+          </div>
+
           <div className="mt-5 space-y-5">
             {Object.entries(sections).map(([sectionName, items]) => (
               <div key={sectionName}>
@@ -565,6 +778,41 @@ function EditContextPanel({ profile, setProfile, savingState }) {
               </div>
             ))}
           </div>
+        </section>
+      </div>
+    );
+  }
+
+  return (
+    <section className="relative overflow-hidden rounded-[30px] border border-cyan-300/18 bg-[linear-gradient(135deg,rgba(9,62,76,.96),rgba(16,24,55,.97)_46%,rgba(55,24,100,.96))] p-5 shadow-[0_22px_80px_rgba(0,0,0,.24),0_0_38px_rgba(34,211,238,.08)]">
+      <div className="pointer-events-none absolute -left-20 -top-20 h-48 w-48 rounded-full bg-cyan-300/12 blur-3xl" />
+      <div className="pointer-events-none absolute -right-20 -bottom-20 h-56 w-56 rounded-full bg-fuchsia-400/12 blur-3xl" />
+
+      <div className="relative">
+        <div className="flex items-start justify-between gap-4">
+          <div>
+            <p className="text-[11px] font-black uppercase tracking-[0.22em] text-cyan-100/70">Me Cabinet</p>
+            <h3 className="mt-3 text-2xl font-black leading-tight text-white">{field.label}</h3>
+            <p className="mt-2 text-sm leading-6 text-white/72">{field.helper}</p>
+          </div>
+          <button type="button" onClick={() => setFieldKey(null)} className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl border border-white/10 bg-white/[0.04] text-white/60" aria-label="Back to Me cabinet">
+            <ChevronLeft className="h-4 w-4" />
+          </button>
+        </div>
+
+        {field.kind === "quiz" ? (
+          <MoneyPersonalityQuiz profile={profile} setProfile={setProfile} />
+        ) : field.input === "number" ? (
+          <div className="mt-5 space-y-3">
+            <input value={profile.age || ""} onChange={(event) => setProfile((current) => ({ ...current, age: event.target.value }))} inputMode="numeric" type="number" min="1" max="120" placeholder="Not set" className="w-full rounded-2xl border border-white/12 bg-white/[0.035] px-4 py-3 text-sm font-bold text-white outline-none placeholder:text-white/30 focus:border-cyan-300/35" />
+            <button type="button" onClick={() => setFieldKey(null)} className="w-full rounded-2xl border border-emerald-300/30 bg-emerald-300/[0.14] px-4 py-3 text-[11px] font-black uppercase tracking-[0.12em] text-emerald-50 transition active:scale-[0.98]">
+              Accept
+            </button>
+          </div>
+        ) : field.input === "textarea" ? (
+          <TextIdentityEditor field={field} profile={profile} setProfile={setProfile} onAccept={() => setFieldKey(null)} />
+        ) : (
+          <OptionSelector field={field} profile={profile} selectOption={selectOption} />
         )}
       </div>
     </section>
