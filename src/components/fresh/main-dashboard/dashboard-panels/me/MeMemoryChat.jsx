@@ -26,7 +26,8 @@ function normalizeMemoryValue(field, rawValue) {
 
   if (field.key === "livingSituation") {
     if (/\b(partner|boyfriend|girlfriend|spouse|husband|wife)\b/.test(text)) return "with partner";
-    if (/\b(family|parents|parent|mother|father|siblings|sibling)\b/.test(text)) return "with family";
+    if (/\b(parent|mother|father|mom|dad)\b/.test(text)) return "with parent";
+    if (/\b(family|parents|siblings|sibling)\b/.test(text)) return "with family";
     if (/\b(alone|solo|by myself|living alone)\b/.test(text)) return "alone";
     if (/\b(rent|renting|apartment|boarding)\b/.test(text)) return "renting";
     if (/\b(shared|roommate|housemate|bedspace)\b/.test(text)) return "shared place";
@@ -58,9 +59,24 @@ function normalizeAdditionalContext(field, rawValue) {
     if (/\bgirlfriend\b/.test(text)) return "partner is girlfriend";
     if (/\bboyfriend\b/.test(text)) return "partner is boyfriend";
     if (/\b(spouse|husband|wife)\b/.test(text)) return "partner is spouse";
+    if (/\bwhole family|entire family|all my family|my whole family\b/.test(text)) return "your whole family is part of the living setup";
+    if (/\bparent|mother|father|mom|dad\b/.test(text)) return "you live with a parent";
+    if (/\bsibling|siblings|brother|sister\b/.test(text)) return "siblings are part of the living setup";
   }
 
   return raw;
+}
+
+function humanizeExtraContext(field, extra) {
+  const value = clean(extra);
+  if (!value) return "";
+  if (field.key === "livingSituation") {
+    if (value === "partner is girlfriend") return "your partner is your girlfriend";
+    if (value === "partner is boyfriend") return "your partner is your boyfriend";
+    if (value === "partner is spouse") return "your partner is your spouse";
+    return value;
+  }
+  return value;
 }
 
 function naturalMemoryPhrase(field, value) {
@@ -71,6 +87,7 @@ function naturalMemoryPhrase(field, value) {
   let base = `your ${field.label.toLowerCase()} is ${main}`;
   if (field.key === "livingSituation") {
     if (main === "with partner") base = "you’re living with your partner";
+    if (main === "with parent") base = "you’re living with your parent";
     if (main === "with family") base = "you’re living with your family";
     if (main === "alone") base = "you’re living alone";
     if (main === "renting") base = "you’re renting";
@@ -81,7 +98,8 @@ function naturalMemoryPhrase(field, value) {
     else base = `you support ${main}`;
   }
 
-  return extra ? `${base}, and ${extra}` : base;
+  const extraPhrase = humanizeExtraContext(field, extra);
+  return extraPhrase ? `${base}, and ${extraPhrase}` : base;
 }
 
 function fieldImpact(drawer, field) {
@@ -101,6 +119,7 @@ function contextualFollowUp(field, value) {
 
   if (field.key === "livingSituation") {
     if (text.includes("with partner")) return "Is this living setup stable now, still new, or something you’re still adjusting to?";
+    if (text.includes("with parent")) return "Does living with your parent feel stable right now, or is this setup still changing?";
     if (text.includes("with family")) return "Who in your family do you live with, and does this setup feel stable right now?";
     if (text.includes("renting")) return "Are you renting alone, with someone, or in a shared living setup?";
     if (text.includes("alone")) return "Does living alone feel stable for you right now, or are you still adjusting to it?";
@@ -141,7 +160,7 @@ function closingReply(userText) {
 function isDeclarativeMemoryInfo(field, value) {
   const text = clean(value).toLowerCase();
   if (/\b(i just want to say|just want to say|to clarify|actually|i mean|what i mean is|for context)\b/.test(text)) return true;
-  if (field.key === "livingSituation" && /\b(partner|girlfriend|boyfriend|family|parents|renting|alone|shared|roommate|housemate)\b/.test(text)) return true;
+  if (field.key === "livingSituation" && /\b(partner|girlfriend|boyfriend|family|parents|parent|mother|father|mom|dad|renting|alone|shared|roommate|housemate)\b/.test(text)) return true;
   if (field.key === "dependents" && /\b(dependent|dependents|support|parents|child|kids|sibling|brother|sister|partner)\b/.test(text)) return true;
   return false;
 }
@@ -152,8 +171,22 @@ function savedSummaryReply({ drawer, field, value }) {
   return `Oh, got it, ${USER_NAME} — ${naturalMemoryPhrase(field, nextValue)}. ${fieldImpact(drawer, field)} ${contextualFollowUp(field, nextValue)}`;
 }
 
+function addedContextSummaryReply({ drawer, field, value }) {
+  const nextValue = clean(value);
+  if (!nextValue) return `Got it, ${USER_NAME}. I’ll add that to your ${field.label.toLowerCase()} context. ${followUpQuestion()}`;
+  return `Got it, ${USER_NAME} — I’ll add that. So I understand this as: ${naturalMemoryPhrase(field, nextValue)}. ${fieldImpact(drawer, field)} Anything else you want to clarify here?`;
+}
+
+function isWeakMemoryReply(reply) {
+  const text = clean(reply).toLowerCase();
+  if (!text) return true;
+  if (/^(thanks|thank you|thanks for letting me know|got it|noted)[.!\s]*$/i.test(text)) return true;
+  if (text.length < 45 && !text.includes("understand") && !text.includes("remember")) return true;
+  return false;
+}
+
 async function askGeminiForMemoryReply({ drawer, field, current, userText, value, action }) {
-  const fallback = action === "ask" ? probingReply(field, current) : savedSummaryReply({ drawer, field, value });
+  const fallback = action === "added" ? addedContextSummaryReply({ drawer, field, value }) : action === "ask" ? probingReply(field, current) : savedSummaryReply({ drawer, field, value });
   if (!hasGeminiConfig()) return fallback;
 
   try {
@@ -169,12 +202,13 @@ Action: ${action}
 Rules:
 - Stay inside the current memory topic only.
 - Do not repeat the raw user sentence as the memory.
+- If action is added, summarize the full updated understanding, including the previous value and the new added context. Do not only say thanks.
 - If the topic is Living situation, talk only about home/living setup: who they live with, whether it is stable, temporary, new, or something they are adjusting to.
 - If the topic is Living situation, do NOT ask about bills, expenses, rent payment, contributions, money split, or financial responsibilities.
 - If saved, summarize naturally and ask one topic-specific follow-up.
 - If asking, ask for the corrected value.
 - Do not mention storage, database, keys, model, or Gemini.
-- Keep under 80 words.`;
+- Keep under 90 words.`;
 
     const reply = clean(await generateClaraGeminiReply({
       mode: "me-memory-refine",
@@ -186,7 +220,7 @@ Rules:
       message: prompt,
     }));
 
-    if (!reply) return fallback;
+    if (!reply || isWeakMemoryReply(reply)) return fallback;
     if (field.key === "livingSituation" && /\b(bill|bills|expense|expenses|rent payment|contribution|contributing|money split)\b/i.test(reply)) return fallback;
     return reply;
   } catch {
@@ -294,7 +328,7 @@ export default function MeMemoryChat({ drawer, field, onClose, onSaved }) {
     setWaitingForReplacement(false);
     setMode("reviewing");
 
-    const reply = await askGeminiForMemoryReply({ drawer, field, current, userText, value, action: "saved" });
+    const reply = await askGeminiForMemoryReply({ drawer, field, current, userText, value, action: useAdditionalContext ? "added" : "saved" });
     push([{ role: "clara", text: reply }]);
   };
 
