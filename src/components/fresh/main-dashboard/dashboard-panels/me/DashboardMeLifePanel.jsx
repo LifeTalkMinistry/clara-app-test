@@ -21,8 +21,8 @@ export default function DashboardMeLifePanel() {
   }, []);
 
   return (
-    <div className="h-[calc(100svh-126px)] min-h-[520px] overflow-hidden pb-0">
-      <section className="relative flex h-full min-h-0 overflow-hidden rounded-[30px] border border-cyan-300/12 bg-[linear-gradient(135deg,rgba(8,55,69,.94),rgba(15,23,48,.97)_48%,rgba(47,23,83,.95))] p-[clamp(12px,3.4vw,18px)] shadow-[0_14px_46px_rgba(0,0,0,.20)]">
+    <div className="h-[calc(100svh-126px)] min-h-0 overflow-hidden pb-0">
+      <section className="relative flex h-full min-h-0 overflow-hidden rounded-[28px] border border-cyan-300/12 bg-[linear-gradient(135deg,rgba(8,55,69,.94),rgba(15,23,48,.97)_48%,rgba(47,23,83,.95))] p-3 shadow-[0_14px_46px_rgba(0,0,0,.20)]">
         <div className="pointer-events-none absolute -left-24 -top-24 h-64 w-64 rounded-full bg-cyan-300/9 blur-3xl" />
         <div className="pointer-events-none absolute -right-28 bottom-10 h-72 w-72 rounded-full bg-violet-400/10 blur-3xl" />
 
@@ -30,17 +30,17 @@ export default function DashboardMeLifePanel() {
           <div className="shrink-0">
             <div className="flex items-start justify-between gap-3">
               <div className="min-w-0 flex-1">
-                <p className="text-[9px] font-black uppercase tracking-[0.2em] text-cyan-100/40">Financial Environment Understanding System</p>
-                <h2 className="mt-1 text-[clamp(22px,7vw,30px)] font-black leading-none text-white">Me</h2>
-                <p className="mt-2 max-w-[22rem] text-[clamp(11px,3.2vw,13px)] font-semibold leading-[1.55] text-white/48">CLARA now focuses on your financial climate, life season, and real-world pressure signals.</p>
+                <p className="text-[8px] font-black uppercase tracking-[0.18em] text-cyan-100/36">Financial Environment System</p>
+                <h2 className="mt-1 text-[clamp(20px,6vw,28px)] font-black leading-none text-white">Me</h2>
+                <p className="mt-1.5 max-w-[20rem] text-[11px] font-semibold leading-[1.45] text-white/48">A single adaptive screen for your financial climate and life-stage trend signals.</p>
               </div>
-              <button type="button" onClick={refresh} className="grid h-9 w-9 shrink-0 place-items-center rounded-[16px] border border-white/8 bg-white/[0.04] text-white/52 active:scale-95" aria-label="Refresh CLARA environment">
+              <button type="button" onClick={refresh} className="grid h-9 w-9 shrink-0 place-items-center rounded-[15px] border border-white/8 bg-white/[0.04] text-white/52 active:scale-95" aria-label="Refresh CLARA environment">
                 <RefreshCcw className="h-4 w-4" />
               </button>
             </div>
           </div>
 
-          <div className="mt-4 min-h-0 flex-1 overflow-y-auto pr-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+          <div className="mt-3 min-h-0 flex-1 overflow-hidden">
             <FinancialClimateScreen signals={signals} signalCount={signalCount} signalTotal={signalTotal} />
           </div>
         </div>
