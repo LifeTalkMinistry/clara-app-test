@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { Check, ChevronLeft, TrendingUp, X } from "lucide-react";
+import { Check, ChevronLeft, Database, TrendingUp, X } from "lucide-react";
 import { clean } from "./claraEnvironmentUtils";
 
 const LIFE_STAGE_KEY = "clara_life_stage_profile_v1";
@@ -15,15 +15,39 @@ const STAGES = [
   "Full-Time Earner",
 ];
 
-const STAGE_DESCRIPTIONS = {
-  "Young Earner": "A season of learning money rhythm, independence, and small decisions that become habits.",
-  "Living with Partner": "A shared-life season where routines, emotions, and future plans can shape spending behavior.",
-  "Family Household": "A home-centered season where family setup and daily environment can influence money choices.",
-  "Working Student": "A stretched season where time, school, work, and money need careful balance.",
-  "Single Parent": "A protective season where essentials, stability, and emotional energy matter deeply.",
-  "Freelance Season": "A flexible season where income timing and buffers matter more than perfect planning.",
-  "Business Builder": "A building season where personal money, operating needs, and reinvestment pressure can mix.",
-  "Full-Time Earner": "A routine-based season where consistency, stress recovery, and lifestyle creep need awareness.",
+const STAGE_IDENTITY = {
+  "Young Earner": {
+    title: "Building independence",
+    caption: "Learning money rhythm, freedom, and the small choices that become habits.",
+  },
+  "Living with Partner": {
+    title: "Shared-life season",
+    caption: "Routines, emotions, and future plans are starting to shape financial decisions.",
+  },
+  "Family Household": {
+    title: "Home-centered season",
+    caption: "Family setup, household rhythm, and daily environment influence money behavior.",
+  },
+  "Working Student": {
+    title: "Stretched season",
+    caption: "Time, school, work, energy, and money all compete for attention.",
+  },
+  "Single Parent": {
+    title: "Protective season",
+    caption: "Essentials, stability, emotional energy, and safety need careful protection.",
+  },
+  "Freelance Season": {
+    title: "Flexible income season",
+    caption: "Income timing, client flow, and buffers matter more than perfect planning.",
+  },
+  "Business Builder": {
+    title: "Building season",
+    caption: "Personal money, operating needs, reinvestment, and pressure can easily mix.",
+  },
+  "Full-Time Earner": {
+    title: "Routine earning season",
+    caption: "Consistency, stress recovery, and lifestyle creep become the quiet patterns to watch.",
+  },
 };
 
 const STAGE_FIELDS = {
@@ -147,16 +171,16 @@ function readClimate(signals, stageProfile) {
     lifeStage,
     stageProfile,
     trends: [
-      { label: "Environment", value: score.environment, state: score.environment >= 70 ? "stabilizing" : "adjusting", source: stageProfile.setup || living || "setup not selected" },
-      { label: "Pressure", value: score.pressure, state: score.pressure >= 70 ? "active" : "manageable", source: stageProfile.pressure || responsibilities || emotional || "pressure not selected" },
-      { label: "Consistency", value: score.consistency, state: score.consistency >= 65 ? "building" : "needs support", source: stageProfile.goal || goal || income || "goal not selected" },
+      { label: "Environment", value: score.environment, state: score.environment >= 70 ? "stabilizing" : "adjusting", source: stageProfile.setup || living || "setup not selected", explanation: "This reads your current setup and how stable your environment feels." },
+      { label: "Pressure", value: score.pressure, state: score.pressure >= 70 ? "active" : "manageable", source: stageProfile.pressure || responsibilities || emotional || "pressure not selected", explanation: "This reads the emotional or practical pressure around this life season." },
+      { label: "Consistency", value: score.consistency, state: score.consistency >= 65 ? "building" : "needs support", source: stageProfile.goal || goal || income || "goal not selected", explanation: "This reads whether your current focus can support repeatable money behavior." },
     ],
   };
 }
 
-function TrendCard({ trend }) {
+function TrendCard({ trend, onClick }) {
   return (
-    <div className="rounded-[20px] border border-white/9 bg-white/[0.035] p-3 backdrop-blur-xl">
+    <button type="button" onClick={() => onClick(trend)} className="rounded-[20px] border border-white/9 bg-white/[0.035] p-3 text-left backdrop-blur-xl transition active:scale-[0.985]">
       <div className="flex items-center justify-between gap-3">
         <div>
           <p className="text-[9px] font-black uppercase tracking-[0.16em] text-white/36">{trend.label}</p>
@@ -167,19 +191,60 @@ function TrendCard({ trend }) {
       <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-white/[0.06]">
         <div className="h-full rounded-full bg-[linear-gradient(90deg,rgba(45,212,191,.45),rgba(96,165,250,.88))] transition-all duration-700" style={{ width: trendBar(trend.value) }} />
       </div>
+    </button>
+  );
+}
+
+function TrendDetailPanel({ trend, onClose }) {
+  return (
+    <div className="absolute inset-0 z-20 rounded-[28px] border border-cyan-200/12 bg-slate-950/90 p-4 backdrop-blur-2xl">
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <p className="flex items-center gap-2 text-[9px] font-black uppercase tracking-[0.18em] text-cyan-100/46"><Database className="h-3.5 w-3.5" /> Trend reading</p>
+          <h4 className="mt-2 text-2xl font-black leading-tight text-white">{trend.label}</h4>
+          <p className="mt-1 text-xs font-semibold leading-5 text-white/42">{trend.explanation}</p>
+        </div>
+        <button type="button" onClick={onClose} className="grid h-8 w-8 shrink-0 place-items-center rounded-full border border-white/10 bg-white/[0.055] text-white/62 active:scale-95" aria-label="Close trend details">
+          <X className="h-4 w-4" />
+        </button>
+      </div>
+
+      <div className="mt-5 rounded-[22px] border border-white/8 bg-white/[0.045] p-4">
+        <div className="flex items-end justify-between gap-3">
+          <div>
+            <p className="text-[10px] font-black uppercase tracking-[0.16em] text-white/36">Current score</p>
+            <p className="mt-1 text-4xl font-black leading-none text-white">{trend.value}%</p>
+          </div>
+          <span className="rounded-full border border-cyan-200/10 bg-cyan-300/10 px-3 py-1.5 text-[10px] font-black text-cyan-100/70">{trend.state}</span>
+        </div>
+        <div className="mt-4 h-2 overflow-hidden rounded-full bg-white/[0.06]">
+          <div className="h-full rounded-full bg-[linear-gradient(90deg,rgba(45,212,191,.45),rgba(96,165,250,.88))]" style={{ width: trendBar(trend.value) }} />
+        </div>
+      </div>
+
+      <div className="mt-3 rounded-[22px] border border-white/8 bg-white/[0.035] p-4">
+        <p className="text-[10px] font-black uppercase tracking-[0.16em] text-white/34">Source signal</p>
+        <p className="mt-2 text-sm font-black leading-5 text-white/74">{trend.source}</p>
+        <p className="mt-2 text-[11px] font-semibold leading-5 text-white/36">Later, this space can show stage benchmarks, survey status, and why CLARA thinks this trend is changing.</p>
+      </div>
     </div>
   );
 }
 
 function StageCard({ stage, active, onClick }) {
+  const identity = STAGE_IDENTITY[stage];
   return (
     <button
       type="button"
       onClick={onClick}
-      className={`rounded-[20px] border p-3 text-left transition active:scale-[0.98] ${active ? "border-emerald-200/34 bg-emerald-300/14" : "border-white/8 bg-white/[0.04]"}`}
+      className={`relative overflow-hidden rounded-[22px] border p-3.5 text-left transition active:scale-[0.98] ${active ? "border-emerald-200/34 bg-emerald-300/14 shadow-[0_0_34px_rgba(45,212,191,.12)]" : "border-white/8 bg-white/[0.04]"}`}
     >
-      <p className="text-sm font-black leading-tight text-white">{stage}</p>
-      <p className="mt-1 line-clamp-2 text-[11px] font-semibold leading-4 text-white/38">{STAGE_DESCRIPTIONS[stage]}</p>
+      {active ? <div className="pointer-events-none absolute -right-10 -top-10 h-24 w-24 rounded-full bg-emerald-300/12 blur-2xl" /> : null}
+      <div className="relative">
+        <p className="text-[8px] font-black uppercase tracking-[0.16em] text-cyan-100/34">{stage}</p>
+        <p className="mt-1 text-sm font-black leading-tight text-white">{identity?.title || stage}</p>
+        <p className="mt-1 line-clamp-2 text-[11px] font-semibold leading-4 text-white/38">{identity?.caption}</p>
+      </div>
     </button>
   );
 }
@@ -208,6 +273,18 @@ function OptionGroup({ label, helper, value, options, onSelect }) {
   );
 }
 
+function setupTitle(step, draft) {
+  if (step === "stage") return "Let CLARA understand your season";
+  if (step === "environment") return "How does this season feel in real life?";
+  return "What should CLARA watch closely?";
+}
+
+function setupDescription(step, draft) {
+  if (step === "stage") return "Your financial behavior changes with your current life season. Choose the closest one — it does not need to be perfect.";
+  if (step === "environment") return STAGE_IDENTITY[draft.stage]?.caption || "CLARA will read the environment around this stage.";
+  return "This final step shapes the trend statistics on your Me screen.";
+}
+
 function StageSetupPanel({ profile, onClose, onSave }) {
   const [draft, setDraft] = useState(profile);
   const [step, setStep] = useState("stage");
@@ -230,8 +307,8 @@ function StageSetupPanel({ profile, onClose, onSave }) {
       <div className="flex shrink-0 items-start justify-between gap-3">
         <div>
           <p className="text-[9px] font-black uppercase tracking-[0.18em] text-cyan-100/46">Life stage setup</p>
-          <h4 className="mt-2 text-xl font-black leading-tight text-white">{step === "stage" ? "Choose your current season" : draft.stage}</h4>
-          <p className="mt-1 text-xs font-semibold leading-5 text-white/42">{step === "stage" ? "Start with the life stage that best matches your reality right now." : STAGE_DESCRIPTIONS[draft.stage]}</p>
+          <h4 className="mt-2 text-xl font-black leading-tight text-white">{setupTitle(step, draft)}</h4>
+          <p className="mt-1 text-xs font-semibold leading-5 text-white/42">{setupDescription(step, draft)}</p>
         </div>
         <button type="button" onClick={onClose} className="grid h-8 w-8 shrink-0 place-items-center rounded-full border border-white/10 bg-white/[0.055] text-white/62 active:scale-95" aria-label="Close stage setup">
           <X className="h-4 w-4" />
@@ -246,17 +323,23 @@ function StageSetupPanel({ profile, onClose, onSave }) {
 
       <div className="mt-4 min-h-0 flex-1 overflow-y-auto pr-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
         {step === "stage" ? (
-          <div className="grid grid-cols-2 gap-2.5">
-            {STAGES.map((stage) => (
-              <StageCard key={stage} stage={stage} active={draft.stage === stage} onClick={() => setStage(stage)} />
-            ))}
+          <div className="space-y-3">
+            <div className="rounded-[22px] border border-cyan-200/10 bg-cyan-300/[0.045] p-3">
+              <p className="text-sm font-black leading-5 text-white">Start with your current reality.</p>
+              <p className="mt-1 text-xs font-semibold leading-5 text-white/40">CLARA will adapt the next questions based on the season you choose.</p>
+            </div>
+            <div className="grid grid-cols-2 gap-2.5">
+              {STAGES.map((stage) => (
+                <StageCard key={stage} stage={stage} active={draft.stage === stage} onClick={() => setStage(stage)} />
+              ))}
+            </div>
           </div>
         ) : null}
 
         {step === "environment" ? (
           <div className="space-y-4 rounded-[22px] border border-white/8 bg-white/[0.035] p-4">
             <div className="rounded-[20px] border border-emerald-200/10 bg-emerald-300/[0.06] p-3">
-              <p className="text-sm font-black leading-5 text-white">Got it — this is your current season.</p>
+              <p className="text-sm font-black leading-5 text-white">Got it — {draft.stage}.</p>
               <p className="mt-1 text-xs font-semibold leading-5 text-white/42">Now CLARA will read the environment around this stage, not just your income.</p>
             </div>
             <OptionGroup label="Current setup" helper="Where are you living or operating from right now?" value={draft.setup} options={fields.setup} onSelect={(value) => setDraft((current) => ({ ...current, setup: value }))} />
@@ -297,6 +380,7 @@ function StageSetupPanel({ profile, onClose, onSave }) {
 
 export default function FinancialClimateScreen({ signals, signalCount }) {
   const [showStageSetup, setShowStageSetup] = useState(false);
+  const [selectedTrend, setSelectedTrend] = useState(null);
   const [stageProfile, setStageProfile] = useState(() => readStageProfile());
   const climate = useMemo(() => readClimate(signals, stageProfile), [signals, stageProfile]);
 
@@ -320,11 +404,12 @@ export default function FinancialClimateScreen({ signals, signalCount }) {
 
         <div className="mt-4 grid min-h-0 flex-1 grid-rows-3 gap-2.5">
           {climate.trends.map((trend) => (
-            <TrendCard key={trend.label} trend={trend} />
+            <TrendCard key={trend.label} trend={trend} onClick={setSelectedTrend} />
           ))}
         </div>
       </div>
 
+      {selectedTrend ? <TrendDetailPanel trend={selectedTrend} onClose={() => setSelectedTrend(null)} /> : null}
       {showStageSetup ? <StageSetupPanel profile={stageProfile} onClose={() => setShowStageSetup(false)} onSave={setStageProfile} /> : null}
     </div>
   );
