@@ -1,4 +1,4 @@
-import { DRAWERS, FIELD_SUGGESTIONS, MEMORY_KEY, clean as cleanValue } from "./mePanelData";
+import { DRAWERS, MEMORY_KEY, clean as cleanValue } from "./mePanelData";
 
 export const clean = cleanValue;
 
@@ -91,10 +91,8 @@ export function extractMemoryValue(value) {
   return text;
 }
 
-export function probingReply(field, current) {
-  const suggestion = FIELD_SUGGESTIONS[field.key];
-  const suffix = suggestion ? ` You can answer with: ${suggestion}.` : "";
-  return `Of course — I currently understand your ${field.label.toLowerCase()} as “${current || "not set yet"}.” What should I update it to instead?${suffix}`;
+export function probingReply(field) {
+  return `Of course, Max. What should I update your ${field.label.toLowerCase()} to? Tell me the corrected version, and I’ll remember it.`;
 }
 
 export function savedFallbackReply(field, value) {
