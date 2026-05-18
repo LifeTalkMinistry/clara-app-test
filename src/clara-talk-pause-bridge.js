@@ -231,21 +231,21 @@ function showRestoreOverlay(root) {
   eyebrow.style.cssText = "font-size:10px;font-weight:900;letter-spacing:.24em;color:rgba(167,243,208,.68);text-transform:uppercase;";
 
   const title = document.createElement("div");
-  title.textContent = "Restoring your last conversation.";
+  title.textContent = "Picking up where you left off.";
   title.style.cssText = "margin-top:10px;font-size:21px;line-height:1.14;font-weight:900;color:white;letter-spacing:-.02em;";
 
   const body = document.createElement("div");
-  body.textContent = "CLARA is bringing back your saved context so you can continue naturally.";
+  body.textContent = "One moment — CLARA is bringing back your last conversation.";
   body.style.cssText = "margin-top:10px;font-size:13px;line-height:1.6;color:rgba(226,232,240,.76);";
 
-  const pill = document.createElement("div");
-  pill.textContent = "Resuming quietly...";
-  pill.style.cssText = "display:inline-flex;margin-top:14px;border:1px solid rgba(255,255,255,.10);background:rgba(255,255,255,.055);border-radius:999px;padding:8px 11px;font-size:11px;font-weight:900;color:rgba(255,255,255,.74);";
+  const status = document.createElement("div");
+  status.textContent = "Almost ready…";
+  status.style.cssText = "margin-top:14px;font-size:11px;font-weight:900;letter-spacing:.08em;text-transform:uppercase;color:rgba(167,243,208,.70);";
 
   card.appendChild(eyebrow);
   card.appendChild(title);
   card.appendChild(body);
-  card.appendChild(pill);
+  card.appendChild(status);
   overlay.appendChild(card);
   root.appendChild(overlay);
 
