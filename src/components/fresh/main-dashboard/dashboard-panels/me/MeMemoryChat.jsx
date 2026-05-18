@@ -13,11 +13,13 @@ import {
   validProbe,
 } from "./meMemoryUtils";
 
+const USER_NAME = "Max";
+
 function introMessage(field, current) {
   if (!current) {
-    return `Hi Max, do you want to teach me this part of your life? This helps me understand your ${field.label.toLowerCase()} before giving money guidance.`;
+    return `Hi ${USER_NAME}, do you want to teach me this part of your life? This helps me understand your ${field.label.toLowerCase()} before giving money guidance.`;
   }
-  return `Hi Max, I currently remember your ${field.label.toLowerCase()} as “${current}.” Do you want to update this part of your life?`;
+  return `Hi ${USER_NAME}, I currently remember your ${field.label.toLowerCase()} as “${current}.” Do you want to update this part of your life?`;
 }
 
 function fieldImpact(drawer, field) {
@@ -119,23 +121,47 @@ function naturalMemoryPhrase(field, value) {
   return `your ${field.label.toLowerCase()} is ${normalized}`;
 }
 
+function followUpQuestion() {
+  return `Anything else I can help you with, ${USER_NAME}?`;
+}
+
 function savedSummaryReply({ drawer, field, value }) {
   const nextValue = clean(value);
   if (!nextValue) return savedFallbackReply(field, value);
   const natural = naturalMemoryPhrase(field, nextValue);
-  return `Oh, got it, Max — ${natural}. ${fieldImpact(drawer, field)} Would you mind elaborating a little more, or should I keep it as is?`;
+  return `Oh, got it, ${USER_NAME} — ${natural}. ${fieldImpact(drawer, field)} Would you mind elaborating a little more, or should I keep it as is? ${followUpQuestion()}`;
 }
 
 function validSavedReply(reply) {
   const text = clean(reply).toLowerCase();
   if (!text || !text.includes("?")) return false;
   if (text.includes("updated to") && text.endsWith("to")) return false;
-  return text.includes("elaborating") || text.includes("add") || text.includes("follow") || text.includes("correct") || text.includes("keep");
+  return text.includes("anything else") || text.includes("elaborating") || text.includes("add") || text.includes("follow") || text.includes("correct") || text.includes("keep");
 }
 
 function isNoMoreReply(value) {
   const text = clean(value).toLowerCase().replace(/[?.!]+$/g, "");
-  return /^(no|none|nothing|nope|nah|not now|all good|looks good|that's all|thats all|nothing else|nothing, thank you|nothing thank you|no thank you|no thanks|thank you|thanks)$/i.test(text);
+  return /^(no|none|nothing|nope|nah|not now|all good|looks good|that's all|thats all|nothing else|nothing, thank you|nothing thank you|no thank you|no thanks)$/i.test(text);
+}
+
+function isThanksReply(value) {
+  const text = clean(value).toLowerCase().replace(/[?.!]+$/g, "");
+  return /^(thank you|thanks|ty|salamat|thank you clara|thanks clara)$/i.test(text);
+}
+
+function isGoodbyeReply(value) {
+  const text = clean(value).toLowerCase().replace(/[?.!]+$/g, "");
+  return /^(bye|goodbye|good bye|see you|see ya|later|that's all bye|thats all bye)$/i.test(text);
+}
+
+function closingReply(userText) {
+  if (isGoodbyeReply(userText)) {
+    return `Goodbye for now, ${USER_NAME}. I’ll be here when you’re ready to continue.`;
+  }
+  if (isThanksReply(userText)) {
+    return `You’re welcome, ${USER_NAME}. ${followUpQuestion()}`;
+  }
+  return null;
 }
 
 async function askGeminiForMemoryReply({ drawer, field, current, userText, value, action }) {
@@ -159,11 +185,12 @@ Rules:
 - Do not repeat the raw user sentence as the memory.
 - If saved, summarize the refined meaning in a natural way, not as a database value.
 - Example for living situation: say "Oh, so you're living with your partner" instead of "your living situation is now: I am living with my partner now".
-- If saved, explain why it matters for future money guidance, then ask if the user wants to elaborate more or keep it as is.
+- If saved, explain why it matters for future money guidance.
+- End saved responses with a helpful follow-up like: "Anything else I can help you with, ${USER_NAME}?"
 - If asking, directly reference the topic and ask for the corrected value.
 - Be warm, personal, and financially aware.
 - Do not mention storage, database, keys, model, or Gemini.
-- Keep under 70 words.`;
+- Keep under 80 words.`;
 
     const reply = clean(await generateClaraGeminiReply({
       mode: "me-memory-refine",
@@ -184,7 +211,7 @@ Rules:
 }
 
 async function askGeminiForQuestion({ drawer, field, current, userText }) {
-  const fallback = `You can ask me how your ${field.label.toLowerCase()} affects your money decisions, or you can update it if this part of your life has changed.`;
+  const fallback = `You can ask me how your ${field.label.toLowerCase()} affects your money decisions, or you can update it if this part of your life has changed. ${followUpQuestion()}`;
   if (!hasGeminiConfig()) return fallback;
 
   try {
@@ -196,7 +223,7 @@ Topic: ${field.label}
 Current remembered value: ${current || "not saved yet"}
 User question: ${userText}
 
-Answer the user's question naturally as CLARA. Be warm, concise, emotionally aware, and financially relevant. Do not update the memory unless the user gives a clear replacement value. Do not mention storage, database, keys, model, or Gemini. Keep under 55 words.`;
+Answer the user's question naturally as CLARA. Be warm, concise, emotionally aware, and financially relevant. Do not update the memory unless the user gives a clear replacement value. End with a natural follow-up like "Anything else I can help you with, ${USER_NAME}?" unless the user is saying goodbye. Do not mention storage, database, keys, model, or Gemini. Keep under 65 words.`;
 
     const reply = clean(await generateClaraGeminiReply({
       mode: "me-memory-question",
@@ -241,7 +268,7 @@ export default function MeMemoryChat({ drawer, field, onClose, onSaved }) {
     setMessages((items) => [
       ...items,
       { role: "user", text: "No, keep this for now." },
-      { role: "clara", text: `Got it, Max. I’ll keep your ${field.label.toLowerCase()} as “${current || "not set yet"}” for now.` },
+      { role: "clara", text: `Got it, ${USER_NAME}. I’ll keep your ${field.label.toLowerCase()} as “${current || "not set yet"}” for now. ${followUpQuestion()}` },
     ]);
   };
 
@@ -263,7 +290,7 @@ export default function MeMemoryChat({ drawer, field, onClose, onSaved }) {
     setMessages((items) => [
       ...items,
       { role: "user", text: "I want to add more about this." },
-      { role: "clara", text: `Sure, Max. What extra detail should I add about your ${field.label.toLowerCase()}?` },
+      { role: "clara", text: `Sure, ${USER_NAME}. What extra detail should I add about your ${field.label.toLowerCase()}?` },
     ]);
   };
 
@@ -274,7 +301,7 @@ export default function MeMemoryChat({ drawer, field, onClose, onSaved }) {
     setMessages((items) => [
       ...items,
       { role: "user", text: "Looks good." },
-      { role: "clara", text: `Got it, Max. I’ll keep this as your current ${field.label.toLowerCase()} and use it when guiding your financial decisions.` },
+      { role: "clara", text: `Got it, ${USER_NAME}. I’ll keep this as your current ${field.label.toLowerCase()} and use it when guiding your financial decisions. ${followUpQuestion()}` },
     ]);
   };
 
@@ -298,12 +325,21 @@ export default function MeMemoryChat({ drawer, field, onClose, onSaved }) {
     setMessages((items) => [...items, { role: "user", text: userText }]);
     setIsThinking(true);
 
+    const directClosing = closingReply(userText);
+    if (directClosing) {
+      setMode(isGoodbyeReply(userText) ? "closed" : "idle");
+      setWaitingForReplacement(false);
+      setMessages((items) => [...items, { role: "clara", text: directClosing }]);
+      setIsThinking(false);
+      return;
+    }
+
     if (mode === "reviewing" && isNoMoreReply(userText)) {
       setMode("idle");
       setWaitingForReplacement(false);
       setMessages((items) => [
         ...items,
-        { role: "clara", text: `Got it, Max. I’ll keep this as your current ${field.label.toLowerCase()} and use it when guiding your financial decisions.` },
+        { role: "clara", text: `Got it, ${USER_NAME}. I’ll keep this as your current ${field.label.toLowerCase()} and use it when guiding your financial decisions. ${followUpQuestion()}` },
       ]);
       setIsThinking(false);
       return;
@@ -314,6 +350,16 @@ export default function MeMemoryChat({ drawer, field, onClose, onSaved }) {
     if (mode === "asking" && !isVagueChangeRequest(userText)) {
       const reply = await askGeminiForQuestion({ drawer, field, current, userText });
       setMessages((items) => [...items, { role: "clara", text: reply }]);
+      setIsThinking(false);
+      return;
+    }
+
+    if (!waitingForReplacement && mode !== "adding" && !shouldAsk) {
+      setMode("idle");
+      setMessages((items) => [
+        ...items,
+        { role: "clara", text: `I can help with that, ${USER_NAME}. Do you want to update your ${field.label.toLowerCase()}, ask a follow-up, or keep it as is? ${followUpQuestion()}` },
+      ]);
       setIsThinking(false);
       return;
     }
@@ -384,8 +430,8 @@ export default function MeMemoryChat({ drawer, field, onClose, onSaved }) {
 
         <form onSubmit={submit} className="border-t border-white/10 p-3">
           <div className="flex items-center gap-2 rounded-[22px] border border-white/10 bg-white/[0.055] px-3 py-2">
-            <input value={draft} onChange={(event) => setDraft(event.target.value)} className="min-w-0 flex-1 bg-transparent py-2 text-sm font-semibold text-white outline-none placeholder:text-white/32" placeholder={waitingForReplacement ? "Type the corrected value..." : mode === "asking" ? "Ask CLARA about this..." : "Tell CLARA what changed..."} disabled={isThinking} />
-            <button type="submit" disabled={!draft.trim() || isThinking} className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-emerald-300 text-slate-950 disabled:opacity-40 active:scale-95" aria-label="Send to CLARA">
+            <input value={draft} onChange={(event) => setDraft(event.target.value)} className="min-w-0 flex-1 bg-transparent py-2 text-sm font-semibold text-white outline-none placeholder:text-white/32" placeholder={waitingForReplacement ? "Type the corrected value..." : mode === "asking" ? "Ask CLARA about this..." : "Tell CLARA what changed..."} disabled={isThinking || mode === "closed"} />
+            <button type="submit" disabled={!draft.trim() || isThinking || mode === "closed"} className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-emerald-300 text-slate-950 disabled:opacity-40 active:scale-95" aria-label="Send to CLARA">
               <Send className="h-4 w-4" />
             </button>
           </div>
