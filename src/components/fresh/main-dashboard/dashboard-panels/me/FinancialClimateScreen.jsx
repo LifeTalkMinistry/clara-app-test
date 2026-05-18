@@ -1,4 +1,5 @@
-import { Sparkles, TrendingUp } from "lucide-react";
+import { useState } from "react";
+import { Database, TrendingUp, X } from "lucide-react";
 import { clean } from "./claraEnvironmentUtils";
 
 function signalValue(signals, key) {
@@ -41,11 +42,10 @@ function readClimate(signals) {
 
   return {
     lifeStage,
-    climateLabel: stabilityScore >= 70 ? "High awareness" : pressureScore >= 70 ? "Pressure building" : "Adaptive rhythm",
     trends: [
-      { label: "Environment", value: stabilityScore, state: stabilityScore >= 70 ? "stabilizing" : "adjusting" },
-      { label: "Pressure", value: pressureScore, state: pressureScore >= 70 ? "active" : "manageable" },
-      { label: "Consistency", value: consistencyScore, state: consistencyScore >= 65 ? "building" : "needs support" },
+      { label: "Environment", value: stabilityScore, state: stabilityScore >= 70 ? "stabilizing" : "adjusting", source: living || "living situation signal not set" },
+      { label: "Pressure", value: pressureScore, state: pressureScore >= 70 ? "active" : "manageable", source: responsibilities || emotional || "pressure signal not set" },
+      { label: "Consistency", value: consistencyScore, state: consistencyScore >= 65 ? "building" : "needs support", source: goal || income || "goal signal not set" },
     ],
   };
 }
@@ -67,7 +67,39 @@ function TrendCard({ trend }) {
   );
 }
 
+function DataStatusPanel({ climate, signalCount, onClose }) {
+  return (
+    <div className="absolute inset-0 z-20 rounded-[28px] border border-cyan-200/12 bg-slate-950/88 p-4 backdrop-blur-2xl">
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <p className="flex items-center gap-2 text-[9px] font-black uppercase tracking-[0.18em] text-cyan-100/46"><Database className="h-3.5 w-3.5" /> Data status</p>
+          <h4 className="mt-2 text-xl font-black leading-tight text-white">{climate.lifeStage}</h4>
+          <p className="mt-1 text-xs font-semibold leading-5 text-white/44">Based on {signalCount} active environment signal{signalCount === 1 ? "" : "s"}.</p>
+        </div>
+        <button type="button" onClick={onClose} className="grid h-8 w-8 shrink-0 place-items-center rounded-full border border-white/10 bg-white/[0.055] text-white/62 active:scale-95" aria-label="Close data status">
+          <X className="h-4 w-4" />
+        </button>
+      </div>
+
+      <div className="mt-4 space-y-2.5">
+        {climate.trends.map((trend) => (
+          <div key={trend.label} className="rounded-[18px] border border-white/8 bg-white/[0.045] p-3">
+            <div className="flex items-center justify-between gap-3">
+              <p className="text-xs font-black uppercase tracking-[0.13em] text-white/58">{trend.label}</p>
+              <p className="text-xs font-black text-cyan-100/70">{trend.value}%</p>
+            </div>
+            <p className="mt-2 text-xs font-semibold leading-5 text-white/42">Source: {trend.source}</p>
+          </div>
+        ))}
+      </div>
+
+      <p className="mt-4 text-[11px] font-semibold leading-5 text-white/34">This is a local CLARA reading. Later, this panel can show survey status, benchmark sources, and stage-specific research notes.</p>
+    </div>
+  );
+}
+
 export default function FinancialClimateScreen({ signals, signalCount }) {
+  const [showDataStatus, setShowDataStatus] = useState(false);
   const climate = readClimate(signals);
 
   return (
@@ -75,38 +107,23 @@ export default function FinancialClimateScreen({ signals, signalCount }) {
       <div className="pointer-events-none absolute -left-20 top-0 h-52 w-52 rounded-full bg-cyan-300/10 blur-3xl" />
       <div className="pointer-events-none absolute -right-16 bottom-0 h-60 w-60 rounded-full bg-violet-400/10 blur-3xl" />
 
-      <div className="relative flex min-h-0 flex-1 flex-col">
-        <div className="flex shrink-0 items-start justify-between gap-3">
-          <div className="min-w-0 flex-1">
-            <div className="inline-flex items-center gap-2 rounded-full border border-emerald-200/12 bg-emerald-300/10 px-3 py-1.5 text-[9px] font-black uppercase tracking-[0.13em] text-emerald-100/78">
-              <Sparkles className="h-3 w-3" /> Adaptive climate
-            </div>
-            <h3 className="mt-3 text-[clamp(25px,8vw,36px)] font-black leading-[0.92] text-white">{climate.climateLabel}</h3>
-            <p className="mt-2 text-[11px] font-semibold leading-5 text-white/44">Live financial environment patterns.</p>
+      <button type="button" onClick={() => setShowDataStatus(true)} className="relative flex min-h-0 flex-1 flex-col rounded-[24px] border border-cyan-200/10 bg-[linear-gradient(135deg,rgba(6,182,212,.06),rgba(255,255,255,.02))] p-4 text-left active:scale-[0.992]">
+        <div className="flex shrink-0 items-center justify-between gap-3">
+          <div>
+            <p className="flex items-center gap-2 text-[9px] font-black uppercase tracking-[0.17em] text-cyan-100/42"><TrendingUp className="h-3.5 w-3.5" /> Life stage trend</p>
+            <h4 className="mt-1 text-xl font-black leading-tight text-white">{climate.lifeStage}</h4>
           </div>
-
-          <div className="rounded-[18px] border border-white/8 bg-white/[0.04] px-3 py-2 text-right backdrop-blur-xl">
-            <p className="text-[9px] font-black uppercase tracking-[0.14em] text-white/32">Signals</p>
-            <p className="mt-1 text-lg font-black leading-none text-white">{signalCount}</p>
-          </div>
+          <div className="rounded-full border border-emerald-200/12 bg-emerald-300/10 px-3 py-1 text-[9px] font-black uppercase tracking-[0.12em] text-emerald-100/74">View data</div>
         </div>
 
-        <div className="mt-4 flex min-h-0 flex-1 flex-col rounded-[24px] border border-cyan-200/10 bg-[linear-gradient(135deg,rgba(6,182,212,.06),rgba(255,255,255,.02))] p-4">
-          <div className="flex shrink-0 items-center justify-between gap-3">
-            <div>
-              <p className="flex items-center gap-2 text-[9px] font-black uppercase tracking-[0.17em] text-cyan-100/42"><TrendingUp className="h-3.5 w-3.5" /> Life stage trend</p>
-              <h4 className="mt-1 text-xl font-black leading-tight text-white">{climate.lifeStage}</h4>
-            </div>
-            <div className="rounded-full border border-emerald-200/12 bg-emerald-300/10 px-3 py-1 text-[9px] font-black uppercase tracking-[0.12em] text-emerald-100/74">Live</div>
-          </div>
-
-          <div className="mt-4 grid min-h-0 flex-1 grid-rows-3 gap-2.5">
-            {climate.trends.map((trend) => (
-              <TrendCard key={trend.label} trend={trend} />
-            ))}
-          </div>
+        <div className="mt-4 grid min-h-0 flex-1 grid-rows-3 gap-2.5">
+          {climate.trends.map((trend) => (
+            <TrendCard key={trend.label} trend={trend} />
+          ))}
         </div>
-      </div>
+      </button>
+
+      {showDataStatus ? <DataStatusPanel climate={climate} signalCount={signalCount} onClose={() => setShowDataStatus(false)} /> : null}
     </div>
   );
 }
