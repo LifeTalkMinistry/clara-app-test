@@ -1,20 +1,50 @@
 const PAUSE_KEY = "clara_talk_to_clara_pause_v1";
 const MEMORY_KEY = "clara_behavioral_memory_v1";
+const NONE_CHOICE_LABEL = "None of these";
+
+const MEMORY_FLOW = [
+  { key: "incomePattern", level: 1, choices: ["Stable monthly", "Every cutoff", "Changing", "Extra work", "Project-based"] },
+  { key: "livingSituation", level: 1, choices: ["Alone", "With family", "With partner", "Renting", "Shared place"] },
+  { key: "responsibilities", level: 1, choices: ["Family", "Rent/Bills", "Food", "Debt", "Self only"] },
+  { key: "workType", level: 1, choices: ["BPO/Call center", "Office work", "Freelance", "Student", "Business"] },
+  { key: "relationshipStatus", level: 1, choices: ["Single/no effect", "Relationship", "Family conflict", "Breakup/healing", "Complicated"] },
+  { key: "dependents", level: 1, choices: ["No dependents", "Parents", "Child/kids", "Sibling", "Partner"] },
+  { key: "currentFinancialPressure", level: 1, choices: ["Monthly bills", "Rent", "Food", "Debt", "Low savings"] },
+  { key: "survivalPressureLevel", level: 1, choices: ["Light", "Manageable", "Tight", "Really heavy", "Changing"] },
+  { key: "mainFinancialGoal", level: 1, choices: ["Emergency fund", "Save more", "Pay debt", "Control spending", "Increase income"] },
+  { key: "emotionalStateTrend", level: 1, choices: ["Confident", "Slight leak", "Stressed", "Tempted", "Unclear"] },
+  { key: "emotionalTriggers", level: 2, choices: ["Stress", "Sadness", "Boredom", "Loneliness", "Excitement"] },
+  { key: "stressSpendingHabits", level: 2, choices: ["Food/drinks", "Online shopping", "Transport/convenience", "Entertainment", "I avoid spending"] },
+  { key: "rewardSystem", level: 2, choices: ["Food/drinks", "Shopping", "Games/entertainment", "Rest", "Going out"] },
+  { key: "commonImpulsivePurchases", level: 2, choices: ["Food", "Coffee/drinks", "Shopee/Lazada", "Gadgets", "Small random items"] },
+  { key: "biggestSpendingWeakness", level: 2, choices: ["Food", "Online shopping", "Small leaks", "Impulse buys", "Giving money"] },
+  { key: "copingMechanisms", level: 2, choices: ["Eat", "Sleep/rest", "Scroll online", "Buy something", "Talk to someone"] },
+  { key: "motivationStyle", level: 2, choices: ["Gentle reminders", "Direct honesty", "Strong accountability", "Encouragement", "Step-by-step"] },
+  { key: "financialFear", level: 2, choices: ["Running out", "Emergency", "Debt growing", "Family needs", "Losing income"] },
+  { key: "guiltPatterns", level: 2, choices: ["Food", "Online shopping", "Wants/luxury", "Helping others", "No guilt pattern"] },
+  { key: "socialPressureTriggers", level: 2, choices: ["Friends", "Family", "Coworkers", "Social media", "Dates/relationship"] },
+  { key: "scheduleRoutine", level: 3, choices: ["Day shift", "Night shift", "Mixed schedule", "Flexible", "Very busy"] },
+  { key: "sleepPattern", level: 3, choices: ["Good", "Irregular", "Short sleep", "Night shift sleep", "Poor"] },
+  { key: "workExhaustion", level: 3, choices: ["Low", "Manageable", "Tired often", "Drained", "Burned out"] },
+  { key: "socialEnvironment", level: 3, choices: ["They help", "They pressure me", "No effect", "Mixed", "I hide spending"] },
+  { key: "relationshipConflicts", level: 3, choices: ["No", "Sometimes", "Family conflict", "Partner conflict", "Friend/coworker issue"] },
+  { key: "hobbyPatterns", level: 3, choices: ["Music", "Sports", "Content creation", "Learning", "Rest"] },
+  { key: "energyLevelTrends", level: 3, choices: ["Morning", "Afternoon", "After work", "Late night", "Random"] },
+  { key: "burnoutIndicators", level: 3, choices: ["Overspending", "Low energy", "Irritable", "Avoiding tasks", "Sleep problems"] },
+  { key: "wallets", level: 4, choices: ["Cash", "GCash", "Maya", "Bank", "Multiple"] },
+  { key: "budgets", level: 4, choices: ["Strict budget", "Rough plan", "I track only", "Not yet", "Per cutoff"] },
+  { key: "emergencyFund", level: 4, choices: ["Not started", "Starting", "Partly built", "Good progress", "Already okay"] },
+  { key: "savingsGoals", level: 4, choices: ["Emergency fund", "Device/gadget", "Travel", "Business", "Family goal"] },
+  { key: "recurringExpenses", level: 4, choices: ["Rent", "Bills", "Food", "Debt", "Subscriptions"] },
+  { key: "debt", level: 4, choices: ["No debt", "Small debt", "Manageable", "Heavy", "Family-related"] },
+  { key: "subscriptions", level: 4, choices: ["None", "A few", "Streaming", "Apps/tools", "Not sure"] },
+  { key: "transfers", level: 4, choices: ["Rarely", "Sometimes", "Every cutoff", "For family", "For bills"] },
+  { key: "paydayCycle", level: 4, choices: ["Once a month", "Every 10 and 25", "15 and 30", "Weekly", "Irregular"] },
+];
 
 const clean = (value = "") => String(value || "").replace(/\s+/g, " ").trim();
 const wait = (ms = 160) => new Promise((resolve) => window.setTimeout(resolve, ms));
-
-const MEMORY_FLOW = [
-  ["Stable monthly", "Every cutoff", "Changing", "Extra work", "Project-based"],
-  ["Every 10 and 25", "15 and 30", "Weekly", "End of month", "Irregular cutoff"],
-  ["Alone", "With family", "With partner", "Renting", "Shared place"],
-];
-
-const MEMORY_KEYS = [
-  "incomePattern",
-  "incomePattern.cutoffDates",
-  "livingSituation",
-];
+const matches = (answer, choices = []) => choices.some((choice) => clean(choice).toLowerCase() === clean(answer).toLowerCase());
 
 function getOverlay() {
   return document.querySelector("[data-clara-ai-brain-version]");
@@ -41,7 +71,7 @@ function getUserAnswers(root) {
 
 function isTalkFlowOpen(root) {
   const text = String(root?.innerText || "");
-  return /Would you like me to explain it in English or Tagalog|How does your income usually come in|Is anyone depending on your money or care right now/i.test(text);
+  return /Would you like me to explain it in English or Tagalog|How does your income usually come in|What emotion usually makes you want to spend|What wallets or money sources do you usually use|Is anyone depending on your money or care right now/i.test(text);
 }
 
 function readPause() {
@@ -60,42 +90,83 @@ function readMemory() {
   }
 }
 
-function saveCoreMemory(answers = []) {
-  const current = readMemory();
-  const items = { ...(current.items || {}) };
-  const now = new Date().toISOString();
-  let saved = 0;
+function labelFor(key = "") {
+  return String(key).replace(/([A-Z])/g, " $1").replace(/^\w/, (letter) => letter.toUpperCase()).trim();
+}
 
-  MEMORY_FLOW.forEach((choices, index) => {
-    const answer = answers.find((item) => choices.includes(item));
-    const key = MEMORY_KEYS[index];
-    if (!answer || !key) return;
+function writeMemoryItem(step, value) {
+  const nextValue = clean(value);
+  if (!step?.key || !nextValue || nextValue === NONE_CHOICE_LABEL) return false;
 
-    items[key] = {
-      ...(items[key] || {}),
-      key,
-      label: key,
-      value: answer,
-      layer: 1,
+  if (window.CLARA_BEHAVIORAL_MEMORY?.updateItem) {
+    window.CLARA_BEHAVIORAL_MEMORY.updateItem(step.key, {
+      label: labelFor(step.key),
+      value: nextValue,
+      layer: Number(step.level || 1),
       source: "talk-to-clara-guided-flow",
-      updatedAt: now,
-    };
-
-    saved += 1;
-  });
-
-  if (saved > 0) {
-    const payload = {
-      version: 2,
-      updatedAt: now,
-      items,
-    };
-
-    localStorage.setItem(MEMORY_KEY, JSON.stringify(payload));
-    window.dispatchEvent(new CustomEvent("clara-behavioral-memory-updated", { detail: payload }));
+    });
+    return true;
   }
 
-  return saved;
+  const current = readMemory();
+  const previous = current.items?.[step.key] || {};
+  const now = new Date().toISOString();
+  const payload = {
+    version: 2,
+    updatedAt: now,
+    items: {
+      ...(current.items || {}),
+      [step.key]: {
+        key: step.key,
+        label: previous.label || labelFor(step.key),
+        value: nextValue,
+        layer: Number(step.level || previous.layer || 1),
+        weight: Math.min(10, Number(previous.weight || 0) + 2),
+        pinned: Boolean(previous.pinned),
+        source: "talk-to-clara-guided-flow",
+        createdAt: previous.createdAt || now,
+        updatedAt: now,
+      },
+    },
+  };
+
+  localStorage.setItem(MEMORY_KEY, JSON.stringify(payload));
+  window.dispatchEvent(new CustomEvent("clara-behavioral-memory-updated", { detail: payload }));
+  return true;
+}
+
+function syncMeMemoryFromAnswers(answers = []) {
+  let stepIndex = 0;
+  let customStep = null;
+  const savedKeys = new Set();
+
+  answers.forEach((answer) => {
+    if (customStep) {
+      if (writeMemoryItem(customStep, answer)) savedKeys.add(customStep.key);
+      customStep = null;
+      stepIndex += 1;
+      return;
+    }
+
+    const step = MEMORY_FLOW[stepIndex];
+    if (!step) return;
+
+    if (answer === NONE_CHOICE_LABEL) {
+      customStep = step;
+      return;
+    }
+
+    if (matches(answer, step.choices)) {
+      if (writeMemoryItem(step, answer)) savedKeys.add(step.key);
+      stepIndex += 1;
+    }
+  });
+
+  if (savedKeys.size > 0) {
+    window.dispatchEvent(new CustomEvent("clara-behavioral-memory-updated", { detail: readMemory() }));
+  }
+
+  return savedKeys.size;
 }
 
 function savePause(root) {
@@ -104,7 +175,7 @@ function savePause(root) {
     savedAt: new Date().toISOString(),
     lastQuestion: getLastQuestion(root),
     userAnswers,
-    memorySavedCount: saveCoreMemory(userAnswers),
+    memorySavedCount: syncMeMemoryFromAnswers(userAnswers),
     visibleText: String(root?.innerText || "").slice(-3000),
   };
 
