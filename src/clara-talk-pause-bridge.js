@@ -27,14 +27,19 @@ function findChoiceButton(root, label) {
   return Array.from(root.querySelectorAll("button")).find((button) => clean(button.innerText || button.textContent) === label);
 }
 
-function addContinueLater() {
-  const root = getOverlay();
-  if (!root || root.querySelector("[data-clara-continue-later]")) return;
-  if (!/None of these/i.test(root.innerText || "")) return;
+function findAllChoiceButtons(root, label) {
+  return Array.from(root.querySelectorAll("button")).filter((button) => clean(button.innerText || button.textContent) === label);
+}
 
-  const noneButton = findChoiceButton(root, "None of these");
+function closeOverlay(root) {
+  const close = Array.from(root.querySelectorAll("button")).find((item) => /close/i.test(item.getAttribute("aria-label") || ""));
+  if (close) close.click();
+}
+
+function addButtonBesideNone(root, noneButton) {
   const holder = noneButton?.parentElement;
   if (!noneButton || !holder) return;
+  if (holder.querySelector("[data-clara-continue-later]")) return;
 
   const button = document.createElement("button");
   button.type = "button";
@@ -46,10 +51,17 @@ function addContinueLater() {
   button.style.color = "rgba(255,255,255,.86)";
   button.onclick = () => {
     savePause(root);
-    const close = Array.from(root.querySelectorAll("button")).find((item) => /close/i.test(item.getAttribute("aria-label") || ""));
-    if (close) close.click();
+    closeOverlay(root);
   };
   holder.appendChild(button);
+}
+
+function addContinueLater() {
+  const root = getOverlay();
+  if (!root || !/None of these/i.test(root.innerText || "")) return;
+
+  const noneButtons = findAllChoiceButtons(root, "None of these");
+  noneButtons.forEach((noneButton) => addButtonBesideNone(root, noneButton));
 }
 
 function addResumeNotice() {
