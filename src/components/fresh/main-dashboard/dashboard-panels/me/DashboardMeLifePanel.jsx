@@ -1,5 +1,4 @@
 import { useEffect, useMemo, useState } from "react";
-import { RefreshCcw } from "lucide-react";
 import { CLARA_ENVIRONMENT_UPDATED, countEnvironmentSignals, readEnvironmentSignals } from "./claraEnvironmentUtils";
 import FinancialClimateScreen from "./FinancialClimateScreen";
 
@@ -26,23 +25,8 @@ export default function DashboardMeLifePanel() {
         <div className="pointer-events-none absolute -left-24 -top-24 h-64 w-64 rounded-full bg-cyan-300/9 blur-3xl" />
         <div className="pointer-events-none absolute -right-28 bottom-10 h-72 w-72 rounded-full bg-violet-400/10 blur-3xl" />
 
-        <div className="relative flex min-h-0 w-full flex-col">
-          <div className="shrink-0">
-            <div className="flex items-start justify-between gap-3">
-              <div className="min-w-0 flex-1">
-                <p className="text-[8px] font-black uppercase tracking-[0.18em] text-cyan-100/36">Financial Environment System</p>
-                <h2 className="mt-1 text-[clamp(20px,6vw,28px)] font-black leading-none text-white">Me</h2>
-                <p className="mt-1.5 max-w-[20rem] text-[11px] font-semibold leading-[1.45] text-white/48">A single adaptive screen for your financial climate and life-stage trend signals.</p>
-              </div>
-              <button type="button" onClick={refresh} className="grid h-9 w-9 shrink-0 place-items-center rounded-[15px] border border-white/8 bg-white/[0.04] text-white/52 active:scale-95" aria-label="Refresh CLARA environment">
-                <RefreshCcw className="h-4 w-4" />
-              </button>
-            </div>
-          </div>
-
-          <div className="mt-3 min-h-0 flex-1 overflow-hidden">
-            <FinancialClimateScreen signals={signals} signalCount={signalCount} signalTotal={signalTotal} />
-          </div>
+        <div className="relative min-h-0 w-full flex-1 overflow-hidden">
+          <FinancialClimateScreen signals={signals} signalCount={signalCount} signalTotal={signalTotal} />
         </div>
       </section>
     </div>
