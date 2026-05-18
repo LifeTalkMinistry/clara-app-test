@@ -1,29 +1,13 @@
-REPLACE_IN_FILE::function fallbackReply({ field, value, action }) {
-  if (action === "ask") {
-    return `Of course — what should I remember instead for your ${field.label.toLowerCase()}? Tell me the corrected version and I’ll update it.`;
-  }
-  return `Got it — I’ll remember your ${field.label.toLowerCase()} as “${value}.” I’ll use this when giving you more personal money guidance.`;
-}::function fallbackReply({ field, value, action, current }) {
-  if (action === "ask") {
-    return `I understand your current ${field.label.toLowerCase()} as “${current || "not set yet"}.” What should I update it to instead?`;
-  }
-  return `Got it — I’ll remember your ${field.label.toLowerCase()} as “${value}.” I’ll use this when giving you more personal money guidance.`;
+export default function DashboardMeLifePanel() {
+  return (
+    <div className="h-[calc(100svh-126px)] min-h-[520px] overflow-hidden pb-0">
+      <section className="relative flex h-full min-h-0 overflow-hidden rounded-[30px] border border-cyan-300/12 bg-[linear-gradient(135deg,rgba(8,55,69,.94),rgba(15,23,48,.97)_48%,rgba(47,23,83,.95))] p-[clamp(12px,3.4vw,18px)] shadow-[0_14px_46px_rgba(0,0,0,.20)]">
+        <div className="relative flex min-h-0 w-full flex-col">
+          <p className="text-[9px] font-black uppercase tracking-[0.2em] text-cyan-100/40">Personal Cabinet</p>
+          <h2 className="mt-1 text-[clamp(22px,7vw,30px)] font-black leading-none text-white">Me</h2>
+          <div className="mt-5 rounded-[24px] border border-white/8 bg-white/[0.026] p-5 text-sm font-semibold leading-6 text-white/62">Panel restored.</div>
+        </div>
+      </section>
+    </div>
+  );
 }
-
-REPLACE_IN_FILE::const fallback = fallbackReply({ field, value, action });::const fallback = fallbackReply({ field, value, action, current });
-
-REPLACE_IN_FILE::System action: ${action === "ask" ? "Ask for the corrected value. Do not save yet." : `Saved the new value: ${value}`}
-Tone: ${DRAWER_TONE[drawer.id]}
-
-Reply naturally as CLARA in 1-3 short sentences. Be warm, personal, and financially aware. Do not sound like a form or settings page. Do not mention technical storage.::System action: ${action === "ask" ? "The user wants to change the current memory but did NOT provide the new value yet. You must ask a proper probing follow-up question specific to this memory field. Do NOT assume or save anything yet." : `Saved the new value: ${value}`}
-Tone: ${DRAWER_TONE[drawer.id]}
-
-Critical behavior rules:
-- If the user says things like 'change that', 'update it', 'fix this', or similar vague correction requests, you MUST ask for the exact replacement value.
-- Your probing question must directly reference the memory topic and current value.
-- Example: 'I currently understand that you have no dependents. What should I update that to instead?'
-- Do NOT respond vaguely.
-- Do NOT repeat the user's vague statement.
-- Sound emotionally intelligent and conversational.
-
-Reply naturally as CLARA in 1-3 short sentences. Be warm, personal, and financially aware. Do not sound like a form or settings page. Do not mention technical storage.
