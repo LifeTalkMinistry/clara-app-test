@@ -1,7 +1,20 @@
 const PAUSE_KEY = "clara_talk_to_clara_pause_v1";
+const MEMORY_KEY = "clara_behavioral_memory_v1";
 
 const clean = (value = "") => String(value || "").replace(/\s+/g, " ").trim();
 const wait = (ms = 160) => new Promise((resolve) => window.setTimeout(resolve, ms));
+
+const MEMORY_FLOW = [
+  ["Stable monthly", "Every cutoff", "Changing", "Extra work", "Project-based"],
+  ["Every 10 and 25", "15 and 30", "Weekly", "End of month", "Irregular cutoff"],
+  ["Alone", "With family", "With partner", "Renting", "Shared place"],
+];
+
+const MEMORY_KEYS = [
+  "incomePattern",
+  "incomePattern.cutoffDates",
+  "livingSituation",
+];
 
 function getOverlay() {
   return document.querySelector("[data-clara-ai-brain-version]");
@@ -28,7 +41,7 @@ function getUserAnswers(root) {
 
 function isTalkFlowOpen(root) {
   const text = String(root?.innerText || "");
-  return /Would you like me to explain it in English or Tagalog|Can we proceed to the next part|what name would you like me to call you|Should I call you|How does your income usually come in|What exact cutoff dates do you usually receive income|Is anyone depending on your money or care right now/i.test(text);
+  return /Would you like me to explain it in English or Tagalog|How does your income usually come in|Is anyone depending on your money or care right now/i.test(text);
 }
 
 function readPause() {
@@ -39,11 +52,59 @@ function readPause() {
   }
 }
 
+function readMemory() {
+  try {
+    return { version: 2, updatedAt: "", items: {}, ...JSON.parse(localStorage.getItem(MEMORY_KEY) || "{}") };
+  } catch {
+    return { version: 2, updatedAt: "", items: {} };
+  }
+}
+
+function saveCoreMemory(answers = []) {
+  const current = readMemory();
+  const items = { ...(current.items || {}) };
+  const now = new Date().toISOString();
+  let saved = 0;
+
+  MEMORY_FLOW.forEach((choices, index) => {
+    const answer = answers.find((item) => choices.includes(item));
+    const key = MEMORY_KEYS[index];
+    if (!answer || !key) return;
+
+    items[key] = {
+      ...(items[key] || {}),
+      key,
+      label: key,
+      value: answer,
+      layer: 1,
+      source: "talk-to-clara-guided-flow",
+      updatedAt: now,
+    };
+
+    saved += 1;
+  });
+
+  if (saved > 0) {
+    const payload = {
+      version: 2,
+      updatedAt: now,
+      items,
+    };
+
+    localStorage.setItem(MEMORY_KEY, JSON.stringify(payload));
+    window.dispatchEvent(new CustomEvent("clara-behavioral-memory-updated", { detail: payload }));
+  }
+
+  return saved;
+}
+
 function savePause(root) {
+  const userAnswers = getUserAnswers(root);
   const payload = {
     savedAt: new Date().toISOString(),
     lastQuestion: getLastQuestion(root),
-    userAnswers: getUserAnswers(root),
+    userAnswers,
+    memorySavedCount: saveCoreMemory(userAnswers),
     visibleText: String(root?.innerText || "").slice(-3000),
   };
 
