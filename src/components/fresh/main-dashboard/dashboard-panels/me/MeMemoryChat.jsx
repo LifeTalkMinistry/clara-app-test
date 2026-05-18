@@ -67,14 +67,19 @@ function fieldImpact(drawer, field) {
 function savedSummaryReply({ drawer, field, value }) {
   const nextValue = clean(value);
   if (!nextValue) return savedFallbackReply(field, value);
-  return `Got it, Max. So your ${field.label.toLowerCase()} is now: “${nextValue}.” ${fieldImpact(drawer, field)} Is there anything else you want to add or correct about this?`;
+  return `Got it, Max. So your ${field.label.toLowerCase()} is now: “${nextValue}.” ${fieldImpact(drawer, field)} Would you like to add anything about this, ask a follow-up, or keep it as is?`;
 }
 
 function validSavedReply(reply) {
   const text = clean(reply).toLowerCase();
   if (!text || !text.includes("?")) return false;
   if (text.includes("updated to") && text.endsWith("to")) return false;
-  return text.includes("anything else") || text.includes("add") || text.includes("correct");
+  return text.includes("add") || text.includes("follow") || text.includes("correct") || text.includes("keep");
+}
+
+function isNoMoreReply(value) {
+  const text = clean(value).toLowerCase().replace(/[?.!]+$/g, "");
+  return /^(no|none|nothing|nope|nah|not now|all good|looks good|that's all|thats all|nothing else|nothing, thank you|nothing thank you|no thank you|no thanks|thank you|thanks)$/i.test(text);
 }
 
 async function askGeminiForMemoryReply({ drawer, field, current, userText, value, action }) {
@@ -92,13 +97,13 @@ User message: ${userText}
 System action: ${action === "ask" ? "The user wants to change this specific memory but did not provide the replacement value. Ask one clear probing follow-up question for the exact corrected value. Do not save or assume anything." : `The memory was updated to: ${value}`}
 
 Rules:
-- If asking, directly reference the current value and the topic.
+- If asking, directly reference the topic and ask for the corrected value.
 - Ask only one clear probing question.
-- If saved, you MUST do all three: reflect the new value, explain why it matters for future money guidance, and ask if there is anything else to add or correct.
+- If saved, you MUST do all three: reflect the new value, explain why it matters for future money guidance, and ask whether the user wants to add more detail, ask a follow-up, or keep it as is.
 - If saved, do not stop at "updated to". Complete the sentence.
 - Be warm, personal, and financially aware.
 - Do not mention storage, database, keys, model, or Gemini.
-- Keep under 65 words.`;
+- Keep under 70 words.`;
 
     const reply = clean(await generateClaraGeminiReply({
       mode: "me-memory-refine",
@@ -155,7 +160,8 @@ export default function MeMemoryChat({ drawer, field, onClose, onSaved }) {
   const [isThinking, setIsThinking] = useState(false);
   const [waitingForReplacement, setWaitingForReplacement] = useState(false);
   const [mode, setMode] = useState("idle");
-  const current = clean(field.memory?.value);
+  const [rememberedValue, setRememberedValue] = useState(() => clean(field.memory?.value));
+  const current = rememberedValue;
 
   const startUpdate = () => {
     if (isThinking) return;
@@ -175,7 +181,7 @@ export default function MeMemoryChat({ drawer, field, onClose, onSaved }) {
     setMessages((items) => [
       ...items,
       { role: "user", text: "No, keep this for now." },
-      { role: "clara", text: `Got it — I’ll keep your ${field.label.toLowerCase()} as “${current || "not set yet"}” for now.` },
+      { role: "clara", text: `Got it, Max. I’ll keep your ${field.label.toLowerCase()} as “${current || "not set yet"}” for now.` },
     ]);
   };
 
@@ -190,6 +196,39 @@ export default function MeMemoryChat({ drawer, field, onClose, onSaved }) {
     ]);
   };
 
+  const startAddMore = () => {
+    if (isThinking) return;
+    setMode("adding");
+    setWaitingForReplacement(true);
+    setMessages((items) => [
+      ...items,
+      { role: "user", text: "I want to add more about this." },
+      { role: "clara", text: `Sure, Max. What extra detail should I add about your ${field.label.toLowerCase()}?` },
+    ]);
+  };
+
+  const finishReview = () => {
+    if (isThinking) return;
+    setMode("idle");
+    setWaitingForReplacement(false);
+    setMessages((items) => [
+      ...items,
+      { role: "user", text: "Looks good." },
+      { role: "clara", text: `Got it, Max. I’ll keep this as your current ${field.label.toLowerCase()} and use it when guiding your financial decisions.` },
+    ]);
+  };
+
+  const startFollowUp = () => {
+    if (isThinking) return;
+    setMode("asking");
+    setWaitingForReplacement(false);
+    setMessages((items) => [
+      ...items,
+      { role: "user", text: "I have a follow-up question." },
+      { role: "clara", text: `Sure — what do you want to ask about your ${field.label.toLowerCase()}?` },
+    ]);
+  };
+
   const submit = async (event) => {
     event.preventDefault();
     const userText = clean(draft);
@@ -199,7 +238,18 @@ export default function MeMemoryChat({ drawer, field, onClose, onSaved }) {
     setMessages((items) => [...items, { role: "user", text: userText }]);
     setIsThinking(true);
 
-    const shouldAsk = !waitingForReplacement && mode !== "asking" && isVagueChangeRequest(userText);
+    if (mode === "reviewing" && isNoMoreReply(userText)) {
+      setMode("idle");
+      setWaitingForReplacement(false);
+      setMessages((items) => [
+        ...items,
+        { role: "clara", text: `Got it, Max. I’ll keep this as your current ${field.label.toLowerCase()} and use it when guiding your financial decisions.` },
+      ]);
+      setIsThinking(false);
+      return;
+    }
+
+    const shouldAsk = !waitingForReplacement && mode !== "asking" && mode !== "adding" && isVagueChangeRequest(userText);
 
     if (mode === "asking" && !isVagueChangeRequest(userText)) {
       const reply = await askGeminiForQuestion({ drawer, field, current, userText });
@@ -209,12 +259,14 @@ export default function MeMemoryChat({ drawer, field, onClose, onSaved }) {
     }
 
     const action = shouldAsk ? "ask" : "saved";
-    const value = action === "saved" ? extractMemoryValue(userText) : "";
+    const extractedValue = action === "saved" ? extractMemoryValue(userText) : "";
+    const value = mode === "adding" && current ? `${current}. Additional context: ${extractedValue}` : extractedValue;
 
     if (action === "saved") {
       onSaved(saveMemory(field, value, drawer.level));
+      setRememberedValue(value);
       setWaitingForReplacement(false);
-      setMode("idle");
+      setMode("reviewing");
     } else {
       setWaitingForReplacement(true);
       setMode("updating");
@@ -257,6 +309,15 @@ export default function MeMemoryChat({ drawer, field, onClose, onSaved }) {
               {message.text}
             </div>
           ))}
+
+          {mode === "reviewing" && !isThinking ? (
+            <div className="flex flex-wrap gap-2">
+              <button type="button" onClick={startAddMore} className="rounded-full border border-emerald-200/20 bg-emerald-300/14 px-3 py-2 text-xs font-black text-emerald-100 active:scale-95">Add about this</button>
+              <button type="button" onClick={finishReview} className="rounded-full border border-white/10 bg-white/[0.055] px-3 py-2 text-xs font-black text-white/68 active:scale-95">Looks good</button>
+              <button type="button" onClick={startFollowUp} className="rounded-full border border-cyan-200/14 bg-cyan-300/10 px-3 py-2 text-xs font-black text-cyan-100/80 active:scale-95">Follow-up</button>
+            </div>
+          ) : null}
+
           {isThinking ? <div className="max-w-[82%] rounded-[22px] bg-white/[0.06] px-4 py-3 text-sm font-semibold leading-6 text-white/56">CLARA is thinking through that…</div> : null}
         </div>
 
