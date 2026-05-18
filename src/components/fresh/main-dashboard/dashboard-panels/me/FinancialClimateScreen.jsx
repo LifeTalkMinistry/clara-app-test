@@ -1,6 +1,8 @@
 import { useEffect, useMemo, useState } from "react";
-import { Check, ChevronLeft, Database, Heart, Sparkles, TrendingUp, X } from "lucide-react";
+import { Check, ChevronLeft, Database, Heart, ImageIcon, RotateCcw, Sparkles, TrendingUp, Upload, X } from "lucide-react";
 import { DEFAULT_STAGE, getStageDefinition, LIFE_STAGE_KEY, STAGES } from "./lifeStageIntelligenceData";
+
+const STAGE_IMAGE_KEY = "clara_life_stage_images_v1";
 
 const STAGE_VISUALS = {
   "Young Earner": {
@@ -37,6 +39,20 @@ function readStageProfile() {
 function saveStageProfile(profile) {
   if (typeof window === "undefined") return;
   localStorage.setItem(LIFE_STAGE_KEY, JSON.stringify({ ...profile, updatedAt: new Date().toISOString() }));
+}
+
+function readStageImages() {
+  if (typeof window === "undefined") return {};
+  try {
+    return JSON.parse(localStorage.getItem(STAGE_IMAGE_KEY) || "{}") || {};
+  } catch {
+    return {};
+  }
+}
+
+function saveStageImages(images) {
+  if (typeof window === "undefined") return;
+  localStorage.setItem(STAGE_IMAGE_KEY, JSON.stringify(images || {}));
 }
 
 function trendBar(value) {
@@ -96,6 +112,56 @@ function DataDetailPanel({ trend, onClose }) {
       <div className="mt-3 rounded-[22px] border border-white/8 bg-white/[0.035] p-4">
         <p className="text-[10px] font-black uppercase tracking-[0.16em] text-white/34">Source direction</p>
         <p className="mt-2 text-sm font-semibold leading-6 text-white/56">This is currently a CLARA life-stage intelligence placeholder. Later this can show Philippine survey data, admin-managed sources, and trend update status.</p>
+      </div>
+    </div>
+  );
+}
+
+function StageImagePanel({ stage, image, onApply, onClose }) {
+  const [preview, setPreview] = useState(image || "");
+
+  const handleUpload = (event) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = () => setPreview(String(reader.result || ""));
+    reader.readAsDataURL(file);
+  };
+
+  const save = () => {
+    onApply(preview || "");
+    onClose();
+  };
+
+  return (
+    <div className="absolute inset-0 z-30 flex min-h-0 flex-col rounded-[28px] border border-cyan-200/12 bg-slate-950/92 p-4 backdrop-blur-2xl">
+      <div className="flex shrink-0 items-start justify-between gap-3">
+        <div>
+          <p className="text-[9px] font-black uppercase tracking-[0.18em] text-cyan-100/46">Stage image</p>
+          <h4 className="mt-2 text-xl font-black leading-tight text-white">Customize {stage}</h4>
+          <p className="mt-1 text-xs font-semibold leading-5 text-white/42">Use the default CLARA visual or upload your own image for this life stage.</p>
+        </div>
+        <button type="button" onClick={onClose} className="grid h-8 w-8 shrink-0 place-items-center rounded-full border border-white/10 bg-white/[0.055] text-white/62 active:scale-95" aria-label="Close image setup"><X className="h-4 w-4" /></button>
+      </div>
+
+      <div className="mt-4 min-h-0 flex-1 overflow-y-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+        <div className="relative h-60 overflow-hidden rounded-[26px] border border-white/10 bg-white/[0.035]">
+          {preview ? <img src={preview} alt={`${stage} custom visual`} className="h-full w-full object-cover" /> : <div className="grid h-full place-items-center text-center"><ImageIcon className="mx-auto h-9 w-9 text-white/34" /><p className="mt-2 text-xs font-black text-white/48">Default CLARA stage visual</p></div>}
+          <div className="absolute inset-0 bg-[linear-gradient(180deg,transparent,rgba(3,8,28,.72))]" />
+        </div>
+
+        <div className="mt-4 grid gap-2">
+          <label className="flex cursor-pointer items-center justify-center gap-2 rounded-full bg-emerald-300 px-4 py-3 text-xs font-black text-slate-950 active:scale-95">
+            <Upload className="h-4 w-4" /> Upload image
+            <input type="file" accept="image/*" className="hidden" onChange={handleUpload} />
+          </label>
+          <button type="button" onClick={() => setPreview("")} className="flex items-center justify-center gap-2 rounded-full border border-white/10 bg-white/[0.045] px-4 py-3 text-xs font-black text-white/58 active:scale-95"><RotateCcw className="h-4 w-4" /> Use default</button>
+        </div>
+      </div>
+
+      <div className="mt-3 flex shrink-0 gap-2">
+        <button type="button" onClick={onClose} className="flex-1 rounded-full border border-white/10 bg-white/[0.045] px-4 py-3 text-xs font-black text-white/58 active:scale-95">Cancel</button>
+        <button type="button" onClick={save} className="flex flex-1 items-center justify-center gap-2 rounded-full bg-emerald-300 px-4 py-3 text-xs font-black text-slate-950 active:scale-95"><Check className="h-4 w-4" /> Apply image</button>
       </div>
     </div>
   );
@@ -171,27 +237,46 @@ function StageSetupPanel({ profile, onClose, onSave }) {
 
 export default function FinancialClimateScreen() {
   const [showStageSetup, setShowStageSetup] = useState(false);
+  const [showImageSetup, setShowImageSetup] = useState(false);
   const [selectedTrend, setSelectedTrend] = useState(null);
   const [stageProfile, setStageProfile] = useState(() => readStageProfile());
+  const [stageImages, setStageImages] = useState(() => readStageImages());
   const definition = useMemo(() => getStageDefinition(stageProfile.stage), [stageProfile.stage]);
   const visual = STAGE_VISUALS[stageProfile.stage] || STAGE_VISUALS["Young Earner"];
+  const customImage = stageImages[stageProfile.stage] || "";
 
   useEffect(() => { saveStageProfile(stageProfile); }, [stageProfile]);
+  useEffect(() => { saveStageImages(stageImages); }, [stageImages]);
+
+  const applyStageImage = (image) => {
+    setStageImages((current) => {
+      const next = { ...current };
+      if (image) next[stageProfile.stage] = image;
+      else delete next[stageProfile.stage];
+      return next;
+    });
+  };
 
   return (
     <div className="relative h-full min-h-0 overflow-hidden rounded-[28px] border border-cyan-200/12 bg-[#050b1f] shadow-[0_18px_60px_rgba(0,0,0,.24)]">
       <div className="relative h-full overflow-y-auto px-3 pb-5 pt-3 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
         <section className={`relative min-h-[252px] overflow-hidden rounded-[30px] border border-white/8 bg-gradient-to-br ${visual.glow} p-5 shadow-[0_20px_70px_rgba(0,0,0,.28)]`}>
+          {customImage ? <img src={customImage} alt={`${stageProfile.stage} stage background`} className="absolute inset-0 h-full w-full object-cover opacity-70" /> : null}
           <div className="absolute inset-0 bg-[radial-gradient(circle_at_82%_18%,rgba(255,255,255,.18),transparent_20%),linear-gradient(180deg,rgba(3,8,28,.06),rgba(3,8,28,.92))]" />
-          <div className="absolute bottom-0 right-0 h-[92%] w-[50%] opacity-90">
-            <div className="absolute inset-x-2 bottom-0 h-[86%] rounded-t-full blur-[1px]" style={{ background: visual.silhouette }} />
-            <div className="absolute bottom-6 right-5 h-28 w-28 rounded-full bg-cyan-300/10 blur-3xl" />
-          </div>
+          {!customImage ? (
+            <div className="absolute bottom-0 right-0 h-[92%] w-[50%] opacity-90">
+              <div className="absolute inset-x-2 bottom-0 h-[86%] rounded-t-full blur-[1px]" style={{ background: visual.silhouette }} />
+              <div className="absolute bottom-6 right-5 h-28 w-28 rounded-full bg-cyan-300/10 blur-3xl" />
+            </div>
+          ) : null}
           <div className="relative z-10 max-w-[58%] pt-4">
             <p className="text-[10px] font-black uppercase tracking-[0.16em] text-white/58">Your life stage</p>
             <h2 className="mt-3 text-[27px] font-black leading-tight text-white">{stageProfile.stage} <span className="text-[14px] text-amber-200">♛</span></h2>
             <p className="mt-3 text-[13px] font-semibold leading-5 text-white/62">{definition.identity.caption}</p>
-            <button type="button" onClick={() => setShowStageSetup(true)} className="mt-4 rounded-full border border-white/12 bg-white/[0.06] px-3 py-1.5 text-[10px] font-black uppercase tracking-[0.12em] text-white/72 active:scale-95">Set stage</button>
+            <div className="mt-4 flex flex-wrap gap-2">
+              <button type="button" onClick={() => setShowStageSetup(true)} className="rounded-full border border-white/12 bg-white/[0.06] px-3 py-1.5 text-[10px] font-black uppercase tracking-[0.12em] text-white/72 active:scale-95">Set stage</button>
+              <button type="button" onClick={() => setShowImageSetup(true)} className="rounded-full border border-white/12 bg-white/[0.06] px-3 py-1.5 text-[10px] font-black uppercase tracking-[0.12em] text-white/72 active:scale-95">Image</button>
+            </div>
           </div>
         </section>
 
@@ -224,6 +309,7 @@ export default function FinancialClimateScreen() {
       </div>
 
       {selectedTrend ? <DataDetailPanel trend={selectedTrend} onClose={() => setSelectedTrend(null)} /> : null}
+      {showImageSetup ? <StageImagePanel stage={stageProfile.stage} image={customImage} onApply={applyStageImage} onClose={() => setShowImageSetup(false)} /> : null}
       {showStageSetup ? <StageSetupPanel profile={stageProfile} onClose={() => setShowStageSetup(false)} onSave={setStageProfile} /> : null}
     </div>
   );
