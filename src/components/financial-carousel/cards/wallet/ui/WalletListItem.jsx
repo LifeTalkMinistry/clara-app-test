@@ -7,9 +7,9 @@ import {
   Plus,
   Repeat2,
   Trash2,
-  Wallet,
 } from 'lucide-react';
 import { fmt } from '@/components/financial-carousel/cards/wallet/logic/useWalletCardLogic';
+import { getWalletProviderFromWallet } from '@/components/financial-carousel/cards/wallet/logic/walletProviderRegistry';
 
 const cardStyle =
   'relative rounded-[24px] border border-white/[0.08] bg-black/[0.13] px-3.5 py-3.5 shadow-[inset_0_1px_0_rgba(255,255,255,0.045),0_10px_26px_rgba(0,0,0,0.16)] backdrop-blur-xl';
@@ -31,6 +31,22 @@ function stopWalletAction(event) {
   event?.nativeEvent?.stopImmediatePropagation?.();
 }
 
+function WalletProviderIcon({ provider }) {
+  return (
+    <div
+      className='flex h-[52px] w-[52px] shrink-0 items-center justify-center rounded-[18px] border border-white/12 text-[11px] font-black tracking-[-0.04em] shadow-[inset_0_1px_0_rgba(255,255,255,0.22),0_8px_20px_rgba(0,0,0,0.16)]'
+      style={{
+        background: provider.iconBg,
+        color: provider.iconTextColor,
+        boxShadow: `inset 0 1px 0 rgba(255,255,255,0.22), 0 8px 20px rgba(0,0,0,0.16), 0 0 22px ${provider.accent}30`,
+      }}
+      aria-hidden='true'
+    >
+      {provider.iconText}
+    </div>
+  );
+}
+
 export default function WalletListItem({
   wallet,
   index,
@@ -43,6 +59,7 @@ export default function WalletListItem({
 }) {
   const [showMenu, setShowMenu] = useState(false);
   const walletId = wallet?.id ?? wallet?.wallet_id ?? wallet?.local_id;
+  const provider = getWalletProviderFromWallet(wallet);
 
   const handleAction = (event, action) => {
     stopWalletAction(event);
@@ -57,18 +74,21 @@ export default function WalletListItem({
     <div
       key={walletId || wallet?.name || `wallet-${index}`}
       className={`${cardStyle} ${showMenu ? 'z-[90]' : 'z-0'}`}
+      style={{ boxShadow: `inset 0 1px 0 rgba(255,255,255,0.045), 0 10px 26px rgba(0,0,0,0.16), 0 0 18px ${provider.accent}14` }}
     >
       <div className='pointer-events-none absolute inset-0 rounded-[inherit] bg-[linear-gradient(180deg,rgba(255,255,255,0.025),transparent_36%,rgba(0,0,0,0.10)_100%)]' />
+      <div
+        className='pointer-events-none absolute inset-y-3 left-0 w-1 rounded-r-full opacity-70'
+        style={{ background: provider.accent, boxShadow: `0 0 16px ${provider.accent}` }}
+      />
 
       <div className='relative flex items-center justify-between gap-3'>
         <div className='flex min-w-0 items-center gap-3'>
-          <div className='flex h-[52px] w-[52px] shrink-0 items-center justify-center rounded-[18px] border border-white/12 bg-[#f3f0df] shadow-[inset_0_1px_0_rgba(255,255,255,0.72),0_8px_20px_rgba(0,0,0,0.16)]'>
-            <Wallet className='h-7 w-7 text-slate-500' />
-          </div>
+          <WalletProviderIcon provider={provider} />
 
           <div className='min-w-0'>
             <p className='truncate text-[14px] font-black tracking-[-0.02em] text-white/90'>
-              {wallet.name || 'Wallet'}
+              {wallet.name || provider.defaultWalletName || provider.label || 'Wallet'}
             </p>
 
             <p className='mt-1 text-[12px] font-bold leading-none text-white/58'>
