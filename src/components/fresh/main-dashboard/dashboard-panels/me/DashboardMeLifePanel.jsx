@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { ArrowLeft, CheckCircle2, ChevronRight, MessageCircle, RefreshCcw } from "lucide-react";
 import { buildDrawers, clean, dateLabel, readMemory } from "./meMemoryUtils";
 import MeMemoryChat from "./MeMemoryChat";
+import FinancialClimateScreen from "./FinancialClimateScreen";
 
 export default function DashboardMeLifePanel() {
   const [memory, setMemory] = useState(() => readMemory());
@@ -38,7 +39,7 @@ export default function DashboardMeLifePanel() {
                   <div className="min-w-0 flex-1">
                     <p className="text-[9px] font-black uppercase tracking-[0.2em] text-cyan-100/40">Financial Environment Understanding System</p>
                     <h2 className="mt-1 text-[clamp(22px,7vw,30px)] font-black leading-none text-white">Me</h2>
-                    <p className="mt-2 max-w-[22rem] text-[clamp(11px,3.2vw,13px)] font-semibold leading-[1.55] text-white/48">Private memory drawers for your financial behavior and life context.</p>
+                    <p className="mt-2 max-w-[22rem] text-[clamp(11px,3.2vw,13px)] font-semibold leading-[1.55] text-white/48">CLARA reads your life context, pressure points, and spending environment before giving guidance.</p>
                     <div className="mt-2 flex flex-wrap gap-1.5">
                       <span className="rounded-full bg-white/[0.05] px-2.5 py-1 text-[10px] font-black text-white/40">{saved}/{total} learned</span>
                       <span className="rounded-full bg-white/[0.04] px-2.5 py-1 text-[10px] font-bold text-white/32">{dateLabel(memory.updatedAt)}</span>
@@ -50,19 +51,23 @@ export default function DashboardMeLifePanel() {
                 </div>
               </div>
 
-              <div className="mt-[clamp(10px,2.8vw,16px)] grid min-h-0 flex-1 grid-rows-4 gap-[clamp(8px,2.4vw,12px)]">
-                {drawers.map((drawer) => (
-                  <button key={drawer.id} type="button" onClick={() => setActiveDrawerId(drawer.id)} className="group min-h-0 rounded-[clamp(18px,5.8vw,25px)] border border-white/8 bg-white/[0.026] px-[clamp(12px,3.4vw,16px)] py-[clamp(9px,2.8vw,14px)] text-left transition active:scale-[0.985]">
-                    <div className="flex h-full min-h-0 items-center justify-between gap-3">
-                      <div className="min-w-0 flex-1">
-                        <h3 className="line-clamp-2 text-[clamp(17px,5.5vw,22px)] font-black leading-[1.05] text-white">{drawer.title}</h3>
-                        <p className="mt-1 line-clamp-2 text-[clamp(10px,3vw,12px)] font-semibold leading-[1.35] text-white/34">{drawer.subtitle}</p>
-                        <div className="mt-2 inline-flex rounded-full bg-white/[0.04] px-2.5 py-1 text-[10px] font-black text-white/34">{drawer.saved}/{drawer.total} saved</div>
+              <div className="mt-4 min-h-0 flex-1 overflow-y-auto pr-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+                <FinancialClimateScreen memory={memory} saved={saved} total={total} />
+
+                <div className="mt-4 grid gap-[clamp(8px,2.4vw,12px)] pb-2">
+                  {drawers.map((drawer) => (
+                    <button key={drawer.id} type="button" onClick={() => setActiveDrawerId(drawer.id)} className="group rounded-[clamp(18px,5.8vw,25px)] border border-white/8 bg-white/[0.026] px-[clamp(12px,3.4vw,16px)] py-[clamp(11px,3vw,15px)] text-left transition active:scale-[0.985]">
+                      <div className="flex items-center justify-between gap-3">
+                        <div className="min-w-0 flex-1">
+                          <h3 className="line-clamp-2 text-[clamp(17px,5.5vw,22px)] font-black leading-[1.05] text-white">{drawer.title}</h3>
+                          <p className="mt-1 line-clamp-2 text-[clamp(10px,3vw,12px)] font-semibold leading-[1.35] text-white/34">{drawer.subtitle}</p>
+                          <div className="mt-2 inline-flex rounded-full bg-white/[0.04] px-2.5 py-1 text-[10px] font-black text-white/34">{drawer.saved}/{drawer.total} saved</div>
+                        </div>
+                        <ChevronRight className="h-4 w-4 shrink-0 text-white/26" />
                       </div>
-                      <ChevronRight className="h-4 w-4 shrink-0 text-white/26" />
-                    </div>
-                  </button>
-                ))}
+                    </button>
+                  ))}
+                </div>
               </div>
             </>
           ) : (
