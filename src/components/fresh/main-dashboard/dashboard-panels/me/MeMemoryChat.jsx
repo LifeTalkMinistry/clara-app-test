@@ -8,8 +8,6 @@ import {
   probingReply,
   readMemory,
   saveMemory,
-  savedFallbackReply,
-  validProbe,
 } from "./meMemoryUtils";
 
 const USER_NAME = "Max";
@@ -21,50 +19,6 @@ function introMessage(field, current) {
   return `Hi ${USER_NAME}, I currently remember your ${field.label.toLowerCase()} as “${current}.” Do you want to update this part of your life?`;
 }
 
-function fieldImpact(drawer, field) {
-  const specific = {
-    incomePattern: "That helps me plan around your real cash flow instead of treating every day the same.",
-    livingSituation: "That helps me understand your home setup, who you live with, and whether your environment feels stable or still changing.",
-    responsibilities: "That helps me separate real obligations from random spending when I guide you.",
-    workType: "That helps me consider your work stress, schedule, energy, and spending triggers.",
-    relationshipStatus: "That helps me understand emotional context that may affect spending or financial pressure.",
-    dependents: "That helps me understand who may rely on your money, care, or support.",
-    currentFinancialPressure: "That tells me where we need to be careful before suggesting spending or saving moves.",
-    survivalPressureLevel: "That helps me adjust whether my guidance should be gentle, strict, or protective.",
-    mainFinancialGoal: "That gives your money a direction, so future decisions can protect what matters most.",
-    emotionalStateTrend: "That helps me support the person behind the spending, not just the transaction.",
-    emotionalTriggers: "That helps me notice the feeling behind the spending before it becomes a money decision.",
-    stressSpendingHabits: "That helps me protect you during stressful moments when spending becomes tempting.",
-    rewardSystem: "That helps me suggest rewards that restore you without quietly hurting your goals.",
-    commonImpulsivePurchases: "That helps me recognize the kind of purchases we may need to pause before.",
-    biggestSpendingWeakness: "That gives us a clear place to build better friction, not just more discipline.",
-    copingMechanisms: "That helps me suggest alternatives that still feel realistic when life feels heavy.",
-    motivationStyle: "That helps me speak to you in the kind of guidance you actually respond to.",
-    financialFear: "That helps me guide from safety and clarity instead of pressure or shame.",
-    guiltPatterns: "That helps me turn guilt into awareness instead of making you feel judged.",
-    socialPressureTriggers: "That helps me protect your boundaries when people or situations pull on your money.",
-    scheduleRoutine: "That helps me understand when spending may become convenient, rushed, or emotional.",
-    sleepPattern: "That helps me account for energy, patience, cravings, and impulse control.",
-    workExhaustion: "That helps me notice when comfort spending may be connected to tiredness.",
-    socialEnvironment: "That helps me understand whether people around you support your goals or pressure your wallet.",
-    relationshipConflicts: "That helps me treat emotional pressure carefully when giving money advice.",
-    hobbyPatterns: "That helps me suggest fulfilling activities that can replace spending as comfort.",
-    energyLevelTrends: "That helps me notice when your spending risk may rise because your energy is low.",
-    burnoutIndicators: "That helps me protect rest and recovery before strict budgeting.",
-    wallets: "That helps me know where your money decisions actually happen.",
-    budgets: "That helps me give advice that fits your current system instead of forcing a perfect one.",
-    emergencyFund: "That tells me how much safety we need to protect before taking financial risks.",
-    savingsGoals: "That helps me protect the goal when pressure or temptation appears.",
-    recurringExpenses: "That helps me know what money is already spoken for before suggesting what is safe to use.",
-    debt: "That helps me account for both the financial and emotional weight of debt.",
-    subscriptions: "That helps me watch for quiet leaks from automatic charges.",
-    transfers: "That helps me understand how your money moves between people, wallets, and priorities.",
-    paydayCycle: "That helps me guide you around the moments when spending risk usually changes.",
-  };
-
-  return specific[field.key] || `That helps me understand your ${drawer.title.toLowerCase()} with more personal context.`;
-}
-
 function normalizeMemoryValue(field, rawValue) {
   const raw = clean(rawValue);
   const text = raw.toLowerCase();
@@ -74,16 +28,8 @@ function normalizeMemoryValue(field, rawValue) {
     if (/\b(partner|boyfriend|girlfriend|spouse|husband|wife)\b/.test(text)) return "with partner";
     if (/\b(family|parents|parent|mother|father|siblings|sibling)\b/.test(text)) return "with family";
     if (/\b(alone|solo|by myself|living alone)\b/.test(text)) return "alone";
-    if (/\b(rent|renting|rented|apartment|boarding)\b/.test(text)) return "renting";
+    if (/\b(rent|renting|apartment|boarding)\b/.test(text)) return "renting";
     if (/\b(shared|roommate|housemate|bedspace)\b/.test(text)) return "shared place";
-  }
-
-  if (field.key === "dependents") {
-    if (/\b(no|none|wala)\b/.test(text) && /\b(dependent|dependents|support|sinusupportahan)\b/.test(text)) return "no dependents";
-    if (/\b(parent|parents|mother|father|mom|dad)\b/.test(text)) return "parents";
-    if (/\b(child|children|kid|kids|baby|son|daughter)\b/.test(text)) return "child/kids";
-    if (/\b(sibling|siblings|brother|sister)\b/.test(text)) return "sibling";
-    if (/\b(partner|spouse|husband|wife|boyfriend|girlfriend)\b/.test(text)) return "partner";
   }
 
   if (field.key === "workType") {
@@ -112,7 +58,6 @@ function normalizeAdditionalContext(field, rawValue) {
     if (/\bgirlfriend\b/.test(text)) return "partner is girlfriend";
     if (/\bboyfriend\b/.test(text)) return "partner is boyfriend";
     if (/\b(spouse|husband|wife)\b/.test(text)) return "partner is spouse";
-    if (/\bnew|adjusting|temporary|stable|permanent|full-time|full time|sometimes|currently|staying\b/.test(text)) return raw;
   }
 
   return raw;
@@ -139,59 +84,42 @@ function naturalMemoryPhrase(field, value) {
   return extra ? `${base}, and ${extra}` : base;
 }
 
+function fieldImpact(drawer, field) {
+  const specific = {
+    livingSituation: "That helps me understand your home setup, who you live with, and whether your environment feels stable or still changing.",
+    incomePattern: "That helps me understand the rhythm of your money.",
+    responsibilities: "That helps me understand what your money is carrying in real life.",
+    workType: "That helps me understand your daily environment and energy pattern.",
+    relationshipStatus: "That helps me understand the emotional context around your decisions.",
+    dependents: "That helps me understand who may rely on your care or support.",
+  };
+  return specific[field.key] || `That helps me understand your ${drawer.title.toLowerCase()} with more personal context.`;
+}
+
+function contextualFollowUp(field, value) {
+  const text = clean(value).toLowerCase();
+
+  if (field.key === "livingSituation") {
+    if (text.includes("with partner")) return "Is this living setup stable now, still new, or something you’re still adjusting to?";
+    if (text.includes("with family")) return "Who in your family do you live with, and does this setup feel stable right now?";
+    if (text.includes("renting")) return "Are you renting alone, with someone, or in a shared living setup?";
+    if (text.includes("alone")) return "Does living alone feel stable for you right now, or are you still adjusting to it?";
+    if (text.includes("shared place")) return "Who do you share the place with, and does the setup feel comfortable or temporary?";
+  }
+
+  if (field.key === "incomePattern") return "Does the timing feel predictable, or does it still change often?";
+  if (field.key === "workType") return "Does this work setup feel stable right now, or is it affecting your energy lately?";
+  if (field.key === "dependents") return "Is that support regular, occasional, or still changing?";
+  return `What extra detail about your ${field.label.toLowerCase()} should I understand?`;
+}
+
 function followUpQuestion() {
   return `Anything else I can help you with, ${USER_NAME}?`;
 }
 
-function contextualFollowUp(field, value) {
-  const normalized = clean(value);
-  const text = normalized.toLowerCase();
-
-  if (field.key === "livingSituation") {
-    if (text.includes("with partner")) {
-      return "Is this living setup stable now, still new, or something you’re still adjusting to?";
-    }
-    if (text.includes("with family")) {
-      return "Who in your family do you live with, and does this setup feel stable right now?";
-    }
-    if (text.includes("renting")) {
-      return "Are you renting alone, with someone, or in a shared living setup?";
-    }
-    if (text.includes("alone")) {
-      return "Does living alone feel stable for you right now, or are you still adjusting to it?";
-    }
-    if (text.includes("shared place")) {
-      return "Who do you share the place with, and does the setup feel comfortable or temporary?";
-    }
-  }
-
-  if (field.key === "dependents") return "Who depends on you right now, and is that support regular or only when needed?";
-  if (field.key === "incomePattern") return "When your income arrives, does the timing feel predictable or does it still change often?";
-  if (field.key === "workType") return "Does your work setup feel stable right now, or is it affecting your energy lately?";
-  if (field.key === "currentFinancialPressure") return "What part of this pressure feels most urgent this month?";
-  if (field.key === "mainFinancialGoal") return "What would make this goal feel successful for you in the next 30 days?";
-
-  return `What extra detail about your ${field.label.toLowerCase()} should I understand so I can guide you better?`;
-}
-
-function savedSummaryReply({ drawer, field, value }) {
-  const nextValue = clean(value);
-  if (!nextValue) return savedFallbackReply(field, value);
-  const natural = naturalMemoryPhrase(field, nextValue);
-  return `Oh, got it, ${USER_NAME} — ${natural}. ${fieldImpact(drawer, field)} ${contextualFollowUp(field, nextValue)}`;
-}
-
-function validSavedReply(reply) {
-  const text = clean(reply).toLowerCase();
-  if (!text || !text.includes("?")) return false;
-  if (text.includes("updated to") && text.endsWith("to")) return false;
-  if (text.includes("contributing") || text.includes("bill") || text.includes("bills") || text.includes("expense") || text.includes("expenses")) return false;
-  return text.includes("stable") || text.includes("adjust") || text.includes("setup") || text.includes("live") || text.includes("living") || text.includes("detail") || text.includes("anything else") || text.includes("elaborating") || text.includes("add") || text.includes("follow") || text.includes("correct") || text.includes("keep");
-}
-
 function isNoMoreReply(value) {
   const text = clean(value).toLowerCase().replace(/[?.!]+$/g, "");
-  return /^(no|none|nothing|nope|nah|not now|all good|looks good|that's all|thats all|nothing else|nothing, thank you|nothing thank you|no thank you|no thanks)$/i.test(text);
+  return /^(no|none|nothing|nope|nah|not now|all good|looks good|looks good for now|that's all|thats all|nothing else|no thanks|no thank you)$/i.test(text);
 }
 
 function isThanksReply(value) {
@@ -201,26 +129,27 @@ function isThanksReply(value) {
 
 function isGoodbyeReply(value) {
   const text = clean(value).toLowerCase().replace(/[?.!]+$/g, "");
-  return /^(bye|goodbye|good bye|see you|see ya|later|that's all bye|thats all bye)$/i.test(text);
+  return /^(bye|goodbye|good bye|see you|see ya|later)$/i.test(text);
+}
+
+function closingReply(userText) {
+  if (isGoodbyeReply(userText)) return `Goodbye for now, ${USER_NAME}. I’ll be here when you’re ready to continue.`;
+  if (isThanksReply(userText)) return `You’re welcome, ${USER_NAME}. ${followUpQuestion()}`;
+  return null;
 }
 
 function isDeclarativeMemoryInfo(field, value) {
   const text = clean(value).toLowerCase();
-  if (!text) return false;
   if (/\b(i just want to say|just want to say|to clarify|actually|i mean|what i mean is|for context)\b/.test(text)) return true;
-  if (field.key === "livingSituation" && /\b(partner|girlfriend|boyfriend|family|parents|rent|renting|alone|shared|roommate|housemate)\b/.test(text)) return true;
+  if (field.key === "livingSituation" && /\b(partner|girlfriend|boyfriend|family|parents|renting|alone|shared|roommate|housemate)\b/.test(text)) return true;
   if (field.key === "dependents" && /\b(dependent|dependents|support|parents|child|kids|sibling|brother|sister|partner)\b/.test(text)) return true;
   return false;
 }
 
-function closingReply(userText) {
-  if (isGoodbyeReply(userText)) {
-    return `Goodbye for now, ${USER_NAME}. I’ll be here when you’re ready to continue.`;
-  }
-  if (isThanksReply(userText)) {
-    return `You’re welcome, ${USER_NAME}. ${followUpQuestion()}`;
-  }
-  return null;
+function savedSummaryReply({ drawer, field, value }) {
+  const nextValue = clean(value);
+  if (!nextValue) return `Got it, ${USER_NAME}. I’ll remember that for your ${field.label.toLowerCase()}. ${followUpQuestion()}`;
+  return `Oh, got it, ${USER_NAME} — ${naturalMemoryPhrase(field, nextValue)}. ${fieldImpact(drawer, field)} ${contextualFollowUp(field, nextValue)}`;
 }
 
 async function askGeminiForMemoryReply({ drawer, field, current, userText, value, action }) {
@@ -229,25 +158,21 @@ async function askGeminiForMemoryReply({ drawer, field, current, userText, value
 
   try {
     const memory = readMemory();
-    const naturalValue = naturalMemoryPhrase(field, value);
-    const prompt = `You are CLARA inside the user's Me memory drawer. The user is editing one specific identity or behavior memory.
-
+    const prompt = `You are CLARA inside the user's Me memory drawer.
 Drawer: ${drawer.title}
-Topic being edited: ${field.label}
+Topic: ${field.label}
 Previous value: ${current || "not saved yet"}
 Raw user message: ${userText}
-Refined memory value to remember: ${value || "none"}
-Natural meaning: ${naturalValue || "none"}
-System action: ${action === "ask" ? "The user wants to change this specific memory but did not provide the replacement value. Ask one clear probing follow-up question for the exact corrected value. Do not save or assume anything." : `The memory was updated to the refined value: ${value}`}
+Refined value: ${value || "none"}
+Action: ${action}
 
 Rules:
 - Stay inside the current memory topic only.
 - Do not repeat the raw user sentence as the memory.
-- If saved, summarize the refined meaning in a natural way, not as a database value.
-- If the topic is Living situation, ask only about the living setup: who they live with, whether it is stable, temporary, new, or something they are adjusting to.
-- If the topic is Living situation, do NOT ask about bills, expenses, rent payment, contribution, money split, or financial responsibilities. Those belong to other Me sections.
-- If asking, directly reference the topic and ask for the corrected value.
-- Be warm, personal, and financially aware without leaving the section context.
+- If the topic is Living situation, talk only about home/living setup: who they live with, whether it is stable, temporary, new, or something they are adjusting to.
+- If the topic is Living situation, do NOT ask about bills, expenses, rent payment, contributions, money split, or financial responsibilities.
+- If saved, summarize naturally and ask one topic-specific follow-up.
+- If asking, ask for the corrected value.
 - Do not mention storage, database, keys, model, or Gemini.
 - Keep under 80 words.`;
 
@@ -261,9 +186,9 @@ Rules:
       message: prompt,
     }));
 
-    if (action === "ask" && !validProbe(reply)) return fallback;
-    if (action === "saved" && !validSavedReply(reply)) return fallback;
-    return reply || fallback;
+    if (!reply) return fallback;
+    if (field.key === "livingSituation" && /\b(bill|bills|expense|expenses|rent payment|contribution|contributing|money split)\b/i.test(reply)) return fallback;
+    return reply;
   } catch {
     return fallback;
   }
@@ -276,15 +201,14 @@ async function askGeminiForQuestion({ drawer, field, current, userText }) {
   try {
     const memory = readMemory();
     const prompt = `You are CLARA inside the user's Me memory drawer.
-
 Drawer: ${drawer.title}
 Topic: ${field.label}
 Current remembered value: ${current || "not saved yet"}
 User question: ${userText}
 
-Answer the user's question naturally as CLARA. Stay inside this memory topic. If the topic is Living situation, talk about the home/living setup only, not bills, expenses, rent payment, contributions, money split, or responsibilities. Do not update the memory unless the user gives a clear replacement value. End with a natural follow-up like "Anything else I can help you with, ${USER_NAME}?" unless the user is saying goodbye. Do not mention storage, database, keys, model, or Gemini. Keep under 65 words.`;
+Answer naturally as CLARA. Stay inside this memory topic. If the topic is Living situation, talk about the home/living setup only, not bills, expenses, rent payment, contributions, money split, or responsibilities. Do not update the memory unless the user gives a clear replacement value. Keep under 65 words.`;
 
-    const reply = clean(await generateClaraGeminiReply({
+    return clean(await generateClaraGeminiReply({
       mode: "me-memory-question",
       context: { profile: { lifeProfile: memory.items || {} }, lifeProfile: memory.items || {} },
       conversationHistory: [
@@ -292,9 +216,7 @@ Answer the user's question naturally as CLARA. Stay inside this memory topic. If
         { role: "user", text: userText },
       ],
       message: prompt,
-    }));
-
-    return reply || fallback;
+    })) || fallback;
   } catch {
     return fallback;
   }
@@ -309,12 +231,13 @@ export default function MeMemoryChat({ drawer, field, onClose, onSaved }) {
   const [rememberedValue, setRememberedValue] = useState(() => clean(field.memory?.value));
   const current = rememberedValue;
 
+  const push = (next) => setMessages((items) => [...items, ...next]);
+
   const startUpdate = () => {
     if (isThinking) return;
     setMode("updating");
     setWaitingForReplacement(true);
-    setMessages((items) => [
-      ...items,
+    push([
       { role: "user", text: "Yes, I want to update this." },
       { role: "clara", text: probingReply(field, current) },
     ]);
@@ -324,10 +247,9 @@ export default function MeMemoryChat({ drawer, field, onClose, onSaved }) {
     if (isThinking) return;
     setMode("idle");
     setWaitingForReplacement(false);
-    setMessages((items) => [
-      ...items,
-      { role: "user", text: "No, keep this for now." },
-      { role: "clara", text: `Got it, ${USER_NAME}. I’ll keep your ${field.label.toLowerCase()} as “${current || "not set yet"}” for now. ${followUpQuestion()}` },
+    push([
+      { role: "user", text: "No, keep it." },
+      { role: "clara", text: `Got it, ${USER_NAME}. I’ll keep this as your current ${field.label.toLowerCase()} for now. ${followUpQuestion()}` },
     ]);
   };
 
@@ -335,9 +257,8 @@ export default function MeMemoryChat({ drawer, field, onClose, onSaved }) {
     if (isThinking) return;
     setMode("asking");
     setWaitingForReplacement(false);
-    setMessages((items) => [
-      ...items,
-      { role: "user", text: "I want to ask about this." },
+    push([
+      { role: "user", text: "I have a question." },
       { role: "clara", text: `Sure — ask me anything about your ${field.label.toLowerCase()}, or how it affects this part of your life.` },
     ]);
   };
@@ -346,9 +267,8 @@ export default function MeMemoryChat({ drawer, field, onClose, onSaved }) {
     if (isThinking) return;
     setMode("adding");
     setWaitingForReplacement(true);
-    setMessages((items) => [
-      ...items,
-      { role: "user", text: "I want to add more about this." },
+    push([
+      { role: "user", text: "Let me add something." },
       { role: "clara", text: `Sure, ${USER_NAME}. What extra detail should I add about your ${field.label.toLowerCase()}?` },
     ]);
   };
@@ -357,21 +277,9 @@ export default function MeMemoryChat({ drawer, field, onClose, onSaved }) {
     if (isThinking) return;
     setMode("idle");
     setWaitingForReplacement(false);
-    setMessages((items) => [
-      ...items,
-      { role: "user", text: "Looks good." },
-      { role: "clara", text: `Got it, ${USER_NAME}. I’ll keep this as your current ${field.label.toLowerCase()} and use it when guiding your financial decisions. ${followUpQuestion()}` },
-    ]);
-  };
-
-  const startFollowUp = () => {
-    if (isThinking) return;
-    setMode("adding");
-    setWaitingForReplacement(true);
-    setMessages((items) => [
-      ...items,
-      { role: "user", text: "Follow-up." },
-      { role: "clara", text: contextualFollowUp(field, current) },
+    push([
+      { role: "user", text: "Looks good for now." },
+      { role: "clara", text: `Got it, ${USER_NAME}. I’ll keep this as your current ${field.label.toLowerCase()} for now. ${followUpQuestion()}` },
     ]);
   };
 
@@ -379,9 +287,7 @@ export default function MeMemoryChat({ drawer, field, onClose, onSaved }) {
     const extractedValue = extractMemoryValue(userText);
     const normalizedValue = normalizeMemoryValue(field, extractedValue);
     const extra = normalizeAdditionalContext(field, extractedValue);
-    const value = useAdditionalContext && current
-      ? `${current}. Additional context: ${extra || extractedValue}`
-      : normalizedValue;
+    const value = useAdditionalContext && current ? `${current}. Additional context: ${extra || extractedValue}` : normalizedValue;
 
     onSaved(saveMemory(field, value, drawer.level));
     setRememberedValue(value);
@@ -389,7 +295,7 @@ export default function MeMemoryChat({ drawer, field, onClose, onSaved }) {
     setMode("reviewing");
 
     const reply = await askGeminiForMemoryReply({ drawer, field, current, userText, value, action: "saved" });
-    setMessages((items) => [...items, { role: "clara", text: reply }]);
+    push([{ role: "clara", text: reply }]);
   };
 
   const submit = async (event) => {
@@ -398,25 +304,20 @@ export default function MeMemoryChat({ drawer, field, onClose, onSaved }) {
     if (!userText || isThinking) return;
 
     setDraft("");
-    setMessages((items) => [...items, { role: "user", text: userText }]);
+    push([{ role: "user", text: userText }]);
     setIsThinking(true);
 
     const directClosing = closingReply(userText);
     if (directClosing) {
       setMode(isGoodbyeReply(userText) ? "closed" : "idle");
       setWaitingForReplacement(false);
-      setMessages((items) => [...items, { role: "clara", text: directClosing }]);
+      push([{ role: "clara", text: directClosing }]);
       setIsThinking(false);
       return;
     }
 
     if (mode === "reviewing" && isNoMoreReply(userText)) {
-      setMode("idle");
-      setWaitingForReplacement(false);
-      setMessages((items) => [
-        ...items,
-        { role: "clara", text: `Got it, ${USER_NAME}. I’ll keep this as your current ${field.label.toLowerCase()} and use it when guiding your financial decisions. ${followUpQuestion()}` },
-      ]);
+      finishReview();
       setIsThinking(false);
       return;
     }
@@ -426,11 +327,10 @@ export default function MeMemoryChat({ drawer, field, onClose, onSaved }) {
     if (mode === "asking" && !isVagueChangeRequest(userText)) {
       if (isDeclarativeMemoryInfo(field, userText)) {
         await saveRefinedMemory({ userText, useAdditionalContext: Boolean(current) });
-        setIsThinking(false);
-        return;
+      } else {
+        const reply = await askGeminiForQuestion({ drawer, field, current, userText });
+        push([{ role: "clara", text: reply }]);
       }
-      const reply = await askGeminiForQuestion({ drawer, field, current, userText });
-      setMessages((items) => [...items, { role: "clara", text: reply }]);
       setIsThinking(false);
       return;
     }
@@ -443,10 +343,7 @@ export default function MeMemoryChat({ drawer, field, onClose, onSaved }) {
 
     if (!waitingForReplacement && !shouldAsk) {
       setMode("idle");
-      setMessages((items) => [
-        ...items,
-        { role: "clara", text: `I can help with that, ${USER_NAME}. Do you want to update your ${field.label.toLowerCase()}, ask a follow-up, or keep it as is? ${followUpQuestion()}` },
-      ]);
+      push([{ role: "clara", text: `I can help with that, ${USER_NAME}. Do you want to update your ${field.label.toLowerCase()}, ask a question, or keep it as is? ${followUpQuestion()}` }]);
       setIsThinking(false);
       return;
     }
@@ -455,7 +352,7 @@ export default function MeMemoryChat({ drawer, field, onClose, onSaved }) {
       setWaitingForReplacement(true);
       setMode("updating");
       const reply = await askGeminiForMemoryReply({ drawer, field, current, userText, value: "", action: "ask" });
-      setMessages((items) => [...items, { role: "clara", text: reply }]);
+      push([{ role: "clara", text: reply }]);
       setIsThinking(false);
       return;
     }
@@ -487,7 +384,7 @@ export default function MeMemoryChat({ drawer, field, onClose, onSaved }) {
             <div className="flex flex-wrap gap-2">
               <button type="button" onClick={startUpdate} className="rounded-full border border-emerald-200/20 bg-emerald-300/14 px-3 py-2 text-xs font-black text-emerald-100 active:scale-95">Yes, update this</button>
               <button type="button" onClick={keepCurrent} className="rounded-full border border-white/10 bg-white/[0.055] px-3 py-2 text-xs font-black text-white/68 active:scale-95">No, keep it</button>
-              <button type="button" onClick={startAsk} className="rounded-full border border-cyan-200/14 bg-cyan-300/10 px-3 py-2 text-xs font-black text-cyan-100/80 active:scale-95">Ask CLARA</button>
+              <button type="button" onClick={startAsk} className="rounded-full border border-cyan-200/14 bg-cyan-300/10 px-3 py-2 text-xs font-black text-cyan-100/80 active:scale-95">I have a question</button>
             </div>
           ) : null}
 
@@ -499,9 +396,9 @@ export default function MeMemoryChat({ drawer, field, onClose, onSaved }) {
 
           {mode === "reviewing" && !isThinking ? (
             <div className="flex flex-wrap gap-2">
-              <button type="button" onClick={startAddMore} className="rounded-full border border-emerald-200/20 bg-emerald-300/14 px-3 py-2 text-xs font-black text-emerald-100 active:scale-95">Add about this</button>
-              <button type="button" onClick={finishReview} className="rounded-full border border-white/10 bg-white/[0.055] px-3 py-2 text-xs font-black text-white/68 active:scale-95">Looks good</button>
-              <button type="button" onClick={startFollowUp} className="rounded-full border border-cyan-200/14 bg-cyan-300/10 px-3 py-2 text-xs font-black text-cyan-100/80 active:scale-95">Follow-up</button>
+              <button type="button" onClick={finishReview} className="rounded-full border border-white/10 bg-white/[0.055] px-3 py-2 text-xs font-black text-white/68 active:scale-95">Looks good for now</button>
+              <button type="button" onClick={startAddMore} className="rounded-full border border-emerald-200/20 bg-emerald-300/14 px-3 py-2 text-xs font-black text-emerald-100 active:scale-95">Let me add something</button>
+              <button type="button" onClick={startAsk} className="rounded-full border border-cyan-200/14 bg-cyan-300/10 px-3 py-2 text-xs font-black text-cyan-100/80 active:scale-95">I have a question</button>
             </div>
           ) : null}
 
