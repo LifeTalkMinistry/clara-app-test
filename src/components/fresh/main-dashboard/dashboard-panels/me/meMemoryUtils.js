@@ -1,4 +1,6 @@
-import { DRAWERS, FIELD_SUGGESTIONS, MEMORY_KEY, clean } from "./mePanelData";
+import { DRAWERS, FIELD_SUGGESTIONS, MEMORY_KEY, clean as cleanValue } from "./mePanelData";
+
+export const clean = cleanValue;
 
 export function readMemory() {
   if (typeof window === "undefined") return { version: 2, updatedAt: "", items: {} };
