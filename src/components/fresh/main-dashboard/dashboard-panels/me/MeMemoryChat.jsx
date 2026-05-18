@@ -64,17 +64,73 @@ function fieldImpact(drawer, field) {
   return specific[field.key] || `That helps me understand your ${drawer.title.toLowerCase()} with more personal context.`;
 }
 
+function normalizeMemoryValue(field, rawValue) {
+  const raw = clean(rawValue);
+  const text = raw.toLowerCase();
+  if (!raw) return "";
+
+  if (field.key === "livingSituation") {
+    if (/\b(partner|boyfriend|girlfriend|spouse|husband|wife)\b/.test(text)) return "with partner";
+    if (/\b(family|parents|parent|mother|father|siblings|sibling)\b/.test(text)) return "with family";
+    if (/\b(alone|solo|by myself|living alone)\b/.test(text)) return "alone";
+    if (/\b(rent|renting|rented|apartment|boarding)\b/.test(text)) return "renting";
+    if (/\b(shared|roommate|housemate|bedspace)\b/.test(text)) return "shared place";
+  }
+
+  if (field.key === "dependents") {
+    if (/\b(no|none|wala)\b/.test(text) && /\b(dependent|dependents|support|sinusupportahan)\b/.test(text)) return "no dependents";
+    if (/\b(parent|parents|mother|father|mom|dad)\b/.test(text)) return "parents";
+    if (/\b(child|children|kid|kids|baby|son|daughter)\b/.test(text)) return "child/kids";
+    if (/\b(sibling|siblings|brother|sister)\b/.test(text)) return "sibling";
+    if (/\b(partner|spouse|husband|wife|boyfriend|girlfriend)\b/.test(text)) return "partner";
+  }
+
+  if (field.key === "workType") {
+    if (/\b(bpo|call center|csr|agent)\b/.test(text)) return "BPO/call center";
+    if (/\b(freelance|freelancer|client)\b/.test(text)) return "freelance";
+    if (/\b(student|school|college)\b/.test(text)) return "student";
+    if (/\b(business|negosyo|owner)\b/.test(text)) return "business";
+    if (/\b(office|corporate|employee)\b/.test(text)) return "office work";
+  }
+
+  return raw
+    .replace(/^i am currently\s+/i, "")
+    .replace(/^i'm currently\s+/i, "")
+    .replace(/^i am\s+/i, "")
+    .replace(/^i'm\s+/i, "")
+    .replace(/\s+now$/i, "")
+    .trim();
+}
+
+function naturalMemoryPhrase(field, value) {
+  const normalized = clean(value);
+  if (!normalized) return "";
+  if (field.key === "livingSituation") {
+    if (normalized === "with partner") return "you’re living with your partner";
+    if (normalized === "with family") return "you’re living with your family";
+    if (normalized === "alone") return "you’re living alone";
+    if (normalized === "renting") return "you’re renting";
+    if (normalized === "shared place") return "you’re in a shared living setup";
+  }
+  if (field.key === "dependents") {
+    if (normalized === "no dependents") return "you don’t currently have dependents";
+    return `you support ${normalized}`;
+  }
+  return `your ${field.label.toLowerCase()} is ${normalized}`;
+}
+
 function savedSummaryReply({ drawer, field, value }) {
   const nextValue = clean(value);
   if (!nextValue) return savedFallbackReply(field, value);
-  return `Got it, Max. So your ${field.label.toLowerCase()} is now: “${nextValue}.” ${fieldImpact(drawer, field)} Would you like to add anything about this, ask a follow-up, or keep it as is?`;
+  const natural = naturalMemoryPhrase(field, nextValue);
+  return `Oh, got it, Max — ${natural}. ${fieldImpact(drawer, field)} Would you mind elaborating a little more, or should I keep it as is?`;
 }
 
 function validSavedReply(reply) {
   const text = clean(reply).toLowerCase();
   if (!text || !text.includes("?")) return false;
   if (text.includes("updated to") && text.endsWith("to")) return false;
-  return text.includes("add") || text.includes("follow") || text.includes("correct") || text.includes("keep");
+  return text.includes("elaborating") || text.includes("add") || text.includes("follow") || text.includes("correct") || text.includes("keep");
 }
 
 function isNoMoreReply(value) {
@@ -88,19 +144,23 @@ async function askGeminiForMemoryReply({ drawer, field, current, userText, value
 
   try {
     const memory = readMemory();
+    const naturalValue = naturalMemoryPhrase(field, value);
     const prompt = `You are CLARA inside the user's Me memory drawer. The user is editing one specific identity or behavior memory.
 
 Drawer: ${drawer.title}
 Topic being edited: ${field.label}
 Previous value: ${current || "not saved yet"}
-User message: ${userText}
-System action: ${action === "ask" ? "The user wants to change this specific memory but did not provide the replacement value. Ask one clear probing follow-up question for the exact corrected value. Do not save or assume anything." : `The memory was updated to: ${value}`}
+Raw user message: ${userText}
+Refined memory value to remember: ${value || "none"}
+Natural meaning: ${naturalValue || "none"}
+System action: ${action === "ask" ? "The user wants to change this specific memory but did not provide the replacement value. Ask one clear probing follow-up question for the exact corrected value. Do not save or assume anything." : `The memory was updated to the refined value: ${value}`}
 
 Rules:
+- Do not repeat the raw user sentence as the memory.
+- If saved, summarize the refined meaning in a natural way, not as a database value.
+- Example for living situation: say "Oh, so you're living with your partner" instead of "your living situation is now: I am living with my partner now".
+- If saved, explain why it matters for future money guidance, then ask if the user wants to elaborate more or keep it as is.
 - If asking, directly reference the topic and ask for the corrected value.
-- Ask only one clear probing question.
-- If saved, you MUST do all three: reflect the new value, explain why it matters for future money guidance, and ask whether the user wants to add more detail, ask a follow-up, or keep it as is.
-- If saved, do not stop at "updated to". Complete the sentence.
 - Be warm, personal, and financially aware.
 - Do not mention storage, database, keys, model, or Gemini.
 - Keep under 70 words.`;
@@ -260,7 +320,8 @@ export default function MeMemoryChat({ drawer, field, onClose, onSaved }) {
 
     const action = shouldAsk ? "ask" : "saved";
     const extractedValue = action === "saved" ? extractMemoryValue(userText) : "";
-    const value = mode === "adding" && current ? `${current}. Additional context: ${extractedValue}` : extractedValue;
+    const normalizedValue = action === "saved" ? normalizeMemoryValue(field, extractedValue) : "";
+    const value = mode === "adding" && current ? `${current}. Additional context: ${extractedValue}` : normalizedValue;
 
     if (action === "saved") {
       onSaved(saveMemory(field, value, drawer.level));
