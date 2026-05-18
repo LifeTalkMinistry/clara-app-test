@@ -208,6 +208,58 @@ function setNativeInputValue(input, value) {
   input.dispatchEvent(new Event("change", { bubbles: true }));
 }
 
+function showRestoreOverlay(root, saved = {}) {
+  const main = root.querySelector("main");
+  const form = root.querySelector("form");
+  const previousMainVisibility = main?.style.visibility || "";
+  const previousFormVisibility = form?.style.visibility || "";
+  const previousPointerEvents = root.style.pointerEvents || "";
+
+  if (main) main.style.visibility = "hidden";
+  if (form) form.style.visibility = "hidden";
+  root.style.pointerEvents = "none";
+
+  const overlay = document.createElement("div");
+  overlay.dataset.claraSilentRestore = "true";
+  overlay.style.cssText = "position:absolute;inset:0;z-index:999;display:flex;align-items:center;justify-content:center;padding:20px;background:linear-gradient(180deg,rgba(2,6,23,.82),rgba(2,6,23,.94));backdrop-filter:blur(12px);color:white;";
+
+  const card = document.createElement("div");
+  card.style.cssText = "width:100%;max-width:330px;border:1px solid rgba(110,231,183,.18);background:rgba(15,23,42,.72);border-radius:28px;padding:22px;box-shadow:0 24px 70px rgba(0,0,0,.32), inset 0 1px 0 rgba(255,255,255,.08);text-align:left;";
+
+  const eyebrow = document.createElement("div");
+  eyebrow.textContent = "RESTORING TALK TO CLARA";
+  eyebrow.style.cssText = "font-size:10px;font-weight:900;letter-spacing:.22em;color:rgba(167,243,208,.72);text-transform:uppercase;";
+
+  const title = document.createElement("div");
+  title.textContent = "Continuing where you left off.";
+  title.style.cssText = "margin-top:10px;font-size:20px;line-height:1.18;font-weight:900;color:white;";
+
+  const body = document.createElement("div");
+  body.textContent = `Preparing your paused question: ${clean(saved.lastQuestion || "your setup")}`;
+  body.style.cssText = "margin-top:10px;font-size:13px;line-height:1.55;color:rgba(226,232,240,.78);";
+
+  const pill = document.createElement("div");
+  pill.textContent = "No need to replay the whole chat.";
+  pill.style.cssText = "display:inline-flex;margin-top:14px;border:1px solid rgba(255,255,255,.12);background:rgba(255,255,255,.06);border-radius:999px;padding:8px 11px;font-size:11px;font-weight:900;color:rgba(255,255,255,.82);";
+
+  card.appendChild(eyebrow);
+  card.appendChild(title);
+  card.appendChild(body);
+  card.appendChild(pill);
+  overlay.appendChild(card);
+  root.appendChild(overlay);
+
+  return () => {
+    if (main) {
+      main.style.visibility = previousMainVisibility;
+      main.scrollTop = main.scrollHeight;
+    }
+    if (form) form.style.visibility = previousFormVisibility;
+    root.style.pointerEvents = previousPointerEvents;
+    overlay.remove();
+  };
+}
+
 async function playAnswer(root, answer) {
   const value = clean(answer);
   if (!value) return false;
@@ -245,6 +297,7 @@ async function continuePause(root, card) {
   const saved = readPause();
   const answers = Array.isArray(saved?.userAnswers) ? saved.userAnswers : [];
   const button = card.querySelector("[data-clara-resume-pause]");
+  const cleanupRestoreUi = showRestoreOverlay(root, saved);
 
   if (button) {
     button.disabled = true;
@@ -254,6 +307,7 @@ async function continuePause(root, card) {
   for (const answer of answers) {
     const played = await playAnswer(root, answer);
     if (!played) {
+      cleanupRestoreUi();
       if (button) {
         button.disabled = false;
         button.textContent = "Continue";
@@ -262,8 +316,10 @@ async function continuePause(root, card) {
     }
   }
 
+  await wait(260);
   clearPause();
   card.remove();
+  cleanupRestoreUi();
 }
 
 function closeOverlay(root) {
