@@ -2,50 +2,92 @@
 //
 // This is the central image registry for the Me page / Life Stage hero.
 //
-// Upload your images here:
+// Default images live here:
 // src/assets/life-stages/
 //
-// Recommended filenames:
-// - young-professional.jpg
-// - living-with-partner.jpg
-// - family-household.jpg
-// - working-student.jpg
-// - single-parent.jpg
-// - full-time-earner.jpg
-// - freelance-gig-worker.jpg
-// - business-builder.jpg
-// - recovery-season.jpg
-// - transitioning-life-stage.jpg
-//
-// After uploading the files, uncomment the imports below and assign them
-// inside LIFE_STAGE_IMAGES.
+// Uploaded filenames currently wired:
+// - family-household.jpg.png
+// - freelance-season-girl.jpg.png
+// - freelance-season-men.jpg.png
+// - full-time-earner-girl.jpg.png
+// - full-time-earner-men.jpg.png
+// - living-with-partner.jpg.png
+// - single-parent-girl.jpg.png
+// - single-parent-men.jpg.png
+// - working-student-girl.jpg.png
+// - working-student-men.jpg.png
+// - young-professional-girl.jpg.png
+// - young-professional-men.jpg.png
 
-// import youngProfessional from "@/assets/life-stages/young-professional.jpg";
-// import livingWithPartner from "@/assets/life-stages/living-with-partner.jpg";
-// import familyHousehold from "@/assets/life-stages/family-household.jpg";
-// import workingStudent from "@/assets/life-stages/working-student.jpg";
-// import singleParent from "@/assets/life-stages/single-parent.jpg";
-// import fullTimeEarner from "@/assets/life-stages/full-time-earner.jpg";
-// import freelanceGigWorker from "@/assets/life-stages/freelance-gig-worker.jpg";
-// import businessBuilder from "@/assets/life-stages/business-builder.jpg";
-// import recoverySeason from "@/assets/life-stages/recovery-season.jpg";
-// import transitioningLifeStage from "@/assets/life-stages/transitioning-life-stage.jpg";
+import familyHousehold from "../assets/life-stages/family-household.jpg.png";
+import freelanceSeasonGirl from "../assets/life-stages/freelance-season-girl.jpg.png";
+import freelanceSeasonMen from "../assets/life-stages/freelance-season-men.jpg.png";
+import fullTimeEarnerGirl from "../assets/life-stages/full-time-earner-girl.jpg.png";
+import fullTimeEarnerMen from "../assets/life-stages/full-time-earner-men.jpg.png";
+import livingWithPartner from "../assets/life-stages/living-with-partner.jpg.png";
+import singleParentGirl from "../assets/life-stages/single-parent-girl.jpg.png";
+import singleParentMen from "../assets/life-stages/single-parent-men.jpg.png";
+import workingStudentGirl from "../assets/life-stages/working-student-girl.jpg.png";
+import workingStudentMen from "../assets/life-stages/working-student-men.jpg.png";
+import youngProfessionalGirl from "../assets/life-stages/young-professional-girl.jpg.png";
+import youngProfessionalMen from "../assets/life-stages/young-professional-men.jpg.png";
 
 export const LIFE_STAGE_IMAGES = {
-  youngProfessional: "",
-  livingWithPartner: "",
-  familyHousehold: "",
-  workingStudent: "",
-  singleParent: "",
-  fullTimeEarner: "",
-  freelanceGigWorker: "",
-  businessBuilder: "",
-  recoverySeason: "",
-  transitioningLifeStage: "",
+  youngProfessional: {
+    default: youngProfessionalMen,
+    men: youngProfessionalMen,
+    male: youngProfessionalMen,
+    girl: youngProfessionalGirl,
+    female: youngProfessionalGirl,
+  },
+  livingWithPartner: {
+    default: livingWithPartner,
+  },
+  familyHousehold: {
+    default: familyHousehold,
+  },
+  workingStudent: {
+    default: workingStudentGirl,
+    men: workingStudentMen,
+    male: workingStudentMen,
+    girl: workingStudentGirl,
+    female: workingStudentGirl,
+  },
+  singleParent: {
+    default: singleParentGirl,
+    men: singleParentMen,
+    male: singleParentMen,
+    girl: singleParentGirl,
+    female: singleParentGirl,
+  },
+  fullTimeEarner: {
+    default: fullTimeEarnerMen,
+    men: fullTimeEarnerMen,
+    male: fullTimeEarnerMen,
+    girl: fullTimeEarnerGirl,
+    female: fullTimeEarnerGirl,
+  },
+  freelanceGigWorker: {
+    default: freelanceSeasonMen,
+    men: freelanceSeasonMen,
+    male: freelanceSeasonMen,
+    girl: freelanceSeasonGirl,
+    female: freelanceSeasonGirl,
+  },
+  businessBuilder: {
+    default: "",
+  },
+  recoverySeason: {
+    default: "",
+  },
+  transitioningLifeStage: {
+    default: "",
+  },
 };
 
 export const LIFE_STAGE_IMAGE_BY_LABEL = {
   "Young Professional": LIFE_STAGE_IMAGES.youngProfessional,
+  "Young Earner": LIFE_STAGE_IMAGES.youngProfessional,
   "Living With Partner": LIFE_STAGE_IMAGES.livingWithPartner,
   "Living with Partner": LIFE_STAGE_IMAGES.livingWithPartner,
   "Family Household": LIFE_STAGE_IMAGES.familyHousehold,
@@ -59,6 +101,16 @@ export const LIFE_STAGE_IMAGE_BY_LABEL = {
   "Transitioning Life Stage": LIFE_STAGE_IMAGES.transitioningLifeStage,
 };
 
-export function getLifeStageImage(stageName) {
-  return LIFE_STAGE_IMAGE_BY_LABEL[stageName] || "";
+function resolveStageImage(stageImageEntry, variant = "default") {
+  if (!stageImageEntry) return "";
+  if (typeof stageImageEntry === "string") return stageImageEntry;
+  return stageImageEntry[variant] || stageImageEntry.default || "";
+}
+
+export function getLifeStageImage(stageName, variant = "default") {
+  return resolveStageImage(LIFE_STAGE_IMAGE_BY_LABEL[stageName], variant);
+}
+
+export function getLifeStageImageSet(stageName) {
+  return LIFE_STAGE_IMAGE_BY_LABEL[stageName] || { default: "" };
 }
