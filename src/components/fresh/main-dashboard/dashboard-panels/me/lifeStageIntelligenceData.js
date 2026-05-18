@@ -1,7 +1,7 @@
 export const LIFE_STAGE_KEY = "clara_life_stage_profile_v1";
 
 export const STAGES = [
-  "Young Earner",
+  "Young Professional",
   "Working Student",
   "Single Parent",
   "Breadwinner",
@@ -17,7 +17,7 @@ export const STAGES = [
 ];
 
 export const DEFAULT_STAGE = {
-  stage: "Young Earner",
+  stage: "Young Professional",
   setup: "Early career",
   rhythm: "Learning rhythm",
   pressure: "Comfort spending",
@@ -28,18 +28,11 @@ function stage(title, caption, overview, fields, indicators, struggles, recommen
   return { identity: { title, caption, overview }, fields, indicators, struggles, recommendations, talkPrompt };
 }
 
-const basicFields = {
-  setup: ["Early career", "Building independence", "With family", "Still figuring it out"],
-  rhythm: ["Mostly stable", "Still adjusting", "Changing lately", "Temporary for now"],
-  pressure: ["Managing okay", "Some pressure", "Heavy lately", "Emotionally sensitive"],
-  goal: ["Build habits", "Emergency fund first", "Reduce impulse buys", "Stability first"],
-};
-
 export const LIFE_STAGE_INTELLIGENCE = {
-  "Young Earner": stage(
+  "Young Professional": stage(
     "Building independence",
-    "Learning money rhythm, freedom, and the small choices that become habits.",
-    "Young Earners in the Philippines often face rising essentials, lifestyle pressure, and the emotional pull of finally earning their own money.",
+    "Building independence while facing rising living costs and unstable growth opportunities.",
+    "Young Professionals in the Philippines often face rising essentials, lifestyle pressure, and the emotional pull of finally earning their own money.",
     {
       setup: ["First job", "Early career", "Exploring income", "Building independence"],
       rhythm: ["Stable salary", "Cutoff cycle", "Income still changing", "Learning rhythm"],
@@ -48,12 +41,31 @@ export const LIFE_STAGE_INTELLIGENCE = {
     },
     [
       { label: "Living pressure", value: 72, note: "Essentials and lifestyle costs compete with early savings." },
-      { label: "Savings difficulty", value: 68, note: "Consistency is harder when freedom and self-reward are new." },
-      { label: "Lifestyle pull", value: 74, note: "Social spending and comfort buys can quietly become routine." },
+      { label: "Savings readiness", value: 41, note: "Savings can feel difficult while independence and self-reward are still forming." },
+      { label: "Career stability", value: 58, note: "Early career momentum is building but still needs structure." },
     ],
     ["lifestyle inflation", "installment temptation", "food delivery habits", "peer pressure spending", "unstable savings rhythm"],
     ["Emergency Fund", "Expense Awareness", "Skill Growth", "Debt Avoidance"],
-    "Talk about what feels hardest now that you’re earning your own money."
+    "Talk about what feels hardest now that you’re building your professional life."
+  ),
+  "Young Earner": stage(
+    "Building independence",
+    "Building independence while facing rising living costs and unstable growth opportunities.",
+    "Young Professionals in the Philippines often face rising essentials, lifestyle pressure, and the emotional pull of finally earning their own money.",
+    {
+      setup: ["First job", "Early career", "Exploring income", "Building independence"],
+      rhythm: ["Stable salary", "Cutoff cycle", "Income still changing", "Learning rhythm"],
+      pressure: ["Peer pressure", "Comfort spending", "New responsibilities", "Low buffer"],
+      goal: ["Build habits", "Emergency fund first", "Reduce impulse buys", "Save first"],
+    },
+    [
+      { label: "Living pressure", value: 72, note: "Essentials and lifestyle costs compete with early savings." },
+      { label: "Savings readiness", value: 41, note: "Savings can feel difficult while independence and self-reward are still forming." },
+      { label: "Career stability", value: 58, note: "Early career momentum is building but still needs structure." },
+    ],
+    ["lifestyle inflation", "installment temptation", "food delivery habits", "peer pressure spending", "unstable savings rhythm"],
+    ["Emergency Fund", "Expense Awareness", "Skill Growth", "Debt Avoidance"],
+    "Talk about what feels hardest now that you’re building your professional life."
   ),
   "Working Student": stage(
     "Stretched season",
