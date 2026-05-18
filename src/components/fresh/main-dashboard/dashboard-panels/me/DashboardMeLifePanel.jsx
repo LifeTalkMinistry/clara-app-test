@@ -8,6 +8,7 @@ import {
   Send,
   X,
 } from "lucide-react";
+import { generateClaraGeminiReply, hasGeminiConfig } from "../../../../../lib/clara-gemini-client";
 
 const MEMORY_KEY = "clara_behavioral_memory_v1";
 
@@ -84,105 +85,10 @@ const DRAWERS = [
 ];
 
 const DRAWER_TONE = {
-  core: {
-    empty: "This helps me understand the basic shape of your life, not just your numbers.",
-    saved: "I’ll use this as part of your personal financial context.",
-  },
-  behavior: {
-    empty: "This helps me understand the emotion or habit behind the spending pattern.",
-    saved: "I’ll keep this in mind when helping you pause before emotional spending.",
-  },
-  life: {
-    empty: "This helps me understand your rhythm, energy, and environment.",
-    saved: "I’ll use this to read your spending risks with more human context.",
-  },
-  money: {
-    empty: "This helps me understand the system that carries your money decisions.",
-    saved: "I’ll use this when giving you practical money guidance.",
-  },
-};
-
-const FIELD_REFLECTIONS = {
-  incomePattern: (value) => `I understand that your income pattern is currently “${value}.” That helps me plan around the rhythm of your money instead of treating every day the same.`,
-  livingSituation: (value) => `I understand that your living situation is “${value}.” That matters because home life can either reduce pressure or create hidden responsibilities that affect your money decisions.`,
-  responsibilities: (value) => `I see that your current responsibilities include “${value}.” I’ll treat this as part of the real pressure you carry, not as random spending.`,
-  workType: (value) => `I understand that your work or daily role is “${value}.” Your work environment can affect stress, energy, cravings, and the way you spend after a long day.`,
-  relationshipStatus: (value) => `I understand your relationship situation as “${value}.” Emotional situations can quietly influence spending, so I’ll keep this context in mind gently.`,
-  dependents: (value) => `I understand that your dependent situation is “${value}.” Support responsibilities can change what feels safe, urgent, or emotionally difficult financially.`,
-  currentFinancialPressure: (value) => `I can see that your main financial pressure right now is “${value}.” That tells me where we should be careful before suggesting any spending or saving move.`,
-  survivalPressureLevel: (value) => `I understand your current survival pressure as “${value}.” I’ll use this to adjust how strict or gentle my guidance should be.`,
-  mainFinancialGoal: (value) => `I understand that your main financial goal is “${value}.” That gives your money a direction, so decisions can be compared against what you’re trying to protect.`,
-  emotionalStateTrend: (value) => `I understand that your emotional state around money is currently “${value}.” That helps me support the person behind the spending, not just the transaction.`,
-
-  emotionalTriggers: (value) => `I noticed that “${value}” can trigger spending for you. That is important because spending is often a response to a feeling before it becomes a money decision.`,
-  stressSpendingHabits: (value) => `I understand that stress can lead you toward “${value}.” When stress shows up, I’ll try to help you pause without making you feel judged.`,
-  rewardSystem: (value) => `I understand that your reward pattern is “${value}.” Rewards are not bad, but we should make sure they restore you without quietly hurting your goals.`,
-  commonImpulsivePurchases: (value) => `I noticed that “${value}” can be one of your impulsive purchase areas. I’ll watch for this pattern when you ask before buying.`,
-  biggestSpendingWeakness: (value) => `I understand that your biggest spending weakness is “${value}.” That gives us a clear place to build better friction, not just more discipline.`,
-  copingMechanisms: (value) => `I understand that you often cope through “${value}.” I’ll try to suggest alternatives that still feel realistic when life feels heavy.`,
-  motivationStyle: (value) => `I understand that “${value}” works better for motivating you. I’ll try to match my tone to the kind of support you actually respond to.`,
-  financialFear: (value) => `I understand that one financial fear you carry is “${value}.” Fear can shape decisions, so I’ll help you build safety instead of just pressure.`,
-  guiltPatterns: (value) => `I noticed that “${value}” can create guilt after spending. I’ll help you turn that guilt into awareness, not shame.`,
-  socialPressureTriggers: (value) => `I understand that “${value}” can create social pressure to spend. I’ll help you protect your boundaries when people or situations pull on your money.`,
-
-  scheduleRoutine: (value) => `I understand that your routine is currently “${value}.” Your schedule affects when you feel tired, tempted, rushed, or more likely to spend for convenience.`,
-  sleepPattern: (value) => `I understand your sleep pattern as “${value}.” Sleep can quietly affect cravings, patience, and impulse control, so this matters for financial decisions.`,
-  workExhaustion: (value) => `I understand your work exhaustion level as “${value}.” When energy is low, spending often becomes a shortcut for comfort or convenience.`,
-  socialEnvironment: (value) => `I understand your social environment as “${value}.” The people around you can support your goals or pressure your wallet, so I’ll keep that in mind.`,
-  relationshipConflicts: (value) => `I understand relationship conflict currently as “${value}.” Conflict can affect emotions and spending, so I’ll treat this carefully and respectfully.`,
-  hobbyPatterns: (value) => `I understand that “${value}” gives you fulfillment. That matters because meaningful activities can replace spending as a source of relief or reward.`,
-  energyLevelTrends: (value) => `I understand that your energy tends to shift around “${value}.” I’ll use this to notice when spending risks may rise because you’re tired or drained.`,
-  burnoutIndicators: (value) => `I understand that “${value}” may be a burnout signal for you. When this appears, we may need protection and rest before strict budgeting.`,
-
-  wallets: (value) => `I understand that your wallet or money source setup includes “${value}.” This helps me know where spending decisions actually happen.`,
-  budgets: (value) => `I understand your budgeting style as “${value}.” I’ll use this to give advice that fits your current system instead of forcing a perfect one.`,
-  emergencyFund: (value) => `I understand your emergency fund status as “${value}.” This tells me how much safety we need to protect before taking financial risks.`,
-  savingsGoals: (value) => `I understand that your savings goal is “${value}.” I’ll treat this as something worth protecting when temptations or pressure appear.`,
-  recurringExpenses: (value) => `I understand that “${value}” is a recurring expense that matters. I’ll keep this in mind before suggesting what money is safe to use.`,
-  debt: (value) => `I understand your debt situation as “${value}.” Debt can carry both financial and emotional weight, so I’ll account for that carefully.`,
-  subscriptions: (value) => `I understand your subscription situation as “${value}.” Small automatic charges can become quiet leaks, so this helps me watch for them.`,
-  transfers: (value) => `I understand your transfer pattern as “${value}.” Transfers often reveal obligations, family support, or how your money moves between priorities.`,
-  paydayCycle: (value) => `I understand your payday cycle as “${value}.” Payday rhythm matters because spending risk and budgeting pressure often change right after income arrives.`,
-};
-
-const FIELD_EMPTY_PROMPTS = {
-  incomePattern: "Tell me how your income usually arrives, so I can plan around your real money rhythm.",
-  livingSituation: "Tell me about your living setup, so I can understand your home pressure and support system.",
-  responsibilities: "Tell me what responsibilities your money is carrying right now.",
-  workType: "Tell me about your work or daily role, especially if it affects stress or spending.",
-  relationshipStatus: "Tell me if your relationship situation affects your emotions, pressure, or spending decisions.",
-  dependents: "Tell me if someone depends on your money, care, or support.",
-  currentFinancialPressure: "Tell me what financial pressure feels loudest right now.",
-  survivalPressureLevel: "Tell me how heavy your current money pressure feels.",
-  mainFinancialGoal: "Tell me the goal your money should protect right now.",
-  emotionalStateTrend: "Tell me how you’ve been feeling lately when making money decisions.",
-  emotionalTriggers: "Tell me what feeling usually makes spending more tempting.",
-  stressSpendingHabits: "Tell me what you usually spend on when stress is high.",
-  rewardSystem: "Tell me how you usually reward yourself after work or hard days.",
-  commonImpulsivePurchases: "Tell me what you often buy without much planning.",
-  biggestSpendingWeakness: "Tell me the spending pattern that feels hardest to control.",
-  copingMechanisms: "Tell me what you usually do when life feels heavy.",
-  motivationStyle: "Tell me what kind of guidance helps you most.",
-  financialFear: "Tell me what money fear you carry most often.",
-  guiltPatterns: "Tell me what kind of spending usually leaves guilt afterward.",
-  socialPressureTriggers: "Tell me who or what tends to pressure you to spend.",
-  scheduleRoutine: "Tell me what your usual schedule looks like.",
-  sleepPattern: "Tell me how your sleep has been lately.",
-  workExhaustion: "Tell me how tired work or daily life usually makes you feel.",
-  socialEnvironment: "Tell me how the people around you affect your spending.",
-  relationshipConflicts: "Tell me if conflict or relationship stress affects your spending.",
-  hobbyPatterns: "Tell me what gives you fulfillment without overspending.",
-  energyLevelTrends: "Tell me when your energy usually drops.",
-  burnoutIndicators: "Tell me what signs show up when burnout is near.",
-  wallets: "Tell me what wallets or money sources you usually use.",
-  budgets: "Tell me how you currently budget your money.",
-  emergencyFund: "Tell me where your emergency fund stands right now.",
-  savingsGoals: "Tell me what savings goal you are trying to protect.",
-  recurringExpenses: "Tell me what recurring expense hits your money most.",
-  debt: "Tell me if debt or utang is creating pressure right now.",
-  subscriptions: "Tell me if subscriptions are quietly reducing your money.",
-  transfers: "Tell me if you often transfer money between wallets, banks, or people.",
-  paydayCycle: "Tell me your usual payday cycle.",
+  core: "Use this as grounded life context for future money guidance.",
+  behavior: "Use this to understand habits, feelings, pressure, and spending triggers.",
+  life: "Use this to understand routine, energy, environment, and burnout patterns.",
+  money: "Use this to understand the user's money system and practical financial structure.",
 };
 
 function clean(value) {
@@ -251,47 +157,106 @@ function dateLabel(value) {
 function buildDrawers(memory) {
   const items = memory.items || {};
   return DRAWERS.map((drawer) => {
-    const fields = drawer.fields.map(([label, key]) => ({
-      label,
-      key,
-      memory: items[key] || null,
-    }));
+    const fields = drawer.fields.map(([label, key]) => ({ label, key, memory: items[key] || null }));
     const saved = fields.filter((field) => clean(field.memory?.value)).length;
     return { ...drawer, fields, saved, total: fields.length };
   });
 }
 
-function buildClaraMemoryReflection({ drawer, field, value }) {
-  const current = clean(value);
+function buildOpeningReflection({ drawer, field, current }) {
   if (!current) {
-    return `${FIELD_EMPTY_PROMPTS[field.key] || "Tell me what CLARA should remember about this part of your life."} ${DRAWER_TONE[drawer.id]?.empty || "This helps me guide you better."}`;
+    return `Tell me what I should remember about your ${field.label.toLowerCase()}. ${DRAWER_TONE[drawer.id]}`;
   }
-
-  const reflection = FIELD_REFLECTIONS[field.key]?.(current) || `I understand ${field.label.toLowerCase()} as “${current}.”`;
-  return `${reflection} ${DRAWER_TONE[drawer.id]?.saved || "I’ll remember this when guiding you."}`;
+  return `I understand your ${field.label.toLowerCase()} as “${current}.” Tell me what changed, or give me the corrected version if this is no longer accurate.`;
 }
 
-function buildSavedReply({ drawer, field, value }) {
-  const current = clean(value);
-  const fieldName = field.label.toLowerCase();
-  const tone = DRAWER_TONE[drawer.id]?.saved || "I’ll use this when helping you make better money decisions.";
-  return `Got it — I’ll remember your ${fieldName} as “${current}.” ${tone}`;
+function isVagueChangeRequest(value) {
+  const text = clean(value).toLowerCase().replace(/[?.!]+$/g, "");
+  return /^(can you |could you |please )?(change|update|edit|correct|fix)( it| this| that)?( now)?$/.test(text) ||
+    /^(yes|yeah|yep|okay|ok),? (change|update|edit|correct|fix)( it| this| that)?$/.test(text);
+}
+
+function extractMemoryValue(value) {
+  const text = clean(value);
+  const patterns = [
+    /(?:change|update|set|make|correct|fix).{0,50}?\b(?:to|as|into)\s+(.+)$/i,
+    /^(?:it should be|make it|set it as|change it to)\s+(.+)$/i,
+  ];
+
+  for (const pattern of patterns) {
+    const match = text.match(pattern);
+    const result = clean(match?.[1] || "").replace(/[.!?]+$/g, "");
+    if (result) return result;
+  }
+  return text;
+}
+
+function fallbackReply({ field, value, action }) {
+  if (action === "ask") {
+    return `Of course — what should I remember instead for your ${field.label.toLowerCase()}? Tell me the corrected version and I’ll update it.`;
+  }
+  return `Got it — I’ll remember your ${field.label.toLowerCase()} as “${value}.” I’ll use this when giving you more personal money guidance.`;
+}
+
+async function askGeminiForMemoryReply({ drawer, field, current, userText, value, action }) {
+  const fallback = fallbackReply({ field, value, action });
+  if (!hasGeminiConfig()) return fallback;
+
+  try {
+    const memory = readMemory();
+    const prompt = `You are CLARA inside the user's private Me memory drawer.
+Drawer: ${drawer.title}
+Memory topic: ${field.label}
+Current remembered value: ${current || "not saved yet"}
+User said: ${userText}
+System action: ${action === "ask" ? "Ask for the corrected value. Do not save yet." : `Saved the new value: ${value}`}
+Tone: ${DRAWER_TONE[drawer.id]}
+
+Reply naturally as CLARA in 1-3 short sentences. Be warm, personal, and financially aware. Do not sound like a form or settings page. Do not mention technical storage.`;
+
+    const reply = await generateClaraGeminiReply({
+      mode: "me-memory-refine",
+      context: { profile: { lifeProfile: memory.items || {} }, lifeProfile: memory.items || {} },
+      conversationHistory: [
+        { role: "assistant", text: buildOpeningReflection({ drawer, field, current }) },
+        { role: "user", text: userText },
+      ],
+      message: prompt,
+    });
+
+    return clean(reply) || fallback;
+  } catch {
+    return fallback;
+  }
 }
 
 function MemoryChat({ drawer, field, onClose, onSaved }) {
   const [draft, setDraft] = useState("");
-  const [savedText, setSavedText] = useState("");
+  const [messages, setMessages] = useState([]);
+  const [isThinking, setIsThinking] = useState(false);
   const current = clean(field.memory?.value);
-  const reflection = buildClaraMemoryReflection({ drawer, field, value: current });
-  const savedReply = savedText ? buildSavedReply({ drawer, field, value: savedText }) : "";
+  const openingReflection = buildOpeningReflection({ drawer, field, current });
 
-  const submit = (event) => {
+  const submit = async (event) => {
     event.preventDefault();
-    const value = clean(draft);
-    if (!value) return;
-    onSaved(saveMemory(field, value, drawer.level));
-    setSavedText(value);
+    const userText = clean(draft);
+    if (!userText || isThinking) return;
+
     setDraft("");
+    setMessages((items) => [...items, { role: "user", text: userText }]);
+    setIsThinking(true);
+
+    const shouldAsk = isVagueChangeRequest(userText);
+    const action = shouldAsk ? "ask" : "saved";
+    const value = shouldAsk ? "" : extractMemoryValue(userText);
+
+    if (!shouldAsk) {
+      onSaved(saveMemory(field, value, drawer.level));
+    }
+
+    const reply = await askGeminiForMemoryReply({ drawer, field, current, userText, value, action });
+    setMessages((items) => [...items, { role: "clara", text: reply }]);
+    setIsThinking(false);
   };
 
   return (
@@ -315,17 +280,24 @@ function MemoryChat({ drawer, field, onClose, onSaved }) {
 
         <div className="max-h-[38svh] space-y-3 overflow-y-auto p-4 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
           <div className="max-w-[90%] rounded-[22px] bg-white/[0.07] px-4 py-3 text-sm font-semibold leading-6 text-white/78">
-            {reflection}
+            {openingReflection}
           </div>
-          {savedText ? (
-            <>
-              <div className="ml-auto max-w-[88%] rounded-[22px] bg-emerald-300 px-4 py-3 text-sm font-semibold leading-6 text-slate-950">
-                {savedText}
-              </div>
-              <div className="max-w-[90%] rounded-[22px] bg-white/[0.07] px-4 py-3 text-sm font-semibold leading-6 text-white/78">
-                {savedReply}
-              </div>
-            </>
+
+          {messages.map((message, index) => (
+            <div
+              key={`${message.role}-${index}-${message.text.slice(0, 10)}`}
+              className={message.role === "user"
+                ? "ml-auto max-w-[88%] rounded-[22px] bg-emerald-300 px-4 py-3 text-sm font-semibold leading-6 text-slate-950"
+                : "max-w-[90%] rounded-[22px] bg-white/[0.07] px-4 py-3 text-sm font-semibold leading-6 text-white/78"}
+            >
+              {message.text}
+            </div>
+          ))}
+
+          {isThinking ? (
+            <div className="max-w-[82%] rounded-[22px] bg-white/[0.06] px-4 py-3 text-sm font-semibold leading-6 text-white/56">
+              CLARA is thinking through that…
+            </div>
           ) : null}
         </div>
 
@@ -336,10 +308,11 @@ function MemoryChat({ drawer, field, onClose, onSaved }) {
               onChange={(event) => setDraft(event.target.value)}
               className="min-w-0 flex-1 bg-transparent py-2 text-sm font-semibold text-white outline-none placeholder:text-white/32"
               placeholder="Tell CLARA what changed..."
+              disabled={isThinking}
             />
             <button
               type="submit"
-              disabled={!draft.trim()}
+              disabled={!draft.trim() || isThinking}
               className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-emerald-300 text-slate-950 disabled:opacity-40 active:scale-95"
               aria-label="Save memory"
             >
