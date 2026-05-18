@@ -15,54 +15,65 @@ const STAGES = [
   "Full-Time Earner",
 ];
 
+const STAGE_DESCRIPTIONS = {
+  "Young Earner": "A season of learning money rhythm, independence, and small decisions that become habits.",
+  "Living with Partner": "A shared-life season where routines, emotions, and future plans can shape spending behavior.",
+  "Family Household": "A home-centered season where family setup and daily environment can influence money choices.",
+  "Working Student": "A stretched season where time, school, work, and money need careful balance.",
+  "Single Parent": "A protective season where essentials, stability, and emotional energy matter deeply.",
+  "Freelance Season": "A flexible season where income timing and buffers matter more than perfect planning.",
+  "Business Builder": "A building season where personal money, operating needs, and reinvestment pressure can mix.",
+  "Full-Time Earner": "A routine-based season where consistency, stress recovery, and lifestyle creep need awareness.",
+};
+
 const STAGE_FIELDS = {
   "Living with Partner": {
-    setup: ["Living independently", "With partner's family", "With my family", "Transitioning setup"],
-    rhythm: ["Mostly stable", "Still adjusting", "New setup", "Temporary"],
-    pressure: ["Low", "Moderate", "High", "Emotionally sensitive"],
-    goal: ["Build savings", "Emergency fund", "Plan future together", "Stability first"],
+    setup: ["Just us together", "With my family", "With partner’s family", "Still moving around"],
+    rhythm: ["Mostly stable", "Still finding rhythm", "This is new", "Temporary for now"],
+    pressure: ["Managing okay", "Some pressure", "Heavy lately", "Emotionally sensitive"],
+    goal: ["Build savings together", "Emergency fund first", "Plan our future", "Stability first"],
   },
   "Working Student": {
-    setup: ["Mostly school", "Mostly work", "Balanced", "Changing schedule"],
-    rhythm: ["Allowance + work", "Part-time only", "Irregular", "Seasonal"],
-    pressure: ["Tuition", "Transport", "Burnout", "Family expectation"],
+    setup: ["Mostly school", "Mostly work", "Trying to balance", "Schedule keeps changing"],
+    rhythm: ["Allowance + work", "Part-time only", "Income is irregular", "Seasonal income"],
+    pressure: ["School costs", "Transport pressure", "Burnout risk", "Family expectations"],
     goal: ["Graduate safely", "Save slowly", "Avoid debt", "Help family"],
   },
   "Family Household": {
     setup: ["With parents", "With siblings", "Whole family", "Shared home"],
-    rhythm: ["Stable home", "Changing home", "Shared routine", "Crowded routine"],
-    pressure: ["Low", "Moderate", "High", "Support pressure"],
+    rhythm: ["Stable home", "Home is changing", "Shared routine", "Busy household"],
+    pressure: ["Managing okay", "Some pressure", "Heavy lately", "Support pressure"],
     goal: ["Contribute wisely", "Build safety", "Reduce stress spending", "Personal stability"],
   },
   "Single Parent": {
-    setup: ["One child", "Two children", "Three or more", "Co-parenting"],
-    rhythm: ["Stable routine", "Childcare changes", "School-heavy", "Unpredictable"],
+    setup: ["One child", "Two children", "Three or more", "Co-parenting setup"],
+    rhythm: ["Stable routine", "Childcare changes", "School-heavy season", "Unpredictable days"],
     pressure: ["Daily needs", "School expenses", "Emergency risk", "Time pressure"],
-    goal: ["Protect essentials", "Emergency fund", "Reduce debt", "Stable routine"],
+    goal: ["Protect essentials", "Emergency fund first", "Reduce debt", "Stable routine"],
   },
   "Freelance Season": {
     setup: ["Client-based", "Project-based", "Side hustle", "Full freelance"],
-    rhythm: ["Irregular income", "Monthly clients", "Seasonal", "Growing"],
-    pressure: ["Cash-flow gaps", "Client delays", "Burnout", "Uncertain months"],
+    rhythm: ["Income is irregular", "Monthly clients", "Seasonal work", "Growing slowly"],
+    pressure: ["Cash-flow gaps", "Client delays", "Burnout risk", "Uncertain months"],
     goal: ["Build buffer", "Stabilize income", "Separate wallets", "Grow clients"],
   },
   "Business Builder": {
-    setup: ["Starting", "Growing", "Side business", "Main income"],
-    rhythm: ["Reinvesting", "Unstable sales", "Monthly cycle", "Scaling"],
-    pressure: ["Capital", "Inventory", "Operating costs", "Personal/business mix"],
+    setup: ["Just starting", "Growing already", "Side business", "Main income"],
+    rhythm: ["Reinvesting", "Sales not steady", "Monthly cycle", "Scaling up"],
+    pressure: ["Capital pressure", "Inventory pressure", "Operating costs", "Personal/business mix"],
     goal: ["Separate money", "Build runway", "Control spending", "Grow sustainably"],
   },
   "Full-Time Earner": {
     setup: ["Corporate", "BPO/call center", "Office work", "Remote work"],
-    rhythm: ["Every cutoff", "Monthly", "Stable salary", "Shift-based"],
+    rhythm: ["Every cutoff", "Monthly salary", "Stable salary", "Shift-based"],
     pressure: ["Lifestyle creep", "Stress spending", "Family support", "Routine fatigue"],
-    goal: ["Save consistently", "Emergency fund", "Reduce random spending", "Build discipline"],
+    goal: ["Save consistently", "Emergency fund first", "Reduce random spending", "Build discipline"],
   },
   "Young Earner": {
     setup: ["First job", "Early career", "Exploring income", "Building independence"],
-    rhythm: ["Stable salary", "Cutoff cycle", "Changing income", "Learning rhythm"],
+    rhythm: ["Stable salary", "Cutoff cycle", "Income still changing", "Learning rhythm"],
     pressure: ["Peer pressure", "Comfort spending", "New responsibilities", "Low buffer"],
-    goal: ["Build habits", "Emergency fund", "Reduce impulse buys", "Save first"],
+    goal: ["Build habits", "Emergency fund first", "Reduce impulse buys", "Save first"],
   },
 };
 
@@ -109,9 +120,9 @@ function trendBar(value) {
 
 function scoreFromProfile(profile, fallbackText) {
   const text = [profile.setup, profile.rhythm, profile.pressure, profile.goal, fallbackText].join(" ").toLowerCase();
-  const unstable = /irregular|changing|temporary|unpredictable|client|delay|unstable|adjusting|new setup/.test(text);
-  const shared = /family|partner|child|co-parent|shared|parents|siblings/.test(text);
-  const pressure = /high|burnout|support|debt|tuition|capital|emergency|stress|emotion|cash-flow|uncertain|lifestyle/.test(text);
+  const unstable = /irregular|changing|temporary|unpredictable|client|delay|unstable|adjusting|new|still finding|moving around|not steady|uncertain|seasonal/.test(text);
+  const shared = /family|partner|child|co-parent|shared|parents|siblings|together|household/.test(text);
+  const pressure = /high|heavy|burnout|support|debt|tuition|capital|emergency|stress|emotion|cash-flow|uncertain|lifestyle|pressure|risk|fatigue|low buffer/.test(text);
   const goal = clean(profile.goal);
 
   return {
@@ -160,10 +171,24 @@ function TrendCard({ trend }) {
   );
 }
 
-function OptionGroup({ label, value, options, onSelect }) {
+function StageCard({ stage, active, onClick }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={`rounded-[20px] border p-3 text-left transition active:scale-[0.98] ${active ? "border-emerald-200/34 bg-emerald-300/14" : "border-white/8 bg-white/[0.04]"}`}
+    >
+      <p className="text-sm font-black leading-tight text-white">{stage}</p>
+      <p className="mt-1 line-clamp-2 text-[11px] font-semibold leading-4 text-white/38">{STAGE_DESCRIPTIONS[stage]}</p>
+    </button>
+  );
+}
+
+function OptionGroup({ label, helper, value, options, onSelect }) {
   return (
     <div>
       <p className="text-[9px] font-black uppercase tracking-[0.18em] text-cyan-100/38">{label}</p>
+      {helper ? <p className="mt-1 text-[11px] font-semibold leading-4 text-white/32">{helper}</p> : null}
       <div className="mt-2 flex flex-wrap gap-2">
         {options.map((option) => {
           const active = option === value;
@@ -185,11 +210,13 @@ function OptionGroup({ label, value, options, onSelect }) {
 
 function StageSetupPanel({ profile, onClose, onSave }) {
   const [draft, setDraft] = useState(profile);
+  const [step, setStep] = useState("stage");
   const fields = STAGE_FIELDS[draft.stage] || STAGE_FIELDS["Young Earner"];
 
   const setStage = (stage) => {
     const next = STAGE_FIELDS[stage] || STAGE_FIELDS["Young Earner"];
     setDraft({ stage, setup: next.setup[0], rhythm: next.rhythm[0], pressure: next.pressure[0], goal: next.goal[0] });
+    setStep("environment");
   };
 
   const save = () => {
@@ -203,27 +230,66 @@ function StageSetupPanel({ profile, onClose, onSave }) {
       <div className="flex shrink-0 items-start justify-between gap-3">
         <div>
           <p className="text-[9px] font-black uppercase tracking-[0.18em] text-cyan-100/46">Life stage setup</p>
-          <h4 className="mt-2 text-xl font-black leading-tight text-white">Set your current season</h4>
-          <p className="mt-1 text-xs font-semibold leading-5 text-white/42">Choose what best describes your real life right now.</p>
+          <h4 className="mt-2 text-xl font-black leading-tight text-white">{step === "stage" ? "Choose your current season" : draft.stage}</h4>
+          <p className="mt-1 text-xs font-semibold leading-5 text-white/42">{step === "stage" ? "Start with the life stage that best matches your reality right now." : STAGE_DESCRIPTIONS[draft.stage]}</p>
         </div>
         <button type="button" onClick={onClose} className="grid h-8 w-8 shrink-0 place-items-center rounded-full border border-white/10 bg-white/[0.055] text-white/62 active:scale-95" aria-label="Close stage setup">
           <X className="h-4 w-4" />
         </button>
       </div>
 
+      <div className="mt-3 flex shrink-0 gap-1.5">
+        {["stage", "environment", "focus"].map((item) => (
+          <div key={item} className={`h-1.5 flex-1 rounded-full ${item === step ? "bg-emerald-300/80" : "bg-white/[0.08]"}`} />
+        ))}
+      </div>
+
       <div className="mt-4 min-h-0 flex-1 overflow-y-auto pr-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-        <OptionGroup label="Main life stage" value={draft.stage} options={STAGES} onSelect={setStage} />
-        <div className="mt-4 space-y-4 rounded-[22px] border border-white/8 bg-white/[0.035] p-4">
-          <OptionGroup label="Setup" value={draft.setup} options={fields.setup} onSelect={(value) => setDraft((current) => ({ ...current, setup: value }))} />
-          <OptionGroup label="Rhythm" value={draft.rhythm} options={fields.rhythm} onSelect={(value) => setDraft((current) => ({ ...current, rhythm: value }))} />
-          <OptionGroup label="Pressure" value={draft.pressure} options={fields.pressure} onSelect={(value) => setDraft((current) => ({ ...current, pressure: value }))} />
-          <OptionGroup label="Current goal" value={draft.goal} options={fields.goal} onSelect={(value) => setDraft((current) => ({ ...current, goal: value }))} />
-        </div>
+        {step === "stage" ? (
+          <div className="grid grid-cols-2 gap-2.5">
+            {STAGES.map((stage) => (
+              <StageCard key={stage} stage={stage} active={draft.stage === stage} onClick={() => setStage(stage)} />
+            ))}
+          </div>
+        ) : null}
+
+        {step === "environment" ? (
+          <div className="space-y-4 rounded-[22px] border border-white/8 bg-white/[0.035] p-4">
+            <div className="rounded-[20px] border border-emerald-200/10 bg-emerald-300/[0.06] p-3">
+              <p className="text-sm font-black leading-5 text-white">Got it — this is your current season.</p>
+              <p className="mt-1 text-xs font-semibold leading-5 text-white/42">Now CLARA will read the environment around this stage, not just your income.</p>
+            </div>
+            <OptionGroup label="Current setup" helper="Where are you living or operating from right now?" value={draft.setup} options={fields.setup} onSelect={(value) => setDraft((current) => ({ ...current, setup: value }))} />
+            <OptionGroup label="Current rhythm" helper="How stable does this season feel lately?" value={draft.rhythm} options={fields.rhythm} onSelect={(value) => setDraft((current) => ({ ...current, rhythm: value }))} />
+          </div>
+        ) : null}
+
+        {step === "focus" ? (
+          <div className="space-y-4 rounded-[22px] border border-white/8 bg-white/[0.035] p-4">
+            <div className="rounded-[20px] border border-cyan-200/10 bg-cyan-300/[0.05] p-3">
+              <p className="text-sm font-black leading-5 text-white">Last part — what should CLARA watch?</p>
+              <p className="mt-1 text-xs font-semibold leading-5 text-white/42">This will shape the trend statistics on your Me screen.</p>
+            </div>
+            <OptionGroup label="Pressure right now" helper="Choose the pressure that best explains this stage." value={draft.pressure} options={fields.pressure} onSelect={(value) => setDraft((current) => ({ ...current, pressure: value }))} />
+            <OptionGroup label="Main focus" helper="What should CLARA protect first?" value={draft.goal} options={fields.goal} onSelect={(value) => setDraft((current) => ({ ...current, goal: value }))} />
+          </div>
+        ) : null}
       </div>
 
       <div className="mt-3 flex shrink-0 gap-2">
-        <button type="button" onClick={onClose} className="flex-1 rounded-full border border-white/10 bg-white/[0.045] px-4 py-3 text-xs font-black text-white/58 active:scale-95">Cancel</button>
-        <button type="button" onClick={save} className="flex flex-1 items-center justify-center gap-2 rounded-full bg-emerald-300 px-4 py-3 text-xs font-black text-slate-950 active:scale-95"><Check className="h-4 w-4" /> Apply stage</button>
+        {step === "stage" ? (
+          <button type="button" onClick={onClose} className="flex-1 rounded-full border border-white/10 bg-white/[0.045] px-4 py-3 text-xs font-black text-white/58 active:scale-95">Cancel</button>
+        ) : (
+          <button type="button" onClick={() => setStep(step === "focus" ? "environment" : "stage")} className="flex flex-1 items-center justify-center gap-2 rounded-full border border-white/10 bg-white/[0.045] px-4 py-3 text-xs font-black text-white/58 active:scale-95"><ChevronLeft className="h-4 w-4" /> Back</button>
+        )}
+
+        {step === "stage" ? (
+          <button type="button" onClick={() => setStep("environment")} className="flex-1 rounded-full bg-emerald-300 px-4 py-3 text-xs font-black text-slate-950 active:scale-95">Continue</button>
+        ) : step === "environment" ? (
+          <button type="button" onClick={() => setStep("focus")} className="flex-1 rounded-full bg-emerald-300 px-4 py-3 text-xs font-black text-slate-950 active:scale-95">Continue</button>
+        ) : (
+          <button type="button" onClick={save} className="flex flex-1 items-center justify-center gap-2 rounded-full bg-emerald-300 px-4 py-3 text-xs font-black text-slate-950 active:scale-95"><Check className="h-4 w-4" /> Apply stage</button>
+        )}
       </div>
     </div>
   );
