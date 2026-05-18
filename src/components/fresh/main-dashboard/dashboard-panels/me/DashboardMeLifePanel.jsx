@@ -1,14 +1,14 @@
 import { useEffect, useMemo, useState } from "react";
 import { RefreshCcw } from "lucide-react";
-import { clean, readMemory } from "./meMemoryUtils";
+import { countEnvironmentSignals, readEnvironmentSignals } from "./claraEnvironmentUtils";
 import FinancialClimateScreen from "./FinancialClimateScreen";
 
 export default function DashboardMeLifePanel() {
-  const [memory, setMemory] = useState(() => readMemory());
+  const [signals, setSignals] = useState(() => readEnvironmentSignals());
 
-  const saved = useMemo(() => Object.values(memory.items || {}).filter((item) => clean(item?.value)).length, [memory]);
-  const total = Math.max(saved, 1);
-  const refresh = () => setMemory(readMemory());
+  const signalCount = useMemo(() => countEnvironmentSignals(signals), [signals]);
+  const signalTotal = Math.max(signalCount, 1);
+  const refresh = () => setSignals(readEnvironmentSignals());
 
   useEffect(() => {
     const handler = () => refresh();
@@ -41,7 +41,7 @@ export default function DashboardMeLifePanel() {
           </div>
 
           <div className="mt-4 min-h-0 flex-1 overflow-y-auto pr-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-            <FinancialClimateScreen memory={memory} saved={saved} total={total} />
+            <FinancialClimateScreen signals={signals} signalCount={signalCount} signalTotal={signalTotal} />
           </div>
         </div>
       </section>
