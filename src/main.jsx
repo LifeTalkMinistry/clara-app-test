@@ -8,6 +8,7 @@ import { ThemeProvider } from "@/theme/ThemeProvider";
 import { installClaraGlobalClickSound } from "@/lib/claraSoundSystem";
 import "./clara-memory-bridge";
 import "./clara-me-panel";
+import "./clara-talk-pause-bridge";
 import App from "./App.jsx";
 import "./index.css";
 import "./clara-fab-theme.css";
