@@ -1,7 +1,29 @@
 import { useEffect, useMemo, useState } from "react";
-import { Check, ChevronLeft, Database, MessageCircle, Target, TrendingUp, X } from "lucide-react";
-import { clean } from "./claraEnvironmentUtils";
+import { Check, ChevronLeft, Database, Heart, Sparkles, TrendingUp, X } from "lucide-react";
 import { DEFAULT_STAGE, getStageDefinition, LIFE_STAGE_KEY, STAGES } from "./lifeStageIntelligenceData";
+
+const STAGE_VISUALS = {
+  "Young Earner": {
+    glow: "from-cyan-400/18 via-blue-500/10 to-violet-500/16",
+    silhouette: "linear-gradient(145deg, rgba(125,211,252,.55), rgba(30,64,175,.16)), radial-gradient(circle at 50% 18%, rgba(255,255,255,.30), transparent 18%), linear-gradient(180deg, transparent 0 40%, rgba(8,15,35,.85) 41% 100%)",
+  },
+  "Working Student": {
+    glow: "from-sky-400/18 via-indigo-500/10 to-emerald-500/14",
+    silhouette: "linear-gradient(145deg, rgba(56,189,248,.5), rgba(16,185,129,.14)), radial-gradient(circle at 52% 18%, rgba(255,255,255,.28), transparent 18%), linear-gradient(180deg, transparent 0 42%, rgba(7,20,36,.86) 43% 100%)",
+  },
+  "Living with Partner": {
+    glow: "from-fuchsia-400/16 via-cyan-500/10 to-violet-500/18",
+    silhouette: "linear-gradient(145deg, rgba(217,70,239,.38), rgba(6,182,212,.16)), radial-gradient(circle at 48% 18%, rgba(255,255,255,.28), transparent 18%), linear-gradient(180deg, transparent 0 42%, rgba(23,15,45,.86) 43% 100%)",
+  },
+  "Single Parent": {
+    glow: "from-emerald-400/16 via-cyan-500/10 to-violet-500/14",
+    silhouette: "linear-gradient(145deg, rgba(52,211,153,.42), rgba(59,130,246,.14)), radial-gradient(circle at 51% 18%, rgba(255,255,255,.28), transparent 18%), linear-gradient(180deg, transparent 0 42%, rgba(8,32,35,.86) 43% 100%)",
+  },
+  "Breadwinner": {
+    glow: "from-amber-400/15 via-cyan-500/8 to-violet-500/14",
+    silhouette: "linear-gradient(145deg, rgba(251,191,36,.38), rgba(14,165,233,.14)), radial-gradient(circle at 50% 18%, rgba(255,255,255,.28), transparent 18%), linear-gradient(180deg, transparent 0 42%, rgba(28,22,8,.86) 43% 100%)",
+  },
+};
 
 function readStageProfile() {
   if (typeof window === "undefined") return DEFAULT_STAGE;
@@ -21,88 +43,59 @@ function trendBar(value) {
   return `${Math.max(14, Math.min(96, value))}%`;
 }
 
-function scoreFromProfile(profile) {
-  const text = [profile.setup, profile.rhythm, profile.pressure, profile.goal].join(" ").toLowerCase();
-  const unstable = /irregular|changing|temporary|unpredictable|delay|adjusting|new|still finding|moving around|not steady|uncertain|seasonal/.test(text);
-  const shared = /family|partner|child|co-parent|shared|parents|siblings|together|household/.test(text);
-  const pressure = /heavy|burnout|support|debt|tuition|capital|emergency|stress|emotion|cash-flow|uncertain|lifestyle|pressure|risk|fatigue|low buffer/.test(text);
-  return {
-    environment: shared && !unstable ? 76 : unstable ? 44 : 66,
-    pressure: pressure ? 72 : shared ? 58 : 41,
-    consistency: profile.goal ? (unstable ? 56 : 69) : 42,
-  };
-}
-
-function readClimate(stageProfile) {
-  const definition = getStageDefinition(stageProfile.stage);
-  const score = scoreFromProfile(stageProfile);
-  return {
-    definition,
-    lifeStage: stageProfile.stage,
-    stageProfile,
-    trends: [
-      { label: "Environment", value: score.environment, state: score.environment >= 70 ? "stabilizing" : "adjusting", source: stageProfile.setup, explanation: "This reads your current setup and how stable your environment feels." },
-      { label: "Pressure", value: score.pressure, state: score.pressure >= 70 ? "active" : "manageable", source: stageProfile.pressure, explanation: "This reads the emotional or practical pressure around this life season." },
-      { label: "Consistency", value: score.consistency, state: score.consistency >= 65 ? "building" : "needs support", source: stageProfile.goal, explanation: "This reads whether your current focus can support repeatable money behavior." },
-    ],
-  };
-}
-
-function IntelligenceCard({ title, value, note, onClick }) {
+function MiniGraph({ value }) {
+  const high = value >= 70;
+  const mid = value >= 50 && value < 70;
+  const stroke = high ? "rgba(45,212,191,.95)" : mid ? "rgba(250,204,21,.9)" : "rgba(248,113,113,.92)";
   return (
-    <button type="button" onClick={onClick} className="rounded-[22px] border border-white/9 bg-white/[0.035] p-4 text-left backdrop-blur-xl transition active:scale-[0.985]">
-      <div className="flex items-start justify-between gap-3">
-        <div>
-          <p className="text-[9px] font-black uppercase tracking-[0.16em] text-white/36">{title}</p>
-          <p className="mt-1 text-2xl font-black leading-none text-white">{value}%</p>
-        </div>
-        <span className="rounded-full border border-cyan-200/10 bg-cyan-300/10 px-2.5 py-1 text-[9px] font-black text-cyan-100/70">Trend</span>
-      </div>
-      <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-white/[0.06]">
-        <div className="h-full rounded-full bg-[linear-gradient(90deg,rgba(45,212,191,.45),rgba(96,165,250,.88))]" style={{ width: trendBar(value) }} />
-      </div>
-      <p className="mt-3 text-[11px] font-semibold leading-5 text-white/44">{note}</p>
+    <svg viewBox="0 0 92 34" className="mt-4 h-9 w-full overflow-visible" aria-hidden="true">
+      <path d="M2 28 C10 22 16 25 22 18 C28 10 33 16 39 9 C45 2 51 15 58 11 C66 7 70 17 76 12 C83 7 87 11 90 9" fill="none" stroke={stroke} strokeWidth="2.2" strokeLinecap="round" />
+      <path d="M2 32 H90" stroke="rgba(255,255,255,.06)" strokeWidth="1" />
+    </svg>
+  );
+}
+
+function statusLabel(value) {
+  if (value >= 75) return "High";
+  if (value >= 60) return "Moderate";
+  if (value >= 45) return "Watch";
+  return "Low";
+}
+
+function TrendSnapshotCard({ item, onClick }) {
+  return (
+    <button type="button" onClick={onClick} className="min-w-[132px] snap-start rounded-[18px] border border-white/8 bg-slate-950/28 p-3 text-left shadow-[0_14px_38px_rgba(0,0,0,.18)] backdrop-blur-xl transition active:scale-[0.985]">
+      <p className="line-clamp-1 text-[10px] font-black tracking-tight text-white/64">{item.label}</p>
+      <p className="mt-2 text-[26px] font-black leading-none text-white">{item.value}%</p>
+      <p className={`mt-1 text-[10px] font-black ${item.value >= 70 ? "text-rose-300" : item.value >= 55 ? "text-amber-200" : "text-emerald-200"}`}>{statusLabel(item.value)}</p>
+      <MiniGraph value={item.value} />
     </button>
   );
 }
 
-function TrendCard({ trend, onClick }) {
-  return (
-    <button type="button" onClick={() => onClick(trend)} className="rounded-[20px] border border-white/9 bg-white/[0.035] p-3 text-left backdrop-blur-xl transition active:scale-[0.985]">
-      <div className="flex items-center justify-between gap-3">
-        <div>
-          <p className="text-[9px] font-black uppercase tracking-[0.16em] text-white/36">{trend.label}</p>
-          <p className="mt-1 text-[18px] font-black leading-none text-white">{trend.value}%</p>
-        </div>
-        <span className="rounded-full border border-cyan-200/10 bg-cyan-300/10 px-2.5 py-1 text-[9px] font-black text-cyan-100/70">{trend.state}</span>
-      </div>
-      <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-white/[0.06]">
-        <div className="h-full rounded-full bg-[linear-gradient(90deg,rgba(45,212,191,.45),rgba(96,165,250,.88))]" style={{ width: trendBar(trend.value) }} />
-      </div>
-    </button>
-  );
-}
-
-function TrendDetailPanel({ trend, onClose }) {
+function DataDetailPanel({ trend, onClose }) {
   return (
     <div className="absolute inset-0 z-30 rounded-[28px] border border-cyan-200/12 bg-slate-950/90 p-4 backdrop-blur-2xl">
       <div className="flex items-start justify-between gap-3">
         <div>
-          <p className="flex items-center gap-2 text-[9px] font-black uppercase tracking-[0.18em] text-cyan-100/46"><Database className="h-3.5 w-3.5" /> Trend reading</p>
+          <p className="flex items-center gap-2 text-[9px] font-black uppercase tracking-[0.18em] text-cyan-100/46"><Database className="h-3.5 w-3.5" /> Data status</p>
           <h4 className="mt-2 text-2xl font-black leading-tight text-white">{trend.label}</h4>
-          <p className="mt-1 text-xs font-semibold leading-5 text-white/42">{trend.explanation || trend.note}</p>
+          <p className="mt-1 text-xs font-semibold leading-5 text-white/42">{trend.note}</p>
         </div>
-        <button type="button" onClick={onClose} className="grid h-8 w-8 shrink-0 place-items-center rounded-full border border-white/10 bg-white/[0.055] text-white/62 active:scale-95" aria-label="Close trend details"><X className="h-4 w-4" /></button>
+        <button type="button" onClick={onClose} className="grid h-8 w-8 shrink-0 place-items-center rounded-full border border-white/10 bg-white/[0.055] text-white/62 active:scale-95" aria-label="Close data details"><X className="h-4 w-4" /></button>
       </div>
+
       <div className="mt-5 rounded-[22px] border border-white/8 bg-white/[0.045] p-4">
-        <p className="text-[10px] font-black uppercase tracking-[0.16em] text-white/36">Current reading</p>
+        <p className="text-[10px] font-black uppercase tracking-[0.16em] text-white/36">Life-stage reading</p>
         <p className="mt-1 text-4xl font-black leading-none text-white">{trend.value}%</p>
-        <div className="mt-4 h-2 overflow-hidden rounded-full bg-white/[0.06]"><div className="h-full rounded-full bg-[linear-gradient(90deg,rgba(45,212,191,.45),rgba(96,165,250,.88))]" style={{ width: trendBar(trend.value) }} /></div>
+        <div className="mt-4 h-2 overflow-hidden rounded-full bg-white/[0.06]">
+          <div className="h-full rounded-full bg-[linear-gradient(90deg,rgba(45,212,191,.45),rgba(96,165,250,.88))]" style={{ width: trendBar(trend.value) }} />
+        </div>
       </div>
+
       <div className="mt-3 rounded-[22px] border border-white/8 bg-white/[0.035] p-4">
-        <p className="text-[10px] font-black uppercase tracking-[0.16em] text-white/34">Source context</p>
-        <p className="mt-2 text-sm font-black leading-5 text-white/74">{trend.source || trend.note}</p>
-        <p className="mt-2 text-[11px] font-semibold leading-5 text-white/36">This is a life-stage intelligence estimate. Future versions can connect this to admin-managed survey data and source status.</p>
+        <p className="text-[10px] font-black uppercase tracking-[0.16em] text-white/34">Source direction</p>
+        <p className="mt-2 text-sm font-semibold leading-6 text-white/56">This is currently a CLARA life-stage intelligence placeholder. Later this can show Philippine survey data, admin-managed sources, and trend update status.</p>
       </div>
     </div>
   );
@@ -176,54 +169,61 @@ function StageSetupPanel({ profile, onClose, onSave }) {
   );
 }
 
-function SectionHeader({ icon: Icon, eyebrow, title }) {
-  return <div className="flex items-center gap-2"><Icon className="h-4 w-4 text-cyan-100/45" /><div><p className="text-[9px] font-black uppercase tracking-[0.18em] text-cyan-100/38">{eyebrow}</p><h3 className="text-lg font-black leading-tight text-white">{title}</h3></div></div>;
-}
-
-export default function FinancialClimateScreen({ signals, signalCount }) {
+export default function FinancialClimateScreen() {
   const [showStageSetup, setShowStageSetup] = useState(false);
   const [selectedTrend, setSelectedTrend] = useState(null);
   const [stageProfile, setStageProfile] = useState(() => readStageProfile());
-  const climate = useMemo(() => readClimate(stageProfile), [stageProfile]);
-  const definition = climate.definition;
+  const definition = useMemo(() => getStageDefinition(stageProfile.stage), [stageProfile.stage]);
+  const visual = STAGE_VISUALS[stageProfile.stage] || STAGE_VISUALS["Young Earner"];
 
   useEffect(() => { saveStageProfile(stageProfile); }, [stageProfile]);
 
   return (
-    <div className="relative h-full min-h-0 overflow-hidden rounded-[28px] border border-cyan-200/12 bg-[linear-gradient(145deg,rgba(255,255,255,.075),rgba(255,255,255,.02)_46%,rgba(16,185,129,.05))] p-4 shadow-[0_18px_60px_rgba(0,0,0,.24)] backdrop-blur-2xl">
-      <div className="pointer-events-none absolute -left-20 top-0 h-52 w-52 rounded-full bg-cyan-300/10 blur-3xl" />
-      <div className="pointer-events-none absolute -right-16 bottom-0 h-60 w-60 rounded-full bg-violet-400/10 blur-3xl" />
-      <div className="relative h-full overflow-y-auto pr-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-        <section className="rounded-[24px] border border-cyan-200/10 bg-[linear-gradient(135deg,rgba(6,182,212,.06),rgba(255,255,255,.02))] p-4">
-          <div className="flex items-start justify-between gap-3">
-            <div><p className="flex items-center gap-2 text-[9px] font-black uppercase tracking-[0.17em] text-cyan-100/42"><TrendingUp className="h-3.5 w-3.5" /> Life stage intelligence</p><h2 className="mt-2 text-3xl font-black leading-none text-white">{climate.lifeStage}</h2><p className="mt-3 text-sm font-semibold leading-6 text-white/55">{definition.identity.overview}</p></div>
-            <button type="button" onClick={() => setShowStageSetup(true)} className="shrink-0 rounded-full border border-emerald-200/12 bg-emerald-300/10 px-3 py-1.5 text-[9px] font-black uppercase tracking-[0.12em] text-emerald-100/74 active:scale-95">Set stage</button>
+    <div className="relative h-full min-h-0 overflow-hidden rounded-[28px] border border-cyan-200/12 bg-[#050b1f] shadow-[0_18px_60px_rgba(0,0,0,.24)]">
+      <div className="relative h-full overflow-y-auto px-3 pb-5 pt-3 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+        <section className={`relative min-h-[252px] overflow-hidden rounded-[30px] border border-white/8 bg-gradient-to-br ${visual.glow} p-5 shadow-[0_20px_70px_rgba(0,0,0,.28)]`}>
+          <div className="absolute inset-0 bg-[radial-gradient(circle_at_82%_18%,rgba(255,255,255,.18),transparent_20%),linear-gradient(180deg,rgba(3,8,28,.06),rgba(3,8,28,.92))]" />
+          <div className="absolute bottom-0 right-0 h-[92%] w-[50%] opacity-90">
+            <div className="absolute inset-x-2 bottom-0 h-[86%] rounded-t-full blur-[1px]" style={{ background: visual.silhouette }} />
+            <div className="absolute bottom-6 right-5 h-28 w-28 rounded-full bg-cyan-300/10 blur-3xl" />
           </div>
-          <div className="mt-4 grid gap-2.5">{climate.trends.map((trend) => <TrendCard key={trend.label} trend={trend} onClick={setSelectedTrend} />)}</div>
+          <div className="relative z-10 max-w-[58%] pt-4">
+            <p className="text-[10px] font-black uppercase tracking-[0.16em] text-white/58">Your life stage</p>
+            <h2 className="mt-3 text-[27px] font-black leading-tight text-white">{stageProfile.stage} <span className="text-[14px] text-amber-200">♛</span></h2>
+            <p className="mt-3 text-[13px] font-semibold leading-5 text-white/62">{definition.identity.caption}</p>
+            <button type="button" onClick={() => setShowStageSetup(true)} className="mt-4 rounded-full border border-white/12 bg-white/[0.06] px-3 py-1.5 text-[10px] font-black uppercase tracking-[0.12em] text-white/72 active:scale-95">Set stage</button>
+          </div>
         </section>
 
-        <section className="mt-3 rounded-[24px] border border-white/8 bg-white/[0.03] p-4">
-          <SectionHeader icon={Database} eyebrow="National reality" title="Economic weather" />
-          <div className="mt-3 grid gap-2.5">{definition.indicators.map((item) => <IntelligenceCard key={item.label} title={item.label} value={item.value} note={item.note} onClick={() => setSelectedTrend({ ...item, source: "Philippine life-stage intelligence placeholder", explanation: item.note })} />)}</div>
+        <section className="mt-3 rounded-[26px] border border-violet-300/14 bg-white/[0.045] p-4 backdrop-blur-xl">
+          <div className="flex items-center justify-between gap-4">
+            <div>
+              <h3 className="text-[15px] font-black text-white">You’re not alone.</h3>
+              <p className="mt-2 text-[13px] font-semibold leading-6 text-white/58">Many people in this life stage are experiencing similar financial pressure.</p>
+            </div>
+            <div className="grid h-20 w-20 shrink-0 place-items-center rounded-full border border-fuchsia-300/25 bg-fuchsia-400/10 shadow-[0_0_35px_rgba(217,70,239,.28)]">
+              <Heart className="h-8 w-8 fill-fuchsia-200 text-fuchsia-200" />
+            </div>
+          </div>
         </section>
 
-        <section className="mt-3 rounded-[24px] border border-white/8 bg-white/[0.03] p-4">
-          <SectionHeader icon={TrendingUp} eyebrow="Pressure breakdown" title="Common struggles" />
-          <div className="mt-3 flex flex-wrap gap-2">{definition.struggles.map((item) => <span key={item} className="rounded-full border border-white/8 bg-white/[0.045] px-3 py-2 text-[11px] font-black text-white/50">{item}</span>)}</div>
-        </section>
-
-        <section className="mt-3 rounded-[24px] border border-white/8 bg-white/[0.03] p-4">
-          <SectionHeader icon={Target} eyebrow="Recommended focus" title="What to protect first" />
-          <div className="mt-3 grid grid-cols-2 gap-2">{definition.recommendations.map((item, index) => <div key={item} className="rounded-[18px] border border-emerald-200/10 bg-emerald-300/[0.055] p-3"><p className="text-[10px] font-black uppercase tracking-[0.16em] text-emerald-100/40">0{index + 1}</p><p className="mt-1 text-sm font-black leading-tight text-white/78">{item}</p></div>)}</div>
-        </section>
-
-        <section className="mt-3 rounded-[24px] border border-cyan-200/10 bg-cyan-300/[0.045] p-4">
-          <SectionHeader icon={MessageCircle} eyebrow="Talk to CLARA" title="Bring your real situation" />
-          <p className="mt-3 text-sm font-semibold leading-6 text-white/56">{definition.talkPrompt}</p>
-          <button type="button" className="mt-3 rounded-full border border-white/10 bg-white/[0.05] px-4 py-2.5 text-xs font-black text-white/64 active:scale-95">Open CLARA conversation</button>
+        <section className="mt-3 rounded-[26px] border border-white/8 bg-white/[0.035] p-4 backdrop-blur-xl">
+          <div className="flex items-center justify-between gap-3">
+            <div>
+              <h3 className="text-[15px] font-black text-white">Life Stage Trend Snapshot</h3>
+              <p className="mt-1 text-[11px] font-semibold text-white/38">Swipe the stage cards.</p>
+            </div>
+            <Sparkles className="h-4 w-4 text-cyan-100/42" />
+          </div>
+          <div className="mt-4 flex snap-x gap-2.5 overflow-x-auto pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+            {definition.indicators.map((item) => (
+              <TrendSnapshotCard key={item.label} item={item} onClick={() => setSelectedTrend(item)} />
+            ))}
+          </div>
         </section>
       </div>
-      {selectedTrend ? <TrendDetailPanel trend={selectedTrend} onClose={() => setSelectedTrend(null)} /> : null}
+
+      {selectedTrend ? <DataDetailPanel trend={selectedTrend} onClose={() => setSelectedTrend(null)} /> : null}
       {showStageSetup ? <StageSetupPanel profile={stageProfile} onClose={() => setShowStageSetup(false)} onSave={setStageProfile} /> : null}
     </div>
   );
