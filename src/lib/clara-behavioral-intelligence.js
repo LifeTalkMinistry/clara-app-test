@@ -1,0 +1,195 @@
+const CLARA_MEMORY_KEY = "clara_behavioral_memory_v1";
+
+const LAYERS = {
+  1: "Core Identity",
+  2: "Behavioral Spending Profile",
+  3: "Life Pattern Intelligence",
+  4: "Financial Infrastructure",
+};
+
+const CATEGORY_HINTS = {
+  incomePattern: "income rhythm",
+  "incomePattern.cutoffDates": "exact income dates",
+  livingSituation: "living setup",
+  responsibilities: "financial responsibilities",
+  workType: "work context",
+  currentFinancialPressure: "current money pressure",
+  survivalPressureLevel: "survival pressure",
+  mainFinancialGoal: "main financial goal",
+  emotionalStateTrend: "money emotion trend",
+  emotionalTriggers: "emotional spending trigger",
+  stressSpendingHabits: "stress spending habit",
+  rewardSystem: "reward behavior",
+  commonImpulsivePurchases: "impulse purchase pattern",
+  biggestSpendingWeakness: "spending weakness",
+  copingMechanisms: "coping behavior",
+  motivationStyle: "preferred coaching style",
+  financialFear: "financial fear",
+  guiltPatterns: "spending guilt pattern",
+  socialPressureTriggers: "social pressure trigger",
+  scheduleRoutine: "routine and schedule",
+  sleepPattern: "sleep pattern",
+  workExhaustion: "work exhaustion",
+  socialEnvironment: "social environment",
+  relationshipConflicts: "relationship conflict",
+  hobbyPatterns: "healthy fulfillment activity",
+  energyLevelTrends: "energy drop pattern",
+  burnoutIndicators: "burnout warning sign",
+  wallets: "wallet setup",
+  "wallets.primary": "main spending wallet",
+  budgets: "budget style",
+  emergencyFund: "emergency fund state",
+  savingsGoals: "savings goal",
+  recurringExpenses: "recurring expense pressure",
+  debt: "debt pressure",
+  subscriptions: "subscription behavior",
+  transfers: "money transfer pattern",
+  paydayCycle: "payday cycle",
+  "paydayCycle.spendingShift": "after-payday behavior",
+};
+
+function safeText(value = "") {
+  return String(value || "").replace(/\s+/g, " ").trim();
+}
+
+function normalize(value = "") {
+  return safeText(value).toLowerCase();
+}
+
+function readBehavioralMemory() {
+  if (typeof window === "undefined") return { items: {} };
+  try {
+    return JSON.parse(window.localStorage.getItem(CLARA_MEMORY_KEY) || "{}");
+  } catch {
+    return { items: {} };
+  }
+}
+
+function itemText(item = {}) {
+  const label = safeText(item.label || CATEGORY_HINTS[item.key] || item.key || "Memory");
+  const value = safeText(item.value);
+  return value ? `${label}: ${value}` : "";
+}
+
+function groupMemoryByLayer(items = []) {
+  const groups = { 1: [], 2: [], 3: [], 4: [] };
+  items.forEach((item) => {
+    const layer = Number(item.layer) >= 1 && Number(item.layer) <= 4 ? Number(item.layer) : 2;
+    groups[layer].push(item);
+  });
+  return groups;
+}
+
+function hasAny(text = "", terms = []) {
+  const target = normalize(text);
+  return terms.some((term) => target.includes(normalize(term)));
+}
+
+function findItem(items = [], key) {
+  return items.find((item) => item.key === key || String(item.key || "").startsWith(`${key}.`));
+}
+
+function detectBehavioralSignals(message = "", items = []) {
+  const signals = [];
+  const text = normalize(message);
+  const remembered = (key) => safeText(findItem(items, key)?.value);
+
+  const payday = remembered("paydayCycle") || remembered("incomePattern.cutoffDates") || remembered("incomePattern");
+  const afterPayday = remembered("paydayCycle.spendingShift");
+  if (payday && (hasAny(text, ["payday", "cutoff", "salary", "sweldo", "income", "allowance"]) || afterPayday)) {
+    signals.push(`Payday pattern: ${payday}${afterPayday ? `; after payday the user tends to: ${afterPayday}` : ""}.`);
+  }
+
+  const stressTrigger = remembered("emotionalTriggers") || remembered("stressSpendingHabits");
+  if (stressTrigger && hasAny(text, ["stress", "stressed", "tired", "sad", "lonely", "bored", "burnout", "drained", "heavy"])) {
+    signals.push(`Emotional spending risk: ${stressTrigger}.`);
+  }
+
+  const weakness = remembered("biggestSpendingWeakness") || remembered("commonImpulsivePurchases");
+  if (weakness && hasAny(text, ["buy", "bought", "order", "spend", "shop", "craving", "want", "tempted"])) {
+    signals.push(`Likely impulse area: ${weakness}.`);
+  }
+
+  const social = remembered("socialPressureTriggers") || remembered("socialEnvironment.who") || remembered("socialEnvironment");
+  if (social && hasAny(text, ["friend", "family", "coworker", "church", "team", "invite", "social", "date", "relationship", "people"])) {
+    signals.push(`Social pressure context: ${social}.`);
+  }
+
+  const energy = remembered("energyLevelTrends") || remembered("workExhaustion") || remembered("burnoutIndicators");
+  if (energy && hasAny(text, ["tired", "after work", "shift", "sleep", "late", "energy", "burnout", "drained", "lazy"])) {
+    signals.push(`Energy-based spending risk: ${energy}.`);
+  }
+
+  const goal = remembered("mainFinancialGoal") || remembered("savingsGoals") || remembered("emergencyFund");
+  if (goal && hasAny(text, ["save", "goal", "emergency", "fund", "debt", "buy", "spend", "afford"])) {
+    signals.push(`Goal protection context: ${goal}.`);
+  }
+
+  const tone = remembered("motivationStyle") || remembered("motivationStyle.boundary");
+  if (tone) signals.push(`Preferred coaching style: ${tone}.`);
+
+  return signals.slice(0, 6);
+}
+
+function buildNaturalMemorySummary(items = []) {
+  const groups = groupMemoryByLayer(items);
+  return Object.entries(groups)
+    .map(([layer, layerItems]) => {
+      const summary = layerItems
+        .slice(0, 8)
+        .map(itemText)
+        .filter(Boolean)
+        .join("; ");
+      return summary ? `${LAYERS[layer]}: ${summary}` : "";
+    })
+    .filter(Boolean)
+    .join("\n");
+}
+
+export function getClaraBehavioralMemorySnapshot() {
+  const memory = readBehavioralMemory();
+  const items = Object.values(memory.items || {}).filter((item) => safeText(item?.value));
+  return {
+    updatedAt: memory.updatedAt || "",
+    count: items.length,
+    items,
+    summary: buildNaturalMemorySummary(items),
+  };
+}
+
+export function buildClaraBehavioralContextForPrompt(message = "") {
+  const snapshot = getClaraBehavioralMemorySnapshot();
+  if (!snapshot.count) {
+    return `No saved Talk to CLARA behavioral memory yet.`;
+  }
+
+  const signals = detectBehavioralSignals(message, snapshot.items);
+
+  return `CLARA BEHAVIORAL INTELLIGENCE MEMORY:
+Saved details: ${snapshot.count}
+Last updated: ${snapshot.updatedAt || "not available"}
+
+4-layer memory summary:
+${snapshot.summary}
+
+Detected behavioral signals for this message:
+${signals.length ? signals.map((signal) => `- ${signal}`).join("\n") : "- No strong behavioral signal detected from this message. Use memory lightly only if relevant."}
+
+Behavioral response rules:
+- Use this memory to reason, not to recite.
+- Mention at most one or two relevant patterns naturally.
+- Do not expose keys, field names, JSON, localStorage, database, layers, or internal scoring.
+- If the user asks what CLARA knows, summarize warmly by the four human areas: life situation, spending behavior, life patterns, and financial setup.
+- Adjust tone based on motivation style when present.
+- If the user is making a spending decision, connect the advice to goal protection, pressure, emotion, energy, or payday timing when relevant.`;
+}
+
+export function getClaraBehavioralRiskLabel(message = "") {
+  const snapshot = getClaraBehavioralMemorySnapshot();
+  if (!snapshot.count) return "unknown";
+  const signals = detectBehavioralSignals(message, snapshot.items);
+  if (signals.length >= 4) return "high";
+  if (signals.length >= 2) return "medium";
+  if (signals.length === 1) return "low";
+  return "calm";
+}
