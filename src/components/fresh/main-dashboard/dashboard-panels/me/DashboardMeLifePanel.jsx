@@ -36,7 +36,7 @@ export default function DashboardMeLifePanel() {
               <div className="shrink-0">
                 <div className="flex items-start justify-between gap-3">
                   <div className="min-w-0 flex-1">
-                    <p className="text-[9px] font-black uppercase tracking-[0.2em] text-cyan-100/40">Personal Cabinet</p>
+                    <p className="text-[9px] font-black uppercase tracking-[0.2em] text-cyan-100/40">Financial Environment Understanding System</p>
                     <h2 className="mt-1 text-[clamp(22px,7vw,30px)] font-black leading-none text-white">Me</h2>
                     <p className="mt-2 max-w-[22rem] text-[clamp(11px,3.2vw,13px)] font-semibold leading-[1.55] text-white/48">Private memory drawers for your financial behavior and life context.</p>
                     <div className="mt-2 flex flex-wrap gap-1.5">
