@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { RefreshCcw } from "lucide-react";
-import { countEnvironmentSignals, readEnvironmentSignals } from "./claraEnvironmentUtils";
+import { CLARA_ENVIRONMENT_UPDATED, countEnvironmentSignals, readEnvironmentSignals } from "./claraEnvironmentUtils";
 import FinancialClimateScreen from "./FinancialClimateScreen";
 
 export default function DashboardMeLifePanel() {
@@ -13,10 +13,10 @@ export default function DashboardMeLifePanel() {
   useEffect(() => {
     const handler = () => refresh();
     window.addEventListener("storage", handler);
-    window.addEventListener("clara-behavioral-memory-updated", handler);
+    window.addEventListener(CLARA_ENVIRONMENT_UPDATED, handler);
     return () => {
       window.removeEventListener("storage", handler);
-      window.removeEventListener("clara-behavioral-memory-updated", handler);
+      window.removeEventListener(CLARA_ENVIRONMENT_UPDATED, handler);
     };
   }, []);
 
