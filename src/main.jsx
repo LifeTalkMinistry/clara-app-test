@@ -19,6 +19,7 @@ import "./life-context-polish.css";
 import "./settings-cleanup.css";
 import "./settings-priority.css";
 import "./settings-support-compose.css";
+import "./life-stage-collision.css";
 
 window.CLARA_BILLING = window.CLARA_BILLING || {};
 
