@@ -1,512 +1,308 @@
 import { useEffect, useMemo, useState } from "react";
-import {
-  Archive,
-  Brain,
-  CheckCircle2,
-  ChevronDown,
-  Clock3,
-  Database,
-  Layers3,
-  RefreshCcw,
-  Sparkles,
-} from "lucide-react";
-import useUserRole from "@/hooks/useUserRole";
-import {
-  DEFAULT_CLARA_LIFE_PROFILE,
-  normalizeClaraLifeProfile,
-  readClaraLifeProfile,
-} from "@/lib/clara-life-profile";
+import { ArrowLeft, Brain, CheckCircle2, ChevronRight, MessageCircle, RefreshCcw, Send, X } from "lucide-react";
 
-const BEHAVIORAL_MEMORY_KEY = "clara_behavioral_memory_v1";
+const KEY = "clara_behavioral_memory_v1";
 
-const FRAMEWORK = [
+const DRAWERS = [
   {
-    id: 1,
-    friendlyTitle: "Life situation",
-    friendlySubtitle: "Income, responsibilities, pressure, goals, and current context.",
-    title: "Level 1 — Core Identity",
-    items: [
-      { label: "Income pattern", aliases: ["incomePattern", "incomePattern.cutoffDates", "incomePattern.monthlyDate", "incomeRhythm"] },
-      { label: "Living situation", aliases: ["livingSituation"] },
-      { label: "Responsibilities", aliases: ["responsibilities", "responsibilities.frequency", "responsibility"] },
-      { label: "Work type", aliases: ["workType", "workType.bpoRhythm", "workType.spendingImpact", "status"] },
-      { label: "Relationship status", aliases: ["relationshipStatus", "relationshipStatus.spendingEffect"] },
-      { label: "Dependents", aliases: ["dependents", "dependents.supportPattern"] },
-      { label: "Current financial pressure", aliases: ["currentFinancialPressure", "currentFinancialPressure.specificPressure"] },
-      { label: "Survival pressure level", aliases: ["survivalPressureLevel", "survivalPressureLevel.mainCause"] },
-      { label: "Main financial goal", aliases: ["mainFinancialGoal", "mainFinancialGoal.emergencyTarget", "mainFinancialGoal.blocker", "meaningfulGoal", "currentFocus"] },
-      { label: "Current emotional state trend", aliases: ["emotionalStateTrend", "emotionalStateTrend.timing", "emotionalState"] },
+    id: "core",
+    level: 1,
+    eyebrow: "LEVEL 1",
+    title: "Core Identity",
+    subtitle: "Life situation, pressure, responsibilities, and goals.",
+    fields: [
+      ["Income pattern", "incomePattern"],
+      ["Living situation", "livingSituation"],
+      ["Responsibilities", "responsibilities"],
+      ["Work type", "workType"],
+      ["Relationship status", "relationshipStatus"],
+      ["Dependents", "dependents"],
+      ["Current financial pressure", "currentFinancialPressure"],
+      ["Survival pressure level", "survivalPressureLevel"],
+      ["Main financial goal", "mainFinancialGoal"],
+      ["Current emotional state trend", "emotionalStateTrend"],
     ],
   },
   {
-    id: 2,
-    friendlyTitle: "Spending behavior",
-    friendlySubtitle: "Triggers, impulses, coping habits, fear, guilt, and motivation.",
-    title: "Level 2 — Behavioral Spending Profile",
-    items: [
-      { label: "Emotional triggers", aliases: ["emotionalTriggers", "emotionalTriggers.spendingAction", "spendingTrigger"] },
-      { label: "Stress spending habits", aliases: ["stressSpendingHabits", "stressSpendingHabits.foodType", "stressSpendingHabits.costPattern"] },
-      { label: "Reward system", aliases: ["rewardSystem", "rewardSystem.frequency"] },
-      { label: "Common impulsive purchases", aliases: ["commonImpulsivePurchases", "commonImpulsivePurchases.triggerPoint"] },
-      { label: "Biggest spending weakness", aliases: ["biggestSpendingWeakness", "biggestSpendingWeakness.pattern"] },
-      { label: "Coping mechanisms", aliases: ["copingMechanisms", "copingMechanisms.spendingRisk"] },
-      { label: "Motivation style", aliases: ["motivationStyle", "motivationStyle.boundary", "coachingStyle"] },
-      { label: "Financial fear", aliases: ["financialFear"] },
-      { label: "Guilt patterns", aliases: ["guiltPatterns", "guiltPatterns.afterEffect"] },
-      { label: "Social pressure triggers", aliases: ["socialPressureTriggers", "socialPressureTriggers.boundary"] },
+    id: "behavior",
+    level: 2,
+    eyebrow: "LEVEL 2",
+    title: "Behavioral Spending Profile",
+    subtitle: "Emotional spending behavior, habits, fears, and pressure triggers.",
+    fields: [
+      ["Emotional triggers", "emotionalTriggers"],
+      ["Stress spending habits", "stressSpendingHabits"],
+      ["Reward system", "rewardSystem"],
+      ["Common impulsive purchases", "commonImpulsivePurchases"],
+      ["Biggest spending weakness", "biggestSpendingWeakness"],
+      ["Coping mechanisms", "copingMechanisms"],
+      ["Motivation style", "motivationStyle"],
+      ["Financial fear", "financialFear"],
+      ["Guilt patterns", "guiltPatterns"],
+      ["Social pressure triggers", "socialPressureTriggers"],
     ],
   },
   {
-    id: 3,
-    friendlyTitle: "Life patterns",
-    friendlySubtitle: "Routine, sleep, energy, burnout signs, hobbies, and environment.",
-    title: "Level 3 — Life Pattern Intelligence",
-    items: [
-      { label: "Schedule and routine", aliases: ["scheduleRoutine", "scheduleRoutine.spendWindow"] },
-      { label: "Sleep pattern", aliases: ["sleepPattern", "sleepPattern.cause"] },
-      { label: "Work exhaustion", aliases: ["workExhaustion", "workExhaustion.spendEffect"] },
-      { label: "Social environment", aliases: ["socialEnvironment", "socialEnvironment.who"] },
-      { label: "Relationship conflicts", aliases: ["relationshipConflicts", "relationshipConflicts.response"] },
-      { label: "Hobby patterns", aliases: ["hobbyPatterns", "hobbyPatterns.frequency", "replacementActivity"] },
-      { label: "Energy level trends", aliases: ["energyLevelTrends", "energyLevelTrends.risk"] },
-      { label: "Burnout indicators", aliases: ["burnoutIndicators", "burnoutIndicators.prevention", "currentLifeSeason"] },
+    id: "life",
+    level: 3,
+    eyebrow: "LEVEL 3",
+    title: "Life Pattern Intelligence",
+    subtitle: "Routine, sleep, energy, environment, and burnout signals.",
+    fields: [
+      ["Schedule and routine", "scheduleRoutine"],
+      ["Sleep pattern", "sleepPattern"],
+      ["Work exhaustion", "workExhaustion"],
+      ["Social environment", "socialEnvironment"],
+      ["Relationship conflicts", "relationshipConflicts"],
+      ["Hobby patterns", "hobbyPatterns"],
+      ["Energy level trends", "energyLevelTrends"],
+      ["Burnout indicators", "burnoutIndicators"],
     ],
   },
   {
-    id: 4,
-    friendlyTitle: "Money setup",
-    friendlySubtitle: "Wallets, budget style, emergency fund, goals, debt, and payday rhythm.",
-    title: "Level 4 — Financial Infrastructure",
-    items: [
-      { label: "Wallets", aliases: ["wallets", "wallets.primary"] },
-      { label: "Budgets", aliases: ["budgets", "budgets.styleDetail"] },
-      { label: "Emergency fund", aliases: ["emergencyFund", "emergencyFund.nextTarget"] },
-      { label: "Savings goals", aliases: ["savingsGoals", "savingsGoals.risk"] },
-      { label: "Recurring expenses", aliases: ["recurringExpenses", "recurringExpenses.dueTiming", "nonNegotiable"] },
-      { label: "Debt", aliases: ["debt", "debt.type"] },
-      { label: "Subscriptions", aliases: ["subscriptions", "subscriptions.auditNeed"] },
-      { label: "Transfers", aliases: ["transfers", "transfers.purpose"] },
-      { label: "Payday cycle", aliases: ["paydayCycle", "paydayCycle.spendingShift"] },
+    id: "money",
+    level: 4,
+    eyebrow: "LEVEL 4",
+    title: "Financial Infrastructure",
+    subtitle: "Wallets, budgets, goals, obligations, and payday rhythm.",
+    fields: [
+      ["Wallets", "wallets"],
+      ["Budgets", "budgets"],
+      ["Emergency fund", "emergencyFund"],
+      ["Savings goals", "savingsGoals"],
+      ["Recurring expenses", "recurringExpenses"],
+      ["Debt", "debt"],
+      ["Subscriptions", "subscriptions"],
+      ["Transfers", "transfers"],
+      ["Payday cycle", "paydayCycle"],
     ],
   },
 ];
 
-function safeText(value) {
-  return String(value ?? "").trim();
+function clean(value) {
+  return String(value ?? "").replace(/\s+/g, " ").trim();
 }
 
-function readBehavioralMemory() {
-  if (typeof window === "undefined") return { items: {}, updatedAt: "" };
+function readMemory() {
   try {
-    return JSON.parse(localStorage.getItem(BEHAVIORAL_MEMORY_KEY) || "{}");
+    const data = JSON.parse(localStorage.getItem(KEY) || "{}");
+    return { version: data.version || 2, updatedAt: data.updatedAt || "", items: data.items || {} };
   } catch {
-    return { items: {}, updatedAt: "" };
+    return { version: 2, updatedAt: "", items: {} };
   }
 }
 
-function formatDate(value) {
+function saveMemory(field, value, level) {
+  const nextValue = clean(value);
+  if (!nextValue) return readMemory();
+
+  const current = readMemory();
+  const previous = current.items?.[field.key] || {};
+  const now = new Date().toISOString();
+  const next = {
+    version: 2,
+    updatedAt: now,
+    items: {
+      ...(current.items || {}),
+      [field.key]: {
+        key: field.key,
+        label: field.label,
+        value: nextValue,
+        layer: level,
+        weight: Math.min(10, Number(previous.weight || 0) + 2),
+        pinned: Boolean(previous.pinned),
+        source: "me-memory-chat",
+        createdAt: previous.createdAt || now,
+        updatedAt: now,
+      },
+    },
+  };
+
+  localStorage.setItem(KEY, JSON.stringify(next));
+  window.dispatchEvent(new CustomEvent("clara-behavioral-memory-updated", { detail: next }));
+  return next;
+}
+
+function dateLabel(value) {
   if (!value) return "Not saved yet";
   try {
-    return new Intl.DateTimeFormat("en", {
-      month: "short",
-      day: "numeric",
-      hour: "numeric",
-      minute: "2-digit",
-    }).format(new Date(value));
+    return new Intl.DateTimeFormat("en", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" }).format(new Date(value));
   } catch {
     return "Recently";
   }
 }
 
-function findStoredValue(definition, memoryItems, lifeProfile) {
-  for (const key of definition.aliases) {
-    const memory = memoryItems[key];
-    const memoryValue = safeText(memory?.value);
-    if (memoryValue) {
-      return {
-        value: memoryValue,
-        source: "Talk to CLARA",
-        key,
-        updatedAt: memory.updatedAt,
-        weight: memory.weight,
-        pinned: memory.pinned,
-      };
-    }
-  }
-
-  for (const key of definition.aliases) {
-    const value = safeText(lifeProfile?.[key]);
-    if (value) {
-      return {
-        value,
-        source: "Manual Me profile",
-        key,
-        updatedAt: "",
-        weight: "",
-        pinned: false,
-      };
-    }
-  }
-
-  return null;
-}
-
-function buildFrameworkStatus(memory, lifeProfile) {
-  const memoryItems = memory?.items || {};
-  return FRAMEWORK.map((layer) => {
-    const rows = layer.items.map((item) => ({ ...item, stored: findStoredValue(item, memoryItems, lifeProfile) }));
-    const saved = rows.filter((row) => row.stored).length;
-    return {
-      ...layer,
-      rows,
-      saved,
-      total: rows.length,
-      percent: Math.round((saved / rows.length) * 100),
-    };
+function buildDrawers(memory) {
+  const items = memory.items || {};
+  return DRAWERS.map((drawer) => {
+    const fields = drawer.fields.map(([label, key]) => ({ label, key, memory: items[key] || null }));
+    const saved = fields.filter((field) => clean(field.memory?.value)).length;
+    return { ...drawer, fields, saved, total: fields.length };
   });
 }
 
-function getRawMemoryItems(memory) {
-  return Object.values(memory?.items || {})
-    .filter((item) => safeText(item?.value))
-    .sort((a, b) => {
-      if (Boolean(b.pinned) !== Boolean(a.pinned)) return Number(b.pinned) - Number(a.pinned);
-      return Number(b.weight || 0) - Number(a.weight || 0);
-    });
-}
+function MemoryChat({ drawer, field, onClose, onSaved }) {
+  const [draft, setDraft] = useState("");
+  const [savedText, setSavedText] = useState("");
+  const current = clean(field.memory?.value);
 
-function getManualProfileItems(profile) {
-  const blocked = new Set(["personalityQuizAnswers", "memoryNotes"]);
-  return Object.entries(profile || {})
-    .filter(([key, value]) => !blocked.has(key) && safeText(value))
-    .map(([key, value]) => ({ key, value }))
-    .sort((a, b) => a.key.localeCompare(b.key));
-}
+  const submit = (event) => {
+    event.preventDefault();
+    const value = clean(draft);
+    if (!value) return;
+    onSaved(saveMemory(field, value, drawer.level));
+    setSavedText(value);
+    setDraft("");
+  };
 
-function getHighlights(layers) {
-  const priorityLabels = [
-    "Main financial goal",
-    "Current financial pressure",
-    "Emotional triggers",
-    "Stress spending habits",
-    "Income pattern",
-    "Payday cycle",
-    "Work exhaustion",
-    "Wallets",
-  ];
-
-  const saved = layers.flatMap((layer) =>
-    layer.rows
-      .filter((row) => row.stored)
-      .map((row) => ({ ...row, layerTitle: layer.friendlyTitle }))
-  );
-
-  const prioritized = priorityLabels
-    .map((label) => saved.find((row) => row.label === label))
-    .filter(Boolean);
-
-  return [...prioritized, ...saved.filter((row) => !prioritized.includes(row))].slice(0, 4);
-}
-
-function QuietPill({ children }) {
   return (
-    <span className="rounded-full border border-white/10 bg-white/[0.04] px-3 py-1 text-[11px] font-bold text-white/50">
-      {children}
-    </span>
-  );
-}
-
-function MeHero({ totalStored, totalRequired, updatedAt, loading, refresh }) {
-  return (
-    <section className="relative overflow-hidden rounded-[30px] border border-cyan-300/14 bg-[linear-gradient(135deg,rgba(9,60,72,.92),rgba(18,24,54,.94)_50%,rgba(45,22,82,.92))] p-5 shadow-[0_18px_56px_rgba(0,0,0,.22)]">
-      <div className="pointer-events-none absolute -left-24 -top-24 h-56 w-56 rounded-full bg-cyan-300/10 blur-3xl" />
-      <div className="pointer-events-none absolute -right-24 -bottom-24 h-56 w-56 rounded-full bg-violet-400/10 blur-3xl" />
-
-      <div className="relative flex items-start justify-between gap-4">
-        <div>
-          <p className="text-[11px] font-black uppercase tracking-[0.22em] text-cyan-100/55">Personal Cabinet</p>
-          <h3 className="mt-3 text-3xl font-black leading-none text-white">Me</h3>
-          <p className="mt-3 max-w-[25rem] text-sm leading-6 text-white/66">
-            The private place where CLARA keeps what she understands about your life and money behavior.
-          </p>
-          <div className="mt-3 flex flex-wrap gap-2">
-            <QuietPill>{totalStored}/{totalRequired} understood</QuietPill>
-            <QuietPill>{loading ? "Checking..." : formatDate(updatedAt)}</QuietPill>
+    <div className="fixed inset-x-0 bottom-0 z-[280] mx-auto max-w-[430px] px-4 pb-[max(env(safe-area-inset-bottom),14px)]">
+      <div className="overflow-hidden rounded-[30px] border border-white/12 bg-slate-950/94 shadow-[0_-24px_80px_rgba(0,0,0,.45)] backdrop-blur-2xl">
+        <div className="flex items-start justify-between gap-3 border-b border-white/10 p-4">
+          <div>
+            <p className="text-[10px] font-black uppercase tracking-[0.18em] text-cyan-100/46">Refine with CLARA</p>
+            <h3 className="mt-1 text-lg font-black text-white">{field.label}</h3>
+            <p className="mt-1 text-xs font-semibold text-white/38">{drawer.title}</p>
           </div>
+          <button type="button" onClick={onClose} className="grid h-9 w-9 shrink-0 place-items-center rounded-full border border-white/10 bg-white/[0.055] text-white/62 active:scale-95" aria-label="Close memory editor">
+            <X className="h-4 w-4" />
+          </button>
         </div>
-        <button
-          type="button"
-          onClick={refresh}
-          className="grid h-11 w-11 shrink-0 place-items-center rounded-[20px] border border-white/10 bg-white/[0.055] text-white/70 active:scale-95"
-          aria-label="Refresh CLARA memory"
-        >
-          <RefreshCcw className="h-4 w-4" />
-        </button>
-      </div>
-    </section>
-  );
-}
 
-function UnderstandingSummary({ highlights, rawItems }) {
-  return (
-    <section className="rounded-[28px] border border-white/10 bg-white/[0.032] p-4 shadow-[0_14px_40px_rgba(0,0,0,.14)]">
-      <div className="flex items-start gap-3">
-        <div className="grid h-10 w-10 shrink-0 place-items-center rounded-2xl border border-emerald-200/12 bg-emerald-300/[0.06] text-emerald-50/70">
-          <Sparkles className="h-4 w-4" />
-        </div>
-        <div>
-          <p className="text-[11px] font-black uppercase tracking-[0.18em] text-white/32">What CLARA knows</p>
-          <h3 className="mt-1 text-lg font-black text-white">Personal understanding</h3>
-          <p className="mt-1 text-xs font-semibold leading-5 text-white/44">
-            A short view of the details CLARA can use when giving advice.
-          </p>
-        </div>
-      </div>
-
-      <div className="mt-4 space-y-2.5">
-        {highlights.length ? highlights.map((row) => (
-          <div key={`${row.layerTitle}-${row.label}`} className="rounded-[20px] border border-white/8 bg-white/[0.026] p-3">
-            <p className="text-sm font-black text-white">{row.label}</p>
-            <p className="mt-1 text-sm font-semibold leading-5 text-white/68">{row.stored.value}</p>
+        <div className="space-y-3 p-4">
+          <div className="max-w-[88%] rounded-[22px] bg-white/[0.07] px-4 py-3 text-sm font-semibold leading-6 text-white/76">
+            {current ? `I currently understand this as: “${current}.” Tell me the correct version if this changed.` : `I do not have this yet. Tell me what CLARA should remember.`}
           </div>
-        )) : (
-          <div className="rounded-[22px] border border-dashed border-cyan-200/14 bg-cyan-300/[0.025] p-4 text-sm font-semibold leading-6 text-white/48">
-            CLARA has not saved Talk to CLARA memory yet. Start a guided conversation, then review what CLARA understood.
-          </div>
-        )}
-      </div>
-
-      <div className="mt-4 rounded-[20px] border border-white/8 bg-white/[0.022] p-3">
-        <p className="text-sm font-black text-white">Storage status</p>
-        <p className="mt-1 text-xs font-semibold leading-5 text-white/44">
-          {rawItems.length ? `${rawItems.length} Talk to CLARA memories are saved on this device.` : "No Talk to CLARA memory is saved yet."}
-        </p>
-      </div>
-    </section>
-  );
-}
-
-function CompactLayerRow({ layer }) {
-  return (
-    <div className="rounded-[20px] border border-white/8 bg-white/[0.026] p-3">
-      <div className="flex items-start justify-between gap-3">
-        <div>
-          <p className="text-sm font-black text-white">{layer.friendlyTitle}</p>
-          <p className="mt-1 text-xs font-semibold leading-5 text-white/43">{layer.friendlySubtitle}</p>
+          {savedText ? (
+            <>
+              <div className="ml-auto max-w-[88%] rounded-[22px] bg-emerald-300 px-4 py-3 text-sm font-semibold leading-6 text-slate-950">{savedText}</div>
+              <div className="max-w-[88%] rounded-[22px] bg-white/[0.07] px-4 py-3 text-sm font-semibold leading-6 text-white/76">Saved. I’ll use this when giving you money guidance.</div>
+            </>
+          ) : null}
         </div>
-        <span className="shrink-0 rounded-full border border-white/10 bg-white/[0.04] px-2.5 py-1 text-[10px] font-black text-white/52">
-          {layer.saved}/{layer.total}
-        </span>
+
+        <form onSubmit={submit} className="border-t border-white/10 p-3">
+          <div className="flex items-center gap-2 rounded-[22px] border border-white/10 bg-white/[0.055] px-3 py-2">
+            <input value={draft} onChange={(event) => setDraft(event.target.value)} className="min-w-0 flex-1 bg-transparent py-2 text-sm font-semibold text-white outline-none placeholder:text-white/32" placeholder="Tell CLARA what to remember..." />
+            <button type="submit" disabled={!draft.trim()} className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-emerald-300 text-slate-950 disabled:opacity-40 active:scale-95" aria-label="Save memory">
+              <Send className="h-4 w-4" />
+            </button>
+          </div>
+        </form>
       </div>
     </div>
   );
 }
 
-function SavedMemoryList({ layer }) {
-  const savedRows = layer.rows.filter((row) => row.stored);
-  const missingRows = layer.rows.filter((row) => !row.stored);
-
-  return (
-    <details className="rounded-[22px] border border-white/8 bg-white/[0.022]" open={false}>
-      <summary className="flex cursor-pointer list-none items-center justify-between gap-3 p-3 [&::-webkit-details-marker]:hidden">
-        <div>
-          <p className="text-sm font-black text-white">{layer.friendlyTitle}</p>
-          <p className="mt-1 text-xs font-semibold text-white/42">{layer.saved}/{layer.total} saved</p>
-        </div>
-        <ChevronDown className="h-4 w-4 text-white/34" />
-      </summary>
-      <div className="space-y-2 border-t border-white/8 p-3">
-        {savedRows.map((row) => (
-          <div key={row.label} className="rounded-2xl border border-emerald-300/12 bg-emerald-300/[0.04] p-3">
-            <div className="flex items-center gap-2">
-              <CheckCircle2 className="h-3.5 w-3.5 text-emerald-200/80" />
-              <p className="text-sm font-black text-white">{row.label}</p>
-            </div>
-            <p className="mt-1.5 text-sm font-semibold leading-5 text-white/68">{row.stored.value}</p>
-          </div>
-        ))}
-        {missingRows.length ? (
-          <div className="rounded-2xl border border-white/8 bg-white/[0.02] p-3">
-            <p className="text-[10px] font-black uppercase tracking-[0.16em] text-white/28">Still missing</p>
-            <p className="mt-2 text-xs font-semibold leading-5 text-white/42">
-              {missingRows.map((row) => row.label).join(" • ")}
-            </p>
-          </div>
-        ) : null}
-      </div>
-    </details>
-  );
-}
-
-function RawMemoryPanel({ items }) {
-  return (
-    <section className="space-y-2.5">
-      {items.length ? items.map((item) => (
-        <div key={item.key} className="rounded-[18px] border border-white/8 bg-white/[0.024] p-3">
-          <div className="flex items-start justify-between gap-2">
-            <div>
-              <p className="text-sm font-black text-white">{item.label || item.key}</p>
-              <p className="mt-1 text-xs font-bold text-cyan-100/36">{item.key}</p>
-            </div>
-            <span className="rounded-full border border-white/10 bg-white/[0.04] px-2 py-1 text-[10px] font-black text-white/36">L{item.layer || "?"}</span>
-          </div>
-          <p className="mt-2 text-sm font-semibold leading-5 text-white/66">{item.value}</p>
-          <div className="mt-2 flex flex-wrap gap-1.5">
-            <QuietPill>weight {item.weight || 1}</QuietPill>
-            <QuietPill>{formatDate(item.updatedAt)}</QuietPill>
-            {item.pinned ? <QuietPill>pinned</QuietPill> : null}
-          </div>
-        </div>
-      )) : (
-        <div className="rounded-[22px] border border-dashed border-cyan-200/14 bg-cyan-300/[0.025] p-4 text-sm font-semibold leading-6 text-white/44">
-          No Talk to CLARA raw memory yet.
-        </div>
-      )}
-    </section>
-  );
-}
-
-function ManualProfilePanel({ items }) {
-  if (!items.length) return null;
-
-  return (
-    <details className="rounded-[24px] border border-white/8 bg-white/[0.022]">
-      <summary className="flex cursor-pointer list-none items-center justify-between gap-3 p-4 [&::-webkit-details-marker]:hidden">
-        <div className="flex items-start gap-3">
-          <div className="grid h-9 w-9 shrink-0 place-items-center rounded-2xl border border-violet-200/12 bg-violet-300/[0.055] text-violet-50/64">
-            <Archive className="h-4 w-4" />
-          </div>
-          <div>
-            <p className="text-sm font-black text-white">Older Me fields</p>
-            <p className="mt-1 text-xs font-semibold leading-5 text-white/42">Manual fallback data CLARA can still read.</p>
-          </div>
-        </div>
-        <ChevronDown className="h-4 w-4 text-white/34" />
-      </summary>
-      <div className="grid grid-cols-1 gap-2.5 border-t border-white/8 p-3">
-        {items.map((item) => (
-          <div key={item.key} className="rounded-[18px] border border-white/8 bg-white/[0.024] p-3">
-            <p className="text-xs font-black uppercase tracking-[0.14em] text-white/28">{item.key}</p>
-            <p className="mt-1 text-sm font-semibold leading-5 text-white/64">{String(item.value)}</p>
-          </div>
-        ))}
-      </div>
-    </details>
-  );
-}
-
-function MemorySystemDetails({ layers, rawItems, manualItems }) {
-  return (
-    <details className="rounded-[28px] border border-white/10 bg-white/[0.026] shadow-[0_14px_40px_rgba(0,0,0,.14)]">
-      <summary className="flex cursor-pointer list-none items-center justify-between gap-3 p-4 [&::-webkit-details-marker]:hidden">
-        <div className="flex items-start gap-3">
-          <div className="grid h-10 w-10 shrink-0 place-items-center rounded-2xl border border-cyan-200/12 bg-cyan-300/[0.055] text-cyan-50/64">
-            <Layers3 className="h-4 w-4" />
-          </div>
-          <div>
-            <p className="text-sm font-black text-white">See everything CLARA knows</p>
-            <p className="mt-1 text-xs font-semibold leading-5 text-white/42">Open only when you want the full memory checklist.</p>
-          </div>
-        </div>
-        <ChevronDown className="h-4 w-4 text-white/34" />
-      </summary>
-
-      <div className="space-y-3 border-t border-white/8 p-3">
-        <div className="grid grid-cols-1 gap-2.5">
-          {layers.map((layer) => <SavedMemoryList key={layer.id} layer={layer} />)}
-        </div>
-
-        <details className="rounded-[24px] border border-white/8 bg-white/[0.02]">
-          <summary className="flex cursor-pointer list-none items-center justify-between gap-3 p-4 [&::-webkit-details-marker]:hidden">
-            <div className="flex items-start gap-3">
-              <div className="grid h-9 w-9 shrink-0 place-items-center rounded-2xl border border-cyan-200/12 bg-cyan-300/[0.055] text-cyan-50/64">
-                <Database className="h-4 w-4" />
-              </div>
-              <div>
-                <p className="text-sm font-black text-white">Advanced raw storage</p>
-                <p className="mt-1 text-xs font-semibold leading-5 text-white/42">Exact keys, layers, weights, and timestamps.</p>
-              </div>
-            </div>
-            <ChevronDown className="h-4 w-4 text-white/34" />
-          </summary>
-          <div className="border-t border-white/8 p-3">
-            <RawMemoryPanel items={rawItems} />
-          </div>
-        </details>
-
-        <ManualProfilePanel items={manualItems} />
-      </div>
-    </details>
-  );
-}
-
 export default function DashboardMeLifePanel() {
-  const { user } = useUserRole() || {};
-  const [memory, setMemory] = useState(() => readBehavioralMemory());
-  const [lifeProfile, setLifeProfile] = useState(() => normalizeClaraLifeProfile(DEFAULT_CLARA_LIFE_PROFILE));
-  const [loading, setLoading] = useState(true);
+  const [memory, setMemory] = useState(() => readMemory());
+  const [activeDrawerId, setActiveDrawerId] = useState(null);
+  const [activeField, setActiveField] = useState(null);
 
-  const refresh = async () => {
-    setMemory(readBehavioralMemory());
-    try {
-      const stored = await readClaraLifeProfile(user);
-      setLifeProfile(stored);
-    } catch (error) {
-      console.warn("CLARA Me profile load failed:", error);
-      setLifeProfile(normalizeClaraLifeProfile(DEFAULT_CLARA_LIFE_PROFILE));
-    } finally {
-      setLoading(false);
-    }
-  };
+  const drawers = useMemo(() => buildDrawers(memory), [memory]);
+  const activeDrawer = drawers.find((drawer) => drawer.id === activeDrawerId) || null;
+  const total = drawers.reduce((sum, drawer) => sum + drawer.total, 0);
+  const saved = drawers.reduce((sum, drawer) => sum + drawer.saved, 0);
+
+  const refresh = () => setMemory(readMemory());
 
   useEffect(() => {
-    refresh();
     const handler = () => refresh();
     window.addEventListener("storage", handler);
     window.addEventListener("clara-behavioral-memory-updated", handler);
-    window.addEventListener("clara:life-profile-updated", handler);
     return () => {
       window.removeEventListener("storage", handler);
       window.removeEventListener("clara-behavioral-memory-updated", handler);
-      window.removeEventListener("clara:life-profile-updated", handler);
     };
-  }, [user?.id, user?.email]);
-
-  const layers = useMemo(() => buildFrameworkStatus(memory, lifeProfile), [memory, lifeProfile]);
-  const rawItems = useMemo(() => getRawMemoryItems(memory), [memory]);
-  const manualItems = useMemo(() => getManualProfileItems(lifeProfile), [lifeProfile]);
-  const highlights = useMemo(() => getHighlights(layers), [layers]);
-  const totalRequired = layers.reduce((sum, layer) => sum + layer.total, 0);
-  const totalStored = layers.reduce((sum, layer) => sum + layer.saved, 0);
+  }, []);
 
   return (
-    <div className="space-y-4 pb-28">
-      <MeHero
-        totalStored={totalStored}
-        totalRequired={totalRequired}
-        updatedAt={memory?.updatedAt}
-        loading={loading}
-        refresh={refresh}
-      />
+    <div className="pb-28">
+      <section className="relative min-h-[calc(100svh-150px)] overflow-hidden rounded-[34px] border border-cyan-300/14 bg-[linear-gradient(135deg,rgba(8,55,69,.94),rgba(15,23,48,.97)_48%,rgba(47,23,83,.95))] p-5 shadow-[0_18px_60px_rgba(0,0,0,.22)]">
+        <div className="pointer-events-none absolute -left-24 -top-24 h-64 w-64 rounded-full bg-cyan-300/10 blur-3xl" />
+        <div className="pointer-events-none absolute -right-28 bottom-10 h-72 w-72 rounded-full bg-violet-400/12 blur-3xl" />
 
-      <UnderstandingSummary highlights={highlights} rawItems={rawItems} />
+        <div className="relative flex min-h-[calc(100svh-190px)] flex-col">
+          {!activeDrawer ? (
+            <>
+              <div className="flex items-start justify-between gap-4">
+                <div>
+                  <p className="text-[10px] font-black uppercase tracking-[0.22em] text-cyan-100/46">Personal Cabinet</p>
+                  <h2 className="mt-2 text-3xl font-black leading-none text-white">Me</h2>
+                  <p className="mt-3 max-w-[25rem] text-sm font-semibold leading-6 text-white/58">Four private drawers where CLARA keeps what she understands about you.</p>
+                  <div className="mt-3 flex flex-wrap gap-2">
+                    <span className="rounded-full bg-white/[0.055] px-3 py-1 text-[11px] font-black text-white/46">{saved}/{total} learned</span>
+                    <span className="rounded-full bg-white/[0.045] px-3 py-1 text-[11px] font-bold text-white/38">{dateLabel(memory.updatedAt)}</span>
+                  </div>
+                </div>
+                <button type="button" onClick={refresh} className="grid h-11 w-11 shrink-0 place-items-center rounded-[20px] border border-white/10 bg-white/[0.045] text-white/60 active:scale-95" aria-label="Refresh CLARA memory">
+                  <RefreshCcw className="h-4 w-4" />
+                </button>
+              </div>
 
-      <section className="rounded-[28px] border border-cyan-200/10 bg-[radial-gradient(circle_at_top_left,rgba(34,211,238,.06),transparent_38%),rgba(255,255,255,.022)] p-4 shadow-[0_14px_40px_rgba(0,0,0,.14)]">
-        <div className="flex items-start gap-3">
-          <div className="grid h-10 w-10 shrink-0 place-items-center rounded-2xl border border-cyan-200/12 bg-cyan-300/[0.055] text-cyan-50/64">
-            <Brain className="h-4 w-4" />
-          </div>
-          <div>
-            <p className="text-sm font-black text-white">CLARA’s understanding areas</p>
-            <p className="mt-1 text-xs font-semibold leading-5 text-white/42">A quiet overview. Details stay hidden until you open them.</p>
-          </div>
-        </div>
-        <div className="mt-4 space-y-2.5">
-          {layers.map((layer) => <CompactLayerRow key={layer.id} layer={layer} />)}
+              <div className="mt-6 flex items-center gap-3 rounded-[24px] border border-white/8 bg-white/[0.035] p-4">
+                <div className="grid h-10 w-10 shrink-0 place-items-center rounded-2xl bg-emerald-300/[0.08] text-emerald-50/76"><Brain className="h-4 w-4" /></div>
+                <div>
+                  <p className="text-sm font-black text-white">Choose one memory drawer</p>
+                  <p className="mt-1 text-xs font-semibold leading-5 text-white/40">Open a drawer, then tap any detail to correct or refine it.</p>
+                </div>
+              </div>
+
+              <div className="mt-4 grid flex-1 grid-cols-1 gap-3">
+                {drawers.map((drawer) => (
+                  <button key={drawer.id} type="button" onClick={() => setActiveDrawerId(drawer.id)} className="group rounded-[26px] border border-white/10 bg-white/[0.035] p-4 text-left transition active:scale-[0.985]">
+                    <div className="flex items-start justify-between gap-3">
+                      <div>
+                        <p className="text-[10px] font-black uppercase tracking-[0.18em] text-white/32">{drawer.eyebrow}</p>
+                        <h3 className="mt-2 text-xl font-black leading-tight text-white">{drawer.title}</h3>
+                        <p className="mt-2 text-xs font-semibold leading-5 text-white/42">{drawer.subtitle}</p>
+                      </div>
+                      <ChevronRight className="mt-2 h-4 w-4 shrink-0 text-white/34" />
+                    </div>
+                    <div className="mt-4 inline-flex rounded-full bg-white/[0.05] px-3 py-1 text-[11px] font-black text-white/44">{drawer.saved}/{drawer.total} saved</div>
+                  </button>
+                ))}
+              </div>
+            </>
+          ) : (
+            <>
+              <div className="flex items-start gap-3">
+                <button type="button" onClick={() => { setActiveDrawerId(null); setActiveField(null); }} className="grid h-10 w-10 shrink-0 place-items-center rounded-full border border-white/10 bg-white/[0.05] text-white/68 active:scale-95" aria-label="Back to drawers">
+                  <ArrowLeft className="h-4 w-4" />
+                </button>
+                <div className="min-w-0 flex-1">
+                  <p className="text-[10px] font-black uppercase tracking-[0.2em] text-cyan-100/46">{activeDrawer.eyebrow}</p>
+                  <h2 className="mt-2 text-2xl font-black leading-tight text-white">{activeDrawer.title}</h2>
+                  <p className="mt-2 text-sm font-semibold leading-6 text-white/46">{activeDrawer.subtitle}</p>
+                </div>
+                <span className="shrink-0 rounded-full bg-white/[0.055] px-3 py-1 text-[11px] font-black text-white/48">{activeDrawer.saved}/{activeDrawer.total}</span>
+              </div>
+
+              <div className="mt-6 rounded-[26px] border border-white/10 bg-white/[0.03] px-4">
+                {activeDrawer.fields.map((field) => {
+                  const hasValue = clean(field.memory?.value);
+                  return (
+                    <button key={field.key} type="button" onClick={() => setActiveField(field)} className="w-full border-b border-white/8 py-3 text-left last:border-b-0 active:scale-[0.995]">
+                      <div className="flex items-center justify-between gap-3">
+                        <div className="min-w-0 flex-1">
+                          <div className="flex items-center gap-2">
+                            {hasValue ? <CheckCircle2 className="h-3.5 w-3.5 shrink-0 text-emerald-200/80" /> : <MessageCircle className="h-3.5 w-3.5 shrink-0 text-white/28" />}
+                            <p className="truncate text-sm font-black text-white/88">{field.label}</p>
+                          </div>
+                          <p className={`mt-1.5 line-clamp-2 text-sm font-semibold leading-5 ${hasValue ? "text-white/58" : "text-white/30"}`}>{hasValue || "Tap to teach CLARA"}</p>
+                        </div>
+                        <ChevronRight className="h-4 w-4 shrink-0 text-white/28" />
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+            </>
+          )}
         </div>
       </section>
 
-      <MemorySystemDetails layers={layers} rawItems={rawItems} manualItems={manualItems} />
+      {activeDrawer && activeField ? <MemoryChat drawer={activeDrawer} field={activeField} onClose={() => setActiveField(null)} onSaved={setMemory} /> : null}
     </div>
   );
 }
