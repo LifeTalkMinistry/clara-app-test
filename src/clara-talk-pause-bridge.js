@@ -200,27 +200,45 @@ function findSendButton(root) {
   return Array.from(root.querySelectorAll("button")).find((button) => /send to clara/i.test(button.getAttribute("aria-label") || ""));
 }
 
+function setNativeInputValue(input, value) {
+  const setter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, "value")?.set;
+  if (setter) setter.call(input, value);
+  else input.value = value;
+  input.dispatchEvent(new Event("input", { bubbles: true }));
+  input.dispatchEvent(new Event("change", { bubbles: true }));
+}
+
 async function playAnswer(root, answer) {
   const value = clean(answer);
-  if (!value) return;
-  await wait(180);
+  if (!value) return false;
+  await wait(220);
 
   const choice = findChoiceButton(root, value);
   if (choice && !choice.disabled) {
     choice.click();
-    return;
+    return true;
   }
 
   const input = root.querySelector("input");
-  const send = findSendButton(root);
-  if (!input || !send || send.disabled) return;
+  if (!input) return false;
 
   input.focus?.();
-  input.value = value;
-  input.dispatchEvent(new Event("input", { bubbles: true }));
-  input.dispatchEvent(new Event("change", { bubbles: true }));
-  await wait(80);
-  send.click();
+  setNativeInputValue(input, value);
+  await wait(160);
+
+  const send = findSendButton(root);
+  if (send && !send.disabled) {
+    send.click();
+    return true;
+  }
+
+  const form = input.closest("form");
+  if (form) {
+    form.dispatchEvent(new Event("submit", { bubbles: true, cancelable: true }));
+    return true;
+  }
+
+  return false;
 }
 
 async function continuePause(root, card) {
@@ -234,7 +252,14 @@ async function continuePause(root, card) {
   }
 
   for (const answer of answers) {
-    await playAnswer(root, answer);
+    const played = await playAnswer(root, answer);
+    if (!played) {
+      if (button) {
+        button.disabled = false;
+        button.textContent = "Continue";
+      }
+      return;
+    }
   }
 
   clearPause();
