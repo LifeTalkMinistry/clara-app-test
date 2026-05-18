@@ -20,8 +20,65 @@ function introMessage(field, current) {
   return `Hi Max, I currently remember your ${field.label.toLowerCase()} as “${current}.” Do you want to update this part of your life?`;
 }
 
+function fieldImpact(drawer, field) {
+  const specific = {
+    incomePattern: "That helps me plan around your real cash flow instead of treating every day the same.",
+    livingSituation: "That helps me understand possible shared expenses, household pressure, and the support system around you.",
+    responsibilities: "That helps me separate real obligations from random spending when I guide you.",
+    workType: "That helps me consider your work stress, schedule, energy, and spending triggers.",
+    relationshipStatus: "That helps me understand emotional context that may affect spending or financial pressure.",
+    dependents: "That helps me understand who may rely on your money, care, or support.",
+    currentFinancialPressure: "That tells me where we need to be careful before suggesting spending or saving moves.",
+    survivalPressureLevel: "That helps me adjust whether my guidance should be gentle, strict, or protective.",
+    mainFinancialGoal: "That gives your money a direction, so future decisions can protect what matters most.",
+    emotionalStateTrend: "That helps me support the person behind the spending, not just the transaction.",
+    emotionalTriggers: "That helps me notice the feeling behind the spending before it becomes a money decision.",
+    stressSpendingHabits: "That helps me protect you during stressful moments when spending becomes tempting.",
+    rewardSystem: "That helps me suggest rewards that restore you without quietly hurting your goals.",
+    commonImpulsivePurchases: "That helps me recognize the kind of purchases we may need to pause before.",
+    biggestSpendingWeakness: "That gives us a clear place to build better friction, not just more discipline.",
+    copingMechanisms: "That helps me suggest alternatives that still feel realistic when life feels heavy.",
+    motivationStyle: "That helps me speak to you in the kind of guidance you actually respond to.",
+    financialFear: "That helps me guide from safety and clarity instead of pressure or shame.",
+    guiltPatterns: "That helps me turn guilt into awareness instead of making you feel judged.",
+    socialPressureTriggers: "That helps me protect your boundaries when people or situations pull on your money.",
+    scheduleRoutine: "That helps me understand when spending may become convenient, rushed, or emotional.",
+    sleepPattern: "That helps me account for energy, patience, cravings, and impulse control.",
+    workExhaustion: "That helps me notice when comfort spending may be connected to tiredness.",
+    socialEnvironment: "That helps me understand whether people around you support your goals or pressure your wallet.",
+    relationshipConflicts: "That helps me treat emotional pressure carefully when giving money advice.",
+    hobbyPatterns: "That helps me suggest fulfilling activities that can replace spending as comfort.",
+    energyLevelTrends: "That helps me notice when your spending risk may rise because your energy is low.",
+    burnoutIndicators: "That helps me protect rest and recovery before strict budgeting.",
+    wallets: "That helps me know where your money decisions actually happen.",
+    budgets: "That helps me give advice that fits your current system instead of forcing a perfect one.",
+    emergencyFund: "That tells me how much safety we need to protect before taking financial risks.",
+    savingsGoals: "That helps me protect the goal when pressure or temptation appears.",
+    recurringExpenses: "That helps me know what money is already spoken for before suggesting what is safe to use.",
+    debt: "That helps me account for both the financial and emotional weight of debt.",
+    subscriptions: "That helps me watch for quiet leaks from automatic charges.",
+    transfers: "That helps me understand how your money moves between people, wallets, and priorities.",
+    paydayCycle: "That helps me guide you around the moments when spending risk usually changes.",
+  };
+
+  return specific[field.key] || `That helps me understand your ${drawer.title.toLowerCase()} with more personal context.`;
+}
+
+function savedSummaryReply({ drawer, field, value }) {
+  const nextValue = clean(value);
+  if (!nextValue) return savedFallbackReply(field, value);
+  return `Got it, Max. So your ${field.label.toLowerCase()} is now: “${nextValue}.” ${fieldImpact(drawer, field)} Is there anything else you want to add or correct about this?`;
+}
+
+function validSavedReply(reply) {
+  const text = clean(reply).toLowerCase();
+  if (!text || !text.includes("?")) return false;
+  if (text.includes("updated to") && text.endsWith("to")) return false;
+  return text.includes("anything else") || text.includes("add") || text.includes("correct");
+}
+
 async function askGeminiForMemoryReply({ drawer, field, current, userText, value, action }) {
-  const fallback = action === "ask" ? probingReply(field, current) : savedFallbackReply(field, value);
+  const fallback = action === "ask" ? probingReply(field, current) : savedSummaryReply({ drawer, field, value });
   if (!hasGeminiConfig()) return fallback;
 
   try {
@@ -30,17 +87,18 @@ async function askGeminiForMemoryReply({ drawer, field, current, userText, value
 
 Drawer: ${drawer.title}
 Topic being edited: ${field.label}
-Current value: ${current || "not saved yet"}
+Previous value: ${current || "not saved yet"}
 User message: ${userText}
 System action: ${action === "ask" ? "The user wants to change this specific memory but did not provide the replacement value. Ask one clear probing follow-up question for the exact corrected value. Do not save or assume anything." : `The memory was updated to: ${value}`}
 
 Rules:
 - If asking, directly reference the current value and the topic.
 - Ask only one clear probing question.
-- If saved, acknowledge the change and say how you will use it later.
+- If saved, you MUST do all three: reflect the new value, explain why it matters for future money guidance, and ask if there is anything else to add or correct.
+- If saved, do not stop at "updated to". Complete the sentence.
 - Be warm, personal, and financially aware.
 - Do not mention storage, database, keys, model, or Gemini.
-- Keep under 45 words.`;
+- Keep under 65 words.`;
 
     const reply = clean(await generateClaraGeminiReply({
       mode: "me-memory-refine",
@@ -53,6 +111,7 @@ Rules:
     }));
 
     if (action === "ask" && !validProbe(reply)) return fallback;
+    if (action === "saved" && !validSavedReply(reply)) return fallback;
     return reply || fallback;
   } catch {
     return fallback;
