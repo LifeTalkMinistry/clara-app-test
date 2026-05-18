@@ -208,7 +208,7 @@ function setNativeInputValue(input, value) {
   input.dispatchEvent(new Event("change", { bubbles: true }));
 }
 
-function showRestoreOverlay(root, saved = {}) {
+function showRestoreOverlay(root) {
   const main = root.querySelector("main");
   const form = root.querySelector("form");
   const previousMainVisibility = main?.style.visibility || "";
@@ -221,26 +221,26 @@ function showRestoreOverlay(root, saved = {}) {
 
   const overlay = document.createElement("div");
   overlay.dataset.claraSilentRestore = "true";
-  overlay.style.cssText = "position:absolute;inset:0;z-index:999;display:flex;align-items:center;justify-content:center;padding:20px;background:linear-gradient(180deg,rgba(2,6,23,.82),rgba(2,6,23,.94));backdrop-filter:blur(12px);color:white;";
+  overlay.style.cssText = "position:absolute;inset:0;z-index:999;display:flex;align-items:center;justify-content:center;padding:20px;background:radial-gradient(circle at 20% 8%,rgba(45,212,191,.16),transparent 34%),radial-gradient(circle at 88% 24%,rgba(124,58,237,.18),transparent 38%),linear-gradient(180deg,rgba(2,6,23,.90),rgba(2,6,23,.97));backdrop-filter:blur(14px);color:white;";
 
   const card = document.createElement("div");
-  card.style.cssText = "width:100%;max-width:330px;border:1px solid rgba(110,231,183,.18);background:rgba(15,23,42,.72);border-radius:28px;padding:22px;box-shadow:0 24px 70px rgba(0,0,0,.32), inset 0 1px 0 rgba(255,255,255,.08);text-align:left;";
+  card.style.cssText = "width:100%;max-width:320px;border:1px solid rgba(255,255,255,.10);background:rgba(15,23,42,.48);border-radius:30px;padding:22px;box-shadow:0 24px 70px rgba(0,0,0,.34), inset 0 1px 0 rgba(255,255,255,.08);text-align:left;";
 
   const eyebrow = document.createElement("div");
-  eyebrow.textContent = "RESTORING TALK TO CLARA";
-  eyebrow.style.cssText = "font-size:10px;font-weight:900;letter-spacing:.22em;color:rgba(167,243,208,.72);text-transform:uppercase;";
+  eyebrow.textContent = "TALK TO CLARA";
+  eyebrow.style.cssText = "font-size:10px;font-weight:900;letter-spacing:.24em;color:rgba(167,243,208,.68);text-transform:uppercase;";
 
   const title = document.createElement("div");
-  title.textContent = "Continuing where you left off.";
-  title.style.cssText = "margin-top:10px;font-size:20px;line-height:1.18;font-weight:900;color:white;";
+  title.textContent = "Restoring your last conversation.";
+  title.style.cssText = "margin-top:10px;font-size:21px;line-height:1.14;font-weight:900;color:white;letter-spacing:-.02em;";
 
   const body = document.createElement("div");
-  body.textContent = `Preparing your paused question: ${clean(saved.lastQuestion || "your setup")}`;
-  body.style.cssText = "margin-top:10px;font-size:13px;line-height:1.55;color:rgba(226,232,240,.78);";
+  body.textContent = "CLARA is bringing back your saved context so you can continue naturally.";
+  body.style.cssText = "margin-top:10px;font-size:13px;line-height:1.6;color:rgba(226,232,240,.76);";
 
   const pill = document.createElement("div");
-  pill.textContent = "No need to replay the whole chat.";
-  pill.style.cssText = "display:inline-flex;margin-top:14px;border:1px solid rgba(255,255,255,.12);background:rgba(255,255,255,.06);border-radius:999px;padding:8px 11px;font-size:11px;font-weight:900;color:rgba(255,255,255,.82);";
+  pill.textContent = "Resuming quietly...";
+  pill.style.cssText = "display:inline-flex;margin-top:14px;border:1px solid rgba(255,255,255,.10);background:rgba(255,255,255,.055);border-radius:999px;padding:8px 11px;font-size:11px;font-weight:900;color:rgba(255,255,255,.74);";
 
   card.appendChild(eyebrow);
   card.appendChild(title);
@@ -297,7 +297,7 @@ async function continuePause(root, card) {
   const saved = readPause();
   const answers = Array.isArray(saved?.userAnswers) ? saved.userAnswers : [];
   const button = card.querySelector("[data-clara-resume-pause]");
-  const cleanupRestoreUi = showRestoreOverlay(root, saved);
+  const cleanupRestoreUi = showRestoreOverlay(root);
 
   if (button) {
     button.disabled = true;
