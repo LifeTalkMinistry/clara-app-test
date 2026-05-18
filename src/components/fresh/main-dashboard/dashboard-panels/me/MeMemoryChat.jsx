@@ -24,7 +24,7 @@ function introMessage(field, current) {
 function fieldImpact(drawer, field) {
   const specific = {
     incomePattern: "That helps me plan around your real cash flow instead of treating every day the same.",
-    livingSituation: "That helps me understand possible shared expenses, household pressure, and the support system around you.",
+    livingSituation: "That helps me understand your home setup, who you live with, and whether your environment feels stable or still changing.",
     responsibilities: "That helps me separate real obligations from random spending when I guide you.",
     workType: "That helps me consider your work stress, schedule, energy, and spending triggers.",
     relationshipStatus: "That helps me understand emotional context that may affect spending or financial pressure.",
@@ -112,8 +112,7 @@ function normalizeAdditionalContext(field, rawValue) {
     if (/\bgirlfriend\b/.test(text)) return "partner is girlfriend";
     if (/\bboyfriend\b/.test(text)) return "partner is boyfriend";
     if (/\b(spouse|husband|wife)\b/.test(text)) return "partner is spouse";
-    if (/\b(split|share|shared|hati|half)\b/.test(text) && /\b(bill|bills|rent|expense|expenses|grocery|groceries)\b/.test(text)) return raw;
-    if (/\b(separate|own money|sarili|independent)\b/.test(text)) return raw;
+    if (/\bnew|adjusting|temporary|stable|permanent|full-time|full time|sometimes|currently|staying\b/.test(text)) return raw;
   }
 
   return raw;
@@ -150,22 +149,25 @@ function contextualFollowUp(field, value) {
 
   if (field.key === "livingSituation") {
     if (text.includes("with partner")) {
-      return "Do you and your partner share expenses right now, keep your money separate, or is one of you carrying more of the bills?";
+      return "Is this living setup stable now, still new, or something you’re still adjusting to?";
     }
     if (text.includes("with family")) {
-      return "Are you contributing to family bills, food, rent, or support right now?";
+      return "Who in your family do you live with, and does this setup feel stable right now?";
     }
     if (text.includes("renting")) {
-      return "Is rent one of your fixed monthly responsibilities, and does it feel manageable right now?";
+      return "Are you renting alone, with someone, or in a shared living setup?";
     }
     if (text.includes("alone")) {
-      return "Since you’re living alone, what expense feels heaviest right now — rent, food, bills, or emergencies?";
+      return "Does living alone feel stable for you right now, or are you still adjusting to it?";
+    }
+    if (text.includes("shared place")) {
+      return "Who do you share the place with, and does the setup feel comfortable or temporary?";
     }
   }
 
-  if (field.key === "dependents") return "Who depends on you financially or emotionally right now, and how often do you support them?";
-  if (field.key === "incomePattern") return "When your income arrives, do you usually budget it right away or spend first and adjust later?";
-  if (field.key === "workType") return "Does your work schedule or stress usually affect your spending after shift?";
+  if (field.key === "dependents") return "Who depends on you right now, and is that support regular or only when needed?";
+  if (field.key === "incomePattern") return "When your income arrives, does the timing feel predictable or does it still change often?";
+  if (field.key === "workType") return "Does your work setup feel stable right now, or is it affecting your energy lately?";
   if (field.key === "currentFinancialPressure") return "What part of this pressure feels most urgent this month?";
   if (field.key === "mainFinancialGoal") return "What would make this goal feel successful for you in the next 30 days?";
 
@@ -183,7 +185,8 @@ function validSavedReply(reply) {
   const text = clean(reply).toLowerCase();
   if (!text || !text.includes("?")) return false;
   if (text.includes("updated to") && text.endsWith("to")) return false;
-  return text.includes("share") || text.includes("support") || text.includes("expense") || text.includes("bill") || text.includes("detail") || text.includes("anything else") || text.includes("elaborating") || text.includes("add") || text.includes("follow") || text.includes("correct") || text.includes("keep");
+  if (text.includes("contributing") || text.includes("bill") || text.includes("bills") || text.includes("expense") || text.includes("expenses")) return false;
+  return text.includes("stable") || text.includes("adjust") || text.includes("setup") || text.includes("live") || text.includes("living") || text.includes("detail") || text.includes("anything else") || text.includes("elaborating") || text.includes("add") || text.includes("follow") || text.includes("correct") || text.includes("keep");
 }
 
 function isNoMoreReply(value) {
@@ -238,11 +241,13 @@ Natural meaning: ${naturalValue || "none"}
 System action: ${action === "ask" ? "The user wants to change this specific memory but did not provide the replacement value. Ask one clear probing follow-up question for the exact corrected value. Do not save or assume anything." : `The memory was updated to the refined value: ${value}`}
 
 Rules:
+- Stay inside the current memory topic only.
 - Do not repeat the raw user sentence as the memory.
 - If saved, summarize the refined meaning in a natural way, not as a database value.
-- If saved, ask one specific follow-up question that fits the topic. For living with partner, ask about shared expenses or whether money is kept separate.
+- If the topic is Living situation, ask only about the living setup: who they live with, whether it is stable, temporary, new, or something they are adjusting to.
+- If the topic is Living situation, do NOT ask about bills, expenses, rent payment, contribution, money split, or financial responsibilities. Those belong to other Me sections.
 - If asking, directly reference the topic and ask for the corrected value.
-- Be warm, personal, and financially aware.
+- Be warm, personal, and financially aware without leaving the section context.
 - Do not mention storage, database, keys, model, or Gemini.
 - Keep under 80 words.`;
 
@@ -265,7 +270,7 @@ Rules:
 }
 
 async function askGeminiForQuestion({ drawer, field, current, userText }) {
-  const fallback = `You can ask me how your ${field.label.toLowerCase()} affects your money decisions, or you can update it if this part of your life has changed. ${followUpQuestion()}`;
+  const fallback = `You can ask me how your ${field.label.toLowerCase()} affects your current life context, or you can update it if this part of your life has changed. ${followUpQuestion()}`;
   if (!hasGeminiConfig()) return fallback;
 
   try {
@@ -277,7 +282,7 @@ Topic: ${field.label}
 Current remembered value: ${current || "not saved yet"}
 User question: ${userText}
 
-Answer the user's question naturally as CLARA. Be warm, concise, emotionally aware, and financially relevant. Do not update the memory unless the user gives a clear replacement value. End with a natural follow-up like "Anything else I can help you with, ${USER_NAME}?" unless the user is saying goodbye. Do not mention storage, database, keys, model, or Gemini. Keep under 65 words.`;
+Answer the user's question naturally as CLARA. Stay inside this memory topic. If the topic is Living situation, talk about the home/living setup only, not bills, expenses, rent payment, contributions, money split, or responsibilities. Do not update the memory unless the user gives a clear replacement value. End with a natural follow-up like "Anything else I can help you with, ${USER_NAME}?" unless the user is saying goodbye. Do not mention storage, database, keys, model, or Gemini. Keep under 65 words.`;
 
     const reply = clean(await generateClaraGeminiReply({
       mode: "me-memory-question",
@@ -333,7 +338,7 @@ export default function MeMemoryChat({ drawer, field, onClose, onSaved }) {
     setMessages((items) => [
       ...items,
       { role: "user", text: "I want to ask about this." },
-      { role: "clara", text: `Sure — ask me anything about your ${field.label.toLowerCase()}, or how it affects your money decisions.` },
+      { role: "clara", text: `Sure — ask me anything about your ${field.label.toLowerCase()}, or how it affects this part of your life.` },
     ]);
   };
 
