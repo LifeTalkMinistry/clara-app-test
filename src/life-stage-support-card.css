@@ -1,0 +1,98 @@
+/* CLARA Life Stage Support Card — emotional intelligence pass */
+
+#root section[data-clara-support-card="true"] {
+  position: relative !important;
+  isolation: isolate !important;
+  overflow: hidden !important;
+  border-color: rgba(216, 180, 254, 0.13) !important;
+  background:
+    radial-gradient(circle at 0% 0%, rgba(45, 212, 191, 0.10), transparent 34%),
+    radial-gradient(circle at 94% 28%, rgba(216, 180, 254, 0.16), transparent 38%),
+    linear-gradient(135deg, rgba(7, 18, 38, 0.78), rgba(18, 14, 43, 0.88)) !important;
+  box-shadow:
+    0 18px 46px rgba(0, 0, 0, 0.26),
+    inset 0 1px 0 rgba(255, 255, 255, 0.065),
+    0 0 26px rgba(167, 139, 250, 0.07) !important;
+}
+
+#root section[data-clara-support-card="true"]::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  background:
+    linear-gradient(115deg, rgba(255, 255, 255, 0.075), transparent 28%, transparent 70%, rgba(255, 255, 255, 0.035)),
+    radial-gradient(circle at 82% 50%, rgba(244, 114, 182, 0.11), transparent 36%);
+  opacity: 0.78;
+}
+
+#root section[data-clara-support-card="true"] > div {
+  position: relative !important;
+  z-index: 2 !important;
+}
+
+#root section[data-clara-support-card="true"] h3 {
+  color: rgba(255, 255, 255, 0.95) !important;
+  font-size: 14px !important;
+  letter-spacing: -0.02em !important;
+}
+
+#root section[data-clara-support-card="true"] h3 + p {
+  margin-top: 0.35rem !important;
+  max-width: 15.5rem !important;
+  color: rgba(248, 253, 255, 0.60) !important;
+  font-size: 11.35px !important;
+  line-height: 1.56 !important;
+}
+
+#root section[data-clara-support-card="true"] [data-clara-support-signal="true"] {
+  margin-top: 0.45rem !important;
+  max-width: 15.5rem !important;
+  color: rgba(165, 243, 252, 0.55) !important;
+  font-size: 10px !important;
+  font-weight: 800 !important;
+  line-height: 1.35 !important;
+  letter-spacing: -0.01em !important;
+}
+
+#root section[data-clara-support-card="true"] div[class*="rounded-full"]:has(svg) {
+  position: relative !important;
+  border-color: rgba(255, 255, 255, 0.28) !important;
+  background:
+    radial-gradient(circle at 50% 45%, rgba(244, 114, 182, 0.16), rgba(167, 139, 250, 0.10) 48%, rgba(255, 255, 255, 0.025)) !important;
+  box-shadow:
+    0 0 34px rgba(216, 180, 254, 0.22),
+    inset 0 1px 0 rgba(255, 255, 255, 0.09) !important;
+}
+
+#root section[data-clara-support-card="true"] div[class*="rounded-full"]:has(svg)::before {
+  content: "";
+  position: absolute;
+  inset: -7px;
+  border-radius: 999px;
+  border: 1px solid rgba(216, 180, 254, 0.13);
+  opacity: 0.85;
+  animation: claraSupportPulse 3.8s ease-in-out infinite;
+}
+
+#root section[data-clara-support-card="true"] svg {
+  filter: drop-shadow(0 0 16px rgba(244, 114, 182, 0.30));
+}
+
+@keyframes claraSupportPulse {
+  0%, 100% { transform: scale(0.96); opacity: 0.35; }
+  50% { transform: scale(1.04); opacity: 0.78; }
+}
+
+@media (max-width: 390px) {
+  #root section[data-clara-support-card="true"] h3 + p {
+    max-width: 14rem !important;
+    font-size: 10.8px !important;
+  }
+
+  #root section[data-clara-support-card="true"] [data-clara-support-signal="true"] {
+    max-width: 14rem !important;
+    font-size: 9.6px !important;
+  }
+}
