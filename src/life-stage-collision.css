@@ -121,9 +121,89 @@
   z-index: 2;
 }
 
-/* Trend snapshot moves a little closer after compacting the support card. */
+/* TREND SNAPSHOT — refined bottom intelligence module. */
 #root div[class*="flex h-full min-h-0 flex-col"][class*="rounded-[30px]"][class*="bg-[#020817]"][class*="px-3"][class*="pb-3"] > section:nth-of-type(3) {
-  margin-top: 0.70rem !important;
+  position: relative;
+  z-index: 18;
+  flex: 0 0 236px !important;
+  min-height: 236px !important;
+  margin-top: 0.72rem !important;
+  padding: 14px 12px 12px !important;
+  border-radius: 26px !important;
+  border-color: rgba(255, 255, 255, 0.12) !important;
+  background-color: rgba(4, 9, 24, 0.42) !important;
+  background-image:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.055), rgba(255, 255, 255, 0.018) 45%, rgba(255, 255, 255, 0.010)),
+    radial-gradient(circle at 8% 0%, rgba(45, 212, 191, 0.075), transparent 45%),
+    radial-gradient(circle at 92% 10%, rgba(168, 85, 247, 0.10), transparent 42%) !important;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.08),
+    0 18px 52px rgba(0, 0, 0, 0.28),
+    0 0 30px rgba(45, 212, 191, 0.035) !important;
+  backdrop-filter: blur(24px) saturate(1.18) !important;
+  -webkit-backdrop-filter: blur(24px) saturate(1.18) !important;
+}
+
+#root div[class*="flex h-full min-h-0 flex-col"][class*="rounded-[30px]"][class*="bg-[#020817]"][class*="px-3"][class*="pb-3"] > section:nth-of-type(3)::after {
+  content: "";
+  position: absolute;
+  top: 48px;
+  right: 0;
+  bottom: 10px;
+  width: 34px;
+  pointer-events: none;
+  border-radius: 0 24px 24px 0;
+  background: linear-gradient(90deg, transparent, rgba(4, 9, 24, 0.78));
+  z-index: 3;
+}
+
+#root div[class*="flex h-full min-h-0 flex-col"][class*="rounded-[30px]"][class*="bg-[#020817]"][class*="px-3"][class*="pb-3"] > section:nth-of-type(3) h3 {
+  font-size: 14px !important;
+  line-height: 1.05 !important;
+  letter-spacing: -0.02em;
+}
+
+#root div[class*="flex h-full min-h-0 flex-col"][class*="rounded-[30px]"][class*="bg-[#020817]"][class*="px-3"][class*="pb-3"] > section:nth-of-type(3) h3 + p {
+  margin-top: 3px !important;
+  color: rgba(255, 255, 255, 0.48) !important;
+}
+
+#root div[class*="flex h-full min-h-0 flex-col"][class*="rounded-[30px]"][class*="bg-[#020817]"][class*="px-3"][class*="pb-3"] > section:nth-of-type(3) > div:nth-child(2) {
+  gap: 10px !important;
+  padding: 1px 28px 2px 1px !important;
+  scroll-padding-left: 1px;
+}
+
+#root div[class*="flex h-full min-h-0 flex-col"][class*="rounded-[30px]"][class*="bg-[#020817]"][class*="px-3"][class*="pb-3"] > section:nth-of-type(3) button {
+  flex: 0 0 118px !important;
+  min-width: 118px !important;
+  min-height: 152px !important;
+  border-radius: 18px !important;
+  padding: 13px 12px !important;
+  border-color: rgba(255, 255, 255, 0.13) !important;
+  background-color: rgba(6, 11, 28, 0.42) !important;
+  background-image:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.045), rgba(255, 255, 255, 0.014)),
+    radial-gradient(circle at 50% 100%, rgba(45, 212, 191, 0.035), transparent 56%) !important;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.07),
+    0 14px 36px rgba(0, 0, 0, 0.20) !important;
+}
+
+#root div[class*="flex h-full min-h-0 flex-col"][class*="rounded-[30px]"][class*="bg-[#020817]"][class*="px-3"][class*="pb-3"] > section:nth-of-type(3) button p:first-child {
+  font-size: 9px !important;
+  color: rgba(255, 255, 255, 0.58) !important;
+}
+
+#root div[class*="flex h-full min-h-0 flex-col"][class*="rounded-[30px]"][class*="bg-[#020817]"][class*="px-3"][class*="pb-3"] > section:nth-of-type(3) button p:nth-child(2) {
+  margin-top: 8px !important;
+  font-size: 24px !important;
+  letter-spacing: -0.04em;
+}
+
+#root div[class*="flex h-full min-h-0 flex-col"][class*="rounded-[30px]"][class*="bg-[#020817]"][class*="px-3"][class*="pb-3"] > section:nth-of-type(3) svg {
+  margin-top: 10px !important;
+  height: 31px !important;
 }
 
 @media (max-width: 380px) {
@@ -136,5 +216,16 @@
     min-height: 116px !important;
     margin-top: -36px !important;
     padding: 12px 14px !important;
+  }
+
+  #root div[class*="flex h-full min-h-0 flex-col"][class*="rounded-[30px]"][class*="bg-[#020817]"][class*="px-3"][class*="pb-3"] > section:nth-of-type(3) {
+    flex-basis: 224px !important;
+    min-height: 224px !important;
+  }
+
+  #root div[class*="flex h-full min-h-0 flex-col"][class*="rounded-[30px]"][class*="bg-[#020817]"][class*="px-3"][class*="pb-3"] > section:nth-of-type(3) button {
+    flex-basis: 112px !important;
+    min-width: 112px !important;
+    min-height: 144px !important;
   }
 }
