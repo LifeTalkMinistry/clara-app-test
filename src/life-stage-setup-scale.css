@@ -2,126 +2,78 @@
    Enlarges the setup/focus choice area after removing the repeated summary card. */
 
 #root div[class*="fixed"][class*="inset-y-0"][class*="left-1/2"][class*="z-[9999]"] > main {
-  margin-top: 1.15rem !important;
-}
-
-#root div[class*="fixed"][class*="inset-y-0"][class*="left-1/2"][class*="z-[9999]"] > main > div:has(> section:first-child:has(+ section[class*="space-y-5"])) {
-  min-height: 100% !important;
-  display: flex !important;
-  flex-direction: column !important;
-  padding-top: 0 !important;
-}
-
-#root div[class*="fixed"][class*="inset-y-0"][class*="left-1/2"][class*="z-[9999]"] > main > div > section:first-child:has(+ section[class*="space-y-5"]) + section[class*="space-y-5"] {
-  flex: 1 1 auto !important;
-  min-height: clamp(342px, 49svh, 430px) !important;
-  display: flex !important;
-  flex-direction: column !important;
-  justify-content: flex-start !important;
-  gap: 1.55rem !important;
-  padding: 1.35rem 1.18rem !important;
-  border-radius: 31px !important;
-}
-
-#root div[class*="fixed"][class*="inset-y-0"][class*="left-1/2"][class*="z-[9999]"] > main > div > section:first-child:has(+ section[class*="space-y-5"]) + section[class*="space-y-5"] > div {
-  flex: 0 0 auto !important;
-}
-
-#root div[class*="fixed"][class*="inset-y-0"][class*="left-1/2"][class*="z-[9999]"] > main > div > section:first-child:has(+ section[class*="space-y-5"]) + section[class*="space-y-5"] > div > p:first-child {
-  font-size: 10.5px !important;
-  letter-spacing: 0.24em !important;
-  color: rgba(165, 243, 252, 0.72) !important;
-}
-
-#root div[class*="fixed"][class*="inset-y-0"][class*="left-1/2"][class*="z-[9999]"] > main > div > section:first-child:has(+ section[class*="space-y-5"]) + section[class*="space-y-5"] > div > p:nth-child(2) {
-  margin-top: 0.38rem !important;
-  font-size: 12.5px !important;
-  line-height: 1.55 !important;
-  color: rgba(255, 255, 255, 0.62) !important;
-}
-
-#root div[class*="fixed"][class*="inset-y-0"][class*="left-1/2"][class*="z-[9999]"] > main > div > section:first-child:has(+ section[class*="space-y-5"]) + section[class*="space-y-5"] > div > div {
-  gap: 11px !important;
-  margin-top: 0.92rem !important;
-}
-
-#root div[class*="fixed"][class*="inset-y-0"][class*="left-1/2"][class*="z-[9999]"] > main > div > section:first-child:has(+ section[class*="space-y-5"]) + section[class*="space-y-5"] > div > div > button {
-  min-height: 66px !important;
-  border-radius: 20px !important;
-  padding: 15px 40px 15px 15px !important;
-  font-size: 12px !important;
-  line-height: 1.24 !important;
-}
-
-#root div[class*="fixed"][class*="inset-y-0"][class*="left-1/2"][class*="z-[9999]"] > main > div > section:first-child:has(+ section[class*="space-y-5"]) + section[class*="space-y-5"] > div > div > button[class*="bg-cyan-200"]::after {
-  right: 13px !important;
-  height: 24px !important;
-  width: 24px !important;
-}
-
-#root div[class*="fixed"][class*="inset-y-0"][class*="left-1/2"][class*="z-[9999]"] > footer {
   margin-top: 1rem !important;
 }
 
+#root div[class*="fixed"][class*="inset-y-0"][class*="left-1/2"][class*="z-[9999]"] > footer {
+  margin-top: 0.75rem !important;
+}
+
 #root div[class*="fixed"][class*="inset-y-0"][class*="left-1/2"][class*="z-[9999]"] > footer > button {
-  min-height: 62px !important;
-  font-size: 15px !important;
-}
-
-/* Progressive mode: one question is visible, so make that question fill the screen confidently. */
-#root div[class*="fixed"][class*="inset-y-0"][class*="left-1/2"][class*="z-[9999]"] > main > div > section[data-clara-progressive-flow="true"] {
-  min-height: clamp(390px, 54svh, 500px) !important;
-  padding: 1.6rem 1.2rem !important;
-  justify-content: flex-start !important;
-}
-
-#root div[class*="fixed"][class*="inset-y-0"][class*="left-1/2"][class*="z-[9999]"] > main > div > section[data-clara-progressive-flow="true"] > div[data-clara-progressive-group] {
-  width: 100% !important;
-  min-height: 100% !important;
-  display: flex !important;
-  flex-direction: column !important;
-}
-
-#root div[class*="fixed"][class*="inset-y-0"][class*="left-1/2"][class*="z-[9999]"] > main > div > section[data-clara-progressive-flow="true"] > div[data-clara-progressive-group] > p:first-child {
-  font-size: 12px !important;
-  letter-spacing: 0.28em !important;
-  color: rgba(165, 243, 252, 0.78) !important;
-}
-
-#root div[class*="fixed"][class*="inset-y-0"][class*="left-1/2"][class*="z-[9999]"] > main > div > section[data-clara-progressive-flow="true"] > div[data-clara-progressive-group] > p:nth-child(2) {
-  max-width: 96% !important;
-  margin-top: 0.55rem !important;
+  min-height: 58px !important;
   font-size: 14px !important;
-  line-height: 1.7 !important;
-  color: rgba(255, 255, 255, 0.68) !important;
 }
 
-#root div[class*="fixed"][class*="inset-y-0"][class*="left-1/2"][class*="z-[9999]"] > main > div > section[data-clara-progressive-flow="true"] > div[data-clara-progressive-group] > div {
-  flex: 1 1 auto !important;
+/* ========================================================================
+   FINAL PROGRESSIVE FLOW LAYOUT
+======================================================================== */
+
+#root div[class*="fixed"][class*="inset-y-0"][class*="left-1/2"][class*="z-[9999]"] > main > div > section[data-clara-progressive-flow="true"] {
+  min-height: auto !important;
+  height: auto !important;
+  max-height: none !important;
+  display: block !important;
+  padding: 1rem !important;
+  border-radius: 28px !important;
+}
+
+#root div[class*="fixed"][class*="inset-y-0"][class*="left-1/2"][class*="z-[9999]"] > main > div > section[data-clara-progressive-flow="true"] > div[data-clara-progressive-visible="false"] {
+  display: none !important;
+}
+
+#root div[class*="fixed"][class*="inset-y-0"][class*="left-1/2"][class*="z-[9999]"] > main > div > section[data-clara-progressive-flow="true"] > div[data-clara-progressive-visible="true"] {
+  display: block !important;
+  width: 100% !important;
+}
+
+#root div[class*="fixed"][class*="inset-y-0"][class*="left-1/2"][class*="z-[9999]"] > main > div > section[data-clara-progressive-flow="true"] > div[data-clara-progressive-visible="true"] > p:first-child {
+  font-size: 11px !important;
+  letter-spacing: 0.26em !important;
+}
+
+#root div[class*="fixed"][class*="inset-y-0"][class*="left-1/2"][class*="z-[9999]"] > main > div > section[data-clara-progressive-flow="true"] > div[data-clara-progressive-visible="true"] > p:nth-child(2) {
+  margin-top: 0.42rem !important;
+  font-size: 13px !important;
+  line-height: 1.5 !important;
+}
+
+/* Balanced adaptive tiles */
+#root div[class*="fixed"][class*="inset-y-0"][class*="left-1/2"][class*="z-[9999]"] > main > div > section[data-clara-progressive-flow="true"] > div[data-clara-progressive-visible="true"] > div {
   display: grid !important;
   grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
-  align-content: start !important;
-  gap: 14px !important;
-  margin-top: 1.35rem !important;
+  grid-auto-rows: 68px !important;
+  gap: 11px !important;
+  margin-top: 0.85rem !important;
 }
 
-#root div[class*="fixed"][class*="inset-y-0"][class*="left-1/2"][class*="z-[9999]"] > main > div > section[data-clara-progressive-flow="true"] > div[data-clara-progressive-group] > div > button {
-  min-height: 96px !important;
-  border-radius: 24px !important;
-  padding: 18px 44px 18px 17px !important;
-  font-size: 14px !important;
-  line-height: 1.22 !important;
-  letter-spacing: -0.02em !important;
+#root div[class*="fixed"][class*="inset-y-0"][class*="left-1/2"][class*="z-[9999]"] > main > div > section[data-clara-progressive-flow="true"] > div[data-clara-progressive-visible="true"] > div > button {
+  min-height: 68px !important;
+  height: 68px !important;
+  border-radius: 20px !important;
+  padding: 0 36px 0 14px !important;
+  font-size: 12px !important;
+  line-height: 1.1 !important;
+  align-items: center !important;
+  justify-content: flex-start !important;
   box-shadow:
-    0 16px 38px rgba(0, 0, 0, 0.25),
+    0 12px 24px rgba(0, 0, 0, 0.22),
     inset 0 1px 0 rgba(255, 255, 255, 0.08) !important;
 }
 
-#root div[class*="fixed"][class*="inset-y-0"][class*="left-1/2"][class*="z-[9999]"] > main > div > section[data-clara-progressive-flow="true"] > div[data-clara-progressive-group] > div > button[class*="bg-cyan-200"]::after {
-  right: 14px !important;
-  height: 28px !important;
-  width: 28px !important;
-  font-size: 14px !important;
+#root div[class*="fixed"][class*="inset-y-0"][class*="left-1/2"][class*="z-[9999]"] > main > div > section[data-clara-progressive-flow="true"] > div[data-clara-progressive-visible="true"] > div > button[class*="bg-cyan-200"]::after {
+  width: 22px !important;
+  height: 22px !important;
+  right: 11px !important;
 }
 
 @media (max-height: 760px) {
@@ -129,70 +81,18 @@
     margin-top: 0.85rem !important;
   }
 
-  #root div[class*="fixed"][class*="inset-y-0"][class*="left-1/2"][class*="z-[9999]"] > main > div > section:first-child:has(+ section[class*="space-y-5"]) + section[class*="space-y-5"] {
-    min-height: 330px !important;
-    gap: 1.18rem !important;
-    padding: 1.12rem !important;
-  }
-
-  #root div[class*="fixed"][class*="inset-y-0"][class*="left-1/2"][class*="z-[9999]"] > main > div > section:first-child:has(+ section[class*="space-y-5"]) + section[class*="space-y-5"] > div > div > button {
-    min-height: 60px !important;
-    font-size: 11.5px !important;
-  }
-
   #root div[class*="fixed"][class*="inset-y-0"][class*="left-1/2"][class*="z-[9999]"] > main > div > section[data-clara-progressive-flow="true"] {
-    min-height: 370px !important;
-    padding: 1.25rem 1rem !important;
+    padding: 0.9rem !important;
   }
 
-  #root div[class*="fixed"][class*="inset-y-0"][class*="left-1/2"][class*="z-[9999]"] > main > div > section[data-clara-progressive-flow="true"] > div[data-clara-progressive-group] > div {
-    gap: 12px !important;
-    margin-top: 1rem !important;
-  }
-
-  #root div[class*="fixed"][class*="inset-y-0"][class*="left-1/2"][class*="z-[9999]"] > main > div > section[data-clara-progressive-flow="true"] > div[data-clara-progressive-group] > div > button {
-    min-height: 84px !important;
-    font-size: 13px !important;
-  }
-
-  #root div[class*="fixed"][class*="inset-y-0"][class*="left-1/2"][class*="z-[9999]"] > footer {
-    margin-top: 0.78rem !important;
-  }
-
-  #root div[class*="fixed"][class*="inset-y-0"][class*="left-1/2"][class*="z-[9999]"] > footer > button {
-    min-height: 58px !important;
-  }
-}
-
-@media (max-width: 380px) {
-  #root div[class*="fixed"][class*="inset-y-0"][class*="left-1/2"][class*="z-[9999]"] > main > div > section:first-child:has(+ section[class*="space-y-5"]) + section[class*="space-y-5"] {
-    min-height: 330px !important;
-    gap: 1.15rem !important;
-    padding: 1rem !important;
-  }
-
-  #root div[class*="fixed"][class*="inset-y-0"][class*="left-1/2"][class*="z-[9999]"] > main > div > section:first-child:has(+ section[class*="space-y-5"]) + section[class*="space-y-5"] > div > div {
+  #root div[class*="fixed"][class*="inset-y-0"][class*="left-1/2"][class*="z-[9999]"] > main > div > section[data-clara-progressive-flow="true"] > div[data-clara-progressive-visible="true"] > div {
+    grid-auto-rows: 60px !important;
     gap: 9px !important;
   }
 
-  #root div[class*="fixed"][class*="inset-y-0"][class*="left-1/2"][class*="z-[9999]"] > main > div > section:first-child:has(+ section[class*="space-y-5"]) + section[class*="space-y-5"] > div > div > button {
-    min-height: 58px !important;
-    padding: 13px 36px 13px 13px !important;
-    font-size: 10.8px !important;
-  }
-
-  #root div[class*="fixed"][class*="inset-y-0"][class*="left-1/2"][class*="z-[9999]"] > main > div > section[data-clara-progressive-flow="true"] {
-    min-height: 360px !important;
-    padding: 1.15rem 0.95rem !important;
-  }
-
-  #root div[class*="fixed"][class*="inset-y-0"][class*="left-1/2"][class*="z-[9999]"] > main > div > section[data-clara-progressive-flow="true"] > div[data-clara-progressive-group] > div {
-    gap: 10px !important;
-  }
-
-  #root div[class*="fixed"][class*="inset-y-0"][class*="left-1/2"][class*="z-[9999]"] > main > div > section[data-clara-progressive-flow="true"] > div[data-clara-progressive-group] > div > button {
-    min-height: 78px !important;
-    padding: 15px 38px 15px 14px !important;
-    font-size: 12px !important;
+  #root div[class*="fixed"][class*="inset-y-0"][class*="left-1/2"][class*="z-[9999]"] > main > div > section[data-clara-progressive-flow="true"] > div[data-clara-progressive-visible="true"] > div > button {
+    min-height: 60px !important;
+    height: 60px !important;
+    font-size: 11px !important;
   }
 }
