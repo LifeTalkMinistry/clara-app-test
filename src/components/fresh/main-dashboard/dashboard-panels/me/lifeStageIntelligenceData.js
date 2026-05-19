@@ -71,7 +71,7 @@ export const LIFE_STAGE_INTELLIGENCE = {
     "Time, school, work, energy, and money all compete for attention.",
     "Working Students are balancing education, income, survival, and identity while managing limited time and uneven routines.",
     {
-      setup: ["Mostly school", "Mostly work", "Trying to balance", "Schedule keeps changing"],
+      setup: ["First job", "Early career", "Exploring income", "Building independence"],
       rhythm: ["Allowance + work", "Part-time only", "Income is irregular", "Seasonal income"],
       pressure: ["School costs", "Transport pressure", "Burnout risk", "Family expectations"],
       goal: ["Graduate safely", "Save slowly", "Avoid debt", "Help family"],
