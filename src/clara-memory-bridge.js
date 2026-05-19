@@ -1,3 +1,6 @@
+import "./life-stage-progressive-flow";
+import "./life-stage-progressive-flow.css";
+
 const CLARA_MEMORY_KEY = "clara_behavioral_memory_v1";
 const CLARA_MEMORY_DB = "clara_behavioral_memory_db";
 const CLARA_MEMORY_STORE = "behavioral_memory";
