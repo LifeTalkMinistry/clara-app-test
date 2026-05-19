@@ -1,0 +1,112 @@
+/* CLARA Life Stage Setup scale pass
+   Enlarges the setup/focus choice area after removing the repeated summary card. */
+
+#root div[class*="fixed"][class*="inset-y-0"][class*="left-1/2"][class*="z-[9999]"] > main {
+  margin-top: 1.15rem !important;
+}
+
+#root div[class*="fixed"][class*="inset-y-0"][class*="left-1/2"][class*="z-[9999]"] > main > div:has(> section:first-child:has(+ section[class*="space-y-5"])) {
+  min-height: 100% !important;
+  display: flex !important;
+  flex-direction: column !important;
+  padding-top: 0 !important;
+}
+
+#root div[class*="fixed"][class*="inset-y-0"][class*="left-1/2"][class*="z-[9999]"] > main > div > section:first-child:has(+ section[class*="space-y-5"]) + section[class*="space-y-5"] {
+  flex: 1 1 auto !important;
+  min-height: clamp(342px, 49svh, 430px) !important;
+  display: flex !important;
+  flex-direction: column !important;
+  justify-content: flex-start !important;
+  gap: 1.55rem !important;
+  padding: 1.35rem 1.18rem !important;
+  border-radius: 31px !important;
+}
+
+#root div[class*="fixed"][class*="inset-y-0"][class*="left-1/2"][class*="z-[9999]"] > main > div > section:first-child:has(+ section[class*="space-y-5"]) + section[class*="space-y-5"] > div {
+  flex: 0 0 auto !important;
+}
+
+#root div[class*="fixed"][class*="inset-y-0"][class*="left-1/2"][class*="z-[9999]"] > main > div > section:first-child:has(+ section[class*="space-y-5"]) + section[class*="space-y-5"] > div > p:first-child {
+  font-size: 10.5px !important;
+  letter-spacing: 0.24em !important;
+  color: rgba(165, 243, 252, 0.72) !important;
+}
+
+#root div[class*="fixed"][class*="inset-y-0"][class*="left-1/2"][class*="z-[9999]"] > main > div > section:first-child:has(+ section[class*="space-y-5"]) + section[class*="space-y-5"] > div > p:nth-child(2) {
+  margin-top: 0.38rem !important;
+  font-size: 12.5px !important;
+  line-height: 1.55 !important;
+  color: rgba(255, 255, 255, 0.62) !important;
+}
+
+#root div[class*="fixed"][class*="inset-y-0"][class*="left-1/2"][class*="z-[9999]"] > main > div > section:first-child:has(+ section[class*="space-y-5"]) + section[class*="space-y-5"] > div > div {
+  gap: 11px !important;
+  margin-top: 0.92rem !important;
+}
+
+#root div[class*="fixed"][class*="inset-y-0"][class*="left-1/2"][class*="z-[9999]"] > main > div > section:first-child:has(+ section[class*="space-y-5"]) + section[class*="space-y-5"] > div > div > button {
+  min-height: 66px !important;
+  border-radius: 20px !important;
+  padding: 15px 40px 15px 15px !important;
+  font-size: 12px !important;
+  line-height: 1.24 !important;
+}
+
+#root div[class*="fixed"][class*="inset-y-0"][class*="left-1/2"][class*="z-[9999]"] > main > div > section:first-child:has(+ section[class*="space-y-5"]) + section[class*="space-y-5"] > div > div > button[class*="bg-cyan-200"]::after {
+  right: 13px !important;
+  height: 24px !important;
+  width: 24px !important;
+}
+
+#root div[class*="fixed"][class*="inset-y-0"][class*="left-1/2"][class*="z-[9999]"] > footer {
+  margin-top: 1rem !important;
+}
+
+#root div[class*="fixed"][class*="inset-y-0"][class*="left-1/2"][class*="z-[9999]"] > footer > button {
+  min-height: 62px !important;
+  font-size: 15px !important;
+}
+
+@media (max-height: 760px) {
+  #root div[class*="fixed"][class*="inset-y-0"][class*="left-1/2"][class*="z-[9999]"] > main {
+    margin-top: 0.85rem !important;
+  }
+
+  #root div[class*="fixed"][class*="inset-y-0"][class*="left-1/2"][class*="z-[9999]"] > main > div > section:first-child:has(+ section[class*="space-y-5"]) + section[class*="space-y-5"] {
+    min-height: 330px !important;
+    gap: 1.18rem !important;
+    padding: 1.12rem !important;
+  }
+
+  #root div[class*="fixed"][class*="inset-y-0"][class*="left-1/2"][class*="z-[9999]"] > main > div > section:first-child:has(+ section[class*="space-y-5"]) + section[class*="space-y-5"] > div > div > button {
+    min-height: 60px !important;
+    font-size: 11.5px !important;
+  }
+
+  #root div[class*="fixed"][class*="inset-y-0"][class*="left-1/2"][class*="z-[9999]"] > footer {
+    margin-top: 0.78rem !important;
+  }
+
+  #root div[class*="fixed"][class*="inset-y-0"][class*="left-1/2"][class*="z-[9999]"] > footer > button {
+    min-height: 58px !important;
+  }
+}
+
+@media (max-width: 380px) {
+  #root div[class*="fixed"][class*="inset-y-0"][class*="left-1/2"][class*="z-[9999]"] > main > div > section:first-child:has(+ section[class*="space-y-5"]) + section[class*="space-y-5"] {
+    min-height: 330px !important;
+    gap: 1.15rem !important;
+    padding: 1rem !important;
+  }
+
+  #root div[class*="fixed"][class*="inset-y-0"][class*="left-1/2"][class*="z-[9999]"] > main > div > section:first-child:has(+ section[class*="space-y-5"]) + section[class*="space-y-5"] > div > div {
+    gap: 9px !important;
+  }
+
+  #root div[class*="fixed"][class*="inset-y-0"][class*="left-1/2"][class*="z-[9999]"] > main > div > section:first-child:has(+ section[class*="space-y-5"]) + section[class*="space-y-5"] > div > div > button {
+    min-height: 58px !important;
+    padding: 13px 36px 13px 13px !important;
+    font-size: 10.8px !important;
+  }
+}
