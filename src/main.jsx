@@ -21,6 +21,7 @@ import "./life-context-polish.css";
 import "./life-stage-hero-polish.css";
 import "./life-stage-support-card.css";
 import "./life-stage-trend-snapshot.css";
+import "./life-stage-trend-snapshot-hide-icon.css";
 import "./settings-cleanup.css";
 import "./settings-priority.css";
 import "./settings-support-compose.css";
