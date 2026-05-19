@@ -48,9 +48,21 @@ function getFooterButtons(modal) {
   };
 }
 
-function setButtonText(button, text) {
-  if (!button || cleanText(button.textContent) === text) return;
-  button.textContent = text;
+function resetProgressiveMarkup(modal) {
+  const markedNodes = Array.from(
+    modal?.querySelectorAll(
+      "[data-clara-progressive-flow], [data-clara-progressive-phase], [data-clara-progressive-screen], [data-clara-progressive-group], [data-clara-progressive-visible]"
+    ) || []
+  );
+
+  markedNodes.forEach((node) => {
+    node.removeAttribute("data-clara-progressive-flow");
+    node.removeAttribute("data-clara-progressive-phase");
+    node.removeAttribute("data-clara-progressive-screen");
+    node.removeAttribute("data-clara-progressive-group");
+    node.removeAttribute("data-clara-progressive-visible");
+    node.style.removeProperty("display");
+  });
 }
 
 function setGroupVisibility(group, visible) {
@@ -100,6 +112,7 @@ function applyProgressiveFlow() {
   if (progressiveState.screen !== screen) {
     progressiveState.screen = screen;
     progressiveState.phase = 0;
+    resetProgressiveMarkup(modal);
   }
 
   applyProgressDots(modal, screen);
@@ -107,6 +120,7 @@ function applyProgressiveFlow() {
   const { panel, groups } = getProgressivePanel(modal);
 
   if (!panel || !["environment", "focus"].includes(screen) || groups.length < 2) {
+    if (!["environment", "focus"].includes(screen)) resetProgressiveMarkup(modal);
     return;
   }
 
@@ -122,19 +136,6 @@ function applyProgressiveFlow() {
 
   setGroupVisibility(firstGroup, !isSecondPhase);
   setGroupVisibility(secondGroup, isSecondPhase);
-
-  const { primaryButton } = getFooterButtons(modal);
-
-  if (!isSecondPhase) {
-    setButtonText(primaryButton, "Next");
-    return;
-  }
-
-  if (screen === "environment") {
-    setButtonText(primaryButton, "Continue");
-  } else {
-    setButtonText(primaryButton, "✓ Apply stage");
-  }
 }
 
 function handleProgressiveClick(event) {
