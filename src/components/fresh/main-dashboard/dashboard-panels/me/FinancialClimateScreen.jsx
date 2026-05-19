@@ -54,51 +54,175 @@ const PEOPLE_IN_STAGE_COPY = {
 };
 
 const QUESTION_META = {
-  setup: {
-    title: "Shape the environment",
-    eyebrow: "Current setup",
-    label: "Working student life",
-    helper: "What kind of working student life are you in right now?",
-    subtitle: "Start by choosing the setup that best explains your real environment.",
-  },
-  rhythm: {
-    title: "Shape the environment",
-    eyebrow: "Money rhythm",
-    label: "Current rhythm",
-    helper: "How does money usually come in during this season?",
-    subtitle: "Now choose your money rhythm so CLARA can understand stability and timing.",
-  },
-  workload: {
-    title: "Measure the weight",
-    eyebrow: "Weekly load",
-    label: "Routine weight",
-    helper: "How heavy does your weekly routine feel lately?",
-    subtitle: "This helps CLARA separate a busy season from a survival-mode season.",
-  },
-  pressure: {
-    title: "Set your pressure",
-    eyebrow: "Pressure right now",
-    label: "Main pressure",
-    helper: "What is affecting your decisions the most right now?",
-    subtitle: "Choose the pressure that is shaping your money choices the most.",
-  },
-  coping: {
-    title: "Read the pattern",
-    eyebrow: "Pressure response",
-    label: "When pressure gets heavy",
-    helper: "What usually happens when this season feels heavy?",
-    subtitle: "This helps CLARA understand the behavior behind spending, not just the expense.",
-  },
-  goal: {
-    title: "Set your focus",
-    eyebrow: "Main focus",
-    label: "Protection goal",
-    helper: "What should CLARA help you protect first?",
-    subtitle: "Choose what matters most so CLARA can complete your life-season profile.",
-  },
+  setup: { eyebrow: "Current setup" },
+  rhythm: { eyebrow: "Money rhythm" },
+  workload: { eyebrow: "Weekly load" },
+  pressure: { eyebrow: "Pressure right now" },
+  coping: { eyebrow: "Pressure response" },
+  goal: { eyebrow: "Protection goal" },
 };
 
 const QUESTION_ORDER = ["setup", "rhythm", "workload", "pressure", "coping", "goal"];
+
+const ANSWER_CONTEXT = {
+  setup: {
+    "Family-supported + working": {
+      title: "Supported ambition",
+      summary:
+        "CLARA sees support in your environment, but also a stretched schedule. The pressure may show more through time, energy, and guilt around using money for yourself.",
+    },
+    "Self-supporting student": {
+      title: "Self-support pressure",
+      summary:
+        "CLARA sees a higher independence load. School, daily needs, and income decisions may be connected because fewer expenses can be treated as optional.",
+    },
+    "Helping family while studying": {
+      title: "Shared responsibility",
+      summary:
+        "CLARA sees family responsibility inside your student season. This can create emotional pressure because personal progress and family needs may compete.",
+    },
+    "First job while studying": {
+      title: "Adjustment season",
+      summary:
+        "CLARA sees a new work-school rhythm forming. This can create reward spending because earning money and exhaustion are happening at the same time.",
+    },
+    "Side hustle student": {
+      title: "Flexible but uneven",
+      summary:
+        "CLARA sees flexible income mixed with school pressure. The opportunity is strong, but timing and consistency may be harder to predict.",
+    },
+  },
+  rhythm: {
+    "Allowance + work income": {
+      title: "Mixed support rhythm",
+      summary:
+        "CLARA sees money coming from both support and effort. This can reduce survival pressure, but it may also make tracking harder when sources mix.",
+    },
+    "Fixed part-time pay": {
+      title: "Predictable effort",
+      summary:
+        "CLARA sees a clearer pay rhythm. This gives you a stronger base for planning, but your energy and school load still need protection.",
+    },
+    "Irregular side income": {
+      title: "Unstable timing",
+      summary:
+        "CLARA sees income that can change from week to week. This increases the need for buffers because expenses may be fixed while earnings are not.",
+    },
+    "Seasonal/project income": {
+      title: "Wave-based income",
+      summary:
+        "CLARA sees money arriving in waves. This can feel good during strong weeks, but weak weeks need planned protection before they happen.",
+    },
+    "Mostly allowance, small extra work": {
+      title: "Light earning layer",
+      summary:
+        "CLARA sees allowance as the main base with small earning support. The main pattern to watch is spending discipline before bigger income arrives.",
+    },
+  },
+  workload: {
+    Manageable: {
+      title: "Still manageable",
+      summary:
+        "CLARA sees a season that still has room for control. This is a good point to build habits before pressure becomes heavier.",
+    },
+    "Tight but okay": {
+      title: "Tight but moving",
+      summary:
+        "CLARA sees a schedule that is still functioning, but already demanding. Small leaks in money or rest may become noticeable faster.",
+    },
+    Heavy: {
+      title: "Heavy overlap",
+      summary:
+        "CLARA sees work, school, and personal needs starting to overlap. This is where convenience spending and missed tracking can quietly increase.",
+    },
+    "Survival mode": {
+      title: "Survival rhythm",
+      summary:
+        "CLARA sees limited recovery space. The priority is not perfection; it is protecting essentials, reducing pressure, and avoiding decisions made from exhaustion.",
+    },
+  },
+  pressure: {
+    "Tuition or school costs": {
+      title: "Education pressure",
+      summary:
+        "CLARA sees school costs as the main decision weight. This means budgeting should protect deadlines, tuition needs, and school-related payments first.",
+    },
+    "Daily food and transport": {
+      title: "Daily survival costs",
+      summary:
+        "CLARA sees repeated daily expenses shaping the month. Small costs may not look dangerous alone, but they can drain money through frequency.",
+    },
+    "Too much work and school load": {
+      title: "Energy pressure",
+      summary:
+        "CLARA sees time and energy as the main financial trigger. Spending may happen not from carelessness, but from needing relief or convenience.",
+    },
+    "Family contribution": {
+      title: "Family-linked pressure",
+      summary:
+        "CLARA sees family support as part of your money decisions. The goal is to help wisely without letting guilt erase your own stability.",
+    },
+    "Debt or borrowed money": {
+      title: "Debt pressure",
+      summary:
+        "CLARA sees borrowed money or delayed payments affecting your choices. This makes avoiding new pressure and protecting repayment rhythm more important.",
+    },
+  },
+  coping: {
+    "I buy small rewards": {
+      title: "Reward spending pattern",
+      summary:
+        "CLARA sees small purchases acting as emotional relief. The goal is not to shame rewards, but to stop stress from quietly turning into repeated leaks.",
+    },
+    "I avoid checking my money": {
+      title: "Avoidance pattern",
+      summary:
+        "CLARA sees money checking as emotionally heavy. This can protect your feelings short-term, but it may increase surprise pressure later.",
+    },
+    "I borrow or delay payments": {
+      title: "Delay-to-survive pattern",
+      summary:
+        "CLARA sees survival decisions happening first, then repair later. The system should protect you from stacking pressure across weeks.",
+    },
+    "I cut back too much": {
+      title: "Over-sacrifice pattern",
+      summary:
+        "CLARA sees you reducing needs too aggressively. Saving matters, but your food, rest, and basic energy should not be treated as optional.",
+    },
+    "I ask for help": {
+      title: "Support-seeking pattern",
+      summary:
+        "CLARA sees an active support habit. This can lower risk when used wisely, especially if boundaries and repayment expectations are clear.",
+    },
+  },
+  goal: {
+    "Graduate safely": {
+      title: "Protect graduation",
+      summary:
+        "CLARA will prioritize finishing school without letting money pressure, exhaustion, or avoidable debt damage your progress.",
+    },
+    "Avoid debt": {
+      title: "Protect from debt",
+      summary:
+        "CLARA will prioritize preventing new borrowed-money pressure and helping you see risky spending before it becomes a cycle.",
+    },
+    "Build savings slowly": {
+      title: "Protect small savings",
+      summary:
+        "CLARA will prioritize small, realistic saving moves that still respect your limited income and student workload.",
+    },
+    "Help family wisely": {
+      title: "Protect wise support",
+      summary:
+        "CLARA will prioritize helping family without losing your own school stability, essentials, and emergency protection.",
+    },
+    "Control stress spending": {
+      title: "Protect from stress spending",
+      summary:
+        "CLARA will prioritize replacing pressure-based spending with safer relief patterns that still feel human and realistic.",
+    },
+  },
+};
 
 const CATEGORY_STYLES = {
   pressure: {
@@ -217,6 +341,41 @@ function buildStageDraft(stageName, previous = {}) {
   });
 
   return next;
+}
+
+function getAnswerContext(questionKey, value) {
+  const match = ANSWER_CONTEXT[questionKey]?.[value];
+  if (match) return match;
+
+  return {
+    title: value || "Building context",
+    summary: "CLARA will use this answer together with the previous answers to shape the life-stage snapshot.",
+  };
+}
+
+function getBoardContext({ step, activeQuestionKey, draft, peopleInStage, questionKeys, stepIndex }) {
+  if (step === "stage") {
+    return {
+      title: draft.stage,
+      summary: peopleInStage,
+      trail: [],
+    };
+  }
+
+  const selectedValue = draft[activeQuestionKey];
+  const currentInsight = getAnswerContext(activeQuestionKey, selectedValue);
+  const priorKeys = questionKeys.slice(0, Math.max(0, stepIndex - 1));
+  const priorValues = priorKeys.map((key) => draft[key]).filter(Boolean);
+  const trail = questionKeys.slice(0, Math.max(0, stepIndex)).map((key) => draft[key]).filter(Boolean);
+  const contextLine = priorValues.length
+    ? `CLARA is combining this with ${priorValues.slice(-2).join(" + ")} to form the full context.`
+    : "This becomes the first clue in your life-stage context.";
+
+  return {
+    title: currentInsight.title,
+    summary: `${currentInsight.summary} ${contextLine}`,
+    trail,
+  };
 }
 
 function MiniGraph({ category }) {
@@ -405,15 +564,11 @@ function StageCard({ stage, active, onClick }) {
   );
 }
 
-function OptionGroup({ eyebrow, label, helper, value, options, onSelect }) {
+function OptionGroup({ eyebrow, value, options, onSelect }) {
   return (
-    <section className="space-y-3 rounded-[26px] border border-white/[0.085] bg-[#071226]/64 p-5 shadow-[0_16px_38px_rgba(0,0,0,.20),inset_0_1px_0_rgba(255,255,255,.04)] backdrop-blur-xl">
+    <section className="space-y-4 rounded-[26px] border border-white/[0.085] bg-[#071226]/64 p-5 shadow-[0_16px_38px_rgba(0,0,0,.20),inset_0_1px_0_rgba(255,255,255,.04)] backdrop-blur-xl">
       <p className="text-[9px] font-black uppercase tracking-[0.18em] text-cyan-100/42">{eyebrow}</p>
-      <div>
-        <h4 className="text-[13px] font-black leading-tight text-white/82">{label}</h4>
-        {helper ? <p className="mt-1 text-[12px] font-semibold leading-5 text-white/44">{helper}</p> : null}
-      </div>
-      <div className="space-y-3 pt-1">
+      <div className="space-y-3">
         {options.map((option) => {
           const active = option === value;
           return (
@@ -455,6 +610,7 @@ function LifeStageSetupScreen({ profile, onClose, onSave }) {
   const activeMeta = activeQuestionKey ? QUESTION_META[activeQuestionKey] || QUESTION_META.setup : null;
   const progressPillIndex = Math.round((stepIndex / Math.max(1, stepOrder.length - 1)) * 4);
   const peopleInStage = getPeopleCopy(draft.stage, definition);
+  const boardContext = getBoardContext({ step, activeQuestionKey, draft, peopleInStage, questionKeys, stepIndex });
 
   useEffect(() => {
     if (typeof document === "undefined") return undefined;
@@ -488,9 +644,6 @@ function LifeStageSetupScreen({ profile, onClose, onSave }) {
     onClose();
   };
 
-  const setupTitle = step === "stage" ? draft.stage : activeMeta?.title || "Shape the environment";
-  const setupSubtitle = step === "stage" ? peopleInStage : activeMeta?.subtitle || "Choose the option that best explains this season.";
-
   return (
     <div className="fixed inset-y-0 left-1/2 z-[9999] flex h-[100svh] w-full max-w-[430px] -translate-x-1/2 flex-col overflow-hidden bg-[#020817] px-4 pb-[max(16px,env(safe-area-inset-bottom))] pt-[max(18px,env(safe-area-inset-top))] shadow-[0_24px_90px_rgba(0,0,0,.62),inset_0_0_0_1px_rgba(255,255,255,.04)]">
       <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_8%_2%,rgba(45,212,191,.18),transparent_30%),radial-gradient(circle_at_92%_10%,rgba(124,58,237,.28),transparent_34%),radial-gradient(circle_at_45%_100%,rgba(14,165,233,.10),transparent_30%),linear-gradient(180deg,rgba(7,18,38,.88),rgba(2,8,23,.98))]" />
@@ -503,9 +656,18 @@ function LifeStageSetupScreen({ profile, onClose, onSave }) {
 
         <div className="relative z-10 flex items-start justify-between gap-4">
           <div className="min-w-0 flex-1">
-            <p className="text-[10px] font-black uppercase tracking-[0.28em] text-cyan-100/72">Life stage setup</p>
-            <h3 className="mt-5 max-w-[330px] text-[clamp(32px,9vw,44px)] font-black leading-[1.03] tracking-[-0.045em] text-white drop-shadow-[0_8px_24px_rgba(0,0,0,.35)]">{setupTitle}</h3>
-            <p className="mt-4 max-w-[350px] text-[14px] font-semibold leading-7 text-white/74">{setupSubtitle}</p>
+            <p className="text-[10px] font-black uppercase tracking-[0.28em] text-cyan-100/72">CLARA context board</p>
+            <h3 className="mt-5 max-w-[330px] text-[clamp(30px,8vw,40px)] font-black leading-[1.03] tracking-[-0.045em] text-white drop-shadow-[0_8px_24px_rgba(0,0,0,.35)]">{boardContext.title}</h3>
+            <p className="mt-4 max-w-[350px] text-[13px] font-semibold leading-6 text-white/74">{boardContext.summary}</p>
+            {boardContext.trail?.length ? (
+              <div className="mt-4 flex flex-wrap gap-2">
+                {boardContext.trail.slice(-3).map((item) => (
+                  <span key={item} className="max-w-[145px] truncate rounded-full border border-cyan-100/14 bg-cyan-200/8 px-2.5 py-1 text-[9px] font-black text-cyan-50/72">
+                    {item}
+                  </span>
+                ))}
+              </div>
+            ) : null}
           </div>
           <button
             type="button"
@@ -543,9 +705,7 @@ function LifeStageSetupScreen({ profile, onClose, onSave }) {
         {activeQuestionKey ? (
           <div className="space-y-3.5 pb-4">
             <OptionGroup
-              eyebrow={activeMeta?.eyebrow || "Current setup"}
-              label={activeMeta?.label || "Choose one"}
-              helper={activeMeta?.helper || "Choose the option that best fits your current season."}
+              eyebrow={activeMeta?.eyebrow || "Choose one"}
               value={draft[activeQuestionKey]}
               options={fields[activeQuestionKey] || []}
               onSelect={(value) => setDraft((current) => ({ ...current, [activeQuestionKey]: value }))}
