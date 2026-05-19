@@ -53,6 +53,53 @@ const PEOPLE_IN_STAGE_COPY = {
     "People in this stage balance growth, reinvestment, operating needs, and personal money while making many high-pressure decisions.",
 };
 
+const QUESTION_META = {
+  setup: {
+    title: "Shape the environment",
+    eyebrow: "Current setup",
+    label: "Working student life",
+    helper: "What kind of working student life are you in right now?",
+    subtitle: "Start by choosing the setup that best explains your real environment.",
+  },
+  rhythm: {
+    title: "Shape the environment",
+    eyebrow: "Money rhythm",
+    label: "Current rhythm",
+    helper: "How does money usually come in during this season?",
+    subtitle: "Now choose your money rhythm so CLARA can understand stability and timing.",
+  },
+  workload: {
+    title: "Measure the weight",
+    eyebrow: "Weekly load",
+    label: "Routine weight",
+    helper: "How heavy does your weekly routine feel lately?",
+    subtitle: "This helps CLARA separate a busy season from a survival-mode season.",
+  },
+  pressure: {
+    title: "Set your pressure",
+    eyebrow: "Pressure right now",
+    label: "Main pressure",
+    helper: "What is affecting your decisions the most right now?",
+    subtitle: "Choose the pressure that is shaping your money choices the most.",
+  },
+  coping: {
+    title: "Read the pattern",
+    eyebrow: "Pressure response",
+    label: "When pressure gets heavy",
+    helper: "What usually happens when this season feels heavy?",
+    subtitle: "This helps CLARA understand the behavior behind spending, not just the expense.",
+  },
+  goal: {
+    title: "Set your focus",
+    eyebrow: "Main focus",
+    label: "Protection goal",
+    helper: "What should CLARA help you protect first?",
+    subtitle: "Choose what matters most so CLARA can complete your life-season profile.",
+  },
+};
+
+const QUESTION_ORDER = ["setup", "rhythm", "workload", "pressure", "coping", "goal"];
+
 const CATEGORY_STYLES = {
   pressure: {
     stroke: "rgba(251,113,133,.88)",
@@ -155,6 +202,21 @@ function statusLabel(value) {
   if (value >= 60) return "Moderate";
   if (value >= 45) return "Watch";
   return "Low";
+}
+
+function getQuestionKeys(fields = {}) {
+  return QUESTION_ORDER.filter((key) => Array.isArray(fields[key]) && fields[key].length > 0);
+}
+
+function buildStageDraft(stageName, previous = {}) {
+  const nextFields = getStageDefinition(stageName).fields || {};
+  const next = { stage: stageName };
+
+  getQuestionKeys(nextFields).forEach((key) => {
+    next[key] = nextFields[key]?.includes(previous[key]) ? previous[key] : nextFields[key]?.[0];
+  });
+
+  return next;
 }
 
 function MiniGraph({ category }) {
@@ -343,12 +405,15 @@ function StageCard({ stage, active, onClick }) {
   );
 }
 
-function OptionGroup({ label, helper, value, options, onSelect }) {
+function OptionGroup({ eyebrow, label, helper, value, options, onSelect }) {
   return (
-    <div>
-      <p className="text-[9px] font-black uppercase tracking-[0.18em] text-cyan-100/38">{label}</p>
-      {helper ? <p className="mt-1 text-[11px] font-semibold leading-4 text-white/34">{helper}</p> : null}
-      <div className="mt-2 flex flex-wrap gap-2">
+    <section className="space-y-3 rounded-[26px] border border-white/[0.085] bg-[#071226]/64 p-5 shadow-[0_16px_38px_rgba(0,0,0,.20),inset_0_1px_0_rgba(255,255,255,.04)] backdrop-blur-xl">
+      <p className="text-[9px] font-black uppercase tracking-[0.18em] text-cyan-100/42">{eyebrow}</p>
+      <div>
+        <h4 className="text-[13px] font-black leading-tight text-white/82">{label}</h4>
+        {helper ? <p className="mt-1 text-[12px] font-semibold leading-5 text-white/44">{helper}</p> : null}
+      </div>
+      <div className="space-y-3 pt-1">
         {options.map((option) => {
           const active = option === value;
           return (
@@ -356,26 +421,38 @@ function OptionGroup({ label, helper, value, options, onSelect }) {
               key={option}
               type="button"
               onClick={() => onSelect(option)}
-              className={`rounded-full border px-3 py-2 text-[11px] font-black transition active:scale-95 ${
-                active ? "border-cyan-200/22 bg-cyan-200/12 text-cyan-50" : "border-white/[0.075] bg-[#071226]/54 text-white/46"
+              className={`relative flex min-h-[66px] w-full items-center justify-between gap-3 rounded-[18px] border px-4 py-3 text-left transition active:scale-[0.985] ${
+                active
+                  ? "border-cyan-200/38 bg-[linear-gradient(135deg,rgba(45,212,191,.16),rgba(59,130,246,.12)_48%,rgba(91,63,209,.16))] text-cyan-50 shadow-[0_0_28px_rgba(34,211,238,.16),inset_0_1px_0_rgba(255,255,255,.08)]"
+                  : "border-white/[0.075] bg-[#071226]/54 text-white/58 shadow-[inset_0_1px_0_rgba(255,255,255,.03)]"
               }`}
             >
-              {option}
+              <span className="text-[13px] font-black leading-tight">{option}</span>
+              <span
+                className={`grid h-7 w-7 shrink-0 place-items-center rounded-full border ${
+                  active ? "border-cyan-100/38 bg-cyan-200/14 text-cyan-50" : "border-white/[0.12] bg-white/[0.025] text-transparent"
+                }`}
+              >
+                {active ? <Check className="h-4 w-4" strokeWidth={2.2} /> : null}
+              </span>
             </button>
           );
         })}
       </div>
-    </div>
+    </section>
   );
 }
 
 function LifeStageSetupScreen({ profile, onClose, onSave }) {
-  const [draft, setDraft] = useState(profile);
+  const [draft, setDraft] = useState(() => buildStageDraft(profile.stage || DEFAULT_STAGE.stage, profile));
   const [step, setStep] = useState("stage");
   const definition = getStageDefinition(draft.stage);
   const fields = definition.fields || {};
-  const stepOrder = ["stage", "environment", "focus"];
-  const stepIndex = stepOrder.indexOf(step);
+  const questionKeys = getQuestionKeys(fields);
+  const stepOrder = ["stage", ...questionKeys];
+  const stepIndex = Math.max(0, stepOrder.indexOf(step));
+  const activeQuestionKey = step === "stage" ? null : step;
+  const activeMeta = activeQuestionKey ? QUESTION_META[activeQuestionKey] || QUESTION_META.setup : null;
   const progressPillIndex = Math.round((stepIndex / Math.max(1, stepOrder.length - 1)) * 4);
   const peopleInStage = getPeopleCopy(draft.stage, definition);
 
@@ -389,31 +466,20 @@ function LifeStageSetupScreen({ profile, onClose, onSave }) {
   }, []);
 
   const selectStage = (stageName) => {
-    const nextFields = getStageDefinition(stageName).fields || {};
-    setDraft({
-      stage: stageName,
-      setup: nextFields.setup?.[0] || "Current setup",
-      rhythm: nextFields.rhythm?.[0] || "Current rhythm",
-      pressure: nextFields.pressure?.[0] || "Current pressure",
-      goal: nextFields.goal?.[0] || "Current focus",
-    });
+    setDraft((current) => buildStageDraft(stageName, current));
   };
 
   const goBack = () => {
-    if (step === "stage") {
+    if (stepIndex <= 0) {
       onClose();
       return;
     }
-    setStep(step === "focus" ? "environment" : "stage");
+    setStep(stepOrder[stepIndex - 1]);
   };
 
   const goNext = () => {
-    if (step === "stage") {
-      setStep("environment");
-      return;
-    }
-    if (step === "environment") {
-      setStep("focus");
+    if (stepIndex < stepOrder.length - 1) {
+      setStep(stepOrder[stepIndex + 1]);
       return;
     }
     const savedDraft = { ...draft, stage: normalizeStageName(draft.stage), updatedAt: new Date().toISOString() };
@@ -422,13 +488,8 @@ function LifeStageSetupScreen({ profile, onClose, onSave }) {
     onClose();
   };
 
-  const setupTitle = step === "stage" ? draft.stage : step === "environment" ? "Shape the environment" : "Set your focus";
-  const setupSubtitle =
-    step === "stage"
-      ? peopleInStage
-      : step === "environment"
-        ? "Describe how this season actually feels day to day."
-        : "Choose what matters most to protect in this season.";
+  const setupTitle = step === "stage" ? draft.stage : activeMeta?.title || "Shape the environment";
+  const setupSubtitle = step === "stage" ? peopleInStage : activeMeta?.subtitle || "Choose the option that best explains this season.";
 
   return (
     <div className="fixed inset-y-0 left-1/2 z-[9999] flex h-[100svh] w-full max-w-[430px] -translate-x-1/2 flex-col overflow-hidden bg-[#020817] px-4 pb-[max(16px,env(safe-area-inset-bottom))] pt-[max(18px,env(safe-area-inset-top))] shadow-[0_24px_90px_rgba(0,0,0,.62),inset_0_0_0_1px_rgba(255,255,255,.04)]">
@@ -479,31 +540,16 @@ function LifeStageSetupScreen({ profile, onClose, onSave }) {
           </div>
         ) : null}
 
-        {step === "environment" ? (
+        {activeQuestionKey ? (
           <div className="space-y-3.5 pb-4">
-            <section className="rounded-[26px] border border-white/[0.085] bg-[#071226]/64 p-5 shadow-[0_16px_38px_rgba(0,0,0,.20),inset_0_1px_0_rgba(255,255,255,.04)] backdrop-blur-xl">
-              <p className="text-[9px] font-black uppercase tracking-[0.18em] text-cyan-100/42">Current stage</p>
-              <h4 className="mt-2 text-2xl font-black leading-tight text-white">{draft.stage}</h4>
-              <p className="mt-3 text-[13px] font-semibold leading-6 text-white/52">{peopleInStage}</p>
-            </section>
-            <section className="space-y-5 rounded-[26px] border border-white/[0.085] bg-[#071226]/64 p-5 shadow-[0_16px_38px_rgba(0,0,0,.20),inset_0_1px_0_rgba(255,255,255,.04)] backdrop-blur-xl">
-              <OptionGroup label="Current setup" helper="Where are you living or operating from right now?" value={draft.setup} options={fields.setup || []} onSelect={(value) => setDraft((current) => ({ ...current, setup: value }))} />
-              <OptionGroup label="Current rhythm" helper="How stable does this season feel lately?" value={draft.rhythm} options={fields.rhythm || []} onSelect={(value) => setDraft((current) => ({ ...current, rhythm: value }))} />
-            </section>
-          </div>
-        ) : null}
-
-        {step === "focus" ? (
-          <div className="space-y-3.5 pb-4">
-            <section className="rounded-[26px] border border-white/[0.085] bg-[#071226]/64 p-5 shadow-[0_16px_38px_rgba(0,0,0,.20),inset_0_1px_0_rgba(255,255,255,.04)] backdrop-blur-xl">
-              <p className="text-[9px] font-black uppercase tracking-[0.18em] text-cyan-100/42">Selected stage</p>
-              <h4 className="mt-2 text-2xl font-black leading-tight text-white">{draft.stage}</h4>
-              <p className="mt-3 text-[13px] font-semibold leading-6 text-white/52">This shapes your trend snapshot, setup direction, and financial environment reading.</p>
-            </section>
-            <section className="space-y-5 rounded-[26px] border border-white/[0.085] bg-[#071226]/64 p-5 shadow-[0_16px_38px_rgba(0,0,0,.20),inset_0_1px_0_rgba(255,255,255,.04)] backdrop-blur-xl">
-              <OptionGroup label="Pressure right now" helper="Choose the pressure that best explains this stage." value={draft.pressure} options={fields.pressure || []} onSelect={(value) => setDraft((current) => ({ ...current, pressure: value }))} />
-              <OptionGroup label="Main focus" helper="What should be protected first?" value={draft.goal} options={fields.goal || []} onSelect={(value) => setDraft((current) => ({ ...current, goal: value }))} />
-            </section>
+            <OptionGroup
+              eyebrow={activeMeta?.eyebrow || "Current setup"}
+              label={activeMeta?.label || "Choose one"}
+              helper={activeMeta?.helper || "Choose the option that best fits your current season."}
+              value={draft[activeQuestionKey]}
+              options={fields[activeQuestionKey] || []}
+              onSelect={(value) => setDraft((current) => ({ ...current, [activeQuestionKey]: value }))}
+            />
           </div>
         ) : null}
       </main>
@@ -513,7 +559,7 @@ function LifeStageSetupScreen({ profile, onClose, onSave }) {
           {step === "stage" ? "Cancel" : <><ChevronLeft className="h-4 w-4" /> Back</>}
         </button>
         <button type="button" onClick={goNext} className="flex min-h-[58px] flex-1 items-center justify-center gap-2 rounded-[22px] border border-white/20 bg-[linear-gradient(135deg,#67f8ff,#8bdcff_46%,#72a9ff)] px-5 py-4 text-sm font-black text-slate-950 shadow-[0_18px_42px_rgba(103,248,255,.24),0_0_34px_rgba(125,211,252,.22)] active:scale-95">
-          {step === "focus" ? <><Check className="h-4 w-4" /> Apply stage</> : "Continue"}
+          {stepIndex === stepOrder.length - 1 ? <><Check className="h-4 w-4" /> Apply stage</> : "Continue"}
         </button>
       </footer>
     </div>
