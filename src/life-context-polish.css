@@ -105,6 +105,105 @@
   display: none !important;
 }
 
+/* ========================================================================
+   PHASE 1: Hero premium integration
+   Focus: title spacing, character blend, cinematic glass depth.
+======================================================================== */
+
+#root section[class*="rounded-b-[30px]"] {
+  isolation: isolate !important;
+  border: 1px solid rgba(125, 211, 252, 0.10) !important;
+  border-top-color: rgba(255, 255, 255, 0.035) !important;
+  background-image:
+    radial-gradient(circle at 0% 3%, rgba(45, 212, 191, 0.16), transparent 34%),
+    radial-gradient(circle at 92% 10%, rgba(124, 58, 237, 0.24), transparent 42%),
+    linear-gradient(135deg, rgba(4, 38, 55, 0.94), rgba(7, 17, 42, 0.96) 48%, rgba(35, 20, 78, 0.88)) !important;
+  box-shadow:
+    0 24px 72px rgba(0, 0, 0, 0.34),
+    0 0 34px rgba(34, 211, 238, 0.065),
+    inset 0 1px 0 rgba(255, 255, 255, 0.055) !important;
+}
+
+#root section[class*="rounded-b-[30px]"]::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  pointer-events: none;
+  background:
+    radial-gradient(circle at 62% 28%, rgba(125, 211, 252, 0.13), transparent 18%),
+    radial-gradient(circle at 86% 28%, rgba(167, 139, 250, 0.18), transparent 28%),
+    linear-gradient(90deg, rgba(2, 8, 23, 0.86) 0%, rgba(2, 8, 23, 0.60) 46%, rgba(2, 8, 23, 0.22) 76%, rgba(2, 8, 23, 0.42) 100%);
+  mix-blend-mode: screen;
+  opacity: 0.55;
+}
+
+#root section[class*="rounded-b-[30px]"]::after {
+  content: "";
+  position: absolute;
+  inset: auto 0 0 0;
+  z-index: 6;
+  height: 34%;
+  pointer-events: none;
+  background:
+    radial-gradient(ellipse at 66% 95%, rgba(34, 211, 238, 0.08), transparent 44%),
+    linear-gradient(180deg, transparent, rgba(2, 8, 23, 0.86) 64%, #020817 100%);
+}
+
+#root section[class*="rounded-b-[30px]"] > div[class*="right-0"][class*="w-[56%]"] {
+  filter: drop-shadow(-16px 10px 28px rgba(0, 0, 0, 0.28));
+}
+
+#root section[class*="rounded-b-[30px]"] > div[class*="right-0"][class*="w-[56%]"]::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  pointer-events: none;
+  background:
+    radial-gradient(circle at 38% 26%, rgba(125, 211, 252, 0.14), transparent 24%),
+    radial-gradient(circle at 74% 36%, rgba(167, 139, 250, 0.16), transparent 32%),
+    linear-gradient(90deg, rgba(2, 8, 23, 0.72), transparent 46%, rgba(35, 20, 78, 0.18));
+}
+
+#root section[class*="rounded-b-[30px]"] > div[class*="right-0"][class*="w-[56%]"] img {
+  transform: scale(1.035) translateX(-1px) !important;
+  filter: saturate(0.96) contrast(1.08) brightness(0.90) !important;
+  opacity: 0.86 !important;
+}
+
+#root section[class*="rounded-b-[30px]"] > div[class*="relative"][class*="z-10"][class*="max-w"] {
+  max-width: 58% !important;
+  padding-top: 0.65rem !important;
+  justify-content: center !important;
+}
+
+#root section[class*="rounded-b-[30px]"] p[class*="uppercase"] {
+  color: rgba(236, 253, 255, 0.74) !important;
+  letter-spacing: 0.21em !important;
+  text-shadow: 0 8px 22px rgba(0, 0, 0, 0.35);
+}
+
+#root section[class*="rounded-b-[30px]"] h2 {
+  margin-top: 0.58rem !important;
+  max-width: 13.25rem !important;
+  font-size: clamp(25px, 7vw, 34px) !important;
+  line-height: 0.99 !important;
+  letter-spacing: -0.055em !important;
+  text-shadow:
+    0 12px 34px rgba(0, 0, 0, 0.42),
+    0 0 24px rgba(125, 211, 252, 0.10) !important;
+}
+
+#root section[class*="rounded-b-[30px]"] h2 + p {
+  margin-top: 0.72rem !important;
+  max-width: 12.8rem !important;
+  color: rgba(248, 253, 255, 0.69) !important;
+  font-size: 11.6px !important;
+  line-height: 1.58 !important;
+  text-shadow: 0 8px 22px rgba(0, 0, 0, 0.32);
+}
+
 @media (max-width: 420px) {
   #root section[class*="rgba(9,62,76"] {
     padding: 1.1rem !important;
@@ -120,5 +219,20 @@
 
   #root section[class*="rgba(9,62,76"] button.group {
     min-height: 3.85rem;
+  }
+
+  #root section[class*="rounded-b-[30px]"] > div[class*="relative"][class*="z-10"][class*="max-w"] {
+    max-width: 60% !important;
+  }
+
+  #root section[class*="rounded-b-[30px]"] h2 {
+    max-width: 12.5rem !important;
+    font-size: clamp(23px, 7.2vw, 31px) !important;
+  }
+
+  #root section[class*="rounded-b-[30px]"] h2 + p {
+    max-width: 12.2rem !important;
+    font-size: 11px !important;
+    line-height: 1.55 !important;
   }
 }
