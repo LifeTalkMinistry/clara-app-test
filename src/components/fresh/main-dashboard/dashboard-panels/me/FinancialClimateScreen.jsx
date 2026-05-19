@@ -1,10 +1,15 @@
 import { useEffect, useMemo, useState } from "react";
 import { Check, ChevronLeft, Database, Heart, ImageIcon, RotateCcw, Sparkles, Upload, X } from "lucide-react";
 import { DEFAULT_STAGE, getStageDefinition, LIFE_STAGE_KEY, STAGES } from "./lifeStageIntelligenceData";
+import { getLifeStageImage } from "../../../../../config/lifeStageImages";
 
 const STAGE_IMAGE_KEY = "clara_life_stage_images_v1";
 
 const STAGE_VISUALS = {
+  "Young Professional": {
+    glow: "from-cyan-400/14 via-blue-500/8 to-violet-500/12",
+    silhouette: "linear-gradient(145deg, rgba(125,211,252,.55), rgba(30,64,175,.16)), radial-gradient(circle at 50% 18%, rgba(255,255,255,.30), transparent 18%), linear-gradient(180deg, transparent 0 40%, rgba(8,15,35,.85) 41% 100%)",
+  },
   "Young Earner": {
     glow: "from-cyan-400/14 via-blue-500/8 to-violet-500/12",
     silhouette: "linear-gradient(145deg, rgba(125,211,252,.55), rgba(30,64,175,.16)), radial-gradient(circle at 50% 18%, rgba(255,255,255,.30), transparent 18%), linear-gradient(180deg, transparent 0 40%, rgba(8,15,35,.85) 41% 100%)",
@@ -30,7 +35,9 @@ const STAGE_VISUALS = {
 function readStageProfile() {
   if (typeof window === "undefined") return DEFAULT_STAGE;
   try {
-    return { ...DEFAULT_STAGE, ...(JSON.parse(localStorage.getItem(LIFE_STAGE_KEY) || "{}") || {}) };
+    const saved = JSON.parse(localStorage.getItem(LIFE_STAGE_KEY) || "{}") || {};
+    const normalizedStage = saved.stage === "Young Earner" ? "Young Professional" : saved.stage;
+    return { ...DEFAULT_STAGE, ...saved, stage: normalizedStage || DEFAULT_STAGE.stage };
   } catch {
     return DEFAULT_STAGE;
   }
@@ -38,7 +45,12 @@ function readStageProfile() {
 
 function saveStageProfile(profile) {
   if (typeof window === "undefined") return;
-  localStorage.setItem(LIFE_STAGE_KEY, JSON.stringify({ ...profile, updatedAt: new Date().toISOString() }));
+  const normalizedProfile = {
+    ...profile,
+    stage: profile?.stage === "Young Earner" ? "Young Professional" : profile?.stage,
+    updatedAt: new Date().toISOString(),
+  };
+  localStorage.setItem(LIFE_STAGE_KEY, JSON.stringify(normalizedProfile));
 }
 
 function readStageImages() {
@@ -168,8 +180,10 @@ export default function FinancialClimateScreen() {
   const [stageProfile, setStageProfile] = useState(() => readStageProfile());
   const [stageImages, setStageImages] = useState(() => readStageImages());
   const definition = useMemo(() => getStageDefinition(stageProfile.stage), [stageProfile.stage]);
-  const visual = STAGE_VISUALS[stageProfile.stage] || STAGE_VISUALS["Young Earner"];
+  const visual = STAGE_VISUALS[stageProfile.stage] || STAGE_VISUALS["Young Professional"];
   const customImage = stageImages[stageProfile.stage] || "";
+  const defaultImage = getLifeStageImage(stageProfile.stage, "default");
+  const activeImage = customImage || defaultImage;
 
   useEffect(() => { saveStageProfile(stageProfile); }, [stageProfile]);
   useEffect(() => { saveStageImages(stageImages); }, [stageImages]);
@@ -182,7 +196,7 @@ export default function FinancialClimateScreen() {
         <div className="absolute inset-x-0 bottom-0 h-[62%] bg-[linear-gradient(180deg,transparent,rgba(2,8,23,.95))]" />
         <div className="absolute inset-0 opacity-70 [background:linear-gradient(180deg,rgba(2,8,23,.20),rgba(2,8,23,.75)),radial-gradient(circle_at_78%_18%,rgba(96,165,250,.30),transparent_18%),linear-gradient(90deg,rgba(2,8,23,.98)_0%,rgba(2,8,23,.55)_54%,rgba(2,8,23,.14)_100%)]" />
         <div className="absolute bottom-0 right-0 h-full w-[56%] overflow-hidden">
-          {customImage ? <img src={customImage} alt={`${stageProfile.stage} stage background`} className="h-full w-full object-cover opacity-80" /> : <div className="absolute inset-x-2 bottom-0 h-[92%] rounded-t-[90px] opacity-95" style={{ background: visual.silhouette }} />}
+          {activeImage ? <img src={activeImage} alt={`${stageProfile.stage} stage background`} className="h-full w-full object-cover opacity-80" /> : <div className="absolute inset-x-2 bottom-0 h-[92%] rounded-t-[90px] opacity-95" style={{ background: visual.silhouette }} />}
           <div className="absolute inset-0 bg-[linear-gradient(90deg,rgba(2,8,23,.82),rgba(2,8,23,.05)_48%,rgba(2,8,23,.10))]" />
         </div>
         <div className="absolute bottom-0 left-0 right-0 h-12 bg-[linear-gradient(180deg,transparent,#020817)]" />
