@@ -206,6 +206,17 @@
   height: 31px !important;
 }
 
+/* MODAL FIX — setup/image/detail panels must sit above all cards.
+   This prevents the "You're not alone" card from bleeding over the stage setup screen. */
+#root div[class*="flex h-full min-h-0 flex-col"][class*="rounded-[30px]"][class*="bg-[#020817]"][class*="px-3"][class*="pb-3"] > div[class*="absolute"][class*="inset-0"] {
+  z-index: 90 !important;
+}
+
+#root div[class*="flex h-full min-h-0 flex-col"][class*="rounded-[30px]"][class*="bg-[#020817]"][class*="px-3"][class*="pb-3"]:has(> div[class*="absolute"][class*="inset-0"]) > section:nth-of-type(2),
+#root div[class*="flex h-full min-h-0 flex-col"][class*="rounded-[30px]"][class*="bg-[#020817]"][class*="px-3"][class*="pb-3"]:has(> div[class*="absolute"][class*="inset-0"]) > section:nth-of-type(3) {
+  z-index: 1 !important;
+}
+
 @media (max-width: 380px) {
   #root div[class*="flex h-full min-h-0 flex-col"][class*="rounded-[30px]"][class*="bg-[#020817]"][class*="px-3"][class*="pb-3"] > section:first-of-type > div:last-child {
     max-width: 62%;
