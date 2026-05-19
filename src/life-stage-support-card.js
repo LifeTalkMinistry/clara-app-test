@@ -28,22 +28,30 @@ function findSupportCard(hero) {
 function enhanceSupportCard() {
   const hero = findLifeStageRoot();
   const card = findSupportCard(hero);
-  if (!hero || !card) return;
+  if (!hero || !card) return false;
 
   const title = card.querySelector("h3");
   const body = title?.nextElementSibling;
-  if (!title || !body) return;
+  if (!title || !body) return false;
 
-  card.dataset.claraSupportCard = "true";
-  title.textContent = SUPPORT_COPY.title;
-  body.textContent = SUPPORT_COPY.body;
+  if (card.dataset.claraSupportCard !== "true") card.dataset.claraSupportCard = "true";
+  if (title.textContent !== SUPPORT_COPY.title) title.textContent = SUPPORT_COPY.title;
+  if (body.textContent !== SUPPORT_COPY.body) body.textContent = SUPPORT_COPY.body;
 
   card.querySelectorAll("[data-clara-support-signal='true']").forEach((node) => node.remove());
+  return true;
 }
 
 if (typeof window !== "undefined" && typeof document !== "undefined" && !window.__CLARA_LIFE_SUPPORT_CARD__) {
   window.__CLARA_LIFE_SUPPORT_CARD__ = true;
-  const observer = new MutationObserver(() => window.requestAnimationFrame(enhanceSupportCard));
-  observer.observe(document.body, { childList: true, subtree: true, characterData: true });
+  let timer = null;
+  const run = () => {
+    window.clearTimeout(timer);
+    timer = window.setTimeout(() => window.requestAnimationFrame(enhanceSupportCard), 240);
+  };
+
+  window.addEventListener("hashchange", run);
+  window.addEventListener("clara:intelligence-updated", run);
+  document.addEventListener("click", run, true);
   window.requestAnimationFrame(enhanceSupportCard);
 }
