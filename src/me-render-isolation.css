@@ -1,0 +1,93 @@
+/* CLARA Phase 4.7 — UI Render Isolation & Paint Stabilization */
+
+#root [data-clara-top-nav="true"],
+#root .clara-top-nav-stable {
+  contain: layout paint style !important;
+  transform: translateZ(0) !important;
+  backface-visibility: hidden !important;
+  will-change: auto !important;
+}
+
+#root .clara-top-nav-panel,
+#root .clara-top-nav-glow,
+#root .clara-top-nav-action,
+#root .clara-top-nav-icon {
+  transform: translateZ(0) !important;
+  backface-visibility: hidden !important;
+}
+
+#root .clara-top-nav-glow {
+  will-change: auto !important;
+  animation: none !important;
+}
+
+#root .clara-top-nav-action,
+#root .clara-top-nav-icon {
+  contain: paint style !important;
+}
+
+#root .clara-theme-nav-pill-active {
+  transform: translateZ(0) !important;
+}
+
+#root [data-clara-me-shell="true"],
+#root .clara-me-render-island {
+  contain: layout paint style !important;
+  transform: translateZ(0) !important;
+  backface-visibility: hidden !important;
+  isolation: isolate !important;
+}
+
+#root .clara-me-render-island section {
+  transform: translateZ(0) !important;
+  backface-visibility: hidden !important;
+}
+
+#root section[data-clara-trend-snapshot="true"] {
+  contain: layout paint style !important;
+  transform: translateZ(0) !important;
+  backface-visibility: hidden !important;
+}
+
+#root [data-clara-trend-carousel="true"] {
+  contain: layout paint style !important;
+  overscroll-behavior-x: contain !important;
+}
+
+#root [data-clara-trend-card="true"] {
+  contain: paint style !important;
+  transform: translateZ(0) !important;
+  backface-visibility: hidden !important;
+  will-change: auto !important;
+}
+
+#root [data-clara-life-world-panel="true"],
+#root [data-clara-behavior-observation-panel="true"],
+#root [data-clara-predictive-decision-panel="true"] {
+  contain: layout paint style !important;
+  transform: translateZ(0) !important;
+  backface-visibility: hidden !important;
+  will-change: opacity !important;
+}
+
+#root [data-clara-life-world-panel="true"] *,
+#root [data-clara-behavior-observation-panel="true"] *,
+#root [data-clara-predictive-decision-panel="true"] * {
+  transition-property: opacity, transform, border-color, background-color !important;
+  transition-duration: 180ms !important;
+}
+
+#root .clara-ui-stable-layer {
+  contain: layout paint style !important;
+  transform: translateZ(0) !important;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  #root [data-clara-top-nav="true"] *,
+  #root [data-clara-me-shell="true"] *,
+  #root section[data-clara-trend-snapshot="true"] * {
+    animation-duration: 1ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 1ms !important;
+  }
+}
