@@ -6,8 +6,100 @@ const progressiveState = {
   phase: 0,
 };
 
+const HUMAN_CONTEXT_TERMS = {
+  "support system present": "you still have support while also working",
+  "independent survival load": "you are carrying more of your own expenses",
+  "family-linked responsibility": "family responsibility is part of your student life",
+  "work-school adjustment": "you are still adjusting to the work-school rhythm",
+  "flexible income behavior": "your income depends on flexible work",
+  "mixed income support": "money comes from both support and work",
+  "predictable earning base": "your pay rhythm is relatively predictable",
+  "income instability detected": "income can change from week to week",
+  "wave-based cash flow": "money arrives in waves instead of evenly",
+  "allowance-led stability": "allowance still gives you a small base",
+  "control still available": "your routine still has room for control",
+  "early strain forming": "your routine is starting to feel tight",
+  "high schedule overlap": "work, school, and personal needs are overlapping",
+  "recovery capacity low": "there is very little room to recover",
+  "education-cost pressure": "school costs are carrying the main pressure",
+  "daily-cost drain": "daily food and transport can quietly drain the week",
+  "energy-trigger spending risk": "low energy can trigger convenience or relief spending",
+  "shared financial pressure": "family support is part of the money pressure",
+  "debt-cycle risk": "borrowed money can create pressure across weeks",
+  "stress-reward spending": "small rewards may be acting as stress relief",
+  "money-avoidance pattern": "checking money may feel emotionally heavy",
+  "delayed-pressure cycle": "survival choices may be pushing pressure into the future",
+  "over-sacrifice risk": "you may be cutting back even on needs",
+  "support-seeking habit": "you know how to reach for support when pressure rises",
+  "graduation protection": "finishing school safely is the main protection goal",
+  "debt prevention priority": "avoiding new debt pressure is the main protection goal",
+  "slow-savings priority": "building a small buffer is the main protection goal",
+  "wise family support": "helping family without losing stability is the main protection goal",
+  "stress-spending control": "controlling stress spending is the main protection goal",
+};
+
 function cleanText(value) {
   return String(value || "").replace(/\s+/g, " ").trim();
+}
+
+function humanizeTerm(value) {
+  const cleaned = cleanText(value).replace(/[.!?]+$/, "").toLowerCase();
+  return HUMAN_CONTEXT_TERMS[cleaned] || cleaned;
+}
+
+function splitHumanTerms(value) {
+  return String(value || "")
+    .split(/,\s+and\s+|,\s+|\s+and\s+/)
+    .map(humanizeTerm)
+    .filter(Boolean);
+}
+
+function joinHumanTerms(items) {
+  const filtered = items.filter(Boolean);
+  if (filtered.length <= 1) return filtered[0] || "";
+  if (filtered.length === 2) return `${filtered[0]} and ${filtered[1]}`;
+  return `${filtered.slice(0, -1).join(", ")}, and ${filtered[filtered.length - 1]}`;
+}
+
+function humanizeContextCopy(value) {
+  let next = cleanText(value);
+
+  next = next.replace(
+    /This becomes the starting environment CLARA will use before reading your income rhythm, weekly load, pressure, and spending response\./,
+    "CLARA will use this as the base of your profile, then read your income rhythm, weekly load, pressure, and spending response against this starting environment."
+  );
+
+  next = next.replace(
+    /Because your setup already suggests ([^,.]+), this rhythm tells CLARA whether your support system is stable, stretched, or vulnerable to timing gaps\./,
+    (_, setup) =>
+      `Because ${humanizeTerm(setup)}, CLARA reads this income rhythm as more than a payment schedule—it shows whether your week is financially steady or vulnerable to timing gaps.`
+  );
+
+  next = next.replace(
+    /With (.*?) and (.*?) already in the profile, CLARA now treats your energy level as part of the money pattern, not a separate issue\./,
+    (_, setup, rhythm) =>
+      `Because ${humanizeTerm(setup)} and ${humanizeTerm(rhythm)}, CLARA reads your energy level as part of your money behavior—not as a separate issue.`
+  );
+
+  next = next.replace(
+    /Since your profile already shows (.*?), (.*?), and (.*?), this pressure becomes the first area CLARA should protect in your budget\./,
+    (_, setup, rhythm, workload) =>
+      `Because ${humanizeTerm(setup)}, ${humanizeTerm(rhythm)}, and ${humanizeTerm(workload)}, this pressure is likely the first area your budget needs to protect.`
+  );
+
+  next = next.replace(
+    /Connected with (.*?) and (.*?), CLARA can now tell whether spending is a pressure response instead of just a normal expense choice\./,
+    (_, workload, pressure) =>
+      `Because ${humanizeTerm(workload)} and ${humanizeTerm(pressure)}, CLARA checks whether this spending is really relief, avoidance, or survival pressure—not just a normal expense.`
+  );
+
+  next = next.replace(
+    /Based on (.*?), CLARA now has enough context to turn this into a protection plan instead of a generic student profile\./,
+    (_, rawList) =>
+      `Because ${joinHumanTerms(splitHumanTerms(rawList))}, CLARA can shape a protection plan around your real student life instead of treating you like a generic budget user.`
+  );
+
+  return next;
 }
 
 function getLifeStageModal() {
@@ -202,15 +294,15 @@ function polishContextBoard() {
   if (!header) return;
 
   const paragraphs = Array.from(header.querySelectorAll("p") || []);
-  const boardCopy = paragraphs.find((paragraph) =>
-    cleanText(paragraph.textContent).includes("CLARA is connecting")
-  );
+  const boardCopy = paragraphs.find((paragraph) => {
+    const text = cleanText(paragraph.textContent);
+    return text.startsWith("CLARA sees") || text.startsWith("CLARA will");
+  });
 
   if (boardCopy) {
-    boardCopy.textContent = boardCopy.textContent.replace(
-      /\s*CLARA is connecting .*? to form the full context\./,
-      " Together, these details are shaping a clearer picture of your pressure, rhythm, and protection needs."
-    );
+    const current = cleanText(boardCopy.textContent);
+    const next = humanizeContextCopy(current);
+    if (next && next !== current) boardCopy.textContent = next;
   }
 
   const chipWrap = Array.from(header.querySelectorAll("div") || []).find((node) => {
