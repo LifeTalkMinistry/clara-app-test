@@ -8,17 +8,20 @@ import {
   enrichLifeStageWithGemini,
   shouldRefreshLifeStageEnrichment,
 } from "./lib/lifeStageGeminiEnrichment";
+import {
+  getClaraIntelligenceOrchestrator,
+  INTELLIGENCE_EVENTS,
+} from "./lib/claraIntelligenceOrchestrator";
 
 const LIFE_STAGE_KEY = "clara_life_stage_profile_v1";
+const RUNTIME_KEY = "__CLARA_LIFE_STAGE_INTELLIGENCE_RUNTIME__";
 
 const runtimeState = {
   lastSignature: "",
-  saving: false,
-  enriching: false,
 };
 
-function cleanText(value) {
-  return String(value || "").replace(/\s+/g, " ").trim();
+function cleanText(value, max = 260) {
+  return String(value || "").replace(/\s+/g, " ").trim().slice(0, max);
 }
 
 function safeJsonParse(value, fallback = null) {
@@ -45,42 +48,32 @@ function profileSignature(profile) {
     profile.coping,
     profile.goal,
   ]
-    .map((item) => cleanText(item))
+    .map((item) => cleanText(item, 160))
     .join("|");
 }
 
 async function runWorldEnrichment(intelligence, reason = "life_stage_world_context_refresh", options = {}) {
-  if (!intelligence?.snapshot || runtimeState.enriching) return intelligence;
+  if (!intelligence?.snapshot) return intelligence;
   if (!shouldRefreshLifeStageEnrichment(intelligence, options)) return intelligence;
 
-  runtimeState.enriching = true;
-  try {
-    patchLifeStageSnapshotCards({
-      ...intelligence,
-      snapshot: {
-        ...(intelligence.snapshot || {}),
-        enrichmentStatus: "refreshing world context",
-      },
-    });
+  patchLifeStageSnapshotCards({
+    ...intelligence,
+    snapshot: {
+      ...(intelligence.snapshot || {}),
+      enrichmentStatus: "refreshing world context",
+    },
+  });
 
-    const enriched = await enrichLifeStageWithGemini(intelligence, {
-      reason,
-      allowFallback: true,
-      force: Boolean(options.force),
-    });
-    patchLifeStageSnapshotCards(enriched);
-    return enriched;
-  } catch (error) {
-    console.warn("CLARA Life Stage world enrichment runtime failed:", error);
-    return intelligence;
-  } finally {
-    runtimeState.enriching = false;
-  }
+  const enriched = await enrichLifeStageWithGemini(intelligence, {
+    reason,
+    allowFallback: true,
+    force: Boolean(options.force),
+  });
+  patchLifeStageSnapshotCards(enriched);
+  return enriched;
 }
 
 async function rebuildLifeStageIntelligence(reason = "life_stage_profile_updated", options = {}) {
-  if (runtimeState.saving) return null;
-
   const profile = readLifeStageProfile();
   const signature = profileSignature(profile);
   if (!profile || !signature) return null;
@@ -88,21 +81,14 @@ async function rebuildLifeStageIntelligence(reason = "life_stage_profile_updated
   const cached = readCachedLifeStageIntelligence();
   if (runtimeState.lastSignature === signature && cached?.snapshot && !options.forceLocalRebuild) {
     patchLifeStageSnapshotCards(cached);
-    window.setTimeout(() => runWorldEnrichment(cached, "life_stage_cached_world_refresh"), 600);
     return cached;
   }
 
-  runtimeState.saving = true;
-  try {
-    const intelligence = buildLifeStageIntelligence(profile);
-    runtimeState.lastSignature = signature;
-    await saveLifeStageIntelligence(intelligence, { reason });
-    patchLifeStageSnapshotCards(intelligence);
-    window.setTimeout(() => runWorldEnrichment(intelligence, "life_stage_profile_world_enrichment", { force: true }), 700);
-    return intelligence;
-  } finally {
-    runtimeState.saving = false;
-  }
+  const intelligence = buildLifeStageIntelligence(profile);
+  runtimeState.lastSignature = signature;
+  await saveLifeStageIntelligence(intelligence, { reason });
+  patchLifeStageSnapshotCards(intelligence);
+  return intelligence;
 }
 
 function getLifeStageSnapshotSection() {
@@ -168,7 +154,7 @@ function ensureWorldInsightPanel(section, intelligence) {
   `;
 }
 
-function patchLifeStageSnapshotCards(intelligence = readCachedLifeStageIntelligence()) {
+export function patchLifeStageSnapshotCards(intelligence = readCachedLifeStageIntelligence()) {
   if (!intelligence?.snapshot?.indicators?.length || typeof document === "undefined") return;
 
   const section = getLifeStageSnapshotSection();
@@ -209,61 +195,94 @@ function shouldReactToApplyStageClick(event) {
   return cleanText(button.textContent).includes("Apply stage");
 }
 
-function installBehaviorShiftListeners() {
-  const refreshEvents = [
-    "clara-expenses-updated",
-    "clara-wallet-transactions-updated",
-    "clara-finance-updated",
-    "clara-budgets-updated",
-  ];
-
-  let timer = null;
-  refreshEvents.forEach((eventName) => {
-    window.addEventListener(eventName, () => {
-      window.clearTimeout(timer);
-      timer = window.setTimeout(() => {
-        const cached = readCachedLifeStageIntelligence();
-        if (!cached?.snapshot) return;
-        runWorldEnrichment(cached, "life_stage_behavior_shift_check");
-      }, 2000);
-    });
-  });
-}
-
 function installLifeStageIntelligenceRuntime() {
   if (typeof window === "undefined" || typeof document === "undefined") return;
-  if (window.__CLARA_LIFE_STAGE_INTELLIGENCE_RUNTIME__) return;
-  window.__CLARA_LIFE_STAGE_INTELLIGENCE_RUNTIME__ = true;
+  if (window[RUNTIME_KEY]) return;
+  window[RUNTIME_KEY] = true;
+
+  const orchestrator = getClaraIntelligenceOrchestrator().install();
+
+  orchestrator.registerJob(
+    "rebuildLifeStageSnapshot",
+    async ({ reason, options }) => {
+      const intelligence = await rebuildLifeStageIntelligence(reason, options || {});
+      if (intelligence?.snapshot) {
+        orchestrator.enqueue("enrichLifeStageWorldContext", "life_stage_snapshot_ready", { debounceMs: 500 });
+      }
+      return intelligence;
+    },
+    {
+      label: "Life Stage snapshot rebuild",
+      debounceMs: 900,
+      cooldownMs: 20_000,
+      dirtyFlag: "life_stage_snapshot",
+    }
+  );
+
+  orchestrator.registerJob(
+    "enrichLifeStageWorldContext",
+    async ({ reason, options }) => {
+      const cached = readCachedLifeStageIntelligence();
+      return runWorldEnrichment(cached, reason, options || {});
+    },
+    {
+      label: "Life Stage world enrichment",
+      debounceMs: 2500,
+      cooldownMs: 15 * 60_000,
+      dirtyFlag: "world_enrichment",
+    }
+  );
+
+  orchestrator.registerJob(
+    "hydrateLifeSnapshot",
+    async () => {
+      patchLifeStageSnapshotCards();
+      return readCachedLifeStageIntelligence();
+    },
+    {
+      label: "Hydrate Life Snapshot",
+      debounceMs: 250,
+      cooldownMs: 1500,
+      dirtyFlag: "life_snapshot_hydration",
+    }
+  );
 
   document.addEventListener(
     "click",
     (event) => {
       if (!shouldReactToApplyStageClick(event)) return;
-      window.setTimeout(() => rebuildLifeStageIntelligence("life_stage_apply_stage", { forceLocalRebuild: true }), 220);
+      window.setTimeout(() => {
+        orchestrator.enqueue("rebuildLifeStageSnapshot", "life_stage_apply_stage", {
+          forceLocalRebuild: true,
+          debounceMs: 200,
+        });
+      }, 220);
     },
     true
   );
 
   window.addEventListener("clara:life-stage-intelligence-updated", (event) => {
     patchLifeStageSnapshotCards(event.detail);
+    orchestrator.emit(INTELLIGENCE_EVENTS.UPDATED, {
+      jobKey: "legacy_life_stage_updated",
+      reason: "legacy_event_bridge",
+      result: event.detail,
+    });
   });
 
-  installBehaviorShiftListeners();
-
-  const observer = new MutationObserver(() => {
-    window.requestAnimationFrame(() => patchLifeStageSnapshotCards());
+  window.addEventListener(INTELLIGENCE_EVENTS.UPDATED, (event) => {
+    if (event.detail?.result?.snapshot) patchLifeStageSnapshotCards(event.detail.result);
   });
-  observer.observe(document.body, { childList: true, subtree: true });
 
-  window.requestAnimationFrame(async () => {
+  window.requestAnimationFrame(() => {
     const cached = safeJsonParse(window.localStorage.getItem(LIFE_STAGE_SNAPSHOT_KEY), null);
     if (cached?.snapshot) {
       runtimeState.lastSignature = profileSignature(readLifeStageProfile());
       patchLifeStageSnapshotCards(cached);
-      window.setTimeout(() => runWorldEnrichment(cached, "life_stage_startup_stale_check"), 1200);
+      orchestrator.enqueue("enrichLifeStageWorldContext", "startup_stale_check", { debounceMs: 1200 });
       return;
     }
-    await rebuildLifeStageIntelligence("life_stage_initial_runtime_check");
+    orchestrator.enqueue("rebuildLifeStageSnapshot", "startup_initial_check", { debounceMs: 1500 });
   });
 }
 
