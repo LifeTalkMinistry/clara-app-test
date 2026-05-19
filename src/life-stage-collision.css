@@ -1,4 +1,4 @@
-/* CLARA Me life-stage hero/card collision polish */
+/* CLARA Me life-stage cinematic polish */
 
 #root div[class*="flex h-full min-h-0 flex-col"][class*="rounded-[30px]"][class*="bg-[#020817]"][class*="px-3"][class*="pb-3"] {
   isolation: isolate;
@@ -10,10 +10,14 @@
   z-index: 20;
   overflow: hidden !important;
   border-radius: 30px !important;
-  min-height: 340px;
+  min-height: 342px;
+  box-shadow:
+    0 24px 80px rgba(0, 0, 0, 0.24),
+    0 0 42px rgba(45, 212, 191, 0.08),
+    0 0 56px rgba(124, 58, 237, 0.10) !important;
 }
 
-/* FORCE IMAGE TO OCCUPY ENTIRE CONTAINER */
+/* Force uploaded/default image to occupy the whole hero, regardless of image size. */
 #root div[class*="flex h-full min-h-0 flex-col"][class*="rounded-[30px]"][class*="bg-[#020817]"][class*="px-3"][class*="pb-3"] > section:first-of-type div[class*="bottom-0 right-0 h-full w-[56%]"] {
   position: absolute !important;
   inset: 0 !important;
@@ -22,21 +26,17 @@
   overflow: hidden !important;
 }
 
-/* ADAPTABLE IMAGE SYSTEM */
 #root div[class*="flex h-full min-h-0 flex-col"][class*="rounded-[30px]"][class*="bg-[#020817]"][class*="px-3"][class*="pb-3"] > section:first-of-type img {
   width: 100% !important;
   height: 100% !important;
   object-fit: cover !important;
   object-position: center center !important;
-  opacity: 0.98 !important;
-  transform: scale(1.05);
-  filter:
-    saturate(1.08)
-    brightness(1.04)
-    contrast(1.02);
+  opacity: 1 !important;
+  transform: scale(1.045);
+  filter: saturate(1.08) brightness(1.05) contrast(1.03);
 }
 
-/* CINEMATIC ATMOSPHERIC OVERLAY */
+/* Hero readability + cinematic depth. */
 #root div[class*="flex h-full min-h-0 flex-col"][class*="rounded-[30px]"][class*="bg-[#020817]"][class*="px-3"][class*="pb-3"] > section:first-of-type::after {
   content: "";
   position: absolute;
@@ -44,32 +44,97 @@
   pointer-events: none;
   z-index: 2;
   background:
-    radial-gradient(circle at 78% 42%, rgba(99, 102, 241, 0.20), transparent 28%),
-    radial-gradient(circle at 72% 50%, rgba(45, 212, 191, 0.10), transparent 40%),
-    linear-gradient(90deg, rgba(2,8,23,0.92) 0%, rgba(2,8,23,0.48) 34%, rgba(2,8,23,0.14) 62%, rgba(2,8,23,0.18) 100%),
-    linear-gradient(180deg, rgba(2,8,23,0.10), rgba(2,8,23,0.34));
+    radial-gradient(circle at 78% 42%, rgba(99, 102, 241, 0.18), transparent 30%),
+    radial-gradient(circle at 70% 56%, rgba(45, 212, 191, 0.09), transparent 42%),
+    linear-gradient(90deg, rgba(2, 8, 23, 0.94) 0%, rgba(2, 8, 23, 0.56) 33%, rgba(2, 8, 23, 0.18) 64%, rgba(2, 8, 23, 0.26) 100%),
+    linear-gradient(180deg, rgba(2, 8, 23, 0.06), rgba(2, 8, 23, 0.36));
 }
 
-/* CONTENT ABOVE IMAGE */
+/* Shared glow between hero and support card. */
+#root div[class*="flex h-full min-h-0 flex-col"][class*="rounded-[30px]"][class*="bg-[#020817]"][class*="px-3"][class*="pb-3"] > section:first-of-type::before {
+  content: "";
+  position: absolute;
+  left: 8%;
+  right: 8%;
+  bottom: -58px;
+  height: 126px;
+  border-radius: 999px;
+  pointer-events: none;
+  z-index: 3;
+  background: radial-gradient(circle, rgba(124, 58, 237, 0.24), rgba(45, 212, 191, 0.10) 42%, transparent 72%);
+  filter: blur(28px);
+}
+
 #root div[class*="flex h-full min-h-0 flex-col"][class*="rounded-[30px]"][class*="bg-[#020817]"][class*="px-3"][class*="pb-3"] > section:first-of-type > div:last-child {
   position: relative;
   z-index: 5;
   max-width: 58%;
 }
 
-/* SUPPORT CARD */
+/* SUPPORT CARD — compact floating glass, closer to the reference. */
 #root div[class*="flex h-full min-h-0 flex-col"][class*="rounded-[30px]"][class*="bg-[#020817]"][class*="px-3"][class*="pb-3"] > section:nth-of-type(2) {
   position: relative;
   z-index: 30;
-  margin-top: -38px !important;
-  border-color: rgba(255, 255, 255, 0.11) !important;
-  background-color: rgba(6, 12, 28, 0.24) !important;
-  backdrop-filter: blur(28px) saturate(1.22) !important;
-  -webkit-backdrop-filter: blur(28px) saturate(1.22) !important;
+  flex: 0 0 124px !important;
+  min-height: 124px !important;
+  margin-top: -42px !important;
+  padding: 14px 16px !important;
+  border-radius: 24px !important;
+  border-color: rgba(255, 255, 255, 0.10) !important;
+  background-color: rgba(5, 10, 26, 0.30) !important;
+  background-image:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.060), rgba(255, 255, 255, 0.018) 54%, rgba(255, 255, 255, 0.010)),
+    radial-gradient(circle at 86% 50%, rgba(217, 70, 239, 0.13), transparent 42%),
+    radial-gradient(circle at 6% 0%, rgba(45, 212, 191, 0.08), transparent 48%) !important;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.075),
+    0 18px 48px rgba(0, 0, 0, 0.30),
+    0 -12px 34px rgba(124, 58, 237, 0.06),
+    0 0 28px rgba(45, 212, 191, 0.035) !important;
+  backdrop-filter: blur(30px) saturate(1.22) !important;
+  -webkit-backdrop-filter: blur(30px) saturate(1.22) !important;
+}
+
+/* Hide the harsh top collision line with a soft glass wash. */
+#root div[class*="flex h-full min-h-0 flex-col"][class*="rounded-[30px]"][class*="bg-[#020817]"][class*="px-3"][class*="pb-3"] > section:nth-of-type(2)::before {
+  content: "";
+  position: absolute;
+  inset: -1px 0 auto 0;
+  height: 38px;
+  pointer-events: none;
+  border-radius: inherit;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.045), rgba(255, 255, 255, 0.012), transparent);
+  opacity: 0.9;
+}
+
+#root div[class*="flex h-full min-h-0 flex-col"][class*="rounded-[30px]"][class*="bg-[#020817]"][class*="px-3"][class*="pb-3"] > section:nth-of-type(2) h3 {
+  font-size: 13px !important;
+  letter-spacing: -0.01em;
+}
+
+#root div[class*="flex h-full min-h-0 flex-col"][class*="rounded-[30px]"][class*="bg-[#020817]"][class*="px-3"][class*="pb-3"] > section:nth-of-type(2) p {
+  color: rgba(255, 255, 255, 0.62) !important;
+}
+
+#root div[class*="flex h-full min-h-0 flex-col"][class*="rounded-[30px]"][class*="bg-[#020817]"][class*="px-3"][class*="pb-3"] > section:nth-of-type(2) > div {
+  position: relative;
+  z-index: 2;
+}
+
+/* Trend snapshot moves a little closer after compacting the support card. */
+#root div[class*="flex h-full min-h-0 flex-col"][class*="rounded-[30px]"][class*="bg-[#020817]"][class*="px-3"][class*="pb-3"] > section:nth-of-type(3) {
+  margin-top: 0.70rem !important;
 }
 
 @media (max-width: 380px) {
   #root div[class*="flex h-full min-h-0 flex-col"][class*="rounded-[30px]"][class*="bg-[#020817]"][class*="px-3"][class*="pb-3"] > section:first-of-type > div:last-child {
     max-width: 62%;
+  }
+
+  #root div[class*="flex h-full min-h-0 flex-col"][class*="rounded-[30px]"][class*="bg-[#020817]"][class*="px-3"][class*="pb-3"] > section:nth-of-type(2) {
+    flex-basis: 116px !important;
+    min-height: 116px !important;
+    margin-top: -36px !important;
+    padding: 12px 14px !important;
   }
 }
