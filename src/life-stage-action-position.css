@@ -352,3 +352,17 @@
     font-size: 10px !important;
   }
 }
+
+/* Remove the repeated summary card on step 2/3.
+   The hero already tells the user what step they are in, so the flow should go straight to the choices. */
+#root div[class*="fixed"][class*="inset-y-0"][class*="left-1/2"][class*="z-[9999]"] > main > div > section:first-child:has(+ section[class*="space-y-5"]) {
+  display: none !important;
+}
+
+#root div[class*="fixed"][class*="inset-y-0"][class*="left-1/2"][class*="z-[9999]"] > main > div > section:first-child:has(+ section[class*="space-y-5"]) + section[class*="space-y-5"] {
+  margin-top: 0 !important;
+}
+
+#root div[class*="fixed"][class*="inset-y-0"][class*="left-1/2"][class*="z-[9999]"] > main > div:has(> section:first-child:has(+ section[class*="space-y-5"])) {
+  padding-top: 2px !important;
+}
