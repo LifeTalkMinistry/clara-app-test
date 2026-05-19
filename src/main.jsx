@@ -16,6 +16,7 @@ import "./mobile-responsive.css";
 import "./mobile-performance.css";
 import "./dashboard-bottom-spacing.css";
 import "./life-context-polish.css";
+import "./life-stage-hero-polish.css";
 import "./settings-cleanup.css";
 import "./settings-priority.css";
 import "./settings-support-compose.css";
