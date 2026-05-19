@@ -10,9 +10,11 @@ const REMOTE_GUARD_KEY = "clara_remote_sync_guard_v1";
 const DEFAULT_DEBOUNCE_MS = 1200;
 const DEFAULT_COOLDOWN_MS = 30_000;
 const REMOTE_DISABLE_MS = 10 * 60_000;
-const MAX_EVENT_HISTORY = 80;
-const MAX_JOB_HISTORY = 80;
-const MAX_MEMORY_WRITES_PER_MINUTE = 12;
+const MAX_EVENT_HISTORY = 35;
+const MAX_JOB_HISTORY = 45;
+const MAX_MEMORY_WRITES_PER_MINUTE = 8;
+const HYDRATION_SCAN_INTERVAL_MS = 2500;
+const DEBUG_SAMPLE_MS = 1200;
 
 function nowIso() {
   return new Date().toISOString();
@@ -40,6 +42,10 @@ function writeStorage(key, value) {
   window.localStorage.setItem(key, JSON.stringify(value));
 }
 
+function debugEnabled() {
+  return typeof window !== "undefined" && window.localStorage?.getItem("clara_debug_intelligence") === "true";
+}
+
 function isSupabaseUrl(input) {
   const url = typeof input === "string" ? input : input?.url;
   return /supabase\.co|supabase\.in|supabase\.net/i.test(String(url || ""));
@@ -47,13 +53,12 @@ function isSupabaseUrl(input) {
 
 function isQuotaFailure(response, bodyText = "") {
   const text = String(bodyText || "").toLowerCase();
-  return (
-    response?.status === 402 ||
-    response?.status === 429 ||
-    text.includes("egress") ||
-    text.includes("quota") ||
-    text.includes("payment required")
-  );
+  return response?.status === 402 || response?.status === 429 || text.includes("egress") || text.includes("quota") || text.includes("payment required");
+}
+
+function hasLifeStageSnapshotSection() {
+  if (typeof document === "undefined") return false;
+  return Array.from(document.querySelectorAll("h3")).some((node) => cleanText(node.textContent) === "Life Stage Trend Snapshot");
 }
 
 function createOrchestrator() {
@@ -73,6 +78,9 @@ function createOrchestrator() {
     memoryWriteWindowStartedAt: Date.now(),
     snapshotRebuildCount: 0,
     hydrateCount: 0,
+    lastDebugEmitAt: 0,
+    lastHydrationScanAt: 0,
+    hydrationTimer: null,
     remoteSync: readStorage(REMOTE_GUARD_KEY, {
       disabledUntil: 0,
       failureCount: 0,
@@ -85,8 +93,11 @@ function createOrchestrator() {
     lastError: null,
   };
 
-  function emitDebug() {
-    if (typeof window === "undefined") return;
+  function emitDebug(force = false) {
+    if (typeof window === "undefined" || !debugEnabled()) return;
+    const now = Date.now();
+    if (!force && now - state.lastDebugEmitAt < DEBUG_SAMPLE_MS) return;
+    state.lastDebugEmitAt = now;
     window.dispatchEvent(new CustomEvent(INTELLIGENCE_EVENTS.DEBUG, { detail: getDebugState() }));
   }
 
@@ -106,7 +117,8 @@ function createOrchestrator() {
   function markDirty(flag, reason = "dirty") {
     if (!flag) return;
     state.dirtyFlags.add(flag);
-    emit(INTELLIGENCE_EVENTS.DIRTY, { flag, reason });
+    if (debugEnabled()) emit(INTELLIGENCE_EVENTS.DIRTY, { flag, reason });
+    else emitDebug();
   }
 
   function clearDirty(flag) {
@@ -131,15 +143,11 @@ function createOrchestrator() {
     emitDebug();
   }
 
-  function shouldSkipForCooldown(jobKey, job) {
+  function shouldSkipForCooldown(jobKey) {
     const until = Number(state.cooldownUntil.get(jobKey) || 0);
     if (Date.now() < until) {
       state.skippedCount[jobKey] = (state.skippedCount[jobKey] || 0) + 1;
-      pushHistory(state.jobHistory, {
-        jobKey,
-        status: "skipped_cooldown",
-        waitMs: until - Date.now(),
-      }, MAX_JOB_HISTORY);
+      pushHistory(state.jobHistory, { jobKey, status: "skipped_cooldown", waitMs: until - Date.now() }, MAX_JOB_HISTORY);
       emitDebug();
       return true;
     }
@@ -157,55 +165,28 @@ function createOrchestrator() {
       return null;
     }
 
-    if (shouldSkipForCooldown(jobKey, job)) return null;
+    if (shouldSkipForCooldown(jobKey)) return null;
 
     state.locks.add(jobKey);
     clearDirty(job.dirtyFlag);
     const startedAt = Date.now();
-    let result = null;
 
     try {
       pushHistory(state.jobHistory, { jobKey, status: "started", reason: entry?.reason }, MAX_JOB_HISTORY);
       emitDebug();
-      result = await job.executor({
-        reason: entry?.reason || "orchestrated_job",
-        options: entry?.options || {},
-        jobKey,
-        orchestrator: api,
-      });
-
+      const result = await job.executor({ reason: entry?.reason || "orchestrated_job", options: entry?.options || {}, jobKey, orchestrator: api });
       state.lastRunAt[jobKey] = nowIso();
       state.runCount[jobKey] = (state.runCount[jobKey] || 0) + 1;
       state.cooldownUntil.set(jobKey, Date.now() + job.cooldownMs);
       if (/lifeStage|snapshot/i.test(jobKey)) state.snapshotRebuildCount += 1;
       if (/hydrate/i.test(jobKey)) state.hydrateCount += 1;
-
-      pushHistory(state.jobHistory, {
-        jobKey,
-        status: "completed",
-        ms: Date.now() - startedAt,
-        reason: entry?.reason,
-      }, MAX_JOB_HISTORY);
-
-      emit(INTELLIGENCE_EVENTS.UPDATED, {
-        jobKey,
-        reason: entry?.reason,
-        result,
-        ms: Date.now() - startedAt,
-      });
+      pushHistory(state.jobHistory, { jobKey, status: "completed", ms: Date.now() - startedAt, reason: entry?.reason }, MAX_JOB_HISTORY);
+      emit(INTELLIGENCE_EVENTS.UPDATED, { jobKey, reason: entry?.reason, result, ms: Date.now() - startedAt });
       return result;
     } catch (error) {
-      state.lastError = {
-        jobKey,
-        message: error?.message || "Unknown intelligence job failure",
-        at: nowIso(),
-      };
-      pushHistory(state.jobHistory, {
-        jobKey,
-        status: "failed",
-        error: state.lastError.message,
-      }, MAX_JOB_HISTORY);
-      console.warn(`CLARA intelligence job failed: ${jobKey}`, error);
+      state.lastError = { jobKey, message: error?.message || "Unknown intelligence job failure", at: nowIso() };
+      pushHistory(state.jobHistory, { jobKey, status: "failed", error: state.lastError.message }, MAX_JOB_HISTORY);
+      if (debugEnabled()) console.warn(`CLARA intelligence job failed: ${jobKey}`, error);
       return null;
     } finally {
       state.locks.delete(jobKey);
@@ -222,18 +203,10 @@ function createOrchestrator() {
     }
 
     markDirty(job.dirtyFlag, reason);
-
     const existing = state.queue.get(jobKey) || {};
-    state.queue.set(jobKey, {
-      jobKey,
-      reason,
-      options: { ...(existing.options || {}), ...(options || {}) },
-      enqueuedAt: nowIso(),
-    });
+    state.queue.set(jobKey, { jobKey, reason, options: { ...(existing.options || {}), ...(options || {}) }, enqueuedAt: nowIso() });
 
-    if (state.timers.has(jobKey)) {
-      window.clearTimeout(state.timers.get(jobKey));
-    }
+    if (state.timers.has(jobKey)) window.clearTimeout(state.timers.get(jobKey));
 
     const delay = Number(options.debounceMs ?? job.debounceMs ?? DEFAULT_DEBOUNCE_MS);
     const timer = window.setTimeout(() => {
@@ -257,115 +230,85 @@ function createOrchestrator() {
       state.memoryWriteWindowStartedAt = now;
       state.memoryWriteCount = 0;
     }
-
     state.memoryWriteCount += 1;
     pushHistory(state.jobHistory, { jobKey: label, status: "memory_write_recorded" }, MAX_JOB_HISTORY);
     emitDebug();
-
     return state.memoryWriteCount <= MAX_MEMORY_WRITES_PER_MINUTE;
   }
 
   function getRemoteSyncState() {
     const disabledUntil = Number(state.remoteSync?.disabledUntil || 0);
-    return {
-      ...(state.remoteSync || {}),
-      disabled: Date.now() < disabledUntil,
-      disabledForMs: Math.max(0, disabledUntil - Date.now()),
-    };
+    return { ...(state.remoteSync || {}), disabled: Date.now() < disabledUntil, disabledForMs: Math.max(0, disabledUntil - Date.now()) };
   }
 
   function disableRemoteSync(reason = "remote_sync_failure", durationMs = REMOTE_DISABLE_MS) {
-    state.remoteSync = {
-      ...(state.remoteSync || {}),
-      mode: "local_first_fallback",
-      disabledUntil: Date.now() + durationMs,
-      failureCount: Number(state.remoteSync?.failureCount || 0) + 1,
-      lastFailureAt: nowIso(),
-      lastFailureReason: cleanText(reason, 220),
-    };
+    state.remoteSync = { ...(state.remoteSync || {}), mode: "local_first_fallback", disabledUntil: Date.now() + durationMs, failureCount: Number(state.remoteSync?.failureCount || 0) + 1, lastFailureAt: nowIso(), lastFailureReason: cleanText(reason, 220) };
     writeStorage(REMOTE_GUARD_KEY, state.remoteSync);
-    emitDebug();
+    emitDebug(true);
   }
 
   function installRemoteFetchGuard() {
     if (typeof window === "undefined" || typeof window.fetch !== "function") return;
     if (window.__CLARA_REMOTE_SYNC_FETCH_GUARD__) return;
     window.__CLARA_REMOTE_SYNC_FETCH_GUARD__ = true;
-
     const originalFetch = window.fetch.bind(window);
     window.fetch = async (input, init) => {
       const remote = getRemoteSyncState();
       if (remote.disabled && isSupabaseUrl(input)) {
-        return new Response(
-          JSON.stringify({
-            error: "CLARA remote sync temporarily disabled. Using local-first mode.",
-            reason: remote.lastFailureReason,
-          }),
-          { status: 503, headers: { "Content-Type": "application/json", "X-CLARA-Remote-Guard": "suppressed" } }
-        );
+        return new Response(JSON.stringify({ error: "CLARA remote sync temporarily disabled. Using local-first mode.", reason: remote.lastFailureReason }), { status: 503, headers: { "Content-Type": "application/json", "X-CLARA-Remote-Guard": "suppressed" } });
       }
-
       const response = await originalFetch(input, init);
       if (isSupabaseUrl(input) && (response.status === 402 || response.status === 429)) {
         let bodyText = "";
-        try {
-          bodyText = await response.clone().text();
-        } catch {
-          bodyText = "";
-        }
-        if (isQuotaFailure(response, bodyText)) {
-          disableRemoteSync(`Supabase ${response.status}: ${bodyText || response.statusText}`);
-        }
+        try { bodyText = await response.clone().text(); } catch { bodyText = ""; }
+        if (isQuotaFailure(response, bodyText)) disableRemoteSync(`Supabase ${response.status}: ${bodyText || response.statusText}`);
       }
       return response;
     };
   }
 
-  function installHydrationObserver() {
-    if (typeof window === "undefined" || typeof document === "undefined") return;
-    if (window.__CLARA_INTELLIGENCE_HYDRATION_OBSERVER__) return;
-    window.__CLARA_INTELLIGENCE_HYDRATION_OBSERVER__ = true;
+  function scheduleHydrationScan(reason = "hydration_scan") {
+    if (state.hydrationTimer) window.clearTimeout(state.hydrationTimer);
+    state.hydrationTimer = window.setTimeout(() => {
+      state.hydrationTimer = null;
+      if (!hasLifeStageSnapshotSection()) return;
+      const now = Date.now();
+      if (now - state.lastHydrationScanAt < HYDRATION_SCAN_INTERVAL_MS) return;
+      state.lastHydrationScanAt = now;
+      enqueueMany(["hydrateLifeSnapshot", "hydrateBehaviorPanel", "hydratePredictionPanel"], reason, { debounceMs: 300 });
+      emit(INTELLIGENCE_EVENTS.HYDRATED, { reason });
+    }, 450);
+  }
 
-    let rafId = null;
-    const observer = new MutationObserver(() => {
-      if (rafId) return;
-      rafId = window.requestAnimationFrame(() => {
-        rafId = null;
-        enqueueMany([
-          "hydrateLifeSnapshot",
-          "hydrateBehaviorPanel",
-          "hydratePredictionPanel",
-        ], "dom_hydration", { debounceMs: 250 });
-        emit(INTELLIGENCE_EVENTS.HYDRATED, { reason: "dom_hydration" });
-      });
-    });
-    observer.observe(document.body, { childList: true, subtree: true });
+  function installHydrationTriggers() {
+    if (typeof window === "undefined" || typeof document === "undefined") return;
+    if (window.__CLARA_INTELLIGENCE_HYDRATION_TRIGGERS__) return;
+    window.__CLARA_INTELLIGENCE_HYDRATION_TRIGGERS__ = true;
+    document.addEventListener("click", () => scheduleHydrationScan("user_navigation"), true);
+    window.addEventListener("hashchange", () => scheduleHydrationScan("route_change"));
+    window.setInterval(() => scheduleHydrationScan("sampled_hydration"), 5000);
   }
 
   function install() {
     if (state.installed) return api;
     state.installed = true;
     installRemoteFetchGuard();
-    if (typeof document !== "undefined" && document.body) installHydrationObserver();
-    emitDebug();
+    installHydrationTriggers();
+    emitDebug(true);
     return api;
   }
 
   function getDebugState() {
-    const jobs = Array.from(state.jobs.keys());
-    const queuedJobs = Array.from(state.queue.keys());
     return {
       installed: state.installed,
-      jobs,
-      queuedJobs,
+      jobs: Array.from(state.jobs.keys()),
+      queuedJobs: Array.from(state.queue.keys()),
       activeLocks: Array.from(state.locks),
       dirtyFlags: Array.from(state.dirtyFlags),
       lastRunAt: { ...state.lastRunAt },
       runCount: { ...state.runCount },
       skippedCount: { ...state.skippedCount },
-      cooldowns: Object.fromEntries(
-        Array.from(state.cooldownUntil.entries()).map(([key, until]) => [key, Math.max(0, until - Date.now())])
-      ),
+      cooldowns: Object.fromEntries(Array.from(state.cooldownUntil.entries()).map(([key, until]) => [key, Math.max(0, until - Date.now())])),
       eventDispatchCount: state.eventDispatchCount,
       snapshotRebuildCount: state.snapshotRebuildCount,
       hydrateCount: state.hydrateCount,
@@ -377,28 +320,13 @@ function createOrchestrator() {
     };
   }
 
-  const api = {
-    install,
-    registerJob,
-    enqueue,
-    enqueueMany,
-    emit,
-    markDirty,
-    clearDirty,
-    recordMemoryWrite,
-    disableRemoteSync,
-    getRemoteSyncState,
-    getDebugState,
-  };
-
+  const api = { install, registerJob, enqueue, enqueueMany, emit, markDirty, clearDirty, recordMemoryWrite, disableRemoteSync, getRemoteSyncState, getDebugState };
   return api;
 }
 
 export function getClaraIntelligenceOrchestrator() {
   if (typeof window === "undefined") return createOrchestrator();
-  if (!window[ORCHESTRATOR_KEY]) {
-    window[ORCHESTRATOR_KEY] = createOrchestrator();
-  }
+  if (!window[ORCHESTRATOR_KEY]) window[ORCHESTRATOR_KEY] = createOrchestrator();
   return window[ORCHESTRATOR_KEY];
 }
 
