@@ -1,0 +1,8 @@
+/* Remove the decorative sparkle icon from the Life Stage Trend Snapshot header. */
+#root section[data-clara-trend-snapshot="true"] > div:first-of-type > svg {
+  display: none !important;
+}
+
+#root section[data-clara-trend-snapshot="true"] [data-clara-trend-header="true"] > svg {
+  display: none !important;
+}
