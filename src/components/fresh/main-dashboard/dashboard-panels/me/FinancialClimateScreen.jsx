@@ -18,34 +18,67 @@ const STAGE_IMAGE_KEY = "clara_life_stage_images_v1";
 
 const STAGE_VISUALS = {
   "Young Professional": {
-    glow: "from-cyan-400/14 via-blue-500/8 to-violet-500/12",
+    glow: "from-cyan-400/10 via-blue-500/6 to-violet-500/10",
     silhouette:
-      "linear-gradient(145deg, rgba(125,211,252,.55), rgba(30,64,175,.16)), radial-gradient(circle at 50% 18%, rgba(255,255,255,.30), transparent 18%), linear-gradient(180deg, transparent 0 40%, rgba(8,15,35,.85) 41% 100%)",
+      "linear-gradient(145deg, rgba(125,211,252,.42), rgba(30,64,175,.12)), radial-gradient(circle at 50% 18%, rgba(255,255,255,.22), transparent 18%), linear-gradient(180deg, transparent 0 40%, rgba(8,15,35,.88) 41% 100%)",
   },
   "Young Earner": {
-    glow: "from-cyan-400/14 via-blue-500/8 to-violet-500/12",
+    glow: "from-cyan-400/10 via-blue-500/6 to-violet-500/10",
     silhouette:
-      "linear-gradient(145deg, rgba(125,211,252,.55), rgba(30,64,175,.16)), radial-gradient(circle at 50% 18%, rgba(255,255,255,.30), transparent 18%), linear-gradient(180deg, transparent 0 40%, rgba(8,15,35,.85) 41% 100%)",
+      "linear-gradient(145deg, rgba(125,211,252,.42), rgba(30,64,175,.12)), radial-gradient(circle at 50% 18%, rgba(255,255,255,.22), transparent 18%), linear-gradient(180deg, transparent 0 40%, rgba(8,15,35,.88) 41% 100%)",
   },
   "Working Student": {
-    glow: "from-sky-400/14 via-indigo-500/8 to-emerald-500/12",
+    glow: "from-sky-400/10 via-indigo-500/6 to-emerald-500/8",
     silhouette:
-      "linear-gradient(145deg, rgba(56,189,248,.5), rgba(16,185,129,.14)), radial-gradient(circle at 52% 18%, rgba(255,255,255,.28), transparent 18%), linear-gradient(180deg, transparent 0 42%, rgba(7,20,36,.86) 43% 100%)",
+      "linear-gradient(145deg, rgba(56,189,248,.38), rgba(16,185,129,.10)), radial-gradient(circle at 52% 18%, rgba(255,255,255,.22), transparent 18%), linear-gradient(180deg, transparent 0 42%, rgba(7,20,36,.88) 43% 100%)",
   },
   "Living with Partner": {
-    glow: "from-fuchsia-400/14 via-cyan-500/8 to-violet-500/14",
+    glow: "from-fuchsia-400/9 via-cyan-500/6 to-violet-500/10",
     silhouette:
-      "linear-gradient(145deg, rgba(217,70,239,.38), rgba(6,182,212,.16)), radial-gradient(circle at 48% 18%, rgba(255,255,255,.28), transparent 18%), linear-gradient(180deg, transparent 0 42%, rgba(23,15,45,.86) 43% 100%)",
+      "linear-gradient(145deg, rgba(217,70,239,.28), rgba(6,182,212,.12)), radial-gradient(circle at 48% 18%, rgba(255,255,255,.22), transparent 18%), linear-gradient(180deg, transparent 0 42%, rgba(23,15,45,.88) 43% 100%)",
   },
   "Single Parent": {
-    glow: "from-emerald-400/14 via-cyan-500/8 to-violet-500/12",
+    glow: "from-emerald-400/8 via-cyan-500/6 to-violet-500/9",
     silhouette:
-      "linear-gradient(145deg, rgba(52,211,153,.42), rgba(59,130,246,.14)), radial-gradient(circle at 51% 18%, rgba(255,255,255,.28), transparent 18%), linear-gradient(180deg, transparent 0 42%, rgba(8,32,35,.86) 43% 100%)",
+      "linear-gradient(145deg, rgba(52,211,153,.32), rgba(59,130,246,.10)), radial-gradient(circle at 51% 18%, rgba(255,255,255,.22), transparent 18%), linear-gradient(180deg, transparent 0 42%, rgba(8,32,35,.88) 43% 100%)",
   },
   Breadwinner: {
-    glow: "from-amber-400/12 via-cyan-500/8 to-violet-500/12",
+    glow: "from-amber-400/8 via-cyan-500/5 to-violet-500/8",
     silhouette:
-      "linear-gradient(145deg, rgba(251,191,36,.38), rgba(14,165,233,.14)), radial-gradient(circle at 50% 18%, rgba(255,255,255,.28), transparent 18%), linear-gradient(180deg, transparent 0 42%, rgba(28,22,8,.86) 43% 100%)",
+      "linear-gradient(145deg, rgba(251,191,36,.28), rgba(14,165,233,.10)), radial-gradient(circle at 50% 18%, rgba(255,255,255,.22), transparent 18%), linear-gradient(180deg, transparent 0 42%, rgba(28,22,8,.88) 43% 100%)",
+  },
+};
+
+const CATEGORY_STYLES = {
+  pressure: {
+    stroke: "rgba(251,113,133,.88)",
+    statusClass: "text-rose-200",
+    glow: "shadow-[0_0_22px_rgba(251,113,133,.10)]",
+    chip: "bg-rose-300/8 border-rose-200/10",
+  },
+  stability: {
+    stroke: "rgba(45,212,191,.9)",
+    statusClass: "text-cyan-100",
+    glow: "shadow-[0_0_22px_rgba(45,212,191,.10)]",
+    chip: "bg-cyan-300/8 border-cyan-200/10",
+  },
+  energy: {
+    stroke: "rgba(167,139,250,.9)",
+    statusClass: "text-violet-100",
+    glow: "shadow-[0_0_22px_rgba(167,139,250,.10)]",
+    chip: "bg-violet-300/8 border-violet-200/10",
+  },
+  growth: {
+    stroke: "rgba(250,204,21,.86)",
+    statusClass: "text-amber-100",
+    glow: "shadow-[0_0_22px_rgba(250,204,21,.10)]",
+    chip: "bg-amber-300/8 border-amber-200/10",
+  },
+  default: {
+    stroke: "rgba(125,211,252,.85)",
+    statusClass: "text-cyan-100",
+    glow: "shadow-[0_0_22px_rgba(125,211,252,.10)]",
+    chip: "bg-cyan-300/8 border-cyan-200/10",
   },
 };
 
@@ -84,18 +117,18 @@ function saveStageImages(images) {
   localStorage.setItem(STAGE_IMAGE_KEY, JSON.stringify(images || {}));
 }
 
-function MiniGraph({ value }) {
-  const stroke = value >= 70 ? "rgba(45,212,191,.95)" : value >= 50 ? "rgba(250,204,21,.9)" : "rgba(248,113,113,.92)";
+function MiniGraph({ value, category }) {
+  const style = CATEGORY_STYLES[category] || CATEGORY_STYLES.default;
   return (
     <svg viewBox="0 0 92 34" className="mt-2 h-7 w-full overflow-visible" aria-hidden="true">
       <path
         d="M2 28 C10 22 16 25 22 18 C28 10 33 16 39 9 C45 2 51 15 58 11 C66 7 70 17 76 12 C83 7 87 11 90 9"
         fill="none"
-        stroke={stroke}
+        stroke={style.stroke}
         strokeWidth="2.2"
         strokeLinecap="round"
       />
-      <path d="M2 32 H90" stroke="rgba(255,255,255,.06)" strokeWidth="1" />
+      <path d="M2 32 H90" stroke="rgba(255,255,255,.055)" strokeWidth="1" />
     </svg>
   );
 }
@@ -108,47 +141,49 @@ function statusLabel(value) {
 }
 
 function TrendSnapshotCard({ item, onClick }) {
+  const style = CATEGORY_STYLES[item.category] || CATEGORY_STYLES.default;
   return (
     <button
       type="button"
       onClick={onClick}
-      className="h-full min-w-[116px] snap-start rounded-[16px] border border-white/8 bg-slate-950/24 p-3 text-left shadow-[0_14px_38px_rgba(0,0,0,.18)] backdrop-blur-xl transition active:scale-[0.985]"
+      className={`h-full min-w-[116px] snap-start rounded-[16px] border border-white/[0.075] bg-[#071226]/66 p-3 text-left backdrop-blur-xl transition active:scale-[0.985] ${style.glow}`}
     >
-      <p className="line-clamp-1 text-[9px] font-black tracking-tight text-white/64">{item.label}</p>
+      <p className="line-clamp-1 text-[9px] font-black tracking-tight text-white/56">{item.label}</p>
       <p className="mt-1 text-[22px] font-black leading-none text-white">{item.value}%</p>
-      <p className={`mt-1 text-[9px] font-black ${item.value >= 70 ? "text-rose-300" : item.value >= 55 ? "text-amber-200" : "text-emerald-200"}`}>
-        {statusLabel(item.value)}
-      </p>
-      <MiniGraph value={item.value} />
+      <p className={`mt-1 text-[9px] font-black ${style.statusClass}`}>{statusLabel(item.value)}</p>
+      <MiniGraph value={item.value} category={item.category} />
     </button>
   );
 }
 
 function DataDetailPanel({ trend, onClose }) {
+  const style = CATEGORY_STYLES[trend.category] || CATEGORY_STYLES.default;
   return (
-    <div className="absolute inset-0 z-30 rounded-[28px] border border-cyan-200/12 bg-slate-950/90 p-4 backdrop-blur-2xl">
-      <div className="flex items-start justify-between gap-3">
+    <div className="absolute inset-0 z-30 rounded-[28px] border border-white/[0.075] bg-[#050b1f]/92 p-4 shadow-[0_24px_80px_rgba(0,0,0,.42)] backdrop-blur-2xl">
+      <div className="pointer-events-none absolute inset-0 rounded-[28px] bg-[radial-gradient(circle_at_14%_8%,rgba(45,212,191,.10),transparent_28%),radial-gradient(circle_at_86%_10%,rgba(91,63,209,.16),transparent_30%)]" />
+      <div className="relative z-10 flex items-start justify-between gap-3">
         <div>
-          <p className="flex items-center gap-2 text-[9px] font-black uppercase tracking-[0.18em] text-cyan-100/46">
+          <p className="flex items-center gap-2 text-[9px] font-black uppercase tracking-[0.18em] text-cyan-100/42">
             <Database className="h-3.5 w-3.5" /> Data status
           </p>
           <h4 className="mt-2 text-2xl font-black leading-tight text-white">{trend.label}</h4>
-          <p className="mt-1 text-xs font-semibold leading-5 text-white/42">{trend.note}</p>
+          <p className="mt-1 text-xs font-semibold leading-5 text-white/48">{trend.note}</p>
         </div>
-        <button type="button" onClick={onClose} className="grid h-8 w-8 shrink-0 place-items-center rounded-full border border-white/10 bg-white/[0.055] text-white/62 active:scale-95" aria-label="Close data details">
+        <button type="button" onClick={onClose} className="grid h-8 w-8 shrink-0 place-items-center rounded-full border border-white/[0.075] bg-white/[0.04] text-white/58 active:scale-95" aria-label="Close data details">
           <X className="h-4 w-4" />
         </button>
       </div>
-      <div className="mt-5 rounded-[22px] border border-white/8 bg-white/[0.045] p-4">
-        <p className="text-[10px] font-black uppercase tracking-[0.16em] text-white/36">Life-stage reading</p>
+      <div className={`relative z-10 mt-5 rounded-[22px] border p-4 ${style.chip}`}>
+        <p className="text-[10px] font-black uppercase tracking-[0.16em] text-white/34">Life-stage reading</p>
         <p className="mt-1 text-4xl font-black leading-none text-white">{trend.value}%</p>
-        <div className="mt-4 h-2 overflow-hidden rounded-full bg-white/[0.06]">
-          <div className="h-full rounded-full bg-[linear-gradient(90deg,rgba(45,212,191,.45),rgba(96,165,250,.88))]" style={{ width: `${Math.max(14, Math.min(96, trend.value))}%` }} />
+        <p className={`mt-1 text-xs font-black ${style.statusClass}`}>{statusLabel(trend.value)}</p>
+        <div className="mt-4 h-2 overflow-hidden rounded-full bg-white/[0.055]">
+          <div className="h-full rounded-full" style={{ width: `${Math.max(14, Math.min(96, trend.value))}%`, background: style.stroke }} />
         </div>
       </div>
-      <div className="mt-3 rounded-[22px] border border-white/8 bg-white/[0.035] p-4">
+      <div className="relative z-10 mt-3 rounded-[22px] border border-white/[0.065] bg-white/[0.03] p-4">
         <p className="text-[10px] font-black uppercase tracking-[0.16em] text-white/34">Source direction</p>
-        <p className="mt-2 text-sm font-semibold leading-6 text-white/56">
+        <p className="mt-2 text-sm font-semibold leading-6 text-white/54">
           This is currently a CLARA life-stage intelligence placeholder. Later this can show Philippine survey data, admin-managed sources, and trend update status.
         </p>
       </div>
@@ -173,42 +208,43 @@ function StageImagePanel({ stage, image, onApply, onClose }) {
   };
 
   return (
-    <div className="absolute inset-0 z-30 flex min-h-0 flex-col rounded-[28px] border border-cyan-200/12 bg-slate-950/92 p-4 backdrop-blur-2xl">
-      <div className="flex shrink-0 items-start justify-between gap-3">
+    <div className="absolute inset-0 z-30 flex min-h-0 flex-col rounded-[28px] border border-white/[0.075] bg-[#050b1f]/92 p-4 shadow-[0_24px_80px_rgba(0,0,0,.42)] backdrop-blur-2xl">
+      <div className="pointer-events-none absolute inset-0 rounded-[28px] bg-[radial-gradient(circle_at_12%_10%,rgba(45,212,191,.10),transparent_28%),radial-gradient(circle_at_86%_12%,rgba(91,63,209,.16),transparent_32%)]" />
+      <div className="relative z-10 flex shrink-0 items-start justify-between gap-3">
         <div>
-          <p className="text-[9px] font-black uppercase tracking-[0.18em] text-cyan-100/46">Stage image</p>
+          <p className="text-[9px] font-black uppercase tracking-[0.18em] text-cyan-100/42">Stage image</p>
           <h4 className="mt-2 text-xl font-black leading-tight text-white">Customize {stage}</h4>
-          <p className="mt-1 text-xs font-semibold leading-5 text-white/42">Use the default CLARA visual or upload your own image for this life stage.</p>
+          <p className="mt-1 text-xs font-semibold leading-5 text-white/44">Use the default CLARA visual or upload your own image for this life stage.</p>
         </div>
-        <button type="button" onClick={onClose} className="grid h-8 w-8 shrink-0 place-items-center rounded-full border border-white/10 bg-white/[0.055] text-white/62 active:scale-95" aria-label="Close image setup">
+        <button type="button" onClick={onClose} className="grid h-8 w-8 shrink-0 place-items-center rounded-full border border-white/[0.075] bg-white/[0.04] text-white/58 active:scale-95" aria-label="Close image setup">
           <X className="h-4 w-4" />
         </button>
       </div>
-      <div className="mt-4 min-h-0 flex-1 overflow-y-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-        <div className="relative h-60 overflow-hidden rounded-[26px] border border-white/10 bg-white/[0.035]">
+      <div className="relative z-10 mt-4 min-h-0 flex-1 overflow-y-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+        <div className="relative h-60 overflow-hidden rounded-[26px] border border-white/[0.075] bg-[#071226]/64">
           {preview ? (
             <img src={preview} alt={`${stage} custom visual`} className="h-full w-full object-cover" />
           ) : (
             <div className="grid h-full place-items-center text-center">
-              <ImageIcon className="mx-auto h-9 w-9 text-white/34" />
-              <p className="mt-2 text-xs font-black text-white/48">Default CLARA stage visual</p>
+              <ImageIcon className="mx-auto h-9 w-9 text-white/30" />
+              <p className="mt-2 text-xs font-black text-white/44">Default CLARA stage visual</p>
             </div>
           )}
           <div className="absolute inset-0 bg-[linear-gradient(180deg,transparent,rgba(3,8,28,.72))]" />
         </div>
         <div className="mt-4 grid gap-2">
-          <label className="flex cursor-pointer items-center justify-center gap-2 rounded-full bg-emerald-300 px-4 py-3 text-xs font-black text-slate-950 active:scale-95">
+          <label className="flex cursor-pointer items-center justify-center gap-2 rounded-full bg-cyan-200 px-4 py-3 text-xs font-black text-slate-950 shadow-[0_10px_32px_rgba(125,211,252,.16)] active:scale-95">
             <Upload className="h-4 w-4" /> Upload image
             <input type="file" accept="image/*" className="hidden" onChange={handleUpload} />
           </label>
-          <button type="button" onClick={() => setPreview("")} className="flex items-center justify-center gap-2 rounded-full border border-white/10 bg-white/[0.045] px-4 py-3 text-xs font-black text-white/58 active:scale-95">
+          <button type="button" onClick={() => setPreview("")} className="flex items-center justify-center gap-2 rounded-full border border-white/[0.075] bg-white/[0.035] px-4 py-3 text-xs font-black text-white/54 active:scale-95">
             <RotateCcw className="h-4 w-4" /> Use default
           </button>
         </div>
       </div>
-      <div className="mt-3 flex shrink-0 gap-2">
-        <button type="button" onClick={onClose} className="flex-1 rounded-full border border-white/10 bg-white/[0.045] px-4 py-3 text-xs font-black text-white/58 active:scale-95">Cancel</button>
-        <button type="button" onClick={save} className="flex flex-1 items-center justify-center gap-2 rounded-full bg-emerald-300 px-4 py-3 text-xs font-black text-slate-950 active:scale-95">
+      <div className="relative z-10 mt-3 flex shrink-0 gap-2">
+        <button type="button" onClick={onClose} className="flex-1 rounded-full border border-white/[0.075] bg-white/[0.035] px-4 py-3 text-xs font-black text-white/54 active:scale-95">Cancel</button>
+        <button type="button" onClick={save} className="flex flex-1 items-center justify-center gap-2 rounded-full bg-cyan-200 px-4 py-3 text-xs font-black text-slate-950 shadow-[0_10px_32px_rgba(125,211,252,.16)] active:scale-95">
           <Check className="h-4 w-4" /> Apply image
         </button>
       </div>
@@ -219,10 +255,21 @@ function StageImagePanel({ stage, image, onApply, onClose }) {
 function StageCard({ stage, active, onClick }) {
   const identity = getStageDefinition(stage).identity;
   return (
-    <button type="button" onClick={onClick} className={`relative overflow-hidden rounded-[22px] border p-3.5 text-left transition active:scale-[0.98] ${active ? "border-emerald-200/34 bg-emerald-300/14" : "border-white/8 bg-white/[0.04]"}`}>
-      <p className="text-[8px] font-black uppercase tracking-[0.16em] text-cyan-100/34">{stage}</p>
-      <p className="mt-1 text-sm font-black leading-tight text-white">{identity.title}</p>
-      <p className="mt-1 line-clamp-2 text-[11px] font-semibold leading-4 text-white/38">{identity.caption}</p>
+    <button
+      type="button"
+      onClick={onClick}
+      className={`relative overflow-hidden rounded-[22px] border p-3.5 text-left transition active:scale-[0.98] ${
+        active
+          ? "border-cyan-200/24 bg-[linear-gradient(145deg,rgba(45,212,191,.13),rgba(91,63,209,.12))] shadow-[0_0_28px_rgba(45,212,191,.10)]"
+          : "border-white/[0.075] bg-[#071226]/58 shadow-[inset_0_1px_0_rgba(255,255,255,.025)]"
+      }`}
+    >
+      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_14%_0%,rgba(45,212,191,.08),transparent_35%)] opacity-70" />
+      <div className="relative z-10">
+        <p className="text-[8px] font-black uppercase tracking-[0.16em] text-cyan-100/38">{stage}</p>
+        <p className="mt-1 text-sm font-black leading-tight text-white">{identity.title}</p>
+        <p className="mt-1 line-clamp-2 text-[11px] font-semibold leading-4 text-white/42">{identity.caption}</p>
+      </div>
     </button>
   );
 }
@@ -231,12 +278,19 @@ function OptionGroup({ label, helper, value, options, onSelect }) {
   return (
     <div>
       <p className="text-[9px] font-black uppercase tracking-[0.18em] text-cyan-100/38">{label}</p>
-      {helper ? <p className="mt-1 text-[11px] font-semibold leading-4 text-white/32">{helper}</p> : null}
+      {helper ? <p className="mt-1 text-[11px] font-semibold leading-4 text-white/34">{helper}</p> : null}
       <div className="mt-2 flex flex-wrap gap-2">
         {options.map((option) => {
           const active = option === value;
           return (
-            <button key={option} type="button" onClick={() => onSelect(option)} className={`rounded-full border px-3 py-2 text-[11px] font-black transition active:scale-95 ${active ? "border-emerald-200/28 bg-emerald-300/16 text-emerald-100" : "border-white/8 bg-white/[0.04] text-white/48"}`}>
+            <button
+              key={option}
+              type="button"
+              onClick={() => onSelect(option)}
+              className={`rounded-full border px-3 py-2 text-[11px] font-black transition active:scale-95 ${
+                active ? "border-cyan-200/22 bg-cyan-200/12 text-cyan-50" : "border-white/[0.075] bg-[#071226]/54 text-white/46"
+              }`}
+            >
               {option}
             </button>
           );
@@ -265,52 +319,53 @@ function StageSetupPanel({ profile, onClose, onSave }) {
   };
 
   return (
-    <div className="absolute inset-0 z-20 flex min-h-0 flex-col rounded-[28px] border border-cyan-200/12 bg-slate-950/92 p-4 backdrop-blur-2xl">
-      <div className="flex shrink-0 items-start justify-between gap-3">
+    <div className="absolute inset-0 z-20 flex min-h-0 flex-col rounded-[28px] border border-white/[0.075] bg-[#050b1f]/92 p-4 shadow-[0_24px_80px_rgba(0,0,0,.42)] backdrop-blur-2xl">
+      <div className="pointer-events-none absolute inset-0 rounded-[28px] bg-[radial-gradient(circle_at_12%_8%,rgba(45,212,191,.12),transparent_28%),radial-gradient(circle_at_92%_8%,rgba(91,63,209,.18),transparent_32%),linear-gradient(180deg,rgba(7,18,38,.72),rgba(5,11,31,.92))]" />
+      <div className="relative z-10 flex shrink-0 items-start justify-between gap-3">
         <div>
           <p className="text-[9px] font-black uppercase tracking-[0.18em] text-cyan-100/46">Life stage setup</p>
           <h4 className="mt-2 text-xl font-black leading-tight text-white">{step === "stage" ? "Let CLARA understand your season" : step === "environment" ? "How does this season feel?" : "What should CLARA watch?"}</h4>
-          <p className="mt-1 text-xs font-semibold leading-5 text-white/42">{step === "stage" ? "Choose the closest stage. It does not need to be perfect." : definition.identity.caption}</p>
+          <p className="mt-1 text-xs font-semibold leading-5 text-white/44">{step === "stage" ? "Choose the closest stage. It does not need to be perfect." : definition.identity.caption}</p>
         </div>
-        <button type="button" onClick={onClose} className="grid h-8 w-8 shrink-0 place-items-center rounded-full border border-white/10 bg-white/[0.055] text-white/62 active:scale-95" aria-label="Close stage setup">
+        <button type="button" onClick={onClose} className="grid h-8 w-8 shrink-0 place-items-center rounded-full border border-white/[0.075] bg-white/[0.04] text-white/58 active:scale-95" aria-label="Close stage setup">
           <X className="h-4 w-4" />
         </button>
       </div>
 
-      <div className="mt-3 flex shrink-0 gap-1.5">
+      <div className="relative z-10 mt-3 flex shrink-0 gap-1.5">
         {["stage", "environment", "focus"].map((item) => (
-          <div key={item} className={`h-1.5 flex-1 rounded-full ${item === step ? "bg-emerald-300/80" : "bg-white/[0.08]"}`} />
+          <div key={item} className={`h-1.5 flex-1 rounded-full ${item === step ? "bg-cyan-200/72 shadow-[0_0_18px_rgba(125,211,252,.18)]" : "bg-white/[0.065]"}`} />
         ))}
       </div>
 
-      <div className="mt-4 min-h-0 flex-1 overflow-y-auto pr-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+      <div className="relative z-10 mt-4 min-h-0 flex-1 overflow-y-auto pr-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
         {step === "stage" ? <div className="grid grid-cols-2 gap-2.5">{STAGES.map((stage) => <StageCard key={stage} stage={stage} active={draft.stage === stage} onClick={() => setStage(stage)} />)}</div> : null}
         {step === "environment" ? (
-          <div className="space-y-4 rounded-[22px] border border-white/8 bg-white/[0.035] p-4">
+          <div className="space-y-4 rounded-[22px] border border-white/[0.065] bg-[#071226]/54 p-4">
             <OptionGroup label="Current setup" helper="Where are you living or operating from right now?" value={draft.setup} options={fields.setup} onSelect={(value) => setDraft((current) => ({ ...current, setup: value }))} />
             <OptionGroup label="Current rhythm" helper="How stable does this season feel lately?" value={draft.rhythm} options={fields.rhythm} onSelect={(value) => setDraft((current) => ({ ...current, rhythm: value }))} />
           </div>
         ) : null}
         {step === "focus" ? (
-          <div className="space-y-4 rounded-[22px] border border-white/8 bg-white/[0.035] p-4">
+          <div className="space-y-4 rounded-[22px] border border-white/[0.065] bg-[#071226]/54 p-4">
             <OptionGroup label="Pressure right now" helper="Choose the pressure that best explains this stage." value={draft.pressure} options={fields.pressure} onSelect={(value) => setDraft((current) => ({ ...current, pressure: value }))} />
             <OptionGroup label="Main focus" helper="What should CLARA protect first?" value={draft.goal} options={fields.goal} onSelect={(value) => setDraft((current) => ({ ...current, goal: value }))} />
           </div>
         ) : null}
       </div>
 
-      <div className="mt-3 flex shrink-0 gap-2">
+      <div className="relative z-10 mt-3 flex shrink-0 gap-2">
         {step === "stage" ? (
-          <button type="button" onClick={onClose} className="flex-1 rounded-full border border-white/10 bg-white/[0.045] px-4 py-3 text-xs font-black text-white/58 active:scale-95">Cancel</button>
+          <button type="button" onClick={onClose} className="flex-1 rounded-full border border-white/[0.075] bg-white/[0.035] px-4 py-3 text-xs font-black text-white/54 active:scale-95">Cancel</button>
         ) : (
-          <button type="button" onClick={() => setStep(step === "focus" ? "environment" : "stage")} className="flex flex-1 items-center justify-center gap-2 rounded-full border border-white/10 bg-white/[0.045] px-4 py-3 text-xs font-black text-white/58 active:scale-95"><ChevronLeft className="h-4 w-4" /> Back</button>
+          <button type="button" onClick={() => setStep(step === "focus" ? "environment" : "stage")} className="flex flex-1 items-center justify-center gap-2 rounded-full border border-white/[0.075] bg-white/[0.035] px-4 py-3 text-xs font-black text-white/54 active:scale-95"><ChevronLeft className="h-4 w-4" /> Back</button>
         )}
         {step === "stage" ? (
-          <button type="button" onClick={() => setStep("environment")} className="flex-1 rounded-full bg-emerald-300 px-4 py-3 text-xs font-black text-slate-950 active:scale-95">Continue</button>
+          <button type="button" onClick={() => setStep("environment")} className="flex-1 rounded-full bg-cyan-200 px-4 py-3 text-xs font-black text-slate-950 shadow-[0_10px_32px_rgba(125,211,252,.16)] active:scale-95">Continue</button>
         ) : step === "environment" ? (
-          <button type="button" onClick={() => setStep("focus")} className="flex-1 rounded-full bg-emerald-300 px-4 py-3 text-xs font-black text-slate-950 active:scale-95">Continue</button>
+          <button type="button" onClick={() => setStep("focus")} className="flex-1 rounded-full bg-cyan-200 px-4 py-3 text-xs font-black text-slate-950 shadow-[0_10px_32px_rgba(125,211,252,.16)] active:scale-95">Continue</button>
         ) : (
-          <button type="button" onClick={save} className="flex flex-1 items-center justify-center gap-2 rounded-full bg-emerald-300 px-4 py-3 text-xs font-black text-slate-950 active:scale-95"><Check className="h-4 w-4" /> Apply stage</button>
+          <button type="button" onClick={save} className="flex flex-1 items-center justify-center gap-2 rounded-full bg-cyan-200 px-4 py-3 text-xs font-black text-slate-950 shadow-[0_10px_32px_rgba(125,211,252,.16)] active:scale-95"><Check className="h-4 w-4" /> Apply stage</button>
         )}
       </div>
     </div>
@@ -354,13 +409,13 @@ export default function FinancialClimateScreen() {
   };
 
   return (
-    <div className="relative flex h-full min-h-0 flex-col overflow-hidden rounded-[30px] bg-[#020817] px-3 pb-3 pt-1 shadow-[inset_0_0_0_1px_rgba(255,255,255,.04)]">
+    <div className="relative flex h-full min-h-0 flex-col overflow-hidden rounded-[30px] bg-[#020817] px-3 pb-3 pt-1 shadow-[inset_0_0_0_1px_rgba(255,255,255,.035)]">
       <section className={`relative min-h-0 flex-[1.25] overflow-hidden rounded-b-[30px] bg-gradient-to-br ${visual.glow} px-5 pb-5 pt-5 shadow-[0_22px_80px_rgba(0,0,0,.22)]`}>
-        <div className="absolute inset-x-0 bottom-0 h-[62%] bg-[linear-gradient(180deg,transparent,rgba(2,8,23,.95))]" />
-        <div className="absolute inset-0 opacity-70 [background:linear-gradient(180deg,rgba(2,8,23,.20),rgba(2,8,23,.75)),radial-gradient(circle_at_78%_18%,rgba(96,165,250,.30),transparent_18%),linear-gradient(90deg,rgba(2,8,23,.98)_0%,rgba(2,8,23,.55)_54%,rgba(2,8,23,.14)_100%)]" />
+        <div className="absolute inset-x-0 bottom-0 h-[62%] bg-[linear-gradient(180deg,transparent,rgba(2,8,23,.96))]" />
+        <div className="absolute inset-0 opacity-75 [background:linear-gradient(180deg,rgba(2,8,23,.18),rgba(2,8,23,.72)),radial-gradient(circle_at_78%_18%,rgba(96,165,250,.18),transparent_18%),linear-gradient(90deg,rgba(2,8,23,.98)_0%,rgba(2,8,23,.58)_54%,rgba(2,8,23,.14)_100%)]" />
         <div className="absolute bottom-0 right-0 h-full w-[56%] overflow-hidden">
-          {activeImage ? <img src={activeImage} alt={`${stageProfile.stage} stage background`} className="h-full w-full object-cover opacity-80" /> : <div className="absolute inset-x-2 bottom-0 h-[92%] rounded-t-[90px] opacity-95" style={{ background: visual.silhouette }} />}
-          <div className="absolute inset-0 bg-[linear-gradient(90deg,rgba(2,8,23,.82),rgba(2,8,23,.05)_48%,rgba(2,8,23,.10))]" />
+          {activeImage ? <img src={activeImage} alt={`${stageProfile.stage} stage background`} className="h-full w-full object-cover opacity-78 saturate-[.9]" /> : <div className="absolute inset-x-2 bottom-0 h-[92%] rounded-t-[90px] opacity-90" style={{ background: visual.silhouette }} />}
+          <div className="absolute inset-0 bg-[linear-gradient(90deg,rgba(2,8,23,.84),rgba(2,8,23,.08)_48%,rgba(2,8,23,.18))]" />
         </div>
         <div className="absolute bottom-0 left-0 right-0 h-12 bg-[linear-gradient(180deg,transparent,#020817)]" />
 
@@ -368,18 +423,18 @@ export default function FinancialClimateScreen() {
           <button
             type="button"
             onClick={() => setShowHeroActions((current) => !current)}
-            className="grid h-9 w-9 place-items-center rounded-full border border-white/12 bg-slate-950/22 text-white/70 shadow-[0_10px_28px_rgba(0,0,0,.22)] backdrop-blur-xl transition active:scale-95"
+            className="grid h-9 w-9 place-items-center rounded-full border border-white/[0.085] bg-slate-950/24 text-white/64 shadow-[0_10px_28px_rgba(0,0,0,.22)] backdrop-blur-xl transition active:scale-95"
             aria-label="Open life stage actions"
           >
             <MoreHorizontal className="h-4.5 w-4.5" />
           </button>
 
           {showHeroActions ? (
-            <div className="absolute right-0 top-11 w-36 overflow-hidden rounded-[18px] border border-white/12 bg-slate-950/72 p-1.5 shadow-[0_18px_54px_rgba(0,0,0,.38)] backdrop-blur-2xl">
-              <button type="button" onClick={openStageSetup} className="w-full rounded-[14px] px-3 py-2.5 text-left text-[11px] font-black uppercase tracking-[0.12em] text-white/78 transition hover:bg-white/[0.06] active:scale-[0.99]">
+            <div className="absolute right-0 top-11 w-36 overflow-hidden rounded-[18px] border border-white/[0.085] bg-[#071226]/82 p-1.5 shadow-[0_18px_54px_rgba(0,0,0,.38)] backdrop-blur-2xl">
+              <button type="button" onClick={openStageSetup} className="w-full rounded-[14px] px-3 py-2.5 text-left text-[11px] font-black uppercase tracking-[0.12em] text-white/72 transition hover:bg-white/[0.055] active:scale-[0.99]">
                 Set stage
               </button>
-              <button type="button" onClick={openImageSetup} className="w-full rounded-[14px] px-3 py-2.5 text-left text-[11px] font-black uppercase tracking-[0.12em] text-white/78 transition hover:bg-white/[0.06] active:scale-[0.99]">
+              <button type="button" onClick={openImageSetup} className="w-full rounded-[14px] px-3 py-2.5 text-left text-[11px] font-black uppercase tracking-[0.12em] text-white/72 transition hover:bg-white/[0.055] active:scale-[0.99]">
                 Image
               </button>
             </div>
@@ -387,24 +442,30 @@ export default function FinancialClimateScreen() {
         </div>
 
         <div className="relative z-10 flex h-full max-w-[59%] flex-col justify-center pt-3">
-          <p className="text-[9px] font-black uppercase tracking-[0.15em] text-white/55">Your life stage</p>
-          <h2 className="mt-2 text-[clamp(22px,7vw,31px)] font-black leading-[1.02] text-white drop-shadow-lg">{stageProfile.stage} <span className="text-[13px] text-amber-200">♛</span></h2>
-          <p className="mt-2 line-clamp-4 text-[12px] font-semibold leading-5 text-white/64">{definition.identity.caption}</p>
+          <p className="text-[9px] font-black uppercase tracking-[0.15em] text-white/52">Your life stage</p>
+          <h2 className="mt-2 text-[clamp(22px,7vw,31px)] font-black leading-[1.02] text-white drop-shadow-lg">{stageProfile.stage} <span className="text-[13px] text-amber-100/78">♛</span></h2>
+          <p className="mt-2 line-clamp-4 text-[12px] font-semibold leading-5 text-white/62">{definition.identity.caption}</p>
         </div>
       </section>
 
-      <section className="mt-3 min-h-0 flex-[0.58] overflow-hidden rounded-[24px] border border-violet-300/12 bg-white/[0.045] p-3 backdrop-blur-xl">
+      <section className="mt-3 min-h-0 flex-[0.58] overflow-hidden rounded-[24px] border border-white/[0.075] bg-[#071226]/56 p-3 backdrop-blur-xl">
         <div className="flex h-full items-center justify-between gap-3">
           <div className="min-w-0 flex-1">
             <h3 className="text-[14px] font-black text-white">You’re not alone.</h3>
-            <p className="mt-1 line-clamp-3 text-[12px] font-semibold leading-5 text-white/60">Many people in this life stage are experiencing similar financial pressure.</p>
+            <p className="mt-1 line-clamp-3 text-[12px] font-semibold leading-5 text-white/56">Many people in this life stage are experiencing similar financial pressure.</p>
           </div>
-          <div className="grid h-16 w-16 shrink-0 place-items-center rounded-full border border-fuchsia-300/25 bg-fuchsia-400/10 shadow-[0_0_35px_rgba(217,70,239,.28)]"><Heart className="h-7 w-7 fill-fuchsia-200 text-fuchsia-200" /></div>
+          <div className="grid h-16 w-16 shrink-0 place-items-center rounded-full border border-violet-200/14 bg-violet-300/8 shadow-[0_0_30px_rgba(167,139,250,.18)]"><Heart className="h-7 w-7 fill-violet-100 text-violet-100" /></div>
         </div>
       </section>
 
-      <section className="mt-3 flex min-h-0 flex-[0.95] flex-col overflow-hidden rounded-[24px] border border-white/8 bg-white/[0.035] p-3 backdrop-blur-xl">
-        <div className="flex shrink-0 items-center justify-between gap-3"><div><h3 className="text-[14px] font-black text-white">Life Stage Trend Snapshot</h3><p className="mt-0.5 text-[10px] font-semibold text-white/38">Swipe the stage cards.</p></div><Sparkles className="h-4 w-4 text-cyan-100/42" /></div>
+      <section className="mt-3 flex min-h-0 flex-[0.95] flex-col overflow-hidden rounded-[24px] border border-white/[0.075] bg-[#071226]/50 p-3 backdrop-blur-xl">
+        <div className="flex shrink-0 items-center justify-between gap-3">
+          <div>
+            <h3 className="text-[14px] font-black text-white">Life Stage Trend Snapshot</h3>
+            <p className="mt-0.5 text-[10px] font-semibold text-white/36">Swipe the stage cards.</p>
+          </div>
+          <Sparkles className="h-4 w-4 text-cyan-100/36" />
+        </div>
         <div className="mt-3 flex min-h-0 flex-1 snap-x gap-2.5 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">{definition.indicators.map((item) => <TrendSnapshotCard key={item.label} item={item} onClick={() => setSelectedTrend(item)} />)}</div>
       </section>
 
