@@ -1,123 +1,10 @@
 const MODAL_SELECTOR = "#root div[class*='fixed'][class*='z-[9999]']";
 
-const optionCopy = {
-  "First job": "Meaning: your pay routine is new and still forming. CLARA will watch first-salary habits, impulse rewards, and help you build a simple save-before-spend rhythm.",
-  "Early career": "Meaning: you have started earning, but your lifestyle and responsibilities are still adjusting. CLARA will watch lifestyle creep, bills, and early savings discipline.",
-  "Exploring income": "Meaning: your earning path is still open and changing. CLARA will focus on flexible budgeting, small buffers, and decisions that keep your options safe.",
-  "Building independence": "Meaning: you are learning to carry more of your own needs. CLARA will prioritize rent-like costs, personal boundaries, emergency savings, and stable routines.",
-  "Allowance + work": "Meaning: money comes from both support and effort. CLARA will separate school needs, work income, and personal spending so one source does not hide the pressure of the other.",
-  "Part-time only": "Meaning: your income has a smaller ceiling and less room for mistakes. CLARA will protect essentials first and keep spending decisions realistic for limited hours.",
-  "Income is irregular": "Meaning: money does not arrive the same way every period. CLARA will avoid fixed-payday assumptions and prioritize buffer, bill timing, and safer daily spending.",
-  "Seasonal income": "Meaning: some periods may be strong while others are quiet. CLARA will help stretch income, prepare for low months, and avoid treating peak income as normal.",
-  "Just us together": "Meaning: your daily money rhythm is shared with your partner. CLARA will watch shared bills, couple routines, emotional spending, and future planning pressure.",
-  "With my family": "Meaning: family environment still shapes your spending. CLARA will consider shared costs, support requests, privacy, and the balance between helping and saving.",
-  "With partner’s family": "Meaning: your setup includes relationship and family expectations. CLARA will watch contribution pressure, boundaries, and money conversations that may feel sensitive.",
-  "Still moving around": "Meaning: your home base is not fully stable yet. CLARA will focus on flexibility, transport, temporary costs, and keeping a safety buffer before big commitments.",
-  "With parents": "Meaning: you may have some cost support, but also possible contribution pressure. CLARA will help balance family help, personal savings, and adult independence.",
-  "With siblings": "Meaning: shared family routines can affect food, bills, and requests. CLARA will watch small shared costs and help you keep your own money plan visible.",
-  "Whole family": "Meaning: many household needs can compete at once. CLARA will help identify which expenses are yours, which are shared, and what needs boundaries.",
-  "Shared home": "Meaning: bills and daily routines are shared with others. CLARA will track recurring household costs, contribution rhythm, and spending leaks from group living.",
-  "One child": "Meaning: your decisions already carry child-centered responsibility. CLARA will protect essentials, childcare needs, and emergency money before flexible spending.",
-  "Two children": "Meaning: needs multiply and mistakes affect more people. CLARA will focus on food, school, medical buffer, and a clearer priority order for spending.",
-  "Three or more": "Meaning: your household has high responsibility and less room for random spending. CLARA will emphasize survival needs, buffers, and predictable routines.",
-  "Co-parenting setup": "Meaning: responsibility may be shared across schedules or households. CLARA will watch timing, child-related expenses, and clear planning around support.",
-  Corporate: "Meaning: your work structure may be steady and predictable. CLARA will use that rhythm to strengthen budgeting, savings automation, and planned self-reward.",
-  "BPO/call center": "Meaning: shift work and stress can affect spending patterns. CLARA will watch cutoff behavior, food delivery, commute, sleep fatigue, and reward spending.",
-  "Office work": "Meaning: your routine likely creates daily spending triggers. CLARA will watch lunch, commute, work stress, and small weekday leaks that repeat often.",
-  "Remote work": "Meaning: home and work routines may blend together. CLARA will watch convenience spending, subscriptions, home costs, and emotional spending during flexible hours.",
-  "Client-based": "Meaning: your income depends on client flow and payment timing. CLARA will prioritize cash buffer, invoice gaps, and separating personal money from work money.",
-  "Project-based": "Meaning: income arrives by output, not always by date. CLARA will help stretch project payments and prevent strong-payment weeks from causing overspending.",
-  "Side hustle": "Meaning: extra income is growing beside your main life. CLARA will help decide what should be saved, reinvested, or used without mixing it carelessly.",
-  "Full freelance": "Meaning: flexibility is high, but stability depends on your system. CLARA will focus on buffers, client timing, separate wallets, and low-income month protection.",
-  "Just starting": "Meaning: the business is still fragile and cash can move fast. CLARA will focus on runway, simple tracking, and keeping personal money protected.",
-  "Growing already": "Meaning: momentum is present, but growth can create pressure. CLARA will watch reinvestment, profit clarity, and whether the business is draining personal stability.",
-  "Side business": "Meaning: business and personal money can easily mix. CLARA will help separate wallets, identify true profit, and avoid using sales as spending permission.",
-  "Main income": "Meaning: the business now supports your life. CLARA will prioritize operating costs, owner pay, emergency runway, and stable cash-flow decisions.",
-  "Stable salary": "Meaning: income is predictable enough to build structure. CLARA will push planned savings, recurring bills, and consistent spending limits instead of reactive decisions.",
-  "Cutoff cycle": "Meaning: your spending may rise and fall around payday. CLARA will watch early-cutoff spending, mid-cycle shortages, and end-cycle survival behavior.",
-  "Income still changing": "Meaning: your earning level is not fully settled. CLARA will keep budgets flexible, avoid overcommitment, and protect cash while your income stabilizes.",
-  "Learning rhythm": "Meaning: you are still discovering your money pattern. CLARA will help observe what repeats, what breaks the plan, and what routines are realistic.",
-  "Mostly stable": "Meaning: your season has some structure. CLARA can build stronger rules, but will still watch hidden leaks and emotional spending patterns.",
-  "Still finding rhythm": "Meaning: the routine is not clear yet. CLARA will keep advice flexible and help identify what pattern is starting to repeat.",
-  "This is new": "Meaning: the setup is still fresh and untested. CLARA will avoid assuming stability and will watch adjustment costs, emotion, and surprise expenses.",
-  "Temporary for now": "Meaning: this situation may change soon. CLARA will focus on short-term safety, flexible plans, and avoiding commitments that trap future options.",
-  "Stable home": "Meaning: your environment has routine. CLARA can use that predictability to plan bills, savings, and steady household contributions.",
-  "Home is changing": "Meaning: your environment may shift soon. CLARA will watch transition costs, family needs, and avoid locking money into rigid plans.",
-  "Shared routine": "Meaning: other people influence your daily rhythm. CLARA will consider shared meals, bills, requests, and the way group habits affect spending.",
-  "Busy household": "Meaning: many needs happen at once. CLARA will help separate urgent costs from emotional or convenience spending caused by household pressure.",
-  "Stable routine": "Meaning: your days are predictable enough to build a system. CLARA will use that routine to protect essentials, savings, and repeatable money habits.",
-  "Childcare changes": "Meaning: time and care needs may shift suddenly. CLARA will watch schedule costs, backup expenses, and emergency needs connected to childcare.",
-  "School-heavy season": "Meaning: school expenses may dominate the budget. CLARA will prioritize fees, supplies, transport, food, and timing before flexible purchases.",
-  "Unpredictable days": "Meaning: your routine can change without warning. CLARA will focus on emergency cash, simple rules, and decisions that still work during chaotic days.",
-  "Every cutoff": "Meaning: your money rhythm is tied to payday cycles. CLARA will plan by cutoff, watch early overspending, and protect money for the second half.",
-  "Monthly salary": "Meaning: one payment must cover a longer period. CLARA will help divide money into weeks so the month does not collapse near the end.",
-  "Shift-based": "Meaning: work schedule affects energy and spending. CLARA will watch food, transport, sleep fatigue, and convenience buys around difficult shifts.",
-  "Monthly clients": "Meaning: income may be somewhat predictable through clients. CLARA will still watch payment delays and help separate client money into clear purposes.",
-  "Seasonal work": "Meaning: work demand changes by season. CLARA will protect cash during strong periods so slow periods do not force debt or panic spending.",
-  "Growing slowly": "Meaning: progress exists but may not feel fast. CLARA will focus on consistency, realistic goals, and not overspending before growth becomes stable.",
-  Reinvesting: "Meaning: money is going back into the business. CLARA will watch whether reinvestment is strategic or quietly harming personal stability.",
-  "Sales not steady": "Meaning: revenue is not predictable yet. CLARA will prioritize runway, cost control, and avoiding decisions based only on a good sales day.",
-  "Monthly cycle": "Meaning: the business has a repeating month pattern. CLARA will help map sales, expenses, owner pay, and slow points in the cycle.",
-  "Scaling up": "Meaning: growth is increasing complexity. CLARA will watch operating costs, reinvestment pressure, and whether expansion is still financially safe.",
-  "Living pressure": "Meaning: basic living costs are shaping your decisions. CLARA will focus on essentials, recurring bills, and reducing random spending that weakens stability.",
-  "Comfort spending": "Meaning: spending may be used to feel better or rewarded. CLARA will help replace short-term relief with planned self-care that does not break the budget.",
-  "Peer pressure": "Meaning: other people may influence your spending choices. CLARA will help protect boundaries and decide when social spending is worth it.",
-  "Low buffer": "Meaning: you have limited protection if something goes wrong. CLARA will prioritize emergency savings and avoid choices that leave you exposed.",
-  "School costs": "Meaning: education expenses are creating pressure. CLARA will prioritize tuition, supplies, transport, and deadlines before lifestyle spending.",
-  "Transport pressure": "Meaning: movement costs are eating into your budget. CLARA will watch commute patterns, fare spikes, and convenience spending caused by travel fatigue.",
-  "Burnout risk": "Meaning: exhaustion can turn into spending decisions. CLARA will watch comfort buys, food shortcuts, and help design cheaper recovery routines.",
-  "Family expectations": "Meaning: family needs or pressure affect your money choices. CLARA will help balance support, boundaries, and your own stability.",
-  "Shared expenses": "Meaning: bills or purchases are connected to another person. CLARA will focus on clarity, fairness, and avoiding silent resentment around money.",
-  "Future planning": "Meaning: long-term decisions are already influencing spending. CLARA will watch savings, commitments, and whether today’s choices support tomorrow’s plan.",
-  "Money communication": "Meaning: the issue is not only money but conversation. CLARA will help make costs, expectations, and limits clearer before they become conflict.",
-  "Emotionally sensitive": "Meaning: this money area can affect feelings or relationships. CLARA will suggest decisions that protect peace, clarity, and stability.",
-  "Household contribution": "Meaning: you may need to help at home. CLARA will help define a contribution that is supportive without destroying your personal safety.",
-  "Support pressure": "Meaning: people may depend on you financially. CLARA will watch giving patterns, emergency limits, and the line between help and overextension.",
-  "Family requests": "Meaning: money requests may appear suddenly. CLARA will help you prepare a response system instead of deciding only from guilt or pressure.",
-  "Personal boundaries": "Meaning: your money needs clearer limits. CLARA will help protect your goals while still respecting relationships and responsibilities.",
-  "Daily needs": "Meaning: everyday essentials carry the pressure. CLARA will prioritize food, transport, child needs, and bills before anything flexible.",
-  "School expenses": "Meaning: education-related costs are a major risk point. CLARA will track timing, deadlines, and buffers for fees, supplies, and school needs.",
-  "Emergency risk": "Meaning: one surprise expense could disrupt the month. CLARA will focus on buffer building and safer decisions before non-essential spending.",
-  "Time pressure": "Meaning: lack of time can make spending feel like the easiest solution. CLARA will watch convenience costs and suggest cheaper time-saving options.",
-  "Lifestyle pressure": "Meaning: income may invite upgrades that become normal. CLARA will watch recurring lifestyle creep and help separate reward from habit.",
-  "Stress spending": "Meaning: stress may trigger purchases for relief. CLARA will watch timing, categories, and cheaper recovery options before spending becomes automatic.",
-  "Family support": "Meaning: part of your income may go to others. CLARA will help plan support as a budget item instead of letting it surprise the month.",
-  "Routine fatigue": "Meaning: repetition can drain discipline. CLARA will watch payday rewards, food shortcuts, and spending caused by emotional tiredness.",
-  "Income variability": "Meaning: income changes while expenses remain real. CLARA will prioritize cash buffer, lower fixed costs, and conservative spending decisions.",
-  "Client delays": "Meaning: money may be earned but not yet received. CLARA will watch due dates, waiting periods, and spending before payments arrive.",
-  "Uncertain months": "Meaning: future income is not guaranteed. CLARA will keep the plan defensive, reduce risky commitments, and protect survival cash.",
-  "Reinvestment pressure": "Meaning: growth asks for money before it guarantees return. CLARA will help separate smart reinvestment from emotional overcommitting.",
-  "Inventory pressure": "Meaning: stock or materials may tie up cash. CLARA will watch cash flow, unsold inventory, and whether buying more is truly safe.",
-  "Operating costs": "Meaning: the business has costs that keep running. CLARA will protect rent, tools, subscriptions, supplies, and owner pay from mixing together.",
-  "Personal/business mix": "Meaning: personal and business money may be blurred. CLARA will push separation so profit, spending, and runway are easier to see.",
-  "Build habits": "Meaning: your focus is consistency. CLARA will start with small repeatable rules rather than complicated plans that are hard to maintain.",
-  "Emergency fund first": "Meaning: your priority is protection. CLARA will push cash buffer before wants, upgrades, and risky commitments.",
-  "Reduce impulse buys": "Meaning: your focus is stopping unplanned spending. CLARA will watch triggers, timing, and reasons before purchases happen.",
-  "Save first": "Meaning: you want savings to happen before spending. CLARA will treat savings as the first move, not whatever is left over.",
-  "Graduate safely": "Meaning: school completion is the priority. CLARA will protect tuition, transport, food, requirements, and energy so money stress does not derail progress.",
-  "Save slowly": "Meaning: you want progress without unrealistic pressure. CLARA will support small consistent savings that fit your actual income.",
-  "Avoid debt": "Meaning: your goal is to prevent future pressure. CLARA will be careful with borrowing, installment temptation, and spending ahead of income.",
-  "Help family": "Meaning: supporting family matters to you. CLARA will help make that support planned, sustainable, and not damaging to your own stability.",
-  "Build savings together": "Meaning: shared progress matters. CLARA will help align saving rules, contribution rhythm, and shared goals with your partner.",
-  "Plan our future": "Meaning: you want decisions to support a bigger direction. CLARA will connect spending choices to long-term stability and shared plans.",
-  "Stability first": "Meaning: safety matters more than speed. CLARA will favor predictable bills, buffers, and calm decisions before aggressive goals.",
-  "Contribute wisely": "Meaning: you want to help without losing yourself. CLARA will help set realistic household support and keep personal goals protected.",
-  "Build safety": "Meaning: your focus is financial protection. CLARA will prioritize emergency cash, predictable essentials, and lower risk decisions.",
-  "Reduce stress spending": "Meaning: spending may be connected to emotional pressure. CLARA will help spot triggers and suggest replacement actions that cost less.",
-  "Personal stability": "Meaning: your own foundation needs protection. CLARA will focus on your essentials, savings, boundaries, and mental bandwidth.",
-  "Protect essentials": "Meaning: survival needs come first. CLARA will protect food, child needs, bills, transport, and emergency cash before flexible spending.",
-  "Reduce debt": "Meaning: you want to lower pressure from past borrowing. CLARA will prioritize payments, avoid new debt triggers, and protect essentials during payoff.",
-  "Save consistently": "Meaning: the goal is repeatable progress. CLARA will align savings with payday or income rhythm so it happens automatically.",
-  "Reduce random spending": "Meaning: small unplanned costs are the target. CLARA will watch repeated categories and help you decide before casual spending piles up.",
-  "Build discipline": "Meaning: you want stronger control. CLARA will use simple rules, reminders, and spending checks to reduce emotional decisions.",
-  "Build buffer": "Meaning: you need breathing room between income and expenses. CLARA will prioritize cash reserves before upgrades or risky choices.",
-  "Stabilize income": "Meaning: you want less uncertainty. CLARA will watch patterns, client flow, side income, and spending plans that depend on reliable cash.",
-  "Separate wallets": "Meaning: you want clearer money boundaries. CLARA will split purposes so bills, savings, business, and spending do not blur together.",
-  "Grow clients": "Meaning: income growth is the priority. CLARA will still protect cash flow so growth efforts do not create personal instability.",
-  "Separate money": "Meaning: personal and business money need clearer walls. CLARA will help protect owner pay, runway, operating funds, and real profit visibility.",
-  "Build runway": "Meaning: you need months of breathing room. CLARA will prioritize reserve cash so the business can survive slow sales or delays.",
-  "Control spending": "Meaning: cash leakage is the risk. CLARA will watch operating costs, personal withdrawals, and purchases that feel urgent but are not strategic.",
-  "Grow sustainably": "Meaning: you want growth without breaking stability. CLARA will balance reinvestment, personal needs, and cash safety before expansion.",
+const sessionAnswers = {
+  setup: "",
+  rhythm: "",
+  pressure: "",
+  focus: "",
 };
 
 function clean(value) {
@@ -135,6 +22,15 @@ function screenOf(root) {
   return title ? "stage" : "";
 }
 
+function keyFor(label) {
+  const value = clean(label).toLowerCase();
+  if (value.includes("current setup")) return "setup";
+  if (value.includes("current rhythm")) return "rhythm";
+  if (value.includes("pressure")) return "pressure";
+  if (value.includes("main focus")) return "focus";
+  return "setup";
+}
+
 function groupsOf(root) {
   const panel = Array.from(root?.querySelectorAll("main section") || []).find((section) =>
     String(section.className || "").includes("space-y-5")
@@ -146,49 +42,152 @@ function visibleGroup(groups) {
   return groups.find((group) => group.dataset.claraProgressiveVisible === "true") || groups[0] || null;
 }
 
-function selectedOption(group) {
-  if (group?.dataset.claraUserTouched !== "true") return "";
-  const selected = Array.from(group.querySelectorAll("button")).find((button) =>
+function selectedButton(group) {
+  if (group?.dataset.claraUserTouched !== "true") return null;
+  return Array.from(group.querySelectorAll("button")).find((button) =>
     String(button.className || "").includes("bg-cyan-200")
   );
-  return clean(selected?.textContent);
-}
-
-function intro(label) {
-  const value = String(label || "").toLowerCase();
-  if (value.includes("current setup")) return "This section tells CLARA what kind of environment you are operating from right now. Choose the tile that best fits your real situation.";
-  if (value.includes("current rhythm")) return "This section tells CLARA how stable or changing this season feels. Choose the tile that best fits your rhythm.";
-  if (value.includes("pressure")) return "This section tells CLARA what pressure affects your money decisions the most right now.";
-  if (value.includes("main focus")) return "This section tells CLARA what you want to protect first in this season.";
-  return "Choose the tile that best fits your situation.";
-}
-
-function explanationFor(group) {
-  const label = clean(group?.querySelector("p")?.textContent);
-  const picked = selectedOption(group);
-  if (!picked) return intro(label);
-  return optionCopy[picked] || `Meaning: ${picked} is part of your current season. CLARA will use this answer to adjust budgeting, priorities, and spending guidance around your real situation.`;
 }
 
 function headerMessage(root) {
   return root?.querySelector("header h3")?.nextElementSibling || null;
 }
 
-function removeOldCardNotes(root) {
-  root?.querySelectorAll("[data-clara-life-explanation='true']").forEach((node) => node.remove());
+function resetSessionAnswers() {
+  sessionAnswers.setup = "";
+  sessionAnswers.rhythm = "";
+  sessionAnswers.pressure = "";
+  sessionAnswers.focus = "";
+}
+
+function introFor(key) {
+  if (key === "setup") return "Start by choosing your current setup. This becomes CLARA’s first clue about your real environment before it reads your rhythm, pressure, and focus.";
+  if (key === "rhythm") return sessionAnswers.setup
+    ? `You started with ${sessionAnswers.setup}. Now choose your rhythm so CLARA can connect your environment with how money actually moves day to day.`
+    : "Now choose your rhythm so CLARA can understand how stable or changing your money season feels.";
+  if (key === "pressure") return contextLine("Now choose the pressure that is affecting your decisions most. CLARA will connect it with your setup and rhythm.");
+  if (key === "focus") return contextLine("Now choose what should be protected first. CLARA will use this to complete the life-season profile.");
+  return "Choose the option that best matches your situation.";
+}
+
+function optionMeaning(option, key) {
+  const o = clean(option).toLowerCase();
+
+  if (key === "setup") {
+    if (o.includes("first job")) return "your money habits are still forming, so first-salary rewards, early bills, and save-before-spend routines matter.";
+    if (o.includes("early career")) return "you already have work momentum, but lifestyle upgrades, new responsibilities, and savings discipline can start competing.";
+    if (o.includes("exploring")) return "your earning path is still open, so flexibility, small buffers, and avoiding heavy commitments matter.";
+    if (o.includes("independence")) return "you are carrying more of your own needs, so boundaries, essentials, and emergency protection become more important.";
+    if (o.includes("family") || o.includes("parents") || o.includes("siblings") || o.includes("household")) return "family or household expectations may shape spending, support requests, contribution pressure, and boundaries.";
+    if (o.includes("partner")) return "shared routines and relationship expectations can affect bills, comfort spending, and future planning.";
+    if (o.includes("child")) return "child-centered needs make essentials, timing, and emergency protection more important than flexible spending.";
+    if (o.includes("corporate") || o.includes("office") || o.includes("bpo") || o.includes("remote")) return "work structure can shape daily spending through commute, meals, stress, shifts, or home-work routines.";
+    if (o.includes("freelance") || o.includes("client") || o.includes("project") || o.includes("side hustle")) return "income depends more on flow and timing, so buffers and separated wallets become important.";
+    if (o.includes("business") || o.includes("starting") || o.includes("main income")) return "business and personal money can mix, so runway, owner pay, and operating costs need clearer separation.";
+    return `your current environment is ${option}, so CLARA will treat your setup as the foundation of the profile.`;
+  }
+
+  if (key === "rhythm") {
+    if (o.includes("irregular") || o.includes("changing") || o.includes("seasonal") || o.includes("not steady") || o.includes("unpredictable")) return "your cash flow is not fully predictable, so CLARA should avoid strict fixed-payday assumptions and protect buffers, bills, and low-income periods.";
+    if (o.includes("stable") || o.includes("salary") || o.includes("monthly") || o.includes("routine")) return "your rhythm has enough predictability to build stronger rules around bills, savings, and controlled self-reward.";
+    if (o.includes("cutoff") || o.includes("every cutoff")) return "your spending may rise and fall around payday, so CLARA should watch early-cutoff spending and end-cycle survival behavior.";
+    if (o.includes("part-time") || o.includes("allowance")) return "income may be limited or mixed with support, so CLARA should separate essentials, school/work needs, and personal spending.";
+    if (o.includes("shift")) return "your schedule can affect energy and spending, especially food, transport, convenience buys, and fatigue rewards.";
+    if (o.includes("reinvest") || o.includes("scaling") || o.includes("sales")) return "business movement affects personal stability, so CLARA should watch cash flow before growth decisions become risky.";
+    return `your rhythm is ${option}, so CLARA will use that timing pattern to shape the budget advice.`;
+  }
+
+  if (key === "pressure") {
+    if (o.includes("burnout") || o.includes("stress") || o.includes("fatigue")) return "emotional or energy pressure can turn into comfort spending, food shortcuts, and reward purchases.";
+    if (o.includes("family") || o.includes("support") || o.includes("household")) return "relationship or household pressure can blur boundaries and make money decisions feel urgent or guilt-based.";
+    if (o.includes("transport") || o.includes("school") || o.includes("daily needs")) return "essential daily costs are pulling the budget, so CLARA should protect practical needs before flexible wants.";
+    if (o.includes("emergency") || o.includes("low buffer")) return "one surprise expense can disrupt the month, so emergency protection should come before upgrades or risk.";
+    if (o.includes("lifestyle") || o.includes("comfort") || o.includes("peer") || o.includes("impulse") || o.includes("random")) return "spending pressure may come from emotion, comparison, or small unplanned choices that repeat.";
+    if (o.includes("client") || o.includes("income") || o.includes("sales")) return "money timing is the pressure point, so CLARA should stay conservative until cash is actually available.";
+    if (o.includes("inventory") || o.includes("operating") || o.includes("reinvestment") || o.includes("business")) return "business growth pressure can drain personal stability if spending, runway, and operating money are not separated.";
+    return `the active pressure is ${option}, so CLARA will watch how that pressure affects decisions before spending happens.`;
+  }
+
+  if (key === "focus") {
+    if (o.includes("emergency") || o.includes("buffer") || o.includes("runway") || o.includes("safety") || o.includes("protect")) return "your priority is protection, so CLARA should defend essentials and cash reserves before flexible spending.";
+    if (o.includes("save")) return "your priority is consistent saving, so CLARA should make saving happen before money leaks into small purchases.";
+    if (o.includes("debt")) return "your priority is reducing future pressure, so CLARA should prevent new borrowing triggers while protecting essentials.";
+    if (o.includes("habit") || o.includes("discipline") || o.includes("impulse") || o.includes("random")) return "your priority is behavior control, so CLARA should watch triggers and help you decide before spending becomes automatic.";
+    if (o.includes("family") || o.includes("contribute")) return "your priority includes responsibility to others, so CLARA should balance support with personal stability.";
+    if (o.includes("grow") || o.includes("client") || o.includes("business") || o.includes("sustainable")) return "your priority is growth, but CLARA should protect cash flow so progress does not create instability.";
+    return `your priority is ${option}, so CLARA will use that as the direction of the plan.`;
+  }
+
+  return `${option} gives CLARA another signal about your real financial season.`;
+}
+
+function answeredParts() {
+  const parts = [];
+  if (sessionAnswers.setup) parts.push(`setup: ${sessionAnswers.setup}`);
+  if (sessionAnswers.rhythm) parts.push(`rhythm: ${sessionAnswers.rhythm}`);
+  if (sessionAnswers.pressure) parts.push(`pressure: ${sessionAnswers.pressure}`);
+  if (sessionAnswers.focus) parts.push(`focus: ${sessionAnswers.focus}`);
+  return parts;
+}
+
+function contextLine(extra) {
+  const parts = answeredParts();
+  if (!parts.length) return extra;
+  return `So far, CLARA sees ${parts.join(" + ")}. ${extra}`;
+}
+
+function buildMessage(key, option) {
+  if (!option) return introFor(key);
+
+  sessionAnswers[key] = option;
+  const meaning = optionMeaning(option, key);
+
+  if (key === "setup") {
+    return `Starting profile: ${option}. This means ${meaning}`;
+  }
+
+  if (key === "rhythm") {
+    return contextLine(`Because your rhythm is ${option}, ${meaning}`);
+  }
+
+  if (key === "pressure") {
+    return contextLine(`With ${option} as the pressure, ${meaning}`);
+  }
+
+  if (key === "focus") {
+    return contextLine(`Since your focus is ${option}, ${meaning}`);
+  }
+
+  return contextLine(`${option}: ${meaning}`);
+}
+
+function syncFromGroup(group) {
+  if (!group) return "";
+  const label = clean(group.querySelector("p")?.textContent);
+  const key = keyFor(label);
+  const option = clean(selectedButton(group)?.textContent);
+  return buildMessage(key, option);
 }
 
 function refresh() {
   const root = modal();
   if (!root) return;
-  if (!["environment", "focus"].includes(screenOf(root))) return;
+  const screen = screenOf(root);
+  if (screen === "stage") {
+    resetSessionAnswers();
+    return;
+  }
+  if (!["environment", "focus"].includes(screen)) return;
+
   const groups = groupsOf(root);
   groups.forEach((group) => {
     if (!group.dataset.claraUserTouched) group.dataset.claraUserTouched = "false";
   });
-  removeOldCardNotes(root);
+
+  root.querySelectorAll("[data-clara-life-explanation='true']").forEach((node) => node.remove());
+
   const message = headerMessage(root);
-  if (message) message.textContent = explanationFor(visibleGroup(groups));
+  if (message) message.textContent = syncFromGroup(visibleGroup(groups));
 }
 
 function handleClick(event) {
