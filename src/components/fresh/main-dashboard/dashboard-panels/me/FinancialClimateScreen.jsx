@@ -413,7 +413,7 @@ function LifeStageSetupScreen({ profile, onClose, onSave }) {
   const setupTitle = step === "stage" ? draft.stage : step === "environment" ? "Shape the environment" : "Set your focus";
   const setupSubtitle =
     step === "stage"
-      ? definition.identity.caption
+      ? peopleInStage
       : step === "environment"
         ? "Describe how this season actually feels day to day."
         : "Choose what matters most to protect in this season.";
@@ -429,13 +429,6 @@ function LifeStageSetupScreen({ profile, onClose, onSave }) {
             <p className="text-[9px] font-black uppercase tracking-[0.2em] text-cyan-100/46">Life stage setup</p>
             <h3 className="mt-2 max-w-[270px] text-[24px] font-black leading-[1.05] text-white">{setupTitle}</h3>
             <p className="mt-2 max-w-[310px] text-xs font-semibold leading-5 text-white/52">{setupSubtitle}</p>
-            {step === "stage" ? (
-              <div className="mt-3 rounded-[18px] border border-white/[0.065] bg-white/[0.035] p-3">
-                <p className="text-[9px] font-black uppercase tracking-[0.18em] text-white/34">People in this stage</p>
-                <p className="mt-1 text-sm font-black leading-tight text-white/82">{definition.identity.title}</p>
-                <p className="mt-1 line-clamp-3 text-[11px] font-semibold leading-4 text-white/46">{peopleInStage}</p>
-              </div>
-            ) : null}
           </div>
           <button type="button" onClick={onClose} className="grid h-9 w-9 shrink-0 place-items-center rounded-full border border-white/[0.075] bg-white/[0.04] text-white/58 active:scale-95" aria-label="Close life stage setup">
             <X className="h-4 w-4" />
