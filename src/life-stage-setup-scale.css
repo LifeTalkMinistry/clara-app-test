@@ -1,6 +1,6 @@
 /* CLARA Life Stage Setup final layout
-   Purpose: make the environment/focus option pages match the clean 2-column
-   premium setup-card reference while preserving the progressive one-question flow. */
+   Purpose: make the environment/focus option pages use one clean column
+   inside the premium setup-card container while preserving the progressive flow. */
 
 #root div[class*="fixed"][class*="inset-y-0"][class*="left-1/2"][class*="z-[9999]"] > main {
   margin-top: 1rem !important;
@@ -26,7 +26,7 @@
   animation: claraProgressiveGroupIn 280ms cubic-bezier(.16,.92,.22,1) both;
 }
 
-/* The current setup/focus card itself — matches the reference outer container. */
+/* The current setup/focus card itself. */
 #root div[class*="fixed"][class*="inset-y-0"][class*="left-1/2"][class*="z-[9999]"] > main > div > section[data-clara-progressive-flow="true"] {
   position: relative !important;
   overflow: hidden !important;
@@ -83,17 +83,17 @@
   color: rgba(255, 255, 255, 0.58) !important;
 }
 
-/* Reference layout: two clean columns inside the setup card. */
+/* One clean column: one option per row. */
 #root div[class*="fixed"][class*="inset-y-0"][class*="left-1/2"][class*="z-[9999]"] > main > div > section[data-clara-progressive-flow="true"] > div[data-clara-progressive-visible="true"] > div {
   display: grid !important;
-  grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  grid-template-columns: minmax(0, 1fr) !important;
   grid-auto-rows: 68px !important;
   align-content: start !important;
   gap: 12px !important;
   margin-top: 1rem !important;
 }
 
-/* Reference tile shape. */
+/* Full-width option tile. */
 #root div[class*="fixed"][class*="inset-y-0"][class*="left-1/2"][class*="z-[9999]"] > main > div > section[data-clara-progressive-flow="true"] > div[data-clara-progressive-visible="true"] > div > button {
   position: relative !important;
   display: flex !important;
@@ -105,13 +105,13 @@
   justify-content: flex-start !important;
   overflow: hidden !important;
   border-radius: 20px !important;
-  padding: 0 42px 0 14px !important;
+  padding: 0 46px 0 16px !important;
   text-align: left !important;
   white-space: normal !important;
-  font-size: 12px !important;
+  font-size: 13px !important;
   line-height: 1.12 !important;
   letter-spacing: -0.015em !important;
-  color: rgba(255, 255, 255, 0.72) !important;
+  color: rgba(255, 255, 255, 0.76) !important;
   border-color: rgba(255, 255, 255, 0.10) !important;
   background:
     linear-gradient(180deg, rgba(255, 255, 255, 0.040), rgba(255, 255, 255, 0.014)),
@@ -139,11 +139,11 @@
 #root div[class*="fixed"][class*="inset-y-0"][class*="left-1/2"][class*="z-[9999]"] > main > div > section[data-clara-progressive-flow="true"] > div[data-clara-progressive-visible="true"] > div > button::after {
   content: "" !important;
   position: absolute !important;
-  right: 12px !important;
+  right: 14px !important;
   top: 50% !important;
   display: grid !important;
-  height: 24px !important;
-  width: 24px !important;
+  height: 26px !important;
+  width: 26px !important;
   transform: translateY(-50%) !important;
   place-items: center !important;
   border-radius: 999px !important;
@@ -154,7 +154,7 @@
   font-weight: 900 !important;
 }
 
-/* Selected reference tile. */
+/* Selected tile. */
 #root div[class*="fixed"][class*="inset-y-0"][class*="left-1/2"][class*="z-[9999]"] > main > div > section[data-clara-progressive-flow="true"] > div[data-clara-progressive-visible="true"] > div > button[class*="bg-cyan-200"] {
   border-color: rgba(125, 211, 252, 0.48) !important;
   color: rgba(240, 253, 255, 0.96) !important;
@@ -190,6 +190,7 @@
   }
 
   #root div[class*="fixed"][class*="inset-y-0"][class*="left-1/2"][class*="z-[9999]"] > main > div > section[data-clara-progressive-flow="true"] > div[data-clara-progressive-visible="true"] > div {
+    grid-template-columns: minmax(0, 1fr) !important;
     grid-auto-rows: 60px !important;
     gap: 10px !important;
   }
@@ -197,12 +198,12 @@
   #root div[class*="fixed"][class*="inset-y-0"][class*="left-1/2"][class*="z-[9999]"] > main > div > section[data-clara-progressive-flow="true"] > div[data-clara-progressive-visible="true"] > div > button {
     min-height: 60px !important;
     height: 60px !important;
-    padding: 0 36px 0 13px !important;
-    font-size: 11.2px !important;
+    padding: 0 40px 0 14px !important;
+    font-size: 12px !important;
   }
 
   #root div[class*="fixed"][class*="inset-y-0"][class*="left-1/2"][class*="z-[9999]"] > main > div > section[data-clara-progressive-flow="true"] > div[data-clara-progressive-visible="true"] > div > button::after {
-    right: 10px !important;
+    right: 12px !important;
     height: 22px !important;
     width: 22px !important;
   }
