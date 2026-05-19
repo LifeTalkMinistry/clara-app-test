@@ -20,6 +20,7 @@ import "./settings-cleanup.css";
 import "./settings-priority.css";
 import "./settings-support-compose.css";
 import "./life-stage-collision.css";
+import "./life-stage-action-position.css";
 
 window.CLARA_BILLING = window.CLARA_BILLING || {};
 
