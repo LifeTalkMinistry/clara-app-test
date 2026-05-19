@@ -100,6 +100,11 @@
   color: rgba(236, 253, 255, 0.45) !important;
 }
 
+/* Remove the small decorative emoji beside the Life Stage title. */
+#root section[class*="rounded-b-[30px]"] h2 span {
+  display: none !important;
+}
+
 @media (max-width: 420px) {
   #root section[class*="rgba(9,62,76"] {
     padding: 1.1rem !important;
