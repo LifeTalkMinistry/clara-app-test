@@ -300,74 +300,125 @@ function OptionGroup({ label, helper, value, options, onSelect }) {
   );
 }
 
-function StageSetupPanel({ profile, onClose, onSave }) {
+function LifeStageSetupScreen({ profile, onClose, onSave }) {
   const [draft, setDraft] = useState(profile);
   const [step, setStep] = useState("stage");
   const definition = getStageDefinition(draft.stage);
   const fields = definition.fields;
+  const stepOrder = ["stage", "environment", "focus"];
+  const stepIndex = stepOrder.indexOf(step);
 
-  const setStage = (stageName) => {
+  const selectStage = (stageName) => {
     const next = getStageDefinition(stageName).fields;
-    setDraft({ stage: stageName, setup: next.setup[0], rhythm: next.rhythm[0], pressure: next.pressure[0], goal: next.goal[0] });
-    setStep("environment");
+    setDraft({
+      stage: stageName,
+      setup: next.setup[0],
+      rhythm: next.rhythm[0],
+      pressure: next.pressure[0],
+      goal: next.goal[0],
+    });
   };
 
-  const save = () => {
-    saveStageProfile(draft);
-    onSave(draft);
+  const goBack = () => {
+    if (step === "stage") {
+      onClose();
+      return;
+    }
+    setStep(step === "focus" ? "environment" : "stage");
+  };
+
+  const goNext = () => {
+    if (step === "stage") {
+      setStep("environment");
+      return;
+    }
+    if (step === "environment") {
+      setStep("focus");
+      return;
+    }
+    const savedDraft = { ...draft, updatedAt: new Date().toISOString() };
+    saveStageProfile(savedDraft);
+    onSave(savedDraft);
     onClose();
   };
 
+  const title = step === "stage" ? "Let CLARA understand your season" : step === "environment" ? "Shape the environment" : "Set CLARA’s focus";
+  const subtitle =
+    step === "stage"
+      ? "Choose the life stage that best matches your financial environment right now."
+      : step === "environment"
+        ? "Now tell CLARA how this season actually feels day to day."
+        : "Choose what CLARA should watch and protect first.";
+
   return (
-    <div className="absolute inset-0 z-20 flex min-h-0 flex-col rounded-[28px] border border-white/[0.075] bg-[#050b1f]/92 p-4 shadow-[0_24px_80px_rgba(0,0,0,.42)] backdrop-blur-2xl">
-      <div className="pointer-events-none absolute inset-0 rounded-[28px] bg-[radial-gradient(circle_at_12%_8%,rgba(45,212,191,.12),transparent_28%),radial-gradient(circle_at_92%_8%,rgba(91,63,209,.18),transparent_32%),linear-gradient(180deg,rgba(7,18,38,.72),rgba(5,11,31,.92))]" />
-      <div className="relative z-10 flex shrink-0 items-start justify-between gap-3">
-        <div>
-          <p className="text-[9px] font-black uppercase tracking-[0.18em] text-cyan-100/46">Life stage setup</p>
-          <h4 className="mt-2 text-xl font-black leading-tight text-white">{step === "stage" ? "Let CLARA understand your season" : step === "environment" ? "How does this season feel?" : "What should CLARA watch?"}</h4>
-          <p className="mt-1 text-xs font-semibold leading-5 text-white/44">{step === "stage" ? "Choose the closest stage. It does not need to be perfect." : definition.identity.caption}</p>
+    <div className="relative flex h-full min-h-0 flex-col overflow-hidden rounded-[30px] bg-[#020817] px-3 pb-3 pt-3 shadow-[inset_0_0_0_1px_rgba(255,255,255,.035)]">
+      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_12%_4%,rgba(45,212,191,.14),transparent_28%),radial-gradient(circle_at_90%_8%,rgba(91,63,209,.20),transparent_32%),linear-gradient(180deg,rgba(7,18,38,.84),rgba(2,8,23,.96))]" />
+
+      <header className="relative z-10 shrink-0 rounded-[26px] border border-white/[0.075] bg-[#071226]/58 p-4 shadow-[0_18px_54px_rgba(0,0,0,.22)] backdrop-blur-xl">
+        <div className="flex items-start justify-between gap-3">
+          <div>
+            <p className="text-[9px] font-black uppercase tracking-[0.2em] text-cyan-100/46">Life stage setup</p>
+            <h3 className="mt-2 max-w-[260px] text-[24px] font-black leading-[1.05] text-white">{title}</h3>
+            <p className="mt-2 max-w-[280px] text-xs font-semibold leading-5 text-white/50">{subtitle}</p>
+          </div>
+          <button type="button" onClick={onClose} className="grid h-9 w-9 shrink-0 place-items-center rounded-full border border-white/[0.075] bg-white/[0.04] text-white/58 active:scale-95" aria-label="Close life stage setup">
+            <X className="h-4 w-4" />
+          </button>
         </div>
-        <button type="button" onClick={onClose} className="grid h-8 w-8 shrink-0 place-items-center rounded-full border border-white/[0.075] bg-white/[0.04] text-white/58 active:scale-95" aria-label="Close stage setup">
-          <X className="h-4 w-4" />
-        </button>
-      </div>
 
-      <div className="relative z-10 mt-3 flex shrink-0 gap-1.5">
-        {["stage", "environment", "focus"].map((item) => (
-          <div key={item} className={`h-1.5 flex-1 rounded-full ${item === step ? "bg-cyan-200/72 shadow-[0_0_18px_rgba(125,211,252,.18)]" : "bg-white/[0.065]"}`} />
-        ))}
-      </div>
+        <div className="mt-4 flex gap-1.5">
+          {stepOrder.map((item, index) => (
+            <div key={item} className={`h-1.5 flex-1 rounded-full ${index <= stepIndex ? "bg-cyan-200/72 shadow-[0_0_18px_rgba(125,211,252,.18)]" : "bg-white/[0.065]"}`} />
+          ))}
+        </div>
+      </header>
 
-      <div className="relative z-10 mt-4 min-h-0 flex-1 overflow-y-auto pr-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-        {step === "stage" ? <div className="grid grid-cols-2 gap-2.5">{STAGES.map((stage) => <StageCard key={stage} stage={stage} active={draft.stage === stage} onClick={() => setStage(stage)} />)}</div> : null}
+      <main className="relative z-10 mt-3 min-h-0 flex-1 overflow-y-auto pr-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+        {step === "stage" ? (
+          <div className="grid grid-cols-2 gap-2.5 pb-3">
+            {STAGES.map((stage) => (
+              <StageCard key={stage} stage={stage} active={draft.stage === stage} onClick={() => selectStage(stage)} />
+            ))}
+          </div>
+        ) : null}
+
         {step === "environment" ? (
-          <div className="space-y-4 rounded-[22px] border border-white/[0.065] bg-[#071226]/54 p-4">
-            <OptionGroup label="Current setup" helper="Where are you living or operating from right now?" value={draft.setup} options={fields.setup} onSelect={(value) => setDraft((current) => ({ ...current, setup: value }))} />
-            <OptionGroup label="Current rhythm" helper="How stable does this season feel lately?" value={draft.rhythm} options={fields.rhythm} onSelect={(value) => setDraft((current) => ({ ...current, rhythm: value }))} />
+          <div className="space-y-3 pb-3">
+            <section className="rounded-[24px] border border-white/[0.075] bg-[#071226]/58 p-4 backdrop-blur-xl">
+              <p className="text-[9px] font-black uppercase tracking-[0.18em] text-cyan-100/42">Current stage</p>
+              <h4 className="mt-2 text-xl font-black leading-tight text-white">{draft.stage}</h4>
+              <p className="mt-2 text-xs font-semibold leading-5 text-white/46">{definition.identity.caption}</p>
+            </section>
+            <section className="space-y-5 rounded-[24px] border border-white/[0.075] bg-[#071226]/58 p-4 backdrop-blur-xl">
+              <OptionGroup label="Current setup" helper="Where are you living or operating from right now?" value={draft.setup} options={fields.setup} onSelect={(value) => setDraft((current) => ({ ...current, setup: value }))} />
+              <OptionGroup label="Current rhythm" helper="How stable does this season feel lately?" value={draft.rhythm} options={fields.rhythm} onSelect={(value) => setDraft((current) => ({ ...current, rhythm: value }))} />
+            </section>
           </div>
         ) : null}
-        {step === "focus" ? (
-          <div className="space-y-4 rounded-[22px] border border-white/[0.065] bg-[#071226]/54 p-4">
-            <OptionGroup label="Pressure right now" helper="Choose the pressure that best explains this stage." value={draft.pressure} options={fields.pressure} onSelect={(value) => setDraft((current) => ({ ...current, pressure: value }))} />
-            <OptionGroup label="Main focus" helper="What should CLARA protect first?" value={draft.goal} options={fields.goal} onSelect={(value) => setDraft((current) => ({ ...current, goal: value }))} />
-          </div>
-        ) : null}
-      </div>
 
-      <div className="relative z-10 mt-3 flex shrink-0 gap-2">
-        {step === "stage" ? (
-          <button type="button" onClick={onClose} className="flex-1 rounded-full border border-white/[0.075] bg-white/[0.035] px-4 py-3 text-xs font-black text-white/54 active:scale-95">Cancel</button>
-        ) : (
-          <button type="button" onClick={() => setStep(step === "focus" ? "environment" : "stage")} className="flex flex-1 items-center justify-center gap-2 rounded-full border border-white/[0.075] bg-white/[0.035] px-4 py-3 text-xs font-black text-white/54 active:scale-95"><ChevronLeft className="h-4 w-4" /> Back</button>
-        )}
-        {step === "stage" ? (
-          <button type="button" onClick={() => setStep("environment")} className="flex-1 rounded-full bg-cyan-200 px-4 py-3 text-xs font-black text-slate-950 shadow-[0_10px_32px_rgba(125,211,252,.16)] active:scale-95">Continue</button>
-        ) : step === "environment" ? (
-          <button type="button" onClick={() => setStep("focus")} className="flex-1 rounded-full bg-cyan-200 px-4 py-3 text-xs font-black text-slate-950 shadow-[0_10px_32px_rgba(125,211,252,.16)] active:scale-95">Continue</button>
-        ) : (
-          <button type="button" onClick={save} className="flex flex-1 items-center justify-center gap-2 rounded-full bg-cyan-200 px-4 py-3 text-xs font-black text-slate-950 shadow-[0_10px_32px_rgba(125,211,252,.16)] active:scale-95"><Check className="h-4 w-4" /> Apply stage</button>
-        )}
-      </div>
+        {step === "focus" ? (
+          <div className="space-y-3 pb-3">
+            <section className="rounded-[24px] border border-white/[0.075] bg-[#071226]/58 p-4 backdrop-blur-xl">
+              <p className="text-[9px] font-black uppercase tracking-[0.18em] text-cyan-100/42">CLARA will read</p>
+              <h4 className="mt-2 text-xl font-black leading-tight text-white">{draft.stage}</h4>
+              <p className="mt-2 text-xs font-semibold leading-5 text-white/46">This shapes your trend snapshot, coaching tone, and future financial guidance.</p>
+            </section>
+            <section className="space-y-5 rounded-[24px] border border-white/[0.075] bg-[#071226]/58 p-4 backdrop-blur-xl">
+              <OptionGroup label="Pressure right now" helper="Choose the pressure that best explains this stage." value={draft.pressure} options={fields.pressure} onSelect={(value) => setDraft((current) => ({ ...current, pressure: value }))} />
+              <OptionGroup label="Main focus" helper="What should CLARA protect first?" value={draft.goal} options={fields.goal} onSelect={(value) => setDraft((current) => ({ ...current, goal: value }))} />
+            </section>
+          </div>
+        ) : null}
+      </main>
+
+      <footer className="relative z-10 mt-3 flex shrink-0 gap-2">
+        <button type="button" onClick={goBack} className="flex flex-1 items-center justify-center gap-2 rounded-full border border-white/[0.075] bg-white/[0.035] px-4 py-3 text-xs font-black text-white/54 active:scale-95">
+          {step === "stage" ? "Cancel" : <><ChevronLeft className="h-4 w-4" /> Back</>}
+        </button>
+        <button type="button" onClick={goNext} className="flex flex-1 items-center justify-center gap-2 rounded-full bg-cyan-200 px-4 py-3 text-xs font-black text-slate-950 shadow-[0_10px_32px_rgba(125,211,252,.16)] active:scale-95">
+          {step === "focus" ? <><Check className="h-4 w-4" /> Apply stage</> : "Continue"}
+        </button>
+      </footer>
     </div>
   );
 }
@@ -407,6 +458,10 @@ export default function FinancialClimateScreen() {
     setShowHeroActions(false);
     setShowImageSetup(true);
   };
+
+  if (showStageSetup) {
+    return <LifeStageSetupScreen profile={stageProfile} onClose={() => setShowStageSetup(false)} onSave={setStageProfile} />;
+  }
 
   return (
     <div className="relative flex h-full min-h-0 flex-col overflow-hidden rounded-[30px] bg-[#020817] px-3 pb-3 pt-1 shadow-[inset_0_0_0_1px_rgba(255,255,255,.035)]">
@@ -471,7 +526,6 @@ export default function FinancialClimateScreen() {
 
       {selectedTrend ? <DataDetailPanel trend={selectedTrend} onClose={() => setSelectedTrend(null)} /> : null}
       {showImageSetup ? <StageImagePanel stage={stageProfile.stage} image={customImage} onApply={applyStageImage} onClose={() => setShowImageSetup(false)} /> : null}
-      {showStageSetup ? <StageSetupPanel profile={stageProfile} onClose={() => setShowStageSetup(false)} onSave={setStageProfile} /> : null}
     </div>
   );
 }
