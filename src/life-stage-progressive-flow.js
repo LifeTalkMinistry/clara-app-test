@@ -188,6 +188,41 @@ function handleProgressiveClick(event) {
   }
 }
 
+function getContextBoardHeader(modal) {
+  const header = modal?.querySelector("header");
+  if (!header) return null;
+
+  const eyebrow = cleanText(header.querySelector("p")?.textContent).toLowerCase();
+  return eyebrow.includes("clara context board") ? header : null;
+}
+
+function polishContextBoard() {
+  const modal = getLifeStageModal();
+  const header = getContextBoardHeader(modal);
+  if (!header) return;
+
+  const paragraphs = Array.from(header.querySelectorAll("p") || []);
+  const boardCopy = paragraphs.find((paragraph) =>
+    cleanText(paragraph.textContent).includes("CLARA is connecting")
+  );
+
+  if (boardCopy) {
+    boardCopy.textContent = boardCopy.textContent.replace(
+      /\s*CLARA is connecting .*? to form the full context\./,
+      " Together, these details are shaping a clearer picture of your pressure, rhythm, and protection needs."
+    );
+  }
+
+  const chipWrap = Array.from(header.querySelectorAll("div") || []).find((node) => {
+    const chips = Array.from(node.children || []);
+    return chips.length > 0 && chips.every((child) => child.tagName === "SPAN");
+  });
+
+  if (chipWrap) {
+    chipWrap.style.setProperty("display", "none", "important");
+  }
+}
+
 function installLifeStageProgressiveFlow() {
   if (typeof window === "undefined" || typeof document === "undefined") return;
   if (window.__CLARA_LIFE_STAGE_PROGRESSIVE_FLOW__) return;
@@ -196,11 +231,17 @@ function installLifeStageProgressiveFlow() {
   document.addEventListener("click", handleProgressiveClick, true);
 
   const observer = new MutationObserver(() => {
-    window.requestAnimationFrame(applyProgressiveFlow);
+    window.requestAnimationFrame(() => {
+      applyProgressiveFlow();
+      polishContextBoard();
+    });
   });
 
   observer.observe(document.body, { childList: true, subtree: true, characterData: true });
-  window.requestAnimationFrame(applyProgressiveFlow);
+  window.requestAnimationFrame(() => {
+    applyProgressiveFlow();
+    polishContextBoard();
+  });
 }
 
 try {
