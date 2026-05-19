@@ -15,6 +15,17 @@ function getLifeStageModal() {
   return document.querySelector(LIFE_STAGE_MODAL_SELECTOR);
 }
 
+function scrollLifeStageMainToTop(modal) {
+  const main = modal?.querySelector("main");
+  if (!main) return;
+  main.scrollTop = 0;
+  try {
+    main.scrollTo({ top: 0, left: 0, behavior: "instant" });
+  } catch {
+    main.scrollTo?.(0, 0);
+  }
+}
+
 function getCurrentSetupScreen(modal) {
   const title = cleanText(modal?.querySelector("header h3")?.textContent).toLowerCase();
 
@@ -113,6 +124,7 @@ function applyProgressiveFlow() {
     progressiveState.screen = screen;
     progressiveState.phase = 0;
     resetProgressiveMarkup(modal);
+    window.requestAnimationFrame(() => scrollLifeStageMainToTop(modal));
   }
 
   applyProgressDots(modal, screen);
@@ -157,7 +169,10 @@ function handleProgressiveClick(event) {
     event.stopPropagation();
     event.stopImmediatePropagation?.();
     progressiveState.phase = 1;
-    window.requestAnimationFrame(applyProgressiveFlow);
+    window.requestAnimationFrame(() => {
+      scrollLifeStageMainToTop(modal);
+      applyProgressiveFlow();
+    });
     return;
   }
 
@@ -166,7 +181,10 @@ function handleProgressiveClick(event) {
     event.stopPropagation();
     event.stopImmediatePropagation?.();
     progressiveState.phase = 0;
-    window.requestAnimationFrame(applyProgressiveFlow);
+    window.requestAnimationFrame(() => {
+      scrollLifeStageMainToTop(modal);
+      applyProgressiveFlow();
+    });
   }
 }
 
