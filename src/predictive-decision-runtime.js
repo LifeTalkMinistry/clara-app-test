@@ -2,28 +2,12 @@ import {
   readCachedPredictiveDecision,
   runPredictiveDecisionAnalysis,
 } from "./lib/predictiveDecisionEngine";
+import {
+  getClaraIntelligenceOrchestrator,
+  INTELLIGENCE_EVENTS,
+} from "./lib/claraIntelligenceOrchestrator";
 
 const RUNTIME_KEY = "__CLARA_PREDICTIVE_DECISION_RUNTIME__";
-const MIN_ANALYSIS_INTERVAL_MS = 60_000;
-const DEBOUNCE_MS = 3_000;
-
-const PREDICTION_EVENTS = [
-  "clara:behavior-pattern-updated",
-  "clara:life-stage-intelligence-updated",
-  "clara-expenses-updated",
-  "clara-wallet-transactions-updated",
-  "clara-finance-updated",
-  "clara-budgets-updated",
-  "clara-savings-updated",
-  "clara-emergency-fund-updated",
-];
-
-const runtimeState = {
-  timer: null,
-  running: false,
-  lastRunAt: 0,
-  pendingReason: "startup",
-};
 
 function cleanText(value, max = 260) {
   return String(value || "").replace(/\s+/g, " ").trim().slice(0, max);
@@ -45,7 +29,7 @@ function levelLabel(value) {
   return "Learning";
 }
 
-function renderPredictionPanel(snapshot = readCachedPredictiveDecision()) {
+export function renderPredictionPanel(snapshot = readCachedPredictiveDecision()) {
   if (typeof document === "undefined") return;
   const section = getLifeSnapshotSection();
   if (!section) return;
@@ -103,54 +87,58 @@ function renderPredictionPanel(snapshot = readCachedPredictiveDecision()) {
   `;
 }
 
-async function runQueuedPrediction() {
-  if (runtimeState.running) return;
-
-  const elapsed = Date.now() - runtimeState.lastRunAt;
-  if (elapsed < MIN_ANALYSIS_INTERVAL_MS && runtimeState.lastRunAt > 0) {
-    schedulePrediction("cooldown_retry", MIN_ANALYSIS_INTERVAL_MS - elapsed + 700);
-    return;
-  }
-
-  runtimeState.running = true;
-  try {
-    const result = await runPredictiveDecisionAnalysis({ reason: runtimeState.pendingReason });
-    runtimeState.lastRunAt = Date.now();
-    renderPredictionPanel(result?.predictionSnapshot);
-  } catch (error) {
-    console.warn("CLARA predictive decision runtime skipped:", error);
-  } finally {
-    runtimeState.running = false;
-  }
-}
-
-function schedulePrediction(reason = "prediction_event", delay = DEBOUNCE_MS) {
-  runtimeState.pendingReason = reason;
-  window.clearTimeout(runtimeState.timer);
-  runtimeState.timer = window.setTimeout(runQueuedPrediction, delay);
-}
-
 function installPredictiveDecisionRuntime() {
   if (typeof window === "undefined" || typeof document === "undefined") return;
   if (window[RUNTIME_KEY]) return;
   window[RUNTIME_KEY] = true;
 
-  PREDICTION_EVENTS.forEach((eventName) => {
-    window.addEventListener(eventName, () => schedulePrediction(eventName));
+  const orchestrator = getClaraIntelligenceOrchestrator().install();
+
+  orchestrator.registerJob(
+    "runPredictiveDecision",
+    async ({ reason }) => {
+      const result = await runPredictiveDecisionAnalysis({ reason });
+      renderPredictionPanel(result?.predictionSnapshot);
+      return result?.predictionSnapshot || null;
+    },
+    {
+      label: "Predictive decision",
+      debounceMs: 3200,
+      cooldownMs: 75_000,
+      dirtyFlag: "predictive_decision",
+    }
+  );
+
+  orchestrator.registerJob(
+    "hydratePredictionPanel",
+    async () => {
+      renderPredictionPanel();
+      return readCachedPredictiveDecision();
+    },
+    {
+      label: "Hydrate prediction panel",
+      debounceMs: 250,
+      cooldownMs: 1500,
+      dirtyFlag: "prediction_panel_hydration",
+    }
+  );
+
+  window.addEventListener(INTELLIGENCE_EVENTS.UPDATED, (event) => {
+    if (event.detail?.jobKey === "runPredictiveDecision") renderPredictionPanel(event.detail?.result);
   });
 
   window.addEventListener("clara:prediction-updated", (event) => {
     renderPredictionPanel(event.detail);
+    orchestrator.emit(INTELLIGENCE_EVENTS.UPDATED, {
+      jobKey: "legacy_prediction_updated",
+      reason: "legacy_event_bridge",
+      result: event.detail,
+    });
   });
-
-  const observer = new MutationObserver(() => {
-    window.requestAnimationFrame(() => renderPredictionPanel());
-  });
-  observer.observe(document.body, { childList: true, subtree: true });
 
   window.requestAnimationFrame(() => {
     renderPredictionPanel();
-    schedulePrediction("startup", 5_000);
+    orchestrator.enqueue("runPredictiveDecision", "startup", { debounceMs: 5500 });
   });
 }
 
