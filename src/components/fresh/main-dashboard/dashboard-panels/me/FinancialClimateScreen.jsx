@@ -11,10 +11,52 @@ import {
   Upload,
   X,
 } from "lucide-react";
-import { DEFAULT_STAGE, getStageDefinition, LIFE_STAGE_KEY, STAGES } from "./lifeStageIntelligenceData";
+import { DEFAULT_STAGE, getStageDefinition, LIFE_STAGE_KEY } from "./lifeStageIntelligenceData";
 import { getLifeStageImage } from "../../../../../config/lifeStageImages";
 
 const STAGE_IMAGE_KEY = "clara_life_stage_images_v1";
+
+const LIFE_STAGE_GROUPS = [
+  {
+    label: "Starting & learning",
+    helper: "Students and early independence",
+    stages: ["Working Student", "Young Professional"],
+  },
+  {
+    label: "Shared life & home",
+    helper: "Partnership, home setup, and family environment",
+    stages: ["Living with Partner", "Family Household"],
+  },
+  {
+    label: "Parenting & protection",
+    helper: "Child-centered responsibility and stability",
+    stages: ["Single Parent"],
+  },
+  {
+    label: "Work & income path",
+    helper: "Career routine, flexible income, and business building",
+    stages: ["Full-Time Earner", "Freelance Season", "Business Builder"],
+  },
+];
+
+const PEOPLE_IN_STAGE_COPY = {
+  "Working Student":
+    "People in this stage are balancing classes, work hours, assignments, commute, and limited money while trying to build their future.",
+  "Young Professional":
+    "People in this stage are building independence, learning money rhythm, and adjusting to career pressure, lifestyle choices, and new responsibilities.",
+  "Living with Partner":
+    "People in this stage are learning shared routines, relationship expectations, future plans, and financial decisions that are no longer purely personal.",
+  "Family Household":
+    "People in this stage are shaped by home routines, shared expenses, family requests, and the pressure to contribute without losing personal stability.",
+  "Single Parent":
+    "People in this stage are protecting essentials, time, emotional energy, and child-centered stability while keeping room for emergencies.",
+  "Full-Time Earner":
+    "People in this stage usually have routine income, but stress recovery, cutoff cycles, and lifestyle creep can quietly affect decisions.",
+  "Freelance Season":
+    "People in this stage manage flexible work, irregular income, client timing, and the pressure to create stability without losing freedom.",
+  "Business Builder":
+    "People in this stage balance growth, reinvestment, operating needs, and personal money while making many high-pressure decisions.",
+};
 
 const STAGE_VISUALS = {
   "Young Professional": {
@@ -184,7 +226,7 @@ function DataDetailPanel({ trend, onClose }) {
       <div className="relative z-10 mt-3 rounded-[22px] border border-white/[0.065] bg-white/[0.03] p-4">
         <p className="text-[10px] font-black uppercase tracking-[0.16em] text-white/34">Source direction</p>
         <p className="mt-2 text-sm font-semibold leading-6 text-white/54">
-          This is currently a CLARA life-stage intelligence placeholder. Later this can show Philippine survey data, admin-managed sources, and trend update status.
+          This is currently a life-stage intelligence placeholder. Later this can show Philippine survey data, admin-managed sources, and trend update status.
         </p>
       </div>
     </div>
@@ -214,7 +256,7 @@ function StageImagePanel({ stage, image, onApply, onClose }) {
         <div>
           <p className="text-[9px] font-black uppercase tracking-[0.18em] text-cyan-100/42">Stage image</p>
           <h4 className="mt-2 text-xl font-black leading-tight text-white">Customize {stage}</h4>
-          <p className="mt-1 text-xs font-semibold leading-5 text-white/44">Use the default CLARA visual or upload your own image for this life stage.</p>
+          <p className="mt-1 text-xs font-semibold leading-5 text-white/44">Use the default visual or upload your own image for this life stage.</p>
         </div>
         <button type="button" onClick={onClose} className="grid h-8 w-8 shrink-0 place-items-center rounded-full border border-white/[0.075] bg-white/[0.04] text-white/58 active:scale-95" aria-label="Close image setup">
           <X className="h-4 w-4" />
@@ -227,7 +269,7 @@ function StageImagePanel({ stage, image, onApply, onClose }) {
           ) : (
             <div className="grid h-full place-items-center text-center">
               <ImageIcon className="mx-auto h-9 w-9 text-white/30" />
-              <p className="mt-2 text-xs font-black text-white/44">Default CLARA stage visual</p>
+              <p className="mt-2 text-xs font-black text-white/44">Default stage visual</p>
             </div>
           )}
           <div className="absolute inset-0 bg-[linear-gradient(180deg,transparent,rgba(3,8,28,.72))]" />
@@ -257,18 +299,15 @@ function StageCard({ stage, active, onClick }) {
     <button
       type="button"
       onClick={onClick}
-      className={`relative min-h-[72px] overflow-hidden rounded-[20px] border px-3.5 py-3 text-left transition active:scale-[0.98] ${
+      className={`relative min-h-[58px] overflow-hidden rounded-[18px] border px-3.5 py-3 text-left transition active:scale-[0.98] ${
         active
-          ? "border-cyan-200/26 bg-[linear-gradient(145deg,rgba(45,212,191,.14),rgba(91,63,209,.12))] shadow-[0_0_28px_rgba(45,212,191,.10)]"
-          : "border-white/[0.065] bg-[#071226]/44 opacity-78 shadow-[inset_0_1px_0_rgba(255,255,255,.02)]"
+          ? "border-cyan-200/28 bg-[linear-gradient(145deg,rgba(45,212,191,.14),rgba(91,63,209,.12))] shadow-[0_0_28px_rgba(45,212,191,.10)]"
+          : "border-white/[0.06] bg-[#071226]/38 opacity-82 shadow-[inset_0_1px_0_rgba(255,255,255,.02)]"
       }`}
     >
       <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_14%_0%,rgba(45,212,191,.07),transparent_38%)] opacity-70" />
       <div className="relative z-10 flex h-full items-center justify-between gap-2">
-        <div className="min-w-0">
-          <p className="text-[8px] font-black uppercase tracking-[0.16em] text-cyan-100/36">Life stage</p>
-          <p className="mt-1 text-[13px] font-black leading-tight text-white">{stage}</p>
-        </div>
+        <p className="min-w-0 text-[13px] font-black leading-tight text-white">{stage}</p>
         <span className={`grid h-5 w-5 shrink-0 place-items-center rounded-full border ${active ? "border-cyan-100/36 bg-cyan-200/16 text-cyan-50" : "border-white/[0.075] bg-white/[0.025] text-transparent"}`}>
           {active ? <Check className="h-3.5 w-3.5" /> : null}
         </span>
@@ -303,6 +342,22 @@ function OptionGroup({ label, helper, value, options, onSelect }) {
   );
 }
 
+function StageGroup({ group, selectedStage, onSelect }) {
+  return (
+    <section className="space-y-2.5">
+      <div className="px-1">
+        <p className="text-[9px] font-black uppercase tracking-[0.18em] text-cyan-100/38">{group.label}</p>
+        <p className="mt-0.5 text-[10px] font-semibold leading-4 text-white/30">{group.helper}</p>
+      </div>
+      <div className="grid grid-cols-2 gap-2.5">
+        {group.stages.map((stage) => (
+          <StageCard key={stage} stage={stage} active={selectedStage === stage} onClick={() => onSelect(stage)} />
+        ))}
+      </div>
+    </section>
+  );
+}
+
 function LifeStageSetupScreen({ profile, onClose, onSave }) {
   const [draft, setDraft] = useState(profile);
   const [step, setStep] = useState("stage");
@@ -310,6 +365,7 @@ function LifeStageSetupScreen({ profile, onClose, onSave }) {
   const fields = definition.fields;
   const stepOrder = ["stage", "environment", "focus"];
   const stepIndex = stepOrder.indexOf(step);
+  const peopleInStage = PEOPLE_IN_STAGE_COPY[draft.stage] || definition.identity.overview || definition.identity.caption;
 
   useEffect(() => {
     if (typeof document === "undefined") return undefined;
@@ -354,13 +410,13 @@ function LifeStageSetupScreen({ profile, onClose, onSave }) {
     onClose();
   };
 
-  const setupTitle = step === "stage" ? draft.stage : step === "environment" ? "Shape the environment" : "Set CLARA’s focus";
+  const setupTitle = step === "stage" ? draft.stage : step === "environment" ? "Shape the environment" : "Set your focus";
   const setupSubtitle =
     step === "stage"
       ? definition.identity.caption
       : step === "environment"
-        ? "Now tell CLARA how this season actually feels day to day."
-        : "Choose what CLARA should watch and protect first.";
+        ? "Describe how this season actually feels day to day."
+        : "Choose what matters most to protect in this season.";
 
   return (
     <div className="fixed inset-y-0 left-1/2 z-[9999] flex h-[100svh] w-full max-w-[430px] -translate-x-1/2 flex-col overflow-hidden bg-[#020817] px-3 pb-[max(12px,env(safe-area-inset-bottom))] pt-[max(12px,env(safe-area-inset-top))] shadow-[0_24px_80px_rgba(0,0,0,.54),inset_0_0_0_1px_rgba(255,255,255,.035)]">
@@ -369,15 +425,15 @@ function LifeStageSetupScreen({ profile, onClose, onSave }) {
       <header className="relative z-10 shrink-0 overflow-hidden rounded-[26px] border border-white/[0.075] bg-[#071226]/58 p-4 shadow-[0_18px_54px_rgba(0,0,0,.22)] backdrop-blur-xl">
         <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_88%_0%,rgba(125,211,252,.12),transparent_32%),radial-gradient(circle_at_16%_0%,rgba(91,63,209,.14),transparent_30%)]" />
         <div className="relative z-10 flex items-start justify-between gap-3">
-          <div>
+          <div className="min-w-0 flex-1">
             <p className="text-[9px] font-black uppercase tracking-[0.2em] text-cyan-100/46">Life stage setup</p>
             <h3 className="mt-2 max-w-[270px] text-[24px] font-black leading-[1.05] text-white">{setupTitle}</h3>
-            <p className="mt-2 max-w-[300px] text-xs font-semibold leading-5 text-white/52">{setupSubtitle}</p>
+            <p className="mt-2 max-w-[310px] text-xs font-semibold leading-5 text-white/52">{setupSubtitle}</p>
             {step === "stage" ? (
               <div className="mt-3 rounded-[18px] border border-white/[0.065] bg-white/[0.035] p-3">
-                <p className="text-[9px] font-black uppercase tracking-[0.18em] text-white/34">CLARA will understand this as</p>
-                <p className="mt-1 text-sm font-black leading-tight text-white/80">{definition.identity.title}</p>
-                <p className="mt-1 line-clamp-2 text-[11px] font-semibold leading-4 text-white/42">{definition.identity.overview}</p>
+                <p className="text-[9px] font-black uppercase tracking-[0.18em] text-white/34">People in this stage</p>
+                <p className="mt-1 text-sm font-black leading-tight text-white/82">{definition.identity.title}</p>
+                <p className="mt-1 line-clamp-3 text-[11px] font-semibold leading-4 text-white/46">{peopleInStage}</p>
               </div>
             ) : null}
           </div>
@@ -395,9 +451,9 @@ function LifeStageSetupScreen({ profile, onClose, onSave }) {
 
       <main className="relative z-10 mt-3 min-h-0 flex-1 overflow-y-auto pr-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
         {step === "stage" ? (
-          <div className="grid grid-cols-2 gap-2.5 pb-3">
-            {STAGES.map((stage) => (
-              <StageCard key={stage} stage={stage} active={draft.stage === stage} onClick={() => selectStage(stage)} />
+          <div className="space-y-4 pb-3">
+            {LIFE_STAGE_GROUPS.map((group) => (
+              <StageGroup key={group.label} group={group} selectedStage={draft.stage} onSelect={selectStage} />
             ))}
           </div>
         ) : null}
@@ -407,7 +463,7 @@ function LifeStageSetupScreen({ profile, onClose, onSave }) {
             <section className="rounded-[24px] border border-white/[0.075] bg-[#071226]/58 p-4 backdrop-blur-xl">
               <p className="text-[9px] font-black uppercase tracking-[0.18em] text-cyan-100/42">Current stage</p>
               <h4 className="mt-2 text-xl font-black leading-tight text-white">{draft.stage}</h4>
-              <p className="mt-2 text-xs font-semibold leading-5 text-white/46">{definition.identity.caption}</p>
+              <p className="mt-2 text-xs font-semibold leading-5 text-white/46">{peopleInStage}</p>
             </section>
             <section className="space-y-5 rounded-[24px] border border-white/[0.075] bg-[#071226]/58 p-4 backdrop-blur-xl">
               <OptionGroup label="Current setup" helper="Where are you living or operating from right now?" value={draft.setup} options={fields.setup} onSelect={(value) => setDraft((current) => ({ ...current, setup: value }))} />
@@ -419,13 +475,13 @@ function LifeStageSetupScreen({ profile, onClose, onSave }) {
         {step === "focus" ? (
           <div className="space-y-3 pb-3">
             <section className="rounded-[24px] border border-white/[0.075] bg-[#071226]/58 p-4 backdrop-blur-xl">
-              <p className="text-[9px] font-black uppercase tracking-[0.18em] text-cyan-100/42">CLARA will read</p>
+              <p className="text-[9px] font-black uppercase tracking-[0.18em] text-cyan-100/42">Selected stage</p>
               <h4 className="mt-2 text-xl font-black leading-tight text-white">{draft.stage}</h4>
-              <p className="mt-2 text-xs font-semibold leading-5 text-white/46">This shapes your trend snapshot, coaching tone, and future financial guidance.</p>
+              <p className="mt-2 text-xs font-semibold leading-5 text-white/46">This shapes your trend snapshot, setup direction, and financial environment reading.</p>
             </section>
             <section className="space-y-5 rounded-[24px] border border-white/[0.075] bg-[#071226]/58 p-4 backdrop-blur-xl">
               <OptionGroup label="Pressure right now" helper="Choose the pressure that best explains this stage." value={draft.pressure} options={fields.pressure} onSelect={(value) => setDraft((current) => ({ ...current, pressure: value }))} />
-              <OptionGroup label="Main focus" helper="What should CLARA protect first?" value={draft.goal} options={fields.goal} onSelect={(value) => setDraft((current) => ({ ...current, goal: value }))} />
+              <OptionGroup label="Main focus" helper="What should be protected first?" value={draft.goal} options={fields.goal} onSelect={(value) => setDraft((current) => ({ ...current, goal: value }))} />
             </section>
           </div>
         ) : null}
