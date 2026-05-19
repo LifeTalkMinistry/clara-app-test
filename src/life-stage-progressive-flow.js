@@ -53,6 +53,12 @@ function setButtonText(button, text) {
   button.textContent = text;
 }
 
+function setGroupVisibility(group, visible) {
+  if (!group) return;
+  group.dataset.claraProgressiveVisible = visible ? "true" : "false";
+  group.style.setProperty("display", visible ? "flex" : "none", "important");
+}
+
 function applyProgressiveFlow() {
   const modal = getLifeStageModal();
   if (!modal) return;
@@ -81,8 +87,8 @@ function applyProgressiveFlow() {
   firstGroup.dataset.claraProgressiveGroup = "first";
   secondGroup.dataset.claraProgressiveGroup = "second";
 
-  firstGroup.style.display = isSecondPhase ? "none" : "block";
-  secondGroup.style.display = isSecondPhase ? "block" : "none";
+  setGroupVisibility(firstGroup, !isSecondPhase);
+  setGroupVisibility(secondGroup, isSecondPhase);
 
   const { primaryButton } = getFooterButtons(modal);
 
