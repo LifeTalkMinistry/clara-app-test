@@ -2,30 +2,15 @@ import {
   readCachedBehavioralObservation,
   runBehavioralObservationAnalysis,
 } from "./lib/behavioralObservationEngine";
+import {
+  getClaraIntelligenceOrchestrator,
+  INTELLIGENCE_EVENTS,
+} from "./lib/claraIntelligenceOrchestrator";
 
 const RUNTIME_KEY = "__CLARA_BEHAVIORAL_OBSERVATION_RUNTIME__";
-const MIN_ANALYSIS_INTERVAL_MS = 45_000;
-const DEBOUNCE_MS = 2_500;
 
-const FINANCE_EVENTS = [
-  "clara-expenses-updated",
-  "clara-wallet-transactions-updated",
-  "clara-finance-updated",
-  "clara-budgets-updated",
-  "clara-savings-updated",
-  "clara-emergency-fund-updated",
-  "clara:life-stage-intelligence-updated",
-];
-
-const runtimeState = {
-  timer: null,
-  running: false,
-  lastRunAt: 0,
-  pendingReason: "startup",
-};
-
-function cleanText(value) {
-  return String(value || "").replace(/\s+/g, " ").trim();
+function cleanText(value, max = 260) {
+  return String(value || "").replace(/\s+/g, " ").trim().slice(0, max);
 }
 
 function getLifeSnapshotSection() {
@@ -50,7 +35,7 @@ function labelLevel(value, positive = true) {
   return "Low";
 }
 
-function renderObservationPanel(snapshot = readCachedBehavioralObservation()) {
+export function renderObservationPanel(snapshot = readCachedBehavioralObservation()) {
   if (typeof document === "undefined") return;
   const section = getLifeSnapshotSection();
   if (!section) return;
@@ -70,7 +55,6 @@ function renderObservationPanel(snapshot = readCachedBehavioralObservation()) {
   }
 
   const observation = snapshot.observations?.[0];
-  const positive = observation?.severity === "positive";
   const metrics = snapshot.metrics || {};
   const trajectory = snapshot.riskTrajectory || {};
 
@@ -112,54 +96,58 @@ function renderObservationPanel(snapshot = readCachedBehavioralObservation()) {
   }
 }
 
-async function runQueuedAnalysis() {
-  if (runtimeState.running) return;
-
-  const elapsed = Date.now() - runtimeState.lastRunAt;
-  if (elapsed < MIN_ANALYSIS_INTERVAL_MS && runtimeState.lastRunAt > 0) {
-    scheduleObservation("cooldown_retry", MIN_ANALYSIS_INTERVAL_MS - elapsed + 500);
-    return;
-  }
-
-  runtimeState.running = true;
-  try {
-    const result = await runBehavioralObservationAnalysis({ reason: runtimeState.pendingReason });
-    runtimeState.lastRunAt = Date.now();
-    renderObservationPanel(result?.observationSnapshot);
-  } catch (error) {
-    console.warn("CLARA behavioral observation runtime skipped:", error);
-  } finally {
-    runtimeState.running = false;
-  }
-}
-
-function scheduleObservation(reason = "finance_event", delay = DEBOUNCE_MS) {
-  runtimeState.pendingReason = reason;
-  window.clearTimeout(runtimeState.timer);
-  runtimeState.timer = window.setTimeout(runQueuedAnalysis, delay);
-}
-
 function installBehavioralObservationRuntime() {
   if (typeof window === "undefined" || typeof document === "undefined") return;
   if (window[RUNTIME_KEY]) return;
   window[RUNTIME_KEY] = true;
 
-  FINANCE_EVENTS.forEach((eventName) => {
-    window.addEventListener(eventName, () => scheduleObservation(eventName));
+  const orchestrator = getClaraIntelligenceOrchestrator().install();
+
+  orchestrator.registerJob(
+    "runBehaviorObservation",
+    async ({ reason }) => {
+      const result = await runBehavioralObservationAnalysis({ reason });
+      renderObservationPanel(result?.observationSnapshot);
+      return result?.observationSnapshot || null;
+    },
+    {
+      label: "Behavioral observation",
+      debounceMs: 2500,
+      cooldownMs: 60_000,
+      dirtyFlag: "behavior_observation",
+    }
+  );
+
+  orchestrator.registerJob(
+    "hydrateBehaviorPanel",
+    async () => {
+      renderObservationPanel();
+      return readCachedBehavioralObservation();
+    },
+    {
+      label: "Hydrate behavior panel",
+      debounceMs: 250,
+      cooldownMs: 1500,
+      dirtyFlag: "behavior_panel_hydration",
+    }
+  );
+
+  window.addEventListener(INTELLIGENCE_EVENTS.UPDATED, (event) => {
+    if (event.detail?.jobKey === "runBehaviorObservation") renderObservationPanel(event.detail?.result);
   });
 
   window.addEventListener("clara:behavior-pattern-updated", (event) => {
     renderObservationPanel(event.detail);
+    orchestrator.emit(INTELLIGENCE_EVENTS.UPDATED, {
+      jobKey: "legacy_behavior_pattern_updated",
+      reason: "legacy_event_bridge",
+      result: event.detail,
+    });
   });
-
-  const observer = new MutationObserver(() => {
-    window.requestAnimationFrame(() => renderObservationPanel());
-  });
-  observer.observe(document.body, { childList: true, subtree: true });
 
   window.requestAnimationFrame(() => {
     renderObservationPanel();
-    scheduleObservation("startup", 4_000);
+    orchestrator.enqueue("runBehaviorObservation", "startup", { debounceMs: 4500 });
   });
 }
 
