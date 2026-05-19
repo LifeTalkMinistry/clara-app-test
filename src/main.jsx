@@ -11,6 +11,7 @@ import "./clara-me-panel";
 import "./clara-talk-pause-bridge";
 import "./life-stage-support-card";
 import "./life-stage-trend-snapshot";
+import "./clara-intelligence-orchestrator-runtime";
 import "./life-stage-intelligence-runtime";
 import "./behavioral-observation-runtime";
 import "./predictive-decision-runtime";
