@@ -68,31 +68,31 @@ const ANSWER_CONTEXT = {
   setup: {
     "Family-supported + working": {
       title: "Supported ambition",
-      chip: "Support system present",
+      chip: "support system present",
       summary:
         "CLARA sees support in your environment, but also a stretched schedule. The pressure may show more through time, energy, and guilt around using money for yourself.",
     },
     "Self-supporting student": {
       title: "Self-support pressure",
-      chip: "Independent survival load",
+      chip: "independent survival load",
       summary:
         "CLARA sees a higher independence load. School, daily needs, and income decisions may be connected because fewer expenses can be treated as optional.",
     },
     "Helping family while studying": {
       title: "Shared responsibility",
-      chip: "Family-linked responsibility",
+      chip: "family-linked responsibility",
       summary:
         "CLARA sees family responsibility inside your student season. This can create emotional pressure because personal progress and family needs may compete.",
     },
     "First job while studying": {
       title: "Adjustment season",
-      chip: "Work-school adjustment",
+      chip: "work-school adjustment",
       summary:
         "CLARA sees a new work-school rhythm forming. This can create reward spending because earning money and exhaustion are happening at the same time.",
     },
     "Side hustle student": {
       title: "Flexible but uneven",
-      chip: "Flexible income behavior",
+      chip: "flexible income behavior",
       summary:
         "CLARA sees flexible income mixed with school pressure. The opportunity is strong, but timing and consistency may be harder to predict.",
     },
@@ -100,31 +100,31 @@ const ANSWER_CONTEXT = {
   rhythm: {
     "Allowance + work income": {
       title: "Mixed support rhythm",
-      chip: "Mixed income support",
+      chip: "mixed income support",
       summary:
         "CLARA sees money coming from both support and effort. This can reduce survival pressure, but it may also make tracking harder when sources mix.",
     },
     "Fixed part-time pay": {
       title: "Predictable effort",
-      chip: "Predictable earning base",
+      chip: "predictable earning base",
       summary:
         "CLARA sees a clearer pay rhythm. This gives you a stronger base for planning, but your energy and school load still need protection.",
     },
     "Irregular side income": {
       title: "Unstable timing",
-      chip: "Income instability detected",
+      chip: "income instability detected",
       summary:
         "CLARA sees income that can change from week to week. This increases the need for buffers because expenses may be fixed while earnings are not.",
     },
     "Seasonal/project income": {
       title: "Wave-based income",
-      chip: "Wave-based cash flow",
+      chip: "wave-based cash flow",
       summary:
         "CLARA sees money arriving in waves. This can feel good during strong weeks, but weak weeks need planned protection before they happen.",
     },
     "Mostly allowance, small extra work": {
       title: "Light earning layer",
-      chip: "Allowance-led stability",
+      chip: "allowance-led stability",
       summary:
         "CLARA sees allowance as the main base with small earning support. The main pattern to watch is spending discipline before bigger income arrives.",
     },
@@ -132,25 +132,25 @@ const ANSWER_CONTEXT = {
   workload: {
     Manageable: {
       title: "Still manageable",
-      chip: "Control still available",
+      chip: "control still available",
       summary:
         "CLARA sees a season that still has room for control. This is a good point to build habits before pressure becomes heavier.",
     },
     "Tight but okay": {
       title: "Tight but moving",
-      chip: "Early strain forming",
+      chip: "early strain forming",
       summary:
         "CLARA sees a schedule that is still functioning, but already demanding. Small leaks in money or rest may become noticeable faster.",
     },
     Heavy: {
       title: "Heavy overlap",
-      chip: "High schedule overlap",
+      chip: "high schedule overlap",
       summary:
         "CLARA sees work, school, and personal needs starting to overlap. This is where convenience spending and missed tracking can quietly increase.",
     },
     "Survival mode": {
       title: "Survival rhythm",
-      chip: "Recovery capacity low",
+      chip: "recovery capacity low",
       summary:
         "CLARA sees limited recovery space. The priority is not perfection; it is protecting essentials, reducing pressure, and avoiding decisions made from exhaustion.",
     },
@@ -158,31 +158,31 @@ const ANSWER_CONTEXT = {
   pressure: {
     "Tuition or school costs": {
       title: "Education pressure",
-      chip: "Education-cost pressure",
+      chip: "education-cost pressure",
       summary:
         "CLARA sees school costs as the main decision weight. This means budgeting should protect deadlines, tuition needs, and school-related payments first.",
     },
     "Daily food and transport": {
       title: "Daily survival costs",
-      chip: "Daily-cost drain",
+      chip: "daily-cost drain",
       summary:
         "CLARA sees repeated daily expenses shaping the month. Small costs may not look dangerous alone, but they can drain money through frequency.",
     },
     "Too much work and school load": {
       title: "Energy pressure",
-      chip: "Energy-trigger spending risk",
+      chip: "energy-trigger spending risk",
       summary:
         "CLARA sees time and energy as the main financial trigger. Spending may happen not from carelessness, but from needing relief or convenience.",
     },
     "Family contribution": {
       title: "Family-linked pressure",
-      chip: "Shared financial pressure",
+      chip: "shared financial pressure",
       summary:
         "CLARA sees family support as part of your money decisions. The goal is to help wisely without letting guilt erase your own stability.",
     },
     "Debt or borrowed money": {
       title: "Debt pressure",
-      chip: "Debt-cycle risk",
+      chip: "debt-cycle risk",
       summary:
         "CLARA sees borrowed money or delayed payments affecting your choices. This makes avoiding new pressure and protecting repayment rhythm more important.",
     },
@@ -190,31 +190,31 @@ const ANSWER_CONTEXT = {
   coping: {
     "I buy small rewards": {
       title: "Reward spending pattern",
-      chip: "Stress-reward spending",
+      chip: "stress-reward spending",
       summary:
         "CLARA sees small purchases acting as emotional relief. The goal is not to shame rewards, but to stop stress from quietly turning into repeated leaks.",
     },
     "I avoid checking my money": {
       title: "Avoidance pattern",
-      chip: "Money-avoidance pattern",
+      chip: "money-avoidance pattern",
       summary:
         "CLARA sees money checking as emotionally heavy. This can protect your feelings short-term, but it may increase surprise pressure later.",
     },
     "I borrow or delay payments": {
       title: "Delay-to-survive pattern",
-      chip: "Delayed-pressure cycle",
+      chip: "delayed-pressure cycle",
       summary:
         "CLARA sees survival decisions happening first, then repair later. The system should protect you from stacking pressure across weeks.",
     },
     "I cut back too much": {
       title: "Over-sacrifice pattern",
-      chip: "Over-sacrifice risk",
+      chip: "over-sacrifice risk",
       summary:
         "CLARA sees you reducing needs too aggressively. Saving matters, but your food, rest, and basic energy should not be treated as optional.",
     },
     "I ask for help": {
       title: "Support-seeking pattern",
-      chip: "Support-seeking habit",
+      chip: "support-seeking habit",
       summary:
         "CLARA sees an active support habit. This can lower risk when used wisely, especially if boundaries and repayment expectations are clear.",
     },
@@ -222,31 +222,31 @@ const ANSWER_CONTEXT = {
   goal: {
     "Graduate safely": {
       title: "Protect graduation",
-      chip: "Graduation protection",
+      chip: "graduation protection",
       summary:
         "CLARA will prioritize finishing school without letting money pressure, exhaustion, or avoidable debt damage your progress.",
     },
     "Avoid debt": {
       title: "Protect from debt",
-      chip: "Debt prevention priority",
+      chip: "debt prevention priority",
       summary:
         "CLARA will prioritize preventing new borrowed-money pressure and helping you see risky spending before it becomes a cycle.",
     },
     "Build savings slowly": {
       title: "Protect small savings",
-      chip: "Slow-savings priority",
+      chip: "slow-savings priority",
       summary:
         "CLARA will prioritize small, realistic saving moves that still respect your limited income and student workload.",
     },
     "Help family wisely": {
       title: "Protect wise support",
-      chip: "Wise family support",
+      chip: "wise family support",
       summary:
         "CLARA will prioritize helping family without losing your own school stability, essentials, and emergency protection.",
     },
     "Control stress spending": {
       title: "Protect from stress spending",
-      chip: "Stress-spending control",
+      chip: "stress-spending control",
       summary:
         "CLARA will prioritize replacing pressure-based spending with safer relief patterns that still feel human and realistic.",
     },
@@ -378,37 +378,73 @@ function getAnswerContext(questionKey, value) {
 
   return {
     title: value || "Building context",
-    chip: "Context clue added",
+    chip: "context clue added",
     summary: "CLARA will use this answer together with the previous answers to shape the life-stage snapshot.",
   };
 }
 
-function getBoardContext({ step, activeQuestionKey, draft, peopleInStage, questionKeys, stepIndex }) {
+function getInsightChip(insight) {
+  return String(insight?.chip || insight?.title || "").trim();
+}
+
+function getPriorInsight(questionKey, draft) {
+  return draft?.[questionKey] ? getAnswerContext(questionKey, draft[questionKey]) : null;
+}
+
+function buildContextualSummary(activeQuestionKey, currentInsight, draft) {
+  const setup = getPriorInsight("setup", draft);
+  const rhythm = getPriorInsight("rhythm", draft);
+  const workload = getPriorInsight("workload", draft);
+  const pressure = getPriorInsight("pressure", draft);
+  const coping = getPriorInsight("coping", draft);
+
+  const setupChip = getInsightChip(setup);
+  const rhythmChip = getInsightChip(rhythm);
+  const workloadChip = getInsightChip(workload);
+  const pressureChip = getInsightChip(pressure);
+  const copingChip = getInsightChip(coping);
+
+  if (activeQuestionKey === "setup") {
+    return `${currentInsight.summary} This becomes the starting environment CLARA will use before reading your income rhythm, weekly load, pressure, and spending response.`;
+  }
+
+  if (activeQuestionKey === "rhythm") {
+    return `${currentInsight.summary} Because your setup already suggests ${setupChip}, this rhythm tells CLARA whether your support system is stable, stretched, or vulnerable to timing gaps.`;
+  }
+
+  if (activeQuestionKey === "workload") {
+    return `${currentInsight.summary} With ${setupChip} and ${rhythmChip} already in the profile, CLARA now treats your energy level as part of the money pattern, not a separate issue.`;
+  }
+
+  if (activeQuestionKey === "pressure") {
+    return `${currentInsight.summary} Since your profile already shows ${setupChip}, ${rhythmChip}, and ${workloadChip}, this pressure becomes the first area CLARA should protect in your budget.`;
+  }
+
+  if (activeQuestionKey === "coping") {
+    return `${currentInsight.summary} Connected with ${workloadChip} and ${pressureChip}, CLARA can now tell whether spending is a pressure response instead of just a normal expense choice.`;
+  }
+
+  if (activeQuestionKey === "goal") {
+    return `${currentInsight.summary} Based on ${setupChip}, ${rhythmChip}, ${workloadChip}, ${pressureChip}, and ${copingChip}, CLARA now has enough context to turn this into a protection plan instead of a generic student profile.`;
+  }
+
+  return currentInsight.summary;
+}
+
+function getBoardContext({ step, activeQuestionKey, draft, peopleInStage }) {
   if (step === "stage") {
     return {
       title: draft.stage,
       summary: peopleInStage,
-      trail: [],
     };
   }
 
   const selectedValue = draft[activeQuestionKey];
   const currentInsight = getAnswerContext(activeQuestionKey, selectedValue);
-  const priorKeys = questionKeys.slice(0, Math.max(0, stepIndex - 1));
-  const priorInsights = priorKeys.map((key) => getAnswerContext(key, draft[key])).filter(Boolean);
-  const trail = questionKeys
-    .slice(0, Math.max(0, stepIndex))
-    .map((key) => getAnswerContext(key, draft[key])?.chip || getAnswerContext(key, draft[key])?.title)
-    .filter(Boolean);
-  const priorTags = priorInsights.slice(-2).map((insight) => insight.chip || insight.title).filter(Boolean);
-  const contextLine = priorTags.length
-    ? `CLARA is connecting ${priorTags.join(" + ")} with this new clue to form the full context.`
-    : "This becomes the first interpreted clue in your life-stage context.";
 
   return {
     title: currentInsight.title,
-    summary: `${currentInsight.summary} ${contextLine}`,
-    trail,
+    summary: buildContextualSummary(activeQuestionKey, currentInsight, draft),
   };
 }
 
@@ -644,7 +680,7 @@ function LifeStageSetupScreen({ profile, onClose, onSave }) {
   const activeMeta = activeQuestionKey ? QUESTION_META[activeQuestionKey] || QUESTION_META.setup : null;
   const progressPillIndex = Math.round((stepIndex / Math.max(1, stepOrder.length - 1)) * 4);
   const peopleInStage = getPeopleCopy(draft.stage, definition);
-  const boardContext = getBoardContext({ step, activeQuestionKey, draft, peopleInStage, questionKeys, stepIndex });
+  const boardContext = getBoardContext({ step, activeQuestionKey, draft, peopleInStage });
 
   useEffect(() => {
     if (typeof document === "undefined") return undefined;
@@ -693,15 +729,6 @@ function LifeStageSetupScreen({ profile, onClose, onSave }) {
             <p className="text-[10px] font-black uppercase tracking-[0.28em] text-cyan-100/72">CLARA context board</p>
             <h3 className="mt-5 max-w-[330px] text-[clamp(30px,8vw,40px)] font-black leading-[1.03] tracking-[-0.045em] text-white drop-shadow-[0_8px_24px_rgba(0,0,0,.35)]">{boardContext.title}</h3>
             <p className="mt-4 max-w-[350px] text-[13px] font-semibold leading-6 text-white/74">{boardContext.summary}</p>
-            {boardContext.trail?.length ? (
-              <div className="mt-4 flex flex-wrap gap-2">
-                {boardContext.trail.slice(-3).map((item) => (
-                  <span key={item} className="max-w-[145px] truncate rounded-full border border-cyan-100/14 bg-cyan-200/8 px-2.5 py-1 text-[9px] font-black text-cyan-50/72">
-                    {item}
-                  </span>
-                ))}
-              </div>
-            ) : null}
           </div>
           <button
             type="button"
