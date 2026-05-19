@@ -56,7 +56,7 @@ function setButtonText(button, text) {
 function setGroupVisibility(group, visible) {
   if (!group) return;
   group.dataset.claraProgressiveVisible = visible ? "true" : "false";
-  group.style.setProperty("display", visible ? "flex" : "none", "important");
+  group.style.setProperty("display", visible ? "block" : "none", "important");
 }
 
 function applyProgressiveFlow() {
