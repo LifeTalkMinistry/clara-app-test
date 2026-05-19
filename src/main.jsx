@@ -12,6 +12,7 @@ import "./clara-talk-pause-bridge";
 import "./life-stage-support-card";
 import "./life-stage-trend-snapshot";
 import "./life-stage-intelligence-runtime";
+import "./behavioral-observation-runtime";
 import App from "./App.jsx";
 import "./index.css";
 import "./clara-fab-theme.css";
