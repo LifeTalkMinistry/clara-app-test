@@ -343,27 +343,52 @@ function StageCard({ stage, active, onClick }) {
   );
 }
 
+function StageSummaryCard({ label, title, copy }) {
+  const Icon = STAGE_ICON_MAP[title] || Sparkles;
+
+  return (
+    <section className="relative overflow-hidden rounded-[26px] border border-white/[0.085] bg-[#071226]/62 p-4 shadow-[0_16px_38px_rgba(0,0,0,.20),inset_0_1px_0_rgba(255,255,255,.04)] backdrop-blur-xl">
+      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_10%_0%,rgba(45,212,191,.08),transparent_34%),radial-gradient(circle_at_92%_10%,rgba(91,63,209,.10),transparent_36%)]" />
+      <div className="relative z-10 flex items-start gap-3.5">
+        <span className="grid h-12 w-12 shrink-0 place-items-center rounded-[18px] border border-cyan-100/16 bg-cyan-200/[0.055] text-cyan-100/70 shadow-[inset_0_1px_0_rgba(255,255,255,.05)]">
+          <Icon className="h-5.5 w-5.5" strokeWidth={1.8} />
+        </span>
+        <div className="min-w-0 flex-1">
+          <p className="text-[8px] font-black uppercase tracking-[0.24em] text-cyan-100/46">{label}</p>
+          <h4 className="mt-1.5 text-[21px] font-black leading-tight tracking-[-0.03em] text-white">{title}</h4>
+          <p className="mt-2 text-[12.5px] font-semibold leading-5 text-white/54">{copy}</p>
+        </div>
+      </div>
+    </section>
+  );
+}
+
 function OptionGroup({ label, helper, value, options, onSelect }) {
   return (
-    <div>
-      <p className="text-[9px] font-black uppercase tracking-[0.18em] text-cyan-100/38">{label}</p>
-      {helper ? <p className="mt-1 text-[11px] font-semibold leading-4 text-white/34">{helper}</p> : null}
-      <div className="mt-2 flex flex-wrap gap-2">
-        {options.map((option) => {
-          const active = option === value;
-          return (
-            <button
-              key={option}
-              type="button"
-              onClick={() => onSelect(option)}
-              className={`rounded-full border px-3 py-2 text-[11px] font-black transition active:scale-95 ${
-                active ? "border-cyan-200/22 bg-cyan-200/12 text-cyan-50" : "border-white/[0.075] bg-[#071226]/54 text-white/46"
-              }`}
-            >
-              {option}
-            </button>
-          );
-        })}
+    <div className="relative overflow-hidden rounded-[22px] border border-white/[0.065] bg-white/[0.025] p-3.5">
+      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_0%_0%,rgba(45,212,191,.055),transparent_36%)]" />
+      <div className="relative z-10">
+        <p className="text-[8px] font-black uppercase tracking-[0.24em] text-cyan-100/46">{label}</p>
+        {helper ? <p className="mt-1 text-[11px] font-bold leading-4 text-white/45">{helper}</p> : null}
+        <div className="mt-3 grid grid-cols-2 gap-2">
+          {options.map((option) => {
+            const active = option === value;
+            return (
+              <button
+                key={option}
+                type="button"
+                onClick={() => onSelect(option)}
+                className={`min-h-[40px] rounded-[16px] border px-3 py-2 text-left text-[11px] font-black leading-4 transition active:scale-95 ${
+                  active
+                    ? "border-cyan-200/42 bg-cyan-200/12 text-cyan-50 shadow-[0_0_22px_rgba(34,211,238,.14),inset_0_1px_0_rgba(255,255,255,.06)]"
+                    : "border-white/[0.075] bg-[#071226]/64 text-white/52 shadow-[inset_0_1px_0_rgba(255,255,255,.025)]"
+                }`}
+              >
+                {option}
+              </button>
+            );
+          })}
+        </div>
       </div>
     </div>
   );
@@ -378,6 +403,7 @@ function LifeStageSetupScreen({ profile, onClose, onSave }) {
   const stepIndex = stepOrder.indexOf(step);
   const progressPillIndex = Math.round((stepIndex / Math.max(1, stepOrder.length - 1)) * 4);
   const peopleInStage = getPeopleCopy(draft.stage, definition);
+  const isStageStep = step === "stage";
 
   useEffect(() => {
     if (typeof document === "undefined") return undefined;
@@ -422,19 +448,19 @@ function LifeStageSetupScreen({ profile, onClose, onSave }) {
     onClose();
   };
 
-  const setupTitle = step === "stage" ? draft.stage : step === "environment" ? "Shape the environment" : "Set your focus";
+  const setupTitle = step === "stage" ? draft.stage : step === "environment" ? "Your environment" : "Your focus";
   const setupSubtitle =
     step === "stage"
       ? peopleInStage
       : step === "environment"
-        ? "Describe how this season actually feels day to day."
+        ? "Describe how this season feels day to day."
         : "Choose what matters most to protect in this season.";
 
   return (
     <div className="fixed inset-y-0 left-1/2 z-[9999] flex h-[100svh] w-full max-w-[430px] -translate-x-1/2 flex-col overflow-hidden bg-[#020817] px-4 pb-[max(16px,env(safe-area-inset-bottom))] pt-[max(18px,env(safe-area-inset-top))] shadow-[0_24px_90px_rgba(0,0,0,.62),inset_0_0_0_1px_rgba(255,255,255,.04)]">
       <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_8%_2%,rgba(45,212,191,.18),transparent_30%),radial-gradient(circle_at_92%_10%,rgba(124,58,237,.28),transparent_34%),radial-gradient(circle_at_45%_100%,rgba(14,165,233,.10),transparent_30%),linear-gradient(180deg,rgba(7,18,38,.88),rgba(2,8,23,.98))]" />
 
-      <header className="relative z-10 shrink-0 overflow-hidden rounded-[32px] border border-cyan-200/18 bg-[#071226]/68 p-5 shadow-[0_22px_70px_rgba(0,0,0,.34),0_0_44px_rgba(34,211,238,.10),inset_0_1px_0_rgba(255,255,255,.08)] backdrop-blur-2xl">
+      <header className={`relative z-10 shrink-0 overflow-hidden rounded-[32px] border border-cyan-200/18 bg-[#071226]/68 shadow-[0_22px_70px_rgba(0,0,0,.34),0_0_44px_rgba(34,211,238,.10),inset_0_1px_0_rgba(255,255,255,.08)] backdrop-blur-2xl ${isStageStep ? "p-5" : "p-4"}`}>
         <div className="pointer-events-none absolute -left-16 -top-20 h-48 w-56 rounded-full bg-cyan-300/16 blur-3xl" />
         <div className="pointer-events-none absolute -right-16 -bottom-24 h-56 w-64 rounded-full bg-violet-500/24 blur-3xl" />
         <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_88%_8%,rgba(255,255,255,.10),transparent_26%),radial-gradient(circle_at_20%_16%,rgba(125,211,252,.10),transparent_30%)]" />
@@ -443,20 +469,20 @@ function LifeStageSetupScreen({ profile, onClose, onSave }) {
         <div className="relative z-10 flex items-start justify-between gap-4">
           <div className="min-w-0 flex-1">
             <p className="text-[10px] font-black uppercase tracking-[0.28em] text-cyan-100/72">Life stage setup</p>
-            <h3 className="mt-5 max-w-[330px] text-[clamp(32px,9vw,44px)] font-black leading-[1.03] tracking-[-0.045em] text-white drop-shadow-[0_8px_24px_rgba(0,0,0,.35)]">{setupTitle}</h3>
-            <p className="mt-4 max-w-[350px] text-[14px] font-semibold leading-7 text-white/74">{setupSubtitle}</p>
+            <h3 className={`${isStageStep ? "mt-5 max-w-[330px] text-[clamp(32px,9vw,44px)] leading-[1.03]" : "mt-3 max-w-[250px] text-[clamp(30px,7.8vw,36px)] leading-[1.05]"} font-black tracking-[-0.045em] text-white drop-shadow-[0_8px_24px_rgba(0,0,0,.35)]`}>{setupTitle}</h3>
+            <p className={`${isStageStep ? "mt-4 max-w-[350px] text-[14px] leading-7" : "mt-3 max-w-[285px] text-[13px] leading-6"} font-semibold text-white/74`}>{setupSubtitle}</p>
           </div>
           <button
             type="button"
             onClick={onClose}
-            className="grid h-12 w-12 shrink-0 place-items-center rounded-full border border-white/[0.12] bg-white/[0.055] text-white/82 shadow-[0_10px_28px_rgba(0,0,0,.20),inset_0_1px_0_rgba(255,255,255,.08)] backdrop-blur-xl active:scale-95"
+            className={`${isStageStep ? "h-12 w-12" : "h-11 w-11"} grid shrink-0 place-items-center rounded-full border border-white/[0.12] bg-white/[0.055] text-white/82 shadow-[0_10px_28px_rgba(0,0,0,.20),inset_0_1px_0_rgba(255,255,255,.08)] backdrop-blur-xl active:scale-95`}
             aria-label="Close life stage setup"
           >
-            <X className="h-6 w-6" strokeWidth={1.8} />
+            <X className={isStageStep ? "h-6 w-6" : "h-5 w-5"} strokeWidth={1.8} />
           </button>
         </div>
 
-        <div className="relative z-10 mt-6 flex justify-center gap-3">
+        <div className={`relative z-10 flex justify-center gap-3 ${isStageStep ? "mt-6" : "mt-5"}`}>
           {Array.from({ length: 5 }).map((_, index) => (
             <div
               key={index}
@@ -481,12 +507,8 @@ function LifeStageSetupScreen({ profile, onClose, onSave }) {
 
         {step === "environment" ? (
           <div className="space-y-3.5 pb-4">
-            <section className="rounded-[26px] border border-white/[0.085] bg-[#071226]/64 p-5 shadow-[0_16px_38px_rgba(0,0,0,.20),inset_0_1px_0_rgba(255,255,255,.04)] backdrop-blur-xl">
-              <p className="text-[9px] font-black uppercase tracking-[0.18em] text-cyan-100/42">Current stage</p>
-              <h4 className="mt-2 text-2xl font-black leading-tight text-white">{draft.stage}</h4>
-              <p className="mt-3 text-[13px] font-semibold leading-6 text-white/52">{peopleInStage}</p>
-            </section>
-            <section className="space-y-5 rounded-[26px] border border-white/[0.085] bg-[#071226]/64 p-5 shadow-[0_16px_38px_rgba(0,0,0,.20),inset_0_1px_0_rgba(255,255,255,.04)] backdrop-blur-xl">
+            <StageSummaryCard label="Current stage" title={draft.stage} copy={peopleInStage} />
+            <section className="space-y-3 rounded-[26px] border border-white/[0.085] bg-[#071226]/64 p-3.5 shadow-[0_16px_38px_rgba(0,0,0,.20),inset_0_1px_0_rgba(255,255,255,.04)] backdrop-blur-xl">
               <OptionGroup label="Current setup" helper="Where are you living or operating from right now?" value={draft.setup} options={fields.setup || []} onSelect={(value) => setDraft((current) => ({ ...current, setup: value }))} />
               <OptionGroup label="Current rhythm" helper="How stable does this season feel lately?" value={draft.rhythm} options={fields.rhythm || []} onSelect={(value) => setDraft((current) => ({ ...current, rhythm: value }))} />
             </section>
@@ -495,12 +517,8 @@ function LifeStageSetupScreen({ profile, onClose, onSave }) {
 
         {step === "focus" ? (
           <div className="space-y-3.5 pb-4">
-            <section className="rounded-[26px] border border-white/[0.085] bg-[#071226]/64 p-5 shadow-[0_16px_38px_rgba(0,0,0,.20),inset_0_1px_0_rgba(255,255,255,.04)] backdrop-blur-xl">
-              <p className="text-[9px] font-black uppercase tracking-[0.18em] text-cyan-100/42">Selected stage</p>
-              <h4 className="mt-2 text-2xl font-black leading-tight text-white">{draft.stage}</h4>
-              <p className="mt-3 text-[13px] font-semibold leading-6 text-white/52">This shapes your trend snapshot, setup direction, and financial environment reading.</p>
-            </section>
-            <section className="space-y-5 rounded-[26px] border border-white/[0.085] bg-[#071226]/64 p-5 shadow-[0_16px_38px_rgba(0,0,0,.20),inset_0_1px_0_rgba(255,255,255,.04)] backdrop-blur-xl">
+            <StageSummaryCard label="Selected stage" title={draft.stage} copy="This shapes your trend snapshot, setup direction, and financial environment reading." />
+            <section className="space-y-3 rounded-[26px] border border-white/[0.085] bg-[#071226]/64 p-3.5 shadow-[0_16px_38px_rgba(0,0,0,.20),inset_0_1px_0_rgba(255,255,255,.04)] backdrop-blur-xl">
               <OptionGroup label="Pressure right now" helper="Choose the pressure that best explains this stage." value={draft.pressure} options={fields.pressure || []} onSelect={(value) => setDraft((current) => ({ ...current, pressure: value }))} />
               <OptionGroup label="Main focus" helper="What should be protected first?" value={draft.goal} options={fields.goal || []} onSelect={(value) => setDraft((current) => ({ ...current, goal: value }))} />
             </section>
