@@ -253,22 +253,25 @@ function StageImagePanel({ stage, image, onApply, onClose }) {
 }
 
 function StageCard({ stage, active, onClick }) {
-  const identity = getStageDefinition(stage).identity;
   return (
     <button
       type="button"
       onClick={onClick}
-      className={`relative overflow-hidden rounded-[22px] border p-3.5 text-left transition active:scale-[0.98] ${
+      className={`relative min-h-[72px] overflow-hidden rounded-[20px] border px-3.5 py-3 text-left transition active:scale-[0.98] ${
         active
-          ? "border-cyan-200/24 bg-[linear-gradient(145deg,rgba(45,212,191,.13),rgba(91,63,209,.12))] shadow-[0_0_28px_rgba(45,212,191,.10)]"
-          : "border-white/[0.075] bg-[#071226]/58 shadow-[inset_0_1px_0_rgba(255,255,255,.025)]"
+          ? "border-cyan-200/26 bg-[linear-gradient(145deg,rgba(45,212,191,.14),rgba(91,63,209,.12))] shadow-[0_0_28px_rgba(45,212,191,.10)]"
+          : "border-white/[0.065] bg-[#071226]/44 opacity-78 shadow-[inset_0_1px_0_rgba(255,255,255,.02)]"
       }`}
     >
-      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_14%_0%,rgba(45,212,191,.08),transparent_35%)] opacity-70" />
-      <div className="relative z-10">
-        <p className="text-[8px] font-black uppercase tracking-[0.16em] text-cyan-100/38">{stage}</p>
-        <p className="mt-1 text-sm font-black leading-tight text-white">{identity.title}</p>
-        <p className="mt-1 line-clamp-2 text-[11px] font-semibold leading-4 text-white/42">{identity.caption}</p>
+      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_14%_0%,rgba(45,212,191,.07),transparent_38%)] opacity-70" />
+      <div className="relative z-10 flex h-full items-center justify-between gap-2">
+        <div className="min-w-0">
+          <p className="text-[8px] font-black uppercase tracking-[0.16em] text-cyan-100/36">Life stage</p>
+          <p className="mt-1 text-[13px] font-black leading-tight text-white">{stage}</p>
+        </div>
+        <span className={`grid h-5 w-5 shrink-0 place-items-center rounded-full border ${active ? "border-cyan-100/36 bg-cyan-200/16 text-cyan-50" : "border-white/[0.075] bg-white/[0.025] text-transparent"}`}>
+          {active ? <Check className="h-3.5 w-3.5" /> : null}
+        </span>
       </div>
     </button>
   );
@@ -351,10 +354,10 @@ function LifeStageSetupScreen({ profile, onClose, onSave }) {
     onClose();
   };
 
-  const title = step === "stage" ? "Let CLARA understand your season" : step === "environment" ? "Shape the environment" : "Set CLARA’s focus";
-  const subtitle =
+  const setupTitle = step === "stage" ? draft.stage : step === "environment" ? "Shape the environment" : "Set CLARA’s focus";
+  const setupSubtitle =
     step === "stage"
-      ? "Choose the life stage that best matches your financial environment right now."
+      ? definition.identity.caption
       : step === "environment"
         ? "Now tell CLARA how this season actually feels day to day."
         : "Choose what CLARA should watch and protect first.";
@@ -363,19 +366,27 @@ function LifeStageSetupScreen({ profile, onClose, onSave }) {
     <div className="fixed inset-y-0 left-1/2 z-[9999] flex h-[100svh] w-full max-w-[430px] -translate-x-1/2 flex-col overflow-hidden bg-[#020817] px-3 pb-[max(12px,env(safe-area-inset-bottom))] pt-[max(12px,env(safe-area-inset-top))] shadow-[0_24px_80px_rgba(0,0,0,.54),inset_0_0_0_1px_rgba(255,255,255,.035)]">
       <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_12%_4%,rgba(45,212,191,.14),transparent_28%),radial-gradient(circle_at_90%_8%,rgba(91,63,209,.20),transparent_32%),linear-gradient(180deg,rgba(7,18,38,.84),rgba(2,8,23,.96))]" />
 
-      <header className="relative z-10 shrink-0 rounded-[26px] border border-white/[0.075] bg-[#071226]/58 p-4 shadow-[0_18px_54px_rgba(0,0,0,.22)] backdrop-blur-xl">
-        <div className="flex items-start justify-between gap-3">
+      <header className="relative z-10 shrink-0 overflow-hidden rounded-[26px] border border-white/[0.075] bg-[#071226]/58 p-4 shadow-[0_18px_54px_rgba(0,0,0,.22)] backdrop-blur-xl">
+        <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_88%_0%,rgba(125,211,252,.12),transparent_32%),radial-gradient(circle_at_16%_0%,rgba(91,63,209,.14),transparent_30%)]" />
+        <div className="relative z-10 flex items-start justify-between gap-3">
           <div>
             <p className="text-[9px] font-black uppercase tracking-[0.2em] text-cyan-100/46">Life stage setup</p>
-            <h3 className="mt-2 max-w-[260px] text-[24px] font-black leading-[1.05] text-white">{title}</h3>
-            <p className="mt-2 max-w-[280px] text-xs font-semibold leading-5 text-white/50">{subtitle}</p>
+            <h3 className="mt-2 max-w-[270px] text-[24px] font-black leading-[1.05] text-white">{setupTitle}</h3>
+            <p className="mt-2 max-w-[300px] text-xs font-semibold leading-5 text-white/52">{setupSubtitle}</p>
+            {step === "stage" ? (
+              <div className="mt-3 rounded-[18px] border border-white/[0.065] bg-white/[0.035] p-3">
+                <p className="text-[9px] font-black uppercase tracking-[0.18em] text-white/34">CLARA will understand this as</p>
+                <p className="mt-1 text-sm font-black leading-tight text-white/80">{definition.identity.title}</p>
+                <p className="mt-1 line-clamp-2 text-[11px] font-semibold leading-4 text-white/42">{definition.identity.overview}</p>
+              </div>
+            ) : null}
           </div>
           <button type="button" onClick={onClose} className="grid h-9 w-9 shrink-0 place-items-center rounded-full border border-white/[0.075] bg-white/[0.04] text-white/58 active:scale-95" aria-label="Close life stage setup">
             <X className="h-4 w-4" />
           </button>
         </div>
 
-        <div className="mt-4 flex gap-1.5">
+        <div className="relative z-10 mt-4 flex gap-1.5">
           {stepOrder.map((item, index) => (
             <div key={item} className={`h-1.5 flex-1 rounded-full ${index <= stepIndex ? "bg-cyan-200/72 shadow-[0_0_18px_rgba(125,211,252,.18)]" : "bg-white/[0.065]"}`} />
           ))}
