@@ -59,22 +59,55 @@ function setGroupVisibility(group, visible) {
   group.style.setProperty("display", visible ? "block" : "none", "important");
 }
 
+function getProgressDots(modal) {
+  const header = modal?.querySelector("header");
+  const progressWrap = Array.from(header?.children || []).find((child) => {
+    const dots = Array.from(child.children || []);
+    return dots.length >= 3 && dots.every((dot) => String(dot.className || "").includes("rounded-full"));
+  });
+
+  return Array.from(progressWrap?.children || []);
+}
+
+function getActiveProgressCount(screen) {
+  if (screen === "stage") return 1;
+  if (screen === "environment") return progressiveState.phase === 1 ? 3 : 2;
+  if (screen === "focus") return progressiveState.phase === 1 ? 5 : 4;
+  return 0;
+}
+
+function applyProgressDots(modal, screen) {
+  const dots = getProgressDots(modal);
+  if (!dots.length) return;
+
+  const activeCount = getActiveProgressCount(screen);
+
+  dots.forEach((dot, index) => {
+    const active = index < activeCount;
+    dot.style.setProperty("width", active ? "3rem" : "2.5rem", "important");
+    dot.style.setProperty("background", active ? "rgb(165 243 252)" : "rgba(255, 255, 255, 0.085)", "important");
+    dot.style.setProperty("box-shadow", active ? "0 0 18px rgba(125, 211, 252, 0.34)" : "none", "important");
+    dot.style.setProperty("opacity", "1", "important");
+  });
+}
+
 function applyProgressiveFlow() {
   const modal = getLifeStageModal();
   if (!modal) return;
 
   const screen = getCurrentSetupScreen(modal);
-  const { panel, groups } = getProgressivePanel(modal);
-
-  if (!panel || !["environment", "focus"].includes(screen) || groups.length < 2) {
-    progressiveState.screen = screen;
-    progressiveState.phase = 0;
-    return;
-  }
 
   if (progressiveState.screen !== screen) {
     progressiveState.screen = screen;
     progressiveState.phase = 0;
+  }
+
+  applyProgressDots(modal, screen);
+
+  const { panel, groups } = getProgressivePanel(modal);
+
+  if (!panel || !["environment", "focus"].includes(screen) || groups.length < 2) {
+    return;
   }
 
   const [firstGroup, secondGroup] = groups;
