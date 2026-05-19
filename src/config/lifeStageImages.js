@@ -6,6 +6,8 @@
 // src/assets/life-stages/
 //
 // Uploaded filenames currently wired:
+// - business-builder-girl.jpg.png
+// - business-builder-men.jpg.png
 // - family-household.jpg.png
 // - freelance-season-girl.jpg.png
 // - freelance-season-men.jpg.png
@@ -19,6 +21,8 @@
 // - young-professional-girl.jpg.png
 // - young-professional-men.jpg.png
 
+import businessBuilderGirl from "../assets/life-stages/business-builder-girl.jpg.png";
+import businessBuilderMen from "../assets/life-stages/business-builder-men.jpg.png";
 import familyHousehold from "../assets/life-stages/family-household.jpg.png";
 import freelanceSeasonGirl from "../assets/life-stages/freelance-season-girl.jpg.png";
 import freelanceSeasonMen from "../assets/life-stages/freelance-season-men.jpg.png";
@@ -75,7 +79,11 @@ export const LIFE_STAGE_IMAGES = {
     female: freelanceSeasonGirl,
   },
   businessBuilder: {
-    default: "",
+    default: businessBuilderMen,
+    men: businessBuilderMen,
+    male: businessBuilderMen,
+    girl: businessBuilderGirl,
+    female: businessBuilderGirl,
   },
   recoverySeason: {
     default: "",
