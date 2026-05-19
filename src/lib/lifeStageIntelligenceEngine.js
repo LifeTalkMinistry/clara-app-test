@@ -1,4 +1,12 @@
 import { LOCAL_FINANCE_STORES, upsertLocalRecord } from "./localFinanceStore";
+import {
+  INTELLIGENCE_EVENTS,
+  getClaraIntelligenceOrchestrator,
+} from "./claraIntelligenceOrchestrator";
+import {
+  maybeCommitIntelligenceLayer,
+  safeIntelligenceWarn,
+} from "./intelligenceStateSafety";
 
 export const LIFE_STAGE_SNAPSHOT_KEY = "clara_life_stage_snapshot_v1";
 export const LIFE_STAGE_MEMORY_KEY = "clara_life_stage_ai_memory_v1";
@@ -280,7 +288,7 @@ function deriveFinancialEnvironment(profile, metrics) {
   return "Developing financial environment";
 }
 
-function deriveFirstAction(profile, metrics) {
+function deriveFirstAction(profile) {
   const goal = profile.answers.goal || "Build stable habits";
   const pressure = profile.answers.pressure || "current pressure";
 
@@ -309,7 +317,6 @@ function deriveFirstAction(profile, metrics) {
 function buildSummary(profile, metrics, primaryRisk, primaryStrength) {
   const pressure = profile.answers.pressure || "your main pressure";
   const rhythm = profile.answers.rhythm || "your money rhythm";
-  const coping = profile.answers.coping || "your coping pattern";
 
   return `CLARA sees a ${profile.stage.toLowerCase()} season where ${pressure.toLowerCase()} and ${rhythm.toLowerCase()} are shaping your decisions. Your main risk is ${primaryRisk.toLowerCase()}, while your strongest signal is ${primaryStrength.toLowerCase()}. The goal is to guide the money around your real life, not judge the spending alone.`;
 }
@@ -393,7 +400,7 @@ export function buildLifeStageIntelligence(profileInput = {}, definition = null)
     strengths: unique([primaryStrength, "Context awareness", analysis.metrics.futurePotential >= 75 ? "Growth potential" : null]),
     riskFlags: unique([primaryRisk, ...analysis.tags.filter((tag) => tag !== profile.stage.toLowerCase().replace(/\s+/g, "_")).slice(0, 4)]),
     protectionPriority: profile.answers.goal || "Build a safer money rhythm",
-    firstAction: deriveFirstAction(profile, analysis.metrics),
+    firstAction: deriveFirstAction(profile),
     confidenceScore,
     confidenceLabel: confidenceScore >= 0.78 ? "Strong" : confidenceScore >= 0.62 ? "Good" : "Learning",
     generatedBy: "local_life_stage_engine_v1",
@@ -431,18 +438,31 @@ export function readCachedLifeStageIntelligence() {
 export async function saveLifeStageIntelligence(intelligence, options = {}) {
   if (!intelligence) return null;
 
+  const previous = readCachedLifeStageIntelligence();
+  const commit = maybeCommitIntelligenceLayer("life_stage_snapshot", previous, intelligence, {
+    reason: options.reason || "life_stage_snapshot_generated",
+    force: Boolean(options.force),
+    allowFastCommit: Boolean(options.allowFastCommit || options.force),
+    minCommitIntervalMs: options.minCommitIntervalMs ?? 15_000,
+  });
+
+  if (!commit.committed) {
+    return commit.value || previous || intelligence;
+  }
+
+  const stableIntelligence = commit.value;
   const timestamp = nowIso();
   const localUserId = resolveLocalUserId(options.localUserId);
   const event = {
     id: `life_stage_event_${Date.now()}`,
     type: options.reason || "life_stage_snapshot_generated",
-    stage: intelligence.stage,
-    snapshotTitle: intelligence.snapshot?.title,
+    stage: stableIntelligence.stage,
+    snapshotTitle: stableIntelligence.snapshot?.title,
     createdAt: timestamp,
   };
 
   if (typeof window !== "undefined") {
-    window.localStorage.setItem(LIFE_STAGE_SNAPSHOT_KEY, JSON.stringify(intelligence));
+    window.localStorage.setItem(LIFE_STAGE_SNAPSHOT_KEY, JSON.stringify(stableIntelligence));
 
     const previousMemory = (() => {
       try {
@@ -455,23 +475,37 @@ export async function saveLifeStageIntelligence(intelligence, options = {}) {
     const events = [event, ...(previousMemory.events || [])].slice(0, 20);
     window.localStorage.setItem(
       LIFE_STAGE_MEMORY_KEY,
-      JSON.stringify({ current: intelligence, events, updatedAt: timestamp })
+      JSON.stringify({ current: stableIntelligence, events, updatedAt: timestamp })
     );
-    window.dispatchEvent(new CustomEvent("clara:life-stage-intelligence-updated", { detail: intelligence }));
+
+    try {
+      getClaraIntelligenceOrchestrator().emit(INTELLIGENCE_EVENTS.UPDATED, {
+        jobKey: "life_stage_snapshot_commit",
+        reason: options.reason || "life_stage_snapshot_generated",
+        result: stableIntelligence,
+      });
+    } catch {
+      window.dispatchEvent(new CustomEvent("clara:life-stage-intelligence-updated", { detail: stableIntelligence }));
+    }
   }
 
   try {
+    const orchestrator = getClaraIntelligenceOrchestrator();
+    if (!orchestrator.recordMemoryWrite("life_stage_snapshot")) {
+      return stableIntelligence;
+    }
+
     await upsertLocalRecord(
       LOCAL_FINANCE_STORES.lifeProfile,
       {
         id: LIFE_STAGE_PROFILE_RECORD_ID,
         type: "life_stage_intelligence",
         profileType: "life_stage",
-        stage: intelligence.stage,
-        answers: intelligence.answers,
-        rawProfile: intelligence.rawProfile,
-        behaviorProfile: intelligence.behaviorProfile,
-        snapshot: intelligence.snapshot,
+        stage: stableIntelligence.stage,
+        answers: stableIntelligence.answers,
+        rawProfile: stableIntelligence.rawProfile,
+        behaviorProfile: stableIntelligence.behaviorProfile,
+        snapshot: stableIntelligence.snapshot,
         updatedAt: timestamp,
       },
       localUserId
@@ -482,18 +516,18 @@ export async function saveLifeStageIntelligence(intelligence, options = {}) {
       {
         id: LIFE_STAGE_MEMORY_RECORD_ID,
         memoryType: "life_stage_intelligence",
-        stage: intelligence.stage,
-        summary: intelligence.snapshot?.summary,
-        tags: intelligence.behaviorProfile?.interpretedTags || [],
-        snapshot: intelligence.snapshot,
+        stage: stableIntelligence.stage,
+        summary: stableIntelligence.snapshot?.summary,
+        tags: stableIntelligence.behaviorProfile?.interpretedTags || [],
+        snapshot: stableIntelligence.snapshot,
         event,
         updatedAt: timestamp,
       },
       localUserId
     );
   } catch (error) {
-    console.warn("CLARA Life Stage IndexedDB save skipped:", error);
+    safeIntelligenceWarn("CLARA Life Stage IndexedDB save skipped:", error);
   }
 
-  return intelligence;
+  return stableIntelligence;
 }
