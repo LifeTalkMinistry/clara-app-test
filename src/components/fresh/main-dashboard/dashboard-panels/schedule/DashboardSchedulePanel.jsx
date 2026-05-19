@@ -5,6 +5,7 @@ import {
   ChevronRight,
   CreditCard,
   Plus,
+  Sparkles,
   Trash2,
   X,
 } from "lucide-react";
@@ -218,7 +219,7 @@ function getMonthlyInsight({ sortedEvents, monthDate, todayKey }) {
   });
 
   if (moneyEvents.length >= 3) {
-    return `Several money-impact moments this month. Give them space before optional spending.`;
+    return "Several money-impact moments this month. Give them space before optional spending.";
   }
 
   if (nextMoneyEvent) {
@@ -252,26 +253,29 @@ function AgendaCard({ agenda, onOpen }) {
       type="button"
       onClick={() => agenda.event && onOpen(agenda.event)}
       disabled={!agenda.clickable}
-      className="relative w-full overflow-hidden rounded-[26px] border border-cyan-300/18 bg-[linear-gradient(135deg,rgba(8,83,93,.28),rgba(18,24,63,.68)_50%,rgba(70,22,104,.42))] p-4 text-left shadow-[0_14px_34px_rgba(0,0,0,.18)] transition active:scale-[.99] disabled:cursor-default"
+      className="relative w-full overflow-hidden rounded-[30px] border border-white/10 bg-[radial-gradient(circle_at_6%_18%,rgba(34,211,238,.15),transparent_32%),radial-gradient(circle_at_92%_14%,rgba(168,85,247,.16),transparent_34%),linear-gradient(145deg,rgba(3,17,33,.96),rgba(10,22,49,.9)_50%,rgba(40,19,74,.84))] p-4 text-left shadow-[0_20px_46px_rgba(0,0,0,.28),inset_0_1px_0_rgba(255,255,255,.045)] transition active:scale-[.99] disabled:cursor-default"
     >
-      <div className="pointer-events-none absolute -bottom-20 -left-20 h-40 w-40 rounded-full bg-cyan-300/11 blur-3xl" />
-      <div className="pointer-events-none absolute -right-16 -top-16 h-40 w-40 rounded-full bg-fuchsia-400/11 blur-3xl" />
+      <div className="pointer-events-none absolute -bottom-24 -left-24 h-48 w-48 rounded-full bg-cyan-300/10 blur-3xl" />
+      <div className="pointer-events-none absolute -right-16 -top-20 h-48 w-48 rounded-full bg-fuchsia-400/10 blur-3xl" />
+      <div className="pointer-events-none absolute inset-x-6 top-0 h-px bg-gradient-to-r from-transparent via-white/18 to-transparent" />
 
       <div className="relative flex gap-3.5">
-        <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-[20px] border border-cyan-300/18 bg-cyan-300/[.055] text-cyan-100 shadow-[0_0_20px_rgba(34,211,238,.11)]">
+        <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-[20px] border border-white/12 bg-white/[.07] text-cyan-100 shadow-[0_0_24px_rgba(34,211,238,.12),inset_0_1px_0_rgba(255,255,255,.08)]">
           <Icon className="h-5 w-5" />
         </div>
 
         <div className="min-w-0 flex-1">
           <div className="flex items-center justify-between gap-3">
-            <p className="text-[10px] font-black uppercase tracking-[.22em] text-cyan-100/70">{agenda.label}</p>
-            <span className="rounded-full border border-white/12 bg-white/[.055] px-3 py-1 text-[10px] font-black uppercase tracking-[.13em] text-white/52">
+            <p className="text-[10px] font-black uppercase tracking-[.24em] text-cyan-100/58">{agenda.label}</p>
+            <span className="rounded-full border border-white/12 bg-white/[.055] px-3 py-1 text-[10px] font-black uppercase tracking-[.13em] text-white/55 shadow-[inset_0_1px_0_rgba(255,255,255,.06)]">
               {agenda.badge}
             </span>
           </div>
-          <p className="mt-1 text-[11px] font-bold text-cyan-100/52">{agenda.dateLabel}</p>
-          <h3 className="mt-2 text-lg font-black leading-tight text-white">{agenda.title}</h3>
-          <p className="mt-2 text-sm leading-6 text-white/60">{agenda.body}</p>
+          <p className="mt-1 text-[11px] font-bold text-white/48">{agenda.dateLabel}</p>
+          <h3 className="mt-2 text-[19px] font-black leading-tight tracking-[-.02em] text-white drop-shadow-[0_4px_14px_rgba(0,0,0,.35)]">
+            {agenda.title}
+          </h3>
+          <p className="mt-2 max-w-[92%] text-sm font-semibold leading-6 text-white/57">{agenda.body}</p>
         </div>
       </div>
     </button>
@@ -280,27 +284,31 @@ function AgendaCard({ agenda, onOpen }) {
 
 function CalendarMonth({ monthDate, cells, selectedDate, todayKey, byDate, onSelect, onPrev, onNext, onAdd }) {
   return (
-    <section className="rounded-[28px] border border-white/12 bg-white/[.03] p-3.5 shadow-[0_14px_34px_rgba(0,0,0,.16)]">
-      <div className="mb-4 flex items-center justify-between gap-3">
+    <section className="relative overflow-hidden rounded-[30px] border border-white/10 bg-[radial-gradient(circle_at_0%_8%,rgba(34,211,238,.13),transparent_31%),radial-gradient(circle_at_100%_0%,rgba(168,85,247,.14),transparent_34%),linear-gradient(135deg,rgba(4,48,59,.72),rgba(8,14,42,.9)_47%,rgba(37,18,78,.86))] p-3.5 shadow-[0_20px_48px_rgba(0,0,0,.28),inset_0_1px_0_rgba(255,255,255,.045)]">
+      <div className="pointer-events-none absolute -left-16 -top-16 h-36 w-36 rounded-full bg-cyan-300/10 blur-3xl" />
+      <div className="pointer-events-none absolute -right-14 -bottom-16 h-44 w-44 rounded-full bg-fuchsia-400/10 blur-3xl" />
+      <div className="pointer-events-none absolute inset-x-8 top-0 h-px bg-gradient-to-r from-transparent via-cyan-100/16 to-transparent" />
+
+      <div className="relative mb-4 flex items-center justify-between gap-3">
         <button
           type="button"
           onClick={onPrev}
-          className="flex h-9 w-9 items-center justify-center rounded-2xl border border-white/10 bg-white/[.035] text-white/56 transition active:scale-95"
+          className="flex h-9 w-9 items-center justify-center rounded-2xl border border-white/10 bg-white/[.055] text-white/62 shadow-[inset_0_1px_0_rgba(255,255,255,.07)] transition active:scale-95"
           aria-label="Previous month"
         >
           <ChevronLeft className="h-4 w-4" />
         </button>
 
         <div className="text-center">
-          <p className="text-sm font-black text-white">{formatMonth(monthDate)}</p>
-          <p className="mt-1 text-[10px] font-bold text-white/38">Tap a day to view or add</p>
+          <p className="text-sm font-black tracking-[-.01em] text-white">{formatMonth(monthDate)}</p>
+          <p className="mt-1 text-[10px] font-black uppercase tracking-[.09em] text-white/38">Tap a day to view or add</p>
         </div>
 
         <div className="flex gap-2">
           <button
             type="button"
             onClick={onAdd}
-            className="flex h-9 w-9 items-center justify-center rounded-2xl border border-cyan-300/18 bg-cyan-300/[.07] text-cyan-50 transition active:scale-95"
+            className="flex h-9 w-9 items-center justify-center rounded-2xl border border-cyan-200/20 bg-cyan-200/[.085] text-cyan-50 shadow-[0_0_18px_rgba(34,211,238,.12),inset_0_1px_0_rgba(255,255,255,.07)] transition active:scale-95"
             aria-label="Add schedule"
           >
             <Plus className="h-4 w-4" />
@@ -308,7 +316,7 @@ function CalendarMonth({ monthDate, cells, selectedDate, todayKey, byDate, onSel
           <button
             type="button"
             onClick={onNext}
-            className="flex h-9 w-9 items-center justify-center rounded-2xl border border-white/10 bg-white/[.035] text-white/56 transition active:scale-95"
+            className="flex h-9 w-9 items-center justify-center rounded-2xl border border-white/10 bg-white/[.055] text-white/62 shadow-[inset_0_1px_0_rgba(255,255,255,.07)] transition active:scale-95"
             aria-label="Next month"
           >
             <ChevronRight className="h-4 w-4" />
@@ -316,11 +324,11 @@ function CalendarMonth({ monthDate, cells, selectedDate, todayKey, byDate, onSel
         </div>
       </div>
 
-      <div className="grid grid-cols-7 gap-1.5 text-center text-[9px] font-black uppercase tracking-[.08em] text-white/34">
+      <div className="relative grid grid-cols-7 gap-1.5 text-center text-[9px] font-black uppercase tracking-[.12em] text-white/43">
         {WEEKDAYS.map((day) => <span key={day}>{day}</span>)}
       </div>
 
-      <div className="mt-2 grid grid-cols-7 gap-1.5">
+      <div className="relative mt-2 grid grid-cols-7 gap-1.5">
         {cells.map((cell, index) => {
           if (!cell) return <div key={`empty-${index}`} className="min-h-[48px]" />;
 
@@ -335,37 +343,37 @@ function CalendarMonth({ monthDate, cells, selectedDate, todayKey, byDate, onSel
               key={cell.key}
               type="button"
               onClick={() => onSelect(cell.key)}
-              className={`relative flex min-h-[48px] flex-col items-center justify-center rounded-2xl border text-sm font-black transition duration-200 active:scale-[.96] ${
+              className={`relative flex min-h-[48px] flex-col items-center justify-center rounded-2xl border text-sm font-black shadow-[inset_0_1px_0_rgba(255,255,255,.045)] transition duration-200 active:scale-[.96] ${
                 selected
-                  ? "z-10 scale-[1.04] border-cyan-200/70 bg-cyan-300/[.16] text-white shadow-[0_0_0_1px_rgba(103,232,249,.20),0_0_24px_rgba(34,211,238,.28),inset_0_0_18px_rgba(34,211,238,.12)]"
+                  ? "z-10 scale-[1.04] border-cyan-100/55 bg-[linear-gradient(145deg,rgba(103,232,249,.20),rgba(59,130,246,.10)_45%,rgba(168,85,247,.16))] text-white shadow-[0_0_0_1px_rgba(103,232,249,.16),0_0_26px_rgba(34,211,238,.25),inset_0_1px_0_rgba(255,255,255,.10)]"
                   : today
-                    ? "border-cyan-300/30 bg-cyan-300/[.07] text-white"
+                    ? "border-cyan-200/28 bg-cyan-200/[.075] text-white/86"
                     : hasMoney
-                      ? "border-fuchsia-300/20 bg-fuchsia-300/[.05] text-white/78"
+                      ? "border-fuchsia-200/18 bg-fuchsia-200/[.055] text-white/76"
                       : hasAny
-                        ? "border-white/10 bg-white/[.035] text-white/62"
-                        : "border-white/7 bg-white/[.018] text-white/38 hover:bg-white/[.04]"
+                        ? "border-cyan-100/12 bg-white/[.045] text-white/66"
+                        : "border-white/10 bg-black/[.13] text-white/42 hover:bg-white/[.045]"
               }`}
               aria-label={`Select ${cell.key}`}
             >
               {selected ? (
-                <span className="pointer-events-none absolute inset-[-2px] rounded-[18px] border border-cyan-200/25" />
+                <span className="pointer-events-none absolute inset-[-2px] rounded-[18px] border border-cyan-100/22" />
               ) : null}
-              <span className="relative z-10">{cell.day}</span>
+              <span className="relative z-10 drop-shadow-[0_2px_8px_rgba(0,0,0,.28)]">{cell.day}</span>
               {selected ? (
-                <span className="absolute top-1.5 h-1 w-5 rounded-full bg-cyan-100/70 shadow-[0_0_10px_rgba(103,232,249,.55)]" />
+                <span className="absolute top-1.5 h-1 w-5 rounded-full bg-cyan-100/75 shadow-[0_0_10px_rgba(103,232,249,.55)]" />
               ) : null}
               {hasAny ? (
-                <span className={`absolute bottom-1.5 h-1.5 w-1.5 rounded-full ${hasMoney ? "bg-fuchsia-200" : "bg-cyan-200/75"}`} />
+                <span className={`absolute bottom-1.5 h-1.5 w-1.5 rounded-full shadow-[0_0_8px_currentColor] ${hasMoney ? "bg-fuchsia-200 text-fuchsia-200" : "bg-cyan-200/80 text-cyan-200"}`} />
               ) : null}
             </button>
           );
         })}
       </div>
 
-      <div className="mt-4 flex items-center gap-3 text-[10px] font-bold text-white/38">
-        <span className="inline-flex items-center gap-1.5"><span className="h-1.5 w-1.5 rounded-full bg-fuchsia-200" /> Money impact</span>
-        <span className="inline-flex items-center gap-1.5"><span className="h-1.5 w-1.5 rounded-full bg-cyan-200/75" /> Schedule</span>
+      <div className="relative mt-4 flex items-center gap-3 text-[10px] font-bold text-white/42">
+        <span className="inline-flex items-center gap-1.5"><span className="h-1.5 w-1.5 rounded-full bg-fuchsia-200 shadow-[0_0_8px_rgba(244,114,182,.4)]" /> Money impact</span>
+        <span className="inline-flex items-center gap-1.5"><span className="h-1.5 w-1.5 rounded-full bg-cyan-200/80 shadow-[0_0_8px_rgba(103,232,249,.35)]" /> Schedule</span>
       </div>
     </section>
   );
@@ -373,9 +381,18 @@ function CalendarMonth({ monthDate, cells, selectedDate, todayKey, byDate, onSel
 
 function MonthlyInsightCard({ insight }) {
   return (
-    <p className="px-1 pb-1 text-[12px] font-semibold leading-5 text-white/48">
-      {insight}
-    </p>
+    <section className="relative overflow-hidden rounded-[24px] border border-white/10 bg-[linear-gradient(135deg,rgba(255,255,255,.045),rgba(255,255,255,.022))] px-4 py-3.5 shadow-[0_12px_30px_rgba(0,0,0,.18),inset_0_1px_0_rgba(255,255,255,.045)]">
+      <div className="pointer-events-none absolute -right-12 -bottom-16 h-36 w-36 rounded-full bg-cyan-300/8 blur-3xl" />
+      <div className="relative flex items-start gap-3">
+        <div className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-2xl border border-cyan-200/14 bg-cyan-200/[.055] text-cyan-100/70">
+          <Sparkles className="h-3.5 w-3.5" />
+        </div>
+        <div className="min-w-0">
+          <p className="text-[10px] font-black uppercase tracking-[.18em] text-white/34">CLARA insight</p>
+          <p className="mt-1 text-[12px] font-semibold leading-5 text-white/58">{insight}</p>
+        </div>
+      </div>
+    </section>
   );
 }
 
@@ -576,21 +593,26 @@ export default function DashboardSchedulePanel() {
   };
 
   return (
-    <div className="space-y-3.5">
-      <AgendaCard agenda={selectedAgenda} onOpen={openEvent} />
-      <CalendarMonth
-        monthDate={monthDate}
-        cells={cells}
-        selectedDate={selectedDate}
-        todayKey={today}
-        byDate={byDate}
-        onSelect={setSelectedDate}
-        onAdd={() => openAdd(selectedDate)}
-        onPrev={() => setMonthDate((current) => new Date(current.getFullYear(), current.getMonth() - 1, 1))}
-        onNext={() => setMonthDate((current) => new Date(current.getFullYear(), current.getMonth() + 1, 1))}
-      />
-      <MonthlyInsightCard insight={monthlyInsight} />
-      <Sheet event={selectedEvent} mode={mode} form={form} setForm={setForm} onSave={save} onRemove={remove} onClose={close} />
+    <div className="relative overflow-hidden rounded-[32px] bg-[radial-gradient(circle_at_0%_0%,rgba(34,211,238,.075),transparent_32%),radial-gradient(circle_at_100%_15%,rgba(168,85,247,.085),transparent_32%),linear-gradient(180deg,rgba(2,8,23,.22),rgba(2,8,23,.06))]">
+      <div className="pointer-events-none absolute -left-16 top-10 h-40 w-40 rounded-full bg-cyan-300/8 blur-3xl" />
+      <div className="pointer-events-none absolute -right-20 top-36 h-48 w-48 rounded-full bg-fuchsia-400/8 blur-3xl" />
+
+      <div className="relative space-y-3.5">
+        <AgendaCard agenda={selectedAgenda} onOpen={openEvent} />
+        <CalendarMonth
+          monthDate={monthDate}
+          cells={cells}
+          selectedDate={selectedDate}
+          todayKey={today}
+          byDate={byDate}
+          onSelect={setSelectedDate}
+          onAdd={() => openAdd(selectedDate)}
+          onPrev={() => setMonthDate((current) => new Date(current.getFullYear(), current.getMonth() - 1, 1))}
+          onNext={() => setMonthDate((current) => new Date(current.getFullYear(), current.getMonth() + 1, 1))}
+        />
+        <MonthlyInsightCard insight={monthlyInsight} />
+        <Sheet event={selectedEvent} mode={mode} form={form} setForm={setForm} onSave={save} onRemove={remove} onClose={close} />
+      </div>
     </div>
   );
 }
