@@ -308,6 +308,15 @@ function LifeStageSetupScreen({ profile, onClose, onSave }) {
   const stepOrder = ["stage", "environment", "focus"];
   const stepIndex = stepOrder.indexOf(step);
 
+  useEffect(() => {
+    if (typeof document === "undefined") return undefined;
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.body.style.overflow = previousOverflow;
+    };
+  }, []);
+
   const selectStage = (stageName) => {
     const next = getStageDefinition(stageName).fields;
     setDraft({
@@ -351,7 +360,7 @@ function LifeStageSetupScreen({ profile, onClose, onSave }) {
         : "Choose what CLARA should watch and protect first.";
 
   return (
-    <div className="relative flex h-full min-h-0 flex-col overflow-hidden rounded-[30px] bg-[#020817] px-3 pb-3 pt-3 shadow-[inset_0_0_0_1px_rgba(255,255,255,.035)]">
+    <div className="fixed inset-y-0 left-1/2 z-[9999] flex h-[100svh] w-full max-w-[430px] -translate-x-1/2 flex-col overflow-hidden bg-[#020817] px-3 pb-[max(12px,env(safe-area-inset-bottom))] pt-[max(12px,env(safe-area-inset-top))] shadow-[0_24px_80px_rgba(0,0,0,.54),inset_0_0_0_1px_rgba(255,255,255,.035)]">
       <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_12%_4%,rgba(45,212,191,.14),transparent_28%),radial-gradient(circle_at_90%_8%,rgba(91,63,209,.20),transparent_32%),linear-gradient(180deg,rgba(7,18,38,.84),rgba(2,8,23,.96))]" />
 
       <header className="relative z-10 shrink-0 rounded-[26px] border border-white/[0.075] bg-[#071226]/58 p-4 shadow-[0_18px_54px_rgba(0,0,0,.22)] backdrop-blur-xl">
