@@ -71,20 +71,52 @@ export const LIFE_STAGE_INTELLIGENCE = {
     "Time, school, work, energy, and money all compete for attention.",
     "Working Students are balancing education, income, survival, and identity while managing limited time and uneven routines.",
     {
-      setup: ["First job", "Early career", "Exploring income", "Building independence"],
-      rhythm: ["Allowance + work", "Part-time only", "Income is irregular", "Seasonal income"],
-      pressure: ["School costs", "Transport pressure", "Burnout risk", "Family expectations"],
-      goal: ["Graduate safely", "Save slowly", "Avoid debt", "Help family"],
+      setup: [
+        "Family-supported + working",
+        "Self-supporting student",
+        "Helping family while studying",
+        "First job while studying",
+        "Side hustle student",
+      ],
+      rhythm: [
+        "Allowance + work income",
+        "Fixed part-time pay",
+        "Irregular side income",
+        "Seasonal/project income",
+        "Mostly allowance, small extra work",
+      ],
+      workload: ["Manageable", "Tight but okay", "Heavy", "Survival mode"],
+      pressure: [
+        "Tuition or school costs",
+        "Daily food and transport",
+        "Too much work and school load",
+        "Family contribution",
+        "Debt or borrowed money",
+      ],
+      coping: [
+        "I buy small rewards",
+        "I avoid checking my money",
+        "I borrow or delay payments",
+        "I cut back too much",
+        "I ask for help",
+      ],
+      goal: [
+        "Graduate safely",
+        "Avoid debt",
+        "Build savings slowly",
+        "Help family wisely",
+        "Control stress spending",
+      ],
     },
     [
-      card("pressure", "Time Pressure", 78, "Limited time can make convenience spending feel unavoidable."),
-      card("stability", "Routine Stability", 46, "Schedules and income can shift quickly in this stage."),
-      card("energy", "Burnout Risk", 76, "School, work, and money pressure can drain energy fast."),
-      card("growth", "Future Potential", 82, "This stage can build strong discipline and future earning power."),
+      card("energy", "Burnout Risk", 76, "School, work, money, and recovery pressure can drain energy fast."),
+      card("pressure", "Financial Pressure", 72, "Tuition, daily costs, irregular income, and responsibility can tighten the whole month."),
+      card("stability", "Emotional Spending Risk", 62, "Small rewards can become a coping pattern when rest and control feel limited."),
+      card("growth", "Future Potential", 84, "Balancing school and work can build strong resilience, discipline, and future earning power."),
     ],
-    ["transport costs", "tuition pressure", "burnout spending", "irregular income", "time scarcity"],
-    ["Weekly Spending Cap", "Transport Buffer", "Study-Work Recovery", "Avoid Debt"],
-    "Tell CLARA what feels heavier right now: school, work, money, or energy."
+    ["transport costs", "tuition pressure", "burnout spending", "irregular income", "time scarcity", "family contribution", "debt pressure"],
+    ["Weekly Spending Cap", "Transport Buffer", "Study-Work Recovery", "Avoid Debt", "Stress-Spending Replacement"],
+    "Tell CLARA what feels heavier right now: school, work, money, family responsibility, or energy."
   ),
 
   "Living with Partner": stage(
