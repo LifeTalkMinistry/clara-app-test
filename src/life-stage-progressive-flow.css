@@ -10,37 +10,12 @@ section[data-clara-progressive-flow="true"] > div[data-clara-progressive-group] 
   animation: claraProgressiveGroupIn 280ms cubic-bezier(.16,.92,.22,1) both;
 }
 
-section[data-clara-progressive-flow="true"] > div[data-clara-progressive-group] > p:first-child {
-  font-size: 11.5px !important;
-  letter-spacing: 0.26em !important;
-}
-
-section[data-clara-progressive-flow="true"] > div[data-clara-progressive-group] > p:nth-child(2) {
-  margin-top: 0.55rem !important;
-  font-size: 13.5px !important;
-  line-height: 1.65 !important;
-  color: rgba(255, 255, 255, 0.66) !important;
-}
-
-section[data-clara-progressive-flow="true"] > div[data-clara-progressive-group] > div {
-  margin-top: 1.2rem !important;
-  gap: 12px !important;
-}
-
-section[data-clara-progressive-flow="true"] > div[data-clara-progressive-group] > div > button {
-  min-height: 78px !important;
-  border-radius: 22px !important;
-  padding: 17px 42px 17px 16px !important;
-  font-size: 12.8px !important;
-  line-height: 1.28 !important;
-}
-
-/* Adaptive progressive sizing: the panel now wraps the visible question instead of forcing a tall empty area. */
+/* Adaptive progressive sizing */
 html body #root#root div[class*="fixed"][class*="inset-y-0"][class*="left-1/2"][class*="z-[9999]"] section[data-clara-progressive-flow="true"] {
   min-height: 0 !important;
   height: auto !important;
   max-height: none !important;
-  padding: 1.25rem 1rem 1.15rem !important;
+  padding: 1.1rem 1rem 0.9rem !important;
   justify-content: flex-start !important;
   overflow: visible !important;
 }
@@ -52,52 +27,59 @@ html body #root#root div[class*="fixed"][class*="inset-y-0"][class*="left-1/2"][
 html body #root#root div[class*="fixed"][class*="inset-y-0"][class*="left-1/2"][class*="z-[9999]"] section[data-clara-progressive-flow="true"] > div[data-clara-progressive-visible="true"] {
   display: block !important;
   width: 100% !important;
-  min-height: 0 !important;
 }
 
 html body #root#root div[class*="fixed"][class*="inset-y-0"][class*="left-1/2"][class*="z-[9999]"] section[data-clara-progressive-flow="true"] > div[data-clara-progressive-visible="true"] > p:first-child {
-  font-size: 12px !important;
+  font-size: 11.5px !important;
   letter-spacing: 0.27em !important;
   color: rgba(165, 243, 252, 0.82) !important;
 }
 
 html body #root#root div[class*="fixed"][class*="inset-y-0"][class*="left-1/2"][class*="z-[9999]"] section[data-clara-progressive-flow="true"] > div[data-clara-progressive-visible="true"] > p:nth-child(2) {
-  margin-top: 0.48rem !important;
+  margin-top: 0.42rem !important;
   max-width: 98% !important;
-  font-size: 13.5px !important;
-  line-height: 1.55 !important;
+  font-size: 13px !important;
+  line-height: 1.5 !important;
   color: rgba(255, 255, 255, 0.68) !important;
 }
 
+/* Key fix: compact balanced tiles instead of giant vertical cards */
 html body #root#root div[class*="fixed"][class*="inset-y-0"][class*="left-1/2"][class*="z-[9999]"] section[data-clara-progressive-flow="true"] > div[data-clara-progressive-visible="true"] > div {
   display: grid !important;
   grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
-  grid-auto-rows: clamp(82px, 10.5svh, 98px) !important;
+  grid-auto-rows: 72px !important;
   align-content: start !important;
-  gap: clamp(10px, 1.6svh, 14px) !important;
-  margin-top: clamp(0.85rem, 1.8svh, 1.1rem) !important;
+  gap: 12px !important;
+  margin-top: 0.9rem !important;
 }
 
 html body #root#root div[class*="fixed"][class*="inset-y-0"][class*="left-1/2"][class*="z-[9999]"] section[data-clara-progressive-flow="true"] > div[data-clara-progressive-visible="true"] > div > button {
   display: flex !important;
-  height: auto !important;
-  min-height: clamp(82px, 10.5svh, 98px) !important;
   align-items: center !important;
-  border-radius: 23px !important;
-  padding: 15px 42px 15px 15px !important;
-  font-size: clamp(12px, 3.15vw, 13.3px) !important;
-  line-height: 1.22 !important;
+  justify-content: flex-start !important;
+  height: 72px !important;
+  min-height: 72px !important;
+  border-radius: 22px !important;
+  padding: 0 40px 0 14px !important;
+  font-size: 12.6px !important;
+  line-height: 1.15 !important;
   letter-spacing: -0.02em !important;
   box-shadow:
-    0 16px 36px rgba(0, 0, 0, 0.25),
+    0 14px 28px rgba(0, 0, 0, 0.22),
     inset 0 1px 0 rgba(255, 255, 255, 0.08) !important;
 }
 
+html body #root#root div[class*="fixed"][class*="inset-y-0"][class*="left-1/2"][class*="z-[9999]"] section[data-clara-progressive-flow="true"] > div[data-clara-progressive-visible="true"] > div > button span,
+html body #root#root div[class*="fixed"][class*="inset-y-0"][class*="left-1/2"][class*="z-[9999]"] section[data-clara-progressive-flow="true"] > div[data-clara-progressive-visible="true"] > div > button div {
+  display: flex !important;
+  align-items: center !important;
+}
+
 html body #root#root div[class*="fixed"][class*="inset-y-0"][class*="left-1/2"][class*="z-[9999]"] section[data-clara-progressive-flow="true"] > div[data-clara-progressive-visible="true"] > div > button[class*="bg-cyan-200"]::after {
-  right: 13px !important;
-  height: 26px !important;
-  width: 26px !important;
-  font-size: 13px !important;
+  right: 12px !important;
+  height: 24px !important;
+  width: 24px !important;
+  font-size: 12px !important;
 }
 
 @keyframes claraProgressiveGroupIn {
@@ -107,35 +89,31 @@ html body #root#root div[class*="fixed"][class*="inset-y-0"][class*="left-1/2"][
 
 @media (max-height: 760px) {
   html body #root#root div[class*="fixed"][class*="inset-y-0"][class*="left-1/2"][class*="z-[9999]"] section[data-clara-progressive-flow="true"] {
-    padding: 1.05rem 0.9rem 0.95rem !important;
+    padding: 1rem 0.9rem 0.85rem !important;
   }
 
   html body #root#root div[class*="fixed"][class*="inset-y-0"][class*="left-1/2"][class*="z-[9999]"] section[data-clara-progressive-flow="true"] > div[data-clara-progressive-visible="true"] > div {
-    grid-auto-rows: clamp(72px, 10svh, 84px) !important;
+    grid-auto-rows: 66px !important;
     gap: 10px !important;
-    margin-top: 0.75rem !important;
   }
 
   html body #root#root div[class*="fixed"][class*="inset-y-0"][class*="left-1/2"][class*="z-[9999]"] section[data-clara-progressive-flow="true"] > div[data-clara-progressive-visible="true"] > div > button {
-    min-height: clamp(72px, 10svh, 84px) !important;
-    font-size: 12px !important;
-    padding: 13px 38px 13px 13px !important;
+    height: 66px !important;
+    min-height: 66px !important;
+    font-size: 11.8px !important;
   }
 }
 
 @media (max-width: 380px) {
-  html body #root#root div[class*="fixed"][class*="inset-y-0"][class*="left-1/2"][class*="z-[9999]"] section[data-clara-progressive-flow="true"] {
-    padding: 1rem 0.85rem 0.9rem !important;
-  }
-
   html body #root#root div[class*="fixed"][class*="inset-y-0"][class*="left-1/2"][class*="z-[9999]"] section[data-clara-progressive-flow="true"] > div[data-clara-progressive-visible="true"] > div {
-    grid-auto-rows: clamp(68px, 9.8svh, 78px) !important;
+    grid-auto-rows: 62px !important;
     gap: 9px !important;
   }
 
   html body #root#root div[class*="fixed"][class*="inset-y-0"][class*="left-1/2"][class*="z-[9999]"] section[data-clara-progressive-flow="true"] > div[data-clara-progressive-visible="true"] > div > button {
-    min-height: clamp(68px, 9.8svh, 78px) !important;
-    padding: 12px 36px 12px 12px !important;
-    font-size: 11.4px !important;
+    height: 62px !important;
+    min-height: 62px !important;
+    padding: 0 34px 0 12px !important;
+    font-size: 11px !important;
   }
 }
