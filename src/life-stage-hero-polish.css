@@ -1,91 +1,116 @@
-/* CLARA Life Stage Hero — Phase 1A top-area correction
-   Fixes the hero top composition after the first premium-depth pass. */
+/* CLARA Life Stage Hero — Phase 1B clarity correction
+   Goal: make the top hero area as crisp as the bottom cards. */
 
-/* Keep the top area darker, cleaner, and less washed out. */
-#root section[class*="rounded-b-[30px]"]::before {
-  background:
-    linear-gradient(180deg, rgba(2, 8, 23, 0.34) 0%, rgba(2, 8, 23, 0.12) 38%, transparent 72%),
-    linear-gradient(90deg, rgba(2, 8, 23, 0.88) 0%, rgba(2, 8, 23, 0.58) 46%, rgba(2, 8, 23, 0.18) 78%, rgba(2, 8, 23, 0.38) 100%),
-    radial-gradient(circle at 72% 30%, rgba(125, 211, 252, 0.08), transparent 21%),
-    radial-gradient(circle at 92% 28%, rgba(167, 139, 250, 0.10), transparent 30%) !important;
-  mix-blend-mode: normal !important;
-  opacity: 0.88 !important;
+/* Use a darker, cleaner glass background without the hazy wash. */
+#root section[class*="rounded-b-[30px]"] {
+  border-color: rgba(125, 211, 252, 0.11) !important;
+  background-image:
+    radial-gradient(circle at 2% 0%, rgba(45, 212, 191, 0.13), transparent 30%),
+    radial-gradient(circle at 92% 6%, rgba(124, 58, 237, 0.15), transparent 36%),
+    linear-gradient(135deg, rgba(3, 31, 44, 0.98), rgba(4, 13, 32, 0.99) 48%, rgba(29, 18, 62, 0.94)) !important;
+  box-shadow:
+    0 22px 60px rgba(0, 0, 0, 0.34),
+    inset 0 1px 0 rgba(255, 255, 255, 0.045) !important;
 }
 
-/* Move the character slightly lower/right so the head does not dominate the top panel. */
+/* Remove the cloudy top film that made the image/title area look blurry. */
+#root section[class*="rounded-b-[30px]"]::before {
+  background:
+    linear-gradient(90deg, rgba(2, 8, 23, 0.82) 0%, rgba(2, 8, 23, 0.44) 46%, rgba(2, 8, 23, 0.08) 78%, rgba(2, 8, 23, 0.26) 100%),
+    radial-gradient(circle at 88% 20%, rgba(124, 58, 237, 0.07), transparent 30%) !important;
+  mix-blend-mode: normal !important;
+  opacity: 0.56 !important;
+}
+
+/* Keep only the bottom fade. Do not fog the upper hero. */
+#root section[class*="rounded-b-[30px]"]::after {
+  height: 30% !important;
+  background: linear-gradient(180deg, transparent 0%, rgba(2, 8, 23, 0.68) 72%, #020817 100%) !important;
+}
+
+/* Reduce the component's original full-card overlay strength. */
+#root section[class*="rounded-b-[30px]"] > div[class*="absolute"][class*="inset-0"][class*="opacity-75"] {
+  opacity: 0.38 !important;
+}
+
+/* Keep the city/person sharp and visually equal to the bottom cards. */
 #root section[class*="rounded-b-[30px]"] > div[class*="right-0"][class*="w-[56%]"] {
   width: 58% !important;
-  transform: translate(8px, 10px) !important;
-  filter: drop-shadow(-18px 12px 30px rgba(0, 0, 0, 0.32)) !important;
+  transform: translate(6px, 6px) !important;
+  filter: drop-shadow(-14px 12px 26px rgba(0, 0, 0, 0.30)) !important;
 }
 
 #root section[class*="rounded-b-[30px]"] > div[class*="right-0"][class*="w-[56%]"] img {
   object-position: center bottom !important;
-  transform: scale(1.09) translate(6px, 12px) !important;
-  opacity: 0.78 !important;
-  filter: saturate(0.92) contrast(1.06) brightness(0.82) !important;
+  transform: scale(1.055) translate(2px, 6px) !important;
+  opacity: 0.94 !important;
+  filter: saturate(1.03) contrast(1.12) brightness(0.96) !important;
 }
 
-/* Add a controlled fade over the person so the title area stays readable and premium. */
+/* Replace the heavy image fade with a clearer reading layer. */
 #root section[class*="rounded-b-[30px]"] > div[class*="right-0"][class*="w-[56%]"]::before {
   background:
-    linear-gradient(180deg, rgba(2, 8, 23, 0.18) 0%, transparent 34%, rgba(2, 8, 23, 0.18) 100%),
-    linear-gradient(90deg, rgba(2, 8, 23, 0.78) 0%, rgba(2, 8, 23, 0.28) 44%, rgba(35, 20, 78, 0.20) 100%),
-    radial-gradient(circle at 40% 33%, rgba(125, 211, 252, 0.09), transparent 22%),
-    radial-gradient(circle at 77% 40%, rgba(167, 139, 250, 0.11), transparent 34%) !important;
-  opacity: 0.94 !important;
+    linear-gradient(90deg, rgba(2, 8, 23, 0.64) 0%, rgba(2, 8, 23, 0.14) 45%, rgba(35, 20, 78, 0.08) 100%),
+    linear-gradient(180deg, rgba(2, 8, 23, 0.04), transparent 52%, rgba(2, 8, 23, 0.16)) !important;
+  opacity: 0.72 !important;
 }
 
-/* Keep the text stack clear of the image and make it feel intentionally placed. */
+/* Text should sit crisp over the clear hero, not inside the blur. */
 #root section[class*="rounded-b-[30px]"] > div[class*="relative"][class*="z-10"][class*="max-w"] {
-  max-width: 57% !important;
-  padding-top: 0 !important;
-  transform: translateY(8px) !important;
+  max-width: 58% !important;
+  transform: translateY(10px) !important;
+}
+
+#root section[class*="rounded-b-[30px]"] p[class*="uppercase"] {
+  color: rgba(236, 253, 255, 0.72) !important;
+  letter-spacing: 0.20em !important;
 }
 
 #root section[class*="rounded-b-[30px]"] h2 {
-  max-width: 12.8rem !important;
-  font-size: clamp(24px, 6.7vw, 32px) !important;
+  max-width: 12.9rem !important;
+  font-size: clamp(24px, 6.8vw, 32px) !important;
   line-height: 1.01 !important;
+  text-shadow: 0 10px 28px rgba(0, 0, 0, 0.46) !important;
 }
 
 #root section[class*="rounded-b-[30px]"] h2 + p {
   max-width: 12rem !important;
+  color: rgba(248, 253, 255, 0.72) !important;
   font-size: 11.2px !important;
   line-height: 1.55 !important;
+  text-shadow: 0 8px 20px rgba(0, 0, 0, 0.38) !important;
 }
 
-/* Soften the menu button so it no longer competes with the hero image. */
+/* Softer three-dot button, still readable but not cloudy. */
 #root section[class*="rounded-b-[30px]"] button[aria-label="Open life stage actions"] {
-  border-color: rgba(255, 255, 255, 0.10) !important;
-  background: rgba(7, 18, 38, 0.30) !important;
-  box-shadow:
-    0 10px 26px rgba(0, 0, 0, 0.22),
-    inset 0 1px 0 rgba(255, 255, 255, 0.06) !important;
+  border-color: rgba(255, 255, 255, 0.11) !important;
+  background: rgba(7, 18, 38, 0.38) !important;
+  backdrop-filter: blur(10px) saturate(1.06) !important;
+  -webkit-backdrop-filter: blur(10px) saturate(1.06) !important;
 }
 
 @media (max-width: 420px) {
   #root section[class*="rounded-b-[30px]"] > div[class*="right-0"][class*="w-[56%]"] {
-    width: 60% !important;
-    transform: translate(10px, 12px) !important;
+    width: 59% !important;
+    transform: translate(7px, 7px) !important;
   }
 
   #root section[class*="rounded-b-[30px]"] > div[class*="right-0"][class*="w-[56%]"] img {
-    transform: scale(1.1) translate(7px, 14px) !important;
+    transform: scale(1.065) translate(3px, 7px) !important;
   }
 
   #root section[class*="rounded-b-[30px]"] > div[class*="relative"][class*="z-10"][class*="max-w"] {
-    max-width: 58% !important;
-    transform: translateY(7px) !important;
+    max-width: 59% !important;
+    transform: translateY(9px) !important;
   }
 
   #root section[class*="rounded-b-[30px]"] h2 {
-    max-width: 12.1rem !important;
-    font-size: clamp(23px, 6.8vw, 30px) !important;
+    max-width: 12.2rem !important;
+    font-size: clamp(23px, 6.9vw, 30px) !important;
   }
 
   #root section[class*="rounded-b-[30px]"] h2 + p {
-    max-width: 11.8rem !important;
+    max-width: 11.7rem !important;
     font-size: 10.9px !important;
   }
 }
