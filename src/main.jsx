@@ -13,6 +13,7 @@ import "./life-stage-support-card";
 import "./life-stage-trend-snapshot";
 import "./clara-intelligence-orchestrator-runtime";
 import "./life-stage-intelligence-runtime";
+import "./life-stage-snapshot-authority-runtime";
 import "./behavioral-observation-runtime";
 import "./predictive-decision-runtime";
 import App from "./App.jsx";
