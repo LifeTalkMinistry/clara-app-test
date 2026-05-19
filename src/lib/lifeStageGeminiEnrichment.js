@@ -2,14 +2,18 @@ import {
   LIFE_STAGE_SNAPSHOT_KEY,
   saveLifeStageIntelligence,
 } from "./lifeStageIntelligenceEngine";
+import { safeIntelligenceWarn } from "./intelligenceStateSafety";
 
 export const LIFE_STAGE_WORLD_CONTEXT_KEY = "clara_life_stage_world_context_v1";
 export const LIFE_STAGE_ENRICHMENT_LOG_KEY = "clara_life_stage_enrichment_log_v1";
+export const LIFE_STAGE_GEMINI_FAILURE_GUARD_KEY = "clara_life_stage_gemini_failure_guard_v1";
 
 const DEFAULT_MODEL = "gemini-1.5-flash";
 const DEFAULT_TIMEOUT_MS = 22000;
 const DEFAULT_REFRESH_DAYS = 14;
 const MAX_ADJUSTMENT = 12;
+const FAILURE_COOLDOWN_MS = 20 * 60_000;
+const MAX_FAILURES_BEFORE_COOLDOWN = 1;
 
 function getGeminiConfig() {
   return {
@@ -48,6 +52,52 @@ function safeJsonParse(value, fallback = null) {
   } catch {
     return fallback;
   }
+}
+
+function readJsonStorage(key, fallback = null) {
+  if (typeof window === "undefined") return fallback;
+  return safeJsonParse(window.localStorage.getItem(key), fallback);
+}
+
+function writeJsonStorage(key, value) {
+  if (typeof window === "undefined") return;
+  window.localStorage.setItem(key, JSON.stringify(value));
+}
+
+function readFailureGuard() {
+  return readJsonStorage(LIFE_STAGE_GEMINI_FAILURE_GUARD_KEY, {
+    failureCount: 0,
+    disabledUntil: 0,
+    lastError: null,
+    lastFailureAt: null,
+  });
+}
+
+function writeFailureGuard(guard) {
+  writeJsonStorage(LIFE_STAGE_GEMINI_FAILURE_GUARD_KEY, guard || {});
+}
+
+function isGeminiSuspended() {
+  const guard = readFailureGuard();
+  return Number(guard.disabledUntil || 0) > Date.now();
+}
+
+function recordGeminiSuccess() {
+  writeFailureGuard({ failureCount: 0, disabledUntil: 0, lastError: null, lastSuccessAt: nowIso() });
+}
+
+function recordGeminiFailure(error) {
+  const previous = readFailureGuard();
+  const failureCount = Number(previous.failureCount || 0) + 1;
+  const shouldCooldown = failureCount >= MAX_FAILURES_BEFORE_COOLDOWN;
+  const message = cleanText(error?.message || "Gemini enrichment failed", 260);
+  const disabledUntil = shouldCooldown ? Date.now() + FAILURE_COOLDOWN_MS : Number(previous.disabledUntil || 0);
+  writeFailureGuard({
+    failureCount,
+    disabledUntil,
+    lastError: message,
+    lastFailureAt: nowIso(),
+  });
 }
 
 function extractJson(text) {
@@ -107,16 +157,6 @@ function profileSignature(intelligence = {}) {
   ]
     .map((value) => cleanText(value, 160))
     .join("|");
-}
-
-function readJsonStorage(key, fallback = null) {
-  if (typeof window === "undefined") return fallback;
-  return safeJsonParse(window.localStorage.getItem(key), fallback);
-}
-
-function writeJsonStorage(key, value) {
-  if (typeof window === "undefined") return;
-  window.localStorage.setItem(key, JSON.stringify(value));
 }
 
 function createCompactPayload(intelligence = {}) {
@@ -474,6 +514,7 @@ export function mergeLifeStageWorldContext(intelligence = {}, enrichmentInput = 
 
 export function shouldRefreshLifeStageEnrichment(intelligence = {}, options = {}) {
   if (!intelligence?.snapshot) return false;
+  if (isGeminiSuspended() && !options.force) return false;
   if (options.force) return true;
 
   const signature = profileSignature(intelligence);
@@ -487,14 +528,14 @@ export function shouldRefreshLifeStageEnrichment(intelligence = {}, options = {}
   if (staleAfter && new Date(staleAfter).getTime() < Date.now()) return true;
   if (daysBetween(enrichedAt) >= DEFAULT_REFRESH_DAYS) return true;
   if (snapshot.confidenceScore && snapshot.confidenceScore < 0.62) return true;
-  if (snapshot.enrichmentStatus === "local fallback") return true;
+  if (snapshot.enrichmentStatus === "local fallback" && !isGeminiSuspended()) return true;
 
   return false;
 }
 
 function updateEnrichmentLog(entry) {
   const previous = readJsonStorage(LIFE_STAGE_ENRICHMENT_LOG_KEY, { events: [] });
-  const events = [entry, ...(previous.events || [])].slice(0, 30);
+  const events = [entry, ...(previous.events || [])].slice(0, 12);
   writeJsonStorage(LIFE_STAGE_ENRICHMENT_LOG_KEY, { events, updatedAt: nowIso() });
 }
 
@@ -511,6 +552,7 @@ export async function enrichLifeStageWithGemini(intelligence = {}, options = {})
     const raw = backendEndpoint
       ? await callBackendEnrichment(backendEndpoint, compactPayload)
       : await callGeminiEnrichment(compactPayload);
+    recordGeminiSuccess();
     const enrichment = sanitizeEnrichment(raw, backendEndpoint ? "backend_gemini" : "gemini");
     const enriched = mergeLifeStageWorldContext(intelligence, enrichment);
 
@@ -533,11 +575,13 @@ export async function enrichLifeStageWithGemini(intelligence = {}, options = {})
     await saveLifeStageIntelligence(enriched, {
       reason: options.reason || "life_stage_world_enriched",
       localUserId: options.localUserId,
+      minCommitIntervalMs: 45_000,
     });
 
     return enriched;
   } catch (error) {
-    console.warn("CLARA Life Stage Gemini enrichment failed:", error);
+    recordGeminiFailure(error);
+    safeIntelligenceWarn("CLARA Life Stage Gemini enrichment failed:", error);
     updateEnrichmentLog({
       type: "world_enrichment_failed",
       stage: intelligence.stage,
@@ -548,11 +592,15 @@ export async function enrichLifeStageWithGemini(intelligence = {}, options = {})
 
     if (options.allowFallback === false) return intelligence;
 
+    const previousFallback = readJsonStorage(LIFE_STAGE_WORLD_CONTEXT_KEY, null);
+    if (previousFallback?.enrichment?.source === "local_fallback") return intelligence;
+
     const fallback = buildFallbackEnrichment(intelligence, error?.message || "Gemini unavailable");
     const fallbackSnapshot = mergeLifeStageWorldContext(intelligence, fallback);
     await saveLifeStageIntelligence(fallbackSnapshot, {
       reason: "life_stage_world_enrichment_fallback",
       localUserId: options.localUserId,
+      minCommitIntervalMs: 60_000,
     });
     return fallbackSnapshot;
   }
@@ -561,6 +609,7 @@ export async function enrichLifeStageWithGemini(intelligence = {}, options = {})
 export function getLifeStageEnrichmentStatus() {
   const { apiKey, model, backendEndpoint, enableSearchGrounding } = getGeminiConfig();
   const cached = readJsonStorage(LIFE_STAGE_WORLD_CONTEXT_KEY, null);
+  const guard = readFailureGuard();
   return {
     configured: Boolean(backendEndpoint || apiKey),
     model,
@@ -570,5 +619,8 @@ export function getLifeStageEnrichmentStatus() {
     cachedStage: cached?.stage || null,
     cachedAt: cached?.enrichedAt || null,
     staleAfter: cached?.staleAfter || null,
+    suspended: isGeminiSuspended(),
+    suspendedUntil: guard.disabledUntil || 0,
+    lastError: guard.lastError || null,
   };
 }
