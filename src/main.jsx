@@ -21,6 +21,7 @@ import "./settings-priority.css";
 import "./settings-support-compose.css";
 import "./life-stage-collision.css";
 import "./life-stage-action-position.css";
+import "./life-stage-setup-scale.css";
 
 window.CLARA_BILLING = window.CLARA_BILLING || {};
 
