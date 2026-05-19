@@ -82,43 +82,6 @@ const CATEGORY_STYLES = {
   },
 };
 
-const HERO_DOTS = [
-  { left: "7%", top: "18%", size: 3.4, opacity: 0.74 },
-  { left: "22%", top: "10%", size: 2.6, opacity: 0.56 },
-  { left: "38%", top: "16%", size: 3, opacity: 0.68 },
-  { left: "56%", top: "25%", size: 2.2, opacity: 0.48 },
-  { left: "14%", top: "40%", size: 2.5, opacity: 0.52 },
-  { left: "31%", top: "36%", size: 3.2, opacity: 0.72 },
-  { left: "48%", top: "44%", size: 2.4, opacity: 0.5 },
-  { left: "66%", top: "52%", size: 3.1, opacity: 0.62 },
-  { left: "19%", top: "66%", size: 2.2, opacity: 0.46 },
-  { left: "40%", top: "70%", size: 2.9, opacity: 0.6 },
-  { left: "60%", top: "76%", size: 2.3, opacity: 0.46 },
-];
-
-function HeroDotCluster() {
-  return (
-    <div aria-hidden="true" className="pointer-events-none absolute left-4 top-4 z-[8] h-20 w-[104px] overflow-visible">
-      <div className="absolute -inset-5 rounded-full bg-[radial-gradient(circle,rgba(45,212,191,.12),transparent_62%)] blur-xl" />
-      {HERO_DOTS.map((dot, index) => (
-        <span
-          key={`hero-dot-${index}`}
-          className="absolute rounded-full bg-cyan-100 shadow-[0_0_14px_rgba(103,232,249,.42)]"
-          style={{
-            left: dot.left,
-            top: dot.top,
-            width: `${dot.size}px`,
-            height: `${dot.size}px`,
-            opacity: dot.opacity,
-          }}
-        />
-      ))}
-      <span className="absolute left-[72%] top-[30%] h-[2.6px] w-[2.6px] rounded-full bg-violet-100/70 shadow-[0_0_16px_rgba(196,181,253,.36)]" />
-      <span className="absolute left-[6%] top-[52%] h-[2px] w-[2px] rounded-full bg-sky-100/50 shadow-[0_0_14px_rgba(186,230,253,.30)]" />
-    </div>
-  );
-}
-
 function readStageProfile() {
   if (typeof window === "undefined") return DEFAULT_STAGE;
   try {
@@ -455,9 +418,8 @@ export default function FinancialClimateScreen() {
           <div className="absolute inset-0 bg-[linear-gradient(90deg,rgba(2,8,23,.84),rgba(2,8,23,.08)_48%,rgba(2,8,23,.18))]" />
         </div>
         <div className="absolute bottom-0 left-0 right-0 h-12 bg-[linear-gradient(180deg,transparent,#020817)]" />
-        <HeroDotCluster />
 
-        <div className="absolute right-4 top-4 z-20">
+        <div className="absolute left-4 top-4 z-20">
           <button
             type="button"
             onClick={() => setShowHeroActions((current) => !current)}
@@ -468,7 +430,7 @@ export default function FinancialClimateScreen() {
           </button>
 
           {showHeroActions ? (
-            <div className="absolute right-0 top-11 w-36 overflow-hidden rounded-[18px] border border-white/[0.085] bg-[#071226]/82 p-1.5 shadow-[0_18px_54px_rgba(0,0,0,.38)] backdrop-blur-2xl">
+            <div className="absolute left-0 top-11 w-36 overflow-hidden rounded-[18px] border border-white/[0.085] bg-[#071226]/82 p-1.5 shadow-[0_18px_54px_rgba(0,0,0,.38)] backdrop-blur-2xl">
               <button type="button" onClick={openStageSetup} className="w-full rounded-[14px] px-3 py-2.5 text-left text-[11px] font-black uppercase tracking-[0.12em] text-white/72 transition hover:bg-white/[0.055] active:scale-[0.99]">
                 Set stage
               </button>
