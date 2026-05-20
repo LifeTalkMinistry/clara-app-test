@@ -1,9 +1,4 @@
-/* Compact mobile fit for Life Stage question screens.
-   Goal:
-   - fit all answer selections without scrolling
-   - reduce hero/header dominance
-   - avoid repeating huge titles visually
-*/
+/* Compact mobile fit for Life Stage question screens. */
 
 #root div[class*="fixed"][class*="inset-y-0"][class*="left-1/2"][class*="z-[9999]"] {
   height: 100dvh !important;
@@ -11,108 +6,61 @@
   overflow: hidden !important;
 }
 
-/* HERO / CONTEXT BOARD */
 #root div[class*="fixed"][class*="inset-y-0"][class*="left-1/2"][class*="z-[9999]"] > header {
-  padding: 0.72rem 0.82rem 0.6rem !important;
-  border-radius: 22px !important;
-  min-height: 0 !important;
+  padding: 0.58rem 0.75rem 0.5rem !important;
+  border-radius: 20px !important;
 }
 
 #root div[class*="fixed"][class*="inset-y-0"][class*="left-1/2"][class*="z-[9999]"] > header p:first-child {
-  font-size: 7.2px !important;
-  letter-spacing: 0.24em !important;
+  font-size: 6.8px !important;
+  letter-spacing: 0.22em !important;
 }
 
-/* MUCH SMALLER TITLE */
+/* remove duplicated giant title */
 #root div[class*="fixed"][class*="inset-y-0"][class*="left-1/2"][class*="z-[9999]"] > header h3 {
-  margin-top: 0.4rem !important;
-  font-size: clamp(1.45rem, 5.5vw, 1.95rem) !important;
-  line-height: 0.94 !important;
-  letter-spacing: -0.06em !important;
-  max-width: 78% !important;
+  display: none !important;
 }
 
-/* SHORTER EXPLANATION */
+/* keep only the explanation */
 #root div[class*="fixed"][class*="inset-y-0"][class*="left-1/2"][class*="z-[9999]"] > header h3 + p {
-  margin-top: 0.45rem !important;
-  font-size: 9.7px !important;
-  line-height: 1.28 !important;
+  margin-top: 0.42rem !important;
+  font-size: 10px !important;
+  line-height: 1.32 !important;
   max-width: 96% !important;
 }
 
-/* hide duplicated extra paragraph block */
+/* remove duplicated secondary paragraph */
 #root div[class*="fixed"][class*="inset-y-0"][class*="left-1/2"][class*="z-[9999]"] > header p:nth-of-type(3) {
   display: none !important;
 }
 
-/* SMALLER CLOSE BUTTON */
 #root div[class*="fixed"][class*="inset-y-0"][class*="left-1/2"][class*="z-[9999]"] > header button[aria-label="Close life stage setup"] {
-  width: 2.35rem !important;
-  height: 2.35rem !important;
+  width: 2.2rem !important;
+  height: 2.2rem !important;
 }
 
-/* SMALLER PROGRESS */
-#root div[class*="fixed"][class*="inset-y-0"][class*="left-1/2"][class*="z-[9999]"] > header > div:last-child {
-  margin-top: 0.45rem !important;
-  gap: 0.32rem !important;
-}
-
-/* MAIN */
 #root div[class*="fixed"][class*="inset-y-0"][class*="left-1/2"][class*="z-[9999]"] > main {
-  margin-top: 0.42rem !important;
-  overflow: hidden !important;
+  margin-top: 0.34rem !important;
 }
 
-/* QUESTION BOARD */
 #root div[class*="fixed"][class*="inset-y-0"][class*="left-1/2"][class*="z-[9999]"] > main > div > section[data-clara-progressive-flow="true"] {
-  padding: 0.72rem !important;
-  border-radius: 20px !important;
+  padding: 0.66rem !important;
+  border-radius: 18px !important;
 }
 
-#root div[class*="fixed"][class*="inset-y-0"][class*="left-1/2"][class*="z-[9999]"] > main > div > section[data-clara-progressive-flow="true"] > div[data-clara-progressive-visible="true"] > p:first-child {
-  font-size: 7.5px !important;
-  letter-spacing: 0.24em !important;
-}
-
-#root div[class*="fixed"][class*="inset-y-0"][class*="left-1/2"][class*="z-[9999]"] > main > div > section[data-clara-progressive-flow="true"] > div[data-clara-progressive-visible="true"] > p:nth-child(2) {
-  margin-top: 0.25rem !important;
-  font-size: 9.4px !important;
-  line-height: 1.22 !important;
-}
-
-/* MORE ANSWERS FIT */
 #root div[class*="fixed"][class*="inset-y-0"][class*="left-1/2"][class*="z-[9999]"] > main > div > section[data-clara-progressive-flow="true"] > div[data-clara-progressive-visible="true"] > div {
-  grid-auto-rows: 43px !important;
-  gap: 0.38rem !important;
-  margin-top: 0.5rem !important;
+  grid-auto-rows: 40px !important;
+  gap: 0.34rem !important;
 }
 
-/* SMALLER OPTION TILE */
 #root div[class*="fixed"][class*="inset-y-0"][class*="left-1/2"][class*="z-[9999]"] > main > div > section[data-clara-progressive-flow="true"] > div[data-clara-progressive-visible="true"] > div > button {
-  height: 43px !important;
-  min-height: 43px !important;
-  border-radius: 15px !important;
-  padding: 0 2rem 0 0.72rem !important;
-  font-size: 9.3px !important;
-  line-height: 1.05 !important;
-}
-
-#root div[class*="fixed"][class*="inset-y-0"][class*="left-1/2"][class*="z-[9999]"] > main > div > section[data-clara-progressive-flow="true"] > div[data-clara-progressive-visible="true"] > div > button::after {
-  width: 18px !important;
-  height: 18px !important;
-  right: 0.62rem !important;
-}
-
-/* FOOTER */
-#root div[class*="fixed"][class*="inset-y-0"][class*="left-1/2"][class*="z-[9999]"] > footer {
-  margin-top: 0.42rem !important;
-  gap: 0.55rem !important;
+  height: 40px !important;
+  min-height: 40px !important;
+  border-radius: 14px !important;
+  font-size: 8.9px !important;
 }
 
 #root div[class*="fixed"][class*="inset-y-0"][class*="left-1/2"][class*="z-[9999]"] > footer > button {
-  min-height: 42px !important;
-  border-radius: 15px !important;
-  font-size: 11px !important;
-  padding-top: 0.55rem !important;
-  padding-bottom: 0.55rem !important;
+  min-height: 40px !important;
+  border-radius: 14px !important;
 }
