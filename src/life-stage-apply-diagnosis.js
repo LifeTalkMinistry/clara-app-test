@@ -41,7 +41,12 @@ function show(profile) {
   document.body.appendChild(el);
   const old = document.body.style.overflow;
   document.body.style.overflow = "hidden";
-  el.querySelector("button")?.addEventListener("click", () => { el.remove(); document.body.style.overflow = old || ""; });
+  el.querySelector("button")?.addEventListener("click", () => {
+    const setupClose = document.querySelector('button[aria-label="Close life stage setup"]');
+    if (setupClose) setupClose.click();
+    el.remove();
+    document.body.style.overflow = old || "";
+  });
 }
 function install() {
   if (typeof window === "undefined" || typeof document === "undefined" || window.__claraLifeStageDiagnosisRevealInstalled) return;
