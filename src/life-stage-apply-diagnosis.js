@@ -59,6 +59,6 @@ function install() {
   document.addEventListener("click", (event) => {
     const button = event.target?.closest?.("button");
     if (button && /apply stage/i.test(clean(button.innerText || button.textContent))) reveal(35);
-  }, false);
+  }, true);
 }
 try { install(); } catch (error) { console.warn("CLARA Life Stage diagnosis reveal failed:", error); }
