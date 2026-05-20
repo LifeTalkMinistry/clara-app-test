@@ -1,114 +1,99 @@
 const FLOW_MARKER = "CLARA CONTEXT BOARD";
 
-const STEP_ORDER = [
-  "CURRENT SETUP",
-  "MONEY RHYTHM",
-  "WEEKLY LOAD",
-  "PRESSURE RIGHT NOW",
-  "WHEN PRESSURE HITS",
-  "WHAT TO PROTECT",
-];
-
 const STEP_META = {
   "CURRENT SETUP": {
     key: "setup",
     label: "CURRENT SETUP",
     question: "Which setup feels closest to your real life right now?",
+    title: "Starting Context",
+    summary: "CLARA is reading the starting environment first.\n\nThis is only the first shape of your current life situation.",
   },
   "MONEY RHYTHM": {
     key: "rhythm",
     label: "MONEY RHYTHM",
     question: "How does money usually come into your week or month?",
+    title: "Money Rhythm Emerging",
+    summary: "The meaning is changing now.\n\nCLARA is reading how your money timing affects control, pressure, and planning.",
   },
   "WEEKLY LOAD": {
     key: "workload",
     label: "WEEKLY LOAD",
     question: "How stretched does your normal week feel?",
+    title: "Capacity Check",
+    summary: "The focus now moves from income to capacity.\n\nCLARA is reading your money behavior through time, energy, routine, and recovery.",
   },
   "PRESSURE RIGHT NOW": {
     key: "pressure",
     label: "PRESSURE RIGHT NOW",
     question: "What is putting the most pressure on your money right now?",
+    title: "Protection Priority",
+    summary: "The priority is becoming clearer.\n\nCLARA is identifying what must stay stable first before optional spending gets room.",
   },
   "PRESSURE RESPONSE": {
     key: "coping",
     label: "WHEN PRESSURE HITS",
     question: "What do you usually do when money pressure gets heavy?",
+    title: "Behavior Pattern Detected",
+    summary: "This is now a behavior signal.\n\nCLARA is reading how pressure changes your decisions so guidance can feel realistic.",
   },
   "WHEN PRESSURE HITS": {
     key: "coping",
     label: "WHEN PRESSURE HITS",
     question: "What do you usually do when money pressure gets heavy?",
+    title: "Behavior Pattern Detected",
+    summary: "This is now a behavior signal.\n\nCLARA is reading how pressure changes your decisions so guidance can feel realistic.",
   },
   "PROTECTION GOAL": {
     key: "goal",
     label: "WHAT TO PROTECT",
     question: "What are you trying to protect most right now?",
+    title: "Direction Is Clearer",
+    summary: "CLARA now has a clearer protection direction.\n\nThe plan should fit your rhythm, pressure level, and energy limits.",
   },
   "WHAT TO PROTECT": {
     key: "goal",
     label: "WHAT TO PROTECT",
     question: "What are you trying to protect most right now?",
+    title: "Direction Is Clearer",
+    summary: "CLARA now has a clearer protection direction.\n\nThe plan should fit your rhythm, pressure level, and energy limits.",
   },
 };
 
-const VALUE_INSIGHTS = {
-  setup: {
-    "Family-supported with some work": "you have some support, but you are also starting to carry money responsibility",
-    "Self-supporting student": "you carry more responsibility while studying",
-    "Working mainly for school costs": "your work income is strongly tied to keeping school moving",
-    "Helping family while studying": "family responsibility is part of your student life",
-    "Side hustle / extra-income student": "your income opportunity is flexible but not always predictable",
-  },
-  rhythm: {
-    "Allowance + work income": "your money is mixed between support and effort",
-    "Fixed part-time pay": "your income has a predictable base, but it may still be limited",
-    "Irregular side hustle income": "your money timing can change from week to week",
-    "Project / seasonal income": "your income arrives in waves instead of a steady line",
-    "Mostly allowance with occasional work": "allowance is the base while occasional work adds small flexibility",
-  },
-  workload: {
-    "Manageable class-work load": "your week still has room for control",
-    "Tight but still controlled": "your week is stretched, but there is still some room to steer decisions",
-    "Heavy school-work overlap": "school, work, and recovery are starting to collide",
-    "Little time to rest": "low recovery time can make quick spending choices more likely",
-    "Almost no margin / survival mode": "your choices may be shaped by very limited time, energy, and room for mistakes",
-  },
-  pressure: {
-    "Tuition or school costs": "education costs are the first financial area to protect",
-    "Daily food and transport": "small daily costs can drain the month through frequency",
-    "Work-school schedule conflict": "money pressure is connected to time conflict and limited recovery",
-    "Family contribution": "helping others affects how much stability you can keep for yourself",
-    "Debt or borrowed money": "borrowed money can turn short-term relief into later pressure",
-  },
-  coping: {
-    "I spend on small rewards to feel okay": "small rewards may be acting as relief after pressure",
-    "I avoid checking my money": "tracking money may feel heavy right now",
-    "I borrow or delay payments": "you may be solving urgent needs first and catching up later",
-    "I cut my needs too much": "over-cutting may make your plan harder to sustain",
-    "I ask for help before it gets worse": "support can protect you earlier when expectations are clear",
-  },
-  goal: {
-    "Finish school without burning out": "finishing school safely without draining your energy becomes the main priority",
-    "Avoid debt": "avoiding new borrowed-money pressure becomes the main priority",
-    "Build savings slowly": "small realistic savings become the main priority",
-    "Help family without losing stability": "supporting family while keeping stability becomes the main priority",
-    "Control stress spending": "finding safer pressure relief becomes the main priority",
-  },
+const OPTION_TITLES = {
+  "Family-supported with some work": "Starting to Carry More",
+  "Self-supporting student": "Carrying It Yourself",
+  "Working mainly for school costs": "Working for the Future",
+  "Helping family while studying": "Studying With Responsibility",
+  "Side hustle / extra-income student": "Building Extra Room",
+  "Allowance + work income": "Shifting Into Responsibility",
+  "Fixed part-time pay": "Steadier Ground",
+  "Irregular side hustle income": "Uneven Income Days",
+  "Project / seasonal income": "Income in Waves",
+  "Mostly allowance with occasional work": "Support With Effort",
+  "Manageable class-work load": "Still Manageable",
+  "Tight but still controlled": "Tight but Steerable",
+  "Heavy school-work overlap": "Pressure Is Building",
+  "Little time to rest": "Energy Is Getting Thin",
+  "Almost no margin / survival mode": "Protection First",
+  "Tuition or school costs": "School Must Stay Protected",
+  "Daily food and transport": "Daily Costs Are Heavy",
+  "Work-school schedule conflict": "Time Is Colliding",
+  "Family contribution": "Family Pressure Is Present",
+  "Debt or borrowed money": "Debt Pressure Is Active",
+  "I spend on small rewards to feel okay": "Relief Spending Pattern",
+  "I avoid checking my money": "Money Feels Heavy",
+  "I borrow or delay payments": "Delaying to Survive",
+  "I cut my needs too much": "Over-Sacrifice Risk",
+  "I ask for help before it gets worse": "You Reach Early",
+  "Finish school without burning out": "Graduate Without Burning Out",
+  "Avoid debt": "Stay Out of Debt",
+  "Build savings slowly": "Build Slowly but Safely",
+  "Help family without losing stability": "Help Without Breaking",
+  "Control stress spending": "Protect From Stress Spending",
 };
 
 const clean = (value) => String(value || "").replace(/\s+/g, " ").trim();
 const loud = (value) => clean(value).toUpperCase();
-
-const state = {
-  stage: "",
-  setup: "",
-  rhythm: "",
-  workload: "",
-  pressure: "",
-  coping: "",
-  goal: "",
-};
 
 function isVisible(node) {
   return !!node && !!(node.offsetWidth || node.offsetHeight || node.getClientRects?.().length);
@@ -118,22 +103,14 @@ function getStepMeta(text) {
   return STEP_META[loud(text)] || null;
 }
 
-function getInsight(key, value) {
-  return VALUE_INSIGHTS[key]?.[value] || value || "this answer adds context";
-}
-
-function sentence(value) {
-  const text = clean(value);
-  if (!text) return "";
-  return text.charAt(0).toUpperCase() + text.slice(1);
+function isSelectedButton(button) {
+  const className = String(button?.className || "");
+  return className.includes("border-cyan") || className.includes("text-cyan-50") || className.includes("bg-cyan");
 }
 
 function getSelectedOption(section) {
   const buttons = Array.from(section?.querySelectorAll("button") || []);
-  const selected = buttons.find((button) => {
-    const className = String(button.className || "");
-    return className.includes("border-cyan") || className.includes("text-cyan-50");
-  });
+  const selected = buttons.find(isSelectedButton) || buttons[0];
   return clean(selected?.innerText || selected?.textContent || "");
 }
 
@@ -157,20 +134,6 @@ function findStageBoard() {
   return { marker, header, title, summary };
 }
 
-function rememberStageSelection() {
-  const { title } = findStageBoard();
-  const titleText = clean(title?.textContent || "");
-  if (titleText && !STEP_ORDER.includes(loud(titleText))) state.stage = titleText;
-}
-
-function rememberCurrentSelection() {
-  const active = findActiveQuestionSection();
-  if (!active) return null;
-  const selectedValue = getSelectedOption(active.section);
-  if (selectedValue) state[active.meta.key] = selectedValue;
-  return { ...active, selectedValue };
-}
-
 function polishQuestionCards() {
   const labels = Array.from(document.querySelectorAll("section p"));
   labels.forEach((label) => {
@@ -191,64 +154,29 @@ function polishQuestionCards() {
   });
 }
 
-function buildContextualSummary(activeKey, selectedValue) {
-  const setup = state.setup;
-  const rhythm = state.rhythm;
-  const workload = state.workload;
-  const pressure = state.pressure;
-
-  if (activeKey === "setup") {
-    return `${selectedValue} is your starting environment. Next, CLARA checks whether your money comes steadily, irregularly, or partly from support.`;
-  }
-  if (activeKey === "rhythm") {
-    return `${sentence(getInsight("setup", setup))}. With ${selectedValue}, CLARA can see if your student money is predictable enough for a weekly plan or needs timing protection.`;
-  }
-  if (activeKey === "workload") {
-    return `${sentence(getInsight("setup", setup))}, and ${getInsight("rhythm", rhythm)}. CLARA now reads your energy level as part of your money behavior, not a separate issue.`;
-  }
-  if (activeKey === "pressure") {
-    return `${sentence(getInsight("setup", setup))}, ${getInsight("rhythm", rhythm)}, and ${getInsight("workload", workload)}. This pressure shows what your budget should protect first.`;
-  }
-  if (activeKey === "coping") {
-    return `${sentence(getInsight("workload", workload))}, while ${getInsight("pressure", pressure)}. CLARA uses this to understand whether spending is about relief, delay, support, or routine.`;
-  }
-  if (activeKey === "goal") {
-    return `${sentence(getInsight("setup", setup))}, ${getInsight("rhythm", rhythm)}, ${getInsight("workload", workload)}, and ${getInsight("pressure", pressure)}. Now CLARA can protect ${selectedValue.toLowerCase()} with context.`;
-  }
-  return `${selectedValue} adds another clue to your life-stage profile.`;
-}
-
 function polishContextBoard() {
-  rememberStageSelection();
-  const active = rememberCurrentSelection();
+  const active = findActiveQuestionSection();
   const { summary, title } = findStageBoard();
   if (!active || !summary || !title) return;
-  const selectedValue = active.selectedValue || clean(title.textContent);
-  if (!selectedValue) return;
-  const nextSummary = buildContextualSummary(active.meta.key, selectedValue);
-  const signature = `${active.meta.key}:${selectedValue}:${state.setup}:${state.rhythm}:${state.workload}:${state.pressure}:${state.coping}:${state.goal}`;
-  if (summary.dataset.claraFlowSignature !== signature) {
-    summary.textContent = nextSummary;
-    summary.dataset.claraFlowSignature = signature;
-    summary.classList.add("clara-flow-board-summary");
-  }
-}
 
-function resetIfStagePickerIsOpen() {
-  const active = findActiveQuestionSection();
-  if (active) return;
-  const { marker } = findStageBoard();
-  if (!marker) return;
-  state.setup = "";
-  state.rhythm = "";
-  state.workload = "";
-  state.pressure = "";
-  state.coping = "";
-  state.goal = "";
+  const selectedValue = getSelectedOption(active.section);
+  const nextTitle = OPTION_TITLES[selectedValue] || active.meta.title;
+  const nextSummary = active.meta.summary;
+  const signature = `${active.meta.key}:${selectedValue}`;
+
+  if (title.dataset.claraBoardSignature !== signature) {
+    title.textContent = nextTitle;
+    title.dataset.claraBoardSignature = signature;
+  }
+  if (summary.dataset.claraBoardSignature !== signature) {
+    summary.textContent = nextSummary;
+    summary.dataset.claraBoardSignature = signature;
+    summary.classList.add("clara-flow-board-summary");
+    summary.style.setProperty("white-space", "pre-line", "important");
+  }
 }
 
 function polishFlow() {
-  resetIfStagePickerIsOpen();
   polishQuestionCards();
   polishContextBoard();
 }
