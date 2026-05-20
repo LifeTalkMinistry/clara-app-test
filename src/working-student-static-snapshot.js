@@ -29,6 +29,12 @@ function hasAny(value, options) {
   return options.some((option) => text.includes(clean(option).toLowerCase()));
 }
 
+function setText(node, value) {
+  if (!node) return;
+  const next = String(value || "");
+  if (node.textContent !== next) node.textContent = next;
+}
+
 const WORKING_STUDENT_ARCHETYPES = {
   survivalHeavy: {
     key: "survivalHeavy",
@@ -411,6 +417,12 @@ function getWorkingStudentSnapshot(profile) {
   };
 }
 
+function getProfileSignature(profile) {
+  return [profile.stage, profile.setup, profile.rhythm, profile.workload, profile.pressure, profile.coping, profile.goal]
+    .map(clean)
+    .join("|");
+}
+
 function findWorkingStudentHero() {
   const heading = Array.from(document.querySelectorAll("h2")).find((node) => clean(node.textContent).startsWith("Working Student"));
   if (!heading) return null;
@@ -428,18 +440,22 @@ function findSectionByHeading(text) {
 function patchHero(snapshot) {
   const hero = findWorkingStudentHero();
   if (!hero?.copy) return;
-  hero.copy.textContent = snapshot.hero;
+  setText(hero.copy, snapshot.hero);
   hero.copy.dataset.claraWorkingStudentSnapshot = snapshot.key;
 }
 
 function patchSupport(snapshot) {
-  const section = findSectionByHeading("You’re not alone.");
+  const section = findSectionByHeading("You’re not alone.") ||
+    Array.from(document.querySelectorAll("section")).find((node) => node.querySelector("[data-clara-working-student-support='true']"));
   if (!section) return;
   const title = section.querySelector("h3");
   const body = section.querySelector("p");
-  if (title) title.textContent = snapshot.supportTitle;
+  if (title) {
+    setText(title, snapshot.supportTitle);
+    title.dataset.claraWorkingStudentSupport = "true";
+  }
   if (body) {
-    body.textContent = snapshot.supportBody;
+    setText(body, snapshot.supportBody);
     body.dataset.claraWorkingStudentSnapshot = snapshot.key;
   }
 }
@@ -449,7 +465,7 @@ function patchTrendCards(snapshot) {
   if (!section) return;
 
   const helper = section.querySelector("h3")?.parentElement?.querySelector("p");
-  if (helper) helper.textContent = `${snapshot.label} • pattern-based snapshot`;
+  setText(helper, `${snapshot.label} • pattern-based snapshot`);
 
   const cards = Array.from(section.querySelectorAll("button"));
   snapshot.cards.forEach((item, index) => {
@@ -457,12 +473,12 @@ function patchTrendCards(snapshot) {
     if (!card) return;
     card.dataset.claraWorkingStudentSnapshotIndex = String(index);
     card.dataset.claraWorkingStudentSnapshotKey = snapshot.key;
-    card.title = item.note;
+    if (card.title !== item.note) card.title = item.note;
 
     const lines = Array.from(card.querySelectorAll("p"));
-    if (lines[0]) lines[0].textContent = item.label;
-    if (lines[1]) lines[1].textContent = `${item.value}%`;
-    if (lines[2]) lines[2].textContent = statusLabel(item.value);
+    setText(lines[0], item.label);
+    setText(lines[1], `${item.value}%`);
+    setText(lines[2], statusLabel(item.value));
   });
 }
 
@@ -485,17 +501,17 @@ function patchDetailPanel(snapshot) {
 
   const selectedIndex = Number(window.__CLARA_WORKING_STUDENT_SELECTED_TREND_INDEX__ || 0);
   const card = snapshot.cards[selectedIndex] || snapshot.cards[0];
-  detailHeading.textContent = card.label;
+  setText(detailHeading, card.label);
 
   const note = detailHeading.parentElement?.querySelector("p:not(:first-child)");
-  if (note) note.textContent = card.note;
+  setText(note, card.note);
 
   const valueNode = Array.from(document.querySelectorAll("p")).find((node) => /^\d+%$/.test(clean(node.textContent)) && node.closest("[class*='rounded']"));
-  if (valueNode) valueNode.textContent = `${card.value}%`;
+  setText(valueNode, `${card.value}%`);
 
   const sourceHeading = Array.from(document.querySelectorAll("p")).find((node) => clean(node.textContent) === "Source direction");
   const sourceBody = sourceHeading?.parentElement?.querySelector("p:last-child");
-  if (sourceBody) sourceBody.textContent = snapshot.context;
+  setText(sourceBody, snapshot.context);
 }
 
 function applyWorkingStudentSnapshot() {
@@ -505,16 +521,34 @@ function applyWorkingStudentSnapshot() {
   if (!findWorkingStudentHero()) return;
 
   const snapshot = getWorkingStudentSnapshot(profile);
+  const signature = `${getProfileSignature(profile)}|${snapshot.key}|${snapshot.cards.map((card) => `${card.label}:${card.value}`).join(",")}`;
+  const root = document.body;
+  const shouldPatch = root.dataset.claraWorkingStudentSnapshotSignature !== signature;
+  const detailOpen = Boolean(document.querySelector("h4"));
+
+  if (!shouldPatch && !detailOpen) return;
+  root.dataset.claraWorkingStudentSnapshotSignature = signature;
+
   patchHero(snapshot);
   patchSupport(snapshot);
   patchTrendCards(snapshot);
-  patchDetailPanel(snapshot);
+  if (detailOpen) patchDetailPanel(snapshot);
 }
 
 function install() {
   if (typeof window === "undefined" || typeof document === "undefined") return;
   if (window.__CLARA_WORKING_STUDENT_STATIC_SNAPSHOT__) return;
   window.__CLARA_WORKING_STUDENT_STATIC_SNAPSHOT__ = true;
+
+  let scheduled = false;
+  const scheduleApply = () => {
+    if (scheduled) return;
+    scheduled = true;
+    window.requestAnimationFrame(() => {
+      scheduled = false;
+      applyWorkingStudentSnapshot();
+    });
+  };
 
   document.addEventListener(
     "click",
@@ -523,15 +557,16 @@ function install() {
       if (trendCard) {
         window.__CLARA_WORKING_STUDENT_SELECTED_TREND_INDEX__ = Number(trendCard.dataset.claraWorkingStudentSnapshotIndex || 0);
       }
-      window.requestAnimationFrame(applyWorkingStudentSnapshot);
-      window.setTimeout(applyWorkingStudentSnapshot, 60);
+      scheduleApply();
     },
-    true
+    { capture: true, passive: true }
   );
 
-  const observer = new MutationObserver(() => window.requestAnimationFrame(applyWorkingStudentSnapshot));
-  observer.observe(document.body, { childList: true, subtree: true, characterData: true });
-  window.requestAnimationFrame(applyWorkingStudentSnapshot);
+  window.addEventListener("storage", scheduleApply, { passive: true });
+
+  const observer = new MutationObserver(scheduleApply);
+  observer.observe(document.body, { childList: true, subtree: true });
+  scheduleApply();
 }
 
 try {
