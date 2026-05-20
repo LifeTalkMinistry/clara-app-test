@@ -14,11 +14,11 @@ export const STAGES = [
 export const DEFAULT_STAGE = {
   stage: "Young Professional",
   setup: "Early-career employee",
-  rhythm: "Still learning budget rhythm",
-  workload: "Busy but stable",
-  pressure: "Living costs",
-  coping: "I reward myself after work",
-  goal: "Build stable habits",
+  rhythm: "First salary rhythm",
+  workload: "Learning work-life balance",
+  pressure: "Living independently costs",
+  coping: "Payday reward spending",
+  goal: "Build money rhythm",
 };
 
 export const LEGACY_STAGE_MAP = {
@@ -49,53 +49,53 @@ function stage(title, caption, overview, fields, indicators, struggles, recommen
 export const LIFE_STAGE_INTELLIGENCE = {
   "Young Professional": stage(
     "Building independence",
-    "Building independence while facing rising living costs and unstable growth opportunities.",
-    "Young Professionals are building identity, independence, and early money habits while dealing with career pressure and lifestyle temptation.",
+    "Early independence, career identity, lifestyle pressure, and first real money systems are forming.",
+    "Young Professionals are learning how to live independently, handle salary rhythm, manage lifestyle temptation, and build stable habits before small leaks become long-term patterns.",
     {
-      setup: ["First job", "Early-career employee", "Career shifting", "Living independently", "Building side income"],
-      rhythm: ["Monthly salary", "Twice-a-month cutoff", "Income still changing", "Salary + side income", "Still learning budget rhythm"],
-      workload: ["Manageable routine", "Busy but stable", "Long draining days", "Burnout season"],
-      pressure: ["Living costs", "Lifestyle pressure", "Family contribution", "Debt or credit pressure", "Low savings buffer"],
+      setup: ["First full-time job", "Early-career employee", "Career shifting", "Living independently", "Building side income"],
+      rhythm: ["First salary rhythm", "Monthly salary", "Twice-a-month cutoff", "Salary + side income", "Income still changing"],
+      workload: ["Manageable work routine", "Busy but stable", "Long draining days", "Learning work-life balance", "Burnout season"],
+      pressure: ["Living independently costs", "Lifestyle comparison", "Family contribution", "Debt or credit pressure", "Low savings buffer"],
       coping: [
-        "I reward myself after work",
-        "I avoid checking expenses",
+        "Payday reward spending",
+        "I avoid tracking expenses",
         "I use credit or pay later",
-        "I overspend socially",
-        "I over-restrict myself",
+        "Social spending pressure",
+        "I over-restrict then splurge",
       ],
-      goal: ["Build stable habits", "Emergency fund first", "Control lifestyle creep", "Pay down debt", "Save before spending"],
+      goal: ["Build money rhythm", "Emergency fund first", "Control lifestyle creep", "Pay down debt", "Save before spending"],
     },
     [
-      card("pressure", "Living Pressure", 72, "Rising costs and lifestyle adjustment pressure are common in this stage."),
-      card("stability", "Savings Readiness", 41, "Savings can feel low while independence and self-reward are still forming."),
-      card("energy", "Decision Fatigue", 64, "New choices around work, lifestyle, and money can become mentally heavy."),
-      card("growth", "Career Momentum", 58, "Early career growth is building, but it still needs structure and consistency."),
+      card("pressure", "Independence Pressure", 72, "Rent, commute, food, social life, and early responsibility can stretch income quickly."),
+      card("stability", "Savings Readiness", 43, "Savings may still be unstable while salary rhythm and personal boundaries are forming."),
+      card("energy", "Decision Fatigue", 64, "Career pressure and lifestyle choices can make spending feel like emotional relief."),
+      card("growth", "Career Momentum", 60, "Early income growth has strong potential when supported by structure and realistic limits."),
     ],
-    ["lifestyle inflation", "comfort spending", "peer pressure", "low savings rhythm", "career uncertainty"],
-    ["Emergency Fund", "Expense Awareness", "Skill Growth", "Debt Avoidance"],
-    "Talk about what feels hardest now that you’re building your professional life."
+    ["lifestyle creep", "payday reward spending", "social comparison", "low savings rhythm", "career uncertainty"],
+    ["Emergency Fund", "Payday Budget Rules", "Lifestyle Boundary", "Debt Avoidance"],
+    "Tell CLARA what feels hardest about building independence right now."
   ),
 
   "Working Student": stage(
     "Stretched season",
-    "Time, school, work, energy, and money all compete for attention.",
-    "Working Students are balancing education, income, survival, and identity while managing limited time and uneven routines.",
+    "School, work, family expectations, energy, and limited money compete in the same week.",
+    "Working Students are balancing education, income, survival, and future-building while time scarcity and uneven money rhythm shape daily decisions.",
     {
       setup: [
-        "Family-supported + working",
+        "Studying with family support",
         "Self-supporting student",
+        "Working to pay school costs",
         "Helping family while studying",
-        "First job while studying",
         "Side hustle student",
       ],
       rhythm: [
         "Allowance + work income",
         "Fixed part-time pay",
         "Irregular side income",
-        "Seasonal/project income",
+        "Project or seasonal income",
         "Mostly allowance, small extra work",
       ],
-      workload: ["Manageable", "Tight but okay", "Heavy", "Survival mode"],
+      workload: ["Manageable class-work load", "Tight but still okay", "Heavy overlap", "Little time to rest", "Survival mode"],
       pressure: [
         "Tuition or school costs",
         "Daily food and transport",
@@ -104,11 +104,11 @@ export const LIFE_STAGE_INTELLIGENCE = {
         "Debt or borrowed money",
       ],
       coping: [
-        "I buy small rewards",
+        "Small reward spending",
         "I avoid checking my money",
         "I borrow or delay payments",
-        "I cut back too much",
-        "I ask for help",
+        "I cut needs too much",
+        "I ask for help when needed",
       ],
       goal: [
         "Graduate safely",
@@ -119,10 +119,10 @@ export const LIFE_STAGE_INTELLIGENCE = {
       ],
     },
     [
-      card("energy", "Burnout Risk", 76, "School, work, money, and recovery pressure can drain energy fast."),
+      card("energy", "Burnout Risk", 78, "School, work, commute, money, and recovery pressure can drain energy fast."),
       card("pressure", "Financial Pressure", 72, "Tuition, daily costs, irregular income, and responsibility can tighten the whole month."),
       card("stability", "Emotional Spending Risk", 62, "Small rewards can become a coping pattern when rest and control feel limited."),
-      card("growth", "Future Potential", 84, "Balancing school and work can build strong resilience, discipline, and future earning power."),
+      card("growth", "Future Potential", 84, "Balancing school and work can build resilience, discipline, and future earning power."),
     ],
     ["transport costs", "tuition pressure", "burnout spending", "irregular income", "time scarcity", "family contribution", "debt pressure"],
     ["Weekly Spending Cap", "Transport Buffer", "Study-Work Recovery", "Avoid Debt", "Stress-Spending Replacement"],
@@ -131,40 +131,40 @@ export const LIFE_STAGE_INTELLIGENCE = {
 
   "Living with Partner": stage(
     "Shared-life season",
-    "Routines, emotions, and future plans are starting to shape financial decisions.",
-    "Living with a partner means financial decisions are no longer purely personal; routines, expectations, and future plans start to merge.",
+    "Shared routines, emotional expectations, bills, boundaries, and future plans shape money decisions.",
+    "Living with a partner means financial decisions are no longer purely personal; CLARA needs to understand contribution fairness, communication style, shared pressure, and comfort-spending patterns.",
     {
       setup: ["Newly living together", "Long-term live-in", "Living with one family", "Planning to move in", "One income supports both"],
-      rhythm: ["Shared bills monthly", "Split expenses unevenly", "Mostly stable incomes", "Income mismatch", "Still learning shared rhythm"],
-      workload: ["Calm and cooperative", "Adjusting roles", "Money talks feel sensitive", "Constant tension over decisions"],
-      pressure: ["Rent and bills", "Uneven contribution", "Future planning", "Family boundaries", "Money communication"],
+      rhythm: ["Shared bills monthly", "Split expenses clearly", "Split expenses unevenly", "Income mismatch", "Still learning shared rhythm"],
+      workload: ["Calm and cooperative", "Adjusting roles", "Money talks feel sensitive", "One person carries more", "Constant tension over decisions"],
+      pressure: ["Rent and utilities", "Uneven contribution", "Future planning pressure", "Family boundaries", "Money communication"],
       coping: [
         "We avoid money talks",
-        "We spend for comfort together",
+        "We comfort-spend together",
         "One partner covers gaps",
         "We argue then ignore it",
-        "We plan and review together",
+        "We review money together",
       ],
-      goal: ["Build savings together", "Emergency fund first", "Plan our future", "Stability first", "Set shared money rules"],
+      goal: ["Set shared money rules", "Build savings together", "Emergency fund first", "Plan our future", "Reduce money conflict"],
     },
     [
       card("pressure", "Shared Expense Pressure", 70, "Shared routines can make spending feel normal faster than expected."),
-      card("stability", "Relationship Stability", 62, "Financial stability depends partly on communication and shared expectations."),
+      card("stability", "Relationship Stability", 62, "Financial stability depends partly on communication, fairness, and shared expectations."),
       card("energy", "Emotional Load", 66, "Money can become emotional when future plans and responsibilities are involved."),
       card("growth", "Future Building Potential", 74, "A shared setup can build stronger habits when both people agree on direction."),
     ],
-    ["shared expenses", "future planning pressure", "comfort spending together", "money communication", "routine adjustment"],
+    ["shared expenses", "uneven contribution", "future planning pressure", "comfort spending together", "money communication", "family boundaries"],
     ["Shared Money Rules", "Emergency Fund", "Future Planning", "Spending Communication"],
-    "Tell CLARA what feels unclear or emotional about money in your shared-life setup."
+    "Tell CLARA what feels unclear, unfair, or emotional about money in your shared setup."
   ),
 
   "Family Household": stage(
     "Home-centered season",
-    "Family setup, household rhythm, and daily environment influence money behavior.",
-    "Family Household life shapes spending through shared routines, support expectations, food costs, and responsibility pressure.",
+    "Home routines, contribution expectations, family needs, and personal boundaries influence money behavior.",
+    "Family Household life shapes spending through shared food, bills, requests, emergencies, support pressure, and the emotional challenge of helping without losing personal stability.",
     {
       setup: ["Living with parents", "Supporting siblings", "Shared household", "Main contributor at home", "Multi-family home"],
-      rhythm: ["Fixed contribution", "Requests are unpredictable", "Shared food and bills", "Income shared with family", "Seasonal family needs"],
+      rhythm: ["Fixed household contribution", "Requests are unpredictable", "Shared food and bills", "Income shared with family", "Seasonal family needs"],
       workload: ["Manageable contribution", "Often interrupted", "Emotionally draining", "Everyone depends on me", "Boundary conflict"],
       pressure: ["Food and bills", "Family requests", "Education or medical support", "Personal boundaries", "Emergency help"],
       coping: [
@@ -177,31 +177,31 @@ export const LIFE_STAGE_INTELLIGENCE = {
       goal: ["Contribute wisely", "Build personal buffer", "Set family boundaries", "Protect essentials", "Reduce rescue spending"],
     },
     [
-      card("pressure", "Household Responsibility", 74, "Family needs and shared costs can affect personal money decisions."),
+      card("pressure", "Household Responsibility", 76, "Family needs and shared costs can affect personal money decisions."),
       card("stability", "Family Stability", 67, "Home routines can be stable, but unexpected family needs may interrupt plans."),
-      card("energy", "Support Exhaustion", 71, "Emotional responsibility can make financial boundaries harder."),
+      card("energy", "Support Exhaustion", 72, "Emotional responsibility can make financial boundaries harder."),
       card("growth", "Long-Term Security", 70, "Clear routines and contribution rules can build stronger household security."),
     ],
-    ["shared food costs", "family requests", "support pressure", "personal boundaries", "stress spending"],
+    ["shared food costs", "family requests", "support pressure", "personal boundaries", "emergency help", "rescue spending"],
     ["Household Budget Awareness", "Personal Safety Fund", "Boundary Planning", "Routine Spending Rules"],
-    "Tell CLARA how your home setup affects your spending lately."
+    "Tell CLARA how your home setup affects your spending, energy, or boundaries lately."
   ),
 
   "Single Parent": stage(
     "Protective season",
-    "Essentials, stability, emotional energy, and safety need careful protection.",
-    "Single Parents carry child-centered decisions, emergency risk, emotional exhaustion, and high responsibility with limited margin for mistakes.",
+    "Child-centered essentials, time pressure, emotional energy, and emergency safety need careful protection.",
+    "Single Parents carry child-centered decisions, irregular support risk, emergency pressure, and high responsibility with limited margin for mistakes.",
     {
       setup: ["One child", "Multiple young children", "School-age child", "Co-parenting support", "Solo without steady support"],
-      rhythm: ["Stable income and routine", "Childcare changes", "School expense cycles", "Support comes irregularly", "Unpredictable days"],
-      workload: ["Manageable care load", "Always busy", "Emotionally exhausted", "Survival parenting mode"],
-      pressure: ["Daily needs", "School or childcare costs", "Emergency or health costs", "Time pressure", "Debt or borrowed money"],
+      rhythm: ["Stable income and routine", "Support comes regularly", "Support comes irregularly", "School expense cycles", "Unpredictable days"],
+      workload: ["Manageable care load", "Always busy", "Limited childcare support", "Emotionally exhausted", "Survival parenting mode"],
+      pressure: ["Daily essentials", "School or childcare costs", "Emergency or health costs", "Time pressure", "Debt or borrowed money"],
       coping: [
         "I sacrifice my own needs",
         "I borrow when urgent",
         "I buy comfort for my child",
         "I avoid checking money",
-        "I ask for support",
+        "I ask for support when needed",
       ],
       goal: ["Protect essentials", "Emergency fund first", "Reduce debt", "Stabilize routine", "Secure my child’s future"],
     },
@@ -211,48 +211,48 @@ export const LIFE_STAGE_INTELLIGENCE = {
       card("energy", "Energy Drain", 76, "Care, work, and planning pressure can drain emotional energy."),
       card("growth", "Protection Potential", 81, "Small systems can strongly protect your child, peace, and future stability."),
     ],
-    ["childcare burden", "education costs", "emergency instability", "burnout spending", "time pressure"],
+    ["childcare burden", "education costs", "irregular support", "emergency instability", "burnout spending", "time pressure"],
     ["Stability First", "Emergency Buffer", "Insurance Awareness", "Child Education Planning"],
     "Tell CLARA what currently feels hardest to protect for you and your child."
   ),
 
   "Full-Time Earner": stage(
     "Routine earning season",
-    "Consistency, stress recovery, and lifestyle creep become the quiet patterns to watch.",
-    "Full-Time Earners usually have predictable income, but routine fatigue, cutoff dependency, and lifestyle creep can quietly grow.",
+    "Stable work, salary cycles, family responsibility, fatigue, and lifestyle creep become the quiet patterns to watch.",
+    "Full-Time Earners usually have predictable income, but cutoff dependency, routine fatigue, family support, and stress-reward spending can quietly weaken financial stability.",
     {
-      setup: ["Office or corporate work", "BPO or shift work", "Remote worker", "Field or service work", "Supporting family"],
-      rhythm: ["Monthly salary", "Twice-a-month cutoff", "Stable salary", "Overtime-dependent", "Salary + side income"],
-      workload: ["Manageable workload", "Long work hours", "Shift fatigue", "Routine burnout cycle"],
-      pressure: ["Cutoff dependency", "Family support", "Lifestyle pressure", "Debt or credit pressure", "Stress spending"],
+      setup: ["Stable employment", "BPO or shift work", "Remote full-time work", "Field or service work", "Full-time breadwinner"],
+      rhythm: ["Fixed monthly salary", "Twice-a-month cutoff", "Overtime-dependent pay", "Stable pay but tight budget", "Salary + side income"],
+      workload: ["Predictable routine", "Long work hours", "Shift fatigue", "High-responsibility workload", "Routine burnout cycle"],
+      pressure: ["Cutoff dependency", "Household or family support", "Lifestyle upgrades", "Debt or installment pressure", "Stress spending"],
       coping: [
-        "I reward myself after payday",
-        "I use convenience spending",
-        "I support family first",
-        "I ignore the budget when stressed",
+        "Payday reward spending",
+        "Convenience spending",
+        "I support others first",
+        "I ignore the budget when tired",
         "I delay self-care",
       ],
       goal: ["Save consistently", "Emergency fund first", "Control payday spending", "Reduce debt", "Build discipline"],
     },
     [
-      card("pressure", "Lifestyle Pressure", 63, "Stable income can make upgrades and small leaks feel harmless."),
-      card("stability", "Income Stability", 77, "Predictable pay can support strong money systems when planned well."),
-      card("energy", "Routine Fatigue", 70, "Repeating work cycles can trigger reward spending and delayed self-care."),
-      card("growth", "Savings Opportunity", 72, "A stable cutoff rhythm gives strong potential for automatic saving habits."),
+      card("pressure", "Lifestyle Pressure", 64, "Stable income can make upgrades and small leaks feel harmless."),
+      card("stability", "Income Stability", 78, "Predictable pay can support strong money systems when planned well."),
+      card("energy", "Routine Fatigue", 71, "Repeating work cycles can trigger reward spending and delayed self-care."),
+      card("growth", "Savings Opportunity", 73, "A stable cutoff rhythm gives strong potential for automatic saving habits."),
     ],
-    ["lifestyle creep", "stress spending", "cutoff dependency", "family support", "routine fatigue"],
+    ["lifestyle creep", "stress spending", "cutoff dependency", "family support", "routine fatigue", "installment pressure"],
     ["Cutoff Budget Rules", "Emergency Fund", "Stress-Spending Replacement", "Savings Automation"],
     "Tell CLARA what usually breaks your routine spending plan."
   ),
 
   "Freelance Season": stage(
     "Flexible income season",
-    "Income timing, client flow, and buffers matter more than perfect planning.",
-    "Freelance Season brings flexibility, but income timing, client delays, and self-management make financial structure essential.",
+    "Income timing, client flow, dry months, boundaries, and buffers matter more than perfect planning.",
+    "Freelance Season brings flexibility, but unstable payment timing, underpricing, overwork, and personal-business mixing make financial structure essential.",
     {
       setup: ["Full-time freelancer", "Side hustle", "Project-based work", "Commission-based work", "Starting freelance"],
       rhythm: ["Recurring clients", "Project waves", "Feast/famine cycle", "Delayed payments", "Growing slowly"],
-      workload: ["Flexible but manageable", "Busy client season", "Overworked and unclear", "No rest structure"],
+      workload: ["Flexible but manageable", "Busy client season", "Overworked and unclear", "No rest structure", "Client pressure always on"],
       pressure: ["Income variability", "Client delays", "Dry month risk", "Underpricing pressure", "Personal/business mixing"],
       coping: [
         "I spend after big payments",
@@ -266,22 +266,22 @@ export const LIFE_STAGE_INTELLIGENCE = {
     [
       card("pressure", "Income Variability", 83, "Income timing can move while expenses stay fixed."),
       card("stability", "Cash-Flow Stability", 45, "Cash flow needs buffers because work and payments may not arrive evenly."),
-      card("energy", "Creative Burnout", 67, "Freedom can still become exhausting when work, rest, and income blur."),
+      card("energy", "Creative Burnout", 68, "Freedom can still become exhausting when work, rest, and income blur."),
       card("growth", "Freedom Potential", 80, "A good system can turn flexible work into long-term independence."),
     ],
-    ["cash-flow gaps", "client delays", "overwork", "personal-business mixing", "uncertain months"],
+    ["cash-flow gaps", "client delays", "underpricing", "overwork", "personal-business mixing", "dry months"],
     ["Cash Buffer", "Separate Wallets", "Client Pipeline", "Rest Planning"],
     "Tell CLARA what makes freelance income feel unstable or stressful lately."
   ),
 
   "Business Builder": stage(
     "Building season",
-    "Personal money, operating needs, reinvestment, and pressure can easily mix.",
-    "Business Builders carry growth pressure, reinvestment decisions, unstable profits, and blurred boundaries between personal and business money.",
+    "Operating costs, reinvestment, sales swings, personal income, and decision pressure can easily mix.",
+    "Business Builders carry growth pressure, capital decisions, unstable profit, reinvestment tension, and blurred boundaries between personal and business money.",
     {
       setup: ["Just starting", "Side business", "Main income business", "Growing already", "Rebuilding or pivoting"],
       rhythm: ["Sales not steady", "Monthly business cycle", "Reinvesting heavily", "Cash flow swings", "Scaling up"],
-      workload: ["Manageable build", "Long operating hours", "Decision overload", "Founder burnout"],
+      workload: ["Manageable build", "Long operating hours", "Decision overload", "Founder burnout", "Team or customer pressure"],
       pressure: ["Operating costs", "Inventory or capital pressure", "Personal/business mix", "Sales uncertainty", "Reinvestment pressure"],
       coping: [
         "I reinvest too quickly",
@@ -293,13 +293,13 @@ export const LIFE_STAGE_INTELLIGENCE = {
       goal: ["Separate money", "Build runway", "Control spending", "Grow sustainably", "Pay myself properly"],
     },
     [
-      card("pressure", "Reinvestment Pressure", 76, "Growth often competes with personal needs and short-term comfort."),
+      card("pressure", "Reinvestment Pressure", 77, "Growth often competes with personal needs and short-term comfort."),
       card("stability", "Business Stability", 52, "Sales, costs, and cash flow need clearer separation from personal life."),
       card("energy", "Decision Overload", 79, "Many business decisions can create mental fatigue and risky shortcuts."),
       card("growth", "Scale Potential", 84, "With structure, this stage can create long-term financial upside."),
     ],
-    ["capital pressure", "inventory costs", "sales instability", "money mixing", "over-reinvestment"],
-    ["Separate Wallets", "Runway Fund", "Operating Budget", "Slow Growth Plan"],
+    ["capital pressure", "inventory costs", "sales instability", "money mixing", "over-reinvestment", "delayed owner pay"],
+    ["Separate Wallets", "Runway Fund", "Operating Budget", "Owner Pay Rule", "Slow Growth Plan"],
     "Tell CLARA where business money and personal money feel mixed right now."
   ),
 };
