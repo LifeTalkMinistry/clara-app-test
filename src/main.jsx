@@ -16,6 +16,7 @@ import "./life-stage-intelligence-runtime";
 import "./life-stage-snapshot-authority-runtime";
 import "./behavioral-observation-runtime";
 import "./predictive-decision-runtime";
+import "./life-stage-presentation-hierarchy-runtime";
 import App from "./App.jsx";
 import "./index.css";
 import "./clara-fab-theme.css";
