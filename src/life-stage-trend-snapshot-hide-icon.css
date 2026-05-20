@@ -6,3 +6,194 @@
 #root section[data-clara-trend-snapshot="true"] [data-clara-trend-header="true"] > svg {
   display: none !important;
 }
+
+/* Mobile one-screen fit for Me / Life Stage overview.
+   Goal: hero + support card + trend snapshot are visible together on common mobile heights. */
+#root section[class*="rounded-b-[30px]"] {
+  flex: 0 0 clamp(255px, 42dvh, 365px) !important;
+  min-height: 0 !important;
+  max-height: clamp(255px, 42dvh, 365px) !important;
+  padding-top: 1rem !important;
+  padding-bottom: 1rem !important;
+}
+
+#root section[data-clara-support-card="true"] {
+  flex: 0 0 clamp(96px, 15dvh, 132px) !important;
+  min-height: 0 !important;
+  max-height: clamp(96px, 15dvh, 132px) !important;
+  margin-top: 0.55rem !important;
+  padding: 0.85rem !important;
+  border-radius: 22px !important;
+}
+
+#root section[data-clara-trend-snapshot="true"] {
+  flex: 1 1 auto !important;
+  min-height: clamp(178px, 26dvh, 230px) !important;
+  max-height: clamp(178px, 26dvh, 230px) !important;
+  margin-top: 0.55rem !important;
+  padding: 0.85rem !important;
+  border-radius: 22px !important;
+}
+
+#root section[data-clara-trend-snapshot="true"] h3 {
+  font-size: 13.5px !important;
+}
+
+#root section[data-clara-trend-snapshot="true"] h3 + p {
+  margin-top: 0.22rem !important;
+  font-size: 9px !important;
+}
+
+#root [data-clara-trend-carousel="true"] {
+  margin-top: 0.55rem !important;
+  gap: 0.5rem !important;
+  padding-bottom: 0 !important;
+}
+
+#root [data-clara-trend-card="true"] {
+  min-width: 104px !important;
+  width: 104px !important;
+  min-height: 118px !important;
+  max-height: 132px !important;
+  padding: 0.7rem !important;
+  border-radius: 16px !important;
+}
+
+#root [data-clara-trend-primary="true"] {
+  min-width: 112px !important;
+  width: 112px !important;
+}
+
+#root [data-clara-trend-card="true"] p:first-child {
+  font-size: 8px !important;
+}
+
+#root [data-clara-trend-card="true"] p:nth-child(2) {
+  margin-top: 0.32rem !important;
+  font-size: 21px !important;
+}
+
+#root [data-clara-trend-card="true"] p:nth-child(3) {
+  margin-top: 0.26rem !important;
+  font-size: 7.8px !important;
+  padding: 0.13rem 0.36rem !important;
+}
+
+#root [data-clara-trend-card="true"] svg {
+  margin-top: 0.42rem !important;
+  height: 1.55rem !important;
+}
+
+/* Compact support card copy so it does not push the snapshot down. */
+#root section[data-clara-support-card="true"] h3 {
+  font-size: 13.2px !important;
+}
+
+#root section[data-clara-support-card="true"] h3 + p {
+  max-width: 14rem !important;
+  font-size: 10.4px !important;
+  line-height: 1.42 !important;
+}
+
+#root section[data-clara-support-card="true"] div[class*="rounded-full"]:has(svg) {
+  height: 3.2rem !important;
+  width: 3.2rem !important;
+}
+
+#root section[data-clara-support-card="true"] svg {
+  height: 1.35rem !important;
+  width: 1.35rem !important;
+}
+
+@media (max-height: 820px) {
+  #root section[class*="rounded-b-[30px]"] {
+    flex-basis: clamp(235px, 39dvh, 320px) !important;
+    max-height: clamp(235px, 39dvh, 320px) !important;
+  }
+
+  #root section[class*="rounded-b-[30px]"] > div[class*="relative"][class*="z-10"] {
+    transform: translateY(6px) !important;
+  }
+
+  #root section[class*="rounded-b-[30px]"] h2 {
+    font-size: clamp(21px, 6.2vw, 28px) !important;
+  }
+
+  #root section[class*="rounded-b-[30px]"] h2 + p {
+    font-size: 10px !important;
+    line-height: 1.42 !important;
+    -webkit-line-clamp: 3 !important;
+  }
+
+  #root section[data-clara-support-card="true"] {
+    flex-basis: 92px !important;
+    max-height: 92px !important;
+  }
+
+  #root section[data-clara-trend-snapshot="true"] {
+    min-height: 170px !important;
+    max-height: 190px !important;
+  }
+
+  #root [data-clara-trend-card="true"] {
+    min-height: 108px !important;
+    max-height: 116px !important;
+  }
+}
+
+@media (max-height: 720px) {
+  #root section[class*="rounded-b-[30px]"] {
+    flex-basis: clamp(205px, 36dvh, 270px) !important;
+    max-height: clamp(205px, 36dvh, 270px) !important;
+    padding-top: 0.75rem !important;
+    padding-bottom: 0.75rem !important;
+  }
+
+  #root section[class*="rounded-b-[30px]"] p[class*="uppercase"] {
+    font-size: 8px !important;
+  }
+
+  #root section[class*="rounded-b-[30px]"] h2 {
+    font-size: clamp(19px, 5.6vw, 25px) !important;
+  }
+
+  #root section[class*="rounded-b-[30px]"] h2 + p {
+    font-size: 9.3px !important;
+    line-height: 1.36 !important;
+  }
+
+  #root section[data-clara-support-card="true"] {
+    flex-basis: 78px !important;
+    max-height: 78px !important;
+    padding: 0.65rem !important;
+  }
+
+  #root section[data-clara-support-card="true"] h3 + p {
+    -webkit-line-clamp: 2 !important;
+    display: -webkit-box !important;
+    -webkit-box-orient: vertical !important;
+    overflow: hidden !important;
+  }
+
+  #root section[data-clara-trend-snapshot="true"] {
+    min-height: 158px !important;
+    max-height: 174px !important;
+    padding: 0.7rem !important;
+  }
+
+  #root [data-clara-trend-card="true"] {
+    min-width: 98px !important;
+    width: 98px !important;
+    min-height: 102px !important;
+    max-height: 110px !important;
+    padding: 0.6rem !important;
+  }
+
+  #root [data-clara-trend-card="true"] p:nth-child(2) {
+    font-size: 18px !important;
+  }
+
+  #root [data-clara-trend-card="true"] svg {
+    height: 1.25rem !important;
+  }
+}
