@@ -55,7 +55,6 @@ function buildDiagnosis(profile) {
   const goal = displayValue(profile.goal, "Protect your stability");
 
   return {
-    title: "Working student money picture.",
     core: "You are balancing school, money, time, and emotional energy in one season.",
     sees: [
       { tone: "lead", text: `You are in a ${firstLower(setup)}.` },
@@ -99,7 +98,6 @@ function showDiagnosisReveal(profile) {
 
         <div class="clara-diagnosis-scroll">
           <p class="clara-diagnosis-kicker">WORKING STUDENT DIAGNOSIS</p>
-          <h2>${escapeHtml(diagnosis.title)}</h2>
 
           <div class="clara-diagnosis-core-card">
             <span>CLARA'S READ</span>
@@ -237,19 +235,8 @@ function showDiagnosisReveal(profile) {
 
     #${DIAGNOSIS_ID} .clara-diagnosis-kicker { margin: 0; }
 
-    #${DIAGNOSIS_ID} h2 {
-      max-width: 18.5rem;
-      margin: 12px 0 0;
-      color: rgba(255, 255, 255, .96);
-      font-size: clamp(25px, 6.4vw, 31px);
-      line-height: 1.05;
-      letter-spacing: -.04em;
-      font-weight: 850;
-      text-shadow: 0 8px 22px rgba(0, 0, 0, .20);
-    }
-
     #${DIAGNOSIS_ID} .clara-diagnosis-core-card {
-      margin: 16px 0 0;
+      margin: 18px 0 0;
       border: 1px solid rgba(165, 243, 252, .14);
       border-radius: 20px;
       background: radial-gradient(circle at 8% 10%, rgba(125, 211, 252, .13), transparent 34%), rgba(255, 255, 255, .04);
@@ -355,8 +342,7 @@ function showDiagnosisReveal(profile) {
       #${DIAGNOSIS_ID} .clara-diagnosis-shell { padding: 10px 12px; }
       #${DIAGNOSIS_ID} .clara-diagnosis-card { border-radius: 27px; }
       #${DIAGNOSIS_ID} .clara-diagnosis-scroll { padding: 17px 17px 14px; }
-      #${DIAGNOSIS_ID} h2 { margin-top: 9px; font-size: clamp(23px, 6.1vw, 29px); }
-      #${DIAGNOSIS_ID} .clara-diagnosis-core-card { margin-top: 12px; padding: 11px 12px; border-radius: 17px; }
+      #${DIAGNOSIS_ID} .clara-diagnosis-core-card { margin-top: 15px; padding: 11px 12px; border-radius: 17px; }
       #${DIAGNOSIS_ID} .clara-diagnosis-core-card p { font-size: 12.8px; line-height: 1.36; }
       #${DIAGNOSIS_ID} .clara-diagnosis-sections { margin-top: 15px; gap: 12px; }
       #${DIAGNOSIS_ID} .clara-diagnosis-line-lead { font-size: 12.5px; line-height: 1.38; }
