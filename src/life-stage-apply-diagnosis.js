@@ -87,6 +87,8 @@ function buildDiagnosis(profile) {
   return {
     title: "CLARA understands your current environment.",
     core: "You are carrying school, money, energy, and protection at the same time.",
+    summary:
+      `${sentence(setup)}. Since ${rhythm}, ${pressure}, while CLARA helps you ${goal}.`,
     sees: `${sentence(setup)}.`,
     matters: `Because ${rhythm}, CLARA understands that one small gap can affect your school, daily needs, and emotional energy.`,
     protection: `Right now, ${pressure}. Since ${load}, and ${coping}, your financial system should help you ${goal}.`,
@@ -115,41 +117,53 @@ function showDiagnosisReveal(profile) {
       <section class="clara-diagnosis-card">
         <div class="clara-diagnosis-orb clara-diagnosis-orb-one"></div>
         <div class="clara-diagnosis-orb clara-diagnosis-orb-two"></div>
-        <p class="clara-diagnosis-kicker">WORKING STUDENT DIAGNOSIS</p>
-        <h2>${diagnosis.title}</h2>
-        <div class="clara-diagnosis-core-card">
-          <span>CLARA'S READ</span>
-          <p>${diagnosis.core}</p>
-        </div>
-        <div class="clara-diagnosis-sections">
-          <article>
-            <span>What CLARA sees</span>
-            <p>${diagnosis.sees}</p>
-          </article>
-          <article>
-            <span>Why this matters</span>
-            <p>${diagnosis.matters}</p>
-          </article>
-          <article>
-            <span>What needs protection now</span>
-            <p>${diagnosis.protection}</p>
-          </article>
-        </div>
-        <div class="clara-diagnosis-grid">
-          <div class="clara-diagnosis-meta-card">
-            <span>Pressure to protect</span>
-            <strong>${diagnosis.pressure}</strong>
+
+        <div class="clara-diagnosis-scroll">
+          <p class="clara-diagnosis-kicker">WORKING STUDENT DIAGNOSIS</p>
+          <h2>${diagnosis.title}</h2>
+
+          <div class="clara-diagnosis-core-card">
+            <span>CLARA'S READ</span>
+            <p>${diagnosis.core}</p>
           </div>
-          <div class="clara-diagnosis-meta-card">
-            <span>Money rhythm</span>
-            <strong>${diagnosis.rhythm}</strong>
-          </div>
-          <div class="clara-diagnosis-meta-card clara-diagnosis-priority-card">
+
+          <p class="clara-diagnosis-summary">${diagnosis.summary}</p>
+
+          <div class="clara-diagnosis-priority-card">
             <span>CLARA priority</span>
             <strong>${diagnosis.focus}</strong>
           </div>
+
+          <div class="clara-diagnosis-chip-row">
+            <div class="clara-diagnosis-chip">
+              <span>Pressure</span>
+              <strong>${diagnosis.pressure}</strong>
+            </div>
+            <div class="clara-diagnosis-chip">
+              <span>Rhythm</span>
+              <strong>${diagnosis.rhythm}</strong>
+            </div>
+          </div>
+
+          <div class="clara-diagnosis-sections">
+            <article>
+              <span>What CLARA sees</span>
+              <p>${diagnosis.sees}</p>
+            </article>
+            <article>
+              <span>Why this matters</span>
+              <p>${diagnosis.matters}</p>
+            </article>
+            <article>
+              <span>What needs protection now</span>
+              <p>${diagnosis.protection}</p>
+            </article>
+          </div>
         </div>
-        <button type="button" class="clara-diagnosis-continue">Continue to Me</button>
+
+        <div class="clara-diagnosis-footer">
+          <button type="button" class="clara-diagnosis-continue">Continue to Me</button>
+        </div>
       </section>
     </div>
   `;
@@ -168,46 +182,46 @@ function showDiagnosisReveal(profile) {
       animation: claraDiagnosisFade 220ms ease both;
       font-family: inherit;
     }
+
     #${DIAGNOSIS_ID} .clara-diagnosis-shell {
       position: relative;
       width: min(430px, 100vw);
-      min-height: 100dvh;
+      height: 100dvh;
       display: flex;
-      align-items: center;
+      align-items: stretch;
       justify-content: center;
-      padding: max(16px, env(safe-area-inset-top)) 16px max(16px, env(safe-area-inset-bottom));
+      padding: max(14px, env(safe-area-inset-top)) 14px max(14px, env(safe-area-inset-bottom));
       overflow: hidden;
       background: #020817;
     }
+
     #${DIAGNOSIS_ID} .clara-diagnosis-bg {
       position: absolute;
       inset: 0;
       background:
         radial-gradient(circle at 12% 4%, rgba(45, 212, 191, .18), transparent 30%),
         radial-gradient(circle at 88% 10%, rgba(124, 58, 237, .30), transparent 34%),
-        radial-gradient(circle at 50% 96%, rgba(56, 189, 248, .14), transparent 34%),
+        radial-gradient(circle at 50% 100%, rgba(56, 189, 248, .14), transparent 34%),
         linear-gradient(180deg, rgba(4, 16, 36, .96), rgba(3, 7, 24, .99));
     }
+
     #${DIAGNOSIS_ID} .clara-diagnosis-card {
       position: relative;
+      display: flex;
+      flex-direction: column;
       width: 100%;
-      max-height: calc(100dvh - 32px);
-      overflow-y: auto;
-      overflow-x: hidden;
-      border-radius: 32px;
+      max-height: 100%;
+      overflow: hidden;
+      border-radius: 31px;
       border: 1px solid rgba(165, 243, 252, .14);
-      background:
-        linear-gradient(145deg, rgba(9, 29, 55, .78), rgba(17, 21, 67, .80) 54%, rgba(48, 25, 104, .72));
-      padding: 22px;
+      background: linear-gradient(145deg, rgba(9, 29, 55, .78), rgba(17, 21, 67, .80) 54%, rgba(48, 25, 104, .72));
       box-shadow:
         0 28px 90px rgba(0, 0, 0, .50),
         0 0 54px rgba(34, 211, 238, .10),
         inset 0 1px 0 rgba(255, 255, 255, .10);
       animation: claraDiagnosisRise 420ms cubic-bezier(.16,1,.3,1) both;
-      -webkit-overflow-scrolling: touch;
-      scrollbar-width: none;
     }
-    #${DIAGNOSIS_ID} .clara-diagnosis-card::-webkit-scrollbar { display: none; }
+
     #${DIAGNOSIS_ID} .clara-diagnosis-card::before {
       content: "";
       position: absolute;
@@ -218,6 +232,35 @@ function showDiagnosisReveal(profile) {
         radial-gradient(circle at 90% 18%, rgba(255, 255, 255, .08), transparent 22%),
         linear-gradient(180deg, rgba(255,255,255,.045), transparent 38%);
     }
+
+    #${DIAGNOSIS_ID} .clara-diagnosis-scroll {
+      position: relative;
+      z-index: 1;
+      flex: 1 1 auto;
+      min-height: 0;
+      overflow-y: auto;
+      overflow-x: hidden;
+      padding: 22px 22px 18px;
+      -webkit-overflow-scrolling: touch;
+      scrollbar-width: none;
+    }
+
+    #${DIAGNOSIS_ID} .clara-diagnosis-scroll::-webkit-scrollbar {
+      display: none;
+    }
+
+    #${DIAGNOSIS_ID} .clara-diagnosis-footer {
+      position: relative;
+      z-index: 2;
+      flex: 0 0 auto;
+      padding: 12px 22px 18px;
+      background:
+        linear-gradient(180deg, rgba(12, 16, 48, 0), rgba(8, 14, 36, .76) 24%, rgba(6, 10, 28, .96));
+      backdrop-filter: blur(18px);
+      -webkit-backdrop-filter: blur(18px);
+      box-shadow: 0 -18px 42px rgba(2, 8, 23, .28);
+    }
+
     #${DIAGNOSIS_ID} .clara-diagnosis-orb {
       position: absolute;
       pointer-events: none;
@@ -225,6 +268,7 @@ function showDiagnosisReveal(profile) {
       filter: blur(28px);
       opacity: .55;
     }
+
     #${DIAGNOSIS_ID} .clara-diagnosis-orb-one {
       top: -26px;
       left: -34px;
@@ -232,6 +276,7 @@ function showDiagnosisReveal(profile) {
       width: 138px;
       background: rgba(45, 212, 191, .18);
     }
+
     #${DIAGNOSIS_ID} .clara-diagnosis-orb-two {
       right: -40px;
       bottom: 54px;
@@ -239,135 +284,147 @@ function showDiagnosisReveal(profile) {
       width: 150px;
       background: rgba(124, 58, 237, .22);
     }
-    #${DIAGNOSIS_ID} .clara-diagnosis-kicker,
-    #${DIAGNOSIS_ID} h2,
-    #${DIAGNOSIS_ID} .clara-diagnosis-core-card,
-    #${DIAGNOSIS_ID} .clara-diagnosis-sections,
-    #${DIAGNOSIS_ID} .clara-diagnosis-grid,
-    #${DIAGNOSIS_ID} .clara-diagnosis-continue {
-      position: relative;
-      z-index: 1;
-    }
+
     #${DIAGNOSIS_ID} .clara-diagnosis-kicker {
       margin: 0;
       color: rgba(186, 230, 253, .62);
-      font-size: 9px;
-      font-weight: 800;
-      letter-spacing: .29em;
-      text-transform: uppercase;
-    }
-    #${DIAGNOSIS_ID} h2 {
-      max-width: 19rem;
-      margin: 14px 0 0;
-      color: rgba(255, 255, 255, .96);
-      font-size: clamp(28px, 7.1vw, 34px);
-      line-height: 1.02;
-      letter-spacing: -.045em;
-      font-weight: 850;
-      text-shadow: 0 8px 22px rgba(0, 0, 0, .24);
-    }
-    #${DIAGNOSIS_ID} .clara-diagnosis-core-card {
-      margin: 20px 0 0;
-      border: 1px solid rgba(165, 243, 252, .15);
-      border-radius: 22px;
-      background:
-        radial-gradient(circle at 8% 10%, rgba(125, 211, 252, .14), transparent 34%),
-        rgba(255, 255, 255, .045);
-      padding: 15px 16px;
-      box-shadow:
-        0 16px 38px rgba(0, 0, 0, .18),
-        inset 0 1px 0 rgba(255, 255, 255, .07),
-        0 0 30px rgba(34, 211, 238, .08);
-    }
-    #${DIAGNOSIS_ID} .clara-diagnosis-core-card span {
-      display: block;
-      color: rgba(186, 230, 253, .52);
-      font-size: 8px;
-      font-weight: 850;
-      letter-spacing: .22em;
-      text-transform: uppercase;
-    }
-    #${DIAGNOSIS_ID} .clara-diagnosis-core-card p {
-      margin: 7px 0 0;
-      color: rgba(248, 253, 255, .92);
-      font-size: clamp(13.5px, 3.55vw, 15px);
-      font-weight: 760;
-      line-height: 1.42;
-      letter-spacing: -.018em;
-    }
-    #${DIAGNOSIS_ID} .clara-diagnosis-sections {
-      display: grid;
-      gap: 16px;
-      margin: 22px 0 0;
-    }
-    #${DIAGNOSIS_ID} .clara-diagnosis-sections article {
-      display: grid;
-      gap: 6px;
-    }
-    #${DIAGNOSIS_ID} .clara-diagnosis-sections span {
-      color: rgba(186, 230, 253, .48);
       font-size: 8.5px;
+      font-weight: 800;
+      letter-spacing: .28em;
+      text-transform: uppercase;
+    }
+
+    #${DIAGNOSIS_ID} h2 {
+      max-width: 18rem;
+      margin: 12px 0 0;
+      color: rgba(255, 255, 255, .96);
+      font-size: clamp(25px, 6.6vw, 32px);
+      line-height: 1.03;
+      letter-spacing: -.042em;
+      font-weight: 850;
+      text-shadow: 0 8px 22px rgba(0, 0, 0, .20);
+    }
+
+    #${DIAGNOSIS_ID} .clara-diagnosis-core-card {
+      margin: 16px 0 0;
+      border: 1px solid rgba(165, 243, 252, .14);
+      border-radius: 20px;
+      background:
+        radial-gradient(circle at 8% 10%, rgba(125, 211, 252, .13), transparent 34%),
+        rgba(255, 255, 255, .04);
+      padding: 13px 14px;
+      box-shadow:
+        0 14px 32px rgba(0, 0, 0, .16),
+        inset 0 1px 0 rgba(255, 255, 255, .07),
+        0 0 26px rgba(34, 211, 238, .07);
+    }
+
+    #${DIAGNOSIS_ID} .clara-diagnosis-core-card span,
+    #${DIAGNOSIS_ID} .clara-diagnosis-priority-card span,
+    #${DIAGNOSIS_ID} .clara-diagnosis-chip span,
+    #${DIAGNOSIS_ID} .clara-diagnosis-sections span {
+      display: block;
+      color: rgba(186, 230, 253, .48);
+      font-size: 8px;
       font-weight: 850;
       letter-spacing: .2em;
       text-transform: uppercase;
     }
-    #${DIAGNOSIS_ID} .clara-diagnosis-sections p {
-      margin: 0;
+
+    #${DIAGNOSIS_ID} .clara-diagnosis-core-card p {
+      margin: 7px 0 0;
+      color: rgba(248, 253, 255, .92);
+      font-size: clamp(13px, 3.4vw, 14.5px);
+      font-weight: 740;
+      line-height: 1.38;
+      letter-spacing: -.016em;
+    }
+
+    #${DIAGNOSIS_ID} .clara-diagnosis-summary {
+      margin: 15px 0 0;
       color: rgba(241, 245, 249, .76);
-      font-size: clamp(12.6px, 3.25vw, 14px);
+      font-size: clamp(12.4px, 3.2vw, 13.8px);
       font-weight: 560;
-      line-height: 1.55;
+      line-height: 1.5;
       letter-spacing: -.012em;
     }
-    #${DIAGNOSIS_ID} .clara-diagnosis-grid {
-      display: grid;
-      gap: 9px;
-      margin-top: 22px;
-    }
-    #${DIAGNOSIS_ID} .clara-diagnosis-meta-card {
-      border: 1px solid rgba(255, 255, 255, .075);
-      background: rgba(2, 8, 23, .25);
-      border-radius: 18px;
-      padding: 12px 14px;
-      box-shadow: inset 0 1px 0 rgba(255, 255, 255, .045);
-    }
+
     #${DIAGNOSIS_ID} .clara-diagnosis-priority-card {
-      border-color: rgba(165, 243, 252, .18);
+      margin-top: 16px;
+      border: 1px solid rgba(165, 243, 252, .18);
+      border-radius: 19px;
       background:
-        radial-gradient(circle at 8% 50%, rgba(45, 212, 191, .12), transparent 42%),
-        rgba(7, 18, 38, .40);
+        radial-gradient(circle at 9% 50%, rgba(45, 212, 191, .13), transparent 42%),
+        rgba(7, 18, 38, .42);
+      padding: 13px 14px;
       box-shadow:
         inset 0 1px 0 rgba(255, 255, 255, .06),
-        0 0 26px rgba(34, 211, 238, .08);
+        0 0 28px rgba(34, 211, 238, .09);
     }
-    #${DIAGNOSIS_ID} .clara-diagnosis-grid span {
+
+    #${DIAGNOSIS_ID} .clara-diagnosis-priority-card strong {
       display: block;
-      color: rgba(186, 230, 253, .40);
-      font-size: 8px;
-      font-weight: 850;
-      letter-spacing: .19em;
-      text-transform: uppercase;
-    }
-    #${DIAGNOSIS_ID} .clara-diagnosis-grid strong {
-      display: block;
-      margin-top: 5px;
-      color: rgba(255, 255, 255, .86);
-      font-size: 12.5px;
-      font-weight: 760;
+      margin-top: 6px;
+      color: rgba(240, 253, 255, .96);
+      font-size: 13.5px;
+      font-weight: 860;
       line-height: 1.25;
     }
-    #${DIAGNOSIS_ID} .clara-diagnosis-priority-card strong {
-      color: rgba(240, 253, 255, .96);
-      font-weight: 850;
+
+    #${DIAGNOSIS_ID} .clara-diagnosis-chip-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 9px;
+      margin-top: 9px;
     }
+
+    #${DIAGNOSIS_ID} .clara-diagnosis-chip {
+      min-width: 0;
+      border: 1px solid rgba(255, 255, 255, .07);
+      border-radius: 17px;
+      background: rgba(2, 8, 23, .24);
+      padding: 11px 12px;
+      box-shadow: inset 0 1px 0 rgba(255, 255, 255, .04);
+    }
+
+    #${DIAGNOSIS_ID} .clara-diagnosis-chip strong {
+      display: block;
+      margin-top: 5px;
+      color: rgba(255, 255, 255, .84);
+      font-size: 11.5px;
+      font-weight: 740;
+      line-height: 1.2;
+    }
+
+    #${DIAGNOSIS_ID} .clara-diagnosis-sections {
+      display: grid;
+      gap: 13px;
+      margin: 20px 0 4px;
+      padding-top: 16px;
+      border-top: 1px solid rgba(255, 255, 255, .06);
+    }
+
+    #${DIAGNOSIS_ID} .clara-diagnosis-sections article {
+      display: grid;
+      gap: 5px;
+    }
+
+    #${DIAGNOSIS_ID} .clara-diagnosis-sections p {
+      margin: 0;
+      color: rgba(241, 245, 249, .70);
+      font-size: clamp(11.8px, 3.05vw, 13.2px);
+      font-weight: 520;
+      line-height: 1.48;
+      letter-spacing: -.01em;
+    }
+
     #${DIAGNOSIS_ID} .clara-diagnosis-continue {
       width: 100%;
-      min-height: 54px;
-      margin-top: 22px;
+      min-height: 52px;
       border: 1px solid rgba(255, 255, 255, .16);
       border-radius: 9999px;
       background:
-        radial-gradient(circle at 18% 20%, rgba(255,255,255,.36), transparent 26%),
+        radial-gradient(circle at 18% 20%, rgba(255,255,255,.34), transparent 26%),
         linear-gradient(135deg, #5eead4, #7dd3fc 48%, #93c5fd);
       color: #06101f;
       font-size: 13.5px;
@@ -378,19 +435,33 @@ function showDiagnosisReveal(profile) {
         0 0 34px rgba(125, 211, 252, .14),
         inset 0 1px 0 rgba(255, 255, 255, .38);
     }
-    @keyframes claraDiagnosisFade { from { opacity: 0; } to { opacity: 1; } }
-    @keyframes claraDiagnosisRise { from { opacity: 0; transform: translateY(18px) scale(.985); filter: blur(5px); } to { opacity: 1; transform: translateY(0) scale(1); filter: blur(0); } }
+
+    @keyframes claraDiagnosisFade {
+      from { opacity: 0; }
+      to { opacity: 1; }
+    }
+
+    @keyframes claraDiagnosisRise {
+      from { opacity: 0; transform: translateY(18px) scale(.985); filter: blur(5px); }
+      to { opacity: 1; transform: translateY(0) scale(1); filter: blur(0); }
+    }
+
     @media (max-height: 720px) {
-      #${DIAGNOSIS_ID} .clara-diagnosis-shell { padding: 12px 14px; }
-      #${DIAGNOSIS_ID} .clara-diagnosis-card { padding: 18px; border-radius: 28px; }
-      #${DIAGNOSIS_ID} h2 { margin-top: 11px; font-size: clamp(25px, 6.7vw, 31px); }
-      #${DIAGNOSIS_ID} .clara-diagnosis-core-card { margin-top: 14px; padding: 12px 13px; border-radius: 18px; }
-      #${DIAGNOSIS_ID} .clara-diagnosis-core-card p { font-size: 12.5px; line-height: 1.36; }
-      #${DIAGNOSIS_ID} .clara-diagnosis-sections { margin-top: 15px; gap: 10px; }
-      #${DIAGNOSIS_ID} .clara-diagnosis-sections p { font-size: 11.4px; line-height: 1.42; }
-      #${DIAGNOSIS_ID} .clara-diagnosis-grid { margin-top: 14px; gap: 7px; }
-      #${DIAGNOSIS_ID} .clara-diagnosis-meta-card { padding: 10px 12px; border-radius: 16px; }
-      #${DIAGNOSIS_ID} .clara-diagnosis-continue { margin-top: 14px; min-height: 48px; }
+      #${DIAGNOSIS_ID} .clara-diagnosis-shell { padding: 10px 12px; }
+      #${DIAGNOSIS_ID} .clara-diagnosis-card { border-radius: 27px; }
+      #${DIAGNOSIS_ID} .clara-diagnosis-scroll { padding: 17px 17px 12px; }
+      #${DIAGNOSIS_ID} .clara-diagnosis-footer { padding: 10px 17px 14px; }
+      #${DIAGNOSIS_ID} h2 { margin-top: 9px; font-size: clamp(23px, 6.2vw, 29px); }
+      #${DIAGNOSIS_ID} .clara-diagnosis-core-card { margin-top: 12px; padding: 11px 12px; border-radius: 17px; }
+      #${DIAGNOSIS_ID} .clara-diagnosis-core-card p { font-size: 12px; line-height: 1.34; }
+      #${DIAGNOSIS_ID} .clara-diagnosis-summary { margin-top: 12px; font-size: 11.4px; line-height: 1.42; }
+      #${DIAGNOSIS_ID} .clara-diagnosis-priority-card { margin-top: 12px; padding: 10px 12px; border-radius: 16px; }
+      #${DIAGNOSIS_ID} .clara-diagnosis-chip-row { gap: 7px; margin-top: 7px; }
+      #${DIAGNOSIS_ID} .clara-diagnosis-chip { padding: 9px 10px; border-radius: 15px; }
+      #${DIAGNOSIS_ID} .clara-diagnosis-chip strong { font-size: 10.5px; }
+      #${DIAGNOSIS_ID} .clara-diagnosis-sections { margin-top: 14px; padding-top: 12px; gap: 9px; }
+      #${DIAGNOSIS_ID} .clara-diagnosis-sections p { font-size: 11px; line-height: 1.38; }
+      #${DIAGNOSIS_ID} .clara-diagnosis-continue { min-height: 47px; }
     }
   `;
 
