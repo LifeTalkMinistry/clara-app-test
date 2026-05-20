@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   Briefcase,
   Check,
@@ -20,7 +20,6 @@ import {
 } from "lucide-react";
 import { DEFAULT_STAGE, getStageDefinition, LIFE_STAGE_KEY } from "./lifeStageIntelligenceData";
 import { getLifeStageImage } from "../../../../../config/lifeStageImages";
-import { generateLifeStageBoardContextWithGemini } from "../../../../../lib/clara-life-stage-gemini-context";
 
 const STAGE_IMAGE_KEY = "clara_life_stage_images_v1";
 
@@ -65,18 +64,13 @@ const QUESTION_META = {
 
 const QUESTION_ORDER = ["setup", "rhythm", "workload", "pressure", "coping", "goal"];
 
-const CONTEXT_LOADING_COPY = {
-  title: "Hmm… let me think about that.",
-  summary: "CLARA is thinking…",
-};
-
 const ANSWER_CONTEXT = {
   setup: {
-    "Family-supported with some work": {
+    "Family-supported + working": {
       title: "Supported ambition",
       chip: "support system present",
       summary:
-        "CLARA sees support in your environment, but also a growing money role. The pressure may show more through time, energy, and guilt around using money for yourself.",
+        "CLARA sees support in your environment, but also a stretched schedule. The pressure may show more through time, energy, and guilt around using money for yourself.",
     },
     "Self-supporting student": {
       title: "Self-support pressure",
@@ -84,19 +78,19 @@ const ANSWER_CONTEXT = {
       summary:
         "CLARA sees a higher independence load. School, daily needs, and income decisions may be connected because fewer expenses can be treated as optional.",
     },
-    "Working mainly for school costs": {
-      title: "School-cost pressure",
-      chip: "education-linked work rhythm",
-      summary:
-        "CLARA sees your work income tied closely to keeping school moving. This can make tuition deadlines, daily energy, and work availability feel connected.",
-    },
     "Helping family while studying": {
       title: "Shared responsibility",
       chip: "family-linked responsibility",
       summary:
         "CLARA sees family responsibility inside your student season. This can create emotional pressure because personal progress and family needs may compete.",
     },
-    "Side hustle / extra-income student": {
+    "First job while studying": {
+      title: "Adjustment season",
+      chip: "work-school adjustment",
+      summary:
+        "CLARA sees a new work-school rhythm forming. This can create reward spending because earning money and exhaustion are happening at the same time.",
+    },
+    "Side hustle student": {
       title: "Flexible but uneven",
       chip: "flexible income behavior",
       summary:
@@ -116,55 +110,49 @@ const ANSWER_CONTEXT = {
       summary:
         "CLARA sees a clearer pay rhythm. This gives you a stronger base for planning, but your energy and school load still need protection.",
     },
-    "Irregular side hustle income": {
+    "Irregular side income": {
       title: "Unstable timing",
       chip: "income instability detected",
       summary:
         "CLARA sees income that can change from week to week. This increases the need for buffers because expenses may be fixed while earnings are not.",
     },
-    "Project / seasonal income": {
+    "Seasonal/project income": {
       title: "Wave-based income",
       chip: "wave-based cash flow",
       summary:
         "CLARA sees money arriving in waves. This can feel good during strong weeks, but weak weeks need planned protection before they happen.",
     },
-    "Mostly allowance with occasional work": {
+    "Mostly allowance, small extra work": {
       title: "Light earning layer",
       chip: "allowance-led stability",
       summary:
-        "CLARA sees allowance as the main base with occasional earning support. The main pattern to watch is spending discipline before bigger income arrives.",
+        "CLARA sees allowance as the main base with small earning support. The main pattern to watch is spending discipline before bigger income arrives.",
     },
   },
   workload: {
-    "Manageable class-work load": {
+    Manageable: {
       title: "Still manageable",
       chip: "control still available",
       summary:
         "CLARA sees a season that still has room for control. This is a good point to build habits before pressure becomes heavier.",
     },
-    "Tight but still controlled": {
+    "Tight but okay": {
       title: "Tight but moving",
       chip: "early strain forming",
       summary:
-        "CLARA sees a schedule that is stretched but still steerable. Small leaks in money or rest may become noticeable faster if the load increases.",
+        "CLARA sees a schedule that is still functioning, but already demanding. Small leaks in money or rest may become noticeable faster.",
     },
-    "Heavy school-work overlap": {
+    Heavy: {
       title: "Heavy overlap",
       chip: "high schedule overlap",
       summary:
-        "CLARA sees work, school, and recovery starting to collide. This is where convenience spending and missed tracking can quietly increase.",
+        "CLARA sees work, school, and personal needs starting to overlap. This is where convenience spending and missed tracking can quietly increase.",
     },
-    "Little time to rest": {
-      title: "Low recovery space",
+    "Survival mode": {
+      title: "Survival rhythm",
       chip: "recovery capacity low",
       summary:
-        "CLARA sees limited recovery time. Quick spending choices may happen less from carelessness and more from tiredness, hunger, or lack of time.",
-    },
-    "Almost no margin / survival mode": {
-      title: "Survival rhythm",
-      chip: "recovery capacity very low",
-      summary:
-        "CLARA sees very little room for mistakes. The priority is not perfection; it is protecting essentials, reducing pressure, and avoiding decisions made from exhaustion.",
+        "CLARA sees limited recovery space. The priority is not perfection; it is protecting essentials, reducing pressure, and avoiding decisions made from exhaustion.",
     },
   },
   pressure: {
@@ -180,11 +168,11 @@ const ANSWER_CONTEXT = {
       summary:
         "CLARA sees repeated daily expenses shaping the month. Small costs may not look dangerous alone, but they can drain money through frequency.",
     },
-    "Work-school schedule conflict": {
-      title: "Schedule conflict pressure",
+    "Too much work and school load": {
+      title: "Energy pressure",
       chip: "energy-trigger spending risk",
       summary:
-        "CLARA sees time conflict as a financial trigger. Spending may happen not from carelessness, but from needing relief, convenience, or recovery between responsibilities.",
+        "CLARA sees time and energy as the main financial trigger. Spending may happen not from carelessness, but from needing relief or convenience.",
     },
     "Family contribution": {
       title: "Family-linked pressure",
@@ -200,7 +188,7 @@ const ANSWER_CONTEXT = {
     },
   },
   coping: {
-    "I spend on small rewards to feel okay": {
+    "I buy small rewards": {
       title: "Reward spending pattern",
       chip: "stress-reward spending",
       summary:
@@ -218,21 +206,21 @@ const ANSWER_CONTEXT = {
       summary:
         "CLARA sees survival decisions happening first, then repair later. The system should protect you from stacking pressure across weeks.",
     },
-    "I cut my needs too much": {
+    "I cut back too much": {
       title: "Over-sacrifice pattern",
       chip: "over-sacrifice risk",
       summary:
         "CLARA sees you reducing needs too aggressively. Saving matters, but your food, rest, and basic energy should not be treated as optional.",
     },
-    "I ask for help before it gets worse": {
+    "I ask for help": {
       title: "Support-seeking pattern",
       chip: "support-seeking habit",
       summary:
-        "CLARA sees an early support habit. This can lower risk when used wisely, especially if boundaries and expectations are clear before pressure gets heavier.",
+        "CLARA sees an active support habit. This can lower risk when used wisely, especially if boundaries and repayment expectations are clear.",
     },
   },
   goal: {
-    "Finish school without burning out": {
+    "Graduate safely": {
       title: "Protect graduation",
       chip: "graduation protection",
       summary:
@@ -250,7 +238,7 @@ const ANSWER_CONTEXT = {
       summary:
         "CLARA will prioritize small, realistic saving moves that still respect your limited income and student workload.",
     },
-    "Help family without losing stability": {
+    "Help family wisely": {
       title: "Protect wise support",
       chip: "wise family support",
       summary:
@@ -266,11 +254,36 @@ const ANSWER_CONTEXT = {
 };
 
 const CATEGORY_STYLES = {
-  pressure: { stroke: "rgba(251,113,133,.88)", statusClass: "text-rose-200", glow: "shadow-[0_0_22px_rgba(251,113,133,.10)]", chip: "bg-rose-300/8 border-rose-200/10" },
-  stability: { stroke: "rgba(45,212,191,.9)", statusClass: "text-cyan-100", glow: "shadow-[0_0_22px_rgba(45,212,191,.10)]", chip: "bg-cyan-300/8 border-cyan-200/10" },
-  energy: { stroke: "rgba(167,139,250,.9)", statusClass: "text-violet-100", glow: "shadow-[0_0_22px_rgba(167,139,250,.10)]", chip: "bg-violet-300/8 border-violet-200/10" },
-  growth: { stroke: "rgba(250,204,21,.86)", statusClass: "text-amber-100", glow: "shadow-[0_0_22px_rgba(250,204,21,.10)]", chip: "bg-amber-300/8 border-amber-200/10" },
-  default: { stroke: "rgba(125,211,252,.85)", statusClass: "text-cyan-100", glow: "shadow-[0_0_22px_rgba(125,211,252,.10)]", chip: "bg-cyan-300/8 border-cyan-200/10" },
+  pressure: {
+    stroke: "rgba(251,113,133,.88)",
+    statusClass: "text-rose-200",
+    glow: "shadow-[0_0_22px_rgba(251,113,133,.10)]",
+    chip: "bg-rose-300/8 border-rose-200/10",
+  },
+  stability: {
+    stroke: "rgba(45,212,191,.9)",
+    statusClass: "text-cyan-100",
+    glow: "shadow-[0_0_22px_rgba(45,212,191,.10)]",
+    chip: "bg-cyan-300/8 border-cyan-200/10",
+  },
+  energy: {
+    stroke: "rgba(167,139,250,.9)",
+    statusClass: "text-violet-100",
+    glow: "shadow-[0_0_22px_rgba(167,139,250,.10)]",
+    chip: "bg-violet-300/8 border-violet-200/10",
+  },
+  growth: {
+    stroke: "rgba(250,204,21,.86)",
+    statusClass: "text-amber-100",
+    glow: "shadow-[0_0_22px_rgba(250,204,21,.10)]",
+    chip: "bg-amber-300/8 border-amber-200/10",
+  },
+  default: {
+    stroke: "rgba(125,211,252,.85)",
+    statusClass: "text-cyan-100",
+    glow: "shadow-[0_0_22px_rgba(125,211,252,.10)]",
+    chip: "bg-cyan-300/8 border-cyan-200/10",
+  },
 };
 
 const HERO_VISUALS = {
@@ -317,12 +330,19 @@ function readStageProfile() {
 
 function saveStageProfile(profile) {
   if (typeof window === "undefined") return;
-  localStorage.setItem(LIFE_STAGE_KEY, JSON.stringify({ ...profile, stage: normalizeStageName(profile?.stage), updatedAt: new Date().toISOString() }));
+  localStorage.setItem(
+    LIFE_STAGE_KEY,
+    JSON.stringify({ ...profile, stage: normalizeStageName(profile?.stage), updatedAt: new Date().toISOString() })
+  );
 }
 
 function readStageImages() {
   if (typeof window === "undefined") return {};
-  try { return JSON.parse(localStorage.getItem(STAGE_IMAGE_KEY) || "{}") || {}; } catch { return {}; }
+  try {
+    return JSON.parse(localStorage.getItem(STAGE_IMAGE_KEY) || "{}") || {};
+  } catch {
+    return {};
+  }
 }
 
 function saveStageImages(images) {
@@ -344,16 +364,23 @@ function getQuestionKeys(fields = {}) {
 function buildStageDraft(stageName, previous = {}) {
   const nextFields = getStageDefinition(stageName).fields || {};
   const next = { stage: stageName };
+
   getQuestionKeys(nextFields).forEach((key) => {
     next[key] = nextFields[key]?.includes(previous[key]) ? previous[key] : nextFields[key]?.[0];
   });
+
   return next;
 }
 
 function getAnswerContext(questionKey, value) {
   const match = ANSWER_CONTEXT[questionKey]?.[value];
   if (match) return match;
-  return { title: value || "Building context", chip: "context clue added", summary: "CLARA will use this answer together with the previous answers to shape the life-stage snapshot." };
+
+  return {
+    title: value || "Building context",
+    chip: "context clue added",
+    summary: "CLARA will use this answer together with the previous answers to shape the life-stage snapshot.",
+  };
 }
 
 function getInsightChip(insight) {
@@ -370,39 +397,68 @@ function buildContextualSummary(activeQuestionKey, currentInsight, draft) {
   const workload = getPriorInsight("workload", draft);
   const pressure = getPriorInsight("pressure", draft);
   const coping = getPriorInsight("coping", draft);
+
   const setupChip = getInsightChip(setup);
   const rhythmChip = getInsightChip(rhythm);
   const workloadChip = getInsightChip(workload);
   const pressureChip = getInsightChip(pressure);
   const copingChip = getInsightChip(coping);
 
-  if (activeQuestionKey === "setup") return `${currentInsight.summary} This becomes the starting environment CLARA will use before reading your income rhythm, weekly load, pressure, and spending response.`;
-  if (activeQuestionKey === "rhythm") return `${currentInsight.summary} Because your setup already suggests ${setupChip}, this rhythm tells CLARA whether your support system is stable, stretched, or vulnerable to timing gaps.`;
-  if (activeQuestionKey === "workload") return `${currentInsight.summary} With ${setupChip} and ${rhythmChip} already in the profile, CLARA now treats your energy level as part of the money pattern, not a separate issue.`;
-  if (activeQuestionKey === "pressure") return `${currentInsight.summary} Since your profile already shows ${setupChip}, ${rhythmChip}, and ${workloadChip}, this pressure becomes the first area CLARA should protect in your budget.`;
-  if (activeQuestionKey === "coping") return `${currentInsight.summary} Connected with ${workloadChip} and ${pressureChip}, CLARA can now tell whether spending is a pressure response instead of just a normal expense choice.`;
-  if (activeQuestionKey === "goal") return `${currentInsight.summary} Based on ${setupChip}, ${rhythmChip}, ${workloadChip}, ${pressureChip}, and ${copingChip}, CLARA now has enough context to turn this into a protection plan instead of a generic student profile.`;
+  if (activeQuestionKey === "setup") {
+    return `${currentInsight.summary} This becomes the starting environment CLARA will use before reading your income rhythm, weekly load, pressure, and spending response.`;
+  }
+
+  if (activeQuestionKey === "rhythm") {
+    return `${currentInsight.summary} Because your setup already suggests ${setupChip}, this rhythm tells CLARA whether your support system is stable, stretched, or vulnerable to timing gaps.`;
+  }
+
+  if (activeQuestionKey === "workload") {
+    return `${currentInsight.summary} With ${setupChip} and ${rhythmChip} already in the profile, CLARA now treats your energy level as part of the money pattern, not a separate issue.`;
+  }
+
+  if (activeQuestionKey === "pressure") {
+    return `${currentInsight.summary} Since your profile already shows ${setupChip}, ${rhythmChip}, and ${workloadChip}, this pressure becomes the first area CLARA should protect in your budget.`;
+  }
+
+  if (activeQuestionKey === "coping") {
+    return `${currentInsight.summary} Connected with ${workloadChip} and ${pressureChip}, CLARA can now tell whether spending is a pressure response instead of just a normal expense choice.`;
+  }
+
+  if (activeQuestionKey === "goal") {
+    return `${currentInsight.summary} Based on ${setupChip}, ${rhythmChip}, ${workloadChip}, ${pressureChip}, and ${copingChip}, CLARA now has enough context to turn this into a protection plan instead of a generic student profile.`;
+  }
+
   return currentInsight.summary;
 }
 
 function getBoardContext({ step, activeQuestionKey, draft, peopleInStage }) {
-  if (step === "stage") return { title: draft.stage, summary: peopleInStage };
+  if (step === "stage") {
+    return {
+      title: draft.stage,
+      summary: peopleInStage,
+    };
+  }
+
   const selectedValue = draft[activeQuestionKey];
   const currentInsight = getAnswerContext(activeQuestionKey, selectedValue);
-  return { title: currentInsight.title, summary: buildContextualSummary(activeQuestionKey, currentInsight, draft) };
-}
 
-function getLocalBoardContextFor({ draft, step }) {
-  const definition = getStageDefinition(draft.stage);
-  const activeQuestionKey = step === "stage" ? null : step;
-  return getBoardContext({ step, activeQuestionKey, draft, peopleInStage: getPeopleCopy(draft.stage, definition) });
+  return {
+    title: currentInsight.title,
+    summary: buildContextualSummary(activeQuestionKey, currentInsight, draft),
+  };
 }
 
 function MiniGraph({ category }) {
   const style = CATEGORY_STYLES[category] || CATEGORY_STYLES.default;
   return (
     <svg viewBox="0 0 92 34" className="mt-2 h-7 w-full overflow-visible" aria-hidden="true">
-      <path d="M2 28 C10 22 16 25 22 18 C28 10 33 16 39 9 C45 2 51 15 58 11 C66 7 70 17 76 12 C83 7 87 11 90 9" fill="none" stroke={style.stroke} strokeWidth="2.2" strokeLinecap="round" />
+      <path
+        d="M2 28 C10 22 16 25 22 18 C28 10 33 16 39 9 C45 2 51 15 58 11 C66 7 70 17 76 12 C83 7 87 11 90 9"
+        fill="none"
+        stroke={style.stroke}
+        strokeWidth="2.2"
+        strokeLinecap="round"
+      />
       <path d="M2 32 H90" stroke="rgba(255,255,255,.055)" strokeWidth="1" />
     </svg>
   );
@@ -411,7 +467,11 @@ function MiniGraph({ category }) {
 function TrendSnapshotCard({ item, onClick }) {
   const style = CATEGORY_STYLES[item.category] || CATEGORY_STYLES.default;
   return (
-    <button type="button" onClick={onClick} className={`h-full min-w-[116px] snap-start rounded-[16px] border border-white/[0.075] bg-[#071226]/66 p-3 text-left backdrop-blur-xl transition active:scale-[0.985] ${style.glow}`}>
+    <button
+      type="button"
+      onClick={onClick}
+      className={`h-full min-w-[116px] snap-start rounded-[16px] border border-white/[0.075] bg-[#071226]/66 p-3 text-left backdrop-blur-xl transition active:scale-[0.985] ${style.glow}`}
+    >
       <p className="line-clamp-1 text-[9px] font-black tracking-tight text-white/56">{item.label}</p>
       <p className="mt-1 text-[22px] font-black leading-none text-white">{item.value}%</p>
       <p className={`mt-1 text-[9px] font-black ${style.statusClass}`}>{statusLabel(item.value)}</p>
@@ -427,21 +487,34 @@ function DataDetailPanel({ trend, onClose }) {
       <div className="pointer-events-none absolute inset-0 rounded-[28px] bg-[radial-gradient(circle_at_14%_8%,rgba(45,212,191,.10),transparent_28%),radial-gradient(circle_at_86%_10%,rgba(91,63,209,.16),transparent_30%)]" />
       <div className="relative z-10 flex items-start justify-between gap-3">
         <div>
-          <p className="flex items-center gap-2 text-[9px] font-black uppercase tracking-[0.18em] text-cyan-100/42"><Database className="h-3.5 w-3.5" /> Data status</p>
+          <p className="flex items-center gap-2 text-[9px] font-black uppercase tracking-[0.18em] text-cyan-100/42">
+            <Database className="h-3.5 w-3.5" /> Data status
+          </p>
           <h4 className="mt-2 text-2xl font-black leading-tight text-white">{trend.label}</h4>
           <p className="mt-1 text-xs font-semibold leading-5 text-white/48">{trend.note}</p>
         </div>
-        <button type="button" onClick={onClose} className="grid h-8 w-8 shrink-0 place-items-center rounded-full border border-white/[0.075] bg-white/[0.04] text-white/58 active:scale-95" aria-label="Close data details"><X className="h-4 w-4" /></button>
+        <button
+          type="button"
+          onClick={onClose}
+          className="grid h-8 w-8 shrink-0 place-items-center rounded-full border border-white/[0.075] bg-white/[0.04] text-white/58 active:scale-95"
+          aria-label="Close data details"
+        >
+          <X className="h-4 w-4" />
+        </button>
       </div>
       <div className={`relative z-10 mt-5 rounded-[22px] border p-4 ${style.chip}`}>
         <p className="text-[10px] font-black uppercase tracking-[0.16em] text-white/34">Life-stage reading</p>
         <p className="mt-1 text-4xl font-black leading-none text-white">{trend.value}%</p>
         <p className={`mt-1 text-xs font-black ${style.statusClass}`}>{statusLabel(trend.value)}</p>
-        <div className="mt-4 h-2 overflow-hidden rounded-full bg-white/[0.055]"><div className="h-full rounded-full" style={{ width: `${Math.max(14, Math.min(96, trend.value))}%`, background: style.stroke }} /></div>
+        <div className="mt-4 h-2 overflow-hidden rounded-full bg-white/[0.055]">
+          <div className="h-full rounded-full" style={{ width: `${Math.max(14, Math.min(96, trend.value))}%`, background: style.stroke }} />
+        </div>
       </div>
       <div className="relative z-10 mt-3 rounded-[22px] border border-white/[0.065] bg-white/[0.03] p-4">
         <p className="text-[10px] font-black uppercase tracking-[0.16em] text-white/34">Source direction</p>
-        <p className="mt-2 text-sm font-semibold leading-6 text-white/54">This is currently a life-stage intelligence placeholder. Later this can show Philippine survey data, admin-managed sources, and trend update status.</p>
+        <p className="mt-2 text-sm font-semibold leading-6 text-white/54">
+          This is currently a life-stage intelligence placeholder. Later this can show Philippine survey data, admin-managed sources, and trend update status.
+        </p>
       </div>
     </div>
   );
@@ -449,6 +522,7 @@ function DataDetailPanel({ trend, onClose }) {
 
 function StageImagePanel({ stage, image, onApply, onClose }) {
   const [preview, setPreview] = useState(image || "");
+
   const handleUpload = (event) => {
     const file = event.target.files?.[0];
     if (!file) return;
@@ -456,27 +530,63 @@ function StageImagePanel({ stage, image, onApply, onClose }) {
     reader.onload = () => setPreview(String(reader.result || ""));
     reader.readAsDataURL(file);
   };
-  const save = () => { onApply(preview || ""); onClose(); };
+
+  const save = () => {
+    onApply(preview || "");
+    onClose();
+  };
+
   return (
     <div className="absolute inset-0 z-30 flex min-h-0 flex-col rounded-[28px] border border-white/[0.075] bg-[#050b1f]/92 p-4 shadow-[0_24px_80px_rgba(0,0,0,.42)] backdrop-blur-2xl">
       <div className="pointer-events-none absolute inset-0 rounded-[28px] bg-[radial-gradient(circle_at_12%_10%,rgba(45,212,191,.10),transparent_28%),radial-gradient(circle_at_86%_12%,rgba(91,63,209,.16),transparent_32%)]" />
       <div className="relative z-10 flex shrink-0 items-start justify-between gap-3">
-        <div><p className="text-[9px] font-black uppercase tracking-[0.18em] text-cyan-100/42">Stage image</p><h4 className="mt-2 text-xl font-black leading-tight text-white">Customize {stage}</h4><p className="mt-1 text-xs font-semibold leading-5 text-white/44">Use the default visual or upload your own image for this life stage.</p></div>
-        <button type="button" onClick={onClose} className="grid h-8 w-8 shrink-0 place-items-center rounded-full border border-white/[0.075] bg-white/[0.04] text-white/58 active:scale-95" aria-label="Close image setup"><X className="h-4 w-4" /></button>
+        <div>
+          <p className="text-[9px] font-black uppercase tracking-[0.18em] text-cyan-100/42">Stage image</p>
+          <h4 className="mt-2 text-xl font-black leading-tight text-white">Customize {stage}</h4>
+          <p className="mt-1 text-xs font-semibold leading-5 text-white/44">Use the default visual or upload your own image for this life stage.</p>
+        </div>
+        <button
+          type="button"
+          onClick={onClose}
+          className="grid h-8 w-8 shrink-0 place-items-center rounded-full border border-white/[0.075] bg-white/[0.04] text-white/58 active:scale-95"
+          aria-label="Close image setup"
+        >
+          <X className="h-4 w-4" />
+        </button>
       </div>
       <div className="relative z-10 mt-4 min-h-0 flex-1 overflow-y-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
         <div className="relative h-60 overflow-hidden rounded-[26px] border border-white/[0.075] bg-[#071226]/64">
-          {preview ? <img src={preview} alt={`${stage} custom visual`} className="h-full w-full object-cover" /> : <div className="grid h-full place-items-center text-center"><ImageIcon className="mx-auto h-9 w-9 text-white/30" /><p className="mt-2 text-xs font-black text-white/44">Default stage visual</p></div>}
+          {preview ? (
+            <img src={preview} alt={`${stage} custom visual`} className="h-full w-full object-cover" />
+          ) : (
+            <div className="grid h-full place-items-center text-center">
+              <ImageIcon className="mx-auto h-9 w-9 text-white/30" />
+              <p className="mt-2 text-xs font-black text-white/44">Default stage visual</p>
+            </div>
+          )}
           <div className="absolute inset-0 bg-[linear-gradient(180deg,transparent,rgba(3,8,28,.72))]" />
         </div>
         <div className="mt-4 grid gap-2">
-          <label className="flex cursor-pointer items-center justify-center gap-2 rounded-full bg-cyan-200 px-4 py-3 text-xs font-black text-slate-950 shadow-[0_10px_32px_rgba(125,211,252,.16)] active:scale-95"><Upload className="h-4 w-4" /> Upload image<input type="file" accept="image/*" className="hidden" onChange={handleUpload} /></label>
-          <button type="button" onClick={() => setPreview("")} className="flex items-center justify-center gap-2 rounded-full border border-white/[0.075] bg-white/[0.035] px-4 py-3 text-xs font-black text-white/54 active:scale-95"><RotateCcw className="h-4 w-4" /> Use default</button>
+          <label className="flex cursor-pointer items-center justify-center gap-2 rounded-full bg-cyan-200 px-4 py-3 text-xs font-black text-slate-950 shadow-[0_10px_32px_rgba(125,211,252,.16)] active:scale-95">
+            <Upload className="h-4 w-4" /> Upload image
+            <input type="file" accept="image/*" className="hidden" onChange={handleUpload} />
+          </label>
+          <button
+            type="button"
+            onClick={() => setPreview("")}
+            className="flex items-center justify-center gap-2 rounded-full border border-white/[0.075] bg-white/[0.035] px-4 py-3 text-xs font-black text-white/54 active:scale-95"
+          >
+            <RotateCcw className="h-4 w-4" /> Use default
+          </button>
         </div>
       </div>
       <div className="relative z-10 mt-3 flex shrink-0 gap-2">
-        <button type="button" onClick={onClose} className="flex-1 rounded-full border border-white/[0.075] bg-white/[0.035] px-4 py-3 text-xs font-black text-white/54 active:scale-95">Cancel</button>
-        <button type="button" onClick={save} className="flex flex-1 items-center justify-center gap-2 rounded-full bg-cyan-200 px-4 py-3 text-xs font-black text-slate-950 shadow-[0_10px_32px_rgba(125,211,252,.16)] active:scale-95"><Check className="h-4 w-4" /> Apply image</button>
+        <button type="button" onClick={onClose} className="flex-1 rounded-full border border-white/[0.075] bg-white/[0.035] px-4 py-3 text-xs font-black text-white/54 active:scale-95">
+          Cancel
+        </button>
+        <button type="button" onClick={save} className="flex flex-1 items-center justify-center gap-2 rounded-full bg-cyan-200 px-4 py-3 text-xs font-black text-slate-950 shadow-[0_10px_32px_rgba(125,211,252,.16)] active:scale-95">
+          <Check className="h-4 w-4" /> Apply image
+        </button>
       </div>
     </div>
   );
@@ -484,14 +594,41 @@ function StageImagePanel({ stage, image, onApply, onClose }) {
 
 function StageCard({ stage, active, onClick }) {
   const Icon = STAGE_ICON_MAP[stage] || Sparkles;
+
   return (
-    <button type="button" onClick={onClick} className={`relative min-h-[78px] overflow-hidden rounded-[24px] border px-3.5 py-3 text-left transition duration-200 active:scale-[0.985] ${active ? "border-cyan-200/55 bg-[linear-gradient(135deg,rgba(45,212,191,.18),rgba(59,130,246,.14)_45%,rgba(91,63,209,.18))] shadow-[0_0_36px_rgba(34,211,238,.22),0_18px_44px_rgba(2,8,23,.36),inset_0_1px_0_rgba(255,255,255,.10)]" : "border-white/[0.075] bg-[#071226]/54 shadow-[0_14px_34px_rgba(0,0,0,.18),inset_0_1px_0_rgba(255,255,255,.035)]"}`}>
+    <button
+      type="button"
+      onClick={onClick}
+      className={`relative min-h-[78px] overflow-hidden rounded-[24px] border px-3.5 py-3 text-left transition duration-200 active:scale-[0.985] ${
+        active
+          ? "border-cyan-200/55 bg-[linear-gradient(135deg,rgba(45,212,191,.18),rgba(59,130,246,.14)_45%,rgba(91,63,209,.18))] shadow-[0_0_36px_rgba(34,211,238,.22),0_18px_44px_rgba(2,8,23,.36),inset_0_1px_0_rgba(255,255,255,.10)]"
+          : "border-white/[0.075] bg-[#071226]/54 shadow-[0_14px_34px_rgba(0,0,0,.18),inset_0_1px_0_rgba(255,255,255,.035)]"
+      }`}
+    >
       <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_10%_0%,rgba(45,212,191,.10),transparent_36%),radial-gradient(circle_at_92%_20%,rgba(91,63,209,.12),transparent_36%)]" />
-      {active ? <div className="pointer-events-none absolute inset-0 rounded-[24px] ring-1 ring-cyan-200/18" /> : null}
+      {active ? (
+        <div className="pointer-events-none absolute inset-0 rounded-[24px] ring-1 ring-cyan-200/18" />
+      ) : null}
       <div className="relative z-10 flex items-center gap-3.5">
-        <span className={`grid h-[52px] w-[52px] shrink-0 place-items-center rounded-[18px] border backdrop-blur-xl ${active ? "border-cyan-100/28 bg-cyan-200/12 text-cyan-100 shadow-[0_0_24px_rgba(34,211,238,.18),inset_0_1px_0_rgba(255,255,255,.10)]" : "border-white/[0.075] bg-white/[0.035] text-white/46 shadow-[inset_0_1px_0_rgba(255,255,255,.04)]"}`}><Icon className="h-6 w-6" strokeWidth={1.8} /></span>
+        <span
+          className={`grid h-[52px] w-[52px] shrink-0 place-items-center rounded-[18px] border backdrop-blur-xl ${
+            active
+              ? "border-cyan-100/28 bg-cyan-200/12 text-cyan-100 shadow-[0_0_24px_rgba(34,211,238,.18),inset_0_1px_0_rgba(255,255,255,.10)]"
+              : "border-white/[0.075] bg-white/[0.035] text-white/46 shadow-[inset_0_1px_0_rgba(255,255,255,.04)]"
+          }`}
+        >
+          <Icon className="h-6 w-6" strokeWidth={1.8} />
+        </span>
         <p className="min-w-0 flex-1 text-[15px] font-black leading-tight tracking-[-0.01em] text-white/90 drop-shadow-sm">{stage}</p>
-        <span className={`grid h-8 w-8 shrink-0 place-items-center rounded-full border transition ${active ? "border-cyan-100/42 bg-cyan-200/16 text-cyan-50 shadow-[0_0_26px_rgba(34,211,238,.28)]" : "border-white/[0.12] bg-white/[0.025] text-transparent"}`}>{active ? <Check className="h-5 w-5" strokeWidth={2.2} /> : null}</span>
+        <span
+          className={`grid h-8 w-8 shrink-0 place-items-center rounded-full border transition ${
+            active
+              ? "border-cyan-100/42 bg-cyan-200/16 text-cyan-50 shadow-[0_0_26px_rgba(34,211,238,.28)]"
+              : "border-white/[0.12] bg-white/[0.025] text-transparent"
+          }`}
+        >
+          {active ? <Check className="h-5 w-5" strokeWidth={2.2} /> : null}
+        </span>
       </div>
     </button>
   );
@@ -505,9 +642,24 @@ function OptionGroup({ eyebrow, value, options, onSelect }) {
         {options.map((option) => {
           const active = option === value;
           return (
-            <button key={option} type="button" onClick={() => onSelect(option)} className={`relative flex min-h-[66px] w-full items-center justify-between gap-3 rounded-[18px] border px-4 py-3 text-left transition active:scale-[0.985] ${active ? "border-cyan-200/38 bg-[linear-gradient(135deg,rgba(45,212,191,.16),rgba(59,130,246,.12)_48%,rgba(91,63,209,.16))] text-cyan-50 shadow-[0_0_28px_rgba(34,211,238,.16),inset_0_1px_0_rgba(255,255,255,.08)]" : "border-white/[0.075] bg-[#071226]/54 text-white/58 shadow-[inset_0_1px_0_rgba(255,255,255,.03)]"}`}>
+            <button
+              key={option}
+              type="button"
+              onClick={() => onSelect(option)}
+              className={`relative flex min-h-[66px] w-full items-center justify-between gap-3 rounded-[18px] border px-4 py-3 text-left transition active:scale-[0.985] ${
+                active
+                  ? "border-cyan-200/38 bg-[linear-gradient(135deg,rgba(45,212,191,.16),rgba(59,130,246,.12)_48%,rgba(91,63,209,.16))] text-cyan-50 shadow-[0_0_28px_rgba(34,211,238,.16),inset_0_1px_0_rgba(255,255,255,.08)]"
+                  : "border-white/[0.075] bg-[#071226]/54 text-white/58 shadow-[inset_0_1px_0_rgba(255,255,255,.03)]"
+              }`}
+            >
               <span className="text-[13px] font-black leading-tight">{option}</span>
-              <span className={`grid h-7 w-7 shrink-0 place-items-center rounded-full border ${active ? "border-cyan-100/38 bg-cyan-200/14 text-cyan-50" : "border-white/[0.12] bg-white/[0.025] text-transparent"}`}>{active ? <Check className="h-4 w-4" strokeWidth={2.2} /> : null}</span>
+              <span
+                className={`grid h-7 w-7 shrink-0 place-items-center rounded-full border ${
+                  active ? "border-cyan-100/38 bg-cyan-200/14 text-cyan-50" : "border-white/[0.12] bg-white/[0.025] text-transparent"
+                }`}
+              >
+                {active ? <Check className="h-4 w-4" strokeWidth={2.2} /> : null}
+              </span>
             </button>
           );
         })}
@@ -519,10 +671,6 @@ function OptionGroup({ eyebrow, value, options, onSelect }) {
 function LifeStageSetupScreen({ profile, onClose, onSave }) {
   const [draft, setDraft] = useState(() => buildStageDraft(profile.stage || DEFAULT_STAGE.stage, profile));
   const [step, setStep] = useState("stage");
-  const [contextStatus, setContextStatus] = useState("ready");
-  const [aiBoardContext, setAiBoardContext] = useState(null);
-  const contextRequestRef = useRef(0);
-  const contextTimerRef = useRef(null);
   const definition = getStageDefinition(draft.stage);
   const fields = definition.fields || {};
   const questionKeys = getQuestionKeys(fields);
@@ -533,80 +681,33 @@ function LifeStageSetupScreen({ profile, onClose, onSave }) {
   const progressPillIndex = Math.round((stepIndex / Math.max(1, stepOrder.length - 1)) * 4);
   const peopleInStage = getPeopleCopy(draft.stage, definition);
   const boardContext = getBoardContext({ step, activeQuestionKey, draft, peopleInStage });
-  const displayedBoardContext = contextStatus === "loading" ? CONTEXT_LOADING_COPY : aiBoardContext || boardContext;
 
   useEffect(() => {
     if (typeof document === "undefined") return undefined;
     const previousOverflow = document.body.style.overflow;
     document.body.style.overflow = "hidden";
-    return () => { document.body.style.overflow = previousOverflow; };
-  }, []);
-
-  useEffect(() => {
     return () => {
-      if (contextTimerRef.current && typeof window !== "undefined") window.clearTimeout(contextTimerRef.current);
+      document.body.style.overflow = previousOverflow;
     };
   }, []);
 
-  const startContextRequest = ({ nextDraft, currentKey, currentValue, nextStep = step }) => {
-    if (typeof window === "undefined") return;
-    const requestId = contextRequestRef.current + 1;
-    contextRequestRef.current = requestId;
-    setContextStatus("loading");
-    setAiBoardContext(null);
-
-    if (contextTimerRef.current) window.clearTimeout(contextTimerRef.current);
-
-    const minimumDelay = new Promise((resolve) => {
-      contextTimerRef.current = window.setTimeout(resolve, 800);
-    });
-
-    const localBoardContext = getLocalBoardContextFor({ draft: nextDraft, step: nextStep });
-
-    generateLifeStageBoardContextWithGemini({
-      stage: nextDraft.stage,
-      currentKey,
-      currentValue,
-      draft: nextDraft,
-      localBoardContext,
-    })
-      .then(async (geminiContext) => {
-        await minimumDelay;
-        if (contextRequestRef.current !== requestId) return;
-        setAiBoardContext(geminiContext);
-      })
-      .catch(async (error) => {
-        await minimumDelay;
-        if (contextRequestRef.current !== requestId) return;
-        console.warn("[CLARA Life Stage Gemini] Falling back to local board context:", error);
-        setAiBoardContext(null);
-      })
-      .finally(() => {
-        if (contextRequestRef.current === requestId) setContextStatus("ready");
-      });
-  };
-
   const selectStage = (stageName) => {
-    const nextDraft = buildStageDraft(stageName, draft);
-    setDraft(nextDraft);
-    startContextRequest({ nextDraft, currentKey: "stage", currentValue: stageName, nextStep: "stage" });
-  };
-
-  const handleQuestionSelect = (key, value) => {
-    const nextDraft = { ...draft, [key]: value };
-    setDraft(nextDraft);
-    startContextRequest({ nextDraft, currentKey: key, currentValue: value, nextStep: key });
+    setDraft((current) => buildStageDraft(stageName, current));
   };
 
   const goBack = () => {
-    setAiBoardContext(null);
-    if (stepIndex <= 0) { onClose(); return; }
+    if (stepIndex <= 0) {
+      onClose();
+      return;
+    }
     setStep(stepOrder[stepIndex - 1]);
   };
 
   const goNext = () => {
-    setAiBoardContext(null);
-    if (stepIndex < stepOrder.length - 1) { setStep(stepOrder[stepIndex + 1]); return; }
+    if (stepIndex < stepOrder.length - 1) {
+      setStep(stepOrder[stepIndex + 1]);
+      return;
+    }
     const savedDraft = { ...draft, stage: normalizeStageName(draft.stage), updatedAt: new Date().toISOString() };
     saveStageProfile(savedDraft);
     onSave(savedDraft);
@@ -616,30 +717,71 @@ function LifeStageSetupScreen({ profile, onClose, onSave }) {
   return (
     <div className="fixed inset-y-0 left-1/2 z-[9999] flex h-[100svh] w-full max-w-[430px] -translate-x-1/2 flex-col overflow-hidden bg-[#020817] px-4 pb-[max(16px,env(safe-area-inset-bottom))] pt-[max(18px,env(safe-area-inset-top))] shadow-[0_24px_90px_rgba(0,0,0,.62),inset_0_0_0_1px_rgba(255,255,255,.04)]">
       <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_8%_2%,rgba(45,212,191,.18),transparent_30%),radial-gradient(circle_at_92%_10%,rgba(124,58,237,.28),transparent_34%),radial-gradient(circle_at_45%_100%,rgba(14,165,233,.10),transparent_30%),linear-gradient(180deg,rgba(7,18,38,.88),rgba(2,8,23,.98))]" />
+
       <header className="relative z-10 shrink-0 overflow-hidden rounded-[32px] border border-cyan-200/18 bg-[#071226]/68 p-5 shadow-[0_22px_70px_rgba(0,0,0,.34),0_0_44px_rgba(34,211,238,.10),inset_0_1px_0_rgba(255,255,255,.08)] backdrop-blur-2xl">
         <div className="pointer-events-none absolute -left-16 -top-20 h-48 w-56 rounded-full bg-cyan-300/16 blur-3xl" />
         <div className="pointer-events-none absolute -right-16 -bottom-24 h-56 w-64 rounded-full bg-violet-500/24 blur-3xl" />
         <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_88%_8%,rgba(255,255,255,.10),transparent_26%),radial-gradient(circle_at_20%_16%,rgba(125,211,252,.10),transparent_30%)]" />
         <div className="pointer-events-none absolute inset-0 opacity-35 [background-image:radial-gradient(circle_at_18%_22%,rgba(255,255,255,.34)_0_1px,transparent_1.5px),radial-gradient(circle_at_82%_36%,rgba(255,255,255,.28)_0_1px,transparent_1.5px),radial-gradient(circle_at_72%_72%,rgba(255,255,255,.22)_0_1px,transparent_1.5px)]" />
+
         <div className="relative z-10 flex items-start justify-between gap-4">
           <div className="min-w-0 flex-1">
             <p className="text-[10px] font-black uppercase tracking-[0.28em] text-cyan-100/72">CLARA context board</p>
-            <h3 className="mt-5 max-w-[330px] text-[clamp(30px,8vw,40px)] font-black leading-[1.03] tracking-[-0.045em] text-white drop-shadow-[0_8px_24px_rgba(0,0,0,.35)]">{displayedBoardContext.title}</h3>
-            <p className="mt-4 max-w-[350px] text-[13px] font-semibold leading-6 text-white/74">{displayedBoardContext.summary}</p>
+            <h3 className="mt-5 max-w-[330px] text-[clamp(30px,8vw,40px)] font-black leading-[1.03] tracking-[-0.045em] text-white drop-shadow-[0_8px_24px_rgba(0,0,0,.35)]">{boardContext.title}</h3>
+            <p className="mt-4 max-w-[350px] text-[13px] font-semibold leading-6 text-white/74">{boardContext.summary}</p>
           </div>
-          <button type="button" onClick={onClose} className="grid h-12 w-12 shrink-0 place-items-center rounded-full border border-white/[0.12] bg-white/[0.055] text-white/82 shadow-[0_10px_28px_rgba(0,0,0,.20),inset_0_1px_0_rgba(255,255,255,.08)] backdrop-blur-xl active:scale-95" aria-label="Close life stage setup"><X className="h-6 w-6" strokeWidth={1.8} /></button>
+          <button
+            type="button"
+            onClick={onClose}
+            className="grid h-12 w-12 shrink-0 place-items-center rounded-full border border-white/[0.12] bg-white/[0.055] text-white/82 shadow-[0_10px_28px_rgba(0,0,0,.20),inset_0_1px_0_rgba(255,255,255,.08)] backdrop-blur-xl active:scale-95"
+            aria-label="Close life stage setup"
+          >
+            <X className="h-6 w-6" strokeWidth={1.8} />
+          </button>
         </div>
+
         <div className="relative z-10 mt-6 flex justify-center gap-3">
-          {Array.from({ length: 5 }).map((_, index) => <div key={index} className={`h-1.5 rounded-full transition-all ${index <= progressPillIndex ? "w-12 bg-cyan-200 shadow-[0_0_18px_rgba(125,211,252,.34)]" : "w-10 bg-white/[0.085]"}`} />)}
+          {Array.from({ length: 5 }).map((_, index) => (
+            <div
+              key={index}
+              className={`h-1.5 rounded-full transition-all ${
+                index <= progressPillIndex
+                  ? "w-12 bg-cyan-200 shadow-[0_0_18px_rgba(125,211,252,.34)]"
+                  : "w-10 bg-white/[0.085]"
+              }`}
+            />
+          ))}
         </div>
       </header>
+
       <main className="relative z-10 mt-5 min-h-0 flex-1 overflow-y-auto pr-0.5 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-        {step === "stage" ? <div className="space-y-3.5 pb-4">{STAGE_ORDER.map((stage) => <StageCard key={stage} stage={stage} active={draft.stage === stage} onClick={() => selectStage(stage)} />)}</div> : null}
-        {activeQuestionKey ? <div className="space-y-3.5 pb-4"><OptionGroup eyebrow={activeMeta?.eyebrow || "Choose one"} value={draft[activeQuestionKey]} options={fields[activeQuestionKey] || []} onSelect={(value) => handleQuestionSelect(activeQuestionKey, value)} /></div> : null}
+        {step === "stage" ? (
+          <div className="space-y-3.5 pb-4">
+            {STAGE_ORDER.map((stage) => (
+              <StageCard key={stage} stage={stage} active={draft.stage === stage} onClick={() => selectStage(stage)} />
+            ))}
+          </div>
+        ) : null}
+
+        {activeQuestionKey ? (
+          <div className="space-y-3.5 pb-4">
+            <OptionGroup
+              eyebrow={activeMeta?.eyebrow || "Choose one"}
+              value={draft[activeQuestionKey]}
+              options={fields[activeQuestionKey] || []}
+              onSelect={(value) => setDraft((current) => ({ ...current, [activeQuestionKey]: value }))}
+            />
+          </div>
+        ) : null}
       </main>
+
       <footer className="relative z-10 mt-4 flex shrink-0 gap-4">
-        <button type="button" onClick={goBack} className="flex min-h-[58px] flex-1 items-center justify-center gap-2 rounded-[22px] border border-cyan-200/20 bg-[#061327]/78 px-5 py-4 text-sm font-black text-white/86 shadow-[0_16px_38px_rgba(0,0,0,.28),inset_0_1px_0_rgba(255,255,255,.05)] backdrop-blur-xl active:scale-95">{step === "stage" ? "Cancel" : <><ChevronLeft className="h-4 w-4" /> Back</>}</button>
-        <button type="button" onClick={goNext} className="flex min-h-[58px] flex-1 items-center justify-center gap-2 rounded-[22px] border border-white/20 bg-[linear-gradient(135deg,#67f8ff,#8bdcff_46%,#72a9ff)] px-5 py-4 text-sm font-black text-slate-950 shadow-[0_18px_42px_rgba(103,248,255,.24),0_0_34px_rgba(125,211,252,.22)] active:scale-95">{stepIndex === stepOrder.length - 1 ? <><Check className="h-4 w-4" /> Apply stage</> : "Continue"}</button>
+        <button type="button" onClick={goBack} className="flex min-h-[58px] flex-1 items-center justify-center gap-2 rounded-[22px] border border-cyan-200/20 bg-[#061327]/78 px-5 py-4 text-sm font-black text-white/86 shadow-[0_16px_38px_rgba(0,0,0,.28),inset_0_1px_0_rgba(255,255,255,.05)] backdrop-blur-xl active:scale-95">
+          {step === "stage" ? "Cancel" : <><ChevronLeft className="h-4 w-4" /> Back</>}
+        </button>
+        <button type="button" onClick={goNext} className="flex min-h-[58px] flex-1 items-center justify-center gap-2 rounded-[22px] border border-white/20 bg-[linear-gradient(135deg,#67f8ff,#8bdcff_46%,#72a9ff)] px-5 py-4 text-sm font-black text-slate-950 shadow-[0_18px_42px_rgba(103,248,255,.24),0_0_34px_rgba(125,211,252,.22)] active:scale-95">
+          {stepIndex === stepOrder.length - 1 ? <><Check className="h-4 w-4" /> Apply stage</> : "Continue"}
+        </button>
       </footer>
     </div>
   );
@@ -652,6 +794,7 @@ export default function FinancialClimateScreen() {
   const [showHeroActions, setShowHeroActions] = useState(false);
   const [stageProfile, setStageProfile] = useState(() => readStageProfile());
   const [stageImages, setStageImages] = useState(() => readStageImages());
+
   const definition = useMemo(() => getStageDefinition(stageProfile.stage), [stageProfile.stage]);
   const customImage = stageImages[stageProfile.stage] || "";
   const defaultImage = getLifeStageImage(stageProfile.stage, "default");
@@ -669,9 +812,20 @@ export default function FinancialClimateScreen() {
       return next;
     });
   };
-  const openStageSetup = () => { setShowHeroActions(false); setShowStageSetup(true); };
-  const openImageSetup = () => { setShowHeroActions(false); setShowImageSetup(true); };
-  if (showStageSetup) return <LifeStageSetupScreen profile={stageProfile} onClose={() => setShowStageSetup(false)} onSave={setStageProfile} />;
+
+  const openStageSetup = () => {
+    setShowHeroActions(false);
+    setShowStageSetup(true);
+  };
+
+  const openImageSetup = () => {
+    setShowHeroActions(false);
+    setShowImageSetup(true);
+  };
+
+  if (showStageSetup) {
+    return <LifeStageSetupScreen profile={stageProfile} onClose={() => setShowStageSetup(false)} onSave={setStageProfile} />;
+  }
 
   return (
     <div className="relative flex h-full min-h-0 flex-col overflow-hidden rounded-[30px] bg-[#020817] px-3 pb-3 pt-1 shadow-[inset_0_0_0_1px_rgba(255,255,255,.035)]">
@@ -679,22 +833,70 @@ export default function FinancialClimateScreen() {
         <div className="absolute inset-x-0 bottom-0 h-[62%] bg-[linear-gradient(180deg,transparent,rgba(2,8,23,.96))]" />
         <div className="absolute inset-0 opacity-75 [background:linear-gradient(180deg,rgba(2,8,23,.18),rgba(2,8,23,.72)),radial-gradient(circle_at_78%_18%,rgba(96,165,250,.18),transparent_18%),linear-gradient(90deg,rgba(2,8,23,.98)_0%,rgba(2,8,23,.58)_54%,rgba(2,8,23,.14)_100%)]" />
         <div className="absolute bottom-0 right-0 h-full w-[56%] overflow-hidden">
-          {activeImage ? <img src={activeImage} alt={`${stageProfile.stage} stage background`} className="h-full w-full object-cover opacity-78 saturate-[.9]" /> : <div className="absolute inset-x-2 bottom-0 h-[92%] rounded-t-[90px] bg-[linear-gradient(145deg,rgba(125,211,252,.42),rgba(30,64,175,.12))] opacity-90" />}
+          {activeImage ? (
+            <img src={activeImage} alt={`${stageProfile.stage} stage background`} className="h-full w-full object-cover opacity-78 saturate-[.9]" />
+          ) : (
+            <div className="absolute inset-x-2 bottom-0 h-[92%] rounded-t-[90px] bg-[linear-gradient(145deg,rgba(125,211,252,.42),rgba(30,64,175,.12))] opacity-90" />
+          )}
           <div className="absolute inset-0 bg-[linear-gradient(90deg,rgba(2,8,23,.84),rgba(2,8,23,.08)_48%,rgba(2,8,23,.18))]" />
         </div>
         <div className="absolute bottom-0 left-0 right-0 h-12 bg-[linear-gradient(180deg,transparent,#020817)]" />
+
         <div className="absolute left-4 top-4 z-20">
-          <button type="button" onClick={() => setShowHeroActions((current) => !current)} className="grid h-9 w-9 place-items-center rounded-full border border-white/[0.085] bg-slate-950/24 text-white/64 shadow-[0_10px_28px_rgba(0,0,0,.22)] backdrop-blur-xl transition active:scale-95" aria-label="Open life stage actions"><MoreHorizontal className="h-4.5 w-4.5" /></button>
-          {showHeroActions ? <div className="absolute left-0 top-11 w-36 overflow-hidden rounded-[18px] border border-white/[0.085] bg-[#071226]/82 p-1.5 shadow-[0_18px_54px_rgba(0,0,0,.38)] backdrop-blur-2xl"><button type="button" onClick={openStageSetup} className="w-full rounded-[14px] px-3 py-2.5 text-left text-[11px] font-black uppercase tracking-[0.12em] text-white/72 transition hover:bg-white/[0.055] active:scale-[0.99]">Set stage</button><button type="button" onClick={openImageSetup} className="w-full rounded-[14px] px-3 py-2.5 text-left text-[11px] font-black uppercase tracking-[0.12em] text-white/72 transition hover:bg-white/[0.055] active:scale-[0.99]">Image</button></div> : null}
+          <button
+            type="button"
+            onClick={() => setShowHeroActions((current) => !current)}
+            className="grid h-9 w-9 place-items-center rounded-full border border-white/[0.085] bg-slate-950/24 text-white/64 shadow-[0_10px_28px_rgba(0,0,0,.22)] backdrop-blur-xl transition active:scale-95"
+            aria-label="Open life stage actions"
+          >
+            <MoreHorizontal className="h-4.5 w-4.5" />
+          </button>
+          {showHeroActions ? (
+            <div className="absolute left-0 top-11 w-36 overflow-hidden rounded-[18px] border border-white/[0.085] bg-[#071226]/82 p-1.5 shadow-[0_18px_54px_rgba(0,0,0,.38)] backdrop-blur-2xl">
+              <button type="button" onClick={openStageSetup} className="w-full rounded-[14px] px-3 py-2.5 text-left text-[11px] font-black uppercase tracking-[0.12em] text-white/72 transition hover:bg-white/[0.055] active:scale-[0.99]">
+                Set stage
+              </button>
+              <button type="button" onClick={openImageSetup} className="w-full rounded-[14px] px-3 py-2.5 text-left text-[11px] font-black uppercase tracking-[0.12em] text-white/72 transition hover:bg-white/[0.055] active:scale-[0.99]">
+                Image
+              </button>
+            </div>
+          ) : null}
         </div>
+
         <div className="relative z-10 flex h-full max-w-[59%] flex-col justify-center pt-3">
           <p className="text-[9px] font-black uppercase tracking-[0.15em] text-white/52">Your life stage</p>
           <h2 className="mt-2 text-[clamp(22px,7vw,31px)] font-black leading-[1.02] text-white drop-shadow-lg">{stageProfile.stage} <span className="text-[13px] text-amber-100/78">♛</span></h2>
           <p className="mt-2 line-clamp-4 text-[12px] font-semibold leading-5 text-white/62">{definition.identity.caption}</p>
         </div>
       </section>
-      <section className="mt-3 min-h-0 flex-[0.58] overflow-hidden rounded-[24px] border border-white/[0.075] bg-[#071226]/56 p-3 backdrop-blur-xl"><div className="flex h-full items-center justify-between gap-3"><div className="min-w-0 flex-1"><h3 className="text-[14px] font-black text-white">You’re not alone.</h3><p className="mt-1 line-clamp-3 text-[12px] font-semibold leading-5 text-white/56">Many people in this life stage are experiencing similar financial pressure.</p></div><div className="grid h-16 w-16 shrink-0 place-items-center rounded-full border border-violet-200/14 bg-violet-300/8 shadow-[0_0_30px_rgba(167,139,250,.18)]"><Heart className="h-7 w-7 fill-violet-100 text-violet-100" /></div></div></section>
-      <section className="mt-3 flex min-h-0 flex-[0.95] flex-col overflow-hidden rounded-[24px] border border-white/[0.075] bg-[#071226]/50 p-3 backdrop-blur-xl"><div className="flex shrink-0 items-center justify-between gap-3"><div><h3 className="text-[14px] font-black text-white">Life Stage Trend Snapshot</h3><p className="mt-0.5 text-[10px] font-semibold text-white/36">Swipe the stage cards.</p></div><Sparkles className="h-4 w-4 text-cyan-100/36" /></div><div className="mt-3 flex min-h-0 flex-1 snap-x gap-2.5 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">{definition.indicators.map((item) => <TrendSnapshotCard key={item.label} item={item} onClick={() => setSelectedTrend(item)} />)}</div></section>
+
+      <section className="mt-3 min-h-0 flex-[0.58] overflow-hidden rounded-[24px] border border-white/[0.075] bg-[#071226]/56 p-3 backdrop-blur-xl">
+        <div className="flex h-full items-center justify-between gap-3">
+          <div className="min-w-0 flex-1">
+            <h3 className="text-[14px] font-black text-white">You’re not alone.</h3>
+            <p className="mt-1 line-clamp-3 text-[12px] font-semibold leading-5 text-white/56">Many people in this life stage are experiencing similar financial pressure.</p>
+          </div>
+          <div className="grid h-16 w-16 shrink-0 place-items-center rounded-full border border-violet-200/14 bg-violet-300/8 shadow-[0_0_30px_rgba(167,139,250,.18)]">
+            <Heart className="h-7 w-7 fill-violet-100 text-violet-100" />
+          </div>
+        </div>
+      </section>
+
+      <section className="mt-3 flex min-h-0 flex-[0.95] flex-col overflow-hidden rounded-[24px] border border-white/[0.075] bg-[#071226]/50 p-3 backdrop-blur-xl">
+        <div className="flex shrink-0 items-center justify-between gap-3">
+          <div>
+            <h3 className="text-[14px] font-black text-white">Life Stage Trend Snapshot</h3>
+            <p className="mt-0.5 text-[10px] font-semibold text-white/36">Swipe the stage cards.</p>
+          </div>
+          <Sparkles className="h-4 w-4 text-cyan-100/36" />
+        </div>
+        <div className="mt-3 flex min-h-0 flex-1 snap-x gap-2.5 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+          {definition.indicators.map((item) => (
+            <TrendSnapshotCard key={item.label} item={item} onClick={() => setSelectedTrend(item)} />
+          ))}
+        </div>
+      </section>
+
       {selectedTrend ? <DataDetailPanel trend={selectedTrend} onClose={() => setSelectedTrend(null)} /> : null}
       {showImageSetup ? <StageImagePanel stage={stageProfile.stage} image={customImage} onApply={applyStageImage} onClose={() => setShowImageSetup(false)} /> : null}
     </div>

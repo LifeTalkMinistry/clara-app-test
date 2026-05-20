@@ -1,7 +1,4 @@
 const FLOW_MARKER = "CLARA CONTEXT BOARD";
-const CONTEXT_LOADING_TITLE = "Hmm… let me understand your situation.";
-const CONTEXT_LOADING_DISPLAY_TITLE = "Hmm… let me think about that.";
-const CONTEXT_LOADING_PILL = "CLARA is thinking…";
 
 const STEP_ORDER = [
   "CURRENT SETUP",
@@ -117,76 +114,6 @@ function isVisible(node) {
   return !!node && !!(node.offsetWidth || node.offsetHeight || node.getClientRects?.().length);
 }
 
-function isContextBoardLoadingTitle(value) {
-  const title = clean(value);
-  return (
-    title === CONTEXT_LOADING_TITLE ||
-    title === CONTEXT_LOADING_DISPLAY_TITLE ||
-    (title.startsWith("Hmm") && (title.includes("understand your situation") || title.includes("think about that")))
-  );
-}
-
-function applyLoadingBoardPresentation(title, summary) {
-  if (!title || !summary) return;
-
-  title.dataset.claraLoadingPresentation = "true";
-  summary.dataset.claraLoadingPresentation = "true";
-
-  title.textContent = CONTEXT_LOADING_DISPLAY_TITLE;
-  summary.textContent = CONTEXT_LOADING_PILL;
-
-  title.style.setProperty("margin-top", "1rem", "important");
-  title.style.setProperty("max-width", "260px", "important");
-  title.style.setProperty("font-size", "1.15rem", "important");
-  title.style.setProperty("line-height", "1.35", "important");
-  title.style.setProperty("letter-spacing", "-0.015em", "important");
-  title.style.setProperty("font-weight", "800", "important");
-  title.style.setProperty("opacity", "0.94", "important");
-  title.style.setProperty("text-shadow", "0 8px 24px rgba(0,0,0,.28)", "important");
-
-  summary.style.setProperty("display", "inline-flex", "important");
-  summary.style.setProperty("align-items", "center", "important");
-  summary.style.setProperty("width", "fit-content", "important");
-  summary.style.setProperty("max-width", "100%", "important");
-  summary.style.setProperty("margin-top", "1rem", "important");
-  summary.style.setProperty("padding", "0.42rem 0.72rem", "important");
-  summary.style.setProperty("border-radius", "999px", "important");
-  summary.style.setProperty("border", "1px solid rgba(125,211,252,.18)", "important");
-  summary.style.setProperty("background", "rgba(125,211,252,.07)", "important");
-  summary.style.setProperty("box-shadow", "0 0 28px rgba(34,211,238,.10), inset 0 1px 0 rgba(255,255,255,.08)", "important");
-  summary.style.setProperty("font-size", "0.68rem", "important");
-  summary.style.setProperty("line-height", "1", "important");
-  summary.style.setProperty("font-weight", "900", "important");
-  summary.style.setProperty("letter-spacing", "0.12em", "important");
-  summary.style.setProperty("text-transform", "uppercase", "important");
-  summary.style.setProperty("color", "rgba(207,250,254,.78)", "important");
-}
-
-function resetLoadingBoardPresentation(title, summary) {
-  [title, summary].forEach((node) => {
-    if (!node || node.dataset.claraLoadingPresentation !== "true") return;
-    node.removeAttribute("data-clara-loading-presentation");
-    node.style.removeProperty("display");
-    node.style.removeProperty("align-items");
-    node.style.removeProperty("width");
-    node.style.removeProperty("max-width");
-    node.style.removeProperty("margin-top");
-    node.style.removeProperty("padding");
-    node.style.removeProperty("border-radius");
-    node.style.removeProperty("border");
-    node.style.removeProperty("background");
-    node.style.removeProperty("box-shadow");
-    node.style.removeProperty("font-size");
-    node.style.removeProperty("line-height");
-    node.style.removeProperty("font-weight");
-    node.style.removeProperty("letter-spacing");
-    node.style.removeProperty("text-transform");
-    node.style.removeProperty("color");
-    node.style.removeProperty("opacity");
-    node.style.removeProperty("text-shadow");
-  });
-}
-
 function getStepMeta(text) {
   return STEP_META[loud(text)] || null;
 }
@@ -233,7 +160,6 @@ function findStageBoard() {
 function rememberStageSelection() {
   const { title } = findStageBoard();
   const titleText = clean(title?.textContent || "");
-  if (isContextBoardLoadingTitle(titleText)) return;
   if (titleText && !STEP_ORDER.includes(loud(titleText))) state.stage = titleText;
 }
 
@@ -293,16 +219,9 @@ function buildContextualSummary(activeKey, selectedValue) {
 }
 
 function polishContextBoard() {
-  const { summary, title } = findStageBoard();
-
-  if (isContextBoardLoadingTitle(title?.textContent)) {
-    applyLoadingBoardPresentation(title, summary);
-    return;
-  }
-
-  resetLoadingBoardPresentation(title, summary);
   rememberStageSelection();
   const active = rememberCurrentSelection();
+  const { summary, title } = findStageBoard();
   if (!active || !summary || !title) return;
   const selectedValue = active.selectedValue || clean(title.textContent);
   if (!selectedValue) return;
@@ -361,5 +280,5 @@ function installLifeStageSetupFlowPolish() {
 try {
   installLifeStageSetupFlowPolish();
 } catch (error) {
-  console.warn("CLARA life stage setup flow failed:", error);
+  console.warn("CLARA life stage setup flow polish failed:", error);
 }
