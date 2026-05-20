@@ -655,6 +655,13 @@ function CalendarMonth({ monthDate, cells, selectedDate, todayKey, byDate, onSel
           if (!cell) return <div key={`empty-${index}`} className="min-h-[48px]" />;
 
           const events = byDate[cell.key] || [];
+          const contextEvent = events.find((event) => event.autoContext);
+          const moneyEvent = events.find(isMoneyEvent);
+          const firstEvent = events[0];
+
+          const iconEvent = contextEvent || moneyEvent || firstEvent;
+          const dayIcon = iconEvent?.emoji || null;
+
           const hasContext = events.some((event) => event.autoContext);
           const hasMoney = events.some(isMoneyEvent);
           const hasAny = events.length > 0;
@@ -683,6 +690,21 @@ function CalendarMonth({ monthDate, cells, selectedDate, todayKey, byDate, onSel
             >
               {selected ? (
                 <span className="pointer-events-none absolute inset-[-2px] rounded-[18px] border border-cyan-200/25" />
+              ) : null}
+
+              {dayIcon ? (
+                <span
+                  className={`absolute right-1 top-1 flex h-5 w-5 items-center justify-center rounded-full border text-[10px] shadow-[0_0_12px_rgba(255,255,255,.12)] backdrop-blur-md ${
+                    hasContext
+                      ? "border-fuchsia-200/25 bg-fuchsia-300/[.13]"
+                      : hasMoney
+                        ? "border-fuchsia-200/20 bg-fuchsia-300/[.10]"
+                        : "border-cyan-200/20 bg-cyan-300/[.10]"
+                  }`}
+                  aria-hidden="true"
+                >
+                  {dayIcon}
+                </span>
               ) : null}
 
               <span className="relative z-10">{cell.day}</span>
