@@ -26,6 +26,36 @@ html body #root#root div[class*="fixed"][class*="inset-y-0"][class*="left-1/2"][
   -webkit-overflow-scrolling: touch !important;
 }
 
+/* Stage picker alignment: every stage tile should occupy the same full row width. */
+html body #root#root div[class*="fixed"][class*="inset-y-0"][class*="left-1/2"][class*="z-[9999]"] main > div > button[class*="min-h-[78px]"] {
+  display: block !important;
+  width: 100% !important;
+  max-width: 100% !important;
+  min-width: 0 !important;
+  box-sizing: border-box !important;
+}
+
+html body #root#root div[class*="fixed"][class*="inset-y-0"][class*="left-1/2"][class*="z-[9999]"] main > div > button[class*="min-h-[78px]"] > div[class*="flex"] {
+  width: 100% !important;
+  display: grid !important;
+  grid-template-columns: 52px minmax(0, 1fr) 32px !important;
+  align-items: center !important;
+  column-gap: 0.875rem !important;
+}
+
+html body #root#root div[class*="fixed"][class*="inset-y-0"][class*="left-1/2"][class*="z-[9999]"] main > div > button[class*="min-h-[78px]"] p {
+  min-width: 0 !important;
+  width: 100% !important;
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
+  white-space: nowrap !important;
+}
+
+html body #root#root div[class*="fixed"][class*="inset-y-0"][class*="left-1/2"][class*="z-[9999]"] main > div > button[class*="min-h-[78px]"] span:first-child,
+html body #root#root div[class*="fixed"][class*="inset-y-0"][class*="left-1/2"][class*="z-[9999]"] main > div > button[class*="min-h-[78px]"] span:last-child {
+  justify-self: center !important;
+}
+
 /* Adaptive progressive sizing */
 html body #root#root div[class*="fixed"][class*="inset-y-0"][class*="left-1/2"][class*="z-[9999]"] section[data-clara-progressive-flow="true"] {
   min-height: 0 !important;
@@ -171,6 +201,11 @@ html body #root#root div[class*="fixed"][class*="inset-y-0"][class*="left-1/2"][
 @media (max-width: 380px) {
   html body #root#root div[class*="fixed"][class*="inset-y-0"][class*="left-1/2"][class*="z-[9999]"] h3 {
     font-size: clamp(1.8rem, 8vw, 2.4rem) !important;
+  }
+
+  html body #root#root div[class*="fixed"][class*="inset-y-0"][class*="left-1/2"][class*="z-[9999]"] main > div > button[class*="min-h-[78px]"] > div[class*="flex"] {
+    grid-template-columns: 48px minmax(0, 1fr) 30px !important;
+    column-gap: 0.75rem !important;
   }
 
   html body #root#root div[class*="fixed"][class*="inset-y-0"][class*="left-1/2"][class*="z-[9999]"] section[data-clara-progressive-flow="true"] > div[data-clara-progressive-visible="true"] > div {
