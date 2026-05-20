@@ -46,10 +46,14 @@ function show(profile) {
 function install() {
   if (typeof window === "undefined" || typeof document === "undefined" || window.__claraLifeStageDiagnosisRevealInstalled) return;
   window.__claraLifeStageDiagnosisRevealInstalled = true;
-  const reveal = (delay = 500) => setTimeout(() => show(readProfile()), delay);
+  let revealTimer = null;
+  const reveal = (delay = 35) => {
+    clearTimeout(revealTimer);
+    revealTimer = setTimeout(() => show(readProfile()), delay);
+  };
   document.addEventListener("click", (event) => {
     const button = event.target?.closest?.("button");
-    if (button && /apply stage/i.test(clean(button.innerText || button.textContent))) reveal(650);
-  }, true);
+    if (button && /apply stage/i.test(clean(button.innerText || button.textContent))) reveal(35);
+  }, false);
 }
 try { install(); } catch (error) { console.warn("CLARA Life Stage diagnosis reveal failed:", error); }
