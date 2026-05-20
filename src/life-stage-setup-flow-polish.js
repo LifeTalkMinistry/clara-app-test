@@ -92,6 +92,15 @@ const OPTION_TITLES = {
   "Control stress spending": "Protect From Stress Spending",
 };
 
+const PROGRESS_BY_STEP = {
+  setup: 1,
+  rhythm: 2,
+  workload: 3,
+  pressure: 4,
+  coping: 5,
+  goal: 5,
+};
+
 const clean = (value) => String(value || "").replace(/\s+/g, " ").trim();
 const loud = (value) => clean(value).toUpperCase();
 
@@ -134,6 +143,31 @@ function findStageBoard() {
   return { marker, header, title, summary };
 }
 
+function findProgressDots(header) {
+  const groups = Array.from(header?.querySelectorAll("div") || []);
+  const progressGroup = groups.find((group) => {
+    const children = Array.from(group.children || []);
+    return children.length >= 5 && children.every((child) => String(child.className || "").includes("rounded-full"));
+  });
+  return Array.from(progressGroup?.children || []);
+}
+
+function updateProgressDots(header, activeKey) {
+  const dots = findProgressDots(header);
+  const activeCount = PROGRESS_BY_STEP[activeKey] || 1;
+  if (!dots.length) return;
+
+  dots.forEach((dot, index) => {
+    const active = index < activeCount;
+    dot.style.setProperty("width", active ? "2.8rem" : "2.35rem", "important");
+    dot.style.setProperty("height", "0.25rem", "important");
+    dot.style.setProperty("border-radius", "9999px", "important");
+    dot.style.setProperty("background", active ? "rgb(165 243 252)" : "rgba(255, 255, 255, 0.12)", "important");
+    dot.style.setProperty("box-shadow", active ? "0 0 18px rgba(125, 211, 252, 0.34)" : "none", "important");
+    dot.style.setProperty("opacity", "1", "important");
+  });
+}
+
 function polishQuestionCards() {
   const labels = Array.from(document.querySelectorAll("section p"));
   labels.forEach((label) => {
@@ -156,13 +190,15 @@ function polishQuestionCards() {
 
 function polishContextBoard() {
   const active = findActiveQuestionSection();
-  const { summary, title } = findStageBoard();
-  if (!active || !summary || !title) return;
+  const { header, summary, title } = findStageBoard();
+  if (!active || !header || !summary || !title) return;
 
   const selectedValue = getSelectedOption(active.section);
   const nextTitle = OPTION_TITLES[selectedValue] || active.meta.title;
   const nextSummary = active.meta.summary;
   const signature = `${active.meta.key}:${selectedValue}`;
+
+  updateProgressDots(header, active.meta.key);
 
   if (title.dataset.claraBoardSignature !== signature) {
     title.textContent = nextTitle;
@@ -190,8 +226,10 @@ function installLifeStageSetupFlowPolish() {
     if (scheduled) return;
     scheduled = true;
     window.requestAnimationFrame(() => {
-      scheduled = false;
-      polishFlow();
+      window.requestAnimationFrame(() => {
+        scheduled = false;
+        polishFlow();
+      });
     });
   };
   schedule();
