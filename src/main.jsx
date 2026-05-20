@@ -11,6 +11,7 @@ import "./clara-me-panel";
 import "./clara-talk-pause-bridge";
 import "./life-stage-support-card";
 import "./life-stage-trend-snapshot";
+import "./life-stage-setup-flow-polish";
 import App from "./App.jsx";
 import "./index.css";
 import "./clara-fab-theme.css";
@@ -28,6 +29,7 @@ import "./settings-support-compose.css";
 import "./life-stage-collision.css";
 import "./life-stage-action-position.css";
 import "./life-stage-setup-scale.css";
+import "./life-stage-setup-flow-polish.css";
 
 window.CLARA_BILLING = window.CLARA_BILLING || {};
 
