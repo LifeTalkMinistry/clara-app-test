@@ -11,8 +11,192 @@ import {
 import useUserRole from "@/hooks/useUserRole";
 
 const STORAGE_PREFIX = "clara_schedule_events_v2";
-const TYPES = ["Bill", "Payday", "Health", "Work", "Family", "Relationship", "Personal"];
+const TYPES = [
+  "Bill",
+  "Payday",
+  "Holiday",
+  "Birthday",
+  "Date Night",
+  "Church",
+  "School",
+  "Health",
+  "Work",
+  "Family",
+  "Relationship",
+  "Travel",
+  "Grocery",
+  "Personal",
+  "Celebration",
+];
 const WEEKDAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+const COUNTRY_OPTIONS = ["Philippines", "Global", "United States", "Japan"];
+
+const GLOBAL_EVENT_TEMPLATES = [
+  {
+    id: "birthday",
+    emoji: "🎂",
+    title: "Birthday",
+    type: "Birthday",
+    note: "Gift, food, travel, or celebration spending may happen. CLARA should help you prepare instead of rushing later.",
+  },
+  {
+    id: "date-night",
+    emoji: "❤️",
+    title: "Date night",
+    type: "Date Night",
+    note: "Relationship spending may be emotional. Set a loving but realistic budget before the day arrives.",
+  },
+  {
+    id: "church-event",
+    emoji: "⛪",
+    title: "Church event",
+    type: "Church",
+    note: "Possible transport, food, offering, or group activity. Keep the day meaningful without pressure spending.",
+  },
+  {
+    id: "family-gathering",
+    emoji: "🏠",
+    title: "Family gathering",
+    type: "Family",
+    note: "Family plans can affect food, travel, and contribution expectations. Prepare a clear spending boundary.",
+  },
+  {
+    id: "grocery-day",
+    emoji: "🛒",
+    title: "Grocery day",
+    type: "Grocery",
+    note: "Plan the list first so groceries stay intentional and do not eat the flexible budget.",
+  },
+  {
+    id: "school-activity",
+    emoji: "🎓",
+    title: "School activity",
+    type: "School",
+    note: "School-related days can create transport, food, supplies, or contribution costs. Prepare before it feels urgent.",
+  },
+  {
+    id: "medical",
+    emoji: "🏥",
+    title: "Medical / health",
+    type: "Health",
+    note: "Health expenses may need protection. Keep this visible so emergency money is not surprised.",
+  },
+  {
+    id: "travel",
+    emoji: "✈️",
+    title: "Travel / trip",
+    type: "Travel",
+    note: "Travel usually affects transport, food, and extra purchases. Plan the real cost, not only the ticket.",
+  },
+  {
+    id: "celebration",
+    emoji: "🎉",
+    title: "Celebration",
+    type: "Celebration",
+    note: "Celebrations can become social-pressure spending. Decide what is enough before the moment arrives.",
+  },
+];
+
+const COUNTRY_EVENT_TEMPLATES = {
+  Philippines: [
+    {
+      id: "ph-holiday",
+      emoji: "🇵🇭",
+      title: "Philippine holiday",
+      type: "Holiday",
+      note: "Holiday spending may include food, travel, family plans, or mall/crowd temptation. CLARA should watch this day.",
+    },
+    {
+      id: "christmas-season",
+      emoji: "🎄",
+      title: "Christmas preparation",
+      type: "Holiday",
+      note: "Christmas season can increase gifts, food, travel, reunions, and family support. Prepare early and protect essentials.",
+    },
+    {
+      id: "holy-week",
+      emoji: "🕊️",
+      title: "Holy Week",
+      type: "Holiday",
+      note: "Holy Week may affect travel, food, family time, church activities, and rest routines. Plan the cash rhythm before the break.",
+    },
+    {
+      id: "undas",
+      emoji: "🕯️",
+      title: "Undas / cemetery visit",
+      type: "Family",
+      note: "Undas can involve transport, flowers, candles, food, and family coordination. Prepare the expected contribution early.",
+    },
+    {
+      id: "fiesta",
+      emoji: "🥘",
+      title: "Fiesta / community event",
+      type: "Celebration",
+      note: "Fiesta days may raise food, hosting, contribution, and social spending. Decide the budget before saying yes to everything.",
+    },
+    {
+      id: "back-to-school",
+      emoji: "📚",
+      title: "Back-to-school spending",
+      type: "School",
+      note: "School opening can trigger supplies, uniform, tuition, transport, and allowance pressure. Prepare this as a protected cost.",
+    },
+    {
+      id: "payday-15-30",
+      emoji: "💸",
+      title: "Payday planning",
+      type: "Payday",
+      note: "Philippine payday rhythm can create confidence spending. Plan the first money move before casual spending starts.",
+    },
+    {
+      id: "thirteenth-month",
+      emoji: "🎁",
+      title: "13th month pay planning",
+      type: "Payday",
+      note: "Extra income can disappear quickly through gifts, debt, food, and reward spending. Give the money a role before it arrives.",
+    },
+  ],
+  "United States": [
+    {
+      id: "us-holiday",
+      emoji: "🇺🇸",
+      title: "US holiday",
+      type: "Holiday",
+      note: "Holiday spending may affect food, travel, shopping, or family plans. Prepare the expected pressure before the long weekend.",
+    },
+    {
+      id: "thanksgiving",
+      emoji: "🦃",
+      title: "Thanksgiving planning",
+      type: "Holiday",
+      note: "Food, travel, hosting, and family spending may increase. Plan the real cost early.",
+    },
+    {
+      id: "black-friday",
+      emoji: "🛍️",
+      title: "Sale season watch",
+      type: "Holiday",
+      note: "Sale events can trigger impulse buying. Ask CLARA before turning discounts into unnecessary spending.",
+    },
+  ],
+  Japan: [
+    {
+      id: "jp-holiday",
+      emoji: "🇯🇵",
+      title: "Japan holiday",
+      type: "Holiday",
+      note: "Holiday routines may affect transport, food, travel, and shopping. Prepare the day before it affects flexible spending.",
+    },
+    {
+      id: "golden-week",
+      emoji: "🌸",
+      title: "Golden Week planning",
+      type: "Holiday",
+      note: "Long holiday weeks can raise travel and leisure spending. Plan the expected cost before the break begins.",
+    },
+  ],
+  Global: [],
+};
 
 function toDateKey(date) {
   return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
@@ -58,6 +242,7 @@ function seedEvents() {
       type: "Bill",
       amount: "",
       note: "Protect money before this payment date.",
+      emoji: "💳",
     },
     {
       id: "sample-payday",
@@ -67,6 +252,7 @@ function seedEvents() {
       type: "Payday",
       amount: "",
       note: "Plan before confidence spending starts.",
+      emoji: "💸",
     },
   ];
 }
@@ -111,9 +297,53 @@ function cleanMoney(value) {
   return String(value || "").replace(/[^0-9.]/g, "");
 }
 
+function getTypeEmoji(type) {
+  const match = [...GLOBAL_EVENT_TEMPLATES, ...Object.values(COUNTRY_EVENT_TEMPLATES).flat()].find(
+    (template) => template.type === type
+  );
+
+  if (match?.emoji) return match.emoji;
+  if (type === "Bill") return "💳";
+  if (type === "Payday") return "💸";
+  if (type === "Work") return "💼";
+  if (type === "Relationship") return "❤️";
+  if (type === "Personal") return "✨";
+  return "📅";
+}
+
+function getQuickTemplates(country) {
+  const countryTemplates = COUNTRY_EVENT_TEMPLATES[country] || [];
+  const combined = [...countryTemplates, ...GLOBAL_EVENT_TEMPLATES];
+  const seen = new Set();
+
+  return combined.filter((template) => {
+    if (seen.has(template.id)) return false;
+    seen.add(template.id);
+    return true;
+  });
+}
+
 function isMoneyEvent(event) {
   const type = String(event?.type || "").toLowerCase();
-  return Boolean(event?.amount) || type === "bill" || type === "payday" || type === "money";
+  const pressureTypes = new Set([
+    "bill",
+    "payday",
+    "money",
+    "holiday",
+    "birthday",
+    "date night",
+    "travel",
+    "medical",
+    "health",
+    "school",
+    "family",
+    "relationship",
+    "celebration",
+    "grocery",
+    "church",
+  ]);
+
+  return Boolean(event?.amount) || pressureTypes.has(type);
 }
 
 function displayTitle(event) {
@@ -201,7 +431,7 @@ function getSelectedAgenda({ selectedDate, todayKey, events }) {
     title: isToday ? "No agenda today." : "No agenda on this day.",
     body: isToday
       ? "Nothing to watch out for today. You can breathe and keep your spending simple."
-      : "No schedule is attached here yet. Add one if this day may affect your money or plans.",
+      : "No schedule is attached here yet. Double tap this day if it may affect your money or plans.",
     icon: CalendarDays,
     clickable: false,
   };
@@ -212,6 +442,7 @@ function getMonthlyInsight({ sortedEvents, monthDate, todayKey }) {
   const moneyEvents = monthEvents.filter(isMoneyEvent);
   const nextMoneyEvent = sortedEvents.find((event) => event.date >= todayKey && isMoneyEvent(event));
   const paydayEvent = monthEvents.find((event) => String(event?.type || "").toLowerCase() === "payday");
+  const holidayEvent = monthEvents.find((event) => String(event?.type || "").toLowerCase() === "holiday");
   const relationshipEvent = monthEvents.find((event) => {
     const text = `${event?.title || ""} ${event?.type || ""} ${event?.note || ""}`.toLowerCase();
     return text.includes("date") || text.includes("relationship") || text.includes("partner") || text.includes("family");
@@ -223,6 +454,10 @@ function getMonthlyInsight({ sortedEvents, monthDate, todayKey }) {
 
   if (nextMoneyEvent) {
     return `Next pressure: ${displayTitle(nextMoneyEvent)} on ${formatDate(nextMoneyEvent.date)}. Keep it in mind before casual spending.`;
+  }
+
+  if (holidayEvent) {
+    return "Holiday context detected. Prepare travel, food, gifts, or family costs before they become pressure.";
   }
 
   if (paydayEvent) {
@@ -238,7 +473,7 @@ function getMonthlyInsight({ sortedEvents, monthDate, todayKey }) {
   }
 
   if (monthEvents.length === 0) {
-    return "Your month looks breathable. Add bills, payday, or expected costs when ready.";
+    return "Your month looks breathable. Add bills, payday, holidays, or expected costs when ready.";
   }
 
   return "Your schedule looks manageable. Nothing financially heavy right now.";
@@ -278,7 +513,24 @@ function AgendaCard({ agenda, onOpen }) {
   );
 }
 
-function CalendarMonth({ monthDate, cells, selectedDate, todayKey, byDate, onSelect, onPrev, onNext, onAdd }) {
+function CalendarMonth({ monthDate, cells, selectedDate, todayKey, byDate, onSelect, onPrev, onNext, onAdd, onQuickCreate }) {
+  const [lastTap, setLastTap] = useState({ key: null, time: 0 });
+
+  const handleDayTap = (dateKey) => {
+    const now = Date.now();
+    const isDoubleTap = lastTap.key === dateKey && now - lastTap.time <= 420;
+
+    onSelect(dateKey);
+
+    if (isDoubleTap) {
+      setLastTap({ key: null, time: 0 });
+      onQuickCreate(dateKey);
+      return;
+    }
+
+    setLastTap({ key: dateKey, time: now });
+  };
+
   return (
     <section className="rounded-[28px] border border-white/12 bg-white/[.03] p-3.5 shadow-[0_14px_34px_rgba(0,0,0,.16)]">
       <div className="mb-4 flex items-center justify-between gap-3">
@@ -293,7 +545,7 @@ function CalendarMonth({ monthDate, cells, selectedDate, todayKey, byDate, onSel
 
         <div className="text-center">
           <p className="text-sm font-black text-white">{formatMonth(monthDate)}</p>
-          <p className="mt-1 text-[10px] font-bold text-white/38">Tap a day to view or add</p>
+          <p className="mt-1 text-[10px] font-bold text-white/38">Tap to view • double tap to add</p>
         </div>
 
         <div className="flex gap-2">
@@ -334,7 +586,7 @@ function CalendarMonth({ monthDate, cells, selectedDate, todayKey, byDate, onSel
             <button
               key={cell.key}
               type="button"
-              onClick={() => onSelect(cell.key)}
+              onClick={() => handleDayTap(cell.key)}
               className={`relative flex min-h-[48px] flex-col items-center justify-center rounded-2xl border text-sm font-black transition duration-200 active:scale-[.96] ${
                 selected
                   ? "z-10 scale-[1.04] border-cyan-200/70 bg-cyan-300/[.16] text-white shadow-[0_0_0_1px_rgba(103,232,249,.20),0_0_24px_rgba(34,211,238,.28),inset_0_0_18px_rgba(34,211,238,.12)]"
@@ -346,7 +598,7 @@ function CalendarMonth({ monthDate, cells, selectedDate, todayKey, byDate, onSel
                         ? "border-white/10 bg-white/[.035] text-white/62"
                         : "border-white/7 bg-white/[.018] text-white/38 hover:bg-white/[.04]"
               }`}
-              aria-label={`Select ${cell.key}`}
+              aria-label={`Select ${cell.key}. Double tap to add an event.`}
             >
               {selected ? (
                 <span className="pointer-events-none absolute inset-[-2px] rounded-[18px] border border-cyan-200/25" />
@@ -363,9 +615,10 @@ function CalendarMonth({ monthDate, cells, selectedDate, todayKey, byDate, onSel
         })}
       </div>
 
-      <div className="mt-4 flex items-center gap-3 text-[10px] font-bold text-white/38">
+      <div className="mt-4 flex flex-wrap items-center gap-3 text-[10px] font-bold text-white/38">
         <span className="inline-flex items-center gap-1.5"><span className="h-1.5 w-1.5 rounded-full bg-fuchsia-200" /> Money impact</span>
         <span className="inline-flex items-center gap-1.5"><span className="h-1.5 w-1.5 rounded-full bg-cyan-200/75" /> Schedule</span>
+        <span className="ml-auto text-white/30">Double tap a day</span>
       </div>
     </section>
   );
@@ -379,7 +632,59 @@ function MonthlyInsightCard({ insight }) {
   );
 }
 
-function Sheet({ event, mode, form, setForm, onSave, onRemove, onClose }) {
+function QuickEventChooser({ date, country, setCountry, onChooseTemplate, onBlankAdd }) {
+  const templates = getQuickTemplates(country);
+
+  return (
+    <div className="mt-5 space-y-4">
+      <div className="rounded-[24px] border border-cyan-300/14 bg-cyan-300/[.04] p-4">
+        <p className="text-[11px] font-black uppercase tracking-[.2em] text-cyan-100/64">Selected day</p>
+        <h4 className="mt-2 text-lg font-black text-white">What is happening on {formatDate(date)}?</h4>
+        <p className="mt-2 text-sm leading-6 text-white/56">
+          Choose an event type so CLARA can understand the life pressure behind the date, not just the schedule.
+        </p>
+      </div>
+
+      <label className="block">
+        <span className="text-[10px] font-black uppercase tracking-[.16em] text-white/35">Country context</span>
+        <select
+          value={country}
+          onChange={(eventChange) => setCountry(eventChange.target.value)}
+          className="mt-2 w-full rounded-2xl border border-white/10 bg-[#0b1128] px-4 py-3 text-sm font-bold text-white outline-none focus:border-cyan-300/32"
+        >
+          {COUNTRY_OPTIONS.map((option) => <option key={option} value={option}>{option}</option>)}
+        </select>
+      </label>
+
+      <div className="grid max-h-[42vh] grid-cols-2 gap-2.5 overflow-y-auto pr-1">
+        {templates.map((template) => (
+          <button
+            key={template.id}
+            type="button"
+            onClick={() => onChooseTemplate(template)}
+            className="rounded-[22px] border border-white/9 bg-white/[.035] p-3 text-left transition hover:border-cyan-300/24 hover:bg-cyan-300/[.055] active:scale-[.98]"
+          >
+            <span className="flex h-10 w-10 items-center justify-center rounded-2xl border border-white/10 bg-white/[.045] text-xl">
+              {template.emoji}
+            </span>
+            <span className="mt-3 block text-sm font-black leading-tight text-white">{template.title}</span>
+            <span className="mt-1 block text-[11px] font-bold uppercase tracking-[.13em] text-cyan-100/45">{template.type}</span>
+          </button>
+        ))}
+      </div>
+
+      <button
+        type="button"
+        onClick={onBlankAdd}
+        className="w-full rounded-2xl border border-dashed border-white/14 bg-white/[.025] px-4 py-3 text-sm font-black text-white/62"
+      >
+        I’ll describe my own event
+      </button>
+    </div>
+  );
+}
+
+function Sheet({ event, mode, form, setForm, onSave, onRemove, onClose, selectedCountry, setSelectedCountry, onChooseTemplate, onBlankAdd }) {
   useEffect(() => {
     if (!mode) return undefined;
 
@@ -393,6 +698,7 @@ function Sheet({ event, mode, form, setForm, onSave, onRemove, onClose }) {
 
   if (!mode) return null;
   const adding = mode === "add";
+  const choosing = mode === "quick";
 
   return (
     <div
@@ -408,10 +714,10 @@ function Sheet({ event, mode, form, setForm, onSave, onRemove, onClose }) {
         <div className="flex items-start justify-between gap-4">
           <div>
             <p className="text-[11px] font-black uppercase tracking-[.22em] text-cyan-100/70">
-              {adding ? "Schedule" : event?.type}
+              {choosing ? "Event type" : adding ? "Schedule" : event?.type}
             </p>
             <h3 className="mt-3 text-2xl font-black leading-tight text-white">
-              {adding ? "Add schedule" : displayTitle(event)}
+              {choosing ? "Choose an event" : adding ? "Add schedule" : displayTitle(event)}
             </h3>
           </div>
           <button
@@ -423,8 +729,26 @@ function Sheet({ event, mode, form, setForm, onSave, onRemove, onClose }) {
           </button>
         </div>
 
+        {choosing ? (
+          <QuickEventChooser
+            date={form.date}
+            country={selectedCountry}
+            setCountry={setSelectedCountry}
+            onChooseTemplate={onChooseTemplate}
+            onBlankAdd={onBlankAdd}
+          />
+        ) : null}
+
         {adding ? (
           <form onSubmit={onSave} className="mt-5 space-y-3">
+            {form.emoji ? (
+              <div className="rounded-[22px] border border-cyan-300/14 bg-cyan-300/[.045] px-4 py-3">
+                <p className="text-xs font-bold text-cyan-100/62">
+                  <span className="mr-2 text-lg">{form.emoji}</span>
+                  CLARA will treat this as a {form.type.toLowerCase()} context for {formatDate(form.date)}.
+                </p>
+              </div>
+            ) : null}
             <input
               value={form.title}
               onChange={(eventChange) => setForm((current) => ({ ...current, title: eventChange.target.value }))}
@@ -448,7 +772,7 @@ function Sheet({ event, mode, form, setForm, onSave, onRemove, onClose }) {
             <div className="grid grid-cols-2 gap-3">
               <select
                 value={form.type}
-                onChange={(eventChange) => setForm((current) => ({ ...current, type: eventChange.target.value }))}
+                onChange={(eventChange) => setForm((current) => ({ ...current, type: eventChange.target.value, emoji: current.emoji || getTypeEmoji(eventChange.target.value) }))}
                 className="w-full rounded-2xl border border-white/10 bg-[#0b1128] px-4 py-3 text-sm font-bold text-white outline-none focus:border-cyan-300/32"
               >
                 {TYPES.map((type) => <option key={type} value={type}>{type}</option>)}
@@ -472,10 +796,15 @@ function Sheet({ event, mode, form, setForm, onSave, onRemove, onClose }) {
               Save schedule
             </button>
           </form>
-        ) : (
+        ) : null}
+
+        {!choosing && !adding ? (
           <div className="mt-5 space-y-4">
             <div className="rounded-2xl border border-white/8 bg-white/[.035] px-4 py-3">
-              <p className="text-xs font-bold text-cyan-100/60">{formatDate(event.date)} {event.time ? `• ${event.time}` : ""}</p>
+              <p className="text-xs font-bold text-cyan-100/60">
+                {event?.emoji ? <span className="mr-2 text-base">{event.emoji}</span> : null}
+                {formatDate(event.date)} {event.time ? `• ${event.time}` : ""}
+              </p>
               <p className="mt-2 text-sm leading-6 text-white/62">{event.note || impactMessage(event)}</p>
             </div>
             {isMoneyEvent(event) ? (
@@ -492,7 +821,7 @@ function Sheet({ event, mode, form, setForm, onSave, onRemove, onClose }) {
               <Trash2 className="h-4 w-4" /> Remove schedule
             </button>
           </div>
-        )}
+        ) : null}
       </div>
     </div>
   );
@@ -506,7 +835,8 @@ export default function DashboardSchedulePanel() {
   const [selectedDate, setSelectedDate] = useState(today);
   const [mode, setMode] = useState(null);
   const [selectedEvent, setSelectedEvent] = useState(null);
-  const [form, setForm] = useState({ title: "", date: today, time: "", type: "Personal", amount: "", note: "" });
+  const [selectedCountry, setSelectedCountry] = useState("Philippines");
+  const [form, setForm] = useState({ title: "", date: today, time: "", type: "Personal", amount: "", note: "", emoji: "✨", country: "Philippines" });
 
   useEffect(() => setEvents(readEvents(user)), [user?.id, user?.email]);
   useEffect(() => saveEvents(user, events), [events, user]);
@@ -534,9 +864,29 @@ export default function DashboardSchedulePanel() {
     [sorted, monthDate, today]
   );
 
-  const openAdd = (date = selectedDate) => {
-    setForm({ title: "", date, time: "", type: "Personal", amount: "", note: "" });
+  const openQuickCreate = (date = selectedDate) => {
+    setSelectedDate(date);
+    setForm({ title: "", date, time: "", type: "Personal", amount: "", note: "", emoji: "✨", country: selectedCountry });
     setSelectedEvent(null);
+    setMode("quick");
+  };
+
+  const openAdd = (date = selectedDate) => {
+    setForm({ title: "", date, time: "", type: "Personal", amount: "", note: "", emoji: "✨", country: selectedCountry });
+    setSelectedEvent(null);
+    setMode("add");
+  };
+
+  const chooseTemplate = (template) => {
+    setForm((current) => ({
+      ...current,
+      title: template.title,
+      type: template.type,
+      note: template.note,
+      amount: template.amount || "",
+      emoji: template.emoji,
+      country: selectedCountry,
+    }));
     setMode("add");
   };
 
@@ -565,6 +915,8 @@ export default function DashboardSchedulePanel() {
         type: form.type,
         amount: cleanMoney(form.amount),
         note: form.note.trim(),
+        emoji: form.emoji || getTypeEmoji(form.type),
+        country: form.country || selectedCountry,
       },
     ]);
     close();
@@ -585,12 +937,25 @@ export default function DashboardSchedulePanel() {
         todayKey={today}
         byDate={byDate}
         onSelect={setSelectedDate}
-        onAdd={() => openAdd(selectedDate)}
+        onAdd={() => openQuickCreate(selectedDate)}
+        onQuickCreate={openQuickCreate}
         onPrev={() => setMonthDate((current) => new Date(current.getFullYear(), current.getMonth() - 1, 1))}
         onNext={() => setMonthDate((current) => new Date(current.getFullYear(), current.getMonth() + 1, 1))}
       />
       <MonthlyInsightCard insight={monthlyInsight} />
-      <Sheet event={selectedEvent} mode={mode} form={form} setForm={setForm} onSave={save} onRemove={remove} onClose={close} />
+      <Sheet
+        event={selectedEvent}
+        mode={mode}
+        form={form}
+        setForm={setForm}
+        onSave={save}
+        onRemove={remove}
+        onClose={close}
+        selectedCountry={selectedCountry}
+        setSelectedCountry={setSelectedCountry}
+        onChooseTemplate={chooseTemplate}
+        onBlankAdd={() => openAdd(form.date || selectedDate)}
+      />
     </div>
   );
 }
