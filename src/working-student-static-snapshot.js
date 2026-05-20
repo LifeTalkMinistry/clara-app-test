@@ -32,306 +32,306 @@ function hasAny(value, options) {
 const WORKING_STUDENT_ARCHETYPES = {
   survivalHeavy: {
     key: "survivalHeavy",
-    label: "Survival-heavy working student",
+    label: "Essential-cost pressure",
     hero:
-      "Your current routine is built around survival before comfort. School, work, daily needs, and limited money may be competing in the same week, so many decisions happen under fatigue rather than calm planning.",
-    supportTitle: "This pressure is real.",
+      "Your week is shaped by school costs, transport, meals, and work hours competing for the same limited income. CLARA should protect basics first before strict saving.",
+    supportTitle: "This looks like survival budgeting.",
     supportBody:
-      "Many working students in this pattern are not careless with money — they are trying to keep school, work, food, transport, and rest alive at the same time.",
+      "This pattern is common when tuition, commute, meals, load/data, and income timing squeeze the same week.",
     cards: [
       {
         category: "energy",
-        label: "Burnout Risk",
+        label: "Recovery Gap",
         value: 88,
         note:
-          "Recovery space is low, so CLARA should protect sleep, food, commute, school deadlines, and emotional breathing room before pushing aggressive saving.",
+          "Low recovery time can affect spending through skipped meals, late-night convenience food, transport shortcuts, and delayed expense tracking.",
       },
       {
         category: "pressure",
-        label: "Financial Pressure",
+        label: "Essential-Cost Load",
         value: 84,
         note:
-          "Daily expenses, school needs, and unstable room for error can make the month feel tight even when spending is not excessive.",
+          "The strongest pressure usually comes from fixed school needs and repeated small costs like commute, food, mobile data, and school materials.",
       },
       {
         category: "stability",
-        label: "Emotional Spending Risk",
+        label: "Cash Buffer Risk",
         value: 66,
         note:
-          "Small relief purchases may appear when the body needs rest but the schedule does not give enough space to recover.",
+          "A tight week becomes risky when there is no small buffer for sudden projects, fare changes, food gaps, or emergency school payments.",
       },
       {
         category: "growth",
-        label: "Future Potential",
+        label: "Stability Potential",
         value: 81,
         note:
-          "This stage is heavy, but it can still build discipline and resilience when the system protects essentials first.",
+          "This stage can still improve when CLARA protects essentials, separates school money, and keeps a realistic weekly spending cap.",
       },
     ],
   },
   familyCarrying: {
     key: "familyCarrying",
-    label: "Family-carrying working student",
+    label: "Family-linked responsibility",
     hero:
-      "You are not only studying for your future — you may also be helping stabilize people around you. That makes money feel emotional because family needs and personal progress can compete in the same week.",
-    supportTitle: "You are carrying more than school.",
+      "Your money decisions are connected to home support. Family contribution, school needs, food, and transport can compete, so budgeting needs boundaries instead of guilt.",
+    supportTitle: "Support needs a limit.",
     supportBody:
-      "Many students in this situation feel pressure quietly because helping family can feel loving and heavy at the same time.",
+      "Many working students help at home while still paying for school, meals, commute, projects, and personal essentials.",
     cards: [
       {
         category: "energy",
-        label: "Responsibility Burnout",
+        label: "Responsibility Load",
         value: 84,
         note:
-          "Family-linked responsibility can increase emotional fatigue because the student role and provider role overlap.",
+          "Family-linked responsibility can increase fatigue because the student role and support role use the same income and energy.",
       },
       {
         category: "pressure",
-        label: "Shared Financial Pressure",
+        label: "Shared-Money Pressure",
         value: 86,
         note:
-          "Money decisions may carry guilt, urgency, or obligation when personal progress and family needs compete.",
+          "Family help can become financially heavy when requests overlap with tuition timing, school projects, transport, or personal essentials.",
       },
       {
         category: "stability",
         label: "Boundary Risk",
         value: 63,
         note:
-          "The main risk is not generosity itself; it is helping without a clear limit until personal stability weakens.",
+          "The risk is not generosity. The risk is helping without a clear weekly limit until school stability and daily needs become weaker.",
       },
       {
         category: "growth",
-        label: "Future Protection",
+        label: "Support Balance",
         value: 82,
         note:
-          "A wise support system can protect both family help and school progress without forcing self-abandonment.",
+          "A fixed family-support rule can protect both family care and the student's own tuition, commute, food, and emergency margin.",
       },
     ],
   },
   burnoutHeavy: {
     key: "burnoutHeavy",
-    label: "Burnout-heavy working student",
+    label: "High-fatigue schedule",
     hero:
-      "Your schedule may already be close to capacity. Constant switching between classes, work, commute, and deadlines can make spending decisions feel more like recovery than planning.",
-    supportTitle: "Your energy is part of the budget.",
+      "School and work appear to be overlapping heavily. Commute, deadlines, and irregular meals can push convenience spending because time, not only money, is limited.",
+    supportTitle: "Time pressure becomes money pressure.",
     supportBody:
-      "Many working students overspend not because they lack discipline, but because exhaustion makes convenience and small comfort feel necessary.",
+      "Working students with heavy schedule switching often spend more on convenience because planning energy is already drained.",
     cards: [
       {
         category: "energy",
-        label: "Burnout Risk",
+        label: "Fatigue Load",
         value: 90,
         note:
-          "The biggest signal is limited recovery. CLARA should watch fatigue-triggered spending, late tracking, and skipped meals or rest.",
+          "High fatigue often shows through late tracking, missed meals, rushed transport choices, small comfort buys, and low motivation to review money.",
       },
       {
         category: "pressure",
-        label: "Schedule Pressure",
+        label: "Schedule-Cost Pressure",
         value: 76,
         note:
-          "When work and school overlap, time scarcity can become a financial pressure through food, transport, and convenience costs.",
+          "When class, work, commute, and deadlines overlap, money pressure appears through food, fare, printing, load/data, and convenience costs.",
       },
       {
         category: "stability",
-        label: "Convenience Spending Risk",
+        label: "Convenience Spend Risk",
         value: 70,
         note:
-          "Spending may rise when the user needs shortcuts because the schedule is demanding more energy than the week can return.",
+          "Convenience spending becomes more likely when the schedule removes time for cheaper meals, planned transport, or calm decision-making.",
       },
       {
         category: "growth",
         label: "Recovery Potential",
         value: 78,
         note:
-          "Small recovery rules can improve money behavior faster than strict budgeting alone.",
+          "Small recovery rules, meal planning, and transport buffers can improve the budget faster than strict restriction alone.",
       },
     ],
   },
   debtPressure: {
     key: "debtPressure",
-    label: "Debt-pressure working student",
+    label: "Delayed-payment cycle",
     hero:
-      "Money pressure may already be moving from one week into the next. Borrowing, delayed payments, or school costs can make the month feel like repair mode instead of progress.",
-    supportTitle: "You need pressure to stop stacking.",
+      "Money pressure may already be moving from one week into the next. Borrowing, delayed payments, or tuition timing can make the month feel like repair mode.",
+    supportTitle: "Stop pressure from stacking.",
     supportBody:
-      "Many students enter debt cycles through survival decisions, not bad intentions. CLARA should focus on preventing the next pressure layer.",
+      "Many students enter debt cycles through survival gaps: fare, food, school fees, projects, or income arriving later than expenses.",
     cards: [
       {
         category: "energy",
         label: "Debt Stress Load",
         value: 82,
         note:
-          "Borrowed money can create mental weight that affects spending, checking habits, and confidence.",
+          "Borrowed money can affect confidence, expense checking, and decision-making because old pressure stays active during the current week.",
       },
       {
         category: "pressure",
         label: "Repayment Pressure",
         value: 88,
         note:
-          "Repayment timing should be protected before flexible spending, rewards, and non-urgent purchases.",
+          "Repayment timing should be protected before flexible spending, rewards, online purchases, and non-urgent school-related extras.",
       },
       {
         category: "stability",
-        label: "Cash Flow Stability",
+        label: "Cash-Flow Stability",
         value: 58,
         note:
-          "The month may feel unstable because old pressure is still competing with current needs.",
+          "Cash flow becomes unstable when allowance, salary, or side-income timing does not match tuition, commute, food, and repayment deadlines.",
       },
       {
         category: "growth",
         label: "Recovery Potential",
         value: 74,
         note:
-          "A small repayment rhythm and no-new-debt boundary can gradually return control.",
+          "A no-new-debt rule, minimum repayment rhythm, and small emergency fare/food buffer can gradually return control.",
       },
     ],
   },
   stressReward: {
     key: "stressReward",
-    label: "Stress-reward working student",
+    label: "Recovery-spending rhythm",
     hero:
-      "Your spending may not be about being careless. It may be your brain asking for relief after school, work, and pressure keep taking energy from the same body.",
-    supportTitle: "Small rewards are usually emotional signals.",
+      "Your spending may be recovery-driven. After school, work, commute, and pressure, small food, drink, or digital purchases can become quick relief.",
+    supportTitle: "Small rewards can signal fatigue.",
     supportBody:
-      "Many working students use small purchases to feel okay. CLARA should protect joy without letting stress become a repeated money leak.",
+      "This pattern often appears when rest is limited, meals are irregular, and the day feels too heavy to end without a small reward.",
     cards: [
       {
         category: "energy",
         label: "Emotional Fatigue",
         value: 80,
         note:
-          "Relief spending often increases when rest is missing and pressure continues without pause.",
+          "Relief spending often rises after long class-work days, commute fatigue, irregular meals, or weeks with repeated academic pressure.",
       },
       {
         category: "pressure",
         label: "Daily Pressure",
         value: 73,
         note:
-          "Food, commute, deadlines, and expectations can make small purchases feel like the only available reward.",
+          "Daily pressure is often built from repeated small demands: food, fare, mobile data, school materials, group needs, and time pressure.",
       },
       {
         category: "stability",
-        label: "Stress-Spending Risk",
+        label: "Reward Frequency Risk",
         value: 78,
         note:
-          "The pattern to watch is frequency: small repeated rewards can quietly become a monthly drain.",
+          "The risk is usually frequency, not one purchase. Small rewards can quietly drain the month when they become a repeated recovery habit.",
       },
       {
         category: "growth",
-        label: "Relief Control Potential",
+        label: "Reward Control",
         value: 80,
         note:
-          "A planned reward budget can keep the user human without letting pressure control the wallet.",
+          "A planned reward limit can keep the user human while preventing stress from controlling the wallet.",
       },
     ],
   },
   selfSupportingBuilder: {
     key: "selfSupportingBuilder",
-    label: "Self-supporting builder",
+    label: "Self-funded student builder",
     hero:
-      "You are building your future while carrying more of the cost yourself. This creates discipline, but it also means your budget needs to protect essentials before motivation runs out.",
-    supportTitle: "Independence needs protection.",
+      "You are carrying more of school and daily life yourself. Income timing, tuition needs, transport, meals, and emergency margin need clear protection.",
+    supportTitle: "Independence needs structure.",
     supportBody:
-      "Many self-supporting students are strong, but strength still needs structure: food, transport, tuition, rest, and emergency margin should not be treated as optional.",
+      "Self-supporting students often look strong, but strength still needs a buffer for food, fare, school deadlines, and income gaps.",
     cards: [
       {
         category: "energy",
         label: "Independence Load",
         value: 79,
         note:
-          "Carrying personal costs while studying can build maturity, but it also raises fatigue and decision pressure.",
+          "Carrying personal costs while studying can build maturity, but it raises fatigue when school deadlines and income timing collide.",
       },
       {
         category: "pressure",
         label: "Essential Pressure",
         value: 82,
         note:
-          "Essentials need priority because fewer costs can be safely delayed or ignored.",
+          "Essentials need priority because tuition, commute, meals, mobile data, and school materials are harder to safely delay.",
       },
       {
         category: "stability",
         label: "Buffer Stability",
         value: 58,
         note:
-          "A small buffer matters more here because one missed income moment can affect school and daily survival.",
+          "A small buffer matters because one missed side-income payment or extra school cost can affect the whole week.",
       },
       {
         category: "growth",
         label: "Discipline Potential",
         value: 86,
         note:
-          "Self-supporting students often develop strong future discipline when the system is realistic and protective.",
+          "Self-funded students can build strong discipline when CLARA uses realistic caps instead of unrealistic saving pressure.",
       },
     ],
   },
   hopefulStretched: {
     key: "hopefulStretched",
-    label: "Hopeful but stretched",
+    label: "Stable but stretched",
     hero:
-      "You are stretched, but still moving with direction. With the right limits, this season can build discipline without forcing you to sacrifice rest, food, or school stability.",
-    supportTitle: "You still have room to build rhythm.",
+      "Your setup still has room for control, but the week is already stretched. This is the best time to build caps for food, fare, load/data, and small rewards.",
+    supportTitle: "Build rhythm before pressure grows.",
     supportBody:
-      "Many working students in this pattern are not yet in crisis, but small systems matter now before the schedule becomes heavier.",
+      "Many working students are not in crisis yet, but small leaks become harder to control once school and work get heavier.",
     cards: [
       {
         category: "energy",
-        label: "Burnout Risk",
+        label: "Fatigue Watch",
         value: 70,
         note:
           "Pressure is present, but there is still room to prevent deeper fatigue through weekly limits and recovery planning.",
       },
       {
         category: "pressure",
-        label: "Financial Pressure",
+        label: "Cost Pressure",
         value: 64,
         note:
-          "Money may be tight in specific areas, but planning can still prevent repeated surprise pressure.",
+          "Money may be tight in specific areas like transport, food, data, or school materials, but planning can still prevent surprise pressure.",
       },
       {
         category: "stability",
         label: "Routine Stability",
         value: 52,
         note:
-          "The routine is still forming, so CLARA should help the user build a simple money rhythm before life becomes heavier.",
+          "The routine is still forming, so CLARA should help build a simple weekly rhythm before the schedule becomes heavier.",
       },
       {
         category: "growth",
         label: "Future Potential",
         value: 88,
         note:
-          "This is a strong building season when ambition is paired with protection and realistic spending boundaries.",
+          "This is a strong building season when ambition is paired with protected essentials and realistic spending boundaries.",
       },
     ],
   },
   quietlyAmbitious: {
     key: "quietlyAmbitious",
-    label: "Quietly ambitious working student",
+    label: "Developing money rhythm",
     hero:
-      "Your current stage shows quiet ambition: you are learning, earning, adjusting, and trying to build a future with limited margin. CLARA should protect your energy as much as your money.",
+      "You are learning, earning, adjusting, and building direction with limited margin. CLARA should watch repeated costs before they become monthly leaks.",
     supportTitle: "Your effort has direction.",
     supportBody:
-      "Many working students are quietly building their future while handling pressure that is not always visible from the outside.",
+      "Many working students quietly build their future while managing school costs, commute, food, mobile data, and social pressure.",
     cards: [
       {
         category: "energy",
-        label: "Burnout Risk",
+        label: "Burnout Watch",
         value: 76,
         note:
-          "The stage has natural fatigue risk because school, work, and future pressure share the same energy source.",
+          "This stage has natural fatigue risk because school, work, commute, and future pressure share the same energy source.",
       },
       {
         category: "pressure",
         label: "Financial Pressure",
         value: 69,
         note:
-          "Costs may not be extreme every week, but limited margin means small leaks still deserve attention.",
+          "Costs may not be extreme every week, but repeated small expenses still deserve attention when income is limited.",
       },
       {
         category: "stability",
-        label: "Emotional Spending Risk",
+        label: "Micro-Spend Risk",
         value: 60,
         note:
-          "Spending may rise when pressure needs comfort, especially after long school or work days.",
+          "Small food, transport, mobile data, digital, or social spending can become the hidden pattern to watch.",
       },
       {
         category: "growth",
@@ -407,7 +407,7 @@ function getWorkingStudentSnapshot(profile) {
     ...archetype,
     cards: adjustedCards,
     context:
-      "Static snapshot engine: selections are mapped into a behavioral archetype, then adjusted by responsibility, income rhythm, workload, pressure, coping style, and protection goal.",
+      "Pattern-based snapshot: this is not a live public statistic yet. It is a CLARA estimate grounded in selected signals like commute, food, tuition, mobile data, income timing, workload, family support, debt pressure, and coping behavior.",
   };
 }
 
@@ -449,7 +449,7 @@ function patchTrendCards(snapshot) {
   if (!section) return;
 
   const helper = section.querySelector("h3")?.parentElement?.querySelector("p");
-  if (helper) helper.textContent = `${snapshot.label} • static snapshot`;
+  if (helper) helper.textContent = `${snapshot.label} • pattern-based snapshot`;
 
   const cards = Array.from(section.querySelectorAll("button"));
   snapshot.cards.forEach((item, index) => {
@@ -469,7 +469,17 @@ function patchTrendCards(snapshot) {
 function patchDetailPanel(snapshot) {
   const detailHeading = Array.from(document.querySelectorAll("h4")).find((node) => {
     const text = clean(node.textContent);
-    return snapshot.cards.some((card) => card.label === text) || ["Burnout Risk", "Financial Pressure", "Emotional Spending Risk", "Future Potential"].includes(text);
+    return snapshot.cards.some((card) => card.label === text) ||
+      [
+        "Burnout Risk",
+        "Financial Pressure",
+        "Emotional Spending Risk",
+        "Future Potential",
+        "Emotional Fatigue",
+        "Daily Pressure",
+        "Stress-Spending Risk",
+        "Relief Control Potential",
+      ].includes(text);
   });
   if (!detailHeading) return;
 
