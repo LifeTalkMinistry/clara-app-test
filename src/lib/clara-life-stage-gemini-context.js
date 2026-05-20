@@ -1,7 +1,15 @@
-const GEMINI_ENDPOINT_BASE = "https://generativelanguage.googleapis.com/v1beta/models";
-const DEFAULT_GEMINI_MODEL = "gemini-2.5-flash";
-const FALLBACK_GEMINI_MODELS = [DEFAULT_GEMINI_MODEL, "gemini-2.0-flash", "gemini-1.5-flash"];
+const GEMINI_API_BASE = "https://generativelanguage.googleapis.com/v1beta";
+const DEFAULT_GEMINI_MODEL = "gemini-2.0-flash";
+const FALLBACK_GEMINI_MODELS = [
+  DEFAULT_GEMINI_MODEL,
+  "gemini-2.5-flash",
+  "gemini-2.0-flash-lite",
+  "gemini-1.5-flash",
+  "gemini-1.5-flash-latest",
+  "gemini-pro",
+];
 const DEFAULT_TIMEOUT_MS = 14000;
+let discoveredModelCache = null;
 
 function getGeminiApiKey() {
   return (
@@ -19,11 +27,69 @@ function getGeminiModel() {
   return import.meta.env.VITE_GEMINI_MODEL || import.meta.env.VITE_CLARA_GEMINI_MODEL || DEFAULT_GEMINI_MODEL;
 }
 
-function getGeminiModelCandidates() {
+function normalizeModelName(model) {
+  const value = String(model || "").trim();
+  if (!value) return "";
+  return value.startsWith("models/") ? value.slice("models/".length) : value;
+}
+
+function getConfiguredModelCandidates() {
   return [getGeminiModel(), ...FALLBACK_GEMINI_MODELS]
-    .map((model) => String(model || "").trim())
+    .map(normalizeModelName)
     .filter(Boolean)
     .filter((model, index, models) => models.indexOf(model) === index);
+}
+
+function scoreDiscoveredModel(model) {
+  const name = normalizeModelName(model?.name || model);
+  if (name.includes("2.0-flash")) return 100;
+  if (name.includes("2.5-flash")) return 95;
+  if (name.includes("flash-lite")) return 90;
+  if (name.includes("1.5-flash")) return 80;
+  if (name.includes("flash")) return 70;
+  if (name.includes("pro")) return 40;
+  return 10;
+}
+
+async function discoverGeminiModels({ apiKey, signal }) {
+  if (discoveredModelCache?.length) return discoveredModelCache;
+
+  const response = await fetch(`${GEMINI_API_BASE}/models?key=${encodeURIComponent(apiKey)}`, {
+    method: "GET",
+    signal,
+  });
+
+  const data = await response.json().catch(() => ({}));
+
+  if (!response.ok) {
+    throw Object.assign(new Error(data?.error?.message || "Could not list Gemini models."), {
+      status: response.status,
+      payload: data,
+    });
+  }
+
+  const models = (Array.isArray(data?.models) ? data.models : [])
+    .filter((model) => Array.isArray(model?.supportedGenerationMethods) && model.supportedGenerationMethods.includes("generateContent"))
+    .map((model) => normalizeModelName(model.name))
+    .filter(Boolean)
+    .sort((a, b) => scoreDiscoveredModel(b) - scoreDiscoveredModel(a));
+
+  discoveredModelCache = models;
+  return models;
+}
+
+async function getGeminiModelCandidates({ apiKey, signal }) {
+  const configured = getConfiguredModelCandidates();
+
+  try {
+    const discovered = await discoverGeminiModels({ apiKey, signal });
+    return [...configured, ...discovered]
+      .filter(Boolean)
+      .filter((model, index, models) => models.indexOf(model) === index);
+  } catch (error) {
+    console.warn("[CLARA Life Stage Gemini] Could not discover models, using configured fallback list:", error);
+    return configured;
+  }
 }
 
 function cleanText(value) {
@@ -137,7 +203,7 @@ Return ONLY valid JSON in this shape:
 }`;
 }
 
-function sanitizeBoardContext(raw, fallback) {
+function sanitizeBoardContext(raw) {
   const title = cleanText(raw?.title).slice(0, 70);
   const summary = cleanText(raw?.summary).slice(0, 420);
 
@@ -153,7 +219,8 @@ function sanitizeBoardContext(raw, fallback) {
 }
 
 async function requestGeminiContent({ apiKey, model, prompt, signal }) {
-  const response = await fetch(`${GEMINI_ENDPOINT_BASE}/${encodeURIComponent(model)}:generateContent?key=${encodeURIComponent(apiKey)}`, {
+  const modelName = normalizeModelName(model);
+  const response = await fetch(`${GEMINI_API_BASE}/models/${encodeURIComponent(modelName)}:generateContent?key=${encodeURIComponent(apiKey)}`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     signal,
@@ -173,6 +240,7 @@ async function requestGeminiContent({ apiKey, model, prompt, signal }) {
   if (!response.ok) {
     throw Object.assign(new Error(data?.error?.message || "Gemini request failed."), {
       status: response.status,
+      model: modelName,
       payload: data,
     });
   }
@@ -204,7 +272,9 @@ export async function generateLifeStageBoardContextWithGemini({
   let lastError = null;
 
   try {
-    for (const model of getGeminiModelCandidates()) {
+    const modelCandidates = await getGeminiModelCandidates({ apiKey, signal: requestSignal });
+
+    for (const model of modelCandidates) {
       try {
         const data = await requestGeminiContent({ apiKey, model, prompt, signal: requestSignal });
         const textPayload =
@@ -214,7 +284,7 @@ export async function generateLifeStageBoardContextWithGemini({
             .join("\n") || "";
 
         const parsed = extractJson(textPayload);
-        return sanitizeBoardContext(parsed, localBoardContext);
+        return sanitizeBoardContext(parsed);
       } catch (error) {
         lastError = error;
       }
