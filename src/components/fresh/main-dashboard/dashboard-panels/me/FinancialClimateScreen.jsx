@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   Briefcase,
   Check,
@@ -64,13 +64,18 @@ const QUESTION_META = {
 
 const QUESTION_ORDER = ["setup", "rhythm", "workload", "pressure", "coping", "goal"];
 
+const CONTEXT_LOADING_COPY = {
+  title: "Hmm… let me understand your situation.",
+  summary: "CLARA is connecting your answers to build a realistic picture of your current life stage.",
+};
+
 const ANSWER_CONTEXT = {
   setup: {
-    "Family-supported + working": {
+    "Family-supported with some work": {
       title: "Supported ambition",
       chip: "support system present",
       summary:
-        "CLARA sees support in your environment, but also a stretched schedule. The pressure may show more through time, energy, and guilt around using money for yourself.",
+        "CLARA sees support in your environment, but also a growing money role. The pressure may show more through time, energy, and guilt around using money for yourself.",
     },
     "Self-supporting student": {
       title: "Self-support pressure",
@@ -78,19 +83,19 @@ const ANSWER_CONTEXT = {
       summary:
         "CLARA sees a higher independence load. School, daily needs, and income decisions may be connected because fewer expenses can be treated as optional.",
     },
+    "Working mainly for school costs": {
+      title: "School-cost pressure",
+      chip: "education-linked work rhythm",
+      summary:
+        "CLARA sees your work income tied closely to keeping school moving. This can make tuition deadlines, daily energy, and work availability feel connected.",
+    },
     "Helping family while studying": {
       title: "Shared responsibility",
       chip: "family-linked responsibility",
       summary:
         "CLARA sees family responsibility inside your student season. This can create emotional pressure because personal progress and family needs may compete.",
     },
-    "First job while studying": {
-      title: "Adjustment season",
-      chip: "work-school adjustment",
-      summary:
-        "CLARA sees a new work-school rhythm forming. This can create reward spending because earning money and exhaustion are happening at the same time.",
-    },
-    "Side hustle student": {
+    "Side hustle / extra-income student": {
       title: "Flexible but uneven",
       chip: "flexible income behavior",
       summary:
@@ -110,49 +115,55 @@ const ANSWER_CONTEXT = {
       summary:
         "CLARA sees a clearer pay rhythm. This gives you a stronger base for planning, but your energy and school load still need protection.",
     },
-    "Irregular side income": {
+    "Irregular side hustle income": {
       title: "Unstable timing",
       chip: "income instability detected",
       summary:
         "CLARA sees income that can change from week to week. This increases the need for buffers because expenses may be fixed while earnings are not.",
     },
-    "Seasonal/project income": {
+    "Project / seasonal income": {
       title: "Wave-based income",
       chip: "wave-based cash flow",
       summary:
         "CLARA sees money arriving in waves. This can feel good during strong weeks, but weak weeks need planned protection before they happen.",
     },
-    "Mostly allowance, small extra work": {
+    "Mostly allowance with occasional work": {
       title: "Light earning layer",
       chip: "allowance-led stability",
       summary:
-        "CLARA sees allowance as the main base with small earning support. The main pattern to watch is spending discipline before bigger income arrives.",
+        "CLARA sees allowance as the main base with occasional earning support. The main pattern to watch is spending discipline before bigger income arrives.",
     },
   },
   workload: {
-    Manageable: {
+    "Manageable class-work load": {
       title: "Still manageable",
       chip: "control still available",
       summary:
         "CLARA sees a season that still has room for control. This is a good point to build habits before pressure becomes heavier.",
     },
-    "Tight but okay": {
+    "Tight but still controlled": {
       title: "Tight but moving",
       chip: "early strain forming",
       summary:
-        "CLARA sees a schedule that is still functioning, but already demanding. Small leaks in money or rest may become noticeable faster.",
+        "CLARA sees a schedule that is stretched but still steerable. Small leaks in money or rest may become noticeable faster if the load increases.",
     },
-    Heavy: {
+    "Heavy school-work overlap": {
       title: "Heavy overlap",
       chip: "high schedule overlap",
       summary:
-        "CLARA sees work, school, and personal needs starting to overlap. This is where convenience spending and missed tracking can quietly increase.",
+        "CLARA sees work, school, and recovery starting to collide. This is where convenience spending and missed tracking can quietly increase.",
     },
-    "Survival mode": {
-      title: "Survival rhythm",
+    "Little time to rest": {
+      title: "Low recovery space",
       chip: "recovery capacity low",
       summary:
-        "CLARA sees limited recovery space. The priority is not perfection; it is protecting essentials, reducing pressure, and avoiding decisions made from exhaustion.",
+        "CLARA sees limited recovery time. Quick spending choices may happen less from carelessness and more from tiredness, hunger, or lack of time.",
+    },
+    "Almost no margin / survival mode": {
+      title: "Survival rhythm",
+      chip: "recovery capacity very low",
+      summary:
+        "CLARA sees very little room for mistakes. The priority is not perfection; it is protecting essentials, reducing pressure, and avoiding decisions made from exhaustion.",
     },
   },
   pressure: {
@@ -168,11 +179,11 @@ const ANSWER_CONTEXT = {
       summary:
         "CLARA sees repeated daily expenses shaping the month. Small costs may not look dangerous alone, but they can drain money through frequency.",
     },
-    "Too much work and school load": {
-      title: "Energy pressure",
+    "Work-school schedule conflict": {
+      title: "Schedule conflict pressure",
       chip: "energy-trigger spending risk",
       summary:
-        "CLARA sees time and energy as the main financial trigger. Spending may happen not from carelessness, but from needing relief or convenience.",
+        "CLARA sees time conflict as a financial trigger. Spending may happen not from carelessness, but from needing relief, convenience, or recovery between responsibilities.",
     },
     "Family contribution": {
       title: "Family-linked pressure",
@@ -188,7 +199,7 @@ const ANSWER_CONTEXT = {
     },
   },
   coping: {
-    "I buy small rewards": {
+    "I spend on small rewards to feel okay": {
       title: "Reward spending pattern",
       chip: "stress-reward spending",
       summary:
@@ -206,21 +217,21 @@ const ANSWER_CONTEXT = {
       summary:
         "CLARA sees survival decisions happening first, then repair later. The system should protect you from stacking pressure across weeks.",
     },
-    "I cut back too much": {
+    "I cut my needs too much": {
       title: "Over-sacrifice pattern",
       chip: "over-sacrifice risk",
       summary:
         "CLARA sees you reducing needs too aggressively. Saving matters, but your food, rest, and basic energy should not be treated as optional.",
     },
-    "I ask for help": {
+    "I ask for help before it gets worse": {
       title: "Support-seeking pattern",
       chip: "support-seeking habit",
       summary:
-        "CLARA sees an active support habit. This can lower risk when used wisely, especially if boundaries and repayment expectations are clear.",
+        "CLARA sees an early support habit. This can lower risk when used wisely, especially if boundaries and expectations are clear before pressure gets heavier.",
     },
   },
   goal: {
-    "Graduate safely": {
+    "Finish school without burning out": {
       title: "Protect graduation",
       chip: "graduation protection",
       summary:
@@ -238,7 +249,7 @@ const ANSWER_CONTEXT = {
       summary:
         "CLARA will prioritize small, realistic saving moves that still respect your limited income and student workload.",
     },
-    "Help family wisely": {
+    "Help family without losing stability": {
       title: "Protect wise support",
       chip: "wise family support",
       summary:
@@ -671,6 +682,9 @@ function OptionGroup({ eyebrow, value, options, onSelect }) {
 function LifeStageSetupScreen({ profile, onClose, onSave }) {
   const [draft, setDraft] = useState(() => buildStageDraft(profile.stage || DEFAULT_STAGE.stage, profile));
   const [step, setStep] = useState("stage");
+  const [contextStatus, setContextStatus] = useState("ready");
+  const contextRequestRef = useRef(0);
+  const contextTimerRef = useRef(null);
   const definition = getStageDefinition(draft.stage);
   const fields = definition.fields || {};
   const questionKeys = getQuestionKeys(fields);
@@ -681,6 +695,7 @@ function LifeStageSetupScreen({ profile, onClose, onSave }) {
   const progressPillIndex = Math.round((stepIndex / Math.max(1, stepOrder.length - 1)) * 4);
   const peopleInStage = getPeopleCopy(draft.stage, definition);
   const boardContext = getBoardContext({ step, activeQuestionKey, draft, peopleInStage });
+  const displayedBoardContext = contextStatus === "loading" ? CONTEXT_LOADING_COPY : boardContext;
 
   useEffect(() => {
     if (typeof document === "undefined") return undefined;
@@ -691,8 +706,40 @@ function LifeStageSetupScreen({ profile, onClose, onSave }) {
     };
   }, []);
 
+  useEffect(() => {
+    return () => {
+      if (contextTimerRef.current && typeof window !== "undefined") {
+        window.clearTimeout(contextTimerRef.current);
+      }
+    };
+  }, []);
+
+  const triggerContextLoading = () => {
+    if (typeof window === "undefined") return;
+
+    const nextRequestId = contextRequestRef.current + 1;
+    contextRequestRef.current = nextRequestId;
+    setContextStatus("loading");
+
+    if (contextTimerRef.current) {
+      window.clearTimeout(contextTimerRef.current);
+    }
+
+    contextTimerRef.current = window.setTimeout(() => {
+      if (contextRequestRef.current === nextRequestId) {
+        setContextStatus("ready");
+      }
+    }, 800);
+  };
+
   const selectStage = (stageName) => {
     setDraft((current) => buildStageDraft(stageName, current));
+    triggerContextLoading();
+  };
+
+  const handleQuestionSelect = (key, value) => {
+    setDraft((current) => ({ ...current, [key]: value }));
+    triggerContextLoading();
   };
 
   const goBack = () => {
@@ -727,8 +774,8 @@ function LifeStageSetupScreen({ profile, onClose, onSave }) {
         <div className="relative z-10 flex items-start justify-between gap-4">
           <div className="min-w-0 flex-1">
             <p className="text-[10px] font-black uppercase tracking-[0.28em] text-cyan-100/72">CLARA context board</p>
-            <h3 className="mt-5 max-w-[330px] text-[clamp(30px,8vw,40px)] font-black leading-[1.03] tracking-[-0.045em] text-white drop-shadow-[0_8px_24px_rgba(0,0,0,.35)]">{boardContext.title}</h3>
-            <p className="mt-4 max-w-[350px] text-[13px] font-semibold leading-6 text-white/74">{boardContext.summary}</p>
+            <h3 className="mt-5 max-w-[330px] text-[clamp(30px,8vw,40px)] font-black leading-[1.03] tracking-[-0.045em] text-white drop-shadow-[0_8px_24px_rgba(0,0,0,.35)]">{displayedBoardContext.title}</h3>
+            <p className="mt-4 max-w-[350px] text-[13px] font-semibold leading-6 text-white/74">{displayedBoardContext.summary}</p>
           </div>
           <button
             type="button"
@@ -769,7 +816,7 @@ function LifeStageSetupScreen({ profile, onClose, onSave }) {
               eyebrow={activeMeta?.eyebrow || "Choose one"}
               value={draft[activeQuestionKey]}
               options={fields[activeQuestionKey] || []}
-              onSelect={(value) => setDraft((current) => ({ ...current, [activeQuestionKey]: value }))}
+              onSelect={(value) => handleQuestionSelect(activeQuestionKey, value)}
             />
           </div>
         ) : null}
