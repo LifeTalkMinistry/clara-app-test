@@ -87,10 +87,9 @@ function buildDiagnosis(profile) {
   return {
     title: "CLARA understands your current environment.",
     core: "You are carrying school, money, energy, and protection at the same time.",
-    paragraphOne:
-      `${sentence(setup)}. Because ${rhythm}, CLARA understands that one small gap can affect your school, daily needs, and emotional energy.`,
-    paragraphTwo:
-      `Right now, ${pressure}. Since ${load}, and ${coping}, your financial system should help you ${goal}.`,
+    sees: `${sentence(setup)}.`,
+    matters: `Because ${rhythm}, CLARA understands that one small gap can affect your school, daily needs, and emotional energy.`,
+    protection: `Right now, ${pressure}. Since ${load}, and ${coping}, your financial system should help you ${goal}.`,
     focus: displayValue(profile.goal) || "Protect your stability",
     pressure: displayValue(profile.pressure) || "Student money pressure",
     rhythm: displayValue(profile.rhythm) || "Mixed student rhythm",
@@ -114,23 +113,38 @@ function showDiagnosisReveal(profile) {
     <div class="clara-diagnosis-shell">
       <div class="clara-diagnosis-bg"></div>
       <section class="clara-diagnosis-card">
+        <div class="clara-diagnosis-orb clara-diagnosis-orb-one"></div>
+        <div class="clara-diagnosis-orb clara-diagnosis-orb-two"></div>
         <p class="clara-diagnosis-kicker">WORKING STUDENT DIAGNOSIS</p>
         <h2>${diagnosis.title}</h2>
-        <p class="clara-diagnosis-core">${diagnosis.core}</p>
-        <div class="clara-diagnosis-statement">
-          <p>${diagnosis.paragraphOne}</p>
-          <p>${diagnosis.paragraphTwo}</p>
+        <div class="clara-diagnosis-core-card">
+          <span>CLARA'S READ</span>
+          <p>${diagnosis.core}</p>
+        </div>
+        <div class="clara-diagnosis-sections">
+          <article>
+            <span>What CLARA sees</span>
+            <p>${diagnosis.sees}</p>
+          </article>
+          <article>
+            <span>Why this matters</span>
+            <p>${diagnosis.matters}</p>
+          </article>
+          <article>
+            <span>What needs protection now</span>
+            <p>${diagnosis.protection}</p>
+          </article>
         </div>
         <div class="clara-diagnosis-grid">
-          <div>
+          <div class="clara-diagnosis-meta-card">
             <span>Pressure to protect</span>
             <strong>${diagnosis.pressure}</strong>
           </div>
-          <div>
+          <div class="clara-diagnosis-meta-card">
             <span>Money rhythm</span>
             <strong>${diagnosis.rhythm}</strong>
           </div>
-          <div>
+          <div class="clara-diagnosis-meta-card clara-diagnosis-priority-card">
             <span>CLARA priority</span>
             <strong>${diagnosis.focus}</strong>
           </div>
@@ -148,7 +162,7 @@ function showDiagnosisReveal(profile) {
       z-index: 2147483647;
       display: grid;
       place-items: center;
-      background: rgba(1, 8, 20, 0.78);
+      background: rgba(1, 8, 20, 0.82);
       backdrop-filter: blur(18px);
       -webkit-backdrop-filter: blur(18px);
       animation: claraDiagnosisFade 220ms ease both;
@@ -161,7 +175,7 @@ function showDiagnosisReveal(profile) {
       display: flex;
       align-items: center;
       justify-content: center;
-      padding: max(18px, env(safe-area-inset-top)) 18px max(18px, env(safe-area-inset-bottom));
+      padding: max(16px, env(safe-area-inset-top)) 16px max(16px, env(safe-area-inset-bottom));
       overflow: hidden;
       background: #020817;
     }
@@ -169,38 +183,66 @@ function showDiagnosisReveal(profile) {
       position: absolute;
       inset: 0;
       background:
-        radial-gradient(circle at 10% 4%, rgba(45, 212, 191, .20), transparent 32%),
-        radial-gradient(circle at 90% 8%, rgba(124, 58, 237, .32), transparent 34%),
-        radial-gradient(circle at 50% 100%, rgba(14, 165, 233, .12), transparent 34%),
-        linear-gradient(180deg, rgba(7, 18, 38, .92), rgba(2, 8, 23, .98));
+        radial-gradient(circle at 12% 4%, rgba(45, 212, 191, .18), transparent 30%),
+        radial-gradient(circle at 88% 10%, rgba(124, 58, 237, .30), transparent 34%),
+        radial-gradient(circle at 50% 96%, rgba(56, 189, 248, .14), transparent 34%),
+        linear-gradient(180deg, rgba(4, 16, 36, .96), rgba(3, 7, 24, .99));
     }
     #${DIAGNOSIS_ID} .clara-diagnosis-card {
       position: relative;
       width: 100%;
-      overflow: hidden;
-      border-radius: 34px;
-      border: 1px solid rgba(165, 243, 252, .18);
-      background: linear-gradient(135deg, rgba(12, 33, 58, .78), rgba(20, 24, 75, .78) 52%, rgba(63, 28, 128, .72));
-      padding: 24px;
+      max-height: calc(100dvh - 32px);
+      overflow-y: auto;
+      overflow-x: hidden;
+      border-radius: 32px;
+      border: 1px solid rgba(165, 243, 252, .14);
+      background:
+        linear-gradient(145deg, rgba(9, 29, 55, .78), rgba(17, 21, 67, .80) 54%, rgba(48, 25, 104, .72));
+      padding: 22px;
       box-shadow:
-        0 28px 90px rgba(0, 0, 0, .46),
-        0 0 48px rgba(34, 211, 238, .12),
+        0 28px 90px rgba(0, 0, 0, .50),
+        0 0 54px rgba(34, 211, 238, .10),
         inset 0 1px 0 rgba(255, 255, 255, .10);
       animation: claraDiagnosisRise 420ms cubic-bezier(.16,1,.3,1) both;
+      -webkit-overflow-scrolling: touch;
+      scrollbar-width: none;
     }
+    #${DIAGNOSIS_ID} .clara-diagnosis-card::-webkit-scrollbar { display: none; }
     #${DIAGNOSIS_ID} .clara-diagnosis-card::before {
       content: "";
       position: absolute;
       inset: 0;
       pointer-events: none;
       background:
-        radial-gradient(circle at 12% 8%, rgba(125, 211, 252, .18), transparent 28%),
-        radial-gradient(circle at 88% 18%, rgba(255, 255, 255, .10), transparent 24%);
+        radial-gradient(circle at 14% 9%, rgba(125, 211, 252, .12), transparent 28%),
+        radial-gradient(circle at 90% 18%, rgba(255, 255, 255, .08), transparent 22%),
+        linear-gradient(180deg, rgba(255,255,255,.045), transparent 38%);
+    }
+    #${DIAGNOSIS_ID} .clara-diagnosis-orb {
+      position: absolute;
+      pointer-events: none;
+      border-radius: 9999px;
+      filter: blur(28px);
+      opacity: .55;
+    }
+    #${DIAGNOSIS_ID} .clara-diagnosis-orb-one {
+      top: -26px;
+      left: -34px;
+      height: 116px;
+      width: 138px;
+      background: rgba(45, 212, 191, .18);
+    }
+    #${DIAGNOSIS_ID} .clara-diagnosis-orb-two {
+      right: -40px;
+      bottom: 54px;
+      height: 150px;
+      width: 150px;
+      background: rgba(124, 58, 237, .22);
     }
     #${DIAGNOSIS_ID} .clara-diagnosis-kicker,
     #${DIAGNOSIS_ID} h2,
-    #${DIAGNOSIS_ID} .clara-diagnosis-core,
-    #${DIAGNOSIS_ID} .clara-diagnosis-statement,
+    #${DIAGNOSIS_ID} .clara-diagnosis-core-card,
+    #${DIAGNOSIS_ID} .clara-diagnosis-sections,
     #${DIAGNOSIS_ID} .clara-diagnosis-grid,
     #${DIAGNOSIS_ID} .clara-diagnosis-continue {
       position: relative;
@@ -208,98 +250,147 @@ function showDiagnosisReveal(profile) {
     }
     #${DIAGNOSIS_ID} .clara-diagnosis-kicker {
       margin: 0;
-      color: rgba(207, 250, 254, .74);
-      font-size: 10px;
-      font-weight: 900;
-      letter-spacing: .28em;
+      color: rgba(186, 230, 253, .62);
+      font-size: 9px;
+      font-weight: 800;
+      letter-spacing: .29em;
       text-transform: uppercase;
     }
     #${DIAGNOSIS_ID} h2 {
-      margin: 18px 0 0;
-      color: white;
-      font-size: clamp(30px, 8.1vw, 42px);
-      line-height: .94;
-      letter-spacing: -.055em;
-      font-weight: 950;
-      text-shadow: 0 10px 26px rgba(0, 0, 0, .35);
+      max-width: 19rem;
+      margin: 14px 0 0;
+      color: rgba(255, 255, 255, .96);
+      font-size: clamp(28px, 7.1vw, 34px);
+      line-height: 1.02;
+      letter-spacing: -.045em;
+      font-weight: 850;
+      text-shadow: 0 8px 22px rgba(0, 0, 0, .24);
     }
-    #${DIAGNOSIS_ID} .clara-diagnosis-core {
-      margin: 18px 0 0;
-      border-left: 3px solid rgba(165, 243, 252, .82);
-      border-radius: 16px;
-      background: rgba(125, 211, 252, .075);
-      padding: 13px 14px;
-      color: rgba(248, 253, 255, .96);
-      font-size: clamp(14px, 3.75vw, 16px);
-      font-weight: 950;
-      line-height: 1.38;
-      letter-spacing: -.024em;
-      box-shadow: inset 0 1px 0 rgba(255, 255, 255, .06), 0 0 26px rgba(34, 211, 238, .08);
+    #${DIAGNOSIS_ID} .clara-diagnosis-core-card {
+      margin: 20px 0 0;
+      border: 1px solid rgba(165, 243, 252, .15);
+      border-radius: 22px;
+      background:
+        radial-gradient(circle at 8% 10%, rgba(125, 211, 252, .14), transparent 34%),
+        rgba(255, 255, 255, .045);
+      padding: 15px 16px;
+      box-shadow:
+        0 16px 38px rgba(0, 0, 0, .18),
+        inset 0 1px 0 rgba(255, 255, 255, .07),
+        0 0 30px rgba(34, 211, 238, .08);
     }
-    #${DIAGNOSIS_ID} .clara-diagnosis-statement {
-      display: grid;
-      gap: 12px;
-      margin: 18px 0 0;
-      color: rgba(248, 253, 255, .80);
-      font-size: clamp(13.5px, 3.45vw, 15.5px);
-      font-weight: 700;
-      line-height: 1.56;
+    #${DIAGNOSIS_ID} .clara-diagnosis-core-card span {
+      display: block;
+      color: rgba(186, 230, 253, .52);
+      font-size: 8px;
+      font-weight: 850;
+      letter-spacing: .22em;
+      text-transform: uppercase;
+    }
+    #${DIAGNOSIS_ID} .clara-diagnosis-core-card p {
+      margin: 7px 0 0;
+      color: rgba(248, 253, 255, .92);
+      font-size: clamp(13.5px, 3.55vw, 15px);
+      font-weight: 760;
+      line-height: 1.42;
       letter-spacing: -.018em;
     }
-    #${DIAGNOSIS_ID} .clara-diagnosis-statement p {
+    #${DIAGNOSIS_ID} .clara-diagnosis-sections {
+      display: grid;
+      gap: 16px;
+      margin: 22px 0 0;
+    }
+    #${DIAGNOSIS_ID} .clara-diagnosis-sections article {
+      display: grid;
+      gap: 6px;
+    }
+    #${DIAGNOSIS_ID} .clara-diagnosis-sections span {
+      color: rgba(186, 230, 253, .48);
+      font-size: 8.5px;
+      font-weight: 850;
+      letter-spacing: .2em;
+      text-transform: uppercase;
+    }
+    #${DIAGNOSIS_ID} .clara-diagnosis-sections p {
       margin: 0;
+      color: rgba(241, 245, 249, .76);
+      font-size: clamp(12.6px, 3.25vw, 14px);
+      font-weight: 560;
+      line-height: 1.55;
+      letter-spacing: -.012em;
     }
     #${DIAGNOSIS_ID} .clara-diagnosis-grid {
       display: grid;
-      gap: 10px;
+      gap: 9px;
       margin-top: 22px;
     }
-    #${DIAGNOSIS_ID} .clara-diagnosis-grid div {
-      border: 1px solid rgba(255, 255, 255, .08);
-      background: rgba(2, 8, 23, .30);
-      border-radius: 20px;
-      padding: 13px 14px;
-      box-shadow: inset 0 1px 0 rgba(255, 255, 255, .05);
+    #${DIAGNOSIS_ID} .clara-diagnosis-meta-card {
+      border: 1px solid rgba(255, 255, 255, .075);
+      background: rgba(2, 8, 23, .25);
+      border-radius: 18px;
+      padding: 12px 14px;
+      box-shadow: inset 0 1px 0 rgba(255, 255, 255, .045);
+    }
+    #${DIAGNOSIS_ID} .clara-diagnosis-priority-card {
+      border-color: rgba(165, 243, 252, .18);
+      background:
+        radial-gradient(circle at 8% 50%, rgba(45, 212, 191, .12), transparent 42%),
+        rgba(7, 18, 38, .40);
+      box-shadow:
+        inset 0 1px 0 rgba(255, 255, 255, .06),
+        0 0 26px rgba(34, 211, 238, .08);
     }
     #${DIAGNOSIS_ID} .clara-diagnosis-grid span {
       display: block;
-      color: rgba(207, 250, 254, .42);
-      font-size: 9px;
-      font-weight: 900;
-      letter-spacing: .18em;
+      color: rgba(186, 230, 253, .40);
+      font-size: 8px;
+      font-weight: 850;
+      letter-spacing: .19em;
       text-transform: uppercase;
     }
     #${DIAGNOSIS_ID} .clara-diagnosis-grid strong {
       display: block;
       margin-top: 5px;
-      color: rgba(255, 255, 255, .92);
-      font-size: 13px;
-      font-weight: 900;
-      line-height: 1.22;
+      color: rgba(255, 255, 255, .86);
+      font-size: 12.5px;
+      font-weight: 760;
+      line-height: 1.25;
+    }
+    #${DIAGNOSIS_ID} .clara-diagnosis-priority-card strong {
+      color: rgba(240, 253, 255, .96);
+      font-weight: 850;
     }
     #${DIAGNOSIS_ID} .clara-diagnosis-continue {
       width: 100%;
-      min-height: 56px;
+      min-height: 54px;
       margin-top: 22px;
-      border: 0;
-      border-radius: 22px;
-      background: linear-gradient(135deg, #67f8ff, #8bdcff 46%, #72a9ff);
-      color: #071226;
-      font-size: 14px;
-      font-weight: 950;
+      border: 1px solid rgba(255, 255, 255, .16);
+      border-radius: 9999px;
+      background:
+        radial-gradient(circle at 18% 20%, rgba(255,255,255,.36), transparent 26%),
+        linear-gradient(135deg, #5eead4, #7dd3fc 48%, #93c5fd);
+      color: #06101f;
+      font-size: 13.5px;
+      font-weight: 860;
       cursor: pointer;
-      box-shadow: 0 18px 42px rgba(103, 248, 255, .24), 0 0 34px rgba(125, 211, 252, .20);
+      box-shadow:
+        0 18px 42px rgba(45, 212, 191, .18),
+        0 0 34px rgba(125, 211, 252, .14),
+        inset 0 1px 0 rgba(255, 255, 255, .38);
     }
     @keyframes claraDiagnosisFade { from { opacity: 0; } to { opacity: 1; } }
     @keyframes claraDiagnosisRise { from { opacity: 0; transform: translateY(18px) scale(.985); filter: blur(5px); } to { opacity: 1; transform: translateY(0) scale(1); filter: blur(0); } }
     @media (max-height: 720px) {
+      #${DIAGNOSIS_ID} .clara-diagnosis-shell { padding: 12px 14px; }
       #${DIAGNOSIS_ID} .clara-diagnosis-card { padding: 18px; border-radius: 28px; }
-      #${DIAGNOSIS_ID} h2 { margin-top: 13px; font-size: clamp(27px, 7vw, 34px); }
-      #${DIAGNOSIS_ID} .clara-diagnosis-core { margin-top: 13px; padding: 10px 12px; font-size: 12.5px; line-height: 1.34; }
-      #${DIAGNOSIS_ID} .clara-diagnosis-statement { margin-top: 13px; gap: 8px; font-size: 12px; line-height: 1.44; }
+      #${DIAGNOSIS_ID} h2 { margin-top: 11px; font-size: clamp(25px, 6.7vw, 31px); }
+      #${DIAGNOSIS_ID} .clara-diagnosis-core-card { margin-top: 14px; padding: 12px 13px; border-radius: 18px; }
+      #${DIAGNOSIS_ID} .clara-diagnosis-core-card p { font-size: 12.5px; line-height: 1.36; }
+      #${DIAGNOSIS_ID} .clara-diagnosis-sections { margin-top: 15px; gap: 10px; }
+      #${DIAGNOSIS_ID} .clara-diagnosis-sections p { font-size: 11.4px; line-height: 1.42; }
       #${DIAGNOSIS_ID} .clara-diagnosis-grid { margin-top: 14px; gap: 7px; }
-      #${DIAGNOSIS_ID} .clara-diagnosis-grid div { padding: 10px 12px; border-radius: 16px; }
-      #${DIAGNOSIS_ID} .clara-diagnosis-continue { margin-top: 14px; min-height: 48px; border-radius: 18px; }
+      #${DIAGNOSIS_ID} .clara-diagnosis-meta-card { padding: 10px 12px; border-radius: 16px; }
+      #${DIAGNOSIS_ID} .clara-diagnosis-continue { margin-top: 14px; min-height: 48px; }
     }
   `;
 
