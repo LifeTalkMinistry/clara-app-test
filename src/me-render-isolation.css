@@ -77,6 +77,32 @@
   transition-duration: 180ms !important;
 }
 
+#root [data-clara-presentation-hierarchy="behavior-first"] [data-clara-behavior-observation-panel="true"],
+#root [data-clara-presentation-hierarchy="behavior-first"] [data-clara-predictive-decision-panel="true"] {
+  position: relative !important;
+  z-index: 2 !important;
+  opacity: 1 !important;
+}
+
+#root [data-clara-life-world-panel="true"][data-clara-presentation-demoted="true"] {
+  display: none !important;
+  visibility: hidden !important;
+  pointer-events: none !important;
+}
+
+#root [data-clara-context-status-chip="true"],
+#root [data-clara-snapshot-authority-chip="true"] {
+  opacity: 0.72 !important;
+  transform: translateZ(0) !important;
+  contain: paint style !important;
+}
+
+#root .clara-presentation-card-stable {
+  min-height: 0 !important;
+  transform: translateZ(0) !important;
+  contain: layout paint style !important;
+}
+
 #root .clara-ui-stable-layer {
   contain: layout paint style !important;
   transform: translateZ(0) !important;
