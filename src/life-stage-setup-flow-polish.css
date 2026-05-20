@@ -1,0 +1,26 @@
+.clara-flow-question {
+  margin-top: -0.45rem;
+  margin-bottom: 0.35rem;
+  max-width: 92%;
+  font-size: 12px;
+  line-height: 1.55;
+  font-weight: 800;
+  letter-spacing: -0.01em;
+  color: rgba(255, 255, 255, 0.62);
+}
+
+.clara-flow-board-summary {
+  max-width: 330px !important;
+  font-size: 13px !important;
+  line-height: 1.72 !important;
+  color: rgba(255, 255, 255, 0.72) !important;
+}
+
+@media (max-height: 760px) {
+  .clara-flow-board-summary {
+    display: -webkit-box;
+    -webkit-line-clamp: 5;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+}
