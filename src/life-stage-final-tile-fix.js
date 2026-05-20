@@ -23,6 +23,12 @@ const STAGE_NAMES = [
   "Business Builder",
 ];
 
+const progressState = {
+  index: null,
+  x: null,
+  width: null,
+};
+
 const clean = (value) => String(value || "").replace(/\s+/g, " ").trim();
 const loud = (value) => clean(value).toUpperCase();
 
@@ -86,6 +92,71 @@ function getPill(group) {
   return pill;
 }
 
+function styleTrack(group, bars) {
+  group.style.setProperty("display", "flex", "important");
+  group.style.setProperty("position", "relative", "important");
+  group.style.setProperty("align-items", "center", "important");
+  group.style.setProperty("gap", "0.5rem", "important");
+  group.style.setProperty("overflow", "visible", "important");
+
+  bars.forEach((bar) => {
+    bar.style.setProperty("width", "1.75rem", "important");
+    bar.style.setProperty("height", "0.25rem", "important");
+    bar.style.setProperty("border-radius", "9999px", "important");
+    bar.style.setProperty("background", "rgba(255, 255, 255, 0.12)", "important");
+    bar.style.setProperty("opacity", "0.72", "important");
+    bar.style.setProperty("box-shadow", "none", "important");
+  });
+}
+
+function stylePill(pill) {
+  pill.style.setProperty("position", "absolute", "important");
+  pill.style.setProperty("top", "50%", "important");
+  pill.style.setProperty("left", "0", "important");
+  pill.style.setProperty("height", "0.25rem", "important");
+  pill.style.setProperty("border-radius", "9999px", "important");
+  pill.style.setProperty("background", "rgb(165 243 252)", "important");
+  pill.style.setProperty("box-shadow", "0 0 18px rgba(125, 211, 252, 0.42)", "important");
+  pill.style.setProperty("z-index", "999", "important");
+  pill.style.setProperty("pointer-events", "none", "important");
+  pill.style.setProperty("will-change", "transform, width", "important");
+}
+
+function getTargetPosition(group, target) {
+  const groupRect = group.getBoundingClientRect();
+  const targetRect = target.getBoundingClientRect();
+  return {
+    x: targetRect.left - groupRect.left - 5,
+    width: Math.max(targetRect.width + 10, 32),
+  };
+}
+
+function movePill(pill, next, shouldAnimate) {
+  if (!shouldAnimate) {
+    pill.style.setProperty("transition", "none", "important");
+    pill.style.setProperty("width", `${next.width}px`, "important");
+    pill.style.setProperty("transform", `translate3d(${next.x}px, -50%, 0)`, "important");
+    return;
+  }
+
+  pill.style.setProperty("transition", "none", "important");
+  pill.style.setProperty("width", `${progressState.width}px`, "important");
+  pill.style.setProperty("transform", `translate3d(${progressState.x}px, -50%, 0)`, "important");
+
+  // Force the browser to paint the previous position first, so the next transform visibly glides.
+  void pill.offsetWidth;
+
+  window.requestAnimationFrame(() => {
+    pill.style.setProperty(
+      "transition",
+      "transform 520ms cubic-bezier(0.16, 1, 0.3, 1), width 520ms cubic-bezier(0.16, 1, 0.3, 1), box-shadow 520ms ease",
+      "important"
+    );
+    pill.style.setProperty("width", `${next.width}px`, "important");
+    pill.style.setProperty("transform", `translate3d(${next.x}px, -50%, 0)`, "important");
+  });
+}
+
 function applyFinalTileFix() {
   const modal = getModal();
   if (!modal) return;
@@ -102,45 +173,25 @@ function applyFinalTileFix() {
   const activeIndex = getActiveIndex(modal);
   if (!Number.isInteger(activeIndex)) return;
 
-  group.style.setProperty("display", "flex", "important");
-  group.style.setProperty("position", "relative", "important");
-  group.style.setProperty("align-items", "center", "important");
-  group.style.setProperty("gap", "0.5rem", "important");
-  group.style.setProperty("overflow", "visible", "important");
-
   const bars = getBars(group);
   if (bars.length < 6) return;
 
-  bars.forEach((bar) => {
-    bar.style.setProperty("width", "1.75rem", "important");
-    bar.style.setProperty("height", "0.25rem", "important");
-    bar.style.setProperty("border-radius", "9999px", "important");
-    bar.style.setProperty("background", "rgba(255, 255, 255, 0.12)", "important");
-    bar.style.setProperty("opacity", "0.72", "important");
-    bar.style.setProperty("box-shadow", "none", "important");
-  });
+  styleTrack(group, bars);
 
   const pill = getPill(group);
   const target = bars[Math.min(activeIndex, 5)];
-
-  pill.style.setProperty("position", "absolute", "important");
-  pill.style.setProperty("top", "50%", "important");
-  pill.style.setProperty("left", "0", "important");
-  pill.style.setProperty("height", "0.25rem", "important");
-  pill.style.setProperty("border-radius", "9999px", "important");
-  pill.style.setProperty("background", "rgb(165 243 252)", "important");
-  pill.style.setProperty("box-shadow", "0 0 18px rgba(125, 211, 252, 0.42)", "important");
-  pill.style.setProperty("z-index", "999", "important");
-  pill.style.setProperty("pointer-events", "none", "important");
-  pill.style.setProperty("transition", "transform 320ms cubic-bezier(0.22, 1, 0.36, 1), width 320ms cubic-bezier(0.22, 1, 0.36, 1)", "important");
+  stylePill(pill);
 
   window.requestAnimationFrame(() => {
-    const groupRect = group.getBoundingClientRect();
-    const targetRect = target.getBoundingClientRect();
-    const x = targetRect.left - groupRect.left - 5;
-    const width = Math.max(targetRect.width + 10, 32);
-    pill.style.setProperty("width", `${width}px`, "important");
-    pill.style.setProperty("transform", `translate3d(${x}px, -50%, 0)`, "important");
+    const next = getTargetPosition(group, target);
+    const previousExists = Number.isFinite(progressState.x) && Number.isFinite(progressState.width);
+    const indexChanged = progressState.index !== null && progressState.index !== activeIndex;
+
+    movePill(pill, next, previousExists && indexChanged);
+
+    progressState.index = activeIndex;
+    progressState.x = next.x;
+    progressState.width = next.width;
   });
 }
 
@@ -155,7 +206,7 @@ function installFinalTileFix() {
       window.requestAnimationFrame(() => {
         applyFinalTileFix();
         window.clearTimeout(timer);
-        timer = window.setTimeout(applyFinalTileFix, 80);
+        timer = window.setTimeout(applyFinalTileFix, 120);
       });
     });
   };
