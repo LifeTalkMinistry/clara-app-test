@@ -70,6 +70,7 @@ function buildDiagnosis(profile) {
       { tone: "soft", text: `Your current load is ${firstLower(workload)}, and your response pattern is: ${firstLower(coping)}.` },
       { tone: "closing", text: `The next step should move you toward this: ${firstLower(goal)}.` },
     ],
+    landing: "You do not need to fix everything at once. Start by protecting the part of your week that keeps everything else steady.",
   };
 }
 
@@ -111,6 +112,10 @@ function showDiagnosisReveal(profile) {
               <span>What needs protection now</span>
               ${renderLines(diagnosis.protection)}
             </article>
+          </div>
+
+          <div class="clara-diagnosis-landing">
+            <p>${escapeHtml(diagnosis.landing)}</p>
           </div>
 
           <button type="button" class="clara-diagnosis-continue">Continue to Me</button>
@@ -182,14 +187,9 @@ function showDiagnosisReveal(profile) {
       height: 100%;
       display: flex;
       flex-direction: column;
-      overflow-y: auto;
-      overflow-x: hidden;
+      overflow: hidden;
       padding: 22px 22px 18px;
-      -webkit-overflow-scrolling: touch;
-      scrollbar-width: none;
     }
-
-    #${DIAGNOSIS_ID} .clara-diagnosis-scroll::-webkit-scrollbar { display: none; }
 
     #${DIAGNOSIS_ID} .clara-diagnosis-orb {
       position: absolute;
@@ -223,33 +223,51 @@ function showDiagnosisReveal(profile) {
     #${DIAGNOSIS_ID} .clara-diagnosis-core-card p {
       margin: 0;
       color: rgba(248, 253, 255, .92);
-      font-size: clamp(13.2px, 3.4vw, 14.8px);
+      font-size: clamp(13px, 3.35vw, 14.6px);
       font-weight: 680;
-      line-height: 1.48;
+      line-height: 1.46;
       letter-spacing: -.014em;
     }
 
     #${DIAGNOSIS_ID} .clara-diagnosis-sections {
       display: grid;
-      gap: 16px;
-      margin: 21px 0 0;
+      gap: clamp(12px, 2.1dvh, 16px);
+      margin: clamp(16px, 2.5dvh, 21px) 0 0;
+      flex: 0 0 auto;
     }
 
     #${DIAGNOSIS_ID} .clara-diagnosis-sections article,
     #${DIAGNOSIS_ID} .clara-diagnosis-lines {
       display: grid;
-      gap: 6px;
+      gap: 5px;
     }
 
     #${DIAGNOSIS_ID} .clara-diagnosis-line { margin: 0; text-wrap: pretty; letter-spacing: -.011em; }
-    #${DIAGNOSIS_ID} .clara-diagnosis-line-lead { color: rgba(248, 253, 255, .88); font-size: clamp(13px, 3.32vw, 14.4px); font-weight: 735; line-height: 1.44; }
-    #${DIAGNOSIS_ID} .clara-diagnosis-line-soft { color: rgba(226, 236, 246, .72); font-size: clamp(12.6px, 3.18vw, 13.7px); font-weight: 545; line-height: 1.52; }
-    #${DIAGNOSIS_ID} .clara-diagnosis-line-closing { color: rgba(241, 250, 255, .90); font-size: clamp(12.8px, 3.24vw, 14px); font-weight: 760; line-height: 1.48; }
+    #${DIAGNOSIS_ID} .clara-diagnosis-line-lead { color: rgba(248, 253, 255, .88); font-size: clamp(12.7px, 3.25vw, 14.1px); font-weight: 735; line-height: 1.4; }
+    #${DIAGNOSIS_ID} .clara-diagnosis-line-soft { color: rgba(226, 236, 246, .72); font-size: clamp(12.2px, 3.08vw, 13.4px); font-weight: 545; line-height: 1.46; }
+    #${DIAGNOSIS_ID} .clara-diagnosis-line-closing { color: rgba(241, 250, 255, .90); font-size: clamp(12.4px, 3.15vw, 13.7px); font-weight: 760; line-height: 1.44; }
+
+    #${DIAGNOSIS_ID} .clara-diagnosis-landing {
+      margin: clamp(18px, 4dvh, 34px) auto 0;
+      width: min(88%, 286px);
+      padding: 0 4px;
+      text-align: center;
+    }
+
+    #${DIAGNOSIS_ID} .clara-diagnosis-landing p {
+      margin: 0;
+      color: rgba(202, 236, 244, .72);
+      font-size: clamp(11.6px, 2.92vw, 12.8px);
+      font-weight: 620;
+      line-height: 1.48;
+      letter-spacing: -.01em;
+      text-shadow: 0 0 18px rgba(45, 212, 191, .10);
+    }
 
     #${DIAGNOSIS_ID} .clara-diagnosis-continue {
       width: 100%;
       min-height: 52px;
-      margin-top: auto;
+      margin-top: clamp(14px, 2.5dvh, 22px);
       flex: 0 0 auto;
       border: 1px solid rgba(255, 255, 255, .16);
       border-radius: 9999px;
@@ -264,17 +282,32 @@ function showDiagnosisReveal(profile) {
     @keyframes claraDiagnosisFade { from { opacity: 0; } to { opacity: 1; } }
     @keyframes claraDiagnosisRise { from { opacity: 0; transform: translateY(18px) scale(.985); filter: blur(5px); } to { opacity: 1; transform: translateY(0) scale(1); filter: blur(0); } }
 
-    @media (max-height: 720px) {
+    @media (max-height: 760px) {
       #${DIAGNOSIS_ID} .clara-diagnosis-shell { padding: 10px 12px; }
       #${DIAGNOSIS_ID} .clara-diagnosis-card { border-radius: 27px; }
-      #${DIAGNOSIS_ID} .clara-diagnosis-scroll { padding: 17px 17px 14px; }
-      #${DIAGNOSIS_ID} .clara-diagnosis-core-card { padding: 13px 12px; border-radius: 17px; }
-      #${DIAGNOSIS_ID} .clara-diagnosis-core-card p { font-size: 12.6px; line-height: 1.42; }
-      #${DIAGNOSIS_ID} .clara-diagnosis-sections { margin-top: 15px; gap: 12px; }
-      #${DIAGNOSIS_ID} .clara-diagnosis-line-lead { font-size: 12.5px; line-height: 1.38; }
-      #${DIAGNOSIS_ID} .clara-diagnosis-line-soft { font-size: 12px; line-height: 1.42; }
-      #${DIAGNOSIS_ID} .clara-diagnosis-line-closing { font-size: 12.3px; line-height: 1.4; }
-      #${DIAGNOSIS_ID} .clara-diagnosis-continue { min-height: 47px; margin-top: 32px; }
+      #${DIAGNOSIS_ID} .clara-diagnosis-scroll { padding: 16px 17px 14px; }
+      #${DIAGNOSIS_ID} .clara-diagnosis-core-card { padding: 12px; border-radius: 17px; }
+      #${DIAGNOSIS_ID} .clara-diagnosis-core-card p { font-size: 12.3px; line-height: 1.38; }
+      #${DIAGNOSIS_ID} .clara-diagnosis-sections span { font-size: 7.7px; letter-spacing: .2em; }
+      #${DIAGNOSIS_ID} .clara-diagnosis-sections { margin-top: 12px; gap: 9px; }
+      #${DIAGNOSIS_ID} .clara-diagnosis-sections article, #${DIAGNOSIS_ID} .clara-diagnosis-lines { gap: 4px; }
+      #${DIAGNOSIS_ID} .clara-diagnosis-line-lead { font-size: 12px; line-height: 1.32; }
+      #${DIAGNOSIS_ID} .clara-diagnosis-line-soft { font-size: 11.5px; line-height: 1.36; }
+      #${DIAGNOSIS_ID} .clara-diagnosis-line-closing { font-size: 11.8px; line-height: 1.34; }
+      #${DIAGNOSIS_ID} .clara-diagnosis-landing { margin-top: 13px; width: 92%; }
+      #${DIAGNOSIS_ID} .clara-diagnosis-landing p { font-size: 11.1px; line-height: 1.34; }
+      #${DIAGNOSIS_ID} .clara-diagnosis-continue { min-height: 47px; margin-top: 12px; }
+    }
+
+    @media (max-height: 660px) {
+      #${DIAGNOSIS_ID} .clara-diagnosis-core-card p { font-size: 11.6px; line-height: 1.3; }
+      #${DIAGNOSIS_ID} .clara-diagnosis-sections { gap: 7px; margin-top: 10px; }
+      #${DIAGNOSIS_ID} .clara-diagnosis-line-lead { font-size: 11.4px; line-height: 1.25; }
+      #${DIAGNOSIS_ID} .clara-diagnosis-line-soft { font-size: 10.9px; line-height: 1.28; }
+      #${DIAGNOSIS_ID} .clara-diagnosis-line-closing { font-size: 11.1px; line-height: 1.26; }
+      #${DIAGNOSIS_ID} .clara-diagnosis-landing { margin-top: 10px; }
+      #${DIAGNOSIS_ID} .clara-diagnosis-landing p { font-size: 10.6px; line-height: 1.26; }
+      #${DIAGNOSIS_ID} .clara-diagnosis-continue { min-height: 44px; margin-top: 9px; }
     }
   `;
 
