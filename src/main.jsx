@@ -12,6 +12,7 @@ import "./clara-talk-pause-bridge";
 import "./life-stage-support-card";
 import "./life-stage-trend-snapshot";
 import "./life-stage-setup-flow-polish";
+import "./life-stage-apply-diagnosis";
 import App from "./App.jsx";
 import "./index.css";
 import "./clara-fab-theme.css";
