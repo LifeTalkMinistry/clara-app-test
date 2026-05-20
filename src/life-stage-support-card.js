@@ -5,6 +5,85 @@ const DEFAULT_SUPPORT_COPY = {
   body: "Many people in this life stage are experiencing similar financial pressure.",
 };
 
+const SOURCE_LIBRARY = {
+  PSA: {
+    label: "PSA",
+    name: "Philippine Statistics Authority",
+    url: "https://psa.gov.ph/statistics/labor-force-survey",
+    note: "labor, employment, income, and household pressure signals",
+  },
+  CHED: {
+    label: "CHED",
+    name: "CHED / UniFAST",
+    url: "https://unifast.gov.ph/",
+    note: "tuition, subsidy, student loan, and higher-education cost context",
+  },
+  BSP: {
+    label: "BSP",
+    name: "Bangko Sentral ng Pilipinas",
+    url: "https://www.bsp.gov.ph/Pages/InclusiveFinance/FinancialInclusionReports.aspx",
+    note: "digital finance, payments, savings access, and money behavior context",
+  },
+  DOLE: {
+    label: "DOLE",
+    name: "Department of Labor and Employment",
+    url: "https://www.dole.gov.ph/",
+    note: "work, labor, youth employment, and workplace policy context",
+  },
+  WHO: {
+    label: "WHO",
+    name: "World Health Organization",
+    url: "https://www.who.int/health-topics/mental-health",
+    note: "mental health, stress, recovery, and wellbeing context",
+  },
+  WB: {
+    label: "WB",
+    name: "World Bank Philippines",
+    url: "https://www.worldbank.org/en/country/philippines",
+    note: "economic pressure, poverty, human capital, and youth opportunity context",
+  },
+};
+
+const SOURCE_BY_TREND = {
+  "Recovery Gap": ["WHO", "PSA", "CHED"],
+  "Essential-Cost Load": ["PSA", "CHED", "BSP"],
+  "Cash Buffer Risk": ["BSP", "PSA", "CHED"],
+  "Stability Potential": ["PSA", "CHED", "WB"],
+
+  "Responsibility Load": ["PSA", "CHED", "WHO"],
+  "Shared-Money Pressure": ["PSA", "CHED", "DOLE"],
+  "Boundary Risk": ["WHO", "PSA", "CHED"],
+  "Support Balance": ["CHED", "PSA", "WB"],
+
+  "Fatigue Load": ["WHO", "PSA", "DOLE"],
+  "Schedule-Cost Pressure": ["PSA", "DOLE", "CHED"],
+  "Convenience Spend Risk": ["BSP", "PSA", "WHO"],
+  "Recovery Potential": ["WHO", "BSP", "CHED"],
+
+  "Debt Stress Load": ["BSP", "CHED", "WHO"],
+  "Repayment Pressure": ["BSP", "CHED", "PSA"],
+  "Cash-Flow Stability": ["BSP", "PSA", "DOLE"],
+
+  "Emotional Fatigue": ["WHO", "PSA", "CHED"],
+  "Daily Pressure": ["PSA", "CHED", "BSP"],
+  "Reward Frequency Risk": ["BSP", "WHO", "PSA"],
+  "Reward Control": ["BSP", "WHO", "CHED"],
+
+  "Independence Load": ["PSA", "CHED", "DOLE"],
+  "Essential Pressure": ["PSA", "CHED", "BSP"],
+  "Buffer Stability": ["BSP", "PSA", "CHED"],
+  "Discipline Potential": ["CHED", "PSA", "WB"],
+
+  "Fatigue Watch": ["WHO", "PSA", "DOLE"],
+  "Cost Pressure": ["PSA", "CHED", "BSP"],
+  "Routine Stability": ["PSA", "DOLE", "WHO"],
+  "Future Potential": ["CHED", "PSA", "WB"],
+
+  "Burnout Watch": ["WHO", "PSA", "DOLE"],
+  "Financial Pressure": ["PSA", "CHED", "BSP"],
+  "Micro-Spend Risk": ["BSP", "PSA", "WHO"],
+};
+
 function clean(value) {
   return String(value || "").replace(/\s+/g, " ").trim();
 }
@@ -164,6 +243,77 @@ function enhanceSupportCard() {
   card.querySelectorAll("[data-clara-support-signal='true']").forEach((node) => node.remove());
 }
 
+function getTrendSources(trendLabel) {
+  const ids = SOURCE_BY_TREND[clean(trendLabel)] || ["PSA", "CHED", "BSP"];
+  return ids.map((id) => SOURCE_LIBRARY[id]).filter(Boolean);
+}
+
+function enhanceSourcePanel() {
+  const sourceHeading = Array.from(document.querySelectorAll("p")).find((node) => clean(node.textContent) === "Source direction");
+  if (!sourceHeading) return;
+
+  const panel = sourceHeading.closest("div");
+  const detailRoot = sourceHeading.closest(".absolute") || document;
+  const trendTitle = clean(detailRoot.querySelector("h4")?.textContent);
+  if (!panel || !trendTitle) return;
+
+  const sources = getTrendSources(trendTitle);
+  const body = Array.from(panel.querySelectorAll("p")).find((node) => node !== sourceHeading && !node.dataset.claraSourceDisclaimer);
+  if (body) {
+    setText(
+      body,
+      "These sources inform the pressure signals behind this reading. The percentage is CLARA’s pattern estimate, not a direct published statistic."
+    );
+    body.dataset.claraSourceDisclaimer = "true";
+  }
+
+  let row = panel.querySelector("[data-clara-source-row='true']");
+  if (!row) {
+    row = document.createElement("div");
+    row.dataset.claraSourceRow = "true";
+    row.style.cssText = "display:flex;gap:8px;flex-wrap:wrap;margin-top:12px;";
+    panel.appendChild(row);
+  }
+
+  const signature = sources.map((source) => source.label).join("|");
+  if (row.dataset.sourceSignature === signature) return;
+  row.dataset.sourceSignature = signature;
+  row.innerHTML = "";
+
+  sources.forEach((source) => {
+    const link = document.createElement("a");
+    link.href = source.url;
+    link.target = "_blank";
+    link.rel = "noopener noreferrer";
+    link.title = `${source.name}: ${source.note}`;
+    link.textContent = source.label;
+    link.style.cssText = [
+      "display:inline-flex",
+      "align-items:center",
+      "justify-content:center",
+      "min-width:42px",
+      "height:30px",
+      "padding:0 10px",
+      "border-radius:999px",
+      "border:1px solid rgba(255,255,255,.12)",
+      "background:rgba(255,255,255,.055)",
+      "color:rgba(255,255,255,.76)",
+      "font-size:10px",
+      "font-weight:900",
+      "letter-spacing:.11em",
+      "text-decoration:none",
+      "box-shadow:inset 0 1px 0 rgba(255,255,255,.06)",
+      "backdrop-filter:blur(14px)",
+    ].join(";");
+    row.appendChild(link);
+  });
+}
+
+function enhanceAll() {
+  enhanceSupportCard();
+  enhanceSourcePanel();
+}
+
 if (typeof window !== "undefined" && typeof document !== "undefined" && !window.__CLARA_LIFE_SUPPORT_CARD__) {
   window.__CLARA_LIFE_SUPPORT_CARD__ = true;
 
@@ -173,7 +323,7 @@ if (typeof window !== "undefined" && typeof document !== "undefined" && !window.
     scheduled = true;
     window.requestAnimationFrame(() => {
       scheduled = false;
-      enhanceSupportCard();
+      enhanceAll();
     });
   };
 
