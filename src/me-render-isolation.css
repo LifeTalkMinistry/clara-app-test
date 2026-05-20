@@ -36,9 +36,12 @@
   transform: translateZ(0) !important;
   backface-visibility: hidden !important;
   isolation: isolate !important;
+  overflow-x: hidden !important;
 }
 
 #root .clara-me-render-island section {
+  min-width: 0 !important;
+  max-width: 100% !important;
   transform: translateZ(0) !important;
   backface-visibility: hidden !important;
 }
@@ -47,11 +50,20 @@
   contain: layout paint style !important;
   transform: translateZ(0) !important;
   backface-visibility: hidden !important;
+  max-width: 100% !important;
+  min-width: 0 !important;
+  overflow: hidden !important;
 }
 
 #root [data-clara-trend-carousel="true"] {
   contain: layout paint style !important;
   overscroll-behavior-x: contain !important;
+  max-width: 100% !important;
+  min-width: 0 !important;
+  overflow-x: auto !important;
+  overflow-y: hidden !important;
+  padding-inline: 2px !important;
+  scroll-padding-inline: 6px !important;
 }
 
 #root [data-clara-trend-card="true"] {
@@ -59,6 +71,9 @@
   transform: translateZ(0) !important;
   backface-visibility: hidden !important;
   will-change: auto !important;
+  min-width: min(148px, calc(100vw - 92px)) !important;
+  max-width: calc(100vw - 78px) !important;
+  overflow: hidden !important;
 }
 
 #root [data-clara-life-world-panel="true"],
@@ -68,11 +83,18 @@
   transform: translateZ(0) !important;
   backface-visibility: hidden !important;
   will-change: opacity !important;
+  min-width: 0 !important;
+  max-width: 100% !important;
+  overflow: hidden !important;
 }
 
 #root [data-clara-life-world-panel="true"] *,
 #root [data-clara-behavior-observation-panel="true"] *,
 #root [data-clara-predictive-decision-panel="true"] * {
+  min-width: 0 !important;
+  max-width: 100% !important;
+  overflow-wrap: anywhere !important;
+  word-break: normal !important;
   transition-property: opacity, transform, border-color, background-color !important;
   transition-duration: 180ms !important;
 }
@@ -95,17 +117,40 @@
   opacity: 0.72 !important;
   transform: translateZ(0) !important;
   contain: paint style !important;
+  max-width: 100% !important;
+  white-space: normal !important;
 }
 
 #root .clara-presentation-card-stable {
   min-height: 0 !important;
+  min-width: 0 !important;
+  max-width: 100% !important;
   transform: translateZ(0) !important;
   contain: layout paint style !important;
+}
+
+#root [data-clara-presentation-hierarchy="behavior-first"] h3,
+#root [data-clara-presentation-hierarchy="behavior-first"] h4,
+#root [data-clara-presentation-hierarchy="behavior-first"] p,
+#root [data-clara-presentation-hierarchy="behavior-first"] span {
+  max-width: 100% !important;
+  overflow-wrap: anywhere !important;
 }
 
 #root .clara-ui-stable-layer {
   contain: layout paint style !important;
   transform: translateZ(0) !important;
+}
+
+@media (max-width: 380px) {
+  #root [data-clara-behavior-observation-panel="true"] .grid,
+  #root [data-clara-predictive-decision-panel="true"] .grid {
+    grid-template-columns: minmax(0, 1fr) !important;
+  }
+
+  #root [data-clara-trend-card="true"] {
+    min-width: min(138px, calc(100vw - 76px)) !important;
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {
