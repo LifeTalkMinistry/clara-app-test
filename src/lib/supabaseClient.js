@@ -1,4 +1,10 @@
 import { createClient } from "@supabase/supabase-js";
+import {
+  createNoopRealtimeChannel,
+  isRealtimeSuspended,
+  recordRealtimeStatus,
+  wrapRealtimeChannel,
+} from "./claraRealtimeGuard";
 
 export const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || "";
 export const supabaseAnonKey = import.meta.env["VITE_SUPABASE_" + "ANON_KEY"] || "";
@@ -13,6 +19,18 @@ if (isSupabaseConfigured) {
       persistSession: true,
       autoRefreshToken: true,
       detectSessionInUrl: true,
+    },
+    realtime: {
+      timeout: 10_000,
+      heartbeatIntervalMs: 30_000,
+      reconnectAfterMs: (tries) => {
+        if (isRealtimeSuspended()) return 10 * 60_000;
+        if (tries >= 2) {
+          recordRealtimeStatus("TIMED_OUT", { channel: "supabase-reconnect-backoff" });
+          return 10 * 60_000;
+        }
+        return Math.min(30_000, 1_000 * Math.pow(2, tries));
+      },
     },
   });
 } else {
@@ -82,6 +100,41 @@ const createConfiguredSupabaseProxy = (client) =>
         };
       }
 
+      if (prop === "channel") {
+        return (channelName, options) => {
+          if (isRealtimeSuspended()) return createNoopRealtimeChannel(channelName);
+          const channel = target.channel(channelName, options);
+          return wrapRealtimeChannel(channel, channelName);
+        };
+      }
+
+      if (prop === "removeChannel") {
+        return async (channel) => {
+          if (!channel || channel.__claraNoopRealtime) return { error: null };
+          return target.removeChannel(channel);
+        };
+      }
+
+      if (prop === "removeAllChannels") {
+        return async () => {
+          try {
+            return await target.removeAllChannels();
+          } catch {
+            return { error: null };
+          }
+        };
+      }
+
+      if (prop === "getChannels") {
+        return () => {
+          try {
+            return target.getChannels();
+          } catch {
+            return [];
+          }
+        };
+      }
+
       const value = Reflect.get(target, prop, receiver);
       return typeof value === "function" ? value.bind(target) : value;
     },
@@ -140,24 +193,7 @@ const createMissingConfigQueryBuilder = () => {
   return builder;
 };
 
-const createMissingConfigChannel = () => {
-  const channel = {
-    on: () => channel,
-    subscribe: (callback) => {
-      if (typeof callback === "function") {
-        window.setTimeout?.(() => callback("SUBSCRIBED"), 0);
-      }
-
-      return channel;
-    },
-    unsubscribe: async () => ({ error: null }),
-    send: async () => ({ error: null }),
-    track: async () => ({ error: null }),
-    untrack: async () => ({ error: null }),
-  };
-
-  return channel;
-};
+const createMissingConfigChannel = () => createNoopRealtimeChannel("supabase-not-configured");
 
 const createMissingConfigProxy = () =>
   new Proxy(
