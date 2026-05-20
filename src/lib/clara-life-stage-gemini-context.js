@@ -141,7 +141,40 @@ async function getGeminiModelCandidates({ apiKey, signal }) {
 }
 
 function cleanText(value) {
-  return String(value || "").replace(/\s+/g, " ").trim();
+  return String(value || "")
+    .replace(/[\u0000-\u001F\u007F-\u009F]/g, " ")
+    .replace(/[“”]/g, '"')
+    .replace(/[‘’]/g, "'")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function stripMarkdownAndFences(value) {
+  return cleanText(value)
+    .replace(/```(?:json)?/gi, "")
+    .replace(/```/g, "")
+    .replace(/^assistant\s*:/i, "")
+    .trim();
+}
+
+function isJunkFragment(value) {
+  const text = cleanText(value);
+  if (!text) return true;
+  if (text.length < 8) return true;
+  if (!/[a-zA-Z]/.test(text)) return true;
+  if (/^[{}[\]"':,\.\s]+$/.test(text)) return true;
+  if (/^\{\s*"?$/.test(text)) return true;
+  if (/^"?\s*\}?$/.test(text)) return true;
+  return false;
+}
+
+function isSafeBoardText(value, { title = false } = {}) {
+  const text = cleanText(value);
+  if (isJunkFragment(text)) return false;
+  const letters = (text.match(/[a-zA-Z]/g) || []).length;
+  if (letters < (title ? 3 : 16)) return false;
+  if (!title && !/[.!?]$/.test(text) && text.split(/\s+/).length < 7) return false;
+  return true;
 }
 
 function safeJsonParse(value) {
@@ -152,25 +185,40 @@ function safeJsonParse(value) {
   }
 }
 
+function repairJsonLikeText(text) {
+  const raw = stripMarkdownAndFences(text);
+  if (!raw.includes("title") && !raw.includes("summary")) return raw;
+
+  const titleMatch = raw.match(/"?title"?\s*:\s*"([^"\n]+)"?/i);
+  const summaryMatch = raw.match(/"?summary"?\s*:\s*"([\s\S]+?)"?\s*}?$/i);
+
+  if (!titleMatch || !summaryMatch) return raw;
+
+  return JSON.stringify({
+    title: titleMatch[1],
+    summary: summaryMatch[1].replace(/["{}]+$/g, ""),
+  });
+}
+
 function extractJson(text) {
-  const raw = String(text || "").trim();
+  const raw = stripMarkdownAndFences(text);
   if (!raw) throw new Error("Gemini returned an empty response.");
+  if (isJunkFragment(raw)) throw new Error("Gemini returned a malformed fragment.");
 
   const direct = safeJsonParse(raw);
   if (direct) return direct;
 
-  const fenced = raw.match(/```(?:json)?\s*([\s\S]*?)```/i);
-  const candidate = String(fenced?.[1] || raw).trim();
-  const fencedParsed = safeJsonParse(candidate);
-  if (fencedParsed) return fencedParsed;
+  const repaired = repairJsonLikeText(raw);
+  const repairedParsed = safeJsonParse(repaired);
+  if (repairedParsed) return repairedParsed;
 
-  const start = candidate.indexOf("{");
-  const end = candidate.lastIndexOf("}");
+  const start = raw.indexOf("{");
+  const end = raw.lastIndexOf("}");
   if (start === -1 || end === -1 || end <= start) {
     throw new Error("Gemini did not return valid JSON.");
   }
 
-  const parsed = safeJsonParse(candidate.slice(start, end + 1));
+  const parsed = safeJsonParse(raw.slice(start, end + 1));
   if (!parsed) throw new Error("Gemini returned malformed JSON.");
   return parsed;
 }
@@ -243,8 +291,10 @@ Rules:
 - The title must be short, 2 to 5 words.
 - The summary must be 1 to 2 sentences only.
 - Summary should feel like CLARA is quietly understanding the user's real life.
+- Never return markdown.
+- Never return an unfinished JSON fragment.
 
-Return valid JSON only:
+Return exactly this JSON shape and nothing else:
 {"title":"short board title","summary":"1-2 concise human sentences"}`;
 }
 
@@ -259,13 +309,11 @@ function deriveTitleFromSummary(summary, fallbackTitle = "Life Pattern") {
 }
 
 function parsePlainTextBoardContext(text, fallback = {}) {
-  const raw = cleanText(text)
-    .replace(/```(?:json)?/gi, "")
-    .replace(/```/g, "")
-    .replace(/^assistant\s*:/i, "")
-    .trim();
+  const raw = stripMarkdownAndFences(text);
 
-  if (!raw) throw new Error("Gemini returned empty plain text.");
+  if (isJunkFragment(raw)) {
+    throw new Error("Gemini plain text response was only a malformed fragment.");
+  }
 
   const titleMatch = raw.match(/title\s*:\s*([^\n.]+)(?:\n|summary\s*:|$)/i);
   const summaryMatch = raw.match(/summary\s*:\s*([\s\S]+)$/i);
@@ -274,22 +322,33 @@ function parsePlainTextBoardContext(text, fallback = {}) {
     return sanitizeBoardContext({ title: titleMatch[1], summary: summaryMatch[1] });
   }
 
-  const sentences = raw
+  const cleaned = raw
+    .replace(/^\{+/, "")
+    .replace(/\}+$/, "")
+    .replace(/^"+|"+$/g, "")
+    .trim();
+
+  if (isJunkFragment(cleaned)) {
+    throw new Error("Gemini cleaned plain text response was unusable.");
+  }
+
+  const sentences = cleaned
     .split(/(?<=[.!?])\s+/)
     .map(cleanText)
-    .filter(Boolean);
-  const summary = (sentences.slice(0, 2).join(" ") || raw).slice(0, 420);
+    .filter((sentence) => isSafeBoardText(sentence));
+
+  const summary = (sentences.slice(0, 2).join(" ") || cleaned).slice(0, 420);
   const title = deriveTitleFromSummary(summary, fallback?.title);
 
   return sanitizeBoardContext({ title, summary });
 }
 
 function sanitizeBoardContext(raw) {
-  const title = cleanText(raw?.title).slice(0, 70);
-  const summary = cleanText(raw?.summary).slice(0, 420);
+  const title = cleanText(raw?.title).replace(/^title\s*:/i, "").slice(0, 70);
+  const summary = cleanText(raw?.summary).replace(/^summary\s*:/i, "").slice(0, 420);
 
-  if (!title || !summary) {
-    throw new Error("Gemini returned incomplete board context.");
+  if (!isSafeBoardText(title, { title: true }) || !isSafeBoardText(summary)) {
+    throw new Error("Gemini returned incomplete or unsafe board context.");
   }
 
   return {
@@ -303,7 +362,7 @@ function parseGeminiBoardContext(textPayload, fallback) {
   try {
     return sanitizeBoardContext(extractJson(textPayload));
   } catch (jsonError) {
-    console.warn("[CLARA Life Stage Gemini] JSON parse failed, using plain text Gemini response:", jsonError?.message || jsonError);
+    console.warn("[CLARA Life Stage Gemini] JSON parse failed, trying plain text normalization:", jsonError?.message || jsonError);
     return parsePlainTextBoardContext(textPayload, fallback);
   }
 }
@@ -321,7 +380,8 @@ async function requestGeminiContent({ apiKey, model, prompt, signal }) {
       generationConfig: {
         temperature: 0.62,
         topP: 0.9,
-        maxOutputTokens: 220,
+        maxOutputTokens: 260,
+        responseMimeType: "application/json",
       },
     }),
   });
