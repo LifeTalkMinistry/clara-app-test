@@ -50,25 +50,6 @@ const GOAL_MEANING = {
   "Control stress spending": "control stress spending before it becomes a repeated pattern",
 };
 
-const EMPHASIS_PHRASES = [
-  ["school, money, energy, and protection", "cyan"],
-  ["income timing", "amber"],
-  ["family support pressure", "violet"],
-  ["very little room for mistakes", "amber"],
-  ["without losing your own stability", "emerald"],
-  ["daily needs", "cyan"],
-  ["protecting your education", "cyan"],
-  ["emotional energy", "violet"],
-  ["financial environment", "cyan"],
-  ["protect your stability", "emerald"],
-  ["school costs", "cyan"],
-  ["daily survival costs", "amber"],
-  ["borrowed money", "violet"],
-  ["small relief spending", "violet"],
-  ["small protection", "emerald"],
-  ["control stress spending", "emerald"],
-];
-
 function clean(value) {
   return String(value || "").replace(/\s+/g, " ").trim();
 }
@@ -105,21 +86,6 @@ function escapeHtml(value) {
   }[character]));
 }
 
-function emphasizeText(value) {
-  let output = escapeHtml(value);
-
-  EMPHASIS_PHRASES.forEach(([phrase, tone]) => {
-    const safePhrase = escapeHtml(phrase);
-    if (!safePhrase || !output.includes(safePhrase)) return;
-
-    output = output.split(safePhrase).join(
-      `<span class="clara-diagnosis-emphasis clara-diagnosis-emphasis-${tone}">${safePhrase}</span>`
-    );
-  });
-
-  return output;
-}
-
 function buildDiagnosis(profile) {
   const setup = meaning(SETUP_MEANING, profile.setup, "your student setup carries both school and money responsibility");
   const rhythm = meaning(RHYTHM_MEANING, profile.rhythm, "your income rhythm needs protection");
@@ -131,8 +97,6 @@ function buildDiagnosis(profile) {
   return {
     title: "CLARA understands your current environment.",
     core: "You are carrying school, money, energy, and protection at the same time.",
-    summary:
-      `${sentence(setup)}. Since ${rhythm}, ${pressure}, while CLARA helps you ${goal}.`,
     sees: `${sentence(setup)}.`,
     matters: `Because ${rhythm}, CLARA understands that one small gap can affect your school, daily needs, and emotional energy.`,
     protection: `Right now, ${pressure}. Since ${load}, and ${coping}, your financial system should help you ${goal}.`,
@@ -168,44 +132,39 @@ function showDiagnosisReveal(profile) {
 
           <div class="clara-diagnosis-core-card">
             <span>CLARA'S READ</span>
-            <p>${emphasizeText(diagnosis.core)}</p>
-          </div>
-
-          <p class="clara-diagnosis-summary">${emphasizeText(diagnosis.summary)}</p>
-
-          <div class="clara-diagnosis-priority-card">
-            <span>CLARA priority</span>
-            <strong>${escapeHtml(diagnosis.focus)}</strong>
-          </div>
-
-          <div class="clara-diagnosis-chip-row">
-            <div class="clara-diagnosis-chip clara-diagnosis-chip-pressure">
-              <span>Pressure</span>
-              <strong>${escapeHtml(diagnosis.pressure)}</strong>
-            </div>
-            <div class="clara-diagnosis-chip clara-diagnosis-chip-rhythm">
-              <span>Rhythm</span>
-              <strong>${escapeHtml(diagnosis.rhythm)}</strong>
-            </div>
+            <p>${escapeHtml(diagnosis.core)}</p>
           </div>
 
           <div class="clara-diagnosis-sections">
-            <article class="clara-diagnosis-section-sees">
+            <article>
               <span>What CLARA sees</span>
-              <p>${emphasizeText(diagnosis.sees)}</p>
+              <p>${escapeHtml(diagnosis.sees)}</p>
             </article>
-            <article class="clara-diagnosis-section-matters">
+            <article>
               <span>Why this matters</span>
-              <p>${emphasizeText(diagnosis.matters)}</p>
+              <p>${escapeHtml(diagnosis.matters)}</p>
             </article>
-            <article class="clara-diagnosis-section-protection">
+            <article>
               <span>What needs protection now</span>
-              <p>${emphasizeText(diagnosis.protection)}</p>
+              <p>${escapeHtml(diagnosis.protection)}</p>
             </article>
           </div>
-        </div>
 
-        <div class="clara-diagnosis-footer">
+          <div class="clara-diagnosis-metrics">
+            <div class="clara-diagnosis-metric">
+              <span>Pressure to protect</span>
+              <strong>${escapeHtml(diagnosis.pressure)}</strong>
+            </div>
+            <div class="clara-diagnosis-metric">
+              <span>Money rhythm</span>
+              <strong>${escapeHtml(diagnosis.rhythm)}</strong>
+            </div>
+            <div class="clara-diagnosis-metric clara-diagnosis-priority-metric">
+              <span>CLARA priority</span>
+              <strong>${escapeHtml(diagnosis.focus)}</strong>
+            </div>
+          </div>
+
           <button type="button" class="clara-diagnosis-continue">Continue to Me</button>
         </div>
       </section>
@@ -293,18 +252,6 @@ function showDiagnosisReveal(profile) {
       display: none;
     }
 
-    #${DIAGNOSIS_ID} .clara-diagnosis-footer {
-      position: relative;
-      z-index: 2;
-      flex: 0 0 auto;
-      padding: 12px 22px 18px;
-      background:
-        linear-gradient(180deg, rgba(12, 16, 48, 0), rgba(8, 14, 36, .76) 24%, rgba(6, 10, 28, .96));
-      backdrop-filter: blur(18px);
-      -webkit-backdrop-filter: blur(18px);
-      box-shadow: 0 -18px 42px rgba(2, 8, 23, .28);
-    }
-
     #${DIAGNOSIS_ID} .clara-diagnosis-orb {
       position: absolute;
       pointer-events: none;
@@ -331,25 +278,22 @@ function showDiagnosisReveal(profile) {
 
     #${DIAGNOSIS_ID} .clara-diagnosis-kicker {
       margin: 0;
-      color: rgba(165, 243, 252, .72);
+      color: rgba(186, 230, 253, .62);
       font-size: 8.5px;
       font-weight: 800;
       letter-spacing: .28em;
       text-transform: uppercase;
-      text-shadow: 0 0 20px rgba(34, 211, 238, .16);
     }
 
     #${DIAGNOSIS_ID} h2 {
       max-width: 18rem;
       margin: 12px 0 0;
-      color: rgba(248, 252, 255, .98);
+      color: rgba(255, 255, 255, .96);
       font-size: clamp(25px, 6.6vw, 32px);
       line-height: 1.03;
       letter-spacing: -.042em;
       font-weight: 850;
-      text-shadow:
-        0 8px 22px rgba(0, 0, 0, .24),
-        0 0 26px rgba(125, 211, 252, .10);
+      text-shadow: 0 8px 22px rgba(0, 0, 0, .20);
     }
 
     #${DIAGNOSIS_ID} .clara-diagnosis-core-card {
@@ -367,74 +311,52 @@ function showDiagnosisReveal(profile) {
     }
 
     #${DIAGNOSIS_ID} .clara-diagnosis-core-card span,
-    #${DIAGNOSIS_ID} .clara-diagnosis-priority-card span,
-    #${DIAGNOSIS_ID} .clara-diagnosis-chip span,
+    #${DIAGNOSIS_ID} .clara-diagnosis-metric span,
     #${DIAGNOSIS_ID} .clara-diagnosis-sections span {
       display: block;
-      color: rgba(186, 230, 253, .56);
+      color: rgba(186, 230, 253, .48);
       font-size: 8px;
       font-weight: 850;
       letter-spacing: .2em;
       text-transform: uppercase;
     }
 
-    #${DIAGNOSIS_ID} .clara-diagnosis-core-card span {
-      color: rgba(165, 243, 252, .76);
-    }
-
     #${DIAGNOSIS_ID} .clara-diagnosis-core-card p {
       margin: 7px 0 0;
-      color: rgba(250, 253, 255, .94);
+      color: rgba(248, 253, 255, .92);
       font-size: clamp(13px, 3.4vw, 14.5px);
       font-weight: 740;
       line-height: 1.38;
       letter-spacing: -.016em;
     }
 
-    #${DIAGNOSIS_ID} .clara-diagnosis-summary {
-      margin: 15px 0 0;
-      color: rgba(236, 244, 250, .82);
-      font-size: clamp(12.4px, 3.2vw, 13.8px);
-      font-weight: 560;
-      line-height: 1.5;
-      letter-spacing: -.012em;
-    }
-
-    #${DIAGNOSIS_ID} .clara-diagnosis-priority-card {
-      margin-top: 16px;
-      border: 1px solid rgba(165, 243, 252, .18);
-      border-radius: 19px;
-      background:
-        radial-gradient(circle at 9% 50%, rgba(45, 212, 191, .13), transparent 42%),
-        rgba(7, 18, 38, .42);
-      padding: 13px 14px;
-      box-shadow:
-        inset 0 1px 0 rgba(255, 255, 255, .06),
-        0 0 28px rgba(34, 211, 238, .09);
-    }
-
-    #${DIAGNOSIS_ID} .clara-diagnosis-priority-card span {
-      color: rgba(134, 239, 172, .68);
-    }
-
-    #${DIAGNOSIS_ID} .clara-diagnosis-priority-card strong {
-      display: block;
-      margin-top: 6px;
-      color: rgba(209, 250, 229, .98);
-      font-size: 13.5px;
-      font-weight: 860;
-      line-height: 1.25;
-      text-shadow: 0 0 18px rgba(52, 211, 153, .12);
-    }
-
-    #${DIAGNOSIS_ID} .clara-diagnosis-chip-row {
+    #${DIAGNOSIS_ID} .clara-diagnosis-sections {
       display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 9px;
-      margin-top: 9px;
+      gap: 13px;
+      margin: 20px 0 0;
     }
 
-    #${DIAGNOSIS_ID} .clara-diagnosis-chip {
+    #${DIAGNOSIS_ID} .clara-diagnosis-sections article {
+      display: grid;
+      gap: 5px;
+    }
+
+    #${DIAGNOSIS_ID} .clara-diagnosis-sections p {
+      margin: 0;
+      color: rgba(241, 245, 249, .70);
+      font-size: clamp(11.8px, 3.05vw, 13.2px);
+      font-weight: 520;
+      line-height: 1.48;
+      letter-spacing: -.01em;
+    }
+
+    #${DIAGNOSIS_ID} .clara-diagnosis-metrics {
+      display: grid;
+      gap: 9px;
+      margin-top: 22px;
+    }
+
+    #${DIAGNOSIS_ID} .clara-diagnosis-metric {
       min-width: 0;
       border: 1px solid rgba(255, 255, 255, .07);
       border-radius: 17px;
@@ -443,93 +365,26 @@ function showDiagnosisReveal(profile) {
       box-shadow: inset 0 1px 0 rgba(255, 255, 255, .04);
     }
 
-    #${DIAGNOSIS_ID} .clara-diagnosis-chip-pressure span {
-      color: rgba(216, 180, 254, .66);
+    #${DIAGNOSIS_ID} .clara-diagnosis-priority-metric {
+      border-color: rgba(165, 243, 252, .12);
+      background:
+        radial-gradient(circle at 10% 50%, rgba(45, 212, 191, .10), transparent 42%),
+        rgba(7, 18, 38, .34);
     }
 
-    #${DIAGNOSIS_ID} .clara-diagnosis-chip-rhythm span {
-      color: rgba(253, 230, 138, .66);
-    }
-
-    #${DIAGNOSIS_ID} .clara-diagnosis-chip strong {
+    #${DIAGNOSIS_ID} .clara-diagnosis-metric strong {
       display: block;
       margin-top: 5px;
-      color: rgba(255, 255, 255, .88);
+      color: rgba(255, 255, 255, .84);
       font-size: 11.5px;
       font-weight: 740;
       line-height: 1.2;
     }
 
-    #${DIAGNOSIS_ID} .clara-diagnosis-chip-pressure strong {
-      color: rgba(245, 228, 255, .94);
-    }
-
-    #${DIAGNOSIS_ID} .clara-diagnosis-chip-rhythm strong {
-      color: rgba(255, 247, 214, .94);
-    }
-
-    #${DIAGNOSIS_ID} .clara-diagnosis-sections {
-      display: grid;
-      gap: 13px;
-      margin: 20px 0 4px;
-      padding-top: 16px;
-      border-top: 1px solid rgba(255, 255, 255, .06);
-    }
-
-    #${DIAGNOSIS_ID} .clara-diagnosis-sections article {
-      display: grid;
-      gap: 5px;
-    }
-
-    #${DIAGNOSIS_ID} .clara-diagnosis-section-sees span {
-      color: rgba(125, 211, 252, .68);
-    }
-
-    #${DIAGNOSIS_ID} .clara-diagnosis-section-matters span {
-      color: rgba(196, 181, 253, .68);
-    }
-
-    #${DIAGNOSIS_ID} .clara-diagnosis-section-protection span {
-      color: rgba(110, 231, 183, .70);
-    }
-
-    #${DIAGNOSIS_ID} .clara-diagnosis-sections p {
-      margin: 0;
-      color: rgba(232, 240, 247, .80);
-      font-size: clamp(11.8px, 3.05vw, 13.2px);
-      font-weight: 520;
-      line-height: 1.48;
-      letter-spacing: -.01em;
-    }
-
-    #${DIAGNOSIS_ID} .clara-diagnosis-emphasis {
-      font-weight: 780;
-      text-wrap: pretty;
-    }
-
-    #${DIAGNOSIS_ID} .clara-diagnosis-emphasis-cyan {
-      color: rgba(186, 230, 253, .98);
-      text-shadow: 0 0 18px rgba(34, 211, 238, .12);
-    }
-
-    #${DIAGNOSIS_ID} .clara-diagnosis-emphasis-amber {
-      color: rgba(253, 230, 138, .96);
-      text-shadow: 0 0 18px rgba(245, 158, 11, .10);
-    }
-
-    #${DIAGNOSIS_ID} .clara-diagnosis-emphasis-violet {
-      color: rgba(221, 214, 254, .97);
-      text-shadow: 0 0 18px rgba(168, 85, 247, .10);
-    }
-
-    #${DIAGNOSIS_ID} .clara-diagnosis-emphasis-emerald {
-      color: rgba(187, 247, 208, .97);
-      text-shadow: 0 0 18px rgba(52, 211, 153, .12);
-    }
-
     #${DIAGNOSIS_ID} .clara-diagnosis-continue {
       width: 100%;
       min-height: 52px;
+      margin-top: 18px;
       border: 1px solid rgba(255, 255, 255, .16);
       border-radius: 9999px;
       background:
@@ -558,18 +413,15 @@ function showDiagnosisReveal(profile) {
     @media (max-height: 720px) {
       #${DIAGNOSIS_ID} .clara-diagnosis-shell { padding: 10px 12px; }
       #${DIAGNOSIS_ID} .clara-diagnosis-card { border-radius: 27px; }
-      #${DIAGNOSIS_ID} .clara-diagnosis-scroll { padding: 17px 17px 12px; }
-      #${DIAGNOSIS_ID} .clara-diagnosis-footer { padding: 10px 17px 14px; }
+      #${DIAGNOSIS_ID} .clara-diagnosis-scroll { padding: 17px 17px 14px; }
       #${DIAGNOSIS_ID} h2 { margin-top: 9px; font-size: clamp(23px, 6.2vw, 29px); }
       #${DIAGNOSIS_ID} .clara-diagnosis-core-card { margin-top: 12px; padding: 11px 12px; border-radius: 17px; }
       #${DIAGNOSIS_ID} .clara-diagnosis-core-card p { font-size: 12px; line-height: 1.34; }
-      #${DIAGNOSIS_ID} .clara-diagnosis-summary { margin-top: 12px; font-size: 11.4px; line-height: 1.42; }
-      #${DIAGNOSIS_ID} .clara-diagnosis-priority-card { margin-top: 12px; padding: 10px 12px; border-radius: 16px; }
-      #${DIAGNOSIS_ID} .clara-diagnosis-chip-row { gap: 7px; margin-top: 7px; }
-      #${DIAGNOSIS_ID} .clara-diagnosis-chip { padding: 9px 10px; border-radius: 15px; }
-      #${DIAGNOSIS_ID} .clara-diagnosis-chip strong { font-size: 10.5px; }
-      #${DIAGNOSIS_ID} .clara-diagnosis-sections { margin-top: 14px; padding-top: 12px; gap: 9px; }
+      #${DIAGNOSIS_ID} .clara-diagnosis-sections { margin-top: 14px; gap: 9px; }
       #${DIAGNOSIS_ID} .clara-diagnosis-sections p { font-size: 11px; line-height: 1.38; }
+      #${DIAGNOSIS_ID} .clara-diagnosis-metrics { margin-top: 16px; gap: 8px; }
+      #${DIAGNOSIS_ID} .clara-diagnosis-metric { padding: 9px 10px; border-radius: 15px; }
+      #${DIAGNOSIS_ID} .clara-diagnosis-metric strong { font-size: 10.5px; }
       #${DIAGNOSIS_ID} .clara-diagnosis-continue { min-height: 47px; }
     }
   `;
