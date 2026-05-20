@@ -299,29 +299,68 @@ function findStageBoard() {
   return { marker, header, title, summary };
 }
 
-function findProgressDots(header) {
+function getProgressParts(header) {
   const groups = Array.from(header?.querySelectorAll("div") || []);
   const progressGroup = groups.find((group) => {
-    const children = Array.from(group.children || []);
+    const children = Array.from(group.children || []).filter((child) => child.dataset.claraMovingTile !== "true");
     return children.length >= 5 && children.every((child) => String(child.className || "").includes("rounded-full"));
   });
-  return Array.from(progressGroup?.children || []);
+
+  const dots = Array.from(progressGroup?.children || []).filter((child) => child.dataset.claraMovingTile !== "true");
+  return { progressGroup, dots };
+}
+
+function getMovingTile(progressGroup) {
+  let tile = progressGroup.querySelector("[data-clara-moving-tile='true']");
+  if (!tile) {
+    tile = document.createElement("span");
+    tile.dataset.claraMovingTile = "true";
+    tile.setAttribute("aria-hidden", "true");
+    progressGroup.appendChild(tile);
+  }
+  return tile;
 }
 
 function updateProgressDots(header, activeKey) {
-  const dots = findProgressDots(header);
+  const { progressGroup, dots } = getProgressParts(header);
   const activeTile = ACTIVE_TILE_BY_STEP[activeKey] ?? 0;
-  if (!dots.length) return;
+  if (!progressGroup || !dots.length) return;
 
-  dots.forEach((dot, index) => {
-    const active = index === activeTile;
-    dot.style.setProperty("width", active ? "2.95rem" : "2.35rem", "important");
+  progressGroup.style.setProperty("position", "relative", "important");
+  progressGroup.style.setProperty("overflow", "visible", "important");
+  progressGroup.style.setProperty("display", "flex", "important");
+  progressGroup.style.setProperty("align-items", "center", "important");
+
+  dots.forEach((dot) => {
+    dot.style.setProperty("width", "2.35rem", "important");
     dot.style.setProperty("height", "0.25rem", "important");
     dot.style.setProperty("border-radius", "9999px", "important");
-    dot.style.setProperty("background", active ? "rgb(165 243 252)" : "rgba(255, 255, 255, 0.12)", "important");
-    dot.style.setProperty("box-shadow", active ? "0 0 18px rgba(125, 211, 252, 0.34)" : "none", "important");
-    dot.style.setProperty("opacity", active ? "1" : "0.65", "important");
-    dot.style.setProperty("transition", "width 220ms ease, background 220ms ease, opacity 220ms ease, box-shadow 220ms ease", "important");
+    dot.style.setProperty("background", "rgba(255, 255, 255, 0.12)", "important");
+    dot.style.setProperty("box-shadow", "none", "important");
+    dot.style.setProperty("opacity", "0.72", "important");
+  });
+
+  const movingTile = getMovingTile(progressGroup);
+  const target = dots[Math.min(activeTile, dots.length - 1)];
+
+  movingTile.style.setProperty("position", "absolute", "important");
+  movingTile.style.setProperty("top", "50%", "important");
+  movingTile.style.setProperty("left", "0", "important");
+  movingTile.style.setProperty("height", "0.25rem", "important");
+  movingTile.style.setProperty("border-radius", "9999px", "important");
+  movingTile.style.setProperty("background", "rgb(165 243 252)", "important");
+  movingTile.style.setProperty("box-shadow", "0 0 18px rgba(125, 211, 252, 0.42)", "important");
+  movingTile.style.setProperty("z-index", "5", "important");
+  movingTile.style.setProperty("pointer-events", "none", "important");
+  movingTile.style.setProperty("transition", "transform 320ms cubic-bezier(0.22, 1, 0.36, 1), width 320ms cubic-bezier(0.22, 1, 0.36, 1)", "important");
+
+  window.requestAnimationFrame(() => {
+    const groupRect = progressGroup.getBoundingClientRect();
+    const targetRect = target.getBoundingClientRect();
+    const width = Math.max(targetRect.width + 12, 44);
+    const x = targetRect.left - groupRect.left - 6;
+    movingTile.style.setProperty("width", `${width}px`, "important");
+    movingTile.style.setProperty("transform", `translate3d(${x}px, -50%, 0)`, "important");
   });
 }
 
