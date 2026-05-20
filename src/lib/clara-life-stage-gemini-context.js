@@ -1,12 +1,12 @@
 const GEMINI_API_BASE = "https://generativelanguage.googleapis.com/v1beta";
-const DEFAULT_GEMINI_MODEL = "gemini-2.0-flash";
+const DEFAULT_GEMINI_MODEL = "gemini-2.5-flash";
 const FALLBACK_GEMINI_MODELS = [
   DEFAULT_GEMINI_MODEL,
-  "gemini-2.5-flash",
-  "gemini-2.0-flash-lite",
+  "gemini-2.5-flash-lite",
+  "gemini-2.5-flash-latest",
+  "gemini-2.0-flash",
+  "gemini-2.0-flash-001",
   "gemini-1.5-flash",
-  "gemini-1.5-flash-latest",
-  "gemini-pro",
 ];
 const DEFAULT_TIMEOUT_MS = 14000;
 let discoveredModelCache = null;
@@ -44,15 +44,52 @@ function getConfiguredModelCandidates() {
   return uniqueModels([getExplicitGeminiModel(), ...FALLBACK_GEMINI_MODELS]);
 }
 
+function isTextBoardModel(model) {
+  const name = normalizeModelName(model).toLowerCase();
+  if (!name.includes("gemini")) return false;
+  if (name.includes("embedding")) return false;
+  if (name.includes("imagen")) return false;
+  if (name.includes("image")) return false;
+  if (name.includes("tts")) return false;
+  if (name.includes("audio")) return false;
+  if (name.includes("live")) return false;
+  if (name.includes("veo")) return false;
+  if (name.includes("aqa")) return false;
+  if (name.includes("learnlm")) return false;
+  if (name.includes("thinking")) return false;
+  if (name.includes("preview") && !name.includes("flash")) return false;
+  return name.includes("flash") || name.includes("pro");
+}
+
+function isDeprecatedForNewUsers(model) {
+  const name = normalizeModelName(model).toLowerCase();
+  return (
+    name === "gemini-2.0-flash" ||
+    name === "gemini-2.0-flash-001" ||
+    name === "gemini-1.5-flash" ||
+    name === "gemini-1.5-flash-latest" ||
+    name === "gemini-pro"
+  );
+}
+
 function scoreDiscoveredModel(model) {
-  const name = normalizeModelName(model?.name || model);
-  if (name.includes("2.0-flash") && !name.includes("lite")) return 120;
-  if (name.includes("2.5-flash") && !name.includes("lite")) return 110;
-  if (name.includes("flash-lite")) return 95;
-  if (name.includes("1.5-flash")) return 80;
-  if (name.includes("flash")) return 70;
-  if (name.includes("pro")) return 40;
-  return 10;
+  const name = normalizeModelName(model?.name || model).toLowerCase();
+  let score = 0;
+
+  if (name.includes("2.5-flash") && !name.includes("lite") && !name.includes("preview")) score += 140;
+  else if (name.includes("2.5-flash-lite") && !name.includes("preview")) score += 125;
+  else if (name.includes("2.5-flash")) score += 110;
+  else if (name.includes("2.0-flash-lite")) score += 70;
+  else if (name.includes("2.0-flash")) score += 50;
+  else if (name.includes("1.5-flash")) score += 35;
+  else if (name.includes("pro")) score += 25;
+  else score += 5;
+
+  if (name.includes("preview")) score -= 20;
+  if (name.includes("exp")) score -= 25;
+  if (isDeprecatedForNewUsers(name)) score -= 100;
+
+  return score;
 }
 
 async function discoverGeminiModels({ apiKey, signal }) {
@@ -75,16 +112,16 @@ async function discoverGeminiModels({ apiKey, signal }) {
   const models = (Array.isArray(data?.models) ? data.models : [])
     .filter((model) => Array.isArray(model?.supportedGenerationMethods) && model.supportedGenerationMethods.includes("generateContent"))
     .map((model) => normalizeModelName(model.name))
-    .filter(Boolean)
+    .filter(isTextBoardModel)
     .sort((a, b) => scoreDiscoveredModel(b) - scoreDiscoveredModel(a));
 
   discoveredModelCache = uniqueModels(models);
-  console.info("[CLARA Life Stage Gemini] Available generateContent models:", discoveredModelCache);
+  console.info("[CLARA Life Stage Gemini] Available text board models:", discoveredModelCache);
   return discoveredModelCache;
 }
 
 async function getGeminiModelCandidates({ apiKey, signal }) {
-  const configured = getConfiguredModelCandidates();
+  const configured = getConfiguredModelCandidates().filter(isTextBoardModel);
 
   try {
     const discovered = await discoverGeminiModels({ apiKey, signal });
@@ -92,14 +129,15 @@ async function getGeminiModelCandidates({ apiKey, signal }) {
     if (discovered.length) {
       const explicit = normalizeModelName(getExplicitGeminiModel());
       const explicitIfAvailable = explicit && discovered.includes(explicit) ? [explicit] : [];
-      const discoveredWithoutExplicit = discovered.filter((model) => model !== explicit);
-      return uniqueModels([...explicitIfAvailable, ...discoveredWithoutExplicit]);
+      const discoveredWithoutExplicit = discovered.filter((model) => model !== explicit && !isDeprecatedForNewUsers(model));
+      const deprecatedDiscovered = discovered.filter((model) => model !== explicit && isDeprecatedForNewUsers(model));
+      return uniqueModels([...explicitIfAvailable, ...discoveredWithoutExplicit, ...deprecatedDiscovered]);
     }
   } catch (error) {
     console.warn("[CLARA Life Stage Gemini] Could not discover models, using configured fallback list:", error);
   }
 
-  return configured;
+  return configured.filter((model) => !isDeprecatedForNewUsers(model)).concat(configured.filter(isDeprecatedForNewUsers));
 }
 
 function cleanText(value) {
@@ -170,7 +208,7 @@ function formatAnswerChain(draft = {}, currentKey = "stage") {
 function buildPrompt({ stage, currentKey, currentValue, draft, localBoardContext }) {
   return `You are CLARA's Contextual Behavioral Intelligence Engine.
 
-Your task is to write the Life Stage Context Board text after the user selects an option.
+Write the Life Stage Context Board text after the user selects an option.
 
 CLARA's philosophy:
 Understand the person first before analyzing the money.
@@ -206,11 +244,44 @@ Rules:
 - The summary must be 1 to 2 sentences only.
 - Summary should feel like CLARA is quietly understanding the user's real life.
 
-Return ONLY valid JSON in this shape:
-{
-  "title": "short board title",
-  "summary": "1-2 concise human sentences"
-}`;
+Return valid JSON only:
+{"title":"short board title","summary":"1-2 concise human sentences"}`;
+}
+
+function deriveTitleFromSummary(summary, fallbackTitle = "Life Pattern") {
+  const cleaned = cleanText(summary)
+    .replace(/^CLARA\s+(sees|reads|understands)\s+/i, "")
+    .replace(/[^a-zA-Z0-9\s-]/g, " ")
+    .trim();
+  const words = cleaned.split(/\s+/).filter(Boolean).slice(0, 4);
+  const title = words.join(" ");
+  return title || fallbackTitle || "Life Pattern";
+}
+
+function parsePlainTextBoardContext(text, fallback = {}) {
+  const raw = cleanText(text)
+    .replace(/```(?:json)?/gi, "")
+    .replace(/```/g, "")
+    .replace(/^assistant\s*:/i, "")
+    .trim();
+
+  if (!raw) throw new Error("Gemini returned empty plain text.");
+
+  const titleMatch = raw.match(/title\s*:\s*([^\n.]+)(?:\n|summary\s*:|$)/i);
+  const summaryMatch = raw.match(/summary\s*:\s*([\s\S]+)$/i);
+
+  if (titleMatch && summaryMatch) {
+    return sanitizeBoardContext({ title: titleMatch[1], summary: summaryMatch[1] });
+  }
+
+  const sentences = raw
+    .split(/(?<=[.!?])\s+/)
+    .map(cleanText)
+    .filter(Boolean);
+  const summary = (sentences.slice(0, 2).join(" ") || raw).slice(0, 420);
+  const title = deriveTitleFromSummary(summary, fallback?.title);
+
+  return sanitizeBoardContext({ title, summary });
 }
 
 function sanitizeBoardContext(raw) {
@@ -226,6 +297,15 @@ function sanitizeBoardContext(raw) {
     summary,
     source: "gemini",
   };
+}
+
+function parseGeminiBoardContext(textPayload, fallback) {
+  try {
+    return sanitizeBoardContext(extractJson(textPayload));
+  } catch (jsonError) {
+    console.warn("[CLARA Life Stage Gemini] JSON parse failed, using plain text Gemini response:", jsonError?.message || jsonError);
+    return parsePlainTextBoardContext(textPayload, fallback);
+  }
 }
 
 async function requestGeminiContent({ apiKey, model, prompt, signal }) {
@@ -295,8 +375,7 @@ export async function generateLifeStageBoardContextWithGemini({
             .filter(Boolean)
             .join("\n") || "";
 
-        const parsed = extractJson(textPayload);
-        return sanitizeBoardContext(parsed);
+        return parseGeminiBoardContext(textPayload, localBoardContext);
       } catch (error) {
         lastError = error;
         console.warn("[CLARA Life Stage Gemini] Model failed:", error?.model || model, error?.message || error);
