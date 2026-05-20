@@ -2,7 +2,7 @@ const LIFE_STAGE_KEY = "clara_life_stage_profile_v1";
 const DIAGNOSIS_ID = "clara-working-student-diagnosis-reveal";
 
 const SETUP_MEANING = {
-  "Family-supported with some work": "you still have support, but financial responsibility is starting to move toward you",
+  "Family-supported with some work": "you still have support, but responsibility is already shifting toward you",
   "Self-supporting student": "you are carrying most of your daily needs while still protecting your education",
   "Working mainly for school costs": "your work is directly tied to keeping your education moving",
   "Helping family while studying": "your student life includes responsibility for others, not only yourself",
@@ -27,6 +27,7 @@ const LOAD_MEANING = {
 
 const PRESSURE_MEANING = {
   "Tuition or school costs": "school costs are the main area that must stay protected",
+  "Tution or school costs": "school costs are the main area that must stay protected",
   "Daily food and transport": "daily survival costs are the pressure point that can quietly drain your week",
   "Work-school schedule conflict": "time conflict is affecting your money decisions, not just expenses",
   "Family contribution": "family support pressure is part of your financial environment",
@@ -71,6 +72,10 @@ function meaning(map, key, fallback) {
   return map[key] || fallback || clean(key).toLowerCase();
 }
 
+function displayValue(value) {
+  return clean(value).replace(/\bTution\b/gi, "Tuition");
+}
+
 function buildDiagnosis(profile) {
   const setup = meaning(SETUP_MEANING, profile.setup, "your student setup carries both school and money responsibility");
   const rhythm = meaning(RHYTHM_MEANING, profile.rhythm, "your income rhythm needs protection");
@@ -80,12 +85,15 @@ function buildDiagnosis(profile) {
   const goal = meaning(GOAL_MEANING, profile.goal, "protect your stability while continuing school");
 
   return {
-    title: "CLARA sees your environment now.",
-    statement:
-      `${sentence(setup)}. Since ${rhythm}, and ${load}, CLARA understands that your money decisions are connected to school, energy, timing, and daily pressure — not just spending discipline. Right now, ${pressure}, while ${coping}. Your protection direction is to ${goal}.`,
-    focus: profile.goal || "Protect your stability",
-    pressure: profile.pressure || "Student money pressure",
-    rhythm: profile.rhythm || "Mixed student rhythm",
+    title: "CLARA understands your current environment.",
+    core: "You are carrying school, money, energy, and protection at the same time.",
+    paragraphOne:
+      `${sentence(setup)}. Because ${rhythm}, CLARA understands that one small gap can affect your school, daily needs, and emotional energy.`,
+    paragraphTwo:
+      `Right now, ${pressure}. Since ${load}, and ${coping}, your financial system should help you ${goal}.`,
+    focus: displayValue(profile.goal) || "Protect your stability",
+    pressure: displayValue(profile.pressure) || "Student money pressure",
+    rhythm: displayValue(profile.rhythm) || "Mixed student rhythm",
   };
 }
 
@@ -108,7 +116,11 @@ function showDiagnosisReveal(profile) {
       <section class="clara-diagnosis-card">
         <p class="clara-diagnosis-kicker">WORKING STUDENT DIAGNOSIS</p>
         <h2>${diagnosis.title}</h2>
-        <p class="clara-diagnosis-statement">${diagnosis.statement}</p>
+        <p class="clara-diagnosis-core">${diagnosis.core}</p>
+        <div class="clara-diagnosis-statement">
+          <p>${diagnosis.paragraphOne}</p>
+          <p>${diagnosis.paragraphTwo}</p>
+        </div>
         <div class="clara-diagnosis-grid">
           <div>
             <span>Pressure to protect</span>
@@ -187,6 +199,7 @@ function showDiagnosisReveal(profile) {
     }
     #${DIAGNOSIS_ID} .clara-diagnosis-kicker,
     #${DIAGNOSIS_ID} h2,
+    #${DIAGNOSIS_ID} .clara-diagnosis-core,
     #${DIAGNOSIS_ID} .clara-diagnosis-statement,
     #${DIAGNOSIS_ID} .clara-diagnosis-grid,
     #${DIAGNOSIS_ID} .clara-diagnosis-continue {
@@ -204,19 +217,37 @@ function showDiagnosisReveal(profile) {
     #${DIAGNOSIS_ID} h2 {
       margin: 18px 0 0;
       color: white;
-      font-size: clamp(31px, 8.4vw, 44px);
+      font-size: clamp(30px, 8.1vw, 42px);
       line-height: .94;
       letter-spacing: -.055em;
       font-weight: 950;
       text-shadow: 0 10px 26px rgba(0, 0, 0, .35);
     }
+    #${DIAGNOSIS_ID} .clara-diagnosis-core {
+      margin: 18px 0 0;
+      border-left: 3px solid rgba(165, 243, 252, .82);
+      border-radius: 16px;
+      background: rgba(125, 211, 252, .075);
+      padding: 13px 14px;
+      color: rgba(248, 253, 255, .96);
+      font-size: clamp(14px, 3.75vw, 16px);
+      font-weight: 950;
+      line-height: 1.38;
+      letter-spacing: -.024em;
+      box-shadow: inset 0 1px 0 rgba(255, 255, 255, .06), 0 0 26px rgba(34, 211, 238, .08);
+    }
     #${DIAGNOSIS_ID} .clara-diagnosis-statement {
-      margin: 20px 0 0;
-      color: rgba(248, 253, 255, .82);
-      font-size: clamp(14px, 3.65vw, 16px);
+      display: grid;
+      gap: 12px;
+      margin: 18px 0 0;
+      color: rgba(248, 253, 255, .80);
+      font-size: clamp(13.5px, 3.45vw, 15.5px);
       font-weight: 700;
-      line-height: 1.62;
+      line-height: 1.56;
       letter-spacing: -.018em;
+    }
+    #${DIAGNOSIS_ID} .clara-diagnosis-statement p {
+      margin: 0;
     }
     #${DIAGNOSIS_ID} .clara-diagnosis-grid {
       display: grid;
@@ -264,7 +295,8 @@ function showDiagnosisReveal(profile) {
     @media (max-height: 720px) {
       #${DIAGNOSIS_ID} .clara-diagnosis-card { padding: 18px; border-radius: 28px; }
       #${DIAGNOSIS_ID} h2 { margin-top: 13px; font-size: clamp(27px, 7vw, 34px); }
-      #${DIAGNOSIS_ID} .clara-diagnosis-statement { margin-top: 14px; font-size: 12.5px; line-height: 1.48; }
+      #${DIAGNOSIS_ID} .clara-diagnosis-core { margin-top: 13px; padding: 10px 12px; font-size: 12.5px; line-height: 1.34; }
+      #${DIAGNOSIS_ID} .clara-diagnosis-statement { margin-top: 13px; gap: 8px; font-size: 12px; line-height: 1.44; }
       #${DIAGNOSIS_ID} .clara-diagnosis-grid { margin-top: 14px; gap: 7px; }
       #${DIAGNOSIS_ID} .clara-diagnosis-grid div { padding: 10px 12px; border-radius: 16px; }
       #${DIAGNOSIS_ID} .clara-diagnosis-continue { margin-top: 14px; min-height: 48px; border-radius: 18px; }
