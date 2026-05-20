@@ -1,4 +1,5 @@
 import "./life-stage-six-step-progress";
+import "./life-stage-final-tile-fix";
 
 const LIFE_STAGE_MODAL_SELECTOR =
   "#root div[class*='fixed'][class*='inset-y-0'][class*='left-1/2'][class*='z-[9999]']";
