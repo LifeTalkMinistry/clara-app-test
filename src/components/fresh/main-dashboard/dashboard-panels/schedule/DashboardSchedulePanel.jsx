@@ -252,26 +252,26 @@ function AgendaCard({ agenda, onOpen }) {
       type="button"
       onClick={() => agenda.event && onOpen(agenda.event)}
       disabled={!agenda.clickable}
-      className="relative w-full overflow-hidden rounded-[26px] border border-cyan-300/18 bg-[linear-gradient(135deg,rgba(8,83,93,.28),rgba(18,24,63,.68)_50%,rgba(70,22,104,.42))] p-4 text-left shadow-[0_14px_34px_rgba(0,0,0,.18)] transition active:scale-[.99] disabled:cursor-default"
+      className="relative w-full overflow-hidden rounded-[28px] border border-white/8 bg-[linear-gradient(145deg,rgba(8,13,34,.86),rgba(14,24,54,.72)_48%,rgba(45,24,82,.34))] p-4 text-left shadow-[0_18px_45px_rgba(0,0,0,.24),inset_0_1px_0_rgba(255,255,255,.04)] transition active:scale-[.99] disabled:cursor-default"
     >
-      <div className="pointer-events-none absolute -bottom-20 -left-20 h-40 w-40 rounded-full bg-cyan-300/11 blur-3xl" />
-      <div className="pointer-events-none absolute -right-16 -top-16 h-40 w-40 rounded-full bg-fuchsia-400/11 blur-3xl" />
+      <div className="pointer-events-none absolute -bottom-24 -left-24 h-44 w-44 rounded-full bg-cyan-300/[.055] blur-3xl" />
+      <div className="pointer-events-none absolute -right-20 -top-20 h-44 w-44 rounded-full bg-fuchsia-400/[.06] blur-3xl" />
 
       <div className="relative flex gap-3.5">
-        <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-[20px] border border-cyan-300/18 bg-cyan-300/[.055] text-cyan-100 shadow-[0_0_20px_rgba(34,211,238,.11)]">
+        <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-[20px] border border-white/10 bg-white/[.035] text-cyan-100/70 shadow-[0_0_18px_rgba(34,211,238,.07)]">
           <Icon className="h-5 w-5" />
         </div>
 
         <div className="min-w-0 flex-1">
           <div className="flex items-center justify-between gap-3">
-            <p className="text-[10px] font-black uppercase tracking-[.22em] text-cyan-100/70">{agenda.label}</p>
-            <span className="rounded-full border border-white/12 bg-white/[.055] px-3 py-1 text-[10px] font-black uppercase tracking-[.13em] text-white/52">
+            <p className="text-[10px] font-black uppercase tracking-[.22em] text-cyan-100/55">{agenda.label}</p>
+            <span className="rounded-full border border-white/10 bg-white/[.035] px-3 py-1 text-[10px] font-black uppercase tracking-[.13em] text-white/48">
               {agenda.badge}
             </span>
           </div>
-          <p className="mt-1 text-[11px] font-bold text-cyan-100/52">{agenda.dateLabel}</p>
-          <h3 className="mt-2 text-lg font-black leading-tight text-white">{agenda.title}</h3>
-          <p className="mt-2 text-sm leading-6 text-white/60">{agenda.body}</p>
+          <p className="mt-1 text-[11px] font-bold text-white/42">{agenda.dateLabel}</p>
+          <h3 className="mt-2 text-lg font-black leading-tight text-white/92">{agenda.title}</h3>
+          <p className="mt-2 text-sm leading-6 text-white/54">{agenda.body}</p>
         </div>
       </div>
     </button>
@@ -280,27 +280,27 @@ function AgendaCard({ agenda, onOpen }) {
 
 function CalendarMonth({ monthDate, cells, selectedDate, todayKey, byDate, onSelect, onPrev, onNext, onAdd }) {
   return (
-    <section className="rounded-[28px] border border-white/12 bg-white/[.03] p-3.5 shadow-[0_14px_34px_rgba(0,0,0,.16)]">
+    <section className="rounded-[30px] border border-white/8 bg-[linear-gradient(145deg,rgba(8,13,34,.72),rgba(12,22,50,.56)_52%,rgba(36,21,70,.26))] p-3.5 shadow-[0_18px_45px_rgba(0,0,0,.22),inset_0_1px_0_rgba(255,255,255,.035)]">
       <div className="mb-4 flex items-center justify-between gap-3">
         <button
           type="button"
           onClick={onPrev}
-          className="flex h-9 w-9 items-center justify-center rounded-2xl border border-white/10 bg-white/[.035] text-white/56 transition active:scale-95"
+          className="flex h-9 w-9 items-center justify-center rounded-2xl border border-white/8 bg-white/[.025] text-white/42 transition hover:bg-white/[.04] hover:text-white/62 active:scale-95"
           aria-label="Previous month"
         >
           <ChevronLeft className="h-4 w-4" />
         </button>
 
         <div className="text-center">
-          <p className="text-sm font-black text-white">{formatMonth(monthDate)}</p>
-          <p className="mt-1 text-[10px] font-bold text-white/38">Tap a day to view or add</p>
+          <p className="text-sm font-black text-white/88">{formatMonth(monthDate)}</p>
+          <p className="mt-1 text-[10px] font-bold text-white/30">Tap a day to view or add</p>
         </div>
 
         <div className="flex gap-2">
           <button
             type="button"
             onClick={onAdd}
-            className="flex h-9 w-9 items-center justify-center rounded-2xl border border-cyan-300/18 bg-cyan-300/[.07] text-cyan-50 transition active:scale-95"
+            className="flex h-9 w-9 items-center justify-center rounded-2xl border border-white/8 bg-white/[.03] text-cyan-100/56 transition hover:bg-white/[.045] hover:text-cyan-50 active:scale-95"
             aria-label="Add schedule"
           >
             <Plus className="h-4 w-4" />
@@ -308,7 +308,7 @@ function CalendarMonth({ monthDate, cells, selectedDate, todayKey, byDate, onSel
           <button
             type="button"
             onClick={onNext}
-            className="flex h-9 w-9 items-center justify-center rounded-2xl border border-white/10 bg-white/[.035] text-white/56 transition active:scale-95"
+            className="flex h-9 w-9 items-center justify-center rounded-2xl border border-white/8 bg-white/[.025] text-white/42 transition hover:bg-white/[.04] hover:text-white/62 active:scale-95"
             aria-label="Next month"
           >
             <ChevronRight className="h-4 w-4" />
@@ -316,7 +316,7 @@ function CalendarMonth({ monthDate, cells, selectedDate, todayKey, byDate, onSel
         </div>
       </div>
 
-      <div className="grid grid-cols-7 gap-1.5 text-center text-[9px] font-black uppercase tracking-[.08em] text-white/34">
+      <div className="grid grid-cols-7 gap-1.5 text-center text-[9px] font-black uppercase tracking-[.08em] text-white/30">
         {WEEKDAYS.map((day) => <span key={day}>{day}</span>)}
       </div>
 
@@ -335,37 +335,37 @@ function CalendarMonth({ monthDate, cells, selectedDate, todayKey, byDate, onSel
               key={cell.key}
               type="button"
               onClick={() => onSelect(cell.key)}
-              className={`relative flex min-h-[48px] flex-col items-center justify-center rounded-2xl border text-sm font-black transition duration-200 active:scale-[.96] ${
+              className={`relative flex min-h-[48px] flex-col items-center justify-center rounded-2xl border text-sm font-black transition duration-200 active:scale-[.97] ${
                 selected
-                  ? "z-10 scale-[1.04] border-cyan-200/70 bg-cyan-300/[.16] text-white shadow-[0_0_0_1px_rgba(103,232,249,.20),0_0_24px_rgba(34,211,238,.28),inset_0_0_18px_rgba(34,211,238,.12)]"
+                  ? "z-10 scale-[1.025] border-cyan-100/28 bg-cyan-200/[.075] text-white shadow-[0_0_0_1px_rgba(103,232,249,.10),0_0_18px_rgba(34,211,238,.12),inset_0_0_14px_rgba(34,211,238,.055)]"
                   : today
-                    ? "border-cyan-300/30 bg-cyan-300/[.07] text-white"
+                    ? "border-cyan-200/16 bg-cyan-300/[.035] text-white/72"
                     : hasMoney
-                      ? "border-fuchsia-300/20 bg-fuchsia-300/[.05] text-white/78"
+                      ? "border-fuchsia-200/14 bg-fuchsia-300/[.03] text-white/66"
                       : hasAny
-                        ? "border-white/10 bg-white/[.035] text-white/62"
-                        : "border-white/7 bg-white/[.018] text-white/38 hover:bg-white/[.04]"
+                        ? "border-white/8 bg-white/[.03] text-white/58"
+                        : "border-white/6 bg-white/[.022] text-white/36 hover:bg-white/[.035] hover:text-white/56"
               }`}
               aria-label={`Select ${cell.key}`}
             >
               {selected ? (
-                <span className="pointer-events-none absolute inset-[-2px] rounded-[18px] border border-cyan-200/25" />
+                <span className="pointer-events-none absolute inset-[-1px] rounded-[18px] border border-cyan-100/14" />
               ) : null}
               <span className="relative z-10">{cell.day}</span>
               {selected ? (
-                <span className="absolute top-1.5 h-1 w-5 rounded-full bg-cyan-100/70 shadow-[0_0_10px_rgba(103,232,249,.55)]" />
+                <span className="absolute top-1.5 h-1 w-5 rounded-full bg-cyan-100/50 shadow-[0_0_8px_rgba(103,232,249,.25)]" />
               ) : null}
               {hasAny ? (
-                <span className={`absolute bottom-1.5 h-1.5 w-1.5 rounded-full ${hasMoney ? "bg-fuchsia-200" : "bg-cyan-200/75"}`} />
+                <span className={`absolute bottom-1.5 h-1.5 w-1.5 rounded-full ${hasMoney ? "bg-fuchsia-200/70" : "bg-cyan-200/55"}`} />
               ) : null}
             </button>
           );
         })}
       </div>
 
-      <div className="mt-4 flex items-center gap-3 text-[10px] font-bold text-white/38">
-        <span className="inline-flex items-center gap-1.5"><span className="h-1.5 w-1.5 rounded-full bg-fuchsia-200" /> Money impact</span>
-        <span className="inline-flex items-center gap-1.5"><span className="h-1.5 w-1.5 rounded-full bg-cyan-200/75" /> Schedule</span>
+      <div className="mt-4 flex items-center gap-3 text-[10px] font-bold text-white/30">
+        <span className="inline-flex items-center gap-1.5"><span className="h-1.5 w-1.5 rounded-full bg-fuchsia-200/65" /> Money impact</span>
+        <span className="inline-flex items-center gap-1.5"><span className="h-1.5 w-1.5 rounded-full bg-cyan-200/55" /> Schedule</span>
       </div>
     </section>
   );
@@ -373,7 +373,7 @@ function CalendarMonth({ monthDate, cells, selectedDate, todayKey, byDate, onSel
 
 function MonthlyInsightCard({ insight }) {
   return (
-    <p className="px-1 pb-1 text-[12px] font-semibold leading-5 text-white/48">
+    <p className="px-1 pb-1 text-[12px] font-semibold leading-5 text-white/42">
       {insight}
     </p>
   );
