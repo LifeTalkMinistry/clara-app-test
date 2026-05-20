@@ -1,36 +1,161 @@
 const LIFE_STAGE_KEY = "clara_life_stage_profile_v1";
-const DIAGNOSIS_ID = "clara-working-student-diagnosis-reveal";
+const DIAGNOSIS_ID = "clara-life-stage-diagnosis-reveal";
 
-function clean(value) {
-  return String(value || "").replace(/\s+/g, " ").trim();
+const STAGE_DIAGNOSIS_COPY = {
+  "Young Professional": {
+    core: "Based on your answers, people in a similar early-career season often carry independence pressure, salary rhythm, lifestyle temptation, and future-building expectations all at once. The breakdown below shows what needs the most protection.",
+    setupLabel: "Your independence setup is",
+    setupMeaning: "This usually means your money decisions are connected to rent, commute, food, social expectations, and the kind of adult life you are trying to build.",
+    rhythmLabel: "Your salary rhythm is",
+    rhythmMeaning: "That kind of rhythm needs structure before small payday choices quietly become long-term lifestyle patterns.",
+    goalMeaning: "The goal is not to remove enjoyment. The goal is to make independence feel stable.",
+    pressureLabel: "The first area to protect is",
+    loadLabel: "Your current work rhythm is",
+    copingLabel: "your response pattern is",
+    nextStep: "The next step should move you toward this",
+    landing: "You do not need to perfect adulthood overnight. Start by protecting the rhythm that keeps your independence steady.",
+  },
+  "Working Student": {
+    core: "Based on your answers, people in a similar situation often carry school pressure, income limits, time demands, and emotional energy all at once. The breakdown below shows what needs the most protection.",
+    setupLabel: "Your setup is",
+    setupMeaning: "This usually means money decisions are connected to class days, work days, rest, and the people depending on you.",
+    rhythmLabel: "Your money rhythm is",
+    rhythmMeaning: "That kind of rhythm needs a plan that can handle changes, delays, and real-life pressure without making the week feel heavier.",
+    goalMeaning: "The goal is not a perfect budget. The goal is a steadier system.",
+    pressureLabel: "The first area to protect is",
+    loadLabel: "Your current load is",
+    copingLabel: "your response pattern is",
+    nextStep: "The next step should move you toward this",
+    landing: "You do not need to fix everything at once. Start by protecting the part of your week that keeps everything else steady.",
+  },
+  "Living with Partner": {
+    core: "Based on your answers, people in a similar shared-life setup often carry emotional expectations, shared bills, contribution pressure, and future planning decisions at the same time. The breakdown below shows what needs the most protection.",
+    setupLabel: "Your shared setup is",
+    setupMeaning: "This usually means money decisions are no longer only personal. They are connected to fairness, communication, routines, and how both people feel supported.",
+    rhythmLabel: "Your shared money rhythm is",
+    rhythmMeaning: "That kind of rhythm needs clear agreements so bills, comfort spending, and future plans do not quietly become emotional pressure.",
+    goalMeaning: "The goal is not control over each other. The goal is a calmer shared money rhythm.",
+    pressureLabel: "The first area to protect is",
+    loadLabel: "Your current relationship-money load is",
+    copingLabel: "your shared response pattern is",
+    nextStep: "The next step should move the relationship toward this",
+    landing: "Shared money becomes lighter when the rules are clear. Start with the part that protects peace, fairness, and trust.",
+  },
+  "Family Household": {
+    core: "Based on your answers, people in a similar household season often carry family needs, contribution pressure, personal boundaries, and unexpected requests all at once. The breakdown below shows what needs the most protection.",
+    setupLabel: "Your household setup is",
+    setupMeaning: "This usually means money decisions are connected to food, bills, family requests, emergencies, and the emotional weight of helping.",
+    rhythmLabel: "Your household money rhythm is",
+    rhythmMeaning: "That kind of rhythm needs boundaries and buffers because family needs can interrupt even a careful personal plan.",
+    goalMeaning: "The goal is not to stop helping. The goal is to help without losing your own stability.",
+    pressureLabel: "The first area to protect is",
+    loadLabel: "Your current household load is",
+    copingLabel: "your response pattern is",
+    nextStep: "The next step should move you toward this",
+    landing: "You can care for people without carrying everything alone. Start by protecting the boundary that keeps your support sustainable.",
+  },
+  "Single Parent": {
+    core: "Based on your answers, people in a similar parenting season often carry child-centered essentials, time pressure, emotional fatigue, and emergency responsibility all at once. The breakdown below shows what needs the most protection.",
+    setupLabel: "Your parenting setup is",
+    setupMeaning: "This usually means money decisions are connected to daily essentials, school needs, health costs, time, and the safety of your child.",
+    rhythmLabel: "Your support and money rhythm is",
+    rhythmMeaning: "That kind of rhythm needs protection because one unexpected cost can affect the whole week quickly.",
+    goalMeaning: "The goal is not perfection. The goal is a safer rhythm for you and your child.",
+    pressureLabel: "The first area to protect is",
+    loadLabel: "Your current care load is",
+    copingLabel: "your response pattern is",
+    nextStep: "The next step should move you toward this",
+    landing: "You do not need to solve every pressure today. Start by protecting the essentials that keep you and your child steady.",
+  },
+  "Full-Time Earner": {
+    core: "Based on your answers, people in a similar full-time earning season often carry salary rhythm, routine fatigue, family support, and lifestyle pressure all at once. The breakdown below shows what needs the most protection.",
+    setupLabel: "Your earning setup is",
+    setupMeaning: "This usually means money decisions are connected to cutoff cycles, work fatigue, responsibilities, convenience spending, and the desire to feel rewarded.",
+    rhythmLabel: "Your income rhythm is",
+    rhythmMeaning: "That kind of rhythm needs clear rules because stable income can still feel tight when small leaks repeat every cutoff.",
+    goalMeaning: "The goal is not strict restriction. The goal is a routine that protects your salary before it disappears.",
+    pressureLabel: "The first area to protect is",
+    loadLabel: "Your current work load is",
+    copingLabel: "your response pattern is",
+    nextStep: "The next step should move you toward this",
+    landing: "Stable income becomes powerful when it has direction. Start by protecting the rhythm that repeats every payday.",
+  },
+  "Freelance Season": {
+    core: "Based on your answers, people in a similar freelance or gig season often carry income uncertainty, client pressure, dry-month risk, and flexible-but-unstable routines all at once. The breakdown below shows what needs the most protection.",
+    setupLabel: "Your freelance setup is",
+    setupMeaning: "This usually means money decisions are connected to client flow, payment timing, workload boundaries, rest, and how prepared you are for slower periods.",
+    rhythmLabel: "Your income rhythm is",
+    rhythmMeaning: "That kind of rhythm needs buffers because expenses can stay fixed even when projects and payments move.",
+    goalMeaning: "The goal is not to remove flexibility. The goal is to make flexibility financially safer.",
+    pressureLabel: "The first area to protect is",
+    loadLabel: "Your current work load is",
+    copingLabel: "your response pattern is",
+    nextStep: "The next step should move you toward this",
+    landing: "Freedom feels better when the slow weeks are protected. Start by building the buffer that keeps your work rhythm safe.",
+  },
+  "Business Builder": {
+    core: "Based on your answers, people in a similar business-building season often carry sales uncertainty, reinvestment pressure, operating costs, and personal-business money tension all at once. The breakdown below shows what needs the most protection.",
+    setupLabel: "Your business setup is",
+    setupMeaning: "This usually means money decisions are connected to sales cycles, operating costs, reinvestment choices, customer pressure, and personal financial safety.",
+    rhythmLabel: "Your business cash rhythm is",
+    rhythmMeaning: "That kind of rhythm needs separation because growth pressure can make personal money and business money blur quickly.",
+    goalMeaning: "The goal is not just growth. The goal is sustainable growth that does not break your personal stability.",
+    pressureLabel: "The first area to protect is",
+    loadLabel: "Your current builder load is",
+    copingLabel: "your response pattern is",
+    nextStep: "The next step should move the business toward this",
+    landing: "Building something takes pressure. Start by protecting the system that keeps growth, cash flow, and your personal life from mixing too much.",
+  },
+};
+
+const STAGE_ALIASES = {
+  "Young Earner": "Young Professional",
+  "Fresh Graduate": "Young Professional",
+  Breadwinner: "Family Household",
+  "OFW Family": "Family Household",
+  "Unemployed Adult": "Family Household",
+  "First-Time Parent": "Single Parent",
+  "Freelance / Gig Worker": "Freelance Season",
+  Freelancer: "Freelance Season",
+};
+
+function getStageKey(stage) {
+  const normalized = STAGE_ALIASES[clean(stage)] || clean(stage);
+  return STAGE_DIAGNOSIS_COPY[normalized] ? normalized : "Young Professional";
 }
 
-function readProfile() {
-  try {
-    return JSON.parse(localStorage.getItem(LIFE_STAGE_KEY) || "{}") || {};
-  } catch {
-    return {};
-  }
+function buildDiagnosis(profile) {
+  const stageKey = getStageKey(profile.stage);
+  const copy = STAGE_DIAGNOSIS_COPY[stageKey];
+  const setup = displayValue(profile.setup, `${stageKey} setup`);
+  const rhythm = displayValue(profile.rhythm, "current money rhythm");
+  const workload = displayValue(profile.workload, "current life load");
+  const pressure = displayValue(profile.pressure, "current financial pressure");
+  const coping = displayValue(profile.coping, "current response pattern");
+  const goal = displayValue(profile.goal, "protect stability");
+
+  return {
+    core: copy.core,
+    sees: [
+      { tone: "lead", text: `${copy.setupLabel} ${firstLower(setup)}.` },
+      { tone: "soft", text: copy.setupMeaning },
+    ],
+    matters: [
+      { tone: "lead", text: `${copy.rhythmLabel} ${firstLower(rhythm)}.` },
+      { tone: "soft", text: copy.rhythmMeaning },
+      { tone: "closing", text: copy.goalMeaning },
+    ],
+    protection: [
+      { tone: "lead", text: `${copy.pressureLabel} ${firstLower(pressure)}.` },
+      { tone: "soft", text: `${copy.loadLabel} ${firstLower(workload)}, and ${copy.copingLabel}: ${firstLower(coping)}.` },
+      { tone: "closing", text: `${copy.nextStep}: ${firstLower(goal)}.` },
+    ],
+    landing: copy.landing,
+  };
 }
 
-function escapeHtml(value) {
-  return clean(value).replace(/[&<>'"]/g, (character) => ({
-    "&": "&amp;",
-    "<": "&lt;",
-    ">": "&gt;",
-    "'": "&#39;",
-    '"': "&quot;",
-  }[character]));
-}
-
-function displayValue(value, fallback) {
-  return clean(value).replace(/\bTution\b/gi, "Tuition") || fallback;
-}
-
-function firstLower(value) {
-  const text = clean(value);
-  if (!text) return "";
-  return text.charAt(0).toLowerCase() + text.slice(1);
+function removeExistingReveal() {
+  document.getElementById(DIAGNOSIS_ID)?.remove();
 }
 
 function renderLines(lines) {
@@ -46,40 +171,8 @@ function renderLines(lines) {
   `;
 }
 
-function buildDiagnosis(profile) {
-  const setup = displayValue(profile.setup, "Working student rhythm");
-  const rhythm = displayValue(profile.rhythm, "Mixed student income");
-  const workload = displayValue(profile.workload, "Class and work load");
-  const pressure = displayValue(profile.pressure, "Student money pressure");
-  const coping = displayValue(profile.coping, "Current response pattern");
-  const goal = displayValue(profile.goal, "Protect your stability");
-
-  return {
-    core: "Based on your answers, people in a similar situation often carry school pressure, income limits, time demands, and emotional energy all at once. The breakdown below shows what needs the most protection.",
-    sees: [
-      { tone: "lead", text: `Your setup is ${firstLower(setup)}.` },
-      { tone: "soft", text: "This usually means money decisions are connected to class days, work days, rest, and the people depending on you." },
-    ],
-    matters: [
-      { tone: "lead", text: `Your money rhythm is ${firstLower(rhythm)}.` },
-      { tone: "soft", text: "That kind of rhythm needs a plan that can handle changes, delays, and real-life pressure without making the week feel heavier." },
-      { tone: "closing", text: "The goal is not a perfect budget. The goal is a steadier system." },
-    ],
-    protection: [
-      { tone: "lead", text: `The first area to protect is ${firstLower(pressure)}.` },
-      { tone: "soft", text: `Your current load is ${firstLower(workload)}, and your response pattern is: ${firstLower(coping)}.` },
-      { tone: "closing", text: `The next step should move you toward this: ${firstLower(goal)}.` },
-    ],
-    landing: "You do not need to fix everything at once. Start by protecting the part of your week that keeps everything else steady.",
-  };
-}
-
-function removeExistingReveal() {
-  document.getElementById(DIAGNOSIS_ID)?.remove();
-}
-
 function showDiagnosisReveal(profile) {
-  if (!profile || profile.stage !== "Working Student") return;
+  if (!profile || !profile.stage) return;
   removeExistingReveal();
 
   const diagnosis = buildDiagnosis(profile);
@@ -179,8 +272,8 @@ function showDiagnosisReveal(profile) {
 
 function installDiagnosisReveal() {
   if (typeof window === "undefined" || typeof document === "undefined") return;
-  if (window.__claraWorkingStudentDiagnosisRevealInstalled) return;
-  window.__claraWorkingStudentDiagnosisRevealInstalled = true;
+  if (window.__claraLifeStageDiagnosisRevealInstalled) return;
+  window.__claraLifeStageDiagnosisRevealInstalled = true;
 
   document.addEventListener(
     "click",
@@ -200,5 +293,5 @@ function installDiagnosisReveal() {
 try {
   installDiagnosisReveal();
 } catch (error) {
-  console.warn("CLARA Working Student diagnosis reveal failed:", error);
+  console.warn("CLARA Life Stage diagnosis reveal failed:", error);
 }
