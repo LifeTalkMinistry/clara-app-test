@@ -242,13 +242,13 @@ const DEFAULTS = {
   goal: "Finish school without burning out",
 };
 
-const PROGRESS_BY_STEP = {
-  setup: 1,
-  rhythm: 2,
-  workload: 3,
-  pressure: 4,
-  coping: 5,
-  goal: 5,
+const ACTIVE_TILE_BY_STEP = {
+  setup: 0,
+  rhythm: 1,
+  workload: 2,
+  pressure: 3,
+  coping: 4,
+  goal: 4,
 };
 
 const state = { ...DEFAULTS };
@@ -310,17 +310,18 @@ function findProgressDots(header) {
 
 function updateProgressDots(header, activeKey) {
   const dots = findProgressDots(header);
-  const activeCount = PROGRESS_BY_STEP[activeKey] || 1;
+  const activeTile = ACTIVE_TILE_BY_STEP[activeKey] ?? 0;
   if (!dots.length) return;
 
   dots.forEach((dot, index) => {
-    const active = index < activeCount;
-    dot.style.setProperty("width", active ? "2.8rem" : "2.35rem", "important");
+    const active = index === activeTile;
+    dot.style.setProperty("width", active ? "2.95rem" : "2.35rem", "important");
     dot.style.setProperty("height", "0.25rem", "important");
     dot.style.setProperty("border-radius", "9999px", "important");
     dot.style.setProperty("background", active ? "rgb(165 243 252)" : "rgba(255, 255, 255, 0.12)", "important");
     dot.style.setProperty("box-shadow", active ? "0 0 18px rgba(125, 211, 252, 0.34)" : "none", "important");
-    dot.style.setProperty("opacity", "1", "important");
+    dot.style.setProperty("opacity", active ? "1" : "0.65", "important");
+    dot.style.setProperty("transition", "width 220ms ease, background 220ms ease, opacity 220ms ease, box-shadow 220ms ease", "important");
   });
 }
 
