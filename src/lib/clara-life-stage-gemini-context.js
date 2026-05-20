@@ -23,8 +23,8 @@ function getGeminiApiKey() {
   );
 }
 
-function getGeminiModel() {
-  return import.meta.env.VITE_GEMINI_MODEL || import.meta.env.VITE_CLARA_GEMINI_MODEL || DEFAULT_GEMINI_MODEL;
+function getExplicitGeminiModel() {
+  return import.meta.env.VITE_GEMINI_MODEL || import.meta.env.VITE_CLARA_GEMINI_MODEL || "";
 }
 
 function normalizeModelName(model) {
@@ -33,18 +33,22 @@ function normalizeModelName(model) {
   return value.startsWith("models/") ? value.slice("models/".length) : value;
 }
 
-function getConfiguredModelCandidates() {
-  return [getGeminiModel(), ...FALLBACK_GEMINI_MODELS]
+function uniqueModels(models = []) {
+  return models
     .map(normalizeModelName)
     .filter(Boolean)
-    .filter((model, index, models) => models.indexOf(model) === index);
+    .filter((model, index, list) => list.indexOf(model) === index);
+}
+
+function getConfiguredModelCandidates() {
+  return uniqueModels([getExplicitGeminiModel(), ...FALLBACK_GEMINI_MODELS]);
 }
 
 function scoreDiscoveredModel(model) {
   const name = normalizeModelName(model?.name || model);
-  if (name.includes("2.0-flash")) return 100;
-  if (name.includes("2.5-flash")) return 95;
-  if (name.includes("flash-lite")) return 90;
+  if (name.includes("2.0-flash") && !name.includes("lite")) return 120;
+  if (name.includes("2.5-flash") && !name.includes("lite")) return 110;
+  if (name.includes("flash-lite")) return 95;
   if (name.includes("1.5-flash")) return 80;
   if (name.includes("flash")) return 70;
   if (name.includes("pro")) return 40;
@@ -74,8 +78,9 @@ async function discoverGeminiModels({ apiKey, signal }) {
     .filter(Boolean)
     .sort((a, b) => scoreDiscoveredModel(b) - scoreDiscoveredModel(a));
 
-  discoveredModelCache = models;
-  return models;
+  discoveredModelCache = uniqueModels(models);
+  console.info("[CLARA Life Stage Gemini] Available generateContent models:", discoveredModelCache);
+  return discoveredModelCache;
 }
 
 async function getGeminiModelCandidates({ apiKey, signal }) {
@@ -83,13 +88,18 @@ async function getGeminiModelCandidates({ apiKey, signal }) {
 
   try {
     const discovered = await discoverGeminiModels({ apiKey, signal });
-    return [...configured, ...discovered]
-      .filter(Boolean)
-      .filter((model, index, models) => models.indexOf(model) === index);
+
+    if (discovered.length) {
+      const explicit = normalizeModelName(getExplicitGeminiModel());
+      const explicitIfAvailable = explicit && discovered.includes(explicit) ? [explicit] : [];
+      const discoveredWithoutExplicit = discovered.filter((model) => model !== explicit);
+      return uniqueModels([...explicitIfAvailable, ...discoveredWithoutExplicit]);
+    }
   } catch (error) {
     console.warn("[CLARA Life Stage Gemini] Could not discover models, using configured fallback list:", error);
-    return configured;
   }
+
+  return configured;
 }
 
 function cleanText(value) {
@@ -220,7 +230,9 @@ function sanitizeBoardContext(raw) {
 
 async function requestGeminiContent({ apiKey, model, prompt, signal }) {
   const modelName = normalizeModelName(model);
-  const response = await fetch(`${GEMINI_API_BASE}/models/${encodeURIComponent(modelName)}:generateContent?key=${encodeURIComponent(apiKey)}`, {
+  console.info("[CLARA Life Stage Gemini] Trying model:", modelName);
+
+  const response = await fetch(`${GEMINI_API_BASE}/models/${modelName}:generateContent?key=${encodeURIComponent(apiKey)}`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     signal,
@@ -230,7 +242,6 @@ async function requestGeminiContent({ apiKey, model, prompt, signal }) {
         temperature: 0.62,
         topP: 0.9,
         maxOutputTokens: 220,
-        responseMimeType: "application/json",
       },
     }),
   });
@@ -273,6 +284,7 @@ export async function generateLifeStageBoardContextWithGemini({
 
   try {
     const modelCandidates = await getGeminiModelCandidates({ apiKey, signal: requestSignal });
+    console.info("[CLARA Life Stage Gemini] Model candidates:", modelCandidates);
 
     for (const model of modelCandidates) {
       try {
@@ -287,6 +299,7 @@ export async function generateLifeStageBoardContextWithGemini({
         return sanitizeBoardContext(parsed);
       } catch (error) {
         lastError = error;
+        console.warn("[CLARA Life Stage Gemini] Model failed:", error?.model || model, error?.message || error);
       }
     }
 
