@@ -1,108 +1,73 @@
-import { createClient } from "@supabase/supabase-js";
+// CLARA Phase 1 Supabase removal bridge.
+//
+// This file intentionally keeps the old `supabase` export shape so existing
+// imports continue to compile while CLARA migrates away from Supabase one phase
+// at a time. It does not import @supabase/supabase-js and it does not create
+// any remote connection.
 
-export const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || "";
-export const supabaseAnonKey = import.meta.env["VITE_SUPABASE_" + "ANON_KEY"] || "";
+export const supabaseUrl = "";
+export const supabaseAnonKey = "";
+export const isSupabaseConfigured = false;
+export const isSupabaseDisabled = true;
 
-export const isSupabaseConfigured = Boolean(supabaseUrl) && Boolean(supabaseAnonKey);
-
-let supabaseInstance = null;
-
-if (isSupabaseConfigured) {
-  supabaseInstance = createClient(supabaseUrl, supabaseAnonKey, {
-    auth: {
-      persistSession: true,
-      autoRefreshToken: true,
-      detectSessionInUrl: true,
-    },
-  });
-} else {
-  console.error("Supabase is not configured. Missing URL or anon key.");
-}
-
-const normalizeString = (value) => String(value ?? "").trim();
-
-const getExpenseCategoryFallback = (payload) =>
-  normalizeString(
-    payload?.category ||
-      payload?.expense_category ||
-      payload?.budget_category ||
-      payload?.classification ||
-      payload?.type ||
-      "other"
-  ).toLowerCase() || "other";
-
-const normalizeExpenseWriteRow = (row) => {
-  if (!row || typeof row !== "object" || Array.isArray(row)) return row;
-
-  const nextRow = { ...row };
-
-  if (!normalizeString(nextRow.category) && normalizeString(nextRow.expense_category)) {
-    nextRow.category = getExpenseCategoryFallback(nextRow);
-  }
-
-  delete nextRow.expense_category;
-
-  return nextRow;
+const LOCAL_USER = {
+  id: "local-clara-user",
+  email: "local@clara.app",
+  app_metadata: {},
+  user_metadata: {
+    full_name: "CLARA User",
+    name: "CLARA User",
+    display_name: "CLARA User",
+    role: "user",
+    plan_key: "free",
+    subscription_label: "Free",
+  },
 };
 
-const normalizeExpenseWritePayload = (payload) => {
-  if (Array.isArray(payload)) {
-    return payload.map((row) => normalizeExpenseWriteRow(row));
-  }
-
-  return normalizeExpenseWriteRow(payload);
+const LOCAL_SESSION = {
+  access_token: "local-clara-session",
+  token_type: "bearer",
+  user: LOCAL_USER,
 };
 
-const createExpenseTableProxy = (tableBuilder) =>
-  new Proxy(tableBuilder, {
-    get(target, prop, receiver) {
-      if (["insert", "update", "upsert"].includes(prop)) {
-        return (payload, options) =>
-          Reflect.get(target, prop, target).call(
-            target,
-            normalizeExpenseWritePayload(payload),
-            options
-          );
-      }
+const ok = (data = null) => Promise.resolve({ data, error: null });
 
-      const value = Reflect.get(target, prop, receiver);
-      return typeof value === "function" ? value.bind(target) : value;
-    },
-  });
+const emptyListResponse = () => ok([]);
+const emptyObjectResponse = () => ok(null);
 
-const createConfiguredSupabaseProxy = (client) =>
-  new Proxy(client, {
-    get(target, prop, receiver) {
-      if (prop === "from") {
-        return (tableName) => {
-          const tableBuilder = target.from(tableName);
-          return String(tableName || "").toLowerCase() === "expenses"
-            ? createExpenseTableProxy(tableBuilder)
-            : tableBuilder;
-        };
-      }
+function createLocalQueryBuilder(tableName = "") {
+  const state = {
+    tableName: String(tableName || ""),
+    operation: "select",
+    payload: null,
+    expectsSingle: false,
+  };
 
-      const value = Reflect.get(target, prop, receiver);
-      return typeof value === "function" ? value.bind(target) : value;
-    },
-  });
-
-const missingConfigResponse = async () => ({
-  data: null,
-  error: new Error("Supabase is not configured."),
-});
-
-const createMissingConfigQueryBuilder = () => {
   const builder = {};
+
   const chain = () => builder;
-  const terminal = () => missingConfigResponse();
+  const setOperation = (operation) => (payload) => {
+    state.operation = operation;
+    state.payload = payload ?? null;
+    return builder;
+  };
+
+  const resolveData = () => {
+    if (state.expectsSingle) return null;
+    if (["insert", "update", "upsert", "delete"].includes(state.operation)) {
+      return null;
+    }
+    return [];
+  };
+
+  const terminal = () => ok(resolveData());
 
   Object.assign(builder, {
     select: chain,
-    insert: chain,
-    update: chain,
-    delete: chain,
-    upsert: chain,
+    insert: setOperation("insert"),
+    update: setOperation("update"),
+    delete: setOperation("delete"),
+    upsert: setOperation("upsert"),
     eq: chain,
     neq: chain,
     gt: chain,
@@ -127,27 +92,32 @@ const createMissingConfigQueryBuilder = () => {
     throwOnError: chain,
     rollback: chain,
     returns: chain,
-    single: terminal,
-    maybeSingle: terminal,
-    csv: terminal,
-    geojson: terminal,
-    explain: terminal,
+    single: () => {
+      state.expectsSingle = true;
+      return emptyObjectResponse();
+    },
+    maybeSingle: () => {
+      state.expectsSingle = true;
+      return emptyObjectResponse();
+    },
+    csv: emptyListResponse,
+    geojson: emptyListResponse,
+    explain: emptyListResponse,
     then: (onFulfilled, onRejected) => terminal().then(onFulfilled, onRejected),
     catch: (onRejected) => terminal().catch(onRejected),
     finally: (onFinally) => terminal().finally(onFinally),
   });
 
   return builder;
-};
+}
 
-const createMissingConfigChannel = () => {
+function createLocalChannel() {
   const channel = {
     on: () => channel,
     subscribe: (callback) => {
-      if (typeof callback === "function") {
-        window.setTimeout?.(() => callback("SUBSCRIBED"), 0);
+      if (typeof callback === "function" && typeof window !== "undefined") {
+        window.setTimeout(() => callback("SUBSCRIBED"), 0);
       }
-
       return channel;
     },
     unsubscribe: async () => ({ error: null }),
@@ -157,75 +127,58 @@ const createMissingConfigChannel = () => {
   };
 
   return channel;
-};
+}
 
-const createMissingConfigProxy = () =>
-  new Proxy(
-    {},
-    {
-      get(_target, prop) {
-        if (prop === "auth") {
-          const notConfigured = async () => ({
-            data: null,
-            error: new Error("Supabase is not configured."),
-          });
-
-          return {
-            getSession: async () => ({
-              data: { session: null },
-              error: new Error("Supabase is not configured."),
-            }),
-            getUser: async () => ({
-              data: { user: null },
-              error: new Error("Supabase is not configured."),
-            }),
-            signInWithPassword: notConfigured,
-            signUp: notConfigured,
-            signInWithOAuth: notConfigured,
-            signOut: async () => ({
-              error: new Error("Supabase is not configured."),
-            }),
-            onAuthStateChange: (callback) => {
-              if (typeof callback === "function") {
-                callback("INITIAL_SESSION", null);
-              }
-
-              return {
-                data: {
-                  subscription: {
-                    unsubscribe: () => {},
-                  },
-                },
-              };
-            },
-          };
-        }
-
-        if (prop === "from") {
-          return () => createMissingConfigQueryBuilder();
-        }
-
-        if (prop === "channel") {
-          return () => createMissingConfigChannel();
-        }
-
-        if (prop === "removeChannel") {
-          return async () => ({ error: null });
-        }
-
-        if (prop === "removeAllChannels") {
-          return async () => ({ error: null });
-        }
-
-        if (prop === "getChannels") {
-          return () => [];
-        }
-
-        return undefined;
+function createLocalStorageBucket(bucketName = "local") {
+  return {
+    upload: async (path) => ({
+      data: { path: String(path || "") },
+      error: null,
+    }),
+    remove: async () => ({ data: [], error: null }),
+    list: async () => ({ data: [], error: null }),
+    getPublicUrl: (path) => ({
+      data: {
+        publicUrl: String(path || "")
+          ? `local://${String(bucketName || "local")}/${String(path || "")}`
+          : "",
       },
-    }
-  );
+    }),
+  };
+}
 
-export const supabase = supabaseInstance
-  ? createConfiguredSupabaseProxy(supabaseInstance)
-  : createMissingConfigProxy();
+export const supabase = {
+  auth: {
+    getSession: async () => ({ data: { session: null }, error: null }),
+    getUser: async () => ({ data: { user: null }, error: null }),
+    signInWithPassword: async () => ({ data: { session: LOCAL_SESSION, user: LOCAL_USER }, error: null }),
+    signUp: async () => ({ data: { session: LOCAL_SESSION, user: LOCAL_USER }, error: null }),
+    signInWithOAuth: async () => ({ data: { provider: "local" }, error: null }),
+    signOut: async () => ({ error: null }),
+    onAuthStateChange: (callback) => {
+      if (typeof callback === "function") {
+        callback("INITIAL_SESSION", null);
+      }
+
+      return {
+        data: {
+          subscription: {
+            unsubscribe: () => {},
+          },
+        },
+      };
+    },
+  },
+  from: (tableName) => createLocalQueryBuilder(tableName),
+  rpc: async () => ({ data: null, error: null }),
+  channel: () => createLocalChannel(),
+  removeChannel: async () => ({ error: null }),
+  removeAllChannels: async () => ({ error: null }),
+  getChannels: () => [],
+  storage: {
+    from: (bucketName) => createLocalStorageBucket(bucketName),
+  },
+  functions: {
+    invoke: async () => ({ data: null, error: null }),
+  },
+};
