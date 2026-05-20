@@ -1,3 +1,5 @@
+import "./life-stage-statement-stack";
+
 const FLOW_MARKER = "CLARA CONTEXT BOARD";
 
 const STEP_ORDER = [
