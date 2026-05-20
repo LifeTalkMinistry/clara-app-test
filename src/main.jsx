@@ -13,7 +13,6 @@ import "./life-stage-support-card";
 import "./life-stage-trend-snapshot";
 import "./life-stage-setup-flow-polish";
 import "./life-stage-apply-diagnosis";
-import "./working-student-static-snapshot";
 import App from "./App.jsx";
 import "./index.css";
 import "./clara-fab-theme.css";
