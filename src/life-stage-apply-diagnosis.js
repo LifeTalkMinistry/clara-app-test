@@ -50,6 +50,25 @@ const GOAL_MEANING = {
   "Control stress spending": "control stress spending before it becomes a repeated pattern",
 };
 
+const EMPHASIS_PHRASES = [
+  ["school, money, energy, and protection", "cyan"],
+  ["income timing", "amber"],
+  ["family support pressure", "violet"],
+  ["very little room for mistakes", "amber"],
+  ["without losing your own stability", "emerald"],
+  ["daily needs", "cyan"],
+  ["protecting your education", "cyan"],
+  ["emotional energy", "violet"],
+  ["financial environment", "cyan"],
+  ["protect your stability", "emerald"],
+  ["school costs", "cyan"],
+  ["daily survival costs", "amber"],
+  ["borrowed money", "violet"],
+  ["small relief spending", "violet"],
+  ["small protection", "emerald"],
+  ["control stress spending", "emerald"],
+];
+
 function clean(value) {
   return String(value || "").replace(/\s+/g, " ").trim();
 }
@@ -74,6 +93,31 @@ function meaning(map, key, fallback) {
 
 function displayValue(value) {
   return clean(value).replace(/\bTution\b/gi, "Tuition");
+}
+
+function escapeHtml(value) {
+  return clean(value).replace(/[&<>'"]/g, (character) => ({
+    "&": "&amp;",
+    "<": "&lt;",
+    ">": "&gt;",
+    "'": "&#39;",
+    '"': "&quot;",
+  }[character]));
+}
+
+function emphasizeText(value) {
+  let output = escapeHtml(value);
+
+  EMPHASIS_PHRASES.forEach(([phrase, tone]) => {
+    const safePhrase = escapeHtml(phrase);
+    if (!safePhrase || !output.includes(safePhrase)) return;
+
+    output = output.split(safePhrase).join(
+      `<span class="clara-diagnosis-emphasis clara-diagnosis-emphasis-${tone}">${safePhrase}</span>`
+    );
+  });
+
+  return output;
 }
 
 function buildDiagnosis(profile) {
@@ -120,43 +164,43 @@ function showDiagnosisReveal(profile) {
 
         <div class="clara-diagnosis-scroll">
           <p class="clara-diagnosis-kicker">WORKING STUDENT DIAGNOSIS</p>
-          <h2>${diagnosis.title}</h2>
+          <h2>${escapeHtml(diagnosis.title)}</h2>
 
           <div class="clara-diagnosis-core-card">
             <span>CLARA'S READ</span>
-            <p>${diagnosis.core}</p>
+            <p>${emphasizeText(diagnosis.core)}</p>
           </div>
 
-          <p class="clara-diagnosis-summary">${diagnosis.summary}</p>
+          <p class="clara-diagnosis-summary">${emphasizeText(diagnosis.summary)}</p>
 
           <div class="clara-diagnosis-priority-card">
             <span>CLARA priority</span>
-            <strong>${diagnosis.focus}</strong>
+            <strong>${escapeHtml(diagnosis.focus)}</strong>
           </div>
 
           <div class="clara-diagnosis-chip-row">
-            <div class="clara-diagnosis-chip">
+            <div class="clara-diagnosis-chip clara-diagnosis-chip-pressure">
               <span>Pressure</span>
-              <strong>${diagnosis.pressure}</strong>
+              <strong>${escapeHtml(diagnosis.pressure)}</strong>
             </div>
-            <div class="clara-diagnosis-chip">
+            <div class="clara-diagnosis-chip clara-diagnosis-chip-rhythm">
               <span>Rhythm</span>
-              <strong>${diagnosis.rhythm}</strong>
+              <strong>${escapeHtml(diagnosis.rhythm)}</strong>
             </div>
           </div>
 
           <div class="clara-diagnosis-sections">
-            <article>
+            <article class="clara-diagnosis-section-sees">
               <span>What CLARA sees</span>
-              <p>${diagnosis.sees}</p>
+              <p>${emphasizeText(diagnosis.sees)}</p>
             </article>
-            <article>
+            <article class="clara-diagnosis-section-matters">
               <span>Why this matters</span>
-              <p>${diagnosis.matters}</p>
+              <p>${emphasizeText(diagnosis.matters)}</p>
             </article>
-            <article>
+            <article class="clara-diagnosis-section-protection">
               <span>What needs protection now</span>
-              <p>${diagnosis.protection}</p>
+              <p>${emphasizeText(diagnosis.protection)}</p>
             </article>
           </div>
         </div>
@@ -287,22 +331,25 @@ function showDiagnosisReveal(profile) {
 
     #${DIAGNOSIS_ID} .clara-diagnosis-kicker {
       margin: 0;
-      color: rgba(186, 230, 253, .62);
+      color: rgba(165, 243, 252, .72);
       font-size: 8.5px;
       font-weight: 800;
       letter-spacing: .28em;
       text-transform: uppercase;
+      text-shadow: 0 0 20px rgba(34, 211, 238, .16);
     }
 
     #${DIAGNOSIS_ID} h2 {
       max-width: 18rem;
       margin: 12px 0 0;
-      color: rgba(255, 255, 255, .96);
+      color: rgba(248, 252, 255, .98);
       font-size: clamp(25px, 6.6vw, 32px);
       line-height: 1.03;
       letter-spacing: -.042em;
       font-weight: 850;
-      text-shadow: 0 8px 22px rgba(0, 0, 0, .20);
+      text-shadow:
+        0 8px 22px rgba(0, 0, 0, .24),
+        0 0 26px rgba(125, 211, 252, .10);
     }
 
     #${DIAGNOSIS_ID} .clara-diagnosis-core-card {
@@ -324,16 +371,20 @@ function showDiagnosisReveal(profile) {
     #${DIAGNOSIS_ID} .clara-diagnosis-chip span,
     #${DIAGNOSIS_ID} .clara-diagnosis-sections span {
       display: block;
-      color: rgba(186, 230, 253, .48);
+      color: rgba(186, 230, 253, .56);
       font-size: 8px;
       font-weight: 850;
       letter-spacing: .2em;
       text-transform: uppercase;
     }
 
+    #${DIAGNOSIS_ID} .clara-diagnosis-core-card span {
+      color: rgba(165, 243, 252, .76);
+    }
+
     #${DIAGNOSIS_ID} .clara-diagnosis-core-card p {
       margin: 7px 0 0;
-      color: rgba(248, 253, 255, .92);
+      color: rgba(250, 253, 255, .94);
       font-size: clamp(13px, 3.4vw, 14.5px);
       font-weight: 740;
       line-height: 1.38;
@@ -342,7 +393,7 @@ function showDiagnosisReveal(profile) {
 
     #${DIAGNOSIS_ID} .clara-diagnosis-summary {
       margin: 15px 0 0;
-      color: rgba(241, 245, 249, .76);
+      color: rgba(236, 244, 250, .82);
       font-size: clamp(12.4px, 3.2vw, 13.8px);
       font-weight: 560;
       line-height: 1.5;
@@ -362,13 +413,18 @@ function showDiagnosisReveal(profile) {
         0 0 28px rgba(34, 211, 238, .09);
     }
 
+    #${DIAGNOSIS_ID} .clara-diagnosis-priority-card span {
+      color: rgba(134, 239, 172, .68);
+    }
+
     #${DIAGNOSIS_ID} .clara-diagnosis-priority-card strong {
       display: block;
       margin-top: 6px;
-      color: rgba(240, 253, 255, .96);
+      color: rgba(209, 250, 229, .98);
       font-size: 13.5px;
       font-weight: 860;
       line-height: 1.25;
+      text-shadow: 0 0 18px rgba(52, 211, 153, .12);
     }
 
     #${DIAGNOSIS_ID} .clara-diagnosis-chip-row {
@@ -387,13 +443,29 @@ function showDiagnosisReveal(profile) {
       box-shadow: inset 0 1px 0 rgba(255, 255, 255, .04);
     }
 
+    #${DIAGNOSIS_ID} .clara-diagnosis-chip-pressure span {
+      color: rgba(216, 180, 254, .66);
+    }
+
+    #${DIAGNOSIS_ID} .clara-diagnosis-chip-rhythm span {
+      color: rgba(253, 230, 138, .66);
+    }
+
     #${DIAGNOSIS_ID} .clara-diagnosis-chip strong {
       display: block;
       margin-top: 5px;
-      color: rgba(255, 255, 255, .84);
+      color: rgba(255, 255, 255, .88);
       font-size: 11.5px;
       font-weight: 740;
       line-height: 1.2;
+    }
+
+    #${DIAGNOSIS_ID} .clara-diagnosis-chip-pressure strong {
+      color: rgba(245, 228, 255, .94);
+    }
+
+    #${DIAGNOSIS_ID} .clara-diagnosis-chip-rhythm strong {
+      color: rgba(255, 247, 214, .94);
     }
 
     #${DIAGNOSIS_ID} .clara-diagnosis-sections {
@@ -409,13 +481,50 @@ function showDiagnosisReveal(profile) {
       gap: 5px;
     }
 
+    #${DIAGNOSIS_ID} .clara-diagnosis-section-sees span {
+      color: rgba(125, 211, 252, .68);
+    }
+
+    #${DIAGNOSIS_ID} .clara-diagnosis-section-matters span {
+      color: rgba(196, 181, 253, .68);
+    }
+
+    #${DIAGNOSIS_ID} .clara-diagnosis-section-protection span {
+      color: rgba(110, 231, 183, .70);
+    }
+
     #${DIAGNOSIS_ID} .clara-diagnosis-sections p {
       margin: 0;
-      color: rgba(241, 245, 249, .70);
+      color: rgba(232, 240, 247, .80);
       font-size: clamp(11.8px, 3.05vw, 13.2px);
       font-weight: 520;
       line-height: 1.48;
       letter-spacing: -.01em;
+    }
+
+    #${DIAGNOSIS_ID} .clara-diagnosis-emphasis {
+      font-weight: 780;
+      text-wrap: pretty;
+    }
+
+    #${DIAGNOSIS_ID} .clara-diagnosis-emphasis-cyan {
+      color: rgba(186, 230, 253, .98);
+      text-shadow: 0 0 18px rgba(34, 211, 238, .12);
+    }
+
+    #${DIAGNOSIS_ID} .clara-diagnosis-emphasis-amber {
+      color: rgba(253, 230, 138, .96);
+      text-shadow: 0 0 18px rgba(245, 158, 11, .10);
+    }
+
+    #${DIAGNOSIS_ID} .clara-diagnosis-emphasis-violet {
+      color: rgba(221, 214, 254, .97);
+      text-shadow: 0 0 18px rgba(168, 85, 247, .10);
+    }
+
+    #${DIAGNOSIS_ID} .clara-diagnosis-emphasis-emerald {
+      color: rgba(187, 247, 208, .97);
+      text-shadow: 0 0 18px rgba(52, 211, 153, .12);
     }
 
     #${DIAGNOSIS_ID} .clara-diagnosis-continue {
