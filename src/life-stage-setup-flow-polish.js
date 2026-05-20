@@ -1,4 +1,5 @@
 const FLOW_MARKER = "CLARA CONTEXT BOARD";
+const CONTEXT_LOADING_TITLE = "Hmm… let me understand your situation.";
 
 const STEP_ORDER = [
   "CURRENT SETUP",
@@ -114,6 +115,11 @@ function isVisible(node) {
   return !!node && !!(node.offsetWidth || node.offsetHeight || node.getClientRects?.().length);
 }
 
+function isContextBoardLoadingTitle(value) {
+  const title = clean(value);
+  return title === CONTEXT_LOADING_TITLE || (title.startsWith("Hmm") && title.includes("understand your situation"));
+}
+
 function getStepMeta(text) {
   return STEP_META[loud(text)] || null;
 }
@@ -160,6 +166,7 @@ function findStageBoard() {
 function rememberStageSelection() {
   const { title } = findStageBoard();
   const titleText = clean(title?.textContent || "");
+  if (isContextBoardLoadingTitle(titleText)) return;
   if (titleText && !STEP_ORDER.includes(loud(titleText))) state.stage = titleText;
 }
 
@@ -219,9 +226,11 @@ function buildContextualSummary(activeKey, selectedValue) {
 }
 
 function polishContextBoard() {
+  const { summary, title } = findStageBoard();
+  if (isContextBoardLoadingTitle(title?.textContent)) return;
+
   rememberStageSelection();
   const active = rememberCurrentSelection();
-  const { summary, title } = findStageBoard();
   if (!active || !summary || !title) return;
   const selectedValue = active.selectedValue || clean(title.textContent);
   if (!selectedValue) return;
@@ -280,5 +289,5 @@ function installLifeStageSetupFlowPolish() {
 try {
   installLifeStageSetupFlowPolish();
 } catch (error) {
-  console.warn("CLARA life stage setup flow polish failed:", error);
+  console.warn("CLARA life stage setup flow failed:", error);
 }
