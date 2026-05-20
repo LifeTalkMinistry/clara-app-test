@@ -6,6 +6,7 @@ import { AuthProvider } from "@/context/AuthContext";
 import { queryClientInstance } from "@/lib/query-client";
 import { ThemeProvider } from "@/theme/ThemeProvider";
 import { installClaraGlobalClickSound } from "@/lib/claraSoundSystem";
+import "./clara-production-stability-runtime";
 import "./clara-memory-bridge";
 import "./clara-me-panel";
 import "./clara-talk-pause-bridge";
