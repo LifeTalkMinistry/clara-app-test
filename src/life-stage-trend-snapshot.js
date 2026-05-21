@@ -45,119 +45,119 @@ const STRATEGIC_WEIGHTS = {
 
 const MODAL_INSIGHTS = {
   "Emotional Fatigue": {
-    meaning: "Fatigue may be shaping spending decisions after class, work, commute, or repeated academic pressure.",
-    watch: "Watch for comfort buys, food or drink rewards, and purchases made because the day felt heavy.",
-    action: "Plan one low-cost comfort option before the stressful part of the day starts."
+    meaning: "Fatigue may be shaping spending decisions after class, work, commute, or repeated academic pressure. When energy is low, small purchases can feel like the fastest way to recover.",
+    watch: "Watch for comfort food, drinks, snacks, delivery, or tiny rewards that happen because the day felt heavy instead of because they were planned.",
+    action: "Plan one low-cost comfort option before the stressful part of the day starts, so recovery does not always require spending."
   },
   "Reward Frequency Risk": {
-    meaning: "The main risk is repeated relief spending becoming part of the weekly routine.",
-    watch: "Watch snacks, drinks, delivery, digital buys, or deserve-ko-to spending after pressure peaks.",
-    action: "Set a small reward limit before stress hits, not during stress."
+    meaning: "The concern is not one reward. The concern is repeated relief spending becoming part of the weekly routine without being noticed.",
+    watch: "Watch snacks, drinks, delivery, digital buys, or deserve-ko-to spending that appears after pressure peaks.",
+    action: "Set a small reward limit before stress hits, not during stress. The limit protects the reward from turning into a leak."
   },
   "Daily Pressure": {
-    meaning: "Food, fare, data, school materials, and time pressure may be building quiet spending friction.",
-    watch: "Watch gastos that feel small alone but repeat almost every school or work day.",
-    action: "Give daily essentials their own mini cap."
+    meaning: "Food, fare, data, school materials, and time pressure may be creating quiet spending friction. Each cost may look small, but repeated daily pressure reduces breathing room.",
+    watch: "Watch gastos that feel harmless alone but repeat almost every school or work day, especially commute, quick meals, data, and rushed purchases.",
+    action: "Give daily essentials their own mini cap so routine pressure does not leak into random spending."
   },
   "Reward Control": {
-    meaning: "There is still awareness and control available. This is the protection side of the pattern.",
-    watch: "Watch planned rewards turning into unplanned repeat purchases.",
-    action: "Choose the amount, reason, and limit before spending."
+    meaning: "There is still awareness and control available. This is the protection side of the pattern, where rewards can stay intentional instead of reactive.",
+    watch: "Watch planned rewards turning into unplanned repeat purchases when the day feels stressful or emotionally heavy.",
+    action: "Choose the amount, reason, and limit before spending. Control does not mean no reward; it means the reward has boundaries."
   },
   "Essential-Cost Load": {
-    meaning: "School costs and daily essentials may be carrying the biggest weight.",
+    meaning: "School costs and daily essentials may be carrying the biggest weight. These costs are difficult to ignore because they directly affect attendance, routine, and stability.",
     watch: "Watch tuition timing, fare, meals, printing, load/data, and project expenses arriving together.",
-    action: "Separate school money and daily essentials first."
+    action: "Separate school money and daily essentials first before rewards, savings, or flexible spending."
   },
   "Recovery Gap": {
-    meaning: "Low recovery time can turn normal spending into tired shortcut decisions.",
-    watch: "Watch skipped meals, rushed transport, late-night food, and delayed tracking.",
-    action: "Add a small food, rest, and transport backup."
+    meaning: "Low recovery time can turn normal spending into tired shortcut decisions. The less rest available, the more convenience starts to feel necessary.",
+    watch: "Watch skipped meals, rushed transport, late-night food, delayed tracking, and spending that happens because there is no energy left.",
+    action: "Add a small food, rest, and transport backup before the week becomes heavy."
   },
   "Cash Buffer Risk": {
-    meaning: "The week may be vulnerable without a small buffer for sudden school or daily expenses.",
-    watch: "Watch surprise fare changes, projects, food gaps, or urgent class spending.",
-    action: "Create a tiny emergency fare or food buffer."
+    meaning: "The week may be vulnerable without a small buffer for sudden school or daily expenses. One surprise cost can affect the whole rhythm.",
+    watch: "Watch surprise fare changes, projects, food gaps, urgent class spending, and small emergencies that force borrowing.",
+    action: "Create a tiny emergency fare or food buffer before flexible spending."
   },
   "Shared-Money Pressure": {
-    meaning: "Family support and student expenses may be competing for the same income.",
-    watch: "Watch guilt spending, last-minute family help, and delayed school needs.",
-    action: "Set a support limit that protects school stability."
+    meaning: "Family support and student expenses may be competing for the same income. This can create guilt pressure and unstable personal essentials.",
+    watch: "Watch guilt spending, last-minute family help, delayed school needs, or giving extra money before your own essentials are protected.",
+    action: "Set a support limit that protects both care for others and your school stability."
   },
   "Responsibility Load": {
-    meaning: "Student responsibilities and home support can drain the same energy source.",
-    watch: "Watch decisions made from guilt, pressure, or fear of disappointing others.",
-    action: "Use an essentials-first rule before giving extra money."
+    meaning: "Student responsibilities and home support can drain the same energy source. Pressure can build even when the person is trying to be responsible.",
+    watch: "Watch decisions made from guilt, pressure, fear of disappointing others, or trying to solve everything at once.",
+    action: "Use an essentials-first rule before giving or committing extra money."
   },
   "Boundary Risk": {
-    meaning: "Helping without limits can make personal essentials unstable.",
+    meaning: "Helping without limits can make personal essentials unstable. The risk is not generosity; the risk is support without structure.",
     watch: "Watch support that pushes food, fare, school costs, or rest into shortage.",
-    action: "Create a clear weekly support boundary."
+    action: "Create a clear weekly support boundary before requests happen."
   },
   "Fatigue Load": {
-    meaning: "School and work overlap may be turning time pressure into spending pressure.",
-    watch: "Watch convenience meals, rushed fare choices, comfort buys, and missed tracking.",
+    meaning: "School and work overlap may be turning time pressure into spending pressure. Overloaded days often make convenience feel like the only option.",
+    watch: "Watch convenience meals, rushed fare choices, comfort buys, and missed tracking after long class-work days.",
     action: "Prepare one low-energy plan for food, commute, and tracking."
   },
   "Schedule-Cost Pressure": {
-    meaning: "The schedule itself may be creating costs through commute, deadlines, and low planning time.",
-    watch: "Watch rushing costs: transport shortcuts, food outside, printing, and data top-ups.",
-    action: "Build a weekly schedule-cost allowance."
+    meaning: "The schedule itself may be creating costs through commute, deadlines, and limited planning time. Some spending comes from being rushed, not being careless.",
+    watch: "Watch rushing costs: transport shortcuts, food outside, printing, data top-ups, and last-minute materials.",
+    action: "Build a weekly schedule-cost allowance before the week starts."
   },
   "Convenience Spend Risk": {
-    meaning: "Convenience spending may rise when time and energy are low.",
-    watch: "Watch purchases that solve stress quickly but repeat often.",
+    meaning: "Convenience spending may rise when time and energy are low. It becomes risky when it turns into the default response to stress.",
+    watch: "Watch purchases that solve stress quickly but repeat often, especially meals, transport, and small delivery expenses.",
     action: "Replace one convenience habit with a cheaper prepared option."
   },
   "Debt Stress Load": {
-    meaning: "Old money pressure may still be affecting the current week.",
-    watch: "Watch avoidance, delayed checking, and borrowing to cover daily gaps.",
+    meaning: "Old money pressure may still be affecting the current week. Debt stress can make even normal expenses feel heavier.",
+    watch: "Watch avoidance, delayed checking, and borrowing again to cover daily gaps.",
     action: "Use a no-new-debt rule and protect a small repayment rhythm."
   },
   "Repayment Pressure": {
-    meaning: "Repayment timing may be the strongest pressure before rewards or flexible spending.",
+    meaning: "Repayment timing may be the strongest pressure before rewards or flexible spending. When repayments are unclear, the week can feel like repair mode.",
     watch: "Watch spending before repayment, then borrowing again near the next deadline.",
-    action: "Place repayment first in the weekly plan."
+    action: "Place repayment first in the weekly plan, even if the amount is small."
   },
   "Cash-Flow Stability": {
-    meaning: "Income timing may not match school, commute, food, or repayment deadlines.",
+    meaning: "Income timing may not match school, commute, food, or repayment deadlines. Timing mismatch can create stress even when total money looks enough.",
     watch: "Watch weeks where money arrives after important costs are already due.",
-    action: "Map income dates against expense dates."
+    action: "Map income dates against school and daily expense dates."
   },
   "Independence Load": {
-    meaning: "Self-funding school and daily life can create pressure even when discipline is strong.",
-    watch: "Watch income gaps, school deadlines, and personal essentials competing.",
-    action: "Protect essentials before saving aggressively."
+    meaning: "Self-funding school and daily life can create pressure even when discipline is strong. Independence needs structure before ambition can stay consistent.",
+    watch: "Watch income gaps, school deadlines, and personal essentials competing at the same time.",
+    action: "Protect essentials first before trying to save aggressively."
   },
   "Essential Pressure": {
-    meaning: "Tuition, commute, meals, data, and materials are harder to delay safely.",
+    meaning: "Tuition, commute, meals, data, and materials are harder to delay safely. These expenses should not compete with impulse decisions.",
     watch: "Watch essentials being paid late because flexible spending happened first.",
     action: "Use an essentials-first wallet or category."
   },
   "Buffer Stability": {
-    meaning: "A missed income or extra school cost can affect the whole week.",
+    meaning: "A missed income or extra school cost can affect the whole week. A small buffer can protect peace more than strict rules alone.",
     watch: "Watch weeks with no backup for food, fare, or urgent school needs.",
-    action: "Build the smallest possible buffer first."
+    action: "Build the smallest possible buffer before adding new spending goals."
   },
   "Burnout Watch": {
-    meaning: "Burnout may not be full crisis yet, but energy pressure is already visible.",
+    meaning: "Burnout may not be full crisis yet, but energy pressure is already visible. Recovery planning keeps spending from becoming the only relief.",
     watch: "Watch spending after exhaustion, deadlines, or emotional overload.",
     action: "Add one recovery habit that does not require spending."
   },
   "Financial Pressure": {
-    meaning: "Limited income and repeated small expenses may be tightening the pattern.",
+    meaning: "Limited income and repeated small expenses may be tightening the pattern. The quiet repeaters usually explain more than one big purchase.",
     watch: "Watch repeating food, fare, mobile data, digital, and social spending.",
     action: "Review the top repeating micro-spend once per week."
   },
   "Micro-Spend Risk": {
-    meaning: "Small spending may be quietly becoming the hidden monthly pattern.",
+    meaning: "Small spending may be quietly becoming the hidden monthly pattern. These leaks matter because they repeat without being noticed.",
     watch: "Watch purchases that feel too small to track but happen often.",
     action: "Set a weekly micro-spend ceiling."
   },
   "Future Potential": {
-    meaning: "Effort, ambition, and discipline can still be protected.",
-    watch: "Watch pressure that makes you abandon the plan completely.",
-    action: "Keep progress small and consistent."
+    meaning: "Effort, ambition, and discipline can still be protected. The goal is not perfection; it is a rhythm the user can repeat.",
+    watch: "Watch pressure that makes the user abandon the plan completely.",
+    action: "Keep progress small and consistent instead of strict and unrealistic."
   }
 };
 
@@ -243,28 +243,35 @@ function hideIntroCopy(modal) {
   intro.dataset.claraModalIntroHidden = "true";
 }
 
+function stabilizeModalSurface(modal) {
+  modal.style.background = "linear-gradient(180deg, rgba(6, 14, 33, 0.97), rgba(22, 12, 56, 0.985))";
+  modal.style.backdropFilter = "blur(22px) saturate(1.04)";
+  modal.style.webkitBackdropFilter = "blur(22px) saturate(1.04)";
+  modal.style.overflow = "hidden";
+}
+
 function styleRiskReading(modal, hierarchy) {
   const valueNode = Array.from(modal.querySelectorAll("p")).find((node) => /^\d+%$/.test(clean(node.textContent)));
   const card = valueNode?.closest("div");
   if (!card) return;
   const highRisk = clean(hierarchy) === "High Risk";
   card.dataset.claraRiskCardPolished = "true";
-  card.style.padding = "14px 16px";
+  card.style.padding = "18px 18px";
   card.style.minHeight = "0";
   card.style.background = highRisk
-    ? "linear-gradient(135deg, rgba(168,85,247,.14), rgba(236,72,153,.08), rgba(15,23,42,.22))"
-    : "linear-gradient(135deg, rgba(34,211,238,.10), rgba(168,85,247,.09), rgba(15,23,42,.22))";
-  card.style.border = highRisk ? "1px solid rgba(236,72,153,.16)" : "1px solid rgba(255,255,255,.11)";
-  card.style.boxShadow = "inset 0 1px 0 rgba(255,255,255,.07), 0 12px 30px rgba(0,0,0,.10)";
+    ? "linear-gradient(135deg, rgba(168,85,247,.17), rgba(236,72,153,.10), rgba(15,23,42,.32))"
+    : "linear-gradient(135deg, rgba(34,211,238,.13), rgba(168,85,247,.11), rgba(15,23,42,.32))";
+  card.style.border = highRisk ? "1px solid rgba(236,72,153,.18)" : "1px solid rgba(255,255,255,.12)";
+  card.style.boxShadow = "inset 0 1px 0 rgba(255,255,255,.08), 0 16px 38px rgba(0,0,0,.13)";
   card.querySelectorAll("[data-clara-risk-helper='true']").forEach((node) => node.remove());
 }
 
 function createInsightRow(label, text, accent) {
   return `
-    <div style="position:relative;padding:7px 8px 7px 12px;border-radius:13px;border:1px solid rgba(255,255,255,.075);background:rgba(255,255,255,.032);">
-      <span style="position:absolute;left:0;top:9px;bottom:9px;width:2px;border-radius:999px;background:${accent};"></span>
-      <p style="margin:0 0 3px;font-size:8px;font-weight:950;letter-spacing:.13em;text-transform:uppercase;color:rgba(255,255,255,.58);">${label}</p>
-      <p style="margin:0;font-size:11px;line-height:1.48;color:rgba(255,255,255,.84);">${text}</p>
+    <div style="position:relative;padding:11px 12px 11px 14px;border-radius:16px;border:1px solid rgba(255,255,255,.09);background:rgba(255,255,255,.045);box-shadow:inset 0 1px 0 rgba(255,255,255,.045);">
+      <span style="position:absolute;left:0;top:12px;bottom:12px;width:3px;border-radius:999px;background:${accent};box-shadow:0 0 18px ${accent};"></span>
+      <p style="margin:0 0 5px;font-size:9px;font-weight:950;letter-spacing:.14em;text-transform:uppercase;color:rgba(255,255,255,.62);">${label}</p>
+      <p style="margin:0;font-size:12px;line-height:1.62;color:rgba(255,255,255,.86);">${text}</p>
     </div>
   `;
 }
@@ -285,19 +292,19 @@ function createInsightPanel(modal, trendLabel) {
   const insight = MODAL_INSIGHTS[trendLabel] || {
     meaning: "This card shows one part of the current life-stage pressure pattern.",
     watch: "Watch when this pattern starts influencing small daily money decisions.",
-    action: "Pause, name the pressure, and choose a smaller next step."
+    action: "Use CLARA to pause, name the pressure, and choose a smaller next step."
   };
 
-  panel.style.cssText = "margin:10px 0;padding:11px;border-radius:20px;border:1px solid rgba(255,255,255,.10);background:linear-gradient(145deg, rgba(255,255,255,.045), rgba(255,255,255,.022));box-shadow:inset 0 1px 0 rgba(255,255,255,.05);";
+  panel.style.cssText = "margin:16px 0 12px;padding:15px;border-radius:24px;border:1px solid rgba(255,255,255,.12);background:linear-gradient(145deg, rgba(255,255,255,.060), rgba(255,255,255,.028));box-shadow:inset 0 1px 0 rgba(255,255,255,.06), 0 18px 42px rgba(0,0,0,.12);";
   panel.innerHTML = `
-    <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:8px;">
-      <p style="margin:0;font-size:9px;font-weight:950;letter-spacing:.15em;text-transform:uppercase;color:rgba(255,255,255,.80);">What CLARA noticed</p>
-      <span style="display:inline-flex;align-items:center;justify-content:center;padding:3px 7px;border-radius:999px;border:1px solid rgba(255,255,255,.09);background:rgba(255,255,255,.05);font-size:8px;font-weight:900;letter-spacing:.10em;text-transform:uppercase;color:rgba(255,255,255,.55);">Behavior</span>
+    <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:12px;">
+      <p style="margin:0;font-size:10px;font-weight:950;letter-spacing:.16em;text-transform:uppercase;color:rgba(255,255,255,.82);">What CLARA noticed</p>
+      <span style="display:inline-flex;align-items:center;justify-content:center;padding:5px 8px;border-radius:999px;border:1px solid rgba(255,255,255,.10);background:rgba(255,255,255,.055);font-size:9px;font-weight:900;letter-spacing:.10em;text-transform:uppercase;color:rgba(255,255,255,.58);">Behavior</span>
     </div>
-    <div style="display:grid;gap:6px;">
-      ${createInsightRow("Meaning", insight.meaning, "rgba(34,211,238,.72)")}
-      ${createInsightRow("Watch for", insight.watch, "rgba(251,113,133,.68)")}
-      ${createInsightRow("CLARA move", insight.action, "rgba(167,139,250,.74)")}
+    <div style="display:grid;gap:9px;">
+      ${createInsightRow("Meaning", insight.meaning, "rgba(34,211,238,.75)")}
+      ${createInsightRow("Watch for", insight.watch, "rgba(251,113,133,.72)")}
+      ${createInsightRow("CLARA move", insight.action, "rgba(167,139,250,.78)")}
     </div>
   `;
 }
@@ -308,10 +315,10 @@ function compactSources(sourceHeading) {
   setText(sourceHeading, "Sources");
   sourceBox.dataset.claraSourceBoxPolished = "true";
   sourceBox.style.padding = "12px 14px";
-  sourceBox.style.marginTop = "10px";
-  sourceBox.style.background = "linear-gradient(145deg, rgba(255,255,255,.035), rgba(255,255,255,.018))";
-  sourceBox.style.border = "1px solid rgba(255,255,255,.09)";
-  sourceBox.style.boxShadow = "inset 0 1px 0 rgba(255,255,255,.045)";
+  sourceBox.style.marginTop = "8px";
+  sourceBox.style.background = "linear-gradient(145deg, rgba(255,255,255,.04), rgba(255,255,255,.02))";
+  sourceBox.style.border = "1px solid rgba(255,255,255,.10)";
+  sourceBox.style.boxShadow = "inset 0 1px 0 rgba(255,255,255,.05)";
 
   Array.from(sourceBox.querySelectorAll("p")).forEach((node) => {
     if (node === sourceHeading) return;
@@ -320,9 +327,9 @@ function compactSources(sourceHeading) {
   });
 
   Array.from(sourceBox.querySelectorAll("a")).forEach((link) => {
-    link.style.height = "26px";
-    link.style.minWidth = "38px";
-    link.style.padding = "0 9px";
+    link.style.height = "28px";
+    link.style.minWidth = "42px";
+    link.style.padding = "0 10px";
     link.style.fontSize = "9px";
   });
 }
@@ -347,6 +354,7 @@ function enhanceOpenedTrendModal() {
   const valueNode = Array.from(modal.querySelectorAll("p")).find((node) => /^\d+%$/.test(clean(node.textContent)));
   const statusNode = valueNode?.nextElementSibling;
 
+  stabilizeModalSurface(modal);
   hideIntroCopy(modal);
   setText(readingLabel, "Risk hierarchy reading");
   if (match) setText(valueNode, `${match.value}%`);
