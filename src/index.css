@@ -293,3 +293,183 @@ body.clara-demo-intro-active [class*="right-[17px]"][class*="text-emerald-100"] 
   animation: clara-demo-pointer-breathe-strong 1.05s ease-in-out infinite !important;
   will-change: transform, opacity !important;
 }
+
+/* CLARA Adaptive Viewport System
+   Applies Dashboard-like fold rhythm only to Me and Schedule surfaces. */
+.clara-schedule-viewport {
+  min-height: min(100%, calc(100svh - 7.4rem));
+  display: flex;
+  flex-direction: column;
+  justify-content: start;
+  container-type: inline-size;
+}
+
+.clara-schedule-agenda-card,
+.clara-schedule-calendar-card,
+.clara-schedule-monthly-insight {
+  flex-shrink: 0;
+}
+
+.clara-schedule-calendar-card {
+  isolation: isolate;
+}
+
+.clara-calendar-day,
+.clara-calendar-empty-cell,
+.clara-calendar-nav-button,
+.clara-schedule-agenda-icon {
+  transition: min-height 180ms ease, width 180ms ease, height 180ms ease, border-radius 180ms ease, transform 160ms ease;
+}
+
+/* Me / Life Stage viewport orchestration without touching the Dashboard panel. */
+#root div:has(> section:first-child [aria-label="Open life stage actions"]) {
+  min-height: min(100%, calc(100svh - 7.4rem));
+  max-height: calc(100svh - 7.4rem);
+  padding: clamp(0.25rem, 0.9svh, 0.75rem) clamp(0.55rem, 1.8vw, 0.85rem) clamp(0.55rem, 1.7svh, 0.85rem) !important;
+  gap: 0;
+}
+
+#root div:has(> section:first-child [aria-label="Open life stage actions"]) > section:first-child {
+  flex: 1 1 42% !important;
+  min-height: clamp(210px, 42svh, 310px) !important;
+  max-height: clamp(230px, 44svh, 330px) !important;
+  border-radius: clamp(1.35rem, 5.8vw, 1.9rem) !important;
+  padding: clamp(1rem, 3.1svh, 1.25rem) clamp(1rem, 4.6vw, 1.25rem) !important;
+}
+
+#root div:has(> section:first-child [aria-label="Open life stage actions"]) > section:nth-of-type(2) {
+  flex: 0 0 auto !important;
+  min-height: clamp(76px, 13svh, 104px) !important;
+  margin-top: clamp(0.55rem, 1.55svh, 0.85rem) !important;
+  padding: clamp(0.7rem, 1.85svh, 0.85rem) !important;
+}
+
+#root div:has(> section:first-child [aria-label="Open life stage actions"]) > section:nth-of-type(3) {
+  flex: 1 1 34% !important;
+  min-height: clamp(132px, 25svh, 190px) !important;
+  margin-top: clamp(0.55rem, 1.55svh, 0.85rem) !important;
+  padding: clamp(0.7rem, 1.85svh, 0.85rem) !important;
+}
+
+#root div:has(> section:first-child [aria-label="Open life stage actions"]) > section:first-child h2 {
+  font-size: clamp(1.38rem, 6.4vw, 1.95rem) !important;
+  line-height: 0.98 !important;
+}
+
+#root div:has(> section:first-child [aria-label="Open life stage actions"]) > section:first-child p:last-child {
+  font-size: clamp(0.68rem, 3.1vw, 0.78rem) !important;
+  line-height: 1.48 !important;
+}
+
+#root div:has(> section:first-child [aria-label="Open life stage actions"]) [class*="snap-x"] > button {
+  min-width: clamp(104px, 31vw, 122px) !important;
+  padding: clamp(0.58rem, 1.75svh, 0.75rem) !important;
+}
+
+@media (max-height: 760px) {
+  .clara-schedule-viewport {
+    min-height: calc(100svh - 6.8rem);
+  }
+
+  .clara-schedule-agenda-card {
+    border-radius: 24px !important;
+  }
+
+  .clara-schedule-agenda-icon {
+    width: 2.45rem !important;
+    height: 2.45rem !important;
+    border-radius: 1rem !important;
+  }
+
+  .clara-schedule-agenda-card h3 {
+    margin-top: 0.35rem !important;
+    font-size: 0.98rem !important;
+  }
+
+  .clara-schedule-agenda-body {
+    margin-top: 0.35rem !important;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+    line-height: 1.42 !important;
+    font-size: 0.78rem !important;
+  }
+
+  .clara-calendar-day,
+  .clara-calendar-empty-cell {
+    min-height: clamp(34px, 6.4svh, 42px) !important;
+    border-radius: 0.9rem !important;
+    font-size: 0.78rem !important;
+  }
+
+  .clara-calendar-nav-button {
+    width: 2rem !important;
+    height: 2rem !important;
+    border-radius: 0.95rem !important;
+  }
+
+  .clara-calendar-legend {
+    margin-top: 0.5rem !important;
+  }
+
+  .clara-schedule-monthly-insight {
+    font-size: 0.72rem !important;
+    line-height: 1.35 !important;
+  }
+
+  #root div:has(> section:first-child [aria-label="Open life stage actions"]) {
+    max-height: calc(100svh - 6.8rem);
+  }
+
+  #root div:has(> section:first-child [aria-label="Open life stage actions"]) > section:first-child {
+    min-height: clamp(178px, 37svh, 245px) !important;
+    max-height: clamp(195px, 39svh, 260px) !important;
+  }
+
+  #root div:has(> section:first-child [aria-label="Open life stage actions"]) > section:nth-of-type(2) {
+    min-height: clamp(66px, 11svh, 88px) !important;
+  }
+
+  #root div:has(> section:first-child [aria-label="Open life stage actions"]) > section:nth-of-type(3) {
+    min-height: clamp(122px, 23svh, 168px) !important;
+  }
+}
+
+@media (max-height: 680px) {
+  .clara-schedule-viewport {
+    gap: 0.45rem !important;
+  }
+
+  .clara-schedule-calendar-card {
+    border-radius: 24px !important;
+  }
+
+  .clara-calendar-day,
+  .clara-calendar-empty-cell {
+    min-height: clamp(30px, 5.75svh, 36px) !important;
+    border-radius: 0.8rem !important;
+    font-size: 0.72rem !important;
+  }
+
+  .clara-calendar-legend,
+  .clara-schedule-monthly-insight {
+    display: none !important;
+  }
+
+  #root div:has(> section:first-child [aria-label="Open life stage actions"]) > section:first-child {
+    min-height: clamp(160px, 34svh, 214px) !important;
+    max-height: clamp(172px, 36svh, 228px) !important;
+  }
+
+  #root div:has(> section:first-child [aria-label="Open life stage actions"]) > section:nth-of-type(2) svg {
+    width: 2.2rem !important;
+    height: 2.2rem !important;
+  }
+}
+
+@media (min-height: 860px) {
+  .clara-schedule-viewport {
+    justify-content: center;
+  }
+}
