@@ -34,6 +34,7 @@ import "./life-stage-setup-scale.css";
 import "./life-stage-setup-flow-polish.css";
 import "./life-stage-question-compact-mobile.css";
 import "./me-adaptive-viewport.css";
+import "./me-adaptive-composition-correction.css";
 
 window.CLARA_BILLING = window.CLARA_BILLING || {};
 
@@ -118,106 +119,3 @@ const installClaraSupportComposerEnhancer = () => {
   };
 
   const enhancePage = () => {
-    const { page, heading } = getSupportPage();
-    const select = page?.querySelector("select");
-    const textarea = page?.querySelector("textarea");
-    if (!page || !heading || !select || !textarea) return;
-
-    heading.textContent = "Help & feedback";
-    const subtitle = heading.parentElement?.querySelector("p");
-    if (subtitle) {
-      subtitle.textContent = "Compose your concern or feedback, then let CLARA refine it before you email us.";
-    }
-
-    const topicLabel = select.closest("label")?.querySelector("span");
-    const messageLabel = textarea.closest("label")?.querySelector("span");
-    if (topicLabel) topicLabel.textContent = "Feedback type";
-    if (messageLabel) messageLabel.textContent = "Compose message";
-    textarea.placeholder = "Describe your concern, idea, issue, or feedback...";
-    textarea.disabled = false;
-
-    if (select.dataset.claraTopicsReady !== "true") {
-      const previousValue = select.value;
-      select.innerHTML = topics.map((topic) => `<option>${topic}</option>`).join("");
-      select.value = topics.includes(previousValue) ? previousValue : "Feedback & ideas";
-      select.dataset.claraTopicsReady = "true";
-    }
-
-    const oldButton = Array.from(page.querySelectorAll("button")).find((button) =>
-      clean(button.textContent).includes("Send CLARA support message") ||
-      clean(button.textContent).includes("Sending to CLARA support")
-    );
-    if (oldButton) oldButton.style.display = "none";
-
-    Array.from(page.querySelectorAll("p")).forEach((paragraph) => {
-      if (clean(paragraph.textContent).includes("All admin accounts")) {
-        paragraph.style.display = "none";
-      }
-    });
-
-    if (page.querySelector("[data-clara-support-composer='true']")) return;
-
-    const panel = document.createElement("div");
-    panel.dataset.claraSupportComposer = "true";
-    panel.style.cssText = "border-radius:24px;border:1px solid rgba(255,255,255,.10);background:linear-gradient(135deg,rgba(255,255,255,.06),rgba(255,255,255,.025));padding:14px;display:grid;gap:10px;";
-
-    const preview = document.createElement("textarea");
-    preview.readOnly = false;
-    preview.placeholder = "CLARA-refined message will appear here...";
-    preview.style.cssText = "min-height:150px;width:100%;resize:vertical;border-radius:18px;border:1px solid rgba(255,255,255,.10);background:rgba(2,8,23,.55);padding:12px;color:white;font-size:12px;line-height:1.55;outline:none;";
-
-    const row = document.createElement("div");
-    row.style.cssText = "display:grid;grid-template-columns:1fr 1fr;gap:10px;";
-
-    const refineButton = document.createElement("button");
-    refineButton.type = "button";
-    refineButton.textContent = "Refine message";
-    refineButton.style.cssText = "min-height:44px;border-radius:16px;border:1px solid rgba(103,248,255,.24);background:linear-gradient(135deg,rgba(34,211,238,.18),rgba(139,92,246,.14));color:white;font-weight:900;font-size:12px;";
-
-    const emailButton = document.createElement("button");
-    emailButton.type = "button";
-    emailButton.textContent = "Open email";
-    emailButton.style.cssText = "min-height:44px;border-radius:16px;border:1px solid rgba(255,255,255,.10);background:rgba(255,255,255,.06);color:white;font-weight:900;font-size:12px;";
-
-    refineButton.addEventListener("click", () => {
-      preview.value = refineDraft(select.value, textarea.value);
-    });
-
-    emailButton.addEventListener("click", () => {
-      const body = encodeURIComponent(preview.value || refineDraft(select.value, textarea.value) || textarea.value || "");
-      const subject = encodeURIComponent(`CLARA ${select.value || "Support"}`);
-      window.location.href = `mailto:${supportEmail}?subject=${subject}&body=${body}`;
-    });
-
-    row.append(refineButton, emailButton);
-    panel.append(preview, row);
-    page.appendChild(panel);
-  };
-
-  const observer = new MutationObserver(enhancePage);
-  observer.observe(document.body, { childList: true, subtree: true });
-  document.addEventListener("click", () => setTimeout(enhancePage, 80), { passive: true });
-  enhancePage();
-};
-
-installClaraSupportComposerEnhancer();
-
-const rootElement = document.getElementById("root");
-
-if (!rootElement) {
-  throw new Error('Root element with id "root" was not found.');
-}
-
-ReactDOM.createRoot(rootElement).render(
-  <React.StrictMode>
-    <AuthProvider>
-      <ThemeProvider>
-        <QueryClientProvider client={queryClientInstance}>
-          <HashRouter>
-            <App />
-          </HashRouter>
-        </QueryClientProvider>
-      </ThemeProvider>
-    </AuthProvider>
-  </React.StrictMode>
-);
