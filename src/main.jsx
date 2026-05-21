@@ -36,6 +36,7 @@ import "./life-stage-question-compact-mobile.css";
 import "./me-adaptive-viewport.css";
 import "./me-adaptive-composition-correction.css";
 import "./me-cinematic-depth-refinement.css";
+import "./me-cinematic-environment-depth.css";
 
 window.CLARA_BILLING = window.CLARA_BILLING || {};
 
