@@ -34,6 +34,7 @@ import "./life-stage-setup-scale.css";
 import "./life-stage-setup-flow-polish.css";
 import "./life-stage-question-compact-mobile.css";
 import "./me-adaptive-viewport.css";
+import "./me-hero-support-bond.css";
 
 window.CLARA_BILLING = window.CLARA_BILLING || {};
 
@@ -159,48 +160,66 @@ const installClaraSupportComposerEnhancer = () => {
 
     const panel = document.createElement("div");
     panel.dataset.claraSupportComposer = "true";
-    panel.style.cssText = "border-radius:24px;border:1px solid rgba(255,255,255,.10);background:linear-gradient(135deg,rgba(255,255,255,.06),rgba(255,255,255,.025));padding:14px;display:grid;gap:10px;";
+    panel.className = "clara-support-compose-panel";
+    panel.innerHTML = `
+      <div class="clara-support-compose-actions">
+        <button type="button" data-clara-support-refine>Refine Message</button>
+        <button type="button" data-clara-support-copy disabled>Copy</button>
+      </div>
+      <div class="clara-support-refined-box" hidden>
+        <p>Refined message</p>
+        <textarea readonly data-clara-support-output></textarea>
+        <a data-clara-support-email href="mailto:${supportEmail}">Open email app</a>
+      </div>
+      <p class="clara-support-helper">Copy the refined message, then paste it into the support email below.</p>
+    `;
 
-    const preview = document.createElement("textarea");
-    preview.readOnly = false;
-    preview.placeholder = "CLARA-refined message will appear here...";
-    preview.style.cssText = "min-height:150px;width:100%;resize:vertical;border-radius:18px;border:1px solid rgba(255,255,255,.10);background:rgba(2,8,23,.55);padding:12px;color:white;font-size:12px;line-height:1.55;outline:none;";
+    (oldButton || textarea.closest("label"))?.insertAdjacentElement("afterend", panel);
 
-    const row = document.createElement("div");
-    row.style.cssText = "display:grid;grid-template-columns:1fr 1fr;gap:10px;";
+    const refineButton = panel.querySelector("[data-clara-support-refine]");
+    const copyButton = panel.querySelector("[data-clara-support-copy]");
+    const outputWrap = panel.querySelector(".clara-support-refined-box");
+    const output = panel.querySelector("[data-clara-support-output]");
+    const emailLink = panel.querySelector("[data-clara-support-email]");
+    const helper = panel.querySelector(".clara-support-helper");
 
-    const refineButton = document.createElement("button");
-    refineButton.type = "button";
-    refineButton.textContent = "Refine message";
-    refineButton.style.cssText = "min-height:44px;border-radius:16px;border:1px solid rgba(103,248,255,.24);background:linear-gradient(135deg,rgba(34,211,238,.18),rgba(139,92,246,.14));color:white;font-weight:900;font-size:12px;";
-
-    const emailButton = document.createElement("button");
-    emailButton.type = "button";
-    emailButton.textContent = "Open email";
-    emailButton.style.cssText = "min-height:44px;border-radius:16px;border:1px solid rgba(255,255,255,.10);background:rgba(255,255,255,.06);color:white;font-weight:900;font-size:12px;";
-
-    refineButton.addEventListener("click", () => {
-      preview.value = refineDraft(select.value, textarea.value);
+    refineButton?.addEventListener("click", () => {
+      const refined = refineDraft(select.value, textarea.value);
+      if (!refined) {
+        helper.textContent = "Write your concern or feedback first, then click Refine Message.";
+        textarea.focus();
+        return;
+      }
+      output.value = refined;
+      outputWrap.hidden = false;
+      copyButton.disabled = false;
+      emailLink.href = `mailto:${supportEmail}?subject=${encodeURIComponent(`CLARA ${select.value}`)}&body=${encodeURIComponent(refined)}`;
+      helper.textContent = "Message refined. Copy it, then paste it into the support email below.";
     });
 
-    emailButton.addEventListener("click", () => {
-      const body = encodeURIComponent(preview.value || refineDraft(select.value, textarea.value) || textarea.value || "");
-      const subject = encodeURIComponent(`CLARA ${select.value || "Support"}`);
-      window.location.href = `mailto:${supportEmail}?subject=${subject}&body=${body}`;
+    copyButton?.addEventListener("click", async () => {
+      if (!clean(output.value)) return;
+      try {
+        await navigator.clipboard.writeText(output.value);
+        helper.textContent = "Copied. Paste it into your email and send it to CLARA support.";
+      } catch (error) {
+        output.focus();
+        output.select();
+        helper.textContent = "Copy was blocked. Select the refined message manually.";
+      }
     });
-
-    row.append(refineButton, emailButton);
-    panel.append(preview, row);
-    page.appendChild(panel);
   };
 
-  const observer = new MutationObserver(enhancePage);
+  const observer = new MutationObserver(() => window.requestAnimationFrame(enhancePage));
+  window.requestAnimationFrame(enhancePage);
   observer.observe(document.body, { childList: true, subtree: true });
-  document.addEventListener("click", () => setTimeout(enhancePage, 80), { passive: true });
-  enhancePage();
 };
 
-installClaraSupportComposerEnhancer();
+try {
+  installClaraSupportComposerEnhancer();
+} catch (error) {
+  console.warn("CLARA support composer enhancer failed:", error);
+}
 
 const rootElement = document.getElementById("root");
 
