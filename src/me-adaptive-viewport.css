@@ -1,0 +1,148 @@
+/* CLARA Me page adaptive viewport canvas
+   This file only targets the Life Stage / Me panel. Dashboard and Schedule are not touched here. */
+
+#root div:has(> section:first-child [aria-label="Open life stage actions"]) {
+  height: clamp(560px, calc(100svh - 126px), 720px) !important;
+  min-height: 0 !important;
+  max-height: none !important;
+  display: flex !important;
+  flex-direction: column !important;
+  overflow: hidden !important;
+  padding: clamp(0.45rem, 1.15svh, 0.75rem) clamp(0.5rem, 1.8vw, 0.8rem) clamp(0.5rem, 1.3svh, 0.75rem) !important;
+  background: #020817 !important;
+}
+
+#root div:has(> section:first-child [aria-label="Open life stage actions"]) > section:first-child {
+  flex: 0 0 clamp(232px, 36svh, 292px) !important;
+  min-height: 0 !important;
+  max-height: none !important;
+  border-radius: clamp(1.35rem, 5.8vw, 1.9rem) !important;
+  padding: clamp(0.95rem, 2.8svh, 1.22rem) clamp(1rem, 4.6vw, 1.28rem) !important;
+}
+
+#root div:has(> section:first-child [aria-label="Open life stage actions"]) > section:first-child > div:last-child {
+  max-width: min(64%, 250px) !important;
+  padding-top: clamp(0.35rem, 1.15svh, 0.8rem) !important;
+}
+
+#root div:has(> section:first-child [aria-label="Open life stage actions"]) > section:first-child h2 {
+  margin-top: clamp(0.35rem, 1.1svh, 0.55rem) !important;
+  font-size: clamp(1.55rem, 6.55vw, 2.08rem) !important;
+  line-height: 0.98 !important;
+  letter-spacing: -0.045em !important;
+}
+
+#root div:has(> section:first-child [aria-label="Open life stage actions"]) > section:first-child p:last-child {
+  margin-top: clamp(0.35rem, 1.1svh, 0.55rem) !important;
+  display: -webkit-box !important;
+  -webkit-line-clamp: 4 !important;
+  -webkit-box-orient: vertical !important;
+  overflow: hidden !important;
+  font-size: clamp(0.72rem, 3.05vw, 0.8rem) !important;
+  line-height: 1.46 !important;
+}
+
+#root div:has(> section:first-child [aria-label="Open life stage actions"]) > section:nth-of-type(2) {
+  flex: 0 0 clamp(78px, 12.5svh, 102px) !important;
+  min-height: 0 !important;
+  margin-top: clamp(0.55rem, 1.25svh, 0.78rem) !important;
+  padding: clamp(0.65rem, 1.55svh, 0.85rem) !important;
+}
+
+#root div:has(> section:first-child [aria-label="Open life stage actions"]) > section:nth-of-type(2) h3 {
+  font-size: clamp(0.78rem, 3.25vw, 0.92rem) !important;
+}
+
+#root div:has(> section:first-child [aria-label="Open life stage actions"]) > section:nth-of-type(2) p {
+  margin-top: 0.18rem !important;
+  display: -webkit-box !important;
+  -webkit-line-clamp: 2 !important;
+  -webkit-box-orient: vertical !important;
+  overflow: hidden !important;
+  font-size: clamp(0.68rem, 2.8vw, 0.76rem) !important;
+  line-height: 1.38 !important;
+}
+
+#root div:has(> section:first-child [aria-label="Open life stage actions"]) > section:nth-of-type(2) > div > div:last-child {
+  width: clamp(52px, 9svh, 64px) !important;
+  height: clamp(52px, 9svh, 64px) !important;
+}
+
+#root div:has(> section:first-child [aria-label="Open life stage actions"]) > section:nth-of-type(3) {
+  flex: 1 1 0 !important;
+  min-height: 0 !important;
+  margin-top: clamp(0.55rem, 1.25svh, 0.78rem) !important;
+  padding: clamp(0.68rem, 1.55svh, 0.88rem) !important;
+  display: flex !important;
+  flex-direction: column !important;
+  overflow: hidden !important;
+}
+
+#root div:has(> section:first-child [aria-label="Open life stage actions"]) > section:nth-of-type(3) > div:first-child {
+  flex-shrink: 0 !important;
+}
+
+#root div:has(> section:first-child [aria-label="Open life stage actions"]) > section:nth-of-type(3) h3 {
+  font-size: clamp(0.82rem, 3.35vw, 0.95rem) !important;
+}
+
+#root div:has(> section:first-child [aria-label="Open life stage actions"]) > section:nth-of-type(3) p {
+  font-size: clamp(0.58rem, 2.45vw, 0.68rem) !important;
+}
+
+#root div:has(> section:first-child [aria-label="Open life stage actions"]) > section:nth-of-type(3) [class*="snap-x"] {
+  flex: 1 1 0 !important;
+  min-height: 0 !important;
+  margin-top: clamp(0.55rem, 1.35svh, 0.78rem) !important;
+  align-items: stretch !important;
+}
+
+#root div:has(> section:first-child [aria-label="Open life stage actions"]) > section:nth-of-type(3) [class*="snap-x"] > button {
+  height: 100% !important;
+  min-height: 0 !important;
+  min-width: clamp(108px, 31vw, 124px) !important;
+  padding: clamp(0.6rem, 1.45svh, 0.78rem) !important;
+  display: flex !important;
+  flex-direction: column !important;
+  justify-content: space-between !important;
+}
+
+#root div:has(> section:first-child [aria-label="Open life stage actions"]) > section:nth-of-type(3) [class*="snap-x"] svg {
+  margin-top: auto !important;
+  height: clamp(26px, 5.5svh, 34px) !important;
+}
+
+@media (max-height: 720px) {
+  #root div:has(> section:first-child [aria-label="Open life stage actions"]) {
+    height: clamp(520px, calc(100svh - 118px), 650px) !important;
+    padding-top: 0.35rem !important;
+    padding-bottom: 0.4rem !important;
+  }
+
+  #root div:has(> section:first-child [aria-label="Open life stage actions"]) > section:first-child {
+    flex-basis: clamp(202px, 33svh, 240px) !important;
+  }
+
+  #root div:has(> section:first-child [aria-label="Open life stage actions"]) > section:nth-of-type(2) {
+    flex-basis: clamp(68px, 10.7svh, 84px) !important;
+  }
+
+  #root div:has(> section:first-child [aria-label="Open life stage actions"]) > section:nth-of-type(2) svg {
+    width: 2.25rem !important;
+    height: 2.25rem !important;
+  }
+}
+
+@media (max-height: 640px) {
+  #root div:has(> section:first-child [aria-label="Open life stage actions"]) > section:first-child {
+    flex-basis: clamp(178px, 30svh, 214px) !important;
+  }
+
+  #root div:has(> section:first-child [aria-label="Open life stage actions"]) > section:first-child p:last-child {
+    -webkit-line-clamp: 3 !important;
+  }
+
+  #root div:has(> section:first-child [aria-label="Open life stage actions"]) > section:nth-of-type(2) {
+    display: none !important;
+  }
+}
