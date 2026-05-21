@@ -93,7 +93,6 @@
   flex: 0 0 auto !important;
 }
 
-/* REAL adaptive snapshot behavior */
 #root section[data-clara-trend-snapshot="true"] [data-clara-trend-carousel="true"] {
   flex: 1 1 0 !important;
   min-height: 0 !important;
@@ -146,4 +145,35 @@
   #root section[data-clara-support-card="true"] {
     display: none !important;
   }
+}
+
+/* Snapshot tablet override only: force cards to occupy their shelf despite older fixed min-height rules. */
+#root div[class*="flex h-full min-h-0 flex-col"][class*="rounded-[30px]"][class*="bg-[#020817]"][class*="px-3"][class*="pb-3"]:has(> section[data-clara-trend-snapshot="true"]) > section:nth-of-type(3) [data-clara-trend-carousel="true"],
+#root div[class*="flex h-full min-h-0 flex-col"][class*="rounded-[30px]"][class*="bg-[#020817]"][class*="px-3"][class*="pb-3"]:has(> section[data-clara-trend-snapshot="true"]) > section:nth-of-type(3) > div:nth-child(2) {
+  flex: 1 1 0 !important;
+  height: auto !important;
+  min-height: 0 !important;
+  max-height: none !important;
+  display: flex !important;
+  align-items: stretch !important;
+  align-content: stretch !important;
+  overflow-x: auto !important;
+  overflow-y: hidden !important;
+}
+
+#root div[class*="flex h-full min-h-0 flex-col"][class*="rounded-[30px]"][class*="bg-[#020817]"][class*="px-3"][class*="pb-3"]:has(> section[data-clara-trend-snapshot="true"]) > section:nth-of-type(3) [data-clara-trend-card="true"],
+#root div[class*="flex h-full min-h-0 flex-col"][class*="rounded-[30px]"][class*="bg-[#020817]"][class*="px-3"][class*="pb-3"]:has(> section[data-clara-trend-snapshot="true"]) > section:nth-of-type(3) button {
+  height: auto !important;
+  min-height: 0 !important;
+  max-height: none !important;
+  align-self: stretch !important;
+  flex: 1 0 clamp(112px, 30vw, 132px) !important;
+  display: flex !important;
+  flex-direction: column !important;
+  justify-content: space-between !important;
+}
+
+#root div[class*="flex h-full min-h-0 flex-col"][class*="rounded-[30px]"][class*="bg-[#020817]"][class*="px-3"][class*="pb-3"]:has(> section[data-clara-trend-snapshot="true"]) > section:nth-of-type(3) svg {
+  margin-top: auto !important;
+  height: clamp(34px, 7svh, 52px) !important;
 }
