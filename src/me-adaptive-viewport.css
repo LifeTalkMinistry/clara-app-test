@@ -76,12 +76,12 @@
 }
 
 #root section[data-clara-trend-snapshot="true"] {
-  height: 100% !important;
+  height: calc(100% + 42px) !important;
   min-height: 0 !important;
   max-height: none !important;
   flex: none !important;
-  margin: 0 !important;
-  padding: 14px 12px !important;
+  margin: -42px 0 0 0 !important;
+  padding: 24px 12px 14px !important;
   display: flex !important;
   flex-direction: column !important;
   overflow: hidden !important;
@@ -98,7 +98,7 @@
   min-height: 0 !important;
   height: 100% !important;
   align-items: stretch !important;
-  margin-top: 10px !important;
+  margin-top: 6px !important;
   padding: 2px 28px 2px 1px !important;
   gap: 12px !important;
   overflow-x: auto !important;
@@ -135,6 +135,12 @@
   #root div:has(> section[data-clara-trend-snapshot="true"]) > section:first-child h2 {
     font-size: clamp(24px, 6.5vw, 30px) !important;
   }
+
+  #root section[data-clara-trend-snapshot="true"] {
+    height: calc(100% + 32px) !important;
+    margin-top: -32px !important;
+    padding-top: 20px !important;
+  }
 }
 
 @media (max-height: 660px) {
@@ -144,49 +150,5 @@
 
   #root section[data-clara-support-card="true"] {
     display: none !important;
-  }
-}
-
-/* Snapshot tablet override only: force cards to occupy their shelf despite older fixed min-height rules. */
-#root div[class*="flex h-full min-h-0 flex-col"][class*="rounded-[30px]"][class*="bg-[#020817]"][class*="px-3"][class*="pb-3"]:has(> section[data-clara-trend-snapshot="true"]) > section:nth-of-type(3) [data-clara-trend-carousel="true"],
-#root div[class*="flex h-full min-h-0 flex-col"][class*="rounded-[30px]"][class*="bg-[#020817]"][class*="px-3"][class*="pb-3"]:has(> section[data-clara-trend-snapshot="true"]) > section:nth-of-type(3) > div:nth-child(2) {
-  flex: 1 1 0 !important;
-  height: auto !important;
-  min-height: 0 !important;
-  max-height: none !important;
-  display: flex !important;
-  align-items: stretch !important;
-  align-content: stretch !important;
-  overflow-x: auto !important;
-  overflow-y: hidden !important;
-}
-
-#root div[class*="flex h-full min-h-0 flex-col"][class*="rounded-[30px]"][class*="bg-[#020817]"][class*="px-3"][class*="pb-3"]:has(> section[data-clara-trend-snapshot="true"]) > section:nth-of-type(3) [data-clara-trend-card="true"],
-#root div[class*="flex h-full min-h-0 flex-col"][class*="rounded-[30px]"][class*="bg-[#020817]"][class*="px-3"][class*="pb-3"]:has(> section[data-clara-trend-snapshot="true"]) > section:nth-of-type(3) button {
-  height: auto !important;
-  min-height: 0 !important;
-  max-height: none !important;
-  align-self: stretch !important;
-  flex: 1 0 clamp(112px, 30vw, 132px) !important;
-  display: flex !important;
-  flex-direction: column !important;
-  justify-content: space-between !important;
-}
-
-#root div[class*="flex h-full min-h-0 flex-col"][class*="rounded-[30px]"][class*="bg-[#020817]"][class*="px-3"][class*="pb-3"]:has(> section[data-clara-trend-snapshot="true"]) > section:nth-of-type(3) svg {
-  margin-top: auto !important;
-  height: clamp(34px, 7svh, 52px) !important;
-}
-
-/* Close the remaining visual gap above the snapshot without changing hero/support sizing. */
-#root section[data-clara-support-card="true"] + section[data-clara-trend-snapshot="true"] {
-  margin-top: -18px !important;
-  height: calc(100% + 18px) !important;
-}
-
-@media (max-height: 720px) {
-  #root section[data-clara-support-card="true"] + section[data-clara-trend-snapshot="true"] {
-    margin-top: -14px !important;
-    height: calc(100% + 14px) !important;
   }
 }
