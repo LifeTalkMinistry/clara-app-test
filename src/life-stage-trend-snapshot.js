@@ -8,10 +8,39 @@ function setText(node, value) {
   if (node.textContent !== next) node.textContent = next;
 }
 
+function riskLevel(value, label = "") {
+  const text = clean(label).toLowerCase();
+  const positiveSignal =
+    text.includes("potential") ||
+    text.includes("control") ||
+    text.includes("balance") ||
+    text.includes("stability potential") ||
+    text.includes("discipline") ||
+    text.includes("recovery potential") ||
+    text.includes("support balance");
+
+  if (value >= 80) return positiveSignal ? "High" : "High Risk";
+  if (value >= 60) return "High";
+  if (value >= 40) return "Moderate";
+  if (value >= 20) return "Low";
+  return "Low Priority";
+}
+
 function findTrendSnapshotSection() {
   return Array.from(document.querySelectorAll("section")).find((section) => {
     const heading = clean(section.querySelector("h3")?.textContent);
     return heading === "Life Stage Trend Snapshot";
+  });
+}
+
+function applyRiskScaleToCards(section) {
+  const cards = Array.from(section?.querySelectorAll("button") || []);
+  cards.forEach((card) => {
+    const lines = Array.from(card.querySelectorAll("p"));
+    const label = clean(lines[0]?.textContent);
+    const value = Number(clean(lines[1]?.textContent).replace("%", ""));
+    if (!label || !Number.isFinite(value)) return;
+    setText(lines[2], riskLevel(value, label));
   });
 }
 
@@ -24,15 +53,20 @@ function enhanceOpenedTrendModal() {
   const modal = sourceHeading?.closest(".absolute");
   if (!sourceHeading || !modal) return;
 
+  const trendLabel = clean(modal.querySelector("h4")?.textContent);
   const readingLabel = Array.from(modal.querySelectorAll("p")).find((node) => {
     const text = clean(node.textContent);
-    return text === "Life-stage reading" || text === "LIFE-STAGE READING";
+    return text === "Life-stage reading" || text === "LIFE-STAGE READING" || text === "Risk level reading";
   });
 
+  const valueNode = Array.from(modal.querySelectorAll("p")).find((node) => /^\d+%$/.test(clean(node.textContent)));
+  const statusNode = valueNode?.nextElementSibling;
+  const modalValue = Number(clean(valueNode?.textContent).replace("%", ""));
   const sourceBody = sourceHeading.parentElement?.querySelector("p:last-child");
 
   setText(readingLabel, "Risk level reading");
   setText(sourceHeading, "Source detection");
+  if (Number.isFinite(modalValue)) setText(statusNode, riskLevel(modalValue, trendLabel));
 
   if (sourceBody && !sourceBody.dataset.claraModalSourceCopy) {
     setText(
@@ -67,6 +101,7 @@ function enhanceTrendSnapshot() {
     });
   }
 
+  applyRiskScaleToCards(section);
   enhanceOpenedTrendModal();
 }
 
