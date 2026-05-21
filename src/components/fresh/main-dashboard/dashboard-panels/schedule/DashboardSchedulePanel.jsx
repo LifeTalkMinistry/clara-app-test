@@ -252,13 +252,13 @@ function AgendaCard({ agenda, onOpen }) {
       type="button"
       onClick={() => agenda.event && onOpen(agenda.event)}
       disabled={!agenda.clickable}
-      className="relative w-full overflow-hidden rounded-[28px] border border-white/8 bg-[linear-gradient(145deg,rgba(8,13,34,.86),rgba(14,24,54,.72)_48%,rgba(45,24,82,.34))] p-4 text-left shadow-[0_18px_45px_rgba(0,0,0,.24),inset_0_1px_0_rgba(255,255,255,.04)] transition active:scale-[.99] disabled:cursor-default"
+      className="clara-schedule-agenda-card relative w-full overflow-hidden rounded-[28px] border border-white/8 bg-[linear-gradient(145deg,rgba(8,13,34,.86),rgba(14,24,54,.72)_48%,rgba(45,24,82,.34))] p-[clamp(0.82rem,2.2svh,1rem)] text-left shadow-[0_18px_45px_rgba(0,0,0,.24),inset_0_1px_0_rgba(255,255,255,.04)] transition active:scale-[.99] disabled:cursor-default"
     >
       <div className="pointer-events-none absolute -bottom-24 -left-24 h-44 w-44 rounded-full bg-cyan-300/[.055] blur-3xl" />
       <div className="pointer-events-none absolute -right-20 -top-20 h-44 w-44 rounded-full bg-fuchsia-400/[.06] blur-3xl" />
 
       <div className="relative flex gap-3.5">
-        <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-[20px] border border-white/10 bg-white/[.035] text-cyan-100/70 shadow-[0_0_18px_rgba(34,211,238,.07)]">
+        <div className="clara-schedule-agenda-icon flex h-12 w-12 shrink-0 items-center justify-center rounded-[20px] border border-white/10 bg-white/[.035] text-cyan-100/70 shadow-[0_0_18px_rgba(34,211,238,.07)]">
           <Icon className="h-5 w-5" />
         </div>
 
@@ -271,7 +271,7 @@ function AgendaCard({ agenda, onOpen }) {
           </div>
           <p className="mt-1 text-[11px] font-bold text-white/42">{agenda.dateLabel}</p>
           <h3 className="mt-2 text-lg font-black leading-tight text-white/92">{agenda.title}</h3>
-          <p className="mt-2 text-sm leading-6 text-white/54">{agenda.body}</p>
+          <p className="clara-schedule-agenda-body mt-2 text-sm leading-6 text-white/54">{agenda.body}</p>
         </div>
       </div>
     </button>
@@ -280,12 +280,12 @@ function AgendaCard({ agenda, onOpen }) {
 
 function CalendarMonth({ monthDate, cells, selectedDate, todayKey, byDate, onSelect, onPrev, onNext, onAdd }) {
   return (
-    <section className="rounded-[30px] border border-white/8 bg-[linear-gradient(145deg,rgba(8,13,34,.72),rgba(12,22,50,.56)_52%,rgba(36,21,70,.26))] p-3.5 shadow-[0_18px_45px_rgba(0,0,0,.22),inset_0_1px_0_rgba(255,255,255,.035)]">
-      <div className="mb-4 flex items-center justify-between gap-3">
+    <section className="clara-schedule-calendar-card rounded-[30px] border border-white/8 bg-[linear-gradient(145deg,rgba(8,13,34,.72),rgba(12,22,50,.56)_52%,rgba(36,21,70,.26))] p-[clamp(0.65rem,1.85svh,0.875rem)] shadow-[0_18px_45px_rgba(0,0,0,.22),inset_0_1px_0_rgba(255,255,255,.035)]">
+      <div className="mb-[clamp(0.55rem,1.6svh,1rem)] flex items-center justify-between gap-3">
         <button
           type="button"
           onClick={onPrev}
-          className="flex h-9 w-9 items-center justify-center rounded-2xl border border-white/8 bg-white/[.025] text-white/42 transition hover:bg-white/[.04] hover:text-white/62 active:scale-95"
+          className="clara-calendar-nav-button flex h-9 w-9 items-center justify-center rounded-2xl border border-white/8 bg-white/[.025] text-white/42 transition hover:bg-white/[.04] hover:text-white/62 active:scale-95"
           aria-label="Previous month"
         >
           <ChevronLeft className="h-4 w-4" />
@@ -300,7 +300,7 @@ function CalendarMonth({ monthDate, cells, selectedDate, todayKey, byDate, onSel
           <button
             type="button"
             onClick={onAdd}
-            className="flex h-9 w-9 items-center justify-center rounded-2xl border border-white/8 bg-white/[.03] text-cyan-100/56 transition hover:bg-white/[.045] hover:text-cyan-50 active:scale-95"
+            className="clara-calendar-nav-button flex h-9 w-9 items-center justify-center rounded-2xl border border-white/8 bg-white/[.03] text-cyan-100/56 transition hover:bg-white/[.045] hover:text-cyan-50 active:scale-95"
             aria-label="Add schedule"
           >
             <Plus className="h-4 w-4" />
@@ -308,7 +308,7 @@ function CalendarMonth({ monthDate, cells, selectedDate, todayKey, byDate, onSel
           <button
             type="button"
             onClick={onNext}
-            className="flex h-9 w-9 items-center justify-center rounded-2xl border border-white/8 bg-white/[.025] text-white/42 transition hover:bg-white/[.04] hover:text-white/62 active:scale-95"
+            className="clara-calendar-nav-button flex h-9 w-9 items-center justify-center rounded-2xl border border-white/8 bg-white/[.025] text-white/42 transition hover:bg-white/[.04] hover:text-white/62 active:scale-95"
             aria-label="Next month"
           >
             <ChevronRight className="h-4 w-4" />
@@ -316,13 +316,13 @@ function CalendarMonth({ monthDate, cells, selectedDate, todayKey, byDate, onSel
         </div>
       </div>
 
-      <div className="grid grid-cols-7 gap-1.5 text-center text-[9px] font-black uppercase tracking-[.08em] text-white/30">
+      <div className="grid grid-cols-7 gap-[clamp(0.25rem,0.9svh,0.375rem)] text-center text-[9px] font-black uppercase tracking-[.08em] text-white/30">
         {WEEKDAYS.map((day) => <span key={day}>{day}</span>)}
       </div>
 
-      <div className="mt-2 grid grid-cols-7 gap-1.5">
+      <div className="mt-[clamp(0.35rem,1svh,0.5rem)] grid grid-cols-7 gap-[clamp(0.25rem,0.9svh,0.375rem)]">
         {cells.map((cell, index) => {
-          if (!cell) return <div key={`empty-${index}`} className="min-h-[48px]" />;
+          if (!cell) return <div key={`empty-${index}`} className="clara-calendar-empty-cell min-h-[clamp(38px,7.1svh,48px)]" />;
 
           const events = byDate[cell.key] || [];
           const hasMoney = events.some(isMoneyEvent);
@@ -335,7 +335,7 @@ function CalendarMonth({ monthDate, cells, selectedDate, todayKey, byDate, onSel
               key={cell.key}
               type="button"
               onClick={() => onSelect(cell.key)}
-              className={`relative flex min-h-[48px] flex-col items-center justify-center rounded-2xl border text-sm font-black transition duration-200 active:scale-[.97] ${
+              className={`clara-calendar-day relative flex min-h-[clamp(38px,7.1svh,48px)] flex-col items-center justify-center rounded-2xl border text-sm font-black transition duration-200 active:scale-[.97] ${
                 selected
                   ? "z-10 scale-[1.025] border-cyan-100/28 bg-cyan-200/[.075] text-white shadow-[0_0_0_1px_rgba(103,232,249,.10),0_0_18px_rgba(34,211,238,.12),inset_0_0_14px_rgba(34,211,238,.055)]"
                   : today
@@ -363,7 +363,7 @@ function CalendarMonth({ monthDate, cells, selectedDate, todayKey, byDate, onSel
         })}
       </div>
 
-      <div className="mt-4 flex items-center gap-3 text-[10px] font-bold text-white/30">
+      <div className="clara-calendar-legend mt-[clamp(0.55rem,1.5svh,1rem)] flex items-center gap-3 text-[10px] font-bold text-white/30">
         <span className="inline-flex items-center gap-1.5"><span className="h-1.5 w-1.5 rounded-full bg-fuchsia-200/65" /> Money impact</span>
         <span className="inline-flex items-center gap-1.5"><span className="h-1.5 w-1.5 rounded-full bg-cyan-200/55" /> Schedule</span>
       </div>
@@ -373,7 +373,7 @@ function CalendarMonth({ monthDate, cells, selectedDate, todayKey, byDate, onSel
 
 function MonthlyInsightCard({ insight }) {
   return (
-    <p className="px-1 pb-1 text-[12px] font-semibold leading-5 text-white/42">
+    <p className="clara-schedule-monthly-insight px-1 pb-1 text-[12px] font-semibold leading-5 text-white/42">
       {insight}
     </p>
   );
@@ -576,7 +576,7 @@ export default function DashboardSchedulePanel() {
   };
 
   return (
-    <div className="space-y-3.5">
+    <div className="clara-schedule-viewport space-y-[clamp(0.55rem,1.65svh,0.9rem)]">
       <AgendaCard agenda={selectedAgenda} onOpen={openEvent} />
       <CalendarMonth
         monthDate={monthDate}
