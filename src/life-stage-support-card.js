@@ -333,3 +333,10 @@ if (typeof window !== "undefined" && typeof document !== "undefined" && !window.
   document.addEventListener("click", () => window.setTimeout(scheduleEnhance, 80), { passive: true });
   scheduleEnhance();
 }
+
+if (typeof window !== "undefined" && !window.__CLARA_LOAD_PRESSURE_SIGNALS__) {
+  window.__CLARA_LOAD_PRESSURE_SIGNALS__ = true;
+  import("./life-stage-pressure-signals.js").catch((error) => {
+    console.warn("CLARA pressure signals failed to load:", error);
+  });
+}
