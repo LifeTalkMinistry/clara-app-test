@@ -243,6 +243,40 @@ function hideIntroCopy(modal) {
   intro.dataset.claraModalIntroHidden = "true";
 }
 
+function styleRiskReading(modal, hierarchy) {
+  const valueNode = Array.from(modal.querySelectorAll("p")).find((node) => /^\d+%$/.test(clean(node.textContent)));
+  const card = valueNode?.closest("div");
+  if (!card || card.dataset.claraRiskCardPolished === "true") return;
+
+  const highRisk = clean(hierarchy) === "High Risk";
+  card.dataset.claraRiskCardPolished = "true";
+  card.style.background = highRisk
+    ? "linear-gradient(135deg, rgba(168,85,247,.16), rgba(236,72,153,.10), rgba(15,23,42,.26))"
+    : "linear-gradient(135deg, rgba(34,211,238,.12), rgba(168,85,247,.10), rgba(15,23,42,.24))";
+  card.style.border = highRisk ? "1px solid rgba(236,72,153,.18)" : "1px solid rgba(255,255,255,.12)";
+  card.style.boxShadow = highRisk
+    ? "inset 0 1px 0 rgba(255,255,255,.08), 0 16px 40px rgba(168,85,247,.12)"
+    : "inset 0 1px 0 rgba(255,255,255,.07), 0 14px 34px rgba(34,211,238,.08)";
+
+  const helper = document.createElement("p");
+  helper.dataset.claraRiskHelper = "true";
+  helper.textContent = highRisk
+    ? "This is currently the strongest pattern CLARA wants you to watch."
+    : "This shows how strongly this pattern is shaping the current reading.";
+  helper.style.cssText = "margin:10px 0 0;font-size:11px;line-height:1.55;color:rgba(255,255,255,.64);max-width:230px;";
+  card.appendChild(helper);
+}
+
+function createInsightRow(label, text, accent) {
+  return `
+    <div style="position:relative;padding:11px 12px 11px 14px;border-radius:16px;border:1px solid rgba(255,255,255,.09);background:rgba(255,255,255,.04);box-shadow:inset 0 1px 0 rgba(255,255,255,.045);">
+      <span style="position:absolute;left:0;top:12px;bottom:12px;width:3px;border-radius:999px;background:${accent};box-shadow:0 0 18px ${accent};"></span>
+      <p style="margin:0 0 5px;font-size:9px;font-weight:950;letter-spacing:.14em;text-transform:uppercase;color:rgba(255,255,255,.62);">${label}</p>
+      <p style="margin:0;font-size:12px;line-height:1.62;color:rgba(255,255,255,.86);">${text}</p>
+    </div>
+  `;
+}
+
 function createInsightPanel(modal, trendLabel) {
   const sourceHeading = Array.from(modal.querySelectorAll("p")).find((node) => clean(node.textContent).toLowerCase().includes("source"));
   if (!sourceHeading) return;
@@ -254,7 +288,6 @@ function createInsightPanel(modal, trendLabel) {
   if (!panel) {
     panel = document.createElement("div");
     panel.dataset.claraModalInsight = "true";
-    panel.style.cssText = "margin:14px 0;padding:14px 16px;border-radius:22px;border:1px solid rgba(255,255,255,.11);background:rgba(255,255,255,.045);box-shadow:inset 0 1px 0 rgba(255,255,255,.05);";
     sourceBox.parentElement?.insertBefore(panel, sourceBox);
   }
 
@@ -264,12 +297,27 @@ function createInsightPanel(modal, trendLabel) {
     action: "Use CLARA to pause, name the pressure, and choose a smaller next step."
   };
 
+  panel.style.cssText = "margin:16px 0;padding:15px;border-radius:24px;border:1px solid rgba(255,255,255,.12);background:linear-gradient(145deg, rgba(255,255,255,.055), rgba(255,255,255,.025));box-shadow:inset 0 1px 0 rgba(255,255,255,.06), 0 18px 42px rgba(0,0,0,.12);";
   panel.innerHTML = `
-    <p style="margin:0 0 10px;font-size:10px;font-weight:900;letter-spacing:.16em;text-transform:uppercase;color:rgba(255,255,255,.78);">What CLARA noticed</p>
-    <p style="margin:0 0 10px;font-size:12px;line-height:1.65;color:rgba(255,255,255,.88);"><strong>Meaning:</strong> ${insight.meaning}</p>
-    <p style="margin:0 0 10px;font-size:12px;line-height:1.65;color:rgba(255,255,255,.82);"><strong>Watch for:</strong> ${insight.watch}</p>
-    <p style="margin:0;font-size:12px;line-height:1.65;color:rgba(255,255,255,.82);"><strong>CLARA move:</strong> ${insight.action}</p>
+    <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:12px;">
+      <p style="margin:0;font-size:10px;font-weight:950;letter-spacing:.16em;text-transform:uppercase;color:rgba(255,255,255,.82);">What CLARA noticed</p>
+      <span style="display:inline-flex;align-items:center;justify-content:center;padding:5px 8px;border-radius:999px;border:1px solid rgba(255,255,255,.10);background:rgba(255,255,255,.055);font-size:9px;font-weight:900;letter-spacing:.10em;text-transform:uppercase;color:rgba(255,255,255,.58);">Behavior</span>
+    </div>
+    <div style="display:grid;gap:9px;">
+      ${createInsightRow("Meaning", insight.meaning, "rgba(34,211,238,.75)")}
+      ${createInsightRow("Watch for", insight.watch, "rgba(251,113,133,.72)")}
+      ${createInsightRow("CLARA move", insight.action, "rgba(167,139,250,.78)")}
+    </div>
   `;
+}
+
+function enhanceSourceBox(sourceHeading) {
+  const sourceBox = sourceHeading?.closest("div");
+  if (!sourceBox || sourceBox.dataset.claraSourceBoxPolished === "true") return;
+  sourceBox.dataset.claraSourceBoxPolished = "true";
+  sourceBox.style.background = "linear-gradient(145deg, rgba(255,255,255,.04), rgba(255,255,255,.02))";
+  sourceBox.style.border = "1px solid rgba(255,255,255,.10)";
+  sourceBox.style.boxShadow = "inset 0 1px 0 rgba(255,255,255,.05)";
 }
 
 function enhanceOpenedTrendModal() {
@@ -298,10 +346,12 @@ function enhanceOpenedTrendModal() {
   setText(sourceHeading, "Source detection");
   if (match) setText(valueNode, `${match.value}%`);
   if (hierarchy) setText(statusNode, hierarchy);
+  styleRiskReading(modal, hierarchy);
   createInsightPanel(modal, trendLabel);
+  enhanceSourceBox(sourceHeading);
 
-  if (sourceBody && !sourceBody.dataset.claraModalSourceCopy) {
-    setText(sourceBody, "These sources inform the pressure signals behind this reading. The percentage is a strategic CLARA influence estimate, shaped by the selected Working Student pattern, not a direct published statistic.");
+  if (sourceBody) {
+    setText(sourceBody, "CLARA behavioral estimate informed by life-stage and pressure signals. Source chips show reference domains, not the exact percentage.");
     sourceBody.dataset.claraModalSourceCopy = "true";
   }
 }
