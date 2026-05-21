@@ -2,7 +2,7 @@
    Goal: keep the full Snapshot visible in one screen while preserving hero, support card, and pressure icons. */
 
 #root div[class*="flex h-full min-h-0 flex-col"][class*="rounded-[30px]"][class*="bg-[#020817]"][class*="px-3"][class*="pb-3"]:has(> [data-clara-pressure-signals="true"]):has(> section[data-clara-trend-snapshot="true"]) {
-  grid-template-rows: minmax(252px, clamp(252px, 39.5svh, 302px)) 86px 42px 218px !important;
+  grid-template-rows: minmax(248px, clamp(248px, 39svh, 298px)) 86px 46px 218px !important;
   gap: 0 !important;
   align-content: start !important;
   overflow: hidden !important;
@@ -29,12 +29,12 @@
 }
 
 #root div[class*="flex h-full min-h-0 flex-col"][class*="rounded-[30px]"][class*="bg-[#020817]"][class*="px-3"][class*="pb-3"]:has(> [data-clara-pressure-signals="true"]):has(> section[data-clara-trend-snapshot="true"]) > [data-clara-pressure-signals="true"] {
-  height: 42px !important;
-  min-height: 42px !important;
-  max-height: 42px !important;
-  margin: 2px auto 0 !important;
-  padding-top: 5px !important;
-  padding-bottom: 5px !important;
+  height: 46px !important;
+  min-height: 46px !important;
+  max-height: 46px !important;
+  margin: 1px auto 0 !important;
+  padding-top: 6px !important;
+  padding-bottom: 6px !important;
 }
 
 #root div[class*="flex h-full min-h-0 flex-col"][class*="rounded-[30px]"][class*="bg-[#020817]"][class*="px-3"][class*="pb-3"]:has(> [data-clara-pressure-signals="true"]):has(> section[data-clara-trend-snapshot="true"]) > section[data-clara-trend-snapshot="true"] {
@@ -59,13 +59,13 @@
 
 @media (min-height: 820px) {
   #root div[class*="flex h-full min-h-0 flex-col"][class*="rounded-[30px]"][class*="bg-[#020817]"][class*="px-3"][class*="pb-3"]:has(> [data-clara-pressure-signals="true"]):has(> section[data-clara-trend-snapshot="true"]) {
-    grid-template-rows: minmax(264px, clamp(264px, 38.5svh, 310px)) 86px 42px 218px !important;
+    grid-template-rows: minmax(260px, clamp(260px, 38svh, 306px)) 86px 46px 218px !important;
   }
 }
 
 @media (max-height: 760px) {
   #root div[class*="flex h-full min-h-0 flex-col"][class*="rounded-[30px]"][class*="bg-[#020817]"][class*="px-3"][class*="pb-3"]:has(> [data-clara-pressure-signals="true"]):has(> section[data-clara-trend-snapshot="true"]) {
-    grid-template-rows: minmax(226px, clamp(226px, 36.5svh, 272px)) 78px 38px 204px !important;
+    grid-template-rows: minmax(222px, clamp(222px, 36svh, 268px)) 78px 42px 204px !important;
   }
 
   #root div[class*="flex h-full min-h-0 flex-col"][class*="rounded-[30px]"][class*="bg-[#020817]"][class*="px-3"][class*="pb-3"]:has(> [data-clara-pressure-signals="true"]):has(> section[data-clara-trend-snapshot="true"]) > section[data-clara-support-card="true"] {
@@ -76,11 +76,11 @@
   }
 
   #root div[class*="flex h-full min-h-0 flex-col"][class*="rounded-[30px]"][class*="bg-[#020817]"][class*="px-3"][class*="pb-3"]:has(> [data-clara-pressure-signals="true"]):has(> section[data-clara-trend-snapshot="true"]) > [data-clara-pressure-signals="true"] {
-    height: 38px !important;
-    min-height: 38px !important;
-    max-height: 38px !important;
-    padding-top: 4px !important;
-    padding-bottom: 4px !important;
+    height: 42px !important;
+    min-height: 42px !important;
+    max-height: 42px !important;
+    padding-top: 5px !important;
+    padding-bottom: 5px !important;
   }
 
   #root div[class*="flex h-full min-h-0 flex-col"][class*="rounded-[30px]"][class*="bg-[#020817]"][class*="px-3"][class*="pb-3"]:has(> [data-clara-pressure-signals="true"]):has(> section[data-clara-trend-snapshot="true"]) > section[data-clara-trend-snapshot="true"] {
@@ -99,7 +99,7 @@
 
 @media (max-height: 680px) {
   #root div[class*="flex h-full min-h-0 flex-col"][class*="rounded-[30px]"][class*="bg-[#020817]"][class*="px-3"][class*="pb-3"]:has(> [data-clara-pressure-signals="true"]):has(> section[data-clara-trend-snapshot="true"]) {
-    grid-template-rows: minmax(198px, clamp(198px, 35.5svh, 234px)) 68px 36px 192px !important;
+    grid-template-rows: minmax(194px, clamp(194px, 35svh, 230px)) 68px 40px 192px !important;
   }
 
   #root div[class*="flex h-full min-h-0 flex-col"][class*="rounded-[30px]"][class*="bg-[#020817]"][class*="px-3"][class*="pb-3"]:has(> [data-clara-pressure-signals="true"]):has(> section[data-clara-trend-snapshot="true"]) > section[data-clara-support-card="true"] {
@@ -110,11 +110,11 @@
   }
 
   #root div[class*="flex h-full min-h-0 flex-col"][class*="rounded-[30px]"][class*="bg-[#020817]"][class*="px-3"][class*="pb-3"]:has(> [data-clara-pressure-signals="true"]):has(> section[data-clara-trend-snapshot="true"]) > [data-clara-pressure-signals="true"] {
-    height: 36px !important;
-    min-height: 36px !important;
-    max-height: 36px !important;
-    padding-top: 3px !important;
-    padding-bottom: 3px !important;
+    height: 40px !important;
+    min-height: 40px !important;
+    max-height: 40px !important;
+    padding-top: 4px !important;
+    padding-bottom: 4px !important;
   }
 
   #root div[class*="flex h-full min-h-0 flex-col"][class*="rounded-[30px]"][class*="bg-[#020817]"][class*="px-3"][class*="pb-3"]:has(> [data-clara-pressure-signals="true"]):has(> section[data-clara-trend-snapshot="true"]) > section[data-clara-trend-snapshot="true"] {
