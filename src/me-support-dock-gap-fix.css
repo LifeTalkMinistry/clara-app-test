@@ -1,23 +1,106 @@
-/* CLARA Me page — collapse hidden spacer between support card and pressure dock. */
+/* CLARA Me page — adaptive expansion ownership.
+   Hero stays stable. Support card owns vertical pressure and expands downward.
+   Dock and Snapshot remain protected lower modules. */
 
 #root div[class*="flex h-full min-h-0 flex-col"][class*="rounded-[30px]"][class*="bg-[#020817]"][class*="px-3"][class*="pb-3"]:has(> [data-clara-pressure-signals="true"]):has(> section[data-clara-trend-snapshot="true"]) {
-  grid-template-rows: minmax(236px, clamp(236px, 37svh, 284px)) 76px 46px 218px !important;
+  --clara-support-overlap: 28px;
+  grid-template-rows: clamp(236px, 37svh, 284px) minmax(104px, 1fr) 46px 218px !important;
+  gap: 0 !important;
+  align-content: stretch !important;
+  overflow: hidden !important;
+}
+
+#root div[class*="flex h-full min-h-0 flex-col"][class*="rounded-[30px]"][class*="bg-[#020817]"][class*="px-3"][class*="pb-3"]:has(> [data-clara-pressure-signals="true"]):has(> section[data-clara-trend-snapshot="true"]) > section:first-of-type {
+  height: 100% !important;
+  min-height: 0 !important;
+  max-height: none !important;
+  align-self: stretch !important;
+}
+
+#root div[class*="flex h-full min-h-0 flex-col"][class*="rounded-[30px]"][class*="bg-[#020817]"][class*="px-3"][class*="pb-3"]:has(> [data-clara-pressure-signals="true"]):has(> section[data-clara-trend-snapshot="true"]) > section[data-clara-support-card="true"] {
+  position: relative !important;
+  z-index: 12 !important;
+  height: calc(100% + var(--clara-support-overlap)) !important;
+  min-height: 102px !important;
+  max-height: none !important;
+  margin-top: calc(var(--clara-support-overlap) * -1) !important;
+  margin-bottom: 0 !important;
+  padding-top: 15px !important;
+  padding-bottom: 15px !important;
+  align-self: stretch !important;
+  overflow: hidden !important;
+}
+
+#root div[class*="flex h-full min-h-0 flex-col"][class*="rounded-[30px]"][class*="bg-[#020817]"][class*="px-3"][class*="pb-3"]:has(> [data-clara-pressure-signals="true"]):has(> section[data-clara-trend-snapshot="true"]) > section[data-clara-support-card="true"] > div {
+  height: 100% !important;
+  align-items: center !important;
+}
+
+#root div[class*="flex h-full min-h-0 flex-col"][class*="rounded-[30px]"][class*="bg-[#020817]"][class*="px-3"][class*="pb-3"]:has(> [data-clara-pressure-signals="true"]):has(> section[data-clara-trend-snapshot="true"]) > [data-clara-pressure-signals="true"] {
+  height: 46px !important;
+  min-height: 46px !important;
+  max-height: 46px !important;
+  margin: 0 auto !important;
+  padding-top: 6px !important;
+  padding-bottom: 6px !important;
+  align-self: start !important;
+}
+
+#root div[class*="flex h-full min-h-0 flex-col"][class*="rounded-[30px]"][class*="bg-[#020817]"][class*="px-3"][class*="pb-3"]:has(> [data-clara-pressure-signals="true"]):has(> section[data-clara-trend-snapshot="true"]) > section[data-clara-trend-snapshot="true"] {
+  height: 218px !important;
+  min-height: 218px !important;
+  max-height: 218px !important;
+  align-self: start !important;
 }
 
 @media (min-height: 820px) {
   #root div[class*="flex h-full min-h-0 flex-col"][class*="rounded-[30px]"][class*="bg-[#020817]"][class*="px-3"][class*="pb-3"]:has(> [data-clara-pressure-signals="true"]):has(> section[data-clara-trend-snapshot="true"]) {
-    grid-template-rows: minmax(248px, clamp(248px, 36.5svh, 292px)) 76px 46px 218px !important;
+    grid-template-rows: clamp(248px, 36.5svh, 292px) minmax(104px, 1fr) 46px 218px !important;
   }
 }
 
 @media (max-height: 760px) {
   #root div[class*="flex h-full min-h-0 flex-col"][class*="rounded-[30px]"][class*="bg-[#020817]"][class*="px-3"][class*="pb-3"]:has(> [data-clara-pressure-signals="true"]):has(> section[data-clara-trend-snapshot="true"]) {
-    grid-template-rows: minmax(214px, clamp(214px, 35.5svh, 260px)) 72px 42px 204px !important;
+    --clara-support-overlap: 22px;
+    grid-template-rows: clamp(214px, 35.5svh, 260px) minmax(92px, 1fr) 42px 204px !important;
+  }
+
+  #root div[class*="flex h-full min-h-0 flex-col"][class*="rounded-[30px]"][class*="bg-[#020817]"][class*="px-3"][class*="pb-3"]:has(> [data-clara-pressure-signals="true"]):has(> section[data-clara-trend-snapshot="true"]) > section[data-clara-support-card="true"] {
+    min-height: 92px !important;
+    padding-top: 13px !important;
+    padding-bottom: 13px !important;
+  }
+
+  #root div[class*="flex h-full min-h-0 flex-col"][class*="rounded-[30px]"][class*="bg-[#020817]"][class*="px-3"][class*="pb-3"]:has(> [data-clara-pressure-signals="true"]):has(> section[data-clara-trend-snapshot="true"]) > [data-clara-pressure-signals="true"] {
+    height: 42px !important;
+    min-height: 42px !important;
+    max-height: 42px !important;
+    padding-top: 5px !important;
+    padding-bottom: 5px !important;
+  }
+
+  #root div[class*="flex h-full min-h-0 flex-col"][class*="rounded-[30px]"][class*="bg-[#020817]"][class*="px-3"][class*="pb-3"]:has(> [data-clara-pressure-signals="true"]):has(> section[data-clara-trend-snapshot="true"]) > section[data-clara-trend-snapshot="true"] {
+    height: 204px !important;
+    min-height: 204px !important;
+    max-height: 204px !important;
   }
 }
 
 @media (max-height: 680px) {
   #root div[class*="flex h-full min-h-0 flex-col"][class*="rounded-[30px]"][class*="bg-[#020817]"][class*="px-3"][class*="pb-3"]:has(> [data-clara-pressure-signals="true"]):has(> section[data-clara-trend-snapshot="true"]) {
-    grid-template-rows: minmax(186px, clamp(186px, 34.5svh, 222px)) 66px 40px 192px !important;
+    --clara-support-overlap: 14px;
+    grid-template-rows: clamp(186px, 34.5svh, 222px) minmax(78px, 1fr) 40px 192px !important;
+  }
+
+  #root div[class*="flex h-full min-h-0 flex-col"][class*="rounded-[30px]"][class*="bg-[#020817]"][class*="px-3"][class*="pb-3"]:has(> [data-clara-pressure-signals="true"]):has(> section[data-clara-trend-snapshot="true"]) > section[data-clara-support-card="true"] {
+    min-height: 78px !important;
+    padding-top: 10px !important;
+    padding-bottom: 10px !important;
+  }
+
+  #root div[class*="flex h-full min-h-0 flex-col"][class*="rounded-[30px]"][class*="bg-[#020817]"][class*="px-3"][class*="pb-3"]:has(> [data-clara-pressure-signals="true"]):has(> section[data-clara-trend-snapshot="true"]) > section[data-clara-trend-snapshot="true"] {
+    height: 192px !important;
+    min-height: 192px !important;
+    max-height: 192px !important;
   }
 }
