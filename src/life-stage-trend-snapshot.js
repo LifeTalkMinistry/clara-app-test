@@ -235,6 +235,14 @@ function getVisibleHierarchy(section, trendLabel) {
   return match?.card?.dataset?.claraRiskHierarchy || null;
 }
 
+function hideIntroCopy(modal) {
+  const title = modal.querySelector("h4");
+  const intro = title?.nextElementSibling;
+  if (!intro || intro.tagName !== "P") return;
+  intro.hidden = true;
+  intro.dataset.claraModalIntroHidden = "true";
+}
+
 function createInsightPanel(modal, trendLabel) {
   const sourceHeading = Array.from(modal.querySelectorAll("p")).find((node) => clean(node.textContent).toLowerCase().includes("source"));
   if (!sourceHeading) return;
@@ -285,6 +293,7 @@ function enhanceOpenedTrendModal() {
   const statusNode = valueNode?.nextElementSibling;
   const sourceBody = sourceHeading.parentElement?.querySelector("p:last-child");
 
+  hideIntroCopy(modal);
   setText(readingLabel, "Risk hierarchy reading");
   setText(sourceHeading, "Source detection");
   if (match) setText(valueNode, `${match.value}%`);
