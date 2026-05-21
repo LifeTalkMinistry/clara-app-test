@@ -187,6 +187,26 @@
   opacity: 0.42 !important;
 }
 
+/* Compact explanation spacer for the opened trend modal. */
+#root [data-clara-modal-insight="true"]::after {
+  content: "Quick read: this signal helps CLARA turn vague pressure into one specific behavior to watch today.";
+  display: block;
+  margin-top: 0.46rem;
+  padding: 0.48rem 0.62rem;
+  border-radius: 14px;
+  border: 1px solid rgba(255, 255, 255, 0.075);
+  background: linear-gradient(135deg, rgba(34, 211, 238, 0.055), rgba(168, 85, 247, 0.05));
+  color: rgba(255, 255, 255, 0.70);
+  font-size: 10.4px;
+  font-weight: 700;
+  line-height: 1.45;
+  letter-spacing: -0.01em;
+}
+
+#root [data-clara-modal-insight="true"] {
+  margin-bottom: 0.68rem !important;
+}
+
 @media (max-width: 390px) {
   #root [data-clara-trend-card="true"] {
     min-width: 112px !important;
@@ -201,5 +221,10 @@
 
   #root [data-clara-trend-card="true"] p:nth-child(2) {
     font-size: 22px !important;
+  }
+
+  #root [data-clara-modal-insight="true"]::after {
+    font-size: 10px;
+    padding: 0.44rem 0.56rem;
   }
 }
