@@ -112,6 +112,46 @@
   height: clamp(26px, 5.5svh, 34px) !important;
 }
 
+/* Data-attribute fallback: these are applied by the existing Life Stage DOM enhancers.
+   This directly solves the visible dead area below the Trend Snapshot when parent :has rules do not win. */
+#root section[data-clara-trend-snapshot="true"] {
+  min-height: clamp(270px, 38svh, 340px) !important;
+  height: clamp(270px, 38svh, 340px) !important;
+  display: flex !important;
+  flex-direction: column !important;
+  overflow: hidden !important;
+  margin-top: clamp(0.55rem, 1.2svh, 0.78rem) !important;
+  padding: clamp(0.72rem, 1.6svh, 0.92rem) !important;
+}
+
+#root section[data-clara-trend-snapshot="true"] [data-clara-trend-header="true"],
+#root section[data-clara-trend-snapshot="true"] > div:first-child {
+  flex: 0 0 auto !important;
+}
+
+#root section[data-clara-trend-snapshot="true"] [data-clara-trend-carousel="true"],
+#root section[data-clara-trend-snapshot="true"] [class*="snap-x"] {
+  flex: 1 1 0 !important;
+  min-height: 0 !important;
+  height: auto !important;
+  align-items: stretch !important;
+  margin-top: clamp(0.6rem, 1.4svh, 0.85rem) !important;
+}
+
+#root section[data-clara-trend-snapshot="true"] [data-clara-trend-card="true"],
+#root section[data-clara-trend-snapshot="true"] [class*="snap-x"] > button {
+  min-height: 0 !important;
+  height: 100% !important;
+  display: flex !important;
+  flex-direction: column !important;
+  justify-content: space-between !important;
+}
+
+#root section[data-clara-trend-snapshot="true"] [data-clara-trend-card="true"] svg,
+#root section[data-clara-trend-snapshot="true"] [class*="snap-x"] > button svg {
+  margin-top: auto !important;
+}
+
 @media (max-height: 720px) {
   #root div:has(> section:first-child [aria-label="Open life stage actions"]) {
     height: clamp(520px, calc(100svh - 118px), 650px) !important;
@@ -131,6 +171,11 @@
     width: 2.25rem !important;
     height: 2.25rem !important;
   }
+
+  #root section[data-clara-trend-snapshot="true"] {
+    min-height: clamp(245px, 36svh, 300px) !important;
+    height: clamp(245px, 36svh, 300px) !important;
+  }
 }
 
 @media (max-height: 640px) {
@@ -144,5 +189,10 @@
 
   #root div:has(> section:first-child [aria-label="Open life stage actions"]) > section:nth-of-type(2) {
     display: none !important;
+  }
+
+  #root section[data-clara-trend-snapshot="true"] {
+    min-height: clamp(230px, 42svh, 280px) !important;
+    height: clamp(230px, 42svh, 280px) !important;
   }
 }
