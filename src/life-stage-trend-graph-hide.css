@@ -1,18 +1,5 @@
-/* Hide the small trend pulse/graph inside Life Stage Trend Snapshot cards. */
-#root section[data-clara-trend-snapshot="true"] [data-clara-trend-card="true"] svg {
-  display: none !important;
-}
-
-/* Keep the visible content simple: label + percentage only. */
-#root section[data-clara-trend-snapshot="true"] [data-clara-trend-card="true"] p:nth-child(3) {
-  display: none !important;
-}
-
-#root section[data-clara-trend-snapshot="true"] [data-clara-trend-card="true"] {
+#root section[data-clara-trend-snapshot="true"] button[data-clara-trend-card="true"] {
   justify-content: center !important;
-  align-items: flex-start !important;
-}
-
-#root section[data-clara-trend-snapshot="true"] [data-clara-trend-card="true"] p:nth-child(2) {
-  margin-top: 0.42rem !important;
+  align-items: center !important;
+  text-align: center !important;
 }
