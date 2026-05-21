@@ -23,9 +23,8 @@ function findTrendSnapshotSection() {
   });
 }
 
-function getRankMap(section) {
-  const cards = Array.from(section?.querySelectorAll("button") || []);
-  const items = cards
+function getTrendItems(section) {
+  return Array.from(section?.querySelectorAll("button") || [])
     .map((card, visualIndex) => {
       const lines = Array.from(card.querySelectorAll("p"));
       const label = clean(lines[0]?.textContent);
@@ -33,21 +32,41 @@ function getRankMap(section) {
       return { card, lines, label, value, visualIndex };
     })
     .filter((item) => item.label && Number.isFinite(item.value));
+}
 
-  const sorted = items
+function getRankMap(section) {
+  const items = getTrendItems(section);
+  const sortedAscending = items
     .slice()
     .sort((a, b) => (a.value - b.value) || (a.visualIndex - b.visualIndex));
 
   return new Map(
-    sorted.map((item, rank) => [
+    sortedAscending.map((item, rank) => [
       item.label,
       {
         ...item,
         rank,
-        hierarchy: hierarchyLabel(rank, sorted.length),
+        hierarchy: hierarchyLabel(rank, sortedAscending.length),
       },
     ])
   );
+}
+
+function sortCarouselByRisk(carousel) {
+  const cards = Array.from(carousel?.querySelectorAll("button") || []);
+  if (!cards.length) return;
+
+  const sorted = cards
+    .map((card, currentIndex) => {
+      const value = Number(clean(card.querySelectorAll("p")?.[1]?.textContent).replace("%", ""));
+      return { card, currentIndex, value: Number.isFinite(value) ? value : -Infinity };
+    })
+    .sort((a, b) => (b.value - a.value) || (a.currentIndex - b.currentIndex));
+
+  const alreadySorted = sorted.every((item, index) => item.card === cards[index]);
+  if (alreadySorted) return;
+
+  sorted.forEach((item) => carousel.appendChild(item.card));
 }
 
 function applyRiskScaleToCards(section) {
@@ -73,7 +92,7 @@ function enhanceOpenedTrendModal() {
 
   const readingLabel = Array.from(modal.querySelectorAll("p")).find((node) => {
     const text = clean(node.textContent);
-    return text === "Life-stage reading" || text === "LIFE-STAGE READING" || text === "Risk level reading";
+    return text === "Life-stage reading" || text === "LIFE-STAGE READING" || text === "Risk level reading" || text === "Risk hierarchy reading";
   });
 
   const valueNode = Array.from(modal.querySelectorAll("p")).find((node) => /^\d+%$/.test(clean(node.textContent)));
@@ -109,6 +128,8 @@ function enhanceTrendSnapshot() {
 
   if (carousel) {
     carousel.dataset.claraTrendCarousel = "true";
+    sortCarouselByRisk(carousel);
+
     const cards = Array.from(carousel.querySelectorAll("button"));
     cards.forEach((card, index) => {
       card.dataset.claraTrendCard = "true";
