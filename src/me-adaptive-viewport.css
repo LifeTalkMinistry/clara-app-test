@@ -94,9 +94,9 @@
 }
 
 #root section[data-clara-trend-snapshot="true"] [data-clara-trend-carousel="true"] {
-  flex: 0 0 clamp(156px, 23svh, 190px) !important;
-  height: clamp(156px, 23svh, 190px) !important;
-  min-height: clamp(156px, 23svh, 190px) !important;
+  flex: 1 1 0 !important;
+  height: auto !important;
+  min-height: 0 !important;
   align-items: stretch !important;
   margin-top: 10px !important;
   padding: 1px 28px 2px 1px !important;
@@ -107,7 +107,7 @@
 
 #root section[data-clara-trend-snapshot="true"] [data-clara-trend-card="true"] {
   height: 100% !important;
-  min-height: 100% !important;
+  min-height: 0 !important;
   flex: 0 0 clamp(112px, 31vw, 126px) !important;
   display: flex !important;
   flex-direction: column !important;
@@ -131,12 +131,6 @@
   #root div:has(> section[data-clara-trend-snapshot="true"]) > section:first-child h2 {
     font-size: clamp(24px, 6.5vw, 30px) !important;
   }
-
-  #root section[data-clara-trend-snapshot="true"] [data-clara-trend-carousel="true"] {
-    flex-basis: clamp(148px, 22svh, 176px) !important;
-    height: clamp(148px, 22svh, 176px) !important;
-    min-height: clamp(148px, 22svh, 176px) !important;
-  }
 }
 
 @media (max-height: 660px) {
@@ -147,4 +141,22 @@
   #root section[data-clara-support-card="true"] {
     display: none !important;
   }
+}
+
+/* Snapshot-only adaptive pass. Keep the hero and support card exactly as they are now. */
+#root section[data-clara-trend-snapshot="true"] {
+  justify-content: stretch !important;
+}
+
+#root section[data-clara-trend-snapshot="true"] [data-clara-trend-carousel="true"] {
+  flex: 1 1 0 !important;
+  height: auto !important;
+  min-height: 0 !important;
+  max-height: none !important;
+  align-items: stretch !important;
+}
+
+#root section[data-clara-trend-snapshot="true"] [data-clara-trend-card="true"] {
+  height: 100% !important;
+  min-height: 0 !important;
 }
