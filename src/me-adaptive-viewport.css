@@ -28,13 +28,15 @@
 
 #root div:has(> section[data-clara-trend-snapshot="true"]) > section:first-child > div:last-child {
   max-width: 62% !important;
-  justify-content: center !important;
-  padding-top: 8px !important;
+  justify-content: flex-end !important;
+  padding-top: 18px !important;
+  padding-bottom: 10px !important;
 }
 
 #root div:has(> section[data-clara-trend-snapshot="true"]) > section:first-child h2 {
   font-size: clamp(26px, 6.4vw, 32px) !important;
   line-height: .94 !important;
+  margin-top: 4px !important;
 }
 
 #root div:has(> section[data-clara-trend-snapshot="true"]) > section:first-child p:last-child {
@@ -43,7 +45,8 @@
   -webkit-box-orient: vertical !important;
   overflow: hidden !important;
   font-size: clamp(11px, 2.8vw, 12px) !important;
-  line-height: 1.36 !important;
+  line-height: 1.4 !important;
+  margin-top: 8px !important;
 }
 
 #root section[data-clara-support-card="true"] {
@@ -51,8 +54,8 @@
   min-height: 0 !important;
   max-height: none !important;
   flex: none !important;
-  margin: 0 !important;
-  padding: 10px 14px !important;
+  margin: 2px 0 0 0 !important;
+  padding: 12px 14px !important;
   border-radius: 24px !important;
   transform: none !important;
   overflow: hidden !important;
@@ -60,6 +63,11 @@
 
 #root section[data-clara-support-card="true"] > div {
   height: 100% !important;
+  align-items: center !important;
+}
+
+#root section[data-clara-support-card="true"] h3 {
+  margin-bottom: 8px !important;
 }
 
 #root section[data-clara-support-card="true"] h3 + p {
@@ -67,15 +75,16 @@
   -webkit-line-clamp: 2 !important;
   -webkit-box-orient: vertical !important;
   overflow: hidden !important;
-  line-height: 1.28 !important;
+  line-height: 1.32 !important;
 }
 
 #root section[data-clara-support-card="true"] div[class*="rounded-full"]:has(svg) {
   width: 48px !important;
   height: 48px !important;
+  margin-left: 10px !important;
 }
 
-/* Snapshot fits inside the screen: move the whole block up, but do not make it taller than its row. */
+/* Snapshot fits inside the screen */
 #root section[data-clara-trend-snapshot="true"] {
   position: relative !important;
   top: -22px !important;
