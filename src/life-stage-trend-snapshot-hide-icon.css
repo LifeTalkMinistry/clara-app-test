@@ -16,7 +16,22 @@
 /* Keep the opened modal spacious again, while sources remain chips only. */
 #root [data-clara-modal-insight="true"] {
   margin-top: 1rem !important;
-  margin-bottom: 0.85rem !important;
+  margin-bottom: 0.46rem !important;
+}
+
+/* Lift compact source chips so they are not cut off on mobile screenshots. */
+#root [data-clara-source-box-polished="true"] {
+  margin-top: 0.35rem !important;
+  margin-bottom: 1.35rem !important;
+  padding: 0.62rem 0.78rem !important;
+  transform: translateY(-4px) !important;
+}
+
+#root [data-clara-source-box-polished="true"] a {
+  height: 24px !important;
+  min-width: 38px !important;
+  padding: 0 9px !important;
+  font-size: 8.5px !important;
 }
 
 /* Mobile one-screen fit for Me / Life Stage overview.
