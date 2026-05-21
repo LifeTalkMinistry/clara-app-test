@@ -152,8 +152,8 @@ function buildMonthCells(monthDate) {
     cells.push({ day, key: toDateKey(date) });
   }
 
-  while (cells.length % 7 !== 0) cells.push(null);
-  return cells;
+  while (cells.length < 42) cells.push(null);
+  return cells.slice(0, 42);
 }
 
 function isSameMonth(event, monthDate) {
@@ -252,13 +252,13 @@ function AgendaCard({ agenda, onOpen }) {
       type="button"
       onClick={() => agenda.event && onOpen(agenda.event)}
       disabled={!agenda.clickable}
-      className="clara-schedule-agenda-card relative w-full overflow-hidden rounded-[28px] border border-white/8 bg-[linear-gradient(145deg,rgba(8,13,34,.86),rgba(14,24,54,.72)_48%,rgba(45,24,82,.34))] p-[clamp(0.82rem,2.2svh,1rem)] text-left shadow-[0_18px_45px_rgba(0,0,0,.24),inset_0_1px_0_rgba(255,255,255,.04)] transition active:scale-[.99] disabled:cursor-default"
+      className="relative flex min-h-[clamp(106px,17svh,132px)] w-full shrink-0 overflow-hidden rounded-[28px] border border-white/8 bg-[linear-gradient(145deg,rgba(8,13,34,.86),rgba(14,24,54,.72)_48%,rgba(45,24,82,.34))] p-[clamp(0.82rem,2svh,1rem)] text-left shadow-[0_18px_45px_rgba(0,0,0,.24),inset_0_1px_0_rgba(255,255,255,.04)] transition active:scale-[.99] disabled:cursor-default"
     >
       <div className="pointer-events-none absolute -bottom-24 -left-24 h-44 w-44 rounded-full bg-cyan-300/[.055] blur-3xl" />
       <div className="pointer-events-none absolute -right-20 -top-20 h-44 w-44 rounded-full bg-fuchsia-400/[.06] blur-3xl" />
 
-      <div className="relative flex gap-3.5">
-        <div className="clara-schedule-agenda-icon flex h-12 w-12 shrink-0 items-center justify-center rounded-[20px] border border-white/10 bg-white/[.035] text-cyan-100/70 shadow-[0_0_18px_rgba(34,211,238,.07)]">
+      <div className="relative flex h-full w-full items-center gap-3.5">
+        <div className="flex h-[clamp(40px,6.2svh,48px)] w-[clamp(40px,6.2svh,48px)] shrink-0 items-center justify-center rounded-[20px] border border-white/10 bg-white/[.035] text-cyan-100/70 shadow-[0_0_18px_rgba(34,211,238,.07)]">
           <Icon className="h-5 w-5" />
         </div>
 
@@ -270,8 +270,8 @@ function AgendaCard({ agenda, onOpen }) {
             </span>
           </div>
           <p className="mt-1 text-[11px] font-bold text-white/42">{agenda.dateLabel}</p>
-          <h3 className="mt-2 text-lg font-black leading-tight text-white/92">{agenda.title}</h3>
-          <p className="clara-schedule-agenda-body mt-2 text-sm leading-6 text-white/54">{agenda.body}</p>
+          <h3 className="mt-[clamp(0.32rem,0.9svh,0.5rem)] text-[clamp(1rem,4.4vw,1.16rem)] font-black leading-tight text-white/92">{agenda.title}</h3>
+          <p className="mt-[clamp(0.3rem,0.8svh,0.5rem)] line-clamp-2 text-[clamp(0.76rem,3.1vw,0.86rem)] font-semibold leading-[1.55] text-white/54">{agenda.body}</p>
         </div>
       </div>
     </button>
@@ -280,27 +280,30 @@ function AgendaCard({ agenda, onOpen }) {
 
 function CalendarMonth({ monthDate, cells, selectedDate, todayKey, byDate, onSelect, onPrev, onNext, onAdd }) {
   return (
-    <section className="clara-schedule-calendar-card rounded-[30px] border border-white/8 bg-[linear-gradient(145deg,rgba(8,13,34,.72),rgba(12,22,50,.56)_52%,rgba(36,21,70,.26))] p-[clamp(0.65rem,1.85svh,0.875rem)] shadow-[0_18px_45px_rgba(0,0,0,.22),inset_0_1px_0_rgba(255,255,255,.035)]">
-      <div className="mb-[clamp(0.55rem,1.6svh,1rem)] flex items-center justify-between gap-3">
+    <section className="relative flex min-h-0 flex-1 flex-col overflow-hidden rounded-[30px] border border-white/8 bg-[linear-gradient(145deg,rgba(8,13,34,.72),rgba(12,22,50,.56)_52%,rgba(36,21,70,.26))] p-[clamp(0.68rem,1.75svh,0.9rem)] shadow-[0_18px_45px_rgba(0,0,0,.22),inset_0_1px_0_rgba(255,255,255,.035)]">
+      <div className="pointer-events-none absolute -left-24 top-10 h-56 w-56 rounded-full bg-cyan-300/[.045] blur-3xl" />
+      <div className="pointer-events-none absolute -right-24 bottom-0 h-64 w-64 rounded-full bg-violet-500/[.07] blur-3xl" />
+
+      <div className="relative z-10 mb-[clamp(0.45rem,1.25svh,0.75rem)] flex shrink-0 items-center justify-between gap-3">
         <button
           type="button"
           onClick={onPrev}
-          className="clara-calendar-nav-button flex h-9 w-9 items-center justify-center rounded-2xl border border-white/8 bg-white/[.025] text-white/42 transition hover:bg-white/[.04] hover:text-white/62 active:scale-95"
+          className="flex h-[clamp(32px,5.5svh,38px)] w-[clamp(32px,5.5svh,38px)] items-center justify-center rounded-2xl border border-white/8 bg-white/[.025] text-white/42 transition hover:bg-white/[.04] hover:text-white/62 active:scale-95"
           aria-label="Previous month"
         >
           <ChevronLeft className="h-4 w-4" />
         </button>
 
         <div className="text-center">
-          <p className="text-sm font-black text-white/88">{formatMonth(monthDate)}</p>
-          <p className="mt-1 text-[10px] font-bold text-white/30">Tap a day to view or add</p>
+          <p className="text-[clamp(0.82rem,3.5vw,0.92rem)] font-black text-white/88">{formatMonth(monthDate)}</p>
+          <p className="mt-0.5 text-[9px] font-bold text-white/30">Tap a day to view or add</p>
         </div>
 
         <div className="flex gap-2">
           <button
             type="button"
             onClick={onAdd}
-            className="clara-calendar-nav-button flex h-9 w-9 items-center justify-center rounded-2xl border border-white/8 bg-white/[.03] text-cyan-100/56 transition hover:bg-white/[.045] hover:text-cyan-50 active:scale-95"
+            className="flex h-[clamp(32px,5.5svh,38px)] w-[clamp(32px,5.5svh,38px)] items-center justify-center rounded-2xl border border-white/8 bg-white/[.03] text-cyan-100/56 transition hover:bg-white/[.045] hover:text-cyan-50 active:scale-95"
             aria-label="Add schedule"
           >
             <Plus className="h-4 w-4" />
@@ -308,7 +311,7 @@ function CalendarMonth({ monthDate, cells, selectedDate, todayKey, byDate, onSel
           <button
             type="button"
             onClick={onNext}
-            className="clara-calendar-nav-button flex h-9 w-9 items-center justify-center rounded-2xl border border-white/8 bg-white/[.025] text-white/42 transition hover:bg-white/[.04] hover:text-white/62 active:scale-95"
+            className="flex h-[clamp(32px,5.5svh,38px)] w-[clamp(32px,5.5svh,38px)] items-center justify-center rounded-2xl border border-white/8 bg-white/[.025] text-white/42 transition hover:bg-white/[.04] hover:text-white/62 active:scale-95"
             aria-label="Next month"
           >
             <ChevronRight className="h-4 w-4" />
@@ -316,13 +319,13 @@ function CalendarMonth({ monthDate, cells, selectedDate, todayKey, byDate, onSel
         </div>
       </div>
 
-      <div className="grid grid-cols-7 gap-[clamp(0.25rem,0.9svh,0.375rem)] text-center text-[9px] font-black uppercase tracking-[.08em] text-white/30">
+      <div className="relative z-10 grid shrink-0 grid-cols-7 gap-[clamp(0.22rem,0.72svh,0.38rem)] text-center text-[8.5px] font-black uppercase tracking-[.08em] text-white/30">
         {WEEKDAYS.map((day) => <span key={day}>{day}</span>)}
       </div>
 
-      <div className="mt-[clamp(0.35rem,1svh,0.5rem)] grid grid-cols-7 gap-[clamp(0.25rem,0.9svh,0.375rem)]">
+      <div className="relative z-10 mt-[clamp(0.35rem,1svh,0.55rem)] grid min-h-0 flex-1 grid-cols-7 grid-rows-6 gap-[clamp(0.25rem,0.78svh,0.42rem)]">
         {cells.map((cell, index) => {
-          if (!cell) return <div key={`empty-${index}`} className="clara-calendar-empty-cell min-h-[clamp(38px,7.1svh,48px)]" />;
+          if (!cell) return <div key={`empty-${index}`} className="min-h-0" />;
 
           const events = byDate[cell.key] || [];
           const hasMoney = events.some(isMoneyEvent);
@@ -335,7 +338,7 @@ function CalendarMonth({ monthDate, cells, selectedDate, todayKey, byDate, onSel
               key={cell.key}
               type="button"
               onClick={() => onSelect(cell.key)}
-              className={`clara-calendar-day relative flex min-h-[clamp(38px,7.1svh,48px)] flex-col items-center justify-center rounded-2xl border text-sm font-black transition duration-200 active:scale-[.97] ${
+              className={`relative flex h-full min-h-0 flex-col items-center justify-center rounded-[clamp(0.78rem,3.5vw,1rem)] border text-[clamp(0.74rem,3.7vw,0.92rem)] font-black transition duration-200 active:scale-[.97] ${
                 selected
                   ? "z-10 scale-[1.025] border-cyan-100/28 bg-cyan-200/[.075] text-white shadow-[0_0_0_1px_rgba(103,232,249,.10),0_0_18px_rgba(34,211,238,.12),inset_0_0_14px_rgba(34,211,238,.055)]"
                   : today
@@ -349,7 +352,7 @@ function CalendarMonth({ monthDate, cells, selectedDate, todayKey, byDate, onSel
               aria-label={`Select ${cell.key}`}
             >
               {selected ? (
-                <span className="pointer-events-none absolute inset-[-1px] rounded-[18px] border border-cyan-100/14" />
+                <span className="pointer-events-none absolute inset-[-1px] rounded-[inherit] border border-cyan-100/14" />
               ) : null}
               <span className="relative z-10">{cell.day}</span>
               {selected ? (
@@ -363,7 +366,7 @@ function CalendarMonth({ monthDate, cells, selectedDate, todayKey, byDate, onSel
         })}
       </div>
 
-      <div className="clara-calendar-legend mt-[clamp(0.55rem,1.5svh,1rem)] flex items-center gap-3 text-[10px] font-bold text-white/30">
+      <div className="relative z-10 mt-[clamp(0.45rem,1.15svh,0.75rem)] flex shrink-0 items-center gap-3 text-[9.5px] font-bold text-white/30">
         <span className="inline-flex items-center gap-1.5"><span className="h-1.5 w-1.5 rounded-full bg-fuchsia-200/65" /> Money impact</span>
         <span className="inline-flex items-center gap-1.5"><span className="h-1.5 w-1.5 rounded-full bg-cyan-200/55" /> Schedule</span>
       </div>
@@ -373,9 +376,11 @@ function CalendarMonth({ monthDate, cells, selectedDate, todayKey, byDate, onSel
 
 function MonthlyInsightCard({ insight }) {
   return (
-    <p className="clara-schedule-monthly-insight px-1 pb-1 text-[12px] font-semibold leading-5 text-white/42">
-      {insight}
-    </p>
+    <div className="shrink-0 rounded-[20px] border border-white/7 bg-white/[.028] px-3.5 py-[clamp(0.5rem,1.3svh,0.7rem)] shadow-[inset_0_1px_0_rgba(255,255,255,.035)] backdrop-blur-xl">
+      <p className="line-clamp-2 text-[clamp(0.68rem,2.8vw,0.76rem)] font-semibold leading-5 text-white/46">
+        {insight}
+      </p>
+    </div>
   );
 }
 
@@ -576,7 +581,10 @@ export default function DashboardSchedulePanel() {
   };
 
   return (
-    <div className="clara-schedule-viewport space-y-[clamp(0.55rem,1.65svh,0.9rem)]">
+    <div
+      className="flex min-h-0 flex-col gap-[clamp(0.5rem,1.35svh,0.75rem)] overflow-hidden pb-1"
+      style={{ height: "clamp(560px, calc(100svh - 126px), 720px)" }}
+    >
       <AgendaCard agenda={selectedAgenda} onOpen={openEvent} />
       <CalendarMonth
         monthDate={monthDate}
