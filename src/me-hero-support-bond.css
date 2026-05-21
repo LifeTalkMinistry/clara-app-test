@@ -1,57 +1,115 @@
-/* CLARA Me page — adaptive hero/support bonding
-   Purpose: keep the support insight visually attached to the hero while preserving the icon dock and Snapshot rail. */
+/* CLARA Me page — viewport fit guard
+   Goal: keep the full Snapshot visible in one screen while preserving hero, support card, and pressure icons. */
 
 #root div[class*="flex h-full min-h-0 flex-col"][class*="rounded-[30px]"][class*="bg-[#020817]"][class*="px-3"][class*="pb-3"]:has(> [data-clara-pressure-signals="true"]):has(> section[data-clara-trend-snapshot="true"]) {
-  grid-template-rows: minmax(218px, 1fr) 42px 44px 236px !important;
+  grid-template-rows: minmax(196px, 1fr) 86px 40px 218px !important;
   gap: 0 !important;
   align-content: stretch !important;
+  overflow: hidden !important;
+}
+
+#root div[class*="flex h-full min-h-0 flex-col"][class*="rounded-[30px]"][class*="bg-[#020817]"][class*="px-3"][class*="pb-3"]:has(> [data-clara-pressure-signals="true"]):has(> section[data-clara-trend-snapshot="true"]) > section:first-of-type {
+  min-height: 0 !important;
+  height: 100% !important;
 }
 
 #root div[class*="flex h-full min-h-0 flex-col"][class*="rounded-[30px]"][class*="bg-[#020817]"][class*="px-3"][class*="pb-3"]:has(> [data-clara-pressure-signals="true"]):has(> section[data-clara-trend-snapshot="true"]) > section[data-clara-support-card="true"] {
   position: relative !important;
   z-index: 12 !important;
-  height: 92px !important;
-  min-height: 92px !important;
-  max-height: 92px !important;
-  margin-top: -54px !important;
+  height: 86px !important;
+  min-height: 86px !important;
+  max-height: 86px !important;
+  margin-top: -18px !important;
+  align-self: start !important;
 }
 
 #root div[class*="flex h-full min-h-0 flex-col"][class*="rounded-[30px]"][class*="bg-[#020817]"][class*="px-3"][class*="pb-3"]:has(> [data-clara-pressure-signals="true"]):has(> section[data-clara-trend-snapshot="true"]) > [data-clara-pressure-signals="true"] {
-  margin-top: 6px !important;
+  height: 38px !important;
+  min-height: 38px !important;
+  max-height: 38px !important;
+  margin: 2px auto 0 !important;
 }
 
-@media (min-height: 800px) {
-  #root div[class*="flex h-full min-h-0 flex-col"][class*="rounded-[30px]"][class*="bg-[#020817]"][class*="px-3"][class*="pb-3"]:has(> [data-clara-pressure-signals="true"]):has(> section[data-clara-trend-snapshot="true"]) {
-    grid-template-rows: minmax(218px, 1fr) 36px 44px 236px !important;
-  }
+#root div[class*="flex h-full min-h-0 flex-col"][class*="rounded-[30px]"][class*="bg-[#020817]"][class*="px-3"][class*="pb-3"]:has(> [data-clara-pressure-signals="true"]):has(> section[data-clara-trend-snapshot="true"]) > section[data-clara-trend-snapshot="true"] {
+  height: 218px !important;
+  min-height: 218px !important;
+  max-height: 218px !important;
+  align-self: start !important;
+}
 
-  #root div[class*="flex h-full min-h-0 flex-col"][class*="rounded-[30px]"][class*="bg-[#020817]"][class*="px-3"][class*="pb-3"]:has(> [data-clara-pressure-signals="true"]):has(> section[data-clara-trend-snapshot="true"]) > section[data-clara-support-card="true"] {
-    margin-top: -66px !important;
+#root div[class*="flex h-full min-h-0 flex-col"][class*="rounded-[30px]"][class*="bg-[#020817]"][class*="px-3"][class*="pb-3"]:has(> [data-clara-pressure-signals="true"]):has(> section[data-clara-trend-snapshot="true"]) > section[data-clara-trend-snapshot="true"] [data-clara-trend-carousel="true"] {
+  height: 140px !important;
+  min-height: 140px !important;
+  max-height: 140px !important;
+  margin-top: 9px !important;
+}
+
+#root div[class*="flex h-full min-h-0 flex-col"][class*="rounded-[30px]"][class*="bg-[#020817]"][class*="px-3"][class*="pb-3"]:has(> [data-clara-pressure-signals="true"]):has(> section[data-clara-trend-snapshot="true"]) > section[data-clara-trend-snapshot="true"] [data-clara-trend-card="true"] {
+  height: 140px !important;
+  min-height: 140px !important;
+  max-height: 140px !important;
+}
+
+@media (min-height: 820px) {
+  #root div[class*="flex h-full min-h-0 flex-col"][class*="rounded-[30px]"][class*="bg-[#020817]"][class*="px-3"][class*="pb-3"]:has(> [data-clara-pressure-signals="true"]):has(> section[data-clara-trend-snapshot="true"]) {
+    grid-template-rows: minmax(210px, 1fr) 86px 40px 218px !important;
   }
 }
 
 @media (max-height: 720px) {
   #root div[class*="flex h-full min-h-0 flex-col"][class*="rounded-[30px]"][class*="bg-[#020817]"][class*="px-3"][class*="pb-3"]:has(> [data-clara-pressure-signals="true"]):has(> section[data-clara-trend-snapshot="true"]) {
-    grid-template-rows: minmax(198px, 1fr) 38px 40px 224px !important;
+    grid-template-rows: minmax(174px, 1fr) 76px 36px 204px !important;
   }
 
   #root div[class*="flex h-full min-h-0 flex-col"][class*="rounded-[30px]"][class*="bg-[#020817]"][class*="px-3"][class*="pb-3"]:has(> [data-clara-pressure-signals="true"]):has(> section[data-clara-trend-snapshot="true"]) > section[data-clara-support-card="true"] {
-    height: 84px !important;
-    min-height: 84px !important;
-    max-height: 84px !important;
-    margin-top: -46px !important;
+    height: 76px !important;
+    min-height: 76px !important;
+    max-height: 76px !important;
+    margin-top: -14px !important;
+  }
+
+  #root div[class*="flex h-full min-h-0 flex-col"][class*="rounded-[30px]"][class*="bg-[#020817]"][class*="px-3"][class*="pb-3"]:has(> [data-clara-pressure-signals="true"]):has(> section[data-clara-trend-snapshot="true"]) > [data-clara-pressure-signals="true"] {
+    height: 34px !important;
+    min-height: 34px !important;
+    max-height: 34px !important;
+  }
+
+  #root div[class*="flex h-full min-h-0 flex-col"][class*="rounded-[30px]"][class*="bg-[#020817]"][class*="px-3"][class*="pb-3"]:has(> [data-clara-pressure-signals="true"]):has(> section[data-clara-trend-snapshot="true"]) > section[data-clara-trend-snapshot="true"] {
+    height: 204px !important;
+    min-height: 204px !important;
+    max-height: 204px !important;
+  }
+
+  #root div[class*="flex h-full min-h-0 flex-col"][class*="rounded-[30px]"][class*="bg-[#020817]"][class*="px-3"][class*="pb-3"]:has(> [data-clara-pressure-signals="true"]):has(> section[data-clara-trend-snapshot="true"]) > section[data-clara-trend-snapshot="true"] [data-clara-trend-carousel="true"],
+  #root div[class*="flex h-full min-h-0 flex-col"][class*="rounded-[30px]"][class*="bg-[#020817]"][class*="px-3"][class*="pb-3"]:has(> [data-clara-pressure-signals="true"]):has(> section[data-clara-trend-snapshot="true"]) > section[data-clara-trend-snapshot="true"] [data-clara-trend-card="true"] {
+    height: 128px !important;
+    min-height: 128px !important;
+    max-height: 128px !important;
   }
 }
 
 @media (max-height: 660px) {
   #root div[class*="flex h-full min-h-0 flex-col"][class*="rounded-[30px]"][class*="bg-[#020817]"][class*="px-3"][class*="pb-3"]:has(> [data-clara-pressure-signals="true"]):has(> section[data-clara-trend-snapshot="true"]) {
-    grid-template-rows: minmax(174px, 1fr) 34px 38px 224px !important;
+    grid-template-rows: minmax(158px, 1fr) 68px 32px 192px !important;
   }
 
   #root div[class*="flex h-full min-h-0 flex-col"][class*="rounded-[30px]"][class*="bg-[#020817]"][class*="px-3"][class*="pb-3"]:has(> [data-clara-pressure-signals="true"]):has(> section[data-clara-trend-snapshot="true"]) > section[data-clara-support-card="true"] {
     height: 68px !important;
     min-height: 68px !important;
     max-height: 68px !important;
-    margin-top: -32px !important;
+    margin-top: -10px !important;
+  }
+
+  #root div[class*="flex h-full min-h-0 flex-col"][class*="rounded-[30px]"][class*="bg-[#020817]"][class*="px-3"][class*="pb-3"]:has(> [data-clara-pressure-signals="true"]):has(> section[data-clara-trend-snapshot="true"]) > section[data-clara-trend-snapshot="true"] {
+    height: 192px !important;
+    min-height: 192px !important;
+    max-height: 192px !important;
+  }
+
+  #root div[class*="flex h-full min-h-0 flex-col"][class*="rounded-[30px]"][class*="bg-[#020817]"][class*="px-3"][class*="pb-3"]:has(> [data-clara-pressure-signals="true"]):has(> section[data-clara-trend-snapshot="true"]) > section[data-clara-trend-snapshot="true"] [data-clara-trend-carousel="true"],
+  #root div[class*="flex h-full min-h-0 flex-col"][class*="rounded-[30px]"][class*="bg-[#020817]"][class*="px-3"][class*="pb-3"]:has(> [data-clara-pressure-signals="true"]):has(> section[data-clara-trend-snapshot="true"]) > section[data-clara-trend-snapshot="true"] [data-clara-trend-card="true"] {
+    height: 118px !important;
+    min-height: 118px !important;
+    max-height: 118px !important;
   }
 }
