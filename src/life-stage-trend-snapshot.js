@@ -298,13 +298,12 @@ function createInsightPanel(modal, trendLabel) {
   panel.style.cssText = "margin:16px 0 12px;padding:15px;border-radius:24px;border:1px solid rgba(255,255,255,.12);background:linear-gradient(145deg, rgba(255,255,255,.060), rgba(255,255,255,.028));box-shadow:inset 0 1px 0 rgba(255,255,255,.06), 0 18px 42px rgba(0,0,0,.12);";
   panel.innerHTML = `
     <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:12px;">
-      <p style="margin:0;font-size:10px;font-weight:950;letter-spacing:.16em;text-transform:uppercase;color:rgba(255,255,255,.82);">What CLARA noticed</p>
-      <span style="display:inline-flex;align-items:center;justify-content:center;padding:5px 8px;border-radius:999px;border:1px solid rgba(255,255,255,.10);background:rgba(255,255,255,.055);font-size:9px;font-weight:900;letter-spacing:.10em;text-transform:uppercase;color:rgba(255,255,255,.58);">Behavior</span>
+      <p style="margin:0;font-size:10px;font-weight:950;letter-spacing:.16em;text-transform:uppercase;color:rgba(255,255,255,.82);">Pressure Pattern</p>
     </div>
     <div style="display:grid;gap:9px;">
-      ${createInsightRow("Meaning", insight.meaning, "rgba(34,211,238,.75)")}
-      ${createInsightRow("Watch for", insight.watch, "rgba(251,113,133,.72)")}
-      ${createInsightRow("CLARA move", insight.action, "rgba(167,139,250,.78)")}
+      ${createInsightRow("Insight", insight.meaning, "rgba(34,211,238,.75)")}
+      ${createInsightRow("Pressure Signal", insight.watch, "rgba(251,113,133,.72)")}
+      ${createInsightRow("Next Move", insight.action, "rgba(167,139,250,.78)")}
     </div>
   `;
 }
