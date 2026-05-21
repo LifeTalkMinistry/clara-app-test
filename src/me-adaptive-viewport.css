@@ -5,8 +5,7 @@
   min-height: calc(100svh - 112px) !important;
   max-height: calc(100svh - 112px) !important;
   display: grid !important;
-  /* rebalance rows so snapshot fully fits */
-  grid-template-rows: minmax(228px, 39%) minmax(92px, 14%) minmax(0, 1fr) !important;
+  grid-template-rows: minmax(224px, 38%) minmax(88px, 13%) minmax(0, 1fr) !important;
   gap: 8px !important;
   overflow: hidden !important;
   padding: 8px !important;
@@ -76,20 +75,21 @@
   height: 48px !important;
 }
 
-/* Snapshot must fully fit on one screen */
+/* Snapshot fits inside the screen: move the whole block up, but do not make it taller than its row. */
 #root section[data-clara-trend-snapshot="true"] {
   position: relative !important;
-  top: -28px !important;
-  height: calc(100% + 28px) !important;
+  top: -22px !important;
+  height: 100% !important;
   min-height: 0 !important;
-  max-height: none !important;
+  max-height: 100% !important;
   flex: none !important;
   margin: 0 !important;
-  padding: 16px 12px 14px !important;
+  padding: 14px 12px 14px !important;
   display: flex !important;
   flex-direction: column !important;
   overflow: hidden !important;
   border-radius: 26px !important;
+  box-sizing: border-box !important;
 }
 
 #root section[data-clara-trend-snapshot="true"] > div:first-child,
@@ -98,31 +98,35 @@
 }
 
 #root section[data-clara-trend-snapshot="true"] [data-clara-trend-carousel="true"] {
-  flex: 1 1 auto !important;
+  flex: 1 1 0 !important;
   min-height: 0 !important;
-  height: 100% !important;
+  max-height: 100% !important;
+  height: auto !important;
   align-items: stretch !important;
   align-content: stretch !important;
   margin-top: 4px !important;
-  padding: 2px 24px 10px 1px !important;
+  padding: 2px 24px 6px 1px !important;
   gap: 10px !important;
   overflow-x: auto !important;
   overflow-y: hidden !important;
   display: flex !important;
+  box-sizing: border-box !important;
 }
 
 #root section[data-clara-trend-snapshot="true"] [data-clara-trend-card="true"] {
   flex: 1 0 clamp(108px, 29vw, 126px) !important;
   min-width: clamp(108px, 29vw, 126px) !important;
   max-width: clamp(108px, 29vw, 126px) !important;
-  height: auto !important;
-  min-height: calc(100% - 4px) !important;
-  max-height: none !important;
+  height: 100% !important;
+  min-height: 0 !important;
+  max-height: 100% !important;
   display: flex !important;
   flex-direction: column !important;
   justify-content: space-between !important;
   align-self: stretch !important;
-  padding: 0 0 14px 0 !important;
+  padding: 12px 11px 12px !important;
+  overflow: hidden !important;
+  box-sizing: border-box !important;
 }
 
 #root section[data-clara-trend-snapshot="true"] [data-clara-trend-card="true"] > * {
@@ -132,7 +136,8 @@
 #root section[data-clara-trend-snapshot="true"] [data-clara-trend-card="true"] svg {
   margin-top: auto !important;
   margin-bottom: 0 !important;
-  height: clamp(36px, 6.5svh, 54px) !important;
+  height: clamp(30px, 5.4svh, 44px) !important;
+  max-height: 28% !important;
 }
 
 @media (max-height: 720px) {
@@ -140,8 +145,8 @@
     height: calc(100svh - 104px) !important;
     min-height: calc(100svh - 104px) !important;
     max-height: calc(100svh - 104px) !important;
-    grid-template-rows: minmax(205px, 38%) minmax(82px, 13%) minmax(0, 1fr) !important;
-    gap: 8px !important;
+    grid-template-rows: minmax(202px, 37%) minmax(80px, 12%) minmax(0, 1fr) !important;
+    gap: 7px !important;
   }
 
   #root div:has(> section[data-clara-trend-snapshot="true"]) > section:first-child h2 {
@@ -149,14 +154,14 @@
   }
 
   #root section[data-clara-trend-snapshot="true"] {
-    top: -20px !important;
-    height: calc(100% + 20px) !important;
+    top: -16px !important;
+    height: 100% !important;
   }
 }
 
 @media (max-height: 660px) {
   #root div:has(> section[data-clara-trend-snapshot="true"]) {
-    grid-template-rows: minmax(188px, 37%) minmax(72px, 12%) minmax(0, 1fr) !important;
+    grid-template-rows: minmax(184px, 36%) minmax(68px, 11%) minmax(0, 1fr) !important;
   }
 
   #root section[data-clara-support-card="true"] {
