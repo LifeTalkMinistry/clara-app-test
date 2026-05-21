@@ -8,12 +8,10 @@ function setText(node, value) {
   if (node.textContent !== next) node.textContent = next;
 }
 
-const RANK_LABELS = ["Low Priority", "Low", "Moderate", "High", "High Risk"];
+const ORDER_LABELS = ["High Risk", "High", "Moderate", "Low Priority"];
 
-function hierarchyLabel(rank, total) {
-  if (total <= 1) return "High Risk";
-  const index = Math.round((rank / (total - 1)) * (RANK_LABELS.length - 1));
-  return RANK_LABELS[Math.max(0, Math.min(RANK_LABELS.length - 1, index))];
+function hierarchyLabelByVisibleOrder(index) {
+  return ORDER_LABELS[Math.min(index, ORDER_LABELS.length - 1)] || "Low Priority";
 }
 
 function findTrendSnapshotSection() {
@@ -34,24 +32,6 @@ function getTrendItems(section) {
     .filter((item) => item.label && Number.isFinite(item.value));
 }
 
-function getRankMap(section) {
-  const items = getTrendItems(section);
-  const sortedAscending = items
-    .slice()
-    .sort((a, b) => (a.value - b.value) || (a.visualIndex - b.visualIndex));
-
-  return new Map(
-    sortedAscending.map((item, rank) => [
-      item.label,
-      {
-        ...item,
-        rank,
-        hierarchy: hierarchyLabel(rank, sortedAscending.length),
-      },
-    ])
-  );
-}
-
 function sortCarouselByRisk(carousel) {
   const cards = Array.from(carousel?.querySelectorAll("button") || []);
   if (!cards.length) return;
@@ -70,11 +50,17 @@ function sortCarouselByRisk(carousel) {
 }
 
 function applyRiskScaleToCards(section) {
-  const rankMap = getRankMap(section);
-  rankMap.forEach((item) => {
-    setText(item.lines[2], item.hierarchy);
-    item.card.dataset.claraRiskHierarchy = item.hierarchy;
+  const cards = getTrendItems(section);
+  cards.forEach((item, index) => {
+    const hierarchy = hierarchyLabelByVisibleOrder(index);
+    setText(item.lines[2], hierarchy);
+    item.card.dataset.claraRiskHierarchy = hierarchy;
   });
+}
+
+function getVisibleHierarchy(section, trendLabel) {
+  const match = getTrendItems(section).find((item) => item.label === trendLabel);
+  return match?.card?.dataset?.claraRiskHierarchy || null;
 }
 
 function enhanceOpenedTrendModal() {
@@ -88,7 +74,7 @@ function enhanceOpenedTrendModal() {
 
   const trendLabel = clean(modal.querySelector("h4")?.textContent);
   const section = findTrendSnapshotSection();
-  const hierarchy = getRankMap(section).get(trendLabel)?.hierarchy;
+  const hierarchy = getVisibleHierarchy(section, trendLabel);
 
   const readingLabel = Array.from(modal.querySelectorAll("p")).find((node) => {
     const text = clean(node.textContent);
