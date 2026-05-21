@@ -1,147 +1,85 @@
-/* CLARA Me cinematic environmental depth
-   Pure atmospheric pass: reduce boxed-card feeling and guide focus without changing logic or layout height. */
+/* CLARA Me cinematic edge system — compact force pass */
 
 #root div:has(> section[data-clara-trend-snapshot="true"]) {
+  border-radius: 28px !important;
+  overflow: hidden !important;
+  isolation: isolate !important;
   background:
-    radial-gradient(circle at 18% 13%, rgba(34, 211, 238, 0.045), transparent 26%),
-    radial-gradient(circle at 86% 24%, rgba(124, 58, 237, 0.065), transparent 34%),
-    linear-gradient(180deg, rgba(2, 8, 23, 0.18), rgba(2, 8, 23, 0.02) 42%, rgba(2, 8, 23, 0.16)) !important;
+    radial-gradient(circle at 18% 12%, rgba(34,211,238,.045), transparent 30%),
+    radial-gradient(circle at 86% 18%, rgba(124,58,237,.07), transparent 38%),
+    linear-gradient(180deg, rgba(2,8,23,.18), rgba(2,8,23,.04) 42%, rgba(2,8,23,.18)) !important;
 }
 
-/* HERO: make the scene feel embedded, not boxed. */
-#root div[class*="flex h-full min-h-0 flex-col"][class*="rounded-[30px]"][class*="bg-[#020817]"][class*="px-3"][class*="pb-3"]:has(> section[data-clara-trend-snapshot="true"]) > section:first-of-type {
-  border-color: rgba(255, 255, 255, 0.055) !important;
-  background-color: rgba(2, 8, 23, 0.18) !important;
-  box-shadow:
-    0 28px 70px rgba(0, 0, 0, 0.36),
-    0 0 54px rgba(34, 211, 238, 0.035),
-    0 0 72px rgba(124, 58, 237, 0.075),
-    inset 0 1px 0 rgba(255, 255, 255, 0.045),
-    inset 22px 0 36px rgba(2, 8, 23, 0.24),
-    inset -16px 0 30px rgba(88, 28, 135, 0.075) !important;
-}
-
-#root div[class*="flex h-full min-h-0 flex-col"][class*="rounded-[30px]"][class*="bg-[#020817]"][class*="px-3"][class*="pb-3"]:has(> section[data-clara-trend-snapshot="true"]) > section:first-of-type::before {
-  left: -10% !important;
-  right: -10% !important;
-  bottom: -64px !important;
-  height: 150px !important;
-  background:
-    radial-gradient(circle at 30% 40%, rgba(45, 212, 191, 0.095), transparent 38%),
-    radial-gradient(circle at 70% 38%, rgba(124, 58, 237, 0.19), transparent 50%) !important;
-  filter: blur(34px) !important;
-  opacity: 0.78 !important;
-}
-
-#root div[class*="flex h-full min-h-0 flex-col"][class*="rounded-[30px]"][class*="bg-[#020817]"][class*="px-3"][class*="pb-3"]:has(> section[data-clara-trend-snapshot="true"]) > section:first-of-type::after {
-  background:
-    radial-gradient(ellipse at 52% 42%, rgba(255, 255, 255, 0.045), transparent 18%),
-    radial-gradient(ellipse at 30% 45%, rgba(2, 8, 23, 0.46), transparent 34%),
-    radial-gradient(circle at 78% 26%, rgba(124, 58, 237, 0.18), transparent 32%),
-    linear-gradient(90deg, rgba(2, 8, 23, 0.94) 0%, rgba(2, 8, 23, 0.68) 25%, rgba(2, 8, 23, 0.16) 60%, rgba(2, 8, 23, 0.25) 100%),
-    linear-gradient(180deg, rgba(2, 8, 23, 0.12), rgba(2, 8, 23, 0.08) 34%, rgba(2, 8, 23, 0.74) 100%) !important;
-  opacity: 0.96 !important;
-}
-
-#root div[class*="flex h-full min-h-0 flex-col"][class*="rounded-[30px]"][class*="bg-[#020817]"][class*="px-3"][class*="pb-3"]:has(> section[data-clara-trend-snapshot="true"]) > section:first-of-type img {
-  transform: scale(1.12) translate(1.2%, -1.4%) !important;
-  object-position: 59% 45% !important;
-  filter: saturate(1.13) brightness(1.035) contrast(1.06) !important;
-}
-
-#root div[class*="flex h-full min-h-0 flex-col"][class*="rounded-[30px]"][class*="bg-[#020817]"][class*="px-3"][class*="pb-3"]:has(> section[data-clara-trend-snapshot="true"]) > section:first-of-type > div:last-child {
-  max-width: 54% !important;
-  filter: drop-shadow(0 10px 22px rgba(0, 0, 0, 0.42)) !important;
-}
-
-#root div[class*="flex h-full min-h-0 flex-col"][class*="rounded-[30px]"][class*="bg-[#020817]"][class*="px-3"][class*="pb-3"]:has(> section[data-clara-trend-snapshot="true"]) > section:first-of-type h2 {
-  max-width: 10.3rem !important;
-}
-
-#root div[class*="flex h-full min-h-0 flex-col"][class*="rounded-[30px]"][class*="bg-[#020817]"][class*="px-3"][class*="pb-3"]:has(> section[data-clara-trend-snapshot="true"]) > section:first-of-type p:last-child {
-  max-width: 10.6rem !important;
-}
-
-/* SUPPORT: inherit hero atmosphere instead of reading like a separate widget. */
-#root section[data-clara-support-card="true"] {
-  border-color: rgba(255, 255, 255, 0.092) !important;
-  background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.062), rgba(255, 255, 255, 0.018) 58%, rgba(255, 255, 255, 0.010)),
-    radial-gradient(circle at 82% 48%, rgba(216, 180, 254, 0.13), transparent 42%),
-    radial-gradient(circle at 22% -20%, rgba(45, 212, 191, 0.050), transparent 48%),
-    rgba(5, 10, 25, 0.44) !important;
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.070),
-    0 18px 44px rgba(0, 0, 0, 0.34),
-    0 -13px 34px rgba(76, 29, 149, 0.075),
-    0 0 22px rgba(45, 212, 191, 0.018) !important;
-}
-
-#root section[data-clara-support-card="true"]::after {
-  opacity: 0.43 !important;
-  background:
-    linear-gradient(115deg, rgba(255, 255, 255, 0.055), transparent 26%, transparent 72%, rgba(255, 255, 255, 0.022)) !important;
-}
-
-#root section[data-clara-support-card="true"] div[class*="rounded-full"]:has(svg) {
-  box-shadow:
-    0 0 22px rgba(216, 180, 254, 0.12),
-    inset 0 1px 0 rgba(255, 255, 255, 0.075) !important;
-}
-
-/* SNAPSHOT: subconscious first-card authority and softer foreground depth. */
+#root section[class*="rounded-b-[30px]"],
+#root section[data-clara-support-card="true"],
 #root section[data-clara-trend-snapshot="true"] {
-  border-color: rgba(255, 255, 255, 0.090) !important;
-  background:
-    radial-gradient(circle at 12% 0%, rgba(45, 212, 191, 0.050), transparent 35%),
-    radial-gradient(circle at 92% 12%, rgba(168, 85, 247, 0.072), transparent 44%),
-    linear-gradient(180deg, rgba(12, 14, 34, 0.86), rgba(4, 9, 22, 0.975)) !important;
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.060),
-    0 -8px 24px rgba(124, 58, 237, 0.035),
-    0 22px 52px rgba(0, 0, 0, 0.38) !important;
+  border-radius: 24px !important;
+  border-color: rgba(255,255,255,.05) !important;
 }
 
-#root section[data-clara-trend-snapshot="true"]::before {
-  opacity: 0.46 !important;
+#root section[class*="rounded-b-[30px]"] {
+  background-color: rgba(2,8,23,.18) !important;
+  box-shadow:
+    0 24px 64px rgba(0,0,0,.35),
+    0 0 54px rgba(34,211,238,.03),
+    0 0 70px rgba(124,58,237,.06),
+    inset 18px 0 34px rgba(2,8,23,.22),
+    inset -14px 0 28px rgba(88,28,135,.06) !important;
+}
+
+#root section[class*="rounded-b-[30px]"]::after {
   background:
-    radial-gradient(circle at 18% 0%, rgba(34, 211, 238, 0.055), transparent 35%),
-    linear-gradient(180deg, rgba(255, 255, 255, 0.034), transparent 42%, rgba(0, 0, 0, 0.12)) !important;
+    radial-gradient(ellipse at 52% 42%, rgba(255,255,255,.045), transparent 18%),
+    radial-gradient(ellipse at 30% 45%, rgba(2,8,23,.46), transparent 34%),
+    radial-gradient(circle at 78% 26%, rgba(124,58,237,.18), transparent 32%),
+    linear-gradient(90deg, rgba(2,8,23,.94) 0%, rgba(2,8,23,.68) 25%, rgba(2,8,23,.16) 60%, rgba(2,8,23,.25) 100%),
+    linear-gradient(180deg, rgba(2,8,23,.12), rgba(2,8,23,.08) 34%, rgba(2,8,23,.74) 100%) !important;
+}
+
+#root section[data-clara-support-card="true"] {
+  background:
+    linear-gradient(180deg, rgba(255,255,255,.052), rgba(255,255,255,.015) 58%, rgba(255,255,255,.006)),
+    radial-gradient(circle at 82% 50%, rgba(216,180,254,.115), transparent 42%),
+    rgba(5,10,25,.38) !important;
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,.056),
+    0 14px 34px rgba(0,0,0,.29),
+    0 -10px 28px rgba(76,29,149,.055) !important;
+}
+
+#root section[data-clara-trend-snapshot="true"] {
+  background:
+    radial-gradient(circle at 16% 0%, rgba(45,212,191,.04), transparent 34%),
+    radial-gradient(circle at 92% 6%, rgba(168,85,247,.06), transparent 40%),
+    linear-gradient(180deg, rgba(12,14,34,.76), rgba(4,9,22,.985)) !important;
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,.052),
+    0 -7px 22px rgba(124,58,237,.026),
+    0 18px 44px rgba(0,0,0,.34) !important;
 }
 
 #root section[data-clara-trend-snapshot="true"]::after {
-  opacity: 0.34 !important;
-  width: 12px !important;
+  opacity: .22 !important;
+  width: 10px !important;
 }
 
 #root section[data-clara-trend-snapshot="true"] [data-clara-trend-card="true"] {
+  border-radius: 15px !important;
+  border-color: rgba(255,255,255,.062) !important;
   background:
-    radial-gradient(circle at 26% 0%, rgba(255, 255, 255, 0.030), transparent 34%),
-    linear-gradient(180deg, rgba(255, 255, 255, 0.030), rgba(255, 255, 255, 0.009)),
-    rgba(5, 11, 27, 0.72) !important;
+    radial-gradient(circle at 24% 0%, rgba(255,255,255,.024), transparent 35%),
+    linear-gradient(180deg, rgba(255,255,255,.025), rgba(255,255,255,.007)),
+    rgba(5,11,27,.62) !important;
 }
 
-#root section[data-clara-trend-snapshot="true"] [data-clara-trend-index="0"],
-#root section[data-clara-trend-snapshot="true"] [data-clara-trend-primary="true"] {
-  border-color: rgba(103, 232, 249, 0.20) !important;
-  background:
-    radial-gradient(circle at 24% 0%, rgba(45, 212, 191, 0.105), transparent 42%),
-    radial-gradient(circle at 78% 92%, rgba(34, 211, 238, 0.050), transparent 52%),
-    linear-gradient(180deg, rgba(255, 255, 255, 0.054), rgba(255, 255, 255, 0.012)),
-    rgba(7, 18, 38, 0.82) !important;
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.085),
-    0 12px 30px rgba(0, 0, 0, 0.28),
-    0 0 22px rgba(45, 212, 191, 0.060) !important;
-}
+@media (max-width: 390px) {
+  #root section[class*="rounded-b-[30px]"],
+  #root section[data-clara-support-card="true"],
+  #root section[data-clara-trend-snapshot="true"] {
+    border-radius: 23px !important;
+  }
 
-#root section[data-clara-trend-snapshot="true"] [data-clara-trend-index="0"] svg,
-#root section[data-clara-trend-snapshot="true"] [data-clara-trend-primary="true"] svg {
-  filter: drop-shadow(0 0 8px currentColor) drop-shadow(0 0 12px rgba(45, 212, 191, 0.14)) !important;
-}
-
-@media (max-height: 720px) {
-  #root div[class*="flex h-full min-h-0 flex-col"][class*="rounded-[30px]"][class*="bg-[#020817]"][class*="px-3"][class*="pb-3"]:has(> section[data-clara-trend-snapshot="true"]) > section:first-of-type img {
-    transform: scale(1.13) translate(1.4%, -1.5%) !important;
+  #root section[data-clara-trend-snapshot="true"] [data-clara-trend-card="true"] {
+    border-radius: 14px !important;
   }
 }
