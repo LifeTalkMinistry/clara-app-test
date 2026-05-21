@@ -7,6 +7,18 @@
   display: none !important;
 }
 
+/* Kill the temporary quick-read filler/orb in the opened modal. */
+#root [data-clara-modal-insight="true"]::after {
+  content: none !important;
+  display: none !important;
+}
+
+/* Keep the opened modal spacious again, while sources remain chips only. */
+#root [data-clara-modal-insight="true"] {
+  margin-top: 1rem !important;
+  margin-bottom: 0.85rem !important;
+}
+
 /* Mobile one-screen fit for Me / Life Stage overview.
    Goal: hero + support card + trend snapshot are visible together on common mobile heights. */
 #root section[class*="rounded-b-[30px]"] {
