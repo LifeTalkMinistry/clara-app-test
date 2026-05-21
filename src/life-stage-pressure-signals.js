@@ -81,7 +81,7 @@ function ensureStyles() {
   style.id = "clara-pressure-signals-bridge-styles";
   style.textContent = `
     #root div:has(> section[data-clara-pressure-signals="true"]):has(> section[data-clara-trend-snapshot="true"]) {
-      grid-template-rows: minmax(214px, 1fr) 92px 56px 236px !important;
+      grid-template-rows: minmax(218px, 1fr) 92px 44px 236px !important;
       gap: 0 !important;
       align-content: stretch !important;
     }
@@ -89,26 +89,28 @@ function ensureStyles() {
     #root section[data-clara-pressure-signals="true"] {
       position: relative !important;
       z-index: 7 !important;
-      height: 56px !important;
-      min-height: 56px !important;
-      max-height: 56px !important;
-      width: calc(100% - 4px) !important;
-      margin: 6px auto 0 !important;
-      padding: 7px 8px !important;
-      border-radius: 20px !important;
-      border: 1px solid rgba(255,255,255,.085) !important;
+      height: 44px !important;
+      min-height: 44px !important;
+      max-height: 44px !important;
+      width: auto !important;
+      margin: 7px auto 0 !important;
+      padding: 4px 8px !important;
+      border-radius: 999px !important;
+      border: 1px solid rgba(255,255,255,.075) !important;
       background:
-        radial-gradient(circle at 7% 0%, rgba(45,212,191,.075), transparent 36%),
-        radial-gradient(circle at 96% 35%, rgba(167,139,250,.125), transparent 42%),
-        linear-gradient(135deg, rgba(7,18,38,.52), rgba(12,10,30,.62)) !important;
+        radial-gradient(circle at 12% 0%, rgba(45,212,191,.075), transparent 36%),
+        radial-gradient(circle at 96% 45%, rgba(167,139,250,.120), transparent 42%),
+        rgba(7,18,38,.34) !important;
       box-shadow:
-        inset 0 1px 0 rgba(255,255,255,.065),
-        0 12px 34px rgba(0,0,0,.18),
-        0 0 22px rgba(45,212,191,.025) !important;
-      backdrop-filter: blur(24px) saturate(1.14) !important;
-      -webkit-backdrop-filter: blur(24px) saturate(1.14) !important;
+        inset 0 1px 0 rgba(255,255,255,.055),
+        0 10px 24px rgba(0,0,0,.14),
+        0 0 18px rgba(45,212,191,.018) !important;
+      backdrop-filter: blur(22px) saturate(1.12) !important;
+      -webkit-backdrop-filter: blur(22px) saturate(1.12) !important;
       overflow: hidden !important;
       box-sizing: border-box !important;
+      justify-self: center !important;
+      max-width: calc(100% - 18px) !important;
     }
 
     #root section[data-clara-pressure-signals="true"]::before {
@@ -116,74 +118,73 @@ function ensureStyles() {
       position: absolute;
       inset: 0;
       pointer-events: none;
-      background: linear-gradient(115deg, rgba(255,255,255,.052), transparent 36%, rgba(255,255,255,.018));
-      opacity: .76;
+      background: linear-gradient(115deg, rgba(255,255,255,.040), transparent 36%, rgba(255,255,255,.014));
+      opacity: .72;
     }
 
-    #root .clara-pressure-track {
-      position: relative;
-      z-index: 2;
-      display: flex;
-      align-items: center;
-      gap: 7px;
-      height: 100%;
-      overflow-x: auto;
-      overflow-y: hidden;
-      padding: 0 2px;
-      scrollbar-width: none;
+    #root section[data-clara-pressure-signals="true"] .clara-pressure-track {
+      position: relative !important;
+      z-index: 2 !important;
+      display: flex !important;
+      align-items: center !important;
+      justify-content: center !important;
+      gap: 8px !important;
+      height: 100% !important;
+      overflow-x: auto !important;
+      overflow-y: hidden !important;
+      padding: 0 2px !important;
+      scrollbar-width: none !important;
     }
 
-    #root .clara-pressure-track::-webkit-scrollbar { display: none; }
+    #root section[data-clara-pressure-signals="true"] .clara-pressure-track::-webkit-scrollbar { display: none !important; }
 
-    #root .clara-pressure-label {
-      flex: 0 0 auto;
-      display: inline-flex;
-      align-items: center;
-      height: 30px;
-      padding: 0 6px 0 2px;
-      color: rgba(236,253,255,.42);
-      font-size: 7.4px;
-      font-weight: 1000;
-      letter-spacing: .15em;
-      text-transform: uppercase;
-      white-space: nowrap;
+    #root section[data-clara-pressure-signals="true"] .clara-pressure-chip {
+      flex: 0 0 32px !important;
+      display: grid !important;
+      place-items: center !important;
+      width: 32px !important;
+      min-width: 32px !important;
+      max-width: 32px !important;
+      height: 32px !important;
+      min-height: 32px !important;
+      max-height: 32px !important;
+      padding: 0 !important;
+      margin: 0 !important;
+      border-radius: 999px !important;
+      border: 1px solid rgba(255,255,255,.10) !important;
+      background: rgba(255,255,255,.045) !important;
+      color: rgba(255,255,255,.86) !important;
+      font-size: 15px !important;
+      font-weight: 900 !important;
+      line-height: 1 !important;
+      box-shadow: inset 0 1px 0 rgba(255,255,255,.055), 0 7px 18px rgba(0,0,0,.12) !important;
+      backdrop-filter: blur(16px) !important;
+      -webkit-backdrop-filter: blur(16px) !important;
+      transition: transform 160ms ease, border-color 160ms ease, background 160ms ease !important;
     }
 
-    #root .clara-pressure-chip {
-      flex: 0 0 auto;
-      display: inline-flex;
-      align-items: center;
-      gap: 5px;
-      height: 34px;
-      padding: 0 9px 0 7px;
-      border-radius: 999px;
-      border: 1px solid rgba(255,255,255,.10);
-      background: rgba(255,255,255,.045);
-      color: rgba(255,255,255,.72);
-      font-size: 9.2px;
-      font-weight: 900;
-      line-height: 1;
-      box-shadow: inset 0 1px 0 rgba(255,255,255,.055), 0 8px 20px rgba(0,0,0,.14);
-      backdrop-filter: blur(16px);
-      -webkit-backdrop-filter: blur(16px);
-      transition: transform 160ms ease, border-color 160ms ease, background 160ms ease;
+    #root section[data-clara-pressure-signals="true"] .clara-pressure-chip:active {
+      transform: scale(.92) !important;
+      border-color: rgba(165,243,252,.28) !important;
+      background: rgba(125,211,252,.075) !important;
     }
 
-    #root .clara-pressure-chip:active {
-      transform: scale(.965);
-      border-color: rgba(165,243,252,.24);
-      background: rgba(125,211,252,.075);
+    #root section[data-clara-pressure-signals="true"] .clara-pressure-chip span {
+      display: block !important;
+      width: auto !important;
+      height: auto !important;
+      padding: 0 !important;
+      margin: 0 !important;
+      border-radius: 0 !important;
+      background: transparent !important;
+      font-size: 15px !important;
+      line-height: 1 !important;
+      box-shadow: none !important;
     }
 
-    #root .clara-pressure-chip span:first-child {
-      display: grid;
-      place-items: center;
-      width: 18px;
-      height: 18px;
-      border-radius: 999px;
-      background: rgba(255,255,255,.055);
-      font-size: 11px;
-      box-shadow: inset 0 1px 0 rgba(255,255,255,.06);
+    #root section[data-clara-pressure-signals="true"] .clara-pressure-chip strong,
+    #root section[data-clara-pressure-signals="true"] .clara-pressure-label {
+      display: none !important;
     }
 
     #root [data-clara-pressure-tip-panel="true"] {
@@ -268,29 +269,45 @@ function ensureStyles() {
 
     @media (max-height: 720px) {
       #root div:has(> section[data-clara-pressure-signals="true"]):has(> section[data-clara-trend-snapshot="true"]) {
-        grid-template-rows: minmax(196px, 1fr) 84px 50px 224px !important;
+        grid-template-rows: minmax(198px, 1fr) 84px 40px 224px !important;
       }
       #root section[data-clara-pressure-signals="true"] {
-        height: 50px !important;
-        min-height: 50px !important;
-        max-height: 50px !important;
+        height: 40px !important;
+        min-height: 40px !important;
+        max-height: 40px !important;
         margin-top: 5px !important;
-        padding: 6px 7px !important;
+        padding: 4px 7px !important;
       }
-      #root .clara-pressure-chip { height: 31px; font-size: 8.7px; }
+      #root section[data-clara-pressure-signals="true"] .clara-pressure-chip {
+        flex-basis: 29px !important;
+        width: 29px !important;
+        min-width: 29px !important;
+        max-width: 29px !important;
+        height: 29px !important;
+        min-height: 29px !important;
+        max-height: 29px !important;
+      }
     }
 
     @media (max-height: 660px) {
       #root div:has(> section[data-clara-pressure-signals="true"]):has(> section[data-clara-trend-snapshot="true"]) {
-        grid-template-rows: minmax(172px, 1fr) 68px 46px 224px !important;
+        grid-template-rows: minmax(174px, 1fr) 68px 38px 224px !important;
       }
       #root section[data-clara-pressure-signals="true"] {
-        height: 46px !important;
-        min-height: 46px !important;
-        max-height: 46px !important;
+        height: 38px !important;
+        min-height: 38px !important;
+        max-height: 38px !important;
       }
-      #root .clara-pressure-label { display: none; }
-      #root .clara-pressure-chip { height: 29px; padding-inline: 7px; }
+      #root section[data-clara-pressure-signals="true"] .clara-pressure-chip {
+        flex-basis: 27px !important;
+        width: 27px !important;
+        min-width: 27px !important;
+        max-width: 27px !important;
+        height: 27px !important;
+        min-height: 27px !important;
+        max-height: 27px !important;
+        font-size: 14px !important;
+      }
     }
   `;
   document.head.appendChild(style);
@@ -302,11 +319,10 @@ function renderSignals(section) {
   section.dataset.pressureSignature = signature;
   section.innerHTML = `
     <div class="clara-pressure-track" aria-label="Today pressure signals">
-      <div class="clara-pressure-label">Today signals</div>
       ${PRESSURE_SIGNALS.map(
         (signal) => `
-          <button type="button" class="clara-pressure-chip" data-clara-pressure-signal="${signal.id}" aria-label="Open ${signal.label} tips">
-            <span>${signal.icon}</span>
+          <button type="button" class="clara-pressure-chip" data-clara-pressure-signal="${signal.id}" aria-label="Open ${signal.label} tips" title="${signal.label}">
+            <span aria-hidden="true">${signal.icon}</span>
             <strong>${signal.label}</strong>
           </button>
         `
