@@ -1,5 +1,30 @@
-#root section[data-clara-trend-snapshot="true"] button[data-clara-trend-card="true"] {
+#root section[data-clara-trend-snapshot="true"] button[data-clara-trend-card="true"][data-clara-trend-card="true"] {
   justify-content: center !important;
   align-items: center !important;
   text-align: center !important;
+}
+
+#root section[data-clara-trend-snapshot="true"] button[data-clara-trend-card="true"][data-clara-trend-card="true"] p {
+  align-self: center !important;
+  text-align: center !important;
+}
+
+#root section[data-clara-trend-snapshot="true"] button[data-clara-trend-card="true"][data-clara-trend-card="true"] p:first-child {
+  max-width: 100% !important;
+  margin-top: 0 !important;
+}
+
+#root section[data-clara-trend-snapshot="true"] button[data-clara-trend-card="true"][data-clara-trend-card="true"] p:nth-child(2) {
+  margin-top: 0.42rem !important;
+}
+
+#root section[data-clara-trend-snapshot="true"] button[data-clara-trend-card="true"][data-clara-trend-card="true"] p:nth-child(3) {
+  margin-top: 0.32rem !important;
+}
+
+#root section[data-clara-trend-snapshot="true"] button[data-clara-trend-card="true"][data-clara-trend-card="true"] svg {
+  align-self: center !important;
+  margin-top: 0.62rem !important;
+  margin-bottom: 0 !important;
+  width: 100% !important;
 }
