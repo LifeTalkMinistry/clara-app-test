@@ -93,25 +93,30 @@
   flex: 0 0 auto !important;
 }
 
+/* REAL adaptive snapshot behavior */
 #root section[data-clara-trend-snapshot="true"] [data-clara-trend-carousel="true"] {
   flex: 1 1 0 !important;
-  height: auto !important;
   min-height: 0 !important;
+  height: 100% !important;
   align-items: stretch !important;
   margin-top: 10px !important;
-  padding: 1px 28px 2px 1px !important;
-  gap: 10px !important;
+  padding: 2px 28px 2px 1px !important;
+  gap: 12px !important;
   overflow-x: auto !important;
   overflow-y: hidden !important;
+  display: flex !important;
 }
 
 #root section[data-clara-trend-snapshot="true"] [data-clara-trend-card="true"] {
+  flex: 1 1 0 !important;
+  min-width: clamp(112px, 30vw, 132px) !important;
+  max-width: clamp(112px, 30vw, 132px) !important;
   height: 100% !important;
-  min-height: 0 !important;
-  flex: 0 0 clamp(112px, 31vw, 126px) !important;
+  min-height: 100% !important;
   display: flex !important;
   flex-direction: column !important;
   justify-content: space-between !important;
+  align-self: stretch !important;
 }
 
 #root section[data-clara-trend-snapshot="true"] [data-clara-trend-card="true"] svg {
@@ -141,22 +146,4 @@
   #root section[data-clara-support-card="true"] {
     display: none !important;
   }
-}
-
-/* Snapshot-only adaptive pass. Keep the hero and support card exactly as they are now. */
-#root section[data-clara-trend-snapshot="true"] {
-  justify-content: stretch !important;
-}
-
-#root section[data-clara-trend-snapshot="true"] [data-clara-trend-carousel="true"] {
-  flex: 1 1 0 !important;
-  height: auto !important;
-  min-height: 0 !important;
-  max-height: none !important;
-  align-items: stretch !important;
-}
-
-#root section[data-clara-trend-snapshot="true"] [data-clara-trend-card="true"] {
-  height: 100% !important;
-  min-height: 0 !important;
 }
