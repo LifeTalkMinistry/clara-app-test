@@ -2,7 +2,7 @@
    Goal: keep the full Snapshot visible in one screen while preserving hero, support card, and pressure icons. */
 
 #root div[class*="flex h-full min-h-0 flex-col"][class*="rounded-[30px]"][class*="bg-[#020817]"][class*="px-3"][class*="pb-3"]:has(> [data-clara-pressure-signals="true"]):has(> section[data-clara-trend-snapshot="true"]) {
-  grid-template-rows: minmax(248px, clamp(248px, 39svh, 298px)) 86px 46px 218px !important;
+  grid-template-rows: minmax(236px, clamp(236px, 37svh, 284px)) 102px 46px 218px !important;
   gap: 0 !important;
   align-content: start !important;
   overflow: hidden !important;
@@ -21,10 +21,12 @@
 #root div[class*="flex h-full min-h-0 flex-col"][class*="rounded-[30px]"][class*="bg-[#020817]"][class*="px-3"][class*="pb-3"]:has(> [data-clara-pressure-signals="true"]):has(> section[data-clara-trend-snapshot="true"]) > section[data-clara-support-card="true"] {
   position: relative !important;
   z-index: 12 !important;
-  height: 86px !important;
-  min-height: 86px !important;
-  max-height: 86px !important;
-  margin-top: -18px !important;
+  height: 102px !important;
+  min-height: 102px !important;
+  max-height: 102px !important;
+  margin-top: -28px !important;
+  padding-top: 15px !important;
+  padding-bottom: 15px !important;
   align-self: start !important;
 }
 
@@ -59,20 +61,22 @@
 
 @media (min-height: 820px) {
   #root div[class*="flex h-full min-h-0 flex-col"][class*="rounded-[30px]"][class*="bg-[#020817]"][class*="px-3"][class*="pb-3"]:has(> [data-clara-pressure-signals="true"]):has(> section[data-clara-trend-snapshot="true"]) {
-    grid-template-rows: minmax(260px, clamp(260px, 38svh, 306px)) 86px 46px 218px !important;
+    grid-template-rows: minmax(248px, clamp(248px, 36.5svh, 292px)) 102px 46px 218px !important;
   }
 }
 
 @media (max-height: 760px) {
   #root div[class*="flex h-full min-h-0 flex-col"][class*="rounded-[30px]"][class*="bg-[#020817]"][class*="px-3"][class*="pb-3"]:has(> [data-clara-pressure-signals="true"]):has(> section[data-clara-trend-snapshot="true"]) {
-    grid-template-rows: minmax(222px, clamp(222px, 36svh, 268px)) 78px 42px 204px !important;
+    grid-template-rows: minmax(214px, clamp(214px, 35.5svh, 260px)) 92px 42px 204px !important;
   }
 
   #root div[class*="flex h-full min-h-0 flex-col"][class*="rounded-[30px]"][class*="bg-[#020817]"][class*="px-3"][class*="pb-3"]:has(> [data-clara-pressure-signals="true"]):has(> section[data-clara-trend-snapshot="true"]) > section[data-clara-support-card="true"] {
-    height: 78px !important;
-    min-height: 78px !important;
-    max-height: 78px !important;
-    margin-top: -14px !important;
+    height: 92px !important;
+    min-height: 92px !important;
+    max-height: 92px !important;
+    margin-top: -22px !important;
+    padding-top: 13px !important;
+    padding-bottom: 13px !important;
   }
 
   #root div[class*="flex h-full min-h-0 flex-col"][class*="rounded-[30px]"][class*="bg-[#020817]"][class*="px-3"][class*="pb-3"]:has(> [data-clara-pressure-signals="true"]):has(> section[data-clara-trend-snapshot="true"]) > [data-clara-pressure-signals="true"] {
@@ -99,14 +103,16 @@
 
 @media (max-height: 680px) {
   #root div[class*="flex h-full min-h-0 flex-col"][class*="rounded-[30px]"][class*="bg-[#020817]"][class*="px-3"][class*="pb-3"]:has(> [data-clara-pressure-signals="true"]):has(> section[data-clara-trend-snapshot="true"]) {
-    grid-template-rows: minmax(194px, clamp(194px, 35svh, 230px)) 68px 40px 192px !important;
+    grid-template-rows: minmax(186px, clamp(186px, 34.5svh, 222px)) 78px 40px 192px !important;
   }
 
   #root div[class*="flex h-full min-h-0 flex-col"][class*="rounded-[30px]"][class*="bg-[#020817]"][class*="px-3"][class*="pb-3"]:has(> [data-clara-pressure-signals="true"]):has(> section[data-clara-trend-snapshot="true"]) > section[data-clara-support-card="true"] {
-    height: 68px !important;
-    min-height: 68px !important;
-    max-height: 68px !important;
-    margin-top: -10px !important;
+    height: 78px !important;
+    min-height: 78px !important;
+    max-height: 78px !important;
+    margin-top: -14px !important;
+    padding-top: 10px !important;
+    padding-bottom: 10px !important;
   }
 
   #root div[class*="flex h-full min-h-0 flex-col"][class*="rounded-[30px]"][class*="bg-[#020817]"][class*="px-3"][class*="pb-3"]:has(> [data-clara-pressure-signals="true"]):has(> section[data-clara-trend-snapshot="true"]) > [data-clara-pressure-signals="true"] {
