@@ -80,22 +80,13 @@ function ensureStyles() {
   const style = document.createElement("style");
   style.id = "clara-pressure-signals-bridge-styles";
   style.textContent = `
-    #root div:has(> [data-clara-pressure-signals="true"]):has(> section[data-clara-trend-snapshot="true"]) {
-      grid-template-rows: minmax(218px, 1fr) 92px 44px 236px !important;
-      gap: 0 !important;
-      align-content: stretch !important;
-      padding-top: 3px !important;
-    }
-
     #root [data-clara-pressure-signals="true"] {
       position: relative !important;
       z-index: 7 !important;
       display: block !important;
-      height: 44px !important;
-      min-height: 44px !important;
-      max-height: 44px !important;
       width: auto !important;
-      margin: 7px auto 0 !important;
+      margin-left: auto !important;
+      margin-right: auto !important;
       padding: 4px 8px !important;
       border-radius: 999px !important;
       border: 1px solid rgba(255,255,255,.075) !important;
@@ -258,51 +249,6 @@ function ensureStyles() {
       color: rgba(255,255,255,.68);
       font-size: 18px;
       font-weight: 900;
-    }
-
-    @media (max-height: 720px) {
-      #root div:has(> [data-clara-pressure-signals="true"]):has(> section[data-clara-trend-snapshot="true"]) {
-        grid-template-rows: minmax(198px, 1fr) 84px 40px 224px !important;
-        padding-top: 3px !important;
-      }
-      #root [data-clara-pressure-signals="true"] {
-        height: 40px !important;
-        min-height: 40px !important;
-        max-height: 40px !important;
-        margin-top: 5px !important;
-        padding: 4px 7px !important;
-      }
-      #root [data-clara-pressure-signals="true"] .clara-pressure-chip {
-        flex-basis: 29px !important;
-        width: 29px !important;
-        min-width: 29px !important;
-        max-width: 29px !important;
-        height: 29px !important;
-        min-height: 29px !important;
-        max-height: 29px !important;
-      }
-    }
-
-    @media (max-height: 660px) {
-      #root div:has(> [data-clara-pressure-signals="true"]):has(> section[data-clara-trend-snapshot="true"]) {
-        grid-template-rows: minmax(174px, 1fr) 68px 38px 224px !important;
-        padding-top: 2px !important;
-      }
-      #root [data-clara-pressure-signals="true"] {
-        height: 38px !important;
-        min-height: 38px !important;
-        max-height: 38px !important;
-      }
-      #root [data-clara-pressure-signals="true"] .clara-pressure-chip {
-        flex-basis: 27px !important;
-        width: 27px !important;
-        min-width: 27px !important;
-        max-width: 27px !important;
-        height: 27px !important;
-        min-height: 27px !important;
-        max-height: 27px !important;
-        font-size: 14px !important;
-      }
     }
   `;
   document.head.appendChild(style);
