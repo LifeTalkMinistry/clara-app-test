@@ -12,8 +12,14 @@
   grid-template-rows: minmax(194px, 1fr) var(--clara-support-height) var(--clara-snapshot-height) !important;
   gap: 0 !important;
   overflow: hidden !important;
-  padding: 8px 8px 10px !important;
+  padding: 8px 0 10px !important;
   box-sizing: border-box !important;
+}
+
+#root div:has(> section[data-clara-trend-snapshot="true"]) > section:first-child,
+#root section[data-clara-support-card="true"],
+#root section[data-clara-trend-snapshot="true"] {
+  width: 100% !important;
 }
 
 #root div:has(> section[data-clara-trend-snapshot="true"]) > section:first-child {
@@ -104,19 +110,20 @@
   min-height: calc(var(--clara-snapshot-height) - 68px) !important;
   max-height: calc(var(--clara-snapshot-height) - 68px) !important;
   margin-top: 6px !important;
-  padding: 1px 28px 2px 1px !important;
-  gap: 9px !important;
+  padding: 1px 1px 2px !important;
+  gap: 8px !important;
+  scroll-padding-left: 1px !important;
 }
 
 #root section[data-clara-trend-snapshot="true"] [data-clara-trend-card="true"] {
-  flex: 0 0 clamp(110px, 29vw, 124px) !important;
-  min-width: clamp(110px, 29vw, 124px) !important;
-  max-width: clamp(110px, 29vw, 124px) !important;
+  flex: 0 0 calc((100% - 16px) / 3) !important;
+  min-width: calc((100% - 16px) / 3) !important;
+  max-width: calc((100% - 16px) / 3) !important;
   height: 100% !important;
   min-height: 0 !important;
   max-height: 100% !important;
   justify-content: flex-start !important;
-  padding: 11px 11px 10px !important;
+  padding: 11px 10px 10px !important;
 }
 
 #root section[data-clara-trend-snapshot="true"] [data-clara-trend-card="true"] svg {
@@ -156,7 +163,7 @@
     --clara-snapshot-height: 210px;
     --clara-support-height: 68px;
     grid-template-rows: minmax(160px, 1fr) var(--clara-support-height) var(--clara-snapshot-height) !important;
-    padding: 7px 8px 8px !important;
+    padding: 7px 0 8px !important;
   }
 
   #root div:has(> section[data-clara-trend-snapshot="true"]) > section:first-child > div:last-child {
@@ -198,8 +205,8 @@
   }
 
   #root section[data-clara-trend-snapshot="true"] [data-clara-trend-card="true"] {
-    flex-basis: 112px !important;
-    min-width: 112px !important;
-    max-width: 112px !important;
+    flex-basis: calc((100% - 16px) / 3) !important;
+    min-width: calc((100% - 16px) / 3) !important;
+    max-width: calc((100% - 16px) / 3) !important;
   }
 }
