@@ -43,6 +43,124 @@ const STRATEGIC_WEIGHTS = {
   "Micro-Spend Risk": 24
 };
 
+const MODAL_INSIGHTS = {
+  "Emotional Fatigue": {
+    meaning: "Fatigue may be shaping spending decisions after class, work, commute, or repeated academic pressure.",
+    watch: "Watch for small comfort buys, food or drink rewards, and purchases made because the day felt too heavy.",
+    action: "Protect recovery first: plan one low-cost comfort option before the stressful part of the day starts."
+  },
+  "Reward Frequency Risk": {
+    meaning: "The main risk is not one reward. It is repeated relief spending becoming part of the weekly routine.",
+    watch: "Watch for repeated snacks, drinks, delivery, digital purchases, or deserve-ko-to spending after pressure peaks.",
+    action: "Set a small reward limit and decide the reward before stress hits, not during stress."
+  },
+  "Daily Pressure": {
+    meaning: "Daily demands like food, fare, data, school materials, and time pressure may be building quiet spending friction.",
+    watch: "Watch for gastos that feel small alone but repeat almost every school/work day.",
+    action: "Give daily essentials their own mini cap so pressure does not leak into random spending."
+  },
+  "Reward Control": {
+    meaning: "There is still awareness and control available. This card shows the protection side of the pattern.",
+    watch: "Watch for moments when planned rewards turn into unplanned repeat purchases.",
+    action: "Keep rewards intentional: choose the amount, reason, and limit before spending."
+  },
+  "Essential-Cost Load": {
+    meaning: "School costs and daily essentials may be carrying the biggest weight in the current money pattern.",
+    watch: "Watch tuition timing, fare, meals, printing, load/data, and project expenses arriving close together.",
+    action: "Separate school money and daily essentials before planning savings or rewards."
+  },
+  "Recovery Gap": {
+    meaning: "Low recovery time can turn normal spending decisions into tired, shortcut-based decisions.",
+    watch: "Watch skipped meals, rushed transport, late-night food, and delayed tracking.",
+    action: "Add a small recovery buffer: food, rest, and transport backup before the week becomes heavy."
+  },
+  "Cash Buffer Risk": {
+    meaning: "The week may be vulnerable when there is no small buffer for sudden school or daily expenses.",
+    watch: "Watch surprise fare changes, projects, food gaps, or urgent class-related spending.",
+    action: "Create a tiny emergency fare/food buffer before flexible spending."
+  },
+  "Shared-Money Pressure": {
+    meaning: "Family support and student expenses may be competing for the same income.",
+    watch: "Watch guilt spending, last-minute family help, and school needs being delayed.",
+    action: "Set a support limit that protects both family care and your own school stability."
+  },
+  "Responsibility Load": {
+    meaning: "Carrying student responsibilities and home support can drain the same energy source.",
+    watch: "Watch decisions made from guilt, pressure, or fear of disappointing others.",
+    action: "Use an essentials-first rule before giving or committing extra money."
+  },
+  "Boundary Risk": {
+    meaning: "The risk is helping without limits until personal essentials become unstable.",
+    watch: "Watch support that pushes food, fare, school costs, or rest into shortage.",
+    action: "Create a clear weekly support boundary before requests happen."
+  },
+  "Fatigue Load": {
+    meaning: "School and work overlap may be turning time pressure into spending pressure.",
+    watch: "Watch convenience meals, rushed fare choices, comfort buys, and missed expense tracking.",
+    action: "Prepare one low-energy plan for food, commute, and tracking."
+  },
+  "Schedule-Cost Pressure": {
+    meaning: "The schedule itself may be creating costs through commute, deadlines, and limited planning time.",
+    watch: "Watch costs caused by rushing: transport shortcuts, food outside, printing, and data top-ups.",
+    action: "Build a weekly schedule-cost allowance before the week starts."
+  },
+  "Convenience Spend Risk": {
+    meaning: "Convenience spending may rise when time and energy are low.",
+    watch: "Watch purchases that solve stress quickly but repeat often.",
+    action: "Replace one convenience habit with a cheaper prepared option."
+  },
+  "Debt Stress Load": {
+    meaning: "Old money pressure may still be affecting the current week.",
+    watch: "Watch avoidance, delayed checking, and borrowing to cover daily gaps.",
+    action: "Use a no-new-debt rule and protect a small repayment rhythm."
+  },
+  "Repayment Pressure": {
+    meaning: "Repayment timing may be the strongest pressure before rewards or flexible spending.",
+    watch: "Watch spending before repayment, then borrowing again near the next deadline.",
+    action: "Place repayment first in the weekly plan, even if the amount is small."
+  },
+  "Cash-Flow Stability": {
+    meaning: "Income timing may not be matching school, commute, food, or repayment deadlines.",
+    watch: "Watch weeks where money arrives after important costs are already due.",
+    action: "Map income dates against school and daily expense dates."
+  },
+  "Independence Load": {
+    meaning: "Self-funding school and daily life can create pressure even when discipline is strong.",
+    watch: "Watch income gaps, school deadlines, and personal essentials competing at the same time.",
+    action: "Protect essentials first before trying to save aggressively."
+  },
+  "Essential Pressure": {
+    meaning: "Tuition, commute, meals, data, and materials are harder to delay safely.",
+    watch: "Watch essentials being paid late because flexible spending happened first.",
+    action: "Use an essentials-first wallet or category."
+  },
+  "Buffer Stability": {
+    meaning: "A small missed income or extra school cost can affect the whole week.",
+    watch: "Watch weeks with no backup for food, fare, or urgent school needs.",
+    action: "Build the smallest possible buffer before adding new spending goals."
+  },
+  "Burnout Watch": {
+    meaning: "Burnout may not be full crisis yet, but energy pressure is already visible.",
+    watch: "Watch spending that appears after exhaustion, deadlines, or emotional overload.",
+    action: "Add one recovery habit that does not require spending."
+  },
+  "Financial Pressure": {
+    meaning: "Limited income and repeated small expenses may be tightening the pattern.",
+    watch: "Watch small costs that repeat: food, fare, mobile data, digital, and social spending.",
+    action: "Review the top repeating micro-spend once per week."
+  },
+  "Micro-Spend Risk": {
+    meaning: "Small spending may be quietly becoming the hidden monthly pattern.",
+    watch: "Watch purchases that feel too small to track but happen often.",
+    action: "Set a weekly micro-spend ceiling."
+  },
+  "Future Potential": {
+    meaning: "This is the growth side of the pattern: effort, ambition, and discipline can still be protected.",
+    watch: "Watch pressure that makes you abandon the plan completely.",
+    action: "Keep progress small and consistent instead of strict and unrealistic."
+  }
+};
+
 function hierarchyLabelByVisibleOrder(index) {
   return ORDER_LABELS[Math.min(index, ORDER_LABELS.length - 1)] || "Low Priority";
 }
@@ -117,10 +235,39 @@ function getVisibleHierarchy(section, trendLabel) {
   return match?.card?.dataset?.claraRiskHierarchy || null;
 }
 
+function createInsightPanel(modal, trendLabel) {
+  const sourceHeading = Array.from(modal.querySelectorAll("p")).find((node) => clean(node.textContent).toLowerCase().includes("source"));
+  if (!sourceHeading) return;
+
+  const sourceBox = sourceHeading.closest("div");
+  if (!sourceBox) return;
+
+  let panel = modal.querySelector("[data-clara-modal-insight='true']");
+  if (!panel) {
+    panel = document.createElement("div");
+    panel.dataset.claraModalInsight = "true";
+    panel.style.cssText = "margin:14px 0;padding:14px 16px;border-radius:22px;border:1px solid rgba(255,255,255,.11);background:rgba(255,255,255,.045);box-shadow:inset 0 1px 0 rgba(255,255,255,.05);";
+    sourceBox.parentElement?.insertBefore(panel, sourceBox);
+  }
+
+  const insight = MODAL_INSIGHTS[trendLabel] || {
+    meaning: "This card shows one part of the current life-stage pressure pattern.",
+    watch: "Watch when this pattern starts influencing small daily money decisions.",
+    action: "Use CLARA to pause, name the pressure, and choose a smaller next step."
+  };
+
+  panel.innerHTML = `
+    <p style="margin:0 0 10px;font-size:10px;font-weight:900;letter-spacing:.16em;text-transform:uppercase;color:rgba(255,255,255,.78);">What CLARA noticed</p>
+    <p style="margin:0 0 10px;font-size:12px;line-height:1.65;color:rgba(255,255,255,.88);"><strong>Meaning:</strong> ${insight.meaning}</p>
+    <p style="margin:0 0 10px;font-size:12px;line-height:1.65;color:rgba(255,255,255,.82);"><strong>Watch for:</strong> ${insight.watch}</p>
+    <p style="margin:0;font-size:12px;line-height:1.65;color:rgba(255,255,255,.82);"><strong>CLARA move:</strong> ${insight.action}</p>
+  `;
+}
+
 function enhanceOpenedTrendModal() {
   const sourceHeading = Array.from(document.querySelectorAll("p")).find((node) => {
     const text = clean(node.textContent);
-    return text === "Source direction" || text === "SOURCE DIRECTION";
+    return text === "Source direction" || text === "SOURCE DIRECTION" || text === "Source detection";
   });
   const modal = sourceHeading?.closest(".absolute");
   if (!sourceHeading || !modal) return;
@@ -142,6 +289,8 @@ function enhanceOpenedTrendModal() {
   setText(sourceHeading, "Source detection");
   if (match) setText(valueNode, `${match.value}%`);
   if (hierarchy) setText(statusNode, hierarchy);
+  createInsightPanel(modal, trendLabel);
+
   if (sourceBody && !sourceBody.dataset.claraModalSourceCopy) {
     setText(sourceBody, "These sources inform the pressure signals behind this reading. The percentage is a strategic CLARA influence estimate, shaped by the selected Working Student pattern, not a direct published statistic.");
     sourceBody.dataset.claraModalSourceCopy = "true";
