@@ -8,22 +8,12 @@ function setText(node, value) {
   if (node.textContent !== next) node.textContent = next;
 }
 
-function riskLevel(value, label = "") {
-  const text = clean(label).toLowerCase();
-  const positiveSignal =
-    text.includes("potential") ||
-    text.includes("control") ||
-    text.includes("balance") ||
-    text.includes("stability potential") ||
-    text.includes("discipline") ||
-    text.includes("recovery potential") ||
-    text.includes("support balance");
+const RANK_LABELS = ["Low Priority", "Low", "Moderate", "High", "High Risk"];
 
-  if (value >= 80) return positiveSignal ? "High" : "High Risk";
-  if (value >= 60) return "High";
-  if (value >= 40) return "Moderate";
-  if (value >= 20) return "Low";
-  return "Low Priority";
+function hierarchyLabel(rank, total) {
+  if (total <= 1) return "High Risk";
+  const index = Math.round((rank / (total - 1)) * (RANK_LABELS.length - 1));
+  return RANK_LABELS[Math.max(0, Math.min(RANK_LABELS.length - 1, index))];
 }
 
 function findTrendSnapshotSection() {
@@ -33,14 +23,38 @@ function findTrendSnapshotSection() {
   });
 }
 
-function applyRiskScaleToCards(section) {
+function getRankMap(section) {
   const cards = Array.from(section?.querySelectorAll("button") || []);
-  cards.forEach((card) => {
-    const lines = Array.from(card.querySelectorAll("p"));
-    const label = clean(lines[0]?.textContent);
-    const value = Number(clean(lines[1]?.textContent).replace("%", ""));
-    if (!label || !Number.isFinite(value)) return;
-    setText(lines[2], riskLevel(value, label));
+  const items = cards
+    .map((card, visualIndex) => {
+      const lines = Array.from(card.querySelectorAll("p"));
+      const label = clean(lines[0]?.textContent);
+      const value = Number(clean(lines[1]?.textContent).replace("%", ""));
+      return { card, lines, label, value, visualIndex };
+    })
+    .filter((item) => item.label && Number.isFinite(item.value));
+
+  const sorted = items
+    .slice()
+    .sort((a, b) => (a.value - b.value) || (a.visualIndex - b.visualIndex));
+
+  return new Map(
+    sorted.map((item, rank) => [
+      item.label,
+      {
+        ...item,
+        rank,
+        hierarchy: hierarchyLabel(rank, sorted.length),
+      },
+    ])
+  );
+}
+
+function applyRiskScaleToCards(section) {
+  const rankMap = getRankMap(section);
+  rankMap.forEach((item) => {
+    setText(item.lines[2], item.hierarchy);
+    item.card.dataset.claraRiskHierarchy = item.hierarchy;
   });
 }
 
@@ -54,6 +68,9 @@ function enhanceOpenedTrendModal() {
   if (!sourceHeading || !modal) return;
 
   const trendLabel = clean(modal.querySelector("h4")?.textContent);
+  const section = findTrendSnapshotSection();
+  const hierarchy = getRankMap(section).get(trendLabel)?.hierarchy;
+
   const readingLabel = Array.from(modal.querySelectorAll("p")).find((node) => {
     const text = clean(node.textContent);
     return text === "Life-stage reading" || text === "LIFE-STAGE READING" || text === "Risk level reading";
@@ -61,17 +78,16 @@ function enhanceOpenedTrendModal() {
 
   const valueNode = Array.from(modal.querySelectorAll("p")).find((node) => /^\d+%$/.test(clean(node.textContent)));
   const statusNode = valueNode?.nextElementSibling;
-  const modalValue = Number(clean(valueNode?.textContent).replace("%", ""));
   const sourceBody = sourceHeading.parentElement?.querySelector("p:last-child");
 
-  setText(readingLabel, "Risk level reading");
+  setText(readingLabel, "Risk hierarchy reading");
   setText(sourceHeading, "Source detection");
-  if (Number.isFinite(modalValue)) setText(statusNode, riskLevel(modalValue, trendLabel));
+  if (hierarchy) setText(statusNode, hierarchy);
 
   if (sourceBody && !sourceBody.dataset.claraModalSourceCopy) {
     setText(
       sourceBody,
-      "These sources inform the pressure signals behind this reading. The percentage is CLARA’s pattern estimate, not a direct published statistic."
+      "These sources inform the pressure signals behind this reading. The hierarchy is based on how this card ranks against the other current life-stage cards, not a direct published statistic."
     );
     sourceBody.dataset.claraModalSourceCopy = "true";
   }
