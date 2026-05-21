@@ -75,13 +75,16 @@
   height: 52px !important;
 }
 
+/* Entire snapshot block moves upward now — not just the cards. */
 #root section[data-clara-trend-snapshot="true"] {
+  position: relative !important;
+  top: -42px !important;
   height: calc(100% + 42px) !important;
   min-height: 0 !important;
   max-height: none !important;
   flex: none !important;
-  margin: -42px 0 0 0 !important;
-  padding: 24px 12px 14px !important;
+  margin: 0 !important;
+  padding: 22px 12px 14px !important;
   display: flex !important;
   flex-direction: column !important;
   overflow: hidden !important;
@@ -137,9 +140,8 @@
   }
 
   #root section[data-clara-trend-snapshot="true"] {
+    top: -32px !important;
     height: calc(100% + 32px) !important;
-    margin-top: -32px !important;
-    padding-top: 20px !important;
   }
 }
 
