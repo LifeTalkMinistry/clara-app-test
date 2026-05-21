@@ -84,7 +84,7 @@
   max-height: none !important;
   flex: none !important;
   margin: 0 !important;
-  padding: 22px 12px 14px !important;
+  padding: 22px 12px 20px !important;
   display: flex !important;
   flex-direction: column !important;
   overflow: hidden !important;
@@ -104,7 +104,7 @@
   align-items: stretch !important;
   align-content: stretch !important;
   margin-top: 6px !important;
-  padding: 2px 28px 2px 1px !important;
+  padding: 4px 28px 18px 1px !important;
   gap: 12px !important;
   overflow-x: auto !important;
   overflow-y: hidden !important;
@@ -117,13 +117,13 @@
   min-width: clamp(112px, 30vw, 132px) !important;
   max-width: clamp(112px, 30vw, 132px) !important;
   height: auto !important;
-  min-height: 100% !important;
+  min-height: calc(100% - 10px) !important;
   max-height: none !important;
   display: flex !important;
   flex-direction: column !important;
   justify-content: space-between !important;
   align-self: stretch !important;
-  padding-bottom: 14px !important;
+  padding-bottom: 22px !important;
 }
 
 #root section[data-clara-trend-snapshot="true"] [data-clara-trend-card="true"] > * {
@@ -132,6 +132,7 @@
 
 #root section[data-clara-trend-snapshot="true"] [data-clara-trend-card="true"] svg {
   margin-top: auto !important;
+  margin-bottom: 6px !important;
   height: clamp(42px, 8svh, 64px) !important;
 }
 
