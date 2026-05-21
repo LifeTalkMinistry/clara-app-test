@@ -35,6 +35,7 @@ import "./life-stage-setup-flow-polish.css";
 import "./life-stage-question-compact-mobile.css";
 import "./me-adaptive-viewport.css";
 import "./me-hero-support-bond.css";
+import "./me-support-dock-gap-fix.css";
 
 window.CLARA_BILLING = window.CLARA_BILLING || {};
 
