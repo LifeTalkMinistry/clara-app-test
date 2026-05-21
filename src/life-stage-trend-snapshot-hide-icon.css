@@ -317,3 +317,30 @@
     font-size: 11.8px !important;
   }
 }
+
+/* Phase 6 — simple card content centering only.
+   No redesign, no new effects: just move the existing label/metric/chip/graph cluster toward the card middle. */
+#root section[data-clara-trend-snapshot="true"] [data-clara-trend-card="true"] {
+  justify-content: center !important;
+}
+
+#root section[data-clara-trend-snapshot="true"] [data-clara-trend-card="true"] p:first-child {
+  margin-top: 0 !important;
+}
+
+#root section[data-clara-trend-snapshot="true"] [data-clara-trend-card="true"] svg {
+  margin-top: 0.55rem !important;
+  margin-bottom: 0 !important;
+}
+
+@media (max-height: 820px) {
+  #root section[data-clara-trend-snapshot="true"] [data-clara-trend-card="true"] {
+    justify-content: center !important;
+  }
+}
+
+@media (max-height: 720px) {
+  #root section[data-clara-trend-snapshot="true"] [data-clara-trend-card="true"] {
+    justify-content: center !important;
+  }
+}
