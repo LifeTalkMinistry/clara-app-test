@@ -84,6 +84,7 @@ function ensureStyles() {
       grid-template-rows: minmax(218px, 1fr) 92px 44px 236px !important;
       gap: 0 !important;
       align-content: stretch !important;
+      padding-top: 3px !important;
     }
 
     #root [data-clara-pressure-signals="true"] {
@@ -98,14 +99,8 @@ function ensureStyles() {
       padding: 4px 8px !important;
       border-radius: 999px !important;
       border: 1px solid rgba(255,255,255,.075) !important;
-      background:
-        radial-gradient(circle at 12% 0%, rgba(45,212,191,.075), transparent 36%),
-        radial-gradient(circle at 96% 45%, rgba(167,139,250,.120), transparent 42%),
-        rgba(7,18,38,.34) !important;
-      box-shadow:
-        inset 0 1px 0 rgba(255,255,255,.055),
-        0 10px 24px rgba(0,0,0,.14),
-        0 0 18px rgba(45,212,191,.018) !important;
+      background: radial-gradient(circle at 12% 0%, rgba(45,212,191,.075), transparent 36%), radial-gradient(circle at 96% 45%, rgba(167,139,250,.120), transparent 42%), rgba(7,18,38,.34) !important;
+      box-shadow: inset 0 1px 0 rgba(255,255,255,.055), 0 10px 24px rgba(0,0,0,.14), 0 0 18px rgba(45,212,191,.018) !important;
       backdrop-filter: blur(22px) saturate(1.12) !important;
       -webkit-backdrop-filter: blur(22px) saturate(1.12) !important;
       overflow: hidden !important;
@@ -197,10 +192,7 @@ function ensureStyles() {
       overflow: hidden;
       border-radius: 28px;
       border: 1px solid rgba(255,255,255,.10);
-      background:
-        radial-gradient(circle at 8% 0%, rgba(45,212,191,.13), transparent 34%),
-        radial-gradient(circle at 96% 12%, rgba(167,139,250,.18), transparent 38%),
-        rgba(4,9,24,.94);
+      background: radial-gradient(circle at 8% 0%, rgba(45,212,191,.13), transparent 34%), radial-gradient(circle at 96% 12%, rgba(167,139,250,.18), transparent 38%), rgba(4,9,24,.94);
       box-shadow: 0 26px 80px rgba(0,0,0,.52), inset 0 1px 0 rgba(255,255,255,.08);
       backdrop-filter: blur(30px) saturate(1.18);
       -webkit-backdrop-filter: blur(30px) saturate(1.18);
@@ -271,6 +263,7 @@ function ensureStyles() {
     @media (max-height: 720px) {
       #root div:has(> [data-clara-pressure-signals="true"]):has(> section[data-clara-trend-snapshot="true"]) {
         grid-template-rows: minmax(198px, 1fr) 84px 40px 224px !important;
+        padding-top: 3px !important;
       }
       #root [data-clara-pressure-signals="true"] {
         height: 40px !important;
@@ -293,6 +286,7 @@ function ensureStyles() {
     @media (max-height: 660px) {
       #root div:has(> [data-clara-pressure-signals="true"]):has(> section[data-clara-trend-snapshot="true"]) {
         grid-template-rows: minmax(174px, 1fr) 68px 38px 224px !important;
+        padding-top: 2px !important;
       }
       #root [data-clara-pressure-signals="true"] {
         height: 38px !important;
