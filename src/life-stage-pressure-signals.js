@@ -56,7 +56,7 @@ function findSupportCard(hero) {
   if (!hero) return null;
   let current = hero.nextElementSibling;
   while (current) {
-    if (current.matches?.("section[data-clara-pressure-signals='true']")) {
+    if (current.matches?.("[data-clara-pressure-signals='true']")) {
       current = current.nextElementSibling;
       continue;
     }
@@ -80,15 +80,16 @@ function ensureStyles() {
   const style = document.createElement("style");
   style.id = "clara-pressure-signals-bridge-styles";
   style.textContent = `
-    #root div:has(> section[data-clara-pressure-signals="true"]):has(> section[data-clara-trend-snapshot="true"]) {
+    #root div:has(> [data-clara-pressure-signals="true"]):has(> section[data-clara-trend-snapshot="true"]) {
       grid-template-rows: minmax(218px, 1fr) 92px 44px 236px !important;
       gap: 0 !important;
       align-content: stretch !important;
     }
 
-    #root section[data-clara-pressure-signals="true"] {
+    #root [data-clara-pressure-signals="true"] {
       position: relative !important;
       z-index: 7 !important;
+      display: block !important;
       height: 44px !important;
       min-height: 44px !important;
       max-height: 44px !important;
@@ -113,7 +114,7 @@ function ensureStyles() {
       max-width: calc(100% - 18px) !important;
     }
 
-    #root section[data-clara-pressure-signals="true"]::before {
+    #root [data-clara-pressure-signals="true"]::before {
       content: "";
       position: absolute;
       inset: 0;
@@ -122,7 +123,7 @@ function ensureStyles() {
       opacity: .72;
     }
 
-    #root section[data-clara-pressure-signals="true"] .clara-pressure-track {
+    #root [data-clara-pressure-signals="true"] .clara-pressure-track {
       position: relative !important;
       z-index: 2 !important;
       display: flex !important;
@@ -136,9 +137,9 @@ function ensureStyles() {
       scrollbar-width: none !important;
     }
 
-    #root section[data-clara-pressure-signals="true"] .clara-pressure-track::-webkit-scrollbar { display: none !important; }
+    #root [data-clara-pressure-signals="true"] .clara-pressure-track::-webkit-scrollbar { display: none !important; }
 
-    #root section[data-clara-pressure-signals="true"] .clara-pressure-chip {
+    #root [data-clara-pressure-signals="true"] .clara-pressure-chip {
       flex: 0 0 32px !important;
       display: grid !important;
       place-items: center !important;
@@ -163,13 +164,13 @@ function ensureStyles() {
       transition: transform 160ms ease, border-color 160ms ease, background 160ms ease !important;
     }
 
-    #root section[data-clara-pressure-signals="true"] .clara-pressure-chip:active {
+    #root [data-clara-pressure-signals="true"] .clara-pressure-chip:active {
       transform: scale(.92) !important;
       border-color: rgba(165,243,252,.28) !important;
       background: rgba(125,211,252,.075) !important;
     }
 
-    #root section[data-clara-pressure-signals="true"] .clara-pressure-chip span {
+    #root [data-clara-pressure-signals="true"] .clara-pressure-chip span {
       display: block !important;
       width: auto !important;
       height: auto !important;
@@ -182,8 +183,8 @@ function ensureStyles() {
       box-shadow: none !important;
     }
 
-    #root section[data-clara-pressure-signals="true"] .clara-pressure-chip strong,
-    #root section[data-clara-pressure-signals="true"] .clara-pressure-label {
+    #root [data-clara-pressure-signals="true"] .clara-pressure-chip strong,
+    #root [data-clara-pressure-signals="true"] .clara-pressure-label {
       display: none !important;
     }
 
@@ -268,17 +269,17 @@ function ensureStyles() {
     }
 
     @media (max-height: 720px) {
-      #root div:has(> section[data-clara-pressure-signals="true"]):has(> section[data-clara-trend-snapshot="true"]) {
+      #root div:has(> [data-clara-pressure-signals="true"]):has(> section[data-clara-trend-snapshot="true"]) {
         grid-template-rows: minmax(198px, 1fr) 84px 40px 224px !important;
       }
-      #root section[data-clara-pressure-signals="true"] {
+      #root [data-clara-pressure-signals="true"] {
         height: 40px !important;
         min-height: 40px !important;
         max-height: 40px !important;
         margin-top: 5px !important;
         padding: 4px 7px !important;
       }
-      #root section[data-clara-pressure-signals="true"] .clara-pressure-chip {
+      #root [data-clara-pressure-signals="true"] .clara-pressure-chip {
         flex-basis: 29px !important;
         width: 29px !important;
         min-width: 29px !important;
@@ -290,15 +291,15 @@ function ensureStyles() {
     }
 
     @media (max-height: 660px) {
-      #root div:has(> section[data-clara-pressure-signals="true"]):has(> section[data-clara-trend-snapshot="true"]) {
+      #root div:has(> [data-clara-pressure-signals="true"]):has(> section[data-clara-trend-snapshot="true"]) {
         grid-template-rows: minmax(174px, 1fr) 68px 38px 224px !important;
       }
-      #root section[data-clara-pressure-signals="true"] {
+      #root [data-clara-pressure-signals="true"] {
         height: 38px !important;
         min-height: 38px !important;
         max-height: 38px !important;
       }
-      #root section[data-clara-pressure-signals="true"] .clara-pressure-chip {
+      #root [data-clara-pressure-signals="true"] .clara-pressure-chip {
         flex-basis: 27px !important;
         width: 27px !important;
         min-width: 27px !important;
@@ -359,6 +360,19 @@ function openTip(container, signal) {
   container.appendChild(panel);
 }
 
+function normalizeDockElement(container) {
+  const existing = Array.from(container.children).find((node) => node.matches?.("[data-clara-pressure-signals='true']"));
+  if (!existing || existing.tagName !== "SECTION") return existing;
+
+  const replacement = document.createElement("div");
+  replacement.dataset.claraPressureSignals = "true";
+  replacement.dataset.pressureSignature = existing.dataset.pressureSignature || "";
+  replacement.dataset.pressureReady = existing.dataset.pressureReady || "";
+  replacement.innerHTML = existing.innerHTML;
+  existing.replaceWith(replacement);
+  return replacement;
+}
+
 function enhanceSignals() {
   ensureStyles();
 
@@ -368,20 +382,20 @@ function enhanceSignals() {
   const snapshot = findSnapshot(container);
   if (!support || !container || !snapshot) return;
 
-  let section = Array.from(container.children).find((node) => node.matches?.("section[data-clara-pressure-signals='true']"));
-  if (!section) {
-    section = document.createElement("section");
-    section.dataset.claraPressureSignals = "true";
-    support.insertAdjacentElement("afterend", section);
-  } else if (section.previousElementSibling !== support) {
-    support.insertAdjacentElement("afterend", section);
+  let dock = normalizeDockElement(container);
+  if (!dock) {
+    dock = document.createElement("div");
+    dock.dataset.claraPressureSignals = "true";
+    support.insertAdjacentElement("afterend", dock);
+  } else if (dock.previousElementSibling !== support) {
+    support.insertAdjacentElement("afterend", dock);
   }
 
-  renderSignals(section);
+  renderSignals(dock);
 
-  if (section.dataset.pressureReady === "true") return;
-  section.dataset.pressureReady = "true";
-  section.addEventListener("click", (event) => {
+  if (dock.dataset.pressureReady === "true") return;
+  dock.dataset.pressureReady = "true";
+  dock.addEventListener("click", (event) => {
     const button = event.target?.closest?.("[data-clara-pressure-signal]");
     if (!button) return;
     openTip(container, findSignal(button.dataset.claraPressureSignal));
