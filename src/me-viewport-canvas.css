@@ -15,6 +15,22 @@
   padding-right: 0 !important;
 }
 
+/* Refine hero alignment under nav */
+.theme-page-shell:has(section[data-clara-trend-snapshot="true"]) section[data-clara-life-stage-hero="true"] {
+  margin-top: -6px !important;
+  border-top-left-radius: 28px !important;
+  border-top-right-radius: 28px !important;
+}
+
+/* Synchronize viewport rails */
+.theme-page-shell:has(section[data-clara-trend-snapshot="true"]) section[data-clara-life-stage-hero="true"],
+.theme-page-shell:has(section[data-clara-trend-snapshot="true"]) section[data-clara-support-card="true"],
+.theme-page-shell:has(section[data-clara-trend-snapshot="true"]) section[data-clara-trend-snapshot="true"] {
+  width: calc(100% - 16px) !important;
+  margin-left: auto !important;
+  margin-right: auto !important;
+}
+
 .theme-page-shell:has(section[data-clara-trend-snapshot="true"]) > div[class*="min-h-0"] div[class*="rounded-[30px]"][class*="bg-[#020817]"] {
   border-radius: 0 !important;
   background: transparent !important;
@@ -28,30 +44,28 @@
 }
 
 .theme-page-shell:has(section[data-clara-trend-snapshot="true"]) > div[class*="min-h-0"] div[class*="flex h-full min-h-0 flex-col"]:has(> section[data-clara-trend-snapshot="true"]) {
-  --clara-support-overlap: 22px;
-  --clara-middle-dock-gap: 0.34rem;
-  --clara-pressure-dock-height: 42px;
-  --clara-bottom-safety: 8px;
+  --clara-support-overlap: 20px;
+  --clara-middle-dock-gap: 0.28rem;
+  --clara-pressure-dock-height: 40px;
+  --clara-bottom-safety: 6px;
   --clara-hero-top-separation: 0px;
-  grid-template-rows: clamp(218px, 34svh, 258px) minmax(88px, 0.78fr) 52px 204px 8px !important;
+  grid-template-rows: clamp(212px, 33svh, 248px) minmax(84px, 0.74fr) 48px 198px 6px !important;
 }
 
 .theme-page-shell:has(section[data-clara-trend-snapshot="true"]) > div[class*="min-h-0"] div[class*="flex h-full min-h-0 flex-col"]:has(> section[data-clara-trend-snapshot="true"]) > section[data-clara-support-card="true"] {
-  min-height: 88px !important;
-  padding-top: 12px !important;
-  padding-bottom: 12px !important;
+  min-height: 84px !important;
+  padding-top: 10px !important;
+  padding-bottom: 10px !important;
 }
 
 .theme-page-shell:has(section[data-clara-trend-snapshot="true"]) > div[class*="min-h-0"] div[class*="flex h-full min-h-0 flex-col"]:has(> section[data-clara-trend-snapshot="true"]) > [data-clara-pressure-signals="true"] {
-  height: 42px !important;
-  min-height: 42px !important;
-  max-height: 42px !important;
-  padding-top: 5px !important;
-  padding-bottom: 5px !important;
+  height: 40px !important;
+  min-height: 40px !important;
+  max-height: 40px !important;
 }
 
 .theme-page-shell:has(section[data-clara-trend-snapshot="true"]) > div[class*="min-h-0"] div[class*="flex h-full min-h-0 flex-col"]:has(> section[data-clara-trend-snapshot="true"]) > section[data-clara-trend-snapshot="true"] {
-  height: 204px !important;
-  min-height: 204px !important;
-  max-height: 204px !important;
+  height: 198px !important;
+  min-height: 198px !important;
+  max-height: 198px !important;
 }
