@@ -135,14 +135,70 @@ function applyOpeningRefine() {
   }
 }
 
+function stripInternalSnapshotText(value) {
+  return clean(value)
+    .split(/(?<=[.!?])\s+/)
+    .filter((sentence) => !/(also present|grouped it under|snapshot clean|non-repetitive)/i.test(sentence))
+    .join(" ")
+    .trim();
+}
+
+function cleanSnapshotDetailCards() {
+  const modal = Array.from(document.querySelectorAll(".absolute")).find((node) => {
+    const text = clean(node.textContent);
+    return text.includes("Behavioral distribution share") || text.includes("100% Pressure Split") || text.includes("DATA STATUS");
+  });
+  if (!modal) return;
+
+  const title = modal.querySelector("h4");
+  const subtitle = title?.nextElementSibling;
+  if (subtitle?.tagName === "P") {
+    subtitle.textContent = "";
+    subtitle.hidden = true;
+    subtitle.style.setProperty("display", "none", "important");
+  }
+
+  Array.from(modal.querySelectorAll("p")).forEach((node) => {
+    const text = clean(node.textContent);
+    if (!text) return;
+
+    if (/^next move$/i.test(text)) {
+      const row = node.closest("div");
+      if (row) {
+        row.hidden = true;
+        row.style.setProperty("display", "none", "important");
+      }
+      return;
+    }
+
+    const cleaned = stripInternalSnapshotText(text);
+    if (cleaned !== text) {
+      if (cleaned) node.textContent = cleaned;
+      else {
+        const row = node.closest("div");
+        if (row) {
+          row.hidden = true;
+          row.style.setProperty("display", "none", "important");
+        }
+      }
+    }
+  });
+}
+
+function applyAllRefinements() {
+  applyOpeningRefine();
+  cleanSnapshotDetailCards();
+}
+
 function installOpeningPageRefine() {
   if (typeof window === "undefined" || typeof document === "undefined") return;
   if (window.__CLARA_OPENING_PAGE_REFINE__) return;
   window.__CLARA_OPENING_PAGE_REFINE__ = true;
 
-  const observer = new MutationObserver(applyOpeningRefine);
+  const observer = new MutationObserver(applyAllRefinements);
   observer.observe(document.documentElement, { childList: true, subtree: true, characterData: true });
-  window.requestAnimationFrame(applyOpeningRefine);
+  window.requestAnimationFrame(applyAllRefinements);
+  document.addEventListener("click", () => window.setTimeout(applyAllRefinements, 80), true);
 }
 
 try {
