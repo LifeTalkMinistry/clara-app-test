@@ -3,43 +3,75 @@ const DIAGNOSIS_ID = "clara-life-stage-diagnosis-reveal";
 
 const STAGE_COPY = {
   "Working Student": {
-    pressure: "School, money, time, and emotional energy are overlapping in the same week.",
-    rhythmTitle: "Your rhythm is stretched.",
+    openingTitle: "You’re carrying a lot at once.",
+    openingBody: "I can see why money may feel tied to school, work, rest, and pressure right now.",
+    pressureTitle: "It’s not just spending.",
+    pressure: "It looks like school, money, time, and emotional energy are all sharing the same week.",
+    rhythmTitle: "Your week feels stretched.",
+    rhythmBody: "Money may be moving around class days, work days, tired days, and the days you still need to feel okay.",
     landing: "You do not need to fix everything at once. Start by protecting the part of your week that keeps everything else steady.",
   },
   "Young Professional": {
-    pressure: "Independence, salary rhythm, lifestyle pressure, and future plans are forming together.",
-    rhythmTitle: "Your rhythm needs protection.",
+    openingTitle: "You’re trying to stand on your own.",
+    openingBody: "I can see independence, pressure, and future-building all showing up in your answers.",
+    pressureTitle: "It’s not just adulting.",
+    pressure: "Independence, salary rhythm, lifestyle pressure, and future plans are all asking for attention.",
+    rhythmTitle: "Your salary needs breathing room.",
+    rhythmBody: "Money may feel stable on paper, but small choices can quietly carry the weight of independence.",
     landing: "You do not need to perfect adulthood overnight. Start by protecting the rhythm that keeps your independence steady.",
   },
   "Living with Partner": {
-    pressure: "Money decisions are now connected to fairness, routines, emotion, and trust.",
-    rhythmTitle: "Your shared rhythm needs protection.",
+    openingTitle: "You’re not deciding alone anymore.",
+    openingBody: "I can see how money may now carry emotion, fairness, timing, and trust.",
+    pressureTitle: "It’s not just bills.",
+    pressure: "Money decisions are now connected to fairness, routines, emotion, and how safe both people feel.",
+    rhythmTitle: "Your shared rhythm needs care.",
+    rhythmBody: "A small money issue can feel bigger when it touches peace, trust, or expectations at home.",
     landing: "Shared money becomes lighter when the rules are clear. Start with the part that protects peace, fairness, and trust.",
   },
   "Family Household": {
+    openingTitle: "You’re holding more than your own needs.",
+    openingBody: "I can see support, responsibility, and personal stability all pulling on the same budget.",
+    pressureTitle: "It’s not just household costs.",
     pressure: "Home needs, support pressure, boundaries, and personal stability are overlapping.",
-    rhythmTitle: "Your household rhythm needs protection.",
+    rhythmTitle: "Your support needs limits too.",
+    rhythmBody: "Helping can feel loving, but without boundaries it can quietly drain the part of you that needs to stay steady.",
     landing: "You can care for people without carrying everything alone. Start by protecting the boundary that keeps your support sustainable.",
   },
   "Single Parent": {
+    openingTitle: "You’re protecting more than money.",
+    openingBody: "I can see safety, care, time, and emotional strength behind your answers.",
+    pressureTitle: "It’s not just expenses.",
     pressure: "Care, essentials, time, and emergency pressure are all competing for safety.",
-    rhythmTitle: "Your safety rhythm needs protection.",
+    rhythmTitle: "Your safety rhythm needs care.",
+    rhythmBody: "One unexpected cost can feel heavier when your week is already built around protecting someone else.",
     landing: "You do not need to solve every pressure today. Start by protecting the essentials that keep you and your child steady.",
   },
   "Full-Time Earner": {
+    openingTitle: "You’re steady, but still stretched.",
+    openingBody: "I can see routine, responsibility, tiredness, and reward pressure moving together.",
+    pressureTitle: "It’s not just payday.",
     pressure: "Salary rhythm, fatigue, responsibilities, and reward spending can repeat quietly.",
-    rhythmTitle: "Your salary rhythm needs protection.",
+    rhythmTitle: "Your salary needs direction.",
+    rhythmBody: "Even stable income can feel smaller when exhaustion and repeated small choices keep showing up.",
     landing: "Stable income becomes powerful when it has direction. Start by protecting the rhythm that repeats every payday.",
   },
   "Freelance Season": {
+    openingTitle: "You’re building stability without a fixed rhythm.",
+    openingBody: "I can see freedom, uncertainty, effort, and dry-week pressure in the same season.",
+    pressureTitle: "It’s not just irregular income.",
     pressure: "Income timing, client flow, rest, and dry-week protection are all connected.",
-    rhythmTitle: "Your flexible rhythm needs protection.",
+    rhythmTitle: "Your flexible rhythm needs safety.",
+    rhythmBody: "Freedom feels better when your slow days, late payments, and quiet weeks do not threaten your basics.",
     landing: "Freedom feels better when the slow weeks are protected. Start by building the buffer that keeps your work rhythm safe.",
   },
   "Business Builder": {
+    openingTitle: "You’re trying to grow without losing yourself.",
+    openingBody: "I can see ambition, cash pressure, reinvestment, and personal safety all moving together.",
+    pressureTitle: "It’s not just business growth.",
     pressure: "Growth, cash flow, decisions, and personal stability are moving at the same time.",
-    rhythmTitle: "Your builder rhythm needs protection.",
+    rhythmTitle: "Your builder rhythm needs separation.",
+    rhythmBody: "Growth can feel exciting, but it gets heavy when business money and personal safety start blending together.",
     landing: "Building something takes pressure. Start by protecting the system that keeps growth, cash flow, and your personal life from mixing too much.",
   },
 };
@@ -56,12 +88,12 @@ const ALIASES = {
 };
 
 const REACTION_LABELS = {
-  opening: "Oh… I see. Show me more.",
-  chips: "Hmm… that makes sense.",
-  rhythm: "Okay… why does this matter?",
-  trigger: "So that’s the pattern.",
-  meter: "Okay, let’s protect it.",
-  final: "Take me to my Me page",
+  opening: "Yeah… show me what you noticed.",
+  chips: "That actually feels true.",
+  rhythm: "Okay… keep going.",
+  trigger: "Hmm… I needed to hear that.",
+  meter: "Let’s protect that first.",
+  final: "Bring me back to Me",
 };
 
 const clean = (value) => String(value || "").replace(/\s+/g, " ").trim();
@@ -93,11 +125,16 @@ function stageKey(stage) {
 
 function titleFromResponse(coping) {
   const value = clean(coping).toLowerCase();
-  if (value.includes("reward") || value.includes("comfort") || value.includes("convenience") || value.includes("small")) return "This may be how you recover.";
-  if (value.includes("avoid")) return "Avoiding the numbers may be the signal.";
-  if (value.includes("borrow") || value.includes("delay") || value.includes("debt")) return "Pressure may be carrying over.";
-  if (value.includes("cut")) return "Over-sacrifice may need protection.";
-  return "Your response pattern matters.";
+  if (value.includes("reward") || value.includes("comfort") || value.includes("convenience") || value.includes("small")) return "Maybe this is your breathing room.";
+  if (value.includes("avoid")) return "Maybe the numbers feel hard to face.";
+  if (value.includes("borrow") || value.includes("delay") || value.includes("debt")) return "Some pressure may be carrying over.";
+  if (value.includes("cut")) return "You may be sacrificing too much.";
+  return "Your response makes sense.";
+}
+
+function triggerBody(coping) {
+  const value = clean(coping) || "the way you respond when things feel heavy";
+  return `When life feels full, ${lower(value)} may be your way of trying to stay okay.`;
 }
 
 function buildSlides(profile) {
@@ -114,45 +151,45 @@ function buildSlides(profile) {
     {
       kind: "opening",
       eyebrow: "CLARA Life Snapshot",
-      title: "CLARA read your situation.",
-      body: "Not a score. Not a judgment. Just the first pattern CLARA noticed from your answers.",
-      supporting: stage,
+      title: copy.openingTitle,
+      body: copy.openingBody,
+      supporting: "I’m not judging it. I’m trying to understand it with you.",
     },
     {
       kind: "chips",
-      eyebrow: "Pressure mix",
-      title: "It is not just about money.",
+      eyebrow: "What’s underneath",
+      title: copy.pressureTitle,
       body: copy.pressure,
       chips: [setup, rhythm, workload, pressure].filter(Boolean).slice(0, 4),
     },
     {
       kind: "rhythm",
-      eyebrow: "Money rhythm",
+      eyebrow: "Your rhythm",
       title: copy.rhythmTitle,
-      body: `Your money rhythm is ${lower(rhythm)}.`,
-      supporting: "The goal is not a perfect budget. The goal is steady control.",
+      body: copy.rhythmBody,
+      supporting: "So the plan has to feel realistic, not strict.",
     },
     {
       kind: "trigger",
-      eyebrow: "Hidden trigger",
+      eyebrow: "The softer truth",
       title: titleFromResponse(coping),
-      body: `Your load is ${lower(workload)}. Your response pattern is ${lower(coping)}.`,
-      supporting: "That means spending may be connected to pressure, not weakness.",
+      body: triggerBody(coping),
+      supporting: "That is not weakness. It is a signal worth listening to.",
     },
     {
       kind: "meter",
-      eyebrow: "Protection priority",
-      title: "Protect this first.",
-      body: `The first area to protect is ${lower(pressure)}.`,
-      supporting: `Next direction: ${lower(goal)}.`,
+      eyebrow: "First protection",
+      title: "Let’s protect the part that breaks first.",
+      body: `Right now, ${lower(pressure)} needs the most care.`,
+      supporting: `Protecting this moves you closer to ${lower(goal)}.`,
       meterLabel: pressure,
     },
     {
       kind: "final",
-      eyebrow: "Next best move",
-      title: "Start with one protected decision.",
+      eyebrow: "Next small step",
+      title: "Start small. Stay steady.",
       body: copy.landing,
-      supporting: "Small protection first. Bigger control later.",
+      supporting: "One protected decision is enough to begin.",
     },
   ];
 }
