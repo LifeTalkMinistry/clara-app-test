@@ -582,6 +582,96 @@ function getLastAnsweredKey(answers = {}) {
   return [...WORKING_STUDENT_QUESTION_ORDER].reverse().find((key) => cleanWorkingStudentValue(answers[key])) || "setup";
 }
 
+function getProgressKeys(rawAnswers = {}, currentKey = "setup") {
+  const currentIndex = Math.max(0, WORKING_STUDENT_QUESTION_ORDER.indexOf(currentKey));
+  return WORKING_STUDENT_QUESTION_ORDER.slice(0, currentIndex + 1).filter((key) => cleanWorkingStudentValue(rawAnswers[key]));
+}
+
+function buildProgressiveSignals(rawAnswers = {}, selectedAnswers = {}, currentKey = "setup") {
+  const progressiveSignals = {};
+  const memory = [];
+  getProgressKeys(rawAnswers, currentKey).forEach((key) => {
+    const value = rawAnswers[key] || selectedAnswers[key];
+    const meaningForAnswer = getOptionMeaning(value, key);
+    addSignals(progressiveSignals, meaningForAnswer.signals);
+    addSignals(progressiveSignals, inferredSignals(key, value));
+    memory.push({
+      key,
+      value: canonicalizeOption(value),
+      label: getWorkingStudentDisplayLabel(value),
+      title: meaningForAnswer.title,
+      body: meaningForAnswer.meaning,
+    });
+  });
+  return { progressiveSignals, memory };
+}
+
+function topSignalRows(signalMap = {}, limit = 3) {
+  return Object.entries(signalMap)
+    .map(([key, value]) => ({ key, value: Math.max(0, Number(value) || 0), ...(WORKING_STUDENT_SIGNAL_DEFINITIONS[key] || {}) }))
+    .filter((item) => item.value > 0 && item.label)
+    .sort((a, b) => b.value - a.value || a.label.localeCompare(b.label))
+    .slice(0, limit);
+}
+
+function joinLabels(items = []) {
+  const labels = items.map((item) => item.label).filter(Boolean);
+  if (labels.length <= 1) return labels[0] || "your current situation";
+  if (labels.length === 2) return `${labels[0]} and ${labels[1]}`;
+  return `${labels.slice(0, -1).join(", ")}, and ${labels[labels.length - 1]}`;
+}
+
+function buildBehavioralMemory(rawAnswers = {}, selectedAnswers = {}, currentKey = "setup", progressiveSignals = {}) {
+  const progressKeys = getProgressKeys(rawAnswers, currentKey);
+  const answered = progressKeys.map((key) => ({
+    key,
+    value: canonicalizeOption(rawAnswers[key] || selectedAnswers[key]),
+    label: getWorkingStudentDisplayLabel(rawAnswers[key] || selectedAnswers[key]),
+  }));
+  const dominantSignals = topSignalRows(progressiveSignals, 4).map((item) => ({ key: item.key, label: item.label, value: item.value }));
+  return {
+    step: currentKey,
+    depth: answered.length,
+    answered,
+    dominantSignals,
+    stabilityState: dominantSignals.find((item) => ["Financial Instability", "Routine Instability", "Budget Discipline"].includes(item.label))?.label || "Still forming",
+    emotionalStrain: dominantSignals.find((item) => ["Emotional Fatigue", "Recovery Weakness", "Mental Overload", "Burnout Risk"].includes(item.label))?.label || "Still forming",
+    protectionPriority: dominantSignals.find((item) => ["Tuition Pressure", "Survival Pressure", "Family Burden", "Borrowing Risk", "Pressure Carryover"].includes(item.label))?.label || "Still forming",
+  };
+}
+
+function buildContinuityContext(rawAnswers = {}, selectedAnswers = {}, currentKey = "setup", currentMeaning, behavioralMemory, progressiveSignals = {}) {
+  const progressKeys = getProgressKeys(rawAnswers, currentKey);
+  const currentLabel = getWorkingStudentDisplayLabel(rawAnswers[currentKey] || selectedAnswers[currentKey]);
+  const setupLabel = getWorkingStudentDisplayLabel(rawAnswers.setup || selectedAnswers.setup);
+  const rhythmLabel = getWorkingStudentDisplayLabel(rawAnswers.rhythm || selectedAnswers.rhythm);
+  const workloadLabel = getWorkingStudentDisplayLabel(rawAnswers.workload || selectedAnswers.workload);
+  const pressureLabel = getWorkingStudentDisplayLabel(rawAnswers.pressure || selectedAnswers.pressure);
+  const topSignals = topSignalRows(progressiveSignals, 3);
+  const signalText = joinLabels(topSignals);
+
+  if (progressKeys.length <= 1 || currentKey === "setup") {
+    return {
+      title: currentMeaning.title,
+      body: currentMeaning.meaning,
+    };
+  }
+
+  const templates = {
+    rhythm: `Because your starting setup already points to ${setupLabel}, this money rhythm adds a clearer financial layer. ${currentMeaning.meaning} CLARA should now read this as part of ${signalText.toLowerCase()}, not as a separate answer.`,
+    workload: `With ${setupLabel} and ${rhythmLabel} already in the picture, this workload answer shows how much energy the situation may be using. ${currentMeaning.meaning} The money pattern now connects to time, routine, and recovery, not just income.`,
+    pressure: `Because your setup, money rhythm, and weekly load are already connected, this pressure answer shows what is becoming hardest to protect. ${currentMeaning.meaning} CLARA should watch ${signalText.toLowerCase()} as the current real-life pressure pattern.`,
+    coping: `Given the pressure around ${pressureLabel}, this response shows how you may try to survive heavier days. ${currentMeaning.meaning} The important part is that this behavior is reacting to your situation, not standing alone.`,
+    goal: `After seeing ${setupLabel}, ${rhythmLabel}, ${workloadLabel}, and ${pressureLabel}, this protection goal shows what your system needs to guard first. ${currentMeaning.meaning} Final guidance should protect ${signalText.toLowerCase()} before asking for perfect discipline.`,
+  };
+
+  return {
+    title: `${currentMeaning.title} in context`,
+    body: templates[currentKey] || `${currentMeaning.meaning} CLARA is connecting this answer with the earlier pattern so the interpretation keeps building instead of restarting.`,
+    memory: behavioralMemory,
+  };
+}
+
 function normalizeDistribution(rows) {
   const safeRows = rows.filter((row) => row.raw > 0);
   const total = safeRows.reduce((sum, row) => sum + row.raw, 0) || 1;
@@ -638,10 +728,11 @@ function buildEvolvedSummary(answers, distribution) {
   return { headline, body, setup, goal };
 }
 
-function buildAiPayload(answers, signals, distribution, evolvedSummary) {
+function buildAiPayload(answers, signals, distribution, evolvedSummary, behavioralMemory) {
   return {
     stage: WORKING_STUDENT_STAGE_KEY,
     answers,
+    behavioralMemory,
     dominantSignals: distribution.map((item) => ({ key: item.key, label: item.label, value: item.value })),
     summary: evolvedSummary.body,
     recommendedCoachingDirection: distribution[0]?.action || "Start with one small protection rule for the current week.",
@@ -690,7 +781,7 @@ export function getWorkingStudentDisplayLabel(value) {
 export function getWorkingStudentBehaviorProfile(rawAnswers = {}, options = {}) {
   const selectedAnswers = completeWorkingStudentDraft({ ...rawAnswers, stage: WORKING_STUDENT_STAGE_KEY });
   const currentKey = options.currentQuestionKey || getLastAnsweredKey(rawAnswers);
-  const currentValue = selectedAnswers[currentKey];
+  const currentValue = rawAnswers[currentKey] || selectedAnswers[currentKey];
   const currentMeaning = getOptionMeaning(currentValue, currentKey);
   const signals = {};
 
@@ -705,20 +796,22 @@ export function getWorkingStudentBehaviorProfile(rawAnswers = {}, options = {}) 
     addSignals(signals, { budgetDiscipline: 34, routineInstability: 26, financialInstability: 22, recoveryWeakness: 18 });
   }
 
+  const { progressiveSignals, memory } = buildProgressiveSignals(rawAnswers, selectedAnswers, currentKey);
+  const behavioralMemory = buildBehavioralMemory(rawAnswers, selectedAnswers, currentKey, progressiveSignals);
+  const currentContext = buildContinuityContext(rawAnswers, selectedAnswers, currentKey, currentMeaning, behavioralMemory, progressiveSignals);
   const snapshotDistribution = buildSnapshotDistribution(signals);
   const evolvedSummary = buildEvolvedSummary(selectedAnswers, snapshotDistribution);
 
   return {
     stage: WORKING_STUDENT_STAGE_KEY,
     selectedAnswers,
-    currentContext: {
-      title: currentMeaning.title,
-      body: currentMeaning.meaning,
-    },
+    currentContext,
     evolvedSummary,
+    behavioralMemory: { ...behavioralMemory, memory },
     signals,
+    progressiveSignals,
     snapshotDistribution,
-    aiPayload: buildAiPayload(selectedAnswers, signals, snapshotDistribution, evolvedSummary),
+    aiPayload: buildAiPayload(selectedAnswers, signals, snapshotDistribution, evolvedSummary, behavioralMemory),
   };
 }
 
