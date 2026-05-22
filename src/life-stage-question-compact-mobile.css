@@ -122,3 +122,78 @@
     font-size: 8.5px !important;
   }
 }
+
+/* Life Snapshot copy rule: statistic first, interpretation second, direction last. */
+#clara-life-stage-diagnosis-reveal .story-card h1,
+#clara-life-stage-diagnosis-reveal .story-card .story-body,
+#clara-life-stage-diagnosis-reveal .story-card .supporting,
+#clara-life-stage-diagnosis-reveal .next-button {
+  font-size: 0 !important;
+}
+
+#clara-life-stage-diagnosis-reveal .story-card h1::after,
+#clara-life-stage-diagnosis-reveal .story-card .story-body::after,
+#clara-life-stage-diagnosis-reveal .story-card .supporting::after,
+#clara-life-stage-diagnosis-reveal .next-button::after {
+  display: block !important;
+}
+
+#clara-life-stage-diagnosis-reveal .story-card h1::after {
+  font-size: clamp(29px, 8.9vw, 39px) !important;
+  line-height: 1.045 !important;
+  letter-spacing: -0.038em !important;
+  font-weight: 780 !important;
+}
+
+#clara-life-stage-diagnosis-reveal .story-card .story-body::after {
+  font-size: clamp(13.2px, 3.35vw, 14.6px) !important;
+  line-height: 1.55 !important;
+  font-weight: 560 !important;
+  letter-spacing: -0.006em !important;
+  color: rgba(248, 253, 255, 0.8) !important;
+}
+
+#clara-life-stage-diagnosis-reveal .story-card .supporting::after {
+  font-size: clamp(11.8px, 2.95vw, 13px) !important;
+  line-height: 1.45 !important;
+  font-weight: 620 !important;
+  letter-spacing: -0.004em !important;
+  color: rgba(186, 230, 253, 0.62) !important;
+}
+
+#clara-life-stage-diagnosis-reveal .next-button::after {
+  font-size: 12px !important;
+  line-height: 1.18 !important;
+  font-weight: 760 !important;
+  letter-spacing: -0.012em !important;
+}
+
+#clara-life-stage-diagnosis-reveal .story-card[data-kind="opening"] h1::after { content: "This pattern is common."; }
+#clara-life-stage-diagnosis-reveal .story-card[data-kind="opening"] .story-body::after { content: "People in similar situations often show the same pattern: school, work, money, and time pressure overlap."; }
+#clara-life-stage-diagnosis-reveal .story-card[data-kind="opening"] .supporting::after { content: "That can make budgeting feel inconsistent, even when the user is trying to stay careful."; }
+#clara-life-stage-diagnosis-reveal:has(.story-card[data-kind="opening"]) .next-button::after { content: "Show the next insight."; }
+
+#clara-life-stage-diagnosis-reveal .story-card[data-kind="chips"] h1::after { content: "The pressure has layers."; }
+#clara-life-stage-diagnosis-reveal .story-card[data-kind="chips"] .story-body::after { content: "This kind of profile usually has more than one pressure source happening at the same time."; }
+#clara-life-stage-diagnosis-reveal .story-card[data-kind="chips"] .supporting::after { content: "CLARA groups the answers into signals instead of showing raw selections."; }
+#clara-life-stage-diagnosis-reveal:has(.story-card[data-kind="chips"]) .next-button::after { content: "Show how it affects rhythm."; }
+
+#clara-life-stage-diagnosis-reveal .story-card[data-kind="rhythm"] h1::after { content: "The rhythm is stretched."; }
+#clara-life-stage-diagnosis-reveal .story-card[data-kind="rhythm"] .story-body::after { content: "When income, school, and rest do not follow one clean schedule, spending control usually becomes harder to maintain."; }
+#clara-life-stage-diagnosis-reveal .story-card[data-kind="rhythm"] .supporting::after { content: "That points to a need for a flexible plan before a strict one."; }
+#clara-life-stage-diagnosis-reveal:has(.story-card[data-kind="rhythm"]) .next-button::after { content: "Show the next signal."; }
+
+#clara-life-stage-diagnosis-reveal .story-card[data-kind="trigger"] h1::after { content: "The response pattern matters."; }
+#clara-life-stage-diagnosis-reveal .story-card[data-kind="trigger"] .story-body::after { content: "In similar profiles, small spending choices often become a response to pressure, tiredness, or the need to feel normal."; }
+#clara-life-stage-diagnosis-reveal .story-card[data-kind="trigger"] .supporting::after { content: "This is a behavior signal first, not personal advice yet."; }
+#clara-life-stage-diagnosis-reveal:has(.story-card[data-kind="trigger"]) .next-button::after { content: "Show what to protect first."; }
+
+#clara-life-stage-diagnosis-reveal .story-card[data-kind="meter"] h1::after { content: "Protect the highest-pressure area first."; }
+#clara-life-stage-diagnosis-reveal .story-card[data-kind="meter"] .story-body::after { content: "Across similar profiles, the area carrying daily pressure is usually the first place stability starts to slip."; }
+#clara-life-stage-diagnosis-reveal .story-card[data-kind="meter"] .supporting::after { content: "This is where CLARA starts moving from pattern into direction."; }
+#clara-life-stage-diagnosis-reveal:has(.story-card[data-kind="meter"]) .next-button::after { content: "Show the final step."; }
+
+#clara-life-stage-diagnosis-reveal .story-card[data-kind="final"] h1::after { content: "Start with one controlled move."; }
+#clara-life-stage-diagnosis-reveal .story-card[data-kind="final"] .story-body::after { content: "The pattern suggests that fixing everything at once is not the best first move."; }
+#clara-life-stage-diagnosis-reveal .story-card[data-kind="final"] .supporting::after { content: "The practical next step is to protect one decision this week and build from there."; }
+#clara-life-stage-diagnosis-reveal:has(.story-card[data-kind="final"]) .next-button::after { content: "Bring me back to Me"; }
