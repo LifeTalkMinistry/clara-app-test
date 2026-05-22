@@ -1,3 +1,10 @@
+import {
+  WORKING_STUDENT_STAGE_KEY,
+  getWorkingStudentDisplayLabel,
+  getWorkingStudentQuestionContext,
+  getWorkingStudentSnapshot,
+} from "./components/fresh/main-dashboard/dashboard-panels/me/workingStudentLifeStageSource";
+
 const LIFE_STAGE_KEY = "clara_life_stage_profile_v1";
 const DIAGNOSIS_ID = "clara-life-stage-diagnosis-reveal";
 
@@ -123,6 +130,10 @@ function stageKey(stage) {
   return STAGE_COPY[next] ? next : "Young Professional";
 }
 
+function isWorkingStudentProfile(profile) {
+  return clean(profile?.stage) === WORKING_STUDENT_STAGE_KEY;
+}
+
 function buildInsightChips(profile, copy) {
   const chips = [];
   const setup = clean(profile.setup).toLowerCase();
@@ -158,7 +169,85 @@ function triggerBody(coping) {
   return `When life feels full, ${lower(value)} may be your way of trying to stay okay.`;
 }
 
+function canonicalContext(key, value, profile) {
+  return getWorkingStudentQuestionContext(key, value, profile);
+}
+
+function display(value) {
+  return getWorkingStudentDisplayLabel(value) || clean(value);
+}
+
+function buildWorkingStudentSlides(profile) {
+  const snapshot = getWorkingStudentSnapshot(profile);
+  const indicators = Array.isArray(snapshot.indicators) ? snapshot.indicators : [];
+  const topSignal = indicators[0] || { label: "Working Student pressure", value: 100, note: snapshot.overview || snapshot.caption };
+  const secondSignal = indicators[1];
+  const thirdSignal = indicators[2];
+  const setupContext = canonicalContext("setup", profile.setup, profile);
+  const rhythmContext = canonicalContext("rhythm", profile.rhythm, profile);
+  const pressureContext = canonicalContext("pressure", profile.pressure, profile);
+  const copingContext = canonicalContext("coping", profile.coping, profile);
+  const goalContext = canonicalContext("goal", profile.goal, profile);
+  const workload = display(profile.workload || "your weekly load");
+  const pressure = display(profile.pressure || topSignal.label);
+  const goal = display(profile.goal || snapshot.recommendations?.[0] || "protect stability");
+  const recommendations = Array.isArray(snapshot.recommendations) ? snapshot.recommendations.slice(0, 3).join(" • ") : "Start with one protected move this week.";
+
+  return [
+    {
+      kind: "opening",
+      eyebrow: "Current Working Student path",
+      title: setupContext.title || display(profile.setup),
+      body: setupContext.summary || snapshot.hero || snapshot.caption,
+      supporting: snapshot.supportTitle || "CLARA is reading your selected Working Student path.",
+    },
+    {
+      kind: "chips",
+      eyebrow: "Money rhythm",
+      title: rhythmContext.title || "Your income rhythm matters.",
+      body: rhythmContext.summary || "CLARA is connecting how money arrives with the pressure your week carries.",
+      supporting: snapshot.title,
+      chips: [
+        display(profile.setup),
+        display(profile.rhythm),
+        secondSignal ? `${secondSignal.label}: ${secondSignal.value}%` : snapshot.title,
+      ].filter(Boolean),
+    },
+    {
+      kind: "rhythm",
+      eyebrow: "Weekly pressure",
+      title: pressureContext.title || "The week has pressure points.",
+      body: `With ${lower(workload)}, ${lower(pressure)} becomes part of the same weekly money pattern.`,
+      supporting: pressureContext.summary || snapshot.overview,
+    },
+    {
+      kind: "trigger",
+      eyebrow: "Behavior response",
+      title: copingContext.title || titleFromResponse(profile.coping),
+      body: copingContext.summary || triggerBody(profile.coping),
+      supporting: "CLARA is reading this as a pressure response, not a character flaw.",
+    },
+    {
+      kind: "meter",
+      eyebrow: "Life Stage Trend Snapshot",
+      title: `${topSignal.label}: ${topSignal.value}%`,
+      body: topSignal.note || snapshot.overview || snapshot.caption,
+      supporting: thirdSignal ? `${thirdSignal.label} also appears at ${thirdSignal.value}%. This is a 100% pressure split of the detected pattern.` : "This is a 100% pressure split of the detected pattern.",
+      meterLabel: `${topSignal.label} • ${topSignal.value}%`,
+    },
+    {
+      kind: "final",
+      eyebrow: "Protection direction",
+      title: goalContext.title || "Start with protection.",
+      body: goalContext.summary || `Protecting this moves you closer to ${lower(goal)}.`,
+      supporting: recommendations || "One protected decision is enough to begin.",
+    },
+  ];
+}
+
 function buildSlides(profile) {
+  if (isWorkingStudentProfile(profile)) return buildWorkingStudentSlides(profile);
+
   const stage = stageKey(profile.stage);
   const copy = STAGE_COPY[stage];
   const pressure = clean(profile.pressure).replace(/\bTution\b/gi, "Tuition") || "current financial pressure";
@@ -248,6 +337,7 @@ function show(profile) {
 
   const el = document.createElement("div");
   el.id = DIAGNOSIS_ID;
+  if (isWorkingStudentProfile(profile)) el.dataset.canonicalWorkingStudent = "true";
   el.innerHTML = `
     <section class="story-shell" aria-label="CLARA Life Snapshot story">
       <div class="story-panel">
