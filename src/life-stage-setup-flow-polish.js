@@ -133,48 +133,58 @@ function includesAny(value, terms) {
 function conciseSelectionMeaning(selectedValue, activeKey, profile) {
   const selected = clean(selectedValue);
   const text = selected.toLowerCase();
+  const label = getWorkingStudentDisplayLabel(selected) || selected;
 
-  if (activeKey === "setup" && profile?.meaning && !profile.meaning.startsWith("Selecting")) {
+  if (profile?.meaning && !profile.meaning.startsWith("Selecting")) {
     return profile.meaning;
   }
 
   if (includesAny(text, ["tuition", "school payment", "school cost", "school requirement", "school needs", "school deadlines", "school continuity", "continue school", "protect school", "fear of stopping", "printing", "materials", "projects"])) {
-    return "This usually means your money already has an important school-related purpose before anything else. Many working students in this setup become more careful with spending because studies, requirements, or tuition depend on that income.";
+    return `Choosing “${label}” usually means school is already claiming part of the budget before anything else. This can create pressure because requirements, tuition timing, fare, and materials may decide what is safe to spend.`;
   }
 
   if (includesAny(text, ["family", "home", "goes home", "shared", "give", "support boundary", "guilt"])) {
-    return "This usually means your student life is also carrying responsibility for people at home. Money can feel more emotional here because helping family and protecting your own school needs may happen at the same time.";
+    return `Choosing “${label}” usually means your student money is connected to people at home, not only to yourself. That can make spending feel emotional because helping family and protecting your own school needs may happen at the same time.`;
   }
 
   if (includesAny(text, ["borrow", "debt", "repay", "repayment", "cash-flow", "delayed", "repair mode", "old pressure", "pressure carries", "no-new-debt"])) {
-    return "This usually means money pressure may not be starting fresh each week. Borrowing, repayments, or delayed expenses can make planning feel heavier because part of today’s income is already connected to yesterday’s pressure.";
+    return `Choosing “${label}” usually means money pressure may be carrying over instead of starting fresh. Borrowing, repayment, or delayed expenses can make the next income feel already spoken for.`;
   }
 
   if (includesAny(text, ["tired", "exhaust", "low recovery", "little time to rest", "commute", "heavy schedule", "shifts", "deadlines", "overwork", "burning out", "push rest", "comfort after hard days"])) {
-    return "This usually means your energy is becoming part of the money problem too. When school, work, and rest compete, many working students rely more on shortcuts, comfort, or delayed tracking just to get through the day.";
+    return `Choosing “${label}” usually means energy is becoming part of the money pattern. When school, work, and rest compete, spending can shift toward shortcuts, comfort, or skipped tracking just to survive the day.`;
   }
 
   if (includesAny(text, ["convenience", "rushed", "save energy", "missed tracking", "forget to track"])) {
-    return "This usually means spending may be helping you save time or energy during busy days. For working students, convenience spending often comes from exhaustion, not laziness.";
+    return `Choosing “${label}” usually means spending may be helping you save time or energy on rushed days. For working students, this often comes from exhaustion, not laziness.`;
   }
 
   if (includesAny(text, ["reward", "social", "small spending", "small rewards", "leaks", "micro", "stuck", "extra money leaks"])) {
-    return "This usually means small spending may be acting as relief, reward, or a way to feel normal after effort. The risk is not one small purchase, but how often those small choices quietly repeat.";
+    return `Choosing “${label}” usually means small spending may be acting as relief, reward, or a way to feel normal after effort. The risk is not one small purchase, but how often that pattern repeats.`;
   }
 
   if (includesAny(text, ["irregular", "unstable", "fluctuate", "income changes", "some weeks", "gaps", "seasonal", "side hustle", "money arrives after"])) {
-    return "This usually means planning can feel difficult because money does not arrive in a steady rhythm. Many working students in this situation become very adaptive, but the uncertainty can make budgeting mentally tiring.";
+    return `Choosing “${label}” usually means planning has to adjust around uneven money timing. This can make budgeting mentally tiring because the week can change before the plan is ready.`;
   }
 
   if (includesAny(text, ["food", "fare", "transport", "daily", "survival", "emergency", "stretch money", "no room", "essentials"])) {
-    return "This usually means daily basics are taking up serious space in your money decisions. Food, fare, and school attendance costs can make even small spending choices feel more sensitive.";
+    return `Choosing “${label}” usually means daily basics are taking up serious space in your decisions. Food, fare, school attendance, and small emergency costs can make even minor spending feel sensitive.`;
   }
 
   if (includesAny(text, ["save", "savings", "discipline", "plan", "priority", "purpose", "control", "pause", "prepared", "limits", "boundary", "protect"])) {
-    return "This usually means you are trying to create more control instead of just reacting to pressure. For many working students, even a small clear rule can make money feel less scattered.";
+    return `Choosing “${label}” usually means you are trying to build control instead of only reacting to pressure. Even one small clear rule can make student money feel less scattered.`;
   }
 
-  return "This choice helps CLARA understand what this situation usually means in real life. It gives a clearer picture of how school, work, money, and energy may be affecting the student right now.";
+  const stepMeaning = {
+    setup: "This is the environment CLARA should understand before reading the money behavior.",
+    rhythm: "This shows how money usually enters the week, which affects how safe or unstable planning feels.",
+    workload: "This shows how much energy the week is already using before budgeting even starts.",
+    pressure: "This shows what currently needs the most protection in the budget.",
+    coping: "This shows how pressure may turn into behavior when the week gets heavy.",
+    goal: "This shows what CLARA should help protect first before asking for stricter discipline.",
+  };
+
+  return `Choosing “${label}” helps CLARA understand this exact part of your working-student life. ${stepMeaning[activeKey] || "It connects school, work, money, and energy into one clearer picture."}`;
 }
 
 function getBoardFromConciseProfile(active) {
