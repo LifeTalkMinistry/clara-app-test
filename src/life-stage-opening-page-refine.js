@@ -162,15 +162,6 @@ function cleanSnapshotDetailCards() {
     const text = clean(node.textContent);
     if (!text) return;
 
-    if (/^next move$/i.test(text)) {
-      const row = node.closest("div");
-      if (row) {
-        row.hidden = true;
-        row.style.setProperty("display", "none", "important");
-      }
-      return;
-    }
-
     const cleaned = stripInternalSnapshotText(text);
     if (cleaned !== text) {
       if (cleaned) node.textContent = cleaned;
