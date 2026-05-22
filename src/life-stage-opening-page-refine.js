@@ -7,8 +7,9 @@ const OPENING_COPY = {
   "Working Student": {
     title: "Let’s see what CLARA noticed.",
     body: "CLARA is reading your answers as a pattern often seen among working students experiencing similar school, work, money, and responsibility pressure.",
-    support: "This is statistical awareness, not advice yet.",
+    support: "",
     button: "Show me the pattern",
+    hideEyebrow: true,
   },
   "Young Professional": {
     title: "You’re trying to build a life.",
@@ -80,6 +81,13 @@ function installStyle() {
       max-width: 270px !important;
       color: rgba(186,230,253,.58) !important;
     }
+    #${DIAGNOSIS_ID} .story-card[data-kind="opening"][data-clean-working-student-opening="true"] {
+      gap: clamp(16px, 2.4svh, 24px) !important;
+    }
+    #${DIAGNOSIS_ID} .story-card[data-kind="opening"][data-clean-working-student-opening="true"] .eyebrow,
+    #${DIAGNOSIS_ID} .story-card[data-kind="opening"][data-clean-working-student-opening="true"] .supporting {
+      display: none !important;
+    }
   `;
   document.head.appendChild(style);
 }
@@ -94,14 +102,31 @@ function applyOpeningRefine() {
   if (!card) return;
 
   const copy = OPENING_COPY[getStage()] || OPENING_COPY["Working Student"];
+  const eyebrow = card.querySelector(".eyebrow");
   const title = card.querySelector("h1");
   const body = card.querySelector(".story-body");
   const support = card.querySelector(".supporting");
   const next = root.querySelector(".next-button");
 
+  if (copy.hideEyebrow) {
+    card.dataset.cleanWorkingStudentOpening = "true";
+    if (eyebrow) eyebrow.hidden = true;
+  } else {
+    delete card.dataset.cleanWorkingStudentOpening;
+    if (eyebrow) eyebrow.hidden = false;
+  }
+
   if (title && clean(title.textContent) !== copy.title) title.textContent = copy.title;
   if (body && clean(body.textContent) !== copy.body) body.textContent = copy.body;
-  if (support && clean(support.textContent) !== copy.support) support.textContent = copy.support;
+  if (support) {
+    if (copy.support) {
+      support.hidden = false;
+      if (clean(support.textContent) !== copy.support) support.textContent = copy.support;
+    } else {
+      support.textContent = "";
+      support.hidden = true;
+    }
+  }
   if (next && card && clean(next.textContent) !== copy.button) {
     next.textContent = copy.button;
     next.setAttribute("aria-label", copy.button);
