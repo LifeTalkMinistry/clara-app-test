@@ -1,5 +1,12 @@
+const LIFE_STAGE_KEY = "clara_life_stage_profile_v1";
+const WORKING_STUDENT_STAGE = "Working Student";
+
 function clean(value) {
   return String(value || "").replace(/\s+/g, " ").trim();
+}
+
+function lower(value) {
+  return clean(value).toLowerCase();
 }
 
 function setText(node, value) {
@@ -8,161 +15,391 @@ function setText(node, value) {
   if (node.textContent !== next) node.textContent = next;
 }
 
-const ORDER_LABELS = ["High Risk", "High", "Moderate", "Low Priority"];
-
-const STRATEGIC_WEIGHTS = {
-  "Recovery Gap": 28,
-  "Essential-Cost Load": 35,
-  "Cash Buffer Risk": 22,
-  "Stability Potential": 15,
-  "Responsibility Load": 28,
-  "Shared-Money Pressure": 35,
-  "Boundary Risk": 24,
-  "Support Balance": 13,
-  "Fatigue Load": 35,
-  "Schedule-Cost Pressure": 27,
-  "Convenience Spend Risk": 24,
-  "Recovery Potential": 14,
-  "Debt Stress Load": 29,
-  "Repayment Pressure": 37,
-  "Cash-Flow Stability": 22,
-  "Emotional Fatigue": 28,
-  "Daily Pressure": 23,
-  "Reward Frequency Risk": 34,
-  "Reward Control": 15,
-  "Independence Load": 28,
-  "Essential Pressure": 33,
-  "Buffer Stability": 25,
-  "Discipline Potential": 14,
-  "Fatigue Watch": 30,
-  "Cost Pressure": 27,
-  "Routine Stability": 24,
-  "Future Potential": 19,
-  "Burnout Watch": 30,
-  "Financial Pressure": 27,
-  "Micro-Spend Risk": 24
-};
-
-const MODAL_INSIGHTS = {
-  "Emotional Fatigue": {
-    meaning: "Fatigue may be shaping spending decisions after class, work, commute, or repeated academic pressure. When energy is low, small purchases can feel like the fastest way to recover.",
-    watch: "Watch for comfort food, drinks, snacks, delivery, or tiny rewards that happen because the day felt heavy instead of because they were planned.",
-    action: "Plan one low-cost comfort option before the stressful part of the day starts, so recovery does not always require spending."
-  },
-  "Reward Frequency Risk": {
-    meaning: "The concern is not one reward. The concern is repeated relief spending becoming part of the weekly routine without being noticed.",
-    watch: "Watch snacks, drinks, delivery, digital buys, or deserve-ko-to spending that appears after pressure peaks.",
-    action: "Set a small reward limit before stress hits, not during stress. The limit protects the reward from turning into a leak."
-  },
-  "Daily Pressure": {
-    meaning: "Food, fare, data, school materials, and time pressure may be creating quiet spending friction. Each cost may look small, but repeated daily pressure reduces breathing room.",
-    watch: "Watch gastos that feel harmless alone but repeat almost every school or work day, especially commute, quick meals, data, and rushed purchases.",
-    action: "Give daily essentials their own mini cap so routine pressure does not leak into random spending."
-  },
-  "Reward Control": {
-    meaning: "There is still awareness and control available. This is the protection side of the pattern, where rewards can stay intentional instead of reactive.",
-    watch: "Watch planned rewards turning into unplanned repeat purchases when the day feels stressful or emotionally heavy.",
-    action: "Choose the amount, reason, and limit before spending. Control does not mean no reward; it means the reward has boundaries."
-  },
-  "Essential-Cost Load": {
-    meaning: "School costs and daily essentials may be carrying the biggest weight. These costs are difficult to ignore because they directly affect attendance, routine, and stability.",
-    watch: "Watch tuition timing, fare, meals, printing, load/data, and project expenses arriving together.",
-    action: "Separate school money and daily essentials first before rewards, savings, or flexible spending."
-  },
-  "Recovery Gap": {
-    meaning: "Low recovery time can turn normal spending into tired shortcut decisions. The less rest available, the more convenience starts to feel necessary.",
-    watch: "Watch skipped meals, rushed transport, late-night food, delayed tracking, and spending that happens because there is no energy left.",
-    action: "Add a small food, rest, and transport backup before the week becomes heavy."
-  },
-  "Cash Buffer Risk": {
-    meaning: "The week may be vulnerable without a small buffer for sudden school or daily expenses. One surprise cost can affect the whole rhythm.",
-    watch: "Watch surprise fare changes, projects, food gaps, urgent class spending, and small emergencies that force borrowing.",
-    action: "Create a tiny emergency fare or food buffer before flexible spending."
-  },
-  "Shared-Money Pressure": {
-    meaning: "Family support and student expenses may be competing for the same income. This can create guilt pressure and unstable personal essentials.",
-    watch: "Watch guilt spending, last-minute family help, delayed school needs, or giving extra money before your own essentials are protected.",
-    action: "Set a support limit that protects both care for others and your school stability."
-  },
-  "Responsibility Load": {
-    meaning: "Student responsibilities and home support can drain the same energy source. Pressure can build even when the person is trying to be responsible.",
-    watch: "Watch decisions made from guilt, pressure, fear of disappointing others, or trying to solve everything at once.",
-    action: "Use an essentials-first rule before giving or committing extra money."
-  },
-  "Boundary Risk": {
-    meaning: "Helping without limits can make personal essentials unstable. The risk is not generosity; the risk is support without structure.",
-    watch: "Watch support that pushes food, fare, school costs, or rest into shortage.",
-    action: "Create a clear weekly support boundary before requests happen."
-  },
-  "Fatigue Load": {
-    meaning: "School and work overlap may be turning time pressure into spending pressure. Overloaded days often make convenience feel like the only option.",
-    watch: "Watch convenience meals, rushed fare choices, comfort buys, and missed tracking after long class-work days.",
-    action: "Prepare one low-energy plan for food, commute, and tracking."
-  },
-  "Schedule-Cost Pressure": {
-    meaning: "The schedule itself may be creating costs through commute, deadlines, and limited planning time. Some spending comes from being rushed, not being careless.",
-    watch: "Watch rushing costs: transport shortcuts, food outside, printing, data top-ups, and last-minute materials.",
-    action: "Build a weekly schedule-cost allowance before the week starts."
-  },
-  "Convenience Spend Risk": {
-    meaning: "Convenience spending may rise when time and energy are low. It becomes risky when it turns into the default response to stress.",
-    watch: "Watch purchases that solve stress quickly but repeat often, especially meals, transport, and small delivery expenses.",
-    action: "Replace one convenience habit with a cheaper prepared option."
-  },
-  "Debt Stress Load": {
-    meaning: "Old money pressure may still be affecting the current week. Debt stress can make even normal expenses feel heavier.",
-    watch: "Watch avoidance, delayed checking, and borrowing again to cover daily gaps.",
-    action: "Use a no-new-debt rule and protect a small repayment rhythm."
-  },
-  "Repayment Pressure": {
-    meaning: "Repayment timing may be the strongest pressure before rewards or flexible spending. When repayments are unclear, the week can feel like repair mode.",
-    watch: "Watch spending before repayment, then borrowing again near the next deadline.",
-    action: "Place repayment first in the weekly plan, even if the amount is small."
-  },
-  "Cash-Flow Stability": {
-    meaning: "Income timing may not match school, commute, food, or repayment deadlines. Timing mismatch can create stress even when total money looks enough.",
-    watch: "Watch weeks where money arrives after important costs are already due.",
-    action: "Map income dates against school and daily expense dates."
-  },
-  "Independence Load": {
-    meaning: "Self-funding school and daily life can create pressure even when discipline is strong. Independence needs structure before ambition can stay consistent.",
-    watch: "Watch income gaps, school deadlines, and personal essentials competing at the same time.",
-    action: "Protect essentials first before trying to save aggressively."
-  },
-  "Essential Pressure": {
-    meaning: "Tuition, commute, meals, data, and materials are harder to delay safely. These expenses should not compete with impulse decisions.",
-    watch: "Watch essentials being paid late because flexible spending happened first.",
-    action: "Use an essentials-first wallet or category."
-  },
-  "Buffer Stability": {
-    meaning: "A missed income or extra school cost can affect the whole week. A small buffer can protect peace more than strict rules alone.",
-    watch: "Watch weeks with no backup for food, fare, or urgent school needs.",
-    action: "Build the smallest possible buffer before adding new spending goals."
-  },
-  "Burnout Watch": {
-    meaning: "Burnout may not be full crisis yet, but energy pressure is already visible. Recovery planning keeps spending from becoming the only relief.",
-    watch: "Watch spending after exhaustion, deadlines, or emotional overload.",
-    action: "Add one recovery habit that does not require spending."
-  },
-  "Financial Pressure": {
-    meaning: "Limited income and repeated small expenses may be tightening the pattern. The quiet repeaters usually explain more than one big purchase.",
-    watch: "Watch repeating food, fare, mobile data, digital, and social spending.",
-    action: "Review the top repeating micro-spend once per week."
-  },
-  "Micro-Spend Risk": {
-    meaning: "Small spending may be quietly becoming the hidden monthly pattern. These leaks matter because they repeat without being noticed.",
-    watch: "Watch purchases that feel too small to track but happen often.",
-    action: "Set a weekly micro-spend ceiling."
-  },
-  "Future Potential": {
-    meaning: "Effort, ambition, and discipline can still be protected. The goal is not perfection; it is a rhythm the user can repeat.",
-    watch: "Watch pressure that makes the user abandon the plan completely.",
-    action: "Keep progress small and consistent instead of strict and unrealistic."
+function readLifeStageProfile() {
+  if (typeof window === "undefined") return null;
+  try {
+    return JSON.parse(window.localStorage.getItem(LIFE_STAGE_KEY) || "null");
+  } catch {
+    return null;
   }
+}
+
+const SNAPSHOT_META = {
+  "Emotional Fatigue": {
+    category: "energy",
+    note: "School, work, commute, and recovery pressure may be occupying a large part of the student's money behavior.",
+    insight: "Fatigue can turn simple decisions into shortcut spending, skipped tracking, or comfort purchases.",
+    action: "Protect one low-energy routine for food, commute, and quick check-ins before the week gets heavy.",
+    trend: "volatile",
+  },
+  "Financial Instability": {
+    category: "stability",
+    note: "Income timing or income consistency may be making planning harder than the student’s discipline level suggests.",
+    insight: "The issue may be rhythm: expenses can feel fixed while money arrives unevenly.",
+    action: "Separate essentials first, then let flexible spending adjust based on the real income week.",
+    trend: "wave",
+  },
+  "Reward Spending Risk": {
+    category: "stability",
+    note: "Small rewards may be acting as quick relief after pressure, effort, or emotionally heavy days.",
+    insight: "The risk is not one reward; it is repeated relief spending becoming the easiest recovery habit.",
+    action: "Keep rewards, but set the amount and timing before stress peaks.",
+    trend: "spike",
+  },
+  "Recovery Weakness": {
+    category: "energy",
+    note: "Low rest or low recovery may be weakening planning, tracking, and spending discipline.",
+    insight: "When rest disappears, spending often becomes the fastest available form of recovery.",
+    action: "Add one no-spend recovery option and one prepared low-cost fallback for tired days.",
+    trend: "downward",
+  },
+  "Survival Pressure": {
+    category: "pressure",
+    note: "Food, fare, school requirements, and daily basics may be competing for the same limited money.",
+    insight: "This is not careless spending; this is essential-cost pressure taking up space in the week.",
+    action: "Protect food, fare, school materials, and attendance costs before flexible spending.",
+    trend: "volatile",
+  },
+  "Mental Overload": {
+    category: "energy",
+    note: "The student may be carrying too many decisions across school, work, money, and personal responsibilities.",
+    insight: "Overload can make even simple budgeting feel heavier than it should.",
+    action: "Reduce the plan to one priority and one simple money rule for the current week.",
+    trend: "spike",
+  },
+  "Routine Instability": {
+    category: "stability",
+    note: "Changing routines, shifting schedules, or uneven weeks may be making consistency difficult.",
+    insight: "The budget may fail when it assumes a perfect week that the student does not actually have.",
+    action: "Use flexible weekly caps instead of one rigid routine.",
+    trend: "wave",
+  },
+  "Convenience Spending Risk": {
+    category: "stability",
+    note: "Convenience may be becoming the natural response to low time, low energy, or rushed days.",
+    insight: "Convenience spending often comes from exhaustion, not laziness.",
+    action: "Prepare one cheaper convenience substitute before the hardest part of the day.",
+    trend: "spike",
+  },
+  "Borrowing Risk": {
+    category: "pressure",
+    note: "Cash-flow gaps, delayed payments, or survival needs may be pushing the student toward borrowing.",
+    insight: "Borrowing often appears when timing fails before income arrives.",
+    action: "Protect a tiny food/fare gap buffer before optional spending.",
+    trend: "volatile",
+  },
+  "Family Burden": {
+    category: "pressure",
+    note: "Family support may be sharing the same money and energy needed for school and daily stability.",
+    insight: "The pressure is care plus boundary difficulty, not just financial generosity.",
+    action: "Create a support limit that protects family care and the student’s own essentials.",
+    trend: "wave",
+  },
+  "Tuition Pressure": {
+    category: "pressure",
+    note: "School continuity may be the main money pressure, especially around tuition, materials, and deadlines.",
+    insight: "When school costs are active, many spending choices feel connected to the future.",
+    action: "Reserve school-cost money before rewards, social spending, or flexible purchases.",
+    trend: "upward",
+  },
+  "Burnout Risk": {
+    category: "energy",
+    note: "The student may be trying to keep going while rest, schedule, and money pressure are already colliding.",
+    insight: "Burnout risk rises when effort becomes the only answer to every pressure.",
+    action: "Protect rest as part of budgeting, not as a reward after everything else.",
+    trend: "downward",
+  },
+  "Pressure Carryover": {
+    category: "pressure",
+    note: "Old shortfalls, delayed payments, or repayment pressure may be affecting the current week.",
+    insight: "The month can feel like repair mode when old pressure controls new income.",
+    action: "Give repayment a predictable rhythm and prevent one new shortfall from stacking again.",
+    trend: "wave",
+  },
+  "Budget Discipline": {
+    category: "growth",
+    note: "There is still room for planning, boundaries, or small repeatable money habits.",
+    insight: "Discipline grows when the rule is realistic enough to survive student life.",
+    action: "Keep the next rule small, repeatable, and tied to the student’s real week.",
+    trend: "stable",
+  },
+  "Emotional Recovery Dependence": {
+    category: "energy",
+    note: "Spending may be carrying emotional recovery when rest, food, or support are missing.",
+    insight: "This pattern usually appears when the day feels too heavy to end without relief.",
+    action: "Build a short recovery menu that includes free and low-cost options.",
+    trend: "spike",
+  },
 };
 
-function hierarchyLabelByVisibleOrder(index) {
-  return ORDER_LABELS[Math.min(index, ORDER_LABELS.length - 1)] || "Low Priority";
+const DISPLAY_ALIAS = {
+  "Mostly supported, trying to earn extra": "Supported, learning independence",
+  "Working mainly to continue school": "Working to protect school",
+  "Helping family while studying": "Studying while helping family",
+  "Trying to survive school mostly alone": "Mostly self-supporting",
+  "Balancing school, work, and exhaustion": "Exhausted by school-work overlap",
+  "Building a future while financially unstable": "Building with unstable income",
+  "Trying to recover from constant financial pressure": "Recovering from money pressure",
+};
+
+function addScore(scores, label, amount) {
+  if (!SNAPSHOT_META[label]) return;
+  scores[label] = (scores[label] || 0) + amount;
+}
+
+function includesAny(text, terms) {
+  const value = lower(text);
+  return terms.some((term) => value.includes(lower(term)));
+}
+
+function scoreWorkingStudentAnswer(scores, key, rawValue) {
+  const value = clean(rawValue);
+  const display = DISPLAY_ALIAS[value] || value;
+  const text = `${key} ${value} ${display}`;
+
+  if (key === "setup") {
+    if (includesAny(text, ["supported", "learning independence", "trying to earn extra"])) {
+      addScore(scores, "Budget Discipline", 18);
+      addScore(scores, "Routine Instability", 8);
+      addScore(scores, "Reward Spending Risk", 7);
+    }
+    if (includesAny(text, ["continue school", "protect school", "school costs"])) {
+      addScore(scores, "Tuition Pressure", 30);
+      addScore(scores, "Survival Pressure", 16);
+      addScore(scores, "Financial Instability", 10);
+    }
+    if (includesAny(text, ["helping family", "family while studying"])) {
+      addScore(scores, "Family Burden", 34);
+      addScore(scores, "Survival Pressure", 14);
+      addScore(scores, "Emotional Fatigue", 8);
+    }
+    if (includesAny(text, ["survive school", "mostly alone", "self-supporting"])) {
+      addScore(scores, "Survival Pressure", 32);
+      addScore(scores, "Financial Instability", 20);
+      addScore(scores, "Borrowing Risk", 13);
+      addScore(scores, "Recovery Weakness", 10);
+    }
+    if (includesAny(text, ["exhaustion", "school-work overlap", "balancing school, work"])) {
+      addScore(scores, "Emotional Fatigue", 30);
+      addScore(scores, "Mental Overload", 24);
+      addScore(scores, "Recovery Weakness", 18);
+      addScore(scores, "Convenience Spending Risk", 16);
+      addScore(scores, "Burnout Risk", 16);
+    }
+    if (includesAny(text, ["financially unstable", "unstable income", "future while"])) {
+      addScore(scores, "Financial Instability", 28);
+      addScore(scores, "Routine Instability", 18);
+      addScore(scores, "Mental Overload", 10);
+      addScore(scores, "Budget Discipline", 8);
+    }
+    if (includesAny(text, ["recover", "money pressure", "constant financial pressure"])) {
+      addScore(scores, "Pressure Carryover", 30);
+      addScore(scores, "Borrowing Risk", 22);
+      addScore(scores, "Financial Instability", 16);
+      addScore(scores, "Recovery Weakness", 12);
+    }
+  }
+
+  if (key === "rhythm") {
+    if (includesAny(text, ["allowance", "fixed", "base", "part-time pay"])) {
+      addScore(scores, "Budget Discipline", 14);
+      addScore(scores, "Routine Instability", 4);
+    }
+    if (includesAny(text, ["irregular", "project", "seasonal", "gaps", "fluctuate", "changes month", "some weeks", "money arrives after", "delayed payments"])) {
+      addScore(scores, "Financial Instability", 24);
+      addScore(scores, "Routine Instability", 14);
+      addScore(scores, "Pressure Carryover", 8);
+    }
+    if (includesAny(text, ["tuition", "school requirements", "school costs"])) {
+      addScore(scores, "Tuition Pressure", 16);
+      addScore(scores, "Survival Pressure", 8);
+    }
+    if (includesAny(text, ["borrow", "repay", "debt"])) {
+      addScore(scores, "Borrowing Risk", 22);
+      addScore(scores, "Pressure Carryover", 18);
+    }
+    if (includesAny(text, ["family", "goes home", "shared", "support family"])) {
+      addScore(scores, "Family Burden", 20);
+    }
+    if (includesAny(text, ["low recovery", "heavy schedule", "work shifts", "deadlines hit"])) {
+      addScore(scores, "Emotional Fatigue", 16);
+      addScore(scores, "Recovery Weakness", 14);
+      addScore(scores, "Routine Instability", 10);
+    }
+  }
+
+  if (key === "workload") {
+    if (includesAny(text, ["manageable", "control", "plan early"])) {
+      addScore(scores, "Budget Discipline", 18);
+      addScore(scores, "Routine Instability", 5);
+    }
+    if (includesAny(text, ["busy", "tight", "deadlines", "overlap", "little time", "commute", "tired", "no room", "survival", "collide", "stretched"])) {
+      addScore(scores, "Emotional Fatigue", 22);
+      addScore(scores, "Mental Overload", 18);
+      addScore(scores, "Recovery Weakness", 14);
+      addScore(scores, "Burnout Risk", 12);
+    }
+    if (includesAny(text, ["routine changes", "unstable", "some weeks", "family requests change"])) {
+      addScore(scores, "Routine Instability", 18);
+      addScore(scores, "Financial Instability", 8);
+    }
+    if (includesAny(text, ["home", "family", "responsible"])) {
+      addScore(scores, "Family Burden", 14);
+    }
+  }
+
+  if (key === "pressure") {
+    if (includesAny(text, ["tuition", "school", "fear of stopping"])) {
+      addScore(scores, "Tuition Pressure", 26);
+      addScore(scores, "Survival Pressure", 12);
+    }
+    if (includesAny(text, ["food", "fare", "transport", "daily", "materials", "printing", "projects", "data"])) {
+      addScore(scores, "Survival Pressure", 22);
+      addScore(scores, "Financial Instability", 8);
+    }
+    if (includesAny(text, ["family", "guilt", "home", "contribution"])) {
+      addScore(scores, "Family Burden", 24);
+    }
+    if (includesAny(text, ["debt", "borrow", "repayment", "cash-flow", "delayed payments"])) {
+      addScore(scores, "Borrowing Risk", 26);
+      addScore(scores, "Pressure Carryover", 20);
+    }
+    if (includesAny(text, ["convenience", "rushed", "missed tracking", "schedule conflict", "work-school"])) {
+      addScore(scores, "Convenience Spending Risk", 22);
+      addScore(scores, "Emotional Fatigue", 14);
+      addScore(scores, "Recovery Weakness", 8);
+    }
+    if (includesAny(text, ["unstable income", "future goals", "prioritize", "repeated small"])) {
+      addScore(scores, "Financial Instability", 18);
+      addScore(scores, "Mental Overload", 14);
+      addScore(scores, "Routine Instability", 8);
+    }
+    if (includesAny(text, ["reward", "social", "small rewards"])) {
+      addScore(scores, "Reward Spending Risk", 18);
+      addScore(scores, "Emotional Recovery Dependence", 10);
+    }
+  }
+
+  if (key === "coping") {
+    if (includesAny(text, ["reward", "comfort", "spend", "small", "feel okay", "buy comfort", "convenience to save energy", "stuck"])) {
+      addScore(scores, "Reward Spending Risk", 30);
+      addScore(scores, "Emotional Recovery Dependence", 20);
+    }
+    if (includesAny(text, ["convenience"])) {
+      addScore(scores, "Convenience Spending Risk", 24);
+      addScore(scores, "Recovery Weakness", 8);
+    }
+    if (includesAny(text, ["avoid checking", "avoid the full picture", "strict tracking", "forget to track"])) {
+      addScore(scores, "Pressure Carryover", 12);
+      addScore(scores, "Mental Overload", 10);
+    }
+    if (includesAny(text, ["borrow", "delay payments", "repay", "daily costs hit"])) {
+      addScore(scores, "Borrowing Risk", 28);
+      addScore(scores, "Pressure Carryover", 20);
+      addScore(scores, "Financial Instability", 8);
+    }
+    if (includesAny(text, ["cut", "sacrifice", "delay my own needs", "avoid spending on myself"])) {
+      addScore(scores, "Survival Pressure", 18);
+      addScore(scores, "Recovery Weakness", 14);
+    }
+    if (includesAny(text, ["give", "limits", "guilty", "hide money stress"])) {
+      addScore(scores, "Family Burden", 18);
+      addScore(scores, "Emotional Fatigue", 8);
+    }
+    if (includesAny(text, ["ask for help", "pause", "plan early", "prepared"])) {
+      addScore(scores, "Budget Discipline", 20);
+    }
+    if (includesAny(text, ["overwork", "push rest aside", "tired"])) {
+      addScore(scores, "Burnout Risk", 18);
+      addScore(scores, "Recovery Weakness", 14);
+    }
+  }
+
+  if (key === "goal") {
+    if (includesAny(text, ["finish school", "school continuity", "graduation", "school safely"])) {
+      addScore(scores, "Tuition Pressure", 12);
+      addScore(scores, "Budget Discipline", 12);
+    }
+    if (includesAny(text, ["burning out", "low-energy", "rest", "recovery"])) {
+      addScore(scores, "Burnout Risk", 18);
+      addScore(scores, "Recovery Weakness", 12);
+    }
+    if (includesAny(text, ["avoid debt", "no-new-debt", "repayment", "stop survival borrowing"])) {
+      addScore(scores, "Borrowing Risk", 20);
+      addScore(scores, "Pressure Carryover", 12);
+    }
+    if (includesAny(text, ["savings", "discipline", "rhythm", "priority", "purpose", "buffer"])) {
+      addScore(scores, "Budget Discipline", 20);
+      addScore(scores, "Financial Instability", 5);
+    }
+    if (includesAny(text, ["family", "support boundary", "help family"])) {
+      addScore(scores, "Family Burden", 18);
+    }
+    if (includesAny(text, ["stress spending", "reward", "leaks", "micro", "convenience"])) {
+      addScore(scores, "Reward Spending Risk", 18);
+      addScore(scores, "Convenience Spending Risk", 12);
+    }
+    if (includesAny(text, ["food", "fare", "essentials", "daily needs"])) {
+      addScore(scores, "Survival Pressure", 14);
+    }
+  }
+}
+
+function buildWorkingStudentScores(profile) {
+  const scores = {};
+  ["setup", "rhythm", "workload", "pressure", "coping", "goal"].forEach((key) => {
+    if (profile?.[key]) scoreWorkingStudentAnswer(scores, key, profile[key]);
+  });
+
+  if (!Object.keys(scores).length) {
+    addScore(scores, "Budget Discipline", 34);
+    addScore(scores, "Routine Instability", 26);
+    addScore(scores, "Financial Instability", 22);
+    addScore(scores, "Recovery Weakness", 18);
+  }
+
+  return scores;
+}
+
+function normalizeToHundred(rows) {
+  const safeRows = rows.filter((row) => row.value > 0);
+  const total = safeRows.reduce((sum, row) => sum + row.value, 0) || 1;
+  const mapped = safeRows.map((row, index) => {
+    const exact = (row.value / total) * 100;
+    return { ...row, index, value: Math.floor(exact), rest: exact - Math.floor(exact) };
+  });
+
+  let left = 100 - mapped.reduce((sum, row) => sum + row.value, 0);
+  mapped.slice().sort((a, b) => b.rest - a.rest || a.index - b.index).forEach((row) => {
+    if (left <= 0) return;
+    row.value += 1;
+    left -= 1;
+  });
+
+  return mapped.map(({ rest, index, ...row }) => row);
+}
+
+function distributionLabel(value) {
+  if (value >= 30) return "Dominant";
+  if (value >= 22) return "Heavy Presence";
+  if (value >= 14) return "Growing Pressure";
+  if (value >= 8) return "Emerging Pattern";
+  return "Minor Presence";
+}
+
+function buildWorkingStudentDistribution(profile) {
+  const scores = buildWorkingStudentScores(profile);
+  const maxCards = 4;
+  const topRows = Object.entries(scores)
+    .map(([label, value]) => ({ label, value, ...(SNAPSHOT_META[label] || {}) }))
+    .sort((a, b) => b.value - a.value || a.label.localeCompare(b.label))
+    .slice(0, maxCards);
+
+  return normalizeToHundred(topRows).map((item) => ({
+    ...item,
+    category: item.category || "stability",
+    status: distributionLabel(item.value),
+  }));
 }
 
 function findTrendSnapshotSection() {
@@ -173,97 +410,72 @@ function getTrendItems(section) {
   return Array.from(section?.querySelectorAll("button") || [])
     .map((card, visualIndex) => {
       const lines = Array.from(card.querySelectorAll("p"));
-      const label = clean(lines[0]?.textContent);
-      const value = Number(clean(lines[1]?.textContent).replace("%", ""));
-      return { card, lines, label, value, visualIndex };
+      return { card, lines, visualIndex };
     })
-    .filter((item) => item.label && Number.isFinite(item.value));
+    .filter((item) => item.lines.length >= 3);
 }
 
-function normalizeStrategicWeights(items) {
-  const mapped = items.map((item) => ({
-    ...item,
-    strategicValue: Number.isFinite(STRATEGIC_WEIGHTS[item.label]) ? STRATEGIC_WEIGHTS[item.label] : item.value,
-  }));
-  const total = mapped.reduce((sum, item) => sum + Math.max(0, item.strategicValue), 0) || 1;
-  const rows = mapped.map((item) => {
-    const exact = (Math.max(0, item.strategicValue) / total) * 100;
-    const value = Math.floor(exact);
-    return { ...item, value, rest: exact - value };
-  });
-  let left = 100 - rows.reduce((sum, item) => sum + item.value, 0);
-  rows.slice().sort((a, b) => b.rest - a.rest).forEach((item) => {
-    if (left <= 0) return;
-    item.value += 1;
-    left -= 1;
-  });
-  return rows.sort((a, b) => (b.value - a.value) || (a.visualIndex - b.visualIndex));
+const TREND_PATHS = {
+  stable: "M2 24 C14 22 20 20 30 19 C42 18 48 16 58 15 C70 14 78 13 90 11",
+  wave: "M2 24 C10 20 16 25 24 18 C33 10 40 23 49 15 C59 7 66 22 75 14 C82 8 87 12 90 10",
+  spike: "M2 27 C10 24 15 24 22 17 C28 10 34 18 39 7 C45 20 51 12 57 16 C65 21 69 9 76 13 C83 17 86 10 90 11",
+  volatile: "M2 29 C8 25 13 27 18 20 C23 12 29 18 34 8 C41 28 47 7 53 17 C59 26 64 11 71 12 C79 13 83 8 90 10",
+  downward: "M2 9 C12 10 17 13 26 12 C37 15 43 19 52 18 C63 21 70 25 78 24 C84 26 88 28 90 28",
+  upward: "M2 28 C12 24 17 24 26 20 C36 15 42 17 51 13 C62 8 68 12 77 9 C84 6 88 7 90 5",
+};
+
+function applyTrendPath(card, trend) {
+  const path = card.querySelector("svg path");
+  if (!path) return;
+  path.setAttribute("d", TREND_PATHS[trend] || TREND_PATHS.wave);
 }
 
-function applyStrategicWeights(section) {
+function applyDistributionToCards(section, distribution) {
   const items = getTrendItems(section);
-  if (!items.some((item) => Number.isFinite(STRATEGIC_WEIGHTS[item.label]))) return;
-  const weighted = normalizeStrategicWeights(items);
-  weighted.forEach((item) => {
-    setText(item.lines[1], `${item.value}%`);
-    item.card.dataset.claraStrategicShare = `${item.value}%`;
+  items.forEach((item, index) => {
+    const data = distribution[index];
+    if (!data) {
+      item.card.style.display = "none";
+      return;
+    }
+
+    item.card.style.display = "";
+    setText(item.lines[0], data.label);
+    setText(item.lines[1], `${data.value}%`);
+    setText(item.lines[2], data.status);
+    item.card.dataset.claraSnapshotLabel = data.label;
+    item.card.dataset.claraSnapshotValue = String(data.value);
+    item.card.dataset.claraSnapshotStatus = data.status;
+    item.card.dataset.claraSnapshotNote = data.note || "This card reflects part of the current Working Student pressure distribution.";
+    item.card.dataset.claraSnapshotInsight = data.insight || "This pattern is part of the student's current behavioral reality.";
+    item.card.dataset.claraSnapshotAction = data.action || "Choose one smaller next step before pressure gets heavier.";
+    item.card.dataset.claraSnapshotTrend = data.trend || "wave";
+    item.card.dataset.claraSnapshotCategory = data.category || "stability";
+    item.card.dataset.claraTrendCard = "true";
+    item.card.dataset.claraTrendPrimary = index === 0 ? "true" : "false";
+    item.card.dataset.claraTrendIndex = String(index + 1);
+    applyTrendPath(item.card, data.trend);
   });
 }
 
-function sortCarouselByRisk(carousel) {
-  const cards = Array.from(carousel?.querySelectorAll("button") || []);
-  const sorted = cards
-    .map((card, currentIndex) => {
-      const value = Number(clean(card.querySelectorAll("p")?.[1]?.textContent).replace("%", ""));
-      return { card, currentIndex, value: Number.isFinite(value) ? value : -Infinity };
-    })
-    .sort((a, b) => (b.value - a.value) || (a.currentIndex - b.currentIndex));
-  if (sorted.every((item, index) => item.card === cards[index])) return;
-  sorted.forEach((item) => carousel.appendChild(item.card));
+function updateSnapshotSubtitle(section) {
+  const subtitle = Array.from(section.querySelectorAll("p")).find((node) => clean(node.textContent) === "Swipe the stage cards.");
+  if (subtitle) setText(subtitle, "100% split of your current Working Student pressure.");
 }
 
-function applyRiskScaleToCards(section) {
-  getTrendItems(section).forEach((item, index) => {
-    const hierarchy = hierarchyLabelByVisibleOrder(index);
-    setText(item.lines[2], hierarchy);
-    item.card.dataset.claraRiskHierarchy = hierarchy;
-  });
-}
-
-function getVisibleHierarchy(section, trendLabel) {
-  const match = getTrendItems(section).find((item) => item.label === trendLabel);
-  return match?.card?.dataset?.claraRiskHierarchy || null;
-}
-
-function hideIntroCopy(modal) {
-  const title = modal.querySelector("h4");
-  const intro = title?.nextElementSibling;
-  if (!intro || intro.tagName !== "P") return;
-  intro.hidden = true;
-  intro.dataset.claraModalIntroHidden = "true";
-}
-
-function stabilizeModalSurface(modal) {
-  modal.style.background = "linear-gradient(180deg, rgba(6, 14, 33, 0.97), rgba(22, 12, 56, 0.985))";
-  modal.style.backdropFilter = "blur(22px) saturate(1.04)";
-  modal.style.webkitBackdropFilter = "blur(22px) saturate(1.04)";
-  modal.style.overflow = "hidden";
-}
-
-function styleRiskReading(modal, hierarchy) {
-  const valueNode = Array.from(modal.querySelectorAll("p")).find((node) => /^\d+%$/.test(clean(node.textContent)));
-  const card = valueNode?.closest("div");
-  if (!card) return;
-  const highRisk = clean(hierarchy) === "High Risk";
-  card.dataset.claraRiskCardPolished = "true";
-  card.style.padding = "18px 18px";
-  card.style.minHeight = "0";
-  card.style.background = highRisk
-    ? "linear-gradient(135deg, rgba(168,85,247,.17), rgba(236,72,153,.10), rgba(15,23,42,.32))"
-    : "linear-gradient(135deg, rgba(34,211,238,.13), rgba(168,85,247,.11), rgba(15,23,42,.32))";
-  card.style.border = highRisk ? "1px solid rgba(236,72,153,.18)" : "1px solid rgba(255,255,255,.12)";
-  card.style.boxShadow = "inset 0 1px 0 rgba(255,255,255,.08), 0 16px 38px rgba(0,0,0,.13)";
-  card.querySelectorAll("[data-clara-risk-helper='true']").forEach((node) => node.remove());
+function rememberClickedCard(event) {
+  const section = findTrendSnapshotSection();
+  if (!section) return;
+  const card = event.target?.closest?.("button[data-clara-snapshot-label]");
+  if (!card || !section.contains(card)) return;
+  window.__CLARA_LAST_WORKING_STUDENT_SNAPSHOT__ = {
+    label: card.dataset.claraSnapshotLabel,
+    value: card.dataset.claraSnapshotValue,
+    status: card.dataset.claraSnapshotStatus,
+    note: card.dataset.claraSnapshotNote,
+    insight: card.dataset.claraSnapshotInsight,
+    action: card.dataset.claraSnapshotAction,
+  };
 }
 
 function createInsightRow(label, text, accent) {
@@ -276,7 +488,14 @@ function createInsightRow(label, text, accent) {
   `;
 }
 
-function createInsightPanel(modal, trendLabel) {
+function stabilizeModalSurface(modal) {
+  modal.style.background = "linear-gradient(180deg, rgba(6, 14, 33, 0.97), rgba(22, 12, 56, 0.985))";
+  modal.style.backdropFilter = "blur(22px) saturate(1.04)";
+  modal.style.webkitBackdropFilter = "blur(22px) saturate(1.04)";
+  modal.style.overflow = "hidden";
+}
+
+function upsertInsightPanel(modal, snapshot) {
   const sourceHeading = Array.from(modal.querySelectorAll("p")).find((node) => clean(node.textContent).toLowerCase().includes("source"));
   if (!sourceHeading) return;
   const sourceBox = sourceHeading.closest("div");
@@ -289,110 +508,77 @@ function createInsightPanel(modal, trendLabel) {
     sourceBox.parentElement?.insertBefore(panel, sourceBox);
   }
 
-  const insight = MODAL_INSIGHTS[trendLabel] || {
-    meaning: "This card shows one part of the current life-stage pressure pattern.",
-    watch: "Watch when this pattern starts influencing small daily money decisions.",
-    action: "Use CLARA to pause, name the pressure, and choose a smaller next step."
-  };
-
   panel.style.cssText = "margin:16px 0 12px;padding:15px;border-radius:24px;border:1px solid rgba(255,255,255,.12);background:linear-gradient(145deg, rgba(255,255,255,.060), rgba(255,255,255,.028));box-shadow:inset 0 1px 0 rgba(255,255,255,.06), 0 18px 42px rgba(0,0,0,.12);";
   panel.innerHTML = `
     <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:12px;">
-      <p style="margin:0;font-size:10px;font-weight:950;letter-spacing:.16em;text-transform:uppercase;color:rgba(255,255,255,.82);">Pressure Pattern</p>
+      <p style="margin:0;font-size:10px;font-weight:950;letter-spacing:.16em;text-transform:uppercase;color:rgba(255,255,255,.82);">100% Pressure Split</p>
     </div>
     <div style="display:grid;gap:9px;">
-      ${createInsightRow("Insight", insight.meaning, "rgba(34,211,238,.75)")}
-      ${createInsightRow("Pressure Signal", insight.watch, "rgba(251,113,133,.72)")}
-      ${createInsightRow("Next Move", insight.action, "rgba(167,139,250,.78)")}
+      ${createInsightRow("Meaning", snapshot.note, "rgba(34,211,238,.75)")}
+      ${createInsightRow("Why it matters", snapshot.insight, "rgba(251,113,133,.72)")}
+      ${createInsightRow("Next move", snapshot.action, "rgba(167,139,250,.78)")}
     </div>
   `;
 }
 
-function compactSources(sourceHeading) {
+function compactSources(modal) {
+  const sourceHeading = Array.from(modal.querySelectorAll("p")).find((node) => clean(node.textContent).toLowerCase().includes("source"));
   const sourceBox = sourceHeading?.closest("div");
   if (!sourceBox) return;
-  setText(sourceHeading, "Sources");
-  sourceBox.dataset.claraSourceBoxPolished = "true";
-  sourceBox.style.padding = "12px 14px";
-  sourceBox.style.marginTop = "8px";
-  sourceBox.style.background = "linear-gradient(145deg, rgba(255,255,255,.04), rgba(255,255,255,.02))";
-  sourceBox.style.border = "1px solid rgba(255,255,255,.10)";
-  sourceBox.style.boxShadow = "inset 0 1px 0 rgba(255,255,255,.05)";
-
+  setText(sourceHeading, "Snapshot basis");
   Array.from(sourceBox.querySelectorAll("p")).forEach((node) => {
     if (node === sourceHeading) return;
     node.hidden = true;
     node.style.display = "none";
-  });
-
-  Array.from(sourceBox.querySelectorAll("a")).forEach((link) => {
-    link.style.height = "28px";
-    link.style.minWidth = "42px";
-    link.style.padding = "0 10px";
-    link.style.fontSize = "9px";
   });
 }
 
 function enhanceOpenedTrendModal() {
   const sourceHeading = Array.from(document.querySelectorAll("p")).find((node) => {
     const text = clean(node.textContent);
-    return text === "Source direction" || text === "SOURCE DIRECTION" || text === "Source detection" || text === "Sources";
+    return text === "Source direction" || text === "SOURCE DIRECTION" || text === "Source detection" || text === "Sources" || text === "Snapshot basis";
   });
   const modal = sourceHeading?.closest(".absolute");
-  if (!sourceHeading || !modal) return;
+  const snapshot = window.__CLARA_LAST_WORKING_STUDENT_SNAPSHOT__;
+  if (!sourceHeading || !modal || !snapshot) return;
 
-  const trendLabel = clean(modal.querySelector("h4")?.textContent);
-  const section = findTrendSnapshotSection();
-  const hierarchy = getVisibleHierarchy(section, trendLabel);
-  const match = getTrendItems(section).find((item) => item.label === trendLabel);
-
+  const title = modal.querySelector("h4");
+  const intro = title?.nextElementSibling;
+  const valueNode = Array.from(modal.querySelectorAll("p")).find((node) => /^\d+%$/.test(clean(node.textContent)));
+  const statusNode = valueNode?.nextElementSibling;
   const readingLabel = Array.from(modal.querySelectorAll("p")).find((node) => {
     const text = clean(node.textContent);
     return text === "Life-stage reading" || text === "LIFE-STAGE READING" || text === "Risk level reading" || text === "Risk hierarchy reading";
   });
-  const valueNode = Array.from(modal.querySelectorAll("p")).find((node) => /^\d+%$/.test(clean(node.textContent)));
-  const statusNode = valueNode?.nextElementSibling;
 
   stabilizeModalSurface(modal);
-  hideIntroCopy(modal);
-  setText(readingLabel, "Risk hierarchy reading");
-  if (match) setText(valueNode, `${match.value}%`);
-  if (hierarchy) setText(statusNode, hierarchy);
-  styleRiskReading(modal, hierarchy);
-  createInsightPanel(modal, trendLabel);
-  compactSources(sourceHeading);
+  setText(title, snapshot.label);
+  if (intro && intro.tagName === "P") {
+    intro.hidden = false;
+    setText(intro, snapshot.note);
+  }
+  setText(readingLabel, "Behavioral distribution share");
+  setText(valueNode, `${snapshot.value}%`);
+  setText(statusNode, snapshot.status);
+  upsertInsightPanel(modal, snapshot);
+  compactSources(modal);
 }
 
 function enhanceTrendSnapshot() {
+  const profile = readLifeStageProfile();
   const section = findTrendSnapshotSection();
-  if (!section) return;
+  if (!section || profile?.stage !== WORKING_STUDENT_STAGE) return;
+
+  const distribution = buildWorkingStudentDistribution(profile);
   section.dataset.claraTrendSnapshot = "true";
-
-  const header = section.querySelector("h3")?.closest("div");
-  if (header) header.dataset.claraTrendHeader = "true";
-
-  const carousel = Array.from(section.querySelectorAll("div")).find((node) => {
-    const className = String(node.className || "");
-    return className.includes("snap-x") && className.includes("overflow-x-auto");
-  });
-
-  if (carousel) {
-    carousel.dataset.claraTrendCarousel = "true";
-    applyStrategicWeights(section);
-    sortCarouselByRisk(carousel);
-    Array.from(carousel.querySelectorAll("button")).forEach((card, index) => {
-      card.dataset.claraTrendCard = "true";
-      card.dataset.claraTrendPrimary = index === 0 ? "true" : "false";
-      card.dataset.claraTrendIndex = String(index + 1);
-    });
-  }
-
-  applyRiskScaleToCards(section);
+  section.dataset.claraSnapshotModel = "working-student-100-distribution";
+  applyDistributionToCards(section, distribution);
+  updateSnapshotSubtitle(section);
   enhanceOpenedTrendModal();
 }
 
-if (typeof window !== "undefined" && typeof document !== "undefined" && !window.__CLARA_TREND_SNAPSHOT_POLISH__) {
-  window.__CLARA_TREND_SNAPSHOT_POLISH__ = true;
+if (typeof window !== "undefined" && typeof document !== "undefined" && !window.__CLARA_WORKING_STUDENT_100_SNAPSHOT__) {
+  window.__CLARA_WORKING_STUDENT_100_SNAPSHOT__ = true;
   let scheduled = false;
   const scheduleEnhance = () => {
     if (scheduled) return;
@@ -404,7 +590,11 @@ if (typeof window !== "undefined" && typeof document !== "undefined" && !window.
     });
   };
   const observer = new MutationObserver(scheduleEnhance);
-  observer.observe(document.body, { childList: true, subtree: true });
-  document.addEventListener("click", () => window.setTimeout(scheduleEnhance, 80), { passive: true });
+  observer.observe(document.body, { childList: true, subtree: true, characterData: true });
+  document.addEventListener("click", (event) => {
+    rememberClickedCard(event);
+    window.setTimeout(scheduleEnhance, 80);
+  }, { passive: true, capture: true });
+  window.addEventListener("storage", scheduleEnhance);
   window.requestAnimationFrame(scheduleEnhance);
 }
