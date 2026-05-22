@@ -15,11 +15,13 @@
   padding-right: 0 !important;
 }
 
-/* Refine hero alignment under nav */
+/* Refine hero alignment under nav without sliding under it */
 .theme-page-shell:has(section[data-clara-trend-snapshot="true"]) section[data-clara-life-stage-hero="true"] {
-  margin-top: -6px !important;
+  margin-top: -14px !important;
   border-top-left-radius: 28px !important;
   border-top-right-radius: 28px !important;
+  position: relative !important;
+  z-index: 1 !important;
 }
 
 /* Synchronize viewport rails */
