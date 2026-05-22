@@ -3,16 +3,9 @@
   max-width: none !important;
 }
 
-.theme-page-shell:has(section[data-clara-trend-snapshot="true"]) div[class*="max-w-[430px]"] {
-  max-width: none !important;
-}
-
 .theme-page-shell:has(section[data-clara-trend-snapshot="true"]) > div[class*="min-h-0"] {
-  padding-left: 0 !important;
-  padding-right: 0 !important;
-}
-
-.theme-page-shell:has(section[data-clara-trend-snapshot="true"]) > div[class*="z-30"] {
+  width: 100% !important;
+  max-width: none !important;
   padding-left: 0 !important;
   padding-right: 0 !important;
 }
