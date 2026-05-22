@@ -11,12 +11,25 @@ const COPY = {
   "Freelance Season": ["Based on your answers, people in a similar freelance or gig season often carry income uncertainty, client pressure, dry-month risk, and flexible-but-unstable routines all at once. The breakdown below shows what needs the most protection.", "Your freelance setup is", "This usually means money decisions are connected to client flow, payment timing, workload boundaries, rest, and how prepared you are for slower periods.", "Your income rhythm is", "That kind of rhythm needs buffers because expenses can stay fixed even when projects and payments move.", "The goal is not to remove flexibility. The goal is to make flexibility financially safer.", "The first area to protect is", "Your current work load is", "your response pattern is", "The next step should move you toward this", "Freedom feels better when the slow weeks are protected. Start by building the buffer that keeps your work rhythm safe."],
   "Business Builder": ["Based on your answers, people in a similar business-building season often carry sales uncertainty, reinvestment pressure, operating costs, and personal-business money tension all at once. The breakdown below shows what needs the most protection.", "Your business setup is", "This usually means money decisions are connected to sales cycles, operating costs, reinvestment choices, customer pressure, and personal financial safety.", "Your business cash rhythm is", "That kind of rhythm needs separation because growth pressure can make personal money and business money blur quickly.", "The goal is not just growth. The goal is sustainable growth that does not break your personal stability.", "The first area to protect is", "Your current builder load is", "your response pattern is", "The next step should move the business toward this", "Building something takes pressure. Start by protecting the system that keeps growth, cash flow, and your personal life from mixing too much."]
 };
+
 const ALIASES = { "Young Earner": "Young Professional", "Fresh Graduate": "Young Professional", Breadwinner: "Family Household", "OFW Family": "Family Household", "Unemployed Adult": "Family Household", "First-Time Parent": "Single Parent", "Freelance / Gig Worker": "Freelance Season", Freelancer: "Freelance Season" };
 const clean = (v) => String(v || "").replace(/\s+/g, " ").trim();
 const lower = (v) => { const t = clean(v); return t ? t[0].toLowerCase() + t.slice(1) : ""; };
 const safe = (v) => clean(v).replace(/[&<>'"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", "'": "&#39;", '"': "&quot;" }[c]));
-function readProfile() { try { return JSON.parse(localStorage.getItem(LIFE_STAGE_KEY) || "{}") || {}; } catch { return {}; } }
-function keyFor(stage) { const k = ALIASES[clean(stage)] || clean(stage); return COPY[k] ? k : "Young Professional"; }
+
+function readProfile() {
+  try {
+    return JSON.parse(localStorage.getItem(LIFE_STAGE_KEY) || "{}") || {};
+  } catch {
+    return {};
+  }
+}
+
+function keyFor(stage) {
+  const k = ALIASES[clean(stage)] || clean(stage);
+  return COPY[k] ? k : "Young Professional";
+}
+
 function build(profile) {
   const c = COPY[keyFor(profile.stage)];
   const setup = clean(profile.setup) || "current setup";
@@ -25,29 +38,236 @@ function build(profile) {
   const pressure = clean(profile.pressure).replace(/\bTution\b/gi, "Tuition") || "current financial pressure";
   const coping = clean(profile.coping) || "current response pattern";
   const goal = clean(profile.goal) || "protect stability";
-  return { core: c[0], sees: [`${c[1]} ${lower(setup)}.`, c[2]], matters: [`${c[3]} ${lower(rhythm)}.`, c[4], c[5]], protection: [`${c[6]} ${lower(pressure)}.`, `${c[7]} ${lower(workload)}, and ${c[8]}: ${lower(coping)}.`, `${c[9]}: ${lower(goal)}.`], landing: c[10] };
+
+  return {
+    stage: keyFor(profile.stage),
+    setup,
+    rhythm,
+    workload,
+    pressure,
+    coping,
+    goal,
+    core: c[0].replace("The breakdown below shows what needs the most protection.", "Here is what CLARA understood first."),
+    sees: [`${c[1]} ${lower(setup)}.`, c[2]],
+    matters: [`${c[3]} ${lower(rhythm)}.`, c[4], c[5]],
+    protection: [`${c[6]} ${lower(pressure)}.`, `${c[7]} ${lower(workload)}, and ${c[8]}: ${lower(coping)}.`, `${c[9]}: ${lower(goal)}.`],
+    landing: c[10],
+  };
 }
-function lineHtml(items) { return items.map((t, i) => `<p class="${i === 0 ? "lead" : i === items.length - 1 ? "strong" : "soft"}">${safe(t)}</p>`).join(""); }
+
+function titleFromResponse(coping) {
+  const value = clean(coping).toLowerCase();
+  if (value.includes("reward") || value.includes("comfort") || value.includes("convenience")) return "Reward spending may need attention.";
+  if (value.includes("avoid")) return "Avoiding the numbers may be the signal.";
+  if (value.includes("borrow") || value.includes("delay") || value.includes("debt")) return "Pressure may be carrying over.";
+  if (value.includes("cut")) return "Over-sacrifice may need protection.";
+  return "Your response pattern matters.";
+}
+
+function buildSlides(profile) {
+  const d = build(profile);
+  const pressureChips = [d.setup, d.rhythm, d.workload, d.pressure].filter(Boolean).slice(0, 4);
+  const primaryProtection = d.protection[0] || "Start with the area most likely to break your rhythm first.";
+  const mainMeterLabel = d.pressure || "Protection priority";
+
+  return [
+    {
+      eyebrow: "CLARA Life Snapshot",
+      title: "CLARA read your situation.",
+      body: "Based on your answers, here is what your current life stage may be carrying.",
+      supporting: d.stage,
+      kind: "opening",
+    },
+    {
+      eyebrow: "Pressure mix",
+      title: "Your pressure is not just about money.",
+      body: d.core,
+      chips: pressureChips,
+      kind: "chips",
+    },
+    {
+      eyebrow: "Money rhythm",
+      title: d.stage === "Working Student" ? "Your rhythm is stretched." : "Your rhythm needs protection.",
+      body: d.matters.join(" "),
+      supporting: "The goal is not a perfect budget. The goal is steady control.",
+      kind: "rhythm",
+    },
+    {
+      eyebrow: "Hidden trigger",
+      title: titleFromResponse(d.coping),
+      body: d.protection[1] || "CLARA is checking whether spending is really relief, avoidance, or survival pressure—not just a normal expense.",
+      supporting: "This is not judgment. This is pattern protection.",
+      kind: "trigger",
+    },
+    {
+      eyebrow: "Protection priority",
+      title: "Protect this first.",
+      body: primaryProtection,
+      supporting: d.protection[2] || "Start with the area most likely to break your rhythm first.",
+      meterLabel: mainMeterLabel,
+      kind: "meter",
+    },
+    {
+      eyebrow: "Next best move",
+      title: "You do not need to fix everything at once.",
+      body: d.landing,
+      supporting: "Start by protecting one decision this week.",
+      kind: "final",
+    },
+  ];
+}
+
+function chipHtml(items = []) {
+  return items.map((item) => `<span class="story-chip">${safe(item)}</span>`).join("");
+}
+
+function slideVisual(slide, index, total) {
+  if (slide.kind === "chips") {
+    return `<div class="chip-grid">${chipHtml(slide.chips)}</div>`;
+  }
+
+  if (slide.kind === "meter") {
+    return `<div class="protection-meter"><div><p>Protection focus</p><strong>${safe(slide.meterLabel)}</strong></div><span>1st</span></div>`;
+  }
+
+  if (slide.kind === "final") {
+    return `<div class="final-orb"><span>✓</span></div>`;
+  }
+
+  return `<div class="story-orb"><span>${index + 1}</span><small>of ${total}</small></div>`;
+}
+
+function renderSlide(slide, index, total) {
+  return `
+    <div class="story-card" data-kind="${safe(slide.kind)}">
+      <p class="eyebrow">${safe(slide.eyebrow)}</p>
+      <h1>${safe(slide.title)}</h1>
+      <p class="story-body">${safe(slide.body)}</p>
+      ${slide.supporting ? `<p class="supporting">${safe(slide.supporting)}</p>` : ""}
+      ${slideVisual(slide, index, total)}
+    </div>
+  `;
+}
+
 function show(profile) {
   if (!profile?.stage) return;
   document.getElementById(DIAGNOSIS_ID)?.remove();
-  const d = build(profile);
+
+  const slides = buildSlides(profile);
+  let activeIndex = 0;
+  let startX = 0;
+  let oldOverflow = "";
+
   const el = document.createElement("div");
   el.id = DIAGNOSIS_ID;
-  el.innerHTML = `<section class="shell"><div class="panel"><div class="intro">${safe(d.core)}</div><article><span>What this suggests</span><div class="box">${lineHtml(d.sees)}</div></article><article class="mid"><span>Why this matters</span><div class="box">${lineHtml(d.matters)}</div></article><article class="last"><span>What needs protection now</span><div class="box">${lineHtml(d.protection)}</div></article><div class="landing">${safe(d.landing)}</div><button type="button">Continue to Me</button></div></section>`;
+  el.innerHTML = `
+    <section class="story-shell" aria-label="CLARA Life Snapshot story">
+      <div class="story-panel">
+        <div class="progress-bars" aria-hidden="true">
+          ${slides.map((_, index) => `<span class="progress-track"><i data-progress="${index}"></i></span>`).join("")}
+        </div>
+        <div class="story-stage" role="group" aria-live="polite"></div>
+        <div class="tap-zone tap-left" aria-hidden="true"></div>
+        <div class="tap-zone tap-right" aria-hidden="true"></div>
+        <div class="story-footer">
+          <button type="button" class="back-button">Back</button>
+          <button type="button" class="next-button">Next</button>
+        </div>
+      </div>
+    </section>
+  `;
+
   const style = document.createElement("style");
-  style.textContent = `#${DIAGNOSIS_ID},#${DIAGNOSIS_ID} *{box-sizing:border-box}#${DIAGNOSIS_ID}{position:fixed;inset:0;z-index:2147483647;background:rgba(1,8,20,.84);backdrop-filter:blur(18px);display:grid;place-items:center;font-family:inherit}#${DIAGNOSIS_ID} .shell{width:min(430px,100vw);height:100svh;max-height:100svh;padding:max(10px,env(safe-area-inset-top)) 12px max(24px,calc(env(safe-area-inset-bottom) + 18px));background:radial-gradient(circle at 18% 0%,rgba(45,212,191,.10),transparent 30%),radial-gradient(circle at 100% 18%,rgba(124,58,237,.16),transparent 34%),#020817;overflow:hidden}#${DIAGNOSIS_ID} .panel{position:relative;height:100%;display:grid;grid-template-rows:auto auto auto auto minmax(34px,1fr) auto;gap:clamp(7px,1.15svh,11px);overflow:hidden;border-radius:31px;border:1px solid rgba(165,243,252,.16);padding:clamp(14px,2.1svh,20px) 22px max(16px,1.9svh);background:radial-gradient(circle at 8% 3%,rgba(94,234,212,.16),transparent 28%),radial-gradient(circle at 92% 92%,rgba(124,58,237,.20),transparent 34%),linear-gradient(145deg,rgba(9,29,55,.82),rgba(17,21,67,.84) 54%,rgba(48,25,104,.76));box-shadow:0 30px 92px rgba(0,0,0,.55),0 0 48px rgba(34,211,238,.08),inset 0 1px 0 rgba(255,255,255,.09)}#${DIAGNOSIS_ID} .panel:before{content:"";position:absolute;inset:0;pointer-events:none;background:linear-gradient(180deg,rgba(255,255,255,.045),transparent 32%),radial-gradient(circle at 50% 0%,rgba(125,211,252,.08),transparent 42%)}#${DIAGNOSIS_ID} .panel>*{position:relative;z-index:1}#${DIAGNOSIS_ID} .intro{border:1px solid rgba(165,243,252,.16);border-radius:20px;background:radial-gradient(circle at 8% 0%,rgba(125,211,252,.12),transparent 38%),linear-gradient(145deg,rgba(255,255,255,.055),rgba(255,255,255,.025));box-shadow:inset 0 1px 0 rgba(255,255,255,.08),0 16px 30px rgba(2,8,23,.16);padding:clamp(10px,1.45svh,14px);color:rgba(248,253,255,.94);font-size:clamp(12.4px,3.25vw,14.3px);font-weight:760;line-height:1.38;min-height:0}#${DIAGNOSIS_ID} article{display:grid;gap:5px;min-height:0}#${DIAGNOSIS_ID} span{display:flex;align-items:center;gap:9px;color:rgba(201,240,252,.84);font-size:clamp(9.2px,2.35vw,11px);font-weight:950;letter-spacing:.2em;text-transform:uppercase;white-space:nowrap;text-shadow:0 0 16px rgba(125,211,252,.12)}#${DIAGNOSIS_ID} span:before{content:"";width:7px;height:7px;border-radius:999px;background:rgba(125,211,252,.82);box-shadow:0 0 18px rgba(125,211,252,.34)}#${DIAGNOSIS_ID} .mid span{color:rgba(210,199,255,.86)}#${DIAGNOSIS_ID} .mid span:before{background:rgba(196,181,253,.84);box-shadow:0 0 18px rgba(168,85,247,.30)}#${DIAGNOSIS_ID} .last span{color:rgba(170,252,235,.86)}#${DIAGNOSIS_ID} .last span:before{background:rgba(153,246,228,.84);box-shadow:0 0 18px rgba(45,212,191,.30)}#${DIAGNOSIS_ID} .box{position:relative;overflow:hidden;border-radius:18px;border:1px solid rgba(125,211,252,.12);background:radial-gradient(circle at 8% 0%,rgba(125,211,252,.08),transparent 40%),linear-gradient(145deg,rgba(15,31,60,.35),rgba(18,21,62,.40));box-shadow:inset 0 1px 0 rgba(255,255,255,.055),0 12px 26px rgba(2,8,23,.15),0 0 30px rgba(125,211,252,.045);padding:clamp(7px,1.05svh,10px) 12px;min-height:0}#${DIAGNOSIS_ID} .mid .box{border-color:rgba(196,181,253,.13);background:radial-gradient(circle at 8% 0%,rgba(196,181,253,.09),transparent 40%),linear-gradient(145deg,rgba(16,24,57,.34),rgba(31,24,78,.42));box-shadow:inset 0 1px 0 rgba(255,255,255,.055),0 12px 26px rgba(2,8,23,.15),0 0 30px rgba(168,85,247,.045)}#${DIAGNOSIS_ID} .last .box{border-color:rgba(153,246,228,.13);background:radial-gradient(circle at 8% 0%,rgba(45,212,191,.09),transparent 40%),linear-gradient(145deg,rgba(10,29,50,.34),rgba(28,24,72,.42));box-shadow:inset 0 1px 0 rgba(255,255,255,.055),0 12px 26px rgba(2,8,23,.15),0 0 30px rgba(45,212,191,.045)}#${DIAGNOSIS_ID} .box:before{content:"";position:absolute;inset:0;pointer-events:none;background:linear-gradient(180deg,rgba(255,255,255,.035),transparent 42%)}#${DIAGNOSIS_ID} p{margin:0;position:relative;z-index:1}#${DIAGNOSIS_ID} .box p,#${DIAGNOSIS_ID} .box .lead,#${DIAGNOSIS_ID} .box .soft,#${DIAGNOSIS_ID} .box .strong{font-weight:900!important;color:rgba(248,253,255,.94)!important;text-shadow:0 0 .01px rgba(255,255,255,.65)}#${DIAGNOSIS_ID} .lead{font-size:clamp(11.8px,3.05vw,13.7px);line-height:1.27}#${DIAGNOSIS_ID} .soft{margin-top:clamp(2px,.45svh,4px);font-size:clamp(11.3px,2.88vw,12.9px);line-height:1.32}#${DIAGNOSIS_ID} .strong{margin-top:clamp(2px,.45svh,4px);font-size:clamp(11.5px,2.94vw,13.1px);line-height:1.29}#${DIAGNOSIS_ID} .landing{position:relative;min-height:0;display:grid;place-items:center;border:1px solid rgba(125,211,252,.13);border-radius:22px;background:radial-gradient(circle at 50% 18%,rgba(125,211,252,.13),transparent 42%),radial-gradient(circle at 85% 100%,rgba(124,58,237,.13),transparent 40%),linear-gradient(145deg,rgba(8,20,45,.38),rgba(25,19,68,.42));box-shadow:inset 0 1px 0 rgba(255,255,255,.055),0 18px 40px rgba(2,8,23,.16),0 0 34px rgba(45,212,191,.045);color:rgba(226,249,255,.90);font-size:clamp(10.7px,2.75vw,12.3px);font-weight:820;line-height:1.34;text-align:center;padding:clamp(8px,1.3svh,13px) 24px;overflow:hidden}#${DIAGNOSIS_ID} .landing:before{content:"";position:absolute;inset:12px 20px auto;height:1px;background:linear-gradient(90deg,transparent,rgba(165,243,252,.28),transparent);opacity:.78}#${DIAGNOSIS_ID} button{width:100%;height:clamp(44px,6.2svh,50px);min-height:44px;flex:0 0 auto;border:1px solid rgba(255,255,255,.18);border-radius:9999px;background:radial-gradient(circle at 18% 18%,rgba(255,255,255,.34),transparent 25%),linear-gradient(135deg,#67e8f9,#7dd3fc 46%,#a5b4fc);color:#06101f;font-size:13.5px;font-weight:900;box-shadow:0 16px 34px rgba(45,212,191,.18),0 0 30px rgba(125,211,252,.12),inset 0 1px 0 rgba(255,255,255,.38)}@media(max-height:760px){#${DIAGNOSIS_ID} .shell{padding:8px 12px max(20px,calc(env(safe-area-inset-bottom) + 14px))}#${DIAGNOSIS_ID} .panel{border-radius:27px;padding:13px 17px 14px;gap:6px}#${DIAGNOSIS_ID} .intro{padding:9px 11px;border-radius:17px;font-size:11.2px;line-height:1.24}#${DIAGNOSIS_ID} span{font-size:8.5px;letter-spacing:.18em;gap:7px}#${DIAGNOSIS_ID} span:before{width:6.5px;height:6.5px}#${DIAGNOSIS_ID} .box{padding:6px 9px;border-radius:14px}#${DIAGNOSIS_ID} .lead{font-size:10.9px;line-height:1.18}#${DIAGNOSIS_ID} .soft{font-size:10.3px;line-height:1.21;margin-top:2px}#${DIAGNOSIS_ID} .strong{font-size:10.5px;line-height:1.19;margin-top:2px}#${DIAGNOSIS_ID} .landing{border-radius:16px;font-size:9.8px;line-height:1.12;padding:5px 18px}#${DIAGNOSIS_ID} .landing:before{opacity:0}#${DIAGNOSIS_ID} button{height:42px;min-height:42px;font-size:13px}}@media(max-height:680px){#${DIAGNOSIS_ID} .panel{gap:5px;padding:10px 14px 12px}#${DIAGNOSIS_ID} .intro{font-size:10.4px;line-height:1.16;padding:7px 9px}#${DIAGNOSIS_ID} span{font-size:7.2px;gap:6px;letter-spacing:.16em}#${DIAGNOSIS_ID} span:before{width:5.5px;height:5.5px}#${DIAGNOSIS_ID} .box{padding:5px 8px;border-radius:12px}#${DIAGNOSIS_ID} .lead{font-size:10.1px;line-height:1.1}#${DIAGNOSIS_ID} .soft{font-size:9.5px;line-height:1.12}#${DIAGNOSIS_ID} .strong{font-size:9.7px;line-height:1.1}#${DIAGNOSIS_ID} .landing{font-size:8.9px;padding:4px 12px}#${DIAGNOSIS_ID} button{height:38px;min-height:38px}}`;
+  style.textContent = `
+    #${DIAGNOSIS_ID}, #${DIAGNOSIS_ID} * { box-sizing: border-box; }
+    #${DIAGNOSIS_ID} { position: fixed; inset: 0; z-index: 2147483647; display: grid; place-items: center; background: rgba(1,8,20,.86); backdrop-filter: blur(18px); font-family: inherit; color: white; }
+    #${DIAGNOSIS_ID} .story-shell { position: relative; width: min(430px, 100vw); height: 100svh; padding: max(10px, env(safe-area-inset-top)) 12px max(18px, calc(env(safe-area-inset-bottom) + 14px)); overflow: hidden; background: radial-gradient(circle at 18% 0%, rgba(45,212,191,.14), transparent 30%), radial-gradient(circle at 100% 18%, rgba(124,58,237,.20), transparent 34%), linear-gradient(180deg, #030816, #06051f 52%, #020817); }
+    #${DIAGNOSIS_ID} .story-panel { position: relative; height: 100%; overflow: hidden; display: grid; grid-template-rows: auto minmax(0,1fr) auto; gap: 12px; border-radius: 34px; border: 1px solid rgba(165,243,252,.15); padding: 14px 18px 16px; background: radial-gradient(circle at 10% 4%, rgba(94,234,212,.18), transparent 30%), radial-gradient(circle at 90% 92%, rgba(124,58,237,.24), transparent 34%), linear-gradient(145deg, rgba(8,28,55,.86), rgba(15,18,66,.88) 53%, rgba(45,22,100,.80)); box-shadow: 0 30px 92px rgba(0,0,0,.55), 0 0 48px rgba(34,211,238,.08), inset 0 1px 0 rgba(255,255,255,.08); }
+    #${DIAGNOSIS_ID} .story-panel:before { content: ""; position: absolute; inset: 0; pointer-events: none; background: linear-gradient(180deg, rgba(255,255,255,.05), transparent 32%), radial-gradient(circle at 50% 0%, rgba(125,211,252,.08), transparent 42%); }
+    #${DIAGNOSIS_ID} .progress-bars { position: relative; z-index: 4; display: grid; grid-template-columns: repeat(6, minmax(0,1fr)); gap: 5px; padding: 2px 1px 0; }
+    #${DIAGNOSIS_ID} .progress-track { height: 3px; overflow: hidden; border-radius: 999px; background: rgba(255,255,255,.14); }
+    #${DIAGNOSIS_ID} .progress-track i { display: block; height: 100%; width: 0%; border-radius: inherit; background: linear-gradient(90deg, rgba(103,232,249,.95), rgba(165,180,252,.95)); box-shadow: 0 0 16px rgba(125,211,252,.28); transition: width .22s ease; }
+    #${DIAGNOSIS_ID} .story-stage { position: relative; z-index: 2; min-height: 0; display: grid; align-items: center; overflow: hidden; }
+    #${DIAGNOSIS_ID} .story-card { min-height: min(640px, calc(100svh - 130px)); height: 100%; display: flex; flex-direction: column; justify-content: center; gap: clamp(14px, 2.6svh, 22px); border-radius: 28px; border: 1px solid rgba(255,255,255,.085); padding: clamp(22px, 5.5svh, 34px) clamp(18px, 5vw, 24px); background: radial-gradient(circle at 18% 12%, rgba(125,211,252,.12), transparent 33%), radial-gradient(circle at 88% 88%, rgba(168,85,247,.16), transparent 38%), rgba(3,10,31,.34); box-shadow: inset 0 1px 0 rgba(255,255,255,.06), 0 18px 54px rgba(2,8,23,.20); animation: claraStoryIn .22s ease-out; }
+    #${DIAGNOSIS_ID} .eyebrow { margin: 0; color: rgba(186,230,253,.70); font-size: 10px; font-weight: 950; letter-spacing: .24em; text-transform: uppercase; }
+    #${DIAGNOSIS_ID} h1 { margin: 0; max-width: 340px; font-size: clamp(34px, 11vw, 48px); line-height: .94; letter-spacing: -.055em; font-weight: 950; text-shadow: 0 12px 34px rgba(0,0,0,.32); }
+    #${DIAGNOSIS_ID} .story-body { margin: 0; max-width: 340px; color: rgba(248,253,255,.84); font-size: clamp(14px, 3.7vw, 16px); line-height: 1.48; font-weight: 760; }
+    #${DIAGNOSIS_ID} .supporting { margin: -4px 0 0; max-width: 320px; color: rgba(186,230,253,.62); font-size: clamp(12px, 3.1vw, 13.5px); line-height: 1.42; font-weight: 760; }
+    #${DIAGNOSIS_ID} .chip-grid { display: flex; flex-wrap: wrap; gap: 9px; }
+    #${DIAGNOSIS_ID} .story-chip { max-width: 100%; border-radius: 999px; border: 1px solid rgba(165,243,252,.16); background: rgba(255,255,255,.055); padding: 9px 12px; color: rgba(240,253,255,.88); font-size: 11px; line-height: 1.2; font-weight: 900; box-shadow: 0 10px 24px rgba(2,8,23,.16), inset 0 1px 0 rgba(255,255,255,.05); }
+    #${DIAGNOSIS_ID} .story-orb { margin-top: 8px; display: grid; place-items: center; align-self: flex-end; width: clamp(104px, 29vw, 132px); height: clamp(104px, 29vw, 132px); border-radius: 999px; border: 1px solid rgba(165,243,252,.18); background: radial-gradient(circle at 32% 26%, rgba(255,255,255,.18), transparent 28%), radial-gradient(circle at 50% 56%, rgba(103,232,249,.16), rgba(124,58,237,.14)); box-shadow: 0 0 44px rgba(34,211,238,.12), inset 0 1px 0 rgba(255,255,255,.08); }
+    #${DIAGNOSIS_ID} .story-orb span { font-size: 36px; line-height: 1; font-weight: 950; }
+    #${DIAGNOSIS_ID} .story-orb small { margin-top: -18px; color: rgba(224,242,254,.56); font-size: 10px; font-weight: 900; letter-spacing: .12em; text-transform: uppercase; }
+    #${DIAGNOSIS_ID} .protection-meter { display: flex; align-items: center; justify-content: space-between; gap: 16px; border-radius: 24px; border: 1px solid rgba(153,246,228,.16); background: radial-gradient(circle at 8% 0%, rgba(45,212,191,.14), transparent 40%), rgba(255,255,255,.045); padding: 15px; box-shadow: 0 18px 44px rgba(2,8,23,.18), 0 0 38px rgba(45,212,191,.08); }
+    #${DIAGNOSIS_ID} .protection-meter p { margin: 0; color: rgba(153,246,228,.68); font-size: 10px; font-weight: 950; letter-spacing: .18em; text-transform: uppercase; }
+    #${DIAGNOSIS_ID} .protection-meter strong { display: block; margin-top: 6px; color: rgba(248,253,255,.92); font-size: 15px; line-height: 1.2; font-weight: 950; }
+    #${DIAGNOSIS_ID} .protection-meter span { display: grid; place-items: center; flex: 0 0 auto; width: 68px; height: 68px; border-radius: 999px; background: linear-gradient(135deg, rgba(103,232,249,.95), rgba(165,180,252,.95)); color: #06101f; font-size: 20px; font-weight: 950; box-shadow: 0 16px 34px rgba(45,212,191,.18); }
+    #${DIAGNOSIS_ID} .final-orb { display: grid; place-items: center; align-self: center; width: 116px; height: 116px; border-radius: 999px; border: 1px solid rgba(165,243,252,.18); background: radial-gradient(circle at 32% 26%, rgba(255,255,255,.24), transparent 28%), linear-gradient(135deg, rgba(103,232,249,.22), rgba(124,58,237,.18)); box-shadow: 0 0 54px rgba(34,211,238,.15), inset 0 1px 0 rgba(255,255,255,.08); }
+    #${DIAGNOSIS_ID} .final-orb span { font-size: 42px; font-weight: 950; color: rgba(224,242,254,.95); }
+    #${DIAGNOSIS_ID} .tap-zone { position: absolute; z-index: 3; top: 44px; bottom: 86px; width: 34%; }
+    #${DIAGNOSIS_ID} .tap-left { left: 0; }
+    #${DIAGNOSIS_ID} .tap-right { right: 0; }
+    #${DIAGNOSIS_ID} .story-footer { position: relative; z-index: 5; display: flex; gap: 10px; }
+    #${DIAGNOSIS_ID} button { font-family: inherit; border: 0; cursor: pointer; }
+    #${DIAGNOSIS_ID} .back-button, #${DIAGNOSIS_ID} .next-button { min-height: 48px; border-radius: 999px; font-size: 13px; font-weight: 950; transition: transform .12s ease, opacity .12s ease; }
+    #${DIAGNOSIS_ID} .back-button { width: 34%; border: 1px solid rgba(255,255,255,.10); background: rgba(255,255,255,.045); color: rgba(240,253,255,.72); }
+    #${DIAGNOSIS_ID} .back-button[disabled] { opacity: 0; pointer-events: none; }
+    #${DIAGNOSIS_ID} .next-button { flex: 1; border: 1px solid rgba(255,255,255,.18); background: radial-gradient(circle at 18% 18%, rgba(255,255,255,.34), transparent 25%), linear-gradient(135deg, #67e8f9, #7dd3fc 46%, #a5b4fc); color: #06101f; box-shadow: 0 16px 34px rgba(45,212,191,.18), 0 0 30px rgba(125,211,252,.12), inset 0 1px 0 rgba(255,255,255,.38); }
+    #${DIAGNOSIS_ID} button:active { transform: scale(.98); }
+    @keyframes claraStoryIn { from { opacity: 0; transform: translateY(14px) scale(.985); } to { opacity: 1; transform: translateY(0) scale(1); } }
+    @media (max-height: 720px) { #${DIAGNOSIS_ID} .story-panel { gap: 8px; padding: 12px 15px 13px; border-radius: 29px; } #${DIAGNOSIS_ID} .story-card { min-height: calc(100svh - 112px); border-radius: 24px; padding: 18px 16px; gap: 10px; } #${DIAGNOSIS_ID} h1 { font-size: clamp(30px, 9.5vw, 40px); } #${DIAGNOSIS_ID} .story-body { font-size: 12.5px; line-height: 1.35; } #${DIAGNOSIS_ID} .supporting { font-size: 11.5px; } #${DIAGNOSIS_ID} .story-orb { width: 92px; height: 92px; } #${DIAGNOSIS_ID} .story-footer button { min-height: 42px; } }
+  `;
+
   el.appendChild(style);
   document.body.appendChild(el);
-  const old = document.body.style.overflow;
+  oldOverflow = document.body.style.overflow;
   document.body.style.overflow = "hidden";
-  el.querySelector("button")?.addEventListener("click", () => {
+
+  const stage = el.querySelector(".story-stage");
+  const backButton = el.querySelector(".back-button");
+  const nextButton = el.querySelector(".next-button");
+  const leftZone = el.querySelector(".tap-left");
+  const rightZone = el.querySelector(".tap-right");
+
+  const close = () => {
     const setupClose = document.querySelector('button[aria-label="Close life stage setup"]');
     if (setupClose) setupClose.click();
     el.remove();
-    document.body.style.overflow = old || "";
+    document.body.style.overflow = oldOverflow || "";
+  };
+
+  const render = () => {
+    stage.innerHTML = renderSlide(slides[activeIndex], activeIndex, slides.length);
+    el.querySelectorAll("[data-progress]").forEach((bar) => {
+      const index = Number(bar.getAttribute("data-progress"));
+      bar.style.width = index < activeIndex ? "100%" : index === activeIndex ? "68%" : "0%";
+    });
+    backButton.disabled = activeIndex === 0;
+    nextButton.textContent = activeIndex === slides.length - 1 ? "Continue to Me" : "Next";
+  };
+
+  const go = (direction) => {
+    if (direction > 0 && activeIndex >= slides.length - 1) {
+      close();
+      return;
+    }
+    activeIndex = Math.max(0, Math.min(slides.length - 1, activeIndex + direction));
+    render();
+  };
+
+  backButton.addEventListener("click", () => go(-1));
+  nextButton.addEventListener("click", () => go(1));
+  leftZone.addEventListener("click", () => go(-1));
+  rightZone.addEventListener("click", () => go(1));
+  el.addEventListener("pointerdown", (event) => { startX = event.clientX || 0; });
+  el.addEventListener("pointerup", (event) => {
+    const delta = (event.clientX || 0) - startX;
+    if (Math.abs(delta) > 42) go(delta < 0 ? 1 : -1);
   });
+
+  render();
 }
+
 function install() {
   if (typeof window === "undefined" || typeof document === "undefined" || window.__claraLifeStageDiagnosisRevealInstalled) return;
   window.__claraLifeStageDiagnosisRevealInstalled = true;
@@ -56,9 +276,15 @@ function install() {
     clearTimeout(revealTimer);
     revealTimer = setTimeout(() => show(readProfile()), delay);
   };
+
   document.addEventListener("click", (event) => {
     const button = event.target?.closest?.("button");
     if (button && /apply stage/i.test(clean(button.innerText || button.textContent))) reveal(35);
   }, true);
 }
-try { install(); } catch (error) { console.warn("CLARA Life Stage diagnosis reveal failed:", error); }
+
+try {
+  install();
+} catch (error) {
+  console.warn("CLARA Life Stage diagnosis reveal failed:", error);
+}
