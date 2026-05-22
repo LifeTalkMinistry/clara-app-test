@@ -7,24 +7,10 @@
   max-width: none !important;
 }
 
-.theme-page-shell:has(section[data-clara-trend-snapshot="true"]) > div[class*="min-h-0"] {
-  padding-left: 4px !important;
-  padding-right: 4px !important;
-}
-
-.theme-page-shell:has(section[data-clara-trend-snapshot="true"]) > div[class*="z-30"] {
-  padding-left: 4px !important;
-  padding-right: 4px !important;
-}
-
 .theme-page-shell:has(section[data-clara-trend-snapshot="true"]) div[class*="rounded-[30px]"][class*="bg-[#020817]"] {
   border-radius: 0 !important;
   background: transparent !important;
   box-shadow: none !important;
   padding-left: 0 !important;
   padding-right: 0 !important;
-}
-
-.theme-page-shell:has(section[data-clara-trend-snapshot="true"]) div[class*="rounded-[30px]"][class*="bg-[#020817]"] > section {
-  width: 100% !important;
 }
