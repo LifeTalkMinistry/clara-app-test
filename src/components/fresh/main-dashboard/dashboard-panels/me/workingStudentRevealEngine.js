@@ -32,7 +32,7 @@ const getSignal = (signals, index, fallback = {}) =>
   signals[index] || {
     label: fallback.label || "Working Student pressure",
     value: fallback.value || 0,
-    note: fallback.note || "CLARA is reading this as part of the detected Working Student pattern.",
+    note: fallback.note || "This is part of the Working Student pattern.",
   };
 
 const buildAnswerText = (answers) =>
@@ -41,46 +41,48 @@ const buildAnswerText = (answers) =>
     .join(" | ")
     .toLowerCase();
 
+const signalLine = (signal) => `${signal.label} appears at ${signal.value}% in this pattern.`;
+
 const detectBehaviorPattern = (answers) => {
   const text = buildAnswerText(answers);
 
   if (includesAny(text, ["family", "home", "guilt", "shared", "support boundary", "income goes home"])) {
     return {
       key: "familyLinked",
-      sourceLabel: "family-linked money load",
-      conflictTitle: "Guilt shows up when you protect yourself.",
+      sourceLabel: "Home needs are quietly entering your school budget.",
+      conflictTitle: "The hard part is the guilt.",
       conflictBody:
-        "The hidden conflict is not only helping family. It is trying to protect school money while still feeling responsible when home needs appear.",
+        "You are not only choosing where money goes. You are also carrying the feeling that protecting your own stability might disappoint someone else.",
       adaptationTitle: includesAny(text, ["limits", "boundary"])
         ? "You are trying to set limits without feeling selfish."
-        : "You may be absorbing pressure before naming it.",
+        : "You may be carrying the pressure quietly first.",
       adaptationBody: includesAny(text, ["delay my own needs", "give even when", "hide money stress"])
-        ? "CLARA reads a self-sacrifice pattern: your own needs may move last so the week can keep going for everyone else."
-        : "CLARA reads the behavior as emotional buffering: you try to stay helpful while quietly protecting what is left.",
-      instabilityTitle: "School money may be turning into shared survival money.",
+        ? "Your own needs may move last so the week can keep going for everyone else."
+        : "You try to stay helpful while privately calculating what is left for you.",
+      instabilityTitle: "School money may be turning into shared household money.",
       instabilityBody:
-        "Your stability weakens most when the money meant for class, fare, food, or recovery quietly becomes the backup fund for everyone.",
-      architectureTitle: "Build a family-support boundary system.",
+        "Class, fare, food, and recovery money can slowly become the backup fund for everyone.",
+      architectureTitle: "You need a boundary that still lets you care.",
       architectureBody:
-        "Start with a protected school-and-daily-needs wallet, then set a visible family-help ceiling so support does not erase your own stability.",
+        "This setup needs protection before stricter discipline: keep school and daily needs separate first, then set a family-help ceiling from what remains.",
       plan: ["Family support limit", "Essentials-first rule", "School wallet"],
     };
   }
 
-  if (includesAny(text, ["tuition", "school payments", "school costs", "school deadlines", "fear of stopping school", "school continuity"])) {
+  if (includesAny(text, ["tuition", "school payments", "school costs", "school deadlines", "school continuity"])) {
     return {
       key: "schoolContinuity",
-      sourceLabel: "school-continuity pressure",
-      conflictTitle: "School progress is competing with basic recovery.",
+      sourceLabel: "School costs are carrying the weight of the week.",
+      conflictTitle: "You are protecting your future while spending your energy now.",
       conflictBody:
-        "The deeper tension is that finishing school matters, but the money used to protect school can also shrink food, fare, rest, or personal needs.",
+        "School matters deeply, but protecting school can quietly shrink food, rest, fare, or personal needs.",
       adaptationTitle: "You may be trading comfort for continuity.",
       adaptationBody:
-        "CLARA reads an over-functioning pattern: you keep school moving by cutting personal space first, even when your body already feels stretched.",
-      instabilityTitle: "The danger is not one big failure. It is slow depletion.",
+        "You keep school moving by cutting personal space first, even when your body already feels stretched.",
+      instabilityTitle: "The danger is slow depletion, not one big mistake.",
       instabilityBody:
-        "The month can look controlled while your energy, meals, rest, or repayment margin quietly runs out before the next school deadline.",
-      architectureTitle: "Create a tuition firewall.",
+        "The month can look controlled while meals, rest, repayment margin, or energy quietly run out before the next school deadline.",
+      architectureTitle: "Your school money needs a firewall.",
       architectureBody:
         "Separate school money from daily survival money first. Then protect a small food-and-fare floor so tuition pressure does not drain your body.",
       plan: ["Tuition firewall", "Food/fare floor", "Deadline buffer"],
@@ -90,56 +92,56 @@ const detectBehaviorPattern = (answers) => {
   if (includesAny(text, ["exhaust", "tired", "burn", "commute", "comfort", "convenience", "missed tracking", "low recovery", "rest"])) {
     return {
       key: "fatigueDriven",
-      sourceLabel: "energy-driven spending load",
-      conflictTitle: "Your budget may be losing to exhaustion, not carelessness.",
+      sourceLabel: "Your budget may be reacting to tiredness first.",
+      conflictTitle: "The real battle may be energy, not discipline.",
       conflictBody:
-        "The hidden conflict is that discipline becomes harder when school, work, commute, and recovery are all asking for the same energy.",
+        "Planning, cooking, tracking, and pausing all require energy, and some days that energy is already gone.",
       adaptationTitle: includesAny(text, ["convenience"])
-        ? "Convenience may be functioning like survival support."
+        ? "Convenience may be helping you get through the day."
         : "Comfort spending may be acting like emergency recovery.",
       adaptationBody:
-        "CLARA reads an energy-protection pattern: spending may happen because planning, cooking, tracking, or resisting takes energy you no longer have.",
-      instabilityTitle: "Routine protection is weakening before money fully runs out.",
+        "Spending can become a shortcut to keep functioning when your schedule leaves almost no room to recover.",
+      instabilityTitle: "The first crack may appear in routine before money runs out.",
       instabilityBody:
-        "The first collapse point may be tracking, meals, transport choices, or rest — long before the budget looks completely broken.",
-      architectureTitle: "Create low-energy money rules.",
+        "Tracking, meals, transport choices, or rest can weaken first, then the budget starts reacting to exhaustion instead of intention.",
+      architectureTitle: "Build rules for tired days, not perfect days.",
       architectureBody:
-        "Build a simple tired-day rule: pre-decide food, fare, and small recovery spending so exhaustion cannot negotiate every decision.",
+        "Your rhythm needs low-energy protection: pre-decide food, fare, and small recovery spending before exhaustion starts negotiating.",
       plan: ["Tired-day rule", "Recovery allowance", "Low-energy tracking"],
     };
   }
 
-  if (includesAny(text, ["borrow", "debt", "repay", "delayed", "delay payments", "timing mismatch", "no-new-debt", "pressure carries over"])) {
+  if (includesAny(text, ["borrow", "repay", "delayed", "delay payments", "timing mismatch", "pressure carries over"])) {
     return {
       key: "delayedPressure",
-      sourceLabel: "carry-over pressure cycle",
-      conflictTitle: "Old pressure is entering the current week.",
+      sourceLabel: "Last week may still be touching this week.",
+      conflictTitle: "You are trying to breathe while catching up.",
       conflictBody:
         "The deeper issue is timing: money may arrive after pressure already forced a decision, so this week starts with last week still attached.",
-      adaptationTitle: "Delay becomes a survival tool, then a trap.",
+      adaptationTitle: "Delay can feel like the only available option.",
       adaptationBody:
-        "CLARA reads a pressure-stacking pattern: delaying, borrowing, or avoiding the full picture may solve today while making the next week tighter.",
-      instabilityTitle: "Stability collapses when the next income is already assigned.",
+        "Borrowing, delaying, or avoiding the full picture can protect today, but it can also make the next week tighter before it starts.",
+      instabilityTitle: "Stability gets thin when the next income is already assigned.",
       instabilityBody:
-        "The danger is not only debt. It is losing the ability to decide freely because repayment, food, fare, and school needs arrive together.",
-      architectureTitle: "Build a no-new-pressure reset path.",
+        "The hard part is losing room to choose because repayment, food, fare, and school needs arrive together.",
+      architectureTitle: "You need a no-new-pressure reset path.",
       architectureBody:
-        "Start with a tiny food-and-fare buffer, then create a repayment rhythm that prevents one delayed decision from becoming the whole month.",
-      plan: ["No-new-debt rule", "Repayment rhythm", "Food/fare buffer"],
+        "Start with a tiny food-and-fare buffer, then create a repayment rhythm that keeps one delayed decision from becoming the whole month.",
+      plan: ["No-new-pressure rule", "Repayment rhythm", "Food/fare buffer"],
     };
   }
 
   if (includesAny(text, ["small", "reward", "leak", "social", "extra income disappears", "strict tracking", "saving feels inconsistent"])) {
     return {
       key: "leakProne",
-      sourceLabel: "small-leak reward cycle",
+      sourceLabel: "Small rewards are becoming pressure relief.",
       conflictTitle: "Small rewards may be carrying bigger feelings.",
       conflictBody:
-        "The hidden conflict is that the spending may look minor, but it often appears when effort, school stress, or the need to feel normal builds up.",
+        "The spending may look minor, but it often appears when effort, school stress, or the need to feel normal builds up.",
       adaptationTitle: "You are not overspending randomly. You are buying relief in small pieces.",
       adaptationBody:
-        "CLARA reads emotional micro-buffering: small purchases help the week feel lighter, but the repetition can quietly weaken savings rhythm.",
-      instabilityTitle: "The leak is small enough to ignore, but frequent enough to shape the month.",
+        "Small purchases can make the week feel lighter, but when they repeat, they quietly weaken the savings rhythm you are trying to build.",
+      instabilityTitle: "The hard part is that it does not feel dangerous at first.",
       instabilityBody:
         "Your stability weakens when extra income has no job before stress, friends, food, and rewards start deciding for it.",
       architectureTitle: "Give extra money a job before it disappears.",
@@ -151,19 +153,19 @@ const detectBehaviorPattern = (answers) => {
 
   return {
     key: "developingRhythm",
-    sourceLabel: "unstable rhythm pattern",
-    conflictTitle: "You are trying to build a future without a steady base yet.",
+    sourceLabel: "Your future goal needs one steady anchor.",
+    conflictTitle: "You are trying to build with a base that still moves.",
     conflictBody:
       "The hidden conflict is that ambition needs consistency, but your income, schedule, and priorities may still change from week to week.",
     adaptationTitle: "Switching plans may be your way of searching for safety.",
     adaptationBody:
-      "CLARA reads a priority-friction pattern: when the next right move is unclear, saving, spending, and planning can start and stop repeatedly.",
-    instabilityTitle: "The weak point is not motivation. It is lack of one protected priority.",
+      "When the next right move is unclear, saving, spending, and planning can start and stop repeatedly.",
+    instabilityTitle: "The weak point is having no protected priority.",
     instabilityBody:
-      "Your stability weakens when every goal competes at once, so the month never gets a single anchor strong enough to hold the rest.",
+      "Your stability weakens when every goal competes at once and none of them becomes the anchor for the week.",
     architectureTitle: "Choose one protected priority first.",
     architectureBody:
-      "Pick one financial anchor for the week — buffer, school, debt, or essentials — then let CLARA protect that before adding more goals.",
+      "Pick one financial anchor for the week — buffer, school, repayment, or essentials — then let CLARA protect that before adding more goals.",
     plan: ["One-priority rule", "Simple money rhythm", "Weekly anchor"],
   };
 };
@@ -192,22 +194,22 @@ const buildProgressiveState = (profile) => {
       : "There is a lot happening in one week.",
     meaning:
       setup.summary ||
-      `CLARA sees ${lower(display(answers.setup))} as the starting environment before reading the deeper money pattern.`,
+      `CLARA is starting with ${lower(display(answers.setup))}, because that is the environment everything else is happening inside.`,
     evidence: [display(answers.setup)],
   });
 
   layers.push({
     key: "pressureSource",
-    title: pattern.sourceLabel[0].toUpperCase() + pattern.sourceLabel.slice(1),
-    meaning: `${rhythm.title} narrows the first read: ${lower(display(answers.rhythm))} is where the money pressure starts becoming visible.`,
-    evidence: [display(answers.setup), display(answers.rhythm), `${topSignal.label}: ${topSignal.value}%`],
+    title: pattern.sourceLabel,
+    meaning: `${rhythm.title}. This is usually where the pressure starts: ${lower(display(answers.rhythm))} is where the week begins to feel tighter.`,
+    evidence: [display(answers.setup), display(answers.rhythm), signalLine(topSignal)],
   });
 
   layers.push({
     key: "internalConflict",
     title: pattern.conflictTitle,
     meaning: pattern.conflictBody,
-    evidence: [display(answers.workload), display(answers.pressure), `${secondSignal.label}: ${secondSignal.value}%`],
+    evidence: [display(answers.workload), display(answers.pressure), signalLine(secondSignal)],
   });
 
   layers.push({
@@ -266,16 +268,16 @@ export function buildWorkingStudentReveal(profile = {}) {
     },
     {
       kind: "chips",
-      eyebrow: "Pressure source detected",
+      eyebrow: "Where it starts",
       title: state.layers[1].title,
       body: state.layers[1].meaning,
-      supporting: "This is the first narrowing point, not the full story yet.",
+      supporting: "This is only the starting point. The deeper reason usually appears next.",
       chips: state.layers[1].evidence.filter(Boolean),
       interpretationLayer: state.layers[1],
     },
     {
       kind: "rhythm",
-      eyebrow: "Internal conflict discovered",
+      eyebrow: "What it costs inside",
       title: state.layers[2].title,
       body: state.layers[2].meaning,
       supporting: state.pressure.summary || state.snapshot.overview,
@@ -283,26 +285,26 @@ export function buildWorkingStudentReveal(profile = {}) {
     },
     {
       kind: "trigger",
-      eyebrow: "Behavior adaptation",
+      eyebrow: "The way you cope",
       title: state.layers[3].title,
       body: state.layers[3].meaning,
-      supporting: "This is a behavior signal, not a personal failure.",
+      supporting: "This is a behavior signal, not a character judgment.",
       interpretationLayer: state.layers[3],
     },
     {
       kind: "meter",
-      eyebrow: "Hidden instability",
-      title: `${state.topSignal.label}: ${state.topSignal.value}%`,
+      eyebrow: "Where stability gets thin",
+      title: state.layers[4].title,
       body: state.layers[4].meaning,
       supporting: state.secondSignal?.value
-        ? `${state.secondSignal.label} also appears at ${state.secondSignal.value}%. This is the 100% pressure split behind the validation.`
-        : "This is the 100% pressure split behind the validation.",
+        ? `${state.secondSignal.label} also appears at ${state.secondSignal.value}%. The numbers support the pattern; they are not a score.`
+        : "The numbers support the pattern; they are not a score.",
       meterLabel: `${state.topSignal.label} • ${state.topSignal.value}%`,
       interpretationLayer: state.layers[4],
     },
     {
       kind: "final",
-      eyebrow: "Protection architecture",
+      eyebrow: "A gentler protection system",
       title: state.layers[5].title,
       body: state.layers[5].meaning,
       supporting: architecturePlan || "One protected decision is enough to begin.",
