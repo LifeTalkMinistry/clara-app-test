@@ -5,10 +5,10 @@ const clean = (value) => String(value || "").replace(/\s+/g, " ").trim();
 
 const OPENING_COPY = {
   "Working Student": {
-    title: "This week sounds heavy.",
-    body: "School, work, and money are not separate right now — they’re all happening in the same week.",
-    support: "Let’s look at it gently, one part at a time.",
-    button: "Okay… show me gently.",
+    title: "Let’s see what CLARA noticed.",
+    body: "CLARA is reading your answers as a pattern often seen among working students experiencing similar school, work, money, and responsibility pressure.",
+    support: "This is statistical awareness, not advice yet.",
+    button: "Show me the pattern",
   },
   "Young Professional": {
     title: "You’re trying to build a life.",
