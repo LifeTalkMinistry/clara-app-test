@@ -1,0 +1,16 @@
+.theme-page-shell:has(section[data-clara-trend-snapshot="true"]) {
+  width: 100% !important;
+  max-width: none !important;
+}
+
+.theme-page-shell:has(section[data-clara-trend-snapshot="true"]) div[class*="max-w-[430px]"] {
+  max-width: none !important;
+}
+
+.theme-page-shell:has(section[data-clara-trend-snapshot="true"]) div[class*="rounded-[30px]"][class*="bg-[#020817]"] {
+  border-radius: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+  padding-left: 0 !important;
+  padding-right: 0 !important;
+}
