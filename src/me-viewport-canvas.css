@@ -3,37 +3,21 @@
   max-width: none !important;
 }
 
-/* IMPORTANT:
-   Preserve DashboardTopNav shared sizing.
-   Only refine the Me content area below the nav.
-*/
+.theme-page-shell:has(section[data-clara-trend-snapshot="true"]) div[class*="max-w-[430px]"] {
+  max-width: none !important;
+}
 
 .theme-page-shell:has(section[data-clara-trend-snapshot="true"]) > div[class*="min-h-0"] {
-  width: 100% !important;
-  max-width: none !important;
-  padding-left: 0 !important;
-  padding-right: 0 !important;
+  padding-left: 4px !important;
+  padding-right: 4px !important;
 }
 
-/* Refine hero alignment under nav without sliding under it */
-.theme-page-shell:has(section[data-clara-trend-snapshot="true"]) section[data-clara-life-stage-hero="true"] {
-  margin-top: -14px !important;
-  border-top-left-radius: 28px !important;
-  border-top-right-radius: 28px !important;
-  position: relative !important;
-  z-index: 1 !important;
+.theme-page-shell:has(section[data-clara-trend-snapshot="true"]) > div[class*="z-30"] {
+  padding-left: 4px !important;
+  padding-right: 4px !important;
 }
 
-/* Synchronize viewport rails */
-.theme-page-shell:has(section[data-clara-trend-snapshot="true"]) section[data-clara-life-stage-hero="true"],
-.theme-page-shell:has(section[data-clara-trend-snapshot="true"]) section[data-clara-support-card="true"],
-.theme-page-shell:has(section[data-clara-trend-snapshot="true"]) section[data-clara-trend-snapshot="true"] {
-  width: calc(100% - 16px) !important;
-  margin-left: auto !important;
-  margin-right: auto !important;
-}
-
-.theme-page-shell:has(section[data-clara-trend-snapshot="true"]) > div[class*="min-h-0"] div[class*="rounded-[30px]"][class*="bg-[#020817]"] {
+.theme-page-shell:has(section[data-clara-trend-snapshot="true"]) div[class*="rounded-[30px]"][class*="bg-[#020817]"] {
   border-radius: 0 !important;
   background: transparent !important;
   box-shadow: none !important;
@@ -41,33 +25,6 @@
   padding-right: 0 !important;
 }
 
-.theme-page-shell:has(section[data-clara-trend-snapshot="true"]) > div[class*="min-h-0"] div[class*="rounded-[30px]"][class*="bg-[#020817]"] > section {
+.theme-page-shell:has(section[data-clara-trend-snapshot="true"]) div[class*="rounded-[30px]"][class*="bg-[#020817]"] > section {
   width: 100% !important;
-}
-
-.theme-page-shell:has(section[data-clara-trend-snapshot="true"]) > div[class*="min-h-0"] div[class*="flex h-full min-h-0 flex-col"]:has(> section[data-clara-trend-snapshot="true"]) {
-  --clara-support-overlap: 20px;
-  --clara-middle-dock-gap: 0.28rem;
-  --clara-pressure-dock-height: 40px;
-  --clara-bottom-safety: 6px;
-  --clara-hero-top-separation: 0px;
-  grid-template-rows: clamp(212px, 33svh, 248px) minmax(84px, 0.74fr) 48px 198px 6px !important;
-}
-
-.theme-page-shell:has(section[data-clara-trend-snapshot="true"]) > div[class*="min-h-0"] div[class*="flex h-full min-h-0 flex-col"]:has(> section[data-clara-trend-snapshot="true"]) > section[data-clara-support-card="true"] {
-  min-height: 84px !important;
-  padding-top: 10px !important;
-  padding-bottom: 10px !important;
-}
-
-.theme-page-shell:has(section[data-clara-trend-snapshot="true"]) > div[class*="min-h-0"] div[class*="flex h-full min-h-0 flex-col"]:has(> section[data-clara-trend-snapshot="true"]) > [data-clara-pressure-signals="true"] {
-  height: 40px !important;
-  min-height: 40px !important;
-  max-height: 40px !important;
-}
-
-.theme-page-shell:has(section[data-clara-trend-snapshot="true"]) > div[class*="min-h-0"] div[class*="flex h-full min-h-0 flex-col"]:has(> section[data-clara-trend-snapshot="true"]) > section[data-clara-trend-snapshot="true"] {
-  height: 198px !important;
-  min-height: 198px !important;
-  max-height: 198px !important;
 }
