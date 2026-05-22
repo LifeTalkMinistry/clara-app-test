@@ -1,0 +1,24 @@
+/* Fix CLARA Life Snapshot progress indicator active segment.
+   Keeps the existing story layout intact while making the active tile fully illuminated. */
+
+#clara-life-stage-diagnosis-reveal .progress-bars {
+  grid-template-columns: repeat(6, minmax(0, 1fr)) !important;
+}
+
+#clara-life-stage-diagnosis-reveal .progress-track {
+  height: 3px !important;
+  overflow: hidden !important;
+  border-radius: 999px !important;
+}
+
+#clara-life-stage-diagnosis-reveal .progress-track > i {
+  max-width: 100% !important;
+  transform: none !important;
+  transform-origin: left center !important;
+}
+
+/* The current active slide was being rendered at 74%, which made the first tile look half-lit.
+   Force the active segment to fill the complete tile while leaving future 0% segments muted. */
+#clara-life-stage-diagnosis-reveal .progress-track > i[style*="74%"] {
+  width: 100% !important;
+}
