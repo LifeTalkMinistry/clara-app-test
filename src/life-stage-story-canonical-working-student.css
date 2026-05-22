@@ -1,0 +1,44 @@
+/* Phase 6: allow canonical Working Student story reveal copy to render dynamically.
+   This does not change layout, spacing, animation, or visual styling. It only neutralizes the older generic copy replacement when the reveal is explicitly marked canonical. */
+
+#clara-life-stage-diagnosis-reveal[data-canonical-working-student="true"] .story-card h1 {
+  font-size: clamp(29px, 8.9vw, 39px) !important;
+}
+
+#clara-life-stage-diagnosis-reveal[data-canonical-working-student="true"] .story-card .story-body {
+  font-size: clamp(13.2px, 3.35vw, 14.6px) !important;
+}
+
+#clara-life-stage-diagnosis-reveal[data-canonical-working-student="true"] .story-card .supporting {
+  font-size: clamp(11.8px, 2.95vw, 13px) !important;
+}
+
+#clara-life-stage-diagnosis-reveal[data-canonical-working-student="true"] .next-button {
+  font-size: 12px !important;
+}
+
+#clara-life-stage-diagnosis-reveal[data-canonical-working-student="true"] .story-card h1::after,
+#clara-life-stage-diagnosis-reveal[data-canonical-working-student="true"] .story-card .story-body::after,
+#clara-life-stage-diagnosis-reveal[data-canonical-working-student="true"] .story-card .supporting::after,
+#clara-life-stage-diagnosis-reveal[data-canonical-working-student="true"] .next-button::after {
+  content: none !important;
+  display: none !important;
+}
+
+@media (max-height: 720px) {
+  #clara-life-stage-diagnosis-reveal[data-canonical-working-student="true"] .story-card h1 {
+    font-size: clamp(26px, 8.3vw, 34px) !important;
+  }
+
+  #clara-life-stage-diagnosis-reveal[data-canonical-working-student="true"] .story-card .story-body {
+    font-size: 12.4px !important;
+  }
+
+  #clara-life-stage-diagnosis-reveal[data-canonical-working-student="true"] .story-card .supporting {
+    font-size: 11.4px !important;
+  }
+
+  #clara-life-stage-diagnosis-reveal[data-canonical-working-student="true"] .next-button {
+    font-size: 11px !important;
+  }
+}
