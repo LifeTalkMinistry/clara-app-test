@@ -11,8 +11,6 @@ import "./clara-me-panel";
 import "./clara-talk-pause-bridge";
 import "./life-stage-support-card";
 import "./life-stage-trend-snapshot";
-import "./working-student-data-upgrade";
-import "./working-student-branch-session";
 import "./life-stage-setup-flow-polish";
 import "./life-stage-apply-diagnosis";
 import App from "./App.jsx";
