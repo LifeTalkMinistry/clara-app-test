@@ -323,21 +323,39 @@ function signal(label, category, note, insight, action, trendType = "wave") {
 }
 
 export const WORKING_STUDENT_SIGNAL_DEFINITIONS = {
-  emotionalFatigue: signal("Emotional Fatigue", "energy", "School, work, commute, and recovery pressure may be occupying a large part of the student's money behavior.", "Fatigue can turn simple decisions into shortcut spending, skipped tracking, or comfort purchases.", "Protect one low-energy routine for food, commute, and quick check-ins before the week gets heavy.", "volatile"),
-  financialInstability: signal("Financial Instability", "stability", "Income timing or income consistency may be making planning harder than the student’s discipline level suggests.", "The issue may be rhythm: expenses can feel fixed while money arrives unevenly.", "Separate essentials first, then let flexible spending adjust based on the real income week.", "wave"),
-  rewardSpendingRisk: signal("Reward Spending Risk", "stability", "Small rewards may be acting as quick relief after pressure, effort, or emotionally heavy days.", "The risk is not one reward; it is repeated relief spending becoming the easiest recovery habit.", "Keep rewards, but set the amount and timing before stress peaks.", "spike"),
-  recoveryWeakness: signal("Recovery Weakness", "energy", "Low rest or low recovery may be weakening planning, tracking, and spending discipline.", "When rest disappears, spending often becomes the fastest available form of recovery.", "Add one no-spend recovery option and one prepared low-cost fallback for tired days.", "downward"),
-  survivalPressure: signal("Survival Pressure", "pressure", "Food, fare, school requirements, and daily basics may be competing for the same limited money.", "This is not careless spending; this is essential-cost pressure taking up space in the week.", "Protect food, fare, school materials, and attendance costs before flexible spending.", "volatile"),
-  mentalOverload: signal("Mental Overload", "energy", "The student may be carrying too many decisions across school, work, money, and personal responsibilities.", "Overload can make even simple budgeting feel heavier than it should.", "Reduce the plan to one priority and one simple money rule for the current week.", "spike"),
-  routineInstability: signal("Routine Instability", "stability", "Changing routines, shifting schedules, or uneven weeks may be making consistency difficult.", "The budget may fail when it assumes a perfect week that the student does not actually have.", "Use flexible weekly caps instead of one rigid routine.", "wave"),
-  convenienceSpendingRisk: signal("Convenience Spending Risk", "stability", "Convenience may be becoming the natural response to low time, low energy, or rushed days.", "Convenience spending often comes from exhaustion, not laziness.", "Prepare one cheaper convenience substitute before the hardest part of the day.", "spike"),
-  borrowingRisk: signal("Borrowing Risk", "pressure", "Cash-flow gaps, delayed payments, or survival needs may be pushing the student toward borrowing.", "Borrowing often appears when timing fails before income arrives.", "Protect a tiny food/fare gap buffer before optional spending.", "volatile"),
-  familyBurden: signal("Family Burden", "pressure", "Family support may be sharing the same money and energy needed for school and daily stability.", "The pressure is care plus boundary difficulty, not just financial generosity.", "Create a support limit that protects family care and the student’s own essentials.", "wave"),
-  tuitionPressure: signal("Tuition Pressure", "pressure", "School continuity may be the main money pressure, especially around tuition, materials, and deadlines.", "When school costs are active, many spending choices feel connected to the future.", "Reserve school-cost money before rewards, social spending, or flexible purchases.", "upward"),
-  burnoutRisk: signal("Burnout Risk", "energy", "The student may be trying to keep going while rest, schedule, and money pressure are already colliding.", "Burnout risk rises when effort becomes the only answer to every pressure.", "Protect rest as part of budgeting, not as a reward after everything else.", "downward"),
-  pressureCarryover: signal("Pressure Carryover", "pressure", "Old shortfalls, delayed payments, or repayment pressure may be affecting the current week.", "The month can feel like repair mode when old pressure controls new income.", "Give repayment a predictable rhythm and prevent one new shortfall from stacking again.", "wave"),
-  budgetDiscipline: signal("Budget Discipline", "growth", "There is still room for planning, boundaries, or small repeatable money habits.", "Discipline grows when the rule is realistic enough to survive student life.", "Keep the next rule small, repeatable, and tied to the student’s real week.", "stable"),
-  emotionalRecoveryDependence: signal("Emotional Recovery Dependence", "energy", "Spending may be carrying emotional recovery when rest, food, or support are missing.", "This pattern usually appears when the day feels too heavy to end without relief.", "Build a short recovery menu that includes free and low-cost options.", "spike"),
+  emotionalFatigue: signal("Emotional Fatigue", "energy", "School, work, commute, and responsibility load are draining energy right now.", "Fatigue can turn simple decisions into shortcut spending, skipped tracking, or comfort purchases.", "Protect one low-energy routine for food, commute, and quick check-ins before the week gets heavy.", "volatile"),
+  financialInstability: signal("Financial Instability", "stability", "Income rhythm or money timing is unstable enough to affect planning.", "The issue may be rhythm: expenses can feel fixed while money arrives unevenly.", "Separate essentials first, then let flexible spending adjust based on the real income week.", "wave"),
+  rewardSpendingRisk: signal("Reward Spending Risk", "spending", "Spending may be acting as reward, comfort, or emotional relief after effort.", "The risk is not one reward; it is repeated relief spending becoming the easiest recovery habit.", "Keep rewards, but set the amount and timing before stress peaks.", "spike"),
+  recoveryWeakness: signal("Recovery Weakness", "energy", "Rest, reset time, or safe recovery options may be weak right now.", "When rest disappears, spending often becomes the fastest available form of recovery.", "Add one no-spend recovery option and one prepared low-cost fallback for tired days.", "downward"),
+  survivalPressure: signal("Survival Pressure", "pressure", "Daily essentials like food, fare, school basics, or emergency margin are under pressure.", "This is not careless spending; this is essential-cost pressure taking up space in the week.", "Protect food, fare, school materials, and attendance costs before flexible spending.", "volatile"),
+  mentalOverload: signal("Mental Overload", "energy", "Too many decisions, unclear priorities, or cognitive pressure are competing for attention.", "Overload can make even simple budgeting feel heavier than it should.", "Reduce the plan to one priority and one simple money rule for the current week.", "spike"),
+  routineInstability: signal("Routine Instability", "stability", "Schedule or life rhythm is unstable, even when income is not the only issue.", "The budget may fail when it assumes a perfect week that the student does not actually have.", "Use flexible weekly caps instead of one rigid routine.", "wave"),
+  convenienceSpendingRisk: signal("Convenience Spending Risk", "spending", "Spending may be used to save time or energy on rushed days.", "Convenience spending often comes from exhaustion, not laziness.", "Prepare one cheaper convenience substitute before the hardest part of the day.", "spike"),
+  borrowingRisk: signal("Borrowing Risk", "pressure", "The user may need debt or borrowing to survive timing gaps.", "Borrowing often appears when timing fails before income arrives.", "Protect a tiny food/fare gap buffer before optional spending.", "volatile"),
+  familyBurden: signal("Family Burden", "pressure", "Family responsibility is affecting personal money stability.", "The pressure is care plus boundary difficulty, not just financial generosity.", "Create a support limit that protects family care and the student’s own essentials.", "wave"),
+  tuitionPressure: signal("Tuition Pressure", "pressure", "Education continuity, school payments, deadlines, and materials are the main pressure.", "When school costs are active, many spending choices feel connected to the future.", "Reserve school-cost money before rewards, social spending, or flexible purchases.", "upward"),
+  burnoutRisk: signal("Burnout Risk", "energy", "A compounded warning is forming from fatigue, weak recovery, and pressure stacking together.", "Burnout risk rises when effort becomes the only answer to every pressure.", "Protect rest as part of budgeting, not as a reward after everything else.", "downward"),
+  pressureCarryover: signal("Pressure Carryover", "pressure", "Old financial pressure is entering the current week or month.", "The month can feel like repair mode when old pressure controls new income.", "Give repayment a predictable rhythm and prevent one new shortfall from stacking again.", "wave"),
+  budgetDiscipline: signal("Budget Discipline", "stability", "There is still planning capacity, boundary-setting, or a strength-based control signal.", "Discipline grows when the rule is realistic enough to survive student life.", "Keep the next rule small, repeatable, and tied to the student’s real week.", "stable"),
+  emotionalRecoveryDependence: signal("Emotional Recovery Dependence", "energy", "Spending may be becoming a form of emotional recovery.", "This pattern usually appears when the day feels too heavy to end without relief.", "Build a short recovery menu that includes free and low-cost options.", "spike"),
+};
+
+export const WORKING_STUDENT_SNAPSHOT_BOUNDARIES = {
+  emotionalFatigue: { family: "energy", role: "current energy drain", priority: 84, shouldNotDuplicateWith: ["recoveryWeakness", "mentalOverload", "burnoutRisk"], appearsWhen: "School, work, commute, or responsibilities are draining emotional and physical energy.", priorityRule: "Show when tiredness is the clearest active pressure, but suppress if burnoutRisk becomes the stronger compounded pattern." },
+  recoveryWeakness: { family: "energy", role: "lack of recovery system", priority: 74, shouldNotDuplicateWith: ["emotionalFatigue"], appearsWhen: "The user is not only tired, but has weak rest, low reset time, or uses spending as recovery.", priorityRule: "Show only if recovery-related answers are stronger than general tiredness." },
+  mentalOverload: { family: "energy", role: "decision pressure", priority: 70, shouldNotDuplicateWith: ["emotionalFatigue", "burnoutRisk"], appearsWhen: "Too many decisions, unclear priorities, or cognitive pressure are shaping money behavior.", priorityRule: "Show when decision pressure is distinct from general tiredness." },
+  burnoutRisk: { family: "energy", role: "compounded warning", priority: 96, compounded: true, shouldNotDuplicateWith: ["emotionalFatigue", "recoveryWeakness", "mentalOverload"], appearsWhen: "Fatigue, weak recovery, and another major pressure are all present together.", priorityRule: "Appear only when multiple energy and pressure signals are high together." },
+  emotionalRecoveryDependence: { family: "energy", role: "spending-as-recovery support signal", priority: 52, shouldNotDuplicateWith: ["rewardSpendingRisk", "recoveryWeakness"], appearsWhen: "Spending is becoming a form of emotional recovery, not just a reward.", priorityRule: "Support Reward Spending Risk unless emotional recovery is clearly dominant." },
+  financialInstability: { family: "stability", role: "money timing instability", priority: 88, shouldNotDuplicateWith: ["routineInstability"], appearsWhen: "Income rhythm or money timing is unstable.", priorityRule: "Show when money rhythm is the primary stability problem." },
+  routineInstability: { family: "stability", role: "life rhythm instability", priority: 72, shouldNotDuplicateWith: ["financialInstability"], appearsWhen: "Schedule or routine is unstable even when income is not the main issue.", priorityRule: "Show when time/routine instability is distinct from income instability." },
+  budgetDiscipline: { family: "stability", role: "strength-based control", priority: 45, strength: true, shouldNotDuplicateWith: [], appearsWhen: "The user selected planning, control, savings, boundaries, or protection goals.", priorityRule: "Do not dominate over urgent survival pressure." },
+  survivalPressure: { family: "pressure", role: "daily essentials pressure", priority: 90, shouldNotDuplicateWith: ["tuitionPressure"], appearsWhen: "Food, fare, school basics, or emergency margin are under pressure.", priorityRule: "Allow with tuitionPressure only when daily essentials and school costs are separately strong." },
+  tuitionPressure: { family: "pressure", role: "education continuity pressure", priority: 86, shouldNotDuplicateWith: ["survivalPressure"], appearsWhen: "Education continuity, school payments, deadlines, and materials are the main pressure.", priorityRule: "Allow with survivalPressure only when school costs and daily essentials are separately strong." },
+  familyBurden: { family: "pressure", role: "family responsibility pressure", priority: 82, shouldNotDuplicateWith: [], appearsWhen: "Family responsibility is affecting personal money stability.", priorityRule: "Show when family responsibility is explicit enough to shape the money pattern." },
+  borrowingRisk: { family: "pressure", role: "new borrowing risk", priority: 80, shouldNotDuplicateWith: ["pressureCarryover"], appearsWhen: "The user may need debt or borrowing to survive gaps.", priorityRule: "Show when borrowing risk is more immediate than old-pressure recovery." },
+  pressureCarryover: { family: "pressure", role: "old pressure entering current week", priority: 78, shouldNotDuplicateWith: ["borrowingRisk", "financialInstability"], appearsWhen: "Old shortfalls, repayment, or delay patterns are affecting current choices.", priorityRule: "Show only when old pressure, repayment, or delay patterns are selected." },
+  rewardSpendingRisk: { family: "spending", role: "reward or comfort spending", priority: 82, shouldNotDuplicateWith: ["emotionalRecoveryDependence"], appearsWhen: "Spending is used as a reward, comfort, or emotional relief after effort.", priorityRule: "Show when relief or reward spending is distinct from convenience spending." },
+  convenienceSpendingRisk: { family: "spending", role: "time or energy-saving spending", priority: 76, shouldNotDuplicateWith: ["rewardSpendingRisk"], appearsWhen: "Spending is used to save time or energy.", priorityRule: "Show when convenience is about energy/time shortcuts, not emotional reward." },
 };
 
 function canonicalizeOption(value) {
@@ -516,7 +534,7 @@ const OPTION_PROFILE_OVERRIDES = {
     title: "Learning independence with support",
     meaning: "You may still have support around you, but you are slowly learning what financial responsibility feels like. Many students in this stage become more careful with spending because independence starts feeling real.",
     signals: { budgetDiscipline: 18, routineInstability: 8, rewardSpendingRisk: 7 },
-    tags: ["supported_independence", "early_money_maturity"],
+    tags: ["supported_independence", "early_money_maturity", "planning_signal"],
     pressureType: "growth",
     emotionalTone: "supported but becoming independent",
     financialInterpretation: "Support still exists, but personal money choices are becoming part of identity and responsibility.",
@@ -629,7 +647,7 @@ function buildWorkingStudentOptionProfiles() {
 export const WORKING_STUDENT_OPTION_PROFILES = buildWorkingStudentOptionProfiles();
 
 export const WORKING_STUDENT_SIGNAL_CATEGORIES = Object.fromEntries(
-  Object.values(WORKING_STUDENT_SIGNAL_DEFINITIONS).map((item) => [item.label, item.category])
+  Object.entries(WORKING_STUDENT_SNAPSHOT_BOUNDARIES).map(([key, item]) => [WORKING_STUDENT_SIGNAL_DEFINITIONS[key]?.label, item.family]).filter(([label]) => Boolean(label))
 );
 
 export const WORKING_STUDENT_CARD_NOTES = Object.fromEntries(
@@ -658,6 +676,7 @@ export const workingStudentBehaviorEngine = {
   optionProfiles: WORKING_STUDENT_OPTION_PROFILES,
   optionMeanings: WORKING_STUDENT_OPTION_MEANINGS,
   signalDefinitions: WORKING_STUDENT_SIGNAL_DEFINITIONS,
+  snapshotBoundaries: WORKING_STUDENT_SNAPSHOT_BOUNDARIES,
 };
 
 function fallbackUnknownOptionProfile(value, key = "setup") {
@@ -824,24 +843,200 @@ function distributionStatus(value) {
   return "Minor Presence";
 }
 
-function buildSnapshotDistribution(signals = {}) {
-  const rows = Object.entries(signals)
-    .map(([key, raw]) => ({ key, raw: Math.max(0, Number(raw) || 0), ...WORKING_STUDENT_SIGNAL_DEFINITIONS[key] }))
-    .filter((row) => row.label && row.raw > 0)
-    .sort((a, b) => b.raw - a.raw || a.label.localeCompare(b.label))
-    .slice(0, 4);
+function hasProfileTag(answerProfiles = [], tag) {
+  return answerProfiles.some((profile) => (profile.tags || []).includes(tag));
+}
 
-  return normalizeDistribution(rows).map((item) => ({
-    key: item.key,
-    label: item.label,
-    value: item.value,
-    status: distributionStatus(item.value),
-    category: item.category,
-    note: item.note,
-    insight: item.insight,
-    action: item.action,
-    trendType: item.trendType,
-  }));
+function hasPressureType(answerProfiles = [], pressureType) {
+  return answerProfiles.some((profile) => profile.pressureType === pressureType);
+}
+
+function scoreOf(rawSignals = {}, key) {
+  return Math.max(0, Number(rawSignals[key]) || 0);
+}
+
+function secondaryInsightFor(suppressedKey, visibleKey) {
+  const suppressed = WORKING_STUDENT_SIGNAL_DEFINITIONS[suppressedKey]?.label || suppressedKey;
+  const visible = WORKING_STUDENT_SIGNAL_DEFINITIONS[visibleKey]?.label || visibleKey;
+  return `${suppressed} is also present, but CLARA grouped it under ${visible} to keep the snapshot clean and non-repetitive.`;
+}
+
+function shouldShowCompoundedSignal(key, rawSignals, answerProfiles) {
+  if (key === "burnoutRisk") {
+    return scoreOf(rawSignals, "emotionalFatigue") >= 34 && scoreOf(rawSignals, "recoveryWeakness") >= 24 && (scoreOf(rawSignals, "mentalOverload") >= 18 || scoreOf(rawSignals, "survivalPressure") >= 18);
+  }
+  if (key === "emotionalRecoveryDependence") {
+    return scoreOf(rawSignals, "rewardSpendingRisk") >= 20 && (scoreOf(rawSignals, "recoveryWeakness") >= 16 || scoreOf(rawSignals, "emotionalFatigue") >= 20) && scoreOf(rawSignals, key) > scoreOf(rawSignals, "rewardSpendingRisk");
+  }
+  if (key === "pressureCarryover") {
+    return (scoreOf(rawSignals, "borrowingRisk") >= 14 || scoreOf(rawSignals, "financialInstability") >= 18) && (hasProfileTag(answerProfiles, "repair_mode") || hasProfileTag(answerProfiles, "debt_cycle") || hasProfileTag(answerProfiles, "cash_flow_mismatch") || hasPressureType(answerProfiles, "recovery"));
+  }
+  if (key === "budgetDiscipline") {
+    const hasPlanningSignal = ["planning_signal", "early_discipline", "supported_independence", "future_building", "priority_confusion"].some((tag) => hasProfileTag(answerProfiles, tag)) || hasPressureType(answerProfiles, "growth") || hasPressureType(answerProfiles, "protection");
+    const urgentPressure = Math.max(scoreOf(rawSignals, "survivalPressure"), scoreOf(rawSignals, "tuitionPressure"), scoreOf(rawSignals, "borrowingRisk"));
+    return hasPlanningSignal && scoreOf(rawSignals, key) >= Math.max(12, urgentPressure * 0.45);
+  }
+  return true;
+}
+
+function preferredSuppressTarget(key, rawSignals) {
+  const targetMap = {
+    burnoutRisk: ["emotionalFatigue", "recoveryWeakness", "mentalOverload"],
+    recoveryWeakness: ["emotionalFatigue", "burnoutRisk"],
+    mentalOverload: ["emotionalFatigue", "burnoutRisk", "routineInstability"],
+    emotionalRecoveryDependence: ["rewardSpendingRisk", "recoveryWeakness", "emotionalFatigue"],
+    routineInstability: ["financialInstability", "mentalOverload"],
+    pressureCarryover: ["borrowingRisk", "financialInstability"],
+    borrowingRisk: ["pressureCarryover", "survivalPressure"],
+    budgetDiscipline: ["survivalPressure", "financialInstability"],
+  };
+  return (targetMap[key] || [])
+    .filter((target) => scoreOf(rawSignals, target) > 0)
+    .sort((a, b) => scoreOf(rawSignals, b) - scoreOf(rawSignals, a))[0];
+}
+
+function createSnapshotCandidate(key, raw) {
+  const definition = WORKING_STUDENT_SIGNAL_DEFINITIONS[key];
+  const boundary = WORKING_STUDENT_SNAPSHOT_BOUNDARIES[key] || {};
+  return {
+    key,
+    raw,
+    label: definition?.label,
+    category: boundary.family || definition?.category || "stability",
+    note: definition?.note,
+    insight: definition?.insight,
+    action: definition?.action,
+    trendType: definition?.trendType,
+    role: boundary.role,
+    suppressedSignals: [],
+    secondaryInsights: [],
+    boundary,
+  };
+}
+
+export function resolveWorkingStudentSnapshotCandidates(rawSignals = {}, answerProfiles = []) {
+  const candidateMap = {};
+  const suppressedMap = {};
+
+  const suppressInto = (sourceKey, targetKey, reason) => {
+    if (!sourceKey || !targetKey || sourceKey === targetKey) return;
+    suppressedMap[targetKey] = suppressedMap[targetKey] || [];
+    suppressedMap[targetKey].push({ sourceKey, reason: reason || secondaryInsightFor(sourceKey, targetKey) });
+  };
+
+  Object.entries(rawSignals).forEach(([key, rawValue]) => {
+    const raw = Math.max(0, Number(rawValue) || 0);
+    if (!raw || !WORKING_STUDENT_SIGNAL_DEFINITIONS[key]) return;
+    if (!shouldShowCompoundedSignal(key, rawSignals, answerProfiles)) {
+      suppressInto(key, preferredSuppressTarget(key, rawSignals), secondaryInsightFor(key, preferredSuppressTarget(key, rawSignals)));
+      return;
+    }
+    candidateMap[key] = createSnapshotCandidate(key, raw);
+  });
+
+  if (candidateMap.burnoutRisk) {
+    ["emotionalFatigue", "recoveryWeakness", "mentalOverload"].forEach((key) => {
+      if (candidateMap[key] && candidateMap[key].raw < candidateMap.burnoutRisk.raw * 0.92) {
+        suppressInto(key, "burnoutRisk", secondaryInsightFor(key, "burnoutRisk"));
+        delete candidateMap[key];
+      }
+    });
+  }
+
+  if (candidateMap.rewardSpendingRisk && candidateMap.emotionalRecoveryDependence && candidateMap.emotionalRecoveryDependence.raw <= candidateMap.rewardSpendingRisk.raw * 1.15) {
+    suppressInto("emotionalRecoveryDependence", "rewardSpendingRisk", secondaryInsightFor("emotionalRecoveryDependence", "rewardSpendingRisk"));
+    delete candidateMap.emotionalRecoveryDependence;
+  }
+
+  if (candidateMap.borrowingRisk && candidateMap.pressureCarryover) {
+    const keep = hasPressureType(answerProfiles, "recovery") || hasProfileTag(answerProfiles, "repair_mode") ? "pressureCarryover" : "borrowingRisk";
+    const drop = keep === "pressureCarryover" ? "borrowingRisk" : "pressureCarryover";
+    if (candidateMap[drop].raw < candidateMap[keep].raw * 1.2) {
+      suppressInto(drop, keep, secondaryInsightFor(drop, keep));
+      delete candidateMap[drop];
+    }
+  }
+
+  if (candidateMap.survivalPressure && candidateMap.tuitionPressure) {
+    const survivalStrong = hasPressureType(answerProfiles, "survival") || hasProfileTag(answerProfiles, "food_fare_pressure") || candidateMap.survivalPressure.raw >= 34;
+    const tuitionStrong = hasPressureType(answerProfiles, "school") || hasProfileTag(answerProfiles, "tuition_pressure") || candidateMap.tuitionPressure.raw >= 34;
+    if (!(survivalStrong && tuitionStrong)) {
+      const keep = candidateMap.survivalPressure.raw >= candidateMap.tuitionPressure.raw ? "survivalPressure" : "tuitionPressure";
+      const drop = keep === "survivalPressure" ? "tuitionPressure" : "survivalPressure";
+      suppressInto(drop, keep, secondaryInsightFor(drop, keep));
+      delete candidateMap[drop];
+    }
+  }
+
+  let candidates = Object.values(candidateMap).sort((a, b) => {
+    const boundaryA = WORKING_STUDENT_SNAPSHOT_BOUNDARIES[a.key] || {};
+    const boundaryB = WORKING_STUDENT_SNAPSHOT_BOUNDARIES[b.key] || {};
+    return b.raw - a.raw || (boundaryB.priority || 0) - (boundaryA.priority || 0) || a.label.localeCompare(b.label);
+  });
+
+  const visible = [];
+  const familyCounts = {};
+  let compoundedUsed = false;
+
+  candidates.forEach((candidate) => {
+    const boundary = WORKING_STUDENT_SNAPSHOT_BOUNDARIES[candidate.key] || {};
+    const family = boundary.family || candidate.category || "stability";
+    const target = visible.find((item) => item.category === family) || visible[0];
+    if (boundary.compounded && compoundedUsed) {
+      suppressInto(candidate.key, target?.key, secondaryInsightFor(candidate.key, target?.key));
+      return;
+    }
+    if ((familyCounts[family] || 0) >= 2) {
+      suppressInto(candidate.key, target?.key, secondaryInsightFor(candidate.key, target?.key));
+      return;
+    }
+    visible.push(candidate);
+    familyCounts[family] = (familyCounts[family] || 0) + 1;
+    if (boundary.compounded) compoundedUsed = true;
+  });
+
+  while (visible.length > 4) {
+    const extra = visible.pop();
+    const target = visible.find((item) => item.category === extra.category) || visible[0];
+    suppressInto(extra.key, target?.key, secondaryInsightFor(extra.key, target?.key));
+  }
+
+  const finalCandidates = visible.map((candidate) => {
+    const suppressed = suppressedMap[candidate.key] || [];
+    return {
+      ...candidate,
+      suppressedSignals: suppressed.map((item) => item.sourceKey),
+      secondaryInsights: suppressed.map((item) => item.reason),
+    };
+  });
+
+  if (finalCandidates.length) return finalCandidates;
+  return Object.entries(rawSignals)
+    .map(([key, raw]) => createSnapshotCandidate(key, Math.max(0, Number(raw) || 0)))
+    .filter((item) => item.raw > 0 && item.label)
+    .sort((a, b) => b.raw - a.raw)
+    .slice(0, 4);
+}
+
+function buildSnapshotDistribution(signals = {}, answerProfiles = []) {
+  const candidates = resolveWorkingStudentSnapshotCandidates(signals, answerProfiles);
+  return normalizeDistribution(candidates).map((item) => {
+    const secondaryText = (item.secondaryInsights || []).join(" ");
+    return {
+      key: item.key,
+      label: item.label,
+      value: item.value,
+      status: distributionStatus(item.value),
+      category: item.category,
+      note: item.note,
+      insight: secondaryText ? `${item.insight} ${secondaryText}` : item.insight,
+      action: item.action,
+      trendType: item.trendType,
+      role: item.role,
+      suppressedSignals: item.suppressedSignals || [],
+      secondaryInsights: item.secondaryInsights || [],
+    };
+  });
 }
 
 function buildEvolvedSummary(answers, distribution) {
@@ -947,7 +1142,7 @@ export function getWorkingStudentBehaviorProfile(rawAnswers = {}, options = {}) 
   const { progressiveSignals, memory } = buildProgressiveSignals(rawAnswers, selectedAnswers, currentKey);
   const behavioralMemory = buildBehavioralMemory(rawAnswers, selectedAnswers, currentKey, progressiveSignals);
   const currentContext = buildContinuityContext(rawAnswers, selectedAnswers, currentKey, currentProfile, behavioralMemory, progressiveSignals);
-  const snapshotDistribution = buildSnapshotDistribution(signals);
+  const snapshotDistribution = buildSnapshotDistribution(signals, answerProfiles);
   const evolvedSummary = buildEvolvedSummary(selectedAnswers, snapshotDistribution);
 
   return {
@@ -995,7 +1190,19 @@ export function getWorkingStudentSnapshot(profile = {}) {
     struggles: behavior.snapshotDistribution.map((item) => item.label),
     recommendations: behavior.snapshotDistribution.map((item) => item.action),
     weights: Object.fromEntries(behavior.snapshotDistribution.map((item) => [item.label, item.value])),
-    indicators: behavior.snapshotDistribution.map((item) => ({ label: item.label, value: item.value, category: item.category, note: item.note, insight: item.insight, action: item.action, trendType: item.trendType, status: item.status })),
+    indicators: behavior.snapshotDistribution.map((item) => ({
+      label: item.label,
+      value: item.value,
+      category: item.category,
+      note: item.note,
+      insight: item.insight,
+      action: item.action,
+      trendType: item.trendType,
+      status: item.status,
+      role: item.role,
+      suppressedSignals: item.suppressedSignals,
+      secondaryInsights: item.secondaryInsights,
+    })),
   };
 }
 
@@ -1016,6 +1223,7 @@ export const WORKING_STUDENT_LIFE_STAGE_SOURCE = {
   optionProfiles: WORKING_STUDENT_OPTION_PROFILES,
   optionMeanings: WORKING_STUDENT_OPTION_MEANINGS,
   signalDefinitions: WORKING_STUDENT_SIGNAL_DEFINITIONS,
+  snapshotBoundaries: WORKING_STUDENT_SNAPSHOT_BOUNDARIES,
   contextCopy: WORKING_STUDENT_OPTION_MEANINGS,
   snapshots: {},
   cardNotes: WORKING_STUDENT_CARD_NOTES,
@@ -1030,6 +1238,7 @@ export const WORKING_STUDENT_LIFE_STAGE_SOURCE = {
     getWorkingStudentDisplayLabel,
     getWorkingStudentOptionProfile,
     getWorkingStudentBehaviorProfile,
+    resolveWorkingStudentSnapshotCandidates,
     validateWorkingStudentOptionProfiles,
     normalizeWorkingStudentInfluenceSplit,
     getWorkingStudentScores,
