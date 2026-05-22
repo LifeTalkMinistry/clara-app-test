@@ -34,6 +34,7 @@ import "./life-stage-setup-scale.css";
 import "./life-stage-setup-flow-polish.css";
 import "./life-stage-question-compact-mobile.css";
 import "./life-stage-progress-indicator-fix.css";
+import "./life-stage-story-canonical-working-student.css";
 import "./me-adaptive-viewport.css";
 import "./me-hero-support-bond.css";
 import "./me-support-dock-gap-fix.css";
