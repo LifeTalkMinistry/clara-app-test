@@ -19,12 +19,17 @@ import {
   X,
 } from "lucide-react";
 import { DEFAULT_STAGE, getStageDefinition, LIFE_STAGE_KEY } from "./lifeStageIntelligenceData";
+import {
+  WORKING_STUDENT_STAGE_KEY,
+  getWorkingStudentDisplayLabel,
+  getWorkingStudentQuestionContext,
+} from "./workingStudentLifeStageSource";
 import { getLifeStageImage } from "../../../../../config/lifeStageImages";
 
 const STAGE_IMAGE_KEY = "clara_life_stage_images_v1";
 
 const STAGE_ORDER = [
-  "Working Student",
+  WORKING_STUDENT_STAGE_KEY,
   "Young Professional",
   "Living with Partner",
   "Family Household",
@@ -35,7 +40,7 @@ const STAGE_ORDER = [
 ];
 
 const PEOPLE_IN_STAGE_COPY = {
-  "Working Student":
+  [WORKING_STUDENT_STAGE_KEY]:
     "People in this stage are balancing classes, work hours, assignments, commute, and limited money while trying to build their future.",
   "Young Professional":
     "People in this stage are building independence, learning money rhythm, and adjusting to career pressure, lifestyle choices, and new responsibilities.",
@@ -287,7 +292,7 @@ const CATEGORY_STYLES = {
 };
 
 const HERO_VISUALS = {
-  "Working Student": "from-sky-400/10 via-indigo-500/6 to-emerald-500/8",
+  [WORKING_STUDENT_STAGE_KEY]: "from-sky-400/10 via-indigo-500/6 to-emerald-500/8",
   "Young Professional": "from-cyan-400/10 via-blue-500/6 to-violet-500/10",
   "Living with Partner": "from-fuchsia-400/9 via-cyan-500/6 to-violet-500/10",
   "Family Household": "from-cyan-400/9 via-emerald-500/5 to-violet-500/8",
@@ -298,7 +303,7 @@ const HERO_VISUALS = {
 };
 
 const STAGE_ICON_MAP = {
-  "Working Student": GraduationCap,
+  [WORKING_STUDENT_STAGE_KEY]: GraduationCap,
   "Young Professional": Briefcase,
   "Living with Partner": Heart,
   "Family Household": Users,
@@ -362,7 +367,7 @@ function getQuestionKeys(fields = {}) {
 }
 
 function buildStageDraft(stageName, previous = {}) {
-  const nextFields = getStageDefinition(stageName).fields || {};
+  const nextFields = getStageDefinition(stageName, previous).fields || {};
   const next = { stage: stageName };
 
   getQuestionKeys(nextFields).forEach((key) => {
@@ -372,7 +377,16 @@ function buildStageDraft(stageName, previous = {}) {
   return next;
 }
 
-function getAnswerContext(questionKey, value) {
+function getAnswerContext(questionKey, value, draft = {}) {
+  if (draft?.stage === WORKING_STUDENT_STAGE_KEY) {
+    const context = getWorkingStudentQuestionContext(questionKey, value, draft);
+    return {
+      title: context.title,
+      chip: getWorkingStudentDisplayLabel(value) || context.title,
+      summary: context.summary,
+    };
+  }
+
   const match = ANSWER_CONTEXT[questionKey]?.[value];
   if (match) return match;
 
@@ -388,10 +402,12 @@ function getInsightChip(insight) {
 }
 
 function getPriorInsight(questionKey, draft) {
-  return draft?.[questionKey] ? getAnswerContext(questionKey, draft[questionKey]) : null;
+  return draft?.[questionKey] ? getAnswerContext(questionKey, draft[questionKey], draft) : null;
 }
 
 function buildContextualSummary(activeQuestionKey, currentInsight, draft) {
+  if (draft?.stage === WORKING_STUDENT_STAGE_KEY) return currentInsight.summary;
+
   const setup = getPriorInsight("setup", draft);
   const rhythm = getPriorInsight("rhythm", draft);
   const workload = getPriorInsight("workload", draft);
@@ -440,7 +456,7 @@ function getBoardContext({ step, activeQuestionKey, draft, peopleInStage }) {
   }
 
   const selectedValue = draft[activeQuestionKey];
-  const currentInsight = getAnswerContext(activeQuestionKey, selectedValue);
+  const currentInsight = getAnswerContext(activeQuestionKey, selectedValue, draft);
 
   return {
     title: currentInsight.title,
@@ -652,7 +668,7 @@ function OptionGroup({ eyebrow, value, options, onSelect }) {
                   : "border-white/[0.075] bg-[#071226]/54 text-white/58 shadow-[inset_0_1px_0_rgba(255,255,255,.03)]"
               }`}
             >
-              <span className="text-[13px] font-black leading-tight">{option}</span>
+              <span className="text-[13px] font-black leading-tight">{getWorkingStudentDisplayLabel(option)}</span>
               <span
                 className={`grid h-7 w-7 shrink-0 place-items-center rounded-full border ${
                   active ? "border-cyan-100/38 bg-cyan-200/14 text-cyan-50" : "border-white/[0.12] bg-white/[0.025] text-transparent"
@@ -671,7 +687,7 @@ function OptionGroup({ eyebrow, value, options, onSelect }) {
 function LifeStageSetupScreen({ profile, onClose, onSave }) {
   const [draft, setDraft] = useState(() => buildStageDraft(profile.stage || DEFAULT_STAGE.stage, profile));
   const [step, setStep] = useState("stage");
-  const definition = getStageDefinition(draft.stage);
+  const definition = getStageDefinition(draft.stage, draft);
   const fields = definition.fields || {};
   const questionKeys = getQuestionKeys(fields);
   const stepOrder = ["stage", ...questionKeys];
@@ -769,7 +785,7 @@ function LifeStageSetupScreen({ profile, onClose, onSave }) {
               eyebrow={activeMeta?.eyebrow || "Choose one"}
               value={draft[activeQuestionKey]}
               options={fields[activeQuestionKey] || []}
-              onSelect={(value) => setDraft((current) => ({ ...current, [activeQuestionKey]: value }))}
+              onSelect={(value) => setDraft((current) => buildStageDraft(current.stage, { ...current, [activeQuestionKey]: value }))}
             />
           </div>
         ) : null}
@@ -795,7 +811,7 @@ export default function FinancialClimateScreen() {
   const [stageProfile, setStageProfile] = useState(() => readStageProfile());
   const [stageImages, setStageImages] = useState(() => readStageImages());
 
-  const definition = useMemo(() => getStageDefinition(stageProfile.stage), [stageProfile.stage]);
+  const definition = useMemo(() => getStageDefinition(stageProfile.stage, stageProfile), [stageProfile]);
   const customImage = stageImages[stageProfile.stage] || "";
   const defaultImage = getLifeStageImage(stageProfile.stage, "default");
   const activeImage = customImage || defaultImage;
