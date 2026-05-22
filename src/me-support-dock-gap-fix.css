@@ -1,13 +1,15 @@
 /* CLARA Me page — adaptive expansion ownership.
    Hero stays stable. Support card owns vertical pressure and expands downward.
-   Dock and Snapshot remain protected lower modules with a bottom safety gutter. */
+   The pressure dock now owns the exact middle rhythm so the space above and
+   below the icons stays visually equal before the Snapshot begins. */
 
 #root div[class*="flex h-full min-h-0 flex-col"][class*="rounded-[30px]"][class*="bg-[#020817]"][class*="px-3"][class*="pb-3"]:has(> [data-clara-pressure-signals="true"]):has(> section[data-clara-trend-snapshot="true"]) {
   --clara-support-overlap: 28px;
-  --clara-support-dock-gap: clamp(0.46rem, 0.92svh, 0.64rem);
+  --clara-middle-dock-gap: clamp(0.46rem, 0.82svh, 0.58rem);
+  --clara-pressure-dock-height: 46px;
   --clara-bottom-safety: 14px;
   --clara-hero-top-separation: clamp(0.2rem, 0.55svh, 0.35rem);
-  grid-template-rows: clamp(236px, 37svh, 284px) minmax(104px, 1fr) 46px 218px var(--clara-bottom-safety) !important;
+  grid-template-rows: clamp(236px, 37svh, 284px) minmax(104px, 1fr) calc(var(--clara-pressure-dock-height) + var(--clara-middle-dock-gap) + var(--clara-middle-dock-gap)) 218px var(--clara-bottom-safety) !important;
   gap: 0 !important;
   align-content: stretch !important;
   overflow: hidden !important;
@@ -25,7 +27,7 @@
 #root div[class*="flex h-full min-h-0 flex-col"][class*="rounded-[30px]"][class*="bg-[#020817]"][class*="px-3"][class*="pb-3"]:has(> [data-clara-pressure-signals="true"]):has(> section[data-clara-trend-snapshot="true"]) > section[data-clara-support-card="true"] {
   position: relative !important;
   z-index: 12 !important;
-  height: calc(100% + var(--clara-support-overlap) - var(--clara-support-dock-gap)) !important;
+  height: calc(100% + var(--clara-support-overlap)) !important;
   min-height: 102px !important;
   max-height: none !important;
   margin-top: calc(var(--clara-support-overlap) * -1) !important;
@@ -42,38 +44,40 @@
 }
 
 #root div[class*="flex h-full min-h-0 flex-col"][class*="rounded-[30px]"][class*="bg-[#020817]"][class*="px-3"][class*="pb-3"]:has(> [data-clara-pressure-signals="true"]):has(> section[data-clara-trend-snapshot="true"]) > [data-clara-pressure-signals="true"] {
-  height: 46px !important;
-  min-height: 46px !important;
-  max-height: 46px !important;
+  height: var(--clara-pressure-dock-height) !important;
+  min-height: var(--clara-pressure-dock-height) !important;
+  max-height: var(--clara-pressure-dock-height) !important;
   margin: 0 auto !important;
   padding-top: 6px !important;
   padding-bottom: 6px !important;
-  align-self: start !important;
+  align-self: center !important;
 }
 
 #root div[class*="flex h-full min-h-0 flex-col"][class*="rounded-[30px]"][class*="bg-[#020817]"][class*="px-3"][class*="pb-3"]:has(> [data-clara-pressure-signals="true"]):has(> section[data-clara-trend-snapshot="true"]) > section[data-clara-trend-snapshot="true"] {
   height: 218px !important;
   min-height: 218px !important;
   max-height: 218px !important;
+  margin-top: 0 !important;
   align-self: start !important;
 }
 
 @media (min-height: 820px) {
   #root div[class*="flex h-full min-h-0 flex-col"][class*="rounded-[30px]"][class*="bg-[#020817]"][class*="px-3"][class*="pb-3"]:has(> [data-clara-pressure-signals="true"]):has(> section[data-clara-trend-snapshot="true"]) {
     --clara-bottom-safety: 16px;
-    --clara-support-dock-gap: clamp(0.5rem, 0.9svh, 0.68rem);
+    --clara-middle-dock-gap: clamp(0.5rem, 0.82svh, 0.62rem);
     --clara-hero-top-separation: clamp(0.2rem, 0.52svh, 0.35rem);
-    grid-template-rows: clamp(248px, 36.5svh, 292px) minmax(104px, 1fr) 46px 218px var(--clara-bottom-safety) !important;
+    grid-template-rows: clamp(248px, 36.5svh, 292px) minmax(104px, 1fr) calc(var(--clara-pressure-dock-height) + var(--clara-middle-dock-gap) + var(--clara-middle-dock-gap)) 218px var(--clara-bottom-safety) !important;
   }
 }
 
 @media (max-height: 760px) {
   #root div[class*="flex h-full min-h-0 flex-col"][class*="rounded-[30px]"][class*="bg-[#020817]"][class*="px-3"][class*="pb-3"]:has(> [data-clara-pressure-signals="true"]):has(> section[data-clara-trend-snapshot="true"]) {
     --clara-support-overlap: 22px;
-    --clara-support-dock-gap: clamp(0.36rem, 0.78svh, 0.5rem);
+    --clara-middle-dock-gap: clamp(0.36rem, 0.72svh, 0.5rem);
+    --clara-pressure-dock-height: 42px;
     --clara-bottom-safety: 12px;
     --clara-hero-top-separation: clamp(0.14rem, 0.42svh, 0.26rem);
-    grid-template-rows: clamp(214px, 35.5svh, 260px) minmax(92px, 1fr) 42px 204px var(--clara-bottom-safety) !important;
+    grid-template-rows: clamp(214px, 35.5svh, 260px) minmax(92px, 1fr) calc(var(--clara-pressure-dock-height) + var(--clara-middle-dock-gap) + var(--clara-middle-dock-gap)) 204px var(--clara-bottom-safety) !important;
   }
 
   #root div[class*="flex h-full min-h-0 flex-col"][class*="rounded-[30px]"][class*="bg-[#020817]"][class*="px-3"][class*="pb-3"]:has(> [data-clara-pressure-signals="true"]):has(> section[data-clara-trend-snapshot="true"]) > section[data-clara-support-card="true"] {
@@ -83,9 +87,9 @@
   }
 
   #root div[class*="flex h-full min-h-0 flex-col"][class*="rounded-[30px]"][class*="bg-[#020817]"][class*="px-3"][class*="pb-3"]:has(> [data-clara-pressure-signals="true"]):has(> section[data-clara-trend-snapshot="true"]) > [data-clara-pressure-signals="true"] {
-    height: 42px !important;
-    min-height: 42px !important;
-    max-height: 42px !important;
+    height: var(--clara-pressure-dock-height) !important;
+    min-height: var(--clara-pressure-dock-height) !important;
+    max-height: var(--clara-pressure-dock-height) !important;
     padding-top: 5px !important;
     padding-bottom: 5px !important;
   }
@@ -100,16 +104,25 @@
 @media (max-height: 680px) {
   #root div[class*="flex h-full min-h-0 flex-col"][class*="rounded-[30px]"][class*="bg-[#020817]"][class*="px-3"][class*="pb-3"]:has(> [data-clara-pressure-signals="true"]):has(> section[data-clara-trend-snapshot="true"]) {
     --clara-support-overlap: 14px;
-    --clara-support-dock-gap: clamp(0.24rem, 0.62svh, 0.38rem);
+    --clara-middle-dock-gap: clamp(0.24rem, 0.58svh, 0.38rem);
+    --clara-pressure-dock-height: 40px;
     --clara-bottom-safety: 10px;
     --clara-hero-top-separation: clamp(0.1rem, 0.35svh, 0.22rem);
-    grid-template-rows: clamp(186px, 34.5svh, 222px) minmax(78px, 1fr) 40px 192px var(--clara-bottom-safety) !important;
+    grid-template-rows: clamp(186px, 34.5svh, 222px) minmax(78px, 1fr) calc(var(--clara-pressure-dock-height) + var(--clara-middle-dock-gap) + var(--clara-middle-dock-gap)) 192px var(--clara-bottom-safety) !important;
   }
 
   #root div[class*="flex h-full min-h-0 flex-col"][class*="rounded-[30px]"][class*="bg-[#020817]"][class*="px-3"][class*="pb-3"]:has(> [data-clara-pressure-signals="true"]):has(> section[data-clara-trend-snapshot="true"]) > section[data-clara-support-card="true"] {
     min-height: 78px !important;
     padding-top: 10px !important;
     padding-bottom: 10px !important;
+  }
+
+  #root div[class*="flex h-full min-h-0 flex-col"][class*="rounded-[30px]"][class*="bg-[#020817]"][class*="px-3"][class*="pb-3"]:has(> [data-clara-pressure-signals="true"]):has(> section[data-clara-trend-snapshot="true"]) > [data-clara-pressure-signals="true"] {
+    height: var(--clara-pressure-dock-height) !important;
+    min-height: var(--clara-pressure-dock-height) !important;
+    max-height: var(--clara-pressure-dock-height) !important;
+    padding-top: 4px !important;
+    padding-bottom: 4px !important;
   }
 
   #root div[class*="flex h-full min-h-0 flex-col"][class*="rounded-[30px]"][class*="bg-[#020817]"][class*="px-3"][class*="pb-3"]:has(> [data-clara-pressure-signals="true"]):has(> section[data-clara-trend-snapshot="true"]) > section[data-clara-trend-snapshot="true"] {
