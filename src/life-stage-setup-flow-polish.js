@@ -122,13 +122,74 @@ function polishQuestionCards() {
   });
 }
 
+function includesAny(value, terms) {
+  const text = clean(value).toLowerCase();
+  return terms.some((term) => text.includes(term));
+}
+
+function conciseSelectionMeaning(selectedValue, activeKey, profile) {
+  const selected = clean(selectedValue);
+  const text = selected.toLowerCase();
+
+  if (activeKey === "setup" && profile?.meaning && !profile.meaning.startsWith("Selecting")) {
+    return profile.meaning;
+  }
+
+  if (includesAny(text, ["tuition", "school payment", "school cost", "school requirement", "school needs", "school deadlines", "school continuity", "continue school", "protect school", "fear of stopping", "printing", "materials", "projects"])) {
+    return "This usually means your money already has an important school-related purpose before anything else. Many working students in this setup become more careful with spending because studies, requirements, or tuition depend on that income.";
+  }
+
+  if (includesAny(text, ["family", "home", "goes home", "shared", "give", "support boundary", "guilt"])) {
+    return "This usually means your student life is also carrying responsibility for people at home. Money can feel more emotional here because helping family and protecting your own school needs may happen at the same time.";
+  }
+
+  if (includesAny(text, ["borrow", "debt", "repay", "repayment", "cash-flow", "delayed", "repair mode", "old pressure", "pressure carries", "no-new-debt"])) {
+    return "This usually means money pressure may not be starting fresh each week. Borrowing, repayments, or delayed expenses can make planning feel heavier because part of today’s income is already connected to yesterday’s pressure.";
+  }
+
+  if (includesAny(text, ["tired", "exhaust", "low recovery", "little time to rest", "commute", "heavy schedule", "shifts", "deadlines", "overwork", "burning out", "push rest", "comfort after hard days"])) {
+    return "This usually means your energy is becoming part of the money problem too. When school, work, and rest compete, many working students rely more on shortcuts, comfort, or delayed tracking just to get through the day.";
+  }
+
+  if (includesAny(text, ["convenience", "rushed", "save energy", "missed tracking", "forget to track"])) {
+    return "This usually means spending may be helping you save time or energy during busy days. For working students, convenience spending often comes from exhaustion, not laziness.";
+  }
+
+  if (includesAny(text, ["reward", "social", "small spending", "small rewards", "leaks", "micro", "stuck", "extra money leaks"])) {
+    return "This usually means small spending may be acting as relief, reward, or a way to feel normal after effort. The risk is not one small purchase, but how often those small choices quietly repeat.";
+  }
+
+  if (includesAny(text, ["irregular", "unstable", "fluctuate", "income changes", "some weeks", "gaps", "seasonal", "side hustle", "money arrives after"])) {
+    return "This usually means planning can feel difficult because money does not arrive in a steady rhythm. Many working students in this situation become very adaptive, but the uncertainty can make budgeting mentally tiring.";
+  }
+
+  if (includesAny(text, ["food", "fare", "transport", "daily", "survival", "emergency", "stretch money", "no room", "essentials"])) {
+    return "This usually means daily basics are taking up serious space in your money decisions. Food, fare, and school attendance costs can make even small spending choices feel more sensitive.";
+  }
+
+  if (includesAny(text, ["save", "savings", "discipline", "plan", "priority", "purpose", "control", "pause", "prepared", "limits", "boundary", "protect"])) {
+    return "This usually means you are trying to create more control instead of just reacting to pressure. For many working students, even a small clear rule can make money feel less scattered.";
+  }
+
+  if (profile?.financialInterpretation) {
+    return `${profile.financialInterpretation} This helps CLARA understand what this choice usually means in real student life.`;
+  }
+
+  return "This choice helps CLARA understand what this situation usually means in real life. It gives a clearer picture of how school, work, money, and energy may be affecting the student right now.";
+}
+
 function getBoardFromEngine(active) {
   const saved = readJson(LIFE_STAGE_KEY);
   const draft = readJson(DRAFT_KEY);
+  const selectedValue = getSelectedOption(active.section);
   const answers = { ...(saved?.stage === "Working Student" ? saved : {}), ...(draft || {}), stage: "Working Student" };
-  answers[active.meta.key] = getSelectedOption(active.section);
+  answers[active.meta.key] = selectedValue;
   const behavior = getWorkingStudentBehaviorProfile(answers, { currentQuestionKey: active.meta.key });
-  return behavior.currentContext;
+  const currentProfile = (behavior.answerProfiles || []).find((profile) => profile.key === active.meta.key);
+  return {
+    title: currentProfile?.title || behavior.currentContext?.title || selectedValue,
+    body: conciseSelectionMeaning(selectedValue, active.meta.key, currentProfile),
+  };
 }
 
 function polishContextBoard() {
