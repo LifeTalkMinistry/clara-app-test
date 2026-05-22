@@ -1,4 +1,7 @@
-import { getWorkingStudentBehaviorProfile } from "./components/fresh/main-dashboard/dashboard-panels/me/workingStudentLifeStageSource";
+import {
+  getWorkingStudentDisplayLabel,
+  getWorkingStudentOptionProfile,
+} from "./components/fresh/main-dashboard/dashboard-panels/me/workingStudentLifeStageSource";
 
 const FLOW_MARKER = "CLARA CONTEXT BOARD";
 const LIFE_STAGE_KEY = "clara_life_stage_profile_v1";
@@ -171,24 +174,15 @@ function conciseSelectionMeaning(selectedValue, activeKey, profile) {
     return "This usually means you are trying to create more control instead of just reacting to pressure. For many working students, even a small clear rule can make money feel less scattered.";
   }
 
-  if (profile?.financialInterpretation) {
-    return `${profile.financialInterpretation} This helps CLARA understand what this choice usually means in real student life.`;
-  }
-
   return "This choice helps CLARA understand what this situation usually means in real life. It gives a clearer picture of how school, work, money, and energy may be affecting the student right now.";
 }
 
-function getBoardFromEngine(active) {
-  const saved = readJson(LIFE_STAGE_KEY);
-  const draft = readJson(DRAFT_KEY);
+function getBoardFromConciseProfile(active) {
   const selectedValue = getSelectedOption(active.section);
-  const answers = { ...(saved?.stage === "Working Student" ? saved : {}), ...(draft || {}), stage: "Working Student" };
-  answers[active.meta.key] = selectedValue;
-  const behavior = getWorkingStudentBehaviorProfile(answers, { currentQuestionKey: active.meta.key });
-  const currentProfile = (behavior.answerProfiles || []).find((profile) => profile.key === active.meta.key);
+  const profile = getWorkingStudentOptionProfile(selectedValue, active.meta.key);
   return {
-    title: currentProfile?.title || behavior.currentContext?.title || selectedValue,
-    body: conciseSelectionMeaning(selectedValue, active.meta.key, currentProfile),
+    title: profile?.title || getWorkingStudentDisplayLabel(selectedValue) || selectedValue,
+    body: conciseSelectionMeaning(selectedValue, active.meta.key, profile),
   };
 }
 
@@ -197,7 +191,7 @@ function polishContextBoard() {
   const { header, summary, title } = findStageBoard();
   if (!active || !header || !summary || !title) return;
   const selectedValue = getSelectedOption(active.section);
-  const board = getBoardFromEngine(active);
+  const board = getBoardFromConciseProfile(active);
   const signature = `${active.meta.key}:${selectedValue}:${board?.title}:${board?.body}`;
   updateSimpleProgress(header, active.meta.index);
   if (title.dataset.claraSimpleBoardSignature !== signature) {
