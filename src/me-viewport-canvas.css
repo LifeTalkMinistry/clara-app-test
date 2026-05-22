@@ -3,6 +3,11 @@
   max-width: none !important;
 }
 
+/* IMPORTANT:
+   Preserve DashboardTopNav shared sizing.
+   Only refine the Me content area below the nav.
+*/
+
 .theme-page-shell:has(section[data-clara-trend-snapshot="true"]) > div[class*="min-h-0"] {
   width: 100% !important;
   max-width: none !important;
@@ -10,7 +15,7 @@
   padding-right: 0 !important;
 }
 
-.theme-page-shell:has(section[data-clara-trend-snapshot="true"]) div[class*="rounded-[30px]"][class*="bg-[#020817]"] {
+.theme-page-shell:has(section[data-clara-trend-snapshot="true"]) > div[class*="min-h-0"] div[class*="rounded-[30px]"][class*="bg-[#020817]"] {
   border-radius: 0 !important;
   background: transparent !important;
   box-shadow: none !important;
@@ -18,11 +23,11 @@
   padding-right: 0 !important;
 }
 
-.theme-page-shell:has(section[data-clara-trend-snapshot="true"]) div[class*="rounded-[30px]"][class*="bg-[#020817]"] > section {
+.theme-page-shell:has(section[data-clara-trend-snapshot="true"]) > div[class*="min-h-0"] div[class*="rounded-[30px]"][class*="bg-[#020817]"] > section {
   width: 100% !important;
 }
 
-.theme-page-shell:has(section[data-clara-trend-snapshot="true"]) div[class*="flex h-full min-h-0 flex-col"]:has(> section[data-clara-trend-snapshot="true"]) {
+.theme-page-shell:has(section[data-clara-trend-snapshot="true"]) > div[class*="min-h-0"] div[class*="flex h-full min-h-0 flex-col"]:has(> section[data-clara-trend-snapshot="true"]) {
   --clara-support-overlap: 22px;
   --clara-middle-dock-gap: 0.34rem;
   --clara-pressure-dock-height: 42px;
@@ -31,13 +36,13 @@
   grid-template-rows: clamp(218px, 34svh, 258px) minmax(88px, 0.78fr) 52px 204px 8px !important;
 }
 
-.theme-page-shell:has(section[data-clara-trend-snapshot="true"]) div[class*="flex h-full min-h-0 flex-col"]:has(> section[data-clara-trend-snapshot="true"]) > section[data-clara-support-card="true"] {
+.theme-page-shell:has(section[data-clara-trend-snapshot="true"]) > div[class*="min-h-0"] div[class*="flex h-full min-h-0 flex-col"]:has(> section[data-clara-trend-snapshot="true"]) > section[data-clara-support-card="true"] {
   min-height: 88px !important;
   padding-top: 12px !important;
   padding-bottom: 12px !important;
 }
 
-.theme-page-shell:has(section[data-clara-trend-snapshot="true"]) div[class*="flex h-full min-h-0 flex-col"]:has(> section[data-clara-trend-snapshot="true"]) > [data-clara-pressure-signals="true"] {
+.theme-page-shell:has(section[data-clara-trend-snapshot="true"]) > div[class*="min-h-0"] div[class*="flex h-full min-h-0 flex-col"]:has(> section[data-clara-trend-snapshot="true"]) > [data-clara-pressure-signals="true"] {
   height: 42px !important;
   min-height: 42px !important;
   max-height: 42px !important;
@@ -45,38 +50,8 @@
   padding-bottom: 5px !important;
 }
 
-.theme-page-shell:has(section[data-clara-trend-snapshot="true"]) div[class*="flex h-full min-h-0 flex-col"]:has(> section[data-clara-trend-snapshot="true"]) > section[data-clara-trend-snapshot="true"] {
+.theme-page-shell:has(section[data-clara-trend-snapshot="true"]) > div[class*="min-h-0"] div[class*="flex h-full min-h-0 flex-col"]:has(> section[data-clara-trend-snapshot="true"]) > section[data-clara-trend-snapshot="true"] {
   height: 204px !important;
   min-height: 204px !important;
   max-height: 204px !important;
-}
-
-@media (min-height: 820px) {
-  .theme-page-shell:has(section[data-clara-trend-snapshot="true"]) div[class*="flex h-full min-h-0 flex-col"]:has(> section[data-clara-trend-snapshot="true"]) {
-    grid-template-rows: clamp(226px, 33.5svh, 266px) minmax(90px, 0.78fr) 54px 206px 8px !important;
-  }
-
-  .theme-page-shell:has(section[data-clara-trend-snapshot="true"]) div[class*="flex h-full min-h-0 flex-col"]:has(> section[data-clara-trend-snapshot="true"]) > section[data-clara-trend-snapshot="true"] {
-    height: 206px !important;
-    min-height: 206px !important;
-    max-height: 206px !important;
-  }
-}
-
-@media (max-height: 760px) {
-  .theme-page-shell:has(section[data-clara-trend-snapshot="true"]) div[class*="flex h-full min-h-0 flex-col"]:has(> section[data-clara-trend-snapshot="true"]) {
-    grid-template-rows: clamp(198px, 33svh, 236px) minmax(80px, 0.72fr) 48px 194px 6px !important;
-  }
-
-  .theme-page-shell:has(section[data-clara-trend-snapshot="true"]) div[class*="flex h-full min-h-0 flex-col"]:has(> section[data-clara-trend-snapshot="true"]) > section[data-clara-support-card="true"] {
-    min-height: 80px !important;
-    padding-top: 10px !important;
-    padding-bottom: 10px !important;
-  }
-
-  .theme-page-shell:has(section[data-clara-trend-snapshot="true"]) div[class*="flex h-full min-h-0 flex-col"]:has(> section[data-clara-trend-snapshot="true"]) > section[data-clara-trend-snapshot="true"] {
-    height: 194px !important;
-    min-height: 194px !important;
-    max-height: 194px !important;
-  }
 }
