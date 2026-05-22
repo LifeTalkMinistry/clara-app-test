@@ -1,9 +1,18 @@
+import {
+  WORKING_STUDENT_STAGE_KEY,
+  WORKING_STUDENT_ROOTS,
+  buildWorkingStudentDraft as buildCanonicalWorkingStudentDraft,
+  completeWorkingStudentDraft,
+  getWorkingStudentOptions,
+  getWorkingStudentSnapshot,
+} from "./workingStudentLifeStageSource";
+
 export const LIFE_STAGE_KEY = "clara_life_stage_profile_v1";
 export const WORKING_STUDENT_BRANCH_DRAFT_KEY = "clara_working_student_branch_draft_v1";
 
 export const STAGES = [
   "Young Professional",
-  "Working Student",
+  WORKING_STUDENT_STAGE_KEY,
   "Living with Partner",
   "Family Household",
   "Single Parent",
@@ -47,253 +56,32 @@ function stage(title, caption, overview, fields, indicators, struggles, recommen
   return { identity: { title, caption, overview }, fields, indicators, struggles, recommendations, talkPrompt };
 }
 
-function clean(value) {
-  return String(value || "").replace(/\s+/g, " ").trim();
-}
-
-function hasAny(value, terms) {
-  const text = clean(value).toLowerCase();
-  return terms.some((term) => text.includes(clean(term).toLowerCase()));
-}
-
-function clamp(value, min = 38, max = 96) {
-  return Math.max(min, Math.min(max, Math.round(value)));
-}
-
-function readJson(key) {
-  if (typeof window === "undefined") return {};
-  try {
-    return JSON.parse(window.localStorage.getItem(key) || "{}") || {};
-  } catch {
-    return {};
-  }
-}
-
-function readSavedLifeStageProfile() {
-  return readJson(LIFE_STAGE_KEY);
-}
-
-function readWorkingStudentBranchDraft() {
-  return readJson(WORKING_STUDENT_BRANCH_DRAFT_KEY);
-}
-
-function normalizeInfluenceBreakdown(items) {
-  const total = items.reduce((sum, item) => sum + Math.max(0, item.value), 0) || 1;
-  const mapped = items.map((item) => {
-    const exact = (Math.max(0, item.value) / total) * 100;
-    const value = Math.floor(exact);
-    return { ...item, value, remainder: exact - value };
-  });
-
-  let remaining = 100 - mapped.reduce((sum, item) => sum + item.value, 0);
-  mapped
-    .slice()
-    .sort((a, b) => b.remainder - a.remainder)
-    .forEach((item) => {
-      if (remaining <= 0) return;
-      item.value += 1;
-      remaining -= 1;
-    });
-
-  return mapped.map(({ remainder, ...item }) => item).sort((a, b) => b.value - a.value);
-}
-
-const WORKING_STUDENT_ROOTS = [
-  "Mostly supported, trying to earn extra",
-  "Working mainly to continue school",
-  "Helping family while studying",
-  "Trying to survive school mostly alone",
-  "Balancing school, work, and exhaustion",
-  "Building a future while financially unstable",
-  "Trying to recover from constant financial pressure",
-];
-
-const WORKING_STUDENT_BRANCHES = {
-  "Mostly supported, trying to earn extra": {
-    snapshotKey: "stableStretched",
-    rhythm: ["Allowance is the base, work is extra", "Fixed part-time pay for personal needs", "Occasional side income when available", "Extra income disappears into small spending"],
-    workload: {
-      default: ["Manageable but inconsistent", "Busy during exam or work weeks", "Social and school costs overlap", "Enough control if I plan early"],
-      "Extra income disappears into small spending": ["Manageable but leak-prone", "Busy enough to justify small rewards", "Social and school costs overlap", "Enough control if I plan early"],
-    },
-    pressure: {
-      default: ["Food, fare, and school extras", "Social or reward spending", "Saving feels inconsistent", "I want independence but still rely on support"],
-      "Social and school costs overlap": ["Food, fare, and school extras", "Social spending pressure", "Small rewards after school/work", "Saving feels inconsistent"],
-    },
-    coping: {
-      default: ["I spend small amounts without noticing", "I reward myself after effort", "I avoid strict tracking", "I can pause when I plan early"],
-      "Small rewards after school/work": ["I reward myself after effort", "I spend small amounts without noticing", "I avoid strict tracking", "I can pause when I plan early"],
-    },
-    goal: {
-      default: ["Build discipline before bigger responsibilities", "Save small without guilt", "Control small leaks", "Use extra income with purpose"],
-      "I reward myself after effort": ["Control small leaks", "Keep rewards but set limits", "Save small without guilt", "Use extra income with purpose"],
-    },
-  },
-  "Working mainly to continue school": {
-    snapshotKey: "essentialCost",
-    rhythm: ["Fixed work income for tuition", "Irregular income for school requirements", "Project/seasonal work before deadlines", "Allowance is not enough for school costs"],
-    workload: {
-      default: ["Class and work are both required", "School deadlines create work pressure", "Little room when fees are near", "I keep going even when tired"],
-      "Project/seasonal work before deadlines": ["Income waves around school deadlines", "School deadlines create work pressure", "Little room when fees are near", "I keep going even when tired"],
-    },
-    pressure: {
-      default: ["Tuition and school payments", "Projects, printing, and materials", "Daily fare and food while attending", "Fear of stopping school"],
-      "Little room when fees are near": ["Tuition and school payments", "Fear of stopping school", "Daily fare and food while attending", "Projects, printing, and materials"],
-    },
-    coping: {
-      default: ["I cut personal needs to pay school costs", "I delay non-school payments", "I take extra work even when tired", "I avoid spending on myself"],
-      "Fear of stopping school": ["I take extra work even when tired", "I cut personal needs to pay school costs", "I delay non-school payments", "I avoid spending on myself"],
-    },
-    goal: {
-      default: ["Protect school continuity", "Avoid debt from school pressure", "Keep food and fare stable", "Finish school without burning out"],
-      "I take extra work even when tired": ["Finish school without burning out", "Protect school continuity", "Keep food and fare stable", "Avoid debt from school pressure"],
-    },
-  },
-  "Helping family while studying": {
-    snapshotKey: "familyLinked",
-    rhythm: ["Part of my income goes home", "I give when family needs appear", "Allowance/work money gets shared", "I earn extra to support family"],
-    workload: {
-      default: ["School, work, and home needs overlap", "I feel responsible even when tired", "Family requests change the week", "I still try to keep school stable"],
-      "I give when family needs appear": ["Family requests change the week", "I feel responsible even when tired", "School, work, and home needs overlap", "I still try to keep school stable"],
-    },
-    pressure: {
-      default: ["Family contribution", "Guilt when I protect my own money", "School costs competing with home needs", "Weak personal buffer"],
-      "Family requests change the week": ["Family contribution", "Weak personal buffer", "Guilt when I protect my own money", "School costs competing with home needs"],
-    },
-    coping: {
-      default: ["I give even when my budget is tight", "I delay my own needs", "I hide money stress", "I try to set limits but feel guilty"],
-      "Guilt when I protect my own money": ["I try to set limits but feel guilty", "I give even when my budget is tight", "I delay my own needs", "I hide money stress"],
-    },
-    goal: {
-      default: ["Help family without losing stability", "Set a support boundary", "Protect school and daily needs", "Build a personal safety buffer"],
-      "I give even when my budget is tight": ["Set a support boundary", "Help family without losing stability", "Protect school and daily needs", "Build a personal safety buffer"],
-    },
-  },
-  "Trying to survive school mostly alone": {
-    snapshotKey: "selfFunded",
-    rhythm: ["Fixed low-income work", "Irregular side hustle survival income", "Borrowing between pay cycles", "Project/seasonal income with gaps"],
-    workload: {
-      default: ["School and survival costs compete daily", "Food and fare need careful planning", "No room for surprise expenses", "I am tired but have to continue"],
-      "Borrowing between pay cycles": ["No room for surprise expenses", "Food and fare need careful planning", "School and survival costs compete daily", "I am tired but have to continue"],
-    },
-    pressure: {
-      default: ["Food and transport survival", "Tuition or school deadlines", "No emergency margin", "Borrowing risk when timing fails"],
-      "No room for surprise expenses": ["No emergency margin", "Borrowing risk when timing fails", "Food and transport survival", "Tuition or school deadlines"],
-    },
-    coping: {
-      default: ["I cut meals or needs to stretch money", "I avoid checking when money is low", "I borrow to survive the gap", "I overwork when pressure hits"],
-      "Borrowing risk when timing fails": ["I borrow to survive the gap", "I avoid checking when money is low", "I cut meals or needs to stretch money", "I overwork when pressure hits"],
-    },
-    goal: {
-      default: ["Build the smallest emergency buffer", "Finish school safely", "Stop survival borrowing", "Protect food and fare first"],
-      "I borrow to survive the gap": ["Stop survival borrowing", "Build the smallest emergency buffer", "Protect food and fare first", "Finish school safely"],
-    },
-  },
-  "Balancing school, work, and exhaustion": {
-    snapshotKey: "highFatigue",
-    rhythm: ["Fixed pay but low recovery", "Irregular income plus heavy schedule", "Work shifts disrupt school rhythm", "Extra work happens when deadlines hit"],
-    workload: {
-      default: ["Heavy school-work overlap", "Little time to rest", "Commute drains energy", "Deadlines and shifts collide"],
-      "Work shifts disrupt school rhythm": ["Deadlines and shifts collide", "Little time to rest", "Commute drains energy", "Heavy school-work overlap"],
-    },
-    pressure: {
-      default: ["Convenience spending from exhaustion", "Rushed food and transport", "Missed tracking because I am tired", "Work-school schedule conflict"],
-      "Little time to rest": ["Convenience spending from exhaustion", "Missed tracking because I am tired", "Rushed food and transport", "Work-school schedule conflict"],
-    },
-    coping: {
-      default: ["I buy comfort after hard days", "I choose convenience to save energy", "I forget to track expenses", "I push rest aside"],
-      "Convenience spending from exhaustion": ["I choose convenience to save energy", "I buy comfort after hard days", "I forget to track expenses", "I push rest aside"],
-    },
-    goal: {
-      default: ["Finish school without burning out", "Create low-energy money rules", "Reduce convenience leaks", "Protect rest as part of budgeting"],
-      "I choose convenience to save energy": ["Create low-energy money rules", "Reduce convenience leaks", "Finish school without burning out", "Protect rest as part of budgeting"],
-    },
-  },
-  "Building a future while financially unstable": {
-    snapshotKey: "developingRhythm",
-    rhythm: ["Income changes month to month", "Side hustle income is growing slowly", "Support and work income both fluctuate", "Some weeks are strong, some are tight"],
-    workload: {
-      default: ["I am ambitious but stretched", "My routine changes often", "I am learning while earning", "Future pressure makes me anxious"],
-      "Some weeks are strong, some are tight": ["My routine changes often", "Future pressure makes me anxious", "I am ambitious but stretched", "I am learning while earning"],
-    },
-    pressure: {
-      default: ["Unstable income rhythm", "Repeated small expenses", "Future goals feel far", "I do not know what to prioritize first"],
-      "Future pressure makes me anxious": ["Future goals feel far", "I do not know what to prioritize first", "Unstable income rhythm", "Repeated small expenses"],
-    },
-    coping: {
-      default: ["I switch plans often", "I spend when I feel stuck", "I start saving then stop", "I need clearer priorities"],
-      "I do not know what to prioritize first": ["I need clearer priorities", "I switch plans often", "I start saving then stop", "I spend when I feel stuck"],
-    },
-    goal: {
-      default: ["Create a simple money rhythm", "Protect future goals slowly", "Control micro-spending", "Choose one priority first"],
-      "I need clearer priorities": ["Choose one priority first", "Create a simple money rhythm", "Protect future goals slowly", "Control micro-spending"],
-    },
-  },
-  "Trying to recover from constant financial pressure": {
-    snapshotKey: "delayedPayment",
-    rhythm: ["Money arrives after expenses are due", "I borrow then repay repeatedly", "Income is unstable and pressure carries over", "Debt or delayed payments affect the week"],
-    workload: {
-      default: ["The month feels like repair mode", "Old pressure affects current choices", "I feel tired from catching up", "There is little room to reset"],
-      "I borrow then repay repeatedly": ["Old pressure affects current choices", "The month feels like repair mode", "I feel tired from catching up", "There is little room to reset"],
-    },
-    pressure: {
-      default: ["Repayment pressure", "Cash-flow timing mismatch", "Borrowing again before the next income", "Avoiding money because it feels heavy"],
-      "Old pressure affects current choices": ["Repayment pressure", "Borrowing again before the next income", "Cash-flow timing mismatch", "Avoiding money because it feels heavy"],
-    },
-    coping: {
-      default: ["I delay payments to survive", "I avoid checking the full picture", "I borrow again when daily costs hit", "I cut needs too much"],
-      "Borrowing again before the next income": ["I borrow again when daily costs hit", "I delay payments to survive", "I avoid checking the full picture", "I cut needs too much"],
-    },
-    goal: {
-      default: ["Stop pressure from stacking", "Build a no-new-debt rule", "Create a repayment rhythm", "Protect a tiny food/fare buffer"],
-      "I delay payments to survive": ["Create a repayment rhythm", "Stop pressure from stacking", "Build a no-new-debt rule", "Protect a tiny food/fare buffer"],
-    },
-  },
-};
-
-function branchForSetup(setup) {
-  return WORKING_STUDENT_BRANCHES[clean(setup)] || WORKING_STUDENT_BRANCHES[WORKING_STUDENT_ROOTS[0]];
-}
-
-function resolveBranchOptions(branch, key, previousValue) {
-  const source = branch?.[key];
-  if (Array.isArray(source)) return source;
-  return source?.[clean(previousValue)] || source?.default || [];
-}
-
 function getWorkingStudentFields(profile = {}) {
-  const draft = clean(profile.stage) === "Working Student" ? profile : readWorkingStudentBranchDraft();
-  const saved = readSavedLifeStageProfile();
-  const merged = { ...saved, ...draft };
-  const setup = WORKING_STUDENT_ROOTS.includes(merged.setup) ? merged.setup : WORKING_STUDENT_ROOTS[0];
-  const branch = branchForSetup(setup);
-  const rhythm = resolveBranchOptions(branch, "rhythm");
-  const selectedRhythm = rhythm.includes(merged.rhythm) ? merged.rhythm : rhythm[0];
-  const workload = resolveBranchOptions(branch, "workload", selectedRhythm);
-  const selectedWorkload = workload.includes(merged.workload) ? merged.workload : workload[0];
-  const pressure = resolveBranchOptions(branch, "pressure", selectedWorkload);
-  const selectedPressure = pressure.includes(merged.pressure) ? merged.pressure : pressure[0];
-  const coping = resolveBranchOptions(branch, "coping", selectedPressure);
-  const selectedCoping = coping.includes(merged.coping) ? merged.coping : coping[0];
-  const goal = resolveBranchOptions(branch, "goal", selectedCoping);
-
+  const draft = completeWorkingStudentDraft({ stage: WORKING_STUDENT_STAGE_KEY, ...profile });
   return {
     setup: WORKING_STUDENT_ROOTS,
-    rhythm,
-    workload,
-    pressure,
-    coping,
-    goal,
+    rhythm: getWorkingStudentOptions(draft, "rhythm"),
+    workload: getWorkingStudentOptions(draft, "workload"),
+    pressure: getWorkingStudentOptions(draft, "pressure"),
+    coping: getWorkingStudentOptions(draft, "coping"),
+    goal: getWorkingStudentOptions(draft, "goal"),
   };
 }
 
-function getWorkingStudentDefaults(previous = {}) {
-  const fields = getWorkingStudentFields({ stage: "Working Student", ...previous });
-  const next = { stage: "Working Student" };
-  ["setup", "rhythm", "workload", "pressure", "coping", "goal"].forEach((key) => {
-    next[key] = fields[key]?.includes(previous[key]) ? previous[key] : fields[key]?.[0];
-  });
-  return next;
+function getWorkingStudentDefinition(profile = {}) {
+  const snapshot = getWorkingStudentSnapshot(profile);
+  return {
+    identity: {
+      title: snapshot.title,
+      caption: snapshot.caption,
+      overview: snapshot.overview,
+    },
+    fields: getWorkingStudentFields(profile),
+    indicators: snapshot.indicators,
+    struggles: snapshot.struggles,
+    recommendations: snapshot.recommendations,
+    talkPrompt: "Tell CLARA what feels heaviest right now: school costs, commute, family support, income timing, debt, or recovery spending.",
+  };
 }
 
 export const LIFE_STAGE_INTELLIGENCE = {
@@ -320,21 +108,7 @@ export const LIFE_STAGE_INTELLIGENCE = {
     "Tell CLARA what feels hardest about building independence right now."
   ),
 
-  "Working Student": stage(
-    "Stretched season",
-    "School, work, family expectations, energy, and limited money compete in the same week.",
-    "Working Students are balancing education, income, survival, family responsibility, recovery pressure, and future-building while time scarcity and uneven money rhythm shape daily decisions.",
-    getWorkingStudentFields(),
-    [
-      card("energy", "Burnout Watch", 30, "School, work, commute, money, and recovery pressure can drain energy fast."),
-      card("pressure", "Financial Pressure", 27, "Tuition, daily costs, irregular income, and responsibility can tighten the whole month."),
-      card("stability", "Micro-Spend Risk", 24, "Small repeated expenses can become a coping pattern when rest and control feel limited."),
-      card("growth", "Future Potential", 19, "Balancing school and work can build resilience, discipline, and future earning power."),
-    ],
-    ["transport costs", "tuition pressure", "burnout spending", "irregular income", "time scarcity", "family contribution", "debt pressure"],
-    ["Weekly Spending Cap", "Transport Buffer", "Study-Work Recovery", "Avoid Debt", "Stress-Spending Replacement"],
-    "Tell CLARA what feels heavier right now: school, work, money, family responsibility, or energy."
-  ),
+  [WORKING_STUDENT_STAGE_KEY]: getWorkingStudentDefinition(),
 
   "Living with Partner": stage(
     "Shared-life season",
@@ -475,188 +249,14 @@ export const LIFE_STAGE_INTELLIGENCE = {
   ),
 };
 
-const WORKING_STUDENT_SNAPSHOTS = {
-  essentialCost: {
-    title: "Essential-cost pressure",
-    caption: "School costs, transport, meals, mobile data, and work hours are competing for the same limited income. CLARA should protect basics before strict saving.",
-    overview: "This Working Student profile shows survival-budget pressure. The main risk is not careless spending; it is repeated essential costs arriving faster than income, rest, and planning energy can recover.",
-    indicators: [
-      card("pressure", "Essential-Cost Load", 36, "Influence share: school needs and repeated daily costs can squeeze the week."),
-      card("energy", "Recovery Gap", 27, "Influence share: low recovery time can shape spending through skipped meals and shortcut decisions."),
-      card("stability", "Cash Buffer Risk", 23, "Influence share: the week becomes risky when there is no small buffer for sudden school or daily costs."),
-      card("growth", "Stability Potential", 14, "Influence share: essentials protection and realistic weekly caps can stabilize this pattern."),
-    ],
-    struggles: ["tuition timing", "commute and meals", "school project spikes", "low recovery", "small cash gaps"],
-    recommendations: ["Weekly essentials cap", "Transport buffer", "School-cost wallet", "Meal protection", "Micro-emergency fund"],
-  },
-  familyLinked: {
-    title: "Family-linked responsibility",
-    caption: "Your money decisions are connected to home support. Family contribution, school needs, food, and transport can compete, so budgeting needs boundaries instead of guilt.",
-    overview: "This Working Student profile shows shared-responsibility pressure. Helping family may be meaningful, but CLARA should help define limits so school stability and daily essentials do not collapse quietly.",
-    indicators: [
-      card("pressure", "Shared-Money Pressure", 34, "Influence share: family help becomes heavier when it overlaps with tuition, school projects, transport, or personal essentials."),
-      card("energy", "Responsibility Load", 29, "Influence share: family-linked responsibility can shape fatigue because the student and support roles use the same energy."),
-      card("stability", "Boundary Risk", 24, "Influence share: helping without a clear weekly limit can weaken school stability and daily needs."),
-      card("growth", "Support Balance", 13, "Influence share: a fixed family-support rule can protect both care and essentials."),
-    ],
-    struggles: ["family contribution", "guilt spending", "shared pressure", "school-cost conflict", "weak personal buffer"],
-    recommendations: ["Family support limit", "Essentials-first rule", "School wallet", "Personal safety buffer", "Support without guilt"],
-  },
-  highFatigue: {
-    title: "High-fatigue schedule",
-    caption: "School and work appear to be overlapping heavily. Commute, deadlines, and irregular meals can push convenience spending because time, not only money, is limited.",
-    overview: "This Working Student profile shows schedule-cost pressure. When time is scarce, spending often shifts toward shortcuts: food outside, rush transport, forgotten tracking, and small comfort purchases.",
-    indicators: [
-      card("energy", "Fatigue Load", 36, "Influence share: fatigue can shape money behavior through missed meals, comfort buys, and low review energy."),
-      card("pressure", "Schedule-Cost Pressure", 28, "Influence share: class, work, commute, and deadlines can create convenience costs."),
-      card("stability", "Convenience Spend Risk", 22, "Influence share: convenience spending grows when the schedule removes time for cheaper options."),
-      card("growth", "Recovery Potential", 14, "Influence share: recovery rules can reduce pressure without strict restriction."),
-    ],
-    struggles: ["commute fatigue", "missed meals", "convenience spending", "late tracking", "work-school overlap"],
-    recommendations: ["Recovery budget", "Meal plan shortcut", "Commute buffer", "Low-energy tracking", "Rest protection"],
-  },
-  delayedPayment: {
-    title: "Delayed-payment cycle",
-    caption: "Money pressure may already be moving from one week into the next. Borrowing, delayed payments, or tuition timing can make the month feel like repair mode.",
-    overview: "This Working Student profile shows stacked-pressure risk. CLARA should prioritize repayment rhythm, no-new-debt boundaries, and a small emergency fare/food buffer before flexible spending.",
-    indicators: [
-      card("pressure", "Repayment Pressure", 38, "Influence share: repayment timing should be protected before rewards or flexible spending."),
-      card("energy", "Debt Stress Load", 28, "Influence share: borrowed money can shape confidence, checking behavior, and decisions."),
-      card("stability", "Cash-Flow Stability", 24, "Influence share: cash flow becomes unstable when income timing does not match school, food, fare, and repayment deadlines."),
-      card("growth", "Recovery Potential", 10, "Influence share: no-new-debt rules and a small buffer can gradually return control."),
-    ],
-    struggles: ["borrowed money", "delayed payments", "cash-flow mismatch", "repayment pressure", "survival gaps"],
-    recommendations: ["No-new-debt rule", "Repayment rhythm", "Emergency fare buffer", "Debt-first sorting", "Payment calendar"],
-  },
-  recoverySpending: {
-    title: "Recovery-spending rhythm",
-    caption: "Your spending may be recovery-driven. After school, work, commute, and pressure, small food, drink, or digital purchases can become quick relief.",
-    overview: "This Working Student profile shows reward-frequency risk. The issue is usually not one purchase; it is repeated small relief spending when rest, meals, and emotional recovery are missing.",
-    indicators: [
-      card("stability", "Reward Frequency Risk", 33, "Influence share: small rewards become risky when they repeat often enough to drain the week."),
-      card("energy", "Emotional Fatigue", 30, "Influence share: relief spending often rises after long class-work days, commute fatigue, or repeated pressure."),
-      card("pressure", "Daily Pressure", 24, "Influence share: food, fare, mobile data, school materials, and time pressure build quietly."),
-      card("growth", "Reward Control", 13, "Influence share: a planned reward limit protects relief without letting stress control the wallet."),
-    ],
-    struggles: ["small reward spending", "irregular meals", "digital micro-spending", "stress recovery", "comfort purchases"],
-    recommendations: ["Reward limit", "Low-cost recovery list", "Meal protection", "Spending pause", "Weekly leak review"],
-  },
-  selfFunded: {
-    title: "Self-funded student builder",
-    caption: "You are carrying more of school and daily life yourself. Income timing, tuition needs, transport, meals, and emergency margin need clear protection.",
-    overview: "This Working Student profile shows independence-load pressure. The user may be disciplined, but the system should avoid unrealistic saving pressure and focus on stable essentials first.",
-    indicators: [
-      card("pressure", "Essential Pressure", 34, "Influence share: tuition, commute, meals, data, and materials are harder to safely delay."),
-      card("energy", "Independence Load", 29, "Influence share: carrying personal costs while studying raises fatigue when school and income timing collide."),
-      card("stability", "Buffer Stability", 24, "Influence share: one missed income or extra school cost can affect the whole week."),
-      card("growth", "Discipline Potential", 13, "Influence share: realistic caps can turn self-funding pressure into stable discipline."),
-    ],
-    struggles: ["self-supporting costs", "income timing", "tuition pressure", "small buffer", "essential expenses"],
-    recommendations: ["Essentials-first plan", "School wallet", "Income timing map", "Minimum buffer", "Realistic saving rule"],
-  },
-  stableStretched: {
-    title: "Stable but stretched",
-    caption: "Your setup still has room for control, but the week is already stretched. This is the best time to build caps for food, fare, load/data, and small rewards.",
-    overview: "This Working Student profile is not yet in crisis, but small leaks can grow when school and work get heavier. CLARA should build rhythm early.",
-    indicators: [
-      card("energy", "Fatigue Watch", 29, "Influence share: pressure is present, but weekly limits and recovery planning can prevent deeper fatigue."),
-      card("pressure", "Cost Pressure", 28, "Influence share: transport, food, data, and school materials may already need clearer planning."),
-      card("stability", "Routine Stability", 25, "Influence share: the routine is still forming, so a simple weekly rhythm matters before pressure increases."),
-      card("growth", "Future Potential", 18, "Influence share: ambition plus protected essentials can make this a strong building season."),
-    ],
-    struggles: ["early fatigue", "small leaks", "routine building", "weekly caps", "school-work rhythm"],
-    recommendations: ["Weekly cap", "Fare and food limit", "Simple tracker", "Small reward rule", "Savings slowly"],
-  },
-  developingRhythm: {
-    title: "Developing money rhythm",
-    caption: "You are learning, earning, adjusting, and building direction with limited margin. CLARA should watch repeated costs before they become monthly leaks.",
-    overview: "This Working Student profile shows a developing rhythm. The priority is to notice repeated micro-spending while protecting school, transport, meals, and energy.",
-    indicators: [
-      card("energy", "Burnout Watch", 29, "Influence share: school, work, commute, and future pressure draw from the same energy source."),
-      card("pressure", "Financial Pressure", 28, "Influence share: repeated small expenses matter when income is limited, even if no single week feels extreme."),
-      card("stability", "Micro-Spend Risk", 25, "Influence share: food, transport, mobile data, digital, or social spending can become hidden monthly patterns."),
-      card("growth", "Future Potential", 18, "Influence share: effort, sacrifice, and future orientation can become long-term stability when guided well."),
-    ],
-    struggles: ["micro-spending", "limited margin", "school costs", "commute and food", "social pressure"],
-    recommendations: ["Micro-spend review", "Weekly essentials", "Transport buffer", "Basic savings rhythm", "Energy-aware budgeting"],
-  },
-};
-
-function getWorkingStudentSnapshot(profileOverride = {}) {
-  const saved = readSavedLifeStageProfile();
-  const draft = readWorkingStudentBranchDraft();
-  const profile = { ...saved, ...draft, ...profileOverride };
-  const setup = clean(profile.setup);
-  const branch = branchForSetup(setup);
-  const snapshot = WORKING_STUDENT_SNAPSHOTS[branch.snapshotKey] || WORKING_STUDENT_SNAPSHOTS.developingRhythm;
-
-  const familyScore = hasAny(setup, ["family"]) || hasAny(profile.pressure, ["family", "guilt", "support"]) ? 2 : 0;
-  const debtScore = hasAny(setup, ["recover", "financial pressure"]) || hasAny(profile.pressure, ["debt", "borrow", "repayment"]) || hasAny(profile.coping, ["borrow", "delay"]) ? 2 : 0;
-  const survivalScore = hasAny(setup, ["survive", "alone", "continue school"]) || hasAny(profile.pressure, ["food", "fare", "tuition", "emergency"]) ? 2 : 0;
-  const burnoutScore = hasAny(setup, ["exhaustion"]) || hasAny(profile.workload, ["rest", "tired", "overlap", "commute", "deadlines"]) ? 2 : 0;
-  const rewardScore = hasAny(profile.coping, ["reward", "comfort", "small", "convenience"]) || hasAny(profile.goal, ["stress", "reward", "leaks"]) ? 2 : 0;
-  const stableScore = hasAny(setup, ["supported", "future"]) || hasAny(profile.goal, ["discipline", "rhythm", "slowly", "purpose"]) ? 1 : 0;
-
-  const signalStrength = snapshot.indicators.map((item) => {
-    let value = item.value;
-    if (item.category === "energy") value += burnoutScore + Math.max(0, survivalScore - 1);
-    if (item.category === "pressure") value += familyScore + debtScore + survivalScore;
-    if (item.category === "stability") value += rewardScore + debtScore - stableScore;
-    if (item.category === "growth") value += stableScore - Math.max(0, debtScore - 1);
-    return { ...item, value: clamp(value, 6, 60) };
-  });
-
-  return { ...snapshot, indicators: normalizeInfluenceBreakdown(signalStrength) };
-}
-
-const WORKING_STUDENT_DEFINITION = {
-  get identity() {
-    const base = LIFE_STAGE_INTELLIGENCE["Working Student"].identity;
-    const snapshot = getWorkingStudentSnapshot();
-    return {
-      title: snapshot.title || base.title,
-      caption: snapshot.caption || base.caption,
-      overview: snapshot.overview || base.overview,
-    };
-  },
-  get fields() {
-    return getWorkingStudentFields();
-  },
-  get indicators() {
-    return getWorkingStudentSnapshot().indicators;
-  },
-  get struggles() {
-    return getWorkingStudentSnapshot().struggles;
-  },
-  get recommendations() {
-    return getWorkingStudentSnapshot().recommendations;
-  },
-  get talkPrompt() {
-    return "Tell CLARA what feels heaviest right now: school costs, commute, family support, income timing, debt, or recovery spending.";
-  },
-};
-
 export function getStageDefinition(stageName, profile = {}) {
   const normalized = normalizeLifeStage(stageName);
-  if (normalized === "Working Student") {
-    const fields = getWorkingStudentFields({ stage: "Working Student", ...profile });
-    const snapshot = getWorkingStudentSnapshot(profile);
-    return {
-      identity: {
-        title: snapshot.title,
-        caption: snapshot.caption,
-        overview: snapshot.overview,
-      },
-      fields,
-      indicators: snapshot.indicators,
-      struggles: snapshot.struggles,
-      recommendations: snapshot.recommendations,
-      talkPrompt: WORKING_STUDENT_DEFINITION.talkPrompt,
-    };
+  if (normalized === WORKING_STUDENT_STAGE_KEY) {
+    return getWorkingStudentDefinition(profile);
   }
   return LIFE_STAGE_INTELLIGENCE[normalized] || LIFE_STAGE_INTELLIGENCE[DEFAULT_STAGE.stage];
 }
 
 export function buildWorkingStudentDraft(previous = {}) {
-  return getWorkingStudentDefaults(previous);
+  return buildCanonicalWorkingStudentDraft(previous);
 }
