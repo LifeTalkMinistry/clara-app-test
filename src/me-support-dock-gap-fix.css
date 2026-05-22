@@ -5,7 +5,7 @@
 #root div[class*="flex h-full min-h-0 flex-col"][class*="rounded-[30px]"][class*="bg-[#020817]"][class*="px-3"][class*="pb-3"]:has(> [data-clara-pressure-signals="true"]):has(> section[data-clara-trend-snapshot="true"]) {
   --clara-support-overlap: 28px;
   --clara-bottom-safety: 14px;
-  --clara-hero-top-separation: clamp(0.5rem, 1.35svh, 0.75rem);
+  --clara-hero-top-separation: clamp(0.2rem, 0.55svh, 0.35rem);
   grid-template-rows: clamp(236px, 37svh, 284px) minmax(104px, 1fr) 46px 218px var(--clara-bottom-safety) !important;
   gap: 0 !important;
   align-content: stretch !important;
@@ -60,7 +60,7 @@
 @media (min-height: 820px) {
   #root div[class*="flex h-full min-h-0 flex-col"][class*="rounded-[30px]"][class*="bg-[#020817]"][class*="px-3"][class*="pb-3"]:has(> [data-clara-pressure-signals="true"]):has(> section[data-clara-trend-snapshot="true"]) {
     --clara-bottom-safety: 16px;
-    --clara-hero-top-separation: clamp(0.5rem, 1.35svh, 0.75rem);
+    --clara-hero-top-separation: clamp(0.2rem, 0.52svh, 0.35rem);
     grid-template-rows: clamp(248px, 36.5svh, 292px) minmax(104px, 1fr) 46px 218px var(--clara-bottom-safety) !important;
   }
 }
@@ -69,7 +69,7 @@
   #root div[class*="flex h-full min-h-0 flex-col"][class*="rounded-[30px]"][class*="bg-[#020817]"][class*="px-3"][class*="pb-3"]:has(> [data-clara-pressure-signals="true"]):has(> section[data-clara-trend-snapshot="true"]) {
     --clara-support-overlap: 22px;
     --clara-bottom-safety: 12px;
-    --clara-hero-top-separation: clamp(0.45rem, 1.2svh, 0.62rem);
+    --clara-hero-top-separation: clamp(0.14rem, 0.42svh, 0.26rem);
     grid-template-rows: clamp(214px, 35.5svh, 260px) minmax(92px, 1fr) 42px 204px var(--clara-bottom-safety) !important;
   }
 
@@ -98,7 +98,7 @@
   #root div[class*="flex h-full min-h-0 flex-col"][class*="rounded-[30px]"][class*="bg-[#020817]"][class*="px-3"][class*="pb-3"]:has(> [data-clara-pressure-signals="true"]):has(> section[data-clara-trend-snapshot="true"]) {
     --clara-support-overlap: 14px;
     --clara-bottom-safety: 10px;
-    --clara-hero-top-separation: clamp(0.38rem, 1svh, 0.5rem);
+    --clara-hero-top-separation: clamp(0.1rem, 0.35svh, 0.22rem);
     grid-template-rows: clamp(186px, 34.5svh, 222px) minmax(78px, 1fr) 40px 192px var(--clara-bottom-safety) !important;
   }
 
